@@ -13,6 +13,9 @@ export type {
   AnnotationRow, CorpusDemo, CrossDemo, DemoRun, DetectionRow, Revision, SignalDemo, SnapRule, SpanEditDemo, Verdict, XBin, XRow,
 } from '../fixtures/explore'
 export { FILTER_VOCAB, METHODS, RAIL_TAGS, VERDICT_KEYS } from '../fixtures/explore'
+import { VERDICTS } from '../fixtures/canon'
+/** Verdict colours from the shared canon (seed and interesting are both human → green, §3). */
+export const VERDICT_COLOURS: Record<string, string> = Object.fromEntries(VERDICTS.map(v => [v.key, v.colour]))
 
 /** Tags, reviewed coverage and the recording-wide run / method lists for the Corpus rail (no bridge endpoint: fog F2). */
 export const getCorpusDemo = (file: string, channelNames: string[], bins: number): Promise<Sourced<CorpusDemo>> =>
@@ -33,7 +36,7 @@ export const lookupChannel = (id: number): Promise<Sourced<ChannelLookup>> => {
 }
 
 /** Lag, r and traces for one reference channel's window (fog F16: nothing computes these yet). */
-export const getCrossChannel = (referenceId: number): Promise<Sourced<CrossDemo | null>> => demo(crossDemo(referenceId))
+export const getCrossChannel = (referenceId: number, padS = 20): Promise<Sourced<CrossDemo | null>> => demo(crossDemo(referenceId, padS))
 
 /** The motif member being edited, its revisions and the trace around it (§4.2). */
 export const getSpanEdit = (memberId: string): Promise<Sourced<SpanEditDemo | null>> => demo(spanEditDemo(memberId))

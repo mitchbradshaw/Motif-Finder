@@ -2,6 +2,7 @@
    these are the bits the shared layer does not offer (hour-based axis ticks, verdict colours,
    the motif list built from a Spans payload, view clamping). */
 import { ApiError, type Envelope, type Spans } from '../api'
+import { VERDICT_COLOURS } from '../api/explore'
 
 export const MIN_SPAN_S = 60
 
@@ -11,9 +12,7 @@ export const COLOUR_BY: ColourBy[] = ['annotations', 'detections', 'both', 'disa
 export const MATRIX_UNIT: Record<ColourBy, string> = { annotations: 'annotations', detections: 'detections', both: 'spans', disagree: 'disagreements' }
 
 export const VERDICTS = ['seed', 'interesting', 'not_interesting', 'artifact', 'unsure']
-export const VERDICT_COLOUR: Record<string, string> = {
-  seed: '#0a84ff', interesting: '#22a06b', not_interesting: '#8a97a8', artifact: '#e5484d', unsure: '#e8900c',
-}
+export const VERDICT_COLOUR: Record<string, string> = VERDICT_COLOURS
 export const TAGS = ['sharkfin', 'spike-train', 'slow-drift', 'burst', 'plateau', 'biphasic']
 
 /** 5-step blue ramp for the coverage map; index 0 is "no spans" (frame explore-1: low → high). */

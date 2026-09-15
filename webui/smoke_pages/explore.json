@@ -383,5 +383,141 @@
   "expect": [
    "[data-testid=\"locked-card\"]"
   ]
+ },
+ {
+  "page": "explore.cross-channel",
+  "state": "as-recorded",
+  "hash": "explore/cross-channel/4",
+  "settle_ms": 1500,
+  "actions": [],
+  "expect": [
+   "[data-testid=\"channel-stack\"]",
+   "[data-testid=\"classification\"]",
+   "[data-testid=\"reference-trace\"]"
+  ]
+ },
+ {
+  "page": "explore.cross-channel",
+  "state": "lag-aligned",
+  "hash": "explore/cross-channel/4?align=lag",
+  "settle_ms": 1500,
+  "actions": [],
+  "expect": [
+   "[data-testid=\"align-seg\"] [data-value=\"lag\"][aria-checked=\"true\"]",
+   "[data-testid=\"xrow-CH5_B1\"]"
+  ]
+ },
+ {
+  "page": "explore.cross-channel",
+  "state": "align-click",
+  "hash": "explore/cross-channel/4",
+  "settle_ms": 1500,
+  "actions": [
+   {
+    "click": "[data-testid=\"align-seg\"] [data-value=\"lag\"]"
+   }
+  ],
+  "expect": [
+   "[data-testid=\"align-seg\"] [data-value=\"lag\"][aria-checked=\"true\"]"
+  ]
+ },
+ {
+  "page": "explore.cross-channel",
+  "state": "channels-picker",
+  "hash": "explore/cross-channel/4?popover=channels",
+  "settle_ms": 1500,
+  "actions": [],
+  "expect": [
+   "[data-testid=\"channels-popover\"]",
+   "[data-testid=\"channel-opt-CH7_B2\"]"
+  ]
+ },
+ {
+  "page": "explore.cross-channel",
+  "state": "detections-picker",
+  "hash": "explore/cross-channel/4",
+  "settle_ms": 1500,
+  "actions": [
+   {
+    "click": "[data-testid=\"detection-runs-chip\"]"
+   }
+  ],
+  "expect": [
+   "[data-testid=\"detection-runs-popover\"]"
+  ]
+ },
+ {
+  "page": "explore.cross-channel",
+  "state": "questions-open",
+  "hash": "explore/cross-channel/4?questions=open",
+  "settle_ms": 1500,
+  "actions": [],
+  "expect": [
+   "[data-testid=\"questions-list\"]"
+  ]
+ },
+ {
+  "page": "explore.cross-channel",
+  "state": "computing",
+  "hash": "explore/cross-channel/4?state=computing",
+  "settle_ms": 1500,
+  "actions": [],
+  "expect": [
+   "[data-testid=\"computing\"]"
+  ]
+ },
+ {
+  "page": "explore.cross-channel",
+  "state": "bin-focus",
+  "hash": "explore/cross-channel/4",
+  "settle_ms": 1500,
+  "actions": [
+   {
+    "click": "[data-testid=\"tile-propagation\"]"
+   }
+  ],
+  "expect": [
+   "[data-testid=\"tile-propagation\"][aria-pressed=\"true\"]"
+  ]
+ },
+ {
+  "page": "explore.cross-channel",
+  "state": "max-lag-10",
+  "hash": "explore/cross-channel/4?maxlag=10",
+  "settle_ms": 1500,
+  "actions": [],
+  "expect": [
+   "[data-testid=\"xrow-CH5_B1\"][data-bin=\"no match\"]"
+  ]
+ },
+ {
+  "page": "explore.cross-channel",
+  "state": "too-few-channels",
+  "hash": "explore/cross-channel/4?channels=4",
+  "settle_ms": 1500,
+  "actions": [],
+  "expect": [
+   "[data-testid=\"too-few\"]"
+  ]
+ },
+ {
+  "page": "explore.cross-channel",
+  "state": "held-out",
+  "hash": "explore/cross-channel/52",
+  "settle_ms": 1200,
+  "actions": [],
+  "expect": [
+   "[data-testid=\"locked-card\"]"
+  ]
+ },
+ {
+  "page": "explore.cross-channel",
+  "state": "unknown-channel",
+  "hash": "explore/cross-channel/999",
+  "settle_ms": 1200,
+  "actions": [],
+  "expect": [
+   "[data-testid=\"cross-unknown\"]"
+  ]
  }
 ]

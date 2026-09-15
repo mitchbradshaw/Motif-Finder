@@ -220,10 +220,10 @@ function baseSignal(t: number, seed: number): number {
   return v
 }
 const FIXED_LAGS: Record<string, [number | null, number | null]> = { CH3_A2: [0.04, 0.98], CH1_A1: [1.2, 0.71], CH2_A1: [2.85, 0.64], CH5_B1: [-18.4, 0.31], CH6_B1: [null, null] }
-export function crossDemo(referenceId: number): CrossDemo | null {
+export function crossDemo(referenceId: number, pad = 20): CrossDemo | null {
   const ref = CANON_CHANNELS.find(c => c.id === referenceId)
   if (!ref || ref.recordingKey !== 'M2_aug_fs1') return null
-  const fs = 10, t0S = -20, n = 616
+  const fs = 10, t0S = -pad, n = Math.round((21 + 2 * pad - 0.4 + 1) * fs)
   const channels = CANON_CHANNELS.filter(c => c.recordingKey === 'M2_aug_fs1').map(c => ({ id: c.id, name: c.name }))
   const r = seeded(referenceId * 97)
   const rows: XRow[] = channels.map((c, ci) => {
@@ -249,7 +249,7 @@ export function crossDemo(referenceId: number): CrossDemo | null {
   const defaultSelected = [referenceId, ...defaultNames.map(nm => channels.find(c => c.name === nm)!.id).filter(id => id !== referenceId)].slice(0, 6)
   return {
     recording: 'M2_aug fs1', file: 'M2_aug_concat_fs1.mat', referenceId, referenceName: ref.name,
-    window: { label: 'MOTIF_233 ± 20 s', startH: 277.306, endH: 277.323, durS: 61.6, t0S, fs, motifStartS: 0, motifEndS: 21 },
+    window: { label: `MOTIF_233 ± ${pad} s`, startH: +(277.3119 - pad / 3600).toFixed(3), endH: +(277.3119 + (21.6 + pad) / 3600).toFixed(3), durS: +(n / fs).toFixed(1), t0S, fs, motifStartS: 0, motifEndS: 21 },
     channels, rows, defaultSelected, sharedGround: [['CH3_A2', 'CH4_A2']], yDomain: [-0.42, 0.42],
     openQuestions: [
       'Is lag measured per window, or per channel pair across the whole recording?',
