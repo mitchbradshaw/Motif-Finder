@@ -53,7 +53,7 @@ export const getBlockFixtures = (): Promise<Sourced<BlockFixtures>> => demo({
 
 export interface GlyphRegistry { groups: typeof GLYPH_GROUPS; blocks: DemoBlock[] }
 /** The glyph registry page (frame chain-6b): the 21 algorithms the frame shows (Span dedupe draws its signature glyph). */
-export const getGlyphRegistry = (): Promise<Sourced<GlyphRegistry>> => demo({ groups: GLYPH_GROUPS, blocks: DEMO_BLOCKS.filter(b => b.name !== 'demo.span_dedupe') })
+export const getGlyphRegistry = (): Promise<Sourced<GlyphRegistry>> => demo({ groups: GLYPH_GROUPS, blocks: DEMO_BLOCKS.filter(b => !['demo.span_dedupe', 'demo.topk_pairs', 'demo.peak_picker'].includes(b.name)) })
 
 /* ---- local validation for demo chains (the bridge validates live chains) ---- */
 export interface DemoStep { uid: string; block: string; params: Record<string, unknown>; bypass?: boolean }

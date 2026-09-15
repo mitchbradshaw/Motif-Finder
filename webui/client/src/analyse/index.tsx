@@ -7,7 +7,7 @@ import { lazy } from 'react'
 import './analyse.css'
 import './demo/demo.css'
 import { useApp } from '../state'
-import { Skeleton } from '../shell/Skeleton'
+import { GlyphsPage } from './GlyphsPage'
 import { isDemoTemplate } from '../api/analyse'
 import { BlockPage } from './BlockPage'
 import { ChainPage } from './ChainPage'
@@ -22,7 +22,7 @@ export function AnalysePage() {
   const { route } = useApp()
   if (route.page === 'interrogation') return <InterrogationPage />
   if (route.page === 'training') return <TrainingPage />
-  if (route.page === 'glyphs') return <Skeleton id="analyse.glyphs" />
+  if (route.page === 'glyphs') return <GlyphsPage />
   const q = route.query
   const demoTemplate = isDemoTemplate(q.template) ? q.template : q.state === 'empty' ? 'untitled' : q.state ? 'drop_motifs9' : null
   if (route.page === 'block') {

@@ -62,3 +62,25 @@
 .bx-next { display: flex; flex-direction: column; gap: 8px; }
 .bx-drag text { font-family: var(--font-mono); }
 [data-mode=block-demo] .row { display: flex; align-items: center; }
+
+/* glyph registry (frame chain-6b) */
+.gl-title { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; margin-top: 8px; }
+.gl-title h1 { margin: 0 0 4px; font-size: 20px; font-weight: 700; }
+.gl-key { display: flex; align-items: center; gap: 14px; font-size: 11px; }
+.gl-key .mono { font-size: 11px; }
+.gl-group { display: flex; flex-direction: column; gap: 8px; margin-top: 8px; }
+.gl-group-title { font-size: 11px; color: var(--muted); }
+.gl-grid { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 12px; }
+.gl-card { font: inherit; color: inherit; text-align: left; background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 10px; display: flex; flex-direction: column; gap: 8px; cursor: pointer; box-shadow: var(--shadow-card); }
+.gl-card:hover { border-color: var(--border-strong); }
+.gl-card.on { border-color: var(--blue); box-shadow: 0 0 0 1px var(--blue) inset; }
+.gl-card .big { background: var(--bg); border-radius: 8px; height: 82px; display: flex; align-items: center; justify-content: center; }
+.gl-card .foot { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.gl-card .foot b { font-size: 12.5px; font-weight: 600; display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.gl-card .sg { font-family: var(--font-mono); font-size: 10.5px; color: var(--blue-600); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.gl-detail { display: flex; flex-direction: column; gap: 12px; }
+.gl-detail .row { display: flex; }
+.gl-sizes { display: flex; flex-direction: column; gap: 12px; background: var(--bg); border-radius: 8px; padding: 12px; }
+.gl-sizes > div > div, .gl-sizes > div { display: flex; flex-direction: column; gap: 4px; align-items: flex-start; }
+.gl-sizes > div.row { flex-direction: row; }
+.gl-sizes .mono { font-size: 10.5px; }
