@@ -30,7 +30,7 @@ export const CLASSES = [
 ] as const
 
 export const VERDICTS = [
-  { key: 'seed', colour: '#0A84FF' },
+  { key: 'seed', colour: '#22A06B' }   // human verdict → green (§3); frame review-6,
   { key: 'interesting', colour: '#22A06B' },
   { key: 'not_interesting', colour: '#9CA3AF' },
   { key: 'artifact', colour: '#E5484D' },
@@ -50,7 +50,7 @@ export const FAMILIES: CanonFamily[] = [
   { id: 'F-03', name: 'sharkfin', members: 112, recordings: ['M2_aug fs1', 'M3_jul', 'L_LM_Jul26_J'], exemplar: 'E-0102', medoid: 'm-1846', length_s: 21, colour: FAMILY_COLOURS['F-03'] },
   { id: 'F-04', name: 'spike train', members: null, recordings: [], colour: FAMILY_COLOURS['F-04'] },
   { id: 'F-07', name: 'slow drift', members: 212, recordings: [], colour: FAMILY_COLOURS['F-07'] },
-  { id: 'F-11', name: 'burst', members: null, recordings: [], colour: FAMILY_COLOURS['F-11'] },
+  { id: 'F-11', name: 'burst', members: 17, recordings: [], colour: FAMILY_COLOURS['F-11'] },
 ]
 
 /** Detection chain, canonical order (B24). */
