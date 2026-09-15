@@ -2,7 +2,7 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { navigate } from '../state'
 import {
-  Button, Callout, Chip, Icon, IconButton, InfoTip, Kbd, Legend, MiniTrace, Pager, Popover, Seg, TextField, Trace, cx, fmtInt, useQueryState, type IconName,
+  Button, Callout, Chip, DisabledReason, Icon, IconButton, InfoTip, Kbd, Legend, MiniTrace, Pager, Popover, Seg, TextField, Trace, cx, fmtInt, useQueryState, type IconName,
 } from '../kit'
 import { useSourced } from '../api/seam'
 import { CONTEXT_PAD_MAX, VOCABULARY, getOtherChannels, type ArtifactFactors, type ItemDetail, type NearestFamily, type Verdict } from '../api/review'
@@ -216,7 +216,9 @@ export function VerdictCard({ selected, flash, binary, onVerdict, onSkip, previo
         {p ? <button type="button" className="rv-prev mono" onClick={p.go} disabled={!p.go} title={p.go ? 'open this item' : undefined} data-testid="previous-line"><span className="muted">{p.prefix ?? 'previous'}</span> {p.text}</button>
           : <span className="mono muted sm" data-testid="previous-line">no verdict yet in this queue</span>}
         <span className="grow" />
-        <button type="button" className="rv-undo" disabled={!undo.can} onClick={undo.run} title={undo.can ? 'undo the last write (Ctrl Z)' : 'nothing to undo'} data-testid="undo-button"><Kbd size="sm">Ctrl Z</Kbd><span className="mono muted">{undoCaption}</span></button>
+        <DisabledReason disabled={!undo.can} reason="nothing to undo in this queue this session">
+          <button type="button" className="rv-undo" disabled={!undo.can} onClick={undo.run} title={undo.can ? 'undo the last write (Ctrl Z)' : undefined} data-testid="undo-button"><Kbd size="sm">Ctrl Z</Kbd><span className="mono muted">{undoCaption}</span></button>
+        </DisabledReason>
       </div>
       <div className="rv-vcards" style={{ gridTemplateColumns: `repeat(${defs.length}, minmax(0, 1fr))` }}>
         {defs.map(x => {

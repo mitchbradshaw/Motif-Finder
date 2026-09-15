@@ -124,6 +124,7 @@ function ClusterInner({ data, no }: { data: QueueData; no: number }) {
     }
     const label = v === 'seed' ? `Cluster ${no} · seed ${exemplar} + ${targets.length - 1} × interesting` : className ? `Cluster ${no} · ${targets.length} × ${className} (class)` : `Cluster ${no} · ${targets.length} × ${VERDICT_LABEL[v]}`
     applyWrite({ queueId: q, items: targets.map(r => r.id), kind: 'batch', clusterNo: no, verdict: v, className, count: targets.length, label, before, after })
+    if (seedId && exemplar) { const r = data.rows.find(x => x.id === seedId)!; recordDemoWrite('library', 'exemplar.create', { id: exemplar, from: `${q}/${seedId}`, cluster: no, family: after[key(q, seedId)].family, recording: r.recording, channel: r.channel, span_h: [r.startH, +(r.startH + r.durationS / 3600).toFixed(4)], blind }) }
     if (undoneBanner) setQuery({ state: null }, true)
     if (v === 'seed') {
       setQuery({ state: 'promoted' }, true)
@@ -147,7 +148,7 @@ function ClusterInner({ data, no }: { data: QueueData; no: number }) {
     if (!w) return say('nothing to undo in this queue')
     undoWrite(w)
     if (w.kind === 'batch') {
-      if (w.verdict === 'seed') { const ex = Object.values(w.after).find(r => r?.exemplarId)?.exemplarId; if (ex) releaseExemplar(ex); say(`promotion undone · exemplar ${ex} removed with the batch`) }
+      if (w.verdict === 'seed') { const ex = Object.values(w.after).find(r => r?.exemplarId)?.exemplarId; if (ex) { releaseExemplar(ex); recordDemoWrite('library', 'exemplar.remove', { id: ex, cluster: no, reason: 'batch undone' }) } say(`promotion undone · exemplar ${ex} removed with the batch`) }
       if (w.clusterNo === no) setQuery({ state: 'undone' }, true)
       else navigate(`review/queue/${q}/cluster/${w.clusterNo}?state=undone`)
       return
@@ -169,7 +170,7 @@ function ClusterInner({ data, no }: { data: QueueData; no: number }) {
     const k = key(q, promoId)
     amendWrite(promo.id, { [k]: { ...promoRec, family, familyName } }, { item: promoId, family, familyName })
     const r = data.rows.find(x => x.id === promoId)!
-    recordDemoWrite('library', 'exemplar', { id: promoRec.exemplarId, family: family === 'new' ? `new: ${familyName}` : family, span: [r.startH, +(r.startH + r.durationS / 3600).toFixed(4)], recording: r.recording, channel: r.channel, recipeHash: promoDetail?.evidence.origin.recipeHash, blind })
+    recordDemoWrite('library', 'exemplar.family', { id: promoRec.exemplarId, family: family === 'new' ? `new: ${familyName}` : family, span: [r.startH, +(r.startH + r.durationS / 3600).toFixed(4)], recording: r.recording, channel: r.channel, recipeHash: promoDetail?.evidence.origin.recipeHash, blind })
     say(`exemplar ${promoRec.exemplarId} confirmed`)
     setQuery({ state: null }, true)
     advanceAfterCluster()
@@ -236,7 +237,7 @@ function ClusterInner({ data, no }: { data: QueueData; no: number }) {
               : <Pill dot={worst > cl.cohesionLimit ? 'var(--amber)' : 'var(--green)'} label="cohesion" value={`mean d ${mean.toFixed(2)} (${included.length} included) · worst ${worst.toFixed(2)}`} tone={worst > cl.cohesionLimit ? 'amber' : undefined} testid="pill-cohesion" />}
             {masked ? <Pill icon="eye-off" label="family" value="hidden until verdict" tone="purple" testid="pill-family" />
               : <Pill dot={d.members[0].nearest[0].colour} label="family" value={`${cl.family.id} d ${cl.family.d.toFixed(2)}`} testid="pill-family" />}
-            <ArtifactPill a={{ level: cl.artifact }} short={narrow} />
+            <ArtifactPill a={{ level: cl.artifact }} short={narrow || !!undoneBanner || judgedCount > 0} />
           </div>
           <div className="rv-meta mono" data-testid="meta-line">
             {cl.recording} · {channelsTxt} · {cl.kind === 'family set' ? `run ${cl.runId} seed search, exemplar ${cl.exemplar}` : `run ${cl.runId} · sequence within 6 min`} · showing member {shownId}

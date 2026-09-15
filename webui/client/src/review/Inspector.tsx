@@ -74,7 +74,11 @@ function InspectorItem({ data, row }: { data: QueueData; row: QueueRow }) {
     const next: VerdictRecord = { verdict: v, className, blind, at: Date.now(), tags: draft.tags, note: draft.note }
     if (v === 'seed') { next.exemplarId = rec?.exemplarId ?? mintExemplar(); next.family = d && d.nearest[0].d <= 0.3 ? d.nearest[0].id : null }
     applyWrite({ queueId: q, items: [id], kind, verdict: v, className, label: `${id} · ${VERDICT_LABEL[v]}`, before: { [k]: before }, after: { [k]: next } })
-    if (v === 'seed') return next
+    if (v === 'seed') {
+      // P21: the seed verdict itself creates the Library exemplar; the panel only chooses its family
+      if (!rec?.exemplarId) recordDemoWrite('library', 'exemplar.create', { id: next.exemplarId, from: `${q}/${id}`, family: next.family, recording: row.recording, channel: row.channel, span_h: [row.startH, +(row.startH + row.durationS / 3600).toFixed(4)], blind })
+      return next
+    }
     if (opts.flash !== false) { setFlash(v); later(() => setFlash(null), ADVANCE_MS) }
     if (opts.advance && auto) later(advance, ADVANCE_MS)
     return next
@@ -116,7 +120,7 @@ function InspectorItem({ data, row }: { data: QueueData; row: QueueRow }) {
     if (w.kind === 'batch') { navigate(`review/queue/${q}/cluster/${w.clusterNo}?state=undone`); return }
     if (w.kind === 'promotion') {
       const ex = (w.after[key(q, w.items[0])] as VerdictRecord | null)?.exemplarId
-      if (ex) releaseExemplar(ex)
+      if (ex) { releaseExemplar(ex); recordDemoWrite('library', 'exemplar.remove', { id: ex, from: `${q}/${w.items[0]}`, reason: 'promotion undone' }) }
       say(`promotion undone · exemplar ${ex} removed`)
       if (w.items[0] === id) setQuery({ state: null }, true)
     } else say(`undone · ${w.label}`)
@@ -137,7 +141,7 @@ function InspectorItem({ data, row }: { data: QueueData; row: QueueRow }) {
     const w = [...stack].reverse().find(x => x.kind === 'promotion' && x.items[0] === id && !x.undone)
     const after = { ...rec, family, familyName }
     if (w) amendWrite(w.id, { [k]: after }, { item: id, family, familyName })
-    recordDemoWrite('library', 'exemplar', { id: rec.exemplarId, family: family === 'new' ? `new: ${familyName}` : family, span: [row.startH, +(row.startH + row.durationS / 3600).toFixed(4)], recording: row.recording, channel: row.channel, contentHash: `sha1:${row.seed.toString(16)}…`, recipeHash: d.evidence.origin.recipeHash, blind })
+    recordDemoWrite('library', 'exemplar.family', { id: rec.exemplarId, family: family === 'new' ? `new: ${familyName}` : family, span: [row.startH, +(row.startH + row.durationS / 3600).toFixed(4)], recording: row.recording, channel: row.channel, contentHash: `sha1:${row.seed.toString(16)}…`, recipeHash: d.evidence.origin.recipeHash, blind })
     say(`exemplar ${rec.exemplarId} confirmed ${family === 'new' ? `in new family ${familyName}` : family ? `in ${family}` : 'with no family yet'}`)
     setQuery({ state: null }, true)
     advance()
