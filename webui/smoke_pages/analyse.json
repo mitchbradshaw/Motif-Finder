@@ -1,11 +1,23 @@
 [
- {
-  "page": "analyse.glyphs",
-  "state": "default",
-  "hash": "analyse/glyphs",
-  "actions": [],
-  "expect": [
-   "[data-testid=\"header\"]"
-  ]
- }
+ {"page": "analyse.chain", "state": "live", "hash": "analyse/chain", "settle_ms": 900, "actions": [], "expect": ["[data-testid=\"chain-page\"]", "[data-testid=\"chain-row-1\"]", "[data-testid=\"footer-terminal\"]"]},
+ {"page": "analyse.chain", "state": "1-chain", "hash": "analyse/chain?template=drop_motifs9&state=default", "actions": [], "expect": ["[data-testid=\"chain-row-4\"]", "[data-testid=\"stale-pill-3\"]", "[data-testid=\"demo-chip\"]"]},
+ {"page": "analyse.chain", "state": "1b-run-history", "hash": "analyse/chain?template=drop_motifs9&state=default&popover=history", "actions": [], "expect": ["[data-testid=\"history-popover\"]", "[data-testid=\"history-diff\"]"]},
+ {"page": "analyse.chain", "state": "1b-run-history-click", "hash": "analyse/chain?template=drop_motifs9&state=default", "actions": [{"click": "[data-testid=\"history-button\"]"}, {"wait": 300}], "expect": ["[data-testid=\"history-run-128\"]", "[data-testid=\"history-pager\"]"]},
+ {"page": "analyse.chain", "state": "1c-empty-import-template", "hash": "analyse/chain?state=empty&modal=import", "actions": [], "expect": ["[data-testid=\"import-modal\"]", "[data-testid=\"import-row-drop_motifs9\"]", "[data-testid=\"empty-chain\"]"]},
+ {"page": "analyse.chain", "state": "1c-import-apply", "hash": "analyse/chain?state=empty", "actions": [{"click": "[data-testid=\"empty-import\"]"}, {"click": "[data-testid=\"import-apply\"]"}, {"wait": 400}], "expect": ["[data-testid=\"chain-row-4\"]", "[data-testid=\"run-button\"]"]},
+ {"page": "analyse.chain", "state": "1d-running", "hash": "analyse/chain?template=drop_motifs9&state=running", "actions": [], "expect": ["[data-testid=\"progress-2\"]", "[data-testid=\"waiting-3\"]", "[data-testid=\"cancel-button\"]"]},
+ {"page": "analyse.chain", "state": "1d-cancelled", "hash": "analyse/chain?template=drop_motifs9&state=running", "actions": [{"click": "[data-testid=\"cancel-button\"]"}, {"wait": 300}], "expect": ["[data-testid=\"run-button\"]"]},
+ {"page": "analyse.chain", "state": "1e-invalid-junction", "hash": "analyse/chain?template=drop_motifs9&state=invalid", "actions": [], "expect": ["[data-testid=\"junction-error\"]", "[data-testid=\"junction-insert\"]"]},
+ {"page": "analyse.chain", "state": "1e-delete-click", "hash": "analyse/chain?template=drop_motifs9&state=default", "actions": [{"click": "[data-testid=\"delete-step-3\"]"}, {"wait": 200}], "expect": ["[data-testid=\"junction-error\"]", "[data-testid=\"junction-browse\"]"]},
+ {"page": "analyse.chain", "state": "1f-failed-block", "hash": "analyse/chain?template=drop_motifs9&state=failed", "actions": [], "expect": ["[data-testid=\"error-card\"]", "[data-testid=\"view-log\"]", "[data-testid=\"retry-step\"]"]},
+ {"page": "analyse.chain", "state": "1f-failed-by-run", "hash": "analyse/chain?template=drop_motifs9&state=default", "actions": [{"click": "[data-testid=\"run-button\"]"}, {"wait": 1800}], "expect": ["[data-testid=\"error-card\"]"]},
+ {"page": "analyse.chain", "state": "1f-view-log", "hash": "analyse/chain?template=drop_motifs9&state=failed", "actions": [{"click": "[data-testid=\"view-log\"]"}, {"wait": 200}], "expect": ["[data-testid=\"run-log-modal\"]"]},
+ {"page": "analyse.chain", "state": "1g-heavy-stage-hpc", "hash": "analyse/chain?template=mp_full_channel_CH4&state=default", "actions": [], "expect": ["[data-testid=\"hpc-card\"]", "[data-testid=\"generated-job\"]"]},
+ {"page": "analyse.chain", "state": "1g-create-slurm", "hash": "analyse/chain?template=mp_full_channel_CH4&state=default", "actions": [{"click": "[data-testid=\"create-slurm\"]"}, {"wait": 200}], "expect": ["[data-testid=\"hpc-card\"]", "[data-testid=\"toasts\"] .toast"]},
+ {"page": "analyse.chain", "state": "1g-upload-artifact", "hash": "analyse/chain?template=mp_full_channel_CH4&state=default", "actions": [{"click": "[data-testid=\"upload-artifact\"]"}, {"wait": 200}], "expect": ["[data-testid=\"upload-modal\"]", "[data-testid=\"upload-checks\"]"]},
+ {"page": "analyse.chain", "state": "1h-scores-chain", "hash": "analyse/chain?template=mp_span_CH4&state=default", "actions": [], "expect": ["[data-testid=\"suggest-card\"]", "[data-testid=\"row-plot-1\"] [data-render=\"demo-scores\"]"]},
+ {"page": "analyse.chain", "state": "1i-paused-result-in-place", "hash": "analyse/chain?template=sax_vs_mp&state=default", "actions": [], "expect": ["[data-testid=\"paused-card\"]", "[data-testid=\"paused-log\"]"]},
+ {"page": "analyse.chain", "state": "1i-continue", "hash": "analyse/chain?template=sax_vs_mp&state=default", "actions": [{"click": "[data-testid=\"continue-button\"]"}, {"wait": 300}], "expect": ["[data-testid=\"cancel-button\"]"]},
+ {"page": "analyse.chain", "state": "2-insert-stage", "hash": "analyse/chain?template=drop_motifs9&state=default&modal=insert&at=3", "actions": [], "expect": ["[data-testid=\"insert-modal\"]", "[data-testid=\"modal-card-demo.run_length\"]", "[data-testid=\"modal-stale-note\"]"]},
+ {"page": "analyse.chain", "state": "2-insert-click", "hash": "analyse/chain?template=drop_motifs9&state=default", "actions": [{"click": "[data-testid=\"insert-3\"]"}, {"wait": 200}, {"click": "[data-testid=\"modal-insert\"]"}, {"wait": 200}], "expect": ["[data-testid=\"chain-row-5\"]"]}
 ]

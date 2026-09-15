@@ -15,7 +15,7 @@ export interface ChainRowProps {
   rowClass?: string
   num: string | null                 // '01' … or null for the source row
   title: string
-  badge: RowStatus | 'source-cached'
+  badge: RowStatus | 'source-cached' | 'paused' | 'on cluster' | 'bypassed'
   badgeText?: string
   badgeTitle?: string
   timingText?: string | null
@@ -30,6 +30,13 @@ export interface ChainRowProps {
   onDelete?: () => void
   resetKey?: string                  // a new result (job/step) clears a lifted render failure
   inertIcons?: boolean               // bypass / duplicate (inert everywhere)
+  onBypass?: () => void              // demo chains: bypass / duplicate edit the chain
+  onDuplicate?: () => void
+  bypassed?: boolean
+  settingsReason?: string            // why settings is unavailable (the live source row)
+  deleteReason?: string
+  rowTone?: 'cluster' | 'paused'     // 1g purple / 1i amber outline
+  plotHeight?: number                // a Scores row is taller (frame chain-1h)
 }
 
 const I = {
@@ -51,7 +58,7 @@ export function ChainRow(p: ChainRowProps) {
   const badge = renderFailed ? 'error' : p.badge
   const badgeText = renderFailed ? 'render failed' : p.badge === 'error' ? 'payload error' : p.badgeText ?? (p.badge === 'source-cached' ? 'cached' : p.badge)
   const badgeTitle = renderFailed ? `the renderer threw: ${renderFailed}` : p.badge === 'error' ? 'the bridge could not serialise this result, or its fetch failed — see the card' : p.badgeTitle
-  const rowClass = renderFailed || p.badge === 'error' ? 'error' : p.rowClass ?? ''
+  const rowClass = `${renderFailed || p.badge === 'error' ? 'error' : p.rowClass ?? ''}${p.rowTone ? ` tone-${p.rowTone}` : ''}${p.bypassed ? ' bypassed' : ''}`
   return (
     <div className={`an-row ${rowClass}`} data-testid={`chain-row-${p.testIndex}`} data-status={badge}>
       <div className="an-row-left">
@@ -61,29 +68,29 @@ export function ChainRow(p: ChainRowProps) {
           <span className="ttl" title={p.title}>{p.title}</span>
         </div>
         <div className="an-row-meta">
-          <span className={`badge ${badge === 'source-cached' ? 'cached' : badge === 'waiting' ? 'pending' : badge}`} data-testid={`row-badge-${p.testIndex}`} title={badgeTitle}>{badgeText}</span>
+          <span className={`badge ${badge === 'source-cached' ? 'cached' : badge === 'waiting' ? 'pending' : badge === 'on cluster' ? 'cluster' : badge}`} data-testid={`row-badge-${p.testIndex}`} title={badgeTitle}>{badgeText}</span>
           {p.timingText && <span className="timing" title="core step time · 0 s means restored from the prefix cache">{p.timingText}</span>}
           <span title="type signature">{p.signature}</span>
         </div>
         <div className="an-row-caption" title={p.captionTitle ?? p.caption}>{p.caption}</div>
         <div className="an-row-icons">
-          <button className="icon-btn active" title="open settings (block page)" onClick={p.onSettings} disabled={!p.onSettings} data-testid={`settings-step-${p.testIndex}`}><svg width="14" height="14" viewBox="0 0 24 24">{I.settings}</svg></button>
-          <button className="icon-btn" title="bypass · out of slice scope" disabled><svg width="14" height="14" viewBox="0 0 24 24">{I.bypass}</svg></button>
-          <button className="icon-btn" title="duplicate · out of slice scope" disabled><svg width="14" height="14" viewBox="0 0 24 24">{I.duplicate}</svg></button>
-          <button className="icon-btn" title={p.onDelete ? 'delete this stage' : 'the source cannot be deleted'} onClick={p.onDelete} disabled={!p.onDelete} data-testid={`delete-step-${p.testIndex}`}><svg width="14" height="14" viewBox="0 0 24 24">{I.delete}</svg></button>
+          <button className="icon-btn active" title={p.onSettings ? 'open settings (block page)' : p.settingsReason ?? 'no settings'} onClick={p.onSettings} disabled={!p.onSettings} data-testid={`settings-step-${p.testIndex}`}><svg width="14" height="14" viewBox="0 0 24 24">{I.settings}</svg></button>
+          <button className={`icon-btn${p.bypassed ? ' active' : ''}`} title={p.onBypass ? (p.bypassed ? 'bypassed · click to run this stage again' : 'bypass this stage (passes its input through)') : p.num ? 'bypass · out of slice scope' : 'the source cannot be bypassed'} onClick={p.onBypass} disabled={!p.onBypass} data-testid={`bypass-step-${p.testIndex}`}><svg width="14" height="14" viewBox="0 0 24 24">{I.bypass}</svg></button>
+          <button className="icon-btn" title={p.onDuplicate ? 'duplicate this stage below itself' : p.num ? 'duplicate · out of slice scope' : 'the source cannot be duplicated'} onClick={p.onDuplicate} disabled={!p.onDuplicate} data-testid={`duplicate-step-${p.testIndex}`}><svg width="14" height="14" viewBox="0 0 24 24">{I.duplicate}</svg></button>
+          <button className="icon-btn" title={p.onDelete ? 'delete this stage' : p.deleteReason ?? 'the source cannot be deleted'} onClick={p.onDelete} disabled={!p.onDelete} data-testid={`delete-step-${p.testIndex}`}><svg width="14" height="14" viewBox="0 0 24 24">{I.delete}</svg></button>
         </div>
       </div>
       {p.replace ? (
         <div data-testid={`row-plot-${p.testIndex}`}>{p.replace}</div>
       ) : (
-        <div className="plot-surface an-plot" ref={ref} data-testid={`row-plot-${p.testIndex}`}>
+        <div className="plot-surface an-plot" ref={ref} data-testid={`row-plot-${p.testIndex}`} style={p.plotHeight ? { height: p.plotHeight } : undefined}>
           <ErrorBoundary key={p.resetKey ?? 'row'} label={label} onError={e => setRenderFailed(e.message)}>
-            {size.width > 0 && p.plot(x, w, PLOT_H)}
+            {size.width > 0 && p.plot(x, w, p.plotHeight ?? PLOT_H)}
           </ErrorBoundary>
           {p.overlay}
           {size.width > 0 && (
-            <svg className="cross" width={w} height={PLOT_H}>
-              <CrosshairLayer x={x} height={PLOT_H} />
+            <svg className="cross" width={w} height={p.plotHeight ?? PLOT_H}>
+              <CrosshairLayer x={x} height={p.plotHeight ?? PLOT_H} />
             </svg>
           )}
         </div>
