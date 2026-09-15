@@ -8,4 +8,4 @@
 | library.grouping | done | g-09 atlas cards are not drawn (honest EmptyState) | grouping commit |
 | library.import | done | post-import g-01 catalogue has no fixture (toast says so) | import commit |
 | library.window-sets | done | polish only | window-sets commit |
-| library.templates | not started | — | — |
+| library.templates | done | polish only | templates commit |

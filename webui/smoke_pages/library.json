@@ -552,11 +552,111 @@
  },
  {
   "page": "library.templates",
-  "state": "default",
+  "state": "template-selected",
   "hash": "library/templates",
   "actions": [],
   "expect": [
-   "[data-testid=\"header\"]"
+   "[data-testid=\"template-list\"]",
+   "[data-testid=\"template-scores\"]",
+   "[data-testid=\"template-stages\"]"
+  ]
+ },
+ {
+  "page": "library.templates",
+  "state": "training-selected",
+  "hash": "library/templates?template=cnn_windows_v3",
+  "actions": [],
+  "expect": [
+   "[data-testid=\"launch-in-models\"]",
+   "[data-testid=\"apply-in-discovery\"][disabled]"
+  ]
+ },
+ {
+  "page": "library.templates",
+  "state": "unscored-selected",
+  "hash": "library/templates?template=seed_family_medoid",
+  "actions": [],
+  "expect": [
+   "[data-testid=\"template-scores-empty\"]"
+  ]
+ },
+ {
+  "page": "library.templates",
+  "state": "kind-training",
+  "hash": "library/templates?kind=training",
+  "actions": [],
+  "expect": [
+   "[data-testid=\"template-card-cnn_windowset_v1\"]"
+  ]
+ },
+ {
+  "page": "library.templates",
+  "state": "model-stage",
+  "hash": "library/templates?model=1",
+  "actions": [],
+  "expect": [
+   "[data-testid=\"template-card-drop_cnn_v1\"]"
+  ]
+ },
+ {
+  "page": "library.templates",
+  "state": "page-2",
+  "hash": "library/templates?page=2",
+  "actions": [],
+  "expect": [
+   "[data-testid=\"template-card-sharkfin_v2\"]"
+  ]
+ },
+ {
+  "page": "library.templates",
+  "state": "filtered-empty",
+  "hash": "library/templates?kind=interrogation&model=1",
+  "actions": [],
+  "expect": [
+   "[data-testid=\"templates-filtered-empty\"]"
+  ]
+ },
+ {
+  "page": "library.templates",
+  "state": "diff-modal",
+  "hash": "library/templates?modal=diff&from=v2",
+  "actions": [],
+  "expect": [
+   "[data-testid=\"diff-modal\"]"
+  ]
+ },
+ {
+  "page": "library.templates",
+  "state": "export-json",
+  "hash": "library/templates?modal=export",
+  "actions": [],
+  "expect": [
+   "[data-testid=\"export-json-code\"]"
+  ]
+ },
+ {
+  "page": "library.templates",
+  "state": "import-json-invalid",
+  "hash": "library/templates?modal=import",
+  "actions": [
+   {
+    "fill": [
+     "[data-testid=\"import-json-text\"]",
+     "{\"name\": \"x\"}"
+    ]
+   }
+  ],
+  "expect": [
+   "[data-testid=\"import-json-error\"]"
+  ]
+ },
+ {
+  "page": "library.templates",
+  "state": "archive-confirm",
+  "hash": "library/templates?modal=archive",
+  "actions": [],
+  "expect": [
+   "[data-testid=\"archive-modal\"]"
   ]
  }
 ]
