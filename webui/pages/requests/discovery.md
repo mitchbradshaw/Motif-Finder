@@ -1,0 +1,6 @@
+# Discovery — shared/kit requests
+
+- **Glyph registry: seeded search, drop detection, noise floor, human reference.** `kit/glyphs.tsx` aliases `seeded_search` → `detection.seeded_search`, `drop_detection` → `detection.drop`, `noise_floor` → `preprocessing.noise_floor`, none of which exist in `analyse/glyphs.tsx`, so they fall back to a generic signature glyph. Frames discovery-1/-1b/-3/-3b draw specific thumbnails. Worked around with `discovery/glyphs.tsx` (local). Where: `analyse/glyphs.tsx` registry. Why: §6.8 "each run with its algorithm glyph".
+- **Button `disabledReason` inside `DisabledReason`.** The kit warns `disabled Button has no disabledReason` even when the Button is wrapped in `DisabledReason`; builders must pass the reason twice. Where: `kit/display.tsx` Button warning. Why: noise / duplication.
+- **Table with expandable child rows.** The scoreboard needs parent rows that expand into per-channel child rows that sort with their parent (§7.3). `Table` has `groupBy` but no expand. Worked around with a local table in `RunsPage.tsx`. Where: `kit/Table.tsx`.
+- **Histogram with a draggable threshold and a background (null) series.** Seed search's "where to cut" (§7.6) needs the null distribution behind the kept bars and a draggable line; `Histogram` draws the overlay on top and the threshold is static. Worked around locally. Where: `kit/plots.tsx`.

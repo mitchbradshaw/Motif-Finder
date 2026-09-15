@@ -1,38 +1,17 @@
 [
- {
-  "page": "discovery.runs",
-  "state": "default",
-  "hash": "discovery/runs",
-  "actions": [],
-  "expect": [
-   "[data-testid=\"header\"]"
-  ]
- },
- {
-  "page": "discovery.seed",
-  "state": "default",
-  "hash": "discovery/seed",
-  "actions": [],
-  "expect": [
-   "[data-testid=\"header\"]"
-  ]
- },
- {
-  "page": "discovery.compare",
-  "state": "default",
-  "hash": "discovery/compare",
-  "actions": [],
-  "expect": [
-   "[data-testid=\"header\"]"
-  ]
- },
- {
-  "page": "discovery.stages",
-  "state": "default",
-  "hash": "discovery/compare/stages",
-  "actions": [],
-  "expect": [
-   "[data-testid=\"header\"]"
-  ]
- }
+ {"page": "discovery.runs", "state": "default", "hash": "discovery/runs", "actions": [], "expect": ["[data-testid=\"runs-card\"]", "[data-testid=\"where-fires\"] [data-testid=\"fires-cell\"]", "[data-testid=\"browser-trace\"] svg"]},
+ {"page": "discovery.runs", "state": "modal-add-template", "hash": "discovery/runs", "actions": [{"click": "[data-testid=\"apply-template\"]"}, {"wait": 400}], "expect": ["[data-testid=\"add-template-modal\"]", "[data-testid=\"template-row-mp_discord_v3\"]", "[data-testid=\"template-preview\"]"]},
+ {"page": "discovery.runs", "state": "six-channels-page-2", "hash": "discovery/runs?channels=CH2_A1,CH4_A2,CH7_B2,CH8_B2,CH9_C1,CH11_C2&chpage=2", "actions": [], "expect": ["[data-testid=\"strip-CH11_C2\"] svg", "[data-testid=\"fires-group-CH9_C1\"]"]},
+ {"page": "discovery.runs", "state": "modal-slurm", "hash": "discovery/runs", "actions": [{"click": "[data-testid=\"toolbar-slurm\"]"}, {"wait": 300}], "expect": ["[data-testid=\"slurm-modal\"]", "[data-testid=\"slurm-script\"]"]},
+ {"page": "discovery.runs", "state": "popover-history", "hash": "discovery/runs?popover=history", "actions": [{"wait": 300}], "expect": ["[data-testid=\"history-popover\"]", "[data-testid=\"history-r-0412\"]"]},
+ {"page": "discovery.runs", "state": "confirm-discard", "hash": "discovery/runs", "actions": [{"click": "[data-testid=\"discard-run\"]"}, {"wait": 300}], "expect": ["[data-testid=\"discard-modal\"]"]},
+ {"page": "discovery.runs", "state": "fires-spans", "hash": "discovery/runs?fires=spans", "actions": [], "expect": ["[data-testid=\"spans-note\"]"]},
+ {"page": "discovery.runs", "state": "section-popover", "hash": "discovery/runs", "actions": [{"click": "[data-testid=\"section-chip\"]"}, {"wait": 300}], "expect": ["[data-testid=\"section-popover\"]"]},
+ {"page": "discovery.runs", "state": "running", "hash": "discovery/runs?state=running", "actions": [{"wait": 300}], "expect": ["[data-testid=\"run-row-spike_shape_v1\"]"]},
+ {"page": "discovery.runs", "state": "failed", "hash": "discovery/runs?state=failed", "actions": [], "expect": ["[data-testid=\"run-failed-callout\"]", "[data-testid=\"retry-seed_E0102_bank\"]"]},
+ {"page": "discovery.runs", "state": "empty", "hash": "discovery/runs?state=empty", "actions": [], "expect": ["[data-testid=\"results-empty\"]", "[data-testid=\"runs-empty\"]"]},
+ {"page": "discovery.runs", "state": "held-out-refused", "hash": "discovery/runs?recording=M4_aug", "actions": [], "expect": ["[data-testid=\"scope-refused\"]"]},
+ {"page": "discovery.seed", "state": "default", "hash": "discovery/seed", "actions": [], "expect": ["[data-testid=\"header\"]"]},
+ {"page": "discovery.compare", "state": "default", "hash": "discovery/compare", "actions": [], "expect": ["[data-testid=\"header\"]"]},
+ {"page": "discovery.stages", "state": "default", "hash": "discovery/compare/stages", "actions": [], "expect": ["[data-testid=\"header\"]"]}
 ]
