@@ -33,7 +33,8 @@ const timers = new Map<string, number>()
 const subs = new Map<string, Set<() => void>>()
 
 function put(id: string, s: SimState) { sims.set(id, s); subs.get(id)?.forEach(f => f()) }
-export function getSim(id: string): SimState { return sims.get(id) ?? IDLE(id) }
+// cache the idle state: useSyncExternalStore needs a stable snapshot, a fresh IDLE object per call loops forever (kit agent fix)
+export function getSim(id: string): SimState { let s = sims.get(id); if (!s) { s = IDLE(id); sims.set(id, s) } return s }
 
 export function startSim(id: string, o: SimOptions = {}) {
   stopTimer(id)

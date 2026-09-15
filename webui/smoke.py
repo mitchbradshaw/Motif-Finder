@@ -332,7 +332,7 @@ class Smoke:
     def run(self):
         from playwright.sync_api import sync_playwright
         os.makedirs(SHOTS, exist_ok=True)
-        for f in os.listdir(SHOTS):
+        for f in (os.listdir(SHOTS) if not self.pages_only else []):   # a page-only walk keeps the flow screenshots
             if re.match(r"^\d\d-.*\.(big\.)?png$", f):
                 os.remove(os.path.join(SHOTS, f))
         rt = json.load(__import__("urllib.request").request.urlopen(self.url + "/api/runtime"))
