@@ -1,0 +1,11 @@
+[
+ {
+  "page": "analyse.glyphs",
+  "state": "default",
+  "hash": "analyse/glyphs",
+  "actions": [],
+  "expect": [
+   "[data-testid=\"header\"]"
+  ]
+ }
+]

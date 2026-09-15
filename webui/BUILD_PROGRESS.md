@@ -16,8 +16,8 @@ Scratchpad (session): `C:/Users/mmebr/AppData/Local/Temp/claude/C--Users-mmebr-D
 | 1b promote A → webui, archive README, delete brief | done | f0c8f13 |
 | 1c old tree: not trivial, UI/ kept; CLAUDE.md | done | ca9e30d |
 | 1d pytest (39 pre-existing failures) + smoke green; junction removed; push #1 | done (worktree removal blocked) | pushed ca9e30d |
-| 1e ADR 0001 written; tracker comments/closures | ADR done; tracker writes WAIT for fog file | |
-| 1f docs/wayfinder/fog-of-war.md | background agent drafting | |
+| 1e ADR 0001 + tracker: #12 #14 #15 #13 #10 #11 commented+closed; map #4 body edited, commented, closed | done | |
+| 1f docs/wayfinder/fog-of-war.md (115 items) | done | c0ed7f5 pushed |
 
 Tracker plan once fog file is committed + pushed (push #2): comment+close Select-the-stack (#12, link ADR + REPORT),
 where-tree-lives (#14), test gates (#15), frontend↔core (#13, resolved part + carry-forward §Core seam), signal

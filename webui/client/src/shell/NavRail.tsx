@@ -1,4 +1,5 @@
 /* 64 px nav rail (frame shell-nav-rail): logo tile, six workspaces, then Jobs and Settings at the foot. */
+import { DEMO_JOBS_ACTIVE } from '../fixtures/canon'
 import { navigate, useApp } from '../state'
 
 const I = {
@@ -15,10 +16,10 @@ const I = {
 const TOP: { key: string; label: string; icon: keyof typeof I; to: string }[] = [
   { key: 'explore', label: 'Explore', icon: 'explore', to: 'explore/corpus' },
   { key: 'analyse', label: 'Analyse', icon: 'analyse', to: 'analyse/chain' },
-  { key: 'discovery', label: 'Discovery', icon: 'discovery', to: 'discovery' },
-  { key: 'models', label: 'Models', icon: 'models', to: 'models' },
+  { key: 'discovery', label: 'Discovery', icon: 'discovery', to: 'discovery/runs' },
+  { key: 'models', label: 'Models', icon: 'models', to: 'models/launch' },
   { key: 'review', label: 'Review', icon: 'review', to: 'review' },
-  { key: 'library', label: 'Library', icon: 'library', to: 'library' },
+  { key: 'library', label: 'Library', icon: 'library', to: 'library/atlas' },
 ]
 
 export function NavRail() {
@@ -39,9 +40,9 @@ export function NavRail() {
       </div>
       <div className="rail-group">{TOP.map(t => <Item key={t.key} k={t.key} label={t.label} icon={t.icon} to={t.to} />)}</div>
       <div className="rail-foot">
-        <Item k="jobs" label={liveJobs ? `Jobs · ${liveJobs}` : 'Jobs'} icon="jobs" to="jobs" />
+        <Item k="jobs" label={`Jobs · ${liveJobs + DEMO_JOBS_ACTIVE}`} icon="jobs" to="jobs" />
         <div className="rail-sep" />
-        <Item k="settings" label="Settings" icon="settings" to="settings" />
+        <Item k="settings" label="Settings" icon="settings" to="settings/datasets" />
       </div>
       <style>{`
         .rail { width: var(--rail-w); background: var(--card); border-right: 1px solid var(--border); display: flex; flex-direction: column; align-items: center; padding: 10px 0 12px; height: 100%; }

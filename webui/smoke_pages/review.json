@@ -1,0 +1,20 @@
+[
+ {
+  "page": "review.inspector",
+  "state": "default",
+  "hash": "review/queue/q-12",
+  "actions": [],
+  "expect": [
+   "[data-testid=\"header\"]"
+  ]
+ },
+ {
+  "page": "review.cluster",
+  "state": "default",
+  "hash": "review/queue/q-15/cluster/12",
+  "actions": [],
+  "expect": [
+   "[data-testid=\"header\"]"
+  ]
+ }
+]

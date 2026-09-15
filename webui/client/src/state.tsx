@@ -4,18 +4,36 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
 import type { Step } from './api'
 
-export interface Route { workspace: string; page: string; params: Record<string, string> }
+/** `#/<workspace>/<page>/<id>/<sub…>?query`. `parts` is every path segment after the workspace
+ *  (so nested routes such as analyse/training/block/3 are readable); `query` is the query string only;
+ *  `params` merges the query with `id` = the third path segment, for the original two workspaces. */
+export interface Route { workspace: string; page: string; params: Record<string, string>; parts: string[]; query: Record<string, string>; path: string }
 
 export function parseHash(hash: string): Route {
   const h = hash.replace(/^#\/?/, '')
-  const [path, query = ''] = h.split('?')
-  const parts = path.split('/').filter(Boolean)
-  const params: Record<string, string> = {}
-  for (const kv of query.split('&')) { if (!kv) continue; const [k, v = ''] = kv.split('='); params[decodeURIComponent(k)] = decodeURIComponent(v) }
-  return { workspace: parts[0] || 'explore', page: parts[1] || '', params: { ...params, ...(parts[2] ? { id: parts[2] } : {}) } }
+  const [path, qs = ''] = h.split('?')
+  const segs = path.split('/').filter(Boolean)
+  const query: Record<string, string> = {}
+  for (const kv of qs.split('&')) { if (!kv) continue; const [k, v = ''] = kv.split('='); query[decodeURIComponent(k)] = decodeURIComponent(v) }
+  return {
+    workspace: segs[0] || 'explore', page: segs[1] || '', parts: segs.slice(1), query, path: segs.join('/'),
+    params: { ...query, ...(segs[2] ? { id: segs[2] } : {}) },
+  }
 }
 
 export function navigate(to: string) { window.location.hash = to.startsWith('#') ? to : `#/${to.replace(/^\//, '')}` }
+
+/** Replace (or delete, with null) query parameters on the current route without adding a history entry
+ *  per keystroke. Used for deep-linkable page states (?drawer=…, ?modal=…, ?state=…). */
+export function setQuery(patch: Record<string, string | null>, replace = false) {
+  const r = parseHash(window.location.hash)
+  const q = { ...r.query }
+  for (const [k, v] of Object.entries(patch)) { if (v === null || v === '') delete q[k]; else q[k] = v }
+  const qs = Object.entries(q).map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(v)}`).join('&')
+  const next = `#/${r.path}${qs ? `?${qs}` : ''}`
+  if (replace) { history.replaceState(null, '', next); window.dispatchEvent(new HashChangeEvent('hashchange')) }
+  else window.location.hash = next
+}
 
 export interface SourceSpan {
   recording_id: number; channel_name: string; source_file: string; fs: number
@@ -50,7 +68,7 @@ export function rememberMyJob(id: number) { const xs = myJobIds(); if (!xs.inclu
 
 const Ctx = createContext<AppState | null>(null)
 
-const SS_KEY = 'ub-proto-a'
+const SS_KEY = 'ub-proto-a'   // key kept from the prototype so existing sessions survive the move
 function load<T>(key: string, fallback: T): T {
   try { const raw = sessionStorage.getItem(`${SS_KEY}:${key}`); return raw ? JSON.parse(raw) as T : fallback } catch { return fallback }
 }

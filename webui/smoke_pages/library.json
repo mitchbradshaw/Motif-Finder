@@ -1,0 +1,65 @@
+[
+ {
+  "page": "library.recurrence",
+  "state": "default",
+  "hash": "library/recurrence",
+  "actions": [],
+  "expect": [
+   "[data-testid=\"header\"]"
+  ]
+ },
+ {
+  "page": "library.atlas",
+  "state": "default",
+  "hash": "library/atlas",
+  "actions": [],
+  "expect": [
+   "[data-testid=\"header\"]"
+  ]
+ },
+ {
+  "page": "library.family",
+  "state": "default",
+  "hash": "library/family/F-03",
+  "actions": [],
+  "expect": [
+   "[data-testid=\"header\"]"
+  ]
+ },
+ {
+  "page": "library.grouping",
+  "state": "default",
+  "hash": "library/grouping",
+  "actions": [],
+  "expect": [
+   "[data-testid=\"header\"]"
+  ]
+ },
+ {
+  "page": "library.import",
+  "state": "default",
+  "hash": "library/import",
+  "actions": [],
+  "expect": [
+   "[data-testid=\"header\"]"
+  ]
+ },
+ {
+  "page": "library.window-sets",
+  "state": "default",
+  "hash": "library/window-sets",
+  "actions": [],
+  "expect": [
+   "[data-testid=\"header\"]"
+  ]
+ },
+ {
+  "page": "library.templates",
+  "state": "default",
+  "hash": "library/templates",
+  "actions": [],
+  "expect": [
+   "[data-testid=\"header\"]"
+  ]
+ }
+]

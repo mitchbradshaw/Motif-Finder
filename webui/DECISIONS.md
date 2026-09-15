@@ -79,3 +79,57 @@ The brief orders 1e (close the tickets) before 1f (write `docs/wayfinder/fog-of-
 comments on the signal-reduction, UI_CONTEXT-corrections and frontend↔core tickets must cite sections of
 that file, so I wrote and pushed it first and posted every comment afterwards, so no comment links a file
 that is not on `main` yet.
+
+## Part 2 — every concept page as a working, empty shell
+
+### 2.1 Route structure
+Hash routes `#/<workspace>/<page>[/<id>][/<sub>…]?query`, one route per screen; a frame that shows a state of
+a screen (popover open, drawer tab, modal, running, failed, empty) is reached by the click that opens it and,
+wherever a critic or the smoke test needs to land on it directly, by a query parameter (`?drawer=detections`,
+`?modal=import`, `?state=running`). `Route` gained `parts` (every segment after the workspace) and `query`, and
+`setQuery()` edits the query in place; the original `page` and `params.id` are unchanged, so Explore and Analyse
+kept working without edits. Analyse keeps one workspace with three families of routes
+(`analyse/chain|block|glyphs`, `analyse/interrogation/…`, `analyse/training/…`) so the nav rail stays at six
+workspaces (spec §2, §6.1 "modes are not modes").
+
+### 2.2 One data seam, fixture-backed, marked demo
+Every new read is a typed async function in `src/api/<workspace>.ts` returning `Sourced<T>` =
+`{ data, source: 'demo' | 'live' }` (`src/api/seam.ts`). Until wired, the body is `demo(FIXTURE)`, which resolves
+on the next macrotask so loading states exist; a later ticket swaps the body for a bridge call and components do
+not change. `useSourced()` returns errors instead of swallowing them. Fixtures live in
+`src/fixtures/<workspace>.ts` and import shared facts from `src/fixtures/canon.ts`, a transcription of spec §0
+(recordings, channel names, classes, verdicts, family colours, families, the B24 chain, runs, jobs, queues, the
+window set, models, templates, local limits), plus a seeded synthetic trace generator so screenshots are stable.
+Where §0 is silent I invented the least surprising value and marked it in canon.ts: `M3_jul`'s file name and
+start time, `L_LM_Jul26_J`'s file name and start, M4's start.
+
+### 2.3 In-memory writes and simulated runs
+`kit/store.ts` is a module-level store (`useDemoState`, `recordDemoWrite`): writes survive navigation and vanish
+on reload, and a `window.__demoStore` hook lets critics read what a page "wrote". `kit/sim.ts` runs a named
+simulation through queued → running → done (or failed / paused / cancelled) on a timer in a module-level
+registry, so a run keeps going while you navigate away, like a real job; `forceSim` lets `?state=` deep links
+land on running or failed frames. Controls that would need the core and have no sensible simulation raise the
+toast `not wired yet: <what it would call>` (`kit/notWired.ts`); every other control does something visible.
+
+### 2.4 Header counts
+The frames print "3 need you" and "Jobs · 3". Prototype A showed only live counts (0 on a fresh start), which
+would now contradict the Jobs page's own fixture cards. The chips now show live + demo: `DEMO_NEED_YOU = 3` and
+`DEMO_JOBS_ACTIVE = 3` from canon.ts, with a tooltip that splits the two. The "demo data" chip sits next to the
+page title on any page that rendered a demo read. The search pill and both chips became buttons (search →
+"not wired yet", need-you → Jobs, held-out → Settings › Datasets) so the header has no dead clicks.
+
+### 2.5 Smoke test walks every page state from per-workspace manifests
+`smoke.py` gained a `routes` step that reads `webui/smoke_pages/<workspace>.json` (owned by that workspace's
+builder, so parallel builders never edit one shared file) and, for each state, loads the route, performs its
+actions, asserts the header, a non-blank main area, the expected selectors, no render-error card and no console
+error, and writes `screenshots/pages/<workspace>/<page>--<state>.png`. `--pages-only` and `--only` narrow it.
+The original live flows (corpus → signal → chain run → suffix re-run → failure → cancel → loud failure) still run.
+
+### 2.6 Parallel builders, disjoint directories, per-unit side files
+Builders own `src/<workspace>/` (Analyse is split into `src/analyse/` for the chain and block pages,
+`src/interrogation/` and `src/training/`), their `api/` and `fixtures/` modules, their smoke manifest, and
+three side files under `webui/pages/`: `status/<unit>.md` (progress, so a killed agent's work survives),
+`fog/<unit>.md` (frontend-design fog, merged into `docs/wayfinder/fog-of-war.md` by the orchestrator at the
+end — one file per builder avoids concurrent appends to one document) and `requests/<unit>.md` (changes they
+need in shared files, which only the orchestrator makes). Critic screenshots stay local
+(`screenshots/critique/`, gitignored); their findings JSON (`webui/critique/`) is committed.

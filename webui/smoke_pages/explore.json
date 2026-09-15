@@ -1,0 +1,20 @@
+[
+ {
+  "page": "explore.cross-channel",
+  "state": "default",
+  "hash": "explore/cross-channel/4",
+  "actions": [],
+  "expect": [
+   "[data-testid=\"header\"]"
+  ]
+ },
+ {
+  "page": "explore.span-edit",
+  "state": "default",
+  "hash": "explore/span-edit/m-1846",
+  "actions": [],
+  "expect": [
+   "[data-testid=\"header\"]"
+  ]
+ }
+]

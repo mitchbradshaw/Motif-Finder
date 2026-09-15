@@ -1,33 +1,46 @@
-/* Shell + routing. Explore and Analyse are live; the other workspaces are visible but inert. */
-import { useEffect } from 'react'
+/* Shell + routing. Every workspace is lazy-loaded behind its own error boundary, so a module that fails to
+   load or render shows a red card for that workspace only (loud, never blank) and the rest of the app stays
+   usable. Explore › Corpus/Signal and Analyse › Chain/Block are live against the bridge; every other page
+   draws fixture data through src/api/<workspace>.ts and says so with the header's "demo data" chip. */
+import { lazy, Suspense, useEffect, type ComponentType } from 'react'
 import { listRuns } from './api'
-import { AnalysePage } from './analyse'
-import { ExplorePage } from './explore'
 import { ErrorBoundary } from './shell/ErrorBoundary'
 import { Header } from './shell/Header'
 import { NavRail } from './shell/NavRail'
 import { ToastProvider } from './shell/Toast'
 import { AppProvider, myJobIds, useApp } from './state'
 
-const INERT: Record<string, { page: string; subtitle: string }> = {
-  discovery: { page: 'Runs', subtitle: 'apply finished recipes at scale · out of slice scope' },
-  models: { page: 'Launch', subtitle: 'train from Analyse templates · out of slice scope' },
-  review: { page: 'Queue', subtitle: 'named queues, one source each · out of slice scope' },
-  library: { page: 'Atlas', subtitle: 'motifs · window sets · templates · out of slice scope' },
-  jobs: { page: 'All jobs', subtitle: 'every job across workspaces · out of slice scope' },
-  settings: { page: 'Datasets', subtitle: 'project and personal settings · out of slice scope' },
+const lazyNamed = <K extends string>(load: () => Promise<Record<K, ComponentType>>, name: K) =>
+  lazy(() => load().then(m => ({ default: m[name] })))
+
+const WORKSPACES: Record<string, ComponentType> = {
+  explore: lazyNamed(() => import('./explore'), 'ExplorePage'),
+  analyse: lazyNamed(() => import('./analyse'), 'AnalysePage'),
+  discovery: lazyNamed(() => import('./discovery'), 'DiscoveryPage'),
+  models: lazyNamed(() => import('./models'), 'ModelsPage'),
+  review: lazyNamed(() => import('./review'), 'ReviewPage'),
+  library: lazyNamed(() => import('./library'), 'LibraryPage'),
+  jobs: lazyNamed(() => import('./jobs'), 'JobsPage'),
+  settings: lazyNamed(() => import('./settings'), 'SettingsPage'),
+  kit: lazyNamed(() => import('./kit/Gallery'), 'KitGallery'),
 }
 
-function Inert({ ws }: { ws: string }) {
-  const spec = INERT[ws] ?? { page: '', subtitle: '' }
+function Loading({ ws }: { ws: string }) {
   return (
     <>
-      <Header workspace={ws[0].toUpperCase() + ws.slice(1)} page={spec.page} subtitle={spec.subtitle} />
+      <Header workspace={ws[0].toUpperCase() + ws.slice(1)} page="" subtitle="loading…" />
+      <div className="page"><div className="page-inner"><div className="skeleton" style={{ height: 240 }} data-testid="workspace-loading" /></div></div>
+    </>
+  )
+}
+
+function Unknown({ ws }: { ws: string }) {
+  return (
+    <>
+      <Header workspace="Not found" page={`#/${ws}`} />
       <div className="page"><div className="page-inner">
-        <div className="card card-pad" style={{ maxWidth: 640 }}>
-          <div className="card-title">{ws} — visible, inert</div>
-          <p className="muted" style={{ margin: '8px 0 0' }}>This workspace is outside the vertical slice (task brief: the shell must show it; Explore and Analyse are live). Its concept pages live in <span className="mono">prototyping/imgs/{ws}/</span>.</p>
-        </div>
+        <div className="error-card" data-testid="unknown-route"><h3>No workspace called “{ws}”</h3>
+          <p className="muted" style={{ margin: 0 }}>Use the nav rail, or go to <a href="#/explore/corpus">Explore › Corpus</a>.</p></div>
       </div></div>
     </>
   )
@@ -51,12 +64,13 @@ function Body() {
     return () => { alive = false; window.clearInterval(id) }
   }, [setLiveJobs, setNeedYou, setBridgeDown])
   const ws = route.workspace
+  const Page = WORKSPACES[ws]
   return (
     <div className="app">
       <NavRail />
       <div className="main">
-        <ErrorBoundary label={`${ws} workspace`}>
-          {ws === 'explore' ? <ExplorePage /> : ws === 'analyse' ? <AnalysePage /> : <Inert ws={ws} />}
+        <ErrorBoundary key={ws} label={`${ws} workspace`}>
+          {Page ? <Suspense fallback={<Loading ws={ws} />}><Page /></Suspense> : <Unknown ws={ws} />}
         </ErrorBoundary>
       </div>
     </div>

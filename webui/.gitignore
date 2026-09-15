@@ -12,3 +12,9 @@ runtime/
 *.log
 # smoke screenshots over ~1 MB are renamed *.big.png by smoke.py
 *.big.png
+# critic and builder working screenshots stay local (paths are recorded in PAGES.md); smoke screenshots are committed
+screenshots/critique/
+screenshots/build/
+screenshots/kit/
+# the repo root ignores MODELS/ (case-insensitive on Windows); the Models workspace source is not that
+!client/src/models/

@@ -1,0 +1,56 @@
+[
+ {
+  "page": "analyse.training",
+  "state": "default",
+  "hash": "analyse/training",
+  "actions": [],
+  "expect": [
+   "[data-testid=\"header\"]"
+  ]
+ },
+ {
+  "page": "analyse.training.windows",
+  "state": "default",
+  "hash": "analyse/training/block/1",
+  "actions": [],
+  "expect": [
+   "[data-testid=\"header\"]"
+  ]
+ },
+ {
+  "page": "analyse.training.matrix",
+  "state": "default",
+  "hash": "analyse/training/block/2",
+  "actions": [],
+  "expect": [
+   "[data-testid=\"header\"]"
+  ]
+ },
+ {
+  "page": "analyse.training.cluster",
+  "state": "default",
+  "hash": "analyse/training/block/3",
+  "actions": [],
+  "expect": [
+   "[data-testid=\"header\"]"
+  ]
+ },
+ {
+  "page": "analyse.training.encode",
+  "state": "default",
+  "hash": "analyse/training/block/4",
+  "actions": [],
+  "expect": [
+   "[data-testid=\"header\"]"
+  ]
+ },
+ {
+  "page": "analyse.training.model",
+  "state": "default",
+  "hash": "analyse/training/block/5",
+  "actions": [],
+  "expect": [
+   "[data-testid=\"header\"]"
+  ]
+ }
+]

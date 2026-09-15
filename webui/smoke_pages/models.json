@@ -1,0 +1,38 @@
+[
+ {
+  "page": "models.launch",
+  "state": "default",
+  "hash": "models/launch",
+  "actions": [],
+  "expect": [
+   "[data-testid=\"header\"]"
+  ]
+ },
+ {
+  "page": "models.results",
+  "state": "default",
+  "hash": "models/results",
+  "actions": [],
+  "expect": [
+   "[data-testid=\"header\"]"
+  ]
+ },
+ {
+  "page": "models.compare",
+  "state": "default",
+  "hash": "models/compare",
+  "actions": [],
+  "expect": [
+   "[data-testid=\"header\"]"
+  ]
+ },
+ {
+  "page": "models.registry",
+  "state": "default",
+  "hash": "models/registry",
+  "actions": [],
+  "expect": [
+   "[data-testid=\"header\"]"
+  ]
+ }
+]

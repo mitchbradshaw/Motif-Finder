@@ -27,9 +27,11 @@ SHOTS = os.path.join(HERE, "screenshots")
 
 
 class Smoke:
-    def __init__(self, url: str, run_chain: bool):
+    def __init__(self, url: str, run_chain: bool, pages_only: bool = False, only: str | None = None):
         self.url = url.rstrip("/")
         self.run_chain = run_chain
+        self.pages_only = pages_only
+        self.only = only
         self.errors: list[str] = []
         self.failures: list[str] = []
         self.shots: list[str] = []
@@ -274,6 +276,58 @@ class Smoke:
         self.shot(page, "loud-failure-render-error")
         self.errors = [e for e in self.errors if "deliberate render failure" not in e]
 
+    # ----------------------------------------------------- every page state --
+    def routes(self, page):
+        """Every route and state named in webui/smoke_pages/<workspace>.json renders: the page mounts,
+        the header is present, the main area is not blank, no render-error card appears (unless the
+        state expects one), every `expect` selector is present, and no console/page error fires.
+        Manifest entry: {"page": "models.launch", "state": "default", "hash": "models/launch?x=1",
+        "actions": [{"click": "[data-testid=add-arm]"}, {"press": "Escape"}, {"fill": ["sel", "text"]},
+        {"wait": 300}], "expect": ["[data-testid=launch-sources]"], "expect_absent": [], "allow_error_card": false}"""
+        print("[routes]")
+        mdir = os.path.join(HERE, "smoke_pages")
+        entries = []
+        for fn in sorted(os.listdir(mdir)) if os.path.isdir(mdir) else []:
+            if not fn.endswith(".json") or (self.only and not fn.startswith(self.only)):
+                continue
+            try:
+                with open(os.path.join(mdir, fn), encoding="utf-8") as f:
+                    for e in json.load(f):
+                        entries.append((fn[:-5], e))
+            except Exception as e:
+                self.failures.append(f"smoke_pages/{fn} unreadable: {e}")
+        self.evidence["route_states"] = len(entries)
+        self.check(len(entries) > 0, f"{len(entries)} page states listed in smoke_pages/*.json")
+        pdir = os.path.join(SHOTS, "pages")
+        for unit, e in entries:
+            name = f"{e.get('page', '?')}--{e.get('state', 'default')}"
+            before = len(self.errors)
+            try:
+                page.goto(f"{self.url}/#/{e['hash'].lstrip('#/')}", wait_until="networkidle")
+                page.wait_for_timeout(e.get("settle_ms", 500))
+                for a in e.get("actions", []):
+                    if "click" in a: page.locator(a["click"]).first.click(); page.wait_for_timeout(250)
+                    elif "press" in a: page.keyboard.press(a["press"]); page.wait_for_timeout(200)
+                    elif "fill" in a: page.locator(a["fill"][0]).first.fill(a["fill"][1]); page.wait_for_timeout(200)
+                    elif "hover" in a: page.locator(a["hover"]).first.hover(); page.wait_for_timeout(200)
+                    elif "wait" in a: page.wait_for_timeout(int(a["wait"]))
+                main_txt = page.locator(".main").inner_text() if page.locator(".main").count() else ""
+                ok = page.locator('[data-testid="header"]').count() == 1 and len(main_txt.strip()) > 40
+                missing = [s for s in e.get("expect", []) if page.locator(s).count() == 0]
+                present = [s for s in e.get("expect_absent", []) if page.locator(s).count() > 0]
+                err_card = page.locator('[data-testid="render-error"]').count()
+                self.check(ok and not missing and not present and (err_card == 0 or e.get("allow_error_card")) and len(self.errors) == before,
+                           f"{unit}: {name} renders" + (f" — missing {missing}" if missing else "") + (f" — unexpected {present}" if present else "")
+                           + (" — render-error card" if err_card and not e.get("allow_error_card") else "") + ("" if ok else " — blank or no header")
+                           + (f" — {len(self.errors) - before} console errors" if len(self.errors) > before else ""))
+                os.makedirs(os.path.join(pdir, unit), exist_ok=True)
+                path = os.path.join(pdir, unit, f"{name}.png")
+                page.screenshot(path=path, full_page=bool(e.get("full_page")))
+                self.shots.append(path)
+            except Exception as ex:
+                self.failures.append(f"{unit}: {name}: {type(ex).__name__}: {ex}")
+                print("  EXC:", name, ex)
+
     # ------------------------------------------------------------ driver --
     def run(self):
         from playwright.sync_api import sync_playwright
@@ -290,7 +344,8 @@ class Smoke:
             page.on("console", lambda m: self.errors.append(f"console.{m.type}: {m.text}") if m.type == "error" else None)
             page.on("pageerror", lambda e: self.errors.append(f"pageerror: {e}"))
             page.on("requestfailed", lambda r: self.errors.append(f"requestfailed: {r.url}") if "fonts.g" not in r.url else None)
-            for step in (self.corpus, self.signal, self.m4, self.analyse, self.loud_failure):
+            steps = (self.routes,) if self.pages_only else (self.corpus, self.signal, self.m4, self.analyse, self.loud_failure, self.routes)
+            for step in steps:
                 try:
                     step(page)
                 except Exception as e:  # keep going, report everything
@@ -323,5 +378,7 @@ if __name__ == "__main__":
     ap = argparse.ArgumentParser()
     ap.add_argument("--url", default=os.environ.get("WEBUI_URL", "http://127.0.0.1:8765"))
     ap.add_argument("--no-run", action="store_true", help="skip the run/cancel/fail flows")
+    ap.add_argument("--pages-only", action="store_true", help="only walk the page states in smoke_pages/*.json")
+    ap.add_argument("--only", default=None, help="restrict the page walk to smoke_pages/<prefix>*.json")
     a = ap.parse_args()
-    sys.exit(Smoke(a.url, not a.no_run).run())
+    sys.exit(Smoke(a.url, not a.no_run, a.pages_only, a.only).run())

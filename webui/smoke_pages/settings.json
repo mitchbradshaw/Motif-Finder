@@ -1,0 +1,146 @@
+[
+ {
+  "page": "settings.datasets",
+  "state": "default",
+  "hash": "settings/datasets",
+  "actions": [],
+  "expect": [
+   "[data-testid=\"header\"]"
+  ]
+ },
+ {
+  "page": "settings.channels-events",
+  "state": "default",
+  "hash": "settings/channels-events",
+  "actions": [],
+  "expect": [
+   "[data-testid=\"header\"]"
+  ]
+ },
+ {
+  "page": "settings.vocabulary",
+  "state": "default",
+  "hash": "settings/vocabulary",
+  "actions": [],
+  "expect": [
+   "[data-testid=\"header\"]"
+  ]
+ },
+ {
+  "page": "settings.nulls",
+  "state": "default",
+  "hash": "settings/nulls",
+  "actions": [],
+  "expect": [
+   "[data-testid=\"header\"]"
+  ]
+ },
+ {
+  "page": "settings.analysis-defaults",
+  "state": "default",
+  "hash": "settings/analysis-defaults",
+  "actions": [],
+  "expect": [
+   "[data-testid=\"header\"]"
+  ]
+ },
+ {
+  "page": "settings.compute-hpc",
+  "state": "default",
+  "hash": "settings/compute-hpc",
+  "actions": [],
+  "expect": [
+   "[data-testid=\"header\"]"
+  ]
+ },
+ {
+  "page": "settings.blocks",
+  "state": "default",
+  "hash": "settings/blocks",
+  "actions": [],
+  "expect": [
+   "[data-testid=\"header\"]"
+  ]
+ },
+ {
+  "page": "settings.review-queues",
+  "state": "default",
+  "hash": "settings/review-queues",
+  "actions": [],
+  "expect": [
+   "[data-testid=\"header\"]"
+  ]
+ },
+ {
+  "page": "settings.models-registration",
+  "state": "default",
+  "hash": "settings/models-registration",
+  "actions": [],
+  "expect": [
+   "[data-testid=\"header\"]"
+  ]
+ },
+ {
+  "page": "settings.library-groupings",
+  "state": "default",
+  "hash": "settings/library-groupings",
+  "actions": [],
+  "expect": [
+   "[data-testid=\"header\"]"
+  ]
+ },
+ {
+  "page": "settings.storage-backups",
+  "state": "default",
+  "hash": "settings/storage-backups",
+  "actions": [],
+  "expect": [
+   "[data-testid=\"header\"]"
+  ]
+ },
+ {
+  "page": "settings.export",
+  "state": "default",
+  "hash": "settings/export",
+  "actions": [],
+  "expect": [
+   "[data-testid=\"header\"]"
+  ]
+ },
+ {
+  "page": "settings.audit-log",
+  "state": "default",
+  "hash": "settings/audit-log",
+  "actions": [],
+  "expect": [
+   "[data-testid=\"header\"]"
+  ]
+ },
+ {
+  "page": "settings.about",
+  "state": "default",
+  "hash": "settings/about",
+  "actions": [],
+  "expect": [
+   "[data-testid=\"header\"]"
+  ]
+ },
+ {
+  "page": "settings.display",
+  "state": "default",
+  "hash": "settings/display",
+  "actions": [],
+  "expect": [
+   "[data-testid=\"header\"]"
+  ]
+ },
+ {
+  "page": "settings.keyboard",
+  "state": "default",
+  "hash": "settings/keyboard",
+  "actions": [],
+  "expect": [
+   "[data-testid=\"header\"]"
+  ]
+ }
+]

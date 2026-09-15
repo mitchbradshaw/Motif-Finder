@@ -1,0 +1,38 @@
+[
+ {
+  "page": "jobs.all",
+  "state": "default",
+  "hash": "jobs",
+  "actions": [],
+  "expect": [
+   "[data-testid=\"header\"]"
+  ]
+ },
+ {
+  "page": "jobs.paused",
+  "state": "default",
+  "hash": "jobs/run/a-0098",
+  "actions": [],
+  "expect": [
+   "[data-testid=\"header\"]"
+  ]
+ },
+ {
+  "page": "jobs.upload",
+  "state": "default",
+  "hash": "jobs/run/r-0431/upload",
+  "actions": [],
+  "expect": [
+   "[data-testid=\"header\"]"
+  ]
+ },
+ {
+  "page": "jobs.cluster",
+  "state": "default",
+  "hash": "jobs/cluster/j-0217",
+  "actions": [],
+  "expect": [
+   "[data-testid=\"header\"]"
+  ]
+ }
+]

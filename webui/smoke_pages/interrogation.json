@@ -1,0 +1,29 @@
+[
+ {
+  "page": "analyse.interrogation",
+  "state": "default",
+  "hash": "analyse/interrogation",
+  "actions": [],
+  "expect": [
+   "[data-testid=\"header\"]"
+  ]
+ },
+ {
+  "page": "analyse.interrogation.slope",
+  "state": "default",
+  "hash": "analyse/interrogation/block/1",
+  "actions": [],
+  "expect": [
+   "[data-testid=\"header\"]"
+  ]
+ },
+ {
+  "page": "analyse.interrogation.aggregate",
+  "state": "default",
+  "hash": "analyse/interrogation/block/2",
+  "actions": [],
+  "expect": [
+   "[data-testid=\"header\"]"
+  ]
+ }
+]

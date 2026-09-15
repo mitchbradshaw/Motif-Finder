@@ -1,0 +1,38 @@
+[
+ {
+  "page": "discovery.runs",
+  "state": "default",
+  "hash": "discovery/runs",
+  "actions": [],
+  "expect": [
+   "[data-testid=\"header\"]"
+  ]
+ },
+ {
+  "page": "discovery.seed",
+  "state": "default",
+  "hash": "discovery/seed",
+  "actions": [],
+  "expect": [
+   "[data-testid=\"header\"]"
+  ]
+ },
+ {
+  "page": "discovery.compare",
+  "state": "default",
+  "hash": "discovery/compare",
+  "actions": [],
+  "expect": [
+   "[data-testid=\"header\"]"
+  ]
+ },
+ {
+  "page": "discovery.stages",
+  "state": "default",
+  "hash": "discovery/compare/stages",
+  "actions": [],
+  "expect": [
+   "[data-testid=\"header\"]"
+  ]
+ }
+]
