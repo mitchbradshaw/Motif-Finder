@@ -280,7 +280,7 @@ function SpanPlot({ d, extent, onChange, snapTo, invalid }: { d: SpanEditDemo; e
             <rect x={x(d.original.start)} y={2} width={Math.max(1, x(d.original.end) - x(d.original.start))} height={H - 4} fill="none" stroke="#6b7280" strokeWidth={1} data-testid="original-extent" />
             <rect x={x(a)} y={2} width={Math.max(1, x(b) - x(a))} height={H - 4} fill={invalid ? 'rgba(229,72,77,0.12)' : 'rgba(10,132,255,0.14)'} stroke={invalid ? 'var(--red)' : 'var(--blue)'} strokeWidth={1.2} data-testid="your-extent" />
             <path d={path} fill="none" stroke="var(--trace)" strokeWidth={1.1} strokeLinejoin="round" />
-            {[hi - m, (hi + lo) / 2, lo + m].map(v => <text key={v} x={padL - 6} y={y(v) + 3} textAnchor="end" className="mono" style={{ fontSize: 10, fill: 'var(--muted)' }}>{v === (hi + lo) / 2 ? '' : v > 0 ? '+' : '−'}{Math.abs(v).toFixed(2)} mV</text>)}
+            {[hi - m, (hi + lo) / 2, lo + m].map(v => <text key={v} x={padL - 6} y={y(v) + 3} textAnchor="end" className="mono" style={{ fontSize: 10, fill: 'var(--muted)' }}>{v > 0.0005 ? '+' : v < -0.0005 ? '−' : ''}{Math.abs(v).toFixed(2)} mV</text>)}
             {grip('start')}{grip('end')}
             <g className="time-axis">{ticks.map(t => <text key={t} x={x(d.original.start + t)} y={H + 14} textAnchor="middle">{t > 0 ? `+${t}` : t < 0 ? `−${-t}` : 0} s</text>)}</g>
           </svg>
