@@ -1,0 +1,24 @@
+# Fog — Review (review.inspector, review.cluster)
+
+Frontend-design fog found while building the empty shell. Format: question · why it matters · source.
+Inventory fog F1–F23 (webui/pages/inventory/review-jobs.md) still stands; these are the ones the build surfaced or had to decide.
+
+- P8 cap vs frame rail: frames 1–7 draw ~20 sparkline thumbnails in the collapsed queue rail; P8 caps small multiples at ~10. Shell shows 10 and a "+N" count · decides whether the rail is a small-multiple set or a navigation list exempt from P8 · frames review-1…7 vs spec §12 P8, kit README.
+- F-11 member count: frames print "17 members"; §0 canon gives no count for F-11 (canon.ts `members: null`). Shell shows the frame's 17 from a review-local fixture · a family's size is shown in Library too, the two must agree · frame review-1 vs spec §0.
+- Frame review-7 (batch undone) draws the cluster page, but the page registry lists it under review.inspector. Shell renders it at the cluster route (`#/review/queue/q-15/cluster/12?state=undone`) and lists it in the smoke manifest under both pages · critics compare frames per page · shell/pages.ts vs frame review-7.
+- Header label: frames print "Review | Inspector" on the cluster page too; the registry titles are "Queue" and "Cluster". Shell follows the frames ("Inspector") · which label names the page · frames review-1…7 vs shell/pages.ts.
+- What S means on a cluster batch (inventory F16): shell promotes ONE exemplar (the member nearest the medoid, c-0371) and marks the other included members interesting, with a toast saying so · a batch seed that promoted every member would flood the Library · spec §10.4–10.5 silent.
+- Blind cluster: are member distances to the medoid and the cohesion pill "machine opinion"? Shell masks them (with family affinity) until a verdict · a blind batch that shows d would anchor the verdict · spec §10.6 lists family affinity only.
+- Undo scope: Ctrl Z undoes the last live write in the queue (not only the item on screen) and navigates to it; a batch undo lands on the cluster with the frame-7 banner · a reviewer who auto-advanced needs to undo the item they just left · spec §10.3/§10.5 say "undo" without scope.
+- Class key on an already-judged item: shell adds the class to the existing verdict (no advance); class 9 on a non-artifact verdict switches the verdict to artifact with a toast; pressing the selected class clears it · the implied-verdict rule (§10.3, P21) is only specified for an unjudged item.
+- Auto-advance after re-judging an item reached from the rail or the previous line: shell advances to the next unjudged unit after it · could skip the reviewer's place · spec §10.3.
+- Up next under the default "unjudged" filter: frame 3 lists c-0342 (judged, dimmed) above the current item. Shell keeps the unit immediately before the current one visible for context and hides other judged units · spec §10.1 status filter.
+- Seed-search queue (q-15): the score filter becomes a distance filter and single items carry "match d" instead of a score; the frames never draw a q-15 single item · what the title-row score pill shows for seed-search matches · frame review-2 draws only a cluster.
+- Training-windows queue (q-18): frame 5's "Previous window, revealed" has no model to reveal (B5: "same layout without the reveal"). Shell keeps the card with "no model yet · training windows" and no agree chip · what replaces the reveal card · backlog B5.
+- Explore spans queue (q-16, id proposed): shell shows "score n/a · human span", family affinity, artifact likelihood; Edit span opens span-edit on the annotation id · not drawn · spec §10.1, inventory F1/F12.
+- Evidence "samples 51,726 → 51,761 · fs 1 Hz" for c-0343 is kept as frame copy though 192.371 h at 1 Hz is ≈ 692,536; other items derive samples from hours (inventory F3) · a sample index is how Explore finds the span · frame review-4.
+- Other channels shows 6 rows per page with a pager "1–6 of 16" (inventory F7), opening on the page with the item's channel · which channels and in what order · frame review-1b.
+- Relative times in fixture "previous" lines ("4 s ago", "1 min ago") are frame copy and do not tick; session writes do · a static "4 s ago" reads as live · frames review-1, review-2.
+- Batch writing: shell animates each included member's status chip (writing… → verdict, 60 ms stagger) and advances only after the last lands · "auto-advance waits for the whole batch" does not say what the wait looks like · frame review-2, spec §10.5.
+- Held-out M4_aug in Review: no queue can contain it; the api refuses any M4 item with the D6 reason and "New queue" lists "M4_aug · held out" disabled with the reason · no frame shows a refusal in Review · spec §0 D6.
+- Context time axis for a 600 s window at ±300 s spans 20 min; frames show only ±120 s. Ticks print 2 decimals above 450 s of span, 3 below · decimals are unspecified per span · frames review-1, review-5.

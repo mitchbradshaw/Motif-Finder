@@ -1,11 +1,78 @@
-/* Review workspace entry — owned by the Review builder.
-   Routes: queue/<queueId>[/<itemId>] (inspector; blind queues are a state of it), queue/<queueId>/cluster/<n>. */
+/* Review workspace entry (spec §10). Routes:
+ *   #/review                              → the last queue's current unit (default q-12, c-0343)
+ *   #/review/queue/<q>                    → that queue's current unit (item or cluster); ?state=empty|exhausted renders the queue end
+ *   #/review/queue/<q>/<itemId>           → review.inspector (blind queues q-18/q-19 are a state of it)
+ *   #/review/queue/<q>/cluster/<n>        → review.cluster
+ *   #/review/cluster/<n>                  → alias, redirects under its queue */
+import { useEffect } from 'react'
+import { Header } from '../shell/Header'
 import { useApp } from '../state'
-import { Skeleton } from '../shell/Skeleton'
+import { EmptyState, Button, useDemoState } from '../kit'
+import { useSourced } from '../api/seam'
+import { clusterQueue, getQueue, getQueues } from '../api/review'
+import { navigate } from '../state'
+import { Inspector } from './Inspector'
+import { ClusterPage } from './ClusterView'
+import { Loading, QueueEndView } from './common'
+import { currentUnit, replaceHash, unitHash } from './queue'
+import { useRecords } from './store'
+import './review.css'
+
+const qs = (query: Record<string, string>) => { const s = Object.entries(query).map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(v)}`).join('&'); return s ? `?${s}` : '' }
 
 export function ReviewPage() {
   const { route } = useApp()
   const p = route.parts
-  if (p[0] === 'cluster' || (p[0] === 'queue' && p[2] === 'cluster')) return <Skeleton id="review.cluster" />
-  return <Skeleton id="review.inspector" />
+  const [lastQueue, setLastQueue] = useDemoState<string>('review.lastQueue', () => 'q-12')
+  const aliasNo = p[0] === 'cluster' ? Number(p[1]) : null
+  const aliasQueue = aliasNo != null ? clusterQueue(aliasNo) : null
+  useEffect(() => {
+    if (!p[0]) replaceHash(`review/queue/${lastQueue}${qs(route.query)}`)
+    else if (aliasNo != null && aliasQueue) replaceHash(`review/queue/${aliasQueue}/cluster/${aliasNo}${qs(route.query)}`)
+  }, [p[0], aliasNo, aliasQueue, lastQueue, route.query])   // eslint-disable-line react-hooks/exhaustive-deps
+  const queueId = p[0] === 'queue' ? p[1] : null
+  useEffect(() => { if (queueId) setLastQueue(queueId) }, [queueId, setLastQueue])
+
+  if (aliasNo != null && !aliasQueue) return <Unknown text={`No cluster ${p[1]} in any review queue`} />
+  if (!queueId) return <><Header workspace="Review" page="Inspector" subtitle="opening the queue…" demo /><div className="rv-root"><Loading /></div></>
+  return <QueueRoute queueId={queueId} rest={p.slice(2)} />
+}
+
+function QueueRoute({ queueId, rest }: { queueId: string; rest: string[] }) {
+  const { route } = useApp()
+  const data = useSourced(() => getQueue(queueId), [queueId])
+  const records = useRecords()
+  const d = data.data && data.data.queue.id === queueId ? data.data : null
+  const state = route.query.state
+  const cur = d ? currentUnit(d, records) : null
+  const needsRedirect = !!d && rest.length === 0 && state !== 'empty' && state !== 'exhausted'
+  useEffect(() => {
+    if (!needsRedirect || !d) return
+    const { state: _s, ...query } = route.query
+    if (cur) replaceHash(`${unitHash(queueId, cur)}${qs(query)}`)
+    else replaceHash(`review/queue/${queueId}${qs({ ...query, state: 'exhausted' })}`)
+  }, [needsRedirect, cur?.kind, queueId])   // eslint-disable-line react-hooks/exhaustive-deps
+
+  if (data.error) return <><Header workspace="Review" page="Inspector" demo /><div className="rv-root"><div className="error-card" data-testid="queue-error"><h3>Queue {queueId} failed to load</h3><p className="mono">{data.error.message}</p></div></div></>
+  if (!data.loading && data.data === null) return <UnknownQueue queueId={queueId} />
+  if (!d || needsRedirect) return <><Header workspace="Review" page="Inspector" subtitle={`queue ${queueId}`} demo /><div className="rv-root"><Loading /></div></>
+  if (rest.length === 0) return <QueueEndView data={d} forced={state === 'empty'} />
+  if (rest[0] === 'cluster') return <ClusterPage data={d} no={Number(rest[1])} />
+  return <Inspector data={d} itemId={rest[0]} />
+}
+
+function UnknownQueue({ queueId }: { queueId: string }) {
+  const qs = useSourced(getQueues, [])
+  return <Unknown text={`No review queue called ${queueId}`} caption={qs.data ? `queues: ${qs.data.map(q => `${q.id} ${q.title}`).join(' · ')}` : undefined} />
+}
+
+function Unknown({ text, caption }: { text: string; caption?: string }) {
+  return (
+    <>
+      <Header workspace="Review" page="Inspector" demo />
+      <div className="rv-root"><div style={{ padding: 20 }}>
+        <EmptyState icon="alert-circle" title={text} caption={caption} bordered testid="review-unknown" action={<Button onClick={() => navigate('review/queue/q-12')}>Open Discovery · r-0412</Button>} />
+      </div></div>
+    </>
+  )
 }
