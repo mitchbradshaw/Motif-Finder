@@ -738,3 +738,108 @@ Shared: window set (Library, Models, Analyse training), model `cnn_windows_v3 ·
 - **F23** — Training-windows queue (q-18) frame is not drawn; `binary + classes` key set is taken from Settings 8.
 
 <!-- NEXT: jobs.* , kit needs -->
+
+## jobs.*
+
+Written by the Jobs builder (overnight build, 16 Sep). Sources: frames jobs-1 … jobs-4, spec §0, §3, §7c,
+§9.6, P4, P24, canon `JOBS` / `REVIEW_QUEUES`. The Pages-table rows above stay authoritative for routes and
+state names; this section adds regions, controls, fixtures and copy. All four pages share one in-memory Jobs
+store (`jobs/store.ts`), so a mark, a continue or a cancel on one page shows on the others until reload.
+
+### Shared model
+
+- **Job kinds** (id prefix, §0): `j-` cluster job · `a-` Analyse run · `r-` Discovery run · `l-` Library regroup ·
+  `q-` Review queue. Workspace icon per kind (Analyse `branch`, Discovery `target`, Models `layers`, Library
+  `library`, Review `checklist`).
+- **Groups** (§7c.1): Paused · waiting on cluster results → Cluster jobs · status marked by hand → Running locally →
+  Review queues → Finished and cancelled today (collapsed).
+- **Needs you** (P24): a paused run waiting on a result, a result that can continue, a cluster job past 3× estimate,
+  a manifest waiting to import. The canon produces exactly three (r-0431, a-0098, j-0214) = header `3 need you`
+  (`DEMO_NEED_YOU`) and nav `Jobs · 3`.
+- **Cluster status is marked by hand**: script created (automatic) → submitted → running → finished | failed. Never
+  changed automatically; *finished* is also set when the job's manifest is imported.
+- **Paused-run result states**: `waiting` (not in its root yet) → `arrived` (found, checks run) → `continuing`
+  (sim: stages N+1…) → `finished`; or `cancelled` (cached stages kept). r-0431 defaults to `waiting` (jobs-1 rail);
+  a-0098 to `arrived` ("result in place").
+- Jobs created elsewhere (`recordDemoWrite('jobs', 'add-job', …)` from Analyse chain-1g, Discovery, Models) are
+  appended to the table, marked `new · this session`, and open on `#/jobs/cluster/<id>` as `script created`.
+
+### jobs.all — `#/jobs`
+
+**Regions.** Header (`Jobs | All jobs`, subtitle `3 need you · 2 local · 2 on hpc-1 · 4 queues`, search
+`Search jobs, runs, queues`, demo chip). Title row: `Jobs` + count chips (amber `3 need you`, blue `2 running
+locally`, purple `2 on hpc-1`, grey `4 review queues · 1 idle`) + *Manifest inbox · 1* button (right). Filter row:
+Seg `all · needs you · paused · cluster · local · review queues · finished` + workspace Dropdown `all workspaces`.
+Needs-you cards (3 across, amber/green/amber borders). `All jobs` table card (`sorted by what needs you first`;
+columns id · job · where · status · time · action). Right rail (≈ 300 px) for the selected job.
+
+**Controls.** Seg / `?filter=` (also `?kind=` alias from Models); Dropdown / `?ws=`; row click / `?sel=`; group bar
+toggles (Finished collapsed by default, `?finished=1`); row actions: *Upload results* (→ upload), *Continue*
+(sim), *Mark…* menu (submitted / running / finished / failed), *Open in Models*, *New script* (modal), *Cancel*
+(local job → cancelled), *Open* (→ Review queue). Needs-you card buttons do the same. Rail per kind: paused run
+(stages Stepper, waiting box with expected path, *Open run detail →*, *Look again* (sim → arrived), *Upload results
+and continue*, *Run stage 3 locally* disabled `~6 h · over the 20 min limit`, *Cancel run* → confirm modal);
+cluster job (status pills, marks, *Open job →*, Mark buttons); local (progress, *Cancel*); queue (left of total,
+pace, blind badge, *Open in Review*); finished (summary). *Manifest inbox · 1* → Drawer `?drawer=inbox`.
+
+**States.** `all` (sel r-0431) · `needs-you` · `paused` · `cluster` · `local` · `queues` · `finished` ·
+`filter-empty` (`?filter=finished&ws=explore`) · `finished-expanded` · `rail-cluster` (`?sel=j-0214`) · `rail-local`
+(`?sel=a-0101`) · `rail-queue` (`?sel=q-19`) · `inbox-drawer` · `new-script` modal (`?modal=new-script&job=j-0209`)
+· `cancel-confirm` (`?modal=cancel&job=r-0431`) · `continuing` (card *Continue* on a-0098).
+
+### jobs.paused — `#/jobs/run/<runId>`
+
+**Regions.** `‹ All jobs` link; title `r-0431` + amber `paused at stage 3 of 4` + green `result arrived` (or amber
+`waiting on j-0217`); *Open in Discovery* / *Open in Analyse* (right); meta line (`Discovery run · mp_drops_v3 v3 ·
+M2_aug fs1 CH2_A1–CH4_A2 · 721 h · started 14 Sep 08:02`). **Where the run stopped** card: stage cards in a row
+joined by chevrons (number, name, state badge, two caption lines; current stage green when arrived, amber when
+waiting), timeline under them (dots + time + label). Two columns below: **Stage 3 result** (green border when
+arrived: `found 14:31 · 1.9 GB` badge, `expected at` locked path + *Show in folder*, `checks before the run can
+continue` list with right-aligned evidence, info strip, *Continue from stage 4* primary + *Look again*) and **Other
+ways forward** (Upload results… · New SLURM script · Run locally (disabled, reason) · Cancel run (red)).
+
+**States.** `result-arrived` (`?state=arrived`; a-0098 default) · `waiting` (r-0431 default: checks pending,
+Continue disabled with reason) · `looking` (*Look again* sim) · `continuing` (sim: remaining stages tick) ·
+`finished` · `cancel-confirm` (`?modal=cancel`) · `cancelled` · `new-script` (`?modal=new-script`) · `unknown-run`.
+
+### jobs.upload — `#/jobs/run/<runId>/upload`
+
+**Regions.** jobs.paused rendered underneath; Modal `Upload results and continue` (lg): subtitle `r-0431 · Discovery
+run mp_drops_v3 · stage 3 of 4 · Matrix profile on M2_aug fs1 CH2_A1–CH4_A2`; file card (icon, name, `1.9 GB · from
+Downloads · copied off hpc-1 by hand`, *Choose another file*); `will be placed at` locked path + `named by Storage`;
+`checks` list (readable file · one profile per channel · length matches the signal · values finite · made with this
+run's parameters · null draws); red refusal (`This file cannot continue r-0431` + *Choose another file* + *Start a new
+run with m = 60 s*); amber note `When a file passes but has no null draws`; footer `nothing is placed until every
+check passes` · *Cancel* · *Place file and continue* (disabled until every check passes).
+
+**States.** `refused` (`?file=mismatch`, default) · `no-file` (`?file=none`) · `checking` (choose a file: checks tick
+in) · `passes-no-nulls` (`?file=ok-no-nulls`) · `passes` (`?file=ok`) · `held-out` (`?file=held-out`: an M4_aug
+file, refused D6) · `file-menu` popover. Place → closes, run `continuing` (or `null on the cluster` for no-nulls).
+
+### jobs.cluster — `#/jobs/cluster/<jobId>`
+
+**Regions.** `‹ All jobs`; title `j-0214` + amber `running · 3.3× estimate` + workspace line; *Open in Models ›
+Results* (right). **Status** card: `marked by hand · the site cannot see the cluster queue`; pills script created ›
+submitted › running › finished with times; amber reminder `Marked running for 3.3 h — 3.3× the 1 h estimate` with
+*Mark finished* · *Mark failed* · *Still running · remind me in 3 h*; rows cluster job id (editable) · profile
+(Dropdown) · results return from (locked) · estimate (locked) · script (*Copy*, *Save .sh*, dark code block).
+**Manifest inbox** card: `1 imported`, `watching ./cluster_out every 5 min · last looked 2 min ago`, manifest card
+(j-0212: contains · import checks · *Imported* disabled), `stage results for paused runs` with *Open*.
+
+**States.** `running-overdue` (j-0214) · `running` (j-0217) · `finished-imported` (j-0212) · `failed` (j-0209) ·
+`snoozed` · `marked-finished` · `marked-failed` · `script-created` (an added job, e.g. from New SLURM script) ·
+`inbox-pending` (`?inbox=pending`: j-0214's manifest arrived, *Import results* sim) · `unknown-job`.
+
+### Fixtures (`fixtures/jobs.ts`)
+
+Canon ids and titles from `JOBS` / `REVIEW_QUEUES`; the rows the frames add (a-0101, l-0009, the q-12…q-19 counts,
+the seven finished/cancelled rows, run stages, checks, paths, scripts, the j-0212 manifest) live in
+`fixtures/jobs.ts` and are read only through `api/jobs.ts`. Invented rows are listed in `pages/fog/jobs.md`.
+
+### Copy
+
+Verbatim from the frames: `sorted by what needs you first`, `the site cannot see the queue — check the cluster`,
+`Continue stores this file as stage 3's artifact, marks j-0217 finished, and runs stage 4 locally (~40 s).`,
+`It was made with different parameters. Continuing with it would give the run a recipe it did not follow.`,
+`Check the cluster. The site never changes a cluster job's status on its own.`, `nothing is placed until every check
+passes`.
