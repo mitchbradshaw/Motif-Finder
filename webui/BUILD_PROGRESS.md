@@ -26,22 +26,26 @@ append Decisions-so-far lines (name-linked), replace "Not yet specified" with po
 gh = "/c/Program Files/GitHub CLI/gh.exe" (authenticated as mitchbradshaw). Refer to tickets by name.
 
 ## Task 2
+**05:05 session restart**: the previous session died ~00:30 (≈4.5 h lost); kit agent, inventory workflow and both
+servers were stopped. Restarted bridge (8765, bg task b4a771xfl) and Vite (5173, bg bq1b5jetv). Kit agent resumed via
+SendMessage (id af963bf1d4fd434ea). Inventory: explore complete; discovery complete; library/review/models/settings
+partial; interrogation-training conventions only; chain empty → builders finish their own group's inventory first.
+
 | step | status |
 |---|---|
-| foundations (me): Route.parts/query + setQuery; Header demo chip/search/need-you; kit/store.ts, kit/sim.ts, kit/notWired.ts, api/seam.ts, fixtures/canon.ts; nav default routes | done, uncommitted, tsc clean |
-| inventory workflow wf_66d54a22-952 → webui/pages/inventory/<group>.md (7 groups) | running |
-| kit agent → webui/client/src/kit/** + #/kit gallery | running |
-| skeleton: every route reachable (lazy-loaded workspaces), smoke extended | todo |
-| PAGES.md assembled from inventory | todo |
-| depth workflow: build → 2 critics → fix ≤2 → record | todo |
-| final pass: smoke all states, tsc, build, pytest, DATA check, stop servers, reports | todo |
+| foundations (me) | done e2a7940 |
+| inventory (7 groups) | partial, committed e2a7940; builders complete their own |
+| kit agent → src/kit/** + #/kit gallery | done 3667ed0 |
+| skeleton: 49 routes, lazy workspaces, smoke walks smoke_pages/*.json (49 states, 0 failures) | done e2a7940 |
+| PAGES.md assembled | todo (after depth) |
+| depth workflow wf_91ff8a51-7e6 (task wb058misp): 10 units, ≤4 builders, 2 critics per sub-unit, ≤2 fix rounds | RUNNING since ~05:45 — on crash resume with Workflow({scriptPath: <session>/workflows/scripts/webui-pages-depth-wf_91ff8a51-7e6.js, resumeFromRunId: "wf_91ff8a51-7e6"}) |
+| final pass | todo |
 
 ### Depth plan (decided)
-Builders own disjoint dirs: src/explore, src/analyse (chain+block+glyph pages), src/interrogation, src/training,
-src/discovery, src/models, src/review, src/library, src/jobs, src/settings, each with src/api/<ws>.ts and
-src/fixtures/<ws>.ts, plus webui/smoke_pages/<ws>.json (states manifest for the smoke). ≤4 builders at once.
-Critics: fidelity + function per critique unit, scores per page, findings JSON → webui/critique/<unit>/r<N>-<lens>.json,
-screenshots → webui/screenshots/critique/<unit>/r<N>-<lens>/ (gitignored). Page score = min; accept ≥8; ≤2 re-ratings.
+Units in order: explore, analyse(chain+blocks+glyphs), review, library, discovery, models, jobs, interrogation,
+training, settings. Builders own src/<unit>/, src/api/<unit>.ts, src/fixtures/<unit>.ts, webui/smoke_pages/<unit>.json,
+webui/pages/{status,fog,requests}/<unit>.md. Critics: fidelity + function per sub-unit → webui/critique/<sub>/r<N>-<lens>.json,
+screenshots webui/screenshots/critique/<sub>/r<N>-<lens>/. Page score = min; accept ≥8; ≤2 re-ratings.
 
 ## Next action
-Wait for inventory + kit + fog agents. Then: commit foundations+kit; skeleton; tracker writes after fog file.
+Depth workflow running. Poll webui/pages/requests/*.md and status/*.md; apply shared-file requests serially; check servers alive. When it finishes: PAGES.md + PAGES_REPORT.md from hist + critique JSON, merge pages/fog/*.md into fog-of-war.md, final pass.
