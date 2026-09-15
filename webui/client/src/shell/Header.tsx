@@ -19,7 +19,7 @@ export function Header({ workspace, page, subtitle, search = 'Search spans, runs
         <span className="divider-v" />
         <span className="hdr-page" data-testid="header-page">{page}</span>
         {subtitle && <span className="hdr-sub mono">{subtitle}</span>}
-        {demo && <span className="chip demo" data-testid="demo-chip" title="this page shows fixture data from the spec §0 placeholder canon; nothing here is read from or written to a database">demo data</span>}
+        {demo && <span className="chip demo" data-testid="demo-chip" title="parts of this page show fixture data from the spec §0 placeholder canon, not your database; writes stay in this browser tab until reload (live pages keep their live regions live)">demo data</span>}
       </div>
       <div className="hdr-right">
         {extra}
