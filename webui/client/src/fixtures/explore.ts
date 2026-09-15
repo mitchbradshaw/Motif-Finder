@@ -290,7 +290,7 @@ export function spanEditDemo(memberId: string): SpanEditDemo | null {
         'zero crossing': [534958, 534969, 534981, 534992, 535001],
       },
       trace: { t0Sample, mv: syntheticTrace({ n: 250, seed: 1846, baseline: 0.05, noise: 0.02, events: [{ at: 60, depth: 0.2, width: 18, shape: 'spike' }, { at: 119, depth: 0.32, width: 21, shape: 'sharkfin' }, { at: 200, depth: 0.22, width: 30, shape: 'plateau' }] }) },
-      overview: syntheticTrace({ n: 1442, seed: 721, baseline: 0, noise: 0.03 }),
+      overview: syntheticTrace({ n: 1442, seed: 721, baseline: 0, noise: 0.004, events: [{ at: 210, depth: 0.05, width: 60, shape: 'spike' }, { at: 700, depth: 0.04, width: 120, shape: 'plateau' }, { at: 1100, depth: 0.06, width: 40, shape: 'spike' }] }),
     }
   }
   if (memberId === 'm-0917') {

@@ -519,5 +519,119 @@
   "expect": [
    "[data-testid=\"cross-unknown\"]"
   ]
+ },
+ {
+  "page": "explore.span-edit",
+  "state": "pristine",
+  "hash": "explore/span-edit/m-1846?state=pristine",
+  "settle_ms": 1500,
+  "actions": [],
+  "expect": [
+   "[data-testid=\"edit-banner\"]",
+   "[data-testid=\"save-and-return\"][disabled]",
+   "[data-testid=\"rev-1\"][data-status=\"current\"]"
+  ]
+ },
+ {
+  "page": "explore.span-edit",
+  "state": "edited",
+  "hash": "explore/span-edit/m-1846?state=edited",
+  "settle_ms": 1500,
+  "actions": [],
+  "expect": [
+   "[data-testid=\"span-edit-plot\"]",
+   "[data-testid=\"rev-2\"]",
+   "[data-testid=\"deltas\"]"
+  ]
+ },
+ {
+  "page": "explore.span-edit",
+  "state": "nudge",
+  "hash": "explore/span-edit/m-1846?state=pristine",
+  "settle_ms": 1500,
+  "actions": [
+   {
+    "click": "[data-testid=\"start-field-down\"]"
+   },
+   {
+    "click": "[data-testid=\"snap-free\"]"
+   }
+  ],
+  "expect": [
+   "[data-testid=\"rev-2\"][data-status=\"pending\"]"
+  ]
+ },
+ {
+  "page": "explore.span-edit",
+  "state": "snap-trough",
+  "hash": "explore/span-edit/m-1846?state=edited",
+  "settle_ms": 1500,
+  "actions": [
+   {
+    "click": "[data-testid=\"snap-trough\"]"
+   }
+  ],
+  "expect": [
+   "[data-testid=\"snap-trough\"][aria-pressed=\"true\"]"
+  ]
+ },
+ {
+  "page": "explore.span-edit",
+  "state": "invalid",
+  "hash": "explore/span-edit/m-1846?state=invalid",
+  "settle_ms": 1500,
+  "actions": [],
+  "expect": [
+   "[data-testid=\"extent-error\"]",
+   "[data-testid=\"save-and-return\"][disabled]"
+  ]
+ },
+ {
+  "page": "explore.span-edit",
+  "state": "typed-invalid",
+  "hash": "explore/span-edit/m-1846?state=pristine",
+  "settle_ms": 1500,
+  "actions": [
+   {
+    "fill": [
+     "[data-testid=\"start-field\"]",
+     "not a sample"
+    ]
+   }
+  ],
+  "expect": [
+   ".ex-sample.invalid"
+  ]
+ },
+ {
+  "page": "explore.span-edit",
+  "state": "saved",
+  "hash": "explore/span-edit/m-1846?state=saved",
+  "settle_ms": 1500,
+  "actions": [],
+  "expect": [
+   "[data-testid=\"saved-callout\"]",
+   "[data-testid=\"rev-2\"][data-status=\"current\"]"
+  ]
+ },
+ {
+  "page": "explore.span-edit",
+  "state": "held-out",
+  "hash": "explore/span-edit/m-0917",
+  "settle_ms": 1200,
+  "actions": [],
+  "expect": [
+   "[data-testid=\"locked-card\"]"
+  ]
+ },
+ {
+  "page": "explore.span-edit",
+  "state": "unknown-span",
+  "hash": "explore/span-edit/m-9999",
+  "settle_ms": 1200,
+  "actions": [],
+  "expect": [
+   "[data-testid=\"span-unknown\"]"
+  ]
  }
 ]
