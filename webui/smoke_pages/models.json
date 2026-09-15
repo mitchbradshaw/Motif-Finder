@@ -1,38 +1,21 @@
 [
- {
-  "page": "models.launch",
-  "state": "default",
-  "hash": "models/launch",
-  "actions": [],
-  "expect": [
-   "[data-testid=\"header\"]"
-  ]
- },
- {
-  "page": "models.results",
-  "state": "default",
-  "hash": "models/results",
-  "actions": [],
-  "expect": [
-   "[data-testid=\"header\"]"
-  ]
- },
- {
-  "page": "models.compare",
-  "state": "default",
-  "hash": "models/compare",
-  "actions": [],
-  "expect": [
-   "[data-testid=\"header\"]"
-  ]
- },
- {
-  "page": "models.registry",
-  "state": "default",
-  "hash": "models/registry",
-  "actions": [],
-  "expect": [
-   "[data-testid=\"header\"]"
-  ]
- }
+ {"page":"models.launch","state":"signal-template","hash":"models/launch","actions":[],"expect":["[data-testid=\"launch-sources\"]","[data-testid=\"before-launch\"]","[data-testid=\"slurm-script\"]"]},
+ {"page":"models.launch","state":"windowset-template","hash":"models/launch?template=cnn_windowset_v1","actions":[],"expect":["[data-testid=\"source-windowsets\"]","[data-testid=\"split-strip\"]"]},
+ {"page":"models.launch","state":"windowset-template-by-click","hash":"models/launch","actions":[{"click":"[data-testid=\"template-select\"]"},{"click":"[data-value=\"cnn_windowset_v1\"]"}],"expect":["[data-testid=\"source-windowsets\"]"]},
+ {"page":"models.launch","state":"local-allowed","hash":"models/launch?channels=CH2_A1","actions":[],"expect":["[data-testid=\"within-limit\"]","[data-testid=\"show-script\"]"]},
+ {"page":"models.launch","state":"local-allowed-by-click","hash":"models/launch","actions":[{"click":"[data-testid=\"source-check-CH4_A2\"]"},{"click":"[data-testid=\"source-check-CH7_B2\"]"}],"expect":["[data-testid=\"within-limit\"]"]},
+ {"page":"models.launch","state":"training-local","hash":"models/launch?channels=CH2_A1","actions":[{"click":"[data-testid=\"train-locally\"]"},{"wait":900}],"expect":["[data-testid=\"train-progress\"]"]},
+ {"page":"models.launch","state":"running","hash":"models/launch?channels=CH2_A1&state=running","actions":[],"expect":["[data-testid=\"train-progress\"]"]},
+ {"page":"models.launch","state":"failed","hash":"models/launch?channels=CH2_A1&state=failed","actions":[],"expect":["[data-testid=\"train-failed\"]"]},
+ {"page":"models.launch","state":"done","hash":"models/launch?channels=CH2_A1&state=done","actions":[],"expect":["[data-testid=\"train-done\"]"]},
+ {"page":"models.launch","state":"submitted","hash":"models/launch","actions":[{"click":"[data-testid=\"create-slurm\"]"}],"expect":["[data-testid=\"submitted\"]","[data-testid=\"slurm-script\"]"]},
+ {"page":"models.launch","state":"popover-m4","hash":"models/launch?popover=m4","actions":[],"expect":["[data-testid=\"m4-popover\"]"]},
+ {"page":"models.launch","state":"popover-add-arm","hash":"models/launch","actions":[{"click":"[data-testid=\"add-arm\"]"}],"expect":["[data-testid=\"add-arm-popover\"]"]},
+ {"page":"models.launch","state":"popover-estimate","hash":"models/launch?popover=estimate","actions":[],"expect":["[data-testid=\"estimate-popover\"]"]},
+ {"page":"models.launch","state":"invalid-gap","hash":"models/launch?gap=0","actions":[],"expect":["[data-testid=\"gap-error\"]","[data-testid=\"before-launch\"] [data-state=\"fail\"]"]},
+ {"page":"models.launch","state":"single-arm","hash":"models/launch","actions":[{"click":"[data-testid=\"remove-arm-b\"]"}],"expect":["[data-testid=\"arms-single\"]"]},
+ {"page":"models.launch","state":"session-rename","hash":"models/launch","actions":[{"click":"[data-testid=\"session-chip\"]"},{"fill":["[data-testid=\"session-name\"]","bad name!"]}],"expect":["[data-testid=\"session-name-error\"]"]},
+ {"page":"models.results","state":"default","hash":"models/results","actions":[],"expect":["[data-testid=\"header\"]"]},
+ {"page":"models.compare","state":"default","hash":"models/compare","actions":[],"expect":["[data-testid=\"header\"]"]},
+ {"page":"models.registry","state":"default","hash":"models/registry","actions":[],"expect":["[data-testid=\"header\"]"]}
 ]

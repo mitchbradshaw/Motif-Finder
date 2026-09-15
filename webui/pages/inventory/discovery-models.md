@@ -1130,13 +1130,203 @@ a7f39c2e` · `split comes with the window set · locked here, change it by savin
   fine, but "open in Jobs" filter param name is owned by Jobs.
 
 ## models.results
-TODO
+(Written by the Models builder, 16 Sep.)
+
+### Route & states
+- **arm:a** (frame 3) — `#/models/results` (job defaults to `j-0212`; path form `#/models/results/j-0212`). `?arm=a`.
+- **arm:b** / **arm:rf** (no frame) — arm Seg or `?arm=b|rf`. RF has no epochs, no calibration used by Threshold
+  to spans and no registration gate: those cards say *unavailable* with the reason (§3 "nothing claims more than it knows").
+- **popover:job** (no frame) — `j-0212 · test block · 432 windows ▾` or `?popover=job`: j-0212 (finished, imported
+  13 Sep 21:40), j-0214 (running on hpc-1, 3.3× its 1 h estimate → opens the running state), j-0209 (failed), plus
+  jobs this session created from Launch (script created, not submitted → disabled with reason).
+- **running** (no frame) — `#/models/results/j-0214`: indeterminate progress, "results arrive through Jobs ›
+  Manifest inbox", open in Jobs.
+- **failed** (no frame) — `#/models/results/j-0209`: the read rejects; loud red error card with the reason.
+- **empty** (no frame) — `?state=empty`: nothing imported yet; EmptyState + *Open Launch* / *open in Jobs*.
+
+### Regions (1440 × ~900)
+1. Header `Models | Results  cnn_windows_v3 · j-0212 · train_cnn_M2aug_sep12`.
+2. Toolbar: chip `cnn_windows_v3 · arm A`; blue dropdown chip `j-0212 · test block · 432 windows ▾`; right: null
+   chip `● null label shuffle · RF 200× + model 5× (i)`, `Compare arms` (outline), `Send to registry` (blue primary).
+3. Tab bar (Results selected) + right: arm Seg `A · manual labels | B · cluster labels | RF baseline` + link
+   `j-0212 · finished · open in Jobs ↗`.
+4. Flat stat row (6): `macro F1 · test 0.71` (green) `0.66–0.75 · bootstrap over test blocks`; `balanced accuracy
+   0.70` `4 classes`; `RF baseline F1 0.58` `same labels · same windows`; `label-shuffle null F1 0.26` `RF 200× · p <
+   0.005`; `full-model shuffles 0.24–0.29` `5×, within the RF null`; `test windows 432` `scored once`.
+5. Row of two cards: **Against baseline and null (i)** `macro F1 on the test block` — grey histogram of the 200 RF
+   null F1s (0–1 axis), black line `RF 0.58`, green line + green CI band `A 0.71`, five dark dots `full-model
+   shuffles` under the null; legend. **Confusion (i)** `rows = label · normalised per row` — 4×4 tile grid (diagonal
+   green, off-diagonal amber tint, counts printed; cols `s-tr plat burst s-dr`, `predicted →`) + per-class table
+   `class precision recall F1 n` (burst n `31` amber) + amber chip `burst: few test windows · wide CI`.
+6. **Calibration and suggested thresholds (i)** `validation block · one class at a time`; right link `used as the
+   recommended value in Threshold to spans`. Four small multiples: reliability curve (green, dots) over the diagonal,
+   amber vertical at the suggested threshold with label; right text `suggested 0.62` (amber, large), `precision 0.80`,
+   `recall 0.66`, `ECE 0.04` (burst `ECE 0.11` amber), `target precision 0.8`.
+7. Row of two cards: **Training curves (i)** `loss per epoch` — train blue, validation orange, grey marker `early stop
+   · epoch 21`, x 1–30. **Held-out checks (i)** `needed before registering` + amber chip `4 pass · 1 warning · 1
+   pending`; two-column checklist (see Copy).
+
+### Controls & interactions
+- Arm Seg — switches every figure to that arm's fixture; toolbar chip and Send-to-registry target follow.
+- Job dropdown — Popover job list (above). Picking j-0214 / j-0209 navigates to that job's route.
+- Null chip (i) — InfoTip: RF 200× + model 5× label shuffle; link Settings › Nulls.
+- `Compare arms` → `#/models/compare` (A = this arm, B = the other label arm).
+- `Send to registry` → `#/models/registry/cnn_windows_v3.manual` (arm A) / `.cluster` (arm B); RF: disabled,
+  reason `the RF baseline is a reference, not a registrable model`.
+- Target precision Seg in the calibration card head (0.7 / 0.8 / 0.9) — recomputes the suggested threshold,
+  precision and recall from the fixture curves (added control; frame prints `target precision 0.8` per class).
+- `used as the recommended value in Threshold to spans` → `#/analyse/block/7b`-equivalent: Analyse owns the route;
+  we navigate to `#/analyse/block/1` and toast which block it would open.
+- Held-out check `human verification · 33 of 40 judged (Registry)` → `#/models/registry/cnn_windows_v3.manual`.
+- `open in Jobs ↗` → `#/jobs/cluster/j-0212`.
+
+### Fixtures
+`ArmResult { arm: 'a'|'b'|'rf'; label; macroF1; ci:[lo,hi]; balancedAcc; rfF1; nullF1; nullP; shuffles:[5];
+testWindows: 432; nullDist: number[200]; confusion: number[4][4]; perClass: {class, precision, recall, f1, n}[];
+calibration: {class, curve: [score, observed][], ece}[] | null; curves: {train, val}[] | null; earlyStop: 21 | null;
+checks: {label, state}[] | null }`. Class display order (frame): spike-train, plateau, burst, slow-drift; colours
+from canon CLASSES. Test n 118 + 74 + 31 + 209 = 432 (canon test block). Confusion rows sum to n.
+
+### Copy
+Verbatim from frame 3 (Regions). Held-out checks: `beats label-shuffle null · p < 0.005 (needs < 0.01)` ·
+`beats RF baseline · ΔF1 0.13, CI 0.07–0.19 excludes 0` · `test windows never seen in training` · `calibration ECE
+≤ 0.10 on 3 classes` · `burst ECE 0.11 · 31 test windows (≥ 50 wanted)` · `human verification · 33 of 40 judged
+(Registry)`.
+
+### Fog
+- F25. The frame's subtitle names the launch session `train_cnn_M2aug_sep12` while Launch shows `sep14`: j-0212 is
+  an earlier launch (canon: imported 13 Sep). Kept as the frame.
+- F26. What arm B's calibration means (cluster labels mapped to manual classes?) is not specified; fixture shows it
+  on the mapped classes.
 
 ## models.compare
-TODO
+(Written by the Models builder, 16 Sep.)
+
+### Route & states
+- **only-a** (frame 4) — `#/models/compare` defaults: `a=cnn_windows_v3.manual`, `b=cnn_windows_v3.cluster`,
+  `filter=only-a`, `i=7`.
+- **both-wrong** (frame 4b) — Seg `both wrong 54` or the 2×2 `both wrong` cell; `?filter=both-wrong&i=12`.
+- **only-b** (no frame) — `?filter=only-b`.
+- **swapped** (no frame) — *Swap A / B*: swaps `a`/`b`; colours stay with the letter (A green, B purple).
+- **not-attributable** (no frame) — pick B = `cnn_windows_v2 · manual · v2`; `?b=cnn_windows_v2.manual`. What-differs
+  pills turn amber, `3 differences — cannot be attributed`; paired difference, agreement, disagreements and the
+  cluster→manual card say *unavailable* with the reason (different test windows / no cluster arm).
+- **popover:models** (no frame) — `any two models` / `?popover=models`: every model grouped by job, registered models included.
+
+### Regions (1440 × ~900)
+1. Header `Models | Compare  A manual labels · B cluster labels`.
+2. Toolbar: chip `⇆ A manual vs B cluster`; blue chip `j-0212 · paired · 432 test windows ▾`; right null chip, `Swap A / B`.
+3. Tab bar (Compare) + link `j-0212 · finished · open in Jobs ↗`.
+4. Picker card: A select (green border, `[A] arm A · manual labels  cnn_windows_v3 · j-0212 ▾`), B select (purple
+   border), green chip `paired · same test windows`, link `any two models`. Row `what differs` pills: `= template
+   cnn_windows_v3` `= window set ws_M2aug_3ch_600s` `= split + test block` `= classifier + options` and amber `≠ label
+   source · Review verdicts vs 03 Cluster k=4`; right green chip `one difference — attributable`.
+5. Two cards: **Macro F1 against baseline and null (i)** — forest plot rows `A · manual 0.71` (green), `B · cluster
+   0.62` (purple), `RF · manual labels 0.58` (dark grey), `RF · cluster labels 0.51` (grey) with CIs over a grey
+   `label-shuffle null` band 0.2–0.32; axis 0–1. **Paired difference A − B (i)** `bootstrap over test blocks` —
+   bootstrap density with green CI band and zero line, big green `ΔF1 +0.09`, `95 % CI 0.03–0.15 · McNemar p = 0.04`;
+   right per-class ΔF1 forest (`spike-train +0.05` grey, `plateau +0.14` green, `burst +0.02` grey, `slow-drift +0.11`
+   green) + `CI crosses 0 for spike-train, burst`.
+6. Three cards: **Cluster → manual class (i)** `majority on training windows` — 4×4 purple heatmap rows c1–c4 × s-tr
+   plat. burst s-dr; mapping list `c1 → spike-train 71 %` … `c3 → burst 44 %` (amber); amber chip `c3 splits burst /
+   slow-drift`. **Per-window agreement (i)** `432 test windows` — 2×2: `283 both right` (light green), `58 only A right`
+   (green), `37 only B right` (purple), `54 both wrong` (grey); `58 vs 37 discordant · McNemar p = 0.04`. **Per channel
+   (i)** `macro F1 · test block` — CH2_A1 128 windows 0.68 / 0.61; CH4_A2 209 0.75 / 0.66; CH7_B2 95 0.66 / 0.55; legend.
+7. **Step through the disagreements (i)** — right: Seg `only A right 58 | only B right 37 | both wrong 54`, pager
+   `‹ 7 / 58 ›`, `↗ Open window in Review`. Body: `w-10482 · CH4_A2 · 192.40 h · 600 s` / `test block 4`; trace (600 s,
+   mV); GASF and RP image tiles; right column rows: `human verdict spike-train verified in Review`; `[A] spike-train score
+   0.81 · above 0.62 ✓`; `[B] slow-drift c4 · score 0.64 ✗`; caption `B's clusters: c4 0.64 · c1 0.29 · c3 0.05`.
+   4b: `w-11907 · CH7_B2 · 318.60 h · 600 s`, `test block 7`, verdict `plateau`, `[A] burst score 0.58 · below 0.71 ✗`,
+   `[B] slow-drift c4 · score 0.52 ✗`, `B's clusters: c4 0.52 · c2 0.41 · c1 0.07 · plateau is c2, second`.
+
+### Controls & interactions
+- A / B pickers (Dropdown) — any model; changing recomputes what-differs and attributable state.
+- `any two models` — Popover listing all models (paired arms of j-0212, registered models, candidates).
+- `Swap A / B`, job chip (Popover: j-0212 only finished paired job; j-0214 running disabled with reason).
+- 2×2 cells `only A right` / `only B right` / `both wrong` → set the step-through filter (and scroll to it); `both
+  right` is not a disagreement (static).
+- Heatmap row click (c1–c4) → highlights that cluster's mapping line.
+- Seg filter → `filter`, resets `i` to 1 (frame values when landing on the frame's filter). Pager ‹ › and ← → keys
+  (when the card has focus) step `i`.
+- `Open window in Review` → `#/review/queue/q-19` + toast naming the window (Review owns window routes).
+
+### Fixtures
+`CompareModel { id; label; letterLabel; template; windowSet; split; classifier; labelSource; job; macroF1; ci; rfF1?; rfCi? }`,
+`Agreement { bothRight: 283; onlyA: 58; onlyB: 37; bothWrong: 54 }` (sum 432), `ClusterMap 4×4` (rows sum 100),
+`PerChannel`, `Disagreement { id; channel; hour; block; verdict; a: {cls, score, thr}; b: {cls, cluster, score};
+bClusters: [c, s][]; note? }` generated deterministically per filter, with the two frame windows pinned at i = 7
+(only-a) and i = 12 (both-wrong). Trace: syntheticTrace 600 samples; GASF/RP drawn from the trace.
+
+### Fog
+- F27. How a cluster arm's "right/wrong" is decided (via the majority mapping) is implied, not stated.
+- F28. The GASF/RP tiles in the frame are stylised; real encodings would come from 04 Image encode's cache.
 
 ## models.registry
-TODO
+(Written by the Models builder, 16 Sep.)
+
+### Route & states
+- **candidate** (frame 5) — `#/models/registry` → selects `cnn_windows_v3.manual`; path form
+  `#/models/registry/cnn_windows_v3.manual`. Verification 33/40, warning reason typed, confirmation ticked,
+  *Register v1* disabled (`sign-off waits on verification · 7 windows left`).
+- **filter:registered|candidates|retired** — Seg or `?filter=`.
+- **verified** (no frame) — `?state=verified` or the demo link `simulate the last 7 judgements`: 40/40, Register enabled.
+- **candidate-failing** (no frame) — select `cnn_windows_v3 · cluster`: calibration check fails → Register disabled with that reason.
+- **registered** (no frame) — select a registered row: sign-off record, thresholds, used by, Retire (blocked with reason while used).
+- **confirm:retire / confirm:reject / confirm:restore** — modals; `?confirm=retire` etc. **popover:why** — rejected row *Why* / `?popover=why`.
+- **registered-now** (no frame) — after *Register v1*: row becomes registered · this session, toast, After-registering callout.
+
+### Regions (1440 × ~870)
+1. Header `Models | Registry  register · version · retire`.
+2. Toolbar: chip `model registry`. 3. Tab bar (Registry) + `2 training jobs · open in Jobs ↗`.
+4. Left card (~46 %) **Models (i)** + Seg `all | registered | candidates | retired`; table `model · version` (glyph +
+   name + `v1 · j-0212`), `status` badge, `test F1`, `used by`, action (`Retire` disabled / `Restore` / `Why`). Rows:
+   cnn_windows_v3 · manual (candidate 0.71 —) selected blue ring; cnn_windows_v3 · cluster (candidate 0.62);
+   cnn_windows_v2 · manual v2 · 30 Aug (registered 0.66 2 templates Retire); rf_windows_v1 · manual v1 · 20 Aug
+   (registered 0.58); cnn_cluster_v1 · cluster v1 · 14 Sep (registered 0.63 1 template Retire); cnn_windows_v2 ·
+   manual v1 · 12 Aug (retired 0.61 Restore); cnn_windows_v2 · cluster v1 · 12 Aug (rejected, red 0.49, Why).
+   Grey callout `🔒 Retire is blocked while a template uses the model` / `cnn_windows_v2 · manual v2 → drop_cnn_v1,
+   sharkfin_cnn_v2 · replace the stage first`. **Used by · cnn_windows_v2 · manual · v2**: rows `drop_cnn_v1  Signal →
+   … → Model → Threshold → SpanSet  used in 3 Discovery runs`, `sharkfin_cnn_v2 … used in 1 Discovery run`; caption.
+5. Right card **Register cnn_windows_v3 · manual (i)** + badge `candidate`:
+   **1 · Held-out checks** `automatic · failures block · warnings need a reason` — 5 rows with right-aligned detail.
+   **2 · Human verification** `a stratified sample …` — green progress `33 / 40 judged`; tiles `agree with model 28 /
+   33 85 %`, `spike-train 9 / 10`, `plateau 7 / 8`, `burst 4 / 7` (amber), `slow-drift 8 / 8`; `↗ Open sample in
+   Review`, `+ Add 20 more`, caption `burst disagreements: 3 predicted slow-drift`.
+   **3 · Decision** `the researcher has the final say` — `registered name (i)` select-field `cnn_windows_v3_manual`,
+   `version (i)` `v1`, `classes (i)` `4 classes`; `reason for accepting the warning` textarea; ☑ `I have read the
+   checks and judged the sample` + `sign-off waits on verification · 7 windows left`; `⊗ Reject` (red outline),
+   `Save draft`, `Register v1` (disabled). Grey row `After registering  appears in Analyse's insert modal as a Model
+   stage · usable in detection templates run by Discovery`.
+
+### Controls & interactions
+- Row click selects (`/models/registry/<id>`). Retire (enabled when unused) → confirm modal → retired (store write).
+  Disabled Retire carries `used by N templates · replace the stage first`. Restore → confirm → registered. Why →
+  popover with the kept failed checks.
+- Registered name: validation `^[a-z0-9_]{3,60}$` (`lowercase letters, digits and _`), must not equal a registered
+  name (`already registered · pick a new name or version`). Version options v1 (v2 disabled: `v1 not registered yet`).
+- Reason textarea: required while any warning is accepted (`a warning needs a written reason`), ≥ 20 characters.
+- Register enabled only when: no failed check · verification complete · reason given · box ticked. Register → store
+  write `models.registry` (status registered, sign-off {actor: this installation, reason, at}); toast.
+- Reject → confirm modal with reason → status rejected (keeps checks). Save draft → store write + toast.
+- Open sample in Review → `#/review/queue/q-19`. Add 20 more → `recordDemoWrite('review', 'add-queue', …)`, total 40 → 60.
+
+### Fixtures
+`RegistryModel { id; name; version; from; date?; status: 'candidate'|'registered'|'retired'|'rejected'; testF1; usedBy:
+{template, signature, discoveryRuns}[]; checks: {label, detail, state}[]; verification?: {judged, of, agree,
+perClass}; signoff?: {...}; failed?: string[] }`. Canon: registered cnn_windows_v2 · manual v2 (drop_cnn_v1,
+sharkfin_cnn_v2), rf_windows_v1 · manual, cnn_cluster_v1 v1 14 Sep (cnn_detect_cluster_v1); candidates from j-0212;
+verification 33/40, 28 agree.
+
+### Frame ⟷ spec conflicts
+1. Frame shows `rf_windows_v1 · manual` used by `1 template` with Retire disabled; canon.ts lists it used by none.
+   Canon wins (§0): Retire is enabled there, which is also the only row demonstrating the retire flow.
+2. Frame labels `cnn_cluster_v1 · cluster`; canon names it `cnn_cluster_v1`. Display keeps the frame's `· cluster` suffix
+   (label source), id canon.
+
+### Fog
+- F29. What "version" means for a name that already exists (v2 of cnn_windows_v2 · manual) vs a new registered name.
+- F30. How Human verification progress flows back from Review (q-19) is not specified; the demo link simulates it.
 
 ## Kit needs
-TODO
+- ArmBadge (A/B/RF letter squares, per-workspace palette) — built locally in `models/chrome.tsx`.
+- Forest/CI dot plot, bootstrap density, confusion grid with row-normalised colour and printed counts — local.
