@@ -49,3 +49,7 @@ screenshots webui/screenshots/critique/<sub>/r<N>-<lens>/. Page score = min; acc
 
 ## Next action
 Depth workflow running. Poll webui/pages/requests/*.md and status/*.md; apply shared-file requests serially; check servers alive. When it finishes: PAGES.md + PAGES_REPORT.md from hist + critique JSON, merge pages/fog/*.md into fog-of-war.md, final pass.
+
+### Shared-file requests log
+- 06:2x review.md: applied canon seed colour green, F-11 = 17 members, review-7 → review.cluster (6681ae3; my sed broke canon.ts syntax for ~2 min, fixed 18c61b9 — use Edit + tsc for shared files).
+- QUEUED for after builders (additive kit props, workarounds exist): Trace tickDigits/tickFormat; Trace unit label vs bottom tick with timeUnit="none"; Trace bands[].edges + label lane; Popover header actions slot; RangeSlider disabledReason; canon REVIEW_QUEUES totals/judged + q-16 Explore spans queue.
