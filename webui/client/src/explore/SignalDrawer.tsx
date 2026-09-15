@@ -7,7 +7,7 @@ import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import type { Spans } from '../api'
 import { useSourced } from '../api/seam'
 import { FILTER_VOCAB, getShortcuts, type AnnotationRow, type DetectionRow, type SignalDemo } from '../api/explore'
-import { Badge, Button, DisabledReason, Dropdown, Icon, IconButton, InfoTip, Kbd, Pager, Popover, Table, Tabs, TextField, fmtInt, recordDemoWrite, useDemoState, useNotWired, useQueryState, type Column, type MenuItem, type SortState } from '../kit'
+import { Badge, Button, Dropdown, Icon, IconButton, InfoTip, Kbd, Pager, Popover, Table, Tabs, TextField, fmtInt, recordDemoWrite, useDemoState, useNotWired, useQueryState, type Column, type MenuItem, type SortState } from '../kit'
 import { useToast } from '../shell/Toast'
 import { navigate } from '../state'
 import { DemoTag } from './bits'
@@ -174,7 +174,7 @@ export function SignalDrawer({ channelKey, channelName, fs, demo, live, tab, set
     toast.push({ text: `tagged ${nSel} annotation${nSel === 1 ? '' : 's'} ${t}` }); setTagText(''); setTagOpen(false)
   }
 
-  const aCell = (label: string, info: string, control: ReactNode) => <div className="cell"><span className="lbl">{label}<InfoTip title={label} size={11}>{info}</InfoTip></span>{control}</div>
+  const aCell = (label: string, info: string, control: ReactNode, active = false) => <div className={`cell${active ? ' active' : ''}`}><span className="lbl">{label}<InfoTip title={label} size={11}>{info}</InfoTip></span>{control}</div>
   const dd = (label: string, info: string, value: string, onChange: (v: string) => void, options: MenuItem[], def: string, liveOk = true, testid?: string) =>
     aCell(label, info, <Dropdown block size="sm" value={value} onChange={onChange} options={options} active={value !== def} disabled={isLive && !liveOk} disabledReason={liveReason} testid={testid ?? `filter-${label.replace(/[^a-z]+/gi, '-')}`} ariaLabel={label} />)
 
@@ -221,20 +221,20 @@ export function SignalDrawer({ channelKey, channelName, fs, demo, live, tab, set
           {dd('status', 'Annotation workflow status (proposed).', aF.status, v => setAF({ ...aF, status: v }), opts(FILTER_VOCAB.status), 'any', false)}
           {dd('spike-train length', 'Spikes in the train (proposed).', aF.stl, v => setAF({ ...aF, stl: v }), opts(FILTER_VOCAB.spikeTrainLength), 'any', false)}
           {dd('duration band', 'short < 60 s · medium 60–900 s · long > 900 s (proposed bands).', aF.duration, v => setAF({ ...aF, duration: v }), [{ value: 'any', label: 'any' }, ...FILTER_VOCAB.durationBand], 'any')}
-          {aCell('id', 'Whole numbers separated by commas.', <span className="ex-fcol"><TextField size="sm" block value={aF.ids} onChange={v => setAF({ ...aF, ids: v })} placeholder="e.g. 42, 108" invalid={aIdsBad} testid="filter-id" />{aIdsBad && <span className="k-field-error" role="alert">ids are whole numbers separated by commas</span>}</span>)}
-          {aCell('note / tags', 'Substring over the note and the tags.', <TextField size="sm" block value={aF.text} onChange={v => setAF({ ...aF, text: v })} placeholder="any" testid="filter-text" />)}
+          {aCell('id', 'Whole numbers separated by commas.', <span className="ex-fcol"><TextField size="sm" block value={aF.ids} onChange={v => setAF({ ...aF, ids: v })} placeholder="e.g. 42, 108" invalid={aIdsBad} testid="filter-id" />{aIdsBad && <span className="k-field-error" role="alert">ids are whole numbers separated by commas</span>}</span>, !!aF.ids)}
+          {aCell('note / tags', 'Substring over the note and the tags.', <TextField size="sm" block value={aF.text} onChange={v => setAF({ ...aF, text: v })} placeholder="any" testid="filter-text" />, !!aF.text)}
         </div>
       ) : (
         <div className="ex-fgrid" data-testid="filter-grid">
           {dd('run', 'Runs that wrote detections on this channel.', dF.run, v => setDF({ ...dF, run: v }), [{ value: 'any', label: `all · ${new Set(detections.map(d => d.runId)).size}` }, ...[...new Set(detections.map(d => d.runId))].map(r => ({ value: r, label: r }))], 'any')}
           {dd('method', 'Detection method of the run.', dF.method, v => setDF({ ...dF, method: v }), opts([...new Set(detections.map(d => d.method).filter(Boolean))]), 'any', false)}
-          {aCell('score ≥', 'Detector score between 0 and 1.', <span className="ex-fcol"><TextField size="sm" block value={dF.score} onChange={v => setDF({ ...dF, score: v })} placeholder="any" invalid={scoreBad} testid="filter-score" />{scoreBad && <span className="k-field-error" role="alert">score is between 0 and 1</span>}</span>)}
+          {aCell('score ≥', 'Detector score between 0 and 1.', <span className="ex-fcol"><TextField size="sm" block value={dF.score} onChange={v => setDF({ ...dF, score: v })} placeholder="any" invalid={scoreBad} testid="filter-score" />{scoreBad && <span className="k-field-error" role="alert">score is between 0 and 1</span>}</span>, !!dF.score)}
           {dd('adjudication', 'A human verdict on the detection, from Review.', dF.adjudication, v => setDF({ ...dF, adjudication: v }), opts(['unadjudicated', 'seed', 'interesting', 'not_interesting', 'artifact', 'unsure']), 'any', false)}
           {dd('nearest family', 'Closest Library family and its distance.', dF.family, v => setDF({ ...dF, family: v }), [{ value: 'any', label: 'any' }, { value: 'none', label: 'none' }, ...FILTER_VOCAB.families.map(f => ({ value: f, label: f }))], 'any', false)}
           {dd('duration band', 'short < 60 s · medium 60–900 s · long > 900 s.', dF.duration, v => setDF({ ...dF, duration: v }), [{ value: 'any', label: 'any' }, ...FILTER_VOCAB.durationBand], 'any')}
           {dd('overlaps annotation', 'Whether a human annotation overlaps the detection.', dF.overlaps, v => setDF({ ...dF, overlaps: v }), [{ value: 'either', label: 'either' }, { value: 'yes', label: 'yes' }, { value: 'no', label: 'no' }], 'either')}
           {dd('channel', 'Rows of this channel only; other channels open from their own page.', dF.channel, v => setDF({ ...dF, channel: v }), [{ value: 'this', label: `${channelName} only` }, { value: 'all', label: 'all channels', disabled: true, reason: 'other channels load on their own Signal page' }], 'this')}
-          {aCell('id', 'Whole numbers separated by commas.', <span className="ex-fcol"><TextField size="sm" block value={dF.ids} onChange={v => setDF({ ...dF, ids: v })} placeholder="e.g. 412" invalid={dIdsBad} testid="filter-id" />{dIdsBad && <span className="k-field-error" role="alert">ids are whole numbers separated by commas</span>}</span>)}
+          {aCell('id', 'Whole numbers separated by commas.', <span className="ex-fcol"><TextField size="sm" block value={dF.ids} onChange={v => setDF({ ...dF, ids: v })} placeholder="e.g. 412" invalid={dIdsBad} testid="filter-id" />{dIdsBad && <span className="k-field-error" role="alert">ids are whole numbers separated by commas</span>}</span>, !!dF.ids)}
           {dd('scope', 'The whole channel, or only the span in view.', dF.scope, v => setDF({ ...dF, scope: v }), [{ value: 'channel', label: 'whole channel' }, { value: 'span', label: 'visible span' }], 'channel')}
         </div>
       ))}
@@ -265,7 +265,7 @@ export function SignalDrawer({ channelKey, channelName, fs, demo, live, tab, set
         <div className="col" style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           <TextField value={tagText} onChange={v => setTagText(v.toLowerCase())} placeholder="e.g. burst" onEnter={applyTag} invalid={tagBad} testid="bulk-tag-input" autoFocus />
           {tagBad && <span className="k-field-error" role="alert">tags are lower-case words joined by -</span>}
-          <DisabledReason reason="type a tag" disabled={!tagText.trim() || tagBad}><Button variant="primary" size="sm" onClick={applyTag} disabled={!tagText.trim() || tagBad} testid="bulk-tag-apply">Apply to {nSel}</Button></DisabledReason>
+          <Button variant="primary" size="sm" onClick={applyTag} disabled={!tagText.trim() || tagBad} disabledReason={tagBad ? 'fix the tag first' : 'type a tag'} testid="bulk-tag-apply">Apply to {nSel}</Button>
         </div>
       </Popover>
     </div>

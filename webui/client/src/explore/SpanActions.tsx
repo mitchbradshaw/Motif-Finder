@@ -60,7 +60,7 @@ export function SpanActions({ channelKey, channelName, initial, view, nInView, o
                 onChange={e => setText(e.target.value.toLowerCase())} onBlur={() => { if (!reason) commit() }}
                 onKeyDown={e => { if (e.key === 'Enter') commit(); if (e.key === 'Escape') { e.stopPropagation(); setText(''); setAdding(false) } }} data-testid="tag-input" />
               <datalist id={listId}>{SUGGEST.filter(s => !draft.tags.includes(s)).map(s => <option key={s} value={s} />)}</datalist>
-              {reason && <span className="ex-time-err" role="alert" data-testid="tag-error">{reason}</span>}
+              {reason && <span className="ex-time-err side" role="alert" data-testid="tag-error">{reason}</span>}
             </span>
           ) : <Chip size="sm" tone="outline" icon="plus" onClick={() => setAdding(true)} testid="add-tag" title="add a tag (T)">tag</Chip>}
         </div>

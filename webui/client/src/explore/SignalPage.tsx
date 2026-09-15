@@ -282,7 +282,9 @@ function SignalBody({ ch }: { ch: Channel }) {
         <ErrorBoundary label="overview tier">
           <Overview ch={ch} view={vp.view} onView={vp.setView} demoDensity={demoDensity} />
         </ErrorBoundary>
-        {drawer ? (
+        {demoRead.loading ? (
+          <div className="skeleton" style={{ height: 420 }} data-testid="signal-demo-loading" />
+        ) : drawer ? (
           <>
             <ErrorBoundary label="drawer">
               <SignalDrawer channelKey={String(ch.id)} channelName={ch.name} fs={ch.fs} demo={demo} live={all} tab={drawer} setTab={t => openDrawer(t)} onClose={() => setDrawerQ(null)} view={vp.view} focusSignal={focusSignal}

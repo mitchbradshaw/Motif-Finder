@@ -312,3 +312,7 @@ button.ex-ribbon:hover { border-color: var(--blue-200); }
 .ex-writes .st { display: inline-flex; align-items: center; gap: 6px; }
 .ex-writes .st .dot { width: 7px; height: 7px; border-radius: 50%; }
 .ex-writes .st .cur { color: var(--blue); }
+
+.ex-time-err.side { top: 2px; left: calc(100% + 8px); }
+.ex-fgrid .cell.active .k-input:not(.invalid) { background: var(--blue-100); }
+.ex-fgrid .cell.active .k-input:not(.invalid) input { color: var(--blue-600); }
