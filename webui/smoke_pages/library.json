@@ -357,11 +357,92 @@
  },
  {
   "page": "library.import",
-  "state": "default",
-  "hash": "library/import",
+  "state": "empty-dry-run",
+  "hash": "library/import?library=empty",
+  "settle_ms": 1000,
   "actions": [],
   "expect": [
-   "[data-testid=\"header\"]"
+   "[data-testid=\"library-empty\"]",
+   "[data-testid=\"import-checks\"]",
+   "[data-testid=\"import-sample\"]"
+  ]
+ },
+ {
+  "page": "library.import",
+  "state": "dry-run-populated",
+  "hash": "library/import",
+  "settle_ms": 1000,
+  "actions": [],
+  "expect": [
+   "[data-testid=\"library-now\"]",
+   "[data-testid=\"import-run\"][disabled]"
+  ]
+ },
+ {
+  "page": "library.import",
+  "state": "bundle-invalid",
+  "hash": "library/import?library=empty&bundle=no-provenance",
+  "settle_ms": 1000,
+  "actions": [],
+  "expect": [
+   "[data-testid=\"check-fail\"]",
+   "[data-testid=\"import-run\"][disabled]"
+  ]
+ },
+ {
+  "page": "library.import",
+  "state": "held-out-refused",
+  "hash": "library/import?library=empty&bundle=held-out",
+  "settle_ms": 1000,
+  "actions": [],
+  "expect": [
+   "[data-testid=\"sample-withheld\"]",
+   "[data-testid=\"check-fail\"]"
+  ]
+ },
+ {
+  "page": "library.import",
+  "state": "importing",
+  "hash": "library/import?library=empty&state=running",
+  "settle_ms": 1000,
+  "actions": [],
+  "expect": [
+   "[data-testid=\"import-progress\"]"
+  ]
+ },
+ {
+  "page": "library.import",
+  "state": "failed",
+  "hash": "library/import?library=empty&state=failed",
+  "settle_ms": 1000,
+  "actions": [],
+  "expect": [
+   "[data-testid=\"import-failed\"]"
+  ]
+ },
+ {
+  "page": "library.import",
+  "state": "done",
+  "hash": "library/import?library=empty&state=done",
+  "settle_ms": 1000,
+  "actions": [],
+  "expect": [
+   "[data-testid=\"import-done\"]",
+   "[data-testid=\"open-library\"]"
+  ]
+ },
+ {
+  "page": "library.import",
+  "state": "check-expanded",
+  "hash": "library/import?library=empty",
+  "settle_ms": 1000,
+  "actions": [
+   {
+    "click": "[data-testid=\"check-warn\"]"
+   }
+  ],
+  "expect": [
+   "[data-testid=\"import-checks\"] [aria-expanded=\"true\"]"
   ]
  },
  {
