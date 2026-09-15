@@ -150,6 +150,7 @@ function MotifFamilyView({ detail }: { detail: FamilyDetail }) {
       const j = Math.max(0, Math.min(ordered.length - 1, i + (e.key === 'ArrowRight' ? 1 : -1)))
       setMemberQ(ordered[j].id); const pg = Math.floor(j / 10) + 1; if (pg !== page) setPageQ(String(pg))
     } else if (e.key === ' ') { e.preventDefault(); toggle(railMember.id) }
+    else if (e.key === 'Escape' && sel.length) { e.preventDefault(); setSel([]) }
   }
   const batchTagRef = useRef<HTMLButtonElement>(null), batchClassRef = useRef<HTMLButtonElement>(null)
 
