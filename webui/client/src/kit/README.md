@@ -28,6 +28,14 @@ keyboard reachable, and shows a focus ring.
   since recording start (`192.40 h`, `timeUnit="h"`), event durations in seconds (`fmtS`). `fmtMv(-0.34)` → `−0.34 mV`,
   `fmtInt(1284)` → `1,284`, `fmtPct(0.27)` → `27 %`.
 - Icons: `<Icon name="upload" />` — names in `kit/icons.tsx` (`IconName` is typed; an unknown name warns).
+- **Cross-workspace demo writes (contract — orchestrator, 06:30).** When one workspace creates something another workspace
+  lists, write it with `recordDemoWrite(<owning workspace>, <kind>, detail)` and let the owner read `useDemoWrites(<owning workspace>)`
+  and append entries of that kind to its fixture list (newest first, marked "new · this session"):
+  - `recordDemoWrite('jobs', 'add-job', { id, kind: 'cluster'|'analyse'|'discovery'|'library'|'review', title, status: 'queue'|'running'|'paused', detail, for? })`
+    — Create SLURM script in Analyse (chain-1g), Discovery, Models; Jobs lists them.
+  - `recordDemoWrite('review', 'add-queue', { id, source, kind, count, blind? })` — Send N unseen windows to Review (training), Take span / Review this motif (Explore); Review's queue rail lists them.
+  - `recordDemoWrite('library', 'promote-seed', { member, family?, from })` — a seed verdict in Review (P21); `recordDemoWrite('library', 'save-window-set', { id, version, channels, windows })` — Save window set (training, Models); `recordDemoWrite('library', 'save-template', { name, from })` — Save template (Analyse).
+  - `recordDemoWrite('models', 'add-training-job', { id, template, arms })` — Train in Models / Launch.
 
 ## Layout
 | Component | Purpose / props |
