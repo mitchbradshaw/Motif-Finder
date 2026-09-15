@@ -20,10 +20,10 @@ type SortKey = 'distance' | 'time' | 'amplitude' | 'unjudged'
 const VERDICT_COLOUR: Record<Verdict, string> = { seed: 'var(--green)', interesting: 'var(--green)', 'not interesting': 'var(--muted-2)', artifact: 'var(--red)', unjudged: 'var(--amber)' }
 const TODAY = '16 Sep'
 
-export function FamilyPage() {
+export function FamilyPage({ familyId }: { familyId?: string } = {}) {
   useRememberMotifsRoute()
   const { route } = useApp()
-  const id = route.parts[1] ?? 'F-03'
+  const id = familyId ?? route.parts[1] ?? 'F-03'
   const [empty] = useEmptyLibrary()
   const fam = useSourced(() => getFamily(id), [id])
   const groupings = useAllGroupings()

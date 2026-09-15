@@ -258,11 +258,101 @@
  },
  {
   "page": "library.grouping",
-  "state": "default",
-  "hash": "library/grouping",
+  "state": "frequency-content",
+  "hash": "library/grouping?from=atlas&basis=frequency-content",
   "actions": [],
   "expect": [
-   "[data-testid=\"header\"]"
+   "[data-testid=\"edit-grouping-modal\"]",
+   "[data-testid=\"feature-histogram\"]",
+   "[data-testid=\"grouping-preview\"]"
+  ]
+ },
+ {
+  "page": "library.grouping",
+  "state": "unchanged-shape-distance",
+  "hash": "library/grouping?from=atlas",
+  "actions": [],
+  "expect": [
+   "[data-testid=\"basis-shape-distance\"][aria-checked=\"true\"]",
+   "[data-testid=\"apply-grouping\"][disabled]"
+  ]
+ },
+ {
+  "page": "library.grouping",
+  "state": "invalid",
+  "hash": "library/grouping?from=atlas&basis=frequency-content",
+  "actions": [
+   {
+    "fill": [
+     "[data-testid=\"param-nbins\"]",
+     "30"
+    ]
+   }
+  ],
+  "expect": [
+   "[data-testid=\"preview-invalid\"]",
+   "[data-testid=\"apply-grouping\"][disabled]"
+  ]
+ },
+ {
+  "page": "library.grouping",
+  "state": "applying",
+  "hash": "library/grouping?from=recurrence&basis=frequency-content&state=running",
+  "actions": [],
+  "expect": [
+   "[data-testid=\"regroup-progress\"]",
+   "[data-testid=\"recurrence-page\"]"
+  ]
+ },
+ {
+  "page": "library.grouping",
+  "state": "failed",
+  "hash": "library/grouping?from=family/F-03&basis=amplitude&state=failed",
+  "actions": [],
+  "expect": [
+   "[data-testid=\"regroup-failed\"]",
+   "[data-testid=\"family-page\"]"
+  ]
+ },
+ {
+  "page": "library.grouping",
+  "state": "unit-sequences",
+  "hash": "library/grouping?from=atlas&unit=sequences",
+  "actions": [],
+  "expect": [
+   "[data-testid=\"unit-sequences\"][aria-checked=\"true\"]",
+   "[data-testid=\"basis-sequence-similarity\"][aria-checked=\"true\"]"
+  ]
+ },
+ {
+  "page": "library.grouping",
+  "state": "over-limit",
+  "hash": "library/grouping?from=atlas&unit=sequences&basis=shape-distance",
+  "actions": [],
+  "expect": [
+   "[data-testid=\"apply-grouping\"].cluster"
+  ]
+ },
+ {
+  "page": "library.grouping",
+  "state": "basis-custom",
+  "hash": "library/grouping?from=atlas&basis=custom",
+  "actions": [],
+  "expect": [
+   "[data-testid=\"param-bars\"]"
+  ]
+ },
+ {
+  "page": "library.grouping",
+  "state": "saved",
+  "hash": "library/grouping?from=atlas&basis=polarity",
+  "actions": [
+   {
+    "click": "[data-testid=\"save-grouping\"]"
+   }
+  ],
+  "expect": [
+   "[data-testid=\"save-grouping\"][disabled]"
   ]
  },
  {

@@ -9,7 +9,7 @@ import { useSourced } from '../api/seam'
 import { getOmitted, getRecurrence, getSequenceFamilies, niceMvDomain, type Cell, type MotifFamily, type RecGroup, type Unit } from '../api/library'
 import {
   GroupingBar, LoadFailed, Loading, MotifsActions, OmittedDrawer, OmittedThumb, SectionBar, useAllGroupings, useEmptyLibrary, useMotifGroupingId, useQueueToast,
-  useRememberMotifsRoute, useSelection,
+  useRememberMotifsRoute, useSelection, useSequenceGroupingId,
 } from './chrome'
 import { EmptyMotifsPage } from './EmptyLibrary'
 
@@ -24,9 +24,10 @@ export function RecurrencePage() {
   const seqs = useSourced(getSequenceFamilies, [])
   const groupings = useAllGroupings()
   const [gidMotifs] = useMotifGroupingId()
+  const [gidSeq] = useSequenceGroupingId()
   const [unitQ, setUnitQ] = useQueryState<string>('unit', 'motifs')
   const unit: Unit = unitQ === 'sequences' ? 'sequences' : 'motifs'
-  const gid = unit === 'sequences' ? 'g-08' : gidMotifs
+  const gid = unit === 'sequences' ? gidSeq : gidMotifs
   const grouping = groupings.all.find(g => g.id === gid) ?? null
   if (empty) return <EmptyMotifsPage />
   return (

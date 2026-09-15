@@ -5,7 +5,7 @@
 | library.atlas | done | polish only | (see git log) |
 | library.family | done | polish only | (see git log) |
 | library.recurrence | done | polish only | recurrence commit |
-| library.grouping | not started | — | — |
+| library.grouping | done | g-09 atlas cards are not drawn (honest EmptyState) | grouping commit |
 | library.import | not started | — | — |
 | library.window-sets | not started | — | — |
 | library.templates | not started | — | — |

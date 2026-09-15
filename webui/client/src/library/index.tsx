@@ -6,6 +6,7 @@ import { Skeleton } from '../shell/Skeleton'
 import { AtlasPage } from './AtlasPage'
 import { FamilyPage } from './FamilyPage'
 import { RecurrencePage } from './RecurrencePage'
+import { GroupingPage } from './GroupingPage'
 
 const IDS: Record<string, string> = { recurrence: 'library.recurrence', atlas: 'library.atlas', family: 'library.family', grouping: 'library.grouping', import: 'library.import', 'window-sets': 'library.window-sets', templates: 'library.templates' }
 
@@ -16,6 +17,7 @@ export function LibraryPage() {
     case 'atlas': return <AtlasPage />
     case 'family': return <FamilyPage />
     case 'recurrence': return <RecurrencePage />
+    case 'grouping': return <GroupingPage />
     default: return <Skeleton id={IDS[page] ?? 'library.atlas'} />
   }
 }

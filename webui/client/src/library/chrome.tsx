@@ -19,6 +19,7 @@ export function useEmptyLibrary(): [boolean] {
 }
 export const useSelection = () => useDemoState<string[]>('library.selection', () => [...CANON_SELECTION])
 export const useMotifGroupingId = () => useDemoState<string>('library.grouping.motifs', () => 'g-07')
+export const useSequenceGroupingId = () => useDemoState<string>('library.grouping.sequences', () => 'g-08')
 export const useSavedGroupings = () => useDemoState<Grouping[]>('library.groupings.saved', () => [])
 export interface LibraryFilters { adjudicated: boolean; minMembers: number; extra: string[] }
 export const useFilters = () => useDemoState<LibraryFilters>('library.filters', () => ({ adjudicated: false, minMembers: 10, extra: [] }))
@@ -40,6 +41,19 @@ export function useQueueToast() {
     recordDemoWrite('library', 'queue', { name, items: n })
     push({ text: `Queue "${name}" · ${fmtInt(n)} items · not wired yet: POST /api/review/queues`, action: { label: 'Open Review', onClick: () => navigate('review/queue/q-12') } })
   }
+}
+
+/** Increments on every real navigation (a typed/deep link, `navigate()`), but not on the query replacements pages
+ *  make while you work (`setQuery(…, true)` dispatches a synthetic hashchange with no URLs). Key a surface on it
+ *  so a deep link always opens fresh while in-page edits keep their draft. */
+export function useExternalNavKey(): number {
+  const [n, setN] = useState(0)
+  useEffect(() => {
+    const on = (e: HashChangeEvent) => { if (e.newURL) setN(x => x + 1) }
+    window.addEventListener('hashchange', on)
+    return () => window.removeEventListener('hashchange', on)
+  }, [])
+  return n
 }
 
 /* ================================================================ loading / failure ================================================================ */
@@ -115,6 +129,7 @@ function ExportButton() {
 export function GroupingBar({ unit, grouping, from, inert, onUnit }: { unit: Unit; grouping: Grouping | null; from: string; inert?: boolean; onUnit?: (u: Unit) => void }) {
   const [filters, setFilters] = useFilters()
   const [, setMotifGrouping] = useMotifGroupingId()
+  const [, setSeqGrouping] = useSequenceGroupingId()
   const { all } = useAllGroupings()
   const { push } = useToast()
   const [, setDrawer] = useQueryState('drawer', '')
@@ -126,6 +141,7 @@ export function GroupingBar({ unit, grouping, from, inert, onUnit }: { unit: Uni
     close()
     recordDemoWrite('library', 'switch-grouping', { grouping: g.id })
     if (g.unit === 'motifs') setMotifGrouping(g.id)
+    if (g.unit === 'sequences') setSeqGrouping(g.id)
     if (onUnit) onUnit(g.unit)
     else if (g.unit === 'sequences') navigate('library/atlas?unit=sequences')
     push({ text: `Grouping ${g.id} applied · scope cleared` })

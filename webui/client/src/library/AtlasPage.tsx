@@ -12,7 +12,7 @@ import { AMP_DOMAIN, FAMILY_COLOURS, RECORDING_GROUPS, getMotifFamilies, getOmit
 import { useToast } from '../shell/Toast'
 import {
   GroupingBar, LoadFailed, Loading, MotifPlot, MotifsActions, OmittedDrawer, OmittedThumb, SectionBar, useAllGroupings, useEmptyLibrary, useFilters,
-  useMotifGroupingId, useQueueToast, useRememberMotifsRoute, useSelection,
+  useMotifGroupingId, useQueueToast, useRememberMotifsRoute, useSelection, useSequenceGroupingId,
 } from './chrome'
 import { EmptyMotifsPage } from './EmptyLibrary'
 
@@ -28,8 +28,9 @@ export function AtlasPage({ inert, backdrop }: { inert?: boolean; backdrop?: boo
   const [unitQ, setUnitQ] = useQueryState<string>('unit', 'motifs')
   const unit: Unit = unitQ === 'sequences' ? 'sequences' : 'motifs'
   const [motifGid] = useMotifGroupingId()
+  const [seqGid] = useSequenceGroupingId()
   const groupings = useAllGroupings()
-  const gid = unit === 'sequences' ? 'g-08' : motifGid
+  const gid = unit === 'sequences' ? seqGid : motifGid
   const grouping = groupings.all.find(g => g.id === gid) ?? null
   const motifs = useSourced(getMotifFamilies, [])
   const seqs = useSourced(getSequenceFamilies, [])
@@ -46,7 +47,7 @@ export function AtlasPage({ inert, backdrop }: { inert?: boolean; backdrop?: boo
         {(groupings.error || motifs.error || seqs.error) && <LoadFailed what="the atlas" error={(groupings.error ?? motifs.error ?? seqs.error)!} onRetry={() => { motifs.reload(); seqs.reload(); groupings.reload() }} />}
         {(motifs.loading || seqs.loading || groupings.loading) && !motifs.error && <Loading height={600} testid="atlas-loading" />}
         {motifs.data && seqs.data && grouping && (unit === 'sequences'
-          ? <SequenceAtlas families={seqs.data} motifFamilies={motifs.data} grouping={grouping} />
+          ? grouping.id !== 'g-08' ? <UndrawnGrouping grouping={grouping} /> : <SequenceAtlas families={seqs.data} motifFamilies={motifs.data} grouping={grouping} />
           : grouping.id === 'g-07' ? <MotifAtlas families={motifs.data} grouping={grouping} /> : <UndrawnGrouping grouping={grouping} />)}
         {motifs.data && !grouping && !groupings.loading && <EmptyState icon="alert-triangle" title={`No grouping ${gid}`} caption="it is not among the saved groupings" bordered />}
       </Page>
@@ -64,12 +65,15 @@ function MotifsHeader({ subtitle, gid, demo }: { subtitle?: string; gid: string;
 
 /* ================================================================ g-09 / g-01: groupings with no atlas fixture ================================================================ */
 function UndrawnGrouping({ grouping }: { grouping: Grouping }) {
-  const [, setGid] = useMotifGroupingId()
+  const [, setMotif] = useMotifGroupingId()
+  const [, setSeq] = useSequenceGroupingId()
+  const back = grouping.unit === 'sequences' ? 'g-08' : 'g-07'
+  const setGid = (id: string) => (grouping.unit === 'sequences' ? setSeq(id) : setMotif(id))
   return (
     <div className="k-card" style={{ padding: 20 }} data-testid="atlas-undrawn">
       <EmptyState icon="grid" title={`Grouping ${grouping.id} · ${grouping.basisLabel} · ${grouping.families} groups`}
         caption={`${fmtInt(grouping.motifs)} motifs · ${grouping.omitted} omitted · computed ${grouping.computed} — the demo has no atlas cards for this grouping, so none are drawn`}
-        action={<Button icon="undo" testid="back-to-g07" onClick={() => setGid('g-07')}>Switch back to g-07</Button>} />
+        action={<Button icon="undo" testid="back-to-g07" onClick={() => setGid(back)}>Switch back to {back}</Button>} />
     </div>
   )
 }
