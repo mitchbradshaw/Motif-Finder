@@ -2,8 +2,8 @@
 
 | page | status | what's left | last commit |
 |---|---|---|---|
-| review.inspector | done | polish only; kit tick/band requests in requests/review.md | webui-pages: review: inspector |
-| review.cluster | done | members pager and the 50-member batch cap only exercised by code paths, fixtures have ≤ 7 members | webui-pages: review: cluster |
+| review.inspector | done | polish only; kit tick/band requests in requests/review.md | b547b37, 9fef5ed |
+| review.cluster | done | members pager and the 50-member batch cap only exercised by code paths, fixtures have ≤ 7 members | 33837b5, 9fef5ed |
 
 Routes: `#/review` → current unit of the last queue (q-12 c-0343) · `#/review/queue/<q>` → current unit · `#/review/queue/<q>/<item>` inspector ·
 `#/review/queue/<q>/cluster/<n>` cluster · `#/review/cluster/<n>` alias · `#/review/queue/<q>?state=empty|exhausted` queue end.
