@@ -182,7 +182,7 @@
 .lib-rail .row > span { white-space: nowrap; }
 .lib-rail-actions .k-btn, .lib-ui-btn .k-btn, .lib-ui-btn.k-btn { font-family: var(--font-ui); font-size: 12.5px; }
 .lib-comp { padding: 0 10px; }
-.lib-rail .k-kv .v { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.lib-rail .k-kv .v { overflow-wrap: anywhere; }
 .k-btn.lib-amber-btn { background: #f08a00; border-color: #f08a00; color: #fff; font-family: var(--font-ui); font-size: 12.5px; }
 .k-btn.lib-amber-btn:hover:not(:disabled) { background: #d97a00; border-color: #d97a00; }
 .k-btn.lib-toggle-on { background: var(--purple-100); color: var(--k-purple-text, #6b3fd4); border-color: var(--purple); }
@@ -194,3 +194,4 @@
 .lib-kvrow .k { color: var(--muted); white-space: nowrap; display: inline-flex; align-items: center; gap: 4px; }
 .lib-kvrow .v { text-align: right; color: var(--text); min-width: 0; font-size: 11px; display: inline-flex; align-items: baseline; justify-content: flex-end; flex-wrap: wrap; gap: 2px 6px; }
 .lib-mcard { gap: 5px; padding: 9px 10px; }
+.lib-cell button:disabled { opacity: 0.5; cursor: not-allowed; }

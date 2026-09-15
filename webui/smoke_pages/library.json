@@ -1,24 +1,295 @@
 [
- {"page": "library.atlas", "state": "motifs", "hash": "library/atlas", "actions": [], "expect": ["[data-testid=\"atlas-grid\"]", "[data-testid=\"family-card-F-03\"]", "[data-testid=\"rail-amplitude-histogram\"]"]},
- {"page": "library.atlas", "state": "sequences", "hash": "library/atlas?unit=sequences", "actions": [], "expect": ["[data-testid=\"sequences-banner\"]", "[data-testid=\"family-card-S-02\"]", "[data-testid=\"composition-strip\"]"]},
- {"page": "library.atlas", "state": "family-selected", "hash": "library/atlas", "actions": [{"click": "[data-testid=\"family-card-F-07\"]"}], "expect": ["[data-testid=\"atlas-rail\"][aria-label=\"F-07 slow drift\"]"]},
- {"page": "library.atlas", "state": "groupings-popover", "hash": "library/atlas", "actions": [{"click": "[data-testid=\"basis-chip\"]"}], "expect": ["[data-testid=\"groupings-popover\"]", "[data-testid=\"grouping-option-g-08\"]"]},
- {"page": "library.atlas", "state": "omitted-drawer", "hash": "library/atlas?drawer=omitted", "actions": [], "expect": ["[data-testid=\"omitted-drawer\"]", "[data-testid=\"omitted-grid\"]"]},
- {"page": "library.atlas", "state": "no-scope", "hash": "library/atlas?scope=all", "actions": [], "expect": ["[data-testid=\"scope-all\"]", "[data-testid=\"atlas-grid\"]"]},
- {"page": "library.atlas", "state": "empty", "hash": "library/atlas?library=empty", "actions": [], "expect": ["[data-testid=\"library-empty\"]"]},
- {"page": "library.family", "state": "member-selected", "hash": "library/family/F-03", "actions": [], "expect": ["[data-testid=\"member-grid\"]", "[data-testid=\"member-rail\"]", "[data-testid=\"batch-count\"]"]},
- {"page": "library.family", "state": "revisions-popover", "hash": "library/family/F-03?popover=revisions", "actions": [], "expect": ["[data-testid=\"revisions-popover\"]"]},
- {"page": "library.family", "state": "hand-only", "hash": "library/family/F-03?hand=1", "actions": [], "expect": ["[data-testid=\"member-card-m-1850\"]"]},
- {"page": "library.family", "state": "sort-time-page-2", "hash": "library/family/F-03?sort=time&page=2", "actions": [], "expect": ["[data-testid=\"member-grid\"]", "[data-testid=\"member-pager\"]"]},
- {"page": "library.family", "state": "tag-popover-invalid", "hash": "library/family/F-03", "actions": [{"click": "[data-testid=\"batch-tag\"]"}, {"fill": ["[data-testid=\"tag-input\"]", "Bad Tag"]}], "expect": ["[data-testid=\"batch-tag-popover\"]", "[data-testid=\"tag-error\"]"]},
- {"page": "library.family", "state": "class-popover", "hash": "library/family/F-03?popover=class", "actions": [], "expect": ["[data-testid=\"batch-class-popover\"]"]},
- {"page": "library.family", "state": "confirm-make-exemplar", "hash": "library/family/F-03?member=m-1844&modal=make-exemplar", "actions": [], "expect": ["[data-testid=\"make-exemplar-modal\"]"]},
- {"page": "library.family", "state": "confirm-remove", "hash": "library/family/F-03?modal=remove", "actions": [], "expect": ["[data-testid=\"remove-modal\"]"]},
- {"page": "library.family", "state": "sequence-family", "hash": "library/family/S-02", "actions": [], "expect": ["[data-testid=\"sequence-family-placeholder\"]"]},
- {"page": "library.family", "state": "unknown-family", "hash": "library/family/F-99", "actions": [], "expect": ["[data-testid=\"family-missing\"]"]},
- {"page": "library.recurrence", "state": "default", "hash": "library/recurrence", "actions": [], "expect": ["[data-testid=\"header\"]"]},
- {"page": "library.grouping", "state": "default", "hash": "library/grouping", "actions": [], "expect": ["[data-testid=\"header\"]"]},
- {"page": "library.import", "state": "default", "hash": "library/import", "actions": [], "expect": ["[data-testid=\"header\"]"]},
- {"page": "library.window-sets", "state": "default", "hash": "library/window-sets", "actions": [], "expect": ["[data-testid=\"header\"]"]},
- {"page": "library.templates", "state": "default", "hash": "library/templates", "actions": [], "expect": ["[data-testid=\"header\"]"]}
+ {
+  "page": "library.atlas",
+  "state": "motifs",
+  "hash": "library/atlas",
+  "actions": [],
+  "expect": [
+   "[data-testid=\"atlas-grid\"]",
+   "[data-testid=\"family-card-F-03\"]",
+   "[data-testid=\"rail-amplitude-histogram\"]"
+  ]
+ },
+ {
+  "page": "library.atlas",
+  "state": "sequences",
+  "hash": "library/atlas?unit=sequences",
+  "actions": [],
+  "expect": [
+   "[data-testid=\"sequences-banner\"]",
+   "[data-testid=\"family-card-S-02\"]",
+   "[data-testid=\"composition-strip\"]"
+  ]
+ },
+ {
+  "page": "library.atlas",
+  "state": "family-selected",
+  "hash": "library/atlas",
+  "actions": [
+   {
+    "click": "[data-testid=\"family-card-F-07\"]"
+   }
+  ],
+  "expect": [
+   "[data-testid=\"atlas-rail\"][aria-label=\"F-07 slow drift\"]"
+  ]
+ },
+ {
+  "page": "library.atlas",
+  "state": "groupings-popover",
+  "hash": "library/atlas",
+  "actions": [
+   {
+    "click": "[data-testid=\"basis-chip\"]"
+   }
+  ],
+  "expect": [
+   "[data-testid=\"groupings-popover\"]",
+   "[data-testid=\"grouping-option-g-08\"]"
+  ]
+ },
+ {
+  "page": "library.atlas",
+  "state": "omitted-drawer",
+  "hash": "library/atlas?drawer=omitted",
+  "actions": [],
+  "expect": [
+   "[data-testid=\"omitted-drawer\"]",
+   "[data-testid=\"omitted-grid\"]"
+  ]
+ },
+ {
+  "page": "library.atlas",
+  "state": "no-scope",
+  "hash": "library/atlas?scope=all",
+  "actions": [],
+  "expect": [
+   "[data-testid=\"scope-all\"]",
+   "[data-testid=\"atlas-grid\"]"
+  ]
+ },
+ {
+  "page": "library.atlas",
+  "state": "empty",
+  "hash": "library/atlas?library=empty",
+  "actions": [],
+  "expect": [
+   "[data-testid=\"library-empty\"]"
+  ]
+ },
+ {
+  "page": "library.family",
+  "state": "member-selected",
+  "hash": "library/family/F-03",
+  "actions": [],
+  "expect": [
+   "[data-testid=\"member-grid\"]",
+   "[data-testid=\"member-rail\"]",
+   "[data-testid=\"batch-count\"]"
+  ]
+ },
+ {
+  "page": "library.family",
+  "state": "revisions-popover",
+  "hash": "library/family/F-03?popover=revisions",
+  "actions": [],
+  "expect": [
+   "[data-testid=\"revisions-popover\"]"
+  ]
+ },
+ {
+  "page": "library.family",
+  "state": "hand-only",
+  "hash": "library/family/F-03?hand=1",
+  "actions": [],
+  "expect": [
+   "[data-testid=\"member-card-m-1850\"]"
+  ]
+ },
+ {
+  "page": "library.family",
+  "state": "sort-time-page-2",
+  "hash": "library/family/F-03?sort=time&page=2",
+  "actions": [],
+  "expect": [
+   "[data-testid=\"member-grid\"]",
+   "[data-testid=\"member-pager\"]"
+  ]
+ },
+ {
+  "page": "library.family",
+  "state": "tag-popover-invalid",
+  "hash": "library/family/F-03",
+  "actions": [
+   {
+    "click": "[data-testid=\"batch-tag\"]"
+   },
+   {
+    "fill": [
+     "[data-testid=\"tag-input\"]",
+     "Bad Tag"
+    ]
+   }
+  ],
+  "expect": [
+   "[data-testid=\"batch-tag-popover\"]",
+   "[data-testid=\"tag-error\"]"
+  ]
+ },
+ {
+  "page": "library.family",
+  "state": "class-popover",
+  "hash": "library/family/F-03?popover=class",
+  "actions": [],
+  "expect": [
+   "[data-testid=\"batch-class-popover\"]"
+  ]
+ },
+ {
+  "page": "library.family",
+  "state": "confirm-make-exemplar",
+  "hash": "library/family/F-03?member=m-1844&modal=make-exemplar",
+  "actions": [],
+  "expect": [
+   "[data-testid=\"make-exemplar-modal\"]"
+  ]
+ },
+ {
+  "page": "library.family",
+  "state": "confirm-remove",
+  "hash": "library/family/F-03?modal=remove",
+  "actions": [],
+  "expect": [
+   "[data-testid=\"remove-modal\"]"
+  ]
+ },
+ {
+  "page": "library.family",
+  "state": "sequence-family",
+  "hash": "library/family/S-02",
+  "actions": [],
+  "expect": [
+   "[data-testid=\"sequence-family-placeholder\"]"
+  ]
+ },
+ {
+  "page": "library.family",
+  "state": "unknown-family",
+  "hash": "library/family/F-99",
+  "actions": [],
+  "expect": [
+   "[data-testid=\"family-missing\"]"
+  ]
+ },
+ {
+  "page": "library.recurrence",
+  "state": "selected",
+  "hash": "library/recurrence",
+  "actions": [],
+  "expect": [
+   "[data-testid=\"recurrence-matrix\"]",
+   "[data-testid=\"selection-kv\"]",
+   "[data-testid=\"shared-ground-warning\"]"
+  ]
+ },
+ {
+  "page": "library.recurrence",
+  "state": "count",
+  "hash": "library/recurrence?cell=count",
+  "actions": [],
+  "expect": [
+   "[data-testid=\"recurrence-matrix\"]",
+   "[data-testid=\"cell-mode\"] [aria-checked=\"true\"][data-value=\"count\"]"
+  ]
+ },
+ {
+  "page": "library.recurrence",
+  "state": "recordings-4-5",
+  "hash": "library/recurrence?rec=2",
+  "actions": [],
+  "expect": [
+   "[data-testid=\"held-out-block\"]",
+   "[data-testid=\"rec-head-M2_aug_fs2\"]"
+  ]
+ },
+ {
+  "page": "library.recurrence",
+  "state": "omitted-drawer",
+  "hash": "library/recurrence",
+  "actions": [
+   {
+    "click": "[data-testid=\"omitted-show-all\"]"
+   }
+  ],
+  "expect": [
+   "[data-testid=\"omitted-drawer\"]"
+  ]
+ },
+ {
+  "page": "library.recurrence",
+  "state": "sequences",
+  "hash": "library/recurrence?unit=sequences",
+  "actions": [],
+  "expect": [
+   "[data-testid=\"row-label-S-02\"]"
+  ]
+ },
+ {
+  "page": "library.recurrence",
+  "state": "empty",
+  "hash": "library/recurrence?library=empty",
+  "actions": [],
+  "expect": [
+   "[data-testid=\"library-empty\"]"
+  ]
+ },
+ {
+  "page": "library.recurrence",
+  "state": "no-selection",
+  "hash": "library/recurrence",
+  "actions": [
+   {
+    "click": "[data-testid=\"clear-selection\"]"
+   }
+  ],
+  "expect": [
+   "[data-testid=\"selection-empty\"]"
+  ]
+ },
+ {
+  "page": "library.grouping",
+  "state": "default",
+  "hash": "library/grouping",
+  "actions": [],
+  "expect": [
+   "[data-testid=\"header\"]"
+  ]
+ },
+ {
+  "page": "library.import",
+  "state": "default",
+  "hash": "library/import",
+  "actions": [],
+  "expect": [
+   "[data-testid=\"header\"]"
+  ]
+ },
+ {
+  "page": "library.window-sets",
+  "state": "default",
+  "hash": "library/window-sets",
+  "actions": [],
+  "expect": [
+   "[data-testid=\"header\"]"
+  ]
+ },
+ {
+  "page": "library.templates",
+  "state": "default",
+  "hash": "library/templates",
+  "actions": [],
+  "expect": [
+   "[data-testid=\"header\"]"
+  ]
+ }
 ]
