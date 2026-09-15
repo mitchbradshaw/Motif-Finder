@@ -170,8 +170,8 @@ function MotifRail({ f, inScope, scoped, yDomain, grouping }: { f: MotifFamily; 
         <span className="k-chip green sm" style={{ marginLeft: 'auto' }} title="distance between exemplar and medoid">d {f.exemplarMedoidD.toFixed(2)}</span>
       </div>
       <div className="row lib-cap" style={{ fontSize: 10.5 }}>
-        <span>members · shared y · mV</span><span className="muted">{sampled.length} of {pool} sampled</span>
-        <Button variant="link" size="sm" icon="shuffle" style={{ marginLeft: 'auto' }} testid="rail-resample" onClick={resample} disabled={pool <= 10} disabledReason="10 or fewer members: all are drawn">resample</Button>
+        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', minWidth: 0 }}>members · shared y · mV</span><span className="muted" style={{ flex: 'none' }}>{sampled.length} of {pool} sampled</span>
+        <Button variant="link" size="sm" icon="shuffle" style={{ marginLeft: 'auto', flex: 'none', paddingRight: 0 }} testid="rail-resample" onClick={resample} disabled={pool <= 10} disabledReason="10 or fewer members: all are drawn">resample</Button>
       </div>
       <MiniTrace values={f.medoidTrace} yDomain={yDomain} width="100%" height={66} strokeWidth={1.8} overlays={sampled.map(v => ({ values: v, stroke: hexA(f.colour, 0.45), width: 1 }))} testid="rail-member-overlay" title={`${sampled.length} sampled members over the medoid, shared mV scale`} />
       <div className="row lib-cap" style={{ fontSize: 10.5 }}><span>peak-to-peak amplitude</span><span style={{ marginLeft: 'auto' }}>n per bin</span></div>

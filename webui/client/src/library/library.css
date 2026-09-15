@@ -200,3 +200,5 @@
 .lib-tcard .stack { gap: 3px !important; }
 .lib-scores th { white-space: nowrap; }
 .lib-tcard .k-ribbon { margin-top: 2px; }
+.lib-rowlabel .id { white-space: nowrap; }
+.lib-rowlabel .nm { max-width: 112px; overflow: hidden; text-overflow: ellipsis; }

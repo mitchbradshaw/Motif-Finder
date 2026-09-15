@@ -153,7 +153,7 @@ function Recurrence({ recordings, families, rows, coverage, sharedGround, unit, 
                       <button type="button" className="lib-rowlabel" data-testid={`row-label-${row.id}`} title={`open ${row.id} in the atlas`} onClick={() => navigate(`library/atlas?${unit === 'sequences' ? 'unit=sequences&' : ''}family=${row.id}`)}>
                         <MiniTrace values={row.trace} yDomain={yDomain} width={36} height={24} ground="none" zeroLine={false} strokeWidth={1.4} />
                         <span className="stack" style={{ gap: 0 }}>
-                          <span className="row" style={{ gap: 6 }}><span className="id" style={{ color: row.colour }}>{row.id}</span><span className="nm">{row.name}</span></span>
+                          <span className="row" style={{ gap: 6 }}><span className="id" style={{ color: row.colour }}>{row.id}</span><span className="nm" title={row.name}>{row.name}</span></span>
                           <span className="sub">{row.recordings} recording{row.recordings === 1 ? '' : 's'}</span>
                         </span>
                       </button>
@@ -196,8 +196,8 @@ function Recurrence({ recordings, families, rows, coverage, sharedGround, unit, 
         <div className="k-card" style={{ padding: '12px 14px' }} data-testid="omitted-strip">
           <div className="row" style={{ marginBottom: 10 }}>
             <Icon name="flag" size={14} style={{ color: 'var(--amber)' }} />
-            <b style={{ fontSize: 13 }}>{omittedCount} {unit === 'sequences' ? 'entries' : 'motifs'} fit no family in this grouping</b>
-            <span className="lib-cap" style={{ fontSize: 11 }}>nearest family d &gt; 0.50 · left out of counts, not deleted</span>
+            <b style={{ fontSize: 13, whiteSpace: 'nowrap' }}>{unit === 'sequences' ? `${fmtInt(omittedCount)} left out of this round` : `${fmtInt(omittedCount)} motifs fit no family in this grouping`}</b>
+            <span className="lib-cap" style={{ fontSize: 11, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0 }}>{unit === 'sequences' ? 'motifs in no sequence and sequences past d 0.50 · not deleted' : 'nearest family d > 0.50 · left out of counts, not deleted'}</span>
             <span style={{ marginLeft: 'auto' }} />
             <Button variant="link" testid="omitted-send-queue" onClick={() => queue(`Library · ${groupingId} omitted`, omittedCount)}>Send to Review as a queue</Button>
             <Button variant="link" testid="omitted-show-all" onClick={() => setDrawer('omitted')}>Show all {fmtInt(omittedCount)}</Button>

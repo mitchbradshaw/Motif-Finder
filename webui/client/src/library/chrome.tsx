@@ -136,6 +136,9 @@ export function GroupingBar({ unit, grouping, from, inert, onUnit }: { unit: Uni
   const basisRef = useRef<HTMLButtonElement>(null), minRef = useRef<HTMLButtonElement>(null), artRef = useRef<HTMLButtonElement>(null), addRef = useRef<HTMLButtonElement>(null)
   const [open, setOpen] = useState<'' | 'basis' | 'min' | 'artifact' | 'add'>('')
   const [minDraft, setMinDraft] = useState(filters.minMembers)
+  const [minInvalid, setMinInvalid] = useState(false)
+  const navKey = useExternalNavKey()
+  useEffect(() => setOpen(''), [navKey])
   const close = () => setOpen('')
   const pickGrouping = (g: Grouping) => {
     close()
@@ -162,7 +165,7 @@ export function GroupingBar({ unit, grouping, from, inert, onUnit }: { unit: Uni
       <DividerV />
       <Chip tone={filters.adjudicated ? 'blue' : 'outline'} testid="filter-adjudicated" selected={filters.adjudicated}
         onClick={() => { setFilters(f => ({ ...f, adjudicated: !f.adjudicated })); push({ text: 'not wired yet: regroup filter adjudicated_only' }) }}>adjudicated only</Chip>
-      <button ref={minRef} type="button" className="k-chip blue k-chip-btn" data-testid="filter-min-members" onClick={() => { setMinDraft(filters.minMembers); setOpen(o => o === 'min' ? '' : 'min') }}>≥ {filters.minMembers} members</button>
+      <button ref={minRef} type="button" className="k-chip blue k-chip-btn" data-testid="filter-min-members" onClick={() => { setMinDraft(filters.minMembers); setMinInvalid(false); setOpen(o => o === 'min' ? '' : 'min') }}>≥ {filters.minMembers} members</button>
       <button ref={artRef} type="button" className="k-chip blue k-chip-btn" data-testid="filter-artifact" onClick={() => setOpen(o => o === 'artifact' ? '' : 'artifact')}>artifact <b style={{ fontWeight: 600 }}>flagged</b></button>
       {filters.extra.map(x => <Chip key={x} tone="blue" onRemove={() => setFilters(f => ({ ...f, extra: f.extra.filter(e => e !== x) }))} removeLabel={`remove filter ${x}`}>{x}</Chip>)}
       {unit === 'motifs' && <button ref={addRef} type="button" className="k-chip outline k-chip-btn" data-testid="filter-add" onClick={() => setOpen(o => o === 'add' ? '' : 'add')}>+ filter</button>}
@@ -186,10 +189,10 @@ export function GroupingBar({ unit, grouping, from, inert, onUnit }: { unit: Uni
       </Popover>
       <Popover open={open === 'min'} onClose={close} anchorRef={minRef} title="Minimum members" width={260} testid="min-members-popover">
         <div className="stack">
-          <NumberField value={minDraft} onValid={setMinDraft} min={1} max={1000} integer validate={n => (Number.isInteger(n) && n >= 1 && n <= 1000 ? null : 'whole number from 1 to 1000')} ariaLabel="minimum members" testid="min-members-input" />
+          <NumberField value={minDraft} onValid={n => { setMinDraft(n); setMinInvalid(false) }} onChange={(_, reason) => setMinInvalid(!!reason)} validate={n => (Number.isInteger(n) && n >= 1 && n <= 1000 ? null : 'whole number from 1 to 1000')} ariaLabel="minimum members" testid="min-members-input" />
           <div className="row" style={{ justifyContent: 'flex-end' }}>
             <Button size="sm" onClick={close}>Cancel</Button>
-            <Button size="sm" variant="primary" testid="min-members-apply" onClick={() => { setFilters(f => ({ ...f, minMembers: minDraft })); recordDemoWrite('library', 'filter', { minMembers: minDraft }); close(); push({ text: `not wired yet: regroup filter min_members=${minDraft}` }) }}>Apply</Button>
+            <Button size="sm" variant="primary" testid="min-members-apply" disabled={minInvalid} disabledReason="whole number from 1 to 1000" onClick={() => { setFilters(f => ({ ...f, minMembers: minDraft })); recordDemoWrite('library', 'filter', { minMembers: minDraft }); close(); push({ text: `not wired yet: regroup filter min_members=${minDraft}` }) }}>Apply</Button>
           </div>
         </div>
       </Popover>
@@ -253,16 +256,19 @@ export function OmittedDrawer({ groupingId, unit }: { groupingId: string; unit: 
   const yDomain: [number, number] = [-0.45, 0.45]
   const tabs = unit === 'sequences' && data.data ? [{ value: 'singles', label: `${fmtInt(data.data.singles.length)} single motifs` }, { value: 'sequences', label: `${data.data.sequences.length} sequences` }] : undefined
   return (
-    <Drawer open onClose={() => setDrawer(null)} title={`Omitted from ${groupingId}`} subtitle={data.data ? `${fmtInt(total)} · flagged, not deleted` : undefined} width={520} testid="omitted-drawer"
-      tabs={tabs} tab={tab} onTab={v => setTab(v as 'singles' | 'sequences')}
-      actions={<Button size="sm" icon="checklist" testid="omitted-send" onClick={() => queue(`Library · ${groupingId} omitted`, total)}>Send omitted to Review as a queue</Button>}>
+    <Drawer open onClose={() => setDrawer(null)} title={`Omitted from ${groupingId}`} subtitle={data.data && !tabs ? `${fmtInt(total)} · flagged, not deleted` : undefined} width={540} testid="omitted-drawer"
+      tabs={tabs} tab={tab} onTab={v => setTab(v as 'singles' | 'sequences')}>
       {data.error && <LoadFailed what="the omitted entries" error={data.error} onRetry={data.reload} />}
       {data.loading && <Loading height={260} />}
       {data.data && (
         <div className="stack" style={{ gap: 10 }}>
           <div className="row" style={{ justifyContent: 'space-between' }}>
+            <span className="mono small">{tabs ? `Omitted from ${groupingId} · ${fmtInt(total)} · flagged, not deleted` : ''}</span>
+            <Button size="sm" icon="checklist" testid="omitted-send" onClick={() => queue(`Library · ${groupingId} omitted`, total)}>Send omitted to Review as a queue</Button>
+          </div>
+          <div className="row" style={{ justifyContent: 'space-between', alignItems: 'flex-start' }}>
             <span className="mono small muted">{tab === 'sequences' ? 'nearest family d > 0.50 · re-cut looser, or leave them flagged' : unit === 'sequences' ? 'not part of any sequence · switch the unit to single motifs to group these' : 'nearest family d > 0.50 · left out of counts, not deleted'}<InfoTip title="shared y">thumbnails share one mV scale (±0.45 mV); never normalised</InfoTip></span>
-            <span className="mono small">{fmtInt((page - 1) * 10 + 1)}–{fmtInt(Math.min(list.length, page * 10))} of {fmtInt(list.length)}
+            <span className="mono small" style={{ whiteSpace: 'nowrap', flex: 'none' }}>{fmtInt((page - 1) * 10 + 1)}–{fmtInt(Math.min(list.length, page * 10))} of {fmtInt(list.length)}
               <button type="button" className="lib-pg" disabled={page <= 1} aria-label="previous page" title={page <= 1 ? 'already at the first page' : 'previous page'} onClick={() => setPage(p => p - 1)} data-testid="omitted-prev">‹</button>
               <button type="button" className="lib-pg" disabled={page >= pageCount} aria-label="next page" title={page >= pageCount ? 'already at the last page' : 'next page'} onClick={() => setPage(p => p + 1)} data-testid="omitted-next">›</button>
             </span>
