@@ -53,3 +53,8 @@ Depth workflow running. Poll webui/pages/requests/*.md and status/*.md; apply sh
 ### Shared-file requests log
 - 06:2x review.md: applied canon seed colour green, F-11 = 17 members, review-7 → review.cluster (6681ae3; my sed broke canon.ts syntax for ~2 min, fixed 18c61b9 — use Edit + tsc for shared files).
 - QUEUED for after builders (additive kit props, workarounds exist): Trace tickDigits/tickFormat; Trace unit label vs bottom tick with timeUnit="none"; Trace bands[].edges + label lane; Popover header actions slot; RangeSlider disabledReason; canon REVIEW_QUEUES totals/judged + q-16 Explore spans queue.
+- 06:3x analyse.md: added cross-workspace demo-write contract to kit/README.md (unstarted builders read it); QUEUED: Popover width beyond 560 px, Modal footerStart slot.
+- 06:4x explore.md: applied Header demo tooltip copy. QUEUED: charts/useSize callback ref; IconButton forwardRef; controlled InfoTip; MultiPick; Seg role=button mode; Table pageSize sort-then-page + cross-page select-all; Breadcrumb item testids; canon q-16 Explore spans queue (coordinate with Review fixture).
+- 06:5x library.md: applied disabled danger button CSS. QUEUED: Histogram log x + bin edges; useForcedSim/deep-link reset key; rail button font; createReviewQueue in api/review.ts (Review-owned).
+- 06:5x analyse.md + explore.md: fixed charts/useSize re-bind (blank-pane trap).
+- 07:0x discovery.md: QUEUED: Button disabledReason warning inside DisabledReason; Table expandable child rows; Histogram draggable threshold + background null series. Glyph gaps = Analyse builder's 6b task (then kit/glyphs aliases resolve).
