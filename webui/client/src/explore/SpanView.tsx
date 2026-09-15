@@ -5,7 +5,9 @@
    detections (blue), the selected motif (orange) and artifacts (red). Real mV on the y axis. */
 import { useEffect, useRef, useState } from 'react'
 import type { Channel } from '../api'
-import { EnvelopePath, SpanBands, TimeGrid, type BandKind } from '../charts/primitives'
+import { EnvelopePath, TimeGrid, type BandKind } from '../charts/primitives'
+import { Icon, InfoTip, Popover } from '../kit'
+import { LegendRow } from './bits'
 import { makeX, makeY } from '../charts/scale'
 import { fmtDuration } from '../state'
 import { ErrorCard } from './ErrorCard'
@@ -20,13 +22,43 @@ const MAX_STRETCH = 8
  *  never overprints them; widens with the label's digit count, never below the critique's 64 px. */
 const labelGutter = (lo: number, hi: number) => Math.max(64, 12 + (mvDigits(lo, hi) + 7) * 6.2)
 
-export interface Band { start_s: number; end_s: number; kind: BandKind; id: string; title: string; motif: Motif }
+export interface Band { start_s: number; end_s: number; kind: BandKind; id: string; title: string; motif: Motif; colour?: string; capOnly?: boolean }
 
-export function SpanView({ ch, vp, plotRef, width, bands, selected, onBandClick, nav }: {
-  ch: Channel; vp: Viewport; plotRef: React.RefObject<HTMLDivElement | null>; width: number
-  bands: Band[]; selected: Motif | null; onBandClick: (m: Motif) => void
+const FILL: Record<string, string> = { detected: 'var(--band-detected)', annotated: 'var(--band-annotated)', selected: 'var(--band-selected)', artifact: 'var(--band-artifact)', grey: 'rgba(107,114,128,0.12)' }
+const CAP: Record<string, string> = { detected: 'var(--blue)', annotated: 'var(--green)', selected: 'var(--amber)', artifact: 'var(--red)', grey: 'var(--muted-2)' }
+/** Per-span full-height translucent fill + a cap above (spec 5.2). `colour` = colour by run; `capOnly` = the
+ *  detection already has a verdict (frame 2a legend). Keeps testid span-bands (smoke counts its rects). */
+function BandLayer({ bands, x, height, capY, capH, onClick }: { bands: Band[]; x: (t: number) => number; height: number; capY: number; capH: number; onClick: (b: Band) => void }) {
+  return (
+    <g className="span-bands" data-testid="span-bands">
+      {bands.map(b => {
+        const x0 = x(b.start_s), x1 = x(b.end_s)
+        const w = Math.max(2, x1 - x0)
+        const sel = b.kind === 'selected'
+        const cap = sel ? CAP.selected : b.colour ?? CAP[b.kind]
+        const fill = sel ? FILL.selected : b.capOnly ? 'transparent' : b.colour ? hexToFill(b.colour) : FILL[b.kind]
+        return (
+          <g key={b.id} onClick={e => { e.stopPropagation(); onClick(b) }} onPointerDown={e => e.stopPropagation()} style={{ cursor: 'pointer' }} data-kind={b.kind} data-cap-only={b.capOnly ? '1' : '0'}>
+            <rect x={x0} y={0} width={w} height={height} fill={fill} stroke={sel ? 'var(--amber)' : 'none'} strokeWidth={sel ? 1.2 : 0} data-kind={b.kind}><title>{b.title}</title></rect>
+            <rect x={x0} y={capY} width={w} height={capH} rx={2} fill={cap} opacity={b.kind === 'detected' && !b.colour ? 0.35 : 1} />
+          </g>
+        )
+      })}
+    </g>
+  )
+}
+function hexToFill(hex: string) {
+  const n = parseInt(hex.replace('#', ''), 16)
+  return Number.isNaN(n) ? 'var(--band-detected)' : `rgba(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255}, 0.16)`
+}
+
+export function SpanView({ ch, vp, plotRef, width, bands, selected, selectedLabel, onBandClick, nav, legendOpen, setLegendOpen, demo }: {
+  ch: Channel; vp: Viewport; plotRef: React.Ref<HTMLDivElement>; width: number
+  bands: Band[]; selected: Motif | null; selectedLabel: string | null; onBandClick: (m: Motif) => void
   nav: { index: number; total: number; capped: boolean; prev: () => void; next: () => void }
+  legendOpen: boolean; setLegendOpen: (o: boolean) => void; demo: boolean
 }) {
+  const legendRef = useRef<HTMLButtonElement>(null)
   const W = Math.max(0, width)
   const [a, b] = vp.view
   const x = makeX(a, b, W)
@@ -100,18 +132,18 @@ export function SpanView({ ch, vp, plotRef, width, bands, selected, onBandClick,
       <div className="head">
         <span className="card-title">Span</span>
         <span className="range" data-testid="span-range">{fmtRangeH(a, b)} · {fmtDuration(b - a)}</span>
-        {st && <span className="stat" data-testid="zoom-stat" data-dim={dim ? '1' : '0'} style={{ opacity: dim ? 0.4 : 1 }} title={dim ? 'previous viewport — refreshing' : undefined}>{fmtInt(st.n_points)} pts · server {fmtMs(st.decimate_ms)} · round trip {fmtMs(st.round_trip_ms)} · paint {fmtMs(st.paint_ms)}</span>}
         {vp.fetching && <span className="stat">fetching…</span>}
         <span className="grow" />
         <span className="ex-nav" data-testid="motif-nav">
-          <button onClick={nav.prev} title="previous motif" data-testid="motif-prev">‹</button>
+          <button onClick={nav.prev} title="previous motif ( [ )" aria-label="previous motif" data-testid="motif-prev"><Icon name="chevron-left" size={13} /></button>
           <span>{nav.index >= 0 ? nav.index + 1 : '–'} / {fmtInt(nav.total)}{nav.capped ? '+' : ''}</span>
-          <button onClick={nav.next} title="next motif" data-testid="motif-next">›</button>
+          <button onClick={nav.next} title="next motif ( ] )" aria-label="next motif" data-testid="motif-next"><Icon name="chevron-right" size={13} /></button>
         </span>
         <span className="ex-zoom">
-          <button title="zoom out" data-testid="zoom-out" onClick={() => zoomAt(1.5, (a + b) / 2)}><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="7" /><path d="M20 20l-3.5-3.5M8 11h6" /></svg></button>
-          <button title="zoom in" data-testid="zoom-in" onClick={() => zoomAt(1 / 1.5, (a + b) / 2)}><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="7" /><path d="M20 20l-3.5-3.5M8 11h6M11 8v6" /></svg></button>
-          <button title="fit whole channel" data-testid="zoom-fit" onClick={vp.fit}><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5" /></svg></button>
+          <button title="zoom out (−)" data-testid="zoom-out" onClick={() => zoomAt(1.5, (a + b) / 2)}><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="7" /><path d="M20 20l-3.5-3.5M8 11h6" /></svg></button>
+          <button title="zoom in (+)" data-testid="zoom-in" onClick={() => zoomAt(1 / 1.5, (a + b) / 2)}><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="7" /><path d="M20 20l-3.5-3.5M8 11h6M11 8v6" /></svg></button>
+          <button title="fit whole channel (F)" data-testid="zoom-fit" onClick={vp.fit}><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5" /></svg></button>
+          <button ref={legendRef} title="Reading the span (L)" aria-label="Reading the span" aria-expanded={legendOpen} onClick={() => setLegendOpen(!legendOpen)} data-testid="span-legend-button"><Icon name="info" size={14} /></button>
         </span>
       </div>
       {vp.error && <ErrorCard error={vp.error} title="viewport fetch failed" />}
@@ -123,11 +155,11 @@ export function SpanView({ ch, vp, plotRef, width, bands, selected, onBandClick,
             <rect x={0} y={0} width={W} height={H + AXIS_H} fill="#fff" />
             <g transform={`translate(0,${TOP})`}><TimeGrid x={x} t0={a} t1={b} height={H - TOP} /></g>
             <g transform={`translate(0,${TOP})`}>
-              <SpanBands spans={bands} x={x} height={H - TOP} capY={-13} capH={6} onClick={s => onBandClick((s as Band).motif)} minPx={2} />
+              <BandLayer bands={bands} x={x} height={H - TOP} capY={-13} capH={6} onClick={bd => onBandClick(bd.motif)} />
             </g>
             {selected && selected.end_s > a && selected.start_s < b && (
               // starts at the band, but never inside the y-label gutter (critique r1: MOTIF_744 overprinted "−0.23 mV")
-              <text x={Math.max(labelGutter(range[0], range[1]), x(selected.start_s) + 4)} y={TOP + 12} style={{ fill: 'var(--amber)', fontWeight: 600 }} pointerEvents="none" data-testid="motif-label">MOTIF_{selected.id}</text>
+              <text x={Math.max(labelGutter(range[0], range[1]), x(selected.start_s) + 4)} y={TOP + 12} style={{ fill: 'var(--amber)', fontWeight: 600 }} pointerEvents="none" data-testid="motif-label">{selectedLabel ?? `MOTIF_${selected.id}`}</text>
             )}
             {win && envOk && !stale ? (
               <g transform={transform} data-testid="envelope-group" data-transformed={transform ? '1' : '0'}>
@@ -143,9 +175,22 @@ export function SpanView({ ch, vp, plotRef, width, bands, selected, onBandClick,
         )}
       </div>
       <div className="row between" style={{ marginTop: 6 }}>
-        <span className="legend"><span><i style={{ background: 'var(--blue)' }} />detected</span><span><i style={{ background: 'var(--green)' }} />annotated</span><span><i style={{ background: 'var(--amber)' }} />selected</span><span><i style={{ background: 'var(--red)' }} />artifact</span></span>
-        <span className="muted small">drag to pan · wheel to zoom · or click the plot and use ← → and + − · peak-preserving min/max envelope re-fetched for every viewport · real mV, never normalised · click a band to select that motif</span>
+        <span className="legend"><span><i style={{ background: 'var(--blue)' }} />detected</span><span><i style={{ background: 'var(--green)' }} />annotated</span><span><i style={{ background: 'var(--amber)' }} />selected</span><span><i style={{ background: 'var(--red)' }} />artifact</span>{demo && <span className="ex-demo" title="detections, runs and adjudications on this channel are demo canon">demo</span>}</span>
+        <InfoTip title="Span viewport" testid="span-info">
+          Drag to pan, wheel to zoom, or click the plot and use ← → and + −. The peak-preserving min/max envelope is re-fetched for every viewport; real mV, never normalised. Click a band to open that motif.
+          {st && <span className="mono" style={{ display: 'block', marginTop: 6, fontSize: 11 }} data-testid="zoom-stat" data-dim={dim ? '1' : '0'}>{fmtInt(st.n_points)} pts · server {fmtMs(st.decimate_ms)} · round trip {fmtMs(st.round_trip_ms)} · paint {fmtMs(st.paint_ms)}</span>}
+        </InfoTip>
       </div>
+      <Popover open={legendOpen} onClose={() => setLegendOpen(false)} anchorRef={legendRef} placement="bottom-end" width={330} title="Reading the span" testid="span-legend">
+        <div className="ex-legend-pop">
+          <LegendRow swatch={<i className="cap" style={{ background: 'var(--blue)' }} />}>detected — a machine detection from a checked run; colour follows the run when ‘colour by run’ is on</LegendRow>
+          <LegendRow swatch={<i className="cap" style={{ background: 'var(--green)' }} />}>annotated — a human span from the annotation store</LegendRow>
+          <LegendRow swatch={<i className="cap" style={{ background: 'var(--amber)' }} />}>selected — the motif opened in the tier below</LegendRow>
+          <LegendRow swatch={<i className="cap" style={{ background: 'var(--red)' }} />}>artifact — a human span marked artifact</LegendRow>
+          <LegendRow swatch={<i className="cap" style={{ background: '#4b5563' }} />}>cap only, no fill — detection already has a verdict in Review</LegendRow>
+          <div className="foot" style={{ fontStyle: 'normal' }}>Coverage ribbon: green reviewed · amber partly reviewed · red artifact-dense · grey never reviewed. Live, this database colours it by the verdict per bucket.</div>
+        </div>
+      </Popover>
     </div>
   )
 }

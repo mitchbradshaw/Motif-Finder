@@ -6,6 +6,7 @@ import { getWindow, type ApiError, type Channel, type WindowData } from '../api'
 import { EnvelopePath } from '../charts/primitives'
 import { clamp, makeX, makeY } from '../charts/scale'
 import { useSize } from '../charts/useSize'
+import { InfoTip } from '../kit'
 import { ErrorCard } from './ErrorCard'
 import { asApiError, envelopeOk, fmtRangeH, hourTicks, MALFORMED_WINDOW, MIN_SPAN_S, VERDICT_COLOUR, vRange } from './util'
 
@@ -16,7 +17,7 @@ const COV_COLOUR = (v: string | null) => (v === null ? '#e5e7eb' : VERDICT_COLOU
 
 type Drag = { mode: 'left' | 'right' | 'body'; x0: number; view: [number, number] }
 
-export function Overview({ ch, view, onView }: { ch: Channel; view: [number, number]; onView: (v: [number, number]) => void }) {
+export function Overview({ ch, view, onView, demoDensity }: { ch: Channel; view: [number, number]; onView: (v: [number, number]) => void; demoDensity?: number[] }) {
   const [ref, size] = useSize<HTMLDivElement>()
   const W = Math.max(0, size.width)
   const widthKey = Math.round(W / 100)
@@ -94,7 +95,7 @@ export function Overview({ ch, view, onView }: { ch: Channel; view: [number, num
   if (lhx < 0) { lhx = 0; if (narrow) rhx = Math.max(rhx, lhx + HW + 2) }
   if (rhx > W - HW) { rhx = W - HW; if (narrow) lhx = Math.min(lhx, rhx - HW - 2) }
   const hy = TRACE_H / 2 - HH / 2
-  const rb = ch.ribbons
+  const rb = demoDensity ? { ...ch.ribbons, buckets: demoDensity.length, detection_density: demoDensity } : ch.ribbons
   const bw = W / Math.max(1, rb.buckets)
   const denMax = rb.detection_density.reduce((m, v) => (v > m ? v : m), 0)
   // merge equal-colour runs of the coverage ribbon into rounded segments (frame: green/orange/red bars)
@@ -112,7 +113,10 @@ export function Overview({ ch, view, onView }: { ch: Channel; view: [number, num
         <span className="card-title">Channel</span>
         <span className="range">0 – {Number.isInteger(dur / 3600) ? dur / 3600 : (dur / 3600).toFixed(dur / 3600 >= 10 ? 0 : 2)} h</span>
         <span className="grow" />
-        {full && <span className="stat">{full.envelope.n_points.toLocaleString('en-US')} pts · full channel · server {full.decimate_ms.toFixed(1)} ms</span>}
+        <InfoTip title="Channel overview" placement="bottom-end" testid="overview-info">
+          Drag the blue box or its grips to choose the span below (or Tab to a grip and press ← → · Shift ×10). Ribbons: review coverage per bucket (this database: the verdict per bucket), then detection density.
+          {full && <span className="mono" style={{ display: 'block', marginTop: 6, fontSize: 11 }} data-testid="overview-stat">{full.envelope.n_points.toLocaleString('en-US')} min/max points · full channel · server {full.decimate_ms.toFixed(1)} ms</span>}
+        </InfoTip>
       </div>
       {err && <ErrorCard error={err} title="full-channel envelope failed" />}
       <div className={`ex-plot${dragging ? ' dragging' : ''}`} ref={ref} style={{ height: H }}>
@@ -137,7 +141,7 @@ export function Overview({ ch, view, onView }: { ch: Channel; view: [number, num
               {covSegs.map(s => <rect key={s.i0} x={s.i0 * bw + 0.5} y={COV_Y} width={Math.max(0.5, (s.i1 - s.i0) * bw - 1)} height={COV_H} rx={2} fill={s.c}><title>{rb.coverage[s.i0] ?? 'no annotation'}</title></rect>)}
             </g>
             {/* detection density ribbon */}
-            <g data-testid="density-ribbon" data-max={denMax}>
+            <g data-testid="density-ribbon" data-max={denMax} data-demo={demoDensity ? '1' : '0'}>
               {denMax > 0 ? rb.detection_density.map((d, i) => {
                 const h = (d / denMax) * DEN_H
                 return d > 0 ? <rect key={i} x={i * bw + 0.5} y={DEN_Y + DEN_H - h} width={Math.max(0.5, bw - 1)} height={h} rx={1} fill="var(--blue)" /> : null
@@ -156,9 +160,6 @@ export function Overview({ ch, view, onView }: { ch: Channel; view: [number, num
           </svg>
         )}
       </div>
-      <p className="muted small" style={{ margin: '4px 0 0' }}>
-        the whole channel at {full ? `${full.envelope.n_points.toLocaleString('en-US')} min/max points` : '…'} · drag the blue box or its grips to choose the span shown below (or Tab to a grip and press ← → · Shift ×10) · ribbons: human verdicts per bucket, then machine detection density
-      </p>
     </div>
   )
 }

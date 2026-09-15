@@ -1,14 +1,387 @@
 [
- {"page": "explore.corpus", "state": "default", "hash": "explore/corpus?rec=M2_aug_concat_fs1.mat", "settle_ms": 1500, "actions": [], "expect": ["[data-testid=\"corpus-heatmap\"]", "[data-testid=\"corpus-rail\"]", "[data-testid=\"corpus-bottom-bar\"]"]},
- {"page": "explore.corpus", "state": "recordings-menu", "hash": "explore/corpus", "settle_ms": 1200, "actions": [{"click": "[data-testid=\"recording-select\"]"}], "expect": ["[data-testid=\"recordings-menu\"]", "[data-testid=\"recordings-filter\"]"]},
- {"page": "explore.corpus", "state": "recordings-menu-deeplink", "hash": "explore/corpus?popover=recordings", "settle_ms": 1200, "actions": [{"fill": ["[data-testid=\"recordings-filter\"]", "zzz"]}], "expect": ["[data-testid=\"recordings-empty\"]"]},
- {"page": "explore.corpus", "state": "map-legend", "hash": "explore/corpus?popover=legend", "settle_ms": 1200, "actions": [], "expect": ["[data-testid=\"map-legend\"]"]},
- {"page": "explore.corpus", "state": "disagree-reviewed", "hash": "explore/corpus", "settle_ms": 1200, "actions": [{"click": "[data-testid=\"colour-by-disagree\"]"}, {"click": "[data-testid=\"show-reviewed\"]"}, {"wait": 500}], "expect": ["[data-testid=\"corpus-heatmap\"][data-matrix=\"disagree\"]", "[data-testid=\"heatmap-hatch\"]"]},
- {"page": "explore.corpus", "state": "runs-picker", "hash": "explore/corpus?colour=both", "settle_ms": 1200, "actions": [{"click": "[data-testid=\"det-runs\"]"}], "expect": ["[data-testid=\"det-runs-popover\"]"]},
- {"page": "explore.corpus", "state": "nothing-shown", "hash": "explore/corpus?state=nothing-shown", "settle_ms": 1500, "actions": [], "expect": ["[data-testid=\"nothing-shown\"]"]},
- {"page": "explore.corpus", "state": "zero-match", "hash": "explore/corpus?state=zero-match", "settle_ms": 1500, "actions": [], "expect": ["[data-testid=\"zero-match\"]"]},
- {"page": "explore.corpus", "state": "no-selection", "hash": "explore/corpus?state=no-selection", "settle_ms": 1500, "actions": [], "expect": ["[data-testid=\"open-channel\"][disabled]"]},
- {"page": "explore.corpus", "state": "loading", "hash": "explore/corpus?state=loading", "settle_ms": 800, "actions": [], "expect": ["[data-testid=\"coverage-skeleton\"]"]},
- {"page": "explore.corpus", "state": "error", "hash": "explore/corpus?state=error", "settle_ms": 1200, "actions": [], "expect": ["[data-testid=\"error-card\"]"]},
- {"page": "explore.corpus", "state": "held-out", "hash": "explore/corpus?rec=M4_aug_concat_fs1.mat", "settle_ms": 1200, "actions": [], "expect": ["[data-testid=\"locked-card\"]"]}
+ {
+  "page": "explore.corpus",
+  "state": "default",
+  "hash": "explore/corpus?rec=M2_aug_concat_fs1.mat",
+  "settle_ms": 1500,
+  "actions": [],
+  "expect": [
+   "[data-testid=\"corpus-heatmap\"]",
+   "[data-testid=\"corpus-rail\"]",
+   "[data-testid=\"corpus-bottom-bar\"]"
+  ]
+ },
+ {
+  "page": "explore.corpus",
+  "state": "recordings-menu",
+  "hash": "explore/corpus",
+  "settle_ms": 1200,
+  "actions": [
+   {
+    "click": "[data-testid=\"recording-select\"]"
+   }
+  ],
+  "expect": [
+   "[data-testid=\"recordings-menu\"]",
+   "[data-testid=\"recordings-filter\"]"
+  ]
+ },
+ {
+  "page": "explore.corpus",
+  "state": "recordings-menu-deeplink",
+  "hash": "explore/corpus?popover=recordings",
+  "settle_ms": 1200,
+  "actions": [
+   {
+    "fill": [
+     "[data-testid=\"recordings-filter\"]",
+     "zzz"
+    ]
+   }
+  ],
+  "expect": [
+   "[data-testid=\"recordings-empty\"]"
+  ]
+ },
+ {
+  "page": "explore.corpus",
+  "state": "map-legend",
+  "hash": "explore/corpus?popover=legend",
+  "settle_ms": 1200,
+  "actions": [],
+  "expect": [
+   "[data-testid=\"map-legend\"]"
+  ]
+ },
+ {
+  "page": "explore.corpus",
+  "state": "disagree-reviewed",
+  "hash": "explore/corpus",
+  "settle_ms": 1200,
+  "actions": [
+   {
+    "click": "[data-testid=\"colour-by-disagree\"]"
+   },
+   {
+    "click": "[data-testid=\"show-reviewed\"]"
+   },
+   {
+    "wait": 500
+   }
+  ],
+  "expect": [
+   "[data-testid=\"corpus-heatmap\"][data-matrix=\"disagree\"]",
+   "[data-testid=\"heatmap-hatch\"]"
+  ]
+ },
+ {
+  "page": "explore.corpus",
+  "state": "runs-picker",
+  "hash": "explore/corpus?colour=both",
+  "settle_ms": 1200,
+  "actions": [
+   {
+    "click": "[data-testid=\"det-runs\"]"
+   }
+  ],
+  "expect": [
+   "[data-testid=\"det-runs-popover\"]"
+  ]
+ },
+ {
+  "page": "explore.corpus",
+  "state": "nothing-shown",
+  "hash": "explore/corpus?state=nothing-shown",
+  "settle_ms": 1500,
+  "actions": [],
+  "expect": [
+   "[data-testid=\"nothing-shown\"]"
+  ]
+ },
+ {
+  "page": "explore.corpus",
+  "state": "zero-match",
+  "hash": "explore/corpus?state=zero-match",
+  "settle_ms": 1500,
+  "actions": [],
+  "expect": [
+   "[data-testid=\"zero-match\"]"
+  ]
+ },
+ {
+  "page": "explore.corpus",
+  "state": "no-selection",
+  "hash": "explore/corpus?state=no-selection",
+  "settle_ms": 1500,
+  "actions": [],
+  "expect": [
+   "[data-testid=\"open-channel\"][disabled]"
+  ]
+ },
+ {
+  "page": "explore.corpus",
+  "state": "loading",
+  "hash": "explore/corpus?state=loading",
+  "settle_ms": 800,
+  "actions": [],
+  "expect": [
+   "[data-testid=\"coverage-skeleton\"]"
+  ]
+ },
+ {
+  "page": "explore.corpus",
+  "state": "error",
+  "hash": "explore/corpus?state=error",
+  "settle_ms": 1200,
+  "actions": [],
+  "expect": [
+   "[data-testid=\"error-card\"]"
+  ]
+ },
+ {
+  "page": "explore.corpus",
+  "state": "held-out",
+  "hash": "explore/corpus?rec=M4_aug_concat_fs1.mat",
+  "settle_ms": 1200,
+  "actions": [],
+  "expect": [
+   "[data-testid=\"locked-card\"]"
+  ]
+ },
+ {
+  "page": "explore.signal",
+  "state": "default",
+  "hash": "explore/signal/4",
+  "settle_ms": 2500,
+  "actions": [],
+  "expect": [
+   "[data-testid=\"signal-overview\"]",
+   "[data-testid=\"signal-span\"]",
+   "[data-testid=\"no-motif\"]"
+  ]
+ },
+ {
+  "page": "explore.signal",
+  "state": "motif",
+  "hash": "explore/signal/4?motif=233",
+  "settle_ms": 2500,
+  "actions": [
+   {
+    "wait": 800
+   }
+  ],
+  "expect": [
+   "[data-testid=\"motif-svg\"]",
+   "[data-testid=\"motif-region\"]"
+  ]
+ },
+ {
+  "page": "explore.signal",
+  "state": "motif-next-review",
+  "hash": "explore/signal/4",
+  "settle_ms": 2000,
+  "actions": [
+   {
+    "click": "[data-testid=\"motif-next\"]"
+   },
+   {
+    "wait": 800
+   },
+   {
+    "click": "[data-testid=\"review-motif\"]"
+   }
+  ],
+  "expect": [
+   "[data-testid=\"signal-motif\"]",
+   "[data-testid=\"toasts\"]"
+  ]
+ },
+ {
+  "page": "explore.signal",
+  "state": "detections-picker",
+  "hash": "explore/signal/4?popover=detections",
+  "settle_ms": 2000,
+  "actions": [],
+  "expect": [
+   "[data-testid=\"detection-runs-popover\"]",
+   "[data-testid=\"picker-row-#128\"]"
+  ]
+ },
+ {
+  "page": "explore.signal",
+  "state": "detections-picker-by-method",
+  "hash": "explore/signal/4",
+  "settle_ms": 2000,
+  "actions": [
+   {
+    "click": "[data-testid=\"detection-runs-chip\"]"
+   },
+   {
+    "click": "[data-testid=\"picker-group\"] [data-value=\"method\"]"
+   }
+  ],
+  "expect": [
+   "[data-testid=\"picker-row-matrix profile\"]"
+  ]
+ },
+ {
+  "page": "explore.signal",
+  "state": "span-legend",
+  "hash": "explore/signal/4?popover=span-legend",
+  "settle_ms": 2000,
+  "actions": [],
+  "expect": [
+   "[data-testid=\"span-legend\"]"
+  ]
+ },
+ {
+  "page": "explore.signal",
+  "state": "tag-input",
+  "hash": "explore/signal/4",
+  "settle_ms": 2000,
+  "actions": [
+   {
+    "click": "[data-testid=\"add-tag\"]"
+   },
+   {
+    "fill": [
+     "[data-testid=\"tag-input\"]",
+     "Bad Tag"
+    ]
+   }
+  ],
+  "expect": [
+   "[data-testid=\"tag-error\"]"
+  ]
+ },
+ {
+  "page": "explore.signal",
+  "state": "drawer-annotations",
+  "hash": "explore/signal/4?drawer=annotations",
+  "settle_ms": 2500,
+  "actions": [],
+  "expect": [
+   "[data-testid=\"signal-drawer\"][data-tab=\"annotations\"]",
+   "[data-testid=\"filter-grid\"]",
+   "[data-testid=\"drawer-table\"]"
+  ]
+ },
+ {
+  "page": "explore.signal",
+  "state": "drawer-from-ribbon",
+  "hash": "explore/signal/4",
+  "settle_ms": 2000,
+  "actions": [
+   {
+    "click": "[data-testid=\"ribbon-filters\"]"
+   },
+   {
+    "wait": 400
+   }
+  ],
+  "expect": [
+   "[data-testid=\"signal-drawer\"]",
+   "[data-testid=\"motif-strip\"]"
+  ]
+ },
+ {
+  "page": "explore.signal",
+  "state": "drawer-bulk-tag",
+  "hash": "explore/signal/4?drawer=annotations",
+  "settle_ms": 2000,
+  "actions": [
+   {
+    "click": "[data-testid=\"add-tag-bulk\"]"
+   }
+  ],
+  "expect": [
+   "[data-testid=\"bulk-tag-popover\"]"
+  ]
+ },
+ {
+  "page": "explore.signal",
+  "state": "drawer-detections",
+  "hash": "explore/signal/4?drawer=detections",
+  "settle_ms": 2500,
+  "actions": [],
+  "expect": [
+   "[data-testid=\"signal-drawer\"][data-tab=\"detections\"]",
+   "[data-testid=\"analyse-events\"]"
+  ]
+ },
+ {
+  "page": "explore.signal",
+  "state": "drawer-filters-collapsed",
+  "hash": "explore/signal/4?drawer=detections&filters=closed",
+  "settle_ms": 2000,
+  "actions": [],
+  "expect": [
+   "[data-testid=\"filters-toggle\"][aria-expanded=\"false\"]"
+  ]
+ },
+ {
+  "page": "explore.signal",
+  "state": "drawer-shortcuts",
+  "hash": "explore/signal/4?drawer=shortcuts",
+  "settle_ms": 2000,
+  "actions": [],
+  "expect": [
+   "[data-testid=\"shortcuts-grid\"]"
+  ]
+ },
+ {
+  "page": "explore.signal",
+  "state": "keyboard-drawer",
+  "hash": "explore/signal/4",
+  "settle_ms": 2000,
+  "actions": [
+   {
+    "press": "2"
+   }
+  ],
+  "expect": [
+   "[data-testid=\"signal-drawer\"][data-tab=\"detections\"]"
+  ]
+ },
+ {
+  "page": "explore.signal",
+  "state": "live-channel",
+  "hash": "explore/signal/3",
+  "settle_ms": 2500,
+  "actions": [],
+  "expect": [
+   "[data-testid=\"signal-overview\"]",
+   "[data-testid=\"ribbons\"]"
+  ]
+ },
+ {
+  "page": "explore.signal",
+  "state": "loading",
+  "hash": "explore/signal/4?state=loading",
+  "settle_ms": 800,
+  "actions": [],
+  "expect": [
+   "[data-testid=\"signal-loading\"]"
+  ]
+ },
+ {
+  "page": "explore.signal",
+  "state": "error",
+  "hash": "explore/signal/4?state=error",
+  "settle_ms": 1000,
+  "actions": [],
+  "expect": [
+   "[data-testid=\"error-card\"]"
+  ]
+ },
+ {
+  "page": "explore.signal",
+  "state": "held-out",
+  "hash": "explore/signal/52",
+  "settle_ms": 1500,
+  "actions": [],
+  "expect": [
+   "[data-testid=\"locked-card\"]"
+  ]
+ }
 ]

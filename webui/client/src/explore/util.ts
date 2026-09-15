@@ -132,6 +132,8 @@ export function relativeTicks(t0: number, t1: number, onset: number, maxTicks = 
 export interface Motif {
   key: string; kind: 'annotated' | 'detected'; id: number; start_s: number; end_s: number
   verdict?: string; tag?: string | null; note?: string | null; source?: string; run_id?: number; score?: number | null
+  /** demo detections (fixture canon): run key ('#128'), adjudication and nearest family */
+  runKey?: string; demo?: boolean; adjudication?: string; family?: { id: string; d: number } | null
 }
 export function toMotifs(s: Spans): Motif[] {
   const out: Motif[] = []
