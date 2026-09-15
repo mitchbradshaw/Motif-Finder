@@ -1084,4 +1084,109 @@ arms)`, `Models · candidate cnn_windows_v3 · manual`, `Use as source in Analys
 
 ---
 
+## library.templates
+
+### Route & states
+- `template-selected` (frame 7): `#/library/templates` — first row (`mp_drops_v3`) selected by default; deep link
+  `?template=mp_drops_v3`. Reached by section Seg `Templates`.
+- `kind-<kind>` (derived): Seg `all · detection · seed search · training · interrogation` / `?kind=training`.
+- `model-stage` (derived): toggle chip `contains a Model stage` / `?model=1` (cnn_detect_cluster_v1, drop_cnn_v1, sharkfin_cnn_v2).
+- `page-2` (derived): footer `next ›` / `?page=2` (7 per page; 14 total).
+- `training-selected` (derived): `?template=cnn_windows_v3` — `Apply in Discovery` DisabledReason `a training
+  template produces a Model — launch it in Models`; extra `Launch in Models →`; scores table reads `macro F1`.
+- `unscored-selected` (derived): `?template=seed_family_medoid` — scores table EmptyState `not yet scored · 0 runs`.
+- `diff-modal` (derived): version row *diff* / `?modal=diff&from=v2`.
+- `export-json` (derived): *Export JSON* / `?modal=export` (CodeBlock with Copy; Save not wired).
+- `import-json` (derived): toolbar *Import JSON* / `?modal=import` (TextArea, validates JSON: `name`, `stages[]`).
+- `archive-confirm` (derived): *Archive* / `?modal=archive` → in-memory archive, count `Templates 13`, toast with Undo.
+- `filtered-empty` (derived): a kind + model filter with no rows → EmptyState `No templates match · Clear filters`.
+
+### Regions
+1. Header: page `Templates`, subtitle `14 saved`. Section toolbar: Seg `Templates` active; right outline
+   `New in Analyse` (chain icon), `⤓ Import JSON`. No grouping bar.
+2. **Filter card** y 100–147, x 78–1042: Seg `all · detection · seed search · training · interrogation`; outline
+   toggle chip (model icon) `contains a Model stage`; right muted `sort` + Select `last run`.
+3. **Template list** y 158–810: one card per template (≈ 85 px, gap 10), selected card blue 2 px border + light-blue fill:
+   - line 1: mono bold name + grey `v3` chip + badges (`seed · carry` / `seed · rebind` purple, `model cnn_cluster_v1`
+     blue, `training` grey, `interrogation` grey);
+   - line 2: muted mono signature `Signal → SpanSet`;
+   - line 3: stage glyph strip (source tile › glyph › glyph …, 42 × 26 tiles);
+   - right column (x 752): bold mono latest score `precision 0.78 · recall 0.61` + muted scope `over 14 h · run r-0412`
+     (or muted `not yet scored` / `not yet run`, `recall: no reviewed overlap`); far right muted `4 runs`.
+4. **Footer** (y 835): muted `1–7 of 14 · also sharkfin_v2, mp_discord_v3, spike_shape_v1, drop_cnn_v1, sharkfin_cnn_v2 …`; right blue `next ›`.
+5. **Detail rail** x 1058–1374, y 100–848:
+   - mono bold name + `v3` chip; right kind badge (`detection` blue).
+   - muted mono `recipe 9b24…e1f0 · null: circular shift 200×`.
+   - `stages · parameters locked`: rows glyph tile (36 × 26) + bold stage name + muted mono locked params.
+   - `versions`: rows chip `v3` (blue when current) + change + date; `diff` links on older versions.
+   - `scores belong to runs`: Table `run · scope · prec · recall · × null` (run ids blue links); caption
+     `recall “—”: no reviewed overlap on that scope`.
+   - Actions: primary `Apply in Discovery →`, outline `Open in Analyse →`; links `Duplicate`, `Export JSON`, `Archive`.
+
+### Controls & interactions
+| control | kind | behaviour |
+|---|---|---|
+| `New in Analyse` | Button | → `#/analyse/chain` |
+| `Import JSON` | Button | Modal `Import template JSON`; invalid JSON / missing `name` / empty `stages` block Import with the reason; a name already saved → `saves as <name> v<n+1>`; Import → in-memory append, toast |
+| kind Seg | Seg | filter in memory, page resets to 1; `?kind=` |
+| `contains a Model stage` | toggle Chip | filter; `?model=1` |
+| `sort` | Select | `last run`, `name`, `runs`, `version` |
+| template card | click / ↑↓ | select → rail; `?template=` replace |
+| `next ›` / `‹ prev` | link | page 2 of 2; `?page=` |
+| run id in scores | link | → `#/discovery/runs?run=r-0412` |
+| `diff` | link | Modal `mp_drops_v3 · v2 → v3`: parameter diff rows (`− threshold 0.60` red / `+ threshold 0.62` green) |
+| `Apply in Discovery →` | primary | → `#/discovery/runs?modal=add-template&template=<name>`; DisabledReason for training / interrogation kinds |
+| `Open in Analyse →` | Button | → `#/analyse/chain?template=<name>` (interrogation → `#/analyse/interrogation?template=…`) |
+| `Launch in Models →` (training only) | Button | → `#/models/launch?template=<name>` |
+| `Duplicate` | link | in-memory copy `<name>_copy` v1, selected, count +1, toast |
+| `Export JSON` | link | Modal with CodeBlock of the template JSON (Copy works; Save not wired) |
+| `Archive` | link (danger) | confirm Modal `Archive mp_drops_v3?` / `Runs keep their template version; it leaves this list.` → in-memory archive, toast `Archived · Undo` |
+
+### Plots
+- **Stage glyph strip** (kit `BlockGlyph` / `SourceGlyph`), no data.
+- **Scores table** — numbers only (§4.8 scope belongs to the run).
+
+### Fixtures
+```ts
+type TemplateKind = 'detection'|'seed search'|'training'|'interrogation'
+interface TemplateStage { glyph: string /* GLYPH_ALIASES key or 'source' */; name: string; params: string }
+interface TemplateVersion { v: number; change: string; date: string; diff?: { param: string; from: string; to: string }[] }
+interface TemplateScore { run: string; scope: string; prec: number|null; recall: number|null; xNull: number|null }
+interface Template { name: string; version: number; kind: TemplateKind; signature: string; badges: { label: string; tone: 'purple'|'blue'|'grey' }[]
+  stages: TemplateStage[]; recipe: string; nullModel: string; containsModel: boolean; latest: { text: string; scope: string } | null
+  runs: string /* '4 runs' | '1 job' | '3 uses' */; lastRun: string; versions: TemplateVersion[]; scores: TemplateScore[] }
+```
+Page 1 (frame 7, sort last run): `mp_drops_v3` v3 · `drop_motifs9` v2 · `seed_E-0102` v1 (seed · carry) · `seed_family_medoid` v1
+(seed · rebind) · `cnn_detect_cluster_v1` v1 (model cnn_cluster_v1) · `cnn_windows_v3` v3 (training) · `slope_interrogation` v1
+(interrogation). Page 2: `sharkfin_v2`, `mp_discord_v3`, `spike_shape_v1`, `drop_cnn_v1` (model cnn_windows_v2 · manual),
+`sharkfin_cnn_v2` (model cnn_windows_v2 · manual), `cnn_windowset_v1` (training), `banded_sax_lp` (run #97) — 14 (§0).
+mp_drops_v3 rail exactly as frame 7 (stages Source / Bandpass filter / Matrix profile / Threshold to spans; versions v3 · v2 · v1;
+scores r-0412 · r-0398 · r-0377 · r-0360).
+
+### Copy
+Subtitle `14 saved`. `New in Analyse`, `Import JSON`, `all`, `detection`, `seed search`, `training`, `interrogation`,
+`contains a Model stage`, `sort`, `last run`, `Signal → SpanSet`, `precision 0.78 · recall 0.61`, `over 14 h · run r-0412`,
+`4 runs`, `seed · carry`, `seed · rebind`, `recall: no reviewed overlap`, `not yet scored`, `not yet run`, `macro F1 0.71`,
+`test block · job j-0212`, `used on F-03`, `112 events`, `3 uses`, `1–7 of 14 · also …`, `next ›`, rail `recipe 9b24…e1f0 ·
+null: circular shift 200×`, `stages · parameters locked`, `versions`, `diff`, `scores belong to runs`, `run`, `scope`, `prec`,
+`recall`, `× null`, `recall “—”: no reviewed overlap on that scope`, `Apply in Discovery →`, `Open in Analyse →`, `Duplicate`,
+`Export JSON`, `Archive`.
+
+### Frame ⟷ spec conflicts
+1. **`mp_drops_v3` is not in the §0 template list** (§0 says "including", so it is allowed); the list keeps all §0 names.
+2. Spec §8.9 lists the filter "by kind and *contains a Model stage*" — frame matches.
+3. Spec §8.9 scores "recall `—` where there is no reviewed overlap" — frame matches (r-0377).
+4. Rail scope `fs1 · 3 ch · 721 h` abbreviates `M2_aug fs1`; `LLM` abbreviates `L_LM_Jul26_J`. Keep the frame abbreviations in
+   the table (space) with the full name in a title tooltip.
+
+### Fog
+1. What `× null` means exactly (ratio of observed hits to the null's p95? mean?) is not defined on this page (§4.8).
+2. The latest score on the card is "the latest run's score", but "latest" under the `sort: last run` vs the highest-scope run is
+   unstated; shell uses the most recent run.
+3. Archive semantics (hidden vs deleted; can an archived template be applied from an old run's page?) are unspecified.
+4. Whether a training template's scores are "runs" or "jobs" (card says `1 job`) — the rail table header says `run`; shell
+   relabels the first column `job` for training templates.
+
+---
+
 <!-- NEXT -->

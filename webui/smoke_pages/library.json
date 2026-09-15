@@ -1,65 +1,24 @@
 [
- {
-  "page": "library.recurrence",
-  "state": "default",
-  "hash": "library/recurrence",
-  "actions": [],
-  "expect": [
-   "[data-testid=\"header\"]"
-  ]
- },
- {
-  "page": "library.atlas",
-  "state": "default",
-  "hash": "library/atlas",
-  "actions": [],
-  "expect": [
-   "[data-testid=\"header\"]"
-  ]
- },
- {
-  "page": "library.family",
-  "state": "default",
-  "hash": "library/family/F-03",
-  "actions": [],
-  "expect": [
-   "[data-testid=\"header\"]"
-  ]
- },
- {
-  "page": "library.grouping",
-  "state": "default",
-  "hash": "library/grouping",
-  "actions": [],
-  "expect": [
-   "[data-testid=\"header\"]"
-  ]
- },
- {
-  "page": "library.import",
-  "state": "default",
-  "hash": "library/import",
-  "actions": [],
-  "expect": [
-   "[data-testid=\"header\"]"
-  ]
- },
- {
-  "page": "library.window-sets",
-  "state": "default",
-  "hash": "library/window-sets",
-  "actions": [],
-  "expect": [
-   "[data-testid=\"header\"]"
-  ]
- },
- {
-  "page": "library.templates",
-  "state": "default",
-  "hash": "library/templates",
-  "actions": [],
-  "expect": [
-   "[data-testid=\"header\"]"
-  ]
- }
+ {"page": "library.atlas", "state": "motifs", "hash": "library/atlas", "actions": [], "expect": ["[data-testid=\"atlas-grid\"]", "[data-testid=\"family-card-F-03\"]", "[data-testid=\"rail-amplitude-histogram\"]"]},
+ {"page": "library.atlas", "state": "sequences", "hash": "library/atlas?unit=sequences", "actions": [], "expect": ["[data-testid=\"sequences-banner\"]", "[data-testid=\"family-card-S-02\"]", "[data-testid=\"composition-strip\"]"]},
+ {"page": "library.atlas", "state": "family-selected", "hash": "library/atlas", "actions": [{"click": "[data-testid=\"family-card-F-07\"]"}], "expect": ["[data-testid=\"atlas-rail\"][aria-label=\"F-07 slow drift\"]"]},
+ {"page": "library.atlas", "state": "groupings-popover", "hash": "library/atlas", "actions": [{"click": "[data-testid=\"basis-chip\"]"}], "expect": ["[data-testid=\"groupings-popover\"]", "[data-testid=\"grouping-option-g-08\"]"]},
+ {"page": "library.atlas", "state": "omitted-drawer", "hash": "library/atlas?drawer=omitted", "actions": [], "expect": ["[data-testid=\"omitted-drawer\"]", "[data-testid=\"omitted-grid\"]"]},
+ {"page": "library.atlas", "state": "no-scope", "hash": "library/atlas?scope=all", "actions": [], "expect": ["[data-testid=\"scope-all\"]", "[data-testid=\"atlas-grid\"]"]},
+ {"page": "library.atlas", "state": "empty", "hash": "library/atlas?library=empty", "actions": [], "expect": ["[data-testid=\"library-empty\"]"]},
+ {"page": "library.family", "state": "member-selected", "hash": "library/family/F-03", "actions": [], "expect": ["[data-testid=\"member-grid\"]", "[data-testid=\"member-rail\"]", "[data-testid=\"batch-count\"]"]},
+ {"page": "library.family", "state": "revisions-popover", "hash": "library/family/F-03?popover=revisions", "actions": [], "expect": ["[data-testid=\"revisions-popover\"]"]},
+ {"page": "library.family", "state": "hand-only", "hash": "library/family/F-03?hand=1", "actions": [], "expect": ["[data-testid=\"member-card-m-1850\"]"]},
+ {"page": "library.family", "state": "sort-time-page-2", "hash": "library/family/F-03?sort=time&page=2", "actions": [], "expect": ["[data-testid=\"member-grid\"]", "[data-testid=\"member-pager\"]"]},
+ {"page": "library.family", "state": "tag-popover-invalid", "hash": "library/family/F-03", "actions": [{"click": "[data-testid=\"batch-tag\"]"}, {"fill": ["[data-testid=\"tag-input\"]", "Bad Tag"]}], "expect": ["[data-testid=\"batch-tag-popover\"]", "[data-testid=\"tag-error\"]"]},
+ {"page": "library.family", "state": "class-popover", "hash": "library/family/F-03?popover=class", "actions": [], "expect": ["[data-testid=\"batch-class-popover\"]"]},
+ {"page": "library.family", "state": "confirm-make-exemplar", "hash": "library/family/F-03?member=m-1844&modal=make-exemplar", "actions": [], "expect": ["[data-testid=\"make-exemplar-modal\"]"]},
+ {"page": "library.family", "state": "confirm-remove", "hash": "library/family/F-03?modal=remove", "actions": [], "expect": ["[data-testid=\"remove-modal\"]"]},
+ {"page": "library.family", "state": "sequence-family", "hash": "library/family/S-02", "actions": [], "expect": ["[data-testid=\"sequence-family-placeholder\"]"]},
+ {"page": "library.family", "state": "unknown-family", "hash": "library/family/F-99", "actions": [], "expect": ["[data-testid=\"family-missing\"]"]},
+ {"page": "library.recurrence", "state": "default", "hash": "library/recurrence", "actions": [], "expect": ["[data-testid=\"header\"]"]},
+ {"page": "library.grouping", "state": "default", "hash": "library/grouping", "actions": [], "expect": ["[data-testid=\"header\"]"]},
+ {"page": "library.import", "state": "default", "hash": "library/import", "actions": [], "expect": ["[data-testid=\"header\"]"]},
+ {"page": "library.window-sets", "state": "default", "hash": "library/window-sets", "actions": [], "expect": ["[data-testid=\"header\"]"]},
+ {"page": "library.templates", "state": "default", "hash": "library/templates", "actions": [], "expect": ["[data-testid=\"header\"]"]}
 ]
