@@ -11,7 +11,7 @@ import { useSourced } from '../../api/seam'
 import { Button, Chip, CodeBlock, Dropdown, Icon, InfoTip, useNotWired, useQueryState, setDemo } from '../../kit'
 import { ChainRow } from '../ChainRow'
 import { renderByType } from '../Renderer'
-import { applyState, deriveRows, fromScenario, pad2, useDemoChain, type DemoChainState, type RowView } from './chainState'
+import { applyState, clearDrafts, deriveRows, fromScenario, pad2, useDemoChain, type DemoChainState, type RowView } from './chainState'
 import { validateDemoChain } from '../../api/analyse'
 import { DemoAxis, DemoNameChip, DemoSourceChip, EstimateText, FooterCard, NullControl, RunLogModal, SaveTemplateModal, writeHpcJob } from './parts'
 import { DemoInsertModal } from './DemoInsertModal'
@@ -44,6 +44,7 @@ export function DemoChainPage({ template }: { template: string }) {
   useEffect(() => {
     if (!bundle || !stateParam) return
     const r = applyState(bundle.scenario, stateParam)
+    clearDrafts(template)
     actions.replaceAll(r.state)
     if (r.forceRunning) actions.forceRunning(r.forceRunning.from)
     if (r.deleted) { undoRef.current = { step: r.deleted.step, index: r.deleted.index, status: 'stale' }; pushUndoToast(r.deleted.index, r.deleted.step) }

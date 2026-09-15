@@ -43,7 +43,11 @@ export function fromScenario(sc: DemoScenario): DemoChainState {
   }
 }
 
-export type DeepState = 'default' | 'empty' | 'running' | 'invalid' | 'failed' | 'hpc' | 'paused' | 'stale' | 'fresh'
+/** Forget every block-page draft of a template (a deep-link state starts from the fixture). */
+export const draftsKey = (template: string) => `analyse.demo.drafts.${template}`
+export function clearDrafts(template: string) { setDemo<Record<string, Record<string, unknown>>>(draftsKey(template), {}) }
+
+export type DeepState ='default' | 'empty' | 'running' | 'invalid' | 'failed' | 'hpc' | 'paused' | 'stale' | 'fresh'
 
 /** Build the frame's state from the scenario fixture. Returns the state and, for `running`, the sim to force. */
 export function applyState(sc: DemoScenario, name: string): { state: DemoChainState; forceRunning?: { from: number }; deleted?: { step: DemoStep; index: number } } {

@@ -12,6 +12,8 @@ import { isDemoTemplate } from '../api/analyse'
 import { BlockPage } from './BlockPage'
 import { ChainPage } from './ChainPage'
 import { DemoChainPage } from './demo/DemoChainPage'
+import { DemoBlockPage } from './demo/DemoBlockPage'
+import './demo/blocks.css'
 
 const InterrogationPage = lazy(() => import('../interrogation').then(m => ({ default: m.InterrogationPage })))
 const TrainingPage = lazy(() => import('../training').then(m => ({ default: m.TrainingPage })))
@@ -25,7 +27,9 @@ export function AnalysePage() {
   const demoTemplate = isDemoTemplate(q.template) ? q.template : q.state === 'empty' ? 'untitled' : q.state ? 'drop_motifs9' : null
   if (route.page === 'block') {
     const idx = Number(route.params.id)
-    return <BlockPage index={Number.isFinite(idx) ? idx : 0} />
+    const index = Number.isFinite(idx) ? idx : 0
+    if (demoTemplate) return <DemoBlockPage key={`${demoTemplate}-${index}`} template={demoTemplate} index={index} />
+    return <BlockPage index={index} />
   }
   if (demoTemplate) return <DemoChainPage key={demoTemplate} template={demoTemplate} />
   return <ChainPage />

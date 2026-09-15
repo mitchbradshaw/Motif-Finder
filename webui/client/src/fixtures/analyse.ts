@@ -126,8 +126,8 @@ export const SEGMENT_SLOPES: number[] = (() => {
   const out: number[] = []
   for (let k = 0; k < 250; k++) {
     const s = (k + 0.5) * SEG_S
-    let v = (rnd() - 0.5) * 4.2 * SIGMA + (rnd() < 0.12 ? (rnd() - 0.5) * 9 * SIGMA : 0)
-    for (const d of KEPT_DROPS) { const u = (s - d.at) / d.dur; if (u > 0 && u < 0.5) v -= (0.09 + d.depth * 0.08) * (1 - Math.abs(u - 0.25) * 2.2); if (u >= 0.5 && u < 1.05) v += (0.05 + d.depth * 0.06) * (1 - Math.abs(u - 0.78) * 2.5) }
+    let v = (rnd() + rnd() + rnd() - 1.5) * 2.2 * SIGMA + (rnd() < 0.1 ? (rnd() - 0.5) * 9 * SIGMA : 0)
+    for (const d of KEPT_DROPS) { const u = (s - d.at) / d.dur; if (u > 0 && u < 0.5) v -= (0.09 + d.depth * 0.08) * (1 - Math.abs(u - 0.25) * 2.2); if (u >= 0.5 && u < 1.05) v += (0.075 + d.depth * 0.08) * (1 - Math.abs(u - 0.78) * 2.5) }
     out.push(+v.toFixed(5))
   }
   return out
