@@ -1,20 +1,14 @@
 [
- {
-  "page": "explore.cross-channel",
-  "state": "default",
-  "hash": "explore/cross-channel/4",
-  "actions": [],
-  "expect": [
-   "[data-testid=\"header\"]"
-  ]
- },
- {
-  "page": "explore.span-edit",
-  "state": "default",
-  "hash": "explore/span-edit/m-1846",
-  "actions": [],
-  "expect": [
-   "[data-testid=\"header\"]"
-  ]
- }
+ {"page": "explore.corpus", "state": "default", "hash": "explore/corpus?rec=M2_aug_concat_fs1.mat", "settle_ms": 1500, "actions": [], "expect": ["[data-testid=\"corpus-heatmap\"]", "[data-testid=\"corpus-rail\"]", "[data-testid=\"corpus-bottom-bar\"]"]},
+ {"page": "explore.corpus", "state": "recordings-menu", "hash": "explore/corpus", "settle_ms": 1200, "actions": [{"click": "[data-testid=\"recording-select\"]"}], "expect": ["[data-testid=\"recordings-menu\"]", "[data-testid=\"recordings-filter\"]"]},
+ {"page": "explore.corpus", "state": "recordings-menu-deeplink", "hash": "explore/corpus?popover=recordings", "settle_ms": 1200, "actions": [{"fill": ["[data-testid=\"recordings-filter\"]", "zzz"]}], "expect": ["[data-testid=\"recordings-empty\"]"]},
+ {"page": "explore.corpus", "state": "map-legend", "hash": "explore/corpus?popover=legend", "settle_ms": 1200, "actions": [], "expect": ["[data-testid=\"map-legend\"]"]},
+ {"page": "explore.corpus", "state": "disagree-reviewed", "hash": "explore/corpus", "settle_ms": 1200, "actions": [{"click": "[data-testid=\"colour-by-disagree\"]"}, {"click": "[data-testid=\"show-reviewed\"]"}, {"wait": 500}], "expect": ["[data-testid=\"corpus-heatmap\"][data-matrix=\"disagree\"]", "[data-testid=\"heatmap-hatch\"]"]},
+ {"page": "explore.corpus", "state": "runs-picker", "hash": "explore/corpus?colour=both", "settle_ms": 1200, "actions": [{"click": "[data-testid=\"det-runs\"]"}], "expect": ["[data-testid=\"det-runs-popover\"]"]},
+ {"page": "explore.corpus", "state": "nothing-shown", "hash": "explore/corpus?state=nothing-shown", "settle_ms": 1500, "actions": [], "expect": ["[data-testid=\"nothing-shown\"]"]},
+ {"page": "explore.corpus", "state": "zero-match", "hash": "explore/corpus?state=zero-match", "settle_ms": 1500, "actions": [], "expect": ["[data-testid=\"zero-match\"]"]},
+ {"page": "explore.corpus", "state": "no-selection", "hash": "explore/corpus?state=no-selection", "settle_ms": 1500, "actions": [], "expect": ["[data-testid=\"open-channel\"][disabled]"]},
+ {"page": "explore.corpus", "state": "loading", "hash": "explore/corpus?state=loading", "settle_ms": 800, "actions": [], "expect": ["[data-testid=\"coverage-skeleton\"]"]},
+ {"page": "explore.corpus", "state": "error", "hash": "explore/corpus?state=error", "settle_ms": 1200, "actions": [], "expect": ["[data-testid=\"error-card\"]"]},
+ {"page": "explore.corpus", "state": "held-out", "hash": "explore/corpus?rec=M4_aug_concat_fs1.mat", "settle_ms": 1200, "actions": [], "expect": ["[data-testid=\"locked-card\"]"]}
 ]

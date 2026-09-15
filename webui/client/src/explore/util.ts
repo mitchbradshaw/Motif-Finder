@@ -18,6 +18,8 @@ export const TAGS = ['sharkfin', 'spike-train', 'slow-drift', 'burst', 'plateau'
 
 /** 5-step blue ramp for the coverage map; index 0 is "no spans" (frame explore-1: low → high). */
 export const RAMP = ['#F1F3F5', '#D4E4FF', '#AACDFF', '#7AB2FF', '#3F93FF', '#0A84FF']
+/** Same steps in amber for `disagree` (frame 1b legend; §3 amber = differs). */
+export const AMBER_RAMP = ['#F1F3F5', '#FDEBD0', '#FAD39E', '#F5B866', '#EFA036', '#E8900C']
 
 /** Decimals needed so mV labels spanning [lo, hi] read as different numbers (min 2, max 6). */
 export function mvDigits(lo: number, hi: number): number {

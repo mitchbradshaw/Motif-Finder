@@ -1,28 +1,38 @@
-/* Explore › Corpus (frame explore-1-corpus): recording toolbar, the channels × time coverage map,
-   the filter rail and the selected-channel bottom bar. All numbers come from /api/recordings and
-   /api/corpus/{file}/coverage; the held-out recording renders a locked card and is never fetched. */
-import { useEffect, useMemo, useState } from 'react'
+/* Explore › Corpus (frames explore-1-corpus, explore-1b-corpus-menus): recording toolbar, the channels ×
+   time coverage map, the filter rail and the selected-channel bottom bar. Live: /api/recordings and
+   /api/corpus/{file}/coverage (map, verdict filter, counts). Demo (api/explore.getCorpusDemo, marked
+   `demo`): tags, reviewed coverage, the run and method lists. The held-out recording renders a locked
+   card and is never fetched.
+   Deep links: ?rec=<file> · ?ch=<id> · ?colour=<annotations|detections|both|disagree> · ?popover=recordings|legend
+   · ?state=no-selection|nothing-shown|zero-match|loading|error */
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { ApiError, getCoverage, getRecordings, type Coverage, type RecordingFile } from '../api'
+import { useSourced } from '../api/seam'
+import { getCorpusDemo } from '../api/explore'
+import { Button, Dropdown, EmptyState, Icon, IconButton, Popover, useQueryState } from '../kit'
 import { ErrorBoundary } from '../shell/ErrorBoundary'
 import { Header } from '../shell/Header'
-import { navigate, useApp } from '../state'
+import { navigate, setQuery, useApp } from '../state'
+import { DemoTag, LegendRow } from './bits'
 import { ErrorCard } from './ErrorCard'
 import { DISAGREE_DEF, Heatmap } from './Heatmap'
 import { LockedCard } from './LockedCard'
-import { RightRail, type ShowState } from './RightRail'
-import { asApiError, COLOUR_BY, fmtInt, MATRIX_UNIT, RAMP, VERDICTS, type ColourBy } from './util'
+import { RecordingMenu } from './RecordingMenu'
+import { RightRail, type DemoFilters, type ShowState } from './RightRail'
+import { TimeRange } from './TimeRange'
+import { AMBER_RAMP, asApiError, COLOUR_BY, fmtInt, MATRIX_UNIT, RAMP, VERDICTS, type ColourBy } from './util'
 
-const BIN_CHOICES = [28, 57, 114]
-
-function DbIcon() {
-  return <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--blue)" strokeWidth="2"><ellipse cx="12" cy="6" rx="8" ry="3" /><path d="M4 6v12c0 1.7 3.6 3 8 3s8-1.3 8-3V6M4 12c0 1.7 3.6 3 8 3s8-1.3 8-3" /></svg>
-}
-function LockIcon() {
-  return <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><rect x="5" y="11" width="14" height="10" rx="2" /><path d="M8 11V7a4 4 0 0 1 8 0v4" /></svg>
-}
+const BIN_CHOICES = [57, 28, 114]
+type ForcedState = '' | 'no-selection' | 'nothing-shown' | 'zero-match' | 'loading' | 'error'
 
 export function CorpusPage() {
   const { explore, setExplore } = useApp()
+  const [popover, setPopover] = useQueryState<string>('popover', '')
+  const [forced, setForced] = useQueryState<ForcedState>('state', '')
+  const [recQ] = useQueryState<string>('rec', '')
+  const [chQ] = useQueryState<string>('ch', '')
+  const [colourQ] = useQueryState<string>('colour', '')
+
   const [recs, setRecs] = useState<RecordingFile[] | null>(null)
   const [recErr, setRecErr] = useState<ApiError | null>(null)
   useEffect(() => {
@@ -30,22 +40,44 @@ export function CorpusPage() {
     getRecordings().then(r => { if (alive) setRecs(r) }).catch(e => { if (alive) setRecErr(asApiError(e)) })
     return () => { alive = false }
   }, [])
+  // deep-link overrides (?rec, ?ch, ?colour) are applied once they are readable
+  useEffect(() => {
+    const patch: Partial<typeof explore> = {}
+    if (recQ && recQ !== explore.file) Object.assign(patch, { file: recQ, channelId: null, view: null })
+    if (chQ && Number(chQ) !== explore.channelId) patch.channelId = Number(chQ)
+    if (colourQ && (COLOUR_BY as string[]).includes(colourQ) && colourQ !== explore.colourBy) patch.colourBy = colourQ
+    if (Object.keys(patch).length) setExplore(patch)
+  }, [recQ, chQ, colourQ])  // eslint-disable-line react-hooks/exhaustive-deps
 
   const files = recs ?? []
   const openFiles = useMemo(() => files.filter(f => !f.held_out), [files])
   const file = useMemo(() => files.find(f => f.source_file === explore.file) ?? openFiles[0] ?? null, [files, openFiles, explore.file])
   const colourBy: ColourBy = (COLOUR_BY as string[]).includes(explore.colourBy) ? (explore.colourBy as ColourBy) : 'both'
   const [bins, setBins] = useState(57)
-  const [show, setShow] = useState<ShowState>({ annotations: true, detections: true })
-  const [verdicts, setVerdicts] = useState<string[]>(VERDICTS)
+  const [show, setShow] = useState<ShowState>({ annotations: true, detections: true, reviewed: false, unreviewedOnly: false })
+  const [verdicts, setVerdicts] = useState<string[]>(['seed', 'interesting'])
+  const [filters, setFilters] = useState<DemoFilters>({ runs: null, methods: null, tags: ['sharkfin'] })
   const [cov, setCov] = useState<Coverage | null>(null)
   const [covErr, setCovErr] = useState<ApiError | null>(null)
   const [loading, setLoading] = useState(false)
   const [lockErr, setLockErr] = useState<ApiError | null>(null)
-
+  const [cleared, setCleared] = useState(false)
   const fileName = file?.source_file ?? null
   const heldOut = file?.held_out ?? false
+  const durH = file?.duration_h ?? 0
+  const [range, setRange] = useState<[number, number] | null>(null)
+  useEffect(() => { setRange(null) }, [fileName])
+
+  // forced deep-link states drive the real controls, so the page is in that state rather than painted as it
+  useEffect(() => {
+    if (!forced) return
+    setShow(s => ({ ...s, annotations: forced !== 'nothing-shown', detections: forced !== 'nothing-shown' }))
+    setVerdicts(v => (forced === 'zero-match' ? [] : v.length ? v : ['seed', 'interesting']))
+    setCleared(forced === 'no-selection')
+  }, [forced])
+
   const verdictKey = verdicts.length === VERDICTS.length ? '' : verdicts.join(',')
+  const noVerdicts = verdicts.length === 0
   useEffect(() => {
     if (!fileName) return
     let alive = true
@@ -57,64 +89,83 @@ export function CorpusPage() {
       return () => { alive = false }
     }
     setLoading(true); setCovErr(null)
-    getCoverage(fileName, bins, verdictKey ? verdictKey.split(',') : undefined)
+    // zero-match (no verdict ticked) still fetches the rows so the grid can be drawn, then blanks every cell
+    getCoverage(fileName, bins, verdictKey && !noVerdicts ? verdictKey.split(',') : undefined)
       .then(c => { if (!alive) return; setCov(c); setLoading(false) })
       .catch(e => { if (!alive) return; setCovErr(asApiError(e)); setLoading(false) })
     return () => { alive = false }
-  }, [fileName, heldOut, file, bins, verdictKey])
+  }, [fileName, heldOut, file, bins, verdictKey, noVerdicts])
 
-  const matrix: ColourBy | null = show.annotations && show.detections ? colourBy : show.annotations ? 'annotations' : show.detections ? 'detections' : null
   const rows = useMemo(() => (cov && cov.source_file === fileName ? cov.rows : []), [cov, fileName])
+  const names = useMemo(() => rows.map(r => r.name), [rows])
+  const demoRead = useSourced(() => getCorpusDemo(fileName ?? '', names, bins), [fileName, names.join(','), bins])
+  const demo = demoRead.data
+
+  const nothingShown = !show.annotations && !show.detections
+  const matrix: ColourBy | null = nothingShown ? null : show.annotations && show.detections ? colourBy : show.annotations ? 'annotations' : 'detections'
   const selId = useMemo(() => {
-    if (!rows.length) return null
+    if (!rows.length || cleared) return null
     if (explore.channelId != null && rows.some(r => r.id === explore.channelId)) return explore.channelId
     return (rows.find(r => r.name === 'CH4_A2') ?? rows[0]).id
-  }, [rows, explore.channelId])
+  }, [rows, explore.channelId, cleared])
   const selRow = rows.find(r => r.id === selId) ?? null
+
+  // matching readout: live from the drawn matrix, or the demo tag count when a tag is ticked
+  const demoChannels = demo?.channels
   const matching = useMemo(() => {
+    const total = rows.length || file?.n_channels || 0
+    const runNote = (filters.runs || filters.methods) ? 'runs / method filter is demo only — the live map counts every run' : undefined
+    if (noVerdicts) return { spans: 0, channels: 0, total, demo: false, note: runNote }
+    if (filters.tags.length && demoChannels) {
+      let spans = 0, channels = 0
+      for (const c of demoChannels) {
+        let s = filters.tags.reduce((a, t) => a + (c.tagCounts[t] ?? 0), 0)
+        if (show.unreviewedOnly) s = Math.round(s * (1 - c.reviewedPct / 100))
+        spans += s; if (s > 0) channels++
+      }
+      return { spans, channels, total, demo: true, note: runNote }
+    }
     let spans = 0, channels = 0
     if (matrix) for (const r of rows) { const vals = r[matrix]; if (!Array.isArray(vals)) continue; let s = 0; for (const c of vals) s += Number(c) || 0; spans += s; if (s > 0) channels++ }
-    return { spans, channels, total: rows.length }
-  }, [rows, matrix])
-  const select = (id: number) => { if (id !== selId) setExplore({ channelId: id, view: null }) }
+    return { spans, channels, total, demo: false, note: runNote }
+  }, [rows, matrix, filters, demoChannels, show.unreviewedOnly, forced, noVerdicts, file])
+  const zeroMatch = matching.spans === 0 && !nothingShown && (rows.length > 0 || noVerdicts)
+  const overlay = useMemo(() => ({
+    reviewed: demoChannels ? Object.fromEntries(demoChannels.map(c => [c.name, c.reviewed])) : undefined,
+    hatchUnreviewed: show.reviewed, dimReviewed: show.unreviewedOnly,
+    dimRows: filters.tags.length && demoChannels ? new Set(demoChannels.filter(c => filters.tags.every(t => !(c.tagCounts[t] > 0))).map(c => c.name)) : undefined,
+    blank: zeroMatch,
+  }), [demoChannels, show.reviewed, show.unreviewedOnly, filters.tags, zeroMatch])
 
-  const pageIdx = openFiles.findIndex(f => f.source_file === fileName)
-  const durH = file?.duration_h ?? 0
+  const select = (id: number) => { setCleared(false); if (forced === 'no-selection') setForced(null); if (id !== selId) setExplore({ channelId: id, view: null }) }
+  const open = (id: number) => navigate(`explore/signal/${id}`)
+  const pickFile = (f: RecordingFile) => { setCleared(false); setExplore({ file: f.source_file, channelId: null, view: null }); if (recQ) setQuery({ rec: null, ch: null }, true) }
+  const pageIdx = files.findIndex(f => f.source_file === fileName)
   const binH = cov && cov.source_file === fileName ? cov.bin_h : durH / bins
   const c = selRow?.counts
+  const legendRef = useRef<HTMLButtonElement>(null)
+  const shownRange: [number, number] = range ?? [0, Math.round(durH * 10) / 10]
+  const rangeLabel = `${fmtH(shownRange[0])} – ${fmtH(shownRange[1])} h`
+  const clearFilters = () => { setVerdicts(VERDICTS); setFilters({ runs: null, methods: null, tags: [] }); setShow(s => ({ ...s, unreviewedOnly: false })); if (forced === 'zero-match') setForced(null) }
+  const showLoading = forced === 'loading'
+  const forcedErr = forced === 'error' ? new ApiError(500, `GET /api/corpus/${fileName ?? '<file>'}/coverage?bins=${bins} failed (forced by ?state=error: the page's failure state)`) : null
+  const selectionReason = heldOut ? 'held out · locked' : !selRow ? 'select a channel first' : undefined
 
   return (
     <>
-      <Header workspace="Explore" page="Corpus" subtitle="bird's-eye across every channel" />
+      <Header workspace="Explore" page="Corpus" subtitle="bird's-eye across every channel" search="Search spans, runs, families" demo={demoRead.source === 'demo' && !heldOut} />
       <div className="page"><div className="page-inner">
         <div className="ex-toolbar" data-testid="corpus-toolbar">
-          <span className="chip" style={{ height: 30 }}>
-            {heldOut ? <LockIcon /> : <DbIcon />}
-            {recs ? (
-              <select className="ex-select-bare" value={fileName ?? ''} onChange={e => setExplore({ file: e.target.value, channelId: null, view: null })} data-testid="recording-select">
-                {files.map(f => (
-                  <option key={f.source_file} value={f.source_file}>
-                    {f.held_out ? '🔒 ' : ''}{f.source_file}  {f.n_channels} ch · {Math.round(f.duration_h)} h · {f.fs} Hz{f.held_out ? ' · held out' : ''}
-                  </option>
-                ))}
-              </select>
-            ) : <span className="muted">loading recordings…</span>}
-          </span>
-          <span className="ex-pager chip" data-testid="recording-pager">
-            <button disabled={pageIdx <= 0} onClick={() => setExplore({ file: openFiles[pageIdx - 1].source_file, channelId: null, view: null })} title="previous recording">‹</button>
-            <span>{pageIdx >= 0 ? pageIdx + 1 : '–'} / {openFiles.length}</span>
-            <button disabled={pageIdx < 0 || pageIdx >= openFiles.length - 1} onClick={() => setExplore({ file: openFiles[pageIdx + 1].source_file, channelId: null, view: null })} title="next recording">›</button>
+          <RecordingMenu files={recs} current={file} open={popover === 'recordings'} setOpen={o => setPopover(o ? 'recordings' : null)} onPick={pickFile} />
+          <span className="ex-pager" data-testid="recording-pager">
+            <IconButton icon="chevron-left" label="previous recording" disabled={pageIdx <= 0} disabledReason="already at the first recording" onClick={() => pickFile(files[pageIdx - 1])} testid="recording-prev" />
+            <span>{pageIdx >= 0 ? pageIdx + 1 : '–'} / {files.length || '–'}</span>
+            <IconButton icon="chevron-right" label="next recording" disabled={pageIdx < 0 || pageIdx >= files.length - 1} disabledReason="already at the last recording" onClick={() => pickFile(files[pageIdx + 1])} testid="recording-next" />
           </span>
           <span className="divider-v" />
-          <span className="lbl">time</span>
-          <span className="ex-slider inert" title="time range · out of slice scope" />
-          <span className="chip" data-testid="time-chip">0 – {Number.isInteger(durH) ? durH : durH >= 10 ? Math.round(durH) : durH.toFixed(2)} h</span>
-          <span className="chip" title="bins across the recording">
-            <span className="lbl">bin</span>
-            <select className="ex-select-bare" value={bins} onChange={e => setBins(Number(e.target.value))} data-testid="bin-select">
-              {BIN_CHOICES.map(b => <option key={b} value={b}>{b === 57 ? 'auto · ' : ''}{(durH / b).toFixed(1)} h</option>)}
-            </select>
-          </span>
+          <TimeRange durH={Math.round(durH * 10) / 10 || 1} value={shownRange} onChange={v => setRange(v[0] <= 0 && v[1] >= Math.round(durH * 10) / 10 ? null : v)} />
+          <Dropdown prefix="bin" variant="outline" value={String(bins)} onChange={v => setBins(Number(v))} testid="bin-select"
+            options={BIN_CHOICES.map(b => ({ value: String(b), label: `${b === 57 ? 'auto · ' : ''}${durH ? (durH / b).toFixed(1) : '—'} h`, hint: `${b} bins` }))} />
           <span className="divider-v" />
           <span className="lbl">colour by</span>
           <div className="seg" data-testid="colour-by">
@@ -125,31 +176,44 @@ export function CorpusPage() {
 
         {recErr && <ErrorCard error={recErr} title="GET /api/recordings failed" />}
         {covErr && <ErrorCard error={covErr} title={`coverage for ${fileName} failed`} />}
+        {demoRead.error && <ErrorCard error={asApiError(demoRead.error)} title="demo read getCorpusDemo failed" />}
+        {forcedErr && <ErrorCard error={forcedErr} title={`coverage for ${fileName} failed`} />}
 
         {heldOut ? (
           <LockedCard error={lockErr} file={fileName ?? undefined} />
-        ) : (
+        ) : forcedErr ? null : (
           <div className="ex-corpus-grid">
-            <div className="card card-pad" data-testid="coverage-card">
+            <div className="card card-pad ex-map-card" data-testid="coverage-card">
               <div className="ex-card-head">
                 <span className="card-title">Coverage map</span>
-                <span className="meta">{rows.length || file?.n_channels || '—'} channels · 0 – {Math.round(durH)} h · bin {binH ? binH.toFixed(1) : '—'} h</span>
+                <span className="meta">{rows.length || file?.n_channels || '—'} channels · {rangeLabel} · bin {binH ? binH.toFixed(1) : '—'} h</span>
                 <span className="grow" />
-                <span className="meta" data-testid="matrix-label">{matrix ?? 'nothing shown'} · spans per bin</span>
-                <span className="ex-legend" title="quantile ramp: each shade is a fifth of the non-zero cells, ranked — one hot cell never flattens the rest" data-testid="ramp-legend">low {RAMP.slice(1).map(c => <i key={c} style={{ background: c }} />)} high · quantiles</span>
+                <span className="ex-ramp-block">
+                  <span className="meta" data-testid="matrix-label">{matrix ?? 'nothing shown'} · spans per bin</span>
+                  <span className="ex-legend" data-testid="ramp-legend" data-ramp={matrix === 'disagree' ? 'amber' : 'blue'}>low {(matrix === 'disagree' ? AMBER_RAMP : RAMP).map(col => <i key={col} style={{ background: col }} />)} high</span>
+                </span>
+                <button ref={legendRef} type="button" className="k-icon-btn bordered" aria-label="Reading the coverage map" title="Reading the coverage map" aria-expanded={popover === 'legend'}
+                  onClick={() => setPopover(popover === 'legend' ? null : 'legend')} data-testid="map-legend-button"><Icon name="info" size={14} /></button>
               </div>
               <div className="mono" style={{ fontSize: 10, color: 'var(--muted-2)', marginBottom: 2 }}>channel</div>
-              {cov && cov.source_file === fileName ? (
-                <ErrorBoundary label="coverage map">
-                  <Heatmap cov={cov} matrix={matrix} unit={matrix ? MATRIX_UNIT[matrix] : 'spans'} selectedId={selId} onSelect={select} />
-                </ErrorBoundary>
-              ) : covErr ? null : <div className="skeleton" style={{ height: 16 * 34 + 22 }} data-testid="coverage-skeleton" />}
-              <p className="muted small" style={{ margin: '8px 0 0' }} data-testid="coverage-caption">
-                each cell counts spans whose start falls in that bin · shade = quantile rank among the non-zero cells (five bins, ties share a shade) · click a row to select the channel
-                {matrix === 'disagree' && <> · <b>disagree</b> = {DISAGREE_DEF}; a channel with no detections (or no annotations) has nothing to compare and stays blank</>}
-              </p>
+              <div className="ex-map-wrap" onKeyDown={e => { if (e.key === 'Escape' && !e.defaultPrevented) { setCleared(true) } }}>
+                {cov && cov.source_file === fileName && !showLoading ? (
+                  <ErrorBoundary label="coverage map">
+                    <Heatmap cov={cov} matrix={matrix} unit={matrix ? MATRIX_UNIT[matrix] : 'spans'} selectedId={selId} onSelect={select} onOpen={open} range={range ?? undefined} overlay={overlay} />
+                  </ErrorBoundary>
+                ) : covErr ? null : <div className="skeleton" style={{ height: 16 * 34 + 22 }} data-testid="coverage-skeleton" />}
+                {nothingShown && !showLoading && (
+                  <div className="ex-map-empty" data-testid="nothing-shown">
+                    <EmptyState icon="eye-off" title="nothing shown" caption="Tick annotations or detections to colour the map." bordered
+                      action={<Button size="sm" onClick={() => { setShow(s => ({ ...s, annotations: true, detections: true })); if (forced === 'nothing-shown') setForced(null) }} testid="show-both">Show both</Button>} />
+                  </div>
+                )}
+              </div>
+              {zeroMatch && <div className="ex-zero" data-testid="zero-match">no span matches these filters · <button type="button" className="ex-link" onClick={clearFilters}>clear filters</button></div>}
+              {show.reviewed && <div className="muted small mono" style={{ marginTop: 6 }} data-testid="reviewed-caption">hatched bins have not been reviewed <DemoTag /></div>}
             </div>
-            <RightRail cov={cov && cov.source_file === fileName ? cov : null} show={show} setShow={setShow} verdicts={verdicts} setVerdicts={setVerdicts} matching={matching} />
+            <RightRail cov={cov && cov.source_file === fileName ? cov : null} demo={demo} show={show} setShow={setShow} verdicts={verdicts} setVerdicts={setVerdicts}
+              filters={filters} setFilters={setFilters} matching={matching} />
           </div>
         )}
 
@@ -166,11 +230,22 @@ export function CorpusPage() {
             </span>
           </div>
           <div className="row">
-            <button className="btn inert" title="out of slice scope" aria-disabled>Cross-channel from {selRow?.name ?? '…'}</button>
-            <button className="btn primary" disabled={!selRow || heldOut} onClick={() => selRow && navigate(`explore/signal/${selRow.id}`)} data-testid="open-channel">Open {selRow?.name ?? '…'} →</button>
+            <Button icon="grid" disabled={!!selectionReason} disabledReason={selectionReason} onClick={() => selRow && navigate(`explore/cross-channel/${selRow.id}`)} testid="cross-channel-from">Cross-channel from {selRow?.name ?? '…'}</Button>
+            <Button variant="primary" iconRight="arrow-right" disabled={!!selectionReason} disabledReason={selectionReason} onClick={() => selRow && open(selRow.id)} testid="open-channel">Open {selRow?.name ?? '…'}</Button>
           </div>
         </div>
       </div></div>
+
+      <Popover open={popover === 'legend' && !heldOut} onClose={() => setPopover(null)} anchorRef={legendRef} placement="bottom-end" width={340} title="Reading the coverage map" testid="map-legend">
+        <div className="ex-legend-pop">
+          <LegendRow swatch={<span className="ramp">{RAMP.slice(1).map(col => <i key={col} style={{ background: col }} />)}</span>}>Cell darkness is spans per bin, counted under ‘colour by’. Grey cells hold none. Shades are quantile ranks among the non-zero cells.</LegendRow>
+          <LegendRow swatch={<span className="outline" />}>Outlined row is the selected channel. Click to select, double-click to open.</LegendRow>
+          <LegendRow swatch={<span className="solid" style={{ background: 'var(--amber)' }} />}>Disagree mode: amber where a detection has no overlapping annotation or the reverse.</LegendRow>
+          <div className="foot">A tag that clusters on two channels is a lead; one spread evenly is probably not.</div>
+        </div>
+      </Popover>
     </>
   )
 }
+
+function fmtH(h: number) { return Number.isInteger(h) ? String(h) : h >= 10 ? String(Math.round(h)) : h.toFixed(1) }
