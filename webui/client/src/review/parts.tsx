@@ -18,9 +18,9 @@ export function useNow(ms = 1000) {
 }
 
 /* ---------------- title row ---------------- */
-export function Pill({ dot, icon, label, value, tone, title, testid }: { dot?: string; icon?: IconName; label: ReactNode; value: ReactNode; tone?: 'green' | 'amber' | 'blue' | 'purple'; title?: string; testid?: string }) {
+export function Pill({ dot, icon, label, value, tone, title, testid, shrink }: { dot?: string; icon?: IconName; label: ReactNode; value: ReactNode; tone?: 'green' | 'amber' | 'blue' | 'purple'; title?: string; testid?: string; shrink?: boolean }) {
   return (
-    <span className={cx('rv-pill', tone)} title={title} data-testid={testid}>
+    <span className={cx('rv-pill', tone, shrink && 'shrink')} title={title ?? (typeof value === 'string' ? `${typeof label === 'string' ? label : 'artifact likelihood'} ${value}` : undefined)} data-testid={testid}>
       {dot && <i className="dot" style={{ background: dot }} />}{icon && <Icon name={icon} size={13} />}
       <span className="lbl">{label}</span><b>{value}</b>
     </span>

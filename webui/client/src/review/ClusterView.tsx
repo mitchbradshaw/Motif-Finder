@@ -201,7 +201,7 @@ function ClusterInner({ data, no }: { data: QueueData; no: number }) {
 
   const statusValue = undoneBanner ? `${rows.length} unadjudicated · batch undone`
     : judgedCount === 0 ? `${rows.length} unadjudicated`
-      : summarise(recs)
+      : recs.some(r => !r) ? `${judgedCount} judged · ${rows.length - judgedCount} unadjudicated` : summarise(recs)
   const micro: MicroStat[] = [
     masked ? { value: '', label: 'mean d', icon: 'eye-off', tone: 'purple' } : { value: mean.toFixed(2), label: 'mean d', title: `mean distance of the ${included.length} included members` },
     masked ? { value: '', label: 'worst d', icon: 'eye-off', tone: 'purple' } : { value: worst.toFixed(2), label: 'worst d', tone: worst > cl.cohesionLimit ? 'amber' : undefined },
@@ -230,8 +230,8 @@ function ClusterInner({ data, no }: { data: QueueData; no: number }) {
             <Chip size="sm" tone="purple">cluster</Chip><Chip size="sm" tone="grey">{cl.badge}</Chip>
             <span className="grow" />
             {undoneBanner
-              ? <Pill icon="undo" label="status" value={statusValue} tone="blue" testid="pill-status" />
-              : <Pill dot={judgedCount ? 'var(--green)' : 'var(--muted-2)'} label="status" value={statusValue} testid="pill-status" />}
+              ? <Pill icon="undo" label="status" value={statusValue} tone="blue" shrink testid="pill-status" />
+              : <Pill dot={judgedCount ? 'var(--green)' : 'var(--muted-2)'} label="status" value={statusValue} title={`status: ${summarise(recs)}`} shrink testid="pill-status" />}
             {masked ? <Pill icon="eye-off" label="cohesion" value="hidden until verdict" tone="purple" testid="pill-cohesion" />
               : <Pill dot={worst > cl.cohesionLimit ? 'var(--amber)' : 'var(--green)'} label="cohesion" value={`mean d ${mean.toFixed(2)} (${included.length} included) · worst ${worst.toFixed(2)}`} tone={worst > cl.cohesionLimit ? 'amber' : undefined} testid="pill-cohesion" />}
             {masked ? <Pill icon="eye-off" label="family" value="hidden until verdict" tone="purple" testid="pill-family" />

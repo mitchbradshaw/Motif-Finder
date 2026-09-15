@@ -129,7 +129,7 @@ function Toolbar({ data, judged, blind, setBlind, paused }: { data: QueueData; j
       <span className="grow" />
       <div className="rv-progress" data-testid="queue-progress" title={`${fmtInt(judged)} of ${fmtInt(queue.total)} judged`}>
         <div className="row1"><span><b>{fmtInt(judged)}</b> / {fmtInt(queue.total)}</span><span className="muted">{queue.paceS ? `~${queue.paceS} s each` : 'pace not yet measured'}</span></div>
-        <ProgressBar value={judged / queue.total} size="sm" labelPosition="none" width={170} ariaLabel="queue progress" />
+        <ProgressBar value={judged / queue.total} size="sm" labelPosition="none" width={164} ariaLabel="queue progress" />
       </div>
       <span className="k-divider-v" />
       <span className={cx('rv-auto', paused && 'paused')} data-testid="auto-advance">

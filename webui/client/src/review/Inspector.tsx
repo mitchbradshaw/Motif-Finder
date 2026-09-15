@@ -196,7 +196,7 @@ function InspectorItem({ data, row }: { data: QueueData; row: QueueRow }) {
             {isWindow && <><Chip size="sm" tone="grey">window</Chip><Chip size="sm" tone="purple">{row.block === 'test' ? 'test block' : 'train block'}</Chip></>}
             {rec?.exemplarId && <Chip size="sm" tone="green" testid="exemplar-chip">exemplar {rec.exemplarId}</Chip>}
             <span className="grow" />
-            <Pill dot={statusDot(rec)} label="status" value={statusText(rec)} tone={rec?.verdict === 'seed' ? 'green' : undefined} testid="pill-status" />
+            <Pill dot={statusDot(rec)} label="status" value={statusText(rec)} tone={rec?.verdict === 'seed' ? 'green' : undefined} shrink testid="pill-status" />
             {isWindow ? (
               masked ? <Pill icon="eye-off" label="model call" value="hidden until verdict" tone="purple" testid="pill-model" />
                 : row.modelCall ? <Pill icon="eye" label="model call" value={`${row.modelCall.className} · p ${row.modelCall.p.toFixed(2)}`} tone="purple" testid="pill-model" />

@@ -11,18 +11,20 @@
 .rv-purple { color: var(--k-rv-purple, #6a3ecf); }
 
 /* ---- toolbar ---- */
-.rv-toolbar { display: flex; align-items: center; gap: 10px; padding: 0 16px; height: 54px; background: var(--card); border-bottom: 1px solid var(--border); flex: none; }
-.rv-queue-chip { display: inline-flex; align-items: center; gap: 7px; height: 30px; padding: 0 10px; border-radius: 8px; border: 1px solid var(--blue-200); background: var(--blue-100); color: var(--blue-600); font-family: var(--font-mono); font-size: 12px; cursor: pointer; white-space: nowrap; }
+.rv-toolbar { display: flex; align-items: center; gap: 8px; padding: 0 16px; height: 54px; background: var(--card); border-bottom: 1px solid var(--border); flex: none; }
+.rv-queue-chip { display: inline-flex; align-items: center; gap: 6px; height: 30px; padding: 0 9px; min-width: 0; flex: 0 1 auto; border-radius: 8px; border: 1px solid var(--blue-200); background: var(--blue-100); color: var(--blue-600); font-family: var(--font-mono); font-size: 11.5px; cursor: pointer; white-space: nowrap; }
 .rv-queue-chip .pre { opacity: .75; }
-.rv-queue-chip .lbl { font-weight: 500; overflow: hidden; text-overflow: ellipsis; max-width: 340px; }
+.rv-queue-chip .lbl { font-weight: 500; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.rv-toolbar > .k-btn, .rv-progress, .rv-auto { flex: none; }
+.rv-tool-chip > span { overflow: hidden; text-overflow: ellipsis; }
 .rv-auto .k-toggle span { white-space: nowrap; }
 .rv-ev > .k-btn, .rv-oc-foot > .k-btn { align-self: flex-start; }
-.rv-tool-chip { display: inline-flex; align-items: center; gap: 7px; height: 30px; padding: 0 10px; border-radius: 8px; border: 1px solid var(--border); background: var(--card); color: var(--text-2); font-family: var(--font-mono); font-size: 12px; white-space: nowrap; cursor: pointer; }
+.rv-tool-chip { display: inline-flex; align-items: center; gap: 6px; height: 30px; padding: 0 9px; flex: none; border-radius: 8px; border: 1px solid var(--border); background: var(--card); color: var(--text-2); font-family: var(--font-mono); font-size: 11.5px; white-space: nowrap; cursor: pointer; }
 .rv-tool-chip.static { cursor: default; }
 .rv-tool-chip .rv-i { color: var(--muted-2); }
 .rv-tool-chip.blind { background: var(--purple-100); border-color: #ddd0ff; color: var(--k-rv-purple, #6a3ecf); }
 .rv-tool-chip .k-info { margin-left: -2px; }
-.rv-progress { display: flex; flex-direction: column; gap: 4px; min-width: 170px; }
+.rv-progress { display: flex; flex-direction: column; gap: 4px; min-width: 164px; }
 .rv-progress .row1 { display: flex; justify-content: space-between; gap: 10px; font-family: var(--font-mono); font-size: 12px; color: var(--muted); }
 .rv-progress .row1 b { color: var(--text); }
 .rv-progress .row1 span.muted { font-size: 10px; }
@@ -117,8 +119,12 @@
 .rv-stack { display: flex; flex-direction: column; gap: 11px; max-width: 1400px; margin: 0 auto; }
 .rv-stack.stale { opacity: .7; transition: opacity .1s; }
 .rv-loading { display: flex; flex-direction: column; gap: 12px; padding: 12px 14px; }
-.rv-title { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; min-height: 34px; container-type: inline-size; }
-@container (max-width: 1260px) { .rv-pill .long { display: none; } }
+.rv-title { display: flex; align-items: center; gap: 6px; flex-wrap: nowrap; min-height: 34px; container-type: inline-size; }
+.rv-title > h1, .rv-title > .k-chip { flex: none; }
+.rv-title > .rv-pill { flex: none; }
+.rv-title > .rv-pill.shrink { flex: 0 1 auto; min-width: 90px; }
+.rv-title > .rv-pill b { overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+@container (max-width: 1000px) { .rv-pill .long { display: none; } }
 .rv-title h1 { margin: 0 6px 0 2px; font-size: 22px; font-weight: 700; font-family: var(--font-ui); letter-spacing: -.01em; }
 .rv-pill { display: inline-flex; align-items: center; gap: 5px; height: 28px; padding: 0 10px; border-radius: 999px; border: 1px solid var(--border); background: var(--card); font-family: var(--font-mono); font-size: 11px; white-space: nowrap; }
 .rv-pill .lbl { color: var(--muted); }
