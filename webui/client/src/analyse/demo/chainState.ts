@@ -252,6 +252,12 @@ export function useDemoActions(template: string, setSt: Setter) {
       const steps = s.steps.map((x, k) => k === i ? { ...x, bypass: !x.bypass } : x)
       return { ...s, steps, status: markStaleFrom(s, i + 1, steps), saved: false, note: 'unsaved' }
     }),
+    moveUp: (i: number) => upd(s => {
+      if (i <= 0 || !s.steps[i]) return s
+      const steps = [...s.steps]; [steps[i - 1], steps[i]] = [steps[i], steps[i - 1]]
+      recordDemoWrite('analyse', 'move-stage', { template, from: pad2(i + 1), to: pad2(i) })
+      return { ...s, steps, status: markStaleFrom(s, i - 1, steps), saved: false, note: 'unsaved' }
+    }),
     duplicate: (i: number) => upd(s => {
       const src = s.steps[i]; if (!src) return s
       const copy: DemoStep = { ...src, uid: newUid(), params: { ...src.params }, bypass: false }

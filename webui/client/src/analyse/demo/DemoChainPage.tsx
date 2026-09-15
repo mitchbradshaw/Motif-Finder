@@ -230,6 +230,7 @@ export function DemoChainPage({ template }: { template: string }) {
         t0={t0} t1={t1} plot={plot} overlay={overlay} replace={replace} resetKey={`${r.step.uid}-${r.status}`} bypassed={r.step.bypass}
         rowTone={r.status === 'on cluster' ? 'cluster' : r.status === 'paused' ? 'paused' : undefined} plotHeight={r.payload?.type === 'demo.scores' && r.status !== 'paused' ? 150 : undefined}
         onSettings={() => openBlock(i)} onDelete={busy ? undefined : () => remove(i)} deleteReason="wait for the run to finish"
+        onMoveUp={busy || i === 0 ? undefined : () => { actions.moveUp(i); toast.push({ text: `${title} moved to ${pad2(i)} · validation re-ran` }) }}
         onBypass={busy ? undefined : () => actions.bypass(i)} onDuplicate={busy ? undefined : () => actions.duplicate(i)} />
     )
   }
@@ -239,7 +240,7 @@ export function DemoChainPage({ template }: { template: string }) {
     if (!j || j.ok) return null
     const here = st.steps[i]; const prev = st.steps[i - 1]
     const hereName = `${pad2(i + 1)} ${blockByName(here.block)?.page_name ?? here.block}`
-    const prevName = prev ? `${pad2(i)} ${blockByName(prev.block)?.page_name ?? prev.block}` : 'Source'
+    const prevName = prev ? `${pad2(i)} ${blockByName(prev.block)?.page_name ?? prev.block}${prev.bypass ? ' (bypassed)' : ''}` : 'Source'
     const fit = demoCompatibleAt(st.steps.slice(0, i), i).fits.find(f => f.ok && f.block.output === j.needs)
     return (
       <div className="an-junction" key={`j-${here.uid}`}>

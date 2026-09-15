@@ -37,6 +37,7 @@ export interface ChainRowProps {
   deleteReason?: string
   rowTone?: 'cluster' | 'paused'     // 1g purple / 1i amber outline
   plotHeight?: number                // a Scores row is taller (frame chain-1h)
+  onMoveUp?: () => void              // demo chains: the grip moves the stage up one place
 }
 
 const I = {
@@ -60,7 +61,9 @@ export function ChainRow(p: ChainRowProps) {
     <div className={`an-row ${rowClass}`} data-testid={`chain-row-${p.testIndex}`} data-status={badge}>
       <div className="an-row-left">
         <div className="an-row-title">
-          <span className="grip" title="drag to reorder · out of slice scope" aria-disabled="true">⋮⋮</span>
+          {p.onMoveUp
+            ? <button className="grip" style={{ border: 0, background: 'transparent', padding: 0, cursor: 'pointer' }} title="move this stage up one place (drag to reorder is not wired)" onClick={p.onMoveUp} data-testid={`move-up-${p.testIndex}`}>⋮⋮</button>
+            : <span className="grip" title={p.num ? 'drag to reorder · out of slice scope' : 'the source is always first'} aria-disabled="true">⋮⋮</span>}
           {p.num ? <span className="num">{p.num}</span> : <span style={{ color: 'var(--muted)', fontSize: 10 }}>●</span>}
           <span className="ttl" title={p.title}>{p.title}</span>
         </div>
