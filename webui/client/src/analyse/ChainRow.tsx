@@ -47,9 +47,6 @@ const I = {
 }
 
 export function ChainRow(p: ChainRowProps) {
-  const [ref, size] = useSize<HTMLDivElement>()
-  const w = Math.max(10, size.width)
-  const x = makeX(p.t0, p.t1, w)
   const label = `row ${p.num ?? 'source'}`
   // a renderer throw is lifted out of the ErrorBoundary into the row's own badge and border (critique r1:
   // a green "cached" badge sat beside a red "failed to render" card); a new result clears it
@@ -83,17 +80,29 @@ export function ChainRow(p: ChainRowProps) {
       {p.replace ? (
         <div data-testid={`row-plot-${p.testIndex}`}>{p.replace}</div>
       ) : (
-        <div className="plot-surface an-plot" ref={ref} data-testid={`row-plot-${p.testIndex}`} style={p.plotHeight ? { height: p.plotHeight } : undefined}>
-          <ErrorBoundary key={p.resetKey ?? 'row'} label={label} onError={e => setRenderFailed(e.message)}>
-            {size.width > 0 && p.plot(x, w, p.plotHeight ?? PLOT_H)}
-          </ErrorBoundary>
-          {p.overlay}
-          {size.width > 0 && (
-            <svg className="cross" width={w} height={p.plotHeight ?? PLOT_H}>
-              <CrosshairLayer x={x} height={p.plotHeight ?? PLOT_H} />
-            </svg>
-          )}
-        </div>
+        <RowPlot {...p} label={label} onRenderError={setRenderFailed} />
+      )}
+    </div>
+  )
+}
+
+/** The plot surface owns its own size observer, so a row that switches from a card (HPC / paused / failed) back to
+ *  a plot measures its new surface instead of keeping the width of an element that no longer exists. */
+function RowPlot(p: ChainRowProps & { label: string; onRenderError: (m: string) => void }) {
+  const [ref, size] = useSize<HTMLDivElement>()
+  const w = Math.max(10, size.width)
+  const x = makeX(p.t0, p.t1, w)
+  const h = p.plotHeight ?? PLOT_H
+  return (
+    <div className="plot-surface an-plot" ref={ref} data-testid={`row-plot-${p.testIndex}`} style={p.plotHeight ? { height: p.plotHeight } : undefined}>
+      <ErrorBoundary key={p.resetKey ?? 'row'} label={p.label} onError={e => p.onRenderError(e.message)}>
+        {size.width > 0 && p.plot(x, w, h)}
+      </ErrorBoundary>
+      {p.overlay}
+      {size.width > 0 && (
+        <svg className="cross" width={w} height={h}>
+          <CrosshairLayer x={x} height={h} />
+        </svg>
       )}
     </div>
   )

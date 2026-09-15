@@ -6,7 +6,7 @@ import { TimeAxis } from '../../charts/primitives'
 import { makeX } from '../../charts/scale'
 import { scaleLinear } from 'd3'
 import { useSize } from '../../charts/useSize'
-import { Button, Chip, CodeBlock, Field, Icon, InfoTip, Modal, Popover, TextField, Toggle, recordDemoWrite } from '../../kit'
+import { Button, Chip, CodeBlock, Field, Icon, InfoTip, Modal, Popover, TextField, Toggle, recordDemoWrite, setDemo } from '../../kit'
 import { navigate } from '../../state'
 import type { DemoScenario, DemoSource } from '../../api/analyse'
 import type { DemoChainState } from './chainState'
@@ -128,6 +128,7 @@ export function FooterCard({ terminal, headline, sub, actions }: { terminal: Rea
 export function writeHpcJob(template: string, stage: string) {
   const job = { id: 'j-0218', kind: 'cluster', title: `matrix profile · CH4_A2 whole channel · ${template} stage ${stage}`, status: 'queue', detail: 'SLURM script created · not yet submitted', for: template, created: Date.now() }
   recordDemoWrite('jobs', 'add-job', job)
+  setDemo<{ id: string; title: string; for: string }[]>('analyse.hpcJobs', prev => [...(prev ?? []).filter(j => j.id !== job.id), { id: job.id, title: job.title, for: template }])
   recordDemoWrite('analyse', 'create-slurm-script', { template, stage, job: job.id })
   return job
 }

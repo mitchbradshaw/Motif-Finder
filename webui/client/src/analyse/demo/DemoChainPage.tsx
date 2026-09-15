@@ -80,7 +80,7 @@ export function DemoChainPage({ template }: { template: string }) {
   const runningRow = rows.find(r => r.status === 'running' || r.status === 'queued') ?? null
   const terminal = TERMINAL[v.terminal] ?? { text: `terminal ${DEMO_KIND_LABEL[v.terminal]} — add a stage to reach a template type`, tone: 'grey' as const }
   const allCached = n > 0 && firstStale < 0 && !clusterRow && !pausedRow
-  const costFrom = (from: number) => st.steps.slice(from).reduce((a, s) => a + (s.bypass ? 0 : blockByName(s.block)?.cost_s ?? 0.1), 0) * (st.surrogate && sc.null.kind === 'toggle' ? 1 : 0.5)
+  const costFrom = (from: number) => st.steps.slice(from).reduce((a, s) => a + (s.bypass ? 0 : blockByName(s.block)?.cost_s ?? 0.1), 0) * (st.surrogate || sc.null.kind === 'chip' ? 2 : 1)
   const fmtCost = (s: number) => s < 60 ? `≈ ${s < 0.1 ? '<0.1' : s.toFixed(1)} s` : s < 3600 ? `≈ ${Math.round(s / 60)} min` : `≈ ${(s / 3600).toFixed(1)} h`
   const surrogateOff = sc.null.kind === 'toggle' && !st.surrogate
 
@@ -128,7 +128,6 @@ export function DemoChainPage({ template }: { template: string }) {
   function createSlurm(row: RowView) {
     if (st!.hpcJob) { navigate('jobs'); return }
     const job = writeHpcJob(template, pad2(row.index + 1))
-    setDemo<{ id: string; title: string }[]>('analyse.hpcJobs', prev => [...(prev ?? []), { id: job.id, title: job.title }])
     actions.patch({ hpcJob: job.id })
     toast.push({ text: `SLURM script created · ${job.id} added to Jobs (queue)`, action: { label: 'Open in Jobs', onClick: () => navigate('jobs') } })
     document.querySelector('[data-testid="generated-job"]')?.scrollIntoView({ behavior: 'smooth', block: 'center' })
