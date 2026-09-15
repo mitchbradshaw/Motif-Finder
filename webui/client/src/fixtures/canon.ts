@@ -30,7 +30,7 @@ export const CLASSES = [
 ] as const
 
 export const VERDICTS = [
-  { key: 'seed', colour: '#22A06B' }   // human verdict → green (§3); frame review-6,
+  { key: 'seed', colour: '#22A06B' },   // human verdict → green (§3); frame review-6
   { key: 'interesting', colour: '#22A06B' },
   { key: 'not_interesting', colour: '#9CA3AF' },
   { key: 'artifact', colour: '#E5484D' },
