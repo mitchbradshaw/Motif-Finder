@@ -447,11 +447,107 @@
  },
  {
   "page": "library.window-sets",
-  "state": "default",
+  "state": "set-selected",
   "hash": "library/window-sets",
   "actions": [],
   "expect": [
-   "[data-testid=\"header\"]"
+   "[data-testid=\"window-set-table\"]",
+   "[data-testid=\"split-plan\"]",
+   "[data-testid=\"class-bars\"]"
+  ]
+ },
+ {
+  "page": "library.window-sets",
+  "state": "not-train-safe-selected",
+  "hash": "library/window-sets?set=ws_M2aug_1ch_60s",
+  "actions": [],
+  "expect": [
+   "[data-testid=\"window-set-reason\"]",
+   "[data-testid=\"why-not-train-safe\"]"
+  ]
+ },
+ {
+  "page": "library.window-sets",
+  "state": "supplied-no-split",
+  "hash": "library/window-sets?set=ws_human_labelled_mixed",
+  "actions": [],
+  "expect": [
+   "[data-testid=\"split-plan-none\"]"
+  ]
+ },
+ {
+  "page": "library.window-sets",
+  "state": "coverage-at-save",
+  "hash": "library/window-sets?coverage=save",
+  "actions": [],
+  "expect": [
+   "[data-testid=\"coverage-seg\"] [aria-checked=\"true\"][data-value=\"save\"]"
+  ]
+ },
+ {
+  "page": "library.window-sets",
+  "state": "filter-not-train-safe",
+  "hash": "library/window-sets?safe=not-train-safe",
+  "actions": [],
+  "expect": [
+   "[data-testid=\"check-badge-ws_M2aug_1ch_60s\"]"
+  ]
+ },
+ {
+  "page": "library.window-sets",
+  "state": "filtered-empty",
+  "hash": "library/window-sets?safe=train-safe&used=unused",
+  "actions": [],
+  "expect": [
+   "[data-testid=\"window-sets-filtered-empty\"]"
+  ]
+ },
+ {
+  "page": "library.window-sets",
+  "state": "recording-popover",
+  "hash": "library/window-sets",
+  "actions": [
+   {
+    "click": "[data-testid=\"filter-recording\"]"
+   }
+  ],
+  "expect": [
+   "[data-testid=\"recording-popover\"]"
+  ]
+ },
+ {
+  "page": "library.window-sets",
+  "state": "import-modal-refused",
+  "hash": "library/window-sets?modal=import",
+  "actions": [
+   {
+    "fill": [
+     "[data-testid=\"window-set-path\"]",
+     "DATA/M4_aug/windows.json"
+    ]
+   }
+  ],
+  "expect": [
+   "[data-testid=\"import-window-set-modal\"]",
+   "[data-testid=\"window-set-path-error\"]"
+  ]
+ },
+ {
+  "page": "library.window-sets",
+  "state": "delete-confirm",
+  "hash": "library/window-sets?set=ws_LLM_5ch_600s&modal=delete",
+  "actions": [],
+  "expect": [
+   "[data-testid=\"delete-window-set-modal\"]"
+  ]
+ },
+ {
+  "page": "library.window-sets",
+  "state": "none",
+  "hash": "library/window-sets?sets=empty",
+  "actions": [],
+  "expect": [
+   "[data-testid=\"window-sets-none\"]"
   ]
  },
  {
