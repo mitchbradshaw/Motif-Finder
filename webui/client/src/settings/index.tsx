@@ -6,6 +6,8 @@ import { Header } from '../shell/Header'
 import { navigate, useApp } from '../state'
 import { PAGE_META } from '../api/settings'
 import { DatasetsPage } from './DatasetsPage'
+import { ChannelsEventsPage } from './ChannelsEventsPage'
+import { VocabularyPage } from './VocabularyPage'
 import { Skeleton } from '../shell/Skeleton'
 
 export function SettingsPage() {
@@ -13,6 +15,8 @@ export function SettingsPage() {
   const slug = route.parts[0] || ''
   useEffect(() => { if (!slug) history.replaceState(null, '', '#/settings/datasets') }, [slug])
   if (!slug || slug === 'datasets') return <DatasetsPage />
+  if (slug === 'channels-events') return <ChannelsEventsPage />
+  if (slug === 'vocabulary') return <VocabularyPage />
   if (PAGE_META[slug]) return <Skeleton id={`settings.${slug}`} />
   return (
     <>
