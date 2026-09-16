@@ -211,6 +211,38 @@ export const ARM_RESULTS: Record<ArmKey, ArmResult> = {
   },
 }
 
+/* Calibration: the suggested threshold per class at a target precision (frame 3 prints target precision 0.8 and the
+ * four suggested values; 0.7 / 0.9 move deterministically around them). The RF baseline has no calibration. */
+export const CAL_TARGETS = ['0.7', '0.8', '0.9'] as const
+export type CalTarget = typeof CAL_TARGETS[number]
+export interface Suggestion { thr: number; precision: number; recall: number }
+const SUGGEST_AT_08: Record<ArmKey, Record<ModelClass, Suggestion> | null> = {
+  a: {
+    'spike-train': { thr: 0.62, precision: 0.80, recall: 0.66 },
+    plateau: { thr: 0.55, precision: 0.78, recall: 0.61 },
+    burst: { thr: 0.71, precision: 0.81, recall: 0.44 },
+    'slow-drift': { thr: 0.40, precision: 0.82, recall: 0.88 },
+  },
+  b: {
+    'spike-train': { thr: 0.66, precision: 0.79, recall: 0.58 },
+    plateau: { thr: 0.61, precision: 0.77, recall: 0.49 },
+    burst: { thr: 0.78, precision: 0.80, recall: 0.31 },
+    'slow-drift': { thr: 0.44, precision: 0.81, recall: 0.80 },
+  },
+  rf: null,
+}
+const clamp01 = (v: number) => Math.min(0.99, Math.max(0.01, v))
+export function suggestionFor(arm: ArmKey, cls: ModelClass, target: CalTarget): Suggestion | null {
+  const base = SUGGEST_AT_08[arm]
+  if (!base) return null
+  const d = Number(target) - 0.8
+  return {
+    thr: +clamp01(base[cls].thr + d * 0.55).toFixed(2),
+    precision: +clamp01(base[cls].precision + d * 0.95).toFixed(2),
+    recall: +clamp01(base[cls].recall - d * 1.3).toFixed(2),
+  }
+}
+
 export interface ResultsJob { id: string; title: string; status: 'finished' | 'running' | 'failed'; detail: string; session: string; template: string; error?: string; since?: string; overrun?: string }
 export const RESULT_JOBS: ResultsJob[] = [
   { id: 'j-0212', title: 'cnn_windows_v3 paired arms', status: 'finished', detail: 'imported 13 Sep 21:40', session: 'train_cnn_M2aug_sep12', template: 'cnn_windows_v3' },

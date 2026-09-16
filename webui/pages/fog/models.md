@@ -9,3 +9,13 @@
 - The frame's "gap" select offers no values; what gaps other than one window mean (2 windows, 0 s) is invented · 0 s fails the check (P12 leakage guard) · frame models-1
 - Whether *Create SLURM script* also saves the window set to the Library immediately, or only when results are imported · the page writes it at script creation · spec §6.9, §7b.1
 - The "open in Jobs" filter parameter for training jobs is owned by Jobs · the link uses #/jobs?kind=cluster · spec §7b, P24
+- Results: the suggested threshold at a target precision other than 0.8 is drawn by no frame · the page moves
+  the frame's four suggested values deterministically with the target (thr +0.55·Δ, precision +0.95·Δ,
+  recall −1.3·Δ) · frame models-3, spec §7b.3
+- Results: what arm B's calibration means (cluster labels mapped onto manual classes) is unstated · shown on
+  the mapped classes · spec §7b.3, §7b.4
+- Results: the RF baseline has no calibration, no epochs and no registration gate; the frames never show it ·
+  those three cards say "unavailable for the RF baseline" with the reason (§3 "nothing claims more than it
+  knows") · frame models-3
+- Results: a running training job (j-0214) has no frame · the page shows an indeterminate bar, "results arrive
+  through Jobs › Manifest inbox" and a link into Jobs · spec §7b.2, P24

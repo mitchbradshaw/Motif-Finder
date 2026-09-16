@@ -11,10 +11,10 @@ import {
 export type {
   ArmKey, ArmResult, CompareModel, Disagreement, DisagreementFilter, LaunchSetup, RegistryModel, ResultsJob,
 } from '../fixtures/models'
-export type { ModelClass, RegistryStatus, SourceChannelRow, TrainingTemplate, WindowSetRow, Verification, RegistryCheck, UsedBy, SignOff } from '../fixtures/models'
+export type { ModelClass, RegistryStatus, SourceChannelRow, TrainingTemplate, WindowSetRow, Verification, RegistryCheck, UsedBy, SignOff, CalTarget, Suggestion, PerClassRow, CalibrationRow } from '../fixtures/models'
 export {
   MODEL_CLASSES, CLASS_SHORT, CLASS_COLOUR, BASE_SPLIT_COUNTS, FRAME_SPLIT_BLOCKS, ESTIMATE_MODEL, TEST_WARN_BELOW, NEXT_JOB_NUMBER, DEFAULT_CHANNELS,
-  FILTER_COUNTS, FILTER_FRAME_INDEX, REGISTRY_NOTE,
+  FILTER_COUNTS, FILTER_FRAME_INDEX, REGISTRY_NOTE, CAL_TARGETS, suggestionFor,
 } from '../fixtures/models'
 
 /** Launch: training templates (terminal type Model), source channels, saved window sets, training jobs, held-out lock. */
