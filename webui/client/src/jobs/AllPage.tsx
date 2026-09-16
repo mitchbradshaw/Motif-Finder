@@ -98,7 +98,7 @@ export function AllPage() {
 
             <div className="jb-all">
               <div className="jb-main">
-                {filter !== 'finished' && <NeedsYouCards rows={needYou} merged={merged} inboxWaiting={inboxWaiting} onSelect={setSel} onInbox={() => setDrawer('inbox')} />}
+                {filter !== 'finished' && <NeedsYouCards rows={needYou.filter(r => ws === 'all' || r.ws === ws)} merged={merged} inboxWaiting={ws === 'all' ? inboxWaiting : 0} onSelect={setSel} onInbox={() => setDrawer('inbox')} />}
                 <div className="jb-table-card" data-testid="jobs-table-card">
                   <div className="head">
                     <h3>{filter === 'all' ? 'All jobs' : FILTERS.find(f => f.value === filter)!.label}</h3>
@@ -109,7 +109,7 @@ export function AllPage() {
                     counts={{ finished: merged.finished.filter(f => f.status === 'finished').length, cancelled: merged.finished.filter(f => f.status === 'cancelled').length }} />
                   {!shown.length && (
                     <EmptyState size="sm" bordered testid="jobs-empty" icon="filter" title="No jobs match these filters"
-                      caption={`${FILTERS.find(f => f.value === filter)!.label}${ws === 'all' ? '' : ` · ${ws}`} has nothing today`}
+                      caption={`nothing under “${FILTERS.find(f => f.value === filter)!.label}”${ws === 'all' ? '' : ` in ${ws}`} today`}
                       action={<Button size="sm" onClick={() => { setFilter(null); setWs(null) }}>Clear filters</Button>} />
                   )}
                 </div>
@@ -224,7 +224,7 @@ function buildRows(m: MergedJobs): Row[] {
 function MarkMenu({ job }: { job: ClusterJob }) {
   return (
     <span onClick={e => e.stopPropagation()}>
-      <Menu trigger={p => <Button {...p} size="sm" variant="link" icon="flag" testid={`mark-${job.id}`}>Mark…</Button>}
+      <Menu testid={`mark-menu-${job.id}`} trigger={p => <Button {...p} size="sm" variant="link" icon="flag" testid={`mark-${job.id}`}>Mark…</Button>}
         items={[
           { value: 'submitted', label: 'Mark submitted', description: 'the script is in the cluster queue' },
           { value: 'running', label: 'Mark running', description: 'the cluster started it' },
@@ -319,7 +319,7 @@ function JobsTable({ rows, sel, onSelect, finishedOpen, onFinished, counts }: {
   const groups: Grp[] = ['paused', 'cluster', 'local', 'queues', 'finished']
   return (
     <table className="jb-table" data-testid="jobs-table">
-      <colgroup><col style={{ width: 84 }} /><col /><col style={{ width: 132 }} /><col style={{ width: 168 }} /><col style={{ width: 86 }} /><col style={{ width: 132 }} /></colgroup>
+      <colgroup><col style={{ width: 72 }} /><col /><col style={{ width: 138 }} /><col style={{ width: 172 }} /><col style={{ width: 72 }} /><col style={{ width: 138 }} /></colgroup>
       <thead><tr><th>id</th><th>job</th><th>where</th><th>status</th><th>time</th><th /></tr></thead>
       <tbody>
         {groups.map(g => {
@@ -346,7 +346,7 @@ function JobsTable({ rows, sel, onSelect, finishedOpen, onFinished, counts }: {
                 </td>
               </tr>
               {open && rs.map(r => (
-                <tr key={r.id} className={`row ${sel === r.id ? 'sel' : ''} ${r.tone === 'amber' ? 'amber' : ''} ${r.tone === 'dim' ? 'dim' : ''}`}
+                <tr key={r.id} className={`jb-tr ${sel === r.id ? 'sel' : ''} ${r.tone === 'amber' ? 'amber' : ''} ${r.tone === 'dim' ? 'dim' : ''}`}
                   data-testid={`job-row-${r.id}`} tabIndex={0} onClick={() => onSelect(r.id)}
                   onKeyDown={e => { if (e.key === 'Enter') onSelect(r.id) }}>
                   <td><span className="jb-id">{r.id}</span></td>

@@ -7,7 +7,7 @@ import {
 } from '../kit'
 import { navigate } from '../state'
 import { WORKSPACE_ICON, type CheckState, type ClusterJob, type InboxData, type ResultCheck, type StageState, type Workspace } from '../api/jobs'
-import { markCluster, nextJobId, nowHM, patchCluster, setInboxPending, useInboxPending } from './store'
+import { markCluster, nextJobId, nowHM, patchCluster, useInboxPending } from './store'
 import { recordDemoWrite } from '../kit'
 
 /* ------------------------------------------------------------------ small shared atoms */
@@ -213,7 +213,7 @@ export function CancelRunModal({ open, onClose, runId, kept, onConfirm }: {
 /** Status badge for a cluster job, coloured by §3 semantics. */
 export function ClusterBadge({ job, overdue }: { job: ClusterJob; overdue?: boolean }) {
   if (job.status === 'failed') return <Badge status="failed" testid="cluster-status">failed · marked {job.marks.failed}</Badge>
-  if (job.status === 'finished') return <Badge status="finished" testid="cluster-status">finished · imported {job.importedAt ?? job.marks.finished}</Badge>
+  if (job.status === 'finished') return <Badge status="finished" testid="cluster-status">finished · imported {(job.importedAt ?? job.marks.finished ?? '').split(' ').slice(0, 2).join(' ')}</Badge>
   if (job.status === 'running') return <Badge status={overdue ? 'stale' : 'running'} testid="cluster-status">{overdue ? `running · ${(job.runningForH! / job.estimateH).toFixed(1)}× estimate` : `running · marked ${job.marks.running}`}</Badge>
   if (job.status === 'submitted') return <Badge status="queued" testid="cluster-status">submitted · marked {job.marks.submitted}</Badge>
   if (job.status === 'cancelled') return <Badge status="cancelled" testid="cluster-status">cancelled</Badge>

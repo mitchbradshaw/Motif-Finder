@@ -1,38 +1,52 @@
 [
- {
-  "page": "jobs.all",
-  "state": "default",
-  "hash": "jobs",
-  "actions": [],
-  "expect": [
-   "[data-testid=\"header\"]"
-  ]
- },
- {
-  "page": "jobs.paused",
-  "state": "default",
-  "hash": "jobs/run/a-0098",
-  "actions": [],
-  "expect": [
-   "[data-testid=\"header\"]"
-  ]
- },
- {
-  "page": "jobs.upload",
-  "state": "default",
-  "hash": "jobs/run/r-0431/upload",
-  "actions": [],
-  "expect": [
-   "[data-testid=\"header\"]"
-  ]
- },
- {
-  "page": "jobs.cluster",
-  "state": "default",
-  "hash": "jobs/cluster/j-0217",
-  "actions": [],
-  "expect": [
-   "[data-testid=\"header\"]"
-  ]
- }
+ {"page": "jobs.all", "state": "all", "hash": "jobs", "actions": [], "expect": ["[data-testid=\"needs-you-cards\"]", "[data-testid=\"jobs-table\"]", "[data-testid=\"job-rail\"]"]},
+ {"page": "jobs.all", "state": "needs-you", "hash": "jobs?filter=needs-you", "actions": [], "expect": ["[data-testid=\"job-row-r-0431\"]", "[data-testid=\"job-row-j-0214\"]"]},
+ {"page": "jobs.all", "state": "paused", "hash": "jobs?filter=paused", "actions": [], "expect": ["[data-testid=\"group-paused\"]", "[data-testid=\"job-row-a-0098\"]"]},
+ {"page": "jobs.all", "state": "cluster", "hash": "jobs?filter=cluster", "actions": [], "expect": ["[data-testid=\"group-cluster\"]", "[data-testid=\"job-row-j-0212\"]"]},
+ {"page": "jobs.all", "state": "local", "hash": "jobs?filter=local", "actions": [], "expect": ["[data-testid=\"group-local\"]", "[data-testid=\"job-row-a-0101\"]"]},
+ {"page": "jobs.all", "state": "queues", "hash": "jobs?filter=queues", "actions": [], "expect": ["[data-testid=\"group-queues\"]", "[data-testid=\"job-row-q-19\"]"]},
+ {"page": "jobs.all", "state": "finished", "hash": "jobs?filter=finished&finished=1", "actions": [], "expect": ["[data-testid=\"group-finished\"]", "[data-testid=\"job-row-a-0099\"]"]},
+ {"page": "jobs.all", "state": "filter-empty", "hash": "jobs?filter=queues&ws=Models", "actions": [], "expect": ["[data-testid=\"jobs-empty\"]"]},
+ {"page": "jobs.all", "state": "finished-expanded-by-click", "hash": "jobs", "actions": [{"click": "[data-testid=\"group-finished\"]"}, {"wait": 300}], "expect": ["[data-testid=\"job-row-r-0429\"]", "[data-testid=\"job-row-a-0096\"]"]},
+ {"page": "jobs.all", "state": "rail-paused", "hash": "jobs?sel=a-0098", "actions": [], "expect": ["[data-testid=\"job-rail\"]", "[data-testid=\"rail-stages\"]", "[data-testid=\"rail-open-run\"]"]},
+ {"page": "jobs.all", "state": "rail-cluster", "hash": "jobs?sel=j-0214", "actions": [], "expect": ["[data-testid=\"job-rail\"]", "[data-testid=\"rail-open-job\"]", "[data-testid=\"rail-overdue\"]"]},
+ {"page": "jobs.all", "state": "rail-queue", "hash": "jobs?sel=q-19", "actions": [], "expect": ["[data-testid=\"job-rail\"]"]},
+ {"page": "jobs.all", "state": "rail-local", "hash": "jobs?sel=l-0009", "actions": [], "expect": ["[data-testid=\"job-rail\"]"]},
+ {"page": "jobs.all", "state": "rail-by-row-click", "hash": "jobs", "actions": [{"click": "[data-testid=\"job-row-j-0209\"]"}, {"wait": 300}], "expect": ["[data-testid=\"rail-new-script\"]"]},
+ {"page": "jobs.all", "state": "inbox-drawer", "hash": "jobs?drawer=inbox", "actions": [], "expect": ["[data-testid=\"inbox-drawer\"]", "[data-testid=\"manifest-j-0212\"]"]},
+ {"page": "jobs.all", "state": "inbox-drawer-by-click", "hash": "jobs", "actions": [{"click": "[data-testid=\"open-inbox\"]"}, {"wait": 300}], "expect": ["[data-testid=\"inbox-drawer\"]"]},
+ {"page": "jobs.all", "state": "mark-menu", "hash": "jobs", "actions": [{"click": "[data-testid=\"mark-j-0217\"]"}, {"wait": 300}], "expect": ["[data-testid=\"mark-menu-j-0217\"]"]},
+ {"page": "jobs.all", "state": "new-script-modal", "hash": "jobs?modal=new-script&job=j-0209", "actions": [], "expect": ["[data-testid=\"new-script-modal\"]", "[data-testid=\"new-script-code\"]"]},
+ {"page": "jobs.all", "state": "cancel-confirm", "hash": "jobs?sel=r-0431&modal=cancel&job=r-0431", "actions": [], "expect": ["[data-testid=\"cancel-run-modal\"]", "[data-testid=\"cancel-run-confirm\"]"]},
+ {"page": "jobs.all", "state": "cancel-confirm-escape", "hash": "jobs?sel=r-0431&modal=cancel&job=r-0431", "actions": [{"press": "Escape"}, {"wait": 300}], "expect": ["[data-testid=\"jobs-table\"]"], "expect_absent": ["[data-testid=\"cancel-run-modal\"]"]},
+
+ {"page": "jobs.paused", "state": "result-arrived", "hash": "jobs/run/r-0431?state=arrived", "actions": [], "expect": ["[data-testid=\"stage-result\"]", "[data-testid=\"run-checks\"]", "[data-testid=\"continue-btn\"]"]},
+ {"page": "jobs.paused", "state": "waiting", "hash": "jobs/run/r-0431", "actions": [], "expect": ["[data-testid=\"run-stages\"]", "[data-testid=\"found-badge\"]", "[data-testid=\"other-ways\"]"]},
+ {"page": "jobs.paused", "state": "a-0098-arrived", "hash": "jobs/run/a-0098", "actions": [], "expect": ["[data-testid=\"run-timeline\"]", "[data-testid=\"check-recipe\"]", "[data-testid=\"continue-note\"]"]},
+ {"page": "jobs.paused", "state": "unknown-run", "hash": "jobs/run/x-0001", "actions": [], "expect": ["[data-testid=\"run-unknown\"]"]},
+ {"page": "jobs.paused", "state": "new-script-modal", "hash": "jobs/run/r-0431?modal=new-script", "actions": [], "expect": ["[data-testid=\"new-script-modal\"]", "[data-testid=\"new-script-profile\"]"]},
+ {"page": "jobs.paused", "state": "looking", "hash": "jobs/run/r-0431", "actions": [{"click": "[data-testid=\"look-again\"]"}, {"wait": 400}], "expect": ["[data-testid=\"check-place\"][data-state=\"pass\"]", "[data-testid=\"continue-btn\"]"]},
+
+ {"page": "jobs.upload", "state": "refused", "hash": "jobs/run/r-0431/upload", "actions": [{"wait": 1100}], "expect": ["[data-testid=\"upload-modal\"]", "[data-testid=\"upload-refusal\"]", "[data-testid=\"check-params\"][data-state=\"fail\"]"]},
+ {"page": "jobs.upload", "state": "no-file", "hash": "jobs/run/r-0431/upload?file=none", "actions": [], "expect": ["[data-testid=\"upload-file-empty\"]", "[data-testid=\"upload-path\"]"]},
+ {"page": "jobs.upload", "state": "passes", "hash": "jobs/run/r-0431/upload?file=ok", "actions": [{"wait": 1200}], "expect": ["[data-testid=\"upload-pass\"]", "[data-testid=\"upload-place\"]"]},
+ {"page": "jobs.upload", "state": "passes-no-nulls", "hash": "jobs/run/r-0431/upload?file=ok-no-nulls", "actions": [{"wait": 1200}], "expect": ["[data-testid=\"upload-pass\"]", "[data-testid=\"upload-null-note\"]", "[data-testid=\"check-nulls\"][data-state=\"warn\"]"]},
+ {"page": "jobs.upload", "state": "held-out-refused", "hash": "jobs/run/r-0431/upload?file=held-out", "actions": [{"wait": 1200}], "expect": ["[data-testid=\"upload-refusal\"]", "[data-testid=\"check-channels\"][data-state=\"fail\"]"]},
+ {"page": "jobs.upload", "state": "file-menu", "hash": "jobs/run/r-0431/upload", "actions": [{"click": "[data-testid=\"choose-file\"]"}, {"wait": 400}], "expect": ["[data-testid=\"file-menu\"]", "[data-testid=\"file-opt-ok\"]"]},
+ {"page": "jobs.upload", "state": "checking-by-click", "hash": "jobs/run/r-0431/upload?file=none", "actions": [{"click": "[data-testid=\"choose-file\"]"}, {"wait": 300}, {"click": "[data-testid=\"file-opt-ok\"]"}, {"wait": 1200}], "expect": ["[data-testid=\"upload-pass\"]"]},
+
+ {"page": "jobs.cluster", "state": "running-overdue", "hash": "jobs/cluster/j-0214", "actions": [], "expect": ["[data-testid=\"cluster-status\"]", "[data-testid=\"overdue-reminder\"]", "[data-testid=\"cluster-script\"]"]},
+ {"page": "jobs.cluster", "state": "running", "hash": "jobs/cluster/j-0217", "actions": [], "expect": ["[data-testid=\"status-pills\"]", "[data-testid=\"cluster-form\"]", "[data-testid=\"cluster-inbox\"]"]},
+ {"page": "jobs.cluster", "state": "finished-imported", "hash": "jobs/cluster/j-0212", "actions": [], "expect": ["[data-testid=\"finished-note\"]", "[data-testid=\"manifest-j-0212\"]", "[data-testid=\"inbox-run-r-0431\"]"]},
+ {"page": "jobs.cluster", "state": "failed", "hash": "jobs/cluster/j-0209", "actions": [], "expect": ["[data-testid=\"failed-reminder\"]", "[data-testid=\"new-script\"]"]},
+ {"page": "jobs.cluster", "state": "unknown-job", "hash": "jobs/cluster/j-9999", "actions": [], "expect": ["[data-testid=\"cluster-unknown\"]"]},
+ {"page": "jobs.cluster", "state": "new-script-modal", "hash": "jobs/cluster/j-0209?modal=new-script", "actions": [], "expect": ["[data-testid=\"new-script-modal\"]", "[data-testid=\"new-script-id\"]"]},
+ {"page": "jobs.cluster", "state": "marked-failed", "hash": "jobs/cluster/j-0217", "actions": [{"click": "[data-testid=\"mark-failed\"]"}, {"wait": 400}], "expect": ["[data-testid=\"failed-reminder\"]", "[data-testid=\"new-script\"]"]},
+
+ {"page": "jobs.paused", "state": "continuing", "hash": "jobs/run/r-0431?state=arrived", "actions": [{"click": "[data-testid=\"continue-btn\"]"}, {"wait": 1200}], "expect": ["[data-testid=\"continue-progress\"]", "[data-testid=\"continue-bar\"]"]},
+ {"page": "jobs.paused", "state": "finished", "hash": "jobs/run/r-0431?state=arrived", "actions": [{"wait": 4200}], "expect": ["[data-testid=\"continue-progress\"]", "[data-testid=\"open-finished\"]"]},
+ {"page": "jobs.paused", "state": "cancelled", "hash": "jobs/run/a-0098", "actions": [{"click": "[data-testid=\"cancel-run\"]"}, {"wait": 300}, {"click": "[data-testid=\"cancel-run-confirm\"]"}, {"wait": 400}], "expect": ["[data-testid=\"run-cancelled\"]", "[data-testid=\"run-uncancel\"]"]},
+ {"page": "jobs.cluster", "state": "snoozed", "hash": "jobs/cluster/j-0214", "actions": [{"click": "[data-testid=\"snooze\"]"}, {"wait": 400}], "expect": ["[data-testid=\"snoozed-reminder\"]"], "expect_absent": ["[data-testid=\"overdue-reminder\"]"]},
+ {"page": "jobs.cluster", "state": "inbox-pending", "hash": "jobs/cluster/j-0214?inbox=pending", "actions": [{"wait": 600}], "expect": ["[data-testid=\"manifest-j-0214\"]", "[data-testid=\"import-j-0214\"]"]},
+ {"page": "jobs.cluster", "state": "imported", "hash": "jobs/cluster/j-0214?inbox=pending", "actions": [{"wait": 400}, {"click": "[data-testid=\"import-j-0214\"]"}, {"wait": 1800}], "expect": ["[data-testid=\"finished-note\"]", "[data-testid=\"manifest-j-0214\"]"]}
 ]

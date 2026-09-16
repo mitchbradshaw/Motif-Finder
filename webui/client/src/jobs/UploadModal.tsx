@@ -124,7 +124,9 @@ export function UploadModal({ open, run, onClose }: { open: boolean; run: Paused
 
           {settled && passes && (
             <div className="jb-pass" data-testid="upload-pass"><Icon name="check-circle" size={14} />
-              Every check passes. Place stores it as stage {run.pausedAt}'s artifact and runs {rangeLabel(run.pausedAt + 1, run.stageCount)} locally ({run.remaining}).
+              {noNulls
+                ? <>The file passes; only its null draws are missing (they run next, below). Place stores it as stage {run.pausedAt}'s artifact and runs {rangeLabel(run.pausedAt + 1, run.stageCount)} locally ({run.remaining}).</>
+                : <>Every check passes. Place stores it as stage {run.pausedAt}'s artifact and runs {rangeLabel(run.pausedAt + 1, run.stageCount)} locally ({run.remaining}).</>}
             </div>
           )}
 

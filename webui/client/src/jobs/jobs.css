@@ -16,7 +16,7 @@
 .jb-title-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .jb-title-row h1 { font-size: 22px; font-weight: 700; margin: 0 6px 0 0; letter-spacing: -0.01em; }
 .jb-filter-row { display: flex; align-items: center; gap: 8px; }
-.jb-all { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 14px; align-items: start; }
+.jb-all { display: grid; grid-template-columns: minmax(0, 1fr) 400px; gap: 14px; align-items: start; }
 .jb-main { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
 .jb-cards { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
 .jb-cards.n1 { grid-template-columns: minmax(0, 1fr); }
@@ -29,21 +29,22 @@
 .jb-card-head .ws { margin-left: auto; display: inline-flex; align-items: center; gap: 5px; font-family: var(--font-mono); font-size: 10.5px; font-weight: 400; color: var(--muted); }
 .jb-card-head button.id { border: 0; background: transparent; padding: 0; font: inherit; color: inherit; cursor: pointer; }
 .jb-card-head button.id:hover { text-decoration: underline; }
-.jb-card-line { font-family: var(--font-mono); font-size: 11px; color: var(--text-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.jb-card-line { font-family: var(--font-mono); font-size: 10.5px; color: var(--text-2); line-height: 1.35; }
 .jb-card-sub { font-family: var(--font-mono); font-size: 10px; color: var(--muted); line-height: 1.35; }
 .jb-card-acts { display: flex; gap: 6px; margin-top: 4px; flex-wrap: wrap; }
 
 .jb-table-card { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px 8px; min-width: 0; }
 .jb-table-card > .head { display: flex; align-items: baseline; gap: 8px; padding: 2px 2px 6px; }
 .jb-table-card > .head h3 { margin: 0; font-size: 13px; font-weight: 600; }
-.jb-table { width: 100%; border-collapse: separate; border-spacing: 0; font-family: var(--font-mono); font-size: 11.5px; table-layout: fixed; }
+.jb-table { width: 100%; border-collapse: separate; border-spacing: 0; font-family: var(--font-mono); font-size: 11px; table-layout: fixed; }
+.jb-table td .k-badge { font-size: 10px; }
 .jb-table th { text-align: left; color: var(--muted); font-weight: 400; font-size: 10.5px; padding: 6px 8px; border-bottom: 1px solid var(--border); }
 .jb-table td { padding: 7px 8px; vertical-align: middle; border-bottom: 1px solid var(--grey-100); background: var(--card); }
-.jb-table tr.row { cursor: pointer; }
-.jb-table tr.row:hover td { background: var(--k-row-hover); }
-.jb-table tr.row.sel td { background: var(--k-row-sel); }
-.jb-table tr.row.sel.amber td { background: #fff6e8; }
-.jb-table tr.row.dim td { color: var(--muted); }
+.jb-table tr.jb-tr { cursor: pointer; }
+.jb-table tr.jb-tr:hover td { background: var(--k-row-hover); }
+.jb-table tr.jb-tr.sel td { background: var(--k-row-sel); }
+.jb-table tr.jb-tr.sel.amber td { background: #fff6e8; }
+.jb-table tr.jb-tr.dim td { color: var(--muted); }
 .jb-table tr.group td { padding: 8px 0 3px; border-bottom: 0; background: transparent; }
 .jb-group-bar { display: flex; align-items: center; gap: 8px; width: 100%; border: 0; text-align: left; background: var(--k-fill); border-radius: 7px; padding: 7px 10px; font-family: var(--font-mono); font-size: 11px; color: var(--text-2); }
 button.jb-group-bar { cursor: pointer; }
@@ -54,13 +55,13 @@ button.jb-group-bar:hover { background: var(--k-fill-2); }
 .jb-id { font-weight: 700; color: var(--text); white-space: nowrap; }
 .jb-job { display: flex; align-items: flex-start; gap: 8px; min-width: 0; }
 .jb-job .ic { color: var(--muted); margin-top: 1px; flex: none; }
-.jb-job .t { font-weight: 600; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.jb-job .t { font-weight: 600; font-size: 11px; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .jb-job .s { font-size: 10px; color: var(--muted); margin-top: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .jb-job .txt { min-width: 0; }
 .jb-where { color: var(--text-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .jb-time { color: var(--muted); white-space: nowrap; }
 .jb-act { text-align: left; white-space: nowrap; }
-.jb-act .k-btn.link { font-size: 12px; }
+.jb-act .k-btn.link { font-size: 11.5px; }
 .jb-prog { display: flex; align-items: center; gap: 8px; }
 .jb-prog .k-progress { flex: 1; }
 

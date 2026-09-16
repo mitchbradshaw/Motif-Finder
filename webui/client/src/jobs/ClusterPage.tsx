@@ -41,7 +41,8 @@ export function ClusterPage({ jobId }: { jobId: string }) {
   )
 
   const overdue = isOverdue(job) && !snoozed[job.id]
-  const stepIndex = job.status === 'finished' ? 3 : job.status === 'running' ? 2 : job.status === 'submitted' ? 1 : 0
+  // how far the hand-marked chain got: everything before stepIndex is done, stepIndex is the current pill
+  const stepIndex = job.status === 'finished' ? 4 : job.status === 'failed' ? 3 : job.status === 'running' ? 2 : job.status === 'submitted' ? 1 : 0
   const failed = job.status === 'failed'
   const runs = merged.runs.map(r => ({ id: r.run.id, stage: r.run.pausedAt, label: r.result !== 'arrived' ? 'not in its root yet' : r.run.clusterJob ? `result arrived ${r.run.result.foundAt}` : 'result in place' }))
 
@@ -67,8 +68,8 @@ export function ClusterPage({ jobId }: { jobId: string }) {
               <InfoTip title="Marked by hand">There is no live connection to SLURM. Each step is a note you make here; <i>finished</i> is also set when the job's manifest is imported (§7c.4).</InfoTip></>}>
             <div className="jb-status-pills" data-testid="status-pills">
               {STEPS.map((s, i) => {
-                const done = i < stepIndex || (i === 3 && job.status === 'finished')
-                const current = i === stepIndex && !done
+                const done = i < stepIndex
+                const current = i === stepIndex
                 return (
                   <span key={s.key} style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
                     <span className={`jb-status-pill ${done ? 'done' : current ? (overdue ? 'current' : 'current blue') : ''} ${failed && i === 3 ? 'failed' : ''}`} data-testid={`pill-${s.key}`}>
@@ -123,6 +124,16 @@ export function ClusterPage({ jobId }: { jobId: string }) {
               <div className="jb-reminder grey" data-testid="finished-note">
                 <div className="t"><Icon name="check-circle" size={14} className="jb-green" />Finished · {job.importedAt ? `manifest imported ${job.importedAt}` : `marked ${job.marks.finished}`}</div>
                 <div className="d">Results are in {job.openIn.label.replace('Open in ', '')}. Importing a manifest also marks the job finished.</div>
+              </div>
+            )}
+            {job.status === 'running' && !overdue && !snoozed[job.id] && (
+              <div className="jb-reminder grey" data-testid="running-note">
+                <div className="t"><Icon name="play" size={14} className="jb-blue" />Marked running {job.marks.running} · {job.runningForH != null ? `${job.runningForH} h so far` : 'time unknown'} of the {job.estimateLabel.split(' · ')[0]} estimate</div>
+                <div className="d">Check the cluster. The site never changes a cluster job's status on its own — a reminder appears past 3× the estimate.</div>
+                <div className="jb-row" style={{ marginTop: 4 }}>
+                  <Button size="sm" icon="check-circle" testid="mark-finished" onClick={() => markCluster(job.id, 'finished')}>Mark finished</Button>
+                  <Button size="sm" icon="x-circle" testid="mark-failed" onClick={() => markCluster(job.id, 'failed')}>Mark failed</Button>
+                </div>
               </div>
             )}
             {(job.status === 'queue' || job.status === 'submitted') && (
