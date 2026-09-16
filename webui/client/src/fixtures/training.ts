@@ -89,7 +89,7 @@ export const ESTIMATES = {
   matrix: 'cached 2 Sept',
   cluster: '≈ 40 s · local',
   chooseK: 'sweep k 2–12 · ≈ 2 min local',
-  encode: '≈ 6 min · 1,629 images · 0.6 GB',
+  encode: '≈ 6 min · 1,629 images',
   model: 'trial ≈ 2 h 40 on cluster',
 }
 
