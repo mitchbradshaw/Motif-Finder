@@ -66,7 +66,9 @@ export const ANALYSE_RUNS = [
   { id: 128, label: '#128 drop_motifs9', template: 'drop_motifs9' },
   { id: 131, label: '#131 drop_motifs9 · 6σ floor', template: 'drop_motifs9' },
   { id: 97, label: '#97 banded_sax_lp', template: 'banded_sax_lp' },
-  { id: 140, label: '#140 F-03 slope interrogation', template: 'spike_shape_v1' },
+  // §0 names this run but no template for it; spike_shape_v1 is a different analysis (frame
+  // interrogation-3c), so the slope interrogation gets its own name (Interrogation builder's finding).
+  { id: 140, label: '#140 F-03 slope interrogation', template: 'sharkfin_slope_v1' },
 ]
 
 export type JobKind = 'cluster' | 'analyse' | 'discovery' | 'library' | 'review'
