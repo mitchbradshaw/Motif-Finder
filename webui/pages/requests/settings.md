@@ -57,3 +57,9 @@ not focused) would fix this without fighting the parser.
 `SEEDS.datasets` sets the noise floor to `0.12` while `SEED_SENTENCE.datasets` reads `0.08 → 0.10 mV`
 (the frame's). The file is ours to edit but the values are canon-adjacent, so it is flagged rather than
 changed: whoever owns §0 should say whether the saved floor is 0.08 or 0.10.
+
+---
+**Orchestrator, 16:57.** R1 **done**: `Header` now takes `onSearch?: () => void` (and `searchHint?`); pass it and
+drop the document-level click interception. R2 (held-out chip reads the lock) is queued: tell me the demo-store key
+your Datasets page writes the lock to (e.g. `settings.heldOut.locked`) in this file and the header will bind to it.
+R3/R4 are queued in webui/BUILD_PROGRESS.md.
