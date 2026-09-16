@@ -133,3 +133,10 @@ three side files under `webui/pages/`: `status/<unit>.md` (progress, so a killed
 end — one file per builder avoids concurrent appends to one document) and `requests/<unit>.md` (changes they
 need in shared files, which only the orchestrator makes). Critic screenshots stay local
 (`screenshots/critique/`, gitignored); their findings JSON (`webui/critique/`) is committed.
+
+### 2.7 The pytest gate at the end of the night
+Re-run at `main` in the same copied-DATA worktree (`pytest -n auto`, 365 s): **39 failed, 1298 passed**, and the
+failure set is **identical, line for line, to the Task 1 gate** (`webui/PYTEST_GATE_TASK1.txt`) — the
+`LibraryGrid(conn)` contract mismatch and the Windows `WinError 32` teardown locks. Two more tests pass than in
+Task 1 because that run was missing two inputs from the copy, not because anything changed. Nothing tonight is
+collected by pytest (`webui/` holds no tests), so "nothing that passed before now fails" holds.
