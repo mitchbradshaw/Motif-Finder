@@ -1,0 +1,124 @@
+/* Analyse › Interrogation (frames interrogation-1 … 3c). Kit tokens only. */
+.ig-toolbar { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; min-height: 34px; }
+.ig-toolbar .k-btn { height: 30px; padding: 0 10px; }
+.ig-chip { display: inline-flex; align-items: center; gap: 6px; height: 30px; padding: 0 8px; border-radius: 8px;
+  border: 1px solid var(--border); background: var(--card); font-size: 11.5px; color: var(--text); white-space: nowrap; }
+.ig-chip.btn { cursor: pointer; }
+.ig-chip.btn:hover { border-color: var(--border-strong); }
+.ig-chip.source { background: var(--blue-100); border-color: transparent; color: var(--blue-600); font-weight: 600; }
+.ig-chip.source .ig-muted { font-weight: 400; }
+.ig-chip.null { background: var(--card); }
+.ig-dot { width: 7px; height: 7px; border-radius: 50%; display: inline-block; flex: none; }
+.ig-muted { color: var(--muted); }
+.ig-small { font-size: 11px; }
+.ig-mono { font-family: var(--font-mono); }
+.ig-amber-text { color: #b86e00; }
+.ig-estimate { font-size: 11px; color: var(--muted); white-space: nowrap; }
+.ig-estimate.amber { color: #b86e00; }
+
+.ig-ribbon-card { display: flex; align-items: center; gap: 12px; padding: 10px 14px; flex-wrap: wrap; }
+.ig-ribbon-label { flex: none; }
+.ig-ribbon-card .k-ribbon { flex: 1 1 auto; }
+.ig-ribbon-card .k-ribbon.chips .k-ribbon-block { min-width: 176px; }
+.ig-terminal { display: flex; flex-direction: column; align-items: flex-end; gap: 1px; font-size: 11px; text-align: right; }
+
+.ig-loading { padding: 40px; display: flex; justify-content: center; }
+.ig-failed { border: 1px solid var(--red); border-radius: 10px; background: #fff5f5; padding: 14px 16px; display: flex; flex-direction: column; gap: 8px; align-items: flex-start; }
+.ig-failed .t { display: flex; align-items: center; gap: 7px; font-weight: 600; color: #c4282d; }
+.ig-failed pre { margin: 0; font-family: var(--font-mono); font-size: 11.5px; white-space: pre-wrap; color: var(--text-2); }
+
+/* layout columns */
+.ig-cols { display: grid; grid-template-columns: minmax(0, 2.05fr) minmax(300px, 1fr); gap: 12px; align-items: start; }
+.ig-cols.even { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+.ig-cols.wide-right { grid-template-columns: minmax(0, 1.55fr) minmax(320px, 1fr); }
+.ig-stack { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.ig-grid3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+@media (max-width: 1180px) { .ig-cols, .ig-cols.even, .ig-cols.wide-right, .ig-grid3 { grid-template-columns: minmax(0, 1fr); } }
+
+.ig-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.ig-foot { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; font-family: var(--font-mono); font-size: 11px; color: var(--muted); }
+.ig-fact { font-family: var(--font-mono); font-size: 11.5px; color: var(--text-2); }
+
+/* member tiles (source page) */
+.ig-members { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 8px; }
+@media (max-width: 1100px) { .ig-members { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+.ig-member { border: 1.5px solid var(--border); border-radius: 8px; background: var(--card); overflow: hidden; display: flex; flex-direction: column; }
+.ig-member.on { border-color: var(--blue); }
+.ig-member.off { opacity: 0.72; }
+.ig-member .hd { display: flex; align-items: center; gap: 6px; padding: 5px 7px; font-family: var(--font-mono); font-size: 11px; }
+.ig-member .hd .id { font-weight: 600; color: var(--text); }
+.ig-member .ft { display: flex; align-items: center; justify-content: space-between; gap: 6px; padding: 4px 7px;
+  font-family: var(--font-mono); font-size: 10.5px; color: var(--muted); border-top: 1px solid var(--grey-100); }
+.ig-member .ft .ex { color: #c4282d; }
+.ig-member .bd { background: #fafbfc; padding: 2px 0; cursor: pointer; }
+
+/* scope matrix */
+.ig-scope { width: 100%; border-collapse: collapse; font-family: var(--font-mono); font-size: 11.5px; }
+.ig-scope th { text-align: right; font-weight: 400; color: var(--muted); font-size: 10.5px; padding: 3px 6px; border-bottom: 1px solid var(--border); }
+.ig-scope th:first-child { text-align: left; }
+.ig-scope td { padding: 4px 6px; text-align: right; border-bottom: 1px solid var(--grey-100); color: var(--text-2); }
+.ig-scope td:first-child { text-align: left; }
+.ig-scope td.z { color: var(--muted-2); }
+.ig-scope tr.ex td { color: #c4282d; border-bottom: 0; }
+.ig-scope td.sum { font-weight: 600; color: var(--text); }
+
+/* provenance list */
+.ig-prov { display: flex; flex-direction: column; gap: 6px; font-family: var(--font-mono); font-size: 11.5px; color: var(--text-2); }
+.ig-prov div { display: flex; align-items: flex-start; gap: 8px; }
+.ig-prov svg { flex: none; margin-top: 2px; color: var(--muted); }
+
+/* event strip (block 01) */
+.ig-strip { display: flex; align-items: center; gap: 6px; }
+.ig-strip .cells { display: grid; grid-template-columns: repeat(10, minmax(0, 1fr)); gap: 6px; flex: 1; min-width: 0; }
+.ig-cell { position: relative; border: 1.5px solid var(--border); border-radius: 6px; background: #fafbfc; padding: 2px 0 0; cursor: pointer; }
+.ig-cell.on { border-color: var(--blue); background: var(--blue-100); }
+.ig-cell .n { display: block; text-align: left; padding-left: 4px; font-family: var(--font-mono); font-size: 9.5px; color: var(--muted); }
+.ig-cell .flag { position: absolute; top: 3px; right: 3px; width: 6px; height: 6px; border-radius: 50%; background: var(--amber); }
+
+.ig-readout { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; background: #f5f6f8; border-radius: 7px;
+  padding: 6px 10px; font-family: var(--font-mono); font-size: 11.5px; color: var(--muted); }
+.ig-readout b { color: var(--text); font-weight: 600; }
+
+/* rules card */
+.ig-rules { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(0, 1.5fr) minmax(0, 1.2fr) minmax(0, 1.2fr); gap: 12px; }
+@media (max-width: 1100px) { .ig-rules { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); } }
+.ig-rules .lb { display: flex; align-items: center; gap: 5px; font-family: var(--font-mono); font-size: 11px; color: var(--muted); margin-bottom: 4px; }
+.k-card.ig-pending { border-color: var(--amber); box-shadow: 0 0 0 1px var(--amber) inset; }
+
+/* the rose (no kit polar plot — see webui/pages/requests/interrogation.md) */
+.ig-rose { display: flex; gap: 10px; align-items: flex-start; }
+.ig-rose svg text { font-family: var(--font-mono); font-size: 9.5px; fill: var(--muted); }
+.ig-ramp { display: flex; flex-direction: column; gap: 3px; font-family: var(--font-mono); font-size: 10px; color: var(--muted); }
+.ig-ramp .bar { width: 96px; height: 8px; border-radius: 2px; background: linear-gradient(90deg, #5856D6, #E85AAD, #E8900C); }
+
+/* the occurrence timeline */
+.ig-tl { display: flex; flex-direction: column; gap: 10px; }
+.ig-tl .hd { display: flex; align-items: baseline; gap: 8px; font-family: var(--font-mono); font-size: 11px; color: var(--muted); }
+.ig-tl .hd .nm { color: var(--text); font-weight: 600; font-size: 12px; }
+.ig-tl .hd .tau { margin-left: auto; }
+.ig-tl .lane { background: #f5f6f8; border-radius: 5px; }
+
+/* value tiles inside the scaling card */
+.ig-beta { background: var(--blue-100); border-radius: 8px; padding: 10px 12px; }
+.ig-beta .lbl { font-family: var(--font-mono); font-size: 11px; color: var(--blue-600); }
+.ig-beta .v { font-size: 22px; font-weight: 700; color: var(--blue-600); letter-spacing: -0.4px; }
+.ig-beta .sub { font-family: var(--font-mono); font-size: 11px; color: var(--muted); margin-top: 2px; }
+.ig-null-beta { background: var(--grey-100); border-radius: 8px; padding: 10px 12px; }
+.ig-null-beta .lbl { font-family: var(--font-mono); font-size: 11px; color: var(--muted); }
+.ig-null-beta .v { font-size: 17px; font-weight: 600; color: var(--text-2); }
+
+/* running veil */
+.ig-veil { position: absolute; inset: 0; background: rgba(255,255,255,0.72); display: flex; align-items: center; justify-content: center; z-index: 3; border-radius: 10px; }
+.ig-rel { position: relative; }
+
+/* picker table */
+.ig-pick { width: 100%; border-collapse: collapse; font-family: var(--font-mono); font-size: 11.5px; }
+.ig-pick th { text-align: left; font-weight: 400; color: var(--muted); font-size: 10.5px; padding: 4px 8px; border-bottom: 1px solid var(--border); }
+.ig-pick td { padding: 6px 8px; border-bottom: 1px solid var(--grey-100); white-space: nowrap; }
+.ig-pick tr { cursor: pointer; }
+.ig-pick tr:hover td { background: #f9fafb; }
+.ig-pick tr.on td { background: var(--blue-100); }
+.ig-pick tr.dim { cursor: not-allowed; }
+.ig-pick tr.dim td { color: var(--muted-2); }
+.ig-pick td.num { text-align: right; }
+.ig-pick .nm { color: var(--text); font-weight: 600; }

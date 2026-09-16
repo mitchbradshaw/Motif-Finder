@@ -206,5 +206,90 @@ source-page overlay −20 s … +40 s. Slopes become −0.033 … −0.073 mV/s.
 stays exactly as drawn**. Only time and slope tick labels change. Spike shape (3c) half-widths and rise
 times scale the same way (×10).
 
+## analyse.interrogation — source block (frames 1, 1b)
+
+**Route & states.** `#/analyse/interrogation`. `default` (route) · `source-picker` (`?popover=source`,
+`&tab=family|run|review|explore`) · `swapped` (`?family=F-07`, or pick in the picker) · `stale` (untick a
+member / change a source setting) · `running` (`?state=running`, or Run chain) · `failed`
+(`?state=failed`) · `empty-scope` (click `none`).
+
+**Regions** (`data-testid`): `interrogation-toolbar` (‹ full chain · source chip · "arrived via Analyse
+events" · null chip · estimate · Save as template · Run chain) · `chain-ribbon-card` (ChainRibbon chips
+`● Library family` / `01 Resolve spans` / `02 Aggregate`, `+ stage`, terminal-type readout) ·
+`source-block` (title `● Library family — → SpanSet`, clustering chip, the one-line family fact row,
+filter row, selection row, `member-grid` of ≤ 10 tiles, verdict legend + `member-pager`) ·
+`members-overlaid` · `scope-card` (recording × channel matrix with an `excluded` row) ·
+`source-settings` · `provenance-card` ("Where this family came from", Open in Library).
+
+**Controls.** adjudicated only / exclude artifacts checkboxes · distance ≤ · recording · channel · sort
+dropdowns (recording lists `M4_aug` disabled, reason "held out (D6)") · select all / none / invert ·
+per-tile include checkbox (unticking makes 01 and 02 stale) · resample + align dropdown on the overlay ·
+four Source-settings dropdowns · source chip → the 4-tab picker (Library family table, Prior run —
+detection runs disabled with reason, Review selection, Explore spans) · Run chain → `useSim` queued →
+running → done · Save as template → modal → `recordDemoWrite('analyse','save-template',…)`.
+
+**Fixtures.** `fixtures/interrogation.ts`: 17 F-03 members (16 in scope, `s-0348` artifact/excluded),
+212 F-07 members, the F-01/F-04/F-11 picker rows, clustering `Ward · t 10.1 · v3`, provenance
+(`run 114 · 2 Sept`, exemplar `E-0102`, threshold 0.35, recipe `a7f39c`).
+
+**Copy.** Header `Analyse | Library family | F-03 sharkfin · 16 of 17 members in scope`. Estimate
+`≈ 6 s · 3 of 3 cached`. Footnote `swapping a SpanSet source keeps 01 and 02; they re-run on the new
+members`. Source settings footnote `members keep identity by file · channel · sample range`.
+
+## analyse.interrogation.slope — 01 Resolve spans (frames 2, 2b, 2c)
+
+**Route & states.** `#/analyse/interrogation/block/1`. `default` (F-03, rose) · `large-family`
+(`?family=F-07`: strip pages to 41–50, sampled overlay replaces the rose) · `stale-after-edit`
+(`?state=stale`, or move the steepest-window slider) · `running` (`?state=running` / Re-run from 01) ·
+`upstream-spike-shape` (`?upstream=spike-shape` — the block is titled `01 Spike shape`).
+
+**Regions.** `interrogation-toolbar` · `chain-ribbon-card` · `anatomy-card` (`01 Resolve spans — slope
+analysis`, units/marks dropdowns, the annotated event curve, mark legend, `rules resolved cleanly`
+chip, `event-readout`, `event-strip` of ≤ 10 thumbnails + `jump to flagged`) · `rose-card` (F-03) /
+`overlaid-card` (F-07, `overlay | rose` Seg, seeded resample, sample size) · `rules-card` (four rule
+controls + flagged-events warning, and in the stale state the preview strip + `discard`) ·
+`per-event-table` (16 / 212 rows, CSV).
+
+**Controls.** units (`mV · 10 s` default) · marks (`minimal | all | none`) · strip ‹ › · jump to flagged ·
+row click selects the event above · steepest-window Slider (3 → 5 marks the chain stale and shows the
+preview) · onset/trough/σ dropdowns · rose colour-by · sample-size dropdown + resample (P8) ·
+`Re-run from 01` runs the sim and clears stale.
+
+**Fixtures.** per-event features on every member (`depth_mV`, `max_slope`, `angle`, `peakedness`,
+`duration_s`, `recovery_s`, `flags`) plus the anatomy curve. Frame times ×10 and slopes ÷10 (see the
+timescale decision): `−0.0725 mV/s`, `10.0 s`, σ `MAD · 0.000958 mV/s`, rose caption `−45° = −0.1 mV/s`.
+
+**Copy.** `these three rules define every number on this page` · `1 event flagged · two troughs within
+window` · stale preview `preview on cached spans: mean angle −28° → −25° · 3 of 16 events shift > 10 % ·
+depth unchanged` · veil `showing last run · results are stale until re-run`.
+
+## analyse.interrogation.aggregate — 02 Aggregate (frames 3, 3b, 3c)
+
+**Route & states.** `#/analyse/interrogation/block/2`. `default` (`depth ~ duration`, colour none) ·
+`colour-by-recording` (`?colour=recording&pair=depth-maxslope`) · `wired-from-spike-shape`
+(`?upstream=spike-shape`) · `wiring` (`?upstream=spike-shape&popover=wiring`, also from `+ custom`) ·
+`running` / `empty` (`?family=F-04`, 9 members, 0 adjudicated → too few to fit).
+
+**Regions.** three `hist-*` cards (depth/interval/max slope, or amplitude/half-width/rise) each with its
+null behind in grey and a one-line verdict · `scaling-card` (pair Seg + `+ custom`, axes dropdown,
+Scatter with fit band, `exponent β` tile with CI, `null β` tile, per-recording βs in 3b) ·
+`timeline-card` ("When events happened", height = depth, τ per recording) · `parameters-card` (six
+dropdowns, `views only · nothing here is stored`) · `summary-card` (4 stat tiles + CSV / Figures /
+Stage 1 outlier for Review) · `wiring-popover` (P7: the Aggregate block is generic and wired from the
+upstream block's declared Features).
+
+**Controls.** colour by · null (`no null` disabled, reason P10) · binning · interval defined as ·
+outliers · purity check · scaling-pair Seg · axes log–log/linear · CSV and Figures (not wired toasts) ·
+`Stage 1 outlier for Review` → `recordDemoWrite('review','add-queue',…)` + toast "Open in Review" ·
+wiring dropdowns rewire each histogram/timeline/pair from the upstream feature list.
+
+**Fixtures.** `AGGREGATE[upstream]`: per-feature domains, null medians/CVs, β with CI and null β,
+per-recording βs, timeline τ, and the upstream feature schema (`amplitude_mV half_width_s rise_s
+decay_s isi_s onset_h`) that drives the wiring popover.
+
+**Copy.** `dip test p 0.21 · n too small to call modes` · `CV 0.31 · null CV 0.98 [0.71–1.22] · p < 0.01`
+· `depth ∝ duration^β · R² 0.81 · n 16` · `figures export with parameters and recipe hash beneath` ·
+`any block emitting Features over a SpanSet can feed Aggregate`.
+
 <!-- END -->
 
