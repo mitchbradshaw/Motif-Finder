@@ -145,7 +145,13 @@ export interface StatTileProps extends TestIdProps { label: ReactNode; value: Re
 export function StatTile({ label, value, caption, tone, variant = 'fill', size = 'md', info, title, style, ...t }: StatTileProps) {
   return (
     <div className={cx('k-stat', variant !== 'fill' && variant, size !== 'md' && size, tone && `tone-${tone}`)} title={title} style={style} data-testid={tid(t)}>
-      <div className="lbl">{label}{info}</div>
+      {/* a string `info` is the explanation itself, so show it behind an ⓘ affordance (P9) instead of
+          printing it beside the label, where it silently read as part of the label (Discovery builder's
+          finding). Pass an <InfoTip> element for the full pop-over; surfaces.tsx imports this module, so
+          this one cannot import InfoTip back without a cycle. */}
+      <div className="lbl">{label}{typeof info === 'string'
+        ? <Tooltip content={info}><span className="k-stat-i" aria-label={info} tabIndex={0}>ⓘ</span></Tooltip>
+        : info}</div>
       <div className="val">{value}</div>
       {caption != null && <div className="cap">{caption}</div>}
     </div>

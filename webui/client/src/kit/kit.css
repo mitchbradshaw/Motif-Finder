@@ -593,3 +593,7 @@
 .k-gal-grid3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
 .k-gal-label { font-family: var(--font-mono); font-size: 10.5px; color: var(--muted-2); margin: 14px 0 6px; }
 .k-gal-label:first-child { margin-top: 0; }
+
+/* StatTile: a string `info` becomes a small tooltip affordance rather than label text */
+.k-stat .lbl .k-stat-i { margin-left: 4px; color: var(--muted-2); cursor: help; font-size: 11px; }
+.k-stat .lbl .k-stat-i:hover, .k-stat .lbl .k-stat-i:focus { color: var(--blue); }
