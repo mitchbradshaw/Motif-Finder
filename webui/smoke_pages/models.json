@@ -23,6 +23,16 @@
  {"page": "models.results", "state": "job-popover", "hash": "models/results", "actions": [{"click": "[data-testid=\"job-chip\"]"}, {"wait": 300}], "expect": ["[data-testid=\"job-popover\"]", "[data-testid=\"job-option-j-0214\"]"]},
  {"page": "models.results", "state": "running", "hash": "models/results/j-0214", "actions": [], "expect": ["[data-testid=\"results-running\"]", "[data-testid=\"running-open-jobs\"]"]},
  {"page": "models.results", "state": "empty", "hash": "models/results?state=empty", "actions": [], "expect": ["[data-testid=\"results-empty\"]"]},
- {"page": "models.compare", "state": "default", "hash": "models/compare", "actions": [], "expect": ["[data-testid=\"header\"]"]},
+ {"page": "models.compare", "state": "only-a", "hash": "models/compare", "actions": [], "expect": ["[data-testid=\"macro-forest\"]", "[data-testid=\"agreement-grid\"]", "[data-testid=\"window-id\"]"]},
+ {"page": "models.compare", "state": "both-wrong", "hash": "models/compare?filter=both-wrong&i=12", "actions": [], "expect": ["[data-testid=\"window-id\"]", "[data-testid=\"pred-b\"]"]},
+ {"page": "models.compare", "state": "both-wrong-by-cell", "hash": "models/compare", "actions": [{"click": "[data-testid=\"cell-both-wrong\"]"}, {"wait": 400}], "expect": ["[data-testid=\"window-id\"]"]},
+ {"page": "models.compare", "state": "only-b", "hash": "models/compare?filter=only-b&i=1", "actions": [], "expect": ["[data-testid=\"window-id\"]", "[data-testid=\"step-pager\"]"]},
+ {"page": "models.compare", "state": "step-next", "hash": "models/compare", "actions": [{"click": "[data-testid=\"step-pager\"] button:last-of-type"}, {"wait": 400}], "expect": ["[data-testid=\"window-id\"]"]},
+ {"page": "models.compare", "state": "not-attributable", "hash": "models/compare?b=cnn_windows_v2.manual", "actions": [], "expect": ["[data-testid=\"paired-unavailable\"]", "[data-testid=\"attribution-note\"]", "[data-testid=\"cluster-map-unavailable\"]"]},
+ {"page": "models.compare", "state": "any-two-models", "hash": "models/compare", "actions": [{"click": "[data-testid=\"any-two-models\"]"}, {"wait": 300}], "expect": ["[data-testid=\"all-models\"]"]},
+ {"page": "models.compare", "state": "pick-a-popover", "hash": "models/compare", "actions": [{"click": "[data-testid=\"pick-a\"]"}, {"wait": 300}], "expect": ["[data-testid=\"pick-a-popover\"]"]},
+ {"page": "models.compare", "state": "swapped", "hash": "models/compare", "actions": [{"click": "[data-testid=\"swap-ab\"]"}, {"wait": 400}], "expect": ["[data-testid=\"pair-chip\"]", "[data-testid=\"macro-forest\"]"]},
+ {"page": "models.compare", "state": "job-popover", "hash": "models/compare?popover=job", "actions": [], "expect": ["[data-testid=\"job-popover\"]"]},
+ {"page": "models.compare", "state": "cluster-row", "hash": "models/compare", "actions": [{"click": "[data-testid=\"mapping-c3\"]"}, {"wait": 250}], "expect": ["[data-testid=\"cluster-mapping\"]", "[data-testid=\"impure-chip\"]"]},
  {"page": "models.registry", "state": "default", "hash": "models/registry", "actions": [], "expect": ["[data-testid=\"header\"]"]}
 ]

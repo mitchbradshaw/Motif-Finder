@@ -19,3 +19,11 @@
   knows") · frame models-3
 - Results: a running training job (j-0214) has no frame · the page shows an indeterminate bar, "results arrive
   through Jobs › Manifest inbox" and a link into Jobs · spec §7b.2, P24
+- Compare: how a cluster arm's prediction is judged right or wrong (through the majority cluster → class mapping)
+  is implied, never stated · the step-through says so behind an InfoTip · spec §7b.4
+- Compare: the GASF / RP tiles in the frame are stylised · the page computes them from the window itself
+  (GASF cos(φi+φj), RP 1−|xi−xj|); the real ones would come from 04 Image encode's cache · frame models-4
+- Compare: clicking a filter (Seg or a 2×2 cell) opens that filter at the window the frame shows
+  (only A 7, only B 1, both wrong 12) rather than at 1, so both frames are reachable by clicking · frames models-4, 4b
+- Compare: a pair that is not paired (different test windows) has no frame · paired difference, agreement,
+  per channel and the step-through all say "unavailable" with the reason · spec §7b.4, §3

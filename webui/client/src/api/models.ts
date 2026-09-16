@@ -3,7 +3,7 @@
  * demo store on the pages themselves. */
 import { demo, type Sourced } from './seam'
 import {
-  ARM_RESULTS, AGREEMENT, CLUSTER_MAP, COMPARE_MODELS, COMPARE_NULL_BAND, LAUNCH_SETUP, PAIRED_DIFF, PER_CHANNEL, PER_CLASS_DELTA,
+  ARM_RESULTS, AGREEMENT, CLUSTER_MAP, COMPARE_MODELS, COMPARE_NULL_BAND, LAUNCH_SETUP, PAIRED_DIFF, PAIRED_DIST, PER_CHANNEL, PER_CLASS_DELTA,
   REGISTRY_MODELS, RESULT_JOBS, disagreementAt,
   type ArmKey, type ArmResult, type CompareModel, type Disagreement, type DisagreementFilter, type LaunchSetup, type RegistryModel, type ResultsJob,
 } from '../fixtures/models'
@@ -33,12 +33,13 @@ export function getJobResults(jobId: string): Promise<Sourced<JobResults>> {
 }
 
 export interface CompareData {
-  models: CompareModel[]; nullBand: [number, number]; paired: typeof PAIRED_DIFF; perClassDelta: typeof PER_CLASS_DELTA
+  models: CompareModel[]; nullBand: [number, number]; paired: typeof PAIRED_DIFF; pairedDist: number[]; perClassDelta: typeof PER_CLASS_DELTA
   clusterMap: typeof CLUSTER_MAP; agreement: typeof AGREEMENT; perChannel: typeof PER_CHANNEL
 }
 /** Compare: the models that can be picked and the paired j-0212 comparison (manual vs cluster labels). */
 export const getCompare = (): Promise<Sourced<CompareData>> => demo({
-  models: COMPARE_MODELS, nullBand: COMPARE_NULL_BAND, paired: PAIRED_DIFF, perClassDelta: PER_CLASS_DELTA, clusterMap: CLUSTER_MAP, agreement: AGREEMENT, perChannel: PER_CHANNEL,
+  models: COMPARE_MODELS, nullBand: COMPARE_NULL_BAND, paired: PAIRED_DIFF, pairedDist: PAIRED_DIST, perClassDelta: PER_CLASS_DELTA,
+  clusterMap: CLUSTER_MAP, agreement: AGREEMENT, perChannel: PER_CHANNEL,
 })
 
 /** One window of the step-through (1-based index within the filter). */

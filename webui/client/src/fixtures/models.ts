@@ -264,6 +264,8 @@ export const COMPARE_MODELS: CompareModel[] = [
 ]
 export const COMPARE_NULL_BAND: [number, number] = [0.2, 0.32]
 export const PAIRED_DIFF = { delta: 0.09, ci: [0.03, 0.15] as [number, number], mcnemarP: 0.04, sd: 0.031 }
+/** The bootstrap resamples behind PAIRED_DIFF (400 draws over test blocks), drawn as the paired-difference density. */
+export const PAIRED_DIST: number[] = nullDistribution(77, PAIRED_DIFF.delta, PAIRED_DIFF.sd, 400)
 export const PER_CLASS_DELTA: { cls: ModelClass; d: number; ci: [number, number] }[] = [
   { cls: 'spike-train', d: 0.05, ci: [-0.02, 0.12] },
   { cls: 'plateau', d: 0.14, ci: [0.05, 0.23] },
