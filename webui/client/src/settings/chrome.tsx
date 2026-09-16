@@ -116,18 +116,13 @@ export function SettingsShell({ slug, demo, children, chips, actions, noReset }:
     items: g.slugs.map(s => ({ value: s, label: PAGE_META[s].title, differs: dots[s] })),
   }))), [dots])
 
-  /* the header's search pill is shared chrome; intercept its click here so Settings gets its own index */
+  /* the header's search pill calls back into Settings (orchestrator, R1); Ctrl K is bound here */
   useEffect(() => {
-    const onClick = (e: MouseEvent) => {
-      const t = e.target as HTMLElement | null
-      if (t?.closest('[data-testid="header-search"]')) { e.preventDefault(); e.stopPropagation(); setSearch(true) }
-    }
     const onKey = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); setSearch(true) }
     }
-    document.addEventListener('click', onClick, true)
     window.addEventListener('keydown', onKey)
-    return () => { document.removeEventListener('click', onClick, true); window.removeEventListener('keydown', onKey) }
+    return () => window.removeEventListener('keydown', onKey)
   }, [])
 
   /* ?focus=<field> pulses the field for 2 s (header chip and search both deep-link into it) */
@@ -151,7 +146,7 @@ export function SettingsShell({ slug, demo, children, chips, actions, noReset }:
 
   return (
     <>
-      <Header workspace="Settings" page={meta?.title ?? slug} subtitle={store.scope} search="Search settings" demo={demo} />
+      <Header workspace="Settings" page={meta?.title ?? slug} subtitle={store.scope} search="Search settings" demo={demo} onSearch={() => setSearch(true)} />
       <div className="s-shell" data-testid="settings-shell">
         <SideNav groups={groups} value={slug} onChange={go} testid="settings-nav" ariaLabel="settings pages" />
         <div className="s-col" data-testid="settings-column">

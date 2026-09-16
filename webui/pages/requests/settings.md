@@ -9,9 +9,8 @@ per-workspace index. `Header` hard-wires the pill to `useNotWired()`.
 
 **Ask:** an optional `onSearch?: () => void` (and `searchHint?`), used instead of the toast when given.
 
-**Workaround:** `settings/chrome.tsx` adds a capture-phase `click` listener on `document` that matches
-`[data-testid="header-search"]`, calls `preventDefault`/`stopPropagation` and opens the settings search
-modal, plus its own `Ctrl K` key handler. It works, but it reaches into another unit's DOM.
+**DONE (orchestrator, 16:57).** `SettingsShell` now passes `onSearch`; the document-level click
+interception is gone. Ctrl K is still bound in `settings/chrome.tsx` (the header binds no keys).
 
 ## R2 · `shell/Header.tsx` — the `M4 held out` chip should read the lock
 
@@ -21,7 +20,14 @@ The chip is unconditional and always navigates to `#/settings/datasets`. Setting
 **Ask:** bind the chip to the shared held-out fixture/store (hidden, or `no recording held out`, when the
 lock is off), and deep-link to `?focus=hold-out-a-recording`.
 
-**Workaround:** none available — the header is not ours. The Datasets page shows the true state in its
+**Key to bind to (answer to the orchestrator's question):** `settings.heldOut` in the demo store —
+`useDemoState<{ on: boolean; recording: string }>('settings.heldOut', () => ({ on: true, recording: 'M4_aug' }))`.
+Exported as `HELD_OUT_KEY_STORE` / `HeldOutLock` from `settings/store.ts`. It mirrors the **saved** layer
+only (never a draft): the Datasets unlock modal writes it the moment the typed name is confirmed, and
+turning the lock back on writes it on Save. The default above is the canon state, so a header that
+renders before Settings has ever been opened is already correct.
+
+**Workaround until then:** none — the header is not ours. The Datasets page shows the true state in its
 own `Held-out recording` card, so the two disagree after an unlock.
 
 ## R3 · `shell/NavRail.tsx` — leave guard on workspace navigation

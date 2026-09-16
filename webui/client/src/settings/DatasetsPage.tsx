@@ -152,7 +152,7 @@ function Body({ data }: { data: Data }) {
       <ImportModal open={modal === 'import'} onClose={() => setModal('')} dry={data.dryRun}
         onImported={row => { setImported(x => [...x, row]); setRec(row.id); recordDemoWrite('settings', 'import-recording', { id: row.id }) }} />
       <UnlockModal open={modal === 'unlock'} onClose={() => setModal('')} name={rows.find(r => r.id === lockRec)?.name ?? lockRec}
-        onConfirm={() => { s.set('heldout.on', false); setModal('') }} />
+        onConfirm={() => { s.applyNow('heldout.on', false); setModal('') }} />
     </>
   )
 }

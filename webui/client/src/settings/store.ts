@@ -10,7 +10,7 @@
  *   SEEDS    — the scripted edit `?state=unsaved` stages so a screenshot reproduces the frame
  */
 import { useCallback, useEffect, useMemo } from 'react'
-import { recordDemoWrite, useDemoState } from '../kit'
+import { recordDemoWrite, setDemo, useDemoState } from '../kit'
 import { useToast } from '../shell/Toast'
 import {
   CONSEQUENCE, DEFAULTS, PAGE_META, SAVED, SEEDS, SEED_SENTENCE, SLUGS, genericConsequence,
@@ -41,6 +41,14 @@ const SHARED: Record<string, { slug: string; id: string }[]> = {
 
 const same = (a: unknown, b: unknown) => JSON.stringify(a ?? null) === JSON.stringify(b ?? null)
 
+/** The held-out lock (D6) is read outside Settings — the header chip, every picker. Mirror the SAVED
+ *  value (never the draft) into its own demo-store key so other workspaces can bind to it. */
+export const HELD_OUT_KEY_STORE = 'settings.heldOut'
+export interface HeldOutLock { on: boolean; recording: string }
+function syncHeldOut(saved: Values) {
+  setDemo<HeldOutLock>(HELD_OUT_KEY_STORE, { on: Boolean(saved['heldout.on']), recording: String(saved['heldout.recording'] ?? 'M4_aug') })
+}
+
 export interface SettingsPageStore {
   slug: string
   scope: Scope
@@ -59,6 +67,8 @@ export interface SettingsPageStore {
   sentence: string
   invalid: Record<string, string>
   markInvalid: (id: string, reason: string | null) => void
+  /** write straight to the saved layer, skipping the draft (the held-out unlock is the commit, FE1) */
+  applyNow: (id: string, v: unknown) => void
   save: () => void
   discard: () => void
   resetToDefaults: () => void
@@ -138,10 +148,24 @@ export function useSettingsPage(slug: string): SettingsPageStore {
     })
   }, [setStore, slug])
 
+  const applyNow = useCallback((id: string, v: unknown) => {
+    setStore(s => {
+      const saved = { ...(s.saved[slug] ?? {}), [id]: v }
+      const draft = { ...(s.draft[slug] ?? {}) }
+      delete draft[id]
+      if (slug === 'datasets') syncHeldOut(saved)
+      return { ...s, saved: { ...s.saved, [slug]: saved }, draft: { ...s.draft, [slug]: draft } }
+    })
+  }, [setStore, slug])
+
   const save = useCallback(() => {
     const n = changes.length
     if (!n) return
-    setStore(s => ({ ...s, saved: { ...s.saved, [slug]: { ...(s.saved[slug] ?? {}), ...(s.draft[slug] ?? {}) } }, draft: { ...s.draft, [slug]: {} }, seeded: { ...s.seeded, [slug]: false } }))
+    setStore(s => {
+      const saved = { ...(s.saved[slug] ?? {}), ...(s.draft[slug] ?? {}) }
+      if (slug === 'datasets') syncHeldOut(saved)
+      return { ...s, saved: { ...s.saved, [slug]: saved }, draft: { ...s.draft, [slug]: {} }, seeded: { ...s.seeded, [slug]: false } }
+    })
     const what = changes.map(c => `${c.id} ${String(c.from)} → ${String(c.to)}`).join(' · ')
     recordDemoWrite('settings', 'save', { slug, changes: n, what })
     recordDemoWrite('settings', 'audit', { kind: 'settings', what: `${meta?.title ?? slug}: ${what}`, where: meta?.title ?? slug, route: `settings/${slug}` })
@@ -174,7 +198,7 @@ export function useSettingsPage(slug: string): SettingsPageStore {
     num: (id: string) => Number(value(id) ?? 0),
     bool: (id: string) => Boolean(value(id)),
     list: (id: string) => (value(id) as string[] | undefined) ?? [],
-    set,
+    set, applyNow,
     dirty: (id: string) => id in draft && !same(draft[id], saved[id]),
     differs: (id: string) => !same(value(id), defaults[id]),
     changes, sentence, invalid, markInvalid, save, discard, resetToDefaults, differingCount,

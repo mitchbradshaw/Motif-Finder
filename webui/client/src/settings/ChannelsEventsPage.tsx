@@ -180,7 +180,7 @@ function AddEventRow({ rec, kinds, duration, onAdd, onCancel }: {
   const [effect, setEffect] = useState<EventEffect>('show on plots')
   const [note, setNote] = useState('')
   const parsed = (() => {
-    const m = time.trim().match(/^(\d+(?:\.\d+)?)(?:\s*(?:–|-|to)\s*(\d+(?:\.\d+)?))?(\s*(?:→|->)\s*end)?$/)
+    const m = time.trim().match(/^(\d+(?:\.\d+)?)\s*(?:h)?(?:\s*(?:–|-|to)\s*(\d+(?:\.\d+)?)\s*(?:h)?)?(\s*(?:→|->)\s*end)?$/i)
     if (!m) return null
     const t0 = Number(m[1]); const t1 = m[2] ? Number(m[2]) : null
     if (t0 < 0 || t0 > duration || (t1 != null && (t1 <= t0 || t1 > duration))) return null
