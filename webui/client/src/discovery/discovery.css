@@ -79,7 +79,8 @@
 .dsc-run-line { font-family: var(--font-mono); color: var(--muted); font-size: 10.5px; white-space: nowrap; }
 .dsc-run-progress { display: inline-flex; align-items: center; gap: 8px; }
 .dsc-run-jobs { margin-left: auto; }
-.dsc-run-retry { position: absolute; right: 8px; bottom: 8px; }
+.dsc-run-retry { align-self: flex-end; flex: none; white-space: nowrap; }
+.dsc-run.failed .dsc-run-line { white-space: normal; }
 .dsc-pick { width: 20px; height: 20px; border-radius: 5px; border: 1.5px solid var(--border-strong); background: var(--card); flex: none; cursor: pointer; font-family: var(--font-mono); font-size: 11px; font-weight: 600; color: #fff; display: inline-flex; align-items: center; justify-content: center; }
 .dsc-pick:disabled { opacity: 0.45; cursor: not-allowed; }
 .dsc-pick.a { background: var(--blue); border-color: var(--blue); }
@@ -194,7 +195,9 @@
 .dsc-params { display: flex; flex-direction: column; }
 .dsc-params-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px 16px; padding: 0 14px; }
 .dsc-param { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
-.dsc-param-head { display: flex; align-items: center; gap: 4px; min-height: 24px; }
+.dsc-param-head { display: flex; align-items: center; gap: 4px; min-height: 24px; white-space: nowrap; }
+.dsc-param-head .muted.small { font-size: 10.5px; }
+.dsc-param-head .mono { font-size: 11px; }
 .dsc-param .k-select, .dsc-param select { width: 100%; }
 .dsc-cut { padding: 6px 14px 12px; flex: 1; }
 .dsc-cut-empty { padding: 20px; }
