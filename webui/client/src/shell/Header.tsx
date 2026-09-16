@@ -6,9 +6,15 @@ import { DEMO_NEED_YOU } from '../fixtures/canon'
 import { navigate, useApp } from '../state'
 import { useNotWired } from '../kit/notWired'
 
-export interface HeaderSpec { workspace: string; page: string; subtitle?: string; search?: string; demo?: boolean; extra?: ReactNode }
+export interface HeaderSpec {
+  workspace: string; page: string; subtitle?: string; search?: string; demo?: boolean; extra?: ReactNode
+  /** A workspace that owns its own search surface passes a handler; without one the pill says it is not wired.
+   *  Settings uses this for its per-page search popover (its builder's request R1). */
+  onSearch?: () => void
+  searchHint?: string
+}
 
-export function Header({ workspace, page, subtitle, search = 'Search spans, runs, families', demo = false, extra }: HeaderSpec) {
+export function Header({ workspace, page, subtitle, search = 'Search spans, runs, families', demo = false, extra, onSearch, searchHint = 'Ctrl K' }: HeaderSpec) {
   const { needYou, bridgeDown } = useApp()
   const notWired = useNotWired()
   const total = needYou + DEMO_NEED_YOU
@@ -23,9 +29,10 @@ export function Header({ workspace, page, subtitle, search = 'Search spans, runs
       </div>
       <div className="hdr-right">
         {extra}
-        <button className="hdr-search mono" data-testid="header-search" title="global search is not wired yet" onClick={() => notWired(`global search (${search.toLowerCase()})`)}>
+        <button className="hdr-search mono" data-testid="header-search" title={onSearch ? search : 'global search is not wired yet'}
+          onClick={() => (onSearch ? onSearch() : notWired(`global search (${search.toLowerCase()})`))}>
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="7" /><path d="M20 20l-3.5-3.5" /></svg>
-          <span>{search}</span><kbd>Ctrl K</kbd>
+          <span>{search}</span><kbd>{searchHint}</kbd>
         </button>
         {bridgeDown && <span className="chip red" title="the FastAPI bridge did not answer the last poll; retrying every 5 s">bridge unreachable</span>}
         <button className={`chip ${total ? 'blue' : 'grey'}`} data-testid="need-you" onClick={() => navigate('jobs')}
