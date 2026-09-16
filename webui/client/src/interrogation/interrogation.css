@@ -88,7 +88,7 @@
 /* the rose (no kit polar plot — see webui/pages/requests/interrogation.md) */
 .ig-rose { display: flex; gap: 10px; align-items: flex-start; }
 .ig-rose svg text { font-family: var(--font-mono); font-size: 9.5px; fill: var(--muted); }
-.ig-ramp { display: flex; flex-direction: column; gap: 3px; font-family: var(--font-mono); font-size: 10px; color: var(--muted); }
+.ig-ramp { display: flex; flex-direction: column; gap: 3px; width: 128px; flex: none; font-family: var(--font-mono); font-size: 10px; color: var(--muted); }
 .ig-ramp .bar { width: 96px; height: 8px; border-radius: 2px; background: linear-gradient(90deg, #5856D6, #E85AAD, #E8900C); }
 
 /* the occurrence timeline */

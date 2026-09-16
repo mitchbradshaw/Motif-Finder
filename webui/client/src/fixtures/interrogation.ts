@@ -81,9 +81,9 @@ const F03_MEMBERS: InterrogationMember[] = F03_ROWS.map(r => toMember('F-03', r)
 function genF07(): InterrogationMember[] {
   const rnd = seeded(4417)
   const spec: { rec: string; prefix: string; start: number; chs: string[]; n: number; t0: number; span: number }[] = [
-    { rec: 'M2_aug fs1', prefix: 's-1', start: 200, chs: ['CH3_A2', 'CH4_A2', 'CH7_B2'], n: 96, t0: 300, span: 118 },
+    { rec: 'M2_aug fs1', prefix: 's-1', start: 300, chs: ['CH3_A2', 'CH4_A2', 'CH7_B2'], n: 96, t0: 300, span: 118 },
     { rec: 'M2_aug fs2', prefix: 's2-0', start: 40, chs: ['CH2_A1', 'CH4_A2'], n: 44, t0: 180, span: 88 },
-    { rec: 'M3_jul', prefix: 'm-0', chs: ['CH2', 'CH5'], start: 200, n: 52, t0: 40, span: 68 },
+    { rec: 'M3_jul', prefix: 'm-0', chs: ['CH2', 'CH5'], start: 400, n: 52, t0: 40, span: 68 },
     { rec: 'L_LM_Jul26_J', prefix: 'l-0', chs: ['CH1', 'CH3'], start: 20, n: 20, t0: 8, span: 11 },
   ]
   const out: InterrogationMember[] = []
@@ -103,7 +103,8 @@ function genF07(): InterrogationMember[] {
       })
     }
   }
-  /* the four rows frame 2b names, at the strip positions it draws (event 45 is current) */
+  /* The four rows frame 2b names, at the strip positions it draws (event 45 is current). The generated ids
+     start well clear of these four so no id is used twice. */
   const named: [number, string, number, number, number, number, number, string[]][] = [
     [44, 's-1203', 0.378, -0.0725, 1.92, 10.0, 11.0, []],
     [45, 'm-0231', 0.361, -0.0702, 1.81, 11.0, 10.2, []],

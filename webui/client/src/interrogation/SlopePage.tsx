@@ -4,7 +4,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   Badge, Button, Callout, Chip, ColourDot, Dropdown, Icon, IconButton, InfoTip, LineChart, MiniTrace, Page, Seg, SectionCard,
-  Slider, Table, fmtInt, recordDemoWrite, useNotWired, useQueryState, useSim, type BadgeStatus, type Column,
+  Slider, Table, fmtInt, recordDemoWrite, useNotWired, useQueryState, useSim, type BadgeStatus, type Column, type SortState,
 } from '../kit'
 import { Header } from '../shell/Header'
 import { useToast } from '../shell/Toast'
@@ -59,6 +59,7 @@ function SlopeBody({ block }: { block: SlopeBlock }) {
   const [sel, setSel] = useState<string[]>([])
   const [stripPage, setStripPage] = useState(1)
   const [tablePage, setTablePage] = useState(1)
+  const [tableSort, setTableSort] = useState<SortState>({ key: 'depth', dir: 'desc' })
   const [overlaySeed, setOverlaySeed] = useState(4417)
   const [saveOpen, setSaveOpen] = useState(false)
   const sourceRef = useRef<HTMLButtonElement>(null)
@@ -78,7 +79,7 @@ function SlopeBody({ block }: { block: SlopeBlock }) {
   const event: InterrogationMember | undefined = events[selectedIdx] ?? events[0]
 
   /* the strip page follows the selection unless the user pages it */
-  useEffect(() => { setStripPage(Math.floor(selectedIdx / STRIP) + 1); setTablePage(Math.floor(selectedIdx / TABLE_PAGE) + 1) }, [selectedIdx])
+  useEffect(() => { setStripPage(Math.floor(selectedIdx / STRIP) + 1) }, [selectedIdx])
 
   const flagged = events.filter(e => e.flags.length)
   const stripFrom = (stripPage - 1) * STRIP
@@ -161,8 +162,21 @@ function SlopeBody({ block }: { block: SlopeBlock }) {
     { key: 'recovery', header: 'recovery s', align: 'right', render: r => r.recovery_s.toFixed(1), sortValue: r => r.recovery_s },
     { key: 'flags', header: 'flags', render: r => r.flags.length ? <span className="ig-amber-text"><Icon name="alert-triangle" size={11} /> {r.flags.join(' · ')}</span> : null },
   ]
+  /* the whole run is sorted, then paged — so "depth ↓" means the deepest events in the run, not on this page */
+  const sortedEvents = useMemo(() => {
+    if (!tableSort) return events
+    const col = columns.find(c => c.key === tableSort.key)
+    if (!col?.sortValue) return events
+    const f = col.sortValue, m = tableSort.dir === 'asc' ? 1 : -1
+    return [...events].sort((a, b) => {
+      const va = f(a), vb = f(b)
+      if (va == null || vb == null) return 0
+      return (typeof va === 'number' && typeof vb === 'number' ? va - vb : String(va).localeCompare(String(vb))) * m
+    })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [events, tableSort])
   const tableFrom = (tablePage - 1) * TABLE_PAGE
-  const tableRows = events.slice(tableFrom, tableFrom + TABLE_PAGE)
+  const tableRows = sortedEvents.slice(tableFrom, tableFrom + TABLE_PAGE)
 
   const pick = (id: string) => setEventQ(id)
 
@@ -349,7 +363,7 @@ function SlopeBody({ block }: { block: SlopeBlock }) {
           <Button size="sm" icon="download" onClick={() => notWired(`export ${events.length} per-event rows as CSV`)} testid="events-csv">CSV</Button>
         </>}>
         <Table rows={tableRows} rowKey={r => r.id} columns={columns} selection="multi" selected={sel} onSelectionChange={setSel}
-          highlighted={event?.id ?? null} onRowClick={r => pick(r.id)} defaultSort={{ key: 'depth', dir: 'desc' }} testid="events-table"
+          highlighted={event?.id ?? null} onRowClick={r => pick(r.id)} sort={tableSort} onSortChange={setTableSort} testid="events-table"
           rowTone={r => (r.flags.length ? 'amber' : undefined)} dense
           empty={<span>no events in scope · every member is excluded on the source block</span>} />
         <div className="ig-row" style={{ marginTop: 6 }}>

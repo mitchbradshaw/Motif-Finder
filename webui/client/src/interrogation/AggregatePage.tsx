@@ -183,7 +183,10 @@ function AggregateBody({ block }: { block: AggregateBlock }) {
     push({ text: `sent ${outlier.id} to Review · 1 span queued (demo)`, action: { label: 'Open in Review', onClick: () => navigate('review/queue') } })
   }
 
-  const tooFew = events.length < 3
+  /* `?state=empty` forces the "nothing to aggregate" state; it is also reached for real when a family has
+     fewer than 3 events in scope (a distribution and a fit need more than two points). */
+  const forcedEmpty = stateQ === 'empty'
+  const tooFew = events.length < 3 || forcedEmpty
   const stageStages = block.chain.map(b => (b.index ? `${String(b.index).padStart(2, '0')} ${b.label}` : b.label))
 
   return (
@@ -208,9 +211,14 @@ function AggregateBody({ block }: { block: AggregateBlock }) {
         onPick={kind => { setQuery({ upstream: kind === 'slope' ? null : kind, pair: null }, false); push({ text: `01 is now ${kind === 'slope' ? 'Resolve spans' : 'Spike shape'} · Aggregate re-wired from its Features` }) }} />
 
       {tooFew ? (
-        <EmptyState testid="aggregate-empty" icon="bar-chart" title={`${fam.id} ${fam.name} has ${events.length} event${events.length === 1 ? '' : 's'} in scope`}
-          caption="distributions and a scaling fit need at least 3 · pick another family or widen the distance threshold on the source block"
-          action={<Button variant="primary" icon="library" onClick={() => navigate('analyse/interrogation')}>Open the source block</Button>} />
+        <EmptyState testid="aggregate-empty" icon="bar-chart"
+          title={forcedEmpty ? '01 has not run yet' : `${fam.id} ${fam.name} has ${events.length} event${events.length === 1 ? '' : 's'} in scope`}
+          caption={forcedEmpty
+            ? 'Aggregate draws whatever 01 emits — with no Features in hand there is nothing to distribute, fit or plot'
+            : 'distributions and a scaling fit need at least 3 events · pick another family or widen the distance threshold on the source block'}
+          action={<Button variant="primary" icon={forcedEmpty ? 'play' : 'library'} testid="empty-action"
+            onClick={() => (forcedEmpty ? (setStateQ(null), sim.start({ steps: RUN_STEPS, stepMs: 700 })) : navigate('analyse/interrogation'))}>
+            {forcedEmpty ? 'Run chain' : 'Open the source block'}</Button>} />
       ) : (
         <>
           {/* ------------------------------------------------ three distributions ------------------------------------------------ */}
@@ -336,7 +344,11 @@ function AggregateBody({ block }: { block: AggregateBlock }) {
 
             <div className="ig-stack">
               <StatRow columns={2}>
-                {up.tiles.map(t => <StatTile key={t.label} label={t.label} value={t.label === 'events' ? String(events.length) : t.value} tone={t.tone} testid={`tile-${t.label.replace(/[^a-z]+/gi, '-')}`} />)}
+                {up.tiles.map((t, i) => (
+                  <StatTile key={t.label} tone={t.tone} testid={`tile-${t.label.replace(/[^a-z]+/gi, '-')}`}
+                    label={i === 1 ? `β ${pair.label.replace(/ ~ /, '~')}` : t.label}
+                    value={i === 0 ? String(events.length) : i === 1 ? pair.beta.toFixed(2) : t.value} />
+                ))}
               </StatRow>
               <div className="ig-row">
                 <Button icon="download" onClick={() => notWired(`export ${events.length} rows and the fitted exponents as CSV`)} testid="aggregate-csv">CSV</Button>

@@ -3,7 +3,7 @@
  * per-member include/exclude that scopes the run and leaves the Library entry alone. */
 import { useEffect, useMemo, useRef, useState } from 'react'
 import {
-  Badge, Button, Callout, Checkbox, ColourDot, Dropdown, Field, Icon, InfoTip, LineChart, MiniTrace, Page, Pager,
+  Badge, Button, Callout, Checkbox, ColourDot, Dropdown, EmptyState, Field, Icon, InfoTip, LineChart, MiniTrace, Page, Pager,
   SectionCard, fmtInt, recordDemoWrite, useNotWired, useQueryState, useSim, type BadgeStatus,
 } from '../kit'
 import { Header } from '../shell/Header'
@@ -53,6 +53,7 @@ function SourceBody({ block }: { block: SourceBlock }) {
   const [sortQ, setSortQ] = useQueryState('sort', 'distance')
   const [alignQ, setAlignQ] = useQueryState('align', 'onset')
   const [distanceQ, setDistanceQ] = useQueryState('distance', String(block.family.threshold))
+  const [scopeQ, setScopeQ] = useQueryState('scope', 'all')
   const [page, setPage] = useState(1)
   const [overlaySeed, setOverlaySeed] = useState(0)
   const [saveOpen, setSaveOpen] = useState(false)
@@ -63,7 +64,7 @@ function SourceBody({ block }: { block: SourceBlock }) {
   const fam = block.family
   const hidesArtifacts = excludeArtifacts === 'out'
   const handExcluded = draft.excluded[fam.id] ?? []
-  const scope = inScopeIds(block.members, draft, fam.id, hidesArtifacts)
+  const scope = scopeQ === 'none' ? new Set<string>() : inScopeIds(block.members, draft, fam.id, hidesArtifacts)
 
   /* ---- filters, sort, paging (the tile grid caps at 10 — P8) ---- */
   const visible = useMemo(() => {
@@ -107,6 +108,7 @@ function SourceBody({ block }: { block: SourceBlock }) {
     recordDemoWrite('analyse', 'scope-member', { family: fam.id, member: id, in_scope: on })
   }
   const setAll = (mode: 'all' | 'none' | 'invert') => {
+    setScopeQ(null)
     setDraft(d => {
       const cur = new Set(d.excluded[fam.id] ?? [])
       const next = mode === 'all' ? [] : mode === 'none' ? visible.map(m => m.id)
@@ -216,8 +218,11 @@ function SourceBody({ block }: { block: SourceBlock }) {
 
             <div className="ig-rel">
               {sim.busy && <RunVeil label={`${sim.steps[sim.step] ?? 'queued'} · ${Math.round(sim.fraction * 100)} %`} fraction={sim.fraction} />}
+              {nScope === 0 && <EmptyScope onSelectAll={() => setAll('all')} />}
               {tiles.length === 0
-                ? <EmptyScope onSelectAll={() => setAll('all')} />
+                ? <EmptyState testid="no-member-match" size="sm" icon="filter" title="no member matches these filters"
+                  caption={`${fam.within} members are within d ≤ ${fam.threshold.toFixed(2)} · widen the distance, recording or channel filter`}
+                  action={<Button onClick={() => { setDistanceQ(null); setRecordingQ(null); setChannelQ(null); setAdjOnly(null); setPage(1) }} testid="clear-filters">Clear filters</Button>} />
                 : (
                   <div className="ig-members" data-testid="member-grid">
                     {tiles.map(m => {
@@ -267,16 +272,18 @@ function SourceBody({ block }: { block: SourceBlock }) {
               <Button size="sm" icon="shuffle" onClick={() => setOverlaySeed(s => s + 1)} testid="overlay-resample">resample</Button>
               <Dropdown testid="overlay-align" prefix="align" value={alignQ} onChange={setAlignQ} options={ALIGNMENTS} />
             </>}>
-            <LineChart testid="overlay-plot" height={190} xLabel={`seconds from ${alignQ}`} yLabel="mV" yDomain={FAMILY_Y_DOMAIN}
+            {nScope === 0
+              ? <EmptyState testid="overlay-empty" size="sm" icon="wave" title="nothing in scope to overlay" caption="tick a member above" />
+              : <><LineChart testid="overlay-plot" height={190} xLabel={`seconds from ${alignQ}`} yLabel="mV" yDomain={FAMILY_Y_DOMAIN}
               xDomain={[-20, 40]} xFormat={v => `${v > 0 ? '+' : ''}${v} s`}
               series={[
                 ...overlayMembers.map(m => ({ label: m.id, colour: fam.colour, points: toPoints(eventCurve(m, 20, 30), 20), width: 1 })),
                 { label: `medoid ${fam.medoid}`, colour: '#111827', points: toPoints(medoidCurve, 20), width: 2 },
               ]} legend={false} />
-            <div className="ig-foot" style={{ marginTop: 4 }}>
-              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}><span style={{ width: 14, height: 2, background: fam.colour }} />member</span>
-              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}><span style={{ width: 14, height: 2, background: '#111827' }} />medoid {fam.medoid}</span>
-            </div>
+              <div className="ig-foot" style={{ marginTop: 4 }}>
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}><span style={{ width: 14, height: 2, background: fam.colour }} />member</span>
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}><span style={{ width: 14, height: 2, background: '#111827' }} />medoid {fam.medoid}</span>
+              </div></>}
           </SectionCard>
         </div>
 
