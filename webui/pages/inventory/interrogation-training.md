@@ -293,3 +293,162 @@ decay_s isi_s onset_h`) that drives the wiring popover.
 
 <!-- END -->
 
+
+## analyse.training — the training chain page (frames 0, 0b)
+
+**Route & states.** `#/analyse/training`. `default` (Signal · CH4_A2 · span 0–45.2 h, six rows) ·
+`illustrative-human-windows` (`?source=human-windows`; also the source popover's second entry) ·
+`source-popover` (`?popover=source`) · `history` (`?popover=history`) · `import` (`?popover=import`) ·
+`queued-to-review` (click *Send 412 unseen windows to Review* → modal `?modal=send-review`) ·
+`save-template` (`?modal=save-template`) · `running` (`?state=running`) · `failed` (`?state=failed`).
+
+**Regions** (`data-testid`): `training-toolbar` (name chip · source chip · null chip · estimate ·
+History · Import · Save template · Train in Models) · `chain-rows` with one `chain-row-<id>` per block
+(`source`, `windows`, `matrix`, `cluster`, `encode`, `model`) · `row-plot-<id>` · `insert-<i>` ·
+`model-handoff` (Trial job on this channel · Train in Models) · `chain-footer` (terminal chip, the
+543-window fact line, *Send 412 unseen windows to Review*, *Export run*) · `b7-callout` (0b only).
+
+**Controls.** Each row: settings icon → its block page, bypass, duplicate, delete (delete makes the
+junction `invalid` and the row shows the fix action) · `+ insert` → not-wired toast (the type-contract
+modal §6.4 belongs to the chain builder) · source chip → popover with the two source kinds; the
+human-labelled window set is marked **illustrative** (P13 "sketched but not built") · History lists
+`#140` (applies) and the three detection runs disabled with reason "terminal SpanSet · this is a
+training chain" · Import lists `cnn_windows_v3` / `cnn_windowset_v1` (the latter disabled, P3) ·
+*Send 412 unseen windows to Review* → modal → `recordDemoWrite('review','add-queue',…)` (cap 20,000,
+P13) · *Train in Models* → `recordDemoWrite('models','add-training-job',…)` + `#/models/launch` (P11).
+
+**Fixtures.** `fixtures/training.ts`: `CHAIN` (six blocks, signature + summary + status), `SIGNAL`
+(synthetic mV over 45.2 h), `WINDOWS`, `CLUSTER`, `ENCODE`, `HUMAN_SOURCE` (0b: 412 windows,
+38 % interesting, tick strip).
+
+**Copy.** Header `Analyse | Chain | training chain · terminal type Model → saves as a training
+template`. Footer `543 windows · 6 classes` / `blocked split 70 / 15 / 15 · gap 10 min · 412 windows
+never human-reviewed`. 0b header `illustrative · windows from the human-labelled set · not built yet`.
+
+**P15 in the flesh.** With the WindowSet source there is **no** sliding-windows row — the stages
+renumber `01 Window matrix … 04 Model`, and the amber B7 callout states the open question instead of
+drawing a greyed "skipped" row.
+
+## analyse.training.windows — 01 Sliding windows (frame 01)
+
+**Route & states.** `#/analyse/training/block/1`. `default` (nothing pending, gap 10 min) ·
+`edited` (`?state=edited`: gap 5 → 10 min pending, 01 → 05 stale) · `invalid-gap` (set gap below the
+window length: red NumberField + a blocked Apply) · `random-split` (`?split=random`: leakage banner) ·
+`send-review` (`?modal=send-review`) · `save-window-set` (`?modal=save-window-set`, P18) ·
+`running` (`?state=running`).
+
+**Regions.** `training-toolbar` · `chain-ribbon-card` · `windows-card` (split Seg, the split band strip
+over the signal, legend) · `boundary-card` (the 15.2–16.4 h close-up) · `verdicts-card` (per-split
+reviewed/interesting bars) · `parameters-card` (windows from · length · stride · gap · split · blocks ·
+seed) · `checks-card` (Checklist + *Send 412 unseen windows to Review* + queue-cap note) ·
+`unapplied-bar`.
+
+**Controls.** `blocked by time | random ✕` Seg (random is selectable and **marked as leaking**, P12) ·
+window length / stride sliders · **gap NumberField, validated `≥ window length`** (P12) · split and
+blocks Dropdowns · seed · *Save window set* (P18) → modal → `recordDemoWrite('library','save-window-set')`
+· *Send 412 unseen windows to Review* → modal (cap 20,000) → `recordDemoWrite('review','add-queue')` ·
+*Revert to recommended* / *Apply & re-run from 01* (`useSim`).
+
+**Fixtures.** `WINDOWS`: `total 543`, blocks `train 185 · val 76 · train 163 · test 100` (524 assigned,
+19 in gaps), per-split verdicts (`131` reviewed, `48` interesting), boundary windows, parameter
+recommendations, checks.
+
+**Copy.** `a gap of at least one window length means no training window shares a sample with a
+validation window` · `cluster labels exist for every window; manual labels only for reviewed ones` ·
+`Review queue holds up to 20,000 windows`.
+
+## analyse.training.matrix — 02 Window matrix (frame 1)
+
+**Route & states.** `#/analyse/training/block/2`. `default` (nothing pending; RF and CNN scores off) ·
+`edited` (`?state=edited`: Random Forest exclusion pending, 03 → 05 stale) · `label-derived-on`
+(tick CNN scores → red leakage callout, P12) · `group-open` (`?open=catch22`) · `slurm`
+(`?modal=slurm`) · `upload` (`?modal=upload`) · `running` (`?state=running`).
+
+**Regions.** `matrix-card` (normalise/clip Dropdowns, the per-group heatmaps, the aligned signal,
+`matrix-readout`) · `groups-card` (five Checkboxes + the label-derived warning + windows-from line) ·
+`compute-card` (cached recipe, local-ceiling note, *Create SLURM script*, *Upload matrix*) ·
+`unapplied-bar`.
+
+**Controls.** group collapse chevrons (Catch22's 22 features are one line until opened) · include
+Checkboxes (**label-derived groups off by default**, P12) · normalise / clip Dropdowns · column click
+selects a window and updates the readout · *Open in Encode* → `block/4?window=283` · *Create SLURM
+script* → modal with a CodeBlock → `recordDemoWrite('jobs','add-job')` (P4) · *Upload matrix* → modal.
+
+**Fixtures.** `MATRIX`: five groups (Catch22 22 · Entropy 6 · Random Forest 2 label-derived · Wavelet
+energy 4 · CNN scores 6 label-derived), z-scored values over 56 time bins with a deviation band at
+28 h, readout `window 283 · 28.2 – 28.4 h · class C3 · sample entropy +2.7σ`, compute `recipe a7f3…9c`.
+
+## analyse.training.cluster — 03 Cluster (frames 2, 2b)
+
+**Route & states.** `#/analyse/training/block/3`. `default` (dendrogram, cut 10.1, k 6) · `choose-k`
+(`?view=choose-k`) · `cut-dragged` (move the cut → pending k) · `merge-pending` (`?merge=C5,C6`) ·
+`save-grouping` (`?modal=save-grouping`) · `criterion-locked` (choose-k › Lock) · `send-review`
+(`?modal=send-review`, from choose-k) · `running` (`?state=running`).
+
+**Regions.** `cluster-card` (dendrogram + draggable cutline) · `cluster-params` (criterion · linkage ·
+distance · cut-height Slider · k / silhouette / cophenetic tiles · the criterion warning) ·
+`class-cards` (six medoid + 2 members cards, `too small to train` flags) · `occupancy-card` ·
+`per-class-bars` (+ *Merge C5 + C6*, *Save grouping*) · choose-k: `k-sweep-card`, `criterion-card`,
+`contingency-card`, `stability-card`.
+
+**Controls.** cut-height Slider **and** a draggable cutline handle (both write the same pending k) ·
+criterion / linkage / distance Dropdowns · `show distinguishing features` Dropdown · resample ·
+*Merge C5 + C6* (`Button variant="cluster"`) · *Save grouping* → modal with a **scope** control
+(`whole channel | this section only`, §8.2) · choose-k: metric Seg, criterion RadioCards, *Lock*,
+*Apply k = 6*, *Send 412 to Review*.
+
+**Fixtures.** `CLUSTER`: six classes (260 · 180 · 51 · 32 · 13 · 7 = 543), dendrogram tree, k-sweep for
+three linkages over k 2–12, contingency (131 reviewed / 412 unreviewed), bootstrap Jaccard,
+occupancy segments. Class colours are the D8 categorical palette, not verdict hues (see fog).
+
+**Copy.** `fix the criterion before reporting cluster labels — or k becomes the finding` (B4) ·
+`peak k 2 (average) — one class would hold 91 % of windows` · `C3 and C4 each cover one stretch —
+possibly regimes, not motif types`.
+
+## analyse.training.encode — 04 Encode (frame 3)
+
+**Route & states.** `#/analyse/training/block/4`. `default` (window 118 of 543, fusion unticked) ·
+`window` (`?window=283`, from the matrix readout) · `edited` (tick Fusion, or change a parameter) ·
+`new-encoder-version` (`?encoder=new`: an amber "registers as a new version" note) · `running`
+(`?state=running`).
+
+**Regions.** `encode-card` (window pager, the window's signal, four `encoding-<kind>` panels with
+include Checkboxes) · `encode-params` (encoder set · image size · PAA · recurrence ε · fusion channels ·
+write to · the existing-encoders note · images/disk/time tiles) · `browse-card` (six class cards ×
+3 sampled windows, `under 20 per split` flags, encoding Seg, Resample) · `unapplied-bar`.
+
+**Controls.** ‹ › window pager and a jump field · per-encoding include Checkbox (unticking skips its
+images and re-costs the tiles) · encoder set / image size / PAA / fusion / write-to Dropdowns ·
+recurrence ε Slider · browse encoding Seg (GASF | GADF | Recurrence) · Resample (seeded) · class card
+click → that class's first window.
+
+**Fixtures.** `ENCODE`: window 118 (C2 · train · 19.8 h · no verdict), four deterministic encodings,
+per-class image counts (`count × ticked encodings`, 1,629 at three), per-class split counts.
+
+## analyse.training.model — 05 Model (frame 4)
+
+**Route & states.** `#/analyse/training/block/5`. `default` (04 + 05 ticked, labels from cluster
+classes) · `labels-manual` / `labels-both` (`?labels=manual|both`) · `stages` (tick another stage →
+the cost and the script's `--from-stage` change) · `script-copied` (Copy script → toast) ·
+`trial-job-created` (Download trial job → `recordDemoWrite('jobs','add-job')`) · `focus-trial`
+(`?focus=trial`).
+
+**Regions.** `stage-table` (stage · status · cost · runs on · note, one Checkbox per stage) ·
+`labels-from` (three RadioCards) · `training-params` (architecture · input · epochs · stop on ·
+learning rate · batch · seed · class balance · augmentation + the held-out lock line) ·
+`before-trains` (Checklist, 3 pass / 3 warn, with *Merge C5 + C6 in 03* and *Send 412 to Review*) ·
+`trial-card` (CodeBlock + Copy script + Download trial job) · `models-handoff`.
+
+**Controls.** stage Checkboxes (01–03 cached are skippable; unticking 04 disables 05 with a reason) ·
+labels-from RadioCards (`both, paired` says "runs in Models") · the eight training Dropdowns ·
+*Copy script* (clipboard + toast) · *Download trial job* → job write + toast "Open in Jobs" ·
+*Merge C5 + C6 in 03* → `block/3?merge=C5,C6` · *Send 412 to Review* → modal · *Train in Models* →
+`recordDemoWrite('models','add-training-job')` + `#/models/launch?template=cnn_windows_v3` (P11).
+
+**Fixtures.** `MODEL`: five stage rows with costs and hosts, three label sources, training parameters,
+six pre-training checks, the SLURM script text (`recipe c9e2…41 --from-stage 04 --to-stage 05`).
+
+**Copy.** `Analyse builds this template · Models trains it across channels` · `results return via
+Jobs › Manifest inbox` · `held out: M4_aug · locked in Settings › Datasets` (P19, D6).
+
+<!-- END TRAINING -->

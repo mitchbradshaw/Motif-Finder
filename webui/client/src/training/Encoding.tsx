@@ -2,10 +2,11 @@
  * pseudo-image from fixtures/training.ts is painted as one <rect> per cell. Not a plot of mV — an image. */
 import { encodingImage, type EncodingKind } from '../fixtures/training'
 
-/** Yellow → blue ramp (the frames' GASF/GADF palette); recurrence plots use the same ramp. */
+/** The frames' GASF/GADF/RP palette: a jet-like ramp over [−1, +1]. It is a raster, not a plot of mV, so
+ * the spec §3 colour semantics (red = failed) do not read here — nothing on this ramp is a verdict. */
 function ramp(v: number): string {
   const t = Math.max(0, Math.min(1, (v + 1) / 2))
-  const stops: [number, number, number][] = [[247, 234, 160], [163, 205, 220], [110, 155, 195], [74, 100, 140]]
+  const stops: [number, number, number][] = [[32, 60, 130], [46, 126, 196], [92, 196, 196], [236, 224, 120], [226, 140, 62], [178, 44, 40]]
   const i = Math.min(stops.length - 2, Math.floor(t * (stops.length - 1)))
   const f = t * (stops.length - 1) - i
   const c = stops[i].map((a, k) => Math.round(a + (stops[i + 1][k] - a) * f))

@@ -139,6 +139,12 @@
 .tr-enc.off { opacity: 0.6; }
 .tr-enc .nm { display: flex; align-items: center; justify-content: space-between; gap: 6px; font-family: var(--font-mono); font-size: 11px; }
 .tr-img { display: block; width: 100%; height: auto; border-radius: 4px; }
+.tr-enc .tr-img { width: auto; flex: 1 1 auto; min-width: 0; }
+.tr-scale { position: relative; width: 22px; flex: none; display: block; }
+.tr-scale .bar { position: absolute; left: 0; top: 0; bottom: 0; width: 9px; border-radius: 2px;
+  background: linear-gradient(180deg, rgb(74,100,140), rgb(110,155,195), rgb(163,205,220), rgb(247,234,160)); }
+.tr-scale .tk { position: absolute; left: 11px; top: -2px; font-family: var(--font-mono); font-size: 9px; color: var(--muted); }
+.tr-scale .tk.bot { top: auto; bottom: -2px; }
 
 /* veil */
 .tr-veil { position: absolute; inset: 0; background: rgba(255,255,255,0.72); display: flex; align-items: center; justify-content: center; z-index: 3; border-radius: 10px; }
