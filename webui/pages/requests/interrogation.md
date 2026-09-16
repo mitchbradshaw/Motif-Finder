@@ -45,10 +45,9 @@ directory, so nothing here blocks the build; each entry says where the local sta
    count, the recording count and the adjudicated count. §0 has only name + member count. *Workaround:*
    `fixtures/interrogation.ts` `FAMILIES` carries them; if canon gains them, that list should import instead.
 
-10. **`ANALYSE_RUNS` maps `#140 F-03 slope interrogation` to `spike_shape_v1`.** The run's name says *slope*
-    and frame 3c presents Spike shape as a different analysis. Recommend `#140 → sharkfin_slope_v1`, keeping
-    `spike_shape_v1` for the Spike-shape block (this matches the inventory's recommendation).
-    *Workaround:* `PRIOR_RUNS` in `fixtures/interrogation.ts` states the mapping locally.
+10. ~~**`ANALYSE_RUNS` maps `#140 F-03 slope interrogation` to `spike_shape_v1`.**~~ **Done** in `511d6c9`:
+    canon now maps `#140 → sharkfin_slope_v1`, keeping `spike_shape_v1` for the Spike-shape block.
+    `PRIOR_RUNS` in `fixtures/interrogation.ts` already agrees.
 
 11. **A shared `FamilyMember` type.** Library › Family, Review cluster strips and this unit all need
     `{ id, family, recording, channel, onset_h, d, verdict, fs_hz, trace }`. The inventory proposes it for
