@@ -11,6 +11,10 @@ import { VocabularyPage } from './VocabularyPage'
 import { NullsPage } from './NullsPage'
 import { AnalysisDefaultsPage } from './AnalysisDefaultsPage'
 import { BlocksPage } from './BlocksPage'
+import { ComputeHpcPage } from './ComputeHpcPage'
+import { ReviewQueuesPage } from './ReviewQueuesPage'
+import { ModelsRegistrationPage } from './ModelsRegistrationPage'
+import { LibraryGroupingsPage } from './LibraryGroupingsPage'
 import { Skeleton } from '../shell/Skeleton'
 
 export function SettingsPage() {
@@ -22,7 +26,11 @@ export function SettingsPage() {
   if (slug === 'vocabulary') return <VocabularyPage />
   if (slug === 'nulls') return <NullsPage />
   if (slug === 'analysis-defaults') return <AnalysisDefaultsPage />
+  if (slug === 'compute-hpc') return <ComputeHpcPage />
   if (slug === 'blocks') return <BlocksPage />
+  if (slug === 'review-queues') return <ReviewQueuesPage />
+  if (slug === 'models-registration') return <ModelsRegistrationPage />
+  if (slug === 'library-groupings') return <LibraryGroupingsPage />
   if (PAGE_META[slug]) return <Skeleton id={`settings.${slug}`} />
   return (
     <>
