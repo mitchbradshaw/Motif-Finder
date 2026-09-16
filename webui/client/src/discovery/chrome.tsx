@@ -216,7 +216,7 @@ export function ScopeCard({ dx, previewable = true }: { dx: Discovery; previewab
         <SectionPopover open={secOpen} onClose={() => setSecOpen(false)} anchorRef={secRef} section={s.section} hours={hours} onApply={sec => { dx.setScope({ section: sec }); recordDemoWrite('discovery', 'set-section', { section: sec }) }} />
         {previewable && (
           <DisabledReason disabled={runnable.length === 0 || !!refused} reason={refused ? 'held out recording' : 'nothing to preview — every run in this session has results'}>
-            <Button icon="flask" onClick={runPreview} disabled={runnable.length === 0 || !!refused || preview.busy} loading={preview.busy} testid="preview-sample">Preview on a 4 h sample</Button>
+            <Button icon="flask" onClick={runPreview} disabled={runnable.length === 0 || !!refused || preview.busy} disabledReason={refused ? 'held out recording' : runnable.length === 0 ? 'nothing to preview — every run in this session has results' : undefined} loading={preview.busy} testid="preview-sample">Preview on a 4 h sample</Button>
           </DisabledReason>
         )}
       </div>

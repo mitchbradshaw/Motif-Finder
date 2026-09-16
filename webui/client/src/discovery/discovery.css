@@ -169,5 +169,47 @@
   .dsc-cols { grid-template-columns: 1fr; }
   .dsc-add-body { grid-template-columns: 1fr; }
 }
-.dsc-run-jobs-link.k-btn { position: absolute; right: 8px; bottom: 7px; height: 20px; padding: 0 2px; font-size: 11px; }
+.dsc-run-jobs-link.k-btn { align-self: flex-end; flex: none; height: 20px; padding: 0 2px; font-size: 11px; white-space: nowrap; }
 .dsc-run.paused .dsc-run-text b { padding-right: 0; max-width: 150px; }
+.dsc-run.paused .dsc-run-line { white-space: normal; }
+
+/* seed search (2) */
+.dsc-page .green, .k-modal .green { color: var(--k-green-text, #177a50); }
+.dsc-axis-t { font-family: var(--font-mono); font-size: 10px; fill: var(--muted); }
+.dsc-run.draft { border-color: var(--blue); box-shadow: 0 0 0 1px var(--blue); background: #f2f8ff; }
+.dsc-run.draft .dsc-run-body { cursor: default; }
+.dsc-seed-top { display: grid; grid-template-columns: minmax(0, 0.72fr) minmax(0, 1fr); gap: 12px; }
+.dsc-seed-body { padding: 0 14px 14px; display: flex; flex-direction: column; gap: 10px; }
+.dsc-seed-row { display: flex; gap: 14px; align-items: flex-start; }
+.dsc-seed-thumb { display: flex; flex-direction: column; gap: 4px; border: 1px solid var(--border); border-radius: 8px; padding: 6px; background: #fafbfc; flex: none; }
+.dsc-seed-thumb.unavailable { width: 132px; height: 90px; align-items: center; justify-content: center; text-align: center; color: var(--muted); }
+.dsc-seed-kv { display: flex; flex-direction: column; gap: 4px; font-family: var(--font-mono); font-size: 11px; color: var(--text-2); min-width: 0; }
+.dsc-seed-kv b { font-size: 12.5px; color: var(--text); }
+.dsc-seed-kv .dsc-inline-link { padding: 0; align-self: flex-start; color: var(--blue-600); }
+.dsc-seed-option { display: flex; align-items: center; gap: 10px; width: 100%; padding: 6px; border: 1px solid transparent; border-radius: 7px; background: transparent; text-align: left; cursor: pointer; font: inherit; }
+.dsc-seed-option > span { display: flex; flex-direction: column; gap: 2px; font-size: 12px; }
+.dsc-seed-option:hover, .dsc-seed-option.on { background: var(--blue-100); border-color: var(--blue-200); }
+.dsc-divider { height: 1px; background: var(--border); }
+.dsc-add-channel:disabled { opacity: 0.55; cursor: not-allowed; }
+.dsc-params { display: flex; flex-direction: column; }
+.dsc-params-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px 16px; padding: 0 14px; }
+.dsc-param { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.dsc-param-head { display: flex; align-items: center; gap: 4px; min-height: 24px; }
+.dsc-param .k-select, .dsc-param select { width: 100%; }
+.dsc-cut { padding: 6px 14px 12px; flex: 1; }
+.dsc-cut-empty { padding: 20px; }
+.dsc-thresh:focus-visible { outline: none; }
+.dsc-thresh:focus-visible circle { stroke-width: 3.5; }
+.dsc-legend-row { display: flex; align-items: center; gap: 12px; color: var(--muted); justify-content: center; }
+.dsc-legend-row .sw { display: inline-block; width: 8px; height: 8px; border-radius: 2px; margin-right: 4px; vertical-align: -1px; }
+.dsc-legend-row .sw.line { height: 2px; width: 12px; vertical-align: 2px; }
+.dsc-profile-body { padding: 0 14px 10px; }
+.dsc-match-grid { display: grid; grid-template-columns: repeat(8, minmax(0, 1fr)); gap: 8px; padding: 0 14px 12px; }
+.dsc-match { display: flex; flex-direction: column; gap: 3px; border: 1px solid var(--border); border-radius: 8px; padding: 6px; background: #fafbfc; cursor: pointer; font: inherit; color: inherit; text-align: left; min-width: 0; }
+.dsc-match svg { width: 100%; }
+.dsc-match:hover { border-color: var(--border-strong); }
+.dsc-match.on { border-color: var(--blue); box-shadow: 0 0 0 1px var(--blue); }
+.dsc-apply { display: flex; align-items: center; gap: 10px; padding: 10px 14px; flex-wrap: wrap; }
+.dsc-apply b { font-size: 13px; }
+.dsc-save-form { display: flex; flex-direction: column; gap: 6px; }
+.dsc-save-summary { display: flex; flex-direction: column; gap: 4px; background: var(--grey-100); border-radius: 8px; padding: 8px 10px; margin-top: 8px; }
