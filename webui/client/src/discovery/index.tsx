@@ -5,11 +5,12 @@ import { useApp } from '../state'
 import { Skeleton } from '../shell/Skeleton'
 import { RunsPage } from './RunsPage'
 import { SeedPage } from './SeedPage'
+import { ComparePage } from './ComparePage'
 
 export function DiscoveryPage() {
   const { route } = useApp()
   const [page, sub] = route.parts
   if (page === 'seed') return <SeedPage />
-  if (page === 'compare') return sub === 'stages' ? <Skeleton id="discovery.stages" /> : <Skeleton id="discovery.compare" />
+  if (page === 'compare') return sub === 'stages' ? <Skeleton id="discovery.stages" /> : <ComparePage />
   return <RunsPage />
 }

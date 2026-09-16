@@ -213,3 +213,35 @@
 .dsc-apply b { font-size: 13px; }
 .dsc-save-form { display: flex; flex-direction: column; gap: 6px; }
 .dsc-save-summary { display: flex; flex-direction: column; gap: 4px; background: var(--grey-100); border-radius: 8px; padding: 8px 10px; margin-top: 8px; }
+
+/* compare (3) */
+.dsc-page .purple, .k-modal .purple { color: #8a3fb8; }
+.dsc-ab { display: inline-flex; align-items: center; justify-content: center; width: 17px; height: 17px; border-radius: 5px; font-family: var(--font-mono); font-size: 10.5px; font-weight: 700; color: #fff; font-style: normal; flex: none; }
+.dsc-ab.a { background: var(--blue); }
+.dsc-ab.b { background: var(--purple); }
+.dsc-diff-grid { display: grid; grid-template-columns: 116px repeat(5, minmax(0, 1fr)); gap: 6px 8px; padding: 2px 14px 14px; align-items: center; }
+.dsc-diff-col { font-size: 10.5px; color: var(--muted); padding-left: 2px; }
+.dsc-diff-head { display: flex; align-items: center; gap: 6px; font-size: 11px; min-width: 0; }
+.dsc-diff-head b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 11px; }
+.dsc-stage { display: flex; align-items: center; gap: 6px; border: 1px solid var(--border); border-radius: 8px; background: var(--card); padding: 5px 7px; min-width: 0; text-align: left; font: inherit; color: inherit; cursor: pointer; min-height: 38px; }
+.dsc-stage:hover { border-color: var(--border-strong); }
+.dsc-stage.differs { border-color: var(--amber); background: #fffaf0; }
+.dsc-stage.empty { border-style: dashed; background: var(--grey-100); cursor: default; }
+.dsc-stage-text { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.dsc-stage-text b { font-size: 11.5px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.dsc-stage-text span { font-size: 9.5px; letter-spacing: -0.2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.dsc-stage-glyph { width: 34px; height: 22px; display: inline-flex; align-items: center; justify-content: center; border: 1px solid var(--border); border-radius: 4px; color: var(--muted); background: #fff; flex: none; font-family: var(--font-mono); font-size: 11px; }
+.dsc-fire-body, .dsc-steps-plot { padding: 0 14px 8px; }
+.dsc-overlap-body { display: grid; grid-template-columns: minmax(0, 1fr) 360px; gap: 14px; padding: 2px 14px 14px; align-items: center; }
+.dsc-overlap-rows { display: flex; flex-direction: column; gap: 5px; }
+.dsc-overlap-row { display: grid; grid-template-columns: 92px minmax(0, 1fr); gap: 8px; align-items: center; }
+.dsc-overlap-row .strong { font-weight: 700; color: var(--text); }
+.dsc-overlap-bar { display: flex; height: 17px; border-radius: 3px; overflow: hidden; }
+.dsc-overlap-seg { border: 0; padding: 0 5px; color: #fff; font-family: var(--font-mono); font-size: 10px; text-align: left; cursor: pointer; min-width: 0; overflow: hidden; }
+.dsc-overlap-seg:hover { filter: brightness(1.08); }
+.dsc-overlap-tiles { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.dsc-steps-body { display: grid; grid-template-columns: 196px minmax(0, 1fr); gap: 6px; padding: 0 0 6px; }
+.dsc-steps-text { display: flex; flex-direction: column; gap: 3px; padding: 4px 0 0 14px; }
+.dsc-steps-text b { font-size: 12px; white-space: nowrap; }
+.dsc-steps-text span { white-space: nowrap; }
+.dsc-steps-gap { height: 8px; }

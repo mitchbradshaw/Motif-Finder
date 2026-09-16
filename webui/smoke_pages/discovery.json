@@ -303,10 +303,133 @@
  {
   "page": "discovery.compare",
   "state": "default",
-  "hash": "discovery/compare",
+  "hash": "discovery/compare?a=drop_motifs9&b=seed_F03_native&only=a&i=7",
   "actions": [],
   "expect": [
-   "[data-testid=\"header\"]"
+   "[data-testid=\"what-differs\"]",
+   "[data-testid=\"where-fire\"]",
+   "[data-testid=\"disagreements\"]"
+  ]
+ },
+ {
+  "page": "discovery.compare",
+  "state": "empty-one-pick",
+  "hash": "discovery/compare?b=none",
+  "actions": [],
+  "expect": [
+   "[data-testid=\"compare-empty\"]"
+  ]
+ },
+ {
+  "page": "discovery.compare",
+  "state": "unpick-b",
+  "hash": "discovery/compare?a=drop_motifs9&b=seed_F03_native",
+  "actions": [
+   {
+    "click": "[data-testid=\"pick-seed_F03_native\"]"
+   },
+   {
+    "wait": 400
+   }
+  ],
+  "expect": [
+   "[data-testid=\"compare-empty\"]"
+  ]
+ },
+ {
+  "page": "discovery.compare",
+  "state": "swapped",
+  "hash": "discovery/compare?a=drop_motifs9&b=seed_F03_native",
+  "actions": [
+   {
+    "click": "[data-testid=\"swap-ab\"]"
+   },
+   {
+    "wait": 500
+   }
+  ],
+  "expect": [
+   "[data-testid=\"what-differs\"]",
+   "[data-testid=\"step-plot\"]"
+  ]
+ },
+ {
+  "page": "discovery.compare",
+  "state": "filter-only-b",
+  "hash": "discovery/compare?a=drop_motifs9&b=seed_F03_native&only=b&i=2",
+  "actions": [],
+  "expect": [
+   "[data-testid=\"step-plot\"]",
+   "[data-testid=\"step-text\"]"
+  ]
+ },
+ {
+  "page": "discovery.compare",
+  "state": "popover-roles",
+  "hash": "discovery/compare?a=drop_motifs9&b=seed_F03_native&popover=roles",
+  "actions": [
+   {
+    "wait": 300
+   }
+  ],
+  "expect": [
+   "[data-testid=\"roles-popover\"]"
+  ]
+ },
+ {
+  "page": "discovery.compare",
+  "state": "popover-stage",
+  "hash": "discovery/compare?a=drop_motifs9&b=seed_F03_native",
+  "actions": [
+   {
+    "click": "[data-testid=\"stage-A-Score-estimate\"]"
+   },
+   {
+    "wait": 300
+   }
+  ],
+  "expect": [
+   "[data-testid=\"stage-popover\"]",
+   "[data-testid=\"stage-open-analyse\"]"
+  ]
+ },
+ {
+  "page": "discovery.compare",
+  "state": "overlap-segment",
+  "hash": "discovery/compare?a=drop_motifs9&b=seed_F03_native",
+  "actions": [
+   {
+    "click": "[data-testid=\"overlap-CH7_B2\"] [data-testid=\"overlap-seg-onlyB\"]"
+   },
+   {
+    "wait": 400
+   }
+  ],
+  "expect": [
+   "[data-testid=\"step-plot\"]"
+  ]
+ },
+ {
+  "page": "discovery.compare",
+  "state": "human-as-b",
+  "hash": "discovery/compare?a=drop_motifs9&b=human",
+  "actions": [
+   {
+    "wait": 300
+   }
+  ],
+  "expect": [
+   "[data-testid=\"what-differs\"]",
+   "[data-testid=\"set-overlap\"]"
+  ]
+ },
+ {
+  "page": "discovery.compare",
+  "state": "held-out-refused",
+  "hash": "discovery/compare?recording=M4_aug&a=drop_motifs9&b=seed_F03_native",
+  "actions": [],
+  "expect": [
+   "[data-testid=\"scope-refused\"]"
   ]
  },
  {
