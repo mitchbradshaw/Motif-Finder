@@ -4,7 +4,6 @@ import { useEffect } from 'react'
 import { Button, EmptyState, Page } from '../kit'
 import { Header } from '../shell/Header'
 import { navigate, useApp } from '../state'
-import { PAGE_META } from '../api/settings'
 import { DatasetsPage } from './DatasetsPage'
 import { ChannelsEventsPage } from './ChannelsEventsPage'
 import { VocabularyPage } from './VocabularyPage'
@@ -18,7 +17,9 @@ import { LibraryGroupingsPage } from './LibraryGroupingsPage'
 import { StoragePage } from './StoragePage'
 import { ExportPage } from './ExportPage'
 import { AuditLogPage } from './AuditLogPage'
-import { Skeleton } from '../shell/Skeleton'
+import { AboutPage } from './AboutPage'
+import { DisplayPage } from './DisplayPage'
+import { KeyboardPage } from './KeyboardPage'
 
 export function SettingsPage() {
   const { route } = useApp()
@@ -37,7 +38,9 @@ export function SettingsPage() {
   if (slug === 'storage-backups') return <StoragePage />
   if (slug === 'export') return <ExportPage />
   if (slug === 'audit-log') return <AuditLogPage />
-  if (PAGE_META[slug]) return <Skeleton id={`settings.${slug}`} />
+  if (slug === 'about') return <AboutPage />
+  if (slug === 'display') return <DisplayPage />
+  if (slug === 'keyboard') return <KeyboardPage />
   return (
     <>
       <Header workspace="Settings" page="Not found" subtitle={`#/settings/${slug}`} />
