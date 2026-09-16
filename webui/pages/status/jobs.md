@@ -2,10 +2,10 @@
 
 | page | route | status | what's left | last commit |
 |---|---|---|---|---|
-| jobs.all | `#/jobs` | done | — | 431e079 |
-| jobs.paused | `#/jobs/run/r-0431` · `#/jobs/run/a-0098` | done | — | 431e079 |
-| jobs.upload | `#/jobs/run/r-0431/upload` | done | — | 431e079 |
-| jobs.cluster | `#/jobs/cluster/j-0214` (also j-0217, j-0212, j-0209) | done | — | 431e079 |
+| jobs.all | `#/jobs` | done | — | 9ddc3f3 |
+| jobs.paused | `#/jobs/run/r-0431` · `#/jobs/run/a-0098` | done | — | 9ddc3f3 |
+| jobs.upload | `#/jobs/run/r-0431/upload` | done | — | 9ddc3f3 |
+| jobs.cluster | `#/jobs/cluster/j-0214` (also j-0217, j-0212, j-0209) | done | — | 9ddc3f3 |
 
 Step 1 (inventory `pages/inventory/review-jobs.md` § jobs.*) written and committed before this run.
 
@@ -43,5 +43,5 @@ Step 1 (inventory `pages/inventory/review-jobs.md` § jobs.*) written and commit
 ## Gate
 
 - `npx tsc --noEmit -p tsconfig.app.json` — clean for `src/jobs/**`, `src/api/jobs.ts`, `src/fixtures/jobs.ts`.
-- `smoke.py --pages-only --only jobs` — 44 states, 0 failures, 0 browser console/page errors.
+- `smoke.py --pages-only --only jobs` — 46 states, 0 failures, 0 browser console/page errors.
 - Screenshots of every state next to the frames: `webui/screenshots/build/jobs/`.
