@@ -31,19 +31,24 @@ directory, so nothing here blocks the build; each entry says where the local sta
    wants Copy without Save. Currently Copy and Save are separate booleans — fine — but a `onCopy` hook
    would let the page own the toast. *Workaround:* 05 calls `navigator.clipboard` itself for *Copy script*.
 
+7. **`Bars` colours a series, not a bar.** "Windows per class" (frame 2) wants one colour per category —
+   the class palette already used by the dots, the medoid cards and the occupancy strip on the same page.
+   *Workaround:* the bars are drawn in one blue (`per-class-bars`), which reads as "machine" under §3 but
+   loses the class identity the rest of the page carries.
+
 ## fixtures/canon.ts
 
-7. **`TRAINING_CHAIN` / `TEMPLATES_BY_KIND` were proposed in the inventory and are not in canon.** Models ›
+8. **`TRAINING_CHAIN` / `TEMPLATES_BY_KIND` were proposed in the inventory and are not in canon.** Models ›
    Launch and Library › Templates list the same template (`cnn_windows_v3`) and the same six stages this
    unit draws. *Workaround:* `fixtures/training.ts` owns `CHAIN`, `CANON_TEMPLATES` and `IMPORT_TEMPLATES`
    locally; if Models has its own copy, the two can drift.
 
-8. **Run `#140` is mapped to `spike_shape_v1` in canon but is named "F-03 slope interrogation".**
+9. **Run `#140` is mapped to `spike_shape_v1` in canon but is named "F-03 slope interrogation".**
    Recommended: `#140` → `sharkfin_slope_v1`. *Workaround:* the History popover on the chain page lists
    `#140` with the run's own label and does not name a template.
 
 ## shell
 
-9. **No route exists for a stage inserted into a chain** (the §6.4 type-contract modal). Every `+ insert`
+10. **No route exists for a stage inserted into a chain** (the §6.4 type-contract modal). Every `+ insert`
    and the ribbon's `+` therefore end in a not-wired toast. This is a chain-builder surface, not a training
    one — noted so the owner knows two pages are waiting on it.
