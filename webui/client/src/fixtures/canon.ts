@@ -70,14 +70,16 @@ export const ANALYSE_RUNS = [
 ]
 
 export type JobKind = 'cluster' | 'analyse' | 'discovery' | 'library' | 'review'
-export interface CanonJob { id: string; kind: JobKind; title: string; status: 'finished' | 'running' | 'paused' | 'failed' | 'queue'; detail: string; host?: string; since?: string; estimate?: string; overrun?: string; for?: string }
+/** 'submitted' and 'cancelled' complete the hand-marked cluster chain of spec §7c.4
+ *  (script created → submitted → running → finished), which frame jobs-4 draws. */
+export interface CanonJob { id: string; kind: JobKind; title: string; status: 'finished' | 'running' | 'paused' | 'failed' | 'queue' | 'submitted' | 'cancelled'; detail: string; host?: string; since?: string; estimate?: string; overrun?: string; for?: string }
 export const JOBS: CanonJob[] = [
   { id: 'j-0212', kind: 'cluster', title: 'cnn_windows_v3 paired arms', status: 'finished', detail: 'imported 13 Sep 21:40' },
   { id: 'j-0214', kind: 'cluster', title: 'cnn_windows_v3 seed repeats', status: 'running', detail: 'running on hpc-1 since 11:05', host: 'hpc-1', since: '11:05', estimate: '1 h', overrun: '3.3×' },
   { id: 'j-0217', kind: 'cluster', title: 'matrix profile, 3 channels', status: 'running', detail: 'running since 11:40 for Discovery run r-0431', since: '11:40', for: 'r-0431' },
   { id: 'r-0431', kind: 'discovery', title: 'mp_drops_v3', status: 'paused', detail: 'paused at stage 3 of 4' },
   { id: 'a-0098', kind: 'analyse', title: 'sax_vs_mp', status: 'paused', detail: 'paused at stage 2 of 5, result found in place' },
-  { id: 'j-0209', kind: 'cluster', title: 'j-0209', status: 'failed', detail: 'failed' },
+  { id: 'j-0209', kind: 'cluster', title: 'matrix profile · M3_jul CH1–CH8', status: 'failed', detail: 'failed · for r-0402 · Discovery', for: 'r-0402' },
 ]
 export const REVIEW_QUEUES = [
   { id: 'q-12', source: 'r-0412 mp_drops_v3', kind: 'discovery run' },
