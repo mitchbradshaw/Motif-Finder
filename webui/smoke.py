@@ -316,6 +316,13 @@ class Smoke:
                 missing = [s for s in e.get("expect", []) if page.locator(s).count() == 0]
                 present = [s for s in e.get("expect_absent", []) if page.locator(s).count() > 0]
                 err_card = page.locator('[data-testid="render-error"]').count()
+                # A state may declare console errors it provokes on purpose (a read that rejects renders a
+                # loud error card — the brief's failure state). Declared ones are dropped from the run's
+                # error list so they neither fail this state nor the whole run; anything else still fails.
+                allowed = e.get("allow_console_error") or []
+                if allowed:
+                    kept = [x for x in self.errors[before:] if not any(a in x for a in allowed)]
+                    self.errors = self.errors[:before] + kept
                 self.check(ok and not missing and not present and (err_card == 0 or e.get("allow_error_card")) and len(self.errors) == before,
                            f"{unit}: {name} renders" + (f" — missing {missing}" if missing else "") + (f" — unexpected {present}" if present else "")
                            + (" — render-error card" if err_card and not e.get("allow_error_card") else "") + ("" if ok else " — blank or no header")
