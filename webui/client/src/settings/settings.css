@@ -1,0 +1,68 @@
+/* Settings (frames settings-01…16): the two-column shell, the row grammar, locked fields, the save bar. */
+
+.s-shell { flex: 1; display: flex; min-height: 0; }
+.s-col { flex: 1; min-width: 0; display: flex; flex-direction: column; position: relative; overflow: hidden; }
+.s-col .k-page { flex: 1; }
+.s-lede { font-size: 11.5px; color: var(--muted); margin: -4px 0 4px; }
+
+/* ---- row grammar: label · control · consequence ---- */
+.s-row { display: grid; grid-template-columns: 300px minmax(150px, max-content) 1fr; align-items: center; gap: 12px; padding: 7px 0; }
+.s-row.wide { grid-template-columns: 240px 1fr; }
+.s-row + .s-row { border-top: 1px solid var(--border); }
+.s-row-label { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.s-label { font-size: 11px; color: var(--text-2); display: inline-flex; align-items: center; gap: 5px; }
+.s-sub { font-size: 10px; color: var(--muted-2); }
+.s-row-control { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.s-row-caption { font-size: 10.5px; color: var(--muted); text-align: right; }
+.s-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--amber); flex: none; }
+
+/* an unsaved edit: amber outline around the control */
+.s-row-control.unsaved > *, .s-gf .unsaved > * { outline: 2px solid var(--amber); outline-offset: 1px; border-radius: var(--radius-sm); }
+
+/* ---- field grid (Datasets metadata, 4 columns) ---- */
+.s-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px 14px; }
+.s-grid.c3 { grid-template-columns: repeat(3, 1fr); }
+.s-grid.c2 { grid-template-columns: repeat(2, 1fr); }
+.s-gf { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.s-gf > div { min-width: 0; }
+
+/* ---- locked things ---- */
+.s-locked { display: inline-flex; align-items: center; gap: 6px; height: 30px; padding: 0 10px; border-radius: var(--radius-sm);
+  background: var(--grey-100); border: 1px solid var(--border); color: var(--muted); font-size: 11.5px; white-space: nowrap; }
+.s-locked-chip { display: inline-flex; align-items: center; gap: 5px; height: 22px; padding: 0 9px; border-radius: 999px;
+  background: var(--grey-100); border: 1px solid var(--border); color: var(--muted); font-size: 10.5px; }
+.s-locked-toggle { display: inline-flex; align-items: center; gap: 4px; width: 46px; height: 22px; border-radius: 999px; padding: 0 3px;
+  background: var(--grey-200); color: var(--muted); position: relative; }
+.s-locked-toggle.on { background: #bfe6d3; color: #2c6b51; }
+.s-locked-toggle .knob { width: 16px; height: 16px; border-radius: 50%; background: #fff; box-shadow: var(--shadow-card); }
+.s-locked-toggle.on .knob { order: 2; }
+.s-locked-toggle.on svg { order: 1; }
+
+/* ---- save bar ---- */
+.s-savebar { position: sticky; bottom: 0; margin: 0 20px 14px; display: flex; align-items: center; gap: 10px; padding: 0 14px; height: 52px;
+  background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow-pop); z-index: 3; flex: none; }
+.s-savebar b { font-size: 12.5px; }
+.s-consequence { font-size: 11px; color: var(--amber); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* ---- Ctrl K search ---- */
+.s-hits { margin-top: 10px; display: flex; flex-direction: column; max-height: 320px; overflow: auto; }
+.s-hit { text-align: left; padding: 7px 8px; border-radius: var(--radius-sm); border: none; background: none; cursor: pointer; font-size: 12px; }
+.s-hit:hover { background: var(--blue-100); }
+
+/* ---- ?focus= pulse ---- */
+@keyframes s-pulse { 0%, 100% { box-shadow: 0 0 0 0 rgba(232, 144, 12, 0); } 30% { box-shadow: 0 0 0 4px rgba(232, 144, 12, 0.35); } }
+.s-pulse { animation: s-pulse 1.1s ease-in-out 2; border-radius: var(--radius-sm); }
+
+/* ---- misc shared by pages ---- */
+.s-card-sub { font-size: 10.5px; color: var(--muted); font-family: var(--font-mono); }
+.s-note { font-size: 10.5px; color: var(--muted); }
+.s-inline-edit { display: flex; align-items: center; gap: 8px; padding: 8px 10px; margin-top: 8px; background: var(--amber-100);
+  border: 1px solid var(--amber); border-radius: var(--radius-sm); flex-wrap: wrap; }
+.s-swatch { width: 14px; height: 14px; border-radius: 4px; border: 1px solid rgba(0, 0, 0, 0.12); display: inline-block; }
+.s-keycap { display: inline-flex; align-items: center; justify-content: center; min-width: 22px; height: 22px; padding: 0 6px;
+  border-radius: 5px; border: 1px solid var(--border-strong); border-bottom-width: 2px; background: #fff; font-family: var(--font-mono); font-size: 11px; }
+.s-keycap.capture { border-color: var(--blue); color: var(--blue); }
+.s-keycap.conflict { border-color: var(--red); color: var(--red); }
+.s-rec-bar { display: inline-block; width: 3px; height: 14px; border-radius: 2px; background: var(--green); margin-right: 7px; vertical-align: -2px; }
+.s-timeline-caption { font-size: 10px; color: var(--muted); text-align: right; }
+.s-spark { background: var(--grey-100); border-radius: 4px; padding: 1px 2px; display: inline-block; }
