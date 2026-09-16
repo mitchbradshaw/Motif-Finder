@@ -16,8 +16,8 @@
 .s-row-caption { font-size: 10.5px; color: var(--muted); text-align: right; }
 .s-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--amber); flex: none; }
 
-/* an unsaved edit: amber outline around the control */
-.s-row-control.unsaved > *, .s-gf .unsaved > * { outline: 2px solid var(--amber); outline-offset: 1px; border-radius: var(--radius-sm); }
+/* an unsaved edit: amber outline around the control (rows, field grids and table cells) */
+.s-col .unsaved > * { outline: 2px solid var(--amber); outline-offset: 1px; border-radius: var(--radius-sm); }
 
 /* ---- field grid (Datasets metadata, 4 columns) ---- */
 .s-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px 14px; }

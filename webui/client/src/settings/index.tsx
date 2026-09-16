@@ -8,6 +8,9 @@ import { PAGE_META } from '../api/settings'
 import { DatasetsPage } from './DatasetsPage'
 import { ChannelsEventsPage } from './ChannelsEventsPage'
 import { VocabularyPage } from './VocabularyPage'
+import { NullsPage } from './NullsPage'
+import { AnalysisDefaultsPage } from './AnalysisDefaultsPage'
+import { BlocksPage } from './BlocksPage'
 import { Skeleton } from '../shell/Skeleton'
 
 export function SettingsPage() {
@@ -17,6 +20,9 @@ export function SettingsPage() {
   if (!slug || slug === 'datasets') return <DatasetsPage />
   if (slug === 'channels-events') return <ChannelsEventsPage />
   if (slug === 'vocabulary') return <VocabularyPage />
+  if (slug === 'nulls') return <NullsPage />
+  if (slug === 'analysis-defaults') return <AnalysisDefaultsPage />
+  if (slug === 'blocks') return <BlocksPage />
   if (PAGE_META[slug]) return <Skeleton id={`settings.${slug}`} />
   return (
     <>
