@@ -58,3 +58,12 @@ Depth workflow running. Poll webui/pages/requests/*.md and status/*.md; apply sh
 - 06:5x library.md: applied disabled danger button CSS. QUEUED: Histogram log x + bin edges; useForcedSim/deep-link reset key; rail button font; createReviewQueue in api/review.ts (Review-owned).
 - 06:5x analyse.md + explore.md: fixed charts/useSize re-bind (blank-pane trap).
 - 07:0x discovery.md: QUEUED: Button disabledReason warning inside DisabledReason; Table expandable child rows; Histogram draggable threshold + background null series. Glyph gaps = Analyse builder's 6b task (then kit/glyphs aliases resolve).
+
+### 07:15 usage limit → 11:10 resume
+The account's session limit stopped 59 agents (reset 10am). Survived: explore, analyse, review, library built and
+committed; discovery.runs and models.launch built; jobs inventory written; settings/interrogation/training not started;
+critics r1 completed only for review (and partial JSON for explore/chain/library). Both servers stayed up.
+Resumed the SAME run (wf_91ff8a51-7e6, task wsro31ury) from the copied script
+scratchpad/depth.js with resumeFromRunId, so finished builds replay from cache; a RESUME paragraph was added ONLY to the
+six unfinished units (so the finished units' prompts stay byte-identical and keep their cache). Critic pool 8 → 5.
+Re-resume the same way if the limit hits again.
