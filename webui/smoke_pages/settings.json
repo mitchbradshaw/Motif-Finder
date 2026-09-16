@@ -1,146 +1,125 @@
 [
- {
-  "page": "settings.datasets",
-  "state": "default",
-  "hash": "settings/datasets",
-  "actions": [],
-  "expect": [
-   "[data-testid=\"header\"]"
-  ]
- },
- {
-  "page": "settings.channels-events",
-  "state": "default",
-  "hash": "settings/channels-events",
-  "actions": [],
-  "expect": [
-   "[data-testid=\"header\"]"
-  ]
- },
- {
-  "page": "settings.vocabulary",
-  "state": "default",
-  "hash": "settings/vocabulary",
-  "actions": [],
-  "expect": [
-   "[data-testid=\"header\"]"
-  ]
- },
- {
-  "page": "settings.nulls",
-  "state": "default",
-  "hash": "settings/nulls",
-  "actions": [],
-  "expect": [
-   "[data-testid=\"header\"]"
-  ]
- },
- {
-  "page": "settings.analysis-defaults",
-  "state": "default",
-  "hash": "settings/analysis-defaults",
-  "actions": [],
-  "expect": [
-   "[data-testid=\"header\"]"
-  ]
- },
- {
-  "page": "settings.compute-hpc",
-  "state": "default",
-  "hash": "settings/compute-hpc",
-  "actions": [],
-  "expect": [
-   "[data-testid=\"header\"]"
-  ]
- },
- {
-  "page": "settings.blocks",
-  "state": "default",
-  "hash": "settings/blocks",
-  "actions": [],
-  "expect": [
-   "[data-testid=\"header\"]"
-  ]
- },
- {
-  "page": "settings.review-queues",
-  "state": "default",
-  "hash": "settings/review-queues",
-  "actions": [],
-  "expect": [
-   "[data-testid=\"header\"]"
-  ]
- },
- {
-  "page": "settings.models-registration",
-  "state": "default",
-  "hash": "settings/models-registration",
-  "actions": [],
-  "expect": [
-   "[data-testid=\"header\"]"
-  ]
- },
- {
-  "page": "settings.library-groupings",
-  "state": "default",
-  "hash": "settings/library-groupings",
-  "actions": [],
-  "expect": [
-   "[data-testid=\"header\"]"
-  ]
- },
- {
-  "page": "settings.storage-backups",
-  "state": "default",
-  "hash": "settings/storage-backups",
-  "actions": [],
-  "expect": [
-   "[data-testid=\"header\"]"
-  ]
- },
- {
-  "page": "settings.export",
-  "state": "default",
-  "hash": "settings/export",
-  "actions": [],
-  "expect": [
-   "[data-testid=\"header\"]"
-  ]
- },
- {
-  "page": "settings.audit-log",
-  "state": "default",
-  "hash": "settings/audit-log",
-  "actions": [],
-  "expect": [
-   "[data-testid=\"header\"]"
-  ]
- },
- {
-  "page": "settings.about",
-  "state": "default",
-  "hash": "settings/about",
-  "actions": [],
-  "expect": [
-   "[data-testid=\"header\"]"
-  ]
- },
- {
-  "page": "settings.display",
-  "state": "default",
-  "hash": "settings/display",
-  "actions": [],
-  "expect": [
-   "[data-testid=\"header\"]"
-  ]
- },
- {
-  "page": "settings.keyboard",
-  "state": "default",
-  "hash": "settings/keyboard",
-  "actions": [],
-  "expect": [
-   "[data-testid=\"header\"]"
-  ]
- }
+ {"page": "settings.shell", "state": "search", "hash": "settings/datasets", "actions": [{"click": "[data-testid=\"header-search\"]"}], "expect": ["[data-testid=\"settings-search\"]", "[data-testid=\"settings-search-hits\"]"]},
+ {"page": "settings.shell", "state": "search-hit", "hash": "settings/datasets", "actions": [{"click": "[data-testid=\"header-search\"]"}, {"fill": ["[data-testid=\"settings-search-input\"]", "cohesion"]}, {"click": "[data-testid=\"hit-review-queues\"]"}, {"wait": 400}], "expect": ["[data-testid=\"cohesion-row\"]"]},
+ {"page": "settings.shell", "state": "search-empty", "hash": "settings/datasets", "actions": [{"click": "[data-testid=\"header-search\"]"}, {"fill": ["[data-testid=\"settings-search-input\"]", "zzz"]}], "expect": ["[data-testid=\"search-empty\"]"]},
+ {"page": "settings.shell", "state": "leave-guard", "hash": "settings/nulls?state=unsaved", "actions": [{"click": "[data-testid=\"settings-nav-blocks\"]"}], "expect": ["[data-testid=\"leave-guard\"]"]},
+ {"page": "settings.shell", "state": "confirm-reset", "hash": "settings/nulls", "actions": [{"click": "[data-testid=\"reset-page\"]"}], "expect": ["[data-testid=\"reset-popover\"]", "[data-testid=\"reset-confirm\"]"]},
+ {"page": "settings.shell", "state": "reset-stages-defaults", "hash": "settings/nulls", "actions": [{"click": "[data-testid=\"reset-page\"]"}, {"click": "[data-testid=\"reset-confirm\"]"}, {"wait": 300}], "expect": ["[data-testid=\"save-bar\"]"]},
+ {"page": "settings.shell", "state": "save", "hash": "settings/nulls?state=unsaved", "actions": [{"click": "[data-testid=\"save-changes\"]"}, {"wait": 400}], "expect": ["[data-testid=\"nulls-table\"]"], "expect_absent": ["[data-testid=\"save-bar\"]"]},
+ {"page": "settings.shell", "state": "discard", "hash": "settings/nulls?state=unsaved", "actions": [{"click": "[data-testid=\"discard\"]"}, {"wait": 300}], "expect": ["[data-testid=\"nulls-table\"]"], "expect_absent": ["[data-testid=\"save-bar\"]"]},
+ {"page": "settings.shell", "state": "unknown-slug", "hash": "settings/nope", "actions": [], "expect": ["[data-testid=\"settings-unknown-page\"]"]},
+
+ {"page": "settings.datasets", "state": "default", "hash": "settings/datasets", "actions": [], "expect": ["[data-testid=\"recordings-table\"]", "[data-testid=\"metadata-card\"]", "[data-testid=\"held-out-card\"]"]},
+ {"page": "settings.datasets", "state": "unsaved", "hash": "settings/datasets?state=unsaved", "actions": [], "expect": ["[data-testid=\"save-bar\"]", "[data-testid=\"save-consequence\"]"]},
+ {"page": "settings.datasets", "state": "selected-M3_jul", "hash": "settings/datasets?rec=M3_jul", "actions": [], "expect": ["[data-testid=\"metadata-card\"]", "[data-testid=\"display-name\"]"]},
+ {"page": "settings.datasets", "state": "selected-by-click", "hash": "settings/datasets", "actions": [{"click": "[data-testid=\"recordings-table\"] tbody tr:nth-of-type(4)"}, {"wait": 300}], "expect": ["[data-testid=\"fs-inferred\"]"]},
+ {"page": "settings.datasets", "state": "held-out-locked", "hash": "settings/datasets?rec=M4_aug", "actions": [], "expect": ["[data-testid=\"metadata-locked\"]"]},
+ {"page": "settings.datasets", "state": "invalid-noise-floor", "hash": "settings/datasets", "actions": [{"fill": ["[data-testid=\"noise-floor\"]", "9"]}, {"wait": 300}], "expect": ["[data-testid=\"noise-floor-error\"]", "[data-testid=\"save-bar\"]"]},
+ {"page": "settings.datasets", "state": "import", "hash": "settings/datasets?modal=import", "actions": [], "expect": ["[data-testid=\"import-modal\"]", "[data-testid=\"import-checks\"]", "[data-testid=\"dry-run-badge\"]"]},
+ {"page": "settings.datasets", "state": "import-by-click", "hash": "settings/datasets", "actions": [{"click": "[data-testid=\"open-import\"]"}], "expect": ["[data-testid=\"import-modal\"]"]},
+ {"page": "settings.datasets", "state": "import-expanded", "hash": "settings/datasets?modal=import", "actions": [{"click": "[data-testid=\"import-expand\"]"}], "expect": ["[data-testid=\"import-channel-map\"]"]},
+ {"page": "settings.datasets", "state": "import-check-failed", "hash": "settings/datasets?modal=import&path=M4_aug_concat.mat", "actions": [], "expect": ["[data-testid=\"import-checks\"]", "[data-testid=\"do-import\"][disabled]"]},
+ {"page": "settings.datasets", "state": "import-running", "hash": "settings/datasets?modal=import", "actions": [{"click": "[data-testid=\"do-import\"]"}, {"wait": 400}], "expect": ["[data-testid=\"import-progress\"]"]},
+ {"page": "settings.datasets", "state": "unlock-confirm", "hash": "settings/datasets?modal=unlock", "actions": [], "expect": ["[data-testid=\"unlock-modal\"]", "[data-testid=\"confirm-unlock\"][disabled]"]},
+ {"page": "settings.datasets", "state": "unlock-typed", "hash": "settings/datasets?modal=unlock", "actions": [{"fill": ["[data-testid=\"unlock-input\"]", "M4_aug"]}, {"wait": 200}], "expect": ["[data-testid=\"confirm-unlock\"]"], "expect_absent": ["[data-testid=\"confirm-unlock\"][disabled]"]},
+
+ {"page": "settings.channels-events", "state": "default", "hash": "settings/channels-events", "actions": [], "expect": ["[data-testid=\"channels-table\"]", "[data-testid=\"events-table\"]", "[data-testid=\"event-timeline\"]"]},
+ {"page": "settings.channels-events", "state": "unsaved", "hash": "settings/channels-events?state=unsaved", "actions": [], "expect": ["[data-testid=\"save-bar\"]"]},
+ {"page": "settings.channels-events", "state": "rows-all", "hash": "settings/channels-events?rows=all", "actions": [], "expect": ["[data-testid=\"channels-table\"]", "[data-testid=\"gain-CH16_D2\"]"]},
+ {"page": "settings.channels-events", "state": "rows-all-by-click", "hash": "settings/channels-events", "actions": [{"click": "[data-testid=\"more-channels\"]"}, {"wait": 300}], "expect": ["[data-testid=\"gain-CH16_D2\"]"]},
+ {"page": "settings.channels-events", "state": "rec-M3_jul", "hash": "settings/channels-events?rec=M3_jul", "actions": [], "expect": ["[data-testid=\"channels-table\"]", "[data-testid=\"events-empty\"]"]},
+ {"page": "settings.channels-events", "state": "rec-M4_aug-locked", "hash": "settings/channels-events?rec=M4_aug", "actions": [], "expect": ["[data-testid=\"rec-locked\"]", "[data-testid=\"add-event\"][disabled]"]},
+ {"page": "settings.channels-events", "state": "add-event", "hash": "settings/channels-events?modal=add-event", "actions": [], "expect": ["[data-testid=\"add-event-row\"]", "[data-testid=\"event-save\"][disabled]"]},
+ {"page": "settings.channels-events", "state": "add-event-valid", "hash": "settings/channels-events?modal=add-event", "actions": [{"fill": ["[data-testid=\"event-time\"]", "50.5 h"]}, {"fill": ["[data-testid=\"event-note\"]", "lid opened"]}, {"wait": 200}], "expect": ["[data-testid=\"event-save\"]"], "expect_absent": ["[data-testid=\"event-save\"][disabled]"]},
+ {"page": "settings.channels-events", "state": "add-kind", "hash": "settings/channels-events", "actions": [{"click": "[data-testid=\"add-kind\"]"}], "expect": ["[data-testid=\"add-kind-popover\"]", "[data-testid=\"kind-name\"]"]},
+
+ {"page": "settings.vocabulary", "state": "default", "hash": "settings/vocabulary", "actions": [], "expect": ["[data-testid=\"verdicts-table\"]", "[data-testid=\"classes-table\"]", "[data-testid=\"tags-table\"]"]},
+ {"page": "settings.vocabulary", "state": "rename", "hash": "settings/vocabulary?rename=interesting&to=noteworthy&state=unsaved", "actions": [], "expect": ["[data-testid=\"rename-row\"]", "[data-testid=\"save-bar\"]"]},
+ {"page": "settings.vocabulary", "state": "rename-by-click", "hash": "settings/vocabulary", "actions": [{"click": "[data-testid=\"rename-interesting\"]"}], "expect": ["[data-testid=\"rename-row\"]"]},
+ {"page": "settings.vocabulary", "state": "rekey", "hash": "settings/vocabulary?rekey=seed", "actions": [], "expect": ["[data-testid=\"key-capture\"]"]},
+ {"page": "settings.vocabulary", "state": "add-verdict", "hash": "settings/vocabulary?add=verdict", "actions": [], "expect": ["[data-testid=\"add-verdict-row\"]", "[data-testid=\"new-verdict-add\"][disabled]"]},
+ {"page": "settings.vocabulary", "state": "add-class", "hash": "settings/vocabulary?add=class", "actions": [], "expect": ["[data-testid=\"add-class-row\"]"]},
+ {"page": "settings.vocabulary", "state": "add-tag", "hash": "settings/vocabulary?add=tag", "actions": [], "expect": ["[data-testid=\"add-tag-row\"]"]},
+ {"page": "settings.vocabulary", "state": "merge-tag", "hash": "settings/vocabulary", "actions": [{"click": "[data-testid=\"merge-sharkfin\"]"}], "expect": ["[data-testid=\"merge-popover\"]", "[data-testid=\"merge-into\"]"]},
+ {"page": "settings.vocabulary", "state": "class-non-informative", "hash": "settings/vocabulary", "actions": [{"click": "[data-testid=\"informative-1\"]"}, {"wait": 300}], "expect": ["[data-testid=\"implies-select-1\"]", "[data-testid=\"save-bar\"]"]},
+
+ {"page": "settings.nulls", "state": "default", "hash": "settings/nulls", "actions": [], "expect": ["[data-testid=\"nulls-table\"]", "[data-testid=\"always-on\"]", "[data-testid=\"significance-card\"]"]},
+ {"page": "settings.nulls", "state": "unsaved", "hash": "settings/nulls?state=unsaved", "actions": [], "expect": ["[data-testid=\"save-bar\"]", "[data-testid=\"save-consequence\"]"]},
+ {"page": "settings.nulls", "state": "invalid-alpha", "hash": "settings/nulls", "actions": [{"fill": ["[data-testid=\"alpha\"] input", "0.001"]}, {"wait": 400}], "expect": ["[data-testid=\"alpha-error\"]", "[data-testid=\"save-changes\"][disabled]"]},
+ {"page": "settings.nulls", "state": "method-changed", "hash": "settings/nulls", "actions": [{"click": "[data-testid=\"draws-detection\"] input"}, {"fill": ["[data-testid=\"draws-detection\"] input", "500"]}, {"wait": 400}], "expect": ["[data-testid=\"save-bar\"]"]},
+
+ {"page": "settings.analysis-defaults", "state": "default", "hash": "settings/analysis-defaults", "actions": [], "expect": ["[data-testid=\"rules-table\"]", "[data-testid=\"matching-card\"]", "[data-testid=\"cache-card\"]"]},
+ {"page": "settings.analysis-defaults", "state": "unsaved", "hash": "settings/analysis-defaults?state=unsaved", "actions": [], "expect": ["[data-testid=\"save-bar\"]"]},
+ {"page": "settings.analysis-defaults", "state": "history", "hash": "settings/analysis-defaults?history=band", "actions": [], "expect": ["[data-testid=\"history-popover\"]", "[data-testid=\"restore-0\"]"]},
+ {"page": "settings.analysis-defaults", "state": "context-M3_jul", "hash": "settings/analysis-defaults?ctx=M3_jul%20CH2", "actions": [], "expect": ["[data-testid=\"rules-table\"]", "[data-testid=\"rule-context\"]"]},
+ {"page": "settings.analysis-defaults", "state": "invalid-band", "hash": "settings/analysis-defaults", "actions": [{"fill": ["[data-testid=\"rule-band\"]", "0.01 - 0.8 Hz"]}, {"wait": 300}], "expect": ["[data-testid=\"rule-error-band\"]", "[data-testid=\"save-changes\"][disabled]"]},
+ {"page": "settings.analysis-defaults", "state": "clear-cache", "hash": "settings/analysis-defaults?modal=clear-cache", "actions": [], "expect": ["[data-testid=\"clear-cache-modal\"]", "[data-testid=\"confirm-clear\"]"]},
+ {"page": "settings.analysis-defaults", "state": "clearing", "hash": "settings/analysis-defaults?modal=clear-cache", "actions": [{"click": "[data-testid=\"confirm-clear\"]"}, {"wait": 300}], "expect": ["[data-testid=\"clear-progress\"]"]},
+
+ {"page": "settings.compute-hpc", "state": "default", "hash": "settings/compute-hpc", "actions": [], "expect": ["[data-testid=\"machine-card\"]", "[data-testid=\"limits-table\"]", "[data-testid=\"profiles-table\"]", "[data-testid=\"script-preview\"]"]},
+ {"page": "settings.compute-hpc", "state": "unsaved", "hash": "settings/compute-hpc?state=unsaved", "actions": [], "expect": ["[data-testid=\"save-bar\"]"]},
+ {"page": "settings.compute-hpc", "state": "benchmark-running", "hash": "settings/compute-hpc", "actions": [{"click": "[data-testid=\"run-benchmark\"]"}, {"wait": 700}], "expect": ["[data-testid=\"benchmark-progress\"]"]},
+ {"page": "settings.compute-hpc", "state": "benchmark-done", "hash": "settings/compute-hpc", "actions": [{"click": "[data-testid=\"run-benchmark\"]"}, {"wait": 4200}], "expect": ["[data-testid=\"benchmark-done\"]"]},
+ {"page": "settings.compute-hpc", "state": "profile-cpu-array", "hash": "settings/compute-hpc?profile=cpu-array", "actions": [], "expect": ["[data-testid=\"profile-editor\"]", "[data-testid=\"script-preview\"]"]},
+ {"page": "settings.compute-hpc", "state": "editor-raw", "hash": "settings/compute-hpc?editor=raw", "actions": [], "expect": ["[data-testid=\"raw-template\"]", "[data-testid=\"raw-warning\"]"]},
+ {"page": "settings.compute-hpc", "state": "email-off", "hash": "settings/compute-hpc", "actions": [{"click": "[data-testid=\"email-on-finish\"]"}, {"wait": 300}], "expect": ["[data-testid=\"save-bar\"]", "[data-testid=\"script-preview\"]"]},
+ {"page": "settings.compute-hpc", "state": "add-cluster", "hash": "settings/compute-hpc?modal=add-cluster", "actions": [], "expect": ["[data-testid=\"add-cluster-modal\"]", "[data-testid=\"add-cluster-confirm\"][disabled]"]},
+ {"page": "settings.compute-hpc", "state": "add-cluster-empty-profiles", "hash": "settings/compute-hpc?modal=add-cluster", "actions": [{"fill": ["[data-testid=\"cluster-name\"]", "hpc-2"]}, {"fill": ["[data-testid=\"cluster-host\"]", "login.hpc-2.example"]}, {"fill": ["[data-testid=\"cluster-account\"]", "a_myco"]}, {"click": "[data-testid=\"add-cluster-confirm\"]"}, {"wait": 400}], "expect": ["[data-testid=\"profiles-empty\"]"]},
+
+ {"page": "settings.blocks", "state": "default", "hash": "settings/blocks", "actions": [], "expect": ["[data-testid=\"blocks-table\"]", "[data-testid=\"not-built\"]", "[data-testid=\"block-model_stage\"][disabled]"]},
+ {"page": "settings.blocks", "state": "unsaved", "hash": "settings/blocks?state=unsaved", "actions": [], "expect": ["[data-testid=\"save-bar\"]"]},
+ {"page": "settings.blocks", "state": "used-by", "hash": "settings/blocks?usedby=sax", "actions": [], "expect": ["[data-testid=\"usedby-popover\"]"]},
+ {"page": "settings.blocks", "state": "disable-by-click", "hash": "settings/blocks", "actions": [{"click": "[data-testid=\"block-sax\"]"}, {"wait": 300}], "expect": ["[data-testid=\"save-bar\"]", "[data-testid=\"save-consequence\"]"]},
+
+ {"page": "settings.review-queues", "state": "default", "hash": "settings/review-queues", "actions": [], "expect": ["[data-testid=\"queues-table\"]", "[data-testid=\"clusters-card\"]", "[data-testid=\"promotion-card\"]"]},
+ {"page": "settings.review-queues", "state": "unsaved", "hash": "settings/review-queues?state=unsaved", "actions": [], "expect": ["[data-testid=\"save-bar\"]"]},
+ {"page": "settings.review-queues", "state": "unblind-warning", "hash": "settings/review-queues", "actions": [{"click": "[data-testid=\"blind-training\"]"}, {"wait": 300}], "expect": ["[data-testid=\"unblind-warning\"]", "[data-testid=\"save-bar\"]"]},
+ {"page": "settings.review-queues", "state": "invalid-cap", "hash": "settings/review-queues", "actions": [{"fill": ["[data-testid=\"cap-training\"]", "lots"]}, {"wait": 300}], "expect": ["[data-testid=\"save-changes\"][disabled]"]},
+ {"page": "settings.review-queues", "state": "suggest-warning", "hash": "settings/review-queues", "actions": [{"fill": ["[data-testid=\"suggest-d\"] input", "0.8"]}, {"wait": 400}], "expect": ["[data-testid=\"suggest-warning\"]"]},
+
+ {"page": "settings.models-registration", "state": "default", "hash": "settings/models-registration", "actions": [], "expect": ["[data-testid=\"split-card\"]", "[data-testid=\"gate-table\"]", "[data-testid=\"calibration-card\"]"]},
+ {"page": "settings.models-registration", "state": "unsaved", "hash": "settings/models-registration?state=unsaved", "actions": [], "expect": ["[data-testid=\"save-bar\"]"]},
+ {"page": "settings.models-registration", "state": "repeats-on", "hash": "settings/models-registration", "actions": [{"click": "[data-testid=\"repeats-on\"]"}, {"wait": 300}], "expect": ["[data-testid=\"repeats-n\"]", "[data-testid=\"save-bar\"]"]},
+ {"page": "settings.models-registration", "state": "invalid-split", "hash": "settings/models-registration", "actions": [{"fill": ["[data-testid=\"test-pct\"] input", "40"]}, {"fill": ["[data-testid=\"validation-pct\"] input", "40"]}, {"wait": 400}], "expect": ["[data-testid=\"split-error\"]", "[data-testid=\"save-changes\"][disabled]"]},
+ {"page": "settings.models-registration", "state": "no-arm", "hash": "settings/models-registration", "actions": [{"click": "[data-testid=\"arm-manual\"]"}, {"click": "[data-testid=\"arm-cluster\"]"}, {"wait": 300}], "expect": ["[data-testid=\"arms-error\"]"]},
+ {"page": "settings.models-registration", "state": "unpaired-arms", "hash": "settings/models-registration", "actions": [{"click": "[data-testid=\"intersect-labelled\"]"}, {"wait": 300}], "expect": ["[data-testid=\"intersect-warning\"]"]},
+
+ {"page": "settings.library-groupings", "state": "default", "hash": "settings/library-groupings", "actions": [], "expect": ["[data-testid=\"grouping-card\"]", "[data-testid=\"feature-bases-table\"]", "[data-testid=\"hand-edits-card\"]"]},
+ {"page": "settings.library-groupings", "state": "unsaved", "hash": "settings/library-groupings?state=unsaved", "actions": [], "expect": ["[data-testid=\"save-bar\"]"]},
+ {"page": "settings.library-groupings", "state": "unit-spike-trains", "hash": "settings/library-groupings", "actions": [{"click": "[data-testid=\"unit-seg\"] button:nth-of-type(3)"}, {"wait": 300}], "expect": ["[data-testid=\"spike-train-note\"]", "[data-testid=\"save-bar\"]"]},
+ {"page": "settings.library-groupings", "state": "omit-warning", "hash": "settings/library-groupings", "actions": [{"fill": ["[data-testid=\"omit-d\"] input", "0.1"]}, {"wait": 400}], "expect": ["[data-testid=\"omit-warning\"]"]},
+ {"page": "settings.library-groupings", "state": "weights", "hash": "settings/library-groupings", "actions": [{"fill": ["[data-testid=\"w-shapes\"] input", "0.8"]}, {"wait": 400}], "expect": ["[data-testid=\"weights-row\"]", "[data-testid=\"save-bar\"]"]},
+
+ {"page": "settings.storage-backups", "state": "default", "hash": "settings/storage-backups", "actions": [], "expect": ["[data-testid=\"roots-table\"]", "[data-testid=\"naming-preview\"]", "[data-testid=\"backups-card\"]"]},
+ {"page": "settings.storage-backups", "state": "unsaved", "hash": "settings/storage-backups?state=unsaved", "actions": [], "expect": ["[data-testid=\"save-bar\"]"]},
+ {"page": "settings.storage-backups", "state": "low-disk", "hash": "settings/storage-backups?state=low-disk", "actions": [], "expect": ["[data-testid=\"low-disk\"]"]},
+ {"page": "settings.storage-backups", "state": "scanning", "hash": "settings/storage-backups", "actions": [{"click": "[data-testid=\"action-recordings-scan\"]"}, {"wait": 300}], "expect": ["[data-testid=\"scan-progress\"]"]},
+ {"page": "settings.storage-backups", "state": "token-removed", "hash": "settings/storage-backups", "actions": [{"click": "[data-testid=\"token-m\"] button"}, {"wait": 300}], "expect": ["[data-testid=\"naming-preview\"]", "[data-testid=\"save-bar\"]"]},
+ {"page": "settings.storage-backups", "state": "add-token", "hash": "settings/storage-backups", "actions": [{"click": "[data-testid=\"token-m\"] button"}, {"click": "[data-testid=\"add-token\"]"}, {"wait": 200}], "expect": ["[data-testid=\"add-token-popover\"]"]},
+ {"page": "settings.storage-backups", "state": "backup-running", "hash": "settings/storage-backups", "actions": [{"click": "[data-testid=\"backup-now\"]"}, {"wait": 700}], "expect": ["[data-testid=\"backup-progress\"]"]},
+ {"page": "settings.storage-backups", "state": "restore", "hash": "settings/storage-backups?modal=restore", "actions": [], "expect": ["[data-testid=\"restore-modal\"]", "[data-testid=\"restore-table\"]"]},
+
+ {"page": "settings.export", "state": "default", "hash": "settings/export", "actions": [], "expect": ["[data-testid=\"always-card\"]", "[data-testid=\"motifs-card\"]", "[data-testid=\"bundle-card\"]"]},
+ {"page": "settings.export", "state": "unsaved", "hash": "settings/export?state=unsaved", "actions": [], "expect": ["[data-testid=\"save-bar\"]"]},
+ {"page": "settings.export", "state": "include-notes", "hash": "settings/export", "actions": [{"click": "[data-testid=\"motifs-include-notes\"]"}, {"wait": 300}], "expect": ["[data-testid=\"save-bar\"]"]},
+ {"page": "settings.export", "state": "layout-per-family", "hash": "settings/export", "actions": [{"click": "[data-testid=\"motifs-layout\"] button:nth-of-type(2)"}, {"wait": 300}], "expect": ["[data-testid=\"save-bar\"]"]},
+
+ {"page": "settings.audit-log", "state": "all", "hash": "settings/audit-log", "actions": [], "expect": ["[data-testid=\"audit-table\"]", "[data-testid=\"kind-filter\"]", "[data-testid=\"export-csv\"]"]},
+ {"page": "settings.audit-log", "state": "kind-lock", "hash": "settings/audit-log?kind=lock", "actions": [], "expect": ["[data-testid=\"audit-table\"]"]},
+ {"page": "settings.audit-log", "state": "kind-by-click", "hash": "settings/audit-log", "actions": [{"click": "[data-testid=\"kind-filter\"] button:nth-of-type(3)"}, {"wait": 300}], "expect": ["[data-testid=\"audit-table\"]"]},
+ {"page": "settings.audit-log", "state": "no-reset-link", "hash": "settings/audit-log", "actions": [], "expect": ["[data-testid=\"entries-card\"]"], "expect_absent": ["[data-testid=\"reset-page\"]"]},
+
+ {"page": "settings.about", "state": "default", "hash": "settings/about", "actions": [], "expect": ["[data-testid=\"versions-card\"]", "[data-testid=\"future-card\"]", "[data-testid=\"matches-export\"]"]},
+ {"page": "settings.about", "state": "mismatch", "hash": "settings/about?state=mismatch", "actions": [], "expect": ["[data-testid=\"mismatch-export\"]"]},
+ {"page": "settings.about", "state": "lock-file", "hash": "settings/about?modal=lock", "actions": [], "expect": ["[data-testid=\"lock-file-modal\"]", "[data-testid=\"lock-file\"]"]},
+ {"page": "settings.about", "state": "copy-diagnostics", "hash": "settings/about", "actions": [{"click": "[data-testid=\"copy-diagnostics\"]"}, {"wait": 300}], "expect": ["[data-testid=\"toasts\"]"]},
+
+ {"page": "settings.display", "state": "default", "hash": "settings/display", "actions": [], "expect": ["[data-testid=\"appearance-card\"]", "[data-testid=\"figure-preview\"]", "[data-testid=\"personal-foot\"]"]},
+ {"page": "settings.display", "state": "applied-immediately", "hash": "settings/display", "actions": [{"click": "[data-testid=\"density\"] button:nth-of-type(2)"}, {"wait": 300}], "expect": ["[data-testid=\"toasts\"]"], "expect_absent": ["[data-testid=\"save-bar\"]"]},
+ {"page": "settings.display", "state": "sample-indices-on", "hash": "settings/display", "actions": [{"click": "[data-testid=\"sample-indices\"]"}, {"wait": 300}], "expect": ["[data-testid=\"units-card\"]"]},
+
+ {"page": "settings.keyboard", "state": "default", "hash": "settings/keyboard", "actions": [], "expect": ["[data-testid=\"keys-table\"]", "[data-testid=\"no-conflicts\"]", "[data-testid=\"behaviour-card\"]"]},
+ {"page": "settings.keyboard", "state": "conflict", "hash": "settings/keyboard?state=conflict", "actions": [], "expect": ["[data-testid=\"conflict-row\"]", "[data-testid=\"conflict-badge\"]", "[data-testid=\"conflict-replace\"]"]},
+ {"page": "settings.keyboard", "state": "capture", "hash": "settings/keyboard", "actions": [{"click": "[data-testid=\"key-skip\"]"}, {"wait": 200}], "expect": ["[data-testid=\"capture-skip\"]"]},
+ {"page": "settings.keyboard", "state": "behaviour-off", "hash": "settings/keyboard", "actions": [{"click": "[data-testid=\"toggle-auto_advance\"]"}, {"wait": 300}], "expect": ["[data-testid=\"behaviour-card\"]"], "expect_absent": ["[data-testid=\"save-bar\"]"]}
 ]
