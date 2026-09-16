@@ -65,7 +65,7 @@ function Body({ data }: { data: WindowsBlock }) {
   const leaking = splitKind === 'random'
 
   const chain = data.chain
-  const status: Record<string, BadgeStatus> = chainStatuses(pending || draft.staleFrom ? 1 : draft.staleFrom, chain)
+  const status: Record<string, BadgeStatus> = chainStatuses(pending ? 1 : draft.staleFrom, chain)
   if (sim.status === 'running') chain.forEach((b, i) => { if (b.index != null) status[b.id] = i - 1 === sim.step ? 'running' : i - 1 < sim.step ? 'cached' : status[b.id] })
 
   const apply = () => {
@@ -255,7 +255,7 @@ function Boundary({ data, gapMin }: { data: WindowsBlock; gapMin: number }) {
   const x = (h: number) => `${((h - lo) / (hi - lo)) * 100}%`
   const gapEnd = b.from_h + gapMin / 60
   return (
-    <div className="tr-bounds" data-testid="boundary-plot" style={{ height: 118 }}>
+    <div className="tr-bounds" data-testid="boundary-plot" style={{ height: 152 }}>
       <span className="gapband" style={{ left: x(b.from_h), width: `${((Math.min(gapEnd, b.to_h) - b.from_h) / (hi - lo)) * 100}%` }} />
       <span className="lab" style={{ left: 4, top: 4 }}>train</span>
       <span className="lab" style={{ left: x(b.from_h), top: 4 }}>gap {gapMin} min</span>
@@ -263,11 +263,11 @@ function Boundary({ data, gapMin }: { data: WindowsBlock; gapMin: number }) {
       {data.boundary.map((w, i) => (
         <span key={i} className="bar" data-testid={`boundary-bar-${i}`}
           style={{
-            left: x(w.start_h), width: `${((w.end_h - w.start_h) / (hi - lo)) * 100}%`, top: 22 + i * 9,
+            left: x(w.start_h), width: `${((w.end_h - w.start_h) / (hi - lo)) * 100}%`, top: 24 + i * 10,
             background: w.dropped ? 'var(--red)' : w.side === 'val' ? '#c88ce0' : 'var(--blue)',
           }} title={`${w.start_h.toFixed(2)}–${w.end_h.toFixed(2)} h · ${w.dropped ? 'dropped at the gap' : w.side}`} />
       ))}
-      <span className="lab" style={{ left: 4, bottom: 3 }}>{b.note}</span>
+      <span className="lab" style={{ left: 4, right: 4, bottom: 4 }}>{b.note}</span>
     </div>
   )
 }
