@@ -13,7 +13,7 @@ import { navigate } from '../state'
 import { useSourced } from '../api/seam'
 import { getTrainingChain, type SourceKind, type TrainingChain } from '../api/training'
 import {
-  CLASS_COLOURS, ENCODE, ESTIMATES, NAME, RUN_STEPS, SIGNAL_FS, SPAN_H, WINDOWS,
+  CLASS_COLOURS, ENCODE, ESTIMATES, NAME, RUN_STEPS, SIGNAL_FS, SPAN_H, SPAN_S, WINDOWS,
   chainStatuses, matrixValues, type TrainingBlock,
 } from '../fixtures/training'
 import { EncodingImage } from './Encoding'
@@ -210,8 +210,8 @@ function RowPlot({ block, human, data }: { block: TrainingBlock; human: boolean;
   }
   if (block.id === 'windows') {
     return (
-      <BandStrip domain={[0, SPAN_H]} timeUnit="h" rowHeight={16} labelWidth={0} testid="row-split-strip"
-        rows={[{ label: '', segments: data.windows.blocks.map(b => ({ start: b.start_h, end: b.end_h, kind: b.kind, label: b.kind === 'validation' ? 'val' : b.kind })) }]} />
+      <BandStrip domain={[0, SPAN_S]} timeUnit="h" rowHeight={16} labelWidth={0} testid="row-split-strip"
+        rows={[{ label: '', segments: data.windows.blocks.map(b => ({ start: b.start_h * 3600, end: b.end_h * 3600, kind: b.kind, label: b.kind === 'validation' ? 'val' : b.kind })) }]} />
     )
   }
   if (block.id === 'matrix') {
@@ -220,8 +220,8 @@ function RowPlot({ block, human, data }: { block: TrainingBlock; human: boolean;
   }
   if (block.id === 'cluster') {
     return (
-      <BandStrip domain={[0, SPAN_H]} timeUnit="h" rowHeight={18} labelWidth={0} testid="row-occupancy"
-        rows={[{ label: '', segments: data.occupancy.map(o => ({ start: o.start_h, end: o.end_h, colour: CLASS_COLOURS[o.klass] })) }]} />
+      <BandStrip domain={[0, SPAN_S]} timeUnit="h" rowHeight={18} labelWidth={0} testid="row-occupancy"
+        rows={[{ label: '', segments: data.occupancy.map(o => ({ start: o.start_h * 3600, end: o.end_h * 3600, colour: CLASS_COLOURS[o.klass], label: o.klass })) }]} />
     )
   }
   if (block.id === 'encode') {

@@ -12,7 +12,7 @@ import { useToast } from '../shell/Toast'
 import { navigate } from '../state'
 import { useSourced } from '../api/seam'
 import { getWindowsBlock, type WindowsBlock } from '../api/training'
-import { ESTIMATES, RUN_STEPS, SIGNAL_FS, SPAN_H, WINDOWS, chainStatuses, type TrainingBlock } from '../fixtures/training'
+import { ESTIMATES, RUN_STEPS, SIGNAL_FS, SPAN_H, SPAN_S, WINDOWS, chainStatuses, type TrainingBlock } from '../fixtures/training'
 import { BlockFrame, LoadFailed, Loading, RunVeil, SaveWindowSetModal, SendToReviewModal, UnappliedBar } from './chrome'
 import { isPending, live, markSimForced, useSourceQuery, useTrainingDraft, wasSimForced, type WindowParams } from './draft'
 
@@ -127,10 +127,11 @@ function Body({ data }: { data: WindowsBlock }) {
             }>
             <div className="tr-rel">
               {sim.busy && <RunVeil label={`${RUN_STEPS[sim.step] ?? 'running'} · ${Math.round(sim.fraction * 100)} %`} fraction={sim.fraction} />}
-              <BandStrip domain={[0, SPAN_H]} timeUnit="h" rowHeight={22} labelWidth={0} testid="split-strip"
-                rows={[{ label: '', segments: leaking
+              <BandStrip domain={[0, SPAN_S]} timeUnit="h" rowHeight={22} labelWidth={0} testid="split-strip"
+                rows={[{ label: '', segments: (leaking
                   ? data.windows.blocks.flatMap((b, i) => shuffleSegments(b.start_h, b.end_h, i))
-                  : data.windows.blocks.map(b => ({ start: b.start_h, end: b.end_h, kind: b.kind, label: b.label })) }]} />
+                  : data.windows.blocks.map(b => ({ start: b.start_h, end: b.end_h, kind: b.kind, label: b.label })))
+                  .map(s => ({ ...s, start: s.start * 3600, end: s.end * 3600 })) }]} />
               <Trace values={data.signal.values} fs={SIGNAL_FS} yDomain={data.signal.yDomain} timeUnit="h" height={90} ground="white" />
               <Legend items={[
                 { label: 'train', colour: 'var(--blue)' }, { label: 'validation', colour: '#c88ce0' },
