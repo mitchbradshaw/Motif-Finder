@@ -435,10 +435,121 @@
  {
   "page": "discovery.stages",
   "state": "default",
-  "hash": "discovery/compare/stages",
+  "hash": "discovery/compare/stages?a=drop_motifs9&b=seed_F03_native&only=a&i=7",
   "actions": [],
   "expect": [
-   "[data-testid=\"header\"]"
+   "[data-testid=\"step-bar\"]",
+   "[data-testid=\"stage-columns\"]",
+   "[data-testid=\"decided-table\"]"
+  ]
+ },
+ {
+  "page": "discovery.stages",
+  "state": "re-running",
+  "hash": "discovery/compare/stages?a=drop_motifs9&b=seed_F03_native&only=a&i=7&state=rerun",
+  "actions": [
+   {
+    "wait": 300
+   }
+  ],
+  "expect": [
+   "[data-testid=\"stage-rerun\"]",
+   "[data-testid=\"stage-columns\"]"
+  ]
+ },
+ {
+  "page": "discovery.stages",
+  "state": "stepped",
+  "hash": "discovery/compare/stages?a=drop_motifs9&b=seed_F03_native&only=a&i=7",
+  "actions": [
+   {
+    "click": "[data-testid=\"stage-pager\"] button:last-of-type"
+   },
+   {
+    "wait": 1400
+   }
+  ],
+  "expect": [
+   "[data-testid=\"stage-card-A-Detect\"]",
+   "[data-testid=\"decided-Detect\"]"
+  ]
+ },
+ {
+  "page": "discovery.stages",
+  "state": "swapped",
+  "hash": "discovery/compare/stages?a=drop_motifs9&b=seed_F03_native&only=a&i=7",
+  "actions": [
+   {
+    "click": "[data-testid=\"swap-ab\"]"
+   },
+   {
+    "wait": 700
+   }
+  ],
+  "expect": [
+   "[data-testid=\"column-head-A\"]",
+   "[data-testid=\"stage-columns\"]"
+  ]
+ },
+ {
+  "page": "discovery.stages",
+  "state": "popover-first-differing",
+  "hash": "discovery/compare/stages?a=drop_motifs9&b=seed_F03_native",
+  "actions": [
+   {
+    "click": "[data-testid=\"first-differing\"]"
+   },
+   {
+    "wait": 300
+   }
+  ],
+  "expect": [
+   "[data-testid=\"first-differing-popover\"]"
+  ]
+ },
+ {
+  "page": "discovery.stages",
+  "state": "popover-stage-params",
+  "hash": "discovery/compare/stages?a=drop_motifs9&b=seed_F03_native",
+  "actions": [
+   {
+    "click": "[data-testid=\"stage-card-A-Score-estimate\"] .dsc-stg-title"
+   },
+   {
+    "wait": 300
+   }
+  ],
+  "expect": [
+   "[data-testid=\"stage-params-popover\"]"
+  ]
+ },
+ {
+  "page": "discovery.stages",
+  "state": "filter-only-b",
+  "hash": "discovery/compare/stages?a=drop_motifs9&b=seed_F03_native&only=b&i=1",
+  "actions": [],
+  "expect": [
+   "[data-testid=\"stage-columns\"]",
+   "[data-testid=\"step-kind\"]"
+  ]
+ },
+ {
+  "page": "discovery.stages",
+  "state": "human-as-b",
+  "hash": "discovery/compare/stages?a=drop_motifs9&b=human&only=a&i=2",
+  "actions": [],
+  "expect": [
+   "[data-testid=\"stage-card-B-Detect\"]",
+   "[data-testid=\"decided-table\"]"
+  ]
+ },
+ {
+  "page": "discovery.stages",
+  "state": "empty-same-run",
+  "hash": "discovery/compare/stages?a=drop_motifs9&b=drop_motifs9",
+  "actions": [],
+  "expect": [
+   "[data-testid=\"stages-empty\"]"
   ]
  }
 ]
