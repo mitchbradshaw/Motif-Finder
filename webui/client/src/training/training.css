@@ -160,3 +160,22 @@
 .tr-table td { padding: 5px 8px; border-bottom: 1px solid var(--grey-100); color: var(--text-2); }
 .tr-table td.num, .tr-table th.num { text-align: right; }
 .tr-table td .nm { color: var(--text); font-weight: 600; }
+
+/* 05 model — stage table (one bordered row per stage, blue when it runs) */
+.tr-stages { display: flex; flex-direction: column; gap: 6px; }
+.tr-stage { display: grid; grid-template-columns: 26px minmax(118px, 1.25fr) 66px 58px 96px minmax(0, 1.55fr); align-items: center; gap: 8px;
+  border: 1px solid var(--border); border-radius: 8px; padding: 7px 10px; background: var(--card); }
+.tr-stage.hd { border: 0; background: none; padding: 0 10px 2px; font-size: 10.5px; color: var(--muted); }
+.tr-stage.on { border-color: var(--blue); background: var(--blue-050, #F2F7FF); }
+.tr-stage.blocked { opacity: 0.62; }
+.tr-stage .nm { font-size: 12.5px; font-weight: 600; color: var(--text); display: flex; align-items: baseline; gap: 6px; }
+.tr-stage .nm .num { font-family: var(--font-mono); font-size: 11px; font-weight: 400; color: var(--muted); }
+.tr-stage .ct, .tr-stage .on { font-size: 11.5px; color: var(--text-2); }
+.tr-stage .on.cluster { color: var(--blue); }
+.tr-stage .nt { font-size: 11.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tr-stage .tk .k-check .lbl { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+.tr-labels { margin-top: 12px; display: flex; flex-direction: column; gap: 7px; }
+.tr-held { display: flex; align-items: center; gap: 6px; margin-top: 10px; padding: 6px 9px; border: 1px solid var(--border);
+  border-radius: 7px; background: var(--grey-050, #FAFAFA); font-size: 11.5px; color: var(--text-2); }
+@media (max-width: 980px) { .tr-stage { grid-template-columns: 26px 1fr 66px; } .tr-stage .ct, .tr-stage .on, .tr-stage .nt { display: none; } }
