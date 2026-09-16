@@ -67,3 +67,14 @@ Resumed the SAME run (wf_91ff8a51-7e6, task wsro31ury) from the copied script
 scratchpad/depth.js with resumeFromRunId, so finished builds replay from cache; a RESUME paragraph was added ONLY to the
 six unfinished units (so the finished units' prompts stay byte-identical and keep their cache). Critic pool 8 → 5.
 Re-resume the same way if the limit hits again.
+- 11:3x models.md: added smoke allow_console_error.
+- 11:4x jobs.md: applied CanonJob submitted/cancelled + j-0209 title. QUEUED: Table collapsible-group deep link; Stepper 'cached' state; Modal subtitleBelow; ProgressBar percent suffix; canon queue counts/pace/eta; demoNeedYou helper.
+- 12:0x interrogation.md: applied ANALYSE_RUNS #140 template rename. QUEUED: LineChart bands + x clipping; Rose/polar plot; variable-height event rail; Histogram overlay opacity + stacked mode; DisabledReason asChild; Slider changed tone; canon family extras + shared FamilyMember type; Header state chip slot.
+- 12:4x discovery.md (2nd): applied StatTile string-info fix. QUEUED: multi-track Trace with one crosshair; Bars stacked-proportional with in-bar clickable segments; Pager keyboard stepping; Button warning inside DisabledReason.
+
+### 13:00 second usage limit → 16:20 resume
+Limit hit again (reset 4pm). Built and committed by then: explore, analyse, review, library, discovery, models, jobs,
+interrogation (8 of 10 units). Settings and Training never started. Rated so far (r1): explore 9/9/8/9, analyse.chain 8,
+analyse.block 8, analyse.glyphs 8, review.inspector 9, review.cluster 8 — all ≥ 8 except unrated ones.
+Now running a build-only workflow for settings + training (run wf_14dda958-dd7, task w98kbae15), then a critique-only
+workflow for the unrated units, then the final pass. Both servers still up.
