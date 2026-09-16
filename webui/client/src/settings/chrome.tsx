@@ -90,11 +90,13 @@ export interface ShellProps {
   children: ReactNode
   /** extra chips on the title row, right of the scope badge */
   chips?: ReactNode
+  /** extra buttons left of "Reset page to defaults" (Audit log's Export CSV) */
+  actions?: ReactNode
   /** hide "Reset page to defaults" (About and Audit log have nothing to reset) */
   noReset?: boolean
 }
 
-export function SettingsShell({ slug, demo, children, chips, noReset }: ShellProps) {
+export function SettingsShell({ slug, demo, children, chips, actions, noReset }: ShellProps) {
   const meta = PAGE_META[slug]
   const store = useSettingsPage(slug)
   const [state] = useQueryState('state', '')
@@ -155,8 +157,10 @@ export function SettingsShell({ slug, demo, children, chips, noReset }: ShellPro
         <div className="s-col" data-testid="settings-column">
           <Page maxWidth={1120} testid="settings-page">
             <PageTitle title={meta?.title ?? slug}
-              actions={noReset ? undefined : (
+              actions={(
                 <>
+                  {actions}
+                  {!noReset && <>
                   <Button ref={resetRef} variant="link" icon="refresh" testid="reset-page"
                     disabled={store.differingCount === 0} disabledReason="Nothing differs from default"
                     onClick={() => setResetOpen(o => !o)}>Reset page to defaults</Button>
@@ -173,6 +177,7 @@ export function SettingsShell({ slug, demo, children, chips, noReset }: ShellPro
                       <Button size="sm" variant="primary" testid="reset-confirm" onClick={() => { store.resetToDefaults(); setResetOpen(false) }}>Reset</Button>
                     </div>
                   </Popover>
+                  </>}
                 </>
               )}>
               <Badge tone={store.scope === 'project' ? 'blue' : 'grey'} testid="scope-badge">

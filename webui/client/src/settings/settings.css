@@ -7,7 +7,7 @@
 
 /* ---- row grammar: label · control · consequence ---- */
 .s-row { display: grid; grid-template-columns: 300px minmax(150px, max-content) 1fr; align-items: center; gap: 12px; padding: 7px 0; }
-.s-row.wide { grid-template-columns: 240px 1fr; }
+.s-row.wide { grid-template-columns: 240px minmax(0, 1fr) max-content; }
 .s-row + .s-row { border-top: 1px solid var(--border); }
 .s-row-label { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .s-label { font-size: 11px; color: var(--text-2); display: inline-flex; align-items: center; gap: 5px; }

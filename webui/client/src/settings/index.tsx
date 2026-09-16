@@ -15,6 +15,9 @@ import { ComputeHpcPage } from './ComputeHpcPage'
 import { ReviewQueuesPage } from './ReviewQueuesPage'
 import { ModelsRegistrationPage } from './ModelsRegistrationPage'
 import { LibraryGroupingsPage } from './LibraryGroupingsPage'
+import { StoragePage } from './StoragePage'
+import { ExportPage } from './ExportPage'
+import { AuditLogPage } from './AuditLogPage'
 import { Skeleton } from '../shell/Skeleton'
 
 export function SettingsPage() {
@@ -31,6 +34,9 @@ export function SettingsPage() {
   if (slug === 'review-queues') return <ReviewQueuesPage />
   if (slug === 'models-registration') return <ModelsRegistrationPage />
   if (slug === 'library-groupings') return <LibraryGroupingsPage />
+  if (slug === 'storage-backups') return <StoragePage />
+  if (slug === 'export') return <ExportPage />
+  if (slug === 'audit-log') return <AuditLogPage />
   if (PAGE_META[slug]) return <Skeleton id={`settings.${slug}`} />
   return (
     <>
