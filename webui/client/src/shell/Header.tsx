@@ -5,6 +5,7 @@ import type { ReactNode } from 'react'
 import { DEMO_NEED_YOU } from '../fixtures/canon'
 import { navigate, useApp } from '../state'
 import { useNotWired } from '../kit/notWired'
+import { useDemoState } from '../kit/store'
 
 export interface HeaderSpec {
   workspace: string; page: string; subtitle?: string; search?: string; demo?: boolean; extra?: ReactNode
@@ -17,6 +18,9 @@ export interface HeaderSpec {
 export function Header({ workspace, page, subtitle, search = 'Search spans, runs, families', demo = false, extra, onSearch, searchHint = 'Ctrl K' }: HeaderSpec) {
   const { needYou, bridgeDown } = useApp()
   const notWired = useNotWired()
+  // Settings › Datasets mirrors the SAVED held-out lock into this demo-store key (its store.ts
+  // HELD_OUT_KEY_STORE), so the chip tells the truth after the lock is turned off (its request R2).
+  const [heldOut] = useDemoState<{ on: boolean; recording: string }>('settings.heldOut', () => ({ on: true, recording: 'M4_aug' }))
   const total = needYou + DEMO_NEED_YOU
   return (
     <header className="hdr" data-testid="header">
@@ -37,8 +41,12 @@ export function Header({ workspace, page, subtitle, search = 'Search spans, runs
         {bridgeDown && <span className="chip red" title="the FastAPI bridge did not answer the last poll; retrying every 5 s">bridge unreachable</span>}
         <button className={`chip ${total ? 'blue' : 'grey'}`} data-testid="need-you" onClick={() => navigate('jobs')}
           title={`${DEMO_NEED_YOU} from demo fixtures (paused runs, a failed cluster job) · ${needYou} live: runs started from this tab that failed — opens Jobs`}>● {total} need you</button>
-        <button className="chip grey" data-testid="held-out-chip" onClick={() => navigate('settings/datasets')} title="M4_aug_concat_fs1.mat is held out (D6): every workspace refuses it — opens Settings › Datasets">
-          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><rect x="5" y="11" width="14" height="10" rx="2" /><path d="M8 11V7a4 4 0 0 1 8 0v4" /></svg> M4 held out
+        <button className={`chip ${heldOut.on ? 'grey' : 'amber'}`} data-testid="held-out-chip" onClick={() => navigate('settings/datasets')}
+          title={heldOut.on
+            ? `${heldOut.recording} is held out (D6): every workspace refuses it — opens Settings › Datasets`
+            : 'the held-out lock is OFF in Settings › Datasets — nothing is protected from training or detection'}>
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><rect x="5" y="11" width="14" height="10" rx="2" />{heldOut.on ? <path d="M8 11V7a4 4 0 0 1 8 0v4" /> : <path d="M8 11V7a4 4 0 0 1 8 0" />}</svg>
+          {heldOut.on ? `${heldOut.recording.replace(/_.*/, '')} held out` : 'lock off'}
         </button>
       </div>
       <style>{`
