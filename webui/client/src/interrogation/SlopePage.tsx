@@ -17,7 +17,7 @@ import {
 } from '../fixtures/interrogation'
 import { AddStagePopover, ChainCard, InterrogationToolbar, LoadFailed, Loading, RunVeil, SaveTemplateModal } from './chrome'
 import { SourcePicker } from './SourcePicker'
-import { inScopeIds, useFamilyQuery, useInterrogationDraft, useUpstreamQuery } from './draft'
+import { inScopeIds, markSimForced, useFamilyQuery, useInterrogationDraft, useUpstreamQuery, wasSimForced } from './draft'
 import { Rose } from './Rose'
 
 const STRIP = 10
@@ -96,7 +96,8 @@ function SlopeBody({ block }: { block: SlopeBlock }) {
 
   const sim = useSim('analyse.interrogation.run')
   useEffect(() => {
-    if (stateQ === 'running') sim.force({ status: 'running', steps: RUN_STEPS, step: 1, fraction: 0.5, startedAt: Date.now() })
+    if (stateQ === 'running') { sim.force({ status: 'running', steps: RUN_STEPS, step: 1, fraction: 0.5, startedAt: Date.now() }); markSimForced(true) }
+    else if (wasSimForced()) { sim.reset(); markSimForced(false) }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [stateQ])
 

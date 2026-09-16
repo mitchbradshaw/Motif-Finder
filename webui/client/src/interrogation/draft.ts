@@ -46,3 +46,10 @@ export function inScopeIds(members: { id: string; verdict: string }[], draft: In
   }
   return out
 }
+
+/* `?state=running` / `?state=failed` force the shared run simulation into that state. The sim lives in the
+ * kit store, so without this flag a forced run would still look busy on the next page (and in the next
+ * smoke state, which navigates by hash without reloading). Every page clears it on arrival. */
+let simForced = false
+export const markSimForced = (v: boolean) => { simForced = v }
+export const wasSimForced = () => simForced

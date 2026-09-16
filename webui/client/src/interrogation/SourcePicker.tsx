@@ -8,11 +8,14 @@ import { useSourced } from '../api/seam'
 import { getSourceChoices } from '../api/interrogation'
 import { Loading, LoadFailed } from './chrome'
 
+/** The row cell shows the first clause of a disabled reason; the whole reason is the row's tooltip. */
+const short = (reason: string) => (reason.length <= 28 ? reason : `${reason.split(' · ')[0].slice(0, 28)}…`)
+
 export function SourcePicker({ open, onClose, anchorRef, familyId, onPickFamily }: {
   open: boolean; onClose: () => void; anchorRef: React.RefObject<HTMLElement | null>; familyId: string; onPickFamily: (id: string) => void
 }) {
   return (
-    <Popover open={open} onClose={onClose} anchorRef={anchorRef} placement="bottom-start" width={520} flush testid="source-picker">
+    <Popover open={open} onClose={onClose} anchorRef={anchorRef} placement="bottom-start" width={560} flush testid="source-picker">
       <SourcePickerBody familyId={familyId} onPickFamily={id => { onPickFamily(id); onClose() }} onClose={onClose} />
     </Popover>
   )
@@ -61,7 +64,7 @@ function SourcePickerBody({ familyId, onPickFamily, onClose }: { familyId: strin
                       <td className="num">{f.recordings.length}</td>
                       <td className="num" style={{ color: f.adjudicated === 0 ? '#b86e00' : undefined }}>{f.adjudicated} / {fmtInt(f.within)}</td>
                       <td>{f.disabledReason
-                        ? <span className="ig-muted" style={{ whiteSpace: 'normal' }}>&#8856; {f.disabledReason}</span>
+                        ? <span className="ig-muted" title={f.disabledReason}>&#8856; {short(f.disabledReason)}</span>
                         : f.crossRecording && <Chip tone="purple" size="sm">cross-recording</Chip>}</td>
                     </tr>
                   )
@@ -88,7 +91,7 @@ function SourcePickerBody({ familyId, onPickFamily, onClose }: { familyId: strin
                     onClick={() => { if (reason) return; notWired(`apply run ${r.label} to the source`); onClose() }}>
                     <td className="nm">{r.label}</td><td>{r.template}</td><td className="num">{fmtInt(r.spans)}</td>
                     <td><Badge tone={r.terminal === 'SpanSet' ? 'blue' : 'purple'}>{r.terminal}</Badge></td>
-                    <td className="ig-muted">{reason ? <span style={{ whiteSpace: 'normal' }}>&#8856; {reason}</span> : r.when}</td>
+                    <td className="ig-muted" title={reason}>{reason ? <span>&#8856; {short(reason)}</span> : r.when}</td>
                   </tr>
                 )
               })}
@@ -109,7 +112,7 @@ function SourcePickerBody({ familyId, onPickFamily, onClose }: { familyId: strin
                 <tr key={q.id} className={q.disabledReason ? 'dim' : undefined} data-testid={`review-row-${q.id}`} title={q.disabledReason} aria-disabled={q.disabledReason ? true : undefined}
                   onClick={() => { if (q.disabledReason) return; notWired(`take the ${q.judged} judged spans of ${q.id} as the source`); onClose() }}>
                   <td className="nm">{q.id}</td><td>{q.source}</td><td className="num">{q.judged} / {fmtInt(q.total)}</td>
-                  <td>{q.disabledReason ? <span className="ig-muted" style={{ whiteSpace: 'normal' }}>&#8856; {q.disabledReason}</span> : q.blind ? <Badge tone="grey">blind</Badge> : null}</td>
+                  <td title={q.disabledReason}>{q.disabledReason ? <span className="ig-muted">&#8856; {short(q.disabledReason)}</span> : q.blind ? <Badge tone="grey">blind</Badge> : null}</td>
                 </tr>
               ))}
             </tbody>

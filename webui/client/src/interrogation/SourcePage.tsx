@@ -17,7 +17,7 @@ import {
 } from '../fixtures/interrogation'
 import { AddStagePopover, ChainCard, EmptyScope, InterrogationToolbar, LoadFailed, Loading, RunVeil, SaveTemplateModal } from './chrome'
 import { SourcePicker } from './SourcePicker'
-import { inScopeIds, useFamilyQuery, useInterrogationDraft, useUpstreamQuery } from './draft'
+import { inScopeIds, markSimForced, useFamilyQuery, useInterrogationDraft, useUpstreamQuery, wasSimForced } from './draft'
 
 export function SourcePage() {
   const [familyId] = useFamilyQuery()
@@ -87,8 +87,9 @@ function SourceBody({ block }: { block: SourceBlock }) {
   /* ---- the run ---- */
   const sim = useSim('analyse.interrogation.run')
   useEffect(() => {
-    if (stateQ === 'running') sim.force({ status: 'running', steps: RUN_STEPS, step: 1, fraction: 0.42, startedAt: Date.now() })
-    if (stateQ === 'failed') sim.force({ status: 'failed', steps: RUN_STEPS, step: 1, fraction: 0.4, finishedAt: Date.now(), error: 'resolve from original recording failed (simulated): M2_aug_concat_fs1.mat could not be opened for member s-0344 · on missing source = fail the run' })
+    if (stateQ === 'running') { sim.force({ status: 'running', steps: RUN_STEPS, step: 1, fraction: 0.42, startedAt: Date.now() }); markSimForced(true) }
+    else if (stateQ === 'failed') { sim.force({ status: 'failed', steps: RUN_STEPS, step: 1, fraction: 0.4, finishedAt: Date.now(), error: 'resolve from original recording failed (simulated): M2_aug_concat_fs1.mat could not be opened for member s-0344 · on missing source = fail the run' }); markSimForced(true) }
+    else if (wasSimForced()) { sim.reset(); markSimForced(false) }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [stateQ])
 

@@ -1,7 +1,7 @@
 /* analyse.interrogation.aggregate — 02 Aggregate (frames interrogation-3, 3b, 3c).
  * §6.8 `Features → views`, P7: the block is generic — every plot is wired from the Features the upstream
  * block declares, so the same page serves slope analysis and spike shape. P10: a null behind every plot. */
-import { useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   Badge, Bars, Button, Callout, Chip, ColourDot, Dropdown, EmptyState, Histogram, Icon, InfoTip, Legend, LineChart,
   Page, Popover, SectionCard, Seg, StatRow, StatTile, binValues, fmtInt, recordDemoWrite, useNotWired, useQueryState,
@@ -17,7 +17,7 @@ import { NULL_GREY, RUN_STEPS, VERDICT_COLOUR, type InterrogationMember, type Pa
 import { AddStagePopover, ChainCard, InterrogationToolbar, LoadFailed, Loading, RunVeil, SaveTemplateModal } from './chrome'
 import { SourcePicker } from './SourcePicker'
 import { EventTimeline } from './EventTimeline'
-import { inScopeIds, useFamilyQuery, useInterrogationDraft, useUpstreamQuery } from './draft'
+import { inScopeIds, markSimForced, useFamilyQuery, useInterrogationDraft, useUpstreamQuery, wasSimForced } from './draft'
 
 export function AggregatePage() {
   const [familyId] = useFamilyQuery()
@@ -104,6 +104,8 @@ function AggregateBody({ block }: { block: AggregateBlock }) {
   const stale = !!draft.staleFrom || draft.pendingWindow != null
 
   const sim = useSim('analyse.interrogation.run')
+  useEffect(() => { if (wasSimForced()) { sim.reset(); markSimForced(false) } // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [stateQ])
   const status: Record<string, BadgeStatus> = {
     source: 'cached',
     block1: stale ? 'stale' : 'cached',
