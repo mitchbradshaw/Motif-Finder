@@ -47,14 +47,19 @@ the draft survives navigation between the six pages, not a reload.
 `library` `save-grouping` (03) · `jobs` `add-job` (SLURM script in 02, trial job in 05) ·
 `models` `add-training-job` (Train in Models, P11).
 
+## Fixed after the first visual pass
+
+- 01's ribbon marked every stage stale: the status read `(pending || staleFrom) ? 1 : staleFrom`, so a
+  stale 04 dragged 01–03 down with it. Now `pending ? 1 : staleFrom`.
+- 01's "At a boundary" close-up overflowed its card — the last window bars ran under the caption.
+- The chain and 04 toolbars wrapped onto a second row at 1440; both estimates were shortened to the
+  frame's wording.
+
 ## Known gaps
 
 - The dendrogram, the k-sweep chart's shaded "current k" band and the encoded-image raster are drawn
   locally (SVG in `ClusterPage.tsx` / `Encoding.tsx`); no kit component draws them — see
   `pages/requests/training.md`.
-- 05's eight training Dropdowns and 01's chain row: see below. Fixed after the first pass — the ribbon on
-  01 marked every stage stale (an `||`/ternary precedence slip), and the boundary close-up overflowed its
-  card.
 - 01's chain row draws the split bands without the frame's inline `train / val / train / test` labels and
   without the window tick strip beneath them (the block page has both).
 - 02's chain-row badge shows `on cluster` where the frame shows `on cluster · cached` (the kit Badge takes
