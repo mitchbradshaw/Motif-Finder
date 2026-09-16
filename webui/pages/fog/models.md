@@ -27,3 +27,12 @@
   (only A 7, only B 1, both wrong 12) rather than at 1, so both frames are reachable by clicking · frames models-4, 4b
 - Compare: a pair that is not paired (different test windows) has no frame · paired difference, agreement,
   per channel and the step-through all say "unavailable" with the reason · spec §7b.4, §3
+- Registry: what "version" means for a name that already exists (v2 of cnn_windows_v2 · manual) versus a new
+  registered name is unstated · v2 is offered disabled with "v1 is not registered yet" · frame models-5, spec §7b.5
+- Registry: how verification progress flows back from Review (queue q-19) is unspecified · the page offers
+  "simulate the last N judgements" and "Add 20 more" writes a Review queue entry · spec §7b.5, P19
+- Registry: the frame shows rf_windows_v1 · manual used by 1 template with Retire disabled, but §0 canon lists
+  no template using it · canon wins, so that row is the one that demonstrates the retire flow · frame models-5, §0
+- Registry: the frame's Used-by card names cnn_windows_v2 · manual v2 while a candidate is selected · the page
+  shows the selected model's templates, falling back to the blocked model named in the lock note · frame models-5
+- Registry: a rejected model's calibration thresholds are not specified · shown as unavailable with the reason · §3

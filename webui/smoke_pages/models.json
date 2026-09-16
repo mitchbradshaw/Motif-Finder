@@ -34,5 +34,22 @@
  {"page": "models.compare", "state": "swapped", "hash": "models/compare", "actions": [{"click": "[data-testid=\"swap-ab\"]"}, {"wait": 400}], "expect": ["[data-testid=\"pair-chip\"]", "[data-testid=\"macro-forest\"]"]},
  {"page": "models.compare", "state": "job-popover", "hash": "models/compare?popover=job", "actions": [], "expect": ["[data-testid=\"job-popover\"]"]},
  {"page": "models.compare", "state": "cluster-row", "hash": "models/compare", "actions": [{"click": "[data-testid=\"mapping-c3\"]"}, {"wait": 250}], "expect": ["[data-testid=\"cluster-mapping\"]", "[data-testid=\"impure-chip\"]"]},
- {"page": "models.registry", "state": "default", "hash": "models/registry", "actions": [], "expect": ["[data-testid=\"header\"]"]}
+ {"page": "models.registry", "state": "candidate", "hash": "models/registry", "actions": [], "expect": ["[data-testid=\"models-table\"]", "[data-testid=\"register-card\"]", "[data-testid=\"verification-progress\"]", "[data-testid=\"after-registering\"]"]},
+ {"page": "models.registry", "state": "filter-registered", "hash": "models/registry?filter=registered", "actions": [], "expect": ["[data-testid=\"models-table\"]", "[data-testid=\"retire-lock\"]"]},
+ {"page": "models.registry", "state": "filter-retired", "hash": "models/registry?filter=retired", "actions": [], "expect": ["[data-testid=\"models-table\"]"]},
+ {"page": "models.registry", "state": "candidate-failing", "hash": "models/registry/cnn_windows_v3.cluster", "actions": [], "expect": ["[data-testid=\"register-blocker\"]", "[data-testid=\"checks\"]"]},
+ {"page": "models.registry", "state": "registered", "hash": "models/registry/cnn_windows_v2.manual.v2", "actions": [], "expect": ["[data-testid=\"decided-card\"]", "[data-testid=\"thresholds\"]", "[data-testid=\"used-by-drop_cnn_v1\"]"]},
+ {"page": "models.registry", "state": "retired", "hash": "models/registry/cnn_windows_v2.manual.v1", "actions": [], "expect": ["[data-testid=\"restore-panel\"]"]},
+ {"page": "models.registry", "state": "rejected", "hash": "models/registry/cnn_windows_v2.cluster.v1", "actions": [], "expect": ["[data-testid=\"rejected-because\"]", "[data-testid=\"thresholds-unavailable\"]"]},
+ {"page": "models.registry", "state": "why-popover", "hash": "models/registry", "actions": [{"click": "[data-testid=\"why-cnn_windows_v2.cluster.v1\"]"}, {"wait": 300}], "expect": ["[data-testid=\"why-popover\"]"]},
+ {"page": "models.registry", "state": "row-click-registered", "hash": "models/registry", "actions": [{"click": "[data-testid=\"model-row-cnn_cluster_v1\"]"}, {"wait": 400}], "expect": ["[data-testid=\"decided-card\"]"]},
+ {"page": "models.registry", "state": "verified", "hash": "models/registry?state=verified", "actions": [], "expect": ["[data-testid=\"register\"]", "[data-testid=\"verification-progress\"]"]},
+ {"page": "models.registry", "state": "name-invalid", "hash": "models/registry/cnn_windows_v3.cluster", "actions": [{"fill": ["[data-testid=\"registered-name\"]", "Bad Name!"]}, {"wait": 300}], "expect": ["[data-testid=\"name-error\"]", "[data-testid=\"register-blocker\"]"]},
+ {"page": "models.registry", "state": "retire-modal", "hash": "models/registry/rf_windows_v1.manual?confirm=retire", "actions": [], "expect": ["[data-testid=\"retire-modal\"]", "[data-testid=\"retire-confirm\"]"]},
+ {"page": "models.registry", "state": "retire-modal-escape", "hash": "models/registry/rf_windows_v1.manual?confirm=retire", "actions": [{"press": "Escape"}, {"wait": 300}], "expect": ["[data-testid=\"decided-card\"]"]},
+ {"page": "models.registry", "state": "reject-modal", "hash": "models/registry?confirm=reject", "actions": [], "expect": ["[data-testid=\"reject-modal\"]", "[data-testid=\"reject-reason\"]"]},
+ {"page": "models.registry", "state": "restore-modal", "hash": "models/registry/cnn_windows_v2.manual.v1?confirm=restore", "actions": [], "expect": ["[data-testid=\"restore-modal\"]"]},
+ {"page": "models.registry", "state": "add-20-more", "hash": "models/registry", "actions": [{"click": "[data-testid=\"add-20\"]"}, {"wait": 400}], "expect": ["[data-testid=\"verification-progress\"]"]},
+ {"page": "models.registry", "state": "registered-now", "hash": "models/registry?state=verified", "actions": [{"click": "[data-testid=\"register\"]"}, {"wait": 600}], "expect": ["[data-testid=\"decided-card\"]"]},
+ {"page": "models.registry", "state": "retired-now", "hash": "models/registry/rf_windows_v1.manual?confirm=retire", "actions": [{"click": "[data-testid=\"retire-confirm\"]"}, {"wait": 600}], "expect": ["[data-testid=\"restore-panel\"]"]}
 ]

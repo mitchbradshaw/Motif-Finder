@@ -5,7 +5,7 @@
 | models.launch | done | polish only (split strip tooltips are SVG titles) | launch commit |
 | models.results | done | frame 3 reproduced: stats row, null histogram, confusion + per-class, calibration (target-precision Seg), curves, held-out checks; arm A/B/RF, job popover, running, failed, empty | results commit |
 | models.compare | done | frames 4 + 4b reproduced: pickers + what-differs, macro-F1 forest over the null band, paired difference + per-class ΔF1, cluster→manual heatmap, 2×2 agreement, per channel, step-through with GASF/RP tiles; not-attributable and not-paired states | compare commit |
-| models.registry | not started | — | — |
+| models.registry | done | frame 5 reproduced: models table with status/test F1/used by, retire lock note, used-by card, and the three-part gate (checks · verification · decision) with register/reject/retire/restore store writes | registry commit |
 
 Notes
 - `models/results/j-0209` (failed read) is deliberately **not** in `smoke_pages/models.json`: the shared
