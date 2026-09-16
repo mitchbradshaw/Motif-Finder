@@ -91,7 +91,7 @@ function ChainBody({ data, source }: { data: TrainingChain; source: SourceKind }
         name={draft.name} saved={draft.saved} onRename={v => setDraft(d => ({ ...d, name: v, saved: false }))}
         source={source} onSource={s => setSource(s === 'signal' ? null : s)}
         sourceOpen={popover === 'source'} onSourceToggle={() => setPopover(popover === 'source' ? null : 'source')}
-        estimate={runFailed ? 'run failed at 04 Encode' : sim.busy ? `${RUN_STEPS[sim.step] ?? ''} · running` : draft.staleFrom ? `${ESTIMATES.chain} · 04 and 05 stale` : ESTIMATES.chain}
+        estimate={runFailed ? 'run failed at 04 Encode' : sim.busy ? `${RUN_STEPS[sim.step] ?? ''} · running` : ESTIMATES.chain}
         estimateTone={runFailed ? 'amber' : draft.staleFrom ? 'amber' : 'muted'}
         historyOpen={popover === 'history'} onHistory={() => setPopover(popover === 'history' ? null : 'history')}
         importOpen={popover === 'import'} onImport={() => setPopover(popover === 'import' ? null : 'import')}
