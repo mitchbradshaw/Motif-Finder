@@ -103,13 +103,17 @@ function AggregateBody({ block }: { block: AggregateBlock }) {
   const events = useMemo(() => block.members.filter(m => scope.has(m.id)), [block.members, scope])
   const stale = !!draft.staleFrom || draft.pendingWindow != null
 
+  /* `?state=empty` forces the "nothing to aggregate" state; it is also reached for real when a family has
+     fewer than 3 events in scope (a distribution and a fit need more than two points). */
+  const forcedEmpty = stateQ === 'empty'
+
   const sim = useSim('analyse.interrogation.run')
   useEffect(() => { if (wasSimForced()) { sim.reset(); markSimForced(false) } // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [stateQ])
   const status: Record<string, BadgeStatus> = {
     source: 'cached',
-    block1: stale ? 'stale' : 'cached',
-    block2: sim.status === 'running' ? 'running' : stale ? 'stale' : 'cached',
+    block1: sim.status === 'running' && sim.step >= 1 ? 'running' : forcedEmpty ? 'new' : stale ? 'stale' : 'cached',
+    block2: sim.status === 'running' ? 'running' : forcedEmpty ? 'new' : stale ? 'stale' : 'cached',
   }
 
   /* ---- colouring ---- */
@@ -185,9 +189,6 @@ function AggregateBody({ block }: { block: AggregateBlock }) {
     push({ text: `sent ${outlier.id} to Review · 1 span queued (demo)`, action: { label: 'Open in Review', onClick: () => navigate('review/queue') } })
   }
 
-  /* `?state=empty` forces the "nothing to aggregate" state; it is also reached for real when a family has
-     fewer than 3 events in scope (a distribution and a fit need more than two points). */
-  const forcedEmpty = stateQ === 'empty'
   const tooFew = events.length < 3 || forcedEmpty
   const stageStages = block.chain.map(b => (b.index ? `${String(b.index).padStart(2, '0')} ${b.label}` : b.label))
 

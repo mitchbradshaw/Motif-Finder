@@ -51,7 +51,7 @@ function SourcePickerBody({ familyId, onPickFamily, onClose }: { familyId: strin
           </div>
           <div style={{ maxHeight: 280, overflow: 'auto' }}>
             <table className="ig-pick" data-testid="family-table">
-              <thead><tr><th>family</th><th className="num">members</th><th className="num">recordings</th><th className="num">adjudicated</th><th /></tr></thead>
+              <thead><tr><th style={{ width: '32%' }}>family</th><th className="num" style={{ width: '13%' }}>members</th><th className="num" style={{ width: '15%' }}>recordings</th><th className="num" style={{ width: '17%' }}>adjudicated</th><th /></tr></thead>
               <tbody>
                 {families.map(f => {
                   const on = f.id === familyId
@@ -82,7 +82,7 @@ function SourcePickerBody({ familyId, onPickFamily, onClose }: { familyId: strin
       {tab === 'run' && (
         <div style={{ padding: '6px 0 0' }} data-testid="run-list">
           <table className="ig-pick">
-            <thead><tr><th>run</th><th>template</th><th className="num">spans</th><th>terminal</th><th /></tr></thead>
+            <thead><tr><th style={{ width: '34%' }}>run</th><th style={{ width: '22%' }}>template</th><th className="num" style={{ width: '11%' }}>spans</th><th style={{ width: '14%' }}>terminal</th><th /></tr></thead>
             <tbody>
               {c.runs.map(r => {
                 const reason = r.disabledReason
@@ -106,7 +106,7 @@ function SourcePickerBody({ familyId, onPickFamily, onClose }: { familyId: strin
       {tab === 'review' && (
         <div style={{ padding: '6px 0 0' }} data-testid="review-list">
           <table className="ig-pick">
-            <thead><tr><th>queue</th><th>source</th><th className="num">judged</th><th /></tr></thead>
+            <thead><tr><th style={{ width: '14%' }}>queue</th><th style={{ width: '38%' }}>source</th><th className="num" style={{ width: '18%' }}>judged</th><th /></tr></thead>
             <tbody>
               {c.reviewSelections.map(q => (
                 <tr key={q.id} className={q.disabledReason ? 'dim' : undefined} data-testid={`review-row-${q.id}`} title={q.disabledReason} aria-disabled={q.disabledReason ? true : undefined}
@@ -126,7 +126,7 @@ function SourcePickerBody({ familyId, onPickFamily, onClose }: { familyId: strin
       {tab === 'explore' && (
         <div style={{ padding: '6px 0 0' }} data-testid="explore-list">
           <table className="ig-pick">
-            <thead><tr><th>span set</th><th>recording · channel</th><th className="num">spans</th><th /></tr></thead>
+            <thead><tr><th style={{ width: '18%' }}>span set</th><th style={{ width: '38%' }}>recording · channel</th><th className="num" style={{ width: '14%' }}>spans</th><th /></tr></thead>
             <tbody>
               {c.exploreSpans.map(s => (
                 <tr key={s.id} data-testid={`explore-row-${s.id}`} onClick={() => { notWired(`take ${s.spans} spans from ${s.id}`); onClose() }}>

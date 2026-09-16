@@ -53,10 +53,11 @@
 .ig-member .bd { background: #fafbfc; padding: 2px 0; cursor: pointer; }
 
 /* scope matrix */
+.ig-scope-wrap { overflow-x: auto; }
 .ig-scope { width: 100%; border-collapse: collapse; font-family: var(--font-mono); font-size: 11.5px; }
-.ig-scope th { text-align: right; font-weight: 400; color: var(--muted); font-size: 10.5px; padding: 3px 6px; border-bottom: 1px solid var(--border); }
+.ig-scope th { text-align: right; font-weight: 400; color: var(--muted); font-size: 10.5px; padding: 3px 5px; border-bottom: 1px solid var(--border); white-space: nowrap; }
 .ig-scope th:first-child { text-align: left; }
-.ig-scope td { padding: 4px 6px; text-align: right; border-bottom: 1px solid var(--grey-100); color: var(--text-2); }
+.ig-scope td { padding: 4px 5px; text-align: right; border-bottom: 1px solid var(--grey-100); color: var(--text-2); white-space: nowrap; }
 .ig-scope td:first-child { text-align: left; }
 .ig-scope td.z { color: var(--muted-2); }
 .ig-scope tr.ex td { color: #c4282d; border-bottom: 0; }
@@ -112,9 +113,9 @@
 .ig-rel { position: relative; }
 
 /* picker table */
-.ig-pick { width: 100%; border-collapse: collapse; font-family: var(--font-mono); font-size: 11.5px; }
-.ig-pick th { text-align: left; font-weight: 400; color: var(--muted); font-size: 10.5px; padding: 4px 8px; border-bottom: 1px solid var(--border); }
-.ig-pick td { padding: 6px 8px; border-bottom: 1px solid var(--grey-100); white-space: nowrap; }
+.ig-pick { width: 100%; table-layout: fixed; border-collapse: collapse; font-family: var(--font-mono); font-size: 11.5px; }
+.ig-pick th { text-align: left; font-weight: 400; color: var(--muted); font-size: 10.5px; padding: 4px 8px; border-bottom: 1px solid var(--border); overflow: hidden; }
+.ig-pick td { padding: 6px 8px; border-bottom: 1px solid var(--grey-100); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .ig-pick tr { cursor: pointer; }
 .ig-pick tr:hover td { background: #f9fafb; }
 .ig-pick tr.on td { background: var(--blue-100); }

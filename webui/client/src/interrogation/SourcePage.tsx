@@ -23,9 +23,10 @@ export function SourcePage() {
   const [familyId] = useFamilyQuery()
   const [upstream] = useUpstreamQuery()
   const [draft] = useInterrogationDraft()
+  const [scopeQ] = useQueryState('scope', 'all')
   const block = useSourced(() => getSourceBlock(familyId, upstream), [familyId, upstream])
   const fam = block.data?.family
-  const nScope = block.data ? inScopeIds(block.data.members, draft, fam!.id, true).size : 0
+  const nScope = !block.data ? 0 : scopeQ === 'none' ? 0 : inScopeIds(block.data.members, draft, fam!.id, true).size
   return (
     <>
       <Header workspace="Analyse" page="Library family" search="Search spans, runs, families" demo={block.source === 'demo'}
@@ -52,7 +53,7 @@ function SourceBody({ block }: { block: SourceBlock }) {
   const [channelQ, setChannelQ] = useQueryState('channel', 'all')
   const [sortQ, setSortQ] = useQueryState('sort', 'distance')
   const [alignQ, setAlignQ] = useQueryState('align', 'onset')
-  const [distanceQ, setDistanceQ] = useQueryState('distance', String(block.family.threshold))
+  const [distanceQ, setDistanceQ] = useQueryState('distance', block.family.threshold.toFixed(2))
   const [scopeQ, setScopeQ] = useQueryState('scope', 'all')
   const [page, setPage] = useState(1)
   const [overlaySeed, setOverlaySeed] = useState(0)
@@ -198,7 +199,7 @@ function SourceBody({ block }: { block: SourceBlock }) {
               <Checkbox checked={adjOnly === '1'} onChange={v => { setAdjOnly(v ? '1' : null); setPage(1) }} label="adjudicated only" testid="filter-adjudicated" />
               <Checkbox checked={hidesArtifacts} onChange={v => { setExcludeArtifacts(v ? null : 'in'); setPage(1); markStale() }} label="exclude artifacts" testid="filter-artifacts" />
               <Dropdown size="sm" testid="filter-distance" prefix="distance ≤" value={distanceQ} onChange={v => { setDistanceQ(v); setPage(1); markStale() }} active
-                options={['0.25', '0.30', '0.35', '0.40'].map(v => ({ value: v, label: v }))} />
+                options={['0.25', '0.30', '0.35', '0.40', '0.50'].map(v => ({ value: v, label: v }))} />
               <Dropdown size="sm" testid="filter-recording" prefix="recording" value={recordingQ} onChange={v => { setRecordingQ(v); setPage(1) }}
                 options={[{ value: 'all', label: 'all' }, ...fam.recordings.map(r => ({ value: r, label: r })),
                   { value: 'M4_aug', label: 'M4_aug', disabled: true, reason: 'M4_aug_concat_fs1.mat is held out (D6) · every workspace refuses it' }]} />
@@ -292,7 +293,7 @@ function SourceBody({ block }: { block: SourceBlock }) {
         <div className="ig-stack">
           <SectionCard testid="scope-card" title="Scope" info="How the members in scope fall across recordings and channels. A family that lives on one channel measures one electrode, not one organism."
             subtitle="members in scope by recording × channel">
-            <table className="ig-scope">
+            <div className="ig-scope-wrap"><table className="ig-scope">
               <thead><tr><th>recording</th>{channels.map(ch => <th key={ch}>{ch}</th>)}<th>Σ</th></tr></thead>
               <tbody>
                 {matrix.rows.map(r => (
@@ -308,7 +309,7 @@ function SourceBody({ block }: { block: SourceBlock }) {
                   <td className="sum" style={{ color: '#c4282d' }}>{matrix.excludedCells.reduce((a, b) => a + b, 0) || ''}</td>
                 </tr>
               </tbody>
-            </table>
+            </table></div>
           </SectionCard>
 
           <SectionCard testid="source-settings" title="Source settings">
