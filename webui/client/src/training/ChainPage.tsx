@@ -26,7 +26,9 @@ export function ChainPage() {
   return (
     <>
       <Header workspace="Analyse" page="Chain" search="Search spans, runs, families" demo={chain.source === 'demo'}
-        subtitle="training chain · terminal type Model → saves as a training template" />
+        subtitle={source === 'human-windows'
+          ? 'illustrative · windows from the human-labelled set · not built yet'
+          : 'training chain · terminal type Model → saves as a training template'} />
       <Page testid="training-chain">
         {chain.error ? <LoadFailed what="the training chain" error={chain.error} onRetry={chain.reload} />
           : !chain.data ? <Loading what="the chain" /> : <ChainBody data={chain.data} source={source} />}
@@ -58,12 +60,23 @@ function ChainBody({ data, source }: { data: TrainingChain; source: SourceKind }
   const chain = data.chain.filter(b => b.id !== deleted)
   const base = chainStatuses(draft.staleFrom, data.chain)
   const status: Record<string, BadgeStatus> = { ...base }
-  if (sim.status === 'running') chain.forEach((b, i) => { status[b.id] = i === sim.step ? 'running' : i < sim.step ? 'cached' : status[b.id] })
-  if (sim.status === 'failed') status[chain[Math.min(sim.step, chain.length - 1)]?.id ?? 'encode'] = 'failed'
+  /* The run steps are the numbered stages — the source row is not one of them, so a run step maps to
+   * the stage at that position, never to the row at that position. */
+  const stageRows = chain.filter(b => b.index != null)
+  const atStep = (i: number) => stageRows[Math.min(i, stageRows.length - 1)]
+  if (sim.status === 'running') stageRows.forEach((b, i) => { status[b.id] = i === sim.step ? 'running' : i < sim.step ? 'cached' : status[b.id] })
+  const failedAt = sim.status === 'failed' ? atStep(sim.step) : null
+  if (failedAt) {
+    status[failedAt.id] = 'failed'
+    stageRows.forEach((b, i) => { if (i < sim.step) status[b.id] = 'cached' })
+  }
   if (deleted) status['model'] = 'invalid'
-  status['matrix'] = deleted ? status['matrix'] : sim.status === 'running' ? status['matrix'] : 'on cluster'
+  if (!deleted && sim.status !== 'running' && sim.status !== 'failed' && status['matrix'] === 'cached') status['matrix'] = 'on cluster'
+  /* A bypassed stage is paused, not cached: its output is the input passed straight through. */
+  for (const id of Object.keys(bypassed)) if (bypassed[id] && status[id]) status[id] = 'paused'
 
   const runFailed = sim.status === 'failed'
+  const failedLabel = failedAt ? `${String(failedAt.index).padStart(2, '0')} ${failedAt.label}` : '04 Encode'
 
   const deleteStage = (b: TrainingBlock) => {
     setDraft(d => ({ ...d, deletedStage: b.id, staleFrom: b.index ?? 1 }))
@@ -88,11 +101,14 @@ function ChainBody({ data, source }: { data: TrainingChain; source: SourceKind }
   return (
     <>
       <TrainingToolbar
+        /* 0b is illustrative: there is no history to apply and nothing to import onto a source that is
+         * not built, so the two secondary buttons are absent rather than dead (frame 0b). */
+        minimal={human} showSave={human}
         name={draft.name} saved={draft.saved} onRename={v => setDraft(d => ({ ...d, name: v, saved: false }))}
         source={source} onSource={s => setSource(s === 'signal' ? null : s)}
         sourceOpen={popover === 'source'} onSourceToggle={() => setPopover(popover === 'source' ? null : 'source')}
-        estimate={runFailed ? 'run failed at 04 Encode' : sim.busy ? `${RUN_STEPS[sim.step] ?? ''} · running` : ESTIMATES.chain}
-        estimateTone={runFailed ? 'amber' : draft.staleFrom ? 'amber' : 'muted'}
+        estimate={runFailed ? `run failed at ${failedLabel}` : sim.busy ? `${RUN_STEPS[sim.step] ?? ''} · running` : human ? 'illustrative · not built yet' : ESTIMATES.chain}
+        estimateTone={runFailed ? 'amber' : human ? 'amber' : draft.staleFrom ? 'amber' : 'muted'}
         historyOpen={popover === 'history'} onHistory={() => setPopover(popover === 'history' ? null : 'history')}
         importOpen={popover === 'import'} onImport={() => setPopover(popover === 'import' ? null : 'import')}
         onSaveTemplate={() => setModal('save-template')}
@@ -100,7 +116,7 @@ function ChainBody({ data, source }: { data: TrainingChain; source: SourceKind }
       />
 
       {runFailed && (
-        <Callout tone="red" icon="alert-triangle" title="the run stopped at 04 Encode"
+        <Callout tone="red" icon="alert-triangle" title={`the run stopped at ${failedLabel}`}
           action={<Button size="sm" icon="refresh" onClick={() => { setStateQ(null); sim.reset() }} testid="clear-failure">Dismiss</Button>}>
           <span className="mono" data-testid="run-error">{sim.error}</span>
         </Callout>
@@ -124,7 +140,8 @@ function ChainBody({ data, source }: { data: TrainingChain; source: SourceKind }
         {sim.busy && <RunVeil label={`${RUN_STEPS[sim.step] ?? 'running'} · ${Math.round(sim.fraction * 100)} %`} fraction={sim.fraction} />}
         {chain.map((b, i) => (
           <div key={b.id}>
-            <ChainRow block={b} status={status[b.id]} bypassed={!!bypassed[b.id]} human={human}
+            <ChainRow block={b} status={status[b.id]} bypassed={!!bypassed[b.id]} human={human} invalid={!!deleted}
+              onRestore={restore}
               onOpen={() => b.route && navigate(b.route)}
               onBypass={() => { setBypassed(x => ({ ...x, [b.id]: !x[b.id] })); push({ text: `${b.label} ${bypassed[b.id] ? 'back in the chain' : 'bypassed · its output passes straight through'}` }) }}
               onDuplicate={() => notWired(`duplicate the ${b.label} stage into the chain`)}
@@ -150,6 +167,7 @@ function ChainBody({ data, source }: { data: TrainingChain; source: SourceKind }
           <span className="sub" data-testid="footer-sub">{human ? data.human.footer.sub : `blocked split ${WINDOWS.params.split} · gap ${WINDOWS.params.gap_min} min · ${fmtInt(WINDOWS.unreviewed)} windows never human-reviewed`}</span>
         </span>
         <span className="k-spacer" />
+        {human && <Chip tone="amber" icon="alert-triangle" testid="illustrative-chip">illustrative · out of scope</Chip>}
         {!human && (
           <Button icon="inbox" onClick={() => setModal('send-review')} testid="send-review"
             disabled={draft.queuedToReview > 0} disabledReason={draft.queuedToReview > 0 ? `${fmtInt(draft.queuedToReview)} windows are already queued this session` : undefined}>
@@ -167,13 +185,14 @@ function ChainBody({ data, source }: { data: TrainingChain; source: SourceKind }
 }
 
 /* ----------------------------------------------------------- one row ----------------------------------------------------------- */
-function ChainRow({ block, status, bypassed, human, onOpen, onBypass, onDuplicate, onDelete, data }: {
-  block: TrainingBlock; status: BadgeStatus; bypassed: boolean; human: boolean
-  onOpen: () => void; onBypass: () => void; onDuplicate: () => void; onDelete: () => void; data: TrainingChain
+function ChainRow({ block, status, bypassed, human, invalid, onOpen, onBypass, onDuplicate, onDelete, onRestore, data }: {
+  block: TrainingBlock; status: BadgeStatus; bypassed: boolean; human: boolean; invalid: boolean
+  onOpen: () => void; onBypass: () => void; onDuplicate: () => void; onDelete: () => void; onRestore: () => void; data: TrainingChain
 }) {
   const isSource = block.index == null
+  const broken = status === 'invalid'
   return (
-    <div className={`tr-row${block.id === 'matrix' ? ' current' : ''}${bypassed ? ' bypassed' : ''}${status === 'invalid' ? ' invalid' : ''}`} data-testid={`chain-row-${block.id}`}>
+    <div className={`tr-row${block.id === 'matrix' ? ' current' : ''}${bypassed ? ' bypassed' : ''}${broken ? ' invalid' : ''}`} data-testid={`chain-row-${block.id}`}>
       <div className="lhs">
         <span className="ttl">
           <Icon name="more" size={13} />
@@ -181,7 +200,15 @@ function ChainRow({ block, status, bypassed, human, onOpen, onBypass, onDuplicat
           {block.label}
         </span>
         <span className="meta"><Badge status={status} />{block.signature}</span>
-        <span className="sum">{block.summary}</span>
+        <span className="sum" data-testid={`chain-sum-${block.id}`}>
+          {bypassed ? 'bypassed · its input passes straight through to the next stage' : block.summary}
+        </span>
+        {broken && (
+          <span className="acts" data-testid={`row-fix-${block.id}`}>
+            <Button size="sm" variant="primary" icon="undo" onClick={onRestore} testid={`row-restore-${block.id}`}>Put the stage back</Button>
+            <Button size="sm" icon="sliders" onClick={onOpen} testid={`row-rebind-${block.id}`}>Open 05 and rebind its input</Button>
+          </span>
+        )}
         <span className="acts">
           <IconButton icon="sliders" label={`open ${block.label} settings`} onClick={onOpen} testid={`row-open-${block.id}`} />
           <IconButton icon="eye-off" label={bypassed ? `put ${block.label} back in the chain` : `bypass ${block.label}`} active={bypassed} onClick={onBypass} testid={`row-bypass-${block.id}`} />
@@ -190,14 +217,14 @@ function ChainRow({ block, status, bypassed, human, onOpen, onBypass, onDuplicat
         </span>
       </div>
       <div className="rhs" data-testid={`row-plot-${block.id}`}>
-        <RowPlot block={block} human={human} data={data} />
+        <RowPlot block={block} human={human} data={data} invalid={invalid} />
         <span className="cap">{block.caption}</span>
       </div>
     </div>
   )
 }
 
-function RowPlot({ block, human, data }: { block: TrainingBlock; human: boolean; data: TrainingChain }) {
+function RowPlot({ block, human, data, invalid }: { block: TrainingBlock; human: boolean; data: TrainingChain; invalid: boolean }) {
   if (block.id === 'source' && human) {
     return (
       <div className="tr-ticks" data-testid="human-ticks" aria-label={`${data.human.sampled} of ${data.human.windows} windows, green interesting`}>
@@ -240,11 +267,20 @@ function RowPlot({ block, human, data }: { block: TrainingBlock; human: boolean;
     <div className="tr-handoff" data-testid="model-handoff">
       <Icon name="rocket" size={20} />
       <span className="txt">
-        <b>Analyse builds this template · Models trains it across channels</b>
-        <span>trial here on CH4 only · labels from 03 cluster · split from 01</span>
+        <b>{human ? data.human.handoff.title : 'Analyse builds this template · Models trains it across channels'}</b>
+        <span>{human ? data.human.handoff.sub : block.caption}</span>
       </span>
-      <Button icon="flask" onClick={() => navigate('analyse/training/block/5?focus=trial')} testid="trial-job">Trial job on this channel</Button>
-      <Button variant="primary" icon="rocket" onClick={() => navigate('models/launch?template=cnn_windows_v3')} testid="handoff-train">Train in Models</Button>
+      {/* 0b has no backlog to trial and no local channel to trial it on: only the hand-off stays. */}
+      {!human && (
+        <Button icon="flask" onClick={() => navigate('analyse/training/block/5?focus=trial')} testid="trial-job"
+          disabled={invalid} disabledReason={invalid ? 'the chain has an invalid junction · put the deleted stage back first' : undefined}>
+          Trial job on this channel
+        </Button>
+      )}
+      <Button variant="primary" icon="rocket" onClick={() => navigate('models/launch?template=cnn_windows_v3')} testid="handoff-train"
+        disabled={invalid} disabledReason={invalid ? 'the chain has an invalid junction · put the deleted stage back first' : undefined}>
+        Train in Models
+      </Button>
     </div>
   )
 }

@@ -67,17 +67,21 @@ export const CHAIN_HUMAN: TrainingBlock[] = [
   { ...CHAIN[2], index: 1, route: 'analyse/training/block/2' },
   { ...CHAIN[3], index: 2, caption: 'class per window across 412 windows', route: 'analyse/training/block/3' },
   { ...CHAIN[4], index: 3, caption: '3 of 4 encodings ticked · 1,236 images · stale — cluster k changed', route: 'analyse/training/block/4' },
-  { ...CHAIN[5], index: 4, route: 'analyse/training/block/5' },
+  { ...CHAIN[5], index: 4, caption: 'trial here on CH4 only · labels from 02 Cluster · the split rides on the source window set (B7)', route: 'analyse/training/block/5' },
 ]
 
-/** Stage badges follow one rule: everything from `staleFrom` on is stale, 05 has never run. */
+/** Stage badges follow one rule: everything from `staleFrom` on is stale, 05 has never run.
+ * `staleFrom` is a stage number in the *signal* chain; under a different source the stages renumber, so
+ * it is resolved to a block id first and the run of stale blocks is taken by position in `blocks`. */
 export function chainStatuses(staleFrom: number | null, blocks: TrainingBlock[] = CHAIN): Record<string, TrainingStatus> {
+  const staleId = staleFrom == null ? null : CHAIN.find(b => b.index === staleFrom)?.id ?? null
+  const staleAt = staleId ? blocks.findIndex(b => b.id === staleId) : -1
   const out: Record<string, TrainingStatus> = {}
-  for (const b of blocks) {
+  blocks.forEach((b, i) => {
     if (b.index == null) out[b.id] = 'cached'
     else if (b.id === 'model') out[b.id] = 'new'
-    else out[b.id] = staleFrom != null && b.index >= staleFrom ? 'stale' : 'cached'
-  }
+    else out[b.id] = staleAt >= 0 && i >= staleAt ? 'stale' : 'cached'
+  })
   return out
 }
 
@@ -131,6 +135,69 @@ export const WINDOWS = {
   ],
   verdictNote: 'cluster labels exist for every window; manual labels only for reviewed ones — the paired comparison in Models uses windows with both',
 }
+
+/* ---- the split geometry, derived from the two parameters that shape it ----
+ * The default (70 / 15 / 15 over 4 contiguous blocks) is the frame's own geometry and is returned
+ * verbatim; any other ratio or block count is laid out from the same rule so the strip, the window
+ * counts and the per-split verdict bars all move when the parameter moves. */
+const SPLIT_PATTERNS: Record<number, SplitBlock['kind'][]> = {
+  2: ['train', 'test'],
+  4: ['train', 'validation', 'train', 'test'],
+  6: ['train', 'validation', 'train', 'test', 'train', 'validation'],
+}
+/** The visual break between blocks (the leakage gap itself is minutes wide — too thin to draw). */
+const BLOCK_BREAK_H = 1.2
+const kindLabel = (k: SplitBlock['kind']) => (k === 'validation' ? 'val' : k)
+
+export interface SplitLayout {
+  blocks: SplitBlock[]
+  verdicts: { split: string; windows: number; reviewed: number; interesting: number }[]
+  isDefault: boolean
+}
+
+export function splitLayout(ratio: string, blocksLabel: string): SplitLayout {
+  const n = parseInt(blocksLabel, 10) || 4
+  if (ratio === WINDOWS.params.split && n === 4) return { blocks: WINDOWS.blocks, verdicts: WINDOWS.verdictsPerSplit, isDefault: true }
+  const pat = SPLIT_PATTERNS[n] ?? SPLIT_PATTERNS[4]
+  const [tr, va, te] = ratio.split('/').map(s => Number(s.trim()) / 100)
+  const share: Record<string, number> = { train: tr, validation: va, test: te }
+  const slots: Record<string, number> = {}
+  pat.forEach(k => { slots[k] = (slots[k] ?? 0) + 1 })
+  const usable = SPAN_H - BLOCK_BREAK_H * (n - 1)
+  let t = 0
+  const blocks: SplitBlock[] = pat.map(kind => {
+    const dur = (usable * share[kind]) / slots[kind]
+    const b: SplitBlock = {
+      kind, label: '', start_h: +t.toFixed(2), end_h: +(t + dur).toFixed(2),
+      windows: Math.round((dur / usable) * WINDOWS.assigned),
+    }
+    b.label = `${kindLabel(kind)} · ${b.windows} windows`
+    t += dur + BLOCK_BREAK_H
+    return b
+  })
+  const per = (kind: string) => blocks.filter(b => b.kind === kind).reduce((s, b) => s + b.windows, 0)
+  const verdicts = (['train', 'validation', 'test'] as const).map(kind => {
+    const w = per(kind)
+    return {
+      split: kindLabel(kind), windows: w,
+      reviewed: Math.round((w / WINDOWS.assigned) * WINDOWS.reviewed),
+      interesting: Math.round((w / WINDOWS.assigned) * WINDOWS.interesting),
+    }
+  })
+  return { blocks, verdicts, isDefault: false }
+}
+
+/** The breaks between blocks, as [start_h, end_h] pairs — where windows are dropped. */
+export const splitGaps = (blocks: SplitBlock[]): [number, number][] =>
+  blocks.slice(0, -1).map((b, i) => [b.end_h, blocks[i + 1].start_h] as [number, number])
+
+/** Total windows lost at the block breaks: one gap's worth per break, scaled by the gap length. */
+export const droppedAtGaps = (gapMin: number, nBlocks: number) =>
+  Math.max(0, Math.round((WINDOWS.droppedAtGaps * (nBlocks - 1) * gapMin) / (3 * WINDOWS.params.gap_min)))
+
+/** Windows a *change* of gap drops (or gives back): the frame's "gap 5 → 10 min drops 12 windows". */
+export const droppedByGapChange = (fromMin: number, toMin: number, nBlocks: number) =>
+  Math.round((nBlocks - 1) * Math.abs(toMin - fromMin) * 0.8)
 
 export const WINDOW_CHECKS = [
   { id: 'boundary', label: 'no window crosses a split boundary', state: 'pass' as const },
@@ -312,15 +379,17 @@ function buildDendro(): DendroNode {
   const rnd = seeded(8123)
   const roots: DendroNode[] = CLUSTER_CLASSES.map((c, ci) => {
     let nodes: DendroNode[] = Array.from({ length: 4 }, (_, i) => ({ id: `${c.id}-${i}`, height: 0, klass: c.id }))
-    let h = 1.1 + rnd() * 0.8
+    /* The subtrees have to reach the cut for the cut to be cutting anything: each class tops out just
+     * under 10.1 and the merges that join the classes sit above it (heights below). */
+    let h = 3.4 + rnd() * 0.7
     while (nodes.length > 1) {
       const next: DendroNode[] = []
       for (let i = 0; i < nodes.length; i += 2) {
-        if (i + 1 < nodes.length) { next.push({ id: `${c.id}-m${i}-${h.toFixed(2)}`, height: +h.toFixed(2), klass: c.id, children: [nodes[i], nodes[i + 1]] }); h += 1.4 + rnd() * 1.1 }
+        if (i + 1 < nodes.length) { next.push({ id: `${c.id}-m${i}-${h.toFixed(2)}`, height: +h.toFixed(2), klass: c.id, children: [nodes[i], nodes[i + 1]] }); h += 2.1 + rnd() * 0.9 }
         else next.push(nodes[i])
       }
       nodes = next
-      h += 0.6 + ci * 0.2
+      h += 0.5 + ci * 0.15
     }
     return nodes[0]
   })
@@ -344,6 +413,32 @@ export const OCCUPANCY: { klass: string; start_h: number; end_h: number }[] = [
   { klass: 'C1', start_h: 40.8, end_h: 42.6 }, { klass: 'C3', start_h: 42.6, end_h: 45.2 },
 ]
 
+/* ---- one window ↔ one time ↔ one class, used by 02, 03 and 04 alike ----
+ * Every page that names a window has to agree about when it is and which class it fell in, or the
+ * readout on 02 and the card on 04 say different things about the same window. The occupancy strip is
+ * the one grouping on the page, so it is what decides. */
+export const hoursForWindow = (w: number) =>
+  +Math.min(SPAN_H, ((w - 1) * WINDOWS.params.stride_min) / 60).toFixed(2)
+
+export const windowLengthH = WINDOWS.params.length_min / 60
+
+export function classForWindow(w: number): string {
+  const h = hoursForWindow(w)
+  return (OCCUPANCY.find(o => h >= o.start_h && h < o.end_h) ?? OCCUPANCY[OCCUPANCY.length - 1]).klass
+}
+
+/** `n` windows that really do fall in `klass` — the browse grid has to open what its card says. */
+export function windowsOfClass(klass: string, n: number, nonce = 0): number[] {
+  const all: number[] = []
+  for (let w = 1; w <= WINDOWS.total; w++) if (classForWindow(w) === klass) all.push(w)
+  if (!all.length) return Array.from({ length: n }, (_, i) => i + 1)
+  return Array.from({ length: n }, (_, i) => all[((i * 37 + nonce * 11) % all.length + all.length) % all.length]).sort((a, b) => a - b)
+}
+
+/** The window a matrix column stands for (columns are time bins over the same span). */
+export const windowForColumn = (c: number, cols: number) =>
+  Math.max(1, Math.min(WINDOWS.total, Math.round(((c + 0.5) / cols) * WINDOWS.total)))
+
 /* ------------------------------------------------------------------ 04 encode ------------------------------------------------------------------ */
 export type EncodingKind = 'gasf' | 'gadf' | 'rp' | 'fusion'
 export interface EncodingSpec { id: EncodingKind; label: string; included: boolean; note: string }
@@ -355,12 +450,28 @@ export const ENCODINGS: EncodingSpec[] = [
   { id: 'fusion', label: 'Fusion RGB', included: false, note: 'GASF / GADF / RP stacked as one RGB image' },
 ]
 
+/** The readout a matrix column resolves to — the same window, hour and class 04 will show. */
+export function readoutForColumn(c: number, cols = MATRIX_COLS) {
+  const window = windowForColumn(c, cols)
+  return { col: c, window, from_h: hoursForWindow(window), klass: classForWindow(window) }
+}
+export const MATRIX_READOUT = readoutForColumn(MATRIX_BAND_COL)
+
+/** Which split block a window falls in (train / val / test), from the split geometry on screen. */
+export function splitForWindow(w: number, blocks: SplitBlock[] = WINDOWS.blocks): string {
+  const h = hoursForWindow(w)
+  const b = blocks.find(x => h >= x.start_h && h < x.end_h)
+  return b ? `${kindLabel(b.kind)} block` : 'dropped at a gap'
+}
+
+const ENCODE_WINDOW = 118
+
 export const ENCODE = {
-  window: 118,
+  window: ENCODE_WINDOW,
   total: 543,
-  klass: 'C2',
-  split: 'train block',
-  onset_h: 19.8,
+  klass: classForWindow(ENCODE_WINDOW),
+  split: splitForWindow(ENCODE_WINDOW),
+  onset_h: hoursForWindow(ENCODE_WINDOW),
   verdict: 'no verdict',
   signalNote: 'the signal for this window · 10 min · z-scored',
   params: { encoder: 'existing · v2', size: '224 × 224', paa: 'none', epsilon: 0.20, fusion: 'GASF / GADF / RP', writeTo: 'artifacts/encodings' },
@@ -372,6 +483,15 @@ export const ENCODE = {
   browseNote: '3 sampled windows per class',
   splitFloor: 20,
   footer: "04 is stale because 03's cut changed · fusion is unticked so its images are skipped",
+}
+
+/** What an image costs: the disk estimate for this signature is images × px × channels (§6.8). */
+export const PX_OF: Record<string, number> = { '224 × 224': 224, '256 × 256': 256, '128 × 128': 128 }
+export const PAA_FACTOR: Record<string, number> = { none: 1, '2 ×': 0.5, '4 ×': 0.25 }
+export function encodeCost(images: number, size: string, paa: string) {
+  const px = PX_OF[size] ?? 224
+  const scale = ((px * px) / (224 * 224)) * (PAA_FACTOR[paa] ?? 1)
+  return { bytes: images * ENCODE.bytesPerImage * scale, minutes: (images / 1000) * ENCODE.minutesPerThousand * scale }
 }
 
 /** Deterministic pseudo-image for one encoding of one window: an n × n grid in [-1, 1]. */
@@ -400,15 +520,18 @@ export function windowTrace(window: number): number[] {
 }
 
 /* ------------------------------------------------------------------ 05 model ------------------------------------------------------------------ */
-export interface StageRow { id: string; label: string; status: TrainingStatus; cost: string; runsOn: string; note: string; ticked: boolean; skippable: boolean }
+export interface StageRow { id: string; label: string; status: TrainingStatus; cost: string; costMin: number; runsOn: string; note: string; ticked: boolean; skippable: boolean }
 
 export const MODEL_STAGES: StageRow[] = [
-  { id: '01', label: 'Sliding windows', status: 'cached', cost: '< 1 s', runsOn: '—', note: 'reused from cache', ticked: false, skippable: true },
-  { id: '02', label: 'Window matrix', status: 'cached', cost: '14 min', runsOn: 'cluster', note: `reused · recipe prefix a7f3`, ticked: false, skippable: true },
-  { id: '03', label: 'Cluster', status: 'cached', cost: '40 s', runsOn: 'local', note: 'skipped · labels read from cache', ticked: false, skippable: true },
-  { id: '04', label: 'Encode', status: 'stale', cost: '6 min', runsOn: 'cluster', note: 'rebuilds 1,629 images', ticked: true, skippable: false },
-  { id: '05', label: 'Train model', status: 'new', cost: '2 h 40', runsOn: 'cluster · GPU', note: 'EfficientNet-B0 · 30 epochs', ticked: true, skippable: false },
+  { id: '01', label: 'Sliding windows', status: 'cached', cost: '< 1 s', costMin: 0.02, runsOn: '—', note: 'reused from cache', ticked: false, skippable: true },
+  { id: '02', label: 'Window matrix', status: 'cached', cost: '14 min', costMin: 14, runsOn: 'cluster', note: `reused · recipe prefix a7f3`, ticked: false, skippable: true },
+  { id: '03', label: 'Cluster', status: 'cached', cost: '40 s', costMin: 0.67, runsOn: 'local', note: 'skipped · labels read from cache', ticked: false, skippable: true },
+  { id: '04', label: 'Encode', status: 'stale', cost: '6 min', costMin: 6, runsOn: 'cluster', note: 'rebuilds 1,629 images', ticked: true, skippable: false },
+  { id: '05', label: 'Train model', status: 'new', cost: '2 h 40', costMin: 160, runsOn: 'cluster · GPU', note: 'EfficientNet-B0 · 30 epochs', ticked: true, skippable: false },
 ]
+
+/** The cost of one trial run: only the ticked stages, because that is what the tick is for (§6.7). */
+export const trialMinutes = (ticked: StageRow[]) => ticked.reduce((s, r) => s + r.costMin, 0)
 
 export const LABEL_SOURCES = [
   { value: 'cluster', title: 'cluster classes', description: '6 classes from 03 · all 543 windows' },

@@ -10,6 +10,7 @@ import { navigate } from '../state'
 import { useToast } from '../shell/Toast'
 import { CANON_TEMPLATES, CHANNEL, HISTORY_RUNS, IMPORT_TEMPLATES, NULL_SPEC, RECORDING, SOURCE_CHOICES, SPAN_H, WINDOWS, type TrainingBlock } from '../fixtures/training'
 import type { SourceKind } from '../api/training'
+import { useTrainingDraft } from './draft'
 import './training.css'
 
 /* ----------------------------------------------------------- loading / failure ----------------------------------------------------------- */
@@ -83,11 +84,16 @@ export function NameChip({ name, saved, onRename }: { name: string; saved: boole
     )
   }
   const commit = () => { if (!err) { onRename(draft); setEditing(false) } }
+  /* A rename that cannot be committed still has to be leaveable: Escape and Cancel both put the chip
+   * back with the old name, whatever is in the field. */
+  const cancel = () => { setDraft(name); setEditing(false) }
   return (
-    <span className="tr-chip name" data-testid="name-chip-edit" style={{ gap: 4 }}>
+    <span className="tr-chip name" data-testid="name-chip-edit" style={{ gap: 4 }}
+      onKeyDown={e => { if (e.key === 'Escape') { e.stopPropagation(); cancel() } }}>
       <TextField value={draft} onChange={setDraft} width={190} variant="outline" autoFocus invalid={!!err} ariaLabel="chain name"
         testid="name-field" onEnter={commit} />
       <Button size="sm" icon="check" onClick={commit} disabled={!!err} disabledReason={err ?? undefined} testid="name-commit" aria-label="rename" />
+      <Button size="sm" variant="ghost" icon="x" onClick={cancel} testid="name-cancel" aria-label="cancel rename" />
       {err && <span className="k-field-error" role="alert" data-testid="name-error"><Icon name="alert-circle" size={11} />{err}</span>}
     </span>
   )
@@ -328,10 +334,16 @@ export function SendToReviewModal({ open, onClose, onSent, from = 'training wind
 }) {
   const { push } = useToast()
   const [n, setN] = useState(WINDOWS.unreviewed)
+  /* The field reports the reason it is unhappy on every keystroke; without holding it here the modal
+   * would keep the last *valid* number and send that while the field is red (P13's cap is the point). */
+  const [fieldError, setFieldError] = useState<string | null>(null)
   const [blind, setBlind] = useState('blind')
   const over = n > WINDOWS.queueCap
-  const err = n < 1 ? 'send at least one window' : over ? `the Review queue holds up to ${fmtInt(WINDOWS.queueCap)} windows` : null
+  const err = fieldError ? `how many: ${fieldError}`
+    : n < 1 ? 'send at least one window'
+      : over ? `the Review queue holds up to ${fmtInt(WINDOWS.queueCap)} windows` : null
   const send = () => {
+    if (err) return
     const id = `q-${20 + Math.floor(Math.random() * 60)}`
     recordDemoWrite('review', 'add-queue', { id, source: from, kind: 'training windows', count: n, blind: blind === 'blind' })
     onSent(n)
@@ -346,7 +358,8 @@ export function SendToReviewModal({ open, onClose, onSent, from = 'training wind
       <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
         <label className="tr-row-flex">
           <span className="tr-muted tr-small" style={{ width: 110 }}>how many</span>
-          <NumberField value={n} onValid={setN} min={1} max={WINDOWS.queueCap} integer unit="windows" width={170} testid="send-review-count" />
+          <NumberField value={n} onValid={setN} onChange={(_raw, reason) => setFieldError(reason)}
+            min={1} max={WINDOWS.queueCap} integer unit="windows" width={170} testid="send-review-count" />
         </label>
         <label className="tr-row-flex">
           <span className="tr-muted tr-small" style={{ width: 110 }}>presentation</span>
@@ -367,10 +380,20 @@ export function SendToReviewModal({ open, onClose, onSent, from = 'training wind
 }
 
 /* ----------------------------------------------------------- save-window-set modal (P18) ----------------------------------------------------------- */
+/** Window-set ids are the canon's, and the canon writes them `ws_M2aug_3ch_600s` — mixed case, unlike a
+ * template name. The rule here is the one the ids actually follow, so the offered default is takeable. */
+const WS_ID_RE = /^[A-Za-z0-9_]+$/
+export function windowSetIdError(v: string): string | null {
+  if (!v.trim()) return 'a window set id is required'
+  if (!WS_ID_RE.test(v)) return 'letters, digits and _ only'
+  if (v.length > 40) return '40 characters at most'
+  return null
+}
+
 export function SaveWindowSetModal({ open, onClose, onSaved }: { open: boolean; onClose: () => void; onSaved: (id: string) => void }) {
   const { push } = useToast()
   const [id, setId] = useState('ws_M2aug_CH4_600s')
-  const err = nameError(id)
+  const err = windowSetIdError(id)
   const save = () => {
     recordDemoWrite('library', 'save-window-set', { id, version: 1, channels: [CHANNEL], windows: WINDOWS.total })
     onSaved(id)
@@ -420,6 +443,11 @@ export function BlockFrame(p: {
   footer?: ReactNode
 }) {
   const [sourceOpen, setSourceOpen] = useState(false)
+  /* A stage deleted on the chain page is deleted everywhere: the ribbon here showed it still in place
+   * and 05 as `new` while the chain page showed five rows and an invalid junction. */
+  const [draft] = useTrainingDraft()
+  const chain = p.chain.filter(b => b.id !== draft.deletedStage)
+  const status: Record<string, BadgeStatus> = draft.deletedStage ? { ...p.status, model: 'invalid' } : p.status
   return (
     <>
       <TrainingToolbar
@@ -432,7 +460,7 @@ export function BlockFrame(p: {
         showSave={!!p.onSaveTemplate} onSaveTemplate={p.onSaveTemplate ?? (() => {})}
         primary={p.primary}
       />
-      <ChainCard chain={p.chain} current={p.current} status={p.status} onSelect={p.onNavigate} onAddStage={p.onAddStage} />
+      <ChainCard chain={chain} current={p.current} status={status} onSelect={p.onNavigate} onAddStage={p.onAddStage} />
       {p.children}
       {p.footer}
     </>
