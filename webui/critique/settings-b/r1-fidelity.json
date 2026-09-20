@@ -1,0 +1,210 @@
+{
+ "lens": "fidelity",
+ "round": 1,
+ "status": "done",
+ "pages": [
+  {
+   "page": "settings.models-registration",
+   "score": 8,
+   "rationale": "All four cards (Evaluation split, Training, Calibration, Registration gate) match frame 09 row for row, including every locked chip, the seven gate checks with red/amber/grey badges and the final 'retiring a model' row. unsaved, repeats-on, invalid-split, no-arm and unpaired-arms all behave as the inventory describes; Reset stages defaults, Save writes a toast and an audit entry, locked chips carry tooltips. Deductions: the save-bar consequence falls back to raw field ids and booleans ('cluster true → false', 'ece 0.10 → 0.15', 'validation pct 10 → 40 · applies to new runs') on most edits, which is the P23 rule this page exists to demonstrate; precision shows 0.8 instead of the frame's 0.80; rows are ~9 px taller than the frame so the page scrolls 1.4× instead of 1.15×.",
+   "findings": [
+    {
+     "severity": "P1",
+     "title": "Save-bar consequence is a raw field-id restatement",
+     "state": "no-arm / invalid-split / gate-edit",
+     "detail": "Toggling the cluster arm off gives '2 unsaved changes · cluster true → false · applies to new runs'; editing ECE gives 'ece 0.10 → 0.15 · applies to new runs'; editing validation gives 'validation pct 10 → 40 · applies to new runs'. Spec §9 / P23 requires the bar to state the consequence, not restate the edit, and the inventory supplies the sentences (e.g. 'cluster arm off · new jobs train on manual labels only · the paired comparison (Models › Compare) is unavailable'; 'ECE limit 0.10 → 0.15 · cnn_cluster_v1 accepted warning (ECE 0.12) would now pass'). Only warn-below and test-portion have real sentences.",
+     "screenshot": "webui/screenshots/critique/settings-b/r1-fidelity/settings.models-registration--no-arm--tall.png"
+    },
+    {
+     "severity": "P2",
+     "title": "Precision shown as 0.8, frame shows 0.80",
+     "state": "default",
+     "detail": "Calibration › suggested threshold at precision renders '0.8'; frame 09 and spec §9.9 show '0.80'. The two-decimal convention is used for ECE (0.10) on the same page, so the field reads inconsistent.",
+     "screenshot": "webui/screenshots/critique/settings-b/r1-fidelity/settings.models-registration--default--tall.png"
+    },
+    {
+     "severity": "P2",
+     "title": "Rows taller than the frame; page scrolls 1.4× instead of 1.15×",
+     "state": "default",
+     "detail": "Form rows are ~41 px against the frame's ~32 px, so the Registration gate header is the last thing visible at 900 px where the frame shows three of its rows. Every card also carries an extra right-hand caption the frame does not draw (fine content-wise, but it widens the row).",
+     "screenshot": "webui/screenshots/critique/settings-b/r1-fidelity/settings.models-registration--default.png"
+    }
+   ]
+  },
+  {
+   "page": "settings.library-groupings",
+   "score": 8,
+   "rationale": "Five cards match frame 10: unit Seg, basis Select with cut, What does not fit with the locked 'never', Sequences, the four-row Feature bases table with the same selects/values, Hand edits with the locked toggle. Dependent behaviours work: unit changes the basis options, a feature-bin basis hides cut and shows 'bins set in Feature bases ↓', spike trains raises the B17 note, omit d < 0.30 raises the Review queues warning with a working link, weights auto-complement to 1. Deductions: the raw 'w gaps 0.4 → 0.2' and 'unit single motifs → spike trains · applies to new runs' consequences; omit d shown as 0.5/0.6 where the frame writes 0.50; the sequences basis list is shorter than the inventory's; the orphaned caption moved under the label.",
+   "findings": [
+    {
+     "severity": "P1",
+     "title": "Weights and unit edits produce a raw field-id consequence",
+     "state": "weights / unit-spike-trains",
+     "detail": "Editing event shapes to 0.8 shows '2 unsaved changes · w gaps 0.4 → 0.2 · applies to new runs' (internal id 'w gaps'); switching unit shows 'unit single motifs → spike trains · applies to new runs'. P23 asks for the consequence of the change, not a restatement.",
+     "screenshot": "webui/screenshots/critique/settings-b/r1-fidelity/settings.library-groupings--weights--tall.png"
+    },
+    {
+     "severity": "P2",
+     "title": "omit d renders 0.5 / 0.6, frame writes 0.50",
+     "state": "default / unsaved",
+     "detail": "The field shows '0.5' (frame: '0.50') while the seeded save-bar sentence says 'past d 0.60', so the same value is formatted two ways on one screen.",
+     "screenshot": "webui/screenshots/critique/settings-b/r1-fidelity/settings.library-groupings--unsaved--tall.png"
+    },
+    {
+     "severity": "P2",
+     "title": "Sequences basis list is missing two feature-bin options",
+     "state": "unit-sequences",
+     "detail": "With unit = sequences the basis Select offers 'sequence similarity · Ward', 'feature bins · amplitude', 'feature bins · timescale', 'labels · class'. The inventory says sequences get the sequence-similarity option plus all the feature-bin options (frequency content and polarity are absent).",
+     "screenshot": "webui/screenshots/critique/settings-b/r1-fidelity/settings.library-groupings--probe-unit-sequences.png"
+    },
+    {
+     "severity": "P2",
+     "title": "Orphaned-hand-edits caption moved under the label and wraps",
+     "state": "default",
+     "detail": "Frame 10 puts 'orphaned = pointing at a family the new grouping lacks' as the right-hand caption of the row; the build prints it as a two-line sub-label under 'orphaned hand edits' and invents a new right caption 'held edits wait in the grouping report'.",
+     "screenshot": "webui/screenshots/critique/settings-b/r1-fidelity/settings.library-groupings--default--tall.png"
+    }
+   ]
+  },
+  {
+   "page": "settings.storage-backups",
+   "score": 8,
+   "rationale": "Roots table (10 roots, paths, sizes, actions and notes), the pull footnote, Naming convention tokens with a live preview, Backups with the 'last backup 14 Sep 02:00 · ok' chip, and Disk all match frame 11. unsaved seeds the frame's 'keep 7 → 14 backups · about 15 GB more in ./backups'; low-disk, scanning, add-token, backup-running and the Restore modal all render; every root action either toasts 'not wired yet' or navigates (clear → the Analysis defaults clear-cache modal); Restore confirms with a toast. Deductions: removing or adding a token produces a truncated list-diff sentence that wraps the save-bar label onto two lines; the backup toggle gives 'backup on true → false'; the disabled Back up now button logs a kit warning.",
+   "findings": [
+    {
+     "severity": "P1",
+     "title": "Token edits break the save bar: raw list diff, truncated, label wraps",
+     "state": "token-removed / add-token",
+     "detail": "Removing <m> shows '1 unsaved change' wrapped onto two lines followed by 'tokens <recording>,<channel>,<fs>,<window>,<stride>,<m>,<hash8> → <recording>,<channel>,<fs>,<window>,<stride>,<ha…' (truncated with an ellipsis). Adding <date> does the same. The frame's bar states a consequence in one line; here the consequence is unreadable and the bar layout is visibly broken.",
+     "screenshot": "webui/screenshots/critique/settings-b/r1-fidelity/settings.storage-backups--token-removed--tall.png"
+    },
+    {
+     "severity": "P2",
+     "title": "Backup toggle consequence is a raw boolean restatement",
+     "state": "backup-off",
+     "detail": "Turning 'back up the database' off gives 'backup on true → false · applies to new runs'; a backup schedule has nothing to do with runs.",
+     "screenshot": "webui/screenshots/critique/settings-b/r1-fidelity/settings.storage-backups--probe-backup-off.png"
+    },
+    {
+     "severity": "P2",
+     "title": "Kit console warning while a backup runs",
+     "state": "backup-running",
+     "detail": "Clicking Back up now logs 'console.warning: [kit] disabled Button \"Back up now\" has no disabledReason'. Not an error, but the page is not console-clean in this state.",
+     "screenshot": "webui/screenshots/critique/settings-b/r1-fidelity/settings.storage-backups--backup-running--tall.png"
+    }
+   ]
+  },
+  {
+   "page": "settings.export",
+   "score": 7,
+   "rationale": "Every card of frame 12 is present with the same chips, segs, locked chips and toggles, and the seeded unsaved state reproduces the frame's 'hand edits now included in family exports' bar exactly. Deductions: every change to the motifs include row (notes, omitted list, anything) reports the same fixed sentence 'hand edits now included in family exports', which is wrong for all but one chip; every other control (formats, window-set include, bundle contents, layout segs, weights, templates toggle) falls back to a raw list diff ending in 'applies to new runs'; the include chips wrap onto two rows where the frame keeps one.",
+   "findings": [
+    {
+     "severity": "P1",
+     "title": "Include-row consequence is a constant, wrong for notes and omitted list",
+     "state": "include-notes",
+     "detail": "Toggling 'notes' on shows '1 unsaved change · hand edits now included in family exports' while the hand edits chip is still off; toggling 'omitted list' off shows the same sentence. fixtures/settings.ts maps 'motifs.include' to a constant string. The bar is telling the researcher something that is not true.",
+     "screenshot": "webui/screenshots/critique/settings-b/r1-fidelity/settings.export--include-notes--tall.png"
+    },
+    {
+     "severity": "P1",
+     "title": "Other export edits produce raw list-diff consequences",
+     "state": "any other edit",
+     "detail": "atlas SVG → 'formats xlsx catalogue,CSV,JSON manifest,atlas PDF → …,atlas SVG · applies to new runs'; null draws → 'contents recipe,environment lock,… → …,null draws · applies to new runs'; templates toggle → 'carry exemplars true → false · applies to new runs'; layout → '… · applies to new runs'. Exports do not have runs; P23 asks for the consequence of the change.",
+     "screenshot": "webui/screenshots/critique/settings-b/r1-fidelity/settings.export--layout-per-family--tall.png"
+    },
+    {
+     "severity": "P2",
+     "title": "Motifs include chips wrap to two rows",
+     "state": "default",
+     "detail": "Frame 12 draws exemplar…omitted list as one row of nine chips; the build wraps tags/notes/hand edits/omitted list to a second row because the control column is narrowed by the added right-hand caption.",
+     "screenshot": "webui/screenshots/critique/settings-b/r1-fidelity/settings.export--default--tall.png"
+    }
+   ]
+  },
+  {
+   "page": "settings.audit-log",
+   "score": 8,
+   "rationale": "Frame 13 reproduced: Entries card with the nine-way kind filter, the same eight entries with the same kind badges, linked where column, 'this installation' by column and the footnote; Export CSV replaces Reset and toasts 'not wired yet'; kind filters work by click and by ?kind=; where links navigate; a save on another page appends an entry at the top. Deductions: the by column wraps 'this installation' onto two lines on every row and the sign-off what wraps, so rows are ragged where the frame is one line each; the appended entry reads 'Models & registration: warn_below 50 → 80' with a raw field id and a 'Sept' month where the fixtures use 'Sep'.",
+   "findings": [
+    {
+     "severity": "P2",
+     "title": "'this installation' wraps in every row; sign-off row wraps too",
+     "state": "all",
+     "detail": "The by column is too narrow for 'this installation' so all eight rows are two lines tall; the frame shows every row as one line with by right-aligned. The sign-off what text also wraps where the frame fits it.",
+     "screenshot": "webui/screenshots/critique/settings-b/r1-fidelity/settings.audit-log--all.png"
+    },
+    {
+     "severity": "P2",
+     "title": "Session-written entry uses a raw field id and a different month format",
+     "state": "after-save",
+     "detail": "Saving on Models & registration appends '20 Sept 18:33 · settings · Models & registration: warn_below 50 → 80'. Fixture rows read like 'Analyse local limit 10 → 20 min' with '14 Sep'; the new entry leaks the store key and uses 'Sept' (toLocaleString en-GB short month).",
+     "screenshot": "webui/screenshots/critique/settings-b/r1-fidelity/settings.audit-log--probe-after-save.png"
+    }
+   ]
+  },
+  {
+   "page": "settings.about",
+   "score": 9,
+   "rationale": "Frame 14 reproduced: Versions (code with the green 'matches last export' chip, schema, blocks with a working Blocks → link, environment with Show lock file), This installation, Future scope with three 'future' rows; Copy diagnostics replaces Reset and toasts 'Diagnostics copied'; ?state=mismatch swaps the chip for an amber 'the last export was made on 9f21b04 — re-export to match'; the lock-file modal shows an excerpt, Copy toasts, Esc closes. Only value weight (bold vs the frame's regular mono) differs.",
+   "findings": [
+    {
+     "severity": "P2",
+     "title": "Version values set in bold, frame uses regular mono",
+     "state": "default",
+     "detail": "All right-column values ('a7f3c1e · main · clean working tree', 'v14 · ./DATA/pipeline.sqlite', …) are bold in the build; frame 14 draws them in regular mono at the same weight as the labels.",
+     "screenshot": "webui/screenshots/critique/settings-b/r1-fidelity/settings.about--default.png"
+    }
+   ]
+  },
+  {
+   "page": "settings.display",
+   "score": 7,
+   "rationale": "Frame 15 is reproduced region for region: Appearance, Units and time, Colours (six role dots and the ten-swatch family palette), View sizes, Report figure profile with two sliders, font/dpi/background and a light-ground mV preview, and the personal footer with Export preferences. Every control applies immediately with a toast and no save bar, the caps of 10 are validated inline, the palette select redraws the swatches. Deductions: the preview does not react to the profile it sits beside — line width and grid opacity move only the caption, and 'transparent' recolours the trace blue instead of removing the ground; the x-axis reads '0.0000 h … 0.1111 h' where the frame shows '0 h … 45 h' and the canon writes two decimals; theme and density change nothing visible although the density caption promises it; toasts stack five deep over the controls instead of throttling.",
+   "findings": [
+    {
+     "severity": "P1",
+     "title": "Report-figure preview ignores line width, grid opacity and background",
+     "state": "default / slider edit",
+     "detail": "Moving trace line width to 1.7 pt or grid opacity to 0.65 updates the slider and the caption ('1.7 pt · grid 0.15 …') but the SVG path keeps stroke-width 1 and the grid lines keep their opacity (DisplayPage.tsx binds neither). Choosing 'transparent' turns the trace blue rather than dropping the white ground. Frame 15 draws the preview next to the profile precisely so the researcher can see the profile; here it is a static picture with a live caption.",
+     "screenshot": "webui/screenshots/critique/settings-b/r1-fidelity/settings.display--probe-linewidth--crop.png"
+    },
+    {
+     "severity": "P2",
+     "title": "Preview time axis in four-decimal hours over a 400 s span",
+     "state": "default",
+     "detail": "Axis ticks read '0.0000 h · 0.0278 h · 0.0556 h · 0.0833 h · 0.1111 h'. Frame 15 shows '0 h' to '45 h'; the placeholder canon writes hours as '192.40 h'. Switching time axis to 'clock time' or amplitude to 'µV' does not change the preview's 'mV' or hour labels either.",
+     "screenshot": "webui/screenshots/critique/settings-b/r1-fidelity/settings.display--zoom-preview.png"
+    },
+    {
+     "severity": "P2",
+     "title": "Theme and density write but change nothing; density caption over-promises",
+     "state": "applied-immediately",
+     "detail": "'dark' and 'compact' both toast 'Applied to this browser' and set the amber dot, yet the page is unchanged (theme row stays 42 px in compact). The theme caption admits 'dark is not drawn yet' but the density caption says 'compact tightens table rows across every page', which it does not.",
+     "screenshot": "webui/screenshots/critique/settings-b/r1-fidelity/settings.display--probe-theme-dark.png"
+    },
+    {
+     "severity": "P2",
+     "title": "'Applied to this browser' toasts stack instead of throttling",
+     "state": "several quick edits",
+     "detail": "Five identical toasts pile up in the middle of the content column after five edits, covering the background seg and the footer. The inventory asks for one toast per 2 s.",
+     "screenshot": "webui/screenshots/critique/settings-b/r1-fidelity/settings.display--probe-transparent--crop.png"
+    }
+   ]
+  },
+  {
+   "page": "settings.keyboard",
+   "score": 8,
+   "rationale": "Frame 16 reproduced: Keys card with the 'no conflicts' chip, the ten-row action/key/where table with keycaps, the muted verdict and class rows with working 'set in Vocabulary →' links, Adjudication behaviour with the two locked controls and four live toggles, and the personal footer with Export preferences. ?state=conflict shows the red row, '1 conflict' badge and the 'Keep the old binding / Move E here' banner, and both buttons resolve correctly; capture shows 'press a key…', Esc cancels, a rebinding toasts and sets the amber dot; toggles apply immediately with no save bar. Deduction: after clicking a key cell the capture field is not focused (autoFocus on a span), so the first key press is swallowed until the user clicks the 'press a key…' field a second time.",
+   "findings": [
+    {
+     "severity": "P1",
+     "title": "Key capture does not take focus; first key press is ignored",
+     "state": "capture",
+     "detail": "Click 'Space' on 'skip without writing' → the cell shows 'press a key…' but document.activeElement is BODY; pressing E or Q does nothing. Only after clicking the 'press a key…' cell itself does a key press register (then E correctly raises the conflict and Q rebinds). The inventory's flow is click a key cell, press a key.",
+     "screenshot": "webui/screenshots/critique/settings-b/r1-fidelity/settings.keyboard--capture--tall.png"
+    }
+   ]
+  }
+ ]
+}

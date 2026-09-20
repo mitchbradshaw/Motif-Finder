@@ -1,0 +1,230 @@
+{
+ "lens": "function",
+ "round": 1,
+ "status": "done",
+ "pages": [
+  {
+   "page": "settings.models-registration",
+   "score": 8,
+   "rationale": "Every card and row in frame 09 is present with the canon values (20/10 %, gap 0 s, warn 50, manual+cluster+RF, intersect on, repeats off with the disabled 3, patience 10, precision 0.80, bins 10, the seven gate rows and the retiring row). All six declared states reach by click and by deep link. Number fields reject text, empty, negative, out-of-range and non-integer values with an inline message; the split rule and the no-arm rule disable Save with 'Fix 1 invalid value first'; locked chips carry their rule in a tooltip; the disabled repeats count carries its reason. Reset staged warn 50 -> 30 as an unsaved edit; Save toasts the consequence, writes a settings audit entry (window.__demoStore), persists across nav-away-and-back and vanishes on reload; Discard, the leave guard (Stay / Escape / Discard and leave), ?state=unsaved, ?focus=, Ctrl K and the header chips all work; no console errors. Deductions: the five registration-gate thresholds are free-text with no validation; most save-bar sentences are restatements rather than consequences; the leave guard does not fire on the nav rail (shell-wide).",
+   "findings": [
+    {
+     "severity": "P1",
+     "title": "Registration-gate thresholds accept any text",
+     "state": "default",
+     "detail": "p <, ΔF1 CI excludes, ECE ≤, stratified by class N and agreement ≥ are TextFields: typing 'abc', '5', '-1', '150 %' and 'x' is accepted with no inline error, the save bar reads e.g. 'null p 0.01 → abc · applies to new runs', and Save is only blocked if some other field happens to be invalid. The inventory gives each a range (p 0.001–0.10, ΔF1 −0.20–0.20, ECE 0.01–0.50, sample 10–500 integer, agreement 50–100 %) and the goal says inputs are validated.",
+     "screenshot": "webui/screenshots/critique/settings-b/r1-function/models-05-gate-invalid.png"
+    },
+    {
+     "severity": "P1",
+     "title": "Leave guard does not fire on the nav rail (shell-wide)",
+     "state": "unsaved",
+     "detail": "With an unsaved edit, clicking Explore on the left nav rail navigated straight to #/explore/corpus with no 'Leave with 1 unsaved change?' modal; the draft silently survives and reappears on return. The inventory's leave-guard state covers 'rail item, nav rail, browser hash change' and the Keyboard & behaviour toggle 'confirm before leaving unsaved settings' is on. The settings-nav path works. Applies to every project settings page; listed once here.",
+     "screenshot": "webui/screenshots/critique/settings-b/r1-function/models-10-leave-guard.png"
+    },
+    {
+     "severity": "P2",
+     "title": "Save-bar sentences restate the edit instead of the consequence",
+     "state": "unsaved",
+     "detail": "Turning the cluster arm off reads 'cluster true → false · applies to new runs'; intersect off reads 'intersect labelled true → false · applies to new runs'; repeats on reads 'repeats on false → true · applies to new runs'; a gate edit reads 'ece 0.10 → -1 · applies to new runs'. P23 asks for the consequence, not a restatement, and the inventory supplies the sentences (e.g. 'cluster arm off · new jobs train on manual labels only · the paired comparison (Models › Compare) is unavailable', 'ECE limit 0.10 → 0.15 · cnn_cluster_v1's accepted warning (ECE 0.12) would now pass'). Only test portion and warn-below carry a real sentence.",
+     "screenshot": "webui/screenshots/critique/settings-b/r1-function/models-06-no-arm.png"
+    }
+   ]
+  },
+  {
+   "page": "settings.library-groupings",
+   "score": 8,
+   "rationale": "Frame 10 is fully present with the canon values (single motifs / shape distance · Ward / cut 0.42, omit d 0.50 dotted, 10 members, never-deleted lock, gap 6 min / 2 events, weights 0.6/0.4, the four feature-bases rows with their selects, the locked re-apply toggle and the orphaned segment). The unit segment swaps the basis options per unit and the spike-trains note appears; feature-bin and label bases hide cut and show the 'bins set in Feature bases' link; omit d below 0.30 raises the Review warning whose link navigates; cut, omit, gap, events, count and weight fields all reject text, empty, negative and out-of-range values; editing one weight sets the other and a non-summing pair blocks Save; quantile bins disable range with a reason, polarity bins and count are disabled with reasons, a frequency edge above 0.5 Hz raises the Nyquist warning; Save persists across navigation and vanishes on reload; Reset stages omit d 0.4; ?state=unsaved and ?focus= deep links work; no console errors. Deductions: the shared sequence fields land in Review queues as an unsaved draft rather than a saved value; range text has no validation; most sentences are restatements.",
+   "findings": [
+    {
+     "severity": "P1",
+     "title": "Saving a shared sequence field leaves Review queues with an unsaved edit the user never made",
+     "state": "default",
+     "detail": "Set gap 6 → 8 min on Library groupings and Save (toast 'Saved · seq gap 6 → 8'). Opening Review queues then shows a save bar '1 unsaved change · seq gap 6 → 8 · applies to new runs' and leaving it raises the leave guard. The inventory says the gap and minimum-events fields are the same store as Review queues › Clusters ('also changes Review clusters'); a value saved on one page should read as saved on the other, not as a pending draft.",
+     "screenshot": "webui/screenshots/critique/settings-b/r1-function/groupings-05-review-queues-shared.png"
+    },
+    {
+     "severity": "P2",
+     "title": "Feature-basis range text is not validated",
+     "state": "default",
+     "detail": "Typing '5 – 1 mV' (a > b) into the amplitude range after switching its bins to log-spaced, or 'zzz' into the frequency-content range, is accepted with no message and Save stays enabled; the log-spaced amplitude range also keeps the quantile placeholder '—' instead of an 'a – b unit' range. The inventory asks for 0 < a < b on log-spaced ranges. Only the above-Nyquist warning is implemented (and it works).",
+     "screenshot": "webui/screenshots/critique/settings-b/r1-function/groupings-07-feature-bases-edits.png"
+    },
+    {
+     "severity": "P2",
+     "title": "Save-bar sentences restate the edit",
+     "state": "unsaved",
+     "detail": "Unit, basis, feature, gap and orphaned edits all read '<field> a → b · applies to new runs' (e.g. 'orphaned keep as a hand group → hold · applies to new runs', 'unit single motifs → sequences · applies to new runs'). The inventory supplies P23 consequences for these (e.g. 'orphaned hand edits are held for review instead of forming a hand group'); only omit d carries one.",
+     "screenshot": "webui/screenshots/critique/settings-b/r1-function/groupings-02-spike-trains.png"
+    }
+   ]
+  },
+  {
+   "page": "settings.storage-backups",
+   "score": 8,
+   "rationale": "Frame 11 is present end to end: the ten roots with paths, sizes, notes and their actions, the locked templates path, the pull footnote linking to Compute & HPC, the token chips with a live file-name preview, the Backups card with its schedule, destination, keep, include-settings and the last-backup badge, the Disk threshold. Every action does something visible: open folder / pull / export all / import raise 'not wired yet' toasts, scan shows a per-row progress bar, clear opens Analysis defaults' clear-cache modal. Removing and adding tokens updates the preview and the save bar, the add popover closes on Escape and outside click, the last token cannot be removed and '+ token' disables with a reason once all are in. Backups off disables the schedule fields with reasons; keep and the disk threshold reject 0, text and out-of-range; Back up now runs database → settings → hand edits to a done line, prepends a history row and updates the badge; Restore… opens a modal that closes by Escape, outside, Cancel and confirms with a not-wired toast; ?modal=restore, ?state=low-disk, ?state=unsaved (keep 7 → 14 with the frame's sentence) and ?focus= deep links work; the live low-disk callout appears when the threshold exceeds free space; Save persists across navigation, raises the nav dot and is gone after reload; no console errors. Deductions are all minor: free-text time/destination not validated, the queued Back up now button lacks a reason (kit warning), the low-disk copy promises a header warning that never appears, and the reset sentence reads '−15 GB more'.",
+   "findings": [
+    {
+     "severity": "P2",
+     "title": "Backup time and destination accept any value, including empty",
+     "state": "unsaved",
+     "detail": "'at' accepts 99:99 and an empty string, 'to' accepts an empty path; no inline message and Save stays enabled (sentence 'backup at 02:00 → 99:99 · applies to new runs'). Every numeric field on the page validates, so these two text fields stand out.",
+     "screenshot": "webui/screenshots/critique/settings-b/r1-function/storage-07-backup-fields-empty.png"
+    },
+    {
+     "severity": "P2",
+     "title": "Back up now is disabled without a reason while queued (kit console warning)",
+     "state": "backup-running",
+     "detail": "Clicking Back up now logs '[kit] disabled Button \"Back up now\" has no disabledReason' — disabledReason is only supplied for status 'running', not 'queued'. A warning, not an error, so not P0, but every disabled control should carry its reason.",
+     "screenshot": "webui/screenshots/critique/settings-b/r1-function/storage-08-backup-running.png"
+    },
+    {
+     "severity": "P2",
+     "title": "Low-disk callout promises a header warning that is not shown",
+     "state": "low-disk",
+     "detail": "?state=low-disk (and raising the threshold above 212 GB) shows 'a warning is shown in the header and before any large job', but the header carries nothing — only the demo-data, need-you and held-out chips. Either show a header chip or drop the claim (§3 'nothing claims more than it knows').",
+     "screenshot": "webui/screenshots/critique/settings-b/r1-function/storage-11-low-disk.png"
+    },
+    {
+     "severity": "P2",
+     "title": "Reset sentence reads 'about -15 GB more in ./backups'",
+     "state": "confirm-reset",
+     "detail": "After saving keep 14, Reset page to defaults stages 'keep 14 → 7 backups · about -15 GB more in ./backups' — a negative 'more'. Should read '… about 15 GB less' (or 'freed').",
+     "screenshot": "webui/screenshots/critique/settings-b/r1-function/storage-12-unsaved-deeplink.png"
+    }
+   ]
+  },
+  {
+   "page": "settings.export",
+   "score": 8,
+   "rationale": "Frame 12 is present card for card with the canon selections (five locked always-included chips; formats xlsx/CSV/JSON/atlas PDF on and atlas SVG off; include with notes and hand edits off; the layout, window-set format, templates JSON lock, carry exemplars, PyTorch/ONNX, the locked model card, report layout, the locked parameters chip with its Display link, and the bundle with null draws off). Every chip toggles in and out, every segment switches, the locked chips carry their rule in a tooltip, the model-card toggle is disabled with a reason, the Display link navigates, the last remaining format cannot be switched off. Save toasts, writes the audit entry, persists across navigation, raises the Export nav dot and is gone after reload; Reset stages seven defaults; ?state=unsaved seeds hand edits with the frame's sentence; the leave guard fires on the settings nav; no console errors. Deductions: the include row's sentence is a constant that misdescribes most edits, other sentences are restatements, the last-format reason is a native title only, and the search hit for Export lands without a pulse.",
+   "findings": [
+    {
+     "severity": "P1",
+     "title": "Include-row sentence claims 'hand edits now included' for any include change",
+     "state": "include-notes",
+     "detail": "Turning notes on reads 'hand edits now included in family exports'; turning exemplar off reads the same. The consequence for motifs.include is a constant string keyed to the seeded hand-edits edit, so the save bar and the Saved toast misdescribe the change the researcher made (a P23 consequence that is wrong, not merely generic).",
+     "screenshot": "webui/screenshots/critique/settings-b/r1-function/export-02-include-notes.png"
+    },
+    {
+     "severity": "P2",
+     "title": "Remaining save-bar sentences are restatements",
+     "state": "unsaved",
+     "detail": "Layout, window-set format and include, carry exemplars, weights, report layout and bundle contents all read '<field> a → b · applies to new runs' (e.g. 'contents recipe,environment lock,code commit,input file hashes → …,null draws · applies to new runs'); the audit entry is the same string. P23 asks for the consequence beside the control.",
+     "screenshot": "webui/screenshots/critique/settings-b/r1-function/export-04-many-edits.png"
+    },
+    {
+     "severity": "P2",
+     "title": "Last format chip's reason is only a native title",
+     "state": "default",
+     "detail": "With one format left, its chip becomes a plain span with title='at least one must stay on'; no kit tooltip appears on hover (the locked chips beside it do show one), so the researcher sees a chip that ignores the click until the browser's delayed title tooltip appears.",
+     "screenshot": "webui/screenshots/critique/settings-b/r1-function/export-03-formats-last.png"
+    },
+    {
+     "severity": "P2",
+     "title": "Search hit for Export › include lands without a pulse",
+     "state": "default",
+     "detail": "The Ctrl K index entry 'Export › Motifs and families › include' navigates to #/settings/export?focus=include, but no element carries id f-include, so nothing scrolls or pulses (compare Models & registration, Library groupings, Storage & backups and Display, where the focus target exists).",
+     "screenshot": "webui/screenshots/critique/settings-b/r1-function/export-01-default.png"
+    }
+   ]
+  },
+  {
+   "page": "settings.audit-log",
+   "score": 9,
+   "rationale": "Frame 13 is present: the Entries card with the nine-way kind segment, the eight canon entries in order with their kind badges (lock carries the lock glyph), linked where column, 'this installation' by column, the footer note, Export CSV in place of Reset (Reset is absent, as the inventory asks). Every kind filter narrows the table and lands in ?kind=, the deep link and a reload keep the filter, an unknown kind shows the 'No zzz entries · 8 entries in the log · Show all' empty state, every where link navigates to its page (Compute & HPC, Models › Registry, Library › F-03, Jobs, Vocabulary, Channels & events, Datasets, Review q-12), Export CSV raises 'not wired yet: GET /api/audit.csv'. A save on another page (Export) appends a settings entry at the top whose where link returns to Export; it is gone after reload as expected; no console errors. The only deduction is copy: session entries are written as a raw field dump rather than the frame's prose.",
+   "findings": [
+    {
+     "severity": "P2",
+     "title": "Session audit entries are a raw field dump",
+     "state": "all",
+     "detail": "After saving on Export the new top entry reads 'Export: motifs.include exemplar,medoid,all members,edges,scope,tags,omitted list → exemplar,medoid,all members,edges,scope,tags,omitted list,notes', with a '20 Sept 18:33' timestamp ('Sept' vs the fixtures' 'Sep'). The fixture entries read as prose ('Analyse local limit 10 → 20 min'); the save toast already has the consequence sentence and could be reused as the entry's what.",
+     "screenshot": "webui/screenshots/critique/settings-b/r1-function/audit-04-session-entry.png"
+    }
+   ]
+  },
+  {
+   "page": "settings.about",
+   "score": 10,
+   "rationale": "Frame 14 is present and every control works: Versions (code with the green 'matches last export' badge, schema, blocks with a Blocks → link that navigates to Settings › Blocks, environment with Show lock file), This installation, the three future-scope rows, Copy diagnostics in place of Reset. Copy diagnostics writes the diagnostics text to the clipboard and toasts 'Diagnostics copied'; Show lock file opens the environment.lock modal with a numbered code block and a working Copy, and closes by Escape, outside click, the X and the ?modal=lock deep link follows the URL; ?state=mismatch swaps the badge for the amber 'the last export was made on 9f21b04 — re-export to match'. No save bar, no Reset link, no console errors.",
+   "findings": []
+  },
+  {
+   "page": "settings.display",
+   "score": 6,
+   "rationale": "Frame 15's regions are all present with the canon values (light / comfortable, hours since start, mV, sample indices off, the six role dots, 'no semantic hues · 10' with ten swatches, 3 / ±120 s / 10 / per hour, 1.2 pt / 0.15 / Inter / 300 dpi / white, a trace preview, the personal footer). The personal contract holds: every change toasts 'Applied to this browser', there is never a save bar, the Display nav item gains its dot, Reset applies immediately ('Reset 9 values · applied to this browser'), edits survive navigation and vanish on reload. Channels, members and dpi reject 0, text and out-of-range values; the family palette select changes the swatch count; background 'transparent' recolours the trace; Export preferences raises its not-wired toast; ?focus= pulses; no console errors. But most of the page's controls change nothing but a caption: density does not tighten a single row, time axis / amplitude / sample indices leave every readout (including the preview beside them) in h and mV, and the report-profile sliders, font and dpi only rewrite the caption under a preview whose line width, grid and font never change. Toasts also stack unthrottled.",
+   "findings": [
+    {
+     "severity": "P1",
+     "title": "Density 'compact' changes nothing",
+     "state": "applied-immediately",
+     "detail": "Clicking compact toasts 'Applied to this browser' and the segment moves, but no attribute or class changes on html/body, the settings nav rows stay 30 px, the form rows 42 px and the Keyboard table rows 35 px before and after. The caption promises 'compact tightens table rows across every page'. (Theme 'dark' likewise does nothing, but its caption says so honestly.)",
+     "screenshot": "webui/screenshots/critique/settings-b/r1-function/display-03-density-compact.png"
+    },
+    {
+     "severity": "P1",
+     "title": "Units and time selections have no effect, not even on the preview beside them",
+     "state": "sample-indices-on",
+     "detail": "Choosing clock time or both leaves the figure preview axis at '0.0000 h … 0.1111 h'; choosing µV leaves its y label 'mV'; turning sample indices on adds no index readout anywhere. The card promises 'every readout on every page, not only plots' and §0 names the time display as a Display setting. The selection is stored and toasted but nothing dependent updates.",
+     "screenshot": "webui/screenshots/critique/settings-b/r1-function/display-01-default.png"
+    },
+    {
+     "severity": "P1",
+     "title": "Report figure preview does not reflect line width, grid opacity or font",
+     "state": "default",
+     "detail": "Moving trace line width to 2.5 pt rewrites the caption ('2.5 pt · grid 0.15 …') but the trace path keeps stroke-width 1; grid opacity 0.60 leaves the grid lines at their default colour and opacity; font 'Times New Roman' leaves the preview in Inter. Only background transparent has a visible effect (the trace turns blue). §9.15 asks for the profile 'with a preview'; a preview that ignores four of its five inputs is misleading.",
+     "screenshot": "webui/screenshots/critique/settings-b/r1-function/display-06-report-profile-edits.png"
+    },
+    {
+     "severity": "P2",
+     "title": "'Applied to this browser' toasts stack instead of throttling",
+     "state": "applied-immediately",
+     "detail": "Four rapid theme clicks leave five identical toasts on screen at once. The inventory says the personal toast is throttled to one per 2 s.",
+     "screenshot": "webui/screenshots/critique/settings-b/r1-function/display-02-theme-dark.png"
+    }
+   ]
+  },
+  {
+   "page": "settings.keyboard",
+   "score": 6,
+   "rationale": "Frame 16 is present: the ten key rows with keycaps, the locked verdict and class rows with their 'set in Vocabulary →' links (which navigate), the where column, the green 'no conflicts' badge, the six behaviour rows with two locked controls and the batch-wait chip, the personal footer. The personal contract holds (toast per change, no save bar, nav dot, Reset applies immediately, edits survive navigation and vanish on reload). Once the 'press a key…' cell has focus the capture works well: a key or Space rebinds, Escape and blur cancel, a taken key raises the red conflict row with 'Keep the old binding' / 'Move X here', the loser is unbound, the badge flips, ?state=conflict lands the frame's E-on-reviewed conflict and its buttons work, Ctrl K opens search. But the natural path fails: clicking a key cell never focuses the capture, so the key the researcher presses next does nothing and the cell stays stuck on 'press a key…' through Escape and outside clicks; moving a key off a locked verdict leaves it bound twice under a green 'no conflicts'; the 'confirm before leaving unsaved settings' toggle does not drive the leave guard; arrows and modifier combinations cannot be captured and rebinding a pair collapses it to one key.",
+   "findings": [
+    {
+     "severity": "P1",
+     "title": "Key capture never receives focus — pressing a key after clicking a cell does nothing",
+     "state": "capture",
+     "detail": "Click the Space cell of 'skip without writing': it turns into 'press a key…' but document.activeElement stays BODY (autoFocus on a span is not honoured). Pressing X does nothing, Escape does nothing, clicking elsewhere does nothing — the cell stays on 'press a key…' until the researcher clicks the cell a second time (then X, Space, conflicts and Escape all work) or navigates away. The smoke 'capture' state only checks the cell is visible, so it passes.",
+     "screenshot": "webui/screenshots/critique/settings-b/r1-function/keyboard-02-capture-stuck.png"
+    },
+    {
+     "severity": "P1",
+     "title": "Moving a key off a locked verdict binds it twice under 'no conflicts'",
+     "state": "conflict",
+     "detail": "Rebind 'mark viewport reviewed' to S: the conflict row correctly says 'S is bound to “verdicts S · I · N · A · U”. A key does one thing.' Choosing 'Move S here' sets reviewed = S but the locked verdict row keeps S, and the badge returns to green 'no conflicts'. Either the locked owner should refuse the move (Move disabled with a reason, 'set in Vocabulary') or the badge should stay red.",
+     "screenshot": "webui/screenshots/critique/settings-b/r1-function/keyboard-09-double-bound.png"
+    },
+    {
+     "severity": "P1",
+     "title": "'confirm before leaving unsaved settings' toggle has no effect",
+     "state": "behaviour-off",
+     "detail": "Turn the toggle off (toast 'Applied to this browser'), edit Export, click About in the settings nav: the leave guard still opens, and its footer even reads 'from Keyboard & behaviour · confirm before leaving unsaved settings'. The inventory says the guard is driven by this toggle.",
+     "screenshot": "webui/screenshots/critique/settings-b/r1-function/keyboard-07-guard-ignores-toggle.png"
+    },
+    {
+     "severity": "P2",
+     "title": "Arrow keys and modifier combinations cannot be captured; rebinding a pair collapses it",
+     "state": "capture",
+     "detail": "With the capture focused, ArrowRight is ignored (cell stays on 'press a key…'), Ctrl+Y is stored as plain 'Y', and rebinding 'next · previous candidate' (→ ←) or 'undo · redo' (Ctrl Z · Ctrl Shift Z) to any key replaces both bindings with a single key, leaving the second action with none. The frame's defaults are exactly the bindings the capture cannot express.",
+     "screenshot": "webui/screenshots/critique/settings-b/r1-function/keyboard-10-pair-collapse.png"
+    },
+    {
+     "severity": "P2",
+     "title": "Locked 'undo reverses a whole batch' tooltip reads 'Enforced by the tool: enforced by the tool'",
+     "state": "default",
+     "detail": "The locked toggle's reason falls back to the generic 'enforced by the tool', which the LockedToggle prefixes again. The other locked control on the page carries its real rule.",
+     "screenshot": "webui/screenshots/critique/settings-b/r1-function/keyboard-01-default.png"
+    }
+   ]
+  }
+ ]
+}

@@ -140,3 +140,27 @@ failure set is **identical, line for line, to the Task 1 gate** (`webui/PYTEST_G
 `LibraryGrid(conn)` contract mismatch and the Windows `WinError 32` teardown locks. Two more tests pass than in
 Task 1 because that run was missing two inputs from the copy, not because anything changed. Nothing tonight is
 collected by pytest (`webui/` holds no tests), so "nothing that passed before now fails" holds.
+
+### 2.8 The weekly limit, and how the critique was resumed
+At 16:2x on the 16th the account's weekly limit ("resets Sep 20, 6pm Australia/Brisbane") killed all 38 critics of
+the critique workflow and the Settings builder's last phase; the harness later marked every orphaned shell task,
+including both servers, stopped. On resume (the 20th) the servers were restarted, the Settings builder's
+uncommitted diff was verified by its own smoke and committed, and the critique was re-run from a fresh workflow
+rather than resumed: a failed agent leaves nothing to replay, so a resume would have been the same work. Two
+changes from the first script: a per-unit lock so the two Settings and the two Library fix builders can never edit
+one directory at the same time (the brief's disjoint-directories rule), and Training's fidelity lens re-run,
+because its surviving round-one file scored 8 with an empty findings list while its rationale named three
+deductions — a rating with nothing for a fix round to act on. Already-rated pages (Explore, Analyse chain/block/
+glyphs, Review's fidelity lens) kept their round-one scores; nothing was re-rated that did not need it.
+
+### 2.9 Two Settings defects fixed by the orchestrator, not a builder
+The Settings smoke had two red states when the builder died. Both were real page bugs rather than manifest
+mistakes, and the builder's directory was idle, so I fixed them and committed under the `settings` unit rather
+than wait for a fix round: (1) the import-recording simulation's timer outlived its modal, and when it finished
+it navigated to the new recording — from under whatever the user had opened since (the smoke saw it close the
+unlock modal); the timer now belongs to the open modal and stops on close. (2) The Nulls page's α rule took the
+smallest reportable p over every null kind, including the full-model shuffle (5 retrains drawn as dots, no p),
+so α = 0.01 was "below the smallest reportable p (0.200)" and Save was disabled on every draft; `NullKind`
+gained `p_value` and only kinds that report a p bound α. A third red state was a manifest artefact: a `goto` to
+the URL already loaded does not remount the page, so "save" then "discard" on one hash cannot both find a draft;
+discard now runs on Analysis defaults.
