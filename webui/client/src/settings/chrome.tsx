@@ -4,7 +4,7 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import {
   Badge, Button, Chip, DisabledReason, EmptyState, Icon, InfoTip, Modal, Page, PageTitle, Popover, SideNav, TextField,
-  Tooltip, useQueryState,
+  Tooltip, useQueryFlag, useQueryState,
 } from '../kit'
 import { Header } from '../shell/Header'
 import { navigate } from '../state'
@@ -102,9 +102,11 @@ export function SettingsShell({ slug, demo, children, chips, actions, noReset }:
   const [state] = useQueryState('state', '')
   useSeededDraft(slug, state === 'unsaved')
   const dots = useNavDots()
-  const [search, setSearch] = useState(false)
+  /* the search modal and the reset popover are deep-linkable (?search=1, ?reset=1) so they follow the
+     URL like every other surface — a repeated navigation to the same route cannot leave one open */
+  const [search, setSearch] = useQueryFlag('search')
   const [leaveTo, setLeaveTo] = useState<string | null>(null)
-  const [resetOpen, setResetOpen] = useState(false)
+  const [resetOpen, setResetOpen] = useQueryFlag('reset')
   const resetRef = useRef<HTMLButtonElement>(null)
   const [focusId] = useQueryState('focus', '')
 
@@ -121,8 +123,11 @@ export function SettingsShell({ slug, demo, children, chips, actions, noReset }:
     const onKey = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); setSearch(true) }
     }
+    /* a surface belongs to the route it was opened on: close it when the hash changes */
+    const onHash = () => setLeaveTo(null)
     window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
+    window.addEventListener('hashchange', onHash)
+    return () => { window.removeEventListener('keydown', onKey); window.removeEventListener('hashchange', onHash) }
   }, [])
 
   /* ?focus=<field> pulses the field for 2 s (header chip and search both deep-link into it) */
@@ -158,7 +163,7 @@ export function SettingsShell({ slug, demo, children, chips, actions, noReset }:
                   {!noReset && <>
                   <Button ref={resetRef} variant="link" icon="refresh" testid="reset-page"
                     disabled={store.differingCount === 0} disabledReason="Nothing differs from default"
-                    onClick={() => setResetOpen(o => !o)}>Reset page to defaults</Button>
+                    onClick={() => setResetOpen(!resetOpen)}>Reset page to defaults</Button>
                   <Popover open={resetOpen} onClose={() => setResetOpen(false)} anchorRef={resetRef} placement="bottom-end" width={330}
                     title={`Reset ${meta?.title ?? slug} to defaults?`} testid="reset-popover">
                     <div className="small" style={{ lineHeight: 1.5 }}>

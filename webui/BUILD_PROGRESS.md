@@ -78,3 +78,20 @@ interrogation (8 of 10 units). Settings and Training never started. Rated so far
 analyse.block 8, analyse.glyphs 8, review.inspector 9, review.cluster 8 — all ≥ 8 except unrated ones.
 Now running a build-only workflow for settings + training (run wf_14dda958-dd7, task w98kbae15), then a critique-only
 workflow for the unrated units, then the final pass. Both servers still up.
+
+### 2026-09-20 weekly limit (Sep 20, 6pm Brisbane) -> resume
+The weekly limit killed all 38 critics of wf_d9eb5e5f-315 and the Settings builder's last phase; 14 orphaned
+shell tasks (incl. both servers) were marked stopped by the harness. On resume: restarted bridge 8765 (bg task
+b2bowbvyt) and Vite 5173 (bg task b4ohd6pyj) - stop both before finishing. tsc clean. Settings builder's
+uncommitted diff (deep-linkable search/reset, keyboard conflict derivation, manifest selector fixes) verified by
+the settings smoke and committed with two orchestrator fixes in src/settings/: the import-recording timer kept
+running after its modal closed and navigated to M5_sep from under the unlock modal (race); the Nulls alpha check
+counted the full-model null (5 retrains, no p) so Save was always disabled (NullKind.p_value). Discard smoke state
+moved to analysis-defaults (same-URL goto does not remount, so save then discard on one hash cannot both pass).
+Critique round 2: workflow wf_7c08bb14-c18 (task wxbg465dd) from scratchpad/critique2.js - 10 sub-units, both
+lenses (training fidelity re-run because its r1 file had score 8 with zero findings), sem 5, per-unit lock on
+fix builders, up to two re-ratings. Resume: Workflow({scriptPath: scratchpad/critique2.js, resumeFromRunId:
+"wf_7c08bb14-c18"}). Fog merge delegated to a subagent editing only docs/wayfinder/fog-of-war.md (F19+).
+Committed r1 critique JSON for explore/chain/blocks/review-fidelity (a860984).
+Then: commit critique/, make_reports.py, DECISIONS 2.8+, full smoke (5173 pages + 8765 flows), npm run build,
+DATA mtime check vs scratchpad/DATA_MTIMES_START.txt, stop servers, push, final report.

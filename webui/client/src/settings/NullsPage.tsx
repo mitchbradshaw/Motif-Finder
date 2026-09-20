@@ -24,7 +24,9 @@ type Data = Awaited<ReturnType<typeof getNulls>>['data']
 function Body({ data }: { data: Data }) {
   const s = useSettingsPage('nulls')
   const [, setFixedSeed] = useQueryState('seed', '')
-  const minDraws = Math.min(...data.kinds.map(k => Number(s.value(`null.${k.id}.draws`) ?? k.draws)))
+  /* the smallest reportable p is set by the kinds that report one; the full-model shuffle (a handful of
+     retrains drawn as dots) and grouping stability never quote a p, so their draws do not bound α */
+  const minDraws = Math.min(...data.kinds.filter(k => k.p_value).map(k => Number(s.value(`null.${k.id}.draws`) ?? k.draws)))
   const smallestP = 1 / minDraws
   const alpha = Number(s.value('alpha') ?? 0.01)
   const alphaTooSmall = alpha > 0 && alpha < smallestP

@@ -1,7 +1,7 @@
 /* Settings › Datasets (frames settings-01, settings-01b · spec §9.1, D6, B20).
  * The recording registry, per-recording metadata, the held-out lock (typed name, logged) and the
  * import dry run. Nothing here is wired: every read is fixture canon, every write stays in memory. */
-import { useEffect, useMemo, useState, type ReactNode } from 'react'
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import {
   Badge, Button, Callout, Checkbox, Checklist, Chip, DisabledReason, IconButton, Modal, ProgressBar, SectionCard, SelectField,
   Table, TextField, Toggle, recordDemoWrite, useDemoState, useNotWired, useQueryState,
@@ -222,9 +222,14 @@ function ImportModal({ open, onClose, dry, onImported }: { open: boolean; onClos
   const [expanded, setExpanded] = useState(false)
   const [map, setMap] = useState(dry.channel_map)
   const [progress, setProgress] = useState(0)
+  /* the import timer belongs to the open modal: closing it (or leaving for another deep link) stops the
+     run, so a finishing import can no longer navigate to the new recording from under a later state */
+  const timer = useRef<number | null>(null)
+  const stopTimer = () => { if (timer.current != null) { window.clearInterval(timer.current); timer.current = null } }
+  useEffect(() => stopTimer, [])
 
   useEffect(() => {
-    if (!open) return
+    if (!open) { stopTimer(); return }
     const p = pathQ ? `D:/recordings/${pathQ}` : dry.path
     setPath(p); setPhase('checked'); setFs(String(dry.fs_hz ?? '')); setFsInferred(false)
     setStart(dry.start); setTz(dry.time_zone); setLinkTo(dry.link_to); setMap(dry.channel_map); setExpanded(false); setProgress(0)
@@ -266,10 +271,11 @@ function ImportModal({ open, onClose, dry, onImported }: { open: boolean; onClos
   const doImport = () => {
     setPhase('importing'); setProgress(0)
     let i = 0
-    const t = window.setInterval(() => {
+    stopTimer()
+    timer.current = window.setInterval(() => {
       i += 1; setProgress(i / included.length)
       if (i >= included.length) {
-        window.clearInterval(t)
+        stopTimer()
         setPhase('done')
         onImported({
           id: 'M5_sep', name: 'M5_sep', file: path.split('/').pop() ?? path, fs_hz: fsNum, fs_source: fsInferred ? 'inferred' : 'read',

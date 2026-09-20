@@ -28,8 +28,10 @@ function Body({ data }: { data: Data }) {
   const s = useSettingsPage('keyboard')
   const [state, setState] = useQueryState('state', '')
   const [capturing, setCapturing] = useState<string | null>(null)
-  const [conflict, setConflict] = useState<{ id: string; key: string; with: string } | null>(
-    state === 'conflict' ? { id: 'reviewed', key: 'E', with: 'open in Explore' } : null)
+  const [live, setLive] = useState<{ id: string; key: string; with: string } | null>(null)
+  /* derived, not seeded once: ?state=conflict has to land even when only the query changed */
+  const conflict = live ?? (state === 'conflict' ? { id: 'reviewed', key: 'E', with: 'open in Explore' } : null)
+  const setConflict = (c: { id: string; key: string; with: string } | null) => { setLive(c); if (!c) setState('') }
 
   const keysOf = (k: KeyBinding): string[] => k.locked ? k.keys : String(s.value(keyKey(k.id)) ?? k.keys.join(' · ')).split(' · ')
   const owner = (key: string, exceptId: string) => data.keys.find(k => k.id !== exceptId && keysOf(k).some(x => x.toUpperCase() === key.toUpperCase()))

@@ -199,15 +199,16 @@ const vocabularyValues = (): Values => {
 }
 
 /* ================================================================== 04 Nulls */
-export interface NullKind { id: string; kind: string; used_in: string; methods: string[]; draws: number; seed: string; shown_as: string }
+/** `p_value`: whether this null yields a p-value (then its draws bound the smallest reportable p, and α). */
+export interface NullKind { id: string; kind: string; used_in: string; methods: string[]; draws: number; seed: string; shown_as: string; p_value: boolean }
 export const NULL_KINDS: NullKind[] = [
-  { id: 'detection', kind: 'Detection chains', used_in: 'Analyse · Discovery', methods: ['circular shift', 'phase randomisation', 'block shuffle'], draws: 200, seed: 'per recipe', shown_as: 'null expects · × null' },
-  { id: 'seed-search', kind: 'Seed search', used_in: 'Discovery', methods: ['circular shift of the channel', 'phase randomisation'], draws: 200, seed: 'per recipe', shown_as: 'distances behind the histogram' },
-  { id: 'distributions', kind: 'Interrogation · distributions', used_in: 'Analyse', methods: ['matched random windows', 'random windows'], draws: 200, seed: 'per recipe', shown_as: 'null histogram · null β' },
-  { id: 'intervals', kind: 'Interrogation · intervals', used_in: 'Analyse', methods: ['shuffled onsets', 'Poisson onsets'], draws: 200, seed: 'per recipe', shown_as: 'null interval distribution' },
-  { id: 'baseline', kind: 'Training · baseline', used_in: 'Models', methods: ['label shuffle · random forest'], draws: 200, seed: 'per job', shown_as: 'null band · p' },
-  { id: 'full-model', kind: 'Training · full model', used_in: 'Models', methods: ['label shuffle · full retrain'], draws: 5, seed: 'per job', shown_as: 'shuffle dots' },
-  { id: 'groupings', kind: 'Library groupings', used_in: 'Library', methods: ['bootstrap resample of members', 'jackknife'], draws: 100, seed: 'per grouping', shown_as: 'group stability' },
+  { id: 'detection', kind: 'Detection chains', used_in: 'Analyse · Discovery', methods: ['circular shift', 'phase randomisation', 'block shuffle'], draws: 200, seed: 'per recipe', shown_as: 'null expects · × null', p_value: true },
+  { id: 'seed-search', kind: 'Seed search', used_in: 'Discovery', methods: ['circular shift of the channel', 'phase randomisation'], draws: 200, seed: 'per recipe', shown_as: 'distances behind the histogram', p_value: true },
+  { id: 'distributions', kind: 'Interrogation · distributions', used_in: 'Analyse', methods: ['matched random windows', 'random windows'], draws: 200, seed: 'per recipe', shown_as: 'null histogram · null β', p_value: true },
+  { id: 'intervals', kind: 'Interrogation · intervals', used_in: 'Analyse', methods: ['shuffled onsets', 'Poisson onsets'], draws: 200, seed: 'per recipe', shown_as: 'null interval distribution', p_value: true },
+  { id: 'baseline', kind: 'Training · baseline', used_in: 'Models', methods: ['label shuffle · random forest'], draws: 200, seed: 'per job', shown_as: 'null band · p', p_value: true },
+  { id: 'full-model', kind: 'Training · full model', used_in: 'Models', methods: ['label shuffle · full retrain'], draws: 5, seed: 'per job', shown_as: 'shuffle dots', p_value: false },
+  { id: 'groupings', kind: 'Library groupings', used_in: 'Library', methods: ['bootstrap resample of members', 'jackknife'], draws: 100, seed: 'per grouping', shown_as: 'group stability', p_value: false },
 ]
 export const SEED_OPTIONS = ['per recipe', 'per job', 'per grouping', 'fixed']
 const nullsValues = (correction: string): Values => {

@@ -60,3 +60,16 @@ Owned files: `webui/client/src/settings/`, `src/api/settings.ts`, `src/fixtures/
 - The header's `M4 held out` chip does not follow the lock (request R2); the leave guard covers only the
   settings nav (R3).
 - Audit entries written this session reset on reload (FE15).
+
+## Orchestrator fixes (2026-09-20, after the builder was stopped by the weekly limit)
+
+- Builder's last uncommitted diff landed: search modal and reset popover are deep-linkable (?search=1, ?reset=1)
+  and close on hash change; the keyboard conflict banner is derived from ?state=conflict rather than seeded once;
+  smoke selectors fill the input elements directly.
+- DatasetsPage: the import-recording timer is owned by the open modal and stops when it closes, so a finishing
+  import no longer navigates to M5_sep from under a later state (it closed the unlock modal in the smoke).
+- NullsPage: the smallest-reportable-p check considers only null kinds that report a p (NullKind.p_value); the
+  full-model shuffle (5 retrains, drawn as dots) and grouping stability no longer bound alpha, so Save is enabled
+  on a valid draft.
+- Manifest: settings.shell discard runs on analysis-defaults (a same-URL goto does not remount, so save then
+  discard on one hash could not both pass). 107 states, 0 failures.
