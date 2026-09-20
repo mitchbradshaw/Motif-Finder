@@ -1,61 +1,718 @@
 [
- {"page":"analyse.training","state":"default","hash":"analyse/training","actions":[],"expect":["[data-testid=\"training-chain\"]","[data-testid=\"chain-rows\"]","[data-testid=\"chain-footer\"]","[data-testid=\"model-handoff\"]"]},
- {"page":"analyse.training","state":"source-popover","hash":"analyse/training?popover=source","actions":[],"expect":["[data-testid=\"source-popover\"]"]},
- {"page":"analyse.training","state":"source-popover-by-click","hash":"analyse/training","actions":[{"click":"[data-testid=\"source-chip\"]"},{"wait":250}],"expect":["[data-testid=\"source-popover\"]"]},
- {"page":"analyse.training","state":"illustrative-human-windows","hash":"analyse/training?source=human-windows","actions":[],"expect":["[data-testid=\"b7-callout\"]","[data-testid=\"human-ticks\"]","[data-testid=\"chain-rows\"]"]},
- {"page":"analyse.training","state":"history","hash":"analyse/training?popover=history","actions":[],"expect":["[data-testid=\"history-popover\"]"]},
- {"page":"analyse.training","state":"import","hash":"analyse/training?popover=import","actions":[],"expect":["[data-testid=\"import-popover\"]"]},
- {"page":"analyse.training","state":"send-review","hash":"analyse/training?modal=send-review","actions":[],"expect":["[data-testid=\"send-review-modal\"]","[data-testid=\"send-review-count\"]"]},
- {"page":"analyse.training","state":"queued-to-review","hash":"analyse/training?modal=send-review","actions":[{"click":"[data-testid=\"send-review-confirm\"]"},{"wait":350}],"expect":["[data-testid=\"chain-footer\"]"]},
- {"page":"analyse.training","state":"save-template","hash":"analyse/training?modal=save-template","actions":[],"expect":["[data-testid=\"save-template-modal\"]","[data-testid=\"template-name\"]"]},
- {"page":"analyse.training","state":"rename-invalid","hash":"analyse/training","actions":[{"click":"[data-testid=\"name-chip\"]"},{"wait":200},{"fill":["[data-testid=\"name-field\"]","CNN Windows"]},{"wait":250}],"expect":["[data-testid=\"name-error\"]"]},
- {"page":"analyse.training","state":"running","hash":"analyse/training?state=running","actions":[],"expect":["[data-testid=\"cancel-run\"]","[data-testid=\"chain-rows\"]"]},
- {"page":"analyse.training","state":"failed","hash":"analyse/training?state=failed","actions":[],"expect":["[data-testid=\"run-error\"]","[data-testid=\"clear-failure\"]"]},
-
- {"page":"analyse.training.windows","state":"default","hash":"analyse/training/block/1","actions":[],"expect":["[data-testid=\"windows-card\"]","[data-testid=\"split-strip\"]","[data-testid=\"parameters-card\"]","[data-testid=\"unapplied-bar\"]"]},
- {"page":"analyse.training.windows","state":"edited","hash":"analyse/training/block/1?state=edited","actions":[{"wait":350}],"expect":["[data-testid=\"unapplied-bar\"]","[data-testid=\"unapplied-state\"]","[data-testid=\"gap-field\"]"]},
- {"page":"analyse.training.windows","state":"invalid-gap","hash":"analyse/training/block/1","actions":[{"fill":["[data-testid=\"gap-field\"]","2"]},{"wait":350}],"expect":["[data-testid=\"gap-field-error\"]","[data-testid=\"unapplied-bar\"]"]},
- {"page":"analyse.training.windows","state":"random-split","hash":"analyse/training/block/1?split=random","actions":[],"expect":["[data-testid=\"leak-callout\"]","[data-testid=\"back-to-blocked\"]"]},
- {"page":"analyse.training.windows","state":"boundary","hash":"analyse/training/block/1","actions":[],"expect":["[data-testid=\"boundary-card\"]","[data-testid=\"boundary-plot\"]"]},
- {"page":"analyse.training.windows","state":"verdicts","hash":"analyse/training/block/1","actions":[],"expect":["[data-testid=\"verdicts-card\"]","[data-testid=\"checks-card\"]","[data-testid=\"queue-cap\"]"]},
- {"page":"analyse.training.windows","state":"save-window-set","hash":"analyse/training/block/1?modal=save-window-set","actions":[],"expect":["[data-testid=\"save-window-set-modal\"]","[data-testid=\"window-set-id\"]"]},
- {"page":"analyse.training.windows","state":"send-review","hash":"analyse/training/block/1?modal=send-review","actions":[],"expect":["[data-testid=\"send-review-modal\"]"]},
- {"page":"analyse.training.windows","state":"running","hash":"analyse/training/block/1?state=running","actions":[],"expect":["[data-testid=\"run-veil\"]","[data-testid=\"cancel-run\"]"]},
-
- {"page":"analyse.training.matrix","state":"default","hash":"analyse/training/block/2","actions":[],"expect":["[data-testid=\"matrix-card\"]","[data-testid=\"matrix-groups\"]","[data-testid=\"groups-card\"]","[data-testid=\"compute-card\"]"]},
- {"page":"analyse.training.matrix","state":"edited","hash":"analyse/training/block/2?state=edited","actions":[{"wait":350}],"expect":["[data-testid=\"unapplied-state\"]","[data-testid=\"groups-card\"]"]},
- {"page":"analyse.training.matrix","state":"group-open","hash":"analyse/training/block/2?open=catch22","actions":[],"expect":["[data-testid=\"matrix-groups\"]","[data-testid=\"matrix-card\"]"]},
- {"page":"analyse.training.matrix","state":"label-derived-on","hash":"analyse/training/block/2","actions":[{"click":"[data-testid=\"group-cnn\"]"},{"wait":300}],"expect":["[data-testid=\"leak-callout\"]","[data-testid=\"drop-label-derived\"]"]},
- {"page":"analyse.training.matrix","state":"readout","hash":"analyse/training/block/2","actions":[],"expect":["[data-testid=\"matrix-readout\"]","[data-testid=\"open-in-encode\"]"]},
- {"page":"analyse.training.matrix","state":"slurm","hash":"analyse/training/block/2?modal=slurm","actions":[],"expect":["[data-testid=\"slurm-modal\"]","[data-testid=\"slurm-create-job\"]"]},
- {"page":"analyse.training.matrix","state":"upload","hash":"analyse/training/block/2?modal=upload","actions":[],"expect":["[data-testid=\"upload-modal\"]","[data-testid=\"upload-path\"]"]},
- {"page":"analyse.training.matrix","state":"running","hash":"analyse/training/block/2?state=running","actions":[],"expect":["[data-testid=\"run-veil\"]"]},
-
- {"page":"analyse.training.cluster","state":"default","hash":"analyse/training/block/3","actions":[],"expect":["[data-testid=\"cluster-card\"]","[data-testid=\"dendrogram\"]","[data-testid=\"class-cards\"]","[data-testid=\"per-class-bars\"]"]},
- {"page":"analyse.training.cluster","state":"occupancy","hash":"analyse/training/block/3","actions":[],"expect":["[data-testid=\"occupancy-card\"]","[data-testid=\"occupancy-strip\"]","[data-testid=\"cluster-params\"]"]},
- {"page":"analyse.training.cluster","state":"choose-k","hash":"analyse/training/block/3?view=choose-k","actions":[],"expect":["[data-testid=\"k-sweep-card\"]","[data-testid=\"k-sweep\"]","[data-testid=\"criterion-card\"]","[data-testid=\"contingency-card\"]"]},
- {"page":"analyse.training.cluster","state":"choose-k-by-click","hash":"analyse/training/block/3","actions":[{"click":"[data-testid=\"choose-k\"]"},{"wait":300}],"expect":["[data-testid=\"k-sweep-card\"]","[data-testid=\"stability-card\"]"]},
- {"page":"analyse.training.cluster","state":"criterion-locked","hash":"analyse/training/block/3?view=choose-k&locked=1","actions":[],"expect":["[data-testid=\"criterion-card\"]","[data-testid=\"k-sweep-card\"]"]},
- {"page":"analyse.training.cluster","state":"merge-pending","hash":"analyse/training/block/3?merge=C5,C6","actions":[],"expect":["[data-testid=\"class-cards\"]","[data-testid=\"unapplied-state\"]"]},
- {"page":"analyse.training.cluster","state":"save-grouping","hash":"analyse/training/block/3?modal=save-grouping","actions":[],"expect":["[data-testid=\"save-grouping-modal\"]","[data-testid=\"grouping-scope\"]"]},
- {"page":"analyse.training.cluster","state":"send-review","hash":"analyse/training/block/3?view=choose-k&modal=send-review","actions":[],"expect":["[data-testid=\"send-review-modal\"]"]},
- {"page":"analyse.training.cluster","state":"running","hash":"analyse/training/block/3?state=running","actions":[],"expect":["[data-testid=\"run-veil\"]"]},
-
- {"page":"analyse.training.encode","state":"default","hash":"analyse/training/block/4","actions":[],"expect":["[data-testid=\"encode-card\"]","[data-testid=\"encodings\"]","[data-testid=\"encode-params\"]","[data-testid=\"browse-card\"]"]},
- {"page":"analyse.training.encode","state":"window","hash":"analyse/training/block/4?window=283","actions":[],"expect":["[data-testid=\"window-class\"]","[data-testid=\"encoding-img-gasf\"]","[data-testid=\"window-signal\"]"]},
- {"page":"analyse.training.encode","state":"window-by-pager","hash":"analyse/training/block/4","actions":[{"click":"[data-testid=\"window-next\"]"},{"wait":250}],"expect":["[data-testid=\"window-pager\"]","[data-testid=\"encodings\"]"]},
- {"page":"analyse.training.encode","state":"edited","hash":"analyse/training/block/4?state=edited","actions":[{"wait":350}],"expect":["[data-testid=\"unapplied-state\"]","[data-testid=\"images-tile\"]"]},
- {"page":"analyse.training.encode","state":"new-encoder-version","hash":"analyse/training/block/4?encoder=new","actions":[{"wait":350}],"expect":["[data-testid=\"encoder-note\"]","[data-testid=\"encode-params\"]"]},
- {"page":"analyse.training.encode","state":"browse-gadf","hash":"analyse/training/block/4?browse=gadf","actions":[],"expect":["[data-testid=\"browse-classes\"]","[data-testid=\"browse-class-C1\"]"]},
- {"page":"analyse.training.encode","state":"running","hash":"analyse/training/block/4?state=running","actions":[],"expect":["[data-testid=\"run-veil\"]"]},
-
- {"page":"analyse.training.model","state":"default","hash":"analyse/training/block/5","actions":[],"expect":["[data-testid=\"model-card\"]","[data-testid=\"stage-table\"]","[data-testid=\"training-params\"]","[data-testid=\"before-trains\"]","[data-testid=\"trial-card\"]"]},
- {"page":"analyse.training.model","state":"labels-manual","hash":"analyse/training/block/5?labels=manual","actions":[],"expect":["[data-testid=\"labels-manual-note\"]","[data-testid=\"labels-send-review\"]"]},
- {"page":"analyse.training.model","state":"labels-both","hash":"analyse/training/block/5?labels=both","actions":[],"expect":["[data-testid=\"labels-both-note\"]","[data-testid=\"labels-both-launch\"]"]},
- {"page":"analyse.training.model","state":"stage-04-off","hash":"analyse/training/block/5","actions":[{"click":"[data-testid=\"stage-tick-04\"]"},{"wait":300}],"expect":["[data-testid=\"no-stage\"]","[data-testid=\"stage-05\"]"]},
- {"page":"analyse.training.model","state":"trial-job-created","hash":"analyse/training/block/5","actions":[{"click":"[data-testid=\"download-trial\"]"},{"wait":350}],"expect":["[data-testid=\"trial-job-chip\"]"]},
- {"page":"analyse.training.model","state":"focus-trial","hash":"analyse/training/block/5?focus=trial","actions":[],"expect":["[data-testid=\"trial-card\"]","[data-testid=\"models-handoff\"]"]},
- {"page":"analyse.training.model","state":"send-review","hash":"analyse/training/block/5?modal=send-review","actions":[],"expect":["[data-testid=\"send-review-modal\"]"]},
- {"page":"analyse.training.model","state":"save-template","hash":"analyse/training/block/5?modal=save-template","actions":[],"expect":["[data-testid=\"save-template-modal\"]"]},
- {"page":"analyse.training.model","state":"held-out-locked","hash":"analyse/training/block/5","actions":[],"expect":["[data-testid=\"held-out\"]","[data-testid=\"param-architecture\"]"]}
+  {
+    "page": "analyse.training",
+    "state": "default",
+    "hash": "analyse/training",
+    "actions": [],
+    "expect": [
+      "[data-testid=\"training-chain\"]",
+      "[data-testid=\"chain-rows\"]",
+      "[data-testid=\"chain-footer\"]",
+      "[data-testid=\"model-handoff\"]"
+    ]
+  },
+  {
+    "page": "analyse.training",
+    "state": "source-popover",
+    "hash": "analyse/training?popover=source",
+    "actions": [],
+    "expect": [
+      "[data-testid=\"source-popover\"]"
+    ]
+  },
+  {
+    "page": "analyse.training",
+    "state": "source-popover-by-click",
+    "hash": "analyse/training",
+    "actions": [
+      {
+        "click": "[data-testid=\"source-chip\"]"
+      },
+      {
+        "wait": 250
+      }
+    ],
+    "expect": [
+      "[data-testid=\"source-popover\"]"
+    ]
+  },
+  {
+    "page": "analyse.training",
+    "state": "illustrative-human-windows",
+    "hash": "analyse/training?source=human-windows",
+    "actions": [],
+    "expect": [
+      "[data-testid=\"b7-callout\"]",
+      "[data-testid=\"human-ticks\"]",
+      "[data-testid=\"chain-rows\"]"
+    ]
+  },
+  {
+    "page": "analyse.training",
+    "state": "history",
+    "hash": "analyse/training?popover=history",
+    "actions": [],
+    "expect": [
+      "[data-testid=\"history-popover\"]"
+    ]
+  },
+  {
+    "page": "analyse.training",
+    "state": "import",
+    "hash": "analyse/training?popover=import",
+    "actions": [],
+    "expect": [
+      "[data-testid=\"import-popover\"]"
+    ]
+  },
+  {
+    "page": "analyse.training",
+    "state": "send-review",
+    "hash": "analyse/training?modal=send-review",
+    "actions": [],
+    "expect": [
+      "[data-testid=\"send-review-modal\"]",
+      "[data-testid=\"send-review-count\"]"
+    ]
+  },
+  {
+    "page": "analyse.training",
+    "state": "queued-to-review",
+    "hash": "analyse/training?modal=send-review",
+    "actions": [
+      {
+        "click": "[data-testid=\"send-review-confirm\"]"
+      },
+      {
+        "wait": 350
+      }
+    ],
+    "expect": [
+      "[data-testid=\"chain-footer\"]"
+    ]
+  },
+  {
+    "page": "analyse.training",
+    "state": "save-template",
+    "hash": "analyse/training?modal=save-template",
+    "actions": [],
+    "expect": [
+      "[data-testid=\"save-template-modal\"]",
+      "[data-testid=\"template-name\"]"
+    ]
+  },
+  {
+    "page": "analyse.training",
+    "state": "rename-invalid",
+    "hash": "analyse/training",
+    "actions": [
+      {
+        "click": "[data-testid=\"name-chip\"]"
+      },
+      {
+        "wait": 200
+      },
+      {
+        "fill": [
+          "[data-testid=\"name-field\"]",
+          "CNN Windows"
+        ]
+      },
+      {
+        "wait": 250
+      }
+    ],
+    "expect": [
+      "[data-testid=\"name-error\"]"
+    ]
+  },
+  {
+    "page": "analyse.training",
+    "state": "running",
+    "hash": "analyse/training?state=running",
+    "actions": [],
+    "expect": [
+      "[data-testid=\"cancel-run\"]",
+      "[data-testid=\"chain-rows\"]"
+    ]
+  },
+  {
+    "page": "analyse.training",
+    "state": "failed",
+    "hash": "analyse/training?state=failed",
+    "actions": [],
+    "expect": [
+      "[data-testid=\"run-error\"]",
+      "[data-testid=\"clear-failure\"]"
+    ]
+  },
+  {
+    "page": "analyse.training.windows",
+    "state": "default",
+    "hash": "analyse/training/block/1",
+    "actions": [],
+    "expect": [
+      "[data-testid=\"windows-card\"]",
+      "[data-testid=\"split-strip\"]",
+      "[data-testid=\"parameters-card\"]",
+      "[data-testid=\"unapplied-bar\"]"
+    ]
+  },
+  {
+    "page": "analyse.training.windows",
+    "state": "edited",
+    "hash": "analyse/training/block/1?state=edited",
+    "actions": [
+      {
+        "wait": 350
+      }
+    ],
+    "expect": [
+      "[data-testid=\"unapplied-bar\"]",
+      "[data-testid=\"unapplied-state\"]",
+      "[data-testid=\"gap-field\"]"
+    ]
+  },
+  {
+    "page": "analyse.training.windows",
+    "state": "invalid-gap",
+    "hash": "analyse/training/block/1",
+    "actions": [
+      {
+        "fill": [
+          "[data-testid=\"gap-field\"]",
+          "2"
+        ]
+      },
+      {
+        "wait": 350
+      }
+    ],
+    "expect": [
+      "[data-testid=\"gap-field-error\"]",
+      "[data-testid=\"unapplied-bar\"]"
+    ]
+  },
+  {
+    "page": "analyse.training.windows",
+    "state": "random-split",
+    "hash": "analyse/training/block/1?split=random",
+    "actions": [],
+    "expect": [
+      "[data-testid=\"leak-callout\"]",
+      "[data-testid=\"back-to-blocked\"]"
+    ]
+  },
+  {
+    "page": "analyse.training.windows",
+    "state": "boundary",
+    "hash": "analyse/training/block/1",
+    "actions": [],
+    "expect": [
+      "[data-testid=\"boundary-card\"]",
+      "[data-testid=\"boundary-plot\"]"
+    ]
+  },
+  {
+    "page": "analyse.training.windows",
+    "state": "verdicts",
+    "hash": "analyse/training/block/1",
+    "actions": [],
+    "expect": [
+      "[data-testid=\"verdicts-card\"]",
+      "[data-testid=\"checks-card\"]",
+      "[data-testid=\"queue-cap\"]"
+    ]
+  },
+  {
+    "page": "analyse.training.windows",
+    "state": "save-window-set",
+    "hash": "analyse/training/block/1?modal=save-window-set",
+    "actions": [],
+    "expect": [
+      "[data-testid=\"save-window-set-modal\"]",
+      "[data-testid=\"window-set-id\"]"
+    ]
+  },
+  {
+    "page": "analyse.training.windows",
+    "state": "send-review",
+    "hash": "analyse/training/block/1?modal=send-review",
+    "actions": [],
+    "expect": [
+      "[data-testid=\"send-review-modal\"]"
+    ]
+  },
+  {
+    "page": "analyse.training.windows",
+    "state": "running",
+    "hash": "analyse/training/block/1?state=running",
+    "actions": [],
+    "expect": [
+      "[data-testid=\"run-veil\"]",
+      "[data-testid=\"cancel-run\"]"
+    ]
+  },
+  {
+    "page": "analyse.training.matrix",
+    "state": "default",
+    "hash": "analyse/training/block/2",
+    "actions": [],
+    "expect": [
+      "[data-testid=\"matrix-card\"]",
+      "[data-testid=\"matrix-groups\"]",
+      "[data-testid=\"groups-card\"]",
+      "[data-testid=\"compute-card\"]"
+    ]
+  },
+  {
+    "page": "analyse.training.matrix",
+    "state": "edited",
+    "hash": "analyse/training/block/2?state=edited",
+    "actions": [
+      {
+        "wait": 350
+      }
+    ],
+    "expect": [
+      "[data-testid=\"unapplied-state\"]",
+      "[data-testid=\"groups-card\"]"
+    ]
+  },
+  {
+    "page": "analyse.training.matrix",
+    "state": "group-open",
+    "hash": "analyse/training/block/2?open=catch22",
+    "actions": [],
+    "expect": [
+      "[data-testid=\"matrix-groups\"]",
+      "[data-testid=\"matrix-card\"]"
+    ]
+  },
+  {
+    "page": "analyse.training.matrix",
+    "state": "label-derived-on",
+    "hash": "analyse/training/block/2",
+    "actions": [
+      {
+        "click": "[data-testid=\"group-cnn\"]"
+      },
+      {
+        "wait": 300
+      }
+    ],
+    "expect": [
+      "[data-testid=\"leak-callout\"]",
+      "[data-testid=\"drop-label-derived\"]"
+    ]
+  },
+  {
+    "page": "analyse.training.matrix",
+    "state": "readout",
+    "hash": "analyse/training/block/2",
+    "actions": [],
+    "expect": [
+      "[data-testid=\"matrix-readout\"]",
+      "[data-testid=\"open-in-encode\"]"
+    ]
+  },
+  {
+    "page": "analyse.training.matrix",
+    "state": "slurm",
+    "hash": "analyse/training/block/2?modal=slurm",
+    "actions": [],
+    "expect": [
+      "[data-testid=\"slurm-modal\"]",
+      "[data-testid=\"slurm-create-job\"]"
+    ]
+  },
+  {
+    "page": "analyse.training.matrix",
+    "state": "upload",
+    "hash": "analyse/training/block/2?modal=upload",
+    "actions": [],
+    "expect": [
+      "[data-testid=\"upload-modal\"]",
+      "[data-testid=\"upload-path\"]"
+    ]
+  },
+  {
+    "page": "analyse.training.matrix",
+    "state": "running",
+    "hash": "analyse/training/block/2?state=running",
+    "actions": [],
+    "expect": [
+      "[data-testid=\"run-veil\"]"
+    ]
+  },
+  {
+    "page": "analyse.training.cluster",
+    "state": "default",
+    "hash": "analyse/training/block/3",
+    "actions": [],
+    "expect": [
+      "[data-testid=\"cluster-card\"]",
+      "[data-testid=\"dendrogram\"]",
+      "[data-testid=\"class-cards\"]",
+      "[data-testid=\"per-class-bars\"]"
+    ]
+  },
+  {
+    "page": "analyse.training.cluster",
+    "state": "occupancy",
+    "hash": "analyse/training/block/3",
+    "actions": [],
+    "expect": [
+      "[data-testid=\"occupancy-card\"]",
+      "[data-testid=\"occupancy-strip\"]",
+      "[data-testid=\"cluster-params\"]"
+    ]
+  },
+  {
+    "page": "analyse.training.cluster",
+    "state": "choose-k",
+    "hash": "analyse/training/block/3?view=choose-k",
+    "actions": [],
+    "expect": [
+      "[data-testid=\"k-sweep-card\"]",
+      "[data-testid=\"k-sweep\"]",
+      "[data-testid=\"criterion-card\"]",
+      "[data-testid=\"contingency-card\"]"
+    ]
+  },
+  {
+    "page": "analyse.training.cluster",
+    "state": "choose-k-by-click",
+    "hash": "analyse/training/block/3",
+    "actions": [
+      {
+        "click": "[data-testid=\"choose-k\"]"
+      },
+      {
+        "wait": 300
+      }
+    ],
+    "expect": [
+      "[data-testid=\"k-sweep-card\"]",
+      "[data-testid=\"stability-card\"]"
+    ]
+  },
+  {
+    "page": "analyse.training.cluster",
+    "state": "criterion-locked",
+    "hash": "analyse/training/block/3?view=choose-k&locked=1",
+    "actions": [],
+    "expect": [
+      "[data-testid=\"criterion-card\"]",
+      "[data-testid=\"k-sweep-card\"]"
+    ]
+  },
+  {
+    "page": "analyse.training.cluster",
+    "state": "merge-pending",
+    "hash": "analyse/training/block/3?merge=C5,C6",
+    "actions": [],
+    "expect": [
+      "[data-testid=\"class-cards\"]",
+      "[data-testid=\"unapplied-state\"]"
+    ]
+  },
+  {
+    "page": "analyse.training.cluster",
+    "state": "save-grouping",
+    "hash": "analyse/training/block/3?modal=save-grouping",
+    "actions": [],
+    "expect": [
+      "[data-testid=\"save-grouping-modal\"]",
+      "[data-testid=\"grouping-scope\"]"
+    ]
+  },
+  {
+    "page": "analyse.training.cluster",
+    "state": "send-review",
+    "hash": "analyse/training/block/3?view=choose-k&modal=send-review",
+    "actions": [],
+    "expect": [
+      "[data-testid=\"send-review-modal\"]"
+    ]
+  },
+  {
+    "page": "analyse.training.cluster",
+    "state": "running",
+    "hash": "analyse/training/block/3?state=running",
+    "actions": [],
+    "expect": [
+      "[data-testid=\"run-veil\"]"
+    ]
+  },
+  {
+    "page": "analyse.training.encode",
+    "state": "default",
+    "hash": "analyse/training/block/4",
+    "actions": [],
+    "expect": [
+      "[data-testid=\"encode-card\"]",
+      "[data-testid=\"encodings\"]",
+      "[data-testid=\"encode-params\"]",
+      "[data-testid=\"browse-card\"]"
+    ]
+  },
+  {
+    "page": "analyse.training.encode",
+    "state": "window",
+    "hash": "analyse/training/block/4?window=283",
+    "actions": [],
+    "expect": [
+      "[data-testid=\"window-class\"]",
+      "[data-testid=\"encoding-img-gasf\"]",
+      "[data-testid=\"window-signal\"]"
+    ]
+  },
+  {
+    "page": "analyse.training.encode",
+    "state": "window-by-pager",
+    "hash": "analyse/training/block/4",
+    "actions": [
+      {
+        "click": "[data-testid=\"window-next\"]"
+      },
+      {
+        "wait": 250
+      }
+    ],
+    "expect": [
+      "[data-testid=\"window-pager\"]",
+      "[data-testid=\"encodings\"]"
+    ]
+  },
+  {
+    "page": "analyse.training.encode",
+    "state": "edited",
+    "hash": "analyse/training/block/4?state=edited",
+    "actions": [
+      {
+        "wait": 350
+      }
+    ],
+    "expect": [
+      "[data-testid=\"unapplied-state\"]",
+      "[data-testid=\"images-tile\"]"
+    ]
+  },
+  {
+    "page": "analyse.training.encode",
+    "state": "new-encoder-version",
+    "hash": "analyse/training/block/4?encoder=new",
+    "actions": [
+      {
+        "wait": 350
+      }
+    ],
+    "expect": [
+      "[data-testid=\"encoder-note\"]",
+      "[data-testid=\"encode-params\"]"
+    ]
+  },
+  {
+    "page": "analyse.training.encode",
+    "state": "browse-gadf",
+    "hash": "analyse/training/block/4?browse=gadf",
+    "actions": [],
+    "expect": [
+      "[data-testid=\"browse-classes\"]",
+      "[data-testid=\"browse-class-C1\"]"
+    ]
+  },
+  {
+    "page": "analyse.training.encode",
+    "state": "running",
+    "hash": "analyse/training/block/4?state=running",
+    "actions": [],
+    "expect": [
+      "[data-testid=\"run-veil\"]"
+    ]
+  },
+  {
+    "page": "analyse.training.model",
+    "state": "default",
+    "hash": "analyse/training/block/5",
+    "actions": [],
+    "expect": [
+      "[data-testid=\"model-card\"]",
+      "[data-testid=\"stage-table\"]",
+      "[data-testid=\"training-params\"]",
+      "[data-testid=\"before-trains\"]",
+      "[data-testid=\"trial-card\"]"
+    ]
+  },
+  {
+    "page": "analyse.training.model",
+    "state": "labels-manual",
+    "hash": "analyse/training/block/5?labels=manual",
+    "actions": [],
+    "expect": [
+      "[data-testid=\"labels-manual-note\"]",
+      "[data-testid=\"labels-send-review\"]"
+    ]
+  },
+  {
+    "page": "analyse.training.model",
+    "state": "labels-both",
+    "hash": "analyse/training/block/5?labels=both",
+    "actions": [],
+    "expect": [
+      "[data-testid=\"labels-both-note\"]",
+      "[data-testid=\"labels-both-launch\"]"
+    ]
+  },
+  {
+    "page": "analyse.training.model",
+    "state": "trial-job-created",
+    "hash": "analyse/training/block/5",
+    "actions": [
+      {
+        "click": "[data-testid=\"download-trial\"]"
+      },
+      {
+        "wait": 350
+      }
+    ],
+    "expect": [
+      "[data-testid=\"trial-job-chip\"]"
+    ]
+  },
+  {
+    "page": "analyse.training.model",
+    "state": "focus-trial",
+    "hash": "analyse/training/block/5?focus=trial",
+    "actions": [],
+    "expect": [
+      "[data-testid=\"trial-card\"]",
+      "[data-testid=\"models-handoff\"]"
+    ]
+  },
+  {
+    "page": "analyse.training.model",
+    "state": "send-review",
+    "hash": "analyse/training/block/5?modal=send-review",
+    "actions": [],
+    "expect": [
+      "[data-testid=\"send-review-modal\"]"
+    ]
+  },
+  {
+    "page": "analyse.training.model",
+    "state": "save-template",
+    "hash": "analyse/training/block/5?modal=save-template",
+    "actions": [],
+    "expect": [
+      "[data-testid=\"save-template-modal\"]"
+    ]
+  },
+  {
+    "page": "analyse.training.model",
+    "state": "held-out-locked",
+    "hash": "analyse/training/block/5",
+    "actions": [],
+    "expect": [
+      "[data-testid=\"held-out\"]",
+      "[data-testid=\"param-architecture\"]"
+    ]
+  },
+  {
+    "page": "analyse.training.model",
+    "state": "stage-04-off",
+    "hash": "analyse/training/block/5",
+    "actions": [
+      {
+        "click": "[data-testid=\"stage-tick-04\"]"
+      },
+      {
+        "wait": 300
+      }
+    ],
+    "expect": [
+      "[data-testid=\"no-stage\"]",
+      "[data-testid=\"stage-05\"]"
+    ]
+  },
+  {
+    "page": "analyse.training",
+    "state": "rename-cancelled",
+    "hash": "analyse/training",
+    "actions": [
+      {
+        "click": "[data-testid=\"name-chip\"]"
+      },
+      {
+        "wait": 200
+      },
+      {
+        "fill": [
+          "[data-testid=\"name-field\"]",
+          "CNN Windows"
+        ]
+      },
+      {
+        "wait": 250
+      },
+      {
+        "press": "Escape"
+      },
+      {
+        "wait": 250
+      }
+    ],
+    "expect": [
+      "[data-testid=\"name-chip\"]"
+    ],
+    "expect_absent": [
+      "[data-testid=\"name-error\"]"
+    ]
+  },
+  {
+    "page": "analyse.training.cluster",
+    "state": "criterion-locked-in-params",
+    "hash": "analyse/training/block/3?locked=1",
+    "actions": [
+      {
+        "wait": 300
+      }
+    ],
+    "expect": [
+      "[data-testid=\"criterion-warning\"]",
+      "[data-testid=\"unlock-criterion\"]"
+    ]
+  },
+  {
+    "page": "analyse.training",
+    "state": "stage-deleted-by-click",
+    "hash": "analyse/training",
+    "actions": [
+      {
+        "click": "[data-testid=\"row-delete-windows\"]"
+      },
+      {
+        "wait": 350
+      }
+    ],
+    "expect": [
+      "[data-testid=\"row-restore-model\"]",
+      "[data-testid=\"chain-rows\"]"
+    ]
+  },
+  {
+    "page": "analyse.training",
+    "state": "stage-deleted",
+    "hash": "analyse/training?deleted=windows",
+    "actions": [
+      {
+        "wait": 350
+      }
+    ],
+    "expect": [
+      "[data-testid=\"row-restore-model\"]",
+      "[data-testid=\"chain-footer\"]"
+    ]
+  }
 ]

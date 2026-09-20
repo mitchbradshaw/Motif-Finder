@@ -5,7 +5,7 @@ Builder: training. Code in `webui/client/src/training/`, reads in `src/api/train
 
 Gate at the last commit: `npx tsc --noEmit -p tsconfig.app.json` clean for
 `src/training/**`, `src/api/training.ts`, `src/fixtures/training.ts`;
-`smoke.py --url http://127.0.0.1:5173 --pages-only --only training` → **54 screenshots, 0 failures**
+`smoke.py --url http://127.0.0.1:5173 --pages-only --only training` → **58 screenshots, 0 failures**
 (0 console errors, 0 server tracebacks).
 
 | page | route | states (deep link) | status |
@@ -60,11 +60,60 @@ the draft survives navigation between the six pages, not a reload.
 - The dendrogram, the k-sweep chart's shaded "current k" band and the encoded-image raster are drawn
   locally (SVG in `ClusterPage.tsx` / `Encoding.tsx`); no kit component draws them — see
   `pages/requests/training.md`.
-- 01's chain row draws the split bands without the frame's inline `train / val / train / test` labels and
-  without the window tick strip beneath them (the block page has both).
+- 01's chain row (on the chain page) still draws plain split bands; the labels, the drop marks and the
+  window tick strip are on the block page's own strip.
 - 02's chain-row badge shows `on cluster` where the frame shows `on cluster · cached` (the kit Badge takes
   one status).
 - Per-class window counts are the frame's 142/98/51/32/13/7 scaled so the partition sums to the canon 543
   (fixture header note); the frames' own numbers sum to 343.
-- The eight training-parameter Dropdowns on 05 are page-local state: they change the control and nothing
-  downstream, because no frame shows what a different architecture would do to the cost.
+- 05's eight training-parameter Dropdowns are still page-local state (they do not survive leaving the
+  page), but architecture and epochs now re-cost the 05 stage row and the estimate.
+
+## Fix round 1 (all six pages)
+
+Every P0/P1 from `critique/training/r1-*.json` is addressed. What changed, by page:
+
+**analyse.training** — run steps map to numbered stages, so the `failed` badge lands on 04 Encode rather
+than 03 Cluster; `chainStatuses` resolves `staleFrom` to a block id, so under the WindowSet source 03
+Encode is badged `stale` as its own caption says; frame 0b now has its own header, a toolbar without
+History/Import, the human-source hand-off copy with no Trial-job button and the amber `illustrative ·
+out of scope` footer chip; bypass changes the row (badge `paused`, its own summary); an invalid junction
+carries row-level fix actions and disables both hand-off buttons; the Model row's caption comes from the
+block, so 0b stops citing "03 cluster" and "split from 01"; rename can be cancelled (Escape or Cancel);
+Send to Review holds the field's own reason so the 20,000 cap holds; `?deleted=windows` deep-links the
+stage-deleted state.
+
+**01 windows** — the split strip is drawn here: labels in the bands, a red drop mark at every break, a
+window tick row underneath; the geometry comes from `splitLayout(ratio, blocks)`, so the split ratio and
+the block count move the bands, the counts and the verdict bars; the gap field's raw entry reaches the
+checks card, the boundary verdict, the estimate and both primaries; the boundary check fails on a random
+split; the bar names and counts the fields that changed; toolbar and bar offer one primary; `?state=edited`
+moves the *applied* gap back to 5 so the deep link produces the pending change; the boundary close-up has
+a pale amber gap band and its caption below the plot.
+
+**02 matrix** — clip sets the heat ramp's domain and the legend's σ, per-window z-scoring centres the
+columns; the bar lists what changed and distinguishes a column drop from a rescale; a column click
+resolves through the shared window→hour→class helper.
+
+**03 cluster** — the class subtrees close under the cut, so the line at 10.1 slices six subtrees apart;
+the lock disables the Parameters criterion with a reason and offers an Unlock in the same callout the
+toast points at; the chosen card carries a `chosen` / `locked` badge; Save grouping records the selected
+scope.
+
+**04 encode** — image size and PAA move the disk and time estimates; the window chip reads class, split
+and hour from the shared helper, so `Open in Encode` from 02 lands on the same window it named; browse
+class cards sample windows that really are in that class.
+
+**05 model** — the 05 row is re-costed and re-captioned from the architecture and epochs selected and the
+04 row from 04's encode settings; the estimate is the sum of the ticked stages; with nothing ticked,
+Copy script, Download trial job and both Train in Models buttons are disabled with a reason.
+
+Two function findings did not reproduce and were left alone after checking in the browser: the matrix
+column click does select a window (a click inside the row-label gutter does not, which is what the
+critic's 20 % offset hits), and the choose-k criterion cards do mark their selection (`aria-checked`,
+not `aria-pressed`) — a visible badge was added anyway. The bar primary after a completed run was
+already disabled with "no unapplied changes".
+
+New states in `smoke_pages/training.json`: `rename-cancelled`, `criterion-locked-in-params`,
+`stage-deleted-by-click`, `stage-deleted`. `stage-04-off` moved to the end of the model states because
+it leaves the shared draft with nothing ticked.

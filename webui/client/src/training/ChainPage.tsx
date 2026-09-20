@@ -45,7 +45,17 @@ function ChainBody({ data, source }: { data: TrainingChain; source: SourceKind }
   const [popover, setPopover] = useQueryState('popover', '')
   const [modal, setModal] = useQueryState('modal', '')
   const [stateQ, setStateQ] = useQueryState('state', '')
+  /* Every state is deep-linkable: deleting a stage is a click, and `?deleted=windows` is the same state. */
+  const [deletedQ, setDeletedQ] = useQueryState('deleted', '')
   const [bypassed, setBypassed] = useState<Record<string, boolean>>({})
+
+  useEffect(() => {
+    if (deletedQ && draft.deletedStage !== deletedQ) {
+      const b = data.chain.find(x => x.id === deletedQ)
+      if (b) setDraft(d => ({ ...d, deletedStage: b.id, staleFrom: b.index ?? 1 }))
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [deletedQ])
 
   const sim = useSim('analyse.training.run')
   useEffect(() => {
@@ -79,11 +89,12 @@ function ChainBody({ data, source }: { data: TrainingChain; source: SourceKind }
   const failedLabel = failedAt ? `${String(failedAt.index).padStart(2, '0')} ${failedAt.label}` : '04 Encode'
 
   const deleteStage = (b: TrainingBlock) => {
+    setDeletedQ(b.id)
     setDraft(d => ({ ...d, deletedStage: b.id, staleFrom: b.index ?? 1 }))
     recordDemoWrite('analyse', 'delete-stage', { chain: draft.name, stage: b.id })
     push({ text: `deleted ${b.label} · the junction into 05 Model is now invalid`, kind: 'error' })
   }
-  const restore = () => { setDraft(d => ({ ...d, deletedStage: null })); push({ text: 'stage put back · the junction type-checks again' }) }
+  const restore = () => { setDeletedQ(null); setDraft(d => ({ ...d, deletedStage: null })); push({ text: 'stage put back · the junction type-checks again' }) }
 
   const sendReview = (n: number) => setDraft(d => ({ ...d, queuedToReview: d.queuedToReview + n }))
 
