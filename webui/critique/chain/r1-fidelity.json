@@ -1,0 +1,105 @@
+{
+  "lens": "fidelity",
+  "round": 1,
+  "screenshots_dir": "C:/Users/mmebr/Documents/CNN/webui/screenshots/critique/chain/r1-fidelity",
+  "pages": [
+    {
+      "page": "analyse.chain",
+      "score": 8,
+      "rationale": "All ten frames (1, 1b, 1c, 1d, 1e, 1f, 1g, 1h, 1i, 2) exist as reachable states, by deep link and by clicking, and the layout reproduces the frames closely: toolbar (name chip with rename, source chip popover, surrogate toggle, estimate, History/Import/Save template, context-sensitive primary), one row per block with grip/number/badge/signature/caption/four row acts and a stage-appropriate plot on a shared time axis, + insert between every pair and at the end, and the terminal footer. Every interaction in the inventory works on fixture data: Run simulates queued -> per-stage progress with '64 % . 0.3 s left' and downstream 'waits for 0N . last result hidden', Cancel between stages, the drop_motifs9 run fails at 04 with the exact frame error plus a Run log modal, delete produces the red junction pill and an Undo toast, the insert modal leads with the three contract pills and keeps incompatible blocks visible with reasons, the import modal applies a template, the History popover has working filters/search/pager/Apply with disabled reasons, Create SLURM script writes j-0218 to Jobs, Upload computed artifact runs the P24 checks and moves to result-in-place, and Continue from 03 resumes. No console or page errors in any state; every disabled control carries a reason, so no dead clicks. Plot conventions hold: light ground, mV axis labels, nothing normalised, hours since recording start, shared axis. Held back from 9 by one real copy/state bug on the footer primary action, a 1b deep link that does not reproduce the frame's run list, a type signature that is clipped in every drop_motifs9 state, and a scatter of smaller visual gaps (no ghost plots on waiting rows, thin axis labelling on 1g/1h, spec vocabulary in user-facing copy).",
+      "findings": [
+        {
+          "severity": "P1",
+          "title": "Footer primary reads 'Pass  to Review' with the count blanked, and is disabled",
+          "state": "1-chain (default), 1e-invalid, 1f-failed",
+          "detail": "The footer's blue primary renders as 'Pass  to Review' (literal double space where N should be) and is greyed out with title 're-run the stale stages first'. Frame chain-1 shows 'Pass 6 to Review' as an enabled blue primary in exactly this stale state, and the headline in the same footer bar already says 'last run . 6 detections kept'. Cause is visible in webui/client/src/analyse/demo/DemoChainPage.tsx:384 -- 'Pass {spansN ?? ''} to Review' with spansN null while the chain is stale. After a completed run the same button correctly reads 'Pass 5 to Review' and enables, so the count exists; it is only dropped in the state three of the ten frames show.",
+          "screenshot": "zoom-footer-pass-to-review.png"
+        },
+        {
+          "severity": "P2",
+          "title": "Row 02's type signature overflows its panel and is cut by the plot",
+          "state": "all drop_motifs9 states",
+          "detail": "'Signal -> Signal + estimate' renders to x=324 inside a left panel that ends at x=305 (overflow: visible, no ellipsis), so the plot pane occludes it and it reads 'Signal -> Signal + estimat' in every screenshot of the detection chain. The frame shows the full signature.",
+          "screenshot": "zoom-row02-signature-clipped.png"
+        },
+        {
+          "severity": "P2",
+          "title": "1b deep link opens pre-filtered to terminal SpanSet, so it lists different runs from the frame",
+          "state": "1b-run-history",
+          "detail": "The popover opens with the terminal filter set to SpanSet, showing '1-6 of 27' and the rows #128, #131, #129, #97, #133, #127. Frame chain-1b shows '1-6 of 34' and #128, #131, #129, #97, #140, #133 -- including the '#140 F-03 slope interrogation' row whose whole purpose is to teach the disabled reason 'needs a SpanSet source . this chain starts from Signal'. That row and that reason are filtered out of the state the manifest deep-links to. Setting the terminal chip to 'any' reproduces the frame exactly (1-6 of 34, #140 present), so the data is there -- only the default filter differs.",
+          "screenshot": "1b-history.png"
+        },
+        {
+          "severity": "P2",
+          "title": "History popover is anchored to the left of the page, not under the History button",
+          "state": "1b-run-history",
+          "detail": "The panel spans x=110-1048 (left edge of the content area). Frame chain-1b puts the same-width panel at x=418-1358, hanging under the History button at the toolbar's right. Also, 'fits current source only' wraps onto its own line below the filter chips rather than sitting on the same row as in the frame.",
+          "screenshot": "1b-history.png"
+        },
+        {
+          "severity": "P2",
+          "title": "Hours-to-4-decimals axis and span labels are much less legible than the frame's seconds",
+          "state": "1-chain and every drop_motifs9 state",
+          "detail": "Axis ticks read '192.4000 h  192.4028 h  192.4056 h  192.4083 h  192.4111 h  192.4139 h' and the source chip reads '192.400-192.414 h'; the frames use '825 s ... 875 s' and '825-875 s'. Canon (spec sec 0, Time display) does say hours since recording start, so the unit is defensible, but four decimal places for a 50 s span costs the whole axis its readability, the tick labels' SVG text boxes overflow their 30px allotment, and the chip has to truncate to '192.40...' in the 1f/view-log state.",
+          "screenshot": "01-chain.png"
+        },
+        {
+          "severity": "P2",
+          "title": "Deleting a stage renumbers the survivor, putting two different '03's on screen at once",
+          "state": "1e-invalid-junction",
+          "detail": "After deleting 03 Symbolic encoding, Drop detection is renumbered to '03 Drop detection' and the junction pill reads '03 Drop detection needs Encoding . 02 Noise floor emits Signal', while the Undo toast directly below reads '03 Symbolic encoding deleted'. Frame chain-1e keeps it as '04 Drop detection' and the pill as '04 Drop detection needs Encoding', which avoids the collision and matches the canon numbering used by the failure copy ('run #134 failed at 04').",
+          "screenshot": "1e-invalid.png"
+        },
+        {
+          "severity": "P2",
+          "title": "Waiting rows are blank white boxes; the frames ghost the last result behind the wait line",
+          "state": "1g-heavy-stage-hpc, 1i-paused-result-in-place",
+          "detail": "Rows 03 Threshold to spans and 04 Span dedupe show only the centred text 'waits for 02's profile . resumes automatically after import' on an empty white plot area. Both frames draw a faint ghosted plot behind that line (as the 1d running state does correctly), which is what tells the reader the row is a plot that is waiting rather than an empty panel.",
+          "screenshot": "1g-hpc.png"
+        },
+        {
+          "severity": "P2",
+          "title": "Whole-channel time axis stops short of the span end",
+          "state": "1g-heavy-stage-hpc, 1i-paused-result-in-place",
+          "detail": "The shared axis shows four ticks, '0 h  200 h  400 h  600 h', leaving ~120 h of unlabelled width after the last tick. The frames show six, '0 h  144 h  288 h  433 h  577 h  721 h', ending at the 721 h span end so the reader can see the extent the chain covers.",
+          "screenshot": "1g-hpc-bottom.png"
+        },
+        {
+          "severity": "P2",
+          "title": "Scores row loses its y-axis caption and one label collides with the surrogate line",
+          "state": "1h-scores-chain",
+          "detail": "The matrix-profile row shows only '+15', '+8' and '0' on the y axis, with '+8' sitting on top of the horizontal surrogate p5 line, and no 'z-norm distance' caption. Frame chain-1h ticks 0/5/10/15 and carries 'z-norm distance' under the axis. The toolbar null chip also reads 'IAAFT 200x null' where the frame reads 'null IAAFT 200x'.",
+          "screenshot": "1h-scores.png"
+        },
+        {
+          "severity": "P2",
+          "title": "Insert modal reports 24 registry blocks, not 21, and truncates card signatures",
+          "state": "2-insert-stage",
+          "detail": "The header reads '4 of 24 blocks fit', the 'Doesn't fit at this point' count is 20, and the footer reads '24 blocks in the registry'. Frame chain-2 and spec sec 6.8 both say 21 ('Registry of 21 examples'). Separately, the cards are narrow enough that titles wrap to two lines ('Symbol smoothing', 'Surrogate generator') and type signatures ellipsise ('Encoding -> Enco...', 'Signal -> Signal...'), where the frame shows both in full on one line.",
+          "screenshot": "2-insert.png"
+        },
+        {
+          "severity": "P2",
+          "title": "Build/spec vocabulary leaks into user-facing copy",
+          "state": "live, 1-chain, source popover",
+          "detail": "Disabled reasons read '... . out of slice scope' on Analyse events, Pass to Review, and (in live mode) on the surrogate toggle and every row's bypass and duplicate. The source popover subtitle reads 'single channel . one span (P3)'. 'Slice' and the bare 'P3' are workplan/spec identifiers, not product language -- a reader of the app has no way to decode them. Frame chain-1h does show a spec reference but only inside a box explicitly labelled 'annotation . not part of the UI'.",
+          "screenshot": "00-live.png"
+        },
+        {
+          "severity": "P2",
+          "title": "Live mode clips the source chip and inerts the row controls the frames show as live",
+          "state": "live (#/analyse/chain, no template)",
+          "detail": "The source chip reads 'no source . send a span from Explo' -- hard-clipped mid-word with the caret cut off. In the same mode bypass, duplicate and the surrogate toggle are disabled on every row (reason 'out of slice scope'), so of the four row acts the frames show, only settings and delete do anything. All of these work in demo mode, so live mode is the degraded one.",
+          "screenshot": "zoom-live-source-chip-clipped.png"
+        },
+        {
+          "severity": "P2",
+          "title": "Small copy drifts from the frames",
+          "state": "1d-running, 1f-failed-block, 1g upload transition",
+          "detail": "1d: row 03's one-line caption is replaced by an em dash while it waits; frame chain-1d keeps '0.2 s segments -> dSAX letters' on the waiting row (spec sec 3 calls these captions load-bearing). 1f: the error card cites 'adapter drop_detection v3' where the frame says 'drop_detect v3' -- and the app's own run log correctly cites Adapters/detection/drop_detect.py, so the card disagrees with its own traceback. 1g: after Upload -> Check file -> Place, the row card reads only 'Result found in place', dropping both the './PROFILES . 1.9 GB . 14:31' line and the four check ticks that the 1i deep link renders correctly.",
+          "screenshot": "1g-upload-placed.png"
+        }
+      ]
+    }
+  ]
+}

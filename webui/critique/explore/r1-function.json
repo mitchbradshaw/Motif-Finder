@@ -1,0 +1,108 @@
+{
+  "lens": "function",
+  "round": 1,
+  "critic": "independent",
+  "app": "http://127.0.0.1:5173",
+  "screenshots_dir": "C:/Users/mmebr/Documents/CNN/webui/screenshots/critique/explore/r1-function",
+  "console_errors_seen": 0,
+  "pages": [
+    {
+      "page": "explore.corpus",
+      "score": 9,
+      "rationale": "Every region of frames 1 and 1b is present and live: recordings popover (filter, no-match empty, linked-fs/inferred/held-out status, Import link, pager), map-legend popover, four colour-by modes with an amber disagree ramp, bin select (57/28/114), a client-side time crop with three distinct validation messages, Show/Verdict/Morphology filters with demo badges and honest live text, an InfoTip on every rail section, bottom bar with disabled reasons, and the nothing-shown / zero-match / no-selection / loading / error / held-out states, all reachable by deep link. Popovers close by Escape and by outside click; double-click and Enter open a channel; both bottom-bar buttons navigate. No console errors, no dead clicks. Marked down for a rail readout that ignores the live filters it claims to count.",
+      "findings": [
+        {
+          "severity": "P1",
+          "title": "'matching' readout ignores the Verdict and Show filters",
+          "state": "default",
+          "detail": "Ticking Verdict > artifact repainted the map (580 -> 588 non-grey cells) and moved the bottom bar (CH4_A2 240 -> 247 annotations), but the rail foot stayed at '412 spans / across 11 of 16 channels'. Ticking Morphology tag > plateau moved the readout (412 -> 548 spans, 11 -> 12 channels) without touching the map. So the number tracks only the demo tag filters and the map tracks only the live ones. The inventory has this readout recomputing 'on every filter change' and its InfoTip says 'Spans that pass every filter, and how many channels they fall on'.",
+          "screenshot": "corpus-matching-vs-verdict.png"
+        },
+        {
+          "severity": "P2",
+          "title": "colour-by Seg exposes no checked state",
+          "state": "default",
+          "detail": "colour-by-annotations/detections/both/disagree carry only a CSS class 'on' - aria-checked and aria-pressed are both null. The sibling segs in Explore (cross-channel align-seg, Signal/Cross-channel mode seg) do set aria-checked='true', so this one is the odd one out for keyboard/AT users and for state assertions.",
+          "screenshot": "corpus-default.png"
+        },
+        {
+          "severity": "P2",
+          "title": "rail foot claims a hard zero while coverage is still loading",
+          "state": "default (slow bridge response)",
+          "detail": "On two runs of #/explore/corpus?rec=M2_aug_concat_fs1.mat&colour=annotations (3 s and 6 s settle) the rail foot read 'matching 0 spans / across 0 of 0 channels' and every tag count read 0, while the Verdict counts in the same rail correctly read '—'. The readout only corrected itself (412 spans / 11 of 16) after a filter was toggled. Spec section 3: 'Nothing claims more than it knows' - an unknown count should show as unknown, not as zero.",
+          "screenshot": "corpus-verdict-filters.png"
+        }
+      ]
+    },
+    {
+      "page": "explore.signal",
+      "score": 9,
+      "rationale": "The richest page in the set and almost everything works. Three tiers live, draggable span box and grips, motif nav, zoom in/out/fit, band click selects a motif; detections picker regroups by run/method/template with select all/none, colour-by-run, hide-surrogates and unadjudicated-only; span legend and three InfoTips; tag chips with three distinct validation messages plus Esc-cancel; Save span / Take span / Send span all write in memory, toast, and the tags and note survive navigating to Corpus and back; the drawer has all three tabs, ten filters with working menus and id/score validation, sortable columns, row selection, bulk tag popover, Stage for Analyse, Send selected to Review, a real CSV/JSON download (CH4_A2_annotations.csv), a working pager with disabled reasons, and the 'not wired yet: ... POST /api/chain/source' toast on Analyse events; the keyboard map (A, R, T, C, D, /, ?, 1-3, [ ], Home, Ctrl+A, L) works. No console errors, no dead clicks. Marked down for the motif deep link.",
+      "findings": [
+        {
+          "severity": "P1",
+          "title": "?motif=<n> deep link opens a different motif than the URL names, and a reload changes it again",
+          "state": "motif",
+          "detail": "A fresh load of #/explore/signal/4?motif=233 opens MOTIF_452 - the nav counter reads '452 / 1,508' while the address bar still says 233 (reproduced identically on three loads). #/explore/signal/4?motif=453 resolves correctly on first navigation, but pressing reload on that same URL shows MOTIF_833. Selecting a motif rewrites the URL correctly (motif-next -> ?motif=454 / MOTIF_454), so the write side is right and the read side resolves against a list that is not yet complete. Consequence: a screenshot URL does not reproduce its view, and the URL and the motif tier can disagree on screen.",
+          "screenshot": "signal-motif-233.png"
+        },
+        {
+          "severity": "P2",
+          "title": "Esc does nothing inside the drawer, though the page's own Shortcuts tab advertises it",
+          "state": "drawer-annotations",
+          "detail": "With the drawer open, a row clicked and three rows ticked, Escape left the drawer open and the footer still reading '3 selected'. The drawer's Shortcuts tab lists 'Esc - clear selection' and the inventory has Esc closing the drawer when focus is inside it; neither happens. (Escape does correctly close the span legend, the detections picker and the bulk-tag popover, so the key is not dead everywhere.)",
+          "screenshot": "signal-drawer-esc.png"
+        },
+        {
+          "severity": "P2",
+          "title": "detections drawer opens with scope 'whole channel' where the frame shows 'visible span'",
+          "state": "drawer-detections",
+          "detail": "The scope filter reads 'whole channel' on arrival; frame 2c sets it to 'visible span'. Everything else in the filter row matches the frame ('method matrix profile', 'score >= 0.60', '96 of 1,284 detections match'), so the tab's first view counts a different population than the frame's caption implies.",
+          "screenshot": "signal-drawer-detections.png"
+        }
+      ]
+    },
+    {
+      "page": "explore.cross-channel",
+      "score": 9,
+      "rationale": "Every control in frames 3 and 3b is present and does what the inventory says: reference select re-routes and recomputes, the channels picker enforces the 10-channel P8 cap with a visible reason and pins the reference ('the reference is always shown') and flags the shared-ground partner, the window select disables the long option with its reason, the align seg toggles as-recorded/lag-aligned and updates the header subtitle and the URL, the lag-mode select fires a real 'computing lag / 6 channels' state, max lag re-bins, the four classification tiles highlight and dim (opacity 0.35) and toggle off, the questions disclosure lists the four questions, row labels open Signal, Alt+ArrowUp reorders, the shared-ground link opens Settings, and the three Take-it-further rows produce the right toast / staging / Discovery route. A shared crosshair appears on hover. All eight states deep-link, including too-few-channels, held-out and unknown-channel. No console errors, no dead clicks.",
+      "findings": [
+        {
+          "severity": "P2",
+          "title": "bin badges carry no tooltip explaining the bin",
+          "state": "as-recorded",
+          "detail": "Each badge is a bare span (<span class=\"k-badge t-red\" data-testid=\"bin-CH3_A2\">artifact</span>) with no title attribute; hovering shows nothing. The inventory gives each bin its rule as a tooltip ('artifact: r >= 0.95 at ~0 lag - likely a shared electrical path', 'propagation: lagged match with r >= 0.6', 'independent: peak r < 0.6', 'no match: no peak within max lag'). Only the card-level (i) explains binning, so the thresholds behind an individual row are unreachable.",
+          "screenshot": "cross-default.png"
+        },
+        {
+          "severity": "P2",
+          "title": "a lag outside max lag is still printed next to 'no match'",
+          "state": "max-lag-10",
+          "detail": "At #/explore/cross-channel/4?maxlag=10 the CH5_B1 row reads '-18.4 s / 0.31 / no match' - a lag 8 s outside the search bound shown as if it had been measured under that bound. The inventory says lags beyond the bound become '— s' / '—'. The bin itself flips correctly and the tiles recount (independent 1 -> 0, no match 1 -> 2).",
+          "screenshot": "cross-maxlag10-row.png"
+        }
+      ]
+    },
+    {
+      "page": "explore.span-edit",
+      "score": 9,
+      "rationale": "The most complete page of the four functionally. Banner honours ?queue/?candidate/?of, both banner buttons work, Ctrl+Enter saves and Esc returns; start/end accept '534,967', '#534967' and '148.6019 h', the steppers and the focused-grip arrow keys nudge one sample (Shift x10), grips drag, and every invalid case produces its own message ('type a sample (#534967) or hours (148.6019 h)', 'start must be before end', 'a span needs at least 2 samples', 'outside the recording (0 - 721 h)') with Save disabled and the reason 'fix the extent first' / 'nothing changed - drag a handle or nudge start / end'. All four snap rules re-snap both edges. Saving shows Saving..., writes rev 2, toasts 'm-1846 saved as rev 2 / annotation a-2077', navigates back with &edited=m-1846, and the write persists: revisiting the route shows rev 1 'kept' / rev 2 'current' with the saved extent and the saved callout. Leaving with edits toasts 'edit discarded'. pristine / edited / invalid / typed-invalid / saved / held-out / unknown-span all deep-link. No console errors, no dead clicks.",
+      "findings": [
+        {
+          "severity": "P2",
+          "title": "Return/Save fall back to a hard-coded Review candidate instead of the queue in the URL",
+          "state": "pristine with ?queue=q-15&candidate=7&of=23",
+          "detail": "The banner correctly reads 'candidate 7 of 23 / drop_motifs9 run 128 / q-15', but 'Return without saving' lands on #/review/queue/q-12/c-0343 - the wrong queue and a candidate that has nothing to do with the hand-off. With an explicit &return=%23%2Freview%2Fqueue%2Fq-15%2Fc-0999 both buttons go exactly where asked, so only the fallback is wrong: it should be built from ?queue= rather than fixed to q-12/c-0343.",
+          "screenshot": "spanedit-default.png"
+        },
+        {
+          "severity": "P2",
+          "title": "span card reads '1 px = 0.20 s' where the frame reads '1 px = 0.2 s'",
+          "state": "pristine",
+          "detail": "Trivial copy difference in the THE SPAN card head (right-aligned scale note). Everything else in that head matches frame 4 word for word.",
+          "screenshot": "spanedit-default.png"
+        }
+      ]
+    }
+  ]
+}

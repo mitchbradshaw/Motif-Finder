@@ -1,0 +1,114 @@
+{
+  "lens": "fidelity",
+  "round": 1,
+  "screenshots_dir": "C:/Users/mmebr/Documents/CNN/webui/screenshots/critique/review/r1-fidelity",
+  "status": "complete",
+  "method": "Playwright (conda python), chromium, viewport 1440x900. Every frame PDF in prototyping/imgs/review read and compared side by side with the live page in each smoke_pages/review.json state plus reached-by-click states. No browser console errors or page errors were observed in any state.",
+  "pages": [
+    {
+      "page": "review.inspector",
+      "score": 9,
+      "rationale": "All six inspector frames (1 candidate, 1b other channels, 3 queue rail, 4 evidence rail, 5 blind verification, 6 seed promoted) render at 1440x900 with the frames' region hierarchy, pill set, card order, copy and canon values intact (c-0343, M2_aug fs1 CH4_A2, 192.371 -> 192.381 h, run r-0412, rank 37 of 1,284, d-88213, F-03/F-11/F-07, E-0217, w-40211, cnn_windows_v3 manual, 33/40). Plot conventions hold: light ground, mV never normalised, hours since start, other-channels paged 1-6 of 16. Every interaction behaves: rails toggle, popovers open/close on Escape, queue/blind/shortcuts popovers, unblind confirm modal, verdict keys and cards, auto-advance to the next unjudged item (which correctly opens the cluster page when the next unit is a cluster), class 9 implying an artifact verdict, Ctrl Z undo, S promotion with new-family validation, tag validation, padding segments, nearest-family overlay switching, queue-rail filters, empty and not-found states. Also correctly implements the inventory's per-queue verdict-key rule (q-18 hides S/A/U) and blind masking in the evidence rail. What keeps it off 10 is a handful of small visual/copy drifts from the frames rather than anything missing.",
+      "findings": [
+        {
+          "severity": "P2",
+          "title": "Context x-domain and Other-channels caption differ from the frame's numbers",
+          "state": "1-candidate / 1b-other-channels",
+          "detail": "At +/-120 s the build draws 192.338 -> 192.414 h (ticks 192.338 / 192.357 / 192.376 / 192.395 / 192.414) and the popover header reads 'same 192.338 -> 192.414 h'. Frames 1 and 1b draw 192.338 / 192.355 / 192.371 / 192.388 / 192.405 h and 'same 192.338 -> 192.405 h'. The build's arithmetic is the correct one for a 35 s span with +/-120 s padding, so this is the frame being loose, but the tick copy and the caption no longer match the drawn canon.",
+          "screenshot": "webui/screenshots/critique/review/r1-fidelity/insp-1b-other-channels.png"
+        },
+        {
+          "severity": "P2",
+          "title": "Span label 'c-0343 - 35.0 s' is drawn on top of the trace",
+          "state": "1-candidate (all queues and the cluster page)",
+          "detail": "The blue band label sits inside the plot area and the candidate's first peak passes straight through the text. Frame 1 keeps the label clear of the trace, and the inventory's plot table says the label goes 'above the plot area, off the trace (backlog: labels moved off traces)'. Same on the cluster page ('c-0373 - 33.0 s - member 3 of 7').",
+          "screenshot": "webui/screenshots/critique/review/r1-fidelity/insp-1-default.png"
+        },
+        {
+          "severity": "P2",
+          "title": "Candidate and F-03 medoid lines are nearly the same hue in the Shape card",
+          "state": "1-candidate",
+          "detail": "Candidate blue and F-03 #30B0C7 read as two shades of the same colour at 2 px; the frame draws candidate blue against a clearly distinct magenta medoid. The D8 palette is the right call (inventory C3) but C3's own contrast note - 'keep line widths/dash distinct if needed' - has not been acted on, so the overlay is harder to read than the frame's.",
+          "screenshot": "webui/screenshots/critique/review/r1-fidelity/insp-1-default.png"
+        },
+        {
+          "severity": "P2",
+          "title": "Queue rail truncates copy the frame shows in full",
+          "state": "3-queue-rail",
+          "detail": "'exemplar E-0102 - clustered - adjudicati...' is ellipsised on the Seed search row and the run Select reads 'r-0412 mp_drops_...'; frame 3 shows both in full at the same rail width. The score readout is '0.62-1.00' where the frame (and the inventory copy list) has '0.62 - 1.00'.",
+          "screenshot": "webui/screenshots/critique/review/r1-fidelity/insp-3-queue-rail.png"
+        },
+        {
+          "severity": "P2",
+          "title": "Evidence rail stage strip wraps, pushing the write-target footer below the fold",
+          "state": "4-evidence-rail",
+          "detail": "'Source > Bandpass > Matrix profile' fits one line and 'Threshold' wraps to a second; combined with an extra 'electrode flag' row the History section and the grey 'Writes one adjudication row on d-88213.' footer fall below 900 px. Frame 4 fits every section plus the footer in the viewport. The footer is the spec's write-target statement (SS10.7), so it is the one line that should not need scrolling.",
+          "screenshot": "webui/screenshots/critique/review/r1-fidelity/insp-4-evidence-rail.png"
+        },
+        {
+          "severity": "P2",
+          "title": "Collapsed queue rail shows ~10 thumbnails and a '+932' counter, leaving the lower third empty",
+          "state": "1-candidate",
+          "detail": "Frames 1, 5 and 6 fill the 900 px rail with roughly 20 sparkline thumbnails; the build stops at ten, prints '+932' and leaves ~230 px of blank rail. Density reads noticeably lighter than the frame.",
+          "screenshot": "webui/screenshots/critique/review/r1-fidelity/insp-1-default.png"
+        },
+        {
+          "severity": "P2",
+          "title": "Empty-queue state still shows undimmed, mostly unjudged-looking rail thumbnails",
+          "state": "queue empty (?state=empty)",
+          "detail": "With '0 left' and '1,284 of 1,284 judged' the collapsed rail draws twelve full-opacity thumbnails and only two verdict dots. Per the spec the rail dims judged items and carries a verdict dot; in a finished queue every thumbnail should read as judged.",
+          "screenshot": "webui/screenshots/critique/review/r1-fidelity/insp-empty.png"
+        },
+        {
+          "severity": "P2",
+          "title": "Other-channels artifact factor line wraps 'electrode flag none' onto its own line",
+          "state": "1b-other-channels",
+          "detail": "Frame 1b keeps 'coherence in span 0.08 (flag >= 0.5)  clipping none  step change none  electrode flag none' on one line; the build's popover is narrower, so the last factor drops to a second line under 'coherence'.",
+          "screenshot": "webui/screenshots/critique/review/r1-fidelity/insp-1b-other-channels.png"
+        }
+      ]
+    },
+    {
+      "page": "review.cluster",
+      "score": 8,
+      "rationale": "Frames 2 and 7 are both reproduced closely: title chips and cohesion/family/artifact pills, the meta line with 'showing member c-0373', the Member-in-context card with the member-3-of-7 band label, the seven MemberCards on a shared mV scale sorted by distance with c-0377 flagged amber and excluded, the batch line with the 0.45-limit note, and frame 7's blue 'Batch undone' banner with auto-advance paused and Redo / Ctrl Shift Z. The purple cluster bracket is drawn down the collapsed rail. Interactions all work: member selection, include-all / exclude-flagged (correctly disabled when nothing is flagged), batch checkbox, batch write, cluster-aware Ctrl Z, Redo, the sequence cluster 13 variant, and the alias route. The deductions are one genuine layout break in the rail-open state and a small set of visual drifts.",
+      "findings": [
+        {
+          "severity": "P1",
+          "title": "Title pills are truncated and clipped when the queue rail is open",
+          "state": "batch-ready with ?rail=queue (cluster 12 and cluster 13)",
+          "detail": "With the queue rail open the status pill collapses to 'status 7...' / 'status 3...' - the verdict count the pill exists to carry is unreadable - and the 'artifact likelihood low' pill is cut off by the collapsed evidence rail, leaving only a green dot and a sliver of 'artifact lo'. SS10.2 makes these pills always visible, and frame 3 shows the intended narrow-width handling: shorten the copy ('artifact likelihood low' -> 'artifact low') rather than clip. The inspector does exactly that at the same width; the cluster page does not, because its cohesion pill ('mean d 0.21 (6 included) - worst 0.61') eats the row.",
+          "screenshot": "webui/screenshots/critique/review/r1-fidelity/clu-13-sequence-rail.png"
+        },
+        {
+          "severity": "P2",
+          "title": "Member id wraps to two lines on the nearest member card in narrow layouts",
+          "state": "batch-ready with ?rail=queue",
+          "detail": "The extra 'nearest' label the build adds beside the id (not in frame 2) squeezes the id, so c-0371 renders as 'c-' / '0371' on two lines, and c-0377's 'd 0.61' / 'least similar' also wraps. Frame 2 keeps each card's id on one line and its distance and 'least similar' on one row.",
+          "screenshot": "webui/screenshots/critique/review/r1-fidelity/clu-2-rail-open.png"
+        },
+        {
+          "severity": "P2",
+          "title": "Collapsed-rail 'mean d' reads 0.21 where the frame prints 0.24",
+          "state": "2-batch-ready / 7-batch-undone",
+          "detail": "Frames 2 and 7 show 0.24 in the mean-d micro-stat beside a pill that says 'mean d 0.21 (6 included)'. The build shows 0.21 in both. This follows the inventory's C9 recommendation and is the internally consistent number, so it is deliberate - noted only because the rendered value differs from the frame a reviewer will hold it against.",
+          "screenshot": "webui/screenshots/critique/review/r1-fidelity/clu-2-batch-ready.png"
+        },
+        {
+          "severity": "P2",
+          "title": "Member-in-context x ticks differ from the frame's",
+          "state": "2-batch-ready",
+          "detail": "Build: 204.150 / 204.169 / 204.187 / 204.206 / 204.225 h. Frame 2: 204.150 / 204.167 / 204.183 / 204.200 / 204.217 h. Same cause as the inspector - the build computes a true +/-120 s window around a 33 s span - but the drawn domain no longer matches the frame.",
+          "screenshot": "webui/screenshots/critique/review/r1-fidelity/clu-2-batch-ready.png"
+        },
+        {
+          "severity": "P2",
+          "title": "'Exclude flagged' is the link label on a cluster with nothing flagged",
+          "state": "sequence cluster 13",
+          "detail": "Cluster 13's three members are all within the 0.45 limit, so all are included and the link reads 'Exclude flagged' in a disabled state. Frame 2's affordance is 'Include all', which only flips to 'Exclude flagged' after it has been used. Not a dead click (the button is properly disabled, tabindex -1), but the label describes an action that has no members to act on.",
+          "screenshot": "webui/screenshots/critique/review/r1-fidelity/clu-13-sequence-rail.png"
+        }
+      ]
+    }
+  ]
+}

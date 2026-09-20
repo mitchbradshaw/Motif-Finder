@@ -1,0 +1,184 @@
+{
+  "lens": "fidelity",
+  "round": 1,
+  "status": "complete",
+  "viewport": "1440x900",
+  "base_url": "http://127.0.0.1:5173",
+  "screenshots_dir": "C:/Users/mmebr/Documents/CNN/webui/screenshots/critique/explore/r1-fidelity",
+  "frames_read": [
+    "prototyping/imgs/explore/explore-1-corpus.pdf",
+    "prototyping/imgs/explore/explore-1b-corpus-menus.pdf",
+    "prototyping/imgs/explore/explore-2-signal.pdf",
+    "prototyping/imgs/explore/explore-2a-signal-popovers.pdf",
+    "prototyping/imgs/explore/explore-2b-signal-drawer.pdf",
+    "prototyping/imgs/explore/explore-2c-drawer-detections.pdf",
+    "prototyping/imgs/explore/explore-2d-drawer-shortcuts.pdf",
+    "prototyping/imgs/explore/explore-3-cross-channel.pdf",
+    "prototyping/imgs/explore/explore-3b-cross-channel-aligned.pdf",
+    "prototyping/imgs/explore/explore-4-span-edit.pdf"
+  ],
+  "note": "No browser console errors or page errors were seen in any state on any of the four pages. One Vite overlay appeared naming src/interrogation/index.tsx (another workspace) and was discounted after a reload, per brief.",
+  "pages": [
+    {
+      "page": "explore.corpus",
+      "score": 9,
+      "rationale": "Every region of frames 1 and 1b is present and in the right place: the toolbar (recording selector with db icon, mono file name and meta, pager, time RangeSlider with two handles plus value chip, bin select, four-way colour-by Seg), the COVERAGE MAP card (mono head, 'both . spans per bin' with the low->high ramp, (i), 'channel' column, 16x57 rounded-cell matrix, blue outline on CH4_A2, 7-tick hour axis), the four-section right rail with per-section (i)s and the pinned 'matching 412 spans / across 11 of 16 channels' foot, and the bottom bar with the counts line, the table-icon 'Cross-channel from CH4_A2' and the primary 'Open CH4_A2'. The two frame-1b popovers are faithful (filter field, recording/ch/length/fs/status table, linked fs1/fs2, lock + 'held out . locked', Import link, 'page through recordings'; the legend's three swatch rows and italic footnote, with the disagree swatch drawn amber as the inventory's conflict note requires). Beyond the frames it carries nothing-shown, zero-match, no-selection, loading, error and held-out, an amber ramp in disagree mode, hatched unreviewed bins, and a runs checklist on the canon run ids. Interactions are live, not decorative: double-click opens #/explore/signal/7, 'Cross-channel from' navigates, the time chip crops to 100-300 h and moves the axis and slider. Only small visual and data deltas remain.",
+      "findings": [
+        {
+          "severity": "P2",
+          "title": "Pager reads 1 / 6, not the canon 1 / 5",
+          "state": "default",
+          "detail": "The toolbar pager shows '1 / 6' because the live DB holds six recordings (M2_aug fs1/fs2, M2_concat_fs1.mat, Fig2A_dt0p1.csv, M4_aug, Mushroom_260720_0509_...). Frame 1 shows '1 / 5' and the inventory explicitly says to count all five canon recordings including M4. Defensible on a live page, but it is a visible copy difference from the frame.",
+          "screenshot": "explore.corpus--default.png"
+        },
+        {
+          "severity": "P2",
+          "title": "matching readout stays at 412 spans while the map says 'nothing shown'",
+          "state": "nothing-shown",
+          "detail": "With both Show checkboxes off the map correctly greys out and overlays 'nothing shown / Tick annotations or detections to colour the map.', but the rail foot still reads '412 spans / across 11 of 16 channels'. Unchecking the same box by hand does update it (0 spans / 0 of 16), so only the forced ?state=nothing-shown path is stale. The inventory says the readout recomputes on every filter change, and section 3 says nothing should claim more than it knows.",
+          "screenshot": "explore.corpus--nothing-shown.png"
+        },
+        {
+          "severity": "P2",
+          "title": "No inferred-fs row in the recordings popover, so an amber frame detail is never drawn",
+          "state": "recordings-menu",
+          "detail": "Frame 1b shows a row with an amber '10 Hz?' in the fs column and 'fs inferred' in status (L_LM_Jul_26_J). The live list has no such row, so that amber convention is unexercised anywhere on the page; every status cell is either a linked-fs arrow or 'held out . locked'. The build shows live rows (M2_concat_fs1.mat, Fig2A_dt0p1.csv, Mushroom_260720_0509_...) rather than the section 0 canon five.",
+          "screenshot": "explore.corpus--recordings-menu.png"
+        },
+        {
+          "severity": "P2",
+          "title": "Matrix rows are denser than the frame, leaving a gap above the bottom bar",
+          "state": "default",
+          "detail": "Rows measure about 33-34 px (CH1_A1 at y 183 to CH16_D2 at y 693) against the frame's ~39 px (y 170 to y 761). The map card therefore ends near y 745 while the bottom bar sits at y 770-810, where the frame runs the matrix to y 770 and the bar at y 826-881. The page reads slightly more compressed and top-weighted than the frame.",
+          "screenshot": "explore.corpus--default.png"
+        },
+        {
+          "severity": "P2",
+          "title": "held-out and error states drop the entire right rail",
+          "state": "held-out",
+          "detail": "Selecting M4_aug replaces map and rail with a ~760 px LockedCard pinned top-left and the bottom bar, leaving roughly two thirds of the 1440x900 page empty. The same happens in ?state=error. No frame covers these, but the page silhouette collapses rather than keeping the rail as a disabled frame, which is jarring next to the populated states.",
+          "screenshot": "explore.corpus--held-out.png"
+        }
+      ]
+    },
+    {
+      "page": "explore.signal",
+      "score": 8,
+      "rationale": "All five Signal frames are reproduced with unusual accuracy. Frame 2: three tiers on one axis (CHANNEL card with envelope, blue span box with two grooved grips, coverage ribbon and detection-density ribbon, 7-tick axis; SPAN card with head range, motif pager, three zoom icon buttons and (i), coloured motif bands with caps and the orange selected band labelled in place, legend; MOTIF card with the range/duration/status head, context select, overlay checkbox, ONSET/END rules over the tinted region, and the 'nearest family F-03 -> d 0.19 . tagged . unadjudicated' footer with both hand-off buttons), plus the span-action card (tags chips, +tag, note, three buttons, the 'saving stores tags and note only' caption) and the four collapsed ribbons. Frame 2a: both popovers, with the run checklist carrying the exact six canon runs, ids, methods, counts and the three footer checkboxes, and 'Reading the span'. Frames 2b/2c: the drawer overlays the lower screen with the overview intact, and both tabs carry the full ten-field filter grid, active-count pill, match line, the exact column sets, verdict/adjudication colour coding, and the correct footers (no tagging on Detections, per section 4.1). Frame 2d: the shortcuts grid is line-for-line identical. Keyboard (2, D), tag validation, the Review toast and by-method/by-template regrouping all work. Marked down for one plotting defect on the frame's hero element and a cluster of small copy and layout slips.",
+      "findings": [
+        {
+          "severity": "P1",
+          "title": "overlay F-03 medoid flattens the live motif trace onto the top axis",
+          "state": "motif (overlay on)",
+          "detail": "Ticking 'overlay F-03 medoid' draws the teal medoid correctly, but the shared y-range then spans the demo medoid's -0.44 to -0.77 mV while the live motif varies by about 0.0002 mV. The orange motif trace collapses to a dead-straight line pinned on the top of the plot, overlapping the '-0.44 mV' axis label and partly clipped by the card edge. Frame 2 shows the orange trace and the teal medoid at comparable amplitude, both clearly readable. The 'never normalised' rule is respected, but the resulting picture reads as a broken or absent trace; the demo medoid should either not be drawn over a live trace or be drawn on its own scale with that said in the caption.",
+          "screenshot": "zoom-signal-overlay.png"
+        },
+        {
+          "severity": "P2",
+          "title": "?motif=233 selects and labels MOTIF_452",
+          "state": "motif",
+          "detail": "The deep link explore/signal/4?motif=233 lands on a motif labelled MOTIF_452 at 213.507-213.515 h with the pager at '452 / 1,508'. The URL id and the on-screen label disagree, and neither matches the canon MOTIF_233 . 277.312 - 277.318 h . 21.6 s in frame 2. The label appears to be derived from the list index rather than from the id in the URL.",
+          "screenshot": "explore.signal--motif.png"
+        },
+        {
+          "severity": "P2",
+          "title": "Motif pager shows a bare dash for the index when no motif is selected",
+          "state": "default",
+          "detail": "The SPAN head reads '< - / 1,508 >'. Frame 2 reads '< 233 / 344 >'. The lone hyphen in the numerator position looks like a rendering fault rather than an intentional 'none selected' marker; '- / 1,508' would read better as a muted 'no motif' or a greyed pager.",
+          "screenshot": "explore.signal--default.png"
+        },
+        {
+          "severity": "P2",
+          "title": "The four bottom ribbons are cut off at the viewport edge",
+          "state": "default",
+          "detail": "At 1440x900 the ribbon row's bottom edge measures y 918; the inner .page container scrolls 898 into 856, so an 18 px scroll is needed before 'Filters & search / Annotations 708 / Detections 1,284 / Keyboard shortcuts' are fully readable. Frame 2 fits them at y 838-866 with the page complete in one screen. Small, but it is the first thing a reader sees clipped.",
+          "screenshot": "explore.signal--default.png"
+        },
+        {
+          "severity": "P2",
+          "title": "Detections picker footer wraps, and hide-surrogates does not hide #129 from the by-method rows",
+          "state": "detections-picker / detections-picker-by-method",
+          "detail": "Frame 2a puts 'colour by run', 'hide surrogates' and 'unadjudicated only' on one footer row; here 'unadjudicated only' wraps to a second line. In the by-method view 'hide surrogates' is ticked yet the matrix-profile row still reads '2 runs: #128, #129', naming the surrogate run it claims to hide.",
+          "screenshot": "zoom-picker-by-method.png"
+        },
+        {
+          "severity": "P2",
+          "title": "Drawer Detections 'scope' defaults to whole channel, not visible span",
+          "state": "drawer-detections",
+          "detail": "The tenth filter reads 'scope: whole channel'; frame 2c reads 'scope: visible span'. The match line still reads '96 of 1,284 detections match', matching the frame, so the two disagree about what produced 96.",
+          "screenshot": "explore.signal--drawer-detections.png"
+        },
+        {
+          "severity": "P2",
+          "title": "SPAN mV axis labels collide with the plot's left edge",
+          "state": "default",
+          "detail": "The bottom label ('-0.668 mV' on CH4_A2) is struck through by the plot frame's left rule, and the top label sits half outside the plot ground. Frame 2 sets '+0.4 mV / 0 / -0.4 mV' clear of the trace area. Live raw values are wider strings than the frame's, and the gutter was not widened for them.",
+          "screenshot": "explore.signal--default.png"
+        }
+      ]
+    },
+    {
+      "page": "explore.cross-channel",
+      "score": 9,
+      "rationale": "Frames 3 and 3b are matched region for region: the six-control toolbar (reference, channels 6 of 16, window MOTIF_233 +/- 20 s, the as recorded | lag-aligned Seg, lag computed on window, max lag +/-30 s, (i)); the channel stack with its mono head, the blue reference trace with the tinted motif window and drag handles, and the right-hand lag / r / bin readouts with the correct colour semantics (reference blue, artifact red, propagation amber, independent green, no match grey); the Classification card with four counted tiles, 'pairs against CH4_A2 reference' and the amber shared-ground note; the 'Take it further' card with the same three titled rows and captions; and the collapsed 'Open design questions 4 . multivariate direction parked'. It goes past the frames where it matters: lag-aligned actually shifts every trace by its lag (frame 3b does not), clicking a classification tile dims the non-matching rows, max lag +/-10 s reclassifies CH5_B1 and updates the tile counts, the channels picker carries a 'shared ground' badge and a '6 of 16 . cap 10' foot, and the too-few / computing / unknown-channel / held-out states all exist. Only small honesty and copy slips.",
+      "findings": [
+        {
+          "severity": "P2",
+          "title": "A 'no match' row keeps showing its lag and r",
+          "state": "max-lag-10",
+          "detail": "With max lag +/-10 s, CH5_B1's bin flips to 'no match' and the tiles update to 0 independent / 2 no match, but the row still prints '-18.4 s' and 'r 0.31' - a lag outside the window it was just declared unmatched by. Frame 3's own no-match row (CH6_B1) prints '- s' and '-'. The build does that for CH6_B1 but not for the newly unmatched row.",
+          "screenshot": "explore.cross-channel--max-lag-10.png"
+        },
+        {
+          "severity": "P2",
+          "title": "Computing state shows final bin badges while lag and r are still placeholders",
+          "state": "computing",
+          "detail": "During 'computing lag . 6 channels' the lag and r columns correctly show muted ellipses and the classification tiles blank to '...', but the bin column still shows artifact / propagation / propagation / independent / no match - answers that depend on the lag and r not yet computed. Section 3's 'nothing claims more than it knows' argues these should be placeholders too.",
+          "screenshot": "explore.cross-channel--computing.png"
+        },
+        {
+          "severity": "P2",
+          "title": "Ungrammatical action title when one channel is selected",
+          "state": "too-few-channels",
+          "detail": "The Take it further row reads 'Apply a template across these 1 channels'. The frame's copy is '... these 6 channels'; the singular case needs 'this 1 channel'.",
+          "screenshot": "explore.cross-channel--too-few-channels.png"
+        },
+        {
+          "severity": "P2",
+          "title": "Expanding Open design questions pushes the list below the fold",
+          "state": "questions-open",
+          "detail": "The disclosure opens in place at y 848, so only questions 1 and 2 are partly visible at 1440x900 and there is no scroll-into-view. A reader who opens the card sees a truncated list and has to discover the scroll themselves.",
+          "screenshot": "explore.cross-channel--questions-open.png"
+        }
+      ]
+    },
+    {
+      "page": "explore.span-edit",
+      "score": 9,
+      "rationale": "Frame 4 is reproduced closely and the data-model rules behind it are honoured. The amber banner carries the dot, 'Editing m-1846 for Review', 'candidate 12 of 50 . drop_motifs9 run 128', 'Return without saving' and 'Save and return to Review ->' (correctly disabled until an edit exists). The breadcrumb and the right-hand 'span editing always happens here, so human geometry stays in the human store' line match. The CHANNEL strip highlights the edited span in amber; THE SPAN card carries the frame's instruction line, the '1 px = 0.20 s' scale, both blue grip handles, the original extent drawn as a grey rect behind the blue new extent, and the two-swatch legend. The Extent card has start and end with hour plus sample index and nudge steppers, duration, the four snap-to chips with 'steepest sample' selected, the original-onset-rule caption and the amber 'vs original start -4 s . end +2 s . duration +6 s' - and snapping genuinely re-snaps (trough moved 18 s to 25 s and the deltas to -8 / +5 / +13). 'What saving writes' states rev 1 detection d-0412 run 128 machine kept and rev 2 annotation a-2077 human current, with all three section 4.2 statements plus a fourth about F-03 going partially stale. Both banner buttons navigate back into the Review queue, and invalid / typed-invalid / saved / unknown-span / held-out states all exist, with the saved callout naming rev 2 and a-2077 and noting the family card still shows one member.",
+      "findings": [
+        {
+          "severity": "P2",
+          "title": "Start and end read as decimal hours, not the frame's clock time",
+          "state": "pristine / edited",
+          "detail": "The fields read '148.6019 h . #534,967' and '148.6069 h . #534,985'; frame 4 reads '148:36:07 . #534,967' and '148:36:25 . #534,985'. Section 0 makes hours-since-start the display default, so the build has the better claim, but this is the single largest copy difference from the frame on this page and it also costs the reader the seconds resolution the frame gave them for a 18-sample edit.",
+          "screenshot": "explore.span-edit--pristine.png"
+        },
+        {
+          "severity": "P2",
+          "title": "The pristine landing extent is not the frame's span",
+          "state": "pristine",
+          "detail": "?state=pristine opens on #534,971-#534,983, '12 s . 12 samples'. Frame 4's m-1846 is #534,967-#534,985, '18 s . 18 samples', and section 0 puts F-03 at about 21 s. Only ?state=edited reproduces the frame's numbers, so the default state a reviewer lands on shows a span that matches neither the frame nor the canon.",
+          "screenshot": "explore.span-edit--pristine.png"
+        },
+        {
+          "severity": "P2",
+          "title": "Handles sit inside the new extent rather than on its edges at small widths",
+          "state": "edited",
+          "detail": "At the 18-sample width the two grips are drawn at the inner edges of the blue box and visually merge with the grey original-extent rule behind them, so at a glance there appear to be four vertical rules in a 90 px band. Frame 4's grips sit clearly on the blue box's left and right borders with the grey original outside them.",
+          "screenshot": "zoom-span-edit-extent.png"
+        }
+      ]
+    }
+  ]
+}

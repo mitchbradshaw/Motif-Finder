@@ -1,0 +1,106 @@
+{
+  "lens": "function",
+  "round": 1,
+  "status": "complete",
+  "screenshots_dir": "C:/Users/mmebr/Documents/CNN/webui/screenshots/critique/chain/r1-function",
+  "pages": [
+    {
+      "page": "analyse.chain",
+      "score": 8,
+      "rationale": "Every frame (1, 1b-1i, 2) is present as a working surface and every deep link in webui/smoke_pages/analyse.json renders with zero console errors, zero page errors and no 4xx/5xx. Toolbar, rows, insert junctions, footer, HPC card and paused card are all there; the insert-stage modal implements SS6.4 literally (three contract pills, 24 registry cards, 20 incompatible ones kept visible and disabled each with its own reason, show-incompatible toggle, category tabs, sort, detail panel with defaults/cost/null/side-inputs, 'inserting at the end changes the terminal type'); the history popover has four working filter dropdowns, search, fits-current-source, pager and per-row Apply-disabled reasons; import has search, kind tabs, fit reasons and a disabled Apply with a visible reason; run simulates per-stage progress and fails in place at 04 with a real log modal; delete/move re-validate into a red junction with two fix actions and Run disabled; undo works from the toast and from Ctrl Z; live mode is genuinely live (example span pulls real mV from the bridge). Marked down from 9 for four data-level defects: the footer's 'Pass N to Review' loses its N, the run-history 'result' column is a header with nothing under it, Save-as-template writes nowhere the page can see it, and the paused footer goes stale after Continue finishes.",
+      "findings": [
+        {
+          "severity": "P1",
+          "title": "Footer button renders 'Pass  to Review' - the N is missing",
+          "state": "1-chain (also 1c, 1f, live)",
+          "detail": "The primary footer hand-off renders literally 'Pass  to Review' (two spaces where the count belongs; confirmed in the DOM: <button data-testid=\"pass-to-review\">...Pass  to Review</button>). Frame chain-1 shows 'Pass 6 to Review' and SS6.3 specifies 'Pass N to Review'. The number is available on the same screen - the footer headline reads 'last run - 6 detections kept' and row 04 reads '23 raw - 6 kept after dedupe'. The count does render in one place (after Continue on sax_vs_mp the button reads 'Pass 5 to Review'), so this is a formatting bug, not an unknown value.",
+          "screenshot": "finding-footer-pass-N.png"
+        },
+        {
+          "severity": "P1",
+          "title": "Run history 'result' column has a header but no values",
+          "state": "1b-run-history",
+          "detail": "The history table header is run / chain / source / when / result, but the fifth cell of every row holds the Open + Apply-to-source buttons, and no row shows a result. Frame chain-1b shows a result per row ('6 kept', '11 kept', '2 kept', '14 kept', 'running') in its own column before the actions. As built, the header labels the action column, so a researcher scanning history cannot tell what any past run produced - and SS3 says an unavailable figure should be shown as unavailable rather than omitted.",
+          "screenshot": "finding-history-result-column.png"
+        },
+        {
+          "severity": "P1",
+          "title": "Save as template writes nowhere the page can see",
+          "state": "1-chain -> Save template",
+          "detail": "Saving with a fresh name succeeds convincingly - the modal validates the empty name (Save disabled, 'a template needs a name', 'required'), versions correctly ('Save v4 (was v3)' for an existing name, 'Save v1' for a new one), toasts 'crit_tpl_x v1 saved - in memory for this session (demo)' and flips the name chip to 'crit_tpl_x  v1 - saved'. But opening Import a template in the very same page view still lists only the original five (drop_motifs9, sharkfin_v2, banded_sax_lp, slope_interrogation, cnn_windows_v2), and Library > Templates does not contain it either. The in-memory write the toast promises is not readable anywhere, so the save round-trip cannot be demonstrated.",
+          "screenshot": "save-then-import.png"
+        },
+        {
+          "severity": "P1",
+          "title": "Paused footer stays 'Paused at 02' after Continue has finished",
+          "state": "1i-paused -> Continue from 03",
+          "detail": "Continue from 03 runs 03 then 04 correctly (badges go cached/cached/cached/running/new then all cached, toolbar becomes '=<0.1 s - all cached' with a 'Run chain' primary). The footer that appears at that point reads 'terminal SpanSet -> detection template / Paused at 02 / result in place - continue from 03'. Nothing is paused any more and there is nothing to continue - the footer contradicts the five cached badges and the toolbar directly above it.",
+          "screenshot": "paused-after-continue-footer.png"
+        },
+        {
+          "severity": "P2",
+          "title": "state=running deep link is a frozen pose",
+          "state": "1d-running",
+          "detail": "Landing on #/analyse/chain?template=drop_motifs9&state=running shows 02 at 'estimating slope noise - 64 % - 0.3 s left' and it never advances: badges stayed cached/cached/running/new/new for 5 s of polling. Cancel works from here, and the Run button does drive a real queued->running->failed simulation, so only the deep-linked pose is static. A progress bar advertising '0.3 s left' that never elapses reads as a hung run.",
+          "screenshot": "state-1d-running.png"
+        },
+        {
+          "severity": "P2",
+          "title": "state=invalid deep link raises an 'Undo' toast for an action nobody performed",
+          "state": "1e-invalid-junction",
+          "detail": "A cold load (full reload) of #/analyse/chain?template=drop_motifs9&state=invalid immediately shows the toast '03 Symbolic encoding deleted / Undo / Ctrl Z'. Frame chain-1e shows the red junction and the row buttons but no toast. Offering Undo for a deletion the user never made is misleading, and it overlays the footer on arrival.",
+          "screenshot": "finding-invalid-toast-on-load.png"
+        },
+        {
+          "severity": "P2",
+          "title": "Ctrl K advertised in the header does nothing",
+          "state": "all states",
+          "detail": "The header carries 'Search spans, runs, families  Ctrl K' (as in every chain frame). Pressing Ctrl+K on the chain page opens nothing, moves no focus and changes no hash. Clicking the chip itself does at least toast 'not wired yet: global search (search spans, runs, families)', so the shortcut is the only silent half. (Shared shell rather than chain-specific, but the hint is on this page.)",
+          "screenshot": "header-search-click.png"
+        },
+        {
+          "severity": "P2",
+          "title": "Insert-stage search is exact-substring, so 'run length' finds nothing",
+          "state": "2-insert-stage",
+          "detail": "In the insert modal, 'Run-length' returns Run-length collapse and 'run' returns three cards, but typing 'run length' (space instead of hyphen) returns the empty state 'no block matching \"run length\" accepts Encoding here and emits Encoding - 0 fits / 0 doesn't fit'. The empty state itself is good; the tokenisation makes a plausible query look like an unsupported block.",
+          "screenshot": "insert-modal.png"
+        },
+        {
+          "severity": "P2",
+          "title": "Disabled 'Pass to Review' gives its reason only on hover",
+          "state": "1-chain",
+          "detail": "In the default state the button is disabled with title/data-disabled-reason 're-run the stale stages first' and nothing visible says so; frame chain-1 draws it as the enabled blue primary. Compare the same page's good pattern elsewhere - the disabled history Apply for #133 prints 'still on the cluster - import its manifest first' as a visible line in the row, and Import's disabled Apply prints 'needs a SpanSet source - this source is a Signal span' in the detail panel. (The 1h variant is correctly disabled: the frame greys it too.)",
+          "screenshot": "footer-default.png"
+        },
+        {
+          "severity": "P2",
+          "title": "Row 02's type signature is clipped at 1440 px",
+          "state": "1-chain",
+          "detail": "The left panel of row 02 renders 'Signal -> Signal + estimat' - the signature is cut off by the plot column. Frame chain-1 shows the full 'Signal -> Signal + estimate'. Same clipping appears on the live page's source chip ('no source - send a span from Explo').",
+          "screenshot": "state-1-chain.png"
+        },
+        {
+          "severity": "P2",
+          "title": "Whole-channel time axis stops short of the span end",
+          "state": "1g-heavy-stage-hpc, 1i-paused",
+          "detail": "The shared time axis under a 721 h whole-channel source is labelled 0 h / 200 h / 400 h / 600 h, so the last ~121 h of the span carries no tick. Frames chain-1g and chain-1i label 0 / 144 / 288 / 433 / 577 / 721 h, ending exactly at the span end.",
+          "screenshot": "state-1g-hpc.png"
+        },
+        {
+          "severity": "P2",
+          "title": "History defaults hide the frame's source-mismatch example and disagree with the header count",
+          "state": "1b-run-history",
+          "detail": "The terminal filter defaults to SpanSet, so the pager reads '1-6 of 27' while the header still reads '34 runs - this workspace', and the frame's fifth row - 'F-03 slope interrogation #140' with Apply disabled for 'needs a SpanSet source - this chain starts from Signal' - is filtered out of the first page (mp_full_channel_CH4 #133 and drop_motifs9 #127 take its place). Frame chain-1b shows the SpanSet chip active and still lists #140 with '1-6 of 34'.",
+          "screenshot": "history-open.png"
+        },
+        {
+          "severity": "P2",
+          "title": "Drag-to-reorder is not wired; the grip is a move-up button",
+          "state": "1-chain",
+          "detail": "Every row carries the frame's grip affordance, but a press-drag from row 03's grip to row 02 changes nothing. The element is <button class=\"grip\" data-testid=\"move-up-N\" title=\"move this stage up one place (drag to reorder is not wired)\"> - clicking it does move the stage and re-validate (toast 'Symbolic encoding moved to 02 - validation re-ran'), so it is honest rather than dead, but the limitation is stated only in a tooltip on a control that reads as a drag handle.",
+          "screenshot": "row-move-up.png"
+        }
+      ]
+    }
+  ]
+}

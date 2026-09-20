@@ -1,0 +1,122 @@
+{
+  "lens": "function",
+  "round": 1,
+  "status": "complete",
+  "screenshots_dir": "C:/Users/mmebr/Documents/CNN/webui/screenshots/critique/blocks/r1-function",
+  "driver": "playwright (conda python), chromium, 1440x900, http://127.0.0.1:5173",
+  "console_errors_seen": "none attributable to these pages across every state and interaction driven",
+  "pages": [
+    {
+      "page": "analyse.block",
+      "score": 8,
+      "rationale": "Seven distinct type-signature block pages (Baseline, Noise floor, Encoding, Detection, Matrix profile, Threshold, Model stage) plus a generic fallback, all matching their frames region for region: shared toolbar (back, rename, source-chip popover, surrogate toggle, estimate, Save template, primary action), clickable chain ribbon with badges and signatures, process card, generated parameters with recommended markers and per-parameter info pop-overs, null/downstream/next cards, footer with unapplied-change accounting. Interactions are real, not decorative: segmented view switches redraw, cutlines and the threshold line drag and update the derived readout, sweep bars set the parameter and an un-swept parameter offers 'Run sweep' that completes, try-windows create a discardable draft, fix-merge clears the error banner, kept-detection cards select and re-centre, sort and colour-by work, the template-name field validates with two distinct disabled reasons, hand-offs navigate (Analyse events -> interrogation, Pass N to Review -> the queue) or show a 'not wired yet' toast, SLURM script creates a job and offers Open in Jobs, runs simulate queued -> running (progress + Cancel, content dimmed) -> done/failed, Cancel restores cached + downstream stale, and an applied change survives navigating to the chain and back. No console errors in any state. Held back from 9 by three functional defects: the noise-floor cut-k control bypasses the draft/apply machinery entirely and cannot be undone; the failed state still presents the failed run's detections and offers to pass them to Review; and the generic block's parameters accept any text with no validation.",
+      "findings": [
+        {
+          "severity": "P1",
+          "state": "6-noise-floor (analyse/block/1?template=drop_motifs9&state=default)",
+          "title": "cut k edits bypass the draft/apply machinery and cannot be undone",
+          "detail": "Moving the 'cut k' slider from 8 to 4 redraws the histogram cut lines and relabels the parameter 'rec 8 sigma', and a toast claims '03 and later are stale'. But the footer still reads 'No unapplied changes', the toolbar chip still reads 'cached - last run 2 Sept', no Discard button appears, and 'Revert to recommended' stays DISABLED with the title 'already at the recommended values' - so the off-recommendation value cannot be reverted or discarded from this page (after clicking Revert the slider is still 4). Clicking through to 03 Symbolic encoding shows its noise floor is now 4 sigma there too, again with 'No unapplied changes'. Every other control on the same panel (estimator, scope, exclude, floor source) registers correctly as '1 unapplied change' with a Discard. Violates the SS6.8 rule 'Changing a parameter marks this block and downstream stale' and the page's own draft contract.",
+          "screenshot": "C:/Users/mmebr/Documents/CNN/webui/screenshots/critique/blocks/r1-function/b06-cutk-draft.png"
+        },
+        {
+          "severity": "P1",
+          "state": "4-drop-detection-failed (analyse/block/3?template=drop_motifs9&state=failed)",
+          "title": "failed state still presents results and offers to pass 6 spans to Review",
+          "detail": "The banner reads '#134 failed here - ValueError: merge_window 2.0 s is shorter than one trough-tolerance window', yet the page below it renders a complete successful result: detections in context with M12-M17 banded, '23 raw -> 6 kept' with the removed breakdown, all six kept-detection cards, the kept/surrogate/vs-chance tiles, and enabled hand-offs Save template / Export run / Analyse events / 'Pass 6 to Review'. Nothing labels the figures as the previous run's. The chain page's own copy for this same run is 'No result - run #134 failed at 04 - nothing was written to detections'. Violates SS0/SS3 'Nothing claims more than it knows' and makes it possible to pass a failed run's spans downstream.",
+          "screenshot": "C:/Users/mmebr/Documents/CNN/webui/screenshots/critique/blocks/r1-function/b04-detection-failed.png"
+        },
+        {
+          "severity": "P1",
+          "state": "inserted-generic (insert demo.run_length from the chain modal, then open settings)",
+          "title": "generic block parameters accept any text with no validation",
+          "detail": "The inserted Run-length collapse block renders 'min run' and 'keep same' as plain text boxes. Typing 'abc', '-5' or leaving it empty is accepted silently, each shown in the footer as a legitimate edit ('min run 2 -> abc', 'min run 2 -> '), no message appears anywhere, and 'Apply & re-run from 04' stays enabled (disabled=false, no title). 'keep same' is a boolean rendered as the literal string 'true' in a free-text field. SS6.8 requires controls generated from the adapter's parameter spec with units; every hand-built block on this page uses typed sliders/selects, so the fallback is the only unguarded surface.",
+          "screenshot": "C:/Users/mmebr/Documents/CNN/webui/screenshots/critique/blocks/r1-function/generic-invalid-abc.png"
+        },
+        {
+          "severity": "P2",
+          "state": "4-drop-detection (analyse/block/3?template=drop_motifs9&state=default)",
+          "title": "plot legend does not follow the colour-by selector",
+          "detail": "Switching 'colour' from 'shape family' to 'match score' or 'none' does recolour the detection bands (verified: fills change from #30B0C7/#7A8FA6 to a blue ramp / uniform blue), but the legend under the plot still reads 'F-03 sharkfin - F-07 slow drift - no family yet - dropped'. The legend then names colours that are not on the plot.",
+          "screenshot": "C:/Users/mmebr/Documents/CNN/webui/screenshots/critique/blocks/r1-function/b04-legend-colour-none.png"
+        },
+        {
+          "severity": "P2",
+          "state": "5-baseline (analyse/block/0?template=drop_motifs9&state=default)",
+          "title": "Baseline block page carries no null presentation",
+          "detail": "SS6.8 'Block page - null' is Required for every block: either a parameter-vs-null plot or an explicit 'no null for this block' declaration with the reason. The Baseline block page has neither - the right column is Parameters, then 'Try other windows' and 'What this change does downstream'. Every other demo block page does carry one (encoding null-sweep, noise-floor surrogate spans row, detection surrogate tile, mp-hist, threshold-null, model-null), and the LIVE block page carries an explicit null-card with a reason. Frame 5 omits it too, so the frame shares the gap.",
+          "screenshot": "C:/Users/mmebr/Documents/CNN/webui/screenshots/critique/blocks/r1-function/b05-baseline-default.png"
+        },
+        {
+          "severity": "P2",
+          "state": "any demo block page (toolbar)",
+          "title": "chain rename appends instead of replacing the existing name",
+          "detail": "Clicking the chain-name chip makes it editable, but the existing text is neither selected nor cleared and the caret sits at the end. Typing 'renamed_by_critic' produced the name 'drop_motifs9renamed_by_critic'. Enter commits it and the chip shows the concatenated name.",
+          "screenshot": "C:/Users/mmebr/Documents/CNN/webui/screenshots/critique/blocks/r1-function/tb-renamed.png"
+        },
+        {
+          "severity": "P2",
+          "state": "7-matrix-profile (analyse/block/0?template=mp_span_CH4&state=default)",
+          "title": "duplicated word in the toolbar estimate chip",
+          "detail": "The estimate chip reads 'cached - last run run 14' (the word 'run' twice, from 'last run ' + the run label 'run 14'). Frame 7 reads '~ 4 min - local' there. Also visible in the same toolbar: the 'top-k reported' select truncates to '3 motifs - 1 disco:'.",
+          "screenshot": "C:/Users/mmebr/Documents/CNN/webui/screenshots/critique/blocks/r1-function/b07-slurm.png"
+        },
+        {
+          "severity": "P2",
+          "state": "4-drop-detection (default) vs 4-drop-detection-failed",
+          "title": "the default state duplicates the failed state's red error banner",
+          "detail": "Frame 4 shows 04 Drop detection cached and clean ('cached - last run 2 Sept'), with merge window 2.0 s carrying only the amber recommendation 'rec 2.4 s >= trough window'. The page shows a red 'this would fail - ValueError: merge_window 2.0 s is shorter than one trough-tolerance window (2.4 s at 0.5 sigma)' card in state=default as well, so default and failed read almost identically and the distinct failed state loses its force.",
+          "screenshot": "C:/Users/mmebr/Documents/CNN/webui/screenshots/critique/blocks/r1-function/b04-detection-default.png"
+        },
+        {
+          "severity": "P2",
+          "state": "inserted-generic, running",
+          "title": "run footer misreports which stages are running",
+          "detail": "Starting the run from the inserted 04 block shows the footer 'running 04 -> 05 - 3 % - results land here when the run ends' while the stage line immediately below reads 'Running 03 of 05' and the ribbon marks 03 as running - the run actually restarts at the stale upstream stage 03, so the footer's range is wrong.",
+          "screenshot": "C:/Users/mmebr/Documents/CNN/webui/screenshots/critique/blocks/r1-function/generic-running.png"
+        }
+      ]
+    },
+    {
+      "page": "analyse.glyphs",
+      "score": 8,
+      "rationale": "A faithful rebuild of frame 6b: title, caption, the six-entry colour key, and all 21 glyphs in the frame's four groups (preprocess / encode / scores & detect / interrogate-windows-cluster-model), each card carrying the 272x96 and 44x26 drawings, name and type signature. The detail drawer that chain.md specifies works properly - card click opens it and writes ?focus= into the hash, the deep link restores it, both sizes are shown side by side with an extra 88x52, registry name / category / null / used-by are filled in, 'Copy registry name' copies with a confirming toast, Escape and the close button both dismiss it, and an unknown focus id is handled silently with no drawer and no error. The filter (beyond the frame) narrows by name and by signature and has a proper 'No glyph matches' empty state with a Clear button. No console errors. Held back by one control that does not do what it says ('Find it in Insert a stage'), no route into the page from anywhere in the app, and a few copy/visual slips.",
+      "findings": [
+        {
+          "severity": "P1",
+          "state": "detail-drawer (analyse/glyphs?focus=demo.matrix_profile)",
+          "title": "'Find it in Insert a stage' does not find it",
+          "detail": "From the Matrix profile glyph drawer the button navigates to #/analyse/chain?template=drop_motifs9&modal=insert&at=4 - the insert modal opens at the END of the drop_motifs9 chain with a different block selected ('modal-card-demo.span_dedupe' carries the 'selected' class), the search box empty, and no scroll or highlight on the matrix_profile card. At that insertion point the contract is SpanSet -> SpanSet and only 2 of 24 blocks fit, so the Signal -> Scores glyph you came from is not even among them. The button's copy promises a lookup it never performs.",
+          "screenshot": "C:/Users/mmebr/Documents/CNN/webui/screenshots/critique/blocks/r1-function/g-insert-modal.png"
+        },
+        {
+          "severity": "P2",
+          "state": "default",
+          "title": "no in-app entry point - reachable only by typing the URL",
+          "detail": "Nothing anywhere links to #/analyse/glyphs. The nav rail's Analyse goes to the chain page; the chain page has no glyph link; the Insert-a-stage modal - where SS6.8 says the same glyph appears on every card - has no link to the registry either (queried every button/anchor on both surfaces for the word 'glyph': zero matches). The page also has no back/close affordance of its own.",
+          "screenshot": "C:/Users/mmebr/Documents/CNN/webui/screenshots/critique/blocks/r1-function/nav-analyse.png"
+        },
+        {
+          "severity": "P2",
+          "state": "detail-drawer",
+          "title": "drawer does not close on an outside click",
+          "detail": "Escape and the x button both close the drawer (and Escape clears ?focus= from the hash), but clicking empty page area outside it leaves it open. Clicking the already-open card does not toggle it shut either.",
+          "screenshot": "C:/Users/mmebr/Documents/CNN/webui/screenshots/critique/blocks/r1-function/g-outside.png"
+        },
+        {
+          "severity": "P2",
+          "state": "default",
+          "title": "type signatures truncate on four cards",
+          "detail": "'Signal -> Signal + est...' (Noise floor), 'Signal + exemplar -> S...' (Seeded search), 'Model + WindowSet -> S...' (Model stage) and 'Encoding + labels -> M...' (Model) are ellipsised on their cards. Frame 6b shows every signature in full - and the signature is half of what this registry page exists to show.",
+          "screenshot": "C:/Users/mmebr/Documents/CNN/webui/screenshots/critique/blocks/r1-function/g-default.png"
+        },
+        {
+          "severity": "P2",
+          "state": "default",
+          "title": "the Gramian encoding glyph carries text labels",
+          "detail": "That glyph draws the words 'gasf' and 'gadf' beside its grid, so the accessible text of the card reads 'gasf gadf gasf gadf Gramian encoding' (once per size) and the 44x26 copy shows unreadable type. Frame 6b's Gramian glyph is a wordless blue/yellow/grey grid, and the page's own caption is 'Drawn once per algorithm, never from data. Same picture at 44 x 26 ... and 272 x 96'.",
+          "screenshot": "C:/Users/mmebr/Documents/CNN/webui/screenshots/critique/blocks/r1-function/g-default.png"
+        }
+      ]
+    }
+  ]
+}
