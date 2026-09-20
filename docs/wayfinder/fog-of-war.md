@@ -6,6 +6,7 @@ Cite items as "fog-of-war.md §Core seam C3". Each item carries one status:
 - `ticketable now` — precise enough to open as a decision or task ticket today.
 - `fog` — in scope, but not yet sharp enough to ticket; needs grilling, evidence or the researcher.
 - `out of scope` — ruled out; listed only so it is not rediscovered as fog.
+- `decided` — a builder of the page shells settled it for the shells (the decision is stated in the item); confirm or overturn, but it is no longer open.
 
 Rows from `prototyping/UI_FUNCTIONAL_SPEC.md` §12 (decisions that depart from the PRD) appear as confirmation items, grouped under each area's "PRD departures to confirm" heading.
 
@@ -472,7 +473,437 @@ Source for all: `prototyping/UI_FUNCTIONAL_SPEC.md` §12 (row named).
 
 ### Found while building the page shells (2026-09-16)
 
-No items yet; frontend-design fog found while the concept pages are built as empty shells on fixture data is appended here.
+Fog recorded by the builders of the ten workspace units in `webui/pages/fog/<unit>.md` (explore, analyse, review, library, discovery, models, jobs, interrogation, training, settings) while turning the concept frames in `prototyping/imgs/` into fixture-backed page shells, merged and deduplicated here; the raw notes stay in those files. Numbering continues from F26 because F19–F25 are the PRD-departure bullets above. A fourth status, `decided`, marks a question the builder had to answer to ship the shell: the decision is stated in the Question line and stands until the researcher confirms or reverses it. Frame ids are the `.pen` page names (`chain-1e`, `review-7`); "inventory" is the unit's `webui/pages/inventory/*.md`; "canon" is the fixture canon (`webui/client/src/fixtures/canon.ts`, spec §0); "spec" is `prototyping/UI_FUNCTIONAL_SPEC.md`.
+
+#### Canon versus live data
+
+### F26 — Canon channel ids versus live ids
+- **Question** — Live `/api/recordings` numbers M2_aug fs1 1–16, fs2 17–32, `M2_concat_fs1` 33–48 and M4 49–64, while the fixture canon puts M3_jul at 33–40 and L_LM at 41–45 in the same range; which id space do routes such as `#/explore/signal/<id>` carry, and how does a page know which mode it is in?
+- **Why it matters** — `/4` and `/52` open the same channel in both modes but ids 33–48 mean different recordings, so a deep link from a demo page into a live page can open the wrong channel, and every hand-off that carries a channel id inherits the ambiguity.
+- **Source** — `webui/pages/fog/explore.md` (canon channel ids vs live ids); inventory `webui/pages/inventory/explore.md` F1; spec §0.
+- **Status** — `ticketable now`
+
+### F27 — Live recordings are not the canon
+- **Question** — The live bridge serves six files (`M2_concat_fs1.mat`, `Fig2A_dt0p1.csv`, `Mushroom_…`, M4 included) with no `fs_source` field, while the canon has five recordings with `read` / `inferred` rates; does the bridge gain the canon's recording list and an `fs_source`, or do the pages keep two recording sets?
+- **Why it matters** — Frame explore-1b's amber `fs inferred` / `10 Hz?` row can never appear live, the pager reads `1 / 6` against the frame's `1 / 5`, and every fs-dependent conversion (C18) has no live source of truth for whether a rate was read or guessed.
+- **Source** — `webui/pages/fog/explore.md` (live recordings are not the canon; pager counts); frames explore-1, explore-1b; spec §0; see C18, C19.
+- **Status** — `ticketable now`
+
+### F28 — Filters the live database cannot answer
+- **Question** — The Corpus rail's morphology-tag filter, its runs / method filter and the drawer's element, quality, structure, status, spike-train length, method, adjudication and nearest-family filters all rely on dimensions the live coverage payload and annotation rows do not carry. The shell enables the tag filter on demo counts (it re-dims rows and changes the readout, not the cell shades), labels the run / method chips "demo only — the live map counts every run", disables the drawer filters with "not in this database", and ticks only `seed` and `interesting` by default where the previous live default was all five verdicts. Which dimensions does the bridge grow, and which stay demo-only?
+- **Why it matters** — A user can believe the map is filtered when it is not unless they read the note; the first Corpus screen now shows fewer spans than before; and the drawer is much thinner live than in the frames, which a critic reads as missing features rather than missing data.
+- **Source** — `webui/pages/fog/explore.md` (morphology tags; runs / method filter; default verdict ticks; drawer on live channels); inventory explore F2/F5, F9; frame explore-1; spec §5.1.
+- **Status** — `fog`
+
+### F29 — One page mixing live and demo numbers
+- **Question** — On the canon channel (live CH4_A2 has 0 detections) the header reads the live `0 detections` while the density ribbons and drawer count demo detections from checked runs; the drawer's annotation rows are demo canon at other times than the live annotations drawn in the span tier, so clicking a row centres the signal where no band is drawn; and no picker state produces the frame's `6 runs · 4 methods` (the chip reads checked runs · distinct methods, `3 of 6 runs · 3 methods`). May a page mix the two sources, and if so how is each number labelled?
+- **Why it matters** — Two numbers on one page disagree and a row and its plot can disagree; until families and detections exist live the frames' picture cannot be honest, and a shell that hides the mixing hardens it (A6).
+- **Source** — `webui/pages/fog/explore.md` (density ribbon; drawer rows vs span tier; picker chip copy); frames explore-2, explore-2b; inventory explore conflict 5 / F8.
+- **Status** — `fog`
+
+### F30 — The B24 detection chain runs only as demo blocks (A4 continued)
+- **Question** — `Encoding` is terminal in the registry and the noise floor is a control inside the dSAX adapter, not a block, so the web UI shows the canonical chain as `demo.*` blocks with simulated runs while the live chain stays detrend → matrix profile → threshold; Discovery frame 3b additionally labels Drop detection `Signal → SpanSet` where the canon says `Encoding → SpanSet`, and its noise-floor numbers (`σ 0.0096`, `cut ±0.077`) carry no units (the shell uses the canon signature and adds mV). Until A4 is decided, what does a demo block promise that a live one does not, and how is the difference visible?
+- **Why it matters** — The headline chain of Analyse, Discovery compare and the Library's templates is a simulation on every page; a reviewer cannot tell a simulated run from a cached one without reading the block id.
+- **Source** — `webui/pages/fog/analyse.md` (the B24 detection chain cannot run in the core); `webui/pages/fog/discovery.md` F25; frames chain-1…1f, chain-3/4/6, discovery-3b; spec §0, §3, §6.5 B24; `ui-prototypes/REPORT.md` §5 D-A1; see A4.
+- **Status** — `fog`
+
+### F31 — Frame timescales impossible at 1 Hz
+- **Question** — Chain frames 1/3/4 draw 0.2 s segments and 1.1–1.7 s drops, and interrogation frames 2/2b/2c draw 0.7–1.1 s falls, a 3-sample steepest window and −1 s … +2 s anatomy axes, on `M2_aug fs1` at 1 Hz, where a 1 s fall is one sample. The chain demo keeps the frame numbers on a 50 s span at a finer synthetic resolution; interrogation applies the inventory's mechanical rule (frame times ×10, slopes ÷10) so angles, depths and shapes stay as drawn and only the tick labels move. Which numbers are believed, and what does a real encoding block need (fs ≥ 5 Hz, or segments ≥ 1 s)?
+- **Why it matters** — Every number on the interrogation pages is downstream of this and needs confirming against a real F-03 measurement; the segment sizes decide whether the designed chain can run on the 1 Hz recordings at all.
+- **Source** — `webui/pages/fog/analyse.md` (sub-second segments on a 1 Hz recording); `webui/pages/fog/interrogation.md` (the frames' timescale cannot exist at 1 Hz); frames chain-1, chain-3, chain-4, interrogation-2/2b/2c; spec §0.
+- **Status** — `ticketable now`
+
+### F32 — Rows, ids and counts the canon does not carry
+- **Question** — Jobs invents `a-0101`, `l-0009` and seven finished-or-cancelled rows to make its groups non-empty; interrogation frame 1b names `F-11 biphasic` and `F-12 burst` where the canon has `F-04 spike train` and `F-11 burst` (built with the canon's ids); the Models frame shows `rf_windows_v1 · manual` used by a template the canon lists nowhere (canon wins, so that row demonstrates Retire); `mp_drops_v3` is not among §0's named templates; the canon gives F-11 `members: null` where Review prints the frame's 17 from a local fixture and the Library shows a size too; and "4 review queues · 1 idle" never says which is idle (the shell picks q-18, the only one with no pace). Does the canon grow these rows and counts, or do units keep minting them?
+- **Why it matters** — Ids are each page's primary key and `?sel=` deep links use them, so two units minting in one range collide; a family's size shown in Review and the Library must agree.
+- **Source** — `webui/pages/fog/jobs.md` (rows §0 does not name; which queue is idle); `webui/pages/fog/interrogation.md` (frame 1b families); `webui/pages/fog/models.md` (registry rows); `webui/pages/fog/library.md` (templates: `mp_drops_v3`); `webui/pages/fog/review.md` (F-11 member count); frames jobs-1, interrogation-1b, models-5, review-1; spec §0.
+- **Status** — `ticketable now`
+
+### F33 — 45.2 h versus 721 h for M2_aug fs1
+- **Question** — The frames give M2_aug fs1 45.2 h (the Library recurrence caption, Jobs-2's "162,600 samples each (45.2 h at 1 Hz, less m)" and its stage card, the Settings event timeline drawn 0–45 h) while §0 gives 721 h (Jobs-3's "2,595,481 samples per channel" for the same run, and the shells' choice everywhere). Which is right, and what did the 45.2 h frames mean — a channel subset, a span, or a placeholder?
+- **Why it matters** — Jobs' two sample counts for one run mean one of the paused-run checks is checking the wrong scope, and that check protects the recipe; at 721 h the four canon events cluster in the first 6 % of the Settings timeline, legible but not what the frame shows.
+- **Source** — `webui/pages/fog/library.md` (recurrence: M2_aug fs1 caption); `webui/pages/fog/jobs.md` (sample counts; scope 45.2 h vs 721 h); `webui/pages/fog/settings.md` FE10; frames library-1, jobs-2, jobs-3, settings event timeline; spec §0.
+- **Status** — `ticketable now`
+
+### F34 — Held-out M4 across workspaces: refusal states no frame draws, and the lock's commit
+- **Question** — No frame shows a refusal for `M4_aug`, so each shell invented one: Review's api refuses any M4 item with the D6 reason and "New queue" lists `M4_aug · held out` disabled; Jobs adds a `held-out` file to the upload picker with a refusal naming D6; the Library recurrence draws M4 as a locked block; Explore invents member `m-0917` to reach span edit's held-out state; interrogation frame 1b's "F-07 · 5 recordings" can only be true if F-07 draws on M4 (built as 4). Settings builds the lock so the typed-name unlock modal *is* the commit (immediate, writing an audit entry) while turning the lock **on** goes through the save bar, so a Discard can never silently undo a logged act. Is the refusal one shared sentence, and is the unlock's immediate commit right?
+- **Why it matters** — D6 is the evaluation-protection rule (O6); five refusal texts and an unconfirmed commit model for the one logged act in Settings are how a lock erodes.
+- **Source** — `webui/pages/fog/review.md` (held-out M4_aug in Review); `webui/pages/fog/jobs.md` (a held-out upload); `webui/pages/fog/library.md` (recurrence: recordings 4–5 of 5); `webui/pages/fog/explore.md` (held-out member id); `webui/pages/fog/interrogation.md` (F-07 recordings); `webui/pages/fog/settings.md` FE1; spec §0 D6, §9, §12 P19.
+- **Status** — `fog`
+
+#### Cross-workspace hand-offs and shared demo writes
+
+### F35 — Creating a Review queue from another workspace
+- **Question** — Explore's *Review this motif* / *Take span for Review*, interrogation's *Stage 1 outlier for Review*, training's *Send N unseen windows* and the Models registry's *Add 20 more* verifications all write `recordDemoWrite('review', 'add-queue', …)`. Explore's spans land in an "Explore spans" queue with no canon id (Review proposes `q-16`, which Jobs' frame does not list), and a one-span interrogation outlier is a fourth source kind P20 does not name. What are the id, source kind and shape of a queue another workspace creates, and does Jobs' "4 review queues" count them?
+- **Why it matters** — Review cannot show where a hand-off went; the header chip and the Jobs queue group disagree with Review the moment q-16 ships; and P20's one-source-per-queue rule is what the human write path (C7, A31) rests on.
+- **Source** — `webui/pages/fog/explore.md` (Review this motif / Take span for Review queue); `webui/pages/fog/review.md` (Explore spans queue q-16); `webui/pages/fog/interrogation.md` (Stage 1 outlier for Review); `webui/pages/fog/models.md` (registry: verification progress); `webui/pages/fog/jobs.md` (which queue is idle); inventory explore F13, review-jobs F1/F12; spec §10.1, §12 P20; `webui/client/src/kit/README.md` cross-workspace demo writes contract.
+- **Status** — `ticketable now`
+
+### F36 — Creating a job from Analyse, Discovery or Models
+- **Question** — *Create SLURM script* in Analyse (chain-1g), Discovery and Models must make a job appear in Jobs (P24). There is no shared jobs store key, so the shells write `recordDemoWrite('jobs', 'add-job', …)` (Analyse also `setDemo('analyse.hpcJobs', …)`), which gives the added job no estimate, profile or script of its own (Jobs fills in "not calibrated yet · from the stage estimate" and a generic script); Discovery's toolbar reads `for 1` (only the pending run) against the frame's `for 2`; Models writes the window set to the Library at script creation rather than when results are imported, and links `#/jobs?kind=cluster` with a filter parameter Jobs owns. What does a created job carry, and which side owns its estimate, profile, script and the window set it implies?
+- **Why it matters** — The count is the promise of how many jobs get created; a job with no script of its own cannot be re-submitted; and write-at-creation decides when a window set becomes a Library artifact (A12).
+- **Source** — `webui/pages/fog/analyse.md` (jobs store contract for an HPC job created in Analyse); `webui/pages/fog/jobs.md` (cross-workspace); `webui/pages/fog/discovery.md` F1; `webui/pages/fog/models.md` (Create SLURM script; open in Jobs); `webui/pages/requests/analyse.md`; frames chain-1g, discovery-1, models-1; spec §6.9, §7.5, §7b.1, §12 P24; kit README cross-workspace demo writes contract.
+- **Status** — `ticketable now`
+
+### F37 — A shared `FamilyMember` type
+- **Question** — Library › Family, Review's cluster strips and interrogation all need `{ id, family, recording, channel, onset_h, d, verdict, fs_hz, trace }`; the inventory proposes it for the canon, and interrogation works around it with an `InterrogationMember` that extends the shape with slope features. Does the canon own the type?
+- **Why it matters** — Three units drawing the same member from three local shapes is how member counts, verdict colours and distances drift between Library, Review and Analyse.
+- **Source** — `webui/pages/requests/interrogation.md` item 11 (raised in the unit's requests file rather than its fog file); `webui/pages/fog/review.md` (F-11 member count).
+- **Status** — `ticketable now`
+
+### F38 — Hand-offs whose entry another unit owns or no frame draws
+- **Question** — Interrogation's toolbar reads "arrived via Analyse events" but the live chain page's button is disabled ("out of slice scope") and owned by the chain unit, so the only way onto the page is the URL or the nav; training offers "Both, paired" as a label source whose own description says it runs in Models (built selectable with a blue callout carrying the Models hand-off); Jobs' "Start a new run with m = 60 s" on a rejected upload would have to open Discovery or Analyse with the template pre-filled from the rejected file's metadata, a flow no frame draws (not wired). Which side wires each, with what payload?
+- **Why it matters** — A control that cannot act where it sits is a dead click by the brief's standard, and the rejected-file re-run is the likeliest real path out of a failed cluster job.
+- **Source** — `webui/pages/fog/interrogation.md` (who owns "Analyse events"); `webui/pages/fog/training.md` item 8; `webui/pages/fog/jobs.md` ("Start a new run with m = 60 s"); frames interrogation-1, training-4, jobs-3; spec §12 P11.
+- **Status** — `fog`
+
+### F39 — Verification progress flowing back from Review to the Models registry
+- **Question** — How does verification progress in queue q-19 reach the registry's gate? The page offers "simulate the last N judgements", and *Add 20 more* writes a queue entry; nothing carries a verdict back.
+- **Why it matters** — Registration requires human verification and sign-off (A30); without the return path the gate can never open on real data.
+- **Source** — `webui/pages/fog/models.md` (registry: how verification progress flows back from Review); frame models-5; spec §7b.5, §12 P19.
+- **Status** — `fog`
+
+#### Shared-kit gaps the builders worked around
+
+### F40 — Header chips and the header search pill
+- **Question** — `DEMO_NEED_YOU = 3` is a constant the header chip adds to the live count, while Jobs derives its own "N need you" from its rows (paused waiting + result arrived + overdue cluster job = 3 today); the two diverge the moment a demo write adds a fourth, such as a manifest waiting to import, which §7c.1 counts as needs-you. Jobs' `Manifest inbox · 1` counts imported manifests, not waiting ones, so it reads like a badge for attention when nothing needs doing. The frames also draw `Search settings  Ctrl K` in the shared header, but `webui/client/src/shell/Header.tsx` hard-wires that pill to a not-wired toast, so Settings intercepts the click in a capture-phase listener and binds Ctrl K itself. Does the header derive its chips from the workspaces' stores and expose an `onSearch` prop?
+- **Why it matters** — The chips are the designed cross-workspace needs-you set (F9), and a capture-phase intercept on shared chrome breaks silently when the header changes.
+- **Source** — `webui/pages/fog/jobs.md` (`DEMO_NEED_YOU`; "1 imported"); `webui/pages/fog/settings.md` FE4; `webui/pages/requests/settings.md`; frames jobs-1, settings header; spec §7c.1; see F9.
+- **Status** — `ticketable now`
+
+### F41 — The leave guard only guards the settings nav
+- **Question** — Clicking another settings page with unsaved edits opens the guard modal, but the workspace nav rail and the browser back button do not, because the kit's `NavRail` is shared chrome the unit does not own and `beforeunload` cannot look like the frame's modal. Does the rail gain a leave hook?
+- **Why it matters** — An unsaved project setting lost on a rail click is the failure the save bar exists to prevent.
+- **Source** — `webui/pages/fog/settings.md` FE3; `webui/pages/requests/settings.md`; spec §9.
+- **Status** — `ticketable now`
+
+### F42 — One badge, two facts: `on cluster · cached`
+- **Question** — Training frame 0's 02 row reads `on cluster · cached` — where it ran, and whether the result is reusable — but the kit `Badge` takes one status; the shell shows `on cluster` on the row (the stronger fact) and `cached` in the block page's compute card. Does the state model (F2) separate location from reusability?
+- **Why it matters** — The ribbon badge is how a user sees what will re-run; hiding `cached` behind the block page makes a trial's cost unreadable from the chain.
+- **Source** — `webui/pages/fog/training.md` item 5; frame training-0; spec §0 badge words; see F2.
+- **Status** — `ticketable now`
+
+### F43 — A shared multi-track time plot
+- **Question** — Seed search's distance profile (signal · distance · matches) and Compare's *where A and B fire* (signal · A · B · agreement) both need a stack of tracks on one hour axis with one hover crosshair and one tooltip; the kit's `Trace` draws one series with its own padding, so both Discovery pages hand-roll an SVG to keep the tracks aligned. Does `kit/plots.tsx` gain a `tracks` prop or a `TrackedTrace`?
+- **Why it matters** — Two builders re-implementing the same crosshair is how the two drift apart.
+- **Source** — `webui/pages/requests/discovery.md` (raised in the unit's requests file rather than its fog file); spec §7.6, §7.7.
+- **Status** — `ticketable now`
+
+### F44 — Page registry versus frames
+- **Question** — Decided for the shell: frame review-7 (batch undone) draws the cluster page though the registry lists it under `review.inspector`, so it renders at the cluster route (`#/review/queue/q-15/cluster/12?state=undone`) and sits in the smoke manifest under both pages; the frames print "Review | Inspector" on the cluster page where the registry titles are "Queue" and "Cluster", and the shell follows the frames; Library grouping is prescribed as a route while frame 4 is a modal over the atlas, so the route renders the page named by `?from=` behind the modal. Which is each page's name, and is a modal-over-page a route?
+- **Why it matters** — Critics compare frames per page, and the smoke manifest is the gate's list of what must paint.
+- **Source** — `webui/pages/fog/review.md` (frame review-7; header label); `webui/pages/fog/library.md` (grouping: route vs modal); `webui/client/src/shell/pages.ts`; frames review-1…7, library-4.
+- **Status** — `decided`
+
+#### Plot, axis and colour conventions
+
+### F45 — Time formats per span (F1 continued)
+- **Question** — The builders hit F1 at every scale: a 50 s chain span in hours reads "192.4000 h … 192.4139 h" where the frames print "825 s … 875 s" (which wins below ~20 min — hours with four decimals, or seconds since span start with the start hour in the chip?); Review prints two decimals above 450 s of context span and three below, unspecified; Explore's span-edit fields show `148.6019 h · #534,967` against the frame's clock `148:36:07`; Discovery's seed provenance reads `825–846 s` where the shell shows `0.23 h · 21 s` and keeps the sample count; chain frame 7b lists spans at 16.21 h and 20.10 h on a 6–12 h span with "9.15 h" as a duration (the demo keeps spans inside the span with durations in s). One rule is needed for axis decimals, short spans, durations and sample counts.
+- **Why it matters** — A second time convention on one page is how a reader mis-reads an hour for a second; a sample index is how Explore finds a span; every hand-off carries the convention.
+- **Source** — `webui/pages/fog/analyse.md` (time axis for a 50 s span; threshold 7b table); `webui/pages/fog/review.md` (context time axis); `webui/pages/fog/explore.md` (span edit time format); `webui/pages/fog/discovery.md` F13; frames chain-1, chain-7b, review-1, review-5, discovery-2; inventory explore conflict 1; spec §0; `ui-prototypes/REPORT.md` §5 D-A7; see F1.
+- **Status** — `ticketable now`
+
+### F46 — One never-normalised mV scale (D5) across cards, overlays and live traces
+- **Question** — Library card axes read ±0.4 mV but four families are deeper (F-05 +0.65, F-08 −0.52, F-09 +0.48, F-02 ±0.45), so the shell computes one domain (±0.7 mV) for every card, rail plot, overlay and sparkline; in Explore the synthetic F-03 medoid (~0.34 mV deep) drawn over a live CH4_A2 motif window (~0.02 mV) squashes the live trace, so the overlay defaults off where the frame draws it on. How does a shared, never-normalised scale hold when families and live traces differ by 20×?
+- **Why it matters** — D5 forbids normalising waveforms; on the frame either the tick label or the depths are wrong, and the frame's overlay cannot be honest with live data until families exist.
+- **Source** — `webui/pages/fog/library.md` (atlas: card axes); `webui/pages/fog/explore.md` (medoid overlay on a live trace); frames library-2, explore-2; spec §3 D5.
+- **Status** — `fog`
+
+### F47 — Seed verdict colour: frames blue, canon green
+- **Question** — Decided: the pages follow the canon (commit 6681ae3), which makes `seed` green as a human verdict under §3, where frames explore-1/2b and the interrogation legend draw it blue; interrogation uses two greens (seed darker), amber and red. The frames need redrawing.
+- **Why it matters** — A blue dot on a member tile reads as "machine picked this".
+- **Source** — `webui/pages/fog/explore.md` (seed colour); `webui/pages/fog/interrogation.md` (the frame draws the `seed` verdict blue); frames explore-1, explore-2b, interrogation-1; spec §3; see F17.
+- **Status** — `decided`
+
+### F48 — Categorical palettes the §3 semantics do not provide
+- **Question** — §3 assigns meanings to blue / green / amber / red / purple, but the shells need colours that mean only "a different one": Discovery run stripes (seed_E0102_bank's rose is close to the reserved red; the shell uses a non-semantic #E2557E), six training cluster classes (built on a separate categorical ramp, status colours kept for badges and bands), interrogation feature histograms (frame 3 colours the max-slope histogram red; built blue / purple / teal) and Explore's cross-channel bins (green for independent, amber for propagation; kept as drawn and flagged). Does §3 gain a run palette and a categorical ramp distinct from verdict and family colours (D8)?
+- **Why it matters** — A red class reads as "failed" and a green one as "human" to anyone who learnt §3; a red distribution reads as artifacts.
+- **Source** — `webui/pages/fog/discovery.md` F6; `webui/pages/fog/training.md` item 4; `webui/pages/fog/interrogation.md` (frame 3 colours the max-slope histogram red); `webui/pages/fog/explore.md` (cross-channel colours); inventory explore conflict 2; frames discovery-1, training-2/3, interrogation-3; spec §3; see F17.
+- **Status** — `ticketable now`
+
+### F49 — Channel subsets in multi-channel views
+- **Question** — Review's "Other channels" shows six rows per page with a pager `1–6 of 16`, opening on the page holding the item's channel; the Library recurrence cannot fit a 16-channel recording three per page (the frame draws 6 / 4 / 5 channels; the shell draws the first N with a `+10 ch` caption and no expander). Which channels are shown, in what order, and how are the rest reached?
+- **Why it matters** — A hidden channel in a recurrence matrix is a member nobody sees, and the order decides what "nearest" means.
+- **Source** — `webui/pages/fog/review.md` (other channels); `webui/pages/fog/library.md` (recurrence: 16-channel recordings); inventory review-jobs F7; frames review-1b, library-1; spec §8.4.
+- **Status** — `fog`
+
+### F50 — Fixture times are strings, not timestamps
+- **Question** — Review's "4 s ago" / "1 min ago" previous lines and Jobs' "running for 3.3 h" / "since 11:40 / 2 h" are frame copy that never ticks (session writes do), so the 3× overdue rule is evaluated against a frozen number. Do fixtures carry timestamps so a page can age its own rows?
+- **Why it matters** — A static "4 s ago" reads as live, and the overdue reminder is the one place the interface promises to notice time passing.
+- **Source** — `webui/pages/fog/review.md` (relative times in fixture "previous" lines); `webui/pages/fog/jobs.md` (wall-clock strings, not timestamps); frames review-1, review-2, jobs-1; spec §0 Jobs.
+- **Status** — `ticketable now`
+
+#### Route, state and deep-link model
+
+### F51 — Block index base differs between chains
+- **Question** — `#/analyse/block/<i>` is 0-based (`block/1` = 02 Matrix profile; the smoke flows address it so), while `#/analyse/interrogation/block/<n>` and `#/analyse/training/block/<n>` are 1-based so the route matches the printed stage number. One workspace, two bases.
+- **Why it matters** — A trap for deep links written by hand, and the dispatcher's asymmetry reads as a bug.
+- **Source** — `webui/pages/fog/analyse.md` (block index in the URL); `webui/pages/fog/interrogation.md` (block index base); `webui/pages/fog/training.md` item 10; `webui/client/src/shell/pages.ts`; `webui/smoke.py` analyse flow.
+- **Status** — `ticketable now`
+
+### F52 — Ordinal deep links re-number
+- **Question** — `?motif=233` walks the merged list (live annotations + live detections + demo detections from checked runs), so 233 lands on whatever is 233rd, not the frame's fixture motif at 277.312 h, and the list re-numbers when the picker changes; `?window=motif-<n>` on the cross-channel page only relabels the window (the fixture traces are always MOTIF_233). Should deep links carry stable ids rather than ordinals?
+- **Why it matters** — A shared URL can open a different motif after a picker change, and entering cross-channel from another motif shows the wrong waveform under the right label.
+- **Source** — `webui/pages/fog/explore.md` (`?motif=233`; cross-channel window from Signal); inventory explore F6; frame explore-2; spec §5.4.
+- **Status** — `ticketable now`
+
+### F53 — Deep-link parameters one unit owns and another uses
+- **Question** — Models links `#/jobs?kind=cluster` with a filter parameter Jobs owns; Settings search navigates to `#/settings/<slug>?focus=<slugified field>` and pulses only fields that carry an id (a hit on an un-idded field navigates but does not pulse; ranking has no spec); Library derives its empty state from `?library=empty`, carried by the empty page's own links rather than a session-sticky flag; Jobs seeds `?state=arrived` and Settings `?state=unsaved`. Is there one registry of query parameters, and who owns each?
+- **Why it matters** — A parameter renamed by its owner silently breaks another workspace's link, and the smoke manifest addresses pages by these.
+- **Source** — `webui/pages/fog/models.md` (the "open in Jobs" filter parameter); `webui/pages/fog/settings.md` FE5, FE8; `webui/pages/fog/library.md` (import: the empty library); `webui/pages/fog/jobs.md` (two "result arrived" states); inventory settings F2.
+- **Status** — `fog`
+
+### F54 — Analyse chain editing semantics
+- **Question** — Frame 1e keeps "04 Drop detection" after 03 is deleted while the demo renumbers (stable numbers until the next save, or live renumbering?); frame 6 (02 Noise floor) says "cut k 8 σ = chosen in 03's sweep" while frame 3 (03 Encoding) carries "noise floor 8 σ" in its parameters, so the demo stores k on 03 and lets 02's slider edit it (02 stays cached, 03 → 04 go stale); run history enables *Apply to source* on a surrogate run (#129), which would apply the surrogate generator as a block; and the interrogation ribbon offers `+ stage` although §6.4's type-contract modal is not specified for a chain whose terminal is Features (built as a swap between slope and spike shape, FitzHugh–Nagumo disabled).
+- **Why it matters** — Renumbering changes which stage a deep link and a history row name; parameter ownership decides which rows go stale (F2); applying a surrogate recipe to a real span is a silent analysis error; two feature blocks into one Aggregate breaks P7.
+- **Source** — `webui/pages/fog/analyse.md` (stage numbering after a delete; where the noise-floor multiplier lives; run history "Apply to source" for a surrogate run); `webui/pages/fog/interrogation.md` (`+ stage` on an interrogation chain); frames chain-1b, chain-1e, chain-3, chain-6, interrogation-1; spec §6.4, §6.5 B24, §12 P7.
+- **Status** — `fog`
+
+#### Persistence of settings, drafts and personal preferences
+
+### F55 — Nothing in the shells survives a reload
+- **Question** — Personal settings live in the same in-memory store as project settings (the inventory said `localStorage`); settings drafts survive leaving the workspace but not a reload, and the frames do not say whether a draft should survive leaving; audit entries written this session are prepended in memory, so the log is append-only within a session and resets on reload — the opposite of "kept for the life of the project"; Jobs' "Still running · remind me in 3 h" snooze is in-memory with no scheduler in the core; an imported recording row vanishes on reload; and Display's theme and density write to the personal store and raise "Applied to this browser" while the site has one light theme and one density. Which of these persist in the browser, which in the project (C9), and does the site gain a second theme?
+- **Why it matters** — "Writes survive navigation but not a reload" is consistent across the empty frontend but contradicts the inventory and an audit log's purpose; controls honest about what they store and dishonest about what they change are a P23 promise the site cannot keep.
+- **Source** — `webui/pages/fog/settings.md` FE2, FE15, FE16, FE19, FE20; `webui/pages/fog/jobs.md` ("Still running · remind me in 3 h"); inventory settings F4; spec §9, §12 P23; see C9.
+- **Status** — `fog`
+
+### F56 — Save-bar, reset and default rules the Settings shell invented
+- **Question** — Decided for the shell: Save is instant with no `saving` → `saved` spinner (a fake delay would be theatre in a page that writes nothing); with several fields edited the bar shows the consequence of the last field touched, not a joined list; Reset applies immediately on a personal page and stages defaults as unsaved edits on a project page; turning informative off sets a class's `implies` to `artifact` so the Select always has a value; numbers render unformatted (`1`, not `1.00`); a key-binding conflict offers *Keep the old binding* / *Move ⟨key⟩ here*, leaving the loser at `—` with nothing offering to restore it. Each needs the researcher's confirmation.
+- **Why it matters** — P23 wants one consequence sentence and a save that enters run provenance; a binding left at `—` is an unreachable shortcut.
+- **Source** — `webui/pages/fog/settings.md` FE6, FE7, FE11, FE12, FE13, FE14; frames settings-16 and the save bar; spec §9, §12 P23.
+- **Status** — `decided`
+
+### F57 — Values shared between two Settings pages
+- **Question** — `seq_gap` / `seq_events` are edited on Review queues and Library groupings; writing one writes the other's draft (`SHARED` in `webui/client/src/settings/store.ts`) so both pages show a save bar, and each then saves its own copy, so saving one does not clear the other's bar. The spec says only "shared with Library sequences": one value with two views, or two values kept equal?
+- **Why it matters** — These are the sequence-cluster defaults of A14; two copies that can diverge are two definitions of a sequence.
+- **Source** — `webui/pages/fog/settings.md` FE9; spec §9; see A14.
+- **Status** — `ticketable now`
+
+#### Numbers the shells had to reconcile
+
+### F58 — Frame arithmetic the shells reconciled (F15 continued)
+- **Question** — Beyond F15's list the builders found, and had to pick a side on: Review's c-0343 evidence `samples 51,726 → 51,761` where 192.371 h at 1 Hz is ≈ 692,536 (other items derive samples from hours); Library's family totals (838 members + 38 omitted ≠ 1,402), S-03 `F-02 × 4` × 18 needing 72 F-02 motifs of 42, S-02's ~22 s holding a 21 s sharkfin plus a 14 s gap, "Send 21 unjudged" against judged 23 of 42 (shell: 19), §8.2's 1,188 omitted against the frame's 1,018 (shell: 1,018), m-1850's 1.62 s in a ~21 s family (shell: 21.6 s), `recordings 3 · 5 channels` against 11 channels in recurrence, 0.61/h on CH3_A2 over 721 h ≈ 440 members for a 112-member family (per-hour keeps the frame; count mode sums to the atlas), rail `hours 128.4 h` matching no reading (shell: computed channel-hours), `sequences 350` reconciling only as a motif count, window-set class bars summing to 1,408 of 2,140 (shell: 612 · 568 · 492 · 430 · 38); Discovery's ~0.1 h band for a 40 s window on a 72 s axis (shell: 36 s in 40 s) and runs `5 in this session` against 4; Models' L_LM_Jul26_J CH1 at 92 h against the canon's 22.4 h and `ws_M3jul_8ch_300s` split counts in no frame; interrogation's `n 15` for 16 events across 3 recordings × 4 channels (built per recording × channel, n 12) and frame 2b's table `41–44 of 212` that cannot hold current event 45; training's six classes summing to 343 against 543 windows (rescaled to 260 / 180 / 51 / 32 / 13 / 7); Settings' `?state=unsaved` seed (noise floor 0.12 while the sentence reads `0.08 → 0.10 mV`) and an import footer of 138 MB (channels × samples × 8 B) against the frame's 8.2 GB. Which number is authoritative in each case?
+- **Why it matters** — As F15: shells on fixture data copy inconsistent placeholders as though designed, and here the sums are in several cases the headline result (the interval CV, class sizes, recall, the family size).
+- **Source** — `webui/pages/fog/review.md` (evidence samples); `webui/pages/fog/library.md` (atlas, family, recurrence, grouping, window sets); `webui/pages/fog/discovery.md` F4, F7; `webui/pages/fog/models.md` (L_LM_Jul26_J row; ws_M3jul split); `webui/pages/fog/interrogation.md` (inter-event interval n; frame 2b's table window); `webui/pages/fog/training.md` item 1; `webui/pages/fog/settings.md` FE8, FE16; inventory settings F3; `prototyping/UI_REVIEW_BACKLOG.md` B28; `prototyping/UI_SWEEP_2026-09-14.md`; see F15, F33.
+- **Status** — `ticketable now`
+
+### F59 — Estimates the shells fake (C5 continued)
+- **Question** — The Analyse toolbar estimate ("≈ 0.6 s · 03 → 04") does not say whether the 200× surrogate run is included (frame 1d's footer says it is "queued after"; the demo halves the estimate when the surrogate is off); training's trial job derives its stage range and `--from-stage` from the ticked stages while the toolbar keeps frame 4's fixed "trial ≈ 2 h 40", so the two disagree by design; Models scales its local estimate with fixture maths (1.6 h per arm per 3 channels, RF 0.1 h, five model nulls 2.3 h); Library regroups have no local limit in Settings yet preview `~10 min, local` (shell: 20 min, and shape distance on sequences at ~46 min turns Apply into *Create SLURM script*); Jobs shows "1 h · calibrated 12 Sep" locked, and a job that runs 3.3× it feeds nothing back. What is the cost model, and where does calibration live?
+- **Why it matters** — Estimates route local versus HPC (A3) and gate training (A30); an estimate and its script that disagree, or a calibration that never updates, are refusals and hours the researcher cannot predict.
+- **Source** — `webui/pages/fog/analyse.md` (surrogate cost); `webui/pages/fog/training.md` item 7; `webui/pages/fog/models.md` (how the local estimate scales); `webui/pages/fog/library.md` (grouping: local limit); `webui/pages/fog/jobs.md` (the estimate is calibrated and locked); frames chain-1, chain-1d, training-4, models-1, library-4, jobs-4; spec §0, §6.3, §7b.1, §9.6; see C5.
+- **Status** — `fog`
+
+### F60 — Actions with no core write behind them
+- **Question** — Settings' `open folder`, `pull`, manifest `import`, `export all`, `Export CSV`, `Export preferences`, `Copy diagnostics`' file, tag `merge`, tag / class `rename` and `Add a rule for a block parameter` raise a not-wired toast naming the call; the Compute & HPC profile cells (partition, nodes, gres, cpus, memory, time, array) render read-only where §9.6 describes inline editing, with only the editor below (environment, working directory, return paths, email) live; training frame 0's *Export run* has no destination, format or frame behind it (built as a toast naming the call). Which of these become core write paths (C7, C9, E4), and in what order?
+- **Why it matters** — Each would need a core write that does not exist; a toast is honest today and a dead click the day the page is believed.
+- **Source** — `webui/pages/fog/settings.md` FE17, FE18; `webui/pages/fog/training.md` item 6; frames training-0, settings Storage / Export / Channels & events / Compute & HPC; spec §9.6; see A18, E4.
+- **Status** — `ticketable now`
+
+#### Explore
+
+### F61 — Cross-channel bins, thresholds and the prop. / ind. chips are undefined
+- **Question** — Explore's cross-channel page proposes artifact at r ≥ 0.95 with |lag| < 0.5 s, propagation at r ≥ 0.6, independent below, and no match beyond max lag, on a seeded lag / r table that `computed on whole channel` merely perturbs — nothing about the page is a result; the Library rail's `prop. 4` / `ind. 1` channel chips are defined nowhere (the shell's InfoTip guesses "propagated copy" / "independent occurrence"). What computes and classifies cross-channel relations, and with what thresholds?
+- **Why it matters** — The rail claims cross-channel counts without a glossary, and A8 has no core source yet.
+- **Source** — `webui/pages/fog/explore.md` (cross-channel bins and thresholds); `webui/pages/fog/library.md` (atlas: `prop.` / `ind.` chips); inventory explore F16/F17; spec §5.4, §8.5; see A8.
+- **Status** — `fog`
+
+### F62 — Explore shell decisions awaiting confirmation
+- **Question** — Decided for the shell: the drawer replaces the span / motif / action tiers (as frames 2b–2d draw it) rather than overlaying the lower screen as §5.3 says, so the span tier unmounts while it is open; the drawer's default scope is `whole channel` (96 matrix-profile detections in a 2 h span would crowd the span tier; `visible span` still filters honestly); span edit shows rev 2 as `current once saved` until Save; and span edit adds a fourth amber check line for §4.2's rule that an extent edit on the medoid invalidates F-03's distances, which the frame omits.
+- **Why it matters** — Spec and frame disagree on each, and the fidelity critic needs to know which won.
+- **Source** — `webui/pages/fog/explore.md` (`D` / `Esc` with the drawer; drawer scope default; span edit rev 2 status before save; span edit family staleness); inventory explore conflict 1, §4.2; frames explore-2b…2d, explore-2c; spec §4.2, §5.3; `prototyping/UI_REVIEW_BACKLOG.md` B28.
+- **Status** — `decided`
+
+#### Analyse (chain, interrogation, training)
+
+### F63 — Registry size and the three blocks without glyphs (F18 continued)
+- **Question** — Chain frame 2 says 21 blocks; frames 1g/1i add Span dedupe and 1h names Top-k motif pairs and Peak picker, so the demo registry has 24, and the glyph registry (6b) shows 21 with no glyph for those three (they draw their signature glyph). Do the three enter the registry and F18's glyph list?
+- **Why it matters** — A block without a glyph has no card identity in the insert modal, Discovery's picker or Library template cards.
+- **Source** — `webui/pages/fog/analyse.md` (registry size); frames chain-2, chain-1h, chain-6b; see F18.
+- **Status** — `ticketable now`
+
+### F64 — Steepest window: samples or seconds
+- **Question** — Interrogation's rules say "3 samples", but members of one family sit on recordings at 1, 2 and 10 Hz, so 3 samples is 3 s, 1.5 s or 0.3 s; built as samples, as drawn, with no per-recording note.
+- **Why it matters** — A family spanning recordings would be measured with three different windows, and the slope strip is the page's headline feature.
+- **Source** — `webui/pages/fog/interrogation.md` (is the steepest window in samples or seconds?); frame interrogation-2 Rules; spec §0 recordings table.
+- **Status** — `ticketable now`
+
+### F65 — Interrogation statistics the frames leave undefined
+- **Question** — Frame 3's β and null β carry 95 % CIs without saying whether they are OLS-analytic, bootstrapped over members or bootstrapped over the 200 null draws (fixture values only); Parameters says "views only · nothing here is stored", yet switching `interval defined as` or `outliers` changes what the null must be matched to; and the inter-event interval is built per recording × channel with an InfoTip where the frame's `n 15` treats 3 recordings × 4 channels as one sequence — confirm which the thesis wants.
+- **Why it matters** — With n = 16 the three CIs differ a lot and P10 makes the CI the load-bearing number; a cached null matched to a different definition silently mis-states p; the interval CV and its null are that card's headline.
+- **Source** — `webui/pages/fog/interrogation.md` (inter-event interval n; where do the exponent CIs come from; does the null re-run per view change); frame interrogation-3; spec §12 P10; see A2, A22.
+- **Status** — `fog`
+
+### F66 — The blocked split when the source is a window set (A11 continued)
+- **Question** — Training frame 0b removes the sliding-windows stage (P15) and with it the stage that creates the split, yet the source's windows may already overlap; Models disables `ws_humanlabel_frame0b` with the reason. The training shell shows the amber B7 callout with a candidate — a split filter over the source windows, blocked by recording and time, gap ≥ one window length, block-edge windows dropped — implemented nowhere.
+- **Why it matters** — It decides whether a saved window set can be trained from at all.
+- **Source** — `webui/pages/fog/training.md` item 2; `webui/pages/fog/models.md` (how a split applies to a human-annotated window set); frames training-0b, models-1b; `prototyping/UI_REVIEW_BACKLOG.md` B7; spec §6.9, §12 P15; see A11.
+- **Status** — `fog`
+
+### F67 — The leakage gap: exact rule and allowed values
+- **Question** — Is the gap `≥ window length` or `≥ window length − stride`? With 10 min windows on a 5 min stride a 10 min gap is exactly enough, and the frames show `gap 5 min` as the value before the edit, which leaks by half a window (built as `≥ window length`, the 5 min shown only as the pending edit's "was"); the Models frame's gap select offers no values, so "2 windows" and "0 s" are invented and 0 s fails the P12 check.
+- **Why it matters** — The guard is the page's main safety claim (A24).
+- **Source** — `webui/pages/fog/training.md` item 3; `webui/pages/fog/models.md` (the frame's "gap" select); frames training-01, models-1; spec §12 P12.
+- **Status** — `ticketable now`
+
+### F68 — Training-run states no frame draws
+- **Question** — No frame shows a failed training run although a GPU job that dies is the likeliest outcome (built on the chain page only, `?state=failed`, since 05 itself never runs anything), and no frame shows a running training job in Models (built as an indeterminate bar with "results arrive through Jobs › Manifest inbox" and a link into Jobs).
+- **Why it matters** — Loud failure is a house rule, and where the run "lives" decides which page reports it.
+- **Source** — `webui/pages/fog/training.md` item 9; `webui/pages/fog/models.md` (results: a running training job); frames training-0…4, models-3; spec §7b.2, §12 P24.
+- **Status** — `decided`
+
+### F69 — Guarding a training job against mixed sampling rates
+- **Question** — `ws_M2aug_fs2_300s` is an fs2 set and nothing guards a training job combining it with fs1 sets (B30); the Models frame gives L_LM_Jul26_J CH1 no disabled reason, so "10 Hz (inferred) · the template's sliding windows expect 1 Hz" is invented. What rule refuses or resamples a mixed-rate window set?
+- **Why it matters** — Windows of different sample counts in one matrix are a silent shape error or a silent resample.
+- **Source** — `webui/pages/fog/library.md` (window sets: `ws_M2aug_fs2_300s`); `webui/pages/fog/models.md` (L_LM_Jul26_J CH1 row); frames library-6, models-1; `prototyping/UI_REVIEW_BACKLOG.md` B30; spec §0; see C18.
+- **Status** — `ticketable now`
+
+#### Review
+
+### F70 — Is the queue rail a small-multiple set under P8?
+- **Question** — Frames 1–7 draw ~20 sparkline thumbnails in the collapsed queue rail; P8 caps small multiples at ~10; the shell shows 10 and a "+N" count.
+- **Why it matters** — Decides whether the rail is a navigation list exempt from P8 or a small-multiple set bound by it (F22).
+- **Source** — `webui/pages/fog/review.md` (P8 cap vs frame rail); frames review-1…7; spec §12 P8; `webui/client/src/kit/README.md`; see F22.
+- **Status** — `ticketable now`
+
+### F71 — What S means on a cluster batch
+- **Question** — Decided for the shell: S on a batch promotes one exemplar (the member nearest the medoid, c-0371) and marks the other included members interesting, with a toast saying so; §10.4–10.5 are silent.
+- **Why it matters** — A batch seed that promoted every member would flood the Library (A32).
+- **Source** — `webui/pages/fog/review.md` (what S means on a cluster batch); inventory review-jobs F16; spec §10.4–10.5, §12 P21.
+- **Status** — `decided`
+
+### F72 — Blind cluster: are distances and cohesion machine opinion?
+- **Question** — §10.6 lists only family affinity as hidden; the shell also masks member distances to the medoid and the cohesion pill until a verdict.
+- **Why it matters** — A blind batch that shows d would anchor the verdict (A31).
+- **Source** — `webui/pages/fog/review.md` (blind cluster); spec §10.6, §12 P20.
+- **Status** — `decided`
+
+### F73 — Verdict-flow mechanics the spec leaves open
+- **Question** — Decided for the shell: Ctrl Z undoes the last live write in the queue (not only the item on screen) and navigates to it, a batch undo landing on the cluster with frame 7's banner; a class key on an already-judged item adds the class without advancing, class 9 on a non-artifact verdict switches it to artifact with a toast, and pressing the selected class clears it; re-judging an item reached from the rail advances to the next unjudged unit after it; under the default `unjudged` filter the unit immediately before the current one stays visible and other judged units are hidden; a batch write animates each included member's chip (writing… → verdict, 60 ms stagger) and advances only after the last lands.
+- **Why it matters** — §10.3 / §10.5 say "undo" without scope and specify the implied-verdict rule only for an unjudged item; auto-advance after a re-judge could skip the reviewer's place.
+- **Source** — `webui/pages/fog/review.md` (undo scope; class key on an already-judged item; auto-advance after re-judging; up next; batch writing); frames review-2, review-3, review-7; spec §10.1, §10.3, §10.5, §12 P21.
+- **Status** — `decided`
+
+### F74 — Queue kinds the frames never draw
+- **Question** — For the seed-search queue (q-15) the score filter becomes a distance filter and single items carry "match d", but no frame draws a q-15 single item, so what the title-row score pill shows is open; for the training-windows queue (q-18) frame 5's "Previous window, revealed" has no model to reveal (B5), and the shell keeps the card with "no model yet · training windows" and no agree chip.
+- **Why it matters** — Two of the four queue kinds have no designed single-item state.
+- **Source** — `webui/pages/fog/review.md` (seed-search queue; training-windows queue); frames review-2, review-5; `prototyping/UI_REVIEW_BACKLOG.md` B5.
+- **Status** — `fog`
+
+#### Library
+
+### F75 — Groupings beyond shape (A15 continued)
+- **Question** — Eight of nine grouping parameter panels are undrawn and B17 says the bases themselves are undefined, so every per-basis control is an extrapolation; what a `spike trains` unit groups by is unknown (Apply disabled, "save it instead"); what the atlas shows for a feature-bin or label grouping (g-09 after Apply, g-01 on first import) is undrawn (shell: an EmptyState naming the grouping with `Switch back to g-07`); the sequence family page behind `Open all 21 sequences →` is undrawn (shell: `#/library/family/S-02` lists the sequence ids); whether Apply clears the filters as well as the scope is unstated (shell: filters kept).
+- **Why it matters** — After Apply the user lands on a page no frame draws, and the primary action of frame 2b has no destination.
+- **Source** — `webui/pages/fog/library.md` (grouping; atlas: feature-bin or label grouping; sequence family page); frames library-2b, library-4; spec §8.2, §8.6; `prototyping/UI_REVIEW_BACKLOG.md` B17; see A15.
+- **Status** — `fog`
+
+### F76 — Hand-edit consequences (A16 continued)
+- **Question** — Decided for the shell: members kept past the cut by hand are pinned to the end of page 1 with an InfoTip (distance sort would put m-1850 at d 0.47 on page 12); Undo on an added member removes it (toast offers Redo) rather than restoring a moved member's previous family; Make exemplar leaves the family badged `edges partially stale`, with whether the old seed keeps its `seed` verdict and whether the recipe hash changes still open; the second of "2 added" lives on a later page (m-1971); m-1850's revision annotation is `a-2091`.
+- **Why it matters** — §8.6 says only "hand-edit record with Undo", and §4.2's staleness rule has unstated consequences for the family's distances.
+- **Source** — `webui/pages/fog/library.md` (family: distance sort; hand edits; undo on an added member; make exemplar; revision annotation id); frame library-3; spec §4.2, §8.6; see A16.
+- **Status** — `decided`
+
+### F77 — Recurrence semantics
+- **Question** — The shared-ground warning names a family (`share ground for F-03`) although shared ground is channel metadata (per family, or per channel pair?); members found on a channel nobody reviewed (L_LM CH1/CH2) show a value with no marker, so "found but never looked at" is indistinguishable from reviewed; the sequences-unit matrix is undrawn (shell: S-01…S-06 reuse the F-01…F-06 cells); M2_aug fs2 is drawn with checkboxes disabled while fs1 is selected and vice versa (B30).
+- **Why it matters** — The matrix is the Library's second axis (G8); an unreviewed cell that looks reviewed is a false ground-truth claim.
+- **Source** — `webui/pages/fog/library.md` (recurrence); frame library-1; spec §8.4; Settings › Channels & events; `prototyping/UI_REVIEW_BACKLOG.md` B30.
+- **Status** — `fog`
+
+### F78 — Library import edge cases
+- **Question** — Frame 5 names bundle `DATA/library_seed/drop_motifs` where the tracked bundle is `drop_motifs5` (shell: `drop_motifs5`); a demo import should yield 410 motifs in g-01 but no fixture exists for it (shell: a toast says the canon catalogue is shown); a dry run on a populated library is undrawn (shell: "410 already in the library · re-import skips", Import disabled "nothing new"); whether provisional durations from an inferred fs block the import or only warn is open (frame 5 warns); which 2 recordings / 7 channels the bundle covers is unstated (shell: M2_aug fs1 CH3_A2, CH4_A2 + L_LM_Jul26_J CH1–CH5).
+- **Why it matters** — The importer's inputs are irreplaceable (`DATA/library_seed/` is tracked on purpose; see its provenance note), and a provisional fs in a motif's duration propagates into every grouping (C18).
+- **Source** — `webui/pages/fog/library.md` (import); frame library-5; spec §8.7.
+- **Status** — `fog`
+
+### F79 — Window-set shelf semantics (A12 continued)
+- **Question** — Does Delete remove bounds from disk or archive (§8.8)? Split fractions per row and the split plan's hour ranges are in no spec (shell: frame proportions); *Send unlabelled to Review* above the P13 cap of 20,000 is undrawn (shell: disabled with the cap as reason); the frame shows no version though §0 names `ws_M2aug_3ch_600s` v1 and Models saves v2 (shell: a `v1` chip in row and rail; Models keeps the frame's "v2" name chip beside a `_v2` script flag).
+- **Why it matters** — A window set is the artifact Analyse, Models and Review share (A29); its delete and version semantics are its identity.
+- **Source** — `webui/pages/fog/library.md` (window sets); `webui/pages/fog/models.md` (the Save-window-set name chip); frames library-6, models-1; spec §0, §8.8, §12 P13; see A12.
+- **Status** — `fog`
+
+### F80 — Template card semantics
+- **Question** — What `× null` means on a template card (observed / null p95? mean?) is undefined (§4.8); "Latest score" is the most recent run or the widest scope (shell: most recent run); training templates score "jobs" (`1 job`) while the rail header says `run` (shell: `job` for training).
+- **Why it matters** — A number without a definition sits on the card that picks a detection template.
+- **Source** — `webui/pages/fog/library.md` (templates); frame library-7; spec §4.8, §8.9.
+- **Status** — `fog`
+
+#### Discovery
+
+### F81 — One detection-matching rule, and where it is set
+- **Question** — d-0412 is "also found by seed_F03_native" in the runs browser but "only A fired" with B's nearest d 3.6 in compare; the shell follows compare (IoU ≥ 0.5) and shows `also found by —` plus a muted near-miss line. The IoU rule is a caption with no way to see or change it (Settings › Analysis defaults is named nowhere on the page), and the pooled recall "0.71 over 14 h" equals CH4_A2 alone, so the shell assumes channels with too few reviewed hours are excluded from pooling.
+- **Why it matters** — Every only-A / only-B count, "also found by" and the pooled recall depend on rules the page cannot show, and two rules for one pair of runs is a contradiction on screen.
+- **Source** — `webui/pages/fog/discovery.md` F3, F11, F19; frames discovery-1, discovery-3; spec §7.3, §7.7.
+- **Status** — `ticketable now`
+
+### F82 — Scope changes with runs in the session
+- **Question** — Frame 1c adds CH8_B2 / CH9_C1 / CH11_C2 to a finished run's scope with fires but no scores (the shell generates demo score rows; whether adding a channel should mark runs stale, since they did not run there, is unspecified); changing the recording with runs in the session has no specified consequence (shell: confirm, reset channels to the first three, mark runs stale); 1b draws per-channel checkboxes under "Channels in scope" while §7.5 makes each template one run across all channels (shell: checked and disabled with the reason).
+- **Why it matters** — A scoreboard total silently growing with scope is a claim the run never made.
+- **Source** — `webui/pages/fog/discovery.md` F8, F9, F12; frames discovery-1b, discovery-1c; spec §7.1, §7.5.
+- **Status** — `fog`
+
+### F83 — Run rows, labels and undrawn Discovery surfaces
+- **Question** — Decided for the shell: `new · local` means "set up locally, not yet run", not where compute happens (seed_E0102_bank's ≈ 38 min routes to the cluster); "where each run fires" draws only runs with results or running and lists the rest in a one-line "not drawn" foot, with a paused row on the scoreboard; a running run (sharkfin_v2 at 64 %) may be picked for compare and counts what exists; human annotations as a side show `—` for precision and × null and `0 reviewed`, since "only B fired" against a human verdict is a machine miss, not a disagreement; History lists r-0431 / r-0415 / r-0412 / r-0398 with Open, the scope chip scrolls to the Scope card, and the preview result is an inline strip under the Scope header.
+- **Why it matters** — A missing row looks like "fires nowhere"; a partial run's "only A" is unfinished work, not a disagreement; the frames do not cover the human-side case although §7.7 allows it.
+- **Source** — `webui/pages/fog/discovery.md` F2, F5, F10, F20, F22; frames discovery-1, discovery-3; spec §7.1, §7.2, §7.3, §7.7.
+- **Status** — `decided`
+
+### F84 — Seed search: scale bank, locked window and the null's basis
+- **Question** — The runs list promises "E-0102 · 3 lengths" while the seed page offers `scale bank none` and says MASS takes one seed — which algorithm runs a scale bank, and whether it is still MASS, is unspecified (shell: the option disabled with "needs a scale-bank algorithm"); `window m` is drawn as an open Select but §7.6 locks it to the exemplar's native length (shell: disabled with a lock and the reason); what the seed histogram's surrogate distribution is computed on (circular shift of the same channel, pooled over channels, per seed) is unstated (shell: one fixture null series for the scope).
+- **Why it matters** — "null gives 6" is the number a threshold is chosen against (A2), and an editable-looking control that cannot be edited is a dead click.
+- **Source** — `webui/pages/fog/discovery.md` F14, F15, F16; frames discovery-1, discovery-2; spec §7.6; see A2.
+- **Status** — `fog`
+
+### F85 — Aligning two chains in compare: contract rows the §6.8 table lacks
+- **Question** — Role assignment (which stage is Score / estimate) is assumed to come from the block contract, but §6.8 declares no role per block (shell: maps by glyph); `Seeded search  Signal + exemplar → Scores` has no §6.8 row and B25 calls seeded search a Discovery mode, yet 3b renders it as a stage with a signature (shell: fixtured); §7.7's role order (`Score / estimate` after `Encode`) disagrees with frames 3/3b and the B24 chain order (shell: follows the frames); whether stepping re-runs both chains on the window or reads cached intermediates decides whether stepping is free (shell: simulates a ~1 s re-run).
+- **Why it matters** — Without a declared role two chains cannot be aligned at all, and a renderer built from the contract table cannot draw the seeded-search card (F3).
+- **Source** — `webui/pages/fog/discovery.md` F18, F21, F23, F24; frames discovery-3, discovery-3b; spec §6.8, §7.7; `prototyping/UI_REVIEW_BACKLOG.md` B25; see F3.
+- **Status** — `fog`
+
+### F86 — Template and model versioning, naming and archiving
+- **Question** — Saving a Discovery draft as a template: must it have been run first, how are versions numbered, what happens on a name collision (shell: a unique name matching `^[a-z0-9_]{3,40}$`, unrun drafts allowed); Library templates: does archive mean hidden or deleted, and can an archived version be applied from an old run (§8.9); Models registry: what "version" means for an existing name (v2 of cnn_windows_v2 · manual) versus a new registered name (shell: v2 offered disabled, "v1 is not registered yet").
+- **Why it matters** — Templates and models are the reproducibility handles (A17); a name collision or an ambiguous version silently reuses the wrong recipe.
+- **Source** — `webui/pages/fog/discovery.md` F17; `webui/pages/fog/library.md` (templates: archive semantics); `webui/pages/fog/models.md` (registry: what "version" means); frames discovery-2, library-7, models-5; spec §7.6, §7b.5, §8.9.
+- **Status** — `fog`
+
+#### Models
+
+### F87 — Results and compare semantics the Models shell decided
+- **Question** — Decided for the shell: the suggested threshold at a target precision other than 0.8 moves the frame's four values deterministically (thr +0.55·Δ, precision +0.95·Δ, recall −1.3·Δ); arm B's calibration is shown on the cluster labels mapped onto manual classes, and a cluster arm's prediction is judged right or wrong through the majority cluster → class mapping (behind an InfoTip); the RF baseline's calibration, epochs and registration-gate cards say "unavailable for the RF baseline" with the reason; a pair that is not paired says "unavailable" for paired difference, agreement, per channel and the step-through; the GASF / RP tiles are computed from the window itself (GASF cos(φi+φj), RP 1−|xi−xj|) where the real ones would come from 04 Image encode's cache; clicking Seg or a 2×2 cell opens the filter at the frame's window (only A 7, only B 1, both wrong 12); the Used-by card shows the selected model's templates, falling back to the blocked model named in the lock note; a rejected model's calibration thresholds are unavailable.
+- **Why it matters** — Each is a §3 "nothing claims more than it knows" call the frames did not make, and the mapping rule is the paired comparison's definition (A23).
+- **Source** — `webui/pages/fog/models.md` (results; compare; registry); frames models-3, models-4, models-4b, models-5; spec §3, §7b.3, §7b.4, §7b.5.
+- **Status** — `decided`
+
+### F88 — Other label-arm kinds
+- **Question** — Beyond manual and cluster labels, *Add arm* is unspecified; the popover offers "labels from a window set" as not built.
+- **Why it matters** — The paired comparison's arms are the RQ1 design (A23).
+- **Source** — `webui/pages/fog/models.md` (other label-arm kinds); inventory discovery-models F19; spec §7b.1.
+- **Status** — `fog`
+
+#### Jobs
+
+### F89 — Where a paused run's result is expected, and who notices it arrive
+- **Question** — §7c.2 recognises a result "already in its root or in the manifest inbox", but nothing says how often the root is polled or what happens if a file is half-written when the poll runs (*Look again* is the only manual trigger); the expected path `./PROFILES/M2_aug_fs1_CH2-4_1Hz_m120_9b24e1f0.npz` encodes recording, channel range, fs, `m` and the recipe hash by a grammar §9.11 is cited for but does not give, so a non-contiguous channel set (CH2, CH7, CH11) has no drawn form while the upload modal refuses anything placed elsewhere; and the frames draw r-0431 as both "not there yet" (jobs-1) and "result arrived 14:31" (jobs-2, jobs-4), which the shell resolves as `waiting` by default with `?state=arrived` for the jobs-2 deep link.
+- **Why it matters** — This is the seam of A3's pause flow: the path grammar and the arrival check are core contracts, and arrival decides whether Continue is enabled.
+- **Source** — `webui/pages/fog/jobs.md` (where the result is, and what "arrived" means); frames jobs-1, jobs-2, jobs-3, jobs-4; spec §7c.2, §9.6, §9.11; see A3.
+- **Status** — `ticketable now`
+
+### F90 — The result checks: two lists, and a file without null draws
+- **Question** — In place (frame 2) the checks are place · recipe hash · one per channel · length · finite · null draws; uploaded (frame 3) they are readable · one per channel · length · finite · parameters · null draws — and P24 names one set. A file with no null draws passes and its null (200 circular shifts, ~25 min) "goes to the cluster" over the 20 min limit, but no new cluster job id is drawn and the run's state while that null is out is undesigned (shell: a demo write and a toast saying so).
+- **Why it matters** — The check is the thing that protects the recipe (A3, A34), and the missing null is a second pause on the same run.
+- **Source** — `webui/pages/fog/jobs.md` (checks and refusals); frames jobs-2, jobs-3; spec §7c.3, §12 P24; see A3.
+- **Status** — `ticketable now`
+
+### F91 — Cluster-job lifecycle
+- **Question** — *Mark finished / Mark failed* are drawn only on the overdue reminder though §7c.4 makes them general (shell: a plain "running" note with the same two buttons); marking j-0217 failed does not say what happens to r-0431 waiting on it (the rail still reads "waiting on j-0217"; the only exit is *New SLURM script*); a new script "replaces" the old job (shell: the failed job kept with a `replaced by j-0218 →` link; whether the replacement inherits estimate, profile and calibration is unstated); the cluster job id is an editable field with no validation (SLURM ids are integers, an array job is `4418093_3`) and cannot be queried; cancelling a run cannot cancel its cluster job, which the shell says in the confirm modal and no frame draws.
+- **Why it matters** — A failed cluster job is the most likely real path, a job that finished early must not be stuck, and the site cannot see the queue (C14).
+- **Source** — `webui/pages/fog/jobs.md` (cluster jobs; cross-workspace: cancelling a run); frames jobs-1, jobs-2, jobs-4; spec §7c.4, §9.6; see C14.
+- **Status** — `fog`
+
+### F92 — The manifest inbox and a failed import
+- **Question** — The inbox is drawn inside the cluster-job page and, implicitly, as a global `Manifest inbox · 1` button on jobs.all (shell: one component, a drawer on jobs.all and a card on jobs.cluster); import is all-or-nothing and its checks ("test windows identical across arms", "no test window in training") compare against the launch record, but a failed check is undrawn.
+- **Why it matters** — The inbox is how training results re-enter the tool (A23, A30); a silent failed import is a lost training run.
+- **Source** — `webui/pages/fog/jobs.md` (inbox); frames jobs-1, jobs-4; spec §7c.1, §7c.4.
+- **Status** — `fog`
 
 ## Export and reporting
 
