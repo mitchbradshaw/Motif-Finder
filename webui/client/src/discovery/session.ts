@@ -57,6 +57,8 @@ export function useDiscovery(): Discovery {
 
   let runs: DiscoveryRun[] = (base.data ?? []).concat(added).map(r => patches[r.key] ? { ...r, ...patches[r.key] } : r)
   if (stateQ === 'empty') runs = runs.filter(r => r.kind === 'reference')
+  // ?state=discarded: the same end state the Discard run confirm reaches by click
+  if (stateQ === 'discarded') runs = runs.map(r => r.key === 'drop_motifs9' ? { ...r, status: 'superseded' as const } : r)
   if (stateQ === 'failed') runs = runs.map(r => r.key === 'seed_E0102_bank' ? { ...r, status: 'failed', error: 'MASS failed on CH7_B2 · scale bank length 63 s ran out of memory (simulated)' } : r)
   const patchRun = (key: string, patch: Partial<DiscoveryRun>) => setPatches(p => ({ ...p, [key]: { ...p[key], ...patch } }))
   const addRuns = (rs: DiscoveryRun[]) => setAdded(a => [...a, ...rs.filter(r => !a.some(x => x.key === r.key))])

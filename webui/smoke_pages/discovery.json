@@ -87,6 +87,42 @@
  },
  {
   "page": "discovery.runs",
+  "state": "discarded",
+  "hash": "discovery/runs",
+  "actions": [
+   {
+    "click": "[data-testid=\"discard-run\"]"
+   },
+   {
+    "wait": 300
+   },
+   {
+    "click": "[data-testid=\"discard-confirm\"]"
+   },
+   {
+    "wait": 600
+   }
+  ],
+  "expect": [
+   "[data-testid=\"discovery-runs-page\"]",
+   "[data-testid=\"run-row-drop_motifs9\"][data-status=\"superseded\"]",
+   "[data-testid=\"scoreboard-table\"]",
+   "[data-testid=\"where-fires\"]"
+  ]
+ },
+ {
+  "page": "discovery.runs",
+  "state": "discarded-param",
+  "hash": "discovery/runs?state=discarded",
+  "actions": [],
+  "expect": [
+   "[data-testid=\"run-row-drop_motifs9\"][data-status=\"superseded\"]",
+   "[data-testid=\"where-fires\"]",
+   "[data-testid=\"scoreboard-table\"]"
+  ]
+ },
+ {
+  "page": "discovery.runs",
   "state": "fires-spans",
   "hash": "discovery/runs?fires=spans",
   "actions": [],

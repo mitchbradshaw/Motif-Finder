@@ -119,7 +119,9 @@ function WhereFires({ dx }: { dx: Discovery }) {
               <b className="dsc-fires-ch mono">{ch.channel}</b>
               <div className="dsc-fires-rows">
                 {ch.rows.map(row => {
-                  const run = shown.find(r => r.key === row.run)!
+                  // a discarded run drops out of `shown` a frame before the refetch returns, so its row can outlive it
+                  const run = shown.find(r => r.key === row.run)
+                  if (!run) return null
                   const isHuman = run.kind === 'reference'
                   return (
                     <div key={row.run} className="dsc-fires-row">
@@ -140,7 +142,7 @@ function WhereFires({ dx }: { dx: Discovery }) {
             </div>
           ))}
           <div className="dsc-fires-axis mono">{ticks.map((t, i) => <span key={i} style={{ left: `calc(${(i / 6) * 100}%)` }}>{i === 0 || i === 6 ? `${t} h` : t}</span>)}</div>
-          {notShown.length > 0 && <div className="muted small dsc-fires-foot">not drawn: {notShown.map(r => `${r.label} (${r.status === 'paused' ? `paused ${r.pausedAt?.stage}/${r.pausedAt?.of}` : r.status})`).join(' · ')} — no detections yet</div>}
+          {notShown.length > 0 && <div className="muted small dsc-fires-foot">not drawn: {notShown.map(r => `${r.label} (${r.status === 'paused' ? `paused ${r.pausedAt?.stage}/${r.pausedAt?.of}` : r.status})`).join(' · ')} — nothing to draw in this section</div>}
         </div>
       )}
     </section>
@@ -332,7 +334,9 @@ function RunActs({ dx, run }: { dx: Discovery; run: DiscoveryRun | null }) {
   const total = dx.scores?.find(s => s.run === run.key)?.total
   const results = hasResults(run)
   const unjudged = total ? total.found - total.reviewed : 0
-  const reason = run.kind === 'reference' ? 'human annotations are the reference, not a run' : !results ? 'no detections yet' : null
+  const reason = run.kind === 'reference' ? 'human annotations are the reference, not a run'
+    : run.status === 'superseded' ? 'discarded — marked superseded, no verdicts written'
+      : !results ? 'no detections yet' : null
   const discard = () => {
     dx.patchRun(run.key, { status: 'superseded' })
     dx.setPicks(dx.picks.filter(k => k !== run.key))
