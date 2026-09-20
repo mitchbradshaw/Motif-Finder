@@ -152,3 +152,29 @@ dead cells; every fix moves one of those cells into the same draft the save bar 
 `channels.effect-e1`, `channels.gain-invalid`, `channels.event-added`, `channels.event-discarded`,
 `channels.event-removed`, `channels.status-popover`, `channels.status-ok`, `channels.status-badfrom`,
 `channels.spans-popover`, `channels.add-kind`).
+
+## Fix round 3 (2026-09-21) — critics' two remaining P1s on settings.keyboard
+
+Both are the same hole from opposite sides: the capture cell read a key press as a bare letter and
+nothing else, so anything the key map did not literally spell went through as "no conflicts".
+
+- **A class key is a key.** The classes row is drawn as the range `1 – 9`, so the conflict check —
+  which compared the pressed key against the literal cells — saw nothing owning `3` and bound skip to
+  it under a green badge, while `S` (spelled out in the verdicts row) correctly raised the locked
+  owner. `KeyBinding` now carries `covers`, the keys a range row really owns (`1`…`9` for classes),
+  and the owner lookup reads `keys + covers`. Pressing `3` on `skip without writing` now gives the
+  same locked-owner conflict as `S`: red `1 conflict`, "3 is bound to “classes”. A key does one
+  thing.", the Vocabulary sentence, Open Vocabulary, and `Move 3 here` disabled with its reason.
+- **A chord is one press.** `Ctrl K` in an open capture cell dropped the modifier, bound bare `K`, and
+  *also* fired the global Ctrl K, so one press rebound a row and opened the search panel. Capture now
+  composes the chord (`Ctrl` · `Alt` · `Shift` + base, the fixture's own spelling — `Ctrl Shift Z`),
+  ignores a modifier pressed alone, and stops the event, and the global handler returns early while an
+  element with `data-capturing` holds focus. `Ctrl K` there raises the conflict against `search`, the
+  search panel does not open, and `Ctrl K` with no cell capturing still opens it. A free chord
+  (`Ctrl J`) binds as one cap. Shift is only named inside a chord — with no modifier the shifted
+  character is already the key.
+
+**Gate:** `npx tsc --noEmit -p tsconfig.app.json` clean for the unit; smoke `--only settings`
+122 screenshots, 0 failures (two states added: `keyboard--conflict-class-key`, `keyboard--capture-chord`).
+Screenshots: `webui/screenshots/build/settings/fix/keyboard.conflict-class-key.png`,
+`keyboard.capture-chord.png`, `keyboard.capture-rebound.png`.

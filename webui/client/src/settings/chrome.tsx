@@ -135,6 +135,8 @@ export function SettingsShell({ slug, demo, children, chips, actions, noReset }:
   /* the header's search pill calls back into Settings (orchestrator, R1); Ctrl K is bound here */
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
+      /* a key-capture cell owns every chord while it is open — Ctrl K there is a binding, not a search */
+      if (document.activeElement?.hasAttribute('data-capturing')) return
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); setSearch(true) }
     }
     /* a surface belongs to the route it was opened on: close it when the hash changes */

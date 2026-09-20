@@ -34,13 +34,31 @@ function Body({ data }: { data: Data }) {
   const setConflict = (c: { id: string; key: string; with: string } | null) => { setLive(c); if (!c) setState('') }
 
   const keysOf = (k: KeyBinding): string[] => k.locked ? k.keys : String(s.value(keyKey(k.id)) ?? k.keys.join(' · ')).split(' · ')
-  const owner = (key: string, exceptId: string) => data.keys.find(k => k.id !== exceptId && keysOf(k).some(x => x.toUpperCase() === key.toUpperCase()))
+  const norm = (x: string) => x.trim().replace(/\s+/g, ' ').toUpperCase()
+  /* a row drawn as a range ("1 – 9") owns every key in `covers`, so a rebind onto 3 collides with a
+     class key exactly as one onto S collides with a verdict key */
+  const bound = (k: KeyBinding) => [...keysOf(k), ...(k.covers ?? [])]
+  const owner = (key: string, exceptId: string) =>
+    data.keys.find(k => k.id !== exceptId && bound(k).some(x => norm(x) === norm(key)))
 
+  const MODIFIERS = ['Control', 'Shift', 'Alt', 'Meta', 'CapsLock', 'AltGraph']
   const capture = (k: KeyBinding, e: React.KeyboardEvent) => {
     if (e.key === 'Escape') { setCapturing(null); return }
+    if (MODIFIERS.includes(e.key)) return   /* a modifier alone is not a binding — wait for the key */
     if (e.key.length !== 1 && !['Enter', 'Backspace', 'Tab'].includes(e.key)) return
+    /* stop here: with Ctrl held this is a chord, and letting it through would both rebind the row and
+       fire the global Ctrl K search — one press does one thing */
     e.preventDefault()
-    const pressed = e.key === ' ' ? 'Space' : e.key.length === 1 ? e.key.toUpperCase() : e.key
+    e.stopPropagation()
+    const base = e.key === ' ' ? 'Space' : e.key.length === 1 ? e.key.toUpperCase() : e.key
+    const chord = e.ctrlKey || e.metaKey || e.altKey
+    const pressed = [
+      e.ctrlKey || e.metaKey ? 'Ctrl' : '',
+      e.altKey ? 'Alt' : '',
+      /* with no modifier the shifted character is already in e.key; in a chord it is not */
+      chord && e.shiftKey ? 'Shift' : '',
+      base,
+    ].filter(Boolean).join(' ')
     const clash = owner(pressed, k.id)
     if (clash) { setConflict({ id: k.id, key: pressed, with: clash.action }); setState('conflict'); setCapturing(null); return }
     s.set(keyKey(k.id), pressed)
@@ -62,7 +80,7 @@ function Body({ data }: { data: Data }) {
                 ? <span style={{ display: 'inline-flex', gap: 4 }}>{k.keys.map((x, i) => <Kbd key={i}>{x}</Kbd>)}</span>
                 : capturing === k.id
                   ? <span className="s-keycap capture" tabIndex={0} role="button" aria-label="press a key to rebind, Escape to cancel"
-                    ref={el => { if (el && document.activeElement !== el) el.focus() }} data-testid={`capture-${k.id}`}
+                    ref={el => { if (el && document.activeElement !== el) el.focus() }} data-testid={`capture-${k.id}`} data-capturing="1"
                     onKeyDown={e => capture(k, e)} onBlur={() => setCapturing(null)}>press a key…</span>
                   : (
                     <button type="button" style={{ display: 'inline-flex', gap: 4, border: 'none', background: 'none', cursor: 'pointer', padding: 0 }}

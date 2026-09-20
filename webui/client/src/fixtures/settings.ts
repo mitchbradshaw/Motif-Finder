@@ -567,10 +567,13 @@ const displayValues = (): Values => ({
 export const PREVIEW_TRACE = syntheticTrace({ n: 420, seed: 23, noise: 0.03, events: [{ at: 210, depth: 0.45, width: 26, shape: 'sharkfin' }, { at: 250, depth: -0.55, width: 14, shape: 'spike' }] })
 
 /* ==================================================== 16 Keyboard & behaviour */
-export interface KeyBinding { id: string; action: string; keys: string[]; where: string; locked?: boolean; note?: string }
+/* `covers` is for a row drawn as a range ("1 – 9"): the keys it really owns, which the conflict
+ * check has to see — a rebind onto 3 collides with a class key exactly as one onto S collides
+ * with a verdict key. */
+export interface KeyBinding { id: string; action: string; keys: string[]; where: string; locked?: boolean; note?: string; covers?: string[] }
 export const KEY_BINDINGS: KeyBinding[] = [
   { id: 'verdicts', action: 'verdicts S · I · N · A · U', keys: ['S', 'I', 'N', 'A', 'U'], where: 'Review', locked: true, note: 'set in Vocabulary →' },
-  { id: 'classes', action: 'classes', keys: ['1', '–', '9'], where: 'Review', locked: true, note: 'set in Vocabulary →' },
+  { id: 'classes', action: 'classes', keys: ['1', '–', '9'], where: 'Review', locked: true, note: 'set in Vocabulary →', covers: ['1', '2', '3', '4', '5', '6', '7', '8', '9'] },
   { id: 'skip', action: 'skip without writing', keys: ['Space'], where: 'Review' },
   { id: 'next', action: 'next · previous candidate', keys: ['→', '←'], where: 'Review' },
   { id: 'undo', action: 'undo · redo', keys: ['Ctrl Z', 'Ctrl Shift Z'], where: 'everywhere' },
