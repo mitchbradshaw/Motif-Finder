@@ -269,22 +269,29 @@ export function ChainCard({ chain, current, status, onSelect, onAddStage }: {
 }
 
 /* ----------------------------------------------------------- unapplied-changes bar ----------------------------------------------------------- */
-export function UnappliedBar({ pending, why, staleLabel, onRevert, onApply, revertReason, stage, busy, onCancel }: {
+export function UnappliedBar({ pending, why, staleLabel, onRevert, onApply, revertReason, stage, busy, onCancel, count, label, applyReason }: {
   pending: boolean; why: string; staleLabel?: string | null; onRevert: () => void; onApply: () => void
   revertReason?: string; stage: string; busy?: boolean; onCancel?: () => void
+  /** how many fields are unapplied — "1 unapplied change" was printed for two of them */
+  count?: number
+  /** the page's one primary label, so the toolbar and this bar never offer two different actions */
+  label?: string
+  applyReason?: string
 }) {
-  const primaryLabel = pending ? `Apply & re-run from ${stage}` : staleLabel ? `Re-run from ${staleLabel}` : `Apply & re-run from ${stage}`
+  const n = count ?? (pending ? 1 : 0)
+  const primaryLabel = label ?? (pending ? `Apply & re-run from ${stage}` : staleLabel ? `Re-run from ${staleLabel}` : `Apply & re-run from ${stage}`)
+  const reason = applyReason ?? (!pending && !staleLabel ? 'no unapplied changes' : undefined)
   return (
     <div className="k-card tr-unapplied" data-testid="unapplied-bar">
       <span className="tr-dot" style={{ background: pending ? 'var(--amber)' : 'var(--muted-2)' }} data-testid="unapplied-dot" />
-      <span className="state" data-testid="unapplied-state">{pending ? '1 unapplied change' : 'No unapplied changes'}</span>
+      <span className="state" data-testid="unapplied-state">{pending ? `${n} unapplied change${n === 1 ? '' : 's'}` : 'No unapplied changes'}</span>
       <span className="why" data-testid="unapplied-why">{why}</span>
       <span className="k-spacer" />
       <Button icon="undo" onClick={onRevert} disabled={!!revertReason} disabledReason={revertReason} testid="revert">Revert to recommended</Button>
       {busy
         ? <Button variant="danger" icon="stop" onClick={onCancel} testid="cancel-run">Cancel</Button>
         : <Button variant="primary" icon="refresh" onClick={onApply} testid="apply-rerun"
-            disabled={!pending && !staleLabel} disabledReason={!pending && !staleLabel ? 'no unapplied changes' : undefined}>{primaryLabel}</Button>}
+            disabled={!!reason} disabledReason={reason}>{primaryLabel}</Button>}
     </div>
   )
 }

@@ -12,7 +12,10 @@ import { useToast } from '../shell/Toast'
 import { navigate } from '../state'
 import { useSourced } from '../api/seam'
 import { getWindowsBlock, type WindowsBlock } from '../api/training'
-import { ESTIMATES, RUN_STEPS, SIGNAL_FS, SPAN_H, SPAN_S, WINDOWS, chainStatuses, type TrainingBlock } from '../fixtures/training'
+import {
+  ESTIMATES, RUN_STEPS, SIGNAL_FS, SPAN_H, SPAN_S, WINDOWS, chainStatuses, droppedAtGaps, droppedByGapChange,
+  splitGaps, splitLayout, type SplitBlock, type TrainingBlock,
+} from '../fixtures/training'
 import { BlockFrame, LoadFailed, Loading, RunVeil, SaveWindowSetModal, SendToReviewModal, UnappliedBar } from './chrome'
 import { isPending, live, markSimForced, useSourceQuery, useTrainingDraft, wasSimForced, type WindowParams } from './draft'
 
@@ -43,7 +46,16 @@ function Body({ data }: { data: WindowsBlock }) {
    * conflicts note — the frame's chain row already shows the change as applied). */
   useEffect(() => {
     if (stateQ === 'edited' && !draft.windows.pending) {
-      setDraft(d => ({ ...d, windows: { ...d.windows, pending: { ...d.windows.applied, gap_min: 10 } }, staleFrom: 1 }))
+      /* The frame's pending change is gap 5 → 10, so the *applied* set is the one with the old gap —
+       * setting only `pending` left the two equal and the bar read "no unapplied changes". */
+      setDraft(d => ({
+        ...d,
+        windows: {
+          applied: { ...d.windows.applied, gap_min: WINDOWS.params.previousGap_min },
+          pending: { ...d.windows.applied, gap_min: WINDOWS.params.gap_min },
+        },
+        staleFrom: 1,
+      }))
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [stateQ])
@@ -61,8 +73,32 @@ function Body({ data }: { data: WindowsBlock }) {
     setDraft(d => ({ ...d, windows: { ...d.windows, pending: { ...live(d.windows), ...patch } }, staleFrom: 1 }))
 
   const splitKind = (splitQ === 'random' ? 'random' : p.splitKind) as 'blocked' | 'random'
-  const gapInvalid = p.gap_min < p.length_min
   const leaking = splitKind === 'random'
+
+  /* The gap field keeps its own raw entry: `onValid` never fires for a rejected number, so without this
+   * the page kept the last good gap and the checks card, the estimate and Apply all carried on as if
+   * nothing had been typed (P12 is exactly this guard). */
+  const [gapEntry, setGapEntry] = useState<{ raw: string; reason: string | null } | null>(null)
+  const gapReason = gapEntry?.reason ?? null
+  const gapShown = gapEntry ? gapEntry.raw : String(p.gap_min)
+  const gapInvalid = !!gapReason
+
+  /* The split geometry is the two parameters that shape it — change either and the bands, the window
+   * counts and the verdict bars move with it. */
+  const layout = splitLayout(p.split, p.blocks)
+  const nBlocks = layout.blocks.length
+  const dropped = droppedAtGaps(p.gap_min, nBlocks)
+
+  /* What is actually unapplied, field by field: the bar used to describe a gap change whatever changed. */
+  const a0 = draft.windows.applied
+  const changes: string[] = []
+  if (p.gap_min !== a0.gap_min) changes.push(`gap ${a0.gap_min} → ${p.gap_min} min drops ${droppedByGapChange(a0.gap_min, p.gap_min, nBlocks)} windows`)
+  if (p.split !== a0.split) changes.push(`split ${a0.split} → ${p.split}`)
+  if (p.blocks !== a0.blocks) changes.push(`blocks ${a0.blocks} → ${p.blocks}`)
+  if (p.seed !== a0.seed) changes.push(`seed ${a0.seed} → ${p.seed}`)
+  if (p.length_min !== a0.length_min) changes.push(`window ${a0.length_min} → ${p.length_min} min`)
+  if (p.stride_min !== a0.stride_min) changes.push(`stride ${a0.stride_min} → ${p.stride_min} min`)
+  if (p.splitKind !== a0.splitKind) changes.push(`${a0.splitKind} → ${p.splitKind} split`)
 
   const chain = data.chain
   const status: Record<string, BadgeStatus> = chainStatuses(pending ? 1 : draft.staleFrom, chain)
@@ -75,35 +111,39 @@ function Body({ data }: { data: WindowsBlock }) {
     sim.start({ steps: RUN_STEPS, stepMs: 600 })
   }
   const revert = () => {
-    setStateQ(null); setSplitQ(null)
+    setStateQ(null); setSplitQ(null); setGapEntry(null)
     setDraft(d => ({ ...d, windows: { ...d.windows, pending: null } }))
   }
   const atRecommended = !pending && splitKind === 'blocked'
 
-  const applyReason = gapInvalid ? `gap ${p.gap_min} min is under the ${p.length_min} min window length — windows either side would share samples`
+  const applyReason = gapInvalid ? `the gap is ${gapShown} min: ${gapReason} — windows either side would share samples`
     : sim.busy ? 'the chain is already running' : undefined
+
+  /* One action, one label: the toolbar and the bar were offering "Apply & re-run from 01" and
+   * "Re-run from 04" for the same page state. */
+  const staleLabel = !pending && draft.staleFrom ? String(draft.staleFrom).padStart(2, '0') : null
+  const primaryLabel = pending ? 'Apply & re-run from 01' : staleLabel ? `Re-run from ${staleLabel}` : 'Apply & re-run from 01'
+  const primaryReason = applyReason ?? (!pending && !staleLabel ? 'no unapplied changes' : undefined)
 
   const primary = sim.busy
     ? <Button variant="danger" icon="stop" onClick={() => sim.cancel()} testid="cancel-run">Cancel</Button>
-    : <Button variant="primary" icon="refresh" onClick={apply} disabled={!!applyReason || (!pending && !draft.staleFrom)}
-        disabledReason={applyReason ?? (!pending && !draft.staleFrom ? 'no unapplied changes' : undefined)} testid="apply-rerun-top">Apply &amp; re-run from 01</Button>
-
-  const dropped = pending ? WINDOWS.droppedByPendingGap : WINDOWS.droppedAtGaps
+    : <Button variant="primary" icon="refresh" onClick={apply} disabled={!!primaryReason}
+        disabledReason={primaryReason} testid="apply-rerun-top">{primaryLabel}</Button>
 
   return (
     <BlockFrame
       chain={chain} current="windows" status={status} source={source} onSource={s => setSource(s === 'signal' ? null : s)}
       name={draft.name} saved={draft.saved} onRename={v => setDraft(d => ({ ...d, name: v, saved: false }))}
-      estimate={pending ? `gap ${WINDOWS.params.previousGap_min} → ${p.gap_min} min · 01 → 05 stale` : ESTIMATES.chain}
-      estimateTone={pending ? 'amber' : 'muted'}
+      estimate={gapInvalid ? `gap ${gapShown} min · ${gapReason}` : pending ? `${changes[0] ?? 'edited'} · 01 → 05 stale` : ESTIMATES.chain}
+      estimateTone={gapInvalid || pending ? 'amber' : 'muted'}
       onBack={() => navigate('analyse/training')} onNavigate={b => b.route && navigate(b.route)}
       onAddStage={() => notWired('insert a stage into the training chain (type-contract modal §6.4)')}
       primary={primary}
       footer={
-        <UnappliedBar pending={pending} stage="01"
-          why={pending ? `gap ${WINDOWS.params.previousGap_min} → ${p.gap_min} min drops ${dropped} windows · 01 → 05 go stale`
+        <UnappliedBar pending={pending} stage="01" count={changes.length} label={primaryLabel} applyReason={primaryReason}
+          why={pending ? `${changes.join(' · ')} · 01 → 05 go stale`
             : draft.staleFrom ? '04 and 05 are stale from an earlier edit' : 'the window set on screen is the one the last run used'}
-          staleLabel={!pending && draft.staleFrom ? '04' : null}
+          staleLabel={staleLabel}
           revertReason={atRecommended ? 'already at the recommended values' : undefined}
           onRevert={revert} onApply={apply} busy={sim.busy} onCancel={() => sim.cancel()} />
       }
@@ -127,15 +167,15 @@ function Body({ data }: { data: WindowsBlock }) {
             }>
             <div className="tr-rel">
               {sim.busy && <RunVeil label={`${RUN_STEPS[sim.step] ?? 'running'} · ${Math.round(sim.fraction * 100)} %`} fraction={sim.fraction} />}
-              <BandStrip domain={[0, SPAN_S]} timeUnit="h" rowHeight={22} labelWidth={0} testid="split-strip"
-                rows={[{ label: '', segments: (leaking
-                  ? data.windows.blocks.flatMap((b, i) => shuffleSegments(b.start_h, b.end_h, i))
-                  : data.windows.blocks.map(b => ({ start: b.start_h, end: b.end_h, kind: b.kind, label: b.label })))
-                  .map(s => ({ ...s, start: s.start * 3600, end: s.end * 3600 })) }]} />
+              {leaking
+                ? <BandStrip domain={[0, SPAN_S]} timeUnit="h" rowHeight={22} labelWidth={0} testid="split-strip"
+                    rows={[{ label: '', segments: layout.blocks.flatMap((b, i) => shuffleSegments(b.start_h, b.end_h, i))
+                      .map(g => ({ ...g, start: g.start * 3600, end: g.end * 3600 })) }]} />
+                : <SplitStrip blocks={layout.blocks} dropped={dropped} />}
               <Trace values={data.signal.values} fs={SIGNAL_FS} yDomain={data.signal.yDomain} timeUnit="h" height={90} ground="white" />
               <Legend items={[
-                { label: 'train', colour: 'var(--blue)' }, { label: 'validation', colour: '#c88ce0' },
-                { label: 'test', colour: 'var(--green)' }, { label: 'gap', colour: '#e5a24d' },
+                { label: 'train', colour: SPLIT_COLOUR.train }, { label: 'validation', colour: SPLIT_COLOUR.validation },
+                { label: 'test', colour: SPLIT_COLOUR.test }, { label: 'gap', colour: '#e5a24d' },
                 { label: `windows dropped at gaps (${dropped})`, colour: 'var(--red)' },
               ]} />
             </div>
@@ -144,10 +184,11 @@ function Body({ data }: { data: WindowsBlock }) {
           <div className="tr-grid2">
             <SectionCard title="At a boundary" info="The close-up shows why the gap is a leakage guard, not a tidiness rule."
               subtitle={`${data.windows.boundary.from_h} – ${data.windows.boundary.to_h} h`} testid="boundary-card">
-              <Boundary data={data} gapMin={p.gap_min} />
+              <Boundary data={data} gapMin={gapInvalid ? Number(gapShown) || 0 : p.gap_min} />
+              <span className="tr-bounds-cap" data-testid="boundary-caption">{data.windows.boundary.note}</span>
               <Callout tone={gapInvalid ? 'red' : 'green'} icon={gapInvalid ? 'alert-triangle' : 'check-circle'} testid="boundary-verdict">
                 {gapInvalid
-                  ? `gap ${p.gap_min} min is under the ${p.length_min} min window length — a training window would share samples with a validation window`
+                  ? `gap ${gapShown} min is under the ${p.length_min} min window length — a training window would share samples with a validation window`
                   : data.windows.boundary.verdict}
               </Callout>
             </SectionCard>
@@ -155,7 +196,7 @@ function Body({ data }: { data: WindowsBlock }) {
             <SectionCard title="Human verdicts per split" info="Cluster labels exist for every window; a manual verdict exists only where somebody looked."
               testid="verdicts-card">
               <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                {data.windows.verdictsPerSplit.map(v => (
+                {layout.verdicts.map(v => (
                   <div key={v.split} data-testid={`verdict-${v.split}`}>
                     <div className="tr-row-flex" style={{ justifyContent: 'space-between' }}>
                       <span className="tr-mono"><b>{v.split}</b> <span className="tr-muted">{fmtInt(v.windows)} windows</span></span>
@@ -189,10 +230,12 @@ function Body({ data }: { data: WindowsBlock }) {
                 </Field>
               </div>
               <Field label="gap between blocks" info="P12 · the guard that keeps a validation window from sharing samples with a training window."
-                hint={gapInvalid ? undefined : `≥ window length · was ${WINDOWS.params.previousGap_min}`}
+                hint={gapInvalid ? undefined : `≥ window length · was ${a0.gap_min}`}
                 error={gapInvalid ? `must be at least the ${p.length_min} min window length` : undefined}>
-                <NumberField value={p.gap_min} onValid={v => setP({ gap_min: v })} min={0} max={240} integer unit="min" width={130}
-                  changed={pending} validate={n => n < p.length_min ? `at least the ${p.length_min} min window length` : null} testid="gap-field" />
+                <NumberField value={p.gap_min} onValid={v => { setGapEntry(null); setP({ gap_min: v }) }}
+                  onChange={(raw, reason) => setGapEntry({ raw, reason })}
+                  min={0} max={240} integer unit="min" width={130}
+                  changed={p.gap_min !== a0.gap_min} validate={n => n < p.length_min ? `at least the ${p.length_min} min window length` : null} testid="gap-field" />
               </Field>
               <div className="tr-grid2">
                 <Field label="split"><Dropdown value={p.split} onChange={v => setP({ split: v })} block testid="split-ratio"
@@ -206,11 +249,20 @@ function Body({ data }: { data: WindowsBlock }) {
           </SectionCard>
 
           <SectionCard title="Checks" testid="checks-card">
-            <Checklist testid="window-checks" items={data.checks.map(c => ({
-              id: c.id,
-              label: c.id === 'gap' ? `gap ${p.gap_min} min ${gapInvalid ? '<' : '≥'} window ${p.length_min} min` : c.label,
-              state: c.id === 'gap' ? (gapInvalid ? 'fail' as const : 'pass' as const) : c.state,
-            }))} />
+            {/* A check reads the settings on screen, not a fixed list: a red gap field or a random
+                split has to turn its own tick over, or the card contradicts the page. */}
+            <Checklist testid="window-checks" items={data.checks.map(c => {
+              if (c.id === 'gap') return {
+                id: c.id, label: `gap ${gapShown} min ${gapInvalid ? '<' : '≥'} window ${p.length_min} min`,
+                state: gapInvalid ? 'fail' as const : 'pass' as const,
+              }
+              if (c.id === 'boundary') return {
+                id: c.id,
+                label: leaking ? 'windows DO cross split boundaries — a random split interleaves them' : c.label,
+                state: leaking ? 'fail' as const : 'pass' as const,
+              }
+              return { id: c.id, label: c.label, state: c.state }
+            })} />
             <div style={{ marginTop: 10 }}>
               <Button icon="inbox" block onClick={() => setModal('send-review')} testid="send-review"
                 disabled={draft.queuedToReview > 0} disabledReason={draft.queuedToReview > 0 ? `${fmtInt(draft.queuedToReview)} windows are already queued this session` : undefined}>
@@ -226,7 +278,7 @@ function Body({ data }: { data: WindowsBlock }) {
               {draft.savedWindowSets.length > 0 && <Badge status="new">{draft.savedWindowSets[0]}</Badge>}
             </div>
             <div className="tr-muted tr-small tr-mono" style={{ marginTop: 6 }}>
-              {fmtInt(WINDOWS.total)} windows · blocked split {p.split} · gap {p.gap_min} min
+              {fmtInt(WINDOWS.total)} windows · {splitKind === 'random' ? 'random split' : 'blocked split'} {p.split} · {nBlocks} blocks · gap {gapShown} min
             </div>
           </SectionCard>
         </div>
@@ -248,26 +300,65 @@ function shuffleSegments(a: number, b: number, i: number) {
   return Array.from({ length: n }, (_, k) => ({ start: a + k * w, end: a + (k + 1) * w, kind: kinds[(k + i) % 3] }))
 }
 
-/** The 15.2 – 16.4 h close-up: window bars either side of the gap, the dropped ones in red. */
+export const SPLIT_COLOUR: Record<string, string> = { train: '#a8c1ec', validation: '#fdc77e', test: '#86d69e' }
+
+/** The split strip the frame draws: the block's own label inside the band, a red mark on every break
+ * where windows are dropped, and a tick row underneath so a window is a thing you can see. */
+function SplitStrip({ blocks, dropped }: { blocks: SplitBlock[]; dropped: number }) {
+  const pct = (h: number) => `${(h / SPAN_H) * 100}%`
+  const gaps = splitGaps(blocks)
+  const perGap = Math.round(dropped / Math.max(1, gaps.length))
+  const TICKS = 120
+  const inGap = (h: number) => gaps.some(([a, b]) => h >= a && h <= b)
+  return (
+    <div className="tr-split" data-testid="split-strip">
+      <div className="bands">
+        {blocks.map((b, i) => (
+          <span key={i} className={`band ${b.kind}`} data-testid={`split-band-${i}`}
+            style={{ left: pct(b.start_h), width: pct(b.end_h - b.start_h), background: SPLIT_COLOUR[b.kind] }}
+            title={`${b.label} · ${b.start_h}–${b.end_h} h`}>
+            {/* a clipped half-word is worse than none: narrow blocks keep the label in the tooltip */}
+            {(b.end_h - b.start_h) / SPAN_H > 0.1 ? b.label : ''}
+          </span>
+        ))}
+        {gaps.map(([a, b], i) => (
+          <span key={`g${i}`} className="drop" data-testid={`split-drop-${i}`}
+            style={{ left: pct(a + (b - a) / 2 - 0.06), width: pct(0.12) }}
+            title={`${perGap} windows dropped at this break · gap ${a.toFixed(1)}–${b.toFixed(1)} h`} />
+        ))}
+      </div>
+      <div className="ticks" data-testid="window-ticks" aria-label={`${TICKS} sampled windows across the span`}>
+        {Array.from({ length: TICKS }, (_, i) => {
+          const h = ((i + 0.5) / TICKS) * SPAN_H
+          return <i key={i} className={inGap(h) ? 'drop' : undefined} style={{ left: `${(i / TICKS) * 100}%` }} />
+        })}
+      </div>
+      <span className="striptitle">one tick per sampled window · red where a break drops them ({dropped})</span>
+    </div>
+  )
+}
+
+/** The 15.2 - 16.4 h close-up: window bars marching left to right across the break, one per row, so the
+ * 50 % overlap between neighbours is the thing you see. The dropped ones are red. */
 function Boundary({ data, gapMin }: { data: WindowsBlock; gapMin: number }) {
   const b = data.windows.boundary
   const lo = 14.55, hi = 16.75
   const x = (h: number) => `${((h - lo) / (hi - lo)) * 100}%`
-  const gapEnd = b.from_h + gapMin / 60
+  const gapEnd = b.from_h + Math.max(0, gapMin) / 60
+  const rows = data.boundary
   return (
-    <div className="tr-bounds" data-testid="boundary-plot" style={{ height: 152 }}>
-      <span className="gapband" style={{ left: x(b.from_h), width: `${((Math.min(gapEnd, b.to_h) - b.from_h) / (hi - lo)) * 100}%` }} />
+    <div className="tr-bounds" data-testid="boundary-plot" style={{ height: 24 + rows.length * 13 }}>
+      <span className="gapband amber" style={{ left: x(b.from_h), width: `${((Math.max(gapEnd, b.from_h + 0.02) - b.from_h) / (hi - lo)) * 100}%` }} />
       <span className="lab" style={{ left: 4, top: 4 }}>train</span>
       <span className="lab" style={{ left: x(b.from_h), top: 4 }}>gap {gapMin} min</span>
       <span className="lab" style={{ left: x(b.to_h), top: 4 }}>val</span>
-      {data.boundary.map((w, i) => (
+      {rows.map((w, i) => (
         <span key={i} className="bar" data-testid={`boundary-bar-${i}`}
           style={{
-            left: x(w.start_h), width: `${((w.end_h - w.start_h) / (hi - lo)) * 100}%`, top: 24 + i * 10,
-            background: w.dropped ? 'var(--red)' : w.side === 'val' ? '#c88ce0' : 'var(--blue)',
-          }} title={`${w.start_h.toFixed(2)}–${w.end_h.toFixed(2)} h · ${w.dropped ? 'dropped at the gap' : w.side}`} />
+            left: x(w.start_h), width: `${((w.end_h - w.start_h) / (hi - lo)) * 100}%`, top: 20 + i * 13,
+            background: w.dropped ? 'var(--red)' : w.side === 'val' ? SPLIT_COLOUR.validation : SPLIT_COLOUR.train,
+          }} title={`${w.start_h.toFixed(2)}-${w.end_h.toFixed(2)} h · ${w.dropped ? 'dropped at the gap' : w.side}`} />
       ))}
-      <span className="lab" style={{ left: 4, right: 4, bottom: 4 }}>{b.note}</span>
     </div>
   )
 }

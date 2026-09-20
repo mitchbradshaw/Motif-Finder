@@ -179,3 +179,19 @@
 .tr-held { display: flex; align-items: center; gap: 6px; margin-top: 10px; padding: 6px 9px; border: 1px solid var(--border);
   border-radius: 7px; background: var(--grey-050, #FAFAFA); font-size: 11.5px; color: var(--text-2); }
 @media (max-width: 980px) { .tr-stage { grid-template-columns: 26px 1fr 66px; } .tr-stage .ct, .tr-stage .on, .tr-stage .nt { display: none; } }
+
+/* 01 sliding windows — the split strip (labels in the bands, drops at the breaks, a window tick row) */
+.tr-split { position: relative; }
+.tr-split .bands { position: relative; height: 26px; }
+.tr-split .band { position: absolute; top: 0; height: 26px; border-radius: 3px; display: flex; align-items: center;
+  justify-content: center; overflow: hidden; font-family: var(--font-mono); font-size: 10px; color: #21324a; white-space: nowrap; }
+.tr-split .band.validation { color: #6a3b12; }
+.tr-split .drop { position: absolute; top: -3px; height: 32px; background: var(--red); border-radius: 2px; min-width: 3px; }
+.tr-split .ticks { position: relative; height: 12px; margin-top: 4px; }
+.tr-split .ticks i { position: absolute; top: 2px; width: 2px; height: 8px; border-radius: 1px; background: #c8ccd3; }
+.tr-split .ticks i.drop { background: var(--red); top: 0; height: 12px; }
+.tr-split .striptitle { font-family: var(--font-mono); font-size: 9.5px; color: var(--muted); margin-top: 3px; }
+
+/* 01 — the boundary close-up: bars marching left to right across the break */
+.tr-bounds .gapband.amber { background: #fdf3e2; border-left: 1px dashed #e5a24d; border-right: 1px dashed #e5a24d; }
+.tr-bounds-cap { font-family: var(--font-mono); font-size: 10px; color: var(--muted); margin-top: 6px; display: block; }
