@@ -20,7 +20,8 @@ import {
 /* value layers + helpers the store needs (config, not a data read) */
 export {
   CONSEQUENCE, DEFAULTS, NAV_GROUPS, PAGE_META, SAVED, SEEDS, SEED_SENTENCE, SLUGS, genericConsequence,
-  blockKey, classImpliesKey, classInformativeKey, effectKey, floorKey, gainKey, keyKey, metaKey, ruleKey,
+  blockKey, classImpliesKey, classInformativeKey, effectKey, eventEffectSentence, eventsAddedKey, eventsRemovedKey,
+  floorKey, gainKey, keyKey, metaKey, ruleKey, spanLabel, staleRuns, statusKey, badFromHours,
   namingPreview, slurmScript, verdictKeyKey, verdictNameKey,
 } from '../fixtures/settings'
 export type {
@@ -36,12 +37,20 @@ export interface DatasetsData { recordings: typeof RECORDING_ROWS; caption: stri
 export const getDatasets = (): Promise<Sourced<DatasetsData>> =>
   demo({ recordings: RECORDING_ROWS, caption: RECORDING_COUNT_CAPTION, timeZones: TIME_ZONES, dryRun: IMPORT_DRY_RUN })
 
-export interface ChannelsData { channels: ReturnType<typeof channelsFor>; events: typeof EVENTS; kinds: typeof EVENT_KINDS; effects: typeof EVENT_EFFECTS; duration_h: number }
+export interface ChannelsData {
+  channels: ReturnType<typeof channelsFor>; events: typeof EVENTS; kinds: typeof EVENT_KINDS
+  effects: typeof EVENT_EFFECTS; duration_h: number
+  /** The display name of the recording ('M2_aug fs1'), never its id — every caption reads this. */
+  label: string
+}
 /** Channels and the event log of one recording. M4_aug reads back locked (held out, D6). */
 export function getChannels(recording: string): Promise<Sourced<ChannelsData>> {
   const rec = RECORDING_ROWS.find(r => r.id === recording)
   if (!rec) return new Promise((_, reject) => window.setTimeout(() => reject(new Error(`no recording called ${recording} · known: ${RECORDING_ROWS.map(r => r.id).join(', ')}`)), 60))
-  return demo({ channels: channelsFor(recording), events: EVENTS.filter(e => e.recording === recording), kinds: EVENT_KINDS, effects: EVENT_EFFECTS, duration_h: rec.duration_h })
+  return demo({
+    channels: channelsFor(recording), events: EVENTS.filter(e => e.recording === recording),
+    kinds: EVENT_KINDS, effects: EVENT_EFFECTS, duration_h: rec.duration_h, label: rec.name,
+  })
 }
 
 export interface VocabularyData { verdicts: typeof VERDICT_ROWS; classes: typeof CLASS_ROWS; tags: typeof TAG_ROWS }

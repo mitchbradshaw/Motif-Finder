@@ -27,7 +27,7 @@ Owned files: `webui/client/src/settings/`, `src/api/settings.ts`, `src/fixtures/
 | page | route | states (query parameter / click) |
 |---|---|---|
 | settings.datasets | `#/settings/datasets` | `default` · `unsaved` · `selected:<rec>` (`?rec=M3_jul`) · `held-out-locked` (`?rec=M4_aug`) · `invalid-noise-floor` · `import` (`?modal=import`) · `import-expanded` · `import-check-failed` (`&path=M4_aug_concat.mat`) · `import-running` · `unlock-confirm` (`?modal=unlock`) · `unlock-typed` |
-| settings.channels-events | `#/settings/channels-events` | `default` · `unsaved` · `rows-all` (`?rows=all`) · `rec:<id>` (`?rec=M3_jul`) · `rec-M4_aug-locked` · `add-event` (`?modal=add-event`) · `add-event-valid` · `add-kind` |
+| settings.channels-events | `#/settings/channels-events` | `default` · `unsaved` · `rows-all` (`?rows=all`) · `rec:<id>` (`?rec=M3_jul`) · `rec-M4_aug-locked` · `add-event` (`?modal=add-event`) · `add-event-valid` · `event-added-staged` · `event-removed` · `event-selected` (`?event=e2`) · `status-popover` (`?pop=status:CH7_B2`) · `status-popover-by-click` · `spans-popover` (`?pop=spans:CH2_A1`) · `floor-invalid` · `timeline-all` (`?view=all`) · `add-kind` · `add-kind-valid` (`?pop=kind`) |
 | settings.vocabulary | `#/settings/vocabulary` | `default` · `rename` (`?rename=interesting&to=noteworthy`) · `rekey` (`?rekey=seed`) · `add-verdict` / `add-class` / `add-tag` (`?add=…`) · `merge-tag` · `class-non-informative` |
 | settings.nulls | `#/settings/nulls` | `default` (differs: Holm) · `unsaved` · `invalid-alpha` · `method-changed` |
 | settings.analysis-defaults | `#/settings/analysis-defaults` | `default` · `unsaved` · `history` (`?history=band`) · `context-M3_jul` (`?ctx=`) · `invalid-band` · `clear-cache` (`?modal=clear-cache`) · `clearing` |
@@ -110,3 +110,45 @@ Owned files: `webui/client/src/settings/`, `src/api/settings.ts`, `src/fixtures/
 `keyboard--conflict-locked-owner`, `display--report-profile-transparent`).
 Screenshots of the changed states: `webui/screenshots/build/settings/fix/`.
 
+## Fix round 2 (2026-09-21) — critics' P1s on channels-events
+
+**settings.channels-events** (fidelity P1 + six function P1s). The page was a table of live controls over
+dead cells; every fix moves one of those cells into the same draft the save bar already reads.
+
+- **Timeline readable.** M2_aug fs1 is 721 h and its four events sit in the first 50, so at full scale the
+  markers were hairlines and the `40.1 h → end` exclusion painted 95 % of the strip. The strip now defaults
+  to the window that holds every event (`0 – 50 h of 721 h · all 4 events`), with the whole recording one
+  click or `?view=all` away — the inventory's own recommendation against drawing a 45 h recording. Spans
+  are never thinner than a point marker and sit at 40 % alpha, so the 0.2 h exclusion is visible.
+- **Consequences are derived, not tabulated.** `genericConsequence` now recognises the runtime key
+  namespaces of this page (`gain.`, `floor.`, `status.`, `effect.`, `events.added.`, `events.removed.`)
+  and builds the sentence from the event and channel themselves, so *every* event gives the frame's
+  sentence (`excluding 31.1–31.5 h on all channels marks 3 runs on M2_aug fs1 stale`), never the row id
+  `e1`. The two static entries for `CH6_B1` gain and `e3` are deleted — the builder reproduces both,
+  with 2 dp.
+- **Noise floor and gain validate.** A local `NumberCell` keeps the decimals ("1.00"), carries the
+  placeholder `recording`, states one rule when it is broken (`Enter a floor between 0.01 and 5 mV`,
+  `Gain must be a positive number`) and never commits a value outside it; Save is disabled with the count.
+- **Event rows are drafts.** Added rows and staged removals live in the store under one key each
+  (`events.added.<rec>`, `events.removed.<rec>`), so a new event raises the save-bar count with its own
+  consequence and Discard takes it away again; a removal shows the row dimmed and struck, with an undo.
+- **Status and excluded-spans cells open.** The status Badge is a button → Popover (Seg `ok` / `bad from`
+  + time field); setting `bad from` stages the linked `electrode` event, and reading a channel `ok` again
+  stages removal of the event that marked it bad (fog F8: the event is the record). The spans cell lists
+  the spans that touch the channel, each a link to its event row (`?event=e2`), and the count is now
+  derived from the live effects rather than fixture text.
+- **`+ kind` accepts its own example.** `co2-pulse` is valid (`^[a-z][a-z0-9-]{1,19}$`).
+- Every popover on the page is a URL state (`?pop=status:<ch>` / `spans:<ch>` / `kind`), so each is
+  reachable by click **and** by query parameter and two cannot be open at once. This also makes the
+  states order-independent in the manifest: a same-route goto does not remount, so a second state that
+  clicked the same trigger used to toggle the popover shut.
+- Cheap P2s with it: card captions and the timeline row use the display name `M2_aug fs1`, gain reads
+  `1.00`, and the recording Seg moved into the Channels card header (it stays above the card on a failed
+  read, or an unknown `?rec` would be a dead end).
+
+**Gate:** `npx tsc --noEmit -p tsconfig.app.json` clean for the unit; smoke `--only settings` 0 failures
+(nine states added). Screenshots of the changed states: `webui/screenshots/build/settings/fix/`
+(`channels.default`, `channels.timeline-all`, `channels.floor-invalid`, `channels.floor-valid`,
+`channels.effect-e1`, `channels.gain-invalid`, `channels.event-added`, `channels.event-discarded`,
+`channels.event-removed`, `channels.status-popover`, `channels.status-ok`, `channels.status-badfrom`,
+`channels.spans-popover`, `channels.add-kind`).

@@ -173,7 +173,11 @@ export function useSettingsPage(slug: string): SettingsPageStore {
       if (slug === 'datasets') syncHeldOut(saved)
       return { ...s, saved: { ...s.saved, [slug]: saved }, draft: { ...s.draft, [slug]: {} }, seeded: { ...s.seeded, [slug]: false } }
     })
-    const what = changes.map(c => `${c.id} ${String(c.from)} → ${String(c.to)}`).join(' · ')
+    /* a value can be a list (the staged event rows on Channels & events) — the audit line says how
+       many, never "[object Object]" */
+    const brief = (v: unknown) => Array.isArray(v) ? `${v.length} row${v.length === 1 ? '' : 's'}`
+      : v && typeof v === 'object' ? JSON.stringify(v).slice(0, 60) : String(v)
+    const what = changes.map(c => `${c.id} ${brief(c.from)} → ${brief(c.to)}`).join(' · ')
     recordDemoWrite('settings', 'save', { slug, changes: n, what })
     recordDemoWrite('settings', 'audit', { kind: 'settings', what: `${meta?.title ?? slug}: ${what}`, where: meta?.title ?? slug, route: `settings/${slug}` })
     push({ text: `Saved · ${sentence || `${n} change${n === 1 ? '' : 's'} applied`}` })

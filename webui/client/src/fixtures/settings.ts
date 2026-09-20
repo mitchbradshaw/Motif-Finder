@@ -145,11 +145,102 @@ export const EVENT_EFFECTS: EventEffect[] = ['show on plots', 'exclude span', 'e
 export const gainKey = (rec: string, ch: string) => `gain.${rec}.${ch}`
 export const floorKey = (rec: string, ch: string) => `floor.${rec}.${ch}`
 export const effectKey = (id: string) => `effect.${id}`
+/** Channel status: `''` = ok, otherwise the hour it goes bad from (F8: the event is the source, this is the derived cell). */
+export const statusKey = (rec: string, ch: string) => `status.${rec}.${ch}`
+/** Event rows added / staged for removal on one recording — one draft key each, so both stage, save and discard. */
+export const eventsAddedKey = (rec: string) => `events.added.${rec}`
+export const eventsRemovedKey = (rec: string) => `events.removed.${rec}`
+export const badFromHours = (status: string): string => status.match(/bad from ([\d.]+)/)?.[1] ?? ''
 const channelsValues = (): Values => {
   const v: Values = {}
-  for (const r of RECORDINGS) for (const row of channelsFor(r.key)) { v[gainKey(r.key, row.ch)] = row.gain; v[floorKey(r.key, row.ch)] = '' }
+  for (const r of RECORDINGS) {
+    for (const row of channelsFor(r.key)) {
+      v[gainKey(r.key, row.ch)] = row.gain
+      v[floorKey(r.key, row.ch)] = ''
+      v[statusKey(r.key, row.ch)] = badFromHours(row.status)
+    }
+    v[eventsAddedKey(r.key)] = []
+    v[eventsRemovedKey(r.key)] = []
+  }
   for (const e of EVENTS) v[effectKey(e.id)] = e.effect
   return v
+}
+
+/* ---- the consequence sentences of Channels & events (P23: never a fixture id, always the effect).
+   The run counts are fixture-only (fog F7): a per-channel change touches fewer runs than an all-channel one. */
+const RUNS_ON: Record<string, number> = { M2_aug_fs1: 3, M2_aug_fs2: 2, M3_jul: 1, L_LM_Jul26_J: 1, M4_aug: 0 }
+const recName = (rec: string) => RECORDING_ROWS.find(r => r.id === rec)?.name ?? rec
+/** Runs on `rec` that a change scoped to `channels` ('all' or one channel) marks stale. */
+export const staleRuns = (rec: string, channels: string) => {
+  const n = RUNS_ON[rec] ?? 1
+  return channels === 'all' ? n : Math.max(1, Math.ceil((n * 2) / 3))
+}
+const stalePhrase = (rec: string, channels: string) => {
+  const n = staleRuns(rec, channels)
+  return `${n} run${n === 1 ? '' : 's'} on ${recName(rec)} marked stale`
+}
+/** "marks 3 runs on M2_aug fs1 stale" — the canon shape of the exclusion sentence. */
+const marksPhrase = (rec: string, channels: string) => {
+  const n = staleRuns(rec, channels)
+  return `marks ${n} run${n === 1 ? '' : 's'} on ${recName(rec)} stale`
+}
+export const spanLabel = (e: { t0_h: number; t1_h: number | null; open_end?: boolean }) =>
+  e.open_end ? `${e.t0_h} h → end` : e.t1_h != null ? `${e.t0_h}–${e.t1_h} h` : `${e.t0_h} h`
+const chanLabel = (channels: string) => (channels === 'all' ? 'all channels' : channels)
+const dp2 = (v: unknown) => (Number.isFinite(Number(v)) ? Number(v).toFixed(2) : String(v))
+
+/** What changing one event's effect does — the sentence the frame draws, for any event, added or canon. */
+export function eventEffectSentence(e: TimedEvent, to: unknown): string {
+  const span = spanLabel(e), ch = chanLabel(e.channels)
+  if (to === 'exclude span') return `excluding ${span} on ${ch} ${marksPhrase(e.recording, e.channels)}`
+  if (to === 'exclude · mark channel bad') return `excluding ${span} and marking ${ch} bad from ${e.t0_h} h ${marksPhrase(e.recording, e.channels)}`
+  return `removing the exclusion lets new runs read ${span} again · ${stalePhrase(e.recording, e.channels)}`
+}
+function eventAddedSentence(rec: string, from: unknown, to: unknown): string {
+  const a = Array.isArray(from) ? (from as TimedEvent[]) : []
+  const b = Array.isArray(to) ? (to as TimedEvent[]) : []
+  const e = b.find(x => !a.some(y => y.id === x.id))
+  if (!e) {
+    const gone = a.find(x => !b.some(y => y.id === x.id))
+    return gone ? `the new ${gone.kind} event at ${spanLabel(gone)} is dropped · nothing was written` : `event log of ${recName(rec)} unchanged`
+  }
+  if (e.effect === 'show on plots') return `${spanLabel(e)} · ${e.kind} is marked on plots of ${recName(rec)} · no run is marked stale`
+  return eventEffectSentence(e, e.effect)
+}
+function eventRemovedSentence(rec: string, from: unknown, to: unknown): string {
+  const a = Array.isArray(from) ? (from as string[]) : []
+  const b = Array.isArray(to) ? (to as string[]) : []
+  const id = b.find(x => !a.includes(x)) ?? a.find(x => !b.includes(x))
+  const e = EVENTS.find(x => x.id === id)
+  if (!e) return `event log of ${recName(rec)} unchanged`
+  const back = b.includes(id!)
+  if (!back) return `${spanLabel(e)} · ${e.kind} is kept · new runs read it as before`
+  if (e.effect === 'show on plots') return `removing the ${e.kind} marker at ${spanLabel(e)} takes it off every plot · no run is marked stale`
+  return `removing the exclusion lets new runs read ${spanLabel(e)} again · ${stalePhrase(e.recording, e.channels)}`
+}
+/** Consequences for the keys whose id is built at runtime (per channel, per event) — P23 without a static table. */
+function channelsConsequence(id: string, from: unknown, to: unknown): string | null {
+  const m = id.match(/^(gain|floor|status)\.(.+)\.(CH[^.]+)$/)
+  if (m) {
+    const [, what, rec, ch] = m
+    if (what === 'gain') return `gain on ${ch} ${dp2(from)} → ${dp2(to)} rescales mV on ${ch} · ${stalePhrase(rec, ch)}`
+    if (what === 'floor') return String(to) === ''
+      ? `${ch} falls back to the recording noise floor · ${stalePhrase(rec, ch)}`
+      : `${ch} overrides the recording floor at ${dp2(to)} mV · ${stalePhrase(rec, ch)}`
+    return String(to) === ''
+      ? `${ch} reads ok again · new runs read it past ${from} h · ${stalePhrase(rec, ch)}`
+      : `${ch} is bad from ${to} h · new runs stop reading it there · ${stalePhrase(rec, ch)}`
+  }
+  const ev = id.match(/^effect\.(.+)$/)
+  if (ev) {
+    const e = EVENTS.find(x => x.id === ev[1])
+    if (e) return eventEffectSentence(e, to)
+  }
+  const add = id.match(/^events\.added\.(.+)$/)
+  if (add) return eventAddedSentence(add[1], from, to)
+  const rm = id.match(/^events\.removed\.(.+)$/)
+  if (rm) return eventRemovedSentence(rm[1], from, to)
+  return null
 }
 
 /* ============================================================== 03 Vocabulary */
@@ -589,8 +680,6 @@ export const CONSEQUENCE: Record<string, (from: unknown, to: unknown) => string>
   [metaKey('M2_aug_fs1', 'noise_floor')]: (f, t2) => `noise floor ${f} → ${t2} mV marks 4 runs on M2_aug fs1 stale`,
   [metaKey('M2_aug_fs1', 'species')]: () => 'species travels with every new export; existing exports keep the old value',
   [metaKey('M2_aug_fs1', 'start')]: () => 'clock-time readouts shift; hours since start are unchanged',
-  [gainKey('M2_aug_fs1', 'CH6_B1')]: (f, t2) => `gain on CH6_B1 ${f} → ${t2} rescales mV on CH6_B1 · 2 runs marked stale`,
-  [effectKey('e3')]: () => 'excluding 31.1–31.5 h on all channels marks 3 runs on M2_aug fs1 stale',
   [verdictNameKey('interesting')]: (f, t2) => `rename ${f} → ${t2} rewrites 3,424 rows in both stores`,
   'null.baseline.draws': (f, t2) => `Training · baseline ${f} → ${t2} draws · new recipe hash for training templates · estimates change`,
   correction: (f, t2) => `${f} → ${t2} · per-channel p values shown corrected; runs are not re-run`,
@@ -641,7 +730,8 @@ export const CONSEQUENCE: Record<string, (from: unknown, to: unknown) => string>
     off: 'a rerun from the bundle may not reproduce the run',
   }),
 }
-export const genericConsequence = (id: string, from: unknown, to: unknown) => `${id.split('.').slice(-1)[0].replace(/_/g, ' ')} ${String(from)} → ${String(to)} · applies to new runs`
+export const genericConsequence = (id: string, from: unknown, to: unknown) =>
+  channelsConsequence(id, from, to) ?? `${id.split('.').slice(-1)[0].replace(/_/g, ' ')} ${String(from)} → ${String(to)} · applies to new runs`
 
 /* --------------------------------------------------- the settings search index */
 export interface SearchHit { slug: string; page: string; card: string; field: string }

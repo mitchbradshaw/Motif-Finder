@@ -77,3 +77,16 @@ recorded as F1–F26 in `webui/pages/inventory/settings.md`; these are additiona
   `localStorage`. This build keeps them in the same in-memory store as project settings, so a reload
   resets them — consistent with every other page in the empty frontend ("writes survive navigation but
   not a reload"), and inconsistent with the inventory.
+- **FE21. "n runs marked stale" is arithmetic on a fixture.** Channels & events now builds every
+  consequence sentence itself, and the run counts in them come from a five-entry table (`RUNS_ON` in
+  `fixtures/settings.ts`: 3 runs on M2_aug fs1, 2 on fs2, 1 elsewhere), a channel-scoped change costing
+  two thirds of an all-channel one. It reproduces the frame's numbers (3 for the 31.1–31.5 h exclusion,
+  2 for the CH6_B1 gain) and is otherwise invented — inventory F7 already says no data source exists.
+- **FE22. Channel status and the event log agree by construction, not by derivation.** Fog F8 recommends
+  the event be the source of truth and the status cell be derived. This build keeps a `status.<rec>.<ch>`
+  draft value and *stages both sides together* (setting `bad from` stages the linked `electrode` event;
+  reading a channel `ok` stages removal of the event that marked it bad), so the two cannot visibly
+  disagree — but the cell is still a stored value, not a projection of the log.
+- **FE23. The excluded-spans count is derived, the noise-floor and gain columns are not.** `spans` now
+  reads the live event effects, so removing an exclusion drops the count. `noise_floor` and `gain` stay
+  fixture columns with a draft over them (F7: neither exists in the core schema).

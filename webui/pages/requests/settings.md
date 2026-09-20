@@ -100,3 +100,38 @@ label, so the Display preview cannot show four of the five profile controls with
 frame at `--fig-grid`, sets `.k-plot text { font-family: var(--fig-font) }`, and clears the ground rect
 (plus a chequer behind it) for `background: transparent`. The µV label is left as-is rather than faked.
 
+## R9 · `kit/plots.tsx` + `charts/primitives.tsx` — an hours axis that ticks in hours, and point markers
+
+`BandStrip` is the event timeline on Channels & events. Two gaps against frame settings-02:
+
+1. `TimeAxis` ticks through d3's `scaleLinear.ticks(n)` on **seconds**, so an hours window lands on
+   5.55 h steps (`0 h 6 h 11 h 17 h …`). The frame ticks `0 / 10 / 20 / 30 / 40 h`. No choice of domain
+   fixes it: a nice hour step (3600 × 10 s) is never one of d3's 1/2/5 × 10^k candidates.
+2. Every segment is a `rect rx=2`. A point event in the frame is an 8 px circle in its kind colour.
+
+**Ask:** `timeUnit="h"` picks tick steps from an hours ladder (1, 2, 5, 10, 25, 50, 100 h), and a segment
+may carry `shape?: 'bar' | 'dot'` so a zero-length event draws as a dot on the axis line.
+
+**Workaround (landed):** the strip defaults to the window that holds every event, so the ticks are at
+least dense and the markers are visible kind-coloured bars a few pixels wide; spans are drawn at 40 %
+alpha and never thinner than a point marker. The odd tick values and the square markers stay.
+
+## R10 · `kit/forms.tsx` — `NumberField` needs fixed decimals and a placeholder
+
+A calibration number has to read `1.00`, not `1`, and an optional override has to say what it falls back
+to (`recording`). `NumberField` renders `String(value)`, has no `placeholder`, and its inline message is
+its own (`not a number`) rather than the one rule the inventory writes for the field.
+
+**Ask:** `decimals?: number` (display only), `placeholder?: string`, and `error?: string` to replace the
+built-in reasons with the field's own sentence.
+
+**Workaround (landed):** `settings/ChannelsEventsPage.tsx` has a local `NumberCell` over `TextField` that
+does all three. It is deliberately private to the page — if a second page needs it, it belongs in the kit.
+
+## R11 · `kit/plots.tsx` — a `BandStrip` segment cannot be clicked
+
+The inventory's `event-selected` state says clicking a timeline marker selects its table row. `BandStrip`
+segments take no `onClick`, so selection is table-only (`?event=<id>`, and the excluded-spans popover
+links into it).
+
+**Ask:** `onSegmentClick?: (row, segmentIndex) => void` and a `selected?: boolean` ring on a segment.
