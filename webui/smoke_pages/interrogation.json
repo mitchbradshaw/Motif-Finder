@@ -19,6 +19,7 @@
  {"page":"analyse.interrogation.slope","state":"upstream-spike-shape","hash":"analyse/interrogation/block/1?upstream=spike-shape","actions":[],"expect":["[data-testid=\"anatomy-card\"]","[data-testid=\"per-event-table\"]"]},
  {"page":"analyse.interrogation.slope","state":"marks-all","hash":"analyse/interrogation/block/1?marks=all","actions":[],"expect":["[data-testid=\"anatomy-plot\"]","[data-testid=\"mark-legend\"]"]},
  {"page":"analyse.interrogation.slope","state":"running","hash":"analyse/interrogation/block/1?state=running","actions":[],"expect":["[data-testid=\"run-veil\"]"]},
+ {"page":"analyse.interrogation.slope","state":"units-mv-s","hash":"analyse/interrogation/block/1?units=mv-s","actions":[],"expect":["[data-testid=\"units-note\"]","[data-testid=\"anatomy-plot\"]","[data-testid=\"event-readout\"]"]},
 
  {"page":"analyse.interrogation.aggregate","state":"default","hash":"analyse/interrogation/block/2","actions":[],"expect":["[data-testid=\"scaling-card\"]","[data-testid=\"timeline\"]","[data-testid=\"beta-tile\"]"]},
  {"page":"analyse.interrogation.aggregate","state":"histograms","hash":"analyse/interrogation/block/2","actions":[],"expect":["[data-testid=\"hist-depth_mV\"]","[data-testid=\"hist-interval_h\"]","[data-testid=\"hist-max_slope\"]"]},
@@ -29,11 +30,16 @@
  {"page":"analyse.interrogation.aggregate","state":"feature-wiring","hash":"analyse/interrogation/block/2?upstream=spike-shape&popover=wiring","actions":[],"expect":["[data-testid=\"wiring-popover\"]","[data-testid=\"add-scaling-pair\"]"]},
  {"page":"analyse.interrogation.aggregate","state":"wiring-by-click","hash":"analyse/interrogation/block/2","actions":[{"click":"[data-testid=\"custom-pair\"]"},{"wait":250}],"expect":["[data-testid=\"wiring-popover\"]"]},
  {"page":"analyse.interrogation.aggregate","state":"nothing-to-aggregate","hash":"analyse/interrogation/block/2?state=empty","actions":[],"expect":["[data-testid=\"aggregate-empty\"]","[data-testid=\"empty-action\"]"]},
+ {"page":"analyse.interrogation.aggregate","state":"running","hash":"analyse/interrogation/block/2?state=running","actions":[],"expect":["[data-testid=\"run-veil\"]","[data-testid=\"cancel-run\"]"]},
+ {"page":"analyse.interrogation.aggregate","state":"null-shuffled","hash":"analyse/interrogation/block/2?null=shuffled","actions":[],"expect":["[data-testid=\"null-beta-tile\"]","[data-testid=\"hist-verdict-interval_h\"]","[data-testid=\"null-chip\"]"]},
+ {"page":"analyse.interrogation.aggregate","state":"outliers-excluded","hash":"analyse/interrogation/block/2?outliers=excluded","actions":[],"expect":["[data-testid=\"beta-tile\"]","[data-testid=\"fit-points\"]"]},
  {"page":"analyse.interrogation.aggregate","state":"small-family","hash":"analyse/interrogation/block/2?family=F-04","actions":[],"expect":["[data-testid=\"hist-depth_mV\"]","[data-testid=\"timeline\"]"]},
  {"page":"analyse.interrogation.aggregate","state":"stage-outlier","hash":"analyse/interrogation/block/2","actions":[{"click":"[data-testid=\"stage-outlier\"]"},{"wait":300}],"expect":["[data-testid=\"parameters-card\"]"]},
 
  {"page":"analyse.interrogation.slope","state":"stale-after-edit","hash":"analyse/interrogation/block/1?state=stale","actions":[{"wait":400}],"expect":["[data-testid=\"rules-preview\"]","[data-testid=\"stale-veil\"]","[data-testid=\"window-was\"]"]},
  {"page":"analyse.interrogation.slope","state":"stale-discarded","hash":"analyse/interrogation/block/1?state=stale","actions":[{"wait":400},{"click":"[data-testid=\"rules-discard\"]"},{"wait":300}],"expect":["[data-testid=\"rules-card\"]","[data-testid=\"anatomy-plot\"]"]},
  {"page":"analyse.interrogation","state":"empty-scope-by-click","hash":"analyse/interrogation","actions":[{"click":"[data-testid=\"select-none\"]"},{"wait":350}],"expect":["[data-testid=\"empty-scope\"]","[data-testid=\"stale-callout\"]"]},
- {"page":"analyse.interrogation","state":"scope-restored","hash":"analyse/interrogation","actions":[{"click":"[data-testid=\"select-all\"]"},{"wait":350}],"expect":["[data-testid=\"member-grid\"]","[data-testid=\"members-overlaid\"]"]}
+ {"page":"analyse.interrogation","state":"scope-restored","hash":"analyse/interrogation","actions":[{"click":"[data-testid=\"select-all\"]"},{"wait":350}],"expect":["[data-testid=\"member-grid\"]","[data-testid=\"members-overlaid\"]"]},
+ {"page":"analyse.interrogation.aggregate","state":"rewired","hash":"analyse/interrogation/block/2?wire=h3:peakedness,tl:duration_s","actions":[{"wait":300}],"expect":["[data-testid=\"hist-peakedness\"]","[data-testid=\"hist-verdict-peakedness\"]","[data-testid=\"timeline-card\"]"]},
+ {"page":"analyse.interrogation.aggregate","state":"wiring-reset","hash":"analyse/interrogation/block/2?popover=wiring","actions":[{"click":"[data-testid=\"reset-wiring\"]"},{"wait":350}],"expect":["[data-testid=\"hist-max_slope\"]","[data-testid=\"wiring-popover\"]"]}
 ]

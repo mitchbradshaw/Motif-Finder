@@ -13,7 +13,7 @@ import { useSourced } from '../api/seam'
 import { getSlopeBlock, type SlopeBlock } from '../api/interrogation'
 import {
   FAMILY_Y_DOMAIN, MARKS, ROSE_REF_SLOPE, RULES, RUN_STEPS, STALE_PREVIEW, UNITS, VERDICT_COLOUR, angleOf,
-  eventCurve, eventMarks, type InterrogationMember,
+  eventCurve, eventMarks, unitScale, type InterrogationMember,
 } from '../fixtures/interrogation'
 import { AddStagePopover, ChainCard, InterrogationToolbar, LoadFailed, Loading, RunVeil, SaveTemplateModal } from './chrome'
 import { SourcePicker } from './SourcePicker'
@@ -22,6 +22,8 @@ import { Rose } from './Rose'
 
 const STRIP = 10
 const TABLE_PAGE = 4
+/** Why a parameter control is dead while the chain runs (the shared convention). */
+const BUSY = 'wait for the run'
 /** Clip a curve to the plotted window so a long recovery never draws past the axis. */
 const clip = (vs: number[], pre = 10, hi = 24) => vs.map((v, i) => [i - pre, v] as [number, number]).filter(pt => pt[0] <= hi)
 
@@ -109,6 +111,9 @@ function SlopeBody({ block }: { block: SlopeBlock }) {
   }
 
   const rerun = () => {
+    /* Clear the forced-run flag first: the `[stateQ]` effect below runs after this navigation and would
+       otherwise reset the run we are about to start (critique r1: re-run cleared stale with no run). */
+    markSimForced(false)
     setStateQ(null)
     setDraft(d => ({ ...d, rules: { ...d.rules, steepestWindow: d.pendingWindow ?? d.rules.steepestWindow }, pendingWindow: null, staleFrom: null }))
     recordDemoWrite('analyse', 'apply-rules', { block: '01', steepest_window: pending ?? appliedWindow })
@@ -116,7 +121,8 @@ function SlopeBody({ block }: { block: SlopeBlock }) {
   }
   const discard = () => { setDraft(d => ({ ...d, pendingWindow: null, staleFrom: null })); setStateQ(null) }
 
-  /* ---- the anatomy figure ---- */
+  /* ---- the anatomy figure, drawn in the chosen unit convention ---- */
+  const uTime = unitScale(unitsQ).time
   const anatomy = useMemo(() => {
     if (!event) return null
     const pre = 10
@@ -127,17 +133,27 @@ function SlopeBody({ block }: { block: SlopeBlock }) {
     const troughV = -event.depth_mV
     const steepV = -event.depth_mV / 2
     const tan = 0.5 * (showWindow + 2)
+    const sc = (xs: [number, number][]) => xs.map(([a, b]) => [+(a * uTime).toFixed(3), b] as [number, number])
     return {
-      pts, marks, troughV, steepV,
-      chord: [[0, pts[pre][1]], [marks.trough, troughV]] as [number, number][],
-      tangent: [[marks.steepest - tan, steepV + event.max_slope * -tan], [marks.steepest + tan, steepV + event.max_slope * tan]] as [number, number][],
-      depthLine: [[marks.trough, 0], [marks.trough, troughV]] as [number, number][],
-      dom: [-pre, Math.round(event.duration_s) + 14] as [number, number],
+      pts: sc(pts), troughV, steepV,
+      marks: { onset: marks.onset * uTime, steepest: +(marks.steepest * uTime).toFixed(2), trough: +(marks.trough * uTime).toFixed(2) },
+      chord: sc([[0, pts[pre][1]], [marks.trough, troughV]]),
+      tangent: sc([[marks.steepest - tan, steepV + event.max_slope * -tan], [marks.steepest + tan, steepV + event.max_slope * tan]]),
+      depthLine: sc([[marks.trough, 0], [marks.trough, troughV]]),
+      dom: [-pre * uTime, +((Math.round(event.duration_s) + 14) * uTime).toFixed(2)] as [number, number],
     }
-  }, [event, showWindow])
+  }, [event, showWindow, uTime])
 
-  const unitLabel = UNITS.find(u => u.value === unitsQ)?.label ?? 'mV · 10 s'
-  const slopeDiv = unitsQ === 'mv-s' ? 1 : 1
+  /* ---- units (fix r1: the control used to rewrite a caption and recompute nothing) ----
+     `mV · s` is the frame's compressed convention: every time divides by 10 and every slope multiplies
+     by 10. The angle is the same under either, because the slope and the −45° reference scale together. */
+  const unitLabel = UNITS.find(o => o.value === unitsQ)?.label ?? 'mV · 10 s'
+  const u = unitScale(unitsQ)
+  const refSlope = +(ROSE_REF_SLOPE * u.slope).toFixed(4)
+  const t = (v: number) => +(v * u.time).toFixed(3)
+  const fmtT = (v: number) => `${v > 0 ? '+' : ''}${+v.toFixed(u.time === 1 ? 0 : 1)} s`
+  const fmtSlope = (v: number) => (v * u.slope).toFixed(u.slope === 1 ? 4 : 3).replace('-', '−')
+  const fmtSec = (v: number) => t(v).toFixed(u.time === 1 ? 1 : 2)
   const showMarks = marksQ !== 'none'
   const allMarks = marksQ === 'all'
 
@@ -156,11 +172,11 @@ function SlopeBody({ block }: { block: SlopeBlock }) {
     { key: 'channel', header: 'ch', sortValue: r => r.channel },
     { key: 'onset', header: 'onset h', align: 'right', render: r => r.onset_h.toFixed(2), sortValue: r => r.onset_h },
     { key: 'depth', header: 'depth mV', align: 'right', render: r => r.depth_mV.toFixed(3), sortValue: r => r.depth_mV },
-    { key: 'slope', header: 'max slope mV/s', align: 'right', render: r => (r.max_slope / slopeDiv).toFixed(4).replace('-', '−'), sortValue: r => r.max_slope },
+    { key: 'slope', header: 'max slope mV/s', align: 'right', render: r => fmtSlope(r.max_slope), sortValue: r => r.max_slope },
     { key: 'angle', header: 'angle', align: 'right', render: r => `${Math.round(angleOf(r.max_slope))}°`.replace('-', '−'), sortValue: r => angleOf(r.max_slope) },
     { key: 'peak', header: 'peakedness', align: 'right', render: r => r.peakedness.toFixed(2), sortValue: r => r.peakedness },
-    { key: 'duration', header: 'duration s', align: 'right', render: r => r.duration_s.toFixed(1), sortValue: r => r.duration_s },
-    { key: 'recovery', header: 'recovery s', align: 'right', render: r => r.recovery_s.toFixed(1), sortValue: r => r.recovery_s },
+    { key: 'duration', header: 'duration s', align: 'right', render: r => fmtSec(r.duration_s), sortValue: r => r.duration_s },
+    { key: 'recovery', header: 'recovery s', align: 'right', render: r => fmtSec(r.recovery_s), sortValue: r => r.recovery_s },
     { key: 'flags', header: 'flags', render: r => r.flags.length ? <span className="ig-amber-text"><Icon name="alert-triangle" size={11} /> {r.flags.join(' · ')}</span> : null },
   ]
   /* the whole run is sorted, then paged — so "depth ↓" means the deepest events in the run, not on this page */
@@ -205,8 +221,8 @@ function SlopeBody({ block }: { block: SlopeBlock }) {
         <SectionCard testid="anatomy-card" number="01" title={block.upstream.blockTitle}
           info="One event at a time, with the three rules drawn on it. Onset, trough and steepest sample are where every number on this page comes from — change a rule and the numbers change."
           actions={<>
-            <Dropdown testid="units" prefix="units" value={unitsQ} onChange={setUnits} options={UNITS} />
-            <Dropdown testid="marks" prefix="marks" value={marksQ} onChange={setMarks} options={MARKS} />
+            <Dropdown testid="units" prefix="units" value={unitsQ} onChange={setUnits} options={UNITS} disabled={sim.busy} disabledReason={BUSY} />
+            <Dropdown testid="marks" prefix="marks" value={marksQ} onChange={setMarks} options={MARKS} disabled={sim.busy} disabledReason={BUSY} />
           </>}>
           <div className="ig-rel">
             {sim.busy && <RunVeil label={`${sim.steps[sim.step] ?? 'queued'} · ${Math.round(sim.fraction * 100)} %`} fraction={sim.fraction} />}
@@ -216,7 +232,7 @@ function SlopeBody({ block }: { block: SlopeBlock }) {
             {anatomy && event ? (
               <>
                 <LineChart testid="anatomy-plot" height={210} yLabel="mV" xDomain={anatomy.dom} yDomain={[-0.45, 0.05]}
-                  xFormat={v => `${v > 0 ? '+' : ''}${v} s`} legend={false}
+                  xFormat={fmtT} legend={false}
                   markers={showMarks ? [
                     { x: anatomy.marks.onset, label: 'onset', colour: 'var(--blue)' },
                     { x: anatomy.marks.steepest, label: 'steepest', colour: '#7446E0' },
@@ -246,9 +262,13 @@ function SlopeBody({ block }: { block: SlopeBlock }) {
                 <div className="ig-readout" style={{ marginTop: 8 }} data-testid="event-readout">
                   <span>event <b>{event.id}</b> · {event.channel} · {event.onset_h.toFixed(2)} h</span>
                   <span>depth <b>{event.depth_mV.toFixed(3)} mV</b></span>
-                  <span>max slope <b>{(event.max_slope / slopeDiv).toFixed(4).replace('-', '−')} mV/s</b></span>
+                  <span>duration <b>{fmtSec(event.duration_s)} s</b></span>
+                  <span>max slope <b>{fmtSlope(event.max_slope)} mV/s</b></span>
                   <span>angle <b>{angleOf(event.max_slope).toFixed(1).replace('-', '−')}°</b></span>
                   <span>peakedness <b>{event.peakedness.toFixed(2)}</b></span>
+                </div>
+                <div className="ig-foot" style={{ marginTop: 4 }} data-testid="units-note">
+                  units {unitLabel} · {u.note} · −45° = −{refSlope} mV/s · the angle is the same under either convention
                 </div>
 
                 <div className="ig-strip" style={{ marginTop: 10 }} data-testid="event-strip">
@@ -294,11 +314,11 @@ function SlopeBody({ block }: { block: SlopeBlock }) {
               ? <Rose events={events} selected={event.id} colourBy={colourQ} onSelect={pick} />
               : (
                 <>
-                  <LineChart testid="overlay-plot" height={230} yLabel="mV" xDomain={[-10, 24]} yDomain={[-0.45, 0.05]}
-                    xFormat={v => `${v > 0 ? '+' : ''}${v} s`} legend={false}
+                  <LineChart testid="overlay-plot" height={230} yLabel="mV" xDomain={[t(-10), t(24)]} yDomain={[-0.45, 0.05]}
+                    xFormat={fmtT} legend={false}
                     series={[
-                      ...sample.filter(e => e.id !== event?.id).map(e => ({ label: e.id, colour: '#9ca3af', points: clip(eventCurve(e)), width: 1 })),
-                      ...(event ? [{ label: `event ${selectedIdx + 1}`, colour: 'var(--blue)', points: clip(eventCurve(event)), width: 2 }] : []),
+                      ...sample.filter(e => e.id !== event?.id).map(e => ({ label: e.id, colour: '#9ca3af', points: clip(eventCurve(e)).map(([a, b]) => [t(a), b] as [number, number]), width: 1 })),
+                      ...(event ? [{ label: `event ${selectedIdx + 1}`, colour: 'var(--blue)', points: clip(eventCurve(event)).map(([a, b]) => [t(a), b] as [number, number]), width: 2 }] : []),
                     ]} />
                   <div className="ig-foot" style={{ marginTop: 4 }}>
                     <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}><span style={{ width: 14, height: 2, background: 'var(--blue)' }} />current event {selectedIdx + 1} · drawn if in sample, else added</span>
@@ -309,10 +329,10 @@ function SlopeBody({ block }: { block: SlopeBlock }) {
           </SectionCard>
         ) : (
           <SectionCard testid="rose-card" title="Each fall as one angle"
-            info={`Every fall becomes one angle: the arctangent of its steepest slope in ${unitLabel}. −45° is −${ROSE_REF_SLOPE} mV/s. The radius is the event's order in the run, so the rose is not a density.`}
+            info={`Every fall becomes one angle: the arctangent of its steepest slope in ${unitLabel}. −45° is −${refSlope} mV/s. The radius is the event's order in the run, so the rose is not a density.`}
             actions={<Dropdown testid="rose-colour" prefix="colour" value={colourQ} onChange={setColour}
               options={[{ value: 'depth', label: 'depth' }, { value: 'recording', label: 'recording' }, { value: 'verdict', label: 'verdict' }]} />}>
-            <div className="ig-foot" style={{ marginBottom: 6 }}>angle of max slope in {unitLabel} · −45° = −{ROSE_REF_SLOPE} mV/s · radius = event order</div>
+            <div className="ig-foot" style={{ marginBottom: 6 }}>angle of max slope in {unitLabel} · −45° = −{refSlope} mV/s · radius = event order</div>
             <Rose events={events} selected={event?.id ?? null} colourBy={colourQ} onSelect={pick} />
           </SectionCard>
         )}
@@ -325,7 +345,7 @@ function SlopeBody({ block }: { block: SlopeBlock }) {
         actions={pending != null
           ? <>
             <span className="ig-amber-text ig-small mono" data-testid="rules-preview"><Icon name="alert-triangle" size={11} /> {STALE_PREVIEW}</span>
-            <Button size="sm" onClick={discard} testid="rules-discard">discard</Button>
+            <Button size="sm" onClick={discard} disabled={sim.busy} disabledReason={BUSY} testid="rules-discard">discard</Button>
           </>
           : flagged.length
             ? <span className="ig-amber-text ig-small mono" data-testid="rules-flagged"><Icon name="alert-triangle" size={11} /> {flagged.length} event{flagged.length === 1 ? '' : 's'} flagged · two troughs within window</span>
@@ -333,16 +353,16 @@ function SlopeBody({ block }: { block: SlopeBlock }) {
         <div className="ig-rules">
           <div>
             <div className="lb">onset rule <InfoTip title="Onset rule">Where the fall is taken to start. "Walk back from steepest while descending" is the recommended rule (Settings › Recommended values).</InfoTip></div>
-            <Dropdown block testid="rule-onset" value={draft.rules.onset} onChange={v => { setDraft(d => ({ ...d, rules: { ...d.rules, onset: v }, staleFrom: 'block1' })) }} options={RULES.onset} />
+            <Dropdown block testid="rule-onset" disabled={sim.busy} disabledReason={BUSY} value={draft.rules.onset} onChange={v => { setDraft(d => ({ ...d, rules: { ...d.rules, onset: v }, staleFrom: 'block1' })) }} options={RULES.onset} />
           </div>
           <div>
             <div className="lb">trough rule <InfoTip title="Trough rule">Where the fall is taken to end. A run of samples above the noise band avoids stopping on a single noisy sample.</InfoTip></div>
-            <Dropdown block testid="rule-trough" value={draft.rules.trough} onChange={v => { setDraft(d => ({ ...d, rules: { ...d.rules, trough: v }, staleFrom: 'block1' })) }} options={RULES.trough} />
+            <Dropdown block testid="rule-trough" disabled={sim.busy} disabledReason={BUSY} value={draft.rules.trough} onChange={v => { setDraft(d => ({ ...d, rules: { ...d.rules, trough: v }, staleFrom: 'block1' })) }} options={RULES.trough} />
           </div>
           <div>
             <div className="lb">steepest window <InfoTip title="Steepest window">The slope is the steepest difference over this many consecutive samples. Wider windows are less noisy and shallower.</InfoTip></div>
             <div className="ig-row">
-              <Slider testid="rule-window" value={showWindow} min={RULES.steepestWindow.min} max={RULES.steepestWindow.max} step={RULES.steepestWindow.step}
+              <Slider testid="rule-window" disabled={sim.busy} disabledReason={BUSY} value={showWindow} min={RULES.steepestWindow.min} max={RULES.steepestWindow.max} step={RULES.steepestWindow.step}
                 onChange={v => setDraft(d => ({ ...d, pendingWindow: v === d.rules.steepestWindow ? null : v, staleFrom: v === d.rules.steepestWindow ? d.staleFrom : 'block1' }))}
                 format={v => `${v} samples`} ariaLabel="steepest window" width={150} />
               {pending != null && <span className="ig-muted ig-small mono" data-testid="window-was">(was {appliedWindow})</span>}
@@ -350,7 +370,7 @@ function SlopeBody({ block }: { block: SlopeBlock }) {
           </div>
           <div>
             <div className="lb">slope noise σ <InfoTip title="Slope noise σ">The dispersion the trough rule compares against. MAD is robust to the fall itself.</InfoTip></div>
-            <Dropdown block testid="rule-sigma" value={draft.rules.sigma} onChange={v => setDraft(d => ({ ...d, rules: { ...d.rules, sigma: v }, staleFrom: 'block1' }))} options={RULES.sigma} />
+            <Dropdown block testid="rule-sigma" disabled={sim.busy} disabledReason={BUSY} value={draft.rules.sigma} onChange={v => setDraft(d => ({ ...d, rules: { ...d.rules, sigma: v }, staleFrom: 'block1' }))} options={RULES.sigma} />
           </div>
         </div>
       </SectionCard>

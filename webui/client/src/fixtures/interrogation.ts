@@ -292,6 +292,19 @@ export const UNITS = [
   { value: 'mv-s', label: 'mV · s' },
   { value: 'z', label: 'z · 10 s', disabled: true, reason: 'waveforms are never normalised on screen (D5)' },
 ]
+/** What a unit choice actually changes (fix r1: the control used to rewrite a caption and nothing else).
+ *  `mV · 10 s` is the canon-corrected scale this page is built on — plotted seconds are recording seconds
+ *  and −45° on the rose is −0.1 mV/s. `mV · s` is the frame's own compressed convention: one plotted
+ *  second is ten seconds of recording, so every time divides by 10 and every slope multiplies by 10.
+ *  The angle is unchanged under either, because the slope and the −45° reference scale together. */
+export interface UnitScale { time: number; slope: number; note: string }
+export const UNIT_SCALES: Record<string, UnitScale> = {
+  'mv-10s': { time: 1, slope: 1, note: 'plotted seconds are recording seconds' },
+  'mv-s': { time: 0.1, slope: 10, note: '1 plotted s = 10 s of recording (the frame convention)' },
+  z: { time: 1, slope: 1, note: 'normalised — refused on screen (D5)' },
+}
+export const unitScale = (v: string): UnitScale => UNIT_SCALES[v] ?? UNIT_SCALES['mv-10s']
+
 export const MARKS = [
   { value: 'minimal', label: 'minimal' },
   { value: 'all', label: 'all marks' },
@@ -300,10 +313,17 @@ export const MARKS = [
 
 /* ---------------------------------------------------------------- 02 Aggregate ---------------------------------------------------------------- */
 export interface FeatureSpec { key: string; label: string; unit: string; kind: 'measure' | 'time' }
-export interface HistSpec { feature: string; title: string; unit: string; colour: string; nullColour: string; domain: [number, number]; verdict: string; verdictTone?: 'amber' | 'muted' }
+export interface HistSpec {
+  feature: string; title: string; unit: string; colour: string; nullColour: string; domain: [number, number]
+  verdict: string; verdictTone?: 'amber' | 'muted'
+  /** the same verdict against the shuffled-onset null — the `null` parameter switches between the two */
+  verdictShuffled: string; verdictShuffledTone?: 'amber' | 'muted'
+}
 export interface PairSpec {
   key: string; label: string; x: string; y: string; xLabel: string; yLabel: string
   beta: number; ci: [number, number]; r2: number; nullBeta: number; nullCi: [number, number]
+  /** the same fit against the shuffled-onset null */
+  nullShuffled: { beta: number; ci: [number, number] }
   relation: string; pooled?: boolean
   byRecording?: { recording: string; beta: number | null; ci?: [number, number]; n: number; note?: string }[]
 }
@@ -334,18 +354,18 @@ export const UPSTREAMS: Record<'slope' | 'spike-shape', UpstreamSpec> = {
       { key: 'onset_h', label: 'onset_h', unit: 'h', kind: 'time' },
     ],
     hists: [
-      { feature: 'depth_mV', title: 'Drop depth', unit: 'mV', colour: FEATURE_COLOURS[0], nullColour: NULL_GREY, domain: [0.10, 0.40], verdict: 'dip test p 0.21 · n too small to call modes', verdictTone: 'amber' },
-      { feature: 'interval_h', title: 'Inter-event interval', unit: 'h', colour: FEATURE_COLOURS[1], nullColour: NULL_GREY, domain: [0, 2.0], verdict: 'CV 0.31 · null CV 0.98 [0.71–1.22] · p < 0.01' },
-      { feature: 'max_slope', title: 'Max slope', unit: 'mV/s', colour: FEATURE_COLOURS[2], nullColour: NULL_GREY, domain: [0.028, 0.076], verdict: 'median 0.066 · null median 0.021 · p < 0.01' },
+      { feature: 'depth_mV', title: 'Drop depth', unit: 'mV', colour: FEATURE_COLOURS[0], nullColour: NULL_GREY, domain: [0.10, 0.40], verdict: 'dip test p 0.21 · n too small to call modes', verdictTone: 'amber', verdictShuffled: 'dip test p 0.19 · n too small to call modes', verdictShuffledTone: 'amber' },
+      { feature: 'interval_h', title: 'Inter-event interval', unit: 'h', colour: FEATURE_COLOURS[1], nullColour: NULL_GREY, domain: [0, 2.0], verdict: 'CV 0.31 · null CV 0.98 [0.71–1.22] · p < 0.01', verdictShuffled: 'CV 0.31 · shuffled-onset CV 1.04 [0.78–1.31] · p < 0.01' },
+      { feature: 'max_slope', title: 'Max slope', unit: 'mV/s', colour: FEATURE_COLOURS[2], nullColour: NULL_GREY, domain: [0.028, 0.076], verdict: 'median 0.066 · null median 0.021 · p < 0.01', verdictShuffled: 'median 0.066 · shuffled-onset median 0.043 · p 0.02' },
     ],
     pairs: [
       {
         key: 'depth-duration', label: 'depth ~ duration', x: 'duration_s', y: 'depth_mV', xLabel: 'duration →', yLabel: 'depth mV',
-        beta: 1.42, ci: [1.18, 1.66], r2: 0.81, nullBeta: 0.12, nullCi: [-0.31, 0.52], relation: 'depth ∝ duration^β',
+        beta: 1.42, ci: [1.18, 1.66], r2: 0.81, nullBeta: 0.12, nullCi: [-0.31, 0.52], nullShuffled: { beta: 0.28, ci: [-0.19, 0.74] }, relation: 'depth ∝ duration^β',
       },
       {
         key: 'depth-maxslope', label: 'depth ~ max slope', x: 'max_slope', y: 'depth_mV', xLabel: 'max slope mV/s', yLabel: 'depth mV',
-        beta: 1.95, ci: [1.52, 2.38], r2: 0.74, nullBeta: 0.08, nullCi: [-0.29, 0.44], relation: 'depth ∝ |slope|^β', pooled: true,
+        beta: 1.95, ci: [1.52, 2.38], r2: 0.74, nullBeta: 0.08, nullCi: [-0.29, 0.44], nullShuffled: { beta: 0.21, ci: [-0.24, 0.66] }, relation: 'depth ∝ |slope|^β', pooled: true,
         byRecording: [
           { recording: 'M2_aug fs1', beta: 2.04, ci: [1.49, 2.59], n: 9 },
           { recording: 'M3_jul', beta: 1.71, ci: [0.62, 2.80], n: 5 },
@@ -354,7 +374,7 @@ export const UPSTREAMS: Record<'slope' | 'spike-shape', UpstreamSpec> = {
       },
       {
         key: 'interval-depth', label: 'interval ~ depth', x: 'depth_mV', y: 'interval_h', xLabel: 'depth mV', yLabel: 'interval h',
-        beta: 0.42, ci: [0.05, 0.79], r2: 0.21, nullBeta: 0.03, nullCi: [-0.30, 0.36], relation: 'interval ∝ depth^β',
+        beta: 0.42, ci: [0.05, 0.79], r2: 0.21, nullBeta: 0.03, nullCi: [-0.30, 0.36], nullShuffled: { beta: 0.09, ci: [-0.28, 0.45] }, relation: 'interval ∝ depth^β',
       },
     ],
     purity: 'one fall per window',
@@ -377,14 +397,14 @@ export const UPSTREAMS: Record<'slope' | 'spike-shape', UpstreamSpec> = {
       { key: 'onset_h', label: 'onset_h', unit: 'h', kind: 'time' },
     ],
     hists: [
-      { feature: 'amplitude_mV', title: 'Amplitude', unit: 'mV', colour: FEATURE_COLOURS[0], nullColour: NULL_GREY, domain: [0.10, 0.40], verdict: 'dip test p 0.34 · n too small to call modes', verdictTone: 'amber' },
-      { feature: 'half_width_s', title: 'Half-width', unit: 's', colour: FEATURE_COLOURS[1], nullColour: NULL_GREY, domain: [0, 9.0], verdict: 'median 8.4 s · null median 5.1 s · p < 0.01' },
-      { feature: 'rise_s', title: 'Rise time', unit: 's', colour: FEATURE_COLOURS[2], nullColour: NULL_GREY, domain: [0, 9.0], verdict: 'median 3.1 s · null median 4.4 s · p 0.03' },
+      { feature: 'amplitude_mV', title: 'Amplitude', unit: 'mV', colour: FEATURE_COLOURS[0], nullColour: NULL_GREY, domain: [0.10, 0.40], verdict: 'dip test p 0.34 · n too small to call modes', verdictTone: 'amber', verdictShuffled: 'dip test p 0.29 · n too small to call modes', verdictShuffledTone: 'amber' },
+      { feature: 'half_width_s', title: 'Half-width', unit: 's', colour: FEATURE_COLOURS[1], nullColour: NULL_GREY, domain: [0, 9.0], verdict: 'median 8.4 s · null median 5.1 s · p < 0.01', verdictShuffled: 'median 8.4 s · shuffled-onset median 6.2 s · p 0.04' },
+      { feature: 'rise_s', title: 'Rise time', unit: 's', colour: FEATURE_COLOURS[2], nullColour: NULL_GREY, domain: [0, 9.0], verdict: 'median 3.1 s · null median 4.4 s · p 0.03', verdictShuffled: 'median 3.1 s · shuffled-onset median 3.6 s · p 0.21' },
     ],
     pairs: [
-      { key: 'amp-hw', label: 'amplitude ~ half-width', x: 'half_width_s', y: 'amplitude_mV', xLabel: 'half-width →', yLabel: 'amplitude mV', beta: 0.88, ci: [0.61, 1.15], r2: 0.62, nullBeta: 0.05, nullCi: [-0.40, 0.49], relation: 'amplitude ∝ half-width^β' },
-      { key: 'rise-decay', label: 'rise ~ decay', x: 'decay_s', y: 'rise_s', xLabel: 'decay s', yLabel: 'rise s', beta: 0.54, ci: [0.21, 0.87], r2: 0.38, nullBeta: 0.02, nullCi: [-0.35, 0.39], relation: 'rise ∝ decay^β' },
-      { key: 'amp-isi', label: 'amplitude ~ ISI', x: 'isi_s', y: 'amplitude_mV', xLabel: 'ISI s', yLabel: 'amplitude mV', beta: 0.31, ci: [-0.04, 0.66], r2: 0.14, nullBeta: 0.01, nullCi: [-0.33, 0.35], relation: 'amplitude ∝ ISI^β' },
+      { key: 'amp-hw', label: 'amplitude ~ half-width', x: 'half_width_s', y: 'amplitude_mV', xLabel: 'half-width →', yLabel: 'amplitude mV', beta: 0.88, ci: [0.61, 1.15], r2: 0.62, nullBeta: 0.05, nullCi: [-0.40, 0.49], nullShuffled: { beta: 0.14, ci: [-0.33, 0.60] }, relation: 'amplitude ∝ half-width^β' },
+      { key: 'rise-decay', label: 'rise ~ decay', x: 'decay_s', y: 'rise_s', xLabel: 'decay s', yLabel: 'rise s', beta: 0.54, ci: [0.21, 0.87], r2: 0.38, nullBeta: 0.02, nullCi: [-0.35, 0.39], nullShuffled: { beta: 0.11, ci: [-0.31, 0.52] }, relation: 'rise ∝ decay^β' },
+      { key: 'amp-isi', label: 'amplitude ~ ISI', x: 'isi_s', y: 'amplitude_mV', xLabel: 'ISI s', yLabel: 'amplitude mV', beta: 0.31, ci: [-0.04, 0.66], r2: 0.14, nullBeta: 0.01, nullCi: [-0.33, 0.35], nullShuffled: { beta: 0.04, ci: [-0.30, 0.38] }, relation: 'amplitude ∝ ISI^β' },
     ],
     purity: 'one spike per window',
     tiles: [
@@ -461,3 +481,75 @@ export function eventCurve(m: InterrogationMember, pre = 10, post = 24): number[
 export const eventMarks = (m: InterrogationMember) => ({ onset: 0, steepest: +(m.duration_s / 2).toFixed(1), trough: m.duration_s })
 
 export const FAMILY_Y_DOMAIN: [number, number] = [-0.45, 0.05]
+
+/* ---------------------------------------------------------------- 02 Aggregate: what a parameter does ----------------------------------------------------------------
+ * Every control on the Parameters card recomputes something here. Nothing below invents a number the
+ * points cannot carry: `MIN_FIT_N` is the floor under which the scaling card refuses to fit at all. */
+
+/** A power-law fit needs more than a handful of points; below this the scaling card says so instead. */
+export const MIN_FIT_N = 12
+
+export interface FitResult { beta: number; ci: [number, number]; r2: number; n: number }
+
+/** Ordinary least squares on log10 axes: exponent, 95 % CI (t ≈ 2.12) and R². */
+export function fitLogLog(pts: { x: number; y: number }[]): FitResult | null {
+  const ok = pts.filter(p => p.x > 0 && p.y > 0 && Number.isFinite(p.x) && Number.isFinite(p.y))
+  const n = ok.length
+  if (n < 3) return null
+  const xs = ok.map(p => Math.log10(p.x)), ys = ok.map(p => Math.log10(p.y))
+  const mx = xs.reduce((a, b) => a + b, 0) / n, my = ys.reduce((a, b) => a + b, 0) / n
+  const sxx = xs.reduce((s, x) => s + (x - mx) ** 2, 0)
+  if (sxx <= 1e-12) return null
+  const beta = xs.reduce((s, x, i) => s + (x - mx) * (ys[i] - my), 0) / sxx
+  const a = my - beta * mx
+  const ss = ys.reduce((s, y, i) => s + (y - (a + beta * xs[i])) ** 2, 0)
+  const st = ys.reduce((s, y) => s + (y - my) ** 2, 0)
+  const se = Math.sqrt(ss / Math.max(1, n - 2) / sxx)
+  return { beta, ci: [beta - 2.12 * se, beta + 2.12 * se], r2: st > 0 ? 1 - ss / st : 0, n }
+}
+
+/** The fit the page shows: the recorded fit (what the frame draws for the default parameter set) moved by
+ *  whatever the current parameters actually change about the points. Dropping or winsorising points moves
+ *  β, widens or narrows its CI and moves R² by the amount they really move — while the default set still
+ *  reads exactly as recorded. Returns null when there are too few points to fit at all. */
+export function adjustedFit(spec: { beta: number; ci: [number, number]; r2: number }, all: { x: number; y: number }[], used: { x: number; y: number }[]): FitResult | null {
+  if (used.length < MIN_FIT_N) return null
+  const fa = fitLogLog(all), fu = fitLogLog(used)
+  if (!fa || !fu) return null
+  const beta = +(spec.beta + (fu.beta - fa.beta)).toFixed(3)
+  const halfA = (spec.ci[1] - spec.ci[0]) / 2
+  const half = halfA * ((fu.ci[1] - fu.ci[0]) / Math.max(1e-6, fa.ci[1] - fa.ci[0]))
+  const r2 = Math.max(0, Math.min(1, spec.r2 + (fu.r2 - fa.r2)))
+  return { beta, ci: [beta - half, beta + half], r2, n: used.length }
+}
+
+/** Bin count per rule: Freedman–Diaconis (2·IQR·n^−1/3), Sturges (log2 n + 1), or a fixed 20. */
+export function binCount(values: number[], mode: string): number {
+  const n = values.length
+  if (!n) return 1
+  if (mode === 'fixed') return 20
+  if (mode === 'sturges') return Math.max(2, Math.ceil(Math.log2(n) + 1))
+  const s = [...values].sort((a, b) => a - b)
+  const q = (p: number) => s[Math.min(s.length - 1, Math.floor(p * (s.length - 1)))]
+  const iqr = q(0.75) - q(0.25), lo = s[0], hi = s[s.length - 1]
+  if (iqr <= 0 || hi <= lo) return Math.max(2, Math.ceil(Math.sqrt(n)))
+  /* FD is capped at 2√n bins, the usual practical guard: a few long gaps make the range wide next to
+     the IQR, and without it the interval histogram shatters into a comb. */
+  return Math.max(3, Math.min(Math.ceil(2 * Math.sqrt(n)), Math.ceil((hi - lo) / (2 * iqr * Math.pow(n, -1 / 3)))))
+}
+
+/** Where an interval starts and ends, in hours since that recording's start (§0). The three definitions
+ *  differ by the fall itself (6–11 s ≈ 0.002 h), so the distribution moves only a little — the page says
+ *  so rather than pretending the choice is dramatic. */
+export const INTERVAL_ENDS: Record<string, { from: (m: InterrogationMember) => number; to: (m: InterrogationMember) => number; label: string }> = {
+  'onset-onset': { from: m => m.onset_h, to: m => m.onset_h, label: 'onset → onset' },
+  'trough-trough': { from: m => m.onset_h + m.duration_s / 3600, to: m => m.onset_h + m.duration_s / 3600, label: 'trough → trough' },
+  'onset-trough': { from: m => m.onset_h, to: m => m.onset_h + m.duration_s / 3600, label: 'onset → trough' },
+}
+
+/** The percentile p of a sample (nearest rank), used by the winsorising outlier rule. */
+export function percentile(values: number[], p: number): number {
+  if (!values.length) return 0
+  const s = [...values].sort((a, b) => a - b)
+  return s[Math.max(0, Math.min(s.length - 1, Math.round(p * (s.length - 1))))]
+}
