@@ -12,7 +12,9 @@ import { useToast } from '../shell/Toast'
 import { navigate } from '../state'
 import { useSourced } from '../api/seam'
 import { getModelBlock, type ModelBlock } from '../api/training'
-import { CHANNEL, ESTIMATES, TRIAL, WINDOWS, chainStatuses, trialScript } from '../fixtures/training'
+import {
+  CHANNEL, TRIAL, WINDOWS, chainStatuses, encodeCost, fmtMin, trialMinutes, trialScript,
+} from '../fixtures/training'
 import { BlockFrame, LoadFailed, Loading, SaveTemplateModal, SendToReviewModal } from './chrome'
 import { live, useSourceQuery, useTrainingDraft, type ModelParams } from './draft'
 
@@ -45,6 +47,11 @@ const PARAM_FIELDS: { key: keyof ModelParamsUI; label: string; info: string; opt
 ]
 type ModelParamsUI = { architecture: string; input: string; epochs: string; stopOn: string; learningRate: string; batchSeed: string; classBalance: string; augmentation: string }
 
+/* What the two parameters that dominate the bill do to it. The stage table is the page's summary of
+ * what will run, so it has to be a summary of what is actually set. */
+const ARCH_FACTOR: Record<string, number> = { 'EfficientNet-B0': 1, 'EfficientNet-B2': 1.62, 'ResNet-18': 0.78 }
+const epochFactor = (v: string) => (parseInt(v, 10) || 30) / 30
+
 function Body({ data }: { data: ModelBlock }) {
   const { push } = useToast()
   const notWired = useNotWired()
@@ -74,11 +81,31 @@ function Body({ data }: { data: ModelBlock }) {
   const chain = data.chain
   const status: Record<string, BadgeStatus> = chainStatuses(draft.staleFrom, chain)
 
-  const ticked = data.stages.filter(s => p.stages[s.id])
+  /* The rows are re-costed from the parameters on this page and from 04's own encode settings, so the
+   * table cannot say EfficientNet-B0 · 30 epochs while the dropdown above it says something else. */
+  const enc = live(draft.encode)
+  const encImages = WINDOWS.total * Object.values(enc.included).filter(Boolean).length
+  const encMinutes = encodeCost(encImages, enc.size, enc.paa).minutes
+  const trainMinutes = (data.stages.find(s => s.id === '05')?.costMin ?? 160) * (ARCH_FACTOR[params.architecture] ?? 1) * epochFactor(params.epochs)
+  const stages = data.stages.map(st =>
+    st.id === '05' ? { ...st, costMin: trainMinutes, cost: fmtMin(trainMinutes).replace('≈ ', ''), note: `${params.architecture} · ${params.epochs}` }
+      : st.id === '04' ? { ...st, costMin: encMinutes, cost: fmtMin(encMinutes).replace('≈ ', ''), note: `rebuilds ${fmtInt(encImages)} images · ${enc.size}` }
+        : st)
+
+  const ticked = stages.filter(s => p.stages[s.id])
   const fromStage = ticked.length ? ticked[0].id : '05'
   const toStage = ticked.length ? ticked[ticked.length - 1].id : '05'
   const encodeOff = !p.stages['04']
   const script = trialScript(fromStage, toStage)
+  /* The tick has exactly one purpose (§6.7): so three hours of compute does not happen twice. It has
+   * to show in the bill. */
+  const totalMinutes = trialMinutes(ticked)
+  const onCluster = ticked.some(st => st.runsOn.startsWith('cluster'))
+  const estimate = ticked.length
+    ? `trial ${fmtMin(totalMinutes)} ${onCluster ? 'on cluster' : 'local'}`
+    : 'no stage ticked · the job would do nothing'
+  const nothingTicked = ticked.length === 0
+  const noStageReason = nothingTicked ? 'no stage is ticked — tick at least one for the job to do something' : undefined
 
   const toggleStage = (id: string) => {
     const next = { ...p.stages, [id]: !p.stages[id] }
@@ -102,11 +129,12 @@ function Body({ data }: { data: ModelBlock }) {
     <BlockFrame
       chain={chain} current="model" status={status} source={source} onSource={s => setSource(s === 'signal' ? null : s)}
       name={draft.name} saved={draft.saved} onRename={v => setDraft(d => ({ ...d, name: v, saved: false }))}
-      estimate={ESTIMATES.model}
+      estimate={estimate} estimateTone={nothingTicked ? 'amber' : 'muted'}
       onBack={() => navigate('analyse/training')} onNavigate={b => b.route && navigate(b.route)}
       onAddStage={() => notWired('insert a stage into the training chain (type-contract modal §6.4)')}
       onSaveTemplate={() => setModal('save-template')}
-      primary={<Button variant="primary" icon="rocket" onClick={trainInModels} testid="train-in-models-top">Train in Models</Button>}
+      primary={<Button variant="primary" icon="rocket" onClick={trainInModels} testid="train-in-models-top"
+        disabled={nothingTicked} disabledReason={noStageReason}>Train in Models</Button>}
     >
       <div className="tr-cols wide-right">
         <SectionCard number={5} title="Model" subtitle="Encoding + labels → Model" testid="model-card"
@@ -116,7 +144,7 @@ function Body({ data }: { data: ModelBlock }) {
               <span className="tk" /><span className="nm">stage</span><span className="st">status</span>
               <span className="ct">cost</span><span className="on">runs on</span><span className="nt" />
             </div>
-            {data.stages.map(s => {
+            {stages.map(s => {
               const on = !!p.stages[s.id]
               const blocked = s.id === '05' && encodeOff
               return (
@@ -191,15 +219,17 @@ function Body({ data }: { data: ModelBlock }) {
           </div>
         </SectionCard>
 
-        <SectionCard title={TRIAL.title} subtitle={ticked.length ? `stages ${fromStage} → ${toStage} · one GPU task` : 'no stage ticked · the job would do nothing'} testid="trial-card"
+        <SectionCard title={TRIAL.title} subtitle={ticked.length ? `stages ${fromStage} → ${toStage} · one GPU task · ${fmtMin(totalMinutes)}` : 'no stage ticked · the job would do nothing'} testid="trial-card"
           actions={<Dropdown prefix="template" value="guided · uob-bc4" onChange={() => notWired('switch the cluster job template')}
             testid="trial-template" options={[{ value: 'guided · uob-bc4', label: 'guided · uob-bc4' }, { value: 'raw sbatch', label: 'raw sbatch' }]} />}>
           <CodeBlock code={script} filename={`trial_${draft.name}.sh`} copy={false} save={false} maxHeight={110} />
           <div className="tr-row-flex" style={{ marginTop: 8 }}>
             <span className="tr-muted tr-small">{TRIAL.returns}</span>
             <span className="k-spacer" />
-            <Button icon="copy" onClick={() => { void navigator.clipboard?.writeText(script); push({ text: 'trial script copied to the clipboard' }) }} testid="copy-script">Copy script</Button>
-            <Button icon="download" onClick={downloadTrial} testid="download-trial">Download trial job</Button>
+            <Button icon="copy" onClick={() => { void navigator.clipboard?.writeText(script); push({ text: 'trial script copied to the clipboard' }) }}
+              testid="copy-script" disabled={nothingTicked} disabledReason={noStageReason}>Copy script</Button>
+            <Button icon="download" onClick={downloadTrial} testid="download-trial"
+              disabled={nothingTicked} disabledReason={noStageReason}>Download trial job</Button>
           </div>
           {trialJob && <Chip tone="blue" icon="check" testid="trial-job-chip" onClick={() => navigate('jobs')}>trial job {trialJob} queued · Jobs</Chip>}
           {ticked.length === 0 && <Badge status="invalid" testid="no-stage">no stage is ticked — the trial job would do nothing</Badge>}
@@ -210,7 +240,8 @@ function Body({ data }: { data: ModelBlock }) {
               <b>Train the real model in Models</b>
               <span>applies this template across channels and recordings · paired comparison · results and nulls</span>
             </span>
-            <Button variant="primary" icon="arrow-right" onClick={trainInModels} testid="train-in-models">Train in Models</Button>
+            <Button variant="primary" icon="arrow-right" onClick={trainInModels} testid="train-in-models"
+              disabled={nothingTicked} disabledReason={noStageReason}>Train in Models</Button>
           </div>
         </SectionCard>
       </div>
