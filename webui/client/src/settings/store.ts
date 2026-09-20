@@ -49,6 +49,13 @@ function syncHeldOut(saved: Values) {
   setDemo<HeldOutLock>(HELD_OUT_KEY_STORE, { on: Boolean(saved['heldout.on']), recording: String(saved['heldout.recording'] ?? 'M4_aug') })
 }
 
+/** Personal display preferences are read outside Settings (every readout, every table). Mirror them
+ *  into their own demo-store key — the same pattern as the held-out lock — so a workspace can bind to
+ *  them without importing the settings store. See webui/pages/requests/settings.md. */
+export const DISPLAY_PREFS_KEY = 'settings.display'
+export interface DisplayPrefs { density: string; time_axis: string; amplitude: string; sample_indices: boolean }
+export function publishDisplayPrefs(p: DisplayPrefs) { setDemo<DisplayPrefs>(DISPLAY_PREFS_KEY, p) }
+
 export interface SettingsPageStore {
   slug: string
   scope: Scope

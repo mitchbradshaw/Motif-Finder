@@ -66,3 +66,32 @@
 .s-rec-bar { display: inline-block; width: 3px; height: 14px; border-radius: 2px; background: var(--green); margin-right: 7px; vertical-align: -2px; }
 .s-timeline-caption { font-size: 10px; color: var(--muted); text-align: right; }
 .s-spark { background: var(--grey-100); border-radius: 4px; padding: 1px 2px; display: inline-block; }
+
+/* ---- report figure preview (settings-15): the profile has to be visible IN the preview ---- */
+.s-fig { position: relative; }
+.s-fig .k-plot { position: relative; }
+/* the grid the profile's "grid opacity" controls, drawn over the ground inside the plot frame
+   (padL 44 · padR 10 · padT 8 · padB 22 of the kit Trace) */
+.s-fig .k-plot::after {
+  content: ''; position: absolute; inset: 8px 10px 22px 44px; pointer-events: none; opacity: var(--fig-grid, 0.15);
+  background-image:
+    repeating-linear-gradient(to bottom, var(--grey-300, #c9d0da) 0 1px, transparent 1px 32px),
+    repeating-linear-gradient(to right, var(--grey-300, #c9d0da) 0 1px, transparent 1px 64px);
+}
+.s-fig .k-plot text, .s-fig [data-testid="figure-caption"] { font-family: var(--fig-font, var(--font-mono)); }
+/* transparent ground: drop the white rect the kit paints and show the chequer through it */
+.s-fig.transparent .k-plot > svg > rect:first-of-type { fill: transparent; }
+.s-fig.transparent .k-plot {
+  background-image:
+    linear-gradient(45deg, #e6e9ee 25%, transparent 25%), linear-gradient(-45deg, #e6e9ee 25%, transparent 25%),
+    linear-gradient(45deg, transparent 75%, #e6e9ee 75%), linear-gradient(-45deg, transparent 75%, #e6e9ee 75%);
+  background-size: 12px 12px; background-position: 0 0, 0 6px, 6px -6px, -6px 0;
+}
+
+/* ---- density: "compact tightens table rows across every page" (settings-15) ---- */
+html[data-density="compact"] .k-table td { padding: 5px 10px; }
+html[data-density="compact"] .k-table th { padding: 4px 10px; }
+html[data-density="compact"] .k-table.dense td { padding: 3px 10px; }
+html[data-density="compact"] .k-table.dense th { padding: 3px 10px; }
+html[data-density="compact"] .s-row { padding: 3px 0; }
+html[data-density="compact"] .k-nav-item { height: 24px; }

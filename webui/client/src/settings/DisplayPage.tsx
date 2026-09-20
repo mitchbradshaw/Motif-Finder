@@ -1,11 +1,33 @@
 /* Settings › Display — personal (frame settings-15 · spec §9.15).
  * How the site looks to this browser. Changes apply immediately; nothing here is recorded with runs.
  * Report figures use the profile at the foot, with a live preview. */
+import type { CSSProperties } from 'react'
 import { Button, ColourDot, NumberField, SectionCard, Seg, SelectField, Slider, Toggle, Trace, useNotWired } from '../kit'
 import { useSourced } from '../api/seam'
 import { getDisplay } from '../api/settings'
 import { LoadFailed, Loading, Row, SettingsShell } from './chrome'
 import { useSettingsPage } from './store'
+
+/** The preview draws in the chosen report font (§9.15) — the profile has to be visible in the preview. */
+export const FONT_STACK: Record<string, string> = {
+  Inter: 'Inter, system-ui, sans-serif',
+  'Source Sans 3': '"Source Sans 3", "Source Sans Pro", system-ui, sans-serif',
+  Helvetica: 'Helvetica, Arial, sans-serif',
+  'Times New Roman': '"Times New Roman", Times, serif',
+}
+
+/** One canon readout in the chosen units, so a choice here is visible where it is made (P23). */
+const RECORDING_START = new Date('2026-07-26T09:00:00')
+function readout(s: { str: (id: string) => string; bool: (id: string) => boolean }): string {
+  const hours = 31.125
+  const amp = s.str('amplitude') === 'µV' ? '−82 µV' : '−0.082 mV'
+  const clock = new Date(RECORDING_START.getTime() + hours * 3600_000)
+    .toLocaleString('en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit', second: '2-digit' }).replace(',', '')
+  const time = s.str('time_axis') === 'clock time' ? clock
+    : s.str('time_axis') === 'both' ? `${hours.toFixed(4)} h · ${clock}`
+      : `${hours.toFixed(4)} h`
+  return [time, s.bool('sample_indices') ? 'sample 112,050' : null, amp].filter(Boolean).join(' · ')
+}
 
 const PALETTE = ['#8B5CF6', '#E85AAD', '#30B0C7', '#A2845E', '#5AC8FA', '#8E8E93', '#8B4A3B', '#F4A8C8', '#1F8A70', '#2F6FEB']
 
@@ -51,7 +73,7 @@ function Body({ data }: { data: Data }) {
         </Row>
       </SectionCard>
 
-      <SectionCard title="Units and time" subtitle="every readout on every page, not only plots" testid="units-card">
+      <SectionCard title="Units and time" subtitle="the format every readout uses — times, amplitudes, indices" testid="units-card">
         <Row label="time axis" id="f-time-axis" dot={s.differs('time_axis')} testid="time-axis-row" caption="hours since recording start is the canon readout">
           {seg('time_axis', ['hours since start', 'clock time', 'both'])}
         </Row>
@@ -60,6 +82,10 @@ function Body({ data }: { data: Data }) {
         </Row>
         <Row label="sample indices" dot={s.differs('sample_indices')} testid="sample-indices-row" caption="indices are always into the whole recording">
           <Toggle checked={s.bool('sample_indices')} onChange={v => s.set('sample_indices', v)} label="show beside times" testid="sample-indices" />
+        </Row>
+        <Row label="a readout in this format" testid="readout-row" wide
+          caption="pages pick this up as each is wired · the Explore and Review readouts still read hours · mV today">
+          <span className="mono" data-testid="readout-example" style={{ fontSize: 12 }}>{readout(s)}</span>
         </Row>
       </SectionCard>
 
@@ -119,11 +145,12 @@ function Body({ data }: { data: Data }) {
               {seg('background', ['white', 'transparent'])}
             </Row>
           </div>
-          <div className="k-card grey pad" data-testid="figure-preview">
+          <div className={`k-card grey pad s-fig${s.str('background') === 'transparent' ? ' transparent' : ''}`} data-testid="figure-preview"
+            style={{ '--fig-grid': s.num('grid_opacity'), '--fig-font': FONT_STACK[s.str('font')] ?? 'var(--font-mono)' } as CSSProperties}>
             <span className="s-label mono">preview</span>
-            <Trace values={data.preview} fs={1} t0={0} timeUnit="h" height={190} ground="white"
-              stroke={s.str('background') === 'transparent' ? 'var(--trace-blue)' : undefined} />
-            <span className="s-note">{s.num('line_width').toFixed(1)} pt · grid {s.num('grid_opacity').toFixed(2)} · {s.str('font')} · {s.num('dpi')} dpi · {s.str('background')}</span>
+            <Trace values={data.preview} fs={1} t0={0} timeUnit="h" height={190} ground="white" zeroLine={false}
+              strokeWidth={s.num('line_width')} testid="figure-trace" />
+            <span className="s-note" data-testid="figure-caption">{s.num('line_width').toFixed(1)} pt · grid {s.num('grid_opacity').toFixed(2)} · {s.str('font')} · {s.num('dpi')} dpi · {s.str('background')}</span>
           </div>
         </div>
       </SectionCard>
