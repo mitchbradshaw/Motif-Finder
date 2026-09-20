@@ -14,6 +14,10 @@ export interface InterrogationDraft {
   pendingWindow: number | null
   /** the first stale stage after an edit, or null */
   staleFrom: 'block1' | 'block2' | null
+  /** 02 Aggregate's feature wiring, slot → feature key or pair key (h1–h3, tl, p1–p3). Empty means
+   *  "as the upstream block declares"; it lives here so a walk to 01 and back keeps the rewiring, and
+   *  mirrors into `?wire=` so every rewired state is a deep link too. */
+  wiring: Record<string, string>
   saved: boolean
 }
 
@@ -23,6 +27,7 @@ export const SEED_DRAFT: InterrogationDraft = {
   rules: { onset: 'walk-back', trough: 'run3', sigma: 'mad', steepestWindow: RULES.steepestWindow.recommended },
   pendingWindow: null,
   staleFrom: null,
+  wiring: {},
   saved: false,
 }
 

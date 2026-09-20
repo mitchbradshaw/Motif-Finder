@@ -28,11 +28,15 @@ export function LoadFailed({ what, error, onRetry }: { what: string; error: Erro
 }
 
 /* ----------------------------------------------------------- null chip (P10) ----------------------------------------------------------- */
-export function NullChip() {
+/** `method` follows 02 Aggregate's null parameter, so the chip never names a null the page is not
+ *  drawing (critique r1: switching to shuffled onsets left the chip reading matched windows). */
+export function NullChip({ method = 'matched' }: { method?: string }) {
+  const label = method === 'shuffled' ? 'shuffled onsets' : method === 'none' ? 'switched off' : NULL_SPEC.label
+  const off = method === 'none'
   return (
     <span className="ig-chip null" data-testid="null-chip" title="every interrogation result carries a null (P10)">
-      <span className="ig-dot" style={{ background: 'var(--green)' }} />
-      <span className="mono">null {NULL_SPEC.label} · {NULL_SPEC.repeats}</span>
+      <span className="ig-dot" style={{ background: off ? 'var(--amber)' : 'var(--green)' }} />
+      <span className="mono">null {label}{off ? '' : ` · ${NULL_SPEC.repeats}`}</span>
       <InfoTip title="The null on this chain">
         {NULL_SPEC.detail}
         <div style={{ marginTop: 8 }}><Button size="sm" variant="link" icon="external" onClick={() => navigate('settings/nulls')}>Settings › Nulls →</Button></div>
@@ -53,6 +57,8 @@ export interface ToolbarProps {
   stale?: boolean
   primary: ReactNode
   children?: ReactNode          // the source picker popover
+  /** the null method the page is drawing, for the chip (02 Aggregate's `null` parameter) */
+  nullMethod?: string
   onSaveTemplate: () => void
 }
 
@@ -68,7 +74,7 @@ export function InterrogationToolbar(p: ToolbarProps) {
       {p.children}
       {p.arrived && <span className="ig-muted ig-small" data-testid="arrived-note">arrived via Analyse events</span>}
       <span className="k-spacer" />
-      <NullChip />
+      <NullChip method={p.nullMethod} />
       <span className={`ig-estimate mono ${p.stale ? 'amber' : ''}`} data-testid="estimate">
         {p.stale ? `${ESTIMATE.stale} · ${ESTIMATE.staleNote}` : `${ESTIMATE.cached} · ${ESTIMATE.cachedNote}`}
       </span>

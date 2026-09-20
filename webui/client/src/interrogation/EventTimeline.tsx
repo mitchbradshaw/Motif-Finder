@@ -4,15 +4,20 @@
 import { Tooltip } from '../kit'
 import { TIMELINE_TREND, type InterrogationMember } from '../fixtures/interrogation'
 
-export function EventTimeline({ members, heightBy, colourOf, selected, onSelect }: {
+export function EventTimeline({ members, heightBy, valueOf, unit = 'mV', colourOf, selected, onSelect }: {
   members: InterrogationMember[]
   heightBy: string
+  /** what the tick height is, so the wiring's "timeline height" slot really changes the lanes */
+  valueOf?: (m: InterrogationMember) => number
+  unit?: string
   colourOf: (m: InterrogationMember) => string
   selected?: string | null
   onSelect?: (id: string) => void
 }) {
   const recordings = [...new Set(members.map(m => m.recording))]
-  const maxDepth = Math.max(0.01, ...members.map(m => m.depth_mV))
+  const height = valueOf ?? ((m: InterrogationMember) => m.depth_mV)
+  const hLo = Math.min(0, ...members.map(height))
+  const hSpan = Math.max(1e-6, Math.max(...members.map(height)) - hLo)
   return (
     <div className="ig-tl" data-testid="timeline">
       {recordings.map(rec => {
@@ -31,12 +36,12 @@ export function EventTimeline({ members, heightBy, colourOf, selected, onSelect 
             <svg className="lane" width="100%" height={54} viewBox="0 0 400 54" preserveAspectRatio="none" role="img" aria-label={`${xs.length} events in ${rec}`}>
               {xs.map(m => {
                 const x = 6 + ((m.onset_h - lo) / span) * 388
-                const h = 6 + (m.depth_mV / maxDepth) * 40
+                const h = 6 + (Math.max(0, height(m) - hLo) / hSpan) * 40
                 const on = m.id === selected
                 return (
                   <rect key={m.id} x={x} y={50 - h} width={on ? 4 : 2.6} height={h} rx={1} fill={colourOf(m)} opacity={on ? 1 : 0.9}
                     style={onSelect ? { cursor: 'pointer' } : undefined} onClick={onSelect ? () => onSelect(m.id) : undefined}>
-                    <title>{`${m.id} · ${m.onset_h.toFixed(2)} h · ${heightBy} ${m.depth_mV.toFixed(3)} mV`}</title>
+                    <title>{`${m.id} · ${m.onset_h.toFixed(2)} h · ${heightBy} ${height(m).toFixed(3)} ${unit}`}</title>
                   </rect>
                 )
               })}

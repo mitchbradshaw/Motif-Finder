@@ -28,8 +28,10 @@ directory, so nothing here blocks the build; each entry says where the local sta
    observed as `overlay`, with more saturated feature colours.
 
 6. **`Histogram` has no stacked mode.** Frame 3b stacks the observed bars by recording over the same bins.
-   *Workaround:* `StackedHist` in `AggregatePage.tsx` re-bins with `binValues` and renders `Bars`
-   `mode="stacked"`, which loses the null behind.
+   *Workaround (r1):* `interrogation/NullHistogram.tsx` — a local SVG histogram that draws the grey null at
+   full bin width behind and the per-category observed bars stacked, narrower, in front, over the same bins.
+   ~70 lines; it belongs in the kit as a `series` + `null` mode on `Histogram`. The earlier workaround
+   (`Bars mode="stacked"`) dropped the null and re-binned the data, which round one caught.
 
 7. **`DisabledReason` cannot wrap a `<tr>`** — it renders a `<span>` wrapper, which is invalid inside
    `<tbody>`. A `block`/`asChild` mode that adds only `title` + `aria-disabled` would help every picker
