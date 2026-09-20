@@ -61,7 +61,8 @@ function Body({ data }: { data: Data }) {
               key: 'key', header: 'key', width: '30%', render: k => k.locked
                 ? <span style={{ display: 'inline-flex', gap: 4 }}>{k.keys.map((x, i) => <Kbd key={i}>{x}</Kbd>)}</span>
                 : capturing === k.id
-                  ? <span className="s-keycap capture" tabIndex={0} autoFocus data-testid={`capture-${k.id}`}
+                  ? <span className="s-keycap capture" tabIndex={0} role="button" aria-label="press a key to rebind, Escape to cancel"
+                    ref={el => { if (el && document.activeElement !== el) el.focus() }} data-testid={`capture-${k.id}`}
                     onKeyDown={e => capture(k, e)} onBlur={() => setCapturing(null)}>press a key…</span>
                   : (
                     <button type="button" style={{ display: 'inline-flex', gap: 4, border: 'none', background: 'none', cursor: 'pointer', padding: 0 }}
@@ -79,20 +80,29 @@ function Body({ data }: { data: Data }) {
                   : null,
             },
           ]} />
-        {conflict && (
-          <div className="s-inline-edit" style={{ background: 'var(--red-100)', borderColor: 'var(--red)' }} data-testid="conflict-row">
-            <span className="small"><b>{conflict.key}</b> is bound to “{conflict.with}”. A key does one thing.</span>
-            <span className="k-spacer" />
-            <Button size="sm" testid="conflict-cancel" onClick={() => { setConflict(null); setState('') }}>Keep the old binding</Button>
-            <Button size="sm" variant="danger" testid="conflict-replace"
-              onClick={() => {
-                const loser = data.keys.find(k => k.action === conflict.with)
-                if (loser && !loser.locked) s.set(keyKey(loser.id), '—')
-                s.set(keyKey(conflict.id), conflict.key)
-                setConflict(null); setState('')
-              }}>Move {conflict.key} here</Button>
-          </div>
-        )}
+        {conflict && (() => {
+          const loser = data.keys.find(k => k.action === conflict.with)
+          /* a locked owner (verdict and class keys live in the vocabulary) cannot give a key up here —
+             moving it anyway would bind the key twice under a green "no conflicts" badge */
+          const lockedOwner = Boolean(loser?.locked)
+          return (
+            <div className="s-inline-edit" style={{ background: 'var(--red-100)', borderColor: 'var(--red)' }} data-testid="conflict-row">
+              <span className="small"><b>{conflict.key}</b> is bound to “{conflict.with}”. A key does one thing.</span>
+              {lockedOwner && <span className="small" data-testid="conflict-locked-owner">“{conflict.with}” is set in Vocabulary — change it there, then rebind here.</span>}
+              <span className="k-spacer" />
+              {lockedOwner && <Button size="sm" testid="conflict-to-vocab" onClick={() => navigate('settings/vocabulary')}>Open Vocabulary</Button>}
+              <Button size="sm" testid="conflict-cancel" onClick={() => { setConflict(null); setState('') }}>Keep the old binding</Button>
+              <Button size="sm" variant="danger" testid="conflict-replace"
+                disabled={lockedOwner} disabledReason={lockedOwner ? `“${conflict.with}” is set in Vocabulary · a verdict or class key cannot be moved from here` : undefined}
+                onClick={() => {
+                  if (lockedOwner) return
+                  if (loser) s.set(keyKey(loser.id), '—')
+                  s.set(keyKey(conflict.id), conflict.key)
+                  setConflict(null); setState('')
+                }}>Move {conflict.key} here</Button>
+            </div>
+          )
+        })()}
       </SectionCard>
 
       <SectionCard title="Adjudication behaviour" testid="behaviour-card">

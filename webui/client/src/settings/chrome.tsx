@@ -9,7 +9,8 @@ import {
 import { Header } from '../shell/Header'
 import { navigate } from '../state'
 import { NAV_GROUPS, PAGE_META, SEARCH_INDEX, SLUGS } from '../api/settings'
-import { useNavDots, useSettingsPage, useSeededDraft, type SettingsPageStore } from './store'
+import { useToast } from '../shell/Toast'
+import { publishDisplayPrefs, useNavDots, useSettingsPage, useSeededDraft, type SettingsPageStore } from './store'
 import './settings.css'
 
 /* ------------------------------------------------------------------ small parts */
@@ -109,6 +110,19 @@ export function SettingsShell({ slug, demo, children, chips, actions, noReset }:
   const [resetOpen, setResetOpen] = useQueryFlag('reset')
   const resetRef = useRef<HTMLButtonElement>(null)
   const [focusId] = useQueryState('focus', '')
+  const { push } = useToast()
+  /* the two personal pages are read here, not only on their own page: density paints every table and
+     the leave guard is the toggle on Keyboard & behaviour (§9.15, §9.16) */
+  const display = useSettingsPage('display')
+  const keyboard = useSettingsPage('keyboard')
+  const density = display.str('density')
+  const guardLeave = keyboard.bool('confirm_leave')
+  const timeAxis = display.str('time_axis'), amplitude = display.str('amplitude'), sampleIndices = display.bool('sample_indices')
+
+  useEffect(() => {
+    document.documentElement.dataset.density = density
+    publishDisplayPrefs({ density, time_axis: timeAxis, amplitude, sample_indices: sampleIndices })
+  }, [density, timeAxis, amplitude, sampleIndices])
 
   const groups = useMemo(() => NAV_GROUPS.flatMap(sec => sec.groups.map((g, i) => ({
     section: i === 0 ? sec.section : undefined,
@@ -143,8 +157,10 @@ export function SettingsShell({ slug, demo, children, chips, actions, noReset }:
 
   const go = (to: string) => {
     if (to === slug) return
-    if (store.changes.length) setLeaveTo(to)
-    else navigate(`settings/${to}`)
+    const n = store.changes.length
+    if (n && guardLeave) { setLeaveTo(to); return }
+    if (n) push({ text: `${n} unsaved change${n === 1 ? '' : 's'} left on ${meta?.title ?? slug} · nothing was written` })
+    navigate(`settings/${to}`)
   }
 
   const invalidCount = Object.keys(store.invalid).length
@@ -207,7 +223,7 @@ export function SettingsShell({ slug, demo, children, chips, actions, noReset }:
 
       <Modal open={!!leaveTo} onClose={() => setLeaveTo(null)} title={`Leave with ${store.changes.length} unsaved change${store.changes.length === 1 ? '' : 's'}?`}
         size="sm" testid="leave-guard"
-        footerNote="from Keyboard & behaviour · confirm before leaving unsaved settings"
+        footerNote="from Keyboard & behaviour · confirm before leaving unsaved settings (turn it off there to leave without asking)"
         footer={<>
           <Button onClick={() => setLeaveTo(null)}>Stay</Button>
           <Button variant="danger" testid="discard-and-leave" onClick={() => { const to = leaveTo!; store.discard(); setLeaveTo(null); navigate(`settings/${to}`) }}>Discard and leave</Button>

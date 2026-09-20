@@ -55,8 +55,8 @@ Owned files: `webui/client/src/settings/`, `src/api/settings.ts`, `src/fixtures/
 ## Known gaps
 
 - Job-profile table cells are read-only (fog FE17); only the editor below them is editable.
-- Theme / density write but change nothing visible (FE19); personal settings are in-memory, not
-  `localStorage` (FE20).
+- Theme `dark` writes but changes nothing visible (FE19, the caption says so); personal settings are
+  in-memory, not `localStorage` (FE20). Density is wired as of fix round 1 (see below).
 - The header's `M4 held out` chip does not follow the lock (request R2); the leave guard covers only the
   settings nav (R3).
 - Audit entries written this session reset on reload (FE15).
@@ -73,3 +73,40 @@ Owned files: `webui/client/src/settings/`, `src/api/settings.ts`, `src/fixtures/
   on a valid draft.
 - Manifest: settings.shell discard runs on analysis-defaults (a same-URL goto does not remount, so save then
   discard on one hash could not both pass). 107 states, 0 failures.
+
+## Fix round 1 (2026-09-21) — critics' P1s on export, display, keyboard
+
+**settings.export** (fidelity/function P1 · the save-bar consequence was a constant or a raw list diff)
+- `fixtures/settings.ts`: `motifs.include` no longer returns one hard-coded sentence. A `listSentence`
+  helper diffs the before/after list and says what changes about the files that leave the tool
+  ("family exports now carry notes · exports already written are unchanged"), and every other export
+  field — formats, layout, window-set format and include, carry-exemplars, weights, report layout,
+  bundle contents — has its own P23 consequence instead of `genericConsequence`'s "applies to new runs"
+  (exports have no runs). `SEED_SENTENCE.export` is deleted: the seeded edit now derives the same
+  sentence, so the two cannot drift apart again.
+
+**settings.display** (fidelity P1 + three function P1s)
+- The report-figure preview is live: `strokeWidth` is bound, the grid is a `.s-fig::after` overlay at
+  `--fig-grid`, the chosen font applies to the plot's tick text and the caption, and `transparent`
+  clears the ground rect and shows a chequer instead of recolouring the trace.
+- `density: compact` is real: `SettingsShell` writes `html[data-density]` and `settings.css` tightens
+  `.k-table` rows, `.s-row` and `.k-nav-item` (keys table row 35 → 31 px, nav row 30 → 24 px).
+- Units and time: the card no longer claims "every readout on every page". It carries one live example
+  readout that follows time axis, amplitude and sample indices, and the prefs are published to the
+  demo-store key `settings.display` for other workspaces to bind (request R7). The kit `Trace` cannot
+  label µV or draw a grid — request R8.
+
+**settings.keyboard** (fidelity P1 + three function P1s)
+- Key capture takes focus for real (a `ref` callback; `autoFocus` is not honoured on a span), so the
+  first key press after clicking a key cell registers.
+- A conflict whose current owner is **locked** (the vocabulary's verdict and class keys) disables
+  "Move <key> here" with its reason and offers Open Vocabulary, instead of binding the key twice and
+  returning a green "no conflicts" badge.
+- The leave guard is driven by `confirm before leaving unsaved settings`: with it off, navigating away
+  leaves without asking and raises a toast naming the page that still holds the unsaved edits.
+
+**Gate:** `npx tsc --noEmit -p tsconfig.app.json` clean for the unit; smoke `--only settings`
+110 screenshots, 0 failures (three states added: `keyboard--capture-rebound`,
+`keyboard--conflict-locked-owner`, `display--report-profile-transparent`).
+Screenshots of the changed states: `webui/screenshots/build/settings/fix/`.
+

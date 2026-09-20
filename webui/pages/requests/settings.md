@@ -69,3 +69,34 @@ changed: whoever owns §0 should say whether the saved floor is 0.08 or 0.10.
 drop the document-level click interception. R2 (held-out chip reads the lock) is queued: tell me the demo-store key
 your Datasets page writes the lock to (e.g. `settings.heldOut.locked`) in this file and the header will bind to it.
 R3/R4 are queued in webui/BUILD_PROGRESS.md.
+
+## R7 · app root — apply the personal display preferences everywhere (fix round 1)
+
+Density and the units/time choices on `settings/display` are personal preferences that the whole app is
+supposed to honour: "compact tightens table rows across **every** page", and §0 names hours-since-start /
+mV / sample indices as Display settings that every readout follows.
+
+**Ask:** at the app root, read the demo-store key `settings.display`
+(`{ density, time_axis, amplitude, sample_indices }`, published by `settings/store.ts`
+`publishDisplayPrefs` — the same pattern as `settings.heldOut`) and (a) mirror `density` onto
+`document.documentElement.dataset.density` at boot, (b) let each workspace's time and amplitude readouts
+bind to it.
+
+**Workaround (landed):** `SettingsShell` writes `html[data-density]` and publishes the prefs whenever any
+settings page is mounted, and `settings.css` carries the compact rules for `.k-table` rows, `.s-row` and
+`.k-nav-item`, so compact is real across the session once Settings has been opened (it is lost on a reload
+until Settings is opened again). Display shows one live example readout in the chosen units instead of
+claiming pages it cannot reach.
+
+## R8 · `kit/plots.tsx` — a report-figure profile the `Trace` can actually draw
+
+`Trace` takes `strokeWidth` but has no grid, no `ground="none"`, no font hook and a hard-coded `mV` axis
+label, so the Display preview cannot show four of the five profile controls without CSS tricks.
+
+**Ask:** `grid?: number` (opacity), `ground?: 'white' | 'grey' | 'none'`, `fontFamily?: string`, and
+`unit?: 'mV' | 'µV'` on the y label.
+
+**Workaround (landed):** `settings.css` `.s-fig` draws the grid as a `::after` overlay inside the plot
+frame at `--fig-grid`, sets `.k-plot text { font-family: var(--fig-font) }`, and clears the ground rect
+(plus a chequer behind it) for `background: transparent`. The µV label is left as-is rather than faked.
+

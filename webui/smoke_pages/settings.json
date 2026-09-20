@@ -116,10 +116,13 @@
 
  {"page": "settings.display", "state": "default", "hash": "settings/display", "actions": [], "expect": ["[data-testid=\"appearance-card\"]", "[data-testid=\"figure-preview\"]", "[data-testid=\"personal-foot\"]"]},
  {"page": "settings.display", "state": "applied-immediately", "hash": "settings/display", "actions": [{"click": "[data-testid=\"density\"] button:nth-of-type(2)"}, {"wait": 300}], "expect": ["[data-testid=\"toasts\"]"], "expect_absent": ["[data-testid=\"save-bar\"]"]},
- {"page": "settings.display", "state": "sample-indices-on", "hash": "settings/display", "actions": [{"click": "[data-testid=\"sample-indices\"]"}, {"wait": 300}], "expect": ["[data-testid=\"units-card\"]"]},
+ {"page": "settings.display", "state": "report-profile-transparent", "hash": "settings/display", "actions": [{"click": "[data-testid=\"background\"] button:nth-of-type(2)"}, {"wait": 300}], "expect": ["[data-testid=\"figure-preview\"]", "[data-testid=\"figure-trace\"]", "[data-testid=\"figure-caption\"]"]},
+ {"page": "settings.display", "state": "sample-indices-on", "hash": "settings/display", "actions": [{"click": "[data-testid=\"sample-indices\"]"}, {"wait": 300}], "expect": ["[data-testid=\"units-card\"]", "[data-testid=\"readout-example\"]"]},
 
  {"page": "settings.keyboard", "state": "default", "hash": "settings/keyboard", "actions": [], "expect": ["[data-testid=\"keys-table\"]", "[data-testid=\"no-conflicts\"]", "[data-testid=\"behaviour-card\"]"]},
  {"page": "settings.keyboard", "state": "conflict", "hash": "settings/keyboard?state=conflict", "actions": [], "expect": ["[data-testid=\"conflict-row\"]", "[data-testid=\"conflict-badge\"]", "[data-testid=\"conflict-replace\"]"]},
+ {"page": "settings.keyboard", "state": "capture-rebound", "hash": "settings/keyboard", "actions": [{"click": "[data-testid=\"key-skip\"]"}, {"wait": 200}, {"press": "q"}, {"wait": 300}], "expect": ["[data-testid=\"key-skip\"]"], "expect_absent": ["[data-testid=\"capture-skip\"]"]},
  {"page": "settings.keyboard", "state": "capture", "hash": "settings/keyboard", "actions": [{"click": "[data-testid=\"key-skip\"]"}, {"wait": 200}], "expect": ["[data-testid=\"capture-skip\"]"]},
+ {"page": "settings.keyboard", "state": "conflict-locked-owner", "hash": "settings/keyboard", "actions": [{"click": "[data-testid=\"key-reviewed\"]"}, {"wait": 200}, {"press": "s"}, {"wait": 300}], "expect": ["[data-testid=\"conflict-row\"]", "[data-testid=\"conflict-locked-owner\"]", "[data-testid=\"conflict-replace\"][disabled]"]},
  {"page": "settings.keyboard", "state": "behaviour-off", "hash": "settings/keyboard", "actions": [{"click": "[data-testid=\"toggle-auto_advance\"]"}, {"wait": 300}], "expect": ["[data-testid=\"behaviour-card\"]"], "expect_absent": ["[data-testid=\"save-bar\"]"]}
 ]
