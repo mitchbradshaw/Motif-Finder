@@ -13,7 +13,8 @@ import { navigate } from '../state'
 import { useSourced } from '../api/seam'
 import { getEncodeBlock, type EncodeBlock } from '../api/training'
 import {
-  CLASS_Y, ENCODE, ESTIMATES, RUN_STEPS, WINDOWS, chainStatuses, fmtGB, fmtMin, windowTrace, type EncodingKind,
+  CLASS_COLOURS, CLASS_Y, ENCODE, ESTIMATES, RUN_STEPS, WINDOWS, chainStatuses, classForWindow, encodeCost,
+  fmtGB, fmtMin, hoursForWindow, splitForWindow, windowTrace, windowsOfClass, type EncodingKind,
 } from '../fixtures/training'
 import { EncodingImage } from './Encoding'
 import { BlockFrame, LoadFailed, Loading, RunVeil, SaveTemplateModal, UnappliedBar } from './chrome'
@@ -81,6 +82,13 @@ function Body({ data }: { data: EncodeBlock }) {
   const ticked = data.encodings.filter(e => p.included[e.id])
   const images = WINDOWS.total * ticked.length
   const newVersion = p.encoder !== ENCODE.recommended.encoder || p.size !== ENCODE.recommended.size
+  /* §6.8: the disk estimate for this signature is images × px × channels, so the image size and the PAA
+   * reduction have to move it — they were label-only. */
+  const cost = encodeCost(images, p.size, p.paa)
+
+  /* One window, one hour, one class, shared with 02's readout: the card used to name a different class
+   * from the readout that opened it. */
+  const windowClass = (w: number) => classForWindow(w)
 
   const chain = data.chain
   const status: Record<string, BadgeStatus> = chainStatuses(draft.staleFrom, chain)
@@ -99,14 +107,15 @@ function Body({ data }: { data: EncodeBlock }) {
     : <Button variant="primary" icon="refresh" testid="apply-rerun-top" onClick={apply}
         disabled={!pending && !draft.staleFrom} disabledReason={!pending && !draft.staleFrom ? 'no unapplied changes' : undefined}>Apply &amp; re-run from 04</Button>
 
-  /* 3 sampled windows per class (P8 keeps this well under 10); "Resample" re-draws the sample. */
-  const sampleFor = (i: number) => [0, 1, 2].map(j => 1 + ((i * 97 + j * 61 + nonce * 29) % ENCODE.total))
+  /* 3 sampled windows per class (P8 keeps this well under 10), and they really are windows of that
+   * class — the old arithmetic sample opened a C5 window from the C4 card. */
+  const sampleFor = (klass: string) => windowsOfClass(klass, 3, nonce)
 
   return (
     <BlockFrame
       chain={chain} current="encode" status={status} source={source} onSource={s => setSource(s === 'signal' ? null : s)}
       name={draft.name} saved={draft.saved} onRename={v => setDraft(d => ({ ...d, name: v, saved: false }))}
-      estimate={pending ? `${fmtInt(images)} images · ${ticked.length} of ${data.encodings.length} encodings` : ESTIMATES.encode}
+      estimate={pending ? `${fmtInt(images)} images · ${fmtGB(cost.bytes)} · ${fmtMin(cost.minutes)}` : ESTIMATES.encode}
       estimateTone={pending ? 'amber' : 'muted'}
       onBack={() => navigate('analyse/training')} onNavigate={b => b.route && navigate(b.route)}
       onAddStage={() => notWired('insert a stage into the training chain (type-contract modal §6.4)')}
@@ -135,8 +144,8 @@ function Body({ data }: { data: EncodeBlock }) {
               <Button size="sm" variant="ghost" icon="chevron-right" aria-label="next window" testid="window-next"
                 disabled={window_ >= ENCODE.total} disabledReason={window_ >= ENCODE.total ? 'this is the last window' : undefined}
                 onClick={() => setWindow(window_ + 1)} />
-              <Chip size="sm" tone="blue" dot={data.classes[window_ % data.classes.length].colour} testid="window-class">
-                {data.classes[window_ % data.classes.length].id} · {ENCODE.split} · {(ENCODE.onset_h + (window_ - ENCODE.window) * 0.08).toFixed(1)} h · {ENCODE.verdict}
+              <Chip size="sm" tone="blue" dot={CLASS_COLOURS[windowClass(window_)]} testid="window-class">
+                {windowClass(window_)} · {splitForWindow(window_)} · {hoursForWindow(window_).toFixed(1)} h · {ENCODE.verdict}
               </Chip>
             </span>
           }>
@@ -199,9 +208,9 @@ function Body({ data }: { data: EncodeBlock }) {
             {newVersion ? ENCODE.newVersionNote : ENCODE.note}
           </Callout>
           <div className="tr-grid3" style={{ marginTop: 10 }}>
-            <StatTile variant="flat" label="images" value={fmtInt(images)} testid="images-tile" />
-            <StatTile variant="flat" label="disk" value={fmtGB(images * ENCODE.bytesPerImage)} testid="disk-tile" />
-            <StatTile variant="flat" label="time" value={fmtMin((images / 1000) * ENCODE.minutesPerThousand)} testid="time-tile" />
+            <StatTile variant="flat" label="images" value={fmtInt(images)} caption={`${ticked.length} of ${data.encodings.length} encodings`} testid="images-tile" />
+            <StatTile variant="flat" label="disk" value={fmtGB(cost.bytes)} caption={`${p.size}${p.paa === 'none' ? '' : ` · PAA ${p.paa}`}`} testid="disk-tile" />
+            <StatTile variant="flat" label="time" value={fmtMin(cost.minutes)} caption={p.writeTo} testid="time-tile" />
           </div>
         </SectionCard>
       </div>
@@ -217,13 +226,13 @@ function Body({ data }: { data: EncodeBlock }) {
           </span>
         }>
         <div className="tr-classes" data-testid="browse-classes">
-          {data.classes.map((c, i) => (
+          {data.classes.map(c => (
             <button type="button" key={c.id} className={`tr-class${c.tooSmall ? ' small' : ''}`} data-testid={`browse-class-${c.id}`}
-              title={`open the first window of ${c.id}`} onClick={() => setWindow(sampleFor(i)[0])}>
+              title={`open the first ${c.id} window`} onClick={() => setWindow(sampleFor(c.id)[0])}>
               <span className="hd"><span className="tr-dot" style={{ background: c.colour }} />{c.id}<span className="k-spacer" />
                 <span className="tr-muted">{fmtInt(c.windows * ticked.length)} img</span></span>
               <span className="bd tr-row-flex" style={{ gap: 4, padding: 4, flexWrap: 'nowrap' }}>
-                {sampleFor(i).map(wn => <EncodingImage key={wn} kind={browse as EncodingKind} window={wn} size={58} n={16} />)}
+                {sampleFor(c.id).map(wn => <EncodingImage key={wn} kind={browse as EncodingKind} window={wn} size={58} n={16} />)}
               </span>
               <span className="ft">train {c.train} · val {c.val} · test {c.test}</span>
               {c.tooSmall && <span className="ft flag"><Icon name="alert-triangle" size={10} /> under {ENCODE.splitFloor} per split</span>}
