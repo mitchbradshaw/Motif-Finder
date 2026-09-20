@@ -566,7 +566,22 @@ export const SEED_SENTENCE: Record<string, string> = {
   'models-registration': 'classes with fewer than 80 test windows warn at launch · plateau (43 test windows in j-0212) now warns',
   'library-groupings': 'omit motifs past d 0.60 · fewer omitted at the next regroup · existing groupings keep their settings',
   'storage-backups': 'keep 7 → 14 backups · about 15 GB more in ./backups',
-  export: 'hand edits now included in family exports',
+}
+
+const listDelta = (from: unknown, to: unknown) => {
+  const a = Array.isArray(from) ? (from as string[]) : []
+  const b = Array.isArray(to) ? (to as string[]) : []
+  return { added: b.filter(x => !a.includes(x)), removed: a.filter(x => !b.includes(x)) }
+}
+const andList = (xs: string[]) => xs.length <= 1 ? (xs[0] ?? '') : `${xs.slice(0, -1).join(', ')} and ${xs[xs.length - 1]}`
+/** "<what> now carry X · <why>" for a list of things that travel with an export. */
+const listSentence = (from: unknown, to: unknown, what: string, why: { on: string; off: string; singular?: boolean }) => {
+  const { added, removed } = listDelta(from, to)
+  const [carry, stop, is] = why.singular ? ['carries', 'stops carrying', 'is'] : ['carry', 'stop carrying', 'are']
+  if (added.length && removed.length) return `${what} now ${carry} ${andList(added)} and ${stop} ${andList(removed)}`
+  if (added.length) return `${what} now ${carry} ${andList(added)} · ${why.on}`
+  if (removed.length) return `${what} ${stop} ${andList(removed)} · ${why.off}`
+  return `${what} ${is} unchanged`
 }
 
 /** Per-field consequence sentences (P23 "consequence beside the control"). */
@@ -590,7 +605,41 @@ export const CONSEQUENCE: Record<string, (from: unknown, to: unknown) => string>
   test_pct: (f, t2) => `test portion ${f} → ${t2} % · applies to new training jobs · registered models keep their split`,
   omit_d: (_f, t2) => `omit motifs past d ${t2} · fewer omitted at the next regroup · existing groupings keep their settings`,
   keep: (f, t2) => `keep ${f} → ${t2} backups · about ${Math.round((Number(t2) - Number(f)) * 2.1)} GB more in ./backups`,
-  'motifs.include': () => 'hand edits now included in family exports',
+  /* Export (§9.12): what changes about the files that leave the tool — never a restatement of the list. */
+  'motifs.include': (f, t2) => listSentence(f, t2, 'family exports', {
+    on: 'exports already written are unchanged',
+    off: 'the grouping is harder to read without it; exports already written keep it',
+  }),
+  'motifs.formats': (f, t2) => {
+    const { added, removed } = listDelta(f, t2)
+    if (added.length && !removed.length) return `every family export also writes ${andList(added)} · one file per format`
+    if (removed.length && !added.length) return `family exports stop writing ${andList(removed)} · the other formats are unchanged`
+    return `family exports write ${andList(added)} instead of ${andList(removed)}`
+  },
+  'motifs.layout': (_f, t2) => t2 === 'a file per family'
+    ? 'one file per family · a single family travels on its own, families no longer compare in one sheet'
+    : 'one workbook, a sheet per family · families compare side by side, the whole grouping moves as one file',
+  'ws.format': (_f, t2) => String(t2).startsWith('parquet')
+    ? 'window sets are written as parquet · columnar, readable outside Python; npz readers need converting'
+    : 'window sets are written as npz · loads with numpy alone; no columnar readers',
+  'ws.include': (f, t2) => listSentence(f, t2, 'window-set exports', {
+    on: 'the set stays reusable without this database',
+    off: 'a window set without it cannot be rebuilt outside this database',
+  }),
+  'templates.carry_exemplars': (_f, t2) => t2
+    ? 'seed templates carry their exemplar windows · larger files that read without this database'
+    : 'seed templates export without their exemplar windows · smaller files that only read back against this database',
+  'models.weights': (_f, t2) => t2 === 'ONNX'
+    ? 'models export as ONNX · they load outside PyTorch, the training graph does not travel'
+    : 'models export as PyTorch weights · the training graph travels, ONNX consumers cannot read them',
+  'reports.layout': (_f, t2) => t2 === 'a file per stage'
+    ? 'run reports write one file per stage · a stage drops straight into a chapter, no document reads end to end'
+    : 'run reports write one document, stages in order · reads end to end, a single stage has to be cut out',
+  'bundle.contents': (f, t2) => listSentence(f, t2, 'the reproducibility bundle', {
+    singular: true,
+    on: 'the zip grows; a rerun has more of what it needs',
+    off: 'a rerun from the bundle may not reproduce the run',
+  }),
 }
 export const genericConsequence = (id: string, from: unknown, to: unknown) => `${id.split('.').slice(-1)[0].replace(/_/g, ' ')} ${String(from)} → ${String(to)} · applies to new runs`
 
