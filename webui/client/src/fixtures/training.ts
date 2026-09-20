@@ -391,7 +391,13 @@ function buildDendro(): DendroNode {
       nodes = next
       h += 0.5 + ci * 0.15
     }
-    return nodes[0]
+    /* Every class has to close under the cut, or the cut at 10.1 slices a class in two and the picture
+     * stops agreeing with "cut 10.1 → 6 classes". */
+    const top = (n: DendroNode): number => (n.children ? Math.max(n.height, top(n.children[0]), top(n.children[1])) : 0)
+    const scale = (n: DendroNode, f: number): DendroNode =>
+      n.children ? { ...n, height: +(n.height * f).toFixed(2), children: [scale(n.children[0], f), scale(n.children[1], f)] } : n
+    const max = top(nodes[0])
+    return max > 0 ? scale(nodes[0], (8.7 + ci * 0.22) / max) : nodes[0]
   })
   const heights = [10.9, 12.4, 13.9, 15.4, 17.2]
   let acc = roots[0]

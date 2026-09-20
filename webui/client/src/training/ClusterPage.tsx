@@ -167,6 +167,9 @@ function Body({ data, chooseK }: { data: ClusterBlock; chooseK: boolean }) {
   const [lockQ] = useQueryState('locked', '')
   const [metric, setMetric] = useQueryState('metric', 'silhouette')
   const [shows, setShows] = useState('features')
+  /* The scope control is the one thing 8.2 requires this modal to carry, so the write has to read it
+   * rather than a constant. */
+  const [groupingScope, setGroupingScope] = useState('channel')
 
   const p = live(draft.cluster)
   const pending = isPending(draft.cluster)
@@ -254,6 +257,8 @@ function Body({ data, chooseK }: { data: ClusterBlock; chooseK: boolean }) {
               actions={<Button variant="link" iconRight="arrow-right" testid="choose-k" onClick={() => setView('choose-k')}>Choose k</Button>}>
               <div className="tr-grid2">
                 <Dropdown prefix="criterion" value={p.criterion} onChange={v => setP({ criterion: v })} block testid="criterion"
+                  disabled={draft.criterionLocked}
+                  disabledReason={draft.criterionLocked ? 'the criterion is locked — unlock it below to change it' : undefined}
                   options={data.criteria.map(c => ({ value: c.value, label: c.title, description: c.description }))} />
                 <Dropdown prefix="linkage" value={p.linkage} onChange={v => setP({ linkage: v })} block testid="linkage"
                   options={[
@@ -278,7 +283,16 @@ function Body({ data, chooseK }: { data: ClusterBlock; chooseK: boolean }) {
                 <StatTile variant="flat" label="silhouette" value={CLUSTER.silhouette.toFixed(2)} />
                 <StatTile variant="flat" label="cophenetic r" value={LINKAGE_R[p.linkage]?.toFixed(2) ?? CLUSTER.cophenetic.toFixed(2)} tone="green" />
               </div>
-              <Callout tone={draft.criterionLocked ? 'green' : 'amber'} icon="lock" testid="criterion-warning">
+              <Callout tone={draft.criterionLocked ? 'green' : 'amber'} icon="lock" testid="criterion-warning"
+                action={draft.criterionLocked
+                  ? <Button size="sm" icon="eye" testid="unlock-criterion"
+                      onClick={() => { setDraft(d => ({ ...d, criterionLocked: false })); recordDemoWrite('analyse', 'unlock-criterion', { criterion: p.criterion }); push({ text: 'criterion unlocked · changing it now means k is a finding about the rule', kind: 'error' }) }}>
+                      Unlock
+                    </Button>
+                  : <Button size="sm" icon="lock" testid="lock-criterion-params"
+                      onClick={() => { setDraft(d => ({ ...d, criterionLocked: true })); recordDemoWrite('analyse', 'lock-criterion', { criterion: p.criterion }); push({ text: `criterion locked · ${p.criterion} · k is now a consequence, not a choice` }) }}>
+                      Lock
+                    </Button>}>
                 {draft.criterionLocked ? `criterion locked · ${p.criterion} · k is a consequence of it` : CLUSTER.criterionWarning}
               </Callout>
             </SectionCard>
@@ -351,11 +365,15 @@ function Body({ data, chooseK }: { data: ClusterBlock; chooseK: boolean }) {
         footerNote="a grouping is machine-made: it never carries a human verdict"
         footer={<><Button onClick={() => setModal(null)}>Cancel</Button>
           <Button variant="primary" icon="save" testid="save-grouping-confirm" onClick={() => {
-            recordDemoWrite('library', 'save-grouping', { id: `grp_${draft.name}_k${k}`, k, scope: 'whole channel', from: 'Analyse › Training 03' })
+            recordDemoWrite('library', 'save-grouping', {
+              id: `grp_${draft.name}_k${k}`, k,
+              scope: groupingScope === 'channel' ? 'whole channel' : 'this section only',
+              from: 'Analyse › Training 03',
+            })
             setModal(null)
             push({ text: `saved grouping · ${k} classes · in memory (demo)`, action: { label: 'Open in Library', onClick: () => navigate('library/grouping') } })
           }}>Save grouping</Button></>}>
-        <SaveGroupingBody k={k} classes={classes} />
+        <SaveGroupingBody k={k} classes={classes} scope={groupingScope} setScope={setGroupingScope} />
       </Modal>
 
       <SendToReviewModal open={modal === 'send-review'} onClose={() => setModal(null)} from="training 03 cluster"
@@ -367,8 +385,9 @@ function Body({ data, chooseK }: { data: ClusterBlock; chooseK: boolean }) {
   )
 }
 
-function SaveGroupingBody({ k, classes }: { k: number; classes: ClusterClass[] }) {
-  const [scope, setScope] = useState('channel')
+function SaveGroupingBody({ k, classes, scope, setScope }: {
+  k: number; classes: ClusterClass[]; scope: string; setScope: (v: string) => void
+}) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
       <Seg label="scope" value={scope} onChange={setScope} testid="grouping-scope" options={[
@@ -419,8 +438,15 @@ function ChooseK({ data, metric, setMetric, locked, criterion, onCriterion, onLo
 
         <SectionCard title="Selection criterion" testid="criterion-card"
           info="B4: pick the rule before you look at the sweep. If the rule is chosen after seeing k, then k is the finding — and it is a finding about the rule.">
+          {/* aria-checked already carries the selection; the badge is the version you can see across a
+              card at a glance, which is the whole job of this view (B4). */}
           <RadioCards columns={1} value={criterion} onChange={onCriterion} testid="criterion-cards"
-            options={data.criteria.map(c => ({ value: c.value, title: c.title, description: c.description, disabled: locked, reason: locked ? 'the criterion is locked — unlock in Parameters to change it' : undefined }))} />
+            options={data.criteria.map(c => ({
+              value: c.value, title: c.title, description: c.description,
+              badge: c.value === criterion ? <Badge status={locked ? 'locked' : 'machine'} size="sm">{locked ? 'locked' : 'chosen'}</Badge> : undefined,
+              disabled: locked && c.value !== criterion,
+              reason: locked && c.value !== criterion ? 'the criterion is locked — unlock it in Parameters to change it' : undefined,
+            }))} />
           <Callout tone={locked ? 'green' : 'amber'} icon="lock" testid="criterion-lock"
             action={locked ? <Badge status="done">locked</Badge> : <Button size="sm" icon="lock" onClick={onLock} testid="lock-criterion">Lock</Button>}>
             {locked ? `locked · ${criterion} · k follows from it` : 'not locked — lock it before reporting'}
