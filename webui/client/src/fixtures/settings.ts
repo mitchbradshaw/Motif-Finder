@@ -134,7 +134,7 @@ export interface TimedEvent { id: string; recording: string; t0_h: number; t1_h:
 export const EVENTS: TimedEvent[] = [
   { id: 'e1', recording: 'M2_aug_fs1', t0_h: 12.5, t1_h: null, kind: 'watering', channels: 'all', effect: 'show on plots', note: '5 ml water added to substrate', added: '12 Sep' },
   { id: 'e2', recording: 'M2_aug_fs1', t0_h: 28.9, t1_h: 29.1, kind: 'unknown', channels: 'CH2_A1', effect: 'exclude span', note: 'amplitude excursion, no lab-book entry', added: '12 Sep' },
-  { id: 'e3', recording: 'M2_aug_fs1', t0_h: 31.1, t1_h: 31.5, kind: 'mechanical', channels: 'all', effect: 'exclude span', note: 'chamber door opened', added: '13 Sep' },
+  { id: 'e3', recording: 'M2_aug_fs1', t0_h: 31.1, t1_h: 31.5, kind: 'mechanical', channels: 'all', effect: 'show on plots', note: 'chamber door opened', added: '13 Sep' },
   { id: 'e4', recording: 'M2_aug_fs1', t0_h: 40.1, t1_h: null, open_end: true, kind: 'electrode', channels: 'CH7_B2', effect: 'exclude · mark channel bad', note: 'electrode detached', added: '14 Sep' },
 ]
 export const EVENT_KINDS: { name: string; colour: string }[] = [
@@ -147,6 +147,10 @@ export const floorKey = (rec: string, ch: string) => `floor.${rec}.${ch}`
 export const effectKey = (id: string) => `effect.${id}`
 /** Channel status: `''` = ok, otherwise the hour it goes bad from (F8: the event is the source, this is the derived cell). */
 export const statusKey = (rec: string, ch: string) => `status.${rec}.${ch}`
+/** Shared ground of one channel: `''` = none, otherwise the partner channel. Symmetric (both cells are written). */
+export const groundKey = (rec: string, ch: string) => `ground.${rec}.${ch}`
+/** Event kinds added on this page — one page-wide draft key, so `+ kind` stages like every other edit. */
+export const EVENT_KINDS_KEY = 'event.kinds'
 /** Event rows added / staged for removal on one recording — one draft key each, so both stage, save and discard. */
 export const eventsAddedKey = (rec: string) => `events.added.${rec}`
 export const eventsRemovedKey = (rec: string) => `events.removed.${rec}`
@@ -157,11 +161,13 @@ const channelsValues = (): Values => {
     for (const row of channelsFor(r.key)) {
       v[gainKey(r.key, row.ch)] = row.gain
       v[floorKey(r.key, row.ch)] = ''
-      v[statusKey(r.key, row.ch)] = badFromHours(row.status)
+      v[groundKey(r.key, row.ch)] = row.shared_ground ?? ''
     }
     v[eventsAddedKey(r.key)] = []
     v[eventsRemovedKey(r.key)] = []
   }
+  /* channel status is NOT a stored value: it is read back from the mark-bad events (F8, fix round 2) */
+  v[EVENT_KINDS_KEY] = []
   for (const e of EVENTS) v[effectKey(e.id)] = e.effect
   return v
 }
@@ -207,16 +213,29 @@ function eventAddedSentence(rec: string, from: unknown, to: unknown): string {
   if (e.effect === 'show on plots') return `${spanLabel(e)} · ${e.kind} is marked on plots of ${recName(rec)} · no run is marked stale`
   return eventEffectSentence(e, e.effect)
 }
+/** A row staged for removal carries the effect it had when it was removed: what the removal undoes is
+ *  the EFFECTIVE effect (which may itself be an unsaved edit), never the fixture's original. */
+export interface RemovedRef { id: string; effect: EventEffect }
+export const removedRefs = (v: unknown): RemovedRef[] => (Array.isArray(v) ? v : []).map(x =>
+  typeof x === 'string' ? { id: x, effect: EVENTS.find(e => e.id === x)?.effect ?? 'show on plots' } : (x as RemovedRef))
 function eventRemovedSentence(rec: string, from: unknown, to: unknown): string {
-  const a = Array.isArray(from) ? (from as string[]) : []
-  const b = Array.isArray(to) ? (to as string[]) : []
-  const id = b.find(x => !a.includes(x)) ?? a.find(x => !b.includes(x))
-  const e = EVENTS.find(x => x.id === id)
-  if (!e) return `event log of ${recName(rec)} unchanged`
-  const back = b.includes(id!)
+  const a = removedRefs(from), b = removedRefs(to)
+  const r = b.find(x => !a.some(y => y.id === x.id)) ?? a.find(x => !b.some(y => y.id === x.id))
+  const e = r && EVENTS.find(x => x.id === r.id)
+  if (!r || !e) return `event log of ${recName(rec)} unchanged`
+  const back = b.some(x => x.id === r.id)
   if (!back) return `${spanLabel(e)} · ${e.kind} is kept · new runs read it as before`
-  if (e.effect === 'show on plots') return `removing the ${e.kind} marker at ${spanLabel(e)} takes it off every plot · no run is marked stale`
+  if (r.effect === 'show on plots') return `removing the ${e.kind} marker at ${spanLabel(e)} takes it off every plot · no run is marked stale`
   return `removing the exclusion lets new runs read ${spanLabel(e)} again · ${stalePhrase(e.recording, e.channels)}`
+}
+/** `+ kind` is staged like every other edit (fix round 2): the bar says what the new kind buys. */
+function eventKindsSentence(from: unknown, to: unknown): string {
+  const a = (Array.isArray(from) ? from : []) as { name: string }[]
+  const b = (Array.isArray(to) ? to : []) as { name: string }[]
+  const added = b.find(x => !a.some(y => y.name === x.name))
+  if (added) return `${added.name} joins the event kinds · it can be picked in Add event · no run is marked stale`
+  const gone = a.find(x => !b.some(y => y.name === x.name))
+  return gone ? `${gone.name} is dropped · nothing was written` : 'event kinds unchanged'
 }
 /** Consequences for the keys whose id is built at runtime (per channel, per event) — P23 without a static table. */
 function channelsConsequence(id: string, from: unknown, to: unknown): string | null {
@@ -236,6 +255,14 @@ function channelsConsequence(id: string, from: unknown, to: unknown): string | n
     const e = EVENTS.find(x => x.id === ev[1])
     if (e) return eventEffectSentence(e, to)
   }
+  const g = id.match(/^ground\.(.+)\.(CH[^.]+)$/)
+  if (g) {
+    const [, rec, ch] = g
+    return String(to) === ''
+      ? `${ch} and ${from} no longer share a ground · both count in Library recurrence on ${recName(rec)}`
+      : `${ch} and ${to} count once in Library recurrence on ${recName(rec)}`
+  }
+  if (id === EVENT_KINDS_KEY) return eventKindsSentence(from, to)
   const add = id.match(/^events\.added\.(.+)$/)
   if (add) return eventAddedSentence(add[1], from, to)
   const rm = id.match(/^events\.removed\.(.+)$/)
@@ -524,7 +551,7 @@ export const AUDIT_ENTRIES: AuditEntry[] = [
   { when: '14 Sep 14:12', kind: 'hand edit', what: 'Added m-1850 to F-03 (d 0.47, past the cut)', where: 'Library › F-03', route: 'library/family/F-03', by: 'this installation' },
   { when: '14 Sep 11:05', kind: 'HPC status', what: 'j-0214 marked running · cluster job 4418093', where: 'Jobs', route: 'jobs', by: 'this installation' },
   { when: '13 Sep 18:30', kind: 'vocabulary', what: 'Merged tag spike-train-short into spike-train · 38 rows · alias kept', where: 'Vocabulary', route: 'settings/vocabulary', by: 'this installation' },
-  { when: '13 Sep 09:12', kind: 'events', what: 'Excluded 31.1–31.5 h on all channels of M2_aug fs1 · 3 runs marked stale', where: 'Channels & events', route: 'settings/channels-events', by: 'this installation' },
+  { when: '13 Sep 09:12', kind: 'events', what: 'Recorded the mechanical event at 31.1–31.5 h on all channels of M2_aug fs1 · no run marked stale', where: 'Channels & events', route: 'settings/channels-events', by: 'this installation' },
   { when: '12 Sep 10:00', kind: 'lock', what: 'Held-out lock turned on · M4_aug held out', where: 'Datasets', route: 'settings/datasets', by: 'this installation' },
   { when: '11 Sep 17:44', kind: 'batch undo', what: 'Cluster 12 · 6 verdicts reversed in one step', where: 'Review', route: 'review/queue/q-12', by: 'this installation' },
 ]

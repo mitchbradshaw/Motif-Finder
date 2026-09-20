@@ -21,13 +21,14 @@ import {
 export {
   CONSEQUENCE, DEFAULTS, NAV_GROUPS, PAGE_META, SAVED, SEEDS, SEED_SENTENCE, SLUGS, genericConsequence,
   blockKey, classImpliesKey, classInformativeKey, effectKey, eventEffectSentence, eventsAddedKey, eventsRemovedKey,
-  floorKey, gainKey, keyKey, metaKey, ruleKey, spanLabel, staleRuns, statusKey, badFromHours,
+  floorKey, gainKey, groundKey, keyKey, metaKey, removedRefs, ruleKey, spanLabel, staleRuns, statusKey, badFromHours,
+  EVENT_KINDS_KEY,
   namingPreview, slurmScript, verdictKeyKey, verdictNameKey,
 } from '../fixtures/settings'
 export type {
   AuditEntry, AuditKind, BlockRow, ChannelRow, ClassRow, EventEffect, FeatureBasis, GateCheck, ImportDryRun, JobProfile,
   KeyBinding, LocalLimit, MetaField, NullKind, PageMeta, QueueDefault, RecommendRule, RecordingRow, Scope, SearchHit,
-  StorageRoot, TagRow, TimedEvent, Values, VerdictRow,
+  RemovedRef, StorageRoot, TagRow, TimedEvent, Values, VerdictRow,
 } from '../fixtures/settings'
 export { SEARCH_INDEX, tagExample, channelsFor, EVENT_KINDS, IMPORT_PATHS, RECORDING_ROWS }
 

@@ -16,8 +16,12 @@
 .s-row-caption { font-size: 10.5px; color: var(--muted); text-align: right; }
 .s-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--amber); flex: none; }
 
-/* an unsaved edit: amber outline around the control (rows, field grids and table cells) */
+/* an unsaved edit: amber outline around the control (rows, field grids and table cells) plus, in a table
+   cell where there is no label to dot, an amber dot to its left — the frames draw both (fix round 2) */
 .s-col .unsaved > * { outline: 2px solid var(--amber); outline-offset: 1px; border-radius: var(--radius-sm); }
+.s-col td .unsaved { position: relative; margin-left: 9px; }
+.s-col td .unsaved::before { content: ''; position: absolute; left: -9px; top: 50%; margin-top: -2.5px;
+  width: 5px; height: 5px; border-radius: 50%; background: var(--amber); }
 
 /* ---- field grid (Datasets metadata, 4 columns) ---- */
 .s-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px 14px; }
@@ -66,6 +70,9 @@
 .s-rec-bar { display: inline-block; width: 3px; height: 14px; border-radius: 2px; background: var(--green); margin-right: 7px; vertical-align: -2px; }
 .s-timeline-caption { font-size: 10px; color: var(--muted); text-align: right; }
 /* a table cell that opens a popover: reads as the cell it replaces, not as a button, until hovered */
+/* a field error inside a table cell keeps to one line: wrapped, it tripled the row height (fix round 2) */
+.s-col td .k-field-error { white-space: nowrap; }
+
 .s-cell-btn { background: none; border: 1px solid transparent; border-radius: var(--radius-sm); padding: 1px 4px; margin: -1px -4px;
   font: inherit; color: inherit; text-align: left; cursor: pointer; }
 .s-cell-btn:hover:not(:disabled) { border-color: var(--border-strong); background: var(--grey-100); }

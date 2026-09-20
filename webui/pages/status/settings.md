@@ -178,3 +178,47 @@ nothing else, so anything the key map did not literally spell went through as "n
 122 screenshots, 0 failures (two states added: `keyboard--conflict-class-key`, `keyboard--capture-chord`).
 Screenshots: `webui/screenshots/build/settings/fix/keyboard.conflict-class-key.png`,
 `keyboard.capture-chord.png`, `keyboard.capture-rebound.png`.
+
+## Fix round 4 (2026-09-21) — critics' P1s on settings.channels-events
+
+Five P1s, four of them the same shape: a cell drawn as a control that nothing read or wrote.
+
+- **Shared ground is editable.** The amber chip (and the dash on every unpaired row) is now the
+  control: click it and it becomes a Select of the other channels of the recording (`?pop=ground:CH3_A2`
+  deep-links it). The write is symmetric — pairing CH1_A1 with CH3_A2 writes both cells and clears the
+  partner CH3_A2 left behind — and the bar says `CH1_A1 and CH3_A2 count once in Library recurrence on
+  M2_aug fs1`. New draft key `ground.<rec>.<ch>`; M4_aug stays a read-only chip.
+- **Timeline markers select.** `BandStrip` cannot take a click or draw a selection (kit is read-only,
+  request R11), so the Event log draws `EventStrip` from the same primitives: an 8 px circle per event
+  in its kind's colour, translucent bands for excluded spans, **round-hour ticks** (0/10/…/50 h, and
+  0/200/400/600 h on the whole recording — fidelity P2), a blue ring on the selected event and a click
+  (or Enter on the focused marker) that sets `?event=<id>` and highlights the row. Both directions now
+  work: `?event=e2` rings the marker, clicking the marker highlights the row.
+- **A new kind is staged, not committed.** `+ kind` wrote a demo-store key and survived navigation with
+  no save bar and no undo. It is now the draft key `event.kinds` like every other edit: staged chip in
+  amber, bar `co2-pulse joins the event kinds · it can be picked in Add event · no run is marked stale`,
+  and Discard takes it back.
+- **Channel status is read back from the events, in both directions.** There is no longer a `status.*`
+  value at all: the badge is derived from the live mark-bad events (fog F8 — "the event is the record"),
+  so setting the 12.5 h all-channels event to *exclude · mark channel bad* turns every channel red, and
+  setting the 40.1 h → end event back to *show on plots* turns CH7_B2 green — the two could previously
+  disagree forever. The popover lists the events it reads back, each a link to its row, and *ok* is
+  disabled with its reason when an all-channels event is what marks the channel bad. A removal now
+  carries the effect it had when it was removed (`events.removed` holds `{id, effect}`), so the sentence
+  says what the removal actually undoes.
+- **`?state=unsaved` is the frame's two changes.** The seed staged `effect.e3 = exclude span` over a
+  saved value that was already `exclude span`, so it counted as one change and drew no diff. Canon for
+  e3 is now `show on plots` (the inventory's own reading of frame 02: the exclusion is the seeded edit),
+  so the bar reads `2 unsaved changes`, both the CH6_B1 gain and the 31.1–31.5 h effect Select carry the
+  amber outline **and an amber dot** (new: a table cell has no label to dot), and the excluded-spans
+  column reads exactly as the frame draws it. The 13 Sep audit line was reworded to match.
+- Cheap P2s with it: add-event validation gives one reason per broken rule (reversed span, unparseable
+  time, out of range) and prints it inline instead of only in a hover; Escape closes the add-event row;
+  the effect Select no longer clips `exclude · mark channel bad`; a field error inside a table cell keeps
+  to one line instead of tripling the row.
+
+**Gate:** `npx tsc --noEmit -p tsconfig.app.json` clean for the unit; smoke `--only settings`
+127 screenshots, 0 failures (five states added: `channels-events--ground-select`,
+`ground-select-by-click`, `kind-staged`, `marker-selected`, `status-sources`).
+Screenshots: `webui/screenshots/build/settings/fix/{default,unsaved,ground-paired,kind-staged,
+marker-selected,ch7-ok,all-bad,floor-invalid,timeline-all}.png`.

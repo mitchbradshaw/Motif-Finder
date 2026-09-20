@@ -135,3 +135,9 @@ segments take no `onClick`, so selection is table-only (`?event=<id>`, and the e
 links into it).
 
 **Ask:** `onSegmentClick?: (row, segmentIndex) => void` and a `selected?: boolean` ring on a segment.
+
+**Workaround (landed, fix round 2):** the Event log no longer draws a `BandStrip`. `EventStrip`, private to
+`settings/ChannelsEventsPage.tsx`, draws the same picture from the same primitives (`makeX`, a light ground,
+hours since start) and adds what the frame needs: an 8 px circle per event, translucent bands for excluded
+spans, round-hour ticks, a blue ring on the selected event and a click (and Enter) that selects it. Fold
+R9 + R11 into the kit and the page should hand the strip back.
