@@ -36,13 +36,15 @@ export function LoadFailed({ what, error, onRetry }: { what: string; error: Erro
 export const blanks = (n: number) => Array.from({ length: n }, (_, i) => ' '.repeat(i + 1))
 
 /** The window matrix's heatmap shape: z-scores clipped at ±3σ, one column per time bin, no printed values. */
-export function Heat({ rows, values, cellHeight = 11, selectedCols, onCellClick, testid, cols, rowLabelWidth = 118 }: {
+export function Heat({ rows, values, cellHeight = 11, selectedCols, onCellClick, testid, cols, rowLabelWidth = 118, domain = [-3, 3] }: {
   rows: string[]; values: number[][]; cellHeight?: number; selectedCols?: number[]
   onCellClick?: (r: number, c: number) => void; testid?: string; cols?: string[]; rowLabelWidth?: number
+  /** the clip in force — the clip control on 02 moves it, so the ramp means what the legend says */
+  domain?: [number, number]
 }) {
   const columns = cols ?? blanks(values[0]?.length ?? 0)
   return (
-    <Heatmap rows={rows} cols={columns} values={values} domain={[-3, 3]} ramp="diverging" showValues={false}
+    <Heatmap rows={rows} cols={columns} values={values} domain={domain} ramp="diverging" showValues={false}
       cellHeight={cellHeight} gap={1} rowLabelWidth={rowLabelWidth} colLabelHeight={0} legend={false}
       selectedCols={selectedCols} onCellClick={onCellClick} testid={testid} />
   )

@@ -14,8 +14,8 @@ import { navigate } from '../state'
 import { useSourced } from '../api/seam'
 import { getMatrixBlock, type MatrixBlock } from '../api/training'
 import {
-  ESTIMATES, MATRIX, MATRIX_BAND_COL, MATRIX_COLS, RUN_STEPS, SIGNAL_FS, SLURM_MATRIX, SPAN_H, WINDOWS,
-  chainStatuses, matrixValues, type FeatureGroup,
+  ESTIMATES, MATRIX, MATRIX_BAND_COL, MATRIX_COLS, MATRIX_READOUT, RUN_STEPS, SIGNAL_FS, SLURM_MATRIX, WINDOWS,
+  chainStatuses, matrixValues, readoutForColumn, type FeatureGroup,
 } from '../fixtures/training'
 import { BlockFrame, Heat, LoadFailed, Loading, RunVeil, SaveTemplateModal, UnappliedBar, blanks } from './chrome'
 import { isPending, live, markSimForced, useSourceQuery, useTrainingDraft, wasSimForced, type MatrixParams } from './draft'
@@ -36,10 +36,12 @@ export function MatrixPage() {
 }
 
 interface Readout { col: number; window: number; from_h: number; klass: string; feature: string }
-const DEFAULT_READOUT: Readout = {
-  col: MATRIX_BAND_COL, window: MATRIX.readout.window, from_h: MATRIX.readout.from_h,
-  klass: MATRIX.readout.klass, feature: MATRIX.readout.feature,
-}
+/* The window, the hour and the class all come from one place, so 02's readout and the card 04 opens
+ * for the same window cannot disagree about which class it is or when it happened. */
+const DEFAULT_READOUT: Readout = { ...MATRIX_READOUT, feature: MATRIX.readout.feature }
+
+/** σ the clip control is set to — the heat ramp and the legend both read it. */
+const clipSigma = (clip: string) => (clip === '± 2 σ' ? 2 : clip === 'none' ? 6 : 3)
 
 function Body({ data }: { data: MatrixBlock }) {
   const { push } = useToast()
@@ -81,6 +83,32 @@ function Body({ data }: { data: MatrixBlock }) {
   const leaking = included.filter(g => g.labelDerived)
   const nCols = included.reduce((n, g) => n + g.count, 0)
 
+  /* normalise and clip are what the matrix *is*, so they have to show in it. Per-window z-scoring
+   * centres every column, which is exactly the caption's warning made visible; `none` leaves the
+   * features on their own scale; the clip is the ramp's domain. */
+  const sigma = clipSigma(p.clip)
+  const shape = (vals: number[][]): number[][] => {
+    let v = vals
+    if (p.normalise === 'z-score · per window') {
+      const mean = (v[0] ?? []).map((_, c) => v.reduce((t, r) => t + r[c], 0) / v.length)
+      v = v.map(r => r.map((x, c) => x - mean[c]))
+    } else if (p.normalise === 'none') {
+      v = v.map((r, i) => r.map(x => x * (1.1 + (i % 3) * 0.6)))
+    }
+    return v.map(r => r.map(x => Math.max(-sigma, Math.min(sigma, +x.toFixed(2)))))
+  }
+
+  /* What is unapplied, field by field — the bar said "Random Forest excluded" for every edit. */
+  const a0 = draft.matrix.applied
+  const changes: string[] = []
+  data.groups.forEach(g => {
+    if (!!a0.groups[g.id] !== !!p.groups[g.id]) changes.push(`${g.label} ${p.groups[g.id] ? 'included' : 'excluded'}`)
+  })
+  if (p.normalise !== a0.normalise) changes.push(`normalise ${a0.normalise} → ${p.normalise}`)
+  if (p.clip !== a0.clip) changes.push(`clip ${a0.clip} → ${p.clip}`)
+  /* Dropping columns reuses the cache; changing how a value is scaled does not. */
+  const recompute = p.normalise !== a0.normalise || p.clip !== a0.clip
+
   const chain = data.chain
   const status: Record<string, BadgeStatus> = chainStatuses(draft.staleFrom, chain)
   if (sim.status === 'running') chain.forEach(b => { if (b.id === 'matrix') status[b.id] = 'running' })
@@ -102,15 +130,16 @@ function Body({ data }: { data: MatrixBlock }) {
     <BlockFrame
       chain={chain} current="matrix" status={status} source={source} onSource={s => setSource(s === 'signal' ? null : s)}
       name={draft.name} saved={draft.saved} onRename={v => setDraft(d => ({ ...d, name: v, saved: false }))}
-      estimate={pending ? 'columns dropped · no recompute' : ESTIMATES.matrix}
+      estimate={pending ? (recompute ? '≈ 3 h on the cluster · the values are rescaled' : 'columns dropped · no recompute') : ESTIMATES.matrix}
       estimateTone={pending ? 'amber' : 'muted'}
       onBack={() => navigate('analyse/training')} onNavigate={b => b.route && navigate(b.route)}
       onAddStage={() => notWired('insert a stage into the training chain (type-contract modal §6.4)')}
       onSaveTemplate={() => setModal('save-template')}
       primary={primary}
       footer={
-        <UnappliedBar pending={pending} stage="02"
-          why={pending ? 'Random Forest excluded · 03 → 05 go stale · 02 reuses its cache (columns dropped, no recompute)'
+        <UnappliedBar pending={pending} stage="02" count={changes.length}
+          why={pending
+            ? `${changes.join(' · ')} · 03 → 05 go stale · ${recompute ? '02 recomputes (the values are rescaled)' : '02 reuses its cache (columns dropped, no recompute)'}`
             : draft.staleFrom ? '04 and 05 are stale from an earlier cut' : 'the matrix on screen is the one the last run used'}
           staleLabel={!pending && draft.staleFrom ? '04' : null}
           revertReason={!pending ? 'already at the recommended values' : undefined}
@@ -160,14 +189,13 @@ function Body({ data }: { data: MatrixBlock }) {
                     {g.labelDerived && !on && <span className="ld">label-derived · excluded</span>}
                   </div>
                   <Heat
-                    rows={open ? g.features : blanks(1)} values={matrixValues(ids)} cellHeight={open ? 11 : 13}
+                    rows={open ? g.features : blanks(1)} values={shape(matrixValues(ids))} cellHeight={open ? 11 : 13}
+                    domain={[-sigma, sigma]}
                     selectedCols={[readout.col]} testid={`matrix-heat-${g.id}`}
-                    onCellClick={(_r, c) => setReadout({
-                      col: c,
-                      window: Math.max(1, Math.round(((c + 0.5) / MATRIX_COLS) * WINDOWS.total)),
-                      from_h: +(((c + 0.5) / MATRIX_COLS) * SPAN_H).toFixed(1),
-                      klass: c === MATRIX_BAND_COL ? MATRIX.readout.klass : ['C1', 'C2', 'C3', 'C4'][c % 4],
-                      feature: c === MATRIX_BAND_COL ? MATRIX.readout.feature : `${g.features[0]} ${(((c % 7) - 3) / 1.4).toFixed(1)}σ`,
+                    onCellClick={(r, c) => setReadout({
+                      ...readoutForColumn(c, MATRIX_COLS),
+                      feature: c === MATRIX_BAND_COL ? MATRIX.readout.feature
+                        : `${(open ? g.features[r] : g.label)} ${(((c % 7) - 3) / 1.4).toFixed(1)}σ`,
                     })}
                   />
                 </div>
@@ -176,9 +204,10 @@ function Body({ data }: { data: MatrixBlock }) {
           </div>
 
           <div className="tr-mxlegend" data-testid="matrix-legend">
-            <span className="mono">−3σ</span>
+            <span className="mono">−{sigma}σ</span>
             <span className="ramp" />
-            <span className="mono">+3σ</span>
+            <span className="mono">+{sigma}σ</span>
+            <span className="mono tr-muted">{p.normalise}</span>
             <span className="k-spacer" />
             <span className="mono tr-muted">{MATRIX.greyNote}</span>
           </div>
@@ -190,7 +219,7 @@ function Body({ data }: { data: MatrixBlock }) {
 
           <div className="tr-readout" data-testid="matrix-readout">
             <Icon name="target" size={13} />
-            <span><b>window {readout.window}</b> · {readout.from_h.toFixed(1)} – {(readout.from_h + 0.2).toFixed(1)} h · class {readout.klass} · {readout.feature}</span>
+            <span><b>window {readout.window}</b> · {readout.from_h.toFixed(1)} – {(readout.from_h + WINDOWS.params.length_min / 60).toFixed(1)} h · class {readout.klass} · {readout.feature}</span>
             <span className="k-spacer" />
             <span className="tr-muted">{MATRIX.readout.band.replace('4 of 4', `${included.filter(g => !g.labelDerived).length} of ${included.length}`)}</span>
             <Button size="sm" icon="arrow-right" onClick={() => navigate(`analyse/training/block/4?window=${readout.window}`)} testid="open-in-encode">Open in Encode</Button>
