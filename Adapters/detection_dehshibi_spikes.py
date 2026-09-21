@@ -72,8 +72,8 @@ SPEC = register(AdapterSpec(
     name="detection.dehshibi_spikes",
     display_name="Spike detection (Dehshibi & Adamatzky 2021)",
     stage="detection",
-    category="detect",
-    page_name="Spike detection (Dehshibi)",
+    category="control",            # deprecated: kept runnable for comparison, filed out of the detect tab
+    page_name="Spike detection (Dehshibi, monolithic — deprecated)",
     params=[
         ParamSpec("n_p", int, 60, "Minimum extrema separation (samples)", min=1),
         ParamSpec("min_spike_duration", int, 60, "Minimum confirmed-spike length (samples)", min=1),
@@ -86,9 +86,9 @@ SPEC = register(AdapterSpec(
     output_kind="spanset",
     plot=_plot,
     description=(
-        "Full Morse-wavelet + analytic-envelope spike detection pipeline "
-        "(BioSystems 2021). Slow relative to the other detectors here — a "
-        "good candidate for checking per-step duration before running on a "
-        "long span."
+        "DEPRECATED (stage-3 decision 2): use the `dehshibi_spikes` TEMPLATE — "
+        "Wavelet transform → Wavelet summation → Summation threshold — which "
+        "reproduces this pipeline exactly (tests/test_template_dehshibi.py) with "
+        "every intermediate visible. Kept registered so an old recipe still runs."
     ),
 ))

@@ -46,8 +46,8 @@ SPEC = register(AdapterSpec(
     category="preprocess",
     page_name="Baseline removal",
     params=[
-        ParamSpec("mode", str, "rolling_mean", "Detrending method", choices=[
-            "rolling_mean", "rolling_z", "linear",
+        ParamSpec("mode", str, "rolling_mean", "Detrending method (rolling_mean_nearest is the drop detector's exact filter)", choices=[
+            "rolling_mean", "rolling_mean_nearest", "rolling_z", "linear",
         ]),
         ParamSpec("window_s", float, 600.0,
                   "Rolling-window width in seconds (ignored for mode='linear')", min=1.0),

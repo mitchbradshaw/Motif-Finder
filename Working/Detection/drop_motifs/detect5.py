@@ -300,8 +300,14 @@ def stage_letters(x, fs, params):
     x = np.asarray(x, dtype=float).ravel()
     fs = float(fs)
 
-    detrend_samples = max(3, int(round(params.detrend_window_s * fs)))
-    x_detrended = detrend(x, detrend_samples)
+    if params.detrend_window_s <= 0:
+        # Already detrended upstream (the block form: preprocessing.detrend
+        # ran first). Zero used to mean a 3-sample rolling mean, which nobody
+        # asked for; it now means "leave the signal alone".
+        x_detrended = x.copy()
+    else:
+        detrend_samples = max(3, int(round(params.detrend_window_s * fs)))
+        x_detrended = detrend(x, detrend_samples)
 
     segment_samples = max(1, int(round(params.segment_seconds * fs)))
     dim_ratio = dim_ratio_for_segments(len(x_detrended), segment_samples)
@@ -429,13 +435,23 @@ def choose_morphology(x, fs, params):
         return params.morphology
 
     letters, details = stage_letters(x, fs, params)
+    return morphology_from_letters(
+        letters, details["x_detrended"], int(details["samples_per_symbol"]), params)
+
+
+def morphology_from_letters(letters, x_detrended, sps, params):
+    """`choose_morphology` for an encoding already in hand — the block form
+    (`Adapters/detection_drop_detection.py`), where the letters arrive as the
+    previous step's Encoding. Same rule, same result."""
+    if params.morphology in MORPHOLOGIES:
+        return params.morphology
+
     falls = fall_runs(letters)
     if not falls:
         return MORPHOLOGY_SHARKFIN
 
     rises = up_runs(letters)
-    x_detrended = details["x_detrended"]
-    sps = int(details["samples_per_symbol"])
+    x_detrended = np.asarray(x_detrended, dtype=float).ravel()
     last = len(x_detrended) - 1
 
     preceded = 0
@@ -596,11 +612,40 @@ def detect_drops5(x, fs, params):
                              else MORPHOLOGY_SHARKFIN,
                              x_detrended=np.zeros_like(x))
 
-    morphology = choose_morphology(x, fs, params)
     letters, details = stage_letters(x, fs, params)
     x_detrended = details["x_detrended"]
     sps = int(details["samples_per_symbol"])
-    sigma_slope = details["sigma_slope"]
+    morphology = morphology_from_letters(letters, x_detrended, sps, params)
+    return detect_from_letters(
+        x_detrended, fs, letters, sps, details["sigma_slope"], morphology, params,
+        counts=counts, started=started,
+        same_fraction_observed=float(details["same_fraction_observed"]))
+
+
+def detect_from_letters(x_detrended, fs, letters, sps, sigma_slope, morphology, params,
+                        counts=None, started=None, same_fraction_observed=float("nan")):
+    """The detector proper, from an encoding already in hand.
+
+    `detect_drops5` is `stage_letters` + `morphology_from_letters` + this;
+    the block form (`Adapters/detection_drop_detection.py`) calls this with
+    the letters the encoding block emitted, the detrended signal the chain
+    carries, `sps = len(x) // len(letters)` (dSAX trims the span to a whole
+    number of segments, so the integer division is exact) and a
+    `sigma_slope` recomputed from the same signal with the same estimator.
+    Splitting it this way is what lets the chain run as drawn (D1) without
+    two copies of the gates and windows.
+    """
+    started = time.time() if started is None else started
+    x_detrended = np.asarray(x_detrended, dtype=float).ravel()
+    fs = float(fs)
+    if counts is None:
+        counts = dict(
+            segments=0, up_runs=0, fall_runs=0,
+            candidates=0, rejected_no_fall=0, rejected_no_rise=0,
+            rejected_not_dominant=0, rejected_shallow=0, rejected_duplicate=0,
+            fall_trigger_suppressed=0, drops_confirmed=0,
+        )
+    sps = int(sps)
     slope_threshold = -params.slope_sigma * sigma_slope
 
     counts["segments"] = len(letters)
@@ -811,7 +856,7 @@ def detect_drops5(x, fs, params):
             n_segments=len(letters),
             sigma_slope_mv_per_s=float(sigma_slope) * 1000.0,
             slope_threshold_mv_per_s=float(slope_threshold) * 1000.0,
-            same_fraction_observed=float(details["same_fraction_observed"]),
+            same_fraction_observed=same_fraction_observed,
             stage_histogram={c: letters.count(c) for c in STAGE_LETTERS},
             elapsed_s=round(time.time() - started, 3),
         ),

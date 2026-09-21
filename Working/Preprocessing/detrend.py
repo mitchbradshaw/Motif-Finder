@@ -44,8 +44,8 @@ def make_detrend_filter(fs, mode="rolling_mean", window_s=600.0):
                         whole span — ignores `window_s`).
     window_s  : float  Rolling-window width in seconds (ignored for "linear").
     """
-    if mode not in ("rolling_mean", "rolling_z", "linear"):
-        raise ValueError(f"Unknown detrend mode {mode!r} — must be 'rolling_mean', 'rolling_z', or 'linear'")
+    if mode not in ("rolling_mean", "rolling_mean_nearest", "rolling_z", "linear"):
+        raise ValueError(f"Unknown detrend mode {mode!r} — must be 'rolling_mean', 'rolling_mean_nearest', 'rolling_z', or 'linear'")
 
     def _detrend(w):
         w = np.asarray(w, dtype=np.float64)
@@ -55,6 +55,15 @@ def make_detrend_filter(fs, mode="rolling_mean", window_s=600.0):
             return w - np.polyval(coeffs, idx)
 
         window_samples = max(1, int(round(window_s * fs)))
+        if mode == "rolling_mean_nearest":
+            # The drop detector's own filter (uniform_filter1d, mode="nearest",
+            # window >= 3, mean subtraction when the window covers the span):
+            # numerically different at the edges from the cumulative-sum
+            # rolling mean above, and the drop_detection_v1 template must
+            # reproduce the seed events exactly, so it is imported rather than
+            # re-implemented (one filter, two entry points).
+            from Working.Detection.drop_motifs.detect import detrend as _drop_detrend
+            return _drop_detrend(w, window_samples)
         trend = _rolling_mean(w, window_samples)
         out = w - trend
         if mode == "rolling_z":
