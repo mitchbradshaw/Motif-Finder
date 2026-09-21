@@ -107,3 +107,18 @@ catalogue_spreadsheet signal_catalog.xlsx: HTTP 200 {"id": 37, "warnings": []}
 browser errors: []
 
 Explore recordings now: M2_aug_concat_fs1.mat, M2_aug_concat_fs2.mat, M2_concat_fs1.mat, Fig2A_dt0p1.csv, L_LM_Jul_26_J_raw.mat, M1.mat, M100.mat, M101_t.mat, M4_aug_concat_fs1.mat, MJu26a.mat, Mushroom_260720_0509_4hrs_CH14_fs1.mat
+
+
+## Corrections after this transcript (same day)
+
+- The drop-motif seed store (`DATA/library_seed/drop_motifs5/motifs`) was refused above because the check
+  expected one array per event; the store writes three (`__raw_mv`, `__detrended_mv`, `__t_s`). Fixed, and
+  registered on a second `--project` start (backup `20260921-172121.sqlite`): `registered_artifacts` id 38,
+  410 events.
+- M1, M100, M101_t were registered with `fs_source = read` (their rate was read from the raw files' time
+  vectors, uniform 0.1 s); the "fs unknown … recorded as inferred" warning printed above was the scan's,
+  answered by the supplied value. The 39 rows' `warnings_json` and the three sidecars now say "fs 10.0 Hz
+  supplied at registration as read from the raw file's time vector".
+- Tally: 10 matrix profiles registered (ids 1–10), 3 refused for length; 8 window matrices (11–18); 18
+  models (19–36); the catalogue (37); the seed store (38). L_LM's registration went through the UI, so its
+  response is not in this log; its rows are 540–544 and row 385's parent link is 542 / 15,777,590 / 10.

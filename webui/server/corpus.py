@@ -6,6 +6,7 @@ read-only from ``DATA/`` (through the worktree junction).
 from __future__ import annotations
 
 import functools
+import json
 import os
 import sqlite3
 import time
@@ -58,8 +59,18 @@ def recordings(conn) -> list[dict]:
     for sf, chans in by_file.items():
         chans.sort(key=lambda c: c["channel"])
         fs = float(chans[0]["fs"]); n = int(chans[0]["n_samples"])
+        c0 = chans[0]
+        parent = None
+        if c0.get("parent_recording_id"):
+            p = conn.execute("SELECT id, source_file, channel FROM recordings WHERE id = ?", (c0["parent_recording_id"],)).fetchone()
+            if p is not None:
+                parent = {"recording_id": p[0], "source_file": p[1], "channel": p[2], "offset": c0.get("parent_offset"), "decimation": c0.get("decimation")}
         out.append({
             "source_file": sf, "fs": fs, "n_samples": n, "duration_h": n / fs / 3600.0,
+            # registration facts (stage-3 Prompt 02): where fs came from, the warnings the row carries, the excerpt link
+            "fs_source": c0.get("fs_source") or "unrecorded",
+            "warnings": json.loads(c0["warnings_json"]) if c0.get("warnings_json") else [],
+            "excerpt_of": parent,
             "n_channels": len(chans), "held_out": sf == HELD_OUT_FILE,
             "held_out_reason": (f"{HELD_OUT_FILE} is held out (spec §0 D6 / Working.config.HELD_OUT_RECORDING_FILE); "
                                 "the bridge refuses every request for it and the pages never draw it") if sf == HELD_OUT_FILE else None,

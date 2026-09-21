@@ -181,16 +181,21 @@ function ScanModal({ rootId, roots, onClose, onChanged }: { rootId: string; root
   const [reports, setReports] = useState<Record<string, CheckReport>>({})
   const [checked, setChecked] = useState<string>('')
   const report = checked ? reports[checked] ?? null : null
+  /* per-kind overrides the check may need (recording_id for an HPC bundle exported elsewhere): the same JSON
+     a script would POST (docs/DATA_REGISTRATION.md) */
+  const [overridesText, setOverridesText] = useState('')
+  const overrides = (): Record<string, unknown> => { try { return overridesText.trim() ? JSON.parse(overridesText) as Record<string, unknown> : {} } catch { return {} } }
+  const overridesBad = Boolean(overridesText.trim()) && (() => { try { JSON.parse(overridesText); return false } catch { return true } })()
   /* recordings and raw files register on Datasets (they need fs / layout answers); everything else registers here */
   const registersHere = Boolean(kind) && kind !== 'recording' && kind !== 'raw'
   const runCheck = async (c: Candidate) => {
     setBusy(c.path); setChecked(c.path)
-    try { const r = await checkCandidate(kind, c.path); setReports(x => ({ ...x, [c.path]: r })) } catch (e) { push({ text: e instanceof ApiError ? e.message : String(e), kind: 'error' }) } finally { setBusy(null) }
+    try { const r = await checkCandidate(kind, c.path, overrides()); setReports(x => ({ ...x, [c.path]: r })) } catch (e) { push({ text: e instanceof ApiError ? e.message : String(e), kind: 'error' }) } finally { setBusy(null) }
   }
   const doRegister = async (c: Candidate) => {
     setBusy(c.path)
     try {
-      const r = await registerCandidate(kind, c.path)
+      const r = await registerCandidate(kind, c.path, overrides())
       push({ text: `Registered ${r.name} · ${r.table} id ${r.id}${r.warnings.length ? ` · ${r.warnings.length} warning${r.warnings.length === 1 ? '' : 's'}` : ''} · ${r.note}` })
       setReports(x => { const y = { ...x }; delete y[c.path]; return y }); setChecked(''); rd.reload(); onChanged()
     } catch (e) { push({ text: e instanceof ApiError ? e.message : String(e), kind: 'error' }) } finally { setBusy(null) }
@@ -208,6 +213,11 @@ function ScanModal({ rootId, roots, onClose, onChanged }: { rootId: string; root
       {kind && rd.data && (
         <>
           <div className="s-card-sub" style={{ marginBottom: 6 }}>{reg.length} registered · {cands.length} on disk, not registered · scanned in {rd.data.scan_ms.toFixed(0)} ms</div>
+          {registersHere && <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 8 }}>
+            <span className="mono small">overrides (JSON)</span>
+            <TextField value={overridesText} onChange={setOverridesText} size="sm" width={360} placeholder={kind === 'hpc_result' ? '{"recording_id": 33}' : '{}'} invalid={overridesBad} testid="scan-overrides" />
+            <span className="muted small">{overridesBad ? 'not valid JSON' : 'what the check cannot read from the file · sent with check and register'}</span>
+          </div>}
           {cands.length > 0 && <Table rows={cands} rowKey={(c: Candidate) => c.path} dense testid="scan-candidates" highlighted={checked}
             columns={[
               { key: 'name', header: 'not registered', width: '34%', render: (c: Candidate) => <span className="mono">{c.name}</span> },
