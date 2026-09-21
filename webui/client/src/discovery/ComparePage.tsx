@@ -270,7 +270,13 @@ function WhereFire({ dx, data, current, onJump }: { dx: Discovery; data: Compare
           const hAt = (i: number) => view[0] + (i / Math.max(1, n - 1)) * (view[1] - view[0])
           const step = Math.max(1, Math.floor(n / Math.max(1, W - labelW)))
           let d = ''
-          for (let i = 0; i < n; i += step) d += `${i ? 'L' : 'M'}${x(hAt(i)).toFixed(1)} ${sy(vals[i]).toFixed(1)}`
+          // lift the pen at a non-finite sample rather than emitting a NaN vertex
+          let pen = false
+          for (let i = 0; i < n; i += step) {
+            if (!Number.isFinite(vals[i])) { pen = false; continue }
+            d += `${pen ? 'L' : 'M'}${x(hAt(i)).toFixed(1)} ${sy(vals[i]).toFixed(1)}`
+            pen = true
+          }
           const bandX = current && current.channel === ch && inView(current.atH) ? x(current.atH) : null
           return (
             <svg width={W} height={176} role="img" aria-label={`where A and B fire on ${ch}: ${onlyA.length} only A, ${both.length} both, ${onlyB.length} only B`}
@@ -409,7 +415,12 @@ function Disagreements({ data, a, b, only, setOnly, list, i, setI, current }: {
               const sx = (s: number) => labelW + (s / w.windowS) * (W - labelW - padR)
               const sy = (v: number) => 8 + (1 - (v - (lo - pad)) / ((hi + pad) - (lo - pad))) * 62
               let d = ''
-              for (let k = 0; k < n; k++) d += `${k ? 'L' : 'M'}${sx(k).toFixed(1)} ${sy(w.values[k]).toFixed(1)}`
+              let pen = false
+              for (let k = 0; k < n; k++) {
+                if (!Number.isFinite(w.values[k])) { pen = false; continue }
+                d += `${pen ? 'L' : 'M'}${sx(k).toFixed(1)} ${sy(w.values[k]).toFixed(1)}`
+                pen = true
+              }
               const aSpan = w.aSpan, span = w.aSpan ?? w.bSpan
               const firedA = !!w.aSpan
               // the non-firing side's own score, scaled to what it actually does in this window (its threshold
@@ -420,7 +431,12 @@ function Disagreements({ data, a, b, only, setOnly, list, i, setI, current }: {
               const sPad = (sHi - sLo) * 0.18 || 0.2
               const py = (v: number) => 102 + (1 - (v - (sLo - sPad)) / ((sHi + sPad) - (sLo - sPad))) * 36
               let pd = ''
-              for (let k = 0; k < w.bScore.length; k++) pd += `${k ? 'L' : 'M'}${sx(k).toFixed(1)} ${py(w.bScore[k]).toFixed(1)}`
+              let ppen = false
+              for (let k = 0; k < w.bScore.length; k++) {
+                if (!Number.isFinite(w.bScore[k])) { ppen = false; continue }
+                pd += `${ppen ? 'L' : 'M'}${sx(k).toFixed(1)} ${py(w.bScore[k]).toFixed(1)}`
+                ppen = true
+              }
               const t0 = current.atH - w.windowS / 2 / 3600
               return (
                 <svg width={W} height={158} role="img" aria-label={`the ${w.windowS.toFixed(0)} s window at ${current.atH.toFixed(2)} h`} data-testid="step-plot">

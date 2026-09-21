@@ -66,7 +66,14 @@ export function SeedPage() {
 
   // no cut is no cut: nothing is kept until a threshold exists, and a stand-in d would draw a match list
   // the search never returned
-  const threshold = draft?.params.threshold ?? null
+  /* §7.6's "match threshold with a recommended marker": until the researcher
+   * drags the line, the cut IS the recommendation the null produced. Waiting
+   * for an explicit choice left the page with no histogram at all after a
+   * search that had already computed one. */
+  const recommendedCut = results.data?.recommendedCut ?? null
+  const chosen = draft?.params.threshold ?? null
+  const threshold = chosen ?? recommendedCut
+  const cutIsRecommended = chosen == null && recommendedCut != null
   const kept = useMemo(() => threshold == null ? [] : (results.data?.candidates ?? []).filter(c => c.d <= threshold), [results.data, threshold])
   /* §7.6: "You see how many matches chance alone would give at the moment you
    * choose where to cut." `nullDistances` is POOLED over every draw of every
@@ -79,7 +86,7 @@ export function SeedPage() {
   const perDraw = (cut: number | null) => cut == null ? 0
     : (results.data?.nullDistances ?? []).filter(d => d <= cut).length / nullDraws
   const nullKept = perDraw(threshold)
-  const recCut = setup.data?.recommended.threshold ?? null
+  const recCut = recommendedCut
   const nullAtRec = perDraw(recCut)
 
   /* The run row is the server's: the old version invented one client-side,
@@ -119,17 +126,22 @@ export function SeedPage() {
                       <SeedCard draft={draft} seed={seed} seeds={seeds} source={sourceQ} onSource={s => { setSourceQ(s); setDraft({ source: s, seedId: s === 'medoid' ? 'm-1846' : s === 'library' ? 'E-0102' : draft.seedId }) }}
                         onSeed={id => { setDraft({ seedId: id, source: id.startsWith('m-') ? 'medoid' : 'library' }); setSourceQ(id.startsWith('m-') ? 'medoid' : 'library') }}
                         exploreSpan={exploreSpan} onBind={b => { setDraft({ bind: b }); recordDemoWrite('discovery', 'seed-bind', { bind: b }) }} />
-                      <ParamsCard draft={draft} recommended={setup.data!.recommended} seed={seed} setParams={setParams} results={results.data} nullAtRec={nullAtRec} kept={kept.length} nullKept={nullKept} />
+                      <ParamsCard draft={draft} recommended={setup.data!.recommended} seed={seed} setParams={setParams} results={results.data} nullAtRec={nullAtRec} kept={kept.length} nullKept={nullKept} cut={threshold} cutIsRecommended={cutIsRecommended} />
                     </div>
                     {!seed ? null : results.error ? <LoadFailed what="seed matches" error={results.error} onRetry={results.reload} /> : !results.data ? <Loading height={220} /> : (
                       <>
-                        {threshold != null
-                          ? <>
+                        {results.data.candidates.length === 0
+                          ? <section className="k-card" data-testid="no-cut"><EmptyState size="sm" icon="bar-chart" title="No matches"
+                            caption="the search returned nothing on this scope" /></section>
+                          : <>
                             <DistanceProfile dx={dx} seed={seed} candidates={results.data.candidates} threshold={threshold} />
-                            <MatchesCard seed={seed} matches={kept} channels={channels.length} />
-                          </>
-                          : <section className="k-card" data-testid="no-cut"><EmptyState size="sm" icon="bar-chart" title="No cut chosen yet"
-                            caption={`${results.data.candidates.length} distances computed · choose a threshold to see which are kept`} /></section>}
+                            {/* with no cut nothing is KEPT, but the closest matches are still what
+                                the researcher is looking at — hiding them makes "nothing beats the
+                                null" look like "the search did not run" */}
+                            <MatchesCard seed={seed} matches={threshold == null ? results.data.candidates.slice(0, 12) : kept}
+                              channels={channels.length}
+                              note={threshold == null ? `no cut: none of the ${results.data.candidates.length} matches is closer than the null gives — these are the closest` : null} />
+                          </>}
                       </>
                     )}
                     <ApplyBar dx={dx} draft={draft} recommended={setup.data!.recommended} kept={threshold == null ? null : kept.length} seed={seed} sim={sim} onSave={() => setModal('save-template')} />
@@ -252,9 +264,13 @@ function SeedThumb({ values, yDomain, width = 132, height = 78, overlay }: { val
 const fmtTick = (v: number) => `${v < 0 ? '−' : '+'}${Math.abs(v).toFixed(2)}`
 
 /* ------------------------------------------------------------------ parameters + where to cut */
-function ParamsCard({ draft, recommended, seed, setParams, results, nullAtRec, kept, nullKept }: {
+function ParamsCard({ draft, recommended, seed, setParams, results, nullAtRec, kept, nullKept, cut, cutIsRecommended }: {
   draft: SeedDraft; recommended: SeedParams; seed: SeedInfo | null; setParams: (p: Partial<SeedParams>) => void
   results: { candidates: SeedMatch[]; nullDistances: number[] } | null; nullAtRec: number; kept: number; nullKept: number
+  /** The cut in force: the researcher's if they chose one, else the null's own
+   *  recommendation. `recommended.threshold` is always null — the parameter card
+   *  cannot know a cut before the search has drawn a null. */
+  cut: number | null; cutIsRecommended: boolean
 }) {
   const p = draft.params
   const m = seed?.samples ?? 21
@@ -297,8 +313,8 @@ function ParamsCard({ draft, recommended, seed, setParams, results, nullAtRec, k
             : <span className="muted small mono">no cut</span>}>
           {p.threshold != null ? (
             <>
-              <Slider value={p.threshold} onChange={v => setParams({ threshold: +v.toFixed(1) })} min={0} max={8} step={0.1} showValue={false} marks={recommended.threshold != null ? [{ value: recommended.threshold, label: '' }] : []} testid="param-threshold" ariaLabel="match threshold" />
-              <span className="small mono green">{thrRaw ? <span className="dsc-err">{thrRaw}</span> : recommended.threshold != null ? <>recommended {recommended.threshold} · the null gives {fmtNull(nullAtRec)} per draw</> : 'no recommended cut yet — it is read off the null distribution'}</span>
+              <Slider value={cut ?? 0} onChange={v => setParams({ threshold: +v.toFixed(1) })} min={0} max={8} step={0.1} showValue={false} marks={cut != null ? [{ value: cut, label: '' }] : []} testid="param-threshold" ariaLabel="match threshold" />
+              <span className="small mono green">{thrRaw ? <span className="dsc-err">{thrRaw}</span> : cut != null ? <>{cutIsRecommended ? 'recommended' : 'chosen'} {cut} · the null gives {fmtNull(nullAtRec)} per draw</> : 'no recommended cut yet — it is read off the null distribution'}</span>
             </>
           ) : <span className="small mono muted" data-testid="threshold-none">no cut chosen · the recommended cut is read off the null distribution, so there is none until the search has drawn one</span>}
         </ParamField>
@@ -307,8 +323,8 @@ function ParamsCard({ draft, recommended, seed, setParams, results, nullAtRec, k
             options={[{ value: 'lowest', label: 'keep lowest distance' }, { value: 'first', label: 'keep first' }, { value: 'all', label: 'keep all (overlapping)' }]} />
         </ParamField>
       </div>
-      {results && p.threshold != null && recommended.threshold != null
-        ? <CutHistogram candidates={results.candidates} nullDistances={results.nullDistances} threshold={p.threshold} recommended={recommended.threshold} kept={kept} nullKept={nullKept} onThreshold={t => setParams({ threshold: t })} />
+      {results && results.candidates.length
+        ? <CutHistogram candidates={results.candidates} nullDistances={results.nullDistances} threshold={cut} recommended={cut} kept={kept} nullKept={nullKept} onThreshold={t => setParams({ threshold: t })} />
         : <div className="dsc-cut-empty"><EmptyState size="sm" icon="bar-chart" title={results ? 'No cut yet' : 'No distances yet'}
           caption={results ? 'the recommended cut comes from the null distribution — run the search to draw one' : 'pick a seed to see where to cut'} /></div>}
     </section>
@@ -324,8 +340,13 @@ function ParamField({ label, info, aside, children }: { label: string; info: str
 }
 
 /** Where to cut: match-distance histogram, null distribution behind, self bin shaded, recommended tick, draggable threshold. */
+/** `threshold` is null when the null gives nothing away: no distance in this
+ *  search is closer than chance, so there is no cut to draw. The bars and the
+ *  null behind them are exactly the evidence for that, so they still draw —
+ *  hiding the histogram would make "nothing beats the null" look like "the
+ *  search did not run". */
 function CutHistogram({ candidates, nullDistances, threshold, recommended, kept, nullKept, onThreshold }: {
-  candidates: SeedMatch[]; nullDistances: number[]; threshold: number; recommended: number; kept: number; nullKept: number; onThreshold: (t: number) => void
+  candidates: SeedMatch[]; nullDistances: number[]; threshold: number | null; recommended: number | null; kept: number; nullKept: number; onThreshold: (t: number) => void
 }) {
   const [ref, size] = useSize<HTMLDivElement>()
   const [dragging, setDragging] = useState(false)
@@ -342,23 +363,37 @@ function CutHistogram({ candidates, nullDistances, threshold, recommended, kept,
   return (
     <div className="dsc-cut" ref={ref} data-testid="cut-histogram">
       {W > 0 && (
-        <svg width={W} height={H} onPointerMove={move} onPointerUp={() => setDragging(false)} onPointerLeave={() => setDragging(false)} role="img" aria-label={`match distance histogram, ${kept} kept at d ≤ ${threshold}, the null gives ${fmtNull(nullKept)} per draw`}>
+        <svg width={W} height={H} onPointerMove={move} onPointerUp={() => setDragging(false)} onPointerLeave={() => setDragging(false)} role="img" aria-label={threshold == null
+            ? `match distance histogram over ${candidates.length} matches; no cut — none is closer than the null gives`
+            : `match distance histogram, ${kept} kept at d ≤ ${threshold}, the null gives ${fmtNull(nullKept)} per draw`}>
           <rect x={x(0)} y={padT} width={x(0.4) - x(0)} height={H - padT - padB} fill="#FDECEC" />
           <text x={x(0) + 3} y={padT + 10} className="dsc-axis-t" style={{ fill: '#c0392b' }}>self</text>
           <text x={padL - 6} y={padT + 4} textAnchor="end" className="dsc-axis-t">count</text>
           {nul.map((c, i) => c > 0 && <rect key={`n${i}`} x={x(i * bw) + 1} width={Math.max(1, x(bw) - x(0) - 2)} y={y(c)} height={H - padB - y(c)} fill="#D1D5DB" />)}
-          {cand.map((c, i) => c > 0 && <rect key={`c${i}`} x={x(i * bw) + 2.5} width={Math.max(1, x(bw) - x(0) - 5)} y={y(c)} height={H - padB - y(c)} fill={(i + 0.5) * bw <= threshold ? SEED_COLOUR : KEPT_LIGHT}><title>{`d ${(i * bw).toFixed(1)}–${((i + 1) * bw).toFixed(1)}: ${c} matches · null ${nul[i]}`}</title></rect>)}
+          {cand.map((c, i) => c > 0 && <rect key={`c${i}`} x={x(i * bw) + 2.5} width={Math.max(1, x(bw) - x(0) - 5)} y={y(c)} height={H - padB - y(c)} fill={threshold != null && (i + 0.5) * bw <= threshold ? SEED_COLOUR : KEPT_LIGHT}><title>{`d ${(i * bw).toFixed(1)}–${((i + 1) * bw).toFixed(1)}: ${c} matches · null ${nul[i]}`}</title></rect>)}
           <line x1={padL} x2={W - padR} y1={H - padB} y2={H - padB} stroke="var(--border-strong)" />
           {[0, 2, 4, 6, 8].map(t => <text key={t} x={x(t)} y={H - padB + 13} textAnchor={t === 0 ? 'start' : t === 8 ? 'end' : 'middle'} className="dsc-axis-t">{t === 8 ? '8 d' : t}</text>)}
-          <line x1={x(recommended)} x2={x(recommended)} y1={H - padB - 8} y2={H - padB + 3} stroke="var(--green)" strokeWidth={2.5} />
-          <g className="dsc-thresh" onPointerDown={e => { (e.currentTarget.ownerSVGElement as SVGSVGElement).setPointerCapture(e.pointerId); setDragging(true) }} style={{ cursor: 'ew-resize' }}
-            tabIndex={0} role="slider" aria-label="threshold" aria-valuemin={0.1} aria-valuemax={8} aria-valuenow={threshold} data-testid="cut-threshold"
-            onKeyDown={e => { if (e.key === 'ArrowLeft') { e.preventDefault(); onThreshold(Math.max(0.1, +(threshold - 0.1).toFixed(1))) } if (e.key === 'ArrowRight') { e.preventDefault(); onThreshold(Math.min(8, +(threshold + 0.1).toFixed(1))) } }}>
-            <line x1={x(threshold)} x2={x(threshold)} y1={padT - 6} y2={H - padB} stroke={THRESH} strokeWidth={2} />
-            <rect x={x(threshold) - 8} y={padT - 12} width={16} height={H - padT - padB + 12} fill="transparent" />
-            <circle cx={x(threshold)} cy={padT - 8} r={6} fill="#fff" stroke={THRESH} strokeWidth={2} />
-          </g>
-          <text x={Math.min(x(threshold) + 10, W - 150)} y={padT - 4} className="dsc-axis-t" style={{ fill: THRESH, fontWeight: 600 }} data-testid="cut-label">{kept} kept · the null gives {fmtNull(nullKept)} per draw</text>
+          {recommended != null && <line x1={x(recommended)} x2={x(recommended)} y1={H - padB - 8} y2={H - padB + 3} stroke="var(--green)" strokeWidth={2.5} />}
+          {threshold != null ? (
+            <>
+              <g className="dsc-thresh" onPointerDown={e => { (e.currentTarget.ownerSVGElement as SVGSVGElement).setPointerCapture(e.pointerId); setDragging(true) }} style={{ cursor: 'ew-resize' }}
+                tabIndex={0} role="slider" aria-label="threshold" aria-valuemin={0.1} aria-valuemax={8} aria-valuenow={threshold} data-testid="cut-threshold"
+                onKeyDown={e => { if (e.key === 'ArrowLeft') { e.preventDefault(); onThreshold(Math.max(0.1, +(threshold - 0.1).toFixed(1))) } if (e.key === 'ArrowRight') { e.preventDefault(); onThreshold(Math.min(8, +(threshold + 0.1).toFixed(1))) } }}>
+                <line x1={x(threshold)} x2={x(threshold)} y1={padT - 6} y2={H - padB} stroke={THRESH} strokeWidth={2} />
+                <rect x={x(threshold) - 8} y={padT - 12} width={16} height={H - padT - padB + 12} fill="transparent" />
+                <circle cx={x(threshold)} cy={padT - 8} r={6} fill="#fff" stroke={THRESH} strokeWidth={2} />
+              </g>
+              <text x={Math.min(x(threshold) + 10, W - 150)} y={padT - 4} className="dsc-axis-t" style={{ fill: THRESH, fontWeight: 600 }} data-testid="cut-label">{kept} kept · the null gives {fmtNull(nullKept)} per draw</text>
+            </>
+          ) : (
+            <text x={padL + 4} y={padT - 4} className="dsc-axis-t" style={{ fill: 'var(--muted)', fontWeight: 600 }} data-testid="cut-label">
+              no cut · nothing here is closer than the null gives · drag to choose one anyway
+            </text>
+          )}
+          {/* with no cut the whole width is still draggable, so a researcher who
+              wants to look past the null can */}
+          {threshold == null && <rect x={padL} y={padT - 12} width={Math.max(0, W - padL - padR)} height={H - padT - padB + 12} fill="transparent"
+            style={{ cursor: 'ew-resize' }} onPointerDown={e => { (e.currentTarget.ownerSVGElement as SVGSVGElement).setPointerCapture(e.pointerId); setDragging(true) }} data-testid="cut-threshold" />}
         </svg>
       )}
       {W === 0 && <div style={{ height: H }} />}
@@ -371,7 +406,7 @@ function CutHistogram({ candidates, nullDistances, threshold, recommended, kept,
 }
 
 /* ------------------------------------------------------------------ distance profile */
-function DistanceProfile({ dx, seed, candidates, threshold }: { dx: Discovery; seed: SeedInfo; candidates: SeedMatch[]; threshold: number }) {
+function DistanceProfile({ dx, seed, candidates, threshold }: { dx: Discovery; seed: SeedInfo; candidates: SeedMatch[]; threshold: number | null }) {
   const s = dx.scope!
   const [chQ, setChQ] = useQueryState('pch', 'CH4_A2')
   const [viewQ, setViewQ] = useQueryState('view', '192.0-194.0')
@@ -384,7 +419,9 @@ function DistanceProfile({ dx, seed, candidates, threshold }: { dx: Discovery; s
   const [ref, size] = useSize<HTMLDivElement>()
   const [hover, setHover] = useState<number | null>(null)
   const W = size.width, labelW = 70, padR = 8
-  const inView = candidates.filter(c => c.channel === ch && c.d <= threshold && c.atH >= view[0] && c.atH <= view[1] && (judged || !c.judged))
+  // with no cut every candidate is shown: the track is "where the matches are",
+  // and an empty track over a search that found 132 of them would be a lie
+  const inView = candidates.filter(c => c.channel === ch && (threshold == null || c.d <= threshold) && c.atH >= view[0] && c.atH <= view[1] && (judged || !c.judged))
   const x = (h: number) => labelW + ((h - view[0]) / (view[1] - view[0])) * (W - labelW - padR)
   const [selQ] = useQueryState('match', '')
   return (
@@ -416,11 +453,11 @@ function DistanceProfile({ dx, seed, candidates, threshold }: { dx: Discovery; s
               onPointerMove={e => { const r = e.currentTarget.getBoundingClientRect(); const px = e.clientX - r.left; setHover(px >= labelW && px <= W - padR ? px : null) }} onPointerLeave={() => setHover(null)}>
               <text x={0} y={30} className="dsc-axis-t">signal</text>
               <text x={0} y={100} className="dsc-axis-t">distance</text>
-              <text x={0} y={112} className="dsc-axis-t" style={{ fill: THRESH }}>— d {threshold.toFixed(1)}</text>
+              <text x={0} y={112} className="dsc-axis-t" style={{ fill: THRESH }}>{threshold == null ? 'no cut' : `— d ${threshold.toFixed(1)}`}</text>
               <text x={0} y={168} className="dsc-axis-t">matches</text>
               <path d={line(signal, sy)} fill="none" stroke="var(--trace)" strokeWidth={1.1} />
               <path d={line(distance, dy)} fill="none" stroke={SEED_COLOUR} strokeWidth={1.1} />
-              <line x1={labelW} x2={W - padR} y1={dy(threshold)} y2={dy(threshold)} stroke={THRESH} strokeWidth={1.6} />
+              {threshold != null && <line x1={labelW} x2={W - padR} y1={dy(threshold)} y2={dy(threshold)} stroke={THRESH} strokeWidth={1.6} />}
               <rect x={labelW} y={160} width={W - labelW - padR} height={12} fill="#f3f4f6" rx={2} />
               {inView.map(c => { const cx0 = x(c.atH); return <rect key={c.id} x={cx0 - 22} y={160} width={44} height={12} rx={2} fill={c.judged ? 'var(--green)' : SEED_COLOUR} stroke={selQ === c.id ? 'var(--text)' : 'none'} strokeWidth={1.5} data-testid={`profile-match-${c.id}`}><title>{`${c.id} · d ${c.d.toFixed(2)} · ${c.atH.toFixed(2)} h${c.judged ? ' · already judged' : ''}`}</title></rect> })}
               <line x1={labelW} x2={W - padR} y1={180} y2={180} stroke="var(--border)" />
@@ -458,7 +495,7 @@ export function ViewPopover({ open, onClose, anchorRef, view, section, minW, max
 }
 
 /* ------------------------------------------------------------------ matches */
-function MatchesCard({ seed, matches, channels }: { seed: SeedInfo; matches: SeedMatch[]; channels: number }) {
+function MatchesCard({ seed, matches, channels, note = null }: { seed: SeedInfo; matches: SeedMatch[]; channels: number; note?: string | null }) {
   const [pageQ, setPageQ] = useQueryState('mpage', '1')
   const [selQ, setSelQ] = useQueryState('match', '')
   const [, setChQ] = useQueryState('pch', 'CH4_A2')

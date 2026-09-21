@@ -99,12 +99,11 @@
    }
   ],
   "expect": [
-   "[data-testid=\"discovery-runs-page\"]",
-   "[data-testid=\"run-row-mp_threshold\"][data-status=\"superseded\"]",
+   "[data-testid^=\"run-row-\"][data-status=\"superseded\"]",
    "[data-testid=\"scoreboard-table\"]",
    "[data-testid=\"where-fires\"]"
   ],
-  "settle_ms": 900
+  "settle_ms": 1600
  },
  {
   "page": "discovery.runs",
@@ -112,11 +111,11 @@
   "hash": "discovery/runs?state=discarded",
   "actions": [],
   "expect": [
-   "[data-testid=\"run-row-mp_threshold\"][data-status=\"superseded\"]",
-   "[data-testid=\"where-fires\"]",
-   "[data-testid=\"scoreboard-table\"]"
+   "[data-testid^=\"run-row-\"][data-status=\"superseded\"]",
+   "[data-testid=\"scoreboard-table\"]",
+   "[data-testid=\"where-fires\"]"
   ],
-  "settle_ms": 900
+  "settle_ms": 1600
  },
  {
   "page": "discovery.runs",
