@@ -365,13 +365,44 @@ def _snr_db(trace) -> float:
     return round(20.0 * math.log10(ptp / noise), 1)
 
 
-def _amp_bins(values) -> list:
-    """Exactly 12 counts over AMP_DOMAIN, the extent the axis is drawn at.
-    Values outside the domain land in the end bins rather than vanishing."""
+def _amp_domain(values) -> tuple:
+    """The extent the amplitude axis is drawn at, measured from the values.
+
+    `AMP_DOMAIN` — the fixture's (0.1, 0.4) mV — is a fixture's number, and on
+    this catalogue the real depths run about 0.006 to 0.015 mV: an order of
+    magnitude below its floor. Binning against it put **every** member of
+    **every** family in bin 0 and drew an axis labelled 0.1 / 0.25 / 0.4 over
+    data that is nowhere near it. A histogram that is one full bar and eleven
+    empty ones, under an axis stating a range the data does not occupy, is a
+    picture that says something false.
+
+    So the domain is the values' own range, padded a little so the end bars are
+    not flush against the axis, and it is echoed to the client as `ampDomain`
+    so the axis is drawn from the same numbers the bars were counted with.
+    `AMP_DOMAIN` stays as the fallback for an empty or degenerate family.
+    """
+    a = np.asarray([v for v in values if math.isfinite(v)], dtype=float)
+    if a.size == 0:
+        return AMP_DOMAIN
+    lo, hi = float(a.min()), float(a.max())
+    if not math.isfinite(lo) or not math.isfinite(hi) or hi <= lo:
+        # every member at one amplitude: a domain of zero width has no bins
+        centre = lo if math.isfinite(lo) else AMP_DOMAIN[0]
+        pad = abs(centre) * 0.1 or 0.01
+        return (centre - pad, centre + pad)
+    pad = (hi - lo) * 0.05
+    return (lo - pad, hi + pad)
+
+
+def _amp_bins(values, domain=None) -> list:
+    """Exactly 12 counts over `domain`, the extent the axis is drawn at.
+    Values outside it land in the end bins rather than vanishing."""
     a = np.asarray([v for v in values if math.isfinite(v)], dtype=float)
     if a.size == 0:
         return [0] * AMP_BINS
-    lo, hi = AMP_DOMAIN
+    lo, hi = domain or _amp_domain(values)
+    if hi <= lo:
+        return [int(a.size)] + [0] * (AMP_BINS - 1)
     idx = np.clip(((a - lo) / (hi - lo) * AMP_BINS).astype(int), 0, AMP_BINS - 1)
     return np.bincount(idx, minlength=AMP_BINS)[:AMP_BINS].astype(int).tolist()
 
@@ -615,6 +646,7 @@ def _one_family(conn, index, label, members, i, tags_by_entry, verdicts, hand, g
     me_trace = _trace(index, medoid_row["recording_id"], medoid_row["start_idx"], medoid_row["end_idx"])
     amps = [_span_amplitude(index, m["recording_id"], m["start_idx"], m["end_idx"]) for m in members]
     amps = [a for a in amps if a > 0]
+    amp_domain = _amp_domain(amps)
 
     dur = float(np.mean(durations)) if durations else 0.0
     dur_sd = float(np.std(durations)) if len(durations) > 1 else 0.0
@@ -638,7 +670,9 @@ def _one_family(conn, index, label, members, i, tags_by_entry, verdicts, hand, g
         "snrDb": _snr_db(ex_trace),
         "artifactChannels": art_ch, "propChannels": prop_ch, "indChannels": ind_ch, "edges": edges,
         "cells": cells, "exemplarTrace": ex_trace, "medoidTrace": me_trace,
-        "ampBins": _amp_bins(amps), "ampDomain": list(AMP_DOMAIN),
+        # the bars and the axis come from one measurement of this family's own
+        # amplitudes, so the picture and its scale cannot disagree
+        "ampBins": _amp_bins(amps, amp_domain), "ampDomain": [round(v, 5) for v in amp_domain],
         "grouping": gid_str(grouping_row["id"]),
     }
 
