@@ -295,7 +295,7 @@ function SequenceAtlas({ families, motifFamilies, grouping }: { families: Sequen
         <div className="lib-grid c3" data-testid="atlas-grid" role="listbox" aria-label="sequence families" tabIndex={0} onKeyDown={onKey}>
           {visible.map(f => (
             <div key={f.id} role="option" aria-selected={f.id === selected?.id} tabIndex={-1} className={`k-card lib-fcard${f.id === selected?.id ? ' selected' : ''}`} style={{ cursor: 'pointer' }}
-              data-testid={`family-card-${f.id}`} onClick={() => setFamilyQ(f.id)} onDoubleClick={() => navigate(`library/family/${f.id}`)}>
+              data-testid={`family-card-${f.id}`} onClick={() => setFamilyQ(f.id)} onDoubleClick={() => navigate(`library/family/${f.id}?unit=sequences`)}>
               <div className="lib-fcard-head"><span className="id" style={{ color: f.colour }}>{f.id}</span><span className="nm">{familyName(f.id, f.name)}</span><span className="ct">{f.sequences} sequences</span></div>
               <div className="lib-badges">
                 <span className="k-badge t-purple" title="composition: family of each event, in order">{f.compositionLabel}</span>
@@ -382,7 +382,7 @@ function SequenceRail({ f, yDomain, grouping, motifFamilies, traces, clippedPeak
         and no waveform for the rest.
       </div>
       <div className="lib-rail-actions">
-        <Button variant="primary" iconRight="arrow-right" testid="open-family" onClick={() => navigate(`library/family/${f.id}`)}>Open all {f.sequences} sequences</Button>
+        <Button variant="primary" iconRight="arrow-right" testid="open-family" onClick={() => navigate(`library/family/${f.id}?unit=sequences`)}>Open all {f.sequences} sequences</Button>
         <span className="row" style={{ gap: 6, flexWrap: 'nowrap' }}>
           <Button icon="target" disabled disabledReason="needs multi-seed — no seed-search algorithm takes several seeds yet (§7.6)" testid="seed-search">Seed search in Discovery</Button>
           <InfoTip title="needs multi-seed">A sequence family has several events; no seed-search algorithm takes several seeds yet (§7.6), so Discovery cannot search for it.</InfoTip><span className="lib-cap" style={{ whiteSpace: 'nowrap' }}>needs multi-seed</span>

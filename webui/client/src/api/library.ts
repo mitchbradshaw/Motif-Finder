@@ -152,8 +152,12 @@ export const getOmitted = (groupingId: string): Promise<Sourced<OmittedData>> =>
 export type FamilyRead = { kind: 'motif'; detail: FamilyDetail } | { kind: 'sequence'; family: SequenceFamily } | { kind: 'missing'; id: string }
 /** One family. An id the grouping does not hold comes back as `{kind:'missing'}` — a 200 the page draws, not
  *  an error and not a blank. */
-export const getFamily = (id: string, groupingId?: string): Promise<Sourced<FamilyRead>> => live((async () => {
-  const r = await apiFamily(id, groupingId)
+/** One family. `unit` decides which of the two catalogues the label is looked up in — see the note on
+ *  `getLibraryFamily` in `../api`: the same label names a motif family and a sequence family 19 times
+ *  over, so omitting it is how a sequence family quietly opens as a motif one. */
+export const getFamily = (id: string, groupingId?: string,
+                          unit?: 'motifs' | 'sequences'): Promise<Sourced<FamilyRead>> => live((async () => {
+  const r = await apiFamily(id, groupingId, unit)
   if (r.kind === 'motif') return { kind: 'motif', detail: { ...r.detail, family: family(r.detail.family) } } as FamilyRead
   if (r.kind === 'sequence') return { kind: 'sequence', family: sequenceFamily(r.family) } as FamilyRead
   return { kind: 'missing', id: r.id } as FamilyRead

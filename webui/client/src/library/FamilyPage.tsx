@@ -81,7 +81,16 @@ export function FamilyPage({ familyId }: { familyId?: string } = {}) {
   // instead; the families read is skipped entirely when the route names one.
   const firstFamily = useSourced(() => (named ? live(Promise.resolve<MotifFamily[]>([])) : getMotifFamilies(gid || undefined)), [named, gid])
   const id = named || firstFamily.data?.[0]?.id || ''
-  const fam = useSourced(() => (id ? getFamily(id, gid || undefined) : live(Promise.resolve<FamilyRead | null>(null))), [id, gid])
+  // Which catalogue the label is looked up in. The Atlas links a sequence family as `?unit=sequences`,
+  // and it has to: 19 of the 26 sequence labels also name a motif family, so asking without a unit
+  // returned the MOTIF family of the same name — different members, different waveform, no indication
+  // anything had been substituted. The grouping has to match the unit for the same reason.
+  const [unitQ] = useQueryState<'motifs' | 'sequences'>('unit', 'motifs')
+  const unit = unitQ === 'sequences' ? 'sequences' : 'motifs'
+  const unitGid = unit === 'sequences' ? seqGid : gid
+  const fam = useSourced(
+    () => (id ? getFamily(id, unitGid || undefined, unit) : live(Promise.resolve<FamilyRead | null>(null))),
+    [id, unitGid, unit])
   if (empty) return <EmptyMotifsPage />
   const grouping = groupings.all.find(g => g.id === gid) ?? null
   const d = fam.data

@@ -621,8 +621,14 @@ export type LibFamilyRead =
   | { kind: 'motif'; detail: LibFamilyDetail }
   | { kind: 'sequence'; family: LibSequenceFamily }
   | { kind: 'missing'; id: string }
-export const getLibraryFamily = (familyId: string, grouping?: string) =>
-  req<LibFamilyRead>(`/api/library/family/${encodeURIComponent(familyId)}${dq({ grouping })}`)
+/** One family, by unit.
+ *
+ *  `unit` is not optional in practice: 19 of the 26 sequence-family labels also name a motif family, and
+ *  without it the route answers for whichever grouping the caller's id belongs to — so a sequence family
+ *  opened by label silently returned the motif family of the same name, with different members and a
+ *  different waveform. Pass `'sequences'` when you mean a sequence. */
+export const getLibraryFamily = (familyId: string, grouping?: string, unit?: 'motifs' | 'sequences') =>
+  req<LibFamilyRead>(`/api/library/family/${encodeURIComponent(familyId)}${dq({ grouping, unit })}`)
 
 export interface LibOmittedEntry {
   id: string; kind: 'motif' | 'sequence'; nearest: string; d: number
