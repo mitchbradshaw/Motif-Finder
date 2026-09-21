@@ -162,15 +162,22 @@ def test_every_member_resolves_to_a_seed_event():
         seed = _seed_content_set()
         assert len(seed) == SEED_N_MOTIFS
 
+        # `rec.channel` is aliased because `motif_member` gained a `channel`
+        # column of its own (stage-3 Prompt 03, docs/LIBRARY_STORAGE.md §3.2).
+        # Under `SELECT m.*, rec.channel` sqlite emits two columns called
+        # `channel` and `Row["channel"]` returns the first, which is now the
+        # member's — NULL on every row this importer writes, since it predates
+        # the column. The alias pins which one this assertion means.
         members = conn.execute(
-            """SELECT m.*, rec.source_file, rec.channel
+            """SELECT m.*, rec.source_file, rec.channel AS recording_channel
                FROM motif_member m
                JOIN recordings rec ON rec.id = m.recording_id"""
         ).fetchall()
         # Event-scale members plus train-scale members; both resolve to seed.
         assert len(members) == SEED_N_MOTIFS + result["n_train_members"]
         for m in members:
-            key = (m["source_file"], m["channel"], m["start_idx"], m["end_idx"])
+            key = (m["source_file"], m["recording_channel"],
+                   m["start_idx"], m["end_idx"])
             assert key in seed, key
     finally:
         conn.close()
