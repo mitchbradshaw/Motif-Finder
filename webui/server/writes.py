@@ -26,17 +26,39 @@ HUMAN_TABLES = frozenset({
     "adjudications", "adjudication_tags",
     "templates", "tag_vocabulary",
     "reviewed_spans",   # a person looked at this span (Review/Explore coverage) - human-side
+    # stage-3 Prompt 03 (docs/LIBRARY_STORAGE.md 3.5): a grouping is a question
+    # a researcher asked of the catalogue, and its assignments are that
+    # question's answer. A hand edit is a person overruling the computation.
+    "groupings", "grouping_assignments", "hand_edits",
 })
-HUMAN_PREFIXES = ("motif_",)   # motif_entry, motif_member, motif_edge, motif_entry_tags, motif_tags
+HUMAN_PREFIXES = ("motif_",)   # motif_entry, motif_member, motif_edge, motif_entry_tags, motif_tags,
+                               # motif_member_revision
 
 MACHINE_TABLES = frozenset({
     "detections", "runs", "configs", "artifacts", "encodings", "step_artifacts", "recordings",
     "run_groups",       # a fan-out of runs is made by the machine, like the runs in it
     "registered_artifacts",   # stage-3 Prompt 02: a registered model / matrix profile / window matrix / ... is machine data
+    "window_sets",      # stage-3 Prompt 03: a window set is produced by a chain, like the artifacts above it
 })
 # `settings` and `audit_log` are on NEITHER list on purpose: a project setting is
 # not a verdict and not a detection, so both doors refuse them and
 # Working.registration.settings writes them with its own plain SQL.
+#
+# `sequences` and `sequence_members` are on neither list for a different reason:
+# they are the one pair whose side is decided PER ROW, by the row's own `origin`
+# column. A sequence read out of `Plots/drop_motifs11/sequences.csv` is a
+# detector's claim (`origin = 'machine'`); one read out of `annotations` is a
+# person's (`origin = 'human'`). Putting the table on either list would declare
+# a side for both kinds and make the wrong half a quiet crossing — exactly what
+# rule 5 exists to prevent — and putting it on both would mean the door checks
+# nothing. So the importers in `Working/library/importers/` write these two
+# tables with their own plain SQL, as `Working.registration.settings` does, and
+# the `origin` column carries the distinction where a reader can see it.
+#
+# If a route ever needs to write a sequence, do NOT add these tables here. Add a
+# `write_sequence(conn, table, row)` that reads `origin`, refuses a row without a
+# valid one, and dispatches to the right door — so the rule stays executable
+# rather than becoming a convention someone has to remember.
 
 _IDENT = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 RULE = "rule 5 (CLAUDE.md): detections are machine-only, annotations are human-only"

@@ -30,6 +30,7 @@ from .analyse_routes import router as analyse_router
 from .discovery import router as discovery_router
 from .explore_routes import router as explore_router
 from .interrogation_routes import router as interrogation_router
+from .library import router as library_router
 from .training_routes import router as training_router
 from .registration import router as registration_router
 
@@ -366,6 +367,11 @@ def create_app(rt: Runtime) -> FastAPI:
     # order, so a router included after it is unreachable and every call comes
     # back as the JSON 404, which reads like a typo rather than a wiring bug.
     app.include_router(discovery_router)
+
+    # stage-3 prompt 03: Library — counts, groupings, recurrence, the atlas,
+    # family detail, the grouping editor, import, hand edits and export
+    # (server/library.py). Before the /api guard, for the reason above it.
+    app.include_router(library_router)
 
     # ------------------------------------------------- /api never falls through --
     # Registered after every real /api route and before the SPA catch-all: an
