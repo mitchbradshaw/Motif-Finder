@@ -1,0 +1,655 @@
+{
+  "url": "http://127.0.0.1:8766",
+  "recording": "M2_aug_concat_fs1",
+  "channels": [
+    "CH1_A1",
+    "CH8_B2"
+  ],
+  "section_h": [
+    80.0,
+    84.0
+  ],
+  "steps": [
+    {
+      "step": "mode",
+      "result": "sandbox"
+    },
+    {
+      "step": "session",
+      "result": "M2_aug_concat_fs1 80-84 h \u00b7 ['CH1_A1', 'CH8_B2'] \u00b7 80.00\u201384.00 h \u00b7 null phase_randomize 50x"
+    },
+    {
+      "step": "matching rule",
+      "result": {
+        "criterion": "reciprocal_iou_onset",
+        "iou": 0.5,
+        "onset": 0.25
+      }
+    },
+    {
+      "step": "M4 refused",
+      "result": "423 {'message': 'M4_aug_concat_fs1.mat is held out (spec \u00a70 D6): locked for the final evaluation \u2014 Discovery will not scope,"
+    },
+    {
+      "step": "overview",
+      "result": {
+        "CH1_A1": 721,
+        "CH8_B2": 721
+      }
+    },
+    {
+      "step": "seeds",
+      "result": "40 \u00b7 {'library': 24, 'medoid': 16}"
+    },
+    {
+      "step": "seed note",
+      "result": null
+    },
+    {
+      "step": "seed",
+      "result": "medoid:16:289550:289686 \u00b7 Family medoid \u00b7 id035 medoid \u00b7 18 members \u00b7 136 samples \u00b7 M2_aug_concat_fs1 CH16_D2 \u00b7 hash 5269afbf4e402963"
+    },
+    {
+      "step": "recommended",
+      "result": {
+        "algorithm": "mass",
+        "windowSamples": 136,
+        "windowS": 136.0,
+        "windowLocked": true,
+        "scaleBank": "none",
+        "exclusionSamples": 68,
+        "exclusionS": 68.0,
+        "overlap": "lowest",
+        "exclusion_note": "\u00a77.6 specifies m/2. detection.seed_matches exposes no exclusion parameter and does not pass query_idx, so the search runs under stumpy.match's own default of m/4."
+      }
+    },
+    {
+      "step": "search job",
+      "result": "completed"
+    },
+    {
+      "step": "matches",
+      "result": "400 candidates \u00b7 d 2.221\u201316.897 \u00b7 0 already judged"
+    },
+    {
+      "step": "null",
+      "result": "phase_randomize \u00b7 50 draws \u00b7 20000 distances \u00b7 min 3.715"
+    },
+    {
+      "step": "recommended cut",
+      "result": 3.5823
+    },
+    {
+      "step": "per channel",
+      "result": [
+        {
+          "channel": "CH1_A1",
+          "n": 200,
+          "nullDraws": 50
+        },
+        {
+          "channel": "CH8_B2",
+          "n": 200,
+          "nullDraws": 50
+        }
+      ]
+    },
+    {
+      "step": "exclusion",
+      "result": "\u00a77.6 specifies m/2. detection.seed_matches exposes no exclusion parameter and does not pass query_idx, so the search runs under stumpy.match's own default of m/4."
+    },
+    {
+      "step": "profile",
+      "result": "1665 distances over 1800 samples \u00b7 m 136"
+    },
+    {
+      "step": "plan",
+      "result": "2 channels \u00b7 route unknown \u00b7 estimate None \u00b7 ceiling 1200 s \u00b7 uncosted steps [0]"
+    },
+    {
+      "step": "reuse note",
+      "result": "detection.seed_matches calls stumpy.match directly: one query against every position, FFT-based. A matrix profile answers a different question and the block cannot consume one; reuse belongs to the mp_threshold / mp_motifs templates."
+    },
+    {
+      "step": "preview",
+      "result": "1.00 h sample on CH1_A1 \u00b7 measured 0.06 s \u00b7 per channel 0.2 s \u00b7 3 spans \u2192 \u2248 24 over the scope \u00b7 route local"
+    },
+    {
+      "step": "seed run",
+      "result": "seed_id035 \u00b7 completed \u00b7 {'run_group_id': 1, 'runs': 2, 'cancelled': False, 'detections': 4}"
+    },
+    {
+      "step": "template run",
+      "result": "drop_detection_v1 \u00b7 completed \u00b7 {'run_group_id': 2, 'runs': 2, 'cancelled': False, 'detections': 6}"
+    },
+    {
+      "step": "runs",
+      "result": [
+        "human:reference:None",
+        "seed_id035:done:4",
+        "drop_detection_v1:done:6"
+      ]
+    },
+    {
+      "step": "fires",
+      "result": "2 bins of 3 h \u00b7 CH1_A1 reviewed 1.50 h: human=4, seed_id035=1, drop_detection_v1=1 \u00b7 CH8_B2 reviewed 1.39 h: human=6, seed_id035=3, drop_detection_v1=5"
+    },
+    {
+      "step": "scoreboard seed_id035",
+      "result": "found 4 \u00b7 judged 0 \u00b7 reviewed 1 \u00b7 interesting 0 \u00b7 precision 0.00 \u00b7 recall {'value': 0.0, 'overH': 2.889} \u00b7 null 0 \u00b7 x null None \u00b7 pooled 2.89 h"
+    },
+    {
+      "step": "  seed_id035 CH1_A1",
+      "result": "found 1 reviewed 0 interesting 0 precision None recall {'value': 0.0, 'overH': 1.5} note None"
+    },
+    {
+      "step": "  seed_id035 CH8_B2",
+      "result": "found 3 reviewed 1 interesting 0 precision 0.0 recall {'value': 0.0, 'overH': 1.389} note None"
+    },
+    {
+      "step": "scoreboard drop_detection_v1",
+      "result": "found 6 \u00b7 judged 2 \u00b7 reviewed 3 \u00b7 interesting 1 \u00b7 precision 0.33 \u00b7 recall {'value': 0.1, 'overH': 2.889} \u00b7 null 0 \u00b7 x null None \u00b7 pooled 2.89 h"
+    },
+    {
+      "step": "  drop_detection_v1 CH1_A1",
+      "result": "found 1 reviewed 1 interesting 0 precision 0.0 recall {'value': 0.0, 'overH': 1.5} note None"
+    },
+    {
+      "step": "  drop_detection_v1 CH8_B2",
+      "result": "found 5 reviewed 2 interesting 1 precision 0.5 recall {'value': 0.167, 'overH': 1.389} note None"
+    },
+    {
+      "step": "detections",
+      "result": "1 on CH1_A1"
+    },
+    {
+      "step": "first detection",
+      "result": "d-740 at 81.884 h \u00b7 2158.0 s \u00b7 depth 0.0235 mV \u00b7 score 18.0417 \u00b7 prior None \u00b7 also []"
+    },
+    {
+      "step": "detection window",
+      "result": "900 points from 81.851 h"
+    },
+    {
+      "step": "compare",
+      "result": "3 roles differ (['Preprocess', 'Encode', 'Detect']) \u00b7 overlap {'channel': 'all channels', 'onlyA': 6, 'both': 0, 'onlyB': 4} \u00b7 10 disagreements \u00b7 0 agreed"
+    },
+    {
+      "step": "attributable",
+      "result": "3 roles differ, so a difference in output cannot be attributed to any single stage"
+    },
+    {
+      "step": "stage diff",
+      "result": [
+        {
+          "index": 0,
+          "a": {
+            "algorithm": "detrend",
+            "params": {
+              "mode": "rolling_mean_nearest",
+              "window_s": 4916.67
+            },
+            "side_inputs": {},
+            "stage": "preprocessing"
+          },
+          "b": {
+            "algorithm": "seed_matches",
+            "params": {
+              "k": 200,
+              "max_distance": 3.5823
+            },
+            "side_inputs": {
+              "exemplar": {
+                "channel": 15,
+                "end_idx": 289686,
+                "source_file": "M2_aug_concat_fs1.mat",
+                "source_kind": "library_exemplar",
+                "start_idx": 289550
+              }
+            },
+            "stage": "detection"
+          },
+          "changed": []
+        },
+        {
+          "index": 1,
+          "a": {
+            "algorithm": "stage_encoding",
+            "params": {
+              "same_fraction": 0.6,
+              "segment_seconds": 98.33,
+              "slope_sigma": 8.0
+            },
+            "side_inputs": {},
+            "stage": "detection"
+          },
+          "b": null,
+          "changed": []
+        }
+      ]
+    },
+    {
+      "step": "compare window",
+      "result": "only A at 81.884 h \u00b7 240 points \u00b7 other score 105 points \u00b7 note None"
+    },
+    {
+      "step": "compare stages",
+      "result": "first differing Preprocess \u00b7 A Sour:identical Prep:A only Scor:absent Enco:A only Dete:differs \u00b7 B Sour:identical Prep:absent Scor:absent Enco:absent Dete:differs"
+    },
+    {
+      "step": "vs human",
+      "result": "overlap {'channel': 'all channels', 'onlyA': 5, 'both': 1, 'onlyB': 9} \u00b7 b.found 10"
+    },
+    {
+      "step": "slurm",
+      "result": "drop_detection_v1_2ch_288000-302400.sh \u00b7 1752 chars \u00b7 array over 2 channels"
+    },
+    {
+      "step": "discard",
+      "result": "superseded \u00b7 2 runs \u00b7 adjudications 0 \u00b7 annotations 0"
+    },
+    {
+      "step": "send to review",
+      "result": "6 of 6 unjudged \u2192 'Discovery \u00b7 drop_detection_v1 unjudged' (writes adjudications)"
+    },
+    {
+      "step": "restore",
+      "result": "done"
+    },
+    {
+      "step": "history",
+      "result": [
+        "g-2:completed",
+        "g-1:completed"
+      ]
+    }
+  ],
+  "calls": [
+    {
+      "method": "GET",
+      "path": "/api/runtime",
+      "status": 200,
+      "ms": 68.0
+    },
+    {
+      "method": "PUT",
+      "path": "/api/discovery/session",
+      "status": 200,
+      "ms": 468.9
+    },
+    {
+      "method": "PUT",
+      "path": "/api/discovery/session",
+      "status": 423,
+      "ms": 51.2,
+      "body": "{\"detail\":{\"message\":\"M4_aug_concat_fs1.mat is held out (spec \u00a70 D6): locked for the final evaluation \u2014 Discovery will not scope, run, score or plot it\",\"file\":\"M4_aug_concat_fs1.mat\"}}"
+    },
+    {
+      "method": "PUT",
+      "path": "/api/discovery/session",
+      "status": 200,
+      "ms": 152.4
+    },
+    {
+      "method": "GET",
+      "path": "/api/discovery/overview?recording=M2_aug_concat_fs1&channels=CH1_A1%2CCH8_B2",
+      "status": 200,
+      "ms": 151.6
+    },
+    {
+      "method": "GET",
+      "path": "/api/discovery/seeds",
+      "status": 200,
+      "ms": 432.3
+    },
+    {
+      "method": "GET",
+      "path": "/api/discovery/seed/setup?seed=medoid%3A16%3A289550%3A289686",
+      "status": 200,
+      "ms": 282.1
+    },
+    {
+      "method": "POST",
+      "path": "/api/discovery/seed/results",
+      "status": 200,
+      "ms": 122.5
+    },
+    {
+      "method": "GET",
+      "path": "/api/jobs/11",
+      "status": 200,
+      "ms": 5.8
+    },
+    {
+      "method": "GET",
+      "path": "/api/jobs/11",
+      "status": 200,
+      "ms": 4.4
+    },
+    {
+      "method": "GET",
+      "path": "/api/jobs/11",
+      "status": 200,
+      "ms": 27.2
+    },
+    {
+      "method": "GET",
+      "path": "/api/jobs/11",
+      "status": 200,
+      "ms": 3.6
+    },
+    {
+      "method": "GET",
+      "path": "/api/jobs/11",
+      "status": 200,
+      "ms": 9.1
+    },
+    {
+      "method": "GET",
+      "path": "/api/jobs/11",
+      "status": 200,
+      "ms": 30.9
+    },
+    {
+      "method": "GET",
+      "path": "/api/jobs/11",
+      "status": 200,
+      "ms": 28.6
+    },
+    {
+      "method": "GET",
+      "path": "/api/jobs/11",
+      "status": 200,
+      "ms": 22.8
+    },
+    {
+      "method": "GET",
+      "path": "/api/jobs/11",
+      "status": 200,
+      "ms": 3.6
+    },
+    {
+      "method": "GET",
+      "path": "/api/jobs/11",
+      "status": 200,
+      "ms": 10.6
+    },
+    {
+      "method": "GET",
+      "path": "/api/jobs/11",
+      "status": 200,
+      "ms": 12.5
+    },
+    {
+      "method": "GET",
+      "path": "/api/jobs/11",
+      "status": 200,
+      "ms": 43.3
+    },
+    {
+      "method": "GET",
+      "path": "/api/jobs/11",
+      "status": 200,
+      "ms": 16.9
+    },
+    {
+      "method": "GET",
+      "path": "/api/jobs/11",
+      "status": 200,
+      "ms": 21.2
+    },
+    {
+      "method": "GET",
+      "path": "/api/jobs/11",
+      "status": 200,
+      "ms": 4.9
+    },
+    {
+      "method": "GET",
+      "path": "/api/jobs/11",
+      "status": 200,
+      "ms": 253.7
+    },
+    {
+      "method": "GET",
+      "path": "/api/jobs/11",
+      "status": 200,
+      "ms": 3.5
+    },
+    {
+      "method": "GET",
+      "path": "/api/jobs/11",
+      "status": 200,
+      "ms": 26.6
+    },
+    {
+      "method": "GET",
+      "path": "/api/jobs/11",
+      "status": 200,
+      "ms": 4.7
+    },
+    {
+      "method": "GET",
+      "path": "/api/jobs/11",
+      "status": 200,
+      "ms": 6.6
+    },
+    {
+      "method": "GET",
+      "path": "/api/jobs/11",
+      "status": 200,
+      "ms": 16.1
+    },
+    {
+      "method": "GET",
+      "path": "/api/jobs/11",
+      "status": 200,
+      "ms": 8.5
+    },
+    {
+      "method": "GET",
+      "path": "/api/jobs/11",
+      "status": 200,
+      "ms": 4.1
+    },
+    {
+      "method": "GET",
+      "path": "/api/jobs/11",
+      "status": 200,
+      "ms": 6.1
+    },
+    {
+      "method": "GET",
+      "path": "/api/jobs/11",
+      "status": 200,
+      "ms": 26.1
+    },
+    {
+      "method": "GET",
+      "path": "/api/jobs/11",
+      "status": 200,
+      "ms": 4.4
+    },
+    {
+      "method": "GET",
+      "path": "/api/jobs/11",
+      "status": 200,
+      "ms": 3.7
+    },
+    {
+      "method": "GET",
+      "path": "/api/jobs/11",
+      "status": 200,
+      "ms": 4.4
+    },
+    {
+      "method": "GET",
+      "path": "/api/jobs/11",
+      "status": 200,
+      "ms": 5.2
+    },
+    {
+      "method": "GET",
+      "path": "/api/jobs/11",
+      "status": 200,
+      "ms": 5.4
+    },
+    {
+      "method": "GET",
+      "path": "/api/jobs/11",
+      "status": 200,
+      "ms": 23.1
+    },
+    {
+      "method": "GET",
+      "path": "/api/jobs/11",
+      "status": 200,
+      "ms": 3.2
+    },
+    {
+      "method": "GET",
+      "path": "/api/discovery/seed/results?seedId=medoid%3A16%3A289550%3A289686&channels=CH1_A1%2CCH8_B2&t0=80.0&t1=84.0&k=200&maxDistance=0.0",
+      "status": 200,
+      "ms": 110.6
+    },
+    {
+      "method": "GET",
+      "path": "/api/discovery/seed/profile?seedId=medoid%3A16%3A289550%3A289686&channel=CH1_A1&t0=80.0&t1=80.5",
+      "status": 200,
+      "ms": 61.7
+    },
+    {
+      "method": "POST",
+      "path": "/api/discovery/plan",
+      "status": 200,
+      "ms": 52.2
+    },
+    {
+      "method": "POST",
+      "path": "/api/discovery/preview",
+      "status": 200,
+      "ms": 118.3
+    },
+    {
+      "method": "POST",
+      "path": "/api/discovery/seed/run",
+      "status": 200,
+      "ms": 95.5
+    },
+    {
+      "method": "GET",
+      "path": "/api/jobs/12",
+      "status": 200,
+      "ms": 23.9
+    },
+    {
+      "method": "GET",
+      "path": "/api/jobs/12",
+      "status": 200,
+      "ms": 22.4
+    },
+    {
+      "method": "POST",
+      "path": "/api/discovery/templates/apply",
+      "status": 200,
+      "ms": 111.6
+    },
+    {
+      "method": "GET",
+      "path": "/api/jobs/13",
+      "status": 200,
+      "ms": 26.7
+    },
+    {
+      "method": "GET",
+      "path": "/api/jobs/13",
+      "status": 200,
+      "ms": 4.1
+    },
+    {
+      "method": "GET",
+      "path": "/api/discovery/runs",
+      "status": 200,
+      "ms": 53.3
+    },
+    {
+      "method": "GET",
+      "path": "/api/discovery/fires?channels=CH1_A1%2CCH8_B2&t0=80.0&t1=84.0&runs=human%2Cseed_id035%2Cdrop_detection_v1",
+      "status": 200,
+      "ms": 66.7
+    },
+    {
+      "method": "GET",
+      "path": "/api/discovery/scoreboard?runs=seed_id035%2Cdrop_detection_v1&channels=CH1_A1%2CCH8_B2&t0=80.0&t1=84.0",
+      "status": 200,
+      "ms": 85.3
+    },
+    {
+      "method": "GET",
+      "path": "/api/discovery/detections?run=drop_detection_v1&channel=CH1_A1&t0=80.0&t1=84.0",
+      "status": 200,
+      "ms": 63.9
+    },
+    {
+      "method": "GET",
+      "path": "/api/discovery/detections/740/window",
+      "status": 200,
+      "ms": 16.3
+    },
+    {
+      "method": "GET",
+      "path": "/api/discovery/compare?a=drop_detection_v1&b=seed_id035&channels=CH1_A1%2CCH8_B2&t0=80.0&t1=84.0",
+      "status": 200,
+      "ms": 121.0
+    },
+    {
+      "method": "GET",
+      "path": "/api/discovery/compare/window?a=drop_detection_v1&b=seed_id035&channel=CH1_A1&atH=81.88389&kind=only+A&detection=d-740",
+      "status": 200,
+      "ms": 82.7
+    },
+    {
+      "method": "GET",
+      "path": "/api/discovery/compare/stages?a=drop_detection_v1&b=seed_id035&channel=CH1_A1&atH=81.88389&kind=only+A&index=1&of=10",
+      "status": 200,
+      "ms": 130.8
+    },
+    {
+      "method": "GET",
+      "path": "/api/discovery/compare?a=drop_detection_v1&b=human&channels=CH1_A1%2CCH8_B2&t0=80.0&t1=84.0",
+      "status": 200,
+      "ms": 105.3
+    },
+    {
+      "method": "POST",
+      "path": "/api/discovery/slurm",
+      "status": 200,
+      "ms": 79.3
+    },
+    {
+      "method": "POST",
+      "path": "/api/discovery/runs/seed_id035/discard",
+      "status": 200,
+      "ms": 38.7
+    },
+    {
+      "method": "POST",
+      "path": "/api/discovery/runs/drop_detection_v1/review",
+      "status": 200,
+      "ms": 46.2
+    },
+    {
+      "method": "POST",
+      "path": "/api/discovery/runs/seed_id035/restore",
+      "status": 200,
+      "ms": 32.4
+    },
+    {
+      "method": "GET",
+      "path": "/api/discovery/history",
+      "status": 200,
+      "ms": 13.7
+    }
+  ],
+  "errors": []
+}
