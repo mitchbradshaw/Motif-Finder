@@ -57,7 +57,24 @@ function humanDay(value: string | null | undefined): string {
   return `${Number(m[3])} ${MONTHS[Number(m[2]) - 1] ?? m[2]}`
 }
 
-const family = (f: LibFamily): MotifFamily => ({ ...f, shape: shapeOf(f.shape) }) as MotifFamily
+/** A family, with its shape coerced for the sketch glyph but its real one kept beside it.
+ *
+ *  The bridge now reads `shape` off the entry's `element` tags, so it carries the project's own
+ *  vocabulary — `trough` on 121 of the 149 live families, `sharkfin` on 28. `ShapeKind` is a fixed
+ *  union of the ten glyphs `motifShape` can draw and `trough` is not one of them, so `shapeOf` lands
+ *  those on `drop`. That keeps a glyph drawable, and it would also quietly relabel five families in six
+ *  — so `shapeLabel` travels alongside with what the tags actually said, and any surface that names the
+ *  shape must use the label, never the coerced value. Same rule as `omitted()` below. */
+const family = (f: LibFamily): MotifFamily => {
+  const raw = f as unknown as { shape: string | null; shapeLabel?: string; shapeMix?: string }
+  return {
+    ...f,
+    shape: shapeOf(raw.shape ?? undefined),
+    shapeKnown: raw.shape != null,
+    shapeLabel: raw.shapeLabel ?? (raw.shape ?? 'shape not recorded'),
+    shapeMix: raw.shapeMix,
+  } as unknown as MotifFamily
+}
 const sequenceFamily = (s: LibSequenceFamily): SequenceFamily => s as SequenceFamily
 
 /** `splitPlan` is a `Record<channel, SplitBlock[]>` in the sets table's band strip, but the column it comes
@@ -101,13 +118,35 @@ export const getMotifFamilies = (groupingId?: string): Promise<Sourced<MotifFami
 export const getSequenceFamilies = (groupingId?: string): Promise<Sourced<SequenceFamily[]>> =>
   live(apiSequenceFamilies(groupingId).then(fs => fs.map(sequenceFamily)))
 
-export interface OmittedData { groupingId: string; singles: OmittedEntry[]; sequences: OmittedEntry[] }
+export interface OmittedData {
+  groupingId: string; singles: OmittedEntry[]; sequences: OmittedEntry[]
+  /** The grouping that answered for the `sequences` half — a different saved grouping from `groupingId`,
+   *  because no grouping holds both units. `null` when this library has none. */
+  sequenceGroupingId: string | null
+  /** A CATALOGUE fact, not a grouping one: members that belong to no sequence at all. The sequences atlas used
+   *  to print `singles.length` under the sentence "motifs in no sequence", which counts something else
+   *  entirely (what THIS grouping omitted). `null` when the bridge does not carry it. */
+  motifsInNoSequence: number | null
+}
 /** What did not fit, and why. The bridge returns the whole list for the grouping; the drawer pages it in the
- *  browser, so a grouping that omitted thousands of entries ships thousands of rows. */
+ *  browser, so a grouping that omitted thousands of entries ships thousands of rows.
+ *
+ *  `shape` is what the entry's `element` tag recorded and it can be ABSENT — `shapeOf` lands an absent shape
+ *  on `drop` so a glyph still draws, so `shapeKnown` travels beside it and a surface that draws the shape must
+ *  check it rather than sketching a `drop` nobody measured. */
 export const getOmitted = (groupingId: string): Promise<Sourced<OmittedData>> => live((async () => {
   const o = await apiOmitted(groupingId)
-  const entry = (e: { shape: string }): OmittedEntry => ({ ...e, shape: shapeOf(e.shape) }) as unknown as OmittedEntry
-  return { groupingId: o.groupingId ?? groupingId, singles: o.singles.map(entry), sequences: o.sequences.map(entry) }
+  const entry = (e: { shape: string | null }): OmittedEntry => {
+    const raw = e as unknown as { shape: string | null; shapeLabel?: string }
+    return { ...e, shape: shapeOf(raw.shape ?? undefined), shapeKnown: raw.shape != null, shapeLabel: raw.shapeLabel ?? 'shape not recorded' } as unknown as OmittedEntry
+  }
+  const extra = o as unknown as { sequenceGroupingId?: string | null; motifsInNoSequence?: number | null }
+  return {
+    groupingId: o.groupingId ?? groupingId,
+    singles: o.singles.map(entry), sequences: o.sequences.map(entry),
+    sequenceGroupingId: extra.sequenceGroupingId ?? null,
+    motifsInNoSequence: typeof extra.motifsInNoSequence === 'number' ? extra.motifsInNoSequence : null,
+  }
 })())
 
 export type FamilyRead = { kind: 'motif'; detail: FamilyDetail } | { kind: 'sequence'; family: SequenceFamily } | { kind: 'missing'; id: string }

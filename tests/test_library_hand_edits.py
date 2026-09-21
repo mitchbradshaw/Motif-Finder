@@ -42,7 +42,9 @@ from Working.library.hand_edits import (
     active_edits,
     apply_to_assignment,
     edits_for,
+    family_key,
     record,
+    resolve_family_keys,
     undo,
 )
 
@@ -231,3 +233,103 @@ def test_the_store_and_the_rule_meet(conn):
     )
     by_hash = {r["content_hash"]: r for r in result["assignments"]}
     assert by_hash["bbbb"]["family_label"] is None
+
+
+# ── the family a label names is not the same family in another grouping ─────
+
+def _grouping(conn, name, unit="single_motifs"):
+    cur = conn.execute(
+        """INSERT INTO groupings (name, unit, basis, method, params_json,
+                                  created_at)
+           VALUES (?, ?, 'shape', 'ward', '{}', '2026-09-22')""",
+        (name, unit),
+    )
+    conn.commit()
+    return cur.lastrowid
+
+
+def _assign(conn, grouping_id, content_hash, family_label, *, medoid=False,
+            member_ref=None):
+    conn.execute(
+        """INSERT INTO grouping_assignments
+               (grouping_id, unit, member_ref, content_hash, family_label,
+                is_medoid)
+           VALUES (?, 'single_motifs', ?, ?, ?, ?)""",
+        (grouping_id, member_ref if member_ref is not None else abs(hash(
+            (grouping_id, content_hash))) % 10_000_000,
+         content_hash, family_label, 1 if medoid else 0),
+    )
+    conn.commit()
+
+
+def _medoid_assignment(content_hash, family_label, member_ref=None):
+    row = _assignment(content_hash, family_label, member_ref)
+    row["is_medoid"] = True
+    return row
+
+
+def test_the_family_key_is_the_medoids_content_hash(conn):
+    """`F-06` means one thing in g-01 and another in g-02 — the labels are
+    sequential and recycled. The medoid's hash is the family's identity for
+    the same reason the shape's hash is the edit's."""
+    g1 = _grouping(conn, "g-01")
+    _assign(conn, g1, "aaaa", "F-06", medoid=True)
+    _assign(conn, g1, "bbbb", "F-06")
+
+    assert family_key(conn, g1, "F-06") == "aaaa"
+    assert family_key(conn, g1, "F-99") is None
+
+
+def test_resolve_family_keys_reads_each_edits_own_grouping(conn):
+    g1 = _grouping(conn, "g-01")
+    g2 = _grouping(conn, "g-02")
+    _assign(conn, g1, "aaaa", "F-06", medoid=True)
+    _assign(conn, g2, "cccc", "F-06", medoid=True)
+
+    record(conn, content_hash="zzzz", kind="add_member", family_label="F-06",
+           grouping_id=g2)
+    resolved = resolve_family_keys(conn, active_edits(conn))
+
+    assert [e["family_key"] for e in resolved] == ["cccc"]
+
+
+def test_a_label_from_another_grouping_does_not_join_its_namesake():
+    """The defect this keying exists for: g-01 and g-02 share 60 labels and 59
+    of the 60 have no shape in common, so an edit made against g-02's `F-06`
+    used to be applied silently to g-01's unrelated `F-06`. It orphans instead,
+    which is visible."""
+    edit = dict(_edit("zzzz", "add_member", family_label="F-06"),
+                grouping_id=2, family_key="cccc")
+    result = apply_to_assignment(
+        [_medoid_assignment("aaaa", "F-06"), _assignment("bbbb", "F-06")],
+        [edit], grouping_id=1,
+    )
+    assert [r["content_hash"] for r in result["assignments"]] == ["aaaa", "bbbb"]
+    assert [o["family_label"] for o in result["orphans"]] == ["F-06"]
+
+
+def test_a_family_key_finds_its_family_under_a_new_label():
+    """The other half: the same family, relabelled by a re-clustering, is
+    still the family the edit named — matching on the medoid's hash survives
+    the renumbering that matching on the label does not."""
+    edit = dict(_edit("zzzz", "add_member", family_label="F-06"),
+                grouping_id=2, family_key="cccc")
+    result = apply_to_assignment(
+        [_medoid_assignment("cccc", "F-11"), _assignment("dddd", "F-11")],
+        [edit], grouping_id=1,
+    )
+    by_hash = {r["content_hash"]: r for r in result["assignments"]}
+    assert by_hash["zzzz"]["family_label"] == "F-11"
+    assert result["orphans"] == []
+
+
+def test_an_edit_scoped_to_this_grouping_still_matches_by_label(conn):
+    """Within one grouping a label IS a key — that is where it was written —
+    so the common case keeps working without a medoid hash on the row."""
+    edit = dict(_edit("zzzz", "add_member", family_label="F-06"), grouping_id=1)
+    result = apply_to_assignment(
+        [_assignment("aaaa", "F-06")], [edit], grouping_id=1,
+    )
+    by_hash = {r["content_hash"]: r for r in result["assignments"]}
+    assert by_hash["zzzz"]["family_label"] == "F-06"
+    assert result["orphans"] == []

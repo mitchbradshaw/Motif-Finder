@@ -107,6 +107,26 @@ def _seed(tmp_path):
             "INSERT INTO motif_member_revision (member_id, revision, origin, start_idx, end_idx, "
             "content_hash, created_at) VALUES (?, 1, 'machine', ?, ?, ?, '2026-09-14T09:00:00')",
             (mid, a, b, f"hash{i}"))
+    # The tags the importers actually write: `motif_entry_tags` against
+    # `tag_vocabulary`, not the legacy `motif_entry.tags` JSON column. Entry 3
+    # is left out of the normalised tables on purpose so the legacy column is
+    # still exercised as the fallback it is.
+    vocab = {}
+    for value in ("sharkfin", "trough"):
+        vocab[value] = conn.execute(
+            "INSERT INTO tag_vocabulary (category, value, active) VALUES ('element', ?, 1)",
+            (value,)).lastrowid
+    corpus_tag = conn.execute(
+        "INSERT INTO tag_vocabulary (category, value, active) VALUES ('corpus', 'oyster', 1)").lastrowid
+    entry_of = {i: conn.execute(
+        "SELECT entry_id FROM motif_member WHERE id = ?", (mid,)).fetchone()[0]
+        for i, mid in enumerate(member_ids)}
+    for i, tag_ids in ((0, (vocab["sharkfin"], corpus_tag)), (1, (vocab["sharkfin"],)),
+                       (2, (vocab["trough"],)), (3, (vocab["trough"], vocab["sharkfin"]))):
+        for tag_id in tag_ids:
+            conn.execute("INSERT INTO motif_entry_tags (entry_id, tag_id) VALUES (?, ?)",
+                         (entry_of[i], tag_id))
+
     # a spike-train entry, so /counts can tell the two scales apart
     conn.execute("INSERT INTO motif_entry (recording_id, start_idx, end_idx, scale, created_at) "
                  "VALUES (?, 20000, 20600, 'train', '2026-09-14T09:00:00')", (rec_ids[0],))
@@ -126,9 +146,20 @@ def _seed(tmp_path):
         "INSERT INTO grouping_assignments (grouping_id, unit, member_ref, content_hash, family_id, "
         "family_label, distance, omit_reason) VALUES (?, 'single_motifs', ?, 'hash4', NULL, 'F-01', "
         "0.9, 'past the cut')", (gid, member_ids[4]))
+    # an assignment naming a member row that is not there. The real catalogue
+    # had four of these and the bridge dropped them in silence, so the grouping
+    # card and the atlas disagreed by four with nothing to reconcile them.
+    conn.execute(
+        "INSERT INTO grouping_assignments (grouping_id, unit, member_ref, content_hash, family_id, "
+        "family_label, distance) VALUES (?, 'single_motifs', ?, 'hash-gone', 1, 'F-01', 0.3)",
+        (gid, max(member_ids) + 500))
 
+    # two reviewed spans that OVERLAP: 0…18000 and 9000…27000 is 27,000 samples
+    # of 36,000 seen, not 36,000. Summing them reads as a fully reviewed channel.
     conn.execute("INSERT INTO reviewed_spans (recording_id, start_idx, end_idx, source, reviewed_at) "
                  "VALUES (?, 0, 18000, 'Explore', '2026-09-14T10:00:00')", (rec_ids[0],))
+    conn.execute("INSERT INTO reviewed_spans (recording_id, start_idx, end_idx, source, reviewed_at) "
+                 "VALUES (?, 9000, 27000, 'Review', '2026-09-15T10:00:00')", (rec_ids[0],))
 
     seq = conn.execute(
         "INSERT INTO sequences (sequence_key, origin, recording_id, channel, start_idx, end_idx, "
@@ -142,6 +173,42 @@ def _seed(tmp_path):
     conn.execute("INSERT INTO sequences (sequence_key, origin, recording_id, n_events, "
                  "needs_extraction, source_kind, created_at) VALUES ('sq-b', 'human', ?, 3, 1, "
                  "'excel_catalog', '2026-09-14T09:00:00')", (rec_ids[0],))
+
+    # three more sequences and a sequence grouping over them, so "order kept"
+    # has something to measure: two of the three run F-01 then F-02, the third
+    # runs them the other way round. One member sequence was drawn by a person
+    # (`origin='human'`), which is not the same thing as a person having
+    # judged it.
+    seq_ids = {}
+    for key, origin, events in (("sq-c", "machine", ((member_ids[0], 100, 160, None),
+                                                     (member_ids[2], 2000, 2058, 1840.0))),
+                                ("sq-d", "machine", ((member_ids[2], 2000, 2058, None),
+                                                     (member_ids[1], 900, 962, 60.0))),
+                                ("sq-e", "human", ((member_ids[0], 100, 160, None),
+                                                   (member_ids[3], 5000, 5061, 4840.0)))):
+        sid = conn.execute(
+            "INSERT INTO sequences (sequence_key, origin, recording_id, channel, start_idx, end_idx, "
+            "n_events, needs_extraction, source_kind, created_at) VALUES (?, ?, ?, 0, 100, 5100, ?, 0, "
+            "'sequence_csv', '2026-09-14T09:00:00')", (key, origin, rec_ids[0], len(events))).lastrowid
+        seq_ids[key] = sid
+        for position, (mid, a, b, gap) in enumerate(events):
+            conn.execute("INSERT INTO sequence_members (sequence_id, position, member_id, start_idx, "
+                         "end_idx, gap_before) VALUES (?, ?, ?, ?, ?, ?)", (sid, position, mid, a, b, gap))
+
+    seq_gid = conn.execute(
+        "INSERT INTO groupings (name, unit, basis, method, params_json, cut, n_families, n_assigned, "
+        "n_omitted, recipe_hash, created_at, actor) VALUES ('sequences · order', 'sequences', "
+        "'sequence-similarity', 'ward', '{\"min_group\": 2}', 0.5, 1, 3, 1, 'seq123', "
+        "'2026-09-14T11:30:00', 'this installation')").lastrowid
+    for key, distance, medoid in (("sq-c", 0.05, 1), ("sq-e", 0.2, 0), ("sq-d", 0.3, 0)):
+        conn.execute(
+            "INSERT INTO grouping_assignments (grouping_id, unit, member_ref, content_hash, family_id, "
+            "family_label, distance, is_medoid) VALUES (?, 'sequences', ?, ?, 1, 'F-01', ?, ?)",
+            (seq_gid, seq_ids[key], f"seqhash-{key}", distance, medoid))
+    conn.execute(
+        "INSERT INTO grouping_assignments (grouping_id, unit, member_ref, content_hash, family_id, "
+        "family_label, distance, omit_reason) VALUES (?, 'sequences', ?, 'seqhash-a', NULL, 'F-01', "
+        "0.8, 'past_cut')", (seq_gid, seq))
 
     conn.execute(
         "INSERT INTO window_sets (name, version, path, recording_id, channel, fs, window_length, "
@@ -236,7 +303,7 @@ def test_counts_separates_the_two_entry_scales(bridge):
     assert set(body) == {"motifs", "windowSets", "templates", "spikeTrains", "sequences"}
     assert body["motifs"] == 5          # five event-scale entries
     assert body["spikeTrains"] == 1     # the train-scale one is not a motif
-    assert body["sequences"] == 2
+    assert body["sequences"] == 5
     assert body["windowSets"] == 1
     assert body["templates"] >= 1
 
@@ -305,8 +372,10 @@ def test_families_return_real_decimated_traces_and_a_colour_on_every_row(bridge)
         assert fam["exemplarTrace"], "the trace must be real mV read off the channel, not empty"
         assert all(isinstance(v, (int, float)) for v in fam["exemplarTrace"])
         assert len(fam["exemplarTrace"]) <= 2 * 60 + 2
-        assert fam["shape"] in ("drop", "burst", "sharkfin", "spiketrain", "ripple",
-                                "plateau", "drift", "fall", "peak", "notch")
+        # the shape is a real `element` tag value or nothing — the vocabulary
+        # is open (trough, sharkfin, stegasaurus, …) and "drop" is no longer a
+        # default stood in for a morphology nobody measured
+        assert fam["shape"] is None or isinstance(fam["shape"], str) and fam["shape"]
     assert {f["id"] for f in families} == {"F-01", "F-02"}
     assert families[0]["shape"] == "sharkfin", "the shape is read off the entry's tags"
 
@@ -369,7 +438,7 @@ def test_grouping_editor_lists_nine_bases_with_a_reason_on_each_that_cannot_appl
     assert set(body["distributions"]) == {"frequency-content", "amplitude", "timescale",
                                           "shape-distance", "sequence-similarity"}
     units = {u["unit"]: u["count"] for u in body["units"]}
-    assert units == {"motifs": 5, "sequences": 2, "spike-trains": 1}, "live counts, not fixtures"
+    assert units == {"motifs": 5, "sequences": 5, "spike-trains": 1}, "live counts, not fixtures"
     amp = body["distributions"]["amplitude"]
     assert amp and all(set(b) == {"lo", "hi", "n"} for b in amp), "distributions are real FeatureBins"
 
@@ -399,7 +468,7 @@ def test_sequences_needing_extraction_are_the_review_queue(bridge):
     client, _ = bridge
     every = _ok(client.get("/api/library/sequences"))
     pending = _ok(client.get("/api/library/sequences?needs_extraction=1"))
-    assert len(every) == 2 and len(pending) == 1
+    assert len(every) == 5 and len(pending) == 1
     assert pending[0]["needsExtraction"] is True
     assert pending[0]["nEvents"] == 3, "the claim is recorded even though the events are not"
 
@@ -647,3 +716,166 @@ def test_writes_py_must_learn_the_library_tables():
         assert not writes.is_human_table(table) and not writes.is_machine_table(table), (
             f"{table} must be on NEITHER list: its door is chosen per row by `origin`, "
             f"so a blanket listing would let a detector's claim in through the human door")
+
+
+# ── what the critics found on the live library ──────────────────────────────
+
+def test_a_channel_nobody_reviewed_gets_a_cell_of_its_own(bridge):
+    """A missing cell used to mean "reviewed, no members" on the client, so
+    every channel nobody has opened read as an examined-and-empty negative
+    result. Absence now carries no meaning: every channel of every
+    non-held-out recording is stated, with its own count and its own coverage."""
+    client, _ = bridge
+    body = _ok(client.get("/api/library/recurrence"))
+    drawable = {f"{r['key']}:{ch}" for r in body["recordings"] if not r.get("heldOut")
+                for ch in r["channels"]}
+    assert drawable, "the fixture must offer channels to draw"
+    for fam in body["families"]:
+        assert drawable <= set(fam["cells"]), f"{fam['id']} leaves a channel to be guessed at"
+    # a cell that holds members is never flagged as though it held none
+    with_members = [c for fam in body["families"] for c in fam["cells"].values() if c["count"]]
+    assert with_members, "the fixture's families have members"
+    for cell in with_members:
+        assert cell["count"] > 0, "noCoverage is about the coverage, never about the count"
+    # and a channel nobody has reviewed is flagged on every family, not left absent
+    unreviewed = drawable - set(body["coverage"])
+    assert unreviewed, "the fixture leaves one channel unreviewed"
+    for fam in body["families"]:
+        for ck in unreviewed:
+            assert fam["cells"][ck].get("noCoverage") is True, f"{fam['id']} {ck}"
+
+
+def test_overlapping_reviewed_spans_are_merged_not_summed(bridge):
+    """0…18000 and 9000…27000 is 27,000 samples of 36,000 seen. Summing the
+    rows reported 36,000 — a channel a person half-reviewed read as complete."""
+    client, _ = bridge
+    body = _ok(client.get("/api/library/recurrence"))
+    assert len(body["coverage"]) == 1, "one channel of the fixture was reviewed"
+    seen = next(iter(body["coverage"].values()))
+    assert abs(seen - 27000 / 36000) < 1e-3, f"union, not sum: {seen}"
+    row = next(r for r in body["recordings"] if r["key"] == "M2_aug_fs1")
+    assert row["reviewedPct"] == 37.5, "one channel at 75%, one at 0%"
+
+
+def test_the_family_shape_is_the_entrys_own_element_tag(bridge):
+    """All 149 live families reported shape "drop" because the code read the
+    legacy `motif_entry.tags` column, which is empty on every row."""
+    client, _ = bridge
+    families = {f["id"]: f for f in _ok(client.get("/api/library/families"))}
+    assert families["F-01"]["shape"] == "sharkfin"
+    assert families["F-01"]["shapeLabel"] == "sharkfin"
+    # F-02's members carry trough twice and sharkfin once: the majority is the
+    # shape and the disagreement is reported rather than hidden (§3.4)
+    assert families["F-02"]["shape"] == "trough"
+    assert families["F-02"]["shapeLabel"] == "mixed · trough 2 · sharkfin 1"
+    assert families["F-02"]["shapeMix"] == {"trough": 2, "sharkfin": 1}
+
+
+def test_an_assignment_naming_a_member_that_is_gone_is_counted_not_dropped(bridge):
+    client, ctx = bridge
+    row = next(r for r in _ok(client.get("/api/library/groupings"))
+               if r["id"] == f"g-{ctx['gid']:02d}")
+    assert row["unresolved"] == 1, "the dangling assignment is stated, not silently discarded"
+    assert _ok(client.get("/api/library/recurrence"))["unresolved"] == 1
+
+
+def test_a_sequence_family_is_reachable_by_unit_and_never_substituted(bridge):
+    """`F-01` names a motif family and a sequence family. Matching motifs
+    first opened the wrong one under the id the caller asked for."""
+    client, _ = bridge
+    seq = _ok(client.get("/api/library/family/F-01?unit=sequences"))
+    assert seq["kind"] == "sequence", seq
+    assert seq["family"]["sequences"] == 3
+    motif = _ok(client.get("/api/library/family/F-01?unit=motifs"))
+    assert motif["kind"] == "motif"
+    assert motif["detail"]["family"]["members"] == 2
+    # with no unit the motif family answers, and it says the label also names a
+    # sequence family rather than letting the caller assume it does not
+    both = _ok(client.get("/api/library/family/F-01"))
+    assert both["kind"] == "motif" and both["otherUnit"] == "sequences"
+    # a unit that names nothing is a missing family, not another family's data
+    assert _ok(client.get("/api/library/family/F-02?unit=sequences")) == {
+        "kind": "missing", "id": "F-02", "unit": "sequences"}
+    assert client.get("/api/library/family/F-01?unit=bogus").status_code == 400
+
+
+def test_order_kept_counts_sequences_that_preserve_the_exemplars_order(bridge):
+    """"order kept 14 of 10" was the exemplar's event count over the member
+    count — two different quantities, the first bigger than the second."""
+    client, _ = bridge
+    fam = _ok(client.get("/api/library/family/F-01?unit=sequences"))["family"]
+    assert fam["exemplarEvents"] == 2, "the exemplar's composition is its own number"
+    assert fam["orderKept"] == 2 and fam["orderKeptOf"] == 3
+    assert fam["orderKept"] <= fam["orderKeptOf"], "a ratio its own denominator can hold"
+
+
+def test_judged_on_a_sequence_family_counts_verdicts_not_who_drew_it(bridge):
+    """One member sequence has `origin='human'`, which says a person drew it,
+    not that a person judged it. Numerator and denominator are both motifs."""
+    client, _ = bridge
+    fam = _ok(client.get("/api/library/family/F-01?unit=sequences"))["family"]
+    assert fam["judgedMotifs"] == 0, "nobody has passed a verdict on these motifs"
+    assert fam["judgedOf"] == 6, "six member motifs across the three sequences"
+    assert fam["judgedPct"] == 0.0
+
+
+def test_omitted_answers_for_both_units_and_names_the_catalogue_count(bridge):
+    """The route resolved one grouping for both halves, so `sequences` was
+    empty on every default call, and the page's "motifs in no sequence" was a
+    grouping count wearing a catalogue label."""
+    client, _ = bridge
+    body = _ok(client.get("/api/library/omitted"))
+    assert len(body["singles"]) == 1, "the motif grouping's omission"
+    assert len(body["sequences"]) == 1, "and the sequence grouping's, in one read"
+    assert body["groupingId"] and body["sequenceGroupingId"]
+    assert body["groupingId"] != body["sequenceGroupingId"]
+    assert body["singles"][0]["omitReason"] == "past the cut"
+    assert body["sequences"][0]["omitReason"] == "past_cut"
+    # a catalogue fact, named as one: four of the five members are in a sequence
+    assert body["motifsInNoSequence"] == 1
+    # an omitted motif's shape is its own tag, or nothing — never "drop" by default
+    assert body["singles"][0]["shape"] in (None, "burst")
+
+
+def test_an_invented_grouping_is_denied_rather_than_echoed_back(bridge):
+    client, _ = bridge
+    body = _ok(client.get("/api/library/omitted?grouping=g-77"))
+    assert body["groupingId"] is None, "the route must not invent a grouping it does not have"
+    assert body["singles"] == [] and body["sequences"] == []
+
+
+def test_the_dry_run_counts_rows_that_are_already_held(tmp_path):
+    """`counts.motifs` read `n_created + n_duplicate`, which counts neither the
+    `already_present` outcome nor the rows themselves, so a bundle already held
+    end to end reported 0 motifs and "0 of N already present" on the same card
+    whose outcome line read `already_present × N`."""
+    from server import corpus as corpus_mod
+    from server import library as lib
+
+    class _Report:
+        source = "bundle"
+
+        @staticmethod
+        def as_dict():
+            return {"n_rows": 10, "n_created": 1, "n_duplicate": 2,
+                    "outcomes": {"created": 1, "member_added": 2, "already_present": 6, "skipped": 1},
+                    "samples": [{"source_ref": "id001", "recording_id": 1, "start_idx": 100,
+                                 "end_idx": 160, "outcome": "already_present", "detail": "member 1"}],
+                    "warnings": [], "flags": []}
+
+    db = str(tmp_path / "bundle.sqlite")
+    init_db(db).close()
+    conn = corpus_mod.connect(db)
+    try:
+        bundle = lib._import_bundle_payload(conn, "some/bundle", _Report(), "drop_motif_store")
+    finally:
+        conn.close()
+    assert bundle["counts"]["motifs"] == 9, "ten rows less the one nothing will touch"
+    assert "8 of 10 rows already describe a shape" in bundle["checks"][0]["detail"]
+    assert bundle["creates"] == ["already_present × 6", "created × 1", "member_added × 2",
+                                 "skipped × 1"]
+    row = bundle["sample"][0]
+    assert row["id"] == "id001", "the preview reads `source_ref`, the key the report carries"
+    assert row["outcome"] == "already_present", "and says what would happen to it"
+    # a field this read does not carry is absent, never a zero standing in for one
+    assert row["amp"] is None and row["shape"] is None and row["seed"] is None

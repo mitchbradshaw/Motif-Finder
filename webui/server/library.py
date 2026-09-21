@@ -276,19 +276,41 @@ def _rec_groups(conn, index) -> list[dict]:
 
 
 def _reviewed_fraction(conn, index) -> dict:
-    """`'<recKey>:<channel>' -> 0…1` of the channel a person has looked at."""
+    """`'<recKey>:<channel>' -> 0…1` of the channel a person has looked at.
+
+    Overlapping spans are **merged** before they are summed. A window reviewed
+    twice is one window seen, not two: summing the raw rows over-counted every
+    re-reviewed channel (recording 1: 531,275 samples summed against 476,753
+    merged, a 11% over-statement), and the `min(1.0, …)` clamp hid the error
+    entirely once a channel crossed 100%. Reviewed-% is the denominator a
+    researcher uses to decide whether a family's absence from a channel means
+    anything, so it has to be the union.
+    """
     out = {}
     try:
         rows = conn.execute(
-            "SELECT recording_id, SUM(MAX(0, end_idx - start_idx)) AS seen FROM reviewed_spans GROUP BY recording_id"
-        ).fetchall()
+            "SELECT recording_id, start_idx, end_idx FROM reviewed_spans "
+            "ORDER BY recording_id, start_idx").fetchall()
     except sqlite3.OperationalError:
         return out
+    merged = {}                      # recording_id -> [samples seen, cursor]
     for r in rows:
-        meta = index["by_id"].get(int(r["recording_id"]))
+        rid = int(r["recording_id"])
+        start, end = int(r["start_idx"] or 0), int(r["end_idx"] or 0)
+        if end <= start:
+            continue
+        state = merged.setdefault(rid, [0, None])
+        if state[1] is None or start >= state[1]:
+            state[0] += end - start
+            state[1] = end
+        elif end > state[1]:
+            state[0] += end - state[1]
+            state[1] = end
+    for rid, (seen, _cursor) in merged.items():
+        meta = index["by_id"].get(rid)
         if meta is None or meta["n_samples"] <= 0:
             continue
-        out[f"{meta['key']}:{meta['name']}"] = min(1.0, _f(r["seen"]) / meta["n_samples"])
+        out[f"{meta['key']}:{meta['name']}"] = min(1.0, seen / meta["n_samples"])
     return out
 
 
@@ -441,6 +463,26 @@ def _hand_edits_kept(conn, grouping_id) -> int:
         return 0
 
 
+def _unresolved_assignments(conn, grouping_id, unit_db="single_motifs") -> int:
+    """Assignments of this grouping that name a row which is not there.
+
+    `_member_rows` LEFT JOINs and the family builder then drops every row whose
+    join found nothing, which silently narrowed the result set: the grouping
+    card counted 3,239 assigned while the atlas summed 3,235 members, with no
+    third number reconciling them. Counting them here lets a surface say
+    "3,239 assigned · 4 unresolved" instead of quietly disagreeing with itself.
+    """
+    table = "sequences" if unit_db == "sequences" else "motif_member"
+    try:
+        return int(conn.execute(
+            f"SELECT COUNT(*) FROM grouping_assignments ga WHERE ga.grouping_id = ? "
+            f"AND ga.unit = ? AND ga.family_label IS NOT NULL AND NOT EXISTS "
+            f"(SELECT 1 FROM {table} t WHERE t.id = ga.member_ref)",
+            (int(grouping_id), unit_db)).fetchone()[0])
+    except sqlite3.OperationalError:
+        return 0
+
+
 def _grouping_payload(conn, row) -> dict:
     params = json.loads(row["params_json"] or "{}")
     basis = row["basis"]
@@ -458,6 +500,7 @@ def _grouping_payload(conn, row) -> dict:
         "motifs": n_assigned + n_omitted,
         "families": int(row["n_families"] or 0),
         "omitted": n_omitted,
+        "unresolved": _unresolved_assignments(conn, row["id"], str(row["unit"])),
         "handEditsKept": _hand_edits_kept(conn, row["id"]),
         "name": row["name"], "method": row["method"], "cut": row["cut"],
         "recipeHash": row["recipe_hash"], "actor": row["actor"],
@@ -512,34 +555,81 @@ def _verdicts(conn, index) -> dict:
     return out
 
 
-def _tags_for_entries(conn, entry_ids) -> dict:
-    """`entry_id -> [tag]`. §3.4: tags live on the entry, and an occurrence
-    that resolved onto an existing entry contributed its tags to it, so a
-    disagreement between two sources is visible here rather than lost."""
-    out = {}
+def _tags_for_entries(conn, entry_ids) -> tuple:
+    """`(tags_by_entry, elements_by_entry)`. §3.4: tags live on the entry, and
+    an occurrence that resolved onto an existing entry contributed its tags to
+    it, so a disagreement between two sources is visible here rather than lost.
+
+    The tags are read from `motif_entry_tags JOIN tag_vocabulary` — the tables
+    the importers actually write. The legacy `motif_entry.tags` JSON column is
+    read only for entries the normalised tables say nothing about, so rows
+    written before those tables existed are not silently untagged. Reading the
+    legacy column *first* is what made all 149 families report shape "drop":
+    it is empty on every row of this installation, while 772 entries carry
+    `element = sharkfin` and 2,827 carry `element = trough` next door.
+    """
+    tags, elements = {}, {}
     if not entry_ids:
-        return out
-    for r in conn.execute("SELECT id, tags FROM motif_entry WHERE id IN (%s)"
-                          % ",".join("?" * len(entry_ids)), tuple(entry_ids)):
-        raw = r["tags"]
-        if not raw:
-            continue
-        try:
-            parsed = json.loads(raw)
-            tags = parsed if isinstance(parsed, list) else [str(parsed)]
-        except (ValueError, TypeError):
-            tags = [t.strip() for t in str(raw).split(",") if t.strip()]
-        out[int(r["id"])] = [str(t) for t in tags]
-    return out
+        return tags, elements
+    marks = ",".join("?" * len(entry_ids))
+    try:
+        for r in conn.execute(
+            f"SELECT met.entry_id AS entry_id, tv.category AS category, tv.value AS value "
+            f"FROM motif_entry_tags met JOIN tag_vocabulary tv ON tv.id = met.tag_id "
+            f"WHERE met.entry_id IN ({marks}) ORDER BY met.entry_id, tv.category, tv.value",
+                tuple(entry_ids)):
+            eid, value = int(r["entry_id"]), str(r["value"])
+            tags.setdefault(eid, []).append(value)
+            if str(r["category"]) == "element":
+                elements.setdefault(eid, []).append(value)
+    except sqlite3.OperationalError:
+        pass
+
+    legacy = [e for e in entry_ids if e not in tags]
+    if legacy:
+        marks = ",".join("?" * len(legacy))
+        for r in conn.execute(f"SELECT id, tags FROM motif_entry WHERE id IN ({marks})", tuple(legacy)):
+            raw = r["tags"]
+            if not raw:
+                continue
+            try:
+                parsed = json.loads(raw)
+                values = parsed if isinstance(parsed, list) else [str(parsed)]
+            except (ValueError, TypeError):
+                values = [t.strip() for t in str(raw).split(",") if t.strip()]
+            tags[int(r["id"])] = [str(t) for t in values]
+    return tags, elements
 
 
-def _shape_of(tags) -> str:
-    for t in tags or []:
-        low = str(t).lower().replace(" ", "").replace("-", "")
-        for kind in SHAPE_KINDS:
-            if kind in low:
-                return kind
-    return "drop"
+def _shape_of(elements, tags=()) -> tuple:
+    """`(shape, label, mix)` for one family.
+
+    The shape is the `element` tag its members carry most often — the real
+    vocabulary value (`trough`, `sharkfin`, …), not a guess. A family whose
+    members disagree keeps the majority and reports the split, because §3.4
+    calls a morphology disagreement a finding rather than noise. A family
+    whose members carry no element tag at all gets `None` and the label "not
+    recorded": defaulting it to "drop" stated a morphology nobody measured.
+    """
+    counts = {}
+    for e in elements or ():
+        value = str(e).strip().lower()
+        if value:
+            counts[value] = counts.get(value, 0) + 1
+    if not counts:
+        # entries that predate the normalised tag tables: the legacy JSON
+        # column named the shape in free text, so a name match is all there is
+        for t in tags or ():
+            low = str(t).lower().replace(" ", "").replace("-", "").replace("_", "")
+            for kind in SHAPE_KINDS:
+                if kind == low:
+                    return kind, kind, {kind: 1}
+        return None, "not recorded", {}
+    ordered = sorted(counts.items(), key=lambda kv: (-kv[1], kv[0]))
+    shape = ordered[0][0]
+    if len(ordered) == 1:
+        return shape, shape, counts
+    return shape, "mixed · " + " · ".join(f"{k} {v}" for k, v in ordered), counts
 
 
 def _edges_label(conn, member_ids) -> tuple:
@@ -568,11 +658,16 @@ def _families_for(conn, index, grouping_row) -> list:
     if grouping_row is None:
         return []
     rows = _member_rows(conn, grouping_row["id"])
-    assigned = [r for r in rows if r["family_label"] and r["member_id"] is not None]
+    # `family_label` on an omitted row names its NEAREST family, not the one it
+    # joined — `family_id` is what says it joined at all. Filtering on the
+    # label alone counted every omitted motif as a member of the family it
+    # failed to reach.
+    assigned = [r for r in rows if r["family_id"] is not None and r["member_id"] is not None]
     if not assigned:
         return []
 
-    tags_by_entry = _tags_for_entries(conn, sorted({int(r["entry_id"]) for r in assigned if r["entry_id"]}))
+    tags_by_entry, elements_by_entry = _tags_for_entries(
+        conn, sorted({int(r["entry_id"]) for r in assigned if r["entry_id"]}))
     verdicts = _verdicts(conn, index)
     edits = hand_edits_mod.active_edits(conn, grouping_row["id"])
     hand_by_family = {}
@@ -590,14 +685,16 @@ def _families_for(conn, index, grouping_row) -> list:
     out = []
     for i, (label, members) in enumerate(sorted(by_family.items())):
         out.append(_one_family(conn, index, label, members, i, tags_by_entry, verdicts,
-                               hand_by_family.get(label, 0), grouping_row, reviewed))
+                               hand_by_family.get(label, 0), grouping_row, reviewed,
+                               elements_by_entry))
     return out
 
 
 def _one_family(conn, index, label, members, i, tags_by_entry, verdicts, hand, grouping_row,
-                reviewed=None) -> dict:
+                reviewed=None, elements_by_entry=None) -> dict:
     reviewed = _reviewed_fraction(conn, index) if reviewed is None else reviewed
-    durations, amps, cells, tags = [], [], {}, []
+    elements_by_entry = elements_by_entry or {}
+    durations, amps, cells, tags, elements = [], [], {}, [], []
     judged = 0
     artifact = 0
     recordings = set()
@@ -613,6 +710,7 @@ def _one_family(conn, index, label, members, i, tags_by_entry, verdicts, hand, g
         fs = meta["fs"] or 1.0
         durations.append((int(m["end_idx"] or 0) - int(m["start_idx"] or 0)) / fs)
         tags.extend(tags_by_entry.get(int(m["entry_id"] or 0), []))
+        elements.extend(elements_by_entry.get(int(m["entry_id"] or 0), []))
         verdict = verdicts.get((meta["recording_id"], int(m["start_idx"] or 0), int(m["end_idx"] or 0)))
         if verdict:
             judged += 1
@@ -622,23 +720,31 @@ def _one_family(conn, index, label, members, i, tags_by_entry, verdicts, hand, g
         cell = cells.setdefault(ck, {"perHour": None, "count": 0})
         cell["count"] += 1
 
-    for ck, cell in cells.items():
-        key, _, name = ck.partition(":")
-        group = index["by_key"].get(key)
-        hours = _f(group["duration_h"], 0.0) if group else 0.0
-        if hours > 0:
-            cell["perHour"] = round(cell["count"] / hours, 3)
-        if reviewed.get(ck, 0.0) <= 0:
-            # §8.4: never looked at is not the same as looked at and empty
-            cell["noCoverage"] = True
-
-    # every reviewed cell with no member of this family is an explicit zero,
-    # so "reviewed, none here" draws differently from "never looked"
-    for ck, frac in reviewed.items():
-        if ck not in cells:
-            cells[ck] = {"perHour": None, "count": 0} if frac <= 0 else {"perHour": 0.0, "count": 0}
-            if frac <= 0:
-                cells[ck]["noCoverage"] = True
+    # A cell for EVERY channel of every recording the matrix can draw, whether
+    # or not anyone has reviewed it and whether or not this family has members
+    # there. The client cannot tell "never looked" from "looked and found
+    # nothing" by the absence of a cell — it drew a missing cell as
+    # reviewed-and-empty, which manufactured a negative result for the seven
+    # recordings nobody has opened. So absence carries no meaning here: the
+    # three facts (`count`, `perHour`, `noCoverage`) are stated on every cell.
+    # `perHour` stays None when the recording has no duration to divide by,
+    # which is not the same as a rate of zero.
+    for g in index["groups"]:
+        if g.get("held_out"):
+            continue                 # D6: a held-out recording offers no cells
+        key = rec_key(g["source_file"])
+        hours = _f(g.get("duration_h"), 0.0)
+        for ch in g["channels"]:
+            ck = f"{key}:{ch['name']}"
+            cell = cells.setdefault(ck, {"perHour": None, "count": 0})
+            if hours > 0:
+                cell["perHour"] = round(cell["count"] / hours, 3)
+            if reviewed.get(ck, 0.0) <= 0:
+                # §8.4: never looked at is not the same as looked at and empty.
+                # It is also not the same as "no members": a channel can hold
+                # members from a run nobody has reviewed, so the flag is about
+                # the coverage and the count is about the members.
+                cell["noCoverage"] = True
 
     # only the two traces the card actually draws are decimated; every other
     # member contributes a single number, not a polyline
@@ -655,9 +761,11 @@ def _one_family(conn, index, label, members, i, tags_by_entry, verdicts, hand, g
     dists = [_f(m["distance"]) for m in members if m["distance"] is not None]
     member_ids = [int(m["member_id"]) for m in members if m["member_id"] is not None]
     edges, art_ch, prop_ch, ind_ch = _edges_label(conn, member_ids)
+    shape, shape_label, shape_mix = _shape_of(elements, tags)
 
     return {
-        "id": label, "name": label, "colour": family_colour(i), "shape": _shape_of(tags),
+        "id": label, "name": label, "colour": family_colour(i), "shape": shape,
+        "shapeLabel": shape_label, "shapeMix": shape_mix,
         "members": len(members), "inScope": len(members), "recordings": len(recordings),
         "hand": hand, "artifact": artifact,
         "durationS": round(dur, 2), "durationSd": round(dur_sd, 2),
@@ -689,7 +797,7 @@ def _sequence_families_for(conn, index, grouping_row) -> list:
                s.start_idx AS start_idx, s.end_idx AS end_idx, s.origin AS origin
           FROM grouping_assignments ga
           JOIN sequences s ON s.id = ga.member_ref
-         WHERE ga.grouping_id = ? AND ga.unit = 'sequences' AND ga.family_label IS NOT NULL
+         WHERE ga.grouping_id = ? AND ga.unit = 'sequences' AND ga.family_id IS NOT NULL
          ORDER BY ga.family_label, ga.distance
         """, (int(grouping_row["id"]),)))
     if not rows:
@@ -699,16 +807,64 @@ def _sequence_families_for(conn, index, grouping_row) -> list:
     for r in rows:
         by_family.setdefault(r["family_label"], []).append(r)
 
+    # the motif grouping the compositions are read under: a sequence's events
+    # are named by the family they fell into, and two saved motif groupings
+    # name them differently. Joining without one produced one composition row
+    # per grouping per event, which is how a 12-event exemplar came back with
+    # 24 events in it.
+    motif_g = _default_grouping(conn, "single_motifs")
+    comps = _compositions(conn, [int(r["sequence_id"]) for r in rows], motif_g)
+    verdicts = _verdicts(conn, index)
     out = []
     for i, (label, seqs) in enumerate(sorted(by_family.items())):
-        out.append(_one_sequence_family(conn, index, label, seqs, i))
+        out.append(_one_sequence_family(conn, index, label, seqs, i, comps, verdicts))
     return out
 
 
-def _one_sequence_family(conn, index, label, seqs, i) -> dict:
+def _compositions(conn, sequence_ids, motif_grouping) -> dict:
+    """`sequence_id -> {"labels": [family label per event, in order],
+    "members": [motif_member.id, …], "gaps": [...], "resolved": bool}`.
+
+    `labels` is what "the same order of the same shapes" is measured over, so
+    it is only meaningful when every event of the sequence resolved to a
+    family in one grouping. `resolved` says whether it did; nothing downstream
+    may compare two unresolved compositions and call them equal.
+    """
+    out = {}
+    if not sequence_ids:
+        return out
+    gid = int(motif_grouping["id"]) if motif_grouping is not None else None
+    marks = ",".join("?" * len(sequence_ids))
+    args = list(sequence_ids)
+    join = ("LEFT JOIN grouping_assignments ga ON ga.member_ref = sm.member_id "
+            "AND ga.unit = 'single_motifs' AND ga.family_id IS NOT NULL AND ga.grouping_id = ? ")
+    if gid is None:
+        join = ""
+    else:
+        args = [gid] + args
+    for r in conn.execute(
+        f"SELECT sm.sequence_id AS sid, sm.member_id AS member_id, sm.gap_before AS gap, "
+        f"{'ga.family_label' if gid is not None else 'NULL'} AS fam "
+        f"FROM sequence_members sm {join}"
+        f"WHERE sm.sequence_id IN ({marks}) ORDER BY sm.sequence_id, sm.position", tuple(args)):
+        slot = out.setdefault(int(r["sid"]), {"labels": [], "members": [], "gaps": [], "resolved": True})
+        if r["fam"]:
+            slot["labels"].append(str(r["fam"]))
+        else:
+            slot["resolved"] = False
+        if r["member_id"] is not None:
+            slot["members"].append(int(r["member_id"]))
+        if r["gap"] is not None:
+            slot["gaps"].append(_f(r["gap"]))
+    return out
+
+
+def _one_sequence_family(conn, index, label, seqs, i, comps=None, verdicts=None) -> dict:
+    comps = comps or {}
+    verdicts = verdicts or {}
     medoid = next((s for s in seqs if s["is_medoid"]), seqs[0])
     exemplar = min(seqs, key=lambda s: _f(s["distance"], 1e9))
-    recordings, durations, gaps, composition = set(), [], [], []
+    recordings, durations = set(), []
     motifs = 0
     for s in seqs:
         meta = index["by_id"].get(int(s["recording_id"] or 0))
@@ -719,38 +875,71 @@ def _one_sequence_family(conn, index, label, seqs, i) -> dict:
                 durations.append((int(s["end_idx"]) - int(s["start_idx"])) / fs)
         motifs += int(s["n_events"] or 0)
 
-    for r in conn.execute(
-        "SELECT sm.gap_before AS gap, ga.family_label AS fam FROM sequence_members sm "
-        "LEFT JOIN grouping_assignments ga ON ga.member_ref = sm.member_id AND ga.unit = 'single_motifs' "
-        "WHERE sm.sequence_id = ? ORDER BY sm.position", (int(exemplar["sequence_id"]),)):
-        if r["gap"] is not None:
-            gaps.append(_f(r["gap"]))
-        if r["fam"]:
-            composition.append(r["fam"])
+    ex_comp = comps.get(int(exemplar["sequence_id"]), {"labels": [], "gaps": [], "resolved": False})
+    composition = list(ex_comp["labels"])
+    gaps = list(ex_comp["gaps"])
 
     dur = float(np.mean(durations)) if durations else 0.0
     gap = float(np.mean(gaps)) if gaps else 0.0
     dists = [_f(s["distance"]) for s in seqs if s["distance"] is not None]
     hand = 0
-    judged = sum(1 for s in seqs if str(s["origin"]) == "human")
 
-    return {
+    # "judged" is a human verdict over this family's motifs, counted the way
+    # `_one_family` counts one — not the sequence's `origin`. A human-*drawn*
+    # sequence has not been judged by anyone, and an adjudicated machine one
+    # has; reporting origin as judgement reversed both, and put a count of
+    # sequences over a count of motifs.
+    judged_motifs, total_motifs = 0, 0
+    for s in seqs:
+        for member_id in comps.get(int(s["sequence_id"]), {}).get("members", []):
+            row = conn.execute(
+                "SELECT recording_id, start_idx, end_idx FROM motif_member WHERE id = ?",
+                (member_id,)).fetchone()
+            if row is None:
+                continue
+            total_motifs += 1
+            if verdicts.get((int(row["recording_id"]), int(row["start_idx"]), int(row["end_idx"]))):
+                judged_motifs += 1
+
+    # how many member sequences preserve the exemplar's order of families —
+    # the measurement the label "order kept" names. It needs every event of
+    # both sequences to have resolved to a family, so a family whose
+    # compositions are unresolved reports nothing at all rather than a number
+    # that counts something else.
+    order_kept = None
+    comparable = [s for s in seqs
+                  if comps.get(int(s["sequence_id"]), {}).get("resolved")
+                  and comps[int(s["sequence_id"])]["labels"]]
+    if ex_comp.get("resolved") and composition:
+        order_kept = sum(1 for s in comparable
+                         if comps[int(s["sequence_id"])]["labels"] == composition)
+
+    payload = {
         "id": label, "name": label, "colour": family_colour(i), "sequences": len(seqs),
-        "composition": composition, "compositionLabel": " · ".join(composition) or "unresolved",
+        "composition": composition,
+        "compositionLabel": " · ".join(composition) or "unresolved",
         "recordings": len(recordings), "hand": hand,
         "durationLabel": f"{dur:.0f} s" if dur else "—",
         "gapLabel": f"{gap:.0f} s" if gap else "—",
-        "judgedPct": round(100.0 * judged / len(seqs), 1) if seqs else 0.0,
+        "judgedPct": round(100.0 * judged_motifs / total_motifs, 1) if total_motifs else 0.0,
         "exemplar": f"sq-{exemplar['sequence_id']}", "motifs": motifs,
         "exemplarMedoidD": round(_f(exemplar["distance"]), 4),
-        "orderKept": len(composition),
         "meanMemberD": round(float(np.mean(dists)), 4) if dists else 0.0,
-        "judgedMotifs": judged, "gapS": f"{gap:.1f}",
+        "judgedMotifs": judged_motifs, "judgedOf": total_motifs, "gapS": f"{gap:.1f}",
         "exemplarTrace": _trace(index, exemplar["recording_id"], exemplar["start_idx"],
                                 exemplar["end_idx"], px=SEQUENCE_TRACE_PX),
         "medoidTrace": _trace(index, medoid["recording_id"], medoid["start_idx"],
                               medoid["end_idx"], px=SEQUENCE_TRACE_PX),
     }
+    if order_kept is not None:
+        payload["orderKept"] = order_kept
+        payload["orderKeptOf"] = len(comparable)
+    else:
+        # the field is absent, not zero: nothing here measured order
+        payload["orderKeptNote"] = ("not computed — the events of these sequences did not all "
+                                    "resolve to a family in the current motif grouping")
+    payload["exemplarEvents"] = len(composition)
+    return payload
 
 
 # ══════════════════════════════════════════════════════ READS ═══════════════
@@ -806,6 +995,8 @@ def get_recurrence(request: Request, grouping: str | None = Query(default=None))
             "coverage": {k: round(v, 4) for k, v in coverage.items()},
             "sharedGround": shared[:200],
             "grouping": gid_str(row["id"]) if row else None,
+            # stated, not dropped: see `_unresolved_assignments`
+            "unresolved": _unresolved_assignments(conn, row["id"], str(row["unit"])) if row else 0,
         }
     finally:
         conn.close()
@@ -834,30 +1025,76 @@ def get_sequence_families(request: Request, grouping: str | None = Query(default
 
 
 @router.get("/family/{family_id}")
-def get_family(request: Request, family_id: str, grouping: str | None = Query(default=None)):
+def get_family(request: Request, family_id: str, grouping: str | None = Query(default=None),
+               unit: str | None = Query(default=None)):
     """The `FamilyRead` union. An unknown family is `{kind:'missing', id}` —
-    a 200 with a shape the page renders, not a 500 and not a blank."""
+    a 200 with a shape the page renders, not a 500 and not a blank.
+
+    **The unit decides which grouping answers.** Nineteen labels (`F-01`,
+    `F-02`, …) name both a motif family and a sequence family, and matching
+    motifs first meant `?unit=sequences` opened a different family's members
+    under the id that was asked for. The resolution order is: an explicit
+    `unit`; else the unit of the `grouping` the caller named; else motifs,
+    with `otherUnit` on the answer when the same label also names a family in
+    the other unit — so a caller can never be handed a substitute silently.
+    """
     conn = _conn(request)
     try:
         index = _recordings_index(conn)
-        motif_g = _resolve_grouping(conn, grouping)
-        families = _families_for(conn, index, motif_g)
-        fam = next((f for f in families if f["id"] == family_id), None)
-        if fam is not None:
-            return {"kind": "motif", "detail": _family_detail(conn, index, fam, motif_g)}
+        want = (unit or "").strip().lower()
+        if want in ("sequences", "sequence", "seq"):
+            want = "sequences"
+        elif want in ("motifs", "motif", "single_motifs"):
+            want = "single_motifs"
+        elif want:
+            raise HTTPException(status_code=400, detail=f"unknown unit {unit!r}: motifs or sequences")
+        elif grouping not in (None, "", "undefined", "null"):
+            row = _grouping_row(conn, grouping)
+            if row is None:
+                return {"kind": "missing", "id": family_id}
+            want = str(row["unit"])
 
-        seq_g = _resolve_grouping(conn, grouping, "sequences")
-        for sf in _sequence_families_for(conn, index, seq_g):
-            if sf["id"] == family_id:
-                return {"kind": "sequence", "family": sf}
-        return {"kind": "missing", "id": family_id}
+        def _motif():
+            # an explicit unit outranks a grouping id for the other unit: the
+            # caller asked for a motif family, so the newest motif grouping
+            # answers rather than a grouping that holds no motif families
+            g = _resolve_grouping(conn, grouping, "single_motifs")
+            if g is not None and str(g["unit"]) != "single_motifs":
+                g = _default_grouping(conn, "single_motifs")
+            fams = _families_for(conn, index, g)
+            fam = next((f for f in fams if f["id"] == family_id), None)
+            return (({"kind": "motif", "detail": _family_detail(conn, index, fam, g),
+                      "grouping": gid_str(g["id"])}) if fam is not None else None)
+
+        def _sequence():
+            g = _resolve_grouping(conn, grouping, "sequences")
+            if g is not None and str(g["unit"]) != "sequences":
+                g = _default_grouping(conn, "sequences")
+            for sf in _sequence_families_for(conn, index, g):
+                if sf["id"] == family_id:
+                    return {"kind": "sequence", "family": sf, "grouping": gid_str(g["id"])}
+            return None
+
+        if want == "sequences":
+            return _sequence() or {"kind": "missing", "id": family_id, "unit": "sequences"}
+        if want == "single_motifs":
+            return _motif() or {"kind": "missing", "id": family_id, "unit": "motifs"}
+
+        found = _motif()
+        if found is not None:
+            if _sequence() is not None:
+                found["otherUnit"] = "sequences"
+            return found
+        return _sequence() or {"kind": "missing", "id": family_id}
     finally:
         conn.close()
 
 
 def _family_detail(conn, index, fam, grouping_row) -> dict:
-    rows = [r for r in _member_rows(conn, grouping_row["id"]) if r["family_label"] == fam["id"]]
-    tags_by_entry = _tags_for_entries(conn, sorted({int(r["entry_id"]) for r in rows if r["entry_id"]}))
+    rows = [r for r in _member_rows(conn, grouping_row["id"])
+            if r["family_label"] == fam["id"] and r["family_id"] is not None]
+    tags_by_entry, _elements = _tags_for_entries(
+        conn, sorted({int(r["entry_id"]) for r in rows if r["entry_id"]}))
     verdicts = _verdicts(conn, index)
     edits = hand_edits_mod.active_edits(conn, grouping_row["id"])
     edits_by_hash = {}
@@ -960,20 +1197,56 @@ def _revisions_for(conn, member_id) -> list:
 
 @router.get("/omitted")
 def get_omitted(request: Request, grouping: str | None = Query(default=None)):
-    """`{groupingId, singles, sequences}` — what did not fit, with its reason."""
+    """`{groupingId, singles, sequences}` — what did not fit, with its reason.
+
+    **One grouping per unit.** Single motifs are omitted by a motif grouping
+    and sequences by a sequence grouping, and no saved grouping holds both, so
+    resolving one id for the whole payload left the `sequences` half empty on
+    every default call — the nine `past_cut` sequence omissions were
+    unreachable unless the caller happened to know to ask for `?grouping=g-03`.
+
+    `motifsInNoSequence` is a different quantity from either list and is named
+    as one: the catalogue members that belong to no sequence at all, which is
+    not something a grouping omitted.
+    """
     conn = _conn(request)
     try:
         index = _recordings_index(conn)
-        row = _resolve_grouping(conn, grouping)
-        if row is None:
-            return {"groupingId": grouping, "singles": [], "sequences": []}
+        asked = grouping not in (None, "", "undefined", "null")
+        motif_g = _resolve_grouping(conn, grouping, "single_motifs")
+        seq_g = _resolve_grouping(conn, grouping, "sequences")
+        if asked:
+            # a named grouping answers for its own unit only; the other unit
+            # falls back to its newest, never to the named one
+            named = motif_g if motif_g is not None else None
+            if named is None:
+                # `_resolve_grouping` returned None: the id names nothing
+                return {"groupingId": None, "singles": [], "sequences": [],
+                        "reason": f"no grouping {grouping}"}
+            if str(named["unit"]) == "sequences":
+                motif_g, seq_g = _default_grouping(conn, "single_motifs"), named
+            else:
+                motif_g, seq_g = named, _default_grouping(conn, "sequences")
+
         singles, seqs = [], []
-        for r in conn.execute(
-            "SELECT * FROM grouping_assignments WHERE grouping_id = ? AND family_id IS NULL",
-                (int(row["id"]),)):
-            entry = _omitted_entry(conn, index, r)
-            (seqs if r["unit"] == "sequences" else singles).append(entry)
-        return {"groupingId": gid_str(row["id"]), "singles": singles, "sequences": seqs}
+        for row, unit_db, bucket in ((motif_g, "single_motifs", singles), (seq_g, "sequences", seqs)):
+            if row is None:
+                continue
+            for r in conn.execute(
+                "SELECT * FROM grouping_assignments WHERE grouping_id = ? AND unit = ? "
+                "AND family_id IS NULL", (int(row["id"]), unit_db)):
+                bucket.append(_omitted_entry(conn, index, r))
+
+        return {
+            "groupingId": gid_str(motif_g["id"]) if motif_g is not None else None,
+            "sequenceGroupingId": gid_str(seq_g["id"]) if seq_g is not None else None,
+            "singles": singles, "sequences": seqs,
+            # a catalogue fact, not a grouping one: the page said "0 motifs in
+            # no sequence" off `len(singles)`, which counts something else
+            "motifsInNoSequence": int(conn.execute(
+                "SELECT COUNT(*) FROM motif_member mm WHERE NOT EXISTS "
+                "(SELECT 1 FROM sequence_members sm WHERE sm.member_id = mm.id)").fetchone()[0]),
+        }
     finally:
         conn.close()
 
@@ -981,8 +1254,15 @@ def get_omitted(request: Request, grouping: str | None = Query(default=None)):
 def _omitted_entry(conn, index, r) -> dict:
     is_seq = r["unit"] == "sequences"
     table = "sequences" if is_seq else "motif_member"
+    entry_col = "NULL AS entry_id" if is_seq else "entry_id"
     src = conn.execute(
-        f"SELECT recording_id, start_idx, end_idx FROM {table} WHERE id = ?", (int(r["member_ref"]),)).fetchone()
+        f"SELECT recording_id, start_idx, end_idx, {entry_col} FROM {table} WHERE id = ?",
+        (int(r["member_ref"]),)).fetchone()
+    shape, shape_label = None, "not recorded"
+    if src is not None and src["entry_id"] is not None:
+        _tags, elements = _tags_for_entries(conn, [int(src["entry_id"])])
+        shape, shape_label, _mix = _shape_of(elements.get(int(src["entry_id"]), []),
+                                             _tags.get(int(src["entry_id"]), []))
     meta = index["by_id"].get(int(src["recording_id"])) if (src and src["recording_id"]) else None
     fs = (meta["fs"] if meta else 1.0) or 1.0
     amp = _span_amplitude(index, src["recording_id"], src["start_idx"], src["end_idx"]) if src else 0.0
@@ -995,7 +1275,10 @@ def _omitted_entry(conn, index, r) -> dict:
         "recordingKey": meta["key"] if meta else None,
         "channel": meta["name"] if meta else "—",
         "onsetH": round(int(src["start_idx"] or 0) / fs / 3600.0, 3) if src else 0.0,
-        "shape": "drop", "amp": amp, "seed": int(r["member_ref"]),
+        # the shape is the entry's own `element` tag, not the detector that
+        # produced the seed corpus dressed up as a measurement
+        "shape": shape, "shapeLabel": shape_label,
+        "amp": amp, "seed": int(r["member_ref"]),
         # the reason is the point of the list: "past the cut" and "in no
         # sequence" are different findings and must not both render as absent
         "omitReason": r["omit_reason"],
@@ -1499,18 +1782,56 @@ def _abs_bundle(path: str) -> str:
 
 
 def _import_bundle_payload(conn, path, report, kind, blocked=None, held_out=False) -> dict:
-    """`ImportBundle` — what the dry run draws."""
+    """`ImportBundle` — what the dry run draws.
+
+    The counts are read from the report's own `outcomes` counter rather than
+    reconstructed from `n_created` + `n_duplicate`. `n_duplicate` counts the
+    `member_added` outcome only, so a bundle that is already held end to end
+    reported "0 of 410 rows already describe a shape this library holds" on
+    the same card whose outcome line read `already_present × 410`, and the
+    headline tile said "0 motifs" for a 410-row bundle. Reading the counter
+    directly also means this stays right whichever way `n_duplicate` is
+    defined in the importer.
+    """
+    index = None
     counts = {"motifs": 0, "spikeTrains": 0, "recordings": 0, "channels": 0}
     checks, creates, sample = [], [], []
     if report is not None:
         d = report.as_dict() if hasattr(report, "as_dict") else dict(report)
-        counts["motifs"] = int(d.get("n_created", 0)) + int(d.get("n_duplicate", 0))
-        recs = {s.get("recording_id") for s in d.get("samples", []) if s.get("recording_id")}
-        counts["recordings"] = len(recs)
-        counts["channels"] = len({(s.get("recording_id"), s.get("channel")) for s in d.get("samples", [])})
-        checks.append({"status": "ok", "title": "safe to run twice",
-                       "detail": (f"{d.get('n_duplicate', 0)} of {d.get('n_rows', 0)} rows already describe a shape "
-                                  "this library holds; a second import adds members, never a second entry.")})
+        outcomes = {str(k): int(v) for k, v in (d.get("outcomes") or {}).items()}
+        n_rows = int(d.get("n_rows", 0))
+        skipped = outcomes.get(store_importer.SKIPPED, 0)
+        # every row that describes a motif: the bundle minus the rows no
+        # importer will touch
+        decided = sum(outcomes.values())
+        counts["motifs"] = max(0, (decided if decided else n_rows) - skipped)
+        # a row already held is one that resolved onto a shape this library
+        # has — whether it added an occurrence, found the occurrence already
+        # described, or only filled in a missing revision
+        already = (outcomes.get(store_importer.MEMBER_ADDED, 0)
+                   + outcomes.get(store_importer.ALREADY_PRESENT, 0)
+                   + outcomes.get(store_importer.REVISION_ADDED, 0))
+        index = _recordings_index(conn)
+        samples = d.get("samples", [])
+        rec_ids = {int(s["recording_id"]) for s in samples if s.get("recording_id") is not None}
+        counts["channels"] = len(rec_ids)
+        counts["recordings"] = len({index["by_id"][r]["key"] if r in index["by_id"] else f"#{r}"
+                                    for r in rec_ids})
+        if outcomes:
+            checks.append({"status": "ok", "title": "safe to run twice",
+                           "detail": (f"{already} of {n_rows} rows already describe a shape "
+                                      "this library holds; a second import adds members, never a "
+                                      "second entry.")})
+        else:
+            # the catalogue and annotation importers report per-key totals, not
+            # a per-row outcome. Saying "0 of 0 rows already held" of a bundle
+            # this read never counted rows for would be a number, not a fact.
+            totals = {str(k): int(v) for k, v in (d.get("counts") or {}).items()}
+            checks.append({"status": "ok", "title": "safe to run twice",
+                           "detail": ("this importer reports totals rather than a per-row outcome, "
+                                      "so how many rows are already held is not recorded here"
+                                      + (" · " + " · ".join(f"{k} {v}" for k, v in sorted(totals.items()))
+                                         if totals else ""))})
         if d.get("warnings"):
             checks.append({"status": "warn", "title": "warnings from the store",
                            "detail": f"{len(d['warnings'])} warnings", "items": [str(w) for w in d["warnings"][:10]]})
@@ -1519,16 +1840,32 @@ def _import_bundle_payload(conn, path, report, kind, blocked=None, held_out=Fals
                            "detail": (f"{len(d['flags'])} spans overlap an existing one by more than the IoU "
                                       "threshold. Nothing is merged; each is flagged with the rule it was judged under."),
                            "items": [str(f) for f in d["flags"][:10]]})
-        creates = [f"{k} × {v}" for k, v in sorted((d.get("outcomes") or {}).items())]
-        for s in d.get("samples", [])[:12]:
-            sample.append({
-                "id": int(s.get("event_id") or s.get("id") or 0),
-                "recording": str(s.get("recording") or s.get("source_file") or "—"),
-                "channel": str(s.get("channel") or "—"),
-                "onsetH": _f(s.get("onset_h")), "durationS": _f(s.get("duration_s")),
-                "shape": "drop", "amp": _f(s.get("amplitude_mv")), "seed": int(s.get("event_id") or 0),
-                "provisional": bool(s.get("provisional", False)),
-            })
+        creates = [f"{k} × {v}" for k, v in sorted(outcomes.items())]
+        # the preview reads the keys the importer actually emits — `source_ref`,
+        # `recording_id`, `start_idx`/`end_idx`, `outcome`. It used to ask for
+        # `event_id`, `recording`, `onset_h`, `duration_s` and `amplitude_mv`,
+        # none of which exist on a sample, so every row defaulted to 0 and "—"
+        # and twelve identical blank motifs were drawn as the preview. A field
+        # this read does not carry is `None`, never a zero.
+        for s in samples[:12]:
+            rid = s.get("recording_id")
+            meta = index["by_id"].get(int(rid)) if rid is not None else None
+            start, end = s.get("start_idx"), s.get("end_idx")
+            fs = (meta["fs"] if meta else 0.0) or 0.0
+            row = {
+                "id": str(s.get("source_ref")) if s.get("source_ref") is not None else None,
+                "recording": meta["label"] if meta else None,
+                "recordingKey": meta["key"] if meta else None,
+                "channel": meta["name"] if meta else None,
+                "onsetH": round(int(start) / fs / 3600.0, 3) if (meta and fs and start is not None) else None,
+                "durationS": (round((int(end) - int(start)) / fs, 2)
+                              if (meta and fs and start is not None and end is not None) else None),
+                # the store carries no morphology per row and this read reads
+                # no samples off the memmap, so neither is invented here
+                "shape": None, "amp": None, "seed": None,
+                "outcome": s.get("outcome"), "detail": s.get("detail"),
+            }
+            sample.append(row)
     bundle = {
         "path": path, "provenanceFound": bool(report is not None and getattr(report, "source", None)),
         "counts": counts, "checks": checks, "creates": creates, "sample": sample,

@@ -42,7 +42,12 @@ The two things this importer writes:
   events" queue (Prompt 05);
 * a **single event** per `type_specimen` row — a `motif_entry` at `scale =
   'event'` with a real content hash taken from the span's own samples, its
-  member, and revision 1 with `origin = 'human'`.
+  member, and revision 1 with `origin = 'human'`. The annotation's own tags
+  come with it (`element`, `structure`, `provenance`) and its `element` names
+  the entry: these four are the only *named* morphologies in the library —
+  sharkfin, crestedwave, furrycaterpillar, halfdome — and an entry that
+  arrived untagged was invisible to every tag filter and to a tag-basis
+  grouping, which is the one thing a named specimen is for.
 
 Every revision written here carries an `annotation_id` and never a
 `detection_id`: detections are machine-only and annotations are human-only
@@ -56,6 +61,7 @@ import re
 from Working.config import HELD_OUT_RECORDING_FILE
 from Working.database import queries as q
 from Working.database import runs as R
+from Working.database import vocabulary as V
 from Working.database.schema import ENTRY_SCALE_EVENT
 from Working.library import dedupe, identity
 from Working.library.importers.catalogue import ImportReport, sequence_key_for_span
@@ -296,6 +302,8 @@ def _import_single_event(conn, row, recording, report, dry_run):
              ENTRY_SCALE_EVENT, str(row["id"]), entry_id),
         )
 
+    _carry_over_tags(conn, entry_id, row)
+
     member_id = R.get_or_create_motif_member(
         conn, entry_id, recording["id"], row["start_idx"], row["end_idx"],
         commit=False)
@@ -306,6 +314,42 @@ def _import_single_event(conn, row, recording, report, dry_run):
     add_revision(conn, member_id, origin="human", annotation_id=row["id"],
                  start_idx=row["start_idx"], end_idx=row["end_idx"],
                  content_hash=span_hash, commit=False)
+
+
+def _carry_over_tags(conn, entry_id, row):
+    """The annotation's tags and its name, onto the entry it produced.
+
+    A type specimen is a person pointing at a waveform and saying what it is:
+    `element = sharkfin`, `structure = type_specimen`, `provenance =
+    excel_catalog`. Those three are the whole of what makes the four named
+    morphologies findable — an entry without them is invisible to every tag
+    filter and to a tag-basis grouping (§3.4), which is the one thing a named
+    specimen exists for.
+
+    Tags are added, never replaced: two people naming one shape differently is
+    a finding the library keeps (§3.4), exactly as the event-store importer
+    keeps `trough` and `Stegasauras` on one entry. `label` is set only when the
+    entry has none, so a second specimen adds a name without renaming the
+    shape. Every term is already in `tag_vocabulary` — it came off an
+    `annotation_tags` row — so nothing is created here.
+    """
+    tags = V.get_annotation_tags(conn, row["id"])
+    for category in sorted(tags):
+        for value in sorted(tags[category]):
+            V.add_motif_entry_tag(conn, entry_id, category, value, commit=False)
+
+    label = None
+    for value in sorted(tags.get("element", [])):
+        label = value
+        break
+    if label is None:
+        label = _get(row, "tag")
+    if label:
+        conn.execute(
+            """UPDATE motif_entry SET label = ?
+                WHERE id = ? AND (label IS NULL OR label = '')""",
+            (str(label), entry_id),
+        )
 
 
 def sequences_needing_extraction(conn, *, origin=None):

@@ -46,6 +46,7 @@ if PROJECT_ROOT not in sys.path:
     sys.path.insert(0, PROJECT_ROOT)
 
 from Working.database import queries as q
+from Working.database import vocabulary as V
 from Working.database.schema import init_db
 from Working.library.importers.annotations import (
     GRID,
@@ -316,3 +317,68 @@ def test_progress_is_called_per_row(conn):
     seen = []
     import_annotations(conn, progress=lambda done, total, what: seen.append((done, total)))
     assert seen and seen[-1] == (4, 4)
+
+
+# ── what the specimen carries with it ────────────────────────────────────────
+
+def test_a_type_specimen_keeps_the_tags_and_the_name_its_annotation_carried(conn):
+    """The four real type specimens are the only *named* morphologies in the
+    library — sharkfin, crestedwave, furrycaterpillar, halfdome — and each
+    source annotation carries `element`, `structure` and `provenance`. An entry
+    that drops them is invisible to every tag filter and unfindable by the one
+    attribute that makes it worth having."""
+    parent = _catalogue_sequence(conn, 20_000, 21_000, "single cycle; type specimen")
+    specimen = _type_specimen(conn, parent, 20_100, 20_140)
+    for category, value in (("element", "sharkfin"),
+                            ("structure", "type_specimen"),
+                            ("provenance", "excel_catalog")):
+        V.get_or_create_term(conn, category, value)
+        V.add_annotation_tag(conn, specimen, category, value)
+
+    import_annotations(conn)
+
+    entry = conn.execute(
+        "SELECT * FROM motif_entry WHERE source_kind = 'annotation'"
+    ).fetchone()
+    tags = V.get_motif_entry_tags(conn, entry["id"])
+    assert tags["element"] == ["sharkfin"]
+    assert tags["structure"] == ["type_specimen"]
+    assert tags["provenance"] == ["excel_catalog"]
+    assert entry["label"] == "sharkfin"
+
+
+def test_a_specimen_resolving_onto_an_existing_shape_still_brings_its_tags(conn):
+    """Two specimens of one shape are one entry (§2.1). The second one's name
+    still lands on it — a disagreement between two people about what a shape
+    is called is a finding, and dropping the later label deletes it."""
+    parent = _catalogue_sequence(conn, 20_000, 21_000, "type specimen")
+    first = _type_specimen(conn, parent, 20_100, 20_140)
+    V.get_or_create_term(conn, "element", "sharkfin")
+    V.add_annotation_tag(conn, first, "element", "sharkfin")
+    import_annotations(conn)
+
+    second = _type_specimen(conn, parent, 20_100, 20_140)
+    V.get_or_create_term(conn, "element", "halfdome")
+    V.add_annotation_tag(conn, second, "element", "halfdome")
+    import_annotations(conn)
+
+    entries = conn.execute(
+        "SELECT * FROM motif_entry WHERE source_kind = 'annotation'"
+    ).fetchall()
+    assert len(entries) == 1
+    assert sorted(V.get_motif_entry_tags(conn, entries[0]["id"])["element"]) \
+        == ["halfdome", "sharkfin"]
+    # the first name stays the entry's label; the second is a tag, not a rename
+    assert entries[0]["label"] == "sharkfin"
+
+
+def test_a_dry_run_writes_no_tags(conn):
+    parent = _catalogue_sequence(conn, 20_000, 21_000, "type specimen")
+    specimen = _type_specimen(conn, parent, 20_100, 20_140)
+    V.get_or_create_term(conn, "element", "sharkfin")
+    V.add_annotation_tag(conn, specimen, "element", "sharkfin")
+
+    import_annotations(conn, dry_run=True)
+
+    assert conn.execute(
+        "SELECT COUNT(*) FROM motif_entry_tags").fetchone()[0] == 0

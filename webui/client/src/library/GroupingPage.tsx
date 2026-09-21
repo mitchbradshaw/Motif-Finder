@@ -45,7 +45,8 @@ import { UNIT_LABEL, getGroupingEditor, type BasisKind, type BasisOption, type F
 /* The grouping job and the grouping write have no fixture-shaped wrapper in `api/library.ts` (that module is
  * the READ seam), so they are taken from the typed bridge client directly. */
 import { ApiError, cancelJob, getJob, runLibraryGrouping, saveLibraryGrouping, subscribeJob, type LibGrouping, type LibGroupingAssignment } from '../api'
-import { useExternalNavKey, useAllGroupings, useMotifGroupingId, useSavedGroupings, useSelection, useSequenceGroupingId } from './chrome'
+/* the five omission reasons live in `chrome` so the drawer and this panel cannot word them differently */
+import { OMIT_REASON_LABEL, useExternalNavKey, useAllGroupings, useMotifGroupingId, useSavedGroupings, useSelection, useSequenceGroupingId } from './chrome'
 import { AtlasPage } from './AtlasPage'
 import { FamilyPage } from './FamilyPage'
 import { RecurrencePage } from './RecurrencePage'
@@ -75,6 +76,34 @@ const METHOD_FOR: Record<BasisKind, string> = {
 /** The three bin methods, spelled the way `bases.BIN_METHODS` spells them. */
 const BIN_METHOD: Record<BinMode, string> = { quantiles: 'quantiles', log: 'log-spaced', fixed: 'fixed edges' }
 const DISTANCE_BASES: BasisKind[] = ['shape-distance', 'sequence-similarity']
+
+/** `params_json` as the bridge renders it for the chip: `"cut 0.6 · min_group 10 · omit_d 0.5"`. That string is
+ *  the only carrier the grouping payload has for `min_group`/`omit_d`, so the editor reads it back. A token it
+ *  cannot parse is skipped rather than defaulted. */
+export function parseParamsText(text: string | null | undefined): Record<string, number> {
+  const out: Record<string, number> = {}
+  for (const part of String(text ?? '').split('·')) {
+    const m = /^\s*([A-Za-z_][A-Za-z0-9_]*)\s+(-?[0-9.]+(?:e-?[0-9]+)?)\s*$/.exec(part)
+    if (m && Number.isFinite(Number(m[2]))) out[m[1]] = Number(m[2])
+  }
+  return out
+}
+/** The draft the Edit-grouping modal should open on when it announces "from g-NN": g-NN's OWN parameters.
+ *  It used to open on the hard-coded `BASE` — cut 0.42 under the subtitle "from g-02", whose cut is 0.60, so
+ *  pressing Compute and apply without touching the slider regrouped the whole catalogue at somebody else's
+ *  settings while the researcher believed they had re-run the current one. A parameter the grouping does not
+ *  record keeps its `BASE` default. */
+export function seedFromGrouping(g: Grouping | undefined): Partial<Draft> {
+  if (!g) return {}
+  const p = parseParamsText(g.params)
+  const cut = typeof (g as Grouping & { cut?: number | null }).cut === 'number' ? (g as Grouping & { cut?: number | null }).cut as number : p.cut
+  const seed: Partial<Draft> = { basis: g.basis }
+  if (Number.isFinite(cut) && (cut as number) > 0) seed.cut = cut as number
+  if (Number.isFinite(p.omit_d) && p.omit_d > 0) seed.nearest = p.omit_d
+  if (Number.isFinite(p.min_group) && p.min_group >= 1) { seed.minMembers = p.min_group; seed.omitSmall = true }
+  if (Number.isFinite(p.n_bins) && p.n_bins >= 2) seed.nBins = p.n_bins
+  return seed
+}
 /** The unit each feature is measured in and the axis it reads best on. Facts of `bases.py`, not measurements:
  *  `frequency_content` returns the Welch dominant frequency in Hz, `amplitude` the peak-to-peak in the
  *  waveform's own mV, `timescale` the duration in seconds. The RANGE is never from here — it is the live
@@ -86,11 +115,6 @@ const FEATURE_AXIS: Partial<Record<BasisKind, { unit: string; label: string; sca
   polarity: { unit: '', label: 'signed polarity, −1 … +1', scale: 'linear' },
 }
 const GROUP_ICON: Record<string, IconName> = { distance: 'target', 'feature bins · no distance': 'bar-chart', labels: 'tag' }
-/** The engine's five omission reasons, in the words `grouping_assignments.omit_reason` stores. */
-const OMIT_REASON_LABEL: Record<string, string> = {
-  outside_bins: 'outside every bin', past_cut: 'past the nearest-family distance',
-  group_too_small: 'in a group under the minimum', not_in_a_sequence: 'in no sequence', no_label: 'carry no label',
-}
 
 /** A distribution's own extent — the only honest source for a feature's range. */
 function extentOf(dist: FeatureBin[] | undefined): [number, number] | null {
@@ -312,6 +336,20 @@ function GroupingEditor({ from }: { from: string }) {
   const currentHash = (current as (Grouping & { recipeHash?: string | null }) | undefined)?.recipeHash ?? null
   const unchanged = !!pv && !!currentHash && currentHash === job.view.result?.recipeHash
 
+  /* "from g-02" has to mean g-02's parameters. The draft starts on `BASE` because the groupings read has not
+     landed when the modal mounts; the moment the current grouping resolves, the draft is seeded FROM IT —
+     unless the person has already touched a control, or the route pinned a basis with `?basis=`. */
+  const [seededFrom, setSeededFrom] = useState<string | null>(null)
+  const touched = useRef(false)
+  useEffect(() => {
+    if (!current || current.unit !== d.unit) return
+    if (seededFrom === current.id) return
+    if (touched.current && seededFrom !== null) return
+    setSeededFrom(current.id)
+    const seed = seedFromGrouping(current)
+    setD(x => ({ ...x, ...seed, basis: basisQ ? x.basis : (seed.basis ?? x.basis), range: null }))
+  }, [current, d.unit, basisQ, seededFrom])
+
   const close = () => { if (job.view.phase === 'running') job.cancel(); job.reset(); navigate(`library/${from}`) }
 
   // ?state=running | failed — display deep links for the screenshot pass. They carry no numbers.
@@ -320,11 +358,13 @@ function GroupingEditor({ from }: { from: string }) {
     if (stateQ === 'failed') job.force({ phase: 'failed', jobId: null, result: null, error: 'the regroup job failed · nothing was written' })
   }, [stateQ]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  const set = (patch: Partial<Draft>) => { setD(x => ({ ...x, ...patch })); setWriteError(null); setSavedId(null) }
+  const set = (patch: Partial<Draft>) => { touched.current = true; setD(x => ({ ...x, ...patch })); setWriteError(null); setSavedId(null) }
   const pickUnit = (u: Unit) => {
     const ok = (b: BasisOption) => b.units.includes(u)
     const cur = editor.data?.bases.find(b => b.kind === d.basis)
     const nextBasis = cur && ok(cur) ? d.basis : (editor.data?.bases.find(ok)?.kind ?? d.basis)
+    // a different unit means a different current grouping: let it seed this draft again
+    setSeededFrom(null); touched.current = false
     set({ unit: u, basis: nextBasis as BasisKind, range: null })
     setUnitQ(u === 'motifs' ? null : u)
     if (nextBasis !== d.basis) setBasisQ(nextBasis)
@@ -409,7 +449,7 @@ function GroupingEditor({ from }: { from: string }) {
   return (
     <Modal open onClose={close} width={810} testid="edit-grouping-modal" closeOnBackdrop={!busy}
       title={<span className="row" style={{ gap: 8 }}><Icon name="sliders" size={16} />Edit grouping</span>}
-      subtitle={current ? `from ${current.id} · ${current.basisLabel.split(' · ')[0]}` : 'no grouping of this unit yet'}
+      subtitle={current ? `${seededFrom === current.id ? 'from' : 'seeding from'} ${current.id} · ${current.basisLabel.split(' · ')[0]} · ${current.params}` : 'no grouping of this unit yet — starting from the defaults'}
       footerNote={busy || failed ? undefined : <Button testid="grouping-cancel" onClick={close}>Cancel</Button>} footer={footer} bodyStyle={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
       {editor.error && <Callout tone="red" title="Could not read the grouping options">{editor.error.message}</Callout>}
       {editor.loading && <div className="skeleton" style={{ height: 420 }} />}

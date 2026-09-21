@@ -29,6 +29,7 @@ Headless: one temporary SQLite database, no channel `.npy` is ever read (the
 waveform comes from the store's own `snippets.npz`).
 """
 
+import json
 import os
 import sqlite3
 import sys
@@ -379,3 +380,77 @@ def test_progress_is_called_once_per_event_with_a_total(conn):
     assert [d for d, _, _ in seen] == [1, 2, 3, 4, 5]
     assert all(t == 5 for _, t, _ in seen)
     assert all(isinstance(m, str) and m for _, _, m in seen)
+
+
+# ── what the Import page reads off the report ───────────────────────────────
+
+def test_an_occurrence_already_described_counts_as_a_duplicate(conn):
+    """`n_duplicate`'s own docstring: events that resolved onto an existing
+    shape, "whether they added a member **or found their occurrence already
+    there**". A re-import is the second half, and it was not counted — so the
+    Import page's "already describe a shape this library holds" check read 0
+    on a bundle that was already held row for row."""
+    import_event_store(conn, STORE, exclude_corpora=ALL_CORPORA)
+    again = import_event_store(conn, STORE, exclude_corpora=ALL_CORPORA)
+
+    assert again.outcomes.get("already_present") == 4
+    assert again.n_already_present == 4
+    assert again.n_created == 0
+    assert again.n_duplicate == 4
+
+
+def test_the_report_dict_states_the_outcomes_the_page_would_otherwise_add_up(conn):
+    """The bridge draws the headline motif count and the re-import check off
+    this dict. Every term is on it by name — `n_rows`, `n_created`,
+    `n_already_present`, `n_duplicate`, `n_motifs` — so no reader has to
+    reconstruct the arithmetic out of the `Counter`."""
+    import_event_store(conn, STORE, exclude_corpora=ALL_CORPORA)
+    payload = import_event_store(conn, STORE, exclude_corpora=ALL_CORPORA,
+                                 dry_run=True).as_dict()
+
+    assert payload["n_rows"] == 5
+    assert payload["n_created"] == 0
+    assert payload["n_already_present"] == 4
+    assert payload["n_duplicate"] == 4
+    # the headline count: every row this bundle contributes a shape for
+    assert payload["n_motifs"] == 4
+
+
+def test_the_dry_run_reports_the_span_conflict_the_real_run_will_hit(conn):
+    """§5.3's promise is that the dry run says what the import will say. A
+    span already held by a different shape is refused by the real run and was
+    previewed as `created`, so the page promised an entry the import then
+    dropped."""
+    import_event_store(conn, STORE, exclude_corpora=ALL_CORPORA)
+    conn.execute("UPDATE motif_entry SET content_hash = ? WHERE source_ref = ?",
+                 ("0" * 32, "id001_r1_1000"))
+    conn.commit()
+    before = _counts(conn)
+
+    dry = import_event_store(conn, STORE, exclude_corpora=ALL_CORPORA,
+                             dry_run=True)
+    assert dry.skipped.get("span_holds_another_shape") == 1
+    assert any("cannot share one exemplar span" in w for w in dry.warnings)
+    assert _counts(conn) == before
+
+    real = import_event_store(conn, STORE, exclude_corpora=ALL_CORPORA)
+    assert real.skipped.get("span_holds_another_shape") == 1
+    assert dry.n_created == real.n_created
+
+
+def test_a_near_duplicate_flag_names_both_spans(conn):
+    """The flag judges a pair, so it has to carry both spans. The incumbent's
+    stays `start_idx`/`end_idx` — the shape `find_near_duplicates` produced —
+    and the candidate's is named as the candidate's."""
+    report = import_event_store(conn, STORE, exclude_corpora=ALL_CORPORA)
+
+    flag = report.flags[0]
+    assert flag["source_ref"] == "id003_r1_1010"
+    assert (flag["candidate_start_idx"], flag["candidate_end_idx"]) == (1010, 1110)
+    assert (flag["start_idx"], flag["end_idx"]) == (1000, 1100)
+    assert flag["onset_delta"] == abs(flag["candidate_start_idx"] - flag["start_idx"])
+
+    detail = json.loads(conn.execute(
+        "SELECT detail_json FROM audit_log WHERE kind = 'library_near_duplicate'"
+    ).fetchone()[0])
+    assert detail["start_idx"] == 1000 and detail["candidate_start_idx"] == 1010

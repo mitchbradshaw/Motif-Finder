@@ -261,24 +261,129 @@ export function GroupingBar({ unit, grouping, from, inert, onUnit }: { unit: Uni
   )
 }
 
-/* ================================================================ thumbnails / plots ================================================================ */
-export function OmittedThumb({ e, yDomain, width = 62, height = 44, title }: { e: OmittedEntry; yDomain: [number, number]; width?: number | string; height?: number; title?: string }) {
-  const values = useMemo(() => e.kind === 'sequence'
-    ? [...motifShape(e.shape, e.amp, e.seed, { n: 50 }), ...new Array(20).fill(0), ...motifShape(e.shape, e.amp * 0.8, e.seed + 1, { n: 50 })]
-    : motifShape(e.shape, e.amp, e.seed, { n: 80 }), [e])
-  return <MiniTrace values={values} yDomain={yDomain} width={width} height={height} stroke="#b76a00" ground="none" zeroLine={false} title={title ?? `${e.id} · nearest ${e.nearest} · d ${e.d.toFixed(2)}`} style={{ background: '#fff4e0', border: '1px solid #f6cf8f', borderRadius: 6 }} />
+/* ================================================================ mV scale ================================================================ */
+/** A mV value with enough significant figures to be distinguishable from zero. `toFixed(1)` printed every mV
+ *  axis label in the Library as `0.0`/`−0.0` once the real traces arrived (per-family peaks run from 2e-5 mV
+ *  to 0.07 mV), which is a number that is not true. */
+export function fmtMv(v: number): string {
+  if (!Number.isFinite(v)) return '—'
+  const a = Math.abs(v)
+  if (a === 0) return '0'
+  if (a >= 0.1) return v.toFixed(2)
+  if (a >= 0.01) return v.toFixed(3)
+  return String(Number(v.toPrecision(2)))
+}
+/** `fmtMv` with an explicit sign, for an axis label. */
+export const fmtMvSigned = (v: number) => (v > 0 ? `+${fmtMv(v)}` : v < 0 ? `−${fmtMv(Math.abs(v))}` : '0')
+
+/** The trace with its OWN DC offset (its median) removed. Nothing is scaled — the mV span of the trace stays
+ *  exactly what the recording held, which is the property PRD Part 2 forbids destroying. Removing the offset
+ *  is what makes one shared domain possible at all: the library's traces carry baselines down to −3.67 mV
+ *  while the motifs riding on them are micro-volts, so an offset-carrying domain is 4,000x too tall and every
+ *  card draws as a flat line pinned to the floor. */
+export function centreTrace(values: number[]): number[] {
+  if (!values || values.length === 0) return values ?? []
+  const s = [...values].sort((a, b) => a - b)
+  const mid = s.length % 2 ? s[(s.length - 1) / 2] : (s[s.length / 2 - 1] + s[s.length / 2]) / 2
+  return values.map(v => v - mid)
+}
+/** Largest |v| in a trace — its peak deviation from its own baseline, once centred. */
+export const tracePeak = (values: number[]) => (values ?? []).reduce((m, v) => Math.max(m, Math.abs(v)), 0)
+
+/** Round a magnitude UP to two significant figures, so a domain of 0.01435 mV prints as 0.015 rather than the
+ *  0.1 mV that `niceMvDomain`'s fixed 0.1 step forces on it. */
+function ceilSig(v: number, digits = 2): number {
+  if (!(v > 0) || !Number.isFinite(v)) return 0
+  const mag = Math.pow(10, Math.floor(Math.log10(v)) - (digits - 1))
+  return +(Math.ceil(v / mag) * mag).toPrecision(digits + 2)
 }
 
-/** Motif card plot: exemplar (black) + medoid (family colour) on the page's shared mV domain, with +/mV/− labels. */
-export function MotifPlot({ exemplar, medoid, colour, yDomain, height = 92, labels = true, testid, overlays = [] }: {
-  exemplar?: number[]; medoid?: number[]; colour: string; yDomain: [number, number]; height?: number; labels?: boolean; testid?: string; overlays?: { values: number[]; stroke: string; width?: number }[]
+/** ONE shared, unnormalised mV domain for a page of traces, set at the `p`-th percentile of the per-trace peak
+ *  instead of at its maximum.
+ *
+ *  This is D5 made usable. The domain stays shared and nothing is normalised, so a 0.1 mV family is still
+ *  drawn 200x taller than a 0.5 µV one; what changes is that one outlier no longer sets the scale for all 149.
+ *  A family above the domain is CLIPPED, and a clipped card is marked and prints its own measured peak — a
+ *  clip marker is still unnormalised evidence, a flat line is not. */
+export function sharedMvDomain(peaks: number[], p = 0.75): [number, number] {
+  const s = peaks.filter(v => Number.isFinite(v) && v > 0).sort((a, b) => a - b)
+  if (!s.length) return [-0.01, 0.01]
+  const top = ceilSig(s[Math.min(s.length - 1, Math.floor(p * (s.length - 1)))]) || ceilSig(s[s.length - 1]) || 0.01
+  return [-top, top]
+}
+
+/* ================================================================ omission reasons ================================================================ */
+/** The engine's five omission reasons, in the words `grouping_assignments.omit_reason` stores them. Imported
+ *  by `GroupingPage` too, so the editor's panel and the drawer cannot drift apart. */
+export const OMIT_REASON_LABEL: Record<string, string> = {
+  outside_bins: 'outside every bin', past_cut: 'past the nearest-family distance',
+  group_too_small: 'in a group under the minimum', not_in_a_sequence: 'in no sequence', no_label: 'carry no label',
+}
+export const omitReasonOf = (e: OmittedEntry): string | null => (e as unknown as { omitReason?: string | null }).omitReason ?? null
+const shapeLabelOf = (e: OmittedEntry): string => (e as unknown as { shapeLabel?: string }).shapeLabel ?? 'shape not recorded'
+const shapeKnown = (e: OmittedEntry): boolean => (e as unknown as { shapeKnown?: boolean }).shapeKnown !== false
+/** `nearest`/`d` measure the distance to the nearest family, which only `past_cut` is about. For every other
+ *  reason the bridge carries `nearest "—"` and `d 0.0`, and printing `d 0.00` reads as a perfect match that was
+ *  thrown away anyway. */
+export const nearestMeansSomething = (e: OmittedEntry) => omitReasonOf(e) === 'past_cut' && e.nearest !== '—' && e.nearest !== ''
+/** One entry's reason, in words, carrying the nearest-family distance only where that is what the reason is. */
+export function omittedReasonText(e: OmittedEntry): string {
+  const r = omitReasonOf(e)
+  const words = r ? OMIT_REASON_LABEL[r] ?? r : 'reason not recorded'
+  return nearestMeansSomething(e) ? `${words} · nearest ${e.nearest} d ${e.d.toFixed(2)}` : words
+}
+/** The caption over a list of omitted entries, derived from the reasons the list actually holds. It used to be
+ *  hard-coded to the `omit_d` one ("nearest family d > 0.50 · re-cut looser"), which was false for all 364
+ *  entries in this installation: they were dropped by `min_group`, and re-cutting looser recovers none of them. */
+export function omittedReasonSummary(list: OmittedEntry[]): string {
+  if (!list.length) return 'nothing was left out of this grouping'
+  const counts = new Map<string, number>()
+  for (const e of list) { const k = omitReasonOf(e) ?? 'not recorded'; counts.set(k, (counts.get(k) ?? 0) + 1) }
+  const parts = [...counts].sort((a, b) => b[1] - a[1])
+    .map(([k, n]) => `${fmtInt(n)} ${OMIT_REASON_LABEL[k] ?? (k === 'not recorded' ? 'with no reason recorded' : k)}`)
+  return `${parts.join(' · ')} · left out of counts, not deleted`
+}
+
+/* ================================================================ thumbnails / plots ================================================================ */
+/** The omitted rows carry `(shape, amplitude, seed)` and NO waveform — `/api/library/omitted` ships no trace
+ *  for any of them. So this is a SKETCH of the recorded shape at the recorded amplitude, and every caption
+ *  beside it says so. It used to be captioned "thumbnails share one mV scale (±0.45 mV); never normalised",
+ *  which described a drawing as signal read off the recording. An entry whose shape was never recorded gets no
+ *  drawing at all. */
+export const OMITTED_SKETCH_NOTE = 'shape sketch from the recorded shape and amplitude — this read carries no waveform for an omitted entry'
+export function OmittedThumb({ e, yDomain, width = 62, height = 44, title }: { e: OmittedEntry; yDomain: [number, number]; width?: number | string; height?: number; title?: string }) {
+  const known = shapeKnown(e)
+  const values = useMemo(() => !known ? [] : e.kind === 'sequence'
+    ? [...motifShape(e.shape, e.amp, e.seed, { n: 50 }), ...new Array(20).fill(0), ...motifShape(e.shape, e.amp * 0.8, e.seed + 1, { n: 50 })]
+    : motifShape(e.shape, e.amp, e.seed, { n: 80 }), [e, known])
+  if (!known) {
+    return (
+      <span className="mono" data-testid={`omitted-noshape-${e.id}`} title={`${e.id} · ${shapeLabelOf(e)} — there is nothing to sketch`}
+        style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: typeof width === 'number' ? width : '100%', height, background: '#f6f7f9', border: '1px dashed var(--border-strong)', borderRadius: 6, fontSize: 9, color: 'var(--text-2)', textAlign: 'center', lineHeight: 1.1, padding: 2 }}>
+        no shape recorded
+      </span>
+    )
+  }
+  return <MiniTrace values={values} yDomain={yDomain} width={width} height={height} stroke="#b76a00" ground="none" zeroLine={false}
+    title={title ?? `${e.id} · ${omittedReasonText(e)} · ${OMITTED_SKETCH_NOTE}`} style={{ background: '#fff4e0', border: '1px solid #f6cf8f', borderRadius: 6 }} />
+}
+
+/** Motif card plot: exemplar (black) + medoid (family colour) on the page's shared mV domain, with its real
+ *  +/mV/− labels. `clippedPeak` is the trace's own measured peak when it runs past the domain — the plot then
+ *  says so, because `MiniTrace` clamps every sample to the domain silently. */
+export function MotifPlot({ exemplar, medoid, colour, yDomain, height = 92, labels = true, testid, overlays = [], clippedPeak }: {
+  exemplar?: number[]; medoid?: number[]; colour: string; yDomain: [number, number]; height?: number; labels?: boolean; testid?: string
+  overlays?: { values: number[]; stroke: string; width?: number }[]; clippedPeak?: number | null
 }) {
-  const top = `+${yDomain[1].toFixed(1)}`, bot = `−${Math.abs(yDomain[0]).toFixed(1)}`
+  const top = fmtMvSigned(yDomain[1]), bot = fmtMvSigned(yDomain[0])
   const ov = [...overlays, ...(medoid ? [{ values: medoid, stroke: colour, width: 1.5 }] : [])]
+  const clipNote = clippedPeak ? ` · CLIPPED: this trace peaks at ${fmtMv(clippedPeak)} mV, past the shared domain` : ''
   return (
-    <div className="lib-mplot" data-testid={testid}>
+    <div className="lib-mplot" data-testid={testid} style={{ position: 'relative' }}>
       {labels && <div className="lib-mplot-y" aria-hidden><span>{top}</span><span>mV</span><span>{bot}</span></div>}
-      <MiniTrace values={exemplar ?? medoid ?? []} overlays={exemplar ? ov : overlays} yDomain={yDomain} width="100%" height={height} strokeWidth={1.5} stroke={exemplar ? '#1f2937' : colour} ground="grey" title={`exemplar and medoid, shared scale ${bot}…${top} mV`} />
+      <MiniTrace values={exemplar ?? medoid ?? []} overlays={exemplar ? ov : overlays} yDomain={yDomain} width="100%" height={height} strokeWidth={1.5} stroke={exemplar ? '#1f2937' : colour} ground="grey" title={`exemplar and medoid, shared scale ${bot}…${top} mV${clipNote}`} />
+      {!!clippedPeak && <span className="k-badge t-amber" data-testid="plot-clipped" title={`this family peaks at ${fmtMv(clippedPeak)} mV, past the shared domain of ${top} mV — the drawing is cut off, the number is not`}
+        style={{ position: 'absolute', top: 2, right: 2, fontSize: 9 }}>clipped · {fmtMv(clippedPeak)} mV</span>}
     </div>
   )
 }
@@ -312,7 +417,10 @@ export function OmittedDrawer({ groupingId, unit }: { groupingId: string; unit: 
             <Button size="sm" icon="checklist" testid="omitted-send" onClick={() => queue(`Library · ${gLabel} omitted`, total)}>Send omitted to Review as a queue</Button>
           </div>
           <div className="row" style={{ justifyContent: 'space-between', alignItems: 'flex-start' }}>
-            <span className="mono small muted">{tab === 'sequences' ? 'nearest family d > 0.50 · re-cut looser, or leave them flagged' : unit === 'sequences' ? 'not part of any sequence · switch the unit to single motifs to group these' : 'nearest family d > 0.50 · left out of counts, not deleted'}<InfoTip title="shared y">thumbnails share one mV scale (±0.45 mV); never normalised</InfoTip></span>
+            {/* the caption is the SET OF REASONS this list actually carries. It used to state the `omit_d`
+                reason for every list, which is false for all 364 entries here: the min-group rule dropped
+                them, and the drawer was telling the researcher to re-cut looser, which recovers none. */}
+            <span className="mono small muted" data-testid="omitted-reason-summary">{omittedReasonSummary(list)}<InfoTip title="what these drawings are">{OMITTED_SKETCH_NOTE}. They share one mV scale (±0.45 mV) and nothing is normalised, but none of them is a waveform read off the recording.</InfoTip></span>
             <span className="mono small" style={{ whiteSpace: 'nowrap', flex: 'none' }}>{fmtInt((page - 1) * 10 + 1)}–{fmtInt(Math.min(list.length, page * 10))} of {fmtInt(list.length)}
               <button type="button" className="lib-pg" disabled={page <= 1} aria-label="previous page" title={page <= 1 ? 'already at the first page' : 'previous page'} onClick={() => setPage(p => p - 1)} data-testid="omitted-prev">‹</button>
               <button type="button" className="lib-pg" disabled={page >= pageCount} aria-label="next page" title={page >= pageCount ? 'already at the last page' : 'next page'} onClick={() => setPage(p => p + 1)} data-testid="omitted-next">›</button>
@@ -322,8 +430,12 @@ export function OmittedDrawer({ groupingId, unit }: { groupingId: string; unit: 
             {items.map(e => (
               <div key={e.id} className="lib-omitted-cell">
                 <OmittedThumb e={e} yDomain={yDomain} width="100%" height={52} />
-                <div className="mono small"><b>{e.id}</b> <span className="muted">d {e.d.toFixed(2)}</span></div>
-                <div className="mono small muted">nearest {e.nearest} · {e.recording} · {e.channel} · {e.onsetH.toFixed(2)} h</div>
+                {/* the per-entry reason the bridge already sends. `nearest`/`d` are printed only for the one
+                    reason they measure; for the rest the bridge carries `—`/`0.0`, and "d 0.00" read as a
+                    perfect match that was discarded anyway. */}
+                <div className="mono small"><b>{e.id}</b> {nearestMeansSomething(e) && <span className="muted">d {e.d.toFixed(2)}</span>}</div>
+                <div className="mono small muted" data-testid={`omitted-reason-${e.id}`}>{omittedReasonText(e)}</div>
+                <div className="mono small muted">{e.recording} · {e.channel} · {e.onsetH.toFixed(2)} h</div>
               </div>
             ))}
           </div>

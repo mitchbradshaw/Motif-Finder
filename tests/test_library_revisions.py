@@ -206,3 +206,53 @@ def test_editing_an_extent_names_the_edges_it_invalidated(conn, member_id):
     )
     assert stale_edges(conn, member_id) == [edge_id]
     assert stale_edges(conn, other) == [edge_id]
+
+
+# ── a revision is a claim, and a claim has an origin and a place ────────────
+
+def test_a_human_revision_with_no_annotation_is_refused(conn, member_id):
+    """§2.5: a revision points at either a `detections` row (machine) or an
+    `annotations` row (human edit). A human revision with neither is a
+    person's claim with no claim attached — the row that makes the member rail
+    show a span nobody can account for."""
+    add_revision(conn, member_id, origin="machine", detection_id=_detection(conn),
+                 start_idx=1000, end_idx=1100)
+    with pytest.raises(ValueError, match="annotation"):
+        add_revision(conn, member_id, origin="human",
+                     start_idx=990, end_idx=1105)
+    assert [r["revision"] for r in revision_list(conn, member_id)] == [1]
+
+
+def test_a_machine_revision_needs_no_detection(conn, member_id):
+    """The other side of the same rule, and the reason it is not symmetric: an
+    event store is a catalogue of shapes, not a run, so the event-store
+    importer has no `detections` row to point at for 3,599 of the catalogue's
+    members. Requiring one would refuse the import that built the library."""
+    revision_id = add_revision(conn, member_id, origin="machine",
+                               start_idx=1000, end_idx=1100)
+    assert current_revision(conn, member_id)["id"] == revision_id
+    assert current_revision(conn, member_id)["detection_id"] is None
+
+
+def test_a_revision_somewhere_else_entirely_is_refused(conn, member_id):
+    """A redrawing is a redrawing *of this member*. A span that does not touch
+    rev 1 is not an edit of it, and writing one moves the member to a place
+    its recording may not even contain."""
+    add_revision(conn, member_id, origin="machine", detection_id=_detection(conn),
+                 start_idx=1000, end_idx=1100)
+    with pytest.raises(ValueError, match="overlap"):
+        add_revision(conn, member_id, origin="human",
+                     annotation_id=_annotation(conn, 10, 20),
+                     start_idx=10, end_idx=20)
+    assert current_revision(conn, member_id)["start_idx"] == 1000
+
+
+def test_an_edit_that_touches_the_original_span_is_kept(conn, member_id):
+    """The boundary: a redrawing that overlaps rev 1 at all is an edit of it,
+    however much it moves the edges."""
+    add_revision(conn, member_id, origin="machine", detection_id=_detection(conn),
+                 start_idx=1000, end_idx=1100)
+    add_revision(conn, member_id, origin="human",
+                 annotation_id=_annotation(conn, 1099, 1400),
+                 start_idx=1099, end_idx=1400)
+    assert current_revision(conn, member_id)["end_idx"] == 1400

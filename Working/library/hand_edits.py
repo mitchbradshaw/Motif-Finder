@@ -15,6 +15,16 @@ edit would silently evaporate on exactly the operation it exists to survive.
 The hash is the shape itself, so a decision taken in March still binds after a
 re-clustering in June.
 
+**And the family it names is keyed by its medoid's hash, for the same reason.**
+Family labels are sequential and every grouping numbers its own families from
+one, so `F-06` is a different set of shapes in every saved grouping — on the
+live catalogue g-01 and g-02 share 60 labels and 59 of those pairs have no
+shape in common. `family_key`/`resolve_family_keys` read the family's medoid
+out of `grouping_assignments`, and `apply_to_assignment` matches on that,
+falling back to the label only inside the edit's own grouping. See
+`apply_to_assignment` for the four cases and why the alternative was a silent
+mis-application rather than a visible orphan.
+
 The module has two halves that are one flow. The store (`record`, `undo`,
 `edits_for`, `active_edits`) owns the rows; `apply_to_assignment` is a **pure**
 function over plain dicts — a computed grouping's assignments plus the active
@@ -124,6 +134,58 @@ def active_edits(conn, grouping_id=None):
     return conn.execute(" ".join(sql), params).fetchall()
 
 
+def family_key(conn, grouping_id, family_label):
+    """The identity of one family: its medoid's content hash.
+
+    A family label is **not** a key. Labels are sequential (`F-01`, `F-02`, …)
+    and every grouping numbers its own families from one, so `F-06` names one
+    set of shapes in g-01 and a different set in g-02 — measured on the live
+    catalogue, 59 of the 60 labels those two groupings share have *no* content
+    hash in common. The medoid is the shape the family is named after, and
+    `grouping_assignments.is_medoid` already carries it, so it is the key an
+    edit can be matched by across a regroup.
+
+    Returns None when the grouping has no such family, which is an answer and
+    not an error: the edit is then an orphan (§8.3's "F-03 additions").
+    """
+    if grouping_id is None or not family_label:
+        return None
+    row = conn.execute(
+        """SELECT content_hash FROM grouping_assignments
+            WHERE grouping_id = ? AND family_label = ? AND is_medoid = 1
+            ORDER BY id LIMIT 1""",
+        (int(grouping_id), family_label),
+    ).fetchone()
+    return row["content_hash"] if row is not None else None
+
+
+def resolve_family_keys(conn, edits):
+    """Each edit as a plain dict, with `family_key` filled in from the grouping
+    it was recorded against.
+
+    This is the seam between the store and the pure rule: `apply_to_assignment`
+    needs the family's identity and must not hold a connection, so the lookup
+    happens here, once, against the edit's **own** `grouping_id`. An edit with
+    no grouping and no key keeps the label it carries, and the pure function
+    decides what that is worth.
+    """
+    resolved = []
+    cache = {}
+    for edit in edits:
+        row = dict(edit) if not isinstance(edit, dict) else dict(edit)
+        grouping_id = row.get("grouping_id")
+        label = row.get("family_label")
+        if row.get("family_key") is None and grouping_id is not None and label:
+            cache_key = (int(grouping_id), label)
+            if cache_key not in cache:
+                cache[cache_key] = family_key(conn, grouping_id, label)
+            row["family_key"] = cache[cache_key]
+        else:
+            row.setdefault("family_key", row.get("family_key"))
+        resolved.append(row)
+    return resolved
+
+
 def _field(edit, name, default=None):
     """One field of an edit, from a `sqlite3.Row` or a plain dict alike — the
     store's rows go into the pure function unchanged, so it must read both."""
@@ -134,7 +196,7 @@ def _field(edit, name, default=None):
     return default if value is None else value
 
 
-def apply_to_assignment(assignments, edits):
+def apply_to_assignment(assignments, edits, *, grouping_id=None):
     """Re-apply hand edits on top of one computed grouping (spec §8.3).
 
     Parameters
@@ -168,10 +230,28 @@ def apply_to_assignment(assignments, edits):
     ``tag`` / ``class`` attach to the member.
 
     A ``remove_member`` or ``make_exemplar`` edit naming a family is scoped to
-    it; one with no `family_label` applies wherever the member landed. Matching
-    is by **label**, which is what the row carries — a grouping that renames
-    its families orphans those edits rather than mis-applying them, which is
-    the safe direction: an orphan is visible and a mis-application is not.
+    it; one with no `family_label` applies wherever the member landed.
+
+    Which family an edit names
+    --------------------------
+    By the family's **medoid content hash** (`family_key`, which
+    `resolve_family_keys` fills in from the grouping the edit was written
+    against), and only by the label when the label is genuinely a key:
+
+    * `family_key` set  -> the family whose medoid is that shape, whatever this
+      grouping now calls it. A relabelled family is still the same family.
+    * `family_key` set and no family here has that medoid -> orphan.
+    * no key, and the edit and these assignments are the **same** grouping (or
+      neither names one) -> the label, because within one grouping the label is
+      where the edit was written and means what it said.
+    * no key, and the edit came from another grouping -> orphan.
+
+    That last rule is the one worth spelling out. Family labels are sequential
+    and every grouping numbers from one, so a label is recycled: on the live
+    catalogue g-01 and g-02 share 60 labels and 59 of those pairs have no shape
+    in common. Matching an edit made against g-02's `F-06` onto g-01's `F-06`
+    joined a shape to an unrelated family **silently**, which is the one
+    outcome §8.3 rules out — an orphan is visible and a mis-application is not.
     """
     rows = []
     index = {}
@@ -182,6 +262,27 @@ def apply_to_assignment(assignments, edits):
         index.setdefault(row.get("content_hash"), []).append(row)
 
     families = {row.get("family_label") for row in rows if row.get("family_label")}
+    medoid_labels = {}
+    for row in rows:
+        if row.get("is_medoid") and row.get("family_label"):
+            medoid_labels.setdefault(row.get("content_hash"),
+                                     row.get("family_label"))
+
+    def _family_here(edit, family_label):
+        """The label this edit names **in these assignments**, or None when it
+        names a family this grouping does not have. See the docstring."""
+        key = _field(edit, "family_key")
+        if key is not None:
+            return medoid_labels.get(key)
+        edit_grouping = _field(edit, "grouping_id")
+        same_grouping = (
+            (edit_grouping is None and grouping_id is None)
+            or (edit_grouping is not None and grouping_id is not None
+                and int(edit_grouping) == int(grouping_id))
+        )
+        if not same_grouping:
+            return None
+        return family_label if family_label in families else None
 
     orphans = {}
     applied = 0
@@ -206,9 +307,11 @@ def apply_to_assignment(assignments, edits):
         targets = index.get(content_hash, [])
 
         if kind == "add_member":
-            if family_label and family_label not in families:
-                _orphan(edit, family_label)
-                continue
+            if family_label:
+                family_label = _family_here(edit, family_label)
+                if family_label is None:
+                    _orphan(edit, _field(edit, "family_label"))
+                    continue
             if not targets:
                 # The shape is in the catalogue but not in this grouping's
                 # answer — omitted by the cut, most likely. The hand edit puts
@@ -228,9 +331,11 @@ def apply_to_assignment(assignments, edits):
             applied += 1
 
         elif kind == "remove_member":
-            if family_label and family_label not in families:
-                _orphan(edit, family_label)
-                continue
+            if family_label:
+                family_label = _family_here(edit, family_label)
+                if family_label is None:
+                    _orphan(edit, _field(edit, "family_label"))
+                    continue
             hit = False
             for row in targets:
                 if family_label and row.get("family_label") != family_label:
@@ -244,9 +349,11 @@ def apply_to_assignment(assignments, edits):
             applied += 1 if hit else 0
 
         elif kind == "make_exemplar":
-            if family_label and family_label not in families:
-                _orphan(edit, family_label)
-                continue
+            if family_label:
+                family_label = _family_here(edit, family_label)
+                if family_label is None:
+                    _orphan(edit, _field(edit, "family_label"))
+                    continue
             for row in targets:
                 row["is_exemplar"] = True
                 row["hand"] = True

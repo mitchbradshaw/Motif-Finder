@@ -30,7 +30,8 @@ import {
   CLASS_OPTIONS, TAG_RULE, TAG_VOCABULARY, getFamily, getMotifFamilies, motifShape, niceMvDomain,
   type FamilyDetail, type FamilyRead, type Member, type MotifFamily, type RemovedMember, type SequenceFamily, type Verdict,
 } from '../api/library'
-import { GroupingBar, LoadFailed, Loading, MotifPlot, SectionBar, useAllGroupings, useEmptyLibrary, useMotifGroupingId, useQueueToast, useRememberMotifsRoute, useSequenceGroupingId } from './chrome'
+import { GroupingBar, LoadFailed, Loading, MotifPlot, SectionBar, centreTrace, fmtMv, fmtMvSigned, sharedMvDomain, tracePeak, useAllGroupings, useEmptyLibrary, useMotifGroupingId, useQueueToast, useRememberMotifsRoute, useSequenceGroupingId } from './chrome'
+import { familyName } from './AtlasPage'
 import { EmptyMotifsPage } from './EmptyLibrary'
 
 /** What the bridge actually returns for a removed member — `RemovedMember` plus the two fields
@@ -56,6 +57,18 @@ const today = () => { const d = new Date(); return `${d.getDate()} ${MONTHS[d.ge
 /** The sketch caption, written once so every surface that draws one says the same thing. */
 const SKETCH_NOTE = 'shape sketch · amplitude and duration are measured, the waveform itself is not carried by this read'
 
+/** What the family's tags actually call its shape, for the sketch caption.
+ *
+ *  `f.shape` is coerced to one of the ten drawable glyphs (`api/library.ts`), and the live vocabulary is
+ *  mostly `trough`, which is not one of them — so the sketches for five families in six are drawn with a
+ *  `drop` glyph. Saying so beside them is the difference between a sketch and a wrong claim. */
+function shapeNote(f: MotifFamily): string {
+  const live = f as unknown as { shapeLabel?: string; shapeKnown?: boolean }
+  if (live.shapeKnown === false || !live.shapeLabel) return 'shape not recorded'
+  return live.shapeLabel === f.shape ? live.shapeLabel
+    : `${live.shapeLabel} · drawn with the ${f.shape} glyph`
+}
+
 export function FamilyPage({ familyId }: { familyId?: string } = {}) {
   useRememberMotifsRoute()
   const { route } = useApp()
@@ -72,7 +85,10 @@ export function FamilyPage({ familyId }: { familyId?: string } = {}) {
   if (empty) return <EmptyMotifsPage />
   const grouping = groupings.all.find(g => g.id === gid) ?? null
   const d = fam.data
-  const title = d?.kind === 'motif' ? `${d.detail.family.id} ${d.detail.family.name}` : d?.kind === 'sequence' ? `${d.family.id} ${d.family.name}` : (id || 'Family')
+  // the id ONCE when the bridge has no distinct name for it: every family is `{id:"F-03", name:"F-03"}`
+  // today, which printed "F-03 F-03" in the crumb, the subtitle and the header
+  const titleOf = (fid: string, nm: string) => `${fid}${familyName(fid, nm) ? ` ${nm}` : ''}`
+  const title = d?.kind === 'motif' ? titleOf(d.detail.family.id, d.detail.family.name) : d?.kind === 'sequence' ? titleOf(d.family.id, d.family.name) : (id || 'Family')
   const shownGid = (d?.kind === 'sequence' ? seqGid : gid) || 'none'
   const noFamilies = !named && !firstFamily.loading && !firstFamily.error && !(firstFamily.data ?? []).length
   return (
@@ -101,7 +117,7 @@ function ExportEntryBtn({ id }: { id: string }) {
 function SequenceFamilyPlaceholder({ f }: { f: SequenceFamily }) {
   return (
     <div className="k-card" style={{ padding: 20 }} data-testid="sequence-family-placeholder">
-      <EmptyState icon="layers" title={`${f.id} ${f.name} · ${f.sequences} sequences · ${f.motifs} motifs`} caption="the sequence family page is not drawn yet — open the atlas for the composition and aligned members"
+      <EmptyState icon="layers" title={`${f.id}${familyName(f.id, f.name) ? ` ${f.name}` : ''} · ${f.sequences} sequences · ${f.motifs} motifs`} caption="the sequence family page is not drawn yet — open the atlas for the composition and aligned members"
         action={<Button onClick={() => navigate(`library/atlas?unit=sequences&family=${f.id}`)}>‹ back to atlas</Button>} />
       {/* the member ids used to be fabricated here (`sq-02NN`); this read does not carry them, so it says so */}
       <div className="lib-cap" style={{ marginTop: 12 }}>composition {f.compositionLabel} · {f.recordings} recordings · the member sequences are not carried by this read</div>
@@ -162,18 +178,29 @@ function MotifFamilyView({ detail }: { detail: FamilyDetail }) {
   const page = Math.min(pageCount, Math.max(1, Number(pageQ) || 1))
   const pageItems = ordered.slice((page - 1) * 10, page * 10)
   const railMember = ordered.find(m => m.id === memberQ) ?? members.map(withEdits).find(m => m.id === memberQ) ?? pageItems[0] ?? null
+  /* TWO domains, because this page draws two different kinds of thing and they are never in the same panel.
+     `yDomain` is the SKETCH domain: the member cards and the rail's member plot are drawn from `(shape,
+     amplitude, seed)` around zero, so the members' own amplitudes set it. `traceDomain` is for the two REAL
+     traces (the exemplar and the medoid, read off the memmap) — they carry their recording's DC offset, and
+     drawing them on the zero-centred amplitude domain pinned every sample to the floor of the plot: F-01's
+     exemplar spans −1.148…−1.131 mV against a ±0.1 mV domain, which `MiniTrace` clamps silently, so a real
+     17.6 µV drop rendered as a dead-flat line and nothing said so. The traces are centred on their own median
+     (DC offset removed, mV span untouched — nothing is normalised) and get a domain measured from themselves. */
   const yDomain = useMemo(() => {
     // an empty family (every member removed by hand) must not make Math.max(-Infinity) the domain
     const a = Math.max(...detail.members.map(m => m.amplitudeMv), Math.abs(f.depthMv), 0.01)
     return niceMvDomain([[a * 1.05, -a * 1.05]])
   }, [detail.members, f.depthMv])
+  const realTraces = useMemo(() => ({ ex: centreTrace(f.exemplarTrace ?? []), me: centreTrace(f.medoidTrace ?? []) }), [f.exemplarTrace, f.medoidTrace])
+  const tracePeakMv = Math.max(tracePeak(realTraces.ex), tracePeak(realTraces.me))
+  const traceDomain = useMemo(() => sharedMvDomain([tracePeakMv], 1), [tracePeakMv])
   const judged = members.filter(m => m.verdict !== 'unjudged').length
   const unjudged = members.length - judged
   const added = members.filter(m => m.addedByHand).length
   // the summary plot always draws the family's OWN exemplar trace, which is real. Choosing a new exemplar by
   // hand does not produce a trace for it — that comes back on the next read — so the plot says so instead of
   // swapping a sketch in beside the real medoid.
-  const exemplarTrace = f.exemplarTrace
+  const exemplarTrace = realTraces.ex
   const handExemplar = edits.exemplar !== f.exemplar
   const selInList = sel.filter(s => members.some(m => m.id === s))
   const pageIds = pageItems.map(m => m.id)
@@ -236,8 +263,9 @@ function MotifFamilyView({ detail }: { detail: FamilyDetail }) {
 
         <div className="k-card" style={{ padding: 12, display: 'grid', gridTemplateColumns: '300px minmax(0, 1fr) 222px', gap: 14, alignItems: 'start' }} data-testid="family-summary">
           <div>
-            <MotifPlot exemplar={exemplarTrace} medoid={f.medoidTrace} colour={f.colour} yDomain={yDomain} height={108} testid="summary-exemplar-medoid" />
+            <MotifPlot exemplar={exemplarTrace} medoid={realTraces.me} colour={f.colour} yDomain={traceDomain} height={108} testid="summary-exemplar-medoid" />
             <div className="row lib-cap" style={{ justifyContent: 'space-between', paddingLeft: 30 }}><span>0</span><span>{f.durationS} s</span></div>
+            <div className="lib-cap" style={{ fontSize: 10 }} data-testid="summary-trace-note">measured · each trace centred on its own baseline, nothing normalised · peak {fmtMv(tracePeakMv)} mV</div>
           </div>
           <div className="stack" style={{ gap: 10 }}>
             <div className="row lib-cap" style={{ fontSize: 10.5 }}>
@@ -266,7 +294,7 @@ function MotifFamilyView({ detail }: { detail: FamilyDetail }) {
                 on top of a measurement, which is the one thing `api/library.ts` says must not happen. The
                 medoid is drawn alone, and the caption says why there is nothing over it. */}
             <div className="row lib-cap" style={{ fontSize: 10.5 }}><span>medoid {f.medoid} · measured</span></div>
-            <MiniTrace values={f.medoidTrace} yDomain={yDomain} width="100%" height={104} strokeWidth={1.8} testid="summary-overlay" title={`the medoid of ${f.id}, read off the recording · shared mV scale`} />
+            <MiniTrace values={realTraces.me} yDomain={traceDomain} width="100%" height={104} strokeWidth={1.8} testid="summary-overlay" title={`the medoid of ${f.id}, read off the recording · ${fmtMvSigned(traceDomain[0])}…${fmtMvSigned(traceDomain[1])} mV, centred on its own baseline, not normalised`} />
             <div className="lib-cap" style={{ fontSize: 10 }}>member waveforms are not carried by this read, so none are overlaid</div>
           </div>
         </div>
@@ -305,7 +333,7 @@ function MotifFamilyView({ detail }: { detail: FamilyDetail }) {
           })}
         </div>
         {!pageItems.length && <EmptyState title={handOnly ? 'No hand-edited members' : 'No members'} caption={handOnly ? 'nobody has added a member to this family by hand' : 'every member was removed'} bordered testid="members-empty" />}
-        <span className="lib-cap" style={{ marginTop: -4 }}>shared mV scale · ±{yDomain[1].toFixed(1)} mV · {f.durationS} s · {SKETCH_NOTE}</span>
+        <span className="lib-cap" style={{ marginTop: -4 }}>shared mV scale · ±{fmtMv(yDomain[1])} mV · {f.durationS} s · {shapeNote(f)} · {SKETCH_NOTE}</span>
 
         {edits.removed.length > 0 && (
           <div className="k-card" style={{ padding: '10px 14px', display: 'grid', gridTemplateColumns: '240px 1fr', gap: 12, alignItems: 'center' }} data-testid="removed-strip">

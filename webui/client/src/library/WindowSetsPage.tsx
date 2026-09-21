@@ -63,7 +63,7 @@ export function WindowSetsPage() {
   const navKey = useExternalNavKey()
   const rows = useMemo(() => (setsQ === 'empty' ? [] : (sets.data ?? []).filter(s => !deleted.includes(s.id))), [sets.data, deleted, setsQ])
   const { push } = useToast()
-  const [, setModal] = useQueryState('modal', '')
+  const [modal, setModal] = useQueryState('modal', '')
   return (
     <>
       <Header workspace="Library" page="Window sets" subtitle={`${sets.data ? rows.length : '…'} saved`} search="Search spans, runs, families" demo={sets.source === 'demo'} />
@@ -79,6 +79,11 @@ export function WindowSetsPage() {
           ? <div className="k-card" style={{ padding: 30 }}><EmptyState icon="grid" testid="window-sets-none" title="No saved window sets yet" caption="Save one from any block whose output is a WindowSet (e.g. sliding windows in a training chain)"
             action={<Button variant="primary" icon="link" onClick={() => navigate('analyse/training')}>New from Analyse</Button>} /></div>
           : <WindowSets key={navKey} rows={rows} onDelete={id => { setDeleted(d => [...d, id]); recordDemoWrite('library', 'window-set.delete', { id }); push({ text: `Hidden ${id} in this session · not wired yet: DELETE /api/window-sets/${id}`, action: { label: 'Undo', onClick: () => setDeleted(d => d.filter(x => x !== id)) } }) }} />)}
+        {/* The import modal lives HERE, beside the page, not inside `WindowSets` — `WindowSets` only mounts
+            when `rows.length > 0`, so on an empty library (which is the state every installation starts in,
+            and the only state this one can show: `GET /api/library/windowsets` returns `[]`) the Import button
+            set `?modal=import` and nothing appeared. Importing is the only way to get a first window set in. */}
+        <ImportWindowSetModal open={modal === 'import'} onClose={() => setModal(null)} />
       </Page>
     </>
   )
@@ -176,7 +181,6 @@ function WindowSets({ rows, onDelete }: { rows: WindowSetRow[]; onDelete: (id: s
             <Callout tone="amber" title="Not checked" testid="delete-unverified">§8.8 blocks a delete while anything uses the set, but nothing in this installation records what consumed a window set — so this is an <b>unchecked</b> delete, not a check that passed.</Callout>
           </div>}
       </Modal>
-      <ImportWindowSetModal open={modal === 'import'} onClose={() => setModal(null)} />
     </div>
   )
 }

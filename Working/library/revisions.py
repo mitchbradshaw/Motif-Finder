@@ -27,8 +27,13 @@ constraint, which only polices the vocabulary and not the pairing.
 
 Editing an extent invalidates that member's `motif_edge` distances (§2.5, spec
 §4.2 rule 5). This module does not recompute them — it is the span store, not
-the distance engine — but `add_revision` reports how many edges the caller now
-owes a recomputation for, so the obligation cannot be missed silently.
+the distance engine — and it does not mark them either: `motif_edge` has no
+staleness column and `add_revision` does not touch the edge table. What exists
+is `stale_edges(conn, member_id)`, which **returns the edge ids an edit has
+invalidated**; the caller asks for them and is then on the hook for them.
+`add_revision` itself returns only the new revision's row id. Whoever writes
+the extent-edit route owns that call — there is no mechanism here that will
+make the obligation visible on its own.
 """
 
 import datetime
@@ -43,12 +48,20 @@ def _now():
 
 
 def _check_origin(origin, detection_id, annotation_id):
-    """Refuse a revision whose provenance pointer contradicts its origin.
+    """Refuse a revision whose provenance pointer contradicts its origin, or
+    whose human claim has no provenance at all.
 
     Named error, naming the rule: `detections` is machine-only and
     `annotations` is human-only (CLAUDE.md rule 5), and a revision is precisely
     the row where a careless writer would put a human verdict on a machine span
     or the reverse.
+
+    A **human** revision must carry its `annotation_id`. It is one person's
+    claim about where a motif is, and a claim with nothing behind it puts a
+    span on the member rail that nobody can account for. A **machine** revision
+    may carry no `detection_id`: an event store is a catalogue of shapes and
+    not a run, so the importer that wrote most of this library has no
+    `detections` row to point at, and demanding one would mean inventing it.
     """
     if origin not in ORIGINS:
         raise ValueError(
@@ -67,6 +80,12 @@ def _check_origin(origin, detection_id, annotation_id):
             "A human edit writes a new annotation and never mutates the "
             "detection — the run still reproduces from its recipe."
         )
+    if origin == HUMAN and annotation_id is None:
+        raise ValueError(
+            "A human revision needs an annotation_id: a redrawn extent is a "
+            "person's claim, and the annotation is the claim. Write the "
+            "annotation first and point this revision at it (§2.5)."
+        )
 
 
 def add_revision(conn, member_id, *, origin, start_idx, end_idx,
@@ -81,10 +100,14 @@ def add_revision(conn, member_id, *, origin, start_idx, end_idx,
       2. stamp `superseded_at` on the revision that was current;
       3. move `motif_member.current_revision_id`.
 
-    Returns the new revision's row id.
+    Returns the new revision's row id — and nothing about edges: the edges an
+    extent edit invalidates are `stale_edges(conn, member_id)`' answer, asked
+    for by the caller, and nothing here marks them.
 
-    Raises `ValueError` for an unknown member, an unknown origin, or a
-    provenance pointer that contradicts the origin (see `_check_origin`).
+    Raises `ValueError` for an unknown member, an unknown origin, a provenance
+    pointer that contradicts or is missing for the origin (see
+    `_check_origin`), an empty or inverted span, or a span that does not
+    overlap revision 1 — a redrawing is a redrawing *of this motif*.
     """
     _check_origin(origin, detection_id, annotation_id)
 
@@ -100,6 +123,21 @@ def add_revision(conn, member_id, *, origin, start_idx, end_idx,
         raise ValueError(
             f"Revision span [{start_idx}, {end_idx}) is empty or inverted; a "
             "revision is a span, so its end must exceed its start."
+        )
+
+    original = conn.execute(
+        """SELECT start_idx, end_idx FROM motif_member_revision
+           WHERE member_id = ? AND revision = 1""",
+        (int(member_id),),
+    ).fetchone()
+    if original is not None and (end_idx <= original["start_idx"]
+                                 or start_idx >= original["end_idx"]):
+        raise ValueError(
+            f"Revision span [{start_idx}, {end_idx}) does not overlap this "
+            f"member's revision 1 [{original['start_idx']}, "
+            f"{original['end_idx']}). A revision re-describes THIS motif's "
+            "extent; a span somewhere else is a different motif and belongs "
+            "to its own member."
         )
 
     created_at = created_at or _now()

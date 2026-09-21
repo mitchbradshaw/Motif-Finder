@@ -44,8 +44,11 @@ Three refusals, all loud
    A corrupt snippet must not hash to something plausible.
 
 Everything else that cannot be written is **counted with a reason**, never
-dropped silently: an unknown `recording_id` is a warning plus a skip, and an
-excluded corpus is a skip naming the corpus.
+dropped silently: an unknown `recording_id` is a warning plus a skip, an
+excluded corpus is a skip naming the corpus, and a span already held by a
+DIFFERENT shape is `span_holds_another_shape` — counted, warned, and never
+overwritten. The dry run runs that last check too, so the preview cannot
+promise an entry the import then refuses.
 
 Measured features are NOT stored
 --------------------------------
@@ -167,10 +170,33 @@ class ImportReport:
         return self.outcomes.get(CREATED, 0)
 
     @property
+    def n_already_present(self):
+        """Events whose occurrence this library already describes — a second
+        run's whole answer. Named on the report rather than left in `outcomes`
+        because it is the number the Import page's "safe to run twice" check
+        is about, and a reader who has to pick it out of a `Counter` picks the
+        wrong one."""
+        return self.outcomes.get(ALREADY_PRESENT, 0)
+
+    @property
     def n_duplicate(self):
         """Events that resolved onto an existing shape — `exact` in §2.4 —
-        whether they added a member or found their occurrence already there."""
-        return self.outcomes.get(MEMBER_ADDED, 0)
+        whether they added a member or found their occurrence already there.
+
+        Both halves, as the sentence above says: `ALREADY_PRESENT` is the
+        re-import case and counting only `MEMBER_ADDED` made a bundle that is
+        already held row for row report that none of it was.
+        """
+        return (self.outcomes.get(MEMBER_ADDED, 0)
+                + self.outcomes.get(ALREADY_PRESENT, 0)
+                + self.outcomes.get(REVISION_ADDED, 0))
+
+    @property
+    def n_motifs(self):
+        """The headline count: rows of this bundle that the library holds a
+        shape for once the import is done — created plus resolved. Not
+        `n_rows`, because a skipped row contributes no shape."""
+        return self.n_created + self.n_duplicate
 
     @property
     def n_near_flagged(self):
@@ -191,7 +217,9 @@ class ImportReport:
             "outcomes": dict(self.outcomes),
             "skipped": dict(self.skipped),
             "n_created": self.n_created,
+            "n_already_present": self.n_already_present,
             "n_duplicate": self.n_duplicate,
+            "n_motifs": self.n_motifs,
             "n_near_flagged": self.n_near_flagged,
             "n_skipped": self.n_skipped,
             "warnings": list(self.warnings),
@@ -575,9 +603,16 @@ def _import_one(conn, event, snippets, recordings, report, *, store_ref,
         # count of "things a person still has to look at" grows every time the
         # importer is run.
         for flag in flags:
+            # Both spans, each named for its side. `find_near_duplicates` put
+            # the INCUMBENT's span in `start_idx`/`end_idx`, and overwriting it
+            # with the candidate's left the flag carrying one span twice and
+            # an `iou`/`onset_delta` that described a pair the row no longer
+            # named. For a dry-run flag the incumbent has no id, so its span is
+            # the only record of what was overlapped.
             record = dict(flag, source_ref=source_ref,
                           recording_id=recording_id,
-                          start_idx=start_idx, end_idx=end_idx)
+                          candidate_start_idx=start_idx,
+                          candidate_end_idx=end_idx)
             report.flags.append(record)
             _record_flag(conn, event, record, dry_run)
         return _create_entry(
@@ -605,11 +640,61 @@ def _import_one(conn, event, snippets, recordings, report, *, store_ref,
     )
 
 
+def _span_holder_hash(conn, recording_id, start_idx, end_idx, pending_spans):
+    """The content hash already held at this exemplar span, or None.
+
+    Both halves of "already", because a dry run has two: the rows in the
+    database, and the entries this same dry run has decided it would create.
+    """
+    row = conn.execute(
+        """SELECT content_hash FROM motif_entry
+            WHERE recording_id = ? AND start_idx = ? AND end_idx = ?""",
+        (recording_id, start_idx, end_idx),
+    ).fetchone()
+    if row is not None and row["content_hash"]:
+        return row["content_hash"]
+    for span in pending_spans:
+        if (span["recording_id"] == recording_id
+                and span["start_idx"] == start_idx
+                and span["end_idx"] == end_idx):
+            return span["content_hash"]
+    return None
+
+
+def _refuse_span_conflict(report, source_ref, recording_id, start_idx, end_idx,
+                          entry_id=None):
+    """Count and explain the third outcome of §2.4: same span, different shape.
+
+    `motif_entry` carries `UNIQUE (recording_id, start_idx, end_idx)` on the
+    exemplar span (§3.1), so a span already held by a DIFFERENT hash is a real
+    conflict — two detectors disagreeing about what is at one place — and not a
+    duplicate. It is counted and left alone rather than overwritten, and the
+    dry run says so too, in the same words.
+    """
+    report.skipped["span_holds_another_shape"] += 1
+    held = f"entry {entry_id}" if entry_id is not None else "another entry"
+    report.warnings.append(
+        f"{source_ref}: recording {recording_id} [{start_idx}, {end_idx}) "
+        f"is already {held} with a different content hash. Two "
+        "shapes cannot share one exemplar span; the event was skipped."
+    )
+    return SKIPPED, "span already holds another shape"
+
+
 def _create_entry(conn, event, report, *, digest, recording_id, channel,
                   start_idx, end_idx, store_ref, source_ref, dry_run,
                   pending_hashes, pending_spans, created_at):
     """A new shape: one entry, its first member, revision 1, and its tags."""
     if dry_run:
+        # The same lookup the real run does below, run before the preview says
+        # "created". Without it the dry run cannot report a span conflict at
+        # all — it would promise an entry the import then refuses, which is the
+        # one thing §5.3 says a dry run does not do.
+        held = _span_holder_hash(conn, recording_id, start_idx, end_idx,
+                                 pending_spans)
+        if held is not None and held != digest:
+            return _refuse_span_conflict(report, source_ref, recording_id,
+                                         start_idx, end_idx)
         pending_hashes[digest] = f"pending:{digest}"
         pending_spans.append({"recording_id": recording_id, "channel": channel,
                               "start_idx": start_idx, "end_idx": end_idx,
@@ -629,13 +714,8 @@ def _create_entry(conn, event, report, *, digest, recording_id, channel,
         "SELECT content_hash FROM motif_entry WHERE id = ?", (entry_id,)
     ).fetchone()
     if existing["content_hash"] and existing["content_hash"] != digest:
-        report.skipped["span_holds_another_shape"] += 1
-        report.warnings.append(
-            f"{source_ref}: recording {recording_id} [{start_idx}, {end_idx}) "
-            f"is already entry {entry_id} with a different content hash. Two "
-            "shapes cannot share one exemplar span; the event was skipped."
-        )
-        return SKIPPED, "span already holds another shape"
+        return _refuse_span_conflict(report, source_ref, recording_id,
+                                     start_idx, end_idx, entry_id=entry_id)
 
     conn.execute(
         """UPDATE motif_entry

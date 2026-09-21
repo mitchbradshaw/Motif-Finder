@@ -141,8 +141,12 @@ revision list. Revisions are spans, not edits to a span."*
 - A re-run producing a span that matches **rev 1** resolves onto **this same member** (§4.2 rule 4), and
   writes its own detection row carrying a pointer to the prior adjudication (§4.7). It does not create a
   revision.
-- Editing an extent **invalidates that member's `motif_edge` distances**. The edges are marked stale rather
-  than silently kept.
+- Editing an extent **invalidates that member's `motif_edge` distances**. **Nothing marks them.** There is
+  no staleness column on `motif_edge` and `add_revision` does not touch the edge table;
+  `revisions.stale_edges(conn, member_id)` returns the invalidated edge ids and **the caller that edited
+  the extent is on the hook for recomputing them**. This paragraph previously claimed the edges were
+  "marked stale rather than silently kept", which was aspirational — a reader who believed it would have
+  trusted a distance the edit had already invalidated.
 
 ---
 
@@ -602,6 +606,23 @@ The removed member **stays out on every regroup until restored** (spec §8.3), a
 the new grouping no longer has comes back as an orphan to be kept as a hand group rather than being
 silently dropped. That is the whole reason the key is a content hash: a member id survives a regroup, but a
 *family* id does not, and an edit keyed to a family would be lost the moment the cut moved.
+
+### 8.1 A hand edit names its family by the family's medoid, not by its label
+
+Labels are sequential and **every grouping numbers its families from one**, so `F-06` names a different
+set of shapes in every grouping. On this machine g-01 and g-02 share **60 labels and 59 of those pairs
+have no shape in common at all**. Matching an edit to a family by label therefore does not merely fail on
+a renamed family — in the common case it *succeeds against the wrong one*, silently, which is the failure
+mode hand edits exist to avoid.
+
+So an edit resolves its family by that family's **medoid content hash**
+(`grouping_assignments.content_hash` where `is_medoid = 1`), and falls back to the label only when the
+edit and the assignments belong to the same grouping. Two consequences worth stating:
+
+- an edit whose family key is no shape's medoid in the new grouping comes back as an **orphan**, visible,
+  to be kept as a hand group;
+- a family the re-clustering **renamed** is still matched, because the medoid is the same shape — which
+  label matching never managed.
 
 ---
 
