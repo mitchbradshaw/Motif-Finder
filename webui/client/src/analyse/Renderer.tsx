@@ -124,7 +124,7 @@ function SpansetR({ p, ctx }: { p: SpansetPayload; ctx: RenderCtx }) {
         <SpanBands spans={spans} x={ctx.x} height={ctx.height} capY={0} capH={3} minPx={2} />
         <text x={ctx.width - 6} y={ctx.height - 5} textAnchor="end" fill="var(--muted-2)">{p.n} span{p.n === 1 ? '' : 's'}{p.capped ? ' · capped' : ''}</text>
       </svg>
-      {p.n === 0 && <Empty text="0 spans — nothing crossed the threshold" />}
+      {p.n === 0 && <Empty text="0 spans — this block found nothing on this span" />}
     </>
   )
 }

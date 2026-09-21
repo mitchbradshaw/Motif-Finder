@@ -14,7 +14,7 @@ import { paramCaption } from './captions'
 import { ParamsPanel, fmtParam } from './ParamsPanel'
 import { GhostPath, motifLabels, renderByType, SYM3 } from './Renderer'
 import { deriveRows, fmtTiming, jobForSource } from './rowState'
-import { cancelCurrent, markStale, startRun, stepElapsed, syncToSource, useAnalyseStore } from './store'
+import { attachRun, cancelCurrent, markStale, startRun, stepElapsed, syncToSource, useAnalyseStore } from './store'
 import { EstimateChip, isHeldOut, NameChip, RunErrorCard, SourceChip, SurrogateToggle, t0Of, t1Of, useSourceEnvelope } from './toolbar'
 import { pad2, stepName, useAdapters } from './useAdapters'
 import { spanOf, useValidation } from './useValidation'
@@ -61,6 +61,14 @@ export function BlockPage({ index }: { index: number }) {
   }
   // stays on the block page (frames chain-3 / 7b): the ribbon chip and the process card show the run,
   // and the payload refreshes in place when the run ends — the module store keeps streaming (critique r1)
+  /* re-attach after a reload / cold deep link (function critic P1-1): the chain page does the same */
+  useEffect(() => {
+    if (chain.lastRunJobId === null) return
+    if (st.run.job && st.run.job.job_id === chain.lastRunJobId) return
+    attachRun(chain.lastRunJobId).catch(e => { toast.push({ kind: 'error', text: errText(e) }); setChain(c => ({ ...c, lastRunJobId: null })) })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [chain.lastRunJobId])
+
   const rerun = async () => {
     if (!source || busy) return
     setBusy(true)

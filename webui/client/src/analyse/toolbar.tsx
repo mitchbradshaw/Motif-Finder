@@ -6,7 +6,7 @@ import { useDismiss } from '../shell/useDismiss'
 import { fmtHours, type ChainDraft, type SourceSpan } from '../state'
 import { retryNow, type RunErrorKind } from './store'
 
-export const EXAMPLE_SOURCE: SourceSpan = { recording_id: 4, channel_name: 'CH4_A2', source_file: 'M2_aug_concat_fs1.mat', fs: 1, start_idx: 995040, end_idx: 1002240, label: 'example span' }
+export const EXAMPLE_SOURCE: SourceSpan = { recording_id: 1, channel_name: 'CH1_A1', source_file: 'M2_aug_concat_fs1.mat', fs: 1, start_idx: 1209600, end_idx: 1216800, label: 'example span · the reference span (336–338 h)' }
 
 /** The held-out recording (spec §0 D6, Working.config.HELD_OUT_RECORDING_FILE; /api/recordings marks it held_out).
  *  Its data is never requested — the pages show the locked card without asking the bridge (critique r1). */

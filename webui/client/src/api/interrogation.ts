@@ -46,16 +46,45 @@ function memberFrom(m: SeedMember, s: SlopeMember | undefined, family: string): 
     d: 0, verdict: 'seed', excluded: false, fs_hz: m.fs,
     depth_mV: m.drop_depth_mv, max_slope: s?.max_slope_mv_s ?? 0, peakedness: s?.peakedness ?? 0, duration_s: m.fall_duration_s, recovery_s: recovery,
     flags: [...(m.is_pure ? [] : ['impure window']), ...(m.trigger === 'fall' ? ['fall-triggered'] : [])],
+    snippet: snippet ? { t_s: snippet.t_s, v: snippet.detrended_mv } : undefined,
+    onset_offset_s: snippet ? (m.onset_idx - m.snippet_start_idx) / m.fs : undefined,
   }
 }
 
-async function familyAndMembers(familyId: string): Promise<{ family: InterrogationFamily; members: InterrogationMember[] }> {
+/** The event's curve at one value per second from `pre` s before the onset to `post` s after the trough,
+ *  interpolated from the stored snippet (mV, detrended) — `undefined` for a fixture member with no snippet. */
+export function liveEventCurve(m: InterrogationMember, pre = 10, post = 24): number[] | undefined {
+  const s = m.snippet
+  if (!s || m.onset_offset_s === undefined || s.t_s.length < 2) return undefined
+  const n = pre + Math.round(m.duration_s) + post
+  const out: number[] = []
+  let j = 0
+  for (let i = 0; i < n; i++) {
+    const t = m.onset_offset_s + (i - pre)
+    while (j < s.t_s.length - 2 && s.t_s[j + 1] < t) j++
+    const t0 = s.t_s[j], t1 = s.t_s[j + 1]
+    const f = t1 > t0 ? Math.max(0, Math.min(1, (t - t0) / (t1 - t0))) : 0
+    out.push(t < s.t_s[0] || t > s.t_s[s.t_s.length - 1] ? NaN : s.v[j] + f * (s.v[j + 1] - s.v[j]))
+  }
+  return out
+}
+
+/** A y domain from the live snippets (padded 5 %), or `undefined` when no member carries one. */
+export function liveYDomain(members: InterrogationMember[]): [number, number] | undefined {
+  let lo = Infinity, hi = -Infinity
+  for (const m of members) for (const v of m.snippet?.v ?? []) { if (v < lo) lo = v; if (v > hi) hi = v }
+  if (!(lo < hi)) return undefined
+  const pad = 0.05 * (hi - lo)
+  return [lo - pad, hi + pad]
+}
+
+async function familyAndMembers(familyId: string): Promise<{ family: InterrogationFamily; members: InterrogationMember[]; storeRules: { name: string; rule: string }[] }> {
   const fams = await getFamilies()
   const i = fams.families.findIndex(f => f.id === familyId)
   const fam = fams.families[i >= 0 ? i : 0]
   const [mem, slope] = await Promise.all([getFamilyMembers(fam.id), getFamilySlope(fam.id)])
   const byId = new Map(slope.members.map(s => [s.event_id, s]))
-  return { family: familyFrom(fam, i >= 0 ? i : 0), members: mem.members.map(m => memberFrom(m, byId.get(m.event_id), fam.id)) }
+  return { family: familyFrom(fam, i >= 0 ? i : 0), members: mem.members.map(m => memberFrom(m, byId.get(m.event_id), fam.id)), storeRules: slope.rules }
 }
 
 /** Fixture lookups kept for callers that need a synchronous fallback (none of the pages do). */
@@ -105,11 +134,13 @@ export interface SlopeBlock {
   rules: typeof RULES
   chain: ChainBlock[]
   upstream: UpstreamSpec
+  /** the rules the store's numbers were measured with, verbatim from the bridge (live only) */
+  storeRules?: { name: string; rule: string }[]
 }
 /** 01 Resolve spans / 01 Spike shape — `SpanSet → SpanSet + Features` (§6.8) — live (seed). */
 export const getSlopeBlock = (familyId: string, upstream: 'slope' | 'spike-shape' = 'slope') =>
-  live<SlopeBlock>(familyAndMembers(familyId).then(({ family, members }) => ({
-    family, members, rules: RULES, chain: upstream === 'spike-shape' ? CHAIN_SPIKE : CHAIN_SLOPE, upstream: UPSTREAMS[upstream],
+  live<SlopeBlock>(familyAndMembers(familyId).then(({ family, members, storeRules }) => ({
+    family, members, rules: RULES, chain: upstream === 'spike-shape' ? CHAIN_SPIKE : CHAIN_SLOPE, upstream: UPSTREAMS[upstream], storeRules,
   })))
 
 export interface AggregateBlock {

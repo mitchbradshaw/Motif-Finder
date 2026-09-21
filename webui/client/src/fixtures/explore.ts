@@ -205,7 +205,7 @@ export const SHORTCUTS: { column: string; rows: { keys: string[]; label: string 
 
 /* ------------------------------------------------------------------ cross-channel ---- */
 export type XBin = 'reference' | 'artifact' | 'propagation' | 'independent' | 'no match'
-export interface XRow { channelId: number; name: string; lagS: number | null; r: number | null; sharedGroundWith?: string; trace: number[] }
+export interface XRow { channelId: number; name: string; lagS: number | null; r: number | null; sharedGroundWith?: string; trace: number[]; classification?: string }
 export interface CrossDemo {
   recording: string; file: string; referenceId: number; referenceName: string
   window: { label: string; startH: number; endH: number; durS: number; t0S: number; fs: number; motifStartS: number; motifEndS: number }

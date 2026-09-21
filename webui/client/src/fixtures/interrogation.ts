@@ -36,6 +36,9 @@ export interface InterrogationMember {
   duration_s: number         // onset → trough
   recovery_s: number         // trough → baseline
   flags: string[]
+  /* live (seed store) only: the stored detrended snippet and where the onset sits in it */
+  snippet?: { t_s: number[]; v: number[] }
+  onset_offset_s?: number
 }
 
 /** −45° on the rose is −0.1 mV/s (frame −45° = −1 mV/s, ÷10). */

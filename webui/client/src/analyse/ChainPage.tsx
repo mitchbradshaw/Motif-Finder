@@ -173,9 +173,14 @@ export function ChainPage() {
   // a step predicted in the prefix cache (with every predecessor cached too) costs nothing (critique r1)
   const prefixCached = (i: number) => { for (let k = 0; k <= i; k++) if (!val.v?.cache?.[k]?.cached) return false; return true }
   const allCachedFrom = (from: number) => n > from && Array.from({ length: n - from }, (_, k) => prefixCached(from + k)).every(Boolean)
-  const estFrom = (from: number) => perStep ? perStep.slice(from).reduce<number>((a, b, k) => a + (prefixCached(from + k) || b === null ? 0 : b), 0) : null
+  const estFrom = (from: number): number | null => {
+    if (!perStep) return null
+    let s = 0
+    for (let k = from; k < perStep.length; k++) { if (prefixCached(k)) continue; const b = perStep[k]; if (b === null) return null; s += b }
+    return s
+  }
   const unknownSteps = val.v?.estimate?.unknown ?? []
-  const fmtEst = (s: number | null) => s === null ? '≈ —' : s < 0.05 ? '≈ <0.1 s' : `≤ ${fmtDuration(s)} core est.`   // estimate_recipe_seconds is a calibrated upper bound, measured 70–230× high on short spans
+  const fmtEst = (s: number | null) => s === null ? (unknownSteps.length ? 'unknown cost' : '≈ —') : s < 0.05 ? '≈ <0.1 s' : `≤ ${fmtDuration(s)} core est.`   // estimate_recipe_seconds is a calibrated upper bound, measured 70–230× high on short spans
   let est: { text: string; kind: 'amber' | 'blue' | 'red' | 'green' }
   if (running && job) {
     const cur = job.current_step ?? 0

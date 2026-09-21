@@ -132,7 +132,7 @@ export async function getCrossChannel(referenceId: number, padS = 20): Promise<S
   const t0 = Math.max(0, motif.s - padS), t1 = Math.min(ch.duration_s, motif.e + padS)
   const x = await getCross(referenceId, t0, t1, 600)
   const trace = (row: CrossRow) => (row.envelope?.v ?? []).map(v => (v === null ? NaN : v))
-  const rows: XRow[] = x.channels.map(row => ({ channelId: row.id, name: row.name, lagS: row.lag_s, r: row.r, trace: trace(row) }))
+  const rows: XRow[] = x.channels.map(row => ({ channelId: row.id, name: row.name, lagS: row.lag_s, r: row.r, trace: trace(row), classification: row.classification }))
   const all = rows.flatMap(r => r.trace.filter(Number.isFinite))
   const lo = all.length ? Math.min(...all) : -1, hi = all.length ? Math.max(...all) : 1
   return {

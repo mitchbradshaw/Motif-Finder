@@ -142,7 +142,7 @@ def _spanset(value, meta, ctx):
         "type": "spanset", "fs": fs, "n": n, "capped": capped,
         "start_s": ((starts[sl] + ss) / fs).tolist(), "end_s": ((ends[sl] + ss) / fs).tolist(),
         "labels": labels, "scores": _clean(scores),
-        "summary": (f"{n} span{'s' if n != 1 else ''}" + (f" · mean {dur.mean():.1f} s" if n else " · nothing above threshold")),
+        "summary": (f"{n} span{'s' if n != 1 else ''}" + (f" · mean {dur.mean():.1f} s" if n else " · none found")),
     }
 
 

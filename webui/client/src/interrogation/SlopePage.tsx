@@ -10,7 +10,7 @@ import { Header } from '../shell/Header'
 import { useToast } from '../shell/Toast'
 import { navigate } from '../state'
 import { useSourced } from '../api/seam'
-import { getSlopeBlock, type SlopeBlock } from '../api/interrogation'
+import { getSlopeBlock, liveEventCurve, liveYDomain, type SlopeBlock } from '../api/interrogation'
 import {
   FAMILY_Y_DOMAIN, MARKS, ROSE_REF_SLOPE, RULES, RUN_STEPS, STALE_PREVIEW, UNITS, VERDICT_COLOUR, angleOf,
   eventCurve, eventMarks, unitScale, type InterrogationMember,
@@ -110,6 +110,10 @@ function SlopeBody({ block }: { block: SlopeBlock }) {
     block2: sim.status === 'running' && sim.step >= 2 ? 'running' : stale ? 'stale' : 'cached',
   }
 
+  /* live members carry their stored snippet: draw that, on a y domain from the data; fixtures keep the synthetic curve */
+  const curveOf = (m: InterrogationMember, pre = 10, post = 24) => liveEventCurve(m, pre, post) ?? eventCurve(m, pre, post)
+  const yDomain = useMemo(() => liveYDomain(block.members) ?? FAMILY_Y_DOMAIN, [block.members])
+  const storeRules = block.storeRules
   const rerun = () => {
     /* Clear the forced-run flag first: the `[stateQ]` effect below runs after this navigation and would
        otherwise reset the run we are about to start (critique r1: re-run cleared stale with no run). */
@@ -126,7 +130,7 @@ function SlopeBody({ block }: { block: SlopeBlock }) {
   const anatomy = useMemo(() => {
     if (!event) return null
     const pre = 10
-    const vs = eventCurve(event, pre, 24)
+    const vs = curveOf(event, pre, 24)
     const marks = eventMarks(event)
     const hi = Math.round(event.duration_s) + 14
     const pts = vs.map((v, i) => [i - pre, v] as [number, number]).filter(pt => pt[0] <= hi)
@@ -278,7 +282,7 @@ function SlopeBody({ block }: { block: SlopeBlock }) {
                     {strip.map((e, i) => (
                       <button key={e.id} type="button" className={`ig-cell ${e.id === event.id ? 'on' : ''}`} onClick={() => pick(e.id)}
                         data-testid={`strip-${stripFrom + i + 1}`} title={`${e.id} · ${e.depth_mV.toFixed(3)} mV`}>
-                        <MiniTrace values={eventCurve(e)} yDomain={FAMILY_Y_DOMAIN} width="100%" height={40} ground="none"
+                        <MiniTrace values={curveOf(e)} yDomain={yDomain} width="100%" height={40} ground="none"
                           stroke={e.id === event.id ? 'var(--blue-600)' : '#4b5563'} />
                         <span className="n">{stripFrom + i + 1}</span>
                         {e.flags.length > 0 && <span className="flag" />}
@@ -317,8 +321,8 @@ function SlopeBody({ block }: { block: SlopeBlock }) {
                   <LineChart testid="overlay-plot" height={230} yLabel="mV" xDomain={[t(-10), t(24)]} yDomain={[-0.45, 0.05]}
                     xFormat={fmtT} legend={false}
                     series={[
-                      ...sample.filter(e => e.id !== event?.id).map(e => ({ label: e.id, colour: '#9ca3af', points: clip(eventCurve(e)).map(([a, b]) => [t(a), b] as [number, number]), width: 1 })),
-                      ...(event ? [{ label: `event ${selectedIdx + 1}`, colour: 'var(--blue)', points: clip(eventCurve(event)).map(([a, b]) => [t(a), b] as [number, number]), width: 2 }] : []),
+                      ...sample.filter(e => e.id !== event?.id).map(e => ({ label: e.id, colour: '#9ca3af', points: clip(curveOf(e)).map(([a, b]) => [t(a), b] as [number, number]), width: 1 })),
+                      ...(event ? [{ label: `event ${selectedIdx + 1}`, colour: 'var(--blue)', points: clip(curveOf(event)).map(([a, b]) => [t(a), b] as [number, number]), width: 2 }] : []),
                     ]} />
                   <div className="ig-foot" style={{ marginTop: 4 }}>
                     <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}><span style={{ width: 14, height: 2, background: 'var(--blue)' }} />current event {selectedIdx + 1} · drawn if in sample, else added</span>
@@ -341,7 +345,7 @@ function SlopeBody({ block }: { block: SlopeBlock }) {
       {/* ------------------------------------------------ rules ------------------------------------------------ */}
       <SectionCard testid="rules-card" title="Rules" style={pending != null ? { borderColor: 'var(--amber)' } : undefined}
         info="Three rules turn a span into numbers: where the fall starts, where it ends, and over how many samples the slope is measured. Everything on this page is downstream of them."
-        subtitle="these three rules define every number on this page"
+        subtitle={storeRules ? 'the store\'s numbers were measured with the rules listed below; the selectors are a preview and do not recompute (the seed store is fixed until Prompt 05 wires a real re-run)' : 'these three rules define every number on this page'}
         actions={pending != null
           ? <>
             <span className="ig-amber-text ig-small mono" data-testid="rules-preview"><Icon name="alert-triangle" size={11} /> {STALE_PREVIEW}</span>
@@ -350,6 +354,7 @@ function SlopeBody({ block }: { block: SlopeBlock }) {
           : flagged.length
             ? <span className="ig-amber-text ig-small mono" data-testid="rules-flagged"><Icon name="alert-triangle" size={11} /> {flagged.length} event{flagged.length === 1 ? '' : 's'} flagged · two troughs within window</span>
             : <span className="ig-foot" data-testid="rules-clean">no event flagged</span>}>
+        {storeRules && <ul className="ig-small mono" data-testid="rules-live" style={{ margin: '0 0 8px', paddingLeft: 18 }}>{storeRules.map((r: { name: string; rule: string }) => <li key={r.name}><b>{r.name}</b> · {r.rule}</li>)}</ul>}
         <div className="ig-rules">
           <div>
             <div className="lb">onset rule <InfoTip title="Onset rule">Where the fall is taken to start. "Walk back from steepest while descending" is the recommended rule (Settings › Recommended values).</InfoTip></div>

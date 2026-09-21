@@ -86,10 +86,12 @@ function CrossBody({ data }: { data: CrossDemo }) {
   const setSelected = (ids: number[]) => { setChannelsQ([ref, ...ids.filter(i => i !== ref)].join(',')); recompute() }
   const byId = useMemo(() => new Map(data.rows.map(r => [r.channelId, r])), [data])
   const refName = data.referenceName
-  const effective = (r: XRow): XRow => (lagMode === 'channel' && r.channelId !== ref && r.lagS !== null && r.r !== null
-    ? { ...r, lagS: +(r.lagS * 1.08).toFixed(2), r: +Math.max(0, r.r - 0.03).toFixed(2) } : r)
+  // the rows are what the bridge measured on this window; nothing is rescaled client-side
+  const effective = (r: XRow): XRow => r
+  const CORE_BIN: Record<string, XBin> = { reference: 'reference', artifact: 'artifact', propagation: 'propagation', independent_recurrence: 'independent', undefined: 'no match' }
   const binOf = (r: XRow): XBin => {
     if (r.channelId === ref) return 'reference'
+    if (r.classification && CORE_BIN[r.classification]) return Math.abs(r.lagS ?? 0) > maxLag && CORE_BIN[r.classification] !== 'artifact' ? 'no match' : CORE_BIN[r.classification]
     if (r.lagS === null || r.r === null || Math.abs(r.lagS) > maxLag) return 'no match'
     if (r.r >= 0.95 && Math.abs(r.lagS) < 0.5) return 'artifact'
     return r.r >= 0.6 ? 'propagation' : 'independent'
@@ -181,7 +183,7 @@ function CrossBody({ data }: { data: CrossDemo }) {
           <span className="lbl">align</span>
           <Seg value={align === 'lag' ? 'lag' : 'recorded'} onChange={v => setAlign(v === 'recorded' ? null : v)} options={[{ value: 'recorded', label: 'as recorded' }, { value: 'lag', label: 'lag-aligned' }]} ariaLabel="align" testid="align-seg" />
           <Dropdown prefix="lag" variant="outline" value={lagMode} onChange={v => { setLagMode(v === 'window' ? null : v); recompute() }} testid="lag-select" menuWidth={220}
-            options={[{ value: 'window', label: 'computed on window' }, { value: 'channel', label: 'computed on whole channel' }]} />
+            options={[{ value: 'window', label: 'computed on window' }, { value: 'channel', label: 'computed on whole channel · not available yet', disabled: true, reason: 'the bridge computes lag on the window in view; a whole-channel lag is a longer job (Prompt 04)' }]} />
           <Dropdown prefix="max lag" variant="outline" value={String(maxLag)} onChange={v => { setMaxLag(v === '30' ? null : v); recompute() }} testid="maxlag-select"
             options={[10, 30, 60].map(n => ({ value: String(n), label: `±${n} s` }))} />
           <span className="grow" />
