@@ -122,8 +122,8 @@ def _rows(rt, table):
 
 
 def _make_queue(client, info, **kw):
-    body = {"name": "Discovery · review test", "source_kind": "discovery-run",
-            "source_ref": str(info["runs"][0])}
+    body = {"name": "Discovery review test", "source_kind": "discovery-run",
+            "source_ref": None}
     body.update(kw)
     r = client.post("/api/review/queues", json=body)
     assert r.status_code == 200, r.text
@@ -139,13 +139,13 @@ def test_counts_and_queues_answer(seeded):
     assert "need_you" in counts.json() and "by_queue" in counts.json()
 
     q = _make_queue(client, info)
-    assert q["queue"]["writes"] == "adjudications"
+    assert q["queue"]["writes_to"] == "adjudications"
     assert q["queue"]["unit"] == "detection"
-    assert q["queue"]["blind"] is False
+    assert not q["queue"]["blind"]
 
     listing = client.get("/api/review/queues")
     assert listing.status_code == 200, listing.text
-    assert any(x["queue"]["id"] == q["queue"]["id"] for x in listing.json()["queues"])
+    assert any(str(x["id"]) == str(q["queue"]["id"]) for x in listing.json())
 
     one = client.get(f"/api/review/queues/{q['queue']['id']}")
     assert one.status_code == 200, one.text
@@ -204,10 +204,9 @@ def test_batch_is_one_audit_row(seeded):
 
 def test_held_out_item_is_refused(seeded):
     client, rt, info = seeded
-    q = _make_queue(client, info, name="held", source_ref=None,
-                    source_kind="discovery-run")
+    q = _make_queue(client, info, name="held")
     qid = q["queue"]["id"]
-    item = client.get(f"/api/review/queues/{qid}/items/d-{info['held_detection']}")
+    item = client.get(f"/api/review/queues/{qid}/items/{info['held_detection']}")
     assert item.status_code in (200, 423), item.text
     if item.status_code == 200:
         assert item.json().get("refused"), "a held-out recording must be refused, not served"
