@@ -1,8 +1,8 @@
 # LIBRARY_STORAGE.md — how the motif library stores what it knows
 
-**Status: skeleton (stage-3 Prompt 03, 2026-09-21).** The table shapes, the identity rule and the route
-list below are **fixed** — Prompt 04 (Discovery) reads exemplars and templates from them and may build
-against them now. The sections marked *(to be completed)* are prose and worked examples, not contract.
+**Status: complete (stage-3 Prompt 03, 2026-09-22).** The table shapes, the identity rule and the route
+list are **fixed** — Prompt 04 (Discovery) reads exemplars and templates from them and builds against them.
+Every number in §5.2 and §6.3 was measured on this machine's catalogue, not estimated.
 
 Audience: a researcher who, next year, wants to add a clustering method, import a new bundle of extracted
 motifs, or understand why two spans that look identical are one library entry and not two.
@@ -317,6 +317,21 @@ demand from the waveform, never stored on the row.** `Working/library/grouping/b
 Library's grouping editor draws their live distributions. A number you see in a feature histogram was
 measured when the page asked for it.
 
+**A tag belongs to the shape, not to the occurrence — a known limitation.** Tags attach to `motif_entry`,
+and there is no `motif_member_tags` table. So when a second occurrence of one shape arrives carrying
+different labels — another species, another corpus, another word for the morphology — the entry accumulates
+**both**. That is deliberate rather than tidy:
+
+- a shape found in an oyster and in a reishi is exactly the cross-recording recurrence the Library exists to
+  show (PRD Part 2: eleven of twelve shape families draw members from more than one spike train);
+- two source rows disagreeing about a morphology is a **finding**, not noise — Part 2 reports families
+  "which mix morphologies that the per-span labels call distinct";
+- keeping only the label that happened to be imported first would delete that evidence silently.
+
+The cost is that you cannot ask "which species did *this occurrence* come from" through tags; you ask the
+member's `recording_id` instead, which is exact. A future ticket wanting per-occurrence labels should add
+`motif_member_tags` rather than reinterpreting the entry's.
+
 ### 3.5 Which door each table writes through (rule 5)
 
 `webui/server/writes.py` already routes `motif_*` to `write_human`. The new tables split by origin:
@@ -356,43 +371,237 @@ at sequence scale, and it is offered to Review as an **"extract events"** queue 
 individual events later. This is the honest state for a human-catalogued span that says *"60 spikes (7 mV,
 10 min/cycle at start, 3 min/cycle at end)"* — the claim is recorded, the events are not invented.
 
-**Spike trains: defined, not populated.** *(to be completed)*
+**Spike trains: defined, not populated.** A spike train is a `motif_entry` with `scale = 'train'`: one row
+whose waveform is the whole train, so that an **edge can attach to it** — PRD Part 2 is explicit that this
+is why the scale is a stored column rather than inferred from duration, because inference gives no row for
+an edge to reference. `motif_edge` already carries distance function, threshold and recipe hash, so
+train-to-train edges under a different distance coexist with event-to-event edges **without further schema
+change**.
+
+Nothing on this machine writes one yet. A future importer must provide, per train: its recording, channel
+and absolute sample range; the waveform to hash (so the train gets a `content_hash` like any other entry);
+`scale = 'train'`; and the member events it contains, as `motif_member` rows of the train's entry. Computing
+train-to-train edges by spectral or symbolic distance is named Out of Scope in Part 2 and is later work.
+
+Note a train and a sequence are **not** the same object here: a train is a shape at a coarser scale (one
+entry, one waveform, one hash), a sequence is an ordered composition (its own table, identity in its
+members and gaps). A spike train that you also want compared by composition gets both — an entry at train
+scale, and a `sequences` row pointing at the same events.
 
 ---
 
 ## 5. Import kinds and provenance
 
-*(to be completed — the column-by-column mapping for each importer, and which stores were imported on this
-machine and why.)*
-
 | importer | source | writes |
 |---|---|---|
-| `importers/event_store.py` | a registered `drop_motif_store` (`events.csv` + `snippets.npz` + `manifest.json`) | `motif_entry` + `motif_member` (+ rev 1) |
-| `importers/catalogue.py` | `DATA/catalogue/signal_catalog.xlsx` via the registered `catalogue_spreadsheet` | `annotations` (human) and `sequences` with `origin = 'human'` |
-| `importers/annotations.py` | the `annotations` table | `sequences` (human) and single-event entries |
-| `importers/sequences.py` | `Plots/drop_motifs11/sequences.csv` | `sequences` with `origin = 'machine'` + `sequence_members` |
+| `importers/event_store.py` | a registered `drop_motif_store` (`events.csv` + `snippets.npz` + `manifest.json`) | `motif_entry` + `motif_member` + revision 1 + tags |
+| `importers/sequences.py` | `Plots/drop_motifs11/sequences.csv` | `sequences` (`origin = 'machine'`) + `sequence_members` |
+| `importers/catalogue.py` | `DATA/catalogue/signal_catalog.xlsx` via the registered `catalogue_spreadsheet` | `annotations` (human) + `annotation_tags` |
+| `importers/annotations.py` | the `annotations` table already in the database | `sequences` (`origin = 'human'`) and single-event `motif_entry` rows |
+
+### 5.1 The event store, column by column
+
+| source column | target | note |
+|---|---|---|
+| `snippet_start_idx` / `snippet_end_idx` | `motif_entry.start_idx` / `end_idx` | **end is exclusive** (`len(array) == end - start`, measured across all four stores) |
+| `recording_id` | `motif_entry.recording_id` | bound to `recordings.id`; an unknown id is a counted warning, never a crash |
+| `channel`, `fs` | `motif_entry.channel`, `.fs` | explicit on the row; `fs` is not part of identity |
+| `event_id` | `motif_entry.source_ref` | so the `snippets.npz` key is recoverable from the row |
+| the store path | `motif_entry.source_store` | with `source_kind = 'event_store'` |
+| `span_key` | `motif_entry.label` | |
+| `morphology`, `species`, `corpus`, `framing` | **tags** (§3.4) | reusing vocabulary rows; `Stegasauras` normalises to `stegasaurus` |
+| the `__raw_mv` snippet | the **hashed waveform** | raw rather than detrended: detrending is a parameter of the detector that found the event, and two stores that detrended differently would give one shape two identities |
+| `drop_depth_mv`, `fall_duration_s`, slopes, `purity` … | **nothing** | measured features are computed on demand (§3.4, spec §4.4) |
+| `cluster_id` | **nothing** | it is `-1` on all 11,106 rows of all four stores |
+
+### 5.2 What was imported on this machine, and what was not
+
+Run through `scripts/populate_library.py`, which is the reproducible record of it.
+
+| source | result |
+|---|---|
+| `DATA/library_seed/drop_motifs5/motifs` | **410** created, 17 near-duplicates flagged |
+| `Plots/drop_motifs10/motifs` | **3,189** created, **61 exact duplicates** of seed events resolved onto their entries, 256 excluded (`reishi_1hz`), 5 span conflicts counted, 420 flagged |
+| `Plots/drop_motifs11/sequences.csv` | **118 of 118** resolved, **1,646** member events in order |
+| `DATA/catalogue/signal_catalog.xlsx` | 32 already imported, **5 unimportable**, each with a stated reason |
+| the `annotations` table | **30** human sequences, **4** type-specimen entries, 11,234 triage rows correctly not imported, 1 refused as held out |
+
+Totals: **3,603** entries / members / revisions, **13,349** tags, **148** sequences (118 machine, 30 human),
+**1,646** sequence members. The 11,269 annotations are untouched.
+
+Three deliberate exclusions, each a decision rather than an oversight:
+
+- **`Plots/drop_motifs12a` is not imported.** Both its stores are marked `partial` (region A of the Lion's
+  mane recording was never detected), 844 of 1,077 rows carry `recording_id = -1`, and its two floor
+  policies are two views of one detection that would collide on `UNIQUE (recording_id, start_idx, end_idx)`.
+  The importer can still read it; `--include-12a` runs it.
+- **The `reishi_1hz` control corpus is excluded** from drop_motifs10. It is the same organism as
+  `reishi_10hz` at a second sampling rate and shares `(catalogue_id, channel)` with it, so it double-counts:
+  sequence recovery reproduces **118/118** with it excluded and **52/118** with it in. The exclusion is a
+  parameter (`exclude_corpora`), not a literal.
+- **The 11,234 `imported_10min` annotations are not library content.** They are a ten-minute sort grid —
+  every one exactly 600 samples, `scale_viewed = '10min'` — and the longest run of adjacent interesting
+  windows is 3, so the grid does not encode sequences. The split is by `source`, not by span length,
+  because a future grid at another window size would break a length rule.
+
+### 5.3 Idempotence
+
+Every importer is safe to run twice (PRD story 43). A second run of the event store imports nothing: same
+hash and same occurrence resolves to the same member, and the member already has revision 1. The catalogue
+recognises its 32 existing rows. `--dry-run` computes the whole report and writes nothing — verified by
+comparing row counts before and after, not by trusting the flag.
 
 ---
 
 ## 6. The grouping engine
 
-*(to be completed — the interface, the bases, and the worked checklist for adding a clustering method.)*
+A grouping is **`unit × basis × method(params) → one assignment per member`**.
 
-A grouping is `unit × basis × method(params) → an assignment per member`. A method is a class in
-`Working/library/grouping/methods/`, registered by name.
+`Working/library/grouping/engine.py::run_grouping(items, *, unit, basis, method, params)` takes **plain
+dicts** and never touches a database. That is deliberate: the bridge loads rows and hands them over, which
+is what lets the engine be tested without a database and re-used by a script (`scripts/populate_library.py`
+does exactly this). An item carries `member_ref`, `content_hash`, and whatever the basis needs — `values`
+for a distance basis, `gap_profile` for sequence similarity, `tags` or `recording_id` for a label basis.
+
+`GroupingResult` carries one `Assignment` per input item **in input order, including the omitted ones** —
+spec §8.2's rule that what does not fit is flagged and never dropped. Omission reasons are `past_cut`,
+`outside_bins`, `group_too_small`, `no_label` and `not_in_a_sequence`.
+
+### 6.1 The three basis kinds, and the three methods
+
+| basis kind | bases | method | where groups come from |
+|---|---|---|---|
+| distance | `shape-distance`, `sequence-similarity` | `ward` | a cut on a linkage tree |
+| feature bins, no distance | `amplitude`, `timescale`, `frequency-content`, `polarity` | `feature_bins` | bins on one feature — quantiles, log-spaced or fixed edges |
+| labels | `tag`, `provenance` | `labels` | one group per label |
+
+`bases.py` computes the four features **on demand** and `applicable_bases(unit)` returns, for each basis
+that does not apply to a unit, **the reason** — spec §8.2 requires it be shown disabled with one, not
+hidden.
+
+### 6.2 Checklist: adding a clustering method
+
+1. **Write the class** in `Working/library/grouping/methods/<name>.py`:
+   ```python
+   class MyMethod:
+       name = "my_method"
+       applies_to = ("shape-distance",)          # which bases it can serve
+       params = {"cut": {"type": "float", "default": 0.6, "label": "Cut", "help": "..."}}
+       def fit(self, data, *, params): ...       # -> an opaque fit object
+       def assign(self, fit, *, cut): ...        # -> a family id per row, None = omitted
+       def merge_heights(self, fit): ...         # -> floats for the editor's histogram, [] if not a tree
+   ```
+2. **Register it by name** in `methods/__init__.py` with `register(MyMethod())`, the way
+   `Adapters/registry.py` registers a block. Duplicate registration is an error, not a silent overwrite.
+3. **Declare `applies_to` honestly.** A method offered for a basis it cannot serve is worse than one that is
+   absent, because the editor will offer it and the run will fail.
+4. **Return `None` for a row you will not place.** The engine turns that into an omission with a reason; do
+   not drop rows, and do not invent a catch-all family.
+5. **Expose `merge_heights`** if the method has a tree — that is what the editor draws the cut on. Return
+   `[]` if it does not, rather than a fabricated distribution.
+6. **Add a test** in `tests/test_library_grouping_methods.py`: a synthetic set with a known number of
+   obvious groups, the cut changing the count, and the omission reason you emit.
+7. **Do not read the database.** If your method needs something the items do not carry, add it to what the
+   caller loads, not to the method.
+8. **Check the recipe hash changes** when your parameters change — it is what tells two saved groupings
+   apart, and spec §8.2's whole point is that two threshold choices that look alike must not be confused.
+
+### 6.3 Choosing a cut is a measurement, not a constant
+
+The default cut on this machine is **0.60**, and it was measured. The frontend fixture carried 0.42; on the
+real 3,603-entry catalogue that omits 29% of it, every one for `group_too_small`:
+
+| cut | families | assigned | omitted |
+|---|---|---|---|
+| 0.30 | 116 | 1,660 | 54% |
+| 0.42 | 151 | 2,545 | 29% |
+| **0.60** | **149** | **3,239** | **10%** |
+| 0.80 | 115 | 3,480 | 3% |
+| 1.00 | 92 | 3,570 | 1% |
+
+The family count is flat from 0.42 to 0.60 while the omitted fraction falls by two thirds — so the extra
+omission at 0.42 buys no structure, it is the same families with a quarter of the catalogue shaken out
+below the ten-member floor. Re-measure when the catalogue changes; the sweep is four lines of script.
 
 ---
 
 ## 7. What the UI reads
 
-*(to be completed — the route table and payload shapes.)*
+`webui/server/library.py`, 20 routes under `/api/library`. Every read takes an optional `?grouping=` and
+defaults to the **newest grouping of the right unit**.
+
+| method | path | returns |
+|---|---|---|
+| GET | `/counts` | `{motifs, spikeTrains, sequences, templates, windowSets}` |
+| GET | `/groupings` | `Grouping[]` — ids are strings, `g-NN` |
+| GET | `/recurrence` | `{recordings, families, coverage, sharedGround}` |
+| GET | `/families`, `/sequence-families` | `MotifFamily[]`, `SequenceFamily[]`, with **real decimated mV traces** |
+| GET | `/family/{id}` | `{kind:'motif',detail}` / `{kind:'sequence',family}` / `{kind:'missing',id}` |
+| GET | `/omitted` | `{groupingId, singles, sequences}`, each carrying `omitReason` |
+| GET | `/grouping-editor` | units with live counts, the nine bases with a `reason` where disabled, real distributions |
+| GET | `/windowsets`, `/templates` | `WindowSetRow[]`, `Template[]` |
+| GET | `/sequences?needs_extraction=1` | Review's "extract events" queue |
+| POST | `/groupings/run`, `/groupings` | a **job**, then the saved grouping |
+| POST | `/import/dry-run`, `/import` | `ImportBundle`, then a **job** |
+| GET | `/import/bundles` | from the **registry**, not a disk scan |
+| POST/DELETE | `/hand-edits`, `/hand-edits/{id}` | through `hand_edits.py`, via `write_human` |
+| GET | `/export/family/{id}`, `/export/atlas` | `?format=json\|csv`, a real download |
+
+**Three things the bridge cannot give the pages**, because no table holds them — it returns empty rather
+than inventing: `Template.versions` / `scores` / `latest` (no version-history or scoring table exists
+anywhere), `WindowSetRow.usedBy` (nothing records window-set consumption), and `SequenceFamily.hand` (hand
+edits key on a content hash and a sequence has none). `snrDb` is **computed from the exemplar trace**, so
+it is an estimate rather than a measurement, and is labelled as one.
+
+**A gap worth naming:** spec §4.5's "a saved detection algorithm *is* the `templates` row, no second store"
+is right, but the Library's Templates rail also wants version history, per-run scores and null-model
+provenance, and **none of those has a table**. Either §4 should say they are aspirational, or a
+`template_versions` / `template_scores` pair is missing from it.
 
 ---
 
 ## 8. Worked example
 
-*(to be completed — importing an event store, running a grouping, hand-editing an exemplar, regrouping, and
-seeing the edit survive.)*
+Importing a store, grouping it, hand-editing an exemplar, regrouping, and watching the edit survive.
+
+```bash
+# 1. Import. Refuses to run without a backup newer than the database.
+python scripts/populate_library.py --dry-run     # reports everything, writes nothing
+python scripts/populate_library.py --backup      # 3,603 entries, 148 sequences
+```
+
+```python
+# 2. Group. The engine takes dicts; the caller loads them.
+from Working.library.grouping import engine
+result = engine.run_grouping(items, unit="single_motifs", basis="shape-distance",
+                             method="ward", params={"cut": 0.60, "min_group": 10})
+result.n_families, result.n_omitted          # 149, 364
+result.omitted_by_reason                     # {'group_too_small': 364}
+```
+
+```python
+# 3. Hand-edit an exemplar. Keyed by CONTENT HASH, not by member id.
+from Working.library import hand_edits
+hand_edits.record(conn, content_hash=h, kind="make_exemplar", family_label="F-07")
+hand_edits.record(conn, content_hash=other, kind="remove_member", family_label="F-07")
+```
+
+```python
+# 4. Regroup at a different cut — a different tree, different family ids.
+regrouped = engine.run_grouping(items, unit="single_motifs", basis="shape-distance",
+                                method="ward", params={"cut": 0.80, "min_group": 10})
+
+# 5. The edits re-apply on top of it, because they were never keyed to the old grouping.
+applied = hand_edits.apply_to_assignment(regrouped.assignments,
+                                         hand_edits.active_edits(conn))
+applied["counts"]     # {'applied': 2, 'orphaned': 0, 'removed_by_hand': 1}
+applied["orphans"]    # edits whose family the new grouping lacks, kept as "<label> additions"
+```
+
+The removed member **stays out on every regroup until restored** (spec §8.3), and an edit naming a family
+the new grouping no longer has comes back as an orphan to be kept as a hand group rather than being
+silently dropped. That is the whole reason the key is a content hash: a member id survives a regroup, but a
+*family* id does not, and an edit keyed to a family would be lost the moment the cut moved.
 
 ---
 
