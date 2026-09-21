@@ -42,7 +42,8 @@ CANONICAL: list[dict] = [
         "name": "drop_detection_v1", "kind": "detection", "version": 1,
         "description": "The canonical drop detector (D1): baseline removal → five-stage encoding with the slope-noise "
                        "floor → drop detection (candidate onsets, trough, gates, windows). The decomposition of the "
-                       "detector that produced the 410 seed events in DATA/library_seed/drop_motifs5.",
+                       "detector that produced the seed events in DATA/library_seed/drop_motifs5 (reproduced onset for onset on "
+                       "the reference span id001 under the drop_motifs5-era flags; tests/test_template_drop_detection.py).",
         "steps": [
             _step("preprocessing", "detrend", {"mode": "rolling_mean_nearest", "window_s": 4916.67}),
             _step("detection", "stage_encoding", {"segment_seconds": 98.33, "same_fraction": 0.6, "slope_sigma": 8.0}),
@@ -107,7 +108,7 @@ CANONICAL: list[dict] = [
     {
         "name": "cnn_detection", "kind": "detection", "version": 1,
         "description": "Sliding windows (blocked split) → window images (fusion) → CNN score → threshold to spans: "
-                       "detecting with a trained model (D2; spec §6.8 'Model + WindowSet → Scores').",
+                       "detecting with a trained model (D2; the image stack + window set → Scores form of spec §6.8's model stage).",
         "steps": [
             _step("preprocessing", "sliding_windows", {"window_s": 600.0}),
             _step("catalogue", "window_images", {"image_type": "fusion", "img_size": 224}),

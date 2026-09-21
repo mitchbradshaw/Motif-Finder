@@ -43,7 +43,7 @@ def _rec(request: Request, recording_id: int) -> dict:
 
 
 def run_methods(conn, source_file: str) -> list[dict]:
-    """Every run with detections on a recording file, with its method (the algorithms of its recipe)."""
+    """Every run on a recording file (with or without detections), with its method (the algorithms of its recipe)."""
     out = []
     recs = {r["id"]: dict(r) for r in q.list_recordings(conn, source_file)}
     for row in list_runs(conn):
@@ -113,6 +113,7 @@ def get_tags(request: Request, recording_id: int, t0: float = 0.0, t1: float | N
         "reviewed_pct": float(reviewed_frac) * 100.0,
         "tag_counts": counts,
         "vocabulary": [dict(v) for v in vocab],
+        "annotations_capped": len(ann) >= 5000, "reviewed_capped": len(reviewed) >= 5000,
     }
 
 
@@ -203,4 +204,4 @@ def take_span_for_review(request: Request, body: SeedBody):
         c.close()
     fs = float(rec["fs"])
     return {"id": aid, "recording_id": body.recording_id, "start_s": body.start_idx / fs, "end_s": body.end_idx / fs,
-            "verdict": "seed", "source": "explore.take_for_review", "note": request.app.state.rt.banner()}
+            "verdict": "seed", "source": "explore.take_for_review", "note": body.note, "banner": request.app.state.rt.banner()}

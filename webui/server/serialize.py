@@ -34,6 +34,8 @@ SPAN_CAP = 5000
 FEATURE_CELL_CAP = 200_000
 IMAGE_SIDE = 256
 SYMBOL_CAP = 20_000
+STACK_TILES = 16          # images shown from a 4-D stack
+TILE = 64                 # px per tile in the contact sheet
 
 _LETTERS = "abcdefghijklmnopqrstuvwxyz"
 
@@ -184,7 +186,9 @@ def _encoding(value, meta, ctx):
         alphabet = details.get("alphabet_size")
         if alphabet is None:
             alphabet = int(syms.max()) + 1 if n else 0
-        letters = "".join(_letter(s) for s in syms[:SYMBOL_CAP])
+        # an encoder that names its own alphabet (five-stage d D S U u) is shown in it; else a b c …
+        own = meta.get("letters")
+        letters = (own[:SYMBOL_CAP] if isinstance(own, str) and len(own) == n else "".join(_letter(s) for s in syms[:SYMBOL_CAP]))
         return {
             "type": "encoding", "kind": "symbolic", "n_symbols": n, "alphabet_size": int(alphabet),
             "symbols": syms[:SYMBOL_CAP].tolist(), "letters": letters, "capped": n > SYMBOL_CAP,
@@ -194,10 +198,32 @@ def _encoding(value, meta, ctx):
             "cutlines": _clean(details.get("cutlines")), "cutline_domain": details.get("cutline_domain"),
             "representatives": _clean(details.get("representatives")),
             "paa": _clean(np.asarray(details["paa"])[:SYMBOL_CAP]) if details.get("paa") is not None else None,
-            "n_trimmed": _clean(details.get("n_trimmed")),
+            "n_trimmed": _clean(details.get("n_trimmed")), "alphabet": meta.get("alphabet"),
             "summary": f"{n} symbols · alphabet {int(alphabet)} · {(int(sps) / fs) if sps else 0:g} s per symbol",
         }
     # image kinds
+    n_images = None
+    if vals.ndim == 4:
+        # a stack (n, H, W[, C]) — e.g. catalogue.window_images: ship a contact sheet of the first
+        # STACK_TILES images tiled in a grid, each block-averaged to TILE px, so the pane paints
+        # what the model saw; the full stack stays on disk (rule 4)
+        n_images = int(vals.shape[0])
+        k = min(n_images, STACK_TILES)
+        cols = int(np.ceil(np.sqrt(k))); rows_ = int(np.ceil(k / cols))
+        h, w = int(vals.shape[1]), int(vals.shape[2])
+        fh = max(1, int(np.ceil(h / TILE))); fw = max(1, int(np.ceil(w / TILE)))
+        hh, ww = h // fh * fh, w // fw * fw
+        chans = int(vals.shape[3]) if vals.ndim == 4 and vals.shape[-1] in (1, 3) else 1
+        tile_h, tile_w = hh // fh, ww // fw
+        sheet = np.zeros((rows_ * tile_h, cols * tile_w, chans), dtype=float)
+        for i in range(k):
+            img = np.asarray(vals[i], dtype=float)[:hh, :ww]
+            if img.ndim == 2:
+                img = img[:, :, None]
+            img = img[:, :, :chans].reshape(tile_h, fh, tile_w, fw, chans).mean(axis=(1, 3))
+            r_, c_ = divmod(i, cols)
+            sheet[r_ * tile_h:(r_ + 1) * tile_h, c_ * tile_w:(c_ + 1) * tile_w] = img
+        vals = sheet if chans == 3 else sheet[:, :, 0]
     if vals.ndim == 1:
         return {"type": "encoding", "kind": "image", "ndim": 1, "shape": list(vals.shape),
                 "series": _clean(vals), "bin_freqs": _clean(meta.get("bin_freqs")),
@@ -217,10 +243,13 @@ def _encoding(value, meta, ctx):
             rng = _finite_range(img) or [0.0, 1.0]
             u8 = np.clip((img - rng[0]) / ((rng[1] - rng[0]) or 1.0) * 255, 0, 255).astype(np.uint8)
             chans = int(vals.shape[2])
-        return {"type": "encoding", "kind": "image", "ndim": int(vals.ndim), "shape": list(vals.shape),
+        shape_out = list(value.values.shape) if n_images else list(vals.shape)
+        summary = (f"{n_images} images · {shape_out[1]}×{shape_out[2]} · contact sheet of the first {min(n_images, STACK_TILES)}"
+                   if n_images else f"{h}×{w}" + (f"×{vals.shape[2]}" if vals.ndim == 3 else "") + f" image · shown at {u8.shape[0]}×{u8.shape[1]}")
+        return {"type": "encoding", "kind": "image", "ndim": int(vals.ndim), "shape": shape_out, "n_images": n_images,
                 "display_shape": [int(u8.shape[0]), int(u8.shape[1])], "channels": chans,
                 "value_range": rng, "pixels_b64": base64.b64encode(np.ascontiguousarray(u8).tobytes()).decode("ascii"),
-                "summary": f"{h}×{w}" + (f"×{vals.shape[2]}" if vals.ndim == 3 else "") + f" image · shown at {u8.shape[0]}×{u8.shape[1]}"}
+                "summary": summary}
     return {"type": "encoding", "kind": value.kind, "shape": list(vals.shape), "summary": f"{value.kind} {vals.shape}"}
 
 

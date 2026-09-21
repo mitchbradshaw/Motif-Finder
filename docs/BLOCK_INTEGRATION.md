@@ -53,9 +53,24 @@ tunable input; a read-only readout beside the controls is a `derive` row, never 
 | `estimate` | `(x, t, fs, **params) -> float \| None` | see §3 Cost |
 | `max_span_samples` | `int` | the block is O(n²) or worse (the Gramian images) — the executor refuses a longer span before allocating |
 | `recommend` | `(x, t, fs) -> {param: value}` | a default depends on the span (seconds per symbol) |
-| `derive` | `(x, t, fs, params[, value]) -> [(label, value, severity)]` | a live readout beside the controls ("Symbols produced: 256") |
+| `derive` | `(x, t, fs, params, **typed_inputs) -> [(label, value, severity)]` | a live readout beside the controls ("Symbols produced: 256"), served by `POST /api/blocks/derive` for the span in hand; a block whose readout needs an upstream typed value (`value=`, a side input) receives none from that route and says so in its own rows |
 | `persist` | `(conn, run_id, config_hash, recording, span_start, span_end, params, result) -> path \| (kind, path) \| None` | the output must land on disk and be registered as an `artifacts` row even from a headless run (matrix profile, window matrix, cluster labels, the classifier's joblib). Return `(kind, path)` to name the `artifacts.kind`; a bare path means `'encoding'` |
-| `known_broken` | `str` | the block is registered but cannot run here; the reason is shown on its card and it stays out of chains |
+| `known_broken` | `str` | the block is registered but cannot run here; the reason is shown on its card and beside it in the insert modal (it can still be inserted — the run then fails loudly at that step) |
+
+**Index conventions — the trap a new block falls into.** `x` is the *span* the chain ran over, index 0 =
+the span's first sample; `t` is its absolute time axis (`t[0] * fs` is the span's channel offset). The
+types differ on purpose:
+
+| Type | `starts` / index 0 means | who shifts |
+|---|---|---|
+| `Signal`, `Scores` | sample `i` of the value is channel sample `span_start + i` | the bridge, when drawing |
+| `SpanSet` | **span-relative** (`x[start:end]` is the span) | the executor adds `span_start` when it writes `detections`; the bridge adds it when drawing |
+| `WindowSet` | **channel-absolute** (`starts` index the whole channel); producers add `t[0] * fs`, consumers that slice `x` subtract it | nobody else |
+| `Encoding`, `Grouping`, `Model` | no time of their own; a symbolic Encoding's segment `k` covers `x[k*sps:(k+1)*sps]` with `sps = len(x) // n_symbols` | — |
+
+`preprocessing.sliding_windows` and `preprocessing.window_matrix` both emit absolute starts;
+`catalogue.window_images` and `catalogue.cnn_score` subtract `t[0] * fs` before slicing `x`. A block that
+mixes the two conventions draws every window in the wrong place and raises nothing.
 
 **Rules that are not negotiable** (from `CLAUDE.md`): a block imports no UI library and never learns a
 browser exists; bulk arrays never enter the database (persist writes a file and registers its path); a
@@ -111,8 +126,10 @@ and route a long stage to the cluster instead of a spinner:
   `python -c "from Working.block_cost import calibrate; calibrate()"` once to time them.
 - A block whose cost is not a function of the span (a linkage tree costs O(w² log w) in *windows*, a forest
   fit in windows × features) declares `estimate` returning `None` with that rationale
-  (`catalogue.cluster`, `catalogue.classifier`): the router then reports "unknown" instead of costing the
-  step at zero.
+  (`catalogue.cluster`, `catalogue.classifier`). The bridge's `POST /api/chain/validate` then reports that
+  step as `null` in `estimate.per_step_s`, lists it in `estimate.unknown` and sets `estimate.route =
+  "unknown"` — never 0.0 (the chain page names the uncalibrated stages beside the estimate). A block with
+  no `estimate` at all is free.
 - **`max_span_samples`** refuses a span above a ceiling before any allocation (the four Gramian images at
   5 000). The executor checks it; the bridge reports the offending stage as `over_ceiling`.
 - The interactive ceiling comes from Settings › Compute (`LOCAL_LIMITS`); a stage over it gets *Create
@@ -123,8 +140,10 @@ and route a long stage to the cluster instead of a spinner:
 
 A **template is a named, versioned chain** — a row of `templates` (`name`, `steps_json`, `kind`, `version`,
 `builtin`, `description`, timestamps; `Working/database/schema.py::_migrate_templates_columns`). Its `kind`
-is a consequence of the chain's terminal type (spec §6.1): `spanset` → **detection**, `encoding` →
-**encoding**, `windowset | grouping | model` → **training**, and **interrogation** for the feature chains.
+is a consequence of the chain's terminal type (spec §6.1): `spanset | scores | signal` → **detection**,
+`encoding` → **encoding**, `windowset | grouping | model` → **training**; **interrogation** is reserved for
+the feature chains (`SpanSet → SpanSet + Features`), whose blocks do not exist yet, so no rule produces it
+today.
 
 The canonical templates **ship as code** in `webui/server/templates.py::CANONICAL` and are **seeded into
 the table on the first `--project` (or sandbox) start** by `seed_canonical`, by name, never overwriting.
@@ -153,10 +172,12 @@ registered (deprecated, tab *control*) so an old recipe still runs.
 6. **Run the gate**: `pytest -n auto` (zero new failures; `tests/test_block_standard.py` now includes your
    block), `npx tsc -b` + `npm run build` in `webui/client`, `webui/smoke.py` against a running bridge.
 
-Nothing else changes anywhere — no route, no page, no serializer, no renderer. That is the contract, and it
-holds because every surface keys on the type signature and reads names, costs and flags off the spec. If
-you find yourself editing `serialize.py` or `Renderer.tsx` to add a block, the block's output is not one of
-the seven types and needs a row in spec §6.8 before it is built.
+Nothing else changes anywhere — no route, no page, no serializer, no renderer — **for a block whose output
+has a shape the type already ships**: a Signal, a Scores, a SpanSet, a symbolic Encoding, a 2-D or 3-D image,
+a WindowSet, a Grouping, a Model. A new *shape* inside a type (the first 4-D image stack needed a contact-sheet
+branch in `serialize.py::_encoding`) needs one serializer branch, and the renderer only if the payload shape
+is new too. If the output fits none of the seven types at all, it needs a row in spec §6.8 before the block
+is built.
 
 ## 6. Worked example — the Dehshibi summation stage
 

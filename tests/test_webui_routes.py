@@ -187,6 +187,24 @@ def test_take_span_for_review_writes_a_seed_annotation_through_the_human_door(cl
     assert client.post("/api/annotations/seed", json={"recording_id": 1, "start_idx": 900, "end_idx": 700}).status_code == 422
 
 
+def test_detections_of_a_spanned_run_are_channel_absolute(client):
+    """Data-truth critic P0-1: the executor used to write a spanned run's spans span-relative
+    while every reader treats detections as channel-absolute."""
+    steps = [{"stage": "preprocessing", "algorithm": "detrend", "params": {"mode": "linear"}},
+             {"stage": "detection", "algorithm": "rupture", "params": {}}]
+    job = client.post("/api/runs", json={"recording_id": 1, "span": [1000, 2500], "steps": steps}).json()
+    snap = _wait_job(client, job["job_id"])
+    if not snap.get("detections_written"):
+        pytest.skip("rupture found no change point on this synthetic span")
+    payload = client.get(f"/api/runs/{job['job_id']}/steps/1").json()
+    inside = client.get("/api/channels/1/spans?t0=1000&t1=2500").json()["detections"]
+    mine = [d for d in inside if d["run_id"] == snap["db_run_id"]]
+    assert [round(d["start_s"]) for d in mine] == [round(s) for s in payload["start_s"]]
+    assert all(1000 <= d["start_s"] < 2500 for d in mine)
+    cov = client.get(f"/api/corpus/syn.mat/coverage?run={snap['db_run_id']}&bins=6").json()
+    assert sum(cov["rows"][0]["detections"][2:5]) == len(mine) and sum(cov["rows"][0]["detections"][:2]) == 0
+
+
 # ── interrogation ────────────────────────────────────────────────────────────
 
 @pytest.mark.skipif(not os.path.isdir(SEED_DIR), reason="seed store absent")

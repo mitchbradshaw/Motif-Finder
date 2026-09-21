@@ -84,6 +84,17 @@ def recording_row(conn, recording_id: int) -> dict | None:
     return d
 
 
+def _absolute(start_idx, end_idx, span_start):
+    """Channel-absolute bounds for a detections row. Rows written before 2026-09-21
+    by a spanned run are span-relative (the executor added no offset); such a row
+    is recognisable because its start lies below the run's span_start. Rows the
+    executor writes now are absolute already."""
+    s, e, o = int(start_idx), int(end_idx), int(span_start or 0)
+    if o and s < o:
+        return s + o, e + o
+    return s, e
+
+
 def _overlap_flags(a_start, a_end, b_start, b_end):
     """For each interval in A, True if it overlaps any interval in B (B sorted by start)."""
     if len(b_start) == 0 or len(a_start) == 0:
@@ -135,10 +146,11 @@ def coverage(conn, source_file: str, bins: int = 57, verdicts: tuple | None = No
         rid = rec["id"]
         ann = conn.execute("SELECT start_idx, end_idx, verdict FROM annotations WHERE recording_id = ? AND deleted_at IS NULL",
                            (rid,)).fetchall()
-        det = conn.execute("SELECT d.start_idx, d.end_idx, d.run_id FROM detections d JOIN runs r ON r.id = d.run_id WHERE r.recording_id = ?",
+        det = conn.execute("SELECT d.start_idx, d.end_idx, d.run_id, r.span_start FROM detections d JOIN runs r ON r.id = d.run_id WHERE r.recording_id = ?",
                            (rid,)).fetchall()
         if keep_runs is not None:
             det = [d for d in det if d["run_id"] in keep_runs]
+        det = [dict(zip(("start_idx", "end_idx", "run_id"), (*_absolute(d["start_idx"], d["end_idx"], d["span_start"]), d["run_id"]))) for d in det]
         for a in ann:
             if a["verdict"] in verdict_counts:
                 verdict_counts[a["verdict"]] += 1
@@ -187,9 +199,16 @@ def spans(conn, recording_id: int, t0_s: float, t1_s: float, fs: float, cap: int
     ann = conn.execute(
         "SELECT id, start_idx, end_idx, verdict, tag, note, source FROM annotations WHERE recording_id = ? AND deleted_at IS NULL "
         "AND end_idx > ? AND start_idx < ? ORDER BY start_idx LIMIT ?", (recording_id, s0, s1, cap + 1)).fetchall()
-    det = conn.execute(
-        "SELECT d.id, d.start_idx, d.end_idx, d.score, d.run_id FROM detections d JOIN runs r ON r.id = d.run_id "
-        "WHERE r.recording_id = ? AND d.end_idx > ? AND d.start_idx < ? ORDER BY d.start_idx LIMIT ?", (recording_id, s0, s1, cap + 1)).fetchall()
+    # legacy relative rows must be shifted before the window test, so the filter is done in Python
+    det_all = conn.execute(
+        "SELECT d.id, d.start_idx, d.end_idx, d.score, d.run_id, r.span_start FROM detections d JOIN runs r ON r.id = d.run_id "
+        "WHERE r.recording_id = ? ORDER BY d.start_idx", (recording_id,)).fetchall()
+    det = []
+    for d in det_all:
+        a, b = _absolute(d["start_idx"], d["end_idx"], d["span_start"])
+        if b > s0 and a < s1:
+            det.append({"id": d["id"], "start_idx": a, "end_idx": b, "score": d["score"], "run_id": d["run_id"]})
+    det.sort(key=lambda d: d["start_idx"])
     return {
         "recording_id": recording_id, "t0_s": t0_s, "t1_s": t1_s,
         "annotations": [{"id": a["id"], "start_s": a["start_idx"] / fs, "end_s": a["end_idx"] / fs, "verdict": a["verdict"],

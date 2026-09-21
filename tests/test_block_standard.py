@@ -45,6 +45,8 @@ COSTED = (
     "catalogue.cluster", "catalogue.classifier",
     "catalogue.gramian_gasf", "catalogue.gramian_gadf", "catalogue.gramian_recurrence",
     "catalogue.gramian_fusion", "detection.wavelet_scattering",
+    # stage-3 prompt 01 blocks that are not O(n)-cheap, and Pelt (worst-case O(n²))
+    "preprocessing.wavelet_transform", "catalogue.window_images", "catalogue.cnn_score", "detection.rupture",
 )
 
 

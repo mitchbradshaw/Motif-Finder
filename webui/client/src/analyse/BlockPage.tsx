@@ -96,7 +96,7 @@ export function BlockPage({ index }: { index: number }) {
   const perStep = val.v?.estimate?.per_step_s ?? null
   const staleFrom = job ? st.staleFrom : null      // nothing is stale relative to another source's job
   const rerunFrom = staleFrom !== null ? staleFrom : index
-  const cost = perStep ? perStep.slice(rerunFrom).reduce((a, b) => a + b, 0) : null
+  const cost = perStep ? perStep.slice(rerunFrom).reduce((a: number, b) => a + (b ?? 0), 0) : null
   const costText = cost === null ? '—' : cost < 0.05 ? '<0.1 s' : cost < 10 ? `${cost.toFixed(1)} s` : fmtDuration(cost)
   const stale = staleFrom !== null && staleFrom <= index
   const stat = statTiles(row.payload)

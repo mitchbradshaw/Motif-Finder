@@ -18,6 +18,11 @@ leakage guards the core must enforce, not a page:
   only when `allow_random_split` is set, because a random split leaks
   autocorrelated neighbours (backlog B7).
 
+`starts` are **channel-absolute** (the WindowSet convention, see
+`Working/types/windowset.py`): the span's offset is recovered from `t[0] * fs`
+exactly as `preprocessing.window_matrix` does, so the two producers agree and
+the bridge can draw the windows on the channel's time axis.
+
 The split rides on the WindowSet as a `split` column of its feature table
 (`0 = train, 1 = validation, 2 = test`) so it survives the step cache and
 "Save window set" (P18); `catalogue.cluster` and `catalogue.classifier`
@@ -98,12 +103,13 @@ def _run(x, t, fs, window_s=600.0, gap_s=0.0, split_rule="blocked_by_time", n_bl
     starts, length, gap = plan_windows(len(x), fs, window_s, gap_s)
     labels, blocks = assign_split(starts, len(x), split_rule, n_blocks, holdout_frac, validation_frac, seed)
     check = spacing_check(starts, length)
-    ws = WindowSet(starts=starts, length=length, fs=float(fs),
+    span_start = int(round(float(t[0]) * fs)) if t is not None and len(t) else 0
+    ws = WindowSet(starts=starts + span_start, length=length, fs=float(fs),
                    features=pd.DataFrame({SPLIT_COLUMN: labels}))
     counts = {name: int((labels == i).sum()) for i, name in enumerate(SPLIT_NAMES)}
     return AdapterResult(
         output_kind="windowset", value=ws,
-        meta={"length": length, "gap": gap, "n_windows": int(len(starts)), "split_rule": split_rule,
+        meta={"length": length, "gap": gap, "n_windows": int(len(starts)), "split_rule": split_rule, "span_start": span_start,
               "blocks": blocks, "split_counts": counts, "spacing": check, "seed": int(seed)},
     )
 

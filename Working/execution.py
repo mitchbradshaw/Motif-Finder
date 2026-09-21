@@ -406,10 +406,17 @@ def _execute_recipe_with_conn(conn, recipe, force, on_progress, should_cancel, r
                         "a different one from."
                     )
             elif result.output_kind == "spanset":
+                # A SpanSet is span-relative (index 0 = the first sample the chain
+                # ran over); `detections` is channel-absolute, like `annotations`
+                # and every reader (`corpus.spans`, the coverage map, Review). Add
+                # the span's offset here, once. Rows written before 2026-09-21 by a
+                # spanned run are relative; `webui/server/corpus.py::_absolute`
+                # shifts those on read (a relative index in a spanned run is always
+                # below the run's span_start).
                 span_set = result.value
                 span_scores = span_set.scores or (None,) * len(span_set.starts)
                 for start_idx, end_idx, score in zip(span_set.starts, span_set.ends, span_scores):
-                    insert_detection(conn, run_id, int(start_idx), int(end_idx),
+                    insert_detection(conn, run_id, int(start_idx) + int(span_start), int(end_idx) + int(span_start),
                                       score=score, commit=False)
                     detections_written += 1
                 conn.commit()

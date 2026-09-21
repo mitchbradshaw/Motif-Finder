@@ -78,7 +78,7 @@ export interface Step { stage: string; algorithm: string; params: Record<string,
 export interface Junction { index: number; ok: boolean; producing: TypeKind; expected: TypeKind | null; reason: string; core_reason?: string }
 export interface Validation {
   ok: boolean; junctions: Junction[]; terminal_kind: TypeKind | null; terminal_label: string | null
-  estimate?: { total_s: number; per_step_s: number[] }; hashes?: { config_hash: string; recipe_hash: string }
+  estimate?: { total_s: number; per_step_s: (number | null)[]; unknown?: number[]; route?: 'local' | 'unknown' }; hashes?: { config_hash: string; recipe_hash: string }
   cache?: { index: number; prefix_hash: string; cached: boolean; path: string | null }[]; over_ceiling?: number[]; recipe_error?: string
 }
 export interface Compatible {
@@ -159,12 +159,12 @@ export interface WindowsetPayload {
   features: { n_columns: number; columns: string[]; matrix: (number | null)[][] | null; col_range?: [number | null, number | null][] } | null; summary: string
 }
 export interface EncodingSymbolicPayload {
-  type: 'encoding'; kind: 'symbolic'; n_symbols: number; alphabet_size: number; symbols: number[]; letters: string; capped: boolean
+  type: 'encoding'; kind: 'symbolic'; n_symbols: number; alphabet_size: number; symbols: number[]; letters: string; capped: boolean; alphabet?: string | null
   samples_per_symbol: number | null; seconds_per_symbol: number | null; t0_s: number; fs: number; cutlines: number[] | null; cutline_domain: string | null
   representatives: number[] | null; paa: number[] | null; n_trimmed: number | null; summary: string
 }
 export interface EncodingImagePayload {
-  type: 'encoding'; kind: 'image'; ndim: number; shape: number[]; display_shape?: [number, number]; channels?: number; value_range?: [number, number]
+  type: 'encoding'; kind: 'image'; ndim: number; shape: number[]; n_images?: number | null; display_shape?: [number, number]; channels?: number; value_range?: [number, number]
   pixels_b64?: string; series?: number[]; bin_freqs?: number[] | null; summary: string
 }
 export interface GroupingPayload {
@@ -282,13 +282,14 @@ export interface Tags {
   annotations: (Annotation & { tags: TagRow[] })[]
   reviewed: { id: number; start_s: number; end_s: number; scale: string | null; source: string; at: string }[]
   reviewed_pct: number; tag_counts: Record<string, number>; vocabulary: { id: number; category: string; value: string; description: string | null; active: number }[]
+  annotations_capped?: boolean; reviewed_capped?: boolean
 }
 export const getTags = (id: number, t0?: number, t1?: number) => req<Tags>(`/api/channels/${id}/tags?t0=${t0 ?? 0}${t1 != null ? `&t1=${t1}` : ''}`)
 export const getSiblings = (id: number) => req<{ recording_id: number; source_file: string; channels: { id: number; channel: number; name: string; npy_exists: boolean }[] }>(`/api/channels/${id}/siblings`)
 export interface CrossRow { id: number; channel: number; name: string; is_reference: boolean; lag_s: number | null; r: number | null; classification: string; envelope?: EnvelopeSeries; y_range?: [number, number]; error?: string }
 export const getCross = (id: number, t0: number, t1: number, px = 900) => req<{ reference_id: number; source_file: string; t0_s: number; t1_s: number; fs: number; stride: number; channels: CrossRow[] }>(`/api/cross/${id}?t0=${t0}&t1=${t1}&px=${Math.round(px)}`)
 export const takeSpanForReview = (recording_id: number, start_idx: number, end_idx: number, note?: string, scale_viewed?: string) =>
-  post<{ id: number; recording_id: number; start_s: number; end_s: number; verdict: 'seed'; source: string; note: string }>('/api/annotations/seed', { recording_id, start_idx, end_idx, note, scale_viewed })
+  post<{ id: number; recording_id: number; start_s: number; end_s: number; verdict: 'seed'; source: string; note: string | null; banner: string }>('/api/annotations/seed', { recording_id, start_idx, end_idx, note, scale_viewed })
 
 export interface SeedFamily { id: string; label: string; source: 'seed'; recording_id: number; source_file: string; channel: number; fs: number; morphology: string | null; n_members: number; span_h: [number, number]; median_depth_mv: number }
 export interface SeedMember {

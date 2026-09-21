@@ -173,7 +173,8 @@ export function ChainPage() {
   // a step predicted in the prefix cache (with every predecessor cached too) costs nothing (critique r1)
   const prefixCached = (i: number) => { for (let k = 0; k <= i; k++) if (!val.v?.cache?.[k]?.cached) return false; return true }
   const allCachedFrom = (from: number) => n > from && Array.from({ length: n - from }, (_, k) => prefixCached(from + k)).every(Boolean)
-  const estFrom = (from: number) => perStep ? perStep.slice(from).reduce((a, b, k) => a + (prefixCached(from + k) ? 0 : b), 0) : null
+  const estFrom = (from: number) => perStep ? perStep.slice(from).reduce<number>((a, b, k) => a + (prefixCached(from + k) || b === null ? 0 : b), 0) : null
+  const unknownSteps = val.v?.estimate?.unknown ?? []
   const fmtEst = (s: number | null) => s === null ? '≈ —' : s < 0.05 ? '≈ <0.1 s' : `≤ ${fmtDuration(s)} core est.`   // estimate_recipe_seconds is a calibrated upper bound, measured 70–230× high on short spans
   let est: { text: string; kind: 'amber' | 'blue' | 'red' | 'green' }
   if (running && job) {
@@ -186,6 +187,7 @@ export function ChainPage() {
   else if (job?.status === 'completed') { const tv = Object.values(job.step_timings ?? {}); const fromCache = tv.filter(v => v === 0).length; est = { text: fromCache === tv.length ? '≈ <0.1 s · all from the step cache' : `${tv.length - fromCache} computed · ${fromCache} from the step cache`, kind: 'green' } }
   else if (allCachedFrom(0)) est = { text: '≈ <0.1 s · all in the step cache', kind: 'green' }
   else est = { text: `${fmtEst(estFrom(0))} · 01 → ${pad2(n)}`, kind: 'amber' }
+  if (unknownSteps.length && !running && (est.kind === 'amber')) est = { ...est, text: `${est.text} · ${unknownSteps.map(i => pad2(i + 1)).join(', ')} uncalibrated` }
   if (over.length && !running) est = { ...est, text: `${est.text} · ${over.length} over the local ceiling`, kind: 'red' }
 
   const runLabel = failedStep !== null && (st.staleFrom === null || !job) ? `↻ Retry from ${pad2(failedStep + 1)}` : stale !== null ? `↻ Re-run from ${pad2(stale + 1)}` : '▶ Run chain'

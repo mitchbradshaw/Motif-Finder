@@ -46,6 +46,12 @@ class ApplyBody(BaseModel):
     span: list[int] | None = None
 
 
+class DeriveBody(BaseModel):
+    step: Step
+    recording_id: int
+    span: list[int] | None = None
+
+
 def _conn(request: Request):
     return corpus.connect(request.app.state.rt.db_path)
 
@@ -142,6 +148,38 @@ def apply_template_route(request: Request, template_id: int, body: ApplyBody):
     finally:
         c.close()
     return {"template": {"id": tpl["id"], "name": tpl["name"], "kind": tpl["kind"], "version": tpl["version"]}, "recipe": recipe}
+
+
+# --------------------------------------------------------------- derive --
+@router.post("/api/blocks/derive")
+def derive_rows(request: Request, body: DeriveBody):
+    """The block's `derive` readout for these params on this span — recomputed without a run.
+    A block whose readout needs an upstream typed value says so in its own rows."""
+    import numpy as np
+    from Adapters.registry import get_adapter
+    name = f"{body.step.stage}.{body.step.algorithm}"
+    try:
+        spec = get_adapter(name)
+    except KeyError as e:
+        raise HTTPException(404, str(e))
+    if spec.derive is None:
+        return {"block": name, "rows": [], "has_derive": False}
+    try:
+        params = spec.validate_params(body.step.params or {})
+    except ValueError as e:
+        raise HTTPException(422, str(e))
+    c = _conn(request)
+    try:
+        rec = corpus.recording_row(c, body.recording_id)
+    finally:
+        c.close()
+    if rec is None or rec["held_out"]:
+        raise HTTPException(404 if rec is None else 423, f"recording {body.recording_id} is not available")
+    s0, s1 = (int(body.span[0]), int(body.span[1])) if body.span else (0, int(rec["n_samples"]))
+    x = np.asarray(corpus.load_channel(rec["npy_path"])[s0:s1], dtype=float)
+    t = np.arange(s0, s1) / float(rec["fs"])
+    rows = spec.derive(x, t, float(rec["fs"]), params)
+    return {"block": name, "has_derive": True, "rows": [{"label": r[0], "value": str(r[1]), "severity": r[2] if len(r) > 2 else ""} for r in rows]}
 
 
 # ----------------------------------------------------------------- jobs --

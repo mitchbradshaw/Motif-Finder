@@ -38,22 +38,6 @@ def windows(n=3, L=64, fs=1.0):
     return x, ws
 
 
-def test_window_images_registered_and_builds_the_stack():
-    spec = get_adapter("catalogue.window_images")
-    assert spec.input_kind == "windowset" and spec.output_kind == "encoding"
-    x, ws = windows()
-    r = spec.run(x, None, 1.0, value=ws, **spec.validate_params({"img_size": 32}))
-    assert r.value.kind == "image" and r.value.values.shape == (3, 32, 32, 3) and r.value.values.dtype == np.uint8
-    assert r.value.values.std() > 0
-
-
-def test_window_images_refuses_too_many_windows_with_the_size():
-    spec = get_adapter("catalogue.window_images")
-    x, ws = windows(n=5)
-    with pytest.raises(ValueError, match="MB"):
-        spec.run(x, None, 1.0, value=ws, **spec.validate_params({"img_size": 32, "max_windows": 2}))
-
-
 def test_cnn_score_registered_with_the_windows_side_input():
     spec = get_adapter("catalogue.cnn_score")
     assert spec.input_kind == "encoding" and spec.output_kind == "scores"

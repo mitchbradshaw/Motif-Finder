@@ -19,8 +19,11 @@ fixed here for that reason. `n_bkps`-driven algorithms can be added as a
 second adapter later if wanted.
 """
 
+import numpy as np
+
 from Adapters.base import AdapterSpec, AdapterResult, ParamSpec
 from Adapters.registry import register
+from Working.block_cost import estimate_seconds, register_cost_model
 from Working.Detection.rupture.rupture_detect import detect_change_points, plot_change_points
 from Working.types import SpanSet
 
@@ -50,6 +53,22 @@ def _plot(x, t, result, cost_model="l2", penalty=50.0, min_size=2, jump=5):
     return plot_change_points(x, t, result.meta["raw_result"])
 
 
+COST_MODEL = "detection.rupture"
+
+
+def _time_once(x, fs):
+    _run(x, np.arange(len(x)) / fs, fs)
+
+
+register_cost_model(COST_MODEL, 1.5, _time_once)
+
+
+def _estimate(x, t, fs, **params):
+    """Pelt is O(n) per candidate change point and O(n²) worst case; seconds from the
+    calibration file at exponent 1.5, None until calibrated on this machine."""
+    return estimate_seconds(COST_MODEL, len(x))
+
+
 SPEC = register(AdapterSpec(
     name="detection.rupture",
     display_name="Change-point detection (ruptures / Pelt)",
@@ -63,6 +82,7 @@ SPEC = register(AdapterSpec(
         ParamSpec("jump", int, 5, "Candidate-breakpoint subsampling stride (samples)", min=1),
     ],
     run=_run,
+    estimate=_estimate,
     input_kind="signal",
     output_kind="spanset",
     plot=_plot,

@@ -46,6 +46,7 @@ def adapter_card(spec) -> dict:
         "signature": f"{TYPE_LABEL.get(in_kind, in_kind)} → {TYPE_LABEL.get(spec.output_kind, spec.output_kind)}",
         "category": spec.category,
         "has_estimate": spec.estimate is not None,
+        "has_derive": spec.derive is not None,
         "max_span_samples": spec.max_span_samples,
         "has_recommend": spec.recommend is not None,
         "side_inputs": [{"name": s.name, "type_kind": s.type_kind, "sources": list(s.sources)} for s in spec.side_inputs],
@@ -155,15 +156,31 @@ def build_recipe(recording_id: int, span: tuple[int, int] | None, steps: list[di
 
 
 def estimate(recipe: dict, n_samples: int, fs: float) -> dict:
-    total = float(estimate_recipe_seconds(recipe, n_samples, fs) or 0.0)
-    per_step = []
+    """Per-step seconds. A step whose estimator answers None (uncalibrated on this
+    machine) or raises is reported as ``null`` and listed in ``unknown`` — never as
+    0.0 (docs/BLOCK_INTEGRATION.md §3: the honest answer routes to "unknown", not to a
+    spinner). ``total_s`` sums the known steps; a block with no estimator is free."""
+    from Working.hpc.job_export import _Span
+    per_step, unknown, errors = [], [], {}
     for i, step in enumerate(recipe["steps"]):
-        sub = dict(recipe); sub["steps"] = [step]
-        try:
-            per_step.append(float(estimate_recipe_seconds(sub, n_samples, fs) or 0.0))
-        except Exception:
+        spec = get_adapter(f"{step['stage']}.{step['algorithm']}")
+        if spec.estimate is None:
             per_step.append(0.0)
-    return {"total_s": total, "per_step_s": per_step}
+            continue
+        try:
+            v = spec.estimate(_Span(n_samples), None, fs, **step["params"])
+        except Exception as e:      # an estimator that raises is not "free"
+            v = None
+            errors[i] = f"{type(e).__name__}: {e}"
+        if v is None:
+            per_step.append(None); unknown.append(i)
+        else:
+            per_step.append(float(v))
+    fan = recipe.get("fan_out")
+    width = len(fan["targets"]) if fan else 1
+    total = sum(v for v in per_step if v is not None) * width
+    return {"total_s": total, "per_step_s": per_step, "unknown": unknown, "errors": errors,
+            "route": "unknown" if unknown else "local"}
 
 
 def cache_status(recipe: dict, conn) -> list[dict]:

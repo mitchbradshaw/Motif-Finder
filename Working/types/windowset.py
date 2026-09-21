@@ -32,7 +32,14 @@ class WindowSet:
     Attributes
     ----------
     starts : np.ndarray
-        Sample index of each window's start, one per window.
+        Sample index of each window's start, one per window — **channel-
+        absolute** (the index into the whole recorded channel, not into the
+        span the chain ran over). Every producer adds the span's offset
+        (`preprocessing.window_matrix`, `preprocessing.sliding_windows`
+        recover it from `t[0] * fs`); every consumer that slices the span's
+        `x` subtracts it (`catalogue.window_images`, `catalogue.cnn_score`);
+        the bridge draws `starts / fs` directly. SpanSet is the other
+        convention (span-relative) — do not mix them.
     length : int
         Window length in samples, fixed across the set.
     fs : float

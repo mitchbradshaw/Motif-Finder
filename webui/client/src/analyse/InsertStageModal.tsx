@@ -53,7 +53,7 @@ export function InsertStageModal({ steps, position, adapters, source, onClose, o
     const trial = [...steps.slice(0, position), { stage: sel.stage, algorithm: sel.algorithm, params: {} }, ...steps.slice(position)]
     let alive = true
     validateChain(trial, source.recording_id, spanOf(source))
-      .then(v => { if (alive) setEstimates(e => ({ ...e, [sel.name]: v.estimate ? v.estimate.per_step_s[position] ?? null : null })) })
+      .then(v => { if (alive) setEstimates(e => ({ ...e, [sel.name]: v.estimate ? (v.estimate.per_step_s[position] ?? null) : null })) })
       .catch(() => { if (alive) setEstimates(e => ({ ...e, [sel.name]: null })) })
     return () => { alive = false }
   }, [sel, source, steps, position, estimates])

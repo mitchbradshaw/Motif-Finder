@@ -27,11 +27,21 @@ import numpy as np
 
 from Adapters.base import AdapterResult, AdapterSpec, ParamSpec, SideInputSpec
 from Adapters.registry import register
-from Working.block_cost import estimate_seconds
+from Working.block_cost import estimate_seconds, register_cost_model
 from Working.types import Scores
 
 DEFAULT_MODEL = os.path.join("MODELS", "fusion_cnn.pth")
 COST_MODEL = "catalogue.cnn_score"
+
+
+def _time_once(x, fs):
+    """Score one 600 s window per 600 samples of the calibration signal (needs the default checkpoint)."""
+    n = len(x); L = min(600, max(8, n // 20)); k = max(1, n // L)
+    stack = np.random.default_rng(0).integers(0, 255, size=(min(k, 32), 224, 224, 3), dtype=np.uint8)
+    score_stack(stack, DEFAULT_MODEL, img_size=224, batch_size=32)
+
+
+register_cost_model(COST_MODEL, 1.0, _time_once)
 
 
 def score_stack(stack, model_path, img_size=224, batch_size=32):
@@ -69,8 +79,11 @@ def _run(x, t, fs, model_path=DEFAULT_MODEL, img_size=224, batch_size=32, value=
     probs = score_stack(stack, model_path, img_size=img_size, batch_size=batch_size)
     scores = np.full(len(x), np.nan)
     L = int(windows.length)
-    for s, p in zip(np.asarray(windows.starts, dtype=np.int64), probs):
-        scores[s:s + L] = p
+    # WindowSet.starts are channel-absolute; the Scores are over the span
+    span_start = int(round(float(t[0]) * fs)) if t is not None and len(t) else 0
+    for s, p in zip(np.asarray(windows.starts, dtype=np.int64) - span_start, probs):
+        if 0 <= s < len(x):
+            scores[s:s + L] = p
     return AdapterResult(
         output_kind="scores",
         value=Scores(values=scores, fs=float(fs)),

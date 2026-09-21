@@ -47,6 +47,14 @@ def test_windows_tile_the_span_when_gap_is_zero():
     assert r.meta["spacing"]["train_safe"] is True
 
 
+def test_starts_are_channel_absolute_like_window_matrix():
+    spec = get_adapter(NAME)
+    t = np.arange(5000, 6000) / FS          # the span starts at channel sample 5000
+    r = spec.run(X, t, FS, **spec.validate_params({"window_s": 100.0}))
+    assert list(r.value.starts) == list(range(5000, 5901, 100))
+    assert r.meta["span_start"] == 5000
+
+
 def test_gap_shorter_than_the_window_is_refused_in_the_core():
     with pytest.raises(ValueError, match="P12"):
         run(window_s=100.0, gap_s=50.0)

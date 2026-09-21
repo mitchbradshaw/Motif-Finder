@@ -10,14 +10,37 @@ fusion)", training block 04; the stack feeds `catalogue.cnn_score`.
 The stack is `(n_windows, img_size, img_size, 3)` uint8 — the pixels the
 CNN sees, so what the block page shows is what the model scores. A cap on
 the number of windows keeps a whole-channel window set from allocating a
-multi-gigabyte stack; the executor refuses over `max_windows` with the size.
+multi-gigabyte stack; the block refuses over `max_windows`, naming the size,
+before allocating (a parameter, not `max_span_samples`, because the driver is the
+window count, not the span length). `estimate` answers from the calibration file.
 """
 
 import numpy as np
 
 from Adapters.base import AdapterResult, AdapterSpec, ParamSpec
 from Adapters.registry import register
+from Working.block_cost import estimate_seconds, register_cost_model
 from Working.types import Encoding
+
+COST_MODEL = "catalogue.window_images"
+
+
+def _time_once(x, fs):
+    import pandas as pd
+    from Working.types import WindowSet
+    n = len(x); L = min(600, max(8, n // 20))
+    starts = np.arange(0, n - L + 1, L)[:20]
+    ws = WindowSet(starts=starts, length=L, fs=fs, features=pd.DataFrame({"split": np.zeros(len(starts), int)}))
+    _run(x, None, fs, image_type="fusion", img_size=224, max_windows=100000, value=ws)
+
+
+register_cost_model(COST_MODEL, 1.0, _time_once)
+
+
+def _estimate(x, t, fs, **params):
+    """Seconds from the calibration file (one image per 600 s window on the
+    calibration signal); None until `Working.block_cost.calibrate()` ran."""
+    return estimate_seconds(COST_MODEL, len(x))
 
 IMAGE_TYPES = ("fusion", "GASF", "GADF", "recurrence")
 
@@ -36,8 +59,12 @@ def _run(x, t, fs, image_type="fusion", img_size=224, max_windows=2000, value=No
             f"max_windows={max_windows}; shorten the span, lengthen the stride, or raise max_windows.")
     x = np.asarray(x, dtype=float)
     L = int(value.length)
+    # WindowSet.starts are channel-absolute; `x` is the span — subtract the span's offset (t[0] * fs)
+    span_start = int(round(float(t[0]) * fs)) if t is not None and len(t) else 0
     stack = np.zeros((n, img_size, img_size, 3), dtype=np.uint8)
-    for i, s in enumerate(starts):
+    for i, s in enumerate(starts - span_start):
+        if s < 0:
+            raise ValueError(f"window {i} starts at channel index {s + span_start}, before this span ({span_start}).")
         w = x[s:s + L]
         if len(w) < L:
             raise ValueError(f"window {i} at {s} runs past the span ({len(x)} samples).")
@@ -72,6 +99,7 @@ SPEC = register(AdapterSpec(
         ParamSpec("max_windows", int, 2000, "Refuse a window set larger than this (memory guard)", min=1),
     ],
     run=_run,
+    estimate=_estimate,
     derive=_derive,
     input_kind="windowset",
     output_kind="encoding",
