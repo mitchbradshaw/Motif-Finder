@@ -78,7 +78,14 @@ def _conn(request: Request) -> sqlite3.Connection:
 
 def _roots(request: Request, kind: str) -> list:
     over = getattr(request.app.state, "registry_roots", None) or {}
-    return list(over.get(kind) or KINDS[kind].roots)
+    roots = list(over.get(kind) or KINDS[kind].roots)
+    rt = _rt(request)
+    if kind == "recording" and not over and rt.mode == "sandbox":
+        # what the raw kind derives in sandbox mode lands under the runtime dir: scan it too
+        extra = os.path.join(rt.dir, "derived", "channels")
+        if os.path.isdir(extra):
+            roots.append(extra)
+    return roots
 
 
 def _kw(request: Request, kind: str) -> dict:
@@ -324,7 +331,12 @@ def _packages() -> dict:
     return out
 
 
+import functools
+
+
+@functools.lru_cache(maxsize=1)
 def _machine() -> dict:
+    """Cached: the first call imports torch (seconds); the machine does not change while the bridge runs."""
     total = None
     try:
         import psutil
@@ -367,6 +379,7 @@ def get_about(request: Request):
         n_settings = c.execute("SELECT COUNT(*) FROM settings").fetchone()[0]
         n_audit = c.execute("SELECT COUNT(*) FROM audit_log").fetchone()[0]
         n_rec = c.execute("SELECT COUNT(DISTINCT source_file) FROM recordings WHERE active = 1").fetchone()[0]
+        n_rec_rows = c.execute("SELECT COUNT(*) FROM recordings WHERE active = 1").fetchone()[0]
         n_art = c.execute("SELECT COUNT(*) FROM registered_artifacts WHERE active = 1").fetchone()[0]
     finally:
         c.close()
@@ -377,7 +390,7 @@ def get_about(request: Request):
     pk = _packages()
     about = {
         "project": "Underground Brains · fungal bio-electric recordings", "code": code,
-        "schema": {"tables": tables, "settings_rows": n_settings, "audit_rows": n_audit, "recordings": n_rec, "registered_artifacts": n_art, "path": rt.db_path},
+        "schema": {"tables": tables, "settings_rows": n_settings, "audit_rows": n_audit, "recordings": n_rec, "recording_rows": n_rec_rows, "registered_artifacts": n_art, "path": rt.db_path},
         "blocks": {"registered": len(cat), "broken": broken, "summary": f"{len(cat)} registered · {len(broken)} known broken"},
         "python": platform.python_version(), "executable": sys.executable, "packages": pk, "mode": rt.mode, "banner": rt.banner(), "db_path": rt.db_path,
         "db_backup": rt.db_backup, "runtime_dir": rt.dir, "repo_root": REPO_ROOT, "held_out_file": HELD_OUT_FILE,
@@ -390,7 +403,7 @@ def get_about(request: Request):
         ],
     }
     about["diagnostics"] = "\n".join([
-        about["project"], f"code      {code['summary']}", f"mode      {rt.mode}", f"database  {rt.db_path} ({tables} tables, {n_rec} recordings, {n_art} registered artifacts)",
+        about["project"], f"code      {code['summary']}", f"mode      {rt.mode}", f"database  {rt.db_path} ({tables} tables, {n_rec} recordings / {n_rec_rows} channel rows, {n_art} registered artifacts)",
         f"blocks    {about['blocks']['summary']}", f"python    {platform.python_version()} ({sys.executable})",
         f"packages  " + ", ".join(f"{k}={v}" for k, v in pk.items() if v), f"platform  {platform.platform()}", f"held out  {HELD_OUT_FILE}",
     ])
@@ -428,8 +441,9 @@ def get_storage(request: Request):
     sandbox = rt.mode == "sandbox"
     db_dir = os.path.dirname(rt.db_source)
     backups_dir = os.path.join(db_dir, "backups") if not sandbox else os.path.join(rt.dir, "backups")
-    mp_dir = os.path.join(rt.results_dir, "matrix_profile") if (sandbox and rt.results_dir) else KINDS["matrix_profile"].roots[0]
-    wm_dir = os.path.join(rt.results_dir, "window_matrix") if (sandbox and rt.results_dir) else KINDS["window_matrix"].roots[0]
+    # the roots are the conventional directories the registry scans; sandbox mode ADDS its redirected
+    # write locations as their own rows rather than hiding the real ones behind them
+    mp_dir, wm_dir = KINDS["matrix_profile"].roots[0], KINDS["window_matrix"].roots[0]
     roots = [
         ("database", "database", rt.db_path, ["open folder", "back up"], f"{'sandbox copy' if sandbox else 'the project database (WAL)'}"),
         ("recordings", "raw recordings", KINDS["raw"].roots[0], ["scan"], "read only · derived into channels"),
@@ -438,7 +452,7 @@ def get_storage(request: Request):
         ("window_matrices", "window matrices", wm_dir, ["scan"], KINDS["window_matrix"].naming.split(" · ")[0]),
         ("legacy_matrices", "legacy matrices (csv)", KINDS["window_matrix"].roots[1], ["scan"], "no manifest fields"),
         ("matrix_profiles", "matrix profiles", mp_dir, ["scan"], KINDS["matrix_profile"].naming),
-        ("models", "models", rt.models_dir or KINDS["model"].roots[0], ["scan"], "PyTorch checkpoints"),
+        ("models", "models", KINDS["model"].roots[0], ["scan"], "PyTorch checkpoints"),
         ("classifiers", "classifier joblibs", KINDS["model"].roots[1], ["scan"], "sklearn"),
         ("window_sets", "window sets", KINDS["window_set"].roots[0], ["scan"], "none saved yet" if not os.path.isdir(KINDS["window_set"].roots[0]) else ""),
         ("encodings", "encodings", KINDS["encoding"].roots[0], ["scan"], ""),
@@ -447,7 +461,11 @@ def get_storage(request: Request):
         ("hpc_results", "HPC results", KINDS["hpc_result"].roots[0], ["scan"], "drop a job's bundle here"),
         ("exports", "exports", rt.exports_dir, ["open folder"], ""),
         ("backups", "database backups", backups_dir, ["open folder"], f"written on every --project start · last {10} kept"),
-    ]
+    ] + ([
+        ("sandbox_results", "sandbox results (redirected)", rt.results_dir or "", [], "where this sandbox's runs write matrix profiles and window matrices"),
+        ("sandbox_models", "sandbox models (redirected)", rt.models_dir or "", [], "where this sandbox's classifier writes"),
+        ("sandbox_channels", "sandbox derived channels", os.path.join(rt.dir, "derived", "channels"), ["scan"], "where an import derives in sandbox mode (scanned with the real channels)"),
+    ] if sandbox else [])
     out = []
     for rid, label, path, actions, note in roots:
         exists = bool(path) and os.path.exists(path)

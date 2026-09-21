@@ -177,10 +177,12 @@ export function useSettingsPage(slug: string): SettingsPageStore {
   }, [setStore, slug])
 
   /** Merge the server's answer for `slug` into the saved layer and clear the keys it covered from the draft. */
-  const commit = useCallback((values: Values, keys: string[]) => {
+  const commit = useCallback((values: Values, keys: string[], clearAll = false) => {
     setStore(s => {
       const savedNext = { ...(s.saved[slug] ?? {}), ...values }
-      const draftNext = { ...(s.draft[slug] ?? {}) }
+      /* after a save the draft is empty: a key edited back to its saved value was not a change, but it
+         would keep the draft non-empty and stop the next ?state=unsaved seed */
+      const draftNext = clearAll ? {} : { ...(s.draft[slug] ?? {}) }
       for (const k of keys) delete draftNext[k]
       if (slug === 'datasets') syncHeldOut(savedNext)
       return { ...s, saved: { ...s.saved, [slug]: savedNext }, draft: { ...s.draft, [slug]: draftNext }, seeded: { ...s.seeded, [slug]: false }, hydrated: { ...s.hydrated, [slug]: true } }
@@ -200,7 +202,7 @@ export function useSettingsPage(slug: string): SettingsPageStore {
     setSaving(true)
     try {
       const r = await putSettingsPage(slug, payload)
-      commit(r.values, changes.map(c => c.id))
+      commit(r.values, changes.map(c => c.id), true)
       push({ text: `Saved · ${sentence || `${n} change${n === 1 ? '' : 's'} applied`}` })
     } catch (e) {
       const msg = e instanceof ApiError ? e.message : String(e)

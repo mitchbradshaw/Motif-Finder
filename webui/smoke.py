@@ -23,7 +23,7 @@ import sys
 import time
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-SHOTS = os.path.join(HERE, "screenshots")
+SHOTS = os.environ.get("SMOKE_SHOTS") or os.path.join(HERE, "screenshots")   # two agents' smoke runs must not write the same files
 
 
 class Smoke:

@@ -216,7 +216,7 @@ export const getAbout = (): Promise<Sourced<AboutData>> => live((async () => {
   const a = await apiAbout()
   return {
     about: {
-      code: a.code.summary, matches_export: !a.code.dirty, schema: `${a.schema.tables} tables · ${a.schema.recordings} recordings · ${a.schema.registered_artifacts} registered artifacts · ${a.schema.path}`,
+      code: a.code.summary, matches_export: !a.code.dirty, schema: `${a.schema.tables} tables · ${a.schema.recordings} recordings (${a.schema.recording_rows} channel rows) · ${a.schema.registered_artifacts} registered artifacts · ${a.schema.path}`,
       blocks: a.blocks.summary, environment: a.environment, project: a.project, settings_file: a.settings_store,
       lock_file: ['# environment (read at start, not a lock file)', `python=${a.python}`, ...Object.entries(a.packages).filter(([, v]) => v).map(([k, v]) => `${k}=${v}`)].join('\n'),
       future: a.future, mode: a.mode, db_path: a.db_path, db_backup: a.db_backup, broken: a.blocks.broken,

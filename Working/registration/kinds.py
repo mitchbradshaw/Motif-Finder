@@ -65,6 +65,7 @@ class KindSpec:
     registered_ids: Callable
     unregister: Callable
     list_registered: Callable
+    enrich: Callable | None = None      # fill a registered candidate's facts from its rows
 
     def describe(self) -> dict:
         return {"name": self.name, "label": self.label, "roots": list(self.roots), "table": self.table, "ui": self.ui, "naming": self.naming}
@@ -128,6 +129,19 @@ def _scalar(z, key, default=None):
     if isinstance(v, np.generic):
         v = v.item()
     return v
+
+
+def _npz_member_shape(path: str, member: str):
+    """Shape of one array in an .npz from its .npy header alone (no data read)."""
+    import zipfile
+    with zipfile.ZipFile(path) as zf:
+        name = member + ".npy"
+        if name not in zf.namelist():
+            return None
+        with zf.open(name) as fh:
+            version = np.lib.format.read_magic(fh)
+            shape, _fortran, _dtype = np.lib.format._read_array_header(fh, version)
+            return tuple(shape)
 
 
 def _npz_keys(z, rep: Report, required) -> bool:
@@ -294,7 +308,7 @@ def _scan_recording(roots, conn, **kw):
             facts = {"stem": name, "dir": portable(d), "source_file": man.get("source_file") or f"{name}.mat", "source_file_from_manifest": bool(man.get("source_file")),
                      "fs": fs, "fs_source": fs_source if fs is not None else None, "fs_note": fs_note, "n_channels": len(chans), "n_samples": n,
                      "dtype": man.get("dtype"), "time_base": man.get("time_base"), "units": man.get("units"), "imported_at": man.get("imported_at"),
-                     "raw_file": man.get("raw_file"), "manifest": bool(man) and "error" not in man, "channel_files": [fn for _i, fn in chans],
+                     "raw_file": man.get("raw_file"), "has_manifest": bool(man) and "error" not in man, "channel_files": [fn for _i, fn in chans],
                      "duration_h": (n / fs / 3600.0) if (fs and n) else None, "held_out": man.get("source_file") == HELD_OUT_FILE or name == HELD_OUT_STEM}
             if not man.get("source_file"):
                 warnings.append(f"no manifest.json: the recording is labelled '{name}.mat' after its directory; pass source_file to override")
@@ -312,6 +326,19 @@ def _recording_ids_for_dir(conn, d: str, source_file: str | None = None) -> list
 
 def _recording_registered_ids(conn, cand: Candidate, **kw) -> list:
     return _recording_ids_for_dir(conn, cand.path, cand.facts.get("source_file"))
+
+
+def _enrich_recording(conn, cand: Candidate, **kw) -> None:
+    """A registered directory's facts come from its rows: the pre-standard
+    directories carry no manifest.json, and the row is the truth anyway."""
+    if not cand.registered_ids:
+        return
+    r = conn.execute("SELECT source_file, fs, n_samples, fs_source FROM recordings WHERE id = ?", (cand.registered_ids[0],)).fetchone()
+    if r is None:
+        return
+    sf, fs, n, fs_source = r[0], r[1], r[2], r[3]
+    cand.facts.update({"source_file": sf, "fs": fs, "n_samples": n, "fs_source": fs_source or "unrecorded",
+                       "duration_h": n / fs / 3600.0 if fs else None, "facts_from": "recordings rows"})
 
 
 def _load_channels(d, files):
@@ -482,7 +509,7 @@ def _list_recordings(conn, sidecar_root=None, **kw):
                           "offset": c0.get("parent_offset"), "decimation": c0.get("decimation")}
         out.append({
             "kind": "recording", "id": c0["id"], "ids": [c["id"] for c in chans], "name": stem, "source_file": sf, "dir": portable(d),
-            "n_channels": len(chans), "fs": c0["fs"], "fs_source": c0.get("fs_source") or "read", "n_samples": c0["n_samples"],
+            "n_channels": len(chans), "fs": c0["fs"], "fs_source": c0.get("fs_source") or "unrecorded", "n_samples": c0["n_samples"],
             "duration_h": c0["n_samples"] / c0["fs"] / 3600.0 if c0["fs"] else None, "held_out": sf == HELD_OUT_FILE,
             "warnings": json.loads(c0["warnings_json"]) if c0.get("warnings_json") else [], "excerpt_of": parent,
             "registered_at": c0.get("registered_at"), "registered_by": c0.get("registered_by"),
@@ -828,6 +855,19 @@ def _scan_matrix_profile(roots, conn, **kw):
                               "span": [int(m.group("a")), int(m.group("b"))] if m.group("a") else None})
             else:
                 warnings.append("file name does not follow mp_v2_<stem>_CH<n>_WIN<len>min[_span<a>-<b>].npz")
+            try:
+                z = np.load(p, allow_pickle=False)
+                mp_shape = _npz_member_shape(p, "mp")
+                n_s, mm = _scalar(z, "n_samples"), _scalar(z, "m")
+                facts.update({"n_samples": int(n_s) if n_s is not None else None, "m": int(mm) if mm is not None else None,
+                              "mp_len": int(mp_shape[0]) if mp_shape else None, "source_file": _scalar(z, "source_file"), "config_hash": _scalar(z, "config_hash")})
+                if mp_shape and n_s is not None and mm is not None:
+                    span = facts.get("span") or [0, int(n_s)]
+                    expect = span[1] - span[0] - int(mm) + 1
+                    if int(mp_shape[0]) != expect:
+                        warnings.append(f"mp holds {int(mp_shape[0]):,} points; a complete profile over this span has {expect:,} (the length check will fail)")
+            except Exception as e:
+                warnings.append(f"npz header unreadable: {type(e).__name__}: {e}")
             cands.append(Candidate(kind="matrix_profile", path=p, name=base, facts=facts, warnings=warnings))
     return cands
 
@@ -1352,7 +1392,7 @@ KINDS["recording"] = KindSpec(
     ui="Settings › Datasets; Explore recording menu (GET /api/recordings); Analyse source picker; Channels & events",
     naming="DATA/derived/channels/<stem>/CH<n>.npy + manifest.json (source_file, fs, n_channels, n_samples_per_channel, fs_note, time_base)",
     scan=_scan_recording, check=_check_recording, register=_register_recording, registered_ids=_recording_registered_ids,
-    unregister=_unregister_recording, list_registered=_list_recordings)
+    unregister=_unregister_recording, list_registered=_list_recordings, enrich=_enrich_recording)
 KINDS["raw"] = KindSpec(
     name="raw", label="Raw recording file", roots=["DATA/raw"], table="recordings",
     ui="Settings › Datasets › Import a recording (derives channels, then registers the recording)",

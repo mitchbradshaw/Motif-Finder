@@ -94,7 +94,7 @@ function Body({ data, reload }: { data: Data; reload: () => void }) {
             columns={[
               { key: 'name', header: 'name', width: '16%', render: r => <span className="mono" style={{ fontWeight: 600 }}>{r.name}</span> },
               { key: 'file', header: 'file', width: '16%', render: r => <span className="mono small">{r.file}</span> },
-              { key: 'fs', header: 'sampling rate', width: '12%', render: r => <>{r.fs_hz} Hz <Badge tone={r.fs_source === 'read' ? 'green' : 'amber'}>{r.fs_source}</Badge></> },
+              { key: 'fs', header: 'sampling rate', width: '12%', render: r => <>{r.fs_hz} Hz <Badge tone={r.fs_source === 'read' ? 'green' : r.fs_source === 'inferred' ? 'amber' : 'grey'}>{r.fs_source === 'unrecorded' ? 'not recorded' : r.fs_source}</Badge></> },
               { key: 'ch', header: 'ch', width: '4%', render: r => r.n_channels },
               { key: 'dur', header: 'duration', width: '8%', render: r => `${r.duration_h} h` },
               { key: 'species', header: 'species', width: '9%', render: r => r.species ?? <span className="muted">not set</span> },
@@ -161,9 +161,9 @@ function Body({ data, reload }: { data: Data; reload: () => void }) {
                 disabledReason={locked ? 'held out · locked' : undefined} options={data.timeZones.map(z => ({ value: z, label: z }))} width="100%" />
             </GridField>
             <GridField label="sampling rate">
-              {current.fs_source === 'read'
-                ? <LockedField reason="read from the file — cannot be edited" width="100%" testid="fs-locked">{current.fs_hz} Hz · read from the file</LockedField>
-                : <LockedField reason="inferred at registration (recorded on the row as fs_source = inferred); re-register to change it" width="100%" testid="fs-inferred">{current.fs_hz} Hz · inferred</LockedField>}
+              {current.fs_source === 'inferred'
+                ? <LockedField reason="inferred at registration (recorded on the row as fs_source = inferred); re-register to change it" width="100%" testid="fs-inferred">{current.fs_hz} Hz · inferred</LockedField>
+                : <LockedField reason={current.fs_source === 'read' ? 'read from the file — cannot be edited' : 'registered before this standard: the row carries fs but not where it came from'} width="100%" testid="fs-locked">{current.fs_hz} Hz · {current.fs_source === 'read' ? 'read from the file' : 'source not recorded'}</LockedField>}
             </GridField>
             <GridField label="noise floor" info="Every detector reads the noise floor from here; a channel can override it in Channels & events. Empty means detectors estimate it." {...mark('noise_floor')} testid="f-noise-floor">
               <TextField {...ro('noise_floor')} suffix="mV" block placeholder="estimated" invalid={!!floorError && !locked} testid="noise-floor" />
@@ -394,7 +394,7 @@ function describe(c: Candidate): string {
       f.fs != null ? `${f.fs} Hz` : 'fs ?', f.derived_dir ? `derived at ${f.derived_dir}` : null].filter(Boolean).join(' · ')
   }
   return [`${f.n_channels} ch × ${Number(f.n_samples ?? 0).toLocaleString('en-US')}`, f.fs != null ? `${f.fs} Hz${f.fs_source === 'inferred' ? ' (inferred)' : ''}` : 'fs ?',
-    f.duration_h != null ? `${Number(f.duration_h).toFixed(1)} h` : null, f.manifest ? 'manifest' : 'no manifest'].filter(Boolean).join(' · ')
+    f.duration_h != null ? `${Number(f.duration_h).toFixed(1)} h` : null, f.has_manifest ? 'manifest' : 'no manifest'].filter(Boolean).join(' · ')
 }
 
 function SubCard({ n, title, caption, children }: { n: number; title: string; caption: string; children: ReactNode }) {

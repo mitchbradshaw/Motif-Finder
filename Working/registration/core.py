@@ -230,6 +230,8 @@ def scan(kind: str, roots=None, conn: sqlite3.Connection | None = None, **kw) ->
             c.registered_ids = list(ids)
             if ids:
                 c.warnings = []   # what a registered artifact lacks was settled at registration; the row carries its warnings
+                if spec.enrich is not None:
+                    spec.enrich(conn, c, **kw)
     return cands
 
 

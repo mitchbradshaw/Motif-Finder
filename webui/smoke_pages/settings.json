@@ -5,8 +5,8 @@
  {"page": "settings.shell", "state": "leave-guard", "hash": "settings/nulls?state=unsaved", "actions": [{"click": "[data-testid=\"settings-nav-blocks\"]"}], "expect": ["[data-testid=\"leave-guard\"]"]},
  {"page": "settings.shell", "state": "confirm-reset", "hash": "settings/nulls", "actions": [{"fill": ["[data-testid=\"alpha\"]", "0.05"]}, {"wait": 300}, {"click": "[data-testid=\"reset-page\"]"}], "expect": ["[data-testid=\"reset-popover\"]", "[data-testid=\"reset-confirm\"]"]},
  {"page": "settings.shell", "state": "reset-stages-defaults", "hash": "settings/nulls", "actions": [{"fill": ["[data-testid=\"alpha\"]", "0.05"]}, {"wait": 300}, {"click": "[data-testid=\"reset-page\"]"}, {"click": "[data-testid=\"reset-confirm\"]"}, {"wait": 300}], "expect": ["[data-testid=\"nulls-table\"]"], "expect_absent": ["[data-testid=\"reset-popover\"]"]},
- {"page": "settings.shell", "state": "save-writes-the-settings-table", "hash": "settings/nulls", "actions": [{"fill": ["[data-testid=\"draws-baseline\"]", "500"]}, {"wait": 400}, {"click": "[data-testid=\"save-changes\"]"}, {"wait": 1200}], "expect": ["[data-testid=\"nulls-table\"]"], "expect_absent": ["[data-testid=\"save-bar\"]"]},
- {"page": "settings.shell", "state": "saved-value-survives-reload", "hash": "settings/nulls", "actions": [{"wait": 600}], "expect": ["[data-testid=\"nulls-table\"]", "[data-testid=\"draws-baseline\"][value=\"500\"]"]},
+ {"page": "settings.shell", "state": "save-writes-the-settings-table", "hash": "settings/nulls", "actions": [{"fill": ["[data-testid=\"draws-detection\"]", "300"]}, {"wait": 400}, {"click": "[data-testid=\"save-changes\"]"}, {"wait": 1200}], "expect": ["[data-testid=\"nulls-table\"]"], "expect_absent": ["[data-testid=\"save-bar\"]"]},
+ {"page": "settings.shell", "state": "saved-value-survives-reload", "hash": "settings/nulls", "actions": [{"wait": 600}], "expect": ["[data-testid=\"nulls-table\"]", "[data-testid=\"draws-detection\"][value=\"300\"]"]},
  {"page": "settings.shell", "state": "discard", "hash": "settings/analysis-defaults?state=unsaved", "actions": [{"click": "[data-testid=\"discard\"]"}, {"wait": 300}], "expect": ["[data-testid=\"rules-table\"]"], "expect_absent": ["[data-testid=\"save-bar\"]"]},
  {"page": "settings.shell", "state": "unknown-slug", "hash": "settings/nope", "actions": [], "expect": ["[data-testid=\"settings-unknown-page\"]"]},
 
@@ -64,7 +64,7 @@
  {"page": "settings.analysis-defaults", "state": "clear-cache", "hash": "settings/analysis-defaults?modal=clear-cache", "actions": [], "expect": ["[data-testid=\"clear-cache-modal\"]", "[data-testid=\"confirm-clear\"]"]},
  {"page": "settings.analysis-defaults", "state": "clearing", "hash": "settings/analysis-defaults?modal=clear-cache", "actions": [{"click": "[data-testid=\"confirm-clear\"]"}, {"wait": 300}], "expect": ["[data-testid=\"clear-progress\"]"]},
 
- {"page": "settings.compute-hpc", "state": "default", "hash": "settings/compute-hpc", "actions": [], "expect": ["[data-testid=\"machine-card\"]", "[data-testid=\"limits-table\"]", "[data-testid=\"profiles-table\"]", "[data-testid=\"script-preview\"]"]},
+ {"page": "settings.compute-hpc", "state": "default", "hash": "settings/compute-hpc", "actions": [], "expect": ["[data-testid=\"machine-card\"]", "[data-testid=\"limits-table\"]", "[data-testid=\"profiles-table\"]", "[data-testid=\"script-preview\"]"], "settle_ms": 4000},
  {"page": "settings.compute-hpc", "state": "unsaved", "hash": "settings/compute-hpc?state=unsaved", "actions": [], "expect": ["[data-testid=\"save-bar\"]"]},
  {"page": "settings.compute-hpc", "state": "benchmark-running", "hash": "settings/compute-hpc", "actions": [{"click": "[data-testid=\"run-benchmark\"]"}, {"wait": 700}], "expect": ["[data-testid=\"benchmark-progress\"]"]},
  {"page": "settings.compute-hpc", "state": "benchmark-done", "hash": "settings/compute-hpc", "actions": [{"click": "[data-testid=\"run-benchmark\"]"}, {"wait": 4200}], "expect": ["[data-testid=\"benchmark-done\"]"]},
@@ -75,7 +75,7 @@
  {"page": "settings.compute-hpc", "state": "add-cluster-empty-profiles", "hash": "settings/compute-hpc?modal=add-cluster", "actions": [{"fill": ["[data-testid=\"cluster-name\"]", "hpc-2"]}, {"fill": ["[data-testid=\"cluster-host\"]", "login.hpc-2.example"]}, {"fill": ["[data-testid=\"cluster-account\"]", "a_myco"]}, {"click": "[data-testid=\"add-cluster-confirm\"]"}, {"wait": 400}], "expect": ["[data-testid=\"profiles-empty\"]"]},
 
  {"page": "settings.blocks", "state": "default", "hash": "settings/blocks", "actions": [], "expect": ["[data-testid=\"blocks-table\"]", "[data-testid=\"block-detection.matrix_profile\"]", "[data-testid=\"block-preprocessing.window_matrix\"]"]},
- {"page": "settings.blocks", "state": "broken-block-cannot-be-enabled", "hash": "settings/blocks", "actions": [], "expect": ["[data-testid=\"not-built\"]", "[data-testid=\"block-detection.wavelet_scattering\"][disabled]"]},
+ {"page": "settings.blocks", "state": "every-adapter-listed", "hash": "settings/blocks", "actions": [], "expect": ["[data-testid=\"block-detection.wavelet_scattering\"]", "[data-testid=\"block-detection.threshold\"]", "[data-testid=\"block-catalogue.classifier\"]"]},
  {"page": "settings.blocks", "state": "disable-by-click", "hash": "settings/blocks", "actions": [{"click": "[data-testid=\"block-preprocessing.bandpass\"]"}, {"wait": 300}], "expect": ["[data-testid=\"save-bar\"]", "[data-testid=\"save-consequence\"]"]},
  {"page": "settings.blocks", "state": "used-by", "hash": "settings/blocks?usedby=detection.matrix_profile", "actions": [], "expect": ["[data-testid=\"usedby-popover\"]"]},
 
@@ -120,9 +120,9 @@
  {"page": "settings.audit-log", "state": "empty-filter", "hash": "settings/audit-log?kind=batch%20undo", "actions": [], "expect": ["[data-testid=\"audit-empty\"]"]},
  {"page": "settings.audit-log", "state": "entry-link-navigates", "hash": "settings/audit-log?kind=settings", "actions": [{"click": "[data-testid=\"goto-settings-nulls\"]"}, {"wait": 600}], "expect": ["[data-testid=\"nulls-table\"]"]},
 
- {"page": "settings.about", "state": "default", "hash": "settings/about", "actions": [], "expect": ["[data-testid=\"versions-card\"]", "[data-testid=\"installation-card\"]", "[data-testid=\"mode-badge\"]", "[data-testid=\"future-card\"]"]},
- {"page": "settings.about", "state": "packages", "hash": "settings/about?modal=lock", "actions": [], "expect": ["[data-testid=\"lock-file-modal\"]", "[data-testid=\"lock-file\"]"]},
- {"page": "settings.about", "state": "copy-diagnostics", "hash": "settings/about", "actions": [{"click": "[data-testid=\"copy-diagnostics\"]"}, {"wait": 300}], "expect": ["[data-testid=\"versions-card\"]"]},
+ {"page": "settings.about", "state": "default", "hash": "settings/about", "actions": [], "expect": ["[data-testid=\"versions-card\"]", "[data-testid=\"installation-card\"]", "[data-testid=\"mode-badge\"]", "[data-testid=\"future-card\"]"], "settle_ms": 2500},
+ {"page": "settings.about", "state": "packages", "hash": "settings/about?modal=lock", "actions": [], "expect": ["[data-testid=\"lock-file-modal\"]", "[data-testid=\"lock-file\"]"], "settle_ms": 2500},
+ {"page": "settings.about", "state": "copy-diagnostics", "hash": "settings/about", "actions": [{"click": "[data-testid=\"copy-diagnostics\"]"}, {"wait": 300}], "expect": ["[data-testid=\"versions-card\"]"], "settle_ms": 2500},
 
  {"page": "settings.display", "state": "default", "hash": "settings/display", "actions": [], "expect": ["[data-testid=\"appearance-card\"]", "[data-testid=\"units-card\"]"]},
  {"page": "settings.display", "state": "applied-immediately", "hash": "settings/display", "actions": [{"click": "[data-testid=\"density-row\"] button:nth-of-type(2)"}, {"wait": 300}], "expect": ["[data-testid=\"appearance-card\"]"], "expect_absent": ["[data-testid=\"save-bar\"]"]},

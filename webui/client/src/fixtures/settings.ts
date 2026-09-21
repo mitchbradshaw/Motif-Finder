@@ -51,7 +51,7 @@ export const SLUGS = Object.keys(PAGE_META)
 
 /* ================================================================= 01 Datasets */
 export interface RecordingRow {
-  id: string; name: string; file: string; fs_hz: number; fs_source: 'read' | 'inferred'; n_channels: number
+  id: string; name: string; file: string; fs_hz: number; fs_source: 'read' | 'inferred' | 'unrecorded'; n_channels: number
   duration_h: number; start: string | null; species: string | null; linked: string[]
   status: 'in use' | 'provisional' | 'available' | 'held out · locked'
 }

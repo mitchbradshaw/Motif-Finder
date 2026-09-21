@@ -186,7 +186,7 @@ export interface ExcerptLink { recording_id: number; source_file: string; channe
 export interface CheckReport { candidate: Candidate; ok: boolean; checks: CheckItem[]; facts: Record<string, any>; warnings: string[]; sha1: string | null; excerpts: ExcerptLink[]; excerpt_of: ExcerptLink | null }
 export interface RegisteredChannel { id: number; channel: number; name: string; npy_path: string; exists: boolean; parent_recording_id: number | null }
 export interface RegisteredRecording {
-  kind: 'recording'; id: number; ids: number[]; name: string; source_file: string; dir: string; n_channels: number; fs: number; fs_source: 'read' | 'inferred'
+  kind: 'recording'; id: number; ids: number[]; name: string; source_file: string; dir: string; n_channels: number; fs: number; fs_source: 'read' | 'inferred' | 'unrecorded'
   n_samples: number; duration_h: number | null; held_out: boolean; warnings: string[]; registered_at: string | null; registered_by: string | null
   excerpt_of: { recording_id: number; source_file: string; channel: number; name: string; offset: number | null; decimation: number | null } | null
   channels: RegisteredChannel[]; npy_exists: boolean; manifest: Record<string, any> | null
@@ -227,7 +227,7 @@ export const auditCsvUrl = (kind?: string) => `/api/audit.csv${kind && kind !== 
 
 export interface About {
   project: string; code: { version: string; branch: string | null; dirty: boolean; summary: string }
-  schema: { tables: number; settings_rows: number; audit_rows: number; recordings: number; registered_artifacts: number; path: string }
+  schema: { tables: number; settings_rows: number; audit_rows: number; recordings: number; recording_rows: number; registered_artifacts: number; path: string }
   blocks: { registered: number; broken: string[]; summary: string }; python: string; executable: string; packages: Record<string, string | null>
   mode: string; banner: string; db_path: string; db_backup: string | null; runtime_dir: string; repo_root: string; held_out_file: string
   settings_store: string; environment: string; future: { name: string; detail: string }[]; diagnostics: string
