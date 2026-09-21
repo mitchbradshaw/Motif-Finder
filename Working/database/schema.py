@@ -11,7 +11,17 @@ is judged, kept physically separate from `annotations`. `motif_entry`,
 `motif_member`, `motif_edge` and `motif_entry_tags` are the shape-first motif
 library: an entry is an exemplar span, a member is any span matched to it in
 any recording/channel, an edge is a distance-carrying relationship between
-two members. `run_groups` holds N sibling runs fanned out from one recipe
+two members. `motif_member_revision` is that member's span re-described — a
+human redrew its extent — so a revision is a span and never an edit to one.
+`sequences` + `sequence_members` hold a run of events in order with gaps: a
+different unit from a motif, kept in its own tables because a sequence's
+identity is its ordered composition and because its `origin` column is what
+decides whether the row is a detector's claim or a person's. `groupings` +
+`grouping_assignments` are one saved question asked of the catalogue and its
+per-member answer, with `family_id IS NULL` meaning omitted rather than
+deleted; `hand_edits` are the researcher's overrides, keyed by content hash so
+they survive a regroup. `window_sets` is a saved training-window set, its bulk
+bounds on disk. `run_groups` holds N sibling runs fanned out from one recipe
 (`runs.run_group_id`); `runs.surrogate_of_run_id` pairs a run with its
 surrogate control. `step_artifacts` is the per-step recipe-prefix cache.
 `templates` is a saved chain with recording and span stripped.
@@ -381,6 +391,35 @@ _MOTIF_ENTRY_NEW_COLUMNS = [
     # entry (a whole spike train). Nullable because the column is additive and
     # an eye-created entry may carry no scale.
     ("scale", "TEXT"),
+    # Stage-3 prompt 03 (docs/LIBRARY_STORAGE.md §3.2). `content_hash` is the
+    # entry's real identity from §2.2 — same hash, same entry, never a second
+    # one — while `UNIQUE (recording_id, start_idx, end_idx)` keeps meaning
+    # what it always meant about the exemplar span. `fs` is carried so a time
+    # axis can be drawn; it is deliberately NOT part of the hash (§2.3), so the
+    # same drop at 1 Hz and at 10 Hz is one entry with fs on each exemplar.
+    # `source_kind`/`source_store`/`source_ref` are what makes a re-import
+    # idempotent and a snippets.npz key recoverable from the row alone.
+    # All nullable: 118 entries already exist and ALTER TABLE ADD COLUMN
+    # cannot add NOT NULL without a default to a populated table.
+    ("content_hash", "TEXT"),
+    ("channel", "INTEGER"),
+    ("fs", "REAL"),
+    ("source_kind", "TEXT"),
+    ("source_store", "TEXT"),
+    ("source_ref", "TEXT"),
+]
+
+
+# `motif_member` += the same identity half plus a pointer to its current
+# revision (docs/LIBRARY_STORAGE.md §3.2, §2.5). A member is one OCCURRENCE of
+# a shape; re-describing that occurrence writes a `motif_member_revision` row
+# and moves `current_revision_id`, never a second member. `channel` is
+# denormalised off `recordings` because every library reader filters on it and
+# the join is otherwise paid per row. Nullable for the reason above.
+_MOTIF_MEMBER_NEW_COLUMNS = [
+    ("content_hash", "TEXT"),
+    ("channel", "INTEGER"),
+    ("current_revision_id", "INTEGER REFERENCES motif_member_revision(id)"),
 ]
 
 
@@ -579,6 +618,216 @@ CREATE INDEX IF NOT EXISTS idx_discovery_runs_group ON discovery_runs(run_group_
 
 def _migrate_discovery_tables(conn):
     conn.executescript(_DISCOVERY_SCHEMA)
+    conn.commit()
+
+
+def _migrate_motif_member_columns(conn):
+    _migrate_columns(conn, "motif_member", _MOTIF_MEMBER_NEW_COLUMNS)
+
+
+# Stage-3 prompt 03 (docs/LIBRARY_STORAGE.md §3.3): the Library's new units.
+# Additive: CREATE TABLE IF NOT EXISTS only, nothing that already exists is
+# touched. The two indexes on columns this prompt ADDS to `motif_entry` /
+# `motif_member` live in `_LIBRARY_INDEX_SCHEMA` below, because an index
+# cannot be created before the column it covers.
+_LIBRARY_SCHEMA = """
+-- One revision of a member's span: the same occurrence re-described, never a
+-- second member (spec §4.2). Revision 1 is the span the matcher compares
+-- against; the current revision is what the researcher sees. `origin` picks
+-- which provenance pointer is set, and the two are separate columns rather
+-- than one polymorphic id because a machine detection and a human annotation
+-- must stay distinguishable at the storage level (CLAUDE.md rule 5): a human
+-- extent edit writes a new `annotations` row and NEVER mutates the detection,
+-- so the run still reproduces from its recipe.
+CREATE TABLE IF NOT EXISTS motif_member_revision (
+    id             INTEGER PRIMARY KEY AUTOINCREMENT,
+    member_id      INTEGER NOT NULL REFERENCES motif_member(id),
+    revision       INTEGER NOT NULL,
+    origin         TEXT    NOT NULL CHECK (origin IN ('machine','human')),
+    detection_id   INTEGER REFERENCES detections(id),
+    annotation_id  INTEGER REFERENCES annotations(id),
+    start_idx      INTEGER NOT NULL,
+    end_idx        INTEGER NOT NULL,
+    content_hash   TEXT,
+    created_at     TEXT    NOT NULL,
+    superseded_at  TEXT,
+    UNIQUE (member_id, revision)
+);
+CREATE INDEX IF NOT EXISTS idx_motif_member_revision_member
+    ON motif_member_revision(member_id);
+
+-- A run of events in order, with gaps between them. A sequence is a different
+-- UNIT from a single motif, not a longer one: its identity is its ordered
+-- composition — which shapes, in what order, with what gaps — and that cannot
+-- be a content hash of one waveform, which is all `motif_entry` can hold. The
+-- second reason it is its own table is CLAUDE.md rule 5 (§3.5 of the
+-- standard): a sequence read out of a detector's CSV is a machine claim and a
+-- sequence read out of `annotations` is a person's, and `origin` is what picks
+-- which write door the row goes through. Folding both into `motif_entry` would
+-- have made them indistinguishable, which is how that rule gets broken quietly.
+-- `needs_extraction = 1` is the honest state for a catalogued span whose
+-- singular events have not been resolved: the claim is recorded (`n_events` as
+-- the source stated it), the events are not invented, and no
+-- `sequence_members` rows exist for it yet.
+CREATE TABLE IF NOT EXISTS sequences (
+    id               INTEGER PRIMARY KEY AUTOINCREMENT,
+    sequence_key     TEXT    NOT NULL,
+    origin           TEXT    NOT NULL CHECK (origin IN ('machine','human')),
+    recording_id     INTEGER REFERENCES recordings(id),
+    channel          INTEGER,
+    start_idx        INTEGER,
+    end_idx          INTEGER,
+    n_events         INTEGER,
+    needs_extraction INTEGER NOT NULL DEFAULT 0,
+    source_kind      TEXT,
+    source_store     TEXT,
+    source_ref       TEXT,
+    annotation_id    INTEGER REFERENCES annotations(id),
+    content_hash     TEXT,
+    created_at       TEXT    NOT NULL,
+    UNIQUE (sequence_key, origin)
+);
+CREATE INDEX IF NOT EXISTS idx_sequences_origin ON sequences(origin);
+CREATE INDEX IF NOT EXISTS idx_sequences_needs_extraction
+    ON sequences(needs_extraction);
+
+-- One singular event's place in one sequence, in time order. `member_id` is
+-- nullable because a sequence may be extracted later: the position, span and
+-- gap can be known before the event has been promoted to a `motif_member`.
+-- `gap_before` is seconds from the previous event's onset, and is part of what
+-- makes two sequences of the same six shapes different sequences.
+CREATE TABLE IF NOT EXISTS sequence_members (
+    id           INTEGER PRIMARY KEY AUTOINCREMENT,
+    sequence_id  INTEGER NOT NULL REFERENCES sequences(id),
+    position     INTEGER NOT NULL,
+    member_id    INTEGER REFERENCES motif_member(id),
+    start_idx    INTEGER NOT NULL,
+    end_idx      INTEGER NOT NULL,
+    gap_before   REAL,
+    UNIQUE (sequence_id, position)
+);
+CREATE INDEX IF NOT EXISTS idx_sequence_members_sequence
+    ON sequence_members(sequence_id);
+
+-- A saved grouping: one question asked of the catalogue, with its answer. The
+-- question is `unit x basis x method(params)`; `params_json` is canonical JSON
+-- carrying the method's parameters AND the cut, so the grouping can be re-run
+-- and shown to have produced the same families. The counts are cached because
+-- a Library list wants them per row and recomputing them means re-reading
+-- every assignment.
+CREATE TABLE IF NOT EXISTS groupings (
+    id           INTEGER PRIMARY KEY AUTOINCREMENT,
+    name         TEXT    NOT NULL,
+    unit         TEXT    NOT NULL CHECK (unit IN ('single_motifs','sequences','spike_trains')),
+    basis        TEXT    NOT NULL,
+    method       TEXT    NOT NULL,
+    params_json  TEXT    NOT NULL,
+    cut          REAL,
+    filters_json TEXT,
+    n_families   INTEGER,
+    n_assigned   INTEGER,
+    n_omitted    INTEGER,
+    recipe_hash  TEXT,
+    created_at   TEXT    NOT NULL,
+    actor        TEXT
+);
+
+-- One member's place in one grouping. `family_id IS NULL` means OMITTED and
+-- `omit_reason` says why: an omitted member is flagged, never deleted (spec
+-- §8.2), so "what fell outside the cut" stays answerable. `unit` says which
+-- table `member_ref` points into (motif_member, or sequences), which is why
+-- there is no foreign key on it. `content_hash` is copied onto the row so a
+-- hand edit can key to the same shape across a regroup, a re-import or a
+-- re-clustering, when every member id may have changed.
+CREATE TABLE IF NOT EXISTS grouping_assignments (
+    id           INTEGER PRIMARY KEY AUTOINCREMENT,
+    grouping_id  INTEGER NOT NULL REFERENCES groupings(id),
+    unit         TEXT    NOT NULL,
+    member_ref   INTEGER NOT NULL,
+    content_hash TEXT,
+    family_id    INTEGER,
+    family_label TEXT,
+    distance     REAL,
+    is_medoid    INTEGER NOT NULL DEFAULT 0,
+    omit_reason  TEXT,
+    UNIQUE (grouping_id, unit, member_ref)
+);
+CREATE INDEX IF NOT EXISTS idx_grouping_assignments_grouping
+    ON grouping_assignments(grouping_id);
+CREATE INDEX IF NOT EXISTS idx_grouping_assignments_content_hash
+    ON grouping_assignments(content_hash);
+
+-- A hand edit, sitting OUTSIDE every grouping and re-applied on top of each
+-- one. It is keyed by `content_hash` and not by `motif_member.id` on purpose:
+-- a member id is an accident of when a row was written, and a re-import or a
+-- rebuilt grouping renumbers them, which would silently drop the researcher's
+-- decisions. The hash is the shape itself, so an edit made in March survives a
+-- re-clustering in June. `grouping_id IS NULL` means the edit applies to every
+-- grouping; `active = 0` is the undo, so an edit is withdrawn rather than
+-- erased and the history of the catalogue stays readable.
+CREATE TABLE IF NOT EXISTS hand_edits (
+    id            INTEGER PRIMARY KEY AUTOINCREMENT,
+    content_hash  TEXT    NOT NULL,
+    kind          TEXT    NOT NULL CHECK (kind IN ('add_member','remove_member','make_exemplar','tag','class')),
+    family_label  TEXT,
+    value         TEXT,
+    grouping_id   INTEGER REFERENCES groupings(id),
+    active        INTEGER NOT NULL DEFAULT 1,
+    created_at    TEXT    NOT NULL,
+    actor         TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_hand_edits_content_hash ON hand_edits(content_hash);
+
+-- A saved window set (spec P18 / §6.9 / §8.8): the training-window bookkeeping
+-- for one recording. The window bounds themselves are bulk arrays and stay on
+-- disk at `path` (CLAUDE.md rule 4); what is in the row is everything needed
+-- to judge the set without opening it — the split rule and its assignment, the
+-- spacing check, and the human-verdict coverage AS IT WAS AT SAVE TIME, which
+-- is recorded rather than recomputed because a later annotation must not
+-- silently rewrite the provenance of a model already trained on this set.
+-- `(name, version)` is unique so editing a set makes a new version instead of
+-- overwriting the one a model was trained from.
+CREATE TABLE IF NOT EXISTS window_sets (
+    id             INTEGER PRIMARY KEY AUTOINCREMENT,
+    name           TEXT    NOT NULL,
+    version        INTEGER NOT NULL DEFAULT 1,
+    path           TEXT    NOT NULL,
+    recording_id   INTEGER REFERENCES recordings(id),
+    channel        INTEGER,
+    fs             REAL,
+    window_length  INTEGER,
+    stride         INTEGER,
+    gap            INTEGER,
+    n_windows      INTEGER,
+    split_json     TEXT,
+    spacing_json   TEXT,
+    coverage_json  TEXT,
+    labels_source  TEXT,
+    recipe_hash    TEXT,
+    created_at     TEXT    NOT NULL,
+    UNIQUE (name, version)
+);
+CREATE INDEX IF NOT EXISTS idx_window_sets_name ON window_sets(name);
+"""
+
+
+# The content-hash indexes over the two OLD tables. Separate from
+# `_LIBRARY_SCHEMA` only because `_migrate_columns` has to add the columns
+# first — "resolve this hash to its entry" is the Library's hottest lookup and
+# a scan over 118 entries today is 10 000 tomorrow.
+_LIBRARY_INDEX_SCHEMA = """
+CREATE INDEX IF NOT EXISTS idx_motif_entry_content_hash ON motif_entry(content_hash);
+CREATE INDEX IF NOT EXISTS idx_motif_member_content_hash ON motif_member(content_hash);
+"""
+
+
+def _migrate_library_tables(conn):
+    conn.executescript(_LIBRARY_SCHEMA)
+    conn.commit()
+
+
+def _migrate_library_indexes(conn):
+    conn.executescript(_LIBRARY_INDEX_SCHEMA)
     conn.commit()
 
 
@@ -832,6 +1081,12 @@ def init_db(db_path=None):
     _migrate_runs_columns(conn)
     _migrate_motifs_columns(conn)
     _migrate_motif_entry_columns(conn)
+    # The library tables come before the `motif_member` columns because
+    # `current_revision_id` references `motif_member_revision(id)`, and before
+    # the index pass because an index needs its column to exist.
+    _migrate_library_tables(conn)
+    _migrate_motif_member_columns(conn)
+    _migrate_library_indexes(conn)
     _migrate_templates_columns(conn)
     _migrate_jobs_table(conn)
     _migrate_discovery_tables(conn)
