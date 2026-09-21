@@ -57,9 +57,13 @@ export async function getCorpusLive(file: string, channels: { id: number; name: 
     const dur = t.t1_s || 1
     const tagCounts: Record<string, number> = {}
     for (const [k, n] of Object.entries(t.tag_counts)) { const v = k.split(':').slice(1).join(':'); tagCounts[v] = (tagCounts[v] ?? 0) + n }
+    // a bin counts as reviewed when at least half of its samples lie under a reviewed span — a single
+    // 600-sample window inside a twelve-hour bin must not paint the whole bin as looked-at
     const reviewed = Array.from({ length: bins }, (_, b) => {
       const b0 = (b / bins) * dur, b1 = ((b + 1) / bins) * dur
-      return t.reviewed.some(r => r.end_s > b0 && r.start_s < b1)
+      let covered = 0
+      for (const r of t.reviewed) { const lo = Math.max(b0, r.start_s), hi = Math.min(b1, r.end_s); if (hi > lo) covered += hi - lo }
+      return covered >= 0.5 * (b1 - b0)
     })
     return { name: c.name, tagCounts, reviewed, reviewedPct: Math.round(t.reviewed_pct) }
   })
