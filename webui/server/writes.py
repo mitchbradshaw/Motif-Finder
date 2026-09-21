@@ -39,6 +39,12 @@ MACHINE_TABLES = frozenset({
     "run_groups",       # a fan-out of runs is made by the machine, like the runs in it
     "registered_artifacts",   # stage-3 Prompt 02: a registered model / matrix profile / window matrix / ... is machine data
     "window_sets",      # stage-3 Prompt 03: a window set is produced by a chain, like the artifacts above it
+    # stage-3 Prompt 04: a Discovery session's scope and its run rows. Machine
+    # data, like `run_groups`: a scope is not a verdict. They are written with
+    # their own plain SQL today (the rows are upserted, and this door only
+    # inserts), but they belong on a list so a later caller reaching for the
+    # seam gets a write rather than a confusing refusal.
+    "discovery_sessions", "discovery_runs",
 })
 # `settings` and `audit_log` are on NEITHER list on purpose: a project setting is
 # not a verdict and not a detection, so both doors refuse them and

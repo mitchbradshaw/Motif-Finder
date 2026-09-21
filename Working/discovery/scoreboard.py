@@ -53,7 +53,7 @@ from Working.discovery.spans import absolute_bounds, clip, contains, merged, tot
 
 #: A detection counts as reviewed when its onset falls inside the reviewed
 #: coverage. Stated on every row rather than left implicit.
-REVIEWED_CRITERION = "onset inside reviewed coverage"
+REVIEWED_CRITERION = ("onset inside reviewed coverage, or matching an annotation that is")
 
 ACCEPTED = set(_q.ACCEPTED_VERDICTS)
 
@@ -111,10 +111,16 @@ def _prior_adjudicated(conn, recording_id, started_at):
     return [absolute_bounds(r["start_idx"], r["end_idx"], r["span_start"]) for r in rows]
 
 
-def _null_run_id(conn, run_id):
-    row = conn.execute(
-        "SELECT id FROM runs WHERE surrogate_of_run_id = ? ORDER BY id LIMIT 1", (int(run_id),)).fetchone()
-    return int(row["id"]) if row else None
+def _null_runs(conn, run_id):
+    """**Every** surrogate run paired with this one, not the first.
+
+    `run_paired_recipe` writes one surrogate per real run today, so the count
+    is usually 1 — and a column called "null expects" carrying a single draw is
+    not an expectation, which is why the row states `null_draws` beside it. If
+    a caller ever pairs N surrogates, this averages them without a further
+    change."""
+    return [int(r["id"]) for r in conn.execute(
+        "SELECT id FROM runs WHERE surrogate_of_run_id = ? ORDER BY id", (int(run_id),)).fetchall()]
 
 
 def _ratio(num, den):
@@ -147,10 +153,16 @@ def shape_mismatch(candidate_widths, reference_widths, iou_threshold):
     best = min(mc, mr) / float(max(mc, mr))
     if best >= iou_threshold:
         return None
+    # the medians alone hide bimodality, so say how much of the run is outside
+    # the band that could match at all: [iou x mr, mr / iou] around the
+    # reference width
+    lo, hi = iou_threshold * mr, mr / iou_threshold
+    outside = sum(1 for w in cand if not (lo <= w <= hi))
     return (f"the spans cannot match: this run's detections are {mc} samples long at the median and the "
             f"reviewed annotations are {mr}, so the best reachable overlap is IoU {best:.2f}, below the "
-            f"rule's {iou_threshold:.2f}. Precision here is a statement about the two span shapes, not "
-            f"about the algorithm")
+            f"rule's {iou_threshold:.2f}. {outside} of {len(cand)} detections are outside the "
+            f"{lo:.0f}-{hi:.0f} sample band that could reach it at any alignment. Precision here is a "
+            f"statement about the two span shapes, not about the algorithm")
 
 
 def channel_score(conn, run_id, *, rule=None, null_run_id=None, span=None):
@@ -193,10 +205,18 @@ def channel_score(conn, run_id, *, rule=None, null_run_id=None, span=None):
     prior_pairing = match_span_sets([(d["start"], d["end"]) for d in dets], prior_spans, rule=rule)
     prior_det = {p["candidate"] for p in prior_pairing["pairs"]}
 
+    # One criterion for both halves. A detection counts as judge-able when the
+    # human could have judged it: its own onset is inside the reviewed coverage,
+    # OR it matched an annotation that is. Gating precision on the detection's
+    # onset and recall on the annotation's let one row print
+    # "no detections in the reviewed overlap" beside a recall of 0.167 derived
+    # from exactly such a detection — a long detection starting just before a
+    # reviewed window is judge-able, and both halves now agree that it is.
     reviewed = interesting = already_judged = 0
     for i, d in enumerate(dets):
-        in_coverage = contains(coverage, d["start"])
         ann = anns[ann_of_det[i]] if i in ann_of_det else None
+        in_coverage = contains(coverage, d["start"]) or (
+            ann is not None and contains(coverage, ann["start"]))
         if in_coverage:
             reviewed += 1
             if ann is not None and ann["verdict"] in ACCEPTED:
@@ -224,9 +244,10 @@ def channel_score(conn, run_id, *, rule=None, null_run_id=None, span=None):
     precision_note = None
     if not running and coverage and not reviewed:
         precision_note = NO_DETECTIONS_REVIEWED
-    elif not running and reviewed and not interesting:
-        # a precision of exactly 0 is the one worth interrogating: say when it
-        # is the span shapes rather than the algorithm
+    elif not running and reviewed:
+        # whenever the typical pair cannot match, whatever precision came out:
+        # one lucky match among detections that are otherwise structurally
+        # unmatchable gives 0.01, which is just as misleading as 0.00
         precision_note = shape_mismatch(
             [d["end"] - d["start"] for d in dets],
             [a["end"] - a["start"] for a in anns if contains(coverage, a["start"])],
@@ -242,12 +263,17 @@ def channel_score(conn, run_id, *, rule=None, null_run_id=None, span=None):
     elif not coverage:
         note = NOT_SCORED
 
-    null_id = null_run_id if null_run_id is not None else _null_run_id(conn, run_id)
-    null_expects = None
-    if null_id is not None:
-        null_row = _run_row(conn, null_id)
-        null_expects = sum(1 for d in _detections(conn, null_id, int(null_row["span_start"]))
-                           if span_start <= d["start"] < span_end)
+    null_ids = [null_run_id] if null_run_id is not None else _null_runs(conn, run_id)
+    null_expects = null_draws = None
+    if null_ids:
+        counts = []
+        for nid in null_ids:
+            null_row = _run_row(conn, nid)
+            counts.append(sum(1 for d in _detections(conn, nid, int(null_row["span_start"]))
+                              if span_start <= d["start"] < span_end))
+        null_draws = len(counts)
+        null_expects = sum(counts) / float(null_draws)
+        null_expects = int(null_expects) if float(null_expects).is_integer() else round(null_expects, 2)
 
     return {
         "run_id": int(run_id),
@@ -273,7 +299,9 @@ def channel_score(conn, run_id, *, rule=None, null_run_id=None, span=None):
         "recall_found": len(found_positives),
         "reviewed_h": reviewed_h,
         "reviewed_criterion": REVIEWED_CRITERION,
-        "null_run_id": null_id,
+        "null_run_id": (null_ids[0] if null_ids else None),
+        "null_run_ids": null_ids,
+        "null_draws": null_draws,
         "null_expects": null_expects,
         "x_null": _ratio(len(dets), null_expects) if null_expects else None,
         "note": note,
@@ -316,16 +344,31 @@ def run_total(conn, run_ids, *, rule=None, rows=None):
                 "null_expects": None, "x_null": None, "n_channels": 0,
                 "rule": normalise_rule(rule) if rule is not None else rule_from_settings(conn)}
     summed = {k: sum(int(r[k]) for r in rows) for k in ("found", "already_judged", "reviewed", "interesting")}
-    nulls = [r["null_expects"] for r in rows if r["null_expects"] is not None]
-    null_expects = sum(nulls) if nulls else None
+    # x null must be a ratio over ONE scope. Dividing every channel's `found` by
+    # only the channels that carry a surrogate printed 4.0 under four rows that
+    # each read 2.0, so the numerator is restricted to the same channels.
+    with_null = [r for r in rows if r["null_expects"] is not None]
+    null_expects = sum(r["null_expects"] for r in with_null) if with_null else None
+    null_found = sum(r["found"] for r in with_null)
+    null_partial = bool(with_null) and len(with_null) != len(rows)
 
+    # Pool the COUNTS, not the ratios. An hours-weighted mean of per-channel
+    # recalls is not a recall: one channel with ten positives in an hour and
+    # another with ten in ten hours gave 0.09 where the run really found 10 of
+    # 20, a 5.5x error. Precision on this row is count-pooled, and two cells
+    # under the same heading cannot be pooled by two different rules. §7.3's
+    # "the run total states the hours it pooled" is an instruction to state the
+    # scope, not to weight by it — `pooled_h` still states it.
     scored = [r for r in rows if r["recall"] is not None]
     pooled_h = sum(r["recall_over_h"] for r in scored)
-    recall = (sum(r["recall"] * r["recall_over_h"] for r in scored) / pooled_h) if pooled_h else None
+    positives = sum(r["recall_positives"] for r in scored)
+    recall = (sum(r["recall_found"] for r in scored) / float(positives)) if positives else None
     recall_note = None if recall is not None else (
         NO_OVERLAP if not any(r["reviewed_h"] for r in rows) else NO_POSITIVES)
 
     notes = [r["precision_note"] for r in rows if r.get("precision_note")]
+    recall_positives = sum(r["recall_positives"] for r in scored)
+    recall_found = sum(r["recall_found"] for r in scored)
     return {
         **summed,
         "precision": _ratio(summed["interesting"], summed["reviewed"]),
@@ -334,9 +377,13 @@ def run_total(conn, run_ids, *, rule=None, rows=None):
         "recall": recall,
         "recall_note": recall_note,
         "pooled_h": pooled_h,
+        "recall_positives": recall_positives,
+        "recall_found": recall_found,
         "reviewed_h": sum(r["reviewed_h"] for r in rows),
         "null_expects": null_expects,
-        "x_null": _ratio(summed["found"], null_expects) if null_expects else None,
+        "null_draws": (sum(r["null_draws"] or 0 for r in with_null) or None),
+        "x_null": _ratio(null_found, null_expects) if null_expects else None,
+        "x_null_scope": (f"{len(with_null)} of {len(rows)} channels carry a null" if null_partial else None),
         "n_channels": len(rows),
         "rule": rows[0]["rule"] if rows else (normalise_rule(rule) if rule is not None else rule_from_settings(conn)),
     }

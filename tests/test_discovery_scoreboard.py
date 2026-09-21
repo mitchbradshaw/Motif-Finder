@@ -296,10 +296,47 @@ def test_the_total_pools_channels_and_states_the_hours_it_pooled():
         conn.close()
 
 
-def test_the_pooled_recall_is_weighted_by_reviewed_hours_not_a_plain_mean():
+def test_the_pooled_recall_pools_the_counts_not_the_ratios():
+    """The fixture that separates the two rules, which the hours-weighted
+    version could not be told apart from.
+
+    Channel A: 10 positives in 1 h, all 10 found — recall 1.0.
+    Channel B: 10 positives in 10 h, none found — recall 0.0.
+
+    Count-pooled: 10 of 20 = **0.50**, which is what the run did.
+    Hours-weighted: (1.0 x 1 + 0.0 x 10) / 11 = **0.09**, which is a statement
+    about where the hours are, not about what the run found. A plain mean is
+    0.50 too, which is why the fixture has to have unequal positive density per
+    hour for the test to discriminate at all."""
+    conn = init_db(":memory:")
+    try:
+        rec_a = _recording(conn, channel=0, n=50_000)
+        q.insert_reviewed_span(conn, rec_a, 0, 3600, SOURCE, reviewed_at=BEFORE)
+        run_a = _run(conn, rec_a, span=(0, 50_000))
+        for i in range(10):
+            at = 100 + i * 300
+            q.insert_annotation(conn, rec_a, at, at + 100, "interesting", SOURCE, created_at=BEFORE)
+            run_db.insert_detection(conn, run_a, at, at + 100)
+
+        rec_b = _recording(conn, channel=1, n=50_000)
+        q.insert_reviewed_span(conn, rec_b, 0, 36_000, SOURCE, reviewed_at=BEFORE)
+        run_b = _run(conn, rec_b, span=(0, 50_000))
+        for i in range(10):
+            at = 100 + i * 3000
+            q.insert_annotation(conn, rec_b, at, at + 100, "interesting", SOURCE, created_at=BEFORE)
+
+        total = run_total(conn, [run_a, run_b])
+        assert total["recall_positives"] == 20 and total["recall_found"] == 10
+        assert total["recall"] == pytest.approx(0.5)
+        assert total["recall"] != pytest.approx((1.0 * 1 + 0.0 * 10) / 11, abs=0.01)
+        assert total["pooled_h"] == pytest.approx((3600 + 36_000) / 3600)
+    finally:
+        conn.close()
+
+
+def test_the_total_states_the_hours_it_pooled_without_weighting_by_them():
     """Channel A: 1 of 2 found over 2000 s. Channel B: 1 of 1 over 1000 s.
-    A plain mean is (0.5 + 1.0) / 2 = 0.75; the hours-weighted figure is
-    (0.5 x 2000 + 1.0 x 1000) / 3000 = 0.667."""
+    Counts pool to 2 of 3 = 0.667, and the row still states the 3000 s."""
     conn = init_db(":memory:")
     try:
         run_ids = []
@@ -319,7 +356,7 @@ def test_the_pooled_recall_is_weighted_by_reviewed_hours_not_a_plain_mean():
         run_ids.append(run_b)
 
         total = run_total(conn, run_ids)
-        assert total["recall"] == pytest.approx((0.5 * 2000 + 1.0 * 1000) / 3000)
+        assert total["recall"] == pytest.approx(2 / 3)
         assert total["pooled_h"] == pytest.approx(3000 / 3600)
     finally:
         conn.close()
@@ -497,5 +534,87 @@ def test_a_zero_precision_the_shapes_allow_carries_no_warning():
         row = channel_score(conn, run_id)
         assert row["interesting"] == 0 and row["precision"] == pytest.approx(0.0)
         assert row["precision_note"] is None
+    finally:
+        conn.close()
+
+
+# ── the null is a draw count, and x null is one scope ──────────────────────
+
+def test_the_row_says_how_many_null_draws_it_averaged():
+    """A column called "null expects" carrying one surrogate realisation is not
+    an expectation. The row states the draw count beside it so the page can
+    say so (§9.4 asks for 200; `run_paired_recipe` writes one today)."""
+    conn, _, run_id, null_id = _fixture()
+    try:
+        row = channel_score(conn, run_id)
+        assert row["null_draws"] == 1
+        assert row["null_expects"] == 2
+        assert row["null_run_ids"] == [null_id]
+    finally:
+        conn.close()
+
+
+def test_two_paired_nulls_are_averaged_rather_than_summed():
+    conn, rec, run_id, null_id = _fixture()
+    try:
+        second = _run(conn, rec)
+        for a, b in ((700, 800), (900, 1000), (1100, 1200), (1300, 1400)):
+            run_db.insert_detection(conn, second, a, b)
+        run_db.update_run(conn, second, surrogate_of_run_id=run_id)
+        row = channel_score(conn, run_id)
+        assert row["null_draws"] == 2
+        assert row["null_expects"] == 3            # (2 + 4) / 2
+        assert row["x_null"] == pytest.approx(2.0)  # 6 found / 3 expected
+    finally:
+        conn.close()
+
+
+def test_the_totals_x_null_divides_one_scope_by_the_same_scope():
+    """Dividing every channel's `found` by only the channels that carry a
+    surrogate printed 4.0 under four rows that each read 2.0."""
+    conn = init_db(":memory:")
+    try:
+        run_ids = []
+        for ch in range(4):
+            rec = _recording(conn, channel=ch)
+            run_id = _run(conn, rec)
+            for i in range(10):
+                run_db.insert_detection(conn, run_id, 100 + i * 200, 180 + i * 200)
+            if ch < 2:                       # only two channels get a null
+                null_id = _run(conn, rec)
+                for i in range(5):
+                    run_db.insert_detection(conn, null_id, 150 + i * 400, 230 + i * 400)
+                run_db.update_run(conn, null_id, surrogate_of_run_id=run_id)
+            run_ids.append(run_id)
+        rows = [channel_score(conn, r) for r in run_ids]
+        assert [r["x_null"] for r in rows[:2]] == [pytest.approx(2.0)] * 2
+        assert [r["x_null"] for r in rows[2:]] == [None, None]
+        total = run_total(conn, run_ids, rows=rows)
+        assert total["x_null"] == pytest.approx(2.0), "not 4.0 — the numerator is the same two channels"
+        assert "2 of 4 channels" in total["x_null_scope"]
+    finally:
+        conn.close()
+
+
+def test_a_detection_that_matched_an_annotation_in_coverage_is_judge_able():
+    """Gating precision on the detection's onset and recall on the
+    annotation's let one row print 'no detections in the reviewed overlap'
+    beside a recall of 0.167 derived from exactly such a detection. One
+    criterion now: the human could have judged it either way."""
+    conn = init_db(":memory:")
+    try:
+        rec = _recording(conn)
+        # the human reviewed [1000, 2000) and marked one long event inside it
+        q.insert_reviewed_span(conn, rec, 1000, 2000, SOURCE, reviewed_at=BEFORE)
+        q.insert_annotation(conn, rec, 1100, 1900, "interesting", SOURCE, created_at=BEFORE)
+        run_id = _run(conn, rec)
+        # the detection starts just before the reviewed window and matches it
+        run_db.insert_detection(conn, run_id, 900, 1850)
+        row = channel_score(conn, run_id)
+        assert row["reviewed"] == 1, "it matched an annotation the human did judge"
+        assert row["interesting"] == 1
+        assert row["precision"] == pytest.approx(1.0)
+        assert row["recall"] == pytest.approx(1.0)
+        assert row["precision"] is not None and row["recall"] is not None
     finally:
         conn.close()

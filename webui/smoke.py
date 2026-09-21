@@ -34,6 +34,8 @@ SMOKE_TEMPLATE = "mp_threshold"
 #: The k the seed page itself asks for (SeedPage.tsx::SEED_K). A result computed
 #: under a different k is a different cache key and the page finds nothing.
 SMOKE_SEED_K = 200
+#: The seed run's key. Pinned so the page states can name it.
+SMOKE_SEED_RUN = "smoke_seed"
 
 
 class Smoke:
@@ -380,8 +382,13 @@ class Smoke:
         # miss and the histogram has nothing to draw
         setup = call("/api/discovery/seed/setup")
         draft = (setup.get("draft") or {}) if not setup.get("__error__") else {}
-        seed_id, seed_label = draft.get("seedId"), draft.get("label")
+        seed_id = draft.get("seedId")
         if seed_id:
+            # the seed page finds its finished run by the DRAFT's label, and the
+            # page states name the run key, so both are pinned to one name here
+            # rather than to a hash that changes with the seed
+            call("/api/discovery/seed/draft", {"label": SMOKE_SEED_RUN}, "PUT")
+            seed_label = SMOKE_SEED_RUN
             started = call("/api/discovery/seed/results",
                            {"seedId": seed_id, "channels": channels, "t0": t0, "t1": t1,
                             "k": SMOKE_SEED_K, "maxDistance": 0.0}, "POST")

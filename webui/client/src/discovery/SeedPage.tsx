@@ -13,7 +13,7 @@ import { useSourced } from '../api/seam'
 import { runDiscoverySeedSearch } from '../api'
 import { useSize } from '../charts/useSize'
 import {
-  getSeedProfile, getSeedResults, getSeedSetup, getTemplates, heldOutReason, isHeldOut, type SeedDraft, type SeedInfo, type SeedMatch, type SeedParams, type SeedSource,
+  getSeedProfile, getSeedResults, getSeedSetup, getTemplates, heldOutReason, isHeldOut, type SeedDraft, type SeedInfo, type SeedMatch, type SeedParams, type SeedResults, type SeedSource,
 } from '../api/discovery'
 import { CostChip, DiscoveryToolbar, HistoryButton, LoadFailed, Loading, NullChip, RunsCard, ScopeCard } from './chrome'
 import { RunGlyph } from './glyphs'
@@ -24,6 +24,8 @@ const SEED_COLOUR = '#AF52DE', KEPT_LIGHT = '#E6CCF5', THRESH = '#E8900C'
  *  purpose: the cut is a filter over what came back, so a small k would
  *  silently bound the histogram. */
 const SEED_K = 200
+/** A per-draw expectation is usually a fraction; 0 stays 0 rather than '0.00'. */
+const fmtNull = (v: number) => v === 0 ? '0' : v < 1 ? v.toFixed(2) : v.toFixed(1)
 const SIM_ID = 'discovery.seed.seed_F03_native_2'
 
 export function SeedPage() {
@@ -41,10 +43,18 @@ export function SeedPage() {
   const setDraft = (patch: Partial<SeedDraft>) => { if (draft) setDraftStore({ ...draft, ...patch }) }
   const setParams = (patch: Partial<SeedParams>) => { if (draft) setDraftStore({ ...draft, params: { ...draft.params, ...patch } }) }
   const seeds = setup.data?.seeds ?? []
-  const sourceSeedId = sourceQ === 'medoid' ? 'm-1846' : sourceQ === 'explore' ? null : (draft?.seedId === 'm-1846' ? 'E-0102' : draft?.seedId ?? 'E-0102')
-  const seed: SeedInfo | null = sourceSeedId ? seeds.find(s => s.id === sourceSeedId) ?? null : null
+  /* The seed is the draft's, and `?source=` narrows to that KIND of seed
+   * rather than naming one. The old line looked up 'm-1846' and 'E-0102',
+   * invented ids no seed carries — a real seed id is
+   * "<source>:<recording>:<start>:<end>" — so `seed` was always null and the
+   * page drew none of its histogram, profile or matches. */
+  const wanted = sourceQ === 'medoid' || sourceQ === 'explore' || sourceQ === 'library' ? sourceQ : null
+  const seed: SeedInfo | null = (wanted
+    ? seeds.find(s => s.source === wanted) ?? null
+    : seeds.find(s => s.id === draft?.seedId) ?? seeds[0] ?? null)
   const channels = dx.scope?.channels ?? []
-  const results = useSourced(() => seed ? getSeedResults(seed.id, channels) : Promise.resolve({ data: { candidates: [] as SeedMatch[], nullDistances: [] as number[] }, source: 'demo' as const }), [seed?.id, channels.join(',')])
+  const noResults: SeedResults = { candidates: [], nullDistances: [], recommendedCut: null, nullDraws: 0, nullMethod: null, nullSupported: true, nullReason: null }
+  const results = useSourced(() => seed ? getSeedResults(seed.id, channels) : Promise.resolve({ data: noResults, source: 'demo' as const }), [seed?.id, channels.join(',')])
 
   // deep links ?state=running|done|failed put the simulated search straight into that state
   useEffect(() => {
@@ -58,9 +68,19 @@ export function SeedPage() {
   // the search never returned
   const threshold = draft?.params.threshold ?? null
   const kept = useMemo(() => threshold == null ? [] : (results.data?.candidates ?? []).filter(c => c.d <= threshold), [results.data, threshold])
-  const nullKept = threshold == null ? 0 : (results.data?.nullDistances ?? []).filter(d => d <= threshold).length
+  /* §7.6: "You see how many matches chance alone would give at the moment you
+   * choose where to cut." `nullDistances` is POOLED over every draw of every
+   * channel, while `kept` is one realisation over every channel — so the count
+   * has to be divided by the draws per channel to be the same quantity. Taking
+   * the pooled count raw overstated the null by the draw count (ten-fold on a
+   * ten-draw search), and the error was invisible at the recommended cut,
+   * which sits below every null distance and reads 0 either way. */
+  const nullDraws = Math.max(1, results.data?.nullDraws ?? 1)
+  const perDraw = (cut: number | null) => cut == null ? 0
+    : (results.data?.nullDistances ?? []).filter(d => d <= cut).length / nullDraws
+  const nullKept = perDraw(threshold)
   const recCut = setup.data?.recommended.threshold ?? null
-  const nullAtRec = recCut == null ? 0 : (results.data?.nullDistances ?? []).filter(d => d <= recCut).length
+  const nullAtRec = perDraw(recCut)
 
   /* The run row is the server's: the old version invented one client-side,
    * keyed by the draft and carrying `template: 'seed_F03_native_2'`, a name no
@@ -278,7 +298,7 @@ function ParamsCard({ draft, recommended, seed, setParams, results, nullAtRec, k
           {p.threshold != null ? (
             <>
               <Slider value={p.threshold} onChange={v => setParams({ threshold: +v.toFixed(1) })} min={0} max={8} step={0.1} showValue={false} marks={recommended.threshold != null ? [{ value: recommended.threshold, label: '' }] : []} testid="param-threshold" ariaLabel="match threshold" />
-              <span className="small mono green">{thrRaw ? <span className="dsc-err">{thrRaw}</span> : recommended.threshold != null ? <>recommended {recommended.threshold} · null hits = {nullAtRec}</> : 'no recommended cut yet — it is read off the null distribution'}</span>
+              <span className="small mono green">{thrRaw ? <span className="dsc-err">{thrRaw}</span> : recommended.threshold != null ? <>recommended {recommended.threshold} · the null gives {fmtNull(nullAtRec)} per draw</> : 'no recommended cut yet — it is read off the null distribution'}</span>
             </>
           ) : <span className="small mono muted" data-testid="threshold-none">no cut chosen · the recommended cut is read off the null distribution, so there is none until the search has drawn one</span>}
         </ParamField>
@@ -322,7 +342,7 @@ function CutHistogram({ candidates, nullDistances, threshold, recommended, kept,
   return (
     <div className="dsc-cut" ref={ref} data-testid="cut-histogram">
       {W > 0 && (
-        <svg width={W} height={H} onPointerMove={move} onPointerUp={() => setDragging(false)} onPointerLeave={() => setDragging(false)} role="img" aria-label={`match distance histogram, ${kept} kept at d ≤ ${threshold}, null gives ${nullKept}`}>
+        <svg width={W} height={H} onPointerMove={move} onPointerUp={() => setDragging(false)} onPointerLeave={() => setDragging(false)} role="img" aria-label={`match distance histogram, ${kept} kept at d ≤ ${threshold}, the null gives ${fmtNull(nullKept)} per draw`}>
           <rect x={x(0)} y={padT} width={x(0.4) - x(0)} height={H - padT - padB} fill="#FDECEC" />
           <text x={x(0) + 3} y={padT + 10} className="dsc-axis-t" style={{ fill: '#c0392b' }}>self</text>
           <text x={padL - 6} y={padT + 4} textAnchor="end" className="dsc-axis-t">count</text>
@@ -338,7 +358,7 @@ function CutHistogram({ candidates, nullDistances, threshold, recommended, kept,
             <rect x={x(threshold) - 8} y={padT - 12} width={16} height={H - padT - padB + 12} fill="transparent" />
             <circle cx={x(threshold)} cy={padT - 8} r={6} fill="#fff" stroke={THRESH} strokeWidth={2} />
           </g>
-          <text x={Math.min(x(threshold) + 10, W - 150)} y={padT - 4} className="dsc-axis-t" style={{ fill: THRESH, fontWeight: 600 }} data-testid="cut-label">{kept} kept · null gives {nullKept}</text>
+          <text x={Math.min(x(threshold) + 10, W - 150)} y={padT - 4} className="dsc-axis-t" style={{ fill: THRESH, fontWeight: 600 }} data-testid="cut-label">{kept} kept · the null gives {fmtNull(nullKept)} per draw</text>
         </svg>
       )}
       {W === 0 && <div style={{ height: H }} />}

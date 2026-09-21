@@ -1,12 +1,22 @@
 /* library.recurrence — frame library-1: families × channels grouped by recording (3 per page), members per hour
  * (or count), reviewed-coverage bars, `?` = never looked, red = cross-channel artifact kept visible; a selection
- * outlined through the matrix, totalled in the rail with the shared-ground warning, then Browse → atlas. */
+ * outlined through the matrix, totalled in the rail with the shared-ground warning, then Browse → atlas.
+ *
+ * Live notes (stage-3 wiring):
+ *  - There is no grouping gate any more. The matrix is drawn for whichever grouping the section resolved to —
+ *    `g-07`/`g-08` were fixture names and gating on them meant a live grouping never drew anything.
+ *  - The fs1/fs2 mutual exclusion (B30) is read off `RecGroup.resampleOf`, and the held-out card off
+ *    `RecGroup.heldOut` + `label`, instead of naming M2_aug/M4_aug.
+ *  - Paging is computed from the number of recordings the payload carries, not two fixed pages of three.
+ *  - §8.4 survives: `Cell.noCoverage` (the bridge sets it from `reviewed_spans`) draws `?`, a reviewed cell with
+ *    no members draws empty, and an artifact cell stays visible in red — the artifact filter flags, never excludes.
+ */
 import { Fragment, useMemo } from 'react'
 import { Button, Callout, Checkbox, EmptyState, Icon, InfoTip, KeyValue, MiniTrace, Page, Seg, fmtInt, recordDemoWrite, useQueryState } from '../kit'
 import { Header } from '../shell/Header'
 import { navigate } from '../state'
 import { useSourced } from '../api/seam'
-import { getOmitted, getRecurrence, getSequenceFamilies, niceMvDomain, type Cell, type MotifFamily, type RecGroup, type Unit } from '../api/library'
+import { UNIT_LABEL, getOmitted, getRecurrence, getSequenceFamilies, niceMvDomain, type Cell, type RecGroup, type SequenceFamily, type Unit } from '../api/library'
 import {
   GroupingBar, LoadFailed, Loading, MotifsActions, OmittedDrawer, OmittedThumb, SectionBar, useAllGroupings, useEmptyLibrary, useMotifGroupingId, useQueueToast,
   useRememberMotifsRoute, useSelection, useSequenceGroupingId,
@@ -14,45 +24,66 @@ import {
 import { EmptyMotifsPage } from './EmptyLibrary'
 
 const RAMP = ['#e6f0ff', '#c2dcff', '#94c2ff', '#539fff', '#0a84ff']
+const RECORDINGS_PER_PAGE = 3
 const rampIndex = (v: number, max: number) => Math.min(4, Math.max(0, Math.floor((v / (max || 1)) * 5 - 1e-9)))
-interface Row { id: string; name: string; colour: string; recordings: number; cells: Record<string, Cell>; trace: number[] }
+interface Row { id: string; name: string; colour: string; recordings: number; cells: Record<string, Cell>; cellsKnown: boolean; trace: number[] }
+
+/** A sequence family's own per-channel cells, if the payload carries them. The bridge's `/sequence-families`
+ *  does not build a cell map today, so this is `null` and the matrix says so rather than borrowing a motif
+ *  family's cells by index — which is what it used to do, and which drew one family's counts under another
+ *  family's name. */
+const sequenceCells = (s: SequenceFamily): Record<string, Cell> | null =>
+  (s as unknown as { cells?: Record<string, Cell> }).cells ?? null
 
 export function RecurrencePage() {
   useRememberMotifsRoute()
   const [empty] = useEmptyLibrary()
-  const data = useSourced(getRecurrence, [])
-  const seqs = useSourced(getSequenceFamilies, [])
   const groupings = useAllGroupings()
   const [gidMotifs] = useMotifGroupingId()
   const [gidSeq] = useSequenceGroupingId()
   const [unitQ, setUnitQ] = useQueryState<string>('unit', 'motifs')
   const unit: Unit = unitQ === 'sequences' ? 'sequences' : 'motifs'
   const gid = unit === 'sequences' ? gidSeq : gidMotifs
+  const data = useSourced(() => getRecurrence(gidMotifs || undefined), [gidMotifs])
+  const seqs = useSourced(() => getSequenceFamilies(gidSeq || undefined), [gidSeq])
   const grouping = groupings.all.find(g => g.id === gid) ?? null
+  const noneOfUnit = !groupings.loading && !groupings.error && !groupings.all.some(g => g.unit === unit)
+  const rows: Row[] = useMemo(() => unit === 'sequences'
+    ? (seqs.data ?? []).map(s => {
+      const cells = sequenceCells(s)
+      return { id: s.id, name: s.name, colour: s.colour, recordings: s.recordings, cells: cells ?? {}, cellsKnown: !!cells, trace: s.exemplarTrace }
+    })
+    : (data.data?.families ?? []).map(f => ({ id: f.id, name: f.name, colour: f.colour, recordings: f.recordings, cells: f.cells, cellsKnown: true, trace: f.exemplarTrace })),
+  [unit, seqs.data, data.data])
   if (empty) return <EmptyMotifsPage />
+  const loading = data.loading || seqs.loading || groupings.loading
+  const error = data.error ?? seqs.error ?? groupings.error
   return (
     <>
-      <Header workspace="Library" page="Motifs" subtitle={`recurrence · grouping ${gid}${unit === 'sequences' ? ' · sequences' : ''}`} search="Search spans, runs, families" demo={data.source === 'demo'} />
+      <Header workspace="Library" page="Motifs" subtitle={`recurrence${gid ? ` · grouping ${gid}` : ''}${unit === 'sequences' ? ' · sequences' : ''}`} search="Search spans, runs, families" demo={data.source === 'demo'} />
       <Page testid="recurrence-page">
         <SectionBar section="motifs" crumbs={[{ label: 'Recurrence' }]} actions={<MotifsActions />} />
         <GroupingBar unit={unit} grouping={grouping} from="recurrence" onUnit={u => setUnitQ(u === 'motifs' ? null : u)} />
-        {(data.error || seqs.error) && <LoadFailed what="the recurrence matrix" error={(data.error ?? seqs.error)!} onRetry={() => { data.reload(); seqs.reload() }} />}
-        {(data.loading || seqs.loading) && !data.error && <Loading height={640} testid="recurrence-loading" />}
-        {data.data && seqs.data && grouping && (gid === 'g-07' || gid === 'g-08'
-          ? <Recurrence recordings={data.data.recordings} families={data.data.families} coverage={data.data.coverage} sharedGround={data.data.sharedGround}
-            rows={unit === 'sequences'
-              ? seqs.data.map((s, i) => ({ id: s.id, name: s.name, colour: s.colour, recordings: s.recordings, cells: data.data!.families[i].cells, trace: s.exemplarTrace }))
-              : data.data.families.map(f => ({ id: f.id, name: f.name, colour: f.colour, recordings: f.recordings, cells: f.cells, trace: f.exemplarTrace }))}
-            unit={unit} groupingId={gid} omittedCount={grouping.omitted} />
-          : <div className="k-card" style={{ padding: 20 }} data-testid="recurrence-undrawn"><EmptyState icon="grid" title={`Grouping ${gid} · ${grouping.basisLabel}`} caption="the demo has no recurrence matrix for this grouping, so none is drawn" /></div>)}
+        {error && <LoadFailed what="the recurrence matrix" error={error} onRetry={() => { data.reload(); seqs.reload(); groupings.reload() }} />}
+        {loading && !error && <Loading height={640} testid="recurrence-loading" />}
+        {!loading && !error && !grouping && (
+          <div className="k-card" style={{ padding: 20 }} data-testid="recurrence-no-grouping">
+            <EmptyState icon="grid" title={noneOfUnit ? `No grouping of ${UNIT_LABEL[unit]} yet` : `Grouping ${gid} is not among the saved groupings`}
+              caption={noneOfUnit ? 'nothing has been grouped at this unit — compute one from Edit grouping' : 'pick one from the grouping bar, or compute a new one'} />
+          </div>
+        )}
+        {!loading && !error && data.data && grouping && (
+          <Recurrence recordings={data.data.recordings} rows={rows} coverage={data.data.coverage} sharedGround={data.data.sharedGround}
+            unit={unit} groupingId={grouping.id} omittedCount={grouping.omitted} />
+        )}
       </Page>
       {grouping && <OmittedDrawer groupingId={grouping.id} unit={unit} />}
     </>
   )
 }
 
-function Recurrence({ recordings, families, rows, coverage, sharedGround, unit, groupingId, omittedCount }: {
-  recordings: RecGroup[]; families: MotifFamily[]; rows: Row[]; coverage: Record<string, number>; sharedGround: { pair: [string, string]; family: string }[]
+function Recurrence({ recordings, rows, coverage, sharedGround, unit, groupingId, omittedCount }: {
+  recordings: RecGroup[]; rows: Row[]; coverage: Record<string, number>; sharedGround: { pair: [string, string]; family: string }[]
   unit: Unit; groupingId: string; omittedCount: number
 }) {
   const [sel, setSel] = useSelection()
@@ -61,21 +92,31 @@ function Recurrence({ recordings, families, rows, coverage, sharedGround, unit, 
   const [, setDrawer] = useQueryState('drawer', '')
   const queue = useQueueToast()
   const omitted = useSourced(() => getOmitted(groupingId), [groupingId])
-  const page = recQ === '2' ? 2 : 1
-  const groups = recordings.slice((page - 1) * 3, page * 3)
-  const yDomain = useMemo(() => niceMvDomain(families.flatMap(f => [f.exemplarTrace, f.medoidTrace])), [families])
+  const pageCount = Math.max(1, Math.ceil(recordings.length / RECORDINGS_PER_PAGE))
+  const page = Math.min(pageCount, Math.max(1, Number(recQ) || 1))
+  const groups = recordings.slice((page - 1) * RECORDINGS_PER_PAGE, page * RECORDINGS_PER_PAGE)
+  const firstShown = recordings.length ? (page - 1) * RECORDINGS_PER_PAGE + 1 : 0
+  const lastShown = Math.min(recordings.length, page * RECORDINGS_PER_PAGE)
+  const yDomain = useMemo(() => niceMvDomain(rows.map(r => r.trace)), [rows])
   const keyOf = (r: RecGroup, ch: string) => `${r.key}:${ch}`
-  const fs1Selected = sel.some(k => k.startsWith('M2_aug_fs1:'))
-  const fs2Selected = sel.some(k => k.startsWith('M2_aug_fs2:'))
-  const disabledReason = (r: RecGroup) => r.resampleOf && fs1Selected ? 'fs2 resamples M2_aug fs1 — already selectable as fs1 (B30: a scope never mixes fs1 and fs2)' : r.key === 'M2_aug_fs1' && fs2Selected ? 'M2_aug fs2 channels are selected — a scope never mixes fs1 and fs2 (B30)' : null
+  const recLabel = (key: string) => recordings.find(r => r.key === key)?.label ?? key
+  const selectedRecKeys = new Set(sel.map(k => k.split(':')[0]))
+  /** B30: a scope never mixes a recording and a resample of it. Which rows those are is `RecGroup.resampleOf`,
+   *  not a pair of recording names. */
+  const disabledReason = (r: RecGroup): string | null => {
+    if (r.resampleOf && selectedRecKeys.has(r.resampleOf)) return `${r.label} resamples ${recLabel(r.resampleOf)} — already selectable there (B30: a scope never mixes a recording and its resample)`
+    const child = recordings.find(o => o.resampleOf === r.key && selectedRecKeys.has(o.key))
+    if (child) return `${child.label} channels are selected — a scope never mixes a recording and its resample (B30)`
+    return null
+  }
   const setSelection = (next: string[]) => { setSel(next); recordDemoWrite('library', 'selection', { channels: next.length }) }
   const toggle = (k: string) => setSelection(sel.includes(k) ? sel.filter(x => x !== k) : [...sel, k])
   const maxCount = Math.max(1, ...rows.flatMap(row => groups.flatMap(g => g.channels.map(ch => row.cells[keyOf(g, ch)]?.count ?? 0))))
   const pageKeys = groups.filter(g => !g.heldOut && !disabledReason(g)).flatMap(g => g.channels.map(ch => keyOf(g, ch)))
+  const cellsUnknown = rows.length > 0 && rows.every(r => !r.cellsKnown)
 
   // rail totals
   const recs = [...new Set(sel.map(k => k.split(':')[0]))]
-  const recLabel = (key: string) => recordings.find(r => r.key === key)?.label ?? key
   const hoursOf = (key: string) => recordings.find(r => r.key === key)?.hours ?? 0
   const channelHours = sel.reduce((s, k) => s + hoursOf(k.split(':')[0]), 0)
   const members = sel.reduce((s, k) => s + rows.reduce((t, row) => t + (row.cells[k]?.count ?? 0), 0), 0)
@@ -94,11 +135,17 @@ function Recurrence({ recordings, families, rows, coverage, sharedGround, unit, 
             <span style={{ marginLeft: 'auto' }} />
             <Seg size="sm" ariaLabel="cell value" testid="cell-mode" value={cell} onChange={v => setCell(v)} options={[{ value: 'hour', label: 'per hour' }, { value: 'count', label: 'count' }]} />
             <span className="row lib-cap" style={{ gap: 6, fontSize: 11 }}>
-              <button type="button" className="lib-pg" style={{ width: 24, height: 24 }} disabled={page === 1} title={page === 1 ? 'first page' : 'previous recordings'} aria-label="previous recordings" data-testid="rec-prev" onClick={() => setRecQ(null)}><Icon name="chevron-left" size={12} /></button>
-              <span data-testid="rec-page-label">recordings {page === 1 ? '1–3' : '4–5'} of {recordings.length}</span>
-              <button type="button" className="lib-pg" style={{ width: 24, height: 24 }} disabled={page === 2} title={page === 2 ? 'last page' : 'next recordings'} aria-label="next recordings" data-testid="rec-next" onClick={() => setRecQ('2')}><Icon name="chevron-right" size={12} /></button>
+              <button type="button" className="lib-pg" style={{ width: 24, height: 24 }} disabled={page <= 1} title={page <= 1 ? 'first page' : 'previous recordings'} aria-label="previous recordings" data-testid="rec-prev" onClick={() => setRecQ(page - 1 <= 1 ? null : String(page - 1))}><Icon name="chevron-left" size={12} /></button>
+              <span data-testid="rec-page-label">recordings {firstShown}–{lastShown} of {recordings.length}</span>
+              <button type="button" className="lib-pg" style={{ width: 24, height: 24 }} disabled={page >= pageCount} title={page >= pageCount ? 'last page' : 'next recordings'} aria-label="next recordings" data-testid="rec-next" onClick={() => setRecQ(String(page + 1))}><Icon name="chevron-right" size={12} /></button>
             </span>
           </div>
+          {cellsUnknown ? (
+            <Callout tone="amber" stacked testid="recurrence-no-cells" title={`No per-channel counts for ${unit === 'sequences' ? 'sequence families' : 'these families'}`}>
+              This read carries the families and their traces but no `cells` map, so where each one occurs is not
+              known here and no matrix is drawn. Nothing is guessed and nothing is borrowed from another family.
+            </Callout>
+          ) : (
           <div className="lib-matrix" data-testid="recurrence-matrix">
             <table>
               <thead>
@@ -161,7 +208,7 @@ function Recurrence({ recordings, families, rows, coverage, sharedGround, unit, 
                     {groups.map((g, gi) => (
                       <Fragment key={g.key}>
                         {gi > 0 && <td className="lib-gapcol" />}
-                        {g.heldOut && ri === 0 && <td rowSpan={rows.length} style={{ verticalAlign: 'top' }}><div className="lib-locked" data-testid="held-out-block"><span className="row" style={{ gap: 6, color: 'var(--text-2)' }}><Icon name="lock" size={13} /><b>M4_aug is held out</b></span><span>locked in Settings › Datasets (D6) · 16 channels · never shown in the Library</span><Button size="sm" variant="link" onClick={() => navigate('settings/datasets')}>Settings › Datasets</Button></div></td>}
+                        {g.heldOut && ri === 0 && <td rowSpan={rows.length} style={{ verticalAlign: 'top' }}><div className="lib-locked" data-testid="held-out-block"><span className="row" style={{ gap: 6, color: 'var(--text-2)' }}><Icon name="lock" size={13} /><b>{g.label} is held out</b></span><span>locked in Settings › Datasets (D6) · never shown in the Library</span><Button size="sm" variant="link" onClick={() => navigate('settings/datasets')}>Settings › Datasets</Button></div></td>}
                         {!g.heldOut && g.channels.map(ch => {
                           const k = keyOf(g, ch), c = row.cells[k], on = sel.includes(k), reason = disabledReason(g)
                           const empty = !c || (c.perHour == null)
@@ -184,6 +231,8 @@ function Recurrence({ recordings, families, rows, coverage, sharedGround, unit, 
               </tbody>
             </table>
           </div>
+          )}
+          {!rows.length && <EmptyState icon="grid" title="No families in this grouping" caption="nothing was assigned a family, so there is nothing to draw" bordered />}
           <div className="lib-legend" style={{ marginTop: 14 }} data-testid="recurrence-legend">
             <span className="row" style={{ gap: 4 }}>{cell === 'count' ? 'members' : 'members / h'} {RAMP.map(c => <span key={c} className="lib-swatch" style={{ background: c }} />)} 0 → {cell === 'count' ? fmtInt(maxCount) : '1.0'}</span>
             <span className="row" style={{ gap: 5 }}><span className="lib-swatch" style={{ background: '#fff', border: '1px solid var(--border-strong)', textAlign: 'center', fontSize: 9, lineHeight: '11px' }}>?</span>no reviewed coverage</span>
@@ -197,7 +246,7 @@ function Recurrence({ recordings, families, rows, coverage, sharedGround, unit, 
           <div className="row" style={{ marginBottom: 10 }}>
             <Icon name="flag" size={14} style={{ color: 'var(--amber)' }} />
             <b style={{ fontSize: 13, whiteSpace: 'nowrap' }}>{unit === 'sequences' ? `${fmtInt(omittedCount)} left out of this round` : `${fmtInt(omittedCount)} motifs fit no family in this grouping`}</b>
-            <span className="lib-cap" style={{ fontSize: 11, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0 }}>{unit === 'sequences' ? 'motifs in no sequence and sequences past d 0.50 · not deleted' : 'nearest family d > 0.50 · left out of counts, not deleted'}</span>
+            <span className="lib-cap" style={{ fontSize: 11, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0 }}>{unit === 'sequences' ? 'motifs in no sequence and sequences past the cut · not deleted' : 'past the grouping cut · left out of counts, not deleted'}</span>
             <span style={{ marginLeft: 'auto' }} />
             <Button variant="link" testid="omitted-send-queue" onClick={() => queue(`Library · ${groupingId} omitted`, omittedCount)}>Send to Review as a queue</Button>
             <Button variant="link" testid="omitted-show-all" onClick={() => setDrawer('omitted')}>Show all {fmtInt(omittedCount)}</Button>
@@ -218,7 +267,7 @@ function Recurrence({ recordings, families, rows, coverage, sharedGround, unit, 
           <KeyValue align="right" dense testid="selection-kv" items={[
             { k: 'recordings', v: recs.length },
             { k: 'channels', v: <span title={channelsText}>{channelsText}</span> },
-            { k: 'channel-hours', v: `${fmtInt(channelHours)} h`, info: <InfoTip title="channel-hours">the sum of recording length over the selected channels (frame 1's “128.4 h” reconciles with no reading — flagged)</InfoTip> },
+            { k: 'channel-hours', v: `${fmtInt(channelHours)} h`, info: <InfoTip title="channel-hours">the sum of recording length over the selected channels</InfoTip> },
             { k: 'members', v: fmtInt(members), strong: true },
             { k: 'reviewed', v: `${Math.round(reviewed * 100)} %` },
           ]} />
@@ -248,7 +297,7 @@ function RailGrouping({ groupingId }: { groupingId: string }) {
   const [basis, linkage] = g.basisLabel.split(' · ')
   return (
     <KeyValue align="right" dense testid="grouping-kv" items={[
-      { k: 'unit', v: g.unit === 'motifs' ? 'single motifs' : g.unit },
+      { k: 'unit', v: UNIT_LABEL[g.unit] ?? g.unit },
       { k: 'basis', v: linkage ? `${basis} · ${linkage}` : basis },
       { k: g.params.startsWith('cut') ? 'cut' : 'params', v: g.params.replace(/^cut /, '') },
       { k: 'computed', v: `${g.computed} · ${fmtInt(g.motifs)} motifs` },

@@ -535,3 +535,186 @@ export interface DiscStages {
 }
 export const getDiscoveryCompareStages = (a: string, b: string, channel: string, atH: number, kind: string, index: number, of: number, windowS = 240, detection?: string) =>
   req<DiscStages>(`/api/discovery/compare/stages${dq({ a, b, channel, atH, kind, index, of, windowS, detection })}`)
+
+/* ---------------- library (server/library.py, 20 routes under /api/library) ----------------
+   Route-shaped types only. The Library pages read the fixture-shaped module
+   api/library.ts, which maps these onto the shapes the cards render; nothing
+   here renames a field or invents one the server declined to give.
+   Named `…Library…` on purpose: `getTemplates` above is a DIFFERENT, id-keyed
+   template shape, and these are mapped onto the Library's name-keyed one. */
+
+export interface LibCounts { motifs: number; windowSets: number; templates: number; spikeTrains: number; sequences: number }
+export const getLibraryCounts = () => req<LibCounts>('/api/library/counts')
+
+export interface LibGrouping {
+  id: string; unit: 'motifs' | 'sequences' | 'spike-trains'; basis: string; basisLabel: string; params: string
+  chip: [string, string]; computed: string
+  motifs: number; families: number; omitted: number; handEditsKept: number
+  name?: string | null; method?: string | null; cut?: number | null; recipeHash?: string | null; actor?: string | null; note?: string
+}
+export const getLibraryGroupings = () => req<LibGrouping[]>('/api/library/groupings')
+
+export interface LibCell { perHour: number | null; count: number; artifact?: boolean; noCoverage?: boolean }
+export interface LibFamily {
+  id: string; name: string; colour: string; shape: string
+  members: number; inScope: number; recordings: number; hand: number; artifact: number
+  durationS: number; durationSd: number; depthMv: number; depthLabel: string
+  judgedPct: number; judged: number
+  exemplar: string; medoid: string; exemplarMedoidD: number; meanMemberD: number; snrDb: number
+  artifactChannels: number; propChannels: number; indChannels: number; edges: string
+  cells: Record<string, LibCell>; exemplarTrace: number[]; medoidTrace: number[]
+  ampBins: number[]; ampDomain?: [number, number]; grouping?: string
+}
+export interface LibRecGroup {
+  key: string; label: string; hours: number; reviewedPct: number; channels: string[]
+  hiddenChannels: number; fsNote?: string; heldOut?: boolean; resampleOf?: string
+}
+export interface LibRecurrence {
+  recordings: LibRecGroup[]; families: LibFamily[]; coverage: Record<string, number>
+  sharedGround: { pair: [string, string]; family: string }[]; grouping: string | null
+}
+export const getLibraryRecurrence = (grouping?: string) => req<LibRecurrence>(`/api/library/recurrence${dq({ grouping })}`)
+export const getLibraryFamilies = (grouping?: string) => req<LibFamily[]>(`/api/library/families${dq({ grouping })}`)
+
+export interface LibSequenceFamily {
+  id: string; name: string; colour: string; sequences: number
+  composition: string[]; compositionLabel: string; recordings: number; hand: number
+  durationLabel: string; gapLabel: string; judgedPct: number
+  exemplar: string; motifs: number; exemplarMedoidD: number; orderKept: number
+  meanMemberD: number; judgedMotifs: number; gapS: string
+  exemplarTrace: number[]; medoidTrace: number[]
+}
+export const getLibrarySequenceFamilies = (grouping?: string) =>
+  req<LibSequenceFamily[]>(`/api/library/sequence-families${dq({ grouping })}`)
+
+export interface LibRevision { rev: number; spanId: string; origin: 'machine' | 'human edit'; run: string; role: string }
+export interface LibMember {
+  id: string; role?: 'exemplar' | 'medoid'; addedByHand?: boolean; d: number
+  recording: string; recordingKey?: string | null; channel: string
+  onsetH: number; durationS: number; amplitudeMv: number
+  verdict: string; verdictAt?: string; foundBy: string
+  revisions: LibRevision[]; tags: string[]; cls?: string; note?: string; seed: number
+  handRecord?: string; contentHash?: string | null
+}
+export interface LibRemovedMember {
+  id: string; d: number; channel: string; recording: string; recordingKey?: string | null
+  removedAt: string; note: string; seed: number; onsetH?: number | null; contentHash?: string | null
+}
+export interface LibFamilyDetail {
+  family: LibFamily; cut: number; members: LibMember[]; removed: LibRemovedMember[]
+  channels: number; depthLabel: string; handAdded: number
+}
+export type LibFamilyRead =
+  | { kind: 'motif'; detail: LibFamilyDetail }
+  | { kind: 'sequence'; family: LibSequenceFamily }
+  | { kind: 'missing'; id: string }
+export const getLibraryFamily = (familyId: string, grouping?: string) =>
+  req<LibFamilyRead>(`/api/library/family/${encodeURIComponent(familyId)}${dq({ grouping })}`)
+
+export interface LibOmittedEntry {
+  id: string; kind: 'motif' | 'sequence'; nearest: string; d: number
+  recording: string; recordingKey?: string | null; channel: string; onsetH: number
+  shape: string; amp: number; seed: number; omitReason?: string | null
+}
+export interface LibOmitted { groupingId: string | null; singles: LibOmittedEntry[]; sequences: LibOmittedEntry[] }
+export const getLibraryOmitted = (grouping?: string) => req<LibOmitted>(`/api/library/omitted${dq({ grouping })}`)
+
+export interface LibFeatureBin { lo: number; hi: number; n: number }
+export interface LibUnitOption { unit: 'motifs' | 'sequences' | 'spike-trains'; caption: string; count: number }
+export interface LibBasisOption {
+  kind: string; group: 'distance' | 'feature bins · no distance' | 'labels'
+  title: string; caption: string; units: ('motifs' | 'sequences' | 'spike-trains')[]; reason?: string
+}
+export interface LibGroupingEditor {
+  units: LibUnitOption[]; bases: LibBasisOption[]
+  distributions: Record<string, LibFeatureBin[]>
+  clusterings: { value: string; label: string; scope: string }[]
+  distributionsSampledFrom: number; elapsedMs: number
+}
+export const getLibraryGroupingEditor = (unit = 'motifs') =>
+  req<LibGroupingEditor>(`/api/library/grouping-editor${dq({ unit })}`)
+
+export interface LibWindowSet {
+  id: string; version: number; saved: string; savedBy: string; source: string
+  recording: string; recordingKeys: string[]; channels: string[]
+  spacing: string; windowS: number | null; gapS: number | null; windows: number
+  split: { train: number; validation: number; test: number } | null
+  splitLabel: 'blocked' | 'test only' | 'no split'
+  labelledPct: number; labelledWindows: number
+  usedBy: { label: string; to: string; kind: string }[]; usedLabel: string | null
+  check: string; checkReason: string; madeBy: string; recipeHash: string; lastUsed: string
+  splitPlan: Record<string, unknown>
+  planHours: number; dropped: number
+  spacingChecks: { label: string; ok: boolean }[]
+  classCounts: { now: Record<string, number>; atSave: Record<string, number>; atSaveLabelled: number }
+  path?: string | null
+}
+export const getLibraryWindowSets = () => req<LibWindowSet[]>('/api/library/windowsets')
+
+export interface LibTemplateStage { glyph: string; name: string; params: string }
+export interface LibTemplate {
+  name: string; version: number; kind: string; signature: string
+  badges: { label: string; tone: 'purple' | 'blue' | 'grey' }[]
+  stages: LibTemplateStage[]; recipe: string; nullModel: string; containsModel: boolean
+  latest: { text: string; scope: string } | null; latestMuted?: string
+  runs: string; runCount: number; lastRun: string
+  versions: { v: number; change: string; date: string; diff?: { param: string; from: string; to: string }[] }[]
+  scores: { run: string; scope: string; scopeFull: string; prec: number | null; recall: number | null; xNull: number | null }[]
+  scoreHeader?: [string, string, string]
+  id?: number
+}
+export const getLibraryTemplates = () => req<LibTemplate[]>('/api/library/templates')
+
+export interface LibSequence {
+  id: string; sequenceKey: string; origin: string; recording: string; recordingKey: string | null
+  channel: string; onsetH: number; nEvents: number; needsExtraction: boolean
+  sourceKind: string | null; sourceStore: string | null; createdAt: string | null
+}
+export const getLibrarySequences = (needsExtraction = false) =>
+  req<LibSequence[]>(`/api/library/sequences${dq({ needs_extraction: needsExtraction ? 1 : 0 })}`)
+
+export interface LibGroupingRunBody { unit?: string; basis?: string; method?: string; params?: Record<string, unknown>; name?: string; limit?: number }
+export const runLibraryGrouping = (body: LibGroupingRunBody) =>
+  post<{ job_id: number; kind: string; status: string }>('/api/library/groupings/run', body)
+
+export interface LibGroupingAssignment {
+  ref: number; contentHash?: string | null; familyId?: number | null; familyLabel?: string | null
+  distance?: number | null; isMedoid?: boolean; omitReason?: string | null
+}
+export interface LibGroupingSaveBody {
+  unit?: string; basis?: string; method?: string; params?: Record<string, unknown>
+  cut?: number | null; name?: string; actor?: string; assignments: LibGroupingAssignment[]
+}
+export const saveLibraryGrouping = (body: LibGroupingSaveBody) => post<LibGrouping>('/api/library/groupings', body)
+
+export interface LibImportCheck { status: 'ok' | 'warn' | 'fail'; title: string; detail: string; items?: string[]; link?: { label: string; to: string } }
+export interface LibImportSample {
+  id: number; recording: string; channel: string; onsetH: number; durationS: number
+  shape: string; amp: number; seed: number; provisional: boolean
+}
+export interface LibImportBundle {
+  path: string; provenanceFound: boolean
+  counts: { motifs: number; spikeTrains: number; recordings: number; channels: number }
+  checks: LibImportCheck[]; creates: string[]; sample: LibImportSample[]
+  blockedReason?: string; heldOut?: boolean; kind?: string
+}
+export const dryRunLibraryImport = (path: string, kind?: string, exclude_corpora?: string[]) =>
+  post<LibImportBundle>('/api/library/import/dry-run', { path, kind, exclude_corpora })
+export const startLibraryImport = (path: string, kind?: string, exclude_corpora?: string[]) =>
+  post<{ job_id: number; kind: string; status: string }>('/api/library/import', { path, kind, exclude_corpora })
+
+export interface LibBundleRef { path: string; name: string; kind: string; registeredAt: string | null; heldOut: boolean }
+export const getLibraryImportBundles = () => req<LibBundleRef[]>('/api/library/import/bundles')
+
+export interface LibHandEditBody { contentHash: string; kind: string; familyLabel?: string | null; value?: string | null; grouping?: string | null; actor?: string }
+export const postLibraryHandEdit = (body: LibHandEditBody) =>
+  post<{ id: number } & Record<string, unknown>>('/api/library/hand-edits', body)
+export const deleteLibraryHandEdit = (editId: number) =>
+  del<{ id: number; active: number; undone: boolean }>(`/api/library/hand-edits/${encodeURIComponent(String(editId))}`)
+
+/** Download URLs — these are attachments (Content-Disposition), so they are
+ *  handed to the browser, not fetched and parsed. */
+export const libraryFamilyExportUrl = (familyId: string, grouping?: string, format: 'json' | 'csv' = 'json') =>
+  `/api/library/export/family/${encodeURIComponent(familyId)}${dq({ grouping, format })}`
+export const libraryAtlasExportUrl = (grouping?: string, format: 'json' | 'csv' = 'json') =>
+  `/api/library/export/atlas${dq({ grouping, format })}`

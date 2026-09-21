@@ -706,9 +706,11 @@ def _score_row(row):
         # `nullRun` separates it from "no null was run at all".
         "nullExpects": (row["null_expects"] if row["null_expects"] is not None else 0),
         "nullRun": row["null_expects"] is not None,
-        "xNullNote": (None if row["x_null"] is not None else
-                      ("no paired null run on this scope" if row["null_expects"] is None
-                       else "the null found nothing here")),
+        "nullDraws": row.get("null_draws"),
+        "xNullNote": (row.get("x_null_scope") or
+                      (None if row["x_null"] is not None else
+                       ("no paired null run on this scope" if row["null_expects"] is None
+                        else "the null found nothing here"))),
         "recall": _recall_cell(row),
         "precision": (round(row["precision"], 4) if row["precision"] is not None else None),
         "xNull": (round(row["x_null"], 2) if row["x_null"] is not None else None),
@@ -1090,9 +1092,18 @@ class SeedBody(BaseModel):
     cut: float | None = None
 
 
-def _seed_key(seed_id, channels, t0, t1, k, max_distance, null) -> str:
-    return "|".join([seed_id, ",".join(channels), f"{t0:.6f}", f"{t1:.6f}", str(k), f"{max_distance:g}",
-                     str(null.get("method")), str(null.get("n"))])
+def _seed_key(seed_id, channels, t0, t1, k, max_distance, null, source_file="", rule=None) -> str:
+    """Everything the result depends on.
+
+    The recording matters: four registered files share the channel names
+    CH1..CH5, so a search on one and a later search on another produced
+    byte-identical keys and the second was served the first's matches. The
+    matching rule matters too — the `judged` flags on every candidate were
+    computed under it."""
+    r = rule or {}
+    return "|".join([source_file, seed_id, ",".join(channels), f"{t0:.6f}", f"{t1:.6f}", str(k),
+                     f"{max_distance:g}", str(null.get("method")), str(null.get("n")),
+                     f"{r.get('iou')}:{r.get('onset')}"])
 
 
 def _seed_search(conn, seed, chans, span, *, k, max_distance, null, job=None):
@@ -1151,9 +1162,17 @@ def _seed_search(conn, seed, chans, span, *, k, max_distance, null, job=None):
         per_channel.append({"channel": ch["name"], "n": len(found), "nullDraws": draws})
 
     candidates.sort(key=lambda c_: (c_["d"], c_["index"]))
+    # `draws` is the count PER CHANNEL, because `kept` is one realisation over
+    # every channel: dividing a pooled hit count by the pooled draw-channels
+    # would understate the null by the channel count, and dividing by nothing
+    # overstates it by the draw count. `drawChannels` keeps the pooled figure
+    # for anyone who needs the size of the sample.
+    per_channel_draws = max((p["nullDraws"] for p in per_channel), default=0)
     null_obj = {
         "distances": [round(float(d), 4) for d in pooled_null],
-        "draws": sum(p["nullDraws"] for p in per_channel),
+        "draws": per_channel_draws,
+        "drawChannels": sum(p["nullDraws"] for p in per_channel),
+        "channels": len(per_channel),
         "method": null.get("method"), "supported": bool(null.get("supported", True)),
         "reason": null.get("reason"), "requested": null.get("requested"),
         "asked": int(null.get("n") or 0),
@@ -1211,7 +1230,8 @@ def start_seed_results(request: Request, body: SeedBody):
         _ids_for(c, _stem(s["source_file"]), names)          # refuses held out / unknown names
         _seed_by_id(c, body.seedId)
         null = json.loads(s["null_json"] or "{}")
-        key = _seed_key(body.seedId, names, body.t0, body.t1, body.k, body.maxDistance, null)
+        key = _seed_key(body.seedId, names, body.t0, body.t1, body.k, body.maxDistance, null,
+                        source_file=s["source_file"], rule=rule_from_settings(c))
         cached = _cached_result(c, s["id"], key)
         if cached is not None:
             return {"ready": True, "key": key, **cached}
@@ -1250,7 +1270,8 @@ def get_seed_results(request: Request, seedId: str, channels: str = "", t0: floa
         s = _session(c)
         null = json.loads(s["null_json"] or "{}")
         names = _split(channels) or json.loads(s["channels_json"])
-        key = _seed_key(seedId, names, t0, t1, k, maxDistance, null)
+        key = _seed_key(seedId, names, t0, t1, k, maxDistance, null,
+                        source_file=s["source_file"], rule=rule_from_settings(c))
         cached = _cached_result(c, s["id"], key)
         if cached is not None:
             return {"ready": True, "key": key, **cached}
@@ -1677,13 +1698,27 @@ def send_to_review(request: Request, run_key: str, body: ReviewBody):
         row = _dr_by_key(c, s["id"], run_key)
         if not row["run_group_id"]:
             raise HTTPException(422, {"message": f"{run_key} has not run yet, so it has nothing to send"})
-        queue = ReviewQueue(c, run_group_id=int(row["run_group_id"]), adjudication_status="unadjudicated")
-        n = len(queue.candidates)
+        # The queue must cover the runs this Discovery run is MADE of. A
+        # fan-out that reused runs spans more than one `run_groups` row, and
+        # filtering on the lowest group would hand Review a silently short
+        # queue; `ReviewQueue` takes one group, so the union is counted here
+        # and the run ids travel on the descriptor for Review to filter by.
+        ids = _run_ids(c, row)
+        groups = sorted({int(r["run_group_id"]) for r in
+                         (R.get_run(c, i) for i in ids) if r and r["run_group_id"]})
+        seen, n = set(), 0
+        for gid in groups or [int(row["run_group_id"])]:
+            for cand in ReviewQueue(c, run_group_id=gid, adjudication_status="unadjudicated").candidates:
+                if int(cand["id"]) in seen or int(cand["run_id"]) not in set(ids):
+                    continue
+                seen.add(int(cand["id"]))
+                n += 1
         name = body.name or f"Discovery · {row['label']} unjudged"
         state = json.loads(s["state_json"] or "{}")
         queues = state.setdefault("review_queues", [])
         queues = [x for x in queues if x.get("run_key") != run_key]
         queues.append({"name": name, "run_key": run_key, "run_group_id": int(row["run_group_id"]),
+                       "run_ids": ids, "run_groups": groups,
                        "n": n, "created_at": _now(), "source": "discovery run", "blind": False,
                        "writes": "adjudications"})
         state["review_queues"] = queues

@@ -1,8 +1,15 @@
 /* The empty Motifs section (frame library-5, left column): the two ways in. A data condition of every Motifs
- * route (`?library=empty`, sticky for the session), never a blank grid. */
+ * route (`?library=empty`, sticky for the session), never a blank grid.
+ *
+ * This is no longer only a demo state: a database nobody has imported into holds no motif entries, so this is
+ * the FIRST page a new installation sees. Both ways in therefore point at real destinations — Review's own
+ * entry route, which opens whatever queue exists, and the Library's import page — and the header says "demo"
+ * only when the count it read actually came from fixtures. */
 import { Button, Icon, Page } from '../kit'
 import { Header } from '../shell/Header'
 import { navigate } from '../state'
+import { getLibraryCounts } from '../api/library'
+import { useSourced } from '../api/seam'
 import { SectionBar } from './chrome'
 
 export function EmptyLibraryCard({ highlightImport, onImport }: { highlightImport?: boolean; onImport?: () => void }) {
@@ -17,7 +24,7 @@ export function EmptyLibraryCard({ highlightImport, onImport }: { highlightImpor
           <div className="stack" style={{ gap: 4 }}>
             <span className="t">Judge candidates in Review</span>
             <span className="lib-cap">pressing S on a candidate creates an exemplar here</span>
-            <div><Button icon={undefined} iconRight="arrow-right" testid="open-review" onClick={() => navigate('review/queue/q-12')}>Open Review</Button></div>
+            <div><Button icon={undefined} iconRight="arrow-right" testid="open-review" onClick={() => navigate('review')}>Open Review</Button></div>
           </div>
         </div>
         <div className={`lib-way${highlightImport ? ' on' : ''}`} data-testid="way-import">
@@ -39,9 +46,12 @@ export function EmptyLibraryCard({ highlightImport, onImport }: { highlightImpor
 
 /** Full-width empty Motifs page (recurrence / atlas / family routes when the catalogue holds 0 motifs). */
 export function EmptyMotifsPage() {
+  // the counts read is what the section bar draws anyway; its source is what the chip must reflect, so that an
+  // empty LIVE library does not claim to be showing fixtures
+  const counts = useSourced(getLibraryCounts, [])
   return (
     <>
-      <Header workspace="Library" page="Motifs" subtitle="empty" search="Search spans, runs, families" demo />
+      <Header workspace="Library" page="Motifs" subtitle="empty" search="Search spans, runs, families" demo={counts.source === 'demo'} />
       <Page>
         <SectionBar section="motifs" actions={<Button variant="primary" icon="download" testid="library-import" onClick={() => navigate('library/import?library=empty')}>Import</Button>} />
         <div style={{ maxWidth: 600, width: '100%', margin: '24px auto 0', display: 'flex', flexDirection: 'column', gap: 16 }}>

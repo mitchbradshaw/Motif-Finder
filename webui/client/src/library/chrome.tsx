@@ -7,7 +7,7 @@ import {
 } from '../kit'
 import { useToast } from '../shell/Toast'
 import { navigate, setQuery, useApp } from '../state'
-import { CANON_SELECTION, GROUPING_G09, UNIT_LABEL, getGroupings, getLibraryCounts, getOmitted, motifShape, type Grouping, type OmittedEntry, type Unit } from '../api/library'
+import { GROUPING_G09, UNIT_LABEL, getGroupings, getLibraryCounts, getOmitted, motifShape, type Grouping, type OmittedEntry, type Unit } from '../api/library'
 import { useSourced, type SourcedState } from '../api/seam'
 
 /* ================================================================ store ================================================================ */
@@ -17,9 +17,47 @@ export function useEmptyLibrary(): [boolean] {
   const { route } = useApp()
   return [route.query.library === 'empty']
 }
-export const useSelection = () => useDemoState<string[]>('library.selection', () => [...CANON_SELECTION])
-export const useMotifGroupingId = () => useDemoState<string>('library.grouping.motifs', () => 'g-07')
-export const useSequenceGroupingId = () => useDemoState<string>('library.grouping.sequences', () => 'g-08')
+/** The scope: `recKey:channel` keys the person picked. It starts EMPTY. It used to start from three fixture
+ *  keys, which named channels a live corpus does not have — a selection nobody made, of things that are not
+ *  there. Nothing is selected until someone selects it. */
+export const useSelection = () => useDemoState<string[]>('library.selection', () => [])
+
+/** The grouping id a section is looking at. There is no default id: `g-07` and `g-08` are fixture names and
+ *  no live grouping is called either, so defaulting to one made every atlas and every matrix fall to
+ *  "undrawn". It resolves to the NEWEST saved grouping of the right unit instead — the same one the bridge
+ *  picks when a read omits `?grouping=` — and stays `''` when there is none, which is the honest state of a
+ *  library nobody has grouped yet. */
+function useResolvedGroupingId(key: string, unit: Unit): [string, (next: string | ((prev: string) => string)) => void] {
+  const [id, setId] = useDemoState<string>(key, () => '')
+  const g = useSourced(getGroupings, [])
+  useEffect(() => {
+    if (id || !g.data) return
+    const newest = newestGrouping(g.data, unit)
+    if (newest) setId(newest.id)
+  }, [id, g.data, unit, setId])
+  return [id, setId]
+}
+export const useMotifGroupingId = () => useResolvedGroupingId('library.grouping.motifs', 'motifs')
+export const useSequenceGroupingId = () => useResolvedGroupingId('library.grouping.sequences', 'sequences')
+
+/** The newest grouping of one unit, by id. `undefined` when the library holds none of that unit. */
+export function newestGrouping(all: Grouping[], unit: Unit): Grouping | undefined {
+  const mine = all.filter(g => g.unit === unit)
+  if (!mine.length) return undefined
+  return mine.reduce((a, b) => (groupingNum(b.id) > groupingNum(a.id) ? b : a))
+}
+
+/** What a section knows about its grouping, for pages that must tell "still loading" apart from "this library
+ *  has no grouping of this unit yet" — two states that must not draw the same. */
+export function useGroupingState(unit: Unit): { id: string; grouping: Grouping | null; all: Grouping[]; loading: boolean; error: Error | null; none: boolean; reload: () => void } {
+  // both hooks run every render: which one answers is a value, not a branch
+  const [motifId] = useMotifGroupingId()
+  const [seqId] = useSequenceGroupingId()
+  const id = unit === 'sequences' ? seqId : motifId
+  const { all, loading, error, reload } = useAllGroupings()
+  const none = !loading && !error && !all.some(g => g.unit === unit)
+  return { id, grouping: all.find(g => g.id === id) ?? null, all, loading, error, none, reload }
+}
 export const useSavedGroupings = () => useDemoState<Grouping[]>('library.groupings.saved', () => [])
 export interface LibraryFilters { adjudicated: boolean; minMembers: number; extra: string[] }
 export const useFilters = () => useDemoState<LibraryFilters>('library.filters', () => ({ adjudicated: false, minMembers: 10, extra: [] }))
@@ -31,7 +69,13 @@ export function useAllGroupings(): SourcedState<Grouping[]> & { all: Grouping[] 
   const all = useMemo(() => [...(g.data ?? []), ...saved.filter(s => !(g.data ?? []).some(x => x.id === s.id))], [g.data, saved])
   return { ...g, all }
 }
-export const nextGroupingId = (all: Grouping[]) => `g-${String(Math.max(8, ...all.map(g => Number(g.id.slice(2)))) + 1).padStart(2, '0')}`
+/** The number in a `g-NN` id, or NaN. The bridge emits `g-` plus a zero-padded integer, but a saved grouping
+ *  named anything else must not poison a Math.max into NaN. */
+export const groupingNum = (id: string) => { const m = /^g-0*(\d+)$/.exec(String(id ?? '')); return m ? Number(m[1]) : NaN }
+export const nextGroupingId = (all: Grouping[]) => {
+  const nums = all.map(g => groupingNum(g.id)).filter(n => Number.isFinite(n))
+  return `g-${String((nums.length ? Math.max(...nums) : 0) + 1).padStart(2, '0')}`
+}
 export { GROUPING_G09 }
 
 /** Toast for "Send … to Review as a queue" (P20 naming). */
@@ -39,7 +83,7 @@ export function useQueueToast() {
   const { push } = useToast()
   return (name: string, n: number) => {
     recordDemoWrite('library', 'queue', { name, items: n })
-    push({ text: `Queue "${name}" · ${fmtInt(n)} items · not wired yet: POST /api/review/queues`, action: { label: 'Open Review', onClick: () => navigate('review/queue/q-12') } })
+    push({ text: `Queue "${name}" · ${fmtInt(n)} items · not wired yet: POST /api/review/queues`, action: { label: 'Open Review', onClick: () => navigate('review') } })
   }
 }
 
@@ -82,7 +126,7 @@ export function SectionBar({ section, crumbs, actions, motifsCount, windowSetsCo
   const c = counts.data
   const m = motifsCount ?? (empty ? 0 : c?.motifs)
   const ws = windowSetsCount ?? (c ? c.windowSets - deletedSets.length : undefined)
-  const tp = templatesCount ?? (c ? c.templates - archived.length + added.length : undefined)
+  const tp = templatesCount ?? (c ? Math.max(0, c.templates - archived.length + added.length) : undefined)
   const go = (v: string) => navigate(v === 'motifs' ? (empty ? 'library/import?library=empty' : lastMotifs) : `library/${v}`)
   return (
     <Toolbar testid="library-section-bar" nowrap>
@@ -244,6 +288,7 @@ export function OmittedDrawer({ groupingId, unit }: { groupingId: string; unit: 
   const [drawer, setDrawer] = useQueryState('drawer', '')
   const open = drawer === 'omitted'
   const data = useSourced(() => getOmitted(groupingId), [groupingId])
+  const gLabel = groupingId || data.data?.groupingId || 'the current grouping'
   const [tab, setTab] = useState<'singles' | 'sequences'>('singles')
   const [page, setPage] = useState(1)
   const queue = useQueueToast()
@@ -256,15 +301,15 @@ export function OmittedDrawer({ groupingId, unit }: { groupingId: string; unit: 
   const yDomain: [number, number] = [-0.45, 0.45]
   const tabs = unit === 'sequences' && data.data ? [{ value: 'singles', label: `${fmtInt(data.data.singles.length)} single motifs` }, { value: 'sequences', label: `${data.data.sequences.length} sequences` }] : undefined
   return (
-    <Drawer open onClose={() => setDrawer(null)} title={`Omitted from ${groupingId}`} subtitle={data.data && !tabs ? `${fmtInt(total)} · flagged, not deleted` : undefined} width={540} testid="omitted-drawer"
+    <Drawer open onClose={() => setDrawer(null)} title={`Omitted from ${gLabel}`} subtitle={data.data && !tabs ? `${fmtInt(total)} · flagged, not deleted` : undefined} width={540} testid="omitted-drawer"
       tabs={tabs} tab={tab} onTab={v => setTab(v as 'singles' | 'sequences')}>
       {data.error && <LoadFailed what="the omitted entries" error={data.error} onRetry={data.reload} />}
       {data.loading && <Loading height={260} />}
       {data.data && (
         <div className="stack" style={{ gap: 10 }}>
           <div className="row" style={{ justifyContent: 'space-between' }}>
-            <span className="mono small">{tabs ? `Omitted from ${groupingId} · ${fmtInt(total)} · flagged, not deleted` : ''}</span>
-            <Button size="sm" icon="checklist" testid="omitted-send" onClick={() => queue(`Library · ${groupingId} omitted`, total)}>Send omitted to Review as a queue</Button>
+            <span className="mono small">{tabs ? `Omitted from ${gLabel} · ${fmtInt(total)} · flagged, not deleted` : ''}</span>
+            <Button size="sm" icon="checklist" testid="omitted-send" onClick={() => queue(`Library · ${gLabel} omitted`, total)}>Send omitted to Review as a queue</Button>
           </div>
           <div className="row" style={{ justifyContent: 'space-between', alignItems: 'flex-start' }}>
             <span className="mono small muted">{tab === 'sequences' ? 'nearest family d > 0.50 · re-cut looser, or leave them flagged' : unit === 'sequences' ? 'not part of any sequence · switch the unit to single motifs to group these' : 'nearest family d > 0.50 · left out of counts, not deleted'}<InfoTip title="shared y">thumbnails share one mV scale (±0.45 mV); never normalised</InfoTip></span>

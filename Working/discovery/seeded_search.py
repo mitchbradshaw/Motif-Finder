@@ -224,7 +224,14 @@ def cut_counts(distances, null, cut):
     null_hits = sum(1 for d in (null or {}).get("distances", []) if float(d) <= cut)
     null_gives = (null_hits / draws) if draws else None
     x_null = (kept / null_gives) if null_gives else None
-    return {"kept": kept, "null_gives": null_gives, "x_null": x_null}
+    note = None
+    if null_gives == 0:
+        # the strongest result the null can give, and the one place a bare None
+        # reads as "not computed" rather than "chance gives nothing here"
+        note = f"the null gives nothing at this cut ({draws} draws)"
+    elif not draws:
+        note = "no null has been drawn for this search"
+    return {"kept": kept, "null_gives": null_gives, "x_null": x_null, "draws": draws, "note": note}
 
 
 def recommended_cut(distances, null, *, alpha=0.01):

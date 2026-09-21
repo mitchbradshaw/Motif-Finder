@@ -209,7 +209,14 @@ def test_an_unsupported_method_raises_rather_than_falling_back():
 def test_the_cut_rethresholds_the_distances_already_in_hand():
     dists = [0.1, 0.4, 1.2, 3.0, 5.0]
     null = {"distances": [2.0, 2.5, 4.0, 6.0], "draws": 2}
-    assert ss.cut_counts(dists, null, 1.5) == {"kept": 3, "null_gives": 0.0, "x_null": None}
+    at_1_5 = ss.cut_counts(dists, null, 1.5)
+    assert at_1_5["kept"] == 3
+    assert at_1_5["null_gives"] == 0.0
+    # a null that gives nothing is the strongest result there is, and the row
+    # says so rather than leaving a bare None that reads as "not computed"
+    assert at_1_5["x_null"] is None
+    assert at_1_5["draws"] == 2
+    assert "gives nothing" in at_1_5["note"]
     assert ss.cut_counts(dists, null, 3.0)["kept"] == 4
     assert ss.cut_counts(dists, null, 3.0)["null_gives"] == pytest.approx(1.0)
     assert ss.cut_counts(dists, null, 3.0)["x_null"] == pytest.approx(4.0)
@@ -250,8 +257,11 @@ def test_a_seed_is_taken_by_content_and_carries_its_hash(db):
         assert seed["fs"] == 1.0
         assert seed["recording_id"] == _ids(db_path)[0]
         assert len(seed["hash"]) >= 8
-        assert seed["binding"] == {"source_kind": "library_exemplar", "source_file": "fake.mat",
-                                   "channel": 0, "start_idx": 300, "end_idx": 360}
+        assert seed["binding"] == {"source_kind": "library_exemplar", "entry_id": 0,
+                                   "source_file": "fake.mat", "channel": 0,
+                                   "start_idx": 300, "end_idx": 360}
+        # entry_id 0 = taken off a channel, not promoted from the library; the
+        # binding still resolves by content (motif_entry is empty on this machine)
         again = ss.seed_from_content(conn, "fake.mat", 0, 300, 360)
         assert again["hash"] == seed["hash"]
         elsewhere = ss.seed_from_content(conn, "fake.mat", 0, 900, 960)
