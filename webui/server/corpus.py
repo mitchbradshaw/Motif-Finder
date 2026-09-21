@@ -99,14 +99,34 @@ def _overlap_flags(a_start, a_end, b_start, b_end):
     return flags
 
 
-def coverage(conn, source_file: str, bins: int = 57, verdicts: tuple | None = None) -> dict:
+def _runs_matching(conn, source_file: str, run_ids, method) -> list | None:
+    """Run ids to keep for the detection layers, or None for 'every run'.
+    `run_ids` is an explicit list; `method` a substring of any algorithm in the
+    run's recipe (stage-3 prompt 01: Explore's run/method filters)."""
+    if not run_ids and not method:
+        return None
+    from .explore_routes import run_methods
+    keep = []
+    for r in run_methods(conn, source_file):
+        if run_ids and r["id"] not in run_ids:
+            continue
+        if method and not any(method.lower() in a.lower() for a in r["algorithms"]):
+            continue
+        keep.append(r["id"])
+    return keep
+
+
+def coverage(conn, source_file: str, bins: int = 57, verdicts: tuple | None = None,
+             run_ids: list | None = None, method: str | None = None) -> dict:
     """channels × bins counts of annotation spans, detection spans, both and
     'disagree' (annotations with no overlapping detection + detections with
-    no overlapping annotation), plus per-channel summaries."""
+    no overlapping annotation), plus per-channel summaries. `run_ids` /
+    `method` restrict the detection layers to those runs."""
     t0 = time.perf_counter()
     recs = [dict(x) for x in q.list_recordings(conn, source_file)]
     if not recs:
         raise KeyError(source_file)
+    keep_runs = _runs_matching(conn, source_file, run_ids, method)
     n = int(recs[0]["n_samples"]); fs = float(recs[0]["fs"])
     edges = np.linspace(0, n, bins + 1)
     rows = []
@@ -115,8 +135,10 @@ def coverage(conn, source_file: str, bins: int = 57, verdicts: tuple | None = No
         rid = rec["id"]
         ann = conn.execute("SELECT start_idx, end_idx, verdict FROM annotations WHERE recording_id = ? AND deleted_at IS NULL",
                            (rid,)).fetchall()
-        det = conn.execute("SELECT d.start_idx, d.end_idx FROM detections d JOIN runs r ON r.id = d.run_id WHERE r.recording_id = ?",
+        det = conn.execute("SELECT d.start_idx, d.end_idx, d.run_id FROM detections d JOIN runs r ON r.id = d.run_id WHERE r.recording_id = ?",
                            (rid,)).fetchall()
+        if keep_runs is not None:
+            det = [d for d in det if d["run_id"] in keep_runs]
         for a in ann:
             if a["verdict"] in verdict_counts:
                 verdict_counts[a["verdict"]] += 1
@@ -147,6 +169,7 @@ def coverage(conn, source_file: str, bins: int = 57, verdicts: tuple | None = No
     return {"source_file": source_file, "fs": fs, "n_samples": n, "duration_h": n / fs / 3600.0,
             "bins": bins, "bin_h": n / fs / 3600.0 / bins, "bin_edges_h": (edges / fs / 3600.0).tolist(),
             "rows": rows, "verdict_counts": verdict_counts, "n_detection_runs": int(n_runs),
+            "run_filter": keep_runs, "method_filter": method or None,
             "held_out": source_file == HELD_OUT_FILE, "compute_ms": (time.perf_counter() - t0) * 1e3}
 
 

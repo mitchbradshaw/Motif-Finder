@@ -78,8 +78,10 @@ class Runtime:
             self.step_cache_root = os.path.join(self.dir, "step_cache")
             self.results_dir = os.path.join(self.dir, "results")
             self.models_dir = os.path.join(self.dir, "models")
+            self.window_sets_root = os.path.join(self.dir, "window_sets")
         else:
             self.db_path = self.db_source
+            self.window_sets_root = os.path.join(REPO_ROOT, "DATA", "derived", "window_sets")
             self.step_cache_root = None   # filled from the core's own values in setup()
             self.results_dir = None
             self.models_dir = None
@@ -236,6 +238,7 @@ class Runtime:
             "log_path": self.log_path,
             "meta_dir": self.meta_dir,
             "exports_dir": self.exports_dir,
+            "window_sets_root": self.window_sets_root,
             "client_dist": self.client_dist,
             "held_out_file": HELD_OUT_FILE,
             "cwd": os.getcwd(),

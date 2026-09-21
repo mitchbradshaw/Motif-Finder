@@ -19,12 +19,17 @@ from starlette.routing import Match
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
-from Working.database.runs import list_runs, list_templates, load_template, save_template, load_recipe
+from Working.database.runs import list_runs, load_recipe
 
 from . import chain as chain_mod
 from . import corpus
-from .runs import RunManager
+from . import templates as templates_mod
+from .jobs import JobManager
 from .runtime import HELD_OUT_FILE, Runtime
+from .analyse_routes import router as analyse_router
+from .explore_routes import router as explore_router
+from .interrogation_routes import router as interrogation_router
+from .training_routes import router as training_router
 from .registration import router as registration_router
 
 log = logging.getLogger("webui")
@@ -62,7 +67,7 @@ def _steps(body) -> list[dict]:
 
 def create_app(rt: Runtime) -> FastAPI:
     app = FastAPI(title="Underground Brains — web UI bridge", docs_url="/api/docs", openapi_url="/api/openapi.json")
-    manager = RunManager(rt.db_path, meta_dir=getattr(rt, "meta_dir", None))
+    manager = JobManager(rt.db_path, meta_dir=getattr(rt, "meta_dir", None))
     app.state.rt = rt
     app.state.manager = manager
     app.state.started = time.time()
@@ -81,6 +86,13 @@ def create_app(rt: Runtime) -> FastAPI:
         if rec["held_out"]:
             raise HTTPException(423, f"{HELD_OUT_FILE} is held out (spec §0 D6 / Working.config.HELD_OUT_RECORDING_FILE); the web UI refuses it")
         return rec
+
+    # the canonical templates are rows from the first start on (prompt 01 "Templates")
+    _c = conn()
+    try:
+        app.state.templates_seeded = templates_mod.seed_canonical(_c)
+    finally:
+        _c.close()
 
     @app.on_event("startup")
     async def _startup():
@@ -126,13 +138,14 @@ def create_app(rt: Runtime) -> FastAPI:
             c.close()
 
     @app.get("/api/corpus/{source_file}/coverage")
-    def get_coverage(source_file: str, bins: int = 57, verdicts: str | None = None):
+    def get_coverage(source_file: str, bins: int = 57, verdicts: str | None = None, run: str | None = None, method: str | None = None):
         if source_file == HELD_OUT_FILE:
             raise HTTPException(423, f"{HELD_OUT_FILE} is held out; the corpus map refuses it")
         c = conn()
         try:
             vs = tuple(v for v in verdicts.split(",") if v) if verdicts else None
-            return corpus.coverage(c, source_file, bins=max(4, min(400, bins)), verdicts=vs)
+            run_ids = [int(r) for r in run.split(",") if r.strip()] if run else None
+            return corpus.coverage(c, source_file, bins=max(4, min(400, bins)), verdicts=vs, run_ids=run_ids, method=method or None)
         except KeyError:
             raise HTTPException(404, f"unknown recording {source_file}")
         finally:
@@ -223,41 +236,7 @@ def create_app(rt: Runtime) -> FastAPI:
         except (ValueError, KeyError) as e:
             raise HTTPException(422, str(e))
 
-    @app.get("/api/templates")
-    def get_templates():
-        c = conn()
-        try:
-            builtin = [
-                {"id": "builtin:mp_threshold", "name": "mp_threshold · Baseline → Matrix profile → Threshold", "builtin": True,
-                 "steps": [{"stage": "preprocessing", "algorithm": "detrend", "params": {"mode": "rolling_mean", "window_s": 600.0}},
-                           {"stage": "detection", "algorithm": "matrix_profile", "params": {"window_min": 1.0, "backend": "stump"}},
-                           {"stage": "detection", "algorithm": "threshold", "params": {"threshold": 8.0}}]},
-                {"id": "builtin:dsax", "name": "dsax_encoding · Baseline → Symbolic encoding (dSAX)", "builtin": True,
-                 "steps": [{"stage": "preprocessing", "algorithm": "detrend", "params": {"mode": "rolling_mean", "window_s": 600.0}},
-                           {"stage": "detection", "algorithm": "sax_dsax", "params": {"seconds_per_symbol": 20.0, "alphabet_size": 3}}]},
-                {"id": "builtin:windows_model", "name": "windows_model · Sliding windows → Cluster → Classifier", "builtin": True,
-                 "steps": [{"stage": "preprocessing", "algorithm": "window_matrix", "params": {"window_min": 1.0, "slow_entropy": False}},
-                           {"stage": "catalogue", "algorithm": "cluster", "params": {"k": 3}},
-                           {"stage": "catalogue", "algorithm": "classifier", "params": {"n_estimators": 50},
-                            "side_inputs": {"windows": {"source_kind": "earlier_step", "step_index": 0}}}]},
-                {"id": "builtin:gramian", "name": "gramian · Baseline → Gramian GASF image (needs a span ≤ 5000 samples)", "builtin": True,
-                 "steps": [{"stage": "preprocessing", "algorithm": "detrend", "params": {"mode": "rolling_mean", "window_s": 600.0}},
-                           {"stage": "catalogue", "algorithm": "gramian_gasf", "params": {}}]},
-            ]
-            saved = [{"id": row["id"], "name": row["name"], "builtin": False, "steps": json.loads(row["steps_json"])}
-                     for row in list_templates(c)]
-            return builtin + saved
-        finally:
-            c.close()
-
-    @app.post("/api/templates")
-    def post_template(body: TemplateBody):
-        c = conn()
-        try:
-            tid = save_template(c, body.name, _steps(body))
-            return {"id": tid, "name": body.name, "note": "written to the throwaway database copy"}
-        finally:
-            c.close()
+    # /api/templates lives in analyse_routes.py (rows seeded from templates.py)
 
     # -------------------------------------------------------------- runs ----
     @app.post("/api/runs")
@@ -373,6 +352,12 @@ def create_app(rt: Runtime) -> FastAPI:
 
     # stage-3 Prompt 02: registry, settings, audit, about, storage (server/registration.py)
     app.include_router(registration_router)
+
+    # ---------------------------------------------- stage-3 prompt 01 routers --
+    app.include_router(analyse_router)
+    app.include_router(explore_router)
+    app.include_router(interrogation_router)
+    app.include_router(training_router)
 
     # ------------------------------------------------- /api never falls through --
     # Registered after every real /api route and before the SPA catch-all: an
