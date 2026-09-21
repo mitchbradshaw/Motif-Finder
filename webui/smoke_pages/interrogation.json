@@ -8,7 +8,8 @@
    "[data-testid=\"source-block\"]",
    "[data-testid=\"member-grid\"]",
    "[data-testid=\"chain-ribbon-card\"]"
-  ]
+  ],
+  "settle_ms": 3000
  },
  {
   "page": "analyse.interrogation",
@@ -19,7 +20,8 @@
    "[data-testid=\"source-picker-body\"]",
    "[data-testid=\"family-table\"]",
    "[data-testid=\"swap-note\"]"
-  ]
+  ],
+  "settle_ms": 3000
  },
  {
   "page": "analyse.interrogation",

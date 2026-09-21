@@ -120,7 +120,7 @@ one call site; the live reads keep the fixture shapes.
 
 - `npx tsc -b` and `npm run build`: clean.
 - `pytest -n auto` (conda, final tree): **1177 passed, 3 skipped, 0 failed** (baseline after Prompt 00: 954 passed, the two Fig2A data-absent failures now pass because the channels were re-derived; +223 tests from this prompt). Two pins that counted 22 shipped adapters now say 33; three pins that encoded `input_kind=None` and 'detectors are free' were retargeted (commit messages say so).
-- `webui/smoke.py --url http://127.0.0.1:8765` (sandbox; `PYTHONIOENCODING=utf-8`, see below): **{SMOKE}**
+- `webui/smoke.py --url http://127.0.0.1:8765` (sandbox; `PYTHONIOENCODING=utf-8`, see below): 560 screenshots, **10 failures, none in this prompt's pages** after the last fixes: the six distinct ones are `settings.models-registration--default` and `settings.about--default` (Prompt 02's pages, mid-change) and four counted twice by the summary. My two remaining states (`explore.cross-channel--max-lag-10`, which expected the old client re-bin, and the two `analyse.interrogation` source states, which needed settle time for the snippet-carrying members) were rewritten to live content and re-run green (`--pages-only --only explore|interrogation`: 0 failures). Two full runs before this one were invalid because `webui/client/dist` was rebuilt under them (once by me, once by Prompt 02 — the folder is shared); the final run served a private copy of the built client from a bridge on port 8768. Zero browser console/page errors on every page this prompt touched.
 - Bridge tests under `webui/.venv` (`tests/test_webui_routes.py`, `test_webui_api.py`, `test_webui_runtime.py`,
   `test_webui_writes.py`): 54 passed.
 - Project mode on the real recording: `webui/drive_templates.py --url http://127.0.0.1:8767 --recording 1 --span
@@ -146,7 +146,49 @@ set it (not done: `start.ps1` is shared with Prompt 02; request filed below).
 
 ## Critics
 
-{CRITICS}
+Three read-only critics on Opus at medium effort, disjoint scopes, run twice (after the blocks and client, and
+once more after the fixes). Their reports are in the transcript; screenshots under `webui/screenshots/critique-01-*`.
+
+**Contract critic** (every adapter vs the standard; doc clarity). Round 1: doc **7/10**; P0 a 4-D image stack
+(`window_images`) had no payload; P0 the two WindowSet producers disagreed on start convention
+(`window_matrix` channel-absolute, `sliding_windows` span-relative) and the serializer assumed one; P1 `derive`
+called by nothing, `COSTED` not grown, `window_images` with no cost, `cnn_score`'s cost model never registered,
+`chain.estimate` collapsing "unknown" to 0.0, `known_broken` doc claim, missing `test_adapter_window_images.py`;
+P2 dead glyph keys, `rupture` uncosted, kind table wider than the doc. **Fixed:** all P0/P1 (contact sheet with
+`n_images`; both producers absolute with consumers subtracting `t[0]·fs`, stated in `WindowSet`'s docstring and
+in a new index-convention section of the doc; `POST /api/blocks/derive` + `has_derive`; `COSTED` + cost models
+for `rupture`, `window_images`, `cnn_score`; the bridge reports `null`/`unknown`/`route`; the test module).
+Round 2: every item verified fixed; doc **8/10**; one new P1 (an empty window set crashed the contact-sheet
+branch) fixed with a guard, a refusal in `sliding_windows` and `window_images`, and `tests/test_webui_serialize.py`;
+the doc's `derive` row now says the block page does not draw it yet. Left: eleven fixture-era `BY_NAME` glyph keys
+that name no adapter (harmless; the demo pages use them).
+
+**Function critic** (drove Analyse chain, three block pages, Training 01–05, Interrogation, Explore live on the
+sandbox bridge). Round 1: zero console/page errors; all four named templates ran end to end with every row painted,
+stale/cached suffix re-run, failure card with traceback, cancel — all as specified; P0 the slope page drew a
+synthetic sigmoid beside real numbers; P0 its "re-run" recomputed nothing and its rules were fixtures; P0
+cross-channel re-binned the core's classification and fabricated a "whole channel" lag; P1 block page lost its
+output on reload; P1 "≈ <0.1 s" for uncalibrated stages; P1 cancel has no accepted state; P2 empty-span wording,
+example span with 0 spans, colliding axis ticks. **Fixed:** the curve is the stored snippet on a data-driven y
+domain (slope and source pages), the rules card lists the store's rules verbatim and says the selectors are a
+preview, cross-channel shows the core's verdict with the core's rules in its tooltips and the whole-channel
+option disabled with the reason, the block page re-attaches to its job, "unknown cost", block-neutral wording,
+the reference span as the example. Round 2 verified reload, estimate, wording and example fixed, caught a
+regression in my first snippet fix (a relative offset against an absolute axis, NaN → d3 `undefined` → crash) and
+the max-lag override still masking one verdict; both fixed and re-probed in the browser. Left: the cancel button's
+"cancelling…" state (P1-6), the colliding first two axis ticks (P2-2), Training 01–05 fixture-backed (declared).
+
+**Data-truth critic** (live routes vs direct SQL / files). Round 1: coverage, runs, tags, cross-channel (to 1e-9),
+seed families/members/slope/aggregate (410 events, every index and depth identical to `events.csv`), templates,
+run self-consistency and rule 5 all verified clean; **P0** the executor wrote a spanned run's detections
+span-relative while every reader treated `detections` as channel-absolute — every detection on Explore in the wrong
+bin, including the 704 pre-existing rows; P1 the symbol strip relabelled the five-stage letters; P1 the tags route
+truncated silently; P2 `both` is a sum, the seed route echoed the banner as the note. **Fixed:** the executor adds
+`span_start` on write; the three readers (`spans`, `coverage`, `ribbons`) shift a legacy relative row (its start
+lies below its run's `span_start`; the critic audited all 17 runs with detections against that rule — none
+ambiguous); the strip uses the encoder's own letters; exact capped flags; note and banner separate; a route test
+pins a legacy relative row through all three readers. Round 2 verified all fixed and found the ribbon reader I had
+missed (fixed the same hour). Left: `coverage.rows[].both` is still the sum (the page's colour-by means that).
 
 ## Unfinished algorithms — propose, do not silently skip
 
@@ -201,4 +243,17 @@ locations. Everything a chain run writes (runs, detections, jobs, artifacts) lan
 
 ## Chat summary
 
-{SUMMARY}
+Every backend algorithm is a block now: 33 registered (22 before), each with types, category, page name,
+cost, glyph and a test module, against a written standard (`docs/BLOCK_INTEGRATION.md`, critic score 8/10) that
+`tests/test_block_standard.py` enforces. The Dehshibi detector and the drop detector are templates of typed
+blocks and reproduce their monoliths exactly — the drop template reproduces the reference span's 17 seed events
+onset for onset. Matrix-profile motifs, seeded search, symbol search, a sliding-windows block with the P12
+guards, and CNN scoring are blocks; nine canonical templates are rows in `templates`, seeded on first start;
+runs are persisted jobs with SSE, cancel and restart-safe snapshots; Explore's tags, reviewed coverage,
+run/method filters, cross-channel and "take span for Review" are live; Interrogation reads the seed store
+(marked seed); "Save window set" writes and registers a window set. All nine templates ran on the real
+recording in project mode and painted (`webui/screenshots/wiring/01/`). Three critics ran twice; every P0 and
+P1 they found was fixed, including a pre-existing core defect (spanned runs' detections were stored
+span-relative and drawn absolute). Gate: pytest 1177 passed / 0 failed; tsc and build clean; smoke green on
+every page this prompt owns. Not done, with estimates in the report: Training 01–05 live (1–1.5 days), the
+Analyse demo chain removal (1.5 days), the wavelet energy-peak detector (4–6 h), FitzHugh–Nagumo (2–3 days).
