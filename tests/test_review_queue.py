@@ -2,7 +2,8 @@
 test_review_queue.py
 ====================
 Tests for T20 — the headless half of the Review candidate queue
-(`UI/workspaces/review/queue_state.py`).
+(`Working/review/queue_state.py`; moved out of the retired Panel tree on
+2026-09-21, tag `archive/panel-ui`).
 
 The queue state object is deliberately free of any Panel import so it stays
 headlessly testable; ticket 21 renders what this holds. It builds on the
@@ -34,7 +35,7 @@ from Working.database.schema import init_db
 from Working.database import adjudications as adj
 from Working.database import queries as q
 from Working.database import vocabulary as v
-from UI.workspaces.review.queue_state import ReviewQueue
+from Working.review.queue_state import ReviewQueue
 
 
 def _fresh_conn():
@@ -83,8 +84,7 @@ def _insert_detection(conn, rid, start_idx=0, end_idx=100, score=None,
 # ── construction and the no-UI-import boundary ──────────────────────────────
 
 def test_module_imports_no_ui_library():
-    src_path = os.path.join(PROJECT_ROOT, "UI", "workspaces", "review",
-                            "queue_state.py")
+    src_path = os.path.join(PROJECT_ROOT, "Working", "review", "queue_state.py")
     with open(src_path, "r", encoding="utf-8") as f:
         src = f.read()
     for banned in ("panel", "holoviews", "bokeh", "matplotlib"):
