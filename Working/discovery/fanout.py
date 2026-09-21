@@ -331,6 +331,8 @@ def group_status(conn, run_group_id=None, *, run_ids=None):
             "error": (r["error_text"].strip().splitlines()[-1] if r["error_text"] else None),
             "current_step": r["current_step"],
             "superseded_at": r["superseded_at"],
+            "started_at": r["started_at"],
+            "finished_at": r["finished_at"],
             "span": [int(r["span_start"]), int(r["span_end"])],
         })
     channels.sort(key=lambda c: (c["channel"] if c["channel"] is not None else -1, c["run_id"]))

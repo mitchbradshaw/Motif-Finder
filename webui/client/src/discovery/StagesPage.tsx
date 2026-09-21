@@ -239,7 +239,29 @@ function Thumb({ thumb, height }: { thumb: StageThumb; height: number }) {
   )
 }
 
-const domainOf = (vals: number[]) => { const lo = Math.min(...vals), hi = Math.max(...vals), p = (hi - lo) * 0.14 || 0.05; return [lo - p, hi + p] as [number, number] }
+/* A stage's output carries non-finite values on purpose: a matrix profile is
+ * NaN-padded to the span length, and the wire spells that null, which the
+ * adapter turns back into NaN. Both the domain and the path have to know —
+ * Math.min over an array holding one NaN is NaN, every y becomes NaN, and the
+ * browser rejects the whole path with "attribute d: Expected number". The
+ * curve breaks where the values do instead. */
+const finiteOf = (vals: number[]) => vals.filter(Number.isFinite)
+const domainOf = (vals: number[]) => {
+  const f = finiteOf(vals)
+  if (!f.length) return [0, 1] as [number, number]
+  const lo = Math.min(...f), hi = Math.max(...f), p = (hi - lo) * 0.14 || 0.05
+  return [lo - p, hi + p] as [number, number]
+}
+/** A polyline that lifts the pen at every non-finite value. */
+const brokenPath = (vals: number[], x: (i: number) => number, y: (v: number) => number) => {
+  let d = '', pen = false
+  vals.forEach((v, i) => {
+    if (!Number.isFinite(v)) { pen = false; return }
+    d += `${pen ? 'L' : 'M'}${x(i).toFixed(1)} ${y(v).toFixed(1)}`
+    pen = true
+  })
+  return d
+}
 
 function TraceThumb({ w, h, values, ghost, stroke, span, emptyTrack }: { w: number; h: number; values: number[]; ghost?: number[]; stroke?: string; span?: [number, number]; emptyTrack?: boolean }) {
   const trackH = span || emptyTrack ? 8 : 0
@@ -247,7 +269,7 @@ function TraceThumb({ w, h, values, ghost, stroke, span, emptyTrack }: { w: numb
   const [lo, hi] = domainOf([...values, ...(ghost ?? [])])
   const x = (i: number) => (i / Math.max(1, values.length - 1)) * (w - 2) + 1
   const y = (v: number) => 2 + (1 - (v - lo) / (hi - lo)) * (plotH - 4)
-  const path = (vals: number[]) => vals.map((v, i) => `${i ? 'L' : 'M'}${x(i).toFixed(1)} ${y(v).toFixed(1)}`).join('')
+  const path = (vals: number[]) => brokenPath(vals, x, y)
   const sx = span ? [x(span[0]), x(span[1])] : null
   return (
     <svg width={w} height={h} role="img" aria-label="signal in this window">
@@ -262,7 +284,7 @@ function TraceThumb({ w, h, values, ghost, stroke, span, emptyTrack }: { w: numb
 
 function SegmentsThumb({ w, h, values, cut }: { w: number; h: number; values: number[]; cut: number }) {
   const n = values.length
-  const max = Math.max(cut * 1.9, ...values.map(Math.abs))
+  const max = Math.max(cut * 1.9, ...finiteOf(values).map(Math.abs))
   const mid = h / 2
   const bw = Math.max(2, (w - 2) / n - 2)
   const y = (v: number) => mid - (v / max) * (mid - 8)
@@ -299,14 +321,15 @@ function SymbolsThumb({ w, h, values, lowRun }: { w: number; h: number; values: 
 /** A stage that emits no threshold (or no score at all) sends null for it: draw the curve without the
  *  line rather than a line at nothing. The cell's caption is the server's account of why. */
 function DistanceThumb({ w, h, values, threshold, minIndex, minValue, isSeed }: { w: number; h: number; values: number[]; threshold: number | null; minIndex: number; minValue: number | null; isSeed: boolean }) {
-  const scale = threshold != null ? [...values, threshold] : values
-  const lo = Math.min(...scale), hi = Math.max(...scale)
+  const scale = finiteOf(threshold != null ? [...values, threshold] : values)
+  const lo = scale.length ? Math.min(...scale) : 0
+  const hi = scale.length ? Math.max(...scale) : 1
   const pad = (hi - lo) * 0.2 || 0.2
   const x = (i: number) => (i / Math.max(1, values.length - 1)) * (w - 2) + 1
   const y = (v: number) => 4 + (1 - (v - (lo - pad)) / ((hi + pad) - (lo - pad))) * (h - 14)
   return (
     <svg width={w} height={h} role="img" aria-label={`${isSeed ? 'distance profile' : 'score'} against its threshold`}>
-      <path d={values.map((v, i) => `${i ? 'L' : 'M'}${x(i).toFixed(1)} ${y(v).toFixed(1)}`).join('')} fill="none" stroke={B_COLOUR} strokeWidth={1.2} />
+      <path d={brokenPath(values, x, y)} fill="none" stroke={B_COLOUR} strokeWidth={1.2} />
       {threshold != null
         ? <>
           <line x1={0} x2={w} y1={y(threshold)} y2={y(threshold)} stroke={THRESH_COLOUR} strokeWidth={1.4} />

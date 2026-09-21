@@ -31,6 +31,9 @@ SHOTS = os.environ.get("SMOKE_SHOTS") or os.path.join(HERE, "screenshots")   # t
 #: coverage, which is what gives the scoreboard a denominator.
 SMOKE_SECTION_H = (80.0, 84.0)
 SMOKE_TEMPLATE = "mp_threshold"
+#: The k the seed page itself asks for (SeedPage.tsx::SEED_K). A result computed
+#: under a different k is a different cache key and the page finds nothing.
+SMOKE_SEED_K = 200
 
 
 class Smoke:
@@ -372,20 +375,25 @@ class Smoke:
         self._wait_job(call, applied[0].get("job_id"))
 
         b_key = None
-        seeds = call("/api/discovery/seeds").get("seeds") or []
-        seed = next((x for x in seeds if x["source"] == "medoid"), None) or (seeds[0] if seeds else None)
-        if seed is not None:
-            run = call("/api/discovery/seed/run", {"seedId": seed["id"], "channels": channels,
-                                                   "t0": t0, "t1": t1, "k": 50,
-                                                   "label": "smoke_seed"}, "POST")
+        # the seed page opens on the draft's seed, so compute the result for THAT
+        # seed with the page's own k — a result under any other key is a cache
+        # miss and the histogram has nothing to draw
+        setup = call("/api/discovery/seed/setup")
+        draft = (setup.get("draft") or {}) if not setup.get("__error__") else {}
+        seed_id, seed_label = draft.get("seedId"), draft.get("label")
+        if seed_id:
+            started = call("/api/discovery/seed/results",
+                           {"seedId": seed_id, "channels": channels, "t0": t0, "t1": t1,
+                            "k": SMOKE_SEED_K, "maxDistance": 0.0}, "POST")
+            self._wait_job(call, started.get("job_id"))
+            run = call("/api/discovery/seed/run", {"seedId": seed_id, "channels": channels,
+                                                   "t0": t0, "t1": t1, "k": SMOKE_SEED_K,
+                                                   # the seed page looks its finished run up by the
+                                                   # draft's own label, so the run must carry it
+                                                   "label": seed_label or "smoke_seed"}, "POST")
             if not run.get("__error__"):
                 b_key = run["run_key"]
                 self._wait_job(call, run.get("job_id"))
-                # the seed page's histogram needs a computed result, not a run
-                started = call("/api/discovery/seed/results",
-                               {"seedId": seed["id"], "channels": channels, "t0": t0, "t1": t1,
-                                "k": 50, "maxDistance": 0.0}, "POST")
-                self._wait_job(call, started.get("job_id"))
         self.evidence["discovery_scope"] = {"recording": rec["key"], "channels": channels,
                                             "section_h": [t0, t1], "runs": [a_key, b_key]}
         return {"a": a_key, "b": b_key or "human", "channels": channels, "t0": t0, "t1": t1}

@@ -8,6 +8,7 @@ import { Header } from '../shell/Header'
 import { useToast } from '../shell/Toast'
 import { navigate } from '../state'
 import { useSourced } from '../api/seam'
+import { discardDiscoveryRun, sendDiscoveryRunToReview } from '../api'
 import {
   getDetectionWindow, getDetections, getFires, fmtMin, type Detection, type DiscoveryRun, type FiresData, type Recall, type ScoreRow, type ScoreRun,
 } from '../api/discovery'
@@ -195,7 +196,9 @@ function Scoreboard({ dx }: { dx: Discovery }) {
   const expanded = expandQ ? expandQ.split(',') : []
   const toggle = (k: string) => setExpandQ((expanded.includes(k) ? expanded.filter(x => x !== k) : [...expanded, k]).join(',') || '')
   useEffect(() => {
-    if (refresh.status === 'done') { toast.push({ text: 'scores refreshed · no new verdicts since 11:40' }); notWired('GET /discovery/sessions/ch_screen_sep14/scores'); refresh.reset() }
+    // "Returning to Discovery refreshes the score" (7.4) — the scoreboard reads
+    // `adjudications` live, so a refresh is a re-read, not a recomputation
+    if (refresh.status === 'done') { dx.reload(); toast.push({ text: 'scores re-read from the tables' }); refresh.reset() }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [refresh.status])
   const scores = dx.scores ?? []
@@ -343,19 +346,31 @@ function RunActs({ dx, run }: { dx: Discovery; run: DiscoveryRun | null }) {
   const reason = run.kind === 'reference' ? 'human annotations are the reference, not a run'
     : run.status === 'superseded' ? 'discarded — marked superseded, no verdicts written'
       : !results ? 'no detections yet' : null
+  /* Both acts are real writes now. Discard marks every run of the fan-out
+   * superseded and writes NO adjudications and NO annotations — the route says
+   * so in its own response, and the toast repeats the counts rather than
+   * asserting them (spec 7.4: a bulk discard turned into thousands of
+   * not_interesting verdicts would poison the RQ5 divergence measurement). */
   const discard = () => {
-    dx.patchRun(run.key, { status: 'superseded' })
-    dx.setPicks(dx.picks.filter(k => k !== run.key))
-    recordDemoWrite('discovery', 'discard-run', { run: run.key, adjudications_written: 0 })
-    toast.push({ text: `${run.label} discarded · marked superseded, no verdicts written` })
     setConfirm(null)
+    discardDiscoveryRun(run.key)
+      .then(r => {
+        dx.setPicks(dx.picks.filter(k => k !== run.key))
+        dx.reload()
+        toast.push({ text: `${run.label} discarded · ${r.superseded} run${r.superseded === 1 ? '' : 's'} superseded · ${r.adjudications_written} adjudications and ${r.annotations_written} annotations written` })
+      })
+      .catch(e => toast.push({ text: `could not discard ${run.label}: ${e.message}` }))
   }
+  /* The queue is a FILTER over this run's unadjudicated detections, not a copy
+   * of them, so the count comes back from the server rather than from the
+   * scoreboard's arithmetic. */
   const send = () => {
-    const q = `q-${20 + Object.keys(sent).length}`
-    setSent({ ...sent, [run.key]: unjudged })
-    recordDemoWrite('review', 'add-queue', { id: q, source: `${run.label} · ${dx.scope!.name}`, kind: 'discovery run', count: unjudged })
-    recordDemoWrite('discovery', 'send-to-review', { run: run.key, count: unjudged, queue: q })
-    toast.push({ text: `${unjudged} detections sent to Review · tagged ${run.label}`, action: { label: 'Open Review', onClick: () => navigate(`review/queue/${q}`) } })
+    sendDiscoveryRunToReview(run.key)
+      .then(r => {
+        setSent({ ...sent, [run.key]: r.queued })
+        toast.push({ text: `${r.queued} of ${r.unjudged} unjudged in '${r.queue}' · verdicts write ${r.writes}`, action: { label: 'Open Review', onClick: () => navigate('review') } })
+      })
+      .catch(e => toast.push({ text: `could not build the queue: ${e.message}` }))
   }
   return (
     <section className="k-card dsc-acts" data-testid="run-acts" aria-label="Run acts">

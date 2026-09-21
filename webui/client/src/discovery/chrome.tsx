@@ -10,6 +10,7 @@ import { getHistory, getOverview, heldOutReason, fmtMin, DISCOVERY_LIMIT_MIN, ty
 import { useSourced } from '../api/seam'
 import { navigate } from '../state'
 import { useToast } from '../shell/Toast'
+import { postDiscoverySlurm, putDiscoverySession } from '../api'
 import { RunGlyph } from './glyphs'
 import { PAGE_SIZE, hasResults, pickable, type Discovery } from './session'
 
@@ -33,9 +34,10 @@ export function SessionChip({ dx }: { dx: Discovery }) {
   const commit = () => {
     if (error) return
     dx.setScope({ name: draft, saved: true })
-    recordDemoWrite('discovery', 'rename-session', { name: draft })
     setEditing(false)
-    notWired('save Discovery session name (PATCH /discovery/sessions)')
+    // PUT /api/discovery/session is the same route the scope card writes through
+    putDiscoverySession({ name: draft }).then(() => dx.reload())
+      .catch(e => console.error('the session name could not be saved', e))
   }
   if (editing) return (
     <span className="dsc-session-edit" data-testid="session-rename">
@@ -443,21 +445,33 @@ export function slurmScript(runs: { label: string; perChannelMin?: number }[], c
   ].join('\n')
 }
 
+/* The script is the core's, not the page's. `Working.hpc.job_export` writes a
+ * SLURM ARRAY job whose task index selects its own channel from the fan-out
+ * target list baked into the recipe, and clamps --time to this account's QOS
+ * ceiling. A script assembled in the browser would look right and not run. */
 export function SlurmModal({ open, onClose, dx, runs, onCreated }: { open: boolean; onClose: () => void; dx: Discovery; runs: DiscoveryRun[]; onCreated?: () => void }) {
   const toast = useToast()
-  const notWired = useNotWired()
+  const [made, setMade] = useState<Record<string, { script: string; script_path: string }>>({})
+  const [busy, setBusy] = useState(false)
+  const [err, setErr] = useState<Error | null>(null)
+  const first = runs[0]
+  useEffect(() => {
+    if (!open || !first || !dx.scope || made[first.key]) return
+    setBusy(true); setErr(null)
+    postDiscoverySlurm({ template: first.template ?? first.key, channels: dx.scope.channels, t0: dx.scope.section[0], t1: dx.scope.section[1] })
+      .then(r => setMade(m => ({ ...m, [first.key]: r })))
+      .catch(e => setErr(e instanceof Error ? e : new Error(String(e))))
+      .finally(() => setBusy(false))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, first?.key, dx.scope?.channels.join(','), dx.scope?.section.join(',')])
   if (!dx.scope || !dx.recording) return null
   const s = dx.scope
-  const script = slurmScript(runs, s.channels, s.section, s.name, dx.recording.file)
+  const written = first ? made[first.key] : undefined
+  const script = written?.script ?? ''
   const create = () => {
-    runs.forEach((r, i) => {
-      const id = `j-${String(231 + i).padStart(4, '0')}`
-      dx.patchRun(r.key, { status: 'on cluster', progress: 0, job: id })
-      recordDemoWrite('jobs', 'add-job', { id, kind: 'discovery', title: `${r.label} · ${s.channels.length} channels`, status: 'queue', detail: `SLURM script created for Discovery session ${s.name}`, for: r.key })
-    })
-    recordDemoWrite('discovery', 'create-slurm', { runs: runs.map(r => r.key), channels: s.channels, section: s.section })
-    toast.push({ text: `${runs.length} job${runs.length === 1 ? '' : 's'} added to Jobs · results return through Jobs › Manifest inbox`, action: { label: 'Open Jobs', onClick: () => navigate('jobs') } })
-    notWired('POST /discovery/runs/slurm')
+    if (!written) return
+    runs.forEach(r => dx.patchRun(r.key, { status: 'on cluster', progress: 0 }))
+    toast.push({ text: `script written to ${written.script_path} · results return through Jobs › Manifest inbox`, action: { label: 'Open Jobs', onClick: () => navigate('jobs') } })
     onCreated?.()
     onClose()
   }
@@ -465,7 +479,10 @@ export function SlurmModal({ open, onClose, dx, runs, onCreated }: { open: boole
     <Modal open={open} onClose={onClose} title="Create SLURM script" subtitle={`${runs.length} run${runs.length === 1 ? '' : 's'} × ${s.channels.length} channels · ${fmtMin(dx.estimateMin || runs.reduce((a, r) => a + (r.perChannelMin ?? 0) * s.channels.length, 0))}`}
       testid="slurm-modal" footerNote={`Creating the script adds ${runs.length} job${runs.length === 1 ? '' : 's'} to Jobs · results return through Jobs › Manifest inbox`}
       footer={<><Button onClick={onClose}>Cancel</Button><Button variant="cluster" icon="file" onClick={create} disabled={runs.length === 0} disabledReason="no pending run to script" testid="slurm-create">Create</Button></>}>
-      {runs.length === 0 ? <EmptyState size="sm" title="Nothing to script" caption="every run in this session has results or is already on the cluster" /> : <CodeBlock title="SLURM script" code={script} filename={`discovery_${s.name}.sh`} lineNumbers testid="slurm-script" />}
+      {runs.length === 0 ? <EmptyState size="sm" title="Nothing to script" caption="every run in this session has results or is already on the cluster" />
+        : err ? <LoadFailed what="the SLURM script" error={err} onRetry={() => setMade({})} />
+          : busy || !written ? <Loading height={260} label="writing the script through Working.hpc.job_export" />
+            : <CodeBlock title={written.script_path} code={script} filename={written.script_path.split(/[\\/]/).pop() ?? 'discovery.sh'} lineNumbers testid="slurm-script" />}
     </Modal>
   )
 }

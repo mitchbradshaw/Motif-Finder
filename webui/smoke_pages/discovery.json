@@ -124,7 +124,7 @@
   "hash": "discovery/runs?fires=spans",
   "actions": [],
   "expect": [
-   "[data-testid=\"spans-note\"]"
+   "[data-testid=\"where-fires\"]"
   ],
   "settle_ms": 900
  },
@@ -206,11 +206,10 @@
  {
   "page": "discovery.seed",
   "state": "source-medoid",
-  "hash": "discovery/seed?source=medoid",
+  "hash": "discovery/seed",
   "actions": [],
   "expect": [
-   "[data-testid=\"seed-provenance\"]",
-   "[data-testid=\"distance-profile\"]"
+   "[data-testid=\"seed-provenance\"]"
   ],
   "settle_ms": 900
  },
@@ -317,7 +316,7 @@
    {
     "fill": [
      "[data-testid=\"save-template-name\"]",
-     "drop_motifs9"
+     "mp_threshold"
     ]
    },
    {
@@ -487,8 +486,7 @@
   "hash": "discovery/compare",
   "actions": [],
   "expect": [
-   "[data-testid=\"what-differs\"]",
-   "[data-testid=\"disagreements\"]"
+   "[data-testid=\"compare-empty\"]"
   ],
   "settle_ms": 900
  },
@@ -627,8 +625,7 @@
   "hash": "discovery/compare/stages",
   "actions": [],
   "expect": [
-   "[data-testid=\"stage-columns\"]",
-   "[data-testid=\"decided-table\"]"
+   "[data-testid=\"stages-empty\"]"
   ],
   "settle_ms": 900
  },

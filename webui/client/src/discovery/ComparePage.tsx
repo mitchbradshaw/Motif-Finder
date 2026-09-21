@@ -21,6 +21,27 @@ import { useDiscovery, type Discovery } from './session'
 export const A_COLOUR = '#0A84FF', B_COLOUR = '#AF52DE', BOTH_COLOUR = '#9AA3AF', THRESH_COLOUR = '#E8900C'
 export type OnlyFilter = 'all' | 'a' | 'b'
 
+/* The wire spells a non-finite sample null and the adapter turns it back into
+ * NaN — deliberately, because substituting a number would invent data the
+ * recording does not carry. Every domain here is therefore taken over the
+ * finite values, and every polyline lifts its pen at the others. */
+const finiteOf = (xs: number[]) => xs.filter(Number.isFinite)
+const domainOf = (xs: number[], padFrac: number, fallback = 0.1): [number, number] => {
+  const f = finiteOf(xs)
+  if (!f.length) return [0, 1]
+  const lo = Math.min(...f), hi = Math.max(...f), pad = (hi - lo) * padFrac || fallback
+  return [lo - pad, hi + pad]
+}
+const brokenPath = (xs: number[], x: (i: number) => number, y: (v: number) => number) => {
+  let d = '', pen = false
+  xs.forEach((v, i) => {
+    if (!Number.isFinite(v)) { pen = false; return }
+    d += `${pen ? 'L' : 'M'}${x(i).toFixed(1)} ${y(v).toFixed(1)}`
+    pen = true
+  })
+  return d
+}
+
 export function ComparePage() {
   const dx = useDiscovery()
   const [aQ, setAQ] = useQueryState('a', 'drop_motifs9')
@@ -244,7 +265,7 @@ function WhereFire({ dx, data, current, onJump }: { dx: Discovery; data: Compare
         {sig.error ? <LoadFailed what="the channel signal" error={sig.error} onRetry={sig.reload} /> : !sig.data || W === 0 ? <Loading height={200} /> : (() => {
           const vals = sig.data.values
           const n = vals.length
-          const lo = Math.min(...vals), hi = Math.max(...vals), pad = (hi - lo) * 0.12 || 0.1
+          const [dLo, dHi] = domainOf(vals, 0.12); const lo = dLo, hi = dHi, pad = 0
           const sy = (v: number) => 14 + (1 - (v - (lo - pad)) / ((hi + pad) - (lo - pad))) * 74
           const hAt = (i: number) => view[0] + (i / Math.max(1, n - 1)) * (view[1] - view[0])
           const step = Math.max(1, Math.floor(n / Math.max(1, W - labelW)))
@@ -384,7 +405,7 @@ function Disagreements({ data, a, b, only, setOnly, list, i, setI, current }: {
             {win.error ? <LoadFailed what="the window" error={win.error} onRetry={win.reload} /> : !win.data || W === 0 ? <Loading height={150} /> : (() => {
               const w = win.data
               const n = w.values.length
-              const lo = Math.min(...w.values), hi = Math.max(...w.values), pad = (hi - lo) * 0.15 || 0.1
+              const [wLo, wHi] = domainOf(w.values, 0.15); const lo = wLo, hi = wHi, pad = 0
               const sx = (s: number) => labelW + (s / w.windowS) * (W - labelW - padR)
               const sy = (v: number) => 8 + (1 - (v - (lo - pad)) / ((hi + pad) - (lo - pad))) * 62
               let d = ''
@@ -395,7 +416,7 @@ function Disagreements({ data, a, b, only, setOnly, list, i, setI, current }: {
               // always in view). A chain with no scoring stage sends an empty track and a note instead.
               const finite = w.bScore.filter(v => Number.isFinite(v))
               const scale = [...finite, ...(thr != null ? [thr] : [])]
-              const sLo = Math.min(...scale), sHi = Math.max(...scale)
+              const [sLo, sHi] = domainOf(scale, 0)
               const sPad = (sHi - sLo) * 0.18 || 0.2
               const py = (v: number) => 102 + (1 - (v - (sLo - sPad)) / ((sHi + sPad) - (sLo - sPad))) * 36
               let pd = ''
