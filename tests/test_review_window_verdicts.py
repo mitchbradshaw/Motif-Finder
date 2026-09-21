@@ -250,3 +250,35 @@ def test_module_imports_no_ui_library():
                             "window_verdicts.py"), encoding="utf-8").read()
     for banned in ("panel", "holoviews", "bokeh", "fastapi"):
         assert banned not in src.lower()
+
+
+# ------------------------------------------- what a reviewer would ask for --
+
+def test_rewriting_the_same_verdict_is_idempotent(conn):
+    """Double-tapping the key is not a second judgement."""
+    ws = _window_set(conn)
+    first = wv.write_window_verdict(conn, ws, 0, "seed", note="n")
+    again = wv.write_window_verdict(conn, ws, 0, "seed", note="n")
+    assert again == first
+    assert wv.window_verdict_counts(conn, ws) == {
+        "judged": 1, "by_verdict": {"seed": 1}}
+
+
+def test_works_on_a_connection_without_a_row_factory(tmp_path):
+    """The bridge may hand us a plain sqlite3 connection; dicts are ours to
+    build, not the caller's to have configured."""
+    db = str(tmp_path / "wv.sqlite")
+    init_db(db).close()
+    plain = sqlite3.connect(db)          # no row_factory, FKs default off
+    plain.execute("PRAGMA foreign_keys = ON")
+    try:
+        ws = _window_set(plain)
+        rid = wv.write_window_verdict(plain, ws, 0, "seed", note="n")
+        got = wv.get_window_verdict(plain, ws, 0)
+        assert isinstance(got, dict) and got["id"] == rid
+        assert got["verdict"] == "seed"
+        assert wv.window_verdict_counts(plain, ws) == {
+            "judged": 1, "by_verdict": {"seed": 1}}
+        assert wv.delete_window_verdict(plain, ws, 0) is True
+    finally:
+        plain.close()

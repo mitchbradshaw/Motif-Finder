@@ -25,7 +25,6 @@ Headless and UI-free: plain `sqlite3` over a connection the caller owns.
 """
 
 import datetime
-import sqlite3
 
 # The Review vocabulary (S/I/N/A/U). The table carries no CHECK constraint —
 # the schema keeps the column free so the vocabulary can widen without a
@@ -35,6 +34,17 @@ VERDICTS = ("seed", "interesting", "not_interesting", "artifact", "unsure")
 
 def _now():
     return datetime.datetime.now().isoformat(timespec="seconds")
+
+
+def _rows(cur):
+    """Rows as plain dicts, whatever `row_factory` the caller's connection has.
+
+    The bridge may open its own `sqlite3.connect` without `sqlite3.Row`; the
+    dict shape this module returns is ours to build, not the caller's to have
+    configured.
+    """
+    names = [d[0] for d in cur.description]
+    return [dict(zip(names, r)) for r in cur.fetchall()]
 
 
 def _check(window_index, verdict):
@@ -86,23 +96,22 @@ def write_window_verdict(conn, window_set_id, window_index, verdict, *,
         (window_set_id, window_index, verdict, note, queue_id, _now()),
     )
     conn.commit()
-    row = conn.execute(
+    return conn.execute(
         "SELECT id FROM window_verdicts "
         "WHERE window_set_id = ? AND window_index = ?",
         (window_set_id, window_index),
-    ).fetchone()
-    return row["id"] if isinstance(row, sqlite3.Row) else row[0]
+    ).fetchone()[0]
 
 
 def get_window_verdict(conn, window_set_id, window_index):
     """The current verdict on one window, or None if it is unjudged."""
-    row = conn.execute(
+    rows = _rows(conn.execute(
         "SELECT id, window_set_id, window_index, verdict, note, queue_id, "
         "       created_at "
         "FROM window_verdicts WHERE window_set_id = ? AND window_index = ?",
         (window_set_id, window_index),
-    ).fetchone()
-    return dict(row) if row is not None else None
+    ))
+    return rows[0] if rows else None
 
 
 def delete_window_verdict(conn, window_set_id, window_index):
@@ -130,10 +139,10 @@ def window_verdict_counts(conn, window_set_id):
     `by_verdict` omits verdicts with no rows rather than carrying zeros, so
     the readout describes what was actually judged.
     """
-    rows = conn.execute(
+    rows = _rows(conn.execute(
         "SELECT verdict, COUNT(*) AS n FROM window_verdicts "
         "WHERE window_set_id = ? GROUP BY verdict",
         (window_set_id,),
-    ).fetchall()
+    ))
     by_verdict = {r["verdict"]: r["n"] for r in rows}
     return {"judged": sum(by_verdict.values()), "by_verdict": by_verdict}
