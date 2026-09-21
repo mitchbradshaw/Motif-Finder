@@ -621,6 +621,106 @@ def _migrate_discovery_tables(conn):
     conn.commit()
 
 
+# Stage-3 prompt 05 (spec S10.1, P20/P21): the Review workspace's own tables.
+# Additive: CREATE TABLE IF NOT EXISTS only.
+#
+# `review_queues` exists because a queue is a QUESTION PUT TO A PERSON, and a
+# question has properties no source table can carry: who is being asked, with
+# the machine score hidden or not (P20 blinding), capped at how many, writing
+# into which table. Prompt 04 offered to keep the descriptor inside
+# `discovery_sessions.state_json` (requests/04-to-05.md S1) and that is the
+# right storage for a Discovery-shaped queue only; four of the five queue kinds
+# in S10.1 have no discovery session to live in (a seeded search, an Explore
+# span set, a training window set, Library's `extract events`). One table that
+# every kind can name is what makes the Jobs page's queue group and the
+# header's "N need you" a single read instead of five.
+#
+# A queue holds NO items. `source_kind` + `source_ref` say where the items come
+# from and they are resolved live, so a verdict written here immediately
+# changes the count Discovery shows (04-to-05 S1) and a discarded run
+# (`runs.superseded_at`) stops arriving without anything to keep in step.
+#
+# `writes_to` is stored rather than derived because it is the rule-5 decision
+# (CLAUDE.md rule 5) made ONCE, at queue creation, where a person can read it,
+# instead of re-inferred at each verdict where a wrong inference would be a
+# silent crossing. It is CHECKed to the two verdict tables.
+_REVIEW_SCHEMA = """
+CREATE TABLE IF NOT EXISTS review_queues (
+    id            INTEGER PRIMARY KEY AUTOINCREMENT,
+    name          TEXT    NOT NULL,
+    source_kind   TEXT    NOT NULL CHECK (source_kind IN (
+                      'discovery-run', 'seed-search', 'explore-spans',
+                      'training-windows', 'model-verification',
+                      'extract-events')),
+    -- What the source kind points at: a run_group_id, a session/search id, a
+    -- window-set id, or empty for a whole-corpus sweep. TEXT because the five
+    -- kinds key on different things and a typed column per kind would be five
+    -- mostly-null columns.
+    source_ref    TEXT,
+    -- The unit a verdict lands on, and therefore which table it writes.
+    unit          TEXT    NOT NULL CHECK (unit IN ('detection', 'human span', 'window', 'sequence')),
+    writes_to     TEXT    NOT NULL CHECK (writes_to IN ('adjudications', 'annotations', 'window_verdicts')),
+    blind         INTEGER NOT NULL DEFAULT 0,
+    -- NULL = no cap. A cap is a promise about how long the queue is, so the
+    -- pace and progress readouts mean something.
+    cap           INTEGER,
+    verdict_options TEXT,          -- JSON list; NULL = the full vocabulary
+    filters_json  TEXT,            -- JSON dict passed through to the source resolver
+    created_at    TEXT    NOT NULL,
+    closed_at     TEXT,
+    note          TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_review_queues_open
+    ON review_queues(closed_at);
+CREATE INDEX IF NOT EXISTS idx_review_queues_source
+    ON review_queues(source_kind, source_ref);
+
+-- A verdict on a TRAINING or VERIFICATION WINDOW (fog A13). A window is not a
+-- detection and not a span a person drew: it is one index into a window set,
+-- and it has no row in `detections` to adjudicate and no extent a person
+-- chose to annotate. Writing a window verdict into either of those tables
+-- would be exactly the crossing rule 5 forbids -- an invented detection or an
+-- invented human span -- so it gets its own table, keyed by the window set and
+-- the index within it.
+CREATE TABLE IF NOT EXISTS window_verdicts (
+    id             INTEGER PRIMARY KEY AUTOINCREMENT,
+    window_set_id  INTEGER NOT NULL REFERENCES window_sets(id),
+    window_index   INTEGER NOT NULL,
+    verdict        TEXT    NOT NULL,
+    note           TEXT,
+    queue_id       INTEGER REFERENCES review_queues(id),
+    created_at     TEXT    NOT NULL,
+    UNIQUE (window_set_id, window_index)
+);
+CREATE INDEX IF NOT EXISTS idx_window_verdicts_set
+    ON window_verdicts(window_set_id);
+
+-- One row per verdict written through Review, in order, so undo (Ctrl-Z) is a
+-- replayable fact rather than client state, and so a batch action is ONE
+-- audit row covering N writes (S10, P20) instead of N indistinguishable ones.
+-- `payload_json` holds what is needed to reverse the write -- the prior
+-- verdict if there was one -- because reversing to "unjudged" and reversing to
+-- "it was `interesting` before" are different acts.
+CREATE TABLE IF NOT EXISTS review_audit (
+    id           INTEGER PRIMARY KEY AUTOINCREMENT,
+    queue_id     INTEGER REFERENCES review_queues(id),
+    action       TEXT    NOT NULL,     -- verdict | batch | promote | cluster | extract | undo
+    target_table TEXT,
+    target_ids   TEXT,                 -- JSON list of row ids written
+    payload_json TEXT,
+    undone_at    TEXT,
+    created_at   TEXT    NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_review_audit_queue
+    ON review_audit(queue_id, id);
+"""
+
+
+def _migrate_review_tables(conn):
+    conn.executescript(_REVIEW_SCHEMA)
+    conn.commit()
+
+
 def _migrate_motif_member_columns(conn):
     _migrate_columns(conn, "motif_member", _MOTIF_MEMBER_NEW_COLUMNS)
 
@@ -1090,6 +1190,8 @@ def init_db(db_path=None):
     _migrate_templates_columns(conn)
     _migrate_jobs_table(conn)
     _migrate_discovery_tables(conn)
+    # After the library tables: `window_verdicts` references `window_sets`.
+    _migrate_review_tables(conn)
     _migrate_recordings_registration_columns(conn)
     _migrate_encodings_registration_columns(conn)
     _create_registration_tables(conn)
