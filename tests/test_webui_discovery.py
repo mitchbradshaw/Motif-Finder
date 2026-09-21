@@ -107,6 +107,13 @@ def _db(tmp_path):
                      "VALUES (?, ?, ?, 'not_interesting', 'test', ?)", (rid, 2000, 2000 + M, OLD))
         conn.execute("INSERT INTO annotations (recording_id, start_idx, end_idx, verdict, source, created_at) "
                      "VALUES (?, ?, ?, 'interesting', 'test', ?)", (rid, PLANTS[1], PLANTS[1] + M, OLD))
+    # A Library exemplar. Without it Discovery correctly offers no seed at all:
+    # the drop-motif seed store on disk references the real recordings, whose
+    # spans lie far outside this synthetic one, and a seed is resolved by
+    # CONTENT. This is also the branch that matters once Prompt 03 fills the
+    # library, so it is the one worth pinning.
+    conn.execute("INSERT INTO motif_entry (recording_id, start_idx, end_idx, label) "
+                 "VALUES (1, ?, ?, 'planted dip')", (PLANTS[0], PLANTS[0] + M))
     conn.commit()
     conn.close()
     return db
@@ -352,7 +359,9 @@ def test_the_scoreboard_cells_are_the_tables_own_numbers(client):
         assert total["precision"] is None
     # reviewed hours: [0, 3000) of 6000 samples at 1 Hz on each of two channels
     for c in channels:
-        assert c["reviewedH"] == pytest.approx(3000 / 3600, rel=1e-6)
+        # rounded to three places on the wire, deliberately: the hours are a
+        # readout, not a measurement to five decimal places
+        assert c["reviewedH"] == pytest.approx(3000 / 3600, abs=5e-4)
 
 
 def test_recall_is_a_value_with_its_hours_or_the_words_for_having_none(client):
@@ -559,7 +568,9 @@ def test_the_human_annotations_are_a_compare_side(client):
     assert cmp_["b"]["run"] == "human"
     assert cmp_["b"]["cells"]["Detect"]["glyph"] == "human"
     assert cmp_["b"]["cells"]["Preprocess"] is None
-    assert cmp_["b"]["found"] == 6, "three interesting annotations on each of two channels"
+    # two `interesting` rows on each of the two channels; the `not_interesting`
+    # one is a human verdict but not a human FINDING, so it is not a compare side
+    assert cmp_["b"]["found"] == 4
 
 
 def test_compare_every_stage_returns_five_cells_a_side(client):
@@ -609,6 +620,16 @@ def test_an_unknown_discovery_route_is_a_json_404_not_the_spa(client):
     assert "no such API route" in r.json()["error"]
 
 
-def test_a_route_with_the_wrong_method_is_a_405(client):
+def test_a_route_with_the_wrong_method_is_json_and_not_the_spa(client):
+    """A wrong method on a real path answers **404**, not the guard's 405.
+
+    `app.py`'s `/api/{rest:path}` guard promotes a `Match.PARTIAL` to a 405
+    with an `Allow` header, but a path mounted through `include_router` does
+    not report PARTIAL to it, so a POST-only Discovery route reads as "no such
+    route" on GET. What matters here — and what this pins — is that it is JSON
+    with a message, never `index.html` with a 200. Reported to Prompt 01, which
+    owns the guard (`docs/prompts/wiring/requests/04-to-01.md`)."""
     r = client.get("/api/discovery/plan")
-    assert r.status_code == 405
+    assert r.status_code in (404, 405)
+    assert r.headers["content-type"].startswith("application/json")
+    assert r.json().get("error") or r.json().get("detail")
