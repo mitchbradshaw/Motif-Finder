@@ -201,7 +201,7 @@ def test_register_writes_one_row_per_channel_and_the_sidecar(tmp_path):
     assert rows[0]["registered_at"] and rows[0]["registered_by"] == "this installation"
     # the sidecar every registered artifact gets
     sc = sidecar_path(c)
-    assert os.path.isfile(sc) and sc == str(d / "registration.manifest.json")
+    assert os.path.isfile(sc) and os.path.normpath(sc) == os.path.normpath(str(d / "registration.manifest.json"))
     m = json.loads(open(sc, encoding="utf-8").read())
     for key in ("kind", "source", "fs", "parameters", "producer", "created_at", "code_version", "checks_passed", "sha1"):
         assert key in m, key

@@ -376,6 +376,83 @@ _MOTIF_ENTRY_NEW_COLUMNS = [
 ]
 
 
+# Stage-3 Prompt 02 (docs/DATA_REGISTRATION.md): registration provenance on
+# `recordings`, all nullable / defaulted so the 70 existing rows are untouched.
+# `parent_recording_id` + `parent_offset` + `decimation` record that a row is
+# an EXCERPT of another registered channel (block-mean decimated subset; the
+# Mushroom_260720 / L_LM_Jul_26_J case) — the row and its id are kept because
+# runs and detections reference it. `active = 0` is the soft unregister.
+_RECORDINGS_REGISTRATION_COLUMNS = [
+    ("parent_recording_id", "INTEGER REFERENCES recordings(id)"),
+    ("parent_offset", "INTEGER"),
+    ("decimation", "INTEGER"),
+    ("fs_source", "TEXT"),          # 'read' | 'inferred'
+    ("registered_at", "TEXT"),
+    ("registered_by", "TEXT"),
+    ("warnings_json", "TEXT"),
+    ("active", "INTEGER NOT NULL DEFAULT 1"),
+]
+
+# `encodings` += the same soft-unregister flag (an encoding is a registrable kind).
+_ENCODINGS_REGISTRATION_COLUMNS = [
+    ("active", "INTEGER NOT NULL DEFAULT 1"),
+]
+
+# The registry of artifacts that are not recordings or encodings (models,
+# matrix profiles, window matrices, window sets, drop-motif stores, catalogue
+# spreadsheets, HPC result bundles). One row per registered file or
+# directory; the bulk data stays on disk at `path` (rule 4) and the sidecar
+# `<path>.manifest.json` (`manifest_path`) carries the provenance. `active =
+# 0` is the soft unregister. `settings` holds every project setting the
+# Settings pages save (page, key, JSON value); `audit_log` is append-only:
+# nothing in the codebase updates or deletes a row.
+_REGISTRATION_SCHEMA = """
+CREATE TABLE IF NOT EXISTS registered_artifacts (
+    id             INTEGER PRIMARY KEY AUTOINCREMENT,
+    kind           TEXT    NOT NULL,
+    path           TEXT    NOT NULL,
+    name           TEXT,
+    manifest_path  TEXT,
+    recording_id   INTEGER REFERENCES recordings(id),
+    channel        INTEGER,
+    span_start     INTEGER,
+    span_end       INTEGER,
+    fs             REAL,
+    params_json    TEXT,
+    producer       TEXT,
+    sha1           TEXT,
+    checks_json    TEXT,
+    warnings_json  TEXT,
+    created_at     TEXT    NOT NULL,
+    actor          TEXT,
+    active         INTEGER NOT NULL DEFAULT 1
+);
+CREATE INDEX IF NOT EXISTS idx_registered_artifacts_kind ON registered_artifacts(kind, active);
+CREATE INDEX IF NOT EXISTS idx_registered_artifacts_path ON registered_artifacts(path);
+
+CREATE TABLE IF NOT EXISTS settings (
+    page        TEXT NOT NULL,
+    key         TEXT NOT NULL,
+    value_json  TEXT NOT NULL,
+    updated_at  TEXT NOT NULL,
+    actor       TEXT,
+    PRIMARY KEY (page, key)
+);
+
+CREATE TABLE IF NOT EXISTS audit_log (
+    id           INTEGER PRIMARY KEY AUTOINCREMENT,
+    at           TEXT NOT NULL,
+    kind         TEXT NOT NULL,
+    what         TEXT NOT NULL,
+    where_       TEXT NOT NULL,
+    route        TEXT,
+    actor        TEXT NOT NULL,
+    detail_json  TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_audit_log_kind ON audit_log(kind);
+"""
+
+
 def _migrate_columns(conn, table, new_columns):
     existing = {row["name"] for row in conn.execute(f"PRAGMA table_info({table})")}
     for name, coltype in new_columns:
@@ -398,6 +475,40 @@ def _migrate_motifs_columns(conn):
 
 def _migrate_motif_entry_columns(conn):
     _migrate_columns(conn, "motif_entry", _MOTIF_ENTRY_NEW_COLUMNS)
+
+
+# Stage-3 prompt 01 (docs/BLOCK_INTEGRATION.md "Templates"): a template is a
+# named, versioned, typed chain. `kind` is detection|encoding|training|
+# interrogation (derived from the terminal type when not given), `builtin`
+# marks a row seeded from webui/server/templates.py (copied, never edited in
+# place), `version` increments on every edit. All nullable/defaulted so the
+# two-column rows the core's `save_template` wrote still read.
+_TEMPLATES_NEW_COLUMNS = [
+    ("kind", "TEXT"),
+    ("version", "INTEGER NOT NULL DEFAULT 1"),
+    ("builtin", "INTEGER NOT NULL DEFAULT 0"),
+    ("description", "TEXT"),
+    ("created_at", "TEXT"),
+    ("updated_at", "TEXT"),
+]
+
+
+def _migrate_templates_columns(conn):
+    _migrate_columns(conn, "templates", _TEMPLATES_NEW_COLUMNS)
+
+
+def _migrate_recordings_registration_columns(conn):
+    _migrate_columns(conn, "recordings", _RECORDINGS_REGISTRATION_COLUMNS)
+
+
+def _migrate_encodings_registration_columns(conn):
+    _migrate_columns(conn, "encodings", _ENCODINGS_REGISTRATION_COLUMNS)
+
+
+def _create_registration_tables(conn):
+    """`registered_artifacts`, `settings`, `audit_log` — CREATE IF NOT EXISTS only."""
+    conn.executescript(_REGISTRATION_SCHEMA)
+    conn.commit()
 
 
 def _backfill_motif_entries(conn):
@@ -636,6 +747,10 @@ def init_db(db_path=None):
     _migrate_runs_columns(conn)
     _migrate_motifs_columns(conn)
     _migrate_motif_entry_columns(conn)
+    _migrate_templates_columns(conn)
+    _migrate_recordings_registration_columns(conn)
+    _migrate_encodings_registration_columns(conn)
+    _create_registration_tables(conn)
     # The backfill must run after `motif_entry` has every column it copies
     # into, and after `motifs.sax_string` exists on legacy databases.
     _backfill_motif_entries(conn)

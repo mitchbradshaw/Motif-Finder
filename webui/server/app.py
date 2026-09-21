@@ -25,6 +25,7 @@ from . import chain as chain_mod
 from . import corpus
 from .runs import RunManager
 from .runtime import HELD_OUT_FILE, Runtime
+from .registration import router as registration_router
 
 log = logging.getLogger("webui")
 
@@ -369,6 +370,9 @@ def create_app(rt: Runtime) -> FastAPI:
         with open(path, "w", encoding="utf-8") as f:
             json.dump({"snapshot": job.snapshot(), "payloads": job.payloads}, f)
         return {"path": path, "bytes": os.path.getsize(path)}
+
+    # stage-3 Prompt 02: registry, settings, audit, about, storage (server/registration.py)
+    app.include_router(registration_router)
 
     # ------------------------------------------------- /api never falls through --
     # Registered after every real /api route and before the SPA catch-all: an

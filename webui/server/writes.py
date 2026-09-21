@@ -32,7 +32,11 @@ HUMAN_PREFIXES = ("motif_",)   # motif_entry, motif_member, motif_edge, motif_en
 MACHINE_TABLES = frozenset({
     "detections", "runs", "configs", "artifacts", "encodings", "step_artifacts", "recordings",
     "run_groups",       # a fan-out of runs is made by the machine, like the runs in it
+    "registered_artifacts",   # stage-3 Prompt 02: a registered model / matrix profile / window matrix / ... is machine data
 })
+# `settings` and `audit_log` are on NEITHER list on purpose: a project setting is
+# not a verdict and not a detection, so both doors refuse them and
+# Working.registration.settings writes them with its own plain SQL.
 
 _IDENT = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 RULE = "rule 5 (CLAUDE.md): detections are machine-only, annotations are human-only"

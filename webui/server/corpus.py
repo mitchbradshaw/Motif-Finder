@@ -49,7 +49,8 @@ def load_channel(npy_path: str):
 
 
 def recordings(conn) -> list[dict]:
-    rows = [dict(x) for x in q.list_recordings(conn)]
+    # a soft-unregistered recording (recordings.active = 0, Settings › Datasets) is not offered anywhere
+    rows = [dict(x) for x in q.list_recordings(conn) if dict(x).get("active", 1)]
     by_file: dict[str, list[dict]] = {}
     for row in rows:
         by_file.setdefault(row["source_file"], []).append(row)
