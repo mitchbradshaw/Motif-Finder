@@ -343,6 +343,14 @@ _RUNS_NEW_COLUMNS = [
     # keys on it and no uniqueness constraint applies; the recipe hash remains
     # a run's content identity.
     ("name", "TEXT"),
+    # Stage-3 prompt 04 (spec §7.4, "Discard run"): a discarded run is marked
+    # superseded and writes NO adjudications — a whole-run discard writing
+    # thousands of `not_interesting` human verdicts would poison the RQ5
+    # divergence measurement. The run row, its config and its detections all
+    # stay; only these two columns change, so the discard is reversible and
+    # the run stays reproducible from its own recipe.
+    ("superseded_at", "TEXT"),
+    ("superseded_by_run_id", "INTEGER REFERENCES runs(id)"),
 ]
 
 # `motifs` += the symbolic SAX string, when one exists for the motif's span.
@@ -521,6 +529,56 @@ CREATE INDEX IF NOT EXISTS idx_jobs_kind_status ON jobs(kind, status);
 
 def _migrate_jobs_table(conn):
     conn.executescript(_JOBS_SCHEMA)
+    conn.commit()
+
+
+# Stage-3 prompt 04 (spec §7.1, P17): a Discovery session is a named scope —
+# one recording, one or more channels, one section — holding a list of runs,
+# each either a template applied across that scope or a seed search over it.
+# `run_groups` deliberately carries only an id and a timestamp, so the plan
+# itself (which channel was target 3, which seed, which cut) has to live
+# somewhere: here, not in the job's in-memory result, which a server restart
+# discards. `discovery_runs.run_key` is the stable key the page uses; the real
+# runs are reached through `run_group_id`. Additive: CREATE TABLE IF NOT EXISTS.
+_DISCOVERY_SCHEMA = """
+CREATE TABLE IF NOT EXISTS discovery_sessions (
+    id            INTEGER PRIMARY KEY AUTOINCREMENT,
+    name          TEXT    NOT NULL,
+    source_file   TEXT    NOT NULL,
+    channels_json TEXT    NOT NULL,
+    span_start    INTEGER,
+    span_end      INTEGER,
+    null_json     TEXT,
+    state_json    TEXT,
+    created_at    TEXT    NOT NULL,
+    updated_at    TEXT    NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS discovery_runs (
+    id            INTEGER PRIMARY KEY AUTOINCREMENT,
+    session_id    INTEGER NOT NULL REFERENCES discovery_sessions(id),
+    run_key       TEXT    NOT NULL,
+    kind          TEXT    NOT NULL,
+    label         TEXT    NOT NULL,
+    colour        TEXT,
+    template_id   INTEGER,
+    template_name TEXT,
+    run_group_id  INTEGER REFERENCES run_groups(id),
+    job_id        INTEGER,
+    params_json   TEXT,
+    status        TEXT    NOT NULL,
+    created_at    TEXT    NOT NULL,
+    updated_at    TEXT    NOT NULL,
+    superseded_at TEXT,
+    UNIQUE (session_id, run_key)
+);
+CREATE INDEX IF NOT EXISTS idx_discovery_runs_session ON discovery_runs(session_id);
+CREATE INDEX IF NOT EXISTS idx_discovery_runs_group ON discovery_runs(run_group_id);
+"""
+
+
+def _migrate_discovery_tables(conn):
+    conn.executescript(_DISCOVERY_SCHEMA)
     conn.commit()
 
 
@@ -776,6 +834,7 @@ def init_db(db_path=None):
     _migrate_motif_entry_columns(conn)
     _migrate_templates_columns(conn)
     _migrate_jobs_table(conn)
+    _migrate_discovery_tables(conn)
     _migrate_recordings_registration_columns(conn)
     _migrate_encodings_registration_columns(conn)
     _create_registration_tables(conn)
