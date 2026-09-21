@@ -61,6 +61,15 @@ FIRES_BIN_H = 3
 OVERVIEW_MAX_POINTS = 2000
 TRACE_POINTS = 120
 SEED_LIMIT = 24
+#: A first session opens on four hours, not on a 721-hour recording — see
+#: `_densest_section`.
+DEFAULT_SECTION_H = 4.0
+#: A null is N surrogate realisations of the section, each matched against the
+#: seed. The cost is draws x section, so a generous `draws` over a long section
+#: is minutes of work; past this budget the draws are cut and the payload says
+#: so, rather than the page quietly waiting.
+NULL_SAMPLE_BUDGET = 4_000_000
+NULL_MIN_DRAWS = 5
 
 _results: dict = {}          # cache key -> the computed seed-search result
 _results_lock = threading.Lock()
@@ -147,6 +156,37 @@ def _session_row(conn):
     return conn.execute("SELECT * FROM discovery_sessions ORDER BY id DESC LIMIT 1").fetchone()
 
 
+def _densest_section(conn, recording_ids, fs, n_samples, hours=DEFAULT_SECTION_H):
+    """The `hours`-long section these channels have reviewed most of.
+
+    A first session over a whole 721-hour recording is not a default, it is a
+    trap: every read on the page would scan the lot, and a seeded search over
+    it with 200 null draws is hours of work nobody asked for. The section that
+    has been looked at most is also the only one where precision and recall
+    have a denominator, so it is where the page is worth opening.
+    """
+    width = int(round(hours * 3600 * float(fs or 1.0)))
+    if width <= 0 or width >= n_samples:
+        return (0, int(n_samples))
+    marks = ",".join(str(int(i)) for i in recording_ids) or "NULL"
+    rows = conn.execute(
+        f"SELECT start_idx, end_idx FROM reviewed_spans WHERE recording_id IN ({marks})").fetchall()
+    if not rows:
+        return (0, width)
+    # one bucket per half-width, so a section boundary never splits the peak
+    step = max(1, width // 2)
+    buckets = {}
+    for r in rows:
+        a, b = int(r["start_idx"]), int(r["end_idx"])
+        for k in range(a // step, (b - 1) // step + 1):
+            lo, hi = k * step, (k + 1) * step
+            buckets[k] = buckets.get(k, 0) + max(0, min(b, hi) - max(a, lo))
+    best_k = max(range(min(buckets), max(buckets) + 1),
+                 key=lambda k: buckets.get(k, 0) + buckets.get(k + 1, 0))
+    start = min(max(0, best_k * step), max(0, n_samples - width))
+    return (int(start), int(start + width))
+
+
 def _default_session(conn):
     """The first session: the recording with the most reviewed coverage, its
     three most-reviewed channels, and the whole of it. A default built from the
@@ -164,12 +204,13 @@ def _default_session(conn):
     channels = sorted(best["channels"], key=lambda c: -int(cover_by_id.get(c["id"], 0) or 0))[:3]
     channels.sort(key=lambda c: c["channel"])
     n_samples = best["n_samples"]
+    span = _densest_section(conn, [c["id"] for c in channels], best["fs"], n_samples)
     null = seeded_search.null_from_settings(conn)
     row = {
         "name": f"{_stem(best['source_file'])} screen",
         "source_file": best["source_file"],
         "channels_json": json.dumps([c["name"] for c in channels]),
-        "span_start": 0, "span_end": int(n_samples),
+        "span_start": int(span[0]), "span_end": int(span[1]),
         "null_json": json.dumps({"method": null["method"], "n": null["draws"],
                                  "requested": null["requested"], "supported": null["supported"],
                                  "reason": null["reason"]}),
@@ -283,6 +324,24 @@ def _dr_by_key(conn, session_id, run_key):
     return row
 
 
+def _run_ids(conn, dr_row):
+    """The `runs` rows a Discovery run is made of.
+
+    Recorded on the row itself, because `execute_recipe` is idempotent: a
+    second Discovery run over the same recipe, recording and span is made of
+    the runs the first one produced, and those keep the group they joined
+    first. Falling back to the group covers rows written before this was
+    recorded."""
+    params = json.loads(dr_row["params_json"] or "{}")
+    ids = params.get("run_ids")
+    if ids:
+        return [int(i) for i in ids]
+    if dr_row["run_group_id"]:
+        return [int(r["id"]) for r in R.list_run_group_runs(conn, int(dr_row["run_group_id"]))
+                if r["surrogate_of_run_id"] is None]
+    return []
+
+
 def _reviewed_h(conn, chans, span):
     total = 0
     for ch in chans:
@@ -303,10 +362,11 @@ def _human_run(conn, chans, span):
 def _run_payload(conn, row, index, span):
     params = json.loads(row["params_json"] or "{}")
     group_id = row["run_group_id"]
+    ids = _run_ids(conn, row)
     status, progress, done_at, error, n_found = row["status"], None, None, None, None
     channels_done = None
-    if group_id:
-        st = fanout.group_status(conn, int(group_id))
+    if ids:
+        st = fanout.group_status(conn, run_ids=ids)
         channels_done = f"{st['done']} / {st['total']}"
         progress = st["progress"]
         n_found = sum(c["detections"] for c in st["channels"])
@@ -437,12 +497,12 @@ def _last_score(conn, template_name):
     """§4.8: a score aggregates onto a template **only with scope attached**.
     Never a bare number on a template card."""
     row = conn.execute(
-        "SELECT dr.run_group_id FROM discovery_runs dr WHERE dr.template_name = ? AND dr.run_group_id IS NOT NULL "
-        "ORDER BY dr.id DESC LIMIT 1", (template_name,)).fetchone()
-    if row is None or not row["run_group_id"]:
+        "SELECT * FROM discovery_runs WHERE template_name = ? AND run_group_id IS NOT NULL "
+        "ORDER BY id DESC LIMIT 1", (template_name,)).fetchone()
+    ids = _run_ids(conn, row) if row is not None else []
+    if not ids:
         return "not yet scored"
-    out = SB.group_score(conn, int(row["run_group_id"]))
-    total = out["total"]
+    total = SB.score_runs(conn, ids)["total"]
     if total["precision"] is None:
         return total.get("recall_note") or "not yet scored"
     return (f"precision {total['precision'] * 100:.0f} % over {total['reviewed']} reviewed detections "
@@ -476,7 +536,8 @@ def get_history(request: Request):
         rows = c.execute("SELECT * FROM discovery_runs ORDER BY id DESC LIMIT 40").fetchall()
         out = []
         for r in rows:
-            st = fanout.group_status(c, int(r["run_group_id"])) if r["run_group_id"] else None
+            ids = _run_ids(c, r)
+            st = fanout.group_status(c, run_ids=ids) if ids else None
             n = sum(x["detections"] for x in st["channels"]) if st else 0
             out.append({
                 "id": f"g-{r['run_group_id']}" if r["run_group_id"] else f"d-{r['id']}",
@@ -527,14 +588,17 @@ def get_overview(request: Request, recording: str, channels: str = ""):
         c.close()
 
 
-def _run_detections(conn, run_group_id, recording_id, span):
-    """Every detection of one channel of one fan-out, channel-absolute and
-    clipped to the section."""
+def _run_detections(conn, run_ids, recording_id, span):
+    """Every detection of one channel of one Discovery run, channel-absolute
+    and clipped to the section."""
+    if not run_ids:
+        return []
+    marks = ",".join(str(int(i)) for i in run_ids)
     rows = conn.execute(
         "SELECT d.id, d.start_idx, d.end_idx, d.score, r.span_start, r.id AS run_id FROM detections d "
-        "JOIN runs r ON r.id = d.run_id WHERE r.run_group_id = ? AND r.recording_id = ? "
+        "JOIN runs r ON r.id = d.run_id WHERE r.id IN (" + marks + ") AND r.recording_id = ? "
         "AND r.surrogate_of_run_id IS NULL ORDER BY d.start_idx",
-        (int(run_group_id), int(recording_id))).fetchall()
+        (int(recording_id),)).fetchall()
     out = []
     for r in rows:
         a, b = absolute_bounds(r["start_idx"], r["end_idx"], r["span_start"])
@@ -564,9 +628,7 @@ def _spans_for(conn, session_id, run_key, ch, span):
     if run_key == "human":
         return _human_spans(conn, ch["id"], span)
     row = _dr_by_key(conn, session_id, run_key)
-    if not row["run_group_id"]:
-        return []
-    return _run_detections(conn, int(row["run_group_id"]), int(ch["id"]), span)
+    return _run_detections(conn, _run_ids(conn, row), int(ch["id"]), span)
 
 
 @router.get("/api/discovery/fires")
@@ -603,8 +665,9 @@ def get_fires(request: Request, channels: str = "", t0: float = 0.0, t1: float =
                 row = {"run": key, "counts": [int(v) for v in counts]}
                 if key != "human":
                     dr = _dr_by_key(c, s["id"], key)
-                    if dr["run_group_id"]:
-                        st = fanout.group_status(c, int(dr["run_group_id"]))
+                    ids = _run_ids(c, dr)
+                    if ids:
+                        st = fanout.group_status(c, run_ids=ids)
                         if st["status"] in ("running", "queued"):
                             row["unfinishedFrom"] = int(n_bins * st["progress"])
                 rows.append(row)
@@ -622,21 +685,35 @@ def get_fires(request: Request, channels: str = "", t0: float = 0.0, t1: float =
 
 def _recall_cell(row):
     """§7.3's three-branch recall: a value with the hours it was computed over,
-    or the words for having none. The client branches on key presence."""
+    or the words for having none. The client branches on key presence.
+
+    A channel row states its own reviewed hours; a total row states the hours
+    it POOLED, which is a different number — a channel with no reviewed overlap
+    contributes its counts but not its hours (§7.3: "the run total states the
+    hours it pooled")."""
+    over = row.get("recall_over_h", row.get("pooled_h"))
     if row["recall"] is not None:
-        return {"value": round(row["recall"], 3), "overH": round(row["recall_over_h"], 3)}
+        return {"value": round(row["recall"], 3), "overH": round(float(over or 0.0), 3)}
     return {"none": True, "note": row.get("recall_note")}
 
 
 def _score_row(row):
     return {
         "found": row["found"], "judged": row["already_judged"], "reviewed": row["reviewed"],
-        "interesting": row["interesting"], "nullExpects": row["null_expects"] or 0,
+        "interesting": row["interesting"],
+        # §7.3's "null expects" is a count, and 0 is a real one: a surrogate run
+        # that found nothing is the best × null there is, not a missing figure.
+        # `nullRun` separates it from "no null was run at all".
+        "nullExpects": (row["null_expects"] if row["null_expects"] is not None else 0),
+        "nullRun": row["null_expects"] is not None,
+        "xNullNote": (None if row["x_null"] is not None else
+                      ("no paired null run on this scope" if row["null_expects"] is None
+                       else "the null found nothing here")),
         "recall": _recall_cell(row),
         "precision": (round(row["precision"], 4) if row["precision"] is not None else None),
         "xNull": (round(row["x_null"], 2) if row["x_null"] is not None else None),
         "note": row.get("note"), "precisionNote": row.get("precision_note"),
-        "reviewedH": round(row["reviewed_h"], 3), "status": row.get("status"),
+        "reviewedH": round(float(row.get("reviewed_h") or 0.0), 3), "status": row.get("status"),
     }
 
 
@@ -655,11 +732,12 @@ def get_scoreboard(request: Request, runs: str = "", channels: str = "", t0: flo
             if key == "human":
                 continue
             dr = _dr_by_key(c, s["id"], key)
-            if not dr["run_group_id"]:
+            ids = _run_ids(c, dr)
+            if not ids:
                 continue
-            group = SB.group_score(c, int(dr["run_group_id"]), rule=rule, span=span)
+            scored = SB.score_runs(c, ids, rule=rule, span=span)
             wanted = {ch["id"] for ch in chans}
-            rows = [r for r in group["channels"] if r["recording_id"] in wanted]
+            rows = [r for r in scored["channels"] if r["recording_id"] in wanted]
             total = SB.run_total(c, [r["run_id"] for r in rows], rule=rule, rows=rows)
             out.append({
                 "run": key,
@@ -699,7 +777,7 @@ def get_detections(request: Request, run: str, channel: str, t0: float = 0.0, t1
         for other in _discovery_runs(c, s["id"]):
             if other["run_key"] == run or not other["run_group_id"]:
                 continue
-            others[other["run_key"]] = _run_detections(c, int(other["run_group_id"]), int(ch["id"]), span)
+            others[other["run_key"]] = _run_detections(c, _run_ids(c, other), int(ch["id"]), span)
         humans = _human_spans(c, ch["id"], span, verdicts=None)
         mine = [(sp["start"], sp["end"]) for sp in spans]
         also = {i: [] for i in range(len(mine))}
@@ -1024,7 +1102,7 @@ def _seed_search(conn, seed, chans, span, *, k, max_distance, null, job=None):
     two distributions are comparable by construction rather than by assertion.
     """
     exemplar = np.asarray(seeded_search.exemplar_signal(conn, seed).x, dtype=float)
-    per_channel, pooled_null, candidates = [], [], []
+    per_channel, pooled_null, candidates, capped = [], [], [], []
     n = len(chans)
     rule = rule_from_settings(conn)
     for i, ch in enumerate(chans):
@@ -1053,10 +1131,16 @@ def _seed_search(conn, seed, chans, span, *, k, max_distance, null, job=None):
 
         draws = 0
         if null.get("supported", True) and null.get("method") and int(null.get("n") or 0) > 0:
+            want = int(null["n"])
+            afford = max(NULL_MIN_DRAWS, NULL_SAMPLE_BUDGET // max(1, len(x)))
+            asked = min(want, afford)
+            if asked < want:
+                capped.append(f"{ch['name']}: {want} draws asked, {asked} drawn "
+                              f"({len(x):,} samples x {want} is over the budget)")
             if job is not None:
-                job.progress(i, n, f"{ch['name']} · null, {null.get('n')} draws")
+                job.progress(i, n, f"{ch['name']} · null, {asked} draws")
             nulls = seeded_search.null_distances(
-                x, exemplar, draws=int(null["n"]), seed=0, method=null["method"], k=k,
+                x, exemplar, draws=asked, seed=0, method=null["method"], k=k,
                 max_distance=(max_distance if max_distance > 0 else None), fs=fs,
                 on_progress=((lambda d, t, ch=ch, i=i: job.progress(i, n, f"{ch['name']} · null {d}/{t}"))
                              if job is not None else None),
@@ -1071,6 +1155,8 @@ def _seed_search(conn, seed, chans, span, *, k, max_distance, null, job=None):
         "draws": sum(p["nullDraws"] for p in per_channel),
         "method": null.get("method"), "supported": bool(null.get("supported", True)),
         "reason": null.get("reason"), "requested": null.get("requested"),
+        "asked": int(null.get("n") or 0),
+        "capped": (" · ".join(capped) or None),
     }
     ds = [c_["d"] for c_ in candidates]
     cut = seeded_search.recommended_cut(ds, null_obj)
@@ -1349,7 +1435,24 @@ def _insert_run(conn, session_id, *, run_key, kind, label, template_name=None, t
                         (int(session_id), run_key)).fetchone()
 
 
-def _start_sweep(request, *, session_id, run_key, plan, label):
+def _surrogate_for(conn):
+    """The paired null run's settings, from Settings › Nulls' `detection` kind.
+
+    §7.3's *null expects* is "how many detections the null gives on the same
+    scope", which is a **run** — `run_paired_recipe` prepends
+    `preprocessing.surrogate` and links it by `runs.surrogate_of_run_id`. The
+    PRD has surrogates on by default; a method the block does not implement
+    turns the pairing off and says why, rather than quietly running a different
+    null under the name the page prints.
+    """
+    resolved = seeded_search.null_from_settings(conn, kind="detection")
+    if not resolved["supported"]:
+        return False, None, resolved["reason"]
+    return True, {"method": resolved["method"], "seed": 0}, None
+
+
+def _start_sweep(request, *, session_id, run_key, plan, label, surrogate=True,
+                 surrogate_params=None):
     """One fan-out, one `sweep` job, per-channel progress. The job writes the
     run group id back onto the `discovery_runs` row as soon as it has one, so a
     page that reloads mid-sweep still finds the runs."""
@@ -1369,10 +1472,20 @@ def _start_sweep(request, *, session_id, run_key, plan, label):
                 job.progress(i + 1, n, f"{row['channel_name']} · {row['detections_written']} spans")
 
             out = fanout.start(plan, db_path=db_path, on_progress=on_progress,
-                               on_target_done=on_target_done, should_cancel=job.cancel_event.is_set)
-            conn2.execute("UPDATE discovery_runs SET run_group_id = ?, status = ?, updated_at = ? "
-                          "WHERE session_id = ? AND run_key = ?",
-                          (out["run_group_id"], "cancelled" if out["cancelled"] else "done", _now(),
+                               on_target_done=on_target_done, should_cancel=job.cancel_event.is_set,
+                               surrogate=surrogate, surrogate_params=surrogate_params)
+            cur = conn2.execute("SELECT params_json FROM discovery_runs WHERE session_id = ? AND run_key = ?",
+                                (int(session_id), run_key)).fetchone()
+            params = json.loads((cur["params_json"] if cur else "{}") or "{}")
+            params["run_ids"] = out["run_ids"]
+            params["reused_run_ids"] = out["reused"]
+            # the group the runs are actually in: a reused run keeps the first
+            # group it joined, so this is not always out["run_group_id"]
+            groups = sorted({r["run_group_id"] for r in out["runs"] if r["run_group_id"]})
+            conn2.execute("UPDATE discovery_runs SET run_group_id = ?, params_json = ?, status = ?, "
+                          "updated_at = ? WHERE session_id = ? AND run_key = ?",
+                          (groups[0] if groups else out["run_group_id"], json.dumps(params),
+                           "cancelled" if out["cancelled"] else "done", _now(),
                            int(session_id), run_key))
             conn2.commit()
             return {"run_group_id": out["run_group_id"], "runs": len(out["runs"]),
@@ -1388,7 +1501,8 @@ def _start_sweep(request, *, session_id, run_key, plan, label):
 
     job = request.app.state.manager.start_job("sweep", run, meta={
         "what": label, "run_key": run_key, "channels": plan["channels"],
-        "span": plan["span"], "route": plan["route"]})
+        "span": plan["span"], "route": plan["route"],
+        "null": ("paired surrogate run per channel" if surrogate else "off")})
     return job
 
 
@@ -1415,7 +1529,9 @@ def apply_templates(request: Request, body: ApplyBody):
                 raise HTTPException(422, {"message": plan["reason"], "refused": plan["refused"],
                                           "template": name})
             key = _next_key(c, s["id"], name)
+            on, sp, why = _surrogate_for(c)
             params = {"stage_count": len(steps), "version": template.get("version"),
+                      "null": {"paired": on, "params": sp, "reason": why},
                       "detail": f"v{template.get('version') or 1} · {len(steps)} stages",
                       "glyph": D.glyph_for(f"{steps[-1]['stage']}.{steps[-1]['algorithm']}"),
                       "route": plan["route"], "estimate_s": plan["estimate_s"]}
@@ -1423,7 +1539,8 @@ def apply_templates(request: Request, body: ApplyBody):
                         template_name=name, template_id=template.get("id"), params=params)
             job_id = None
             if body.run and plan["route"] != "cluster":
-                job = _start_sweep(request, session_id=int(s["id"]), run_key=key, plan=plan, label=name)
+                job = _start_sweep(request, session_id=int(s["id"]), run_key=key, plan=plan, label=name,
+                                   surrogate=on, surrogate_params=sp)
                 job_id = job.id
                 c.execute("UPDATE discovery_runs SET job_id = ?, status = 'running', updated_at = ? "
                           "WHERE session_id = ? AND run_key = ?", (job_id, _now(), int(s["id"]), key))
@@ -1451,13 +1568,16 @@ def run_seed_search(request: Request, body: SeedBody):
             raise HTTPException(422, {"message": plan["reason"], "refused": plan["refused"]})
         base = body.label or f"seed_{seed['hash'][:6]}"
         key = _next_key(c, s["id"], base)
+        on, sp, why = _surrogate_for(c)
         params = {"stage_count": 1, "glyph": "seed", "seedId": seed["id"], "cut": body.cut,
+                  "null": {"paired": on, "params": sp, "reason": why},
                   "k": body.k, "detail": f"{seed['samples']} samples · MASS",
                   "route": plan["route"], "exclusion_note": seeded_search.recommended_params(seed)["exclusion_note"]}
         _insert_run(c, s["id"], run_key=key, kind="seed", label=base, params=params)
         job_id = None
         if plan["route"] != "cluster":
-            job = _start_sweep(request, session_id=int(s["id"]), run_key=key, plan=plan, label=base)
+            job = _start_sweep(request, session_id=int(s["id"]), run_key=key, plan=plan, label=base,
+                               surrogate=on, surrogate_params=sp)
             job_id = job.id
             c.execute("UPDATE discovery_runs SET job_id = ?, status = 'running', updated_at = ? "
                       "WHERE session_id = ? AND run_key = ?", (job_id, _now(), int(s["id"]), key))
@@ -1509,8 +1629,8 @@ def discard_run(request: Request, run_key: str):
     try:
         s = _session(c)
         row = _dr_by_key(c, s["id"], run_key)
-        n = fanout.supersede(c, int(row["run_group_id"]), reason="discarded in Discovery") \
-            if row["run_group_id"] else 0
+        ids = _run_ids(c, row)
+        n = fanout.supersede(c, run_ids=ids, reason="discarded in Discovery") if ids else 0
         c.execute("UPDATE discovery_runs SET superseded_at = ?, status = 'superseded', updated_at = ? "
                   "WHERE id = ?", (_now(), _now(), int(row["id"])))
         c.commit()
@@ -1527,7 +1647,8 @@ def restore_run(request: Request, run_key: str):
     try:
         s = _session(c)
         row = _dr_by_key(c, s["id"], run_key)
-        n = fanout.restore(c, int(row["run_group_id"])) if row["run_group_id"] else 0
+        ids = _run_ids(c, row)
+        n = fanout.restore(c, run_ids=ids) if ids else 0
         c.execute("UPDATE discovery_runs SET superseded_at = NULL, status = 'done', updated_at = ? WHERE id = ?",
                   (_now(), int(row["id"])))
         c.commit()
@@ -1589,17 +1710,17 @@ def get_queues(request: Request):
 # ── comparing two runs (§7.7) and every stage (§7.8) ───────────────────────
 
 def _recipe_of(conn, run_key, session_id):
-    """The recipe behind a Discovery run: the first member run's config. Every
-    member of a fan-out shares one recipe but for its `recording_id`, so any of
-    them is the chain."""
+    """The recipe behind a Discovery run: its first run's config. Every member
+    of a fan-out shares one recipe but for its `recording_id`, so any of them
+    is the chain."""
     row = _dr_by_key(conn, session_id, run_key)
-    if not row["run_group_id"]:
+    ids = _run_ids(conn, row)
+    if not ids:
         return None, row
-    members = R.list_run_group_runs(conn, int(row["run_group_id"]))
-    real = [m for m in members if m["surrogate_of_run_id"] is None]
-    if not real:
+    run = R.get_run(conn, ids[0])
+    if run is None:
         return None, row
-    return R.load_recipe(conn, int(real[0]["config_id"])), row
+    return R.load_recipe(conn, int(run["config_id"])), row
 
 
 def _side(conn, session_id, run_key, chans, span, scope_label):
@@ -1623,9 +1744,9 @@ def _side(conn, session_id, run_key, chans, span, scope_label):
     is_seed = row["kind"] == "seed"
     precision = reviewed = x_null = None
     found = 0
-    if row["run_group_id"]:
-        group = SB.group_score(conn, int(row["run_group_id"]), span=span)
-        total = group["total"]
+    ids = _run_ids(conn, row)
+    if ids:
+        total = SB.score_runs(conn, ids, span=span)["total"]
         precision, reviewed, x_null = total["precision"], total["reviewed"], total["x_null"]
         found = total["found"]
     threshold = params.get("cut")
@@ -1868,7 +1989,7 @@ def _thumb_cell(role, cell, badge, out, x, fs, threshold, is_seed):
                            + (f" · threshold {threshold}" if threshold else ""),
                 "decided": (f"lowest {vals[lowest]:.3f}" if finite.size else "nothing scored")}
     if kind == "encoding" and getattr(value, "kind", None) == "symbolic":
-        syms = np.asarray(value.data).ravel()
+        syms = np.asarray(value.values).ravel()
         uniq = sorted({str(s) for s in syms.tolist()})
         order = {s: i for i, s in enumerate(uniq)}
         seq = [order[str(s)] for s in syms.tolist()][:400]
@@ -1883,8 +2004,14 @@ def _thumb_cell(role, cell, badge, out, x, fs, threshold, is_seed):
                 "thumb": {"kind": "trace", "values": x, "span": span, "emptyTrack": n == 0},
                 "caption": f"{n} span{'s' if n != 1 else ''} in this window",
                 "decided": f"{n} span{'s' if n != 1 else ''}"}
+    if kind == "encoding":
+        shape = getattr(getattr(value, "values", None), "shape", None)
+        return {"role": role, "cell": cell, "badge": badge, "thumb": {"kind": "absent"},
+                "caption": f"an image encoding {list(shape) if shape else ''} — drawn on its block page, "
+                           f"not as a stage thumbnail",
+                "decided": f"image encoding {list(shape) if shape else ''}"}
     return {"role": role, "cell": cell, "badge": badge, "thumb": {"kind": "absent"},
-            "caption": f"{kind} has no thumbnail yet", "decided": kind}
+            "caption": f"a {kind} has no stage thumbnail in this view", "decided": kind}
 
 
 @router.get("/api/discovery/compare/stages")

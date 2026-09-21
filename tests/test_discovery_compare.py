@@ -189,3 +189,61 @@ def test_stage_diff_is_json_safe_missing_becomes_a_string():
     assert rows[0]["changed"] == [{"name": "threshold", "a": "<missing>", "b": 0.5}]
     assert MISSING not in (rows[0]["changed"][0]["a"],)
     json.dumps(rows)  # a bridge route serialises this directly
+
+
+# ── the bug that drew an empty Compare over two different chains ────────────
+
+def test_role_cells_reads_a_real_recipes_bare_algorithm_names():
+    """A recipe step carries `{"stage": "detection", "algorithm": "threshold"}`;
+    the registry is keyed `"detection.threshold"`. Looking up the bare name
+    finds nothing, and because an unknown block is deliberately skipped rather
+    than raised on, the failure is silent: every role comes back None and
+    Compare reports "0 roles differ" over two chains that share nothing. This
+    is what the live drive showed on 2026-09-22."""
+    from Working.recipes import make_recipe
+
+    recipe = make_recipe(1, [
+        {"stage": "preprocessing", "algorithm": "detrend", "params": {"window_s": 600.0}},
+        {"stage": "detection", "algorithm": "matrix_profile", "params": {"window_min": 5.0}},
+        {"stage": "detection", "algorithm": "threshold", "params": {"threshold": 0.5}},
+    ], span=(0, 100000))
+    cells = dc.role_cells(recipe, source_label="CH1_A1")
+    assert cells["Preprocess"] is not None, "a bare 'detrend' must still resolve"
+    assert cells["Score / estimate"] is not None
+    assert cells["Detect"] is not None
+    assert cells["Encode"] is None
+    assert cells["Preprocess"]["algorithm"] == "preprocessing.detrend"
+    assert cells["Score / estimate"]["glyph"] == "mp"
+    assert cells["Detect"]["glyph"] == "threshold"
+
+
+def test_two_real_recipes_differ_in_the_roles_they_actually_differ_in():
+    from Working.recipes import make_recipe
+
+    drop = make_recipe(1, [
+        {"stage": "preprocessing", "algorithm": "detrend", "params": {"window_s": 4916.67}},
+        {"stage": "detection", "algorithm": "stage_encoding", "params": {}},
+        {"stage": "detection", "algorithm": "drop_detection", "params": {}},
+    ], span=(0, 100000))
+    seed = make_recipe(1, [
+        {"stage": "detection", "algorithm": "seed_matches", "params": {"k": 10},
+         "side_inputs": {"exemplar": {"source_kind": "library_exemplar", "entry_id": 0,
+                                      "source_file": "fake.mat", "channel": 0,
+                                      "start_idx": 0, "end_idx": 50}}},
+    ], span=(0, 100000))
+    a = dc.role_cells(drop, source_label="CH1_A1")
+    b = dc.role_cells(seed, source_label="CH1_A1")
+    differing = [r for r in dc.ROLES
+                 if (a[r] is None) != (b[r] is None)
+                 or (a[r] and b[r] and a[r]["name"] != b[r]["name"])]
+    # the drop chain preprocesses and encodes; the seeded search does neither,
+    # and its one stage is a Detect — so three roles differ, not zero
+    assert set(differing) == {"Preprocess", "Encode", "Detect"}
+    assert b["Detect"]["glyph"] == "seed"
+
+
+def test_qualified_accepts_a_step_a_split_name_and_an_already_qualified_one():
+    assert dc.qualified({"stage": "detection", "algorithm": "threshold"}) == "detection.threshold"
+    assert dc.qualified("threshold", "detection") == "detection.threshold"
+    assert dc.qualified("detection.threshold") == "detection.threshold"
+    assert dc.qualified("detection.threshold", "preprocessing") == "detection.threshold"

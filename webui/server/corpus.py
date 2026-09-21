@@ -20,8 +20,10 @@ from Working.database.schema import VERDICTS
 from .decimate import envelope
 from .runtime import HELD_OUT_FILE
 
-M2_STYLE_NAMES = ["CH1_A1", "CH2_A1", "CH3_A2", "CH4_A2", "CH5_B1", "CH6_B1", "CH7_B2", "CH8_B2",
-                  "CH9_C1", "CH10_C1", "CH11_C2", "CH12_C2", "CH13_D1", "CH14_D1", "CH15_D2", "CH16_D2"]
+# The one electrode-name table, in the core (Working/discovery/channels.py) so
+# Discovery's scope, fan-out and scoreboard call a channel what Explore calls
+# it. A second copy here drifted from it within an hour of being written.
+from Working.discovery.channels import M2_STYLE_NAMES, channel_name as _core_channel_name
 
 # VERDICTS is imported from Working.database.schema above — the one vocabulary,
 # never a second copy (tests/test_webui_corpus.py pins it).
@@ -34,9 +36,7 @@ def connect(db_path: str) -> sqlite3.Connection:
 
 
 def channel_name(source_file: str, channel: int, n_channels: int) -> str:
-    if source_file.startswith(("M2_aug", "M4_aug")) and n_channels == 16 and channel < 16:
-        return M2_STYLE_NAMES[channel]
-    return f"CH{channel + 1}"
+    return _core_channel_name(source_file, channel, n_channels)
 
 
 @functools.lru_cache(maxsize=32)

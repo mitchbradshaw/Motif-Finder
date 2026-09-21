@@ -52,6 +52,7 @@ from Working.config import HELD_OUT_RECORDING_FILE, HELD_OUT_UNLOCK
 from Working.database import queries as _q
 from Working.database import runs as _runs
 from Working.database.schema import init_db
+from Working.discovery.channels import channel_name as _channel_name
 from Working.recipes import make_recipe
 from Working.run_groups import materialize_target, run_paired_recipe
 
@@ -105,15 +106,6 @@ def _uncosted_steps(steps):
     return out
 
 
-def _channel_name(source_file, channel, n_channels):
-    """The display name Explore uses, so a channel is called the same thing in
-    both workspaces. Imported from the bridge would be a rule-1 violation, so
-    the two-line rule lives here and the bridge delegates."""
-    if source_file.startswith(("M2_aug", "M4_aug")) and n_channels == 16 and channel < 16:
-        return ("CH0_A1", "CH2_A1", "CH4_A2", "CH6_A2", "CH7_B2", "CH8_B2", "CH9_C1",
-                "CH11_C2", "CH12_D1", "CH13_D1", "CH14_D2", "CH15_D2", "CH1_A1",
-                "CH3_A2", "CH5_B1", "CH10_C1")[channel]
-    return f"CH{channel + 1}"
 
 
 def plan(conn, *, steps, recording_ids, span=None, ceiling_s=None, measured_per_channel_s=None,
@@ -275,11 +267,20 @@ def start(plan_dict, *, db_path=None, on_progress=None, on_target_done=None, sho
             result = run_paired_recipe(
                 per_target, db_path=db_path, force=force, run_kwargs=run_kwargs,
                 surrogate=bool(surrogate), surrogate_params=surrogate_params)
-            _runs.update_run(conn, result["run_id"], run_group_id=group_id)
-            if result.get("surrogate_run_id") is not None:
-                _runs.update_run(conn, result["surrogate_run_id"], run_group_id=group_id)
+            # `execute_recipe` is idempotent: an identical recipe over the same
+            # recording and span returns the run that already exists. Re-pointing
+            # its `run_group_id` would MOVE it out of the earlier fan-out, leaving
+            # that one empty — a Discovery run that had results yesterday would
+            # read as "queued · 0 found" today. A run therefore keeps the first
+            # group it joined, and this fan-out records the run ids it is made of.
+            for rid in (result["run_id"], result.get("surrogate_run_id")):
+                if rid is None:
+                    continue
+                if _runs.get_run(conn, rid)["run_group_id"] is None:
+                    _runs.update_run(conn, rid, run_group_id=group_id)
             row = {
                 "run_id": result["run_id"],
+                "run_group_id": _runs.get_run(conn, result["run_id"])["run_group_id"],
                 "recording_id": target,
                 "channel": plan_dict["targets"][i]["channel"],
                 "channel_name": plan_dict["targets"][i]["channel_name"],
@@ -294,16 +295,26 @@ def start(plan_dict, *, db_path=None, on_progress=None, on_target_done=None, sho
             out.append(row)
             if on_target_done is not None:
                 on_target_done(i, n, row)
-        return {"run_group_id": group_id, "runs": out, "cancelled": cancelled}
+        return {"run_group_id": group_id, "runs": out, "cancelled": cancelled,
+                "run_ids": [r["run_id"] for r in out],
+                "reused": [r["run_id"] for r in out if r["reused"]]}
     finally:
         conn.close()
 
 
-def group_status(conn, run_group_id):
+def group_status(conn, run_group_id=None, *, run_ids=None):
     """Per-channel status for one fan-out, read from the rows so it survives a
     restart. Surrogate members are folded onto their parent rather than shown
-    as channels of their own."""
-    members = _runs.list_run_group_runs(conn, run_group_id)
+    as channels of their own.
+
+    ``run_ids`` names the runs explicitly, which is what a caller holding a
+    reused run needs: a run keeps the first group it joined, so a later fan-out
+    over the same recipe is *made of* runs that belong to an earlier group.
+    """
+    if run_ids is not None:
+        members = [r for r in (_runs.get_run(conn, int(i)) for i in run_ids) if r is not None]
+    else:
+        members = _runs.list_run_group_runs(conn, run_group_id)
     real = [r for r in members if r["surrogate_of_run_id"] is None]
     channels = []
     for r in real:
@@ -335,12 +346,13 @@ def group_status(conn, run_group_id):
         status = "running"
     else:
         status = "queued"
-    return {"run_group_id": int(run_group_id), "channels": channels, "done": done,
+    return {"run_group_id": (int(run_group_id) if run_group_id is not None else None),
+            "run_ids": [c["run_id"] for c in channels], "channels": channels, "done": done,
             "total": len(channels), "status": status, "n_surrogates": len(members) - len(real),
             "progress": (done / len(channels)) if channels else 0.0}
 
 
-def supersede(conn, run_group_id, *, reason=None, at=None):
+def supersede(conn, run_group_id=None, *, run_ids=None, reason=None, at=None):
     """§7.4's *Discard run*: mark every run of the group superseded.
 
     Writes to `runs` only. No `adjudications` row and no `annotations` row is
@@ -349,24 +361,32 @@ def supersede(conn, run_group_id, *, reason=None, at=None):
     Returns how many runs were marked.
     """
     at = at or _now()
-    rows = _runs.list_run_group_runs(conn, run_group_id)
+    rows = ([r for r in (_runs.get_run(conn, int(i)) for i in run_ids) if r is not None]
+            if run_ids is not None else _runs.list_run_group_runs(conn, run_group_id))
     n = 0
     for r in rows:
         if r["superseded_at"]:
             continue
         conn.execute("UPDATE runs SET superseded_at = ? WHERE id = ?", (at, int(r["id"])))
         n += 1
-    if reason:
-        conn.execute("UPDATE runs SET error_text = COALESCE(error_text, '') || ? WHERE run_group_id = ? AND superseded_at = ?",
-                     (f"\n[superseded] {reason}", int(run_group_id), at))
+    if reason and n:
+        marks = ",".join(str(int(r["id"])) for r in rows)
+        conn.execute("UPDATE runs SET error_text = COALESCE(error_text, '') || ? "
+                     "WHERE id IN (" + marks + ") AND superseded_at = ?",
+                     ("\n[superseded] " + str(reason), at))
     conn.commit()
     return n
 
 
-def restore(conn, run_group_id):
+def restore(conn, run_group_id=None, *, run_ids=None):
     """Undo a discard. The rows never went anywhere, so this is one UPDATE."""
-    cur = conn.execute("UPDATE runs SET superseded_at = NULL WHERE run_group_id = ? AND superseded_at IS NOT NULL",
-                       (int(run_group_id),))
+    if run_ids is not None:
+        marks = ",".join(str(int(i)) for i in run_ids) or "NULL"
+        cur = conn.execute(f"UPDATE runs SET superseded_at = NULL WHERE id IN ({marks}) "
+                           f"AND superseded_at IS NOT NULL")
+    else:
+        cur = conn.execute("UPDATE runs SET superseded_at = NULL WHERE run_group_id = ? "
+                           "AND superseded_at IS NOT NULL", (int(run_group_id),))
     conn.commit()
     return cur.rowcount
 

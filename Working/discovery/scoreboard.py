@@ -301,6 +301,16 @@ def run_total(conn, run_ids, *, rule=None, rows=None):
     }
 
 
+def score_runs(conn, run_ids, *, rule=None, span=None):
+    """The channel rows and the total for an explicit set of runs — what a
+    Discovery run is made of when `execute_recipe` reused runs that already
+    belong to an earlier fan-out's group."""
+    rows = [channel_score(conn, int(r), rule=rule, span=span) for r in run_ids]
+    rows = [r for r in rows if r["status"] != "surrogate"]
+    rows.sort(key=lambda r: (r["channel"] if r["channel"] is not None else -1, r["run_id"]))
+    return {"channels": rows, "total": run_total(conn, [r["run_id"] for r in rows], rule=rule, rows=rows)}
+
+
 def group_score(conn, run_group_id, *, rule=None, span=None):
     """§7.1's "each template becomes one run across all channels in scope",
     scored: one channel row per member run, the surrogate members folded into

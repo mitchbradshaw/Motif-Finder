@@ -100,12 +100,34 @@ _KIND_LABEL = {
 }
 
 
+def qualified(step_or_name, stage=None):
+    """The registry name for a step.
+
+    The registry is keyed `"<stage>.<algorithm>"`; a recipe step carries the
+    two apart (`{"stage": "detection", "algorithm": "threshold"}`). Passing the
+    bare algorithm looks up nothing, and because `_spec_for` answers None for
+    an unknown block — deliberately, so an old recipe still renders — the
+    failure is silent: every role comes back None and Compare draws five absent
+    cells over two chains that share nothing. Accepts a step dict, or a name
+    with `stage` beside it, or an already-qualified name.
+    """
+    if isinstance(step_or_name, dict):
+        name = step_or_name.get("algorithm") or ""
+        stage = step_or_name.get("stage") or stage
+    else:
+        name = str(step_or_name or "")
+    if "." in name or not stage:
+        return name
+    return f"{stage}.{name}"
+
+
 def _spec_for(algorithm):
     """The registered `AdapterSpec`, or None for an algorithm this build does
     not have (an old recipe, or a block whose dependency failed to import).
     Compare must still render such a chain rather than raise."""
-    from Adapters.registry import get_adapter
+    from Adapters.registry import discover_adapters, get_adapter
 
+    discover_adapters()
     try:
         return get_adapter(algorithm)
     except KeyError:
@@ -292,7 +314,7 @@ def role_cells(recipe, *, source_label):
     }
 
     for position, step in enumerate(recipe.get("steps") or [], start=1):
-        algorithm = step.get("algorithm")
+        algorithm = qualified(step)
         spec = _spec_for(algorithm)
         role = role_of(spec)
         if role is None:
