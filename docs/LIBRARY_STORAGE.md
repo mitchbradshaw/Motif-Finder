@@ -80,14 +80,36 @@ distance 0 hashes the same.
 
 | not hashed | consequence | why |
 |---|---|---|
-| sampling rate | a drop at 1 Hz and the same drop at 10 Hz are **one entry** | the resample to a fixed length is the point of a shape-first library |
 | amplitude and baseline | the same shape at 1 mV and 17 mV is **one entry** | z-normalisation; depth is a measured feature, not identity |
 | recording, channel, sample range | the same shape in two places is one entry with **two members** | that is what `occurrence_key` is for |
 | every metadata column | an event re-imported with one column changed resolves onto **its existing entry** | re-import must be idempotent (PRD story 43) |
 | detrending | a raw and a detrended copy of one event may hash differently | the importer picks one waveform per source and states which — see §5 |
 
-The first row is the one to be sure about: **two different sampling rates of the same curve are one motif.**
-If a future reader needs them separated, that is a filter on `fs`, not a second entry.
+### 2.3.1 What the hash does NOT do, and why that is not a bug
+
+**The same curve sampled at two rates does not hash the same.** This was the first thing the identity tests
+asserted, and it was wrong. Resampling is lossy: interpolating 100 points up to 256 does not land on the
+same values as decimating 1000 points down to 256. Measured on a drop-shaped curve, the two normalised
+vectors differ by up to **5.2e-4**, and **255 of the 256 samples** differ by more than the rounding quantum.
+
+No choice of `HASH_DECIMALS` repairs this. A coarser quantum only moves the boundary the two values straddle,
+and across 256 samples something always straddles it — at a 1e-2 quantum and 1.2e-4 of error, the chance all
+256 agree is about 0.2%. **A hash cannot implement a tolerance.** The alternative, a locality-sensitive
+("fuzzy") hash, buys tolerance at the price of false positives, and a library that silently merges two
+motifs is worse than one that asks.
+
+So three mechanisms answer three different questions, and the mistake to avoid is collapsing them:
+
+| mechanism | question | used for |
+|---|---|---|
+| **content hash** | is this the same **waveform**? | making re-import idempotent; resolving an event onto its existing entry |
+| **`scale_invariant_distance`** | is this the same **shape**? | shape families, and a motif recurring at another sampling rate |
+| **IoU (§2.4)** | is this the same **span**? | duplicate detections of one event in one channel |
+
+On the same drop measured two ways, the distance reads **0.0076** where a different shape reads **21.8** —
+three orders of magnitude, so the separation is not marginal. Cross-rate recurrence is found by
+`Working/library/matching.py::match_span_to_entry`, which writes a member and a distance-carrying edge. That
+is the designed path and it predates this document.
 
 ### 2.4 Duplicates and near-duplicates
 
@@ -380,6 +402,7 @@ seeing the edit survive.)*
 |---|---|---|
 | L1 | what bytes the content hash covers (spec OPEN 1) | the waveform alone, resampled and z-normalised — §2.2 |
 | L2 | resample length (spec OPEN 2) | **256** |
+| L2b | whether the hash recognises one shape across sampling rates | **no — it cannot**, and the distance does it instead. §2.3.1 |
 | L3 | onset-agreement coefficient in §4.6 (spec OPEN 4) | **0.25 × the candidate's duration** |
 | L4 | where a sequence lives (spec OPEN 9) | its own tables, with an `origin` column — §3.3, §4 |
 | L5 | the grouping / hand-edit / omission schema (spec OPEN 6) | `groupings` + `grouping_assignments` + `hand_edits` — §3.3 |

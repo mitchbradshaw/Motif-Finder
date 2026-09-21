@@ -9,8 +9,6 @@ the *shape* alone: the span's samples resampled to a fixed length and
 z-normalised, exactly as `Working.distances.scale_invariant_distance`
 compares two spans. So:
 
-  - the same curve sampled at two sampling rates hashes the same (this is the
-    whole point: a 1 Hz drop and the same drop at 10 Hz are one motif);
   - the same curve at twice the amplitude, or shifted by an offset, hashes the
     same (z-normalisation);
   - a different curve hashes differently;
@@ -21,11 +19,22 @@ Where the span *is* — recording, channel, sample range — is deliberately not
 in the content hash; it is the second half of the identity, carried by
 `occurrence_key`. Same hash means the same `motif_entry`; same hash AND the
 same occurrence means the same `motif_member`.
+
+What the hash does NOT do is recognise one shape across two sampling rates.
+That was the first thing this file asserted and it was wrong — see
+`test_the_same_curve_at_two_sampling_rates_does_NOT_hash_the_same` for the
+measurement and the reason. Three mechanisms answer three questions, and
+collapsing them is the mistake to avoid:
+
+    hash     is this the same waveform?   -> re-import is idempotent
+    distance is this the same shape?      -> a motif recurring at another rate
+    IoU      is this the same span?       -> a duplicate detection of one event
 """
 
 import numpy as np
 import pytest
 
+from Working.distances import scale_invariant_distance
 from Working.library.identity import (
     HASH_DECIMALS,
     HASH_LENGTH,
@@ -55,10 +64,37 @@ def test_hash_is_a_short_hex_digest():
     int(h, 16)          # hex, and nothing else
 
 
-def test_same_shape_at_two_sampling_rates_hashes_the_same():
-    """The 1 Hz / 10 Hz case. A drop is one motif however densely it was
-    sampled, so the hash is taken after resampling to a fixed length."""
-    assert content_hash(_drop(100)) == content_hash(_drop(1000))
+def test_the_same_curve_at_two_sampling_rates_does_NOT_hash_the_same():
+    """The 1 Hz / 10 Hz case, and the one place the hash deliberately stops
+    short.
+
+    Resampling is lossy: interpolating 100 points up to 256 does not land on
+    the same values as decimating 1000 points down to 256. Measured on this
+    curve the two normalised vectors differ by up to 5.2e-4, and 255 of the
+    256 samples differ by more than the rounding quantum. No choice of
+    HASH_DECIMALS fixes that — a coarser quantum only moves the boundary that
+    the two values straddle, and over 256 samples something always straddles
+    it. A hash cannot implement a tolerance; that is what a distance is for.
+
+    So the hash answers "is this the same waveform" (which is what makes
+    re-import idempotent), and `scale_invariant_distance` answers "is this the
+    same shape" (which is what finds a motif recurring at another sampling
+    rate). `test_the_distance_is_what_recognises_a_shape_across_rates` below
+    pins the other half. Do not "fix" this by fuzzing the hash: a
+    locality-sensitive hash has false positives, and a library that silently
+    merges two motifs is worse than one that asks."""
+    assert content_hash(_drop(100)) != content_hash(_drop(1000))
+
+
+def test_the_distance_is_what_recognises_a_shape_across_rates():
+    """The other half of the rule above: what the hash will not do, the
+    scale-invariant distance does — and by three orders of magnitude, so the
+    separation is not marginal."""
+    same_shape = scale_invariant_distance(_drop(100), _drop(1000))
+    other_shape = scale_invariant_distance(
+        _drop(100), np.sin(6 * np.pi * np.linspace(0.0, 1.0, 256)))
+    assert same_shape < 0.05
+    assert other_shape > 100 * same_shape
 
 
 def test_same_shape_at_a_different_amplitude_hashes_the_same():
