@@ -1,6 +1,7 @@
 /* Explore › Cross-channel (frames explore-3 as recorded, explore-3b lag-aligned; spec §5.4 "deliberately loose").
    The same window on every selected channel against a reference: lag, r and a bin per pair, a classification
-   summary, hand-offs and the open design questions. Fully demo (getCrossChannel): nothing computes lag yet.
+   summary, hand-offs and the open design questions. Live since stage-3 prompt 01 (getCrossChannel → GET /api/cross/{id}):
+   lag, r and the bin are the core's (Working.cross_channel.classify_waveforms) on the window in view.
    Deep links: ?align=lag · ?window=motif-<n> · ?pad=60 · ?channels=4,3,1 · ?maxlag=10 · ?lag=channel ·
    ?popover=channels · ?questions=open · ?state=computing */
 import { useMemo, useRef, useState } from 'react'
@@ -22,10 +23,10 @@ const BIN_TONE: Record<XBin, 'blue' | 'red' | 'amber' | 'green' | 'grey'> = { re
 const BIN_DOT: Record<XBin, string> = { reference: 'var(--blue)', artifact: 'var(--red)', propagation: 'var(--amber)', independent: 'var(--green)', 'no match': '#9ca3af' }
 const BIN_TIP: Record<XBin, string> = {
   reference: 'the channel every other row is compared against',
-  artifact: 'r ≥ 0.95 at ~0 lag — likely a shared electrical path',
-  propagation: 'lagged match with r ≥ 0.6',
-  independent: 'peak r < 0.6',
-  'no match': 'no peak within max lag',
+  artifact: 'core rule: |lag| ≤ 1 sample and r ≥ 0.99 — likely a shared electrical path',
+  propagation: 'core rule: |lag| ≤ 50 samples (and not an artifact)',
+  independent: 'core rule: |lag| > 50 samples — independent recurrence',
+  'no match': 'lag or r undefined on this window (flat or non-finite trace)',
 }
 const CAP = 10
 const fmtLag = (l: number | null) => (l === null ? '— s' : l === 0 ? '0.0 s' : `${l > 0 ? '+' : '−'}${Math.abs(l).toFixed(Math.abs(l) >= 10 ? 1 : 2)} s`)
@@ -91,7 +92,7 @@ function CrossBody({ data }: { data: CrossDemo }) {
   const CORE_BIN: Record<string, XBin> = { reference: 'reference', artifact: 'artifact', propagation: 'propagation', independent_recurrence: 'independent', undefined: 'no match' }
   const binOf = (r: XRow): XBin => {
     if (r.channelId === ref) return 'reference'
-    if (r.classification && CORE_BIN[r.classification]) return Math.abs(r.lagS ?? 0) > maxLag && CORE_BIN[r.classification] !== 'artifact' ? 'no match' : CORE_BIN[r.classification]
+    if (r.classification && CORE_BIN[r.classification]) return CORE_BIN[r.classification]     // the core's verdict (Working.cross_channel.classify_waveforms), never re-binned here
     if (r.lagS === null || r.r === null || Math.abs(r.lagS) > maxLag) return 'no match'
     if (r.r >= 0.95 && Math.abs(r.lagS) < 0.5) return 'artifact'
     return r.r >= 0.6 ? 'propagation' : 'independent'
@@ -155,7 +156,7 @@ function CrossBody({ data }: { data: CrossDemo }) {
 
   return (
     <>
-      <Header workspace="Explore" page="Cross-channel" subtitle={subtitle} search="Search spans, runs, families" demo />
+      <Header workspace="Explore" page="Cross-channel" subtitle={subtitle} search="Search spans, runs, families" demo={false} />   {/* getCrossChannel is live (api/explore.ts) */}
       <div className="page"><div className="page-inner ex-signal" data-testid="cross-page">
         <div className="ex-topbar" data-testid="cross-topbar">
           <div className="ex-crumb">

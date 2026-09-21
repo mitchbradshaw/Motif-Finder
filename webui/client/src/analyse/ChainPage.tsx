@@ -359,7 +359,7 @@ export function ChainPage() {
               <div className="an-pop left" style={{ width: 380 }} data-testid="source-popover">
                 <h4>Source <span>single channel · one span (P3)</span></h4>
                 {source ? <div className="an-pop-item"><span className="chip blue" style={{ height: 22 }}>current</span><span>{source.source_file} · {source.channel_name} · samples {source.start_idx}–{source.end_idx}{source.label ? ` · ${source.label}` : ''}</span></div> : <div className="an-pop-note">no source yet</div>}
-                <div className="an-pop-item btnlike" onClick={useExample} data-testid="use-example">⌇ Use the example span (CH4_A2 · 276.4–278.4 h)</div>
+                <div className="an-pop-item btnlike" onClick={useExample} data-testid="use-example">⌇ Use the example span ({EXAMPLE_SOURCE.channel_name} · {(EXAMPLE_SOURCE.start_idx / EXAMPLE_SOURCE.fs / 3600).toFixed(1)}–{(EXAMPLE_SOURCE.end_idx / EXAMPLE_SOURCE.fs / 3600).toFixed(1)} h)</div>
                 <div className="an-pop-item btnlike" onClick={() => navigate('explore/corpus')}>→ Pick in Explore</div>
               </div>
             )}
@@ -399,7 +399,7 @@ export function ChainPage() {
               <span className="mono">no source yet — send a span from Explore</span>
               <span className="spacer" style={{ flex: 1 }} />
               <button className="btn" onClick={() => navigate('explore/corpus')}>Go to Explore</button>
-              <button className="btn primary" onClick={useExample} data-testid="use-example">Use the example span (CH4_A2 · 276.4–278.4 h)</button>
+              <button className="btn primary" onClick={useExample} data-testid="use-example">Use the example span ({EXAMPLE_SOURCE.channel_name} · {(EXAMPLE_SOURCE.start_idx / EXAMPLE_SOURCE.fs / 3600).toFixed(1)}–{(EXAMPLE_SOURCE.end_idx / EXAMPLE_SOURCE.fs / 3600).toFixed(1)} h)</button>
             </div>
           )}
           {steps.map((_, i) => (

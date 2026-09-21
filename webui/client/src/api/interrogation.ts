@@ -60,7 +60,7 @@ export function liveEventCurve(m: InterrogationMember, pre = 10, post = 24): num
   const out: number[] = []
   let j = 0
   for (let i = 0; i < n; i++) {
-    const t = m.onset_offset_s + (i - pre)
+    const t = s.t_s[0] + m.onset_offset_s + (i - pre)     // t_s is the channel's absolute axis; the offset is from the snippet start
     while (j < s.t_s.length - 2 && s.t_s[j + 1] < t) j++
     const t0 = s.t_s[j], t1 = s.t_s[j + 1]
     const f = t1 > t0 ? Math.max(0, Math.min(1, (t - t0) / (t1 - t0))) : 0

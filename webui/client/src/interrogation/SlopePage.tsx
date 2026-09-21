@@ -235,7 +235,7 @@ function SlopeBody({ block }: { block: SlopeBlock }) {
             )}
             {anatomy && event ? (
               <>
-                <LineChart testid="anatomy-plot" height={210} yLabel="mV" xDomain={anatomy.dom} yDomain={[-0.45, 0.05]}
+                <LineChart testid="anatomy-plot" height={210} yLabel="mV" xDomain={anatomy.dom} yDomain={yDomain}
                   xFormat={fmtT} legend={false}
                   markers={showMarks ? [
                     { x: anatomy.marks.onset, label: 'onset', colour: 'var(--blue)' },
@@ -318,7 +318,7 @@ function SlopeBody({ block }: { block: SlopeBlock }) {
               ? <Rose events={events} selected={event.id} colourBy={colourQ} onSelect={pick} />
               : (
                 <>
-                  <LineChart testid="overlay-plot" height={230} yLabel="mV" xDomain={[t(-10), t(24)]} yDomain={[-0.45, 0.05]}
+                  <LineChart testid="overlay-plot" height={230} yLabel="mV" xDomain={[t(-10), t(24)]} yDomain={yDomain}
                     xFormat={fmtT} legend={false}
                     series={[
                       ...sample.filter(e => e.id !== event?.id).map(e => ({ label: e.id, colour: '#9ca3af', points: clip(curveOf(e)).map(([a, b]) => [t(a), b] as [number, number]), width: 1 })),

@@ -10,7 +10,7 @@ import { Header } from '../shell/Header'
 import { useToast } from '../shell/Toast'
 import { navigate, setQuery } from '../state'
 import { useSourced } from '../api/seam'
-import { getSourceBlock, type SourceBlock } from '../api/interrogation'
+import { getSourceBlock, liveEventCurve, liveYDomain, type SourceBlock } from '../api/interrogation'
 import {
   ALIGNMENTS, FAMILY_Y_DOMAIN, RUN_STEPS, SORTS, VERDICT_COLOUR, VERDICT_ORDER, eventCurve,
   type InterrogationMember,
@@ -63,6 +63,8 @@ function SourceBody({ block }: { block: SourceBlock }) {
   const stageRef = useRef<HTMLButtonElement>(null)
 
   const fam = block.family
+  const curveOf = (m: InterrogationMember, pre = 10, post = 24) => liveEventCurve(m, pre, post) ?? eventCurve(m, pre, post)
+  const yDomain = liveYDomain(block.members) ?? FAMILY_Y_DOMAIN
   const hidesArtifacts = excludeArtifacts === 'out'
   const handExcluded = draft.excluded[fam.id] ?? []
   const scope = scopeQ === 'none' ? new Set<string>() : inScopeIds(block.members, draft, fam.id, hidesArtifacts)
@@ -242,7 +244,7 @@ function SourceBody({ block }: { block: SourceBlock }) {
                           <div className="bd" role="button" tabIndex={0} title={`open ${m.id} in 01 Resolve spans`}
                             onClick={() => navigate(`analyse/interrogation/block/1?event=${m.id}${familyId === 'F-03' ? '' : `&family=${familyId}`}`)}
                             onKeyDown={e => { if (e.key === 'Enter') navigate(`analyse/interrogation/block/1?event=${m.id}`) }}>
-                            <MiniTrace values={eventCurve(m)} yDomain={FAMILY_Y_DOMAIN} width="100%" height={54}
+                            <MiniTrace values={curveOf(m)} yDomain={yDomain} width="100%" height={54}
                               stroke={on ? fam.colour : 'var(--muted-2)'} title={`${m.id} · ${m.depth_mV.toFixed(3)} mV`} />
                           </div>
                           <div className="ft">
@@ -276,10 +278,10 @@ function SourceBody({ block }: { block: SourceBlock }) {
             </>}>
             {nScope === 0
               ? <EmptyState testid="overlay-empty" size="sm" icon="wave" title="nothing in scope to overlay" caption="tick a member above" />
-              : <><LineChart testid="overlay-plot" height={190} xLabel={`seconds from ${alignQ}`} yLabel="mV" yDomain={FAMILY_Y_DOMAIN}
+              : <><LineChart testid="overlay-plot" height={190} xLabel={`seconds from ${alignQ}`} yLabel="mV" yDomain={yDomain}
               xDomain={[-20, 40]} xFormat={v => `${v > 0 ? '+' : ''}${v} s`}
               series={[
-                ...overlayMembers.map(m => ({ label: m.id, colour: fam.colour, points: toPoints(eventCurve(m, 20, 30), 20), width: 1 })),
+                ...overlayMembers.map(m => ({ label: m.id, colour: fam.colour, points: toPoints(curveOf(m, 20, 30), 20), width: 1 })),
                 { label: `medoid ${fam.medoid}`, colour: '#111827', points: toPoints(medoidCurve, 20), width: 2 },
               ]} legend={false} />
               <div className="ig-foot" style={{ marginTop: 4 }}>
