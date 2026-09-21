@@ -19,6 +19,8 @@ above, read Part 2's section for your ticket **and** any Part 1 passage it point
 an unmarked Part 1 passage as still authoritative. The trap this is guarding against is real: Part 1
 describes the chain builder as a vertical staged list, which is exactly what Part 2 replaces.
 
+**Stage 3 — wiring the web UI to the core** (2026-09-21 →) is planned in `docs/WIRING_PLAN.md`; the agent prompts for it are `docs/prompts/wiring/0N-*.md`. Frontend v1 (every concept page as a working shell on fixture data) is complete: `webui/PAGES_REPORT.md`.
+
 ## Layout
 
 | Path | What lives there |
