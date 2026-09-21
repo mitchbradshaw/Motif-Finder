@@ -1,9 +1,13 @@
-/* Settings › Models & registration (frame settings-09 · spec §9.9, P12, P19).
- * Defaults for new training jobs and the checks a model must pass to be registered. */
-import { useEffect } from 'react'
-import { Badge, Callout, Chip, NumberField, SectionCard, Table, TextField, Toggle } from '../kit'
+/* Settings › Models & registration (frame settings-09 · spec §9.9, P12, P19) — LIVE (Prompt 02).
+ * Defaults for new training jobs and the checks a model must pass to be registered (the settings table),
+ * plus the registered models: real checkpoints (MODELS/*.pth) and classifier joblibs (DATA/derived/models)
+ * with their sidecar manifests, and the ones on disk that are not registered yet (GET /api/registry/model). */
+import { useEffect, useState } from 'react'
+import { Badge, Button, Callout, Checklist, Chip, Modal, NumberField, SectionCard, Table, TextField, Toggle, CodeBlock, useQueryState } from '../kit'
 import { useSourced } from '../api/seam'
+import { ApiError, checkCandidate, registerCandidate, unregisterRow, type Candidate, type CheckReport, type RegisteredArtifact } from '../api'
 import { getModelsRegistration } from '../api/settings'
+import { useToast } from '../shell/Toast'
 import { LoadFailed, Loading, LockedChip, Row, SettingsShell } from './chrome'
 import { useSettingsPage } from './store'
 
@@ -13,14 +17,16 @@ export function ModelsRegistrationPage() {
     <SettingsShell slug="models-registration" demo={rd.source === 'demo'}>
       {rd.loading && <Loading />}
       {rd.error && <LoadFailed what="the registration gate" error={rd.error} onRetry={rd.reload} />}
-      {rd.data && <Body data={rd.data} />}
+      {rd.data && <Body data={rd.data} reload={rd.reload} />}
     </SettingsShell>
   )
 }
 
 type Data = Awaited<ReturnType<typeof getModelsRegistration>>['data']
 
-function Body({ data }: { data: Data }) {
+const fmtBytes = (b: number | null) => b == null ? '—' : b >= 1e9 ? `${(b / 1e9).toFixed(2)} GB` : `${(b / 1e6).toFixed(1)} MB`
+
+function Body({ data, reload }: { data: Data; reload: () => void }) {
   const s = useSettingsPage('models-registration')
   const test = s.num('test_pct'), val = s.num('validation_pct')
   const splitBad = test + val > 60
@@ -34,6 +40,8 @@ function Body({ data }: { data: Data }) {
 
   return (
     <>
+      <RegisteredModels registered={data.registered} candidates={data.candidates} roots={data.roots} mode={data.mode} reload={reload} />
+
       <SectionCard title="Evaluation split" subtitle="set aside before training" testid="split-card">
         <Row label="test portion" id="f-test-portion" dot={s.differs('test_pct') || s.differs('validation_pct')} unsaved={s.dirty('test_pct') || s.dirty('validation_pct')}
           testid="split-row" caption={splitBad ? 'Leave at least 40 % of windows for training' : 'applies to new training jobs · registered models keep their split'}>
@@ -52,8 +60,8 @@ function Body({ data }: { data: Data }) {
             onValid={v => { s.set('gap_extra', v); s.markInvalid('gap_extra', null) }}
             onChange={(_r, reason) => s.markInvalid('gap_extra', reason ? 'The gap cannot go below one window' : null)} />
         </Row>
-        <Row label="linked recordings" testid="linked-row" caption="fs1 and fs2 of one recording stay on one side">
-          <LockedChip reason="linked recordings are never split across sides" testid="linked-locked">never split across sides</LockedChip>
+        <Row label="linked recordings" testid="linked-row" caption="an excerpt and its parent stay on one side">
+          <LockedChip reason="linked recordings (an excerpt and its parent) are never split across sides" testid="linked-locked">never split across sides</LockedChip>
         </Row>
         <Row label="warn below N test windows per class" dot={s.differs('warn_below')} unsaved={s.dirty('warn_below')} testid="warn-row"
           caption={`classes with fewer than ${s.num('warn_below')} test windows warn at launch`}>
@@ -120,5 +128,94 @@ function Body({ data }: { data: Data }) {
         </Row>
       </SectionCard>
     </>
+  )
+}
+
+/* ------------------------------------------------------------------ registered models (the registry, kind model) */
+
+function RegisteredModels({ registered, candidates, roots, mode, reload }: { registered: RegisteredArtifact[]; candidates: Candidate[]; roots: string[]; mode: string; reload: () => void }) {
+  const { push } = useToast()
+  const [show, setShow] = useQueryState('manifest', '')
+  const [busy, setBusy] = useState<string | null>(null)
+  const [report, setReport] = useState<CheckReport | null>(null)
+  const [producer, setProducer] = useState('')
+  const [checkPath, setCheckPath] = useQueryState('check', '')
+  const cand = candidates.find(c => c.path === checkPath) ?? null
+  const summary = (m: Record<string, any> | null | undefined) => {
+    if (!m) return '—'
+    if (m.class) return `${m.class}${m.n_features_in_ != null ? ` · ${m.n_features_in_} features` : ''}${m.classes ? ` · classes ${m.classes.join('/')}` : ''}`
+    return `${m.type ?? 'checkpoint'}${m.epoch != null ? ` · epoch ${m.epoch}` : ''}${m.n_params != null ? ` · ${(m.n_params / 1e6).toFixed(2)} M params` : ''}${m.n_tensors != null ? ` · ${m.n_tensors} tensors` : ''}`
+  }
+  const runCheck = async (c: Candidate) => {
+    setBusy(c.path); setReport(null); setCheckPath(c.path)
+    try { setReport(await checkCandidate('model', c.path)) } catch (e) { push({ text: e instanceof ApiError ? e.message : String(e), kind: 'error' }) } finally { setBusy(null) }
+  }
+  const doRegister = async (c: Candidate) => {
+    setBusy(c.path)
+    try {
+      const r = await registerCandidate('model', c.path, {}, producer.trim() ? { producer: producer.trim() } : {})
+      push({ text: `Registered ${r.name} · registered_artifacts id ${r.id} · ${r.note}` }); setCheckPath(''); setReport(null); reload()
+    } catch (e) { push({ text: e instanceof ApiError ? e.message : String(e), kind: 'error' }) } finally { setBusy(null) }
+  }
+  const doUnregister = async (r: RegisteredArtifact) => {
+    try { await unregisterRow('model', r.id); push({ text: `${r.name} unregistered · row kept inactive, file untouched` }); reload() }
+    catch (e) { push({ text: e instanceof ApiError ? e.message : String(e), kind: 'error' }) }
+  }
+  const shown = registered.find(r => String(r.id) === show) ?? null
+  return (
+    <SectionCard title="Registered models" subtitle={`${registered.length} registered · ${candidates.length} on disk not registered · ${roots.join(', ')}`} testid="registered-models-card"
+      footer={<span className="s-note">a registered model carries a sidecar manifest (docs/DATA_REGISTRATION.md) · {mode === 'sandbox' ? 'sandbox: rows land in the database copy' : 'project: rows land in the project database'}</span>}>
+      {registered.length ? (
+        <Table rows={registered} rowKey={r => String(r.id)} dense testid="registered-models-table"
+          columns={[
+            { key: 'name', header: 'model', width: '26%', render: r => <span className="mono" style={{ fontWeight: 600 }}>{r.name}{!r.exists && <span style={{ marginLeft: 6 }}><Badge tone="red">file missing</Badge></span>}</span> },
+            { key: 'format', header: 'format', width: '9%', render: r => <Badge tone={r.params.format === 'pytorch' ? 'purple' : 'blue'}>{r.params.format ?? '—'}</Badge> },
+            { key: 'summary', header: 'read from the file', width: '30%', render: r => <span className="small">{summary(r.params.summary)}</span> },
+            { key: 'size', header: 'size', width: '8%', render: r => <span className="mono small">{fmtBytes(r.bytes)}</span> },
+            { key: 'producer', header: 'producer', width: '12%', render: r => <span className="small muted">{r.producer ?? 'unknown'}</span> },
+            {
+              key: 'actions', header: '', width: '15%', render: r => <span style={{ display: 'flex', gap: 8 }}>
+                <Button variant="link" size="sm" testid={`manifest-${r.id}`} onClick={() => setShow(String(r.id))}>manifest</Button>
+                <Button variant="link" size="sm" testid={`unregister-model-${r.id}`} onClick={() => void doUnregister(r)}>unregister</Button>
+              </span>,
+            },
+          ]} />
+      ) : <span className="muted small" data-testid="registered-models-empty">No model is registered yet — the checkpoints below are on disk and can be registered.</span>}
+
+      {candidates.length > 0 && (
+        <div style={{ marginTop: 12 }}>
+          <div className="s-card-sub" style={{ marginBottom: 6 }}>on disk, not registered</div>
+          <Table rows={candidates} rowKey={c => c.path} dense testid="model-candidates-table" highlighted={checkPath}
+            columns={[
+              { key: 'name', header: 'file', width: '34%', render: c => <span className="mono">{c.name}</span> },
+              { key: 'format', header: 'format', width: '10%', render: c => <Badge tone={c.facts.format === 'pytorch' ? 'purple' : 'blue'}>{c.facts.format}</Badge> },
+              { key: 'size', header: 'size', width: '10%', render: c => <span className="mono small">{fmtBytes(c.facts.bytes)}</span> },
+              { key: 'path', header: 'path', width: '28%', render: c => <span className="mono small muted">{c.path}</span> },
+              {
+                key: 'actions', header: '', width: '18%', render: c => <span style={{ display: 'flex', gap: 8 }}>
+                  <Button variant="link" size="sm" testid={`check-model-${c.name}`} loading={busy === c.path} onClick={() => void runCheck(c)}>check</Button>
+                  <Button variant="link" size="sm" testid={`register-model-${c.name}`} disabled={!(cand?.path === c.path && report?.ok) || busy === c.path}
+                    disabledReason={cand?.path === c.path && report && !report.ok ? 'a check fails' : 'run the check first'} onClick={() => void doRegister(c)}>register</Button>
+                </span>,
+              },
+            ]} />
+          {cand && (
+            <div style={{ marginTop: 8 }} data-testid="model-check-panel">
+              <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 6 }}>
+                <b className="mono">{cand.name}</b>
+                <TextField value={producer} onChange={setProducer} size="sm" width={320} placeholder="producer (recipe hash, HPC job, script) — optional" testid="model-producer" />
+              </div>
+              {report ? <Checklist items={[...report.checks.map(c => ({ label: `${c.name} · ${c.detail}`, state: c.ok ? 'pass' as const : 'fail' as const })), ...report.warnings.map(w => ({ label: w, state: 'warn' as const }))]} testid="model-checks" />
+                : busy === cand.path ? <span className="muted small">loading the file…</span> : null}
+            </div>
+          )}
+        </div>
+      )}
+
+      <Modal open={!!shown} onClose={() => setShow('')} title={shown ? `${shown.name} · manifest` : ''} size="md" testid="manifest-modal"
+        footerNote={shown?.manifest_path ?? 'no sidecar on disk'}>
+        {shown && <CodeBlock code={JSON.stringify(shown.manifest ?? { note: 'no sidecar on disk', row: { id: shown.id, path: shown.path, sha1: shown.sha1, created_at: shown.created_at } }, null, 2)} filename="registration manifest" lineNumbers testid="manifest-json" save={false} />}
+      </Modal>
+    </SectionCard>
   )
 }

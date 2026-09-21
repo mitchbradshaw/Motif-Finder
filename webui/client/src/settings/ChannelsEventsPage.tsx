@@ -21,17 +21,15 @@ import {
 import { LoadFailed, Loading, SettingsShell } from './chrome'
 import { useSettingsPage } from './store'
 
-const RECS = [
-  { value: 'M2_aug_fs1', label: 'M2_aug fs1' }, { value: 'M2_aug_fs2', label: 'M2_aug fs2' }, { value: 'M3_jul', label: 'M3_jul' },
-  { value: 'L_LM_Jul26_J', label: 'L_LM_Jul26_J' }, { value: 'M4_aug', label: 'M4_aug' },
-]
 const GAIN_ERROR = 'Gain must be a positive number'
 const FLOOR_ERROR = 'Enter a floor between 0.01 and 5 mV'
 
 export function ChannelsEventsPage() {
-  const [rec, setRec] = useQueryState('rec', 'M2_aug_fs1')
+  const [rec, setRec] = useQueryState('rec', 'M2_aug_concat_fs1')
   const rd = useSourced(() => getChannels(rec), [rec])
-  const seg = <Seg label="recording" options={RECS} value={rec} onChange={setRec} testid="rec-seg" />
+  /* the picker lists every registered recording (live); before the first read it shows the one asked for */
+  const options = rd.data?.options.map(o => ({ value: o.value, label: o.label })) ?? [{ value: rec, label: rec }]
+  const seg = <Seg label="recording" options={options} value={rec} onChange={setRec} testid="rec-seg" />
   return (
     <SettingsShell slug="channels-events" demo={rd.source === 'demo'}>
       {rd.loading && <Loading />}
@@ -56,7 +54,7 @@ function Body({ rec, data, seg }: { rec: string; data: Data; seg: React.ReactNod
   const [pop, setPop] = useQueryState('pop', '')
   /* a new kind is a DRAFT like every other edit on this page (fix round 2: it used to commit on click) */
   const extraKinds = (s.value(EVENT_KINDS_KEY) as { name: string; colour: string }[] | undefined) ?? []
-  const locked = rec === 'M4_aug'
+  const locked = data.options.find(o => o.value === rec)?.held_out ?? false
   const lockReason = locked ? 'held out · locked' : undefined
   const all = rows === 'all'
   const channels = all ? data.channels : data.channels.slice(0, 8)
@@ -136,7 +134,7 @@ function Body({ rec, data, seg }: { rec: string; data: Data; seg: React.ReactNod
 
   return (
     <>
-      {locked && <Callout tone="amber" icon="lock" testid="rec-locked">M4_aug is held out · locked — channels and events are read-only (D6).</Callout>}
+      {locked && <Callout tone="amber" icon="lock" testid="rec-locked">{data.label} is held out · locked — channels and events are read-only (D6).</Callout>}
 
       <SectionCard title="Channels" subtitle={`${data.label} · ${data.channels.length} channels`} testid="channels-card" actions={seg}
         footer={

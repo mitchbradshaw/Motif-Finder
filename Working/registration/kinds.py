@@ -496,11 +496,40 @@ def _list_recordings(conn, sidecar_root=None, **kw):
 
 # ====================================================================== raw ==
 
+def _mat5_variables(path: str):
+    """`scipy.io.whosmat` without its one weakness: a MATLAB opaque object (a
+    `duration`, a table) has no dims and makes it raise TypeError for the whole
+    file (F2B.mat, L_LM_Jul_26_J_raw.mat, M101_t.mat). Same header walk, one
+    try/except per variable; an opaque variable is listed with shape None."""
+    from scipy.io.matlab._mio5 import MatFile5Reader
+    from scipy.io.matlab._mio5_params import mclass_info
+    out = []
+    with open(path, "rb") as fh:
+        rd = MatFile5Reader(fh)
+        rd.mat_stream.seek(0)
+        rd.initialize_read()
+        rd.read_file_header()
+        while not rd.end_of_stream():
+            hdr, nxt = rd.read_var_header()
+            name = "None" if hdr.name is None else hdr.name.decode("latin1")
+            try:
+                shape = list(rd._matrix_reader.shape_from_header(hdr))
+            except Exception:
+                shape = None
+            info = "logical" if getattr(hdr, "is_logical", False) else mclass_info.get(hdr.mclass, "opaque")
+            out.append((name, shape, info))
+            rd.mat_stream.seek(nxt)
+    return out
+
+
 def _mat_variables(path: str):
-    """[(name, shape, dtype)] without loading the data (v5 via whosmat, v7.3 via h5py)."""
+    """[(name, shape, dtype)] without loading the data (v5 via the header walk, v7.3 via h5py)."""
     import scipy.io
     try:
-        return [(n, list(s), str(t)) for n, s, t in scipy.io.whosmat(path)], "v5"
+        try:
+            return [(n, list(s), str(t)) for n, s, t in scipy.io.whosmat(path)], "v5"
+        except TypeError:
+            return _mat5_variables(path), "v5"
     except NotImplementedError:
         import h5py
         out = []
@@ -515,7 +544,10 @@ def _mat_variables(path: str):
 
 def _layout_guess(variables):
     """Which variable holds the data and how it is laid out."""
-    data = [v for v in variables if not v[0].lower().startswith(("t", "time", "__")) and v[2] not in ("char", "object") and v[1]]
+    data = [v for v in variables if v[0] not in ("", "None", "__function_workspace__") and not v[0].lower().startswith(("t", "time", "__"))
+            and v[2] not in ("char", "object", "opaque", "cell", "struct") and v[1]]
+    floats = [v for v in data if v[2] in ("double", "single", "float64", "float32")]
+    data = floats or data
     if not data:
         return None
     name, shape, dtype = max(data, key=lambda v: int(np.prod(v[1])) if v[1] else 0)

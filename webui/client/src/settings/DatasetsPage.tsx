@@ -1,14 +1,18 @@
-/* Settings › Datasets (frames settings-01, settings-01b · spec §9.1, D6, B20).
- * The recording registry, per-recording metadata, the held-out lock (typed name, logged) and the
- * import dry run. Nothing here is wired: every read is fixture canon, every write stays in memory. */
-import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+/* Settings › Datasets (frames settings-01, settings-01b · spec §9.1, D6, B20) — LIVE (Prompt 02).
+ * The recording registry (GET /api/registry/recording through GET /api/settings/datasets), per-recording
+ * metadata (the settings table), the held-out lock (typed name, enforced server-side, logged) and the
+ * registration flow: scan → check → register with progress, for channel directories already on disk and for
+ * raw .mat/.csv files that still need deriving (docs/DATA_REGISTRATION.md). */
+import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import {
-  Badge, Button, Callout, Checkbox, Checklist, Chip, DisabledReason, IconButton, Modal, ProgressBar, SectionCard, SelectField,
-  Table, TextField, Toggle, recordDemoWrite, useDemoState, useNotWired, useQueryState,
+  Badge, Button, Callout, Checklist, Chip, DisabledReason, IconButton, Modal, ProgressBar, SectionCard, SelectField,
+  Table, TextField, Toggle, useQueryState,
 } from '../kit'
 import { useSourced } from '../api/seam'
 import { navigate } from '../state'
-import { getDatasets, IMPORT_PATHS, metaKey, type ImportDryRun, type MetaField, type RecordingRow } from '../api/settings'
+import { ApiError, checkCandidate, registerCandidate, unregisterRow, type Candidate, type CheckReport } from '../api'
+import { getDatasets, metaKey, type MetaField } from '../api/settings'
+import { useToast } from '../shell/Toast'
 import { GridField, LoadFailed, Loading, LockedField, Row, SettingsShell } from './chrome'
 import { useSettingsPage } from './store'
 
@@ -18,32 +22,32 @@ export function DatasetsPage() {
     <SettingsShell slug="datasets" demo={rd.source === 'demo'}>
       {rd.loading && <Loading />}
       {rd.error && <LoadFailed what="the recording registry" error={rd.error} onRetry={rd.reload} />}
-      {rd.data && <Body data={rd.data} />}
+      {rd.data && <Body data={rd.data} reload={rd.reload} />}
     </SettingsShell>
   )
 }
 
-type Data = NonNullable<ReturnType<typeof useSourced<Awaited<ReturnType<typeof getDatasets>>['data']>>['data']>
+type Data = Awaited<ReturnType<typeof getDatasets>>['data']
+type Rec = Data['recordings'][number]
 
-function Body({ data }: { data: Data }) {
+function Body({ data, reload }: { data: Data; reload: () => void }) {
   const s = useSettingsPage('datasets')
-  const notWired = useNotWired()
-  const [rec, setRec] = useQueryState('rec', 'M2_aug_fs1')
+  const { push } = useToast()
+  const rows = data.recordings
+  const [rec, setRec] = useQueryState('rec', rows[0]?.id ?? '')
   const [modal, setModal] = useQueryState('modal', '')
-  const [imported, setImported] = useDemoState<RecordingRow[]>('settings.datasets.imported', () => [])
-
-  const rows = useMemo(() => [...data.recordings, ...imported], [data.recordings, imported])
   const current = rows.find(r => r.id === rec) ?? rows[0]
   const lockOn = s.bool('heldout.on')
   const lockRec = s.str('heldout.recording')
-  const locked = current.id === lockRec && lockOn
-  const caption = `${rows.length} recordings · ${data.recordings.reduce((n, r) => n + r.n_channels, 0)} channels`
+  const locked = Boolean(current) && current.id === lockRec && lockOn
+  const nCandidates = data.candidates.length + data.rawCandidates.length
 
-  const field = (f: MetaField) => metaKey(current.id, f)
+  const field = (f: MetaField) => metaKey(current?.id ?? '', f)
   const meta = (f: MetaField) => s.str(field(f))
   const setMeta = (f: MetaField, v: string) => s.set(field(f), v)
 
   const nameError = (() => {
+    if (!current) return null
     const v = meta('display_name').trim()
     if (!v) return 'A recording needs a display name'
     if (v.length > 40) return 'At most 40 characters'
@@ -52,15 +56,17 @@ function Body({ data }: { data: Data }) {
   })()
   const startError = meta('start') && !/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}$/.test(meta('start')) ? 'Use YYYY-MM-DD HH:MM' : null
   const floorError = (() => {
+    if (meta('noise_floor') === '') return null            /* not set: detectors estimate it (Analysis defaults) */
     const n = Number(meta('noise_floor'))
-    return meta('noise_floor') === '' || Number.isNaN(n) || n < 0.01 || n > 5 ? 'Enter a floor between 0.01 and 5 mV' : null
+    return Number.isNaN(n) || n < 0.01 || n > 5 ? 'Enter a floor between 0.01 and 5 mV' : null
   })()
   useEffect(() => {
+    if (!current) return
     s.markInvalid(field('display_name'), locked ? null : nameError)
     s.markInvalid(field('start'), locked ? null : startError)
     s.markInvalid(field('noise_floor'), locked ? null : floorError)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [nameError, startError, floorError, current.id, locked])
+  }, [nameError, startError, floorError, current?.id, locked])
 
   const ro = (f: MetaField) => ({
     disabled: locked,
@@ -69,98 +75,133 @@ function Body({ data }: { data: Data }) {
   })
   const mark = (f: MetaField) => ({ dot: s.differs(field(f)), unsaved: s.dirty(field(f)) })
 
+  const unregister = async (r: Rec) => {
+    try {
+      await unregisterRow('recording', r.ids[0])
+      push({ text: `${r.name} unregistered · ${r.n_channels} rows kept inactive, files untouched` })
+      reload()
+    } catch (e) { push({ text: `Could not unregister · ${e instanceof Error ? e.message : String(e)}`, kind: 'error' }) }
+  }
+
   return (
     <>
-      <SectionCard title="Recordings" subtitle={caption} testid="recordings-card"
-        actions={<Button icon="file" testid="open-import" onClick={() => setModal('import')}>Import a recording…</Button>}>
-        <Table rows={rows} rowKey={r => r.id} onRowClick={r => setRec(r.id)} highlighted={current.id} testid="recordings-table"
-          columns={[
-            { key: 'name', header: 'name', width: '14%', render: r => <span className="mono" style={{ fontWeight: 600 }}>{r.name}{'isNew' in r && (r as RecordingRow & { isNew?: boolean }).isNew ? <Badge status="new" size="sm" /> : null}</span> },
-            { key: 'file', header: 'file', width: '17%', render: r => <span className="mono small">{r.file}</span> },
-            { key: 'fs', header: 'sampling rate', width: '12%', render: r => <>{r.fs_hz} Hz <Badge tone={r.fs_source === 'read' ? 'green' : 'amber'}>{r.fs_source}</Badge></> },
-            { key: 'ch', header: 'ch', width: '5%', render: r => r.n_channels },
-            { key: 'dur', header: 'duration', width: '8%', render: r => `${r.duration_h} h` },
-            { key: 'start', header: 'start', width: '13%', render: r => <span className="mono small">{r.start ?? '—'}</span> },
-            { key: 'species', header: 'species', width: '10%', render: r => r.species ?? <span className="muted">not set</span> },
-            {
-              key: 'linked', header: 'linked', width: '8%', render: r => r.linked.length
-                ? <Button variant="link" size="sm" icon="link" testid={`linked-${r.id}`} onClick={e => { e.stopPropagation(); setRec(r.linked[0]) }}>{rows.find(x => x.id === r.linked[0])?.name.split(' ').pop()}</Button>
-                : <span className="muted">—</span>,
-            },
-            {
-              key: 'status', header: 'status', width: '12%', render: r => {
-                const st = r.id === lockRec ? (lockOn ? 'held out · locked' : 'available') : r.status
-                return <Badge tone={st === 'in use' ? 'green' : st === 'provisional' ? 'amber' : 'grey'}>{st}</Badge>
+      <SectionCard title="Recordings" subtitle={data.caption} testid="recordings-card"
+        actions={<Button icon="file" testid="open-import" onClick={() => setModal('import')}>
+          Import a recording…{nCandidates ? <span style={{ marginLeft: 6 }}><Badge tone="amber" testid="candidate-count">{nCandidates} on disk</Badge></span> : null}
+        </Button>}>
+        {rows.length ? (
+          <Table rows={rows} rowKey={r => r.id} onRowClick={r => setRec(r.id)} highlighted={current?.id} testid="recordings-table"
+            columns={[
+              { key: 'name', header: 'name', width: '16%', render: r => <span className="mono" style={{ fontWeight: 600 }}>{r.name}</span> },
+              { key: 'file', header: 'file', width: '16%', render: r => <span className="mono small">{r.file}</span> },
+              { key: 'fs', header: 'sampling rate', width: '12%', render: r => <>{r.fs_hz} Hz <Badge tone={r.fs_source === 'read' ? 'green' : 'amber'}>{r.fs_source}</Badge></> },
+              { key: 'ch', header: 'ch', width: '4%', render: r => r.n_channels },
+              { key: 'dur', header: 'duration', width: '8%', render: r => `${r.duration_h} h` },
+              { key: 'species', header: 'species', width: '9%', render: r => r.species ?? <span className="muted">not set</span> },
+              {
+                key: 'linked', header: 'excerpt of', width: '12%', render: r => r.excerpt_of
+                  ? <Button variant="link" size="sm" icon="link" testid={`linked-${r.id}`} onClick={e => { e.stopPropagation(); setRec(r.excerpt_of!.name) }}>
+                    {r.excerpt_of.name} CH{r.excerpt_of.channel}{r.excerpt_of.decimation ? ` · ${r.excerpt_of.decimation}:1` : ''}</Button>
+                  : <span className="muted">—</span>,
               },
-            },
-          ]} />
+              {
+                key: 'status', header: 'status', width: '12%', render: r => {
+                  const st = r.id === lockRec ? (lockOn ? 'held out · locked' : 'available') : r.status
+                  return <span style={{ display: 'inline-flex', gap: 4, alignItems: 'center' }}>
+                    <Badge tone={st === 'in use' ? 'green' : st === 'provisional' ? 'amber' : 'grey'}>{st}</Badge>
+                    {r.warnings.length > 0 && <Badge tone="amber" testid={`warnings-${r.id}`} title={r.warnings.join('\n')}>{r.warnings.length} ⚠</Badge>}
+                    {!r.npy_exists && <Badge tone="red" testid={`missing-${r.id}`}>files missing</Badge>}
+                  </span>
+                },
+              },
+              {
+                key: 'actions', header: '', width: '11%', render: r => r.id === lockRec
+                  ? <span className="muted small">locked</span>
+                  : <Button variant="link" size="sm" testid={`unregister-${r.id}`} onClick={e => { e.stopPropagation(); void unregister(r) }}>unregister</Button>,
+              },
+            ]} />
+        ) : <Callout tone="amber" testid="no-recordings">No recording is registered. Import a recording… lists what is on disk.</Callout>}
       </SectionCard>
 
-      <SectionCard title={<span className="mono">{current.name}</span>} subtitle="metadata · travels with every export" testid="metadata-card">
-        {locked && (
-          <Callout tone="amber" icon="lock" testid="metadata-locked">
-            {current.name} is held out · locked — metadata is read-only while the lock is on (D6).
-          </Callout>
-        )}
-        <div className="s-grid" style={{ marginTop: locked ? 10 : 0 }}>
-          <GridField label="display name" {...mark('display_name')} testid="f-display-name">
-            <TextField {...ro('display_name')} block invalid={!!nameError && !locked} testid="display-name" />
-          </GridField>
-          <GridField label="species" {...mark('species')}>
-            <TextField {...ro('species')} block placeholder="not set" testid="species" />
-          </GridField>
-          <GridField label="substrate" {...mark('substrate')}><TextField {...ro('substrate')} block placeholder="not set" /></GridField>
-          <GridField label="electrode config" {...mark('electrode_config')}><TextField {...ro('electrode_config')} block placeholder="not set" /></GridField>
+      {current && (
+        <SectionCard title={<span className="mono">{current.name}</span>} subtitle="metadata · travels with every export" testid="metadata-card">
+          {locked && (
+            <Callout tone="amber" icon="lock" testid="metadata-locked">
+              {current.name} is held out · locked — metadata is read-only while the lock is on (D6).
+            </Callout>
+          )}
+          {current.warnings.length > 0 && (
+            <Callout tone="amber" icon="alert-triangle" testid="recording-warnings">
+              <b>Registered with {current.warnings.length} warning{current.warnings.length === 1 ? '' : 's'}</b>
+              <ul style={{ margin: '4px 0 0 16px', padding: 0 }}>{current.warnings.map((w, i) => <li key={i} className="small">{w}</li>)}</ul>
+            </Callout>
+          )}
+          {current.excerpt_of && (
+            <Callout tone="blue" icon="link" testid="excerpt-note">
+              excerpt of <b>{current.excerpt_of.name}</b> CH{current.excerpt_of.channel}
+              {current.excerpt_of.offset != null ? ` at sample ${current.excerpt_of.offset.toLocaleString('en-US')}` : ''}
+              {current.excerpt_of.decimation ? ` · ${current.excerpt_of.decimation}:1 block mean` : ''} · a subset of a registered recording, kept as its own row (id {current.ids[0]}) because runs reference it
+            </Callout>
+          )}
+          <div className="s-grid" style={{ marginTop: locked || current.warnings.length ? 10 : 0 }}>
+            <GridField label="display name" {...mark('display_name')} testid="f-display-name">
+              <TextField {...ro('display_name')} block invalid={!!nameError && !locked} testid="display-name" />
+            </GridField>
+            <GridField label="species" {...mark('species')}>
+              <TextField {...ro('species')} block placeholder="not set" testid="species" />
+            </GridField>
+            <GridField label="substrate" {...mark('substrate')}><TextField {...ro('substrate')} block placeholder="not set" /></GridField>
+            <GridField label="electrode config" {...mark('electrode_config')}><TextField {...ro('electrode_config')} block placeholder="not set" /></GridField>
 
-          <GridField label="start time" {...mark('start')}>
-            <TextField {...ro('start')} block invalid={!!startError} testid="start-time" />
-          </GridField>
-          <GridField label="time zone" {...mark('time_zone')}>
-            <SelectField value={meta('time_zone')} onChange={v => setMeta('time_zone', v)} disabled={locked}
-              disabledReason={locked ? 'held out · locked' : undefined} options={data.timeZones.map(z => ({ value: z, label: z }))} width="100%" />
-          </GridField>
-          <GridField label="sampling rate">
-            {current.fs_source === 'read'
-              ? <LockedField reason="read from the file header — cannot be edited" width="100%" testid="fs-locked">{current.fs_hz} Hz · read from file header</LockedField>
-              : <TextField value={`${current.fs_hz}`} onChange={() => notWired('PUT /api/recordings/' + current.id + ' (fs is inferred)')} block suffix="Hz inferred" testid="fs-inferred" />}
-          </GridField>
-          <GridField label="noise floor" info="Every detector reads the noise floor from here; a channel can override it in Channels & events." {...mark('noise_floor')} testid="f-noise-floor">
-            <TextField {...ro('noise_floor')} suffix="mV" block invalid={!!floorError && !locked} testid="noise-floor" />
-            {floorError && !locked && <div className="small" style={{ color: 'var(--red)' }} data-testid="noise-floor-error">{floorError}</div>}
-          </GridField>
+            <GridField label="start time" {...mark('start')}>
+              <TextField {...ro('start')} block invalid={!!startError} placeholder="YYYY-MM-DD HH:MM" testid="start-time" />
+            </GridField>
+            <GridField label="time zone" {...mark('time_zone')}>
+              <SelectField value={meta('time_zone') || 'Europe/London'} onChange={v => setMeta('time_zone', v)} disabled={locked}
+                disabledReason={locked ? 'held out · locked' : undefined} options={data.timeZones.map(z => ({ value: z, label: z }))} width="100%" />
+            </GridField>
+            <GridField label="sampling rate">
+              {current.fs_source === 'read'
+                ? <LockedField reason="read from the file — cannot be edited" width="100%" testid="fs-locked">{current.fs_hz} Hz · read from the file</LockedField>
+                : <LockedField reason="inferred at registration (recorded on the row as fs_source = inferred); re-register to change it" width="100%" testid="fs-inferred">{current.fs_hz} Hz · inferred</LockedField>}
+            </GridField>
+            <GridField label="noise floor" info="Every detector reads the noise floor from here; a channel can override it in Channels & events. Empty means detectors estimate it." {...mark('noise_floor')} testid="f-noise-floor">
+              <TextField {...ro('noise_floor')} suffix="mV" block placeholder="estimated" invalid={!!floorError && !locked} testid="noise-floor" />
+              {floorError && !locked && <div className="small" style={{ color: 'var(--red)' }} data-testid="noise-floor-error">{floorError}</div>}
+            </GridField>
 
-          <GridField label="temperature" {...mark('temperature')}><TextField {...ro('temperature')} suffix="°C" block placeholder="21.4 ± 0.8" /></GridField>
-          <GridField label="humidity" {...mark('humidity')}><TextField {...ro('humidity')} suffix="% RH" block placeholder="88 – 94" /></GridField>
-          <GridField label="linked recordings">
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-              {current.linked.length
-                ? current.linked.map(l => <Chip key={l} tone="blue" icon="link" onClick={() => setRec(l)} testid={`link-chip-${l}`}>{rows.find(r => r.id === l)?.name}</Chip>)
-                : <span className="muted small">none</span>}
-              {current.linked.length > 0 && <span className="s-note mono" style={{ color: 'var(--amber)' }}>never split train/test</span>}
-            </div>
-          </GridField>
-          <GridField label="notes" {...mark('notes')}>
-            <TextField {...ro('notes')} block placeholder="timed events → Channels & events" testid="notes"
-              suffix={<IconButton icon="external" label="open Channels & events" testid="notes-events-link"
-                onClick={() => navigate(`settings/channels-events?rec=${current.id}`)} />} />
-          </GridField>
-        </div>
-      </SectionCard>
+            <GridField label="temperature" {...mark('temperature')}><TextField {...ro('temperature')} suffix="°C" block placeholder="not set" /></GridField>
+            <GridField label="humidity" {...mark('humidity')}><TextField {...ro('humidity')} suffix="% RH" block placeholder="not set" /></GridField>
+            <GridField label="channels">
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                <span className="mono small">{current.n_channels} · rows {current.ids[0]}–{current.ids[current.ids.length - 1]}</span>
+                <Button variant="link" size="sm" iconRight="arrow-right" testid="to-channels" onClick={() => navigate(`settings/channels-events?rec=${current.id}`)}>Channels &amp; events</Button>
+              </div>
+            </GridField>
+            <GridField label="notes" {...mark('notes')}>
+              <TextField {...ro('notes')} block placeholder="timed events → Channels & events" testid="notes"
+                suffix={<IconButton icon="external" label="open Channels & events" testid="notes-events-link"
+                  onClick={() => navigate(`settings/channels-events?rec=${current.id}`)} />} />
+            </GridField>
+          </div>
+        </SectionCard>
+      )}
 
       <HeldOut store={s} rows={rows} />
 
-      <ImportModal open={modal === 'import'} onClose={() => setModal('')} dry={data.dryRun}
-        onImported={row => { setImported(x => [...x, row]); setRec(row.id); recordDemoWrite('settings', 'import-recording', { id: row.id }) }} />
+      <ImportModal open={modal === 'import'} onClose={() => setModal('')} candidates={data.candidates} rawCandidates={data.rawCandidates} mode={data.mode}
+        onRegistered={name => { reload(); setRec(name) }} />
       <UnlockModal open={modal === 'unlock'} onClose={() => setModal('')} name={rows.find(r => r.id === lockRec)?.name ?? lockRec}
-        onConfirm={() => { s.applyNow('heldout.on', false); setModal('') }} />
+        onConfirm={async typed => { await s.applyNow('heldout.on', false, typed); setModal('') }} />
     </>
   )
 }
 
 /* ------------------------------------------------------------------ held-out lock */
 
-function HeldOut({ store: s, rows }: { store: ReturnType<typeof useSettingsPage>; rows: RecordingRow[] }) {
+function HeldOut({ store: s, rows }: { store: ReturnType<typeof useSettingsPage>; rows: Rec[] }) {
   const [, setModal] = useQueryState('modal', '')
+  const { push } = useToast()
   const on = s.bool('heldout.on')
   const recId = s.str('heldout.recording')
   const name = rows.find(r => r.id === recId)?.name ?? recId
@@ -169,13 +210,13 @@ function HeldOut({ store: s, rows }: { store: ReturnType<typeof useSettingsPage>
       actions={<Chip tone={on ? 'blue' : 'grey'} testid="held-out-chip-state">{on ? `on · ${name} held out` : 'off · no recording held out'}</Chip>}>
       <Row id="f-hold-out-a-recording" testid="hold-out-row"
         label="hold out a recording" sub="kept from every workspace"
-        info="A held-out recording is kept from every workspace so evaluation on it stays honest (D6)."
+        info="A held-out recording is kept from every workspace so evaluation on it stays honest (D6). The bridge refuses M4_aug_concat_fs1.mat on every route whatever this says."
         dot={s.differs('heldout.on')} unsaved={s.dirty('heldout.on')}
         caption="when on, every workspace refuses it · turning off needs the name typed · logged">
         <Toggle checked={on} testid="held-out-toggle" ariaLabel="hold out a recording"
-          onChange={next => { if (!next) setModal('unlock'); else s.set('heldout.on', true) }} />
+          onChange={next => { if (!next) setModal('unlock'); else s.applyNow('heldout.on', true).then(() => push({ text: `Held-out lock on · ${name} held out · logged` })).catch(e => push({ text: String(e instanceof Error ? e.message : e), kind: 'error' })) }} />
         <DisabledReason reason="turn the lock off to choose another recording" disabled={on}>
-          <SelectField value={recId} onChange={v => s.set('heldout.recording', v)} disabled={on} width={160} testid="held-out-select"
+          <SelectField value={recId} onChange={v => s.set('heldout.recording', v)} disabled={on} width={200} testid="held-out-select"
             options={rows.map(r => ({ value: r.id, label: r.name }))} />
         </DisabledReason>
       </Row>
@@ -183,17 +224,19 @@ function HeldOut({ store: s, rows }: { store: ReturnType<typeof useSettingsPage>
   )
 }
 
-function UnlockModal({ open, onClose, name, onConfirm }: { open: boolean; onClose: () => void; name: string; onConfirm: () => void }) {
+function UnlockModal({ open, onClose, name, onConfirm }: { open: boolean; onClose: () => void; name: string; onConfirm: (typed: string) => Promise<void> }) {
   const [typed, setTyped] = useState('')
-  useEffect(() => { if (open) setTyped('') }, [open])
+  const [error, setError] = useState<string | null>(null)
+  const [busy, setBusy] = useState(false)
+  useEffect(() => { if (open) { setTyped(''); setError(null) } }, [open])
   const ok = typed.trim() === name
   return (
     <Modal open={open} onClose={onClose} title="Turn off the held-out lock?" size="md" testid="unlock-modal"
-      footerNote="written to the audit log"
+      footerNote="written to the audit log · the name is checked again by the server"
       footer={<>
         <Button onClick={onClose}>Cancel</Button>
-        <Button variant="danger" testid="confirm-unlock" disabled={!ok} disabledReason="type the recording name exactly"
-          onClick={() => { recordDemoWrite('settings', 'audit', { kind: 'lock', what: `Held-out lock turned off · ${name} selectable`, where: 'Datasets', route: 'settings/datasets' }); onConfirm() }}>Turn off lock</Button>
+        <Button variant="danger" testid="confirm-unlock" disabled={!ok || busy} loading={busy} disabledReason="type the recording name exactly"
+          onClick={() => { setBusy(true); setError(null); onConfirm(typed.trim()).catch(e => setError(e instanceof ApiError ? e.message : String(e))).finally(() => setBusy(false)) }}>Turn off lock</Button>
       </>}>
       <p className="small" style={{ marginTop: 0, lineHeight: 1.55 }}>
         {name} becomes selectable in every workspace — Explore, Analyse, Discovery, Models, Review, Library.
@@ -201,163 +244,157 @@ function UnlockModal({ open, onClose, name, onConfirm }: { open: boolean; onClos
       </p>
       <label className="s-label mono" htmlFor="unlock-type">Type {name} to confirm</label>
       <TextField id="unlock-type" value={typed} onChange={setTyped} block placeholder={name} testid="unlock-input" />
+      {error && <div className="small" style={{ color: 'var(--red)', marginTop: 6 }} data-testid="unlock-error">{error}</div>}
     </Modal>
   )
 }
 
-/* ------------------------------------------------------------------ import dry run */
+/* ------------------------------------------------------------------ registration flow */
 
-type Phase = 'idle' | 'reading' | 'checked' | 'importing' | 'done'
+type Phase = 'pick' | 'checking' | 'checked' | 'registering' | 'done'
 
-function ImportModal({ open, onClose, dry, onImported }: { open: boolean; onClose: () => void; dry: ImportDryRun; onImported: (r: RecordingRow) => void }) {
-  const notWired = useNotWired()
+function ImportModal({ open, onClose, candidates, rawCandidates, mode, onRegistered }: {
+  open: boolean; onClose: () => void; candidates: Candidate[]; rawCandidates: Candidate[]; mode: string; onRegistered: (name: string) => void
+}) {
+  const { push } = useToast()
+  const all = useMemo(() => [...candidates.map(c => ({ ...c, kind: 'recording' })), ...rawCandidates.map(c => ({ ...c, kind: 'raw' }))], [candidates, rawCandidates])
   const [pathQ] = useQueryState('path', '')
-  const [path, setPath] = useState(dry.path)
-  const [phase, setPhase] = useState<Phase>('checked')
-  const [fs, setFs] = useState(String(dry.fs_hz ?? ''))
-  const [fsInferred, setFsInferred] = useState(false)
-  const [start, setStart] = useState(dry.start)
-  const [tz, setTz] = useState(dry.time_zone)
-  const [linkTo, setLinkTo] = useState(dry.link_to)
-  const [expanded, setExpanded] = useState(false)
-  const [map, setMap] = useState(dry.channel_map)
-  const [progress, setProgress] = useState(0)
-  /* the import timer belongs to the open modal: closing it (or leaving for another deep link) stops the
-     run, so a finishing import can no longer navigate to the new recording from under a later state */
-  const timer = useRef<number | null>(null)
-  const stopTimer = () => { if (timer.current != null) { window.clearInterval(timer.current); timer.current = null } }
-  useEffect(() => stopTimer, [])
+  const [path, setPath] = useState('')
+  const [phase, setPhase] = useState<Phase>('pick')
+  const [report, setReport] = useState<CheckReport | null>(null)
+  const [fs, setFs] = useState('')
+  const [nChannels, setNChannels] = useState('')
+  const [variable, setVariable] = useState('')
+  const [allowExcerpt, setAllowExcerpt] = useState(false)
+  const [producer, setProducer] = useState('')
+  const [error, setError] = useState<string | null>(null)
+  const [elapsed, setElapsed] = useState(0)
 
   useEffect(() => {
-    if (!open) { stopTimer(); return }
-    const p = pathQ ? `D:/recordings/${pathQ}` : dry.path
-    setPath(p); setPhase('checked'); setFs(String(dry.fs_hz ?? '')); setFsInferred(false)
-    setStart(dry.start); setTz(dry.time_zone); setLinkTo(dry.link_to); setMap(dry.channel_map); setExpanded(false); setProgress(0)
-  }, [open, pathQ, dry])
+    if (!open) return
+    const first = all.find(c => c.name === pathQ || c.path === pathQ) ?? null
+    setPath(first?.path ?? ''); setPhase('pick'); setReport(null); setFs(''); setNChannels(''); setVariable(''); setAllowExcerpt(false); setProducer(''); setError(null)
+  }, [open, pathQ, all])
 
-  const read = (p: string) => {
-    setPhase('reading')
-    window.setTimeout(() => setPhase('checked'), 400)
-    setPath(p)
+  useEffect(() => {
+    if (phase !== 'checking' && phase !== 'registering') return
+    const t0 = Date.now(); setElapsed(0)
+    const t = window.setInterval(() => setElapsed((Date.now() - t0) / 1000), 250)
+    return () => window.clearInterval(t)
+  }, [phase])
+
+  const cand = all.find(c => c.path === path) ?? null
+  const overrides = () => {
+    const o: Record<string, unknown> = {}
+    if (fs.trim()) o.fs = Number(fs)
+    if (nChannels.trim()) o.n_channels = Number(nChannels)
+    if (variable.trim()) o.variable = variable.trim()
+    if (allowExcerpt) o.allow_excerpt = true
+    return o
+  }
+  const runCheck = async () => {
+    if (!cand) return
+    setPhase('checking'); setError(null)
+    try { setReport(await checkCandidate(cand.kind, cand.path, overrides())); setPhase('checked') }
+    catch (e) { setError(e instanceof ApiError ? e.message : String(e)); setPhase('pick') }
+  }
+  const doRegister = async () => {
+    if (!cand || !report?.ok) return
+    setPhase('registering'); setError(null)
+    try {
+      const r = await registerCandidate(cand.kind, cand.path, overrides(), producer.trim() ? { producer: producer.trim() } : {})
+      setPhase('done')
+      push({ text: `Registered ${r.name} · ${r.table} id ${r.id}${r.warnings.length ? ` · ${r.warnings.length} warning${r.warnings.length === 1 ? '' : 's'}` : ''} · ${r.note}` })
+      onRegistered(cand.kind === 'raw' ? (r.facts?.derived_dir?.split('/').pop() ?? r.name) : r.name)
+      onClose()
+    } catch (e) {
+      const detail = (e as ApiError)?.detail as { checks?: { name: string; ok: boolean; detail: string }[]; message?: string } | undefined
+      if (detail?.checks) setReport({ ...(report as CheckReport), ok: false, checks: detail.checks })
+      setError(e instanceof ApiError ? e.message : String(e)); setPhase('checked')
+    }
   }
 
-  const known = IMPORT_PATHS[path]
-  const ext = path.slice(path.lastIndexOf('.')).toLowerCase()
-  const included = map.filter(m => m.include)
-  const fsNum = Number(fs)
-  const durationH = fsNum > 0 ? dry.samples_per_channel / fsNum / 3600 : 0
-  const dupName = (() => {
-    const seen = new Set<string>()
-    for (const m of included) { if (seen.has(m.channel)) return m.channel; seen.add(m.channel) }
-    return null
-  })()
-
-  const checks: { label: string; state: 'pass' | 'warn' | 'fail' }[] = [
-    !['.mat', '.csv', '.npy', '.h5'].includes(ext)
-      ? { label: `Unsupported format ${ext || '—'} · use .mat .csv .npy or .h5`, state: 'fail' as const }
-      : !known
-        ? { label: `File not found (demo: try ${dry.path})`, state: 'fail' as const }
-        : known.ok
-          ? { label: `samples = duration × fs for every channel (${dry.samples_per_channel.toLocaleString('en-US')} = ${durationH.toFixed(0)} h × ${fs} Hz)`, state: 'pass' as const }
-          : { label: known.note!, state: 'fail' as const },
-    dupName
-      ? { label: `Duplicate channel name ${dupName}`, state: 'fail' as const }
-      : { label: 'channel names unique and not already used by this recording', state: 'pass' as const },
-    included.length ? { label: 'not the held-out recording · M4_aug is locked in this page', state: 'pass' as const } : { label: 'no channel included', state: 'fail' as const },
-    { label: 'species not set · allowed, marks the recording provisional', state: 'warn' as const },
-  ]
-  const fails = checks.filter(c => c.state === 'fail').length
-
-  const doImport = () => {
-    setPhase('importing'); setProgress(0)
-    let i = 0
-    stopTimer()
-    timer.current = window.setInterval(() => {
-      i += 1; setProgress(i / included.length)
-      if (i >= included.length) {
-        stopTimer()
-        setPhase('done')
-        onImported({
-          id: 'M5_sep', name: 'M5_sep', file: path.split('/').pop() ?? path, fs_hz: fsNum, fs_source: fsInferred ? 'inferred' : 'read',
-          n_channels: included.length, duration_h: Math.round(durationH), start, species: null, linked: linkTo === 'none' ? [] : [linkTo], status: 'provisional',
-        })
-        notWired('POST /api/recordings/import')
-        onClose()
-      }
-    }, 110)
-  }
-  const bytes = included.length * dry.samples_per_channel * 8
-  const sizeLabel = bytes > 1e9 ? `${(bytes / 1e9).toFixed(1)} GB` : `${Math.round(bytes / 1e6)} MB`
+  const fsUnknown = cand ? cand.facts.fs == null : false
+  const layoutFlat = cand?.kind === 'raw' && cand.facts.layout?.layout === 'flat'
+  const items = (report?.checks ?? []).map(c => ({ label: `${c.name} · ${c.detail}`, state: c.ok ? 'pass' as const : 'fail' as const }))
+  const warnItems = (report?.warnings ?? []).map(w => ({ label: w, state: 'warn' as const }))
+  const fails = report ? report.checks.filter(c => !c.ok).length : 0
 
   return (
     <Modal open={open} onClose={onClose} title="Import a recording" size="lg" testid="import-modal"
-      headerExtra={<Badge tone="amber" testid="dry-run-badge">dry run · nothing written yet</Badge>}
-      footerNote={`will create 1 recording · ${included.length} channels · ${included.length} .npy files · ${sizeLabel} on disk · no runs affected`}
+      headerExtra={<Badge tone={phase === 'done' ? 'green' : 'amber'} testid="dry-run-badge">{report && phase === 'checked' ? `checked · ${fails ? `${fails} check${fails === 1 ? '' : 's'} fail` : 'ready to register'}` : 'dry run · nothing written yet'}</Badge>}
+      footerNote={cand ? `will register ${cand.kind === 'raw' ? 'the derived channels of' : ''} ${cand.name} as one recordings row per channel${mode === 'sandbox' ? ' · sandbox: into the database copy' : ' · project: into the real database'} · a sidecar manifest is written · no runs affected` : `${all.length} unregistered on disk · pick one`}
       footer={<>
         <Button onClick={onClose}>Cancel</Button>
-        <Button variant="primary" testid="do-import" disabled={fails > 0 || phase === 'importing'} loading={phase === 'importing'}
-          disabledReason={fails ? `${fails} check${fails === 1 ? '' : 's'} fail` : undefined} onClick={doImport}>Import</Button>
+        <Button testid="run-check" disabled={!cand || phase === 'checking' || phase === 'registering'} loading={phase === 'checking'} onClick={runCheck}>Check</Button>
+        <Button variant="primary" testid="do-import" disabled={!report?.ok || phase !== 'checked'} loading={phase === 'registering'}
+          disabledReason={!report ? 'run the checks first' : fails ? `${fails} check${fails === 1 ? '' : 's'} fail` : undefined} onClick={doRegister}>Register</Button>
       </>}>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-        <SubCard n={1} title="File" caption="read, not copied · stays where it is">
-          <div className="s-grid c2">
-            <GridField label="path"><TextField value={path} onChange={setPath} onEnter={() => read(path)} block testid="import-path" /></GridField>
-            <GridField label="format"><LockedField reason="read from the file header">{phase === 'reading' ? 'reading header…' : dry.format}</LockedField></GridField>
-          </div>
+        <SubCard n={1} title="On disk, not registered" caption={`${candidates.length} channel director${candidates.length === 1 ? 'y' : 'ies'} · ${rawCandidates.length} raw file${rawCandidates.length === 1 ? '' : 's'} (scanned from DATA/derived/channels and DATA/raw)`}>
+          {all.length ? (
+            <Table rows={all} rowKey={c => c.path} dense testid="import-candidates" onRowClick={c => { setPath(c.path); setReport(null); setPhase('pick') }} highlighted={path}
+              columns={[
+                { key: 'kind', header: 'kind', width: '11%', render: c => <Badge tone={c.kind === 'raw' ? 'purple' : 'blue'}>{c.kind === 'raw' ? 'raw file' : 'channels'}</Badge> },
+                { key: 'name', header: 'name', width: '24%', render: c => <span className="mono" style={{ fontWeight: 600 }}>{c.name}</span> },
+                { key: 'facts', header: 'read from the header', width: '40%', render: c => <span className="mono small">{describe(c)}</span> },
+                { key: 'warn', header: '', width: '25%', render: c => c.warnings.length ? <span className="small" style={{ color: 'var(--amber)' }} title={c.warnings.join('\n')}>{c.warnings[0].slice(0, 70)}{c.warnings[0].length > 70 ? '…' : ''}</span> : <span className="muted small">no warnings</span> },
+              ]} />
+          ) : <span className="muted small" data-testid="import-empty">Everything on disk is registered.</span>}
         </SubCard>
 
-        <SubCard n={2} title="Sampling rate" caption="read from the file header when present; entered rates are marked inferred">
+        <SubCard n={2} title="What the check needs from you" caption="only what the file cannot say; anything typed here is recorded as inferred">
           <div className="s-grid c3">
-            <GridField label="fs">
-              <TextField value={fs} onChange={v => { setFs(v); setFsInferred(true) }} suffix={fsInferred ? 'Hz inferred' : 'Hz read'} block testid="import-fs" />
+            <GridField label="fs (Hz)">
+              <TextField value={fs} onChange={setFs} block placeholder={cand ? (cand.facts.fs != null ? `${cand.facts.fs} read` : 'unknown — required') : '—'} disabled={!cand} testid="import-fs" />
+              {fsUnknown && cand && <div className="small" style={{ color: 'var(--amber)' }}>the file carries no sampling rate</div>}
             </GridField>
-            <GridField label="samples per channel"><LockedField reason="read from the file header">{dry.samples_per_channel.toLocaleString('en-US')}</LockedField></GridField>
-            <GridField label="duration"><LockedField reason="samples ÷ fs">{durationH ? `${durationH.toFixed(0)} h` : '—'}</LockedField></GridField>
-          </div>
-        </SubCard>
-
-        <SubCard n={3} title="Channel map" caption={`${dry.channel_map.length} variables → ${dry.channel_map.length} channels · names follow CHn_XY`}>
-          <Table rows={expanded ? map : map.slice(0, 3)} rowKey={m => m.variable} dense testid="import-channel-map"
-            columns={[
-              { key: 'variable', header: 'variable', width: '16%', render: m => <span className="mono">{m.variable}</span> },
-              {
-                key: 'channel', header: 'channel', width: '24%', render: m => (
-                  <TextField value={m.channel} size="sm" width={110} invalid={m.include && map.filter(x => x.include && x.channel === m.channel).length > 1}
-                    onChange={v => setMap(xs => xs.map(x => x.variable === m.variable ? { ...x, channel: v } : x))} />
-                ),
-              },
-              { key: 'electrode', header: 'electrode · position', width: '24%', render: m => <span className="muted small">{m.electrode}</span> },
-              {
-                key: 'ground', header: 'shared ground', width: '22%', render: m => (
-                  <SelectField value={m.shared_ground ?? '—'} size="sm" width={110}
-                    options={[{ value: '—', label: '—' }, ...map.filter(x => x.variable !== m.variable).map(x => ({ value: x.channel, label: x.channel }))]}
-                    onChange={v => setMap(xs => xs.map(x => x.variable === m.variable ? { ...x, shared_ground: v === '—' ? null : v } : x.channel === v ? { ...x, shared_ground: m.channel } : x))} />
-                ),
-              },
-              { key: 'include', header: 'include', width: '14%', render: m => <Checkbox checked={m.include} onChange={c => setMap(xs => xs.map(x => x.variable === m.variable ? { ...x, include: c } : x))} ariaLabel={`include ${m.channel}`} /> },
-            ]} />
-          {map.length > 3 && <Button variant="link" size="sm" icon={expanded ? 'chevron-up' : 'chevron-down'} testid="import-expand"
-            onClick={() => setExpanded(e => !e)}>{expanded ? 'show 3' : `… ${map.length - 3} more`}</Button>}
-        </SubCard>
-
-        <SubCard n={4} title="Start time and link" caption="a linked recording is the same signal at another rate">
-          <div className="s-grid c3">
-            <GridField label="start"><TextField value={start} onChange={setStart} block testid="import-start" /></GridField>
-            <GridField label="time zone"><SelectField value={tz} onChange={setTz} width="100%" options={['Europe/London', 'UTC', 'Europe/Berlin', 'America/New_York'].map(z => ({ value: z, label: z }))} /></GridField>
-            <GridField label="link to existing">
-              <SelectField value={linkTo} onChange={setLinkTo} width="100%" testid="import-link"
-                options={[{ value: 'none', label: 'none' }, { value: 'M2_aug_fs1', label: 'M2_aug fs1' }, { value: 'M2_aug_fs2', label: 'M2_aug fs2' }, { value: 'M3_jul', label: 'M3_jul' }, { value: 'M4_aug', label: 'M4_aug', disabled: true, reason: 'held out · locked' }]} />
+            <GridField label="channels (flat vectors only)">
+              <TextField value={nChannels} onChange={setNChannels} block placeholder={layoutFlat ? '16 is this project’s convention' : 'from the layout'} disabled={!layoutFlat} testid="import-n-channels" />
+            </GridField>
+            <GridField label="variable (.mat with several)">
+              <TextField value={variable} onChange={setVariable} block placeholder={cand?.facts.layout?.variable ?? '—'} disabled={cand?.kind !== 'raw'} testid="import-variable" />
+            </GridField>
+            <GridField label="producer / provenance note">
+              <TextField value={producer} onChange={setProducer} block placeholder="e.g. scripts/rederive_channels.py, lab export 2026-07-26" testid="import-producer" />
+            </GridField>
+            <GridField label="excerpt">
+              <label className="small" style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                <input type="checkbox" checked={allowExcerpt} onChange={e => setAllowExcerpt(e.target.checked)} data-testid="import-allow-excerpt" />
+                register even if it is an excerpt of a registered recording (linked to its parent)
+              </label>
             </GridField>
           </div>
         </SubCard>
 
-        <SubCard n={5} title="Checks" caption="must pass before Import">
-          <Checklist items={checks} testid="import-checks" />
-          {phase === 'importing' && <div style={{ marginTop: 8 }}><ProgressBar value={progress} label={`writing ${included.length} .npy files… ${Math.round(progress * included.length)} / ${included.length}`} testid="import-progress" /></div>}
+        <SubCard n={3} title="Checks" caption="exists · readable · shape · fs · held out · excerpt · not registered · hash — every one must pass">
+          {phase === 'checking' && <ProgressBar indeterminate label={`checking ${cand?.name}… ${elapsed.toFixed(0)} s (the excerpt search cross-correlates against every comparable registered channel)`} testid="check-progress" />}
+          {phase === 'registering' && <ProgressBar indeterminate label={`registering ${cand?.name}… ${elapsed.toFixed(0)} s${cand?.kind === 'raw' ? ' (deriving channels to disk first)' : ''}`} testid="import-progress" />}
+          {report && phase !== 'checking' && <Checklist items={[...items, ...warnItems]} testid="import-checks" />}
+          {!report && phase === 'pick' && <span className="muted small">pick a candidate and press Check</span>}
+          {report?.excerpt_of && <Callout tone="amber" icon="link" testid="excerpt-of-note">
+            {cand?.name} is a {report.excerpt_of.decimation}:1 excerpt of <b>{report.excerpt_of.name}</b> CH{report.excerpt_of.channel} at sample {report.excerpt_of.offset.toLocaleString('en-US')} (r = {report.excerpt_of.r}).
+            A subset of a registered recording is an excerpt, not a new recording — tick “register even if it is an excerpt” to register it linked to its parent.
+          </Callout>}
+          {report && report.excerpts.length > 0 && <Callout tone="blue" icon="link" testid="excerpts-note">
+            {report.excerpts.map(e => <div key={e.recording_id} className="small">registered <b>{e.source_file}</b> CH{e.channel} (id {e.recording_id}) is a {e.decimation}:1 excerpt of this recording’s CH{e.candidate_channel} at sample {e.offset.toLocaleString('en-US')} (r = {e.r}) — it will be linked, its id kept</div>)}
+          </Callout>}
+          {error && <div className="small" style={{ color: 'var(--red)', marginTop: 6 }} data-testid="import-error">{error}</div>}
         </SubCard>
       </div>
     </Modal>
   )
+}
+
+function describe(c: Candidate): string {
+  const f = c.facts
+  if (c.kind === 'raw') {
+    const lay = f.layout
+    return [f.format, lay ? `${lay.variable} · ${lay.layout}${lay.n_channels ? ` · ${lay.n_channels} ch` : ''}${lay.n_samples ? ` × ${Number(lay.n_samples).toLocaleString('en-US')}` : ''}` : 'layout unknown',
+      f.fs != null ? `${f.fs} Hz` : 'fs ?', f.derived_dir ? `derived at ${f.derived_dir}` : null].filter(Boolean).join(' · ')
+  }
+  return [`${f.n_channels} ch × ${Number(f.n_samples ?? 0).toLocaleString('en-US')}`, f.fs != null ? `${f.fs} Hz${f.fs_source === 'inferred' ? ' (inferred)' : ''}` : 'fs ?',
+    f.duration_h != null ? `${Number(f.duration_h).toFixed(1)} h` : null, f.manifest ? 'manifest' : 'no manifest'].filter(Boolean).join(' · ')
 }
 
 function SubCard({ n, title, caption, children }: { n: number; title: string; caption: string; children: ReactNode }) {

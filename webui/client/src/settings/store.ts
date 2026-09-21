@@ -1,35 +1,30 @@
-/* The settings draft store (spec §9 "Shape", §12 P23).
+/* The settings store (spec §9 "Shape", §12 P23) — LIVE since Prompt 02.
  *
- * Project pages hold edits as a DRAFT: nothing changes until Save, which merges the draft into the
- * in-memory saved values, writes an audit entry and raises a toast with the consequence sentence.
- * Personal pages have no draft — every change applies immediately to this browser.
+ * Project pages hold edits as a DRAFT: nothing changes until Save, which PUTs the draft to
+ * /api/settings/<page> (the `settings` table; the bridge appends the audit entry), merges the server's
+ * answer into the saved layer and raises a toast with the consequence sentence. A failed save keeps the
+ * draft and shows the error. Personal pages have no draft — every change applies immediately to this
+ * browser and persists in localStorage.
  *
- * Three layers per page come from the fixtures through api/settings.ts:
- *   DEFAULTS — what "Reset page to defaults" stages
- *   SAVED    — what the frames draw as current (differs from DEFAULTS on the seven dotted pages)
+ * Layers per page (settings/hydrate.ts fills them from the page read):
+ *   DEFAULTS — what "Reset page to defaults" stages (spec §9 defaults, live-shaped where they depend on data)
+ *   SAVED    — defaults ⊕ the settings table (hydrated by the page's read in api/settings.ts)
  *   SEEDS    — the scripted edit `?state=unsaved` stages so a screenshot reproduces the frame
  */
-import { useCallback, useEffect, useMemo } from 'react'
-import { recordDemoWrite, setDemo, useDemoState } from '../kit'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import { setDemo, useDemoState } from '../kit'
+import { ApiError, putSettingsPage } from '../api'
 import { useToast } from '../shell/Toast'
 import {
-  CONSEQUENCE, DEFAULTS, PAGE_META, SAVED, SEEDS, SEED_SENTENCE, SLUGS, genericConsequence,
+  CONSEQUENCE, DEFAULTS, HELD_OUT_STEM, PAGE_META, SEEDS, SEED_SENTENCE, SLUGS, genericConsequence,
   type Scope, type Values,
 } from '../api/settings'
+import { STORE_KEY, clone, initStore, type StoreShape } from './hydrate'
 
 export interface PendingChange { id: string; from: unknown; to: unknown; consequence: string }
 
-interface StoreShape {
-  saved: Record<string, Values>
-  draft: Record<string, Values>
-  touched: Record<string, string>
-  seeded: Record<string, boolean>
-  invalid: Record<string, Record<string, string>>
-}
-
-const KEY = 'settings.store'
-const clone = <T,>(v: T): T => { try { return structuredClone(v) } catch { return v } }
-const init = (): StoreShape => ({ saved: clone(SAVED), draft: {}, touched: {}, seeded: {}, invalid: {} })
+const KEY = STORE_KEY
+const init = initStore
 
 /** Values edited on one page that are the same value on another (spec §9.8 / §9.10 sequences). */
 const SHARED: Record<string, { slug: string; id: string }[]> = {
@@ -41,12 +36,32 @@ const SHARED: Record<string, { slug: string; id: string }[]> = {
 
 const same = (a: unknown, b: unknown) => JSON.stringify(a ?? null) === JSON.stringify(b ?? null)
 
+/* ---- personal pages: this browser, localStorage (try/catch: private windows and blocked storage) ---- */
+const personalKey = (slug: string) => `settings.personal.${slug}`
+function loadPersonal(slug: string): Values | null {
+  try { const raw = localStorage.getItem(personalKey(slug)); return raw ? (JSON.parse(raw) as Values) : null } catch { return null }
+}
+function storePersonal(slug: string, v: Values) {
+  try { localStorage.setItem(personalKey(slug), JSON.stringify(v)) } catch { /* not persisted: still applied to this session */ }
+}
+/** Read the two personal pages back from localStorage once, at first use of the store. */
+let personalLoaded = false
+function ensurePersonal() {
+  if (personalLoaded) return
+  personalLoaded = true
+  for (const slug of SLUGS) {
+    if (PAGE_META[slug]?.scope !== 'personal') continue
+    const v = loadPersonal(slug)
+    if (v) setDemo<StoreShape>(KEY, s => { const cur = s ?? init(); return { ...cur, saved: { ...cur.saved, [slug]: { ...(cur.saved[slug] ?? {}), ...v } }, hydrated: { ...cur.hydrated, [slug]: true } } })
+  }
+}
+
 /** The held-out lock (D6) is read outside Settings — the header chip, every picker. Mirror the SAVED
  *  value (never the draft) into its own demo-store key so other workspaces can bind to it. */
 export const HELD_OUT_KEY_STORE = 'settings.heldOut'
 export interface HeldOutLock { on: boolean; recording: string }
 function syncHeldOut(saved: Values) {
-  setDemo<HeldOutLock>(HELD_OUT_KEY_STORE, { on: Boolean(saved['heldout.on']), recording: String(saved['heldout.recording'] ?? 'M4_aug') })
+  setDemo<HeldOutLock>(HELD_OUT_KEY_STORE, { on: Boolean(saved['heldout.on'] ?? true), recording: String(saved['heldout.recording'] ?? HELD_OUT_STEM) })
 }
 
 /** Personal display preferences are read outside Settings (every readout, every table). Mirror them
@@ -74,12 +89,16 @@ export interface SettingsPageStore {
   sentence: string
   invalid: Record<string, string>
   markInvalid: (id: string, reason: string | null) => void
-  /** write straight to the saved layer, skipping the draft (the held-out unlock is the commit, FE1) */
-  applyNow: (id: string, v: unknown) => void
-  save: () => void
+  /** write straight to the saved layer AND the server, skipping the draft (the held-out unlock is the
+   *  commit, FE1). `confirmName` is the typed name the unlock needs; rejects with the server's message. */
+  applyNow: (id: string, v: unknown, confirmName?: string) => Promise<void>
+  save: () => Promise<void>
+  saving: boolean
   discard: () => void
   resetToDefaults: () => void
   differingCount: number
+  /** the page's SAVED layer has been filled from the server (or localStorage for a personal page) */
+  hydrated: boolean
 }
 
 /** Amber "differs from default" dots for the nav rail — computed per page (B29), never following the open page. */
@@ -107,7 +126,9 @@ export function useAnyDraft(): { slug: string; n: number } | null {
 }
 
 export function useSettingsPage(slug: string): SettingsPageStore {
+  ensurePersonal()
   const [store, setStore] = useDemoState<StoreShape>(KEY, init)
+  const [saving, setSaving] = useState(false)
   const { push } = useToast()
   const meta = PAGE_META[slug]
   const scope: Scope = meta?.scope ?? 'project'
@@ -121,7 +142,7 @@ export function useSettingsPage(slug: string): SettingsPageStore {
     setStore(s => {
       const next = { ...s, draft: { ...s.draft }, saved: { ...s.saved }, touched: { ...s.touched } }
       const apply = (sl: string, key: string) => {
-        if (PAGE_META[sl]?.scope === 'personal') next.saved[sl] = { ...(next.saved[sl] ?? {}), [key]: v }
+        if (PAGE_META[sl]?.scope === 'personal') { next.saved[sl] = { ...(next.saved[sl] ?? {}), [key]: v }; storePersonal(sl, next.saved[sl]) }
         else next.draft[sl] = { ...(next.draft[sl] ?? {}), [key]: v }
         next.touched[sl] = key
       }
@@ -155,33 +176,40 @@ export function useSettingsPage(slug: string): SettingsPageStore {
     })
   }, [setStore, slug])
 
-  const applyNow = useCallback((id: string, v: unknown) => {
+  /** Merge the server's answer for `slug` into the saved layer and clear the keys it covered from the draft. */
+  const commit = useCallback((values: Values, keys: string[]) => {
     setStore(s => {
-      const saved = { ...(s.saved[slug] ?? {}), [id]: v }
-      const draft = { ...(s.draft[slug] ?? {}) }
-      delete draft[id]
-      if (slug === 'datasets') syncHeldOut(saved)
-      return { ...s, saved: { ...s.saved, [slug]: saved }, draft: { ...s.draft, [slug]: draft } }
+      const savedNext = { ...(s.saved[slug] ?? {}), ...values }
+      const draftNext = { ...(s.draft[slug] ?? {}) }
+      for (const k of keys) delete draftNext[k]
+      if (slug === 'datasets') syncHeldOut(savedNext)
+      return { ...s, saved: { ...s.saved, [slug]: savedNext }, draft: { ...s.draft, [slug]: draftNext }, seeded: { ...s.seeded, [slug]: false }, hydrated: { ...s.hydrated, [slug]: true } }
     })
   }, [setStore, slug])
 
-  const save = useCallback(() => {
+  const applyNow = useCallback(async (id: string, v: unknown, confirmName?: string) => {
+    const r = await putSettingsPage(slug, { [id]: v }, confirmName)
+    commit(r.values, [id])
+  }, [slug, commit])
+
+  const save = useCallback(async () => {
     const n = changes.length
-    if (!n) return
-    setStore(s => {
-      const saved = { ...(s.saved[slug] ?? {}), ...(s.draft[slug] ?? {}) }
-      if (slug === 'datasets') syncHeldOut(saved)
-      return { ...s, saved: { ...s.saved, [slug]: saved }, draft: { ...s.draft, [slug]: {} }, seeded: { ...s.seeded, [slug]: false } }
-    })
-    /* a value can be a list (the staged event rows on Channels & events) — the audit line says how
-       many, never "[object Object]" */
-    const brief = (v: unknown) => Array.isArray(v) ? `${v.length} row${v.length === 1 ? '' : 's'}`
-      : v && typeof v === 'object' ? JSON.stringify(v).slice(0, 60) : String(v)
-    const what = changes.map(c => `${c.id} ${brief(c.from)} → ${brief(c.to)}`).join(' · ')
-    recordDemoWrite('settings', 'save', { slug, changes: n, what })
-    recordDemoWrite('settings', 'audit', { kind: 'settings', what: `${meta?.title ?? slug}: ${what}`, where: meta?.title ?? slug, route: `settings/${slug}` })
-    push({ text: `Saved · ${sentence || `${n} change${n === 1 ? '' : 's'} applied`}` })
-  }, [changes, setStore, slug, meta, push, sentence])
+    if (!n || saving) return
+    const payload: Values = {}
+    for (const c of changes) payload[c.id] = c.to
+    setSaving(true)
+    try {
+      const r = await putSettingsPage(slug, payload)
+      commit(r.values, changes.map(c => c.id))
+      push({ text: `Saved · ${sentence || `${n} change${n === 1 ? '' : 's'} applied`}` })
+    } catch (e) {
+      const msg = e instanceof ApiError ? e.message : String(e)
+      push({ text: `Not saved · ${msg}`, kind: 'error' })
+      throw e
+    } finally {
+      setSaving(false)
+    }
+  }, [changes, saving, slug, commit, push, sentence])
 
   const discard = useCallback(() => {
     const n = changes.length
@@ -195,7 +223,7 @@ export function useSettingsPage(slug: string): SettingsPageStore {
     setStore(s => {
       const staged: Values = {}
       for (const k of diffs) staged[k] = defaults[k]
-      if (scope === 'personal') return { ...s, saved: { ...s.saved, [slug]: { ...(s.saved[slug] ?? {}), ...staged } } }
+      if (scope === 'personal') { const sv = { ...(s.saved[slug] ?? {}), ...staged }; storePersonal(slug, sv); return { ...s, saved: { ...s.saved, [slug]: sv } } }
       return { ...s, draft: { ...s.draft, [slug]: { ...(s.draft[slug] ?? {}), ...staged } }, seeded: { ...s.seeded, [slug]: false } }
     })
     push({ text: scope === 'personal' ? `Reset ${diffs.length} value${diffs.length === 1 ? '' : 's'} · applied to this browser` : `${diffs.length} default${diffs.length === 1 ? '' : 's'} staged · nothing is written until you save` })
@@ -212,7 +240,8 @@ export function useSettingsPage(slug: string): SettingsPageStore {
     set, applyNow,
     dirty: (id: string) => id in draft && !same(draft[id], saved[id]),
     differs: (id: string) => !same(value(id), defaults[id]),
-    changes, sentence, invalid, markInvalid, save, discard, resetToDefaults, differingCount,
+    changes, sentence, invalid, markInvalid, save, saving, discard, resetToDefaults, differingCount,
+    hydrated: Boolean(store.hydrated[slug]) || scope === 'personal',
   }
 }
 
@@ -227,17 +256,4 @@ export function useSeededDraft(slug: string, on: boolean) {
       return { ...s, draft: { ...s.draft, [slug]: clone(SEEDS[slug] ?? {}) }, seeded: { ...s.seeded, [slug]: true } }
     })
   }, [slug, on, setStore])
-}
-
-/** Audit entries written this session (newest first), shown on the Audit log page above the fixtures. */
-export interface SessionAudit { when: string; kind: string; what: string; where: string; route?: string; by: string }
-export function sessionAuditFromWrites(writes: { kind: string; at: number; detail: Record<string, unknown> }[]): SessionAudit[] {
-  return writes.filter(w => w.kind === 'audit').map(w => ({
-    when: new Date(w.at).toLocaleString('en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }).replace(',', ''),
-    kind: String(w.detail.kind ?? 'settings'),
-    what: String(w.detail.what ?? ''),
-    where: String(w.detail.where ?? 'Settings'),
-    route: w.detail.route as string | undefined,
-    by: 'this installation',
-  })).reverse()
 }

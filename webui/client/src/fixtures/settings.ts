@@ -82,11 +82,15 @@ const metaFor = (r: RecordingRow): Record<MetaField, string> => ({
 export const metaKey = (rec: string, f: MetaField) => `meta.${rec}.${f}`
 export const TIME_ZONES = ['Europe/London', 'UTC', 'Europe/Berlin', 'America/New_York']
 
-const datasetsValues = (): Values => {
-  const v: Values = { 'heldout.on': true, 'heldout.recording': HELD_OUT_KEY }
-  for (const r of RECORDING_ROWS) { const m = metaFor(r); for (const f of META_FIELDS) v[metaKey(r.id, f)] = m[f] }
-  return v
-}
+/** Live (Prompt 02): the per-recording metadata defaults come from GET /api/settings/datasets (one set per
+ *  registered recording); only the lock keys are static. The held-out id is the real stem, not the canon key. */
+export const HELD_OUT_STEM = 'M4_aug_concat_fs1'
+export const META_FIELD_LIST = META_FIELDS
+export const metaDefaults = (rec: string, name: string): Record<MetaField, string> => ({
+  display_name: name, species: '', substrate: '', electrode_config: '', start: '', time_zone: 'Europe/London', noise_floor: '', temperature: '', humidity: '', notes: '',
+})
+const datasetsValues = (): Values => ({ 'heldout.on': true, 'heldout.recording': HELD_OUT_STEM })
+void metaFor; void HELD_OUT_KEY
 
 export interface ImportDryRun {
   path: string; format: string; fs_hz: number | null; fs_source: 'read' | 'inferred'
@@ -131,12 +135,8 @@ export const channelsFor = (rec: string): ChannelRow[] => {
 }
 export type EventEffect = 'show on plots' | 'exclude span' | 'exclude · mark channel bad'
 export interface TimedEvent { id: string; recording: string; t0_h: number; t1_h: number | null; open_end?: boolean; kind: string; channels: string; effect: EventEffect; note: string; added: string }
-export const EVENTS: TimedEvent[] = [
-  { id: 'e1', recording: 'M2_aug_fs1', t0_h: 12.5, t1_h: null, kind: 'watering', channels: 'all', effect: 'show on plots', note: '5 ml water added to substrate', added: '12 Sep' },
-  { id: 'e2', recording: 'M2_aug_fs1', t0_h: 28.9, t1_h: 29.1, kind: 'unknown', channels: 'CH2_A1', effect: 'exclude span', note: 'amplitude excursion, no lab-book entry', added: '12 Sep' },
-  { id: 'e3', recording: 'M2_aug_fs1', t0_h: 31.1, t1_h: 31.5, kind: 'mechanical', channels: 'all', effect: 'show on plots', note: 'chamber door opened', added: '13 Sep' },
-  { id: 'e4', recording: 'M2_aug_fs1', t0_h: 40.1, t1_h: null, open_end: true, kind: 'electrode', channels: 'CH7_B2', effect: 'exclude · mark channel bad', note: 'electrode detached', added: '14 Sep' },
-]
+/** No fixture events on a live page: the event log is what was saved (settings values events.added.<rec>). */
+export const EVENTS: TimedEvent[] = []
 export const EVENT_KINDS: { name: string; colour: string }[] = [
   { name: 'watering', colour: '#2F6FEB' }, { name: 'mechanical', colour: '#E8900C' }, { name: 'unknown', colour: '#9CA3AF' },
   { name: 'electrode', colour: '#E5484D' }, { name: 'light', colour: '#E4C441' }, { name: 'stimulus', colour: '#8B5CF6' }, { name: 'temperature', colour: '#30B0C7' },
@@ -155,22 +155,17 @@ export const EVENT_KINDS_KEY = 'event.kinds'
 export const eventsAddedKey = (rec: string) => `events.added.${rec}`
 export const eventsRemovedKey = (rec: string) => `events.removed.${rec}`
 export const badFromHours = (status: string): string => status.match(/bad from ([\d.]+)/)?.[1] ?? ''
-const channelsValues = (): Values => {
+/** Live (Prompt 02): the per-channel defaults are built per registered recording by api/settings.ts
+ *  (`channelDefaults`); the fixture EVENTS no longer seed a page — the event log is what was saved. */
+export const channelDefaults = (rec: string, channels: string[]): Values => {
   const v: Values = {}
-  for (const r of RECORDINGS) {
-    for (const row of channelsFor(r.key)) {
-      v[gainKey(r.key, row.ch)] = row.gain
-      v[floorKey(r.key, row.ch)] = ''
-      v[groundKey(r.key, row.ch)] = row.shared_ground ?? ''
-    }
-    v[eventsAddedKey(r.key)] = []
-    v[eventsRemovedKey(r.key)] = []
-  }
-  /* channel status is NOT a stored value: it is read back from the mark-bad events (F8, fix round 2) */
-  v[EVENT_KINDS_KEY] = []
-  for (const e of EVENTS) v[effectKey(e.id)] = e.effect
+  for (const ch of channels) { v[gainKey(rec, ch)] = 1; v[floorKey(rec, ch)] = ''; v[groundKey(rec, ch)] = '' }
+  v[eventsAddedKey(rec)] = []
+  v[eventsRemovedKey(rec)] = []
   return v
 }
+const channelsValues = (): Values => ({ [EVENT_KINDS_KEY]: [] })
+void RECORDINGS
 
 /* ---- the consequence sentences of Channels & events (P23: never a fixture id, always the effect).
    The run counts are fixture-only (fog F7): a per-channel change touches fewer runs than an all-channel one. */
@@ -657,8 +652,8 @@ export const SAVED: Record<string, Values> = {
 
 /** `?state=unsaved` stages exactly the frame's edit, so the save bar reads as drawn. */
 export const SEEDS: Record<string, Values> = {
-  datasets: { [metaKey('M2_aug_fs1', 'species')]: 'Pleurotus ostreatus ', [metaKey('M2_aug_fs1', 'start')]: '2025-08-02 15:00', [metaKey('M2_aug_fs1', 'noise_floor')]: '0.12' },
-  'channels-events': { [gainKey('M2_aug_fs1', 'CH6_B1')]: 0.98, [effectKey('e3')]: 'exclude span' as EventEffect },
+  datasets: { [metaKey('M2_aug_concat_fs1', 'species')]: 'Pleurotus ostreatus ', [metaKey('M2_aug_concat_fs1', 'start')]: '2025-08-02 15:00', [metaKey('M2_aug_concat_fs1', 'noise_floor')]: '0.12' },
+  'channels-events': { [gainKey('M2_aug_concat_fs1', 'CH6_B1')]: 0.98 },
   vocabulary: { [verdictNameKey('interesting')]: 'noteworthy' },
   nulls: { 'null.baseline.draws': 500 },
   'analysis-defaults': { [ruleKey('Bandpass filter', 'band')]: '0.005 – 0.1 Hz' },
@@ -676,8 +671,8 @@ export const SEEDS: Record<string, Values> = {
 }
 /** The seeded edits' own save-bar sentence (P23: the consequence, never a restatement of the edit). */
 export const SEED_SENTENCE: Record<string, string> = {
-  datasets: 'noise floor 0.08 → 0.10 mV marks 4 runs on M2_aug fs1 stale',
-  'channels-events': 'excluding 31.1–31.5 h on all channels marks 3 runs on M2_aug fs1 stale',
+  datasets: 'noise floor — → 0.12 mV · every detector on M2_aug_concat_fs1 reads the new floor; earlier runs keep theirs',
+  'channels-events': 'gain on CH6_B1 1.00 → 0.98 rescales mV on CH6_B1 · runs on M2_aug_concat_fs1 marked stale',
   vocabulary: 'rename interesting → noteworthy rewrites 3,424 rows in both stores',
   nulls: 'Training · baseline 200 → 500 draws · new recipe hash for cnn_windows_v3, cnn_windowset_v1 · estimates × 2.5',
   'analysis-defaults': 'bandpass rule changed · 6 cached stages will re-run next time their chains run',
@@ -707,9 +702,9 @@ const listSentence = (from: unknown, to: unknown, what: string, why: { on: strin
 
 /** Per-field consequence sentences (P23 "consequence beside the control"). */
 export const CONSEQUENCE: Record<string, (from: unknown, to: unknown) => string> = {
-  [metaKey('M2_aug_fs1', 'noise_floor')]: (f, t2) => `noise floor ${f} → ${t2} mV marks 4 runs on M2_aug fs1 stale`,
-  [metaKey('M2_aug_fs1', 'species')]: () => 'species travels with every new export; existing exports keep the old value',
-  [metaKey('M2_aug_fs1', 'start')]: () => 'clock-time readouts shift; hours since start are unchanged',
+  [metaKey('M2_aug_concat_fs1', 'noise_floor')]: (f, t2) => `noise floor ${f || '—'} → ${t2} mV · every detector on M2_aug_concat_fs1 reads the new floor; earlier runs keep theirs`,
+  [metaKey('M2_aug_concat_fs1', 'species')]: () => 'species travels with every new export; existing exports keep the old value',
+  [metaKey('M2_aug_concat_fs1', 'start')]: () => 'clock-time readouts shift; hours since start are unchanged',
   [verdictNameKey('interesting')]: (f, t2) => `rename ${f} → ${t2} rewrites 3,424 rows in both stores`,
   'null.baseline.draws': (f, t2) => `Training · baseline ${f} → ${t2} draws · new recipe hash for training templates · estimates change`,
   correction: (f, t2) => `${f} → ${t2} · per-channel p values shown corrected; runs are not re-run`,

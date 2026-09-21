@@ -66,7 +66,14 @@ def _rt(request: Request):
 
 
 def _conn(request: Request) -> sqlite3.Connection:
-    return corpus.connect(_rt(request).db_path)
+    rt = _rt(request)
+    if not getattr(request.app.state, "schema_ensured", False):
+        # rule 3: additive migrations through init_db(), idempotent — the settings, audit and
+        # registered_artifacts tables and the registration columns exist before any route reads them
+        from Working.database.schema import init_db
+        init_db(rt.db_path).close()
+        request.app.state.schema_ensured = True
+    return corpus.connect(rt.db_path)
 
 
 def _roots(request: Request, kind: str) -> list:

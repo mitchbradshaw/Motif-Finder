@@ -174,3 +174,68 @@ export interface GroupingPayload {
 export interface ModelPayload { type: 'model'; path: string; exists: boolean; size_bytes: number | null; card: Record<string, unknown>; summary: string }
 export interface ErrorPayload { type: string; error: string; traceback?: string; summary: string }
 export type Payload = SignalPayload | ScoresPayload | SpansetPayload | WindowsetPayload | EncodingSymbolicPayload | EncodingImagePayload | GroupingPayload | ModelPayload | ErrorPayload
+
+/* ---------------- settings: registry, settings, audit, about, storage (server/registration.py, Prompt 02) ---------------- */
+const put = <T,>(path: string, body: unknown) => req<T>(path, { method: 'PUT', body: JSON.stringify(body) })
+const del = <T,>(path: string) => req<T>(path, { method: 'DELETE' })
+
+export interface RegistryKind { name: string; label: string; roots: string[]; table: string; ui: string; naming: string }
+export interface Candidate { kind: string; path: string; name: string; facts: Record<string, any>; warnings: string[]; registered: boolean; registered_ids: number[] }
+export interface CheckItem { name: string; ok: boolean; detail: string }
+export interface ExcerptLink { recording_id: number; source_file: string; channel: number; candidate_channel: number; offset: number; decimation: number; r: number; name?: string }
+export interface CheckReport { candidate: Candidate; ok: boolean; checks: CheckItem[]; facts: Record<string, any>; warnings: string[]; sha1: string | null; excerpts: ExcerptLink[]; excerpt_of: ExcerptLink | null }
+export interface RegisteredChannel { id: number; channel: number; name: string; npy_path: string; exists: boolean; parent_recording_id: number | null }
+export interface RegisteredRecording {
+  kind: 'recording'; id: number; ids: number[]; name: string; source_file: string; dir: string; n_channels: number; fs: number; fs_source: 'read' | 'inferred'
+  n_samples: number; duration_h: number | null; held_out: boolean; warnings: string[]; registered_at: string | null; registered_by: string | null
+  excerpt_of: { recording_id: number; source_file: string; channel: number; name: string; offset: number | null; decimation: number | null } | null
+  channels: RegisteredChannel[]; npy_exists: boolean; manifest: Record<string, any> | null
+}
+export interface RegisteredArtifact {
+  id: number; kind: string; path: string; name: string; manifest_path: string | null; recording_id: number | null; channel: number | null
+  span_start: number | null; span_end: number | null; fs: number | null; params: Record<string, any>; producer: string | null; sha1: string | null
+  warnings: string[]; checks: CheckItem[]; created_at: string; actor: string | null; exists: boolean; manifest: Record<string, any> | null; bytes: number | null
+}
+export interface RegistryPage<T = RegisteredRecording | RegisteredArtifact> { kind: string; spec: RegistryKind; roots: string[]; registered: T[]; candidates: Candidate[]; scan_ms: number }
+export interface RegisterResult { id: number; kind: string; name: string; path: string; table: string; warnings: string[]; sha1: string | null; recording_id: number | null; ids: number[] | null; facts: Record<string, any>; excerpts: ExcerptLink[]; excerpt_of: ExcerptLink | null; note: string }
+
+export const getRegistryKinds = () => req<{ kinds: RegistryKind[] }>('/api/registry')
+export const getRegistry = <T = RegisteredRecording | RegisteredArtifact>(kind: string) => req<RegistryPage<T>>(`/api/registry/${encodeURIComponent(kind)}`)
+export const checkCandidate = (kind: string, path: string, overrides: Record<string, unknown> = {}) =>
+  post<CheckReport>(`/api/registry/${encodeURIComponent(kind)}/check`, { path, overrides })
+export const registerCandidate = (kind: string, path: string, overrides: Record<string, unknown> = {}, provenance: Record<string, unknown> = {}) =>
+  post<RegisterResult>(`/api/registry/${encodeURIComponent(kind)}/register`, { path, overrides, provenance })
+export const unregisterRow = (kind: string, id: number) => del<{ table: string; id: number; active: number }>(`/api/registry/${encodeURIComponent(kind)}/${id}`)
+
+export interface HeldOutState { on: boolean; recording: string; name: string; file: string }
+export interface SettingsPageData {
+  page: string; title: string; values: Record<string, unknown>; updated_at: string | null; n_keys: number; actor: string | null; mode: 'sandbox' | 'project'
+  /* datasets */ recordings?: RegisteredRecording[]; candidates?: Candidate[]; raw_candidates?: Candidate[]; held_out?: HeldOutState; defaults?: Record<string, unknown>
+  /* vocabulary */ verdicts?: { name: string; n_annotations: number; n_adjudications: number }[]; tags?: Record<string, any>[]
+  /* compute */ machine?: { cores: number | null; ram_gb: number | null; gpu: string | null; platform: string; detected: string }
+  /* analysis defaults */ cache_gb?: number; cache_root?: string | null
+  /* blocks */ adapters?: AdapterCard[]; n_adapters?: number
+}
+export const getSettingsPage = (page: string) => req<SettingsPageData>(`/api/settings/${encodeURIComponent(page)}`)
+export const putSettingsPage = (page: string, values: Record<string, unknown>, confirm_name?: string) =>
+  put<{ page: string; changed: string[]; values: Record<string, unknown>; updated_at: string | null; held_out?: HeldOutState }>(`/api/settings/${encodeURIComponent(page)}`, { values, confirm_name })
+
+export interface AuditRow { id: number; when: string; kind: string; what: string; where: string; route: string | null; by: string; detail: Record<string, unknown> | null }
+export const getAudit = (kind?: string, limit = 500) => req<{ entries: AuditRow[]; kinds: string[]; mode: string }>(`/api/audit?limit=${limit}${kind && kind !== 'all' ? `&kind=${encodeURIComponent(kind)}` : ''}`)
+export const postAudit = (e: { kind: string; what: string; where: string; route?: string; detail?: Record<string, unknown> }) => post<{ id: number }>('/api/audit', e)
+export const auditCsvUrl = (kind?: string) => `/api/audit.csv${kind && kind !== 'all' ? `?kind=${encodeURIComponent(kind)}` : ''}`
+
+export interface About {
+  project: string; code: { version: string; branch: string | null; dirty: boolean; summary: string }
+  schema: { tables: number; settings_rows: number; audit_rows: number; recordings: number; registered_artifacts: number; path: string }
+  blocks: { registered: number; broken: string[]; summary: string }; python: string; executable: string; packages: Record<string, string | null>
+  mode: string; banner: string; db_path: string; db_backup: string | null; runtime_dir: string; repo_root: string; held_out_file: string
+  settings_store: string; environment: string; future: { name: string; detail: string }[]; diagnostics: string
+}
+export const getAbout = () => req<About>('/api/about')
+
+export interface StorageRootRow { id: string; root: string; path: string; exists: boolean; bytes: number; n_files: number; actions: string[]; note: string; locked: boolean }
+export interface BackupRow { name: string; path: string; bytes: number; mtime: number; current: boolean }
+export interface Storage { roots: StorageRootRow[]; backups: BackupRow[]; free_gb: number | null; total_gb: number | null; mode: string; backups_dir: string; db_backup: string | null }
+export const getStorage = () => req<Storage>('/api/storage')
+export const postBackup = () => post<{ path: string; bytes: number; mode: string }>('/api/backups', {})
