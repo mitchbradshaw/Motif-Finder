@@ -382,3 +382,59 @@ def test_group_score_leaves_the_surrogate_runs_out_of_the_channel_rows():
         assert out["total"]["x_null"] == pytest.approx(1.0)
     finally:
         conn.close()
+
+
+# ── the section on screen, not the whole run ────────────────────────────────
+
+def test_a_span_narrows_the_row_to_the_section_on_screen():
+    """The page scores the section in the scope, not the run's whole span: a
+    precision computed over hours the researcher is not looking at is not the
+    number the page claims."""
+    conn, _, run_id, _ = _fixture()
+    try:
+        whole = channel_score(conn, run_id)
+        section = channel_score(conn, run_id, span=(0, 2000))
+        assert whole["found"] == 6 and section["found"] == 4      # D1 D2 D3 D4
+        assert section["reviewed"] == 4
+        assert section["interesting"] == 2                        # D1 D2
+        assert section["precision"] == pytest.approx(0.5)
+        assert section["reviewed_h"] == pytest.approx(2000 / 3600)
+        assert section["recall"] == pytest.approx(2 / 3)          # A1 A2 found, A6 missed
+    finally:
+        conn.close()
+
+
+def test_a_span_is_intersected_with_the_run_never_widened():
+    conn, rec, _, _ = _fixture()
+    try:
+        short = _run(conn, rec, span=(0, 1000))
+        run_db.insert_detection(conn, short, 100, 200)
+        row = channel_score(conn, short, span=(0, 10_000))
+        assert row["span"] == [0, 1000]
+        assert row["reviewed_h"] == pytest.approx(1000 / 3600)
+    finally:
+        conn.close()
+
+
+def test_a_run_the_section_does_not_reach_reads_words_not_zeroes():
+    conn, rec, _, _ = _fixture()
+    try:
+        elsewhere = _run(conn, rec, span=(5000, 6000))
+        run_db.insert_detection(conn, elsewhere, 5200, 5300)
+        row = channel_score(conn, elsewhere, span=(0, 2000))
+        assert row["found"] == 0
+        assert row["precision"] is None and row["recall"] is None
+        assert "does not reach" in row["note"]
+    finally:
+        conn.close()
+
+
+def test_the_null_is_counted_over_the_same_section():
+    conn, _, run_id, null_id = _fixture()
+    try:
+        # the null's two detections are at 400 and 6100: only the first is in [0, 2000)
+        row = channel_score(conn, run_id, span=(0, 2000))
+        assert row["null_expects"] == 1
+        assert row["x_null"] == pytest.approx(4.0)
+    finally:
+        conn.close()

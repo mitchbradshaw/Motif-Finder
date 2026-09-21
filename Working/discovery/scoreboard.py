@@ -121,17 +121,32 @@ def _ratio(num, den):
     return (float(num) / float(den)) if den else None
 
 
-def channel_score(conn, run_id, *, rule=None, null_run_id=None):
+def channel_score(conn, run_id, *, rule=None, null_run_id=None, span=None):
     """One channel row of §7.3 for one run. Every cell, and the words for the
-    cells that have no number."""
+    cells that have no number.
+
+    ``span`` narrows the row to a section *inside* the run's own span — the
+    Discovery page scores the section that is on screen, not the whole run, and
+    a precision computed over hours the researcher is not looking at would not
+    be the number the page claims. It is intersected with the run's span, never
+    widened past it: a run cannot be credited with ground truth it never saw.
+    """
     rule = normalise_rule(rule) if rule is not None else rule_from_settings(conn)
     run = _run_row(conn, run_id)
     rec = _q.get_recording_by_id(conn, run["recording_id"])
     span_start, span_end = int(run["span_start"]), int(run["span_end"])
+    if span is not None:
+        span_start = max(span_start, int(span[0]))
+        span_end = min(span_end, int(span[1]))
+        if span_end <= span_start:
+            span_start = span_end = int(run["span_start"])
+            return _empty_row(run, rec, rule, [span_start, span_end],
+                              "this run does not reach the section on screen")
     fs = float(rec["fs"]) if rec and rec["fs"] else 1.0
 
-    dets = _detections(conn, run_id, span_start)
-    anns = _annotations(conn, run["recording_id"])
+    dets = [d for d in _detections(conn, run_id, int(run["span_start"]))
+            if span_start <= d["start"] < span_end]
+    anns = [a for a in _annotations(conn, run["recording_id"]) if span_start <= a["start"] < span_end]
     coverage = _reviewed_coverage(conn, run["recording_id"], span_start, span_end)
     reviewed_samples = total_length(coverage)
     reviewed_h = reviewed_samples / fs / 3600.0
@@ -191,8 +206,9 @@ def channel_score(conn, run_id, *, rule=None, null_run_id=None):
     null_id = null_run_id if null_run_id is not None else _null_run_id(conn, run_id)
     null_expects = None
     if null_id is not None:
-        null_expects = int(conn.execute(
-            "SELECT COUNT(*) FROM detections WHERE run_id = ?", (int(null_id),)).fetchone()[0])
+        null_row = _run_row(conn, null_id)
+        null_expects = sum(1 for d in _detections(conn, null_id, int(null_row["span_start"]))
+                           if span_start <= d["start"] < span_end)
 
     return {
         "run_id": int(run_id),
@@ -226,6 +242,25 @@ def channel_score(conn, run_id, *, rule=None, null_run_id=None):
     }
 
 
+def _empty_row(run, rec, rule, span, note):
+    """A row for a run the section does not reach: counts zero, every ratio a
+    word. Never a 0.00 precision with no denominator behind it."""
+    fs = float(rec["fs"]) if rec and rec["fs"] else 1.0
+    return {
+        "run_id": int(run["id"]), "run_name": run["name"], "status": run["status"],
+        "recording_id": int(run["recording_id"]),
+        "channel": int(rec["channel"]) if rec else None,
+        "channel_name": f"CH{int(rec['channel'])}" if rec else None,
+        "source_file": rec["source_file"] if rec else None, "fs": fs, "span": span,
+        "found": 0, "already_judged": 0, "reviewed": 0, "interesting": 0,
+        "precision": None, "precision_label": "precision", "precision_note": note,
+        "recall": None, "recall_note": NO_OVERLAP, "recall_over_h": 0.0,
+        "recall_positives": 0, "recall_found": 0, "reviewed_h": 0.0,
+        "reviewed_criterion": REVIEWED_CRITERION, "null_run_id": None, "null_expects": None,
+        "x_null": None, "note": note, "rule": rule,
+    }
+
+
 def run_total(conn, run_ids, *, rule=None, rows=None):
     """The run's total row: counts summed, recall pooled by reviewed hours.
 
@@ -235,6 +270,12 @@ def run_total(conn, run_ids, *, rule=None, rows=None):
     dilute a recall computed somewhere else.
     """
     rows = rows if rows is not None else [channel_score(conn, r, rule=rule) for r in run_ids]
+    if not rows:
+        return {"found": 0, "already_judged": 0, "reviewed": 0, "interesting": 0,
+                "precision": None, "precision_label": "precision", "recall": None,
+                "recall_note": NO_OVERLAP, "pooled_h": 0.0, "reviewed_h": 0.0,
+                "null_expects": None, "x_null": None, "n_channels": 0,
+                "rule": normalise_rule(rule) if rule is not None else rule_from_settings(conn)}
     summed = {k: sum(int(r[k]) for r in rows) for k in ("found", "already_judged", "reviewed", "interesting")}
     nulls = [r["null_expects"] for r in rows if r["null_expects"] is not None]
     null_expects = sum(nulls) if nulls else None
@@ -260,14 +301,14 @@ def run_total(conn, run_ids, *, rule=None, rows=None):
     }
 
 
-def group_score(conn, run_group_id, *, rule=None):
+def group_score(conn, run_group_id, *, rule=None, span=None):
     """§7.1's "each template becomes one run across all channels in scope",
     scored: one channel row per member run, the surrogate members folded into
     their parent's ``null expects`` rather than shown as channels of their own.
     """
     members = _runs.list_run_group_runs(conn, run_group_id)
     real = [r for r in members if r["surrogate_of_run_id"] is None]
-    rows = [channel_score(conn, int(r["id"]), rule=rule) for r in real]
+    rows = [channel_score(conn, int(r["id"]), rule=rule, span=span) for r in real]
     rows.sort(key=lambda r: (r["channel"] if r["channel"] is not None else -1, r["run_id"]))
     return {
         "run_group_id": int(run_group_id),
