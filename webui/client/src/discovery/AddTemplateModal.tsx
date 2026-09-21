@@ -8,7 +8,7 @@ import {
 import { useSourced } from '../api/seam'
 import { navigate } from '../state'
 import { useToast } from '../shell/Toast'
-import { EXTRA_RUN_COLOURS, REBIND_EXEMPLARS, getTemplates, previewRun, fmtMin, DISCOVERY_LIMIT_MIN, type DiscoveryRun, type DiscoveryTemplate, type MeasuredPreview } from '../api/discovery'
+import { REBIND_EXEMPLARS, getTemplates, previewRun, fmtMin, DISCOVERY_LIMIT_MIN, type DiscoveryTemplate, type MeasuredPreview } from '../api/discovery'
 import { applyDiscoveryTemplates } from '../api'
 import { RunGlyph } from './glyphs'
 import { LoadFailed, Loading } from './chrome'
@@ -72,13 +72,6 @@ export function AddTemplateModal({ open, onClose, dx, onSlurm }: { open: boolean
   const needsExemplar = chosen.find(t => t.bind === 'rebind' && !exemplar[t.name])
   const blockReason = chosen.length === 0 ? 'select at least one template' : needsExemplar ? `${needsExemplar.name} needs an exemplar` : null
 
-  const toRuns = (status: DiscoveryRun['status']): DiscoveryRun[] => chosen.map((t, i) => ({
-    key: t.name, label: t.name, kind: t.kind, colour: EXTRA_RUN_COLOURS[(dx.runs.length + i) % EXTRA_RUN_COLOURS.length],
-    glyph: (t.stages.find(st => ['mp', 'seed', 'model', 'spike', 'drop'].includes(st.glyph))?.glyph ?? 'threshold'),
-    detail: t.kind === 'seed' ? `${exemplar[t.name] ?? 'carried exemplar'} · MASS` : `${t.stages.length - 1} stages`, template: t.name, status,
-    // a previewed template carries its measured per-channel minutes; an unpreviewed one carries none
-    perChannelMin: previewOf(t.name) ? previewOf(t.name)!.per_channel_s / 60 : undefined, addedThisSession: true,
-  }))
   /* §7.5's *Add runs* / *Add and run*. This is a real POST: it used to add a
    * row to React state and drive a timer, which meant the row's "running", its
    * progress and its "done 03:24" were all invented, and the keys it invented
@@ -130,14 +123,14 @@ export function AddTemplateModal({ open, onClose, dx, onSlurm }: { open: boolean
               : `${fmtMin(estimate)} · ${over ? 'cluster' : 'local'}${unpriced > 0 ? ` · ${unpriced} not previewed` : ''}`}
           </span>}
           <Button onClick={onClose}>Cancel</Button>
-          <Button icon="plus" onClick={() => add(false)} disabled={!!blockReason} disabledReason={blockReason ?? undefined} testid="add-runs">Add {chosen.length || ''} run{chosen.length === 1 ? '' : 's'}</Button>
+          <Button icon="plus" onClick={() => add(false)} disabled={!!blockReason || busy} disabledReason={blockReason ?? (busy ? 'adding the run…' : undefined)} testid="add-runs">Add {chosen.length || ''} run{chosen.length === 1 ? '' : 's'}</Button>
           {over ? (
             <>
               <DisabledReason reason={blockReason ?? `above the ${DISCOVERY_LIMIT_MIN} min local limit · create a SLURM script`}><Button icon="play" disabled disabledReason={blockReason ?? `above the ${DISCOVERY_LIMIT_MIN} min local limit · create a SLURM script`} testid="add-and-run">Add and run</Button></DisabledReason>
-              <Button variant="cluster" icon="file" onClick={slurm} disabled={!!blockReason} disabledReason={blockReason ?? undefined} testid="add-slurm">Create SLURM script</Button>
+              <Button variant="cluster" icon="file" onClick={slurm} disabled={!!blockReason || busy} disabledReason={blockReason ?? (busy ? 'adding the run…' : undefined)} testid="add-slurm">Create SLURM script</Button>
             </>
           ) : (
-            <Button variant="primary" icon="play" onClick={() => add(true)} disabled={!!blockReason} disabledReason={blockReason ?? undefined} testid="add-and-run">Add and run</Button>
+            <Button variant="primary" icon="play" onClick={() => add(true)} disabled={!!blockReason || busy} disabledReason={blockReason ?? (busy ? 'starting the run…' : undefined)} testid="add-and-run">Add and run</Button>
           )}
         </div>
       }>

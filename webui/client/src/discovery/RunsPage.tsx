@@ -239,7 +239,7 @@ function Scoreboard({ dx }: { dx: Discovery }) {
     {/* "null expects 3" is unreadable without the draw count it is over, and
         the server sends one on every row. Without it a 50-draw null and a
         single-draw null print the same number and mean different things. */}
-    <td data-testid="score-null">{row.nullRun === false ? <span className="muted">no null run</span> : <>{row.nullExpects}{row.nullDraws ? <span className="muted small"> / {row.nullDraws} draw{row.nullDraws === 1 ? '' : 's'}</span> : null}</>}</td>
+    <td data-testid="score-null">{row.nullRun === false ? <span className="muted">no null run</span> : <>{row.nullExpects}{row.nullDraws ? <span className="muted small"> / {row.nullDraws}</span> : null}</>}</td>
     <td data-testid="score-xnull">{row.xNull == null
       ? <span className="muted">{row.xNullNote ?? '—'}</span>
       : <>{`${row.xNull.toFixed(1)}×`}{row.xNullNote && <InfoTip title="× null">{row.xNullNote}</InfoTip>}</>}</td>
@@ -255,7 +255,7 @@ function Scoreboard({ dx }: { dx: Discovery }) {
       </div>
       <div className="k-table-wrap">
         <table className="dsc-table" data-testid="scoreboard-table">
-          <thead><tr>{th('run')}{th('found', 'found')}{th('already judged', 'judged')}{th('reviewed', 'reviewed')}{th('interesting', 'interesting')}{th('precision', 'precision')}{th('recall · reviewed overlap')}{th('null expects', 'nullExpects')}{th('× null', 'xNull')}</tr></thead>
+          <thead><tr>{th('run')}{th('found', 'found')}{th('already judged', 'judged')}{th('reviewed', 'reviewed')}{th('interesting', 'interesting')}{th('precision', 'precision')}{th('recall · reviewed overlap')}{th('null expects / draws', 'nullExpects')}{th('× null', 'xNull')}</tr></thead>
           <tbody>
             {done.map(s => {
               const open = expanded.includes(s.run)
@@ -405,7 +405,7 @@ function RunActs({ dx, run }: { dx: Discovery; run: DiscoveryRun | null }) {
     <section className="k-card dsc-acts" data-testid="run-acts" aria-label="Run acts">
       <span className="dot" style={{ background: run.colour, width: 9, height: 9 }} />
       <b>{run.label}</b>
-      {total && results ? <span className="muted small">{total.found} detections · {run.channelsDone ?? `${dx.scope!.channels.length} channels`} · {total.judged} already judged</span> : <span className="muted small">{reason}</span>}
+      {total && results ? <span className="muted small">{total.found} detections · {run.channelsDone ? `${run.channelsDone} channels` : `${dx.scope!.channels.length} channels`} · {total.judged} already judged</span> : <span className="muted small">{reason}</span>}
       <span className="k-spacer" />
       <Button icon="trash" onClick={() => setConfirm('discard')} disabled={!!reason} disabledReason={reason ?? undefined} testid="discard-run">Discard run</Button>
       <Button icon="branch" onClick={() => { recordDemoWrite('analyse', 'import-spanset', { run: run.key }); notWired(`send SpanSet of ${run.label} to Analyse`); navigate('analyse/chain') }} disabled={!!reason} disabledReason={reason ?? undefined} testid="analyse-events">Analyse events</Button>

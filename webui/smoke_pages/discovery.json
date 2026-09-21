@@ -33,13 +33,10 @@
  {
   "page": "discovery.runs",
   "state": "modal-slurm",
-  "hash": "discovery/runs",
+  "hash": "discovery/runs?modal=slurm",
   "actions": [
    {
-    "click": "[data-testid=\"toolbar-slurm\"]"
-   },
-   {
-    "wait": 300
+    "wait": 1200
    }
   ],
   "expect": [
@@ -443,7 +440,7 @@
   "hash": "discovery/compare?a=mp_threshold&b=smoke_seed",
   "actions": [
    {
-    "click": "[data-testid=\"overlap-CH7_B2\"] [data-testid=\"overlap-seg-onlyB\"]"
+    "click": "[data-testid=\"overlap-CH1_A1\"] [data-testid=\"overlap-seg-onlyB\"]"
    },
    {
     "wait": 400
@@ -492,7 +489,7 @@
  {
   "page": "discovery.stages",
   "state": "default",
-  "hash": "discovery/compare/stages?a=mp_threshold&b=smoke_seed&only=a&i=7",
+  "hash": "discovery/compare/stages?a=mp_threshold&b=smoke_seed&only=a&i=1",
   "actions": [],
   "expect": [
    "[data-testid=\"step-bar\"]",
@@ -504,7 +501,7 @@
  {
   "page": "discovery.stages",
   "state": "re-running",
-  "hash": "discovery/compare/stages?a=mp_threshold&b=smoke_seed&only=a&i=7&state=rerun",
+  "hash": "discovery/compare/stages?a=mp_threshold&b=smoke_seed&only=a&i=1&state=rerun",
   "actions": [
    {
     "wait": 300
@@ -519,7 +516,7 @@
  {
   "page": "discovery.stages",
   "state": "stepped",
-  "hash": "discovery/compare/stages?a=mp_threshold&b=smoke_seed&only=a&i=7",
+  "hash": "discovery/compare/stages?a=mp_threshold&b=smoke_seed&only=a&i=1",
   "actions": [
    {
     "click": "[data-testid=\"stage-pager\"] button:last-of-type"
@@ -537,7 +534,7 @@
  {
   "page": "discovery.stages",
   "state": "swapped",
-  "hash": "discovery/compare/stages?a=mp_threshold&b=smoke_seed&only=a&i=7",
+  "hash": "discovery/compare/stages?a=mp_threshold&b=smoke_seed&only=a&i=1",
   "actions": [
    {
     "click": "[data-testid=\"swap-ab\"]"

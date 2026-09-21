@@ -318,8 +318,12 @@ function ParamsCard({ draft, recommended, seed, setParams, results, nullAtRec, k
           aside={<b className="mono">{p.exclusionSettable === false ? `m/4 = ${p.exclusionS} s` : p.exclusionS === half ? `m/2 = ${half} s` : `${p.exclusionS} s`}</b>}>
           <Slider value={p.exclusionS} onChange={v => setParams({ exclusionS: v })} min={0} max={m} step={1} showValue={false} testid="param-exclusion" ariaLabel="exclusion zone"
             disabled={p.exclusionSettable === false} disabledReason={p.exclusionSettable === false ? 'detection.seed_matches takes no exclusion parameter — stumpy.match applies its own m/4' : undefined} />
-          <span className={cx('small mono', p.exclusionNote ? 'muted' : p.exclusionS === half ? 'green' : p.exclusionS < half ? 'amber' : 'muted')} data-testid="exclusion-caption">
-            {p.exclusionNote ?? (p.exclusionS === half ? '= trivial-match guard' : p.exclusionS < half ? 'below m/2 lets trivial matches through' : 'wider than m/2 · fewer neighbouring matches')}
+          {/* one line here, the whole sentence in the info-tip: the note runs to
+              three sentences and printed in full it crowded the histogram */}
+          <span className={cx('small mono', p.exclusionSettable === false ? 'muted' : p.exclusionS === half ? 'green' : p.exclusionS < half ? 'amber' : 'muted')} data-testid="exclusion-caption">
+            {p.exclusionSettable === false
+              ? `stumpy.match's own guard · §7.6 asks m/2 (${p.specExclusionS ?? half} s)`
+              : p.exclusionNote ?? (p.exclusionS === half ? '= trivial-match guard' : p.exclusionS < half ? 'below m/2 lets trivial matches through' : 'wider than m/2 · fewer neighbouring matches')}
           </span>
         </ParamField>
         {/* the cut is computed from the null distribution, so there is none until a search has drawn one */}

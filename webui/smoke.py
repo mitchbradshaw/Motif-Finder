@@ -31,6 +31,8 @@ SHOTS = os.environ.get("SMOKE_SHOTS") or os.path.join(HERE, "screenshots")   # t
 #: coverage, which is what gives the scoreboard a denominator.
 SMOKE_SECTION_H = (80.0, 84.0)
 SMOKE_TEMPLATE = "mp_threshold"
+#: added but never started, so the Runs page has something pending to route
+SMOKE_PENDING_TEMPLATE = "drop_detection_v1"
 #: The k the seed page itself asks for (SeedPage.tsx::SEED_K). A result computed
 #: under a different k is a different cache key and the page finds nothing.
 SMOKE_SEED_K = 200
@@ -375,6 +377,13 @@ class Smoke:
             return None
         a_key = applied[0]["run_key"]
         self._wait_job(call, applied[0].get("job_id"))
+
+        # one template added and NOT started: §7.5's cluster route is about a run
+        # that exists and has not run, and `?modal=slurm` needs one to write a
+        # script for. `run: false` is the modal's own *Create SLURM script* path.
+        call("/api/discovery/templates/apply",
+             {"templates": [SMOKE_PENDING_TEMPLATE], "channels": channels, "t0": t0, "t1": t1,
+              "run": False}, "POST")
 
         b_key = None
         # the seed page opens on the draft's seed, so compute the result for THAT
