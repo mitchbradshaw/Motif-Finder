@@ -34,8 +34,6 @@ while not os.path.isdir(os.path.join(PROJECT_ROOT, "Working")) \
 if PROJECT_ROOT not in sys.path:
     sys.path.insert(0, PROJECT_ROOT)
 
-import panel as pn
-pn.extension()
 
 import Working.config as config
 from Working.config import HELD_OUT_RECORDING_FILE
@@ -43,17 +41,11 @@ from Working.database.schema import init_db
 from Working.database import queries as q
 from Working.execution import execute_recipe, HeldOutRecordingLocked, RecipeExecutionError
 from Working.recipes import make_recipe
-from UI.viewer import ViewerApp
-from tests._session_isolation import scratch_session_file
 
 REAL_CHANNEL_PATH = "DATA/derived/channels/M2_aug_concat_fs1/CH0.npy"
 REAL_L = 2_595_600
 
 STEPS = [{"stage": "preprocessing", "algorithm": "zscore"}]
-
-
-def _channel_available():
-    return os.path.isfile(REAL_CHANNEL_PATH)
 
 
 def _scratch_db(*source_files):
@@ -188,51 +180,6 @@ def test_the_guard_reads_config_not_a_literal():
         assert decoy in str(excinfo.value)
     finally:
         os.unlink(db_path)
-
-
-# ── The viewer ──────────────────────────────────────────────────────────────
-
-
-def _app_on(db_path):
-    session_cm = scratch_session_file()
-    session_cm.__enter__()
-    app = ViewerApp(db_path=db_path)
-    app._test_session_cm = session_cm
-    return app
-
-
-def _close(app, db_path):
-    app._test_session_cm.__exit__(None, None, None)
-    app.conn.close()
-    os.unlink(db_path)
-
-
-def test_viewer_refuses_to_load_the_held_out_recording():
-    if not _channel_available():
-        pytest.skip(f"real channel data not present: {REAL_CHANNEL_PATH}")
-    db_path, _ = _scratch_db("normal_recording.mat", HELD_OUT_RECORDING_FILE)
-    app = _app_on(db_path)
-    try:
-        assert app.source_file == "normal_recording.mat"
-        app.source_file = HELD_OUT_RECORDING_FILE
-        assert app.source_file != HELD_OUT_RECORDING_FILE, \
-            "the viewer loaded the held-out recording"
-        assert "locked" in app.status.object.lower()
-    finally:
-        _close(app, db_path)
-
-
-def test_viewer_permits_the_held_out_recording_when_unlocked():
-    if not _channel_available():
-        pytest.skip(f"real channel data not present: {REAL_CHANNEL_PATH}")
-    db_path, _ = _scratch_db(HELD_OUT_RECORDING_FILE)
-    with _unlocked():
-        app = _app_on(db_path)
-        try:
-            assert app.source_file == HELD_OUT_RECORDING_FILE
-            assert "locked" not in app.status.object.lower()
-        finally:
-            _close(app, db_path)
 
 
 def _run_all():

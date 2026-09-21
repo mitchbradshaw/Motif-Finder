@@ -294,61 +294,6 @@ def test_search_across_durations_native_length_control_recovers_fewer():
             conn.close()
 
 
-def test_entry_detail_search_action_constructs_and_runs():
-    import panel as pn
-    import holoviews as hv
-    pn.extension("tabulator")
-    hv.extension("bokeh")
-    from UI.workspaces.library.detail import EntryDetail
-
-    class _FakeApp:
-        def __init__(self, conn):
-            self.conn = conn
-
-    with tempfile.TemporaryDirectory() as npy_dir:
-        conn, entry_id, rec_a, rec_b, planted = _make_scale_library(npy_dir)
-        try:
-            detail = EntryDetail(_FakeApp(conn))
-            # The search action's panes are present and non-None.
-            assert detail.search_recording is not None
-            assert detail.search_min_duration is not None
-            assert detail.search_max_duration is not None
-            assert detail.search_step is not None
-            assert detail.search_threshold is not None
-            assert detail.search_run_button is not None
-            assert detail.search_results_pane is not None
-            assert detail.layout() is not None
-
-            # Drive the action: select the exemplar, point the search at
-            # recording B, run it.
-            detail.select_entry(entry_id)
-            detail.search_recording.value = rec_b
-            detail.search_min_duration.value = 50
-            detail.search_max_duration.value = 200
-            detail.search_step.value = 50
-            detail.search_threshold.value = 0.1
-            detail._on_search_run(None)
-
-            text = detail.search_results_pane.object
-            assert "scale_invariant" in text
-            assert "native_length" in text
-
-            # The action ran both distances side by side; the scale-invariant
-            # arm recovered the planted spans, the native-length arm did not.
-            results = detail.last_search_results
-            assert results[DISTANCE_SCALE_INVARIANT]["recall"] >= len(planted)
-            assert results[DISTANCE_NATIVE_LENGTH]["recall"] < len(planted)
-
-            # The search wrote members and edges recording the distance used.
-            edges = R.list_motif_edges(conn, entry_id)
-            assert edges
-            assert all(
-                e["distance_function"] == DISTANCE_SCALE_INVARIANT for e in edges
-            )
-        finally:
-            conn.close()
-
-
 # ── runner ──────────────────────────────────────────────────────────────────
 
 def _run_all():

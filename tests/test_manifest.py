@@ -37,7 +37,6 @@ import sys
 import tempfile
 
 import numpy as np
-import panel as pn
 
 PROJECT_ROOT = os.path.dirname(os.path.abspath(__file__))
 while not os.path.isdir(os.path.join(PROJECT_ROOT, "Working")) \
@@ -52,7 +51,6 @@ from Working.database import runs as R
 from Working.execution import execute_recipe
 from Working.recipes import make_recipe
 from Working import manifest
-from UI.admin import ManifestImport
 
 
 # ── helpers ──────────────────────────────────────────────────────────────────
@@ -379,34 +377,6 @@ def test_run_recipe_cli_writes_manifest_on_failure():
         assert data["runs"][0]["error_text"]
     finally:
         shutil.rmtree(tmpdir, ignore_errors=True)
-
-
-# ── UI import action ─────────────────────────────────────────────────────────
-
-def test_admin_manifest_import_surface_constructs():
-    """The cluster-job import action is a Panel surface; a broken dynamic map
-    here would render as a silently blank pane, so it must construct with the
-    expected non-None panes (repo's admin/ribbon construction-test pattern)."""
-    db_path = _temp_db_path()
-    try:
-        conn = init_db(db_path)
-        try:
-            surf = ManifestImport(conn)
-            layout = surf.layout()
-            assert isinstance(layout, pn.Column)
-            assert any(
-                isinstance(o, pn.widgets.TextInput) and o.name == "Manifest path"
-                for o in layout.objects
-            )
-            assert any(
-                isinstance(o, pn.widgets.Button) and "Import" in o.name
-                for o in layout.objects
-            )
-            assert any(isinstance(o, pn.pane.Markdown) for o in layout.objects)
-        finally:
-            conn.close()
-    finally:
-        os.unlink(db_path)
 
 
 # ── runner ───────────────────────────────────────────────────────────────────

@@ -5,12 +5,13 @@ Ticket 33 — the two-run set-overlap comparison.
 
 `Working.compare` is the headless half: given two completed runs, it computes
 the intersection and each run's exclusive remainder using the named overlap
-criterion `similarity.interval_iou`. `UI.workspaces.analyse.compare` renders
-that result and routes an exclusive remainder into the Review queue.
+criterion `similarity.interval_iou`. The Panel surface that rendered it
+(`UI.workspaces.analyse.compare`) was retired with the Panel tree on
+2026-09-21 (tag `archive/panel-ui`) together with its seven surface tests; the
+web UI renders the same `Working.compare` result.
 
-These tests are deliberately headless: the core tests use an in-memory SQLite
-database and synthetic detection rows; the UI tests use a fake app with only
-the `.conn` attribute the surface reads.
+These tests are deliberately headless: an in-memory SQLite database and
+synthetic detection rows.
 """
 
 import inspect
@@ -26,15 +27,12 @@ while not os.path.isdir(os.path.join(PROJECT_ROOT, "Working")) \
 if PROJECT_ROOT not in sys.path:
     sys.path.insert(0, PROJECT_ROOT)
 
-import panel as pn
-pn.extension()
 
 from Working.database import queries as q
 from Working.database import runs as run_db
 from Working.database.schema import init_db
 from Working.database.similarity import interval_iou
 from Working.recipes import make_recipe
-from UI.workspaces.review.queue_state import ReviewQueue
 
 
 def _make_db():
@@ -68,17 +66,6 @@ def _make_named_comparison_runs(steps_a, steps_b, name_a="tuned lowpass", name_b
     return conn, run_a, run_b
 
 
-def _card_columns(pane):
-    """The direct child `pn.Column` cards of a chain-canvas row."""
-    return [obj for obj in getattr(pane, "objects", ()) if isinstance(obj, pn.Column)]
-
-
-def _is_highlighted(card):
-    """Whether a compare card carries the T69 highlight background."""
-    styles = getattr(card, "styles", {}) or {}
-    return styles.get("background") == "#fff7e6"
-
-
 def _close(conn):
     conn.close()
 
@@ -88,15 +75,15 @@ def _close(conn):
 def test_exactly_one_run_set_overlap_implementation_in_repository():
     """Ticket 44 consumes the run-set overlap rather than reimplementing it.
 
-    The only function named `compare_run_sets` in the working/UI source tree
-    must be the one in `Working/compare.py`.
+    The only function named `compare_run_sets` in the core and web-bridge
+    source trees must be the one in `Working/compare.py`.
     """
     import ast
     from pathlib import Path
 
     root = Path(PROJECT_ROOT)
     definitions = []
-    for base in ("Working", "UI"):
+    for base in ("Working", "webui"):
         for path in (root / base).rglob("*.py"):
             tree = ast.parse(path.read_text(encoding="utf-8"))
             for node in ast.walk(tree):
@@ -376,194 +363,6 @@ def test_diff_recipes_is_about_the_chain_not_run_scope():
                     span=(0, 200))
 
     assert diff_recipes(a, b) == ()
-
-
-# ── UI surface: CompareSurface ─────────────────────────────────────────────
-
-class _FakeApp:
-    """The minimal app shape the surface reads: a live connection."""
-
-    def __init__(self, conn):
-        self.conn = conn
-
-
-class _FakeReviewSurface:
-    def __init__(self, conn):
-        self.queue = ReviewQueue(conn)
-        self.activated = []
-
-    def on_tab_activated(self):
-        self.activated.append(True)
-
-
-class _RoutableFakeApp(_FakeApp):
-    def __init__(self, conn, review_surface):
-        super().__init__(conn)
-        self.review_surface = review_surface
-        self.activations = []
-
-    def activate_workspace(self, workspace, section=None):
-        self.activations.append((workspace, section))
-
-
-def test_compare_surface_construction_returns_non_none_panes():
-    from UI.workspaces.analyse.compare import CompareSurface
-
-    conn, run_a, run_b = _make_db()
-    try:
-        _add_detections(conn, run_a, [(0, 10)])
-        _add_detections(conn, run_b, [(20, 30)])
-
-        surface = CompareSurface(_FakeApp(conn))
-        layout = surface.layout()
-
-        assert layout is not None
-        for pane in (
-            surface.run_a_select,
-            surface.run_b_select,
-            surface.compare_button,
-            surface.review_a_button,
-            surface.review_b_button,
-            surface.summary_pane,
-            surface.detail_pane,
-        ):
-            assert pane is not None, "a Compare pane must never be None"
-    finally:
-        _close(conn)
-
-
-def test_compare_surface_shows_counts_after_compare():
-    from UI.workspaces.analyse.compare import CompareSurface
-
-    conn, run_a, run_b = _make_db()
-    try:
-        _add_detections(conn, run_a, [(0, 10)])
-        _add_detections(conn, run_b, [(20, 30)])
-
-        surface = CompareSurface(_FakeApp(conn))
-        surface.run_a_select.value = run_a
-        surface.run_b_select.value = run_b
-        surface._on_compare()
-
-        assert surface._comparison is not None
-        assert "Intersection" in surface.summary_pane.object
-        assert "A-only" in surface.summary_pane.object
-        assert "B-only" in surface.summary_pane.object
-    finally:
-        _close(conn)
-
-
-def test_compare_surface_routes_exclusive_remainder_to_review_queue():
-    from UI.workspaces.analyse.compare import CompareSurface
-
-    conn, run_a, run_b = _make_db()
-    try:
-        _add_detections(conn, run_a, [(0, 10)])
-        _add_detections(conn, run_b, [(20, 30)])
-
-        review = _FakeReviewSurface(conn)
-        app = _RoutableFakeApp(conn, review)
-        surface = CompareSurface(app)
-        surface.run_a_select.value = run_a
-        surface.run_b_select.value = run_b
-        surface._on_compare()
-
-        surface._route_to_review("a")
-
-        assert app.activations[-1] == ("Review", "Candidate queue")
-        assert review.activated, "routing into Review must re-render its queue"
-        assert all(row["run_id"] == run_a for row in review.queue.candidates)
-
-        surface._route_to_review("b")
-        assert app.activations[-1] == ("Review", "Candidate queue")
-        assert all(row["run_id"] == run_b for row in review.queue.candidates)
-    finally:
-        _close(conn)
-
-
-def test_compare_surface_run_labels_show_name_alongside_id():
-    from UI.workspaces.analyse.compare import CompareSurface
-
-    label = CompareSurface._run_label({
-        "id": 12,
-        "name": "tuned lowpass",
-        "recording_id": 7,
-        "span_start": 0,
-        "span_end": 100,
-    })
-    assert "#12" in label
-    assert "tuned lowpass" in label
-
-
-def test_compare_surface_renders_stacked_chain_canvases_for_differing_runs():
-    from UI.workspaces.analyse.compare import CompareSurface
-
-    conn, run_a, run_b = _make_named_comparison_runs(
-        [{"stage": "preprocessing", "algorithm": "lowpass",
-          "params": {"cutoff_hz": 0.05}}],
-        [{"stage": "preprocessing", "algorithm": "lowpass",
-          "params": {"cutoff_hz": 0.06}}],
-    )
-    try:
-        surface = CompareSurface(_FakeApp(conn))
-        surface.run_a_select.value = run_a
-        surface.run_b_select.value = run_b
-        surface._on_compare()
-
-        assert surface.chain_a_pane is not None
-        assert surface.chain_b_pane is not None
-        assert len(surface.chain_a_pane.objects) >= 1
-        assert len(surface.chain_b_pane.objects) >= 1
-        assert all(obj is not None for obj in surface.chain_a_pane.objects)
-        assert all(obj is not None for obj in surface.chain_b_pane.objects)
-        assert "cutoff_hz" in surface.diff_summary_pane.object
-        assert "Overlap" in surface.summary_pane.object
-    finally:
-        _close(conn)
-
-
-def test_compare_surface_renders_stacked_chain_canvases_for_identical_runs():
-    from UI.workspaces.analyse.compare import CompareSurface
-
-    steps = [{"stage": "preprocessing", "algorithm": "lowpass",
-              "params": {"cutoff_hz": 0.05}}]
-    conn, run_a, run_b = _make_named_comparison_runs(steps, steps)
-    try:
-        surface = CompareSurface(_FakeApp(conn))
-        surface.run_a_select.value = run_a
-        surface.run_b_select.value = run_b
-        surface._on_compare()
-
-        assert surface.chain_a_pane is not None
-        assert surface.chain_b_pane is not None
-        assert len(surface.chain_a_pane.objects) >= 1
-        assert len(surface.chain_b_pane.objects) >= 1
-        assert "identical" in surface.diff_summary_pane.object.lower()
-    finally:
-        _close(conn)
-
-
-def test_compare_surface_highlights_the_differing_cards():
-    from UI.workspaces.analyse.compare import CompareSurface
-
-    conn, run_a, run_b = _make_named_comparison_runs(
-        [{"stage": "preprocessing", "algorithm": "lowpass",
-          "params": {"cutoff_hz": 0.05}}],
-        [{"stage": "preprocessing", "algorithm": "lowpass",
-          "params": {"cutoff_hz": 0.06}}],
-    )
-    try:
-        surface = CompareSurface(_FakeApp(conn))
-        surface.run_a_select.value = run_a
-        surface.run_b_select.value = run_b
-        surface._on_compare()
-
-        a_cards = _card_columns(surface.chain_a_pane)
-        b_cards = _card_columns(surface.chain_b_pane)
-        assert any(_is_highlighted(card) for card in a_cards)
-        assert any(_is_highlighted(card) for card in b_cards)
-    finally:
-        _close(conn)
 
 
 def _run_all():

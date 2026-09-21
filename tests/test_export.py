@@ -343,43 +343,6 @@ def _surrogate_run_id(conn, group_id):
     return row["id"]
 
 
-# ── UI export action ─────────────────────────────────────────────────────────
-
-def test_run_group_exporter_surface_constructs():
-    """The export action is a Panel surface; a broken dynamic map here would
-    render as a silently blank pane, so it must construct with the expected
-    non-None panes."""
-    import panel as pn
-    pn.extension()
-    from UI.workspaces.analyse.export import RunGroupExporter
-
-    conn, db_path, tmpdir, group_id, run1, run2, _ = _setup_run_group()
-    try:
-        surface = RunGroupExporter(_FakeApp(conn))
-        layout = surface.layout()
-        assert layout is not None
-        assert surface.run_group is not None
-        assert surface.out_dir is not None
-        assert surface.export_button is not None
-        assert surface.status is not None
-        assert any(isinstance(o, pn.widgets.Select) for o in layout.objects)
-        assert any(isinstance(o, pn.widgets.Button) and "Export" in o.name
-                   for o in layout.objects)
-        # the run group we set up is offered as an option
-        assert group_id in surface.run_group.options.values()
-    finally:
-        conn.close()
-        shutil.rmtree(tmpdir, ignore_errors=True)
-
-
-class _FakeApp:
-    """The minimal shape the export surface needs off `app` — a live db
-    connection."""
-
-    def __init__(self, conn):
-        self.conn = conn
-
-
 # ── library entry exporter (T46) ─────────────────────────────────────────────
 
 def _write_recording_npy(conn, npy_dir, source_file, channel, data):
@@ -559,32 +522,6 @@ def test_export_library_entry_raises_for_missing_entry():
             assert False, "expected ValueError for a missing entry"
         except ValueError:
             pass
-    finally:
-        conn.close()
-        shutil.rmtree(tmpdir, ignore_errors=True)
-
-
-def test_library_entry_exporter_surface_constructs():
-    """The export action is a Panel surface; a broken dynamic map here would
-    render as a silently blank pane, so it must construct with the expected
-    non-None panes."""
-    import panel as pn
-    pn.extension()
-    from UI.workspaces.library.detail import EntryDetail
-
-    conn, db_path, tmpdir = _fresh_db()
-    entry_id, _run_id, _plot_path = _setup_library_entry(conn, tmpdir)
-    try:
-        surface = EntryDetail(_FakeApp(conn))
-        surface.select_entry(entry_id)
-        layout = surface.layout()
-
-        assert layout is not None
-        assert surface.export_button is not None
-        assert surface.export_out_dir is not None
-        assert surface.export_status is not None
-        assert any(isinstance(o, pn.widgets.Button) and "Export" in o.name
-                   for o in layout.objects)
     finally:
         conn.close()
         shutil.rmtree(tmpdir, ignore_errors=True)

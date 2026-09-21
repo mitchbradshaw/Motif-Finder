@@ -51,10 +51,6 @@ if PROJECT_ROOT not in sys.path:
     sys.path.insert(0, PROJECT_ROOT)
 
 import numpy as np
-import panel as pn
-pn.extension("tabulator")
-import holoviews as hv
-hv.extension("bokeh")
 
 from Working.database.schema import init_db
 from Working.database import queries as q
@@ -69,13 +65,6 @@ BUNDLE_DIR = os.path.join(
 )
 
 SEED_N_MOTIFS = 410  # the manifest's n_motifs; every motif becomes a member.
-
-
-class _FakeLibraryApp:
-    """The only app surface `LibraryGrid` is allowed to read."""
-
-    def __init__(self, conn):
-        self.conn = conn
 
 
 def _seed_content_set():
@@ -420,27 +409,6 @@ def test_all_imported_entries_have_an_explicit_scale():
         ).fetchone()[0] == result["n_entries"] + result["n_train_entries"]
     finally:
         conn.close()
-
-
-# ── criterion 6: the Library grid renders imported entries ──────────────────
-
-def test_library_grid_renders_imported_entries():
-    from UI.workspaces.library.grid import LibraryGrid
-
-    with tempfile.TemporaryDirectory() as npy_dir:
-        conn = init_db(":memory:")
-        try:
-            _precreate_recordings(conn, npy_dir)
-            result = import_drop_motifs(conn, BUNDLE_DIR)
-            assert result["n_entries"] > 0
-
-            grid = LibraryGrid(_FakeLibraryApp(conn))
-            layout = grid.layout()
-            assert layout is not None
-            assert len(grid.cards) == result["n_entries"] + result["n_train_entries"]
-            assert all(card is not None for card in grid.cards)
-        finally:
-            conn.close()
 
 
 # ── runner ──────────────────────────────────────────────────────────────────

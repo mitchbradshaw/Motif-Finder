@@ -32,14 +32,17 @@ dependencies:
   - tensorflow
   - torchvision
   - python-docx
-  # Dev tooling for the browser-driven UI suite (tests/ui/, `pytest -m ui`).
-  # Added 2026-08-31 with explicit sign-off; see CLAUDE.md > Environment and
-  # docs/UI_VERIFICATION.md. Nothing the application imports depends on these,
-  # and the headless suite must keep passing without them.
+  # Dev tooling. Added 2026-08-31 with explicit sign-off (see CLAUDE.md >
+  # Environment): pytest-xdist for `pytest -n auto`; playwright for the web
+  # UI's browser gate `webui/smoke.py` (the Panel-era `pytest -m ui` suite that
+  # first brought pytest-playwright in was retired 2026-09-21, tag
+  # archive/panel-ui — the runtime it depended on is what smoke.py still uses).
+  # Nothing the application imports depends on these, and the headless suite
+  # must keep passing without them.
   #
   # After creating the environment, also run once per machine:
   #     python -m playwright install chromium
   - pip:
       - pytest-xdist
-      - pytest-playwright
+      - playwright
 prefix: C:\ProgramData\anaconda3

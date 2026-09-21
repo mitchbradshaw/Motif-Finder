@@ -2,8 +2,9 @@
 _calibration_isolation.py
 =========================
 Shared test helper: every test that triggers cost calibration must redirect
-`cost.CALIBRATION_PATH` away from the real `DATA/db/*_calibration.json`, the
-same way `tests/_session_isolation.py` protects the real UI session file.
+`cost.CALIBRATION_PATH` away from the real `DATA/db/*_calibration.json`
+(the Panel-era `tests/_session_isolation.py` did the same for the old UI's
+session file; it went with that tree on 2026-09-21, tag `archive/panel-ui`).
 
 This replaces two divergent copies of an `_IsolatedCalibration` class that
 each did:

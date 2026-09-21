@@ -18,10 +18,8 @@ import sys
 import tempfile
 
 import numpy as np
-import panel as pn
 import pytest
 
-pn.extension("tabulator")
 
 PROJECT_ROOT = os.path.dirname(os.path.abspath(__file__))
 while not os.path.isdir(os.path.join(PROJECT_ROOT, "Working")) \
@@ -535,51 +533,6 @@ def test_manually_named_surrogate_is_left_alone():
             R.update_run(conn, parent_id, name="second")
             # ... and after a parent rename
             assert R.get_run(conn, surrogate_id)["name"] == "my explicit surrogate"
-        finally:
-            conn.close()
-    finally:
-        shutil.rmtree(tmpdir, ignore_errors=True)
-
-
-def test_run_history_browser_shows_and_edits_name():
-    """Headless construction check: the run-history table carries the run name
-    in its own column, and only that column is editable."""
-    from UI.workspaces.analyse.history import RunHistoryBrowser
-
-    db_path, tmpdir = _fresh_db_with_channels(1)
-    try:
-        rec_id = _recording_ids(db_path)[0]
-        recipe = make_recipe(
-            rec_id,
-            [{"stage": "preprocessing", "algorithm": "lowpass",
-              "params": {"cutoff_hz": 0.05}}],
-            span=(0, 100),
-        )
-        conn = init_db(db_path)
-        try:
-            config_id, _ = R.get_or_create_config(conn, recipe)
-            R.insert_run(conn, config_id, rec_id, 0, 100,
-                         status="completed", name="tuned lowpass")
-        finally:
-            conn.close()
-
-        conn = init_db(db_path)
-        try:
-            class _FakeApp:
-                def __init__(self, conn):
-                    self.conn = conn
-                    self.chain_builder = None
-                    self.tabs = None
-
-            browser = RunHistoryBrowser(_FakeApp(conn))
-            layout = browser.layout()
-            assert layout is not None
-            assert "name" in browser.table.value.columns
-            assert browser.table.value.iloc[0]["name"] == "tuned lowpass"
-            # the name column is the only editable one in the table
-            assert browser.table.disabled is False
-            assert browser.table.editors["name"] is not None
-            assert browser.table.editors["id"] is None
         finally:
             conn.close()
     finally:
