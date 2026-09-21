@@ -199,6 +199,28 @@ This is a question for the researcher, not something to fix by loosening the rul
 144 tests. The first commit of the prompt was tests only and red
 (`0e15af2`, `ModuleNotFoundError: No module named 'Working.discovery'`).
 
+## The gate
+
+| | |
+|---|---|
+| `pytest -n auto` (conda, whole suite) | **1 496 passed, 5 skipped, 0 failed** in 11 min |
+| `webui/.venv/…/pytest tests/test_webui_discovery.py` | **35 passed** (skips under conda — no FastAPI there) |
+| `npx tsc -b` in `webui/client` | clean |
+| `npm run build` | clean |
+| `webui/smoke.py --only discovery` on 8766 | 65 screenshots; every Discovery page state green and **zero browser console errors from a Discovery page** |
+| `webui/drive_discovery.py` | 64 calls, 0 unexpected errors |
+
+The baseline was 1 177 passed / 0 failed after Prompt 01; the suite has grown by
+this prompt's 144 tests and Prompt 03's, and the failure set is still empty.
+
+Two runs of the smoke showed four failures in the **Analyse** flow's chain-run
+checks (`all rows completed`, `every result row painted`, the threshold line,
+the stale marking) and the two console lines they produce. They are a timing
+failure, not a defect: the flow waits a fixed time for a matrix-profile row
+while Prompt 03's work loads the machine, and the same four checks passed in
+the round when it was quieter. Not a Discovery surface, and Discovery's own
+flow and page states pass in the same runs.
+
 ## Three defects the live drive found that no unit test would have
 
 1. **Compare drew five absent cells and reported "0 roles differ"** over two chains that share nothing. A
@@ -308,3 +330,51 @@ human table; and that the content hash is the SHA-1 of the seed's 136 samples.
 | `webui/client/src/api.ts` | Appended only (named in the prompt as shared). |
 
 `webui/client/src/fixtures/canon.ts` was not touched.
+
+## Chat summary
+
+Discovery runs on the real database. A seeded search takes a seed by content —
+a Library entry, a family medoid or an Explore selection, resolved by hashing
+its samples so the recipe travels — runs the block's own `stumpy.match` across
+the scoped channels as one `sweep` job with per-channel progress, draws a null
+of N surrogate realisations through `preprocessing.surrogate`, and lets the
+researcher move the cut over the real distribution without recomputing
+anything. A template becomes one run across every channel in scope, checked
+and routed before it starts, paired with its surrogate, and scored against the
+human record by spec §4.6's rule — both halves of it, with the rule recorded
+on every figure because a precision whose rule is unstated cannot be falsified.
+Compare aligns two chains by role from the blocks' own declared types, and
+Compare-every-stage pushes one window through both chains without writing a
+run. Discard marks the runs superseded and writes no verdicts; Send to Review
+is a filter over the run's unadjudicated detections, not a copy.
+
+Nine core modules under `Working/discovery/` (UI-free), 29 bridge routes, 18 of
+18 client reads live with zero `demo(` left, 144 tests, two additive tables and
+two additive columns.
+
+The run that matters: M2_aug_concat_fs1, 80–84 h, CH1_A1 and CH8_B2, seeded
+from drop-motif family `id035`'s medoid. 400 candidates over 2.221–16.897,
+a 50-draw phase-randomised null whose smallest distance is 3.715, a recommended
+cut of 3.582 below all of it, a measured preview, two real runs (4 and 6
+detections), a scoreboard with real precision and recall, three differing roles
+on Compare, a SLURM array job from the core's own exporter, and a discard that
+wrote zero adjudications and zero annotations. 64 calls, no unexpected errors.
+
+Three critics found what the tests could not. Two P0s of mine were wrong
+statistics — the page's "null gives N" was a pooled count rather than a
+per-draw expectation, and the run total's recall was an hours-weighted mean of
+ratios rather than a recall. Both are fixed, and the test that could not tell
+the two pooling rules apart is rewritten with a fixture that can.
+
+The finding worth the researcher's attention is not a bug. 11,234 of this
+project's 11,269 annotations are the fixed 600-sample windows of the 10-minute
+CNN window set — window labels, not event spans — while a real drop runs 21 to
+4,875 samples, median 179. Under §4.6 a 179-sample event against a 600-sample
+window reaches IoU 0.30 and can never be counted. Run over the whole database,
+80 of 732 detections are even width-compatible with an annotation and **none**
+matches one. Precision against this ground truth is 0 by construction for any
+detector whose spans are not roughly window-shaped. The scoreboard now says so
+beside the number, because a bare 0.00 there is a statement about two span
+shapes that reads as a statement about the algorithm. The question — keep the
+rule and re-cut the ground truth, or score window labels by containment — is
+in the Questions table, with the default taken.
