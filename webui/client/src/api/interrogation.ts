@@ -64,7 +64,8 @@ export function liveEventCurve(m: InterrogationMember, pre = 10, post = 24): num
     while (j < s.t_s.length - 2 && s.t_s[j + 1] < t) j++
     const t0 = s.t_s[j], t1 = s.t_s[j + 1]
     const f = t1 > t0 ? Math.max(0, Math.min(1, (t - t0) / (t1 - t0))) : 0
-    out.push(t < s.t_s[0] || t > s.t_s[s.t_s.length - 1] ? NaN : s.v[j] + f * (s.v[j + 1] - s.v[j]))
+    // outside the stored snippet hold the edge value: a NaN would make d3's scale return undefined
+    out.push(t <= s.t_s[0] ? s.v[0] : t >= s.t_s[s.t_s.length - 1] ? s.v[s.v.length - 1] : s.v[j] + f * (s.v[j + 1] - s.v[j]))
   }
   return out
 }
