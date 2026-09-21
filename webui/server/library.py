@@ -1102,12 +1102,16 @@ def _merge_heights(waveforms) -> list:
     editor's cut slider reads them."""
     if len(waveforms) < 3:
         return []
-    items = [{"ref": i, "waveform": w} for i, w in enumerate(waveforms)]
-    try:
-        result = engine_mod.run_grouping(items, unit="single_motifs", basis="shape-distance",
-                                         method="ward", params={})
-    except Exception:
-        return []
+    # `member_ref` and `values` are the engine's item keys (`engine._ref` and
+    # `engine._waveform`). They were `ref` and `waveform` here, which raised a
+    # KeyError on every call — and the bare `except` below turned that into an
+    # empty list, so the cut slider's histogram silently had no data at all.
+    # Neither the exception nor the emptiness was ever visible. Loud failure is
+    # the rule (CLAUDE.md), so the KeyError now propagates: a wrong item shape
+    # is a bug in this file, not a condition to absorb.
+    items = [{"member_ref": i, "values": w} for i, w in enumerate(waveforms)]
+    result = engine_mod.run_grouping(items, unit="single_motifs", basis="shape-distance",
+                                     method="ward", params={})
     heights = [h for h in (result.merge_heights or []) if math.isfinite(_f(h))]
     if not heights:
         return []
@@ -1325,7 +1329,10 @@ def _grouping_items(conn, index, unit_db, limit=None):
         trace = _trace(index, r["recording_id"], r["start_idx"], r["end_idx"], px=64)
         if not trace:
             continue
-        item = {"ref": int(r["id"]), "content_hash": r["content_hash"], "waveform": trace,
+        # `member_ref` / `values` are what `engine._ref` and `engine._waveform`
+        # look for; `ref` / `waveform` raised a KeyError and failed every
+        # regroup job (the job reported it, which is how it was found).
+        item = {"member_ref": int(r["id"]), "content_hash": r["content_hash"], "values": trace,
                 "fs": meta["fs"], "recording_id": meta["recording_id"], "channel": meta["name"]}
         if unit_db == "sequences":
             item["sequence_id"] = int(r["id"])
@@ -1357,7 +1364,12 @@ def run_grouping_job(request: Request, body: GroupingRunBody):
             job.progress(1, 4, f"{len(items)} items")
             if job.cancel_event.is_set():
                 return None
-            edits = hand_edits_mod.active_edits(conn, None)
+            # As plain dicts: `active_edits` returns `sqlite3.Row`, and the
+            # engine's item contract is dicts — `_hand_edit_outcome` reads
+            # `edit.get("family_label")`, which a Row does not have. Converting
+            # here rather than widening the engine keeps the engine free of the
+            # database's row type, which is what lets it be tested without one.
+            edits = [dict(e) for e in hand_edits_mod.active_edits(conn, None)]
             job.progress(2, 4, "grouping")
             preview = engine_mod.preview(items, unit=unit_db, basis=body.basis,
                                          method=body.method, params=body.params, hand_edits=edits)

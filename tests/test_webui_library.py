@@ -31,6 +31,7 @@ genuinely read off disk rather than mocked.
 import json
 import os
 import sys
+import time
 
 import numpy as np
 import pytest
@@ -544,6 +545,52 @@ def test_running_a_grouping_returns_a_regroup_job(bridge):
     # the job is a real jobs-table job the existing routes can answer for
     snap = _ok(client.get(f"/api/jobs/{body['job_id']}"))
     assert snap["kind"] == "regroup"
+
+
+def test_a_regroup_job_actually_SUCCEEDS(bridge):
+    """The test above asserts the job starts, and a job that starts and then
+    dies of a KeyError satisfies it. That is exactly what happened: the route
+    built items as `{"ref", "waveform"}` where the engine reads `member_ref`
+    and `values`, so every regroup job this bridge ever started ended `failed`,
+    and the only thing that noticed was a red card in the browser.
+
+    Asserting the terminal state is what closes that gap.
+    """
+    client, _ = bridge
+    body = _ok(client.post("/api/library/groupings/run",
+                           json={"unit": "motifs", "basis": "shape-distance",
+                                 # `min_group` 2, because the seeded library has five
+                                 # members and ward's default floor is ten — every family
+                                 # would be correctly omitted as too small, and "0 groups"
+                                 # would look like the failure this test is here to catch.
+                                 "method": "ward",
+                                 "params": {"cut": 0.6, "min_group": 2}}))
+    job_id = body["job_id"]
+    for _ in range(600):                       # the fit is seconds at test size
+        snap = _ok(client.get(f"/api/jobs/{job_id}"))
+        if snap["status"] in ("completed", "failed", "cancelled"):
+            break
+        time.sleep(0.05)
+    assert snap["status"] == "completed", snap.get("error") or snap
+    # and it produced a real answer, not an empty one that merely did not throw
+    preview = snap["result"]["preview"]
+    assert preview["groups"] >= 1
+    assert preview["members"] >= 1
+    assert snap["result"]["assignments"]
+
+
+def test_the_cut_sliders_merge_heights_are_not_always_empty(bridge):
+    """`_merge_heights` wrapped the same wrong item shape in a bare
+    `except Exception: return []`, so `/grouping-editor` returned an empty
+    histogram for every distance basis and had done since it was written —
+    silently, because an empty distribution and a broken one look identical.
+    A bin count is the cheapest assertion that tells them apart.
+    """
+    client, _ = bridge
+    editor = _ok(client.get("/api/library/grouping-editor?unit=motifs"))
+    heights = editor["distributions"].get("shape-distance")
+    assert heights, "the cut slider has no distribution to draw"
+    assert sum(b["n"] for b in heights) > 0
 
 
 def test_an_unknown_grouping_unit_is_a_400_not_a_silent_default(bridge):

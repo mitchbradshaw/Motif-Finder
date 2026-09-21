@@ -1,14 +1,29 @@
-/* library.atlas — frames library-2 (single motifs, g-07) and library-2b (sequences, g-08).
- * The density test: 10 cards × exemplar + medoid, the rail's exemplar-vs-medoid, a 10-member overlay and the amplitude
- * histogram, all on ONE shared mV domain (D5), capped at 10 (P8) with resample. */
-import { useMemo, useState, type KeyboardEvent } from 'react'
+/* library.atlas — frames library-2 (single motifs) and library-2b (sequences).
+ * The density test: the family cards × exemplar + medoid, the rail's exemplar-vs-medoid and the amplitude
+ * histogram, all on ONE shared mV domain (D5), unnormalised.
+ *
+ * Live notes (stage-3 wiring):
+ *  - No grouping is named here. Which atlas is drawn follows the resolved grouping's `unit`; `g-07`/`g-08` were
+ *    fixture ids and gating on them meant a live grouping always fell to "undrawn".
+ *  - `exemplarTrace` / `medoidTrace` are real decimated mV off the memmap and are drawn as they arrive, on the
+ *    page's shared domain. Nothing is normalised: PRD Part 2 is explicit that normalising the cards destroys the
+ *    evidence of the scaling laws, which is the reason the cards exist.
+ *  - The member overlay is gone. It used to synthesise ten waveforms with `motifShape` and draw them over a real
+ *    medoid; a synthesised trace beside a real one is a finding that is not there. This read carries two traces
+ *    per family and says so.
+ *  - The amplitude histogram's axis comes from the family's own `ampDomain` and the length of `ampBins`, so it
+ *    cannot claim 0.1–0.4 mV over some other range.
+ *  - Scope chips are labelled from the recordings payload, and the omitted counts show a loading state rather
+ *    than a fabricated number.
+ */
+import { useMemo, type KeyboardEvent } from 'react'
 import {
-  Button, Chip, Dropdown, EmptyState, Histogram, Icon, InfoTip, KeyValue, MiniTrace, Page, fmtInt, useQueryState,
+  Button, Chip, Dropdown, EmptyState, Histogram, Icon, InfoTip, KeyValue, Page, fmtInt, useQueryState,
 } from '../kit'
 import { Header } from '../shell/Header'
 import { navigate, setQuery } from '../state'
 import { useSourced } from '../api/seam'
-import { AMP_DOMAIN, FAMILY_COLOURS, RECORDING_GROUPS, getMotifFamilies, getOmitted, getSequenceFamilies, motifShape, niceMvDomain, type Grouping, type MotifFamily, type SequenceFamily, type Unit } from '../api/library'
+import { AMP_DOMAIN, FAMILY_COLOURS, UNIT_LABEL, getMotifFamilies, getOmitted, getRecordingGroups, getSequenceFamilies, niceMvDomain, type Grouping, type MotifFamily, type SequenceFamily, type Unit } from '../api/library'
 import { useToast } from '../shell/Toast'
 import {
   GroupingBar, LoadFailed, Loading, MotifPlot, MotifsActions, OmittedDrawer, OmittedThumb, SectionBar, useAllGroupings, useEmptyLibrary, useFilters,
@@ -16,9 +31,12 @@ import {
 } from './chrome'
 import { EmptyMotifsPage } from './EmptyLibrary'
 
-const recLabel = (key: string) => RECORDING_GROUPS.find(r => r.key === key)?.label ?? key
-export const scopeLabel = (k: string) => { const [r, c] = k.split(':'); return `${recLabel(r)} · ${c}` }
+/** `recKey:channel` → `label · channel`. The labels come from the recordings payload; with none in hand the raw
+ *  key is shown rather than a fixture's name for some other corpus. */
+export const scopeLabel = (k: string, labels?: Record<string, string>) => { const [r, c] = k.split(':'); return `${labels?.[r] ?? r} · ${c}` }
 export const inScopeOf = (f: MotifFamily, sel: string[]) => (sel.length ? sel.reduce((s, k) => s + (f.cells[k]?.count ?? 0), 0) : f.members)
+/** The bridge echoes the extent its `ampBins` were counted over; the fixture type predates the field. */
+const ampDomainOf = (f: MotifFamily): [number, number] => (f as unknown as { ampDomain?: [number, number] }).ampDomain ?? AMP_DOMAIN
 
 type SortKey = 'id' | 'scope' | 'judged' | 'duration' | 'hand'
 
@@ -32,11 +50,16 @@ export function AtlasPage({ inert, backdrop }: { inert?: boolean; backdrop?: boo
   const groupings = useAllGroupings()
   const gid = unit === 'sequences' ? seqGid : motifGid
   const grouping = groupings.all.find(g => g.id === gid) ?? null
-  const motifs = useSourced(getMotifFamilies, [])
-  const seqs = useSourced(getSequenceFamilies, [])
+  const motifs = useSourced(() => getMotifFamilies(motifGid || undefined), [motifGid])
+  const seqs = useSourced(() => getSequenceFamilies(seqGid || undefined), [seqGid])
+  const recs = useSourced(() => getRecordingGroups(motifGid || undefined), [motifGid])
+  const labels = useMemo(() => Object.fromEntries((recs.data ?? []).map(r => [r.key, r.label])), [recs.data])
   if (empty) return <EmptyMotifsPage />
   const demo = motifs.source === 'demo' || seqs.source === 'demo'
   const subtitle = backdrop ? 'atlas · editing grouping' : unit === 'sequences' ? `atlas · grouping ${gid} · sequences` : undefined
+  const error = groupings.error ?? motifs.error ?? seqs.error ?? recs.error
+  const loading = motifs.loading || seqs.loading || groupings.loading
+  const noneOfUnit = !groupings.loading && !groupings.error && !groupings.all.some(g => g.unit === unit)
   return (
     <>
       <MotifsHeader subtitle={subtitle} gid={gid} demo={demo} />
@@ -44,12 +67,15 @@ export function AtlasPage({ inert, backdrop }: { inert?: boolean; backdrop?: boo
         <SectionBar section="motifs" crumbs={[{ label: 'Recurrence', onClick: () => navigate('library/recurrence') }, { label: 'Atlas' }]} actions={<MotifsActions />} />
         <GroupingBar unit={unit} grouping={grouping} from="atlas" inert={inert}
           onUnit={u => { setQuery({ unit: u === 'motifs' ? null : u, family: null }, true); setUnitQ(u === 'motifs' ? null : u) }} />
-        {(groupings.error || motifs.error || seqs.error) && <LoadFailed what="the atlas" error={(groupings.error ?? motifs.error ?? seqs.error)!} onRetry={() => { motifs.reload(); seqs.reload(); groupings.reload() }} />}
-        {(motifs.loading || seqs.loading || groupings.loading) && !motifs.error && <Loading height={600} testid="atlas-loading" />}
-        {motifs.data && seqs.data && grouping && (unit === 'sequences'
-          ? grouping.id !== 'g-08' ? <UndrawnGrouping grouping={grouping} /> : <SequenceAtlas families={seqs.data} motifFamilies={motifs.data} grouping={grouping} />
-          : grouping.id === 'g-07' ? <MotifAtlas families={motifs.data} grouping={grouping} /> : <UndrawnGrouping grouping={grouping} />)}
-        {motifs.data && !grouping && !groupings.loading && <EmptyState icon="alert-triangle" title={`No grouping ${gid}`} caption="it is not among the saved groupings" bordered />}
+        {error && <LoadFailed what="the atlas" error={error} onRetry={() => { motifs.reload(); seqs.reload(); groupings.reload(); recs.reload() }} />}
+        {loading && !error && <Loading height={600} testid="atlas-loading" />}
+        {!loading && !error && !grouping && (
+          <EmptyState icon="grid" bordered title={noneOfUnit ? `No grouping of ${UNIT_LABEL[unit]} yet` : `No grouping ${gid}`}
+            caption={noneOfUnit ? 'nothing has been grouped at this unit — compute one from Edit grouping' : 'it is not among the saved groupings'} />
+        )}
+        {!loading && !error && grouping && motifs.data && seqs.data && (unit === 'sequences'
+          ? <SequenceAtlas families={seqs.data} motifFamilies={motifs.data} grouping={grouping} />
+          : <MotifAtlas families={motifs.data} grouping={grouping} labels={labels} />)}
       </Page>
       {!inert && grouping && <OmittedDrawer groupingId={grouping.id} unit={unit} />}
     </>
@@ -60,30 +86,15 @@ function MotifsHeader({ subtitle, gid, demo }: { subtitle?: string; gid: string;
   const [sel] = useSelection()
   const [scopeQ] = useQueryState('scope', '')
   const n = scopeQ === 'all' ? 0 : sel.length
-  return <Header workspace="Library" page="Motifs" subtitle={subtitle ?? `atlas · grouping ${gid} · ${n ? `${n} channel${n === 1 ? '' : 's'}` : 'all channels'}`} search="Search spans, runs, families" demo={demo} />
-}
-
-/* ================================================================ g-09 / g-01: groupings with no atlas fixture ================================================================ */
-function UndrawnGrouping({ grouping }: { grouping: Grouping }) {
-  const [, setMotif] = useMotifGroupingId()
-  const [, setSeq] = useSequenceGroupingId()
-  const back = grouping.unit === 'sequences' ? 'g-08' : 'g-07'
-  const setGid = (id: string) => (grouping.unit === 'sequences' ? setSeq(id) : setMotif(id))
-  return (
-    <div className="k-card" style={{ padding: 20 }} data-testid="atlas-undrawn">
-      <EmptyState icon="grid" title={`Grouping ${grouping.id} · ${grouping.basisLabel} · ${grouping.families} groups`}
-        caption={`${fmtInt(grouping.motifs)} motifs · ${grouping.omitted} omitted · computed ${grouping.computed} — the demo has no atlas cards for this grouping, so none are drawn`}
-        action={<Button icon="undo" testid="back-to-g07" onClick={() => setGid(back)}>Switch back to {back}</Button>} />
-    </div>
-  )
+  return <Header workspace="Library" page="Motifs" subtitle={subtitle ?? `atlas${gid ? ` · grouping ${gid}` : ''} · ${n ? `${n} channel${n === 1 ? '' : 's'}` : 'all channels'}`} search="Search spans, runs, families" demo={demo} />
 }
 
 /* ================================================================ single motifs (frame 2) ================================================================ */
-function MotifAtlas({ families, grouping }: { families: MotifFamily[]; grouping: Grouping }) {
+function MotifAtlas({ families, grouping, labels }: { families: MotifFamily[]; grouping: Grouping; labels: Record<string, string> }) {
   const [sel, setSel] = useSelection()
   const [scopeQ] = useQueryState('scope', '')
   const scope = scopeQ === 'all' ? [] : sel
-  const [familyQ, setFamilyQ] = useQueryState('family', 'F-03')
+  const [familyQ, setFamilyQ] = useQueryState('family', '')
   const [sort, setSort] = useQueryState<SortKey>('sort', 'id')
   const [filters] = useFilters()
   const yDomain = useMemo(() => niceMvDomain(families.flatMap(f => [f.exemplarTrace, f.medoidTrace])), [families])
@@ -106,7 +117,7 @@ function MotifAtlas({ families, grouping }: { families: MotifFamily[]; grouping:
       <div className="stack" style={{ gap: 10, minWidth: 0 }}>
         <div className="lib-scope" data-testid="atlas-scope">
           <span className="lib-muted-label">scope</span>
-          {scope.length ? scope.map(k => <Chip key={k} tone="blue" size="sm" testid={`scope-chip-${k}`} onRemove={() => removeScope(k)} removeLabel={`remove ${scopeLabel(k)} from scope`}>{scopeLabel(k)}</Chip>)
+          {scope.length ? scope.map(k => <Chip key={k} tone="blue" size="sm" testid={`scope-chip-${k}`} onRemove={() => removeScope(k)} removeLabel={`remove ${scopeLabel(k, labels)} from scope`}>{scopeLabel(k, labels)}</Chip>)
             : <Chip tone="grey" testid="scope-all">all recordings</Chip>}
           <Button variant="link" testid="back-to-recurrence" onClick={() => navigate('library/recurrence')}>‹ back to recurrence</Button>
           <span className="lib-cap" style={{ fontSize: 11 }} data-testid="scope-caption">{sorted.length} families · {fmtInt(total)} members {scope.length ? 'in scope' : 'in every recording'}{hidden ? ` · ${hidden} hidden by ≥ ${filters.minMembers} members` : ''}</span>
@@ -133,7 +144,7 @@ function MotifAtlas({ families, grouping }: { families: MotifFamily[]; grouping:
           <div className="lib-legend" style={{ gridColumn: `span ${legendSpan}`, alignSelf: 'start', paddingTop: 4 }} data-testid="atlas-legend">
             <span><i style={{ background: '#1f2937' }} />exemplar (human seed)</span>
             <span><i style={{ background: 'var(--muted-2)' }} />medoid (computed, family colour)</span>
-            <span>shared mV scale on every card <InfoTip title="shared scale">every card, the rail plots and the member overlay use one detrended mV domain ({`${yDomain[0].toFixed(1)}…+${yDomain[1].toFixed(1)}`} mV) so amplitudes compare; nothing is normalised (D5)</InfoTip></span>
+            <span>shared mV scale on every card <InfoTip title="shared scale">every card and the rail plot use one detrended mV domain ({`${yDomain[0].toFixed(1)}…+${yDomain[1].toFixed(1)}`} mV) so amplitudes compare; nothing is normalised (D5)</InfoTip></span>
           </div>
         </div>
         {!sorted.length && <EmptyState title="No families match" caption={`every family has fewer than ${filters.minMembers} members`} bordered />}
@@ -143,18 +154,14 @@ function MotifAtlas({ families, grouping }: { families: MotifFamily[]; grouping:
   )
 }
 
-function useSample(key: string) {
-  const [seed, setSeed] = useState(1)
-  return { seed: seed * 97 + key.length, resample: () => setSeed(s => s + 1) }
-}
-
 function MotifRail({ f, inScope, scoped, yDomain, grouping }: { f: MotifFamily; inScope: number; scoped: boolean; yDomain: [number, number]; grouping: Grouping }) {
-  const { seed, resample } = useSample(f.id)
   const queue = useQueueToast()
   const pool = scoped ? inScope : f.members
-  const sampled = useMemo(() => Array.from({ length: Math.min(10, pool) }, (_, k) => motifShape(f.shape, f.depthMv * (0.85 + ((k * 37 + seed) % 30) / 100), seed * 13 + k, { jitter: 0.1 })), [f, seed, pool])
   const unjudged = f.members - f.judged
-  const bins = f.ampBins.map((n, i) => ({ x0: AMP_DOMAIN[0] + (i * (AMP_DOMAIN[1] - AMP_DOMAIN[0])) / 12, x1: AMP_DOMAIN[0] + ((i + 1) * (AMP_DOMAIN[1] - AMP_DOMAIN[0])) / 12, count: n }))
+  const ampDomain = ampDomainOf(f)
+  const nBins = Math.max(1, f.ampBins.length)
+  const span = ampDomain[1] - ampDomain[0]
+  const bins = f.ampBins.map((n, i) => ({ x0: ampDomain[0] + (i * span) / nBins, x1: ampDomain[0] + ((i + 1) * span) / nBins, count: n }))
   const modal = bins.reduce((m, b, i) => (b.count > bins[m].count ? i : m), 0)
   return (
     <aside className="k-card lib-rail" data-testid="atlas-rail" aria-label={`${f.id} ${f.name}`}>
@@ -169,13 +176,13 @@ function MotifRail({ f, inScope, scoped, yDomain, grouping }: { f: MotifFamily; 
         <span><i style={{ display: 'inline-block', width: 12, height: 2, background: f.colour, verticalAlign: 'middle', marginRight: 4 }} />medoid {f.medoid}</span>
         <span className="k-chip green sm" style={{ marginLeft: 'auto' }} title="distance between exemplar and medoid">d {f.exemplarMedoidD.toFixed(2)}</span>
       </div>
-      <div className="row lib-cap" style={{ fontSize: 10.5 }}>
-        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', minWidth: 0 }}>members · shared y · mV</span><span className="muted" style={{ flex: 'none' }}>{sampled.length} of {pool} sampled</span>
-        <Button variant="link" size="sm" icon="shuffle" style={{ marginLeft: 'auto', flex: 'none', paddingRight: 0 }} testid="rail-resample" onClick={resample} disabled={pool <= 10} disabledReason="10 or fewer members: all are drawn">resample</Button>
+      <div className="lib-cap" style={{ fontSize: 10.5 }} data-testid="rail-members-not-drawn">
+        the other {Math.max(0, pool - 2)} member{pool - 2 === 1 ? '' : 's'} of this family {pool - 2 === 1 ? 'is' : 'are'} not drawn: this read carries the exemplar and the medoid
+        as real mV, and no waveform for the rest. <Button variant="link" size="sm" style={{ padding: 0 }} testid="rail-open-members" onClick={() => navigate(`library/family/${f.id}`)}>Open the family</Button> to list them.
       </div>
-      <MiniTrace values={f.medoidTrace} yDomain={yDomain} width="100%" height={66} strokeWidth={1.8} overlays={sampled.map(v => ({ values: v, stroke: hexA(f.colour, 0.45), width: 1 }))} testid="rail-member-overlay" title={`${sampled.length} sampled members over the medoid, shared mV scale`} />
-      <div className="row lib-cap" style={{ fontSize: 10.5 }}><span>peak-to-peak amplitude</span><span style={{ marginLeft: 'auto' }}>n per bin</span></div>
-      <Histogram bins={bins} height={66} showCounts={false} colour="#dcc6f1" highlightBin={(_, i) => i === modal} highlightColour={f.colour} format={v => (Math.abs(v - 0.25) < 1e-6 || Math.abs(v - 0.1) < 1e-6 ? v.toFixed(2).replace(/0$/, '') : Math.abs(v - 0.4) < 1e-6 ? '0.4 mV' : '')} label={`${f.id} peak-to-peak amplitude histogram, 12 bins, 0.1–0.4 mV`} testid="rail-amplitude-histogram" />
+      <div className="row lib-cap" style={{ fontSize: 10.5 }}><span>peak-to-peak amplitude · mV</span><span style={{ marginLeft: 'auto' }}>n per bin</span></div>
+      <Histogram bins={bins} height={66} showCounts={false} colour="#dcc6f1" highlightBin={(_, i) => i === modal} highlightColour={f.colour}
+        format={v => String(+v.toFixed(2))} label={`${f.id} peak-to-peak amplitude histogram, ${nBins} bins, ${+ampDomain[0].toFixed(3)}–${+ampDomain[1].toFixed(3)} mV`} testid="rail-amplitude-histogram" />
       <KeyValue align="right" dense items={[
         { k: 'duration', v: `${f.durationS < 10 ? f.durationS.toFixed(1) : f.durationS} s ± ${f.durationSd}` },
         { k: 'mean member d', v: f.meanMemberD.toFixed(2) },
@@ -186,8 +193,8 @@ function MotifRail({ f, inScope, scoped, yDomain, grouping }: { f: MotifFamily; 
       ]} testid="rail-stats" />
       <div className="lib-rail-actions">
         <Button variant="primary" iconRight="arrow-right" testid="open-family" onClick={() => navigate(`library/family/${f.id}`)}>Open all {f.members} members</Button>
-        <Button icon="target" iconRight="arrow-right" testid="seed-search" onClick={() => navigate(`discovery/seed?seed=${f.exemplar}&family=${f.id}`)}>Seed search in Discovery</Button>
-        <Button icon="link" iconRight="arrow-right" testid="interrogate" onClick={() => navigate(`analyse/interrogation?source=family:${f.id}`)}>Interrogate in Analyse</Button>
+        <Button icon="target" iconRight="arrow-right" testid="seed-search" onClick={() => navigate(`discovery/seed?seed=${encodeURIComponent(f.exemplar)}&family=${encodeURIComponent(f.id)}`)}>Seed search in Discovery</Button>
+        <Button icon="link" iconRight="arrow-right" testid="interrogate" onClick={() => navigate(`analyse/interrogation?source=family:${encodeURIComponent(f.id)}`)}>Interrogate in Analyse</Button>
         <Button icon="checklist" iconRight="arrow-right" testid="send-unjudged" disabled={!unjudged} disabledReason="every member is judged" onClick={() => queue(`Library · ${f.id} unjudged`, unjudged)}>Send {unjudged} unjudged to Review</Button>
         <ExportEntry id={f.id} grouping={grouping.id} />
       </div>
@@ -206,10 +213,10 @@ export function hexA(hex: string, a: number) {
 
 /* ================================================================ sequences (frame 2b) ================================================================ */
 function SequenceAtlas({ families, motifFamilies, grouping }: { families: SequenceFamily[]; motifFamilies: MotifFamily[]; grouping: Grouping }) {
-  const [familyQ, setFamilyQ] = useQueryState('family', 'S-02')
+  const [familyQ, setFamilyQ] = useQueryState('family', '')
   const [, setDrawer] = useQueryState('drawer', '')
   const [filters] = useFilters()
-  const omitted = useSourced(() => getOmitted('g-08'), [])
+  const omitted = useSourced(() => getOmitted(grouping.id), [grouping.id])
   const queue = useQueueToast()
   const yDomain = useMemo(() => niceMvDomain([...families.flatMap(f => [f.exemplarTrace, f.medoidTrace]), ...motifFamilies.flatMap(f => [f.exemplarTrace])]), [families, motifFamilies])
   const visible = families.filter(f => f.sequences >= filters.minMembers)
@@ -221,12 +228,16 @@ function SequenceAtlas({ families, motifFamilies, grouping }: { families: Sequen
   }
   const [, setUnit] = useQueryState('unit', 'motifs')
   const thumbDomain: [number, number] = [-0.45, 0.45]
+  const singles = omitted.data ? fmtInt(omitted.data.singles.length) : null
+  const omittedSeqs = omitted.data ? fmtInt(omitted.data.sequences.length) : null
   return (
     <div className="lib-split">
       <div className="stack" style={{ gap: 10, minWidth: 0 }}>
         <div className="lib-banner" data-testid="sequences-banner">
           <Icon name="flag" size={13} className="ic" />
-          <span>Sequences only: {fmtInt(omitted.data?.singles.length ?? 1018)} motifs in no sequence and {omitted.data?.sequences.length ?? 17} sequences that fit no family are left out of this round, not deleted.</span>
+          {omitted.data
+            ? <span>Sequences only: {singles} motifs in no sequence and {omittedSeqs} sequences that fit no family are left out of this round, not deleted.</span>
+            : <span data-testid="sequences-banner-loading">Sequences only: counting what {grouping.id} left out…</span>}
           <Button variant="link" style={{ marginLeft: 'auto' }} testid="show-omitted" onClick={() => setDrawer('omitted')}>Show omitted</Button>
         </div>
         <div className="lib-grid c3" data-testid="atlas-grid" role="listbox" aria-label="sequence families" tabIndex={0} onKeyDown={onKey}>
@@ -245,19 +256,22 @@ function SequenceAtlas({ families, motifFamilies, grouping }: { families: Sequen
             </div>
           ))}
         </div>
+        {!visible.length && <EmptyState title="No sequence families match" caption={`every family has fewer than ${filters.minMembers} sequences`} bordered />}
         <div className="k-card" style={{ padding: '12px 14px' }} data-testid="sequences-omitted">
           <div className="row"><Icon name="flag" size={14} style={{ color: 'var(--amber)' }} /><span className="lib-h">Omitted from this round</span>
-            <Button variant="link" style={{ marginLeft: 'auto' }} testid="send-omitted" onClick={() => queue('Library · g-08 omitted', (omitted.data?.singles.length ?? 0) + (omitted.data?.sequences.length ?? 0))}>Send omitted to Review as a queue</Button></div>
+            <Button variant="link" style={{ marginLeft: 'auto' }} testid="send-omitted" disabled={!omitted.data} disabledReason="still counting what this grouping left out"
+              onClick={() => omitted.data && queue(`Library · ${grouping.id} omitted`, omitted.data.singles.length + omitted.data.sequences.length)}>Send omitted to Review as a queue</Button></div>
           {omitted.error && <LoadFailed what="omitted entries" error={omitted.error} onRetry={omitted.reload} />}
+          {omitted.loading && !omitted.error && <Loading height={140} testid="sequences-omitted-loading" />}
           {omitted.data && (
             <div className="lib-grid" style={{ gridTemplateColumns: '1fr 1fr', gap: 20, marginTop: 8 }}>
               <div className="stack" style={{ gap: 8 }}>
-                <span className="lib-cap" style={{ color: 'var(--text-2)' }}>{fmtInt(omitted.data.singles.length)} single motifs · not part of any sequence</span>
+                <span className="lib-cap" style={{ color: 'var(--text-2)' }}>{singles} single motifs · not part of any sequence</span>
                 <button type="button" className="lib-thumbrow lib-plain" onClick={() => setDrawer('omitted')} title="show omitted single motifs">{omitted.data.singles.slice(0, 7).map(e => <OmittedThumb key={e.id} e={e} yDomain={thumbDomain} />)}</button>
                 <span className="lib-cap">switch the unit to <Button variant="link" size="sm" testid="switch-to-singles" onClick={() => setUnit(null)}>single motifs</Button> to group these</span>
               </div>
               <div className="stack" style={{ gap: 8 }}>
-                <span className="lib-cap" style={{ color: 'var(--text-2)' }}>{omitted.data.sequences.length} sequences · nearest family d &gt; 0.50</span>
+                <span className="lib-cap" style={{ color: 'var(--text-2)' }}>{omittedSeqs} sequences · past this grouping's cut</span>
                 <button type="button" className="lib-thumbrow lib-plain" onClick={() => setDrawer('omitted')} title="show omitted sequences">{omitted.data.sequences.slice(0, 5).map(e => <OmittedThumb key={e.id} e={e} yDomain={thumbDomain} width={86} />)}</button>
                 <span className="lib-cap">re-cut at a looser threshold, or leave them flagged</span>
               </div>
@@ -271,10 +285,8 @@ function SequenceAtlas({ families, motifFamilies, grouping }: { families: Sequen
 }
 
 function SequenceRail({ f, yDomain, grouping, motifFamilies }: { f: SequenceFamily; yDomain: [number, number]; grouping: Grouping; motifFamilies: MotifFamily[] }) {
-  const { seed, resample } = useSample(f.id)
   const queue = useQueueToast()
   const unjudged = f.motifs - f.judgedMotifs
-  const aligned = useMemo(() => Array.from({ length: Math.min(6, f.sequences) }, (_, k) => f.medoidTrace.map((v, i) => +(v * (0.85 + ((k * 13 + seed) % 25) / 100) + Math.sin(i / 7 + k + seed) * 0.01).toFixed(4))), [f, seed])
   const colourOf = (id: string) => motifFamilies.find(m => m.id === id)?.colour ?? FAMILY_COLOURS[id] ?? '#999'
   return (
     <aside className="k-card lib-rail" data-testid="atlas-rail" aria-label={`${f.id} ${f.name}`}>
@@ -304,15 +316,17 @@ function SequenceRail({ f, yDomain, grouping, motifFamilies }: { f: SequenceFami
         { k: 'mean member d', v: f.meanMemberD.toFixed(2) },
         { k: 'judged', v: `${f.judgedMotifs} of ${f.motifs} motifs`, tone: 'amber' },
       ]} testid="rail-stats" />
-      <div className="row lib-cap" style={{ fontSize: 10.5 }}><span>members, aligned on first event</span><Button variant="link" size="sm" icon="shuffle" style={{ marginLeft: 'auto' }} testid="rail-resample" onClick={resample}>resample</Button></div>
-      <MiniTrace values={aligned[0] ?? f.medoidTrace} yDomain={yDomain} width="100%" height={66} stroke={hexA(f.colour, 0.7)} overlays={aligned.slice(1).map(v => ({ values: v, stroke: hexA(f.colour, 0.45), width: 1 }))} testid="rail-member-overlay" title={`${aligned.length} sequences aligned on their first event, shared mV scale`} />
+      <div className="lib-cap" style={{ fontSize: 10.5 }} data-testid="rail-members-not-drawn">
+        the other {Math.max(0, f.sequences - 2)} member{f.sequences - 2 === 1 ? '' : 's'} are not drawn: this read carries the exemplar and the medoid as real mV,
+        and no waveform for the rest.
+      </div>
       <div className="lib-rail-actions">
         <Button variant="primary" iconRight="arrow-right" testid="open-family" onClick={() => navigate(`library/family/${f.id}`)}>Open all {f.sequences} sequences</Button>
         <span className="row" style={{ gap: 6, flexWrap: 'nowrap' }}>
           <Button icon="target" disabled disabledReason="needs multi-seed — no seed-search algorithm takes several seeds yet (§7.6)" testid="seed-search">Seed search in Discovery</Button>
           <InfoTip title="needs multi-seed">A sequence family has several events; no seed-search algorithm takes several seeds yet (§7.6), so Discovery cannot search for it.</InfoTip><span className="lib-cap" style={{ whiteSpace: 'nowrap' }}>needs multi-seed</span>
         </span>
-        <Button icon="link" iconRight="arrow-right" testid="interrogate" onClick={() => navigate(`analyse/interrogation?source=family:${f.id}`)}>Interrogate in Analyse</Button>
+        <Button icon="link" iconRight="arrow-right" testid="interrogate" onClick={() => navigate(`analyse/interrogation?source=family:${encodeURIComponent(f.id)}`)}>Interrogate in Analyse</Button>
         <Button icon="checklist" iconRight="arrow-right" testid="send-unjudged" disabled={!unjudged} disabledReason="every motif is judged" onClick={() => queue(`Library · ${f.id} unjudged motifs`, unjudged)}>Send {unjudged} unjudged motifs to Review</Button>
         <ExportEntry id={f.id} grouping={grouping.id} />
       </div>

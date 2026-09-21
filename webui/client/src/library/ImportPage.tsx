@@ -122,19 +122,20 @@ function ImportPanel({ empty, selectRef }: { empty: boolean; selectRef: React.Re
   const busy = job != null && (job.status === 'queued' || job.status === 'running')
   /* Poll the real job. `getJob` is the same row the Jobs workspace reads; nothing here invents a step label or
      a duration. Polling stops the moment the job leaves a live status. */
+  const jobId = job?.id
   useEffect(() => {
-    if (!job || !busy) return
-    let live = true
-    const id = window.setInterval(async () => {
+    if (jobId == null || !busy) return
+    let alive = true
+    const timer = window.setInterval(async () => {
       try {
-        const row = await getJob(job.id)
-        if (live) setJob(jobOf(row))
+        const row = await getJob(jobId)
+        if (alive) setJob(jobOf(row))
       } catch (e) {
-        if (live) setJob(j => (j ? { ...j, status: 'failed', error: `lost the job stream: ${(e as Error).message}` } : j))
+        if (alive) setJob(j => (j ? { ...j, status: 'failed', error: `lost the job: ${(e as Error).message}` } : j))
       }
     }, 800)
-    return () => { live = false; window.clearInterval(id) }
-  }, [job, busy])
+    return () => { alive = false; window.clearInterval(timer) }
+  }, [jobId, busy])
 
   const doneOnce = useRef(false)
   useEffect(() => {

@@ -1,5 +1,22 @@
-/* library.family — frame library-3 (F-03 sharkfin, member m-1850 in the rail, 3 selected).
- * Hand edits (add / remove / make exemplar / tags / class / note) live in the in-memory store and survive regrouping. */
+/* library.family — one family of the current grouping, read live from `GET /api/library/family/{id}`.
+ *
+ * Wiring notes (stage 3, prompt 03 · P2):
+ *  - There is no default family id any more. `F-03` was a fixture name; a deep link to `#/library/family`
+ *    with no id now opens the FIRST family of the current grouping, and a library with no families says so.
+ *  - Nothing is preselected and no member is opened by id: `['E-0102','m-1843','m-1850']` and `member=m-1850`
+ *    named rows that do not exist outside the fixtures.
+ *  - A hand edit is stamped with the real clock (`today()`), not a frozen `'16 Sep'`.
+ *  - The "belongs to grouping g-07" guard and its `Switch to g-07` button are gone: the read already takes the
+ *    grouping, so a family that is not in it comes back as `{kind:'missing'}` and draws the missing state.
+ *  - Removed members carry only what the bridge returns (`id, d, channel, recording, removedAt, note, seed`,
+ *    plus `onsetH` when the source row still exists). The page no longer invents `onsetH 204.1`, `d-88511`,
+ *    a verdict or a `foundBy` for them.
+ *  - Revisions are the real `motif_member_revision` rows. A member with none says so, and "Redraw in Explore"
+ *    is disabled rather than reading `undefined.spanId`.
+ *  - WAVEFORMS: the read carries a real decimated trace for the family's exemplar and medoid only. A MEMBER
+ *    carries `(shape, amplitude, seed)`, so a member card is a SKETCH, labelled as one, and a sketch is never
+ *    drawn in the same panel as a real trace (see `api/library.ts`'s header). The old ±30 s "context" strip
+ *    was noise generated from `Math.sin(seed)`; there is no real context window in this read, so it is gone. */
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react'
 import {
   Badge, Button, Checkbox, Chip, EmptyState, Icon, InfoTip, KeyValue, MiniTrace, Modal, Page, Pager, Popover, Seg, SelectField, TextField,
@@ -8,87 +25,122 @@ import {
 import { Header } from '../shell/Header'
 import { useToast } from '../shell/Toast'
 import { navigate, useApp } from '../state'
-import { useSourced } from '../api/seam'
-import { CLASS_OPTIONS, TAG_RULE, TAG_VOCABULARY, getFamily, motifShape, niceMvDomain, type FamilyDetail, type Member, type MotifFamily, type SequenceFamily, type Verdict } from '../api/library'
-import { GroupingBar, LoadFailed, Loading, MotifPlot, SectionBar, useAllGroupings, useEmptyLibrary, useMotifGroupingId, useQueueToast, useRememberMotifsRoute } from './chrome'
+import { live, useSourced } from '../api/seam'
+import {
+  CLASS_OPTIONS, TAG_RULE, TAG_VOCABULARY, getFamily, getMotifFamilies, motifShape, niceMvDomain,
+  type FamilyDetail, type FamilyRead, type Member, type MotifFamily, type RemovedMember, type SequenceFamily, type Verdict,
+} from '../api/library'
+import { GroupingBar, LoadFailed, Loading, MotifPlot, SectionBar, useAllGroupings, useEmptyLibrary, useMotifGroupingId, useQueueToast, useRememberMotifsRoute, useSequenceGroupingId } from './chrome'
 import { EmptyMotifsPage } from './EmptyLibrary'
-import { hexA } from './AtlasPage'
 
-type RemovedEntry = Member & { removedAt: string; removedNote: string }
+/** What the bridge actually returns for a removed member — `RemovedMember` plus the two fields
+ *  `server/library.py` adds when the source row is still there. Declared here rather than widened in
+ *  `fixtures/library.ts`, which this ticket does not own. */
+type LiveRemoved = RemovedMember & { onsetH?: number | null; contentHash?: string | null }
+/** A removed member as the strip draws it: what the bridge gave, plus the two measurements a member removed
+ *  in THIS session still has to hand. Never a whole `Member` — there is no verdict, no run and no revision
+ *  list for a row that was removed by a hand edit, and inventing them is what this replaces. */
+interface RemovedEntry {
+  id: string; d: number; channel: string; recording: string; seed: number
+  removedAt: string; removedNote: string
+  onsetH?: number | null; durationS?: number | null; amplitudeMv?: number | null
+}
 interface FamilyEdits { removed: RemovedEntry[]; undone: string[]; exemplar: string; tags: Record<string, string[]>; cls: Record<string, string>; notes: Record<string, string>; queued: boolean; staleEdges: boolean; log: string[] }
 type SortKey = 'distance' | 'time' | 'amplitude' | 'unjudged'
 const VERDICT_COLOUR: Record<Verdict, string> = { seed: 'var(--green)', interesting: 'var(--green)', 'not interesting': 'var(--muted-2)', artifact: 'var(--red)', unjudged: 'var(--amber)' }
-const TODAY = '16 Sep'
+
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+/** Today, in the `'12 Sep'` form the bridge renders its own stamps in (`_iso_to_human`). Read from the clock
+ *  every time it is asked, so a hand edit made now is dated now. */
+const today = () => { const d = new Date(); return `${d.getDate()} ${MONTHS[d.getMonth()]}` }
+/** The sketch caption, written once so every surface that draws one says the same thing. */
+const SKETCH_NOTE = 'shape sketch · amplitude and duration are measured, the waveform itself is not carried by this read'
 
 export function FamilyPage({ familyId }: { familyId?: string } = {}) {
   useRememberMotifsRoute()
   const { route } = useApp()
-  const id = familyId ?? route.parts[1] ?? 'F-03'
+  const named = familyId ?? route.parts[1] ?? ''
   const [empty] = useEmptyLibrary()
-  const fam = useSourced(() => getFamily(id), [id])
   const groupings = useAllGroupings()
   const [gid] = useMotifGroupingId()
+  const [seqGid] = useSequenceGroupingId()
+  // `#/library/family` with no id used to open `F-03`. It opens the first family of the current grouping
+  // instead; the families read is skipped entirely when the route names one.
+  const firstFamily = useSourced(() => (named ? live(Promise.resolve<MotifFamily[]>([])) : getMotifFamilies(gid || undefined)), [named, gid])
+  const id = named || firstFamily.data?.[0]?.id || ''
+  const fam = useSourced(() => (id ? getFamily(id, gid || undefined) : live(Promise.resolve<FamilyRead | null>(null))), [id, gid])
   if (empty) return <EmptyMotifsPage />
   const grouping = groupings.all.find(g => g.id === gid) ?? null
   const d = fam.data
-  const title = d?.kind === 'motif' ? `${d.detail.family.id} ${d.detail.family.name}` : d?.kind === 'sequence' ? `${d.family.id} ${d.family.name}` : id
+  const title = d?.kind === 'motif' ? `${d.detail.family.id} ${d.detail.family.name}` : d?.kind === 'sequence' ? `${d.family.id} ${d.family.name}` : (id || 'Family')
+  const shownGid = (d?.kind === 'sequence' ? seqGid : gid) || 'none'
+  const noFamilies = !named && !firstFamily.loading && !firstFamily.error && !(firstFamily.data ?? []).length
   return (
     <>
-      <Header workspace="Library" page="Motifs" subtitle={`${title} · grouping ${d?.kind === 'sequence' ? 'g-08' : gid}`} search="Search spans, runs, families" demo={fam.source === 'demo'} />
+      <Header workspace="Library" page="Motifs" subtitle={`${title} · grouping ${shownGid}`} search="Search spans, runs, families" demo={fam.source === 'demo'} />
       <Page testid="family-page">
         <SectionBar section="motifs" crumbs={[{ label: 'Recurrence', onClick: () => navigate('library/recurrence') }, { label: 'Atlas', onClick: () => navigate(`library/atlas${d?.kind === 'sequence' ? '?unit=sequences' : ''}`) }, { label: title }]}
           actions={<ExportEntryBtn id={id} />} />
-        <GroupingBar unit={d?.kind === 'sequence' ? 'sequences' : 'motifs'} grouping={d?.kind === 'sequence' ? groupings.all.find(g => g.id === 'g-08') ?? null : grouping} from={`family/${id}`} />
+        <GroupingBar unit={d?.kind === 'sequence' ? 'sequences' : 'motifs'} grouping={d?.kind === 'sequence' ? groupings.all.find(g => g.id === seqGid) ?? null : grouping} from={`family/${id}`} />
+        {firstFamily.error && <LoadFailed what="the families of this grouping" error={firstFamily.error} onRetry={firstFamily.reload} />}
+        {noFamilies && <EmptyState icon="grid" title={gid ? `Grouping ${gid} has no families` : 'No grouping has been computed yet'} caption="open Edit grouping to compute one" action={<Button onClick={() => navigate('library/grouping?from=atlas')}>Edit grouping…</Button>} bordered testid="family-no-families" />}
         {fam.error && <LoadFailed what={`family ${id}`} error={fam.error} onRetry={fam.reload} />}
-        {fam.loading && <Loading height={640} testid="family-loading" />}
-        {d?.kind === 'missing' && <EmptyState icon="alert-triangle" title={`No family ${id} in grouping ${gid}`} caption="the id is not in any saved grouping" action={<Button onClick={() => navigate('library/atlas')}>‹ back to atlas</Button>} bordered testid="family-missing" />}
+        {(fam.loading || (!named && firstFamily.loading)) && <Loading height={640} testid="family-loading" />}
+        {d?.kind === 'missing' && <EmptyState icon="alert-triangle" title={`No family ${id} in grouping ${gid || 'the current grouping'}`} caption="the id is not in this grouping" action={<Button onClick={() => navigate('library/atlas')}>‹ back to atlas</Button>} bordered testid="family-missing" />}
         {d?.kind === 'sequence' && <SequenceFamilyPlaceholder f={d.family} />}
-        {d?.kind === 'motif' && (gid !== 'g-07' && d.detail.family.id.startsWith('F-')
-          ? <EmptyState icon="grid" title={`${d.detail.family.id} belongs to grouping g-07`} caption={`the current grouping is ${gid}; hand edits to ${d.detail.family.id} are kept either way`} action={<SwitchToG07 />} bordered testid="family-other-grouping" />
-          : <MotifFamilyView detail={d.detail} />)}
+        {d?.kind === 'motif' && <MotifFamilyView key={d.detail.family.id} detail={d.detail} />}
       </Page>
     </>
   )
 }
-function SwitchToG07() { const [, set] = useMotifGroupingId(); return <Button onClick={() => set('g-07')}>Switch to g-07</Button> }
 function ExportEntryBtn({ id }: { id: string }) {
   const { push } = useToast()
-  return <Button icon="upload" testid="export-entry" onClick={() => push({ text: `not wired yet: export library entry ${id} (exemplar, medoid, members CSV, provenance)` })}>Export entry</Button>
+  return <Button icon="upload" testid="export-entry" disabled={!id} disabledReason="no family open" onClick={() => push({ text: `not wired yet: export library entry ${id} (exemplar, medoid, members CSV, provenance)` })}>Export entry</Button>
 }
 
 function SequenceFamilyPlaceholder({ f }: { f: SequenceFamily }) {
   return (
     <div className="k-card" style={{ padding: 20 }} data-testid="sequence-family-placeholder">
-      <EmptyState icon="layers" title={`${f.id} ${f.name} · ${f.sequences} sequences · ${f.motifs} motifs`} caption="the sequence family page is not drawn yet — its sequences are listed below; open the atlas for the composition and aligned members"
+      <EmptyState icon="layers" title={`${f.id} ${f.name} · ${f.sequences} sequences · ${f.motifs} motifs`} caption="the sequence family page is not drawn yet — open the atlas for the composition and aligned members"
         action={<Button onClick={() => navigate(`library/atlas?unit=sequences&family=${f.id}`)}>‹ back to atlas</Button>} />
-      <div className="row wrap" style={{ gap: 6, marginTop: 12 }}>{Array.from({ length: f.sequences }, (_, i) => <Chip key={i} tone="grey" size="sm">{`sq-${f.id.slice(2)}${String(i + 1).padStart(2, '0')}`}</Chip>)}</div>
+      {/* the member ids used to be fabricated here (`sq-02NN`); this read does not carry them, so it says so */}
+      <div className="lib-cap" style={{ marginTop: 12 }}>composition {f.compositionLabel} · {f.recordings} recordings · the member sequences are not carried by this read</div>
     </div>
   )
 }
 
 /* ================================================================ motif family ================================================================ */
-function memberTrace(m: Member, shape: MotifFamily['shape'], sign: number) { return motifShape(shape, sign * m.amplitudeMv, m.seed, { jitter: 0.07 }) }
+/** A member's SKETCH, from the family's shape and the member's own measured amplitude and seed. It is not the
+ *  recorded waveform — the read carries real traces for the exemplar and the medoid only — so every surface
+ *  that draws one titles it as a sketch and never puts one in a panel with a real trace. */
+function memberTrace(m: { amplitudeMv: number; seed: number }, shape: MotifFamily['shape'], sign: number) { return motifShape(shape, sign * m.amplitudeMv, m.seed, { jitter: 0.07 }) }
 
 function MotifFamilyView({ detail }: { detail: FamilyDetail }) {
   const f = detail.family
   const { push } = useToast()
   const queue = useQueueToast()
   const [edits, setEdits] = useDemoState<FamilyEdits>(`library.family.${f.id}.edits`, () => ({
-    removed: detail.removed.map(r => ({ id: r.id, d: r.d, channel: r.channel, recording: r.recording, onsetH: 204.1, durationS: 20.4, amplitudeMv: 0.18, verdict: 'unjudged' as Verdict, foundBy: 'run #128 drop_motifs9', revisions: [{ rev: 1, spanId: 'd-88511', origin: 'machine' as const, run: '#128', role: 'current' }], tags: [], seed: r.seed, removedAt: r.removedAt, removedNote: r.note })),
+    // exactly what the bridge returned for each removal — no invented onset, duration, amplitude, verdict,
+    // run or revision list (a removal is a hand edit, and a hand edit has none of those)
+    removed: detail.removed.map(r => {
+      const live = r as LiveRemoved
+      return { id: r.id, d: r.d, channel: r.channel, recording: r.recording, seed: r.seed, removedAt: r.removedAt, removedNote: r.note, onsetH: live.onsetH ?? null }
+    }),
     undone: [], exemplar: f.exemplar, tags: Object.fromEntries(detail.members.map(m => [m.id, m.tags])), cls: Object.fromEntries(detail.members.filter(m => m.cls).map(m => [m.id, m.cls!])),
     notes: Object.fromEntries(detail.members.filter(m => m.note).map(m => [m.id, m.note!])), queued: false, staleEdges: false, log: [],
   }))
-  const [sel, setSel] = useDemoState<string[]>(`library.family.${f.id}.sel`, () => (f.id === 'F-03' ? ['E-0102', 'm-1843', 'm-1850'] : []))
+  // nothing is selected until someone selects it — the three-id preselection named fixture rows
+  const [sel, setSel] = useDemoState<string[]>(`library.family.${f.id}.sel`, () => [])
   const { route } = useApp()
   const selQ = route.query.sel
   useEffect(() => { if (selQ !== undefined) setSel(selQ ? selQ.split(',') : []) }, [selQ, setSel])
   const [sort, setSort] = useQueryState<SortKey>('sort', 'distance')
   const [handQ, setHandQ] = useQueryState('hand', '')
   const [pageQ, setPageQ] = useQueryState('page', '1')
-  const [memberQ, setMemberQ] = useQueryState('member', f.id === 'F-03' ? 'm-1850' : '')
+  // no member is opened by id: the rail falls back to the first card on the page
+  const [memberQ, setMemberQ] = useQueryState('member', '')
   const [modal, setModal] = useQueryState('modal', '')
   const [popover, setPopover] = useQueryState('popover', '')
-  const [sampleSeed, setSampleSeed] = useState(1)
   const sign = f.depthMv < 0 ? -1 : 1
 
   const removedIds = new Set(edits.removed.map(r => r.id))
@@ -110,13 +162,19 @@ function MotifFamilyView({ detail }: { detail: FamilyDetail }) {
   const page = Math.min(pageCount, Math.max(1, Number(pageQ) || 1))
   const pageItems = ordered.slice((page - 1) * 10, page * 10)
   const railMember = ordered.find(m => m.id === memberQ) ?? members.map(withEdits).find(m => m.id === memberQ) ?? pageItems[0] ?? null
-  const yDomain = useMemo(() => { const a = Math.max(...detail.members.map(m => m.amplitudeMv), Math.abs(f.depthMv)); return niceMvDomain([[a * 1.05, -a * 1.05]]) }, [detail.members, f.depthMv])
+  const yDomain = useMemo(() => {
+    // an empty family (every member removed by hand) must not make Math.max(-Infinity) the domain
+    const a = Math.max(...detail.members.map(m => m.amplitudeMv), Math.abs(f.depthMv), 0.01)
+    return niceMvDomain([[a * 1.05, -a * 1.05]])
+  }, [detail.members, f.depthMv])
   const judged = members.filter(m => m.verdict !== 'unjudged').length
   const unjudged = members.length - judged
   const added = members.filter(m => m.addedByHand).length
-  const exemplarMember = members.find(m => m.id === edits.exemplar)
-  const exemplarTrace = edits.exemplar === f.exemplar || !exemplarMember ? f.exemplarTrace : memberTrace(exemplarMember, f.shape, sign)
-  const sampled = useMemo(() => Array.from({ length: Math.min(10, members.length) }, (_, k) => members[(k * 11 + sampleSeed * 7) % members.length]).map(m => memberTrace(m, f.shape, sign)), [members, sampleSeed, f.shape, sign])
+  // the summary plot always draws the family's OWN exemplar trace, which is real. Choosing a new exemplar by
+  // hand does not produce a trace for it — that comes back on the next read — so the plot says so instead of
+  // swapping a sketch in beside the real medoid.
+  const exemplarTrace = f.exemplarTrace
+  const handExemplar = edits.exemplar !== f.exemplar
   const selInList = sel.filter(s => members.some(m => m.id === s))
   const pageIds = pageItems.map(m => m.id)
   const pageTicked = pageIds.filter(x => sel.includes(x)).length
@@ -126,7 +184,15 @@ function MotifFamilyView({ detail }: { detail: FamilyDetail }) {
   const toggle = (mid: string) => setSel(s => (s.includes(mid) ? s.filter(x => x !== mid) : [...s, mid]))
   const removeMembers = (ids: string[]) => {
     const targets = members.filter(m => ids.includes(m.id))
-    setEdits(e => ({ ...e, removed: [...e.removed, ...targets.map(m => ({ ...withEdits(m), removedAt: TODAY, removedNote: 'removed by hand' }))] }))
+    const stamp = today()
+    setEdits(e => ({
+      ...e,
+      removed: [...e.removed, ...targets.map(m => ({
+        id: m.id, d: m.d, channel: m.channel, recording: m.recording, seed: m.seed,
+        onsetH: m.onsetH, durationS: m.durationS, amplitudeMv: m.amplitudeMv,
+        removedAt: stamp, removedNote: 'removed by hand',
+      }))],
+    }))
     setSel(s => s.filter(x => !ids.includes(x)))
     log('hand-edit.remove', { members: ids })
     if (railMember && ids.includes(railMember.id)) { const next = ordered.find(m => !ids.includes(m.id)); if (next) setMemberQ(next.id) }
@@ -175,7 +241,7 @@ function MotifFamilyView({ detail }: { detail: FamilyDetail }) {
           </div>
           <div className="stack" style={{ gap: 10 }}>
             <div className="row lib-cap" style={{ fontSize: 10.5 }}>
-              <span><i style={{ display: 'inline-block', width: 12, height: 2, background: '#1f2937', verticalAlign: 'middle', marginRight: 4 }} />exemplar {edits.exemplar}{edits.exemplar === f.exemplar ? ' (seed)' : ' (hand)'}</span>
+              <span><i style={{ display: 'inline-block', width: 12, height: 2, background: '#1f2937', verticalAlign: 'middle', marginRight: 4 }} />exemplar {f.exemplar}{handExemplar ? ` · ${edits.exemplar} chosen by hand, drawn after the next recompute` : ''}</span>
               <span><i style={{ display: 'inline-block', width: 12, height: 2, background: f.colour, verticalAlign: 'middle', marginRight: 4 }} />medoid {f.medoid}</span>
               <span className="k-chip green sm">d {f.exemplarMedoidD.toFixed(2)}</span>
               {edits.staleEdges && <Badge status="stale" title="the exemplar changed; distances are partially stale until the family is recomputed (§4.2)">edges partially stale</Badge>}
@@ -196,8 +262,12 @@ function MotifFamilyView({ detail }: { detail: FamilyDetail }) {
             </div>
           </div>
           <div>
-            <div className="row lib-cap" style={{ fontSize: 10.5 }}><span>{sampled.length} of {members.length} sampled</span><Button variant="link" size="sm" style={{ marginLeft: 'auto' }} testid="summary-resample" onClick={() => setSampleSeed(s => s + 1)}>resample</Button></div>
-            <MiniTrace values={f.medoidTrace} yDomain={yDomain} width="100%" height={104} strokeWidth={1.8} overlays={sampled.map(v => ({ values: v, stroke: hexA(f.colour, 0.45), width: 1 }))} testid="summary-overlay" title="10 sampled members over the medoid, shared mV scale" />
+            {/* this panel used to overlay ten SYNTHESISED member traces on the real medoid — a sketch drawn
+                on top of a measurement, which is the one thing `api/library.ts` says must not happen. The
+                medoid is drawn alone, and the caption says why there is nothing over it. */}
+            <div className="row lib-cap" style={{ fontSize: 10.5 }}><span>medoid {f.medoid} · measured</span></div>
+            <MiniTrace values={f.medoidTrace} yDomain={yDomain} width="100%" height={104} strokeWidth={1.8} testid="summary-overlay" title={`the medoid of ${f.id}, read off the recording · shared mV scale`} />
+            <div className="lib-cap" style={{ fontSize: 10 }}>member waveforms are not carried by this read, so none are overlaid</div>
           </div>
         </div>
 
@@ -227,7 +297,7 @@ function MotifFamilyView({ detail }: { detail: FamilyDetail }) {
                   {m.role === 'exemplar' && <span className="k-badge t-green">exemplar</span>}
                   {m.addedByHand && <span className="k-badge t-purple">added by hand</span>}
                 </div>
-                <MiniTrace values={memberTrace(m, f.shape, sign)} yDomain={yDomain} width="100%" height={48} ground={on ? 'white' : 'grey'} stroke={m.verdict === 'artifact' ? 'var(--red)' : '#1f2937'} strokeWidth={1.3} title={`${m.id} · ${m.recording} ${m.channel} · ${m.onsetH.toFixed(1)} h`} />
+                <MiniTrace values={memberTrace(m, f.shape, sign)} yDomain={yDomain} width="100%" height={48} ground={on ? 'white' : 'grey'} stroke={m.verdict === 'artifact' ? 'var(--red)' : '#1f2937'} strokeWidth={1.3} title={`${m.id} · ${m.recording} ${m.channel} · ${m.onsetH.toFixed(1)} h — ${SKETCH_NOTE}`} />
                 <span className="lib-cap">{m.channel} · {m.onsetH.toFixed(1)} h</span>
                 <VerdictLine v={m.verdict} />
               </div>
@@ -235,7 +305,7 @@ function MotifFamilyView({ detail }: { detail: FamilyDetail }) {
           })}
         </div>
         {!pageItems.length && <EmptyState title={handOnly ? 'No hand-edited members' : 'No members'} caption={handOnly ? 'nobody has added a member to this family by hand' : 'every member was removed'} bordered testid="members-empty" />}
-        <span className="lib-cap" style={{ marginTop: -4 }}>shared mV scale · ±{yDomain[1].toFixed(1)} mV · {f.durationS} s</span>
+        <span className="lib-cap" style={{ marginTop: -4 }}>shared mV scale · ±{yDomain[1].toFixed(1)} mV · {f.durationS} s · {SKETCH_NOTE}</span>
 
         {edits.removed.length > 0 && (
           <div className="k-card" style={{ padding: '10px 14px', display: 'grid', gridTemplateColumns: '240px 1fr', gap: 12, alignItems: 'center' }} data-testid="removed-strip">
@@ -243,8 +313,12 @@ function MotifFamilyView({ detail }: { detail: FamilyDetail }) {
             <div className="stack" style={{ gap: 4 }}>
               {edits.removed.slice(0, 3).map(r => (
                 <div key={r.id} className="row" style={{ gap: 12 }}>
-                  <MiniTrace values={memberTrace(r, f.shape, sign)} yDomain={yDomain} width={62} height={34} ground="white" stroke="#6b7280" style={{ border: '1px solid var(--border)', borderRadius: 4 }} />
-                  <span className="lib-cap" style={{ color: 'var(--text-2)', fontSize: 11 }}>{r.id} · d {r.d.toFixed(2)} · {r.channel} · removed {r.removedAt} · “{r.removedNote}”</span>
+                  {/* a removal recorded in an earlier session carries no amplitude, so there is nothing to
+                      sketch from and the slot says so rather than drawing a default-shaped line */}
+                  {r.amplitudeMv != null
+                    ? <MiniTrace values={memberTrace({ amplitudeMv: r.amplitudeMv, seed: r.seed }, f.shape, sign)} yDomain={yDomain} width={62} height={34} ground="white" stroke="#6b7280" style={{ border: '1px solid var(--border)', borderRadius: 4 }} title={`${r.id} — ${SKETCH_NOTE}`} />
+                    : <span className="lib-cap" style={{ width: 62, height: 34, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', border: '1px solid var(--border)', borderRadius: 4, fontSize: 10 }} title="a removed member carries no amplitude in this read">no sketch</span>}
+                  <span className="lib-cap" style={{ color: 'var(--text-2)', fontSize: 11 }}>{r.id} · d {r.d.toFixed(2)} · {r.channel}{r.onsetH != null ? ` · ${r.onsetH.toFixed(1)} h` : ''} · removed {r.removedAt} · “{r.removedNote}”</span>
                   <Button variant="link" icon="undo" style={{ marginLeft: 'auto' }} testid={`restore-${r.id}`} onClick={() => { restore([r.id]); push({ text: `Restored ${r.id} · not wired yet: DELETE hand edit` }) }}>Restore</Button>
                 </div>
               ))}
@@ -347,13 +421,15 @@ function MemberRail({ m, f, detail, yDomain, sign, edits, setEdits, onUndoAdd, o
   const revRef = useRef<HTMLButtonElement>(null), tagRef = useRef<HTMLButtonElement>(null)
   const [note, setNote] = useState(edits.notes[m.id] ?? '')
   const [saved, setSaved] = useState<string | null>(null)
-  const trace = memberTrace(m, f.shape, sign)
-  const context = useMemo(() => { const rnd = (i: number) => Math.sin(i * 1.7 + m.seed) * 0.012 + Math.sin(i / 9 + m.seed) * 0.02; const pre = Array.from({ length: 30 }, (_, i) => rnd(i)); const ev = motifShape(f.shape, sign * m.amplitudeMv, m.seed, { n: Math.round(m.durationS) }); const post = Array.from({ length: 30 }, (_, i) => rnd(i + 60)); return [...pre, ...ev, ...post] }, [m, f.shape, sign])
+  const trace = useMemo(() => memberTrace(m, f.shape, sign), [m, f.shape, sign])
   const tags = edits.tags[m.id] ?? m.tags
   const past = m.d > detail.cut
   const exemplarReason = m.id === edits.exemplar ? 'already the exemplar' : m.verdict === 'artifact' ? 'artifact verdict — cannot anchor a family' : null
   const saveNote = () => { if ((edits.notes[m.id] ?? '') === note) return; if (note.length > 500) return; setEdits(e => ({ ...e, notes: { ...e.notes, [m.id]: note } })); recordDemoWrite('library', 'hand-edit.note', { member: m.id }); setSaved('note saved') }
-  const current = m.revisions[m.revisions.length - 1]
+  // §4.2's revision list, from `motif_member_revision`. It can be empty — a member imported without a
+  // detection or an annotation behind it has no revision — and an empty one is said, not faked.
+  const revisions = m.revisions ?? []
+  const current = revisions.length ? revisions[revisions.length - 1] : null
   return (
     <aside className="k-card lib-rail" data-testid="member-rail" aria-label={`member ${m.id}`}>
       <div className="row">
@@ -364,13 +440,14 @@ function MemberRail({ m, f, detail, yDomain, sign, edits, setEdits, onUndoAdd, o
         <span className="mono" style={{ marginLeft: 'auto', color: past ? 'var(--purple)' : 'var(--muted)', fontSize: 12 }}>d {m.d.toFixed(2)}</span>
       </div>
       <div>
-        <MotifPlot exemplar={trace} medoid={f.medoidTrace} colour={f.colour} yDomain={yDomain} height={92} testid="rail-member-plot" />
-        <div className="row lib-cap" style={{ justifyContent: 'space-between', paddingLeft: 30 }}><span>0</span><span>{f.durationS} s</span></div>
+        {/* the member's sketch alone: overlaying it on the family's REAL medoid put a drawing and a
+            measurement in one frame at one scale, which reads as a comparison and is not one */}
+        <MotifPlot exemplar={trace} colour={f.colour} yDomain={yDomain} height={92} testid="rail-member-plot" />
+        <div className="row lib-cap" style={{ justifyContent: 'space-between', paddingLeft: 30 }}><span>0</span><span>{m.durationS.toFixed(1)} s</span></div>
+        <div className="lib-cap" style={{ fontSize: 10 }}>{SKETCH_NOTE}</div>
       </div>
-      <div>
-        <MiniTrace values={context} yDomain={yDomain} width="100%" height={36} band={[30, 30 + Math.round(m.durationS)]} ground="grey" zeroLine={false} testid="rail-context" title={`±30 s of signal around ${m.id}; the span is shaded`} />
-        <div className="row lib-cap" style={{ justifyContent: 'space-between' }}><span>−30 s</span><span>+30 s</span></div>
-      </div>
+      {/* the ±30 s context strip was `Math.sin(seed)` noise, not signal; open the span in Explore for the
+          real thing */}
       <KeyValue align="right" dense items={[
         { k: 'recording · channel', v: `${m.recording} · ${m.channel}` },
         { k: 'onset · duration', v: `${m.onsetH.toFixed(1)} h · ${m.durationS.toFixed(1)} s` },
@@ -383,10 +460,12 @@ function MemberRail({ m, f, detail, yDomain, sign, edits, setEdits, onUndoAdd, o
         </div>
       )}
       <div className="lib-kvrow"><span className="k">revisions</span>
-        <button ref={revRef} type="button" className="lib-plain mono v" data-testid="revisions-link" onClick={() => setPopover(popover === 'revisions' ? null : 'revisions')}>{m.revisions.map(r => `rev ${r.rev} ${r.origin === 'machine' ? `machine ${r.spanId}` : 'edited'}`).join(' · ')}</button></div>
+        {revisions.length
+          ? <button ref={revRef} type="button" className="lib-plain mono v" data-testid="revisions-link" onClick={() => setPopover(popover === 'revisions' ? null : 'revisions')}>{revisions.map(r => `rev ${r.rev} ${r.origin === 'machine' ? `machine ${r.spanId}` : `edited ${r.spanId}`}`).join(' · ')}</button>
+          : <span className="mono v muted" data-testid="revisions-none">no revisions recorded for this member</span>}</div>
       <div className="lib-kvrow"><span className="k">verdict <InfoTip title="verdicts are read-only here">verdicts are written only in Review and Explore (§4.1, P6)</InfoTip></span>
         <span className="v">{m.verdict === 'unjudged' ? <span style={{ color: '#c27400' }}>unjudged</span> : <><span style={{ width: 7, height: 7, borderRadius: '50%', background: VERDICT_COLOUR[m.verdict], display: 'inline-block', marginRight: 5 }} />{m.verdict}{m.verdictAt ? ` · ${m.verdictAt}` : ''}</>}
-          <Button variant="link" size="sm" testid="open-in-review" onClick={() => navigate(`review/queue/q-15?item=${m.id}`)}>Open in Review</Button></span></div>
+          <Button variant="link" size="sm" testid="open-in-review" onClick={() => navigate(`review?item=${m.id}`)}>Open in Review</Button></span></div>
       <div className="row" style={{ justifyContent: 'space-between' }}>
         <span className="lib-cap" style={{ fontSize: 11 }}>tags</span>
         <span className="row" style={{ gap: 4, flexWrap: 'wrap', justifyContent: 'flex-end' }} data-testid="rail-tags">
@@ -406,14 +485,15 @@ function MemberRail({ m, f, detail, yDomain, sign, edits, setEdits, onUndoAdd, o
       <div className="lib-rail-actions">
         <span className="row" style={{ gap: 8 }}>
           <Button icon="sparkle" testid="make-exemplar" disabled={!!exemplarReason} disabledReason={exemplarReason ?? undefined} onClick={onMakeExemplar}>Make exemplar</Button>
-          <Button icon="pencil" testid="redraw-in-explore" onClick={() => navigate(`explore/span-edit/${m.id}?from=library/family/${f.id}&span=${current.spanId}`)}>Redraw in Explore</Button>
+          <Button icon="pencil" testid="redraw-in-explore" disabled={!current} disabledReason="this member has no revision to redraw from"
+            onClick={() => { if (current) navigate(`explore/span-edit/${m.id}?from=library/family/${f.id}&span=${current.spanId}`) }}>Redraw in Explore</Button>
         </span>
         <Button variant="danger" icon="minus" testid="rail-remove" onClick={onRemove}>Remove from family</Button>
       </div>
       <Popover open={popover === 'revisions'} onClose={() => setPopover(null)} anchorRef={revRef} title={`Revisions of ${m.id}`} width={380} placement="left-start" testid="revisions-popover">
         <table className="lib-scores">
           <thead><tr><th>rev</th><th>span</th><th>origin</th><th>run</th><th>role</th></tr></thead>
-          <tbody>{m.revisions.map(r => <tr key={r.rev}><td>{r.rev}</td><td>{r.spanId}</td><td style={{ color: r.origin === 'machine' ? 'var(--blue-600)' : 'var(--green)' }}>{r.origin}</td><td>{r.run}</td><td>{r.role}</td></tr>)}</tbody>
+          <tbody>{revisions.map(r => <tr key={r.rev}><td>{r.rev}</td><td>{r.spanId}</td><td style={{ color: r.origin === 'machine' ? 'var(--blue-600)' : 'var(--green)' }}>{r.origin}</td><td>{r.run}</td><td>{r.role}</td></tr>)}</tbody>
         </table>
         <div className="lib-cap" style={{ marginTop: 6 }}>a human edit writes a new annotation; the detection stays on its run (§4.2)</div>
       </Popover>
