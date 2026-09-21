@@ -41,9 +41,25 @@ DISTANCE_NATIVE_LENGTH = "native_length"
 
 
 def z_normalize(x):
-    """z-normalise `x` to zero mean, unit variance. A constant span
-    (std == 0) returns an all-zero array rather than dividing by zero."""
+    """z-normalise `x` to zero mean, unit variance. A constant span returns
+    an all-zero array rather than dividing by zero.
+
+    The constant test is `np.ptp(x) == 0`, not `std == 0`. A span of 4.2 mV
+    repeated 256 times has a standard deviation of 8.9e-16 rather than 0 —
+    `mean()` and `std()` accumulate rounding error that a real flat span
+    cannot avoid — so the `std == 0` guard this function used to carry missed
+    every constant span except an all-zero one, and divided the rounding dust
+    by itself to return a full-amplitude unit-variance waveform of noise.
+    `ptp` is a subtraction of two elements and is exact where the variance is
+    not, so it recognises the flat span the docstring always claimed to.
+
+    This matters beyond this function: a flat span reaching
+    `scale_invariant_distance`, `Working.cross_channel`'s waveform
+    correlation, or the drop-motif clustering vectors would otherwise be
+    compared as though it had structure."""
     x = np.asarray(x, dtype=float).ravel()
+    if x.size == 0 or np.ptp(x) == 0:
+        return np.zeros_like(x)
     mu, sigma = x.mean(), x.std()
     if sigma == 0:
         return np.zeros_like(x)

@@ -1,0 +1,14 @@
+{
+  "kind": "drop_motifs_fixture",
+  "version": 1,
+  "n_motifs": 5,
+  "detector": "synthetic",
+  "partial": true,
+  "regions_present": [
+    "B"
+  ],
+  "regions_missing": [
+    "A"
+  ],
+  "note": "Stands in for Plots/drop_motifs12a/*_PARTIAL \u2014 refused."
+}

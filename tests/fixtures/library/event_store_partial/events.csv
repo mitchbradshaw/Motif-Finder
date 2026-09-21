@@ -1,0 +1,6 @@
+event_id,span_key,span_label,catalogue_id,recording_id,source_file,channel,fs,morphology,species,corpus,framing,onset_idx,onset_h,trough_idx,snippet_start_idx,snippet_end_idx,snippet_key,drop_depth_mv,cluster_id
+id001_r1_1000,id001,ID 1,1,1,CH0.npy,0,1.0,trough,oyster,oyster,span,1000,0.2777777777777778,1030,1000,1100,id001_r1_1000,11.7725,-1
+id001_r1_5000,id001,ID 1,1,1,CH0.npy,0,1.0,sharkfin,oyster,oyster,span,5000,1.3888888888888888,5036,5000,5120,id001_r1_5000,2.9437,-1
+id002_r2_2000,id002,ID 2,2,2,CH1.npy,1,1.0,Stegasauras,reishi,reishi_1hz,sliding,2000,0.5555555555555556,2030,2000,2100,id002_r2_2000,11.7725,-1
+id003_r1_1010,id003,ID 3,3,1,CH0.npy,0,1.0,trough,oyster,oyster,span,1010,0.28055555555555556,1040,1010,1110,id003_r1_1010,13.358,-1
+id004_r999_7000,id004,ID 4,4,999,CH9.npy,9,1.0,trough,oyster,oyster,span,7000,1.9444444444444444,7030,7000,7100,id004_r999_7000,24.526,-1

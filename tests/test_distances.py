@@ -154,3 +154,32 @@ def _run_all():
 
 if __name__ == "__main__":
     _run_all()
+
+
+def test_a_constant_span_z_normalises_to_zeros_whatever_its_level():
+    """The flat-span guard has to use `ptp`, not `std`.
+
+    `np.full(256, 4.2).std()` is 8.9e-16, not 0: `mean()` and `std()`
+    accumulate rounding error a real flat span cannot avoid. Under the old
+    `std == 0` guard this span divided that dust by itself and came back as a
+    full-amplitude unit-variance waveform of noise, so a flat channel was
+    compared as though it had structure — by `scale_invariant_distance`, by
+    `Working.cross_channel`'s waveform correlation, and by the drop-motif
+    clustering vectors.
+    """
+    import numpy as np
+    from Working.distances import z_normalize
+
+    for level in (0.0, 4.2, -340.0, 1e6):
+        flat = np.full(256, level)
+        assert np.all(z_normalize(flat) == 0), f"level {level} did not flatten"
+
+
+def test_two_flat_spans_at_different_levels_are_at_distance_zero():
+    """The consequence downstream: two flat spans are the same shape, and
+    before the `ptp` fix they were noise against noise and could land
+    arbitrarily far apart."""
+    import numpy as np
+    from Working.distances import scale_invariant_distance
+
+    assert scale_invariant_distance(np.full(100, 4.2), np.full(250, -17.0)) == 0.0
