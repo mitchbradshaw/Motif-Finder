@@ -39,10 +39,15 @@ def _cluster_window_set(window_set, linkage, k):
             "(input_kind='windowset')."
         )
     features = window_set.features
+    if features is not None and "split" in features.columns:
+        # The train/validation/test assignment `preprocessing.sliding_windows`
+        # rides on the window set (P12) is metadata, never a feature: a
+        # clustering that saw it would recover the split as a cluster.
+        features = features.drop(columns=["split"])
     if features is None or features.shape[0] == 0 or features.shape[1] == 0:
         raise ValueError(
             "catalogue.cluster requires a WindowSet with an attached feature "
-            "matrix, one row per window."
+            "matrix, one row per window (a `split` column alone is not a feature)."
         )
     if k > len(features):
         raise ValueError(

@@ -497,6 +497,33 @@ def _migrate_templates_columns(conn):
     _migrate_columns(conn, "templates", _TEMPLATES_NEW_COLUMNS)
 
 
+# Stage-3 prompt 01 (docs/BLOCK_INTEGRATION.md "Long work"): the persisted job
+# model behind webui/server/jobs.py. One row per job the bridge starts, of
+# kind chain_run | sweep | import | regroup | training; `run_id` links a chain
+# run to the `runs` row the core wrote. Additive: CREATE TABLE IF NOT EXISTS.
+_JOBS_SCHEMA = """
+CREATE TABLE IF NOT EXISTS jobs (
+    id            INTEGER PRIMARY KEY,
+    kind          TEXT    NOT NULL,
+    status        TEXT    NOT NULL,
+    created_at    TEXT    NOT NULL,
+    started_at    TEXT,
+    finished_at   TEXT,
+    cancelled     INTEGER NOT NULL DEFAULT 0,
+    meta_json     TEXT,
+    progress_json TEXT,
+    error_json    TEXT,
+    run_id        INTEGER REFERENCES runs(id)
+);
+CREATE INDEX IF NOT EXISTS idx_jobs_kind_status ON jobs(kind, status);
+"""
+
+
+def _migrate_jobs_table(conn):
+    conn.executescript(_JOBS_SCHEMA)
+    conn.commit()
+
+
 def _migrate_recordings_registration_columns(conn):
     _migrate_columns(conn, "recordings", _RECORDINGS_REGISTRATION_COLUMNS)
 
@@ -748,6 +775,7 @@ def init_db(db_path=None):
     _migrate_motifs_columns(conn)
     _migrate_motif_entry_columns(conn)
     _migrate_templates_columns(conn)
+    _migrate_jobs_table(conn)
     _migrate_recordings_registration_columns(conn)
     _migrate_encodings_registration_columns(conn)
     _create_registration_tables(conn)

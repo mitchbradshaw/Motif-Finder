@@ -105,6 +105,17 @@ CANONICAL: list[dict] = [
         ],
     },
     {
+        "name": "cnn_detection", "kind": "detection", "version": 1,
+        "description": "Sliding windows (blocked split) → window images (fusion) → CNN score → threshold to spans: "
+                       "detecting with a trained model (D2; spec §6.8 'Model + WindowSet → Scores').",
+        "steps": [
+            _step("preprocessing", "sliding_windows", {"window_s": 600.0}),
+            _step("catalogue", "window_images", {"image_type": "fusion", "img_size": 224}),
+            _step("catalogue", "cnn_score", {}, side_inputs={"windows": {"source_kind": "earlier_step", "step_index": 0}}),
+            _step("detection", "threshold", {"threshold": 0.5}),
+        ],
+    },
+    {
         "name": "gramian_gasf", "kind": "encoding", "version": 1,
         "description": "Baseline → Gramian GASF image (needs a span ≤ 5000 samples).",
         "steps": [
