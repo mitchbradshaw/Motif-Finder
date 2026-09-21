@@ -60,7 +60,6 @@ def conn(tmp_path):
     init_db(str(db))
     c = sqlite3.connect(str(db))
     c.row_factory = sqlite3.Row
-    c.tmp_path = tmp_path
     yield c
     c.close()
 
@@ -107,8 +106,8 @@ def _counts(conn):
 
 # ── the promotion itself ─────────────────────────────────────────────────────
 
-def test_promote_creates_entry_member_and_revision_one(conn):
-    rec = _recording(conn, conn.tmp_path, 0, _wave(2_000))
+def test_promote_creates_entry_member_and_revision_one(conn, tmp_path):
+    rec = _recording(conn, tmp_path, 0, _wave(2_000))
     qid = _queue(conn)
     det = _detection(conn, rec, 100, 356)
 
@@ -133,8 +132,8 @@ def test_promote_creates_entry_member_and_revision_one(conn):
     assert rev["annotation_id"] is None
 
 
-def test_promote_writes_one_audit_row_carrying_both_halves(conn):
-    rec = _recording(conn, conn.tmp_path, 0, _wave(2_000))
+def test_promote_writes_one_audit_row_carrying_both_halves(conn, tmp_path):
+    rec = _recording(conn, tmp_path, 0, _wave(2_000))
     qid = _queue(conn)
     det = _detection(conn, rec, 100, 356)
 
@@ -153,10 +152,10 @@ def test_promote_writes_one_audit_row_carrying_both_halves(conn):
     assert "verdict" in payload
 
 
-def test_promoting_the_same_target_twice_is_one_entry(conn):
+def test_promoting_the_same_target_twice_is_one_entry(conn, tmp_path):
     """Determinism: the second promote writes no second shape and no second
     occurrence — it reports the ids the first one made."""
-    rec = _recording(conn, conn.tmp_path, 0, _wave(2_000))
+    rec = _recording(conn, tmp_path, 0, _wave(2_000))
     qid = _queue(conn)
     det = _detection(conn, rec, 100, 356)
 
@@ -169,12 +168,12 @@ def test_promoting_the_same_target_twice_is_one_entry(conn):
     assert _counts(conn) == (1, 1, 1)
 
 
-def test_the_same_shape_elsewhere_is_a_new_member_of_the_same_entry(conn):
+def test_the_same_shape_elsewhere_is_a_new_member_of_the_same_entry(conn, tmp_path):
     """§2.1: same hash -> same entry; same hash AND same place -> same member.
     A recurrence on another channel is the Library's whole point."""
     values = _wave(2_000)
-    rec0 = _recording(conn, conn.tmp_path, 0, values)
-    rec1 = _recording(conn, conn.tmp_path, 1, values)
+    rec0 = _recording(conn, tmp_path, 0, values)
+    rec1 = _recording(conn, tmp_path, 1, values)
     qid = _queue(conn)
 
     first = promotion.promote(conn, qid, _detection(conn, rec0, 100, 356))
@@ -186,8 +185,8 @@ def test_the_same_shape_elsewhere_is_a_new_member_of_the_same_entry(conn):
     assert (entries, members, revs) == (1, 2, 2)
 
 
-def test_a_human_span_promotes_as_a_human_revision(conn):
-    rec = _recording(conn, conn.tmp_path, 0, _wave(2_000))
+def test_a_human_span_promotes_as_a_human_revision(conn, tmp_path):
+    rec = _recording(conn, tmp_path, 0, _wave(2_000))
     qid = _queue(conn, source_kind="explore-spans", unit="human span",
                  writes_to="annotations")
     ann = q.insert_annotation(conn, rec, 500, 756, "interesting", "explore")
@@ -204,8 +203,8 @@ def test_a_human_span_promotes_as_a_human_revision(conn):
 
 # ── Ctrl-Z ───────────────────────────────────────────────────────────────────
 
-def test_unpromote_removes_the_library_rows_and_the_verdict(conn):
-    rec = _recording(conn, conn.tmp_path, 0, _wave(2_000))
+def test_unpromote_removes_the_library_rows_and_the_verdict(conn, tmp_path):
+    rec = _recording(conn, tmp_path, 0, _wave(2_000))
     qid = _queue(conn)
     det = _detection(conn, rec, 100, 356)
 
@@ -222,12 +221,12 @@ def test_unpromote_removes_the_library_rows_and_the_verdict(conn):
     assert audit["undone_at"], "an undone promote says so on its audit row"
 
 
-def test_unpromote_keeps_an_entry_another_member_still_needs(conn):
+def test_unpromote_keeps_an_entry_another_member_still_needs(conn, tmp_path):
     """Reversing one promotion must not delete a shape someone else's
     occurrence is still hanging off."""
     values = _wave(2_000)
-    rec0 = _recording(conn, conn.tmp_path, 0, values)
-    rec1 = _recording(conn, conn.tmp_path, 1, values)
+    rec0 = _recording(conn, tmp_path, 0, values)
+    rec1 = _recording(conn, tmp_path, 1, values)
     qid = _queue(conn)
 
     first = promotion.promote(conn, qid, _detection(conn, rec0, 100, 356))
@@ -241,8 +240,8 @@ def test_unpromote_keeps_an_entry_another_member_still_needs(conn):
         == first["entry_id"]
 
 
-def test_unpromote_is_refused_twice(conn):
-    rec = _recording(conn, conn.tmp_path, 0, _wave(2_000))
+def test_unpromote_is_refused_twice(conn, tmp_path):
+    rec = _recording(conn, tmp_path, 0, _wave(2_000))
     qid = _queue(conn)
     out = promotion.promote(conn, qid, _detection(conn, rec, 100, 356))
 
