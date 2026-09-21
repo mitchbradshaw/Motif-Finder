@@ -85,7 +85,7 @@ def get_tags(request: Request, recording_id: int, t0: float = 0.0, t1: float | N
     try:
         ann = c.execute(
             "SELECT a.id, a.start_idx, a.end_idx, a.verdict, a.tag, a.note, a.source FROM annotations a "
-            "WHERE a.recording_id = ? AND a.deleted_at IS NULL AND a.end_idx > ? AND a.start_idx < ? ORDER BY a.start_idx LIMIT 5000",
+            "WHERE a.recording_id = ? AND a.deleted_at IS NULL AND a.end_idx > ? AND a.start_idx < ? ORDER BY a.start_idx LIMIT 5001",
             (recording_id, s0, s1)).fetchall()
         ids = [a["id"] for a in ann]
         tags_by = {}
@@ -95,7 +95,9 @@ def get_tags(request: Request, recording_id: int, t0: float = 0.0, t1: float | N
                                f"WHERE t.annotation_id IN ({marks})", ids):
                 tags_by.setdefault(r["annotation_id"], []).append({"category": r["category"], "value": r["value"]})
         reviewed = c.execute("SELECT id, start_idx, end_idx, scale_viewed, source, reviewed_at FROM reviewed_spans WHERE recording_id = ? "
-                             "AND end_idx > ? AND start_idx < ? ORDER BY start_idx LIMIT 5000", (recording_id, s0, s1)).fetchall()
+                             "AND end_idx > ? AND start_idx < ? ORDER BY start_idx LIMIT 5001", (recording_id, s0, s1)).fetchall()
+        ann_capped, rev_capped = len(ann) > 5000, len(reviewed) > 5000
+        ann, reviewed = ann[:5000], reviewed[:5000]
         reviewed_frac = q.reviewed_fraction(c, recording_id)
         vocab = c.execute("SELECT id, category, value, description, active FROM tag_vocabulary WHERE active = 1 ORDER BY category, value").fetchall()
     finally:
@@ -113,7 +115,7 @@ def get_tags(request: Request, recording_id: int, t0: float = 0.0, t1: float | N
         "reviewed_pct": float(reviewed_frac) * 100.0,
         "tag_counts": counts,
         "vocabulary": [dict(v) for v in vocab],
-        "annotations_capped": len(ann) >= 5000, "reviewed_capped": len(reviewed) >= 5000,
+        "annotations_capped": ann_capped, "reviewed_capped": rev_capped,
     }
 
 

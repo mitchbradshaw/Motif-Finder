@@ -79,7 +79,9 @@ def _run(x, t, fs, slope_sigma=8.0, noise_estimator=NOISE_SECOND_DIFFERENCE, min
     events = result.events
     starts = tuple(int(e.window_start_idx) for e in events)
     ends = tuple(int(e.window_end_idx) for e in events)
-    labels = tuple(f"onset={e.onset_idx};trough={e.trough_idx};{e.morphology}" for e in events)
+    # labels carry channel-absolute onset / trough so a tooltip beside absolute seconds reads in one frame
+    span_start = int(round(float(t[0]) * fs)) if t is not None and len(t) else 0
+    labels = tuple(f"onset={e.onset_idx + span_start};trough={e.trough_idx + span_start};{e.morphology}" for e in events)
     scores = tuple(float(e.drop_depth_mv) for e in events)
     rows = [dataclasses.asdict(e) for e in events]
     for r in rows:

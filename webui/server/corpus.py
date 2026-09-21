@@ -224,7 +224,8 @@ def ribbons(conn, recording_id: int, fs: float, n: int, buckets: int = 300) -> d
     verdict (coverage) and detection count (density)."""
     edges = np.linspace(0, n, buckets + 1)
     ann = conn.execute("SELECT start_idx, end_idx, verdict FROM annotations WHERE recording_id = ? AND deleted_at IS NULL", (recording_id,)).fetchall()
-    det = conn.execute("SELECT d.start_idx FROM detections d JOIN runs r ON r.id = d.run_id WHERE r.recording_id = ?", (recording_id,)).fetchall()
+    det = conn.execute("SELECT d.start_idx, d.end_idx, r.span_start FROM detections d JOIN runs r ON r.id = d.run_id WHERE r.recording_id = ?", (recording_id,)).fetchall()
+    det_starts = [_absolute(d["start_idx"], d["end_idx"], d["span_start"])[0] for d in det]   # legacy relative rows shifted, like spans()
     cov = [None] * buckets
     counts = {v: np.zeros(buckets, int) for v in VERDICTS}
     for a in ann:
@@ -239,7 +240,7 @@ def ribbons(conn, recording_id: int, fs: float, n: int, buckets: int = 300) -> d
             if counts[v][b] > 0:
                 best = v; break
         cov[b] = best
-    dh = np.histogram([d["start_idx"] for d in det], bins=edges)[0] if det else np.zeros(buckets, int)
+    dh = np.histogram(det_starts, bins=edges)[0] if det else np.zeros(buckets, int)
     return {"buckets": buckets, "bucket_s": n / fs / buckets, "coverage": cov, "detection_density": dh.tolist()}
 
 

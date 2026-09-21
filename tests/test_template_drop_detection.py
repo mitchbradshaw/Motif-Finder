@@ -121,9 +121,9 @@ def test_template_reproduces_the_seed_events_of_span_id001(scratch):
     span = (ID001["offset"], ID001["offset"] + ID001["n"])
     out = execute_recipe(apply_template(None, tpl, recording_id=1, span=span), db_path=db, force=True)
     # the executor returns the typed value; the onsets are in the labels
-    onsets = [int(l.split(";")[0].split("=")[1]) + ID001["offset"] for l in out["result"].value.labels]
+    onsets = [int(l.split(";")[0].split("=")[1]) for l in out["result"].value.labels]     # labels are channel-absolute
     assert onsets == [int(r["onset_idx"]) for r in seed]
-    assert [int(l.split(";")[1].split("=")[1]) + ID001["offset"] for l in out["result"].value.labels] == [int(r["trough_idx"]) for r in seed]
+    assert [int(l.split(";")[1].split("=")[1]) for l in out["result"].value.labels] == [int(r["trough_idx"]) for r in seed]
 
 
 if __name__ == "__main__":

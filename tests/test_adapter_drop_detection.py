@@ -77,7 +77,10 @@ def test_labels_carry_onset_trough_and_morphology():
     spec = get_adapter(NAME)
     r = spec.run(xd, t, FS, value=enc, **spec.validate_params({}))
     for lab, ev in zip(r.value.labels, r.meta["events"]):
-        assert lab == f"onset={ev['onset_idx']};trough={ev['trough_idx']};{ev['morphology']}"
+        assert lab == f"onset={ev['onset_idx']};trough={ev['trough_idx']};{ev['morphology']}"   # t starts at 0 here
+    t2 = t + 500.0                       # the same span 500 s into the channel: labels are channel-absolute
+    r2 = spec.run(xd, t2, FS, value=enc, **spec.validate_params({}))
+    assert r2.value.labels[0].startswith(f"onset={r.meta['events'][0]['onset_idx'] + 5000};")
 
 
 def test_refuses_a_plain_sax_encoding_with_a_pointer_to_the_right_block():

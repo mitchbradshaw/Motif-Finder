@@ -205,6 +205,28 @@ def test_detections_of_a_spanned_run_are_channel_absolute(client):
     assert sum(cov["rows"][0]["detections"][2:5]) == len(mine) and sum(cov["rows"][0]["detections"][:2]) == 0
 
 
+def test_legacy_relative_detections_are_shifted_on_every_reader(client):
+    """Rows a spanned run wrote before 2026-09-21 are span-relative; spans, coverage AND the density
+    ribbon shift them by the run's span_start (data-truth critic round 2, N-1)."""
+    from Working.database.schema import init_db
+    db = client.get("/api/runtime").json()["db_path"]
+    conn = init_db(db)
+    conn.execute("INSERT INTO configs (config_hash, config_json, created_at) VALUES ('legacy01', '{}', 'x')")
+    cid = conn.execute("SELECT id FROM configs WHERE config_hash = 'legacy01'").fetchone()[0]
+    conn.execute("INSERT INTO runs (config_id, recording_id, span_start, span_end, started_at, status) VALUES (?, 1, 2000, 2600, 'x', 'completed')", (cid,))
+    rid = conn.execute("SELECT id FROM runs WHERE config_id = ?", (cid,)).fetchone()[0]
+    conn.execute("INSERT INTO detections (run_id, start_idx, end_idx, score) VALUES (?, 100, 150, 1.0)", (rid,))   # relative: 2100..2150
+    conn.commit(); conn.close()
+    sp = client.get("/api/channels/1/spans?t0=2050&t1=2200").json()["detections"]
+    assert [(d["start_s"], d["end_s"]) for d in sp if d["run_id"] == rid] == [(2100.0, 2150.0)]
+    assert not [d for d in client.get("/api/channels/1/spans?t0=50&t1=200").json()["detections"] if d["run_id"] == rid]
+    cov = client.get(f"/api/corpus/syn.mat/coverage?run={rid}&bins=6").json()["rows"][0]["detections"]
+    assert cov == [0, 0, 0, 0, 1, 0]
+    rib = client.get("/api/channels/1").json()["ribbons"]
+    dens = rib["detection_density"]; b = int(2100 / 3000 * len(dens))
+    assert dens[b] >= 1 and sum(dens[:int(1000 / 3000 * len(dens))]) == 0
+
+
 # ── interrogation ────────────────────────────────────────────────────────────
 
 @pytest.mark.skipif(not os.path.isdir(SEED_DIR), reason="seed store absent")
