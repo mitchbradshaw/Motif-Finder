@@ -905,6 +905,24 @@ Fog recorded by the builders of the ten workspace units in `webui/pages/fog/<uni
 - **Source** — `webui/pages/fog/jobs.md` (inbox); frames jobs-1, jobs-4; spec §7c.1, §7c.4.
 - **Status** — `fog`
 
+### F93 — "n runs marked stale" is arithmetic on a fixture
+- **Question** — Channels & events builds every save-bar consequence itself and the run counts in them come from a five-entry table (`RUNS_ON` in `fixtures/settings.ts`: 3 runs on M2_aug fs1, 2 on fs2, 1 elsewhere; a channel-scoped change costs two thirds of an all-channel one). Which core query gives the real count of runs a recording/channel/span change makes stale?
+- **Why it matters** — The number reproduces the frames (3 for the 31.1–31.5 h exclusion, 2 for the CH6_B1 gain) and is otherwise invented; a researcher will read it as a fact about their runs.
+- **Source** — `webui/pages/fog/settings.md` FE21 (fix round, 2026-09-21); inventory F7; `prototyping/UI_FUNCTIONAL_SPEC.md` §9.2, §12 P23.
+- **Status** — `fog`
+
+### F94 — Channel status and the event log agree by construction, not by derivation
+- **Question** — F8 recommends the event be the source of truth and the status cell a projection of it. The shell keeps a `status.<rec>.<ch>` draft value and stages both sides together (setting `bad from` stages the linked electrode event; reading a channel `ok` stages removal of the event that marked it bad), so the two cannot visibly disagree — but the cell is still a stored value. Which one does the core store?
+- **Why it matters** — Two stored copies of one fact diverge the first time a write path touches only one of them (an import, a bulk edit, a script).
+- **Source** — `webui/pages/fog/settings.md` FE22 (fix round, 2026-09-21); F8 above; `prototyping/UI_FUNCTIONAL_SPEC.md` §9.2.
+- **Status** — `ticketable now`
+
+### F95 — Per-channel noise floor and gain have no home in the schema
+- **Question** — The excluded-spans count is now derived from live event effects, but `noise_floor` and `gain` per channel remain fixture columns with a draft over them; neither exists in the core schema (F7). Are they recording metadata, channel metadata, or recipe parameters?
+- **Why it matters** — Analysis defaults' "the recording's noise floor (Datasets)" rule and the per-channel override both assume a stored value the core does not have.
+- **Source** — `webui/pages/fog/settings.md` FE23 (fix round, 2026-09-21); inventory F7; `prototyping/UI_FUNCTIONAL_SPEC.md` §9.1–9.2, §9.5.
+- **Status** — `ticketable now`
+
 ## Export and reporting
 
 ### E1 — The reporting and export surface, and its figure target

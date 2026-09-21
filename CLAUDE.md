@@ -44,10 +44,12 @@ describes the chain builder as a vertical staged list, which is exactly what Par
    family either). `Working/`, `Adapters/` and `Pipelines/` import none of them and must never know a
    browser exists. This is what makes cluster execution, headless tests and the reproducibility claim
    possible. The Panel-family rule is enforced by a test.
-2. **The suite must pass with no regressions.** `pytest` from your worktree root: 1049 tests as of
-   2026-08-31, about six minutes serial (`pytest -n auto` — needs `pytest-xdist`, see Environment —
-   cuts this to about five; most of the wall-clock is Panel/HoloViews/numpy/aeon import cost paid
-   per worker, so the speedup is real but not linear in core count). Do not chase a fixed number —
+2. **The suite must pass with no regressions.** `pytest` from your worktree root: 1337 tests as of
+   2026-09-21, of which 39 fail before you touch anything (the `LibraryGrid(conn)` contract mismatch
+   and Windows `WinError 32` teardown locks — the list is `webui/PYTEST_GATE_FINAL.txt`; compare
+   failure *sets*, not counts). About six minutes serial (`pytest -n auto` — needs `pytest-xdist`,
+   see Environment — cuts this to about three; most of the wall-clock is Panel/HoloViews/numpy/aeon
+   import cost paid per worker, so the speedup is real but not linear in core count). Do not chase a fixed number —
    every merged ticket adds tests, so the gate is "nothing that passed before now fails", not "N
    tests pass". If your change breaks one, either your change is wrong or the test encodes a
    behaviour your ticket is deliberately changing — and if it is the latter, say so explicitly in
