@@ -23,6 +23,8 @@ import pkgutil
 import sys
 import types as pytypes
 
+import pytest
+
 PROJECT_ROOT = os.path.dirname(os.path.abspath(__file__))
 while not os.path.isdir(os.path.join(PROJECT_ROOT, "Working")) \
         and os.path.dirname(PROJECT_ROOT) != PROJECT_ROOT:
@@ -99,8 +101,12 @@ def test_output_kind_union_has_no_duplicates():
 
 # â”€â”€ input_kind â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
-def test_input_kind_defaults_to_none_meaning_root_signal():
-    assert _spec().input_kind is None
+def test_input_kind_defaults_to_signal_and_refuses_none():
+    # Stage-3 block standard (docs/BLOCK_INTEGRATION.md): the root signal is
+    # spelled 'signal', never None, so the vocabulary has no "unset" state.
+    assert _spec().input_kind == "signal"
+    with pytest.raises(ValueError, match="input_kind=None"):
+        _spec(input_kind=None)
 
 
 def test_input_kind_accepts_the_name_of_every_type_working_types_owns():
@@ -306,7 +312,7 @@ def test_the_new_fields_default_to_the_values_the_shipped_adapters_rely_on():
     # "primary input is the root signal, no side inputs, counts as free"
     # would silently change how every existing step composes and is costed.
     spec = _spec()
-    assert spec.input_kind is None
+    assert spec.input_kind == "signal"   # stage-3 standard: the root signal, spelled
     assert spec.side_inputs == []
     assert spec.estimate is None
 

@@ -32,6 +32,8 @@ SPEC = register(AdapterSpec(
     name="catalogue.gramian_recurrence",
     display_name="Recurrence plot",
     stage="catalogue",
+    category="encode",
+    page_name="Recurrence plot",
     params=[
         ParamSpec("m", int, 3, "Time-delay embedding dimension", min=1, max=20),
         ParamSpec("tau", int, 4, "Time-delay embedding lag (samples)", min=1),

@@ -106,12 +106,14 @@ class Runtime:
         import Adapters.detection_matrix_profile as _mp
         import Adapters.preprocessing_window_matrix as _wm
         import Adapters.catalogue_classifier as _cc
+        import Adapters.catalogue_cluster as _cl
         self._originals = {
             "STEP_CACHE_ROOT": cfg.STEP_CACHE_ROOT,
             "STEP_CACHE_WRITE_THRESHOLD_S": cfg.STEP_CACHE_WRITE_THRESHOLD_S,
             "mp.RESULTS_DIR": _mp.RESULTS_DIR,
             "wm.RESULTS_DIR": _wm.RESULTS_DIR,
             "cc.MODEL_ROOT": _cc.MODEL_ROOT,
+            "cl.RESULTS_DIR": _cl.RESULTS_DIR,
         }
 
         if self.mode == "sandbox":
@@ -131,6 +133,8 @@ class Runtime:
         _mp.RESULTS_DIR = os.path.join(self.results_dir, "matrix_profile")
         _wm.RESULTS_DIR = os.path.join(self.results_dir, "window_matrix")
         _cc.MODEL_ROOT = self.models_dir
+        import Adapters.catalogue_cluster as _cl
+        _cl.RESULTS_DIR = os.path.join(self.results_dir, "groupings")
         # Critique r1 P0: an adapter executed outside these redirects writes into the real DATA
         # tree. Assert every writable path the adapters read at call time is inside this runtime.
         for label, p in self._core_paths(cfg, _mp, _wm, _cc):
@@ -177,10 +181,12 @@ class Runtime:
 
     @staticmethod
     def _core_paths(cfg, _mp, _wm, _cc):
+        import Adapters.catalogue_cluster as _cl
         return (("STEP_CACHE_ROOT", cfg.STEP_CACHE_ROOT),
                 ("matrix_profile.RESULTS_DIR", _mp.RESULTS_DIR),
                 ("window_matrix.RESULTS_DIR", _wm.RESULTS_DIR),
-                ("classifier.MODEL_ROOT", _cc.MODEL_ROOT))
+                ("classifier.MODEL_ROOT", _cc.MODEL_ROOT),
+                ("cluster.RESULTS_DIR", _cl.RESULTS_DIR))
 
     def restore(self) -> None:
         """Put every core module attribute back to what it was before setup()."""
@@ -196,6 +202,8 @@ class Runtime:
         _mp.RESULTS_DIR = o["mp.RESULTS_DIR"]
         _wm.RESULTS_DIR = o["wm.RESULTS_DIR"]
         _cc.MODEL_ROOT = o["cc.MODEL_ROOT"]
+        import Adapters.catalogue_cluster as _cl
+        _cl.RESULTS_DIR = o["cl.RESULTS_DIR"]
         self._originals = None
 
     # --------------------------------------------------------- describe --

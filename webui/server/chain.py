@@ -26,37 +26,8 @@ from Working.database.runs import get_step_artifact
 
 discover_adapters()
 
-# Modal category tabs (spec §6.4 / frame chain-2): all · preprocess · encode · detect · cluster · model · control
-_CATEGORY = {
-    "preprocessing.lowpass": "preprocess", "preprocessing.highpass": "preprocess",
-    "preprocessing.bandpass": "preprocess", "preprocessing.detrend": "preprocess",
-    "preprocessing.surrogate": "control", "preprocessing.window_matrix": "cluster",
-    "detection.sax_csax": "encode", "detection.sax_psax": "encode", "detection.sax_dsax": "encode",
-    "detection.freq_stft": "encode", "detection.wavelet_scattering": "encode",
-    "catalogue.gramian_gasf": "encode", "catalogue.gramian_gadf": "encode",
-    "catalogue.gramian_recurrence": "encode", "catalogue.gramian_fusion": "encode",
-    "detection.matrix_profile": "detect", "detection.threshold": "detect", "detection.rupture": "detect",
-    "detection.spike_v1": "detect", "detection.dehshibi_spikes": "detect",
-    "catalogue.cluster": "cluster", "catalogue.classifier": "model",
-}
-# Adapters known not to run on this machine / on a short span (evidence from the readers).
-_KNOWN_BROKEN = {
-    "detection.wavelet_scattering": "kymatio ImportError against the installed scipy (cannot import sph_harm)",
-}
-# Friendly names as the concept pages would phrase them (display_name from the adapter stays available).
-_PAGE_NAME = {
-    "preprocessing.detrend": "Baseline removal", "preprocessing.lowpass": "Lowpass filter",
-    "preprocessing.highpass": "Highpass filter", "preprocessing.bandpass": "Bandpass filter",
-    "preprocessing.surrogate": "Surrogate generator", "preprocessing.window_matrix": "Sliding windows + features",
-    "detection.sax_dsax": "Symbolic encoding (dSAX)", "detection.sax_psax": "Symbolic encoding (pSAX)",
-    "detection.sax_csax": "Symbolic encoding (cSAX)", "detection.matrix_profile": "Matrix profile",
-    "detection.threshold": "Threshold to spans", "detection.rupture": "Change-point segments",
-    "detection.spike_v1": "Spike detection (v1)", "detection.dehshibi_spikes": "Spike detection (Dehshibi)",
-    "detection.freq_stft": "STFT spectrum", "detection.wavelet_scattering": "Wavelet scattering",
-    "catalogue.gramian_gasf": "Gramian GASF", "catalogue.gramian_gadf": "Gramian GADF",
-    "catalogue.gramian_recurrence": "Recurrence plot", "catalogue.gramian_fusion": "Gramian fusion",
-    "catalogue.cluster": "Hierarchical cluster", "catalogue.classifier": "Classifier (model)",
-}
+# `category`, `page_name` and `known_broken` live on `AdapterSpec` (stage-3
+# block standard, docs/BLOCK_INTEGRATION.md): the bridge keeps no side table.
 TYPE_LABEL = {"signal": "Signal", "spanset": "SpanSet", "windowset": "WindowSet", "encoding": "Encoding",
               "grouping": "Grouping", "model": "Model", "scores": "Scores"}
 
@@ -69,16 +40,16 @@ def adapter_card(spec) -> dict:
     in_kind = spec.input_kind or ROOT_SIGNAL_KIND
     return {
         "name": spec.name, "stage": spec.stage, "algorithm": spec.name.split(".", 1)[1],
-        "display_name": spec.display_name, "page_name": _PAGE_NAME.get(spec.name, spec.display_name),
+        "display_name": spec.display_name, "page_name": spec.page_name,
         "description": spec.description or "",
         "input_kind": in_kind, "output_kind": spec.output_kind,
         "signature": f"{TYPE_LABEL.get(in_kind, in_kind)} → {TYPE_LABEL.get(spec.output_kind, spec.output_kind)}",
-        "category": _CATEGORY.get(spec.name, "control"),
+        "category": spec.category,
         "has_estimate": spec.estimate is not None,
         "max_span_samples": spec.max_span_samples,
         "has_recommend": spec.recommend is not None,
         "side_inputs": [{"name": s.name, "type_kind": s.type_kind, "sources": list(s.sources)} for s in spec.side_inputs],
-        "known_broken": _KNOWN_BROKEN.get(spec.name),
+        "known_broken": spec.known_broken,
         "params": [{
             "name": p.name, "type": _ptype(p.type), "default": p.default, "description": p.description or "",
             "choices": list(p.choices) if p.choices is not None else None, "min": p.min, "max": p.max,
@@ -112,7 +83,7 @@ def validate(steps: list[dict]) -> dict:
         ok, reason = check_step_compatibility(producing, spec)
         expected = spec.input_kind or ROOT_SIGNAL_KIND
         junctions.append({"index": i, "ok": bool(ok), "producing": producing, "expected": expected,
-                          "reason": "" if ok else f"{_PAGE_NAME.get(spec.name, spec.display_name)} needs {TYPE_LABEL.get(expected, expected)} · previous emits {TYPE_LABEL.get(producing, producing)}",
+                          "reason": "" if ok else f"{spec.page_name} needs {TYPE_LABEL.get(expected, expected)} · previous emits {TYPE_LABEL.get(producing, producing)}",
                           "core_reason": reason})
         ok_all = ok_all and bool(ok)
         producing = spec.output_kind
@@ -151,14 +122,14 @@ def compatible_at(steps: list[dict], position: int) -> dict:
                 nexp = next_spec.input_kind or ROOT_SIGNAL_KIND
                 ok = False
                 why = f"emits {TYPE_LABEL.get(spec.output_kind, spec.output_kind)} · next needs {TYPE_LABEL.get(nexp, nexp)}"
-        if ok and spec.name in _KNOWN_BROKEN:
-            why = "fits · " + _KNOWN_BROKEN[spec.name]
+        if ok and spec.known_broken:
+            why = "fits · " + spec.known_broken
         rows.append({"name": spec.name, "ok": bool(ok), "reason": why})
     n_fit = sum(1 for r in rows if r["ok"])
     return {"position": position, "producing": producing, "producing_label": TYPE_LABEL.get(producing, producing),
             "next_requires": (next_spec.input_kind or ROOT_SIGNAL_KIND) if next_spec else None,
             "next_requires_label": TYPE_LABEL.get((next_spec.input_kind or ROOT_SIGNAL_KIND), (next_spec.input_kind or ROOT_SIGNAL_KIND)) if next_spec else None,
-            "next_name": _PAGE_NAME.get(next_spec.name, next_spec.display_name) if next_spec else None,
+            "next_name": next_spec.page_name if next_spec else None,
             "n_fit": n_fit, "n_total": len(rows), "rows": rows,
             "stale_from": position if position < len(steps) else None}
 

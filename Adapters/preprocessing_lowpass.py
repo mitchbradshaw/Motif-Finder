@@ -46,6 +46,8 @@ SPEC = register(AdapterSpec(
     name="preprocessing.lowpass",
     display_name="Lowpass filter (Butterworth)",
     stage="preprocessing",
+    category="preprocess",
+    page_name="Lowpass filter",
     params=[
         ParamSpec("cutoff_hz", float, 0.05, "Cutoff frequency (Hz)", min=1e-6),
         ParamSpec("order", int, 4, "Filter order", min=1, max=10),

@@ -54,6 +54,8 @@ SPEC = register(AdapterSpec(
     name="detection.rupture",
     display_name="Change-point detection (ruptures / Pelt)",
     stage="detection",
+    category="detect",
+    page_name="Change-point segments",
     params=[
         ParamSpec("cost_model", str, "l2", "Cost model", choices=["l1", "l2", "rbf", "normal"]),
         ParamSpec("penalty", float, 50.0, "Segmentation penalty (larger = fewer, coarser segments)", min=1e-6),

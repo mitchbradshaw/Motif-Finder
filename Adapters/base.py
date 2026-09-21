@@ -33,6 +33,11 @@ SOURCE_KINDS = ("root_signal", "earlier_step", "library_exemplar")
 # `Working.types`). There is no separate legacy vocabulary.
 OUTPUT_KINDS = TYPE_KINDS
 
+# The insert-stage modal's tabs (spec §6.4 / frame chain-2). Every block files
+# itself under exactly one; an unknown category is refused at registration so
+# a mis-filed block never lands silently under "control".
+CATEGORIES = ("preprocess", "encode", "detect", "cluster", "model", "control")
+
 
 @dataclass
 class ParamSpec:
@@ -152,11 +157,12 @@ class AdapterSpec:
         One of the seven `TYPE_KINDS` (the contents of `OUTPUT_KINDS`). The
         legacy `intervals` output vocabulary is gone; `signal` and
         `encoding` survive as the type names they already coincided with.
-    input_kind : str, optional
-        One of `TYPE_KINDS`, or None meaning "root signal" — the primary
-        input this step expects. Every existing adapter takes the raw
-        (x, t, fs) signal, so None is the correct value for all of them and
-        is also the default.
+    input_kind : str
+        One of `TYPE_KINDS` — the primary input this step expects. Defaults
+        to `'signal'`, the chain's root; `None` is refused (stage-3 block
+        standard, `docs/BLOCK_INTEGRATION.md`): a root-signal block says
+        `'signal'`, the same string `Working.chain_validation` uses, so the
+        type system has one vocabulary and no "unset" state.
     side_inputs : list[SideInputSpec]
         Additional typed inputs beyond the primary one, e.g. a clustering
         step's library exemplar. Bound to an actual value at chain-
@@ -185,6 +191,18 @@ class AdapterSpec:
         so the guard is real and can't be forgotten per-call-site.
     description : str
         Longer description, shown in the run panel / adapter listing.
+    category : str
+        Which insert-modal tab the block files under — one of `CATEGORIES`.
+        Required; an unknown value is refused loudly (the bridge used to
+        keep a side table and default the unknown to "control").
+    page_name : str, optional
+        What the concept pages call the block ("Baseline removal" for
+        `preprocessing.detrend`). Defaults to `display_name`.
+    known_broken : str, optional
+        Set when the block is registered but known not to run on this
+        machine (e.g. a dependency that no longer imports). The reason is
+        shown on the block's card and the insert modal; the block stays
+        listed so the researcher sees what exists and why it is unavailable.
     recommend : callable(x, t, fs) -> dict, optional
         Suggested param VALUES for the span about to be analysed (2026-08,
         Part 2a) — e.g. "how many seconds per symbol" depends on how long
@@ -224,7 +242,7 @@ class AdapterSpec:
     params: list
     run: Callable
     output_kind: str
-    input_kind: Optional[str] = None
+    input_kind: Optional[str] = "signal"
     side_inputs: list = field(default_factory=list)
     estimate: Optional[Callable] = None
     plot: Optional[Callable] = None
@@ -234,6 +252,9 @@ class AdapterSpec:
     recommend: Optional[Callable] = None
     derive: Optional[Callable] = None
     persist: Optional[Callable] = None
+    category: str = "control"
+    page_name: Optional[str] = None
+    known_broken: Optional[str] = None
 
     def __post_init__(self):
         if self.output_kind not in OUTPUT_KINDS:
@@ -241,11 +262,23 @@ class AdapterSpec:
                 f"Adapter '{self.name}': output_kind must be one of {OUTPUT_KINDS}, "
                 f"got {self.output_kind!r}"
             )
-        if self.input_kind is not None and self.input_kind not in TYPE_KINDS:
+        if self.input_kind is None:
             raise ValueError(
-                f"Adapter '{self.name}': input_kind must be one of {TYPE_KINDS} or None, "
+                f"Adapter '{self.name}': input_kind=None is not allowed; a root-signal "
+                f"block declares input_kind='signal' (docs/BLOCK_INTEGRATION.md)"
+            )
+        if self.input_kind not in TYPE_KINDS:
+            raise ValueError(
+                f"Adapter '{self.name}': input_kind must be one of {TYPE_KINDS}, "
                 f"got {self.input_kind!r}"
             )
+        if self.category not in CATEGORIES:
+            raise ValueError(
+                f"Adapter '{self.name}': category must be one of {CATEGORIES}, "
+                f"got {self.category!r}"
+            )
+        if self.page_name is None:
+            self.page_name = self.display_name
 
     def validate_params(self, raw_params=None):
         """Fill in defaults, coerce types, and check choices/range.

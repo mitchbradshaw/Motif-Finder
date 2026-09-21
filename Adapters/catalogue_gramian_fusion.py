@@ -33,6 +33,8 @@ SPEC = register(AdapterSpec(
     name="catalogue.gramian_fusion",
     display_name="Gramian RGB fusion (GASF+GADF+recurrence)",
     stage="catalogue",
+    category="encode",
+    page_name="Gramian fusion",
     params=[
         ParamSpec("m", int, 3, "Time-delay embedding dimension (recurrence component)", min=1, max=20),
         ParamSpec("tau", int, 4, "Time-delay embedding lag (recurrence component, samples)", min=1),

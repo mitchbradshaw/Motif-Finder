@@ -34,7 +34,7 @@ from Working.recipes import make_recipe
 ROOT_SIGNAL_KIND = "signal"
 
 
-def _block(name, input_kind=None, output_kind="signal", side_inputs=None):
+def _block(name, input_kind="signal", output_kind="signal", side_inputs=None):
     """A minimal, otherwise-valid AdapterSpec standing in for a registered
     block — not registered in the real registry, so tests can compose
     hypothetical typed chains without waiting on the twenty adapters being
@@ -62,8 +62,9 @@ def _fresh_db_with_recording():
 
 # ── check_step_compatibility: the core function ─────────────────────────────
 
-def test_root_signal_feeds_a_legacy_block_with_no_declared_input_kind():
-    block = _block("preprocessing.stub", input_kind=None, output_kind="signal")
+def test_root_signal_feeds_a_block_declaring_the_signal_input_kind():
+    # Stage-3 block standard: the root signal is spelled "signal", never None.
+    block = _block("preprocessing.stub", input_kind="signal", output_kind="signal")
     ok, reason = check_step_compatibility(ROOT_SIGNAL_KIND, block)
     assert ok is True
     assert reason == ""
@@ -137,7 +138,7 @@ def test_full_matrix_of_seven_types_against_every_registered_block():
 
 def test_cnn_chain_validates_end_to_end():
     # signal -> window set -> grouping -> model
-    window = _block("preprocessing.window", input_kind=None, output_kind="windowset")
+    window = _block("preprocessing.window", input_kind="signal", output_kind="windowset")
     group = _block("catalogue.group", input_kind="windowset", output_kind="grouping")
     train = _block("catalogue.train_cnn", input_kind="grouping", output_kind="model")
     ok, reason = validate_chain([window, group, train])
@@ -148,7 +149,7 @@ def test_cnn_chain_validates_end_to_end():
 def test_seeded_search_chain_validates_end_to_end():
     # signal -> scores (with an exemplar side-input) -> span set
     score = _block(
-        "detection.seeded_score", input_kind=None, output_kind="scores",
+        "detection.seeded_score", input_kind="signal", output_kind="scores",
         side_inputs=[SideInputSpec(
             name="exemplar", type_kind="signal", sources=["library_exemplar"],
         )],
@@ -176,7 +177,7 @@ def test_banded_search_chain_validates_end_to_end():
 
 
 def test_a_shuffled_worked_chain_is_rejected():
-    window = _block("preprocessing.window", input_kind=None, output_kind="windowset")
+    window = _block("preprocessing.window", input_kind="signal", output_kind="windowset")
     group = _block("catalogue.group", input_kind="windowset", output_kind="grouping")
     train = _block("catalogue.train_cnn", input_kind="grouping", output_kind="model")
     # group before window: group expects a windowset, but the root is signal

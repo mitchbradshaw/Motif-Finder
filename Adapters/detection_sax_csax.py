@@ -72,6 +72,8 @@ SPEC = register(AdapterSpec(
     name="detection.sax_csax",
     display_name="cSAX symbolisation",
     stage="detection",
+    category="encode",
+    page_name="Symbolic encoding (cSAX)",
     params=[
         ParamSpec("segment_mode", str, "seconds_per_symbol",
                   "Which control below sets the segment length", choices=[

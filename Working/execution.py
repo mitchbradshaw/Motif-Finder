@@ -426,11 +426,19 @@ def _execute_recipe_with_conn(conn, recipe, force, on_progress, should_cancel, r
                 # the seven types may declare `persist`, not just 'encoding'.
                 # Skipped on a cache hit because only the typed value was
                 # restored, not the adapter's raw persist payload.
-                artifact_path = spec.persist(
+                persisted = spec.persist(
                     conn, run_id, hash8, recording, span_start, span_end, params, result
                 )
+                # A bare path is an 'encoding' artifact (the original contract);
+                # a `(kind, path)` pair names the artifacts.kind itself, which is
+                # what lets a classifier register its joblib as 'model' and a
+                # clustering its labels as 'csv' (stage-3 block standard).
+                if isinstance(persisted, tuple):
+                    artifact_kind, artifact_path = persisted
+                else:
+                    artifact_kind, artifact_path = "encoding", persisted
                 if artifact_path is not None:
-                    insert_artifact(conn, run_id, kind="encoding", path=artifact_path)
+                    insert_artifact(conn, run_id, kind=artifact_kind, path=artifact_path)
 
             # Emit the stage as it lands — after detections are committed and
             # any persist artifact is written, so the callback sees a fully

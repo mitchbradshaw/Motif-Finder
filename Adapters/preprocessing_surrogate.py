@@ -79,6 +79,8 @@ SPEC = register(AdapterSpec(
     name="preprocessing.surrogate",
     display_name="Surrogate generation",
     stage="preprocessing",
+    category="control",
+    page_name="Surrogate generator",
     params=[
         ParamSpec(
             "method", str, "phase_randomize",

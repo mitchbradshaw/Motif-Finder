@@ -43,6 +43,8 @@ SPEC = register(AdapterSpec(
     name="preprocessing.detrend",
     display_name="Detrend",
     stage="preprocessing",
+    category="preprocess",
+    page_name="Baseline removal",
     params=[
         ParamSpec("mode", str, "rolling_mean", "Detrending method", choices=[
             "rolling_mean", "rolling_z", "linear",

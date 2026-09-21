@@ -28,6 +28,20 @@ from Working.Detection.analysis.dehshibi_detection_analysis import (
     plot_spike_detection,
 )
 from Working.types import SpanSet
+from Working.block_cost import estimate_seconds, register_cost_model
+
+COST_MODEL = "detection.dehshibi_spikes"
+# Morse CWT per histogram chunk is FFT-bound, so seconds ~ n log n; a single
+# calibrated constant with exponent 1.1 tracks it to within the noise of the
+# chunking on every span length that matters here.
+register_cost_model(COST_MODEL, 1.1, lambda x, fs: detect_spikes(x, fs=fs))
+
+
+def _estimate(x, t, fs, **params):
+    """Seconds for this span from `Working.block_cost` — None until
+    `Working.block_cost.calibrate()` has timed the detector on this machine
+    (never a guessed number)."""
+    return estimate_seconds(COST_MODEL, len(x))
 
 
 def _run(x, t, fs, n_p=60, min_spike_duration=60, min_roi_wavelet=30, epsilon_factor=0.05):
@@ -58,6 +72,8 @@ SPEC = register(AdapterSpec(
     name="detection.dehshibi_spikes",
     display_name="Spike detection (Dehshibi & Adamatzky 2021)",
     stage="detection",
+    category="detect",
+    page_name="Spike detection (Dehshibi)",
     params=[
         ParamSpec("n_p", int, 60, "Minimum extrema separation (samples)", min=1),
         ParamSpec("min_spike_duration", int, 60, "Minimum confirmed-spike length (samples)", min=1),
@@ -65,6 +81,7 @@ SPEC = register(AdapterSpec(
         ParamSpec("epsilon_factor", float, 0.05, "Candidate-region prominence threshold (fraction of range)", min=0.0, max=1.0),
     ],
     run=_run,
+    estimate=_estimate,
     input_kind="signal",
     output_kind="spanset",
     plot=_plot,

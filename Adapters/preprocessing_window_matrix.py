@@ -194,6 +194,8 @@ SPEC = register(AdapterSpec(
     name="preprocessing.window_matrix",
     display_name="Window matrix (per-window measures)",
     stage="preprocessing",
+    category="cluster",
+    page_name="Sliding windows + features",
     params=[
         ParamSpec("window_min", float, 10.0,
                   "Window length in minutes. One of the ladder timescales "
@@ -236,6 +238,7 @@ SPEC = register(AdapterSpec(
                   "comparable to the rest of its column and is not."),
     ],
     run=_run,
+    input_kind="signal",
     estimate=_estimate,
     output_kind="windowset",
     plot=None,

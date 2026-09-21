@@ -16,6 +16,7 @@ worth overriding independently of J.
 
 from Adapters.base import AdapterSpec, AdapterResult, ParamSpec
 from Adapters.registry import register
+from Working.block_cost import estimate_seconds, register_cost_model
 from Working.types import Encoding
 
 
@@ -39,16 +40,37 @@ def _plot(x, t, result, J=8, Q=8, max_order=2):
     return plot_scattering_scalogram(result.meta["scattering_result"])
 
 
+COST_MODEL = "detection.wavelet_scattering"
+
+
+def _time_once(x, fs):
+    import numpy as np
+    from Working.Detection.wavelet.scattering_transform import compute_wavelet_scattering
+    compute_wavelet_scattering(x, np.arange(len(x)) / fs, J=8, Q=8, max_order=2)
+
+
+register_cost_model(COST_MODEL, 1.1, _time_once)
+
+
+def _estimate(x, t, fs, **params):
+    """Seconds from `Working.block_cost` (FFT-bound: ~n log n); None until
+    calibrated on this machine."""
+    return estimate_seconds(COST_MODEL, len(x))
+
+
 SPEC = register(AdapterSpec(
     name="detection.wavelet_scattering",
     display_name="Wavelet scattering transform",
     stage="detection",
+    category="encode",
+    page_name="Wavelet scattering",
     params=[
         ParamSpec("J", int, 8, "Octaves (scales) in the filter bank", min=1, max=16),
         ParamSpec("Q", int, 8, "Wavelets per octave", min=1, max=32),
         ParamSpec("max_order", int, 2, "Highest scattering order to compute", choices=[1, 2]),
     ],
     run=_run,
+    estimate=_estimate,
     output_kind="encoding",
     input_kind="signal",
     plot=_plot,

@@ -61,6 +61,8 @@ SPEC = register(AdapterSpec(
     name="detection.threshold",
     display_name="Threshold (Scores -> SpanSet)",
     stage="detection",
+    category="detect",
+    page_name="Threshold to spans",
     params=[
         ParamSpec("threshold", float, 0.0,
                   "Spans are the contiguous runs where the score exceeds this value"),

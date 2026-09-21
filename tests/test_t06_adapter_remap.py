@@ -60,7 +60,9 @@ def test_preprocessing_adapters_declare_signal_to_signal():
         assert spec.input_kind == "signal", name
         assert spec.output_kind == "signal", name
         assert spec.side_inputs == [], name
-        assert spec.estimate is None, name
+        # An estimate is allowed (stage-3 block standard: a slow detector such
+        # as Dehshibi declares one); what is pinned is the type signature.
+        assert spec.estimate is None or callable(spec.estimate), name
 
 
 def test_detection_adapters_declare_signal_to_spanset():
@@ -69,7 +71,9 @@ def test_detection_adapters_declare_signal_to_spanset():
         assert spec.input_kind == "signal", name
         assert spec.output_kind == "spanset", name
         assert spec.side_inputs == [], name
-        assert spec.estimate is None, name
+        # An estimate is allowed (stage-3 block standard: a slow detector such
+        # as Dehshibi declares one); what is pinned is the type signature.
+        assert spec.estimate is None or callable(spec.estimate), name
 
 
 def test_preprocessing_run_populates_the_typed_value():

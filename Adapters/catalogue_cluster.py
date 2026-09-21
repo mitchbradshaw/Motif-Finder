@@ -19,9 +19,16 @@ adapter-import time — registering this adapter must not drag a plotting
 backend into every `discover_adapters()` call.
 """
 
+import os
+
 from Adapters.base import AdapterResult, AdapterSpec, ParamSpec
 from Adapters.registry import register
 from Working.types import Grouping
+
+# Where `persist` writes a run's labels. Module-level so the bridge's sandbox
+# runtime can redirect it (same pattern as the matrix-profile and window-matrix
+# adapters' RESULTS_DIR); read by name at call time.
+RESULTS_DIR = os.path.join("DATA", "derived", "groupings")
 
 
 def _cluster_window_set(window_set, linkage, k):
@@ -92,10 +99,40 @@ def _derive(x, t, fs, params, value=None):
     ]
 
 
+def _estimate(x, t, fs, **params):
+    """Always None ("not calibrated"): a linkage tree costs O(w^2 log w) in the
+    number of WINDOWS, which is a property of the WindowSet flowing in, not of
+    the root span or of `linkage`/`k` - the only things an estimator is handed.
+    Declaring the callable still matters: `route_recipe` reports 'unknown' for
+    a None-answering estimator instead of costing the step at zero."""
+    return None
+
+
+def _persist(conn, run_id, config_hash, recording, span_start, span_end, params, result):
+    """Write the labels as a CSV (window index, cluster label) under
+    `RESULTS_DIR` and register it as an `artifacts(kind='csv')` row, so a
+    headless run leaves a browsable grouping behind (rule 4: the array lives
+    on disk, the database holds the path)."""
+    import numpy as np
+
+    labels = np.asarray(result.value.labels).astype(int).ravel()
+    stem = os.path.splitext(str(recording["source_file"]))[0]
+    name = f"{stem}_ch{recording['channel']}_{span_start}-{span_end}_{config_hash}_{params['linkage']}_k{params['k']}.csv"
+    os.makedirs(RESULTS_DIR, exist_ok=True)
+    path = os.path.join(RESULTS_DIR, name)
+    with open(path, "w", encoding="utf-8", newline="") as f:
+        f.write("window_index,label\n")
+        for i, lab in enumerate(labels):
+            f.write(f"{i},{int(lab)}\n")
+    return ("csv", path)
+
+
 SPEC = register(AdapterSpec(
     name="catalogue.cluster",
     display_name="Dendrogram clustering (WindowSet -> Grouping)",
     stage="catalogue",
+    category="cluster",
+    page_name="Hierarchical cluster",
     params=[
         ParamSpec(
             "linkage", str, "ward",
@@ -113,7 +150,9 @@ SPEC = register(AdapterSpec(
     run=_run,
     input_kind="windowset",
     output_kind="grouping",
+    estimate=_estimate,
     derive=_derive,
+    persist=_persist,
     description=(
         "Hierarchical clustering of a window set's attached feature matrix, "
         "returning one integer cluster label per window as a Grouping. "

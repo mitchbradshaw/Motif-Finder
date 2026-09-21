@@ -316,10 +316,19 @@ def _estimate(x, t, fs, **params):
     return None
 
 
+def _persist(conn, run_id, config_hash, recording, span_start, span_end, params, result):
+    """The joblib is already on disk (`_run` wrote it under `MODEL_ROOT`);
+    register it as an `artifacts(kind='model')` row so the run's provenance
+    names the file a later inference step loads."""
+    return ("model", str(result.value.path))
+
+
 SPEC = register(AdapterSpec(
     name="catalogue.classifier",
     display_name="Classifier training (Grouping -> Model)",
     stage="catalogue",
+    category="model",
+    page_name="Classifier (model)",
     params=[
         ParamSpec(
             "n_estimators", int, 300,
@@ -361,6 +370,7 @@ SPEC = register(AdapterSpec(
     ],
     estimate=_estimate,
     derive=_derive,
+    persist=_persist,
     description=(
         "Trains a classifier on a window set's feature matrix using a Grouping "
         "as its labels, and returns the fitted model as a path reference. The "

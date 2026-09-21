@@ -123,6 +123,8 @@ SPEC = register(AdapterSpec(
     name="detection.matrix_profile",
     display_name="Matrix profile (STUMPY)",
     stage="detection",
+    category="detect",
+    page_name="Matrix profile",
     params=[
         ParamSpec("window_min", float, 10.0, "Motif window length (minutes)", min=0.001),
         ParamSpec("backend", str, "auto", "Computation backend", choices=list(BACKENDS)),
@@ -131,6 +133,7 @@ SPEC = register(AdapterSpec(
                   min=0.0, max=1.0),
     ],
     run=_run,
+    input_kind="signal",
     estimate=_estimate,
     output_kind="scores",
     plot=None,

@@ -114,7 +114,17 @@ import warnings
 from dataclasses import dataclass
 
 import numpy as np
-from kymatio.numpy import Scattering1D
+
+# `kymatio.numpy` is a package `__init__` that imports the 1-D, 2-D AND 3-D
+# frontends together; the 3-D one needs `scipy.special.sph_harm`, removed in
+# scipy 1.17, so the package import fails even though the 1-D transform this
+# module uses is intact. Import the 1-D frontend by its own module path first
+# (no dependency change, stage-3 wiring prompt 01) and fall back to the
+# package export for older kymatio layouts.
+try:
+    from kymatio.scattering1d.frontend.numpy_frontend import ScatteringNumPy1D as Scattering1D
+except ImportError:  # pragma: no cover - older kymatio without the split frontend
+    from kymatio.numpy import Scattering1D
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
