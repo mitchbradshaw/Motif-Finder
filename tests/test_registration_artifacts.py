@@ -257,7 +257,12 @@ def _drop_store(d, keys=("m1", "m2"), missing_snippet=False, recording_id=1):
                     "snippet_start_idx", "snippet_end_idx", "snippet_key", "drop_depth_mv", "fall_duration_s"])
         for i, k in enumerate(keys):
             w.writerow([k, "id001", "ID 1", recording_id, "M1.mat", 0, 1.0, 100 + i * 50, 120 + i * 50, 90 + i * 50, 140 + i * 50, k, 0.5, 20.0])
-    np.savez(str(d / "snippets.npz"), **{k: np.zeros(50) for k in (keys[:-1] if missing_snippet else keys)})
+    # the store.py layout: three arrays per event, <snippet_key>__raw_mv / __detrended_mv / __t_s
+    arrays = {}
+    for k in (keys[:-1] if missing_snippet else keys):
+        for suffix in ("__raw_mv", "__detrended_mv", "__t_s"):
+            arrays[k + suffix] = np.zeros(50)
+    np.savez(str(d / "snippets.npz"), **arrays)
     (d / "manifest.json").write_text(json.dumps({"detector": "detect5", "n_motifs": len(keys), "params": {"slope_sigma": 3.0}}), encoding="utf-8")
 
 

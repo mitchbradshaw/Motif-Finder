@@ -392,8 +392,12 @@ def _check_recording(cand: Candidate, conn, rep: Report, ov: dict, **kw):
             f["fs"] = fs
             if "fs" in ov:
                 f["fs_source"] = ov.get("fs_source", "inferred")
+                # the scan's "fs unknown" warning is answered by the supplied value: it must not follow the row
+                rep.warnings = [w for w in rep.warnings if not w.startswith("fs unknown")]
                 if f["fs_source"] == "inferred":
                     rep.warn(f"fs {fs} Hz was supplied at registration, not read from the file: recorded as inferred")
+                else:
+                    rep.warn(f"fs {fs} Hz supplied at registration as read from the raw file's time vector (see the sidecar's notes)")
             elif f.get("fs_source") is None:
                 f["fs_source"] = "read"
             if f.get("n_samples"):
@@ -1138,8 +1142,11 @@ def _check_drop_store(cand: Candidate, conn, rep: Report, ov: dict, **kw):
         keys = set(z.files)
     except Exception as e:
         rep.add("snippets", False, f"snippets.npz: {type(e).__name__}: {e}"); return
-    lost = [r[key_col] for r in rows if r[key_col] not in keys]
-    rep.add("snippets", not lost, f"{len(lost)} events without a snippet: {lost[:5]}" if lost else f"every one of {len(rows)} events has its snippet ({len(keys)} in the archive)")
+    # store.py writes three arrays per event, `<snippet_key>__raw_mv`, `__detrended_mv`, `__t_s`; an older
+    # store may hold one array under the bare key — either counts as "has its snippet"
+    prefixes = {k.split("__", 1)[0] for k in keys}
+    lost = [r[key_col] for r in rows if r[key_col] not in keys and r[key_col] not in prefixes]
+    rep.add("snippets", not lost, f"{len(lost)} events without a snippet: {lost[:5]}" if lost else f"every one of {len(rows)} events has its snippet ({len(keys)} arrays in the archive)")
     rec_ids = sorted({int(float(r["recording_id"])) for r in rows if r["recording_id"] not in ("", None)})
     if conn is not None:
         for rid in rec_ids:
