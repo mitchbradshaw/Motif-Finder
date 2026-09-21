@@ -741,7 +741,8 @@ def get_scoreboard(request: Request, runs: str = "", channels: str = "", t0: flo
             total = SB.run_total(c, [r["run_id"] for r in rows], rule=rule, rows=rows)
             out.append({
                 "run": key,
-                "total": _score_row(total) | {"recall": _recall_cell(total)},
+                "total": _score_row(total) | {"recall": _recall_cell(total),
+                                             "precisionNote": total.get("precision_note")},
                 "channels": [_score_row(r) | {"channel": next(ch["name"] for ch in chans
                                                               if ch["id"] == r["recording_id"])} for r in rows],
                 "pooledH": round(total["pooled_h"], 3),
@@ -1882,6 +1883,20 @@ def _window_scores(conn, session_id, run_key, ch, lo, hi, fs):
     return [None if not np.isfinite(v) else round(float(v), 5) for v in vals], None
 
 
+def _lowest(values):
+    """The index of the smallest finite value, or None when there is none.
+
+    The wire spells a non-finite score `None`, which `np.nanargmin` cannot
+    order against a float — it raises, and the stepper's whole window comes
+    back a 500."""
+    if not values:
+        return None
+    arr = np.array([np.nan if v is None else float(v) for v in values], dtype=float)
+    if not np.isfinite(arr).any():
+        return None
+    return int(np.nanargmin(arr))
+
+
 @router.get("/api/discovery/compare/window")
 def get_compare_window(request: Request, a: str, b: str, channel: str, atH: float, kind: str = "only A",
                        windowS: float = 240.0, detection: str | None = None):
@@ -1910,8 +1925,10 @@ def get_compare_window(request: Request, a: str, b: str, channel: str, atH: floa
             "aSpan": track if kind == "only A" else None,
             "bSpan": track if kind == "only B" else None,
             "aScore": [], "bScore": other_scores, "scoreNote": note,
-            "minAt": (int(np.nanargmin(other_scores)) if other_scores and any(
-                v is not None for v in other_scores) else None),
+            # the score list carries None where the value is not finite, and
+            # numpy cannot order None against a float — so the minimum is taken
+            # over an array that spells those NaN
+            "minAt": _lowest(other_scores),
             "otherThreshold": (_side(c, s["id"], other, [ch], (lo, hi), ch["name"])[0]["threshold"]),
             "channel": ch["name"], "detection": detection,
         }

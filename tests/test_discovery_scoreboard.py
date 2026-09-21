@@ -65,7 +65,7 @@ from Working.database import queries as q
 from Working.database import runs as run_db
 from Working.database.schema import init_db
 from Working.discovery.matching import MATCHING_RULE
-from Working.discovery.scoreboard import channel_score, group_score, run_total
+from Working.discovery.scoreboard import channel_score, group_score, run_total, shape_mismatch
 
 SOURCE = "manual_ui"
 BEFORE = "2026-09-01T00:00:00"
@@ -436,5 +436,66 @@ def test_the_null_is_counted_over_the_same_section():
         row = channel_score(conn, run_id, span=(0, 2000))
         assert row["null_expects"] == 1
         assert row["x_null"] == pytest.approx(4.0)
+    finally:
+        conn.close()
+
+
+# ── a precision of 0 that is about the span shapes, not the algorithm ───────
+
+def test_shape_mismatch_names_the_two_medians_and_the_best_reachable_iou():
+    """11,234 of this project's 11,269 annotations are the fixed 600-sample
+    windows of the 10-minute CNN window set — window labels, not event spans —
+    while a real drop runs 21 to 4,875 samples, median 179. Nested as well as
+    they can be, 179 against 600 reaches IoU 0.30, so under §4.6 no alignment
+    can ever count one. A scoreboard printing 0.00 without saying that would be
+    the most misleading number on the page."""
+    note = shape_mismatch([179] * 5, [600] * 5, 0.5)
+    assert note is not None
+    assert "179" in note and "600" in note and "0.30" in note
+    assert "not" in note and "algorithm" in note
+
+
+def test_shape_mismatch_is_silent_when_the_spans_can_match():
+    assert shape_mismatch([600] * 3, [600] * 3, 0.5) is None
+    assert shape_mismatch([500] * 3, [600] * 3, 0.5) is None      # best 0.83
+    assert shape_mismatch([], [600], 0.5) is None
+
+
+def test_a_zero_precision_over_window_labels_carries_the_warning():
+    conn = init_db(":memory:")
+    try:
+        rec = _recording(conn)
+        q.insert_reviewed_span(conn, rec, 0, 6000, SOURCE, reviewed_at=BEFORE)
+        # the human's fixed 600-sample windows
+        for a in (600, 1800, 3000):
+            q.insert_annotation(conn, rec, a, a + 600, "interesting", SOURCE, created_at=BEFORE)
+        run_id = _run(conn, rec)
+        # the machine's real events, 180 samples each, right inside them
+        for a in (700, 1900, 3100):
+            run_db.insert_detection(conn, run_id, a, a + 180)
+        row = channel_score(conn, run_id)
+        assert row["reviewed"] == 3
+        assert row["interesting"] == 0
+        assert row["precision"] == pytest.approx(0.0)
+        assert row["precision_note"] and "cannot match" in row["precision_note"]
+    finally:
+        conn.close()
+
+
+def test_a_zero_precision_the_shapes_allow_carries_no_warning():
+    """The same run against annotations of its own width scores 0 honestly:
+    the detections simply sit somewhere the human did not mark."""
+    conn = init_db(":memory:")
+    try:
+        rec = _recording(conn)
+        q.insert_reviewed_span(conn, rec, 0, 6000, SOURCE, reviewed_at=BEFORE)
+        for a in (600, 1800, 3000):
+            q.insert_annotation(conn, rec, a, a + 180, "interesting", SOURCE, created_at=BEFORE)
+        run_id = _run(conn, rec)
+        for a in (1000, 2200, 3400):
+            run_db.insert_detection(conn, run_id, a, a + 180)
+        row = channel_score(conn, run_id)
+        assert row["interesting"] == 0 and row["precision"] == pytest.approx(0.0)
+        assert row["precision_note"] is None
     finally:
         conn.close()

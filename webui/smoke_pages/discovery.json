@@ -173,7 +173,7 @@
  {
   "page": "discovery.runs",
   "state": "held-out-refused",
-  "hash": "discovery/runs?recording=M4_aug",
+  "hash": "discovery/runs?recording=M4_aug_concat_fs1",
   "actions": [],
   "expect": [
    "[data-testid=\"scope-refused\"]"
@@ -332,7 +332,7 @@
  {
   "page": "discovery.seed",
   "state": "held-out-refused",
-  "hash": "discovery/seed?recording=M4_aug",
+  "hash": "discovery/seed?recording=M4_aug_concat_fs1",
   "actions": [],
   "expect": [
    "[data-testid=\"scope-refused\"]"
@@ -474,7 +474,7 @@
  {
   "page": "discovery.compare",
   "state": "held-out-refused",
-  "hash": "discovery/compare?recording=M4_aug&a=mp_threshold&b=smoke_seed",
+  "hash": "discovery/compare?recording=M4_aug_concat_fs1&a=mp_threshold&b=smoke_seed",
   "actions": [],
   "expect": [
    "[data-testid=\"scope-refused\"]"

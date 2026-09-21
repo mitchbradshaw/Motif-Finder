@@ -121,6 +121,38 @@ def _ratio(num, den):
     return (float(num) / float(den)) if den else None
 
 
+def shape_mismatch(candidate_widths, reference_widths, iou_threshold):
+    """Can a typical detection and a typical annotation match **at all**?
+
+    Two spans nested as well as they can be reach an IoU of
+    ``min(w) / max(w)``. If that is already below the threshold, no alignment
+    saves them: a precision of 0 over such a pair is a statement about the two
+    span *shapes*, not about the algorithm, and a scoreboard that printed it
+    without saying so would be the most misleading number on the page.
+
+    This is not hypothetical here. 11,234 of this project's 11,269 annotations
+    are the fixed 600-sample windows of the 10-minute CNN window set
+    (``annotations.source = 'imported_10min'``) — window labels, not event
+    spans — while a real drop runs 21 to 4,875 samples, median 179. Under
+    §4.6's IoU >= 0.5 a 179-sample event against a 600-sample window reaches
+    0.30 and can never be counted, however well it is placed.
+
+    Returns None when the two are compatible, and a sentence when they are not.
+    """
+    cand = sorted(int(w) for w in candidate_widths if w)
+    ref = sorted(int(w) for w in reference_widths if w)
+    if not cand or not ref:
+        return None
+    mc, mr = cand[len(cand) // 2], ref[len(ref) // 2]
+    best = min(mc, mr) / float(max(mc, mr))
+    if best >= iou_threshold:
+        return None
+    return (f"the spans cannot match: this run's detections are {mc} samples long at the median and the "
+            f"reviewed annotations are {mr}, so the best reachable overlap is IoU {best:.2f}, below the "
+            f"rule's {iou_threshold:.2f}. Precision here is a statement about the two span shapes, not "
+            f"about the algorithm")
+
+
 def channel_score(conn, run_id, *, rule=None, null_run_id=None, span=None):
     """One channel row of §7.3 for one run. Every cell, and the words for the
     cells that have no number.
@@ -192,6 +224,13 @@ def channel_score(conn, run_id, *, rule=None, null_run_id=None, span=None):
     precision_note = None
     if not running and coverage and not reviewed:
         precision_note = NO_DETECTIONS_REVIEWED
+    elif not running and reviewed and not interesting:
+        # a precision of exactly 0 is the one worth interrogating: say when it
+        # is the span shapes rather than the algorithm
+        precision_note = shape_mismatch(
+            [d["end"] - d["start"] for d in dets],
+            [a["end"] - a["start"] for a in anns if contains(coverage, a["start"])],
+            rule["iou"])
 
     note = None
     if running:
@@ -286,9 +325,11 @@ def run_total(conn, run_ids, *, rule=None, rows=None):
     recall_note = None if recall is not None else (
         NO_OVERLAP if not any(r["reviewed_h"] for r in rows) else NO_POSITIVES)
 
+    notes = [r["precision_note"] for r in rows if r.get("precision_note")]
     return {
         **summed,
         "precision": _ratio(summed["interesting"], summed["reviewed"]),
+        "precision_note": (notes[0] if notes and not summed["interesting"] else None),
         "precision_label": "precision",
         "recall": recall,
         "recall_note": recall_note,

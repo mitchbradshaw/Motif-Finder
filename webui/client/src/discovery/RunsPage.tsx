@@ -208,7 +208,12 @@ function Scoreboard({ dx }: { dx: Discovery }) {
     : <th>{label}</th>
   const cells = (row: ScoreRow) => <>
     <td>{row.found}</td><td>{row.judged}</td><td>{row.reviewed}</td><td>{row.interesting}</td>
-    <td>{row.precision == null ? <span className="muted">not yet scored</span> : `${Math.round(row.precision * 100)} %`}</td>
+    <td data-testid="score-precision">
+      {row.precision == null
+        ? <span className="muted">{row.note ?? row.precisionNote ?? 'not yet scored'}</span>
+        : <>{`${Math.round(row.precision * 100)} %`}{row.precisionNote &&
+            <InfoTip title="This precision is about the span shapes">{row.precisionNote}</InfoTip>}</>}
+    </td>
     <td className={cx(!('value' in row.recall) && 'muted')}>{fmtRecall(row.recall)}</td>
     <td>{row.nullExpects}</td><td>{row.xNull == null ? '—' : `${row.xNull.toFixed(1)}×`}</td>
   </>
@@ -216,7 +221,7 @@ function Scoreboard({ dx }: { dx: Discovery }) {
     <section className="k-card dsc-score" data-testid="scoreboard" aria-label="Scoreboard">
       <div className="dsc-card-head">
         <h3>Scoreboard</h3>
-        <InfoTip title="Scoreboard">Precision is labelled precision: alone it rewards timidity. Recall is per channel, over that channel's reviewed overlap; the run row states the hours it pooled. Already judged counts detections that had a verdict before the run started. Null expects is what the circular-shift null finds on the same scope; × null is the ratio.</InfoTip>
+        <InfoTip title="Scoreboard">Precision is labelled precision: alone it rewards timidity. Recall is per channel, over that channel's reviewed overlap; the run row states the hours it pooled. Already judged counts detections that had a verdict before the run started. Null expects is what the paired surrogate run finds on the same scope — the method is the one Settings › Nulls names and `preprocessing.surrogate` implements, shown on the toolbar's null chip — and × null is the ratio. A null that finds nothing leaves × null empty: there is no ratio to take, which is the best result there is.</InfoTip>
         <span className="muted small">per run · expand a run for its channels</span>
         <span className="k-spacer" />
         <Button variant="link" icon="refresh" loading={refresh.busy} onClick={() => refresh.start({ stepMs: 600, queuedMs: 100 })} testid="refresh-scores">Refresh after reviewing</Button>

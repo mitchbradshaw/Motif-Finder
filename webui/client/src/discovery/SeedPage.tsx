@@ -10,6 +10,7 @@ import { Header } from '../shell/Header'
 import { useToast } from '../shell/Toast'
 import { navigate, useApp } from '../state'
 import { useSourced } from '../api/seam'
+import { runDiscoverySeedSearch } from '../api'
 import { useSize } from '../charts/useSize'
 import {
   getSeedProfile, getSeedResults, getSeedSetup, getTemplates, heldOutReason, isHeldOut, type SeedDraft, type SeedInfo, type SeedMatch, type SeedParams, type SeedSource,
@@ -19,6 +20,10 @@ import { RunGlyph } from './glyphs'
 import { useDiscovery, type Discovery } from './session'
 
 const SEED_COLOUR = '#AF52DE', KEPT_LIGHT = '#E6CCF5', THRESH = '#E8900C'
+/** How many matches the run keeps before the cut filters them. Generous on
+ *  purpose: the cut is a filter over what came back, so a small k would
+ *  silently bound the histogram. */
+const SEED_K = 200
 const SIM_ID = 'discovery.seed.seed_F03_native_2'
 
 export function SeedPage() {
@@ -57,19 +62,22 @@ export function SeedPage() {
   const recCut = setup.data?.recommended.threshold ?? null
   const nullAtRec = recCut == null ? 0 : (results.data?.nullDistances ?? []).filter(d => d <= recCut).length
 
-  // when the simulated search finishes, the draft becomes a normal run row
+  /* The run row is the server's: the old version invented one client-side,
+   * keyed by the draft and carrying `template: 'seed_F03_native_2'`, a name no
+   * templates row has. When the sweep lands, re-read the runs list and mark the
+   * draft's parameters applied. */
   useEffect(() => {
     if (sim.status !== 'done' || !draft) return
-    if (dx.runs.some(r => r.key === draft.key)) return
-    const doneAt = new Date(sim.finishedAt ?? Date.now()).toTimeString().slice(0, 5)
-    dx.addRuns([{ key: draft.key, label: draft.label, kind: 'seed', colour: SEED_COLOUR, glyph: 'seed', detail: `${seed?.id ?? 'span'} ${seed?.role ?? 'selection'} · MASS`, template: 'seed_F03_native_2', status: 'done', doneAt, addedThisSession: true }])
+    dx.reload()
     setDraftStore({ ...draft, applied: { ...draft.params } })
-    recordDemoWrite('discovery', 'seed-search-done', { run: draft.key, kept: kept.length, threshold })
-    if (stateQ !== 'done') toast.push({ text: `${draft.label} finished · ${kept.length} matches`, action: { label: 'Open in Runs', onClick: () => navigate(`discovery/runs?run=${draft.key}`) } })
+    if (stateQ !== 'done') toast.push({ text: `${draft.label} finished · ${kept.length} matches`, action: { label: 'Open in Runs', onClick: () => navigate('discovery/runs') } })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sim.status, draft?.key])
 
-  const runs = draft && dx.runs.some(r => r.key === draft.key)
+  // the server keys a seed run on the label it was given, and appends `_2`,
+  // `_3`… when that key is taken in this session
+  const seedRunKey = (r: { key: string }) => draft && (r.key === draft.label || r.key.startsWith(draft.label + '_'))
+  const runs = !!draft && dx.runs.some(seedRunKey)
   const draftRow = draft && !runs ? <DraftRow draft={draft} seed={seed} sim={sim} /> : null
 
   return (
@@ -85,7 +93,7 @@ export function SeedPage() {
               <ScopeCard dx={dx} />
               {!dx.recording?.heldOut && (
                 <div className="dsc-cols">
-                  <RunsCard dx={dx} mode="seed" selected={runs ? draft.key : undefined} draft={draftRow} onAddTemplate={() => navigate('discovery/runs?modal=add-template')} />
+                  <RunsCard dx={dx} mode="seed" selected={runs ? dx.runs.find(seedRunKey)?.key : undefined} draft={draftRow} onAddTemplate={() => navigate('discovery/runs?modal=add-template')} />
                   <div className="dsc-right">
                     <div className="dsc-seed-top">
                       <SeedCard draft={draft} seed={seed} seeds={seeds} source={sourceQ} onSource={s => { setSourceQ(s); setDraft({ source: s, seedId: s === 'medoid' ? 'm-1846' : s === 'library' ? 'E-0102' : draft.seedId }) }}
@@ -482,10 +490,23 @@ function ApplyBar({ dx, draft, recommended, kept, seed, sim, onSave }: { dx: Dis
   const changes = applied ? settable.filter(k => draft.params[k] !== applied[k]) : settable
   const diff = applied ? changes.map(k => `${label[k]} ${show(applied[k])} → ${show(draft.params[k])}`).join(' · ')
     : settable.map(k => `${label[k]} ${show(draft.params[k])}`).join(' · ')
-  const finished = dx.runs.find(r => r.key === draft.key)
+  const finished = dx.runs.find(r => r.key === draft.label || r.key.startsWith(draft.label + '_'))
   const channels = dx.scope?.channels ?? []
   const noSeedReason = !seed ? 'pick a seed first — no span selected' : null
-  const run = () => { sim.start({ steps: stepsFor(channels), stepMs: 800 }); recordDemoWrite('discovery', 'run-seed-search', { run: draft.key, seed: seed?.id, params: draft.params, channels }) }
+  /* §7.6's apply bar: "A run seed search becomes a normal run row." It is a
+   * real run — POST /api/discovery/seed/run starts a sweep over the scope and
+   * the row arrives from the server on the next read of the runs list. The
+   * progress strip still comes from `sim`, because the page has no SSE
+   * subscription yet (reported in 04-discovery.md, "Left"). */
+  const run = () => {
+    if (!seed || !dx.scope) return
+    sim.start({ steps: stepsFor(channels), stepMs: 800 })
+    runDiscoverySeedSearch({
+      seedId: seed.id, channels, t0: dx.scope.section[0], t1: dx.scope.section[1],
+      k: SEED_K, cut: draft.params.threshold ?? undefined, label: draft.label,
+    }).then(() => dx.reload())
+      .catch(e => { sim.reset?.(); console.error('the seed search could not start', e) })
+  }
   return (
     <section className="k-card dsc-apply" data-testid="apply-bar" aria-label="Apply">
       {sim.busy ? (
