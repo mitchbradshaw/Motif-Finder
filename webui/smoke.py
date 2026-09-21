@@ -285,6 +285,15 @@ class Smoke:
         "actions": [{"click": "[data-testid=add-arm]"}, {"press": "Escape"}, {"fill": ["sel", "text"]},
         {"wait": 300}], "expect": ["[data-testid=launch-sources]"], "expect_absent": [], "allow_error_card": false}"""
         print("[routes]")
+        # the live flows ran in this same tab: start the page walk from a hard reload, so a row whose error
+        # boundary the loud-failure flow tripped (?throw=1) or an in-memory write (a span sent from Explore)
+        # cannot leak into the first states. The states themselves keep sharing the tab, as the builders ran them.
+        page.goto(f"{self.url}/#/", wait_until="networkidle")
+        # the app keeps the source span and the chain in sessionStorage across a reload (state.tsx), so a
+        # reload alone is not a fresh tab: clear both storages first, as a new tab would have them
+        page.evaluate("() => { try { sessionStorage.clear(); localStorage.clear() } catch (e) {} }")
+        page.reload(wait_until="networkidle")
+        page.wait_for_timeout(300)
         mdir = os.path.join(HERE, "smoke_pages")
         entries = []
         for fn in sorted(os.listdir(mdir)) if os.path.isdir(mdir) else []:

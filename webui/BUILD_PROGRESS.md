@@ -105,3 +105,12 @@ scratchpad/critique3.js with model opus / effort medium pinned on every agent; s
 (scratchpad/../orch/settings-b-r1.json) so it starts at its fix round. Resume: Workflow({scriptPath:
 scratchpad/critique3.js, resumeFromRunId: "wf_bfc80e79-ae5", args: <same pre object>}).
 Fog carry-forward merged and committed (352b976, F26-F92).
+
+### 2026-09-21 finished
+Opus critique run wf_bfc80e79-ae5: 38 agents, 0 errors; 53/53 pages rated, 0 below 8, mean 8.4 (16 fix commits).
+Final gate: tsc + build clean; pytest 39 failed / 1298 passed, set identical to Task 1 (webui/PYTEST_GATE_FINAL.txt);
+DATA unchanged (12,125 entries compared, both db files same mtime/size); full bridge smoke 576 states, 0 failures
+after two smoke-harness fixes (reload + storage clear before the page walk). Pushed main. Servers stopped.
+Left for the user: git worktree remove --force C:/Users/mmebr/Documents/CNN-ui-proto; git branch -d proto/ui-stack-slices;
+the temporary pytest worktree C:/Users/mmebr/Documents/CNN-pytest (detached, real DATA copy ~1.25 GB) can be removed
+the same way. Next action: none.
