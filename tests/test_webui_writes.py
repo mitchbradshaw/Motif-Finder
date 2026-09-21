@@ -102,9 +102,10 @@ def test_write_machine_inserts_a_machine_row_and_returns_its_id(conn):
 def test_write_human_inserts_a_human_row_and_returns_its_id(conn):
     rec = _recording(conn)
     ann = writes.write_human(conn, "annotations", {
-        "recording_id": rec, "start_idx": 10, "end_idx": 20, "label": "spike"})
+        "recording_id": rec, "start_idx": 10, "end_idx": 20, "verdict": "interesting",
+        "source": "web", "created_at": "2026-09-21T00:00:00"})
     assert isinstance(ann, int) and ann > 0
-    assert conn.execute("SELECT label FROM annotations WHERE id = ?", (ann,)).fetchone()[0] == "spike"
+    assert conn.execute("SELECT verdict FROM annotations WHERE id = ?", (ann,)).fetchone()[0] == "interesting"
     assert conn.execute("SELECT COUNT(*) FROM detections").fetchone()[0] == 0
 
 

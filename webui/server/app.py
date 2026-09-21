@@ -15,6 +15,7 @@ import traceback
 
 from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
+from starlette.routing import Match
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
@@ -23,7 +24,7 @@ from Working.database.runs import list_runs, list_templates, load_template, save
 from . import chain as chain_mod
 from . import corpus
 from .runs import RunManager
-from .runtime import HELD_OUT_FILE, PROTO_DIR, Runtime
+from .runtime import HELD_OUT_FILE, Runtime
 
 log = logging.getLogger("webui")
 
@@ -369,10 +370,33 @@ def create_app(rt: Runtime) -> FastAPI:
             json.dump({"snapshot": job.snapshot(), "payloads": job.payloads}, f)
         return {"path": path, "bytes": os.path.getsize(path)}
 
+    # ------------------------------------------------- /api never falls through --
+    # Registered after every real /api route and before the SPA catch-all: an
+    # unknown /api path is a JSON 404 (a typo used to come back as index.html with
+    # a 200), and a wrong method on a real route stays a JSON 405.
+    @app.api_route("/api/{rest:path}", methods=["GET", "POST", "PUT", "PATCH", "DELETE"], include_in_schema=False)
+    async def api_not_found(request: Request, rest: str):
+        allowed = set()
+        for route in app.router.routes:
+            path = str(getattr(route, "path", "") or "")
+            if path == "/api/{rest:path}" or not path.startswith("/api/"):
+                continue   # only real API routes count; the SPA catch-all is not one
+            match, _ = route.matches(request.scope)
+            if match == Match.PARTIAL:
+                allowed.update(getattr(route, "methods", None) or ())
+        if allowed:
+            return JSONResponse(status_code=405, headers={"Allow": ", ".join(sorted(allowed))},
+                                content={"error": f"method {request.method} not allowed on {request.url.path}",
+                                         "path": request.url.path, "allowed": sorted(allowed)})
+        return JSONResponse(status_code=404,
+                            content={"error": f"no such API route: {request.method} {request.url.path}",
+                                     "path": request.url.path, "docs": "/api/docs"})
+
     # ------------------------------------------------------- static client --
-    dist = os.path.join(PROTO_DIR, "client", "dist")
+    dist = rt.client_dist
     if os.path.isdir(dist):
-        app.mount("/assets", StaticFiles(directory=os.path.join(dist, "assets")), name="assets")
+        if os.path.isdir(os.path.join(dist, "assets")):
+            app.mount("/assets", StaticFiles(directory=os.path.join(dist, "assets")), name="assets")
 
         @app.get("/{full_path:path}")
         def spa(full_path: str):
