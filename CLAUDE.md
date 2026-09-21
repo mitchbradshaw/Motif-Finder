@@ -47,10 +47,10 @@ describes the chain builder as a vertical staged list, which is exactly what Par
    (matplotlib for figure export is the one drawing library the core keeps). This is what makes cluster
    execution, headless tests and the reproducibility claim possible. Enforced by
    `tests/test_import_boundaries.py`.
-2. **The suite must pass with no regressions.** `pytest` from your worktree root: PYTEST_COUNT tests as
+2. **The suite must pass with no regressions.** `pytest` from your worktree root: 969 tests as
    of 2026-09-21 (after the Panel tree was retired), **zero** of which fail before you touch anything —
-   the baseline is `webui/PYTEST_GATE_FINAL.txt`; compare failure *sets*, not counts. About PYTEST_SERIAL
-   serial (`pytest -n auto` — needs `pytest-xdist`, see Environment — cuts this to about PYTEST_PARALLEL;
+   the baseline is `webui/PYTEST_GATE_FINAL.txt`; compare failure *sets*, not counts. About three and a half minutes
+   serial (`pytest -n auto` — needs `pytest-xdist`, see Environment — cuts this to about two;
    most of the wall-clock is numpy/aeon/stumpy import cost paid per worker, so the speedup is real but
    not linear in core count). Do not chase a fixed number —
    every merged ticket adds tests, so the gate is "nothing that passed before now fails", not "N
