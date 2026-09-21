@@ -129,10 +129,12 @@ fixture_db_dest = "DATA/db/annotations.sqlite"
 #
 # This is the minimal set, derived from evidence rather than convenience: the
 # only real-data path any test file references is
-# DATA/derived/channels/M2_aug_concat_fs1/CH0.npy, and it is needed because
-# UI/app.py:2279 constructs a ViewerApp at import time — so the ten files that
-# import UI.app fail at COLLECTION without it, not at assertion time. 317 MB,
-# against 1.3 GB for all of channels/ and 2.3 GB for all of derived/.
+# DATA/derived/channels/M2_aug_concat_fs1/CH0.npy (tests/test_execution.py's
+# guarded tests, and the fixture database's recording rows). It was first
+# junctioned because the Panel viewer's import-time ViewerApp needed it at
+# COLLECTION; that tree is gone (2026-09-21, tag archive/panel-ui) but the
+# real-data tests still read it. 317 MB, against 1.3 GB for all of channels/
+# and 2.3 GB for all of derived/.
 #
 # ISOLATION TRADEOFF (recorded deliberately, see ORCHESTRATOR_SPEC.md §Isolation):
 # an agent can reach and write to this directory. The database stays protected —
@@ -181,8 +183,9 @@ max_budget_usd = 0.0
 launch_stagger_seconds = 5
 
 [suite]
-# Never `-n`. tests/_session_isolation.py documents exactly why parallel
-# collection breaks this suite.
+# Never `-n`. The gate compares failure sets against a serial baseline; see
+# orchestrator/README.md "suite.command" (the Panel-era tests/_session_isolation.py
+# that first documented the breakage went with that tree, tag archive/panel-ui).
 command = ["pytest", "-q", "--tb=no"]
 timeout_minutes = 25
 

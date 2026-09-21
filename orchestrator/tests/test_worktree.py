@@ -217,11 +217,15 @@ def test_a_real_provisioned_worktree_can_import_the_application(tmp_path):
     supplies, and the junction is pointless without rows naming it. Verified
     together or not at all.
 
-    `import UI.app` is the whole check. UI/app.py:2279 constructs a full
-    ViewerApp at import time, so that one statement exercises the fixture
-    database, the junction, and the junction's placement in a couple of seconds
-    — where the suite gate costs four minutes. This test failing at t+0 is
-    exactly what run-20260816-1943 needed and did not have.
+    One short script is the whole check: import the core and the adapter
+    registry, open the fixture database at the path the core resolves, and
+    memory-map the first recording it names — which lives only under the
+    junction. That exercises the fixture database, the junction, and the
+    junction's placement in a couple of seconds, where the suite gate costs
+    four minutes. (Until 2026-09-21 the check was `import UI.app`, whose
+    import-time ViewerApp did the same three things; the Panel tree is gone,
+    tag `archive/panel-ui`.) This test failing at t+0 is exactly what
+    run-20260816-1943 needed and did not have.
     """
     config = load_config(SHIPPED_CONFIG, repo_root=REPO_ROOT)
     git = Git(config.paths.repo_root)
@@ -238,14 +242,24 @@ def test_a_real_provisioned_worktree_can_import_the_application(tmp_path):
         recordings=config.paths.recordings,
     )
     try:
+        probe = (
+            "import numpy as np\n"
+            "import Working.execution, Adapters.registry\n"
+            "from Working.database.schema import DB_PATH, init_db\n"
+            "Adapters.registry.discover_adapters()\n"
+            "conn = init_db(DB_PATH)\n"
+            "row = conn.execute('SELECT npy_path FROM recordings LIMIT 1').fetchone()\n"
+            "assert row is not None, 'fixture database names no recording'\n"
+            "np.load(row[0], mmap_mode='r')\n"
+        )
         result = subprocess.run(
-            [sys.executable, "-c", "import UI.app"],
+            [sys.executable, "-c", probe],
             cwd=worktree.path, capture_output=True, text=True, timeout=300,
         )
         assert result.returncode == 0, (
-            "a provisioned worktree cannot import the application, so every test "
-            "file that imports UI.app will fail at COLLECTION and read as a "
-            f"regression:\n{result.stderr[-2000:]}"
+            "a provisioned worktree cannot import the core, open the fixture "
+            "database and reach the junctioned recording, so every real-data "
+            f"test will fail and read as a regression:\n{result.stderr[-2000:]}"
         )
     finally:
         teardown(git, worktree)

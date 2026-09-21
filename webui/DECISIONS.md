@@ -27,6 +27,9 @@ this. `.gitignore` rules moved into `webui/.gitignore` (node_modules, .venv, dis
 0 failures).
 
 ### 1.4 The old Panel tree `UI/` stays (deletion is not trivial)
+*Superseded 2026-09-21: stage-3 Prompt 00 did the non-trivial deletion — tag `archive/panel-ui`, report
+`docs/prompts/wiring/reports/00-cleanup.md`. The paragraph below is the assessment as it stood on 2026-09-16.*
+
 Assessed in ~10 minutes against the brief's two conditions. **Condition 1 fails:**
 `Working/Detection/sax/dsax_python/UI_snapshot_20260810-0512/{app.py,run_panel.py}` imports `UI`, and that
 path is under `Working/`, which this night may not edit. **Condition 2 fails:** 39 files under `tests/` import

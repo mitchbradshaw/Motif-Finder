@@ -24,6 +24,8 @@ from Adapters.detection_sax_dsax import (
     NOISE_FLOOR_RATIO_ALERT, delta_diagnostic_rows, noise_floor_surrogate_count,
 )
 from Adapters._sax_common import encoding_diagnostics
+from Working.Detection.sax.csax_python.csax import csax
+from Working.Detection.sax.psax_python.psax import psax
 from Working.Detection.sax.dsax_python.dsax import (
     SYMBOL_LETTERS, SYMBOL_NAMES, dsax, same_band_halfwidth,
     same_fraction_under_halfwidth, working_domain_array,
@@ -200,3 +202,46 @@ def test_same_band_helpers_return_none_without_a_same_bin():
     _s, details = _encode_dsax(alphabet_size=4)
     assert same_band_halfwidth(details) is None
     assert same_fraction_under_halfwidth(details, 0.5) == (None, None)
+
+
+def test_even_alphabet_diagnostics_warn_that_there_is_no_same_band():
+    """An even alphabet has a cutline AT zero, not a bin around it; the
+    diagnostic rows must say so (a `SAME band` row, severity `warn`, naming
+    EVEN) rather than report a half-width that does not exist."""
+    symbols, details = _encode_dsax(alphabet_size=4)
+    rows = delta_diagnostic_rows(symbols, details)
+    labels = {label for label, _v, _s in rows}
+    assert "SAME band" in labels
+    band_row = [r for r in rows if r[0] == "SAME band"][0]
+    assert "EVEN" in band_row[1] and band_row[2] == "warn", band_row
+
+
+# ============================================================================
+# Encoder contract: only dSAX declares a cutline domain
+# ============================================================================
+
+def _encode_csax(x=None, dim_ratio=1 / 20):
+    x = STRUCTURED if x is None else x
+    np.random.seed(SEED)
+    return csax(x, len(x), dim_ratio, return_details=True)
+
+
+def _encode_psax(x=None, dim_ratio=1 / 20, alphabet_size=8):
+    x = STRUCTURED if x is None else x
+    np.random.seed(SEED)
+    return psax(x, len(x), dim_ratio, alphabet_size=alphabet_size, return_details=True)
+
+
+def test_dsax_declares_its_cutline_domain_and_the_amplitude_encoders_do_not():
+    """`webui/server/serialize.py` reads `details["cutline_domain"]` to decide
+    which array the cutlines are drawn against. dSAX must DECLARE `delta` and
+    carry the `deltas` it quantised; cSAX/pSAX must not have been edited to
+    grow either key — their cutlines are in the amplitude domain by absence."""
+    _sym, dsax_details = _encode_dsax()
+    assert dsax_details["cutline_domain"] == "delta", "dSAX must DECLARE its domain"
+    assert "deltas" in dsax_details
+
+    for _s, details in (_encode_csax(), _encode_psax()):
+        assert "cutline_domain" not in details, \
+            "csax/psax must NOT have been edited to declare a domain"
+        assert "deltas" not in details

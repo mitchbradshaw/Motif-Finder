@@ -1,5 +1,12 @@
 # dSAX UI integration — notes
 
+> **Note (2026-09-21).** This describes the Panel-era integration. The `UI_snapshot_20260810-0512/`
+> directory it refers to, `UI/plots.py`, `tests/test_encoding_view*.py` and
+> `Experimentation/Detection experiments/build_ui_previews.py` were removed with the Panel tree
+> (tag `archive/panel-ui`). The encoder behaviour it specifies is still pinned by
+> `tests/test_dsax_diagnostics.py` and `tests/test_dsax_engineered.py`; the web UI reads the same
+> `details` dict through `webui/server/serialize.py`.
+
 Written against `DSAX_UI_PROMPT.md`, executed autonomously on 2026-08-10.
 Companion to `IMPLEMENTATION_NOTES.md`, which remains the specification for
 what dSAX *does*; this document only covers what changed to get it on

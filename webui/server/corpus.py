@@ -14,6 +14,7 @@ import numpy as np
 
 from Working.database import queries as q
 from Working.database import runs as r
+from Working.database.schema import VERDICTS
 
 from .decimate import envelope
 from .runtime import HELD_OUT_FILE
@@ -21,7 +22,8 @@ from .runtime import HELD_OUT_FILE
 M2_STYLE_NAMES = ["CH1_A1", "CH2_A1", "CH3_A2", "CH4_A2", "CH5_B1", "CH6_B1", "CH7_B2", "CH8_B2",
                   "CH9_C1", "CH10_C1", "CH11_C2", "CH12_C2", "CH13_D1", "CH14_D1", "CH15_D2", "CH16_D2"]
 
-VERDICTS = ("seed", "interesting", "not_interesting", "artifact", "unsure")
+# VERDICTS is imported from Working.database.schema above — the one vocabulary,
+# never a second copy (tests/test_webui_corpus.py pins it).
 
 
 def connect(db_path: str) -> sqlite3.Connection:

@@ -1,5 +1,7 @@
 # Ticket runner — status and handover
 
+> **Note (2026-09-21).** References below to `UI/`, `UI/app.py`, `tests/ui/`, `scripts/dev_serve.py`, `docs/UI_VERIFICATION.md` and `tests/_session_isolation.py` describe the Panel tree, which was removed from `main` on 2026-09-21 and is reachable at tag `archive/panel-ui`. The current rule-1 wording and the web UI's gates are in `CLAUDE.md`; the `-n` rationale for the orchestrator's suite gate is in `orchestrator/README.md`.
+
 **Updated:** Wednesday 19 August 2026. **Feature freeze: 28 August — 9 days, with a couple of days'
 slack accepted deliberately to make the runner reliable first.**
 

@@ -1,5 +1,7 @@
 # Autonomous ticket runner — architecture and failure policy
 
+> **Note (2026-09-21).** References below to `UI/`, `UI/app.py`, `tests/ui/`, `scripts/dev_serve.py`, `docs/UI_VERIFICATION.md` and `tests/_session_isolation.py` describe the Panel tree, which was removed from `main` on 2026-09-21 and is reachable at tag `archive/panel-ui`. The current rule-1 wording and the web UI's gates are in `CLAUDE.md`; the `-n` rationale for the orchestrator's suite gate is in `orchestrator/README.md`.
+
 **Status:** settled by grilling, 14–15 Aug 2026. No implementation written yet.
 **Scope:** the system that dispatches the 49 tickets in `docs/tickets/` to autonomous coding agents,
 merges their work, and leaves a trail auditable the next morning.

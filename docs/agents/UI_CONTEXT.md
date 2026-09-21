@@ -1,5 +1,9 @@
 # UI context — what exists, and what it is for
 
+> **Superseded in part, 2026-09-21.** The Panel tree (`UI/`, `tests/ui/`, `docs/UI_VERIFICATION.md`) was
+> deleted at stage 3 (tag `archive/panel-ui`) and the web UI at `webui/` is the application. Sections 1–5
+> still describe what the interface is *for*; read the constraints in §6 with the amendments marked there.
+
 **Audience:** any agent session working the UI rebuild wayfinder map. Read this once, at the start of
 the session, before choosing or resolving a ticket. It is the low-resolution view of what has already
 been built and what the interface is *for*; it deliberately does not tell you how to build anything.
@@ -284,10 +288,11 @@ It is the natural payload for any vertical slice that needs real data in front o
 
 ## 6. Standing constraints on the rebuild
 
-1. **The existing `pytest` suite stays green.** ~1049 tests as of 2026-08-31. The old `UI/` tree
+1. **The existing `pytest` suite stays green.** ~1049 tests as of 2026-08-31. ~~The old `UI/` tree
    stays alive and passing until the new one supersedes it; no session deletes or weakens a Panel
-   test to make something pass. Do not chase a fixed number — the gate is "nothing that passed
-   before now fails".
+   test to make something pass.~~ *(Amended 2026-09-21: the Panel tree and its tests were deleted at
+   stage 3, tag `archive/panel-ui`; the baseline is now zero failures — see `CLAUDE.md` rule 2.)* Do
+   not chase a fixed number — the gate is "nothing that passed before now fails".
 
    *Practical note:* the suite is slow (about six minutes serial, five with `pytest -n auto`). A
    session that touches only new-tree files does not need to run it every loop; a session that
@@ -297,8 +302,9 @@ It is the natural payload for any vertical slice that needs real data in front o
 2. **The new tree gets its own gates**, appropriate to whatever stack is chosen. Defining them is a
    decision on the map, not an assumption.
 
-3. **The UI-free core rule gets stronger, not weaker.** Today: no module below `UI/` may import
-   Panel, HoloViews, Bokeh or matplotlib, and a test enforces it. That rule is what makes this
+3. **The UI-free core rule gets stronger, not weaker.** Today *(amended 2026-09-21)*: nothing in
+   the repository imports Panel, HoloViews or Bokeh; browser libraries live only in `webui/client/`
+   and FastAPI only in `webui/server/`; `tests/test_import_boundaries.py` enforces it. That rule is what makes this
    rebuild possible at all — the core does not know a UI exists. Whatever the new boundary turns out
    to be, nothing below it may know a browser exists.
 
@@ -310,5 +316,6 @@ It is the natural payload for any vertical slice that needs real data in front o
 5. **Panel's characteristic failure mode, recorded because it cost this project twice:** a broken
    dynamic map renders as a *silently blank pane*, not an error. Tests passed, review passed, the
    feature was missing. Whatever stack replaces it, the lesson generalises — a construction test
-   proves a pane is *present*, never that it *painted*. `docs/UI_VERIFICATION.md` documents the
-   browser-driven suite added in response.
+   proves a pane is *present*, never that it *painted*. The browser-driven suite added in response
+   (`docs/UI_VERIFICATION.md`, `tests/ui/`) went with the Panel tree; `webui/smoke.py` is its
+   successor and the reason the lesson still holds.

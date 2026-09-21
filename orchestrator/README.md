@@ -70,10 +70,10 @@ Four things, in order.
    any change to `paths.recordings`, after a schema migration, and any time `DATA/derived/channels/`
    has been cleared.
 
-   **The import-time construction was removed on 2026-08-19** — the servable call moved to
-   `UI/serve.py`, and `import UI.app` now defines the factory without calling it. That closes the
-   *collection-failure* half of this story but not the fixture obligation: tests still read the
-   database, and a fixture that has drifted from `schema.py` still fails them honestly.
+   **The import-time construction was removed on 2026-08-19** (the servable call moved to the Panel
+   tree's `UI/serve.py`), and the Panel tree itself was deleted on 2026-09-21 (tag `archive/panel-ui`).
+   That closes the *collection-failure* half of this story but not the fixture obligation: tests still
+   read the database, and a fixture that has drifted from `schema.py` still fails them honestly.
 
    It also removed an alarm. A junction that was present but pointing at an *empty* directory used to
    be caught because `import UI.app` crashed at collection; now the import succeeds. The replacement

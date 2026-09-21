@@ -120,6 +120,8 @@ is not practical at 13 GB, and a junction to `DATA/` is forbidden (pytest and ad
 
 ## Cleanup decisions recorded for Prompt 00
 
+**Done 2026-09-21** — see `docs/prompts/wiring/reports/00-cleanup.md` for what was removed, moved and left.
+
 - Tag `archive/panel-ui` at the last commit that still contains `UI/`, then delete `UI/`, `tests/ui/`,
   `scripts/dev_serve.py`, `Working/Detection/sax/dsax_python/UI_snapshot_20260810-0512/`, the 30 tests that
   import `UI` at module scope and the UI-only functions of the 7 mixed test files, `tests/_session_isolation.py`,

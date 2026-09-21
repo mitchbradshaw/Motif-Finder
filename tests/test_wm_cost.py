@@ -38,8 +38,9 @@ def _IsolatedCalibration():
     below uses this rather than sharing (or worse, mutating) the real
     calibration file at `DATA/db/wm_calibration.json`.
 
-    The implementation lives in `tests/_calibration_isolation.py` so this file
-    and `tests/test_window_matrix_panel.py` cannot drift apart."""
+    The implementation lives in `tests/_calibration_isolation.py` so every
+    file that calibrates (this one, `tests/test_job_export.py`) shares one
+    copy and cannot drift."""
     return scratch_calibration(cost)
 
 

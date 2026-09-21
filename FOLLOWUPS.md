@@ -219,7 +219,8 @@ Six defects addressed together, on `fix/runner-usage-resilience`. Orchestrator s
   `_refuse_a_baseline_that_skipped_the_data_it_junctioned` stops the run rather than letting it
   proceed on half a suite.
 
-  Revisit only if the remaining backlog stops touching `Working/execution.py` and `UI/viewer/`, or if
+  Revisit only if the remaining backlog stops touching `Working/execution.py` (the other trigger,
+  `UI/viewer/`, is moot: the Panel tree was deleted 2026-09-21, tag `archive/panel-ui`), or if
   an agent actually damages the junctioned data. Reversing is one line in `config.toml`, and the
   baseline check already handles both configurations.
 - [fixed] **The 88 `_channel_available()` guards now skip instead of returning.** A test that returned
@@ -232,8 +233,9 @@ Six defects addressed together, on `fix/runner-usage-resilience`. Orchestrator s
   `tests/test_channel_guards_are_honest.py` is the standing guarantee — a `return` is one careless
   edit away from coming back and nothing else in the suite would notice. With the data present the
   conversion is a no-op: 591 passed before, 632 after (591 + 41 new guard tests), 0 skipped.
-- [open] **`UI/window_matrix_panel.py` still leaks background `_worker` threads** that outlive their
-  test and touch SQLite from the wrong thread. Raised 2026-08-18, unchanged.
+- [closed 2026-09-21] **`UI/window_matrix_panel.py` leaked background `_worker` threads** that outlived
+  their test and touched SQLite from the wrong thread. Raised 2026-08-18; closed by deletion — the
+  module went with the Panel tree (tag `archive/panel-ui`).
 - [fixed] **The stall retry now provides the clean worktree it promises.** `RETRY_PREFIX` told the
   agent "you are starting again from a clean worktree, so do not assume any of its work exists" while
   `_run_agent_with_retry` handed it the same half-edited tree the previous attempt stalled in.

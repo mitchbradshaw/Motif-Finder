@@ -1,5 +1,7 @@
 # Runner fix — run-20260816-1943 post-mortem
 
+> **Note (2026-09-21).** References below to `UI/`, `UI/app.py`, `tests/ui/`, `scripts/dev_serve.py`, `docs/UI_VERIFICATION.md` and `tests/_session_isolation.py` describe the Panel tree, which was removed from `main` on 2026-09-21 and is reachable at tag `archive/panel-ui`. The current rule-1 wording and the web UI's gates are in `CLAUDE.md`; the `-n` rationale for the orchestrator's suite gate is in `orchestrator/README.md`.
+
 The orchestrator's first real run failed for harness reasons, not ticket reasons. Five defects were
 found and fixed on 2026-08-16. This file was originally the prompt that drove that work; it has been
 rewritten to record what was actually true, because the original carried a wrong root cause and a

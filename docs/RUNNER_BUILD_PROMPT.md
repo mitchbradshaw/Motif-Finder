@@ -1,5 +1,7 @@
 # Build prompt — autonomous ticket runner
 
+> **Note (2026-09-21).** References below to `UI/`, `UI/app.py`, `tests/ui/`, `scripts/dev_serve.py`, `docs/UI_VERIFICATION.md` and `tests/_session_isolation.py` describe the Panel tree, which was removed from `main` on 2026-09-21 and is reachable at tag `archive/panel-ui`. The current rule-1 wording and the web UI's gates are in `CLAUDE.md`; the `-n` rationale for the orchestrator's suite gate is in `orchestrator/README.md`.
+
 Paste the block below into a fresh Claude Code session opened at the root of
 `C:\Users\mmebr\Documents\CNN`. It is written to be self-contained.
 

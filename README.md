@@ -23,7 +23,7 @@ four subfolders, reflecting **pipeline stage** rather than technique:
 | [`Pipelines/`](Pipelines/README.md) | End-to-end workflows composing several `Working/` components. Organised by workflow, not stage. |
 | [`Experimentation/`](Experimentation/README.md) | Exploratory and one-off analysis. Not guaranteed to work. Never imported. |
 | [`HPC/`](HPC/README.md) | Thin SLURM job scripts that invoke a `Pipelines/` entry point. |
-| [`UI/`](UI/README.md) | Panel/HoloViews signal viewer, annotation tool, and run panel. The only place that imports a UI library. |
+| [`webui/`](webui/) | **The web UI**: React + TypeScript client over a FastAPI bridge that imports the untouched core. The only trees that import a UI library (`webui/client/` for browser libraries, `webui/server/` for FastAPI). The old Panel tree was retired on 2026-09-21 (tag `archive/panel-ui`). |
 | `Adapters/` | One small file per algorithm, wrapping a `Working/` function to a uniform (params spec, `run`, `output_kind`, optional `plot`) shape. The only place that knows a function's raw signature — see `Adapters/base.py`. |
 | [`DATA/`](DATA/README.md) | Recordings and derived datasets (~2.3 GB, gitignored). |
 | [`Results/`](Results/README.md) | Run outputs, by stage. |
@@ -54,8 +54,9 @@ pip install torch torchvision scikit-image pillow joblib
 # only Working/Catalogue/cnn/cnn_gfg.py needs this
 pip install tensorflow
 
-# UI/ — signal viewer and annotation tool (never needed by Working/ or Pipelines/)
-pip install panel holoviews datashader bokeh h5py
+# the web UI keeps its own project-local toolchain (Node + npm for webui/client,
+# fastapi + uvicorn in webui/.venv); webui/start.ps1 creates both on first start.
+# Nothing in the repo imports Panel, HoloViews or Bokeh any more.
 ```
 
 ### 2. Data
@@ -112,11 +113,13 @@ so both the UI and headless scripts share one API:
 # one-time: extract DATA/raw/*.mat into per-channel .npy + `recordings` rows
 python Pipelines/materialize_channels/materialize_channels.py
 
-# browse a channel, see existing labels, and add new ones
-panel serve UI/serve.py --show
+# browse a channel, see existing labels, and add new ones (sandbox copy of the DB)
+webui\start.ps1
+# ... or against the real database, in place, after a timestamped backup
+webui\start.ps1 -Project
 ```
 
-See [`UI/README.md`](UI/README.md) for the viewer, and the `database`
+See `CLAUDE.md` "Web UI" for the start commands and the gate, and the `database`
 module's docstrings for the schema.
 
 ### 6. Running an algorithm, headlessly or from the UI
@@ -133,9 +136,9 @@ re-running an identical recipe reuses the prior run instead of recomputing:
 # Adapters/base.py for the adapter shape; part 3 wraps exactly this script)
 python Pipelines/run_recipe/run_recipe.py --config path/to/recipe.json
 
-# interactively: pick a stage/algorithm, auto-generated parameter controls,
-# background execution with cancel, before/after comparison, save as motif
-panel serve UI/serve.py --show   # "Run algorithm" / "Run history" tabs
+# interactively: the web UI's Analyse workspace — chain builder, background
+# execution with cancel, per-step payloads, run history
+webui\start.ps1
 ```
 
 Saved plots follow one naming convention
@@ -151,19 +154,11 @@ symbol strings, six entropies and all 22 Catch22 features.
 
 ### The Pipeline GUI workspaces
 
-`panel serve UI/serve.py` opens a tabbed shell with four workspaces plus an
-Admin group:
-
-| Tab | Content |
-|---|---|
-| **Explore** | The signal viewer |
-| **Analyse** | Run algorithm · Run history · Chain builder · Compare · Export run group · Block inspector |
-| **Review** | Candidate queue |
-| **Library** | Motif browser |
-| **Admin** (group) | Vocabulary admin · Import recording |
-
-Workspace content is mounted by registration (`UI.workspaces.register`) rather
-than named in the shell, so a new surface is added without editing the layout.
+The web UI (`webui/`, http://127.0.0.1:8765 after `webui\start.ps1`) is organised
+as hash-routed workspaces — Explore, Analyse, Review, Library, Models, Settings —
+specified in `docs/PIPELINE_PRD.md` and, for the stage-3 wiring of each page to
+the core, `docs/WIRING_PLAN.md`. `webui/PAGES_REPORT.md` records the state of
+every page.
 
 ### The seven interchange types
 

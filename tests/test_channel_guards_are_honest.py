@@ -20,6 +20,10 @@ gate that had executed zero tests.
 These tests are the standing guarantee that the conversion does not quietly
 regress — a `return` is one careless edit away from coming back, and nothing
 else in the suite would notice.
+
+Nine of the ten guarded files were Panel viewer tests and went with the Panel
+tree on 2026-09-21 (tag `archive/panel-ui`); `test_execution.py` is the one
+that remains, and any new real-data test file belongs in the tuple below.
 """
 
 import ast
@@ -33,17 +37,22 @@ TESTS_DIR = os.path.join(PROJECT_ROOT, "tests")
 
 #: The files that gate on real recording data being present.
 GUARDED_FILES = (
-    "test_encoding_view.py",
-    "test_encoding_view_dsax.py",
     "test_execution.py",
-    "test_filters.py",
-    "test_ribbon_panes.py",
-    "test_run_panel.py",
-    "test_run_panel_matrix_profile.py",
-    "test_session_persistence.py",
-    "test_shortcuts_and_view_controls.py",
-    "test_ui_selection.py",
 )
+
+
+def test_the_guarded_file_list_matches_the_files_that_actually_guard():
+    """A file that gains a `_channel_available()` guard must be listed here or
+    nothing checks its guards; a listed file that no longer exists would make
+    every parametrised test below error instead of assert."""
+    guarding = sorted(
+        name for name in os.listdir(TESTS_DIR)
+        if name.startswith("test_") and name.endswith(".py")
+        and name != os.path.basename(__file__)
+        and "_channel_available" in open(os.path.join(TESTS_DIR, name), encoding="utf-8").read()
+    )
+    assert guarding == sorted(GUARDED_FILES), (
+        f"files with a channel guard: {guarding}; GUARDED_FILES: {sorted(GUARDED_FILES)}")
 
 
 def _parse(filename):
@@ -143,7 +152,7 @@ def test_the_guard_actually_skips_when_the_data_is_absent(tmp_path, monkeypatch)
 
     result = subprocess.run(
         [sys.executable, "-m", "pytest",
-         "test_encoding_view.py::test_running_csax_populates_encoding_section",
+         "test_execution.py::test_identical_recipe_reuses_prior_run",
          "-q", "--no-header", "-p", "no:cacheprovider",
          "--rootdir", TESTS_DIR],
         cwd=TESTS_DIR, capture_output=True, text=True, timeout=600,
