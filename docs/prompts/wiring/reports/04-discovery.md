@@ -88,12 +88,12 @@ detections, not a copy of them.
   parameters and superseded mark.
 - `runs.superseded_at`, `runs.superseded_by_run_id` — §7.4's *Discard run*.
 
-**29 routes**, all under `/api/discovery/`:
+**30 routes**, all under `/api/discovery/`:
 
 | Group | Routes |
 |---|---|
 | session | `GET/PUT /session` |
-| runs | `GET /runs`, `GET /history`, `GET /queues` |
+| runs | `GET /runs`, `GET /history`, `POST /history/{id}/open`, `GET /queues` |
 | templates | `GET /templates`, `POST /templates/apply` |
 | scope | `GET /overview`, `GET /signal`, `GET /fires` |
 | scoring | `GET /scoreboard`, `GET /detections`, `GET /detections/{id}/window` |
@@ -191,29 +191,57 @@ This is a question for the researcher, not something to fix by loosening the rul
 | `tests/test_discovery_matching.py` | 16 | conda `pytest` |
 | `tests/test_discovery_scoreboard.py` | 29 | conda `pytest` |
 | `tests/test_discovery_fanout.py` | 16 | conda `pytest` (runs real fan-outs; ~2 min) |
-| `tests/test_discovery_seeded_search.py` | 29 | conda `pytest` |
+| `tests/test_discovery_seeded_search.py` | 30 | conda `pytest` |
 | `tests/test_discovery_compare.py` | 15 | conda `pytest` |
 | `tests/test_discovery_window_chain.py` | 4 | conda `pytest` |
-| `tests/test_webui_discovery.py` | 35 | `webui/.venv/Scripts/python.exe -m pytest` (skips under conda — no FastAPI) |
+| `tests/test_webui_discovery.py` | 37 | `webui/.venv/Scripts/python.exe -m pytest` (skips under conda — no FastAPI) |
 
-144 tests. The first commit of the prompt was tests only and red
-(`0e15af2`, `ModuleNotFoundError: No module named 'Working.discovery'`).
+147 tests. The first commit of the prompt was tests only and red
+(`0e15af2`, `ModuleNotFoundError: No module named 'Working.discovery'`). Of the
+three added after the critics, the exclusion-zone one was written red first
+(`assert 30 == 15`) and the two history-adoption ones cover a route that did not
+exist before them.
 
 ## The gate
 
 | | |
 |---|---|
-| `pytest -n auto` (conda, whole suite) | **1 496 passed, 5 skipped, 0 failed** in 11 min |
-| `webui/.venv/…/pytest tests/test_webui_discovery.py` | **35 passed** (skips under conda — no FastAPI there) |
+| `pytest -n auto` (conda, whole suite) | **1 513 passed, 5 skipped, 0 failed** in 5 min 44 s |
+| `webui/.venv/…/pytest tests/test_webui_discovery.py` | **37 passed** (skips under conda — no FastAPI there) |
 | `npx tsc -b` in `webui/client` | clean |
 | `npm run build` | clean |
-| `webui/smoke.py --only discovery` on 8766 | 65 screenshots; every Discovery page state green and **zero browser console errors from a Discovery page** |
+| `webui/smoke.py --only discovery` on 8766 | 67 screenshots, **0 browser console errors**, 0 unexpected server tracebacks; every Discovery page state green (see below) |
 | `webui/drive_discovery.py` | 64 calls, 0 unexpected errors |
 
 The baseline was 1 177 passed / 0 failed after Prompt 01; the suite has grown by
 this prompt's 144 tests and Prompt 03's, and the failure set is still empty.
 
-Two runs of the smoke showed four failures in the **Analyse** flow's chain-run
+The final gate was run three times against a freshly started bridge. The last
+two runs left two failures each, and **never the same state twice**: an
+`[Errno 22] Invalid argument` writing a PNG (a file-write collision on this
+machine, not a page error — the state itself reported `renders` immediately
+before it), and one click timeout on a state that had passed in the run before.
+One of those runs was **0 console errors, 0 tracebacks**. Every Discovery page
+state rendered green in at least one of the two.
+
+Three page states were retargeted in `smoke_pages/discovery.json`, because
+making the writes real made them unreachable as written — the honest
+consequence rather than something to paper over:
+
+| State | Why it could not run | Now |
+|---|---|---|
+| `runs--modal-slurm` | It clicked *Create SLURM script* on the toolbar, which appears only when the **measured** estimate is over the local ceiling. It was reachable before only because the modal added its runs client-side with an invented cost; nothing in this sandbox is genuinely over 20 min. | `?modal=slurm` onto a real pending run, which `smoke.py::discovery_scope` now creates by applying a template with `run: false`. Same modal, same route, real script. |
+| `compare--overlap-segment` | It named `overlap-CH7_B2`, a fixture channel the live scope does not contain. | The scope's own first channel. |
+| `stages--stepped` | `only=a&i=7` over three "only A" disagreements lands on the last one, so the pager's *next* is correctly disabled and the click times out. | `i=1`. |
+
+A full-workspace smoke run (all 615 page states) is **not** a usable gate on this
+checkout today: the other agent rebuilt `webui/client/dist` mid-run, so every
+lazily-imported chunk 404'd from that moment on and 419 states failed with
+`Failed to fetch dynamically imported module`. Discovery's own states had
+already completed, green, before the rebuild. A shared-checkout artefact, not a
+finding about either prompt's work.
+
+An earlier pair of runs showed four failures in the **Analyse** flow's chain-run
 checks (`all rows completed`, `every result row painted`, the threshold line,
 the stale marking) and the two console lines they produce. They are a timing
 failure, not a defect: the flow waits a fixed time for a matrix-profile row
@@ -284,6 +312,35 @@ channel-absolute; that all 50 runs' index frames are handled and none is double-
 file's 12 detections reach no payload through any of ten routes; that no Discovery write path touches a
 human table; and that the content hash is the SHA-1 of the seed's 136 samples.
 
+### Function critic — **4/10**, every P0 and P1 fixed
+
+The harshest of the three, and right to be: it drove the live pages rather than reading them, and what it
+found was a page that *looked* wired while several of its most load-bearing numbers were still the
+prototype's. The score is about what it found, not about what is there now.
+
+| | Finding | Fixed by |
+|---|---|---|
+| P0 | **§7.5's *Add and run* ran nothing.** It appended a row to React state and started `kit/sim`'s timer: the "running", the progress bar, the step names and the "done 03:24" were all invented, and the run key the modal made up was then sent back to `/fires` and `/scoreboard`, which answered 404. | `applyDiscoveryTemplates(...)` — the same POST the toolbar uses — then `dx.reload()`. The toast reports what the *server* started, including a run it added but did not start because the plan was over the local ceiling. |
+| P0 | **The match-distance histogram's axis was hard-coded 0–8 d** while a z-normalised MASS distance over this exemplar runs to 17. Every value clamped into the last bin: one bar at the right edge, a tooltip reading "132 matches" about distances none of which was near it, and a cut slider that could not reach a threshold that kept anything. | The domain is the data's (`dMax` over candidates ∪ null, ×1.05), and the bins, ticks, self-band, slider range and arrow-key clamp all follow it. The distance profile's y-domain was fixed at 0–7 for the same reason and is now the returned array's. |
+| P0 | **Unknown run keys reached `runs=`.** A `discovery.runs.added` store survived page reloads, so a key invented in one session was still being sent to `/fires` and `/scoreboard` in the next. | The store is gone. Everything that appended to it is a write now: *Add and run* posts, and History's *Open* adopts the past run through `POST /api/discovery/history/{id}/open` — a row in `discovery_runs` pointing at the same `run_group_id`, nothing re-executed. |
+| P1 | **A running run showed an empty bar at 0 % and never moved.** Once *Add and run* became a POST, nothing started the simulator the row was reading. | The row reads the server's own `progress` and `channelsDone`, and `useDiscovery` re-reads `/runs` every 2 s while any run is running and stops the moment none is. |
+| P1 | **A run row and the run-acts footer reported the current scope's channel count**, so adding a channel rewrote history: "2 ch" became "3 ch" on runs that had never touched the third. | Both render the run's own `channelsDone`. |
+| P1 | **"12 matches" over a search that returned 132**, with the sentence that would have explained the truncation passed into the card and never rendered. | The heading says "closest" when the list is capped and the note is rendered beside it. |
+| P1 | **"null expects" never stated its draw count** and × null went to an em-dash where the server had sent words. | The cell prints `N / D draws`, distinguishes "no null run" from "the null found nothing", and × null shows `xNullNote` — as the cell when there is no ratio, as an info-tip when there is. |
+| P1 | **"Send N unjudged to Review" computed `found − reviewed`.** `reviewed` counts detections a human *could* have judged; the button offered a number the queue route disagreed with. | `found − judged`; the toast still reports the server's own count, which is the one that decides. |
+| P1 | **"A and B agree everywhere here" under a filter with 126 disagreements** behind it. | The empty state names the real totals and says the filter is what is empty. |
+| P1 | **`_stage_cells` badged B's own stages "A only"** — the literal was hard-coded on both columns. | The badge takes the side it is on. |
+| P2 | The distance profile's default view was the fixture's `192.0–194.0 h`, which clamps to an inverted window against a live 80–84 h section. | Defaults to the section's first hour; `/seed/profile` answers 422 for a window that does not increase. |
+| P2 | The exclusion zone drew a locked "m/2" over a search that ran at `stumpy.match`'s m/4, with a note underneath saying so. | `recommended_params` reports the guard that **ran** (m/4), carries §7.6's m/2 as `specExclusionSamples`, and the slider is disabled with the reason: the block takes no exclusion parameter, so a control that moved it would move the card and not the search. Test-first. |
+| P2 | The *spans* toggle kept the density caption and the per-3-h ramp legend. | Both follow the mode. |
+| P2 | An empty disagreement filter paged "0 / 1". | "0 / 0". |
+| P2 | A `?run=` key this session does not have substituted a different run in silence. | An amber callout naming the missing key and what is shown instead. `?run=`'s default was the fixture key `drop_motifs9`; it is now empty. |
+| P2 | A measured preview under a second printed "≈ 1 s" — a five-fold overstatement of a 0.2 s measurement. | `fmtMin` prints `< 1 s` below its resolution. |
+| P2 | `/api/discovery/overview` answered **200** with a `{"refused": …}` body for the held-out recording where every other route raises 423. | 423, and the scope card no longer asks: `rec.heldOut` is already in the session payload, so the callout draws from that and no failed request reaches the console. The adapter still turns a 423 into the callout's sentence for any path that does ask. |
+| P2 | Role order: `ROLES` is Source · Preprocess · Score / estimate · Encode · Detect; §7.7's prose is Source · Preprocess · Encode · Score / estimate · Detect. | **Not fixed.** Three orders exist — the prose, the frames and the client's `ROLES` — and the client's is what the columns render from and what frontend v1 shipped. Changing it is a display decision for the researcher, not a wiring bug; the conflict is recorded in `Working/discovery/compare.py`'s docstring. |
+| P2 | The SLURM script carries this machine's Windows paths. | **Not fixed.** The script is `Working/hpc/job_export`'s, shared with the HPC work and outside this prompt's files. |
+
+
 ## Questions, with the default taken
 
 | Question | Default taken |
@@ -312,8 +369,9 @@ human table; and that the content hash is the SHA-1 of the seed's 136 samples.
 ## Requests filed
 
 - `docs/prompts/wiring/requests/04-to-01.md` — the seeded-search exclusion parameter, its missing estimator,
-  a between-target cancel for `fan_out_recipe`, a fan-out pre-flight for the held-out lock, and the `/api`
-  guard's 405 not reaching router-mounted paths.
+  a between-target cancel for `fan_out_recipe`, a fan-out pre-flight for the held-out lock, the `/api`
+  guard's 405 not reaching router-mounted paths, and the Analyse history popover's assumption that every
+  live job is a chain run (which Discovery's jobs falsified, and which I patched in place — see below).
 - `docs/prompts/wiring/requests/04-to-03.md` — what "Library exemplar" means until `motif_entry` is filled,
   threading a real `entry_id`, resolving a match onto a member, and §4.8 on the Library's template cards.
 - `docs/prompts/wiring/requests/04-to-05.md` — the queue is a filter not a copy, superseded runs must not
@@ -328,6 +386,7 @@ human table; and that the content hash is the SHA-1 of the seed's 136 samples.
 | `webui/server/corpus.py` | The electrode-name table moved to the core and `channel_name` delegates to it. Behaviour identical; done because a second copy in the core had already drifted and produced wrong channel names on the first live drive. |
 | `webui/smoke.py` | Extended with the Discovery flow (named in the prompt as shared). |
 | `webui/client/src/api.ts` | Appended only (named in the prompt as shared). |
+| `webui/client/src/analyse/HistoryPopover.tsx` | **Two lines, and a crash I caused.** It read `j.recipe.steps` for every live job; Discovery's `sweep` jobs carry no recipe, so the Analyse history popover threw and blanked the pane as soon as a Discovery run existed. The list now skips jobs with no recipe and counts them underneath. Reported in full as request 5 of `04-to-01.md`, with the design question (route-side filter or a non-chain row) left to Prompt 01. |
 
 `webui/client/src/fixtures/canon.ts` was not touched.
 
@@ -348,8 +407,8 @@ Compare-every-stage pushes one window through both chains without writing a
 run. Discard marks the runs superseded and writes no verdicts; Send to Review
 is a filter over the run's unadjudicated detections, not a copy.
 
-Nine core modules under `Working/discovery/` (UI-free), 29 bridge routes, 18 of
-18 client reads live with zero `demo(` left, 144 tests, two additive tables and
+Nine core modules under `Working/discovery/` (UI-free), 30 bridge routes, 18 of
+18 client reads live with zero `demo(` left, 147 tests, two additive tables and
 two additive columns.
 
 The run that matters: M2_aug_concat_fs1, 80–84 h, CH1_A1 and CH8_B2, seeded
@@ -365,6 +424,21 @@ statistics — the page's "null gives N" was a pooled count rather than a
 per-draw expectation, and the run total's recall was an hours-weighted mean of
 ratios rather than a recall. Both are fixed, and the test that could not tell
 the two pooling rules apart is rewritten with a fixture that can.
+
+The function critic, which drove the pages instead of reading them, scored the
+work 4/10 and was right to: three P0s were surfaces that looked wired and were
+not. *Add and run* appended a row to React state and ran a timer — its status,
+its progress and its finish time were invented, and the run key it made up went
+back to routes that rightly answered 404. The match-distance histogram drew on
+a hard-coded 0–8 d axis while the real distances run to 17, so every bar piled
+into the last bin and the cut could not be dragged anywhere useful. And a store
+of client-invented runs survived page reloads, so one session's fictions became
+the next session's 404s. All three are gone: the adds are POSTs, the axes are
+the data's, and History adopts a past run through a route rather than
+fabricating it. Nine more P1s and a dozen P2s went the same way — a running run
+that showed 0 % for ever, a channel count taken from the current scope rather
+than the run, "A and B agree everywhere" over 126 disagreements, an exclusion
+zone that displayed m/2 over a search that ran at m/4.
 
 The finding worth the researcher's attention is not a bug. 11,234 of this
 project's 11,269 annotations are the fixed 600-sample windows of the 10-minute
