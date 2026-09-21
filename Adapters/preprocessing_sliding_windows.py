@@ -51,6 +51,10 @@ def plan_windows(n_samples, fs, window_s, gap_s=0.0):
             f"gap_s={gap_s} s is shorter than the window ({window_s} s): consecutive windows would share "
             f"samples and a split could leak (P12). Use gap_s >= window_s, or 0 for exactly one window length.")
     starts = np.arange(0, n_samples - length + 1, gap, dtype=np.int64)
+    if len(starts) == 0:
+        raise ValueError(
+            f"no window fits: the span has {n_samples} samples and one window is {length} ({window_s} s at {fs} Hz); "
+            f"shorten window_s or widen the span.")
     return starts, length, gap
 
 

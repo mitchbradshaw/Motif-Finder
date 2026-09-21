@@ -55,6 +55,11 @@ def test_starts_are_channel_absolute_like_window_matrix():
     assert r.meta["span_start"] == 5000
 
 
+def test_a_span_shorter_than_one_window_is_refused_not_empty():
+    with pytest.raises(ValueError, match="no window fits"):
+        run(window_s=5000.0)
+
+
 def test_gap_shorter_than_the_window_is_refused_in_the_core():
     with pytest.raises(ValueError, match="P12"):
         run(window_s=100.0, gap_s=50.0)

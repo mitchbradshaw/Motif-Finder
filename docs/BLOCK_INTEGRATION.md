@@ -53,7 +53,7 @@ tunable input; a read-only readout beside the controls is a `derive` row, never 
 | `estimate` | `(x, t, fs, **params) -> float \| None` | see §3 Cost |
 | `max_span_samples` | `int` | the block is O(n²) or worse (the Gramian images) — the executor refuses a longer span before allocating |
 | `recommend` | `(x, t, fs) -> {param: value}` | a default depends on the span (seconds per symbol) |
-| `derive` | `(x, t, fs, params, **typed_inputs) -> [(label, value, severity)]` | a live readout beside the controls ("Symbols produced: 256"), served by `POST /api/blocks/derive` for the span in hand; a block whose readout needs an upstream typed value (`value=`, a side input) receives none from that route and says so in its own rows |
+| `derive` | `(x, t, fs, params, **typed_inputs) -> [(label, value, severity)]` | a read-only readout for the span in hand ("Symbols produced: 256"), served by `POST /api/blocks/derive`; the block page does not draw it yet (the page's own `rowState.deriveRows` reads the payload instead) — declare it for the route and for the Panel-era CLI, not for a control you can see today. A block whose readout needs an upstream typed value receives none from the route and says so in its own rows |
 | `persist` | `(conn, run_id, config_hash, recording, span_start, span_end, params, result) -> path \| (kind, path) \| None` | the output must land on disk and be registered as an `artifacts` row even from a headless run (matrix profile, window matrix, cluster labels, the classifier's joblib). Return `(kind, path)` to name the `artifacts.kind`; a bare path means `'encoding'` |
 | `known_broken` | `str` | the block is registered but cannot run here; the reason is shown on its card and beside it in the insert modal (it can still be inserted — the run then fails loudly at that step) |
 
@@ -90,7 +90,7 @@ client draws every payload through one seam (`webui/client/src/analyse/Renderer.
 | `SpanSet` | absolute seconds per span (capped at 5000), labels, scores | tinted bands over the ghosted signal |
 | `WindowSet` | starts, length, capped feature matrix + column ranges | window ticks + feature heatmap |
 | `Encoding` symbolic | symbols, letters, samples per symbol, cutlines, PAA | symbol strip (3-letter = amber/grey/blue) |
-| `Encoding` image | block-averaged uint8 image (≤ 256 px a side), value range | canvas, viridis |
+| `Encoding` image | block-averaged uint8 image (≤ 256 px a side), value range; a 4-D stack ships a contact sheet of its first 16 images plus `n_images` | canvas, viridis |
 | `Grouping` | labels, cluster sizes, a time strip when the upstream WindowSet is at hand | class-per-window strip |
 | `Model` | a card (accuracy, classes, windows, features) — never the joblib | text card |
 
@@ -121,8 +121,8 @@ and route a long stage to the cluster instead of a spinner:
   `DATA/db/`: `Working/Detection/matrix_profiling/cost.py` (O(n²), per backend) and
   `Working/Preprocessing/window_matrix/cost.py` (per window, per measure) for the two big ones;
   **`Working/block_cost.py`** for everything else — declare `register_cost_model(name, exponent, run_once)`
-  next to the spec and `estimate` becomes one line (`Adapters/detection_dehshibi_spikes.py`,
-  `preprocessing_wavelet_transform.py`, `detection_wavelet_scattering.py` do this). Run
+  next to the spec and `estimate` becomes one line (`detection_dehshibi_spikes`, `preprocessing_wavelet_transform`,
+  `detection_wavelet_scattering`, `detection_rupture`, `catalogue.window_images`, `catalogue.cnn_score` do this). Run
   `python -c "from Working.block_cost import calibrate; calibrate()"` once to time them.
 - A block whose cost is not a function of the span (a linkage tree costs O(w² log w) in *windows*, a forest
   fit in windows × features) declares `estimate` returning `None` with that rationale
@@ -164,7 +164,8 @@ registered (deprecated, tab *control*) so an old recipe still runs.
 2. **Register it** — the file self-registers on import; `discover_adapters()` finds it.
 3. **Unit-test the adapter** in `tests/test_adapter_<name>.py`: types and category, defaults and
    `validate_params` bounds, one run on a synthetic signal (30 s is enough), the error message when the
-   typed input is missing. If it belongs to a template, add the template to `CANONICAL` and a test that runs
+   typed input is missing. If the output is a **new shape** within its type (see §5's closing note), add a
+   `to_payload` case to `tests/test_webui_serialize.py` too — the serializer is the seam the page trusts. If it belongs to a template, add the template to `CANONICAL` and a test that runs
    the template end to end through `execute_recipe` (`tests/test_template_<name>.py`).
 4. **Add its glyph** to `BY_NAME` in `webui/client/src/analyse/glyphs.tsx`.
 5. **Add a smoke state** for its block page to `webui/smoke_pages/analyse.json` (open the block page with

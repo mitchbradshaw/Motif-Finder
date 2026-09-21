@@ -15,8 +15,9 @@ card, never the joblib.
 
 Index conventions differ per type and are handled here, once:
 * Signal / Scores: sample i of the value is absolute sample ``span_start + i``.
-* SpanSet: producers emit **span-relative** indices (execution.py inserts
-  them unshifted into ``detections``); we add ``span_start``.
+* SpanSet: producers emit **span-relative** indices; ``execution.py`` adds the
+  span's offset when it writes ``detections`` (since 2026-09-21), and this
+  module adds ``span_start`` to the in-memory result it serialises.
 * WindowSet.starts are already **channel-absolute**.
 * Grouping has no time; it borrows the WindowSet's starts.
 """
@@ -208,6 +209,9 @@ def _encoding(value, meta, ctx):
         # STACK_TILES images tiled in a grid, each block-averaged to TILE px, so the pane paints
         # what the model saw; the full stack stays on disk (rule 4)
         n_images = int(vals.shape[0])
+        if n_images == 0:
+            return {"type": "encoding", "kind": "image", "ndim": 4, "shape": list(vals.shape), "n_images": 0,
+                    "summary": "0 images · the window set was empty"}
         k = min(n_images, STACK_TILES)
         cols = int(np.ceil(np.sqrt(k))); rows_ = int(np.ceil(k / cols))
         h, w = int(vals.shape[1]), int(vals.shape[2])
@@ -246,7 +250,7 @@ def _encoding(value, meta, ctx):
         shape_out = list(value.values.shape) if n_images else list(vals.shape)
         summary = (f"{n_images} images · {shape_out[1]}×{shape_out[2]} · contact sheet of the first {min(n_images, STACK_TILES)}"
                    if n_images else f"{h}×{w}" + (f"×{vals.shape[2]}" if vals.ndim == 3 else "") + f" image · shown at {u8.shape[0]}×{u8.shape[1]}")
-        return {"type": "encoding", "kind": "image", "ndim": int(vals.ndim), "shape": shape_out, "n_images": n_images,
+        return {"type": "encoding", "kind": "image", "ndim": (4 if n_images else int(vals.ndim)), "shape": shape_out, "n_images": n_images,
                 "display_shape": [int(u8.shape[0]), int(u8.shape[1])], "channels": chans,
                 "value_range": rng, "pixels_b64": base64.b64encode(np.ascontiguousarray(u8).tobytes()).decode("ascii"),
                 "summary": summary}

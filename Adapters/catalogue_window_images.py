@@ -53,6 +53,8 @@ def _run(x, t, fs, image_type="fusion", img_size=224, max_windows=2000, value=No
 
     starts = np.asarray(value.starts, dtype=np.int64)
     n = len(starts)
+    if n == 0:
+        raise ValueError("catalogue.window_images: the window set is empty (no window fits the span) — nothing to encode.")
     if n > max_windows:
         raise ValueError(
             f"{n} windows × {img_size}×{img_size}×3 bytes = {n * img_size * img_size * 3 / 1e6:.0f} MB exceeds "
