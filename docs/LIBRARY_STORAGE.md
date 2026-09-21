@@ -410,7 +410,7 @@ scale, and a `sequences` row pointing at the same events.
 | the store path | `motif_entry.source_store` | with `source_kind = 'event_store'` |
 | `span_key` | `motif_entry.label` | |
 | `morphology`, `species`, `corpus`, `framing` | **tags** (§3.4) | reusing vocabulary rows; `Stegasauras` normalises to `stegasaurus` |
-| the `__raw_mv` snippet | the **hashed waveform** | raw rather than detrended: detrending is a parameter of the detector that found the event, and two stores that detrended differently would give one shape two identities |
+| the `__detrended_mv` snippet | the **hashed waveform** | detrended rather than raw: detection ran on the detrended trace, and hashing `__raw_mv` would let the same drop on a drifting baseline and on a flat one become two entries. `Working/library/importers/event_store.py::WAVEFORM_FIELD` is the single place this is stated in code |
 | `drop_depth_mv`, `fall_duration_s`, slopes, `purity` … | **nothing** | measured features are computed on demand (§3.4, spec §4.4) |
 | `cluster_id` | **nothing** | it is `-1` on all 11,106 rows of all four stores |
 

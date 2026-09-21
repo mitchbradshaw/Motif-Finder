@@ -168,24 +168,38 @@ def _report_line(name, report, elapsed):
 
 
 def _load_single_motifs(conn):
-    """Every event-scale entry, with the waveform its grouping needs.
+    """Every event-scale **member**, with the waveform its grouping needs.
+
+    Members, not entries. `grouping_assignments.member_ref` points into
+    `motif_member` (LIBRARY_STORAGE.md 3.3), because a family is a set of
+    occurrences — the recurrence matrix counts members per channel, and an
+    entry has no channel of its own once a second occurrence arrives.
+
+    This selected `motif_entry.id` first, and the two tables' ids drift apart
+    the moment an event resolves onto an existing entry instead of creating
+    one: after the real import, `motif_entry` reached 3,608 and `motif_member`
+    3,603, and 5,670 of 7,206 saved assignments pointed at a member whose
+    content hash was not the one the assignment recorded. Everything
+    downstream — the atlas cards, the recurrence cells, the family pages —
+    was drawing a different motif from the one that had been clustered.
 
     The engine takes plain dicts and never touches a database — that is what
     lets it be tested without one — so loading is the caller's job. The
-    waveform is read from the recording's channel `.npy` at the entry's
+    waveform is read from the recording's channel `.npy` at the member's
     absolute indices (CLAUDE.md rule 4: the array is on disk, the row holds
-    the reference), which is also why an entry whose channel file is missing is
+    the reference), which is also why a member whose channel file is missing is
     dropped here with a count rather than failing the whole grouping.
     """
     import numpy as np
 
     rows = conn.execute(
-        """SELECT e.id, e.recording_id, e.start_idx, e.end_idx, e.content_hash,
+        """SELECT m.id, m.recording_id, m.start_idx, m.end_idx, m.content_hash,
                   r.npy_path
-             FROM motif_entry e
-             JOIN recordings r ON r.id = e.recording_id
+             FROM motif_member m
+             JOIN motif_entry e ON e.id = m.entry_id
+             JOIN recordings r ON r.id = m.recording_id
             WHERE e.scale IS NULL OR e.scale = 'event'
-            ORDER BY e.id"""
+            ORDER BY m.id"""
     ).fetchall()
 
     items, unreadable = [], 0
