@@ -533,12 +533,13 @@ const exportValues = (motifInclude: string[]): Values => ({
 })
 
 /* ============================================================== 13 Audit log */
-export type AuditKind = 'settings' | 'sign-off' | 'hand edit' | 'HPC status' | 'vocabulary' | 'events' | 'lock' | 'batch undo'
+export type AuditKind = 'settings' | 'sign-off' | 'hand edit' | 'HPC status' | 'vocabulary' | 'events' | 'lock' | 'batch undo' | 'registration' | 'backup'
 export interface AuditEntry { when: string; kind: AuditKind; what: string; where: string; route?: string; by: string }
 export const AUDIT_KINDS: { value: string; label: string }[] = [
   { value: 'all', label: 'all' }, { value: 'lock', label: 'locks' }, { value: 'sign-off', label: 'sign-offs' }, { value: 'hand edit', label: 'hand edits' },
   { value: 'vocabulary', label: 'vocabulary' }, { value: 'events', label: 'events' }, { value: 'settings', label: 'settings' },
   { value: 'HPC status', label: 'HPC status' }, { value: 'batch undo', label: 'batch undo' },
+  { value: 'registration', label: 'registrations' }, { value: 'backup', label: 'backups' },
 ]
 export const AUDIT_ENTRIES: AuditEntry[] = [
   { when: '14 Sep 16:02', kind: 'settings', what: 'Analyse local limit 10 → 20 min', where: 'Compute & HPC', route: 'settings/compute-hpc', by: 'this installation' },
@@ -755,8 +756,25 @@ export const CONSEQUENCE: Record<string, (from: unknown, to: unknown) => string>
     off: 'a rerun from the bundle may not reproduce the run',
   }),
 }
+/** Recording metadata (P23): what the change does, never the fixture id. */
+function metaConsequence(id: string, from: unknown, to: unknown): string | null {
+  const m = id.match(/^meta\.(.+)\.([a-z_]+)$/)
+  if (!m) return null
+  const [, rec, field] = m
+  const was = from == null || from === '' ? '—' : String(from)
+  switch (field) {
+    case 'noise_floor': return to === '' || to == null ? `noise floor on ${rec} cleared · new detectors estimate it; earlier runs keep theirs`
+      : `noise floor ${was} → ${String(to)} mV on ${rec} · every new detector reads it; earlier runs keep theirs`
+    case 'display_name': return `${rec} is called ${String(to)} everywhere it is listed; exports carry the new name`
+    case 'species': return `species of ${rec} travels with every new export; existing exports keep ${was}`
+    case 'start': return `clock-time readouts of ${rec} shift; hours since start are unchanged`
+    case 'time_zone': return `clock-time readouts of ${rec} follow ${String(to)}`
+    case 'notes': return `notes on ${rec} travel with every new export`
+    default: return `${field.replace(/_/g, ' ')} of ${rec} ${was} → ${String(to)} · travels with every new export`
+  }
+}
 export const genericConsequence = (id: string, from: unknown, to: unknown) =>
-  channelsConsequence(id, from, to) ?? `${id.split('.').slice(-1)[0].replace(/_/g, ' ')} ${String(from)} → ${String(to)} · applies to new runs`
+  channelsConsequence(id, from, to) ?? metaConsequence(id, from, to) ?? `${id.split('.').slice(-1)[0].replace(/_/g, ' ')} ${from == null || from === '' ? 'default' : String(from)} → ${String(to)} · applies to new runs`
 
 /* --------------------------------------------------- the settings search index */
 export interface SearchHit { slug: string; page: string; card: string; field: string }

@@ -50,6 +50,7 @@ class SettingsBody(BaseModel):
     values: dict
     confirm_name: str | None = None
     actor: str = "this installation"
+    previous: dict = Field(default_factory=dict)   # the effective values the page showed before the edit (defaults live client-side)
 
 
 class AuditBody(BaseModel):
@@ -101,6 +102,15 @@ def _kw(request: Request, kind: str) -> dict:
 def _sidecar_root(request: Request) -> str | None:
     rt = _rt(request)
     return os.path.join(rt.dir, "sidecars") if rt.mode == "sandbox" else None
+
+
+def _audit_surface(kind: str) -> tuple:
+    """The Settings page a registration of `kind` is done on: where the audit entry links."""
+    if kind in ("recording", "raw"):
+        return "Datasets", "settings/datasets"
+    if kind == "model":
+        return "Models & registration", "settings/models-registration"
+    return "Storage & backups", "settings/storage-backups"
 
 
 def _kind_or_404(kind: str):
@@ -180,9 +190,8 @@ def post_register(request: Request, kind: str, body: PathBody):
         what = f"Registered {spec.label.lower()} {cand.name}"
         if rep.warnings:
             what += f" · {len(rep.warnings)} warning{'s' if len(rep.warnings) != 1 else ''}"
-        append_audit(c, "registration", what, "Datasets" if kind in ("recording", "raw") else "Models & registration" if kind == "model" else "Storage & backups",
-                     route="settings/datasets" if kind in ("recording", "raw") else "settings/models-registration" if kind == "model" else "settings/storage-backups",
-                     actor=body.actor, detail={"kind": kind, "path": cand.path, "id": rid, "sha1": rep.sha1, "warnings": rep.warnings})
+        where, route = _audit_surface(kind)
+        append_audit(c, "registration", what, where, route=route, actor=body.actor, detail={"kind": kind, "path": cand.path, "id": rid, "sha1": rep.sha1, "warnings": rep.warnings})
         table = spec.table
         return {"id": rid, "kind": kind, "name": cand.name, "path": cand.path, "table": table, "warnings": rep.warnings, "sha1": rep.sha1,
                 "recording_id": rep.facts.get("recording_id") if kind != "recording" else rid, "ids": rep.facts.get("registered_ids"),
@@ -201,8 +210,9 @@ def delete_registered(request: Request, kind: str, row_id: int):
             out = unregister(c, kind, row_id)
         except KeyError as e:
             raise HTTPException(404, str(e))
-        append_audit(c, "registration", f"Unregistered {spec.label.lower()} {spec.table} id {row_id} (kept on disk, row kept inactive)", "Storage & backups",
-                     route="settings/storage-backups", detail={"kind": kind, "id": row_id})
+        where, route = _audit_surface(kind)
+        append_audit(c, "registration", f"Unregistered {spec.label.lower()} {spec.table} id {row_id} (kept on disk, row kept inactive)", where,
+                     route=route, detail={"kind": kind, "id": row_id})
         return out
     finally:
         c.close()
@@ -240,6 +250,16 @@ def _page_extras(request: Request, page: str, c) -> dict:
     return {}
 
 
+@router.get("/api/settings")
+def get_all_pages(request: Request):
+    """Every page's saved values in one read (the rail's differs-from-default dots need them all)."""
+    c = _conn(request)
+    try:
+        return {"pages": {p: get_settings(c, p) for p in PAGE_TITLES}, "mode": _rt(request).mode}
+    finally:
+        c.close()
+
+
 @router.get("/api/settings/{page}")
 def get_page(request: Request, page: str):
     if page not in PAGE_TITLES:
@@ -268,7 +288,8 @@ def put_page(request: Request, page: str, body: SettingsBody):
             raise HTTPException(422, str(e))
         if changed and not (page == "datasets" and changed == ["heldout.on"]):
             brief = lambda v: (f"{len(v)} rows" if isinstance(v, list) else str(v))[:60]  # noqa: E731
-            what = f"{PAGE_TITLES[page]}: " + " · ".join(f"{k} {brief(before.get(k))} → {brief(body.values[k])}" for k in changed if k != "heldout.on")
+            was = lambda k: before.get(k, body.previous.get(k, "default"))  # noqa: E731
+            what = f"{PAGE_TITLES[page]}: " + " · ".join(f"{k} {brief(was(k))} → {brief(body.values[k])}" for k in changed if k != "heldout.on")
             if what.rstrip(": "):
                 append_audit(c, "settings", what, PAGE_TITLES[page], route=f"settings/{page}", actor=body.actor, detail={"changed": changed})
         return {"page": page, "changed": changed, "values": get_settings(c, page), **settings_meta(c, page),
@@ -362,7 +383,7 @@ def _machine() -> dict:
     except Exception:
         gpu = None
     return {"cores": os.cpu_count(), "ram_gb": round(total / 2**30) if total else None, "gpu": gpu, "platform": platform.platform(), "machine": platform.machine(),
-            "detected": " · ".join(x for x in (f"{os.cpu_count()} cores", gpu, f"{round(total / 2**30)} GB RAM" if total else None) if x)}
+            "detected": " · ".join(x for x in (f"{os.cpu_count()} cores", gpu or "no CUDA GPU", f"{round(total / 2**30)} GB RAM" if total else None) if x)}
 
 
 # warm the cached machine facts off the request path: the first _machine() imports torch (seconds in
@@ -511,7 +532,7 @@ def post_backup(request: Request):
         src.close()
     c = _conn(request)
     try:
-        append_audit(c, "settings", f"Backed up the database to {dest}", "Storage & backups", route="settings/storage-backups", detail={"path": dest, "bytes": os.path.getsize(dest)})
+        append_audit(c, "backup", f"Backed up the database to {dest}", "Storage & backups", route="settings/storage-backups", detail={"path": dest, "bytes": os.path.getsize(dest)})
     finally:
         c.close()
     return {"path": dest, "bytes": os.path.getsize(dest), "mode": rt.mode}

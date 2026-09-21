@@ -34,6 +34,22 @@ export function hydrateSaved(slug: string, values: Values, defaults?: Values): V
   return saved
 }
 
+/** Pages whose DEFAULTS are the spec's, not shaped by live data: their saved values can be hydrated in one
+ *  read for the rail's dots before the page is visited. The others (datasets, channels-events, blocks,
+ *  storage-backups) get their defaults from their own read. */
+export const STATIC_DEFAULT_PAGES = ['vocabulary', 'nulls', 'analysis-defaults', 'compute-hpc', 'review-queues', 'models-registration', 'library-groupings', 'export']
+let prefetched = false
+/** Hydrate every static-default project page from GET /api/settings once per session (rail dots, B29). */
+export async function prefetchAll(fetchAll: () => Promise<{ pages: Record<string, Values> }>): Promise<void> {
+  if (prefetched) return
+  prefetched = true
+  try {
+    const all = await fetchAll()
+    const store = getDemo<StoreShape>(STORE_KEY, initStore)
+    for (const slug of STATIC_DEFAULT_PAGES) if (!store.hydrated[slug] && all.pages[slug]) hydrateSaved(slug, all.pages[slug])
+  } catch (e) { prefetched = false; console.error('settings prefetch failed', e) }
+}
+
 export function savedValues(slug: string): Values {
   return getDemo<StoreShape>(STORE_KEY, initStore).saved[slug] ?? {}
 }

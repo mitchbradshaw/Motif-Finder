@@ -198,10 +198,11 @@ export function useSettingsPage(slug: string): SettingsPageStore {
     const n = changes.length
     if (!n || saving) return
     const payload: Values = {}
-    for (const c of changes) payload[c.id] = c.to
+    const previous: Values = {}
+    for (const c of changes) { payload[c.id] = c.to; previous[c.id] = c.from }
     setSaving(true)
     try {
-      const r = await putSettingsPage(slug, payload)
+      const r = await putSettingsPage(slug, payload, undefined, previous)
       commit(r.values, changes.map(c => c.id), true)
       push({ text: `Saved · ${sentence || `${n} change${n === 1 ? '' : 's'} applied`}` })
     } catch (e) {

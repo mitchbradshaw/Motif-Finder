@@ -177,20 +177,22 @@ function ScanModal({ rootId, roots, onClose, onChanged }: { rootId: string; root
   const reg = rd.data?.registered ?? []
   const cands = (rd.data?.candidates ?? []).filter((c: Candidate) => !c.registered)
   const [busy, setBusy] = useState<string | null>(null)
-  const [report, setReport] = useState<CheckReport | null>(null)
+  /* one check result per candidate, so checking a second file never hides the first's verdict (critic P1) */
+  const [reports, setReports] = useState<Record<string, CheckReport>>({})
   const [checked, setChecked] = useState<string>('')
+  const report = checked ? reports[checked] ?? null : null
   /* recordings and raw files register on Datasets (they need fs / layout answers); everything else registers here */
   const registersHere = Boolean(kind) && kind !== 'recording' && kind !== 'raw'
   const runCheck = async (c: Candidate) => {
-    setBusy(c.path); setReport(null); setChecked(c.path)
-    try { setReport(await checkCandidate(kind, c.path)) } catch (e) { push({ text: e instanceof ApiError ? e.message : String(e), kind: 'error' }) } finally { setBusy(null) }
+    setBusy(c.path); setChecked(c.path)
+    try { const r = await checkCandidate(kind, c.path); setReports(x => ({ ...x, [c.path]: r })) } catch (e) { push({ text: e instanceof ApiError ? e.message : String(e), kind: 'error' }) } finally { setBusy(null) }
   }
   const doRegister = async (c: Candidate) => {
     setBusy(c.path)
     try {
       const r = await registerCandidate(kind, c.path)
       push({ text: `Registered ${r.name} · ${r.table} id ${r.id}${r.warnings.length ? ` · ${r.warnings.length} warning${r.warnings.length === 1 ? '' : 's'}` : ''} · ${r.note}` })
-      setReport(null); setChecked(''); rd.reload(); onChanged()
+      setReports(x => { const y = { ...x }; delete y[c.path]; return y }); setChecked(''); rd.reload(); onChanged()
     } catch (e) { push({ text: e instanceof ApiError ? e.message : String(e), kind: 'error' }) } finally { setBusy(null) }
   }
   const factsOf = (c: Candidate) => Object.entries(c.facts)
@@ -210,12 +212,16 @@ function ScanModal({ rootId, roots, onClose, onChanged }: { rootId: string; root
             columns={[
               { key: 'name', header: 'not registered', width: '34%', render: (c: Candidate) => <span className="mono">{c.name}</span> },
               { key: 'facts', header: 'facts', width: '30%', render: (c: Candidate) => <span className="small muted">{factsOf(c)}</span> },
-              { key: 'warn', header: '', width: '16%', render: (c: Candidate) => c.warnings.length ? <span className="small" style={{ color: 'var(--amber)' }} title={c.warnings.join('\n')}>{c.warnings.length} warning{c.warnings.length === 1 ? '' : 's'}</span> : null },
+              {
+                key: 'warn', header: 'check', width: '16%', render: (c: Candidate) => reports[c.path]
+                  ? <Badge tone={reports[c.path].ok ? 'green' : 'red'} testid={`scan-verdict-${c.name}`}>{reports[c.path].ok ? `passes${reports[c.path].warnings.length ? ` · ${reports[c.path].warnings.length} ⚠` : ''}` : `${reports[c.path].checks.filter(x => !x.ok).length} fail`}</Badge>
+                  : c.warnings.length ? <span className="small" style={{ color: 'var(--amber)' }} title={c.warnings.join('\n')}>{c.warnings.length} warning{c.warnings.length === 1 ? '' : 's'}</span> : null,
+              },
               {
                 key: 'actions', header: '', width: '20%', render: (c: Candidate) => registersHere ? <span style={{ display: 'flex', gap: 8 }}>
-                  <Button variant="link" size="sm" testid={`scan-check-${c.name}`} loading={busy === c.path} onClick={() => void runCheck(c)}>check</Button>
-                  <Button variant="link" size="sm" testid={`scan-register-${c.name}`} disabled={!(checked === c.path && report?.ok) || busy === c.path}
-                    disabledReason={checked === c.path && report && !report.ok ? 'a check fails' : 'run the check first'} onClick={() => void doRegister(c)}>register</Button>
+                  <Button variant="link" size="sm" testid={`scan-check-${c.name}`} loading={busy === c.path} onClick={() => void runCheck(c)}>{reports[c.path] ? 'show' : 'check'}</Button>
+                  <Button variant="link" size="sm" testid={`scan-register-${c.name}`} disabled={!reports[c.path]?.ok || busy === c.path}
+                    disabledReason={reports[c.path] && !reports[c.path].ok ? 'a check fails' : 'run the check first'} onClick={() => void doRegister(c)}>register</Button>
                 </span> : <span className="muted small">register on Datasets</span>,
               },
             ]} />}

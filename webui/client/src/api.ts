@@ -217,8 +217,9 @@ export interface SettingsPageData {
   /* blocks */ adapters?: AdapterCard[]; n_adapters?: number
 }
 export const getSettingsPage = (page: string) => req<SettingsPageData>(`/api/settings/${encodeURIComponent(page)}`)
-export const putSettingsPage = (page: string, values: Record<string, unknown>, confirm_name?: string) =>
-  put<{ page: string; changed: string[]; values: Record<string, unknown>; updated_at: string | null; held_out?: HeldOutState }>(`/api/settings/${encodeURIComponent(page)}`, { values, confirm_name })
+export const putSettingsPage = (page: string, values: Record<string, unknown>, confirm_name?: string, previous: Record<string, unknown> = {}) =>
+  put<{ page: string; changed: string[]; values: Record<string, unknown>; updated_at: string | null; held_out?: HeldOutState }>(`/api/settings/${encodeURIComponent(page)}`, { values, confirm_name, previous })
+export const getAllSettings = () => req<{ pages: Record<string, Record<string, unknown>>; mode: string }>('/api/settings')
 
 export interface AuditRow { id: number; when: string; kind: string; what: string; where: string; route: string | null; by: string; detail: Record<string, unknown> | null }
 export const getAudit = (kind?: string, limit = 500) => req<{ entries: AuditRow[]; kinds: string[]; mode: string }>(`/api/audit?limit=${limit}${kind && kind !== 'all' ? `&kind=${encodeURIComponent(kind)}` : ''}`)

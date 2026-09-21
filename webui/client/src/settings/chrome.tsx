@@ -11,6 +11,8 @@ import { navigate } from '../state'
 import { NAV_GROUPS, PAGE_META, SEARCH_INDEX, SLUGS } from '../api/settings'
 import { useToast } from '../shell/Toast'
 import { publishDisplayPrefs, useNavDots, useSettingsPage, useSeededDraft, type SettingsPageStore } from './store'
+import { prefetchAll } from './hydrate'
+import { getAllSettings } from '../api'
 import './settings.css'
 
 /* ------------------------------------------------------------------ small parts */
@@ -118,6 +120,9 @@ export function SettingsShell({ slug, demo, children, chips, actions, noReset }:
   const density = display.str('density')
   const guardLeave = keyboard.bool('confirm_leave')
   const timeAxis = display.str('time_axis'), amplitude = display.str('amplitude'), sampleIndices = display.bool('sample_indices')
+
+  /* the rail's amber dots need every page's saved values, not only the visited ones (critic P1) */
+  useEffect(() => { void prefetchAll(getAllSettings) }, [])
 
   useEffect(() => {
     document.documentElement.dataset.density = density
