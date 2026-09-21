@@ -21,8 +21,12 @@ uses 8766 / 5174. Never `git add -A`, stash, reset or checkout; never touch the 
 write the request to `docs/prompts/wiring/requests/01-to-02.md` and work around it.
 
 ## Answers from the researcher
-
-(Empty means: take the plan's defaults D1–D6. If the user pastes answers here, they override the defaults.)
+D1: As alternative suggests, build an encoding -> span set detector so designed chain runs as drawn, check output of runs against the 410 seed events from canonical drop_detection_v1 drop-motif detector. This adaptor will be necessary for different encoding algorithms anyway. matrix-profile -> threshold stays a second template.
+D2: As alternatives suggested, symbol search over SAX strings (generalisable to other strings/encodings), also CNN scoring from apply_cnn.py as encoding -> scores 
+D3: Default response
+D4: Default response
+D5: Default response
+D6: Default response
 
 ## Goal
 

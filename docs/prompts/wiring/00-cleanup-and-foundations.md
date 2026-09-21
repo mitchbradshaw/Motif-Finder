@@ -54,7 +54,7 @@ foundations both parallel wiring prompts depend on.
    `feat/drop-motifs-six`, `worktree-agent-*` (merged, `-d`) and `research/*` (`-D`; their single files are
    identical on `main` under `docs/research/` — verify with `git diff <branch> main -- docs/research/<file>`
    before each); then `git push origin --delete` the remote `feat/*` and `research/*` branches. Leave `main` and
-   the new tag.
+   the new tag. - This may have already been done by the user
 
 ## Part B — bridge foundations (small, both parallel prompts depend on them)
 
