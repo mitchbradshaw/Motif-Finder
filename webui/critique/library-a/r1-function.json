@@ -1,0 +1,105 @@
+{
+ "lens": "function",
+ "round": 1,
+ "status": "done",
+ "pages": [
+  {
+   "page": "library.atlas",
+   "score": 9,
+   "rationale": "Every region the two frames show is present and live: grouping bar with all four filter popovers, scope chips that really re-scope the card counts, a sort dropdown with five keys, the 10-card motif grid and the 6-card sequence grid with composition chips and the two-half omitted card, an omitted drawer reachable by chip and by deep link and closed by Escape and by its button, and a full detail rail with exemplar-vs-medoid, a working resample, amplitude histogram, stats and five actions that navigate or toast correctly. Validation on the minimum-members field is real (0 and text both rejected, Apply disabled); the artifact filter's 'excluded' option is disabled with the section 8.4 reason; picking g-08 switches grouping and clears the scope with the right toast. No console errors and no dead clicks. Deductions are cosmetic.",
+   "findings": [
+    {
+     "severity": "P2",
+     "title": "Rail overlay label truncated to 'members . sha...'",
+     "state": "motifs",
+     "detail": "The detail-rail row the inventory specifies as 'members · shared y · mV' renders as 'members · sha…' at 1440×900 because '10 of 44 sampled · resample' takes the rest of the row. The frame shows the full label.",
+     "screenshot": "webui/screenshots/critique/library-a/r1-function/atlas-motifs.png"
+    },
+    {
+     "severity": "P2",
+     "title": "Disabled Seed-search reason overflows the viewport in sequences",
+     "state": "sequences",
+     "detail": "On S-02 the disabled 'Seed search in Discovery' carries its reason inline to the right of the button and it is cut off at the window edge, reading 'needs multi-see'. §8.5 requires the disabled reason to be readable.",
+     "screenshot": "webui/screenshots/critique/library-a/r1-function/atlas-sequences.png"
+    },
+    {
+     "severity": "P2",
+     "title": "Default atlas sort is 'family id', frame shows 'members in scope'",
+     "state": "motifs",
+     "detail": "The sort control opens on 'sort: family id' and the grid is ordered F-01…F-10; the inventory's region 2 for frame 2 specifies 'sort: members in scope'. All five options exist and reorder the grid; only the default differs.",
+     "screenshot": "webui/screenshots/critique/library-a/r1-function/atlas-sort-open.png"
+    }
+   ]
+  },
+  {
+   "page": "library.family",
+   "score": 9,
+   "rationale": "Frame 3 is reproduced region for region and almost everything is live: unjudged banner whose queue action leaves a 'queued as Library · F-03 unjudged' chip, summary with resample, four sort keys, hand-edits-only filter, a 10-per-page pager with a correctly reasoned disabled first-page arrow, tri-state select-page, card selection that feeds the batch bar, a full member rail with the ±30 s context strip, a revisions popover carrying rev 1 machine / rev 2 human edit and the §4.2 caption, read-only verdict with Open in Review, editable tags and class, note, and working Make exemplar / Remove / Undo / Restore confirmations that update the summary counts (Make exemplar even adds 'edges partially stale'). Writes survive navigating away and back. Tag input rejects capitals and one-character tags with the right message; the class popover takes digit keys; keyboard left/right, Space and Esc all work; disabled Make exemplar carries its reason on both the exemplar and the artifact member.",
+   "findings": [
+    {
+     "severity": "P1",
+     "title": "Toast overlay covers the batch bar and swallows its clicks",
+     "state": "member-selected",
+     "detail": "After any toast (e.g. 'Send 68 to Review as a queue') the toast container occupies y 830-872 over the batch bar at y 832-884. elementFromPoint at the centre of 'Send to Review' returns the toast's span and a click on batch-send times out waiting for pointer events. For the toast's lifetime all five batch controls frame 3 draws (Send to Review, Add tag, Assign class, Remove from family, Export) are unclickable.",
+     "screenshot": "webui/screenshots/critique/library-a/r1-function/family-toast-blocks-batchbar.png"
+    },
+    {
+     "severity": "P2",
+     "title": "Restore does not return the member to the members count",
+     "state": "member-selected",
+     "detail": "Restore on m-1902 correctly hides the removed-by-hand strip, flips hand edits to '2 added · 0 removed', toasts, and persists across navigation — but 'members' stays 112. The inventory for this control says the restored member goes back into members (113), so a restored member is now counted nowhere.",
+     "screenshot": "webui/screenshots/critique/library-a/r1-function/family-restored.png"
+    }
+   ]
+  },
+  {
+   "page": "library.recurrence",
+   "score": 9,
+   "rationale": "Frame 1 is reproduced faithfully and the matrix is genuinely interactive: the per-hour/count toggle rewrites every cell and the legend domain, the recordings pager works with correctly reasoned disabled arrows at both ends, page 2 draws the M4_aug locked block and disables the M2_aug fs2 checkboxes with the full B30 reason, cell / channel / recording checkboxes all drive the selection outline and rail totals (the recording checkbox goes indeterminate on a partial selection), cell tooltips carry the artifact and 'no reviewed coverage on CH1 · no members found' wording, the shared-ground callout and its Deselect work, Select all and Clear work, Browse is disabled with 'select at least one channel' at zero, the omitted strip and drawer and its queue toast work, the reading-rule InfoTip opens, and the sequences and empty states both render. Deducted for a selection that lives only in memory and for inert omitted thumbnails.",
+   "findings": [
+    {
+     "severity": "P1",
+     "title": "?sel= deep link is ignored and the selection is never written to the URL",
+     "state": "selected / no-selection",
+     "detail": "In a fresh browser, #/library/recurrence?sel=M3_jul:CH1,M3_jul:CH3 still shows the default canon selection (M2_aug fs1 CH3_A2, CH4_A2 · M3_jul CH2), and #/library/recurrence?sel= does not clear it. Ticking a channel checkbox leaves location.hash at '#/library/recurrence', and 'Browse 3 channels' navigates to '#/library/atlas' with no ?scope=. The inventory lists ?sel= as this page's deep link and says the channel checkbox 'writes ?sel= (replace, no history)'. A selection cannot be reloaded or shared, only rebuilt by hand.",
+     "screenshot": "webui/screenshots/critique/library-a/r1-function/recurrence-sel-deeplink.png"
+    },
+    {
+     "severity": "P2",
+     "title": "Omitted-strip thumbnails are not clickable",
+     "state": "selected",
+     "detail": "The strip draws 12 amber thumbnails but the card holds only 3 buttons (Send to Review, Show all 38 and the drawer opener); clicking a thumbnail does nothing. The inventory's control table specifies 'omitted thumbnail | click | open Drawer omitted scrolled to that motif'. The drawer is still reachable two other ways.",
+     "screenshot": "webui/screenshots/critique/library-a/r1-function/recurrence-default.png"
+    }
+   ]
+  },
+  {
+   "page": "library.grouping",
+   "score": 9,
+   "rationale": "Frame 4 is reproduced closely and the modal is a working form: all three unit RadioCards with counts, all nine basis radios with correct per-unit disabled reasons ('sequences only', 'a spike train is a whole train, not one shape', 'the exported clustering grouped single motifs'), a section 3 that really swaps per basis (all nine drawn, including tag/provenance/custom bar charts with the custom scope line and unassigned bar), three bins modes with the edges text field appearing for fixed edges, and genuinely strict validation with the exact messages the inventory names ('2 to 20 bins', 'log-spaced bins need a range above 0', 'the lower edge must be below the upper edge', 'edges must increase: 0.005 <= 0.01 at position 3', 'at least 3 edges (2 bins)') — each blanking the Preview to '—' and disabling Apply and Save. The omit checkboxes move the preview counts, Save toasts and then disables itself as 'saved as g-09', a live Apply runs 1/4 -> 4/4, closes, lands on the atlas and toasts 'Grouping g-09 applied · 5 groups · 21 omitted · scope cleared · g-07 stays saved', over-limit swaps Apply to 'Create SLURM script' with the right toast, and Escape / Cancel / x all return to the page named by ?from. No console errors.",
+   "findings": [
+    {
+     "severity": "P1",
+     "title": "Switching the unit to 'spike trains' lands in an invalid form",
+     "state": "unit-spike-trains",
+     "detail": "From the default (#/library/grouping?from=atlas, shape distance) clicking 'spike trains' correctly disables shape distance and auto-selects Amplitude, but seeds range lo=0.002 hi=0.5 — the frequency-content defaults — against an amplitude extent of 0.05-0.85 mV. The form is invalid on arrival: 'range: outside the data: 0.05-0.85 mV', Preview reads groups/members/omitted/recompute all '—', and both Save as grouping and Apply grouping are disabled. Picking amplitude explicitly from the single-motifs unit gives the correct blank range instead, so the unit switch is what carries the stale value.",
+     "screenshot": "webui/screenshots/critique/library-a/r1-function/grouping-unitswitch-invalid.png"
+    },
+    {
+     "severity": "P2",
+     "title": "The running deep link never progresses or finishes",
+     "state": "applying",
+     "detail": "#/library/grouping?from=recurrence&basis=frequency-content&state=running renders 'job l-0031 · 2/4 bin · 38 %' and stays there indefinitely (unchanged after 5 s). A live Apply does step 1/4 -> 4/4 in about 4 s and completes, so only the deep-linked state is frozen; a researcher who opens that link can only Cancel job.",
+     "screenshot": "webui/screenshots/critique/library-a/r1-function/grouping-running.png"
+    },
+    {
+     "severity": "P2",
+     "title": "The failed state's red callout is below the fold on arrival",
+     "state": "failed",
+     "detail": "#/library/grouping?from=family/F-03&basis=amplitude&state=failed renders the red callout 'Regroup failed · nothing was written / write grouping failed: the catalogue changed during the regroup (3 motifs imported)' at y 812-880, underneath the modal footer and past the modal body's visible bottom (scrollHeight 811 vs clientHeight 730, scrollTop 0). elementFromPoint over the callout returns the footer row. On screen only the one-line footer 'job l-0031 failed at write grouping' is visible; the reason appears only after scrolling the modal body.",
+     "screenshot": "webui/screenshots/critique/library-a/r1-function/grouping-failed.png"
+    }
+   ]
+  }
+ ]
+}

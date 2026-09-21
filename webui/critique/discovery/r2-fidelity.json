@@ -1,0 +1,57 @@
+{
+ "lens": "fidelity",
+ "round": 2,
+ "status": "done",
+ "pages": [
+  {
+   "page": "discovery.runs",
+   "score": 9,
+   "rationale": "Every region of frame 1 is present and in the frame's proportions (toolbar chips, scope card with three ~32 px strips and one shared brush + vertical pager, runs card with glyph/stripe/badge rows and the paused amber row, where-each-run-fires density grid grouped by channel with the shared 112-286 h axis, scoreboard with the exact nine columns and per-channel expansion, browse detections, run-acts footer). Frame 1b's Add runs modal matches almost line for line (search, fits-chip, kind/sort, models notice, six template rows with glyph strips and disabled reasons, stage list with locked params, three StatTiles, sample preview card, cost-aware footer with Add and run disabled and Create SLURM script primary). Frame 1c's six-channel page 2 matches, including greyed off-page chips and the fires caption following the pager. Plot conventions hold: light ground, mV axis not normalised, hours since start, density caps at 4+. All 14 smoke states render with zero console or page errors. Deductions: a handful of copy/canon differences (SLURM count 1 vs the frame's 2, 'also found by -' where the frame asserts seed_F03_native, 1,436 vs 1,435), run names truncated in the narrow runs column, and a stale '1 of 2 picked' in the empty state.",
+   "findings": [
+    {
+     "severity": "P1",
+     "state": "discarded",
+     "title": "prev fixed: confirming Discard run no longer crashes the workspace",
+     "detail": "Clicking Discard run then confirming now greys the drop_motifs9 row to 'superseded - no verdicts written', drops it from the fires grid and the scoreboard's numeric row, empties the browser with a stated reason, and fires the toast. No console or page error in that flow or afterwards; the ?state=discarded deep link reaches the same state.",
+     "screenshot": "webui/screenshots/critique/discovery/r2-fidelity/runs-discarded.png"
+    },
+    {
+     "severity": "P2",
+     "state": "default",
+     "title": "Browser contradicts the frame's 'also found by'",
+     "detail": "Frame 1 shows d-0412 with 'also found by * seed_F03_native'. The app shows 'also found by -' plus 'seed_F03_native came within d 3.6 (near miss)', i.e. the opposite fact for the canon detection.",
+     "screenshot": "webui/screenshots/critique/discovery/r2-fidelity/runs-default-scroll-c.png"
+    },
+    {
+     "severity": "P2",
+     "state": "default",
+     "title": "Toolbar reads 'Create SLURM script for 1', frame says 'for 2'",
+     "detail": "Frame 1's toolbar primary is 'Create SLURM script for 2' (and the modal footer 'Add 2 runs' / '2 templates selected'); the app counts only one pending run, so the toolbar and the SLURM modal header ('1 run x 3 channels') read 1.",
+     "screenshot": "webui/screenshots/critique/discovery/r2-fidelity/runs-modal-slurm.png"
+    },
+    {
+     "severity": "P2",
+     "state": "default / failed",
+     "title": "Run names truncate in the runs column",
+     "detail": "The runs card renders 'mp_drops_...' and, in the failed state, 'seed_E0102_b...'. Frame 1 shows the full 'mp_drops_v3 - r-0431' with 'Open in Jobs' on the meta line; the failed row also wraps its reason over six short lines rather than the frame's two-line meta rhythm.",
+     "screenshot": "webui/screenshots/critique/discovery/r2-fidelity/runs-failed.png"
+    },
+    {
+     "severity": "P2",
+     "state": "empty",
+     "title": "Footer says '1 of 2 picked' with nothing picked",
+     "detail": "In ?state=empty the runs card holds only the human reference row, its checkbox is unchecked, yet the card foot reads '1 of 2 picked'. It should read '0 of 2 picked'.",
+     "screenshot": "webui/screenshots/critique/discovery/r2-fidelity/runs-empty.png"
+    },
+    {
+     "severity": "P2",
+     "state": "modal-add-template",
+     "hint": "canon value",
+     "title": "Sample preview extrapolation reads 1,436 not 1,435",
+     "detail": "Frame 1b's preview card says '11 spans in 4 h - null gives 2 -> ~ 1,435 over 522 h'; the app renders 1,436.",
+     "screenshot": "webui/screenshots/critique/discovery/r2-fidelity/runs-modal-add-template.png"
+    }
+   ]
+  }
+ ]
+}

@@ -1,0 +1,84 @@
+{
+ "lens": "function",
+ "round": 1,
+ "status": "done",
+ "pages": [
+  {
+   "page": "review.inspector",
+   "score": 9,
+   "rationale": "Every region, state and interaction the frames and inventory describe is present and works: rails open/close by button, `?rail=` and \\; the other-channels popover opens by button and closes on Escape and outside click; padding and deep-link ?pad change the context domain; all five queue filters (run, method, channel chips with a last-chip reason, score range, status, group) reshape Up next; verdict keys and cards write to the in-memory store with the blind flag, persist across navigation, and auto-advance; class keys imply a verdict with a toast; tag validation covers case, length and duplicates; the promotion panel, new-family validation, Undo (with toast) and Enter-confirm all behave; blind q-19 masks score/family and keeps artifact likelihood, with the unblind confirm modal; q-18 correctly drops the seed/artifact/unsure cards; queue-empty and item-not-found render. No console errors and no dead clicks found across ~60 interactions. Deductions: the group=family filter does not actually group, Enter is swallowed inside the new-family name field, the Shape panel uses mV where the spec text asks for a sigma axis, and the Explore-spans queue offers run/method/score filters that mean nothing for human spans.",
+   "findings": [
+    {
+     "severity": "P1",
+     "title": "group = family interleaves headers instead of grouping",
+     "state": "3-queue-rail, group=family",
+     "detail": "With group set to family the Up next list renders 'nearest F-03', c-0342, c-0343, Cluster 13 (+3), c-0344, then 'nearest F-11', c-0345, then 'nearest F-03' again, c-0346, c-0348, then 'nearest F-11' again, c-0349, then 'nearest F-03' again. The rows keep their score order and a header is emitted every time the family changes, so the same family gets three headers. The inventory (review-jobs.md, queue-rail filters) says family 'groups by nearest family id with a family-colour header' - i.e. one header per family with its rows collected under it, the way the sequence option collapses Cluster 13. As drawn, choosing 'family' changes nothing about the ordering and is misleading.",
+     "screenshot": "webui/screenshots/critique/review/r1-function/group-family.png"
+    },
+    {
+     "severity": "P2",
+     "title": "Enter does not confirm the promotion while the new-family name field has focus",
+     "state": "6-seed-promoted, new family",
+     "detail": "Press S, click 'new family', type a valid name and press Enter: nothing happens (panel stays open, no navigation). The panel's own amber banner reads 'auto-advance paused until you confirm - Enter confirms and moves on' and the Shortcuts popover lists 'Enter  confirm promotion and next'. Enter only works after focus leaves the input (clicking elsewhere then Enter navigates to c-0354 and writes exemplar.family). Typing a name and pressing Enter is the natural gesture and it is a dead keypress; the tag input, by contrast, does commit on Enter.",
+     "screenshot": "webui/screenshots/critique/review/r1-function/promo-new-family-invalid.png"
+    },
+    {
+     "severity": "P2",
+     "title": "Shape panel drawn in mV where the spec asks for a sigma axis",
+     "state": "1-candidate",
+     "detail": "The card reads 'Shape vs F-03 medoid - mV' with y ticks +0.4 / 0 / -0.4 mV. Spec 10.2 says the shape panel is 'the candidate z-normalised over the nearest family's medoid, with sigma axis'. The builder's inventory resolves this against D5 ('the picture is not normalised') and the frame, so this is a knowing conflict resolution rather than an oversight - but 10.2 has not been amended, so the page and the spec text still disagree.",
+     "screenshot": "webui/screenshots/critique/review/r1-function/inspector-default.png"
+    },
+    {
+     "severity": "P2",
+     "title": "Explore-spans queue offers run / method / score filters that cannot apply",
+     "state": "q-16 Explore spans, queue rail",
+     "detail": "On #/review/queue/q-16 the title pill reads 'score n/a - human span' and the run Select reads 'no run', yet the filter block still shows the method Seg (all methods | matrix profile | threshold) and a score range 0.00-1.00. Human spans have no run, no method and no score, so three of the six filters are inert controls on this queue. Spec 10.1 describes the filters as 'the filters for the active queue'.",
+     "screenshot": "webui/screenshots/critique/review/r1-function/q16-explore-spans.png"
+    }
+   ]
+  },
+  {
+   "page": "review.cluster",
+   "score": 8,
+   "rationale": "The cluster page is a faithful, working build of frames 2 and 7: title row with the amber cohesion pill, member strip sorted by distance with include boxes, per-member d, status chips and the amber flagged c-0377, the batch line with its excluded note, and the full verdict/annotate rows. Batch writing is properly simulated (statuses flip in a ~60 ms stagger, progress 61 -> 67, previous line 'Cluster 12 - 6 x interesting'), Ctrl Z reverses all six in one step into the frame-7 banner with auto-advance paused, and Redo / Ctrl Shift Z re-applies it. Include all / Exclude flagged recompute the batch and cohesion; the last remaining include box and the inert Exclude flagged on cluster 13 are both disabled with a hover reason. S promotes one exemplar with the documented toast; a class key writes the class across the batch; arrows step members then leave the cluster at either end; the alias route, ?member=, ?include=all and ?state=undone deep links all reload correctly; both rails, Other channels and Edit span in Explore work with the shown member. No console errors. Deductions: after clicking the batch checkbox every verdict key is silently dead, which breaks the documented single-member path; the header still says Inspector; and two copy details (plural at N=1, the auto-advance caption while batch is off) are wrong.",
+   "findings": [
+    {
+     "severity": "P1",
+     "title": "Verdict keys are silently dead after unchecking the batch box",
+     "state": "single-member verdict (batch off)",
+     "detail": "Open #/review/queue/q-15/cluster/12?member=c-0375, click the 'Verdict for the 6 included members' checkbox to turn the batch off (the line correctly becomes 'Verdict for c-0375 only - batch off'), then press I, N, S or U. Nothing happens: no write in window.__demoStore, no status change, no navigation, no toast. document.activeElement is still the batch checkbox, and the keymap appears to treat that focused INPUT as a text field. Clicking anywhere else first makes the same keys work (they write one member and auto-advance), and clicking a verdict card instead of pressing a key also works. The inventory documents exactly this gesture ('uncheck the batch box, then a verdict key writes only the shown member'), and the member include checkboxes do not swallow keys, so the behaviour is also inconsistent within the same card.",
+     "screenshot": "webui/screenshots/critique/review/r1-function/cluster-batchoff-keys-dead.png"
+    },
+    {
+     "severity": "P2",
+     "title": "Header crumb reads 'Inspector' on the cluster page",
+     "state": "2-batch-ready and all cluster states",
+     "detail": "The shared header shows 'Review | Inspector  queue r-0415 - seed search E-0102' on #/review/queue/q-15/cluster/12 and on cluster 13. shell/pages.ts registers review.cluster with the label 'Cluster' (P('review.cluster','Review','Cluster', ...)), and the page's own title row says 'Cluster 12'. The crumb names the wrong page.",
+     "screenshot": "webui/screenshots/critique/review/r1-function/cluster-default.png"
+    },
+    {
+     "severity": "P2",
+     "title": "Batch line reads 'the 1 included members'",
+     "state": "member inclusion edited down to one",
+     "detail": "Unchecking members until one is left renders 'Verdict for the 1 included members' with six ids in the excluded note. The frame copy is 'Verdict for the N included members'; at N=1 it needs the singular ('Verdict for the 1 included member', or the same 'c-0376 only' phrasing the batch-off line already uses).",
+     "screenshot": "webui/screenshots/critique/review/r1-function/cluster-last-member.png"
+    },
+    {
+     "severity": "P2",
+     "title": "'auto-advance waits for the whole batch' still shown when the batch is off",
+     "state": "single-member verdict (batch off)",
+     "detail": "With the batch checkbox cleared the line reads 'Verdict for c-0375 only - batch off' on the left but keeps the right-hand muted caption 'auto-advance waits for the whole batch'. There is no batch to wait for, so the caption contradicts the control beside it.",
+     "screenshot": "webui/screenshots/critique/review/r1-function/cluster-batch-off.png"
+    },
+    {
+     "severity": "P2",
+     "title": "Span band label collides with the trace",
+     "state": "2-batch-ready",
+     "detail": "In 'Member in context' the blue label 'c-0373 - 33.0 s - member 3 of 7' is drawn inside the band at the top of the plot area and the sharkfin peaks cross it, so the text sits on top of the waveform. The inventory's plot note says the label belongs 'above the plot area, off the trace' (a backlog item: labels were moved off traces). Same on the inspector's candidate card.",
+     "screenshot": "webui/screenshots/critique/review/r1-function/cluster-default.png"
+    }
+   ]
+  }
+ ]
+}

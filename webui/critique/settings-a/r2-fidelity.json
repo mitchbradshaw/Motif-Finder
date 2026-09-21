@@ -1,0 +1,119 @@
+{
+ "lens": "fidelity",
+ "round": 2,
+ "status": "done",
+ "pages": [
+  {
+   "page": "settings.channels-events",
+   "score": 8,
+   "rationale": "Every region of frame 02 is present and now reads like it: title + project badge + reset link, lede, Channels card with the 5-recording Seg and all nine columns (ch, name, electrode-position, gain with mV/u, shared ground amber link chips on CH3_A2/CH4_A2, status badges incl. 'bad from 40.1 h', excluded spans, noise floor), the '8 more channels' disclosure with the shared-ground InfoTip, the Event log card with the BandStrip, the four canon events with the right times/kinds/channels/effects/notes/dates, the kinds legend (incl. temperature per spec) with '+ kind', and the save bar with Discard / Save changes. All seven previous P0/P1s are fixed: the timeline now defaults to a 0-50 h window with a 'whole recording' Seg so the four events and the 40.1 h band are legible; the noise floor validates; gain, effect, removal and new-event consequences are the spec's sentences with no internal row ids; new events stage in the save bar and can be removed and undone; and 'co2-pulse' is accepted by + kind. Deductions: the shared-ground chip is an inert span (dead click, no Select, no symmetric update, no 'count once in Library recurrence' consequence); timeline markers carry a hover tooltip but no click-to-select and get no blue ring when their row is selected, so half of the documented event-selected interaction is missing; ?state=unsaved seeds only 1 of the frame's 2 changes and leaves the 31.1-31.5 h effect Select without the frame's amber outline while showing that event's consequence sentence. Plus small visual differences: non-round axis ticks (0/6/11/17/22/28/33/39/44/50 h vs the frame's 0/10/20/30/40 h), bar-shaped markers rather than circles, the noise-floor cell drawn as a filled input rather than muted text, a truncated 'exclude - mark channel' label, and the floor error wrapping into four lines that distort the row.",
+   "findings": [
+    {
+     "severity": "P1",
+     "state": "default",
+     "title": "prev fixed: Event timeline drawn at full 721 h scale",
+     "detail": "The strip now opens on a '0 - 50 h' window (caption '0 - 50 h of 721 h - all 4 events') with a Seg offering 'whole recording'. The watering marker sits at 12.5 h, the grey 28.9-29.1 h and amber 31.1-31.5 h spans are separated, and the red 40.1 h -> end band occupies the right ~20 %, as frame 02 shows. ?view=all still gives the honest 0-721 h view.",
+     "screenshot": "webui/screenshots/critique/settings-a/r2-fidelity/z-timeline-default.png"
+    },
+    {
+     "severity": "P1",
+     "state": "floor-invalid",
+     "title": "prev fixed: per-channel noise floor now validates",
+     "detail": "Filling floor-CH4_A2 with 99 shows a red field plus 'Enter a floor between 0.01 and 5 mV' and no save bar appears, instead of accepting it with a mangled consequence.",
+     "screenshot": "webui/screenshots/critique/settings-a/r2-fidelity/floor-invalid.png"
+    },
+    {
+     "severity": "P1",
+     "state": "default",
+     "title": "prev fixed: effect change gives the frame's sentence",
+     "detail": "Selecting 'exclude span' on the 12.5 h event now stages '1 unsaved change / excluding 12.5 h on all channels marks 3 runs on M2_aug fs1 stale'. No 'e1' row id anywhere. Gain gives 'gain on CH6_B1 1.00 -> 0.98 rescales mV on CH6_B1 - 2 runs on M2_aug fs1 marked stale'.",
+     "screenshot": "webui/screenshots/critique/settings-a/r2-fidelity/i-effect-change.png"
+    },
+    {
+     "severity": "P1",
+     "state": "event-added-staged",
+     "title": "prev fixed: a saved new event is staged in the save bar",
+     "detail": "Filling 50.5 h / 'lid opened' and clicking Save row gives 5 events, a new row with its own remove button, and save bar '1 unsaved change / 50.5 h - watering is marked on plots of M2_aug fs1 - no run is marked stale'.",
+     "screenshot": "webui/screenshots/critique/settings-a/r2-fidelity/event-added-staged.png"
+    },
+    {
+     "severity": "P1",
+     "state": "status-popover / spans-popover",
+     "title": "prev fixed: status and excluded-spans cells open popovers",
+     "detail": "status-CH7_B2 opens 'CH7_B2 status' with a Seg (correctly on 'bad from'), a 40.1 h field, the note that the linked electrode event is the record, and a 'Set bad from 40.1 h' button. spans-CH2_A1 opens 'CH2_A1 - excluded spans' listing both spans as links to their event rows.",
+     "screenshot": "webui/screenshots/critique/settings-a/r2-fidelity/spans-popover.png"
+    },
+    {
+     "severity": "P1",
+     "state": "event-removed",
+     "title": "prev fixed: event rows can be removed",
+     "detail": "Each row now carries an x; removing e3 strikes the row through, swaps the x for an undo, and stages 'removing the exclusion lets new runs read 31.1-31.5 h again - 3 runs on M2_aug fs1 marked stale'. The excluded-spans column recomputes to 'none' on the affected channels.",
+     "screenshot": "webui/screenshots/critique/settings-a/r2-fidelity/event-removed.png"
+    },
+    {
+     "severity": "P1",
+     "state": "add-kind-valid",
+     "title": "prev fixed: + kind accepts co2-pulse",
+     "detail": "Typing the placeholder's own example enables 'Add kind'; typing 'watering' disables it with reason 'Kind already exists'.",
+     "screenshot": "webui/screenshots/critique/settings-a/r2-fidelity/add-kind-valid.png"
+    },
+    {
+     "severity": "P1",
+     "state": "default",
+     "title": "Shared-ground chip is a dead click",
+     "detail": "The amber CH4_A2 / CH3_A2 chips render as <span class=\"k-chip amber\"> with no handler. Clicking one does nothing: no Select of the other channels, no symmetric pair update, and none of the inventory's consequence 'CH3_A2 and CH4_A2 count once in Library recurrence'. It is the only control in the Channels table that is inert.",
+     "screenshot": "webui/screenshots/critique/settings-a/r2-fidelity/i-sharedground-click.png"
+    },
+    {
+     "severity": "P1",
+     "state": "event-selected",
+     "title": "Timeline markers cannot be clicked and never show the selected ring",
+     "detail": "Clicking the 12.5 h marker leaves the hash and the table unchanged; the rects have a <title> tooltip but no click handler and no stroke. On ?event=e2 the table row highlights but every rect still reports stroke=null, so the inventory's 'click a timeline marker or table row: both highlight (blue ring on the marker, blue-100 row)' is only half built.",
+     "screenshot": "webui/screenshots/critique/settings-a/r2-fidelity/i-marker-click.png"
+    },
+    {
+     "severity": "P1",
+     "state": "unsaved",
+     "title": "?state=unsaved seeds 1 change, the frame shows 2",
+     "detail": "The save bar reads '1 unsaved change' with only the CH6_B1 gain amber-outlined, while the consequence shown is the event's ('excluding 31.1-31.5 h on all channels marks 3 runs on M2_aug fs1 stale'). Frame 02 and the inventory seed both changes: '2 unsaved changes' and an amber outline on the 31.1-31.5 h effect Select, which here has no outline at all.",
+     "screenshot": "webui/screenshots/critique/settings-a/r2-fidelity/unsaved.png"
+    },
+    {
+     "severity": "P2",
+     "state": "default",
+     "title": "Timeline axis ticks are not round hours",
+     "detail": "Ticks read 0 / 6 / 11 / 17 / 22 / 28 / 33 / 39 / 44 / 50 h (and 0 / 56 / 111 / 167 / 222 / 278 h on M3_jul). Frame 02 uses five round ticks 0 / 10 / 20 / 30 / 40 h; the fractional values make the strip busier and harder to read a span off.",
+     "screenshot": "webui/screenshots/critique/settings-a/r2-fidelity/z-timeline-default.png"
+    },
+    {
+     "severity": "P2",
+     "state": "default",
+     "title": "Markers drawn as thin bars, not the frame's circles",
+     "detail": "Events render as ~4 px rounded rects 14 px tall. The inventory and frame specify 8 px circles at the event start sitting on the axis line, with excluded spans as translucent bands behind them; at this scale a 0.2 h span and a point event look identical.",
+     "screenshot": "webui/screenshots/critique/settings-a/r2-fidelity/z-timeline-default.png"
+    },
+    {
+     "severity": "P2",
+     "state": "default",
+     "title": "noise floor cell is a filled input, frame shows muted text",
+     "detail": "Every row shows a grey input reading 'recording mV'; frame 02 shows plain muted 'recording' with no box and no unit, which keeps gain as the only boxed number in the row.",
+     "screenshot": "webui/screenshots/critique/settings-a/r2-fidelity/default.png"
+    },
+    {
+     "severity": "P2",
+     "state": "default",
+     "title": "Effect label truncated on the electrode row",
+     "detail": "The e4 Select shows 'exclude - mark channel' clipped by the column width; frame 02 shows the full 'exclude - mark channel bad'.",
+     "screenshot": "webui/screenshots/critique/settings-a/r2-fidelity/default.png"
+    },
+    {
+     "severity": "P2",
+     "state": "floor-invalid",
+     "title": "Floor error wraps to four lines and distorts the row",
+     "detail": "'Enter a floor between 0.01 and 5 mV' wraps inside the narrow noise-floor column, roughly tripling the CH4_A2 row height and pushing the rest of the table down.",
+     "screenshot": "webui/screenshots/critique/settings-a/r2-fidelity/floor-invalid.png"
+    }
+   ]
+  }
+ ]
+}

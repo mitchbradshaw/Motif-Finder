@@ -1,0 +1,112 @@
+{
+ "lens": "function",
+ "round": 1,
+ "status": "done",
+ "pages": [
+  {
+   "page": "discovery.runs",
+   "score": 7,
+   "rationale": "Every region and state in frames 1/1b/1c is present and genuinely working: the scope brush/pager/section popover with real validation, the add-template modal with search, fits toggle, kind/sort, disabled rows carrying their reason, the rebind exemplar gate and the cost-driven footer, the SLURM modal with a real script, the history and cost and null popovers, the preview simulation, the density/spans toggle with its zoom note, the full scoreboard with per-channel expansion and 'no reviewed overlap' / 'too few', the browser, and run acts that write and survive navigation. Add-and-run simulates queued -> running -> done correctly. Deducted for one crash: confirming Discard run, a core 7.4 act, takes the whole workspace down with a React error.",
+   "findings": [
+    {
+     "severity": "P0",
+     "title": "Confirming Discard run crashes the Discovery workspace",
+     "state": "confirm-discard",
+     "detail": "Clicking Discard run in the run-acts footer and then Discard run in the confirm modal replaces the entire page with the red 'discovery workspace failed to render' card and logs TypeError: Cannot read properties of undefined (reading 'kind') at RunsPage.tsx:497 inside WhereFires (two console errors). The frame and spec 7.4 expect the run to be marked superseded, greyed with a badge, dropped from the fires panel and the scoreboard, and a toast 'drop_motifs9 discarded'. The toast does fire, but the page is gone, and the workspace stays broken for every later Discovery navigation in that session. The smoke state 'confirm-discard' only opens the modal, so the page walker never sees this.",
+     "screenshot": "webui/screenshots/critique/discovery/r1-function/runs-after-discard-fresh.png"
+    },
+    {
+     "severity": "P2",
+     "title": "Section validation message names the wrong rule when from >= to",
+     "state": "section-popover",
+     "detail": "Setting from=700 with to=286 shows 'section must lie inside 0-721 h'. 700 is inside 0-721; the violated rule is from < to. Empty, negative and text inputs are handled well ('a value is required', 'must be >= 0', 'not a number'), so this one message is the odd one out.",
+     "screenshot": "webui/screenshots/critique/discovery/r1-function/runs-section-invalid.png"
+    },
+    {
+     "severity": "P2",
+     "title": "Forced running state never advances",
+     "state": "running",
+     "detail": "#/discovery/runs?state=running pins spike_shape_v1 at 'running - 02 Spike mark' and the fires rows at 'running locally - 0 %' indefinitely (watched for 9 s). The live Add-and-run path does step 01 -> 02 -> 03 -> null 200x -> done correctly, so the deep link reads as a stuck run rather than a snapshot of one.",
+     "screenshot": "webui/screenshots/critique/discovery/r1-function/runs-running-progress.png"
+    }
+   ]
+  },
+  {
+   "page": "discovery.seed",
+   "score": 8,
+   "rationale": "Frame 2 is fully realised and behaves: the three seed sources (with a real empty state for Explore), the change-seed popover, the disabled '+ seed' carrying 'MASS takes one seed', the locked native window, a threshold draggable on the histogram with kept count and null hits updating live, Revert to recommended, the view popover with validation, the distance profile, paged matches, an apply bar with the unapplied-change count, Save as template with name validation and a properly disabled Save, and a run simulation that steps MASS per channel then null 200x to done and then refuses with 'already run with these settings'. Deducted for a literal 'undefined' in the forced running copy and for the one input that validates nothing.",
+   "findings": [
+    {
+     "severity": "P1",
+     "title": "Forced running state prints 'running - undefined (2 of 1)'",
+     "state": "running",
+     "detail": "#/discovery/seed?state=running renders the apply bar as 'running - undefined (2 of 1)' with a Cancel button. The live Run seed search path shows the correct 'running - MASS CH2_A1 (1 of 4)' through '(4 of 4)', so the deep-linked state is fed a step list it does not have. A researcher reloading this state sees an undefined step name and an impossible 2-of-1 count.",
+     "screenshot": "webui/screenshots/critique/discovery/r1-function/seed-running.png"
+    },
+    {
+     "severity": "P2",
+     "title": "Match threshold number field accepts anything with no validation message",
+     "state": "draft",
+     "detail": "Typing 'abc' into the match threshold field leaves 'abc' in the box; clearing it leaves it empty. Neither shows a message and neither reverts - the applied threshold silently stays at the last valid value (the apply bar still reads 'threshold 2.8 -> 3.5'). The section and view popovers on the same page do show 'not a number' and 'a value is required', so this field is inconsistent with them.",
+     "screenshot": "webui/screenshots/critique/discovery/r1-function/seed-threshold-number.png"
+    }
+   ]
+  },
+  {
+   "page": "discovery.compare",
+   "score": 9,
+   "rationale": "Frame 3 is complete and works end to end: what-differs columns with identical / differs / absent slots and a per-stage popover, the differing-roles info popover carrying the not-attributable sentence, where-A-and-B-fire with a clean signal, three tracks and a live hover readout, set overlap per channel beside A and B precision and x null, the all / only-A / only-B filter, a bounded stepper that shows the non-firing side's near miss, Swap A/B, unpick-B and route-default empty states, human as B, and the held-out refusal. Only small things deducted.",
+   "findings": [
+    {
+     "severity": "P2",
+     "title": "Role columns ordered Score / estimate before Encode",
+     "state": "default",
+     "detail": "The what-differs header reads 'Source | Preprocess | Score / estimate | Encode | Detect'. Spec 7.7 names the role columns 'Source - Preprocess - Encode - Score / estimate - Detect', and the detection chain in section 0 also puts Encoding (03) before Detection. The two middle columns are transposed relative to the spec order.",
+     "screenshot": "webui/screenshots/critique/discovery/r1-function/cmp-default.png"
+    },
+    {
+     "severity": "P2",
+     "title": "Stepping drops a and b from the URL",
+     "state": "filter-only-b",
+     "detail": "Clicking the disagreement pager rewrites the hash to #/discovery/compare?only=b&i=2 - the a and b params are gone. The page still renders because the pair lives in the session, but the stepped URL no longer says which two runs are being compared, so it is not the usable deep link the smoke entry's a/b form is.",
+     "screenshot": "webui/screenshots/critique/discovery/r1-function/cmp-filter-only-b.png"
+    },
+    {
+     "severity": "P2",
+     "title": "Set-overlap row omits the zero segments for a channel",
+     "state": "human-as-b",
+     "detail": "With human as B the all-channels row reads 154 / 6 / 12 and CH4_A2 and CH7_B2 each show three numbers, but CH2_A1 shows a single 41. Spec section 3 says a figure that is unavailable should be shown as unavailable rather than omitted - a zero-width only-A / only-B segment should still read 0.",
+     "screenshot": "webui/screenshots/critique/discovery/r1-function/cmp-human-b.png"
+    },
+    {
+     "severity": "P2",
+     "title": "Arrow keys do not step the disagreements",
+     "state": "default",
+     "detail": "With the page focused, ArrowRight leaves i unchanged (the URL stays at i=1). The pager buttons work and are correctly disabled at both ends, but the stepper has no keyboard path, which makes walking 106 disagreements mouse-only.",
+     "screenshot": "webui/screenshots/critique/discovery/r1-function/cmp-filter-only-b.png"
+    }
+   ]
+  },
+  {
+   "page": "discovery.stages",
+   "score": 8,
+   "rationale": "Frame 3b is present and correct: two columns aligned by role, identical / differs / A only / absent badges with an absent card saying what the other run does instead, the 'first stage whose output differs' bar with its not-a-causal-claim popover, per-stage read-only parameter popovers, the role x A x B 'what each stage decided here' table, Open in Analyse on both columns, a stepper that carries i, Swap A/B (which correctly flips only=a to only=b), back to compare, and real empty states for same-run and no-pick. Deducted because the re-running state the smoke walk declares never appears.",
+   "findings": [
+    {
+     "severity": "P1",
+     "title": "The re-running state is not rendered",
+     "state": "re-running",
+     "detail": "#/discovery/compare/stages?...&state=rerun is identical to the default state, and stepping to a new disagreement - which re-pushes a new window through both chains, and which the toolbar itself prices as 'approx 1 s - re-run on 40 s' - shows no busy indicator at 150, 300, 600 or 1200 ms; the cards simply swap. The smoke walk names a 're-running' state and waits 1400 ms for the step, so the state is declared but has no visible form, and the researcher gets no signal that the two chains are being re-run.",
+     "screenshot": "webui/screenshots/critique/discovery/r1-function/stg-rerun-early.png"
+    },
+    {
+     "severity": "P2",
+     "title": "No keyboard stepping between disagreements",
+     "state": "default",
+     "detail": "The stage pager is pointer-only; arrow keys do nothing. The same gap as on discovery.compare, and it matters more here because each step is a deliberate re-run the researcher will repeat many times.",
+     "screenshot": "webui/screenshots/critique/discovery/r1-function/stg-stepped.png"
+    }
+   ]
+  }
+ ]
+}

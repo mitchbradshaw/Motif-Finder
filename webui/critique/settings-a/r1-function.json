@@ -1,0 +1,336 @@
+{
+  "lens": "function",
+  "round": 1,
+  "status": "done",
+  "pages": [
+    {
+      "page": "settings.datasets",
+      "score": 8,
+      "rationale": "Every region of frame 01 is present and live: the 5-row registry with read/inferred and status badges, the metadata grid bound to the selected row, the held-out card, the import modal with its five numbered sub-cards, live checks, dry-run badge, progress and the in-memory M5_sep row, and the typed-name unlock modal with a correct case-sensitive gate. Navigation, deep links, Escape and outside-click closes, reset popover, leave guard, save/discard and in-memory persistence across navigation all work, with no console errors. Deductions: the ?state=unsaved seed's field values contradict its own save-bar sentence; the header 'M4 held out' chip does not follow the lock; the unlock produces no toast; display-name and start-time invalidity is signalled only by a red outline with no message; a disabled Import fires a kit warning for a missing reason.",
+      "findings": [
+        {
+          "severity": "P1",
+          "state": "unsaved",
+          "title": "?state=unsaved seeds values that contradict the save-bar sentence",
+          "detail": "#/settings/datasets?state=unsaved shows noise floor 0.12, start time 2025-08-02 15:00 and species 'Pleurotus ostreatus ' (trailing space), while the save bar reads 'noise floor 0.08 -> 0.10 mV marks 4 runs on M2_aug fs1 stale'. Frame 01 and the inventory seed 0.08 -> 0.10, 13:00 -> 14:00, 'P. ostreatus' -> 'Pleurotus ostreatus'. Saving writes 0.12 as the saved floor, so the page then disagrees with the toast it just showed.",
+          "screenshot": "webui/screenshots/critique/settings-a/r1-function/datasets.unsaved.png"
+        },
+        {
+          "severity": "P1",
+          "state": "unlocked",
+          "title": "Header 'M4 held out' chip survives an unlock",
+          "detail": "After typing M4_aug and confirming 'Turn off lock', the card chip flips to 'off - no recording held out', the M4_aug row status becomes 'available' and the audit entry is written, but the header still shows the grey lock chip 'M4 held out'. The inventory binds that chip to the shared HeldOutLock so 'unlocked' hides it; as built the header asserts a lock that is off.",
+          "screenshot": "webui/screenshots/critique/settings-a/r1-function/datasets.unlocked.png"
+        },
+        {
+          "severity": "P1",
+          "state": "unlocked",
+          "title": "No toast after the held-out lock is turned off",
+          "detail": "Inventory specifies Toast 'Held-out lock off - logged' on confirm. The toast region is empty at 250 ms and at 800 ms after confirming; the only feedback is the chip changing. Every other write on these pages toasts.",
+          "screenshot": "webui/screenshots/critique/settings-a/r1-function/datasets.unlock-toast.png"
+        },
+        {
+          "severity": "P1",
+          "state": "default",
+          "title": "display name and start time go invalid with no message",
+          "detail": "Typing 'nonsense' into start time, or clearing or duplicating ('M3_jul') the display name, outlines the field and disables Save with 'Fix 1 invalid value first', but no message is rendered anywhere. Inventory specifies 'Use YYYY-MM-DD HH:MM' and 'Another recording is already called M3_jul'. The noise floor in the same card does render its message, so the omission is inconsistent as well as missing.",
+          "screenshot": "webui/screenshots/critique/settings-a/r1-function/datasets.badstart.png"
+        },
+        {
+          "severity": "P2",
+          "state": "import-running",
+          "title": "Disabled Import button with no reason (kit console warning)",
+          "detail": "During the import progress the console logs '[kit] disabled Button \"Import\" has no disabledReason'. A warning rather than an error, but it is the kit reporting a disabled control the user cannot get a reason for.",
+          "screenshot": "webui/screenshots/critique/settings-a/r1-function/datasets.import-running.png"
+        },
+        {
+          "severity": "P2",
+          "state": "import",
+          "title": "'link to existing' offers the held-out recording and omits L_LM_Jul26_J",
+          "detail": "The import modal's link Select lists none / M2_aug fs1 / M2_aug fs2 / M3_jul / 'M4_aug - held out - locked'. Inventory: 'none + non-held-out recordings'. M4_aug should not be offered at all and L_LM_Jul26_J is missing from the list.",
+          "screenshot": "webui/screenshots/critique/settings-a/r1-function/datasets.import.png"
+        },
+        {
+          "severity": "P2",
+          "state": "default",
+          "title": "display-name consequence is the generic fallback",
+          "detail": "Editing the display name gives the save bar 'display name M2_aug fs1 -> M3_jul - applies to new runs' instead of the specified 'display name changes in every page and in new exports; existing exports keep the old name' (P23 asks for the consequence, not a restatement of the edit).",
+          "screenshot": "webui/screenshots/critique/settings-a/r1-function/datasets.name-starttime-invalid.png"
+        }
+      ]
+    },
+    {
+      "page": "settings.channels-events",
+      "score": 7,
+      "rationale": "Both cards, the recording segmented control, the 8 + 8 channel table, the event timeline with shaded exclusions over the true 0-721 h domain, the event table with effect Selects, the kinds legend, the locked M4_aug state and the M3_jul empty state are all present, and the add-event row validates its time field well. But several interactions the inventory lists are missing outright (status popover, excluded-spans popover, event row delete), a saved event never reaches the save bar, the per-channel noise floor takes any number without validation, and two consequence sentences fall back to a raw fixture id - which is the P23 rule this page exists to demonstrate.",
+      "findings": [
+        {
+          "severity": "P1",
+          "state": "default",
+          "title": "Per-channel noise floor accepts any value and produces a mangled consequence",
+          "detail": "Typing 99 into the CH4_A2 noise floor is accepted and Save stays enabled, against the inventory rule '> 0 and <= 5 mV'. The save bar then reads 'CH4 A2 -> 99 - applies to new runs': the label has been derived from the testid and the specified consequence 'CH4_A2 overrides the recording floor - <n> runs marked stale' is missing.",
+          "screenshot": "webui/screenshots/critique/settings-a/r1-function/channels.gain-invalid.png"
+        },
+        {
+          "severity": "P1",
+          "state": "default",
+          "title": "Changing an event's effect gives a fixture-id consequence, not the frame's sentence",
+          "detail": "Selecting 'exclude span' on the 12.5 h watering event gives save bar '1 unsaved change / e1 show on plots -> exclude span - applies to new runs'. Frame 02 and the inventory require 'excluding 31.1-31.5 h on all channels marks 3 runs on M2_aug fs1 stale'. Showing the internal row id 'e1' is the failure mode P23 is written against.",
+          "screenshot": "webui/screenshots/critique/settings-a/r1-function/channels.default.png"
+        },
+        {
+          "severity": "P1",
+          "state": "add-event",
+          "title": "A saved new event is not staged in the save bar",
+          "detail": "Filling 50.5 h / 'lid opened' and clicking Save row adds a fifth row to the event table, but the save-bar count does not change (still '1 unsaved change' from an earlier edit) and no consequence for the new event appears. Inventory: 'Staged in the save bar'. The event cannot be discarded, and Discard would leave it behind.",
+          "screenshot": "webui/screenshots/critique/settings-a/r1-function/channels.event-added.png"
+        },
+        {
+          "severity": "P1",
+          "state": "default",
+          "title": "Channel status and excluded-spans cells are inert",
+          "detail": "Clicking the status badge ('ok' / 'bad from 40.1 h') and the excluded-spans cell ('2 - 28.9-29.1 h + all') produces nothing - no popover element enters the DOM. The inventory specifies a status Popover with a Seg ok / bad-from plus a time field (setting 'bad from' adds a linked electrode event), and a spans Popover listing the spans with links to their event rows. Two dead clicks on the busiest card of the page.",
+          "screenshot": "webui/screenshots/critique/settings-a/r1-function/channels.default.png"
+        },
+        {
+          "severity": "P1",
+          "state": "default",
+          "title": "No way to remove an event row",
+          "detail": "Event rows carry no buttons at all (the row DOM has zero button elements), so the inventory's hover-x staged removal and its consequence 'removing the exclusion lets new runs read <span> again - <n> runs marked stale' cannot be reached.",
+          "screenshot": "webui/screenshots/critique/settings-a/r1-function/channels.default.png"
+        },
+        {
+          "severity": "P1",
+          "state": "add-kind",
+          "title": "+ kind rejects the very name its placeholder suggests",
+          "detail": "The kind-name input's placeholder is 'e.g. co2-pulse'; typing co2-pulse disables Add kind with the reason 'lowercase letters, 2-20', while 'Fungus' (uppercase) is accepted. The rule contradicts both its own example and its own wording.",
+          "screenshot": "webui/screenshots/critique/settings-a/r1-function/channels.add-kind.png"
+        },
+        {
+          "severity": "P2",
+          "state": "default",
+          "title": "Gain is not shown or stated to 2 dp",
+          "detail": "Gain cells render '1' rather than the frame's '1.00', and the save-bar sentence reads 'gain on CH6_B1 1 -> 0.98' rather than '1.00 -> 0.98'.",
+          "screenshot": "webui/screenshots/critique/settings-a/r1-function/channels.default.png"
+        },
+        {
+          "severity": "P2",
+          "state": "default",
+          "title": "Card sub-captions use the recording id, not its display name",
+          "detail": "The card captions read 'M2_aug_fs1 - 16 channels' and 'M2_aug_fs1 - 4 events', and the timeline is labelled 'M2_aug_fs1'. Canon (spec 0) and the Copy section use 'M2_aug fs1'; the segmented control directly above spells it correctly.",
+          "screenshot": "webui/screenshots/critique/settings-a/r1-function/channels.default.png"
+        },
+        {
+          "severity": "P2",
+          "state": "default",
+          "title": "Gain error copy differs from the inventory",
+          "detail": "Typing 'abc' into a gain cell shows 'not a number'; the inventory specifies 'Gain must be a positive number'.",
+          "screenshot": "webui/screenshots/critique/settings-a/r1-function/channels.gain-invalid.png"
+        }
+      ]
+    },
+    {
+      "page": "settings.vocabulary",
+      "score": 8,
+      "rationale": "The three cards match frame 03 closely and most of the page is genuinely live: rename opens an inline row with the correct 3,424-row warning and a real uniqueness check, rekey captures a key and flags a collision, the informative Toggle unlocks the implies Select, add-verdict / add-class / add-tag rows all exist behind their deep links with disabled reasons, 'used by models' navigates to the registry, and the six example sparklines are drawn to their definitions. Deductions: the tag Merge button is a dead click, tag definitions cannot be edited, the rename row ignores Escape and outside clicks, and the rename rule accepts uppercase while its own message says lowercase.",
+      "findings": [
+        {
+          "severity": "P1",
+          "state": "merge-tag",
+          "title": "Tag 'Merge' is a dead click",
+          "detail": "Opening merge on sharkfin shows the correct Select and preview '112 members move - alias sharkfin kept', but pressing Merge just closes the popover: no save bar appears, the tags table still has 6 rows and sharkfin keeps its own row with no alias. Inventory: 'Merge stages'.",
+          "screenshot": "webui/screenshots/critique/settings-a/r1-function/vocabulary.merge-click.png"
+        },
+        {
+          "severity": "P1",
+          "state": "default",
+          "title": "Tag definition cell is not editable",
+          "detail": "Clicking a definition cell (e.g. sharkfin's) inserts no input or textarea into the row. Inventory: 'tag definition cell - inline Textarea on click, required, <= 140 chars'. The definitions are the load-bearing part of this card and cannot be changed.",
+          "screenshot": "webui/screenshots/critique/settings-a/r1-function/vocabulary.default.png"
+        },
+        {
+          "severity": "P1",
+          "state": "rename",
+          "title": "Rename accepts an uppercase name its own error rejects",
+          "detail": "In the verdict rename row, 'NOTLOWER' enables 'Stage rename', while 'a' disables it with 'lowercase letters and underscores, 2-24'. The rule stated in the message is not the rule enforced (the same inconsistency as + kind on Channels & events).",
+          "screenshot": "webui/screenshots/critique/settings-a/r1-function/vocabulary.rename.png"
+        },
+        {
+          "severity": "P2",
+          "state": "rename",
+          "title": "Rename row ignores Escape and outside clicks",
+          "detail": "With the rename row open and the input focused, Escape leaves the row open, and so does a click elsewhere on the page. Inventory: 'Enter stages; Esc cancels'. Only the Cancel button closes it.",
+          "screenshot": "webui/screenshots/critique/settings-a/r1-function/vocabulary.rename.png"
+        },
+        {
+          "severity": "P2",
+          "state": "class-non-informative",
+          "title": "Informative toggle gives a generic consequence",
+          "detail": "Turning spike-train non-informative correctly unlocks the implies Select, but the save bar reads 'implies interesting -> artifact - applies to new runs'. The specified consequence is 'spike-train no longer implies interesting - 410 labels keep their verdict' (P23: state the consequence, not the edit).",
+          "screenshot": "webui/screenshots/critique/settings-a/r1-function/vocabulary.non-informative.png"
+        }
+      ]
+    },
+    {
+      "page": "settings.nulls",
+      "score": 9,
+      "rationale": "The whole of frame 04 is there and working: seven null kinds with per-kind method options, draws, seed and 'shown as', the locked 'always on' chip with no toggle anywhere on the page, the significance card with a live smallest-reportable-p caption, and the running-nulls card with its locked toggle. Validation is the best of any page in scope - five distinct alpha messages including the cross-field 'alpha 0.001 is below the smallest reportable p (0.005) - raise draws to at least 1,000', and per-row 'must be >= 20' on draws. Deductions: choosing seed 'fixed' reveals no Number field, most consequence sentences are the generic 'applies to new runs' fallback rather than the ones the inventory specifies, and the locked toggle has no hover reason.",
+      "findings": [
+        {
+          "severity": "P1",
+          "state": "default",
+          "title": "seed = 'fixed' does not reveal the seed Number field",
+          "detail": "Setting the Detection chains seed Select to 'fixed' changes nothing else in the row - the row HTML still contains only the draws input. Inventory: \"'fixed' -> reveals Number field (0-2^31)\". As built, a fixed seed cannot be given a value, so the option is inert.",
+          "screenshot": "webui/screenshots/critique/settings-a/r1-function/nulls.seed-fixed.png"
+        },
+        {
+          "severity": "P2",
+          "state": "default",
+          "title": "Null consequences fall back to 'applies to new runs'",
+          "detail": "Method, draws and 'show x null' all produce the generic sentence ('method circular shift -> phase randomisation - applies to new runs', 'show x null true -> false - applies to new runs'). Inventory gives specific consequences such as 'cached null draws for 9 detection templates invalidated' and the seeded 'Training - baseline 200 -> 500 draws - new recipe hash ... estimates x2.5'. Only the correction Seg carries its real sentence.",
+          "screenshot": "webui/screenshots/critique/settings-a/r1-function/nulls.edits.png"
+        },
+        {
+          "severity": "P2",
+          "state": "default",
+          "title": "Locked 'null draws count toward local limits' toggle has no hover reason",
+          "detail": "The locked toggle correctly refuses to change, but its title attribute is null, so hovering gives nothing. The shell contract for a LockedField is an InfoTip 'Enforced by the tool: <rule>' (here: estimates include null draws, with a link to Compute & HPC).",
+          "screenshot": "webui/screenshots/critique/settings-a/r1-function/nulls.default.png"
+        }
+      ]
+    },
+    {
+      "page": "settings.analysis-defaults",
+      "score": 8,
+      "rationale": "Frame 05's four cards are all present and mostly live: the matching sliders with their captions, the seven-row recommended-values table with locked rules, an 'evaluated on' column and a working context Select that really re-evaluates the example column (M3_jul CH2 gives m 90 s, threshold 0.58), a history popover with restore, the artifact-likelihood band fields with real range messages, and a Clear cache confirm -> progress -> '0.0 GB in use' + toast. The band rule even carries the cross-field Nyquist check. Deductions: '+ Add a rule for a block parameter' is a dead click, an unparseable rule is accepted with no hint, and most consequence sentences are the generic fallback.",
+      "findings": [
+        {
+          "severity": "P1",
+          "state": "default",
+          "title": "'+ Add a rule for a block parameter' is a dead click",
+          "detail": "Clicking the link under the recommended-values table does nothing: no inline row appears (no add-rule-row in the DOM), no popover, no toast. Inventory: 'link -> inline row' with block Select (Model stage disabled 'not built - B13'), parameter Select and a required rule Text, plus the duplicate check 'A rule for Matrix profile - m already exists'.",
+          "screenshot": "webui/screenshots/critique/settings-a/r1-function/analysis-defaults.add-rule.png"
+        },
+        {
+          "severity": "P2",
+          "state": "default",
+          "title": "An unparseable rule is accepted silently",
+          "detail": "Typing 'blah blah' into the Bandpass filter rule leaves Save enabled with no marker at all, and stages 'bandpass rule changed - 6 cached stages will re-run'. Inventory: 'unparseable -> amber hint: rule kept as text - the block evaluates it'. Without the hint there is nothing to tell the researcher the rule will not be evaluated.",
+          "screenshot": "webui/screenshots/critique/settings-a/r1-function/analysis-defaults.invalid-band.png"
+        },
+        {
+          "severity": "P2",
+          "state": "default",
+          "title": "Matching-rule and artifact consequences are the generic fallback",
+          "detail": "Moving the IoU slider gives 'iou 0.5 -> 0.6 - applies to new runs' and editing a band gives 'band low 0.3 -> 0.9 - applies to new runs'. The inventory specifies 'IoU 0.50 -> 0.60 - precision and recall recomputed for every comparison - scoreboards on 4 Discovery runs marked stale'. The band rule row and the cache-slider row do carry real sentences, so the page is inconsistent with itself.",
+          "screenshot": "webui/screenshots/critique/settings-a/r1-function/analysis-defaults.iou.png"
+        },
+        {
+          "severity": "P2",
+          "state": "default",
+          "title": "An invalid number is never counted as an unsaved change",
+          "detail": "Typing 5 into cross-channel coherence shows 'must be <= 1' next to the control but no save bar appears at all, so 'N unsaved changes' and the Save-disabled reason never mention it. A researcher who leaves the field red and navigates away gets no leave guard.",
+          "screenshot": "webui/screenshots/critique/settings-a/r1-function/analysis-defaults.numeric-invalid.png"
+        }
+      ]
+    },
+    {
+      "page": "settings.compute-hpc",
+      "score": 8,
+      "rationale": "The longest page in scope and almost all of it works: Run benchmark really runs (button disabled with 'benchmark running...', 'benchmarking · n of 5 kernels', then 'estimates calibrated 16 Sep 2026' and the not-wired toast), every limit and number field validates with an inline message ('must be <= 240', 'must be <= 16', 'must be <= 60'), selecting a profile re-binds the editor and regenerates the script preview, the email toggle really adds and removes the --mail-type line, the guided/raw Seg swaps in an editable template with its 'not validated' note, Copy and Save .sh both respond, and Add cluster validates name uniqueness and produces a new cluster with the 'No profiles on hpc-2' empty state. Deductions: profile table cells are read-only, the generated script emits an invalid directive for a profile with no gres, the new cluster is written straight through instead of being staged, and the locked chip has no hover reason.",
+      "findings": [
+        {
+          "severity": "P1",
+          "state": "profile-cpu-array",
+          "title": "Script preview emits '--gres=none' for a profile with no gres",
+          "detail": "Selecting cpu-array (gres '-') produces '#SBATCH --gres=none --cpus-per-task=4 --mem=16G --time=08:00:00'. '--gres=none' is not a valid SLURM value; the line should be omitted when the profile has no gres. This is a script the researcher is invited to Copy and Save .sh, so the page is handing out something that will not submit.",
+          "screenshot": "webui/screenshots/critique/settings-a/r1-function/compute-hpc.profile-cpu-array.png"
+        },
+        {
+          "severity": "P1",
+          "state": "default",
+          "title": "Job-profile table cells cannot be edited",
+          "detail": "Clicking any cell of a profile row (partition, nodes, gres, cpus, memory, time, array) only selects the row - no input or select is inserted. The inventory specifies inline editing with per-cell rules ('Use HH:MM:SS', nodes 1-64, memory 1-2048 G). Only the four fields below the divider are editable, so a profile's actual resources are fixed.",
+          "screenshot": "webui/screenshots/critique/settings-a/r1-function/compute-hpc.default.png"
+        },
+        {
+          "severity": "P1",
+          "state": "add-cluster-empty-profiles",
+          "title": "Adding a cluster writes immediately instead of staging",
+          "detail": "Confirming Add for hpc-2 inserts the row and switches the profiles card, but no save bar appears at all - the new cluster cannot be discarded and is not counted as an unsaved project change. Inventory: 'Add stages a new row (0 profiles) and selects it'. Every other project edit on this page stages.",
+          "screenshot": "webui/screenshots/critique/settings-a/r1-function/compute-hpc.add-cluster-empty-profiles.png"
+        },
+        {
+          "severity": "P2",
+          "state": "default",
+          "title": "Locked 'marked by hand' chip gives no reason on hover",
+          "detail": "The chip's title attribute is null and clicking it does nothing, so the rule behind it ('the site cannot see the cluster queue; job status is marked by hand in Jobs', with a Jobs link) is never reachable. Same omission as the locked toggles on Nulls and Review queues.",
+          "screenshot": "webui/screenshots/critique/settings-a/r1-function/compute-hpc.job-status.png"
+        },
+        {
+          "severity": "P2",
+          "state": "default",
+          "title": "Compute consequences are the generic fallback",
+          "detail": "Edits give 'email on finish true -> false - applies to new runs' and 'remind x 3 -> 4 - applies to new runs'. The inventory (and the matching 14 Sep audit entry) specify sentences such as 'Analyse local limit 10 -> 20 min - 2 stages in saved chains now run locally instead of offering Create SLURM script' and, for the remind field, 'j-0214 (3.3x its estimate) would no longer be flagged'. The row caption already names j-0214, so the data is there.",
+          "screenshot": "webui/screenshots/critique/settings-a/r1-function/compute-hpc.job-status.png"
+        },
+        {
+          "severity": "P2",
+          "state": "default",
+          "title": "Required environment-setup field accepts empty with no message",
+          "detail": "Clearing 'environment setup' leaves the row clean and Save enabled, while clearing 'working directory' to a relative path correctly shows 'Use an absolute path on the cluster'. Inventory marks both required.",
+          "screenshot": "webui/screenshots/critique/settings-a/r1-function/compute-hpc.default.png"
+        }
+      ]
+    },
+    {
+      "page": "settings.blocks",
+      "score": 9,
+      "rationale": "Frame 07 reproduced faithfully and behaving: all 16 rows with signature, version, adapter path, declared null and used-by counts; the Model stage row is muted with its toggle disabled and the reason 'not built - B13 - the block has no adapter yet'; the used-by popover lists the right template names, closes on Escape and its links navigate to #/library/templates?template=drop_motifs9; the signature cells carry the 6.8 contract InfoTip; toggling a block stages and toggling back clears the bar. The only real deduction is that the save-bar consequence - the single sentence this page's whole P23 story rests on - is the generic fallback.",
+      "findings": [
+        {
+          "severity": "P1",
+          "state": "disable-by-click",
+          "title": "Disabling a block gives 'on true -> false' instead of its consequence",
+          "detail": "Toggling Symbolic encoding off produces save bar '1 unsaved change / on true -> false - applies to new runs', and the save-consequence element contains the same string. Frame 07 and the inventory require 'disabling Symbolic encoding hides it from Insert - 2 templates still use it and stay readable' (and 'Bandpass filter appears in Insert again' when re-enabled). The used-by count needed for that sentence is already in the same row.",
+          "screenshot": "webui/screenshots/critique/settings-a/r1-function/blocks.disable.png"
+        }
+      ]
+    },
+    {
+      "page": "settings.review-queues",
+      "score": 8,
+      "rationale": "All three cards of frame 08 are present and live: six queue sources with blind toggles, verdict-key and order Selects, caps and write targets; the unblind warning is the real P20 paragraph and appears inline under the row; the cap and every cluster field validate with inline messages ('must be <= 1', 'must be >= 0.5'); the suggest-distance warning 'past the Library's omit distance (0.50)' fires at 0.8; and the two locked toggles refuse to move. Deductions: the locked toggles give no reason on hover, the seeded unsaved state uses a cap the inventory does not, an empty cap passes validation, and the consequences are the generic fallback.",
+      "findings": [
+        {
+          "severity": "P1",
+          "state": "default",
+          "title": "Locked 'undo reverses the whole batch' and 'S promotes' give no reason",
+          "detail": "Both locked toggles have a null title and clicking them does nothing and says nothing. The shell contract for a LockedField is an InfoTip 'Enforced by the tool: <rule>' - here P21 (S promotes, a separate promote step would duplicate the seed key) and the batch-undo rule. As built they read as two dead toggles.",
+          "screenshot": "webui/screenshots/critique/settings-a/r1-function/review-queues.default.png"
+        },
+        {
+          "severity": "P1",
+          "state": "default",
+          "title": "Queue consequences are the generic fallback",
+          "detail": "Un-blinding gives 'blind true -> false - applies to new runs', changing verdict keys gives 'keys full · S I N A U -> binary · I N - applies to new runs', and the suggest field gives 'suggest d 0.3 -> 0.8 - applies to new runs'. Only the seeded ?state=unsaved carries a real sentence ('training-window queues cap at 40,000 - q-18 keeps its current cap'), which shows the fixture exists but is not used for live edits. P23 asks for the consequence rather than a restatement of the edit.",
+          "screenshot": "webui/screenshots/critique/settings-a/r1-function/review-queues.unblind.png"
+        },
+        {
+          "severity": "P2",
+          "state": "unsaved",
+          "title": "Seeded cap is 40,000, not the inventory's 20,000",
+          "detail": "?state=unsaved loads Training windows cap 40,000 with the sentence 'training-window queues cap at 40,000'. The inventory seeds 10,000 -> 20,000 and the frame's table shows a 20,000 cap. Internally consistent, but it drifts from the frame a reviewer will compare against.",
+          "screenshot": "webui/screenshots/critique/settings-a/r1-function/review-queues.unsaved.png"
+        },
+        {
+          "severity": "P2",
+          "state": "invalid-cap",
+          "title": "An empty cap is accepted where 'lots', 0 and 999999 are refused",
+          "detail": "Typing lots / 0 / 999999 into the Training windows cap correctly disables Save with 'Fix 1 invalid value first'; clearing the field entirely leaves Save enabled with no message, so a blind training queue can be saved with no cap at all and no warning.",
+          "screenshot": "webui/screenshots/critique/settings-a/r1-function/review-queues.invalid-cap.png"
+        }
+      ]
+    }
+  ]
+}

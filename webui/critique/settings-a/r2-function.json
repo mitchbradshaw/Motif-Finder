@@ -1,0 +1,134 @@
+{
+ "lens": "function",
+ "round": 2,
+ "status": "done",
+ "pages": [
+  {
+   "page": "settings.channels-events",
+   "score": 7,
+   "rationale": "Everything the frame's regions promise is on screen and nearly all of it works: the recording Seg switches both cards (M3_jul falls to a real EmptyState 'No events on M3_jul', M4_aug shows the held-out banner with Add event disabled for 'held out - locked' and gain inputs disabled), '8 more channels' expands to CH16_D2 and toggles its own label back, gain and noise floor validate inline and produce the inventory's exact consequence sentences, Save disables with 'Fix 1 invalid value first', save runs saving -> saved with the right toast and writes a save plus an audit entry to __demoStore, Discard reverts, the leave-guard modal fires on navigation, status and spans popovers open by click and by deep link and close on Escape and on an outside click, setting 'bad from' stages a linked electrode event, event rows remove with undo, a new event stages properly, the timeline now defaults to a readable 0-50 h window with a 'whole recording' toggle, and all nine deep links load their state. Zero console errors across the whole walkthrough. Deducted for five missing interactions the inventory specifies: the shared-ground chip is wholly inert (no Select, no pair update, no way to set shared ground at all); timeline markers neither respond to clicks nor show the selected event; '+ kind' commits without staging so it cannot be discarded; channel status is not derived from mark-bad events in either direction, contradicting the popover's own copy; and the ?state=unsaved seed under-counts its two edits and draws no field-diff outline on the gain. Four smaller copy/validation gaps on top.",
+   "findings": [
+    {
+     "page": "settings.channels-events",
+     "state": "default",
+     "severity": "P1",
+     "title": "prev fixed: per-channel noise floor now validates and names its consequence",
+     "detail": "Typing 99 into floor-CH4_A2 now shows 'Enter a floor between 0.01 and 5 mV' and Save changes is disabled with data-disabled-reason 'Fix 1 invalid value first'. A valid 2.50 gives the inventory sentence 'CH4_A2 overrides the recording floor at 2.50 mV - 2 runs on M2_aug fs1 marked stale'. Verified only; no action needed.",
+     "screenshot": "webui/screenshots/critique/settings-a/r2-function/floor-invalid.png"
+    },
+    {
+     "page": "settings.channels-events",
+     "state": "default",
+     "severity": "P1",
+     "title": "prev fixed: effect change gives the frame's sentence, not a fixture id",
+     "detail": "Setting the 12.5 h event to 'exclude span' now stages 'excluding 12.5 h on all channels marks 3 runs on M2_aug fs1 stale'; the mark-bad option gives 'excluding 12.5 h and marking all channels bad from 12.5 h marks 3 runs on M2_aug fs1 stale'. No 'e1' id leaks into the bar.",
+     "screenshot": "webui/screenshots/critique/settings-a/r2-function/effect-changed.png"
+    },
+    {
+     "page": "settings.channels-events",
+     "state": "add-event",
+     "severity": "P1",
+     "title": "prev fixed: a saved new event is staged in the save bar",
+     "detail": "Filling 50.5 h / 'lid opened' and clicking Save row adds the row, stages '1 unsaved change / 50.5 h - watering is marked on plots of M2_aug fs1 - no run is marked stale', and exposes remove-e-new-505. Discard removes it.",
+     "screenshot": "webui/screenshots/critique/settings-a/r2-function/event-added-staged.png"
+    },
+    {
+     "page": "settings.channels-events",
+     "state": "default",
+     "severity": "P1",
+     "title": "prev fixed: status and excluded-spans cells now open popovers",
+     "detail": "status-CH7_B2 opens status-popover-CH7_B2 (ok / bad from Seg + h field + 'Set bad from 40.1 h'); spans-CH2_A1 opens spans-popover-CH2_A1 listing both spans with links to their event rows. Escape and an outside click both close them. Setting 'bad from 12.5 h' on CH1_A1 stages 2 changes and adds a linked electrode event row (4 -> 5 rows).",
+     "screenshot": "webui/screenshots/critique/settings-a/r2-function/status-popover.png"
+    },
+    {
+     "page": "settings.channels-events",
+     "state": "default",
+     "severity": "P1",
+     "title": "prev fixed: event rows can be removed and undone",
+     "detail": "Every event row now carries an x; remove-e3 stages 'removing the exclusion lets new runs read 31.1-31.5 h again - 3 runs on M2_aug fs1 marked stale' and shows undo-e3, which restores the row and clears the bar.",
+     "screenshot": "webui/screenshots/critique/settings-a/r2-function/event-removed.png"
+    },
+    {
+     "page": "settings.channels-events",
+     "state": "add-kind",
+     "severity": "P1",
+     "title": "prev fixed: + kind accepts co2-pulse",
+     "detail": "'co2-pulse' is now accepted; 'watering' is refused with 'Kind already exists' and 'a' with 'lowercase letters, digits and -, 2-20, starting with a letter'. Four colour swatches are present in the popover.",
+     "screenshot": "webui/screenshots/critique/settings-a/r2-function/add-kind.png"
+    },
+    {
+     "page": "settings.channels-events",
+     "state": "default",
+     "severity": "P1",
+     "title": "Shared-ground chip is a dead click - no Select, no pair update",
+     "detail": "Clicking the amber CH4_A2 chip on the CH3_A2 row changes nothing: document.body.innerHTML length delta 0, zero select elements enter the row, no popover, no row highlight. The dash cells on the other seven rows are equally inert. The inventory specifies 'link Chip + Select on click - Select dash + other channels of the recording; symmetric pair update; consequence CH3_A2 and CH4_A2 count once in Library recurrence'. Shared ground cannot be set or cleared anywhere on the page.",
+     "screenshot": "webui/screenshots/critique/settings-a/r2-function/ground-dead-click.png"
+    },
+    {
+     "page": "settings.channels-events",
+     "state": "default",
+     "severity": "P1",
+     "title": "Timeline markers are dead clicks and never show the selection",
+     "detail": "The four band rects carry correct native tooltips ('31.1-31.5 h - mechanical - all - exclude span') but clicking one (force click on its 5 px box) leaves the hash at '#/settings/channels-events' and no row gains the highlight class. In the reverse direction, loading ?event=e2 highlights the table row (class 'clickable hl') but every rect still has stroke=null and class=null. The inventory's event-selected state requires 'click a timeline marker or table row: both highlight (blue ring on the marker, blue-100 row)'; only the row -> hash half works.",
+     "screenshot": "webui/screenshots/critique/settings-a/r2-function/timeline-marker-click.png"
+    },
+    {
+     "page": "settings.channels-events",
+     "state": "add-kind",
+     "severity": "P1",
+     "title": "A new kind is applied immediately instead of being staged",
+     "detail": "Clicking Add kind with 'co2-pulse' adds the chip to the kinds legend and no save bar appears at all (save-bar count 0). The kind then survives navigating to Vocabulary and back, i.e. it is committed without ever passing through Save/Discard. The inventory ends the '+ kind' row with 'staged', and every other edit on the page stages. There is no way to undo an accidentally added kind.",
+     "screenshot": "webui/screenshots/critique/settings-a/r2-function/kind-added-no-stage.png"
+    },
+    {
+     "page": "settings.channels-events",
+     "state": "default",
+     "severity": "P1",
+     "title": "Channel status is not derived from mark-bad events in either direction",
+     "detail": "The status popover's own copy says 'a linked electrode event is staged with it - the event is the record, this cell reads it back', but it does not read it back. Setting the 12.5 h / all-channels event to 'exclude - mark channel bad' and saving leaves CH1_A1 and CH5_B1 at 'ok'. Conversely, setting the 40.1 h -> end / CH7_B2 event back to 'show on plots' and saving correctly drops CH7_B2's excluded-spans cell from '2 - 40.1 h -> end + all' to '1 - all channels' (spans ARE derived) yet the status badge still reads 'bad from 40.1 h' with no event left to justify it. Inventory, effect Select row: 'for mark bad: also sets channel status bad from <t>'.",
+     "screenshot": "webui/screenshots/critique/settings-a/r2-function/e4-showonplots-saved.png"
+    },
+    {
+     "page": "settings.channels-events",
+     "state": "unsaved",
+     "severity": "P1",
+     "title": "The ?state=unsaved seed stages two edits but counts one and draws no field diff",
+     "detail": "After a hard reload of ?state=unsaved the gain field on CH6_B1 reads 0.98 and Discard reverts it to 1.00 (so it IS a staged draft), but the bar says '1 unsaved change' and the toast says 'Discarded 1 change'. The gain input has an empty class and its wrapper is plain 'k-input sm' with a transparent border - no amber outline, no amber dot before the label. Frame 02 and the inventory both specify '2 unsaved changes' with the CH6_B1 gain amber-outlined alongside the 31.1-31.5 h effect.",
+     "screenshot": "webui/screenshots/critique/settings-a/r2-function/unsaved-count.png"
+    },
+    {
+     "page": "settings.channels-events",
+     "state": "add-event",
+     "severity": "P2",
+     "title": "A reversed span gets the wrong validation reason",
+     "detail": "Typing '40 h - 20 h' into event-time disables Save row with reason 'Time must be inside 0-721 h'; both ends are inside the recording and the rule actually broken is the inventory's 'start < end'. Non-numeric text ('abc') gets the same out-of-range sentence rather than a parse message.",
+     "screenshot": "webui/screenshots/critique/settings-a/r2-function/add-event-invalid-time.png"
+    },
+    {
+     "page": "settings.channels-events",
+     "state": "add-event",
+     "severity": "P2",
+     "title": "Escape does not close the Add event row",
+     "detail": "With the add-event row open, pressing Escape leaves add-event-row in the DOM (count 1); only the Cancel icon closes it. Escape does close all three popovers (status, spans, + kind), so the behaviour is inconsistent with the shell rule 'Esc closes any popover/modal' - and this row is deep-linked as ?modal=add-event.",
+     "screenshot": "webui/screenshots/critique/settings-a/r2-function/add-event.png"
+    },
+    {
+     "page": "settings.channels-events",
+     "state": "add-kind",
+     "severity": "P2",
+     "title": "Kind name accepts uppercase although its own reason forbids it",
+     "detail": "Typing 'Fungus' leaves Add kind enabled with no reason, while 'a' is refused with 'lowercase letters, digits and -, 2-20, starting with a letter'. The validator checks length and uniqueness but not case, so it contradicts the message it prints.",
+     "screenshot": "webui/screenshots/critique/settings-a/r2-function/add-kind.png"
+    },
+    {
+     "page": "settings.channels-events",
+     "state": "add-event",
+     "severity": "P2",
+     "title": "Add-event validation is reason-only, with no visible inline message",
+     "detail": "Invalid time and an over-length note surface only through the disabled Save row button's title / data-disabled-reason (hover). No element matching [class*=err], [data-testid$=error] or [role=alert] exists inside add-event-row, unlike the channel fields, which render floor-CH4_A2-error inline. The note field also accepts 200 typed characters without truncation.",
+     "screenshot": "webui/screenshots/critique/settings-a/r2-function/add-event-longnote.png"
+    }
+   ]
+  }
+ ]
+}

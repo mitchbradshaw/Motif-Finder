@@ -1,0 +1,364 @@
+{
+ "lens": "function",
+ "round": 2,
+ "status": "done",
+ "pages": [
+  {
+   "page": "analyse.training",
+   "score": 9,
+   "rationale": "Every prior P0/P1 on this page is fixed and verified: the failed badge now lands on 04 Encode, frame 0b has its own header/toolbar/hand-off/footer chip and badges 03 Encode stale, the inline rename cancels on Escape and commits on Enter, Send to Review's confirm is disabled with a per-field reason for 0/99999/abc/empty so the 20,000 cap holds, bypass now repaints the row (badge paused, its own caption), a deleted stage renumbers everywhere including the block-page ribbon and the invalid Model row carries 'Put the stage back' / 'Open 05 and rebind its input' with both hand-off buttons disabled and a reason, and the 0b Model caption now cites 02 Cluster and the B7 split. All three popovers open by button, by deep link, and close on Escape and on an outside click; both modals likewise; running cancels; failed clears; every row icon either navigates or toasts 'not wired yet: ...'. No console errors in any state. Deducted one point for the inline rename's outside-click, which neither commits nor cancels.",
+   "findings": [
+    {
+     "severity": "P2",
+     "state": "failed",
+     "title": "prev fixed: failed badge lands on 04 Encode",
+     "detail": "?state=failed now badges 04 Encode `failed` while 01-03 stay cached; the banner, toolbar and badge agree.",
+     "screenshot": "C:/Users/mmebr/Documents/CNN/webui/screenshots/critique/training/r2-function/chain--failed.png"
+    },
+    {
+     "severity": "P2",
+     "state": "illustrative-human-windows",
+     "title": "prev fixed: 0b header, toolbar, hand-off and footer chip",
+     "detail": "?source=human-windows now shows 'illustrative | windows from the human-labelled set | not built yet', a toolbar without History/Import, 'Every window already has a manual label - no review backlog' with only Train in Models, and the amber 'illustrative | out of scope' footer chip.",
+     "screenshot": "C:/Users/mmebr/Documents/CNN/webui/screenshots/critique/training/r2-function/chain--0b.png"
+    },
+    {
+     "severity": "P2",
+     "state": "illustrative-human-windows",
+     "title": "prev fixed: 03 Encode badged stale in 0b",
+     "detail": "The Encode row's badge now reads `stale`, matching its own 'stale - cluster k changed' caption.",
+     "screenshot": "C:/Users/mmebr/Documents/CNN/webui/screenshots/critique/training/r2-function/chain--0b.png"
+    },
+    {
+     "severity": "P2",
+     "state": "rename-invalid",
+     "title": "prev fixed: rename cancels on Escape",
+     "detail": "Typing 'CNN Windows' shows the inline error; Escape restores the chip reading cnn_windows_v3, and Enter on a valid id commits.",
+     "screenshot": "C:/Users/mmebr/Documents/CNN/webui/screenshots/critique/training/r2-function/chain--rename.png"
+    },
+    {
+     "severity": "P2",
+     "state": "send-review",
+     "title": "prev fixed: Send to Review enforces the cap",
+     "detail": "0 / 99999 / abc / empty each disable send-review-confirm with data-disabled-reason 'how many: must be >= 1 / <= 20000 / not a number / a value is required'; 412 writes review add-queue count 412.",
+     "screenshot": "C:/Users/mmebr/Documents/CNN/webui/screenshots/critique/training/r2-function/chain--send-review-invalid.png"
+    },
+    {
+     "severity": "P2",
+     "state": "default",
+     "title": "prev fixed: bypass changes the row",
+     "detail": "row-bypass-cluster flips the badge cached -> paused and the summary to 'bypassed - its input passes straight through to the next stage'.",
+     "screenshot": "C:/Users/mmebr/Documents/CNN/webui/screenshots/critique/training/r2-function/chain--bypass.png"
+    },
+    {
+     "severity": "P2",
+     "state": "stage-deleted",
+     "title": "prev fixed: invalid junction has fix actions",
+     "detail": "The Model row now offers 'Put the stage back' and 'Open 05 and rebind its input'; Trial job and Train in Models are disabled with 'the chain has an invalid junction - put the stage back first'.",
+     "screenshot": "C:/Users/mmebr/Documents/CNN/webui/screenshots/critique/training/r2-function/chain--stage-deleted.png"
+    },
+    {
+     "severity": "P2",
+     "state": "stage-deleted",
+     "title": "prev fixed: block-page ribbon drops the deleted stage",
+     "detail": "#/analyse/training/block/1 now shows Source | 02 Window matrix | 03 Cluster | 04 Encode | 05 Model [invalid] - five chips, matching the chain page.",
+     "screenshot": "C:/Users/mmebr/Documents/CNN/webui/screenshots/critique/training/r2-function/chain--stage-deleted.png"
+    },
+    {
+     "severity": "P2",
+     "state": "illustrative-human-windows",
+     "title": "prev fixed: 0b Model caption",
+     "detail": "Now reads 'labels from 02 Cluster - the split rides on the source window set (B7)' instead of citing 03 cluster and 01.",
+     "screenshot": "C:/Users/mmebr/Documents/CNN/webui/screenshots/critique/training/r2-function/chain--0b.png"
+    },
+    {
+     "severity": "P2",
+     "state": "rename-invalid",
+     "title": "Outside click on the inline rename neither commits nor cancels",
+     "detail": "With the rename field open and invalid, clicking the page background leaves the field open and the name chip gone (name-chip count 0, name-field count 1). Escape and Enter both work, so this is the one exit that does nothing.",
+     "screenshot": "C:/Users/mmebr/Documents/CNN/webui/screenshots/critique/training/r2-function/chain--rename.png"
+    }
+   ]
+  },
+  {
+   "page": "analyse.training.windows",
+   "score": 9,
+   "rationale": "All ten prior findings are fixed and verified in the browser. The split strip now carries in-band labels ('train | 185 windows' ...), a red drop mark row captioned 'red where a break drops them (19)' and a window tick strip; the boundary close-up has a pale amber 'gap 10 min' band with the caption below the plot; the checks card follows the live settings (it reads 'gap 2 min < window 10 min' when the gap is invalid and 'windows DO cross split boundaries' on a random split); ?state=edited deep-links the frame's pending change (gap 5 -> 10, '1 unapplied change'); the bar names every field that changed and counts them ('2 unapplied changes | split ... | blocks ...'); split ratio and block count move the bands, the per-band counts and the verdict totals; the gap field validates -5, abc and empty and disables both primaries with a full reason; toolbar and bar now offer the same primary; after a completed run the primary is disabled with 'no unapplied changes'; Save window set opens with a valid default that saves (library save-window-set write) and disables on 'Bad Id'. An edit survives navigating to another block and back. No console errors. Deducted one point for the band labels dropping out on a narrow band.",
+   "findings": [
+    {
+     "severity": "P2",
+     "state": "default",
+     "title": "prev fixed: split strip has labels, drop marks and window ticks",
+     "detail": "The strip now reads 'train | 185 windows', 'val | 76 windows', 'train | 163 windows', 'test | 100 windows' with a tick row and 'red where a break drops them (19)'.",
+     "screenshot": "C:/Users/mmebr/Documents/CNN/webui/screenshots/critique/training/r2-function/w--default.png"
+    },
+    {
+     "severity": "P2",
+     "state": "boundary",
+     "title": "prev fixed: boundary close-up redrawn",
+     "detail": "Horizontal window bars across a pale amber 'gap 10 min' band, train on the left, val on the right, caption below the plot area.",
+     "screenshot": "C:/Users/mmebr/Documents/CNN/webui/screenshots/critique/training/r2-function/w--default.png"
+    },
+    {
+     "severity": "P2",
+     "state": "invalid-gap",
+     "title": "prev fixed: checks card follows the live settings",
+     "detail": "With gap 2 the check reads 'gap 2 min < window 10 min'; on ?split=random it reads 'windows DO cross split boundaries - a random split interleaves them'.",
+     "screenshot": "C:/Users/mmebr/Documents/CNN/webui/screenshots/critique/training/r2-function/w--invalid-gap.png"
+    },
+    {
+     "severity": "P2",
+     "state": "edited",
+     "title": "prev fixed: ?state=edited produces the pending change",
+     "detail": "The deep link now shows '1 unapplied change | gap 5 -> 10 min drops 12 windows - 01 -> 05 go stale' with the primary 'Apply & re-run from 01'.",
+     "screenshot": "C:/Users/mmebr/Documents/CNN/webui/screenshots/critique/training/r2-function/w--edited.png"
+    },
+    {
+     "severity": "P2",
+     "state": "edited",
+     "title": "prev fixed: the bar names what you actually changed",
+     "detail": "split -> '80 / 10 / 10', blocks -> '6 contiguous', seed -> '42' each appear by name, and the count rises to '2 unapplied changes' / '3 unapplied changes'.",
+     "screenshot": "C:/Users/mmebr/Documents/CNN/webui/screenshots/critique/training/r2-function/w--two-changes.png"
+    },
+    {
+     "severity": "P2",
+     "state": "edited",
+     "title": "prev fixed: split strip and verdicts follow the ratio and block count",
+     "detail": "80/10/10 moves the bands and the verdicts to train 420 / val 52 / test 52; 6 blocks redraws six bands and raises the drop count to 32.",
+     "screenshot": "C:/Users/mmebr/Documents/CNN/webui/screenshots/critique/training/r2-function/w--split-80.png"
+    },
+    {
+     "severity": "P2",
+     "state": "invalid-gap",
+     "title": "prev fixed: both primaries block on an invalid gap",
+     "detail": "apply-rerun and apply-rerun-top are disabled with 'the gap is 2 min: at least the 10 min window length - windows either side would share samples'.",
+     "screenshot": "C:/Users/mmebr/Documents/CNN/webui/screenshots/critique/training/r2-function/w--invalid-gap.png"
+    },
+    {
+     "severity": "P2",
+     "state": "default",
+     "title": "prev fixed: one primary, not two",
+     "detail": "At rest both toolbar and bar read 'Re-run from 04'; with a pending edit both read 'Apply & re-run from 01'.",
+     "screenshot": "C:/Users/mmebr/Documents/CNN/webui/screenshots/critique/training/r2-function/w--default.png"
+    },
+    {
+     "severity": "P2",
+     "state": "after a run",
+     "title": "prev fixed: bar primary disabled after the run",
+     "detail": "After Apply & re-run completes the primary carries data-disabled-reason 'no unapplied changes'.",
+     "screenshot": "C:/Users/mmebr/Documents/CNN/webui/screenshots/critique/training/r2-function/w--after-run.png"
+    },
+    {
+     "severity": "P2",
+     "state": "save-window-set",
+     "title": "prev fixed: save default is valid",
+     "detail": "The modal opens with ws_M2aug_CH4_600s, no error, Save enabled; it writes library save-window-set and closes. 'Bad Id' disables Save with 'letters, digits and _ only'.",
+     "screenshot": "C:/Users/mmebr/Documents/CNN/webui/screenshots/critique/training/r2-function/w--save-window-set.png"
+    },
+    {
+     "severity": "P2",
+     "state": "edited",
+     "title": "Narrow split bands lose their label entirely",
+     "detail": "With split 80/10/10 over 4 blocks the strip renders four bands but only two carry text ('train | 210 windows' twice); the val and test bands have no label at all, where the frame labels every band. At 70/15/15 all four are labelled, so the label is simply dropped rather than abbreviated when the band is narrow.",
+     "screenshot": "C:/Users/mmebr/Documents/CNN/webui/screenshots/critique/training/r2-function/w--split-80.png"
+    }
+   ]
+  },
+  {
+   "page": "analyse.training.matrix",
+   "score": 8,
+   "rationale": "All three prior P1s are fixed: the unapplied bar now names the change that was actually made ('CNN scores included', 'clip +/- 3 sigma -> +/- 2 sigma', 'normalise z-score per channel -> per window') and counts them; clip moves both the legend (-2 sigma / +2 sigma) and the heat cell fills; a column click resolves a real window (34 / 199 / 393 at 2.8 / 16.5 / 32.7 h) and 'Open in Encode' lands on block/4?window=393 where the class and hour agree. The rest of the page drives well: group ticks raise the P12 leakage callout with the drop action, both modals open by deep link and close on Escape, Create SLURM script writes a jobs add-job, Upload matrix toasts 'not wired yet', a real Apply & re-run walks 01 -> 03 to done. Deducted for the toolbar primary that offers an apply with nothing pending, and two copy defects.",
+   "findings": [
+    {
+     "severity": "P2",
+     "state": "edited",
+     "title": "prev fixed: the bar names what you changed",
+     "detail": "Ticking CNN scores reads 'CNN scores included', clip reads 'clip +/- 3 sigma -> +/- 2 sigma', normalise reads its own change, and the count rises to 2 and 3 unapplied changes.",
+     "screenshot": "C:/Users/mmebr/Documents/CNN/webui/screenshots/critique/training/r2-function/m--cnn-on.png"
+    },
+    {
+     "severity": "P2",
+     "state": "edited",
+     "title": "prev fixed: normalise and clip reach the plot",
+     "detail": "clip +/- 2 sigma redraws the legend to -2 sigma / +2 sigma and changes the heat cells' fill attributes (diffed in the DOM).",
+     "screenshot": "C:/Users/mmebr/Documents/CNN/webui/screenshots/critique/training/r2-function/m--clip.png"
+    },
+    {
+     "severity": "P2",
+     "state": "readout",
+     "title": "prev fixed: column click selects a window",
+     "detail": "Clicking at 20 / 45 / 75 % across the heat gives window 34 (2.8 h, C1), 199 (16.5 h, C2), 393 (32.7 h, C4), and Open in Encode follows the selection.",
+     "screenshot": "C:/Users/mmebr/Documents/CNN/webui/screenshots/critique/training/r2-function/m--column-click.png"
+    },
+    {
+     "severity": "P1",
+     "state": "default",
+     "title": "Toolbar primary offers 'Apply & re-run from 02' with nothing to apply",
+     "detail": "At rest the unapplied bar reads 'No unapplied changes | 04 and 05 are stale from an earlier cut' with the primary 'Re-run from 04', while the toolbar's apply-rerun-top reads 'Apply & re-run from 02', enabled, with no data-disabled-reason. This is the two-disagreeing-primaries defect that was fixed on 01 windows but is still here on 02.",
+     "screenshot": "C:/Users/mmebr/Documents/CNN/webui/screenshots/critique/training/r2-function/m--default.png"
+    },
+    {
+     "severity": "P2",
+     "state": "readout",
+     "title": "Readout's second line stays on 'band at 28 h' after you select another window",
+     "detail": "After clicking a column at 2.8 h the readout's first line updates to 'window 34 - 2.8-2.9 h - class C1' but the line under it still reads 'band at 28 h: 3 of 3 included groups deviate', describing a part of the matrix 25 h away from the selection.",
+     "screenshot": "C:/Users/mmebr/Documents/CNN/webui/screenshots/critique/training/r2-function/m--column-click.png"
+    },
+    {
+     "severity": "P2",
+     "state": "label-derived-on",
+     "title": "Including a group is described as 'columns dropped'",
+     "detail": "Ticking CNN scores on gives '1 unapplied change | CNN scores included - 03 -> 05 go stale - 02 reuses its cache (columns dropped, no recompute)'. Including a group adds columns; the cache note is the exclusion wording reused.",
+     "screenshot": "C:/Users/mmebr/Documents/CNN/webui/screenshots/critique/training/r2-function/m--cnn-on.png"
+    },
+    {
+     "severity": "P2",
+     "state": "upload",
+     "title": "Upload matrix accepts any path with no validation",
+     "detail": "upload-path takes '', '   ' or '!!!nonsense' and 'Place matrix' stays enabled with no disabled reason, while the checks above it keep reading 'recipe hash matches a7f3...9c' and '543 columns'. Confirming toasts 'not wired yet: bind an uploaded matrix artifact', so nothing is misrecorded, but the field is unvalidated where every sibling field on these pages is validated.",
+     "screenshot": "C:/Users/mmebr/Documents/CNN/webui/screenshots/critique/training/r2-function/m--upload.png"
+    }
+   ]
+  },
+  {
+   "page": "analyse.training.cluster",
+   "score": 8,
+   "rationale": "The three prior function P1s are fixed: the criterion cards now carry aria-checked plus a 'chosen' badge; locking really locks (the Parameters criterion dropdown is disabled, the choose-k cards show a per-card reason 'the criterion is locked - unlock it in Parameters to change it' and are not clickable, and the Unlock the toast points at exists and re-enables the dropdown); Save grouping records the scope you picked ({scope:'this section only'}) and the 'covers' line follows it. The cutline is draggable and moves the cut height and k live; merge is pending-then-apply with its own bar sentence; resample and show distinguishing features toast 'not wired yet'; send-review and the run veil work. Deducted because changing k never reaches the three panels that are about k.",
+   "findings": [
+    {
+     "severity": "P2",
+     "state": "choose-k",
+     "title": "prev fixed: criterion cards show their selection",
+     "detail": "aria-checked moves to the clicked card and the chosen card gains a 'chosen' badge; under ?locked=1 it reads 'locked'.",
+     "screenshot": "C:/Users/mmebr/Documents/CNN/webui/screenshots/critique/training/r2-function/c--criterion-pick.png"
+    },
+    {
+     "severity": "P2",
+     "state": "criterion-locked",
+     "title": "prev fixed: locking the criterion locks it",
+     "detail": "With locked=1 the Parameters criterion button is disabled, criterion-warning reads 'criterion locked - fixed-k - k is a consequence of it' with an Unlock beside it, and the choose-k cards refuse a real click (cursor not-allowed, per-card reason).",
+     "screenshot": "C:/Users/mmebr/Documents/CNN/webui/screenshots/critique/training/r2-function/c--locked-params.png"
+    },
+    {
+     "severity": "P2",
+     "state": "save-grouping",
+     "title": "prev fixed: Save grouping records the scope",
+     "detail": "Picking 'this section only' changes covers to 'the span on screen only' and writes library save-grouping with scope 'this section only'.",
+     "screenshot": "C:/Users/mmebr/Documents/CNN/webui/screenshots/critique/training/r2-function/c--save-grouping.png"
+    },
+    {
+     "severity": "P1",
+     "state": "default (after applying a new cut)",
+     "title": "Changing the cut never reaches the class cards, occupancy strip or per-class bars",
+     "detail": "Drag the cutline down: Parameters updates to 'cut height 7.7 / k 12' and the bar offers 'cut 7.7 -> 12 classes'. Click Apply & re-run from 03 and let the veil finish. Parameters still says k 12, but 'What each class looks like' still shows exactly six cards C1 260 / C2 180 / C3 51 / C4 32 / C5 13 / C6 7, the occupancy strip still six lanes, the 'Windows per class' bars still six bars, and the button under them still reads 'Merge C5 + C6'. The frame's whole point is that the cut decides the classes; here only the dendrogram and the two numbers move.",
+     "screenshot": "C:/Users/mmebr/Documents/CNN/webui/screenshots/critique/training/r2-function/c--applied-cut.png"
+    },
+    {
+     "severity": "P2",
+     "state": "default",
+     "title": "silhouette and cophenetic r are frozen for every cut",
+     "detail": "Cut 4.0 (k 18), 7.7 (k 12) and 10.1 (k 6) all report 'silhouette 0.24 - cophenetic r 0.91'. Silhouette is a function of the partition, so it cannot be constant across k, and this is the number the 'max silhouette' criterion on the same page selects on.",
+     "screenshot": "C:/Users/mmebr/Documents/CNN/webui/screenshots/critique/training/r2-function/c--cut-height.png"
+    },
+    {
+     "severity": "P2",
+     "state": "merge-pending",
+     "title": "A pending merge is not previewed in the class panels",
+     "detail": "?merge=C5,C6 sets the bar to 'C5 + C6 merged - 04 and 05 re-run on 5 classes' but the class cards and per-class bars still list C5 13 and C6 7 separately, with nothing marking them as about to merge.",
+     "screenshot": "C:/Users/mmebr/Documents/CNN/webui/screenshots/critique/training/r2-function/c--merge.png"
+    }
+   ]
+  },
+  {
+   "page": "analyse.training.encode",
+   "score": 8,
+   "rationale": "Two of the three prior P1s are fully fixed and the third is fixed in effect: image size now moves the disk and time tiles (224 -> 0.6 GB / ~6 min, 256 -> 0.8 GB / ~8 min, 128 -> 0.2 GB / ~2 min) and PAA 2x halves them; the window chip reads a real class, split and hour from the shared helper, the pager and a typed window id move it (300 -> C3 24.9 h, 500 -> C1 test block 41.6 h) with >= 1 / <= 543 / not a number / required all validated; browse class cards land on a window of that class (C4 -> 83 C4, C2 -> 1 C2, C6 -> 438 C6) and the three browse tabs switch the caption and the route. Resample toasts a seeded note, the encoder-version note and the run veil are there, no console errors. Deducted for the unapplied bar, which still will not name the parameter you changed, and a degenerate estimate.",
+   "findings": [
+    {
+     "severity": "P2",
+     "state": "edited",
+     "title": "prev fixed: image size and PAA move the disk and time estimates",
+     "detail": "disk / time now read 0.8 GB / ~8 min at 256, 0.2 GB / ~2 min at 128, 0.3 GB / ~3 min at PAA 2x, and the disk tile's caption carries the size and PAA factor.",
+     "screenshot": "C:/Users/mmebr/Documents/CNN/webui/screenshots/critique/training/r2-function/e--estimates.png"
+    },
+    {
+     "severity": "P2",
+     "state": "window",
+     "title": "prev fixed: window 283 agrees with the matrix readout",
+     "detail": "The encode chip now resolves class, split and hour from the same helper the 02 readout uses; Open in Encode from 02 (window 393) lands on C4 at 32.7 h, matching the readout that opened it.",
+     "screenshot": "C:/Users/mmebr/Documents/CNN/webui/screenshots/critique/training/r2-function/e--window-field.png"
+    },
+    {
+     "severity": "P2",
+     "state": "browse-gadf",
+     "title": "prev fixed: a browse class card opens a window of that class",
+     "detail": "browse-class-C4 -> window=83 reading 'C4 - train block - 6.8 h'; C2 -> 1 (C2); C6 -> 438 (C6).",
+     "screenshot": "C:/Users/mmebr/Documents/CNN/webui/screenshots/critique/training/r2-function/e--browse.png"
+    },
+    {
+     "severity": "P1",
+     "state": "edited",
+     "title": "The unapplied bar never names the parameter you changed",
+     "detail": "Image size 224 -> 256, PAA none -> 2x and encoder set existing -> new each produce the identical sentence '1 unapplied change | 3 encodings ticked - 1,629 images to write - 05 re-runs on them'. Only the encoding ticks are described, and the image count it quotes does not move with the image size either. 01, 02 and 03 all name the changed field by value; 04 does not.",
+     "screenshot": "C:/Users/mmebr/Documents/CNN/webui/screenshots/critique/training/r2-function/e--paa.png"
+    },
+    {
+     "severity": "P2",
+     "state": "edited",
+     "title": "PAA on a small image estimates 0.0 GB and 'about 0 min'",
+     "detail": "With image size 128 and PAA 4x the tiles read 'disk 0.0 GB' and 'time ~ 0 min', which reads as free rather than as a small number; every other estimate on these pages keeps a significant figure.",
+     "screenshot": "C:/Users/mmebr/Documents/CNN/webui/screenshots/critique/training/r2-function/e--estimates.png"
+    },
+    {
+     "severity": "P2",
+     "state": "default",
+     "title": "Toolbar primary reads 'Apply & re-run from 04' with nothing pending",
+     "detail": "At rest the bar reads 'No unapplied changes - 04 is stale because 03's cut changed' with the primary 'Re-run from 04', while apply-rerun-top reads 'Apply & re-run from 04', enabled, with no disabled reason - the same two-primaries mismatch that was fixed on 01.",
+     "screenshot": "C:/Users/mmebr/Documents/CNN/webui/screenshots/critique/training/r2-function/e--default.png"
+    }
+   ]
+  },
+  {
+   "page": "analyse.training.model",
+   "score": 9,
+   "rationale": "All three prior P1s are fixed. Architecture and epochs now re-cost and re-caption the 05 row and the trial estimate (B0/30 -> 2 h 40 and ~2 h 46; B2/30 -> 4 h 19 and ~4 h 25; B2/60 -> 8 h 38 and ~8 h 44); stage ticks change both the --from-stage and the cost (ticking 02 adds 14 min, 03 adds 40 s, 01 adds nothing because it is < 1 s); with nothing ticked Copy script, Download trial job and both Train in Models buttons are disabled with 'no stage is ticked - tick at least one for the job to do something'. The rest drives cleanly: the three label-source cards each swap in their own note with a working Send to Review / Train in Models, Download trial job writes a jobs add-job and shows the chip, Train in Models writes models add-training-job and routes to #/models/launch?template=cnn_windows_v3 (P11), both modals validate and close on Escape, and the before-this-trains callouts link to 03's merge and to Review. Deducted for the uncaught clipboard rejection and two small inconsistencies in the 04-unticked state.",
+   "findings": [
+    {
+     "severity": "P2",
+     "state": "default",
+     "title": "prev fixed: the 05 row follows the architecture you selected",
+     "detail": "param-architecture EfficientNet-B2 with 60 epochs gives '05 Train model | 8 h 38 | EfficientNet-B2 - 60 - early stop' and the trial estimate '~ 8 h 44'.",
+     "screenshot": "C:/Users/mmebr/Documents/CNN/webui/screenshots/critique/training/r2-function/mo--params.png"
+    },
+    {
+     "severity": "P2",
+     "state": "stage-04-off",
+     "title": "prev fixed: stage ticks change the cost",
+     "detail": "Ticking 02 moves the estimate 8 h 44 -> 8 h 58 and 03 -> 8 h 59, and the script's stage range follows ('stages 01 -> 05').",
+     "screenshot": "C:/Users/mmebr/Documents/CNN/webui/screenshots/critique/training/r2-function/mo--stage-ticks.png"
+    },
+    {
+     "severity": "P2",
+     "state": "stage-04-off",
+     "title": "prev fixed: the three job buttons disable with a reason",
+     "detail": "copy-script, download-trial, train-in-models and train-in-models-top all carry data-disabled-reason 'no stage is ticked - tick at least one for the job to do something'.",
+     "screenshot": "C:/Users/mmebr/Documents/CNN/webui/screenshots/critique/training/r2-function/mo--stage-04-off.png"
+    },
+    {
+     "severity": "P2",
+     "state": "default",
+     "title": "Copy script raises an uncaught clipboard rejection",
+     "detail": "Clicking Copy script emits a pageerror: \"Failed to execute 'writeText' on 'Clipboard': Write permission denied.\" The toast still appears, so the failure is silent to the researcher but loud in the console. Triggered here by a headless context without clipboard permission - it is the unhandled rejection, not the denial, that is the defect.",
+     "screenshot": "C:/Users/mmebr/Documents/CNN/webui/screenshots/critique/training/r2-function/mo--trial-job.png"
+    },
+    {
+     "severity": "P2",
+     "state": "stage-04-off",
+     "title": "Unticking 04 disables 05 with the wrong reason and keeps 05's cost",
+     "detail": "Unticking 04 also clears 05 (its row reads 'no images - tick 04 Encode first', its tick is no longer clickable) and every job button then says 'no stage is ticked'. The documented reason for this state is '04 Encode is unticked - 05 would have no images to train on'; and the 05 row still charges '2 h 40 | cluster - GPU' for a stage that will not run.",
+     "screenshot": "C:/Users/mmebr/Documents/CNN/webui/screenshots/critique/training/r2-function/mo--stage-04-off.png"
+    }
+   ]
+  }
+ ]
+}

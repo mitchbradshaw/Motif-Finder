@@ -1,0 +1,329 @@
+{
+ "lens": "function",
+ "round": 1,
+ "status": "done",
+ "pages": [
+  {
+   "page": "analyse.training",
+   "score": 7,
+   "rationale": "Every region the inventory names is present and richly populated: toolbar (name chip, source chip, null chip, estimate, History, Import, Save template, Train in Models), six chain rows with plots and per-row controls, model hand-off, footer. Popovers open by chip and by deep link, and close on Escape and on outside click; History and Import correctly disable incompatible entries with visible reasons; the P15 WindowSet source really does drop the sliding-windows row and renumber; Save template validates and writes; Train in Models writes and navigates. Deductions: the inline rename cannot be cancelled once invalid (Escape, Enter and outside click all do nothing); Send to Review shows validation messages but does not block submit, so an out-of-range or non-numeric count still queues; bypass is a dead click visually; deleting a stage produces an invalid junction with no fix action and the block-page ribbon still shows the deleted stage; queuing to Review leaves the footer unchanged.",
+   "findings": [
+    {
+     "severity": "P1",
+     "title": "Inline rename cannot be cancelled or committed once invalid",
+     "state": "rename-invalid",
+     "detail": "Click the name chip, type 'CNN Windows'. The inline error 'lowercase letters, digits and _ only' appears (correct), but Escape, Enter and an outside click all leave the field open - the name chip is gone and there is no Cancel control in the toolbar. The only way out is to navigate to another page. The inventory says the chip is an inline rename with validation; a validated field with no cancel path traps the user.",
+     "screenshot": "webui/screenshots/critique/training/r1-function/training.rename-stuck.png"
+    },
+    {
+     "severity": "P1",
+     "title": "Send to Review accepts an invalid count - cap 20,000 not enforced",
+     "state": "send-review",
+     "detail": "In the Send-to-Review modal the count field shows 'must be >= 1', 'must be <= 20000' and 'not a number' for 0, 99999 and 'abc', but send-review-confirm stays enabled (disabled=false, no data-disabled-reason). Clicking it with 'abc' closes the modal, toasts 'queued 412 windows to Review' and records review/add-queue count:412. The save-template modal gets this right (disabled + data-disabled-reason), so this control is inconsistent with its sibling and lets a spec rule (P13 cap 20,000) be bypassed.",
+     "screenshot": "webui/screenshots/critique/training/r1-function/training.send-review-invalid.png"
+    },
+    {
+     "severity": "P1",
+     "title": "Row bypass is a dead click - the row does not change",
+     "state": "default",
+     "detail": "Clicking the bypass icon on 04 Encode toasts 'Encode bypassed - its output passes straight through', but the row's badge, summary, plot and styling are byte-identical before and after, and nothing downstream changes. Clicking again repeats the same toast. A bypassed stage in the frames reads as bypassed on the row.",
+     "screenshot": "webui/screenshots/critique/training/r1-function/training.bypass-no-effect.png"
+    },
+    {
+     "severity": "P1",
+     "title": "Invalid junction after deleting a stage offers no fix action",
+     "state": "stage-deleted",
+     "detail": "Deleting 02 Window matrix correctly renumbers the chain and badges 05 Model 'invalid', but the Model row's only buttons are the four row icons plus 'Trial job on this channel' and 'Train in Models' - no restore, no undo, no 'fix the junction' control. Spec 6.8 lists 'invalid junction (fix actions)' as a required state, and the inventory says 'the row shows the fix action'. Both hand-off buttons also stay enabled on an invalid chain.",
+     "screenshot": "webui/screenshots/critique/training/r1-function/training.invalid-junction.png"
+    },
+    {
+     "severity": "P1",
+     "title": "A deleted stage is still in the block-page chain ribbon",
+     "state": "stage-deleted",
+     "detail": "After deleting 02 Window matrix on the chain page, navigating to #/analyse/training/block/1 shows a ribbon with all six chips including '02 Window matrix' and '05 Model [new]' - not 'invalid'. Returning to the chain page still shows five rows, so the draft did keep the deletion; only the ribbon disagrees. The ribbon is documented as 'the whole chain, every block clickable', so the two surfaces contradict each other.",
+     "screenshot": "webui/screenshots/critique/training/r1-function/training.invalid-junction.png"
+    },
+    {
+     "severity": "P1",
+     "title": "Human-windows source: Model row still cites '03 cluster' and 'split from 01'",
+     "state": "illustrative-human-windows",
+     "detail": "With ?source=human-windows the stages correctly renumber to 01 Window matrix / 02 Cluster / 03 Encode / 04 Model, but the Model row caption still reads 'trial here on CH4 only - labels from 03 cluster - split from 01'. In this chain 03 is Encode and there is no 01 sliding-windows block at all - the caption points at stages that no longer exist.",
+     "screenshot": "webui/screenshots/critique/training/r1-function/training.human-windows.png"
+    },
+    {
+     "severity": "P2",
+     "title": "Queuing to Review leaves the footer unchanged",
+     "state": "queued-to-review",
+     "detail": "After confirming 'Send 412 unseen windows to Review' the write is recorded and a toast fires, but the footer still reads '412 windows never human-reviewed' and the button still reads 'Send 412 unseen windows to Review' - identical after navigating to block/1 and back. The builder's own draft carries a queuedToReview flag and the state is named 'queued-to-review', so a visible change was intended.",
+     "screenshot": "webui/screenshots/critique/training/r1-function/training.queued-to-review.png"
+    },
+    {
+     "severity": "P2",
+     "title": "Model row repeats its caption twice",
+     "state": "default",
+     "detail": "The 05 Model row prints 'trial here on CH4 only - labels from 03 cluster - split from 01' twice - once above the hand-off buttons and once below them.",
+     "screenshot": "webui/screenshots/critique/training/r1-function/training.default.png"
+    },
+    {
+     "severity": "P2",
+     "title": "Encode row badge says 'cached' while its summary says 'stale'",
+     "state": "illustrative-human-windows",
+     "detail": "On ?source=human-windows the 03 Encode row carries the badge 'cached' but its summary line ends 'stale - cluster k changed'. On the default source the same row is badged 'stale', which matches. The two readings contradict each other.",
+     "screenshot": "webui/screenshots/critique/training/r1-function/training.human-windows.png"
+    },
+    {
+     "severity": "P2",
+     "title": "History has no applicable run",
+     "state": "history",
+     "detail": "All four History entries (#140, #131, #128, #97) are disabled with a terminal-type reason, so the popover is informative but has nothing to click. The inventory says History lists '#140 (applies) and the three detection runs disabled with reason'.",
+     "screenshot": "webui/screenshots/critique/training/r1-function/training.history.png"
+    }
+   ]
+  },
+  {
+   "page": "analyse.training.windows",
+   "score": 7,
+   "rationale": "The richest page of the six: toolbar, ribbon, split strip over the signal, boundary close-up, per-split verdict bars, the full parameter card, the checks card with Send-to-Review and the queue cap, the P18 window-set card and the unapplied bar are all present and populated. The gap NumberField validates four ways (below window length, negative, non-numeric, empty) with a specific message each time, the checks card reacts live to the window length, random split raises the P12 leakage callout with a route back, Save window set validates and writes and the card then shows the saved id, Revert works, and the draft survives navigation. Deductions: the unapplied bar's count and consequence sentence are hardcoded to a gap change no matter what you edit; the split strip and the verdict bars do not respond to split ratio or block count; the toolbar primary and the bar primary disagree and the toolbar one runs even with the gap field invalid; the bar primary stays enabled after a run with nothing pending and nothing stale; the Save-window-set modal opens with a default id its own validator rejects.",
+   "findings": [
+    {
+     "severity": "P1",
+     "title": "Unapplied-changes bar always describes a gap change, whatever you edited",
+     "state": "edited",
+     "detail": "Change split ratio to 60/15/15, or blocks to 6 contiguous, or seed to 42, or the window-length slider to 30 min: the bar reads '1 unapplied change - gap 5 -> 10 min drops 12 windows - 01 -> 05 go stale' every time. Making two changes (80/10/10 then 6 blocks) still reads '1 unapplied change' with the same gap sentence. The consequence line is the page's plain-language caption and here it names an edit that never happened.",
+     "screenshot": "webui/screenshots/critique/training/r1-function/windows.two-changes.png"
+    },
+    {
+     "severity": "P1",
+     "title": "Split strip and verdict bars ignore the split ratio and block count",
+     "state": "edited",
+     "detail": "Selecting split 80/10/10 and blocks 6 contiguous leaves the split band strip byte-identical (same innerHTML length and band styles) and the verdicts card still reads 'train 348 / val 76 / test 100' - the 70/15/15 numbers. The windows card caption still says 'windows dropped at gaps (12)'. Two dropdowns that visibly change their own label change nothing else on the page.",
+     "screenshot": "webui/screenshots/critique/training/r1-function/windows.split-ratio-changed.png"
+    },
+    {
+     "severity": "P1",
+     "title": "Toolbar primary runs the chain while the gap field is invalid",
+     "state": "invalid-gap",
+     "detail": "Set gap to 2 min: the field turns red with 'at least the 10 min window length'. The toolbar's 'Apply & re-run from 01' stays enabled with no disabled reason; clicking it starts the run veil and finishes, leaving the field still red and the checks card still reading 'gap 10 min >= window 10 min'. The builder's own status note says Apply is blocked when the gap is invalid.",
+     "screenshot": "webui/screenshots/critique/training/r1-function/windows.invalid-gap-applied.png"
+    },
+    {
+     "severity": "P1",
+     "title": "Toolbar primary and unapplied-bar primary disagree in every state",
+     "state": "default",
+     "detail": "At rest the toolbar reads 'Apply & re-run from 01' (enabled) while the bar reads 'No unapplied changes - 04 and 05 are stale' with primary 'Re-run from 04'. Two primaries on one page offering different actions for the same state. The inventory's rule is that with nothing pending the primary reads 'Re-run from <first stale>'.",
+     "screenshot": "webui/screenshots/critique/training/r1-function/windows.default.png"
+    },
+    {
+     "severity": "P1",
+     "title": "Bar primary stays enabled with nothing pending and nothing stale",
+     "state": "after a run",
+     "detail": "After Apply & re-run completes, the ribbon shows 01-04 cached and 05 new, and the bar reads 'No unapplied changes - the window set on screen is the one the last run used', yet the primary reads 'Apply & re-run from 01' and is enabled with no disabled reason. The documented rule is that this state disables the primary with the reason 'no unapplied changes'.",
+     "screenshot": "webui/screenshots/critique/training/r1-function/windows.after-run.png"
+    },
+    {
+     "severity": "P1",
+     "title": "Save window set opens with a default id its own validator rejects",
+     "state": "save-window-set",
+     "detail": "The modal opens with window-set-id prefilled 'ws_M2aug_CH4_600s' and the error 'lowercase letters, digits and _ only' already showing, Save disabled. The canon window-set id (ws_M2aug_3ch_600s) is mixed case too, so either the default or the rule is wrong; as shipped the P18 save cannot be taken without retyping the name.",
+     "screenshot": "webui/screenshots/critique/training/r1-function/windows.save-window-set-default-invalid.png"
+    },
+    {
+     "severity": "P2",
+     "title": "'human-labelled window set' jumps to another chain with no warning and no illustrative mark",
+     "state": "default",
+     "detail": "Clicking the second 'windows from' option navigates straight to #/analyse/training?source=human-windows - a different chain with this block deleted - with no confirmation and no toast. In the source popover the same option carries an 'illustrative' badge and the caption 'illustrative, not built (P13)'; in this radio it carries neither.",
+     "screenshot": "webui/screenshots/critique/training/r1-function/windows.windows-from-human.png"
+    },
+    {
+     "severity": "P2",
+     "title": "Boundary close-up bars are clickable but do nothing",
+     "state": "boundary",
+     "detail": "boundary-bar-0..9 are clickable elements; clicking one leaves the boundary-verdict caption unchanged ('a gap of at least one window length means...') and fires no toast and no selection highlight.",
+     "screenshot": "webui/screenshots/critique/training/r1-function/windows.default.png"
+    }
+   ]
+  },
+  {
+   "page": "analyse.training.matrix",
+   "score": 7,
+   "rationale": "All four regions are present and the two hardest things on the page work: the feature groups really are collapsible (Catch22 is one 14 px line until opened, 264 px after, by chevron and by ?open=catch22), and P12 is enforced - Random Forest and CNN scores are off by default, ticking CNN scores raises the red leakage callout with an 'Exclude them again' route that works, and the 'columns in 03' count moves 32 -> 38. The SLURM modal has a real script, Copy toasts, and Track it in Jobs writes a job; the upload modal has its pre-bind checklist including the D6 M4_aug refusal; the running veil and the deep links all resolve. Deductions: the unapplied bar again hardcodes one consequence sentence for every edit; normalise and clip change nothing but their own label and the legend keeps saying +/-3 sigma; clicking a matrix column does not move the readout, which the inventory names as an interaction; and the legend's 'CNN rows greyed' line stays after CNN scores are ticked in.",
+   "findings": [
+    {
+     "severity": "P1",
+     "title": "Unapplied bar says 'Random Forest excluded' whatever you changed",
+     "state": "edited",
+     "detail": "Tick CNN scores, or pick normalise 'z-score per window', or clip '+/- 2 sigma': the bar reads '1 unapplied change - Random Forest excluded - 03 -> 05 go stale - 02 reuses its cache (columns dropped, no recompute)' in all three cases. For the CNN tick it is the opposite of what happened (a group was included, not excluded), and it names the wrong group.",
+     "screenshot": "webui/screenshots/critique/training/r1-function/matrix.label-derived-on.png"
+    },
+    {
+     "severity": "P1",
+     "title": "normalise and clip are effectively dead - heatmap and legend do not respond",
+     "state": "edited",
+     "detail": "Selecting clip '+/- 2 sigma' leaves the matrix legend reading '-3 sigma / +3 sigma' and the heat rows unchanged; selecting normalise 'z-score per window' likewise changes nothing but the dropdown label. The dropdown even carries the caption 'removes the between-window differences the clustering is looking for', so the page promises a visible effect it does not deliver.",
+     "screenshot": "webui/screenshots/critique/training/r1-function/matrix.clip-changed.png"
+    },
+    {
+     "severity": "P1",
+     "title": "Clicking a matrix column does not select a window",
+     "state": "readout",
+     "detail": "The inventory lists 'column click selects a window and updates the readout'. Clicking at 20 % across the Entropy heat row leaves matrix-readout byte-identical ('window 283 - 28.2-28.4 h - class C3 - sample entropy +2.7 sigma'). The readout is the only way to pick the window that 'Open in Encode' then opens, so the pairing is frozen on window 283.",
+     "screenshot": "webui/screenshots/critique/training/r1-function/matrix.column-click.png"
+    },
+    {
+     "severity": "P2",
+     "title": "Legend still reads 'CNN rows greyed = excluded from 03' after CNN scores are included",
+     "state": "label-derived-on",
+     "detail": "Tick CNN scores: the groups card and the column count update, but matrix-legend keeps the line 'CNN rows greyed = excluded from 03' and the CNN heat block's computed style is unchanged (opacity 1, no filter, before and after). The legend and the state disagree.",
+     "screenshot": "webui/screenshots/critique/training/r1-function/matrix.label-derived-on.png"
+    },
+    {
+     "severity": "P2",
+     "title": "Upload matrix path field is not validated",
+     "state": "upload",
+     "detail": "upload-path accepts an empty string and a path to the held-out M4_aug file with no message and no change to the checklist (which statically lists 'refused: M4_aug - held out (D6)'), and 'Place matrix' stays enabled in both cases. It ends in a 'not wired yet' toast, which is fine, but the field's own validation is absent while a sibling modal on 01 validates its single field carefully.",
+     "screenshot": "webui/screenshots/critique/training/r1-function/matrix.upload-invalid.png"
+    }
+   ]
+  },
+  {
+   "page": "analyse.training.cluster",
+   "score": 7,
+   "rationale": "The most functional of the six. The cutline is genuinely draggable and the cut-height slider agrees with it - both move k 6 -> 11, retitle the dendrogram caption and write a correct, specific consequence line into the unapplied bar. Merge C5 + C6 really merges (bars and cards become five classes, 20 windows, and the deep link ?merge=C5,C6 matches). The class cards, occupancy strip, per-class bars, B4 criterion warning, k-sweep with its three metrics, contingency table, bootstrap stability and the Send-412-to-Review callout are all present, and 'show distinguishing features' switches the card subtitle to split counts and verdicts. Deductions: the choose-k criterion RadioCards give no visible selected state at all; locking the criterion is not enforced - the Parameters dropdown changes it freely afterwards and there is no unlock control; Save grouping records 'whole channel' even when 'this section only' is selected; and silhouette / cophenetic r never move while k does.",
+   "findings": [
+    {
+     "severity": "P1",
+     "title": "Criterion RadioCards show no selection",
+     "state": "choose-k",
+     "detail": "All five criterion cards carry class 'k-radio-card' with aria-pressed null and no data-selected, before and after clicking one. Picking 'max silhouette' does change the underlying criterion (Parameters afterwards reads 'max silhouette'), but nothing on the choose-k card says which of the five is current. Spec 6.7 makes fixing the criterion the point of this view.",
+     "screenshot": "webui/screenshots/critique/training/r1-function/cluster.criterion-pick.png"
+    },
+    {
+     "severity": "P1",
+     "title": "Locking the criterion does not lock it",
+     "state": "criterion-locked",
+     "detail": "Lock the criterion on choose-k (toast: 'criterion locked - k is now a consequence, not a choice'; the five cards correctly grey out with 'unlock in Parameters to change it'). Back on the block page the Parameters 'criterion' dropdown is still enabled with no disabled reason, all five options are selectable, and picking 'fixed k' silently changes it - the caption just updates to 'criterion locked - fixed-k'. There is no unlock control anywhere in Parameters, so the toast points at a control that does not exist.",
+     "screenshot": "webui/screenshots/critique/training/r1-function/cluster.locked-but-changeable.png"
+    },
+    {
+     "severity": "P1",
+     "title": "Save grouping records the wrong scope",
+     "state": "save-grouping",
+     "detail": "Select scope 'this section only' - the modal's 'covers' line correctly changes to 'the span on screen only' - then Save. The recorded write is {kind:'save-grouping', scope:'whole channel'}. The scope control is the one thing 8.2 requires this modal to carry and the write ignores it.",
+     "screenshot": "webui/screenshots/critique/training/r1-function/cluster.save-grouping.png"
+    },
+    {
+     "severity": "P2",
+     "title": "silhouette and cophenetic r never change with k",
+     "state": "cut-dragged",
+     "detail": "Dragging the cutline from 10.1 to 6.0 moves k from 6 to 11 and updates the dendrogram caption, but the silhouette tile stays 0.24 and cophenetic r stays 0.91. Silhouette is a function of the partition; showing the k=6 value beside k=11 is misleading, and this view exists to let a researcher compare partitions.",
+     "screenshot": "webui/screenshots/critique/training/r1-function/cluster.cut-dragged.png"
+    },
+    {
+     "severity": "P2",
+     "title": "A class card opens Encode without selecting that class's window",
+     "state": "default",
+     "detail": "The inventory says 'class card click -> that class's first window'. Clicking class-C4 navigates to #/analyse/training/block/4 with no ?window parameter, so Encode opens on its default window 118 (class C2) - not a C4 window.",
+     "screenshot": "webui/screenshots/critique/training/r1-function/cluster.default.png"
+    },
+    {
+     "severity": "P2",
+     "title": "Resample members is a not-wired toast on a control the frame shows working",
+     "state": "default",
+     "detail": "'resample' toasts 'not wired yet: resample 2 members per class from the grouping' and the class grid's innerHTML is identical before and after (22893 chars both times). Every other sampled view on these pages redraws; here the sampling is frozen.",
+     "screenshot": "webui/screenshots/critique/training/r1-function/cluster.default.png"
+    }
+   ]
+  },
+  {
+   "page": "analyse.training.encode",
+   "score": 7,
+   "rationale": "The strongest wiring of the six block pages. The window pager works in both directions and redraws all four encodings; the jump field validates five ways (<1, >543, non-numeric, negative, empty) with a specific message each; the per-encoding include checkboxes really re-cost the job (tick Fusion: 1,629 -> 2,172 images, 0.6 -> 0.8 GB, 6 -> 8 min, and the browse counts go 780 -> 1,040) and write a correct, specific consequence line; ?encoder=new raises the amber new-version note; the browse segmented control and the seeded Resample both work; the existing-encoders caption is there. Deductions: image size, PAA, fusion channels, encoder set and write-to change their own label and nothing else - the disk and time tiles stay at 224 px values, which is exactly the estimate 6.8 requires for this signature; the unapplied bar's sentence and its '1 unapplied change' count are hardcoded to the encodings text after five distinct edits; and window 283 reads as a different class and time here than on the matrix page that links to it.",
+   "findings": [
+    {
+     "severity": "P1",
+     "title": "Image size and PAA do not change the disk or time estimate",
+     "state": "edited",
+     "detail": "Select image size 256x256 (or 128x128, or PAA 2x/4x): the images / disk / time tiles stay '1,629 / 0.6 GB / ~6 min' in every case. Spec 6.8 makes the disk estimate for this signature 'images x px x channels', so doubling the pixel count must move it. Encoder set, fusion channels and write-to are likewise label-only.",
+     "screenshot": "webui/screenshots/critique/training/r1-function/encode.epsilon.png"
+    },
+    {
+     "severity": "P1",
+     "title": "Window 283 contradicts the matrix readout that opens it",
+     "state": "window",
+     "detail": "On 02 the readout reads 'window 283 - 28.2-28.4 h - class C3'. Clicking its 'Open in Encode' lands on #/analyse/training/block/4?window=283 where window-class reads 'C2 - train block - 33.0 h - no verdict'. Same window id, different class and a 4.8 h difference in onset. The inventory's own fixture note says the default window 118 is 'C2 - train - 19.8 h'; the page shows 118 as C5.",
+     "screenshot": "webui/screenshots/critique/training/r1-function/encode.from-matrix.png"
+    },
+    {
+     "severity": "P1",
+     "title": "A browse class card opens a window of a different class",
+     "state": "browse-gadf",
+     "detail": "Clicking browse-class-C4 navigates to ?browse=gadf&window=292 and the encode card then reads 'C5 - train block - 33.7 h'. Picking C4 and landing on a C5 window makes the browse grid untrustworthy as a way into a class.",
+     "screenshot": "webui/screenshots/critique/training/r1-function/encode.browse-gadf.png"
+    },
+    {
+     "severity": "P2",
+     "title": "Unapplied bar sentence and count do not track the edits",
+     "state": "edited",
+     "detail": "After changing encoder set, image size, PAA, fusion channels and write-to (five pending changes), the bar still reads '1 unapplied change - 3 encodings ticked - 1,629 images to write - 05 re-runs on them'. The sentence is correct only for the include checkboxes; for every parameter change it names something the user did not touch.",
+     "screenshot": "webui/screenshots/critique/training/r1-function/encode.epsilon.png"
+    },
+    {
+     "severity": "P2",
+     "title": "Browse segmented control carries no pressed state",
+     "state": "browse-gadf",
+     "detail": "The GASF / GADF / Recurrence buttons all report aria-pressed null; only the caption ('3 sampled windows per class - GADF') says which is current. The split segmented control on 01 has the same issue.",
+     "screenshot": "webui/screenshots/critique/training/r1-function/encode.browse-gadf.png"
+    }
+   ]
+  },
+  {
+   "page": "analyse.training.model",
+   "score": 7,
+   "rationale": "Every region the inventory names is present and mostly wired: the five-row stage table with individual ticks, the three label-source cards, the eight training parameters with the D6 held-out lock line, the six-item pre-training checklist with its two routed actions, the trial CodeBlock with Copy and Download, and the Models hand-off. Unticking 04 correctly disables 05 with the in-row reason 'no images - tick 04 Encode first' and raises the 'no stage is ticked' callout; the script's --from-stage really does follow the ticks (04 -> 03 -> 01); Copy toasts, Download writes a job with a visible chip, 'Merge C5 + C6 in 03' routes to block/3?merge=C5,C6, Send to Review opens its modal, and both labels deep links show their own note and action. Deductions: the eight training dropdowns are label-only and the stage-05 row keeps saying 'EfficientNet-B0 - 30 epochs' after the architecture is changed; no cost anywhere moves when stages or parameters change, which is the one thing 6.7 says the ticks are for; and Copy / Download / Train in Models stay enabled in the state the page itself calls 'the job would do nothing'.",
+   "findings": [
+    {
+     "severity": "P1",
+     "title": "Stage-05 row contradicts the architecture you selected",
+     "state": "default",
+     "detail": "Set architecture to EfficientNet-B2 (or ResNet-18) and epochs to 60: param-architecture reads 'EfficientNet-B2' while the 05 Train model row still reads 'EfficientNet-B0 - 30 epochs' and the toolbar estimate stays 'trial ~ 2 h 40 on cluster'. The stage table is the page's summary of what will run and it is now wrong about it.",
+     "screenshot": "webui/screenshots/critique/training/r1-function/model.params-changed.png"
+    },
+    {
+     "severity": "P1",
+     "title": "No cost changes when stages are ticked or unticked",
+     "state": "stage-04-off",
+     "detail": "Ticking 01, 02 and 03 back on (adding 14 min + 40 s + <1 s of cached work) leaves the estimate at 'trial ~ 2 h 40 on cluster'; unticking everything leaves it there too. Spec 6.7 gives stage ticks exactly one purpose - so 'three hours of compute does not happen twice' - and the inventory says ticking a stage changes the cost and the --from-stage. Only the latter happens.",
+     "screenshot": "webui/screenshots/critique/training/r1-function/model.stage-03-off.png"
+    },
+    {
+     "severity": "P1",
+     "title": "Copy script, Download trial job and Train in Models stay enabled with no stage ticked",
+     "state": "stage-04-off",
+     "detail": "With 04 unticked, the trial card reads 'no stage ticked - the job would do nothing' and a 'no stage is ticked - the trial job would do nothing' callout appears, yet Copy script, Download trial job and Train in Models are all enabled with no disabled reason, and the script still reads '--from-stage 05 --to-stage 05' for a stage that is disabled. Pressing Download in that state still writes a job.",
+     "screenshot": "webui/screenshots/critique/training/r1-function/model.stage-04-off.png"
+    },
+    {
+     "severity": "P2",
+     "title": "Download trial job can be pressed repeatedly, creating duplicate jobs",
+     "state": "trial-job-created",
+     "detail": "Pressing Download trial job twice writes two jobs/add-job entries (j-325 then j-854) for the same template and stages, while the chip only shows the latest. The button does not become 'job created' or disable after the first press.",
+     "screenshot": "webui/screenshots/critique/training/r1-function/model.trial-job-created.png"
+    },
+    {
+     "severity": "P2",
+     "title": "Label-source RadioCards carry no selected state",
+     "state": "labels-manual",
+     "detail": "All three labels-from cards have class 'k-radio-card' with aria-pressed null before and after selection; only the note panel underneath tells you which arm is chosen. Same pattern as the criterion cards on 03.",
+     "screenshot": "webui/screenshots/critique/training/r1-function/model.labels-manual.png"
+    },
+    {
+     "severity": "P2",
+     "title": "Trial script line and the no-stage callout disagree",
+     "state": "stage-04-off",
+     "detail": "With nothing ticked the card header says 'no stage ticked - the job would do nothing' but the CodeBlock underneath still prints a concrete '--from-stage 05 --to-stage 05' command. A researcher who copies it gets a command for a stage the page has just disabled.",
+     "screenshot": "webui/screenshots/critique/training/r1-function/model.stage-04-off.png"
+    }
+   ]
+  }
+ ]
+}

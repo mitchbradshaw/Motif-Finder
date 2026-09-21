@@ -1,0 +1,110 @@
+{
+ "lens": "function",
+ "round": 2,
+ "status": "done",
+ "pages": [
+  {
+   "page": "discovery.runs",
+   "score": 8,
+   "rationale": "Every region, state and deep link in the inventory is present and live: toolbar (session rename with real validation, scope/null/cost chips with info popovers, History, SLURM vs Run swap with a correct disabled reason), scope (recording Select with M4_aug disabled 'held out - locked (D6)' and a change-confirm popover, channel chips, + channel checklist, section popover with from/to validation and a working brush, a 3-at-a-time pager that drives the fires groups, a simulated 4 h preview), runs list with A/B picks and a disabled-with-reason Compare, where-each-run-fires with density/spans and SVG-title tooltips, a sortable and expandable scoreboard, the detection browser, and the three run acts. The add-template modal filters, sorts, disables in-session and non-fitting templates, gates the rebind seed on an exemplar, and swaps its primary action on the 20 min ceiling; Add and run really walks queued -> running -> done. The r1 P0 discard crash is fixed and no console or page error fired anywhere in this pass. Deductions: three controls that look live but are not, or go to the wrong place - the drop_motifs9 scoreboard chevron never collapses, Retry on the failed row does nothing, and 'also found by' lands on the wrong detection - plus a cluster of smaller copy/data inconsistencies (contradictory found counts after History Open and after a recording change, 'no detections yet / 0 of 1' for a superseded run, duplicated section validation messages, the last channel chip losing its x instead of showing a reason, and channels missing from the URL).",
+   "findings": [
+    {
+     "lens": "function",
+     "severity": "P1",
+     "state": "default",
+     "title": "Scoreboard chevron for drop_motifs9 can expand but never collapse (dead click)",
+     "detail": "Clicking the row chevron on drop_motifs9 in the Scoreboard does nothing at all: aria-expanded stays true and its three per-channel child rows stay put, across repeated clicks and with another run selected. seed_F03_native's chevron toggles correctly, so the control looks live. Cause is visible in RunsPage.tsx:190 - useQueryState('expand','drop_motifs9'): collapsing the only expanded row writes '' and the hook falls straight back to the default, re-expanding it. The frame shows a per-run expand/collapse chevron.",
+     "screenshot": "webui/screenshots/critique/discovery/r2-function/32-scoreboard-collapse.png"
+    },
+    {
+     "lens": "function",
+     "severity": "P1",
+     "state": "failed",
+     "title": "Retry on the failed run row is a dead click",
+     "detail": "On #/discovery/runs?state=failed the callout says 'Retry on the row re-queues it', and the row carries an enabled Retry button. Clicking it (five times) leaves data-status=failed, the same error subline, no queued/running progress and no toast. chrome.tsx:400 does patchRun(status:'new') but the ?state=failed param re-derives the run as failed on the next render, so the write is immediately masked. Expected queued -> running -> done/failed per the build brief.",
+     "screenshot": "webui/screenshots/critique/discovery/r2-function/46-retry-dead.png"
+    },
+    {
+     "lens": "function",
+     "severity": "P1",
+     "state": "default",
+     "title": "'also found by' link jumps to the wrong detection",
+     "detail": "On d-0418 (201.16 h, CH4_A2) the browser shows 'also found by seed_F03_native'. Clicking that link switches the browser to seed_F03_native but lands on 1 / 31 = d-3175 at 115.62 h - 85 h away from the detection it claimed to match. The inventory says the link 'selects that run in the browser at the matched detection'; as built it silently shows an unrelated span, which is misleading rather than merely missing.",
+     "screenshot": "webui/screenshots/critique/discovery/r2-function/54-also-found-by.png"
+    },
+    {
+     "lens": "function",
+     "severity": "P2",
+     "state": "popover-history",
+     "title": "History 'Open' adds a run whose found count contradicts the history row",
+     "detail": "History lists 'r-0412 mp_drops_v3 - 12 Sep 09:30 - done - 212 found'. Clicking Open adds a run row reading 'mp_drops_v3 - r-0412 | done - 212 found | 52 found - 3 ch - done 09:30' - two different found counts for the same run id in the same card.",
+     "screenshot": "webui/screenshots/critique/discovery/r2-function/47-history-open.png"
+    },
+    {
+     "lens": "function",
+     "severity": "P2",
+     "state": "discarded",
+     "title": "After Discard, the browser says the superseded run 'has no detections yet' and pages 0 / 1",
+     "detail": "Post-discard the Browse detections card reads 'drop_motifs9 has no detections yet' with pager '0 / 1'. The run has 160 detections; it is superseded, not empty, and the denominator 1 has no referent. The same '0 / 1' appears when the human reference row is selected. Spec 3: nothing claims more than it knows.",
+     "screenshot": "webui/screenshots/critique/discovery/r2-function/05-discarded-browser.png"
+    },
+    {
+     "lens": "function",
+     "severity": "P2",
+     "state": "section-popover",
+     "title": "Section validation message is printed under both from and to",
+     "detail": "Typing 900 into 'from' (to stays a valid 286) renders 'must be <= 721' beneath BOTH the from and the to field; same for -5 ('must be >= 0'), empty ('a value is required') and 'abc' ('not a number'). Only one field is invalid, so the message is misattributed. Apply correctly disables for the sub-1 h case.",
+     "screenshot": "webui/screenshots/critique/discovery/r2-function/08-section-invalid.png"
+    },
+    {
+     "lens": "function",
+     "severity": "P2",
+     "state": "default",
+     "title": "Last channel chip drops its x entirely instead of disabling it with a reason",
+     "detail": "With one channel left, the CH2_A1 chip renders as a bare span.k-chip with no button at all. The inventory specifies the x stays and is disabled with the tooltip 'scope needs at least one channel' - as built there is no visible reason why removal stopped being possible.",
+     "screenshot": "webui/screenshots/critique/discovery/r2-function/12-one-channel.png"
+    },
+    {
+     "lens": "function",
+     "severity": "P2",
+     "state": "six-channels-page-2",
+     "title": "Adding channels does not write them into the URL",
+     "detail": "After + channel adds CH8_B2/CH9_C1/CH11_C2 and the pager is stepped, the address bar reads only '#/discovery/runs?chpage=2'. Reloading that URL returns a 3-channel scope on page '1-3 of 3'. The authored deep link ?channels=...&chpage=2 does work, so the state is reachable but not shareable from the app itself.",
+     "screenshot": "webui/screenshots/critique/discovery/r2-function/14-six-channels-page2.png"
+    },
+    {
+     "lens": "function",
+     "severity": "P2",
+     "state": "default",
+     "title": "A fires cell for a running run selects a run the browser's own picker disables",
+     "detail": "Clicking a where-each-run-fires cell in the sharkfin_v2 row sets Browse detections to run sharkfin_v2, '0 / 1', 'sharkfin_v2 has no detections yet' - while the browser's run Select marks sharkfin_v2 aria-disabled with reason 'no detections yet'. Two controls disagree about whether that run is browsable.",
+     "screenshot": "webui/screenshots/critique/discovery/r2-function/30-fires-spans.png"
+    },
+    {
+     "lens": "function",
+     "severity": "P2",
+     "state": "default",
+     "title": "Changing the recording recomputes the found counts of the runs it just marked stale",
+     "detail": "Switching recording to M3_jul confirms 'clears 3 channels and marks 2 runs stale', then drop_motifs9 reads '176 found - 3 ch - done 11:02 - stale' (was 160) and seed_F03_native '77 found' (was 63). A stale run reports counts for a recording it never ran on.",
+     "screenshot": "webui/screenshots/critique/discovery/r2-function/11-recording-changed.png"
+    },
+    {
+     "lens": "function",
+     "severity": "P2",
+     "state": "default",
+     "title": "Browse detections has no keyboard stepping",
+     "detail": "With the Browse detections card focused, ArrowRight/ArrowLeft leave the pager at 12 / 72. The inventory lists this as optional and the builder's status note already flags it; recorded so the gap stays tracked.",
+     "screenshot": "webui/screenshots/critique/discovery/r2-function/34-browser-run-select.png"
+    },
+    {
+     "lens": "function",
+     "severity": "P2",
+     "state": "confirm-discard",
+     "title": "prev fixed: confirming Discard run no longer crashes the workspace",
+     "detail": "Verified: Discard run -> Discard run in the confirm modal now leaves discovery-runs-page mounted, marks run-row-drop_motifs9 data-status=superseded, drops it from where-each-run-fires (with an explicit 'not drawn: drop_motifs9 (superseded)' note) and from the scoreboard, toasts 'drop_motifs9 discarded - marked superseded, no verdicts written', disables all three run acts with that reason, and survives navigating away to Library and back. Zero console or page errors anywhere in this pass.",
+     "screenshot": "webui/screenshots/critique/discovery/r2-function/03-discarded.png"
+    }
+   ]
+  }
+ ]
+}

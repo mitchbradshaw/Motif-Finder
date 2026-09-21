@@ -1,0 +1,112 @@
+{
+ "lens": "fidelity",
+ "round": 1,
+ "status": "done",
+ "pages": [
+  {
+   "page": "library.import",
+   "score": 9,
+   "rationale": "Frame 5 is reproduced region for region: empty-state card with both option cards (second highlighted blue), groupings placeholder, import panel with dry-run chip, bundle Select + green PROVENANCE chip, 4 StatTiles, five checks in spec order with right-aligned mono details, 'What the import creates' + rows, 9-thumb sample with resample, footer checkbox + Cancel + Import. All seven derived states work (bundle-invalid flips checks to red/amber and disables Import with a real reason; held-out refuses M4_aug and withholds the sample; importing shows job l-0032 with step text and a ProgressBar + Cancel import; failed shows the red ErrorCard with the canon error and Retry; done shows the green panel + Open the library; check rows expand with the Settings > Datasets link). Clicking Import runs queued->running->done for real. Deductions: the panel chip stays 'dry run . nothing written yet' in the failed state, the 'then send N to Review as a queue' checkbox stays ticked and enabled when the import is refused, and the Sample caption carries extra copy not in the frame.",
+   "findings": [
+    {
+     "severity": "P2",
+     "title": "Failed panel still badged 'dry run . nothing written yet'",
+     "state": "failed",
+     "detail": "At ?state=failed the header chip reads 'dry run . nothing written yet' while the panel below shows 'Import l-0032 failed at \"write 410 + 16 entries\"'. The importing and done states correctly swap the chip to 'importing . job l-0032' / 'imported . job l-0032'; the failed state should get its own tone (e.g. red 'failed . job l-0032'), otherwise the two statements contradict each other.",
+     "screenshot": "webui/screenshots/critique/library-b/r1-fidelity/import.failed.png"
+    },
+    {
+     "severity": "P2",
+     "title": "Queue checkbox stays active on a refused bundle",
+     "state": "bundle-invalid / held-out-refused",
+     "detail": "With Import disabled ('provenance incomplete' / 'M4_aug is held out'), the footer checkbox 'then send 410 to Review as a queue' is still ticked, blue and clickable. The frame only draws it for a valid bundle; when nothing can be imported the queue promise is dead copy.",
+     "screenshot": "webui/screenshots/critique/library-b/r1-fidelity/import.bundle-invalid.png"
+    },
+    {
+     "severity": "P2",
+     "title": "Sample caption adds copy the frame does not have",
+     "state": "empty-dry-run",
+     "detail": "Shell reads 'Sample  9 of 410 . shared mV scale'; frame 5 reads 'Sample  9 of 410' only. The extra clause is accurate (D5) but is not in the Copy list.",
+     "screenshot": "webui/screenshots/critique/library-b/r1-fidelity/import.empty-dry-run.png"
+    }
+   ]
+  },
+  {
+   "page": "library.window-sets",
+   "score": 9,
+   "rationale": "Frame 6 is reproduced faithfully: filter card (safety Seg + three chip Popovers + sort Select), the 6-row table with every column the frame draws (name+saved, source, window.stride.gap, windows, stacked SplitBar with blocked/test only/no split, labelled MiniBar, used-by links, check Badge with the five badge tones), the legend + train-safe (i) line, the 'Why two sets are not train-safe' card with both canon lines and Re-split in Analyse, and the full detail rail (made by / recipe hash / windows, per-channel SplitPlan BandStrips with the blue-orange-green-blue blocking and the straddling caption, three-row ChecksList, ClassBars with the canon class colours and artifact excluded in red, used-by links, and the five actions with Delete disabled 'used by 2'). Every derived state in the manifest works and is correct: not-train-safe adds the red reason callout and disables Train in Models, fs-inferred adds the amber Settings > Datasets note, test-sample carries DisabledReason 'a test sample is never trained on', the coverage now/at save Seg really swaps the class counts (612/568/492/430 -> 590/551/470/401), filtered-empty and sets-empty both show honest EmptyStates, the import modal refuses M4_aug (D6), delete-confirm carries the canon copy. Navigation, used-by links, sort, row selection and the unlabelled-to-Review toast all behave. Deductions are density and copy only: the rail runs about a line-height looser than the frame so six of its lines wrap, two source cells wrap in the table, the fs-inferred check row is phrased as a negated positive, the import modal repeats its refusal twice and omits the other dry-run checks, and the recording Popover disables M4_aug without saying why.",
+   "findings": [
+    {
+     "severity": "P2",
+     "title": "Detail rail is looser than the frame; six lines wrap",
+     "state": "set-selected",
+     "detail": "In the shell rail 'made by  cnn_windows_v3 . sliding windows' wraps onto two lines, as do 'grey = gap >= 600 s . 18 straddling windows dropped', 'no test window within 600 s of training', 'artifact . excluded', and 'Models . candidate cnn_windows_v3 . manual'. Frame 6 fits every one of those on a single line in the same 316 px rail, which is what keeps the rail's stack readable as five distinct blocks. Tightening the label column / font size would recover it.",
+     "screenshot": "webui/screenshots/critique/library-b/r1-fidelity/ws.set-selected.png"
+    },
+    {
+     "severity": "P2",
+     "title": "Two source cells wrap inside the table",
+     "state": "set-selected",
+     "detail": "Row 4 source renders 'test block . / ws_M2aug_3ch' and row 5 'Review verdicts . 3 / rec' on two lines; the frame keeps both on one line at the same row height. The wrap makes those two rows taller than their neighbours and breaks the even 69 px row pitch the frame has.",
+     "screenshot": "webui/screenshots/critique/library-b/r1-fidelity/ws.set-selected.png"
+    },
+    {
+     "severity": "P2",
+     "title": "fs-inferred check row is a negated positive",
+     "state": "fs-inferred (?set=ws_LLM_5ch_600s)",
+     "detail": "The rail ChecksList third row is a red cross against the text 'sampling rate read from the file'. A failing cross on an affirmative sentence is read two ways; the rest of the app states the condition (the amber note just above correctly says 'L_LM_Jul26_J fs 10 Hz is inferred'), so this row should read 'sampling rate inferred, not read from the file'.",
+     "screenshot": "webui/screenshots/critique/library-b/r1-fidelity/ws.fs-inferred.png"
+    },
+    {
+     "severity": "P2",
+     "title": "Import modal repeats its refusal and drops the other dry-run checks",
+     "state": "import-modal-refused",
+     "detail": "With DATA/M4_aug/windows.json typed, the field message reads 'M4_aug is held out and locked - refused (D6)' and the check row immediately under it reads 'M4_aug is held out and locked' - the same sentence twice. The inventory's modal also lists the spacing, split and 'recordings exist' checks; none of them appear, so the dry-run list is a single row.",
+     "screenshot": "webui/screenshots/critique/library-b/r1-fidelity/ws.import-modal-refused.png"
+    },
+    {
+     "severity": "P2",
+     "title": "M4_aug disabled in the recording Popover with no reason",
+     "state": "recording-popover",
+     "detail": "The Recording Popover greys M4_aug out but gives no 'held out' label beside it, unlike every other held-out affordance in the app (header chip, import panel, import modal) which names the reason. A viewer sees a disabled row with no explanation.",
+     "screenshot": "webui/screenshots/critique/library-b/r1-fidelity/ws.recording-popover.png"
+    }
+   ]
+  },
+  {
+   "page": "library.templates",
+   "score": 8,
+   "rationale": "Frame 7 is reproduced well: filter card (kind Seg + 'contains a Model stage' toggle + sort Select), seven template cards each with mono name + version chip + badges (seed . carry / seed . rebind purple, model cnn_cluster_v1 blue, training / interrogation grey), signature line, stage glyph strip, right-hand latest score with scope and run id, far-right runs count; the footer with '1-7 of 14 . also ...' and a next link that is properly disabled with reason 'last page' when a filter leaves one page; and the detail rail with recipe + null line, stages with locked params, the three versions with diff links, the scores table (run / scope / prec / recall / x null with the em-dash recall row and its caption) and the five actions. Every manifest state works: kind and model filters, page 2 with the correct seven names and a prev link, filtered-empty EmptyState, the diff modal with red/green parameter rows, the export modal with real JSON plus Copy, the import modal with a validation message, the archive confirm with canon copy, unscored showing 'not yet scored . 0 runs . nothing claims a score before a run', and training relabelling the score column to 'job' and disabling Apply in Discovery. Duplicate, Apply in Discovery, Open in Analyse (including the interrogation route) and the run-id links all navigate. Two real deductions: the training state drops 'Open in Analyse' instead of adding 'Launch in Models' beside it, and the scores table overflows the rail card in that state so the x null column is cut off. Two smaller ones: the scores table sits flush to the rail's right edge even in the default state, and the card glyph tiles are smaller than the frame's.",
+   "findings": [
+    {
+     "severity": "P1",
+     "title": "'Open in Analyse' disappears on a training template",
+     "state": "training-selected (?template=cnn_windows_v3)",
+     "detail": "The rail action list for cnn_windows_v3 is 'Apply in Discovery' (disabled, correct) then 'Launch in Models', then Duplicate / Export JSON / Archive. 'Open in Analyse ->' is gone. The inventory's control table gives every template an 'Open in Analyse ->' button (-> #/analyse/chain?template=<name>) and describes Launch in Models as an EXTRA for training kinds, not a replacement. As built there is no route from a training template to the chain that produced it, and the button count changes under the user between rows.",
+     "screenshot": "webui/screenshots/critique/library-b/r1-fidelity/tpl.training-selected.png"
+    },
+    {
+     "severity": "P1",
+     "title": "Scores table overflows the rail card; the 'x null' column is cut off",
+     "state": "training-selected (?template=cnn_windows_v3)",
+     "detail": "With the scope string 'test block . 432 windows' the scores table measures 343.6 px wide with its right edge at x=1462.6 while the rail card ends at x=1420, so the header truncates to 'prec recall x n' and the x null value for j-0212 is clipped away entirely. Frame 7 shows a full 'x null' column with a value on every row. The same table is already flush to the card padding in the default mp_drops_v3 state, so any longer scope string pushes a number off the page.",
+     "screenshot": "webui/screenshots/critique/library-b/r1-fidelity/tpl.training-rail-zoom.png"
+    },
+    {
+     "severity": "P2",
+     "title": "Scores table has no right gutter in the default state",
+     "state": "template-selected",
+     "detail": "For mp_drops_v3 the 'x null' header and its values (6.1 / 4.8 / 2.2 / 7.9) sit hard against the rail card's right padding, whereas frame 7 leaves a clear gutter between the last number and the card edge. It reads as an accident rather than a right-aligned column.",
+     "screenshot": "webui/screenshots/critique/library-b/r1-fidelity/tpl.rail-zoom.png"
+    },
+    {
+     "severity": "P2",
+     "title": "Card stage-glyph tiles are smaller than the frame's",
+     "state": "template-selected",
+     "detail": "The glyph strip tiles on each template card render at roughly 34x22 with faint strokes; the inventory specifies 42x26 and frame 7's tiles are visibly larger, with the second tile of each strip a wide rounded plot. At the built size the block shapes (bandpass curve vs matrix profile vs threshold) are hard to tell apart at a glance, which is the whole job of the strip.",
+     "screenshot": "webui/screenshots/critique/library-b/r1-fidelity/tpl.cards-zoom.png"
+    }
+   ]
+  }
+ ]
+}

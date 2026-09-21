@@ -1,0 +1,133 @@
+{
+ "lens": "function",
+ "round": 2,
+ "status": "done",
+ "pages": [
+  {
+   "page": "settings.export",
+   "score": 9,
+   "rationale": "Every region of frame 12 is present and live: the always-included row, motifs/families formats+include+layout, window sets, templates, models (model card locked with its reason), run reports (report profile and printed parameters locked, pointing at Display), and the reproducibility bundle. Both round-1 P1s are fixed: every edit now produces its own P23 consequence in the save bar and in the Saved toast, and the include row diffs the list. Save, Discard, Reset-page (popover closes on Escape and on an outside click, stages the defaults as unsaved edits), the leave guard, and the ?state=unsaved deep link all behave; a saved edit survives navigating to About and back. No console errors, no dead clicks in a 35-button sweep. Deducted 1 for 'set in Display · personal' being plain text rather than a link to the page it names.",
+   "findings": [
+    {
+     "severity": "P1",
+     "title": "prev fixed: include-row consequence is a constant",
+     "state": "include-notes",
+     "detail": "Notes on now reads 'family exports now carry notes · exports already written are unchanged'; turning the omitted list off as well reads 'family exports now carry notes and stop carrying omitted list'. The sentence tracks the actual list diff.",
+     "screenshot": "webui/screenshots/critique/settings-b/r2-function/export-02-include-notes.png"
+    },
+    {
+     "severity": "P1",
+     "title": "prev fixed: other export edits produced raw list-diff consequences",
+     "state": "any other edit",
+     "detail": "atlas SVG gives 'every family export also writes atlas SVG · one file per format'; layout gives 'one file per family · a single family travels on its own, families no longer compare in one sheet'; null draws, parquet, ONNX and carry-exemplars each have their own sentence. No 'applies to new runs' remains anywhere on the page.",
+     "screenshot": "webui/screenshots/critique/settings-b/r2-function/export-04-layout.png"
+    },
+    {
+     "severity": "P1",
+     "title": "prev fixed: Saved toast misdescribed the change",
+     "state": "saved",
+     "detail": "Saving the atlas-SVG edit toasts 'Saved · every family export also writes atlas SVG · one file per format'; toast and bar carry the same derived sentence, and the chip stays selected after a nav round trip.",
+     "screenshot": "webui/screenshots/critique/settings-b/r2-function/export-06-saved.png"
+    },
+    {
+     "severity": "P2",
+     "title": "'set in Display · personal' is text, not a link",
+     "state": "default",
+     "detail": "The run-reports card names the report profile's owner page but the words are a muted span; a link sweep of the page returns []. The equivalent pattern on Keyboard ('set in Vocabulary') is a button that navigates.",
+     "screenshot": "webui/screenshots/critique/settings-b/r2-function/export-09-locked.png"
+    }
+   ]
+  },
+  {
+   "page": "settings.display",
+   "score": 9,
+   "rationale": "All five cards of frame 15 are present and the round-1 P1s are genuinely fixed: density compact writes html[data-density] and the nav row measurably shrinks 30 to 24 px; the report preview binds line width (path stroke-width follows the slider), grid opacity (the .k-plot::after overlay visibly darkens at 0.90), the chosen font (tick text switches to Times New Roman) and transparent (ground rect fill goes to rgba(0,0,0,0), a chequer shows through); the units card no longer overclaims and carries a live readout that follows time axis, amplitude and sample indices. Number fields validate all four bad cases with a worded message ('a value is required', 'must be >= 72', 'not a number', 'must be <= 1200'; members 'must be <= 10'). Personal edits apply immediately with no save bar, survive navigation, and reset-page reports '2 values differ'. No console errors, no dead clicks. Deducted 1 because the figure preview beside the units card still reads mV and hours whatever the units say, and dark theme still does nothing.",
+   "findings": [
+    {
+     "severity": "P1",
+     "title": "prev fixed: density 'compact' changed nothing",
+     "state": "applied-immediately",
+     "detail": "html now carries data-density=compact and the computed height of .k-nav-item goes 30px to 24px on click and back on comfortable; no save bar appears and the toast reads 'Applied to this browser'.",
+     "screenshot": "webui/screenshots/critique/settings-b/r2-function/display-02-density-compact.png"
+    },
+    {
+     "severity": "P1",
+     "title": "prev fixed: report preview ignored line width, grid and font",
+     "state": "report profile edits",
+     "detail": "Slider 3.0 pt sets the trace path stroke-width to 3; grid opacity 0.90 raises the grid overlay's computed opacity from 0.15 to 0.9 and the grid is visibly darker; font Times New Roman changes the SVG tick-text font-family; background transparent clears the ground rect and paints a chequer.",
+     "screenshot": "webui/screenshots/critique/settings-b/r2-function/display-08-preview-grid09.png"
+    },
+    {
+     "severity": "P1",
+     "title": "prev fixed: units selections had no effect",
+     "state": "sample-indices-on",
+     "detail": "The readout example follows every unit control: clock time gives '27 Jul 16:07:30', both gives both, uV gives '-82 uV', sample indices adds 'sample 112,050'. The prefs are published to the demo store (__demoStore.keys() includes 'settings.display').",
+     "screenshot": "webui/screenshots/critique/settings-b/r2-function/display-03-units.png"
+    },
+    {
+     "severity": "P2",
+     "title": "Figure preview still reads mV and hours whatever the units card says",
+     "state": "sample-indices-on",
+     "detail": "With amplitude uV and time axis clock time, the readout example reads '27 Jul 16:07:30 · -82 uV' while the preview lower on the same page still labels its y axis 'mV' and its x axis '0.0000 h ... 0.1111 h'. Two readouts on one page disagree; the card's copy no longer claims otherwise, so it is minor.",
+     "screenshot": "webui/screenshots/critique/settings-b/r2-function/display-03-units.png"
+    },
+    {
+     "severity": "P2",
+     "title": "Theme 'dark' is inert",
+     "state": "default",
+     "detail": "Clicking dark leaves html with no data-theme attribute and nothing changes. The caption discloses it ('dark is not drawn yet - light and system look the same today'), so it is honest rather than misleading.",
+     "screenshot": "webui/screenshots/critique/settings-b/r2-function/display-01-default.png"
+    }
+   ]
+  },
+  {
+   "page": "settings.keyboard",
+   "score": 7,
+   "rationale": "All three round-1 P1s are fixed and verified: the capture cell takes focus (activeElement is the capture span, so the first key press rebinds), a conflict whose owner is locked disables 'Move S here' with its reason and offers Open Vocabulary which navigates to #/settings/vocabulary, and the leave guard follows the 'confirm before leaving unsaved settings' toggle. Escape and an outside click cancel capture, rebinds persist across navigation, reset-page restores with a count, the ?state=conflict deep link survives reload, Ctrl K opens search and Escape closes it. Deducted for two conflict-check holes found this round - a rebind onto a class key 1-9 is accepted with a green 'no conflicts' badge, and Ctrl K pressed during capture both binds a bare K and fires the global search shortcut - plus a locked toggle with no worded reason.",
+   "findings": [
+    {
+     "severity": "P1",
+     "title": "Rebinding onto a class key (1-9) is accepted with 'no conflicts'",
+     "state": "capture",
+     "detail": "Click the Space cell of 'skip without writing' and press 3: the cell becomes '3', no conflict row appears and the badge stays green 'no conflicts', while the row above still shows classes bound to 1 - 9 (locked, 'set in Vocabulary'). Pressing S correctly raises the locked-owner conflict, so letters are checked and digits are not - the spec's rekey rule forbids collision with a class key 1-9 exactly as with a verdict key.",
+     "screenshot": "webui/screenshots/critique/settings-b/r2-function/keyboard-14-class-key-collision.png"
+    },
+    {
+     "severity": "P1",
+     "title": "Ctrl K during capture binds bare 'K' and opens the search panel at once",
+     "state": "capture",
+     "detail": "With the skip cell capturing, Ctrl K sets skip = K (the modifier is silently dropped) AND the global Ctrl K handler fires, so the settings search panel opens over the page. One press does two things and the badge still reads 'no conflicts' although the researcher was aiming at the existing 'search Ctrl K' binding.",
+     "screenshot": "webui/screenshots/critique/settings-b/r2-function/keyboard-15-ctrlk-during-capture.png"
+    },
+    {
+     "severity": "P1",
+     "title": "prev fixed: key capture did not take focus",
+     "state": "capture",
+     "detail": "Clicking 'Space' on 'skip without writing' now leaves document.activeElement on the capture span (SPAN|capture-skip) and the very next key press rebinds - q gives 'Q' with the capture cell gone.",
+     "screenshot": "webui/screenshots/critique/settings-b/r2-function/keyboard-02-capture.png"
+    },
+    {
+     "severity": "P1",
+     "title": "prev fixed: moving a key off a locked verdict bound it twice",
+     "state": "conflict-locked-owner",
+     "detail": "Rebinding 'mark viewport reviewed' to S now shows 'verdicts S I N A U is set in Vocabulary - change it there, then rebind here.', 'Move S here' is disabled with that reason as its title, Open Vocabulary navigates to #/settings/vocabulary, and the badge stays red '1 conflict'.",
+     "screenshot": "webui/screenshots/critique/settings-b/r2-function/keyboard-06-locked-owner.png"
+    },
+    {
+     "severity": "P1",
+     "title": "prev fixed: 'confirm before leaving unsaved settings' toggle had no effect",
+     "state": "behaviour-off",
+     "detail": "With the toggle off, editing Export and clicking About leaves immediately (hash #/settings/about, no leave-guard node) and raises '1 unsaved change left on Export · nothing was written'; turning it back on restores the guard.",
+     "screenshot": "webui/screenshots/critique/settings-b/r2-function/keyboard-08-guard-off.png"
+    },
+    {
+     "severity": "P2",
+     "title": "Locked 'undo reverses a whole batch' toggle has no visible worded reason",
+     "state": "default",
+     "detail": "The row's whole text is 'undo reverses a whole batch'. The toggle is a locked span with a lock glyph and aria-label 'on · enforced' but no title and no caption, while the neighbouring locked row ('after a batch verdict') carries its reason in words.",
+     "screenshot": "webui/screenshots/critique/settings-b/r2-function/keyboard-12-locked-undo.png"
+    }
+   ]
+  }
+ ]
+}

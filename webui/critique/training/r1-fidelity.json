@@ -1,0 +1,224 @@
+{
+ "lens": "fidelity",
+ "round": 1,
+ "status": "done",
+ "pages": [
+  {
+   "page": "analyse.training",
+   "score": 8,
+   "rationale": "Every row, popover, modal, footer fact and both frames' shapes are present and the chain reads almost exactly like frame 0; P15 (no greyed sliding-windows row, stages renumbered, amber B7 callout) is implemented properly. Deductions: the failed state flags the wrong row, the 0b frame's page-specific header, hand-off copy and out-of-scope chip were not carried over, a row badge contradicts its own caption in 0b, the 01 row's split bands lose the frame's inline labels and tick strip, and two small copy/badge slips.",
+   "findings": [
+    {
+     "severity": "P1",
+     "state": "failed",
+     "title": "failed badge lands on 03 Cluster, not 04 Encode",
+     "detail": "The banner reads 'the run stopped at 04 Encode' and the toolbar 'run failed at 04 Encode', but the red `failed` badge sits on the 03 Cluster row while 04 Encode is badged `stale`. The block contract's failed state is an error in place on the stage that failed.",
+     "screenshot": "C:/Users/mmebr/Documents/CNN/webui/screenshots/critique/training/r1-fidelity/chain--failed.png"
+    },
+    {
+     "severity": "P1",
+     "state": "illustrative-human-windows",
+     "title": "0b keeps the default header, toolbar and hand-off card",
+     "detail": "Frame 0b changes the header to 'illustrative | windows from the human-labelled set | not built yet', drops History and Import from the toolbar, replaces the 04 Model hand-off copy with 'Every window already has a manual label - no review backlog' and shows only Train in Models (no Trial job button), and puts an amber 'illustrative | out of scope' chip in the footer. The app shows the default header, both secondary buttons, the default hand-off copy with the Trial job button, and no footer chip.",
+     "screenshot": "C:/Users/mmebr/Documents/CNN/webui/screenshots/critique/training/r1-fidelity/chain--0b-bottom.png"
+    },
+    {
+     "severity": "P1",
+     "state": "illustrative-human-windows",
+     "title": "Encode row badged cached while its own caption says stale",
+     "detail": "In 0b the 03 Encode row shows badge `cached` beside the summary 'stale - cluster k changed'. Frame 0b badges it `stale`, as the default state correctly does. The badge tells the researcher the stage is up to date when the caption on the same line says it is not.",
+     "screenshot": "C:/Users/mmebr/Documents/CNN/webui/screenshots/critique/training/r1-fidelity/chain--illustrative-human-windows.png"
+    },
+    {
+     "severity": "P2",
+     "state": "default",
+     "title": "01 row split bands have no labels, gap markers or window ticks",
+     "detail": "Frame 0 writes train / val / train / test inside the four bands, draws orange gap slivers between them and a grey window tick strip underneath. The app draws four plain unlabelled bands over an hour axis, with no tick strip and no gap markers.",
+     "screenshot": "C:/Users/mmebr/Documents/CNN/webui/screenshots/critique/training/r1-fidelity/chain--default.png"
+    },
+    {
+     "severity": "P2",
+     "state": "default",
+     "title": "05 Model row repeats its caption outside the card",
+     "detail": "'trial here on CH4 only | labels from 03 cluster | split from 01' is printed inside the blue hand-off card and again as a muted line directly under it. The frame prints it once, inside the card.",
+     "screenshot": "C:/Users/mmebr/Documents/CNN/webui/screenshots/critique/training/r1-fidelity/chain--default-bottom.png"
+    },
+    {
+     "severity": "P2",
+     "state": "default",
+     "title": "02 row badge is 'on cluster' where the frame shows 'on cluster / cached'",
+     "detail": "The frame's 02 Window matrix row carries a two-part status; the app's single-status Badge drops the cached half. On the same row the type signature and the '4 of 5 groups | CNN scores off' line each wrap onto two lines, where the frame keeps both on one.",
+     "screenshot": "C:/Users/mmebr/Documents/CNN/webui/screenshots/critique/training/r1-fidelity/chain--default.png"
+    }
+   ]
+  },
+  {
+   "page": "analyse.training.windows",
+   "score": 7,
+   "rationale": "All eight regions exist and the P12/P13/P18 guards work: the gap NumberField is validated against the window length with a blocked Apply, random split is selectable but marked as leaking with a route back to blocked-by-time, Send 412 unseen windows to Review carries the 20,000 cap, and Save window set is offered. But the two plots frame 01 leads with are visibly off - the split strip loses its labels, gaps and ticks and the boundary close-up does not read - the Checks card does not react to an invalid gap or a random split, and the ?state=edited deep link does not reach the frame's pending state.",
+   "findings": [
+    {
+     "severity": "P1",
+     "state": "default",
+     "title": "Split strip missing labels, gap markers and window ticks while the legend claims them",
+     "detail": "Frame 01 puts 'train | 185 windows', 'val | 76 windows', 'train | 163 windows', 'test | 100 windows' inside the bands, red bars for the windows dropped at each gap, and a grey window tick strip between the bands and the signal. The app draws four plain bands; the legend under them still lists 'gap' and 'windows dropped at gaps (19)' with nothing on the plot to point at.",
+     "screenshot": "C:/Users/mmebr/Documents/CNN/webui/screenshots/critique/training/r1-fidelity/w--default.png"
+    },
+    {
+     "severity": "P1",
+     "state": "boundary",
+     "title": "'At a boundary' close-up is drawn wrong",
+     "detail": "Frame 01 draws horizontal window bars marching left to right across a pale amber 'gap 10 min' band - blue on the train side, red for the dropped windows, then the val side - so the 50 % overlap is visible. The app draws a diagonal staircase of short bars descending to the left, a hatched grey gap band, one stray purple bar at the far right, and the caption '10 min window | 5 min stride -> neighbours share half their samples' wraps over the plot area.",
+     "screenshot": "C:/Users/mmebr/Documents/CNN/webui/screenshots/critique/training/r1-fidelity/w--default.png"
+    },
+    {
+     "severity": "P1",
+     "state": "invalid-gap",
+     "title": "Checks card keeps green ticks that the current settings falsify",
+     "detail": "With the gap set to 2 the field turns red with 'at least the 10 min window length', but the Checks card still shows a green tick reading 'gap 10 min >= window 10 min'. The same card keeps a green 'no window crosses a split boundary' in the random-split state, on a split the page has just labelled as leaking (P12).",
+     "screenshot": "C:/Users/mmebr/Documents/CNN/webui/screenshots/critique/training/r1-fidelity/w--invalid-gap.png"
+    },
+    {
+     "severity": "P1",
+     "state": "edited",
+     "title": "?state=edited does not produce the frame's pending change",
+     "detail": "The smoke manifest and the status page list edited as the frame's own state (gap 5 -> 10 min pending, '1 unapplied change ... drops 12 windows | 01 -> 05 go stale', amber estimate). The deep link leaves the bar reading 'No unapplied changes | 04 and 05 are stale from an earlier edit' with the primary as 'Re-run from 04'. Editing the gap by hand does produce the frame's exact copy, so only the deep link is inert; block/2, block/3 and block/4 honour their equivalents.",
+     "screenshot": "C:/Users/mmebr/Documents/CNN/webui/screenshots/critique/training/r1-fidelity/w--edited-bottom.png"
+    },
+    {
+     "severity": "P2",
+     "state": "default",
+     "title": "Page is taller than the frame, so the unapplied bar is below the fold",
+     "detail": "Frame 01 fits the split card, boundary, verdicts, parameters, checks and the unapplied-changes bar inside 1440x900. The app needs roughly 180 px more, so the Window set card and the footer bar are never on screen at the stated viewport.",
+     "screenshot": "C:/Users/mmebr/Documents/CNN/webui/screenshots/critique/training/r1-fidelity/w--edited-bottom.png"
+    },
+    {
+     "severity": "P2",
+     "state": "default",
+     "title": "Two different time axes stacked, and ribbon chip titles truncated",
+     "detail": "The split bands carry 0/6/11/17/22/28/33/39/44 h while the signal directly beneath carries 0/14/28/42 h; frame 01 uses one shared 0/9/18/27/36/45 h axis for both. Ribbon chips read '01 Sliding win...' and '02 Window m...' where the frame shows the full titles.",
+     "screenshot": "C:/Users/mmebr/Documents/CNN/webui/screenshots/critique/training/r1-fidelity/w--default.png"
+    }
+   ]
+  },
+  {
+   "page": "analyse.training.matrix",
+   "score": 8,
+   "rationale": "The closest page to its frame: collapsible feature groups with Catch22 as one line until opened, the aligned signal, the window readout with Open in Encode, and the compute card with cached recipe, local-ceiling note, Create SLURM script and Upload matrix. P12 holds - Random Forest and CNN scores are off by default and ticking one raises the red leakage callout with an 'Exclude them again' route. Deductions are a coarser heatmap than the frame draws, a caption that goes stale when CNN scores are ticked on, and a signal axis that does not line up with the matrix.",
+   "findings": [
+    {
+     "severity": "P2",
+     "state": "label-derived-on",
+     "title": "'CNN rows greyed = excluded from 03' stays under coloured CNN rows",
+     "detail": "Ticking CNN scores colours the CNN rows and the readout updates to '3 of 4 included groups deviate', but the legend line under the heatmap still reads 'CNN rows greyed = excluded from 03'. It should follow the inclusion state.",
+     "screenshot": "C:/Users/mmebr/Documents/CNN/webui/screenshots/critique/training/r1-fidelity/m--label-derived-on.png"
+    },
+    {
+     "severity": "P2",
+     "state": "default",
+     "title": "Heatmap is much coarser than the frame's",
+     "detail": "Frame 1 draws a dense stripe-per-window matrix with no white between rows, so the 28 h deviation band reads as one continuous column through every group. The app draws about forty chunky squares per row with white gutters between rows and groups, and marks the selected window with a pale grey column rather than the frame's black bracket carried down into the signal.",
+     "screenshot": "C:/Users/mmebr/Documents/CNN/webui/screenshots/critique/training/r1-fidelity/m--default.png"
+    },
+    {
+     "severity": "P2",
+     "state": "default",
+     "title": "Signal axis does not match the matrix above it",
+     "detail": "Frame 1 labels the aligned signal 0/9/18/27/36/45 h to match the matrix columns. The app labels it 0/14/28/42 h while the matrix carries no axis at all, weakening the page subtitle's promise of 'one time axis with the signal'.",
+     "screenshot": "C:/Users/mmebr/Documents/CNN/webui/screenshots/critique/training/r1-fidelity/m--default.png"
+    }
+   ]
+  },
+  {
+   "page": "analyse.training.cluster",
+   "score": 8,
+   "rationale": "Both frames are there: dendrogram with a cutline handle, criterion / linkage / distance controls, k / silhouette / cophenetic tiles and the B4 warning, six class cards with 'too small to train' flags, occupancy, windows-per-class with Merge C5 + C6, and Save grouping with the section 8.2 scope control. The choose-k view reproduces the k-sweep, criterion RadioCards, contingency table and stability bars almost line for line. Deductions: the cut does not visibly produce the six classes, the class-card waveforms are indistinguishable, the k-sweep's current-k band is missing, and the bottom of the page falls outside the viewport.",
+   "findings": [
+    {
+     "severity": "P1",
+     "state": "default",
+     "title": "Cutline sits above the tree instead of cutting it into six",
+     "detail": "Frame 2 draws the cut at 10.1 slicing six coloured subtrees apart, with grey merges above the line. In the app the coloured subtrees top out near linkage distance 8 and the line at 10.1 runs across mostly empty space, so 'cut 10.1 -> 6 classes' is asserted in text but not shown by the picture, which is what the draggable-cutline requirement in section 6.7 exists for.",
+     "screenshot": "C:/Users/mmebr/Documents/CNN/webui/screenshots/critique/training/r1-fidelity/c--default.png"
+    },
+    {
+     "severity": "P2",
+     "state": "default",
+     "title": "All six class cards draw the same waveform",
+     "detail": "Frame 2 gives each class a visibly different medoid shape (flat, step, notch, drop). In the app C1-C6 all draw the same single-drop trace in the class colour, so 'What each class looks like' shows nothing distinguishing and the whole message rests on the distinguishing-feature chips.",
+     "screenshot": "C:/Users/mmebr/Documents/CNN/webui/screenshots/critique/training/r1-fidelity/c--default.png"
+    },
+    {
+     "severity": "P2",
+     "state": "default",
+     "title": "Windows-per-class bars are blue, not class colours, and fall below the fold",
+     "detail": "Frame 2 draws six compact bars in the class colours with the count above each, level with the occupancy card. The app draws a taller axis-based chart with uniform blue bars, breaking the class-colour identity the dendrogram, class cards, occupancy strip and stability bars all use, and pushing the unapplied bar past the 900 px viewport.",
+     "screenshot": "C:/Users/mmebr/Documents/CNN/webui/screenshots/critique/training/r1-fidelity/c--default.png"
+    },
+    {
+     "severity": "P2",
+     "state": "choose-k",
+     "title": "k-sweep has no shaded 'current k 6' band",
+     "detail": "Frame 2b shades a pale blue vertical band at k 6 across the chart, with a matching legend swatch and the k 6 tick picked out in blue. The app prints 'current k 6' as plain text above the plot and an uncoloured 'current k 6' legend entry; nothing marks the column. The y axis also runs 0.15-0.30 where the frame runs 0.0-0.4.",
+     "screenshot": "C:/Users/mmebr/Documents/CNN/webui/screenshots/critique/training/r1-fidelity/c--choose-k.png"
+    }
+   ]
+  },
+  {
+   "page": "analyse.training.encode",
+   "score": 8,
+   "rationale": "Every region of frame 3 is present and working: window pager with the class / split / hour / verdict chip, four encodings with include checkboxes and -1/+1 colour bars, the full parameter set with the existing-encoders note and the images / disk / time tiles, and browse-by-class with per-split counts, the 'under 20 per split' flags, the encoding Seg and Resample. The page also correctly moves the frame's dark signal panel onto the light ground section 3 requires. Deductions: the example window's class contradicts the frame, the four encodings are not visually distinct, the size control does not re-cost, and the toolbar wraps in one state.",
+   "findings": [
+    {
+     "severity": "P2",
+     "state": "default",
+     "title": "Window 118 is labelled C5, not the frame's C2",
+     "detail": "Frame 3 reads 'window 118 / 543 | C2 | train block | 19.8 h | no verdict'. The app reads C5 for the same window, and C5 is one of the two classes the same page flags as too small to train on, which changes what the worked example is showing.",
+     "screenshot": "C:/Users/mmebr/Documents/CNN/webui/screenshots/critique/training/r1-fidelity/e--default.png"
+    },
+    {
+     "severity": "P2",
+     "state": "default",
+     "title": "The four encodings and the browse thumbnails look alike",
+     "detail": "Frame 3 gives GASF a bright diagonal diamond, GADF its inverse, Recurrence a hard X lattice and Fusion RGB a soft grid, each recognisable at thumbnail size. In the app GASF and Recurrence are both red-dominant checkerboards and the eighteen browse thumbnails are near-uniform red blocks, so 'browse what the classifier will see' does not discriminate between classes or encodings.",
+     "screenshot": "C:/Users/mmebr/Documents/CNN/webui/screenshots/critique/training/r1-fidelity/e--default.png"
+    },
+    {
+     "severity": "P2",
+     "state": "new-encoder-version",
+     "title": "Image size 256 leaves the disk and time estimates unchanged, and the toolbar wraps",
+     "detail": "Switching to encoder set new / v3 at 256 x 256 raises the correct amber 'registers as a NEW encoder version' note, but images / disk / time stay 1,629 / 0.6 GB / about 6 min, where section 6.8 requires the disk estimate to follow images x px x channels. The toolbar also wraps onto two rows in this state, pushing 'Apply & re-run from 04' under the name chip.",
+     "screenshot": "C:/Users/mmebr/Documents/CNN/webui/screenshots/critique/training/r1-fidelity/e--new-encoder-version.png"
+    },
+    {
+     "severity": "P2",
+     "state": "default",
+     "title": "Toolbar estimate drops the disk figure",
+     "detail": "Frame 3 reads 'about 6 min | 1,629 images | 0.6 GB'. The app reads 'about 6 min | 1,629 images'; the 0.6 GB appears only in the parameters tile lower down.",
+     "screenshot": "C:/Users/mmebr/Documents/CNN/webui/screenshots/critique/training/r1-fidelity/e--default.png"
+    }
+   ]
+  },
+  {
+   "page": "analyse.training.model",
+   "score": 9,
+   "rationale": "Essentially the frame: stage table with per-stage ticks, statuses, costs and hosts; the three label-source RadioCards; all eight training controls plus the M4_aug held-out lock line (P19, D6); the six-item pre-training checklist with Merge C5 + C6 in 03 and Send 412 to Review; the trial script with Copy and Download and the 'results return via Jobs > Manifest inbox' line; and the Models hand-off. Behaviour holds too - unticking 04 disables 05 with 'no images | tick 04 Encode first' and rewrites the script's --from-stage, 'both, paired' explains that the comparison runs in Models (P11), Download trial job writes a job chip with an Open in Jobs toast, and Train in Models navigates to #/models/launch?template=cnn_windows_v3. Only two small canon and visual slips.",
+   "findings": [
+    {
+     "severity": "P2",
+     "state": "trial-job-created",
+     "title": "Trial job id j-530 breaks the canon j-NNNN form",
+     "detail": "Download trial job creates 'trial job j-530 queued'. Canon section 0 uses four-digit cluster job ids (j-0212, j-0214, j-0217, j-0209), so j-530 reads as a different id space from every other job the app shows.",
+     "screenshot": "C:/Users/mmebr/Documents/CNN/webui/screenshots/critique/training/r1-fidelity/mo--trial-job-created.png"
+    },
+    {
+     "severity": "P2",
+     "state": "default",
+     "title": "Changed-from-recommended and skipped-stage markers are not drawn",
+     "detail": "Frame 4 tints the 'class balance' dropdown blue to mark it as moved off the recommended value, and gives the 03 Cluster row a dashed indeterminate checkbox to mark it as skipped but cached. Both render as ordinary plain controls in the app, so the frame's two visual cues are lost.",
+     "screenshot": "C:/Users/mmebr/Documents/CNN/webui/screenshots/critique/training/r1-fidelity/mo--default.png"
+    }
+   ]
+  }
+ ]
+}

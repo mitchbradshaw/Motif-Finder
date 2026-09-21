@@ -1,0 +1,133 @@
+{
+ "lens": "function",
+ "round": 2,
+ "status": "done",
+ "pages": [
+  {
+   "page": "analyse.interrogation.slope",
+   "score": 9,
+   "rationale": "Every region and control in the frames is present and live. All three round-1 P1s are fixed: units now recompute the axis, readout, per-event table and rose reference together with a coherent note; every parameter control is disabled with 'wait for the run' while the veil is up; 'Re-run from 01' now drives a real queued-running-done sim and clears stale. Marks, the four rules, strip paging, jump-to-flagged, rose colour-by and point selection, table paging, CSV toast, overlay/rose segment, resample and sample size all do something visible; deep links reload; dropdowns close on Escape and outside click; InfoTips open; no console errors. Deductions: the mark legend does not react to marks=none, the stale preview quotes the same numbers for every steepest-window value, and no toast accompanies a run start.",
+   "findings": [
+    {
+     "severity": "P1",
+     "title": "prev fixed: 'units' recomputes the whole page",
+     "state": "units-mv-s",
+     "detail": "?units=mv-s now moves the anatomy x ticks to -1 s ... +2 s, the readout to 'duration 1.00 s / max slope -0.725 mV/s', every table duration and slope column, and the rose caption to '-45 deg = -1 mV/s'; units-note reads '1 plotted s = 10 s of recording (the frame convention) ... the angle is the same under either convention'. Self-consistent.",
+     "screenshot": "webui/screenshots/critique/interrogation/r2-function/slope-units-mvs.png"
+    },
+    {
+     "severity": "P1",
+     "title": "prev fixed: parameters lock while the run veil is up",
+     "state": "running (?state=running)",
+     "detail": "With the veil at '01 Resolve spans - 50 %' and the primary switched to Cancel, units, marks, rule-onset, rule-trough, rule-window and rule-sigma all report disabled=true with the reason 'wait for the run'; focusing the slider and pressing ArrowRight leaves it at 3, and the units button refuses the click.",
+     "screenshot": "webui/screenshots/critique/interrogation/r2-function/slope-running.png"
+    },
+    {
+     "severity": "P1",
+     "title": "prev fixed: 'Re-run from 01' really runs",
+     "state": "stale-after-edit",
+     "detail": "From ?state=stale the primary reads 'Re-run from 01'; clicking it swaps to Cancel and the veil steps 'Library family - 20 %' -> '02 Aggregate - 96 %' -> gone, after which the primary reads 'Run chain' and both stale badges are cleared.",
+     "screenshot": "webui/screenshots/critique/interrogation/r2-function/slope-stale-rerun-done.png"
+    },
+    {
+     "severity": "P2",
+     "title": "Mark legend still lists five marks when marks = none",
+     "state": "default (marks=none)",
+     "detail": "Choosing marks 'none' drops the marks from the anatomy plot (paths 4 -> 1, labels 16 -> 13) but the mark-legend underneath still reads 'onset / steepest / trough / depth / chord' - a key to marks that are not drawn. It is identical for minimal, all and none.",
+     "screenshot": "webui/screenshots/critique/interrogation/r2-function/slope-marks-none.png"
+    },
+    {
+     "severity": "P2",
+     "title": "Stale preview quotes the same numbers for every window value",
+     "state": "stale-after-edit",
+     "detail": "Moving the steepest-window slider to 5, 7, 1 or 9 always produces 'preview on cached spans: mean angle -28 deg -> -25 deg - 3 of 16 events shift > 10 % - depth unchanged'. The preview is a quantified claim about this particular edit, so a window of 1 and a window of 9 reading the same is misleading. Discard correctly restores 3.",
+     "screenshot": "webui/screenshots/critique/interrogation/r2-function/slope-slider-5.png"
+    },
+    {
+     "severity": "P2",
+     "title": "A run start raises no toast",
+     "state": "default",
+     "detail": "Clicking 'Run chain' (and 'Re-run from 01') runs the sim veil but [data-testid=toasts] stays empty throughout and at completion, so a user whose eyes are on the table gets no done signal. The status note for this page claims 'every run start ... raises a toast'.",
+     "screenshot": "webui/screenshots/critique/interrogation/r2-function/slope-stale-rerun-300ms.png"
+    }
+   ]
+  },
+  {
+   "page": "analyse.interrogation.aggregate",
+   "score": 8,
+   "rationale": "All five round-1 P1s are fixed and the page now behaves as a working frontend: every one of the six Parameters dropdowns recomputes something visible (binning changes bin counts and y scales, the interval definition moves the median and the caption, outliers really drop points and refit beta 1.42 -> 1.81 R2 0.62 n 13, the purity check drives its tile line, the null method drives the legend, all three verdicts, the null-beta tile and the toolbar chip), colour-by keeps the grey null behind the stacked series over the same bins, the feature wiring really rewires the three histograms and the timeline height, persists across navigation, mirrors into ?wire= and resets, ?state=running shows a veil with Cancel, the empty state's Run chain runs, and F-04 now reads 'exponent beta - not fitted - 9 points - a power-law fit needs at least 12' with 'too few to compare' verdicts. Scaling pairs, axes, CSV/Figures toasts, Escape and outside-click all work; deep links reload; no console errors. Deductions: 'add scaling pair' is a dead click, the scaling-pair selects can only re-pick the three canned pairs rather than compose from the six declared features, the 'Open in Review' hand-off lands on a route that never opens, and the empty state's run shows finished results behind a 24 % veil.",
+   "findings": [
+    {
+     "severity": "P1",
+     "title": "prev fixed: feature-wiring selects really rewire the page",
+     "state": "feature-wiring (?popover=wiring)",
+     "detail": "Setting histogram 3 to peakedness and histogram 2 to recovery_s replaces the cards (testids become hist-peakedness / hist-recovery_s), the verdicts become 'wired to peakedness - no recorded verdict for this feature', timeline height = duration_s changes the timeline caption, the hash mirrors ?wire=h3:peakedness,tl:duration_s,h2:recovery_s, the wiring survives navigating to block/1 and back, and 'reset to 01 Resolve spans' restores depth/interval/max slope.",
+     "screenshot": "webui/screenshots/critique/interrogation/r2-function/agg-rewired-h3.png"
+    },
+    {
+     "severity": "P1",
+     "title": "prev fixed: every Parameters dropdown recomputes",
+     "state": "default",
+     "detail": "binning Sturges takes the bin line from '6 / 7 / 5 bins' to '5 / 5 / 5' and changes the interval histogram's y scale; interval trough->trough moves the median 0.5000 -> 0.4998 h and the caption; outliers excluded gives beta 1.81 [1.29-2.33] R2 0.62 n 13 and '3 dropped - rule-flagged or |z| > 2'; purity off gives 'purity not checked'; null shuffled changes all three verdicts, the legend to 'shuffled null', the null-beta tile to 0.28 [-0.19-0.74] and the toolbar chip to 'null shuffled onsets - 200x'.",
+     "screenshot": "webui/screenshots/critique/interrogation/r2-function/agg-outliers-excluded.png"
+    },
+    {
+     "severity": "P1",
+     "title": "prev fixed: colour-by keeps the null behind the histograms",
+     "state": "colour-by-recording / colour-by-verdict",
+     "detail": "With colour = recording the legend reads 'null / M2_aug fs1 / M3_jul / L_LM_Jul26_J' and the depth histogram keeps its 0.10-0.40 bins and 0-8 count axis; with colour = verdict it reads 'null / interesting / seed / unadjudicated'. The earlier re-binning is gone.",
+     "screenshot": "webui/screenshots/critique/interrogation/r2-function/agg-colour-recording.png"
+    },
+    {
+     "severity": "P1",
+     "title": "prev fixed: ?state=running renders a run, and the empty state's Run chain runs",
+     "state": "running / nothing-to-aggregate",
+     "detail": "?state=running shows a veil ('02 Aggregate - 78 %') over the cards with the primary switched to Cancel. ?state=empty shows '01 has not run yet' with a Run chain action; clicking it starts the veil at 'Library family - 24 %' and it runs through to the finished page.",
+     "screenshot": "webui/screenshots/critique/interrogation/r2-function/agg-running.png"
+    },
+    {
+     "severity": "P1",
+     "title": "prev fixed: the small family no longer reuses F-03's fit",
+     "state": "small-family (?family=F-04)",
+     "detail": "?family=F-04 now reads 'exponent beta - not fitted / -- / 9 points - a power-law fit needs at least 12', the three verdicts read 'n 9 (n 7) - too few to compare with the matched windows', the interval-CV tile reads 'too few', and events reads 9. The stray '02 Aggregate' string in the plot area is gone.",
+     "screenshot": "webui/screenshots/critique/interrogation/r2-function/agg-small-family.png"
+    },
+    {
+     "severity": "P1",
+     "title": "'add scaling pair' is a dead click",
+     "state": "feature-wiring (?popover=wiring)",
+     "detail": "Clicking [data-testid=add-scaling-pair] leaves the popover with the same seven rows (no 'scaling pair 4'), leaves the pair segmented control at 'depth ~ duration | depth ~ max slope | interval ~ depth', and changes no hash or toast. The frame's popover offers this as the way to compose a new pair.",
+     "screenshot": "webui/screenshots/critique/interrogation/r2-function/agg-add-pair-clicked.png"
+    },
+    {
+     "severity": "P1",
+     "title": "Scaling-pair selects only re-pick the three canned pairs, and picking a duplicate silently removes one",
+     "state": "feature-wiring (?popover=wiring)",
+     "detail": "Opening 'scaling pair 1' offers exactly 'duration_s -> depth_mV', 'max_slope -> depth_mV', 'depth_mV -> interval_h' - no x/y chosen from the six declared upstream features, although the popover's own caption is 'auto-wired from 01 Resolve spans's output schema' and lists depth_mV, duration_s, max_slope, peakedness, recovery_s, onset_h. Setting pair 1 to 'max_slope -> depth_mV' collapses the segmented control to two options ('depth ~ max slope | interval ~ depth') with no explanation. P7 makes wiring from the declared features the block's purpose.",
+     "screenshot": "webui/screenshots/critique/interrogation/r2-function/agg-pair1-rewired.png"
+    },
+    {
+     "severity": "P1",
+     "title": "'Open in Review' after the outlier write lands on a page that never opens",
+     "state": "default (Stage 1 outlier for Review)",
+     "detail": "'Stage 1 outlier for Review' raises the toast 'sent s-0344 to Review - 1 span queued (demo) / Open in Review'; clicking that action navigates to #/review/queue, which shows 'opening the queue...' and is still showing it after 7 s. #/review/queue/q-12 opens a real queue, so the hand-off is missing the queue id. window.__demoStore is also still {} after the click, so nothing shows the span was queued.",
+     "screenshot": "webui/screenshots/critique/interrogation/r2-function/agg-open-in-review.png"
+    },
+    {
+     "severity": "P2",
+     "title": "The empty state's run shows the finished results behind the veil from 24 %",
+     "state": "nothing-to-aggregate",
+     "detail": "Clicking Run chain from '01 has not run yet' immediately paints the full cached page (beta 1.42, events 16, all three histograms) with the veil reading 'Library family - 24 %' on top. There is nothing cached to show here, so the veil's 'showing last run' convention does not apply and the answer is visible before the run reaches it.",
+     "screenshot": "webui/screenshots/critique/interrogation/r2-function/agg-empty-run.png"
+    },
+    {
+     "severity": "P2",
+     "title": "The null-beta tile disappears for a family too small to fit",
+     "state": "small-family (?family=F-04)",
+     "detail": "In default the scaling card shows both 'exponent beta' and 'null beta (matched windows) 0.12 [-0.31 - 0.52]'. At ?family=F-04 the exponent tile correctly says 'not fitted', but the null-beta tile is omitted entirely rather than shown as unavailable, which is what section 3's 'nothing claims more than it knows / an absent denominator is information' asks for.",
+     "screenshot": "webui/screenshots/critique/interrogation/r2-function/agg-small-family.png"
+    }
+   ]
+  }
+ ]
+}

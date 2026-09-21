@@ -1,0 +1,77 @@
+{
+ "lens": "function",
+ "round": 3,
+ "status": "done",
+ "pages": [
+  {
+   "page": "settings.keyboard",
+   "score": 8,
+   "rationale": "Drives like the frame: key cells take focus on one click and rebind on the next press; conflicts are raised for letters, for locked verdict owners, for class keys 1-9 and for chords (Ctrl K captured as a chord, and the global search handler is correctly suppressed during capture); 'Move X here' / 'Keep the old binding' both resolve and clear the ?state=conflict hash; the four live behaviour toggles flip with an 'Applied to this browser' toast and no save bar (personal scope, correct per P23); the locked rows carry a lock icon and an aria-label; 'confirm before leaving unsaved settings' really gates the Export page's leave guard, and the guard names this page as its source; Reset page to defaults is disabled with 'Nothing differs from default' until something differs, then opens a Cancel/Reset dialog that Escape closes and that restores the row and the toggle; Export preferences gives an honest 'not wired yet' toast; both smoke deep links reload clean; zero console errors throughout. Both carried-over P1s are genuinely fixed. Deducted for one real defect - rebinding a paired row ('next / previous candidate', 'undo / redo') silently collapses two bindings into one and still reports 'no conflicts', leaving the second action unbound - plus two minor gaps (the conflict banner ignores Escape and outside clicks; the locked 'undo reverses a whole batch' row is the only behaviour row with no consequence caption).",
+   "findings": [
+    {
+     "severity": "P1",
+     "state": "capture",
+     "title": "Rebinding a two-key row destroys the second binding silently",
+     "detail": "Click the key cell of 'next · previous candidate' (it holds both → and ←) and press p: the row becomes a single 'P', ← is gone, no conflict row appears and the badge stays green 'no conflicts' - 'previous candidate' is now unbound with nothing said. Same on 'undo · redo': capturing Ctrl+Shift+U replaces both 'Ctrl Z' and 'Ctrl Shift Z' with one 'Ctrl Shift U', so redo loses its key. The frame and the default table show two separate keys on these rows, and §9.16 lists next/previous and undo/redo as two actions each; the page exposes one capture target (key-next, key-undo) for the pair and overwrites both.",
+     "screenshot": "webui/screenshots/critique/settings-b/r3-function/kb-27-pair-collapsed.png"
+    },
+    {
+     "severity": "P2",
+     "state": "conflict",
+     "title": "Conflict banner ignores Escape and outside clicks",
+     "detail": "On #/settings/keyboard?state=conflict the banner ('E is bound to “open in Explore”...') stays up after Escape and after clicking the page lede; only its own two buttons or navigating to another settings page clears it. Capture itself cancels correctly on Escape and on an outside click, so the two behave inconsistently.",
+     "screenshot": "webui/screenshots/critique/settings-b/r3-function/kb-07-conflict-deeplink.png"
+    },
+    {
+     "severity": "P2",
+     "state": "default",
+     "title": "Locked 'undo reverses a whole batch' has no consequence caption",
+     "detail": "Every other behaviour row states its consequence beside the control ('after a batch verdict' → 'a mis-keyed batch must not commit and move on before it can be undone'; 'pause after a seed promotion' → 'so the family can be chosen'). The locked undo_batch row shows only the lock toggle (aria-label 'on · enforced') and no sentence saying why it is enforced, which is the one thing P23 asks for beside a control.",
+     "screenshot": "webui/screenshots/critique/settings-b/r3-function/kb-24-behaviour-card.png"
+    },
+    {
+     "severity": "P2",
+     "state": "default",
+     "title": "'open in Explore' can be left unbound with no warning",
+     "detail": "Capture '\\' on 'toggle both rails', press e, then 'Move E here': the rails row takes E and 'open in Explore' drops to '—' while the badge returns to 'no conflicts'. The em dash is honest, but nothing flags that a shipped action now has no key and there is no undo of the move.",
+     "screenshot": "webui/screenshots/critique/settings-b/r3-function/kb-22-replace-moved.png"
+    },
+    {
+     "severity": "P2",
+     "state": "capture",
+     "title": "prev fixed: rebinding onto a class key 1-9 is accepted with 'no conflicts'",
+     "detail": "Now fixed. Capturing the skip cell and pressing 3 raises one conflict row: '3 is bound to “classes”. A key does one thing.' plus '“classes” is set in Vocabulary — change it there, then rebind here.', an Open Vocabulary button, 'Move 3 here' disabled, badge red '1 conflict', and the skip row keeps its old key.",
+     "screenshot": "webui/screenshots/critique/settings-b/r3-function/kb-05-class-key-conflict.png"
+    },
+    {
+     "severity": "P2",
+     "state": "capture",
+     "title": "prev fixed: Ctrl K during capture bound bare 'K' and opened search",
+     "detail": "Now fixed. With the skip cell capturing, Ctrl K is read as the chord: the conflict row says 'Ctrl K is bound to “search”. A key does one thing.', the badge reads '1 conflict', the skip row is unchanged, and no [data-testid=settings-search] panel opens. Pressing Ctrl K outside capture still opens the search panel and Escape closes it.",
+     "screenshot": "webui/screenshots/critique/settings-b/r3-function/kb-06-ctrlk-capture.png"
+    },
+    {
+     "severity": "P2",
+     "state": "capture",
+     "title": "prev fixed: key capture did not take focus",
+     "detail": "Clicking the Space cell of 'skip without writing' leaves document.activeElement on SPAN|capture-skip showing 'press a key…'; the next press (q) rebinds to Q with the badge still 'no conflicts', and the new binding survives navigating to About and back.",
+     "screenshot": "webui/screenshots/critique/settings-b/r3-function/kb-02-capture.png"
+    },
+    {
+     "severity": "P2",
+     "state": "conflict-locked-owner",
+     "title": "prev fixed: moving a key off a locked verdict bound it twice",
+     "detail": "Capturing S on 'mark viewport reviewed' raises '1 conflict' in red with conflict-locked-owner text and 'Move S here' disabled; the reviewed row keeps R and 'set in Vocabulary →' navigates to #/settings/vocabulary.",
+     "screenshot": "webui/screenshots/critique/settings-b/r3-function/kb-05-class-key-conflict.png"
+    },
+    {
+     "severity": "P2",
+     "state": "behaviour-off",
+     "title": "prev fixed: 'confirm before leaving unsaved settings' toggle had no effect",
+     "detail": "With it on (default), editing Export and clicking About opens 'Leave with 1 unsaved change?' with the export consequence and 'from Keyboard & behaviour · confirm before leaving unsaved settings (turn it off there to leave without asking)'; Stay keeps the hash on #/settings/export. With it off, the same sequence goes straight to #/settings/about with no dialog and a toast '1 unsaved change left on Export · nothing was written'.",
+     "screenshot": "webui/screenshots/critique/settings-b/r3-function/kb-20-leave-guard-on.png"
+    }
+   ]
+  }
+ ]
+}

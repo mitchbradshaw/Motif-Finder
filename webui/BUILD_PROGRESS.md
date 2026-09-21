@@ -95,3 +95,13 @@ fix builders, up to two re-ratings. Resume: Workflow({scriptPath: scratchpad/cri
 Committed r1 critique JSON for explore/chain/blocks/review-fidelity (a860984).
 Then: commit critique/, make_reports.py, DECISIONS 2.8+, full smoke (5173 pages + 8765 flows), npm run build,
 DATA mtime check vs scratchpad/DATA_MTIMES_START.txt, stop servers, push, final report.
+
+### 2026-09-21 session limit at 11:10pm -> resume; sub-agent model policy
+wf_7c08bb14-c18 lost 39 of 41 agents to the session limit; only settings-b r1 (both lenses) completed and is
+committed (4124f51). User instruction: sub-agents run on Opus at MEDIUM effort only, never Fable (memory:
+subagent-model-policy). Servers were stopped by the harness; restarted bridge 8765 (task b60c1huet) and Vite 5173
+(task b4b4nodmg) - stop both before finishing. New run: wf_bfc80e79-ae5 (task wrmdv2gts) from
+scratchpad/critique3.js with model opus / effort medium pinned on every agent; settings-b r1 supplied via args
+(scratchpad/../orch/settings-b-r1.json) so it starts at its fix round. Resume: Workflow({scriptPath:
+scratchpad/critique3.js, resumeFromRunId: "wf_bfc80e79-ae5", args: <same pre object>}).
+Fog carry-forward merged and committed (352b976, F26-F92).

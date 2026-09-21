@@ -1,0 +1,140 @@
+{
+ "lens": "function",
+ "round": 1,
+ "status": "done",
+ "pages": [
+  {
+   "page": "analyse.interrogation",
+   "score": 8,
+   "rationale": "Every region the frames and inventory name is present and live: the 4-tab source picker (opens by chip, by ?popover=source&tab=, closes on Escape and outside click), the member grid with pager, filters with disabled-with-reason entries (M4_aug held out), select all/none/invert, the scope matrix, source settings, provenance, save-template modal with real validation, add-stage popover, empty-scope/running/failed states and deep links. Writes persist across navigation and land in window.__demoStore. Deductions: the simulated run is invisible (no queued/running/done, no veil, no toast), and swapping the family leaves 01/02 badged cached with the old estimate, contradicting the page's own swap footnote.",
+   "findings": [
+    {
+     "severity": "P1",
+     "title": "Run chain / Re-run from 01 completes instantly — no queued → running → done",
+     "state": "default and stale",
+     "detail": "Untick member s-0341: the ribbon goes stale, the estimate reads '≈ 2 s · re-runs 01 → 02' and the primary becomes 'Re-run from 01'. Clicking it clears stale and restores '3 of 3 cached' within one 120 ms poll — polling every 120 ms for 2.4 s never saw a run veil, a 'running' badge, a progress step or any toast; the primary never became '■ Cancel'. The running state exists only as the ?state=running deep link (run-veil + cancel-run). The inventory specifies useSim queued → running → done at stepMs 600 with the stage names as steps, and the build goal requires analysis actions to simulate queued → running → done.",
+     "screenshot": "webui/screenshots/critique/interrogation/r1-function/1-run-progress.png"
+    },
+    {
+     "severity": "P1",
+     "title": "Swapping the family leaves 01 and 02 'cached' and the estimate unchanged",
+     "state": "swapped (F-07 via the source picker)",
+     "detail": "Pick F-07 slow drift (212 members) in the source picker: the header and facts row update to F-07, but the ribbon still badges 01 Resolve spans and 02 Aggregate 'cached', the estimate still reads '≈ 6 s · 3 of 3 cached' and no stale callout appears — while the picker's own footnote on the same screen says 'swapping a SpanSet source keeps 01 and 02; they re-run on the new members'. Unticking a single member does mark both stale, so the page is inconsistent with itself and claims cached results for a family it has never measured. The same happens via '+ stage' → '01 Spike shape': the toast says '02 Aggregate re-wires from its Features' but both chips stay 'cached'.",
+     "screenshot": "webui/screenshots/critique/interrogation/r1-function/1-swap-staleness.png"
+    }
+   ]
+  },
+  {
+   "page": "analyse.interrogation.slope",
+   "score": 7,
+   "rationale": "All the frame regions are there and mostly live: anatomy card with marks legend, event readout, ten-thumbnail sliding strip with ‹ ›, jump-to-flagged (lands on s-0346 and shows 'two troughs'), rose with per-event points and colour-by, the four rule controls, the per-event table with paging and row-click-selects-above, CSV not-wired toast, and the F-07 large-family variant with the overlay|rose segmented control, seeded resample and sample size. The stale-after-edit flow is the best thing here — the slider marks the chain stale, the preview strip, '(was 3)' and the 'showing last run' veil all appear and 'discard' restores cleanly. Deductions: the units dropdown relabels captions but recomputes nothing; parameter controls stay live during a running state; the run itself is invisible; the mark legend and the rose-view caption keep copy that is no longer true.",
+   "findings": [
+    {
+     "severity": "P1",
+     "title": "'units' changes only the caption text — no number, axis or angle is recomputed",
+     "state": "default",
+     "detail": "Switching units from 'mV · 10 s' to 'mV · s' leaves the anatomy plot's x ticks at -10 s … +20 s, the readout at 'max slope −0.0725 mV/s · angle −35.9°' and every table angle unchanged. The rose caption becomes 'angle of max slope in mV · s · −45° = −0.1 mV/s', which is self-contradictory: −0.1 mV/s only maps to −45° under the 10 s convention. A visible control that rewrites a caption but nothing it describes is a dead click plus misleading data.",
+     "screenshot": "webui/screenshots/critique/interrogation/r1-function/2-slope-default.png"
+    },
+    {
+     "severity": "P1",
+     "title": "Parameter controls stay editable while the run veil is up",
+     "state": "running (?state=running)",
+     "detail": "With the run veil showing '01 Resolve spans · 50 %', focusing the steepest-window slider and pressing ArrowRight moves it from 3 to 5, and the units dropdown still opens its three options. The inventory's shared convention is that while a sim is busy parameter controls are disabled with the reason 'wait for the run'. No disabled reason is carried anywhere on the card.",
+     "screenshot": "webui/screenshots/critique/interrogation/r1-function/2-running.png"
+    },
+    {
+     "severity": "P1",
+     "title": "'Re-run from 01' clears stale with no visible run",
+     "state": "stale-after-edit",
+     "detail": "From ?state=stale the primary reads 'Re-run from 01'. Clicking it removes the stale veil, the preview and both stale badges inside 200 ms, with no run veil, no progress, no step label and no toast. Same defect as on the source page; on a block page it also means the user never sees which stage is recomputing.",
+     "screenshot": "webui/screenshots/critique/interrogation/r1-function/2-stale-deeplink.png"
+    },
+    {
+     "severity": "P2",
+     "title": "marks = none still draws the full mark legend",
+     "state": "marks none",
+     "detail": "Choosing marks 'none' correctly removes onset/steepest/trough from the anatomy plot, but the legend underneath still lists ' onset  steepest  trough  depth  chord'. The legend should follow the marks setting (minimal vs all vs none).",
+     "screenshot": "webui/screenshots/critique/interrogation/r1-function/2-marks-all.png"
+    },
+    {
+     "severity": "P2",
+     "title": "Rose view keeps the overlay's sample caption",
+     "state": "large-family-rose (?family=F-07&view=rose)",
+     "detail": "Switching the segmented control to 'rose' keeps the card titled 'Events overlaid' with '10 of 202', 'resample' and 'sample size 10' in the header, while the rose itself is captioned '202 events'. Two contradictory sample counts on one card; the resample/sample-size controls have no visible effect in rose view.",
+     "screenshot": "webui/screenshots/critique/interrogation/r1-function/2-large-rose.png"
+    },
+    {
+     "severity": "P2",
+     "title": "F-07 member ids use the wrong recording prefix",
+     "state": "large-family (?family=F-07)",
+     "detail": "The per-event table lists 'm-0231 · M2_aug fs1' and 'm-0414 · M3_jul'. The inventory fixes the prefixes as s- for M2_aug, m- for M3_jul, l- for L_LM, so an m- id on M2_aug fs1 reads as a different recording than the row states.",
+     "screenshot": "webui/screenshots/critique/interrogation/r1-function/2-large-family.png"
+    }
+   ]
+  },
+  {
+   "page": "analyse.interrogation.aggregate",
+   "score": 6,
+   "rationale": "Every region of frames 3/3b/3c is drawn and the page is genuinely responsive in places: the scaling-pair segmented control and the axes dropdown both re-fit and re-label (β, R², CI, null β, axis ticks all change), colour-by re-colours all three histograms, the spike-shape upstream swaps the whole feature set (amplitude/half-width/rise and three new pairs), the feature-wiring popover opens from '+ custom', from 'Feature wiring →' and from ?popover=wiring and closes on Escape and outside click, CSV/Figures give honest not-wired toasts and 'Stage 1 outlier for Review' writes a real queue. But the P7 mechanism the page is built around — the wiring selects — changes nothing, four of the six Parameters dropdowns are inert, colour-by silently drops the null the spec says every plot carries, the small-family state reuses F-03's fit numbers, and ?state=running renders no running state at all.",
+   "findings": [
+    {
+     "severity": "P1",
+     "title": "Feature-wiring selects are dead — the page never rewires",
+     "state": "feature-wiring (?popover=wiring)",
+     "detail": "In the wiring popover, setting 'histogram 3' from max_slope to peakedness updates only the select's own label; the third card is still 'Max slope · mV/s · n 16' and the card testid is still hist-max_slope. Setting 'timeline height' to duration_s likewise leaves the timeline captioned 'height = depth'. Navigating away and back keeps the original wiring. This is the block's stated purpose ('Aggregate holds no algorithm, it draws whatever 01 Resolve spans declares', P7), so six visible controls do nothing.",
+     "screenshot": "webui/screenshots/critique/interrogation/r1-function/3-wiring-dead.png"
+    },
+    {
+     "severity": "P1",
+     "title": "Four of six Parameters dropdowns change nothing; 'null' only relabels",
+     "state": "default",
+     "detail": "Switching binning Freedman–Diaconis → Sturges leaves all three histograms byte-identical (same bins, same ticks). 'interval defined as' onset→onset → trough→trough leaves the inter-event histogram identical. 'outliers' kept,flagged → excluded from fits leaves β 1.42 [1.18–1.66], R² 0.81 and n 16 unchanged. 'purity check' → 'no purity check' leaves the 'one fall / window 100 %' tile unchanged. 'null' matched random windows → shuffled onsets changes only the null-β tile's parenthetical; the null distributions, the histogram verdict lines ('null CV 0.98 [0.71–1.22]') and the toolbar null chip all keep the matched-windows numbers. The card's own caption is 'views only · nothing here is stored', so these are meant to change the views.",
+     "screenshot": "webui/screenshots/critique/interrogation/r1-function/3-aggregate-default.png"
+    },
+    {
+     "severity": "P1",
+     "title": "colour by = recording / channel / verdict removes the null from every histogram",
+     "state": "colour-by-recording (?colour=recording&pair=depth-maxslope)",
+     "detail": "In the default state each histogram draws a grey 'null' series behind an 'observed' series. Choosing any colour-by re-bins into per-group series and the null series and its legend entry disappear from all three cards, while the verdict line underneath still quotes the null ('null CV 0.98 [0.71–1.22] · p < 0.01'). P10 requires a null behind every distribution, and §3 requires an unavailable figure to be shown as unavailable rather than omitted.",
+     "screenshot": "webui/screenshots/critique/interrogation/r1-function/3-colour-recording-maxslope.png"
+    },
+    {
+     "severity": "P1",
+     "title": "?state=running renders no running state",
+     "state": "running",
+     "detail": "http://127.0.0.1:5173/#/analyse/interrogation/block/2?state=running renders the ordinary cached page: no run-veil, no progress, the primary still reads 'Run chain'. The source page and block/1 both honour ?state=running with a veil ('01 Resolve spans · 50 %') and a Cancel primary, and the inventory lists running as a state of this page. The empty state's own 'Run chain' action has the same hole: it drops ?state=empty and shows finished results instantly with no queued → running → done and no toast.",
+     "screenshot": "webui/screenshots/critique/interrogation/r1-function/3-running.png"
+    },
+    {
+     "severity": "P1",
+     "title": "Small-family state reuses F-03's fit verbatim",
+     "state": "small-family (?family=F-04)",
+     "detail": "?family=F-04 (9 members, 0 adjudicated) shows 'events 9' and 'n 9' but the exponent tile still reads β 1.42 [1.18 – 1.66], R² 0.81 — identical to F-03's 16-event fit, CI included. The inventory's expectation for this family is 'too few to fit'. A fit that cannot have been computed from nine points, presented with a confidence interval, is exactly the claim §3's 'nothing claims more than it knows' forbids. The scaling card also renders a stray '02 Aggregate' string inside its plot area in this state.",
+     "screenshot": "webui/screenshots/critique/interrogation/r1-function/3-small-family.png"
+    },
+    {
+     "severity": "P2",
+     "title": "Wiring popover shows 'choose' for a slot the page has already drawn",
+     "state": "wiring-by-click",
+     "detail": "With upstream = 01 Resolve spans the popover lists 'histogram 2 → choose', but histogram 2 on the page is 'Inter-event interval · h · n 12' and is drawn. interval_h is not in the declared feature list (depth_mV duration_s max_slope peakedness recovery_s onset_h), so the popover reads as unwired for a card that exists.",
+     "screenshot": "webui/screenshots/critique/interrogation/r1-function/3-wiring.png"
+    },
+    {
+     "severity": "P2",
+     "title": "'Stage 1 outlier for Review' re-queues the same span on every click",
+     "state": "stage-outlier",
+     "detail": "Clicking it twice writes two identical review add-queue entries (window.__demoStore.writes() length 2, both q-27 / s-0344) and fires the toast again. The button never becomes 'queued' or disabled with a reason, so nothing tells the user the span is already in the queue.",
+     "screenshot": "webui/screenshots/critique/interrogation/r1-function/3-stage-outlier.png"
+    },
+    {
+     "severity": "P2",
+     "title": "Per-recording β only appears for one scaling pair, and a possessive typo",
+     "state": "colour-by-recording / feature-wiring",
+     "detail": "beta-by-recording ('β by recording · null β 0.08') renders with ?colour=recording&pair=depth-maxslope but is absent with colour=recording and the default depth~duration pair, so the same setting yields a different card depending on the pair. Separately, the wiring popover's subtitle reads \"auto-wired from 01 Resolve spans's output schema\" (double possessive).",
+     "screenshot": "webui/screenshots/critique/interrogation/r1-function/3-colour-recording.png"
+    }
+   ]
+  }
+ ]
+}

@@ -1,0 +1,133 @@
+{
+ "lens": "function",
+ "round": 1,
+ "status": "done",
+ "pages": [
+  {
+   "page": "jobs.all",
+   "score": 8,
+   "rationale": "Every region the frame draws is present and live: the three needs-you cards, the five groups in the right order, per-kind rails, the seven filters, the workspace dropdown, the empty state with Clear filters, the manifest-inbox drawer, the mark menu, the new-script and cancel modals, and the Continue simulation that moves a-0098 into the finished group. Disabled controls carry reasons (Run stage 3 locally: '~6 h, over the 20 min Discovery limit'). No console errors in any state. Deductions: the nav/header need-you counters never recompute after a write while the page's own subtitle does; a hand mark of a cluster job renders as 'finished - imported HH:MM' at wall-clock time, which both claims an import that did not happen and puts the mark before the job's own 'running 11:40'; the blind badge the frame draws on the q-18/q-19 rows is missing; the inbox drawer ignores an outside click; the finished filter lands on a table with nothing in it; the header search pill and its Ctrl K keycap do nothing.",
+   "findings": [
+    {
+     "severity": "P1",
+     "title": "Nav 'Jobs 3' and header '3 need you' never recompute after a write",
+     "state": "continuing (Continue on the a-0098 needs-you card)",
+     "detail": "After clicking Continue on the a-0098 card the run leaves the needs-you set: the card disappears, the row moves to Finished, and the page subtitle correctly changes to '2 need you / 2 local / 2 on hpc-1 / 4 queues'. In the same render the nav rail still reads 'Jobs 3' and the header chip still reads '3 need you'. Two counts of the same quantity disagree on screen, and section 7c / P24 make that count the reason the page exists. The same staleness shows after snoozing j-0214's overdue reminder.",
+     "screenshot": "webui/screenshots/critique/jobs/r1-function/jobs.all--a0098-continued.png"
+    },
+    {
+     "severity": "P1",
+     "title": "Hand-marking a cluster job finished says 'imported', at a clock time before its own marks",
+     "state": "mark menu, Mark finished on j-0217",
+     "detail": "Mark... > 'Mark finished' on j-0217 renders the status badge as 'finished - imported 07:46' in the table row and on #/jobs/cluster/j-0217, although no manifest was imported: the inbox still shows '1 imported' (j-0212 only). Section 7c.4 distinguishes a hand mark from a manifest import, and j-0209 correctly reads 'failed - marked 09:12'. The timestamp is the browser clock, so the job reads 'running 11:40' then 'finished 07:46'.",
+     "screenshot": "webui/screenshots/critique/jobs/r1-function/jobs.all--hand-marked-finished-row.png"
+    },
+    {
+     "severity": "P1",
+     "title": "blind badge missing from the q-18 / q-19 review-queue rows",
+     "state": "review queues filter",
+     "detail": "Frame 1 draws a 'blind' badge beside 'Training windows' and 'Model verification' in the Review queues group, and section 7c.1 lists the blind badge as part of a queue row. The rendered rows have no badge: the row markup for q-18 is id / title+subtitle / where / progress / time / Open only. The badge appears in the rail once the row is selected, so the table hides the one fact that distinguishes a blind queue.",
+     "screenshot": "webui/screenshots/critique/jobs/r1-function/jobs.all--default.png"
+    },
+    {
+     "severity": "P1",
+     "title": "Header search pill and its Ctrl K keycap are dead",
+     "state": "all",
+     "detail": "The header shows 'Search jobs, runs, queues  Ctrl K'. Clicking it focuses the button and nothing else happens: no field, no popover, no dialog ([role=dialog] count 0). Pressing Ctrl+K leaves document.activeElement as BODY. A control that advertises its own shortcut and does nothing is a dead click. Shared shell chrome, but visible on all four Jobs pages.",
+     "screenshot": "webui/screenshots/critique/jobs/r1-function/jobs.all--ctrlk.png"
+    },
+    {
+     "severity": "P2",
+     "title": "Manifest inbox drawer does not close on an outside click",
+     "state": "inbox-drawer",
+     "detail": "Opened by 'Manifest inbox 1' (or ?drawer=inbox). Escape closes it and clears ?drawer; a click on the page behind it (tested at 120,500 and 700,850) leaves it open. Every other overlay on these pages (mark menu, workspace dropdown, cancel modal, new-script modal, upload file menu) closes on an outside click.",
+     "screenshot": "webui/screenshots/critique/jobs/r1-function/jobs.all--inbox-drawer.png"
+    },
+    {
+     "severity": "P2",
+     "title": "The 'finished' filter shows a table with no rows",
+     "state": "finished",
+     "detail": "Clicking the 'finished' segment gives an All jobs card containing only the collapsed group bar 'Finished and cancelled today - 6 finished - 1 cancelled' and zero rows; the user must click the bar a second time to see anything. Asking for finished jobs and being shown none reads as an empty result. (?filter=finished&finished=1 renders them.)",
+     "screenshot": "webui/screenshots/critique/jobs/r1-function/jobs.all--filter-finished.png"
+    }
+   ]
+  },
+  {
+   "page": "jobs.paused",
+   "score": 8,
+   "rationale": "The frame-2 machinery is all there and all live for both runs: stage cards with per-stage states, the timeline, the expected path, the six named checks with right-aligned evidence, Look again flipping every check from pending to pass, Continue from stage N+1 running a queued-running-done simulation that ends with 'Open in Discovery', Cancel run behind a confirm modal with 'Put it back to paused', and an 'Other ways forward' column whose Run-locally button is disabled with the limit as its reason. Unknown ids render a named empty state. No console errors; Escape and outside clicks close both modals; 'Show in folder' and the refusal's secondary action degrade to explicit 'not wired yet:' toasts. Deductions: in the New SLURM script modal the profile select changes but the script body does not, the generated script for the replacement job still writes to the replaced job's output directory, and the unknown-run state drops the demo-data chip.",
+   "findings": [
+    {
+     "severity": "P1",
+     "title": "New SLURM script: changing the profile does not change the script",
+     "state": "new-script modal (?modal=new-script)",
+     "detail": "In #/jobs/run/r-0431?modal=new-script and #/jobs?modal=new-script&job=j-0209, selecting 'hpc-1 gpu-single' or 'hpc-1 bigmem' updates the select value but the dark code block is byte-identical: '#SBATCH --account=a_myco --partition=cpu_long --array=0-7' / '--cpus-per-task=16 --mem=32G'. The profile is the only knob in the modal, and Copy / Save .sh then hand the researcher a script for the partition they did not pick.",
+     "screenshot": "webui/screenshots/critique/jobs/r1-function/jobs.all--new-script-profile-changed.png"
+    },
+    {
+     "severity": "P1",
+     "title": "The replacement script writes to the replaced job's output directory",
+     "state": "new-script modal",
+     "detail": "The modal states 'the new job j-0218 replaces j-0209; the old job keeps its record' and the create button reads 'Create j-0218', but the script's last line is '... --out /scratch/$USER/cnn/out/j-0209'. Same from r-0431: the created j-0218 is stored with '--out /scratch/$USER/cnn/out/j-0217'. Run as given, the new job's results land in the old job's return path, not where the new job's 'results return from' row points.",
+     "screenshot": "webui/screenshots/critique/jobs/r1-function/jobs.all--new-script-modal.png"
+    },
+    {
+     "severity": "P2",
+     "title": "The unknown-run state drops the 'demo data' chip",
+     "state": "unknown-run (#/jobs/run/x-0001)",
+     "detail": "Every other Jobs state carries the dashed 'demo data' chip next to the header subtitle. On #/jobs/run/x-0001 the header reads 'Jobs | x-0001 | not a paused run' with no chip, so the one screen that says the data does not exist is also the one that stops marking the data as fixture.",
+     "screenshot": "webui/screenshots/critique/jobs/r1-function/jobs.paused--unknown.png"
+    }
+   ]
+  },
+  {
+   "page": "jobs.upload",
+   "score": 9,
+   "rationale": "The strongest of the four. All six file states behave as section 7c.3 requires: the checks tick in one at a time, 'Place file and continue' is disabled with a spoken reason ('choose a file first' / 'a check failed, this file cannot continue the run') and enables only when every check passes, the m=60 s file is refused with the frame's exact copy plus 'Choose another file' / 'Start a new run with m = 60 s', an M4_aug file is refused on D6 with the later checks honestly marked 'not checked, the file is refused', and the no-nulls file passes with an amber null-draws warning and its own note. Placing a good file closes the modal, records place-result + mark-cluster-job + continue-run in __demoStore and drops straight into the run's continue simulation. The file popover closes by Escape, by outside click and by choosing; Cancel, Escape and the close button all return to #/jobs/run/r-0431. No console errors in any state. Deduction: the hand-mark-reads-as-import defect reaches this flow, because placing a file marks j-0217 finished and that job then displays as 'finished - imported'.",
+   "findings": [
+    {
+     "severity": "P2",
+     "title": "Placing a file marks j-0217 finished, which then displays as 'finished - imported'",
+     "state": "passes, then placed",
+     "detail": "After 'Place file and continue', __demoStore records mark-cluster-job {job: j-0217, status: finished, by: hand}, which is correct, but #/jobs/cluster/j-0217 and the All-jobs row then read 'finished - imported 07:43'. The file was placed by hand from this modal, not imported from a manifest; the inbox still lists only j-0212 as imported. Same root cause as the jobs.all finding, reached through this page's own primary action.",
+     "screenshot": "webui/screenshots/critique/jobs/r1-function/jobs.upload--placed.png"
+    }
+   ]
+  },
+  {
+   "page": "jobs.cluster",
+   "score": 8,
+   "rationale": "Frame 4 is reproduced closely and everything on it works: the four hand-marked pills with their times and 'set when the manifest arrives', the 3x reminder with Mark finished / Mark failed / 'Still running, remind me in 3 h' (which swaps in a snoozed banner with 'Bring it back now'), the editable cluster job id (typed values survive navigation), a profile select whose value persists and propagates to the All-jobs 'where' column, the locked return path and estimate, Copy and Save .sh with real toasts, and a manifest inbox whose 'Look again' makes j-0214's manifest arrive and whose Import results runs the checks and flips the job to finished. j-0217, j-0212, j-0209 and an unknown id all render their own states with no console errors. Deductions: the profile select does not regenerate the script; a hand mark is displayed as an import at a wall-clock time that predates the job's own marks; the finished note splices a link into the middle of a sentence for a non-Models job; Copy/Save sit below the script instead of on the 'script' label row.",
+   "findings": [
+    {
+     "severity": "P1",
+     "title": "Changing the profile leaves the script targeting the old partition",
+     "state": "running-overdue (j-0214)",
+     "detail": "Selecting 'hpc-1 bigmem' in the profile row updates the select and the All-jobs 'where' cell to 'hpc-1 bigmem', but the script block still reads '#SBATCH --partition=gpu_short --nodes=1' and '--gres=gpu:1 --cpus-per-task=8 --mem=32G'. Copy / Save .sh then hand over a GPU-short script for a bigmem job. Section 7c.4 lists profile and script as facts of the same job; the page lets them disagree.",
+     "screenshot": "webui/screenshots/critique/jobs/r1-function/jobs.cluster--overdue.png"
+    },
+    {
+     "severity": "P1",
+     "title": "Mark finished renders as 'finished - imported' at a time before the job started running",
+     "state": "marked-finished (j-0217)",
+     "detail": "Clicking 'Mark finished' on j-0217 sets the badge to 'finished - imported 07:46' while the note below correctly says 'Finished - marked 07:46'. The badge claims a manifest import that never happened. The time is the browser clock, so the status strip reads 'running 11:40' followed by 'finished 07:46': the job finishes four hours before it starts.",
+     "screenshot": "webui/screenshots/critique/jobs/r1-function/jobs.cluster--hand-marked-finished.png"
+    },
+    {
+     "severity": "P2",
+     "title": "Finished note reads 'Results are in Open r-0431 in Jobs.'",
+     "state": "marked-finished (j-0217)",
+     "detail": "For a Models job the sentence is 'Results are in Models > Results.' For j-0217, whose workspace link is the button 'Open r-0431 in Jobs', the same template produces 'Results are in Open r-0431 in Jobs. Importing a manifest also marks the job finished.' - a button label spliced into prose.",
+     "screenshot": "webui/screenshots/critique/jobs/r1-function/jobs.cluster--hand-marked-finished.png"
+    },
+    {
+     "severity": "P2",
+     "title": "Copy / Save .sh sit under the script instead of on its label row",
+     "state": "running-overdue (j-0214)",
+     "detail": "Frame 4 puts 'Copy' and 'Save .sh' right-aligned on the 'script' label row, above the dark code block. The build renders them as two buttons in a row underneath the block, which adds a row of height and separates the actions from the label they belong to.",
+     "screenshot": "webui/screenshots/critique/jobs/r1-function/jobs.cluster--overdue.png"
+    }
+   ]
+  }
+ ]
+}

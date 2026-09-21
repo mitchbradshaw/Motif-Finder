@@ -1,0 +1,49 @@
+{
+ "lens": "function",
+ "round": 1,
+ "status": "done",
+ "pages": [
+  {
+   "page": "library.import",
+   "score": 9,
+   "rationale": "Every region and state in the inventory is present and live: empty-state with both ways in, the dry-run panel with bundle Select, four stat tiles, all five spec checks in order with expandable detail (overlap ids, the Settings > Datasets link), the creates list, a 9-of-410 sample with a working resample and per-thumb SVG title tooltips, the queue checkbox whose count follows the bundle, and the footer. Bundle switching re-runs the dry run and correctly produces bundle-invalid (PROVENANCE.md missing, Import disabled with reason 'provenance incomplete: 410 motifs lack a sample range') and held-out-refused (sample withheld, resample disabled with reason, Import disabled 'M4_aug is held out and locked (D6)', queue checkbox disabled). The populated dry run swaps to the 'Library now' card and reads '410 already in the library / 0 new entries'. The simulated import runs job l-0032 through its four steps with a live progress bar, Cancel import before step 3, a done panel with the queue toast and 'Open the library', and a failed panel with the all-or-nothing message and Retry. Browse... emits a 'not wired yet' toast; Import... focuses the bundle Select; x and Cancel both return to the empty Motifs route; Open Review navigates. No console errors, no dead clicks found. Deducted one point only for the Escape-to-dismiss gap below.",
+   "findings": [
+    {
+     "severity": "P2",
+     "title": "Escape does not dismiss the import panel",
+     "state": "empty-dry-run",
+     "detail": "With the dry-run panel open at #/library/import?library=empty, pressing Escape leaves the route and the panel unchanged (hash stays #/library/import?library=empty). The panel's own x and Cancel both correctly return to #/library/recurrence?library=empty, and every real modal on the sibling pages (delete, import window set, diff, export) does close on Escape, so this panel is the one dismissible surface that ignores the key.",
+     "screenshot": "webui/screenshots/critique/library-b/r1-function/import.empty-dry-run.png"
+    }
+   ]
+  },
+  {
+   "page": "library.window-sets",
+   "score": 9,
+   "rationale": "The table, legend, 'why not train-safe' card and detail rail all match the inventory and behave. All six rows render with source, window/stride/gap, split bar, labelled mini-bar, used-by link and the right check badge (each badge carrying its reason as a tooltip). Filters work and are URL-backed: the safety Seg, and recording/labelled/used popovers that open on their chip and close on both Escape and an outside click, with M4_aug correctly disabled as held out; filtered-empty and the sets=empty EmptyState both render with their copy and a working Clear filters. Column sort (windows ascending/descending) and the sort Select both reorder. The rail is correct per set: split plan BandStrips per channel with hour-range tooltips including gap slivers, spacing checks, class bars with the artifact row excluded, the now/at-save coverage Seg actually swapping counts, used-by links. Disabled controls all carry reasons ('gap 30 s < 60 s window', 'a test sample is never trained on', 'every window is labelled', 'used by 2 - delete is blocked while anything uses the set'). Delete confirms, removes in memory, toasts with Undo and survives navigating away and back; the import modal validates an empty path (button disabled, 'type a bundle path'), a non-bundle path, and refuses the held-out recording. Every action button navigates or toasts. No console errors, no dead clicks.",
+   "findings": [
+    {
+     "severity": "P2",
+     "title": "Up/down arrow keys do not move the table selection",
+     "state": "set-selected",
+     "detail": "The inventory gives the table row 'click / arrow-up-down' as the select interaction, and rows are focusable (tabindex=0). After clicking row 2 (ws_M2aug_fs2_300s), pressing ArrowDown leaves document.activeElement on the same row and the hash at ?set=ws_M2aug_fs2_300s - nothing moves. The templates list on the sibling page does implement this correctly (ArrowDown moved drop_motifs9 -> seed_E-0102), so the behaviour is inconsistent between the two lists.",
+     "screenshot": "webui/screenshots/critique/library-b/r1-function/ws.set-selected.png"
+    }
+   ]
+  },
+  {
+   "page": "library.templates",
+   "score": 9,
+   "rationale": "The filter card, template list with per-card version chip, badges, signature, stage glyph strip and scoped latest score, the pager footer and the detail rail (recipe + null line, locked stage parameters, versions with diff links, scores-by-run table with run links and the 'recall -' caption) are all present and match the frame. Filters work and are URL-backed - kind Seg (which resets the page), the 'contains a Model stage' toggle, page 2 with a next/prev pager whose next is properly disabled with reason 'last page' at the end, and a filtered-empty EmptyState with a reason line. Scores are honest: unscored shows 'not yet scored / 0 runs - nothing claims a score before a run', the training template relabels the first column 'job' and Apply in Discovery is disabled with 'a training template produces a Model - launch it in Models' plus an extra Launch in Models. Diff, Export JSON (Copy toasts 'copied 30 lines', Save .json toasts 'not wired yet') and Import JSON all open, validate (bad JSON, bad name, duplicate name -> 'saves as mp_drops_v3 v4') and close on Escape and outside click. Archive removes it, drops the count to 13 and offers Undo which restores it; Duplicate appends mp_drops_v3_copy and both survive navigating away and back. All rail actions navigate to the right routes. No console errors, no dead clicks.",
+   "findings": [
+    {
+     "severity": "P2",
+     "title": "Filtering leaves the rail showing a template that is not in the list",
+     "state": "model-stage",
+     "detail": "With seed_E-0102 selected, clicking the 'contains a Model stage' toggle narrows the list to cnn_detect_cluster_v1, drop_cnn_v1 and sharkfin_cnn_v2, but the rail still shows seed_E-0102 and no card in the visible list is highlighted - the rail and the list disagree about what is selected. The frame always shows the rail's template highlighted in the list; the kind Seg has the same behaviour.",
+     "screenshot": "webui/screenshots/critique/library-b/r1-function/tpl.model-stage.png"
+    }
+   ]
+  }
+ ]
+}

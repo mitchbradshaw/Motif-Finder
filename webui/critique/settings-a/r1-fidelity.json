@@ -1,0 +1,266 @@
+{
+ "lens": "fidelity",
+ "round": 1,
+ "status": "done",
+ "pages": [
+  {
+   "page": "settings.datasets",
+   "score": 9,
+   "rationale": "Every region of frame 1 is present and near pixel-faithful: the 5-recording registry with read/inferred sampling-rate badges and status chips, the 16-field metadata editor with the locked sampling rate and linked-recording chip, and the held-out card with its consequence line. The import modal (frame 1b) has all five numbered steps, the channel map with shared-ground selects, the four checks with the amber species warning, a working dry-run progress and a disabled Import on the failed check; the unlock modal enforces the typed name. Deductions: one canon figure in the import footer is wrong, and the save bar's consequence sentence is static rather than derived from the edit on screen.",
+   "findings": [
+    {
+     "severity": "P1",
+     "title": "Save-bar consequence contradicts the field it describes",
+     "state": "unsaved",
+     "detail": "With ?state=unsaved the noise-floor field reads 0.12 mV but the sticky bar says 'noise floor 0.08 -> 0.10 mV marks 4 runs on M2_aug fs1 stale'. The frame shows 0.10 in the field and 0.08 -> 0.10 in the bar, i.e. the consequence describes the edit. Here the sentence is hardcoded, so the stated consequence is misleading about the draft the user is about to save (spec 9 'the consequence, not a restatement of the edit' still requires it to be the consequence of THIS edit).",
+     "screenshot": "webui/screenshots/critique/settings-a/r1-fidelity/datasets.unsaved.png"
+    },
+    {
+     "severity": "P2",
+     "title": "Import footer disk figure is not the canon 8.2 GB",
+     "state": "import",
+     "detail": "Footer reads 'will create 1 recording * 16 channels * 16 .npy files * 138 MB on disk * no runs affected'; frame 1b reads '8.2 GB on disk'. Everything else in the sentence matches.",
+     "screenshot": "webui/screenshots/critique/settings-a/r1-fidelity/datasets.import.png"
+    },
+    {
+     "severity": "P2",
+     "title": "fs value and unit split in the import modal",
+     "state": "import",
+     "detail": "Frame 1b draws the fs field as a single box containing '1 Hz' with a green 'read' badge beside it. The app puts a bare '1' in the box with 'Hz read' as grey right-adornment text, so the green read badge used everywhere else on the page is missing here.",
+     "screenshot": "webui/screenshots/critique/settings-a/r1-fidelity/datasets.import.png"
+    },
+    {
+     "severity": "P2",
+     "title": "Notes placeholder truncated",
+     "state": "default",
+     "detail": "The notes field shows 'timed events -> Channels & eve...' clipped with an overflow arrow; the frame shows the full 'timed events -> Channels & events'. The caption is load-bearing copy (spec 3).",
+     "screenshot": "webui/screenshots/critique/settings-a/r1-fidelity/datasets.default.png"
+    }
+   ]
+  },
+  {
+   "page": "settings.channels-events",
+   "score": 8,
+   "rationale": "Both regions of frame 2 are there and behave: the per-channel table with electrode/position, gain, shared-ground chips on the CH3_A2/CH4_A2 pair, the amber 'bad from 40.1 h' status, excluded-span counts and the greyed 'recording' noise-floor placeholder; the '8 more channels' disclosure; the four-row event log with per-row effect selects, the kind legend with '+ kind', an inline add-event row that validates, a per-recording tab strip, a correct read-only M4_aug lock and a genuine empty state for it. The deduction is the event timeline: at the recording's full 0-694 h scale the four events collapse into unreadable ticks and the exclusion shading reads as if most of the recording were excluded, where the frame draws a ~0-45 h axis with large kind-coloured markers.",
+   "findings": [
+    {
+     "severity": "P1",
+     "title": "Event timeline drawn at full 721 h scale, so events and exclusions are unreadable",
+     "state": "default",
+     "detail": "The app's axis runs 0 h - 694 h, so the four canon events (12.5, 28.9-29.1, 31.1-31.5, 40.1 h) sit in the leftmost 6 % as hairline ticks and the 40.1 h -> end exclusion paints a pink band across ~95 % of the strip, reading as 'almost everything is excluded'. Frame 2 ticks 0/10/20/30/40 h and shows five clearly separated kind-coloured dots with a small shaded band at the right end.",
+     "screenshot": "webui/screenshots/critique/settings-a/r1-fidelity/channels.default-bottom.png"
+    },
+    {
+     "severity": "P2",
+     "title": "Event markers on the timeline are not kind-coloured dots",
+     "state": "default",
+     "detail": "Frame 2 draws each event as a filled circle in its kind colour (blue watering, grey unknown, amber mechanical, red electrode) sitting on the axis line. The app draws thin near-colourless ticks; the kind colours only appear as small squares in the table's kind column.",
+     "screenshot": "webui/screenshots/critique/settings-a/r1-fidelity/channels.default-bottom.png"
+    },
+    {
+     "severity": "P2",
+     "title": "Gain values lose their 2-decimal formatting",
+     "state": "default",
+     "detail": "Every gain cell shows '1' where frame 2 shows '1.00 mV / u'. Since the frame's point is that gain is a calibration number (0.98 on CH6_B1 in the edited state), the trailing zeros carry meaning.",
+     "screenshot": "webui/screenshots/critique/settings-a/r1-fidelity/channels.default.png"
+    },
+    {
+     "severity": "P2",
+     "title": "Recording tabs moved out of the Channels card header",
+     "state": "default",
+     "detail": "Frame 2 puts the five recording tabs on the right of the 'Channels' card header row. The app puts them on their own row above the card, prefixed by the word 'recording', which adds a band of empty space between the page subtitle and the first card.",
+     "screenshot": "webui/screenshots/critique/settings-a/r1-fidelity/channels.default.png"
+    }
+   ]
+  },
+  {
+   "page": "settings.vocabulary",
+   "score": 9,
+   "rationale": "The closest page to its frame in the set. All three regions match frame 3 in order, column set and copy: the core five with canon keys S/I/N/A/U, role text, both store counts and rename/rekey per row; the five classes with canon keys 1-4 and 9, the informative toggle, the locked 'interesting' implication for informative classes, label counts and cnn_cluster_v1 links; the six morphology tags with definitions, example sparklines on a light ground, families/members and the 'spike-train-short (merged)' alias chip. Rename stages a consequence sentence with the exact 3,424-row count, rekey, add-verdict/class/tag and tag merge all open working editors. Deductions are copy-level only.",
+   "findings": [
+    {
+     "severity": "P2",
+     "title": "Informative column reads on/off instead of the frame's words",
+     "state": "default",
+     "detail": "Each class row shows a toggle plus 'on' / 'off'. Frame 3 labels them 'informative' / 'non-informative', which is the vocabulary the caption underneath then uses ('an informative class implies interesting; a non-informative class names the verdict it implies').",
+     "screenshot": "webui/screenshots/critique/settings-a/r1-fidelity/vocab.default.png"
+    },
+    {
+     "severity": "P2",
+     "title": "Rename preview overwrites the verdict name in the table",
+     "state": "rename",
+     "detail": "With rename staged, the verdict row already reads 'noteworthy'. Frame 3 keeps the row as 'interesting' (highlighted amber) while the editor below holds the proposed new name, so the user can still see what is being renamed from.",
+     "screenshot": "webui/screenshots/critique/settings-a/r1-fidelity/vocab.rename.png"
+    },
+    {
+     "severity": "P2",
+     "title": "Merge popover hangs off the bottom of the viewport",
+     "state": "merge-tag",
+     "detail": "Clicking merge on the sharkfin row opens a popover anchored below-right whose Merge button sits at y=836 of 900 with its bottom edge clipped by the window; at 1440x900 the popover is not fully on screen.",
+     "screenshot": "webui/screenshots/critique/settings-a/r1-fidelity/vocab.merge-tag.png"
+    }
+   ]
+  },
+  {
+   "page": "settings.nulls",
+   "score": 9,
+   "rationale": "Frame 4 is reproduced row for row: all seven analysis kinds with the exact method, draws (200/200/200/200/200/5/100) and seed scope from spec 9.4, the 'shown as' column, the locked 'always on' chip, the per-kind rationale caption, and the Significance and Running-nulls cards with alpha 0.01, the Holm segmented control, the two toggles and the locked 'null draws count toward local limits'. Validation is genuinely derived rather than scripted - typing alpha 0.001 produces 'below the smallest reportable p (0.005) - raise draws to at least 1,000', disables Save and states the consequence as 'a 0.01 -> 0.001'. Deduction is clipped select text.",
+   "findings": [
+    {
+     "severity": "P2",
+     "title": "Method select labels are clipped",
+     "state": "default",
+     "detail": "The method column is narrow enough that four of the seven canon method names are cut: 'circular shift of the ch', 'label shuffle * random f', 'label shuffle * full ret', 'bootstrap resample of me'. Frame 4 shows each in full, and these strings are the point of the table (spec 9.4 lists the method per kind).",
+     "screenshot": "webui/screenshots/critique/settings-a/r1-fidelity/nulls.default.png"
+    },
+    {
+     "severity": "P2",
+     "title": "First column wraps, breaking the frame's one-line rows",
+     "state": "default",
+     "detail": "'Interrogation * distributions' and 'Interrogation * intervals' wrap to two lines in the app, giving those two rows a different height from the rest; frame 4 keeps every row on one line at the same height.",
+     "screenshot": "webui/screenshots/critique/settings-a/r1-fidelity/nulls.default.png"
+    }
+   ]
+  },
+  {
+   "page": "settings.analysis-defaults",
+   "score": 8,
+   "rationale": "All four cards of frame 5 are present with the right controls and the spec's canon values: IoU 0.50 and onset tolerance 0.25 x duration as sliders, the locked 'm / 2' exclusion zone, the seven-row Recommended-values table with the locked 'gap >= window' and 'the recording's noise floor (Datasets)' rules, the evaluated-on column and green recommended markers, the Artifact-likelihood factors with the low/medium/high bands in green/amber/red, and the Step cache with 14.2 GB and a working Clear-cache confirm-then-progress. Deductions: the rule cells clip their own text, the history affordance is missing from four of the seven rows the frame gives it to, and several canon numbers lose their two decimals.",
+   "findings": [
+    {
+     "severity": "P1",
+     "title": "history link missing on four of the seven recommended-value rows",
+     "state": "default",
+     "detail": "Frame 5 shows 'history' on every rule row (Sliding windows window and gap, Matrix profile, Threshold to spans, Noise floor, Bandpass, Symbolic encoding). The app shows it only on window, m and band; the other four render an em dash, so 'history per rule' (spec 9.5) is unavailable for the locked and fixed rules the frame offers it for.",
+     "screenshot": "webui/screenshots/critique/settings-a/r1-fidelity/ad.default.png"
+    },
+    {
+     "severity": "P2",
+     "title": "Rule text clipped in the rule column",
+     "state": "default",
+     "detail": "'exemplar native length, else 2 x med' and 'model calibration, else null 99th pe' are cut off mid-word; frame 5 shows both rules in full ('...else 2 x median event', '...null 99th percentile'). The rule string is the whole content of that column.",
+     "screenshot": "webui/screenshots/critique/settings-a/r1-fidelity/ad.default.png"
+    },
+    {
+     "severity": "P2",
+     "title": "Two-decimal canon values rendered with one decimal",
+     "state": "default",
+     "detail": "Artifact-likelihood coherence reads 0.5 and the bands read low < 0.3 / medium < 0.6; frame 5 shows 0.50, 0.30 and 0.60 (and spec 9.5 quotes the bands as 0.30 / 0.60).",
+     "screenshot": "webui/screenshots/critique/settings-a/r1-fidelity/ad.default-bottom.png"
+    },
+    {
+     "severity": "P2",
+     "title": "Bandpass default band differs from the frame",
+     "state": "default",
+     "detail": "The band rule reads '0.01 - 0.1 Hz'; frame 5 shows '0.005 - 0.1 Hz' in that field. (The frame's field is the staged edit, so this may be intentional, but the history popover then also lists 0.01 - 0.1 Hz as a saved prior value, which makes the current value indistinguishable from its own history.)",
+     "screenshot": "webui/screenshots/critique/settings-a/r1-fidelity/ad.history.png"
+    },
+    {
+     "severity": "P2",
+     "title": "History popover overflows the card and the viewport edge",
+     "state": "history",
+     "detail": "The 'Bandpass filter * band' popover opens anchored right and extends past the card's right edge to the window edge, with its first restore button overlapping the Symbolic-encoding row.",
+     "screenshot": "webui/screenshots/critique/settings-a/r1-fidelity/ad.history.png"
+    },
+    {
+     "severity": "P2",
+     "title": "The two Matching-rule sliders have different track lengths",
+     "state": "default",
+     "detail": "The IoU slider track runs ~115 px and the onset-tolerance track ~55 px, with the onset handle pinned at its left end. Frame 5 draws both sliders on the same track width with the handle proportionally placed.",
+     "screenshot": "webui/screenshots/critique/settings-a/r1-fidelity/ad.default.png"
+    }
+   ]
+  },
+  {
+   "page": "settings.compute-hpc",
+   "score": 9,
+   "rationale": "The densest frame in the set and the app carries all five of its cards faithfully: This machine with the canon 16 cores / RTX 4070 12 GB / 64 GB RAM and a Run-benchmark that really runs (progress bar plus 'benchmarking * 2 of 5 kernels') and then recalibrates; Local limits with the exact five workspaces and the 20 min / 20 min / 2 h / 10 min / 5 min ceilings and their above-the-limit consequences; Clusters with hpc-1 and the amber second-cluster hint, and Add cluster really appends hpc-2 with a proper 'No profiles on hpc-2' empty state; Job profiles with the three canon profiles, the amber gpu-multinode flag, guided/raw template tabs, the return-path pair and a live script preview that changes with the selected profile; Job status with the locked 'marked by hand' chip, 3 x estimate and the 5 min inbox poll, cross-linked to Jobs. Deductions are small selection/overlay issues.",
+   "findings": [
+    {
+     "severity": "P2",
+     "title": "Selecting a different job profile does not move the row highlight",
+     "state": "profile-cpu-array",
+     "detail": "Frame 6 highlights the open profile's row (gpu-single) in blue. After clicking cpu-array the editor and script preview correctly switch to cpu-array, but no row is highlighted at all, so the table stops showing which profile is open.",
+     "screenshot": "webui/screenshots/critique/settings-a/r1-fidelity/hpc.profile-click.png"
+    },
+    {
+     "severity": "P2",
+     "title": "Benchmark tooltip floats outside the card",
+     "state": "benchmark-running",
+     "detail": "While the benchmark runs, a black 'benchmark running...' tooltip renders above the card's top edge, overlapping the page header band rather than sitting inside the This-machine card as the progress row does.",
+     "screenshot": "webui/screenshots/critique/settings-a/r1-fidelity/hpc.benchmark-running.png"
+    },
+    {
+     "severity": "P2",
+     "title": "cpu-array keeps the GPU environment-setup line",
+     "state": "profile-cpu-array",
+     "detail": "With cpu-array open, 'environment setup' still reads 'module load cuda/12.1 && conda activate cnn' even though the generated script sets --gres=none. Frame 6 only shows the editor for gpu-single, so this is an inference, but the CUDA module on a CPU profile reads as a copy-paste artifact.",
+     "screenshot": "webui/screenshots/critique/settings-a/r1-fidelity/hpc.profile-click.png"
+    }
+   ]
+  },
+  {
+   "page": "settings.blocks",
+   "score": 9,
+   "rationale": "Effectively a match for frame 7. All sixteen rows are present in the frame's order with the exact signature, version, adapter path, declared null and used-by count, the header reads '15 registered * 1 not built', the Model stage row carries the amber 'not built * B13' chip with a dash version and an off, non-interactive toggle, the code hash a7f3c1e is in the subtitle and the disabled-block caption sits under the table. Toggling a block produces the save bar with the frame's consequence sentence, and used-by opens a real popover listing the templates with a link into Library. Deductions are cosmetic only.",
+   "findings": [
+    {
+     "severity": "P2",
+     "title": "used-by popover shows a focus box around the first template",
+     "state": "used-by",
+     "detail": "The 'Symbolic encoding * used by' popover draws 'drop_motifs9' inside a bordered box while 'sharkfin_v2' below it is plain text, so the first entry reads as an editable field rather than a listed template name.",
+     "screenshot": "webui/screenshots/critique/settings-a/r1-fidelity/blocks.used-by.png"
+    },
+    {
+     "severity": "P2",
+     "title": "Signature column adds an info icon the frame does not have",
+     "state": "default",
+     "detail": "Every signature cell ends with a small (i) glyph. Frame 7 shows the bare 'Signal -> Signal' type strings; the added icon repeats on sixteen rows and adds visual noise to the column the eye scans for the contract.",
+     "screenshot": "webui/screenshots/critique/settings-a/r1-fidelity/blocks.default.png"
+    }
+   ]
+  },
+  {
+   "page": "settings.review-queues",
+   "score": 8,
+   "rationale": "Frame 8's three cards are all present with the right content: six queue sources with the canon blind state, verdict-key sets (full * S I N A U, binary + classes, full + classes), caps 20,000 and 40, order and write-target columns and the blind caption; Clusters with cohesion 0.45, the shared sequence definition (gap <= 6 min, at least 2 events), largest batch 50 and the locked undo rule; Promotion with the locked S-promotes rule and suggest d <= 0.30. Interactions are real and derived - unblinding Training windows raises a P20-citing warning, and suggest d 0.8 raises 'past the Library's omit distance (0.50)'. Deductions: the blind toggles break the page's own colour convention, two order labels are clipped, the locked toggles read as disabled, the suggest value loses a decimal and the invalid cap gives no reason.",
+   "findings": [
+    {
+     "severity": "P1",
+     "title": "Invalid cap shows no reason and the save bar restates the invalid value",
+     "state": "invalid-cap",
+     "detail": "Typing 'lots' into the training-windows cap outlines it red and disables Save, but no message says why - unlike alpha on Nulls and suggest-d on this same page, which both give a sentence. Worse, the save bar reads 'training-window queues cap at lots * q-18 keeps its current cap', presenting a non-numeric value as a real consequence.",
+     "screenshot": "webui/screenshots/critique/settings-a/r1-fidelity/rq.invalid-cap.png"
+    },
+    {
+     "severity": "P2",
+     "title": "Blind toggles are blue where the frame and the rest of the app use green",
+     "state": "default",
+     "detail": "The two 'blind' toggles for Training windows and Model verification render solid blue. Frame 8 draws them green, and every other on-toggle in this settings build (held-out lock, show x null, email on finish, reuse draws) is green. Spec 3 reserves blue for 'active, selected, machine-origin', so a blue toggle here reads as a different kind of state.",
+     "screenshot": "webui/screenshots/critique/settings-a/r1-fidelity/rq.default.png"
+    },
+    {
+     "severity": "P2",
+     "title": "Locked toggles use a washed-out green that reads as disabled",
+     "state": "default",
+     "detail": "'undo reverses the whole batch' and 'S promotes to the Library' draw the track in a pale mint with the lock glyph inside it on the left. At a glance the rule looks switched off rather than locked on; frame 8 keeps the track full green with the lock icon outside the control.",
+     "screenshot": "webui/screenshots/critique/settings-a/r1-fidelity/rq.locked-toggles-zoom.png"
+    },
+    {
+     "severity": "P2",
+     "title": "Order select labels clipped",
+     "state": "default",
+     "detail": "'distance, near firs' and 'stratified by chann' are cut off; frame 8 shows 'distance, near first' and 'stratified by channel' in full.",
+     "screenshot": "webui/screenshots/critique/settings-a/r1-fidelity/rq.default.png"
+    },
+    {
+     "severity": "P2",
+     "title": "Suggest distance shown as 0.3 not 0.30",
+     "state": "default",
+     "detail": "'suggest the nearest family when d <=' reads 0.3; frame 8 and spec 9.8 both give 0.30, and the page's own warning text quotes the omit distance as '(0.50)', so the two are formatted inconsistently on the same screen.",
+     "screenshot": "webui/screenshots/critique/settings-a/r1-fidelity/rq.suggest-warning.png"
+    }
+   ]
+  }
+ ]
+}

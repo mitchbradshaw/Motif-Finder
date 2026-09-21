@@ -1,0 +1,126 @@
+{
+  "lens": "fidelity",
+  "round": 1,
+  "status": "done",
+  "pages": [
+    {
+      "page": "discovery.runs",
+      "score": 9,
+      "rationale": "Frames 1, 1b and 1c are reproduced region for region: toolbar chips (session, scope, null, cost, History, SLURM), scope card with the one shared brush across three ~32 px strips and the 1-3 of 3 pager, runs list with the human reference row and the amber paused mp_drops_v3 card, where-each-run-fires density grid with the reviewed-hours underlay and the density/spans Seg, the full nine-column scoreboard with per-channel expansion and the 'no reviewed overlap' / 'too few' copy, the browser and the three run acts. Add-template modal, SLURM modal, history popover, spans toggle, six-channel page 2, failed, empty and held-out states all work, with no console or page errors. Small copy and layout differences keep it off 10.",
+      "findings": [
+        {
+          "severity": "P2",
+          "state": "default",
+          "title": "Browser says 'also found by -' where the frame names the other run",
+          "detail": "Frame 1's browser reads 'also found by (dot) seed_F03_native' for d-0412. The page reads 'also found by -' and then 'seed_F03_native came within d 3.6 (near miss)'. The near-miss line is a fair addition, but the canonical co-detection fact the frame shows is now negated.",
+          "screenshot": "webui/screenshots/critique/discovery/r1-fidelity/runs.default-lower.png"
+        },
+        {
+          "severity": "P2",
+          "state": "default",
+          "title": "Paused run row name truncated to 'mp_drops_...'",
+          "detail": "Frame 1's run card reads 'mp_drops_v3 - r-0431' with 'paused 3/4' and 'Open in Jobs' beside the progress bar. The page truncates the title to 'mp_drops_...' and wraps 'paused 3/4' over two lines, so the run id r-0431 appears nowhere in the runs list.",
+          "screenshot": "webui/screenshots/critique/discovery/r1-fidelity/runs.default.png"
+        },
+        {
+          "severity": "P2",
+          "state": "six-channels-page-2",
+          "title": "Scope card wraps 'Preview on a 4 h sample' onto a second row at six channels",
+          "detail": "Frame 1c keeps the channel chips, section chip and preview button on one line. With six channel chips the page pushes 'Preview on a 4 h sample' down onto its own row under the recording select, adding a row of height the frame does not have.",
+          "screenshot": "webui/screenshots/critique/discovery/r1-fidelity/runs.six-channels-page-2.png"
+        }
+      ]
+    },
+    {
+      "page": "discovery.seed",
+      "score": 8,
+      "rationale": "Every region of frame 2 is present and mostly pixel-close: seed card with the three-source Seg, exemplar thumbnail and provenance, carry/rebind radios, the disabled '+ seed' with its MASS reason, the parameter grid with the locked native window and 'Revert to recommended', the where-to-cut histogram with the shaded self bin, the surrogate distribution behind and the draggable threshold labelled '41 kept - null gives 6', the distance profile with signal/distance/matches tracks and no marks on the signal, the eight match cards with canon ids and distances, and the apply bar with the unapplied-change readout. Running, done, failed, save-as-template and its duplicate-name validation all work. Deducted for a self-contradicting found count in the done state, a distance profile drawn as straight ramps, and several wrapped labels.",
+      "findings": [
+        {
+          "severity": "P1",
+          "state": "done",
+          "title": "Done state reports two different found counts for the same run",
+          "detail": "After the simulated run completes, the runs-list row reads 'seed_F03_native_2 - 99 found - 3 ch - done 07:39' while the apply bar below reads 'seed_F03_native_2 - 41 found - done 07:39' and the matches card still says '41 matches'. Two numbers for the same run on one screen is misleading data.",
+          "screenshot": "webui/screenshots/critique/discovery/r1-fidelity/seed.done-bar.png"
+        },
+        {
+          "severity": "P2",
+          "state": "default",
+          "title": "Distance profile is drawn as straight ramps between noisy patches",
+          "detail": "Frame 2 draws a continuous jagged distance profile across the whole 192.0-194.0 h view, dipping at each match. The page draws four short noisy segments joined by long straight diagonal lines, so the trace reads as an interpolation artifact rather than a distance series.",
+          "screenshot": "webui/screenshots/critique/discovery/r1-fidelity/seed.default-lower.png"
+        },
+        {
+          "severity": "P2",
+          "state": "default",
+          "title": "Seed provenance gives the exemplar position in hours, not the frame's samples/seconds",
+          "detail": "Frame 2 reads 'M2_aug_concat_fs1 - CH4_A2 / 825-846 s - hash 3b91e0'. The page reads 'M2_aug_concat_fs1 - CH4_A2 / 0.23 h - 21 s - hash 3b91e0'. The sample extent the frame gives for the exemplar is gone.",
+          "screenshot": "webui/screenshots/critique/discovery/r1-fidelity/seed.default.png"
+        },
+        {
+          "severity": "P2",
+          "state": "default",
+          "title": "Parameter and match-card labels wrap where the frame keeps one line",
+          "detail": "'recommended 2.8 - null hits = 1' wraps to two lines under the threshold slider, and every match card footer breaks 'CH4_A2 - 192.6 h' so the trailing 'h' sits alone on a second line. Frame 2 keeps both on one line.",
+          "screenshot": "webui/screenshots/critique/discovery/r1-fidelity/seed.default-lower.png"
+        },
+        {
+          "severity": "P2",
+          "state": "source-explore",
+          "title": "Apply bar still claims an unapplied threshold change with no seed selected",
+          "detail": "With source = Explore selection and the seed card showing 'No span selected in Explore', the footer still reads 'draft - 1 unapplied change - threshold 2.8 to 3.1 - preview counts update live' while the histogram reads '0 kept - null gives 0'. The change readout should not survive a state with nothing to run.",
+          "screenshot": "webui/screenshots/critique/discovery/r1-fidelity/seed.source-explore.png"
+        }
+      ]
+    },
+    {
+      "page": "discovery.compare",
+      "score": 9,
+      "rationale": "Frame 3 is reproduced closely: 'all runs' back link, cached chip and Swap A / B in the toolbar; 'What differs' with the five role columns, amber differing cards, the empty 'no stage' slot and the '3 of 5 roles differ' badge with its popover; 'Where A and B fire' with a clean signal, A/B/agreement tracks, the faint band on the selected disagreement and a working hover crosshair readout ('212.5 h both fire'); 'Set overlap' with the all-channels and per-channel proportional bars beside A/B precision and x null; and the disagreement stepper with B's distance profile and the 'nearest d 3.6 - threshold 3.1 - near miss' copy. Human-as-B correctly shows '-' and '0 reviewed' rather than a fabricated precision. Only the fire-track density and a couple of truncations deduct.",
+      "findings": [
+        {
+          "severity": "P2",
+          "state": "default",
+          "title": "A/B/agreement tracks are so dense they read as a solid grid",
+          "detail": "Frame 3 draws roughly 40 well-separated ticks per track over 112-286 h, so only-A, only-B and both stay distinguishable at a glance. The page draws several hundred ticks per track, filling each row almost solidly; the agreement track in particular becomes an unreadable mix of blue, purple and grey.",
+          "screenshot": "webui/screenshots/critique/discovery/r1-fidelity/compare.default.png"
+        },
+        {
+          "severity": "P2",
+          "state": "default",
+          "title": "Run name and Source channel list truncated in What differs",
+          "detail": "The B row label reads 'seed_F03_nati...' (frame 3 abbreviates as 'seed_F03_nat.') and both Source cards truncate their subline to 'CH4_A2 - CH2_A1 - C...' where the frame fits all three channel names.",
+          "screenshot": "webui/screenshots/critique/discovery/r1-fidelity/compare.default.png"
+        }
+      ]
+    },
+    {
+      "page": "discovery.stages",
+      "score": 8,
+      "rationale": "Frame 3b is reproduced almost exactly: the 'compare' back link and re-run cost chip, the stepper bar with '7 / 106 - 192.4 h - CH4_A2 - 40 s - only A fired' and the amber 'first stage whose output differs - Score / estimate' badge, two columns headed by A and B with 'Open in Analyse', five role-aligned rows badged identical / differs / A only / absent, the real chain-row thumbnails (baseline overlay, noise-floor band with the +/-0.077 line, SAX symbol strip, seeded-search distance dip labelled 3.6, detect span highlight), the absent-role empty card with 'Seeded search reads the preprocessed signal directly', and the 'What each stage decided here' table row for row. Stepping, swap, the re-run overlay, the stage-params popover and the same-run empty state all work. Deducted for the human-as-B column contradicting itself.",
+      "findings": [
+        {
+          "severity": "P1",
+          "state": "human-as-b",
+          "title": "Source row badged 'differs' while its own caption says the signal is identical",
+          "detail": "With B = human annotations, both Source cards carry an amber 'differs' badge and the stepper reads 'first stage whose output differs - Source', yet each card's caption underneath says 'the same 40 s in both runs' and the two thumbnails are the same trace. Spec 7.8 has the stepper name the first stage whose output differs; here it names a role the page itself calls identical, and hides the real divergence (Detect: 1 span vs 0 spans).",
+          "screenshot": "webui/screenshots/critique/discovery/r1-fidelity/stages.human-as-b.png"
+        },
+        {
+          "severity": "P2",
+          "state": "human-as-b",
+          "title": "'Open in Analyse' offered on the human-annotations column",
+          "detail": "The B column header for 'human annotations reference' carries an 'Open in Analyse' link identical to the algorithm column's. Human verdicts have no chain to open; clicking it fires a 'not wired yet: open human on CH4_A2 222.25-222.27 h in Analyse' toast and still navigates to #/analyse/chain.",
+          "screenshot": "webui/screenshots/critique/discovery/r1-fidelity/probe.human-open-in-analyse.png"
+        },
+        {
+          "severity": "P2",
+          "state": "default",
+          "title": "Detect stage title shortened to 'Threshold'",
+          "detail": "Frame 3b names B's detect stage 'Threshold to spans'; the page card reads 'Threshold  Scores to SpanSet'. The add-template modal on discovery.runs uses the full 'Threshold to spans', so the two surfaces disagree with each other as well.",
+          "screenshot": "webui/screenshots/critique/discovery/r1-fidelity/stages.default.png"
+        }
+      ]
+    }
+  ]
+}

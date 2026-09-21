@@ -1,0 +1,322 @@
+{
+ "lens": "fidelity",
+ "round": 2,
+ "status": "done",
+ "pages": [
+  {
+   "page": "analyse.training",
+   "score": 8,
+   "rationale": "Frames 0 and 0b are both reproduced closely: toolbar, source chip + popover, six stage rows with badge / type signature / summary / thumbnail and the four row icons, insert affordances, the blue Model hand-off card and the terminal footer. Every r1 P1 is fixed - the failed badge lands on 04 Encode, 0b has its own header, toolbar, hand-off copy and amber footer chip, 0b's Encode row is badged stale, bypass changes the row, the invalid junction carries fix actions and disables both hand-offs, rename cancels, and the Review cap holds. Deductions: the fix-action buttons in the invalid-junction row overlap the row summary text; the Model row prints its caption twice; 0b's source chip drops the canon id and the estimate; 0b puts the B7 callout above Source rather than below 04; the 01 chain row still draws plain split bands where frame 0 labels them and adds gap marks and a tick strip; and the 02 row badge shows only half its status.",
+   "findings": [
+    {
+     "severity": "P1",
+     "title": "Invalid-junction fix buttons overlap the row caption",
+     "state": "stage-deleted",
+     "detail": "In #/analyse/training?deleted=windows the 05 Model row's 'Put the stage back' / 'Open 05 and rebind its input' buttons are drawn on top of the row summary 'trial here on CH4 only - labels from 03 cluster - split from 01'; the two strings render in the same band and neither is legible. The frames never stack controls over a caption.",
+     "screenshot": "C:/Users/mmebr/Documents/CNN/webui/screenshots/critique/training/r2-fidelity/chain--stage-deleted-overlap.png"
+    },
+    {
+     "severity": "P2",
+     "title": "prev fixed: failed badge now lands on 04 Encode",
+     "state": "failed",
+     "detail": "?state=failed badges 04 Encode 'failed' with the banner and toolbar agreeing; 03 Cluster stays cached.",
+     "screenshot": "C:/Users/mmebr/Documents/CNN/webui/screenshots/critique/training/r2-fidelity/chain--failed--full.png"
+    },
+    {
+     "severity": "P2",
+     "title": "prev fixed: 0b has its own header, toolbar, hand-off and footer chip",
+     "state": "illustrative-human-windows",
+     "detail": "Header reads 'illustrative - windows from the human-labelled set - not built yet', History and Import are gone, the hand-off reads 'Every window already has a manual label - no review backlog' with only Train in Models, and the footer carries the amber 'illustrative - out of scope' chip.",
+     "screenshot": "C:/Users/mmebr/Documents/CNN/webui/screenshots/critique/training/r2-fidelity/chain--illustrative-bottom.png"
+    },
+    {
+     "severity": "P2",
+     "title": "prev fixed: 0b Encode row badged stale; Model caption no longer cites 03 cluster / 01",
+     "state": "illustrative-human-windows",
+     "detail": "03 Encode now reads 'stale' beside its 'stale - cluster k changed' summary, and the Model caption reads 'labels from 02 Cluster - the split rides on the source window set (B7)'.",
+     "screenshot": "C:/Users/mmebr/Documents/CNN/webui/screenshots/critique/training/r2-fidelity/chain--illustrative-bottom.png"
+    },
+    {
+     "severity": "P2",
+     "title": "prev fixed: rename cancels; Send to Review enforces the 20,000 cap",
+     "state": "rename-invalid / send-review",
+     "detail": "Escape restores the name chip with no error left behind; send-review-confirm is disabled with data-disabled-reason 'how many: not a number' for 'abc' and disabled for 99999.",
+     "screenshot": "C:/Users/mmebr/Documents/CNN/webui/screenshots/critique/training/r2-fidelity/chain--send-review-invalid.png"
+    },
+    {
+     "severity": "P2",
+     "title": "prev fixed: bypass changes the row; invalid junction offers fix actions",
+     "state": "default / stage-deleted",
+     "detail": "The bypass control repaints its row, and the invalid 05 row carries 'Put the stage back' and 'Open 05 and rebind its input' with both hand-off buttons disabled.",
+     "screenshot": "C:/Users/mmebr/Documents/CNN/webui/screenshots/critique/training/r2-fidelity/chain--stage-deleted-bottom.png"
+    },
+    {
+     "severity": "P2",
+     "title": "05 Model row prints its caption twice",
+     "state": "default",
+     "detail": "The blue hand-off card carries 'trial here on CH4 only - labels from 03 cluster - split from 01' and the identical sentence is repeated as the row summary directly underneath it. Frame 0 shows it once, inside the card.",
+     "screenshot": "C:/Users/mmebr/Documents/CNN/webui/screenshots/critique/training/r2-fidelity/chain--default-bottom.png"
+    },
+    {
+     "severity": "P2",
+     "title": "0b source chip loses the canon window-set id and the estimate",
+     "state": "illustrative-human-windows",
+     "detail": "Frame 0b's chip reads 'ws_human_labelled_mixed - CH4_A2 - 412 windows - interesting / not' and the toolbar keeps '~ 3 h 10 min'. The app's chip reads 'Window set - 412 human-labelled windows' (no id, no channel) and the estimate slot is replaced by 'illustrative - not built yet'. The source popover on the default state does print ws_human_labelled_mixed, so the two disagree.",
+     "screenshot": "C:/Users/mmebr/Documents/CNN/webui/screenshots/critique/training/r2-fidelity/chain--illustrative--full.png"
+    },
+    {
+     "severity": "P2",
+     "title": "B7 callout sits above Source instead of below 04 Model",
+     "state": "illustrative-human-windows",
+     "detail": "Frame 0b places the amber 'No sliding-windows stage, so no split stage' callout between the 04 Model row and the terminal footer. The app puts it at the top of the page, above the Source row, so the chain no longer starts at Source.",
+     "screenshot": "C:/Users/mmebr/Documents/CNN/webui/screenshots/critique/training/r2-fidelity/chain--illustrative--full.png"
+    },
+    {
+     "severity": "P2",
+     "title": "01 chain row omits band labels, gap marks and the window tick strip",
+     "state": "default",
+     "detail": "Frame 0's 01 row puts 'train', 'val', 'train', 'test' inside the bands, orange/red marks at each break and a grey window tick strip underneath. The chain row draws four plain unlabelled bands with an hour axis. The block page does draw all three, so only the row is short.",
+     "screenshot": "C:/Users/mmebr/Documents/CNN/webui/screenshots/critique/training/r2-fidelity/chain--default--full.png"
+    },
+    {
+     "severity": "P2",
+     "title": "02 row badge shows only 'on cluster'",
+     "state": "default",
+     "detail": "Frame 0 badges the 02 row 'on cluster - cached'; the app shows 'on cluster' alone, so the cached half of the status is lost.",
+     "screenshot": "C:/Users/mmebr/Documents/CNN/webui/screenshots/critique/training/r2-fidelity/chain--default--full.png"
+    }
+   ]
+  },
+  {
+   "page": "analyse.training.windows",
+   "score": 8,
+   "rationale": "Frame 01 is now closely matched: in-band split labels with counts, red drop marks, the window tick strip, the amber gap band in the boundary close-up with its caption below the plot, Parameters with the recommended markers, the Checks card, Human verdicts per split and the unapplied bar. The r1 P1s are addressed - the strip carries its labels and marks, the Checks card turns red on an under-length gap and on a random split, the bar names what changed, one primary is offered, ?state=edited produces the pending change, and Save window set opens with an id its own validator accepts. Deductions: on the random (leaking) split the boundary card still shows a green 'a gap of at least one window length means no training window shares a sample with a validation window'; the validation band is drawn in the gap's amber rather than the frame's lavender; the boundary close-up leaves a large unexplained blank between the gap band and the val bars; the gap field prints two near-identical errors; and the ribbon chips truncate.",
+   "findings": [
+    {
+     "severity": "P1",
+     "title": "Boundary card still certifies safety on the leaking random split",
+     "state": "random-split",
+     "detail": "With ?split=random the page raises 'a random split leaks (P12)' and the Checks card correctly turns red ('windows DO cross split boundaries - a random split interleaves them'), but the 'At a boundary' card below still draws the blocked layout with a 10 min gap band and keeps its green tick 'a gap of at least one window length means no training window shares a sample with a validation window'. One card contradicts the callout at the top of the same page.",
+     "screenshot": "C:/Users/mmebr/Documents/CNN/webui/screenshots/critique/training/r2-fidelity/w--random-split--full.png"
+    },
+    {
+     "severity": "P2",
+     "title": "prev fixed: split strip carries labels, drop marks and a tick strip",
+     "state": "edited",
+     "detail": "Bands read 'train - 185 windows', 'val - 76 windows', 'train - 163 windows', 'test - 100 windows', red marks sit at each break and a tick row runs underneath with 'red where a break drops them (19)'.",
+     "screenshot": "C:/Users/mmebr/Documents/CNN/webui/screenshots/critique/training/r2-fidelity/w--split-strip-zoom.png"
+    },
+    {
+     "severity": "P2",
+     "title": "prev fixed: checks falsify on an invalid gap and the primary is blocked",
+     "state": "invalid-gap",
+     "detail": "gap 2 turns the check red ('gap 2 min < window 10 min'), the boundary verdict flips to an amber warning and the toolbar primary is disabled.",
+     "screenshot": "C:/Users/mmebr/Documents/CNN/webui/screenshots/critique/training/r2-fidelity/w--invalid-gap--full.png"
+    },
+    {
+     "severity": "P2",
+     "title": "prev fixed: ?state=edited yields the pending change; Save window set id is valid",
+     "state": "edited / save-window-set",
+     "detail": "The deep link opens with '1 unapplied change' and the gap field at 10 with 'was 5'; the save modal opens on ws_M2aug_CH4_600s with Save enabled and no error.",
+     "screenshot": "C:/Users/mmebr/Documents/CNN/webui/screenshots/critique/training/r2-fidelity/w--save-window-set.png"
+    },
+    {
+     "severity": "P2",
+     "title": "Validation band drawn in amber, colliding with the gap colour",
+     "state": "default",
+     "detail": "Frame 01 draws the val band lavender and the gap marks orange. The app draws the val band amber and gives 'validation' an amber legend swatch one shade from the adjacent 'gap' swatch - two split roles in near-identical hues, and amber is the stale / needs-attention colour in the spec's palette.",
+     "screenshot": "C:/Users/mmebr/Documents/CNN/webui/screenshots/critique/training/r2-fidelity/w--split-strip-zoom.png"
+    },
+    {
+     "severity": "P2",
+     "title": "Boundary close-up leaves a blank stretch before the val bars",
+     "state": "boundary",
+     "detail": "Frame 01 continues the window bars immediately on the val side of the amber gap band so the 50 % overlap reads across the boundary. The app draws two small amber bars at the far right of the card with an empty stretch between them and the gap band, so the drawn separation is several times the 10 min gap it illustrates.",
+     "screenshot": "C:/Users/mmebr/Documents/CNN/webui/screenshots/critique/training/r2-fidelity/w--boundary-zoom.png"
+    },
+    {
+     "severity": "P2",
+     "title": "Gap field prints two errors for one problem",
+     "state": "invalid-gap",
+     "detail": "Under the field: 'at least the 10 min window length' and, immediately below it, 'must be at least the 10 min window length'.",
+     "screenshot": "C:/Users/mmebr/Documents/CNN/webui/screenshots/critique/training/r2-fidelity/w--invalid-gap--full.png"
+    },
+    {
+     "severity": "P2",
+     "title": "Ribbon chip titles and type signatures truncate",
+     "state": "default",
+     "detail": "At 1440 the chips read '01 Sliding win...', '02 Window m...' and 'WindowSet -> WindowSet + ...'; frame 01 fits all six chips whole.",
+     "screenshot": "C:/Users/mmebr/Documents/CNN/webui/screenshots/critique/training/r2-fidelity/w--default--full.png"
+    }
+   ]
+  },
+  {
+   "page": "analyse.training.matrix",
+   "score": 8,
+   "rationale": "Frame 1 is reproduced well: collapsible feature groups with per-feature row labels, the sigma heat on a diverging ramp, greyed label-derived rows, the aligned signal on the same time axis, the selection bracket, the window readout with Open in Encode, the Feature groups card with the leakage warning, the normalise and clip controls and the Compute card with the cached recipe, Create SLURM script and Upload matrix. The r1 P1s hold: clip and normalise now move the legend and the heat, the bar names what changed, and a column click resolves a window. Deductions: the heat caption keeps saying the CNN rows are greyed and excluded after they have been ticked in and coloured; the default readout names window 335 / 27.8-28.0 h where the frame fixes window 283 / 28.2-28.4 h; and Open in Encode wraps onto its own line instead of sitting at the right of the readout.",
+   "findings": [
+    {
+     "severity": "P1",
+     "title": "'CNN rows greyed = excluded from 03' persists after CNN scores are included",
+     "state": "label-derived-on",
+     "detail": "Ticking CNN scores raises the red leakage callout and recolours the six CNN rows, yet the caption under the ramp still reads 'CNN rows greyed = excluded from 03'. The sentence says the leaking columns are out while the picture directly above shows them in.",
+     "screenshot": "C:/Users/mmebr/Documents/CNN/webui/screenshots/critique/training/r2-fidelity/m--label-derived-on--full.png"
+    },
+    {
+     "severity": "P2",
+     "title": "prev fixed: clip and normalise move the legend and the heat",
+     "state": "default",
+     "detail": "Choosing clip +/- 2 sigma rewrites the legend to '-2 sigma / +2 sigma' and rescales the ramp.",
+     "screenshot": "C:/Users/mmebr/Documents/CNN/webui/screenshots/critique/training/r2-fidelity/m--clip-2sigma.png"
+    },
+    {
+     "severity": "P2",
+     "title": "prev fixed: the unapplied bar names what changed",
+     "state": "edited",
+     "detail": "The bar reads '1 unapplied change - Random Forest excluded - 03 -> 05 go stale ...'; ticking CNN scores as well makes it '2 unapplied changes - Random Forest excluded - CNN scores included ...'.",
+     "screenshot": "C:/Users/mmebr/Documents/CNN/webui/screenshots/critique/training/r2-fidelity/m--edited-bar.png"
+    },
+    {
+     "severity": "P2",
+     "title": "Default readout names window 335, not the frame's window 283",
+     "state": "readout",
+     "detail": "Frame 1 fixes the readout at 'window 283 - 28.2 - 28.4 h - class C3 - sample entropy +2.7 sigma'; the app opens on 'window 335 - 27.8 - 28.0 h - class C3 - sample entropy +2.7 sigma'. 283 is the id the smoke manifest and the Encode deep link still use.",
+     "screenshot": "C:/Users/mmebr/Documents/CNN/webui/screenshots/critique/training/r2-fidelity/m--default--full.png"
+    },
+    {
+     "severity": "P2",
+     "title": "Open in Encode drops to a second line",
+     "state": "readout",
+     "detail": "Frame 1 sets the readout, 'band at 28 h: 4 of 4 included groups deviate' and the Open in Encode button on one row. The app wraps the button onto a line of its own under the readout, adding a strip of dead space at the bottom of the card.",
+     "screenshot": "C:/Users/mmebr/Documents/CNN/webui/screenshots/critique/training/r2-fidelity/m--default--full.png"
+    }
+   ]
+  },
+  {
+   "page": "analyse.training.cluster",
+   "score": 8,
+   "rationale": "Frames 2 and 2b are both present with the right regions: dendrogram with the cut annotated 'cut 10.1 -> 6 classes' now really slicing six coloured subtrees, Parameters with linkage / distance / cut height and the k, silhouette and cophenetic readouts, the criterion lock, six class cards with medoid + members, reviewed / interesting lines and the 'too small to train' flags, time occupancy, per-class bars, Merge C5 + C6 and Save grouping; and on choose-k the sweep with three linkages, the five criterion cards (now visibly selected, with a 'chosen' badge), the contingency table and the bootstrap stability bars. Deductions: the per-class bar chart is drawn in one flat blue while its own caption claims the D8 class palette and the frame colours each bar by class; class counts and the contingency table are rescaled away from the frame's canon; and the k-sweep is missing the frame's shaded 'current k' band, carries a stray axis label and leaves a band of blank page beneath it.",
+   "findings": [
+    {
+     "severity": "P1",
+     "title": "Windows-per-class bars are all blue while the caption claims the class palette",
+     "state": "default",
+     "detail": "Frame 2 colours each bar with its class colour (C1 red, C2 blue, C3 orange, ...) matching the class cards, dendrogram and occupancy strip. The app draws all six bars the same blue and prints underneath 'bars are the D8 categorical palette in the cards - never a verdict colour'. The caption asserts exactly what the chart does not do, and blue is the spec's machine / selected colour, so the chart reads as a selection state.",
+     "screenshot": "C:/Users/mmebr/Documents/CNN/webui/screenshots/critique/training/r2-fidelity/c--default-bottom.png"
+    },
+    {
+     "severity": "P2",
+     "title": "prev fixed: the cutline slices six subtrees",
+     "state": "default",
+     "detail": "The coloured subtrees now close below the line with grey merges above it, so 'cut 10.1 -> 6 classes' is shown by the picture, not only asserted in text.",
+     "screenshot": "C:/Users/mmebr/Documents/CNN/webui/screenshots/critique/training/r2-fidelity/c--default--full.png"
+    },
+    {
+     "severity": "P2",
+     "title": "prev fixed: criterion cards show their selection and the lock locks",
+     "state": "choose-k / criterion-locked",
+     "detail": "'fixed cut height' carries a filled radio, blue border and a 'chosen' badge; with ?locked=1 the Parameters criterion dropdown is disabled with 'criterion locked - fixed-cut - k is a consequence of it' and an Unlock button beside it.",
+     "screenshot": "C:/Users/mmebr/Documents/CNN/webui/screenshots/critique/training/r2-fidelity/c--locked-params--full.png"
+    },
+    {
+     "severity": "P2",
+     "title": "Class counts and contingency diverge from the frame's canon",
+     "state": "default / choose-k",
+     "detail": "Frame 2 gives C1 142 / C2 98 / C3 51 / C4 32 / C5 13 / C6 7 and a C1 contingency row of 13 / 22 / 1 / 106. The app shows C1 260 / C2 180 (so the six sum to 543) and a C1 row of 25 / 46 / 3 / 186. Self-consistent, but no longer the frame's numbers.",
+     "screenshot": "C:/Users/mmebr/Documents/CNN/webui/screenshots/critique/training/r2-fidelity/c--choose-k--full.png"
+    },
+    {
+     "severity": "P2",
+     "title": "k-sweep missing the 'current k' band; stray axis label",
+     "state": "choose-k",
+     "detail": "Frame 2b shades the k 6 column pale blue and places the 'peak k 2 (average)' note inside the plot. The app has no band, so the legend's 'current k 6' entry points at nothing; the note moves to a caption below, and a stray 'k' is printed under the k 12 tick.",
+     "screenshot": "C:/Users/mmebr/Documents/CNN/webui/screenshots/critique/training/r2-fidelity/c--choose-k--full.png"
+    },
+    {
+     "severity": "P2",
+     "title": "Large empty area under the k-sweep chart",
+     "state": "choose-k",
+     "detail": "The left column ends near y 500 while the criterion card runs to y 600 and the lower row starts at y 620, leaving a band of blank page that the frame fills with a taller chart.",
+     "screenshot": "C:/Users/mmebr/Documents/CNN/webui/screenshots/critique/training/r2-fidelity/c--choose-k--full.png"
+    }
+   ]
+  },
+  {
+   "page": "analyse.training.encode",
+   "score": 8,
+   "rationale": "Frame 3 is closely matched: window pager with the class / split / hour chip, the window's signal above, four encodings with per-encoding include checkboxes and Fusion unticked, Parameters with encoder set / image size / PAA / recurrence epsilon / fusion channels / write-to and the 'existing encoders stay' note, the images / disk / time tiles and Browse by class with per-split counts and the 'under 20 per split' flags. The r1 P1s hold: 256 x 256 moves the estimate to 0.8 GB and ~8 min, a browse class card lands on a window of that class, and the window chip is resolved from the shared helper. Deductions: the unapplied bar after an image-size change names the encodings rather than the size; the toolbar wraps to a second row once the estimate lengthens; window 118 reads C3 - 9.8 h where the frame fixes C2 - 19.8 h; and the per-image colour scales render as cramped +/- 1 text instead of ramps.",
+   "findings": [
+    {
+     "severity": "P1",
+     "title": "Unapplied bar names the encodings, not the change that was made",
+     "state": "edited",
+     "detail": "Change image size 224 -> 256 (the tiles correctly move to 0.8 GB and ~8 min). The bar then reads '1 unapplied change - 3 encodings ticked - 1,629 images to write - 05 re-runs on them'. No encoding was ticked or unticked; the one thing that changed - the image size, and the new-encoder-version consequence the amber note beside it warns about - is not named.",
+     "screenshot": "C:/Users/mmebr/Documents/CNN/webui/screenshots/critique/training/r2-fidelity/e--size-256.png"
+    },
+    {
+     "severity": "P1",
+     "title": "Toolbar wraps onto a second row, pushing the page down",
+     "state": "edited",
+     "detail": "With the estimate at '1,629 images - 0.8 GB - ~ 8 min' the primary 'Apply & re-run from 04' drops below the name chip onto its own row, so the toolbar is two rows tall and every card below shifts about 30 px. Frame 3 is a single 30 px toolbar row.",
+     "screenshot": "C:/Users/mmebr/Documents/CNN/webui/screenshots/critique/training/r2-fidelity/e--size-256.png"
+    },
+    {
+     "severity": "P2",
+     "title": "prev fixed: size moves the estimate; browse class lands in that class",
+     "state": "edited / browse-gadf",
+     "detail": "256 x 256 gives 0.8 GB and ~8 min; clicking browse-class-C4 navigates to window 83 and the chip reads 'C4 - train block - 6.8 h'.",
+     "screenshot": "C:/Users/mmebr/Documents/CNN/webui/screenshots/critique/training/r2-fidelity/e--browse-C4-click.png"
+    },
+    {
+     "severity": "P2",
+     "title": "Window 118 reads C3 - 9.8 h where the frame fixes C2 - 19.8 h",
+     "state": "default",
+     "detail": "Frame 3's chip is 'C2 - train block - 19.8 h - no verdict'. The app opens on 'C3 - train block - 9.8 h - no verdict' for the same window id.",
+     "screenshot": "C:/Users/mmebr/Documents/CNN/webui/screenshots/critique/training/r2-fidelity/e--default--full.png"
+    },
+    {
+     "severity": "P2",
+     "title": "Per-encoding colour scales render as cramped text, not ramps",
+     "state": "default",
+     "detail": "Frame 3 draws a vertical colour bar labelled +1 / -1 beside each of the four encodings. The app prints '-1' and '+1' stacked on top of each other at the right edge of each thumbnail with no visible ramp, and the thumbnails are about 135 px against the frame's 180 px.",
+     "screenshot": "C:/Users/mmebr/Documents/CNN/webui/screenshots/critique/training/r2-fidelity/e--default--full.png"
+    }
+   ]
+  },
+  {
+   "page": "analyse.training.model",
+   "score": 9,
+   "rationale": "The closest of the six to its frame. The stage table with status / cost / runs-on columns and per-stage ticks, the three labels-from cards, the Training grid with all eight parameters and the held-out lock line, 'Before this trains' with its three green and three amber checks plus Merge C5 + C6 and Send 412 to Review, the trial-job card with the SBATCH block and the Models hand-off are all present and worded as frame 4. The r1 P1s hold: architecture and epochs re-cost the 05 row (EfficientNet-B2 -> 4 h 19) and the toolbar estimate, ticking stages changes the estimate, and with nothing ticked Copy script, Download trial job and both Train in Models buttons are disabled with reasons. Deductions are minor: the toolbar wraps when the estimate turns into a sentence, the script block still names --from-stage 04 --to-stage 05 in a state the card says would do nothing, and the default estimate reads 2 h 46 against the frame's 2 h 40.",
+   "findings": [
+    {
+     "severity": "P2",
+     "title": "prev fixed: stage row and estimate follow the parameters; disabled reasons hold",
+     "state": "default / stage-04-off",
+     "detail": "EfficientNet-B2 rewrites the 05 row to '4 h 19 - cluster GPU - EfficientNet-B2 - 30 - early stop'; with 04 unticked, 05 auto-unticks with 'no images - tick 04 Encode first' and Copy script, Download trial job and Train in Models are all disabled.",
+     "screenshot": "C:/Users/mmebr/Documents/CNN/webui/screenshots/critique/training/r2-fidelity/mo--stage-04-off--full.png"
+    },
+    {
+     "severity": "P2",
+     "title": "Toolbar wraps when the estimate becomes a sentence",
+     "state": "stage-04-off",
+     "detail": "With the estimate replaced by 'no stage ticked - the job would do nothing', 'Train in Models' drops onto a second toolbar row and the whole page shifts down about 34 px. Frame 4 keeps one row.",
+     "screenshot": "C:/Users/mmebr/Documents/CNN/webui/screenshots/critique/training/r2-fidelity/mo--stage-04-off--full.png"
+    },
+    {
+     "severity": "P2",
+     "title": "Trial script still names stages 04 -> 05 when nothing is ticked",
+     "state": "stage-04-off",
+     "detail": "The card header reads 'no stage ticked - the job would do nothing' and a red 'no stage is ticked' line sits under the block, but the SBATCH text itself is unchanged and still reads '--from-stage 04 --to-stage 05', so the script shown is not the script the state describes.",
+     "screenshot": "C:/Users/mmebr/Documents/CNN/webui/screenshots/critique/training/r2-fidelity/mo--stage-04-off--full.png"
+    },
+    {
+     "severity": "P2",
+     "title": "Default estimate reads 2 h 46, the frame says 2 h 40",
+     "state": "default",
+     "detail": "Frame 4's toolbar is 'trial ~ 2 h 40 on cluster' (the 05 stage cost). The app sums the two ticked stages to 'trial ~ 2 h 46 on cluster'. Defensible arithmetic, but not the frame's canon string.",
+     "screenshot": "C:/Users/mmebr/Documents/CNN/webui/screenshots/critique/training/r2-fidelity/mo--default--full.png"
+    }
+   ]
+  }
+ ]
+}
