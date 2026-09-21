@@ -54,7 +54,19 @@ in `Working/registration/kinds.py` (scan pattern, parser, checks, table target),
    `register(conn, candidate, provenance) → row id` through `writes.write_machine` (rule 5), `unregister`
    (soft: `artifacts.active=0`, additive column). Kinds first: recording (from `DATA/derived/channels/<stem>/`
    with `manifest.json` — the five unregistered recordings M1, M100, M101_t, MJu26a, L_LM_Jul_26_J_raw_fs10 must
-   register, with MJu26a's non-uniform sampling and L_LM's inferred fs surfaced as warnings the UI shows),
+   register, with MJu26a's non-uniform sampling and L_LM's inferred fs surfaced as warnings the UI shows;
+   `F2B.mat` (5 channels x 5,184,001, never derived) is a sixth - its channels come from `.mat` import below).
+   **A candidate that is a subset of a registered recording is an excerpt, not a new recording** (user
+   decision 2026-09-21): `Mushroom_260720_0509_4hrs_CH14_fs1` (row 385) is a 10:1-decimated four-hour
+   excerpt of `L_LM_Jul_26_J_raw_fs10` CH2 at sample 15,777,590 (`Pipelines/drop_motifs/lionsmane12.py`
+   measured it: r = 0.9995, single-sample peak). The check at registration: block-mean to the candidate's rate
+   and cross-correlate against every registered channel of the same species/setup whose span could contain
+   it; a single-sample-sharp peak with r > 0.99 marks the candidate an excerpt. Store the link additively
+   (`recordings.parent_recording_id`, `parent_offset`, `decimation`), keep the existing row and id (six runs
+   and 217 detections reference 385), surface it in Datasets as "excerpt of …", and refuse to *derive* a
+   second copy of a span that a parent already covers unless the researcher says so. Document the rule in
+   `docs/DATA_REGISTRATION.md`. Channels are rebuilt by `scripts/rederive_channels.py` after the 2026-09-21
+   loss (see `docs/WIRING_PLAN.md`, Data) - reuse its per-file facts rather than re-reading the `.mat`s. The remaining kinds:
    raw `.mat` → channel arrays (reuse the existing importer in `Working/` — find it; do not write a second
    one), model, matrix profile, window matrix, window set, drop-motif event store (`events.csv + snippets.npz +
    manifest.json`, the `Working/Detection/drop_motifs/store.py` contract — registration only; Prompt 03 imports its

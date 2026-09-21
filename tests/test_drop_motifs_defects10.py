@@ -10,6 +10,8 @@ collision that produced it) and by `test_no_feature_vector_is_all_zeros`
 below (the consequence it produced in the tree).
 """
 
+import os
+
 import numpy as np
 import pytest
 
@@ -18,6 +20,12 @@ from Working.Detection.drop_motifs import cluster, detect5
 
 FIG2A = "DATA/derived/channels/Fig2A_dt0p1/CH{}.npy"
 FS = 10.0
+
+
+def _channel_available():
+    """The two window tests below read the real Fig2A channels. Absent data is a
+    skip, never a pass (tests/test_channel_guards_are_honest.py)."""
+    return os.path.isfile(FIG2A.format(0))
 
 
 def _channel(n):
@@ -152,6 +160,8 @@ def test_ch4_window05_second_visible_drop_is_detected():
     140.8, 156.2 s). Fixed, all 23 d-runs yield exactly one detection each
     and no candidate is rejected by any gate.
     """
+    if not _channel_available():
+        pytest.skip(f"real channel data not present: {FIG2A.format(0)}")
     start, result = _base_events(4, 5)
     onsets = sorted(start + ev.onset_idx for ev in result.events)
     assert any(1282 <= o <= 1300 for o in onsets), (
@@ -181,6 +191,8 @@ def test_ch1_the_0p172_mv_drop_at_904_6s_is_detected():
 
     Detected onset 9052, depth 0.127 mV, dominance 0.944.
     """
+    if not _channel_available():
+        pytest.skip(f"real channel data not present: {FIG2A.format(0)}")
     start, result = _base_events(1, 36)
     found = [(start + ev.onset_idx, ev.drop_depth_mv) for ev in result.events]
     hits = [d for o, d in found if 9045 <= o <= 9062]

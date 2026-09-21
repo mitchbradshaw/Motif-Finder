@@ -25,11 +25,13 @@ HUMAN_TABLES = frozenset({
     "annotations", "annotation_tags",
     "adjudications", "adjudication_tags",
     "templates", "tag_vocabulary",
+    "reviewed_spans",   # a person looked at this span (Review/Explore coverage) - human-side
 })
 HUMAN_PREFIXES = ("motif_",)   # motif_entry, motif_member, motif_edge, motif_entry_tags, motif_tags
 
 MACHINE_TABLES = frozenset({
     "detections", "runs", "configs", "artifacts", "encodings", "step_artifacts", "recordings",
+    "run_groups",       # a fan-out of runs is made by the machine, like the runs in it
 })
 
 _IDENT = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")

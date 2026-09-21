@@ -446,7 +446,8 @@ so no total is given: a silent-failure row outweighs a disk-space row. **You cho
 ### 8.1 New measurements behind the scorecard
 
 §3 measured zoom and run latency but not page load, memory or footprint. These were taken after the
-overnight run with `ui-prototypes/bench_ab.py`, which writes `bench_result.json`.
+overnight run with `ui-prototypes/bench_ab.py`, which writes `bench_result.json`. (The script was deleted
+on 2026-09-21 with the prototype trees it drove; it is at tag `archive/panel-ui`. The result file stays.)
 
 - **Method.** Both servers were started on spare ports (8775/8776) against their own runtime DB copies.
   Headless Chromium at 1440 × 900 ran 3 runs per prototype, each in a fresh browser context (empty cache).

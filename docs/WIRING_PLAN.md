@@ -39,6 +39,15 @@ decided, what is assumed, and who owns what. The open-questions register stays `
   `Plots/drop_motifs12a/motifs_PARTIAL/` (4,023); sequences only in `Plots/drop_motifs11/sequences.csv` (118).
   Signal catalogue: `DATA/catalogue/signal_catalog.xlsx` (37 rows, 26 columns, several free-text). Unregistered
   recordings on disk: M1, M100, M101_t, MJu26a (non-uniform sampling), L_LM_Jul_26_J_raw_fs10 (fs inferred).
+  **2026-09-21 12:27:** a `git worktree remove` of the junctioned `CNN-dm6` worktree emptied the real `DATA/db`
+  and `DATA/derived` (Git for Windows follows junctions). The database was restored from a byte-identical
+  sandbox copy (`webui/runtime/20260921-114131/`); `DATA/derived/channels/` is rebuilt from `DATA/raw/` by
+  `scripts/rederive_channels.py` (same names and sizes; the registered rows untouched); the rest of `derived/`
+  (the 10-min CNN window set, whose labels live in `annotations.source = 'imported_10min'`; encodings; caches)
+  is regenerable and not yet rebuilt. `DATA/raw/F2B.mat` (5 channels x 5,184,001, never derived) is a sixth
+  unregistered recording. `Mushroom_260720` (row 385, 6 runs / 217 detections) is a 10:1-decimated four-hour
+  excerpt of `L_LM_Jul_26_J_raw_fs10` CH2 (measured in `Pipelines/drop_motifs/lionsmane12.py`), i.e. a
+  registered recording that is a subset of another - the case the registration standard must handle.
   `MODELS/` 13 checkpoints (~326 MB), `DATA/derived/models/` 10 classifier joblibs, `MATRICES/` 6 CSVs,
   `Results/Detection/matrix_profile/` 12 matrix-profile npz, one window matrix, no HPC results returned.
 - **Docs.** No block-integration standard and no library storage convention exist as documents; both are spread

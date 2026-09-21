@@ -38,6 +38,14 @@ TESTS_DIR = os.path.join(PROJECT_ROOT, "tests")
 #: The files that gate on real recording data being present.
 GUARDED_FILES = (
     "test_execution.py",
+    "test_drop_motifs_defects10.py",   # two Fig2A window tests, guarded 2026-09-21
+)
+
+#: The guarded files that also run as scripts (`python tests/test_x.py` via a
+#: `_run_all`). Only those have a standalone runner whose skip handling matters.
+STANDALONE_FILES = tuple(
+    name for name in GUARDED_FILES
+    if "def _run_all" in open(os.path.join(TESTS_DIR, name), encoding="utf-8").read()
 )
 
 
@@ -121,7 +129,12 @@ def test_the_guarded_modules_import_pytest(filename):
     assert "pytest" in imported, f"{filename} calls pytest.skip without importing pytest"
 
 
-@pytest.mark.parametrize("filename", GUARDED_FILES)
+def test_at_least_one_guarded_file_has_a_standalone_runner():
+    """Keeps the parametrisation below from silently becoming empty."""
+    assert STANDALONE_FILES, "no guarded file defines _run_all any more - has test_execution.py changed?"
+
+
+@pytest.mark.parametrize("filename", STANDALONE_FILES)
 def test_the_standalone_runner_reports_skips_rather_than_dying(filename):
     """These modules double as scripts (`python tests/test_x.py`) via `_run_all`.
 

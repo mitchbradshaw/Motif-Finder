@@ -58,6 +58,15 @@ everything else under `derived/` can. It's gitignored like the rest of
 separately if you're not relying on this whole tree being inside a synced
 Drive folder to do that for you.
 
+**Backups and the 2026-09-21 recovery.** The web bridge's `--project` mode writes
+`db/backups/<stamp>.sqlite` on every start (last ten kept). On 2026-09-21 a
+`git worktree remove` of a worktree whose `DATA/db` and `DATA/derived` were
+junctions to this tree deleted both targets' contents (Git for Windows follows
+junctions). `annotations.sqlite` was restored from a sandbox copy under
+`webui/runtime/`; `derived/channels/` is rebuilt by `scripts/rederive_channels.py`;
+the rest of `derived/` is regenerable. Unlink a junction (`cmd /c rmdir <link>`)
+before removing the worktree that holds it - see `CLAUDE.md`, Environment.
+
 **2. Provenance is legible in the path.** Recording, window scale, sample rate,
 encoding and class are directory levels, not substrings fused into a filename.
 Only channel number and window start index stay in filenames, because they are

@@ -5,7 +5,9 @@ This directory is the record of the stack-selection prototypes for the UI rebuil
 
 - **[`REPORT.md`](REPORT.md) is the decision evidence** (scorecard §8); `DECISIONS.md` is the build log;
   `REAL_DATA_WRITES.md` inventories the files the prototype night wrote into the real `DATA/`. The
-  benchmark script and its result, the checklist and the data-integrity snapshots stay beside them.
+  benchmark result (`bench_result.json`), the checklist and the data-integrity snapshots stay beside them;
+  the benchmark script `bench_ab.py` was deleted on 2026-09-21 with the prototype trees it drove (tag
+  `archive/panel-ui`).
 - **Prototype A (React + TypeScript + FastAPI) moved to [`../webui/`](../webui/)** on 2026-09-15 and is
   now the product web UI.
 - **The prototype code trees and screenshots (`A-react-fastapi/`, `B-panel/`) were deleted on

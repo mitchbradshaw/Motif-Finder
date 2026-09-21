@@ -213,6 +213,31 @@ the `cache_status` stale case, the `SAME band` warn row, the `cutline_domain` co
 3. Should `run_groups` (machine) and `reviewed_spans` (human) be added to the rule-5 lists now?
 4. `ui-prototypes/bench_ab.py`: keep as evidence (current) or delete with the trees it targeted?
 
+## Answers (2026-09-21, orchestrator with the user)
+
+1. **Cause and recovery.** Nothing was moved deliberately. At 12:27 the user ran the worktree-removal command
+   the orchestrator had handed them; the `CNN-dm6` worktree had `DATA/db` and `DATA/derived` junctioned to the
+   main checkout, and Git for Windows 2.51 follows junctions when it deletes a tree (reproduced in a scratch
+   repo: the junction target was emptied, exit 0). Lost: `DATA/db/*` and all of `DATA/derived/` (7.8 GB,
+   12,124 files). `DATA/db/annotations.sqlite` was restored at 14:20 from
+   `webui/runtime/20260921-114131/annotations.sqlite`, a sandbox copy byte-identical to the 2026-09-16 and
+   2026-09-20 copies (sha256 `6bd7f090…`, integrity ok; 70 recordings, 11,269 annotations, 704 detections,
+   11,265 reviewed_spans, 40 runs). The 2026-08-19 `.bak` beside it is gone. `DATA/derived/channels/` is
+   rebuilt from `DATA/raw/` by `scripts/rederive_channels.py` (expected names and sizes from the 11:20
+   pre-loss inventory; the registered rows are left untouched); `derived/windows/` (the 10-min CNN training
+   set: 11,928 files, whose labels survive as `annotations.source = 'imported_10min'`), `drop_motifs/`,
+   `encodings/`, `models/`, `subsamples/`, `step_cache/` are regenerable and not rebuilt yet. Prompts 01-05
+   run against the real paths once the channels are back; `CLAUDE.md` (Environment) and `DATA/README.md`
+   now carry the junction rule.
+2. **Yes.** `tests/test_drop_motifs_defects10.py` has `_channel_available()` and both Fig2A window tests
+   skip on absent data; it is in `GUARDED_FILES`. The standalone-runner meta-test now parametrises over the
+   guarded files that define `_run_all` (with a test that the set is non-empty), since this file has no
+   script mode.
+3. **Yes.** `run_groups` is a machine table and `reviewed_spans` a human table in `webui/server/writes.py`,
+   with a test for both directions.
+4. **Deleted.** `ui-prototypes/bench_ab.py` is gone (at tag `archive/panel-ui`); `bench_result.json` stays;
+   the README and REPORT §8.1 say so.
+
 ## Chat summary
 
 The Panel tree is gone from `main` and archived at tag `archive/panel-ui`: 298 files, −38,843 lines,

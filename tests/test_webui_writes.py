@@ -30,8 +30,9 @@ from server import writes  # noqa: E402
 
 HUMAN = ("annotations", "annotation_tags", "adjudications", "adjudication_tags",
          "motif_entry", "motif_member", "motif_edge", "motif_entry_tags", "motif_tags",
-         "templates", "tag_vocabulary")
-MACHINE = ("detections", "runs", "configs", "artifacts", "encodings", "step_artifacts", "recordings")
+         "templates", "tag_vocabulary", "reviewed_spans")
+MACHINE = ("detections", "runs", "configs", "artifacts", "encodings", "step_artifacts", "recordings",
+           "run_groups")
 
 
 @pytest.fixture
@@ -114,3 +115,25 @@ def test_the_motif_prefix_is_human(conn):
     entry = writes.write_human(conn, "motif_entry", {
         "recording_id": rec, "start_idx": 0, "end_idx": 10})
     assert entry > 0
+
+
+def test_reviewed_spans_is_human_and_run_groups_is_machine(conn):
+    """Added 2026-09-21 (Prompt 00 report, question 3): a reviewed span records
+    that a person looked, so it is human-side; a run group is a fan-out the
+    machine made, so it is machine-side. Each door takes its own and refuses
+    the other."""
+    rec = _recording(conn)
+    span = writes.write_human(conn, "reviewed_spans", {
+        "recording_id": rec, "start_idx": 0, "end_idx": 50, "source": "web",
+        "reviewed_at": "2026-09-21T00:00:00"})
+    assert span > 0
+    group = writes.write_machine(conn, "run_groups", {"created_at": "2026-09-21T00:00:00"})
+    assert group > 0
+    with pytest.raises(PermissionError):
+        writes.write_machine(conn, "reviewed_spans", {"recording_id": rec, "start_idx": 0,
+                                                      "end_idx": 1, "source": "x",
+                                                      "reviewed_at": "t"})
+    with pytest.raises(PermissionError):
+        writes.write_human(conn, "run_groups", {"created_at": "t"})
+    assert conn.execute("SELECT COUNT(*) FROM reviewed_spans").fetchone()[0] == 1
+    assert conn.execute("SELECT COUNT(*) FROM run_groups").fetchone()[0] == 1

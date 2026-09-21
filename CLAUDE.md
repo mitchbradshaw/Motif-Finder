@@ -121,6 +121,12 @@ bridge copies the database into `webui/runtime/<stamp>/` and redirects `STEP_CAC
 refuses a busy port. `M4_aug_concat_fs1.mat` is refused on every route. **Never point it, pytest or an
 adapter at a junction to the real `DATA/`.**
 
+**A worktree that holds a junction into the real `DATA/` must have the junction unlinked before the worktree is
+removed.** Git for Windows (2.51) follows junctions when it deletes a tree: `git worktree remove` on `CNN-dm6`
+emptied the real `DATA/db` and `DATA/derived` on 2026-09-21 (7.8 GB; the database was recovered from a sandbox
+copy under `webui/runtime/`, the channels re-derived with `scripts/rederive_channels.py`). `cmd /c rmdir <junction>`
+removes only the link; do that first, then remove the worktree. The same applies to `git clean -x` and `rm -r`.
+
 **The UI gate.** A change under `webui/` is done when all three pass:
 
 1. `npx tsc -b` in `webui/client` (type-check) and `npm run build` (production build);
