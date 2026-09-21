@@ -39,6 +39,8 @@ import os
 import sys
 import time
 
+import sqlite3
+
 import numpy as np
 import pytest
 
@@ -212,15 +214,18 @@ def test_the_held_out_recording_is_refused_by_the_scope(client):
     assert HELD_OUT_FILE in r.json()["detail"]["message"]
 
 
-def test_the_held_out_recording_is_refused_by_the_overview_in_the_payload(client):
-    """The one refusal that is not a 4xx. The scope card draws it as a callout
-    beside the strips (`Refusable<T>` in the client), so the reason has to be
-    in the payload; an error card would lose the sentence that says why."""
+def test_the_held_out_recording_is_refused_by_the_overview(client):
+    """423, like every other route that would serve this file's samples.
+
+    It used to answer 200 with a `{"refused": ...}` body so that the scope card
+    could draw the reason as a callout rather than an error. The sentence still
+    reaches the callout — `api/discovery.ts::getOverview` turns a 423 back into
+    `{refused: e.message}` — but a request for a locked file is no longer a
+    success to anything that is not this page.
+    """
     r = client.get("/api/discovery/overview", params={"recording": HELD_OUT_FILE[:-4]})
-    assert r.status_code == 200
-    body = r.json()
-    assert "data" not in body
-    assert HELD_OUT_FILE in body["refused"]
+    assert r.status_code == 423
+    assert HELD_OUT_FILE in r.json()["detail"]["message"]
 
 
 def test_no_seed_is_offered_on_the_held_out_recording(client):
@@ -633,3 +638,52 @@ def test_a_route_with_the_wrong_method_is_json_and_not_the_spa(client):
     assert r.status_code in (404, 405)
     assert r.headers["content-type"].startswith("application/json")
     assert r.json().get("error") or r.json().get("detail")
+
+
+# ── adopting a past run (History) ─────────────────────────────────────
+
+
+def test_opening_a_history_run_adopts_the_real_row_rather_than_inventing_one(client):
+    """The History popover used to build the row in the browser: a guessed kind
+    and an invented template name under the *real* run key, which then went out
+    in `runs=` to /fires and /scoreboard and was rightly answered 404. Adoption
+    is a row in `discovery_runs` pointing at the same `run_group_id`."""
+    _apply(client)
+    runs = client.get("/api/discovery/runs").json()
+    key = next(r["key"] for r in runs if r["kind"] != "reference")
+
+    hist = client.get("/api/discovery/history").json()
+    row = next(h for h in hist if h["runKey"] == key)
+    assert row["inSession"] is True
+
+    # already here: adoption is a no-op that says so, not a duplicate row
+    r = client.post(f"/api/discovery/history/{row['id']}/open")
+    assert r.status_code == 200, r.text
+    assert r.json()["adopted"] is False
+    assert "already in this session" in r.json()["note"]
+
+    # and a second session adopts it, without re-running anything
+    conn = sqlite3.connect(client.app.state.rt.db_path)
+    try:
+        before = conn.execute("SELECT COUNT(*) FROM runs").fetchone()[0]
+        conn.execute("UPDATE discovery_runs SET session_id = session_id + 1000 WHERE run_key = ?", (key,))
+        conn.commit()
+    finally:
+        conn.close()
+
+    r = client.post(f"/api/discovery/history/{row['id']}/open")
+    assert r.status_code == 200, r.text
+    assert r.json()["adopted"] is True
+    assert r.json()["run_key"] == key
+
+    conn = sqlite3.connect(client.app.state.rt.db_path)
+    try:
+        assert conn.execute("SELECT COUNT(*) FROM runs").fetchone()[0] == before,             "adoption must not execute anything: it is a reference to runs that already exist"
+    finally:
+        conn.close()
+    assert any(r["key"] == key for r in client.get("/api/discovery/runs").json()),         "the adopted run has to appear in this session's runs, or its key is unknown to /fires again"
+
+
+def test_an_unknown_history_id_is_refused_rather_than_silently_ignored(client):
+    assert client.post("/api/discovery/history/g-999999/open").status_code == 404
+    assert client.post("/api/discovery/history/not-an-id/open").status_code == 422

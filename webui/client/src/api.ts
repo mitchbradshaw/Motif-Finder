@@ -377,6 +377,10 @@ export const getDiscoveryFires = (channels: string[], t0: number, t1: number, ru
 export type DiscRecall = { value: number; overH: number; none?: undefined } | { none: true; note: string | null }
 export interface DiscScoreRow {
   found: number; judged: number; reviewed: number; interesting: number; nullExpects: number
+  /** `nullExpects` of 0 with `nullRun: false` means no null was run; with true it means the null
+   *  found nothing. `nullDraws` is how many surrogate draws that count is over — the number is not
+   *  readable without it. `xNullNote` carries the server's words when there is no ratio to take. */
+  nullRun: boolean; nullDraws: number | null; xNullNote: string | null
   recall: DiscRecall; precision: number | null; xNull: number | null
   note: string | null; precisionNote: string | null; reviewedH: number; status: string | null
 }
@@ -415,6 +419,10 @@ export const getDiscoverySeeds = () => req<{ seeds: DiscSeedInfo[]; counts: Reco
 export interface DiscSeedParams {
   algorithm: string; windowSamples: number; windowS: number; windowLocked: boolean
   scaleBank: string; exclusionSamples: number; exclusionS: number; overlap: string
+  /** The guard that RAN is `exclusionS` (stumpy.match's m/4); §7.6's m/2 is
+   *  `specExclusionS`. `exclusionSettable` is false: the block takes no
+   *  exclusion parameter, so a control that moved it would move only the card. */
+  specExclusionS?: number; exclusionSettable?: boolean
   exclusion_note: string; threshold?: number | null
 }
 export interface DiscSeedDraft {
@@ -475,6 +483,11 @@ export const runDiscoverySeedSearch = (body: DiscSeedQuery & { label?: string; c
   post<{ run_key: string; job_id: number | null; route: string; started: boolean }>('/api/discovery/seed/run', body)
 export const postDiscoverySlurm = (body: DiscPlanBody) =>
   post<{ script_path: string; script: string; route: string; estimate_s: number | null; ceiling_s: number; channels: string[]; note: string | null }>('/api/discovery/slurm', body)
+
+/** Adopt a past Discovery run into this session: a row pointing at the same run
+ *  group, never a re-execution. `adopted: false` means it was already here. */
+export const openDiscoveryHistoryRun = (historyId: string) =>
+  post<{ run_key: string; adopted: boolean; note: string }>(`/api/discovery/history/${encodeURIComponent(historyId)}/open`, {})
 
 export const discardDiscoveryRun = (runKey: string) =>
   post<{ run_key: string; status: string; superseded: number; adjudications_written: number; annotations_written: number; note: string }>(`/api/discovery/runs/${encodeURIComponent(runKey)}/discard`, {})

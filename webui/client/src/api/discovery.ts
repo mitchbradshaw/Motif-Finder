@@ -131,9 +131,18 @@ export const getRebindExemplars = (): Promise<Sourced<{ value: string; label: st
 /* ------------------------------------------------------------------ scope */
 export type Refusable<T> = { refused: string } | { refused?: undefined; data: T }
 export function getOverview(recording: string, channels: string[]): Promise<Sourced<Refusable<Record<string, number[]>>>> {
-  return live(getDiscoveryOverview(recording, channels).then(r => r.refused !== undefined
-    ? { refused: r.refused }
-    : { data: Object.fromEntries(Object.entries(r.data ?? {}).map(([ch, vals]) => [ch, nums(vals)])) }))
+  /* A held-out recording is a 423 from the bridge, like every other route that
+   * would serve its samples. It is a refusal, not a failure: it becomes the
+   * scope strip's red "Held out" callout rather than a red load-failed card,
+   * and the reason shown is the server's own. */
+  return live(getDiscoveryOverview(recording, channels)
+    .then(r => r.refused !== undefined
+      ? { refused: r.refused }
+      : { data: Object.fromEntries(Object.entries(r.data ?? {}).map(([ch, vals]) => [ch, nums(vals)])) })
+    .catch(e => {
+      if (e instanceof ApiError && e.status === 423) return { refused: e.message }
+      throw e
+    }))
 }
 
 /* ------------------------------------------------------------------ where each run fires */
@@ -151,6 +160,7 @@ export type Recall = { value: number; overH: number } | { none: true; note?: str
 export interface ScoreCells { found: number; judged: number; reviewed: number; interesting: number; recall: Recall; nullExpects: number }
 export interface ScoreRow extends ScoreCells {
   precision: number | null; xNull: number | null
+  nullRun?: boolean; nullDraws?: number | null; xNullNote?: string | null
   note?: string | null; precisionNote?: string | null; reviewedH?: number; status?: string | null
 }
 export interface ScoreRun { run: string; total: ScoreRow; channels: (ScoreRow & { channel: string })[]; pooledH: number; rule?: { criterion: string; iou: number; onset: number }; reviewedCriterion?: string }
@@ -178,6 +188,7 @@ export function getDetectionWindow(det: Detection): Promise<Sourced<{ t0H: numbe
 export interface SeedParams {
   algorithm: string; windowSamples: number; windowS?: number; windowLocked?: boolean
   scaleBank: string; exclusionSamples?: number; exclusionS: number; overlap: string
+  specExclusionS?: number; exclusionSettable?: boolean
   threshold: number | null; exclusionNote?: string
 }
 export interface SeedInfo {
@@ -199,6 +210,7 @@ export interface SeedResults {
 const toParams = (p: DiscSeedParams): SeedParams => ({
   algorithm: p.algorithm, windowSamples: p.windowSamples, windowS: p.windowS, windowLocked: p.windowLocked,
   scaleBank: p.scaleBank, exclusionSamples: p.exclusionSamples, exclusionS: p.exclusionS, overlap: p.overlap,
+  specExclusionS: p.specExclusionS, exclusionSettable: p.exclusionSettable,
   threshold: p.threshold ?? null, exclusionNote: p.exclusion_note,
 })
 const toSeed = (s: { trace: (number | null)[] } & Omit<SeedInfo, 'trace'>): SeedInfo => ({ ...s, trace: nums(s.trace) })
@@ -376,4 +388,13 @@ export const previewRun = (body: DiscPlanBody): Promise<Sourced<MeasuredPreview>
 /** @deprecated fixture-era arithmetic over a hard-coded 174 h session; it invents the denominator and
  *  the per-channel minutes. Use planRun (declared estimate + ceiling) or previewRun (measured). */
 export const runEstimateMin = (perChannelMin: number, channels: number, sectionH: number, sessionH = 174) => perChannelMin * channels * (sectionH / sessionH)
-export const fmtMin = (min: number) => min < 1 ? `≈ ${Math.max(1, Math.round(min * 60))} s` : min < 60 ? `≈ ${Math.round(min)} min` : `≈ ${(min / 60).toFixed(1)} h`
+/** A measured cost, in the unit that carries it. Sub-second measurements used to
+ *  be clamped up to "≈ 1 s" — a five-fold overstatement of a 0.2 s preview, and a
+ *  number where the honest answer is that the measurement is below the
+ *  resolution the card reports in. */
+export const fmtMin = (min: number) => {
+  const s = min * 60
+  if (s <= 0) return '0 s'
+  if (s < 1) return '< 1 s'
+  return min < 1 ? `≈ ${Math.round(s)} s` : min < 60 ? `≈ ${Math.round(min)} min` : `≈ ${(min / 60).toFixed(1)} h`
+}

@@ -354,7 +354,7 @@ function SetOverlap({ data, onSegment }: { data: CompareData; onSegment: (kind: 
             info={<InfoTip title="Precision">Of the detections a human has reviewed, the share judged interesting. It exists only where reviewed hours overlap the run — a run with no reviewed overlap shows —.</InfoTip>} />
           <StatTile label="B precision" value={pct(data.b.precision)} caption={`${data.b.reviewed} reviewed`} tone="purple" variant="card" />
           <StatTile label="× null" value={`${data.a.xNull?.toFixed(1) ?? '—'} · ${data.b.xNull?.toFixed(1) ?? '—'}`} caption="A · B" variant="card"
-            info={<InfoTip title="× null">How many times more than the null expects each run found on this scope (circular shift, 200×).</InfoTip>} />
+            info={<InfoTip title="× null">How many times more than the null expects each run found on this scope. The method and its draw count are the ones the toolbar's null chip names — this tile is the ratio, not the null.</InfoTip>} />
         </div>
       </div>
     </section>
@@ -388,11 +388,14 @@ function Disagreements({ data, a, b, only, setOnly, list, i, setI, current }: {
         <span className="k-spacer" />
         <Seg size="sm" value={only} onChange={v => setOnly(v as OnlyFilter)} testid="step-filter"
           options={[{ value: 'all', label: `all ${data.disagreements.length}` }, { value: 'a', label: `only A ${nA}` }, { value: 'b', label: `only B ${nB}`, disabled: nB === 0, reason: 'B found nothing A missed on this scope' }]} />
-        <Pager page={i} pageCount={Math.max(1, list.length)} onPage={setI} label="disagreement" testid="step-pager" />
+        {/* "0 / 1" claimed a page that is not there. An empty filter is 0 / 0. */}
+        <Pager page={Math.min(i, list.length)} pageCount={list.length} onPage={setI} label="disagreement" testid="step-pager" />
         <Button variant="primary" icon="list" disabled={!current} disabledReason={current ? undefined : 'no disagreement to open'}
           onClick={() => navigate(`discovery/compare/stages?a=${encodeURIComponent(a)}&b=${encodeURIComponent(b)}&only=${only}&i=${i}`)} testid="compare-every-stage">Compare every stage</Button>
       </div>
-      {!current ? <EmptyState size="sm" icon="check-circle" title="No disagreement in this filter" caption="A and B agree everywhere here" testid="steps-empty" /> : (
+      {!current ? <EmptyState size="sm" icon="check-circle" title={data.disagreements.length ? 'Nothing under this filter' : 'No disagreement here'} caption={data.disagreements.length
+          ? `${data.disagreements.length} disagreement${data.disagreements.length === 1 ? '' : 's'} on this scope — ${nA} only A, ${nB} only B — but none under this filter`
+          : 'A and B agree everywhere here'} testid="steps-empty" /> : (
         <div className="dsc-steps-body">
           <div className="dsc-steps-text mono small" data-testid="step-text">
             <b>{current.atH.toFixed(1)} h · {current.channel} · 40 s</b>

@@ -3,12 +3,13 @@
  * Cost decides the primary action (§7.5): within the 20 min local limit Add and run; above it Create SLURM script. */
 import { useMemo, useState } from 'react'
 import {
-  Button, Checkbox, Chip, DisabledReason, Dropdown, EmptyState, Icon, InfoTip, Modal, Seg, StatTile, TextField, cx, recordDemoWrite, startSim, useNotWired, useQueryState,
+  Button, Checkbox, Chip, DisabledReason, Dropdown, EmptyState, Icon, InfoTip, Modal, Seg, StatTile, TextField, cx, useNotWired, useQueryState,
 } from '../kit'
 import { useSourced } from '../api/seam'
 import { navigate } from '../state'
 import { useToast } from '../shell/Toast'
 import { EXTRA_RUN_COLOURS, REBIND_EXEMPLARS, getTemplates, previewRun, fmtMin, DISCOVERY_LIMIT_MIN, type DiscoveryRun, type DiscoveryTemplate, type MeasuredPreview } from '../api/discovery'
+import { applyDiscoveryTemplates } from '../api'
 import { RunGlyph } from './glyphs'
 import { LoadFailed, Loading } from './chrome'
 import type { Discovery } from './session'
@@ -37,12 +38,18 @@ export function AddTemplateModal({ open, onClose, dx, onSlurm }: { open: boolean
   const focus = (tpls.data ?? []).find(t => t.name === focusQ) ?? list[0] ?? null
   // §7.1: the only measured cost is *Preview on a sample*. A template carries no number until one has run
   // here, so the cost of a template that has not been previewed is not a small number — it is nothing.
-  const [previews, setPreviews] = useState<Record<string, MeasuredPreview>>({})
+  const [busy, setBusy] = useState(false)
+  /* Keyed on the scope as well as the template: a measurement taken over
+   * 320 h of six channels is not a measurement of 4 h of two, and the card was
+   * still badging it "measured" after the scope shrank — out by eighty. */
+  const scopeKey = `${s.channels.join(',')}|${s.section.join('-')}`
+  const [previews, setPreviews] = useState<Record<string, MeasuredPreview & { scope: string }>>({})
+  const previewOf = (name: string) => { const p = previews[name]; return p && p.scope === scopeKey ? p : undefined }
   const [previewing, setPreviewing] = useState<string | null>(null)
   const [previewErr, setPreviewErr] = useState<string | null>(null)
-  const costMin = (t: DiscoveryTemplate): number | null => { const p = previews[t.name]; return p ? p.estimate_s / 60 : null }
+  const costMin = (t: DiscoveryTemplate): number | null => { const p = previewOf(t.name); return p ? p.estimate_s / 60 : null }
   const noCost = (t: DiscoveryTemplate) => t.previewNote ?? 'not previewed — run Preview on a sample to get a measured number'
-  const focusPreview = focus ? previews[focus.name] : undefined
+  const focusPreview = focus ? previewOf(focus.name) : undefined
   const focusCost = focusPreview ? focusPreview.estimate_s / 60 : null
   const priced = chosen.filter(t => costMin(t) != null)
   const estimate = priced.reduce((a, t) => a + (costMin(t) ?? 0), 0)
@@ -55,7 +62,7 @@ export function AddTemplateModal({ open, onClose, dx, onSlurm }: { open: boolean
     setPreviewErr(null)
     try {
       const r = await previewRun({ template: t.name, channels: s.channels, t0: s.section[0], t1: s.section[1], sampleHours: 4 })
-      setPreviews(prev => ({ ...prev, [t.name]: r.data }))
+      setPreviews(prev => ({ ...prev, [t.name]: { ...r.data, scope: scopeKey } }))
     } catch (e) {
       setPreviewErr(e instanceof Error ? e.message : String(e))
     } finally {
@@ -70,21 +77,45 @@ export function AddTemplateModal({ open, onClose, dx, onSlurm }: { open: boolean
     glyph: (t.stages.find(st => ['mp', 'seed', 'model', 'spike', 'drop'].includes(st.glyph))?.glyph ?? 'threshold'),
     detail: t.kind === 'seed' ? `${exemplar[t.name] ?? 'carried exemplar'} · MASS` : `${t.stages.length - 1} stages`, template: t.name, status,
     // a previewed template carries its measured per-channel minutes; an unpreviewed one carries none
-    perChannelMin: previews[t.name] ? previews[t.name].per_channel_s / 60 : undefined, addedThisSession: true,
+    perChannelMin: previewOf(t.name) ? previewOf(t.name)!.per_channel_s / 60 : undefined, addedThisSession: true,
   }))
-  const add = (run: boolean) => {
-    const runs = toRuns(run ? 'running' : 'new')
-    dx.addRuns(runs)
-    if (run) runs.forEach(r => startSim(`discovery.run.${r.key}`, { steps: (tpls.data ?? []).find(t => t.name === r.key)!.stages.slice(1).map(st => `${st.index} ${st.name}`).concat('null 200×'), stepMs: 1000 }))
-    recordDemoWrite('discovery', run ? 'add-and-run' : 'add-runs', { templates: runs.map(r => r.key), channels: s.channels, exemplars: exemplar })
-    toast.push({ text: `${runs.length} run${runs.length === 1 ? '' : 's'} added${run ? ' · running locally' : ''}` })
-    onClose()
+  /* §7.5's *Add runs* / *Add and run*. This is a real POST: it used to add a
+   * row to React state and drive a timer, which meant the row's "running", its
+   * progress and its "done 03:24" were all invented, and the keys it invented
+   * were then sent back to /fires and /scoreboard, which rightly answered 404.
+   * The server decides the route, so `run` is a request rather than a promise:
+   * over the ceiling it adds the run and leaves it for *Create SLURM script*. */
+  const add = async (run: boolean) => {
+    setBusy(true)
+    try {
+      const results = await applyDiscoveryTemplates(chosen.map(t => t.name), s.channels, s.section[0], s.section[1], run)
+      onClose()
+      await dx.reload()
+      const started = results.filter(r => r.started).length
+      const held = results.filter(r => !r.started)
+      toast.push({
+        text: `${results.length} run${results.length === 1 ? '' : 's'} added`
+          + (started ? ` · ${started} running locally` : '')
+          + (held.length ? ` · ${held.length} not started: ${held[0].note ?? 'over the local ceiling'}` : ''),
+      })
+    } catch (e) {
+      toast.push({ text: `could not add the run: ${e instanceof Error ? e.message : String(e)}` })
+    } finally {
+      setBusy(false)
+    }
   }
-  const slurm = () => {
-    const runs = toRuns('new')
-    dx.addRuns(runs)
-    recordDemoWrite('discovery', 'add-runs', { templates: runs.map(r => r.key), channels: s.channels, route: 'cluster' })
-    onSlurm(runs.map(r => r.key))
+  // added but not started: the SLURM modal writes the script for them
+  const slurm = async () => {
+    setBusy(true)
+    try {
+      const results = await applyDiscoveryTemplates(chosen.map(t => t.name), s.channels, s.section[0], s.section[1], false)
+      await dx.reload()
+      onSlurm(results.map(r => r.run_key))
+    } catch (e) {
+      toast.push({ text: `could not add the run: ${e instanceof Error ? e.message : String(e)}` })
+    } finally {
+      setBusy(false)
+    }
   }
 
   return (

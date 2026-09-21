@@ -8,7 +8,7 @@ import { Header } from '../shell/Header'
 import { useToast } from '../shell/Toast'
 import { navigate } from '../state'
 import { useSourced } from '../api/seam'
-import { discardDiscoveryRun, sendDiscoveryRunToReview } from '../api'
+import { applyDiscoveryTemplates, discardDiscoveryRun, sendDiscoveryRunToReview } from '../api'
 import {
   getDetectionWindow, getDetections, getFires, fmtMin, type Detection, type DiscoveryRun, type FiresData, type Recall, type ScoreRow, type ScoreRun,
 } from '../api/discovery'
@@ -18,19 +18,32 @@ import { hasResults, useDiscovery, type Discovery } from './session'
 
 export function RunsPage() {
   const dx = useDiscovery()
-  const [runQ, setRunQ] = useQueryState('run', 'drop_motifs9')
+  // the default was the fixture key `drop_motifs9`, which no live session has:
+  // every first render asked for a run that does not exist and fell through
+  const [runQ, setRunQ] = useQueryState('run', '')
   const [modal, setModal] = useQueryState('modal', '')
   const [slurmKeys, setSlurmKeys] = useDemoState<string[] | null>('discovery.slurm.keys', () => null)
   const [stateQ] = useQueryState('state', '')
   const selected = dx.runs.find(r => r.key === runQ) ?? dx.runs.find(hasResults) ?? dx.runs[0] ?? null
+  // a ?run= key this session does not have used to substitute a different run
+  // in silence, which is the worst possible answer: the page looked right
+  const missingRun = runQ && !dx.loading && !dx.runs.some(r => r.key === runQ) ? runQ : null
   const slurmRuns = slurmKeys ? dx.runs.filter(r => slurmKeys.includes(r.key) && (r.status === 'new' || r.status === 'failed')) : dx.pending
 
-  const runLocal = () => {
-    dx.pending.forEach(r => {
-      dx.patchRun(r.key, { status: 'running', error: undefined })
-      startSim(`discovery.run.${r.key}`, { steps: ['01 stage', '02 stage', '03 stage', 'null 200×'], stepMs: 1100 })
-    })
-    recordDemoWrite('discovery', 'run-local', { runs: dx.pending.map(r => r.key) })
+  /* §7.5's toolbar run. A real POST per pending run, through the same route
+   * the modal uses: this used to start a four-step timer whose last step was
+   * the literal 'null 200x' — a draw count nothing had run. The row's status
+   * comes back from the server on the reload. */
+  const runLocal = async () => {
+    const pending = dx.pending.filter(r => r.template)
+    if (!pending.length || !dx.scope) return
+    try {
+      await applyDiscoveryTemplates(pending.map(r => r.template!), dx.scope.channels,
+                                    dx.scope.section[0], dx.scope.section[1], true)
+      await dx.reload()
+    } catch (e) {
+      console.error('could not start the run', e)
+    }
   }
   const primary = dx.pending.length === 0
     ? <DisabledReason reason="nothing to run — every run in this session has results or is on the cluster"><Button icon="play" disabled disabledReason="nothing to run — every run in this session has results or is on the cluster" testid="toolbar-run">Run</Button></DisabledReason>
@@ -53,7 +66,8 @@ export function RunsPage() {
                 <div className="dsc-cols">
                   <RunsCard dx={dx} mode="runs" selected={selected?.key} onSelect={k => setRunQ(k)} onAddTemplate={() => setModal('add-template')} />
                   <div className="dsc-right">
-                    {stateQ === 'failed' && <Callout tone="red" icon="alert-triangle" title="seed_E0102_bank failed" testid="run-failed-callout" action={<Button size="sm" icon="refresh" onClick={() => navigate('discovery/runs')}>Dismiss</Button>}>MASS failed on CH7_B2 · scale bank length 63 s ran out of memory (simulated). Nothing was written; Retry on the row re-queues it.</Callout>}
+                    {missingRun && <Callout tone="amber" icon="alert-triangle" title={`No run named ${missingRun} in this session`} testid="run-missing-callout" action={<Button size="sm" onClick={() => setRunQ(null)}>Clear</Button>}>Showing {selected?.label ?? 'nothing'} instead. Past runs can be brought in from History.</Callout>}
+                    {stateQ === 'failed' && (() => { const f = dx.runs.find(r => r.status === 'failed'); return f ? <Callout tone="red" icon="alert-triangle" title={`${f.label} failed`} testid="run-failed-callout" action={<Button size="sm" icon="refresh" onClick={() => navigate('discovery/runs')}>Dismiss</Button>}>{f.error}</Callout> : null })()}
                     {dx.runs.filter(hasResults).length === 0 ? (
                       <div className="k-card dsc-empty-results" data-testid="results-empty">
                         <EmptyState icon="target" title="No run has results yet" caption="Apply a template or set up a seed search; results fill in here as runs finish"
@@ -102,12 +116,16 @@ function WhereFires({ dx }: { dx: Discovery }) {
       <div className="dsc-card-head">
         <h3>Where each run fires</h3>
         <InfoTip title="Where each run fires">Small multiples by channel, one row per run, on one time axis. At section scale a span is thinner than a pixel, so rows show detections per 3 h bin — colour by run, opacity by count. The human row shows reviewed hours as a grey underlay: recall exists only there.</InfoTip>
-        <span className="muted small">{paged ? `channels ${(dx.chPage - 1) * 3 + 1}–${Math.min(s.channels.length, dx.chPage * 3)} of ${s.channels.length} · follows the scope pager` : 'detections per 3 h · grouped by channel'}</span>
+        <span className="muted small">{paged ? `channels ${(dx.chPage - 1) * 3 + 1}–${Math.min(s.channels.length, dx.chPage * 3)} of ${s.channels.length} · follows the scope pager` : (mode === 'spans' ? 'every span in view · grouped by channel' : 'detections per 3 h · grouped by channel')}</span>
         <span className="k-spacer" />
         <Seg size="sm" value={mode} onChange={v => setMode(v)} options={[{ value: 'density', label: 'density' }, { value: 'spans', label: 'spans' }]} testid="fires-mode" />
+        {/* the legend is about the mode that is drawn: a density ramp over a
+            spans view explains a shading the view does not use */}
         <span className="dsc-ramp small" aria-label="legend">
           <i className="sw" style={{ background: 'var(--grey-200)' }} /> reviewed hours
-          <span className="muted">0</span>{[1, 2, 3, 4].map(n => <i key={n} className="sw" style={{ background: '#374151', opacity: opacityFor(n) }} />)}<span className="muted">4+ per 3 h</span>
+          {mode === 'spans'
+            ? <><i className="sw" style={{ background: '#374151' }} /><span className="muted">one mark per span · at this scale several may share a pixel</span></>
+            : <><span className="muted">0</span>{[1, 2, 3, 4].map(n => <i key={n} className="sw" style={{ background: '#374151', opacity: opacityFor(n) }} />)}<span className="muted">4+ per 3 h</span></>}
         </span>
       </div>
       {mode === 'spans' && sectionH > 24 && <div className="dsc-note small" data-testid="spans-note">spans are thinner than a pixel at this scale · zoom the section below 24 h</div>}
@@ -218,7 +236,13 @@ function Scoreboard({ dx }: { dx: Discovery }) {
             <InfoTip title="This precision is about the span shapes">{row.precisionNote}</InfoTip>}</>}
     </td>
     <td className={cx(!('value' in row.recall) && 'muted')}>{fmtRecall(row.recall)}</td>
-    <td>{row.nullExpects}</td><td>{row.xNull == null ? '—' : `${row.xNull.toFixed(1)}×`}</td>
+    {/* "null expects 3" is unreadable without the draw count it is over, and
+        the server sends one on every row. Without it a 50-draw null and a
+        single-draw null print the same number and mean different things. */}
+    <td data-testid="score-null">{row.nullRun === false ? <span className="muted">no null run</span> : <>{row.nullExpects}{row.nullDraws ? <span className="muted small"> / {row.nullDraws} draw{row.nullDraws === 1 ? '' : 's'}</span> : null}</>}</td>
+    <td data-testid="score-xnull">{row.xNull == null
+      ? <span className="muted">{row.xNullNote ?? '—'}</span>
+      : <>{`${row.xNull.toFixed(1)}×`}{row.xNullNote && <InfoTip title="× null">{row.xNullNote}</InfoTip>}</>}</td>
   </>
   return (
     <section className="k-card dsc-score" data-testid="scoreboard" aria-label="Scoreboard">
@@ -342,7 +366,12 @@ function RunActs({ dx, run }: { dx: Discovery; run: DiscoveryRun | null }) {
   if (!run) return null
   const total = dx.scores?.find(s => s.run === run.key)?.total
   const results = hasResults(run)
-  const unjudged = total ? total.found - total.reviewed : 0
+  /* "unjudged" is `found - judged`. It was `found - reviewed`, and `reviewed`
+   * counts the detections a human COULD have judged (those inside the reviewed
+   * coverage), not the ones carrying a verdict — so the button offered to send
+   * a number the queue route disagreed with. The toast still reports the
+   * server's own count, which is the one that decides. */
+  const unjudged = total ? Math.max(0, total.found - total.judged) : 0
   const reason = run.kind === 'reference' ? 'human annotations are the reference, not a run'
     : run.status === 'superseded' ? 'discarded — marked superseded, no verdicts written'
       : !results ? 'no detections yet' : null
@@ -376,7 +405,7 @@ function RunActs({ dx, run }: { dx: Discovery; run: DiscoveryRun | null }) {
     <section className="k-card dsc-acts" data-testid="run-acts" aria-label="Run acts">
       <span className="dot" style={{ background: run.colour, width: 9, height: 9 }} />
       <b>{run.label}</b>
-      {total && results ? <span className="muted small">{total.found} detections · {dx.scope!.channels.length} channels · {total.judged} already judged</span> : <span className="muted small">{reason}</span>}
+      {total && results ? <span className="muted small">{total.found} detections · {run.channelsDone ?? `${dx.scope!.channels.length} channels`} · {total.judged} already judged</span> : <span className="muted small">{reason}</span>}
       <span className="k-spacer" />
       <Button icon="trash" onClick={() => setConfirm('discard')} disabled={!!reason} disabledReason={reason ?? undefined} testid="discard-run">Discard run</Button>
       <Button icon="branch" onClick={() => { recordDemoWrite('analyse', 'import-spanset', { run: run.key }); notWired(`send SpanSet of ${run.label} to Analyse`); navigate('analyse/chain') }} disabled={!!reason} disabledReason={reason ?? undefined} testid="analyse-events">Analyse events</Button>

@@ -23,7 +23,7 @@ export interface Discovery {
   loading: boolean; error: Error | null; reload: () => void; demo: boolean
   scope: ScopeState | null; recordings: RecordingOption[]; recording: RecordingOption | null
   setScope: (patch: Partial<ScopeState>) => void
-  runs: DiscoveryRun[]; patchRun: (key: string, patch: Partial<DiscoveryRun>) => void; addRuns: (runs: DiscoveryRun[]) => void
+  runs: DiscoveryRun[]; patchRun: (key: string, patch: Partial<DiscoveryRun>) => void
   picks: string[]; setPicks: (p: string[]) => void; togglePick: (key: string) => void
   stale: boolean; setStale: (v: boolean) => void
   pending: DiscoveryRun[]; estimateMin: number; overLimit: boolean
@@ -40,7 +40,12 @@ export function useDiscovery(): Discovery {
   const sess = useSourced(getSession, [])
   const base = useSourced(getRuns, [])
   const [scopeStore, setScopeStore] = useDemoState<ScopeState | null>('discovery.scope', () => null)
-  const [added, setAdded] = useDemoState<DiscoveryRun[]>('discovery.runs.added', () => [])
+  /* There is no client-side list of added runs any more. Everything that used
+   * to append one — *Add and run*, the History popover — is a write now, and
+   * the row comes back from /runs. A key this store had invented went out in
+   * `runs=` on /fires and /scoreboard, which know only the keys the table
+   * holds; the store survived a page reload, so the 404 outlived the session
+   * that caused it. */
   const [patches, setPatches] = useDemoState<Record<string, Partial<DiscoveryRun>>>('discovery.runs.patch', () => ({}))
   // nothing is picked until the researcher picks it: the old default named a
   // fixture run (`drop_motifs9`) that no live session has
@@ -68,7 +73,7 @@ export function useDiscovery(): Discovery {
     if (channelsQ && (patch.channels || patch.recording)) setChannelsQ(null)
   }
 
-  let runs: DiscoveryRun[] = (base.data ?? []).concat(added).map(r => patches[r.key] ? { ...r, ...patches[r.key] } : r)
+  let runs: DiscoveryRun[] = (base.data ?? []).map(r => patches[r.key] ? { ...r, ...patches[r.key] } : r)
   if (stateQ === 'empty') runs = runs.filter(r => r.kind === 'reference')
   /* The three deep-link states name the session's FIRST real run rather than a
    * fixture key: `drop_motifs9` and `seed_E0102_bank` were inventions and no
@@ -82,7 +87,6 @@ export function useDiscovery(): Discovery {
     ? { ...r, status: 'failed' as const, error: 'shown by the ?state=failed deep link — not a real failure; a real one carries the run’s traceback' }
     : r)
   const patchRun = (key: string, patch: Partial<DiscoveryRun>) => setPatches(p => ({ ...p, [key]: { ...p[key], ...patch } }))
-  const addRuns = (rs: DiscoveryRun[]) => setAdded(a => [...a, ...rs.filter(r => !a.some(x => x.key === r.key))])
   const togglePick = (key: string) => setPicks(picks.includes(key) ? picks.filter(k => k !== key) : picks.length < 2 ? [...picks, key] : [picks[0], key])
 
   /* ?state=running starts a REAL run over the first fifteen minutes of the
@@ -103,6 +107,20 @@ export function useDiscovery(): Discovery {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [stateQ, scope?.recording, scope?.channels.join(','), startedByLink])
 
+  /* A run that is running is a moving number: its progress, its channels-done
+   * and, when it finishes, its detection count all change on the server with
+   * no event this page is subscribed to. Re-read the runs while any of them is
+   * running, and stop the moment none is — an idle Discovery page makes no
+   * requests. The scores follow on the transition to done, because `doneKeys`
+   * changes and `useSourced` re-runs. */
+  const anyRunning = runs.some(r => r.status === 'running' || r.status === 'queued')
+  useEffect(() => {
+    if (!anyRunning) return
+    const t = setInterval(() => base.reload(), 2000)
+    return () => clearInterval(t)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [anyRunning])
+
   const sectionH = scope ? scope.section[1] - scope.section[0] : 0
   const nCh = scope?.channels.length ?? 0
   const pending = runs.filter(r => r.status === 'new' || r.status === 'failed')
@@ -120,7 +138,7 @@ export function useDiscovery(): Discovery {
     loading: sess.loading || base.loading, error: sess.error ?? base.error ?? scoreRead.error, reload: () => { sess.reload(); base.reload(); scoreRead.reload() },
     demo: sess.source === 'demo' || base.source === 'demo',
     scope, recordings, recording, setScope,
-    runs, patchRun, addRuns, picks, setPicks, togglePick, stale, setStale,
+    runs, patchRun, picks, setPicks, togglePick, stale, setStale,
     pending, estimateMin, overLimit: estimateMin > DISCOVERY_LIMIT_MIN,
     chPage, setChPage: p => setChPageQ(String(p)), pageCount, visibleChannels,
     scores: scoreRead.data, foundOf, sectionH,

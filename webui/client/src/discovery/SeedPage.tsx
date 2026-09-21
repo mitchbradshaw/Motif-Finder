@@ -311,11 +311,13 @@ function ParamsCard({ draft, recommended, seed, setParams, results, nullAtRec, k
           <Dropdown value={p.scaleBank} onChange={v => setParams({ scaleBank: v })} block testid="param-scale-bank"
             options={[{ value: 'none', label: 'none' }, { value: '3', label: '3 lengths · 0.8× 1× 1.25×', disabled: true, reason: 'needs a scale-bank algorithm' }]} />
         </ParamField>
-        {/* §7.6 specifies m/2, but the guard the search actually ran under is the block's — print the
-            server's note rather than drawing a locked m/2 over a search that used something else */}
+        {/* The figure is the guard that RAN — stumpy.match's m/4 — and the note carries §7.6's m/2
+            beside it. The slider is disabled because `detection.seed_matches` takes no exclusion
+            parameter: a control that moved this would move the card and not the search. */}
         <ParamField label="exclusion zone" info={p.exclusionNote ?? 'Matches closer than this to a better match are dropped. m/2 is the trivial-match guard.'}
-          aside={<b className="mono">{!p.exclusionNote && p.exclusionS === half ? `m/2 = ${half} s` : `${p.exclusionS} s`}</b>}>
-          <Slider value={p.exclusionS} onChange={v => setParams({ exclusionS: v })} min={0} max={m} step={1} showValue={false} testid="param-exclusion" ariaLabel="exclusion zone" />
+          aside={<b className="mono">{p.exclusionSettable === false ? `m/4 = ${p.exclusionS} s` : p.exclusionS === half ? `m/2 = ${half} s` : `${p.exclusionS} s`}</b>}>
+          <Slider value={p.exclusionS} onChange={v => setParams({ exclusionS: v })} min={0} max={m} step={1} showValue={false} testid="param-exclusion" ariaLabel="exclusion zone"
+            disabled={p.exclusionSettable === false} disabledReason={p.exclusionSettable === false ? 'detection.seed_matches takes no exclusion parameter — stumpy.match applies its own m/4' : undefined} />
           <span className={cx('small mono', p.exclusionNote ? 'muted' : p.exclusionS === half ? 'green' : p.exclusionS < half ? 'amber' : 'muted')} data-testid="exclusion-caption">
             {p.exclusionNote ?? (p.exclusionS === half ? '= trivial-match guard' : p.exclusionS < half ? 'below m/2 lets trivial matches through' : 'wider than m/2 · fewer neighbouring matches')}
           </span>
@@ -365,14 +367,23 @@ function CutHistogram({ candidates, nullDistances, threshold, recommended, kept,
   const [ref, size] = useSize<HTMLDivElement>()
   const [dragging, setDragging] = useState(false)
   const W = size.width, H = 150, padL = 34, padR = 12, padT = 22, padB = 30
-  const bins = 40, bw = 8 / bins
+  /* The axis follows the DATA. It was fixed at 0-8 d, and a z-normalised MASS
+   * distance over a 711-sample exemplar runs to 17: `count()` clamped every
+   * value into the last bin, so the card drew one bar at 7.8-8.0 whose tooltip
+   * read "132 matches" about distances none of which was anywhere near it, and
+   * the slider could not reach a cut that kept anything. */
+  const dMax = useMemo(() => {
+    const all = [...candidates.map(c => c.d), ...nullDistances].filter(Number.isFinite)
+    return Math.max(1, Math.ceil((all.length ? Math.max(...all) : 8) * 1.05))
+  }, [candidates, nullDistances])
+  const bins = 40, bw = dMax / bins
   const count = (xs: number[]) => { const c = new Array(bins).fill(0); xs.forEach(d => { const i = Math.min(bins - 1, Math.floor(d / bw)); if (i >= 0) c[i]++ }); return c }
-  const cand = useMemo(() => count(candidates.map(c => c.d)), [candidates])
-  const nul = useMemo(() => count(nullDistances), [nullDistances])
+  const cand = useMemo(() => count(candidates.map(c => c.d)), [candidates, dMax])
+  const nul = useMemo(() => count(nullDistances), [nullDistances, dMax])
   const maxC = Math.max(1, ...cand, ...nul)
-  const x = (d: number) => padL + (d / 8) * (W - padL - padR)
+  const x = (d: number) => padL + (d / dMax) * (W - padL - padR)
   const y = (c: number) => H - padB - (c / maxC) * (H - padT - padB)
-  const toD = (px: number) => Math.max(0.1, Math.min(8, Math.round(((px - padL) / (W - padL - padR)) * 80) / 10))
+  const toD = (px: number) => Math.max(0.1, Math.min(dMax, Math.round(((px - padL) / (W - padL - padR)) * dMax * 10) / 10))
   const move = (e: React.PointerEvent<SVGSVGElement>) => { if (!dragging) return; const r = e.currentTarget.getBoundingClientRect(); onThreshold(toD(e.clientX - r.left)) }
   return (
     <div className="dsc-cut" ref={ref} data-testid="cut-histogram">
@@ -380,19 +391,19 @@ function CutHistogram({ candidates, nullDistances, threshold, recommended, kept,
         <svg width={W} height={H} onPointerMove={move} onPointerUp={() => setDragging(false)} onPointerLeave={() => setDragging(false)} role="img" aria-label={threshold == null
             ? `match distance histogram over ${candidates.length} matches; no cut — none is closer than the null gives`
             : `match distance histogram, ${kept} kept at d ≤ ${threshold}, the null gives ${fmtNull(nullKept)} per draw`}>
-          <rect x={x(0)} y={padT} width={x(0.4) - x(0)} height={H - padT - padB} fill="#FDECEC" />
+          <rect x={x(0)} y={padT} width={Math.max(2, x(dMax / 20) - x(0))} height={H - padT - padB} fill="#FDECEC" />
           <text x={x(0) + 3} y={padT + 10} className="dsc-axis-t" style={{ fill: '#c0392b' }}>self</text>
           <text x={padL - 6} y={padT + 4} textAnchor="end" className="dsc-axis-t">count</text>
           {nul.map((c, i) => c > 0 && <rect key={`n${i}`} x={x(i * bw) + 1} width={Math.max(1, x(bw) - x(0) - 2)} y={y(c)} height={H - padB - y(c)} fill="#D1D5DB" />)}
           {cand.map((c, i) => c > 0 && <rect key={`c${i}`} x={x(i * bw) + 2.5} width={Math.max(1, x(bw) - x(0) - 5)} y={y(c)} height={H - padB - y(c)} fill={threshold != null && (i + 0.5) * bw <= threshold ? SEED_COLOUR : KEPT_LIGHT}><title>{`d ${(i * bw).toFixed(1)}–${((i + 1) * bw).toFixed(1)}: ${c} matches · null ${nul[i]}`}</title></rect>)}
           <line x1={padL} x2={W - padR} y1={H - padB} y2={H - padB} stroke="var(--border-strong)" />
-          {[0, 2, 4, 6, 8].map(t => <text key={t} x={x(t)} y={H - padB + 13} textAnchor={t === 0 ? 'start' : t === 8 ? 'end' : 'middle'} className="dsc-axis-t">{t === 8 ? '8 d' : t}</text>)}
+          {[0, 0.25, 0.5, 0.75, 1].map(f => { const t = +(dMax * f).toFixed(1); return <text key={f} x={x(t)} y={H - padB + 13} textAnchor={f === 0 ? 'start' : f === 1 ? 'end' : 'middle'} className="dsc-axis-t">{f === 1 ? `${t} d` : t}</text> })}
           {recommended != null && <line x1={x(recommended)} x2={x(recommended)} y1={H - padB - 8} y2={H - padB + 3} stroke="var(--green)" strokeWidth={2.5} />}
           {threshold != null ? (
             <>
               <g className="dsc-thresh" onPointerDown={e => { (e.currentTarget.ownerSVGElement as SVGSVGElement).setPointerCapture(e.pointerId); setDragging(true) }} style={{ cursor: 'ew-resize' }}
-                tabIndex={0} role="slider" aria-label="threshold" aria-valuemin={0.1} aria-valuemax={8} aria-valuenow={threshold} data-testid="cut-threshold"
-                onKeyDown={e => { if (e.key === 'ArrowLeft') { e.preventDefault(); onThreshold(Math.max(0.1, +(threshold - 0.1).toFixed(1))) } if (e.key === 'ArrowRight') { e.preventDefault(); onThreshold(Math.min(8, +(threshold + 0.1).toFixed(1))) } }}>
+                tabIndex={0} role="slider" aria-label="threshold" aria-valuemin={0.1} aria-valuemax={dMax} aria-valuenow={threshold} data-testid="cut-threshold"
+                onKeyDown={e => { if (e.key === 'ArrowLeft') { e.preventDefault(); onThreshold(Math.max(0.1, +(threshold - 0.1).toFixed(1))) } if (e.key === 'ArrowRight') { e.preventDefault(); onThreshold(Math.min(dMax, +(threshold + 0.1).toFixed(1))) } }}>
                 <line x1={x(threshold)} x2={x(threshold)} y1={padT - 6} y2={H - padB} stroke={THRESH} strokeWidth={2} />
                 <rect x={x(threshold) - 8} y={padT - 12} width={16} height={H - padT - padB + 12} fill="transparent" />
                 <circle cx={x(threshold)} cy={padT - 8} r={6} fill="#fff" stroke={THRESH} strokeWidth={2} />
@@ -423,7 +434,9 @@ function CutHistogram({ candidates, nullDistances, threshold, recommended, kept,
 function DistanceProfile({ dx, seed, candidates, threshold }: { dx: Discovery; seed: SeedInfo; candidates: SeedMatch[]; threshold: number | null }) {
   const s = dx.scope!
   const [chQ, setChQ] = useQueryState('pch', 'CH4_A2')
-  const [viewQ, setViewQ] = useQueryState('view', '192.0-194.0')
+  // the default was the fixture's '192.0-194.0', which clamped to an INVERTED
+  // [192, 84] against a live 80-84 h section and asked the server for it
+  const [viewQ, setViewQ] = useQueryState('view', '')
   const [judged, setJudged] = useState(true)
   const viewRef = useRef<HTMLButtonElement>(null)
   const [viewOpen, setViewOpen] = useState(false)
@@ -458,7 +471,13 @@ function DistanceProfile({ dx, seed, candidates, threshold }: { dx: Discovery; s
           const hAt = (i: number) => view[0] + (i / Math.max(1, n - 1)) * (view[1] - view[0])
           const [slo, shi] = padDomain(signal)
           const sy = (v: number) => 8 + (1 - (v - slo) / (shi - slo)) * 54
-          const dMax = 7, dy = (d: number) => 86 + (Math.min(dMax, d) / dMax) * 56
+          // the domain is the returned array's, not a constant: real MASS distances
+          // on this data run 16-52, and a fixed 7 pinned every one of them to the
+          // same y and drew the profile as a dead straight line
+          const dFin = distance.filter(Number.isFinite)
+          const dLo = dFin.length ? Math.min(...dFin) : 0
+          const dHi = Math.max(dFin.length ? Math.max(...dFin) : 1, threshold ?? 0) * 1.05
+          const dy = (d: number) => 86 + ((Math.min(dHi, Math.max(dLo, d)) - dLo) / Math.max(1e-9, dHi - dLo)) * 56
           const step = Math.max(1, Math.floor(n / (W - labelW)))
           /* The distance array is SHORTER than the signal by m - 1: a profile has
            * one value per position, not per sample. Iterating to the signal's
@@ -479,7 +498,7 @@ function DistanceProfile({ dx, seed, candidates, threshold }: { dx: Discovery; s
               onPointerMove={e => { const r = e.currentTarget.getBoundingClientRect(); const px = e.clientX - r.left; setHover(px >= labelW && px <= W - padR ? px : null) }} onPointerLeave={() => setHover(null)}>
               <text x={0} y={30} className="dsc-axis-t">signal</text>
               <text x={0} y={100} className="dsc-axis-t">distance</text>
-              <text x={0} y={112} className="dsc-axis-t" style={{ fill: THRESH }}>{threshold == null ? 'no cut' : `— d ${threshold.toFixed(1)}`}</text>
+              <text x={0} y={112} className="dsc-axis-t" style={{ fill: THRESH }}>{threshold == null ? `d ${dLo.toFixed(1)}–${dHi.toFixed(1)}` : `— d ${threshold.toFixed(1)}`}</text>
               <text x={0} y={168} className="dsc-axis-t">matches</text>
               <path d={line(signal, sy)} fill="none" stroke="var(--trace)" strokeWidth={1.1} />
               <path d={line(distance, dy)} fill="none" stroke={SEED_COLOUR} strokeWidth={1.1} />
@@ -496,10 +515,20 @@ function DistanceProfile({ dx, seed, candidates, threshold }: { dx: Discovery; s
     </section>
   )
 }
+/** A view inside the section, or the section's own first hour.
+ *
+ *  The clamp used to be applied AFTER the only validity test, so a query
+ *  outside the section inverted: '192.0-194.0' against a section of 80-84 h
+ *  clamped to [192, 84] and the page asked the server for it. The clamped
+ *  range is tested too, and an empty query opens on the section's start. */
 export function parseView(q: string, section: [number, number]): [number, number] {
+  const width = Math.min(1, Math.max(0.05, section[1] - section[0]))
+  const fallback: [number, number] = [section[0], Math.min(section[1], section[0] + width)]
   const [a, b] = q.split('-').map(Number)
-  if (!Number.isFinite(a) || !Number.isFinite(b) || b <= a) return [section[0], section[1]]
-  return [Math.max(section[0], a), Math.min(section[1], b)]
+  if (!Number.isFinite(a) || !Number.isFinite(b) || b <= a) return fallback
+  const lo = Math.max(section[0], Math.min(a, section[1]))
+  const hi = Math.min(section[1], Math.max(b, section[0]))
+  return hi > lo ? [lo, hi] : fallback
 }
 export function ViewPopover({ open, onClose, anchorRef, view, section, minW, maxW, onApply }: { open: boolean; onClose: () => void; anchorRef: React.RefObject<HTMLButtonElement | null>; view: [number, number]; section: [number, number]; minW: number; maxW: number; onApply: (v: [number, number]) => void }) {
   const [v, setV] = useState<[number, number]>(view)
@@ -534,7 +563,10 @@ function MatchesCard({ seed, matches, channels, note = null }: { seed: SeedInfo;
   return (
     <section className="k-card dsc-matches" data-testid="matches-card" aria-label="Matches">
       <div className="dsc-card-head">
-        <h3>{matches.length} matches</h3>
+        <h3>{note ? `${matches.length} closest` : `${matches.length} matches`}</h3>
+        {/* the note explains a truncation; it was passed in and never rendered,
+            which left "12 closest" over a search that returned 132 */}
+        {note && <span className="muted small" data-testid="matches-note">{note}</span>}
         <InfoTip title="Matches">Sorted by distance, eight at a time. Each card overlays the match (black) on the seed (purple) in mV on one shared scale. A green dot marks a match that already has a verdict — it will not be put to you twice.</InfoTip>
         <span className="muted small">{channels} channel{channels === 1 ? '' : 's'} · sorted by distance</span>
         <span className="k-spacer" />
@@ -564,10 +596,14 @@ function ApplyBar({ dx, draft, recommended, kept, seed, sim, onSave }: { dx: Dis
   const label: Record<keyof SeedParams, string> = {
     algorithm: 'algorithm', windowSamples: 'window', windowS: 'window length', windowLocked: 'window locked',
     scaleBank: 'scale bank', exclusionSamples: 'exclusion samples', exclusionS: 'exclusion zone',
-    exclusionNote: 'exclusion guard', threshold: 'threshold', overlap: 'on overlap',
+    exclusionNote: 'exclusion guard', specExclusionS: 'spec exclusion zone', exclusionSettable: 'exclusion settable',
+    threshold: 'threshold', overlap: 'on overlap',
   }
   // the fields the parameter card sets; the rest of SeedParams is the server describing what it did
-  const settable: (keyof SeedParams)[] = ['algorithm', 'windowSamples', 'scaleBank', 'exclusionS', 'threshold', 'overlap']
+  // `exclusionS` is not in this list any more: the block takes no exclusion
+  // parameter, so it can never differ from the applied search and an "exclusion
+  // zone" chip in the apply bar would be a change nothing could make
+  const settable: (keyof SeedParams)[] = ['algorithm', 'windowSamples', 'scaleBank', 'threshold', 'overlap']
   const applied = draft.applied
   const show = (v: SeedParams[keyof SeedParams]) => v == null ? 'none' : String(v)
   const changes = applied ? settable.filter(k => draft.params[k] !== applied[k]) : settable

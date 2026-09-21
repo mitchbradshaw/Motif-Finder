@@ -316,13 +316,17 @@ def exemplar_signal(conn, seed):
 
 def recommended_params(seed):
     """§7.6's parameter card. The window is **locked** to the exemplar's native
-    length; the exclusion zone is m/2, the trivial-match guard.
+    length.
 
-    `exclusion_note` states the one place the block and the spec differ:
-    `detection.seed_matches` exposes no exclusion parameter and does not pass
-    `query_idx`, so the search actually runs under `stumpy.match`'s own default
-    (m/4). Said here rather than drawn as a locked "m/2" over a search that
-    used something else.
+    The exclusion zone is the one place the block and the spec differ, so the
+    card reports the guard that **ran**: `detection.seed_matches` exposes no
+    exclusion parameter and does not pass `query_idx`, so `stumpy.match`
+    applies its own default of m/4. `specExclusionSamples` carries §7.6's m/2
+    beside it and `exclusion_note` says which is which — a locked "m/2" drawn
+    over a search that used m/4 is a number about nothing.
+
+    `exclusionSettable` is False for the same reason: there is no parameter to
+    set. A slider that moved it would change the card and not the search.
     """
     m = int(seed["samples"])
     fs = float(seed["fs"]) or 1.0
@@ -332,12 +336,16 @@ def recommended_params(seed):
         "windowS": m / fs,
         "windowLocked": True,
         "scaleBank": "none",
-        "exclusionSamples": m // 2,
-        "exclusionS": (m // 2) / fs,
+        "exclusionSamples": m // 4,
+        "exclusionS": (m // 4) / fs,
+        "specExclusionSamples": m // 2,
+        "specExclusionS": (m // 2) / fs,
+        "exclusionSettable": False,
         "overlap": "lowest",
         "exclusion_note": (
-            "§7.6 specifies m/2. detection.seed_matches exposes no exclusion parameter and does not "
-            "pass query_idx, so the search runs under stumpy.match's own default of m/4."),
+            "§7.6 specifies m/2 ({spec} samples). detection.seed_matches exposes no exclusion parameter "
+            "and does not pass query_idx, so the search ran under stumpy.match's own default of m/4 "
+            "({ran} samples) — which is the figure shown.").format(spec=m // 2, ran=m // 4),
     }
 
 

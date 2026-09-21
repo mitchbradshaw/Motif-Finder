@@ -10,7 +10,7 @@ import { getHistory, getOverview, heldOutReason, fmtMin, DISCOVERY_LIMIT_MIN, ty
 import { useSourced } from '../api/seam'
 import { navigate } from '../state'
 import { useToast } from '../shell/Toast'
-import { postDiscoverySlurm, putDiscoverySession } from '../api'
+import { openDiscoveryHistoryRun, postDiscoverySlurm, putDiscoverySession } from '../api'
 import { RunGlyph } from './glyphs'
 import { PAGE_SIZE, hasResults, pickable, type Discovery } from './session'
 
@@ -131,9 +131,14 @@ export function HistoryButton({ dx }: { dx: Discovery }) {
               <div><b className="mono">{h.id}</b> {h.label}<div className="muted small">{h.when} · {h.status} · {h.detail}</div></div>
               <Button size="sm" disabled={inSession} disabledReason={inSession ? 'already in this session' : undefined} testid={`history-open-${h.id}`}
                 onClick={() => {
-                  dx.addRuns([{ key: h.runKey, label: `${h.label} · ${h.id}`, id: h.id, kind: h.label.startsWith('seed') ? 'seed' : 'template', colour: '#7A8FA6', glyph: h.label.startsWith('seed') ? 'seed' : 'sax', detail: h.status, status: h.status === 'superseded' ? 'superseded' : 'done', doneAt: h.when.split(' ').pop(), template: h.label.startsWith('drop') ? 'drop_motifs9' : 'seed_F03_native', addedThisSession: true }])
-                  recordDemoWrite('discovery', 'open-history-run', { id: h.id })
-                  toast.push({ text: `${h.id} ${h.label} added to this session` })
+                  /* Adoption is a real write: the row comes back from /runs on
+                   * the reload, carrying the run group it actually ran in. It
+                   * used to be invented here — an invented template name and a
+                   * guessed kind under the real run key, which then went out in
+                   * `runs=` to routes that had never heard of it. */
+                  openDiscoveryHistoryRun(h.id)
+                    .then(r => { dx.reload(); hist.reload(); toast.push({ text: r.adopted ? `${h.id} ${h.label} added to this session · ${r.note}` : `${h.id} ${r.note}` }) })
+                    .catch(e => toast.push({ text: `could not open ${h.id}: ${e.message}` }))
                 }}>Open</Button>
             </div>
           )
@@ -158,7 +163,15 @@ export function DiscoveryToolbar({ dx, left, right }: { dx: Discovery; left?: Re
 /* ------------------------------------------------------------------ scope card */
 export function ScopeCard({ dx, previewable = true }: { dx: Discovery; previewable?: boolean }) {
   const s = dx.scope, rec = dx.recording
-  const overview = useSourced(() => s ? getOverview(s.recording, dx.visibleChannels) : Promise.resolve({ data: { data: {} as Record<string, number[]> }, source: 'demo' as const }), [s?.recording, dx.visibleChannels.join(',')])
+  /* A held-out recording is not asked for. The bridge refuses it with a 423 on
+   * every route that would serve its samples, and the callout below is drawn
+   * from `rec.heldOut`, which the session payload already carries — so making
+   * the request anyway would only add a failed fetch to the console for an
+   * answer the page already has. */
+  const overview = useSourced(() => s && rec && !rec.heldOut
+    ? getOverview(s.recording, dx.visibleChannels)
+    : Promise.resolve({ data: { data: {} as Record<string, number[]> }, source: 'demo' as const }),
+    [s?.recording, rec?.heldOut, dx.visibleChannels.join(',')])
   const recRef = useRef<HTMLSpanElement>(null)
   const [confirmRec, setConfirmRec] = useState<string | null>(null)
   const addRef = useRef<HTMLButtonElement>(null)
@@ -380,24 +393,31 @@ export function RunsCard({ dx, mode, selected, onSelect, draft, compareActive, o
 }
 
 function RunRow({ dx, run, selected, onSelect, mode }: { dx: Discovery; run: DiscoveryRun; selected: boolean; onSelect?: (k: string) => void; mode: RunsMode }) {
-  const sim = useSim(`discovery.run.${run.key}`)
-  const status = run.status === 'running' || run.status === 'queued' ? (sim.status === 'done' ? 'done' : sim.status === 'failed' ? 'failed' : run.status) : run.status
+  /* The row used to read a client-side simulator keyed on the run: `add()`
+   * started it, it ticked for a fixed number of steps and declared the run
+   * done. Now that *Add and run* is a real POST, nothing starts that timer, so
+   * a genuinely running run drew an empty bar at 0 % for ever. Progress and the
+   * channels-done count come from the server's own run row, and `useDiscovery`
+   * re-reads the runs while any of them is running. */
+  const status = run.status
   const pickIdx = dx.picks.indexOf(run.key)
   const found = dx.foundOf(run.key)
   const nCh = dx.scope?.channels.length ?? 0
+  /* A finished run ran on the channels it ran on. This read the CURRENT scope,
+   * so adding a channel rewrote every historical row's "2 ch" into "3 ch" for
+   * runs that had never touched the third. The server sends `channelsDone`. */
+  const ranOn = run.channelsDone ? run.channelsDone.split('/').pop()!.trim() : String(nCh)
   const canPick = pickable({ ...run, status })
-  const doneLocal = sim.status === 'done' && run.status !== 'done'
-  useEffect(() => { if (doneLocal) dx.patchRun(run.key, { status: 'done', doneAt: new Date(sim.finishedAt ?? Date.now()).toTimeString().slice(0, 5) }) }, [doneLocal]) // eslint-disable-line react-hooks/exhaustive-deps
   const kindBadge = run.kind === 'reference' ? <span className="k-badge t-grey">reference</span> : run.kind === 'seed' ? <span className="k-badge t-purple">seed</span> : run.kind === 'draft' ? <span className="k-badge t-amber">draft</span> : <span className="k-badge t-blue">template</span>
   let line: ReactNode = null
   switch (status) {
-    case 'done': line = <span>{found ?? '…'} found · {nCh} ch · done {run.doneAt ?? '—'}{dx.stale && <span className="amber"> · stale</span>}</span>; break
+    case 'done': line = <span>{found ?? '…'} found · {ranOn} ch · done {run.doneAt ?? '—'}{dx.stale && <span className="amber"> · stale</span>}</span>; break
     case 'on cluster': line = <span className="dsc-run-progress"><ProgressBar value={run.progress ?? 0} size="sm" labelPosition="none" width={96} /><span className="blue">cluster {Math.round((run.progress ?? 0) * 100)} %</span></span>; break
-    case 'running': case 'queued': line = <span className="dsc-run-progress"><ProgressBar value={sim.fraction} size="sm" labelPosition="none" width={96} /><span className="blue">{sim.status === 'queued' ? 'queued · local' : `running · ${sim.steps[sim.step] ?? ''}`}</span></span>; break
+    case 'running': case 'queued': line = <span className="dsc-run-progress"><ProgressBar value={run.progress ?? 0} size="sm" labelPosition="none" width={96} /><span className="blue">{status === 'queued' ? 'queued' : `running · ${run.channelsDone ?? '…'} channels`}</span></span>; break
     case 'new': line = <span>new · local</span>; break
     case 'paused': line = <span className="dsc-run-progress"><ProgressBar value={run.progress ?? 0} size="sm" tone="amber" labelPosition="none" width={56} /><span className="amber">paused {run.pausedAt?.stage}/{run.pausedAt?.of}</span></span>; break
     case 'superseded': line = <span className="muted">superseded · no verdicts written</span>; break
-    case 'failed': line = <span className="red">failed · {run.error ?? sim.error}</span>; break
+    case 'failed': line = <span className="red">failed · {run.error ?? 'the server reported no error text — open it in Jobs'}</span>; break
     case 'reference': break
   }
   return (

@@ -563,8 +563,10 @@ def get_overview(request: Request, recording: str, channels: str = ""):
     c = _conn(request)
     try:
         rec = _file_for_key(c, recording)
-        if rec["held_out"]:
-            return {"refused": rec["held_out_reason"]}
+        # 423, like every other route that would serve this file's samples. It
+        # used to answer 200 with a {"refused": ...} body, which reads as a
+        # successful request to anything that is not this page's own callout.
+        _refuse_held_out(rec["source_file"])
         names = _split(channels) or [ch["name"] for ch in rec["channels"][:3]]
         rows = _ids_for(c, recording, names)
         out = {}
@@ -1022,7 +1024,12 @@ def _draft(conn, session, seed_id=None):
     # stale draft cannot carry a window from a different seed.
     params["windowSamples"] = recommended["windowSamples"]
     params["windowS"] = recommended["windowS"]
+    # the exclusion zone is not settable through this block, so the draft cannot
+    # carry a different one: what the card shows is what stumpy.match applied
     params["exclusionS"] = recommended["exclusionS"]
+    params["exclusionSamples"] = recommended["exclusionSamples"]
+    params["specExclusionS"] = recommended["specExclusionS"]
+    params["exclusionSettable"] = recommended["exclusionSettable"]
     params["algorithm"] = recommended["algorithm"]
     return {
         "key": draft.get("key") or f"seed_{seed['hash'][:6]}",
@@ -1302,6 +1309,10 @@ def get_seed_profile(request: Request, seedId: str, channel: str, t0: float = 0.
         ch = _ids_for(c, _stem(s["source_file"]), [channel])[0]
         seed = _seed_by_id(c, seedId)
         exemplar = np.asarray(seeded_search.exemplar_signal(c, seed).x, dtype=float)
+        if t1 <= t0:
+            raise HTTPException(422, {"message": (
+                f"the view [{t0}, {t1}] h is not a window: t1 must be greater than t0. A clamped "
+                f"range that inverts is a bug in the caller, not a window to serve.")})
         x = np.asarray(corpus.load_channel(ch["npy_path"]), dtype=float)
         lo = max(0, int(round(t0 * 3600 * fs)))
         hi = min(len(x), max(lo + len(exemplar) + 1, int(round(t1 * 3600 * fs))))
@@ -1641,6 +1652,51 @@ def post_slurm(request: Request, body: PlanBody):
 
 # ── run acts (§7.4) ─────────────────────────────────────────────────────────
 
+@router.post("/api/discovery/history/{hid}/open")
+def open_history_run(request: Request, hid: str):
+    """Adopt a past Discovery run into this session.
+
+    The History popover used to fabricate the row client-side: an invented
+    template name, a guessed kind and a colour, under the *real* run key. The
+    key then went out in `runs=` on /fires and /scoreboard, which know only the
+    rows this table holds, and answered 404. Adoption is a row in
+    `discovery_runs` pointing at the same `run_group_id` — the runs themselves
+    are not copied, re-executed or re-owned, so two sessions referencing one
+    fan-out see the same detections and the same scores.
+    """
+    c = _conn(request)
+    try:
+        s = _session(c)
+        if hid.startswith("g-"):
+            src = c.execute("SELECT * FROM discovery_runs WHERE run_group_id = ? ORDER BY id DESC LIMIT 1",
+                            (int(hid[2:]),)).fetchone()
+        elif hid.startswith("d-"):
+            src = c.execute("SELECT * FROM discovery_runs WHERE id = ?", (int(hid[2:]),)).fetchone()
+        else:
+            raise HTTPException(422, {"message": f"'{hid}' is not a history id: expected 'g-<group>' or 'd-<row>'."})
+        if src is None:
+            raise HTTPException(404, {"message": f"no Discovery run behind history id '{hid}'."})
+        if int(src["session_id"]) == int(s["id"]):
+            return {"run_key": src["run_key"], "adopted": False, "note": "already in this session"}
+        existing = c.execute("SELECT run_key FROM discovery_runs WHERE session_id = ? AND run_key = ?",
+                             (int(s["id"]), src["run_key"])).fetchone()
+        if existing is not None:
+            return {"run_key": src["run_key"], "adopted": False, "note": "already in this session"}
+        now = _now()
+        c.execute(
+            "INSERT INTO discovery_runs (session_id, run_key, kind, label, colour, template_id, template_name, "
+            "run_group_id, job_id, params_json, status, created_at, updated_at, superseded_at) "
+            "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+            (int(s["id"]), src["run_key"], src["kind"], src["label"], src["colour"], src["template_id"],
+             src["template_name"], src["run_group_id"], src["job_id"], src["params_json"], src["status"],
+             now, now, src["superseded_at"]))
+        c.commit()
+        return {"run_key": src["run_key"], "adopted": True,
+                "note": "the same runs, read by this session — nothing was re-executed"}
+    finally:
+        c.close()
+
+
 @router.post("/api/discovery/runs/{run_key}/discard")
 def discard_run(request: Request, run_key: str):
     """§7.4: *Discard run* marks the run superseded and writes **no**
@@ -1974,7 +2030,8 @@ def get_compare_window(request: Request, a: str, b: str, channel: str, atH: floa
 _THUMB_BY_KIND = {"signal": "trace", "scores": "distance", "encoding": "symbols", "spanset": "trace"}
 
 
-def _stage_cells(conn, side, recipe, steps_out, other_cells, x, fs, lo, threshold, is_seed):
+def _stage_cells(conn, side, recipe, steps_out, other_cells, x, fs, lo, threshold, is_seed,
+                 side_label="A"):
     """Five cells in ROLES order, each the block's own output drawn as its
     chain-row thumbnail (§6.8) so any chain renders."""
     by_role = {}
@@ -1993,8 +2050,10 @@ def _stage_cells(conn, side, recipe, steps_out, other_cells, x, fs, lo, threshol
     for role in D.ROLES:
         mine = side["cells"].get(role)
         theirs = other_cells.get(role)
+        # the badge names the side it is ON. Hard-coding "A only" attributed
+        # B's own stages to A, on B's own column.
         badge = ("absent" if not mine else "identical" if _same_cell(mine, theirs)
-                 else ("A only" if not theirs else "differs"))
+                 else (f"{side_label} only" if not theirs else "differs"))
         if not mine:
             cells.append({"role": role, "cell": None, "badge": "absent", "thumb": {"kind": "absent"},
                           "caption": (f"the other run runs {theirs['name'].lower()} here" if theirs
@@ -2092,9 +2151,9 @@ def get_compare_stages(request: Request, a: str, b: str, channel: str, atH: floa
         out_a = window_chain.run_window(c, recipe_a, seg, fs, span_start=lo) if recipe_a else []
         out_b = window_chain.run_window(c, recipe_b, seg, fs, span_start=lo) if recipe_b else []
         cells_a = _stage_cells(c, side_a, recipe_a, out_a, side_b["cells"], x, fs, lo,
-                               side_a["threshold"], side_a["isSeed"])
+                               side_a["threshold"], side_a["isSeed"], side_label="A")
         cells_b = _stage_cells(c, side_b, recipe_b, out_b, side_a["cells"], x, fs, lo,
-                               side_b["threshold"], side_b["isSeed"])
+                               side_b["threshold"], side_b["isSeed"], side_label="B")
         first = next((r for r, ca, cb in zip(D.ROLES, cells_a, cells_b)
                       if ca["badge"] != "identical" or cb["badge"] != "identical"), None)
         return {

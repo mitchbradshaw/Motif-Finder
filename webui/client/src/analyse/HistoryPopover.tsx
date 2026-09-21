@@ -27,7 +27,12 @@ export function HistoryPopover({ source, onApply, onClose }: Props) {
       {data && (
         <div className="hist-list">
           <div className="hist-head"><span>run</span><span>chain</span><span>span</span><span>duration</span><span>result</span><span /></div>
-          {data.jobs.map(j => {
+          {/* Only chain runs have a recipe. Discovery's fan-out and seed jobs
+              (kind 'sweep') share this bridge's job list and carry none, so
+              `j.recipe.steps` threw and took the whole popover down with it.
+              They are counted below rather than dropped in silence.
+              — wire-discovery, out of scope; see requests/04-to-01.md */}
+          {data.jobs.filter(j => j.recipe?.steps).map(j => {
             const steps = j.recipe.steps
             const canApply = source ? j.recipe.recording_id === source.recording_id : false
             return (
@@ -41,6 +46,11 @@ export function HistoryPopover({ source, onApply, onClose }: Props) {
               </div>
             )
           })}
+          {data.jobs.filter(j => !j.recipe?.steps).length > 0 && (
+            <div className="an-pop-note" data-testid="history-other-jobs">
+              {data.jobs.filter(j => !j.recipe?.steps).length} other live job(s) in this bridge are not chain runs (Discovery fan-outs and seed searches) — open them in Jobs.
+            </div>
+          )}
           {data.db_runs.map(r => {
             // the core records a cancellation as status 'failed' + error_text 'Cancelled …'; the bridge
             // flags it as cancelled so it is not shown as a failure (critique r1)
