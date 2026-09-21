@@ -342,14 +342,22 @@ function Disagreements({ data, a, b, only, setOnly, list, i, setI, current }: {
 }) {
   const nA = data.disagreements.filter(d => d.kind === 'only A').length
   const nB = data.disagreements.length - nA
-  const win = useSourced(() => current ? getDisagreementWindow(current) : Promise.resolve({ data: null, source: 'demo' as const }), [current?.detection])
+  const win = useSourced(() => current ? getDisagreementWindow(a, b, current) : Promise.resolve({ data: null, source: 'demo' as const }), [a, b, current?.detection])
   const [ref, size] = useSize<HTMLDivElement>()
   const W = size.width, labelW = 26, padR = 10
+  // The list has no `otherNearest`: the other side's score at a place is computed for the window you step
+  // to (/compare/window returns it as `bScore`). So the readout reads the window, and says what it is
+  // waiting for until the window lands — never a margin against a number nobody computed.
+  const w = win.data
+  const nearestAt = w && w.minAt != null && Number.isFinite(w.bScore[w.minAt]) ? w.minAt : null
+  const nearest = w && nearestAt != null ? w.bScore[nearestAt] : null
+  const thr = w ? w.otherThreshold : current?.otherThreshold ?? null
+  const margin = nearest != null && thr != null && thr !== 0 ? Math.abs(nearest - thr) / thr : null
   return (
     <section className="k-card dsc-steps" data-testid="disagreements" aria-label="Step through the disagreements">
       <div className="dsc-card-head">
         <h3>Step through the disagreements</h3>
-        <InfoTip title="Step through the disagreements">One window at a time: the clean signal, the span the firing run found, and the other run's own score at that place against its own threshold — so the run that did not fire shows how close it came.</InfoTip>
+        <InfoTip title="Step through the disagreements">One window at a time: the clean signal, the span the firing run found, and the other run's own score at that place against its own threshold — so the run that did not fire shows how close it came.{data.sortedBy ? ` Ordered by ${data.sortedBy}.` : ''}{data.disagreementsCapped ? ` Showing ${data.disagreements.length} of ${data.disagreementsTotal}.` : ''}</InfoTip>
         <span className="k-spacer" />
         <Seg size="sm" value={only} onChange={v => setOnly(v as OnlyFilter)} testid="step-filter"
           options={[{ value: 'all', label: `all ${data.disagreements.length}` }, { value: 'a', label: `only A ${nA}` }, { value: 'b', label: `only B ${nB}`, disabled: nB === 0, reason: 'B found nothing A missed on this scope' }]} />
@@ -363,8 +371,14 @@ function Disagreements({ data, a, b, only, setOnly, list, i, setI, current }: {
             <b>{current.atH.toFixed(1)} h · {current.channel} · 40 s</b>
             <span className={current.kind === 'only A' ? 'blue' : 'purple'}>{current.kind} fired</span>
             <span className="dsc-steps-gap" />
-            <span style={{ color: current.kind === 'only A' ? B_COLOUR : A_COLOUR }}>{current.kind === 'only A' ? 'B' : 'A'} nearest {current.otherIsSeed ? `d ${current.otherNearest.toFixed(1)}` : `score ${current.otherNearest.toFixed(2)}`}</span>
-            <span className="amber">threshold {current.otherThreshold} · {Math.abs(current.otherNearest - current.otherThreshold) / current.otherThreshold < 0.25 ? 'near miss' : 'not close'}</span>
+            <span style={{ color: current.kind === 'only A' ? B_COLOUR : A_COLOUR }} data-testid="step-nearest">{current.kind === 'only A' ? 'B' : 'A'} nearest {nearest != null
+              ? (current.otherIsSeed ? `d ${nearest.toFixed(1)}` : `score ${nearest.toFixed(2)}`)
+              : win.loading ? 'computing for this window…'
+                : w ? (w.scoreNote ?? 'no score in this window')
+                  : (data.sortedBy ?? 'computed for the window you step to')}</span>
+            {thr != null
+              ? <span className="amber">threshold {thr}{margin != null ? ` · ${margin < 0.25 ? 'near miss' : 'not close'}` : ' · nothing to compare it against here'}</span>
+              : <span className="amber">the other side has no threshold on this scope</span>}
           </div>
           <div className="dsc-steps-plot" ref={ref}>
             {win.error ? <LoadFailed what="the window" error={win.error} onRetry={win.reload} /> : !win.data || W === 0 ? <Loading height={150} /> : (() => {
@@ -375,28 +389,34 @@ function Disagreements({ data, a, b, only, setOnly, list, i, setI, current }: {
               const sy = (v: number) => 8 + (1 - (v - (lo - pad)) / ((hi + pad) - (lo - pad))) * 62
               let d = ''
               for (let k = 0; k < n; k++) d += `${k ? 'L' : 'M'}${sx(k).toFixed(1)} ${sy(w.values[k]).toFixed(1)}`
-              const span = w.aSpan ?? w.bSpan
+              const aSpan = w.aSpan, span = w.aSpan ?? w.bSpan
               const firedA = !!w.aSpan
-              // the non-firing side's own score, scaled to what it actually does in this window (its threshold always in view)
-              const sLo = Math.min(...w.bScore, current.otherThreshold), sHi = Math.max(...w.bScore, current.otherThreshold)
+              // the non-firing side's own score, scaled to what it actually does in this window (its threshold
+              // always in view). A chain with no scoring stage sends an empty track and a note instead.
+              const finite = w.bScore.filter(v => Number.isFinite(v))
+              const scale = [...finite, ...(thr != null ? [thr] : [])]
+              const sLo = Math.min(...scale), sHi = Math.max(...scale)
               const sPad = (sHi - sLo) * 0.18 || 0.2
               const py = (v: number) => 102 + (1 - (v - (sLo - sPad)) / ((sHi + sPad) - (sLo - sPad))) * 36
               let pd = ''
               for (let k = 0; k < w.bScore.length; k++) pd += `${k ? 'L' : 'M'}${sx(k).toFixed(1)} ${py(w.bScore[k]).toFixed(1)}`
               const t0 = current.atH - w.windowS / 2 / 3600
               return (
-                <svg width={W} height={158} role="img" aria-label={`the 40 s window at ${current.atH.toFixed(2)} h`} data-testid="step-plot">
+                <svg width={W} height={158} role="img" aria-label={`the ${w.windowS.toFixed(0)} s window at ${current.atH.toFixed(2)} h`} data-testid="step-plot">
                   {span && <rect x={sx(span[0])} y={6} width={sx(span[1]) - sx(span[0])} height={66} fill={A_COLOUR} opacity={0.12} />}
                   <path d={d} fill="none" stroke="var(--trace)" strokeWidth={1.2} />
                   <text x={0} y={92} className="dsc-axis-t">A</text>
                   <text x={0} y={120} className="dsc-axis-t">B</text>
-                  {firedA
-                    ? <><rect x={sx(span![0])} y={86} width={sx(span![1]) - sx(span![0])} height={4} rx={2} fill={A_COLOUR} /><text x={sx(span![1]) + 6} y={91} className="dsc-axis-t" style={{ fill: A_COLOUR }}>{current.detection} · score {current.score.toFixed(2)}</text></>
+                  {aSpan
+                    ? <><rect x={sx(aSpan[0])} y={86} width={sx(aSpan[1]) - sx(aSpan[0])} height={4} rx={2} fill={A_COLOUR} /><text x={sx(aSpan[1]) + 6} y={91} className="dsc-axis-t" style={{ fill: A_COLOUR }}>{current.detection} · {current.score != null ? `score ${current.score.toFixed(2)}` : 'no score on this detection'}</text></>
                     : <line x1={labelW} x2={W - padR} y1={88} y2={88} stroke="#e5e7eb" strokeWidth={4} />}
-                  <path d={pd} fill="none" stroke={firedA ? B_COLOUR : A_COLOUR} strokeWidth={1.1} />
-                  <line x1={labelW} x2={W - padR} y1={py(current.otherThreshold)} y2={py(current.otherThreshold)} stroke={THRESH_COLOUR} strokeWidth={1.6} />
-                  <circle cx={sx(w.minAt)} cy={py(current.otherNearest)} r={3} fill="none" stroke={firedA ? B_COLOUR : A_COLOUR} strokeWidth={1.4} />
-                  <text x={sx(w.minAt) + 6} y={py(current.otherNearest) + 4} className="dsc-axis-t" style={{ fill: firedA ? B_COLOUR : A_COLOUR }}>{current.otherIsSeed ? current.otherNearest.toFixed(1) : current.otherNearest.toFixed(2)}</text>
+                  {finite.length > 0 && <path d={pd} fill="none" stroke={firedA ? B_COLOUR : A_COLOUR} strokeWidth={1.1} />}
+                  {finite.length === 0 && <text x={labelW} y={124} className="dsc-axis-t" data-testid="no-other-score">{w.scoreNote ?? 'the other side produced no score in this window'}</text>}
+                  {thr != null && <line x1={labelW} x2={W - padR} y1={py(thr)} y2={py(thr)} stroke={THRESH_COLOUR} strokeWidth={1.6} />}
+                  {nearest != null && nearestAt != null && <>
+                    <circle cx={sx(nearestAt)} cy={py(nearest)} r={3} fill="none" stroke={firedA ? B_COLOUR : A_COLOUR} strokeWidth={1.4} />
+                    <text x={sx(nearestAt) + 6} y={py(nearest) + 4} className="dsc-axis-t" style={{ fill: firedA ? B_COLOUR : A_COLOUR }}>{current.otherIsSeed ? nearest.toFixed(1) : nearest.toFixed(2)}</text>
+                  </>}
                   <line x1={labelW} x2={W - padR} y1={144} y2={144} stroke="var(--border)" />
                   {[0, 0.5, 1].map((f, k) => <text key={k} x={sx(f * w.windowS)} y={155} textAnchor={k === 0 ? 'start' : k === 2 ? 'end' : 'middle'} className="dsc-axis-t">{(t0 + (f * w.windowS) / 3600).toFixed(2)}{k === 0 || k === 2 ? ' h' : ''}</text>)}
                 </svg>

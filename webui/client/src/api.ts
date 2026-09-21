@@ -309,3 +309,229 @@ export const getFamilyAggregate = (key: string) => req<{ family: string; source:
 export const saveWindowSet = (job_id: number, step: number, name: string, notes?: string) =>
   post<{ id: number; name: string; path: string; n_windows: number; length: number; run_id: number; note: string }>('/api/windowsets', { job_id, step, name, notes })
 export const listWindowSets = () => req<{ window_sets: { id: number; name: string; path: string; recording_id: number | null; channel: number | null; fs: number | null; created_at: string; active: number; manifest?: Record<string, unknown> }[]; root: string }>('/api/windowsets')
+
+/* ---------------- stage-3 prompt 04: Discovery (server/discovery.py) ----------------
+   One function per route, returning the server's own shape untranslated. The
+   fixture-shaped adapter the pages read lives in api/discovery.ts; nothing here
+   renames a field or fills in a number the server declined to give. */
+
+const dq = (params: Record<string, string | number | boolean | undefined | null>) => {
+  const q = new URLSearchParams()
+  for (const [k, v] of Object.entries(params)) if (v !== undefined && v !== null && v !== '') q.set(k, String(v))
+  const s = q.toString()
+  return s ? `?${s}` : ''
+}
+
+export interface DiscMatchingRule { criterion: string; iou: number; onset: number }
+export interface DiscNull { method: string | null; n: number; requested?: string | null; supported?: boolean; reason?: string | null }
+export interface DiscSession {
+  id: number; name: string; recording: string; channels: string[]
+  section: [number, number]; sectionSamples: [number, number]
+  null: DiscNull; localLimitMin: number; savedAt: string; matchingRule: DiscMatchingRule
+}
+export interface DiscRecordingOption {
+  key: string; label: string; file: string; stem: string; hours: number; channels: string[]
+  heldOut: boolean; fs: number; heldOutReason: string | null
+}
+export interface DiscSessionPayload { session: DiscSession; recordings: DiscRecordingOption[] }
+export const getDiscoverySession = () => req<DiscSessionPayload>('/api/discovery/session')
+export const putDiscoverySession = (body: { name?: string; recording?: string; channels?: string[]; section?: [number, number]; null?: { method?: string; n?: number } }) =>
+  put<DiscSessionPayload>('/api/discovery/session', body)
+
+export interface DiscRun {
+  key: string; id: string | null; label: string; kind: string; colour: string; glyph: string; detail: string
+  status: string; template: string | null; stageCount: number | null; version: number | null
+  perChannelMin: number | null; job: string | null; runGroupId: number | null
+  channelsDone: string | null; found: number | null
+  progress?: number; doneAt?: string; error?: string; reviewedH?: number
+}
+export const getDiscoveryRuns = () => req<DiscRun[]>('/api/discovery/runs')
+
+export interface DiscTemplateStage { index: string; name: string; signature: string; locked?: string; glyph: string }
+export interface DiscTemplate {
+  name: string; kind: string; signature: string; fits: boolean; fitsReason: string | null
+  lastScore: string; savedAt: string; lastUsed: number; stages: DiscTemplateStage[]
+  /* null until a real Preview has been run — `previewNote` says so */
+  perChannelMin: number | null; diskGB: number | null
+  preview: { spans: number; hours: number; channel: string; nullGives: number } | null
+  previewNote: string | null; complexity: string
+  bind: string | null; inSession: string | null; hasModel: boolean
+  version: number | null; builtin: boolean; description: string | null
+}
+export const getDiscoveryTemplates = () => req<DiscTemplate[]>('/api/discovery/templates')
+
+export interface DiscHistoryEntry { id: string; label: string; when: string; status: string; runKey: string; inSession: boolean; detail: string }
+export const getDiscoveryHistory = () => req<DiscHistoryEntry[]>('/api/discovery/history')
+
+export type DiscOverview = { refused: string; data?: undefined } | { refused?: undefined; data: Record<string, (number | null)[]> }
+export const getDiscoveryOverview = (recording: string, channels: string[]) =>
+  req<DiscOverview>(`/api/discovery/overview${dq({ recording, channels: channels.join(',') })}`)
+
+export interface DiscFiresRow { run: string; counts: number[]; unfinishedFrom?: number }
+export interface DiscFiresChannel { channel: string; reviewedH: number; reviewed: number[]; rows: DiscFiresRow[] }
+export interface DiscFires { binH: number; firstBin: number; nBins: number; channels: DiscFiresChannel[] }
+export const getDiscoveryFires = (channels: string[], t0: number, t1: number, runs: string[]) =>
+  req<DiscFires>(`/api/discovery/fires${dq({ channels: channels.join(','), t0, t1, runs: runs.join(',') })}`)
+
+/** §7.3's three branches. Exactly one variant's keys are present; the client branches on key presence. */
+export type DiscRecall = { value: number; overH: number; none?: undefined } | { none: true; note: string | null }
+export interface DiscScoreRow {
+  found: number; judged: number; reviewed: number; interesting: number; nullExpects: number
+  recall: DiscRecall; precision: number | null; xNull: number | null
+  note: string | null; precisionNote: string | null; reviewedH: number; status: string | null
+}
+export interface DiscScoreRun {
+  run: string; total: DiscScoreRow; channels: (DiscScoreRow & { channel: string })[]
+  pooledH: number; rule: DiscMatchingRule; reviewedCriterion: string
+}
+export const getDiscoveryScoreboard = (runs: string[], channels: string[], t0: number, t1: number) =>
+  req<DiscScoreRun[]>(`/api/discovery/scoreboard${dq({ runs: runs.join(','), channels: channels.join(','), t0, t1 })}`)
+
+export interface DiscDetection {
+  id: string; detectionId: number; index: number; of: number; run: string; channel: string
+  atH: number; durationS: number; depthMv: number | null; score: number | null
+  priorVerdict: string | null; alsoFoundBy: string[]
+}
+export const getDiscoveryDetections = (run: string, channel: string, t0: number, t1: number) =>
+  req<DiscDetection[]>(`/api/discovery/detections${dq({ run, channel, t0, t1 })}`)
+
+export interface DiscDetectionWindow { t0H: number; stepS: number; values: (number | null)[]; spanS: [number, number] }
+export const getDiscoveryDetectionWindow = (detectionId: number, padS = 120, px = 900) =>
+  req<DiscDetectionWindow>(`/api/discovery/detections/${detectionId}/window${dq({ pad_s: padS, px })}`)
+
+export interface DiscSignal { t0H: number; stepS: number; values: (number | null)[] }
+export const getDiscoverySignal = (channel: string, t0: number, t1: number, px = 1200) =>
+  req<DiscSignal>(`/api/discovery/signal${dq({ channel, t0, t1, px })}`)
+
+export interface DiscSeedInfo {
+  id: string; role: string; source: string; title: string; family: string | null; familyLine: string | null
+  recording: string; channel: string; startH: number; samples: number; lengthS: number
+  hash: string; trace: (number | null)[]
+}
+export const getDiscoverySeeds = () => req<{ seeds: DiscSeedInfo[]; counts: Record<string, number>; note: string | null }>('/api/discovery/seeds')
+
+/** The window is locked to the exemplar's native length; there is no recommended
+ *  cut here — it is computed from the distance distribution (`recommendedCut`). */
+export interface DiscSeedParams {
+  algorithm: string; windowSamples: number; windowS: number; windowLocked: boolean
+  scaleBank: string; exclusionSamples: number; exclusionS: number; overlap: string
+  exclusion_note: string; threshold?: number | null
+}
+export interface DiscSeedDraft {
+  key: string; label: string; seedId: string; source: string; bind: string
+  params: DiscSeedParams; applied: DiscSeedParams | null; estimateS: number | null
+  recommended: DiscSeedParams; seed: DiscSeedInfo
+}
+export interface DiscSeedSetup { draft: DiscSeedDraft; recommended: DiscSeedParams; seeds: DiscSeedInfo[] }
+export const getDiscoverySeedSetup = (seed?: string) => req<DiscSeedSetup>(`/api/discovery/seed/setup${dq({ seed })}`)
+export const putDiscoverySeedDraft = (body: { seedId?: string; label?: string; bind?: string; params?: Record<string, unknown> }) =>
+  put<{ draft: DiscSeedDraft }>('/api/discovery/seed/draft', body)
+
+export interface DiscSeedQuery { seedId: string; channels: string[]; t0: number; t1: number; k?: number; maxDistance?: number }
+export interface DiscSeedMatch {
+  id: string; d: number; channel: string; atH: number; index: number
+  judged: boolean; verdict: string | null; trace: (number | null)[]
+}
+export interface DiscSeedNull { distances: number[]; draws: number; method: string | null; supported: boolean; reason: string | null; requested: string | null }
+export interface DiscSeedResults {
+  ready: true; key: string; candidates: DiscSeedMatch[]; nullDistances: number[]; null: DiscSeedNull
+  recommendedCut: number | null; perChannel: { channel: string; n: number; nullDraws: number }[]
+  m: number; seedId: string; span: [number, number]
+  counts?: Record<string, number> | null; exclusionNote: string; computedAt?: string; restored?: boolean
+}
+export interface DiscSeedPending { ready: false; job_id: number | null; key: string; progress?: unknown; note?: string }
+export const startDiscoverySeedResults = (q: DiscSeedQuery) =>
+  post<DiscSeedResults | DiscSeedPending>('/api/discovery/seed/results', q)
+export const pollDiscoverySeedResults = (q: DiscSeedQuery) =>
+  req<DiscSeedResults | DiscSeedPending>(`/api/discovery/seed/results${dq({ seedId: q.seedId, channels: q.channels.join(','), t0: q.t0, t1: q.t1, k: q.k, maxDistance: q.maxDistance })}`)
+
+export interface DiscSeedProfile {
+  t0H: number; stepS: number; signal: (number | null)[]; distance: (number | null)[]
+  m: number; seedId: string; channel: string; nSignal: number; nDistance: number
+}
+export const getDiscoverySeedProfile = (seedId: string, channel: string, t0: number, t1: number, px = 1200) =>
+  req<DiscSeedProfile>(`/api/discovery/seed/profile${dq({ seedId, channel, t0, t1, px })}`)
+
+export interface DiscPlanBody {
+  template?: string; seedId?: string; channels?: string[]; t0?: number; t1?: number
+  k?: number; maxDistance?: number; measuredPerChannelS?: number; sampleHours?: number; label?: string
+}
+export interface DiscPlan {
+  runnable: boolean; reason: string | null; refused: unknown[]; route: 'local' | 'cluster'
+  estimate_s: number | null; ceiling_s: number; uncosted: unknown[]; n_channels: number
+  channels: string[]; sectionH: [number, number]; span: [number, number]
+  template: string | null; seedId: string | null; m: number | null
+  usesMatrixProfile: boolean; reuseNote: string | null
+}
+export const postDiscoveryPlan = (body: DiscPlanBody) => post<DiscPlan>('/api/discovery/plan', body)
+/** The only measured cost: the chain run on a sample of one channel and extrapolated. */
+export interface DiscPreview { estimate_s: number; route: 'local' | 'cluster'; ceiling_s: number; template: string | null; note: string | null }
+export const postDiscoveryPreview = (body: DiscPlanBody) => post<DiscPreview>('/api/discovery/preview', body)
+
+export interface DiscApplyResult { run_key: string; job_id: number | null; route: string; ceiling_s: number; estimate_s: number | null; started: boolean; note: string | null }
+export const applyDiscoveryTemplates = (templates: string[], channels: string[], t0: number, t1: number, run = true) =>
+  post<DiscApplyResult[]>('/api/discovery/templates/apply', { templates, channels, t0, t1, run })
+export const runDiscoverySeedSearch = (body: DiscSeedQuery & { label?: string; cut?: number }) =>
+  post<{ run_key: string; job_id: number | null; route: string; started: boolean }>('/api/discovery/seed/run', body)
+export const postDiscoverySlurm = (body: DiscPlanBody) =>
+  post<{ script_path: string; script: string; route: string; estimate_s: number | null; ceiling_s: number; channels: string[]; note: string | null }>('/api/discovery/slurm', body)
+
+export const discardDiscoveryRun = (runKey: string) =>
+  post<{ run_key: string; status: string; superseded: number; adjudications_written: number; annotations_written: number; note: string }>(`/api/discovery/runs/${encodeURIComponent(runKey)}/discard`, {})
+export const restoreDiscoveryRun = (runKey: string) =>
+  post<{ run_key: string; status: string; restored: number }>(`/api/discovery/runs/${encodeURIComponent(runKey)}/restore`, {})
+export const sendDiscoveryRunToReview = (runKey: string, limit = 500, name?: string) =>
+  post<{ run_key: string; queued: number; unjudged: number; queue: string; run_group_id: number; writes: string; note: string }>(`/api/discovery/runs/${encodeURIComponent(runKey)}/review`, { limit, name })
+export interface DiscQueue { name: string; run_key: string; run_group_id: number; n: number; created_at: string; source: string; blind: boolean; writes: string }
+export const getDiscoveryQueues = () => req<DiscQueue[]>('/api/discovery/queues')
+
+export interface DiscRoleCell { index?: string; name: string; param: string; signature: string; glyph: string; algorithm?: string | null }
+export interface DiscSide {
+  run: string; label: string; subtitle: string; isSeed: boolean
+  cells: Record<string, DiscRoleCell | null>
+  precision: number | null; reviewed: number; xNull: number | null; threshold: number | null; found: number
+}
+export interface DiscOverlapRow { channel: string; onlyA: number; both: number; onlyB: number }
+/** `otherNearest` is null in the list: the other side's score at a place is a
+ *  per-window computation, returned as `bScore` by /compare/window. */
+export interface DiscDisagreement {
+  kind: 'only A' | 'only B'; channel: string; atH: number; index: number; end: number
+  detection: string; score: number | null; otherNearest: number | null
+  otherThreshold: number | null; otherIsSeed: boolean
+}
+export interface DiscCompare {
+  a: DiscSide; b: DiscSide; differing: string[]
+  overlap: DiscOverlapRow[]; total: DiscOverlapRow
+  disagreements: DiscDisagreement[]; disagreementsTotal: number; disagreementsCapped: boolean
+  sortedBy: string; both: { channel: string; atH: number; iou: number }[]
+  attributable: boolean; attributionNote: string | null
+  stageDiff: unknown[]; rule: DiscMatchingRule; channels: string[]
+}
+export const getDiscoveryCompare = (a: string, b: string, channels: string[], t0: number, t1: number, limit = 400) =>
+  req<DiscCompare>(`/api/discovery/compare${dq({ a, b, channels: channels.join(','), t0, t1, limit })}`)
+
+export interface DiscCompareWindow {
+  t0H: number; windowS: number; stepS: number; values: (number | null)[]
+  aSpan: [number, number] | null; bSpan: [number, number] | null
+  aScore: (number | null)[]; bScore: (number | null)[]; scoreNote: string | null
+  minAt: number | null; otherThreshold: number | null; channel: string; detection: string | null
+}
+export const getDiscoveryCompareWindow = (a: string, b: string, channel: string, atH: number, kind: string, windowS = 240, detection?: string) =>
+  req<DiscCompareWindow>(`/api/discovery/compare/window${dq({ a, b, channel, atH, kind, windowS, detection })}`)
+
+export type DiscThumb =
+  | { kind: 'trace'; values: (number | null)[]; ghost?: (number | null)[]; stroke?: string; span?: [number, number] | null; emptyTrack?: boolean }
+  | { kind: 'distance'; values: (number | null)[]; threshold: number | null; minIndex: number; minValue: number | null; isSeed: boolean }
+  | { kind: 'symbols'; values: number[]; lowRun: [number, number] | null }
+  | { kind: 'absent' }
+export interface DiscStageCell {
+  role: string; cell: DiscRoleCell | null; badge: string; thumb: DiscThumb
+  caption: string; decided: string; absentNote?: string | null; error?: string
+}
+export interface DiscStages {
+  d: { kind: 'only A' | 'only B'; channel: string; atH: number; detection: string | null }
+  index: number; of: number; firstDiffering: string | null
+  a: DiscStageCell[]; b: DiscStageCell[]; aSubtitle: string; bSubtitle: string; windowS: number; note: string
+}
+export const getDiscoveryCompareStages = (a: string, b: string, channel: string, atH: number, kind: string, index: number, of: number, windowS = 240, detection?: string) =>
+  req<DiscStages>(`/api/discovery/compare/stages${dq({ a, b, channel, atH, kind, index, of, windowS, detection })}`)

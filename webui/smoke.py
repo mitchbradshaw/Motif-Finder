@@ -25,6 +25,13 @@ import time
 HERE = os.path.dirname(os.path.abspath(__file__))
 SHOTS = os.environ.get("SMOKE_SHOTS") or os.path.join(HERE, "screenshots")   # two agents' smoke runs must not write the same files
 
+#: Discovery's page states walk live content, so the smoke run first makes two
+#: real runs over this section (stage-3 prompt 04). Four hours of two channels
+#: is small enough to run in seconds and large enough to have reviewed
+#: coverage, which is what gives the scoreboard a denominator.
+SMOKE_SECTION_H = (80.0, 84.0)
+SMOKE_TEMPLATE = "mp_threshold"
+
 
 class Smoke:
     def __init__(self, url: str, run_chain: bool, pages_only: bool = False, only: str | None = None):
@@ -276,6 +283,125 @@ class Smoke:
         self.shot(page, "loud-failure-render-error")
         self.errors = [e for e in self.errors if "deliberate render failure" not in e]
 
+    def discovery(self, page):
+        """Discovery (stage-3 prompt 04, spec §7).
+
+        The page states that follow walk live content, so this first puts two
+        real runs in the sandbox through the bridge's own routes — a template
+        applied across two channels of a four-hour section, and the same
+        section's seeded search. Driving it through the API rather than the UI
+        is deliberate: the runs are the *fixture* for the page walk, and a
+        flow that clicked its way there would fail for a reason that had
+        nothing to do with what the states are checking.
+        """
+        print("[discovery]")
+        scope = self.discovery_scope()
+        if scope is None:
+            self.check(False, "discovery: could not scope a session on this database")
+            return
+        self.goto(page, "discovery/runs", 1500)
+        page.wait_for_selector('[data-testid="discovery-runs-page"]', timeout=20000)
+        page.wait_for_timeout(1200)
+        rows = page.locator('[data-testid^="run-row-"]').count()
+        self.evidence["discovery_run_rows"] = rows
+        self.check(rows >= 2, f"{rows} run rows (the human reference plus the runs just made)")
+        strips = page.evaluate("""() => Array.from(document.querySelectorAll('[data-testid="scope-strips"] path[d]'))
+                                          .map(p => (p.getAttribute('d') || '').length)""")
+        self.evidence["discovery_strip_paths"] = strips
+        self.check(len(strips) >= 1 and max(strips or [0]) > 200,
+                   f"the scope strips painted real overviews (path lengths {strips})")
+        cells = page.locator('[data-testid="fires-cell"]').count()
+        self.evidence["discovery_fires_cells"] = cells
+        self.check(cells > 0, f"where-each-run-fires painted {cells} bins")
+        board = page.locator('[data-testid="scoreboard-table"]').inner_text() if \
+            page.locator('[data-testid="scoreboard-table"]').count() else ""
+        self.check(bool(board.strip()), "the scoreboard has rows")
+        self.shot(page, "discovery-1-runs-live")
+
+        self.goto(page, "discovery/seed", 2000)
+        page.wait_for_timeout(1500)
+        hist = page.locator('[data-testid="cut-histogram"]').count()
+        self.check(hist >= 1, "the seed page draws its match-distance histogram")
+        self.shot(page, "discovery-2-seed-live")
+
+        self.goto(page, f"discovery/compare?a={scope['a']}&b={scope['b']}", 2500)
+        page.wait_for_timeout(1500)
+        self.check(page.locator('[data-testid="what-differs"]').count() >= 1,
+                   "compare opens with what differs")
+        self.shot(page, "discovery-3-compare-live")
+
+    def discovery_scope(self):
+        """Set the session's scope and make two runs, through the bridge.
+
+        Returns the two run keys, or None if this database cannot supply the
+        scope (no M2_aug recording, say) — in which case the caller says so
+        rather than the page states failing one by one with a selector miss.
+        """
+        import urllib.error
+        import urllib.request
+
+        def call(path, body=None, method="GET"):
+            data = json.dumps(body).encode() if body is not None else None
+            req = urllib.request.Request(self.url + path, data=data, method=method,
+                                         headers={"content-type": "application/json"})
+            try:
+                with urllib.request.urlopen(req, timeout=1800) as r:
+                    return json.loads(r.read().decode() or "null")
+            except urllib.error.HTTPError as e:
+                return {"__error__": e.code, "body": e.read().decode(errors="replace")[:300]}
+
+        recs = call("/api/discovery/session").get("recordings") or []
+        rec = next((r for r in recs if r["key"].startswith("M2_aug") and not r["heldOut"]), None) \
+            or next((r for r in recs if not r["heldOut"]), None)
+        if rec is None or len(rec["channels"]) < 2:
+            return None
+        channels = rec["channels"][:2]
+        t1 = min(SMOKE_SECTION_H[1], rec["hours"])
+        t0 = max(0.0, min(SMOKE_SECTION_H[0], t1 - 1.0))
+        s = call("/api/discovery/session", {"name": "smoke", "recording": rec["key"],
+                                            "channels": channels, "section": [t0, t1],
+                                            "null": {"method": "phase randomisation", "n": 3}}, "PUT")
+        if s.get("__error__"):
+            return None
+        applied = call("/api/discovery/templates/apply",
+                       {"templates": [SMOKE_TEMPLATE], "channels": channels, "t0": t0, "t1": t1,
+                        "run": True}, "POST")
+        if not isinstance(applied, list) or not applied:
+            return None
+        a_key = applied[0]["run_key"]
+        self._wait_job(call, applied[0].get("job_id"))
+
+        b_key = None
+        seeds = call("/api/discovery/seeds").get("seeds") or []
+        seed = next((x for x in seeds if x["source"] == "medoid"), None) or (seeds[0] if seeds else None)
+        if seed is not None:
+            run = call("/api/discovery/seed/run", {"seedId": seed["id"], "channels": channels,
+                                                   "t0": t0, "t1": t1, "k": 50,
+                                                   "label": "smoke_seed"}, "POST")
+            if not run.get("__error__"):
+                b_key = run["run_key"]
+                self._wait_job(call, run.get("job_id"))
+                # the seed page's histogram needs a computed result, not a run
+                started = call("/api/discovery/seed/results",
+                               {"seedId": seed["id"], "channels": channels, "t0": t0, "t1": t1,
+                                "k": 50, "maxDistance": 0.0}, "POST")
+                self._wait_job(call, started.get("job_id"))
+        self.evidence["discovery_scope"] = {"recording": rec["key"], "channels": channels,
+                                            "section_h": [t0, t1], "runs": [a_key, b_key]}
+        return {"a": a_key, "b": b_key or "human", "channels": channels, "t0": t0, "t1": t1}
+
+    @staticmethod
+    def _wait_job(call, job_id, timeout_s=1800):
+        if not job_id:
+            return None
+        t0 = time.time()
+        while time.time() - t0 < timeout_s:
+            snap = call(f"/api/jobs/{job_id}")
+            if snap.get("__error__") or snap.get("status") in ("completed", "failed", "cancelled"):
+                return snap
+            time.sleep(1.0)
+        return None
+
     # ----------------------------------------------------- every page state --
     def routes(self, page):
         """Every route and state named in webui/smoke_pages/<workspace>.json renders: the page mounts,
@@ -360,7 +486,7 @@ class Smoke:
             page.on("console", lambda m: self.errors.append(f"console.{m.type}: {m.text}") if m.type == "error" else None)
             page.on("pageerror", lambda e: self.errors.append(f"pageerror: {e}"))
             page.on("requestfailed", lambda r: self.errors.append(f"requestfailed: {r.url}") if "fonts.g" not in r.url else None)
-            steps = (self.routes,) if self.pages_only else (self.corpus, self.signal, self.m4, self.analyse, self.loud_failure, self.routes)
+            steps = (self.routes,) if self.pages_only else (self.corpus, self.signal, self.m4, self.analyse, self.discovery, self.loud_failure, self.routes)
             for step in steps:
                 try:
                     step(page)

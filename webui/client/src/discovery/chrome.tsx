@@ -65,11 +65,23 @@ export function ScopeSummaryChip({ dx }: { dx: Discovery }) {
 
 export function NullChip({ dx }: { dx: Discovery }) {
   if (!dx.scope) return null
+  const { nullMethod, nullN, nullRequested, nullReason } = dx.scope
+  // no method means no null ran: say the server's reason, not a method and a draw count nothing produced
+  if (!nullMethod) return (
+    <span className="dsc-null" data-testid="null-chip">
+      <span className="dot" style={{ background: 'var(--amber)' }} /><span className="muted">null</span> <b data-testid="null-unsupported">none</b>
+      <InfoTip title="No null on this scope">
+        {nullReason ?? `${nullRequested ?? 'the method Settings › Nulls names'} is not implemented by preprocessing.surrogate`}
+        {' '}Until a null runs there is no “null expects” and no “× null” to compare a run against.{' '}
+        <Button variant="link" size="sm" onClick={() => navigate('settings/nulls')}>Settings › Nulls</Button>
+      </InfoTip>
+    </span>
+  )
   return (
     <span className="dsc-null" data-testid="null-chip">
-      <span className="dot" style={{ background: 'var(--green)' }} /><span className="muted">null</span> <b>{dx.scope.nullMethod} {dx.scope.nullN}×</b>
+      <span className="dot" style={{ background: 'var(--green)' }} /><span className="muted">null</span> <b>{nullMethod} {nullN}×</b>
       <InfoTip title="Null for every run">
-        Every run carries a null: {dx.scope.nullMethod}, {dx.scope.nullN}×, on the same scope. “Null expects” and “× null” in the scoreboard come from it.{' '}
+        Every run carries a null: {nullMethod}, {nullN}×, on the same scope. “Null expects” and “× null” in the scoreboard come from it.{' '}
         <Button variant="link" size="sm" onClick={() => navigate('settings/nulls')}>Settings › Nulls</Button>
       </InfoTip>
     </span>

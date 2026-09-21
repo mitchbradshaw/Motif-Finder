@@ -8,7 +8,8 @@
    "[data-testid=\"runs-card\"]",
    "[data-testid=\"where-fires\"] [data-testid=\"fires-cell\"]",
    "[data-testid=\"browser-trace\"] svg"
-  ]
+  ],
+  "settle_ms": 900
  },
  {
   "page": "discovery.runs",
@@ -24,19 +25,10 @@
   ],
   "expect": [
    "[data-testid=\"add-template-modal\"]",
-   "[data-testid=\"template-row-mp_discord_v3\"]",
+   "[data-testid=\"template-row-mp_threshold\"]",
    "[data-testid=\"template-preview\"]"
-  ]
- },
- {
-  "page": "discovery.runs",
-  "state": "six-channels-page-2",
-  "hash": "discovery/runs?channels=CH2_A1,CH4_A2,CH7_B2,CH8_B2,CH9_C1,CH11_C2&chpage=2",
-  "actions": [],
-  "expect": [
-   "[data-testid=\"strip-CH11_C2\"] svg",
-   "[data-testid=\"fires-group-CH9_C1\"]"
-  ]
+  ],
+  "settle_ms": 900
  },
  {
   "page": "discovery.runs",
@@ -53,7 +45,8 @@
   "expect": [
    "[data-testid=\"slurm-modal\"]",
    "[data-testid=\"slurm-script\"]"
-  ]
+  ],
+  "settle_ms": 900
  },
  {
   "page": "discovery.runs",
@@ -66,8 +59,9 @@
   ],
   "expect": [
    "[data-testid=\"history-popover\"]",
-   "[data-testid=\"history-r-0412\"]"
-  ]
+   "[data-testid^=\"history-\"]"
+  ],
+  "settle_ms": 900
  },
  {
   "page": "discovery.runs",
@@ -83,7 +77,8 @@
   ],
   "expect": [
    "[data-testid=\"discard-modal\"]"
-  ]
+  ],
+  "settle_ms": 900
  },
  {
   "page": "discovery.runs",
@@ -105,10 +100,11 @@
   ],
   "expect": [
    "[data-testid=\"discovery-runs-page\"]",
-   "[data-testid=\"run-row-drop_motifs9\"][data-status=\"superseded\"]",
+   "[data-testid=\"run-row-mp_threshold\"][data-status=\"superseded\"]",
    "[data-testid=\"scoreboard-table\"]",
    "[data-testid=\"where-fires\"]"
-  ]
+  ],
+  "settle_ms": 900
  },
  {
   "page": "discovery.runs",
@@ -116,10 +112,11 @@
   "hash": "discovery/runs?state=discarded",
   "actions": [],
   "expect": [
-   "[data-testid=\"run-row-drop_motifs9\"][data-status=\"superseded\"]",
+   "[data-testid=\"run-row-mp_threshold\"][data-status=\"superseded\"]",
    "[data-testid=\"where-fires\"]",
    "[data-testid=\"scoreboard-table\"]"
-  ]
+  ],
+  "settle_ms": 900
  },
  {
   "page": "discovery.runs",
@@ -128,7 +125,8 @@
   "actions": [],
   "expect": [
    "[data-testid=\"spans-note\"]"
-  ]
+  ],
+  "settle_ms": 900
  },
  {
   "page": "discovery.runs",
@@ -144,7 +142,8 @@
   ],
   "expect": [
    "[data-testid=\"section-popover\"]"
-  ]
+  ],
+  "settle_ms": 900
  },
  {
   "page": "discovery.runs",
@@ -156,18 +155,9 @@
    }
   ],
   "expect": [
-   "[data-testid=\"run-row-spike_shape_v1\"]"
-  ]
- },
- {
-  "page": "discovery.runs",
-  "state": "failed",
-  "hash": "discovery/runs?state=failed",
-  "actions": [],
-  "expect": [
-   "[data-testid=\"run-failed-callout\"]",
-   "[data-testid=\"retry-seed_E0102_bank\"]"
-  ]
+   "[data-testid=\"run-row-mp_threshold\"]"
+  ],
+  "settle_ms": 900
  },
  {
   "page": "discovery.runs",
@@ -177,7 +167,8 @@
   "expect": [
    "[data-testid=\"results-empty\"]",
    "[data-testid=\"runs-empty\"]"
-  ]
+  ],
+  "settle_ms": 900
  },
  {
   "page": "discovery.runs",
@@ -186,7 +177,8 @@
   "actions": [],
   "expect": [
    "[data-testid=\"scope-refused\"]"
-  ]
+  ],
+  "settle_ms": 900
  },
  {
   "page": "discovery.seed",
@@ -197,7 +189,8 @@
    "[data-testid=\"seed-card\"]",
    "[data-testid=\"cut-histogram\"]",
    "[data-testid=\"match-grid\"]"
-  ]
+  ],
+  "settle_ms": 900
  },
  {
   "page": "discovery.seed",
@@ -207,7 +200,8 @@
   "expect": [
    "[data-testid=\"seed-explore-empty\"]",
    "[data-testid=\"apply-bar\"]"
-  ]
+  ],
+  "settle_ms": 900
  },
  {
   "page": "discovery.seed",
@@ -217,7 +211,8 @@
   "expect": [
    "[data-testid=\"seed-provenance\"]",
    "[data-testid=\"distance-profile\"]"
-  ]
+  ],
+  "settle_ms": 900
  },
  {
   "page": "discovery.seed",
@@ -233,7 +228,8 @@
   ],
   "expect": [
    "[data-testid=\"change-seed-popover\"]"
-  ]
+  ],
+  "settle_ms": 900
  },
  {
   "page": "discovery.seed",
@@ -250,7 +246,8 @@
   "expect": [
    "[data-testid=\"view-popover\"]",
    "[data-testid=\"view-apply\"]"
-  ]
+  ],
+  "settle_ms": 900
  },
  {
   "page": "discovery.seed",
@@ -264,7 +261,8 @@
   "expect": [
    "[data-testid=\"seed-progress\"]",
    "[data-testid=\"seed-cancel\"]"
-  ]
+  ],
+  "settle_ms": 900
  },
  {
   "page": "discovery.seed",
@@ -278,7 +276,8 @@
   "expect": [
    "[data-testid=\"seed-done\"]",
    "[data-testid=\"seed-open-runs\"]"
-  ]
+  ],
+  "settle_ms": 900
  },
  {
   "page": "discovery.seed",
@@ -292,7 +291,8 @@
   "expect": [
    "[data-testid=\"seed-failed\"]",
    "[data-testid=\"seed-retry\"]"
-  ]
+  ],
+  "settle_ms": 900
  },
  {
   "page": "discovery.seed",
@@ -306,7 +306,8 @@
   "expect": [
    "[data-testid=\"save-template-modal\"]",
    "[data-testid=\"save-template-name\"]"
-  ]
+  ],
+  "settle_ms": 900
  },
  {
   "page": "discovery.seed",
@@ -325,7 +326,8 @@
   ],
   "expect": [
    "[data-testid=\"save-template-error\"]"
-  ]
+  ],
+  "settle_ms": 900
  },
  {
   "page": "discovery.seed",
@@ -334,18 +336,20 @@
   "actions": [],
   "expect": [
    "[data-testid=\"scope-refused\"]"
-  ]
+  ],
+  "settle_ms": 900
  },
  {
   "page": "discovery.compare",
   "state": "default",
-  "hash": "discovery/compare?a=drop_motifs9&b=seed_F03_native&only=a&i=7",
+  "hash": "discovery/compare?a=mp_threshold&b=smoke_seed&only=a&i=7",
   "actions": [],
   "expect": [
    "[data-testid=\"what-differs\"]",
    "[data-testid=\"where-fire\"]",
    "[data-testid=\"disagreements\"]"
-  ]
+  ],
+  "settle_ms": 900
  },
  {
   "page": "discovery.compare",
@@ -354,15 +358,16 @@
   "actions": [],
   "expect": [
    "[data-testid=\"compare-empty\"]"
-  ]
+  ],
+  "settle_ms": 900
  },
  {
   "page": "discovery.compare",
   "state": "unpick-b",
-  "hash": "discovery/compare?a=drop_motifs9&b=seed_F03_native",
+  "hash": "discovery/compare?a=mp_threshold&b=smoke_seed",
   "actions": [
    {
-    "click": "[data-testid=\"pick-seed_F03_native\"]"
+    "click": "[data-testid=\"pick-smoke_seed\"]"
    },
    {
     "wait": 400
@@ -370,12 +375,13 @@
   ],
   "expect": [
    "[data-testid=\"compare-empty\"]"
-  ]
+  ],
+  "settle_ms": 900
  },
  {
   "page": "discovery.compare",
   "state": "swapped",
-  "hash": "discovery/compare?a=drop_motifs9&b=seed_F03_native",
+  "hash": "discovery/compare?a=mp_threshold&b=smoke_seed",
   "actions": [
    {
     "click": "[data-testid=\"swap-ab\"]"
@@ -387,22 +393,24 @@
   "expect": [
    "[data-testid=\"what-differs\"]",
    "[data-testid=\"step-plot\"]"
-  ]
+  ],
+  "settle_ms": 900
  },
  {
   "page": "discovery.compare",
   "state": "filter-only-b",
-  "hash": "discovery/compare?a=drop_motifs9&b=seed_F03_native&only=b&i=2",
+  "hash": "discovery/compare?a=mp_threshold&b=smoke_seed&only=b&i=2",
   "actions": [],
   "expect": [
    "[data-testid=\"step-plot\"]",
    "[data-testid=\"step-text\"]"
-  ]
+  ],
+  "settle_ms": 900
  },
  {
   "page": "discovery.compare",
   "state": "popover-roles",
-  "hash": "discovery/compare?a=drop_motifs9&b=seed_F03_native&popover=roles",
+  "hash": "discovery/compare?a=mp_threshold&b=smoke_seed&popover=roles",
   "actions": [
    {
     "wait": 300
@@ -410,12 +418,13 @@
   ],
   "expect": [
    "[data-testid=\"roles-popover\"]"
-  ]
+  ],
+  "settle_ms": 900
  },
  {
   "page": "discovery.compare",
   "state": "popover-stage",
-  "hash": "discovery/compare?a=drop_motifs9&b=seed_F03_native",
+  "hash": "discovery/compare?a=mp_threshold&b=smoke_seed",
   "actions": [
    {
     "click": "[data-testid=\"stage-A-Score-estimate\"]"
@@ -427,12 +436,13 @@
   "expect": [
    "[data-testid=\"stage-popover\"]",
    "[data-testid=\"stage-open-analyse\"]"
-  ]
+  ],
+  "settle_ms": 900
  },
  {
   "page": "discovery.compare",
   "state": "overlap-segment",
-  "hash": "discovery/compare?a=drop_motifs9&b=seed_F03_native",
+  "hash": "discovery/compare?a=mp_threshold&b=smoke_seed",
   "actions": [
    {
     "click": "[data-testid=\"overlap-CH7_B2\"] [data-testid=\"overlap-seg-onlyB\"]"
@@ -443,12 +453,13 @@
   ],
   "expect": [
    "[data-testid=\"step-plot\"]"
-  ]
+  ],
+  "settle_ms": 900
  },
  {
   "page": "discovery.compare",
   "state": "human-as-b",
-  "hash": "discovery/compare?a=drop_motifs9&b=human",
+  "hash": "discovery/compare?a=mp_threshold&b=human",
   "actions": [
    {
     "wait": 300
@@ -457,16 +468,18 @@
   "expect": [
    "[data-testid=\"what-differs\"]",
    "[data-testid=\"set-overlap\"]"
-  ]
+  ],
+  "settle_ms": 900
  },
  {
   "page": "discovery.compare",
   "state": "held-out-refused",
-  "hash": "discovery/compare?recording=M4_aug&a=drop_motifs9&b=seed_F03_native",
+  "hash": "discovery/compare?recording=M4_aug&a=mp_threshold&b=smoke_seed",
   "actions": [],
   "expect": [
    "[data-testid=\"scope-refused\"]"
-  ]
+  ],
+  "settle_ms": 900
  },
  {
   "page": "discovery.compare",
@@ -476,23 +489,25 @@
   "expect": [
    "[data-testid=\"what-differs\"]",
    "[data-testid=\"disagreements\"]"
-  ]
+  ],
+  "settle_ms": 900
  },
  {
   "page": "discovery.stages",
   "state": "default",
-  "hash": "discovery/compare/stages?a=drop_motifs9&b=seed_F03_native&only=a&i=7",
+  "hash": "discovery/compare/stages?a=mp_threshold&b=smoke_seed&only=a&i=7",
   "actions": [],
   "expect": [
    "[data-testid=\"step-bar\"]",
    "[data-testid=\"stage-columns\"]",
    "[data-testid=\"decided-table\"]"
-  ]
+  ],
+  "settle_ms": 900
  },
  {
   "page": "discovery.stages",
   "state": "re-running",
-  "hash": "discovery/compare/stages?a=drop_motifs9&b=seed_F03_native&only=a&i=7&state=rerun",
+  "hash": "discovery/compare/stages?a=mp_threshold&b=smoke_seed&only=a&i=7&state=rerun",
   "actions": [
    {
     "wait": 300
@@ -501,12 +516,13 @@
   "expect": [
    "[data-testid=\"stage-rerun\"]",
    "[data-testid=\"stage-columns\"]"
-  ]
+  ],
+  "settle_ms": 900
  },
  {
   "page": "discovery.stages",
   "state": "stepped",
-  "hash": "discovery/compare/stages?a=drop_motifs9&b=seed_F03_native&only=a&i=7",
+  "hash": "discovery/compare/stages?a=mp_threshold&b=smoke_seed&only=a&i=7",
   "actions": [
    {
     "click": "[data-testid=\"stage-pager\"] button:last-of-type"
@@ -518,12 +534,13 @@
   "expect": [
    "[data-testid=\"stage-card-A-Detect\"]",
    "[data-testid=\"decided-Detect\"]"
-  ]
+  ],
+  "settle_ms": 900
  },
  {
   "page": "discovery.stages",
   "state": "swapped",
-  "hash": "discovery/compare/stages?a=drop_motifs9&b=seed_F03_native&only=a&i=7",
+  "hash": "discovery/compare/stages?a=mp_threshold&b=smoke_seed&only=a&i=7",
   "actions": [
    {
     "click": "[data-testid=\"swap-ab\"]"
@@ -535,12 +552,13 @@
   "expect": [
    "[data-testid=\"column-head-A\"]",
    "[data-testid=\"stage-columns\"]"
-  ]
+  ],
+  "settle_ms": 900
  },
  {
   "page": "discovery.stages",
   "state": "popover-first-differing",
-  "hash": "discovery/compare/stages?a=drop_motifs9&b=seed_F03_native",
+  "hash": "discovery/compare/stages?a=mp_threshold&b=smoke_seed",
   "actions": [
    {
     "click": "[data-testid=\"first-differing\"]"
@@ -551,12 +569,13 @@
   ],
   "expect": [
    "[data-testid=\"first-differing-popover\"]"
-  ]
+  ],
+  "settle_ms": 900
  },
  {
   "page": "discovery.stages",
   "state": "popover-stage-params",
-  "hash": "discovery/compare/stages?a=drop_motifs9&b=seed_F03_native",
+  "hash": "discovery/compare/stages?a=mp_threshold&b=smoke_seed",
   "actions": [
    {
     "click": "[data-testid=\"stage-card-A-Score-estimate\"] .dsc-stg-title"
@@ -567,36 +586,40 @@
   ],
   "expect": [
    "[data-testid=\"stage-params-popover\"]"
-  ]
+  ],
+  "settle_ms": 900
  },
  {
   "page": "discovery.stages",
   "state": "filter-only-b",
-  "hash": "discovery/compare/stages?a=drop_motifs9&b=seed_F03_native&only=b&i=1",
+  "hash": "discovery/compare/stages?a=mp_threshold&b=smoke_seed&only=b&i=1",
   "actions": [],
   "expect": [
    "[data-testid=\"stage-columns\"]",
    "[data-testid=\"step-kind\"]"
-  ]
+  ],
+  "settle_ms": 900
  },
  {
   "page": "discovery.stages",
   "state": "human-as-b",
-  "hash": "discovery/compare/stages?a=drop_motifs9&b=human&only=a&i=2",
+  "hash": "discovery/compare/stages?a=mp_threshold&b=human&only=a&i=2",
   "actions": [],
   "expect": [
    "[data-testid=\"stage-card-B-Detect\"]",
    "[data-testid=\"decided-table\"]"
-  ]
+  ],
+  "settle_ms": 900
  },
  {
   "page": "discovery.stages",
   "state": "empty-same-run",
-  "hash": "discovery/compare/stages?a=drop_motifs9&b=drop_motifs9",
+  "hash": "discovery/compare/stages?a=mp_threshold&b=mp_threshold",
   "actions": [],
   "expect": [
    "[data-testid=\"stages-empty\"]"
-  ]
+  ],
+  "settle_ms": 900
  },
  {
   "page": "discovery.stages",
@@ -606,6 +629,36 @@
   "expect": [
    "[data-testid=\"stage-columns\"]",
    "[data-testid=\"decided-table\"]"
-  ]
+  ],
+  "settle_ms": 900
+ },
+ {
+  "page": "discovery.runs",
+  "state": "failed-deep-link",
+  "hash": "discovery/runs?state=failed",
+  "actions": [
+   {
+    "wait": 600
+   }
+  ],
+  "expect": [
+   "[data-testid=\"run-row-mp_threshold\"]",
+   "[data-testid=\"run-failed-callout\"]"
+  ],
+  "settle_ms": 1200
+ },
+ {
+  "page": "discovery.runs",
+  "state": "null-unsupported",
+  "hash": "discovery/runs",
+  "actions": [
+   {
+    "wait": 400
+   }
+  ],
+  "expect": [
+   "[data-testid=\"null-chip\"]"
+  ],
+  "settle_ms": 1200
  }
 ]

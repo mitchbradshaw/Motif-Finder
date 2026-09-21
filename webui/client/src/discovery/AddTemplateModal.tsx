@@ -8,7 +8,7 @@ import {
 import { useSourced } from '../api/seam'
 import { navigate } from '../state'
 import { useToast } from '../shell/Toast'
-import { EXTRA_RUN_COLOURS, REBIND_EXEMPLARS, getTemplates, fmtMin, DISCOVERY_LIMIT_MIN, type DiscoveryRun, type DiscoveryTemplate } from '../api/discovery'
+import { EXTRA_RUN_COLOURS, REBIND_EXEMPLARS, getTemplates, previewRun, fmtMin, DISCOVERY_LIMIT_MIN, type DiscoveryRun, type DiscoveryTemplate, type MeasuredPreview } from '../api/discovery'
 import { RunGlyph } from './glyphs'
 import { LoadFailed, Loading } from './chrome'
 import type { Discovery } from './session'
@@ -35,16 +35,42 @@ export function AddTemplateModal({ open, onClose, dx, onSlurm }: { open: boolean
   }, [tpls.data, fits, kind, search, sort])
   const chosen = (tpls.data ?? []).filter(t => sel.includes(t.name) && !disabledReason(t))
   const focus = (tpls.data ?? []).find(t => t.name === focusQ) ?? list[0] ?? null
-  const perRunMin = (t: DiscoveryTemplate) => t.perChannelMin * nCh * (dx.sectionH / 174)
-  const estimate = chosen.reduce((a, t) => a + perRunMin(t), 0)
-  const over = estimate > DISCOVERY_LIMIT_MIN
+  // §7.1: the only measured cost is *Preview on a sample*. A template carries no number until one has run
+  // here, so the cost of a template that has not been previewed is not a small number — it is nothing.
+  const [previews, setPreviews] = useState<Record<string, MeasuredPreview>>({})
+  const [previewing, setPreviewing] = useState<string | null>(null)
+  const [previewErr, setPreviewErr] = useState<string | null>(null)
+  const costMin = (t: DiscoveryTemplate): number | null => { const p = previews[t.name]; return p ? p.estimate_s / 60 : null }
+  const noCost = (t: DiscoveryTemplate) => t.previewNote ?? 'not previewed — run Preview on a sample to get a measured number'
+  const focusPreview = focus ? previews[focus.name] : undefined
+  const focusCost = focusPreview ? focusPreview.estimate_s / 60 : null
+  const priced = chosen.filter(t => costMin(t) != null)
+  const estimate = priced.reduce((a, t) => a + (costMin(t) ?? 0), 0)
+  const unpriced = chosen.length - priced.length
+  // a measured cost above the ceiling routes to cluster; with nothing measured the footer says so and the
+  // bridge's apply route picks the route itself rather than the page guessing one
+  const over = priced.length > 0 && estimate > DISCOVERY_LIMIT_MIN
+  const preview = async (t: DiscoveryTemplate) => {
+    setPreviewing(t.name)
+    setPreviewErr(null)
+    try {
+      const r = await previewRun({ template: t.name, channels: s.channels, t0: s.section[0], t1: s.section[1], sampleHours: 4 })
+      setPreviews(prev => ({ ...prev, [t.name]: r.data }))
+    } catch (e) {
+      setPreviewErr(e instanceof Error ? e.message : String(e))
+    } finally {
+      setPreviewing(null)
+    }
+  }
   const needsExemplar = chosen.find(t => t.bind === 'rebind' && !exemplar[t.name])
   const blockReason = chosen.length === 0 ? 'select at least one template' : needsExemplar ? `${needsExemplar.name} needs an exemplar` : null
 
   const toRuns = (status: DiscoveryRun['status']): DiscoveryRun[] => chosen.map((t, i) => ({
     key: t.name, label: t.name, kind: t.kind, colour: EXTRA_RUN_COLOURS[(dx.runs.length + i) % EXTRA_RUN_COLOURS.length],
     glyph: (t.stages.find(st => ['mp', 'seed', 'model', 'spike', 'drop'].includes(st.glyph))?.glyph ?? 'threshold'),
-    detail: t.kind === 'seed' ? `${exemplar[t.name] ?? 'carried exemplar'} · MASS` : `${t.stages.length - 1} stages`, template: t.name, status, perChannelMin: t.perChannelMin, addedThisSession: true,
+    detail: t.kind === 'seed' ? `${exemplar[t.name] ?? 'carried exemplar'} · MASS` : `${t.stages.length - 1} stages`, template: t.name, status,
+    // a previewed template carries its measured per-channel minutes; an unpreviewed one carries none
+    perChannelMin: previews[t.name] ? previews[t.name].per_channel_s / 60 : undefined, addedThisSession: true,
   }))
   const add = (run: boolean) => {
     const runs = toRuns(run ? 'running' : 'new')
@@ -68,7 +94,10 @@ export function AddTemplateModal({ open, onClose, dx, onSlurm }: { open: boolean
         <div className="dsc-add-foot">
           <span><b>{chosen.length} template{chosen.length === 1 ? '' : 's'} selected</b> <span className="muted small">× {nCh} channel{nCh === 1 ? '' : 's'}</span></span>
           <span className="k-spacer" />
-          {chosen.length > 0 && <span className={cx('small mono', over ? 'amber' : 'muted')} data-testid="add-estimate">{fmtMin(estimate)} · {over ? 'cluster' : 'local'}</span>}
+          {chosen.length > 0 && <span className={cx('small mono', over ? 'amber' : 'muted')} data-testid="add-estimate">
+            {priced.length === 0 ? 'cost not measured — Preview on a sample'
+              : `${fmtMin(estimate)} · ${over ? 'cluster' : 'local'}${unpriced > 0 ? ` · ${unpriced} not previewed` : ''}`}
+          </span>}
           <Button onClick={onClose}>Cancel</Button>
           <Button icon="plus" onClick={() => add(false)} disabled={!!blockReason} disabledReason={blockReason ?? undefined} testid="add-runs">Add {chosen.length || ''} run{chosen.length === 1 ? '' : 's'}</Button>
           {over ? (
@@ -147,20 +176,41 @@ export function AddTemplateModal({ open, onClose, dx, onSlurm }: { open: boolean
                   {s.channels.map(c => (
                     <div key={c} className="row between small">
                       <Checkbox checked onChange={() => undefined} disabled disabledReason="a template runs across every channel in scope" label={<span className="mono">{c}</span>} />
-                      <span className="mono"><span className="muted">{dx.sectionH} h</span> <span className={cx(focus.perChannelMin * dx.sectionH / 174 > DISCOVERY_LIMIT_MIN ? 'amber' : 'muted')}>{fmtMin(focus.perChannelMin * dx.sectionH / 174)}</span></span>
+                      <span className="mono"><span className="muted">{dx.sectionH} h</span> {focusPreview
+                        ? <span className={cx(focusPreview.per_channel_s / 60 > DISCOVERY_LIMIT_MIN ? 'amber' : 'muted')}>{fmtMin(focusPreview.per_channel_s / 60)}</span>
+                        : <span className="muted">not measured</span>}</span>
                     </div>
                   ))}
                 </div>
                 <div className="dsc-tiles">
-                  <StatTile label="compute" value={focus.fits ? fmtMin(perRunMin(focus)) : '—'} caption={focus.complexity} tone={perRunMin(focus) > DISCOVERY_LIMIT_MIN ? 'amber' : undefined} size="sm" />
-                  <StatTile label="disk" value={focus.fits ? `${focus.diskGB.toFixed(focus.diskGB < 0.1 ? 2 : 1)} GB` : '—'} caption="scores kept" size="sm" />
-                  <StatTile label="null" value={`${s.nullN}×`} caption={s.nullMethod} size="sm" />
+                  <StatTile label="compute" value={!focus.fits ? '—' : focusCost != null ? fmtMin(focusCost) : 'not measured'}
+                    caption={!focus.fits ? (focus.fitsReason ?? 'does not fit the scope') : focusCost != null ? focus.complexity : noCost(focus)}
+                    tone={focusCost != null && focusCost > DISCOVERY_LIMIT_MIN ? 'amber' : undefined} size="sm" />
+                  <StatTile label="disk" value={!focus.fits ? '—' : focus.diskGB != null ? `${focus.diskGB.toFixed(focus.diskGB < 0.1 ? 2 : 1)} GB` : 'not measured'}
+                    caption={focus.diskGB != null ? 'scores kept' : noCost(focus)} size="sm" />
+                  <StatTile label="null" value={s.nullMethod ? `${s.nullN}×` : 'off'} caption={s.nullMethod ?? s.nullReason ?? 'Settings › Nulls names no method this scope can run'} size="sm" />
                 </div>
                 {focus.fits && (
                   <div className="dsc-preview-card" data-testid="template-preview">
-                    <div className="row" style={{ gap: 6 }}><Icon name="flask" size={13} /><b>Sample preview</b><span className="muted small">{focus.preview.hours} h of {focus.preview.channel}</span><span className="k-spacer" /><span className="k-badge t-green">done</span></div>
-                    <div className="mono small">{focus.preview.spans} spans in {focus.preview.hours} h · null gives {focus.preview.nullGives} → ≈ {Math.round(focus.preview.spans * dx.sectionH * nCh / focus.preview.hours).toLocaleString('en-US')} over {Math.round(dx.sectionH * nCh).toLocaleString('en-US')} h</div>
-                    {perRunMin(focus) > DISCOVERY_LIMIT_MIN ? <div className="mono small amber">above the local ceiling → routes to cluster</div> : <div className="mono small muted">within the {DISCOVERY_LIMIT_MIN} min local limit → runs here</div>}
+                    <div className="row" style={{ gap: 6 }}>
+                      <Icon name="flask" size={13} /><b>Sample preview</b>
+                      <span className="muted small">{focusPreview ? `${focusPreview.sample_hours.toFixed(1)} h of ${focusPreview.channel}` : '4 h of one channel'}</span>
+                      <span className="k-spacer" />
+                      <span className={cx('k-badge', focusPreview ? 't-green' : 't-grey')}>{focusPreview ? 'measured' : 'not previewed'}</span>
+                      <Button size="sm" icon="flask" onClick={() => preview(focus)} disabled={previewing !== null} disabledReason={previewing ? `previewing ${previewing}` : undefined} testid="run-preview">
+                        {focusPreview ? 'Preview again' : 'Preview on a 4 h sample'}
+                      </Button>
+                    </div>
+                    {previewing === focus.name ? <div className="mono small muted" data-testid="preview-running">running the chain on the sample and timing it…</div>
+                      : focusPreview ? (
+                        <>
+                          <div className="mono small">{focusPreview.spans_in_sample} spans in {focusPreview.sample_hours.toFixed(1)} h of {focusPreview.channel} · measured {fmtMin(focusPreview.measured_s / 60)} → ≈ {focusPreview.extrapolated_spans.toLocaleString('en-US')} spans over {nCh} channel{nCh === 1 ? '' : 's'}</div>
+                          {focusPreview.route === 'cluster'
+                            ? <div className="mono small amber">above the local ceiling → routes to cluster</div>
+                            : <div className="mono small muted">within the {DISCOVERY_LIMIT_MIN} min local limit → runs here</div>}
+                        </>
+                      ) : <div className="mono small muted" data-testid="preview-note">{noCost(focus)}</div>}
+                    {previewErr && <div className="dsc-err" data-testid="preview-error">{previewErr}</div>}
                   </div>
                 )}
               </>

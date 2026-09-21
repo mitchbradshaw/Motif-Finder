@@ -1,221 +1,320 @@
-/* Discovery reads (spec §7, frames discovery-1 … discovery-3b). Every read returns Sourced<T>; until the bridge
- * serves Discovery sessions these resolve the fixtures in fixtures/discovery.ts and say `source: 'demo'`.
- * Writes (add run, discard, send to Review, save template, SLURM script) do not come through here: they go to the
- * in-memory demo store from the pages. M4_aug (held out, D6) is refused by every read that would touch its data. */
-import { demo, type Sourced } from './seam'
+/* Discovery reads (spec §7, frames discovery-1 … discovery-3b), wired to the bridge's 29 routes
+ * (webui/server/discovery.py). Every read returns Sourced<T> and now says `source: 'live'`.
+ *
+ * This module is the adapter: the pages keep their fixture-era shapes, and where the server's payload
+ * differs it is translated HERE rather than in a page. Three things are deliberately NOT translated,
+ * because the server declined to give a number and inventing one would be a lie the page would then
+ * draw: a template's `preview` / `perChannelMin` / `diskGB` (null until a real Preview has run), a
+ * disagreement's `otherNearest` (a per-window computation — /compare/window returns it as `bScore`),
+ * and `recall` (a value with its hours, or the server's own words for having none). Those types widen
+ * and their pages branch.
+ *
+ * Writes (add run, discard, send to Review, save template, SLURM script) still go to the in-memory demo
+ * store from the pages; their live routes are typed in api.ts and are Prompt 05's to call.
+ * M4_aug (held out, D6) is refused by the bridge on every route that names it. */
 import {
-  DISCOVERY_LIMIT_MIN, HISTORY, PAIR_OVERLAP, PAIR_TILES, POOLED_RECALL, RECORDING_OPTIONS, REBIND_EXEMPLARS, ROLES, RUNS, RUN_CHAINS, SCORE_FIXTURE, SEED_DRAFT,
-  SEED_OPTIONS, SEED_RECOMMENDED, SESSION, TEMPLATES, detectionWindow, detectionsFor, fireCount, generatedScore, overviewTrace, reviewedHoursInBin, reviewedHoursIn,
-  rng, seedCandidates, seedNull, seedProfile, smoothTrace, strHash,
-  type Detection, type DiscoveryRun, type DiscoverySession, type DiscoveryTemplate, type Disagreement, type GlyphKind, type HistoryEntry, type OverlapRow, type Recall,
-  type RecordingOption, type Role, type RoleCell, type ScoreCells, type SeedDraft, type SeedInfo, type SeedMatch, type SeedParams,
-} from '../fixtures/discovery'
+  ApiError, getDiscoveryCompare, getDiscoveryCompareStages, getDiscoveryCompareWindow, getDiscoveryDetectionWindow, getDiscoveryDetections,
+  getDiscoveryFires, getDiscoveryHistory, getDiscoveryOverview, getDiscoveryRuns, getDiscoveryScoreboard, getDiscoverySeedProfile,
+  getDiscoverySeedSetup, getDiscoverySeeds, getDiscoverySession, getDiscoverySignal, getDiscoveryTemplates, pollDiscoverySeedResults,
+  postDiscoveryPlan, postDiscoveryPreview, startDiscoverySeedResults,
+  type DiscPlan, type DiscPlanBody, type DiscPreview, type DiscRecordingOption, type DiscSeedParams, type DiscSeedQuery, type DiscSeedResults,
+} from '../api'
+import { live, type Sourced } from './seam'
+import type { GlyphKind, Role } from '../fixtures/discovery'
 
-export type {
-  Detection, DiscoveryRun, DiscoverySession, DiscoveryTemplate, Disagreement, GlyphKind, HistoryEntry, OverlapRow, Recall, RecordingOption, Role, RoleCell, ScoreCells,
-  SeedDraft, SeedInfo, SeedMatch, SeedParams,
-}
-export type { RunKind, RunStatus, SeedSource, TemplateStage } from '../fixtures/discovery'
-export { DISCOVERY_LIMIT_MIN, ROLES, SEED_RECOMMENDED, EXTRA_RUN_COLOURS, REBIND_EXEMPLARS } from '../fixtures/discovery'
+export type { GlyphKind, Role, RunKind, SeedSource } from '../fixtures/discovery'
+export { ROLES, EXTRA_RUN_COLOURS, REBIND_EXEMPLARS } from '../fixtures/discovery'
 
-const HELD_OUT = RECORDING_OPTIONS.filter(r => r.heldOut)
-export const heldOutReason = (label = HELD_OUT[0]?.file ?? 'M4_aug_concat_fs1.mat') =>
-  `${label} is held out (D6): locked for the final evaluation — Discovery will not scope, run or plot it`
-export const isHeldOut = (recording: string) => HELD_OUT.some(r => r.key === recording || r.file === recording || r.label === recording)
+/** The bridge sends `null` for a sample that is not finite. NaN is exactly that; substituting a number
+ *  would invent data the recording does not carry. */
+const nums = (xs: (number | null)[] | null | undefined): number[] => (xs ?? []).map(v => (v == null ? NaN : v))
+/** A field the fixture type has as optional: the server's explicit null means "no value here". */
+const opt = <T,>(v: T | null | undefined): T | undefined => (v == null ? undefined : v)
 
 /* ------------------------------------------------------------------ session, runs, templates */
+export interface DiscoverySession {
+  id: number; name: string; recording: string; channels: string[]; section: [number, number]; sectionSamples: [number, number]
+  null: { method: string | null; n: number; requested?: string | null; supported?: boolean; reason?: string | null }
+  localLimitMin: number; savedAt: string; matchingRule: { criterion: string; iou: number; onset: number }
+}
+export interface RecordingOption { key: string; label: string; file: string; stem: string; hours: number; channels: string[]; heldOut: boolean; fs: number; heldOutReason: string | null }
 export interface SessionData { session: DiscoverySession; recordings: RecordingOption[] }
-export const getSession = (): Promise<Sourced<SessionData>> => demo({ session: SESSION, recordings: RECORDING_OPTIONS })
-export const getRuns = (): Promise<Sourced<DiscoveryRun[]>> => demo(RUNS)
-export const getTemplates = (): Promise<Sourced<DiscoveryTemplate[]>> => demo(TEMPLATES)
-export const getHistory = (): Promise<Sourced<HistoryEntry[]>> => demo(HISTORY)
-export const getRebindExemplars = () => demo(REBIND_EXEMPLARS)
+
+/** The local ceiling is the session's own (`localLimitMin`); this is the fallback for the first render. */
+export const DISCOVERY_LIMIT_MIN = 20
+
+export type RunStatus = 'reference' | 'done' | 'on cluster' | 'running' | 'queued' | 'new' | 'paused' | 'draft' | 'superseded' | 'failed' | 'cancelled' | 'completed'
+export interface DiscoveryRun {
+  key: string; id?: string; label: string; kind: 'reference' | 'template' | 'seed' | 'draft'; colour: string; glyph: GlyphKind
+  detail: string
+  version?: number; stageCount?: number; template?: string
+  status: RunStatus; progress?: number; doneAt?: string
+  reviewedH?: number
+  perChannelMin?: number
+  job?: string; pausedAt?: { stage: number; of: number }
+  error?: string; addedThisSession?: boolean
+  runGroupId?: number; channelsDone?: string; found?: number
+}
+
+export interface TemplateStage { index: string; name: string; signature: string; locked?: string; glyph: GlyphKind }
+export interface DiscoveryTemplate {
+  name: string; kind: 'template' | 'seed'; signature: string; fits: boolean; fitsReason?: string | null
+  lastScore: string; savedAt: string; lastUsed: number; stages: TemplateStage[]
+  /* null until a real Preview has been run on a sample — `previewNote` is the server's reason */
+  perChannelMin: number | null; complexity: string; diskGB: number | null
+  preview: { spans: number; hours: number; channel: string; nullGives: number } | null
+  previewNote?: string | null
+  bind?: string | null; inSession?: string | null; precision?: number; hasModel?: boolean
+  version?: number | null; builtin?: boolean; description?: string | null
+}
+export interface HistoryEntry { id: string; label: string; when: string; status: string; runKey: string; inSession: boolean; detail: string }
+
+/** The scope every scoped read needs, and the held-out list `isHeldOut` answers from. Filled by
+ *  getSession; never trusted to be warm (see heldOutReason below). */
+let SCOPE: { channels: string[]; section: [number, number] } | null = null
+let RECORDINGS: RecordingOption[] | null = null
+
+/** Held out (spec §0 D6) before the first session read has landed. The bridge refuses this file on every
+ *  route; the cache only ever adds to what is refused here, so a cold cache cannot report a held-out
+ *  recording as free. */
+const HELD_OUT_FALLBACK = 'M4_aug_concat_fs1.mat'
+const heldOutOptions = () => (RECORDINGS ?? []).filter(r => r.heldOut)
+
+export const heldOutReason = (label = heldOutOptions()[0]?.file ?? HELD_OUT_FALLBACK) => {
+  const known = (RECORDINGS ?? []).find(r => r.file === label || r.key === label || r.stem === label || r.label === label)
+  return known?.heldOutReason
+    ?? `${label} is held out (D6): locked for the final evaluation — Discovery will not scope, run or plot it`
+}
+export const isHeldOut = (recording: string) =>
+  recording === HELD_OUT_FALLBACK || recording === HELD_OUT_FALLBACK.replace(/\.mat$/, '')
+  || heldOutOptions().some(r => r.key === recording || r.file === recording || r.stem === recording || r.label === recording)
+
+const toRecording = (r: DiscRecordingOption): RecordingOption => ({ ...r })
+
+export async function getSession(): Promise<Sourced<SessionData>> {
+  return live(getDiscoverySession().then(p => {
+    const recordings = p.recordings.map(toRecording)
+    RECORDINGS = recordings
+    SCOPE = { channels: p.session.channels, section: p.session.section }
+    return { session: p.session, recordings }
+  }))
+}
+
+/** The session's channels and section, for a read whose fixture signature does not carry them. */
+async function scope(): Promise<{ channels: string[]; section: [number, number] }> {
+  if (SCOPE) return SCOPE
+  const p = await getDiscoverySession()
+  RECORDINGS = p.recordings.map(toRecording)
+  SCOPE = { channels: p.session.channels, section: p.session.section }
+  return SCOPE
+}
+
+export const getRuns = (): Promise<Sourced<DiscoveryRun[]>> => live(getDiscoveryRuns().then(rows => rows.map(r => ({
+  key: r.key, id: opt(r.id), label: r.label, kind: r.kind as DiscoveryRun['kind'], colour: r.colour,
+  glyph: r.glyph as GlyphKind, detail: r.detail, status: r.status as RunStatus,
+  template: opt(r.template), stageCount: opt(r.stageCount), version: opt(r.version),
+  perChannelMin: opt(r.perChannelMin), job: opt(r.job), progress: r.progress, doneAt: r.doneAt, error: r.error,
+  reviewedH: r.reviewedH, runGroupId: opt(r.runGroupId), channelsDone: opt(r.channelsDone), found: opt(r.found),
+}))))
+
+export const getTemplates = (): Promise<Sourced<DiscoveryTemplate[]>> => live(getDiscoveryTemplates().then(rows => rows.map(t => ({
+  ...t, kind: t.kind === 'seed' ? 'seed' as const : 'template' as const,
+  stages: t.stages.map(s => ({ ...s, glyph: s.glyph as GlyphKind })),
+}))))
+
+export const getHistory = (): Promise<Sourced<HistoryEntry[]>> => live(getDiscoveryHistory())
+
+/** The exemplars a `rebind` template can be bound to: the bridge's seed list, as dropdown options. */
+export const getRebindExemplars = (): Promise<Sourced<{ value: string; label: string }[]>> =>
+  live(getDiscoverySeeds().then(p => p.seeds.map(s => ({ value: s.id, label: `${s.title} · ${s.lengthS.toFixed(0)} s` }))))
 
 /* ------------------------------------------------------------------ scope */
 export type Refusable<T> = { refused: string } | { refused?: undefined; data: T }
 export function getOverview(recording: string, channels: string[]): Promise<Sourced<Refusable<Record<string, number[]>>>> {
-  const rec = RECORDING_OPTIONS.find(r => r.key === recording)
-  if (!rec || rec.heldOut) return demo({ refused: heldOutReason(rec?.file) })
-  return demo({ data: Object.fromEntries(channels.map(ch => [ch, overviewTrace(recording, ch, rec.hours)])) }, 40)
+  return live(getDiscoveryOverview(recording, channels).then(r => r.refused !== undefined
+    ? { refused: r.refused }
+    : { data: Object.fromEntries(Object.entries(r.data ?? {}).map(([ch, vals]) => [ch, nums(vals)])) }))
 }
 
 /* ------------------------------------------------------------------ where each run fires */
-export interface FiresRow { run: string; counts: number[]; unfinishedFrom?: number /* bin index where the run's unfinished part starts */ }
+export interface FiresRow { run: string; counts: number[]; unfinishedFrom?: number }
 export interface FiresChannel { channel: string; reviewedH: number; reviewed: number[]; rows: FiresRow[] }
 export interface FiresData { binH: number; firstBin: number; nBins: number; channels: FiresChannel[] }
 export function getFires(channels: string[], section: [number, number], runs: DiscoveryRun[]): Promise<Sourced<FiresData>> {
-  const binH = 3
-  const firstBin = Math.floor(section[0] / binH)
-  const nBins = Math.max(1, Math.ceil(section[1] / binH) - firstBin)
-  const bins = Array.from({ length: nBins }, (_, i) => firstBin + i)
-  const data: FiresData = {
-    binH, firstBin, nBins,
-    channels: channels.map(ch => ({
-      channel: ch, reviewedH: reviewedHoursIn(ch, section), reviewed: bins.map(b => reviewedHoursInBin(ch, b)),
-      rows: runs.map(r => ({
-        run: r.key,
-        counts: bins.map(b => fireCount(ch, r.template === 'seed_F03_native_2' ? 'seed_F03_native' : r.key === 'human' ? 'human' : (r.template ?? r.key), b)),
-        unfinishedFrom: r.status === 'on cluster' || r.status === 'running' ? Math.floor(nBins * (r.progress ?? 0)) : undefined,
-      })),
-    })),
-  }
-  return demo(data, 50)
+  return live(getDiscoveryFires(channels, section[0], section[1], runs.map(r => r.key)))
 }
 
 /* ------------------------------------------------------------------ scoreboard */
-export interface ScoreRow extends ScoreCells { precision: number | null; xNull: number | null }
-export interface ScoreRun { run: string; total: ScoreRow; channels: (ScoreRow & { channel: string })[]; pooledH: number }
-const withRatios = (c: ScoreCells): ScoreRow => ({ ...c, precision: c.reviewed ? c.interesting / c.reviewed : null, xNull: c.nullExpects ? c.found / c.nullExpects : null })
-export function scoreFor(run: string, channel: string, section: [number, number]): ScoreCells {
-  return SCORE_FIXTURE[run]?.[channel] ?? generatedScore(run, channel, section)
+/** §7.3: a recall value carries the hours it was computed over, or the server's own words for having
+ *  none. Exactly one variant's keys are present — the UI branches on key presence, not on null. */
+export type Recall = { value: number; overH: number } | { none: true; note?: string | null } | { tooFewH: number }
+export interface ScoreCells { found: number; judged: number; reviewed: number; interesting: number; recall: Recall; nullExpects: number }
+export interface ScoreRow extends ScoreCells {
+  precision: number | null; xNull: number | null
+  note?: string | null; precisionNote?: string | null; reviewedH?: number; status?: string | null
 }
+export interface ScoreRun { run: string; total: ScoreRow; channels: (ScoreRow & { channel: string })[]; pooledH: number; rule?: { criterion: string; iou: number; onset: number }; reviewedCriterion?: string }
 export function getScoreboard(runKeys: string[], channels: string[], section: [number, number]): Promise<Sourced<ScoreRun[]>> {
-  const canonical = channels.join(',') === SESSION.channels.join(',') && section[0] === SESSION.section[0] && section[1] === SESSION.section[1]
-  const out = runKeys.map(run => {
-    const rows = channels.map(ch => ({ channel: ch, ...withRatios(scoreFor(run, ch, section)) }))
-    const sum = (k: 'found' | 'judged' | 'reviewed' | 'interesting' | 'nullExpects') => rows.reduce((s, r) => s + r[k], 0)
-    const recallRows = rows.filter(r => 'value' in r.recall) as (ScoreRow & { channel: string; recall: { value: number; overH: number } })[]
-    const pooledH = recallRows.reduce((s, r) => s + r.recall.overH, 0)
-    const pooled: Recall = canonical && POOLED_RECALL[run] ? POOLED_RECALL[run]
-      : recallRows.length ? { value: +(recallRows.reduce((s, r) => s + r.recall.value * r.recall.overH, 0) / pooledH).toFixed(2), overH: pooledH } : { none: true }
-    return { run, pooledH, channels: rows, total: withRatios({ found: sum('found'), judged: sum('judged'), reviewed: sum('reviewed'), interesting: sum('interesting'), nullExpects: sum('nullExpects'), recall: pooled }) }
-  })
-  return demo(out, 50)
+  return live(getDiscoveryScoreboard(runKeys.filter(k => k !== 'human'), channels, section[0], section[1]))
 }
 
 /* ------------------------------------------------------------------ browse detections */
-export function getDetections(run: string, channel: string, section: [number, number]): Promise<Sourced<Detection[]>> {
-  const n = scoreFor(run, channel, section).found
-  return demo(detectionsFor(run, channel, n, section), 40)
+export interface Detection {
+  id: string; detectionId?: number; index: number; of: number; run: string; channel: string; atH: number; durationS: number
+  depthMv: number | null; score: number | null; priorVerdict: string | null; alsoFoundBy: string[]; nearMiss?: { run: string; d: number }
 }
-export const getDetectionWindow = (det: Detection) => demo(detectionWindow(det), 30)
+export function getDetections(run: string, channel: string, section: [number, number]): Promise<Sourced<Detection[]>> {
+  return live(getDiscoveryDetections(run, channel, section[0], section[1]))
+}
+export function getDetectionWindow(det: Detection): Promise<Sourced<{ t0H: number; stepS: number; values: number[]; spanS: [number, number] }>> {
+  const id = det.detectionId ?? Number(det.id.replace(/^d-/, ''))
+  return live(getDiscoveryDetectionWindow(id).then(w => ({ ...w, values: nums(w.values) })))
+}
 
 /* ------------------------------------------------------------------ seed search */
-export interface SeedSetup { draft: SeedDraft; seeds: SeedInfo[]; recommended: SeedParams }
-export const getSeedSetup = (): Promise<Sourced<SeedSetup>> => demo({ draft: SEED_DRAFT, seeds: SEED_OPTIONS, recommended: SEED_RECOMMENDED })
-export interface SeedResults { candidates: SeedMatch[]; nullDistances: number[] }
-export function getSeedResults(seedId: string, channels: string[]): Promise<Sourced<SeedResults>> {
-  return demo({ candidates: seedCandidates(seedId, channels), nullDistances: seedNull(channels) }, 50)
+/** §7.6's parameter card. The window is locked to the exemplar's native length; `threshold` is the cut,
+ *  and it is null until one is chosen or the search has returned a `recommendedCut` — the recommended
+ *  cut is computed from the null distribution, so there is none before the null is drawn. */
+export interface SeedParams {
+  algorithm: string; windowSamples: number; windowS?: number; windowLocked?: boolean
+  scaleBank: string; exclusionSamples?: number; exclusionS: number; overlap: string
+  threshold: number | null; exclusionNote?: string
 }
-export function getSeedProfile(seedId: string, channel: string, view: [number, number], candidates: SeedMatch[]) {
-  return demo(seedProfile(seedId, channel, view, candidates), 30)
+export interface SeedInfo {
+  id: string; role: string; source: string; title: string; family: string | null; familyLine: string | null
+  recording: string; channel: string; startH: number; samples: number; lengthS: number; hash: string; trace: number[]
+}
+export interface SeedDraft {
+  key: string; label: string; seedId: string; source: string; bind: 'carry' | 'rebind'
+  params: SeedParams; applied: SeedParams | null; estimateS: number | null
+}
+export interface SeedSetup { draft: SeedDraft; seeds: SeedInfo[]; recommended: SeedParams }
+export interface SeedMatch { id: string; d: number; channel: string; atH: number; judged: boolean; verdict?: string | null; trace: number[] }
+export interface SeedResults {
+  candidates: SeedMatch[]; nullDistances: number[]
+  recommendedCut: number | null; nullDraws: number; nullMethod: string | null; nullSupported: boolean; nullReason: string | null
+  exclusionNote?: string; m?: number
+}
+
+const toParams = (p: DiscSeedParams): SeedParams => ({
+  algorithm: p.algorithm, windowSamples: p.windowSamples, windowS: p.windowS, windowLocked: p.windowLocked,
+  scaleBank: p.scaleBank, exclusionSamples: p.exclusionSamples, exclusionS: p.exclusionS, overlap: p.overlap,
+  threshold: p.threshold ?? null, exclusionNote: p.exclusion_note,
+})
+const toSeed = (s: { trace: (number | null)[] } & Omit<SeedInfo, 'trace'>): SeedInfo => ({ ...s, trace: nums(s.trace) })
+
+export const getSeedSetup = (seedId?: string): Promise<Sourced<SeedSetup>> => live(getDiscoverySeedSetup(seedId).then(p => ({
+  draft: {
+    key: p.draft.key, label: p.draft.label, seedId: p.draft.seedId, source: p.draft.source,
+    bind: p.draft.bind === 'rebind' ? 'rebind' as const : 'carry' as const,
+    params: toParams(p.draft.params), applied: p.draft.applied ? toParams(p.draft.applied) : null,
+    estimateS: p.draft.estimateS,
+  },
+  seeds: p.seeds.map(toSeed),
+  recommended: toParams(p.recommended),
+})))
+
+const POLL_MS = 1500
+const GIVE_UP_MS = 4 * 60 * 1000
+const sleep = (ms: number) => new Promise(r => window.setTimeout(r, ms))
+
+/** A seeded search over a section is a job (§7.6): POST starts it, the GET form of the same query
+ *  answers once it is done. The polling lives here so the page still awaits one promise. A 500 on
+ *  either call throws ApiError with the server's message and traceback — never an empty result. */
+async function seedResults(q: DiscSeedQuery): Promise<DiscSeedResults> {
+  const first = await startDiscoverySeedResults(q)
+  if (first.ready) return first
+  const giveUpAt = Date.now() + GIVE_UP_MS
+  for (;;) {
+    await sleep(POLL_MS)
+    const r = await pollDiscoverySeedResults(q)
+    if (r.ready) return r
+    if (Date.now() > giveUpAt) {
+      throw new ApiError(504, r.note ?? `the seeded search for ${q.seedId} is still running after ${GIVE_UP_MS / 60000} minutes`, r)
+    }
+  }
+}
+
+export async function getSeedResults(seedId: string, channels: string[]): Promise<Sourced<SeedResults>> {
+  const s = await scope()
+  const r = await seedResults({ seedId, channels: channels.length ? channels : s.channels, t0: s.section[0], t1: s.section[1] })
+  return {
+    source: 'live',
+    data: {
+      candidates: r.candidates.map(c => ({ id: c.id, d: c.d, channel: c.channel, atH: c.atH, judged: c.judged, verdict: c.verdict, trace: nums(c.trace) })),
+      nullDistances: r.nullDistances ?? [],
+      recommendedCut: r.recommendedCut, nullDraws: r.null?.draws ?? 0, nullMethod: r.null?.method ?? null,
+      nullSupported: r.null?.supported ?? true, nullReason: r.null?.reason ?? null,
+      exclusionNote: r.exclusionNote, m: r.m,
+    },
+  }
+}
+
+export function getSeedProfile(seedId: string, channel: string, view: [number, number], _candidates: SeedMatch[]): Promise<Sourced<{ t0H: number; stepS: number; signal: number[]; distance: number[] }>> {
+  return live(getDiscoverySeedProfile(seedId, channel, view[0], view[1]).then(p => ({
+    t0H: p.t0H, stepS: p.stepS, signal: nums(p.signal), distance: nums(p.distance),
+  })))
 }
 
 /* ------------------------------------------------------------------ compare */
-export interface CompareSide { run: string; label: string; subtitle: string; isSeed: boolean; cells: Record<Role, RoleCell | null>; precision: number | null; reviewed: number; xNull: number | null; threshold: number }
+export interface RoleCell { index?: string; name: string; short?: string; param: string; signature: string; glyph: GlyphKind }
+export interface OverlapRow { channel: string; onlyA: number; both: number; onlyB: number }
+export interface CompareSide {
+  run: string; label: string; subtitle: string; isSeed: boolean; cells: Record<Role, RoleCell | null>
+  precision: number | null; reviewed: number; xNull: number | null; threshold: number | null; found?: number
+}
+/** `otherNearest` is null in the list on purpose: the other side's score at a place is a per-window
+ *  computation, and /compare/window returns it as `bScore` when you step to it. `sortedBy` is the
+ *  server's own account of the order. */
+export interface Disagreement {
+  kind: 'only A' | 'only B'; channel: string; atH: number; detection: string
+  score: number | null; otherNearest: number | null; otherThreshold: number | null; otherIsSeed: boolean
+  index?: number; end?: number
+}
 export interface CompareData {
   a: CompareSide; b: CompareSide
   differing: Role[]
   overlap: OverlapRow[]; total: OverlapRow
-  disagreements: Disagreement[]      // every disagreement, sorted: closest call first
+  disagreements: Disagreement[]
+  disagreementsTotal?: number; disagreementsCapped?: boolean; sortedBy?: string
+  attributable?: boolean; attributionNote?: string | null
   both: { channel: string; atH: number }[]
 }
-const HUMAN_CHAIN: Record<Role, RoleCell | null> = {
-  Source: { name: 'Source', param: 'reviewed hours', signature: '— → Signal', glyph: 'source' },
-  Preprocess: null, 'Score / estimate': null, Encode: null,
-  Detect: { name: 'human verdicts', param: '41 h reviewed', signature: 'Review → SpanSet', glyph: 'human' },
-}
-function chainOf(run: string): { subtitle: string; cells: Record<Role, RoleCell | null> } {
-  if (run === 'human') return { subtitle: 'reference', cells: HUMAN_CHAIN }
-  if (RUN_CHAINS[run]) return RUN_CHAINS[run]
-  const t = TEMPLATES.find(x => x.name === run)
-  if (!t) return { subtitle: 'run', cells: { Source: RUN_CHAINS.drop_motifs9.cells.Source, Preprocess: null, 'Score / estimate': null, Encode: null, Detect: null } }
-  const byGlyph = (g: GlyphKind[]) => { const s = t.stages.find(st => g.includes(st.glyph)); return s ? { index: s.index, name: s.name, param: s.locked ?? '', signature: s.signature, glyph: s.glyph } : null }
-  return { subtitle: `${t.kind}`, cells: { Source: RUN_CHAINS.drop_motifs9.cells.Source, Preprocess: byGlyph(['baseline']), 'Score / estimate': byGlyph(['mp', 'seed', 'model', 'spike', 'noise']), Encode: byGlyph(['sax']), Detect: byGlyph(['threshold', 'drop']) } }
-}
-const sameCell = (x: RoleCell | null, y: RoleCell | null) => (x === null && y === null) || (!!x && !!y && x.name === y.name && x.param === y.param)
 
-function overlapFor(a: string, b: string, channels: string[], section: [number, number]): OverlapRow[] {
-  const frame = (a === 'drop_motifs9' && b === 'seed_F03_native') || (a === 'seed_F03_native' && b === 'drop_motifs9')
-  return channels.map(ch => {
-    const fx = frame ? PAIR_OVERLAP.find(p => p.channel === ch) : undefined
-    if (fx) return a === 'drop_motifs9' ? fx : { channel: ch, onlyA: fx.onlyB, both: fx.both, onlyB: fx.onlyA }
-    const fa = a === 'human' ? Math.round(reviewedHoursIn(ch, section) * 0.9) : scoreFor(a, ch, section).found
-    const fb = b === 'human' ? Math.round(reviewedHoursIn(ch, section) * 0.9) : scoreFor(b, ch, section).found
-    const r = rng([a, b].sort().join('|') + ch)
-    const both = Math.round(Math.min(fa, fb) * (0.2 + r() * 0.35))
-    return { channel: ch, onlyA: fa - both, both, onlyB: fb - both }
-  })
-}
+const toSide = (s: { cells: Record<string, { glyph: string } & Omit<RoleCell, 'glyph'> | null> } & Omit<CompareSide, 'cells'>): CompareSide => ({
+  ...s, cells: s.cells as Record<Role, RoleCell | null>,
+})
 
 export function getCompare(a: string, b: string, channels: string[], section: [number, number]): Promise<Sourced<CompareData>> {
-  const ca = chainOf(a), cb = chainOf(b)
-  const differing = ROLES.filter(r => !sameCell(ca.cells[r], cb.cells[r]))
-  const overlap = overlapFor(a, b, channels, section)
-  const total = overlap.reduce((s, r) => ({ channel: 'all channels', onlyA: s.onlyA + r.onlyA, both: s.both + r.both, onlyB: s.onlyB + r.onlyB }), { channel: 'all channels', onlyA: 0, both: 0, onlyB: 0 })
-  const isSeed = (k: string) => k.startsWith('seed')
-  const disagreements: Disagreement[] = []
-  const both: { channel: string; atH: number }[] = []
-  for (const row of overlap) {
-    const push = (kind: 'only A' | 'only B', n: number) => {
-      const other = kind === 'only A' ? b : a
-      const self = kind === 'only A' ? a : b
-      for (let i = 0; i < n; i++) {
-        const r = rng(`${self}|${other}|${row.channel}|${kind}`, i)
-        const seedOther = isSeed(other)
-        const thr = seedOther ? 3.1 : 0.5
-        const near = seedOther ? +(3.2 + r() * r() * 2.6).toFixed(1) : +(0.45 - r() * r() * 0.4).toFixed(2)
-        disagreements.push({ kind, channel: row.channel, atH: +(section[0] + ((i + 0.2 + r() * 0.6) / n) * (section[1] - section[0])).toFixed(2), detection: `d-${String(2000 + (strHash(self + row.channel) % 5000) + i).padStart(4, '0')}`, score: +(0.55 + r() * 0.4).toFixed(2), otherNearest: near, otherThreshold: thr, otherIsSeed: seedOther })
-      }
-    }
-    push('only A', row.onlyA)
-    push('only B', row.onlyB)
-    for (let i = 0; i < row.both; i++) { const r = rng(`${a}|${b}|${row.channel}|both`, i); both.push({ channel: row.channel, atH: +(section[0] + ((i + r()) / row.both) * (section[1] - section[0])).toFixed(2) }) }
-  }
-  const margin = (d: Disagreement) => Math.abs(d.otherNearest - d.otherThreshold) / (d.otherIsSeed ? 3.1 : 0.5)
-  disagreements.sort((x, y) => margin(x) - margin(y))
-  // frame 3: step 7 of "only A" is d-0412 at 192.4 h on CH4_A2, B's nearest d 3.6 (a near miss)
-  if (a === 'drop_motifs9' && b === 'seed_F03_native' && channels.includes('CH4_A2')) {
-    const onlyA = disagreements.filter(d => d.kind === 'only A')
-    const target = onlyA.find(d => d.channel === 'CH4_A2')
-    if (target && onlyA.length >= 7) {
-      Object.assign(target, { atH: 192.4, detection: 'd-0412', score: 0.88, otherNearest: 3.6, otherThreshold: 3.1 })
-      disagreements.splice(disagreements.indexOf(target), 1)
-      disagreements.splice(disagreements.indexOf(onlyA.filter(d => d !== target)[5]) + 1, 0, target)
-    }
-  }
-  const side = (run: string, c: typeof ca, fallbackPrecision: number | null, reviewed: number, xNull: number | null): CompareSide =>
-    ({ run, label: run === 'human' ? 'human annotations' : run, subtitle: c.subtitle, isSeed: isSeed(run), cells: c.cells, precision: fallbackPrecision, reviewed, xNull, threshold: isSeed(run) ? 3.1 : 0.5 })
-  const stats = (run: string) => {
-    if (run === 'drop_motifs9') return [PAIR_TILES.aPrecision, PAIR_TILES.aReviewed, PAIR_TILES.aXNull] as const
-    if (run === 'seed_F03_native') return [PAIR_TILES.bPrecision, PAIR_TILES.bReviewed, PAIR_TILES.bXNull] as const
-    if (run === 'human') return [null, 0, null] as const
-    const rows = channels.map(ch => scoreFor(run, ch, section))
-    const rev = rows.reduce((s, r) => s + r.reviewed, 0), int = rows.reduce((s, r) => s + r.interesting, 0), f = rows.reduce((s, r) => s + r.found, 0), nl = rows.reduce((s, r) => s + r.nullExpects, 0)
-    return [rev ? int / rev : null, rev, nl ? +(f / nl).toFixed(1) : null] as const
-  }
-  const [pa, ra, xa] = stats(a), [pb, rb, xb] = stats(b)
-  return demo({ a: side(a, ca, pa, ra, xa), b: side(b, cb, pb, rb, xb), differing, overlap, total, disagreements, both }, 60)
+  return live(getDiscoveryCompare(a, b, channels, section[0], section[1]).then(d => ({
+    a: toSide(d.a), b: toSide(d.b),
+    differing: d.differing as Role[],
+    overlap: d.overlap, total: d.total,
+    disagreements: d.disagreements,
+    disagreementsTotal: d.disagreementsTotal, disagreementsCapped: d.disagreementsCapped, sortedBy: d.sortedBy,
+    attributable: d.attributable, attributionNote: d.attributionNote,
+    both: d.both,
+  })))
 }
 
-/** The window a disagreement sits in: clean signal, A's span track, B's own score against its threshold. */
-export interface DisagreementWindow { t0H: number; values: number[]; aSpan: [number, number] | null; bSpan: [number, number] | null; aScore: number[]; bScore: number[]; windowS: number; minAt: number }
-export function windowFor(d: Disagreement): DisagreementWindow {
-  const windowS = 40
-  const t0H = d.atH - windowS / 2 / 3600
-  const key = `${d.detection}|win`
-  const base = syntheticTrace40(key, d)
-  const mid = windowS / 2
-  const span: [number, number] = [mid - 4, mid + 4]
-  const r = rng(key)
-  const profile = (nearest: number, isSeed: boolean) => Array.from({ length: windowS }, (_, i) => {
-    const u = Math.min(1, Math.abs(i - mid) / 6)
-    const noise = i === mid ? 0 : (r() - 0.5) * (isSeed ? 0.35 : 0.05)
-    return isSeed ? +(nearest + u * 1.6 + noise).toFixed(3) : +(nearest * (1 - u * 0.7) + noise).toFixed(3)
-  })
-  const bScore = profile(d.otherNearest, d.otherIsSeed)
-  return { t0H, values: base, windowS, minAt: mid, aSpan: d.kind === 'only A' ? span : null, bSpan: d.kind === 'only B' ? span : null, aScore: [], bScore }
+/** The window a disagreement sits in: clean signal, the firing run's span track, and the other run's own
+ *  score against its own threshold. `minAt` is null when the other run produced no score here
+ *  (`scoreNote` says why — a chain with no scoring stage decides straight from the signal). */
+export interface DisagreementWindow {
+  t0H: number; values: number[]; aSpan: [number, number] | null; bSpan: [number, number] | null
+  aScore: number[]; bScore: number[]; windowS: number; minAt: number | null
+  otherThreshold: number | null; scoreNote: string | null
 }
-function syntheticTrace40(key: string, d: Disagreement): number[] {
-  const slow = smoothTrace(40, key, 0.05, 0.01)
-  return slow.map((v, i) => { const u = (i - 17) / 6; return +(v - 0.38 * Math.exp(-u * u) * (d.detection === 'd-0412' ? 1 : 0.7)).toFixed(4) })
+export function getDisagreementWindow(a: string, b: string, d: Disagreement): Promise<Sourced<DisagreementWindow>> {
+  return live(getDiscoveryCompareWindow(a, b, d.channel, d.atH, d.kind, 240, d.detection).then(w => ({
+    t0H: w.t0H, values: nums(w.values), aSpan: w.aSpan, bSpan: w.bSpan,
+    aScore: nums(w.aScore), bScore: nums(w.bScore), windowS: w.windowS, minAt: w.minAt,
+    otherThreshold: w.otherThreshold, scoreNote: w.scoreNote,
+  })))
 }
-export const getDisagreementWindow = (d: Disagreement) => demo(windowFor(d), 30)
 
 export function getChannelSignal(channel: string, view: [number, number]): Promise<Sourced<{ t0H: number; stepS: number; values: number[] }>> {
-  const n = 1200
-  const stepS = ((view[1] - view[0]) * 3600) / n
-  return demo({ t0H: view[0], stepS, values: smoothTrace(n, `${channel}:section:${view[0]}:${view[1]}`, 0.2, 0.03) }, 30)
+  return live(getDiscoverySignal(channel, view[0], view[1]).then(s => ({ t0H: s.t0H, stepS: s.stepS, values: nums(s.values) })))
 }
 
 /* ------------------------------------------------------------------ compare every stage (3b) */
@@ -223,58 +322,58 @@ export type StageBadge = 'identical' | 'differs' | 'A only' | 'B only' | 'absent
 export type StageThumb =
   | { kind: 'trace'; values: number[]; ghost?: number[]; stroke?: string; span?: [number, number]; emptyTrack?: boolean }
   | { kind: 'segments'; values: number[]; cut: number }
-  | { kind: 'distance'; values: number[]; threshold: number; minIndex: number; minValue: number; isSeed: boolean }
-  | { kind: 'symbols'; values: number[]; lowRun: [number, number] }
+  | { kind: 'distance'; values: number[]; threshold: number | null; minIndex: number; minValue: number | null; isSeed: boolean }
+  | { kind: 'symbols'; values: number[]; lowRun: [number, number] | null }
   | { kind: 'absent' }
-export interface StageCell { role: Role; cell: RoleCell | null; badge: StageBadge; thumb: StageThumb; caption: string; decided: string; absentNote?: string }
-export interface StagesWindow { d: Disagreement; index: number; of: number; firstDiffering: Role | null; a: StageCell[]; b: StageCell[]; aSubtitle: string; bSubtitle: string }
+export interface StageCell { role: Role; cell: RoleCell | null; badge: StageBadge; thumb: StageThumb; caption: string; decided: string; absentNote?: string; error?: string }
+export interface StagesWindow {
+  d: { kind: 'only A' | 'only B'; channel: string; atH: number; detection: string | null }
+  index: number; of: number; firstDiffering: Role | null; a: StageCell[]; b: StageCell[]; aSubtitle: string; bSubtitle: string
+  windowS?: number; note?: string
+}
+
+const toThumb = (t: { kind: string } & Record<string, unknown>): StageThumb => {
+  switch (t.kind) {
+    case 'trace': return { kind: 'trace', values: nums(t.values as (number | null)[]), ghost: t.ghost ? nums(t.ghost as (number | null)[]) : undefined, stroke: t.stroke as string | undefined, span: opt(t.span as [number, number] | null), emptyTrack: t.emptyTrack as boolean | undefined }
+    case 'distance': return { kind: 'distance', values: nums(t.values as (number | null)[]), threshold: (t.threshold as number | null) ?? null, minIndex: (t.minIndex as number) ?? 0, minValue: (t.minValue as number | null) ?? null, isSeed: !!t.isSeed }
+    case 'symbols': return { kind: 'symbols', values: (t.values as number[]) ?? [], lowRun: (t.lowRun as [number, number] | null) ?? null }
+    case 'segments': return { kind: 'segments', values: nums(t.values as (number | null)[]), cut: t.cut as number }
+    default: return { kind: 'absent' }
+  }
+}
+const toCells = (cells: { role: string; cell: unknown; badge: string; thumb: { kind: string }; caption: string; decided: string; absentNote?: string | null; error?: string }[]): StageCell[] =>
+  cells.map(c => ({
+    role: c.role as Role, cell: c.cell as RoleCell | null, badge: c.badge as StageBadge,
+    thumb: toThumb(c.thumb as { kind: string } & Record<string, unknown>),
+    caption: c.caption, decided: c.decided, absentNote: opt(c.absentNote), error: c.error,
+  }))
 
 export function getStagesWindow(a: string, b: string, d: Disagreement, index: number, of: number): Promise<Sourced<StagesWindow>> {
-  const ca = chainOf(a), cb = chainOf(b)
-  const w = windowFor(d)
-  const signal = w.values
-  const r = rng(`${d.detection}|stages`)
-  const detrended = signal.map((v, i) => +(v - (i - 20) * 0.0022).toFixed(4))
-  const segs = Array.from({ length: 30 }, (_, i) => +((r() - 0.5) * 0.09 - (i === 16 ? 0.16 : i === 19 ? 0.12 : 0)).toFixed(3))
-  const sax = Array.from({ length: 36 }, (_, i) => (i >= 15 && i < 20 ? 0 : Math.max(1, Math.min(5, Math.round(2.6 + Math.sin(i * 0.6) * 1.6 + (r() - 0.5) * 1.4)))))
-  const firedA = d.kind === 'only A', firedB = d.kind === 'only B'
-  const cellFor = (side: 'A' | 'B', role: Role): StageCell => {
-    const mine = (side === 'A' ? ca : cb).cells[role], theirs = (side === 'A' ? cb : ca).cells[role]
-    const otherLabel = side === 'A' ? b : a
-    const fired = side === 'A' ? firedA : firedB
-    const badge: StageBadge = !mine ? 'absent' : !theirs ? (side === 'A' ? 'A only' : 'B only') : sameCell(mine, theirs) ? 'identical' : 'differs'
-    if (!mine) {
-      const theirCell = theirs
-      return { role, cell: null, badge, thumb: { kind: 'absent' }, caption: `${otherLabel === 'human' ? 'human annotations' : 'the other run'} ${theirCell ? `runs ${theirCell.name.toLowerCase()} here` : 'has no stage here either'}`, decided: '— no stage',
-        absentNote: role === 'Encode' && (side === 'B' ? cb : ca).cells['Score / estimate']?.glyph === 'seed' ? 'Seeded search reads the preprocessed signal directly' : `${side === 'A' ? a : b} has no ${role} stage` }
-    }
-    switch (mine.glyph) {
-      case 'source': return { role, cell: mine, badge, thumb: { kind: 'trace', values: signal }, caption: `the same ${w.windowS} s in both runs`, decided: 'the same window' }
-      case 'baseline': return { role, cell: mine, badge, thumb: { kind: 'trace', values: detrended, ghost: signal, stroke: 'var(--trace-blue)' }, caption: `${mine.param} · slow rise removed`, decided: `slow rise removed${badge === 'identical' ? ' (identical)' : ''}` }
-      case 'noise': { const n = segs.filter(s => Math.abs(s) > 0.077).length; return { role, cell: mine, badge, thumb: { kind: 'segments', values: segs, cut: 0.077 }, caption: `σ 0.0096 mV · cut ±0.077 mV · ${n} segments qualify`, decided: `${n} segments beyond ±0.077 mV` } }
-      case 'sax': return { role, cell: mine, badge, thumb: { kind: 'symbols', values: sax, lowRun: [15, 20] }, caption: `${mine.param} · one long low run at the fall`, decided: 'one long low run at the fall' }
-      case 'seed': case 'mp': case 'model': case 'spike': {
-        const isSeed = mine.glyph === 'seed' || mine.glyph === 'mp'
-        const nearest = fired ? +(d.otherThreshold - 0.9).toFixed(1) : d.otherNearest
-        const vals = w.bScore.map(v => +(v - d.otherNearest + nearest).toFixed(3))
-        return { role, cell: mine, badge, thumb: { kind: 'distance', values: vals, threshold: isSeed ? 3.1 : 0.5, minIndex: w.minAt, minValue: nearest, isSeed },
-          caption: isSeed ? `nearest d ${nearest.toFixed(1)} at ${(d.atH + 0.002).toFixed(3)} h · threshold 3.1` : `peak score ${nearest.toFixed(2)} · threshold 0.5`,
-          decided: isSeed ? `nearest d ${nearest.toFixed(1)} · threshold 3.1` : `peak ${nearest.toFixed(2)} · threshold 0.5` }
-      }
-      case 'drop': case 'threshold': case 'human': {
-        return { role, cell: mine, badge, thumb: { kind: 'trace', values: signal, span: fired ? [16, 24] : undefined, emptyTrack: !fired },
-          caption: fired ? `1 span · depth ${d.detection === 'd-0412' ? '0.38' : (0.2 + r() * 0.2).toFixed(2)} mV · score ${d.score.toFixed(2)}` : mine.glyph === 'threshold' ? `0 spans · d never reaches ${mine.param.replace(/^d ≤ /, '')} in this window` : '0 spans · no drop steep enough in this window',
-          decided: fired ? `1 span · score ${d.score.toFixed(2)}` : '0 spans' }
-      }
-      default: return { role, cell: mine, badge, thumb: { kind: 'trace', values: signal }, caption: mine.param, decided: mine.param }
-    }
-  }
-  const A = ROLES.map(role => cellFor('A', role)), B = ROLES.map(role => cellFor('B', role))
-  const firstDiffering = ROLES.find((role, i) => A[i].badge !== 'identical' || B[i].badge !== 'identical') ?? null
-  return demo({ d, index, of, firstDiffering, a: A, b: B, aSubtitle: ca.subtitle, bSubtitle: cb.subtitle }, 60)
+  return live(getDiscoveryCompareStages(a, b, d.channel, d.atH, d.kind, index, of, 240, d.detection).then(w => ({
+    d: w.d, index: w.index, of: w.of, firstDiffering: (w.firstDiffering as Role | null) ?? null,
+    a: toCells(w.a), b: toCells(w.b), aSubtitle: w.aSubtitle, bSubtitle: w.bSubtitle,
+    windowS: w.windowS, note: w.note,
+  })))
 }
 
 /* ------------------------------------------------------------------ estimates */
-/** Minutes a run would take over the scope (runs not yet run). */
+/** What a run would cost over the scope. `plan` is the blocks' own declared estimate (with the local
+ *  ceiling and anything uncosted); `preview` is a MEASURED number — the chain run on a sample of one
+ *  channel and extrapolated. Both are the server's. */
+export const planRun = (body: DiscPlanBody): Promise<Sourced<DiscPlan>> => live(postDiscoveryPlan(body))
+
+/** `/preview` returns `fanout.preview()`'s whole dict; api.ts's `DiscPreview` names only the fields the
+ *  apply routes share. These are the measured ones §7.1's tiles print: `measured_s` is a real elapsed
+ *  time on a real sample of one channel, and the rest is that time and that hit count scaled to the
+ *  scope. Nothing here is modelled, so nothing here needs a fallback. */
+export interface MeasuredPreview extends DiscPreview {
+  channel: string; sample_hours: number; sample_samples: number
+  measured_s: number; per_channel_s: number; spans_in_sample: number; extrapolated_spans: number; scale: number
+}
+export const previewRun = (body: DiscPlanBody): Promise<Sourced<MeasuredPreview>> =>
+  live(postDiscoveryPreview(body) as Promise<MeasuredPreview>)
+
+/** @deprecated fixture-era arithmetic over a hard-coded 174 h session; it invents the denominator and
+ *  the per-channel minutes. Use planRun (declared estimate + ceiling) or previewRun (measured). */
 export const runEstimateMin = (perChannelMin: number, channels: number, sectionH: number, sessionH = 174) => perChannelMin * channels * (sectionH / sessionH)
 export const fmtMin = (min: number) => min < 1 ? `≈ ${Math.max(1, Math.round(min * 60))} s` : min < 60 ? `≈ ${Math.round(min)} min` : `≈ ${(min / 60).toFixed(1)} h`

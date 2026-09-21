@@ -49,10 +49,13 @@ export function SeedPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [stateQ])
 
-  const threshold = draft?.params.threshold ?? 3.1
-  const kept = useMemo(() => (results.data?.candidates ?? []).filter(c => c.d <= threshold), [results.data, threshold])
-  const nullKept = (results.data?.nullDistances ?? []).filter(d => d <= threshold).length
-  const nullAtRec = (results.data?.nullDistances ?? []).filter(d => d <= (setup.data?.recommended.threshold ?? 2.8)).length
+  // no cut is no cut: nothing is kept until a threshold exists, and a stand-in d would draw a match list
+  // the search never returned
+  const threshold = draft?.params.threshold ?? null
+  const kept = useMemo(() => threshold == null ? [] : (results.data?.candidates ?? []).filter(c => c.d <= threshold), [results.data, threshold])
+  const nullKept = threshold == null ? 0 : (results.data?.nullDistances ?? []).filter(d => d <= threshold).length
+  const recCut = setup.data?.recommended.threshold ?? null
+  const nullAtRec = recCut == null ? 0 : (results.data?.nullDistances ?? []).filter(d => d <= recCut).length
 
   // when the simulated search finishes, the draft becomes a normal run row
   useEffect(() => {
@@ -92,11 +95,16 @@ export function SeedPage() {
                     </div>
                     {!seed ? null : results.error ? <LoadFailed what="seed matches" error={results.error} onRetry={results.reload} /> : !results.data ? <Loading height={220} /> : (
                       <>
-                        <DistanceProfile dx={dx} seed={seed} candidates={results.data.candidates} threshold={threshold} />
-                        <MatchesCard seed={seed} matches={kept} channels={channels.length} />
+                        {threshold != null
+                          ? <>
+                            <DistanceProfile dx={dx} seed={seed} candidates={results.data.candidates} threshold={threshold} />
+                            <MatchesCard seed={seed} matches={kept} channels={channels.length} />
+                          </>
+                          : <section className="k-card" data-testid="no-cut"><EmptyState size="sm" icon="bar-chart" title="No cut chosen yet"
+                            caption={`${results.data.candidates.length} distances computed · choose a threshold to see which are kept`} /></section>}
                       </>
                     )}
-                    <ApplyBar dx={dx} draft={draft} recommended={setup.data!.recommended} kept={kept.length} seed={seed} sim={sim} onSave={() => setModal('save-template')} />
+                    <ApplyBar dx={dx} draft={draft} recommended={setup.data!.recommended} kept={threshold == null ? null : kept.length} seed={seed} sim={sim} onSave={() => setModal('save-template')} />
                   </div>
                 </div>
               )}
@@ -245,24 +253,36 @@ function ParamsCard({ draft, recommended, seed, setParams, results, nullAtRec, k
           <Dropdown value={p.scaleBank} onChange={v => setParams({ scaleBank: v })} block testid="param-scale-bank"
             options={[{ value: 'none', label: 'none' }, { value: '3', label: '3 lengths · 0.8× 1× 1.25×', disabled: true, reason: 'needs a scale-bank algorithm' }]} />
         </ParamField>
-        <ParamField label="exclusion zone" info="Matches closer than this to a better match are dropped. m/2 is the trivial-match guard." aside={<b className="mono">{p.exclusionS === half ? `m/2 = ${half} s` : `${p.exclusionS} s`}</b>}>
+        {/* §7.6 specifies m/2, but the guard the search actually ran under is the block's — print the
+            server's note rather than drawing a locked m/2 over a search that used something else */}
+        <ParamField label="exclusion zone" info={p.exclusionNote ?? 'Matches closer than this to a better match are dropped. m/2 is the trivial-match guard.'}
+          aside={<b className="mono">{!p.exclusionNote && p.exclusionS === half ? `m/2 = ${half} s` : `${p.exclusionS} s`}</b>}>
           <Slider value={p.exclusionS} onChange={v => setParams({ exclusionS: v })} min={0} max={m} step={1} showValue={false} testid="param-exclusion" ariaLabel="exclusion zone" />
-          <span className={cx('small mono', p.exclusionS === half ? 'green' : p.exclusionS < half ? 'amber' : 'muted')} data-testid="exclusion-caption">
-            {p.exclusionS === half ? '= trivial-match guard' : p.exclusionS < half ? 'below m/2 lets trivial matches through' : 'wider than m/2 · fewer neighbouring matches'}
+          <span className={cx('small mono', p.exclusionNote ? 'muted' : p.exclusionS === half ? 'green' : p.exclusionS < half ? 'amber' : 'muted')} data-testid="exclusion-caption">
+            {p.exclusionNote ?? (p.exclusionS === half ? '= trivial-match guard' : p.exclusionS < half ? 'below m/2 lets trivial matches through' : 'wider than m/2 · fewer neighbouring matches')}
           </span>
         </ParamField>
+        {/* the cut is computed from the null distribution, so there is none until a search has drawn one */}
         <ParamField label="match threshold" info="Keep matches with distance d at or below this. The green tick is the recommended cut: where the null starts to keep matches." aside={
-          <NumberField value={p.threshold} min={0.1} max={8} step={0.1} width={78} onValid={v => { setParams({ threshold: +v.toFixed(1) }); setThrRaw(null) }} onChange={(_, r) => setThrRaw(r ?? null)} testid="param-threshold-number" ariaLabel="match threshold d" />}>
-          <Slider value={p.threshold} onChange={v => setParams({ threshold: +v.toFixed(1) })} min={0} max={8} step={0.1} showValue={false} marks={[{ value: recommended.threshold, label: '' }]} testid="param-threshold" ariaLabel="match threshold" />
-          <span className="small mono green">{thrRaw ? <span className="dsc-err">{thrRaw}</span> : <>recommended {recommended.threshold} · null hits = {nullAtRec}</>}</span>
+          p.threshold != null
+            ? <NumberField value={p.threshold} min={0.1} max={8} step={0.1} width={78} onValid={v => { setParams({ threshold: +v.toFixed(1) }); setThrRaw(null) }} onChange={(_, r) => setThrRaw(r ?? null)} testid="param-threshold-number" ariaLabel="match threshold d" />
+            : <span className="muted small mono">no cut</span>}>
+          {p.threshold != null ? (
+            <>
+              <Slider value={p.threshold} onChange={v => setParams({ threshold: +v.toFixed(1) })} min={0} max={8} step={0.1} showValue={false} marks={recommended.threshold != null ? [{ value: recommended.threshold, label: '' }] : []} testid="param-threshold" ariaLabel="match threshold" />
+              <span className="small mono green">{thrRaw ? <span className="dsc-err">{thrRaw}</span> : recommended.threshold != null ? <>recommended {recommended.threshold} · null hits = {nullAtRec}</> : 'no recommended cut yet — it is read off the null distribution'}</span>
+            </>
+          ) : <span className="small mono muted" data-testid="threshold-none">no cut chosen · the recommended cut is read off the null distribution, so there is none until the search has drawn one</span>}
         </ParamField>
         <ParamField label="on overlap" info="When two kept matches overlap, which one survives.">
           <Dropdown value={p.overlap} onChange={v => setParams({ overlap: v })} block testid="param-overlap"
             options={[{ value: 'lowest', label: 'keep lowest distance' }, { value: 'first', label: 'keep first' }, { value: 'all', label: 'keep all (overlapping)' }]} />
         </ParamField>
       </div>
-      {results ? <CutHistogram candidates={results.candidates} nullDistances={results.nullDistances} threshold={p.threshold} recommended={recommended.threshold} kept={kept} nullKept={nullKept} onThreshold={t => setParams({ threshold: t })} />
-        : <div className="dsc-cut-empty"><EmptyState size="sm" icon="bar-chart" title="No distances yet" caption="pick a seed to see where to cut" /></div>}
+      {results && p.threshold != null && recommended.threshold != null
+        ? <CutHistogram candidates={results.candidates} nullDistances={results.nullDistances} threshold={p.threshold} recommended={recommended.threshold} kept={kept} nullKept={nullKept} onThreshold={t => setParams({ threshold: t })} />
+        : <div className="dsc-cut-empty"><EmptyState size="sm" icon="bar-chart" title={results ? 'No cut yet' : 'No distances yet'}
+          caption={results ? 'the recommended cut comes from the null distribution — run the search to draw one' : 'pick a seed to see where to cut'} /></div>}
     </section>
   )
 }
@@ -447,10 +467,21 @@ function MatchesCard({ seed, matches, channels }: { seed: SeedInfo; matches: See
 }
 
 /* ------------------------------------------------------------------ apply bar */
-function ApplyBar({ dx, draft, recommended, kept, seed, sim, onSave }: { dx: Discovery; draft: SeedDraft; recommended: SeedParams; kept: number; seed: SeedInfo | null; sim: ReturnType<typeof useSim>; onSave: () => void }) {
-  const changes = (Object.keys(draft.params) as (keyof SeedParams)[]).filter(k => draft.params[k] !== draft.applied[k])
-  const label: Record<keyof SeedParams, string> = { algorithm: 'algorithm', windowSamples: 'window', scaleBank: 'scale bank', exclusionS: 'exclusion zone', threshold: 'threshold', overlap: 'on overlap' }
-  const diff = changes.map(k => `${label[k]} ${draft.applied[k]} → ${draft.params[k]}`).join(' · ')
+function ApplyBar({ dx, draft, recommended, kept, seed, sim, onSave }: { dx: Discovery; draft: SeedDraft; recommended: SeedParams; kept: number | null; seed: SeedInfo | null; sim: ReturnType<typeof useSim>; onSave: () => void }) {
+  // §7.6's apply bar diffs the parameters against the ones the last search ran with. `applied` is null
+  // until the search has run once: then every parameter is unapplied, which is not "no changes".
+  const label: Record<keyof SeedParams, string> = {
+    algorithm: 'algorithm', windowSamples: 'window', windowS: 'window length', windowLocked: 'window locked',
+    scaleBank: 'scale bank', exclusionSamples: 'exclusion samples', exclusionS: 'exclusion zone',
+    exclusionNote: 'exclusion guard', threshold: 'threshold', overlap: 'on overlap',
+  }
+  // the fields the parameter card sets; the rest of SeedParams is the server describing what it did
+  const settable: (keyof SeedParams)[] = ['algorithm', 'windowSamples', 'scaleBank', 'exclusionS', 'threshold', 'overlap']
+  const applied = draft.applied
+  const show = (v: SeedParams[keyof SeedParams]) => v == null ? 'none' : String(v)
+  const changes = applied ? settable.filter(k => draft.params[k] !== applied[k]) : settable
+  const diff = applied ? changes.map(k => `${label[k]} ${show(applied[k])} → ${show(draft.params[k])}`).join(' · ')
+    : settable.map(k => `${label[k]} ${show(draft.params[k])}`).join(' · ')
   const finished = dx.runs.find(r => r.key === draft.key)
   const channels = dx.scope?.channels ?? []
   const noSeedReason = !seed ? 'pick a seed first — no span selected' : null
@@ -476,8 +507,8 @@ function ApplyBar({ dx, draft, recommended, kept, seed, sim, onSave }: { dx: Dis
         <>
           <span className="dot" style={{ background: finished && changes.length === 0 ? 'var(--green)' : 'var(--amber)', width: 9, height: 9 }} />
           {finished && changes.length === 0
-            ? <><b data-testid="seed-done">{draft.label} · {kept} found · done {finished.doneAt}</b><Button variant="link" size="sm" icon="external" onClick={() => navigate(`discovery/runs?run=${draft.key}`)} testid="seed-open-runs">Open in Runs</Button></>
-            : <><b data-testid="apply-state">{finished ? 'run' : 'draft'} · {changes.length === 0 ? 'no unapplied changes' : `${changes.length} unapplied change${changes.length === 1 ? '' : 's'}`}</b><span className="muted small mono">{diff ? `${diff} · ` : ''}preview counts update live</span></>}
+            ? <><b data-testid="seed-done">{draft.label} · {kept == null ? 'no cut chosen — nothing kept yet' : `${kept} found`} · done {finished.doneAt}</b><Button variant="link" size="sm" icon="external" onClick={() => navigate(`discovery/runs?run=${draft.key}`)} testid="seed-open-runs">Open in Runs</Button></>
+            : <><b data-testid="apply-state">{finished ? 'run' : 'draft'} · {!applied ? 'never run — no parameters applied yet' : changes.length === 0 ? 'no unapplied changes' : `${changes.length} unapplied change${changes.length === 1 ? '' : 's'}`}</b><span className="muted small mono">{diff ? `${diff} · ` : ''}preview counts update live</span></>}
           {sim.status === 'cancelled' && <span className="muted small">last search cancelled · nothing written</span>}
           <span className="k-spacer" />
           <Button icon="save" onClick={onSave} testid="save-as-template">Save as template</Button>
@@ -514,7 +545,7 @@ function SaveTemplateModal({ open, onClose, draft, seed }: { open: boolean; onCl
           <span><span className="muted">seed</span> {seed ? seed.title : 'Explore selection'}{seed && ` · hash ${seed.hash}`}</span>
           <span><span className="muted">bind</span> {draft.bind === 'carry' ? 'carry · this exemplar travels with the template' : 'rebind · asks for an exemplar when applied'}</span>
           <span><span className="muted">signature</span> Signal + exemplar → SpanSet</span>
-          <span><span className="muted">parameters</span> MASS · window {seed?.samples ?? 21} samples · exclusion {draft.params.exclusionS} s · d ≤ {draft.params.threshold} · {draft.params.overlap === 'lowest' ? 'keep lowest distance' : draft.params.overlap === 'first' ? 'keep first' : 'keep all'}</span>
+          <span><span className="muted">parameters</span> MASS · window {seed?.samples ?? 21} samples · exclusion {draft.params.exclusionS} s · {draft.params.threshold != null ? `d ≤ ${draft.params.threshold}` : 'no cut chosen'} ·{draft.params.overlap === 'lowest' ? 'keep lowest distance' : draft.params.overlap === 'first' ? 'keep first' : 'keep all'}</span>
         </div>
       </div>
     </Modal>

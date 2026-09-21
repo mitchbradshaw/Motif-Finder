@@ -307,7 +307,8 @@ function Browser({ dx, run }: { dx: Discovery; run: DiscoveryRun | null }) {
             <div className="dsc-det-info" data-testid="browser-detection">
               <b className="mono">{det.id}</b>
               <span>{det.atH.toFixed(2)} h · {det.channel}</span>
-              <span>depth {det.depthMv.toFixed(2)} mV · score {det.score.toFixed(2)}</span>
+              {/* a block that emits no score, or a window of NaNs, gives no number here — say which field is absent */}
+              <span>{det.depthMv != null ? `depth ${det.depthMv.toFixed(2)} mV` : 'no depth recorded'} · {det.score != null ? `score ${det.score.toFixed(2)}` : 'no score from this chain'}</span>
               <span className="muted">{det.priorVerdict ? `prior verdict · ${det.priorVerdict}` : 'no prior verdict'}</span>
               <span className="muted">also found by {det.alsoFoundBy.length ? det.alsoFoundBy.map(k => (
                 <button key={k} type="button" className="dsc-inline-link" onClick={() => { setRunQ(k); setIQ(null) }} data-testid={`also-found-${k}`}><span className="dot" style={{ background: dx.runs.find(r => r.key === k)?.colour }} />{k}</button>

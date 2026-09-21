@@ -4,9 +4,20 @@
 import { useEffect, useMemo } from 'react'
 import { getRuns, getScoreboard, getSession, runEstimateMin, DISCOVERY_LIMIT_MIN, type DiscoveryRun, type RecordingOption, type ScoreRun } from '../api/discovery'
 import { useSourced } from '../api/seam'
-import { forceSim, getSim, useDemoState, useQueryState } from '../kit'
+import { useDemoState, useQueryState } from '../kit'
+import { applyDiscoveryTemplates } from '../api'
 
-export interface ScopeState { name: string; saved: boolean; recording: string; channels: string[]; section: [number, number]; nullMethod: string; nullN: number }
+/** The template `?state=running` applies. `mp_threshold` is the cheapest of the
+ *  nine canonical detection templates on a short span. */
+const RUNNING_LINK_TEMPLATE = 'mp_threshold'
+
+/** `nullMethod` is null when Settings › Nulls names a method `preprocessing.surrogate` does not implement:
+ *  the pairing is off, and `nullReason` is the server's account of why. A chip that printed a method and a
+ *  draw count anyway would claim a null nothing ran. */
+export interface ScopeState {
+  name: string; saved: boolean; recording: string; channels: string[]; section: [number, number]
+  nullMethod: string | null; nullN: number; nullRequested: string | null; nullReason: string | null
+}
 
 export interface Discovery {
   loading: boolean; error: Error | null; reload: () => void; demo: boolean
@@ -31,14 +42,16 @@ export function useDiscovery(): Discovery {
   const [scopeStore, setScopeStore] = useDemoState<ScopeState | null>('discovery.scope', () => null)
   const [added, setAdded] = useDemoState<DiscoveryRun[]>('discovery.runs.added', () => [])
   const [patches, setPatches] = useDemoState<Record<string, Partial<DiscoveryRun>>>('discovery.runs.patch', () => ({}))
-  const [picks, setPicks] = useDemoState<string[]>('discovery.picks', () => ['drop_motifs9'])
+  // nothing is picked until the researcher picks it: the old default named a
+  // fixture run (`drop_motifs9`) that no live session has
+  const [picks, setPicks] = useDemoState<string[]>('discovery.picks', () => [])
   const [stale, setStale] = useDemoState<boolean>('discovery.stale', () => false)
   const [chPageQ, setChPageQ] = useQueryState('chpage', '1')
   const [channelsQ, setChannelsQ] = useQueryState('channels', '')
   const [recordingQ] = useQueryState('recording', '')
   const [stateQ] = useQueryState('state', '')
 
-  const fixtureScope: ScopeState | null = sess.data ? { name: sess.data.session.name, saved: true, recording: sess.data.session.recording, channels: sess.data.session.channels, section: sess.data.session.section, nullMethod: sess.data.session.null.method, nullN: sess.data.session.null.n } : null
+  const fixtureScope: ScopeState | null = sess.data ? { name: sess.data.session.name, saved: true, recording: sess.data.session.recording, channels: sess.data.session.channels, section: sess.data.session.section, nullMethod: sess.data.session.null.method, nullN: sess.data.session.null.n, nullRequested: sess.data.session.null.requested ?? null, nullReason: sess.data.session.null.reason ?? null } : null
   const scope0 = scopeStore ?? fixtureScope
   const recordings = sess.data?.recordings ?? []
   // deep links: ?channels=a,b,c and ?recording=<key> seed the scope
@@ -57,23 +70,38 @@ export function useDiscovery(): Discovery {
 
   let runs: DiscoveryRun[] = (base.data ?? []).concat(added).map(r => patches[r.key] ? { ...r, ...patches[r.key] } : r)
   if (stateQ === 'empty') runs = runs.filter(r => r.kind === 'reference')
-  // ?state=discarded: the same end state the Discard run confirm reaches by click
-  if (stateQ === 'discarded') runs = runs.map(r => r.key === 'drop_motifs9' ? { ...r, status: 'superseded' as const } : r)
-  if (stateQ === 'failed') runs = runs.map(r => r.key === 'seed_E0102_bank' ? { ...r, status: 'failed', error: 'MASS failed on CH7_B2 · scale bank length 63 s ran out of memory (simulated)' } : r)
+  /* The three deep-link states name the session's FIRST real run rather than a
+   * fixture key: `drop_motifs9` and `seed_E0102_bank` were inventions and no
+   * live session has them, so the state silently did nothing. `discarded` is
+   * the end state the Discard confirm reaches by click; `failed` is a display
+   * of the failed row and says so in its own text, because a real failure
+   * cannot be provoked from a URL. */
+  const firstReal = runs.find(r => r.kind !== 'reference')?.key
+  if (stateQ === 'discarded' && firstReal) runs = runs.map(r => r.key === firstReal ? { ...r, status: 'superseded' as const } : r)
+  if (stateQ === 'failed' && firstReal) runs = runs.map(r => r.key === firstReal
+    ? { ...r, status: 'failed' as const, error: 'shown by the ?state=failed deep link — not a real failure; a real one carries the run’s traceback' }
+    : r)
   const patchRun = (key: string, patch: Partial<DiscoveryRun>) => setPatches(p => ({ ...p, [key]: { ...p[key], ...patch } }))
   const addRuns = (rs: DiscoveryRun[]) => setAdded(a => [...a, ...rs.filter(r => !a.some(x => x.key === r.key))])
   const togglePick = (key: string) => setPicks(picks.includes(key) ? picks.filter(k => k !== key) : picks.length < 2 ? [...picks, key] : [picks[0], key])
 
-  // ?state=running: a template added in this session, running locally under the 20 min ceiling
+  /* ?state=running starts a REAL run over the first fifteen minutes of the
+   * section — short enough to finish while you look at it, long enough to have
+   * a progress bar. The old version added a run that did not exist
+   * (`spike_shape_v1`) and drove a simulated progress bar at a fixed 42 %,
+   * which is the sort of picture this wiring exists to remove. It runs once per
+   * page load and the toolbar says where the run came from. */
+  const [startedByLink, setStartedByLink] = useDemoState<boolean>('discovery.state.running', () => false)
   useEffect(() => {
-    if (stateQ !== 'running' || !base.data) return
-    if (!added.some(r => r.key === 'spike_shape_v1')) {
-      setAdded(a => [...a, { key: 'spike_shape_v1', label: 'spike_shape_v1', kind: 'template', colour: '#5E7CE2', glyph: 'spike', detail: 'v1 · 3 stages', template: 'spike_shape_v1', status: 'running', perChannelMin: 2, addedThisSession: true }])
-    }
-    const id = 'discovery.run.spike_shape_v1'
-    if (getSim(id).status === 'idle') forceSim(id, { status: 'running', steps: ['01 Gaussian shape', '02 Spike mark', '03 Band detect'], step: 1, fraction: 0.42, startedAt: Date.now() })
+    if (stateQ !== 'running' || !scope || startedByLink) return
+    setStartedByLink(true)
+    const t0 = scope.section[0]
+    const t1 = Math.min(scope.section[1], t0 + 0.25)
+    applyDiscoveryTemplates([RUNNING_LINK_TEMPLATE], scope.channels, t0, t1)
+      .then(() => base.reload())
+      .catch(e => console.error('?state=running could not start a run', e))
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [stateQ, base.data])
+  }, [stateQ, scope?.recording, scope?.channels.join(','), startedByLink])
 
   const sectionH = scope ? scope.section[1] - scope.section[0] : 0
   const nCh = scope?.channels.length ?? 0

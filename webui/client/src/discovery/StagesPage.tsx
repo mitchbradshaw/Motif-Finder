@@ -281,31 +281,42 @@ function SegmentsThumb({ w, h, values, cut }: { w: number; h: number; values: nu
   )
 }
 
-function SymbolsThumb({ w, h, values, lowRun }: { w: number; h: number; values: number[]; lowRun: [number, number] }) {
+/** `lowRun` is null where the encoding found no run of lowest symbols: nothing is highlighted, and the
+ *  label says so rather than shading an interval nobody found. */
+function SymbolsThumb({ w, h, values, lowRun }: { w: number; h: number; values: number[]; lowRun: [number, number] | null }) {
   const n = values.length
   const cw = (w - 2) / n
   return (
-    <svg width={w} height={h} role="img" aria-label={`SAX symbols, a run of ${lowRun[1] - lowRun[0]} lowest symbols at the fall`}>
+    <svg width={w} height={h} role="img" aria-label={lowRun ? `SAX symbols, a run of ${lowRun[1] - lowRun[0]} lowest symbols at the fall` : 'SAX symbols, no run of lowest symbols here'}>
       {values.map((v, i) => (
         <rect key={i} x={1 + i * cw} y={2} width={Math.max(1.5, cw - 1.5)} height={h - 4} rx={1.5}
-          fill={i >= lowRun[0] && i < lowRun[1] ? SYMBOL_RAMP[0] : SYMBOL_RAMP[Math.max(1, Math.min(5, v))]}><title>{`symbol ${i + 1}: ${v}`}</title></rect>
+          fill={lowRun && i >= lowRun[0] && i < lowRun[1] ? SYMBOL_RAMP[0] : SYMBOL_RAMP[Math.max(1, Math.min(5, v))]}><title>{`symbol ${i + 1}: ${v}`}</title></rect>
       ))}
     </svg>
   )
 }
 
-function DistanceThumb({ w, h, values, threshold, minIndex, minValue, isSeed }: { w: number; h: number; values: number[]; threshold: number; minIndex: number; minValue: number; isSeed: boolean }) {
-  const lo = Math.min(...values, threshold), hi = Math.max(...values, threshold)
+/** A stage that emits no threshold (or no score at all) sends null for it: draw the curve without the
+ *  line rather than a line at nothing. The cell's caption is the server's account of why. */
+function DistanceThumb({ w, h, values, threshold, minIndex, minValue, isSeed }: { w: number; h: number; values: number[]; threshold: number | null; minIndex: number; minValue: number | null; isSeed: boolean }) {
+  const scale = threshold != null ? [...values, threshold] : values
+  const lo = Math.min(...scale), hi = Math.max(...scale)
   const pad = (hi - lo) * 0.2 || 0.2
   const x = (i: number) => (i / Math.max(1, values.length - 1)) * (w - 2) + 1
   const y = (v: number) => 4 + (1 - (v - (lo - pad)) / ((hi + pad) - (lo - pad))) * (h - 14)
   return (
     <svg width={w} height={h} role="img" aria-label={`${isSeed ? 'distance profile' : 'score'} against its threshold`}>
       <path d={values.map((v, i) => `${i ? 'L' : 'M'}${x(i).toFixed(1)} ${y(v).toFixed(1)}`).join('')} fill="none" stroke={B_COLOUR} strokeWidth={1.2} />
-      <line x1={0} x2={w} y1={y(threshold)} y2={y(threshold)} stroke={THRESH_COLOUR} strokeWidth={1.4} />
-      <text x={w - 2} y={y(threshold) + 11} textAnchor="end" className="dsc-axis-t" style={{ fill: 'var(--muted)' }}>{isSeed ? `d ${threshold}` : `score ${threshold}`}</text>
-      <circle cx={x(minIndex)} cy={y(minValue)} r={3} fill="#fff" stroke={B_COLOUR} strokeWidth={1.3} />
-      <text x={x(minIndex) + 6} y={y(minValue) + 4} className="dsc-axis-t" style={{ fill: B_COLOUR }}>{isSeed ? minValue.toFixed(1) : minValue.toFixed(2)}</text>
+      {threshold != null
+        ? <>
+          <line x1={0} x2={w} y1={y(threshold)} y2={y(threshold)} stroke={THRESH_COLOUR} strokeWidth={1.4} />
+          <text x={w - 2} y={y(threshold) + 11} textAnchor="end" className="dsc-axis-t" style={{ fill: 'var(--muted)' }}>{isSeed ? `d ${threshold}` : `score ${threshold}`}</text>
+        </>
+        : <text x={w - 2} y={h - 3} textAnchor="end" className="dsc-axis-t" style={{ fill: 'var(--muted)' }}>no threshold</text>}
+      {minValue != null && <>
+        <circle cx={x(minIndex)} cy={y(minValue)} r={3} fill="#fff" stroke={B_COLOUR} strokeWidth={1.3} />
+        <text x={x(minIndex) + 6} y={y(minValue) + 4} className="dsc-axis-t" style={{ fill: B_COLOUR }}>{isSeed ? minValue.toFixed(1) : minValue.toFixed(2)}</text>
+      </>}
     </svg>
   )
 }
