@@ -243,15 +243,29 @@ function SeedCard({ draft, seed, seeds, source, onSource, onSeed, exploreSpan, o
     </section>
   )
 }
+/** A domain over the FINITE values. The wire spells a non-finite sample null
+ *  and the adapter turns it back into NaN, and Math.min over an array holding
+ *  one NaN is NaN — which makes every y NaN and the browser reject the path. */
 function padDomain(values: number[]): [number, number] {
-  const lo = Math.min(...values), hi = Math.max(...values), m = (hi - lo) * 0.12 || 0.05
+  const f = values.filter(Number.isFinite)
+  if (!f.length) return [-1, 1]
+  const lo = Math.min(...f), hi = Math.max(...f), m = (hi - lo) * 0.12 || 0.05
   return [lo - m, hi + m]
 }
 function SeedThumb({ values, yDomain, width = 132, height = 78, overlay }: { values: number[]; yDomain: [number, number]; width?: number; height?: number; overlay?: number[] }) {
   const padL = width > 80 ? 26 : 2
   const x = (i: number, n: number) => padL + (i / Math.max(1, n - 1)) * (width - padL - 3)
   const y = (v: number) => 3 + (1 - (v - yDomain[0]) / (yDomain[1] - yDomain[0])) * (height - 6)
-  const path = (vs: number[]) => vs.map((v, i) => `${i ? 'L' : 'M'}${x(i, vs.length).toFixed(1)} ${y(v).toFixed(1)}`).join('')
+  // the seed's own trace can carry a non-finite sample too; lift the pen there
+  const path = (vs: number[]) => {
+    let d = '', pen = false
+    vs.forEach((v, i) => {
+      if (!Number.isFinite(v)) { pen = false; return }
+      d += `${pen ? 'L' : 'M'}${x(i, vs.length).toFixed(1)} ${y(v).toFixed(1)}`
+      pen = true
+    })
+    return d
+  }
   return (
     <svg width={width} height={height} role="img" aria-label="seed shape in mV" className="dsc-seed-svg">
       <rect x={padL} y={0} width={width - padL} height={height} fill="#fff" />
@@ -446,7 +460,19 @@ function DistanceProfile({ dx, seed, candidates, threshold }: { dx: Discovery; s
           const sy = (v: number) => 8 + (1 - (v - slo) / (shi - slo)) * 54
           const dMax = 7, dy = (d: number) => 86 + (Math.min(dMax, d) / dMax) * 56
           const step = Math.max(1, Math.floor(n / (W - labelW)))
-          const line = (vals: number[], yf: (v: number) => number) => { let d = ''; for (let i = 0; i < n; i += step) d += `${i ? 'L' : 'M'}${x(hAt(i)).toFixed(1)} ${yf(vals[i]).toFixed(1)}`; return d }
+          /* The distance array is SHORTER than the signal by m - 1: a profile has
+           * one value per position, not per sample. Iterating to the signal's
+           * length read past its end and drew NaN for the tail. Each line now
+           * walks its own array and lifts the pen at a non-finite value. */
+          const line = (vals: number[], yf: (v: number) => number) => {
+            let d = '', pen = false
+            for (let i = 0; i < vals.length; i += step) {
+              if (!Number.isFinite(vals[i])) { pen = false; continue }
+              d += `${pen ? 'L' : 'M'}${x(hAt(i)).toFixed(1)} ${yf(vals[i]).toFixed(1)}`
+              pen = true
+            }
+            return d
+          }
           const ticks = Array.from({ length: 5 }, (_, i) => view[0] + (i * (view[1] - view[0])) / 4)
           return (
             <svg width={W} height={196} role="img" aria-label={`distance profile on ${ch}, ${inView.length} matches in view`}

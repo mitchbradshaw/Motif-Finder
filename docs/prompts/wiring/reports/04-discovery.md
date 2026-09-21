@@ -68,7 +68,7 @@ detections, not a copy of them.
 | Module | Lines | What it owns |
 |---|---|---|
 | `matching.py` | 184 | Spec §4.6, both halves, with its own name (`reciprocal_iou_onset`) and its default read from Settings |
-| `scoreboard.py` | 370 | §7.3's nine columns, per channel and pooled, and the shape-mismatch warning below |
+| `scoreboard.py` | 411 | §7.3's nine columns, per channel and pooled, and the shape-mismatch warning below |
 | `fanout.py` | 434 | The plan (pre-flight, route, ceiling), the run, the per-channel status, the discard |
 | `seeded_search.py` | 432 | The seed, the matches, the profile, the null, the cut, matrix-profile reuse |
 | `compare.py` | 422 | Role alignment, span comparison, overlap rows, the recipe diff rendered for the wire |
@@ -189,14 +189,14 @@ This is a question for the researcher, not something to fix by loosening the rul
 | Suite | Tests | How to run |
 |---|---|---|
 | `tests/test_discovery_matching.py` | 16 | conda `pytest` |
-| `tests/test_discovery_scoreboard.py` | 24 | conda `pytest` |
+| `tests/test_discovery_scoreboard.py` | 29 | conda `pytest` |
 | `tests/test_discovery_fanout.py` | 16 | conda `pytest` (runs real fan-outs; ~2 min) |
 | `tests/test_discovery_seeded_search.py` | 29 | conda `pytest` |
 | `tests/test_discovery_compare.py` | 15 | conda `pytest` |
 | `tests/test_discovery_window_chain.py` | 4 | conda `pytest` |
 | `tests/test_webui_discovery.py` | 35 | `webui/.venv/Scripts/python.exe -m pytest` (skips under conda — no FastAPI) |
 
-139 tests. The first commit of the prompt was tests only and red
+144 tests. The first commit of the prompt was tests only and red
 (`0e15af2`, `ModuleNotFoundError: No module named 'Working.discovery'`).
 
 ## Three defects the live drive found that no unit test would have
