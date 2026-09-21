@@ -1,0 +1,384 @@
+"""
+test_discovery_scoreboard.py
+=============================
+Spec §7.3 — Discovery's scoreboard, on a hand-built detections/annotations
+fixture whose every cell is computed by hand in the docstring below.
+
+    "Columns: run, found, already judged, reviewed, interesting, precision,
+    recall, null expects, x null. A run row expands into one row per channel.
+    **Precision is labelled precision.** **Recall is per channel, scoped to
+    that channel's reviewed overlap** ('0.71 over 14 h'). With no reviewed
+    overlap it reads `no reviewed overlap`, not blank. The run total states
+    the hours it pooled. An algorithm with nothing reviewed reads `not yet
+    scored`. **Already judged** is its own column — how many of this run's
+    detections had a verdict before the run started."
+
+The arithmetic is the point, so the fixture is small and every number here
+is derived in a comment rather than read back out of the implementation.
+
+The fixture (fs = 1 Hz, so one sample is one second)
+----------------------------------------------------
+Recording R0, 10 000 samples. The run's span is the whole channel.
+
+reviewed_spans   [0, 2000)  [5000, 6000)              -> 3000 s = 0.8333 h
+
+annotations      A1 [ 100,  200) interesting      (inside reviewed)
+                 A2 [1000, 1100) interesting      (inside reviewed)
+                 A3 [1500, 1600) not_interesting  (inside reviewed)
+                 A4 [5200, 5300) interesting      (inside reviewed)
+                 A5 [7000, 7100) interesting      (OUTSIDE reviewed)
+                 A6 [1200, 1300) interesting      (inside reviewed, no detection)
+
+detections of    D1 [ 100,  200)  matches A1            -> reviewed, interesting
+run R            D2 [1000, 1098)  IoU 0.98 vs A2        -> reviewed, interesting
+                 D3 [1500, 1600)  matches A3            -> reviewed, not interesting
+                 D4 [1800, 1900)  matches nothing       -> reviewed, a false positive
+                 D5 [3000, 3100)  OUTSIDE reviewed      -> found only
+                 D6 [5200, 5260)  IoU 0.60 vs A4        -> reviewed, interesting
+
+found            6
+reviewed         5   (D1 D2 D3 D4 D6 — D5 is where nobody looked)
+interesting      3   (D1 D2 D6)
+precision        3 / 5 = 0.60
+already judged   4   (D1 D2 D3 D6 — each matches an annotation written
+                      before the run started; D4 and D5 do not)
+recall           3 of the 4 interesting annotations inside reviewed coverage
+                 (A1 A2 A4 A6; A5 is outside it and is not counted)
+                 -> 0.75 over 0.8333 h
+null expects     2   (the paired surrogate run's detections)
+x null           6 / 2 = 3.0
+"""
+
+import os
+import sys
+
+import pytest
+
+PROJECT_ROOT = os.path.dirname(os.path.abspath(__file__))
+while not os.path.isdir(os.path.join(PROJECT_ROOT, "Working")) \
+        and os.path.dirname(PROJECT_ROOT) != PROJECT_ROOT:
+    PROJECT_ROOT = os.path.dirname(PROJECT_ROOT)
+if PROJECT_ROOT not in sys.path:
+    sys.path.insert(0, PROJECT_ROOT)
+
+from Working.database import queries as q
+from Working.database import runs as run_db
+from Working.database.schema import init_db
+from Working.discovery.matching import MATCHING_RULE
+from Working.discovery.scoreboard import channel_score, group_score, run_total
+
+SOURCE = "manual_ui"
+BEFORE = "2026-09-01T00:00:00"
+AFTER = "2026-09-20T00:00:00"
+
+
+def _recording(conn, channel=0, n=10_000):
+    return q.insert_recording(conn, "fixture.mat", channel, 1.0, n, 0, f"fixture_CH{channel}.npy")
+
+
+def _run(conn, recording_id, *, span=(0, 10_000), started_at=AFTER, status="completed",
+         steps=None, run_group_id=None):
+    config_id, _ = run_db.get_or_create_config(
+        conn, {"steps": steps or [{"stage": "detection", "algorithm": "threshold", "params": {}}]})
+    run_id = run_db.insert_run(conn, config_id, recording_id, span[0], span[1],
+                               started_at=started_at, status=status)
+    if run_group_id is not None:
+        run_db.update_run(conn, run_id, run_group_id=run_group_id)
+    return run_id
+
+
+def _fixture():
+    """The database described in the module docstring."""
+    conn = init_db(":memory:")
+    rec = _recording(conn)
+    for a, b in ((0, 2000), (5000, 6000)):
+        q.insert_reviewed_span(conn, rec, a, b, SOURCE, reviewed_at=BEFORE)
+    for a, b, v in ((100, 200, "interesting"), (1000, 1100, "interesting"),
+                    (1500, 1600, "not_interesting"), (5200, 5300, "interesting"),
+                    (7000, 7100, "interesting"), (1200, 1300, "interesting")):
+        q.insert_annotation(conn, rec, a, b, v, SOURCE, created_at=BEFORE)
+    run_id = _run(conn, rec)
+    for a, b in ((100, 200), (1000, 1098), (1500, 1600), (1800, 1900), (3000, 3100), (5200, 5260)):
+        run_db.insert_detection(conn, run_id, a, b, score=0.9)
+    null_id = _run(conn, rec)
+    for a, b in ((400, 500), (6100, 6200)):
+        run_db.insert_detection(conn, null_id, a, b, score=0.5)
+    run_db.update_run(conn, null_id, surrogate_of_run_id=run_id)
+    return conn, rec, run_id, null_id
+
+
+# ── every cell of one channel row ───────────────────────────────────────────
+
+def test_the_channel_row_is_the_hand_computed_arithmetic():
+    conn, rec, run_id, _ = _fixture()
+    try:
+        row = channel_score(conn, run_id)
+        assert row["found"] == 6
+        assert row["reviewed"] == 5
+        assert row["interesting"] == 3
+        assert row["already_judged"] == 4
+        assert row["precision"] == pytest.approx(0.6)
+        assert row["recall"] == pytest.approx(0.75)
+        assert row["recall_over_h"] == pytest.approx(3000 / 3600)
+        assert row["reviewed_h"] == pytest.approx(3000 / 3600)
+    finally:
+        conn.close()
+
+
+def test_precision_is_labelled_precision_and_is_interesting_over_reviewed():
+    conn, _, run_id, _ = _fixture()
+    try:
+        row = channel_score(conn, run_id)
+        assert row["precision_label"] == "precision"
+        assert row["precision"] == pytest.approx(row["interesting"] / row["reviewed"])
+    finally:
+        conn.close()
+
+
+def test_the_null_run_fills_null_expects_and_x_null():
+    conn, _, run_id, null_id = _fixture()
+    try:
+        row = channel_score(conn, run_id, null_run_id=null_id)
+        assert row["null_expects"] == 2
+        assert row["x_null"] == pytest.approx(3.0)
+    finally:
+        conn.close()
+
+
+def test_the_surrogate_pairing_is_found_without_being_told():
+    """`runs.surrogate_of_run_id` already records the pairing; the scoreboard
+    reads it rather than making the caller thread the null run id through."""
+    conn, _, run_id, _ = _fixture()
+    try:
+        assert channel_score(conn, run_id)["null_expects"] == 2
+    finally:
+        conn.close()
+
+
+def test_the_row_records_the_matching_rule_it_was_computed_under():
+    conn, _, run_id, _ = _fixture()
+    try:
+        assert channel_score(conn, run_id)["rule"]["criterion"] == MATCHING_RULE
+        assert channel_score(conn, run_id)["rule"]["iou"] == 0.5
+    finally:
+        conn.close()
+
+
+# ── the §4.6 rule actually bites ────────────────────────────────────────────
+
+def test_a_detection_that_clears_iou_but_misses_the_onset_is_not_interesting():
+    """Candidate [8000, 8100) against interesting [8026, 8126): IoU 0.587,
+    over the 0.5 threshold, but the onset gap 26 exceeds 0.25 x 100 = 25.
+    A bare-IoU scoreboard would score this run 1/1; §4.6 scores it 0/1."""
+    conn = init_db(":memory:")
+    try:
+        rec = _recording(conn)
+        q.insert_reviewed_span(conn, rec, 7900, 8300, SOURCE, reviewed_at=BEFORE)
+        q.insert_annotation(conn, rec, 8026, 8126, "interesting", SOURCE, created_at=BEFORE)
+        run_id = _run(conn, rec)
+        run_db.insert_detection(conn, run_id, 8000, 8100)
+        row = channel_score(conn, run_id)
+        assert row["reviewed"] == 1
+        assert row["interesting"] == 0
+        assert row["precision"] == pytest.approx(0.0)
+        # and it is not "already judged" either — no verdict attaches to it
+        assert row["already_judged"] == 0
+    finally:
+        conn.close()
+
+
+def test_a_looser_rule_passed_in_changes_the_cells():
+    conn = init_db(":memory:")
+    try:
+        rec = _recording(conn)
+        q.insert_reviewed_span(conn, rec, 7900, 8300, SOURCE, reviewed_at=BEFORE)
+        q.insert_annotation(conn, rec, 8026, 8126, "interesting", SOURCE, created_at=BEFORE)
+        run_id = _run(conn, rec)
+        run_db.insert_detection(conn, run_id, 8000, 8100)
+        row = channel_score(conn, run_id, rule={"criterion": MATCHING_RULE, "iou": 0.5, "onset": 0.3})
+        assert row["interesting"] == 1
+        assert row["rule"]["onset"] == 0.3
+    finally:
+        conn.close()
+
+
+# ── the empty and absent states read as words, never as blanks ──────────────
+
+def test_no_reviewed_overlap_reads_no_reviewed_overlap_not_blank():
+    conn = init_db(":memory:")
+    try:
+        rec = _recording(conn)
+        run_id = _run(conn, rec)
+        run_db.insert_detection(conn, run_id, 100, 200)
+        row = channel_score(conn, run_id)
+        assert row["recall"] is None
+        assert row["recall_note"] == "no reviewed overlap"
+        assert row["precision"] is None
+        assert row["note"] == "not yet scored"
+        assert row["found"] == 1
+    finally:
+        conn.close()
+
+
+def test_reviewed_coverage_with_no_interesting_annotation_still_gives_precision():
+    """The human looked and marked nothing interesting: precision 0, not
+    'not yet scored'. Recall has no positives to find and says so."""
+    conn = init_db(":memory:")
+    try:
+        rec = _recording(conn)
+        q.insert_reviewed_span(conn, rec, 0, 2000, SOURCE, reviewed_at=BEFORE)
+        run_id = _run(conn, rec)
+        run_db.insert_detection(conn, run_id, 100, 200)
+        row = channel_score(conn, run_id)
+        assert row["precision"] == pytest.approx(0.0)
+        assert row["note"] is None
+        assert row["recall"] is None
+        assert row["recall_note"] == "nothing marked interesting in the reviewed overlap"
+    finally:
+        conn.close()
+
+
+def test_a_running_run_says_so_across_the_row():
+    conn = init_db(":memory:")
+    try:
+        rec = _recording(conn)
+        run_id = _run(conn, rec, status="running")
+        row = channel_score(conn, run_id)
+        assert row["status"] == "running"
+        assert row["note"] == "running"
+        assert row["precision"] is None and row["recall"] is None
+    finally:
+        conn.close()
+
+
+def test_reviewed_coverage_is_clipped_to_the_runs_span():
+    """A run over [0, 1000) must not claim the reviewed hours of [5000, 6000):
+    recall is scoped to *that channel's reviewed overlap with this run*."""
+    conn, rec, _, _ = _fixture()
+    try:
+        short = _run(conn, rec, span=(0, 1000))
+        run_db.insert_detection(conn, short, 100, 200)
+        row = channel_score(conn, short)
+        assert row["reviewed_h"] == pytest.approx(1000 / 3600)
+        assert row["recall_over_h"] == pytest.approx(1000 / 3600)
+        assert row["recall"] == pytest.approx(1.0)      # A1 is the only positive in [0, 1000)
+    finally:
+        conn.close()
+
+
+# ── the run total pools the channels and states the hours ───────────────────
+
+def test_the_total_pools_channels_and_states_the_hours_it_pooled():
+    conn = init_db(":memory:")
+    try:
+        group_id = run_db.create_run_group(conn)
+        run_ids = []
+        for ch, (rev_end, n_int) in enumerate([(2000, 2), (1000, 1)]):
+            rec = _recording(conn, channel=ch)
+            q.insert_reviewed_span(conn, rec, 0, rev_end, SOURCE, reviewed_at=BEFORE)
+            for i in range(n_int):
+                q.insert_annotation(conn, rec, 100 + 300 * i, 200 + 300 * i, "interesting",
+                                    SOURCE, created_at=BEFORE)
+            run_id = _run(conn, rec, run_group_id=group_id)
+            for i in range(n_int):
+                run_db.insert_detection(conn, run_id, 100 + 300 * i, 200 + 300 * i)
+            run_ids.append(run_id)
+
+        total = run_total(conn, run_ids)
+        assert total["found"] == 3
+        assert total["reviewed"] == 3
+        assert total["interesting"] == 3
+        assert total["precision"] == pytest.approx(1.0)
+        assert total["pooled_h"] == pytest.approx(3000 / 3600)
+        assert total["recall"] == pytest.approx(1.0)
+        assert total["n_channels"] == 2
+    finally:
+        conn.close()
+
+
+def test_the_pooled_recall_is_weighted_by_reviewed_hours_not_a_plain_mean():
+    """Channel A: 1 of 2 found over 2000 s. Channel B: 1 of 1 over 1000 s.
+    A plain mean is (0.5 + 1.0) / 2 = 0.75; the hours-weighted figure is
+    (0.5 x 2000 + 1.0 x 1000) / 3000 = 0.667."""
+    conn = init_db(":memory:")
+    try:
+        run_ids = []
+        rec_a = _recording(conn, channel=0)
+        q.insert_reviewed_span(conn, rec_a, 0, 2000, SOURCE, reviewed_at=BEFORE)
+        q.insert_annotation(conn, rec_a, 100, 200, "interesting", SOURCE, created_at=BEFORE)
+        q.insert_annotation(conn, rec_a, 900, 1000, "interesting", SOURCE, created_at=BEFORE)
+        run_a = _run(conn, rec_a)
+        run_db.insert_detection(conn, run_a, 100, 200)
+        run_ids.append(run_a)
+
+        rec_b = _recording(conn, channel=1)
+        q.insert_reviewed_span(conn, rec_b, 0, 1000, SOURCE, reviewed_at=BEFORE)
+        q.insert_annotation(conn, rec_b, 100, 200, "interesting", SOURCE, created_at=BEFORE)
+        run_b = _run(conn, rec_b)
+        run_db.insert_detection(conn, run_b, 100, 200)
+        run_ids.append(run_b)
+
+        total = run_total(conn, run_ids)
+        assert total["recall"] == pytest.approx((0.5 * 2000 + 1.0 * 1000) / 3000)
+        assert total["pooled_h"] == pytest.approx(3000 / 3600)
+    finally:
+        conn.close()
+
+
+def test_a_channel_with_no_reviewed_overlap_is_left_out_of_the_pooled_recall():
+    conn = init_db(":memory:")
+    try:
+        rec_a = _recording(conn, channel=0)
+        q.insert_reviewed_span(conn, rec_a, 0, 2000, SOURCE, reviewed_at=BEFORE)
+        q.insert_annotation(conn, rec_a, 100, 200, "interesting", SOURCE, created_at=BEFORE)
+        run_a = _run(conn, rec_a)
+        run_db.insert_detection(conn, run_a, 100, 200)
+
+        rec_b = _recording(conn, channel=1)      # nothing reviewed at all
+        run_b = _run(conn, rec_b)
+        run_db.insert_detection(conn, run_b, 100, 200)
+
+        total = run_total(conn, [run_a, run_b])
+        assert total["recall"] == pytest.approx(1.0)
+        assert total["pooled_h"] == pytest.approx(2000 / 3600)
+        assert total["found"] == 2
+    finally:
+        conn.close()
+
+
+def test_group_score_expands_a_run_group_into_one_row_per_channel():
+    conn = init_db(":memory:")
+    try:
+        group_id = run_db.create_run_group(conn)
+        for ch in range(3):
+            rec = _recording(conn, channel=ch)
+            q.insert_reviewed_span(conn, rec, 0, 1000, SOURCE, reviewed_at=BEFORE)
+            run_id = _run(conn, rec, run_group_id=group_id)
+            run_db.insert_detection(conn, run_id, 100, 200)
+        out = group_score(conn, group_id)
+        assert [c["channel"] for c in out["channels"]] == [0, 1, 2]
+        assert out["total"]["found"] == 3
+        assert out["run_group_id"] == group_id
+    finally:
+        conn.close()
+
+
+def test_group_score_leaves_the_surrogate_runs_out_of_the_channel_rows():
+    """A fan-out with the null on writes 2N runs into the group; the
+    scoreboard must show N channel rows, with the nulls in `null expects`."""
+    conn = init_db(":memory:")
+    try:
+        group_id = run_db.create_run_group(conn)
+        rec = _recording(conn, channel=0)
+        run_id = _run(conn, rec, run_group_id=group_id)
+        run_db.insert_detection(conn, run_id, 100, 200)
+        null_id = _run(conn, rec, run_group_id=group_id)
+        run_db.insert_detection(conn, null_id, 400, 500)
+        run_db.update_run(conn, null_id, surrogate_of_run_id=run_id)
+        out = group_score(conn, group_id)
+        assert len(out["channels"]) == 1
+        assert out["channels"][0]["null_expects"] == 1
+        assert out["total"]["null_expects"] == 1
+        assert out["total"]["x_null"] == pytest.approx(1.0)
+    finally:
+        conn.close()
