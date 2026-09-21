@@ -365,6 +365,12 @@ def _machine() -> dict:
             "detected": " · ".join(x for x in (f"{os.cpu_count()} cores", gpu, f"{round(total / 2**30)} GB RAM" if total else None) if x)}
 
 
+# warm the cached machine facts off the request path: the first _machine() imports torch (seconds in
+# the venv), and the Compute page's first read must not pay for it
+import threading as _threading
+_threading.Thread(target=_machine, daemon=True, name="machine-facts-warm").start()
+
+
 def _table_exists(c, name) -> bool:
     return c.execute("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?", (name,)).fetchone() is not None
 
