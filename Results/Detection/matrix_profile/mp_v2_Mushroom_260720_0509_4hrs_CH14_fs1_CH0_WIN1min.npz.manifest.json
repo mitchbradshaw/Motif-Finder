@@ -1,0 +1,68 @@
+{
+  "manifest_version": 1,
+  "kind": "matrix_profile",
+  "name": "mp_v2_Mushroom_260720_0509_4hrs_CH14_fs1_CH0_WIN1min.npz",
+  "path": "Results/Detection/matrix_profile/mp_v2_Mushroom_260720_0509_4hrs_CH14_fs1_CH0_WIN1min.npz",
+  "source": {
+    "recording": "Mushroom_260720_0509_4hrs_CH14_fs1.mat",
+    "recording_id": 385,
+    "channel": 0,
+    "span": [
+      0,
+      14401
+    ],
+    "raw_file": null
+  },
+  "fs": 1.0,
+  "fs_source": null,
+  "parameters": {
+    "m": 60,
+    "window_min": 1.0,
+    "config_hash": "3d99be78",
+    "backend": "stump",
+    "approx": false,
+    "created_at": "2026-08-18T19:29:46.120487+00:00",
+    "data_sha1": "1267263652788d7aa4986e8eb2122672bad49660",
+    "elapsed_s": 0.3178834915161133,
+    "n_samples_in_file": 14401
+  },
+  "producer": "Adapters/detection_matrix_profile.py (mp_v2)",
+  "recipe_hash": "3d99be78",
+  "created_at": "2026-09-21T07:19:03+00:00",
+  "registered_by": "this installation",
+  "code_version": "ac8cbfa",
+  "checks_passed": [
+    "exists",
+    "readable",
+    "keys",
+    "recording",
+    "fs",
+    "span",
+    "length",
+    "finite",
+    "not_registered",
+    "hash"
+  ],
+  "warnings": [],
+  "sha1": "27ee3ce67c9c8a745deb04b0679ef02bbbcca747",
+  "row": {
+    "kind": "matrix_profile",
+    "path": "Results/Detection/matrix_profile/mp_v2_Mushroom_260720_0509_4hrs_CH14_fs1_CH0_WIN1min.npz",
+    "name": "mp_v2_Mushroom_260720_0509_4hrs_CH14_fs1_CH0_WIN1min.npz",
+    "manifest_path": null,
+    "recording_id": 385,
+    "channel": 0,
+    "span_start": 0,
+    "span_end": 14401,
+    "fs": 1.0,
+    "params_json": "{\"m\": 60, \"window_min\": 1.0, \"config_hash\": \"3d99be78\", \"backend\": \"stump\", \"approx\": false, \"created_at\": \"2026-08-18T19:29:46.120487+00:00\", \"data_sha1\": \"1267263652788d7aa4986e8eb2122672bad49660\", \"elapsed_s\": 0.3178834915161133, \"n_samples_in_file\": 14401}",
+    "producer": "Adapters/detection_matrix_profile.py (mp_v2)",
+    "sha1": "27ee3ce67c9c8a745deb04b0679ef02bbbcca747",
+    "checks_json": "[{\"name\": \"exists\", \"ok\": true, \"detail\": \"Results/Detection/matrix_profile/mp_v2_Mushroom_260720_0509_4hrs_CH14_fs1_CH0_WIN1min.npz\"}, {\"name\": \"readable\", \"ok\": true, \"detail\": \"npz with 20 arrays\"}, {\"name\": \"keys\", \"ok\": true, \"detail\": \"keys ['mp', 'mpi', 'left_i', 'right_i', 'm', 'fs', 'window_min', 'n_samples', 'source_file', 'channel', 'recording_id', 'data_sha1']\\u2026\"}, {\"name\": \"recording\", \"ok\": true, \"detail\": \"bound to recordings id 385 (Mushroom_260720_0509_4hrs_CH14_fs1.mat CH0, fs 1.0, 14,401 samples)\"}, {\"name\": \"fs\", \"ok\": true, \"detail\": \"fs 1.0 vs recording 1.0\"}, {\"name\": \"span\", \"ok\": true, \"detail\": \"span [0, 14,401) inside the recording's 14,401 samples\"}, {\"name\": \"length\", \"ok\": true, \"detail\": \"len(mp) 14,342 == span 14,401 \\u2212 m 60 + 1\"}, {\"name\": \"finite\", \"ok\": true, \"detail\": \"mp: all 14,342 values finite\"}, {\"name\": \"not_registered\", \"ok\": true, \"detail\": \"not registered yet\"}, {\"name\": \"hash\", \"ok\": true, \"detail\": \"27ee3ce67c9c8a745deb04b0679ef02bbbcca747\"}]",
+    "warnings_json": "[]",
+    "created_at": "2026-09-21T07:19:03+00:00",
+    "actor": "this installation",
+    "active": 1
+  },
+  "notes": null
+}

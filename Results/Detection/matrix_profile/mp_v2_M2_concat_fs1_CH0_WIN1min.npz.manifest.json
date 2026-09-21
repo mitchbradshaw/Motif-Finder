@@ -1,0 +1,68 @@
+{
+  "manifest_version": 1,
+  "kind": "matrix_profile",
+  "name": "mp_v2_M2_concat_fs1_CH0_WIN1min.npz",
+  "path": "Results/Detection/matrix_profile/mp_v2_M2_concat_fs1_CH0_WIN1min.npz",
+  "source": {
+    "recording": "M2_concat_fs1.mat",
+    "recording_id": 33,
+    "channel": 0,
+    "span": [
+      0,
+      1016952
+    ],
+    "raw_file": null
+  },
+  "fs": 1.0,
+  "fs_source": null,
+  "parameters": {
+    "m": 60,
+    "window_min": 1.0,
+    "config_hash": "836d5c15",
+    "backend": "legacy_gpu_stump",
+    "approx": false,
+    "created_at": "2026-08-09T21:49:19.639708+00:00",
+    "data_sha1": "64977ed858f8eaf6376418d4e1abe416e4edff65",
+    "elapsed_s": -1.0,
+    "n_samples_in_file": 1016952
+  },
+  "producer": "Adapters/detection_matrix_profile.py (mp_v2)",
+  "recipe_hash": "836d5c15",
+  "created_at": "2026-09-21T07:19:02+00:00",
+  "registered_by": "this installation",
+  "code_version": "ac8cbfa",
+  "checks_passed": [
+    "exists",
+    "readable",
+    "keys",
+    "recording",
+    "fs",
+    "span",
+    "length",
+    "finite",
+    "not_registered",
+    "hash"
+  ],
+  "warnings": [],
+  "sha1": "1a9c13ac7b927ef140acf7204fee9edd427c0343",
+  "row": {
+    "kind": "matrix_profile",
+    "path": "Results/Detection/matrix_profile/mp_v2_M2_concat_fs1_CH0_WIN1min.npz",
+    "name": "mp_v2_M2_concat_fs1_CH0_WIN1min.npz",
+    "manifest_path": null,
+    "recording_id": 33,
+    "channel": 0,
+    "span_start": 0,
+    "span_end": 1016952,
+    "fs": 1.0,
+    "params_json": "{\"m\": 60, \"window_min\": 1.0, \"config_hash\": \"836d5c15\", \"backend\": \"legacy_gpu_stump\", \"approx\": false, \"created_at\": \"2026-08-09T21:49:19.639708+00:00\", \"data_sha1\": \"64977ed858f8eaf6376418d4e1abe416e4edff65\", \"elapsed_s\": -1.0, \"n_samples_in_file\": 1016952}",
+    "producer": "Adapters/detection_matrix_profile.py (mp_v2)",
+    "sha1": "1a9c13ac7b927ef140acf7204fee9edd427c0343",
+    "checks_json": "[{\"name\": \"exists\", \"ok\": true, \"detail\": \"Results/Detection/matrix_profile/mp_v2_M2_concat_fs1_CH0_WIN1min.npz\"}, {\"name\": \"readable\", \"ok\": true, \"detail\": \"npz with 20 arrays\"}, {\"name\": \"keys\", \"ok\": true, \"detail\": \"keys ['mp', 'mpi', 'left_i', 'right_i', 'm', 'fs', 'window_min', 'n_samples', 'source_file', 'channel', 'recording_id', 'data_sha1']\\u2026\"}, {\"name\": \"recording\", \"ok\": true, \"detail\": \"bound to recordings id 33 (M2_concat_fs1.mat CH0, fs 1.0, 1,016,952 samples)\"}, {\"name\": \"fs\", \"ok\": true, \"detail\": \"fs 1.0 vs recording 1.0\"}, {\"name\": \"span\", \"ok\": true, \"detail\": \"span [0, 1,016,952) inside the recording's 1,016,952 samples\"}, {\"name\": \"length\", \"ok\": true, \"detail\": \"len(mp) 1,016,893 == span 1,016,952 \\u2212 m 60 + 1\"}, {\"name\": \"finite\", \"ok\": true, \"detail\": \"mp: all 1,016,893 values finite\"}, {\"name\": \"not_registered\", \"ok\": true, \"detail\": \"not registered yet\"}, {\"name\": \"hash\", \"ok\": true, \"detail\": \"1a9c13ac7b927ef140acf7204fee9edd427c0343\"}]",
+    "warnings_json": "[]",
+    "created_at": "2026-09-21T07:19:02+00:00",
+    "actor": "this installation",
+    "active": 1
+  },
+  "notes": null
+}

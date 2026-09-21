@@ -1,0 +1,244 @@
+{
+  "failures": [
+    "all rows completed: ['computed \u00b7 now cached', 'running', '\u231b waiting']",
+    "every result row painted something: ['path', 'blank', 'blank']",
+    "draggable threshold line present",
+    "editing the threshold marked row 3 stale: ['computed \u00b7 now cached', 'running', '\u231b waiting']",
+    "discovery: discovery.runs--modal-slurm: TimeoutError: Locator.click: Timeout 30000ms exceeded.\nCall log:\n  - waiting for locator(\"[data-testid=\\\"toolbar-slurm\\\"]\").first\n",
+    "discovery: discovery.seed--default renders \u2014 1 console errors",
+    "discovery: discovery.seed--source-medoid renders \u2014 1 console errors",
+    "discovery: discovery.compare--overlap-segment: TimeoutError: Locator.click: Timeout 30000ms exceeded.\nCall log:\n  - waiting for locator(\"[data-testid=\\\"overlap-CH7_B2\\\"] [data-testid=\\\"overlap-seg-onlyB\\\"]\").first\n",
+    "discovery: discovery.stages--stepped: TimeoutError: Locator.click: Timeout 30000ms exceeded.\nCall log:\n  - waiting for locator(\"[data-testid=\\\"stage-pager\\\"] button:last-of-type\").first\n    - locator resolved to <button disabled type=\"button\" aria-label=\"next disagreement\" data-testid=\"stage-pager-next\" title=\"already at the last disagreement\">\u2026</button>\n  - attempting click action\n    2 \u00d7 waiting for element to be visible, enabled and stable\n      - element is not enabled\n    - retrying click action\n    - waiting 20ms\n    2 \u00d7 waiting for element to be visible, enabled and stable\n      - element is not enabled\n    - retrying click action\n      - waiting 100ms\n    55 \u00d7 waiting for element to be visible, enabled and stable\n       - element is not enabled\n     - retrying click action\n       - waiting 500ms\n",
+    "no browser console/page errors (4)"
+  ],
+  "browser_errors": [
+    "requestfailed: http://127.0.0.1:8766/api/runs/12/events",
+    "console.error: Error: <path> attribute d: Expected number, \"\u202671.3 142.0L72.6 NaNL73.9 NaNL75.\u2026\".",
+    "console.error: Error: <path> attribute d: Expected number, \"\u202671.3 142.0L72.6 NaNL73.9 NaNL75.\u2026\".",
+    "console.error: Error: <path> attribute d: Expected number, \"\u202671.3 142.0L72.6 NaNL73.9 NaNL75.\u2026\"."
+  ],
+  "evidence": {
+    "heatmap_cells": 912,
+    "heatmap_distinct_fills": 6,
+    "envelope_path_lengths": [
+      28973,
+      27561
+    ],
+    "span_bands": 4,
+    "zoom_stats": [
+      {
+        "seq": 1,
+        "t0": 995040,
+        "t1": 1002240,
+        "px": 1304,
+        "n_points": 2400,
+        "decimate_ms": 6.053200006135739,
+        "round_trip_ms": 83.1000000089407,
+        "paint_ms": 19.5
+      },
+      {
+        "seq": 2,
+        "t0": 996168.1605153364,
+        "t1": 1001316.3874163145,
+        "px": 1304,
+        "n_points": 2576,
+        "decimate_ms": 0.7647000020369887,
+        "round_trip_ms": 31,
+        "paint_ms": 11
+      },
+      {
+        "seq": 3,
+        "t0": 996974.8308366804,
+        "t1": 1000655.9753122295,
+        "px": 1304,
+        "n_points": 2456,
+        "decimate_ms": 0.4309000069042668,
+        "round_trip_ms": 22.400000005960464,
+        "paint_ms": 11.299999997019768
+      },
+      {
+        "seq": 4,
+        "t0": 997551.6255378698,
+        "t1": 1000183.7598455653,
+        "px": 1304,
+        "n_points": 1756,
+        "decimate_ms": 0.7526999979745597,
+        "round_trip_ms": 21.400000005960464,
+        "paint_ms": 10.399999991059303
+      },
+      {
+        "seq": 5,
+        "t0": 997964.0519263427,
+        "t1": 999846.1109054906,
+        "px": 1304,
+        "n_points": 1883,
+        "decimate_ms": 0.6622999935643747,
+        "round_trip_ms": 30.299999997019768,
+        "paint_ms": 18.700000002980232
+      },
+      {
+        "seq": 6,
+        "t0": 998258.9497913162,
+        "t1": 999604.6812726601,
+        "px": 1304,
+        "n_points": 1347,
+        "decimate_ms": 0.8647000067867339,
+        "round_trip_ms": 54.69999998807907,
+        "paint_ms": 12.900000005960464
+      },
+      {
+        "seq": 7,
+        "t0": 998469.8110581909,
+        "t1": 999432.0514767669,
+        "px": 1304,
+        "n_points": 964,
+        "decimate_ms": 0.35230000503361225,
+        "round_trip_ms": 31.5,
+        "paint_ms": 10.800000011920929
+      },
+      {
+        "seq": 8,
+        "t0": 998620.5835090935,
+        "t1": 999308.6157324438,
+        "px": 1304,
+        "n_points": 689,
+        "decimate_ms": 0.22100000933278352,
+        "round_trip_ms": 24.900000005960464,
+        "paint_ms": 12.700000002980232
+      },
+      {
+        "seq": 9,
+        "t0": 998728.3905629355,
+        "t1": 999220.3552852954,
+        "px": 1304,
+        "n_points": 493,
+        "decimate_ms": 0.1773999974830076,
+        "round_trip_ms": 17.200000002980232,
+        "paint_ms": 13.5
+      }
+    ],
+    "zoom_round_trip_ms": {
+      "min": 17.200000002980232,
+      "max": 83.1000000089407,
+      "median": 30.299999997019768
+    },
+    "run_wall_s": 32.13,
+    "badges_after_run": [
+      "computed \u00b7 now cached",
+      "running",
+      "\u231b waiting"
+    ],
+    "row_plots": [
+      "path",
+      "blank",
+      "blank"
+    ],
+    "badges_after_edit": [
+      "computed \u00b7 now cached",
+      "running",
+      "\u231b waiting"
+    ],
+    "badges_after_rerun": [
+      "cached \u00b7 0 s",
+      "cached \u00b7 0 s",
+      "cached \u00b7 0 s"
+    ],
+    "badge_titles_after_rerun": [
+      "restored from the prefix cache (core step time 0.0 s)",
+      "restored from the prefix cache (core step time 0.0 s)",
+      "restored from the prefix cache (core step time 0.0 s)"
+    ],
+    "discovery_scope": {
+      "recording": "M2_aug_concat_fs1",
+      "channels": [
+        "CH1_A1",
+        "CH2_A1"
+      ],
+      "section_h": [
+        80.0,
+        84.0
+      ],
+      "runs": [
+        "mp_threshold",
+        "smoke_seed"
+      ]
+    },
+    "discovery_run_rows": 3,
+    "discovery_strip_paths": [
+      7739,
+      7852
+    ],
+    "discovery_fires_cells": 9,
+    "route_states": 46,
+    "server_log_error_lines": [
+      "2026-09-22 03:05:45,960 ERROR proto.runs: run 13 failed at step 1: ValueError: window (m=30000 samples) must be shorter than the span (750 samples)."
+    ]
+  },
+  "screenshots": [
+    "C:/Users/mmebr/Documents/CNN/webui/screenshots/wiring/04/smoke\\01-explore-1-corpus.png",
+    "C:/Users/mmebr/Documents/CNN/webui/screenshots/wiring/04/smoke\\02-explore-1-corpus-colour-by.png",
+    "C:/Users/mmebr/Documents/CNN/webui/screenshots/wiring/04/smoke\\03-explore-1-corpus-selected.png",
+    "C:/Users/mmebr/Documents/CNN/webui/screenshots/wiring/04/smoke\\04-explore-2-signal.png",
+    "C:/Users/mmebr/Documents/CNN/webui/screenshots/wiring/04/smoke\\05-explore-2-signal-zoomed.png",
+    "C:/Users/mmebr/Documents/CNN/webui/screenshots/wiring/04/smoke\\06-explore-2-signal-motif.png",
+    "C:/Users/mmebr/Documents/CNN/webui/screenshots/wiring/04/smoke\\07-explore-m4-held-out.png",
+    "C:/Users/mmebr/Documents/CNN/webui/screenshots/wiring/04/smoke\\08-chain-1-chain-before-run.png",
+    "C:/Users/mmebr/Documents/CNN/webui/screenshots/wiring/04/smoke\\09-chain-2-insert-stage.png",
+    "C:/Users/mmebr/Documents/CNN/webui/screenshots/wiring/04/smoke\\10-chain-1-chain-completed.png",
+    "C:/Users/mmebr/Documents/CNN/webui/screenshots/wiring/04/smoke\\11-chain-7b-block-threshold.png",
+    "C:/Users/mmebr/Documents/CNN/webui/screenshots/wiring/04/smoke\\12-chain-7b-block-threshold-dragged.png",
+    "C:/Users/mmebr/Documents/CNN/webui/screenshots/wiring/04/smoke\\13-chain-1-chain-suffix-rerun.png",
+    "C:/Users/mmebr/Documents/CNN/webui/screenshots/wiring/04/smoke\\14-chain-1b-run-history.png",
+    "C:/Users/mmebr/Documents/CNN/webui/screenshots/wiring/04/smoke\\15-chain-1e-invalid-junction.png",
+    "C:/Users/mmebr/Documents/CNN/webui/screenshots/wiring/04/smoke\\16-chain-1f-failed-block.png",
+    "C:/Users/mmebr/Documents/CNN/webui/screenshots/wiring/04/smoke\\17-chain-1d-running.png",
+    "C:/Users/mmebr/Documents/CNN/webui/screenshots/wiring/04/smoke\\18-chain-cancelled.png",
+    "C:/Users/mmebr/Documents/CNN/webui/screenshots/wiring/04/smoke\\19-discovery-1-runs-live.png",
+    "C:/Users/mmebr/Documents/CNN/webui/screenshots/wiring/04/smoke\\20-discovery-2-seed-live.png",
+    "C:/Users/mmebr/Documents/CNN/webui/screenshots/wiring/04/smoke\\21-discovery-3-compare-live.png",
+    "C:/Users/mmebr/Documents/CNN/webui/screenshots/wiring/04/smoke\\22-loud-failure-render-error.png",
+    "C:/Users/mmebr/Documents/CNN/webui/screenshots/wiring/04/smoke\\pages\\discovery\\discovery.runs--default.png",
+    "C:/Users/mmebr/Documents/CNN/webui/screenshots/wiring/04/smoke\\pages\\discovery\\discovery.runs--modal-add-template.png",
+    "C:/Users/mmebr/Documents/CNN/webui/screenshots/wiring/04/smoke\\pages\\discovery\\discovery.runs--popover-history.png",
+    "C:/Users/mmebr/Documents/CNN/webui/screenshots/wiring/04/smoke\\pages\\discovery\\discovery.runs--confirm-discard.png",
+    "C:/Users/mmebr/Documents/CNN/webui/screenshots/wiring/04/smoke\\pages\\discovery\\discovery.runs--discarded.png",
+    "C:/Users/mmebr/Documents/CNN/webui/screenshots/wiring/04/smoke\\pages\\discovery\\discovery.runs--discarded-param.png",
+    "C:/Users/mmebr/Documents/CNN/webui/screenshots/wiring/04/smoke\\pages\\discovery\\discovery.runs--fires-spans.png",
+    "C:/Users/mmebr/Documents/CNN/webui/screenshots/wiring/04/smoke\\pages\\discovery\\discovery.runs--section-popover.png",
+    "C:/Users/mmebr/Documents/CNN/webui/screenshots/wiring/04/smoke\\pages\\discovery\\discovery.runs--running.png",
+    "C:/Users/mmebr/Documents/CNN/webui/screenshots/wiring/04/smoke\\pages\\discovery\\discovery.runs--empty.png",
+    "C:/Users/mmebr/Documents/CNN/webui/screenshots/wiring/04/smoke\\pages\\discovery\\discovery.runs--held-out-refused.png",
+    "C:/Users/mmebr/Documents/CNN/webui/screenshots/wiring/04/smoke\\pages\\discovery\\discovery.seed--default.png",
+    "C:/Users/mmebr/Documents/CNN/webui/screenshots/wiring/04/smoke\\pages\\discovery\\discovery.seed--source-explore.png",
+    "C:/Users/mmebr/Documents/CNN/webui/screenshots/wiring/04/smoke\\pages\\discovery\\discovery.seed--source-medoid.png",
+    "C:/Users/mmebr/Documents/CNN/webui/screenshots/wiring/04/smoke\\pages\\discovery\\discovery.seed--change-seed.png",
+    "C:/Users/mmebr/Documents/CNN/webui/screenshots/wiring/04/smoke\\pages\\discovery\\discovery.seed--view-popover.png",
+    "C:/Users/mmebr/Documents/CNN/webui/screenshots/wiring/04/smoke\\pages\\discovery\\discovery.seed--running.png",
+    "C:/Users/mmebr/Documents/CNN/webui/screenshots/wiring/04/smoke\\pages\\discovery\\discovery.seed--done.png",
+    "C:/Users/mmebr/Documents/CNN/webui/screenshots/wiring/04/smoke\\pages\\discovery\\discovery.seed--failed.png",
+    "C:/Users/mmebr/Documents/CNN/webui/screenshots/wiring/04/smoke\\pages\\discovery\\discovery.seed--modal-save-template.png",
+    "C:/Users/mmebr/Documents/CNN/webui/screenshots/wiring/04/smoke\\pages\\discovery\\discovery.seed--save-template-invalid.png",
+    "C:/Users/mmebr/Documents/CNN/webui/screenshots/wiring/04/smoke\\pages\\discovery\\discovery.seed--held-out-refused.png",
+    "C:/Users/mmebr/Documents/CNN/webui/screenshots/wiring/04/smoke\\pages\\discovery\\discovery.compare--default.png",
+    "C:/Users/mmebr/Documents/CNN/webui/screenshots/wiring/04/smoke\\pages\\discovery\\discovery.compare--empty-one-pick.png",
+    "C:/Users/mmebr/Documents/CNN/webui/screenshots/wiring/04/smoke\\pages\\discovery\\discovery.compare--unpick-b.png",
+    "C:/Users/mmebr/Documents/CNN/webui/screenshots/wiring/04/smoke\\pages\\discovery\\discovery.compare--swapped.png",
+    "C:/Users/mmebr/Documents/CNN/webui/screenshots/wiring/04/smoke\\pages\\discovery\\discovery.compare--filter-only-b.png",
+    "C:/Users/mmebr/Documents/CNN/webui/screenshots/wiring/04/smoke\\pages\\discovery\\discovery.compare--popover-roles.png",
+    "C:/Users/mmebr/Documents/CNN/webui/screenshots/wiring/04/smoke\\pages\\discovery\\discovery.compare--popover-stage.png",
+    "C:/Users/mmebr/Documents/CNN/webui/screenshots/wiring/04/smoke\\pages\\discovery\\discovery.compare--human-as-b.png",
+    "C:/Users/mmebr/Documents/CNN/webui/screenshots/wiring/04/smoke\\pages\\discovery\\discovery.compare--held-out-refused.png",
+    "C:/Users/mmebr/Documents/CNN/webui/screenshots/wiring/04/smoke\\pages\\discovery\\discovery.compare--route-default.png",
+    "C:/Users/mmebr/Documents/CNN/webui/screenshots/wiring/04/smoke\\pages\\discovery\\discovery.stages--default.png",
+    "C:/Users/mmebr/Documents/CNN/webui/screenshots/wiring/04/smoke\\pages\\discovery\\discovery.stages--re-running.png",
+    "C:/Users/mmebr/Documents/CNN/webui/screenshots/wiring/04/smoke\\pages\\discovery\\discovery.stages--swapped.png",
+    "C:/Users/mmebr/Documents/CNN/webui/screenshots/wiring/04/smoke\\pages\\discovery\\discovery.stages--popover-first-differing.png",
+    "C:/Users/mmebr/Documents/CNN/webui/screenshots/wiring/04/smoke\\pages\\discovery\\discovery.stages--popover-stage-params.png",
+    "C:/Users/mmebr/Documents/CNN/webui/screenshots/wiring/04/smoke\\pages\\discovery\\discovery.stages--filter-only-b.png",
+    "C:/Users/mmebr/Documents/CNN/webui/screenshots/wiring/04/smoke\\pages\\discovery\\discovery.stages--human-as-b.png",
+    "C:/Users/mmebr/Documents/CNN/webui/screenshots/wiring/04/smoke\\pages\\discovery\\discovery.stages--empty-same-run.png",
+    "C:/Users/mmebr/Documents/CNN/webui/screenshots/wiring/04/smoke\\pages\\discovery\\discovery.stages--route-default.png",
+    "C:/Users/mmebr/Documents/CNN/webui/screenshots/wiring/04/smoke\\pages\\discovery\\discovery.runs--failed-deep-link.png",
+    "C:/Users/mmebr/Documents/CNN/webui/screenshots/wiring/04/smoke\\pages\\discovery\\discovery.runs--null-unsupported.png"
+  ]
+}
