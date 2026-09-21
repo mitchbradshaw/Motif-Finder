@@ -85,7 +85,7 @@ export interface Compatible {
   position: number; producing: TypeKind; producing_label: string; next_requires: TypeKind | null; next_requires_label: string | null; next_name: string | null
   n_fit: number; n_total: number; rows: { name: string; ok: boolean; reason: string }[]; stale_from: number | null
 }
-export interface Template { id: string | number; name: string; builtin: boolean; steps: Step[] }
+export interface Template { id: string | number; name: string; builtin: boolean; steps: Step[]; kind?: 'detection' | 'encoding' | 'training' | 'interrogation'; version?: number; description?: string; valid?: boolean; created_at?: string; updated_at?: string }
 
 export const getAdapters = () => req<AdapterCard[]>('/api/adapters')
 export const validateChain = (steps: Step[], recording_id?: number, span?: [number, number] | null) =>
@@ -239,3 +239,71 @@ export interface BackupRow { name: string; path: string; bytes: number; mtime: n
 export interface Storage { roots: StorageRootRow[]; backups: BackupRow[]; free_gb: number | null; total_gb: number | null; mode: string; backups_dir: string; db_backup: string | null }
 export const getStorage = () => req<Storage>('/api/storage')
 export const postBackup = () => post<{ path: string; bytes: number; mode: string }>('/api/backups', {})
+
+/* ---------------- stage-3 prompt 01: templates as rows, jobs, explore live regions, interrogation, window sets ---------------- */
+export const getTemplate = (id: number) => req<Template>(`/api/templates/${id}`)
+export const createTemplate = (name: string, steps: Step[], description = '', kind?: Template['kind']) =>
+  post<Template>('/api/templates', { name, steps, description, kind })
+export const updateTemplate = (id: number, patch: { name?: string; steps?: Step[]; description?: string }) =>
+  req<Template>(`/api/templates/${id}`, { method: 'PUT', body: JSON.stringify(patch) })
+export const deleteTemplate = (id: number) => req<{ deleted: number }>(`/api/templates/${id}`, { method: 'DELETE' })
+export const applyTemplate = (id: number, recording_id: number, span?: [number, number] | null) =>
+  post<{ template: { id: number; name: string; kind: string; version: number }; recipe: { recording_id: number; span: [number, number] | null; steps: Step[] } }>(`/api/templates/${id}/apply`, { recording_id, span })
+
+export type JobKind = 'chain_run' | 'sweep' | 'import' | 'regroup' | 'training'
+export interface JobRow {
+  job_id: number; kind?: JobKind; status: 'queued' | 'running' | 'completed' | 'failed' | 'cancelled'; error: JobError | null
+  started_at: number | string; finished_at: number | string | null; db_run_id: number | null; restored?: boolean
+  progress?: { done: number; total: number | null; message: string } | Record<string, unknown>; meta?: Record<string, unknown>; result?: unknown
+  steps?: JobStep[]; recipe?: JobSnapshot['recipe']; n_steps?: number; current_step?: number | null
+}
+export const listJobs = (limit = 50) => req<JobRow[]>(`/api/jobs?limit=${limit}`)
+export const getJob = (id: number) => req<JobRow>(`/api/jobs/${id}`)
+export const cancelJob = (id: number) => post<{ accepted: boolean; status: string; note: string }>(`/api/jobs/${id}/cancel`, {})
+export function subscribeJob(jobId: number, onEvent: (e: RunEvent & { event: string }) => void, onError?: (reason: string) => void): SseHandle {
+  const es = new EventSource(`/api/jobs/${jobId}/events`)
+  const handler = (ev: MessageEvent) => {
+    try { onEvent({ ...(JSON.parse(ev.data) as RunEvent), event: ev.type as RunEvent['event'] }); if (ev.type === 'run_end' || ev.type === 'job_end') es.close() }
+    catch (err) { onError?.(`job stream unreadable (${err instanceof Error ? err.message : String(err)})`) }
+  }
+  for (const name of ['hello', 'step_start', 'step_done', 'run_end', 'cancel_requested', 'job_start', 'progress', 'job_end']) es.addEventListener(name, handler as EventListener)
+  es.onerror = () => { onError?.(es.readyState === EventSource.CLOSED ? 'job stream closed' : 'job stream interrupted') }
+  return { close: () => es.close(), isOpen: () => es.readyState === EventSource.OPEN }
+}
+
+export interface FileRun { id: number; recording_id: number; channel: number; status: string; started_at: string; name: string | null; algorithms: string[]; method: string; n_detections: number }
+export const getRunsForFile = (file: string) => req<{ source_file: string; runs: FileRun[]; methods: string[] }>(`/api/corpus/${encodeURIComponent(file)}/runs`)
+export const getCoverageFiltered = (file: string, bins: number, opts: { verdicts?: string[]; run?: number[]; method?: string }) =>
+  req<Coverage & { run_filter: number[] | null; method_filter: string | null }>(
+    `/api/corpus/${encodeURIComponent(file)}/coverage?bins=${bins}${opts.verdicts?.length ? `&verdicts=${opts.verdicts.join(',')}` : ''}${opts.run?.length ? `&run=${opts.run.join(',')}` : ''}${opts.method ? `&method=${encodeURIComponent(opts.method)}` : ''}`)
+export interface TagRow { category: string; value: string }
+export interface Tags {
+  recording_id: number; t0_s: number; t1_s: number
+  annotations: (Annotation & { tags: TagRow[] })[]
+  reviewed: { id: number; start_s: number; end_s: number; scale: string | null; source: string; at: string }[]
+  reviewed_pct: number; tag_counts: Record<string, number>; vocabulary: { id: number; category: string; value: string; description: string | null; active: number }[]
+}
+export const getTags = (id: number, t0?: number, t1?: number) => req<Tags>(`/api/channels/${id}/tags?t0=${t0 ?? 0}${t1 != null ? `&t1=${t1}` : ''}`)
+export const getSiblings = (id: number) => req<{ recording_id: number; source_file: string; channels: { id: number; channel: number; name: string; npy_exists: boolean }[] }>(`/api/channels/${id}/siblings`)
+export interface CrossRow { id: number; channel: number; name: string; is_reference: boolean; lag_s: number | null; r: number | null; classification: string; envelope?: EnvelopeSeries; y_range?: [number, number]; error?: string }
+export const getCross = (id: number, t0: number, t1: number, px = 900) => req<{ reference_id: number; source_file: string; t0_s: number; t1_s: number; fs: number; stride: number; channels: CrossRow[] }>(`/api/cross/${id}?t0=${t0}&t1=${t1}&px=${Math.round(px)}`)
+export const takeSpanForReview = (recording_id: number, start_idx: number, end_idx: number, note?: string, scale_viewed?: string) =>
+  post<{ id: number; recording_id: number; start_s: number; end_s: number; verdict: 'seed'; source: string; note: string }>('/api/annotations/seed', { recording_id, start_idx, end_idx, note, scale_viewed })
+
+export interface SeedFamily { id: string; label: string; source: 'seed'; recording_id: number; source_file: string; channel: number; fs: number; morphology: string | null; n_members: number; span_h: [number, number]; median_depth_mv: number }
+export interface SeedMember {
+  event_id: string; recording_id: number; source_file: string; channel: number; fs: number; morphology: string; trigger: string
+  onset_idx: number; onset_h: number; trough_idx: number; trough_h: number; snippet_start_idx: number; snippet_end_idx: number
+  drop_depth_mv: number; rise_height_mv: number; fall_duration_s: number; peak_to_peak_mv: number; fall_dominance: number; purity: number; is_pure: number; cluster_id: number
+  source: 'seed'; snippet?: { t_s: number[]; detrended_mv: number[]; n: number }
+}
+export interface SlopeMember { event_id: string; onset_slope_mv_s: number; max_slope_mv_s: number; mean_slope_mv_s: number; peakedness: number; drop_depth_mv: number; fall_duration_s: number; onset_h: number; onset_offset: number; trough_offset: number; angle_deg: number | null; recording_id: number; source_file: string; span_key: string }
+export const getFamilies = () => req<{ source: 'seed'; store: string; manifest: Record<string, unknown>; families: SeedFamily[] }>('/api/interrogation/families')
+export const getFamilyMembers = (key: string, snippets = true) => req<{ family: string; source: 'seed'; members: SeedMember[] }>(`/api/interrogation/families/${encodeURIComponent(key)}/members?snippets=${snippets}`)
+export const getFamilySlope = (key: string, scale = 'raw') => req<{ family: string; source: 'seed'; features: { name: string; unit: string; kind: string; label: string }[]; rules: { name: string; rule: string }[]; members: SlopeMember[]; rose: { bin_centres_deg: number[]; counts: number[]; scale: string; caption: string; groups: Record<string, Record<string, unknown>> } }>(`/api/interrogation/families/${encodeURIComponent(key)}/slope?scale=${scale}`)
+export interface Dist { n: number; counts: number[]; edges: number[]; median: number | null; iqr: [number, number] | null; min?: number; max?: number }
+export const getFamilyAggregate = (key: string) => req<{ family: string; source: 'seed'; n: number; distributions: Record<string, Dist>; timeline: { event_id: string; onset_h: number; depth_mv: number; max_slope_mv_s: number; position: number }[]; scaling: { x: string; y: string; beta: number; ci95: [number, number]; n: number } | null }>(`/api/interrogation/families/${encodeURIComponent(key)}/aggregate`)
+
+export const saveWindowSet = (job_id: number, step: number, name: string, notes?: string) =>
+  post<{ id: number; name: string; path: string; n_windows: number; length: number; run_id: number; note: string }>('/api/windowsets', { job_id, step, name, notes })
+export const listWindowSets = () => req<{ window_sets: { id: number; name: string; path: string; recording_id: number | null; channel: number | null; fs: number | null; created_at: string; active: number; manifest?: Record<string, unknown> }[]; root: string }>('/api/windowsets')

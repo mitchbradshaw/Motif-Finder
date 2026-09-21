@@ -8,7 +8,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { ApiError, getCoverage, getRecordings, type Coverage, type RecordingFile } from '../api'
 import { useSourced } from '../api/seam'
-import { getCorpusDemo } from '../api/explore'
+import { getCorpusLive } from '../api/explore'
 import { Button, Dropdown, EmptyState, Icon, IconButton, Popover, useQueryState } from '../kit'
 import { ErrorBoundary } from '../shell/ErrorBoundary'
 import { Header } from '../shell/Header'
@@ -98,7 +98,8 @@ export function CorpusPage() {
 
   const rows = useMemo(() => (cov && cov.source_file === fileName ? cov.rows : []), [cov, fileName])
   const names = useMemo(() => rows.map(r => r.name), [rows])
-  const demoRead = useSourced(() => getCorpusDemo(fileName ?? '', names, bins), [fileName, names.join(','), bins])
+  const chanRefs = useMemo(() => rows.map(r => ({ id: r.id, name: r.name })), [rows])
+  const demoRead = useSourced(() => getCorpusLive(fileName ?? '', chanRefs, bins), [fileName, names.join(','), bins])
   const demo = demoRead.data
 
   const nothingShown = !show.annotations && !show.detections
@@ -114,7 +115,7 @@ export function CorpusPage() {
   const demoChannels = demo?.channels
   const matching = useMemo(() => {
     const total = rows.length || file?.n_channels || 0
-    const runNote = (filters.runs || filters.methods) ? 'runs / method filter is demo only — the live map counts every run' : undefined
+    const runNote = (filters.runs || filters.methods) ? 'runs / method filter: the bridge serves it (GET coverage?run=&method=); this map still counts every run' : undefined
     if (noVerdicts) return { spans: 0, channels: 0, total, demo: false, note: runNote }
     if (filters.tags.length && demoChannels) {
       let spans = 0, channels = 0
@@ -176,7 +177,7 @@ export function CorpusPage() {
 
         {recErr && <ErrorCard error={recErr} title="GET /api/recordings failed" />}
         {covErr && <ErrorCard error={covErr} title={`coverage for ${fileName} failed`} />}
-        {demoRead.error && <ErrorCard error={asApiError(demoRead.error)} title="demo read getCorpusDemo failed" />}
+        {demoRead.error && <ErrorCard error={asApiError(demoRead.error)} title="live read getCorpusLive failed" />}
         {forcedErr && <ErrorCard error={forcedErr} title={`coverage for ${fileName} failed`} />}
 
         {heldOut ? (
