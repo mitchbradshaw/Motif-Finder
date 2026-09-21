@@ -10,7 +10,7 @@
  *   - lookupChannel: GET /api/channels/{id} (423 = held out).
  * Only the two things nothing computes yet stay demo and say so: the Span-edit page and the keyboard map. */
 import {
-  ApiError, getChannel, getCross, getRunsForFile, getSpans, getTags, type Annotation, type CrossRow, type Detection, type FileRun,
+  getChannel, getCross, getRecordings, getRunsForFile, getSpans, getTags, type Annotation, type CrossRow, type Detection, type FileRun,
 } from '../api'
 import { demo, live, type Sourced } from './seam'
 import {
@@ -31,6 +31,17 @@ const RUN_COLOURS = ['#0A84FF', '#FF9F0A', '#BF5AF2', '#64D2FF', '#30D158', '#FF
 const runId = (r: FileRun) => `#${r.id}`
 const runName = (r: FileRun) => r.name ?? (r.algorithms.length ? r.algorithms.join(' → ') : `run ${r.id}`)
 const isSurrogate = (r: FileRun) => r.algorithms.includes('surrogate') || /surrogate/i.test(r.name ?? '')
+
+/** Where a channel id lives, from the recordings list: 'held_out' | 'missing' | the channel's file — so a page
+ *  can show its locked / unknown card without a request the browser would log as an error (423 / 404). */
+async function locate(id: number): Promise<{ state: 'held_out' | 'missing' | 'ok'; file: string | null; name: string | null; reason: string | null }> {
+  const recs = await getRecordings()
+  for (const f of recs) {
+    const c = f.channels.find(ch => ch.id === id)
+    if (c) return f.held_out ? { state: 'held_out', file: f.source_file, name: c.name, reason: f.held_out_reason ?? `${f.source_file} is held out` } : { state: 'ok', file: f.source_file, name: c.name, reason: null }
+  }
+  return { state: 'missing', file: null, name: null, reason: `no channel with id ${id}` }
+}
 
 /* ------------------------------------------------------------------ corpus ---- */
 /** Tags, reviewed coverage and the recording-wide run / method lists for the Corpus rail — live. */
@@ -73,8 +84,8 @@ function detectionRow(d: Detection, fs: number, runs: Map<number, DemoRun>): Det
 /** Runs with methods and colours, plus the annotation / detection rows of the channel — live.
  *  Adjudications, families and the medoid have no live source yet (Prompts 03 and 05) and are empty. */
 export async function getSignalLive(channelId: number): Promise<Sourced<SignalDemo | null>> {
-  let ch
-  try { ch = await getChannel(channelId) } catch (e) { if (e instanceof ApiError && (e.status === 404 || e.status === 423)) return { data: null, source: 'live' }; throw e }
+  if ((await locate(channelId)).state !== 'ok') return { data: null, source: 'live' }
+  const ch = await getChannel(channelId)
   const [runsRes, tags, spans] = await Promise.all([getRunsForFile(ch.source_file), getTags(channelId), getSpans(channelId, 0, ch.duration_s)])
   const mine = runsRes.runs.filter(r => r.recording_id === channelId)
   const runs: DemoRun[] = mine.map((r, i) => ({ id: runId(r), name: runName(r), method: r.method, template: r.algorithms[r.algorithms.length - 1] ?? '', surrogate: isSurrogate(r), colour: RUN_COLOURS[i % RUN_COLOURS.length], count: r.n_detections }))
@@ -85,7 +96,8 @@ export async function getSignalLive(channelId: number): Promise<Sourced<SignalDe
     data: {
       channelId, channelName: ch.name, file: ch.source_file, fs: ch.fs, viewport: [0, Math.min(ch.duration_s, 7200)],
       runs, defaultRuns: runs.filter(r => !r.surrogate).slice(0, 3).map(r => r.id), annotations, detections,
-      motifDetectionId: detections[0]?.id ?? -1, spanTags: [], spanNote: '', medoid: [], defaultSelectedAnnotations: [], defaultSelectedDetections: [],
+      motifDetectionId: detections[0]?.id ?? -1, spanTags: [], spanNote: '', medoid: [],
+      defaultSelectedAnnotations: annotations.slice(0, 2).map(a => a.id), defaultSelectedDetections: detections.slice(0, 2).map(d => d.id),
     },
     source: 'live',
   }
@@ -99,25 +111,17 @@ export const getShortcuts = () => demo(SHORTCUTS, 10)
 /** Which recording a channel id belongs to, and whether it is held out — live (423 = held out). */
 export interface ChannelLookup { channel: CanonChannelRef | null; heldOut: boolean; reason: string | null }
 export async function lookupChannel(id: number): Promise<Sourced<ChannelLookup>> {
-  try {
-    const ch = await getChannel(id)
-    return { data: { channel: { id, name: ch.name, recordingKey: ch.source_file.replace(/_concat.*|\.mat$/g, ''), file: ch.source_file }, heldOut: false, reason: null }, source: 'live' }
-  } catch (e) {
-    if (e instanceof ApiError && e.status === 423) return { data: { channel: null, heldOut: true, reason: e.message }, source: 'live' }
-    if (e instanceof ApiError && e.status === 404) return { data: { channel: null, heldOut: false, reason: e.message }, source: 'live' }
-    throw e
-  }
+  const where = await locate(id)
+  if (where.state === 'ok') return { data: { channel: { id, name: where.name!, recordingKey: where.file!.replace(/_concat.*|\.mat$/g, ''), file: where.file! }, heldOut: false, reason: null }, source: 'live' }
+  return { data: { channel: null, heldOut: where.state === 'held_out', reason: where.reason }, source: 'live' }
 }
 
 /* ------------------------------------------------------------- cross-channel ---- */
-const BIN_OF = (c: string): XRow & { bin?: string } => ({ channelId: 0, name: '', lagS: null, r: null, trace: [], bin: c })
-void BIN_OF
-
 /** The same window on every channel of the reference's recording, with lag and r — live.
  *  The window is the channel's first human span (± `padS`), or its first ten minutes when it has none. */
 export async function getCrossChannel(referenceId: number, padS = 20): Promise<Sourced<CrossDemo | null>> {
-  let ch
-  try { ch = await getChannel(referenceId) } catch (e) { if (e instanceof ApiError && (e.status === 404 || e.status === 423)) return { data: null, source: 'live' }; throw e }
+  if ((await locate(referenceId)).state !== 'ok') return { data: null, source: 'live' }
+  const ch = await getChannel(referenceId)
   const spans = await getSpans(referenceId, 0, ch.duration_s)
   const first = spans.annotations[0] ?? spans.detections[0] ?? null
   const motif = first ? { s: first.start_s, e: first.end_s } : { s: 0, e: Math.min(600, ch.duration_s) }

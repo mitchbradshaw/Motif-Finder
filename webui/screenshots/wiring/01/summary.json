@@ -1,0 +1,336 @@
+{
+  "url": "http://127.0.0.1:8767",
+  "mode": "project",
+  "recording": {
+    "id": 1,
+    "channel": 0,
+    "name": "CH1_A1",
+    "npy_exists": true,
+    "source_file": "M2_aug_concat_fs1.mat",
+    "fs": 1.0
+  },
+  "span": [
+    1209600,
+    1216800
+  ],
+  "templates": [
+    {
+      "template": "drop_detection_v1",
+      "job_id": 1,
+      "status": "completed",
+      "elapsed_s": 1.1,
+      "db_run_id": 42,
+      "detections_written": 4,
+      "steps": [
+        {
+          "name": "preprocessing.detrend",
+          "status": "done",
+          "summary": "7,200 samples \u00b7 -0.018 \u2026 0.007 mV",
+          "elapsed_s": 0.017331399998511188
+        },
+        {
+          "name": "detection.stage_encoding",
+          "status": "done",
+          "summary": "73 symbols \u00b7 alphabet 5 \u00b7 98 s per symbol",
+          "elapsed_s": 0.03940380000130972
+        },
+        {
+          "name": "detection.drop_detection",
+          "status": "done",
+          "summary": "4 spans \u00b7 mean 979.0 s",
+          "elapsed_s": 0.015386200000648387
+        }
+      ],
+      "error": null,
+      "rows_painted": [
+        true,
+        true,
+        true,
+        true
+      ],
+      "screenshot": "webui/screenshots/wiring/01\\drop_detection_v1.png"
+    },
+    {
+      "template": "dehshibi_spikes",
+      "job_id": 2,
+      "status": "completed",
+      "elapsed_s": 1.2,
+      "db_run_id": 43,
+      "detections_written": 0,
+      "steps": [
+        {
+          "name": "preprocessing.wavelet_transform",
+          "status": "done",
+          "summary": "64\u00d77200 image \u00b7 shown at 64\u00d7248",
+          "elapsed_s": 0.20596179999847664
+        },
+        {
+          "name": "detection.wavelet_summation",
+          "status": "done",
+          "summary": "7,200 values \u00b7 one per 1 s",
+          "elapsed_s": 0.00339660000463482
+        },
+        {
+          "name": "detection.summation_threshold",
+          "status": "done",
+          "summary": "0 spans \u00b7 nothing above threshold",
+          "elapsed_s": 0.06539229999907548
+        }
+      ],
+      "error": null,
+      "rows_painted": [
+        true,
+        true,
+        true,
+        true
+      ],
+      "screenshot": "webui/screenshots/wiring/01\\dehshibi_spikes.png"
+    },
+    {
+      "template": "mp_threshold",
+      "job_id": 3,
+      "status": "completed",
+      "elapsed_s": 1.3,
+      "db_run_id": 44,
+      "detections_written": 8,
+      "steps": [
+        {
+          "name": "preprocessing.detrend",
+          "status": "done",
+          "summary": "7,200 samples \u00b7 -0.013 \u2026 0.009 mV",
+          "elapsed_s": 0.0036525999967125244
+        },
+        {
+          "name": "detection.matrix_profile",
+          "status": "done",
+          "summary": "7,200 values \u00b7 one per 1 s \u00b7 m = 60 samples",
+          "elapsed_s": 0.45012080000014976
+        },
+        {
+          "name": "detection.threshold",
+          "status": "done",
+          "summary": "8 spans \u00b7 mean 3.4 s",
+          "elapsed_s": 0.008159700002579484
+        }
+      ],
+      "error": null,
+      "rows_painted": [
+        true,
+        true,
+        true,
+        true
+      ],
+      "screenshot": "webui/screenshots/wiring/01\\mp_threshold.png"
+    },
+    {
+      "template": "mp_motifs",
+      "job_id": 4,
+      "status": "completed",
+      "elapsed_s": 6.4,
+      "db_run_id": 45,
+      "detections_written": 15,
+      "steps": [
+        {
+          "name": "preprocessing.detrend",
+          "status": "done",
+          "summary": "7,200 samples \u00b7 -0.013 \u2026 0.009 mV",
+          "elapsed_s": 0.004566499999782536
+        },
+        {
+          "name": "detection.matrix_profile",
+          "status": "done",
+          "summary": "7,200 values \u00b7 one per 1 s \u00b7 m = 60 samples",
+          "elapsed_s": 0.37752650000038557
+        },
+        {
+          "name": "detection.mp_motifs",
+          "status": "done",
+          "summary": "15 spans \u00b7 mean 60.0 s",
+          "elapsed_s": 4.4335121999974945
+        }
+      ],
+      "error": null,
+      "rows_painted": [
+        true,
+        true,
+        true,
+        true
+      ],
+      "screenshot": "webui/screenshots/wiring/01\\mp_motifs.png"
+    },
+    {
+      "template": "dsax_encoding",
+      "job_id": 5,
+      "status": "completed",
+      "elapsed_s": 1.2,
+      "db_run_id": 46,
+      "detections_written": 0,
+      "steps": [
+        {
+          "name": "preprocessing.detrend",
+          "status": "done",
+          "summary": "7,200 samples \u00b7 -0.013 \u2026 0.009 mV",
+          "elapsed_s": 0.0015567000009468757
+        },
+        {
+          "name": "detection.sax_dsax",
+          "status": "done",
+          "summary": "360 symbols \u00b7 alphabet 3 \u00b7 20 s per symbol",
+          "elapsed_s": 0.10876760000246577
+        }
+      ],
+      "error": null,
+      "rows_painted": [
+        true,
+        true,
+        true
+      ],
+      "screenshot": "webui/screenshots/wiring/01\\dsax_encoding.png"
+    },
+    {
+      "template": "symbol_search",
+      "job_id": 6,
+      "status": "completed",
+      "elapsed_s": 1.0,
+      "db_run_id": 47,
+      "detections_written": 0,
+      "steps": [
+        {
+          "name": "preprocessing.detrend",
+          "status": "done",
+          "summary": "7,200 samples \u00b7 -0.013 \u2026 0.009 mV",
+          "elapsed_s": 0.0011646999992080964
+        },
+        {
+          "name": "detection.sax_dsax",
+          "status": "done",
+          "summary": "360 symbols \u00b7 alphabet 3 \u00b7 20 s per symbol",
+          "elapsed_s": 0.018198899997514673
+        },
+        {
+          "name": "detection.symbol_search",
+          "status": "done",
+          "summary": "0 spans \u00b7 nothing above threshold",
+          "elapsed_s": 0.0009043999962159432
+        }
+      ],
+      "error": null,
+      "rows_painted": [
+        true,
+        true,
+        true,
+        true
+      ],
+      "screenshot": "webui/screenshots/wiring/01\\symbol_search.png"
+    },
+    {
+      "template": "windows_model",
+      "job_id": 7,
+      "status": "completed",
+      "elapsed_s": 5.2,
+      "db_run_id": 48,
+      "detections_written": 0,
+      "steps": [
+        {
+          "name": "preprocessing.window_matrix",
+          "status": "done",
+          "summary": "24 windows \u00b7 300 s each \u00b7 26 features",
+          "elapsed_s": 4.065836499998113
+        },
+        {
+          "name": "catalogue.cluster",
+          "status": "done",
+          "summary": "2 clusters \u00b7 sizes 5, 19",
+          "elapsed_s": 0.2289325000019744
+        },
+        {
+          "name": "catalogue.classifier",
+          "status": "done",
+          "summary": "holdout accuracy 1.00 \u00b7 2 classes \u00b7 24 windows",
+          "elapsed_s": 0.15843860000313725
+        }
+      ],
+      "error": null,
+      "rows_painted": [
+        true,
+        true,
+        true,
+        true
+      ],
+      "screenshot": "webui/screenshots/wiring/01\\windows_model.png"
+    },
+    {
+      "template": "gramian_gasf",
+      "job_id": 9,
+      "status": "completed",
+      "elapsed_s": 1.1,
+      "db_run_id": 50,
+      "detections_written": 0,
+      "steps": [
+        {
+          "name": "preprocessing.detrend",
+          "status": "done",
+          "summary": "3,600 samples \u00b7 -0.013 \u2026 0.006 mV",
+          "elapsed_s": 0.0012875000029453076
+        },
+        {
+          "name": "catalogue.gramian_gasf",
+          "status": "done",
+          "summary": "3600\u00d73600 image \u00b7 shown at 240\u00d7240",
+          "elapsed_s": 0.24321499999496154
+        }
+      ],
+      "error": null,
+      "rows_painted": [
+        true,
+        true,
+        true
+      ],
+      "screenshot": "webui/screenshots/wiring/01\\gramian_gasf.png"
+    },
+    {
+      "template": "cnn_detection",
+      "job_id": 10,
+      "status": "completed",
+      "elapsed_s": 11.3,
+      "db_run_id": 51,
+      "detections_written": 1,
+      "steps": [
+        {
+          "name": "preprocessing.sliding_windows",
+          "status": "done",
+          "summary": "12 windows \u00b7 600 s each \u00b7 1 features",
+          "elapsed_s": 0.0009353999994345941
+        },
+        {
+          "name": "catalogue.window_images",
+          "status": "done",
+          "summary": "image (12, 224, 224, 3)",
+          "elapsed_s": 0.031766599997354206
+        },
+        {
+          "name": "catalogue.cnn_score",
+          "status": "done",
+          "summary": "7,200 values \u00b7 one per 1 s",
+          "elapsed_s": 11.022291300003417
+        },
+        {
+          "name": "detection.threshold",
+          "status": "done",
+          "summary": "1 span \u00b7 mean 7200.0 s",
+          "elapsed_s": 0.001243600003363099
+        }
+      ],
+      "error": null,
+      "rows_painted": [
+        true,
+        true,
+        true,
+        true,
+        true
+      ],
+      "screenshot": "webui/screenshots/wiring/01\\cnn_detection.png"
+    }
+  ],
+  "console_errors": []
+}

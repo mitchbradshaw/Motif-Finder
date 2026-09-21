@@ -4,7 +4,7 @@
  * bridge sends says `source: "seed"`; the Library import (Prompt 03) will replace the source with motif tables
  * without changing these shapes. The block specs (rules, feature lists, params) stay the fixture constants the
  * pages were built on: they describe the block, not the data. */
-import { getFamilies, getFamilyMembers, getFamilySlope, type SeedFamily, type SeedMember, type SlopeMember } from '../api'
+import { getFamilies, getFamilyMembers, getFamilySlope, listRuns, type DbRun, type SeedFamily, type SeedMember, type SlopeMember } from '../api'
 import { live, type Sourced } from './seam'
 import {
   AGGREGATE_PARAMS, CHAIN_SLOPE, CHAIN_SPIKE, CLUSTERING, ESTIMATE, FAMILIES, HELD_OUT_FAMILY, MEMBERS_BY_FAMILY, RULES, SOURCE_SETTINGS,
@@ -84,11 +84,19 @@ export interface SourceChoices {
   exploreSpans: typeof import('../fixtures/interrogation').EXPLORE_SPANS
   clustering: typeof CLUSTERING
 }
-/** The four source kinds the picker offers (§6.2). Families are live (seed); prior runs, Review selections and
- *  Explore spans have no live source until Prompts 04–05 and are offered empty. */
+function priorRun(r: DbRun): SourceChoices['runs'][number] {
+  const last = r.steps[r.steps.length - 1] ?? ''
+  const terminal = r.n_detections > 0 || /threshold|detection|matches|motifs|search|spikes|rupture/.test(last) ? 'SpanSet' as const : 'Features' as const
+  return { id: String(r.id), label: r.name ?? r.steps.map(s => s.split('.')[1]).join(' → ') ?? `run ${r.id}`, template: last.split('.')[1] ?? last,
+           terminal, spans: r.n_detections, when: r.finished_at ?? r.started_at,
+           disabledReason: r.status !== 'completed' ? `run ${r.status}` : r.n_detections === 0 ? 'no spans' : undefined }
+}
+
+/** The four source kinds the picker offers (§6.2). Families (seed) and prior runs (the runs table) are live;
+ *  Review selections and Explore spans have no live source until Prompt 05 and are offered empty. */
 export const getSourceChoices = () =>
-  live<SourceChoices>(getFamilies().then(f => ({
-    families: f.families.map(familyFrom), heldOut: HELD_OUT_FAMILY, runs: [], reviewSelections: [], exploreSpans: [], clustering: CLUSTERING,
+  live<SourceChoices>(Promise.all([getFamilies(), listRuns(undefined, 60)]).then(([f, runs]) => ({
+    families: f.families.map(familyFrom), heldOut: HELD_OUT_FAMILY, runs: runs.db_runs.map(priorRun), reviewSelections: [], exploreSpans: [], clustering: CLUSTERING,
   })))
 
 export interface SlopeBlock {

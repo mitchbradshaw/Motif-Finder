@@ -6,11 +6,11 @@ store a per-window confidence score for the "interesting" class.
 
 Pipeline
 --------
-  1. Load .mat file  →  raw signal at fs_raw Hz
-  2. Downsample      →  target fs (default 1 Hz)
+  1. Load .mat file  ->  raw signal at fs_raw Hz
+  2. Downsample      ->  target fs (default 1 Hz)
   3. Sliding windows (configurable length + step)
-  4. compute_fusion  →  RGB gramian image
-  5. CNN inference   →  softmax probabilities
+  4. compute_fusion  ->  RGB gramian image
+  5. CNN inference   ->  softmax probabilities
   6. Save scores dict  {window_start_sample: interesting_confidence}
 
 Usage
@@ -126,7 +126,7 @@ def downsample(x: np.ndarray, fs_raw: float, fs_target: float) -> np.ndarray:
     if ds == 1:
         return x
     x_ds = x[::ds]
-    print(f"  Downsampled {len(x):,} → {len(x_ds):,} samples  (÷{ds})")
+    print(f"  Downsampled {len(x):,} -> {len(x_ds):,} samples  (÷{ds})")
     return x_ds
 
 
@@ -149,7 +149,7 @@ def generate_windows(
 
 
 # ══════════════════════════════════════════════════════════════════════════════
-# Step 4 – Window → tensor
+# Step 4 – Window -> tensor
 # ══════════════════════════════════════════════════════════════════════════════
 
 def _window_to_pil(window: np.ndarray, image_type: str) -> Image.Image:
@@ -187,7 +187,7 @@ def window_to_tensor(
     image_type: str = "fusion",
 ) -> torch.Tensor:
     """
-    Slice window → compute image (image_type) → PIL Image → transform → tensor (1, C, H, W).
+    Slice window -> compute image (image_type) -> PIL Image -> transform -> tensor (1, C, H, W).
     """
     window  = x[start: start + window_samples]
     pil_img = _window_to_pil(window, image_type)
@@ -211,7 +211,7 @@ def load_model(
     if weight_key not in ckpt:
         raise KeyError(f"Expected key '{weight_key}' in checkpoint")
     num_classes = ckpt[weight_key].shape[0]
-    print(f"  Model: {num_classes} classes  ←  {model_path}")
+    print(f"  Model: {num_classes} classes  <-  {model_path}")
 
     model = EEG_CNN(num_classes=num_classes)
     model.load_state_dict(ckpt)
@@ -287,7 +287,7 @@ def save_scores(
     out_path = os.path.join(out_dir, filename)
     with open(out_path, "wb") as f:
         pickle.dump(scores, f)
-    print(f"  Saved {len(scores):,} scores → {out_path}")
+    print(f"  Saved {len(scores):,} scores -> {out_path}")
     return out_path
 
 
@@ -326,7 +326,7 @@ def add_cnn_scores(
     batch_size : int
         Number of windows to process per GPU/CPU batch (default 32).
     device : torch.device, optional
-        Inference device.  Auto-detected (CUDA → CPU) if not supplied.
+        Inference device.  Auto-detected (CUDA -> CPU) if not supplied.
     overwrite : bool
         If False (default), skip silently if columns already exist.
 
@@ -396,7 +396,7 @@ def _load_fusion_prediction_model(model_path: str, device: torch.device) -> Fusi
     if weight_key not in ckpt:
         raise KeyError(f"Expected key '{weight_key}' in checkpoint '{model_path}'")
     num_classes = ckpt[weight_key].shape[0]
-    print(f"  FusionPredictionCNN: {num_classes} classes  ←  {model_path}")
+    print(f"  FusionPredictionCNN: {num_classes} classes  <-  {model_path}")
     model = FusionPredictionCNN(num_classes=num_classes)
     model.load_state_dict(ckpt)
     model.to(device)
@@ -466,7 +466,7 @@ def add_fusion_prediction_v1_scores(
     batch_size : int
         Windows per GPU/CPU batch (default 32).
     device : torch.device, optional
-        Inference device.  Auto-detected (CUDA → CPU) if not supplied.
+        Inference device.  Auto-detected (CUDA -> CPU) if not supplied.
     overwrite : bool
         If False (default), skip and warn if columns already exist.
 
@@ -476,7 +476,7 @@ def add_fusion_prediction_v1_scores(
     """
     # ── V1 class intervals (sorted alphabetically = ImageFolder class order) ──
     # Each entry is (lo, hi) for the interval [lo, hi].
-    # Class index → folder name → interval:
+    # Class index -> folder name -> interval:
     #   0  neg_1e3_to_neg_5e4   [-1e-3,  -5e-4]
     #   1  neg_1e4_to_neg_5e5   [-1e-4,  -5e-5]
     #   2  neg_1e5_to_neg_5e6   [-1e-5,  -5e-6]
@@ -551,7 +551,7 @@ def add_fusion_prediction_v1_scores(
             class_indices = logits.argmax(dim=1).cpu().numpy()      # (B,)
 
             for s, cls_idx in zip(batch_starts, class_indices):
-                # True diff: last sample in window → immediate next sample
+                # True diff: last sample in window -> immediate next sample
                 end = s + window_samples
                 actual_diff = float(x[end] - x[end - 1]) if end < len(x) else 0.0
 

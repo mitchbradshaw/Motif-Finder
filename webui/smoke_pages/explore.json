@@ -204,7 +204,7 @@
   "actions": [],
   "expect": [
    "[data-testid=\"detection-runs-popover\"]",
-   "[data-testid=\"picker-row-#128\"]"
+   "[data-testid^=\"picker-row-#\"]"
   ]
  },
  {
@@ -221,7 +221,7 @@
    }
   ],
   "expect": [
-   "[data-testid=\"picker-row-matrix profile\"]"
+   "[data-testid^=\"picker-row-\"]"
   ]
  },
  {
