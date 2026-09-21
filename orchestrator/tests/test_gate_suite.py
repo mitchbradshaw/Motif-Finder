@@ -264,7 +264,7 @@ def test_a_suite_that_never_ran_is_never_a_pass_however_it_matches_baseline(suit
 
 
 def test_the_suite_command_is_never_run_in_parallel():
-    """tests/_session_isolation.py documents exactly why `-n` breaks this suite."""
+    """orchestrator/README.md ("suite.command") records why the gate never runs under `-n`."""
     from orchestrator.config import load_config
     from pathlib import Path
 

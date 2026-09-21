@@ -210,8 +210,10 @@ under it.
 
 Two settings are load-bearing and should not be changed casually:
 
-- `suite.command` must never include `-n`. `tests/_session_isolation.py` documents exactly why
-  parallel collection breaks this suite.
+- `suite.command` must never include `-n`. The gate compares failure *sets* against a serial
+  baseline, and xdist workers re-import the whole core per process; the Panel-era
+  `tests/_session_isolation.py` (deleted 2026-09-21, tag `archive/panel-ui`) first documented how
+  parallel collection broke the old UI's shared session file.
 - `review.blocking_severities` is what makes the merge gate asymmetric. A style finding that blocks a
   merge overnight also blocks every dependent ticket, and that cost is measured in milestones.
 

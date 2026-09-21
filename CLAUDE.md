@@ -29,29 +29,30 @@ describes the chain builder as a vertical staged list, which is exactly what Par
 | `Working/database/` | Plain-SQL layer. `schema.py` holds the whole schema and its migrations |
 | `Adapters/` | The analysis block registry. `base.py` is the adapter contract |
 | `webui/` | **The web UI** (ADR `docs/adr/0001-web-ui-stack.md`): `client/` React + TypeScript + Vite, `server/` FastAPI bridge over the untouched core, `run_server.py`, `start.ps1`/`start.sh`, `smoke.py`. See "Web UI" below |
-| `UI/` | **Legacy** Panel/HoloViews app. Frozen, kept importable and green, not developed. Nothing in `webui/` may import it |
-| `ui-prototypes/` | Frozen evidence archive of the stack prototypes (`REPORT.md` is the decision evidence). Not maintained; B no longer runs |
-| `tests/` | pytest, headless. The default gate; `pytest.ini` excludes `-m ui` from it |
-| `tests/ui/` | **Legacy** browser-driven Panel tests (`pytest -m ui`). See `docs/UI_VERIFICATION.md` |
-| `scripts/` | Dev tooling, not imported by the app. `dev_serve.py` serves the **legacy** Panel UI off a throwaway database |
-| `docs/` | PRD, coding standards, ticket backlog, `UI_VERIFICATION.md` |
+| `Working/review/` | Headless Review-workspace state (`queue_state.py`), moved out of the retired Panel tree |
+| `ui-prototypes/` | Frozen evidence of the stack prototypes: `REPORT.md` (decision evidence) and `DECISIONS.md` (build log). The prototype code trees live only at tag `archive/panel-ui` |
+| `tests/` | pytest, headless. The default gate |
+| `scripts/` | Dev tooling, not imported by the app |
+| `docs/` | PRD, coding standards, ticket backlog, `WIRING_PLAN.md`, ADRs, agent prompts |
 | `DATA/`, `MODELS/`, `MATRICES/`, `Plots/` | Gitignored. Provisioned into your worktree, not committed |
 | `DATA/library_seed/` | The **exception**: tracked on purpose. Irreplaceable inputs to the library importer — its generator was deleted. See its `PROVENANCE.md` |
 
 ## The rules that are not negotiable
 
-1. **UI libraries stay in the UI trees.** Panel, HoloViews, Bokeh and matplotlib may be imported only
-   under the legacy `UI/`; React, d3 and every other browser library live only in `webui/client/`;
-   FastAPI/uvicorn only in `webui/server/` and `webui/run_server.py` (which import none of the Panel
-   family either). `Working/`, `Adapters/` and `Pipelines/` import none of them and must never know a
-   browser exists. This is what makes cluster execution, headless tests and the reproducibility claim
-   possible. The Panel-family rule is enforced by a test.
-2. **The suite must pass with no regressions.** `pytest` from your worktree root: 1337 tests as of
-   2026-09-21, of which 39 fail before you touch anything (the `LibraryGrid(conn)` contract mismatch
-   and Windows `WinError 32` teardown locks — the list is `webui/PYTEST_GATE_FINAL.txt`; compare
-   failure *sets*, not counts). About six minutes serial (`pytest -n auto` — needs `pytest-xdist`,
-   see Environment — cuts this to about three; most of the wall-clock is Panel/HoloViews/numpy/aeon
-   import cost paid per worker, so the speedup is real but not linear in core count). Do not chase a fixed number —
+1. **The core imports no UI library, and nothing in the repo imports the Panel family.** The Panel/
+   HoloViews/Bokeh tree was retired on 2026-09-21 (tag `archive/panel-ui`); no file anywhere may import
+   `panel`, `holoviews` or `bokeh`, or the old `UI` package. React, d3 and every other browser library
+   live only in `webui/client/`; FastAPI/uvicorn only in `webui/server/` and `webui/run_server.py`.
+   `Working/`, `Adapters/` and `Pipelines/` import none of them and must never know a browser exists
+   (matplotlib for figure export is the one drawing library the core keeps). This is what makes cluster
+   execution, headless tests and the reproducibility claim possible. Enforced by
+   `tests/test_import_boundaries.py`.
+2. **The suite must pass with no regressions.** `pytest` from your worktree root: PYTEST_COUNT tests as
+   of 2026-09-21 (after the Panel tree was retired), **zero** of which fail before you touch anything —
+   the baseline is `webui/PYTEST_GATE_FINAL.txt`; compare failure *sets*, not counts. About PYTEST_SERIAL
+   serial (`pytest -n auto` — needs `pytest-xdist`, see Environment — cuts this to about PYTEST_PARALLEL;
+   most of the wall-clock is numpy/aeon/stumpy import cost paid per worker, so the speedup is real but
+   not linear in core count). Do not chase a fixed number —
    every merged ticket adds tests, so the gate is "nothing that passed before now fails", not "N
    tests pass". If your change breaks one, either your change is wrong or the test encodes a
    behaviour your ticket is deliberately changing — and if it is the latter, say so explicitly in
@@ -94,10 +95,10 @@ Windows, PowerShell, conda. The environment is shared across worktrees — **do 
 change dependencies.** A ticket that genuinely needs a new dependency should stop and report it.
 `pytest-xdist` (`pytest -n auto`) was added 2026-08-31 with the user's explicit sign-off for this
 reason — it is now available, not an example to follow silently for the next dependency.
-`pytest-playwright` plus a chromium binary (`python -m playwright install chromium`) was added the
-same day, on the same sign-off, for the browser suite in `tests/ui/`. Both are dev tooling: nothing
-under `UI/`, `Working/`, `Adapters/` or `Pipelines/` may import either, and the headless suite must
-keep passing on a machine where neither is present.
+`playwright` plus a chromium binary (`python -m playwright install chromium`) was added the same day,
+on the same sign-off, originally for the Panel browser suite; `webui/smoke.py` is what uses it now. Both
+are dev tooling: nothing under `Working/`, `Adapters/` or `Pipelines/` may import either, and the
+headless suite must keep passing on a machine where neither is present.
 
 The web UI adds a second toolchain, signed off with the stack choice on 2026-09-15 (ADR 0001): Node + npm
 for `webui/client` (project-local `node_modules`, never `npm -g`) and a project-local `webui/.venv` for
@@ -132,32 +133,13 @@ adapter at a junction to the real `DATA/`.**
 Loud failure is structural here: a render error is a red card plus a console error; a server error is a
 500 with the traceback. Keep it that way — never catch an error into a blank.
 
-## Panel surfaces (legacy `UI/` only)
+## The Panel tree is gone
 
-`UI/` is frozen and no longer developed; this section applies only if a ticket must touch it.
-If your ticket renders a Panel surface, know the failure mode this codebase has hit twice: a broken
-dynamic map renders as a **silently blank pane**, not an error. Tests pass, review passes, the feature
-is missing. Your acceptance criteria therefore include a headless construction test asserting the
-surface returns the expected panes with non-`None` objects. Follow the pattern already in
-`tests/test_run_panel.py`, `tests/test_motif_browser.py` and `tests/test_ribbon_panes.py`.
-
-**That is necessary and not sufficient, and since 2026-08-31 it is no longer the whole gate.** A
-construction test catches an *absent* pane. It cannot catch a *present* pane that throws in the
-browser — which is what actually happened both times — and it cannot see layout, overlap, or whether
-the surface is usable. `tests/ui/` drives a real browser against a real Panel server and fails on any
-JS error; `pytest -m ui` runs it. **`pytest` alone does NOT run it** (`pytest.ini` excludes the `ui`
-marker so the fast loop stays fast), so a green `pytest` is not evidence your surface renders.
-
-A ticket that touches `UI/` is done when: the headless suite passes, `pytest -m ui` passes, and your
-report names the screenshots in `runs/ui-screenshots/` a reviewer should look at. **Read
-`docs/UI_VERIFICATION.md` before you start** — it covers the setup, `scripts/dev_serve.py` (a browser
-you can point at the app, backed by a throwaway copy of the database), the two browser MCP servers in
-`.mcp.json`, and three non-obvious findings about what selectors actually work against Panel 1.9
-(Bokeh renders into shadow DOM; Panel checkboxes have no accessible label; how to assert a pane
-actually painted).
-
-If `pytest -m ui` reports "no tests ran", the browser tooling is not installed on this machine — that
-is a missing setup step, not a pass. Stop and report it.
+The legacy Panel/HoloViews app (`UI/`), its browser suite (`tests/ui/`), `scripts/dev_serve.py` and
+`docs/UI_VERIFICATION.md` were removed on 2026-09-21 and are reachable only at tag `archive/panel-ui`.
+Two findings from that era still apply to `webui/` and are why `webui/smoke.py` is a gate: a surface
+that *constructs* has not necessarily *painted*, and a pane that is present can still throw in the
+browser. Do not resurrect Panel code; port the behaviour to the web UI.
 
 ## When to stop
 

@@ -56,7 +56,7 @@ Rows from `prototyping/UI_FUNCTIONAL_SPEC.md` §12 (decisions that depart from t
 
 ### C8 — Signal reduction: where it lives, and never a chain step
 - **Question** — Does bucketed min/max decimation move into `Working/` as a public "read this channel span at N points" function, explicitly a display read that can never enter a recipe hash, and who owns the point budget?
-- **Why it matters** — It now exists twice: the verbatim `_minmax_decimate` in `UI/plots.py` (pinned by `tests/test_plots_perf.py`, which dies with the old tree) and a faster reshape/argmin copy with a NaN-aware fallback in `webui/server/decimate.py`. Open sub-questions: `MAX_RENDER_POINTS = 40000` versus the bridge's ≈2× plot width, and which other pure-numpy helpers are marooned in `UI/plots.py`.
+- **Why it matters** — It now exists twice: the verbatim `_minmax_decimate` in the Panel tree's `UI/plots.py` (tag `archive/panel-ui`; its pin moved to `tests/test_webui_decimate.py` against the bridge copy) and a faster reshape/argmin copy with a NaN-aware fallback in `webui/server/decimate.py`. Open sub-questions: `MAX_RENDER_POINTS = 40000` versus the bridge's ≈2× plot width, and which other pure-numpy helpers are marooned in `UI/plots.py`.
 - **Source** — [Decide where signal reduction lives, and whether it is a chain step][signal-reduction] (whole body); `ui-prototypes/DECISIONS.md` §4 "Decimation fast path"; `ui-prototypes/REPORT.md` §3 A zoom table note; `docs/adr/0001-web-ui-stack.md` "Inherited".
 - **Status** — `ticketable now`
 
@@ -1037,49 +1037,49 @@ Fog recorded by the builders of the ten workspace units in `webui/pages/fog/<uni
 
 ## Legacy tree
 
-`UI/`, its tests and `tests/ui/` stay intact but ignored; nothing in `webui/` imports `UI/`. These items are the consequences of keeping it.
+`UI/`, its tests and `tests/ui/` were removed on 2026-09-21 (tag `archive/panel-ui`; report `docs/prompts/wiring/reports/00-cleanup.md`). These items were the consequences of keeping it; every one is now decided.
 
 ### L1 — The `LibraryGrid(conn)` versus `LibraryGrid(app)` contract mismatch
 - **Question** — Is the test (`tests/test_ui_responsiveness.py::_empty_grid` calls `LibraryGrid(conn)`) or the code (`UI/workspaces/library/grid.py:74-76` expects an app exposing `.conn`) right, and is it fixed inside a frozen tree?
 - **Why it matters** — It explains most of the 41 failures pre-existing on `main` @ 208e72c (library-grid, library-detail, motif-browser and responsiveness tests); "nothing that passed before now fails" is a weak gate with 41 reds, and no session may weaken a Panel test to pass.
 - **Source** — `ui-prototypes/REPORT.md` §4 "The pytest gate"; `ui-prototypes/DECISIONS.md` §10; [Map: rebuild the Pipeline GUI interface on a stack chosen by evidence][map] "Standing preferences".
-- **Status** — `ticketable now`
+- **Status** — `decided` — moot: the test and the code were both deleted with the Panel tree on 2026-09-21; the suite baseline is now zero failures.
 
 ### L2 — Windows file locks at test teardown
 - **Question** — Should tests that memory-map temp `.npy` files or hold `.sqlite` handles release them before teardown (`PermissionError [WinError 32]` in `test_library_grid` and `test_materialize_arbitrary_file`, reproduced serially)?
 - **Why it matters** — The remainder of the 41 failures; they are test-hygiene bugs on the only platform this project runs on, not xdist artefacts, and they hide real regressions.
 - **Source** — `ui-prototypes/REPORT.md` §4 "The pytest gate"; `ui-prototypes/DECISIONS.md` §10.
-- **Status** — `ticketable now`
+- **Status** — `decided` — every `WinError 32` failure lived in a deleted Panel test file (`test_library_grid`, `test_plots_perf`); none remain in the suite after 2026-09-21.
 
 ### L3 — Retirement trigger and the archival branch
 - **Question** — The settled trigger ("the slice confirms the stack") has arguably fired, yet `UI/` stays because deletion is not trivial: what is the concrete trigger now, when is `archive/panel-ui` created (it does not exist yet), what is kept on `main`, and does `tests/ui/` move or die?
 - **Why it matters** — Until this is sharp the old tree sits on `main` unmaintained but still inside the pytest gate, so every core change can break a tree nobody works on.
 - **Source** — [Map: rebuild the Pipeline GUI interface on a stack chosen by evidence][map] "Constraints settled while charting" and "Not yet specified" (retirement mechanics); [Decide where the new tree lives and how both trees are served][tree-location] "The retirement mechanics".
-- **Status** — `ticketable now`
+- **Status** — `decided` — the trigger was Prompt 00 of stage 3; tag `archive/panel-ui` was created at `ded0381` on 2026-09-21 and `UI/`, `tests/ui/` and `scripts/dev_serve.py` were deleted from `main`; nothing of `tests/ui/` moved.
 
 ### L4 — Tests that mix core assertions with UI imports
 - **Question** — How are the `UI`-importing test files split so their core assertions survive deletion of `UI/` — notably `test_heldout_lock`, `test_manifest`, `test_export`, `test_import_drop_motifs`, `test_compare` and `test_run_groups` — and which purely UI tests die with it?
 - **Why it matters** — A grep on 2026-09-16 finds 37 `tests/test_*.py` files plus `tests/ui/harness.py` and `tests/_session_isolation.py` importing `UI`; deleting without splitting drops core coverage of the held-out lock, manifests, export and imports, and `tests/test_plots_perf.py`'s decimator pin (C8).
 - **Source** — grep of `tests/` for `from UI` / `import UI`; `docs/adr/0001-web-ui-stack.md` "Consequences" (last bullet).
-- **Status** — `ticketable now`
+- **Status** — `decided` — the eight mixed files were cut function-by-function keeping every core assertion; `queue_state.py` moved to `Working/review/`, the decimator pin to `tests/test_webui_decimate.py`, the dSAX core assertions to `tests/test_dsax_diagnostics.py`; 28 pure-UI test files were deleted.
 
 ### L5 — The UI snapshot inside `Working/`
 - **Question** — Is `Working/Detection/sax/dsax_python/UI_snapshot_20260810-0512/` archived with the old tree, moved out of `Working/`, or deleted?
 - **Why it matters** — Its `app.py:48-52` and `run_panel.py:38` import `UI.*` from inside the UI-free core's directory, so it breaks the moment `UI/` goes and contradicts rule 1 in spirit.
 - **Source** — `Working/Detection/sax/dsax_python/UI_snapshot_20260810-0512/app.py`, `run_panel.py`; `CLAUDE.md` rule 1.
-- **Status** — `ticketable now`
+- **Status** — `decided` — deleted on 2026-09-21 (reachable at tag `archive/panel-ui`); `tests/test_import_boundaries.py` now walks all of `Working/` with no archive exemption.
 
 ### L6 — Panel-era tooling and agent instructions
 - **Question** — Which of `scripts/dev_serve.py`, `docs/UI_VERIFICATION.md`, `tests/ui/` and `CLAUDE.md`'s Layout table and "Panel surfaces" section are rewritten for `webui/`, archived or kept, and which general findings (construction is not painting; layered canvases fool naive paint checks) carry forward?
 - **Why it matters** — `CLAUDE.md` is loaded by every agent and still defines "done" for a UI ticket as `pytest -m ui` plus Panel screenshots, which now points agents at the ignored tree.
 - **Source** — [Define the new tree's test gates][test-gates] (reusability of `tests/ui/`); `ui-prototypes/REPORT.md` §8.2 "fit with the existing repo", §3 B (layered canvases); `CLAUDE.md` "Layout" and "Panel surfaces".
-- **Status** — `ticketable now`
+- **Status** — `decided` — all three deleted, none rewritten; `CLAUDE.md`'s Layout table and "Panel surfaces" section were replaced, and the two general findings (construction is not painting; a present pane can still throw) are carried forward in `CLAUDE.md` as the reason `webui/smoke.py` is a gate.
 
 ### L7 — Prototype B no longer runs
 - **Question** — Is the runner-up kept runnable (for example, pinning its own copy of the service modules it imported by path from `ui-prototypes/A-react-fastapi/server/`), or accepted as frozen evidence only?
 - **Why it matters** — The ADR names B as "the real alternative to start from" if the choice is refuted; since A was promoted to `webui/` and `ui-prototypes/` frozen (commit f0c8f13), a refutation would start from a fallback that does not start.
 - **Source** — `ui-prototypes/DECISIONS.md` §5 (B imports A's service modules by path); `docs/adr/0001-web-ui-stack.md` "Considered Options" B.
-- **Status** — `ticketable now`
+- **Status** — `decided` — frozen evidence only: `ui-prototypes/A-react-fastapi/` and `B-panel/` were deleted on 2026-09-21 and exist at tag `archive/panel-ui`; a refutation of the stack choice would start from that tag, not from `main`.
 
 ## Out of scope (not fog)
 

@@ -14,12 +14,15 @@ a failing test is a better gate than a comment.
 
 ## 1. Architectural boundaries
 
-**1.1 — `blocker` [test].** No module outside `UI/` may import `panel`, `holoviews`, `bokeh` or
-`matplotlib`, at module scope or inside a function. This is the load-bearing rule of the codebase: it
-is what allows the core to run on the cluster, under pytest, and without a display.
+**1.1 — `blocker` [test].** No module anywhere imports `panel`, `holoviews` or `bokeh`, at module
+scope or inside a function (the Panel tree was retired 2026-09-21, tag `archive/panel-ui`). No module
+outside `webui/` imports `fastapi`, `uvicorn` or `starlette`; no Python module imports a browser
+library. `matplotlib` is permitted in the core for figure export only. This is the load-bearing rule of
+the codebase: it is what allows the core to run on the cluster, under pytest, and without a display.
+Enforced by `tests/test_import_boundaries.py`.
 
-**1.2 — `blocker`.** `UI/` modules may call into `Working/` and `Adapters/`. Nothing in `Working/` or
-`Adapters/` may import from `UI/`. Dependencies point one way.
+**1.2 — `blocker`.** `webui/server/` may call into `Working/` and `Adapters/`. Nothing in `Working/`,
+`Adapters/` or `Pipelines/` may import from `webui/`. Dependencies point one way.
 
 **1.3 — `major`.** A module gains behaviour, not breadth. A new capability that fits an existing
 module's purpose goes in that module; a new capability that does not gets a new module. "Utils" is not
@@ -76,16 +79,18 @@ reproduces, that a cache resumes, that a lagged pair classifies as an artifact. 
 particular function was called is not a test, it is a transcription of the implementation.
 
 **4.3 — `blocker`.** Tests do not depend on execution order and do not share mutable global state.
-`tests/_session_isolation.py` exists because this rule was broken once and cost two test files. Any
-test constructing a `ViewerApp` uses `scratch_session_file()`.
+`tests/_calibration_isolation.py` exists because this rule was broken once and cost two test files
+(the Panel-era `tests/_session_isolation.py` was the same fix for the old UI's session file). Any test
+that triggers cost calibration uses `scratch_calibration()`.
 
 **4.4 — `blocker`.** Prefer the three existing seams over inventing a fourth: the headless recipe
 executor, the recipe hashing layer, and `init_db()`. New coverage extends the existing test files for
 those seams rather than starting a parallel suite.
 
-**4.5 — `blocker` [test].** A ticket rendering a Panel surface includes a headless construction test
-asserting the surface returns its expected panes with non-`None` objects. A blank pane must fail a
-test, not a review.
+**4.5 — `blocker` [test].** A ticket that adds or changes a web UI page is done only when
+`webui/smoke.py` passes against a running bridge: it fails on any browser console or page error, any
+pane that did not paint, and any server traceback. A blank or throwing pane must fail a gate, not a
+review. A render error stays a red card plus a console error; never catch an error into a blank.
 
 **4.6 — `major`.** Determinism: anything stochastic takes an explicit seed, and the seed enters the
 recipe hash.

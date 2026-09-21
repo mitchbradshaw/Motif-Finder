@@ -74,7 +74,7 @@ def parse_failures(output: str) -> tuple[str, ...]:
 
 def run_suite(cwd: Path | str, command, *, timeout_minutes: float,
               node_ids=None) -> SuiteResult:
-    """Run the suite in `cwd`. Never under `-n` — see `tests/_session_isolation.py`."""
+    """Run the suite in `cwd`. Never under `-n` — see orchestrator/README.md ("suite.command")."""
     import time
 
     argv = list(command) + (list(node_ids) if node_ids else [])

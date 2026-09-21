@@ -2,6 +2,9 @@
 status: accepted
 ---
 
+Status note: the Panel tree (`UI/`, `tests/ui/`, `scripts/dev_serve.py`) and the prototype code trees under
+`ui-prototypes/` were removed on 2026-09-21 and are reachable at tag `archive/panel-ui`.
+
 # The rebuilt interface is React + TypeScript over a FastAPI bridge, with plots drawn in SVG on d3 scales
 
 The rebuilt Pipeline GUI is a **React 19 + TypeScript** single-page app built with **Vite**, talking over
@@ -50,8 +53,9 @@ is exportable, matplotlib parity is untested.
 **No code or component is inherited** from an existing open-source project. Ideas are: the step cache keyed
 by recipe prefix hash (the core's own, DVC-like), per-type widget dispatch (the old `render_value` contract,
 NWB-widgets-like), zoom-triggered re-aggregation (`plotly-resampler`'s idea, implemented as the bridge's
-viewport envelope endpoint), and the bucketed min/max decimation from `UI/plots.py`, re-implemented in the
-bridge with identical per-bucket semantics.
+viewport envelope endpoint), and the bucketed min/max decimation from the Panel tree's `UI/plots.py` (now only at tag
+`archive/panel-ui`), re-implemented in the bridge with identical per-bucket semantics and pinned by
+`tests/test_webui_decimate.py`.
 
 ## Consequences
 
@@ -64,4 +68,4 @@ bridge with identical per-bucket semantics.
   guard on every route). It must keep redirecting every writable path into a throwaway runtime.
 - **New gates:** `webui/smoke.py` (Playwright, fails on console errors, unpainted panes and server
   tracebacks), a TypeScript type-check and a production build. The old Panel tree `UI/` and its pytest gates
-  remain until retired.
+  were retired on 2026-09-21 (tag `archive/panel-ui`).
