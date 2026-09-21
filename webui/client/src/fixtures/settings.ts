@@ -761,7 +761,7 @@ function metaConsequence(id: string, from: unknown, to: unknown): string | null 
   const m = id.match(/^meta\.(.+)\.([a-z_]+)$/)
   if (!m) return null
   const [, rec, field] = m
-  const was = from == null || from === '' ? '—' : String(from)
+  const was = from == null || from === '' ? 'not set' : String(from)
   switch (field) {
     case 'noise_floor': return to === '' || to == null ? `noise floor on ${rec} cleared · new detectors estimate it; earlier runs keep theirs`
       : `noise floor ${was} → ${String(to)} mV on ${rec} · every new detector reads it; earlier runs keep theirs`

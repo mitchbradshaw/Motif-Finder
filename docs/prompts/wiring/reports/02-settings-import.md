@@ -135,7 +135,25 @@ and every lock change.
   changed: 8 pre-existing `encodings` rows whose files were lost on 2026-09-21 (listed with `exists: false`);
   channel names for M2/M4 come from `corpus.M2_STYLE_NAMES`, not the database.
 
-**Round 2** — see below.
+**Round 2** (after the fixes above; one function-critic attempt was cut off by the session limit and relaunched).
+
+- *Doc critic* — **8/10** (from 4). Every round-1 P0/P1 verified resolved in code, not prose. Remaining P1s
+  fixed (`5f105e6`): a stale "one window matrix" sentence; the add-a-kind step now names both files a scan
+  button needs (the server root row and the client `KIND_OF` entry); the Storage scan modal has an "overrides
+  (JSON)" box so `recording_id` etc. are reachable without curl. P2s folded in (three arrays per event, the
+  window-matrix required keys, non-run manifests, job dirs without a recipe).
+- *Function critic* — **all seven round-1 P1s verified resolved**, zero console/page errors in three browser
+  contexts; the server's 409 on a wrong unlock name confirmed. New P2s: the unregister audit line named the
+  table and row id (now names the file); an unset from-value read "—" (now "not set"); a fixed sleep in a
+  driver can miss the Models table (a `wait_for_selector` note for `smoke.py`, not user-facing).
+- *Data-truth critic* — every round-1 item resolved; all 38 registered rows verified (paths, sidecars, sha1
+  recomputed from the files, matrix-profile headers against their rows, row 385's link on both routes, the seed
+  store's 1230 arrays = 410 × 3). Remaining P1s fixed (`5f105e6`): `GET /api/recordings` (what Explore reads)
+  now carries `fs_source`, `warnings` and `excerpt_of`; the three hand-corrected sidecars' embedded rows.
+  Recorded, not changed: the excerpt link stores offset and decimation but not the ÷1000 units factor and the
+  −0.30 mV DC shift the critic measured between row 385 and L_LM CH2 (the units note lives in L_LM's
+  `manifest.json`); the seed's `source_file` column names `.npy` files, not `.mat` (binding is by
+  `recording_id`, which is correct).
 
 ## Requests written
 
@@ -183,4 +201,20 @@ from the raw file's time vector" (the check no longer carries an answered warnin
 
 ## Chat summary
 
-_Filled in below._
+Settings is live end to end. A registration standard (`docs/DATA_REGISTRATION.md`, scored 8/10 by a
+researcher-facing critic after two rounds) with ten kinds in `Working/registration/`; scan → check → register →
+sidecar manifest through the rule-5 door, soft unregister, additive tables (`registered_artifacts`, `settings`,
+`audit_log`) and columns (`recordings.parent_recording_id/parent_offset/decimation/fs_source/…`). The bridge
+gained the registry, settings, audit, about, storage and backup routes; all 17 Settings reads are `live()`,
+fourteen project pages read and write the settings table (every save audited; the held-out unlock refused server-
+side without the typed name), the two personal pages persist in `localStorage`. On the real database, in one
+project-mode run with the backup verified first: the five unregistered recordings (L_LM through the import flow,
+row 385 linked as its 10:1 excerpt at sample 15,777,590, r = 0.9995; M1/M100/M101_t at 10 Hz read from their
+time vectors; MJu26a with its non-uniform-sampling warning), 10 of 13 matrix profiles (three refused for length,
+honestly), 8 window matrices, 18 models, the catalogue and the drop-motif seed store — and Explore's menu shows
+all eleven recordings with no client change. Gates: settings smoke 115/115 green with zero console errors;
+pytest 1169 passed with the only two failures being Prompt 01's adapter-count pins. Requests written to Prompt
+01 (Analyse source picker from the registry, Jobs › Upload continuing a paused run from `paused_run_id`, the
+paused-status vocabulary, block versions) and Prompt 03 (Library shelves and imports from the registry).
+Left: F2B's rate is not in its file; the Display theme does not repaint (pre-existing); block version/null
+declarations need an adapter-contract field.

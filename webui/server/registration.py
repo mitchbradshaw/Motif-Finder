@@ -206,13 +206,26 @@ def delete_registered(request: Request, kind: str, row_id: int):
     spec = _kind_or_404(kind)
     c = _conn(request)
     try:
+        name = None
+        try:
+            if spec.table == "recordings":
+                r = c.execute("SELECT npy_path, source_file FROM recordings WHERE id = ?", (row_id,)).fetchone()
+                name = (os.path.basename(os.path.dirname(r["npy_path"])) or r["source_file"]) if r else None
+            elif spec.table == "registered_artifacts":
+                r = c.execute("SELECT name FROM registered_artifacts WHERE id = ?", (row_id,)).fetchone()
+                name = r["name"] if r else None
+            elif spec.table == "encodings":
+                r = c.execute("SELECT path FROM encodings WHERE id = ?", (row_id,)).fetchone()
+                name = os.path.basename(r["path"]) if r else None
+        except Exception:
+            name = None
         try:
             out = unregister(c, kind, row_id)
         except KeyError as e:
             raise HTTPException(404, str(e))
         where, route = _audit_surface(kind)
-        append_audit(c, "registration", f"Unregistered {spec.label.lower()} {spec.table} id {row_id} (kept on disk, row kept inactive)", where,
-                     route=route, detail={"kind": kind, "id": row_id})
+        append_audit(c, "registration", f"Unregistered {spec.label.lower()} {name or f'{spec.table} id {row_id}'} (kept on disk, row {row_id} kept inactive)", where,
+                     route=route, detail={"kind": kind, "id": row_id, "name": name})
         return out
     finally:
         c.close()
