@@ -14,7 +14,23 @@ Settings › Datasets (recordings) and Settings › Models & registration / Stor
 | **scan** `scan(kind, roots)` | walks the kind's conventional directories and returns every candidate, registered or not, with the facts it can read *without loading bulk data* (manifest fields, file names, npz headers) and the warnings those facts raise | `GET /api/registry/{kind}` |
 | **check** `check(candidate, conn)` | runs the kind's checks against the file **and** the database; never raises — a broken file is a failed check whose `detail` says why | `POST /api/registry/{kind}/check` |
 | **register** `register(conn, candidate, provenance)` | refuses unless every check passes; writes the row(s) through the rule-5 door (`writes.write_machine`), writes the **sidecar manifest**, appends an audit entry | `POST /api/registry/{kind}/register` |
-| **unregister** `unregister(conn, kind, id)` | soft: `active = 0`. The row, its id and everything that references it stay | `DELETE /api/registry/{kind}/{id}` |
+| **unregister** `unregister(conn, kind, id)` | soft: `active = 0`. The row, its id and everything that references it stay. For a recording, every channel row of the same `source_file` goes inactive together | `DELETE /api/registry/{kind}/{id}` |
+
+**Where in the interface.** Recordings and raw files: Settings › Datasets › *Import a recording…* (it asks for
+what the file cannot say: fs, channel count, variable). Models: Settings › Models & registration › *Registered
+models*. **Every other kind** (matrix profile, window matrix, window set, encoding, drop-motif store, catalogue
+spreadsheet, HPC result bundle): Settings › Storage & backups › the root's *scan* → *check* → *register*. Jobs ›
+Upload is Prompt 01's surface and is not wired yet (`docs/prompts/wiring/requests/02-to-01.md`). From a script,
+the same thing is one request:
+
+```
+curl -X POST http://127.0.0.1:8765/api/registry/hpc_result/register -H "content-type: application/json" -d "{\"path\": \"HPC/results/mp_M1_CH3_WIN5min_ab12cd34\", \"overrides\": {}, \"provenance\": {\"producer\": \"sbatch 4418093\"}}"
+```
+
+`path` must be a path the scan lists (`GET /api/registry/{kind}` → `candidates[].path`); `overrides` is per kind
+(`fs`, `fs_source`, `source_file`, `n_channels`, `variable`, `allow_excerpt` for recordings; `recording_id` for an
+HPC bundle whose recipe was exported from another database); a failing check comes back as **422** with the
+checks in the body; the held-out file is refused the same way (the 423 is the Explore/Analyse routes' refusal).
 
 In **sandbox** mode (the default, what `smoke.py` runs against) every write lands in the runtime
 copy: the database copy, sidecars under `webui/runtime/<stamp>/sidecars/`, derived channels under
@@ -28,13 +44,13 @@ the real directories are written. The scan is read-only in both.
 | **recording** | `DATA/derived/channels/<stem>/` | `CH<n>.npy` (one per channel, 1-D float64) + `manifest.json` (`source_file`, `fs`, `n_channels`, `n_samples_per_channel`, `dtype`, `fs_note`, `time_base`, `units`); the one-channel excerpt is `<stem>_CH00.npy` | readable (1-D, finite head/tail), shape (all channels equal, = manifest), fs known, held-out refusal, **excerpt** (below) | `recordings`, one row per channel (`fs_source`, `registered_at/by`, `warnings_json`) | Settings › Datasets; Explore's recording menu (`GET /api/recordings`, no client change); Analyse source; Channels & events |
 | **raw** | `DATA/raw/` | `<stem>[_fs<N>].mat` \| `.csv`: a flat vector (16 channels end to end, e.g. `M2_aug_concat_fs1.mat`), an `(n_samples × n_channels)` matrix (`M1_M100.mat::M1`, `M101_t.mat::M101`), a `(16 × N)` v7.3 matrix (`MJu26a.mat::M`), a `(5 × 5,184,001)` matrix (`F2B.mat`), one column per channel (`Fig2A_dt0p1.csv`) | header readable, held-out refusal, **not already derived**, fs known (`_fs<N>` or supplied), layout resolvable (variable + channel count) | derives `DATA/derived/channels/<stem>/` (staged, atomic swap) then registers it as a **recording** | Settings › Datasets › Import a recording |
 | **model** | `MODELS/`, `DATA/derived/models/` | `<name>.pth` (PyTorch checkpoint: `fusion_cnn.pth`, `GASF_checkpoint.pth`), `catalogue_classifier_<hash16>.joblib` (sklearn) | loads (`torch.load` / `joblib.load`) → summary (keys, epoch, n_params / class, n_features, classes) | `registered_artifacts(kind='model')` | Settings › Models & registration › Registered models; Models registry (request to its owner) |
-| **matrix_profile** | `Results/Detection/matrix_profile/` (`_legacy/` is skipped) | `mp_v2_<stem>_CH<n>_WIN<len>min[_span<a>-<b>].npz` — keys `mp, mpi, m, fs, n_samples, source_file, channel, recording_id, config_hash, backend, created_at` | keys, **recording bound by content** (`source_file`, `channel`), fs = recording fs, span inside the recording, `len(mp) == span − m + 1`, no NaN | `registered_artifacts(kind='matrix_profile')` with `recording_id, channel, span, fs, params_json{m, config_hash, …}` | Settings › Storage; Analyse `matrix_profile` resume; Discovery |
+| **matrix_profile** | `Results/Detection/matrix_profile/` (`_legacy/` is skipped) | `mp_v2_<stem>_CH<n>_WIN<len>min[_span<a>-<b>].npz` — required keys `mp, m, fs, n_samples, source_file, channel`; the adapter also writes `mpi, recording_id, config_hash, backend, created_at` (read when present) | keys, **recording bound by content** (`source_file`, `channel`), fs = recording fs, span inside the recording, `len(mp) == span − m + 1`, no NaN | `registered_artifacts(kind='matrix_profile')` with `recording_id, channel, span, fs, params_json{m, config_hash, …}` | Settings › Storage; Analyse `matrix_profile` resume; Discovery |
 | **window_matrix** | `Results/Preprocessing/window_matrix/`, legacy `MATRICES/` | `wm_v1_<stem>_CH<n>_WIN<len>min_STEP<pct>pct.npz` — keys `values, computed, columns, start_idx, m, step, fs, span_start, span_end, n_samples, complete, source_file, channel, config_hash`; legacy `MATRICES/*.csv` (header only, no manifest fields → warning) | keys, shape (`values.shape[0] == len(start_idx) == computed.shape[0]`), recording, fs, span, finite computed cells; incomplete → warning | `registered_artifacts(kind='window_matrix')` | Settings › Storage; Analyse source; Models › Launch |
 | **window_set** | `DATA/derived/window_sets/<name>/` | `windows.npz` (`starts, length, fs, source_file, channel[, labels]`) + `manifest.json` (`kind: "window_set", name, recording, channel, fs, length, n_windows, labels_source`) | manifest kind, files, keys, recording, fs, shape (`n_windows`), span | `registered_artifacts(kind='window_set')` | Library › Window sets; Models › Launch |
 | **encoding** | `DATA/derived/encodings/` | `enc_<type>_<stem>_CH<n>_<hash8>.npz` — keys `values, encoding_type, source_file, channel, fs, span_start, span_end, config_hash` | keys, recording, fs, span, finite | the existing **`encodings`** table (`recording_id, span, encoding_type, config_hash, path`) | Analyse (Encoding consumers, D2); Settings › Storage |
 | **drop_motif_store** | `DATA/derived/drop_motifs/<run>/`, `DATA/library_seed/*/motifs/`, `Plots/drop_motifs*/motifs/` | `events.csv` + `snippets.npz` + `manifest.json` — the `Working/Detection/drop_motifs/store.py` contract (`EVENT_TABLE_COLUMNS`; indices absolute in the source channel; amplitudes in mV) | the three files, required columns (`event_id, recording_id, source_file, channel, fs`), **every event has its snippet**, manifest parses; unknown `recording_id` and fs mismatch are warnings (said, not guessed) | `registered_artifacts(kind='drop_motif_store')` with `params_json{n_events, detector, spans, recording_ids}` | registration only here; Prompt 03 imports the events into the Library |
 | **catalogue_spreadsheet** | `DATA/catalogue/` | `signal_catalog.xlsx` — 37 rows, 26 columns; required `ID_Number, ID_Name, Channel, StartTime_h, StopTime_h, DATASET, STATUS` | required columns; typed parse of the numeric columns; **every unparseable cell is listed** (`row, column, value`) and left empty, never guessed | `registered_artifacts(kind='catalogue_spreadsheet')` with `params_json{n_rows, columns, unparseable}` | registration only here; Prompt 03 imports the rows into the Library |
-| **hpc_result** | `HPC/results/<job>/` | `<job>.json` (the recipe, the shape `Working/hpc/job_export.py` writes) + the artifacts the job produced (`mp_v2_*.npz`, `wm_v1_*.npz`, …) + optionally `manifest.json` (`Working/manifest.py`, written by `Pipelines/run_recipe`) | recipe parses, **recipe hash** (`Working.recipes.short_hash`), the recipe's recording exists, per-artifact **shape** (`n_samples` = recording), **length** (`len(mp) == span − m + 1`), **finite**; a `manifest.json` whose `config_hash` differs is a warning; **a paused run with the same recipe hash** is reported as `paused_run_id` | `registered_artifacts(kind='hpc_result')` (+ `import_manifest` when a manifest is present); continuing the paused run is the job model's step (Prompt 01) | Jobs › Upload; Settings › Storage |
+| **hpc_result** | `HPC/results/<job>/` (`HPC/results/README.md`) | `<job>.json` (the recipe, the shape `Working/hpc/job_export.py` writes; with several JSONs the one named after the directory wins) + the artifacts the job produced (`mp_v2_*.npz`, `wm_v1_*.npz`, …) + optionally `manifest.json` (`Working/manifest.py`, written by `Pipelines/run_recipe`; any other `manifest.json` is kept as provenance and warned about) | recipe parses, **recipe hash** (`Working.recipes.short_hash`), the recording **bound by content** when an artifact carries `source_file` + `channel`, else by the recipe's `recording_id` (this database's id — `overrides.recording_id` for a recipe exported elsewhere), per-artifact **shape** (`n_samples` = recording), **length** (`len(mp) == span − m + 1`), **finite**; a run manifest whose `config_hash` differs is a warning; **a paused run with the same recipe hash** is reported as `paused_run_id` | `registered_artifacts(kind='hpc_result')` for the bundle **and one row per enclosed artifact under its own kind** (an `mp_v2_*.npz` is registered as a `matrix_profile` in place, so Analyse/Discovery see it without a copy; `params_json.published` lists them) + `import_manifest` when a run manifest is present; continuing the paused run is the job model's step (Prompt 01) | Settings › Storage › HPC results › scan; Jobs › Upload (Prompt 01) |
 
 Common checks every kind gets from `core.check`: `exists`, `not_registered` (a second registration
 of the same path is refused), `hash` (sha1 of the file, or a fingerprint of a directory: per file
@@ -90,8 +106,9 @@ that beats both neighbouring lags by max(0.001, 10 × (1 − r)) marks an excerp
 
 ## Held out
 
-`M4_aug_concat_fs1.mat` is refused by the recording and raw kinds' `held_out` check in both modes, and
-the routes refuse it with 423 whatever the lock setting says. The **lock** itself
+`M4_aug_concat_fs1.mat` is refused by the recording and raw kinds' `held_out` check in both modes (a
+registration attempt is a 422 with that check failed), and the Explore/Analyse routes refuse its rows with
+423 whatever the lock setting says. The **lock** itself
 (`settings.datasets.heldout.on`) governs whether the *pages* offer it; turning it off needs the
 recording's display name typed exactly (`PUT /api/settings/datasets` with `confirm_name`, refused with
 409 otherwise) and writes an audit entry of kind `lock`.
@@ -110,12 +127,19 @@ append-only — there is no update or delete anywhere in the codebase; `GET /api
 1. **Decide the convention** and write it in the table above: directory, file naming, the manifest
    fields the producer must write (a kind that carries `source_file`, `channel`, `fs`, `span_start`,
    `span_end` and `config_hash` in the file needs no separate manifest).
-2. **One `KindSpec` in `Working/registration/kinds.py`**: `scan(roots, conn) -> [Candidate]` (facts from
-   headers only), `check(candidate, conn, report, overrides)` (append `report.add(name, ok, detail)` and
-   `report.warn(...)`; bind the recording with `_bind_recording` — by content, never by a stored id),
-   `table` (`registered_artifacts` for anything without its own table — use `_art_kind(...)`), `ui`
-   (where it is offered). Set `report.facts["parameters"]` — it becomes `params_json` and the sidecar's
-   `parameters`.
+2. **One `KindSpec` in `Working/registration/kinds.py`**, added to the `KINDS` dict at the bottom of the file
+   (a spec not in `KINDS` is invisible to every route). For a kind that lands in `registered_artifacts` — every
+   kind without a table of its own — call the helper:
+   `KINDS["my_kind"] = _art_kind("my_kind", "My kind", ["DATA/derived/my_kind"], "<where the UI offers it>",
+   "<file naming>", _scan_my_kind, _check_my_kind)`; it fills `register`, `registered_ids`, `unregister` and
+   `list_registered`. The two functions you write: `_scan_my_kind(roots, conn, **kw) -> [Candidate]` (facts
+   from headers only, never bulk data) and `_check_my_kind(candidate, conn, report, overrides, **kw)` (append
+   `report.add(name, ok, detail)` and `report.warn(...)`; bind the recording with `_bind_recording(conn,
+   report, source_file, channel)` — by content, never by a stored id; set `report.facts["parameters"]` — it
+   becomes `params_json` and the sidecar's `parameters`; set `report.facts["span"]`, `["fs"]`, `["producer"]`
+   when known). A kind with its own table (like `encoding` → `encodings`) fills all twelve `KindSpec` fields
+   itself: `name, label, roots, table, ui, naming, scan, check, register, registered_ids, unregister,
+   list_registered`.
 3. **One test** in `tests/test_registration_<kind>.py` or `test_registration_artifacts.py`: scan on a
    temp tree, a broken file fails the right check, register writes the right row and the sidecar.
 4. **Expose it**: it is already on `GET /api/registry/{kind}`; add the row to Settings › Storage's

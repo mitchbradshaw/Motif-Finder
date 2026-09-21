@@ -4,11 +4,11 @@
  * warning. A root's "scan" opens the registry for that kind (GET /api/registry/<kind>) in a modal. */
 import { useState } from 'react'
 import {
-  Badge, Button, Callout, Chip, Modal, NumberField, Popover, ProgressBar, SectionCard, SelectField, Table, TextField, Toggle, useQueryState,
+  Badge, Button, Callout, Checklist, Chip, Modal, NumberField, Popover, ProgressBar, SectionCard, SelectField, Table, TextField, Toggle, useQueryState,
 } from '../kit'
 import { useSourced } from '../api/seam'
 import { navigate } from '../state'
-import { ApiError, getRegistry, postBackup, type Candidate, type RegisteredArtifact, type RegisteredRecording } from '../api'
+import { ApiError, checkCandidate, getRegistry, postBackup, registerCandidate, type Candidate, type CheckReport, type RegisteredArtifact, type RegisteredRecording } from '../api'
 import { backupRow, getStorage, namingPreview, type StorageRoot } from '../api/settings'
 import { useToast } from '../shell/Toast'
 import { LoadFailed, Loading, LockedField, Row, SettingsShell } from './chrome'
@@ -171,13 +171,34 @@ function Body({ data, reload }: { data: Data; reload: () => void }) {
 function ScanModal({ rootId, roots, onClose, onChanged }: { rootId: string; roots: StorageRoot[]; onClose: () => void; onChanged: () => void }) {
   const kind = KIND_OF[rootId]
   const root = roots.find(r => r.id === rootId)
+  const { push } = useToast()
   const rd = useSourced(async () => ({ data: kind ? await getRegistry<RegisteredRecording | RegisteredArtifact>(kind) : null, source: 'live' as const }), [kind])
   const open = Boolean(rootId)
   const reg = rd.data?.registered ?? []
   const cands = (rd.data?.candidates ?? []).filter((c: Candidate) => !c.registered)
+  const [busy, setBusy] = useState<string | null>(null)
+  const [report, setReport] = useState<CheckReport | null>(null)
+  const [checked, setChecked] = useState<string>('')
+  /* recordings and raw files register on Datasets (they need fs / layout answers); everything else registers here */
+  const registersHere = Boolean(kind) && kind !== 'recording' && kind !== 'raw'
+  const runCheck = async (c: Candidate) => {
+    setBusy(c.path); setReport(null); setChecked(c.path)
+    try { setReport(await checkCandidate(kind, c.path)) } catch (e) { push({ text: e instanceof ApiError ? e.message : String(e), kind: 'error' }) } finally { setBusy(null) }
+  }
+  const doRegister = async (c: Candidate) => {
+    setBusy(c.path)
+    try {
+      const r = await registerCandidate(kind, c.path)
+      push({ text: `Registered ${r.name} · ${r.table} id ${r.id}${r.warnings.length ? ` · ${r.warnings.length} warning${r.warnings.length === 1 ? '' : 's'}` : ''} · ${r.note}` })
+      setReport(null); setChecked(''); rd.reload(); onChanged()
+    } catch (e) { push({ text: e instanceof ApiError ? e.message : String(e), kind: 'error' }) } finally { setBusy(null) }
+  }
+  const factsOf = (c: Candidate) => Object.entries(c.facts)
+    .filter(([k, v]) => ['fs', 'n_channels', 'n_samples', 'format', 'stem', 'channel', 'window_min', 'bytes', 'n_motifs', 'recipe_hash'].includes(k) && v != null)
+    .map(([k, v]) => `${k} ${String(v)}`).join(' · ')
   return (
     <Modal open={open} onClose={onClose} title={root ? `${root.root} · ${root.path}` : 'scan'} size="lg" testid="scan-modal"
-      footerNote={kind ? `registry kind ${kind} · register recordings on Datasets, models on Models & registration; other kinds register through POST /api/registry/${kind}/register` : 'this root has no registry kind'}
+      footerNote={kind ? (registersHere ? `registry kind ${kind} · check, then register — the same POST /api/registry/${kind}/register a script would call (docs/DATA_REGISTRATION.md)` : `registry kind ${kind} · recordings and raw files register on Datasets › Import a recording`) : 'this root has no registry kind'}
       footer={<><Button onClick={onClose}>Close</Button><Button onClick={() => { rd.reload(); onChanged() }} icon="refresh">Rescan</Button></>}>
       {!kind && <span className="muted small">nothing to scan here</span>}
       {kind && rd.loading && <ProgressBar indeterminate label="scanning…" testid="scan-progress" />}
@@ -185,12 +206,22 @@ function ScanModal({ rootId, roots, onClose, onChanged }: { rootId: string; root
       {kind && rd.data && (
         <>
           <div className="s-card-sub" style={{ marginBottom: 6 }}>{reg.length} registered · {cands.length} on disk, not registered · scanned in {rd.data.scan_ms.toFixed(0)} ms</div>
-          {cands.length > 0 && <Table rows={cands} rowKey={(c: Candidate) => c.path} dense testid="scan-candidates"
+          {cands.length > 0 && <Table rows={cands} rowKey={(c: Candidate) => c.path} dense testid="scan-candidates" highlighted={checked}
             columns={[
-              { key: 'name', header: 'not registered', width: '40%', render: (c: Candidate) => <span className="mono">{c.name}</span> },
-              { key: 'facts', header: 'facts', width: '40%', render: (c: Candidate) => <span className="small muted">{Object.entries(c.facts).filter(([k, v]) => ['fs', 'n_channels', 'n_samples', 'format', 'stem', 'channel', 'window_min', 'bytes', 'n_motifs'].includes(k) && v != null).map(([k, v]) => `${k} ${String(v)}`).join(' · ')}</span> },
-              { key: 'warn', header: '', width: '20%', render: (c: Candidate) => c.warnings.length ? <span className="small" style={{ color: 'var(--amber)' }} title={c.warnings.join('\n')}>{c.warnings.length} warning{c.warnings.length === 1 ? '' : 's'}</span> : null },
+              { key: 'name', header: 'not registered', width: '34%', render: (c: Candidate) => <span className="mono">{c.name}</span> },
+              { key: 'facts', header: 'facts', width: '30%', render: (c: Candidate) => <span className="small muted">{factsOf(c)}</span> },
+              { key: 'warn', header: '', width: '16%', render: (c: Candidate) => c.warnings.length ? <span className="small" style={{ color: 'var(--amber)' }} title={c.warnings.join('\n')}>{c.warnings.length} warning{c.warnings.length === 1 ? '' : 's'}</span> : null },
+              {
+                key: 'actions', header: '', width: '20%', render: (c: Candidate) => registersHere ? <span style={{ display: 'flex', gap: 8 }}>
+                  <Button variant="link" size="sm" testid={`scan-check-${c.name}`} loading={busy === c.path} onClick={() => void runCheck(c)}>check</Button>
+                  <Button variant="link" size="sm" testid={`scan-register-${c.name}`} disabled={!(checked === c.path && report?.ok) || busy === c.path}
+                    disabledReason={checked === c.path && report && !report.ok ? 'a check fails' : 'run the check first'} onClick={() => void doRegister(c)}>register</Button>
+                </span> : <span className="muted small">register on Datasets</span>,
+              },
             ]} />}
+          {report && <div style={{ marginTop: 8 }} data-testid="scan-checks">
+            <Checklist items={[...report.checks.map(c => ({ label: `${c.name} · ${c.detail}`, state: c.ok ? 'pass' as const : 'fail' as const })), ...report.warnings.map(w => ({ label: w, state: 'warn' as const }))]} />
+          </div>}
           {reg.length > 0 && <Table rows={reg} rowKey={(r: RegisteredRecording | RegisteredArtifact) => String(r.id)} dense testid="scan-registered"
             columns={[
               { key: 'name', header: 'registered', width: '40%', render: r => <span className="mono">{r.name}</span> },

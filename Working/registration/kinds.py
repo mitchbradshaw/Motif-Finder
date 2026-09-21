@@ -1198,6 +1198,7 @@ def _scan_hpc(roots, conn, **kw):
             jsons = [x for x in files if x.endswith(".json") and x != "manifest.json" and not x.endswith(".manifest.json")]
             if not jsons:
                 continue
+            jsons.sort(key=lambda x: (x != f"{name}.json", x))   # <job>.json first when there are several
             facts = {"files": files, "recipe_file": jsons[0], "artifacts": [x for x in files if x.endswith((".npz", ".npy", ".csv", ".joblib", ".pth"))],
                      "has_manifest": "manifest.json" in files, "recipe_hash": None}
             warnings = []
@@ -1226,12 +1227,31 @@ def _check_hpc(cand: Candidate, conn, rep: Report, ov: dict, **kw):
     named = _HEX8.search(cand.name)
     if h and named and named.group(1) != h:
         rep.warn(f"directory name carries {named.group(1)} but the recipe hashes to {h}")
+    # the recording: by CONTENT when an artifact names it (source_file + channel), else the recipe's local
+    # recording_id (this database's id — a recipe exported elsewhere needs overrides["recording_id"])
     row = None
-    rid = recipe.get("recording_id")
-    if conn is not None and rid is not None:
-        rows = _rows(conn, "SELECT * FROM recordings WHERE id = ? AND active = 1", (int(rid),))
+    rid = ov.get("recording_id", recipe.get("recording_id"))
+    content = None
+    for a in f.get("artifacts", []):
+        if a.endswith(".npz"):
+            try:
+                z = np.load(os.path.join(cand.path, a), allow_pickle=False)
+                if "source_file" in z.files and "channel" in z.files:
+                    content = (_scalar(z, "source_file"), int(_scalar(z, "channel"))); break
+            except Exception:
+                continue
+    if conn is not None and content is not None:
+        rows = _recording_rows(conn, content[0], content[1])
         row = rows[0] if rows else None
-    rep.add("recording", row is not None, f"recording_id {rid} = {row['source_file']} CH{row['channel']}" if row else f"recording_id {rid} is not a registered recording")
+        rep.add("recording", row is not None, f"bound by content to {content[0]} CH{content[1]}" + (f" = recordings id {row['id']}" if row else " — no such registered recording"))
+        if row is not None and rid is not None and int(rid) != row["id"]:
+            rep.warn(f"the recipe says recording_id {rid}; the artifacts name {content[0]} CH{content[1]} (local id {row['id']}) — bound by content")
+    else:
+        if conn is not None and rid is not None:
+            rows = _rows(conn, "SELECT * FROM recordings WHERE id = ? AND active = 1", (int(rid),))
+            row = rows[0] if rows else None
+        rep.add("recording", row is not None, f"recording_id {rid} = {row['source_file']} CH{row['channel']}" if row
+                else f"recording_id {rid} is not a registered recording here (ids are local: pass overrides.recording_id, or let an artifact name source_file + channel)")
     if row:
         f["recording_id"] = row["id"]; f["source_file"] = row["source_file"]; f["channel"] = row["channel"]; f["fs"] = row["fs"]
     arts = []
@@ -1267,9 +1287,12 @@ def _check_hpc(cand: Candidate, conn, rep: Report, ov: dict, **kw):
     f["artifacts"] = arts
     if f.get("has_manifest"):
         man = _read_manifest(cand.path) or {}
-        ok_m = "error" not in man and isinstance(man.get("runs"), list)
-        rep.add("manifest", ok_m, man.get("error") or f"manifest.json with {len(man.get('runs', []))} run(s)")
-        if ok_m and h and any(r.get("config_hash") not in (None, h) for r in man["runs"]):
+        ok_m = "error" not in man
+        rep.add("manifest", ok_m, man.get("error") or (f"manifest.json with {len(man['runs'])} run(s)" if isinstance(man.get("runs"), list) else "manifest.json (not a run manifest; kept as provenance only)"))
+        if ok_m and not isinstance(man.get("runs"), list):
+            rep.warn("manifest.json is not a Pipelines/run_recipe manifest (no 'runs' list): nothing is imported from it")
+            f["has_manifest"] = False
+        elif ok_m and h and any(r.get("config_hash") not in (None, h) for r in man["runs"]):
             rep.warn("manifest.json config_hash differs from the recipe hash")
     f["paused_run_id"] = None
     if conn is not None and h:
@@ -1285,6 +1308,10 @@ def _check_hpc(cand: Candidate, conn, rep: Report, ov: dict, **kw):
 
 
 def _register_hpc(conn, cand: Candidate, rep: Report, provenance, actor, writer, **kw):
+    """The bundle row, plus one row per artifact inside it under its OWN kind
+    (an mp_v2_*.npz becomes a registered matrix_profile in place), so the
+    consumers that read the registry see it without a copy."""
+    from .core import check as _check
     f = rep.facts
     if f.get("has_manifest"):
         try:
@@ -1292,6 +1319,23 @@ def _register_hpc(conn, cand: Candidate, rep: Report, provenance, actor, writer,
             f["parameters"]["imported"] = import_manifest(conn, os.path.join(cand.path, "manifest.json"))
         except Exception as e:
             f["parameters"]["imported"] = {"error": f"{type(e).__name__}: {e}"}
+    published = []
+    for a in f.get("artifacts", []):
+        name = a["name"]
+        kind = "matrix_profile" if _MP_NAME.match(name) else "window_matrix" if _WM_NAME.match(name) else None
+        if kind is None:
+            continue
+        sub = Candidate(kind=kind, path=portable(os.path.join(cand.path, name)), name=name)
+        for c in KINDS[kind].scan([cand.path], conn):
+            if c.name == name:
+                sub = c
+        srep = _check(sub, conn)
+        if srep.ok:
+            sid, _row = _art_register(conn, sub, srep, {**(provenance or {}), "producer": f"HPC job {cand.name}"}, actor, writer)
+            published.append({"name": name, "kind": kind, "id": sid})
+        else:
+            published.append({"name": name, "kind": kind, "id": None, "failed": [c.name for c in srep.failures()]})
+    f["parameters"]["published"] = published
     return _art_register(conn, cand, rep, provenance, actor, writer)
 
 
