@@ -67,9 +67,63 @@ floor is ~0.1 mV and that real drop motifs run 1 mV to 20 mV or more. 0.0043 mV 
 **(a)** the values are volts labelled mV — a 1000x error, and every amplitude the app prints is wrong;
 **(b)** the values are mV but something upstream rescaled them; **(c)** the numbers are right and the
 Library is full of sub-noise-floor events, i.e. its contents are noise rather than motifs.
-**This decides whether the Library's contents are real, and no plot-domain work should start before it
-is settled** — a beautifully scaled plot of the wrong quantity is worse than the current one, because
-it is more convincing. Investigation dispatched 2026-09-23; result to be recorded here.
+**A (2026-09-23, settled bit-exactly): (a). The derived channels are in VOLTS and the entire web UI
+labels them "mV" without ever converting.** The researcher's instinct was right. `±0.0043 "mV"` is
+**±4.3 mV** — 43x above the 0.1 mV noise floor, squarely in the stated motif band.
+
+**The proof**, reproduced independently rather than taken on report:
+
+    events.csv row id001_r1_1213252  ·  drop_depth_mv = 15.0617
+    npy  CH0.npy[1212809:1213520][:3] = [-0.45839212 -0.45842311 -0.45842109]
+    npz  id001_r1_1213252__raw_mv[:3] = [-458.39212 -458.42311 -458.42109]
+    allclose(npy * 1000.0, npz) -> True      max|ratio - 1000| = 1.14e-13
+
+Two artefacts in this repo — one tracked as source data with a written units contract, the other the
+file the app reads — related by exactly 1000.
+
+**Corroboration, all independent of each other:** `detect5.py:81` states *"`x` is in the recording's
+native units (volts); amplitudes on the returned events are in mV"* and multiplies by 1000.0 at
+`:833-836`; `store.py:113,129` says the same and writes `__raw_mv = x * 1000.0`;
+`wavelet_analysis.py:102` independently says *"signal in volts"*; `detect5.py:927` names the
+*"0.1 mV instrument floor"*.
+
+**Where the conversion goes missing:** nowhere between `np.ptp` on the memmap and the character "mV"
+on screen is there a factor of 1000. `webui/server/library.py::_span_amplitude` and `::_trace` read the
+memmap raw under docstrings that say "mV"; `corpus.load_channel` is a bare `np.load`; `corpus.y_range`
+returns raw min/max. **Explore, Review and Library all have the identical error**, so the app is
+internally consistent and there is no intra-app disagreement to find.
+
+**The error is fossilised in the source comments, each a true number shrunk 1000x:** *"the real depths
+run about 0.006 to 0.015 mV"* (really 6–15 mV); *"the motifs riding on them are micro-volts"* (really
+millivolts); *"F-01's exemplar spans −1.148…−1.131 mV … a real 17.6 µV drop rendered as a dead-flat
+line"* (really −1.148…−1.131 **V**, and a **17.6 mV** drop — dead centre of the researcher's band).
+Review's `Y_MV = [-0.44, 0.44]` is a *correct centred domain in volts*, hand-measured off the same
+unconverted data. Every one of these is a developer meeting the bug, explaining it away, and adjusting
+an axis instead.
+
+**The unit is recorded nowhere on the data.** `materialize_channels.py` writes a sidecar manifest with
+no `units` key, while `Working/registration/kinds.py:310` already reads `man.get("units")` — the reader
+expects a field the writer never emits. `recordings` has no units column. That absence is the root
+cause, not the missing `× 1000`.
+
+**Option (c) is refuted for the seed store and CONFIRMED for the rest of the Library — a separate
+finding the units bug was hiding.** Measured over a 600-span random sample of `motif_member`
+(peak-to-peak off the memmap, converted to mV):
+
+| Source store | n | p25 | median | p75 | max | under 0.1 mV |
+|---|---|---|---|---|---|---|
+| `DATA/library_seed/drop_motifs5/motifs` (410 entries) | 72 | 5.14 | **13.31** | 16.93 | 119.6 | **0.0 %** |
+| `Plots/drop_motifs10/motifs` (3,189 entries) | 528 | 0.117 | **0.324** | 0.912 | 135.9 | **22.2 %** |
+
+The seed store is exactly the physics the researcher describes. But **88 % of the Library is
+`drop_motifs10`, whose median motif is 41x smaller than the seed store's and 22 % of which is at or
+below the instrument floor.** That is not a units bug; that is a detector run whose output is largely
+noise, and it is the real answer to "too many flat families" (L2). It has been invisible because the
+axis said 0.0043 and everything looked equally tiny.
+
+**Q-X2.5 (new, blocking for the Library): what happens to `drop_motifs10`?** Re-run its detector with a
+floor at 0.1 mV, filter the existing entries, keep them and mark them, or drop the store from the
+Library? That is a research call, not an engineering one. Round 2.
 
 ---
 
