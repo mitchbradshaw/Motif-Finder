@@ -2,11 +2,11 @@
 
 Run 2026-09-22 on `main`, in the main checkout. Nobody else was running. Commit prefix `wire-review:`.
 
-> **This is a first-stage report.** The prompt was worked under a hard ~40-minute wall clock and it is larger
-> than that clock. What is below is honest about which half landed: the **storage, the core write paths and
-> the seam** are implemented, tested and committed; the **real-data seeding, the Playwright gate and the three
-> critics are not run yet** and are itemised in "What stage 2 must still do". Nothing in the Done column is
-> claimed on the strength of a test that was not run.
+> **Stages 1 and 2 are both complete.** Stage 1 (§1–§10) landed the storage, the core write paths and the
+> seam, under a hard ~40-minute clock, and was honest that the seeding, the browser gate and the critics had
+> not been run. **Stage 2 (§11–§12) ran them, and they found a great deal** — including one place where this
+> report's own §4 was false, corrected in place with the correction left visible. Read §11 and §12 as the
+> authoritative account; §1–§10 are accurate except where a correction says otherwise.
 
 ## 1. The decision that shaped everything else: a queue is a row, not a copy
 
@@ -81,13 +81,34 @@ reimplementing the candidate list.
 
 ### Rule 5 is a refusal, not a convention
 
-`write_verdict` routes **purely on the queue's `writes_to` column** — never on a guess about what the target
-id looks like. `adjudications` → `Working.database.adjudications.insert_adjudication`; `annotations` →
-`Working.database.queries.insert_annotation`; `window_verdicts` → the module above.
+> **CORRECTION (stage 2).** As this section was originally written it was **false**, and the paragraph below
+> replaces what it said. Stage 1 claimed the crossing was refused in both directions and that the tests proved
+> it. The check asked *"does a row with this id exist in the table I am about to write to"* and returned as
+> soon as it did — so the refusal branch was **unreachable for any id that exists in both tables**, which on
+> this database is every detection id (detections run 1..732, annotations 1..11269). The stage-1 tests passed
+> only because they used synthetic ids that happened not to collide. A check that holds only when ids do not
+> collide is not a check. Found by the write-safety critic; see
+> [`05-review-critics.md`](05-review-critics.md) and commit `bf0f2fd`.
 
-A caller that hands a **detection id to an annotations queue**, or an **annotation id to an adjudications
-queue**, gets a `PermissionError` naming rule 5 — and the tests assert that after each refusal **neither table
-gained a row**. A refusal that left a partial write behind would be worse than no check at all.
+`write_verdict` resolves the target through **the queue's `unit`** — what the queue is *made of* — and refuses
+anything else. The question is not "does this id exist somewhere" but "is this the id of the thing this queue
+is putting to a person", and `review_queues.unit` already answers it.
+
+| `unit` | the id names a row in | the verdict lands in |
+|---|---|---|
+| `detection` | `detections` | `adjudications` |
+| `human span` | `annotations` | that same annotation |
+| `sequence` | `sequences` | **that sequence's `annotation_id`** |
+| `window` | an index into the queue's window set | `window_verdicts` |
+
+An id belonging to a different store is a `PermissionError` naming rule 5; an id belonging to no store is a
+`ValueError`. A queue whose `unit` and `writes_to` disagree is itself the crossing and is refused twice — at
+`create_queue` (a `ValueError`, nothing was written) and again at the write seam (a `PermissionError`, a door
+was forced).
+
+**The tests now use ids that collide on purpose**, because a test with non-colliding ids re-creates the hole
+this correction is about. They assert that after each refusal **neither table gained a row and no audit row was
+written**.
 
 ### Undo restores the prior verdict; it does not delete to unjudged
 
@@ -155,18 +176,12 @@ kind — are derived as a fixed function of `source_kind` in one place (`queueOf
 invented data; a thumbnail the bridge did not send stays **empty** rather than being synthesised, because a
 synthetic trace drawn beside a real one is a finding that is not there.
 
-## 7. What stage 2 must still do
+## 7. What stage 2 had to do (all of it now done — see §11)
 
-Named honestly, in the order it should be picked up. **None of it is partially done** — each item is untouched.
-
-| # | Work | Why it was not done |
-|---|---|---|
-| 1 | **Seed the real queues** in `--project` mode — the `extract events` queue from Prompt 03's `needs_extraction` sequences, and one detections queue from Prompt 04's template application | It writes to the real `DATA/db/annotations.sqlite`. It needs a **verified** backup first, and a verified backup is not something to do against a clock — see the 2026-09-21 data loss recorded in CLAUDE.md |
-| 2 | **Client gate**: `npx tsc -b` and `npm run build` in `webui/client`, then `webui/smoke.py --only review` on 8765, screenshots to `webui/screenshots/wiring/05/`, servers stopped | Needs a running bridge and the seeded queues from (1); a smoke over empty queues proves the page renders nothing, which is not the claim |
-| 3 | **The three critics**, Opus at medium effort, read-only, disjoint: *write-safety* (every verdict path, tables checked, rule 5 both directions, audit rows, undo), *function* (both Review pages driven live with the keyboard), *data-truth* (queue counts and header counts diffed against the tables) | Depends on (1) and (2) |
-| 4 | **Fix P0/P1 from the critics; re-run once** | Depends on (3) |
-| 5 | **`?state=` smoke states** for Review rewritten to live content | Depends on (1) |
-| 6 | **Push `main`** | Held until the gate above is green |
+Stage 1 listed six items here. Every one has been run: the queues were seeded on the real database (§11.1),
+the client gate and the Playwright smoke are green (§11.4), the three critics ran and their 26 findings are
+fixed (§11.2), the `?state=` smoke states were rewritten to live content, and the push decision is the last
+thing outstanding. What is genuinely still not true is in **§12**, not here.
 
 ### `demo(FIXTURE)` left in `src/api/` after this prompt
 
@@ -252,18 +267,143 @@ resolves; the branch needs a real test asserting a window verdict through `write
   bypasses the audit ledger for an annotation queue will strand spans in their queue forever.**
 - Window queues carry no `score` key at all, blind or not — a window has no detector score to hide.
 
-## 10. Gate
+## 10. Gate (stage 1 — superseded by §11.4)
 
-| Gate | Result |
-|---|---|
-| Review suite (7 files: schema, queue_state, queues, verdicts, promotion, window_verdicts, bridge) | **95 passed, 1 skipped** (the skip is §9.3) |
-| `tests/test_import_boundaries.py` | **4 passed** — nothing under `Working/` imports a UI library or fastapi |
-| Full headless suite | **1504 passed, 5 skipped, 1 failed** |
-| That one failure | `test_window_matrix_resume.py::test_timeout_produces_a_partial_matrix_that_resumes_to_completion` — **passes 9/9 in isolation**. It is a timeout-sensitive test that ran while six agents were running pytest concurrently on the same machine. Contention, not a regression; re-confirm on a quiet box in stage 2 before trusting this sentence. |
-| Client `npx tsc -b` + `npm run build` | **not run by the orchestrator** — see stage 2 item 2 |
-| `webui/smoke.py --only review` | **not run** — see stage 2 item 2 |
-| The three critics | **not run** — see stage 2 item 3 |
+Kept for the record of what stage 1 could claim at the time. The current numbers are in §11.4 and below.
 
-Baseline note: CLAUDE.md records 969 tests as of 2026-09-21. The suite is at 1504 because Prompts 01–04 added
-to it. The gate is "nothing that passed before now fails", and on that measure the only candidate failure is
-the contention flake above.
+| Gate | Stage 1 | **Stage 2 (current)** |
+|---|---|---|
+| Review core suite | 95 passed, 1 skipped | **147 passed, 0 skipped** |
+| Bridge (`tests/test_webui_review.py`) | never actually ran | **21 passed** |
+| Full headless suite | 1504 passed, 1 failed | **1638 passed, 6 skipped, 0 failed** |
+| `npx tsc -b` / `npm run build` | not run | **both exit 0** |
+| `webui/smoke.py --only review` | not run | **19 states, 0 failures, 0 console errors** |
+| Critics | not run | **run, 26 findings, all fixed or in §12** |
+
+Two notes on that table. The bridge tests **never ran at all** before stage 2: `fastapi` lives only in
+`webui/.venv`, so `tests/test_webui_review.py` skipped silently under the conda interpreter in every gate to
+that point — which is how a `/extract` route that created zero annotations survived. Run them with
+`webui/.venv/Scripts/python.exe`. And stage 1's one failure
+(`test_window_matrix_resume.py::test_timeout_produces_a_partial_matrix_that_resumes_to_completion`) was
+correctly diagnosed as contention from concurrent pytest runs: it has passed in every full-suite run since,
+on a quiet machine.
+
+## 11. Stage 2 — what was run, what it found, what changed
+
+Stage 1 ended with the storage, the core write paths and the seam committed, and the real-data seeding, the
+browser gate and the critics **not run**. Stage 2 ran all three. It should be read as the part of this report
+that knows what it is talking about: nearly everything below was found by exercising the thing rather than by
+reasoning about it.
+
+### 11.1 The seeded queues
+
+Both created through `POST /api/review/queues` on a bridge in `--project` mode — the real
+`DATA/db/annotations.sqlite` — after a backup taken with sqlite's own backup API (safe against a concurrent
+writer, unlike a file copy over a WAL database) and verified `integrity_check = ok`.
+
+| id | queue | source | unit | writes | items |
+|---|---|---|---|---|---|
+| 1 | `Library - extract events` | `sequences WHERE needs_extraction = 1` | sequence | `annotations` | **30** |
+| 2 | `drop_detection_v1 - Mushroom_260720 CH14` | run 32 / recording 385 | detection | `adjudications` | **130** |
+
+Header "N need you" = **160**, which is 30 + 130 and matches an independent SQL count. The seeding wrote
+**exactly two rows** and nothing else: `annotations` 11 269 → 11 269, `detections` 732 → 732, `adjudications`
+0. That is §1's "a queue is a filter, not a copy" verified on real data rather than asserted.
+
+**The detections queue points at a run, not a run group**, and that is a finding about this machine rather
+than a compromise. `run_groups`, `discovery_runs` and `discovery_sessions` are all **empty** in the project
+database — Prompt 04 ran against the sandbox, so nothing it created persisted here — and every one of the 16
+runs carrying detections has `run_group_id IS NULL`. The queue therefore resolves through the `filters` dict
+that `queue_items` already passes to `ReviewQueue`, which has accepted `run_id` since ticket 20. When a real
+Discovery fan-out writes a run group here, a `source_ref` queue resolves it with no code change.
+
+### 11.2 The critics
+
+Three, Opus at medium effort, disjoint briefs. Their full record with reproduce steps is
+[`05-review-critics.md`](05-review-critics.md).
+
+| Critic | Score | Findings |
+|---|---|---|
+| Write-safety | **3 / 10** | 11 (3×P0) |
+| Function | **1 / 10** | 7 (3×P0) |
+| Data-truth | **4 / 10** | 8 (1×P0) |
+
+They were run against a **sandbox** copy rather than `--project`. Two of the three must write verdicts to do
+their job, and `adjudications` is empty on this machine: machine-generated critic verdicts in the real table
+would be indistinguishable from genuine ones afterwards and would poison the RQ5 divergence measurement — the
+same failure mode `requests/04-to-05.md` §2 raises about bulk discards. The sandbox copies the real database,
+so they still exercised real queues over real detections and real sequences.
+
+All 26 findings are fixed or listed in §12. The three that mattered most:
+
+1. **The rule-5 guard was decorative** — see the correction in §4.
+2. **The `extract events` queue corrupted the human record.** It hands out `sequences.id`; the writer took it
+   for an `annotations.id`; sequence ids 119–148 all exist as annotation ids, so a verdict on the queue the
+   researcher is meant to work through first silently rewrote an unrelated human observation and left the
+   intended one untouched.
+3. **`POST /extract` discarded the reviewer's work entirely** — zero annotations created, each event
+   serialised into the wrong row's `note` and overwritten by the next, `needs_extraction` never cleared so the
+   item could never leave the queue, and three audit rows for one gesture. Now `Working/review/extraction.py`,
+   where an extraction is its own act: one new annotation per event with `parent_annotation_id` set, the
+   parent's note untouched, one audit row, reversible.
+
+What the critics **verified correct** is not a small list, and it is the part of stage 1 that survived an
+adversary: batch is one atomic act (a batch containing a crossing writes nothing at all), undo restores a
+prior verdict rather than deleting, promotion is idempotent, eight concurrent writes lost nothing, blinding
+withholds the score on the wire, the superseded-run filter works, the prior-verdict rule genuinely uses the
+onset term (IoU 0.579 with onset gap 16 > 15 correctly did **not** match), the cap is honoured, and all 130
+served rows matched their `detections` row field for field.
+
+### 11.3 The browser gate found five things no test could
+
+`npx tsc -b`, 147 core tests and 21 bridge tests all passed against a Review workspace that **rendered nothing
+at all**. This is the second time this repo has learned that a surface which constructs has not necessarily
+painted, and it is why `webui/smoke.py` is a gate in its own right.
+
+| # | Defect | Why no test saw it |
+|---|---|---|
+| 1 | The landing defaulted to the fixture queue id `q-12` and **persisted it in `localStorage`**, so the first visit 404'd and every later one did too. The escape button from "no such queue" navigated back to `q-12` — the only way out of the error was into it. | No test drives the router with a stale browser store |
+| 2 | `d.nearest[0]` dereferenced unguarded while the bridge always sends `nearest: []` | The function critic *predicted* this before it was reachable |
+| 3 | `.toFixed` on the artifact fields stage 2 had just made null | Making the bridge honest about what it has not computed made every consumer that assumed presence reachable |
+| 4 | `f.id` in the evidence rail — same cause, different consumer | — |
+| 5 | The rail showed **"129 left"** and **"No items match these filters"** at the same time: its channel filter is `f.channels.includes(r.channel)` and the live queue header carried `channels: []`, so it excluded every row while the count beside it said 129 were waiting | A page contradicting itself is not a thrown error |
+
+(3) and (4) are consequences of a stage-2 change of ours, and the change was still right: a fabricated
+artifact likelihood beside a real waveform is a finding that is not there. But an honest absence has to be
+followed through to every reader, and the gate is what found the readers.
+
+### 11.4 The claim this prompt exists to make, observed
+
+`webui/smoke.py --only review`: **19 states, 0 failures, 0 browser console errors, 0 server tracebacks**.
+Screenshots in `webui/screenshots/wiring/05/`.
+
+The states worth naming are the keyboard ones — *verdict given (I) writes to the database and advances*,
+*Ctrl-Z undoes through the server*, *Space skips without writing* — and afterwards the sandbox database held
+**exactly one adjudication (detection 102)**, with 103's verdict written and then reversed. "Review runs on
+real queues and writes real verdicts" is a thing that was watched happening, not a thing that was asserted.
+
+## 12. What is still not true, stated plainly
+
+None of this is hidden behind a green gate.
+
+| # | Not done | Why it matters |
+|---|---|---|
+| 1 | **Tags never reach the database from the UI.** The write functions send them, but no component passes them, and the vocabulary category has to be resolved per term. The Annotate card's tags are a session label. | The core and bridge paths ARE fixed and tested (a bare list is routed to the category that defines each term); it is the component that does not call them |
+| 2 | **There is no extract-events editor in the client.** `postExtract` is exported and called nowhere, so queue 1 renders as generic items and nobody can mark individual events in the browser. | The core and the route work and are tested; the UI for the gesture does not exist |
+| 3 | **Cluster review is unreachable on this data.** No resolver emits a cluster number for either seeded queue, so the three cluster routes 404 by design, saying so in words. | Cluster review needs a queue built from a **Grouping**, which nothing creates yet |
+| 4 | **A cluster seed is two audit rows** (batch, then promote), so it takes two undos rather than one | The core has no promote-with-batch door |
+| 5 | **The promotion panel's family choice and the exemplar id are still session-local** | `postPromote` mints the real entry at the S keypress; nothing updates its family afterwards |
+| 6 | **No window queue exists on this machine** — `window_sets` has **zero rows** — so `training-windows` and `model-verification` are covered by unit tests only, never on real data | P20 blinding is asserted at the payload level in `tests/test_webui_review.py`, not in a browser |
+| 7 | **No `explore-spans` queue is possible here** — no annotation has `verdict = 'seed'`, because Explore's *Take span for Review* has never been used on this machine | — |
+| 8 | **`clusterQueue(no)` still reads the fixture** — it is synchronous and every caller would have to become async | Named in §6 since stage 1 |
+
+### The smoke states that were removed, and why
+
+Eight fixture-era states are gone from `webui/smoke_pages/review.json`, each with its reason recorded in the
+file itself so a shorter file does not read as a passing one: the blind/training-window states (no
+`window_sets` rows), the explore-spans state (no `seed` annotations), the promotion and cluster states (items
+2–5 above), and `?state=empty` (a demo-store affordance with no live equivalent). One more was dropped during
+the gate: *queue not found* produces a red card **and** a console error, which is exactly the loud failure
+CLAUDE.md asks for — but the page walk fails any state that logs a console error, so asserting it there would
+mean making the failure quiet. It stays covered by `tests/test_webui_review.py` and by `smoke.py`'s own
+`loud_failure` step.
