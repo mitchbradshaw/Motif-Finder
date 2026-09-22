@@ -17,7 +17,7 @@ import {
   getDiscoveryFires, getDiscoveryHistory, getDiscoveryOverview, getDiscoveryRuns, getDiscoveryScoreboard, getDiscoverySeedProfile,
   getDiscoverySeedSetup, getDiscoverySeeds, getDiscoverySession, getDiscoverySignal, getDiscoveryTemplates, pollDiscoverySeedResults,
   postDiscoveryPlan, postDiscoveryPreview, startDiscoverySeedResults,
-  type DiscPlan, type DiscPlanBody, type DiscPreview, type DiscRecordingOption, type DiscSeedParams, type DiscSeedQuery, type DiscSeedResults,
+  type CutRule, type DiscPlan, type DiscPlanBody, type DiscPreview, type DiscRecordingOption, type DiscSeedParams, type DiscSeedQuery, type DiscSeedResults,
 } from '../api'
 import { live, type Sourced } from './seam'
 import type { GlyphKind, Role } from '../fixtures/discovery'
@@ -203,7 +203,8 @@ export interface SeedSetup { draft: SeedDraft; seeds: SeedInfo[]; recommended: S
 export interface SeedMatch { id: string; d: number; channel: string; atH: number; judged: boolean; verdict?: string | null; trace: number[] }
 export interface SeedResults {
   candidates: SeedMatch[]; nullDistances: number[]
-  recommendedCut: number | null; nullDraws: number; nullMethod: string | null; nullSupported: boolean; nullReason: string | null
+  recommendedCut: number | null; cutRule: CutRule | null
+  nullDraws: number; nullMethod: string | null; nullSupported: boolean; nullReason: string | null
   exclusionNote?: string; m?: number
 }
 
@@ -255,7 +256,8 @@ export async function getSeedResults(seedId: string, channels: string[]): Promis
     data: {
       candidates: r.candidates.map(c => ({ id: c.id, d: c.d, channel: c.channel, atH: c.atH, judged: c.judged, verdict: c.verdict, trace: nums(c.trace) })),
       nullDistances: r.nullDistances ?? [],
-      recommendedCut: r.recommendedCut, nullDraws: r.null?.draws ?? 0, nullMethod: r.null?.method ?? null,
+      recommendedCut: r.recommendedCut, cutRule: r.cutRule ?? null,
+      nullDraws: r.null?.draws ?? 0, nullMethod: r.null?.method ?? null,
       nullSupported: r.null?.supported ?? true, nullReason: r.null?.reason ?? null,
       exclusionNote: r.exclusionNote, m: r.m,
     },

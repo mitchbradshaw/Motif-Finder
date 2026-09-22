@@ -1192,7 +1192,10 @@ def _seed_search(conn, seed, chans, span, *, k, max_distance, null, job=None):
     cut = seeded_search.recommended_cut(ds, null_obj)
     return {
         "candidates": candidates, "nullDistances": null_obj["distances"], "null": null_obj,
-        "recommendedCut": cut, "perChannel": per_channel, "m": seed["samples"],
+        # the rule the marker was computed under, so the figure can be checked
+        # against it (fixup-a item 12)
+        "recommendedCut": cut, "cutRule": seeded_search.cut_rule(),
+        "perChannel": per_channel, "m": seed["samples"],
         "seedId": seed["id"], "span": [span[0], span[1]],
         "counts": (seeded_search.cut_counts(ds, null_obj, cut) if cut is not None else None),
         "exclusionNote": seeded_search.recommended_params(seed)["exclusion_note"],
@@ -1209,7 +1212,8 @@ def _store_result(conn, session_id, key, result):
     # what the page needs to redraw its histogram and its cut lives in the row
     state["seed_result"] = {
         "key": key, "computedAt": result["computedAt"], "candidates": result["candidates"][:5000],
-        "null": result["null"], "recommendedCut": result["recommendedCut"], "m": result["m"],
+        "null": result["null"], "recommendedCut": result["recommendedCut"],
+        "cutRule": result["cutRule"], "m": result["m"],
         "seedId": result["seedId"], "span": result["span"], "perChannel": result["perChannel"],
         "exclusionNote": result["exclusionNote"],
     }

@@ -10,7 +10,7 @@ import { Header } from '../shell/Header'
 import { useToast } from '../shell/Toast'
 import { navigate, useApp } from '../state'
 import { useSourced } from '../api/seam'
-import { runDiscoverySeedSearch } from '../api'
+import { runDiscoverySeedSearch, type CutRule } from '../api'
 import { useSize } from '../charts/useSize'
 import {
   getSeedProfile, getSeedResults, getSeedSetup, getTemplates, heldOutReason, isHeldOut, type SeedDraft, type SeedInfo, type SeedMatch, type SeedParams, type SeedResults, type SeedSource,
@@ -53,7 +53,7 @@ export function SeedPage() {
     ? seeds.find(s => s.source === wanted) ?? null
     : seeds.find(s => s.id === draft?.seedId) ?? seeds[0] ?? null)
   const channels = dx.scope?.channels ?? []
-  const noResults: SeedResults = { candidates: [], nullDistances: [], recommendedCut: null, nullDraws: 0, nullMethod: null, nullSupported: true, nullReason: null }
+  const noResults: SeedResults = { candidates: [], nullDistances: [], recommendedCut: null, cutRule: null, nullDraws: 0, nullMethod: null, nullSupported: true, nullReason: null }
   const results = useSourced(() => seed ? getSeedResults(seed.id, channels) : Promise.resolve({ data: noResults, source: 'demo' as const }), [seed?.id, channels.join(',')])
 
   // deep links ?state=running|done|failed put the simulated search straight into that state
@@ -282,7 +282,7 @@ const fmtTick = (v: number) => `${v < 0 ? '−' : '+'}${Math.abs(v).toFixed(2)}`
 /* ------------------------------------------------------------------ parameters + where to cut */
 function ParamsCard({ draft, recommended, seed, setParams, results, nullAtRec, kept, nullKept, cut, cutIsRecommended }: {
   draft: SeedDraft; recommended: SeedParams; seed: SeedInfo | null; setParams: (p: Partial<SeedParams>) => void
-  results: { candidates: SeedMatch[]; nullDistances: number[] } | null; nullAtRec: number; kept: number; nullKept: number
+  results: { candidates: SeedMatch[]; nullDistances: number[]; cutRule?: CutRule | null } | null; nullAtRec: number; kept: number; nullKept: number
   /** The cut in force: the researcher's if they chose one, else the null's own
    *  recommendation. `recommended.threshold` is always null — the parameter card
    *  cannot know a cut before the search has drawn a null. */
@@ -337,6 +337,8 @@ function ParamsCard({ draft, recommended, seed, setParams, results, nullAtRec, k
             <>
               <Slider value={cut ?? 0} onChange={v => setParams({ threshold: +v.toFixed(1) })} min={0} max={8} step={0.1} showValue={false} marks={cut != null ? [{ value: cut, label: '' }] : []} testid="param-threshold" ariaLabel="match threshold" />
               <span className="small mono green">{thrRaw ? <span className="dsc-err">{thrRaw}</span> : cut != null ? <>{cutIsRecommended ? 'recommended' : 'chosen'} {cut} · the null gives {fmtNull(nullAtRec)} per draw</> : 'no recommended cut yet — it is read off the null distribution'}</span>
+              {/* a statistic whose rule is unstated cannot be falsified (fixup-a item 12) */}
+              {results?.cutRule && <span className="small mono muted" data-testid="cut-rule">{results.cutRule.text}</span>}
             </>
           ) : <span className="small mono muted" data-testid="threshold-none">no cut chosen · the recommended cut is read off the null distribution, so there is none until the search has drawn one</span>}
         </ParamField>
@@ -346,7 +348,7 @@ function ParamsCard({ draft, recommended, seed, setParams, results, nullAtRec, k
         </ParamField>
       </div>
       {results && results.candidates.length
-        ? <CutHistogram candidates={results.candidates} nullDistances={results.nullDistances} threshold={cut} recommended={cut} kept={kept} nullKept={nullKept} onThreshold={t => setParams({ threshold: t })} />
+        ? <CutHistogram candidates={results.candidates} nullDistances={results.nullDistances} threshold={cut} recommended={cut} kept={kept} nullKept={nullKept} rule={results.cutRule ?? null} onThreshold={t => setParams({ threshold: t })} />
         : <div className="dsc-cut-empty"><EmptyState size="sm" icon="bar-chart" title={results ? 'No cut yet' : 'No distances yet'}
           caption={results ? 'the recommended cut comes from the null distribution — run the search to draw one' : 'pick a seed to see where to cut'} /></div>}
     </section>
@@ -367,8 +369,9 @@ function ParamField({ label, info, aside, children }: { label: string; info: str
  *  null behind them are exactly the evidence for that, so they still draw —
  *  hiding the histogram would make "nothing beats the null" look like "the
  *  search did not run". */
-function CutHistogram({ candidates, nullDistances, threshold, recommended, kept, nullKept, onThreshold }: {
-  candidates: SeedMatch[]; nullDistances: number[]; threshold: number | null; recommended: number | null; kept: number; nullKept: number; onThreshold: (t: number) => void
+function CutHistogram({ candidates, nullDistances, threshold, recommended, kept, nullKept, rule, onThreshold }: {
+  candidates: SeedMatch[]; nullDistances: number[]; threshold: number | null; recommended: number | null; kept: number; nullKept: number
+  rule: CutRule | null; onThreshold: (t: number) => void
 }) {
   const [ref, size] = useSize<HTMLDivElement>()
   const [dragging, setDragging] = useState(false)
@@ -431,6 +434,8 @@ function CutHistogram({ candidates, nullDistances, threshold, recommended, kept,
       <div className="dsc-legend-row small mono">
         <span><i className="sw" style={{ background: SEED_COLOUR }} />kept</span><span><i className="sw" style={{ background: KEPT_LIGHT }} />not kept</span>
         <span><i className="sw" style={{ background: '#D1D5DB' }} />surrogate</span><span><i className="sw line" style={{ background: 'var(--green)' }} />recommended</span>
+        {/* the marker's rule, beside the marker (fixup-a item 12) */}
+        {rule && <span className="muted" data-testid="cut-rule-legend">{rule.text}</span>}
       </div>
     </div>
   )

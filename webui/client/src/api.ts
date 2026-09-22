@@ -447,9 +447,12 @@ export interface DiscSeedMatch {
   judged: boolean; verdict: string | null; trace: (number | null)[]
 }
 export interface DiscSeedNull { distances: number[]; draws: number; method: string | null; supported: boolean; reason: string | null; requested: string | null }
+/** The rule the recommended marker was computed under. A statistic whose rule is unstated cannot be
+ *  falsified, so it travels with the number (`Working.discovery.seeded_search.cut_rule`). */
+export interface CutRule { alpha: number; correction: string; text: string }
 export interface DiscSeedResults {
   ready: true; key: string; candidates: DiscSeedMatch[]; nullDistances: number[]; null: DiscSeedNull
-  recommendedCut: number | null; perChannel: { channel: string; n: number; nullDraws: number }[]
+  recommendedCut: number | null; cutRule?: CutRule | null; perChannel: { channel: string; n: number; nullDraws: number }[]
   m: number; seedId: string; span: [number, number]
   counts?: Record<string, number> | null; exclusionNote: string; computedAt?: string; restored?: boolean
 }

@@ -234,7 +234,29 @@ def cut_counts(distances, null, cut):
     return {"kept": kept, "null_gives": null_gives, "x_null": x_null, "draws": draws, "note": note}
 
 
-def recommended_cut(distances, null, *, alpha=0.01):
+#: The marker's own rule, in one place so the number and the words cannot
+#: drift apart. Settings > Nulls holds an `alpha` key and a correction key that
+#: the seeded search does not read; WIRING them is a decision about what the
+#: correction should be (Q-D5) and is deliberately not taken here. What IS
+#: taken: the figure states the rule it was computed under, so it can be
+#: falsified (fixup-a item 12).
+CUT_ALPHA = 0.01
+CUT_CORRECTION = "none"
+
+
+def cut_rule(alpha=CUT_ALPHA, correction=CUT_CORRECTION):
+    """The recommended cut's rule as a payload: the alpha it uses, the
+    multiple-comparison correction it applies (none), and the sentence a
+    figure legend prints."""
+    alpha = float(alpha)
+    return {
+        "alpha": alpha,
+        "correction": correction,
+        "text": (f"marker: α = {alpha:g} per null draw · correction: {correction}"),
+    }
+
+
+def recommended_cut(distances, null, *, alpha=CUT_ALPHA):
     """§7.6's "match threshold with a recommended marker".
 
     The marker is the largest observed match distance at which the null is
