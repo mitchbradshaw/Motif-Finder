@@ -372,6 +372,43 @@ painted, and it is why `webui/smoke.py` is a gate in its own right.
 artifact likelihood beside a real waveform is a finding that is not there. But an honest absence has to be
 followed through to every reader, and the gate is what found the readers.
 
+### 11.3b The critics again, after the fixes
+
+Re-run on the fixed build, as the prompt asks ("fix P0/P1; re-run once"). Round 1 scores in brackets.
+
+| Critic | Score | Findings |
+|---|---|---|
+| Write-safety | **3 / 10** (was 3) | 9 (3×P0) |
+| Function | **4 / 10** (was 1) | 9 (1×P0) |
+| Data-truth | **8 / 10** (was 4) | 4 (0×P0) |
+
+Data-truth moving 4 → 8 is the count path being verified honest row-for-row with no discrepancy findable
+anywhere. Write-safety staying at 3 is the more useful number: the detections path it had faulted is now
+confirmed sound — batch atomic, priors restored exactly, a 130-item batch and its undo leaving the table
+byte-identical — and everything that remained was on the **annotations** side.
+
+**One of those P0s was a regression of our own making**, and it is worth naming rather than folding into a
+list. `promotion._reverse_verdict` carried the identical `target_id`/`row_id` confusion that commit `bf0f2fd`
+had fixed in `verdicts.py` an hour earlier: `promotion.resolve_target` was pointed at the shared resolver and
+the rest of that module was not audited. Unpromoting a sequence-queue promotion therefore wrote the intended
+row's prior verdict and note onto **a different annotation**, left the real one judged, deleted the Library
+entry that justified it, and recorded nothing about the row it damaged — through the one route whose entire
+purpose is to take a judgement back. Fixing a bug class in one module and not grepping for it in its siblings
+is how that happens.
+
+The other four, all fixed in `0bc63bc`: prior **tags** were never carried in the audit payload, so a tagged
+verdict destroyed the existing tags irreversibly and undo restored verdict and note and left the loss
+standing; the `human span` membership exemption added in `bf0f2fd` was too broad and turned a one-item queue
+into a licence to write any of the 11 302 annotations; the held-out (D6) write guard covered only
+`unit == 'detection'`, leaving a held-out recording's annotations and sequences writable; and `undo_last` was
+a read-then-write with no guard, so a held Ctrl-Z reported success six times for one reversal — it now claims
+the audit row with a conditional stamp before reversing anything.
+
+Two round-2 P1s about the UI are also closed: an item the database had a verdict for displayed
+"unadjudicated · no verdict yet in this queue" (`queue_items` served `judged: true` with no verdict), and the
+header's "N need you" was the fixture constant **3** while `/api/review/counts` — a route that exists and is
+tested — said **160** and was never called.
+
 ### 11.4 The claim this prompt exists to make, observed
 
 `webui/smoke.py --only review`: **19 states, 0 failures, 0 browser console errors, 0 server tracebacks**.

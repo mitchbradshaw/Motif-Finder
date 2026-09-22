@@ -321,8 +321,13 @@ def _resolve_detections(conn, q):
     # filter off so the queue can report `judged` as well as `remaining`.
     queue = ReviewQueue(conn, adjudication_status=None, **filters)
     superseded = _superseded_run_ids(conn)
-    judged_ids = {r["detection_id"] for r in conn.execute(
-        "SELECT detection_id FROM adjudications").fetchall()}
+    # The VERDICT, not just the flag. A row served as `judged: true` with no
+    # verdict made the inspector show "unadjudicated - no verdict yet in this
+    # queue" for an item the database had a verdict for: the page contradicting
+    # the table it was reading.
+    judged_verdicts = {r["detection_id"]: r["verdict"] for r in conn.execute(
+        "SELECT detection_id, verdict FROM adjudications").fetchall()}
+    judged_ids = set(judged_verdicts)
     blind = bool(q["blind"])
     live = [c for c in queue.candidates if c["run_id"] not in superseded]
     priors = _prior_verdicts(conn, live)
@@ -339,6 +344,7 @@ def _resolve_detections(conn, q):
             "start_idx": cand["start_idx"],
             "end_idx": cand["end_idx"],
             "judged": cand["id"] in judged_ids,
+            "verdict": judged_verdicts.get(cand["id"]),
             "prior_verdict": prior["verdict"] if prior else None,
             "prior_annotation_id": prior["annotation_id"] if prior else None,
             "prior_iou": prior["iou"] if prior else None,
@@ -471,7 +477,7 @@ def _prior_verdicts(conn, candidates):
 def _resolve_spans(conn, q):
     """Human spans a person marked `seed` in Explore (04-to-05 §4)."""
     params = []
-    sql = ("SELECT id, recording_id, start_idx, end_idx, tag, note "
+    sql = ("SELECT id, recording_id, start_idx, end_idx, tag, note, verdict "
            "FROM annotations WHERE verdict = 'seed' AND deleted_at IS NULL")
     rec = q["filters"].get("recording_id")
     if rec is None and q["source_ref"] is not None:
@@ -491,6 +497,7 @@ def _resolve_spans(conn, q):
         "tag": r["tag"],
         "note": r["note"],
         "judged": r["id"] in judged,
+        "verdict": r["verdict"],
     } for r in conn.execute(sql, params).fetchall()]
 
 

@@ -2,7 +2,7 @@
    search pill, "N need you" and "M4 held out" chips on the right. A page that rendered any fixture
    read passes `demo` and gets the "demo data" chip (brief: fixture pages say so in the header). */
 import type { ReactNode } from 'react'
-import { DEMO_NEED_YOU } from '../fixtures/canon'
+import { useReviewNeedYou } from '../api/needYou'
 import { navigate, useApp } from '../state'
 import { useNotWired } from '../kit/notWired'
 import { useDemoState } from '../kit/store'
@@ -21,7 +21,12 @@ export function Header({ workspace, page, subtitle, search = 'Search spans, runs
   // Settings › Datasets mirrors the SAVED held-out lock into this demo-store key (its store.ts
   // HELD_OUT_KEY_STORE), so the chip tells the truth after the lock is turned off (its request R2).
   const [heldOut] = useDemoState<{ on: boolean; recording: string }>('settings.heldOut', () => ({ on: true, recording: 'M4_aug' }))
-  const total = needYou + DEMO_NEED_YOU
+  // The Review queues' own count, read from the bridge. It used to be the
+  // fixture constant 3 while /api/review/counts said 160 — the one number in the
+  // chrome that is supposed to tell a researcher there is work waiting, and it
+  // was decoration.
+  const review = useReviewNeedYou()
+  const total = needYou + review
   return (
     <header className="hdr" data-testid="header">
       <div className="hdr-left">
@@ -40,7 +45,7 @@ export function Header({ workspace, page, subtitle, search = 'Search spans, runs
         </button>
         {bridgeDown && <span className="chip red" title="the FastAPI bridge did not answer the last poll; retrying every 5 s">bridge unreachable</span>}
         <button className={`chip ${total ? 'blue' : 'grey'}`} data-testid="need-you" onClick={() => navigate('jobs')}
-          title={`${DEMO_NEED_YOU} from demo fixtures (paused runs, a failed cluster job) · ${needYou} live: runs started from this tab that failed — opens Jobs`}>● {total} need you</button>
+          title={`${review} unjudged across the open review queues · ${needYou} live: runs started from this tab that failed — opens Jobs`}>● {total} need you</button>
         <button className={`chip ${heldOut.on ? 'grey' : 'amber'}`} data-testid="held-out-chip" onClick={() => navigate('settings/datasets')}
           title={heldOut.on
             ? `${heldOut.recording} is held out (D6): every workspace refuses it — opens Settings › Datasets`

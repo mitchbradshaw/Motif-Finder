@@ -73,9 +73,9 @@
   "expect": [
    "[data-testid=\"queue-rail\"]",
    "[data-testid=\"queue-filters\"]",
-   "[data-testid=\"up-next\"]",
-   "[data-testid=\"next-row-101\"]"
-  ]
+   "[data-testid=\"up-next\"]"
+  ],
+  "_why": "The rail is asserted STRUCTURALLY, not by a pinned item id. `up-next` lists the UNJUDGED items after the current one, and this queue's verdicts accumulate across smoke runs and critic sessions — so naming `next-row-101` made the state fail the moment somebody judged 101, for a reason that has nothing to do with the page. What is worth asserting is that the rail resolves and lists something."
  },
  {
   "page": "review.inspector",
@@ -109,9 +109,9 @@
    }
   ],
   "expect": [
-   "[data-testid=\"up-next\"]",
-   "[data-testid=\"next-row-101\"]"
-  ]
+   "[data-testid=\"up-next\"]"
+  ],
+  "_why": "The rail is asserted STRUCTURALLY, not by a pinned item id. `up-next` lists the UNJUDGED items after the current one, and this queue's verdicts accumulate across smoke runs and critic sessions — so naming `next-row-101` made the state fail the moment somebody judged 101, for a reason that has nothing to do with the page. What is worth asserting is that the rail resolves and lists something."
  },
  {
   "page": "review.inspector",
