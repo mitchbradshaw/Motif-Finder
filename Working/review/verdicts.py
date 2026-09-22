@@ -20,6 +20,15 @@ that drops verdicts on the floor looks identical to one that is working.
 `review_audit` row carrying the N target ids, because the person performed one
 action and Ctrl-Z must reverse that one action, not the last of N.
 
+**A window queue's target id IS its window index.** The window SET comes from
+the queue's `source_ref`; the target id is the index into it. That is the
+shape `Working.review.queues._resolve_windows` hands out, and the writer now
+reads it the same way — it used to take the target id for the set id, which
+made every window verdict either a foreign-key failure or a verdict filed
+against the wrong set. `window_index=` is an optional restatement of the
+target id (the bridge forwards the field whether or not the client sent it),
+and a value that disagrees with the target id is refused.
+
 **Undo restores, it does not delete.** `review_audit.payload_json` carries the
 PRIOR state of every target the write touched, so undoing a re-judgement puts
 the earlier verdict back rather than returning the item to unjudged — the same
@@ -146,16 +155,54 @@ def _write_annotation(conn, target_id, verdict, note, tags):
     return prior
 
 
-def _write_window(conn, queue_id, target_id, window_index, verdict, note):
-    from Working.review import window_verdicts as _wv
-    if window_index is None:
+def _window_set_id(queue):
+    """The window SET a window queue asks about.
+
+    It is the queue's `source_ref` — "a window-set id" in the
+    `review_queues.source_ref` schema comment — and NOT the target id. A queue
+    asks about one set; its items are indices into that set.
+    """
+    ref = queue["source_ref"]
+    if ref is None or str(ref).strip() == "":
         raise ValueError(
-            "a window queue needs window_index alongside the window set id")
-    prior = _wv.get_window_verdict(conn, target_id, window_index)
+            f"review queue {queue['id']} writes window_verdicts but names no "
+            f"window set in source_ref")
+    return int(ref)
+
+
+def _window_index_of(target_id, window_index):
+    """The index within that set, which is the TARGET ID.
+
+    `queues._resolve_windows` hands every window item out as
+    `{'target_id': i, 'window_index': i, 'window_set_id': ...}`, so the id a
+    caller sends back is the index. `window_index=` is an optional restatement
+    of it — the bridge forwards the field whether or not the client set it —
+    and a value that contradicts the target id is a caller bug, not a second
+    coordinate, so it is refused rather than silently preferred.
+    """
+    idx = int(target_id)
+    if window_index is not None and int(window_index) != idx:
+        raise ValueError(
+            f"window_index {window_index!r} contradicts target_id "
+            f"{target_id!r}: for a window queue the target id IS the index "
+            f"into the set named by the queue's source_ref")
+    return idx
+
+
+def _window_coords(queue, target_id, window_index):
+    return (_window_set_id(queue),
+            _window_index_of(target_id, window_index))
+
+
+def _write_window(conn, queue, coords, verdict, note):
+    from Working.review import window_verdicts as _wv
+    ws_id, index = coords
+    prior = _wv.get_window_verdict(conn, ws_id, index)
     if prior is not None:
-        prior = {"verdict": prior["verdict"], "note": prior["note"]}
-    _wv.write_window_verdict(conn, target_id, window_index, verdict,
-                             note=note, queue_id=queue_id)
+        prior = {"verdict": prior["verdict"], "note": prior["note"],
+                 "queue_id": prior["queue_id"]}
+    _wv.write_window_verdict(conn, ws_id, index, verdict, note=note,
+                             queue_id=queue["id"])
     return prior
 
 
@@ -182,13 +229,22 @@ def _restore_annotation(conn, target_id, prior):
                  (prior["verdict"], prior["note"], target_id))
 
 
-def _restore_window(conn, target_id, window_index, prior):
+def _restore_window(conn, window_set_id, window_index, prior):
+    """Put a window's verdict back the way the audit row found it.
+
+    Both halves of the key come from the payload — the audit row has to be
+    self-contained, because the queue it was written through can be closed or
+    re-pointed by the time someone presses Ctrl-Z. `queue_id` is restored too:
+    the row states which question the verdict answered, and a restored verdict
+    that has forgotten its queue is not the row that was there before.
+    """
     from Working.review import window_verdicts as _wv
     if prior is None:
-        _wv.delete_window_verdict(conn, target_id, window_index)
+        _wv.delete_window_verdict(conn, window_set_id, window_index)
     else:
-        _wv.write_window_verdict(conn, target_id, window_index,
-                                 prior["verdict"], note=prior["note"])
+        _wv.write_window_verdict(conn, window_set_id, window_index,
+                                 prior["verdict"], note=prior.get("note"),
+                                 queue_id=prior.get("queue_id"))
 
 
 # ── audit ───────────────────────────────────────────────────────────────────
@@ -208,13 +264,20 @@ def _audit(conn, queue_id, action, target_table, target_ids, payload):
 # ── the public surface ──────────────────────────────────────────────────────
 
 def _apply(conn, queue, target_id, verdict, note, tags, window_index):
+    """Write one verdict into whichever store the queue says it writes.
+
+    Returns `(prior, coords)`: the state that was there before, and for a
+    window queue the `(window_set_id, window_index)` the write landed on —
+    because the audit payload must carry BOTH halves of that key or undo
+    cannot find the row again.
+    """
     writes_to = queue["writes_to"]
     if writes_to == "adjudications":
-        return _write_adjudication(conn, target_id, verdict, note, tags)
+        return _write_adjudication(conn, target_id, verdict, note, tags), None
     if writes_to == "annotations":
-        return _write_annotation(conn, target_id, verdict, note, tags)
-    return _write_window(conn, queue["id"], target_id, window_index, verdict,
-                         note)
+        return _write_annotation(conn, target_id, verdict, note, tags), None
+    coords = _window_coords(queue, target_id, window_index)
+    return _write_window(conn, queue, coords, verdict, note), coords
 
 
 def write_verdict(conn, queue_id, target_id, verdict, *, note=None, tags=None,
@@ -224,20 +287,26 @@ def write_verdict(conn, queue_id, target_id, verdict, *, note=None, tags=None,
     Returns a dict describing what was written:
     `{'queue_id', 'target_id', 'verdict', 'writes_to', 'audit_id', 'prior'}`.
 
+    For a window queue, `target_id` is the index into the window set named by
+    the queue's `source_ref`; `window_index` is an optional restatement of it
+    and may not contradict it.
+
     Raises `PermissionError` on a rule-5 crossing (see the module docstring)
     and `ValueError` on an unknown verdict, queue or target.
     """
     queue = _queue_row(conn, queue_id)
     _check_verdict(verdict)
     _check_target(conn, queue["writes_to"], target_id)
-    prior = _apply(conn, queue, target_id, verdict, note, tags, window_index)
+    prior, coords = _apply(conn, queue, target_id, verdict, note, tags,
+                           window_index)
     payload = {
         "writes_to": queue["writes_to"],
         "verdict": verdict,
         "note": note,
-        "window_index": window_index,
+        "window_set_id": coords[0] if coords else None,
+        "window_index": coords[1] if coords else None,
         "targets": [{"target_id": target_id, "prior": prior,
-                     "window_index": window_index}],
+                     "window_index": coords[1] if coords else None}],
     }
     audit_id = _audit(conn, queue_id, "verdict", queue["writes_to"],
                       [target_id], payload)
@@ -259,12 +328,16 @@ def write_batch(conn, queue_id, target_ids, verdict, *, note=None, tags=None):
     for tid in target_ids:
         _check_target(conn, queue["writes_to"], tid)
     targets = []
+    window_set_id = None
     for tid in target_ids:
-        prior = _apply(conn, queue, tid, verdict, note, tags, None)
+        prior, coords = _apply(conn, queue, tid, verdict, note, tags, None)
+        if coords is not None:
+            window_set_id = coords[0]
         targets.append({"target_id": tid, "prior": prior,
-                        "window_index": None})
+                        "window_index": coords[1] if coords else None})
     payload = {"writes_to": queue["writes_to"], "verdict": verdict,
-               "note": note, "targets": targets}
+               "note": note, "window_set_id": window_set_id,
+               "targets": targets}
     audit_id = _audit(conn, queue_id, "batch", queue["writes_to"],
                       target_ids, payload)
     conn.commit()
@@ -300,7 +373,13 @@ def undo_last(conn, queue_id=None):
         elif writes_to == "annotations":
             _restore_annotation(conn, tid, prior)
         elif writes_to == "window_verdicts":
-            _restore_window(conn, tid, target.get("window_index"), prior)
+            ws_id = payload.get("window_set_id")
+            if ws_id is None:
+                raise ValueError(
+                    f"review_audit row {row['id']} writes window_verdicts but "
+                    f"its payload names no window set, so the row it wrote "
+                    f"cannot be located to undo it")
+            _restore_window(conn, ws_id, target.get("window_index"), prior)
     conn.execute("UPDATE review_audit SET undone_at = ? WHERE id = ?",
                  (_now(), row["id"]))
     conn.commit()
