@@ -14,7 +14,7 @@ import { paramCaption } from './captions'
 import { ParamsPanel, fmtParam } from './ParamsPanel'
 import { GhostPath, motifLabels, renderByType, SYM3 } from './Renderer'
 import { deriveRows, fmtTiming, jobForSource } from './rowState'
-import { attachRun, cancelCurrent, markStale, startRun, stepElapsed, syncToSource, useAnalyseStore } from './store'
+import { attachRun, cancelCurrent, cancelPending, markStale, startRun, stepElapsed, syncToSource, useAnalyseStore } from './store'
 import { EstimateChip, isHeldOut, NameChip, RunErrorCard, SourceChip, SurrogateToggle, t0Of, t1Of, useSourceEnvelope } from './toolbar'
 import { pad2, stepName, useAdapters } from './useAdapters'
 import { spanOf, useValidation } from './useValidation'
@@ -40,6 +40,9 @@ export function BlockPage({ index }: { index: number }) {
   const t0 = source ? t0Of(source) : 0
   const t1 = source ? t1Of(source) : 1
   const running = job?.status === 'running' || job?.status === 'queued'
+  // cancel is checked between steps, so there is a whole step of interval in
+  // which the click has landed and nothing visible has happened (fixup-a 11)
+  const cancelling = cancelPending(st.run)
   const locked = isHeldOut(source)
   const over = val.v?.over_ceiling ?? []
   const overTitle = over.length ? `stage ${pad2(over[0] + 1)} exceeds its local ceiling (${adapters.byName.get(stepName(steps[over[0]]))?.max_span_samples?.toLocaleString() ?? '?'} samples) · shorten the span or use HPC (out of slice scope)` : null
@@ -125,7 +128,8 @@ export function BlockPage({ index }: { index: number }) {
           <EstimateChip text={running ? `${pad2(curStep + 1)} running · ${stepElapsed(curStep).toFixed(1)} s` : `≈ ${costText} · ${pad2(rerunFrom + 1)} → ${pad2(steps.length)}${stale ? ' recompute' : ''}${over.length ? ` · ${over.length} over the local ceiling` : ''}`} kind={running ? 'blue' : over.length ? 'red' : 'amber'} />
           <span className="spacer" />
           <button className="btn" onClick={saveAsTemplate} data-testid="save-template">▢ Save template</button>
-          {running ? <button className="btn danger" onClick={cancel} data-testid="cancel-button">■ Cancel</button>
+          {running ? <button className="btn danger" onClick={cancel} data-testid="cancel-button" disabled={cancelling}
+              title={cancelling ? 'cancel accepted · the run stops when the current stage ends, because cancel is checked between steps and never mid-step' : 'stop the run after the current stage'}>{cancelling ? '■ Cancelling…' : '■ Cancel'}</button>
             : <button className="btn primary" onClick={rerun} disabled={!canRun} data-testid="run-button" title={runTitle}>{job ? `↻ Re-run from ${pad2(rerunFrom + 1)}` : '▶ Run chain'}</button>}
         </div>
         {st.run.error && <RunErrorCard error={st.run.error} kind={st.run.errorKind} />}
@@ -212,7 +216,8 @@ export function BlockPage({ index }: { index: number }) {
           <span className="sub">{running ? 'stages land as they finish · this page updates in place' : staleFrom !== null ? `${pad2(staleFrom + 1)} and later are stale · re-running costs ≈ ${costText}` : job?.status === 'completed' ? `every stage is cached from job ${job.job_id} · db run #${job.db_run_id ?? '—'} · no null` : job?.status === 'failed' ? `run ${job.db_run_id ? `#${job.db_run_id}` : `job ${job.job_id}`} failed at ${pad2((job.error?.step ?? 0) + 1)}` : 'edit a parameter and the block goes stale'}</span>
           <div className="acts">
             <button className="btn" onClick={revert} disabled={!ad || running} data-testid="revert-defaults" title={running ? 'wait for the run' : 'reset every parameter of this block to the adapter defaults'}>↶ Revert to defaults</button>
-            {running ? <button className="btn danger" onClick={cancel}>■ Cancel</button>
+            {running ? <button className="btn danger" onClick={cancel} disabled={cancelling}
+                title={cancelling ? 'cancel accepted · the run stops when the current stage ends' : 'stop the run after the current stage'}>{cancelling ? '■ Cancelling…' : '■ Cancel'}</button>
               : <button className="btn primary" onClick={rerun} disabled={!canRun} title={runTitle} data-testid="footer-rerun">{job ? `↻ Re-run from ${pad2(rerunFrom + 1)}` : '▶ Run chain'}</button>}
           </div>
         </div>

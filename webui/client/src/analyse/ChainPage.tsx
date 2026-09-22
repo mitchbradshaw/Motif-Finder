@@ -19,7 +19,7 @@ import { InsertStageModal } from './InsertStageModal'
 import { renderByType } from './Renderer'
 import { deriveRows, firstStale, fmtTiming, jobForSource, sameStep, terminalWording } from './rowState'
 import { RunLogModal } from './RunLogModal'
-import { attachRun, cancelCurrent, clearStale, dropUndo, markStale, popUndo, pushUndo, resetRun, startRun, stepElapsed, syncToSource, useAnalyseStore, type UndoEntry } from './store'
+import { attachRun, cancelCurrent, cancelPending, clearStale, dropUndo, markStale, popUndo, pushUndo, resetRun, startRun, stepElapsed, syncToSource, useAnalyseStore, type UndoEntry } from './store'
 import { shortName, TemplatesPopover } from './TemplatesPopover'
 import { EstimateChip, EXAMPLE_SOURCE, isHeldOut, NameChip, Popwrap, RunErrorCard, SourceChip, SurrogateToggle, t0Of, t1Of, useSourceEnvelope } from './toolbar'
 import { pad2, stepName, useAdapters } from './useAdapters'
@@ -51,6 +51,9 @@ export function ChainPage() {
   const t0 = source ? t0Of(source) : 0
   const t1 = source ? t1Of(source) : 1
   const running = job?.status === 'running' || job?.status === 'queued'
+  // cancel is checked between steps, so there is a whole step of interval in
+  // which the click has landed and nothing visible has happened (fixup-a 11)
+  const cancelling = cancelPending(st.run)
   const rows = useMemo(() => deriveRows(steps, job, payloads, st.staleFrom, val.v), [steps, job, payloads, st.staleFrom, val.v])
   const invalid = val.v ? val.v.junctions.filter(j => !j.ok).length : 0
   // nothing is "stale" relative to a job that is not this source's (critique r1: the index leaked across sources)
@@ -207,7 +210,12 @@ export function ChainPage() {
   const terminalPayload = lastRow?.payload ?? null
   const nSpans = terminalPayload?.type === 'spanset' ? (terminalPayload as SpansetPayload).n : null
   let headline: string, sub: string
-  if (running && job) { headline = `Running ${pad2((job.current_step ?? 0) + 1)} of ${pad2(job.n_steps)}`; sub = 'stages land as they finish · cancel checks between steps, never mid-step' }
+  if (running && job) {
+    headline = cancelling ? `Cancelling · stage ${pad2((job.current_step ?? 0) + 1)} of ${pad2(job.n_steps)} is still running` : `Running ${pad2((job.current_step ?? 0) + 1)} of ${pad2(job.n_steps)}`
+    sub = cancelling
+      ? 'cancel accepted · the run stops when this stage ends, because cancel is checked between steps and never mid-step · the stages already done are kept'
+      : 'stages land as they finish · cancel checks between steps, never mid-step'
+  }
   else if (invalid) { headline = 'Chain is invalid'; sub = 'fix the red junction · validation runs on every edit' }
   else if (job?.status === 'failed') { headline = 'No result'; sub = `run ${job.db_run_id ? `#${job.db_run_id}` : `job ${job.job_id}`} failed at ${pad2((job.error?.step ?? 0) + 1)} · nothing was written to detections` }
   else if (job?.status === 'cancelled') { const at = job.steps.findIndex(s => s.status === 'cancelled'); headline = 'Cancelled'; sub = `run ${job.db_run_id ? `#${job.db_run_id}` : `job ${job.job_id}`} stopped before ${pad2((at >= 0 ? at : (job.error?.step ?? 0)) + 1)} · ${job.steps.filter(s => s.status === 'done').length} of ${job.n_steps} stages kept · cancel is checked between steps` }
@@ -376,7 +384,8 @@ export function ChainPage() {
             {pop === 'import' && <TemplatesPopover onPick={importTemplate} onClose={() => setPop(null)} />}
           </Popwrap>
           <button className="btn" onClick={saveAsTemplate} data-testid="save-template" disabled={!n}>▢ Save template</button>
-          {running ? <button className="btn danger" onClick={cancel} data-testid="cancel-button">■ Cancel</button>
+          {running ? <button className="btn danger" onClick={cancel} data-testid="cancel-button" disabled={cancelling}
+              title={cancelling ? 'cancel accepted · the run stops when the current stage ends, because cancel is checked between steps and never mid-step' : 'stop the run after the current stage'}>{cancelling ? '■ Cancelling…' : '■ Cancel'}</button>
             : <button className="btn primary" onClick={run} disabled={!canRun} data-testid="run-button" title={runTitle}>{runLabel}</button>}
         </div>
 

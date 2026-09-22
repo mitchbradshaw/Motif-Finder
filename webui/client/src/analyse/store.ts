@@ -25,6 +25,12 @@ export interface RunState {
   polling: boolean                         // the 2 s GET /api/runs/{id} fallback is active
   error: string | null                     // e.g. the job vanished (server restarted) — see errorKind for the card title
   errorKind: RunErrorKind | null
+  /* Client-clock ms when a cancel was accepted, or null. Cancel is checked
+   * BETWEEN steps and never mid-step, so there is a real interval - a whole
+   * step long - in which the person has clicked and nothing has happened yet.
+   * The button says `Cancelling…` for it instead of inviting a second click
+   * (critic P1-6, fixup-a item 11). */
+  cancelRequestedAt: number | null
 }
 export interface AnalyseState {
   staleFrom: number | null   // first step index edited since the last run started; null = nothing stale
@@ -38,7 +44,7 @@ function loadStale(): number | null {
 }
 function saveStale(v: number | null) { try { sessionStorage.setItem(SS_KEY, JSON.stringify(v)) } catch { /* ignore */ } }
 
-const EMPTY_RUN: RunState = { job: null, payloads: {}, stepStartedAt: {}, live: false, polling: false, error: null, errorKind: null }
+const EMPTY_RUN: RunState = { job: null, payloads: {}, stepStartedAt: {}, live: false, polling: false, error: null, errorKind: null, cancelRequestedAt: null }
 let state: AnalyseState = { staleFrom: loadStale(), run: EMPTY_RUN, tick: 0 }
 const listeners = new Set<() => void>()
 let handle: SseHandle | null = null
@@ -278,7 +284,10 @@ function onEvent(jobId: number, e: RunEvent) {
       fetchPayload(jobId, i)
       break
     }
-    case 'cancel_requested': break
+    case 'cancel_requested':
+      // a cancel accepted anywhere (this tab, another tab, the Jobs page)
+      setRun({ cancelRequestedAt: state.run.cancelRequestedAt ?? Date.now() })
+      break
     case 'run_end': {
       // provisional final state from the event itself, then the definitive snapshot (with backoff)
       finalConfirmed = false
@@ -342,7 +351,14 @@ export async function cancelCurrent(): Promise<string | null> {
   const job = state.run.job
   if (!job || job.status !== 'running') return null
   const r = await apiCancel(job.job_id)
+  // the server accepted it; the run keeps going until the current step ends
+  if (r.accepted !== false) setRun({ cancelRequestedAt: state.run.cancelRequestedAt ?? Date.now() })
   return r.note
+}
+
+/** True from the moment a cancel is accepted until the run actually stops. */
+export function cancelPending(run: RunState = state.run): boolean {
+  return run.cancelRequestedAt !== null && !!run.job && isRunning(run.job)
 }
 
 /** Elapsed seconds of the running step, on the server's clock. */
