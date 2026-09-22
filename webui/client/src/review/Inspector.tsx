@@ -189,17 +189,17 @@ function InspectorItem({ data, row }: { data: QueueData; row: QueueRow }) {
   })
 
   const historyCount = stack.filter(w => !w.undone && w.items.includes(id)).length + (row.baseVerdict ? 1 : 0)
-  const fam = d?.nearest[0]
+  const fam = d?.nearest?.[0]
   const micro: MicroStat[] = isWindow && blind
     ? [{ value: '', label: 'model', icon: rec ? 'eye' : 'eye-off', tone: 'purple', section: 'model', title: rec ? `model ${row.modelCall?.className ?? 'n/a'}` : 'model call hidden until verdict' },
        { value: '', label: 'family', icon: rec ? 'eye' : 'eye-off', tone: 'purple', section: 'family', title: 'family affinity hidden until verdict' },
-       { value: d?.artifact.level ?? '…', label: 'artifact', tone: d?.artifact.level === 'low' ? 'green' : 'amber', section: 'artifact' },
+       { value: d?.artifact?.level ?? '…', label: 'artifact', tone: d?.artifact?.level === 'low' ? 'green' : 'amber', section: 'artifact' },
        { value: row.sampleIndex ? `${row.sampleIndex}/${queue.total}` : fmtInt(historyCount), label: row.sampleIndex ? 'sample' : 'history', section: 'origin' }]
     : [
        ...(row.unit === 'detection' ? [masked ? { value: '', label: 'score', icon: 'eye-off' as const, tone: 'purple' as const, section: 'detection' } : { value: row.score != null ? row.score.toFixed(2) : row.d != null ? row.d.toFixed(2) : '—', label: row.score != null ? 'score' : 'match d', section: 'detection' }] : [{ value: 'n/a', label: 'score', tone: 'muted' as const, title: 'human spans have no score' }]),
        ...(row.queueId === 'q-12' && !masked ? [{ value: '6.1×', label: '× null', section: 'detection' }] : []),
        masked ? { value: '', label: 'family d', icon: 'eye-off' as const, tone: 'purple' as const, section: 'family' } : { value: fam ? fam.d.toFixed(2) : '…', label: `${fam?.id ?? 'family'} d`, section: 'family' },
-       { value: d?.artifact.level ?? '…', label: 'artifact', tone: d?.artifact.level === 'low' ? 'green' : 'amber', section: 'artifact' },
+       { value: d?.artifact?.level ?? '…', label: 'artifact', tone: d?.artifact?.level === 'low' ? 'green' : 'amber', section: 'artifact' },
        { value: String(historyCount), label: 'history', section: 'history' },
       ]
 
@@ -248,12 +248,12 @@ function InspectorItem({ data, row }: { data: QueueData; row: QueueRow }) {
             bandLabel={isWindow ? `${id} · ${row.durationS} s` : `${id} · ${row.durationS.toFixed(1)} s`} canEdit={!isWindow} />
 
           <div className="rv-row2">
-            <ShapeCard d={d} family={masked ? null : d.nearest.find(f => f.id === (overlay || d.nearest[0].id)) ?? d.nearest[0]} blind={masked || isWindow} />
+            <ShapeCard d={d} family={masked ? null : (d.nearest.find(f => f.id === overlay) ?? d.nearest[0] ?? null)} blind={masked || isWindow} />
             {promoted && rec
               ? <PromotionPanel d={d} rec={rec} onUndo={undo} onConfirm={confirmPromotion} confirmRef={confirmRef} />
               : isWindow && blind ? <RevealCard data={data} current={row} now={now} />
                 : masked ? <MaskedFamilies />
-                  : <NearestFamiliesCard d={d} overlay={overlay || d.nearest[0].id} setOverlay={setOverlay} />}
+                  : <NearestFamiliesCard d={d} overlay={overlay || d.nearest[0]?.id || ''} setOverlay={setOverlay} />}
           </div>
 
           <VerdictCard selected={rec?.verdict ?? null} flash={flash} binary={binary} onVerdict={verdict} onSkip={() => goUnit(q, step(data, unit, 1))}

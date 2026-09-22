@@ -34,11 +34,28 @@ export { CONTEXT_PAD_MAX } from '../fixtures/review'
 export interface QueueRow extends QueueEntry { thumb: number[]; family: string; judged: boolean }
 export interface QueueData { queue: ReviewQueue; rows: QueueRow[]; clusters: ReviewCluster[] }
 
+/** Artifact factors as the bridge serves them: a TYPED ABSENCE when nothing has
+ *  computed them. Plain `null` is what `d.artifact.level` crashed the whole
+ *  workspace on, and a plausible-looking number beside a real waveform would be
+ *  a finding that is not there — so the numeric fields are null and the word
+ *  fields say "not computed". */
+export interface ArtifactPanel {
+  computed: boolean
+  level: 'low' | 'medium' | 'high' | null
+  p: number | null
+  coherence: number | null
+  clipping: string; stepChange: string; electrodeFlag: string
+  reason?: string
+}
+
 export interface ItemDetail {
   entry: QueueEntry; queue: ReviewQueue
   context: { values: number[]; t0_s: number }
   shape: number[]; nearest: NearestFamily[]; medoids: Record<string, number[]>
-  artifact: ArtifactFactors; evidence: Evidence; thumb: number[]
+  /** Whether anything actually computed family affinity. An empty `nearest` with
+   *  `nearestComputed: false` means nobody looked; with `true` it means nothing is near. */
+  nearestComputed?: boolean
+  artifact: ArtifactPanel; evidence: Evidence; thumb: number[]
   /** Set when the item belongs to a held-out recording (D6): nothing else is served. */
   refused?: string
 }
@@ -148,6 +165,7 @@ function detailOf(raw: any, fallbackQueue?: ReviewQueue): ItemDetail {
     context: raw?.context ?? { values: [], t0_s: 0 },
     shape: Array.isArray(raw?.shape) ? raw.shape : [],
     nearest: Array.isArray(raw?.nearest) ? raw.nearest : [],
+    nearestComputed: !!raw?.nearestComputed,
     medoids: raw?.medoids ?? {},
     artifact: raw?.artifact,
     evidence: raw?.evidence,
@@ -183,6 +201,15 @@ export function getQueue(queueId: string): Promise<Sourced<QueueData | null>> {
     const queue = queueOf(d.queue)
     const raw = (d.rows ?? d.items ?? []) as any[]
     const rows = raw.map(r => rowOf(r, queue.id)).filter(r => !HELD_OUT.includes(r.recording))
+    // The queue rail's channel filter is `f.channels.includes(r.channel)`, and its
+    // default is the queue's own channel list. An empty list therefore matches
+    // NOTHING: the rail read "129 left · No items match these filters", which is
+    // a filter excluding every row while the count says they are there. Both
+    // fields are properties of the rows that came back, so they are derived here
+    // rather than left at the fixture-era empty defaults.
+    queue.channels = Array.from(new Set(rows.map(r => r.channel).filter(Boolean)))
+    const scores = rows.map(r => r.score).filter((v): v is number => typeof v === 'number')
+    queue.scoreFloor = scores.length ? Math.min(...scores) : null
     return { queue, rows, clusters: (d.clusters ?? []) as ReviewCluster[] }
   }))
 }

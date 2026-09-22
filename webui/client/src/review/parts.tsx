@@ -34,9 +34,14 @@ export function statusText(rec: VerdictRecord | null) {
 }
 export const statusDot = (rec: VerdictRecord | null) => !rec ? 'var(--muted-2)' : rec.verdict === 'seed' || rec.verdict === 'interesting' ? 'var(--green)' : rec.verdict === 'artifact' ? 'var(--red)' : rec.verdict === 'unsure' ? 'var(--amber)' : 'var(--muted)'
 
-export function ArtifactPill({ a, short, testid = 'pill-artifact' }: { a: ArtifactFactors | { level: string }; short?: boolean; testid?: string }) {
-  const tone = a.level === 'low' ? 'green' : a.level === 'medium' ? 'amber' : undefined
-  return <Pill dot={a.level === 'low' ? 'var(--green)' : a.level === 'medium' ? 'var(--amber)' : 'var(--red)'} label={short ? 'artifact' : <>artifact<span className="long"> likelihood</span></>} value={a.level} tone={tone} title="artifact likelihood is never hidden" testid={testid} />
+export function ArtifactPill({ a, short, testid = 'pill-artifact' }: { a: ArtifactFactors | { level: string | null }; short?: boolean; testid?: string }) {
+  // `level` is null when nothing computed the factors. The pill still shows —
+  // artifact likelihood is never hidden (spec §10.2) — but it says what is true
+  // rather than defaulting to the red "high" tone of an unknown value.
+  const known = a.level != null
+  const tone = !known ? undefined : a.level === 'low' ? 'green' : a.level === 'medium' ? 'amber' : undefined
+  const dot = !known ? 'var(--muted)' : a.level === 'low' ? 'var(--green)' : a.level === 'medium' ? 'var(--amber)' : 'var(--red)'
+  return <Pill dot={dot} label={short ? 'artifact' : <>artifact<span className="long"> likelihood</span></>} value={known ? a.level : 'not computed'} tone={tone} title={known ? 'artifact likelihood is never hidden' : 'nothing has computed artifact factors for this queue yet'} testid={testid} />
 }
 
 /* ---------------- time ticks (hours since recording start, frame decimals) ---------------- */
@@ -127,10 +132,12 @@ function OtherChannelsPopover({ d, pad, open, onClose, anchorRef }: { d: ItemDet
       )}
       <div className="rv-oc-foot" data-testid="other-channels-artifact">
         <div className="row"><span className="mono muted">artifact likelihood</span>
-          <Chip size="sm" tone={a.level === 'low' ? 'green' : a.level === 'medium' ? 'amber' : 'red'}>{a.level} · {a.p.toFixed(2)}</Chip>
+          {a.level != null && a.p != null
+            ? <Chip size="sm" tone={a.level === 'low' ? 'green' : a.level === 'medium' ? 'amber' : 'red'}>{a.level} · {a.p.toFixed(2)}</Chip>
+            : <span className="muted" data-testid="artifact-not-computed">not computed</span>}
           <InfoTip title="Artifact likelihood">Combines cross-channel coherence, clipping, step changes and electrode flags. Artifacts are noted and kept out of training data. Never blinded.</InfoTip>
           <span className="grow" /><span className="mono muted sm">not blinded in any queue</span></div>
-        <div className="mono sm rv-factors"><span className="muted">coherence in span</span> <b>{a.coherence.toFixed(2)}</b> (flag ≥ 0.5) <span className="muted">clipping</span> <b>{a.clipping}</b> <span className="muted">step change</span> <b>{a.stepChange}</b> <span className="muted">electrode flag</span> <b>{a.electrodeFlag}</b></div>
+        <div className="mono sm rv-factors"><span className="muted">coherence in span</span> <b>{a.coherence != null ? a.coherence.toFixed(2) : '—'}</b> (flag ≥ 0.5) <span className="muted">clipping</span> <b>{a.clipping}</b> <span className="muted">step change</span> <b>{a.stepChange}</b> <span className="muted">electrode flag</span> <b>{a.electrodeFlag}</b></div>
         <Button variant="link" iconRight="arrow-right" onClick={() => navigate(`explore/cross-channel/4?h=${(ctx.t0 / 3600).toFixed(3)}-${(ctx.t1 / 3600).toFixed(3)}`)} testid="open-all-channels">Open all channels in Explore</Button>
       </div>
     </Popover>
@@ -163,6 +170,23 @@ function DistanceBar({ d, colour }: { d: number; colour: string }) {
 
 export function NearestFamiliesCard({ d, overlay, setOverlay }: { d: ItemDetail; overlay: string; setOverlay: (id: string) => void }) {
   const first = d.nearest[0]
+  // `nearest` is empty when nothing has computed family affinity for this item.
+  // That is NOT "no family is near" — it is "nobody looked" — and saying the
+  // first is what the bridge's `nearestComputed` flag distinguishes. Rendering
+  // an empty list as a blank card, or dereferencing `nearest[0]`, is how this
+  // card took the whole workspace down on every live item.
+  if (!first) {
+    return (
+      <section className="rv-card" data-testid="nearest-families">
+        <div className="rv-card-head"><h3>Nearest families</h3></div>
+        <p className="muted sm" data-testid="nearest-not-computed">
+          {d.nearestComputed
+            ? 'No family is within range of this candidate.'
+            : 'Family affinity is not computed for this queue yet — no distance is being withheld and none is being guessed at.'}
+        </p>
+      </section>
+    )
+  }
   return (
     <section className="rv-card" data-testid="nearest-families">
       <div className="rv-card-head">
@@ -285,12 +309,12 @@ export function AnnotateCard({ draft, setDraft, className, onClass }: { draft: D
 
 /* ---------------- promotion panel (frame 6) ---------------- */
 export function PromotionPanel({ d, rec, onUndo, onConfirm, confirmRef }: { d: ItemDetail; rec: VerdictRecord; onUndo: () => void; onConfirm: (family: string | null, familyName?: string) => void; confirmRef: { current: (() => void) | null } }) {
-  const nearest = d.nearest[0]
-  const near = nearest.d <= 0.30
+  const nearest = d.nearest[0] ?? null
+  const near = !!nearest && nearest.d <= 0.30
   const [choice, setChoice] = useState<'nearest' | 'new' | 'none'>(near ? 'nearest' : 'none')
   const [name, setName] = useState('')
   const nameErr = choice !== 'new' ? null : !name.trim() ? 'name the new family' : name.trim().length < 2 || name.trim().length > 40 ? 'a family name is 2–40 characters' : null
-  const confirm = () => { if (nameErr) return; onConfirm(choice === 'nearest' ? nearest.id : choice === 'new' ? 'new' : null, choice === 'new' ? name.trim() : undefined) }
+  const confirm = () => { if (nameErr) return; onConfirm(choice === 'nearest' ? (nearest?.id ?? null) : choice === 'new' ? 'new' : null, choice === 'new' ? name.trim() : undefined) }
   confirmRef.current = confirm   // Enter (review/keys.ts) confirms with the current family choice
   const opt = (v: typeof choice, label: ReactNode, testid: string) => (
     <button type="button" role="radio" aria-checked={choice === v} className={cx('rv-radio', choice === v && 'on')} onClick={() => setChoice(v)} data-testid={testid}><i />{label}</button>
@@ -303,7 +327,7 @@ export function PromotionPanel({ d, rec, onUndo, onConfirm, confirmRef }: { d: I
       </div>
       <div className="rv-promo-body">
         <div className="row wrap" role="radiogroup" aria-label="family"><span className="mono muted sm">family</span>
-          {opt('nearest', <>{nearest.id} {nearest.name} · nearest, d {nearest.d.toFixed(2)}{near ? '' : ' · above 0.30'}</>, 'promo-family-nearest')}
+          {nearest && opt('nearest', <>{nearest.id} {nearest.name} · nearest, d {nearest.d.toFixed(2)}{near ? '' : ' · above 0.30'}</>, 'promo-family-nearest')}
           {opt('new', 'new family', 'promo-family-new')}
           {opt('none', 'no family yet', 'promo-family-none')}
         </div>
@@ -334,7 +358,7 @@ function EvSection({ id, icon, title, aside, children, masked }: { id: string; i
 const KV = ({ k, children }: { k: ReactNode; children: ReactNode }) => <div className="rv-kv"><span className="k mono">{k}</span><span className="v mono">{children}</span></div>
 
 export function EvidenceRail({ d, blind, judged, historyVerdicts }: { d: ItemDetail; blind: boolean; judged: boolean; historyVerdicts: string }) {
-  const ev = d.evidence, a = d.artifact, f = d.nearest[0]
+  const ev = d.evidence, a = d.artifact, f = d.nearest[0] ?? null
   const mask = blind && !judged
   return (
     <div data-testid="evidence-sections">
@@ -374,14 +398,27 @@ export function EvidenceRail({ d, blind, judged, historyVerdicts }: { d: ItemDet
         <KV k="prior adjudication">{ev.alsoFoundBy.prior}</KV>
       </EvSection>
       <EvSection id="family" icon="library" title="Family" aside={<span className="mono muted sm">nearest by shape, not a verdict</span>} masked={mask}>
-        <div className="rv-ev-fam">
-          <MiniTrace values={d.medoids[f.id]} yDomain={THUMB_Y} width={70} height={34} stroke={f.colour} strokeWidth={1.5} ground="white" zeroLine={false} />
-          <span><b className="mono">{f.id} · {f.name}</b><br /><span className="mono muted sm">d {f.d.toFixed(2)} · {f.members != null ? `${f.members} members` : 'members n/a'}{f.id === 'F-03' ? ' · medoid m-1846' : ''}</span></span>
-        </div>
+        {/* No nearest family means nothing computed affinity for this item, which
+            is not the same as "nothing is near". Rendering the absence in words
+            keeps the rail honest; dereferencing `f` here took the whole
+            workspace down on every live item that had an evidence rail open. */}
+        {f ? (
+          <div className="rv-ev-fam">
+            <MiniTrace values={d.medoids[f.id]} yDomain={THUMB_Y} width={70} height={34} stroke={f.colour} strokeWidth={1.5} ground="white" zeroLine={false} />
+            <span><b className="mono">{f.id} · {f.name}</b><br /><span className="mono muted sm">d {f.d.toFixed(2)} · {f.members != null ? `${f.members} members` : 'members n/a'}</span></span>
+          </div>
+        ) : (
+          <KV k="nearest">{d.nearestComputed ? 'no family within range' : 'not computed for this queue'}</KV>
+        )}
       </EvSection>
       <EvSection id="artifact" icon="alert-triangle" title="Artifact likelihood" aside={<span className="mono muted sm">not blinded</span>}>
-        <KV k="likelihood"><Chip size="sm" tone={a.level === 'low' ? 'green' : a.level === 'medium' ? 'amber' : 'red'}>{a.level} · {a.p.toFixed(2)}</Chip></KV>
-        <KV k="cross-channel coherence">{a.coherence.toFixed(2)} · flag ≥ 0.5</KV>
+        {/* `level`/`p`/`coherence` are null when nothing computed artifact factors.
+            Saying "not computed" is the honest render; a 0.00 beside a real
+            waveform would be a finding that is not there. */}
+        <KV k="likelihood">{a.level != null && a.p != null
+          ? <Chip size="sm" tone={a.level === 'low' ? 'green' : a.level === 'medium' ? 'amber' : 'red'}>{a.level} · {a.p.toFixed(2)}</Chip>
+          : <span className="muted" data-testid="artifact-not-computed">not computed</span>}</KV>
+        <KV k="cross-channel coherence">{a.coherence != null ? `${a.coherence.toFixed(2)} · flag ≥ 0.5` : 'not computed'}</KV>
         <KV k="clipping · step change">{a.clipping} · {a.stepChange}</KV>
         <KV k="electrode flag">{a.electrodeFlag}</KV>
       </EvSection>

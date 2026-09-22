@@ -273,7 +273,7 @@ function ClusterInner({ data, no }: { data: QueueData; no: number }) {
             {masked ? <Pill icon="eye-off" label="cohesion" value="hidden until verdict" tone="purple" testid="pill-cohesion" />
               : <Pill dot={worst > cl.cohesionLimit ? 'var(--amber)' : 'var(--green)'} label="cohesion" value={`mean d ${mean.toFixed(2)} (${included.length} included) · worst ${worst.toFixed(2)}`} tone={worst > cl.cohesionLimit ? 'amber' : undefined} testid="pill-cohesion" />}
             {masked ? <Pill icon="eye-off" label="family" value="hidden until verdict" tone="purple" testid="pill-family" />
-              : <Pill dot={d.members[0].nearest[0].colour} label="family" value={`${cl.family.id} d ${cl.family.d.toFixed(2)}`} testid="pill-family" />}
+              : <Pill dot={d.members[0]?.nearest?.[0]?.colour} label="family" value={`${cl.family.id} d ${cl.family.d.toFixed(2)}`} testid="pill-family" />}
             <ArtifactPill a={{ level: cl.artifact }} short={narrow || !!undoneBanner || judgedCount > 0} />
           </div>
           <div className="rv-meta mono" data-testid="meta-line">

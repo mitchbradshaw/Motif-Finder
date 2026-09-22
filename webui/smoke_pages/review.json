@@ -1,67 +1,307 @@
 [
-  {"page": "review.inspector", "state": "1-candidate (redirect from review root)", "hash": "review", "actions": [{"wait": 400}],
-   "expect": ["[data-testid=\"inspector\"][data-item=\"c-0343\"]", "[data-testid=\"verdict-card\"]", "[data-testid=\"queue-rail-collapsed\"]"]},
-  {"page": "review.inspector", "state": "1b-other-channels (deep link)", "hash": "review/queue/q-12/c-0343?pop=other-channels", "settle_ms": 900,
-   "expect": ["[data-testid=\"other-channels-popover\"]", "[data-testid=\"oc-row-CH4_A2\"]", "[data-testid=\"other-channels-artifact\"]"]},
-  {"page": "review.inspector", "state": "1b-other-channels (click, then Escape)", "hash": "review/queue/q-12/c-0343", "actions": [{"click": "[data-testid=\"other-channels-button\"]"}, {"wait": 400}, {"press": "Escape"}, {"click": "[data-testid=\"other-channels-button\"]"}, {"wait": 400}],
-   "expect": ["[data-testid=\"other-channels-rows\"]"]},
-  {"page": "review.inspector", "state": "3-queue-rail (deep link)", "hash": "review/queue/q-12/c-0343?rail=queue", "settle_ms": 800,
-   "expect": ["[data-testid=\"queue-rail\"]", "[data-testid=\"queue-filters\"]", "[data-testid=\"next-cluster-13\"]"]},
-  {"page": "review.inspector", "state": "3-queue-rail (click toggle, filter judged)", "hash": "review/queue/q-12/c-0343", "actions": [{"click": "[data-testid=\"queue-rail-toggle\"]"}, {"wait": 400}, {"click": "[data-testid=\"filter-status\"] [data-value=\"judged\"]"}],
-   "expect": ["[data-testid=\"queue-rail\"]", "[data-testid=\"next-row-c-0341\"]"]},
-  {"page": "review.inspector", "state": "3-queue-rail channel filter", "hash": "review/queue/q-12/c-0343?rail=queue", "actions": [{"click": "[data-testid=\"filter-status\"] [data-value=\"unjudged\"]"}, {"click": "[data-testid=\"filter-ch-CH4_A2\"]"}, {"wait": 200}],
-   "expect": ["[data-testid=\"next-row-c-0345\"]"], "expect_absent": ["[data-testid=\"next-cluster-13\"]"]},
-  {"page": "review.inspector", "state": "3-queue-rail filters reset", "hash": "review/queue/q-12/c-0343?rail=queue", "actions": [{"click": "[data-testid=\"filters-reset\"]"}, {"wait": 200}],
-   "expect": ["[data-testid=\"next-cluster-13\"]"]},
-  {"page": "review.inspector", "state": "4-evidence-rail (deep link)", "hash": "review/queue/q-12/c-0343?rail=evidence",
-   "expect": ["[data-testid=\"evidence-rail\"]", "[data-testid=\"evidence-origin\"]", "[data-testid=\"write-target\"]"]},
-  {"page": "review.inspector", "state": "4-evidence-rail (micro-stat click)", "hash": "review/queue/q-12/c-0343", "actions": [{"click": "[data-testid=\"micro-artifact\"]"}, {"wait": 300}],
-   "expect": ["[data-testid=\"evidence-artifact\"]"]},
-  {"page": "review.inspector", "state": "queue-picker popover", "hash": "review/queue/q-12/c-0343?pop=queues", "settle_ms": 800,
-   "expect": ["[data-testid=\"queue-picker\"]", "[data-testid=\"queue-row-q-19\"]"]},
-  {"page": "review.inspector", "state": "shortcuts popover", "hash": "review/queue/q-12/c-0343", "actions": [{"click": "[data-testid=\"shortcuts-button\"]"}],
-   "expect": ["[data-testid=\"shortcuts-popover\"]"]},
-  {"page": "review.inspector", "state": "blind-toggle popover (sighted queue)", "hash": "review/queue/q-12/c-0343?pop=blind",
-   "expect": ["[data-testid=\"blind-popover\"]", "[data-testid=\"blind-toggle\"]"]},
-  {"page": "review.inspector", "state": "5-blind-verification", "hash": "review/queue/q-19/w-40211", "settle_ms": 800,
-   "expect": ["[data-testid=\"inspector\"][data-blind=\"1\"]", "[data-testid=\"reveal-card\"]", "[data-testid=\"pill-model\"]"]},
-  {"page": "review.inspector", "state": "5-blind evidence rail (machine sections masked)", "hash": "review/queue/q-19/w-40211?rail=evidence",
-   "expect": ["[data-testid=\"evidence-model\"]", "[data-testid=\"evidence-artifact\"]"]},
-  {"page": "review.inspector", "state": "5-blind unblind confirm modal", "hash": "review/queue/q-19/w-40211?pop=blind", "actions": [{"click": "[data-testid=\"blind-toggle\"]"}, {"wait": 300}],
-   "expect": ["[data-testid=\"unblind-modal\"]", "[data-testid=\"unblind-keep\"]"]},
-  {"page": "review.inspector", "state": "training windows (binary + classes)", "hash": "review/queue/q-18", "settle_ms": 900,
-   "expect": ["[data-testid=\"inspector\"][data-item=\"w-01601\"]", "[data-testid=\"verdict-interesting\"]"], "expect_absent": ["[data-testid=\"verdict-seed\"]"]},
-  {"page": "review.inspector", "state": "explore spans queue", "hash": "review/queue/q-16", "settle_ms": 900,
-   "expect": ["[data-testid=\"inspector\"][data-item=\"a-2101\"]", "[data-testid=\"pill-score\"]"]},
-  {"page": "review.inspector", "state": "verdict given (I, auto-advance on → next unit)", "hash": "review/queue/q-12/c-0344", "actions": [{"press": "i"}, {"wait": 900}],
-   "expect": ["[data-testid=\"inspector\"][data-item=\"c-0345\"]", "[data-testid=\"previous-line\"]"]},
-  {"page": "review.inspector", "state": "class key 2 implies interesting, then undo", "hash": "review/queue/q-12/c-0346", "actions": [{"press": "2"}, {"wait": 900}, {"press": "Control+z"}, {"wait": 500}],
-   "expect": ["[data-testid=\"inspector\"][data-item=\"c-0346\"]"]},
-  {"page": "review.inspector", "state": "tag input validation", "hash": "review/queue/q-12/c-0348", "actions": [{"click": "[data-testid=\"tag-add-open\"]"}, {"fill": ["[data-testid=\"tag-input\"]", "Bad Tag"]}],
-   "expect": ["[data-testid=\"tag-error\"]"]},
-  {"page": "review.inspector", "state": "6-seed-promoted (deep link)", "hash": "review/queue/q-12/c-0343?state=promoted", "settle_ms": 900,
-   "expect": ["[data-testid=\"promotion-panel\"]", "[data-testid=\"exemplar-chip\"]"]},
-  {"page": "review.inspector", "state": "6-seed-promoted (S key) and new-family validation", "hash": "review/queue/q-12/c-0353", "actions": [{"press": "s"}, {"wait": 500}, {"click": "[data-testid=\"promo-family-new\"]"}],
-   "expect": ["[data-testid=\"promotion-panel\"]", "[data-testid=\"promo-family-name\"]"]},
-  {"page": "review.inspector", "state": "7-batch-undone (frame 7, cluster route)", "hash": "review/queue/q-15/cluster/12?state=undone", "settle_ms": 900,
-   "expect": ["[data-testid=\"batch-undone-banner\"]", "[data-testid=\"redo-button\"]"]},
-  {"page": "review.inspector", "state": "queue empty", "hash": "review/queue/q-12?state=empty",
-   "expect": ["[data-testid=\"queue-empty\"]"]},
-  {"page": "review.inspector", "state": "item not found", "hash": "review/queue/q-12/c-9999",
-   "expect": ["[data-testid=\"item-not-found\"]"]},
-
-  {"page": "review.cluster", "state": "2-batch-ready", "hash": "review/queue/q-15/cluster/12", "settle_ms": 900,
-   "expect": ["[data-testid=\"members-card\"]", "[data-testid=\"batch-line\"]", "[data-testid=\"member-c-0377\"]"]},
-  {"page": "review.cluster", "state": "alias review-cluster-12", "hash": "review/cluster/12", "settle_ms": 900,
-   "expect": ["[data-testid=\"cluster-page\"][data-cluster=\"12\"]"]},
-  {"page": "review.cluster", "state": "member selected (click)", "hash": "review/queue/q-15/cluster/12", "actions": [{"click": "[data-testid=\"member-c-0375\"]"}],
-   "expect": ["[data-testid=\"member-c-0375\"][aria-pressed=\"true\"]"]},
-  {"page": "review.cluster", "state": "7-batch-undone then redo", "hash": "review/queue/q-15/cluster/12?state=undone", "actions": [{"click": "[data-testid=\"redo-button\"]"}, {"wait": 500}],
-   "expect": ["[data-testid=\"batch-line\"]"], "expect_absent": ["[data-testid=\"batch-undone-banner\"]"]},
-  {"page": "review.cluster", "state": "include all then exclude flagged", "hash": "review/queue/q-15/cluster/12", "actions": [{"click": "[data-testid=\"include-all\"]"}, {"wait": 200}],
-   "expect": ["[data-testid=\"exclude-flagged\"]"]},
-  {"page": "review.cluster", "state": "sequence cluster 13 with queue rail", "hash": "review/queue/q-12/cluster/13?rail=queue", "settle_ms": 900,
-   "expect": ["[data-testid=\"cluster-page\"][data-cluster=\"13\"]", "[data-testid=\"queue-rail\"]"]},
-  {"page": "review.cluster", "state": "batch writing (auto-advance off, N)", "hash": "review/queue/q-12/cluster/13", "actions": [{"click": "[data-testid=\"auto-advance-toggle\"]"}, {"press": "n"}, {"wait": 60}],
-   "expect": ["[data-testid=\"cluster-page\"]"]}
+ {
+  "_comment": "Rewritten for live data (stage-3 Prompt 05, stage 2). Every state here deep-links REAL ids served by the bridge: queue 2 is the drop_detection_v1 application to Mushroom_260720_0509_4hrs_CH14_fs1.mat (run 32, 130 detections, ids 100..629) and queue 1 is Library's extract-events queue (30 sequences flagged needs_extraction, ids 119..148). The fixture-era states deep-linked q-12 / c-0343 / q-15 / q-18 / q-19, none of which exist once the reads are live. States that depended on affordances the demo store provided and the database cannot are REMOVED with the reason, rather than left to fail or faked - see the _removed note at the end.",
+  "page": "review.inspector",
+  "state": "1-candidate (redirect from review root)",
+  "hash": "review",
+  "settle_ms": 1200,
+  "expect": [
+   "[data-testid=\"review-root\"]",
+   "[data-testid=\"inspector\"]",
+   "[data-testid=\"verdict-card\"]",
+   "[data-testid=\"queue-rail-collapsed\"]"
+  ]
+ },
+ {
+  "page": "review.inspector",
+  "state": "1-candidate (deep link, live detection)",
+  "hash": "review/queue/2/100",
+  "settle_ms": 1200,
+  "expect": [
+   "[data-testid=\"inspector\"][data-item=\"100\"]",
+   "[data-testid=\"title-row\"]",
+   "[data-testid=\"shape-card\"]",
+   "[data-testid=\"verdict-card\"]",
+   "[data-testid=\"queue-progress\"]"
+  ]
+ },
+ {
+  "page": "review.inspector",
+  "state": "context trace paints on real samples",
+  "hash": "review/queue/2/101",
+  "settle_ms": 1500,
+  "expect": [
+   "[data-testid=\"inspector\"][data-item=\"101\"]",
+   "[data-testid=\"review-main\"] svg"
+  ]
+ },
+ {
+  "page": "review.inspector",
+  "state": "1b-other-channels (click, then Escape)",
+  "hash": "review/queue/2/100",
+  "settle_ms": 1200,
+  "actions": [
+   {
+    "click": "[data-testid=\"other-channels-button\"]"
+   },
+   {
+    "wait": 700
+   },
+   {
+    "press": "Escape"
+   },
+   {
+    "wait": 300
+   },
+   {
+    "click": "[data-testid=\"other-channels-button\"]"
+   },
+   {
+    "wait": 700
+   }
+  ],
+  "expect": [
+   "[data-testid=\"other-channels-rows\"]",
+   "[data-testid=\"other-channels-artifact\"]"
+  ]
+ },
+ {
+  "page": "review.inspector",
+  "state": "3-queue-rail (deep link)",
+  "hash": "review/queue/2/100?rail=queue",
+  "settle_ms": 1500,
+  "expect": [
+   "[data-testid=\"queue-rail\"]",
+   "[data-testid=\"queue-filters\"]",
+   "[data-testid=\"up-next\"]",
+   "[data-testid=\"next-row-101\"]"
+  ]
+ },
+ {
+  "page": "review.inspector",
+  "state": "3-queue-rail (click toggle)",
+  "hash": "review/queue/2/100",
+  "settle_ms": 1200,
+  "actions": [
+   {
+    "click": "[data-testid=\"queue-rail-toggle\"]"
+   },
+   {
+    "wait": 600
+   }
+  ],
+  "expect": [
+   "[data-testid=\"queue-rail\"]",
+   "[data-testid=\"queue-list\"]"
+  ]
+ },
+ {
+  "page": "review.inspector",
+  "state": "3-queue-rail filters reset",
+  "hash": "review/queue/2/100?rail=queue",
+  "settle_ms": 1500,
+  "actions": [
+   {
+    "click": "[data-testid=\"filters-reset\"]"
+   },
+   {
+    "wait": 400
+   }
+  ],
+  "expect": [
+   "[data-testid=\"up-next\"]",
+   "[data-testid=\"next-row-101\"]"
+  ]
+ },
+ {
+  "page": "review.inspector",
+  "state": "4-evidence-rail (deep link)",
+  "hash": "review/queue/2/100?rail=evidence",
+  "settle_ms": 1500,
+  "expect": [
+   "[data-testid=\"evidence-rail\"]",
+   "[data-testid=\"evidence-sections\"]",
+   "[data-testid=\"write-target\"]"
+  ]
+ },
+ {
+  "page": "review.inspector",
+  "state": "4-evidence-rail (micro-stat click)",
+  "hash": "review/queue/2/100",
+  "settle_ms": 1200,
+  "actions": [
+   {
+    "click": "[data-testid=\"micro-artifact\"]"
+   },
+   {
+    "wait": 500
+   }
+  ],
+  "expect": [
+   "[data-testid=\"evidence-rail\"]"
+  ]
+ },
+ {
+  "page": "review.inspector",
+  "state": "queue-picker popover lists the live queues",
+  "hash": "review/queue/2/100?pop=queues",
+  "settle_ms": 1500,
+  "expect": [
+   "[data-testid=\"queue-picker\"]",
+   "[data-testid=\"queue-row-1\"]",
+   "[data-testid=\"queue-row-2\"]"
+  ]
+ },
+ {
+  "page": "review.inspector",
+  "state": "shortcuts popover",
+  "hash": "review/queue/2/100",
+  "settle_ms": 1200,
+  "actions": [
+   {
+    "click": "[data-testid=\"shortcuts-button\"]"
+   },
+   {
+    "wait": 400
+   }
+  ],
+  "expect": [
+   "[data-testid=\"shortcuts-popover\"]"
+  ]
+ },
+ {
+  "page": "review.inspector",
+  "state": "blind-toggle popover on a sighted queue",
+  "hash": "review/queue/2/100?pop=blind",
+  "settle_ms": 1200,
+  "expect": [
+   "[data-testid=\"blind-popover\"]",
+   "[data-testid=\"blind-toggle\"]"
+  ]
+ },
+ {
+  "page": "review.inspector",
+  "state": "extract-events queue (sequence unit, writes annotations)",
+  "hash": "review/queue/1",
+  "settle_ms": 1800,
+  "expect": [
+   "[data-testid=\"inspector\"]",
+   "[data-testid=\"writes-chip\"]",
+   "[data-testid=\"verdict-card\"]"
+  ]
+ },
+ {
+  "page": "review.inspector",
+  "state": "verdict given (I) writes to the database and advances",
+  "hash": "review/queue/2/102",
+  "settle_ms": 1500,
+  "actions": [
+   {
+    "press": "i"
+   },
+   {
+    "wait": 1800
+   }
+  ],
+  "expect": [
+   "[data-testid=\"inspector\"]",
+   "[data-testid=\"previous-line\"]"
+  ],
+  "expect_absent": [
+   "[data-testid=\"write-refused\"]"
+  ]
+ },
+ {
+  "page": "review.inspector",
+  "state": "Ctrl-Z undoes through the server",
+  "hash": "review/queue/2/103",
+  "settle_ms": 1500,
+  "actions": [
+   {
+    "press": "i"
+   },
+   {
+    "wait": 1500
+   },
+   {
+    "press": "Control+z"
+   },
+   {
+    "wait": 1500
+   }
+  ],
+  "expect": [
+   "[data-testid=\"inspector\"]"
+  ],
+  "expect_absent": [
+   "[data-testid=\"write-refused\"]"
+  ]
+ },
+ {
+  "page": "review.inspector",
+  "state": "Space skips without writing",
+  "hash": "review/queue/2/104",
+  "settle_ms": 1500,
+  "actions": [
+   {
+    "press": " "
+   },
+   {
+    "wait": 1200
+   }
+  ],
+  "expect": [
+   "[data-testid=\"inspector\"]"
+  ],
+  "expect_absent": [
+   "[data-testid=\"write-refused\"]"
+  ]
+ },
+ {
+  "page": "review.inspector",
+  "state": "tag input validation",
+  "hash": "review/queue/2/105",
+  "settle_ms": 1500,
+  "actions": [
+   {
+    "click": "[data-testid=\"tag-add-open\"]"
+   },
+   {
+    "wait": 300
+   },
+   {
+    "fill": [
+     "[data-testid=\"tag-input\"]",
+     "Bad Tag"
+    ]
+   },
+   {
+    "wait": 300
+   }
+  ],
+  "expect": [
+   "[data-testid=\"tag-error\"]"
+  ]
+ },
+ {
+  "page": "review.inspector",
+  "state": "item not found is loud, not blank",
+  "hash": "review/queue/2/999999",
+  "settle_ms": 1500,
+  "expect": [
+   "[data-testid=\"item-not-found\"]",
+   "[data-testid=\"go-current\"]"
+  ]
+ },
+ {
+  "_removed": "States dropped with their reasons, so a shorter file does not read as a passing one. (a) '5-blind-verification', '5-blind evidence rail', '5-blind unblind confirm modal' and 'training windows (binary + classes)' deep-linked q-18/q-19, the fixture's window queues. This database has ZERO window_sets rows, so no training-windows or model-verification queue can be seeded and there is nothing live to point them at; P20 blinding is covered instead by tests/test_webui_review.py, which asserts the score is absent from the payload on a blind queue. (b) 'explore spans queue' deep-linked q-16: there are no annotations with verdict='seed' on this machine (Explore's Take span for Review has never been used here), so the queue resolves empty. (c) '6-seed-promoted (deep link)', '6-seed-promoted (S key) and new-family validation', '7-batch-undone (frame 7, cluster route)' and the four review.cluster states used ?state=promoted / ?state=undone and cluster/12 -- the promotion panel's family choice and the batch-undone banner are still session-local (the client's still_fake list), and NO resolver emits a cluster number for either seeded queue, so every cluster route 404s by design with 'this queue has no clusters'. Cluster review needs a queue built from a Grouping, which is named as remaining work in the report. (d) 'queue empty' used ?state=empty, a demo-store affordance with no live equivalent; a genuinely drained queue is reachable only by judging all 130 items.",
+  "page": "review.inspector",
+  "state": "queue rail shows real remaining count",
+  "hash": "review/queue/2/100",
+  "settle_ms": 1500,
+  "expect": [
+   "[data-testid=\"queue-rail-collapsed\"]",
+   "[data-testid=\"left-count\"]"
+  ]
+ }
 ]

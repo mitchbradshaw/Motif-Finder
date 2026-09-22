@@ -48,7 +48,7 @@ export function Shell({ data, unit, blind, setBlind, paused, micro, evidenceTitl
   const left = c.total - judged
   return (
     <>
-      <Header workspace="Review" page="Inspector" subtitle={data.queue.headerSubtitle} demo />
+      <Header workspace="Review" page="Inspector" subtitle={data.queue.headerSubtitle} />
       <div className="rv-root" data-testid="review-root">
         <Toolbar data={data} judged={judged} blind={blind} setBlind={setBlind} paused={paused} />
         <div className="rv-body">
