@@ -11,6 +11,7 @@ No FastAPI needed; runs under the conda pytest.
 Runnable standalone:  python tests/test_webui_serialize.py
 """
 
+import base64
 import os
 import sys
 
@@ -60,6 +61,55 @@ def test_spanset_payload_adds_the_spans_offset():
     assert p["start_s"] == [55.0, 70.0] and p["end_s"] == [60.0, 75.0]
     e = to_payload("spanset", SpanSet(starts=(), ends=()), {}, {"fs": 1.0})
     assert e["n"] == 0 and "threshold" not in e["summary"]
+
+
+# ----------------------------------------------- a sparse image (fixup-a 1) --
+# `preprocessing.wavelet_transform` leaves roughly half its columns NaN by
+# design (a chunk is falling-edge -> next rising-edge, so every rising -> next
+# falling interval is never covered). Block-averaging that with `.mean()` makes
+# every output cell NaN as soon as the block factor is > 1, which is the case on
+# every real span: the image goes black and `value_range` reports [0, 1], a
+# number that is not true of the data. The existing tests cannot see it because
+# they all use a 300-sample synthetic where the block factor is 1.
+
+def _sparse(h=64, w=1200, lo=10.0, hi=20.0, seed=3):
+    """A wide image with every other column NaN — the Dehshibi pattern."""
+    vals = np.random.default_rng(seed).uniform(lo, hi, size=(h, w))
+    vals[:, 1::2] = np.nan
+    return vals
+
+
+def _pixels(p):
+    return np.frombuffer(base64.b64decode(p["pixels_b64"]), dtype=np.uint8)
+
+
+def test_a_wide_image_with_nan_columns_still_paints_its_finite_values():
+    vals = _sparse()
+    p = to_payload("encoding", Encoding(values=vals, kind="image"), {}, {"fs": 1.0})
+    assert p["display_shape"][1] < vals.shape[1], "the block factor must be > 1 or this test proves nothing"
+    assert p["value_range"] is not None, "half the columns are finite; the range is knowable"
+    lo, hi = p["value_range"]
+    assert 10.0 <= lo < hi <= 20.0, f"range {p['value_range']} is not the data's range"
+    assert _pixels(p).max() > 0, "the image painted uniform black over finite data"
+
+
+def test_an_all_nan_block_is_marked_rather_than_painted_as_a_value():
+    vals = np.random.default_rng(4).uniform(10.0, 20.0, size=(64, 512))
+    vals[:, 10:12] = np.nan          # exactly one output cell column (block width 2)
+    p = to_payload("encoding", Encoding(values=vals, kind="image"), {}, {"fs": 1.0})
+    rows, cols = p["display_shape"]
+    assert p["nan_cells"] == rows, f"one blanked column of {rows} cells should be marked, got {p['nan_cells']}"
+    assert p["all_nan"] is False
+    mask = np.frombuffer(base64.b64decode(p["nan_b64"]), dtype=np.uint8).reshape(rows, cols)
+    assert mask[:, 5].all() and mask.sum() == rows, "the mask must name the blank cells and only those"
+
+
+def test_an_entirely_nan_image_says_so_in_words_instead_of_claiming_a_range():
+    vals = np.full((64, 512), np.nan)
+    p = to_payload("encoding", Encoding(values=vals, kind="image"), {}, {"fs": 1.0})
+    assert p["all_nan"] is True
+    assert p["value_range"] is None, "there is no range; [0, 1] would be a claim about data that is not there"
+    assert "no finite" in p["summary"].lower(), f"the payload must say so in words: {p['summary']!r}"
 
 
 if __name__ == "__main__":
