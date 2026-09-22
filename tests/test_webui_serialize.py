@@ -112,5 +112,17 @@ def test_an_entirely_nan_image_says_so_in_words_instead_of_claiming_a_range():
     assert "no finite" in p["summary"].lower(), f"the payload must say so in words: {p['summary']!r}"
 
 
+def test_a_capped_grouping_says_so_in_its_summary():
+    """fixup-a item 10: `serialize.py` ships `labels[:5000]` with
+    `capped: true` and `GroupingR` never surfaced it, so past 5,000 windows the
+    colour strip truncated in silence."""
+    from Working.types import Grouping
+    labels = np.arange(6000) % 3
+    p = to_payload("grouping", Grouping(labels=labels), {}, {"fs": 1.0})
+    assert p["capped"] is True and len(p["labels"]) == 5000
+    assert p["n_shown"] == 5000
+    assert "5,000" in p["summary"] and "6,000" in p["summary"], p["summary"]
+
+
 if __name__ == "__main__":
     sys.exit(pytest.main([__file__, "-q"]))

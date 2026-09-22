@@ -355,3 +355,42 @@ def test_registering_the_adapter_does_not_import_torch():
         capture_output=True, text=True,
     )
     assert out.returncode == 0, out.stderr
+
+
+# ── the model card tells the truth (fixup-a item 10) ────────────────────────
+
+def test_the_training_parameters_reach_the_model_card():
+    """`_run` spread `**params` flat into meta while `serialize.py`'s `keep`
+    tuple whitelists a `"params"` key that was never present, so
+    `n_estimators`, `class_weight`, `holdout_frac` and `random_state` were
+    dropped from the card - a model shown without the settings it was fitted
+    under."""
+    spec = get_adapter(CLASSIFIER_NAME)
+    window_set, group_ids = _synthetic_window_set()
+    meta = _train(spec, window_set, Grouping(labels=group_ids), n_estimators=17).meta
+    assert set(meta["params"]) == {"n_estimators", "class_weight", "holdout_frac", "random_state"}
+    assert meta["params"]["n_estimators"] == 17
+
+
+def test_training_on_everything_says_why_there_was_no_holdout():
+    """`_split` silently returns "train on everything" when a class has fewer
+    than two members or the holdout would be smaller than the class count.
+    `holdout_accuracy` then becomes None and the card printed
+    `holdout accuracy -` with no reason."""
+    spec = get_adapter(CLASSIFIER_NAME)
+    window_set, group_ids = _synthetic_window_set(n_per_group=2)
+    meta = _train(spec, window_set, Grouping(labels=group_ids), holdout_frac=0.1).meta
+    assert meta["holdout_accuracy"] is None
+    assert meta["holdout_reason"], "an absent number must carry its reason"
+    assert "holdout" in meta["holdout_reason"].lower()
+
+    full = _train(spec, window_set, Grouping(labels=group_ids), holdout_frac=0.0).meta
+    assert full["holdout_reason"] and "0" in full["holdout_reason"]
+
+
+def test_a_holdout_that_was_taken_carries_no_excuse():
+    spec = get_adapter(CLASSIFIER_NAME)
+    window_set, group_ids = _synthetic_window_set()
+    meta = _train(spec, window_set, Grouping(labels=group_ids)).meta
+    assert meta["holdout_accuracy"] is not None
+    assert meta["holdout_reason"] is None
