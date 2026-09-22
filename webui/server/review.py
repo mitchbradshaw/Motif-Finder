@@ -310,19 +310,30 @@ def _refuse_held_out(conn, queue, target_ids):
     accepted and written, which is the one direction that actually damages the
     evaluation.
     """
-    if queue.get("unit") == "window":
+    # A window has no recording of its own; every other unit does, and ALL of
+    # them must be refused. Covering only `detection` left a held-out
+    # recording's annotations and sequences writable, which is the half of D6
+    # that actually damages the final evaluation.
+    unit = queue.get("unit")
+    sql = {
+        # `detections` has no `recording_id`: a detection belongs to a run and
+        # the run names the recording.
+        "detection": "SELECT r.recording_id AS recording_id FROM detections d "
+                     "JOIN runs r ON r.id = d.run_id WHERE d.id = ?",
+        "human span": "SELECT recording_id FROM annotations WHERE id = ?",
+        "sequence": "SELECT recording_id FROM sequences WHERE id = ?",
+    }.get(unit)
+    if sql is None:
         return
     held = _held_out_ids(conn)
     if not held:
         return
     index = _index(conn)
     for tid in target_ids:
-        # `detections` has no `recording_id`: a detection belongs to a run and
-        # the run names the recording.
-        row = conn.execute(
-            "SELECT r.recording_id AS recording_id FROM detections d "
-            "JOIN runs r ON r.id = d.run_id WHERE d.id = ?", (int(tid),)
-        ).fetchone() if queue.get("unit") == "detection" else None
+        try:
+            row = conn.execute(sql, (int(tid),)).fetchone()
+        except (TypeError, ValueError):
+            continue
         rid = row["recording_id"] if row else None
         if rid is not None and int(rid) in held:
             label = (index.get(int(rid)) or {}).get("label") or str(rid)
@@ -672,6 +683,7 @@ def post_extract(request: Request, qid: str, body: ExtractBody):
     conn = _conn(request)
     try:
         queue = _queue_or_404(conn, qid)
+        _refuse_held_out(conn, queue, [body.sequence_id])
         out = _core_call(
             extraction_mod.extract_events, conn, int(queue["id"]),
             body.sequence_id,

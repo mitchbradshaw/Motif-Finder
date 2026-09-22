@@ -185,7 +185,11 @@ def test_verdict_on_a_detection_queue_writes_an_adjudication_only():
 def test_verdict_on_an_annotations_queue_writes_an_annotation_only():
     conn = _fresh_conn()
     rid = _insert_recording(conn)
-    ann = q.insert_annotation(conn, rid, 0, 100, "unsure", q.SOURCE_MANUAL_UI)
+    # `seed` is what an explore-spans queue resolves (04-to-05 §4). The span has
+    # to be one the queue actually lists, or the membership check refuses it —
+    # which is the point of that check: a one-item queue used to be a licence to
+    # write any annotation in the database.
+    ann = q.insert_annotation(conn, rid, 0, 100, "seed", q.SOURCE_MANUAL_UI)
     qid = _make_queue(conn, writes_to="annotations",
                       source_kind="explore-spans", unit="human span")
     V.write_verdict(conn, qid, ann, "interesting")

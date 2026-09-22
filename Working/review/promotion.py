@@ -353,7 +353,15 @@ def _reverse_verdict(conn, payload):
     verdicts = _verdicts()
 
     writes_to = record.get("writes_to")
-    target_id = record.get("target_id")
+    # `row_id` is where the verdict LANDED; `target_id` is what the queue handed
+    # out. They differ on a sequence queue, and restoring by the target id wrote
+    # the prior verdict and note onto whichever annotation happened to share the
+    # sequence's number — fabricating a human judgement on a span nobody was
+    # shown, through the one route whose purpose is to take a judgement back.
+    # This is the same confusion `verdicts._resolve_target` fixed; promotion was
+    # not brought along. `target_id` remains the fallback for rows written
+    # before `row_id` existed, when the two were always equal.
+    target_id = record.get("row_id", record.get("target_id"))
     prior = record.get("prior")
     restorer = {
         "adjudications": getattr(verdicts, "_restore_adjudication", None),

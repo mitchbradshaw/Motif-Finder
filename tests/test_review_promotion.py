@@ -189,7 +189,12 @@ def test_a_human_span_promotes_as_a_human_revision(conn, tmp_path):
     rec = _recording(conn, tmp_path, 0, _wave(2_000))
     qid = _queue(conn, source_kind="explore-spans", unit="human span",
                  writes_to="annotations")
-    ann = q.insert_annotation(conn, rec, 500, 756, "interesting", "explore")
+    # `seed`, because that is what an explore-spans queue CONTAINS (04-to-05 §4:
+    # "annotations with verdict `seed`" — Explore's *Take span for Review*). A
+    # span that was never seeded is not one this queue ever asked about, and
+    # promoting it through this queue would attribute the act to a question
+    # nobody put.
+    ann = q.insert_annotation(conn, rec, 500, 756, "seed", "explore")
 
     out = promotion.promote(conn, qid, ann)
 

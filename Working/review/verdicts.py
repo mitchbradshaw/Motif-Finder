@@ -232,19 +232,20 @@ def _check_membership(conn, queue, target_ids):
     and on an annotations queue, where `judged` is READ from that ledger, it
     silently removes a stranger from somebody else's queue.
     """
-    # NOT for an `explore-spans` queue. Its source predicate is
-    # `annotations.verdict = 'seed'` -- the very field a verdict overwrites --
-    # so membership there is self-invalidating: the first verdict removes the
-    # span from its own queue and a second one could never be given. Where the
-    # predicate is independent of the verdict (a run id, a window set, a
-    # `needs_extraction` flag) the check is meaningful and is applied.
-    if queue["unit"] == "human span":
-        return
     from Working.review import queues as _queues
     members = {
         it["target_id"] for it in _queues.queue_items(
             conn, queue["id"], include_judged=True, include_prior_judged=True)
     }
+    # An `explore-spans` queue's source predicate is `annotations.verdict =
+    # 'seed'` -- the very field a verdict overwrites -- so its membership is
+    # self-invalidating: the first verdict removes the span from its own queue
+    # and a second one could never be given. The answer is to widen membership
+    # to what this queue HAS ALREADY ASKED about, not to stop asking: exempting
+    # the whole unit turned a one-item queue into a licence to write any of the
+    # 11 302 annotations in the database.
+    if queue["unit"] == "human span":
+        members |= _queues._audit_judged_ids(conn, queue["id"])
     for tid in target_ids:
         if _target_int(tid) not in members:
             raise ValueError(
@@ -316,8 +317,20 @@ def _prior_adjudication(conn, detection_id):
     return {"verdict": row["verdict"], "note": row["note"]}
 
 
+def _adjudication_tags(conn, detection_id):
+    row = _adjudications.get_adjudication(conn, detection_id)
+    if row is None:
+        return None
+    return _adjudications.get_adjudication_tags(conn, row["id"])
+
+
 def _write_adjudication(conn, target_id, verdict, note, tags):
     prior = _prior_adjudication(conn, target_id)
+    # Tags are REPLACED per category by the writer, so a tagged verdict destroys
+    # whatever was there. Undo restored the verdict and the note and left the
+    # tag loss standing — silently, because nothing recorded what had been lost.
+    if prior is not None:
+        prior["tags"] = _adjudication_tags(conn, target_id)
     _adjudications.insert_adjudication(conn, target_id, verdict, note=note,
                                        tags=tags, commit=False)
     return prior
@@ -332,7 +345,8 @@ def _write_annotation(conn, target_id, verdict, note, tags):
     can restore them.
     """
     row = _queries.get_annotation(conn, target_id)
-    prior = {"verdict": row["verdict"], "note": row["note"]}
+    prior = {"verdict": row["verdict"], "note": row["note"],
+             "tags": _vocabulary.get_annotation_tags(conn, target_id)}
     conn.execute(
         "UPDATE annotations SET verdict = ?, note = COALESCE(?, note) "
         "WHERE id = ?",
@@ -410,6 +424,11 @@ def _restore_adjudication(conn, target_id, prior):
             "UPDATE adjudications SET verdict = ?, note = ? "
             "WHERE detection_id = ?",
             (prior["verdict"], prior["note"], target_id))
+        adj = _adjudications.get_adjudication(conn, target_id)
+        if adj is not None and prior.get("tags") is not None:
+            for category, values in prior["tags"].items():
+                _adjudications.set_adjudication_tags(
+                    conn, adj["id"], category, values, commit=False)
 
 
 def _restore_annotation(conn, target_id, prior):
@@ -417,6 +436,10 @@ def _restore_annotation(conn, target_id, prior):
         return
     conn.execute("UPDATE annotations SET verdict = ?, note = ? WHERE id = ?",
                  (prior["verdict"], prior["note"], target_id))
+    if prior.get("tags") is not None:
+        for category, values in prior["tags"].items():
+            _vocabulary.set_annotation_tags(conn, target_id, category, values,
+                                            commit=False)
 
 
 def _restore_window(conn, window_set_id, window_index, prior):
@@ -581,6 +604,22 @@ def undo_last(conn, queue_id=None):
         return None
     payload = json.loads(row["payload_json"] or "{}")
     writes_to = payload.get("writes_to") or row["target_table"]
+    # Claim it first: whoever stamps `undone_at` owns the reversal, and a second
+    # caller racing the same row is told there is nothing left rather than being
+    # handed a success for work it did not do. A promotion claims its own row
+    # inside `unpromote`, so it is left alone here.
+    if row["action"] not in ("promote", "extract") and writes_to not in (
+            "adjudications", "annotations", "window_verdicts"):
+        # Validate BEFORE claiming: a row this function cannot reverse must not
+        # be stamped undone on the way to raising, or the raise itself destroys
+        # the only record that could have reversed it.
+        raise ValueError(
+            f"review_audit row {row['id']} says it wrote {writes_to!r}, which "
+            f"is not a store this function can reverse. Refusing to stamp it "
+            f"undone: a row marked undone that was never reversed can never be "
+            f"reversed again.")
+    if row["action"] != "promote" and not _claim(conn, row["id"]):
+        return None
 
     # A promotion is two halves — a verdict and a Library entry — and only
     # `promotion.unpromote` knows how to take both back. Undo used to fall
@@ -605,20 +644,11 @@ def undo_last(conn, queue_id=None):
     if row["action"] == "extract":
         from Working.review import extraction as _extraction
         undone = _extraction.undo_extraction(conn, row)
-        conn.execute("UPDATE review_audit SET undone_at = ? WHERE id = ?",
-                     (_now(), row["id"]))
         conn.commit()
         return {"audit_id": row["id"], "action": "extract",
                 "writes_to": "annotations", "queue_id": row["queue_id"],
                 "target_ids": json.loads(row["target_ids"] or "[]"),
                 **undone}
-
-    if writes_to not in ("adjudications", "annotations", "window_verdicts"):
-        raise ValueError(
-            f"review_audit row {row['id']} says it wrote {writes_to!r}, which "
-            f"is not a store this function can reverse. Refusing to stamp it "
-            f"undone: a row marked undone that was never reversed can never be "
-            f"reversed again.")
 
     for target in payload.get("targets", []):
         # `row_id` is where the verdict actually landed; older rows predate it
@@ -637,9 +667,22 @@ def undo_last(conn, queue_id=None):
                     f"its payload names no window set, so the row it wrote "
                     f"cannot be located to undo it")
             _restore_window(conn, ws_id, target.get("window_index"), prior)
-    conn.execute("UPDATE review_audit SET undone_at = ? WHERE id = ?",
-                 (_now(), row["id"]))
     conn.commit()
     return {"audit_id": row["id"], "action": row["action"],
             "writes_to": writes_to, "queue_id": row["queue_id"],
             "target_ids": json.loads(row["target_ids"] or "[]")}
+
+
+def _claim(conn, audit_id):
+    """Take ownership of an audit row before reversing it.
+
+    `undo_last` reads the newest un-undone row and then reverses it, and a held
+    Ctrl-Z issues the next request before the first has committed — so six
+    requests read the same row, all reported success, and one reversal happened.
+    Stamping `undone_at` FIRST, conditionally, means exactly one caller wins and
+    the losers are told there was nothing left for them to undo.
+    """
+    cur = conn.execute(
+        "UPDATE review_audit SET undone_at = ? WHERE id = ? AND undone_at IS NULL",
+        (_now(), audit_id))
+    return cur.rowcount == 1
