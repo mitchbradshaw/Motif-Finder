@@ -443,3 +443,28 @@ def test_seed_matches_needs_no_matrix_profile_and_the_module_says_so():
     matrix-profile templates."""
     assert ss.USES_MATRIX_PROFILE is False
     assert "stumpy.match" in ss.WHY_NO_PROFILE
+
+
+# ── the marker states its own rule (fixup-a item 12) ────────────────────────
+# The recommended cut is computed at a hard-coded alpha with no
+# multiple-comparison correction, and the page printed neither. A statistic
+# whose rule is unstated cannot be falsified.
+
+def test_the_cut_rule_states_the_alpha_and_the_correction():
+    rule = ss.cut_rule()
+    assert rule["alpha"] == ss.CUT_ALPHA
+    assert rule["correction"] == "none"
+    assert "0.01" in rule["text"] and "correction: none" in rule["text"], rule["text"]
+
+
+def test_the_cut_rule_follows_the_alpha_it_was_given():
+    assert ss.cut_rule(alpha=0.05)["alpha"] == 0.05
+    assert "0.05" in ss.cut_rule(alpha=0.05)["text"]
+
+
+def test_the_recommended_cut_uses_the_alpha_the_rule_names():
+    """The number and the words must come from one place, or the page states a
+    rule the cut was not computed under."""
+    null = {"distances": [float(i) / 100 for i in range(1, 101)], "draws": 100}
+    dists = [0.005, 0.5, 0.9]
+    assert ss.recommended_cut(dists, null) == ss.recommended_cut(dists, null, alpha=ss.CUT_ALPHA)
