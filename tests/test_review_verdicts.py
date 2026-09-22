@@ -533,3 +533,47 @@ def test_a_window_batch_undo_restores_the_windows_that_had_a_prior_verdict():
     rows = _window_rows(conn, ws)
     assert [(r["window_index"], r["verdict"]) for r in rows] == [(1, "seed")]
     assert rows[0]["note"] == "kept"
+
+
+def test_a_window_index_past_the_end_of_the_set_is_refused():
+    """The other two branches refuse a target id that is in neither store.
+
+    A window index the set does not contain is the same fault: a row written
+    for it is a verdict on a window nobody was ever shown, and because
+    `queues._resolve_windows` only ever lists `range(n_windows)` the stray row
+    would never surface again to be noticed or undone from the UI.
+    """
+    conn = _fresh_conn()
+    rid = _insert_recording(conn)
+    ws = _insert_window_set(conn, rid, n_windows=6)
+    qid = _make_window_queue(conn, ws)
+
+    with pytest.raises(ValueError):
+        V.write_verdict(conn, qid, 6, "seed")
+    assert _window_rows(conn, ws) == []
+
+
+def test_a_negative_window_index_is_refused():
+    conn = _fresh_conn()
+    rid = _insert_recording(conn)
+    ws = _insert_window_set(conn, rid)
+    qid = _make_window_queue(conn, ws)
+
+    with pytest.raises(ValueError):
+        V.write_verdict(conn, qid, -1, "seed")
+    assert _window_rows(conn, ws) == []
+
+
+def test_a_window_queue_naming_a_set_that_is_gone_is_a_value_error():
+    """Not a bare `sqlite3.IntegrityError` from the foreign key: the caller
+    asked a well-formed question of a queue whose source has been deleted, and
+    the message should say so."""
+    conn = _fresh_conn()
+    rid = _insert_recording(conn)
+    ws = _insert_window_set(conn, rid)
+    qid = _make_window_queue(conn, ws)
+    conn.execute("DELETE FROM window_sets WHERE id = ?", (ws,))
+    conn.commit()
+
+    with pytest.raises(ValueError):
+        V.write_verdict(conn, qid, 0, "seed")

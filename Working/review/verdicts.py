@@ -83,10 +83,39 @@ def _is_annotation(conn, target_id):
     ).fetchone() is not None
 
 
-def _check_target(conn, writes_to, target_id):
+def _check_window_target(conn, queue, target_id):
+    """The window equivalent of "no detection with id X".
+
+    A window queue's targets are indices into ONE set, so "does this target
+    exist" means "is this index inside that set". An index outside it is a
+    verdict on a window nobody was ever shown — and because
+    `queues._resolve_windows` only ever lists `range(n_windows)`, such a row
+    would never surface again to be noticed or undone. A set the queue names
+    but that has since been deleted is a `ValueError` here rather than a bare
+    foreign-key `IntegrityError` three frames down.
+    """
+    ws_id = _window_set_id(queue)
+    row = conn.execute(
+        "SELECT n_windows FROM window_sets WHERE id = ?", (ws_id,)).fetchone()
+    if row is None:
+        raise ValueError(
+            f"review queue {queue['id']} names window set {ws_id}, which no "
+            f"longer exists")
+    index = int(target_id)
+    if index < 0:
+        raise ValueError(f"window index must be >= 0, got {index}")
+    n_windows = row["n_windows"]
+    if n_windows is not None and index >= int(n_windows):
+        raise ValueError(
+            f"window set {ws_id} has {int(n_windows)} windows; there is no "
+            f"window {index} to give a verdict on")
+
+
+def _check_target(conn, queue, target_id):
     """Refuse a target that belongs to the other store. Raises
     `PermissionError` for a crossing, `ValueError` for an id that is in
     neither store."""
+    writes_to = queue["writes_to"]
     if writes_to == "adjudications":
         if _is_detection(conn, target_id):
             return
@@ -108,6 +137,7 @@ def _check_target(conn, writes_to, target_id):
             )
         raise ValueError(f"no annotation with id {target_id}")
     if writes_to == "window_verdicts":
+        _check_window_target(conn, queue, target_id)
         return
     raise ValueError(f"unknown writes_to {writes_to!r}")
 
@@ -296,7 +326,7 @@ def write_verdict(conn, queue_id, target_id, verdict, *, note=None, tags=None,
     """
     queue = _queue_row(conn, queue_id)
     _check_verdict(verdict)
-    _check_target(conn, queue["writes_to"], target_id)
+    _check_target(conn, queue, target_id)
     prior, coords = _apply(conn, queue, target_id, verdict, note, tags,
                            window_index)
     payload = {
@@ -326,7 +356,7 @@ def write_batch(conn, queue_id, target_ids, verdict, *, note=None, tags=None):
     _check_verdict(verdict)
     target_ids = list(target_ids)
     for tid in target_ids:
-        _check_target(conn, queue["writes_to"], tid)
+        _check_target(conn, queue, tid)
     targets = []
     window_set_id = None
     for tid in target_ids:
