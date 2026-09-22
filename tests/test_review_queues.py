@@ -336,3 +336,142 @@ def test_closed_queue_is_absent_from_header_counts():
     assert qs.header_counts(conn)["need_you"] == 1
     qs.close_queue(conn, qid)
     assert qs.header_counts(conn) == {"need_you": 0, "by_queue": []}
+
+
+# ── the prior verdict: a rediscovery is not put to the researcher twice ─────
+#
+# 04-to-05 §3. Every one of these detections is 100 samples wide, so the §4.6
+# onset tolerance is 0.25 × 100 = 25 samples, and each lives on its own
+# recording so the three cases cannot contaminate each other.
+#
+# The three human spans are chosen so that each isolates ONE half of the rule:
+#
+#   match     (120, 220)  IoU 80/120  = 0.667 ≥ 0.5    onset gap  20 ≤ 25
+#   low IoU   (100, 433)  IoU 100/333 = 0.300 < 0.5    onset gap   0 ≤ 25
+#   bad onset (130, 230)  IoU 70/130  = 0.538 ≥ 0.5    onset gap  30 > 25
+#
+# The last one is the one that fails under the WRONG rule: an overlap-only
+# comparison (`Working.compare`'s `SIMILARITY_IOU_THRESHOLD`, no onset term)
+# would call 0.538 a match and silently drop the item from the queue.
+
+def _prior_fixture(conn):
+    """One run group, three recordings, one detection and one human span each."""
+    gid = _insert_run_group(conn)
+    out = {}
+    for name, (a_start, a_end) in (
+            ("match", (120, 220)),
+            ("low_iou", (100, 433)),
+            ("bad_onset", (130, 230))):
+        rid = _insert_recording(conn, source_file=name + ".mat")
+        det = _insert_detection(conn, rid, 100, 200, score=0.5, run_group_id=gid)
+        ann = _insert_annotation(conn, rid, a_start, a_end, verdict="interesting")
+        out[name] = {"recording_id": rid, "detection_id": det, "annotation_id": ann}
+    return gid, out
+
+
+def test_candidate_matching_a_human_span_carries_that_span_s_verdict():
+    conn = _fresh_conn()
+    gid, f = _prior_fixture(conn)
+    qid = qs.create_queue(conn, name="seeded", source_kind="seed-search",
+                          source_ref=str(gid))
+    by_id = {it["target_id"]: it
+             for it in qs.queue_items(conn, qid, include_prior_judged=True)}
+    hit = by_id[f["match"]["detection_id"]]
+    assert hit["prior_verdict"] == "interesting"
+    assert hit["prior_annotation_id"] == f["match"]["annotation_id"]
+    assert round(hit["prior_iou"], 3) == 0.667
+    assert hit["prior_onset_gap"] == 20
+
+
+def test_a_candidate_with_a_prior_verdict_is_absent_by_default():
+    conn = _fresh_conn()
+    gid, f = _prior_fixture(conn)
+    qid = qs.create_queue(conn, name="seeded", source_kind="seed-search",
+                          source_ref=str(gid))
+    shown = [it["target_id"] for it in qs.queue_items(conn, qid)]
+    assert f["match"]["detection_id"] not in shown
+    # and the include flag brings it back
+    all_ids = [it["target_id"]
+               for it in qs.queue_items(conn, qid, include_prior_judged=True)]
+    assert f["match"]["detection_id"] in all_ids
+    assert len(all_ids) == 3
+
+
+def test_an_overlap_below_the_iou_threshold_is_not_a_prior_verdict():
+    conn = _fresh_conn()
+    gid, f = _prior_fixture(conn)
+    qid = qs.create_queue(conn, name="seeded", source_kind="seed-search",
+                          source_ref=str(gid))
+    by_id = {it["target_id"]: it
+             for it in qs.queue_items(conn, qid, include_prior_judged=True)}
+    miss = by_id[f["low_iou"]["detection_id"]]
+    assert miss["prior_verdict"] is None
+    assert miss["prior_annotation_id"] is None
+    assert f["low_iou"]["detection_id"] in [it["target_id"]
+                                            for it in qs.queue_items(conn, qid)]
+
+
+def test_good_overlap_with_a_late_onset_is_not_a_prior_verdict():
+    """The test that proves the §4.6 rule and not the overlap-only one.
+
+    IoU 0.538 clears any reasonable overlap threshold; the onset is 30 samples
+    out against a 25-sample tolerance, so §4.6 says these are different events
+    and the researcher must still be asked.
+    """
+    conn = _fresh_conn()
+    gid, f = _prior_fixture(conn)
+    qid = qs.create_queue(conn, name="seeded", source_kind="seed-search",
+                          source_ref=str(gid))
+    by_id = {it["target_id"]: it
+             for it in qs.queue_items(conn, qid, include_prior_judged=True)}
+    miss = by_id[f["bad_onset"]["detection_id"]]
+    assert miss["prior_verdict"] is None
+    assert f["bad_onset"]["detection_id"] in [it["target_id"]
+                                              for it in qs.queue_items(conn, qid)]
+
+
+def test_the_matching_thresholds_come_from_settings_analysis_defaults():
+    """Widening `onset` in Settings › Analysis defaults must widen the queue's
+    idea of a rediscovery — the proof that `rule_from_settings` is the source
+    of the numbers and nothing is hard-coded."""
+    from Working.registration.settings import put_settings
+    from Working.discovery.matching import SETTINGS_PAGE, ONSET_KEY
+
+    conn = _fresh_conn()
+    gid, f = _prior_fixture(conn)
+    qid = qs.create_queue(conn, name="seeded", source_kind="seed-search",
+                          source_ref=str(gid))
+    assert f["bad_onset"]["detection_id"] in [it["target_id"]
+                                              for it in qs.queue_items(conn, qid)]
+    put_settings(conn, SETTINGS_PAGE, {ONSET_KEY: 0.5})
+    assert f["bad_onset"]["detection_id"] not in [it["target_id"]
+                                                  for it in qs.queue_items(conn, qid)]
+
+
+def test_counts_agree_with_what_queue_items_returns_by_default():
+    conn = _fresh_conn()
+    gid, f = _prior_fixture(conn)
+    qid = qs.create_queue(conn, name="seeded", source_kind="seed-search",
+                          source_ref=str(gid))
+    counts = qs.queue_counts(conn, qid)
+    assert counts == {"total": 2, "judged": 0, "remaining": 2}
+    assert len(qs.queue_items(conn, qid)) == counts["remaining"]
+    assert qs.header_counts(conn)["need_you"] == 2
+
+    # a verdict on one of the two still-askable candidates moves `judged`,
+    # and the prior-judged one stays out of every number.
+    adj.insert_adjudication(conn, f["low_iou"]["detection_id"], "interesting")
+    counts = qs.queue_counts(conn, qid)
+    assert counts == {"total": 2, "judged": 1, "remaining": 1}
+    assert len(qs.queue_items(conn, qid)) == 1
+    assert len(qs.queue_items(conn, qid, include_judged=True)) == 2
+
+
+def test_a_span_queue_does_not_match_its_own_items_against_themselves():
+    """An `explore-spans` item IS a human span. Running the rediscovery rule
+    over it would pair every item with itself and empty the queue."""
+    conn = _fresh_conn()
+    rid = _insert_recording(conn)
+    seed = _insert_annotation(conn, rid, 0, 100, verdict="seed")
+    qid = qs.create_queue(conn, name="spans", source_kind="explore-spans")
+    assert [it["target_id"] for it in qs.queue_items(conn, qid)] == [seed]
