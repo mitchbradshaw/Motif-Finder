@@ -1,0 +1,29 @@
+{
+  "channel": {
+    "id": 1,
+    "name": "CH1_A1",
+    "file": "M2_aug_concat_fs1.mat",
+    "fs": 1.0,
+    "duration_h": 721.0
+  },
+  "runs": [
+    {
+      "hours": 4.0,
+      "samples": 14400,
+      "screenshot": "webui/screenshots/fixup/A\\dehshibi-stage1-short-4h.png",
+      "run_disabled_reason": "",
+      "console_errors": [],
+      "says_refused": false,
+      "says_no_data": true
+    },
+    {
+      "hours": 170.0,
+      "samples": 612000,
+      "screenshot": "webui/screenshots/fixup/A\\dehshibi-stage1-long-170h.png",
+      "run_disabled_reason": "stage 01 exceeds its local ceiling (65,000 samples) \u00b7 shorten the span or use HPC (out of slice scope)",
+      "console_errors": [],
+      "says_refused": true,
+      "says_no_data": false
+    }
+  ]
+}

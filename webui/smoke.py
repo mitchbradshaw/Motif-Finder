@@ -141,14 +141,16 @@ class Smoke:
                    "no demo chip is left on the Corpus rail (every read on it is live)")
         tagpick = page.locator('[data-testid="rail-tags"]')
         self.check(tagpick.count() == 1, "the Morphology tag filter is the rail's MultiPick, not 36 checkboxes")
+        self.shot(page, "explore-1-corpus")
         if tagpick.count():
             tagpick.first.click(); page.wait_for_timeout(400)
             opts = page.locator('[data-testid^="rail-tags-opt-"]').count()
             self.evidence["rail_tag_terms"] = opts
             self.check(opts >= 10, f"the tag list offers {opts} live vocabulary terms")
-            self.shot(page, "explore-1-corpus-tag-picker")
+            # no screenshot here on purpose: the flow shots are numbered and REPORT.md
+            # pairs them to concept frames, so inserting one renumbers twenty files.
+            # The assertion above is the pin; the page walk has the rail's own state.
             page.keyboard.press("Escape"); page.wait_for_timeout(300)
-        self.shot(page, "explore-1-corpus")
         # colour-by toggle
         for label in ("detections", "disagree", "both"):
             b = page.get_by_role("button", name=re.compile(rf"^{label}$", re.I))
