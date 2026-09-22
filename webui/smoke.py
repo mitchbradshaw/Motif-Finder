@@ -69,6 +69,34 @@ class Smoke:
         else:
             print("  ok:", msg)
 
+    #: JS that measures every `.time-axis` label on the page and returns the
+    #: overlapping pairs. `d3`'s `.ticks(n)` picks positions knowing nothing
+    #: about how wide `fmtAxis` renders them, and `TimeAxis` used to de-collide
+    #: only the two ends and only when `ends` was asked for (fixup-a item 17).
+    #: A real browser measurement is the only honest check of a text width.
+    _AXIS_OVERLAP_JS = """() => {
+      const bad = [];
+      for (const g of document.querySelectorAll('g.time-axis')) {
+        const boxes = Array.from(g.querySelectorAll('text'))
+          .map(t => ({ s: t.textContent, r: t.getBoundingClientRect() }))
+          .filter(b => b.r.width > 0)
+          .sort((a, b) => a.r.left - b.r.left);
+        for (let i = 1; i < boxes.length; i++) {
+          if (boxes[i].r.left < boxes[i - 1].r.right - 0.5) {
+            bad.push(boxes[i - 1].s + ' | ' + boxes[i].s);
+          }
+        }
+      }
+      return bad;
+    }"""
+
+    def axis_labels(self, page, where: str):
+        """No two time-axis labels may overlap, on any surface (fixup-a 17)."""
+        bad = page.evaluate(self._AXIS_OVERLAP_JS)
+        n = page.evaluate("() => document.querySelectorAll('g.time-axis text').length")
+        self.evidence[f"axis_labels_{where}"] = {"labels": n, "overlaps": bad[:8]}
+        self.check(not bad, f"{where}: {n} time-axis labels, none overlapping" + (f" — {bad[:4]}" if bad else ""))
+
     def goto(self, page, hash_: str, settle_ms=600):
         page.goto(f"{self.url}/#/{hash_}", wait_until="networkidle")
         page.wait_for_timeout(settle_ms)
@@ -88,6 +116,38 @@ class Smoke:
         self.check(distinct >= 3, f"heatmap uses {distinct} distinct fills (>= 3, i.e. real counts, not one colour)")
         self.check(page.locator('[data-testid="nav-rail"]').count() == 1, "nav rail present")
         self.check(page.locator('[data-testid="header"]').count() == 1, "header present")
+        self.axis_labels(page, "corpus")
+
+        # fixup-a 6: "N need you" is the live route's number, never a constant.
+        # The chip adds this tab's failed runs to it, so the chip's own title
+        # carries the review figure apart and THAT is what is compared.
+        need = page.locator('[data-testid="need-you"]')
+        self.check(need.count() == 1, "the header's need-you chip is present")
+        if need.count():
+            title = need.first.get_attribute("title") or ""
+            counts = json.load(__import__("urllib.request").request.urlopen(self.url + "/api/review/counts"))
+            live = int(counts.get("need_you") or 0)
+            said = int(re.match(r"\s*(\d+)", title).group(1)) if re.match(r"\s*(\d+)", title) else -1
+            self.evidence["need_you"] = {"route": live, "header": said, "chip": need.first.inner_text().strip()}
+            self.check(said == live, f"the header's review count is /api/review/counts ({said} vs {live})")
+
+        # fixup-a 13/14: the rail's tag filter is a MultiPick over the LIVE
+        # vocabulary, and nothing on this page claims the database has no tags
+        rail = page.locator('[data-testid="corpus-rail"]')
+        rail_txt = rail.inner_text().lower() if rail.count() else ""
+        self.check("no tags in this database" not in rail_txt and "has no tags" not in rail_txt,
+                   "the rail no longer claims this database has no tags")
+        self.check(rail.count() == 1 and rail.locator('[data-testid="demo-tag"]').count() == 0,
+                   "no demo chip is left on the Corpus rail (every read on it is live)")
+        tagpick = page.locator('[data-testid="rail-tags"]')
+        self.check(tagpick.count() == 1, "the Morphology tag filter is the rail's MultiPick, not 36 checkboxes")
+        if tagpick.count():
+            tagpick.first.click(); page.wait_for_timeout(400)
+            opts = page.locator('[data-testid^="rail-tags-opt-"]').count()
+            self.evidence["rail_tag_terms"] = opts
+            self.check(opts >= 10, f"the tag list offers {opts} live vocabulary terms")
+            self.shot(page, "explore-1-corpus-tag-picker")
+            page.keyboard.press("Escape"); page.wait_for_timeout(300)
         self.shot(page, "explore-1-corpus")
         # colour-by toggle
         for label in ("detections", "disagree", "both"):
@@ -119,6 +179,7 @@ class Smoke:
         bands = page.locator('[data-testid="span-bands"] rect').count()
         self.evidence["span_bands"] = bands
         self.check(bands >= 1, f"{bands} tinted span bands drawn in the viewport")
+        self.axis_labels(page, "signal")
         self.shot(page, "explore-2-signal")
         # zoom in with the wheel over the span plot, measuring the latency instrumentation
         box = page.locator('[data-testid="signal-span"]').bounding_box()
@@ -164,6 +225,8 @@ class Smoke:
         page.wait_for_timeout(800)
         rows = page.locator('[data-testid^="chain-row-"]').count()
         self.check(rows >= 4, f"{rows} chain rows (source + 3 steps)")
+        # the axis primitive is shared with Explore, so both workspaces check it
+        self.axis_labels(page, "analyse-chain")
         self.shot(page, "chain-1-chain-before-run")
         # insert modal
         ins = page.locator('[data-testid="insert-2"]')
@@ -323,6 +386,19 @@ class Smoke:
         board = page.locator('[data-testid="scoreboard-table"]').inner_text() if \
             page.locator('[data-testid="scoreboard-table"]').count() else ""
         self.check(bool(board.strip()), "the scoreboard has rows")
+
+        # fixup-a 4: a reload keeps the layout height. The 600 px Loading card
+        # was a SIBLING of the content, so the 2 s poll inserted it above a
+        # painted page every two seconds for the life of a run.
+        self.check(page.locator('[data-testid="discovery-refreshing"]').count() == 1,
+                   "the Runs page has the quiet in-place reload indicator")
+        self.check(page.locator('[data-testid="discovery-loading"]').count() == 0,
+                   "the 600 px first-load card is gone once the page has content")
+        h0 = page.evaluate("() => document.querySelector('.k-page-inner')?.getBoundingClientRect().height || 0")
+        page.wait_for_timeout(2600)      # one full poll interval
+        h1 = page.evaluate("() => document.querySelector('.k-page-inner')?.getBoundingClientRect().height || 0")
+        self.evidence["discovery_page_height"] = [h0, h1]
+        self.check(abs(h1 - h0) < 1.0, f"the page height is unchanged across a poll ({h0} -> {h1})")
         self.shot(page, "discovery-1-runs-live")
 
         self.goto(page, "discovery/seed", 2000)
