@@ -135,18 +135,32 @@ def _split(X, labels, holdout_frac, random_state):
     """A stratified train/holdout split, or the whole set twice over when a
     holdout is not asked for or cannot be taken.
 
-    Returns `(X_train, y_train, X_holdout, y_holdout)` with the holdout pair
-    `None` when the model is fitted on every window.
+    Returns `(X_train, y_train, X_holdout, y_holdout, reason)`. The holdout
+    pair is `None` when the model is fitted on every window, and `reason` is
+    then a sentence saying WHY - it used to be silent, and the model card
+    printed `holdout accuracy -` with nothing behind it, which reads as a
+    number that failed to load rather than as a split that could not be taken
+    (fixup-a item 10).
     """
     import numpy as np
 
     if holdout_frac <= 0.0:
-        return X, labels, None, None
+        return X, labels, None, None, (
+            "no holdout was asked for (holdout_frac = 0); the model is fitted "
+            "on every window and has not been scored against unseen data")
 
     _, counts = np.unique(labels, return_counts=True)
     n_holdout = int(round(len(labels) * holdout_frac))
-    if counts.min() < _MIN_CLASS_MEMBERS_FOR_HOLDOUT or n_holdout < len(counts):
-        return X, labels, None, None
+    if counts.min() < _MIN_CLASS_MEMBERS_FOR_HOLDOUT:
+        return X, labels, None, None, (
+            f"no holdout could be taken: the smallest class has {int(counts.min())} "
+            f"member(s) and a stratified split needs at least "
+            f"{_MIN_CLASS_MEMBERS_FOR_HOLDOUT}. Fitted on every window instead")
+    if n_holdout < len(counts):
+        return X, labels, None, None, (
+            f"no holdout could be taken: {holdout_frac:g} of {len(labels)} windows "
+            f"is {n_holdout}, fewer than the {len(counts)} classes a stratified "
+            "split must represent. Fitted on every window instead")
 
     from sklearn.model_selection import train_test_split
 
@@ -154,7 +168,7 @@ def _split(X, labels, holdout_frac, random_state):
         X, labels, test_size=holdout_frac,
         random_state=random_state, stratify=labels,
     )
-    return X_train, y_train, X_holdout, y_holdout
+    return X_train, y_train, X_holdout, y_holdout, None
 
 
 def _model_path(preprocessed, X, labels, params):
@@ -209,7 +223,7 @@ def _run(x, t, fs, n_estimators=300, class_weight="balanced", holdout_frac=0.25,
     # the unscaled pipeline means a later `predict` can be handed a raw
     # window-matrix row without having to reproduce this run's scaler.
     X = preprocessed.df_features.to_numpy()
-    X_train, y_train, X_holdout, y_holdout = _split(
+    X_train, y_train, X_holdout, y_holdout, holdout_reason = _split(
         X, labels, holdout_frac, random_state,
     )
 
@@ -256,7 +270,12 @@ def _run(x, t, fs, n_estimators=300, class_weight="balanced", holdout_frac=0.25,
             "n_train": int(len(y_train)),
             "n_holdout": int(len(y_holdout)) if y_holdout is not None else 0,
             "holdout_accuracy": holdout_accuracy,
-            **params,
+            # why there is no number, when there is none (fixup-a item 10)
+            "holdout_reason": holdout_reason,
+            # NESTED, not spread: `serialize.py`'s `keep` tuple whitelists
+            # `"params"`, so the flat spread dropped every one of these from
+            # the model card
+            "params": params,
         },
     )
 

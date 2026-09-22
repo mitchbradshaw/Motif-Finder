@@ -172,7 +172,9 @@ export interface EncodingImagePayload {
   pixels_b64?: string; series?: number[]; bin_freqs?: number[] | null; summary: string
 }
 export interface GroupingPayload {
-  type: 'grouping'; n: number; k: number; label_base: number; linkage: string | null; clusters: { id: number; count: number }[]; labels: number[]; capped: boolean
+  type: 'grouping'; n: number; k: number; label_base: number; linkage: string | null; clusters: { id: number; count: number }[]; labels: number[]
+  /** `labels` is the first `n_shown` of `n`; past the cap the strip is a prefix, and must say so. */
+  capped: boolean; n_shown?: number
   strip: { starts_s: number[]; length_s: number } | null; summary: string
 }
 export interface ModelPayload { type: 'model'; path: string; exists: boolean; size_bytes: number | null; card: Record<string, unknown>; summary: string }

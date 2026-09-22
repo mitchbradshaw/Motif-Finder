@@ -269,7 +269,7 @@ function GroupingR({ p, ctx }: { p: GroupingPayload; ctx: RenderCtx }) {
         return <rect key={i} x={ctx.x(s)} y={top} width={cellW} height={h} fill={CAT9[(lab - p.label_base + 9) % 9]} opacity={0.85}><title>{`window ${i} · cluster ${lab}`}</title></rect>
       })}
       <g>
-        <text x={4} y={11} fill="var(--muted)">{p.k} clusters · sizes {p.clusters.map(c => c.count).join(', ')}{p.linkage ? ` · ${p.linkage}` : ''}</text>
+        <text x={4} y={11} fill="var(--muted)">{p.k} clusters · sizes {p.clusters.map(c => c.count).join(', ')}{p.linkage ? ` · ${p.linkage}` : ''}{p.capped ? ` · strip shows the first ${(p.n_shown ?? p.labels.length).toLocaleString()} of ${p.n.toLocaleString()} windows` : ''}</text>
         {p.clusters.map((c, i) => (
           <g key={c.id} transform={`translate(${ctx.width - 6 - (p.clusters.length - i) * 56},2)`}>
             <rect width={9} height={9} y={0.5} fill={CAT9[(c.id - p.label_base + 9) % 9]} rx={2} />
@@ -287,11 +287,20 @@ function ModelR({ p }: { p: ModelPayload }) {
   const base = p.path.split(/[\\/]/).pop() ?? p.path
   const acc = typeof c.holdout_accuracy === 'number' ? (c.holdout_accuracy as number).toFixed(2) : '—'
   const hasCard = Object.keys(c).length > 0
+  // the settings the model was fitted under. They were dropped from every card:
+  // the adapter spread them flat and serialize.py whitelisted a `params` key
+  // that was never there (fixup-a item 10)
+  const params = Object.entries((c.params ?? {}) as Record<string, unknown>).map(([k, v]) => [k, String(v)] as const)
   return (
     <div className="bp-model" style={{ padding: '6px 12px' }} data-render="model">
       <div><b>{base}</b> <span className="muted">· {p.exists ? `${((p.size_bytes ?? 0) / 1024).toFixed(0)} kB on disk` : 'file missing'}</span></div>
       {hasCard
-        ? <div>holdout accuracy <b>{acc}</b> · classes {String(c.n_classes ?? '—')} · windows {String(c.n_windows ?? '—')} · features kept {String(c.n_features_kept ?? '—')} of {String(c.n_features_in ?? '—')} · train/holdout {String(c.n_train ?? '—')}/{String(c.n_holdout ?? '—')}</div>
+        ? <>
+            <div>holdout accuracy <b>{acc}</b> · classes {String(c.n_classes ?? '—')} · windows {String(c.n_windows ?? '—')} · features kept {String(c.n_features_kept ?? '—')} of {String(c.n_features_in ?? '—')} · train/holdout {String(c.n_train ?? '—')}/{String(c.n_holdout ?? '—')}</div>
+            {acc === '—' && typeof c.holdout_reason === 'string'
+              && <div className="muted" data-testid="model-holdout-reason">{c.holdout_reason}</div>}
+            {params.length > 0 && <div className="muted mono" data-testid="model-params">{params.map(([k, v]) => `${k} ${v}`).join(' · ')}</div>}
+          </>
         : <div className="muted" data-testid="model-no-meta">model metadata not served for this run · the card comes from the adapter's meta (kept in a sidecar since critique r1)</div>}
       <div className="muted" style={{ fontSize: 10.5 }}>a model has no natural plot · Models judges it against a label-shuffle null</div>
     </div>

@@ -287,14 +287,18 @@ def _grouping(value, meta, ctx):
     n = int(len(labels))
     ids, counts = np.unique(labels, return_counts=True) if n else (np.array([]), np.array([]))
     clusters = [{"id": int(i), "count": int(c)} for i, c in zip(ids, counts)]
+    shown = min(n, SPAN_CAP)
     out = {"type": "grouping", "n": n, "k": int(len(ids)), "label_base": int(ids.min()) if n else 1,
            "linkage": meta.get("linkage"), "clusters": clusters, "labels": labels[:SPAN_CAP].tolist(),
-           "capped": n > SPAN_CAP, "strip": None}
+           "capped": n > SPAN_CAP, "n_shown": int(shown), "strip": None}
     ws = ctx.get("windowset")
     if ws is not None and len(ws.starts) == n:
         out["strip"] = {"starts_s": (np.asarray(ws.starts) / float(ws.fs))[:SPAN_CAP].tolist(),
                         "length_s": int(ws.length) / float(ws.fs)}
-    out["summary"] = f"{len(ids)} clusters · sizes " + ", ".join(str(int(c)) for c in counts)
+    out["summary"] = (f"{len(ids)} clusters · sizes " + ", ".join(str(int(c)) for c in counts)
+                      # the strip is capped; saying so is the difference between
+                      # a short strip and a wrong one (fixup-a item 10)
+                      + (f" · strip shows the first {shown:,} of {n:,} windows" if out["capped"] else ""))
     return out
 
 
@@ -303,7 +307,8 @@ def _model(value, meta, ctx):
     path = str(value.path)
     exists = os.path.isfile(path)
     keep = ("n_windows", "n_classes", "class_counts", "feature_names", "n_features_in",
-            "n_features_kept", "n_train", "n_holdout", "holdout_accuracy", "params")
+            "n_features_kept", "n_train", "n_holdout", "holdout_accuracy", "holdout_reason",
+            "params")
     card = {k: _clean(meta[k]) for k in keep if k in meta}
     acc = card.get("holdout_accuracy")
     return {"type": "model", "path": path, "exists": exists,
