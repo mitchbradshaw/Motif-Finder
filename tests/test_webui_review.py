@@ -561,3 +561,27 @@ def test_channel_label_agrees_with_the_source_file(seeded):
     assert rows, "the CH14 run must resolve"
     assert rows[0]["channel"] == "CH14", \
         "a single-channel export names its electrode in the file; do not derive a different one"
+
+
+def test_every_row_carries_the_run_id_and_its_rank(seeded):
+    """fixup-a item 7: the inspector subtitle read
+    `run undefined - rank undefined of 30 by score` on every item.
+
+    `review_queues.source_ref` is NULL for a queue whose filters name the run
+    (`{"run_id": 32}` in the live database), and nothing ever computed a rank,
+    so both clauses printed the literal word `undefined` to a reader. The run
+    id is on the item, and the rank is its 1-based position in the queue's own
+    order - the same list `total` counts."""
+    client, rt, info = seeded
+    q = _make_queue(client, info)
+    qid = q["queue"]["id"]
+    body = client.get(f"/api/review/queues/{qid}").json()
+    rows = body["rows"]
+    assert rows
+    assert [r["rank"] for r in rows] == list(range(1, len(rows) + 1))
+    assert all(r.get("runId") for r in rows), "a detection knows the run that wrote it"
+    assert max(r["rank"] for r in rows) <= body["queue"]["total"], "a rank outside its own denominator"
+
+    one = client.get(f"/api/review/queues/{qid}/items/{rows[0]['id']}").json()
+    assert one["entry"]["rank"] == rows[0]["rank"] and one["entry"]["runId"] == rows[0]["runId"]
+    assert one["evidence"]["origin"]["runId"], "the provenance panel's run id was the same gap"
