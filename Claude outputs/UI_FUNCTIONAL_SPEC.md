@@ -9,9 +9,11 @@ that file is superseded and can be deleted. Where a decision below is marked *ra
 it records why an alternative was rejected; those are the lines most likely to be
 re-litigated by someone who wasn't in the room.
 
-**Status.** Design only. This work sits after the 28 August 2026 feature freeze and
-carries no deadline, so `pipeline-gui-prd.md`'s cut list and its "four workspaces,
+**Status.** Design only. Written when this work sat after the 28 August 2026 feature freeze and
+carried no deadline, so `pipeline-gui-prd.md`'s cut list and its "four workspaces,
 nine tabs is a filing cabinet" constraint are advisory here rather than binding.
+**Superseded on 2026-09-23:** this spec's surfaces are now the app being polished to
+21 October 2026, so "carries no deadline" no longer holds. See `CLAUDE.md`.
 Everything below that exceeds the frozen build is specified future work.
 
 **Authority.** Where this document and `PIPELINE_PRD.md` / `claude/pipeline-gui-prd.md`

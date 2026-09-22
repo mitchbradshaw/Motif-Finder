@@ -2,7 +2,13 @@
 
 **Project:** Underground Brains — mycelium bio-electric signal analysis
 **Status:** Design settled via goals grilling and design grilling. Ready for ticket breakdown.
-**Feature freeze:** 28 August 2026. Thesis submission approximately five weeks after freeze.
+**Feature freeze:** 28 August 2026 — **spent, and superseded on 2026-09-23.** The tool was still being
+built through that date (stage 3, the web-UI wiring, ran 2026-09-21 onward). The live constraint is
+**21 October 2026, about four weeks, to a polished and reliable Pipeline UI**, after which the tool is
+used to answer the research questions rather than extended. Every date in Part 1 below — the fourteen
+days to freeze, the six milestones, "five weeks after freeze" — is a record of the original plan, not a
+schedule anyone is working to. The *priorities* in Part 1 still stand; its calendar does not. The
+priority order now is: **workflow friction first, legibility second, completeness last.**
 **Relationship to prior documents:** the goals spec (`pipelineguispec.md`) remains the authority on *what the software is for*. This spec is the authority on *how it is built*. Where the two disagree, the disagreements are marked **[CORRECTION]** and this document wins — each one was made after reading the existing codebase.
 
 ---

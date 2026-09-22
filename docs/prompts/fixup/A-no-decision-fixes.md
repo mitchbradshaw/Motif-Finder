@@ -4,9 +4,9 @@ You are working in `C:\Users\mmebr\Documents\CNN` (Windows; the Bash tool is Git
 `"/c/ProgramData/anaconda3/python.exe"`). Read `CLAUDE.md` first — every rule in it binds you, in
 particular rule 1 (no UI library in the core), rule 2 (no regressions against the suite), and the
 Web UI gate. Then read `docs/prompts/fixup/README.md` and the three skeletons this prompt draws from:
-`02-analyse-chain.md` (A2, A3, A5), `04-analyse-training.md` (T3), `05-discovery.md` (D1, D5),
-`07-review.md` (R1, R2, R6, R8, R9). Read `docs/CODING_STANDARDS.md` and `docs/BLOCK_INTEGRATION.md`
-before touching an adapter.
+`01-explore.md` (E1, E3, E5, E8), `02-analyse-chain.md` (A2, A3, A5), `04-analyse-training.md` (T3),
+`05-discovery.md` (D1, D5), `07-review.md` (R1, R2, R6, R8, R9). Read `docs/CODING_STANDARDS.md` and
+`docs/BLOCK_INTEGRATION.md` before touching an adapter.
 
 Commit prefix `fixup-a:`. Work autonomously; take the default over asking; record every question you
 answered yourself, with the default taken, in your report.
@@ -33,7 +33,8 @@ Do not touch these, even though they are adjacent and tempting. Each is waiting 
 | **Classes (1/2/3/4/9) in Review** | Q-R2 — there is no table to store one in; tags **are** in scope (see R2 below), classes are not |
 | **`catalogue.cluster`'s dropped linkage matrix / silhouette / `df_membership`**, the dendrogram, the k-sweep, the members-of-cluster list | Q-0.1 and Q-T4 — this is a block-plus-page redesign, not a fix. Only the three bounded truthfulness items in T3-part-2 below are in scope |
 | **The classifier joblib being write-only**, and any new evaluation output (confusion matrix, feature importances, shuffle null) | same |
-| **Anything under `webui/client/src/explore/`, `webui/client/src/api/explore.ts`, `webui/client/src/fixtures/explore.ts`, `webui/server/explore_routes.py`, `webui/smoke_pages/explore.json`, `webui/client/src/theme.css`, `webui/pages/inventory/explore.md`** | **There is uncommitted in-flight Explore work in this checkout** (8 modified files plus a new `webui/client/src/explore/crossScale.ts`). It is not yours. This is why Explore items E5 and E8 were cut from this prompt |
+| **Explore › Cross-channel** — `CrossChannelPage.tsx`, `crossScale.ts`, `getCrossChannel` in `api/explore.ts`, and the cross branch of `webui/server/explore_routes.py` | The user worked this surface by hand in commit `ab86d3a` (anchor-span ranking, the 600 s clamp, per-channel scaling, the error-path fix). Leave it alone. Explore items **13–15 below are in scope**; the cross-channel window control (E4) is not — it is Q-0.1 |
+| **The two remaining `demo(` reads in `api/explore.ts`** | They are the Span-edit page and the keyboard map, and the module docstring is right that nothing computes them yet. Honest, not broken |
 | **`DEFAULT_CHAIN`** (`state.tsx:77`) | Q-0.1 — wanted, but it changes the empty-chain validation path and ~40 smoke states |
 | **The `demo.*` chain, `DEMO_TEMPLATES`, the eleven orphan glyph keys** | entangled with the demo-chain removal, which is a sized piece of work, not a fix |
 | **Re-importing the four untagged type-specimen Library rows** | a write against the real database; the user approves that, not you |
@@ -41,9 +42,9 @@ Do not touch these, even though they are adjacent and tempting. Each is waiting 
 
 ## Safety, before you start
 
-- **There is uncommitted work in this checkout** (398 paths: the Explore files above, plus 387 modified
-  screenshots). **Never `git add -A`, `git stash`, `git reset` or `git checkout .`** Commit only with
-  explicit `--` paths you have edited. Do not commit a screenshot you did not regenerate on purpose.
+- The working tree was clean at `ab86d3a` when this prompt was written, but **never `git add -A`,
+  `git stash`, `git reset` or `git checkout .`** regardless. Commit only with explicit `--` paths you
+  have edited, and do not commit a screenshot you did not regenerate on purpose.
 - **Never point the bridge, pytest or an adapter at a junction into the real `DATA/`.** Run the bridge
   in `--sandbox` (the default) for everything here; nothing in this prompt needs `--project`, and
   `--project` writes to the real database.
@@ -187,6 +188,73 @@ Nulls holds keys the seeded search never reads. **Wiring the setting is out of s
 about what the correction should be). **In scope: print the α actually used and the words
 `correction: none`,** so the figure states its own rule. A statistic whose rule is unstated cannot be
 falsified.
+
+### 13. Explore's Morphology tag filter claims the database has no tags. It has 11,319.  (`01-explore.md` E1)
+
+This is the worst factual claim on the list, and it was found while checking the user's "make it a
+dropdown" note — the note is the symptom, this is the cause.
+
+`getCorpusLive` (`api/explore.ts:47-70`) already builds the tag vocabulary and the per-channel tag
+counts from `GET /api/channels/{id}/tags`, which it calls for **every channel**, and returns them with
+`source: 'live'`. The rail then renders them while asserting they are fixtures. Verified against
+`DATA/db/annotations.sqlite` on 2026-09-22 (read-only): `tag_vocabulary` holds **36 terms across 8
+categories** (14 `element`, 4 `structure`, 4 `quality`, 3 each `corpus`/`species`/`provenance`/`status`,
+2 `framing`), `annotation_tags` holds **11,319 rows** and `motif_entry_tags` **13,349**.
+
+Four separate places say otherwise, and all four are false:
+
+- `RightRail.tsx:51` renders a `<DemoTag />` chip beside "Morphology tag";
+- its `info` text: *"This database has no tags yet: the counts are §0 demo canon."*;
+- `RightRail.tsx:55` caption: *"no tags in this database · demo counts"*;
+- the module docstring at `RightRail.tsx:3-4`: *"Detections from and Morphology tag have no bridge
+  endpoint and are demo-backed"*.
+
+Fix all four. The prop is named `demo` and typed `CorpusDemo` for historical reasons — **renaming it is
+optional and cosmetic; do not let it grow into a refactor of the Corpus page.** Check `matching.demo`
+and the `Header`'s `demo` prop on this page for the same staleness while you are there. If any part of
+the tag path turns out genuinely not to be live, say which and leave that part's marker alone — a
+`demo` chip that is true is the one thing here worth keeping.
+
+### 14. The Morphology tag filter should be a dropdown  (E1, the user's original note)
+
+`RightRail.tsx:52-54` renders one `Checkbox` per tag. Over a 36-term vocabulary that is unusable, which
+is what prompted the note. **Use the existing `MultiPick`** (`explore/bits.tsx:13`) — the select-like
+chip the same rail already uses for Runs (`:37`) and Methods (`:39`), with the same `allLabel` /
+`N of M` behaviour. Reuse it; do not write a second picker (CLAUDE.md: prefer importing an existing
+helper to writing a second one). Keep the per-tag counts visible in the open list, and group by
+`tag_vocabulary.category` if `MultiPick` already supports grouping — if it does not, **do not add
+grouping to it**; a flat sorted list is the no-decision outcome.
+
+### 15. The Corpus coverage map ignores the run and method filters the route already serves  (`01-explore.md` E3)
+
+`GET /api/coverage` takes `run=` and `method=`, the rail's run and method lists are live, and the Corpus
+page fetches the unfiltered map anyway — with a note beside the filters admitting it. Pass them, and
+delete the note. If the refetch-on-filter-change interacts badly with the verdict refetch that is
+already wired (`verdicts=`), follow that existing pattern rather than inventing a second one.
+
+### 16. `coverage.rows[].both` is a sum, labelled as an intersection  (`01-explore.md` E5)
+
+`webui/server/corpus.py:187`: `"both": (ah + dh).tolist()` — annotation spans **plus** detection spans
+per bin. A reader takes "both" to mean bins where both are present. The page's colour-by genuinely
+means the sum, so **the number is right for the colour and wrong as a label**.
+
+**Change the label, not the computation.** Changing what the `both` layer counts would change what the
+Corpus map shows, and that is a design decision (Q-0.1) — this item is only about the map no longer
+naming a sum after an intersection. Fix the field's docstring at `corpus.py:143` too, which makes the
+same claim, and the client's `ColourBy` label in `explore/util.ts:10-11`.
+
+### 17. Time-axis labels collide when no end ticks are requested  (`01-explore.md` E8)
+
+`charts/primitives.tsx:14-36`: `TimeAxis` de-collides **only** when `ends` is true, and then only
+against the two ends (a 48 px guard). In the default path (`ends = false`) there is no collision test at
+all — `d3`'s `.ticks(n)` chooses positions without knowing how wide `fmtAxis` will render them, so on a
+narrow surface with wide labels (hours to one decimal, e.g. `291.9 h`) adjacent labels overlap. The
+`anchor` logic at `:28` stops a label rendering half off the surface; it does nothing about
+label-versus-label.
+
+Generalise the guard the `ends` branch already establishes so it applies on every axis: drop a tick
+whose label would collide with the one before it. This is a shared primitive used by Explore **and**
+Analyse, so re-run both workspaces' smoke states, not just Explore's.
 
 ## The gate
 

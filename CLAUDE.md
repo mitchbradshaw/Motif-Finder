@@ -6,8 +6,23 @@ scope; this file wins for standards.
 
 ## What this repo is
 
-A Panel/HoloViews application for analysing fungal bio-electric recordings, plus the UI-free core
-underneath it. It is thesis instrumentation on a hard deadline: **feature freeze 28 August 2026**.
+A React/FastAPI web application for analysing fungal bio-electric recordings (`webui/`), plus the
+UI-free core underneath it. It is thesis instrumentation on a hard deadline.
+
+**The deadline moved (2026-09-23).** The 28 August 2026 feature freeze is spent and is no longer the
+constraint; the tool was still being built through it. The constraint now is **21 October 2026 —
+about four weeks — to a polished, reliable Pipeline UI**, after which the same tool is used to answer
+the research questions rather than to be built. Two things follow, and they bind every ticket:
+
+1. **Reducing friction in the researcher's workflow outranks everything else**, including legibility,
+   and legibility outranks completeness. A surface that works and is ugly beats a surface that is
+   handsome and lies. A page nobody's workflow passes through is not worth an hour.
+2. **The researcher drives the tool; the supervisor reads its output.** Where their needs coincide —
+   spike-train and spike-event statistics above all — that path must be the most reliable in the app,
+   because it is the one that outlives this project.
+
+Part 1 of the PRD still describes the pre-freeze plan and its fourteen-day milestones. Read it for
+*what the tool is for* and *how it is built*; do not read its dates as live.
 
 The work in progress is the Pipeline GUI, specified in `docs/PIPELINE_PRD.md` — the authority on what
 is being built and why. Read the section relevant to your ticket; do not read the whole thing.

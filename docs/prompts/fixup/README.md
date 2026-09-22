@@ -13,7 +13,7 @@ being either a bug or a spec change.
 
 | File | Workspace / pages |
 |---|---|
-| `A-no-decision-fixes.md` | **written and ready to run** — the twelve defects across five workspaces that have a known cause, a known line and exactly one defensible fix. Carries an explicit not-in-scope table so it cannot widen into the decisions still open |
+| `A-no-decision-fixes.md` | **written and ready to run** — the seventeen defects across six workspaces that have a known cause, a known line and exactly one defensible fix. Carries an explicit not-in-scope table so it cannot widen into the decisions still open |
 | `00-cross-cutting.md` | the shell, the `demo` chip, shared chart primitives, naming, workflow |
 | `01-explore.md` | Corpus, Signal, Cross-channel, Span edit |
 | `02-analyse-chain.md` | Chain, Block, Algorithm glyphs |
