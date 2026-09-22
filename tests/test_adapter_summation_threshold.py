@@ -99,5 +99,40 @@ def test_all_nan_scores_yield_no_spans_not_an_error():
     assert r.value.starts == ()
 
 
+# ---------------------------------------- the end convention (fixup-a item 3) --
+# `SpanSet` documents its regions as `[start, end)` and `detection.threshold`
+# emits exactly that. This block emitted `end` INCLUSIVE, so the same event's
+# duration differed by one sample depending on which block found it.
+
+def test_span_ends_are_half_open_like_every_other_block():
+    x, t = synthetic()
+    spikes, _, _ = detect_spikes(x, fs=FS, **SMALL)
+    assert spikes, "the fixture must confirm a spike for this test to mean anything"
+    spec = get_adapter(NAME)
+    r = spec.run(x, t, FS, value=_omega(x), **spec.validate_params(SMALL))
+    assert list(r.value.starts) == [s for s, _ in spikes]
+    assert list(r.value.ends) == [e + 1 for _, e in spikes], (
+        "the core's Algorithm 4 returns inclusive pairs; the adapter must hand SpanSet the "
+        "half-open form, since that is what SpanSet documents and what every consumer assumes")
+
+
+def test_the_two_detection_blocks_agree_on_the_same_events_bounds():
+    """A Scores marking exactly the samples the monolith called a spike must be
+    read back by `detection.threshold` as the very same span the Dehshibi block
+    reports. Two blocks, one event, one pair of numbers."""
+    x, t = synthetic()
+    spikes, _, _ = detect_spikes(x, fs=FS, **SMALL)
+    assert spikes
+    s_incl, e_incl = spikes[0]
+    mask = np.zeros(len(x)); mask[s_incl:e_incl + 1] = 1.0
+    th = get_adapter("detection.threshold")
+    rt = th.run(x, t, FS, value=Scores(values=mask, fs=FS), **th.validate_params({"threshold": 0.5}))
+    spec = get_adapter(NAME)
+    rs = spec.run(x, t, FS, value=_omega(x), **spec.validate_params(SMALL))
+    assert (rs.value.starts[0], rs.value.ends[0]) == (rt.value.starts[0], rt.value.ends[0]), (
+        f"summation_threshold says {(rs.value.starts[0], rs.value.ends[0])}, "
+        f"threshold says {(rt.value.starts[0], rt.value.ends[0])} for the same samples")
+
+
 if __name__ == "__main__":
     sys.exit(pytest.main([__file__, "-q"]))
