@@ -16,8 +16,15 @@ import type { Discovery } from './session'
 
 export function AddTemplateModal({ open, onClose, dx, onSlurm }: { open: boolean; onClose: () => void; dx: Discovery; onSlurm: (keys: string[]) => void }) {
   const tpls = useSourced(getTemplates, [])
-  const [focusQ, setFocusQ] = useQueryState('tpl', 'mp_discord_v3')
-  const [sel, setSel] = useState<string[]>(['mp_discord_v3', 'spike_shape_v1'])
+  /* Both of these used to open the modal holding `mp_discord_v3` and
+   * `spike_shape_v1` -- fixture-era names that exist in no live registry (the
+   * canonical nine are in `webui/server/templates.py`). The footer read
+   * "0 templates selected" with both actions disabled and nothing on screen to
+   * un-check, because the phantoms matched no row (fixup-a item 5). Nothing is
+   * selected until the researcher selects it; `focus` falls back to the first
+   * row of the list. */
+  const [focusQ, setFocusQ] = useQueryState('tpl', '')
+  const [sel, setSel] = useState<string[]>([])
   const [search, setSearch] = useState('')
   const [fits, setFits] = useState(true)
   const [kind, setKind] = useState('all')
@@ -27,8 +34,15 @@ export function AddTemplateModal({ open, onClose, dx, onSlurm }: { open: boolean
   const notWired = useNotWired()
   const s = dx.scope!
   const nCh = s.channels.length
-  const inSessionReason = (t: DiscoveryTemplate) => dx.runs.some(r => r.key === t.name || r.template === t.name) ? (t.inSession ?? 'in this session') : null
-  const disabledReason = (t: DiscoveryTemplate) => !t.fits ? "doesn't fit Signal → SpanSet — Discovery applies detection templates" : inSessionReason(t)
+  /* Already in this session is a NOTE, not a refusal. The same template against
+   * a different scope is a different run and the server mints `<name>_2` for it
+   * (`discovery.py::_next_key`) -- which is also why the client's own test was
+   * wrong twice over: it matched `r.key === t.name`, and `_next_key` gives a
+   * template's FIRST run exactly the bare template name, so applying a template
+   * once made it un-selectable for the rest of the session (fixup-a item 5).
+   * The server already computes this from `template_name`; use its answer. */
+  const inSessionNote = (t: DiscoveryTemplate) => t.inSession ?? null
+  const disabledReason = (t: DiscoveryTemplate) => !t.fits ? "doesn't fit Signal → SpanSet — Discovery applies detection templates" : null
   const list = useMemo(() => {
     let xs = (tpls.data ?? []).filter(t => (fits ? t.fits : true) && (kind === 'all' || t.kind === kind) && t.name.toLowerCase().includes(search.trim().toLowerCase()))
     xs = [...xs].sort((a, b) => sort === 'name' ? a.name.localeCompare(b.name) : sort === 'precision' ? (b.precision ?? -1) - (a.precision ?? -1) : a.lastUsed - b.lastUsed)
@@ -82,6 +96,7 @@ export function AddTemplateModal({ open, onClose, dx, onSlurm }: { open: boolean
     setBusy(true)
     try {
       const results = await applyDiscoveryTemplates(chosen.map(t => t.name), s.channels, s.section[0], s.section[1], run)
+      setSel([])            // or reopening the modal shows the last add's templates, silently un-checked
       onClose()
       await dx.reload()
       const started = results.filter(r => r.started).length
@@ -102,6 +117,7 @@ export function AddTemplateModal({ open, onClose, dx, onSlurm }: { open: boolean
     setBusy(true)
     try {
       const results = await applyDiscoveryTemplates(chosen.map(t => t.name), s.channels, s.section[0], s.section[1], false)
+      setSel([])
       await dx.reload()
       onSlurm(results.map(r => r.run_key))
     } catch (e) {
@@ -160,7 +176,7 @@ export function AddTemplateModal({ open, onClose, dx, onSlurm }: { open: boolean
                     <button type="button" className="dsc-tpl-body" onClick={() => setFocusQ(t.name)} aria-pressed={focus?.name === t.name}>
                       <b>{t.name}</b>
                       <span className="row" style={{ gap: 6 }}><span className={cx('k-badge', t.kind === 'seed' ? 't-purple' : 't-blue')}>{t.kind}</span><span className="mono muted small">{t.signature}</span>{t.hasModel && <span className="k-badge t-grey" title="a model reaches Discovery only as a stage inside a detection template (P16)">model stage</span>}</span>
-                      <span className="muted small">{reason && t.fits ? reason : t.lastScore}</span>
+                      <span className="muted small">{t.fits && inSessionNote(t) ? `${inSessionNote(t)} · ${t.lastScore}` : t.lastScore}</span>
                     </button>
                     <span className="dsc-tpl-glyphs">{t.stages.slice(1).map((st, i) => <span key={i} className="row" style={{ gap: 3 }}>{i > 0 && <span className="muted">›</span>}<RunGlyph kind={st.glyph} width={38} height={24} /></span>)}</span>
                   </div>
