@@ -93,5 +93,35 @@ def test_a_chunk_shorter_than_the_floor_is_nan_not_zero():
     assert r.meta["n_chunks_skipped"] >= 1
 
 
+# ------------------------------------------- the span guard (fixup-a item 2) --
+# Peak live bytes per span sample, worst case (one chunk covering the whole
+# span - what `slice_signal` returns when it finds no transition):
+#
+#   g_all      64 scales x 8 B  =   512 B/sample   held for the whole run
+#   phi        64 scales x 16 B =  1024 B/sample   complex, alive while g is built
+#   kappa=|phi|         x 8 B   =   512 B/sample
+#   the Eq. (3) temporary       =   512 B/sample
+#   g                           =   512 B/sample
+#                                 ----------------
+#                                  3072 B/sample
+#
+# The four gramian blocks cap themselves at 5,000 samples for a 200 MB matrix
+# (`catalogue_gramian_gasf.py`). Same budget, same convention.
+PEAK_BYTES_PER_SAMPLE = 3072
+GRAMIAN_BUDGET_BYTES = 5000 * 5000 * 8        # the 200 MB the gramian blocks cap at
+
+
+def test_the_transform_declares_a_span_cap_from_the_gramian_memory_budget():
+    cap = get_adapter(NAME).max_span_samples
+    assert cap is not None, (
+        "a block that allocates 3 KB per span sample and is then re-serialised by the step "
+        "cache must declare max_span_samples so the bridge refuses the span loudly")
+    peak = cap * PEAK_BYTES_PER_SAMPLE
+    assert peak <= GRAMIAN_BUDGET_BYTES, (
+        f"cap {cap} samples peaks at {peak / 1e6:.0f} MB, over the repo's 200 MB block budget")
+    assert peak > GRAMIAN_BUDGET_BYTES * 0.9, (
+        f"cap {cap} samples peaks at only {peak / 1e6:.0f} MB - needlessly refusing spans it could do")
+
+
 if __name__ == "__main__":
     sys.exit(pytest.main([__file__, "-q"]))

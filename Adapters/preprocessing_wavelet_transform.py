@@ -22,6 +22,12 @@ Why an Encoding and not Scores: the paper's next step consumes the whole
 scale × time matrix (it sums it); emitting only the sum here would fold two
 steps into one block and hide the picture the researcher tunes β/γ against.
 
+*** MEMORY GUARD ***: the output is a 64 x n float matrix and the transform
+holds another ~2.5 KB per sample while it builds each chunk, so the block
+declares `max_span_samples` (see the constant below for the arithmetic) and
+`Working.execution.execute_recipe` refuses a longer span with the reason
+before anything is allocated.
+
 Chunking lives here and is recomputed in `detection.summation_threshold`
 from the same signal with the same rule (`slice_signal` is deterministic and
 parameter-free), so the two blocks agree without a hidden side channel.
@@ -40,6 +46,29 @@ from Working.types import Encoding
 
 N_SCALES = 64          # what `compute_morse_wavelet_transform` builds when scales=None
 COST_MODEL = "preprocessing.wavelet_transform"
+
+#: *** MEMORY GUARD ***, same budget and same mechanism as the four gramian
+#: blocks (`catalogue_gramian_gasf.py`: 5,000 samples for a 5000x5000x8 B =
+#: 200 MB matrix). Peak live bytes per span sample, worst case - one chunk
+#: covering the whole span, which is exactly what `slice_signal` returns when
+#: it finds no transition:
+#:
+#:     g_all          N_SCALES x 8 B  =   512 B/sample   held for the whole run
+#:     phi            N_SCALES x 16 B =  1024 B/sample   complex, alive while g is built
+#:     kappa = |phi|            x 8 B =   512 B/sample
+#:     the Eq. (3) temporary          =   512 B/sample
+#:     g                              =   512 B/sample
+#:                                      ----------------
+#:                                       3072 B/sample
+#:
+#: 200,000,000 / 3,072 = 65,104 -> 65,000 samples (18.06 h at 1 Hz), peaking at
+#: 199.7 MB. `Working.execution.execute_recipe` checks this before calling
+#: `run` and refuses the span with the reason, rather than allocating the
+#: 1.33 GB `g_all` a whole 2,595,600-sample channel would ask for and then
+#: handing all of it to `np.savez_compressed` through the step cache.
+PEAK_BYTES_PER_SAMPLE = N_SCALES * (8 + 16 + 8 + 8 + 8)     # 3072
+BLOCK_MEMORY_BUDGET_BYTES = 5000 * 5000 * 8                 # the gramian blocks' 200 MB
+MAX_SPAN_SAMPLES = 65_000
 
 
 def transform_span(x, fs, beta=BETA, gamma=GAMMA, eta=ETA, min_chunk_samples=2 * N_P,
@@ -110,9 +139,12 @@ SPEC = register(AdapterSpec(
     derive=_derive,
     input_kind="signal",
     output_kind="encoding",
+    max_span_samples=MAX_SPAN_SAMPLES,
     description=(
         "Sect. 3.1–3.2 of Dehshibi & Adamatzky 2021: histogram-sliced chunks, Morse "
         "continuous wavelet transform, per-scale normalisation. Emits g(τ, s) as a "
-        "scales × time image; feed it to Wavelet summation."
+        f"scales × time image; feed it to Wavelet summation. Holds {N_SCALES} scales "
+        f"in memory per sample, so it is capped at {MAX_SPAN_SAMPLES:,} samples "
+        "(the same 200 MB budget the gramian blocks cap at)."
     ),
 ))

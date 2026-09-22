@@ -687,3 +687,14 @@ def test_opening_a_history_run_adopts_the_real_row_rather_than_inventing_one(cli
 def test_an_unknown_history_id_is_refused_rather_than_silently_ignored(client):
     assert client.post("/api/discovery/history/g-999999/open").status_code == 404
     assert client.post("/api/discovery/history/not-an-id/open").status_code == 422
+
+
+def test_the_wavelet_transform_counts_as_heavy_in_a_plans_complexity():
+    """fixup-a item 2: a plan containing the Morse transform must carry a cost
+    warning. It allocates 3 KB per span sample and re-serialises all of it
+    through the step cache; costing it as an ordinary stage routes it local
+    and silent."""
+    from server.discovery import _complexity
+    steps = [{"stage": "preprocessing", "algorithm": "wavelet_transform"},
+             {"stage": "detection", "algorithm": "wavelet_summation"}]
+    assert "1 heavy" in _complexity(steps), _complexity(steps)

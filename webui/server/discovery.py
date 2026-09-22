@@ -489,7 +489,10 @@ def _step_cell(step, index):
 def _complexity(steps):
     names = [f"{s['stage']}.{s['algorithm']}" for s in steps]
     heavy = [n for n in names if n in ("detection.matrix_profile", "preprocessing.window_matrix",
-                                       "catalogue.window_images", "catalogue.cnn_score")]
+                                       "catalogue.window_images", "catalogue.cnn_score",
+                                       # 3 KB of live memory per span sample, all of it
+                                       # re-serialised by the step cache (fixup-a item 2)
+                                       "preprocessing.wavelet_transform")]
     return f"{len(steps)} stages" + (f" · {len(heavy)} heavy" if heavy else "")
 
 
