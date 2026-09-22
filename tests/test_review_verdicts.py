@@ -14,6 +14,13 @@ What is asserted here, in the order it matters:
    `review_audit` row carrying N target ids, not N rows, because undo of a
    batch is one act.
 3. **Undo restores the PRIOR verdict**, not "unjudged", when there was one.
+4. **The window branch, and rule 5 for the case it exists to serve.** A
+   training/verification window has no `detections` row to adjudicate and no
+   human-drawn extent to annotate, so its verdict may land only in
+   `window_verdicts` — and `detections`, `adjudications` and `annotations`
+   must be provably unchanged after it does. The same block pins the
+   coordinate convention the resolver and the writer had disagreed about: the
+   window SET is the queue's `source_ref`, the `target_id` is the index.
 
 The queue rows are inserted with plain SQL here rather than through
 `Working.review.queues` so this module's tests do not depend on a sibling
@@ -292,15 +299,237 @@ def test_undo_does_not_reverse_an_already_undone_row_twice():
 
 
 # ── window verdicts route to their own table ────────────────────────────────
+#
+# This is the branch §9.3 of the stage-1 report left smoke-covered. What makes
+# it worth its own block is rule 5: a training/verification window has no
+# `detections` row to adjudicate and no human-drawn extent to annotate, so the
+# ONLY correct place for its verdict is `window_verdicts`, and the three other
+# tables must be provably untouched afterwards.
+#
+# The contract these tests pin down, because two callers disagreed about it:
+# for a window queue the WINDOW SET is the queue's `source_ref` and the
+# `target_id` is the index within it — exactly what `queues._resolve_windows`
+# puts in each item. `window_index=` is an optional restatement of the same
+# index, not a second coordinate.
 
-def test_window_queue_routes_to_window_verdicts():
-    pytest.importorskip("Working.review.window_verdicts")
+def _insert_window_set(conn, rid=None, name="ws", n_windows=6):
+    cur = conn.execute(
+        """INSERT INTO window_sets
+               (name, version, path, recording_id, n_windows, created_at)
+           VALUES (?, 1, ?, ?, ?, ?)""",
+        (name, "DATA/derived/%s.npz" % name, rid, n_windows,
+         "2026-01-01T00:00:00"),
+    )
+    conn.commit()
+    return cur.lastrowid
+
+
+def _make_window_queue(conn, ws_id, source_kind="training-windows"):
+    cur = conn.execute(
+        """INSERT INTO review_queues
+               (name, source_kind, source_ref, unit, writes_to, blind,
+                created_at)
+           VALUES (?, ?, ?, 'window', 'window_verdicts', 0, ?)""",
+        ("windows", source_kind, str(ws_id), "2026-01-01T00:00:00"),
+    )
+    conn.commit()
+    return cur.lastrowid
+
+
+def _machine_and_human_counts(conn):
+    """(detections, adjudications, annotations) — the three tables a window
+    verdict must leave alone."""
+    return (
+        conn.execute("SELECT COUNT(*) AS n FROM detections").fetchone()["n"],
+        conn.execute("SELECT COUNT(*) AS n FROM adjudications").fetchone()["n"],
+        conn.execute("SELECT COUNT(*) AS n FROM annotations").fetchone()["n"],
+    )
+
+
+def _window_rows(conn, ws_id):
+    return conn.execute(
+        "SELECT * FROM window_verdicts WHERE window_set_id = ? "
+        "ORDER BY window_index", (ws_id,)).fetchall()
+
+
+def test_window_queue_writes_the_set_and_index_it_was_asked_about():
     conn = _fresh_conn()
-    ws = conn.execute(
-        "SELECT name FROM sqlite_master WHERE type='table' AND name='window_sets'"
-    ).fetchone()
-    if ws is None:
-        pytest.skip("window_sets table not present")
-    cur = conn.execute("SELECT * FROM window_sets LIMIT 0")
-    cols = [d[0] for d in cur.description]
-    assert "id" in cols
+    rid = _insert_recording(conn)
+    ws = _insert_window_set(conn, rid)
+    qid = _make_window_queue(conn, ws)
+
+    out = V.write_verdict(conn, qid, 3, "interesting", note="clear rise")
+
+    assert out["writes_to"] == "window_verdicts"
+    assert out["verdict"] == "interesting"
+    rows = _window_rows(conn, ws)
+    assert len(rows) == 1
+    assert rows[0]["window_set_id"] == ws
+    assert rows[0]["window_index"] == 3
+    assert rows[0]["verdict"] == "interesting"
+    assert rows[0]["note"] == "clear rise"
+    assert rows[0]["queue_id"] == qid
+
+
+def test_model_verification_is_the_same_branch_as_training_windows():
+    conn = _fresh_conn()
+    rid = _insert_recording(conn)
+    ws = _insert_window_set(conn, rid)
+    qid = _make_window_queue(conn, ws, source_kind="model-verification")
+
+    V.write_verdict(conn, qid, 1, "not_interesting")
+
+    rows = _window_rows(conn, ws)
+    assert [(r["window_set_id"], r["window_index"], r["verdict"])
+            for r in rows] == [(ws, 1, "not_interesting")]
+
+
+def test_a_window_verdict_leaves_the_machine_and_human_tables_untouched():
+    """CLAUDE.md rule 5, for the case `window_verdicts` exists to serve."""
+    conn = _fresh_conn()
+    rid = _insert_recording(conn)
+    _insert_detection(conn, rid)
+    q.insert_annotation(conn, rid, 0, 100, "unsure", q.SOURCE_MANUAL_UI)
+    ws = _insert_window_set(conn, rid)
+    qid = _make_window_queue(conn, ws)
+
+    before = _machine_and_human_counts(conn)
+    assert before == (1, 0, 1)
+    V.write_verdict(conn, qid, 0, "seed", note="train on this")
+
+    assert _machine_and_human_counts(conn) == before
+    assert len(_window_rows(conn, ws)) == 1
+
+
+def test_the_bridge_call_shape_works_without_window_index():
+    """`webui/server/review.py` passes `window_index=body.window_index`, and
+    the client sends no such field — so the index has to come from the target
+    id or every window verdict the UI writes is an exception."""
+    conn = _fresh_conn()
+    rid = _insert_recording(conn)
+    ws = _insert_window_set(conn, rid)
+    qid = _make_window_queue(conn, ws)
+
+    V.write_verdict(conn, qid, 2, "artifact", note=None, tags=None,
+                    window_index=None)
+
+    assert [r["window_index"] for r in _window_rows(conn, ws)] == [2]
+
+
+def test_window_index_may_restate_the_target_id():
+    conn = _fresh_conn()
+    rid = _insert_recording(conn)
+    ws = _insert_window_set(conn, rid)
+    qid = _make_window_queue(conn, ws)
+
+    V.write_verdict(conn, qid, 4, "seed", window_index=4)
+
+    assert [r["window_index"] for r in _window_rows(conn, ws)] == [4]
+
+
+def test_a_window_index_contradicting_the_target_id_is_refused():
+    conn = _fresh_conn()
+    rid = _insert_recording(conn)
+    ws = _insert_window_set(conn, rid)
+    qid = _make_window_queue(conn, ws)
+
+    with pytest.raises(ValueError):
+        V.write_verdict(conn, qid, 4, "seed", window_index=5)
+    assert _window_rows(conn, ws) == []
+
+
+def test_re_verdicting_a_window_upserts_the_one_row():
+    conn = _fresh_conn()
+    rid = _insert_recording(conn)
+    ws = _insert_window_set(conn, rid)
+    qid = _make_window_queue(conn, ws)
+
+    V.write_verdict(conn, qid, 2, "interesting", note="first")
+    V.write_verdict(conn, qid, 2, "artifact", note="second")
+
+    rows = _window_rows(conn, ws)
+    assert len(rows) == 1
+    assert rows[0]["verdict"] == "artifact"
+    assert rows[0]["note"] == "second"
+
+
+def test_the_queue_resolver_sees_the_window_this_wrote_as_judged():
+    """The convention is only coherent if the id the resolver hands out is the
+    id `write_verdict` takes back."""
+    from Working.review import queues as Q
+    conn = _fresh_conn()
+    rid = _insert_recording(conn)
+    ws = _insert_window_set(conn, rid, n_windows=6)
+    qid = _make_window_queue(conn, ws)
+
+    item = Q.queue_items(conn, qid, include_judged=True)[3]
+    assert item["target_id"] == item["window_index"] == 3
+    V.write_verdict(conn, qid, item["target_id"], "seed")
+
+    counts = Q.queue_counts(conn, qid)
+    assert (counts["total"], counts["judged"], counts["remaining"]) == (6, 1, 5)
+
+
+def test_undo_of_a_fresh_window_verdict_removes_the_row():
+    conn = _fresh_conn()
+    rid = _insert_recording(conn)
+    ws = _insert_window_set(conn, rid)
+    qid = _make_window_queue(conn, ws)
+    V.write_verdict(conn, qid, 2, "seed")
+
+    out = V.undo_last(conn, qid)
+
+    assert out is not None and out["writes_to"] == "window_verdicts"
+    assert _window_rows(conn, ws) == []
+
+
+def test_undo_after_a_window_re_verdict_restores_the_first_verdict():
+    conn = _fresh_conn()
+    rid = _insert_recording(conn)
+    ws = _insert_window_set(conn, rid)
+    qid = _make_window_queue(conn, ws)
+    V.write_verdict(conn, qid, 2, "interesting", note="first")
+    V.write_verdict(conn, qid, 2, "artifact", note="second")
+
+    V.undo_last(conn, qid)
+
+    rows = _window_rows(conn, ws)
+    assert len(rows) == 1, "undo must restore, not delete, a re-verdict"
+    assert rows[0]["verdict"] == "interesting"
+    assert rows[0]["note"] == "first"
+    assert rows[0]["queue_id"] == qid
+
+
+def test_a_window_batch_is_one_audit_row_and_undo_reverses_all_of_it():
+    conn = _fresh_conn()
+    rid = _insert_recording(conn)
+    ws = _insert_window_set(conn, rid)
+    qid = _make_window_queue(conn, ws)
+
+    out = V.write_batch(conn, qid, [0, 1, 2], "not_interesting")
+
+    assert out["count"] == 3
+    assert [r["window_index"] for r in _window_rows(conn, ws)] == [0, 1, 2]
+    audit = conn.execute("SELECT * FROM review_audit").fetchall()
+    assert len(audit) == 1
+    assert audit[0]["action"] == "batch"
+    assert audit[0]["target_table"] == "window_verdicts"
+    assert json.loads(audit[0]["target_ids"]) == [0, 1, 2]
+
+    V.undo_last(conn, qid)
+    assert _window_rows(conn, ws) == []
+
+
+def test_a_window_batch_undo_restores_the_windows_that_had_a_prior_verdict():
+    conn = _fresh_conn()
+    rid = _insert_recording(conn)
+    ws = _insert_window_set(conn, rid)
+    qid = _make_window_queue(conn, ws)
+    V.write_verdict(conn, qid, 1, "seed", note="kept")
+
+    V.write_batch(conn, qid, [0, 1, 2], "not_interesting")
+    V.undo_last(conn, qid)
+
+    rows = _window_rows(conn, ws)
+    assert [(r["window_index"], r["verdict"]) for r in rows] == [(1, "seed")]
+    assert rows[0]["note"] == "kept"
