@@ -577,3 +577,317 @@ def test_a_window_queue_naming_a_set_that_is_gone_is_a_value_error():
 
     with pytest.raises(ValueError):
         V.write_verdict(conn, qid, 0, "seed")
+
+
+# ── rule 5 on COLLIDING ids ─────────────────────────────────────────────────
+#
+# The stage-1 tests above passed because their ids did not collide. On the
+# project database detection ids run 1..732 and annotation ids 1..11269, so
+# every real detection id is ALSO an annotation id — and the old
+# `_check_target` asked "does a row with this id exist in the table I am about
+# to write to" and returned as soon as it did, which made the refusal branch
+# unreachable for every one of them. A guard that only fires when the ids
+# happen not to collide is not a guard, so every test in this block forces the
+# collision and asserts on it.
+#
+# The fix these tests pin: resolve the target through the QUEUE'S UNIT — the
+# `review_queues.unit` column, which already says whether this queue is made of
+# detections, human spans, windows or sequences — and refuse anything that is
+# not one of those.
+
+def _insert_sequence(conn, rid, key="seq-a", annotation_id=None,
+                     needs_extraction=1):
+    cur = conn.execute(
+        """INSERT INTO sequences
+               (sequence_key, origin, recording_id, channel, start_idx, end_idx,
+                n_events, needs_extraction, annotation_id, created_at)
+           VALUES (?, 'human', ?, 0, 0, 500, 6, ?, ?, '2026-01-01T00:00:00')""",
+        (key, rid, needs_extraction, annotation_id),
+    )
+    conn.commit()
+    return cur.lastrowid
+
+
+def _annotation_state(conn, ann_id):
+    row = q.get_annotation(conn, ann_id)
+    return (row["verdict"], row["note"])
+
+
+def test_rule_5_refuses_a_detection_unit_queue_that_writes_annotations():
+    """The refusal branch the whole design rests on, on ids that COLLIDE.
+
+    A queue whose unit is `detection` and whose `writes_to` is `annotations`
+    is the crossing rule 5 forbids, and `create_queue` used to accept it from
+    an HTTP body. The old check looked the id up in `annotations`, found the
+    unrelated human row that happens to share it, and wrote a fabricated human
+    verdict there.
+    """
+    conn = _fresh_conn()
+    rid = _insert_recording(conn)
+    det = _insert_detection(conn, rid)
+    ann = q.insert_annotation(conn, rid, 500, 600, "interesting",
+                              q.SOURCE_MANUAL_UI, note="a human observation")
+    assert det == ann, "the collision IS the test: both stores hold this id"
+    qid = _make_queue(conn, writes_to="annotations",
+                      source_kind="discovery-run", unit="detection")
+
+    before = _annotation_state(conn, ann)
+    with pytest.raises(PermissionError) as exc:
+        V.write_verdict(conn, qid, det, "seed", note="rule 5 probe")
+
+    assert "rule 5" in str(exc.value).lower()
+    assert _annotation_state(conn, ann) == before
+    assert _counts(conn) == (0, 1)
+    assert conn.execute(
+        "SELECT COUNT(*) AS n FROM review_audit").fetchone()["n"] == 0
+
+
+def test_rule_5_refuses_a_span_unit_queue_that_writes_adjudications():
+    """The mirror direction, equally dead on colliding ids."""
+    conn = _fresh_conn()
+    rid = _insert_recording(conn)
+    det = _insert_detection(conn, rid)
+    ann = q.insert_annotation(conn, rid, 500, 600, "interesting",
+                              q.SOURCE_MANUAL_UI)
+    assert det == ann
+    qid = _make_queue(conn, writes_to="adjudications",
+                      source_kind="explore-spans", unit="human span")
+
+    with pytest.raises(PermissionError) as exc:
+        V.write_verdict(conn, qid, ann, "seed")
+
+    assert "rule 5" in str(exc.value).lower()
+    assert _counts(conn) == (0, 1)
+
+
+def test_a_detection_id_offered_to_a_sequence_queue_is_refused():
+    """A sequence queue's ids are `sequences` ids. A detection id that is not
+    one of them is a crossing, even when an `annotations` row shares it."""
+    conn = _fresh_conn()
+    rid = _insert_recording(conn)
+    _insert_detection(conn, rid, 0, 100)
+    stray = _insert_detection(conn, rid, 200, 300)
+    q.insert_annotation(conn, rid, 500, 600, "interesting", q.SOURCE_MANUAL_UI)
+    bystander = q.insert_annotation(conn, rid, 700, 800, "interesting",
+                                    q.SOURCE_MANUAL_UI, note="untouched")
+    assert stray == bystander, "the detection id is also an annotation id"
+    _insert_sequence(conn, rid, annotation_id=bystander)
+    qid = _make_queue(conn, writes_to="annotations",
+                      source_kind="extract-events", unit="sequence")
+
+    before = _annotation_state(conn, bystander)
+    with pytest.raises(PermissionError) as exc:
+        V.write_verdict(conn, qid, stray, "seed", note="stray detection")
+
+    assert "rule 5" in str(exc.value).lower()
+    assert _annotation_state(conn, bystander) == before
+
+
+# ── a sequence queue writes the sequence's OWN annotation ───────────────────
+
+def test_a_sequence_queue_writes_the_sequences_annotation_not_the_row_sharing_its_id():
+    """`sequences.annotation_id` is the pointer; `sequences.id` is not.
+
+    On the project database every sequence id in the seeded extract-events
+    queue (119-148) is also an annotation id, so treating the target id as an
+    `annotations` id wrote a fabricated verdict and note onto a different
+    human observation and left the intended one untouched.
+    """
+    conn = _fresh_conn()
+    rid = _insert_recording(conn)
+    bystander = q.insert_annotation(conn, rid, 100, 200, "interesting",
+                                    q.SOURCE_MANUAL_UI,
+                                    note="a different human observation")
+    parent = q.insert_annotation(conn, rid, 9000, 9500, "unsure",
+                                 q.SOURCE_MANUAL_UI, note="the sequence span")
+    seq = _insert_sequence(conn, rid, annotation_id=parent)
+    assert seq == bystander, "the sequence id collides with an annotation id"
+    qid = _make_queue(conn, writes_to="annotations",
+                      source_kind="extract-events", unit="sequence")
+
+    bystander_before = _annotation_state(conn, bystander)
+    out = V.write_verdict(conn, qid, seq, "interesting", note="sequence verdict")
+
+    assert _annotation_state(conn, parent) == ("interesting", "sequence verdict")
+    assert _annotation_state(conn, bystander) == bystander_before
+    assert out["target_id"] == seq
+    assert out["row_id"] == parent
+
+
+def test_undo_of_a_sequence_verdict_restores_the_sequences_own_annotation():
+    conn = _fresh_conn()
+    rid = _insert_recording(conn)
+    bystander = q.insert_annotation(conn, rid, 100, 200, "interesting",
+                                    q.SOURCE_MANUAL_UI, note="untouched")
+    parent = q.insert_annotation(conn, rid, 9000, 9500, "unsure",
+                                 q.SOURCE_MANUAL_UI, note="before")
+    seq = _insert_sequence(conn, rid, annotation_id=parent)
+    assert seq == bystander
+    qid = _make_queue(conn, writes_to="annotations",
+                      source_kind="extract-events", unit="sequence")
+    V.write_verdict(conn, qid, seq, "interesting", note="after")
+
+    V.undo_last(conn, qid)
+
+    assert _annotation_state(conn, parent) == ("unsure", "before")
+    assert _annotation_state(conn, bystander) == ("interesting", "untouched")
+
+
+def test_a_sequence_with_no_annotation_is_refused_rather_than_guessed():
+    conn = _fresh_conn()
+    rid = _insert_recording(conn)
+    bystander = q.insert_annotation(conn, rid, 100, 200, "interesting",
+                                    q.SOURCE_MANUAL_UI, note="untouched")
+    seq = _insert_sequence(conn, rid, annotation_id=None)
+    assert seq == bystander
+    qid = _make_queue(conn, writes_to="annotations",
+                      source_kind="extract-events", unit="sequence")
+
+    with pytest.raises(ValueError) as exc:
+        V.write_verdict(conn, qid, seq, "interesting", note="nowhere to land")
+
+    assert "annotation" in str(exc.value).lower()
+    assert _annotation_state(conn, bystander) == ("interesting", "untouched")
+    assert conn.execute(
+        "SELECT COUNT(*) AS n FROM review_audit").fetchone()["n"] == 0
+
+
+# ── a verdict belongs to the queue that asked the question ──────────────────
+
+def test_a_verdict_for_a_target_the_queue_never_asked_about_is_refused():
+    """The audit ledger is what undo and the judged-set are built on, so a row
+    saying queue N asked about an item it never showed anyone is a false
+    provenance trail."""
+    from Working.review import queues as Q
+    conn = _fresh_conn()
+    rid = _insert_recording(conn)
+    mine = _insert_detection(conn, rid, 0, 100)
+    theirs = _insert_detection(conn, rid, 5000, 5100)
+    run_id = conn.execute("SELECT run_id FROM detections WHERE id = ?",
+                          (mine,)).fetchone()["run_id"]
+    qid = Q.create_queue(conn, name="one run", source_kind="discovery-run",
+                         filters={"run_id": run_id})
+    assert [it["target_id"] for it in Q.queue_items(conn, qid)] == [mine]
+
+    with pytest.raises(ValueError) as exc:
+        V.write_verdict(conn, qid, theirs, "seed")
+
+    assert "queue" in str(exc.value).lower()
+    assert _counts(conn) == (0, 0)
+    assert conn.execute(
+        "SELECT COUNT(*) AS n FROM review_audit").fetchone()["n"] == 0
+
+
+def test_a_batch_containing_a_non_member_writes_nothing_at_all():
+    from Working.review import queues as Q
+    conn = _fresh_conn()
+    rid = _insert_recording(conn)
+    mine = _insert_detection(conn, rid, 0, 100)
+    theirs = _insert_detection(conn, rid, 5000, 5100)
+    run_id = conn.execute("SELECT run_id FROM detections WHERE id = ?",
+                          (mine,)).fetchone()["run_id"]
+    qid = Q.create_queue(conn, name="one run", source_kind="discovery-run",
+                         filters={"run_id": run_id})
+
+    with pytest.raises(ValueError):
+        V.write_batch(conn, qid, [mine, theirs], "seed")
+
+    assert _counts(conn) == (0, 0)
+    assert conn.execute(
+        "SELECT COUNT(*) AS n FROM review_audit").fetchone()["n"] == 0
+
+
+# ── tags ────────────────────────────────────────────────────────────────────
+
+def test_tags_may_arrive_as_a_plain_list_on_a_detection_queue():
+    """The bridge's `VerdictBody.tags` is `list[str]`; both core writers used
+    to call `.items()` on it and raise `AttributeError` three frames down."""
+    conn = _fresh_conn()
+    rid = _insert_recording(conn)
+    det = _insert_detection(conn, rid)
+    qid = _make_queue(conn)
+
+    V.write_verdict(conn, qid, det, "seed", tags=["sharkfin"])
+
+    from Working.database import adjudications as adjm
+    adj_id = adjm.get_adjudication(conn, det)["id"]
+    assert adjm.get_adjudication_tags(conn, adj_id)["element"] == ["sharkfin"]
+
+
+def test_tags_may_arrive_as_a_plain_list_on_an_annotations_queue():
+    from Working.database import vocabulary as vocab
+    conn = _fresh_conn()
+    rid = _insert_recording(conn)
+    ann = q.insert_annotation(conn, rid, 0, 100, "seed", q.SOURCE_MANUAL_UI)
+    qid = _make_queue(conn, writes_to="annotations",
+                      source_kind="explore-spans", unit="human span")
+
+    V.write_verdict(conn, qid, ann, "interesting", tags=["sharkfin"])
+
+    assert vocab.get_annotation_tags(conn, ann)["element"] == ["sharkfin"]
+
+
+def test_a_tag_outside_the_vocabulary_is_refused_by_name():
+    conn = _fresh_conn()
+    rid = _insert_recording(conn)
+    det = _insert_detection(conn, rid)
+    qid = _make_queue(conn)
+
+    with pytest.raises(ValueError) as exc:
+        V.write_verdict(conn, qid, det, "seed", tags=["not-a-real-tag"])
+
+    assert "not-a-real-tag" in str(exc.value)
+
+
+# ── batches ────────────────────────────────────────────────────────────────
+
+def test_an_empty_batch_writes_nothing_and_no_audit_row():
+    conn = _fresh_conn()
+    qid = _make_queue(conn)
+
+    out = V.write_batch(conn, qid, [], "seed")
+
+    assert out["count"] == 0
+    assert out["audit_id"] is None
+    assert conn.execute(
+        "SELECT COUNT(*) AS n FROM review_audit").fetchone()["n"] == 0
+
+
+def test_a_batch_collapses_duplicate_target_ids():
+    conn = _fresh_conn()
+    rid = _insert_recording(conn)
+    det = _insert_detection(conn, rid)
+    qid = _make_queue(conn)
+
+    out = V.write_batch(conn, qid, [det, det, det], "seed")
+
+    assert out["count"] == 1
+    assert out["target_ids"] == [det]
+    audit = conn.execute("SELECT * FROM review_audit").fetchall()
+    assert len(audit) == 1
+    assert json.loads(audit[0]["target_ids"]) == [det]
+
+
+# ── undo must not claim to have reversed a promotion it did not ─────────────
+
+def test_undo_last_refuses_to_stamp_an_audit_row_it_cannot_reverse():
+    """`undo_last` used to fall back to `row['target_table']`, do nothing with
+    a value it has no branch for, and still stamp `undone_at` — burning the
+    only record that could have reversed it."""
+    conn = _fresh_conn()
+    qid = _make_queue(conn)
+    conn.execute(
+        """INSERT INTO review_audit
+               (queue_id, action, target_table, target_ids, payload_json,
+                created_at)
+           VALUES (?, 'verdict', 'motif_member', '[1]', ?, ?)""",
+        (qid, json.dumps({"writes_to": "motif_member",
+                          "targets": [{"target_id": 1, "prior": None}]}),
+         "2026-01-01T00:00:00"))
+    conn.commit()
+
+    with pytest.raises(ValueError):
+        V.undo_last(conn, qid)
+
+    assert conn.execute(
+        "SELECT undone_at FROM review_audit").fetchone()["undone_at"] is None

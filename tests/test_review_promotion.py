@@ -248,3 +248,81 @@ def test_unpromote_is_refused_twice(conn, tmp_path):
     promotion.unpromote(conn, out["audit_id"])
     with pytest.raises(ValueError):
         promotion.unpromote(conn, out["audit_id"])
+
+
+# ── the generic undo reaches a promotion, or refuses it ─────────────────────
+#
+# `verdicts.undo_last` is what Ctrl-Z in the workspace calls, and a promotion
+# writes ONE audit row whose `target_table` is `motif_member`. `undo_last` had
+# no branch for that value: it stamped `undone_at`, reported success and
+# reversed nothing — and a second press then deleted the adjudication,
+# leaving a Library motif whose originating judgement no longer exists, which
+# is exactly the fabricated entry P21 says only a human verdict may create.
+
+def test_undo_last_reverses_a_promotion_through_unpromote(conn, tmp_path):
+    from Working.review import verdicts as V
+    rec = _recording(conn, tmp_path, 0, _wave(2_000))
+    qid = _queue(conn)
+    det = _detection(conn, rec, 100, 356)
+    out = promotion.promote(conn, qid, det)
+    assert _counts(conn) == (1, 1, 1)
+
+    undone = V.undo_last(conn, qid)
+
+    assert undone is not None
+    assert undone["action"] == "promote"
+    assert undone["audit_id"] == out["audit_id"]
+    assert _counts(conn) == (0, 0, 0), "both Library halves come back out"
+    assert conn.execute("SELECT COUNT(*) FROM adjudications").fetchone()[0] == 0
+    audit = conn.execute("SELECT * FROM review_audit WHERE id = ?",
+                         (out["audit_id"],)).fetchone()
+    assert audit["undone_at"]
+
+
+def test_a_second_undo_after_a_promotion_does_not_delete_the_verdict_again(conn, tmp_path):
+    """The promotion's own verdict row is reversed BY the unpromote, so the
+    next Ctrl-Z must walk past it rather than deleting an adjudication that
+    is already gone and stranding the Library rows."""
+    from Working.review import verdicts as V
+    rec = _recording(conn, tmp_path, 0, _wave(2_000))
+    qid = _queue(conn)
+    out = promotion.promote(conn, qid, _detection(conn, rec, 100, 356))
+
+    V.undo_last(conn, qid)
+    again = V.undo_last(conn, qid)
+
+    assert again is None, "there is nothing left on this queue to undo"
+    assert _counts(conn) == (0, 0, 0)
+
+
+def test_a_sequence_queue_promotes_the_sequences_own_annotation(conn, tmp_path):
+    """`resolve_target` read `annotations` by the target id. A sequence
+    queue's target id is a `sequences` id, and on the project database those
+    collide with annotation ids, so the promoted span was a different human
+    observation entirely."""
+    rec = _recording(conn, tmp_path, 0, _wave(2_000))
+    bystander = q.insert_annotation(conn, rec, 1_200, 1_456, "interesting",
+                                    "explore", note="not this one")
+    parent = q.insert_annotation(conn, rec, 100, 356, "seed", "explore",
+                                 note="the sequence span")
+    seq = conn.execute(
+        """INSERT INTO sequences
+               (sequence_key, origin, recording_id, channel, start_idx, end_idx,
+                n_events, needs_extraction, annotation_id, created_at)
+           VALUES ('seq-a', 'human', ?, 0, 100, 356, 6, 1, ?,
+                   '2026-09-22T00:00:00')""",
+        (rec, parent)).lastrowid
+    conn.commit()
+    assert seq == bystander, "the sequence id collides with an annotation id"
+    qid = _queue(conn, source_kind="extract-events", unit="sequence",
+                 writes_to="annotations", name="extract")
+
+    out = promotion.promote(conn, qid, seq)
+
+    rev = conn.execute(
+        "SELECT * FROM motif_member_revision WHERE member_id = ?",
+        (out["member_id"],)).fetchone()
+    assert rev["origin"] == "human"
+    assert rev["annotation_id"] == parent
+    assert rev["start_idx"] == 100 and rev["end_idx"] == 356
+    assert q.get_annotation(conn, bystander)["note"] == "not this one"

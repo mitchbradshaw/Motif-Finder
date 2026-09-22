@@ -24,6 +24,8 @@ import json
 import os
 import sys
 
+import pytest
+
 PROJECT_ROOT = os.path.dirname(os.path.abspath(__file__))
 while not os.path.isdir(os.path.join(PROJECT_ROOT, "Working")) \
         and os.path.dirname(PROJECT_ROOT) != PROJECT_ROOT:
@@ -475,3 +477,180 @@ def test_a_span_queue_does_not_match_its_own_items_against_themselves():
     seed = _insert_annotation(conn, rid, 0, 100, verdict="seed")
     qid = qs.create_queue(conn, name="spans", source_kind="explore-spans")
     assert [it["target_id"] for it in qs.queue_items(conn, qid)] == [seed]
+
+
+# ── the ledger the annotation-writing kinds drain through ───────────────────
+#
+# `explore-spans` and `extract-events` write `annotations`, and an
+# `annotations` row does not say "this queue item was judged" — the span
+# queue's item IS the row it rewrites, and a sequence's item is a `sequences`
+# row whose verdict lands on a different table entirely. `review_audit` is the
+# only record that can say it, so the writer and the reader have to agree
+# about the shape of `payload_json`. They did not: the reader looked for
+# `target_id`/`target_ids` and the writer wrote neither, so two of the six
+# queue kinds could never drain and "N need you" could never fall.
+
+def _insert_sequence_with_annotation(conn, rid, key, annotation_id,
+                                     needs_extraction=1):
+    cur = conn.execute(
+        """INSERT INTO sequences
+               (sequence_key, origin, recording_id, channel, start_idx, end_idx,
+                n_events, needs_extraction, annotation_id, created_at)
+           VALUES (?, 'human', ?, 0, 0, 500, 6, ?, ?, ?)""",
+        (key, rid, needs_extraction, annotation_id, "2026-01-01T00:00:00"),
+    )
+    conn.commit()
+    return cur.lastrowid
+
+
+def test_a_verdict_on_an_extract_events_queue_registers_judged():
+    from Working.review import verdicts as V
+    conn = _fresh_conn()
+    rid = _insert_recording(conn)
+    a1 = _insert_annotation(conn, rid, 1000, 1500, verdict="interesting")
+    a2 = _insert_annotation(conn, rid, 2000, 2500, verdict="interesting")
+    s1 = _insert_sequence_with_annotation(conn, rid, "seq-a", a1)
+    _insert_sequence_with_annotation(conn, rid, "seq-b", a2)
+    qid = qs.create_queue(conn, name="extract", source_kind="extract-events")
+    assert qs.queue_counts(conn, qid) == {"total": 2, "judged": 0, "remaining": 2}
+
+    V.write_verdict(conn, qid, s1, "interesting", note="judged")
+
+    assert qs.queue_counts(conn, qid) == {"total": 2, "judged": 1, "remaining": 1}
+    assert [it["target_id"] for it in qs.queue_items(conn, qid)] != [s1]
+
+
+def test_a_verdict_on_an_explore_spans_queue_registers_judged():
+    from Working.review import verdicts as V
+    conn = _fresh_conn()
+    rid = _insert_recording(conn)
+    s1 = _insert_annotation(conn, rid, 0, 100, verdict="seed")
+    _insert_annotation(conn, rid, 2000, 2100, verdict="seed")
+    qid = qs.create_queue(conn, name="spans", source_kind="explore-spans")
+    assert qs.queue_counts(conn, qid) == {"total": 2, "judged": 0, "remaining": 2}
+
+    # `seed` again, so the row stays in the source and the ONLY thing that can
+    # move `judged` is the audit ledger.
+    V.write_verdict(conn, qid, s1, "seed", note="judged")
+
+    assert qs.queue_counts(conn, qid) == {"total": 2, "judged": 1, "remaining": 1}
+
+
+def test_an_undone_verdict_returns_its_item_to_the_queue():
+    from Working.review import verdicts as V
+    conn = _fresh_conn()
+    rid = _insert_recording(conn)
+    s1 = _insert_annotation(conn, rid, 0, 100, verdict="seed")
+    qid = qs.create_queue(conn, name="spans", source_kind="explore-spans")
+    V.write_verdict(conn, qid, s1, "seed")
+    assert qs.queue_counts(conn, qid)["remaining"] == 0
+
+    V.undo_last(conn, qid)
+
+    assert qs.queue_counts(conn, qid)["remaining"] == 1
+
+
+def test_a_batch_registers_every_one_of_its_targets_as_judged():
+    from Working.review import verdicts as V
+    conn = _fresh_conn()
+    rid = _insert_recording(conn)
+    spans = [_insert_annotation(conn, rid, i * 2000, i * 2000 + 100,
+                                verdict="seed") for i in range(3)]
+    qid = qs.create_queue(conn, name="spans", source_kind="explore-spans")
+
+    V.write_batch(conn, qid, spans[:2], "seed")
+
+    assert qs.queue_counts(conn, qid) == {"total": 3, "judged": 2, "remaining": 1}
+
+
+# ── a soft-deleted human span is not a human span ───────────────────────────
+
+def test_a_soft_deleted_span_does_not_suppress_a_detection():
+    """Every other reader in the codebase filters `deleted_at`; this one did
+    not, so a span the researcher deleted kept a candidate out of the queue
+    and out of the counts."""
+    conn = _fresh_conn()
+    gid = _insert_run_group(conn)
+    rid = _insert_recording(conn)
+    det = _insert_detection(conn, rid, 100, 200, score=0.5, run_group_id=gid)
+    ann = _insert_annotation(conn, rid, 100, 200, verdict="interesting")
+    qid = qs.create_queue(conn, name="seeded", source_kind="seed-search",
+                          source_ref=str(gid))
+    assert [it["target_id"] for it in qs.queue_items(conn, qid)] == []
+
+    conn.execute("UPDATE annotations SET deleted_at = ? WHERE id = ?",
+                 ("2026-09-22T00:00:00", ann))
+    conn.commit()
+
+    assert [it["target_id"] for it in qs.queue_items(conn, qid)] == [det]
+    assert qs.queue_counts(conn, qid) == {"total": 1, "judged": 0, "remaining": 1}
+
+
+def test_a_soft_deleted_span_is_not_an_explore_spans_item():
+    conn = _fresh_conn()
+    rid = _insert_recording(conn)
+    live = _insert_annotation(conn, rid, 0, 100, verdict="seed")
+    gone = _insert_annotation(conn, rid, 2000, 2100, verdict="seed")
+    conn.execute("UPDATE annotations SET deleted_at = ? WHERE id = ?",
+                 ("2026-09-22T00:00:00", gone))
+    conn.commit()
+    qid = qs.create_queue(conn, name="spans", source_kind="explore-spans")
+
+    assert [it["target_id"] for it in qs.queue_items(conn, qid)] == [live]
+
+
+# ── the cap is a promise about how many questions are put ───────────────────
+
+def test_the_cap_is_not_consumed_by_a_rediscovery():
+    """"Cap at N" must not silently become "at most N". The cap slices the
+    list of things the queue will ASK about, so an item removed because the
+    researcher already judged it under another name is replaced by the next
+    unasked candidate, not left as a hole."""
+    conn = _fresh_conn()
+    gid = _insert_run_group(conn)
+    rid = _insert_recording(conn)
+    dets = [_insert_detection(conn, rid, i * 1000, i * 1000 + 100, score=0.5,
+                              run_group_id=gid) for i in range(7)]
+    qid = qs.create_queue(conn, name="capped", source_kind="discovery-run",
+                          source_ref=str(gid), cap=5)
+    assert [it["target_id"] for it in qs.queue_items(conn, qid)] == dets[:5]
+
+    # an exact rediscovery of the second candidate
+    _insert_annotation(conn, rid, 1000, 1100, verdict="interesting")
+
+    assert qs.queue_counts(conn, qid) == {"total": 5, "judged": 0, "remaining": 5}
+    assert [it["target_id"] for it in qs.queue_items(conn, qid)] == \
+        [dets[0], dets[2], dets[3], dets[4], dets[5]]
+
+
+# ── the rule-5 decision is made once, and it has to be coherent ─────────────
+
+def test_create_queue_refuses_a_writes_to_that_contradicts_its_source_kind():
+    """`writes_to` is "the rule-5 decision made once, at queue creation, where
+    a person can read it". A discovery run's verdicts are machine
+    adjudications; a queue claiming otherwise is the crossing itself, created
+    through the public route."""
+    conn = _fresh_conn()
+    with pytest.raises(ValueError) as exc:
+        qs.create_queue(conn, name="crossing", source_kind="discovery-run",
+                        writes_to="annotations")
+    assert "annotations" in str(exc.value)
+    assert conn.execute(
+        "SELECT COUNT(*) AS n FROM review_queues").fetchone()["n"] == 0
+
+
+def test_create_queue_refuses_a_unit_that_contradicts_its_source_kind():
+    conn = _fresh_conn()
+    with pytest.raises(ValueError):
+        qs.create_queue(conn, name="crossing", source_kind="extract-events",
+                        unit="detection")
+    assert conn.execute(
+        "SELECT COUNT(*) AS n FROM review_queues").fetchone()["n"] == 0
+
+
+def test_create_queue_still_accepts_a_restatement_of_the_defaults():
+    conn = _fresh_conn()
+    qid = qs.create_queue(conn, name="explicit", source_kind="discovery-run",
+                          unit="detection", writes_to="adjudications")
+    row = qs.get_queue(conn, qid)
+    assert (row["unit"], row["writes_to"]) == ("detection", "adjudications")
