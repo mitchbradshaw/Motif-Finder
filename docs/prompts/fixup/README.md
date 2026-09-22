@@ -14,6 +14,8 @@ being either a bug or a spec change.
 | File | Workspace / pages |
 |---|---|
 | `B-units-and-amplitude.md` | **written and ready to run — the highest-priority item in the stage.** The derived channels are in volts and the whole UI labels them mV; every amplitude ever shown is 1000x too small. Blocks the plot-domain prompt `C` |
+| `C-one-plot-domain-rule.md` | **written; blocked on `B` landing.** Per-card measured domains with the shared scale as a reference bar, replacing PRD D5, across Review + Library + Explore. Acceptance test: no motif clipped in its own thumbnail |
+| `D-event-features.md` | *(not yet written — blocked on the survey of the existing rose-plot and slope code)*. Per-event feature blocks: duration, half-width, event width, depth/height, recovery, max slope, inter-event intervals, and the max-slope rose plot |
 | `A-no-decision-fixes.md` | **run and reported 2026-09-22** (`reports/A-no-decision-fixes.md`; all seventeen done, suite 1660/0) — the seventeen defects across six workspaces that have a known cause, a known line and exactly one defensible fix. Carries an explicit not-in-scope table so it cannot widen into the decisions still open |
 | `00-cross-cutting.md` | the shell, the `demo` chip, shared chart primitives, naming, workflow |
 | `01-explore.md` | Corpus, Signal, Cross-channel, Span edit |
@@ -28,6 +30,11 @@ being either a bug or a spec change.
 | `10-settings.md` | the sixteen settings pages |
 
 `QUESTIONS.md` is the live list of what must be decided before a prompt can be written, with the
-answers recorded beside each question as they are given.
+answers recorded beside each question as they are given. **Rounds 1 and 2 are answered (2026-09-23);
+round 3 is open.**
+
+**The order of work, as it stands:** `A` (done) → **`B` (units — everything amplitude-shaped waits on
+it)** → `C` (plot domains) and the window-sets unblock, in parallel → `D` (event features, the
+researcher's top-priority capability) → the page prompts.
 
 Reports go in `reports/`, cross-agent requests in `requests/`, same convention as the wiring stage.

@@ -121,9 +121,62 @@ below the instrument floor.** That is not a units bug; that is a detector run wh
 noise, and it is the real answer to "too many flat families" (L2). It has been invisible because the
 axis said 0.0043 and everything looked equally tiny.
 
-**Q-X2.5 (new, blocking for the Library): what happens to `drop_motifs10`?** Re-run its detector with a
-floor at 0.1 mV, filter the existing entries, keep them and mark them, or drop the store from the
-Library? That is a research call, not an engineering one. Round 2.
+**Q-X2.5 (Q11 of round 2) — what happens to `drop_motifs10`?**
+
+**A (2026-09-23): filter now, re-run later. The floor becomes a per-dataset editable setting in
+Settings, defaulting to 0.1 mV for every dataset for now** — every recording may have its own noise
+floor, and the floor decides which detected motifs are viable, so it belongs beside the dataset, not in
+a constant.
+
+**The researcher challenged the measurement, and was half right — the correction matters more than the
+original claim.** The challenge: a `drop_motifs10` span may cover only the steepest part of the slope
+rather than max-to-min, so peak-to-peak over the *stored span* would understate the event. Measured
+over 400 spans (median stored width **31 samples**):
+
+| Window | p25 | median | p75 | under 0.1 mV |
+|---|---|---|---|---|
+| stored span | 0.108 | 0.301 | 1.034 | **24.0 %** |
+| ± 1x width | 0.313 | 0.662 | 2.409 | 6.8 % |
+| ± 3x width | 0.545 | 0.985 | 2.841 | 0.8 % |
+| ± 10x width | 1.000 | 1.557 | 4.431 | 0.0 % |
+
+Widening does clear the floor — 72 % of sub-floor spans clear it at ±1x, 97 % at ±3x — **but that is
+not evidence the events are bigger.** A wider window catches baseline drift and neighbouring events, so
+peak-to-peak grows whatever is there. The test that settles it is the detector's own measurement, and
+`Plots/drop_motifs10/motifs/motifs.csv` carries it:
+
+    drop_depth_mv    median 0.219 mV   p25 0.069   31.6 % under 0.1 mV
+    peak_to_peak_mv  median 0.290 mV   p25 0.099   25.2 % under 0.1 mV
+    snippet width median 29 samples · onset->trough median 7 samples
+
+The detector's own depths agree with the stored-span measurement, and the snippet is already ~4x the
+onset-to-trough extent. **So the span is not too narrow; the events really are that small.**
+
+**The actual cause is the floor, and the answer to "where is the 0.1 mV coming from":** it comes from
+`detect5.py:927`, which names the *instrument* floor in a comment. **`drop_motifs10` never used it.**
+Every one of its 3,511 rows carries `floor_rule = derived_3x_amplitude_MAD` with `depth_floor_mv`
+median **0.0127 mV** — a floor derived from the residual's own noise, ~8x below the instrument floor.
+And the residual was small because the run was aggressively detrended:
+
+| | slope_sigma | detrend_window_s (median) | segment_seconds (median) | depth median | sub-floor |
+|---|---|---|---|---|---|
+| `drop_motifs5` (seed, 410) | 8.0 flat | 240.0 | 4.8 | **9.06 mV** | **0.0 %** |
+| `drop_motifs10` (3,511) | 8.0, down to 1.5 | **7.9** | **0.2** | **0.219 mV** | **31.6 %** |
+
+A 7.9 s detrend window at 1 Hz is ~8 samples: it removes everything slower than ~8 s, which is most of
+a real drop. **`drop_motifs10` is a deliberately permissive micro-scale sweep** — four passes
+(`base`/`fine`/`micro`/`sens`), eight `scale_band`s whose medians run 0.115 mV (band 1) to 1.813 mV
+(band 7) — not a broken run. It is answering a different question at a different scale, and the units
+bug made its output indistinguishable from the seed store's.
+
+**Consequence for the filter:** filtering on peak-to-peak over the Library's stored span is the wrong
+measure. Filter on the **detector's own `drop_depth_mv`**, which means `motif_features` (Q-I1) has to
+carry it — the Library imported only span indices and dropped every amplitude the detector computed.
+`scale_band` and `is_pure` (2,960 of 3,511 pure) are the other two axes worth exposing.
+
+**Q-X2.6 (new, not blocking): `rise_height_mv` is 0.000 for 85.8 % of `drop_motifs10`**, and
+`signal_sign` is 1 for all 3,511 with the manifest's `inverted` pass false. Worth knowing before
+anything is built on rise height.
 
 ---
 
@@ -255,3 +308,92 @@ number. See `04-analyse-training.md` T3.
 **What this changed about the stage:** three of the user's ten feedback items turned out to be plain
 bugs with a known line and no decision attached. The stage is therefore *not* uniformly
 design-question-blocked — a "just fix it" prompt can start before `QUESTIONS.md` is resolved.
+
+
+---
+
+## Round 2, answered 2026-09-23
+
+**Q11 — `drop_motifs10`.** Answered in Q-X2.5 above (filter now, re-run later; the floor becomes a
+per-dataset Settings value defaulting to 0.1 mV).
+
+**Q12 — is a "spike" the same as a "drop"?**
+
+**A: neither, quite — and the vocabulary was the problem.** The researcher's correction, verbatim in
+substance: *"spike train" / "spike events" is misleading; my professor and I use these to mean **motif
+trains**, applicable to sequences of spikes AND sequences of drops.* So:
+
+- **A train is a sequence of motifs of either polarity.** Name it a **motif train**, never a spike train.
+- **Drops and spikes are genuinely different events**, not one phenomenon under two names. The
+  `drop_motifs` detector detects drops only (`signal_sign = 1` on all 3,511 rows of `drop_motifs10`).
+- **Feature blocks are polarity-neutral**: drop depth / rise height / recovery for a drop, and
+  amplitude / return time / spike height for a spike, are the same measurements about opposite signs.
+  One block with polarity handled internally, not two.
+- **A separate spike *detector* is a real gap**, and there is a promising cheap route: the researcher
+  has already experimented with running the drop-motif algorithm on an **inverted signal** to find
+  spikes, with some success. **An `preprocessing.invert` block is worth building** — it makes every
+  existing drop detector a spike detector for one block's work. `drop_motifs10`'s manifest already has
+  an `inverted` pass flag (set false), so the idea is partly plumbed in the core.
+
+**Q13 — the measure list, and the rose plot.**
+
+**A, first part: one block outputs all the shape measures**, so a researcher does not run three blocks
+to characterise one event. Named explicitly: **duration** (onset → recovery), **half width** (the
+standard electrophysiology FWHM), **event width** (onset → trough for a drop, onset → peak for a
+spike), plus depth/height, rise height/return time, and recovery time. Splitting is allowed if it is
+structurally better, but the default is one block.
+
+**A, second part: the rose plot is (iii) — max slope.** Not circadian. The angular variable is the
+**maximum slope of each event**, and the plot compares **slopes across the events in a sequence**. This
+already exists in the drop-motif plotting code in this repo and **must be reused, not reinvented**
+(CLAUDE.md). `motifs.csv` already carries `max_slope_raw` and `onset_slope_raw` per event.
+
+**"etc." means:** any other per-event feature extraction, and any other cross-event comparison within a
+sequence of the rose plot's kind. **The named techniques are a generalisable template for later ones**
+— so the prompt's job is as much to establish the shape as to deliver the six measures.
+
+**Chain integration is an open design question the researcher wants to think about further.** The case:
+given a train of motifs, apply a width block to it, *and simultaneously* pass the same motifs to an
+ISI block. For now **assume each analysis type is its own chain with its own intent**; do not build
+fan-out. Flagged as **Q-B-CHAIN**, round 3.
+
+**Q14 — where features attach.**
+
+**A: (c), with the split stated precisely.** The block consumes any `SpanSet` so it composes into any
+chain, **and** writes to `motif_features` (content-hash keyed) for any span that has a hash.
+**Per-event features are stored on the motif** (each motif carries its own `max_slope`, depth, width).
+**Cross-event comparison results exist only in the analysis run** and are never stored. This is what
+lets a researcher assemble a `SpanSet` of Library motifs **that are not from the same sequence**, run a
+feature comparison over it, and see the result — the comparison is a view, the features are the data.
+
+**Q15 — is `window_sets` next?** **A: yes, immediately after `B`.**
+
+**Q16 — which Review gaps.**
+
+**A: (i) classes, (iii) the rediscovery prior verdict, and (iv) the "sorted by score" contradiction are
+in. (ii) the extract-events editor gets its OWN prompt**, later, with concept-page design and another
+round of questions before implementation — the 30 waiting sequences are not critical. Recorded as the
+researcher's view: extracting events from a sequence is properly the job of a *detection algorithm* in
+Analyse, and the editor's real value is for sequences that a detector found automatically.
+
+**Q17 — dataset naming.** **A: all of it.** Derive what is derivable (channels, fs, duration) by
+default, then editable columns in Settings › Datasets: **species, organism id, experiment date,
+condition, display name** — where a filled display name replaces the file name **across the whole
+site** — **and notes** (e.g. "recorded outside", "in a Faraday cage"). Eleven rows to fill by hand is
+acceptable, and the editor is wanted permanently for future datasets.
+
+---
+
+## Round 3 — open
+
+**Q-B-CHAIN** How do per-event analysis blocks compose? The researcher wants, from one train of
+motifs, a width analysis *and* an ISI analysis without running the chain twice. Today a chain is
+linear. Options: a fan-out node; a block that emits several feature sets; or accept one chain per
+intent (the assumption prompt `D` is built on). Needs the researcher's thinking, not a default.
+
+**Q-X2.7** Per-dataset noise floors (Q11) — where does the floor apply? Only as a Library/Atlas display
+filter, or does it also gate what a detector block writes at run time? The first is a view, the second
+changes what lands in the database.
+
+**Q-D2b** `drop_motifs10`'s `scale_band` (eight bands, medians 0.115 to 1.813 mV) and `is_pure`
+(2,960 / 3,511) are richer than a single floor. Should the Library expose them as filters?
