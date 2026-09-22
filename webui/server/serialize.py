@@ -25,6 +25,7 @@ from __future__ import annotations
 
 import base64
 import os
+import warnings
 from typing import Any
 
 import numpy as np
@@ -70,6 +71,21 @@ def _clean(v: Any) -> Any:
     if isinstance(v, (str, int, bool)) or v is None:
         return v
     return str(v)
+
+
+def _block_nanmean(blocks: np.ndarray) -> np.ndarray:
+    """Average each (axis 1, axis 3) block ignoring NaN, leaving NaN only where a
+    block holds no finite value at all.
+
+    A plain `.mean()` here was the Dehshibi stage-1 black image (fixup-a item 1):
+    `preprocessing.wavelet_transform` leaves roughly half its columns NaN by
+    design, so on any real span - where the block factor is far above 1 - every
+    single output cell caught a NaN and the whole image went NaN. An all-NaN
+    block is genuinely unknown, stays NaN, and is marked by the caller rather
+    than painted as a value."""
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", RuntimeWarning)   # "Mean of empty slice" is the answer here, not a fault
+        return np.nanmean(blocks, axis=(1, 3))
 
 
 def _finite_range(a: np.ndarray) -> list | None:
@@ -224,7 +240,7 @@ def _encoding(value, meta, ctx):
             img = np.asarray(vals[i], dtype=float)[:hh, :ww]
             if img.ndim == 2:
                 img = img[:, :, None]
-            img = img[:, :, :chans].reshape(tile_h, fh, tile_w, fw, chans).mean(axis=(1, 3))
+            img = _block_nanmean(img[:, :, :chans].reshape(tile_h, fh, tile_w, fw, chans))
             r_, c_ = divmod(i, cols)
             sheet[r_ * tile_h:(r_ + 1) * tile_h, c_ * tile_w:(c_ + 1) * tile_w] = img
         vals = sheet if chans == 3 else sheet[:, :, 0]
@@ -238,21 +254,29 @@ def _encoding(value, meta, ctx):
         hh, ww = h // fh * fh, w // fw * fw
         img = vals[:hh, :ww]
         if vals.ndim == 2:
-            img = img.reshape(hh // fh, fh, ww // fw, fw).mean(axis=(1, 3))
-            rng = _finite_range(img) or [0.0, 1.0]
-            u8 = np.clip((img - rng[0]) / ((rng[1] - rng[0]) or 1.0) * 255, 0, 255).astype(np.uint8)
+            img = _block_nanmean(img.reshape(hh // fh, fh, ww // fw, fw))
+            blank = ~np.isfinite(img)
             chans = 1
         else:
-            img = img.reshape(hh // fh, fh, ww // fw, fw, vals.shape[2]).mean(axis=(1, 3))
-            rng = _finite_range(img) or [0.0, 1.0]
-            u8 = np.clip((img - rng[0]) / ((rng[1] - rng[0]) or 1.0) * 255, 0, 255).astype(np.uint8)
+            img = _block_nanmean(img.reshape(hh // fh, fh, ww // fw, fw, vals.shape[2]))
+            blank = ~np.isfinite(img).any(axis=-1)
             chans = int(vals.shape[2])
+        rng = _finite_range(img)
+        u8 = (np.zeros(img.shape, dtype=np.uint8) if rng is None else
+              np.clip(np.nan_to_num((img - rng[0]) / ((rng[1] - rng[0]) or 1.0) * 255), 0, 255).astype(np.uint8))
+        n_blank = int(blank.sum()); n_cells = int(blank.size)
         shape_out = list(value.values.shape) if n_images else list(vals.shape)
         summary = (f"{n_images} images · {shape_out[1]}×{shape_out[2]} · contact sheet of the first {min(n_images, STACK_TILES)}"
                    if n_images else f"{h}×{w}" + (f"×{vals.shape[2]}" if vals.ndim == 3 else "") + f" image · shown at {u8.shape[0]}×{u8.shape[1]}")
+        if rng is None:
+            summary += " · no finite values: every cell of this image is NaN, so there is nothing to paint"
+        elif n_blank:
+            summary += f" · {n_blank:,} of {n_cells:,} cells have no data"
         return {"type": "encoding", "kind": "image", "ndim": (4 if n_images else int(vals.ndim)), "shape": shape_out, "n_images": n_images,
                 "display_shape": [int(u8.shape[0]), int(u8.shape[1])], "channels": chans,
                 "value_range": rng, "pixels_b64": base64.b64encode(np.ascontiguousarray(u8).tobytes()).decode("ascii"),
+                "all_nan": rng is None, "nan_cells": n_blank, "n_cells": n_cells,
+                "nan_b64": (base64.b64encode(np.ascontiguousarray(blank, dtype=np.uint8).tobytes()).decode("ascii") if n_blank else None),
                 "summary": summary}
     return {"type": "encoding", "kind": value.kind, "shape": list(vals.shape), "summary": f"{value.kind} {vals.shape}"}
 

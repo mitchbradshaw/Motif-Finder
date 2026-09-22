@@ -164,7 +164,11 @@ export interface EncodingSymbolicPayload {
   representatives: number[] | null; paa: number[] | null; n_trimmed: number | null; summary: string
 }
 export interface EncodingImagePayload {
-  type: 'encoding'; kind: 'image'; ndim: number; shape: number[]; n_images?: number | null; display_shape?: [number, number]; channels?: number; value_range?: [number, number]
+  type: 'encoding'; kind: 'image'; ndim: number; shape: number[]; n_images?: number | null; display_shape?: [number, number]; channels?: number
+  /** null when no cell of the image holds a finite value — then `all_nan` is true and there is no range to state. */
+  value_range?: [number, number] | null
+  /** `nan_b64` is one uint8 per displayed cell, 1 where the block held no finite value at all (serialize.py `_block_nanmean`). */
+  all_nan?: boolean; nan_cells?: number; n_cells?: number; nan_b64?: string | null
   pixels_b64?: string; series?: number[]; bin_freqs?: number[] | null; summary: string
 }
 export interface GroupingPayload {

@@ -163,9 +163,11 @@ function viridis(u: number): [number, number, number] {
   const a = VIRIDIS[i], b = VIRIDIS[i + 1]
   return [a[0] + (b[0] - a[0]) * f, a[1] + (b[1] - a[1]) * f, a[2] + (b[2] - a[2]) * f]
 }
+const NO_DATA: [number, number, number] = [156, 163, 175]   // grey: not a point on the viridis ramp, so it cannot be read as a value
 function ImageR({ p, ctx }: { p: EncodingImagePayload; ctx: RenderCtx }) {
   const ref = useRef<HTMLCanvasElement>(null)
   const shape = p.display_shape
+  const blankB64 = p.nan_b64
   useEffect(() => {
     const c = ref.current
     if (!c || !p.pixels_b64 || !shape) return
@@ -173,17 +175,26 @@ function ImageR({ p, ctx }: { p: EncodingImagePayload; ctx: RenderCtx }) {
     const raw = atob(p.pixels_b64)
     const bytes = new Uint8Array(raw.length)
     for (let i = 0; i < raw.length; i++) bytes[i] = raw.charCodeAt(i)
+    // cells whose source block held no finite value at all: painted grey, never
+    // as a value (fixup-a 1 — a NaN block used to paint as the bottom of the ramp)
+    let blank: Uint8Array | null = null
+    if (blankB64) {
+      const b = atob(blankB64)
+      blank = new Uint8Array(b.length)
+      for (let i = 0; i < b.length; i++) blank[i] = b.charCodeAt(i)
+    }
     const chans = p.channels ?? 1
     const img = new ImageData(w, h)
     for (let i = 0; i < w * h; i++) {
       let r: number, g: number, b: number
-      if (chans === 3) { r = bytes[i * 3]; g = bytes[i * 3 + 1]; b = bytes[i * 3 + 2] }
+      if (blank && blank[i]) { [r, g, b] = NO_DATA }
+      else if (chans === 3) { r = bytes[i * 3]; g = bytes[i * 3 + 1]; b = bytes[i * 3 + 2] }
       else { const u = bytes[i * chans] / 255; [r, g, b] = viridis(u) }
       img.data[i * 4] = r; img.data[i * 4 + 1] = g; img.data[i * 4 + 2] = b; img.data[i * 4 + 3] = 255
     }
     c.width = w; c.height = h
     c.getContext('2d')?.putImageData(img, 0, 0)
-  }, [p.pixels_b64, shape, p.channels])
+  }, [p.pixels_b64, shape, p.channels, blankB64])
   if (p.ndim === 1 && p.series) {
     // a 1-D encoding (e.g. log-frequency bins): bars
     const r = finiteRange(p.series) ?? [0, 1]
@@ -196,6 +207,14 @@ function ImageR({ p, ctx }: { p: EncodingImagePayload; ctx: RenderCtx }) {
     )
   }
   if (!p.pixels_b64 || !shape) return <Empty text={`encoding image · ${p.summary}`} />
+  // every cell NaN: there is no image. Say that in words rather than paint a
+  // black rectangle under a range of [0, 1] that is not true of the data.
+  if (p.all_nan) return (
+    <div className="an-plot-empty" data-render="image-all-nan" data-testid="image-all-nan" style={{ height: ctx.height }}>
+      nothing to paint: every cell of this {p.shape.join('×')} image is NaN.
+      {' '}The block left the whole span uncovered — no scale in the transform produced a finite coefficient here.
+    </div>
+  )
   const side = ctx.height
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 12, height: ctx.height }} data-render="image">
@@ -203,6 +222,7 @@ function ImageR({ p, ctx }: { p: EncodingImagePayload; ctx: RenderCtx }) {
       <div className="mono" style={{ fontSize: 11, color: 'var(--muted)', lineHeight: 1.5 }}>
         <div>shape {p.shape.join('×')} · shown at {shape[0]}×{shape[1]}{p.channels && p.channels > 1 ? ` · ${p.channels} channels` : ''}</div>
         {p.value_range && <div>values {p.value_range[0].toFixed(3)} … {p.value_range[1].toFixed(3)} · viridis ramp</div>}
+        {!!p.nan_cells && <div data-testid="image-no-data">{p.nan_cells.toLocaleString()} of {(p.n_cells ?? 0).toLocaleString()} cells have no data · grey</div>}
         <div>not time-aligned — both axes are time; the thumbnail keeps its aspect</div>
       </div>
     </div>
