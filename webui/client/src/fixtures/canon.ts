@@ -119,8 +119,10 @@ export const ACTOR = 'this installation'
 export const LOCAL_LIMITS = { analyse: '20 min', discovery: '20 min', models: '2 h' }
 export const STATUS_BADGES = ['cached', 'stale', 'new', 'running', 'paused', 'failed', 'on cluster', 'invalid'] as const
 
-/** Header "N need you" count contributed by demo fixtures (paused runs + failed job + review queue waiting). */
-export const DEMO_NEED_YOU = 3
+/* `DEMO_NEED_YOU = 3` lived here. The header reads `/api/review/counts` now
+ * (`api/needYou.ts`); the constant is gone rather than left unused, because a
+ * dead fixture beside a live number is how this defect came back a second time
+ * after being reported fixed. `tests/test_webui_header_counts.py` is the pin. */
 /** Nav-rail "Jobs · N" count contributed by demo fixtures (the canon frames show 3). */
 export const DEMO_JOBS_ACTIVE = 3
 
