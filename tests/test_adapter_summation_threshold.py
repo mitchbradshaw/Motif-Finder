@@ -73,8 +73,10 @@ def test_reproduces_the_monolithic_detector_exactly():
     spec = get_adapter(NAME)
     r = spec.run(x, t, FS, value=_omega(x), **spec.validate_params(SMALL))
     assert r.output_kind == "spanset"
-    assert list(zip(r.value.starts, r.value.ends)) == [(s, e) for s, e in spikes]
-    assert r.meta["pseudo_spikes"] == [list(p) for p in pseudo] or r.meta["pseudo_spikes"] == list(pseudo)
+    # the core speaks inclusive pairs, the adapter speaks SpanSet's half-open
+    # form (fixup-a item 3); same events, one +1 at the seam
+    assert list(zip(r.value.starts, r.value.ends)) == [(s, e + 1) for s, e in spikes]
+    assert r.meta["pseudo_spikes"] == [[s, e + 1] for s, e in pseudo]
     assert len(spikes) >= 1, "the synthetic signal must produce at least one spike for this test to mean anything"
 
 

@@ -13,6 +13,11 @@ turns it into regions R; Algorithm 4 confirms a spike where C and R agree
 and it is long enough. The confirmed spikes are the SpanSet (label `spike`,
 score = signal depth in the span); the pseudo-spikes ride in `meta`.
 
+Index convention: the paper's algorithms return INCLUSIVE `(start, end)`
+pairs and `SpanSet` documents half-open `[start, end)`. `_run` converts at
+the seam, for both the spans and `meta["pseudo_spikes"]`, so this block and
+`detection.threshold` report the same two numbers for the same event.
+
 Why not `detection.threshold`: that block cuts a Scores at an absolute
 value. This one needs extrema PAIRS at a prominence relative to the chunk's
 own range, and then the raw signal (Algorithm 2's excursion test and the
@@ -77,15 +82,19 @@ def _run(x, t, fs, n_p=N_P, min_spike_duration=MIN_SPIKE_DURATION, min_roi_wavel
         min_roi_wavelet=min_roi_wavelet, epsilon_factor=epsilon_factor, slice_by_state=slice_by_state)
     xs = np.asarray(x, dtype=float)
     scores = tuple(float(np.ptp(xs[s:e + 1])) if e >= s else 0.0 for s, e in spikes)
+    # Algorithms 1-4 speak inclusive (start, end) pairs; SpanSet documents
+    # `[start, end)` and `detection.threshold` emits that, so the conversion
+    # happens here, once, at the seam (fixup-a item 3 - before this the same
+    # event's duration differed by one sample depending on which block found it).
     return AdapterResult(
         output_kind="spanset",
         value=SpanSet(
             starts=tuple(int(s) for s, _ in spikes),
-            ends=tuple(int(e) for _, e in spikes),
+            ends=tuple(int(e) + 1 for _, e in spikes),
             labels=tuple("spike" for _ in spikes),
             scores=scores,
         ),
-        meta={"pseudo_spikes": [[int(s), int(e)] for s, e in pseudo],
+        meta={"pseudo_spikes": [[int(s), int(e) + 1] for s, e in pseudo],
               "n_spikes": len(spikes), "n_pseudo_spikes": len(pseudo),
               "n_chunks": len(info["chunks"]), "n_chunks_skipped": info["chunks_skipped"],
               "n_candidates_B": len(info["B"]), "n_wavelet_C": len(info["C"]),

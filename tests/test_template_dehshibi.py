@@ -94,7 +94,9 @@ def test_template_runs_end_to_end_and_reproduces_the_monolith(db_and_signal):
     spikes, _, _ = detect_spikes(x, fs=FS, **SMALL)
     assert len(spikes) >= 1
     got = list(zip(out["result"].value.starts, out["result"].value.ends))
-    assert got == [(s, e) for s, e in spikes]
+    # the monolith speaks inclusive pairs; the template's last block converts to
+    # SpanSet's half-open form at the seam (fixup-a item 3)
+    assert got == [(s, e + 1) for s, e in spikes]
     conn = init_db(db)
     try:
         rows = list_detections(conn, out["run_id"])
