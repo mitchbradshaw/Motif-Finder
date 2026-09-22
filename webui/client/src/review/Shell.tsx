@@ -40,6 +40,15 @@ interface ShellProps {
   children: ReactNode
 }
 
+/** The pace readout. Sub-second means the ledger (ISO to the second) could not
+ *  resolve it, which is a measurement, not an absence — say so in words. */
+function fmtPace(s: number): string {
+  if (s < 1) return 'under 1 s each'
+  if (s < 10) return `~${s.toFixed(1)} s each`
+  if (s < 120) return `~${Math.round(s)} s each`
+  return `~${Math.round(s / 60)} min each`
+}
+
 export function Shell({ data, unit, blind, setBlind, paused, micro, evidenceTitle, evidence, forceDone, children }: ShellProps) {
   const rails = useRails()
   const records = useRecords()
@@ -128,7 +137,7 @@ function Toolbar({ data, judged, blind, setBlind, paused }: { data: QueueData; j
 
       <span className="grow" />
       <div className="rv-progress" data-testid="queue-progress" title={`${fmtInt(judged)} of ${fmtInt(queue.total)} judged`}>
-        <div className="row1"><span><b>{fmtInt(judged)}</b> / {fmtInt(queue.total)}</span><span className="muted">{queue.paceS ? `~${queue.paceS} s each` : 'pace not yet measured'}</span></div>
+        <div className="row1"><span><b>{fmtInt(judged)}</b> / {fmtInt(queue.total)}</span><span className="muted" data-testid="queue-pace">{queue.paceS == null ? 'pace not yet measured' : fmtPace(queue.paceS)}</span></div>
         <ProgressBar value={judged / queue.total} size="sm" labelPosition="none" width={164} ariaLabel="queue progress" />
       </div>
       <span className="k-divider-v" />

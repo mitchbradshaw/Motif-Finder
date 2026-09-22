@@ -86,7 +86,7 @@ interface SrvQueue {
   id: number | string; name: string; source_kind: string; source_ref?: string | null
   unit?: string | null; writes_to?: string | null; blind?: number | boolean | null; cap?: number | null
   verdict_options?: string[] | null; filters?: unknown; note?: string | null; closed?: number | boolean | null
-  total?: number; judged?: number; remaining?: number
+  total?: number; judged?: number; remaining?: number; pace_s?: number | null
 }
 interface SrvQueueData { queue: SrvQueue; rows?: unknown[]; items?: unknown[]; clusters?: unknown[] }
 
@@ -129,7 +129,11 @@ function queueOf(q: SrvQueue): ReviewQueue {
     verdictKeys: unit === 'window' ? (blind ? 'binary+classes' : 'full+classes') : 'full',
     writes,
     order: ORDER[rankKind],
-    total: Number(q.total ?? 0), judged: Number(q.judged ?? 0), paceS: null,
+    total: Number(q.total ?? 0), judged: Number(q.judged ?? 0),
+    // measured off `review_audit` by the core; null until there are two
+    // gestures to measure between, and 0 means "faster than the ledger's
+    // one-second resolution", not "unmeasured" (fixup-a item 8)
+    paceS: q.pace_s == null ? null : Number(q.pace_s),
     channels: [], scoreFloor: null, previousLine: null, rankKind,
   }
 }

@@ -258,6 +258,72 @@ def queue_counts(conn, queue_id, *, exclude_recording_ids=None):
             "remaining": len(items) - judged}
 
 
+#: How many recent gestures the pace is taken over. Long enough for the median
+#: to mean something, short enough that this morning's pace is not this week's.
+PACE_WINDOW = 20
+
+
+def queue_pace_s(conn, queue_id, *, window=PACE_WINDOW):
+    """Median seconds per item over this queue's recent judging, or None.
+
+    The ledger is `review_audit`: its rows for this queue, in the order they
+    were written, skipping the ones that were undone and the `undo` gestures
+    themselves (undoing is not judging). Each interval between consecutive
+    gestures is divided by the number of targets the later gesture wrote, so a
+    batch of five taken ten seconds after the previous one counts as two
+    seconds an item - which is what the page's "~N s each" claims to be.
+
+    The median, not the mean, because a reviewer who walks away for an hour
+    has not become slower; they have stopped. Two gestures are the minimum:
+    one is not an interval, and an unmeasured pace says so rather than
+    inventing a number.
+
+    `created_at` is ISO to the second, so a pace under a second reads as 0.0.
+    That is a real measurement - "faster than this ledger can resolve" - and
+    the caller must not mistake it for an absent one.
+    """
+    rows = conn.execute(
+        "SELECT target_ids, created_at FROM review_audit "
+        "WHERE queue_id = ? AND undone_at IS NULL AND action <> 'undo' "
+        "ORDER BY id", (int(queue_id),)).fetchall()
+    if len(rows) < 2:
+        return None
+    per_item = []
+    prev = _parse_ts(rows[0]["created_at"])
+    for row in rows[1:]:
+        t = _parse_ts(row["created_at"])
+        if prev is None or t is None:
+            prev = t
+            continue
+        n = _n_targets(row["target_ids"])
+        per_item.append(max(0.0, (t - prev).total_seconds()) / n)
+        prev = t
+    if not per_item:
+        return None
+    return round(_median(per_item[-window:]), 2)
+
+
+def _parse_ts(value):
+    try:
+        return datetime.fromisoformat(str(value))
+    except (TypeError, ValueError):
+        return None
+
+
+def _n_targets(value):
+    try:
+        got = json.loads(value) if value else []
+    except (TypeError, ValueError):
+        return 1
+    return max(1, len(got)) if isinstance(got, list) else 1
+
+
+def _median(xs):
+    xs = sorted(xs)
+    mid = len(xs) // 2
+    return xs[mid] if len(xs) % 2 else (xs[mid - 1] + xs[mid]) / 2.0
+
+
 def header_counts(conn, *, exclude_recording_ids=None):
     """What the header badge shows: unjudged items across every open queue."""
     by_queue = []

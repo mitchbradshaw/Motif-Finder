@@ -150,7 +150,10 @@ def _queue_payload(conn, q: dict, *, exclude_recording_ids=None) -> dict:
     out["id"] = int(q["id"])
     out.update({"total": int(counts.get("total", 0)),
                 "judged": int(counts.get("judged", 0)),
-                "remaining": int(counts.get("remaining", 0))})
+                "remaining": int(counts.get("remaining", 0)),
+                # measured off `review_audit`, None until there are two
+                # gestures to measure between (fixup-a item 8)
+                "pace_s": queues_mod.queue_pace_s(conn, int(q["id"]))})
     return out
 
 

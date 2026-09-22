@@ -585,3 +585,19 @@ def test_every_row_carries_the_run_id_and_its_rank(seeded):
     one = client.get(f"/api/review/queues/{qid}/items/{rows[0]['id']}").json()
     assert one["entry"]["rank"] == rows[0]["rank"] and one["entry"]["runId"] == rows[0]["runId"]
     assert one["evidence"]["origin"]["runId"], "the provenance panel's run id was the same gap"
+
+
+def test_the_queue_payload_carries_a_measured_pace(seeded):
+    """fixup-a item 8: `paceS` was hardcoded null on the client, so "pace not
+    yet measured" was permanent. It is measured off `review_audit` now, and it
+    is still None until there are two gestures to measure between."""
+    client, rt, info = seeded
+    q = _make_queue(client, info)
+    qid = q["queue"]["id"]
+    assert q["queue"]["pace_s"] is None, "no judging yet: an unmeasured pace says so"
+    rows = client.get(f"/api/review/queues/{qid}").json()["rows"]
+    for row in rows[:3]:
+        assert client.post(f"/api/review/queues/{qid}/verdict",
+                           json={"target_id": row["id"], "verdict": "interesting"}).status_code == 200
+    pace = client.get(f"/api/review/queues/{qid}").json()["queue"]["pace_s"]
+    assert pace is not None and pace >= 0.0, "three verdicts are two intervals"
