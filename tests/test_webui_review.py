@@ -601,3 +601,32 @@ def test_the_queue_payload_carries_a_measured_pace(seeded):
                            json={"target_id": row["id"], "verdict": "interesting"}).status_code == 200
     pace = client.get(f"/api/review/queues/{qid}").json()["queue"]["pace_s"]
     assert pace is not None and pace >= 0.0, "three verdicts are two intervals"
+
+
+def test_a_tagged_verdict_comes_back_on_the_queue_row(seeded):
+    """fixup-a item 9: the Annotate card's tags were a session label - no
+    component passed them - and the round trip was not open either: a queue
+    row's `tags` were always empty, so even a tag written through the route
+    was invisible on the next read and the card lost it on reload."""
+    client, rt, info = seeded
+    q = _make_queue(client, info)
+    qid = q["queue"]["id"]
+    row = _first_row(client, qid)
+    assert client.post(f"/api/review/queues/{qid}/verdict",
+                       json={"target_id": row["id"], "verdict": "interesting",
+                             "tags": ["sharkfin", "clean"]}).status_code == 200
+    again = [r for r in client.get(f"/api/review/queues/{qid}").json()["rows"] if r["id"] == row["id"]]
+    assert again, "the judged row is still in the queue (include_judged defaults to 1)"
+    assert set(again[0]["tags"]) == {"sharkfin", "clean"}
+
+
+def test_the_settings_vocabulary_route_serves_what_the_annotate_card_offers(seeded):
+    """The card's suggestions must be terms the write path will accept: an
+    unknown tag is a 400 that refuses the whole verdict, so offering a
+    fixture-era word would make the verdict unwritable (fixup-a item 9)."""
+    client, rt, info = seeded
+    got = client.get("/api/settings/vocabulary")
+    assert got.status_code == 200, got.text
+    tags = got.json()["tags"]
+    assert tags and all({"category", "value", "active"} <= set(t) for t in tags)
+    assert "sharkfin" in {t["value"] for t in tags if t["active"]}
