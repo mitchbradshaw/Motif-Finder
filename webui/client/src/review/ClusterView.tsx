@@ -7,15 +7,16 @@ import { navigate, setQuery } from '../state'
 import { Button, Checkbox, Chip, DisabledReason, Icon, InfoTip, Kbd, MiniTrace, Pager, ProgressBar, cx, recordDemoWrite, useDemoState, useQueryState } from '../kit'
 import { useSourced } from '../api/seam'
 import { useToast } from '../shell/Toast'
-import { VOCABULARY, getCluster, type ClusterDetail, type ItemDetail, type QueueData, type Verdict } from '../api/review'
+import { VOCABULARY, getCluster, postBatch, postClusterVerdict, postPromote, postUndo, type ClusterDetail, type ItemDetail, type QueueData, type Verdict } from '../api/review'
 import { Shell, THUMB_Y, useBlind, useRails, type MicroStat } from './Shell'
 import { useReviewKeys } from './keys'
 import { goUnit, nextUnjudgedAfter, relTime, step, type UnitRef } from './queue'
 import { AnnotateCard, ArtifactPill, ContextCard, EvidenceRail, Pill, PromotionPanel, VerdictCard, editInExplore, useNow, type PreviousLine } from './parts'
 import { Loading, NotFound, previousLines } from './common'
 import {
-  VERDICT_LABEL, amendWrite, applyWrite, effective, getRecords, key, lastLive, mintExemplar, nextRedo, patchRecord, rawRecord, redoWrite, releaseExemplar,
-  seedUndoneBatch, undoWrite, useAutoAdvance, useDrafts, usePad, useRecords, useStack, writeLabel, type Draft, type SessionWrite, type VerdictRecord,
+  VERDICT_LABEL, amendWrite, clearWriteError, commitRedo, commitUndo, commitWrite, effective, getRecords, getWriteError, key, lastLive, mintExemplar, nextRedo, patchRecord,
+  rawRecord, releaseExemplar, resend, seedUndoneBatch, useAutoAdvance, useDrafts, usePad, useRecords, useReviewVersion, useStack, useWriteError, writeLabel,
+  type Draft, type SessionWrite, type VerdictRecord,
 } from './store'
 
 const BATCH_CAP = 50
@@ -31,9 +32,11 @@ function ClusterInner({ data, no }: { data: QueueData; no: number }) {
   const { queue } = data
   const q = queue.id
   const cl = data.clusters.find(c => c.no === no)!
-  const det = useSourced(() => getCluster(q, no), [q, no])
+  const version = useReviewVersion()
+  const det = useSourced(() => getCluster(q, no), [q, no, version])
   const records = useRecords()
   const stack = useStack()
+  const writeError = useWriteError()
   const toast = useToast()
   const rails = useRails()
   const now = useNow(1000)
@@ -52,6 +55,7 @@ function ClusterInner({ data, no }: { data: QueueData; no: number }) {
   useEffect(() => () => { timers.current.forEach(t => window.clearTimeout(t)) }, [])
   const later = (fn: () => void, ms: number) => { timers.current.push(window.setTimeout(fn, ms)) }
   const say = (text: string) => toast.push({ text })
+  const refused = () => { const f = getWriteError(); toast.push({ kind: 'error', text: `not written · ${f?.label ?? 'write'} · ${f?.message ?? 'the bridge refused it'}` }) }
 
   const rows = cl.members.map(id => data.rows.find(r => r.id === id)!)
   const sorted = [...rows].sort((a, b) => (a.d ?? 0) - (b.d ?? 0))
@@ -103,13 +107,18 @@ function ClusterInner({ data, no }: { data: QueueData; no: number }) {
 
   const advanceAfterCluster = () => goUnit(q, nextUnjudgedAfter(data, getRecords(), unit))
 
-  function batchWrite(v: Verdict, className?: string) {
-    if (promo) return say('confirm or undo the promotion first (Enter / Ctrl Z)')
-    if (writing) return say('the batch is still writing · auto-advance waits for the whole batch')
-    if (binary && (v === 'seed' || v === 'artifact' || v === 'unsure') && !className) return say('this queue takes binary verdicts and classes')
+  /** One gesture, one POST (and so ONE `review_audit` row): whole-cluster accept/reject goes through the
+   *  cluster route the bridge models it with, any other member set goes through `/batch` with the exact
+   *  ids the strip shows included. A cluster SEED is the one exception and is two rows — the promotion
+   *  of the medoid plus the batch of the rest — because the core has no promote-with-batch door.
+   *  Nothing joins the session stack until the bridge has accepted it. */
+  async function batchWrite(v: Verdict, className?: string): Promise<boolean> {
+    if (promo) { say('confirm or undo the promotion first (Enter / Ctrl Z)'); return false }
+    if (writing) { say('the batch is still writing · auto-advance waits for the whole batch'); return false }
+    if (binary && (v === 'seed' || v === 'artifact' || v === 'unsure') && !className) { say('this queue takes binary verdicts and classes'); return false }
     const targets = batchOn ? included : [shownRow]
-    if (!targets.length) return say('a batch needs at least one member')
-    if (batchOn && targets.length > BATCH_CAP) return say(`batches are capped at ${BATCH_CAP} members — split the cluster or judge members singly`)
+    if (!targets.length) { say('a batch needs at least one member'); return false }
+    if (batchOn && targets.length > BATCH_CAP) { say(`batches are capped at ${BATCH_CAP} members — split the cluster or judge members singly`); return false }
     const seedId = v === 'seed' ? (targets.find(r => r.id === cl.nearestMember) ?? targets[0]).id : null
     const before: Record<string, VerdictRecord | null | undefined> = {}
     const after: Record<string, VerdictRecord> = {}
@@ -123,30 +132,52 @@ function ClusterInner({ data, no }: { data: QueueData; no: number }) {
       if (r.id === seedId) { exemplar = mintExemplar(); after[k].exemplarId = exemplar; after[k].family = cl.family.d <= 0.3 ? cl.family.id : null }
     }
     const label = v === 'seed' ? `Cluster ${no} · seed ${exemplar} + ${targets.length - 1} × interesting` : className ? `Cluster ${no} · ${targets.length} × ${className} (class)` : `Cluster ${no} · ${targets.length} × ${VERDICT_LABEL[v]}`
-    applyWrite({ queueId: q, items: targets.map(r => r.id), kind: 'batch', clusterNo: no, verdict: v, className, count: targets.length, label, before, after })
+    const ids = targets.map(r => r.id)
+    const note = draft.note.trim() || undefined
+    const wholeCluster = batchOn && allIncluded && ids.length === cl.members.length
+    const send = async () => {
+      if (seedId) {
+        const rest = ids.filter(i => i !== seedId)
+        if (rest.length) await postBatch(q, rest, 'interesting', { note })
+        await postPromote(q, seedId, 'seed', { note })
+        return
+      }
+      if (wholeCluster && (v === 'interesting' || v === 'not_interesting')) {
+        await postClusterVerdict(q, no, v === 'interesting' ? 'accept' : 'reject')
+        return
+      }
+      await postBatch(q, ids, v, { note })
+    }
+    const w = await commitWrite(send, { queueId: q, items: ids, kind: 'batch', clusterNo: no, verdict: v, className, count: targets.length, label, before, after })
+    if (!w) { if (exemplar) releaseExemplar(exemplar); refused(); return false }
     if (seedId && exemplar) { const r = data.rows.find(x => x.id === seedId)!; recordDemoWrite('library', 'exemplar.create', { id: exemplar, from: `${q}/${seedId}`, cluster: no, family: after[key(q, seedId)].family, recording: r.recording, channel: r.channel, span_h: [r.startH, +(r.startH + r.durationS / 3600).toFixed(4)], blind }) }
     if (undoneBanner) setQuery({ state: null }, true)
     if (v === 'seed') {
       setQuery({ state: 'promoted' }, true)
-      return say(targets.length > 1 ? `seed promotes one exemplar (${seedId} → ${exemplar}); ${targets.length - 1} others marked interesting` : `seed · exemplar ${exemplar} created in the Library`)
+      say(targets.length > 1 ? `seed promotes one exemplar (${seedId} → ${exemplar}); ${targets.length - 1} others marked interesting` : `seed · exemplar ${exemplar} created in the Library`)
+      return true
     }
     // the batch writes member by member; auto-advance waits for the whole batch (§10.5)
     setWriting({ total: targets.length, done: 0, verdict: v })
-    targets.forEach((_, i) => later(() => setWriting(w => w ? { ...w, done: i + 1 } : w), STAGGER_MS * (i + 1)))
+    targets.forEach((_, i) => later(() => setWriting(x => x ? { ...x, done: i + 1 } : x), STAGGER_MS * (i + 1)))
     later(() => { setWriting(null); if (auto) advanceAfterCluster() }, STAGGER_MS * (targets.length + 1) + 250)
+    return true
   }
 
-  const klass = (ck: string) => {
+  /* As in the inspector: the VERDICT the class implies is what reaches the database; the class name has no
+   * field in the write bodies and stays a session label. */
+  const klass = async (ck: string) => {
     const c = VOCABULARY.classes.find(x => x.key === ck)
     if (!c) return
-    batchWrite(c.informative ? 'interesting' : 'artifact', c.name)
+    if (!await batchWrite(c.informative ? 'interesting' : 'artifact', c.name)) return
     say(`class ${c.name} · implies ${c.informative ? 'interesting' : 'artifact'} for ${batchOn ? `${included.length} members` : shownId}`)
   }
 
-  const undo = () => {
+  /* The SERVER owns undo: one POST reverses the audit row, restoring each target's prior verdict. */
+  const undo = async () => {
     const w = lastLive(q)
     if (!w) return say('nothing to undo in this queue')
-    undoWrite(w)
+    if (!await commitUndo(() => postUndo(q), w)) return refused()
     if (w.kind === 'batch') {
       if (w.verdict === 'seed') { const ex = Object.values(w.after).find(r => r?.exemplarId)?.exemplarId; if (ex) { releaseExemplar(ex); recordDemoWrite('library', 'exemplar.remove', { id: ex, cluster: no, reason: 'batch undone' }) } say(`promotion undone · exemplar ${ex} removed with the batch`) }
       if (w.clusterNo === no) setQuery({ state: 'undone' }, true)
@@ -156,10 +187,10 @@ function ClusterInner({ data, no }: { data: QueueData; no: number }) {
     say(`undone · ${w.label}`)
     if (!cl.members.includes(w.items[0])) navigate(`review/queue/${q}/${w.items[0]}`)
   }
-  const redo = () => {
+  const redo = async () => {
     const w = nextRedo(q)
     if (!w) return say('nothing to redo')
-    redoWrite(w)
+    if (!await commitRedo(() => resend(q, w), w)) return refused()
     say(`redone · ${w.label}`)
     if (w.kind === 'batch' && w.clusterNo === no) setQuery({ state: w.verdict === 'seed' ? 'promoted' : null }, true)
     else navigate(w.kind === 'batch' ? `review/queue/${q}/cluster/${w.clusterNo}` : `review/queue/${q}/${w.items[0]}`)
@@ -198,7 +229,8 @@ function ClusterInner({ data, no }: { data: QueueData; no: number }) {
   const shownIdx = sorted.findIndex(r => r.id === shownId)
   const pageItems = sorted.slice((page - 1) * PAGE, page * PAGE)
   const pageCount = Math.ceil(sorted.length / PAGE)
-  useEffect(() => { setPage(Math.floor(Math.max(0, shownIdx) / PAGE) + 1) }, [no])   // eslint-disable-line react-hooks/exhaustive-deps
+  // the refusal card belongs to the cluster it was raised on
+  useEffect(() => { setPage(Math.floor(Math.max(0, shownIdx) / PAGE) + 1); clearWriteError() }, [no])   // eslint-disable-line react-hooks/exhaustive-deps
 
   const statusValue = undoneBanner ? `${rows.length} unadjudicated · batch undone`
     : judgedCount === 0 ? `${rows.length} unadjudicated`
@@ -222,6 +254,11 @@ function ClusterInner({ data, no }: { data: QueueData; no: number }) {
     <Shell data={data} unit={unit} blind={blind} setBlind={setBlind} paused={paused} micro={micro}
       evidence={shown ? <EvidenceRail d={shown} blind={blind} judged={!!shownRec} historyVerdicts={historyText} /> : <Loading />}
       evidenceTitle={`${shownId}${shownRow.detectionId ? ` · ${shownRow.detectionId}` : ''} · cluster ${no}`}>
+      {writeError && <div className="error-card" data-testid="write-refused">
+        <h3><Icon name="alert-circle" /> Not written · {writeError.label}{writeError.status ? ` · HTTP ${writeError.status}` : ''}</h3>
+        <p className="mono">{writeError.message}</p>
+        <p>The database was not changed — every member is still whatever it was.</p>
+      </div>}
       {det.error && <div className="error-card" data-testid="cluster-error"><h3>Cluster {no} failed to load</h3><p className="mono">{det.error.message}</p></div>}
       {!d && !det.error && <Loading />}
       {d && shown && (

@@ -15,7 +15,7 @@ import { Inspector } from './Inspector'
 import { ClusterPage } from './ClusterView'
 import { Loading, QueueEndView } from './common'
 import { currentUnit, replaceHash, unitHash } from './queue'
-import { useRecords } from './store'
+import { useRecords, useReviewVersion } from './store'
 import './review.css'
 
 const qs = (query: Record<string, string>) => { const s = Object.entries(query).map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(v)}`).join('&'); return s ? `?${s}` : '' }
@@ -40,7 +40,10 @@ export function ReviewPage() {
 
 function QueueRoute({ queueId, rest }: { queueId: string; rest: string[] }) {
   const { route } = useApp()
-  const data = useSourced(() => getQueue(queueId), [queueId])
+  // `version` is bumped by every ACCEPTED write, so the queue is re-read from the database rather than
+  // left to the session's guess about what the write did to the counts and the judged set
+  const version = useReviewVersion()
+  const data = useSourced(() => getQueue(queueId), [queueId, version])
   const records = useRecords()
   const d = data.data && data.data.queue.id === queueId ? data.data : null
   const state = route.query.state

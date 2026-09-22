@@ -1,9 +1,13 @@
-/* Review's in-memory write path (brief: writes stay in memory; spec §10.3–10.6, P6, P20, P21).
+/* Review's SESSION write record (spec §10.3–10.6, P6, P20, P21).
  * One record per (queue, item) holds the current human verdict; every write is also a SessionWrite on an undo
  * stack whose entries carry before/after snapshots, so one Ctrl Z reverses a whole cluster batch (§10.5) and a
- * promotion (verdict + exemplar, §10.4) in one step. Survives navigation, not a reload. */
+ * promotion (verdict + exemplar, §10.4) in one step. Survives navigation, not a reload.
+ *
+ * This is no longer where a verdict is STORED. The database is — see `commitWrite`/`commitUndo` at the foot of
+ * this file: the bridge is written first and this stack is updated only once the POST was accepted, so the undo
+ * affordance and the "previous" line keep working without the page ever showing a verdict nobody stored. */
 import { getDemo, recordDemoWrite, setDemo, useDemoState } from '../kit'
-import type { QueueEntry, Verdict } from '../api/review'
+import { postBatch, postPromote, postVerdict, type QueueEntry, type Verdict } from '../api/review'
 
 export interface VerdictRecord {
   verdict: Verdict; className?: string; blind: boolean; at: number
@@ -123,4 +127,81 @@ export function writeLabel(w: SessionWrite): string {
   if (w.kind === 'promotion') return `${id} · seed · ${(w.after[key(w.queueId, id)] as VerdictRecord | null)?.exemplarId ?? 'exemplar'}`
   if (w.kind === 'class' && w.className) return `${id} · ${w.className} (class)`
   return `${id} · ${w.verdict ? VERDICT_LABEL[w.verdict] : 'class cleared'}`
+}
+
+/* ------------------------------------------------------------------------------------------------ *
+ * The database is the source of truth; this session stack is the undo AFFORDANCE.
+ *
+ * Every keypress below goes to the bridge FIRST. Only when the POST has been accepted does the write
+ * join the session stack (which drives Ctrl-Z's enablement and the "previous" line) and only then is
+ * the queue/item read re-run, so what the page shows next is what the database actually holds rather
+ * than what the client guessed it would hold.
+ *
+ * A REFUSED post changes nothing locally and records a `WriteFailure` the pages render as a red card.
+ * That asymmetry is the whole point: a verdict that did not land must not look like one that did.
+ * ------------------------------------------------------------------------------------------------ */
+
+export interface WriteFailure { message: string; status?: number; label: string; at: number }
+const ERR = 'review.writeError', VERSION = 'review.dataVersion'
+
+export function useWriteError() { return useDemoState<WriteFailure | null>(ERR, () => null)[0] }
+/** The same failure, read imperatively right after an awaited commit returned null. */
+export const getWriteError = () => getDemo<WriteFailure | null>(ERR, () => null)
+export const clearWriteError = () => setDemo<WriteFailure | null>(ERR, null)
+function failed(e: unknown, label: string): WriteFailure {
+  const status = (e as { status?: number } | null)?.status
+  return { message: e instanceof Error ? e.message : String(e), status, label, at: Date.now() }
+}
+
+/** Bumped after every accepted write. Review's `useSourced` reads carry it in their deps, so an accepted
+ *  verdict re-reads the queue and the item instead of trusting the local record to have guessed right. */
+export function useReviewVersion() { return useDemoState<number>(VERSION, () => 0)[0] }
+export const bumpReviewVersion = () => setDemo<number>(VERSION, n => (n ?? 0) + 1)
+
+/** Send, then record. Returns the session write on success and `null` on a refusal. */
+export async function commitWrite(send: () => Promise<unknown>, w: Omit<SessionWrite, 'id' | 'at' | 'undone'>): Promise<SessionWrite | null> {
+  try { await send() } catch (e) { setDemo<WriteFailure | null>(ERR, failed(e, w.label)); return null }
+  clearWriteError()
+  const full = applyWrite(w)
+  bumpReviewVersion()
+  return full
+}
+
+/** Ctrl-Z. `send` is `postUndo` — the server restores the prior verdict from its audit row; the local
+ *  stack is only marked undone once it has. */
+export async function commitUndo(send: () => Promise<unknown>, w: SessionWrite): Promise<boolean> {
+  try { await send() } catch (e) { setDemo<WriteFailure | null>(ERR, failed(e, `undo · ${w.label}`)); return false }
+  clearWriteError()
+  undoWrite(w)
+  bumpReviewVersion()
+  return true
+}
+
+/** Ctrl-Shift-Z. The bridge has no redo route, so a redo re-sends the original write (the core's writers
+ *  are upserts) and only then un-marks the stack entry. */
+export async function commitRedo(send: () => Promise<unknown>, w: SessionWrite): Promise<boolean> {
+  try { await send() } catch (e) { setDemo<WriteFailure | null>(ERR, failed(e, `redo · ${w.label}`)); return false }
+  clearWriteError()
+  redoWrite(w)
+  bumpReviewVersion()
+  return true
+}
+
+/** Re-send a session write, for Ctrl-Shift-Z. The bridge has no redo route and the core's writers are
+ *  upserts, so replaying the act IS the redo. A batch that promoted one member replays as the promotion
+ *  plus the batch of the rest, which is how it was sent the first time. */
+export function resend(queueId: string, w: SessionWrite): Promise<unknown> {
+  const v: Verdict = w.verdict ?? 'interesting'
+  if (w.kind === 'promotion') return postPromote(queueId, w.items[0], 'seed')
+  if (w.kind === 'batch') {
+    const seedId = v === 'seed' ? w.items.find(id => (w.after[key(queueId, id)] as VerdictRecord | null)?.verdict === 'seed') : undefined
+    if (seedId) {
+      const rest = w.items.filter(i => i !== seedId)
+      return rest.length
+        ? postBatch(queueId, rest, 'interesting').then(() => postPromote(queueId, seedId, 'seed'))
+        : postPromote(queueId, seedId, 'seed')
+    }
+    return postBatch(queueId, w.items, v)
+  }
+  return postVerdict(queueId, w.items[0], v)
 }

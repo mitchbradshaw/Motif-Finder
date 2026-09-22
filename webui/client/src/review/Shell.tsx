@@ -13,7 +13,7 @@ import { useToast } from '../shell/Toast'
 import { getAllQueues, VOCABULARY, type QueueData, type QueueRow } from '../api/review'
 import { SHORTCUTS } from './keys'
 import { counts, isJudged, queueCounts, unitHash, unitKey, units, type UnitRef } from './queue'
-import { effective, useAutoAdvance, useBlindOverrides, useFilters, useRecords } from './store'
+import { effective, useAutoAdvance, useBlindOverrides, useFilters, useRecords, useReviewVersion } from './store'
 
 export const THUMB_Y: [number, number] = [-0.45, 0.45]
 export const verdictColour = (v: string) => v === 'seed' ? 'var(--green)' : VOCABULARY.verdictColours[v] ?? 'var(--muted-2)'
@@ -148,7 +148,9 @@ function Toolbar({ data, judged, blind, setBlind, paused }: { data: QueueData; j
 
 /* ================= queue list (rail + picker) ================= */
 function QueueList({ current, onPick }: { current: string; onPick: (id: string) => void }) {
-  const all = useSourced(getAllQueues, [])
+  // re-read the whole queue list after an accepted write, so the rail's counts come from the database
+  const version = useReviewVersion()
+  const all = useSourced(getAllQueues, [version])
   const records = useRecords()
   const [over] = useBlindOverrides()
   if (all.error) return <div className="error-card" data-testid="queues-error">Queues failed to load: {all.error.message}</div>

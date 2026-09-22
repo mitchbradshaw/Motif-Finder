@@ -30,10 +30,21 @@ export function units(data: QueueData, group: QueueFilters['group'] = 'sequence'
   return out
 }
 
+/** Does the DATABASE hold a verdict on this row? The session's own write wins when there is one (that is
+ *  what Ctrl-Z reverses); otherwise it is the bridge's `judged` flag, which `queue_items` reports off the
+ *  table the queue writes. `judged` is used and not a synthesised `baseVerdict`, because the bridge sends
+ *  no verdict VALUE for an item judged in an earlier session and a guessed one would be a fabricated human
+ *  verdict on the screen. */
+export function judged(records: Records, row: QueueRow): boolean {
+  const k = key(row.queueId, row.id)
+  if (k in records && records[k] !== undefined) return records[k] !== null
+  return !!row.baseVerdict || row.judged === true
+}
+
 export function isJudged(data: QueueData, records: Records, u: UnitRef): boolean {
   const ids = u.kind === 'item' ? [u.id] : u.members
   const rows = ids.map(id => data.rows.find(r => r.id === id)).filter(Boolean) as QueueRow[]
-  return u.kind === 'item' ? !!effective(records, rows[0]) : rows.some(r => !!effective(records, r))
+  return u.kind === 'item' ? judged(records, rows[0]) : rows.some(r => judged(records, r))
 }
 
 export function currentUnit(data: QueueData, records: Records): UnitRef | null {
@@ -61,13 +72,15 @@ export function goUnit(queueId: string, u: UnitRef | null, emptyIfNone = true) {
   else if (emptyIfNone) navigate(`review/queue/${queueId}?state=exhausted`)
 }
 
-/** Judged / left for the whole queue: the fixture's counts plus this session's writes on the materialised rows. */
+/** Judged / left for the whole queue: the bridge's counts plus this session's not-yet-re-read writes. */
 export function counts(data: QueueData, records: Records) {
   let delta = 0
   for (const r of data.rows) {
     const k = key(r.queueId, r.id)
     if (!(k in records) || records[k] === undefined) continue
-    delta += (records[k] ? 1 : 0) - (r.baseVerdict ? 1 : 0)
+    // the base is what the DATABASE said when the queue was last read, so a re-read after an accepted
+    // write cancels its own delta instead of counting the same verdict twice
+    delta += (records[k] ? 1 : 0) - (r.baseVerdict || r.judged ? 1 : 0)
   }
   const judged = Math.min(data.queue.total, data.queue.judged + delta)
   return { judged, left: data.queue.total - judged, total: data.queue.total }
@@ -79,7 +92,7 @@ export function queueCounts(queueId: string, base: { judged: number; total: numb
   for (const r of rows) {
     const k = key(queueId, r.id)
     if (!(k in records) || records[k] === undefined) continue
-    delta += (records[k] ? 1 : 0) - (r.baseVerdict ? 1 : 0)
+    delta += (records[k] ? 1 : 0) - (r.baseVerdict || r.judged ? 1 : 0)
   }
   return { judged: base.judged + delta, left: base.total - base.judged - delta }
 }

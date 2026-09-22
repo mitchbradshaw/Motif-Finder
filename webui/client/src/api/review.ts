@@ -22,13 +22,16 @@ import { ApiError } from '../api'
 import { CLASSES, MORPHOLOGY_TAGS, RECORDINGS, VERDICTS } from '../fixtures/canon'
 import {
   CLUSTERS, REVIEW_TAG_SUGGESTIONS,
-  type ArtifactFactors, type Evidence, type NearestFamily, type QueueEntry, type ReviewCluster, type ReviewQueue, type QueueSource, type Unit,
+  type ArtifactFactors, type Evidence, type NearestFamily, type QueueEntry, type ReviewCluster, type ReviewQueue, type QueueSource, type Unit, type Verdict,
 } from '../fixtures/review'
 
 export type { ArtifactFactors, Evidence, NearestFamily, QueueEntry, ReviewCluster, ReviewQueue, QueueSource, Unit, Verdict } from '../fixtures/review'
 export { CONTEXT_PAD_MAX } from '../fixtures/review'
 
-export interface QueueRow extends QueueEntry { thumb: number[]; family: string }
+/** `judged` is the DATABASE's answer, not the session's: `queue_items` reports whether this target already
+ *  carries a verdict in the table the queue writes. It carries no verdict VALUE (see `rowOf`), so it is kept
+ *  as its own flag instead of being turned into a `baseVerdict` nobody sent. */
+export interface QueueRow extends QueueEntry { thumb: number[]; family: string; judged: boolean }
 export interface QueueData { queue: ReviewQueue; rows: QueueRow[]; clusters: ReviewCluster[] }
 
 export interface ItemDetail {
@@ -118,10 +121,17 @@ function queueOf(q: SrvQueue): ReviewQueue {
  *  `thumb` is whatever decimated trace the bridge sent — an absent one stays EMPTY rather than being
  *  synthesised, because a synthetic trace drawn beside a real one is a finding that is not there. */
 function rowOf(raw: any, queueId: string): QueueRow {
+  /* `baseVerdict` is set ONLY when the bridge sent a verdict value. `queue_items` sends `judged: true`
+   * without saying which verdict it was, and guessing one would put a human verdict on the screen that
+   * nobody gave — so the flag is carried as `judged` and the pages treat it as "the database holds a
+   * verdict here", never as a particular one. */
+  const base = raw?.baseVerdict ?? raw?.verdict
   return {
     ...(raw as QueueEntry),
     id: String(raw?.id ?? ''),
     queueId,
+    baseVerdict: base ? (base as Verdict) : undefined,
+    judged: raw?.judged === true || raw?.judged === 1 || !!base,
     thumb: Array.isArray(raw?.thumb) ? raw.thumb as number[] : [],
     family: String(raw?.family ?? raw?.familyId ?? ''),
     tags: Array.isArray(raw?.tags) ? raw.tags as string[] : [],
@@ -203,3 +213,70 @@ export function getOtherChannels(queueId: string, itemId: string): Promise<Sourc
   return live(req<OtherChannelRow[]>(`/queues/${encodeURIComponent(queueId)}/items/${encodeURIComponent(itemId)}/channels`)
     .then(rows => (Array.isArray(rows) ? rows : [])))
 }
+
+/* ---------------------------------------------------------------- writes --------------------------------------------------------------- */
+/* The keyboard writes to the DATABASE. Every verdict, batch, undo, promotion, cluster decision and
+ * extraction below is a POST to `server/review.py`, which calls `Working.review` — the client holds no
+ * verdict logic and decides nothing about which table a verdict lands in (that is the queue's stored
+ * `writes_to`, enforced in the core by refusal).
+ *
+ * Non-2xx THROWS `ApiError`, exactly as the reads do. Nothing here is caught into a blank and nothing
+ * falls back to the in-memory store: a refused verdict has to reach the page, because a Review surface
+ * that drops verdicts on the floor looks identical to one that is working. */
+
+/** One POST. Same error contract as `req`: the server's message, and its traceback on a 500. */
+async function post<T>(path: string, body: unknown = {}): Promise<T> {
+  const r = await fetch(`/api/review${path}`, {
+    method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body),
+  })
+  if (!r.ok) {
+    let payload: any = null
+    try { payload = await r.json() } catch { /* not json */ }
+    const msg = payload?.error ?? (typeof payload?.detail === 'string' ? payload.detail : payload?.detail?.message) ?? `${r.status} ${r.statusText}`
+    throw new ApiError(r.status, msg, payload?.detail ?? payload, payload?.traceback)
+  }
+  return r.json() as Promise<T>
+}
+
+/** The live counts the bridge returns with every write, straight off the resolved source. */
+export interface QueueCounts { total: number; judged: number; remaining: number }
+export interface WriteAck { verdict?: unknown; batch?: unknown; undone?: unknown; written?: unknown[]; counts?: QueueCounts }
+export interface PromoteAck { entry_id?: number; member_id?: number; created?: boolean; verdict?: unknown; audit_id?: number }
+export interface ExtractEvent { start_idx: number; end_idx: number }
+
+/** `note` and `tags` are the queue's optional annotation of the verdict. NOTE: no caller passes `tags`
+ *  yet — the bridge's body takes `list[str]` while the core's writers take `{category: [values]}`, so a
+ *  tag sent from here would 500. Named here rather than silently dropped. */
+export interface VerdictOpts { note?: string; tags?: string[]; windowIndex?: number }
+
+const qp = (queueId: string) => `/queues/${encodeURIComponent(queueId)}`
+const opt = (o: VerdictOpts) => ({
+  ...(o.note ? { note: o.note } : {}),
+  ...(o.tags && o.tags.length ? { tags: o.tags } : {}),
+  ...(o.windowIndex != null ? { window_index: o.windowIndex } : {}),
+})
+
+/** One verdict on one target. `targetId` is the row's `id`, which IS the core's `target_id`. */
+export const postVerdict = (queueId: string, targetId: string, verdict: Verdict, o: VerdictOpts = {}): Promise<WriteAck> =>
+  post<WriteAck>(`${qp(queueId)}/verdict`, { target_id: targetId, verdict, ...opt(o) })
+
+/** N targets under ONE `review_audit` row, so one undo reverses the gesture as the single act it was. */
+export const postBatch = (queueId: string, targetIds: string[], verdict: Verdict, o: VerdictOpts = {}): Promise<WriteAck> =>
+  post<WriteAck>(`${qp(queueId)}/batch`, { target_ids: targetIds, verdict, ...opt(o) })
+
+/** Ctrl-Z. The SERVER owns undo: it restores the prior verdict from `review_audit.payload_json`. The
+ *  client never invents a reversal — reversing to unjudged and reversing to "it was interesting before"
+ *  are different acts and only the audit row knows which one this is. */
+export const postUndo = (queueId: string): Promise<WriteAck> => post<WriteAck>(`${qp(queueId)}/undo`, {})
+
+/** P21: the seed verdict plus the Library entry/member it mints, in one core call. */
+export const postPromote = (queueId: string, targetId: string, verdict: Verdict = 'seed', o: VerdictOpts = {}): Promise<PromoteAck> =>
+  post<PromoteAck>(`${qp(queueId)}/promote`, { target_id: targetId, verdict, ...opt(o) })
+
+/** A whole cluster accepted or rejected — the bridge resolves the members and writes them as one batch. */
+export const postClusterVerdict = (queueId: string, no: number, decision: 'accept' | 'reject'): Promise<WriteAck> =>
+  post<WriteAck>(`${qp(queueId)}/cluster/${no}/${decision}`, {})
+
+/** extract-events: the spans a reviewer marked inside a flagged sequence. */
+export const postExtract = (queueId: string, sequenceId: string, events: ExtractEvent[], complete = false): Promise<WriteAck> =>
+  post<WriteAck>(`${qp(queueId)}/extract`, { sequence_id: sequenceId, events, complete })

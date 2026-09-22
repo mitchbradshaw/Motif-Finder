@@ -6,7 +6,7 @@ import { navigate, setQuery } from '../state'
 import { Chip, Icon, InfoTip, MiniTrace, cx, fmtInt, recordDemoWrite, useQueryState } from '../kit'
 import { useSourced } from '../api/seam'
 import { useToast } from '../shell/Toast'
-import { VOCABULARY, getItem, type ItemDetail, type QueueData, type QueueRow, type Verdict } from '../api/review'
+import { VOCABULARY, getItem, postPromote, postUndo, postVerdict, type ItemDetail, type QueueData, type QueueRow, type Verdict } from '../api/review'
 import { Shell, THUMB_Y, useBlind, useRails, type MicroStat } from './Shell'
 import { useReviewKeys } from './keys'
 import { goUnit, nextUnjudgedAfter, relTime, step } from './queue'
@@ -15,8 +15,8 @@ import {
 } from './parts'
 import { Loading, NotFound, previousLines } from './common'
 import {
-  VERDICT_LABEL, amendWrite, applyWrite, effective, getRecords, key, lastLive, mintExemplar, nextRedo, patchRecord, rawRecord, redoWrite, releaseExemplar, undoWrite,
-  useAutoAdvance, useDrafts, usePad, useRecords, useStack, type Draft, type VerdictRecord,
+  VERDICT_LABEL, amendWrite, applyWrite, clearWriteError, commitRedo, commitUndo, commitWrite, effective, getRecords, getWriteError, key, lastLive, mintExemplar, nextRedo,
+  patchRecord, rawRecord, releaseExemplar, resend, useAutoAdvance, useDrafts, usePad, useRecords, useReviewVersion, useStack, useWriteError, type Draft, type VerdictRecord,
 } from './store'
 
 const ADVANCE_MS = 350
@@ -30,9 +30,11 @@ export function Inspector({ data, itemId }: { data: QueueData; itemId: string })
 function InspectorItem({ data, row }: { data: QueueData; row: QueueRow }) {
   const { queue } = data
   const q = queue.id, id = row.id
-  const det = useSourced(() => getItem(q, id), [q, id])
+  const version = useReviewVersion()
+  const det = useSourced(() => getItem(q, id), [q, id, version])
   const records = useRecords()
   const stack = useStack()
+  const writeError = useWriteError()
   const [blind, setBlind] = useBlind(q, queue.blind)
   const [auto] = useAutoAdvance()
   const [pad, setPad] = usePad()
@@ -48,7 +50,8 @@ function InspectorItem({ data, row }: { data: QueueData; row: QueueRow }) {
   const timers = useRef<number[]>([])
   useEffect(() => () => { timers.current.forEach(t => window.clearTimeout(t)) }, [])
   useEffect(() => { if (padQ === '30' || padQ === '120' || padQ === '300') setPad(padQ) }, [padQ, setPad])
-  useEffect(() => { setOverlay('') }, [id])
+  // the refusal card belongs to the item it was raised on: moving on clears it, a new failure re-raises it
+  useEffect(() => { setOverlay(''); clearWriteError() }, [id])
 
   const d = det.data && det.data.entry.id === id ? det.data : null
   const rec = effective(records, row)
@@ -61,6 +64,8 @@ function InspectorItem({ data, row }: { data: QueueData; row: QueueRow }) {
   const unit = { kind: 'item' as const, id }
 
   const say = (text: string) => toast.push({ text })
+  /** Loud, and never a blank: the bridge's own refusal text, beside the red card the render puts up. */
+  const refused = () => { const f = getWriteError(); toast.push({ kind: 'error', text: `not written · ${f?.label ?? 'write'} · ${f?.message ?? 'the bridge refused it'}` }) }
   const later = (fn: () => void, ms: number) => { timers.current.push(window.setTimeout(fn, ms)) }
   const advance = () => goUnit(q, nextUnjudgedAfter(data, getRecords(), unit))
 
@@ -69,14 +74,21 @@ function InspectorItem({ data, row }: { data: QueueData; row: QueueRow }) {
     if (rec) patchRecord(q, id, rec, { tags: next.tags, note: next.note })
   }
 
-  function write(v: Verdict, className: string | undefined, kind: 'verdict' | 'class' | 'promotion', opts: { advance: boolean; flash?: boolean }) {
+  /** A keypress writes to the DATABASE and only then to the session stack. `seed` goes through the
+   *  promotion door (P21: the verdict and the Library entry in one core call); every other verdict is one
+   *  POST. A refused write returns null, leaves the session untouched, and is shown as a red card. */
+  async function write(v: Verdict, className: string | undefined, kind: 'verdict' | 'class' | 'promotion', opts: { advance: boolean; flash?: boolean }): Promise<VerdictRecord | null> {
     const before = rawRecord(q, id)
     const next: VerdictRecord = { verdict: v, className, blind, at: Date.now(), tags: draft.tags, note: draft.note }
-    if (v === 'seed') { next.exemplarId = rec?.exemplarId ?? mintExemplar(); next.family = d && d.nearest[0].d <= 0.3 ? d.nearest[0].id : null }
-    applyWrite({ queueId: q, items: [id], kind, verdict: v, className, label: `${id} · ${VERDICT_LABEL[v]}`, before: { [k]: before }, after: { [k]: next } })
+    const minted = v === 'seed' && !rec?.exemplarId
+    if (v === 'seed') { next.exemplarId = rec?.exemplarId ?? mintExemplar(); next.family = d?.nearest?.[0] && d.nearest[0].d <= 0.3 ? d.nearest[0].id : null }
+    const note = draft.note.trim() || undefined
+    const send = () => v === 'seed' ? postPromote(q, id, 'seed', { note }) : postVerdict(q, id, v, { note })
+    const w = await commitWrite(send, { queueId: q, items: [id], kind, verdict: v, className, label: `${id} · ${VERDICT_LABEL[v]}`, before: { [k]: before }, after: { [k]: next } })
+    if (!w) { if (minted && next.exemplarId) releaseExemplar(next.exemplarId); refused(); return null }
     if (v === 'seed') {
       // P21: the seed verdict itself creates the Library exemplar; the panel only chooses its family
-      if (!rec?.exemplarId) recordDemoWrite('library', 'exemplar.create', { id: next.exemplarId, from: `${q}/${id}`, family: next.family, recording: row.recording, channel: row.channel, span_h: [row.startH, +(row.startH + row.durationS / 3600).toFixed(4)], blind })
+      if (minted) recordDemoWrite('library', 'exemplar.create', { id: next.exemplarId, from: `${q}/${id}`, family: next.family, recording: row.recording, channel: row.channel, span_h: [row.startH, +(row.startH + row.durationS / 3600).toFixed(4)], blind })
       return next
     }
     if (opts.flash !== false) { setFlash(v); later(() => setFlash(null), ADVANCE_MS) }
@@ -84,39 +96,49 @@ function InspectorItem({ data, row }: { data: QueueData; row: QueueRow }) {
     return next
   }
 
-  const verdict = (v: Verdict) => {
+  const verdict = async (v: Verdict) => {
     if (promoted) return say('confirm or undo the promotion first (Enter / Ctrl Z)')
     if (binary && (v === 'seed' || v === 'artifact' || v === 'unsure')) return say('this queue takes binary verdicts and classes')
-    const next = write(v, rec?.className, v === 'seed' ? 'promotion' : 'verdict', { advance: true })
+    const next = await write(v, rec?.className, v === 'seed' ? 'promotion' : 'verdict', { advance: true })
+    if (!next) return
     if (v === 'seed') {
       setQuery({ state: 'promoted' }, true)
       say(`seed · exemplar ${next.exemplarId} created in the Library · auto-advance paused`)
     }
   }
 
-  const klass = (ck: string) => {
+  /* A class key carries a VERDICT with it, and THAT is what goes to the database. The class name itself
+   * has no field in any of the contract's write bodies, so it stays a session label; a keypress that
+   * changes only the class therefore posts nothing, adds no audit row, and says so. */
+  const klass = async (ck: string) => {
     const c = VOCABULARY.classes.find(x => x.key === ck)
     if (!c) return
     if (promoted) return say('confirm or undo the promotion first (Enter / Ctrl Z)')
     if (!rec) {
       const v: Verdict = c.informative ? 'interesting' : 'artifact'
-      write(v, c.name, 'class', { advance: true })
-      return say(`class ${c.name} · implies ${VERDICT_LABEL[v]}`)
+      if (!await write(v, c.name, 'class', { advance: true })) return
+      return say(`class ${c.name} · implies ${VERDICT_LABEL[v]} · written`)
     }
     if (rec.className === c.name) {
       applyWrite({ queueId: q, items: [id], kind: 'class', verdict: rec.verdict, label: `${id} · class cleared`, before: { [k]: rawRecord(q, id) }, after: { [k]: { ...rec, className: undefined, at: Date.now() } } })
-      return say(`class ${c.name} cleared · verdict stays ${VERDICT_LABEL[rec.verdict]}`)
+      return say(`class ${c.name} cleared · verdict stays ${VERDICT_LABEL[rec.verdict]} (the class is a session label)`)
     }
     const v: Verdict = !c.informative && rec.verdict !== 'artifact' ? 'artifact' : rec.verdict
+    if (v !== rec.verdict) {
+      if (!await write(v, c.name, 'class', { advance: false, flash: false })) return
+      return say(`${c.name} is non-informative — artifact written (Ctrl Z reverts)`)
+    }
     applyWrite({ queueId: q, items: [id], kind: 'class', verdict: v, className: c.name, label: `${id} · ${c.name}`, before: { [k]: rawRecord(q, id) }, after: { [k]: { ...rec, verdict: v, className: c.name, blind, at: Date.now() } } })
-    if (v !== rec.verdict) say(`${c.name} is non-informative — verdict changed to artifact (Ctrl Z reverts)`)
-    else say(`class ${c.name} added to the ${VERDICT_LABEL[v]} verdict`)
+    say(`class ${c.name} added to the ${VERDICT_LABEL[v]} verdict (the class is a session label)`)
   }
 
-  const undo = () => {
+  /* Ctrl-Z posts to the server, which restores the PRIOR verdict out of its audit row. The client does not
+   * invent a reversal: only `review_audit.payload_json` knows whether this reverses to unjudged or back to
+   * the verdict that was there before. The stack is marked undone only once the POST was accepted. */
+  const undo = async () => {
     const w = lastLive(q)
     if (!w) return say('nothing to undo in this queue')
-    undoWrite(w)
+    if (!await commitUndo(() => postUndo(q), w)) return refused()
     if (w.kind === 'batch') { navigate(`review/queue/${q}/cluster/${w.clusterNo}?state=undone`); return }
     if (w.kind === 'promotion') {
       const ex = (w.after[key(q, w.items[0])] as VerdictRecord | null)?.exemplarId
@@ -126,10 +148,10 @@ function InspectorItem({ data, row }: { data: QueueData; row: QueueRow }) {
     } else say(`undone · ${w.label}`)
     if (!w.items.includes(id)) navigate(`review/queue/${q}/${w.items[0]}`)
   }
-  const redo = () => {
+  const redo = async () => {
     const w = nextRedo(q)
     if (!w) return say('nothing to redo')
-    redoWrite(w)
+    if (!await commitRedo(() => resend(q, w), w)) return refused()
     say(`redone · ${w.label}`)
     if (w.kind === 'batch') navigate(`review/queue/${q}/cluster/${w.clusterNo}`)
     else if (w.kind === 'promotion') navigate(`review/queue/${q}/${w.items[0]}?state=promoted`)
@@ -151,7 +173,7 @@ function InspectorItem({ data, row }: { data: QueueData; row: QueueRow }) {
   useEffect(() => {
     if (state === 'promoted' && d && rec?.verdict !== 'seed') {
       if (binary) { setQuery({ state: null }, true); return }
-      write('seed', rec?.className, 'promotion', { advance: false })
+      void write('seed', rec?.className, 'promotion', { advance: false })
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state, d?.entry.id])
@@ -188,6 +210,11 @@ function InspectorItem({ data, row }: { data: QueueData; row: QueueRow }) {
   return (
     <Shell data={data} unit={unit} blind={blind} setBlind={setBlind} paused={promoted} micro={micro} evidence={evidence}
       evidenceTitle={`${id}${row.detectionId ? ` · ${row.detectionId}` : ''}`}>
+      {writeError && <div className="error-card" data-testid="write-refused">
+        <h3><Icon name="alert-circle" /> Not written · {writeError.label}{writeError.status ? ` · HTTP ${writeError.status}` : ''}</h3>
+        <p className="mono">{writeError.message}</p>
+        <p>The database was not changed — what the page shows is whatever it held before.</p>
+      </div>}
       {det.error && <div className="error-card" data-testid="item-error"><h3>{id} failed to load</h3><p className="mono">{det.error.message}</p></div>}
       {!d && !det.error && <Loading />}
       {d?.refused && <div className="error-card" data-testid="held-out-refusal"><h3><Icon name="lock" /> {id} is refused</h3><p>{d.refused}</p></div>}
