@@ -282,7 +282,14 @@ Nothing that passed before fails now.
     PYTHONIOENCODING=utf-8 python webui/smoke.py --url http://127.0.0.1:8765
 
 against a bridge started with `--sandbox`. **0 browser console or page errors. 0 unexpected server
-tracebacks.** 544 screenshots.
+tracebacks.** 543 screenshots, 4 failures (below).
+
+**Run it against a FRESH bridge.** A second smoke run against a bridge that has already served one gives
+seven failures rather than four: the page walk writes into the sandbox, so `settings.shell--save-writes-
+the-settings-table`, `settings.nulls--unsaved` and `discovery.compare--unpick-b` find their preconditions
+already satisfied and their controls disabled. That is the walk not being idempotent against its own
+writes, and it is worth knowing before someone reads three extra failures as a regression. Every number
+in this section is from a run against a bridge restarted immediately beforehand.
 
 Every check this work added passes:
 
@@ -314,6 +321,14 @@ the database was restored from a `webui/runtime/` copy on 2026-09-21 and re-regi
 states name specific filenames and will keep failing until they are re-written against what the database
 holds, which is a Settings-prompt job, not this one.
 
+**The regenerated flow screenshots are deliberately NOT committed.** `webui/screenshots/NN-*.png` are
+numbered and `REPORT.md` pairs them to concept frames, so the numbering is part of the record. Two things
+shift it: the tag-picker screenshot this work first added (removed — the assertion is the pin, the picture
+was not), and `18-chain-cancelled.png`, which this run produced and the committed set does not have
+because whether the 20 h run is still going when smoke reaches the cancel button is a race. The tracked
+set is restored to what it was; the only screenshots this work commits are the two in
+`webui/screenshots/fixup/A/`, which the prompt asks for by name.
+
 ---
 
 ## 8. One thing done badly, recorded
@@ -332,7 +347,8 @@ restore the rest second.
 All seventeen items done, twenty-two commits, `051553c` … `b8ed1c5`, every implementation preceded by a
 failing test. The suite is clean: 1660 passed / 6 skipped / **0 failed**, and the two failures in the
 2026-09-21 baseline are gone because the derived channels came back. `tsc -b` and `npm run build` are
-clean. Smoke: 0 console errors, 0 server tracebacks, and every check this work added passes, including a
+clean. Smoke (against a freshly restarted bridge — the page walk is not idempotent against its own
+writes, see §7): 0 console errors, 0 server tracebacks, and every check this work added passes, including a
 real-browser measurement that no two time-axis labels overlap on three surfaces and that the header's count
 is the route's 160. Four smoke failures remain, all in Settings, all traced to rows already in the
 database (a registered joblib, a registered matrix profile, `MJu26a`'s 16 recording rows) — no file this
