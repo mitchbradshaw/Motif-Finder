@@ -118,11 +118,17 @@ def resolve_target(conn, queue_id, target_id):
         detection_id, annotation_id = int(row["detection_id"]), None
         origin = revisions.MACHINE
     elif writes_to == "annotations":
+        # The queue's unit decides what the id NAMES. On a sequence queue it
+        # names a `sequences` row and the span lives on that sequence's own
+        # annotation; taking it for an `annotations` id promoted whichever
+        # unrelated human span happened to share the number. One resolver, in
+        # `verdicts`, so the two cannot drift apart again.
+        _, row_id = _verdicts()._resolve_target(conn, queue, target_id)
         row = conn.execute(
-            "SELECT * FROM annotations WHERE id = ?", (int(target_id),)
+            "SELECT * FROM annotations WHERE id = ?", (int(row_id),)
         ).fetchone()
         if row is None:
-            raise ValueError(f"No annotation with id={target_id}")
+            raise ValueError(f"No annotation with id={row_id}")
         recording_id = row["recording_id"]
         detection_id, annotation_id = None, int(row["id"])
         origin = revisions.HUMAN

@@ -116,6 +116,27 @@ def create_queue(conn, *, name, source_kind, source_ref=None, unit=None,
             "source_kind must be one of {}, got {!r}".format(
                 ", ".join(SOURCE_KINDS), source_kind))
     d_unit, d_writes, d_blind = _DEFAULTS[source_kind]
+    # A queue that names a unit or a write target contradicting its own source
+    # kind is the rule-5 crossing written down (CLAUDE.md rule 5): "my items
+    # are detections and I write `annotations`" is a standing instruction to
+    # fabricate human verdicts. These arguments are settable from an HTTP body,
+    # so the refusal belongs here, at the moment the queue is made, not at each
+    # verdict written through it.
+    if unit is not None and unit != d_unit:
+        raise ValueError(
+            "source_kind {!r} has unit {!r}, not {!r}; a queue whose unit "
+            "contradicts its source is not a queue anyone can answer".format(
+                source_kind, d_unit, unit))
+    if writes_to is not None and writes_to != d_writes:
+        # ValueError, not PermissionError: nothing has been written and no
+        # door has been forced -- this is a malformed queue being refused at
+        # the moment it is described. The PermissionError lives at the write
+        # seam in `verdicts._queue_is_itself_the_crossing`, for a queue that
+        # reached the table some other way.
+        raise ValueError(
+            "rule 5 (CLAUDE.md): source_kind {!r} writes {!r}, not {!r}. A "
+            "queue may not declare a write target its source kind does not "
+            "have.".format(source_kind, d_writes, writes_to))
     cur = conn.execute(
         """INSERT INTO review_queues
                (name, source_kind, source_ref, unit, writes_to, blind, cap,
@@ -190,6 +211,7 @@ def queue_items(conn, queue_id, *, limit=-1, offset=0, include_judged=False,
     items = _resolve(conn, q)
     if not include_prior_judged:
         items = [it for it in items if it.get("prior_verdict") is None]
+    items = _apply_cap(q, items)
     if not include_judged:
         items = [it for it in items if not it["judged"]]
     if offset:
@@ -212,7 +234,8 @@ def queue_counts(conn, queue_id):
     q = get_queue(conn, queue_id)
     if q is None:
         raise ValueError("no such queue: {!r}".format(queue_id))
-    items = [it for it in _resolve(conn, q) if it.get("prior_verdict") is None]
+    items = _apply_cap(
+        q, [it for it in _resolve(conn, q) if it.get("prior_verdict") is None])
     judged = sum(1 for it in items if it["judged"])
     return {"total": len(items), "judged": judged,
             "remaining": len(items) - judged}
@@ -246,9 +269,21 @@ def _resolve(conn, q):
         items = _resolve_sequences(conn, q)
     else:                                   # pragma: no cover - CHECKed above
         raise ValueError("unresolvable source_kind: {!r}".format(kind))
+    return items
+
+
+def _apply_cap(q, items):
+    """Truncate to the queue's cap.
+
+    Applied AFTER the prior-verdict filter, not before. A cap is a promise
+    about how many items the researcher will be ASKED about; spending it on
+    rediscoveries that are then filtered out would serve fewer than the cap
+    while candidates remained, and would disagree with `queue_counts`, which
+    filters first.
+    """
     cap = q["cap"]
     if cap is not None and cap >= 0:
-        items = items[:cap]
+        return items[:cap]
     return items
 
 
@@ -333,7 +368,11 @@ def _annotations_by_recording(conn, recording_ids):
         marks = ",".join("?" * len(chunk))
         for r in conn.execute(
                 "SELECT id, recording_id, start_idx, end_idx, verdict FROM annotations "
-                "WHERE recording_id IN ({}) ORDER BY recording_id, start_idx, id".format(marks),
+                # A soft-deleted span is a span the researcher took back. Letting
+                # it match would suppress a candidate, and drop it from the counts,
+                # on the strength of a judgement that no longer stands.
+                "WHERE deleted_at IS NULL AND recording_id IN ({}) "
+                "ORDER BY recording_id, start_idx, id".format(marks),
                 chunk).fetchall():
             out.setdefault(r["recording_id"], []).append(
                 (int(r["start_idx"]), int(r["end_idx"]), r["verdict"], r["id"]))
@@ -414,7 +453,7 @@ def _resolve_spans(conn, q):
     """Human spans a person marked `seed` in Explore (04-to-05 §4)."""
     params = []
     sql = ("SELECT id, recording_id, start_idx, end_idx, tag, note "
-           "FROM annotations WHERE verdict = 'seed'")
+           "FROM annotations WHERE verdict = 'seed' AND deleted_at IS NULL")
     rec = q["filters"].get("recording_id")
     if rec is None and q["source_ref"] is not None:
         rec = int(q["source_ref"])
@@ -509,6 +548,15 @@ def _audit_judged_ids(conn, queue_id):
             continue
         if not isinstance(payload, dict):
             continue
+        # `write_verdict`/`write_batch` record every target under `targets`,
+        # each entry carrying the SOURCE id as `target_id` (and, where they
+        # differ, the row it landed on as `row_id`). Reading the wrong key here
+        # is why an annotations or sequence queue never registered anything as
+        # judged and could never drain. The two older spellings are still read
+        # so a ledger written before this fix still counts.
+        for entry in payload.get("targets") or ():
+            if isinstance(entry, dict) and entry.get("target_id") is not None:
+                out.add(entry["target_id"])
         if payload.get("target_id") is not None:
             out.add(payload["target_id"])
         for tid in payload.get("target_ids") or ():

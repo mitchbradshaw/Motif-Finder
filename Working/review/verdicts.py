@@ -45,6 +45,7 @@ import json
 
 from Working.database import adjudications as _adjudications
 from Working.database import queries as _queries
+from Working.database import vocabulary as _vocabulary
 from Working.database.schema import VERDICTS
 
 __all__ = ["VERDICTS", "write_verdict", "write_batch", "undo_last"]
@@ -71,16 +72,42 @@ def _queue_row(conn, queue_id):
     return row
 
 
-def _is_detection(conn, target_id):
+#: What each queue unit is MADE OF, and therefore the one store a verdict on
+#: it may land in. This is rule 5 expressed as data. A queue whose `unit` and
+#: `writes_to` disagree is itself the crossing, whatever else it says about
+#: itself, and no verdict may be written through it.
+_UNIT_STORE = {
+    "detection": "adjudications",
+    "human span": "annotations",
+    "sequence": "annotations",
+    "window": "window_verdicts",
+}
+
+#: The table a unit's ids are ids OF. A `sequence` target is a `sequences` row
+#: even though its verdict lands in `annotations` — the two are different
+#: questions and conflating them is what wrote a verdict onto a stranger.
+_UNIT_SOURCE = {
+    "detection": "detections",
+    "human span": "annotations",
+    "sequence": "sequences",
+}
+
+_UNIT_NOUN = {"detection": "detection", "human span": "annotation",
+              "sequence": "sequence"}
+
+
+def _row_exists(conn, table, row_id):
     return conn.execute(
-        "SELECT 1 FROM detections WHERE id = ?", (target_id,)
+        "SELECT 1 FROM {} WHERE id = ?".format(table), (row_id,)
     ).fetchone() is not None
 
 
-def _is_annotation(conn, target_id):
-    return conn.execute(
-        "SELECT 1 FROM annotations WHERE id = ?", (target_id,)
-    ).fetchone() is not None
+def _target_int(target_id):
+    try:
+        return int(target_id)
+    except (TypeError, ValueError):
+        raise ValueError(
+            f"a target id must be an integer, got {target_id!r}")
 
 
 def _check_window_target(conn, queue, target_id):
@@ -111,35 +138,150 @@ def _check_window_target(conn, queue, target_id):
             f"window {index} to give a verdict on")
 
 
-def _check_target(conn, queue, target_id):
-    """Refuse a target that belongs to the other store. Raises
-    `PermissionError` for a crossing, `ValueError` for an id that is in
-    neither store."""
-    writes_to = queue["writes_to"]
-    if writes_to == "adjudications":
-        if _is_detection(conn, target_id):
-            return
-        if _is_annotation(conn, target_id):
-            raise PermissionError(
-                f"{_RULE_5}. Annotation {target_id} cannot be adjudicated: "
-                f"this queue writes `adjudications`, which is the machine "
-                f"store, and a human annotation may not be written into it."
-            )
-        raise ValueError(f"no detection with id {target_id}")
-    if writes_to == "annotations":
-        if _is_annotation(conn, target_id):
-            return
-        if _is_detection(conn, target_id):
-            raise PermissionError(
-                f"{_RULE_5}. Detection {target_id} cannot be annotated: "
-                f"this queue writes `annotations`, which is the human store, "
-                f"and a machine detection may not be written into it."
-            )
-        raise ValueError(f"no annotation with id {target_id}")
-    if writes_to == "window_verdicts":
+def _queue_is_itself_the_crossing(queue):
+    """A queue whose `unit` and `writes_to` disagree is the crossing itself.
+
+    `create_queue` infers `writes_to` from `source_kind`, but the column is
+    settable from an HTTP body, and a queue that says "my items are detections
+    and I write `annotations`" is a standing instruction to fabricate human
+    verdicts. Refusing it here means no verdict can be written through it even
+    if it reached the table.
+    """
+    unit = queue["unit"]
+    if unit not in _UNIT_STORE:
+        raise ValueError(f"unknown queue unit {unit!r}")
+    expected = _UNIT_STORE[unit]
+    if queue["writes_to"] != expected:
+        raise PermissionError(
+            f"{_RULE_5}. Review queue {queue['id']} says its unit is {unit!r} "
+            f"but that it writes {queue['writes_to']!r}; a verdict on a {unit} "
+            f"belongs in {expected!r}. The queue is itself the crossing, so no "
+            f"verdict may be written through it.")
+
+
+def _resolve_target(conn, queue, target_id):
+    """What this queue's target id names, and which row a verdict lands on.
+
+    Returns `(target_id, row_id)` — the same integer twice, except for a
+    `sequence` queue, where the id names a `sequences` row and the verdict
+    lands on that sequence's own `annotations` row.
+
+    This replaces a check that asked "does a row with this id exist in the
+    table I am about to write to" and returned as soon as it did. That is not
+    a check: on the project database detections run 1..732 and annotations
+    1..11269, so EVERY detection id is also a valid annotation id and the
+    refusal branch was unreachable. The stage-1 tests passed only because they
+    used synthetic ids that happened not to collide.
+
+    The question is not "does this id exist somewhere" but **"is this the id of
+    the thing this queue is made of"**, and the queue already says what that is
+    in its `unit` column.
+    """
+    _queue_is_itself_the_crossing(queue)
+    unit = queue["unit"]
+    if unit == "window":
         _check_window_target(conn, queue, target_id)
+        idx = _window_index_of(target_id, None)
+        return idx, idx
+
+    rid = _target_int(target_id)
+    source = _UNIT_SOURCE[unit]
+    if not _row_exists(conn, source, rid):
+        # Not one of ours. If it is one of the OTHER stores' rows, the caller
+        # crossed the line rather than mistyped, and the two deserve different
+        # answers: a crossing is a PermissionError naming rule 5, a typo is a
+        # ValueError.
+        for other_unit, other_table in _UNIT_SOURCE.items():
+            if other_table == source:
+                continue
+            if _row_exists(conn, other_table, rid):
+                raise PermissionError(
+                    f"{_RULE_5}. {_UNIT_NOUN[other_unit].capitalize()} {rid} "
+                    f"was offered to review queue {queue['id']}, whose items "
+                    f"are {_UNIT_NOUN[unit]}s writing {queue['writes_to']!r}. "
+                    f"An id that exists in another store is not this queue's "
+                    f"item; writing it would put a verdict on a row nobody was "
+                    f"ever shown.")
+        raise ValueError(f"no {_UNIT_NOUN[unit]} with id {rid}")
+
+    if unit == "sequence":
+        # `sequences.annotation_id` is the pointer; `sequences.id` is not. On
+        # the project database every sequence id in the seeded extract-events
+        # queue (119-148) is ALSO an annotation id, so taking the target id for
+        # an annotation id wrote the reviewer's verdict onto an unrelated human
+        # observation and left the intended one untouched.
+        row = conn.execute(
+            "SELECT annotation_id FROM sequences WHERE id = ?", (rid,)
+        ).fetchone()
+        ann = row["annotation_id"] if row is not None else None
+        if ann is None:
+            raise ValueError(
+                f"sequence {rid} has no annotation_id, so there is no human "
+                f"span for its verdict to land on. Refusing rather than "
+                f"guessing at a row.")
+        return rid, int(ann)
+
+    return rid, rid
+
+
+def _check_membership(conn, queue, target_ids):
+    """Refuse a target this queue never showed anyone.
+
+    The audit ledger is what undo and the judged-set are built on, so a row
+    saying queue N judged an item it never listed is a false provenance trail —
+    and on an annotations queue, where `judged` is READ from that ledger, it
+    silently removes a stranger from somebody else's queue.
+    """
+    # NOT for an `explore-spans` queue. Its source predicate is
+    # `annotations.verdict = 'seed'` -- the very field a verdict overwrites --
+    # so membership there is self-invalidating: the first verdict removes the
+    # span from its own queue and a second one could never be given. Where the
+    # predicate is independent of the verdict (a run id, a window set, a
+    # `needs_extraction` flag) the check is meaningful and is applied.
+    if queue["unit"] == "human span":
         return
-    raise ValueError(f"unknown writes_to {writes_to!r}")
+    from Working.review import queues as _queues
+    members = {
+        it["target_id"] for it in _queues.queue_items(
+            conn, queue["id"], include_judged=True, include_prior_judged=True)
+    }
+    for tid in target_ids:
+        if _target_int(tid) not in members:
+            raise ValueError(
+                f"review queue {queue['id']} never asked about target {tid}: "
+                f"it is not among the items this queue resolves, so a verdict "
+                f"attributed to it would be a false provenance trail.")
+
+
+#: A bare list of tags means the one multi-select category the vocabulary
+#: keeps for shape words. The bridge's `VerdictBody.tags` is `list[str]` and
+#: both writers used to call `.items()` on it, so any tagged verdict 500'd
+#: three frames down.
+_DEFAULT_TAG_CATEGORY = "element"
+
+
+def _normalise_tags(tags):
+    """Accept either `{category: [values]}` or a plain `[values]`."""
+    if tags is None:
+        return None
+    if isinstance(tags, dict):
+        return {k: list(v) if not isinstance(v, str) else [v]
+                for k, v in tags.items()}
+    if isinstance(tags, str):
+        tags = [tags]
+    return {_DEFAULT_TAG_CATEGORY: list(tags)}
+
+
+def _check_tags(conn, tags):
+    """Validate every term BEFORE anything is written, so a bad tag does not
+    leave a verdict behind with half its tags attached."""
+    if not tags:
+        return
+    for category, values in tags.items():
+        for value in values:
+            if _vocabulary.get_term(conn, category, value) is None:
+                raise ValueError(
+                    f"Unknown vocabulary term: {category}={value!r}")
 
 
 def _check_verdict(verdict):
@@ -180,8 +322,8 @@ def _write_annotation(conn, target_id, verdict, note, tags):
     )
     if tags:
         for category, values in tags.items():
-            _queries.set_annotation_tags(conn, target_id, category, values,
-                                         commit=False)
+            _vocabulary.set_annotation_tags(conn, target_id, category, values,
+                                            commit=False)
     return prior
 
 
@@ -293,8 +435,12 @@ def _audit(conn, queue_id, action, target_table, target_ids, payload):
 
 # ── the public surface ──────────────────────────────────────────────────────
 
-def _apply(conn, queue, target_id, verdict, note, tags, window_index):
+def _apply(conn, queue, target_id, row_id, verdict, note, tags, window_index):
     """Write one verdict into whichever store the queue says it writes.
+
+    `target_id` is what the queue handed out; `row_id` is the row the verdict
+    lands on. They differ only for a sequence queue, where the target names a
+    `sequences` row and the verdict belongs on that sequence's own annotation.
 
     Returns `(prior, coords)`: the state that was there before, and for a
     window queue the `(window_set_id, window_index)` the write landed on —
@@ -303,9 +449,9 @@ def _apply(conn, queue, target_id, verdict, note, tags, window_index):
     """
     writes_to = queue["writes_to"]
     if writes_to == "adjudications":
-        return _write_adjudication(conn, target_id, verdict, note, tags), None
+        return _write_adjudication(conn, row_id, verdict, note, tags), None
     if writes_to == "annotations":
-        return _write_annotation(conn, target_id, verdict, note, tags), None
+        return _write_annotation(conn, row_id, verdict, note, tags), None
     coords = _window_coords(queue, target_id, window_index)
     return _write_window(conn, queue, coords, verdict, note), coords
 
@@ -315,19 +461,24 @@ def write_verdict(conn, queue_id, target_id, verdict, *, note=None, tags=None,
     """Write one verdict through the queue that asked for it.
 
     Returns a dict describing what was written:
-    `{'queue_id', 'target_id', 'verdict', 'writes_to', 'audit_id', 'prior'}`.
+    `{'queue_id', 'target_id', 'row_id', 'verdict', 'writes_to', 'audit_id',
+    'prior'}`. `row_id` is the row the verdict actually landed on, which is the
+    target id except on a sequence queue.
 
     For a window queue, `target_id` is the index into the window set named by
     the queue's `source_ref`; `window_index` is an optional restatement of it
     and may not contradict it.
 
     Raises `PermissionError` on a rule-5 crossing (see the module docstring)
-    and `ValueError` on an unknown verdict, queue or target.
+    and `ValueError` on an unknown verdict, queue, target or tag.
     """
     queue = _queue_row(conn, queue_id)
     _check_verdict(verdict)
-    _check_target(conn, queue, target_id)
-    prior, coords = _apply(conn, queue, target_id, verdict, note, tags,
+    target_id, row_id = _resolve_target(conn, queue, target_id)
+    _check_membership(conn, queue, [target_id])
+    tags = _normalise_tags(tags)
+    _check_tags(conn, tags)
+    prior, coords = _apply(conn, queue, target_id, row_id, verdict, note, tags,
                            window_index)
     payload = {
         "writes_to": queue["writes_to"],
@@ -335,44 +486,61 @@ def write_verdict(conn, queue_id, target_id, verdict, *, note=None, tags=None,
         "note": note,
         "window_set_id": coords[0] if coords else None,
         "window_index": coords[1] if coords else None,
-        "targets": [{"target_id": target_id, "prior": prior,
+        "targets": [{"target_id": target_id, "row_id": row_id, "prior": prior,
                      "window_index": coords[1] if coords else None}],
     }
     audit_id = _audit(conn, queue_id, "verdict", queue["writes_to"],
                       [target_id], payload)
     conn.commit()
-    return {"queue_id": queue_id, "target_id": target_id, "verdict": verdict,
-            "writes_to": queue["writes_to"], "audit_id": audit_id,
-            "prior": prior}
+    return {"queue_id": queue_id, "target_id": target_id, "row_id": row_id,
+            "verdict": verdict, "writes_to": queue["writes_to"],
+            "audit_id": audit_id, "prior": prior}
 
 
 def write_batch(conn, queue_id, target_ids, verdict, *, note=None, tags=None):
     """The same verdict against N targets, under ONE `review_audit` row.
 
-    Every target is checked before anything is written, so a batch that
-    contains a rule-5 crossing writes nothing at all.
+    Every target is resolved and checked before anything is written, so a batch
+    containing a rule-5 crossing or a non-member writes nothing at all.
+
+    Duplicate ids collapse: the person performed one action on one item, and N
+    copies in the ledger would take N undos to reverse. An empty batch writes
+    no audit row and returns `audit_id: None` — auditing a gesture that touched
+    nothing puts an un-undoable row in the ledger.
     """
     queue = _queue_row(conn, queue_id)
     _check_verdict(verdict)
-    target_ids = list(target_ids)
+    seen, resolved = set(), []
     for tid in target_ids:
-        _check_target(conn, queue, tid)
+        t, row_id = _resolve_target(conn, queue, tid)
+        if t in seen:
+            continue
+        seen.add(t)
+        resolved.append((t, row_id))
+    _check_membership(conn, queue, [t for t, _ in resolved])
+    tags = _normalise_tags(tags)
+    _check_tags(conn, tags)
+    if not resolved:
+        return {"queue_id": queue_id, "verdict": verdict, "count": 0,
+                "target_ids": [], "writes_to": queue["writes_to"],
+                "audit_id": None}
     targets = []
     window_set_id = None
-    for tid in target_ids:
-        prior, coords = _apply(conn, queue, tid, verdict, note, tags, None)
+    for tid, row_id in resolved:
+        prior, coords = _apply(conn, queue, tid, row_id, verdict, note, tags,
+                               None)
         if coords is not None:
             window_set_id = coords[0]
-        targets.append({"target_id": tid, "prior": prior,
+        targets.append({"target_id": tid, "row_id": row_id, "prior": prior,
                         "window_index": coords[1] if coords else None})
+    ids = [t for t, _ in resolved]
     payload = {"writes_to": queue["writes_to"], "verdict": verdict,
                "note": note, "window_set_id": window_set_id,
                "targets": targets}
-    audit_id = _audit(conn, queue_id, "batch", queue["writes_to"],
-                      target_ids, payload)
+    audit_id = _audit(conn, queue_id, "batch", queue["writes_to"], ids, payload)
     conn.commit()
-    return {"queue_id": queue_id, "verdict": verdict, "count": len(target_ids),
-            "target_ids": target_ids, "writes_to": queue["writes_to"],
+    return {"queue_id": queue_id, "verdict": verdict, "count": len(ids),
+            "target_ids": ids, "writes_to": queue["writes_to"],
             "audit_id": audit_id}
 
 
@@ -395,13 +563,41 @@ def undo_last(conn, queue_id=None):
         return None
     payload = json.loads(row["payload_json"] or "{}")
     writes_to = payload.get("writes_to") or row["target_table"]
+
+    # A promotion is two halves — a verdict and a Library entry — and only
+    # `promotion.unpromote` knows how to take both back. Undo used to fall
+    # through this branch doing nothing and stamp `undone_at` anyway, burning
+    # the one record that could have reversed it.
+    if row["action"] == "promote":
+        from Working.review import promotion as _promotion
+        undone = dict(_promotion.unpromote(conn, row["id"]) or {})
+        # Answer in `undo_last`'s own shape whatever `unpromote` returns, so a
+        # caller reversing a mixed history does not have to know which kind of
+        # act it just walked back.
+        undone.setdefault("audit_id", row["id"])
+        undone["action"] = "promote"
+        undone.setdefault("writes_to", row["target_table"])
+        undone.setdefault("queue_id", row["queue_id"])
+        undone.setdefault("target_ids",
+                          json.loads(row["target_ids"] or "[]"))
+        return undone
+
+    if writes_to not in ("adjudications", "annotations", "window_verdicts"):
+        raise ValueError(
+            f"review_audit row {row['id']} says it wrote {writes_to!r}, which "
+            f"is not a store this function can reverse. Refusing to stamp it "
+            f"undone: a row marked undone that was never reversed can never be "
+            f"reversed again.")
+
     for target in payload.get("targets", []):
-        tid = target["target_id"]
+        # `row_id` is where the verdict actually landed; older rows predate it
+        # and the two were the same then.
+        rid = target.get("row_id", target["target_id"])
         prior = target.get("prior")
         if writes_to == "adjudications":
-            _restore_adjudication(conn, tid, prior)
+            _restore_adjudication(conn, rid, prior)
         elif writes_to == "annotations":
-            _restore_annotation(conn, tid, prior)
+            _restore_annotation(conn, rid, prior)
         elif writes_to == "window_verdicts":
             ws_id = payload.get("window_set_id")
             if ws_id is None:
