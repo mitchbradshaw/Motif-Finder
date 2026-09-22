@@ -654,3 +654,52 @@ def test_create_queue_still_accepts_a_restatement_of_the_defaults():
                           unit="detection", writes_to="adjudications")
     row = qs.get_queue(conn, qid)
     assert (row["unit"], row["writes_to"]) == ("detection", "adjudications")
+
+
+# ── pace (fixup-a item 8) ───────────────────────────────────────────────────
+# `ReviewQueue.paceS` was hardcoded `null`, so "pace not yet measured" was
+# permanent. The ledger that can answer it is `review_audit`: its un-undone
+# rows for this queue, in order, with their `created_at`.
+
+def _audit(conn, queue_id, created_at, *, targets=1, action="verdict", undone=None):
+    conn.execute(
+        "INSERT INTO review_audit (queue_id, action, target_table, target_ids, payload_json, "
+        "undone_at, created_at) VALUES (?, ?, 'adjudications', ?, '{}', ?, ?)",
+        (queue_id, action, json.dumps(list(range(targets))), undone, created_at))
+    conn.commit()
+
+
+def test_pace_is_unmeasured_until_there_are_two_gestures_to_measure_between():
+    conn = _fresh_conn()
+    qid = qs.create_queue(conn, name="p", source_kind="discovery-run")
+    assert qs.queue_pace_s(conn, qid) is None
+    _audit(conn, qid, "2026-09-22T10:00:00+00:00")
+    assert qs.queue_pace_s(conn, qid) is None, "one gesture is not an interval"
+
+
+def test_pace_is_the_median_seconds_per_item_over_the_recent_gestures():
+    conn = _fresh_conn()
+    qid = qs.create_queue(conn, name="p", source_kind="discovery-run")
+    for i, sec in enumerate((0, 4, 8, 12, 40)):     # 4, 4, 4 then one 28 s pause
+        _audit(conn, qid, f"2026-09-22T10:00:{sec:02d}+00:00")
+    assert qs.queue_pace_s(conn, qid) == 4.0, "the median must survive one long pause"
+
+
+def test_a_batch_of_five_counts_as_five_items_not_one():
+    conn = _fresh_conn()
+    qid = qs.create_queue(conn, name="p", source_kind="discovery-run")
+    _audit(conn, qid, "2026-09-22T10:00:00+00:00")
+    _audit(conn, qid, "2026-09-22T10:00:10+00:00", targets=5)
+    assert qs.queue_pace_s(conn, qid) == 2.0
+
+
+def test_an_undone_gesture_and_another_queues_rows_are_outside_the_measurement():
+    conn = _fresh_conn()
+    qid = qs.create_queue(conn, name="p", source_kind="discovery-run")
+    other = qs.create_queue(conn, name="q", source_kind="discovery-run")
+    _audit(conn, qid, "2026-09-22T10:00:00+00:00")
+    _audit(conn, qid, "2026-09-22T10:00:03+00:00", undone="2026-09-22T10:05:00+00:00")
+    _audit(conn, other, "2026-09-22T10:00:04+00:00")
+    _audit(conn, qid, "2026-09-22T10:00:06+00:00")
+    _audit(conn, qid, "2026-09-22T10:00:09+00:00", action="undo")
+    assert qs.queue_pace_s(conn, qid) == 6.0
