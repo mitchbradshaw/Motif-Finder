@@ -27,11 +27,13 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import sqlite3
 
 from fastapi import APIRouter, HTTPException, Query, Request
 from pydantic import BaseModel
 
+from Working.review import extraction as extraction_mod
 from Working.review import promotion as promotion_mod
 from Working.review import queues as queues_mod
 from Working.review import verdicts as verdicts_mod
@@ -136,16 +138,40 @@ def _qid(value) -> int:
         raise HTTPException(status_code=404, detail=f"no review queue {value!r}")
 
 
-def _queue_payload(conn, q: dict) -> dict:
+def _queue_payload(conn, q: dict, *, exclude_recording_ids=None) -> dict:
     """The stored queue columns plus its counts. The client derives icon,
     order text and rank kind from `source_kind`; nothing is invented here."""
-    counts = q.get("counts") or queues_mod.queue_counts(conn, int(q["id"]))
+    counts = q.get("counts") or queues_mod.queue_counts(
+        conn, int(q["id"]),
+        exclude_recording_ids=(exclude_recording_ids
+                               if exclude_recording_ids is not None
+                               else _held_out_ids(conn)))
     out = dict(q)
     out["id"] = int(q["id"])
     out.update({"total": int(counts.get("total", 0)),
                 "judged": int(counts.get("judged", 0)),
                 "remaining": int(counts.get("remaining", 0))})
     return out
+
+
+_CH_IN_FILE = re.compile(r"_(CH\d+)(?:_|\.|$)", re.IGNORECASE)
+
+
+def _channel_label(rec: dict | None, item: dict) -> str:
+    """What to call this trace's channel.
+
+    A single-channel export names its electrode in the file
+    (`Mushroom_260720_0509_4hrs_CH14_fs1.mat`), and `recordings.name` for such a
+    file is the within-file index — "CH1", because there is only one. Showing
+    that contradicts the queue's own title and the file on disk, and a reviewer
+    comparing the two has no way to tell which is lying. The file wins where it
+    says so.
+    """
+    src = (rec or {}).get("source_file") or ""
+    m = _CH_IN_FILE.search(str(src))
+    if m:
+        return m.group(1).upper()
+    return (rec or {}).get("name") or str(item.get("channel") or "")
 
 
 def _entry_payload(conn, item: dict, queue: dict, index: dict, *, px: int = THUMB_PX) -> dict:
@@ -162,7 +188,7 @@ def _entry_payload(conn, item: dict, queue: dict, index: dict, *, px: int = THUM
     row["queueId"] = str(queue["id"])
     row["unit"] = queue.get("unit") or item.get("unit") or "detection"
     row["recording"] = (rec or {}).get("label") or str(item.get("recording") or "")
-    row["channel"] = (rec or {}).get("name") or str(item.get("channel") or "")
+    row["channel"] = _channel_label(rec, item)
     row["startH"] = round(start / fs / 3600.0, 6)
     row["durationS"] = round(max(0, end - start) / fs, 3)
     row["shape"] = item.get("shape") or ("window" if row["unit"] == "window" else "doublet")
@@ -178,7 +204,14 @@ def _entry_payload(conn, item: dict, queue: dict, index: dict, *, px: int = THUM
 
 
 def _item_or_404(conn, queue: dict, item_id: str) -> dict:
-    items = queues_mod.queue_items(conn, int(queue["id"]), include_judged=True)
+    """The item, INCLUDING ones the default listing filters out.
+
+    A rediscovery is excluded from the queue's rows on purpose, but a deep link
+    to it must still open — "there must be a way to see what was auto-excluded"
+    is the whole point of `include_prior_judged`.
+    """
+    items = queues_mod.queue_items(conn, int(queue["id"]), include_judged=True,
+                                   include_prior_judged=True)
     for it in items:
         if str(it.get("target_id", it.get("id"))) == str(item_id):
             return it
@@ -193,7 +226,8 @@ def _detail(conn, queue: dict, item: dict, index: dict) -> dict:
     entry = _entry_payload(conn, item, queue, index)
     if rec and rec["held_out"]:
         return {"entry": entry, "queue": qp, "context": {"values": [], "t0_s": 0.0},
-                "shape": [], "nearest": [], "medoids": {}, "artifact": None,
+                "shape": [], "nearest": [], "nearestComputed": False,
+                "medoids": {}, "artifact": _artifact(item),
                 "evidence": None, "thumb": [], "refused": refusal(rec["label"])}
 
     start = int(item.get("start_idx") or 0)
@@ -208,11 +242,33 @@ def _detail(conn, queue: dict, item: dict, index: dict) -> dict:
         "context": {"values": _trace(conn, rec, c0, c1, CONTEXT_PX), "t0_s": round(c0 / fs, 3)},
         "shape": _trace(conn, rec, start, end, SHAPE_PX),
         "nearest": list(item.get("nearest") or []),
+        "nearestComputed": bool(item.get("nearest_computed")),
         "medoids": dict(item.get("medoids") or {}),
-        "artifact": item.get("artifact"),
+        "artifact": _artifact(item),
         "evidence": _evidence(item, qp),
         "thumb": entry["thumb"],
     }
+
+
+#: Artifact likelihood is a real analysis (cross-channel coherence, clipping,
+#: step change, electrode flag) and NOTHING computes it yet. It is served as a
+#: typed absence rather than `null` or a plausible number: `null` is what
+#: `d.artifact.level` crashed the whole workspace on, and a made-up likelihood
+#: beside a real waveform is a finding that is not there. `computed: false` is
+#: the honest answer, and the words are what a reviewer reads in the pill.
+_NOT_COMPUTED = "not computed"
+
+
+def _artifact(item: dict) -> dict:
+    got = item.get("artifact")
+    if isinstance(got, dict) and got.get("computed"):
+        return got
+    return {"computed": False, "level": None, "p": None, "coherence": None,
+            "clipping": _NOT_COMPUTED, "stepChange": _NOT_COMPUTED,
+            "electrodeFlag": _NOT_COMPUTED,
+            "reason": "artifact factors are not computed for this queue yet; "
+                      "no likelihood is being withheld and none is being "
+                      "guessed at"}
 
 
 def _evidence(item: dict, queue: dict) -> dict:
@@ -236,6 +292,43 @@ def _evidence(item: dict, queue: dict) -> dict:
     }
 
 
+def _held_out_ids(conn) -> set:
+    """Recording ids the final evaluation has locked (D6).
+
+    Computed here and passed DOWN into the core, so the core never has to know
+    what a held-out file is while the counts still agree with the rows.
+    """
+    return {int(r["id"]) for r in conn.execute(
+        "SELECT id, source_file FROM recordings").fetchall()
+        if _is_held_out(r["source_file"])}
+
+
+def _refuse_held_out(conn, queue, target_ids):
+    """A held-out item is refused on the WRITE path too.
+
+    The read routes have always refused it; without this, a verdict on one was
+    accepted and written, which is the one direction that actually damages the
+    evaluation.
+    """
+    if queue.get("unit") == "window":
+        return
+    held = _held_out_ids(conn)
+    if not held:
+        return
+    index = _index(conn)
+    for tid in target_ids:
+        # `detections` has no `recording_id`: a detection belongs to a run and
+        # the run names the recording.
+        row = conn.execute(
+            "SELECT r.recording_id AS recording_id FROM detections d "
+            "JOIN runs r ON r.id = d.run_id WHERE d.id = ?", (int(tid),)
+        ).fetchone() if queue.get("unit") == "detection" else None
+        rid = row["recording_id"] if row else None
+        if rid is not None and int(rid) in held:
+            label = (index.get(int(rid)) or {}).get("label") or str(rid)
+            raise HTTPException(status_code=409, detail=refusal(label))
+
+
 def _core_call(fn, *args, **kw):
     """Every write goes through the core. A rule-5 refusal is a 409 carrying
     the core's own message — the bridge never re-words it and never decides
@@ -245,6 +338,10 @@ def _core_call(fn, *args, **kw):
     except PermissionError as exc:
         raise HTTPException(status_code=409, detail=str(exc))
     except (ValueError, KeyError) as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    except sqlite3.IntegrityError as exc:
+        # A CHECK constraint refusing a malformed row is the caller's mistake,
+        # not the server falling over: a 500 traceback would say otherwise.
         raise HTTPException(status_code=400, detail=str(exc))
 
 
@@ -303,7 +400,8 @@ def get_counts(request: Request):
     """The header's "N need you" — one read, straight off the core."""
     conn = _conn(request)
     try:
-        return queues_mod.header_counts(conn)
+        return queues_mod.header_counts(
+            conn, exclude_recording_ids=_held_out_ids(conn))
     finally:
         conn.close()
 
@@ -333,18 +431,20 @@ def post_queue(request: Request, body: QueueBody):
 
 
 @router.get("/queues/{qid}")
-def get_queue(request: Request, qid: str, include_judged: int = Query(default=1)):
+def get_queue(request: Request, qid: str, include_judged: int = Query(default=1),
+              include_prior_judged: int = Query(default=0)):
     conn = _conn(request)
     try:
         queue = _queue_or_404(conn, qid)
         index = _index(conn)
-        items = queues_mod.queue_items(conn, int(queue["id"]),
-                                       include_judged=bool(include_judged))
-        # A held-out recording never appears as a row: it is refused, not listed.
-        items = [it for it in items
-                 if not index.get(int(it.get("recording_id") or -1), {}).get("held_out")]
+        held = _held_out_ids(conn)
+        items = queues_mod.queue_items(
+            conn, int(queue["id"]), include_judged=bool(include_judged),
+            include_prior_judged=bool(include_prior_judged),
+            exclude_recording_ids=held)
         rows = [_entry_payload(conn, it, queue, index) for it in items]
-        return {"queue": _queue_payload(conn, queue), "rows": rows, "clusters": _clusters(items, queue)}
+        return {"queue": _queue_payload(conn, queue, exclude_recording_ids=held),
+                "rows": rows, "clusters": _clusters(items, queue)}
     finally:
         conn.close()
 
@@ -416,7 +516,8 @@ def get_cluster(request: Request, qid: str, no: int):
         clusters = _clusters(items, queue)
         cluster = next((c for c in clusters if int(c["no"]) == int(no)), None)
         if cluster is None:
-            raise HTTPException(status_code=404, detail=f"no cluster {no} in queue {queue['id']}")
+            raise HTTPException(status_code=404,
+                                detail=_no_clusters(queue, no))
         members = [it for it in items
                    if str(it.get("target_id", it.get("id"))) in cluster["members"]]
         return {"cluster": cluster, "queue": _queue_payload(conn, queue),
@@ -432,11 +533,14 @@ def post_verdict(request: Request, qid: str, body: VerdictBody):
     conn = _conn(request)
     try:
         queue = _queue_or_404(conn, qid)
+        _refuse_held_out(conn, queue, [body.target_id])
         result = _core_call(verdicts_mod.write_verdict, conn, int(queue["id"]),
                             body.target_id, body.verdict, note=body.note,
                             tags=body.tags, window_index=body.window_index)
         conn.commit()
-        return {"verdict": result, "counts": queues_mod.queue_counts(conn, int(queue["id"]))}
+        return {"verdict": result, "counts": queues_mod.queue_counts(
+                    conn, int(queue["id"]),
+                    exclude_recording_ids=_held_out_ids(conn))}
     finally:
         conn.close()
 
@@ -446,11 +550,14 @@ def post_batch(request: Request, qid: str, body: BatchBody):
     conn = _conn(request)
     try:
         queue = _queue_or_404(conn, qid)
+        _refuse_held_out(conn, queue, list(body.target_ids))
         result = _core_call(verdicts_mod.write_batch, conn, int(queue["id"]),
                             list(body.target_ids), body.verdict, note=body.note,
                             tags=body.tags)
         conn.commit()
-        return {"batch": result, "counts": queues_mod.queue_counts(conn, int(queue["id"]))}
+        return {"batch": result, "counts": queues_mod.queue_counts(
+                    conn, int(queue["id"]),
+                    exclude_recording_ids=_held_out_ids(conn))}
     finally:
         conn.close()
 
@@ -462,7 +569,9 @@ def post_undo(request: Request, qid: str):
         queue = _queue_or_404(conn, qid)
         result = _core_call(verdicts_mod.undo_last, conn, int(queue["id"]))
         conn.commit()
-        return {"undone": result, "counts": queues_mod.queue_counts(conn, int(queue["id"]))}
+        return {"undone": result, "counts": queues_mod.queue_counts(
+                    conn, int(queue["id"]),
+                    exclude_recording_ids=_held_out_ids(conn))}
     finally:
         conn.close()
 
@@ -472,10 +581,37 @@ def post_promote(request: Request, qid: str, body: PromoteBody):
     conn = _conn(request)
     try:
         queue = _queue_or_404(conn, qid)
+        _refuse_held_out(conn, queue, [body.target_id])
         result = _core_call(promotion_mod.promote, conn, int(queue["id"]), body.target_id,
                             verdict=body.verdict, note=body.note, tags=body.tags)
         conn.commit()
         return result
+    finally:
+        conn.close()
+
+
+class UnpromoteBody(BaseModel):
+    audit_id: int
+
+
+@router.post("/queues/{qid}/unpromote")
+def post_unpromote(request: Request, qid: str, body: UnpromoteBody):
+    """Take back a promotion: the Library rows AND the verdict that made them.
+
+    Without this route the client could mint a `motif_entry` with S and had no
+    way to reverse it — and `undo_last` reversed only half, leaving a Library
+    motif whose originating judgement no longer existed, which is the
+    fabricated entry P21 says only a human verdict may create.
+    """
+    conn = _conn(request)
+    try:
+        queue = _queue_or_404(conn, qid)
+        out = _core_call(promotion_mod.unpromote, conn, int(body.audit_id))
+        conn.commit()
+        return {"unpromoted": out,
+                "counts": queues_mod.queue_counts(
+                    conn, int(queue["id"]),
+                    exclude_recording_ids=_held_out_ids(conn))}
     finally:
         conn.close()
 
@@ -490,6 +626,19 @@ def post_cluster_reject(request: Request, qid: str, no: int):
     return _cluster_batch(request, qid, no, "not_interesting")
 
 
+def _no_clusters(queue: dict, no: int) -> str:
+    """Why a cluster route cannot answer.
+
+    "no cluster 3" reads as a bad number and sends the reader looking for the
+    right one. The truth is that no resolver for this queue's source kind emits
+    a cluster at all, so there is no number that would work — say that.
+    """
+    return (f"review queue {queue['id']} has no clusters: its source kind "
+            f"{queue.get('source_kind')!r} resolves items individually and "
+            f"nothing groups them, so there is no cluster {no} or any other. "
+            f"Cluster review needs a queue built from a Grouping.")
+
+
 def _cluster_batch(request: Request, qid: str, no: int, verdict: str):
     """Accepting or rejecting a cluster is a batch: ONE audit row covering the
     N members, so undo takes the whole gesture back the way it was made."""
@@ -499,32 +648,37 @@ def _cluster_batch(request: Request, qid: str, no: int, verdict: str):
         items = queues_mod.queue_items(conn, int(queue["id"]), include_judged=True)
         cluster = next((c for c in _clusters(items, queue) if int(c["no"]) == int(no)), None)
         if cluster is None:
-            raise HTTPException(status_code=404, detail=f"no cluster {no} in queue {queue['id']}")
+            raise HTTPException(status_code=404,
+                                detail=_no_clusters(queue, no))
         result = _core_call(verdicts_mod.write_batch, conn, int(queue["id"]),
                             cluster["members"], verdict, note=f"cluster {no}")
         conn.commit()
-        return {"batch": result, "counts": queues_mod.queue_counts(conn, int(queue["id"]))}
+        return {"batch": result, "counts": queues_mod.queue_counts(
+                    conn, int(queue["id"]),
+                    exclude_recording_ids=_held_out_ids(conn))}
     finally:
         conn.close()
 
 
 @router.post("/queues/{qid}/extract")
 def post_extract(request: Request, qid: str, body: ExtractBody):
-    """Extract events from a sequence: each event is a human span, written
-    through the core's promotion door (queue `writes_to` = annotations)."""
+    """Resolve a catalogued sequence into the singular events it claims.
+
+    Each event becomes a NEW annotation linked to the sequence's own span
+    through `parent_annotation_id`; `complete` clears `needs_extraction` so the
+    item can leave the queue; one gesture is one audit row. All of that is the
+    core's (`Working.review.extraction`) — this route only carries it.
+    """
     conn = _conn(request)
     try:
         queue = _queue_or_404(conn, qid)
-        written = []
-        for ev in body.events:
-            written.append(_core_call(
-                verdicts_mod.write_verdict, conn, int(queue["id"]),
-                body.sequence_id, "interesting",
-                note=json.dumps({"start_idx": ev.start_idx, "end_idx": ev.end_idx})))
-        if body.complete:
-            _core_call(verdicts_mod.write_verdict, conn, int(queue["id"]),
-                       body.sequence_id, "interesting", note="extraction complete")
-        conn.commit()
-        return {"written": written, "counts": queues_mod.queue_counts(conn, int(queue["id"]))}
+        out = _core_call(
+            extraction_mod.extract_events, conn, int(queue["id"]),
+            body.sequence_id,
+            [{"start_idx": e.start_idx, "end_idx": e.end_idx}
+             for e in body.events],
+            complete=bool(body.complete))
+        out["counts"] = queues_mod.queue_counts(conn, int(queue["id"]))
+        return out
     finally:
         conn.close()

@@ -134,9 +134,10 @@ def create_queue(conn, *, name, source_kind, source_ref=None, unit=None,
         # seam in `verdicts._queue_is_itself_the_crossing`, for a queue that
         # reached the table some other way.
         raise ValueError(
-            "rule 5 (CLAUDE.md): source_kind {!r} writes {!r}, not {!r}. A "
-            "queue may not declare a write target its source kind does not "
-            "have.".format(source_kind, d_writes, writes_to))
+            "rule 5 (CLAUDE.md): writes_to={!r} contradicts source_kind "
+            "{!r}, which writes {!r}. A queue may not declare a write target "
+            "its source kind does not have.".format(
+                writes_to, source_kind, d_writes))
     cur = conn.execute(
         """INSERT INTO review_queues
                (name, source_kind, source_ref, unit, writes_to, blind, cap,
@@ -194,7 +195,7 @@ def close_queue(conn, queue_id):
 # ── the resolver ────────────────────────────────────────────────────────────
 
 def queue_items(conn, queue_id, *, limit=-1, offset=0, include_judged=False,
-                include_prior_judged=False):
+                include_prior_judged=False, exclude_recording_ids=None):
     """Resolve the queue's source NOW and return its items.
 
     Unjudged items only unless `include_judged`, and — for a detection queue —
@@ -209,6 +210,14 @@ def queue_items(conn, queue_id, *, limit=-1, offset=0, include_judged=False,
     if q is None:
         raise ValueError("no such queue: {!r}".format(queue_id))
     items = _resolve(conn, q)
+    # The caller may know of recordings that must not be put to anyone — the
+    # bridge passes the held-out set (D6). The core is told WHICH recordings,
+    # never why: "held out" is an evaluation decision that lives above it.
+    if exclude_recording_ids:
+        drop = {int(r) for r in exclude_recording_ids}
+        items = [it for it in items
+                 if it.get("recording_id") is None
+                 or int(it["recording_id"]) not in drop]
     if not include_prior_judged:
         items = [it for it in items if it.get("prior_verdict") is None]
     items = _apply_cap(q, items)
@@ -221,7 +230,7 @@ def queue_items(conn, queue_id, *, limit=-1, offset=0, include_judged=False,
     return items
 
 
-def queue_counts(conn, queue_id):
+def queue_counts(conn, queue_id, *, exclude_recording_ids=None):
     """{'total', 'judged', 'remaining'} over the capped, resolved source.
 
     An item with a prior verdict is outside all three numbers, because it is
@@ -234,21 +243,31 @@ def queue_counts(conn, queue_id):
     q = get_queue(conn, queue_id)
     if q is None:
         raise ValueError("no such queue: {!r}".format(queue_id))
-    items = _apply_cap(
-        q, [it for it in _resolve(conn, q) if it.get("prior_verdict") is None])
+    items = [it for it in _resolve(conn, q) if it.get("prior_verdict") is None]
+    # Counted only if it could be served. A row nobody can be shown is not part
+    # of the question the queue is putting, so counting it inflates `total` and
+    # "N need you" and breaks total == judged + remaining for every reader.
+    if exclude_recording_ids:
+        drop = {int(r) for r in exclude_recording_ids}
+        items = [it for it in items
+                 if it.get("recording_id") is None
+                 or int(it["recording_id"]) not in drop]
+    items = _apply_cap(q, items)
     judged = sum(1 for it in items if it["judged"])
     return {"total": len(items), "judged": judged,
             "remaining": len(items) - judged}
 
 
-def header_counts(conn):
+def header_counts(conn, *, exclude_recording_ids=None):
     """What the header badge shows: unjudged items across every open queue."""
     by_queue = []
     need_you = 0
     for row in conn.execute(
             "SELECT id, name FROM review_queues WHERE closed_at IS NULL "
             "ORDER BY id").fetchall():
-        remaining = queue_counts(conn, row["id"])["remaining"]
+        remaining = queue_counts(
+            conn, row["id"],
+            exclude_recording_ids=exclude_recording_ids)["remaining"]
         need_you += remaining
         by_queue.append({"id": row["id"], "name": row["name"],
                          "remaining": remaining})

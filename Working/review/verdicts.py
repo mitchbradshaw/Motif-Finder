@@ -253,23 +253,41 @@ def _check_membership(conn, queue, target_ids):
                 f"attributed to it would be a false provenance trail.")
 
 
-#: A bare list of tags means the one multi-select category the vocabulary
-#: keeps for shape words. The bridge's `VerdictBody.tags` is `list[str]` and
-#: both writers used to call `.items()` on it, so any tagged verdict 500'd
-#: three frames down.
+#: A bare list of tags carries no category, but the vocabulary is categorised
+#: ("sharkfin" is an `element`, "clean" is a `quality`), so the category is
+#: LOOKED UP per term rather than assumed. Dumping every bare tag into one
+#: category silently loses the ones that belong elsewhere and rejects them as
+#: unknown, which is what "Unknown vocabulary term: element='clean'" was.
 _DEFAULT_TAG_CATEGORY = "element"
 
 
-def _normalise_tags(tags):
-    """Accept either `{category: [values]}` or a plain `[values]`."""
+def _category_of(conn, value):
+    row = conn.execute(
+        "SELECT category FROM tag_vocabulary WHERE value = ? AND active = 1 "
+        "ORDER BY category LIMIT 1", (value,)).fetchone()
+    return row["category"] if row is not None else None
+
+
+def _normalise_tags(conn, tags):
+    """Accept `{category: [values]}` or a plain `[values]`, and return the
+    former. A bare value is resolved to the category that defines it; one that
+    no category defines is refused by name."""
     if tags is None:
         return None
     if isinstance(tags, dict):
-        return {k: list(v) if not isinstance(v, str) else [v]
+        return {k: [v] if isinstance(v, str) else list(v)
                 for k, v in tags.items()}
     if isinstance(tags, str):
         tags = [tags]
-    return {_DEFAULT_TAG_CATEGORY: list(tags)}
+    out = {}
+    for value in tags:
+        category = _category_of(conn, value)
+        if category is None:
+            raise ValueError(
+                f"Unknown vocabulary term: {value!r} is not in any tag "
+                f"category")
+        out.setdefault(category, []).append(value)
+    return out
 
 
 def _check_tags(conn, tags):
@@ -476,7 +494,7 @@ def write_verdict(conn, queue_id, target_id, verdict, *, note=None, tags=None,
     _check_verdict(verdict)
     target_id, row_id = _resolve_target(conn, queue, target_id)
     _check_membership(conn, queue, [target_id])
-    tags = _normalise_tags(tags)
+    tags = _normalise_tags(conn, tags)
     _check_tags(conn, tags)
     prior, coords = _apply(conn, queue, target_id, row_id, verdict, note, tags,
                            window_index)
@@ -518,7 +536,7 @@ def write_batch(conn, queue_id, target_ids, verdict, *, note=None, tags=None):
         seen.add(t)
         resolved.append((t, row_id))
     _check_membership(conn, queue, [t for t, _ in resolved])
-    tags = _normalise_tags(tags)
+    tags = _normalise_tags(conn, tags)
     _check_tags(conn, tags)
     if not resolved:
         return {"queue_id": queue_id, "verdict": verdict, "count": 0,
@@ -581,6 +599,19 @@ def undo_last(conn, queue_id=None):
         undone.setdefault("target_ids",
                           json.loads(row["target_ids"] or "[]"))
         return undone
+
+    # An extraction is not a verdict: it created child spans and may have
+    # cleared `needs_extraction`. Only `extraction` knows how to take that back.
+    if row["action"] == "extract":
+        from Working.review import extraction as _extraction
+        undone = _extraction.undo_extraction(conn, row)
+        conn.execute("UPDATE review_audit SET undone_at = ? WHERE id = ?",
+                     (_now(), row["id"]))
+        conn.commit()
+        return {"audit_id": row["id"], "action": "extract",
+                "writes_to": "annotations", "queue_id": row["queue_id"],
+                "target_ids": json.loads(row["target_ids"] or "[]"),
+                **undone}
 
     if writes_to not in ("adjudications", "annotations", "window_verdicts"):
         raise ValueError(
