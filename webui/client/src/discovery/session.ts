@@ -20,7 +20,16 @@ export interface ScopeState {
 }
 
 export interface Discovery {
-  loading: boolean; error: Error | null; reload: () => void; demo: boolean
+  /** true while any read is in flight, whether or not there is already data on screen. */
+  loading: boolean
+  /** No data yet: show the big loading card. */
+  firstLoad: boolean
+  /** Data in hand and a read in flight: show a quiet in-place indicator that does not
+   *  change the layout height. The 2 s poll below made the difference matter -- a 600 px
+   *  card inserted above live content shoved the page down and back every two seconds
+   *  for the whole life of a run (fixup-a item 4). */
+  refreshing: boolean
+  error: Error | null; reload: () => void; demo: boolean
   scope: ScopeState | null; recordings: RecordingOption[]; recording: RecordingOption | null
   setScope: (patch: Partial<ScopeState>) => void
   runs: DiscoveryRun[]; patchRun: (key: string, patch: Partial<DiscoveryRun>) => void
@@ -134,8 +143,11 @@ export function useDiscovery(): Discovery {
     [doneKeys.join(','), scope?.channels.join(','), scope?.section.join(',')])
   const foundOf = useMemo(() => (key: string) => scoreRead.data?.find(s => s.run === key)?.total.found ?? null, [scoreRead.data])
 
+  const loading = sess.loading || base.loading
+  const firstLoad = loading && (sess.data === null || base.data === null)
   return {
-    loading: sess.loading || base.loading, error: sess.error ?? base.error ?? scoreRead.error, reload: () => { sess.reload(); base.reload(); scoreRead.reload() },
+    loading, firstLoad, refreshing: loading && !firstLoad,
+    error: sess.error ?? base.error ?? scoreRead.error, reload: () => { sess.reload(); base.reload(); scoreRead.reload() },
     demo: sess.source === 'demo' || base.source === 'demo',
     scope, recordings, recording, setScope,
     runs, patchRun, picks, setPicks, togglePick, stale, setStale,

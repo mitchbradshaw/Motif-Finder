@@ -12,7 +12,7 @@ import { applyDiscoveryTemplates, discardDiscoveryRun, sendDiscoveryRunToReview 
 import {
   getDetectionWindow, getDetections, getFires, fmtMin, type Detection, type DiscoveryRun, type FiresData, type Recall, type ScoreRow, type ScoreRun,
 } from '../api/discovery'
-import { CostChip, DiscoveryToolbar, HistoryButton, LoadFailed, Loading, NullChip, RunsCard, ScopeCard, SlurmModal } from './chrome'
+import { CostChip, DiscoveryToolbar, HistoryButton, LoadFailed, Loading, NullChip, Refreshing, RunsCard, ScopeCard, SlurmModal } from './chrome'
 import { AddTemplateModal } from './AddTemplateModal'
 import { hasResults, useDiscovery, type Discovery } from './session'
 
@@ -57,7 +57,8 @@ export function RunsPage() {
       <div className="k-page dsc-page" data-testid="discovery-runs-page">
         <div className="k-page-inner" style={{ maxWidth: 1376, gap: 12 }}>
           {dx.error && <LoadFailed what="the Discovery session" error={dx.error} onRetry={dx.reload} />}
-          {dx.loading && !dx.error && <Loading height={600} label="loading the session" />}
+          {dx.firstLoad && !dx.error && <Loading height={600} label="loading the session" />}
+          {!dx.firstLoad && !dx.error && <Refreshing on={dx.refreshing} label="re-reading the runs" />}
           {dx.scope && (
             <>
               <DiscoveryToolbar dx={dx} right={<><NullChip dx={dx} /><CostChip dx={dx} /><HistoryButton dx={dx} />{primary}</>} />

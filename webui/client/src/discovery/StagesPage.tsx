@@ -11,7 +11,7 @@ import {
   ROLES, getCompare, getStagesWindow,
   type CompareData, type Disagreement, type Role, type StageCell, type StageThumb, type StagesWindow,
 } from '../api/discovery'
-import { DiscoveryToolbar, LoadFailed, Loading, NullChip } from './chrome'
+import { DiscoveryToolbar, LoadFailed, Loading, NullChip, Refreshing } from './chrome'
 import { RunGlyph } from './glyphs'
 import { A_COLOUR, B_COLOUR, THRESH_COLOUR, type OnlyFilter } from './ComparePage'
 import { useDiscovery } from './session'
@@ -75,7 +75,8 @@ export function StagesPage() {
       <div className="k-page dsc-page" data-testid="discovery-stages-page">
         <div className="k-page-inner" style={{ maxWidth: 1376, gap: 12 }}>
           {dx.error && <LoadFailed what="the Discovery session" error={dx.error} onRetry={dx.reload} />}
-          {dx.loading && !dx.error && <Loading height={600} label="loading the window" />}
+          {dx.firstLoad && !dx.error && <Loading height={600} label="loading the window" />}
+          {!dx.firstLoad && !dx.error && <Refreshing on={dx.refreshing} label="re-reading the runs" />}
           {dx.scope && (
             <>
               <DiscoveryToolbar dx={dx}

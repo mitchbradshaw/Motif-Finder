@@ -15,7 +15,7 @@ import { useSize } from '../charts/useSize'
 import {
   getSeedProfile, getSeedResults, getSeedSetup, getTemplates, heldOutReason, isHeldOut, type SeedDraft, type SeedInfo, type SeedMatch, type SeedParams, type SeedResults, type SeedSource,
 } from '../api/discovery'
-import { CostChip, DiscoveryToolbar, HistoryButton, LoadFailed, Loading, NullChip, RunsCard, ScopeCard } from './chrome'
+import { CostChip, DiscoveryToolbar, HistoryButton, LoadFailed, Loading, NullChip, Refreshing, RunsCard, ScopeCard } from './chrome'
 import { RunGlyph } from './glyphs'
 import { useDiscovery, type Discovery } from './session'
 
@@ -113,7 +113,9 @@ export function SeedPage() {
       <div className="k-page dsc-page" data-testid="discovery-seed-page">
         <div className="k-page-inner" style={{ maxWidth: 1376, gap: 12 }}>
           {(dx.error || setup.error) && <LoadFailed what="the seed search" error={(dx.error ?? setup.error)!} onRetry={() => { dx.reload(); setup.reload() }} />}
-          {(dx.loading || setup.loading) && !dx.error && <Loading height={600} label="loading the seed search" />}
+          {(dx.firstLoad || (setup.loading && !setup.data)) && !dx.error && <Loading height={600} label="loading the seed search" />}
+          {!(dx.firstLoad || (setup.loading && !setup.data)) && !dx.error
+            && <Refreshing on={dx.refreshing || setup.loading} label="re-reading the search" />}
           {dx.scope && draft && (
             <>
               <DiscoveryToolbar dx={dx} right={<><NullChip dx={dx} /><CostChip dx={dx} label={<><b>≈ {Math.max(1, channels.length)} s</b> <span className="muted">local · {channels.length} channels</span></>} /><HistoryButton dx={dx} /></>} />

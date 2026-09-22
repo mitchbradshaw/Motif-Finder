@@ -18,6 +18,17 @@ import { PAGE_SIZE, hasResults, pickable, type Discovery } from './session'
 export function Loading({ height = 200, label = 'loading', testid }: { height?: number; label?: string; testid?: string }) {
   return <div className="dsc-loading k-card" style={{ height }} data-testid={testid ?? 'discovery-loading'}><ProgressBar indeterminate size="sm" width={160} labelPosition="none" /><span>{label}</span></div>
 }
+/** The reload indicator. Always in the layout, whatever it is doing: only its
+ *  opacity changes, so a reload can never move the content under it. `Loading`
+ *  is for a first load -- there is nothing to shove down then. */
+export function Refreshing({ on, label = 'refreshing' }: { on: boolean; label?: string }) {
+  return (
+    <div className="dsc-refreshing" data-testid="discovery-refreshing" data-on={on ? '1' : '0'} aria-hidden={!on}
+         style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 11, color: 'var(--muted)', opacity: on ? 1 : 0, transition: 'opacity 140ms' }}>
+      <ProgressBar indeterminate size="sm" width={90} labelPosition="none" /><span>{label}</span>
+    </div>
+  )
+}
 export function LoadFailed({ what, error, onRetry }: { what: string; error: Error; onRetry: () => void }) {
   return <Callout tone="red" icon="alert-triangle" title={`Could not load ${what}`} action={<Button size="sm" icon="refresh" onClick={onRetry}>Retry</Button>} testid="discovery-load-failed">{error.message}</Callout>
 }

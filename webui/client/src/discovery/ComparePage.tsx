@@ -13,7 +13,7 @@ import {
   ROLES, getChannelSignal, getCompare, getDisagreementWindow,
   type CompareData, type CompareSide, type Disagreement, type Role, type RoleCell,
 } from '../api/discovery'
-import { DiscoveryToolbar, LoadFailed, Loading, NullChip, RunsCard, ScopeCard } from './chrome'
+import { DiscoveryToolbar, LoadFailed, Loading, NullChip, Refreshing, RunsCard, ScopeCard } from './chrome'
 import { RunGlyph } from './glyphs'
 import { ViewPopover, parseView } from './SeedPage'
 import { useDiscovery, type Discovery } from './session'
@@ -88,7 +88,8 @@ export function ComparePage() {
       <div className="k-page dsc-page" data-testid="discovery-compare-page">
         <div className="k-page-inner" style={{ maxWidth: 1376, gap: 12 }}>
           {dx.error && <LoadFailed what="the Discovery session" error={dx.error} onRetry={dx.reload} />}
-          {dx.loading && !dx.error && <Loading height={600} label="loading the comparison" />}
+          {dx.firstLoad && !dx.error && <Loading height={600} label="loading the comparison" />}
+          {!dx.firstLoad && !dx.error && <Refreshing on={dx.refreshing} label="re-reading the runs" />}
           {dx.scope && (
             <>
               <DiscoveryToolbar dx={dx}
