@@ -15,6 +15,7 @@ import numpy as np
 
 from Working.database import queries as q
 from Working.database import runs as r
+from Working.database.runs import list_runs, load_recipe
 from Working.database.schema import VERDICTS
 
 from .decimate import envelope
@@ -121,13 +122,31 @@ def _overlap_flags(a_start, a_end, b_start, b_end):
     return flags
 
 
+def run_methods(conn, source_file: str) -> list[dict]:
+    """Every run on a recording file (with or without detections), with its method (the algorithms of its recipe)."""
+    out = []
+    recs = {row["id"]: dict(row) for row in q.list_recordings(conn, source_file)}
+    for row in list_runs(conn):
+        if row["recording_id"] not in recs:
+            continue
+        n = conn.execute("SELECT COUNT(*) FROM detections WHERE run_id = ?", (row["id"],)).fetchone()[0]
+        try:
+            recipe = load_recipe(conn, row["config_id"])
+            algos = [s["algorithm"] for s in recipe["steps"]]
+        except Exception:
+            algos = []
+        out.append({"id": row["id"], "recording_id": row["recording_id"], "channel": recs[row["recording_id"]]["channel"],
+                    "status": row["status"], "started_at": row["started_at"], "name": row["name"] if "name" in row.keys() else None,
+                    "algorithms": algos, "method": algos[-1] if algos else "?", "n_detections": int(n)})
+    return out
+
+
 def _runs_matching(conn, source_file: str, run_ids, method) -> list | None:
     """Run ids to keep for the detection layers, or None for 'every run'.
     `run_ids` is an explicit list; `method` a substring of any algorithm in the
     run's recipe (stage-3 prompt 01: Explore's run/method filters)."""
     if not run_ids and not method:
         return None
-    from .explore_routes import run_methods
     keep = []
     for r in run_methods(conn, source_file):
         if run_ids and r["id"] not in run_ids:
@@ -140,10 +159,16 @@ def _runs_matching(conn, source_file: str, run_ids, method) -> list | None:
 
 def coverage(conn, source_file: str, bins: int = 57, verdicts: tuple | None = None,
              run_ids: list | None = None, method: str | None = None) -> dict:
-    """channels × bins counts of annotation spans, detection spans, both and
-    'disagree' (annotations with no overlapping detection + detections with
+    """channels × bins counts of annotation spans, detection spans, their SUM
+    and 'disagree' (annotations with no overlapping detection + detections with
     no overlapping annotation), plus per-channel summaries. `run_ids` /
-    `method` restrict the detection layers to those runs."""
+    `method` restrict the detection layers to those runs.
+
+    The `both` key is a sum, `annotations + detections`, NOT the bins where
+    both are present — the map colours by total activity and that is what the
+    number is for. It was named and documented as an intersection until
+    fixup-a item 16; the name is kept (it is the payload contract the client
+    reads) and every label that shows it now says what it is."""
     t0 = time.perf_counter()
     recs = [dict(x) for x in q.list_recordings(conn, source_file)]
     if not recs:
@@ -184,6 +209,8 @@ def coverage(conn, source_file: str, bins: int = 57, verdicts: tuple | None = No
             reviewed_pct = None
         rows.append({
             "id": rid, "channel": rec["channel"], "name": channel_name(source_file, rec["channel"], len(recs)),
+            # `both` is annotations + detections per bin - a SUM, not an
+            # intersection. See this function's docstring (fixup-a item 16).
             "annotations": ah.tolist(), "detections": dh.tolist(), "both": (ah + dh).tolist(), "disagree": xh.tolist(),
             "counts": {"annotations": int(len(a_s)), "detections": int(len(d_s)), "disagree": int((~a_flag).sum() + (~d_flag).sum()),
                        "reviewed_pct": reviewed_pct},

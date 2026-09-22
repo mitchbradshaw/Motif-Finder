@@ -9,6 +9,12 @@ export const MIN_SPAN_S = 60
 /** Matrices a coverage row carries (CoverageRow keys the heatmap can colour by). */
 export type ColourBy = 'annotations' | 'detections' | 'both' | 'disagree'
 export const COLOUR_BY: ColourBy[] = ['annotations', 'detections', 'both', 'disagree']
+/** What each matrix is CALLED on the page. `both` is `annotations + detections` per bin — a sum, not
+ *  the bins where both are present, which is what the word "both" says and what a reader took it for
+ *  (fixup-a item 16). The key stays: it is the payload's, and the colour genuinely means the sum. */
+export const COLOUR_BY_LABEL: Record<ColourBy, string> = {
+  annotations: 'annotations', detections: 'detections', both: 'annotations + detections', disagree: 'disagree',
+}
 export const MATRIX_UNIT: Record<ColourBy, string> = { annotations: 'annotations', detections: 'detections', both: 'spans', disagree: 'disagreements' }
 
 export const VERDICTS = ['seed', 'interesting', 'not_interesting', 'artifact', 'unsure']

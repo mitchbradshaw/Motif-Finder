@@ -156,3 +156,56 @@ def test_cache_status_reports_a_row_whose_directory_is_missing_as_not_cached(tmp
         assert chain.cache_status(recipe, conn)[0]["cached"] is True
     finally:
         conn.close()
+
+
+# ── `both` is a sum, and is named as one (fixup-a item 16) ──────────────────
+
+def _corpus_db(tmp_path):
+    """Two channels of one file, with annotations and detections that overlap
+    on purpose, so a sum and an intersection give different numbers."""
+    from Working.database import queries as q
+    from Working.database import runs as R
+    db = str(tmp_path / "cov.sqlite")
+    conn = init_db(db)
+    ids = [q.insert_recording(conn, "F.mat", ch, 1.0, 1000, 0, _npy(tmp_path, np.zeros(1000), f"c{ch}.npy"))
+           for ch in (0, 1)]
+    cfg, _ = R.get_or_create_config(conn, {"recording_id": ids[0], "span": [0, 1000],
+                                           "steps": [{"stage": "detection", "algorithm": "threshold", "params": {}}]})
+    run = R.insert_run(conn, cfg, ids[0], 0, 1000)
+    for a, b in ((100, 200), (300, 400), (700, 800)):
+        q.insert_annotation(conn, ids[0], a, b, "interesting", "manual_ui")
+    for a, b, sc in ((150, 250, 0.9), (320, 380, 0.8)):
+        R.insert_detection(conn, run, a, b, score=sc)
+    return conn
+
+
+def test_both_is_the_sum_of_the_two_layers_not_their_intersection(tmp_path):
+    """The map colours by total activity and `both` is `annotations + detections`
+    per bin. The label was the lie, not the number - so this pins the number, in
+    case a later reading of the word "both" tries to make it an intersection."""
+    conn = _corpus_db(tmp_path)
+    try:
+        cov = corpus.coverage(conn, "F.mat", bins=10)
+    finally:
+        conn.close()
+    row = cov["rows"][0]
+    assert row["both"] == [a + d for a, d in zip(row["annotations"], row["detections"])]
+    assert sum(row["both"]) == sum(row["annotations"]) + sum(row["detections"])
+    assert sum(row["both"]) > 0, "the fixture must put something in both layers"
+    doc = corpus.coverage.__doc__.lower()
+    assert "sum" in doc and "not the bins where" in doc, "the docstring made the same claim the label did"
+
+
+def test_the_run_filter_reaches_the_detection_layers(tmp_path):
+    """fixup-a item 15: the Corpus page fetches `coverage?run=` now, so an
+    unmatched run id must empty the detection layers rather than being ignored."""
+    conn = _corpus_db(tmp_path)
+    try:
+        everything = corpus.coverage(conn, "F.mat", bins=10)
+        nothing = corpus.coverage(conn, "F.mat", bins=10, run_ids=[-1])
+    finally:
+        conn.close()
+    assert sum(everything["rows"][0]["detections"]) > 0
+    assert sum(nothing["rows"][0]["detections"]) == 0, "run=-1 matches no run: the layer is empty, not unfiltered"
+    assert nothing["run_filter"] == []
+    assert sum(nothing["rows"][0]["annotations"]) == sum(everything["rows"][0]["annotations"]),         "the run filter restricts DETECTIONS only"

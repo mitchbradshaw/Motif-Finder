@@ -18,6 +18,7 @@ from Working.database import queries as q
 from Working.database.runs import list_runs, load_recipe
 
 from . import corpus
+from .corpus import run_methods          # lives there so the fastapi-free coverage path can use it
 from .runtime import HELD_OUT_FILE
 from .writes import write_human
 
@@ -40,25 +41,6 @@ def _rec(request: Request, recording_id: int) -> dict:
     if rec["held_out"]:
         raise HTTPException(423, f"{HELD_OUT_FILE} is held out; the web UI refuses it")
     return rec
-
-
-def run_methods(conn, source_file: str) -> list[dict]:
-    """Every run on a recording file (with or without detections), with its method (the algorithms of its recipe)."""
-    out = []
-    recs = {r["id"]: dict(r) for r in q.list_recordings(conn, source_file)}
-    for row in list_runs(conn):
-        if row["recording_id"] not in recs:
-            continue
-        n = conn.execute("SELECT COUNT(*) FROM detections WHERE run_id = ?", (row["id"],)).fetchone()[0]
-        try:
-            recipe = load_recipe(conn, row["config_id"])
-            algos = [s["algorithm"] for s in recipe["steps"]]
-        except Exception:
-            algos = []
-        out.append({"id": row["id"], "recording_id": row["recording_id"], "channel": recs[row["recording_id"]]["channel"],
-                    "status": row["status"], "started_at": row["started_at"], "name": row["name"] if "name" in row.keys() else None,
-                    "algorithms": algos, "method": algos[-1] if algos else "?", "n_detections": int(n)})
-    return out
 
 
 @router.get("/api/corpus/{source_file}/runs")

@@ -1,12 +1,15 @@
 /* Explore › Corpus (frames explore-1-corpus, explore-1b-corpus-menus): recording toolbar, the channels ×
-   time coverage map, the filter rail and the selected-channel bottom bar. Live: /api/recordings and
-   /api/corpus/{file}/coverage (map, verdict filter, counts). Demo (api/explore.getCorpusDemo, marked
-   `demo`): tags, reviewed coverage, the run and method lists. The held-out recording renders a locked
-   card and is never fetched.
+   time coverage map, the filter rail and the selected-channel bottom bar.
+
+   All of it is live: /api/recordings, /api/corpus/{file}/coverage (map, verdict filter, run and method
+   filters, counts) and, through `getCorpusLive`, the tag vocabulary with per-channel counts, reviewed
+   coverage and the run / method lists. Nothing on this page is fixture-backed; it said otherwise in
+   four places until fixup-a items 13 and 15. The held-out recording renders a locked card and is never
+   fetched.
    Deep links: ?rec=<file> · ?ch=<id> · ?colour=<annotations|detections|both|disagree> · ?popover=recordings|legend
    · ?state=no-selection|nothing-shown|zero-match|loading|error */
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { ApiError, getCoverage, getRecordings, type Coverage, type RecordingFile } from '../api'
+import { ApiError, getCoverageFiltered, getRecordings, type Coverage, type RecordingFile } from '../api'
 import { useSourced } from '../api/seam'
 import { getCorpusLive } from '../api/explore'
 import { Button, Dropdown, EmptyState, Icon, IconButton, Popover, useQueryState } from '../kit'
@@ -20,7 +23,7 @@ import { LockedCard } from './LockedCard'
 import { RecordingMenu } from './RecordingMenu'
 import { RightRail, type DemoFilters, type ShowState } from './RightRail'
 import { TimeRange } from './TimeRange'
-import { AMBER_RAMP, asApiError, COLOUR_BY, fmtInt, MATRIX_UNIT, RAMP, VERDICTS, type ColourBy } from './util'
+import { AMBER_RAMP, asApiError, COLOUR_BY, COLOUR_BY_LABEL, fmtInt, MATRIX_UNIT, RAMP, VERDICTS, type ColourBy } from './util'
 
 const BIN_CHOICES = [57, 28, 114]
 type ForcedState = '' | 'no-selection' | 'nothing-shown' | 'zero-match' | 'loading' | 'error'
@@ -78,6 +81,31 @@ export function CorpusPage() {
 
   const verdictKey = verdicts.length === VERDICTS.length ? '' : verdicts.join(',')
   const noVerdicts = verdicts.length === 0
+  const rows = useMemo(() => (cov && cov.source_file === fileName ? cov.rows : []), [cov, fileName])
+  const names = useMemo(() => rows.map(r => r.name), [rows])
+  const chanRefs = useMemo(() => rows.map(r => ({ id: r.id, name: r.name })), [rows])
+  const demoRead = useSourced(() => getCorpusLive(fileName ?? '', chanRefs, bins), [fileName, names.join(','), bins])
+  const demo = demoRead.data
+
+  /* The run and method filters go to the route, which has served `run=` and
+   * `method=` all along; this page fetched the unfiltered map and printed a
+   * note admitting it (fixup-a item 15). Both rail pickers are multi-select
+   * while `method=` is one substring, so the pair is resolved to the run ids
+   * it names - against the same run list the rail shows - and sent as `run=`.
+   * Exact, and it needs nothing new on the server.
+   *
+   * An empty intersection is NOT "no filter": `run=-1` matches no run, so the
+   * detection layers come back empty, which is what was asked for. Sending
+   * nothing would quietly show every run instead. */
+  const runIdFilter = useMemo<number[] | undefined>(() => {
+    if (!filters.runs && !filters.methods) return undefined
+    const keep = (demo?.runs ?? []).filter(r => (!filters.runs || filters.runs.includes(r.id))
+      && (!filters.methods || filters.methods.includes(r.method)))
+    const ids = keep.map(r => Number(String(r.id).replace('#', ''))).filter(n => Number.isFinite(n))
+    return ids.length ? ids : [-1]
+  }, [filters.runs, filters.methods, demo])
+  const runKey = (runIdFilter ?? []).join(',')
+
   useEffect(() => {
     if (!fileName) return
     let alive = true
@@ -90,17 +118,15 @@ export function CorpusPage() {
     }
     setLoading(true); setCovErr(null)
     // zero-match (no verdict ticked) still fetches the rows so the grid can be drawn, then blanks every cell
-    getCoverage(fileName, bins, verdictKey && !noVerdicts ? verdictKey.split(',') : undefined)
+    getCoverageFiltered(fileName, bins, {
+      verdicts: verdictKey && !noVerdicts ? verdictKey.split(',') : undefined,
+      run: runIdFilter,
+    })
       .then(c => { if (!alive) return; setCov(c); setLoading(false) })
       .catch(e => { if (!alive) return; setCovErr(asApiError(e)); setLoading(false) })
     return () => { alive = false }
-  }, [fileName, heldOut, file, bins, verdictKey, noVerdicts])
-
-  const rows = useMemo(() => (cov && cov.source_file === fileName ? cov.rows : []), [cov, fileName])
-  const names = useMemo(() => rows.map(r => r.name), [rows])
-  const chanRefs = useMemo(() => rows.map(r => ({ id: r.id, name: r.name })), [rows])
-  const demoRead = useSourced(() => getCorpusLive(fileName ?? '', chanRefs, bins), [fileName, names.join(','), bins])
-  const demo = demoRead.data
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fileName, heldOut, file, bins, verdictKey, noVerdicts, runKey])
 
   const nothingShown = !show.annotations && !show.detections
   const matrix: ColourBy | null = nothingShown ? null : show.annotations && show.detections ? colourBy : show.annotations ? 'annotations' : 'detections'
@@ -115,7 +141,10 @@ export function CorpusPage() {
   const demoChannels = demo?.channels
   const matching = useMemo(() => {
     const total = rows.length || file?.n_channels || 0
-    const runNote = (filters.runs || filters.methods) ? 'runs / method filter: the bridge serves it (GET coverage?run=&method=); this map still counts every run' : undefined
+    // the note that admitted the map ignored the run / method filters is gone:
+    // the route is given them now (fixup-a item 15)
+    const runNote = runIdFilter && runIdFilter[0] === -1
+      ? 'no run matches both filters — the detection layers are empty by request' : undefined
     if (noVerdicts) return { spans: 0, channels: 0, total, demo: false, note: runNote }
     if (filters.tags.length && demoChannels) {
       let spans = 0, channels = 0
@@ -124,12 +153,12 @@ export function CorpusPage() {
         if (show.unreviewedOnly) s = Math.round(s * (1 - c.reviewedPct / 100))
         spans += s; if (s > 0) channels++
       }
-      return { spans, channels, total, demo: true, note: runNote }
+      return { spans, channels, total, demo: false, note: runNote }
     }
     let spans = 0, channels = 0
     if (matrix) for (const r of rows) { const vals = r[matrix]; if (!Array.isArray(vals)) continue; let s = 0; for (const c of vals) s += Number(c) || 0; spans += s; if (s > 0) channels++ }
     return { spans, channels, total, demo: false, note: runNote }
-  }, [rows, matrix, filters, demoChannels, show.unreviewedOnly, forced, noVerdicts, file])
+  }, [rows, matrix, filters, demoChannels, show.unreviewedOnly, forced, noVerdicts, file, runIdFilter])
   const zeroMatch = matching.spans === 0 && !nothingShown && (rows.length > 0 || noVerdicts)
   const overlay = useMemo(() => ({
     reviewed: demoChannels ? Object.fromEntries(demoChannels.map(c => [c.name, c.reviewed])) : undefined,
@@ -170,7 +199,8 @@ export function CorpusPage() {
           <span className="divider-v" />
           <span className="lbl">colour by</span>
           <div className="seg" data-testid="colour-by">
-            {COLOUR_BY.map(k => <button key={k} className={colourBy === k ? 'on' : ''} onClick={() => setExplore({ colourBy: k })} data-testid={`colour-by-${k}`}>{k}</button>)}
+            {COLOUR_BY.map(k => <button key={k} className={colourBy === k ? 'on' : ''} onClick={() => setExplore({ colourBy: k })} data-testid={`colour-by-${k}`}
+              title={k === 'both' ? 'annotations + detections per bin \u2014 a sum, not the bins where both are present' : undefined}>{COLOUR_BY_LABEL[k]}</button>)}
           </div>
           {loading && <span className="muted">loading…</span>}
         </div>
