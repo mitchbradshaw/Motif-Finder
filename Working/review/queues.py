@@ -20,7 +20,7 @@ detection with a human verdict. Detection queues write `adjudications`; span
 and sequence queues write `annotations`; window queues write `window_verdicts`
 because a window is neither a detection nor a span a person drew.
 
-Two exclusions are structural rather than cosmetic:
+Three exclusions are structural rather than cosmetic:
 
 * **Superseded runs.** `queue_candidates` has no such filter and its existing
   callers do not want one, so the exclusion lives here, in the resolver: a run
@@ -32,16 +32,38 @@ Two exclusions are structural rather than cosmetic:
   all — the key is absent from the payload, not merely unrendered — because a
   number that reaches the browser is one inspector away from the eye it was
   meant to be kept from.
+* **The rediscovery.** A detection that is the same event as a span the
+  researcher has already judged carries that verdict as `prior_verdict`, and
+  is not asked about again unless `include_prior_judged` says to (04-to-05 §3,
+  spec §4.7). The rule is `Working.discovery.matching` — reciprocal IoU **and**
+  onset agreement scaled to the candidate's own duration, thresholds from
+  Settings › Analysis defaults via `rule_from_settings` — and NOT
+  `Working.compare`'s `SIMILARITY_IOU_THRESHOLD`, which is overlap-only at
+  0.8 and would call a span starting half a duration late the same event. One
+  rule holds across Discovery and Review or the two workspaces disagree about
+  what "already judged" means.
+
+  **Detection queues only.** An `explore-spans` item *is* a human span, so
+  running the rule over it would pair every item with itself and empty the
+  queue; a window has no extent to match on.
 
 No UI library, no fastapi: `webui/server/review.py` calls into this, never the
 other way round.
 """
 
 import json
+import math
+from bisect import bisect_left, bisect_right
 from datetime import datetime, timezone
 
 from Working.database import queries as _queries
+from Working.discovery.matching import match_quality, rule_from_settings
+from Working.discovery.spans import absolute_bounds
 from Working.review.queue_state import ReviewQueue
+
+#: SQLite's default host-parameter ceiling is 999; stay well under it when
+#: expanding an id set into an `IN (...)` list.
+_ID_CHUNK = 400
 
 # The six source kinds and what §10.1 says each one implies when the caller
 # does not say otherwise: the unit a verdict lands on, the table it writes,
@@ -150,17 +172,24 @@ def close_queue(conn, queue_id):
 
 # ── the resolver ────────────────────────────────────────────────────────────
 
-def queue_items(conn, queue_id, *, limit=-1, offset=0, include_judged=False):
+def queue_items(conn, queue_id, *, limit=-1, offset=0, include_judged=False,
+                include_prior_judged=False):
     """Resolve the queue's source NOW and return its items.
 
-    Unjudged items only unless `include_judged`. Each item carries
-    `target_id`, `unit` and `judged`; a blind queue's items carry no `score`
-    key at all.
+    Unjudged items only unless `include_judged`, and — for a detection queue —
+    items the researcher has not already judged under another name unless
+    `include_prior_judged`. Each item carries `target_id`, `unit` and
+    `judged`; a detection item also carries `prior_verdict` (None when it is
+    not a rediscovery) with `prior_annotation_id`, `prior_iou` and
+    `prior_onset_gap` behind it. A blind queue's items carry no `score` key at
+    all.
     """
     q = get_queue(conn, queue_id)
     if q is None:
         raise ValueError("no such queue: {!r}".format(queue_id))
     items = _resolve(conn, q)
+    if not include_prior_judged:
+        items = [it for it in items if it.get("prior_verdict") is None]
     if not include_judged:
         items = [it for it in items if not it["judged"]]
     if offset:
@@ -171,11 +200,19 @@ def queue_items(conn, queue_id, *, limit=-1, offset=0, include_judged=False):
 
 
 def queue_counts(conn, queue_id):
-    """{'total', 'judged', 'remaining'} over the capped, resolved source."""
+    """{'total', 'judged', 'remaining'} over the capped, resolved source.
+
+    An item with a prior verdict is outside all three numbers, because it is
+    outside the question the queue is putting: `remaining` must equal
+    `len(queue_items(...))` and `total` `len(queue_items(...,
+    include_judged=True))`, or the progress readout lies about how much is
+    left. A caller that wants the rediscoveries back asks `queue_items` for
+    them.
+    """
     q = get_queue(conn, queue_id)
     if q is None:
         raise ValueError("no such queue: {!r}".format(queue_id))
-    items = _resolve(conn, q)
+    items = [it for it in _resolve(conn, q) if it.get("prior_verdict") is None]
     judged = sum(1 for it in items if it["judged"])
     return {"total": len(items), "judged": judged,
             "remaining": len(items) - judged}
@@ -233,10 +270,11 @@ def _resolve_detections(conn, q):
     judged_ids = {r["detection_id"] for r in conn.execute(
         "SELECT detection_id FROM adjudications").fetchall()}
     blind = bool(q["blind"])
+    live = [c for c in queue.candidates if c["run_id"] not in superseded]
+    priors = _prior_verdicts(conn, live)
     items = []
-    for cand in queue.candidates:
-        if cand["run_id"] in superseded:
-            continue
+    for cand in live:
+        prior = priors.get(cand["id"])
         item = {
             "target_id": cand["id"],
             "unit": q["unit"],
@@ -247,11 +285,129 @@ def _resolve_detections(conn, q):
             "start_idx": cand["start_idx"],
             "end_idx": cand["end_idx"],
             "judged": cand["id"] in judged_ids,
+            "prior_verdict": prior["verdict"] if prior else None,
+            "prior_annotation_id": prior["annotation_id"] if prior else None,
+            "prior_iou": prior["iou"] if prior else None,
+            "prior_onset_gap": prior["onset_gap"] if prior else None,
         }
         if not blind:
             item["score"] = cand["score"]
         items.append(item)
     return items
+
+
+def _chunks(ids):
+    ids = sorted(ids)
+    for i in range(0, len(ids), _ID_CHUNK):
+        yield ids[i:i + _ID_CHUNK]
+
+
+def _run_span_starts(conn, run_ids):
+    """`runs.span_start` per run, for `absolute_bounds`.
+
+    A detection row written before 2026-09-21 is span-relative; a human span
+    is always channel-absolute. Comparing the two unshifted does not raise —
+    it silently finds no rediscovery at all, which is the worst failure this
+    function has.
+    """
+    out = {}
+    for chunk in _chunks(run_ids):
+        marks = ",".join("?" * len(chunk))
+        for r in conn.execute(
+                "SELECT id, span_start FROM runs WHERE id IN ({})".format(marks),
+                chunk).fetchall():
+            out[r["id"]] = int(r["span_start"] or 0)
+    return out
+
+
+def _annotations_by_recording(conn, recording_ids):
+    """Human spans for just these recordings, each list ascending by start.
+
+    `recordings` is one row per source file **and channel**, so
+    `annotations.recording_id` already narrows to the channel — there is no
+    cross-channel comparison to guard against here. Indexed by
+    `idx_annotations_recording`.
+    """
+    out = {}
+    for chunk in _chunks(recording_ids):
+        marks = ",".join("?" * len(chunk))
+        for r in conn.execute(
+                "SELECT id, recording_id, start_idx, end_idx, verdict FROM annotations "
+                "WHERE recording_id IN ({}) ORDER BY recording_id, start_idx, id".format(marks),
+                chunk).fetchall():
+            out.setdefault(r["recording_id"], []).append(
+                (int(r["start_idx"]), int(r["end_idx"]), r["verdict"], r["id"]))
+    return out
+
+
+def _prior_verdicts(conn, candidates):
+    """`{detection_id: {verdict, annotation_id, iou, onset_gap}}` for the
+    candidates that are the same event as a span a person already judged.
+
+    Cost. The naive shape is every candidate against every annotation, and on
+    this database that is a full-table scan per queue read. Three things
+    narrow it instead:
+
+    1. only the recordings the candidates are actually on are read at all —
+       and a `recordings` row is one channel of one file, so that is the
+       channel filter too;
+    2. within a recording the spans are held ascending by start, and §4.6's
+       own onset half bounds the reference start to
+       ``candidate.start ± onset × candidate.duration`` — two bisections, not
+       a scan;
+    3. `rule_from_settings` is read once per queue read, not once per pair.
+
+    So a candidate is compared against the handful of human spans that begin
+    near it, and a recording with no annotations costs nothing.
+
+    Pairing is **per candidate**, not the one-to-one greedy of
+    `match_span_sets`: two detections of one already-judged event are both
+    rediscoveries of it and neither should be put to the researcher. (The
+    scoreboard keeps its one-to-one pairing, because there a duplicate *is* a
+    second false positive.) Ties go to the higher IoU, then the lower
+    annotation id, so the answer is a function of the data alone.
+    """
+    if not candidates:
+        return {}
+    span_starts = _run_span_starts(conn, {c["run_id"] for c in candidates})
+    by_recording = _annotations_by_recording(
+        conn, {c["recording_id"] for c in candidates})
+    if not by_recording:
+        return {}
+    rule = rule_from_settings(conn)
+    onset = rule["onset"]
+
+    out = {}
+    starts_cache = {}
+    for cand in candidates:
+        spans = by_recording.get(cand["recording_id"])
+        if not spans:
+            continue
+        starts = starts_cache.get(cand["recording_id"])
+        if starts is None:
+            starts = [s[0] for s in spans]
+            starts_cache[cand["recording_id"]] = starts
+
+        c_start, c_end = absolute_bounds(
+            cand["start_idx"], cand["end_idx"],
+            span_starts.get(cand["run_id"], 0))
+        tolerance = onset * max(0, c_end - c_start)
+        lo = bisect_left(starts, math.floor(c_start - tolerance))
+        hi = bisect_right(starts, math.floor(c_start + tolerance))
+
+        best = None
+        for a_start, a_end, verdict, ann_id in spans[lo:hi]:
+            quality = match_quality((c_start, c_end), (a_start, a_end), rule=rule)
+            if not quality["ok"]:
+                continue
+            key = (-quality["iou"], ann_id)
+            if best is None or key < best[0]:
+                best = (key, {"verdict": verdict, "annotation_id": ann_id,
+                              "iou": quality["iou"],
+                              "onset_gap": quality["onset_gap"]})
+        if best is not None:
+            out[cand["id"]] = best[1]
+    return out
 
 
 def _resolve_spans(conn, q):
