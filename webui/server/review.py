@@ -174,7 +174,21 @@ def _channel_label(rec: dict | None, item: dict) -> str:
     return (rec or {}).get("name") or str(item.get("channel") or "")
 
 
-def _entry_payload(conn, item: dict, queue: dict, index: dict, *, px: int = THUMB_PX) -> dict:
+def _ranks(conn, queue: dict, held: set | None = None) -> dict:
+    """1-based position of every item in the queue's own order.
+
+    The same list `total` counts: resolved, rediscoveries removed, capped,
+    judged included. It is a position IN THE QUEUE, not a ranking by score -
+    `queries.queue_candidates` orders by detection id for stable paging.
+    """
+    items = queues_mod.queue_items(conn, int(queue["id"]), include_judged=True,
+                                   include_prior_judged=False,
+                                   exclude_recording_ids=held)
+    return {str(it.get("target_id", it.get("id"))): i + 1 for i, it in enumerate(items)}
+
+
+def _entry_payload(conn, item: dict, queue: dict, index: dict, *, px: int = THUMB_PX,
+                   rank: int | None = None) -> dict:
     """One queue row in the client's `QueueEntry` shape, with its thumbnail."""
     rid = item.get("recording_id")
     rec = index.get(int(rid)) if rid is not None else None
@@ -200,6 +214,15 @@ def _entry_payload(conn, item: dict, queue: dict, index: dict, *, px: int = THUM
         row["baseVerdict"] = item["verdict"]
     row["thumb"] = [] if (rec or {}).get("held_out") else _trace(conn, rec, start, end, px)
     row["family"] = str(item.get("family") or "")
+    # The run that wrote this detection, and where the item sits in the queue.
+    # Without them the inspector subtitle read "run undefined - rank undefined"
+    # on every item: `review_queues.source_ref` is NULL whenever the queue's
+    # filters name the run instead, and nothing computed a rank at all
+    # (fixup-a item 7). Absent stays absent - the subtitle omits the clause.
+    if item.get("run_id") is not None:
+        row["runId"] = str(item["run_id"])
+    if rank is not None:
+        row["rank"] = int(rank)
     return row
 
 
@@ -218,12 +241,12 @@ def _item_or_404(conn, queue: dict, item_id: str) -> dict:
     raise HTTPException(status_code=404, detail=f"no item {item_id!r} in queue {queue['id']}")
 
 
-def _detail(conn, queue: dict, item: dict, index: dict) -> dict:
+def _detail(conn, queue: dict, item: dict, index: dict, *, rank: int | None = None) -> dict:
     """The `ItemDetail` shape, key for key."""
     rid = item.get("recording_id")
     rec = index.get(int(rid)) if rid is not None else None
     qp = _queue_payload(conn, queue)
-    entry = _entry_payload(conn, item, queue, index)
+    entry = _entry_payload(conn, item, queue, index, rank=rank)
     if rec and rec["held_out"]:
         return {"entry": entry, "queue": qp, "context": {"values": [], "t0_s": 0.0},
                 "shape": [], "nearest": [], "nearestComputed": False,
@@ -276,7 +299,10 @@ def _evidence(item: dict, queue: dict) -> dict:
     an absent one is None, never a plausible-looking default."""
     return {
         "origin": {
-            "runKind": queue.get("source_kind"), "runId": queue.get("source_ref"),
+            # `source_ref` is NULL on a queue whose filters name the run; the
+            # item knows which run wrote it either way (fixup-a item 7)
+            "runKind": queue.get("source_kind"),
+            "runId": queue.get("source_ref") if queue.get("source_ref") is not None else item.get("run_id"),
             "template": item.get("template"), "stages": list(item.get("stages") or []),
             "recipeHash": item.get("recipe_hash"), "ran": item.get("created_at") or "",
             "by": item.get("by") or "", "scope": item.get("scope") or "",
@@ -453,7 +479,9 @@ def get_queue(request: Request, qid: str, include_judged: int = Query(default=1)
             conn, int(queue["id"]), include_judged=bool(include_judged),
             include_prior_judged=bool(include_prior_judged),
             exclude_recording_ids=held)
-        rows = [_entry_payload(conn, it, queue, index) for it in items]
+        ranks = _ranks(conn, queue, held)
+        rows = [_entry_payload(conn, it, queue, index, rank=ranks.get(str(it.get("target_id", it.get("id")))))
+                for it in items]
         return {"queue": _queue_payload(conn, queue, exclude_recording_ids=held),
                 "rows": rows, "clusters": _clusters(items, queue)}
     finally:
@@ -483,7 +511,8 @@ def get_item(request: Request, qid: str, item_id: str):
     try:
         queue = _queue_or_404(conn, qid)
         item = _item_or_404(conn, queue, item_id)
-        return _detail(conn, queue, item, _index(conn))
+        ranks = _ranks(conn, queue, _held_out_ids(conn))
+        return _detail(conn, queue, item, _index(conn), rank=ranks.get(str(item_id)))
     finally:
         conn.close()
 

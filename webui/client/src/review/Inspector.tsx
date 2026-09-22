@@ -278,7 +278,15 @@ function metaLine(d: ItemDetail, narrow: boolean) {
   const base = [e.recording, e.channel, `${h(e.startH)} → ${h(endH)} h`, `${e.durationS.toFixed(1)} s`]
   if (e.unit === 'human span') return [...base, 'annotation, taken for Review'].join(' · ')
   if (q.source === 'seed-search') return [...base, `run ${q.runId} seed search, exemplar ${q.exemplar}`, `match d ${e.d?.toFixed(2)}`].join(' · ')
-  return [...base, `run ${q.runId}`, `rank ${e.rank} of ${fmtInt(q.total)}${narrow ? '' : ' by score'}`].join(' · ')
+  /* Neither clause is printed unless there is something to print. This read
+   * `run undefined · rank undefined of 30 by score` on every item (fixup-a
+   * item 7) — and the ordering claim is gone with it: the resolver orders by
+   * detection id, so a position in the queue is not a rank by score. */
+  const runId = e.runId ?? q.runId
+  return [...base,
+    runId ? `run ${runId}` : null,
+    e.rank ? `rank ${e.rank} of ${fmtInt(q.total)}` : null,
+  ].filter(Boolean).join(' · ')
 }
 
 function MaskedFamilies() {

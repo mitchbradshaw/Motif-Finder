@@ -47,6 +47,8 @@ export interface ArtifactFactors { level: 'low' | 'medium' | 'high'; p: number; 
 export interface QueueEntry {
   id: string; queueId: string; unit: Unit; recording: string; channel: string
   startH: number; durationS: number; score?: number; d?: number; rank?: number
+  /** The run that wrote this detection. Absent on a unit that has no run behind it. */
+  runId?: string
   baseVerdict?: Verdict; baseClass?: string; clusterNo?: number
   shape: 'doublet' | 'slow' | 'burst' | 'window'; seed: number
   detectionId?: string; block?: 'test' | 'train'; sampleIndex?: number; modelCall?: { className: string; p: number }
