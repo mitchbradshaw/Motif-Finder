@@ -83,7 +83,10 @@ function InspectorItem({ data, row }: { data: QueueData; row: QueueRow }) {
     const minted = v === 'seed' && !rec?.exemplarId
     if (v === 'seed') { next.exemplarId = rec?.exemplarId ?? mintExemplar(); next.family = d?.nearest?.[0] && d.nearest[0].d <= 0.3 ? d.nearest[0].id : null }
     const note = draft.note.trim() || undefined
-    const send = () => v === 'seed' ? postPromote(q, id, 'seed', { note }) : postVerdict(q, id, v, { note })
+    // the Annotate card's tags go to the database with the verdict, through
+    // whatever table the queue's `writes_to` names (fixup-a item 9)
+    const tags = draft.tags.length ? draft.tags : undefined
+    const send = () => v === 'seed' ? postPromote(q, id, 'seed', { note, tags }) : postVerdict(q, id, v, { note, tags })
     const w = await commitWrite(send, { queueId: q, items: [id], kind, verdict: v, className, label: `${id} · ${VERDICT_LABEL[v]}`, before: { [k]: before }, after: { [k]: next } })
     if (!w) { if (minted && next.exemplarId) releaseExemplar(next.exemplarId); refused(); return null }
     if (v === 'seed') {

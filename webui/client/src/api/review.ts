@@ -17,6 +17,7 @@
  * (`name`/`source_kind`/`unit`/`writes_to`/`blind`/`cap` plus total/judged/remaining), because the
  * fixture-era `ReviewQueue` carries presentation fields (icon, titles, order text) the database has no
  * column for. Those are DERIVED from source kind — never invented data. */
+import { useEffect, useState } from 'react'
 import { live, type Sourced } from './seam'
 import { ApiError } from '../api'
 import { CLASSES, MORPHOLOGY_TAGS, RECORDINGS, VERDICTS } from '../fixtures/canon'
@@ -275,9 +276,11 @@ export interface WriteAck { verdict?: unknown; batch?: unknown; undone?: unknown
 export interface PromoteAck { entry_id?: number; member_id?: number; created?: boolean; verdict?: unknown; audit_id?: number }
 export interface ExtractEvent { start_idx: number; end_idx: number }
 
-/** `note` and `tags` are the queue's optional annotation of the verdict. NOTE: no caller passes `tags`
- *  yet — the bridge's body takes `list[str]` while the core's writers take `{category: [values]}`, so a
- *  tag sent from here would 500. Named here rather than silently dropped. */
+/** `note` and `tags` are the queue's optional annotation of the verdict. A bare list is routed by the
+ *  core to the category that defines each term, and lands in whatever table the queue's `writes_to`
+ *  names — `adjudication_tags` for a detection, `annotation_tags` for a human span (rule 5). A term
+ *  outside `tag_vocabulary` is a 400 that refuses the WHOLE verdict, which is why the Annotate card
+ *  offers `useTagVocabulary()` and refuses an unknown term itself. */
 export interface VerdictOpts { note?: string; tags?: string[]; windowIndex?: number }
 
 const qp = (queueId: string) => `/queues/${encodeURIComponent(queueId)}`
@@ -311,3 +314,39 @@ export const postClusterVerdict = (queueId: string, no: number, decision: 'accep
 /** extract-events: the spans a reviewer marked inside a flagged sequence. */
 export const postExtract = (queueId: string, sequenceId: string, events: ExtractEvent[], complete = false): Promise<WriteAck> =>
   post<WriteAck>(`${qp(queueId)}/extract`, { sequence_id: sequenceId, events, complete })
+
+
+/* ---------------- the tag vocabulary (fixup-a item 9) ----------------
+ * The Annotate card's suggestions used to be three fixture words
+ * (`spike-train`, `regular`, `decaying`), none of which is in
+ * `tag_vocabulary` — so wiring the card's tags to the write path without
+ * this would have turned every tagged verdict into a 400. The 36 live terms
+ * come from the route Settings › Vocabulary already serves. */
+export interface TagTerm { category: string; value: string }
+
+let tagVocabCache: Promise<TagTerm[]> | null = null
+
+export function getTagVocabulary(): Promise<TagTerm[]> {
+  if (!tagVocabCache) {
+    tagVocabCache = fetch('/api/settings/vocabulary')
+      .then(r => (r.ok ? r.json() : Promise.reject(new Error(`${r.status} ${r.statusText}`))))
+      .then((d: { tags?: { category: string; value: string; active?: number | boolean }[] }) =>
+        (d.tags ?? []).filter(t => t.active !== 0 && t.active !== false).map(t => ({ category: t.category, value: t.value })))
+      .catch(e => { tagVocabCache = null; throw e })
+  }
+  return tagVocabCache
+}
+
+/** The vocabulary for the Annotate card. `null` while it is loading or if the read failed — the card
+ *  says so rather than offering terms the write path would refuse. */
+export function useTagVocabulary(): { terms: TagTerm[] | null; error: string | null } {
+  const [state, setState] = useState<{ terms: TagTerm[] | null; error: string | null }>({ terms: null, error: null })
+  useEffect(() => {
+    let alive = true
+    getTagVocabulary().then(
+      terms => { if (alive) setState({ terms, error: null }) },
+      e => { if (alive) { console.error('tag vocabulary unavailable', e); setState({ terms: null, error: e instanceof Error ? e.message : String(e) }) } })
+    return () => { alive = false }
+  }, [])
+  return state
+}

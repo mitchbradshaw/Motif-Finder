@@ -1,11 +1,11 @@
 /* Review page parts shared by the inspector (frames 1, 1b, 3–6) and the cluster page (frames 2, 7). */
-import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { navigate } from '../state'
 import {
   Button, Callout, Chip, DisabledReason, Icon, IconButton, InfoTip, Kbd, Legend, MiniTrace, Pager, Popover, Seg, TextField, Trace, cx, fmtInt, useQueryState, type IconName,
 } from '../kit'
 import { useSourced } from '../api/seam'
-import { CONTEXT_PAD_MAX, VOCABULARY, getOtherChannels, type ArtifactFactors, type ItemDetail, type NearestFamily, type Verdict } from '../api/review'
+import { CONTEXT_PAD_MAX, VOCABULARY, getOtherChannels, useTagVocabulary, type ArtifactFactors, type ItemDetail, type NearestFamily, type Verdict } from '../api/review'
 import { THUMB_Y } from './Shell'
 import { VERDICT_LABEL, type Draft, type VerdictRecord } from './store'
 
@@ -263,12 +263,28 @@ export function VerdictCard({ selected, flash, binary, onVerdict, onSkip, previo
 }
 
 /* ---------------- annotate ---------------- */
-const TAG_RE = /^[a-z0-9]+(-[a-z0-9]+)*$/
+// the vocabulary's own terms use `_` as well as `-` (`sharp_trough`, `type_specimen`)
+const TAG_RE = /^[a-z0-9]+([-_][a-z0-9]+)*$/
 export function AnnotateCard({ draft, setDraft, className, onClass }: { draft: Draft; setDraft: (d: Draft) => void; className?: string; onClass: (key: string) => void }) {
   const [adding, setAdding] = useState(false)
   const [tag, setTag] = useState('')
-  const suggestions = [...new Set([...VOCABULARY.tagSuggestions, ...draft.tags])]
-  const tagErr = !tag ? null : tag.length > 32 ? 'at most 32 characters' : !TAG_RE.test(tag) ? 'tags are lowercase words joined by -' : draft.tags.includes(tag) || suggestions.includes(tag) && draft.tags.includes(tag) ? 'already tagged' : null
+  /* The live `tag_vocabulary`, not the three fixture words this offered before
+   * (`spike-train`, `regular`, `decaying` - none of them a term the database
+   * defines). A tag outside the vocabulary is a 400 that refuses the whole
+   * verdict, so the card refuses it here, where it costs nothing (fixup-a
+   * item 9). */
+  const vocab = useTagVocabulary()
+  const known = useMemo(() => new Set((vocab.terms ?? []).map(t => t.value)), [vocab.terms])
+  const suggestions = useMemo(
+    () => [...new Set([...(vocab.terms ?? []).map(t => t.value), ...draft.tags])].sort(),
+    [vocab.terms, draft.tags])
+  const tagErr = !tag ? null
+    : tag.length > 32 ? 'at most 32 characters'
+      : !TAG_RE.test(tag) ? 'tags are lowercase words, digits, - and _'
+        : draft.tags.includes(tag) ? 'already tagged'
+          : vocab.terms && !known.has(tag) ? 'not in the tag vocabulary \u2014 add it in Settings \u203a Vocabulary'
+            : vocab.error ? `the tag vocabulary could not be read (${vocab.error})`
+              : null
   const addTag = () => { if (!tag || tagErr) return; setDraft({ ...draft, tags: [...draft.tags, tag] }); setTag(''); setAdding(false) }
   return (
     <section className="rv-card" data-testid="annotate-card">

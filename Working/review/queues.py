@@ -394,6 +394,7 @@ def _resolve_detections(conn, q):
     judged_verdicts = {r["detection_id"]: r["verdict"] for r in conn.execute(
         "SELECT detection_id, verdict FROM adjudications").fetchall()}
     judged_ids = set(judged_verdicts)
+    judged_tags = _adjudication_tag_values(conn)
     blind = bool(q["blind"])
     live = [c for c in queue.candidates if c["run_id"] not in superseded]
     priors = _prior_verdicts(conn, live)
@@ -415,11 +416,51 @@ def _resolve_detections(conn, q):
             "prior_annotation_id": prior["annotation_id"] if prior else None,
             "prior_iou": prior["iou"] if prior else None,
             "prior_onset_gap": prior["onset_gap"] if prior else None,
+            # What the database holds against this verdict. Without it the
+            # Annotate card lost its tags on every reload, so a tag that DID
+            # reach the table was invisible afterwards (fixup-a item 9).
+            "tags": judged_tags.get(cand["id"], []),
         }
         if not blind:
             item["score"] = cand["score"]
         items.append(item)
     return items
+
+
+def _adjudication_tag_values(conn):
+    """`{detection_id: [value, ...]}` over every adjudication that carries tags.
+
+    One query for the whole queue rather than one per row: the resolver runs on
+    every read. Values only - the category is the vocabulary's business, and the
+    card shows the term the researcher chose.
+    """
+    return _tag_values(
+        conn,
+        "SELECT a.detection_id AS owner, v.value AS value "
+        "FROM adjudications a "
+        "JOIN adjudication_tags t ON t.adjudication_id = a.id "
+        "JOIN tag_vocabulary v ON v.id = t.tag_id")
+
+
+def _annotation_tag_values(conn):
+    """`{annotation_id: [value, ...]}`. The HUMAN door (CLAUDE.md rule 5): a
+    human span's tags live in `annotation_tags` and are never read from, or
+    written to, the machine table."""
+    return _tag_values(
+        conn,
+        "SELECT t.annotation_id AS owner, v.value AS value "
+        "FROM annotation_tags t JOIN tag_vocabulary v ON v.id = t.tag_id")
+
+
+def _tag_values(conn, sql):
+    out = {}
+    try:
+        rows = conn.execute(sql).fetchall()
+    except Exception:                       # a database older than the tag tables
+        return out
+    for r in rows:
+        out.setdefault(r["owner"], []).append(r["value"])
+    return out
 
 
 def _chunks(ids):
@@ -553,6 +594,7 @@ def _resolve_spans(conn, q):
         params.append(rec)
     sql += " ORDER BY id"
     judged = _audit_judged_ids(conn, q["id"])
+    ann_tags = _annotation_tag_values(conn)
     return [{
         "target_id": r["id"],
         "unit": q["unit"],
@@ -562,6 +604,7 @@ def _resolve_spans(conn, q):
         "end_idx": r["end_idx"],
         "tag": r["tag"],
         "note": r["note"],
+        "tags": ann_tags.get(r["id"], []),
         "judged": r["id"] in judged,
         "verdict": r["verdict"],
     } for r in conn.execute(sql, params).fetchall()]

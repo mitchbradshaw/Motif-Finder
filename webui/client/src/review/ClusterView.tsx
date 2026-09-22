@@ -134,19 +134,23 @@ function ClusterInner({ data, no }: { data: QueueData; no: number }) {
     const label = v === 'seed' ? `Cluster ${no} · seed ${exemplar} + ${targets.length - 1} × interesting` : className ? `Cluster ${no} · ${targets.length} × ${className} (class)` : `Cluster ${no} · ${targets.length} × ${VERDICT_LABEL[v]}`
     const ids = targets.map(r => r.id)
     const note = draft.note.trim() || undefined
+    // the Annotate card's tags reach the database with the gesture (fixup-a
+    // item 9). `postClusterVerdict` has no tag field in the contract, so a
+    // tagged whole-cluster call goes down the batch path instead of losing them
+    const tags = draft.tags.length ? draft.tags : undefined
     const wholeCluster = batchOn && allIncluded && ids.length === cl.members.length
     const send = async () => {
       if (seedId) {
         const rest = ids.filter(i => i !== seedId)
-        if (rest.length) await postBatch(q, rest, 'interesting', { note })
-        await postPromote(q, seedId, 'seed', { note })
+        if (rest.length) await postBatch(q, rest, 'interesting', { note, tags })
+        await postPromote(q, seedId, 'seed', { note, tags })
         return
       }
-      if (wholeCluster && (v === 'interesting' || v === 'not_interesting')) {
+      if (wholeCluster && !tags && (v === 'interesting' || v === 'not_interesting')) {
         await postClusterVerdict(q, no, v === 'interesting' ? 'accept' : 'reject')
         return
       }
-      await postBatch(q, ids, v, { note })
+      await postBatch(q, ids, v, { note, tags })
     }
     const w = await commitWrite(send, { queueId: q, items: ids, kind: 'batch', clusterNo: no, verdict: v, className, count: targets.length, label, before, after })
     if (!w) { if (exemplar) releaseExemplar(exemplar); refused(); return false }
