@@ -3,11 +3,18 @@
    summary, hand-offs and the open design questions. Live since stage-3 prompt 01 (getCrossChannel → GET /api/cross/{id}):
    lag, r and the bin are the core's (Working.cross_channel.classify_waveforms) on the window in view.
    Deep links: ?align=lag · ?window=motif-<n> · ?pad=60 · ?channels=4,3,1 · ?maxlag=10 · ?lag=channel ·
-   ?popover=channels · ?questions=open · ?state=computing */
+   ?y=absolute|centred|per-channel · ?popover=channels · ?questions=open · ?state=computing
+
+   The y scale lives in ./crossScale — read its header before changing how a row is drawn. One absolute
+   mV domain across the stack is ~3.9 mV tall on M2_aug while a channel's own window spans 0.001–0.03 mV,
+   so an absolute domain draws every trace as a flat line; 'centred' is the default for that reason. */
 import { useMemo, useRef, useState } from 'react'
 import { ApiError } from '../api'
 import { useSourced } from '../api/seam'
 import { getCrossChannel, getSignalDemo, lookupChannel, type CrossDemo, type XBin, type XRow } from '../api/explore'
+import { EnvelopePath } from '../charts/primitives'
+import { makeX } from '../charts/scale'
+import { Y_MODES, Y_MODE_LABEL, Y_MODE_NOTE, fmtMvAt, isYMode, scaleNote, stackGeom, type YMode } from './crossScale'
 import { Badge, Button, Checkbox, Chip, DisabledReason, Dropdown, EmptyState, Icon, InfoTip, Popover, ProgressBar, Seg, Tooltip, cx, fmtInt, recordDemoWrite, useDemoState, useNotWired, useQueryState, useSim, type IconName } from '../kit'
 import { Header } from '../shell/Header'
 import { useToast } from '../shell/Toast'
@@ -17,7 +24,7 @@ import { ErrorCard } from './ErrorCard'
 import { LockedCard } from './LockedCard'
 import { chipLabel, defaultPicker, pickerRuns, visibleRunIds, type PickerState } from './signalModel'
 import { useElementSize } from './useElementSize'
-import { asApiError } from './util'
+import { asApiError, relativeTicks } from './util'
 
 const BIN_TONE: Record<XBin, 'blue' | 'red' | 'amber' | 'green' | 'grey'> = { reference: 'blue', artifact: 'red', propagation: 'amber', independent: 'green', 'no match': 'grey' }
 const BIN_DOT: Record<XBin, string> = { reference: 'var(--blue)', artifact: 'var(--red)', propagation: 'var(--amber)', independent: 'var(--green)', 'no match': '#9ca3af' }
@@ -71,6 +78,8 @@ function CrossBody({ data }: { data: CrossDemo }) {
   const [lagMode, setLagMode] = useQueryState<string>('lag', 'window')
   const [maxLagQ, setMaxLag] = useQueryState<string>('maxlag', '30')
   const [channelsQ, setChannelsQ] = useQueryState<string>('channels', '')
+  const [yQ, setYQ] = useQueryState<string>('y', 'centred')
+  const yMode: YMode = isYMode(yQ) ? yQ : 'centred'
   const [popover, setPopover] = useQueryState<string>('popover', '')
   const [questions, setQuestions] = useQueryState<string>('questions', '')
   const [forced] = useQueryState<string>('state', '')
@@ -87,8 +96,6 @@ function CrossBody({ data }: { data: CrossDemo }) {
   const setSelected = (ids: number[]) => { setChannelsQ([ref, ...ids.filter(i => i !== ref)].join(',')); recompute() }
   const byId = useMemo(() => new Map(data.rows.map(r => [r.channelId, r])), [data])
   const refName = data.referenceName
-  // the rows are what the bridge measured on this window; nothing is rescaled client-side
-  const effective = (r: XRow): XRow => r
   const CORE_BIN: Record<string, XBin> = { reference: 'reference', artifact: 'artifact', propagation: 'propagation', independent_recurrence: 'independent', undefined: 'no match' }
   const binOf = (r: XRow): XBin => {
     if (r.channelId === ref) return 'reference'
@@ -97,11 +104,12 @@ function CrossBody({ data }: { data: CrossDemo }) {
     if (r.r >= 0.95 && Math.abs(r.lagS) < 0.5) return 'artifact'
     return r.r >= 0.6 ? 'propagation' : 'independent'
   }
-  const rows = selected.map(id => byId.get(id)!).filter(Boolean).map(effective)
+  // the rows are what the bridge measured on this window; no value is rescaled, only the y origin moves
+  const rows = selected.map(id => byId.get(id)!).filter(Boolean)
   const counts = { artifact: 0, propagation: 0, independent: 0, 'no match': 0 } as Record<Exclude<XBin, 'reference'>, number>
   for (const r of rows) { const b = binOf(r); if (b !== 'reference') counts[b]++ }
   const sharedPair = rows.find(r => r.sharedGroundWith)
-  const windowLabel = `${windowQ.startsWith('motif-') ? `MOTIF_${windowQ.slice(6)}` : 'MOTIF_233'} ± ${pad === '60' ? 60 : 20} s`
+  const windowLabel = `${data.window.label} ± ${pad === '60' ? 60 : 20} s`
   const tooFew = rows.length < 2
   const subtitle = align === 'lag' ? `${refName} reference · lag-aligned` : `${refName} reference · ${rows.length} channel${rows.length === 1 ? '' : 's'}`
 
@@ -111,9 +119,12 @@ function CrossBody({ data }: { data: CrossDemo }) {
   const [pickerSt, setPickerSt] = useDemoState<PickerState | null>(`explore.signal.picker.${ref}`, () => null)
   const st = pickerSt ?? defaultPicker(sig.data ?? null, runs)
   const vis = visibleRunIds(runs, st)
-  const motifStartAbs = 998323
-  const refDetections = (sig.data?.detections ?? []).filter(d => vis.has(d.runId) && d.end > motifStartAbs + data.window.t0S && d.start < motifStartAbs + data.window.t0S + data.window.durS)
-    .map(d => ({ id: d.id, t0: d.start - motifStartAbs, t1: d.end - motifStartAbs, colour: st.colourByRun ? runs.find(r => r.id === d.runId)?.colour ?? '#0A84FF' : '#0A84FF' }))
+  // DetectionRow carries samples (api/explore.ts builds them as start_s * fs), the window carries absolute
+  // seconds — divide, and overlap the two in the same frame instead of against a fixture-era origin
+  const detFs = sig.data?.fs || data.window.fs || 1
+  const refDetections = (sig.data?.detections ?? [])
+    .filter(d => vis.has(d.runId) && d.end / detFs > data.window.t0S && d.start / detFs < data.window.t0S + data.window.durS)
+    .map(d => ({ id: d.id, t0: d.start / detFs, t1: d.end / detFs, colour: st.colourByRun ? runs.find(r => r.id === d.runId)?.colour ?? '#0A84FF' : '#0A84FF' }))
   const pickerAnchor = useRef<HTMLButtonElement>(null)
   const channelsAnchor = useRef<HTMLButtonElement>(null)
 
@@ -128,27 +139,21 @@ function CrossBody({ data }: { data: CrossDemo }) {
   }
   const [plotRef, plotSize] = useElementSize<HTMLDivElement>()
   const W = plotSize.width
+  const ROWH = 52   // .panel is 54px with border-box and a 1px border, so 52px is the content box
   const [t0, t1] = [data.window.t0S, data.window.t0S + data.window.durS]
-  const px = (t: number) => ((t - t0) / (t1 - t0)) * W
-  // one shared mV scale across the stack (§3: never normalised per row), from the drawn rows' extent
-  const [y0, y1] = useMemo((): [number, number] => {
-    let lo = Infinity, hi = -Infinity
-    for (const r of rows) for (const v of r.trace) { if (v < lo) lo = v; if (v > hi) hi = v }
-    if (!(lo < hi)) return data.yDomain
-    const m = (hi - lo) * 0.06
-    return [lo - m, hi + m]
-  }, [rows.map(r => r.channelId).join(','), data])  // eslint-disable-line react-hooks/exhaustive-deps
-  const ROWH = 54
-  const py = (v: number) => ROWH - 3 - ((v - y0) / (y1 - y0)) * (ROWH - 6)
-  const ticks = [-20, -10, 0, 10, 20, 30, 40].filter(t => t >= t0 && t <= t1)
-  if (pad === '60') ticks.splice(0, ticks.length, -60, -40, -20, 0, 20, 40, 60, 80)
-
-  const pathFor = (r: XRow) => {
-    const shift = align === 'lag' && r.channelId !== ref && r.lagS !== null && Math.abs(r.lagS) <= maxLag ? r.lagS : 0
-    let d = ''
-    r.trace.forEach((v, i) => { const t = t0 + i / data.window.fs - shift; d += `${i ? 'L' : 'M'}${px(t).toFixed(1)} ${py(v).toFixed(1)}` })
-    return d
-  }
+  // one x scale over the window's own absolute seconds, shared by the traces, the band, the detection
+  // marks and the axis — the envelope's t is what places a sample, never t0 + i / fs, which stops being
+  // true the moment the bridge decimates (min/max buckets are not evenly spaced)
+  const x = useMemo(() => makeX(t0, t1, Math.max(1, W)), [t0, t1, W])
+  const px = (t: number) => x(t)
+  // y geometry: ./crossScale. 'centred' is the default because one absolute domain across electrodes
+  // sitting ~3.9 mV apart draws every 0.005 mV waveform as a flat line, which is what this page did.
+  const rowsKey = rows.map(r => r.channelId).join(',')
+  const geom = useMemo(() => stackGeom(rows, yMode, ROWH, data.yDomain), [rowsKey, yMode, data])  // eslint-disable-line react-hooks/exhaustive-deps
+  const ticks = useMemo(() => relativeTicks(t0, t1, data.window.motifStartS, pad === '60' ? 9 : 7), [t0, t1, data.window.motifStartS, pad])
+  // lag-aligned slides a row's own time base by the lag the core measured, which is what brings the two
+  // waveforms on top of each other; the reference never moves
+  const shiftFor = (r: XRow) => (align === 'lag' && r.channelId !== ref && r.lagS !== null && Math.abs(r.lagS) <= maxLag ? r.lagS : 0)
   const reviewAll = () => {
     recordDemoWrite('explore', 'stage-window-for-review', { queue: 'Explore spans', window: windowLabel, channels: rows.map(r => r.name) })
     toast.push({ text: `${rows.length} spans staged for Review`, action: { label: 'Open Review →', onClick: () => navigate('review') } })
@@ -168,7 +173,7 @@ function CrossBody({ data }: { data: CrossDemo }) {
             options={[{ value: 'signal', label: 'Signal' }, { value: 'cross', label: 'Cross-channel' }]} ariaLabel="mode" testid="mode-seg" /></span>
           <DetectionsChip ref={pickerAnchor} label={chipLabel(runs, st)} open={popover === 'detections'} onClick={() => setPopover(popover === 'detections' ? null : 'detections')} />
           <Dropdown variant="outline" prefix="display" value="raw" onChange={() => {}} testid="display-chip"
-            options={[{ value: 'raw', label: 'raw' }, { value: 'detrended', label: 'detrended (display only)', disabled: true, reason: 'no display transform in the demo data' }]} />
+            options={[{ value: 'raw', label: 'raw' }, { value: 'detrended', label: 'detrended (display only)', disabled: true, reason: 'the bridge serves raw mV — no display transform yet. The y control moves each row’s drawing origin; it does not change a value.' }]} />
           <InfoTip title="Cross-channel">The same window drawn on every selected channel. The detections chip filters the reference row only.</InfoTip>
           <span className="grow" />
           <a className="ex-back" onClick={() => navigate('explore/corpus')} data-testid="back-to-corpus">‹ back to corpus</a>
@@ -187,15 +192,29 @@ function CrossBody({ data }: { data: CrossDemo }) {
             options={[{ value: 'window', label: 'computed on window' }, { value: 'channel', label: 'computed on whole channel · not available yet', disabled: true, reason: 'the bridge computes lag on the window in view; a whole-channel lag is a longer job (Prompt 04)' }]} />
           <Dropdown prefix="max lag" variant="outline" value={String(maxLag)} onChange={v => { setMaxLag(v === '30' ? null : v); recompute() }} testid="maxlag-select"
             options={[10, 30, 60].map(n => ({ value: String(n), label: `±${n} s` }))} />
+          <Dropdown prefix="y" variant="outline" value={yMode} onChange={v => setYQ(v === 'centred' ? null : v)} testid="y-select" menuWidth={300}
+            options={Y_MODES.map(m => ({ value: m, label: Y_MODE_LABEL[m], description: Y_MODE_NOTE[m] }))} />
           <span className="grow" />
-          <InfoTip title="Lag and r" placement="bottom-end">Every selected channel over the reference's window. Lag is where the cross-correlation peaks within max lag; r is its height.</InfoTip>
+          <InfoTip title="Lag, r and the y scale" placement="bottom-end">
+            Every selected channel over the reference's window. Lag is where the cross-correlation peaks within max lag; r is its height.
+            The channels of this recording sit several mV apart in DC offset while each one&rsquo;s signal inside a window spans
+            thousandths of a mV, so one <b>absolute mV</b> domain across the stack flattens every trace. <b>Shared gain, centred</b>
+            keeps one mV-per-pixel for the whole stack and moves only each row&rsquo;s origin — no value and no span changes, so depth
+            stays comparable. <b>Per channel</b> autoscales each row and is therefore normalised: amplitude no longer compares across
+            rows, and every such row says so on the row. r is signed — a row at r &minus;0.9 is genuinely anti-correlated and draws as
+            a mirror image of the reference, which is the core&rsquo;s measurement, not a drawing fault.
+          </InfoTip>
         </div>
 
         <div className="card ex-stack" data-testid="channel-stack">
           <div className="ex-stack-head">
             <span className="card-title">Same window, every selected channel</span>
-            <span className="range mono">{data.window.startH.toFixed(3)} – {data.window.endH.toFixed(3)} h · {data.window.durS} s</span>
-            <span className="muted mono small">shared y · {y0 < 0 ? '−' : ''}{Math.abs(y0).toFixed(2)} – {y1 < 0 ? '−' : '+'}{Math.abs(y1).toFixed(2)} mV</span>
+            <span className="range mono">{data.window.startH.toFixed(3)} – {data.window.endH.toFixed(3)} h · {+data.window.durS.toFixed(1)} s</span>
+            <span className="muted mono small" data-testid="scale-note">{scaleNote(geom)}</span>
+            {yMode === 'per-channel' && <Badge tone="amber" testid="normalised-badge">normalised</Badge>}
+            {/* every lag on this corpus is either 0 or past the max-lag cut, so lag-aligned routinely moves
+                nothing — leaving it looking applied would be a claim the drawing does not support */}
+            {align === 'lag' && !rows.some(r => shiftFor(r)) && <span className="muted mono small" data-testid="nothing-to-align">no row is within ±{maxLag} s — nothing to align</span>}
             {computing && <ProgressBar indeterminate width={220} size="sm" label={`computing lag · ${rows.length} channels`} testid="computing" />}
             <span className="grow" />
             <span className="cols mono"><span>lag</span><span>r</span><span>bin</span></span>
@@ -204,6 +223,9 @@ function CrossBody({ data }: { data: CrossDemo }) {
             {rows.map((r, i) => {
               const bin = binOf(r)
               const dim = focusBin && bin !== focusBin && bin !== 'reference'
+              const g = geom.rows[i]
+              const shift = shiftFor(r)
+              const tShifted = shift ? r.t.map(t => t - shift) : r.t
               return (
                 <div key={r.channelId} className={cx('ex-xrow', dim && 'dim', dragOver === i && dragFrom !== null && dragFrom !== i && 'over')} data-testid={`xrow-${r.name}`} data-bin={bin}
                   onPointerEnter={() => { if (dragFrom !== null) setDragOver(i) }}>
@@ -219,17 +241,37 @@ function CrossBody({ data }: { data: CrossDemo }) {
                     {W > 0 && (
                       <svg width={W} height={ROWH} data-testid={i === 0 ? 'reference-trace' : undefined}>
                         <defs><clipPath id={`xclip-${r.channelId}`}><rect x={0} y={0} width={W} height={ROWH} /></clipPath></defs>
-                        {i === 0 && <rect x={px(data.window.motifStartS)} y={0} width={px(data.window.motifEndS) - px(data.window.motifStartS)} height={ROWH} fill="var(--band-selected)" data-testid="cross-motif-region" />}
-                        {i === 0 && refDetections.map(d => <rect key={d.id} x={px(d.t0)} y={0} width={Math.max(2, px(d.t1) - px(d.t0))} height={4} rx={1} fill={d.colour} data-testid="cross-detection"><title>{`detection ${d.id} (demo)`}</title></rect>)}
-                        {[0, 20].map(g => <line key={g} x1={px(g)} x2={px(g)} y1={0} y2={ROWH} stroke="var(--border-strong)" strokeOpacity={0.6} />)}
-                        <path d={pathFor(r)} fill="none" stroke={i === 0 ? 'var(--blue)' : 'var(--trace)'} strokeWidth={1.2} clipPath={`url(#xclip-${r.channelId})`} strokeLinejoin="round" />
+                        {/* the window's own span, on the reference only (pages/inventory/explore.md: "the orange motif region on the reference only") */}
+                        {i === 0 && <rect x={px(data.window.motifStartS)} y={0} width={Math.max(0, px(data.window.motifEndS) - px(data.window.motifStartS))} height={ROWH} fill="var(--band-selected)" data-testid="cross-motif-region" />}
+                        {ticks.map(k => <line key={k.t} x1={px(k.t)} x2={px(k.t)} y1={0} y2={ROWH} stroke="var(--border)" strokeOpacity={0.7} />)}
+                        {i === 0 && refDetections.map(d => <rect key={d.id} x={px(d.t0)} y={0} width={Math.max(2, px(d.t1) - px(d.t0))} height={4} rx={1} fill={d.colour} data-testid="cross-detection"><title>{`detection ${d.id}`}</title></rect>)}
+                        <g clipPath={`url(#xclip-${r.channelId})`}>
+                          {/* the baseline 'centred' subtracted, carrying its value: a dashed line with no number
+                              attached is the line a reader mistakes for zero. Never drawn in 'per-channel',
+                              where the origin is an autoscaled midpoint and means nothing. */}
+                          {g?.centreIsBaseline && <line x1={0} x2={W} y1={g.y(g.centre)} y2={g.y(g.centre)} stroke="var(--border-strong)" strokeOpacity={0.5} strokeDasharray="2 4" data-testid={`baseline-${r.name}`}><title>{`baseline ${fmtMvAt(g.centre, g.places)} mV — subtracted for drawing only`}</title></line>}
+                          {g && <EnvelopePath t={tShifted} v={r.v} x={x} y={g.y} stroke={i === 0 ? 'var(--blue)' : 'var(--trace)'} width={1.2} testid={`xtrace-${r.name}`} />}
+                        </g>
+                        {/* short in the panel, whole on hover: the panel clips, and a loud failure trimmed
+                            into a blank is the thing CLAUDE.md's web-UI gate forbids */}
+                        {r.error && <text x={6} y={ROWH / 2 + 4} className="mono ex-xrow-err" data-testid={`xrow-error-${r.name}`}>{r.error.split(':')[0]} — read failed<title>{r.error}</title></text>}
+                        {!r.error && g && !g.extent && <text x={6} y={ROWH / 2 + 4} className="mono ex-xrow-err">no finite sample in this window</text>}
+                        {/* the row's own ABSOLUTE extent, in every mode — the sentence that makes centring
+                            honest, since the raw record is still stated when the drawing origin has moved */}
+                        {g?.extent && <text x={W - 4} y={ROWH - 4} textAnchor="end" className="mono ex-xrow-mv" data-testid={`mv-${r.name}`}>
+                          {yMode === 'per-channel' ? 'own scale · ' : ''}{fmtMvAt(g.extent[0], g.places)} … {fmtMvAt(g.extent[1], g.places)} mV
+                        </text>}
                         {hoverT !== null && <line x1={px(hoverT)} x2={px(hoverT)} y1={0} y2={ROWH} stroke="var(--blue)" strokeOpacity={0.55} strokeDasharray="3 3" data-testid="crosshair" />}
-                        {hoverT !== null && i === 0 && <text x={Math.min(px(hoverT) + 5, W - 60)} y={12} className="mono" style={{ fill: 'var(--text-2)', fontSize: 10, paintOrder: 'stroke', stroke: '#fff', strokeWidth: 3 }}>t = {hoverT >= 0 ? '+' : '−'}{Math.abs(hoverT).toFixed(1)} s</text>}
+                        {hoverT !== null && i === 0 && <text x={Math.min(px(hoverT) + 5, W - 60)} y={12} className="mono ex-xrow-mv">t = {hoverT - data.window.motifStartS >= 0 ? '+' : '−'}{Math.abs(hoverT - data.window.motifStartS).toFixed(1)} s</text>}
                       </svg>
                     )}
                   </div>
                   <span className="dot" style={{ background: BIN_DOT[bin] }} />
-                  <span className="lag mono">{computing ? '…' : fmtLag(r.lagS)}</span>
+                  {/* lag-aligned leaves a row past max lag where it was — say so on the row rather than
+                      letting the stack claim an alignment it did not apply */}
+                  <span className="lag mono">{computing ? '…' : align === 'lag' && i > 0 && r.lagS !== null && Math.abs(r.lagS) > maxLag
+                    ? <Tooltip content={`|lag| ${Math.abs(r.lagS).toFixed(1)} s is past max lag ±${maxLag} s — this row is still as recorded`}><span className="ex-unaligned" data-testid={`lag-unaligned-${r.name}`}>{fmtLag(r.lagS)} ·&nbsp;not aligned</span></Tooltip>
+                    : fmtLag(r.lagS)}</span>
                   <span className="r mono">{computing ? '…' : r.channelId === ref ? '' : r.r === null ? '—' : r.r.toFixed(2)}</span>
                   <span className="bin"><Tooltip content={BIN_TIP[bin]}><span><Badge tone={BIN_TONE[bin]} testid={`bin-${r.name}`}>{bin}</Badge></span></Tooltip></span>
                 </div>
@@ -243,7 +285,9 @@ function CrossBody({ data }: { data: CrossDemo }) {
           </div>
           <div className="ex-stack-axis mono">
             <span />
-            <div className="ticks" style={{ width: W || undefined }}>{W > 0 && ticks.map(t => <span key={t} style={{ left: px(t) }}>{t > 0 ? `+${t}` : t < 0 ? `−${-t}` : 0} s</span>)}</div>
+            {/* positions absolute, labels relative to the window's onset — and the frame said out loud */}
+            <div className="ticks" style={{ width: W || undefined }} data-testid="cross-axis">{W > 0 && ticks.map(k => <span key={k.t} style={{ left: px(k.t) }}>{k.label}</span>)}</div>
+            <span className="frame">s from onset</span>
           </div>
         </div>
 

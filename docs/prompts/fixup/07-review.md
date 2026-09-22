@@ -1,0 +1,29 @@
+# Fixup 07 — Review: Queue (inspector), Cluster
+
+**Status: skeleton.** Symptoms only. The prompt body is written after `QUESTIONS.md` Q-R1…Q-R4.
+
+Prompt 05 ran two full critic rounds (`reports/05-review-critics.md`, 51 findings). Every P0 and P1 from
+both rounds is fixed. What is below is what survived, plus what the user saw.
+
+## Symptoms
+
+| # | Symptom | Evidence |
+|---|---|---|
+| R1 | **The plots are too flat and sometimes off axis.** Every Review trace is pinned to a hard-coded `[-0.44, 0.44]` mV domain and every thumbnail to `[-0.45, 0.45]`. A candidate whose amplitude is micro-volts draws as a flat line; one whose baseline sits outside the domain is clamped silently and appears to run along the frame. See the attached screenshot: a 162,000 s candidate whose "Candidate in context" trace hugs the bottom of its box. This is `00-cross-cutting.md` X2's systemic class, and Review is its worst case. | user + screenshot; `webui/client/src/review/parts.tsx:12`, `review/Shell.tsx:18` |
+| R2 | **Tags never reach the database from the UI.** The core and bridge paths are fixed and tested (a bare list is routed to the category defining each term), but no component passes them, so the Annotate card's tags are a session label. | wiring `reports/05-review.md` §12.1 |
+| R3 | **A class assigned with 1/2/3/4/9 is never stored anywhere** and is gone on reload. Round-2 P2, unfixed. | `reports/05-review-critics.md` round 2, P2 |
+| R4 | **There is no extract-events editor in the client.** `postExtract` is exported and called nowhere, so the 30-sequence extract-events queue renders as generic items and nobody can mark individual events in the browser. The route and the core work and are tested. | wiring `reports/05-review.md` §12.2 |
+| R5 | **Cluster review is unreachable on this data** — no resolver emits a cluster number for either seeded queue, so the three cluster routes 404 by design and say so. Cluster review needs a queue built from a `Grouping`, which nothing creates. Related: a cluster seed is two audit rows, so it takes two undos. | wiring `reports/05-review.md` §12.3, §12.4 |
+| R6 | **The header's "N need you" is a fixture constant.** `/api/review/counts` exists (it says 160) and is never called. Found in round 1 **and again in round 2** — reported fixed and was not. | `reports/05-review-critics.md` round 1 P1, round 2 P1 |
+| R7 | **A rediscovery can still be put to the researcher twice.** `requests/04-to-05.md` §3 asked Review to carry the prior verdict on a candidate matching an existing human span and default to not re-asking, using `Working.discovery.matching.rule_from_settings`. Queue items carry `judged` but no prior-verdict field. Wiring calls this a *correctness gap against an explicit cross-prompt request*, and named it the first thing stage 2 should do. It was not done. | wiring `reports/05-review.md` §9.2 |
+| R8 | **Every inspector subtitle prints the literal words `run undefined · rank undefined`** — visible in the attached screenshot ("run undefined · rank undefined of 30 by score"). Round-2 P3. | user + screenshot; `reports/05-review-critics.md` round 2 P3 |
+| R9 | **Pace is hardcoded null**, so "pace not yet measured" is permanent. Round-2 P3, visible in the screenshot. | `reports/05-review-critics.md` round 2 P3 |
+| R10 | **The promotion panel's family choice and the exemplar id are session-local** — `postPromote` mints the real entry at the S keypress and nothing updates its family afterwards. | wiring `reports/05-review.md` §12.5 |
+| R11 | **Two queue kinds have never run on real data**: `training-windows` and `model-verification` need `window_sets` rows (there are none), and `explore-spans` needs an annotation with `verdict='seed'` (there are none, because *Take span for Review* has never been used here). P20 blinding is asserted at the payload level only. | wiring `reports/05-review.md` §12.6, §12.7 |
+| R12 | **`clusterQueue(no)` still reads the fixture** — it is synchronous and every caller would have to become async. | wiring `reports/05-review.md` §12.8 |
+| R13 | **The window-verdict branch of `write_verdict` is smoke-covered, not tested** — its test guards with `pytest.importorskip` and is the one skip in the gate. | wiring `reports/05-review.md` §9.3 |
+| R14 | **Nearest families is empty and says so** ("Family affinity is not computed for this queue yet"), and score reads `n/a` for a human span — honest, but it means the evidence rail is blank for the queue the user is actually working. | user + screenshot |
+
+## Goal · Work · Testing and critique · Report
+
+*(written after the questions)*

@@ -1,0 +1,96 @@
+- generic [ref=e3]:
+  - navigation [ref=e4]:
+    - generic "Underground Brains" [ref=e5]
+    - generic [ref=e8]:
+      - button "Explore" [ref=e991] [cursor=pointer]
+      - button "Analyse" [ref=e995] [cursor=pointer]
+      - button "Discovery" [ref=e1002] [cursor=pointer]
+      - button "Models" [ref=e1009] [cursor=pointer]
+      - button "Review" [ref=e1014] [cursor=pointer]
+      - button "Library" [ref=e1019] [cursor=pointer]
+    - generic [ref=e44]:
+      - button "Jobs · 3" [ref=e1026] [cursor=pointer]
+      - button "Settings" [ref=e1033] [cursor=pointer]
+  - generic [ref=e59]:
+    - banner [ref=e1039]:
+      - generic [ref=e1040]:
+        - generic [ref=e1041]: Review
+        - generic [ref=e1043]: Inspector
+        - generic [ref=e1044]: queue discovery run
+      - generic [ref=e1045]:
+        - button "Search spans, runs, families Ctrl K" [ref=e1046]:
+          - generic [ref=e1050]: Search spans, runs, families
+          - generic [ref=e1051]: Ctrl K
+        - button "● 3 need you" [ref=e1052] [cursor=pointer]
+        - button "M4 held out" [ref=e1053] [cursor=pointer]
+    - generic [ref=e1057]:
+      - generic [ref=e1058]:
+        - button "queue CRITIC blind test run 32" [ref=e1059] [cursor=pointer]:
+          - generic [ref=e1065]: queue
+          - generic [ref=e1066]: CRITIC blind test run 32
+        - button "blind · hidden until verdict" [ref=e1069] [cursor=pointer]
+        - generic [ref=e1077]:
+          - generic [ref=e1082]: writes
+          - generic [ref=e1083]: adjudications
+          - button "about Write target" [ref=e1084] [cursor=pointer]
+        - generic "21 of 130 judged" [ref=e1088]:
+          - generic [ref=e1089]:
+            - generic [ref=e1090]: 21 / 130
+            - generic [ref=e1091]: pace not yet measured
+          - progressbar "queue progress" [ref=e1093]
+        - switch "auto-advance" [checked] [ref=e1097] [cursor=pointer]
+        - button "Shortcuts" [ref=e1100] [cursor=pointer]
+      - generic [ref=e1105]:
+        - complementary [ref=e1106]:
+          - button "open queue rail" [ref=e1107] [cursor=pointer]
+          - generic [ref=e1111]:
+            - generic [ref=e1112]: "109"
+            - generic [ref=e1113]: left
+          - generic [ref=e1114]:
+            - button "open 103" [ref=e1115] [cursor=pointer]:
+              - generic "103 · CH14" [ref=e1116]:
+                - img "thumbnail trace" [ref=e1117]
+            - button "open 104" [ref=e1119] [cursor=pointer]:
+              - generic "104 · CH14" [ref=e1120]:
+                - img "thumbnail trace" [ref=e1121]
+            - button "open 105" [ref=e1123] [cursor=pointer]:
+              - generic "105 · CH14 · interesting" [ref=e1124]:
+                - img "thumbnail trace" [ref=e1125]
+            - button "open 106" [ref=e1128] [cursor=pointer]:
+              - generic "106 · CH14" [ref=e1129]:
+                - img "thumbnail trace" [ref=e1130]
+            - button "open 107" [ref=e1131] [cursor=pointer]:
+              - generic "107 · CH14" [ref=e1132]:
+                - img "thumbnail trace" [ref=e1133]
+            - button "open 108" [ref=e1134] [cursor=pointer]:
+              - generic "108 · CH14" [ref=e1135]:
+                - img "thumbnail trace" [ref=e1136]
+            - button "open 109" [ref=e1138] [cursor=pointer]:
+              - generic "109 · CH14" [ref=e1139]:
+                - img "thumbnail trace" [ref=e1140]
+            - button "open 110" [ref=e1141] [cursor=pointer]:
+              - generic "110 · CH14" [ref=e1142]:
+                - img "thumbnail trace" [ref=e1143]
+            - button "open 111" [ref=e1144] [cursor=pointer]:
+              - generic "111 · CH14" [ref=e1145]:
+                - img "thumbnail trace" [ref=e1146]
+            - button "open 112" [ref=e1147] [cursor=pointer]:
+              - generic "112 · CH14" [ref=e1148]:
+                - img "thumbnail trace" [ref=e1149]
+            - generic "117 more units materialised; 109 left in the queue" [ref=e1150]: "+117"
+        - main [ref=e1151]
+        - complementary [ref=e1157]:
+          - button "open evidence rail" [ref=e1158] [cursor=pointer]
+          - generic [ref=e1162]:
+            - button "— match d" [ref=e1163] [cursor=pointer]:
+              - generic [ref=e1164]: —
+              - generic [ref=e1165]: match d
+            - button "… family d" [ref=e1166] [cursor=pointer]:
+              - generic [ref=e1167]: …
+              - generic [ref=e1168]: family d
+            - button "… artifact" [ref=e1169] [cursor=pointer]:
+              - generic [ref=e1170]: …
+              - generic [ref=e1171]: artifact
+            - button "1 history" [ref=e1172] [cursor=pointer]:
+              - generic [ref=e1173]: "1"
+              - generic [ref=e1174]: history

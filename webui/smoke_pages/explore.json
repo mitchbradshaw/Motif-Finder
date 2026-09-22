@@ -399,12 +399,12 @@
  {
   "page": "explore.cross-channel",
   "state": "lag-aligned",
-  "hash": "explore/cross-channel/4?align=lag",
+  "hash": "explore/cross-channel/4?align=lag&channels=5,3,1",
   "settle_ms": 1500,
   "actions": [],
   "expect": [
-   "[data-testid=\"align-seg\"] [data-value=\"lag\"][aria-checked=\"true\"]",
-   "[data-testid=\"xrow-CH5_B1\"]"
+   "[data-testid=\"xrow-CH5_B1\"]",
+   "[data-testid=\"scale-note\"]"
   ]
  },
  {
@@ -483,11 +483,11 @@
  {
   "page": "explore.cross-channel",
   "state": "max-lag-10",
-  "hash": "explore/cross-channel/4?maxlag=10",
+  "hash": "explore/cross-channel/4?maxlag=10&align=lag&channels=5,3",
   "settle_ms": 1500,
   "actions": [],
   "expect": [
-   "[data-testid=\"xrow-CH5_B1\"][data-bin=\"propagation\"]"
+   "[data-testid=\"lag-unaligned-CH5_B1\"]"
   ]
  },
  {
@@ -518,6 +518,47 @@
   "actions": [],
   "expect": [
    "[data-testid=\"cross-unknown\"]"
+  ]
+ },
+ {
+  "page": "explore.cross-channel",
+  "state": "y-absolute",
+  "hash": "explore/cross-channel/4?y=absolute",
+  "settle_ms": 1500,
+  "actions": [],
+  "expect": [
+   "[data-testid=\"scale-note\"]",
+   "[data-testid=\"cross-axis\"] span",
+   "[data-testid=\"cross-motif-region\"]"
+  ],
+  "expect_absent": [
+   "[data-testid=\"normalised-badge\"]"
+  ]
+ },
+ {
+  "page": "explore.cross-channel",
+  "state": "y-per-channel",
+  "hash": "explore/cross-channel/4?y=per-channel",
+  "settle_ms": 1500,
+  "actions": [],
+  "expect": [
+   "[data-testid=\"normalised-badge\"]",
+   "[data-testid=\"scale-note\"]"
+  ]
+ },
+ {
+  "page": "explore.cross-channel",
+  "state": "y-centred-axis",
+  "hash": "explore/cross-channel/4",
+  "settle_ms": 1500,
+  "actions": [],
+  "expect": [
+   "[data-testid=\"cross-axis\"] span",
+   "[data-testid=\"scale-note\"]",
+   "[data-testid=\"cross-motif-region\"]"
+  ],
+  "expect_absent": [
+   "[data-testid=\"normalised-badge\"]"
   ]
  },
  {

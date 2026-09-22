@@ -1,0 +1,27 @@
+- generic [ref=e3]:
+  - navigation [ref=e4]:
+    - generic "Underground Brains" [ref=e5]
+    - generic [ref=e8]:
+      - button "Explore" [ref=e844] [cursor=pointer]
+      - button "Analyse" [ref=e848] [cursor=pointer]
+      - button "Discovery" [ref=e855] [cursor=pointer]
+      - button "Models" [ref=e862] [cursor=pointer]
+      - button "Review" [ref=e867] [cursor=pointer]
+      - button "Library" [ref=e872] [cursor=pointer]
+    - generic [ref=e44]:
+      - button "Jobs · 3" [ref=e879] [cursor=pointer]
+      - button "Settings" [ref=e886] [cursor=pointer]
+  - generic [ref=e59]:
+    - banner [ref=e892]:
+      - generic [ref=e893]:
+        - generic [ref=e894]: Review
+        - generic [ref=e896]: Inspector
+      - generic [ref=e897]:
+        - button "Search spans, runs, families Ctrl K" [ref=e898]:
+          - generic [ref=e902]: Search spans, runs, families
+          - generic [ref=e903]: Ctrl K
+        - button "● 3 need you" [ref=e904] [cursor=pointer]
+        - button "M4 held out" [ref=e905] [cursor=pointer]
+    - generic [ref=e911]:
+      - generic [ref=e916]: No cluster 1 in any review queue
+      - button "Open Library - extract events" [ref=e918] [cursor=pointer]

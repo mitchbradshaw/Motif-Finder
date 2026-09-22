@@ -48,6 +48,8 @@
 }
 
 * { box-sizing: border-box; }
+/* inset plot surface (Explore's cross-channel row panels and their text halos) */
+:root { --panel-bg: #f7f8fa; }
 html, body, #root { height: 100%; margin: 0; }
 body {
   font-family: var(--font-ui);

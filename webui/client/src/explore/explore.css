@@ -244,14 +244,24 @@ button.ex-ribbon:hover { border-color: var(--blue-200); }
 .ex-xrow .grip { border: 0; background: transparent; color: var(--muted-2); cursor: grab; font-size: 13px; padding: 0; width: 20px; height: 24px; display: inline-flex; align-items: center; justify-content: center; }
 .ex-xrow .grip.locked { cursor: default; }
 .ex-xrow .grip.dragging { color: var(--blue); cursor: grabbing; }
-.ex-xrow .panel { height: 54px; background: #f7f8fa; border: 1px solid var(--border); border-radius: 6px; overflow: hidden; min-width: 0; }
+.ex-xrow .panel { height: 54px; background: var(--panel-bg); border: 1px solid var(--border); border-radius: 6px; overflow: hidden; min-width: 0; }
 .ex-xrow .panel svg { display: block; }
+/* readouts drawn inside a row panel: the row's own mV extent, the hover time, and a read failure.
+   paint-order puts a halo behind the glyphs so they stay legible over the trace and the window band. */
+.ex-xrow .panel text.ex-xrow-mv { font-size: 9.5px; fill: var(--muted-2); paint-order: stroke; stroke: var(--panel-bg); stroke-width: 3px; stroke-linejoin: round; }
+.ex-xrow .panel text.ex-xrow-err { font-size: 10px; fill: var(--red); paint-order: stroke; stroke: var(--panel-bg); stroke-width: 3px; stroke-linejoin: round; }
 .ex-xrow .dot { width: 8px; height: 8px; border-radius: 50%; justify-self: center; }
 .ex-xrow .lag, .ex-xrow .r { font-size: 12px; }
+/* a row lag-aligned mode left where it was, because its lag is past the max-lag cut */
+.ex-xrow .lag .ex-unaligned { color: var(--amber); font-size: 10.5px; }
 .ex-xrow-empty { padding: 8px 0 0 90px; }
-.ex-stack-axis { display: grid; grid-template-columns: 96px minmax(0, 1fr) 276px; margin-top: 6px; font-size: 10.5px; color: var(--muted); }
+/* the tick track must match the row's panel track (64+6+20+6 on the left, 14+6+72+6+50+6+110 on the
+   right) or the end labels hang past the panel edge */
+.ex-stack-axis { display: grid; grid-template-columns: 96px minmax(0, 1fr) 270px; margin-top: 6px; font-size: 10.5px; color: var(--muted); }
 .ex-stack-axis .ticks { position: relative; height: 14px; }
 .ex-stack-axis .ticks span { position: absolute; transform: translateX(-50%); white-space: nowrap; }
+/* the axis labels are relative to the window's onset; the frame is stated, not implied */
+.ex-stack-axis .frame { color: var(--muted-2); text-align: right; padding-right: 4px; }
 .ex-cross-bottom { display: grid; grid-template-columns: minmax(0, 1.55fr) minmax(0, 1fr); gap: 16px; }
 .ex-cross-bottom .ex-card-head .grow { flex: 1; }
 .ex-tiles { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin: 8px 0 10px; transition: opacity .12s; }

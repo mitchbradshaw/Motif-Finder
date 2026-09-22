@@ -10,7 +10,7 @@
  *   - lookupChannel: GET /api/channels/{id} (423 = held out).
  * Only the two things nothing computes yet stay demo and say so: the Span-edit page and the keyboard map. */
 import {
-  getChannel, getCross, getRecordings, getRunsForFile, getSpans, getTags, type Annotation, type CrossRow, type Detection, type FileRun,
+  getChannel, getCross, getRecordings, getRunsForFile, getSpans, getTags, type Annotation, type Detection, type FileRun, type Spans,
 } from '../api'
 import { demo, live, type Sourced } from './seam'
 import {
@@ -121,26 +121,67 @@ export async function lookupChannel(id: number): Promise<Sourced<ChannelLookup>>
 }
 
 /* ------------------------------------------------------------- cross-channel ---- */
+/** Verdicts worth opening a cross-channel comparison on, best first. Taking `annotations[0]` instead
+ *  landed the page on whichever span started earliest, which on every M2_aug channel is a bulk
+ *  `imported_10min` block with verdict `not_interesting` — a deliberately boring window.
+ *  This is a *preference* order for anchoring, not the shared verdict vocabulary (`VERDICTS`, which runs
+ *  seed · interesting · not_interesting · artifact · unsure) — `not_interesting` is deliberately absent so
+ *  a machine detection beats a bulk import block. */
+const ANCHOR_RANK = ['seed', 'interesting', 'artifact', 'unsure']
+const anchorSpan = (s: Spans): Annotation | Detection | null => {
+  const ranked = s.annotations
+    .filter(a => ANCHOR_RANK.includes(a.verdict))
+    .sort((p, q) => ANCHOR_RANK.indexOf(p.verdict) - ANCHOR_RANK.indexOf(q.verdict) || p.start_s - q.start_s)
+  return ranked[0] ?? s.detections[0] ?? s.annotations[0] ?? null
+}
+
+/** Cross-channel compares short windows — the window dropdown says so in as many words. An anchor span
+ *  longer than this is opened on its first ten minutes instead: `M2_concat_fs1` CH4 carries a 20-hour
+ *  `interesting` annotation, and honouring it asks the route to cross-correlate 72,000 samples against
+ *  fifteen siblings, which does not return. */
+const CROSS_MAX_SPAN_S = 600
+const windowLabel = (first: Annotation | Detection | null, startS: number, clamped: boolean): string =>
+  !first ? 'first ten minutes'
+    : `${clamped ? 'first 10 min of the ' : ''}${'verdict' in first ? first.verdict : `detection ${first.id}`} span at ${(startS / 3600).toFixed(2)} h`
+
 /** The same window on every channel of the reference's recording, with lag and r — live.
- *  The window is the channel's first human span (± `padS`), or its first ten minutes when it has none. */
+ *  The window is the channel's most notable human span (± `padS`), or its first ten minutes when it has none. */
 export async function getCrossChannel(referenceId: number, padS = 20): Promise<Sourced<CrossDemo | null>> {
   if ((await locate(referenceId)).state !== 'ok') return { data: null, source: 'live' }
   const ch = await getChannel(referenceId)
   const spans = await getSpans(referenceId, 0, ch.duration_s)
-  const first = spans.annotations[0] ?? spans.detections[0] ?? null
-  const motif = first ? { s: first.start_s, e: first.end_s } : { s: 0, e: Math.min(600, ch.duration_s) }
+  const first = anchorSpan(spans)
+  const clamped = !!first && first.end_s - first.start_s > CROSS_MAX_SPAN_S
+  const motif = first
+    ? { s: first.start_s, e: clamped ? first.start_s + CROSS_MAX_SPAN_S : first.end_s }
+    : { s: 0, e: Math.min(CROSS_MAX_SPAN_S, ch.duration_s) }
   const t0 = Math.max(0, motif.s - padS), t1 = Math.min(ch.duration_s, motif.e + padS)
   const x = await getCross(referenceId, t0, t1, 600)
-  const trace = (row: CrossRow) => (row.envelope?.v ?? []).map(v => (v === null ? NaN : v))
-  const rows: XRow[] = x.channels.map(row => ({ channelId: row.id, name: row.name, lagS: row.lag_s, r: row.r, trace: trace(row), classification: row.classification }))
-  const all = rows.flatMap(r => r.trace.filter(Number.isFinite))
-  const lo = all.length ? Math.min(...all) : -1, hi = all.length ? Math.max(...all) : 1
+  // the envelope verbatim: t stays absolute (and non-uniform once decimated), a null stays a null so the
+  // line breaks at a gap instead of writing NaN into the path and truncating the rest of the trace
+  const rows: XRow[] = x.channels.map(row => ({
+    channelId: row.id, name: row.name, lagS: row.lag_s, r: row.r, classification: row.classification,
+    t: row.envelope?.t ?? [], v: row.envelope?.v ?? [], error: row.error,
+  }))
+  // a loop, not Math.min(...all): a decimated 16-channel window is ~19k samples and spreading that into
+  // an argument list is how you get a RangeError on a big recording
+  let lo = Infinity, hi = -Infinity
+  for (const r of rows) for (const v of r.v) { if (v === null || Number.isNaN(v)) continue; if (v < lo) lo = v; if (v > hi) hi = v }
+  if (!(lo < hi)) { lo = -1; hi = 1 }
   return {
     data: {
       recording: ch.source_file.replace(/\.mat$/, ''), file: ch.source_file, referenceId, referenceName: ch.name,
-      window: { label: first ? `${'verdict' in first ? first.verdict : 'detection'} span at ${(motif.s / 3600).toFixed(2)} h` : 'first ten minutes', startH: t0 / 3600, endH: t1 / 3600, durS: t1 - t0, t0S: t0, fs: x.fs, motifStartS: motif.s - t0, motifEndS: motif.e - t0 },
+      window: { label: windowLabel(first, motif.s, clamped), startH: t0 / 3600, endH: t1 / 3600, durS: t1 - t0, t0S: t0, fs: x.fs, motifStartS: motif.s, motifEndS: motif.e },
       channels: x.channels.map(c => ({ id: c.id, name: c.name })), rows,
-      defaultSelected: rows.filter(r => r.channelId === referenceId || (r.r ?? 0) > 0.5).map(r => r.channelId).slice(0, 6),
+      // |r|, not r: the core classifies r = −0.86 as propagation, so selecting on the signed value hid
+      // exactly the channels it thought were most related. Ranked before the cap too — slicing in channel
+      // order dropped the strongest correlate whenever more than five siblings passed the cut.
+      defaultSelected: [
+        referenceId,
+        ...rows.filter(r => r.channelId !== referenceId && Math.abs(r.r ?? 0) > 0.5)
+          .sort((a, b) => Math.abs(b.r ?? 0) - Math.abs(a.r ?? 0))
+          .map(r => r.channelId),
+      ].slice(0, 6),
       sharedGround: [], openQuestions: ['lag is the peak of the z-normalised cross-correlation over this window (Working.cross_channel); a shared-ground flag needs the montage, which is not registered yet'],
       yDomain: [lo, hi],
     },

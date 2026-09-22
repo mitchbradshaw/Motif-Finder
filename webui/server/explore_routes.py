@@ -162,7 +162,11 @@ def get_cross_channel(request: Request, recording_id: int, t0: float = 0.0, t1: 
                 w = corpus.window(c, row, t0, t1, px_used)
                 item["envelope"] = w["envelope"]; item["y_range"] = corpus.y_range(row)
             except Exception as e:
+                # the item still carries the reference's lag 0.0 / r 1.0 / "reference" defaults; leaving
+                # them would draw an unreadable channel as a second reference row, perfectly correlated
                 item["error"] = f"{type(e).__name__}: {e}"
+                if r["id"] != recording_id:
+                    item.update({"lag_s": None, "r": None, "classification": "undefined"})
                 out.append(item); continue
             if r["id"] != recording_id:
                 y = np.asarray(corpus.load_channel(row["npy_path"])[s0:s1], dtype=float)[::stride]

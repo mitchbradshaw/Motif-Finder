@@ -1,0 +1,248 @@
+- generic [ref=f1e1]:
+  - generic [ref=f1e3]:
+    - navigation [ref=f1e4]:
+      - generic "Underground Brains" [ref=f1e5]
+      - generic [ref=f1e8]:
+        - button "Explore" [ref=f1e9] [cursor=pointer]
+        - button "Analyse" [ref=f1e13] [cursor=pointer]
+        - button "Discovery" [ref=f1e20] [cursor=pointer]
+        - button "Models" [ref=f1e27] [cursor=pointer]
+        - button "Review" [ref=f1e32] [cursor=pointer]
+        - button "Library" [ref=f1e37] [cursor=pointer]
+      - generic [ref=f1e44]:
+        - button "Jobs · 3" [ref=f1e45] [cursor=pointer]
+        - button "Settings" [ref=f1e53] [cursor=pointer]
+    - generic [ref=f1e59]:
+      - banner [ref=f1e60]:
+        - generic [ref=f1e61]:
+          - generic [ref=f1e62]: Review
+          - generic [ref=f1e64]: Inspector
+          - generic [ref=f1e65]: queue discovery run
+        - generic [ref=f1e66]:
+          - button "Search spans, runs, families Ctrl K" [ref=f1e67]:
+            - generic [ref=f1e71]: Search spans, runs, families
+            - generic [ref=f1e72]: Ctrl K
+          - button "● 3 need you" [ref=f1e73] [cursor=pointer]
+          - button "M4 held out" [ref=f1e74] [cursor=pointer]
+      - generic [ref=f1e78]:
+        - generic [ref=f1e79]:
+          - button "queue CRITIC blind test run 32" [ref=f1e80] [cursor=pointer]:
+            - generic [ref=f1e86]: queue
+            - generic [ref=f1e87]: CRITIC blind test run 32
+          - button "blind · hidden until verdict" [ref=f1e90] [cursor=pointer]
+          - generic [ref=f1e98]:
+            - generic [ref=f1e103]: writes
+            - generic [ref=f1e104]: adjudications
+            - button "about Write target" [ref=f1e105] [cursor=pointer]
+          - generic "21 of 130 judged" [ref=f1e109]:
+            - generic [ref=f1e110]:
+              - generic [ref=f1e111]: 21 / 130
+              - generic [ref=f1e112]: pace not yet measured
+            - progressbar "queue progress" [ref=f1e114]
+          - switch "auto-advance" [checked] [ref=f1e118] [cursor=pointer]
+          - button "Shortcuts" [ref=f1e121] [cursor=pointer]
+        - generic [ref=f1e126]:
+          - complementary [ref=f1e127]:
+            - button "open queue rail" [ref=f1e128] [cursor=pointer]
+            - generic [ref=f1e132]:
+              - generic [ref=f1e133]: "109"
+              - generic [ref=f1e134]: left
+            - generic [ref=f1e135]:
+              - button "open 103" [ref=f1e136] [cursor=pointer]:
+                - generic "103 · CH14" [ref=f1e137]:
+                  - img "thumbnail trace" [ref=f1e138]
+              - button "open 104" [ref=f1e140] [cursor=pointer]:
+                - generic "104 · CH14" [ref=f1e141]:
+                  - img "thumbnail trace" [ref=f1e142]
+              - button "open 105" [ref=f1e144] [cursor=pointer]:
+                - generic "105 · CH14" [ref=f1e145]:
+                  - img "thumbnail trace" [ref=f1e146]
+              - button "open 106" [ref=f1e148] [cursor=pointer]:
+                - generic "106 · CH14" [ref=f1e149]:
+                  - img "thumbnail trace" [ref=f1e150]
+              - button "open 107" [ref=f1e151] [cursor=pointer]:
+                - generic "107 · CH14" [ref=f1e152]:
+                  - img "thumbnail trace" [ref=f1e153]
+              - button "open 108" [ref=f1e154] [cursor=pointer]:
+                - generic "108 · CH14" [ref=f1e155]:
+                  - img "thumbnail trace" [ref=f1e156]
+              - button "open 109" [ref=f1e158] [cursor=pointer]:
+                - generic "109 · CH14" [ref=f1e159]:
+                  - img "thumbnail trace" [ref=f1e160]
+              - button "open 110" [ref=f1e161] [cursor=pointer]:
+                - generic "110 · CH14" [ref=f1e162]:
+                  - img "thumbnail trace" [ref=f1e163]
+              - button "open 111" [ref=f1e164] [cursor=pointer]:
+                - generic "111 · CH14" [ref=f1e165]:
+                  - img "thumbnail trace" [ref=f1e166]
+              - button "open 112" [ref=f1e167] [cursor=pointer]:
+                - generic "112 · CH14" [ref=f1e168]:
+                  - img "thumbnail trace" [ref=f1e169]
+              - generic "117 more units materialised; 109 left in the queue" [ref=f1e170]: "+117"
+          - main [ref=f1e171]:
+            - generic [ref=f1e172]:
+              - generic [ref=f1e173]:
+                - heading "105" [level=1] [ref=f1e174]
+                - generic [ref=f1e175]: detection
+                - generic "status unadjudicated" [ref=f1e177]:
+                  - generic [ref=f1e179]: status
+                  - generic [ref=f1e180]: unadjudicated
+                - generic "score hidden until verdict" [ref=f1e181]:
+                  - generic [ref=f1e185]: score
+                  - generic [ref=f1e186]: hidden until verdict
+                - generic "family hidden until verdict" [ref=f1e187]:
+                  - generic [ref=f1e191]: family
+                  - generic [ref=f1e192]: hidden until verdict
+                - generic "nothing has computed artifact factors for this queue yet" [ref=f1e193]:
+                  - generic [ref=f1e195]: artifact
+                  - generic [ref=f1e196]: not computed
+              - generic [ref=f1e197]: Mushroom_260720_0509_4hrs_CH14 fs1 · CH14 · 3.037 → 3.053 h · 60.0 s · run undefined · rank undefined of 130 by score
+              - generic [ref=f1e198]:
+                - generic [ref=f1e199]:
+                  - heading "Candidate in context" [level=3] [ref=f1e200]
+                  - generic [ref=f1e201]: padding
+                  - radiogroup [ref=f1e202]:
+                    - radio "±30 s" [ref=f1e203] [cursor=pointer]
+                    - radio "±120 s" [checked] [ref=f1e204] [cursor=pointer]
+                    - radio "±300 s" [ref=f1e205] [cursor=pointer]
+                  - button "Other channels" [expanded] [ref=f1e206] [cursor=pointer]
+                  - button "Edit span in Explore" [ref=f1e209] [cursor=pointer]
+                - generic [ref=f1e212]:
+                  - img "trace, 80 samples, −0.44 to 0.44 mV" [ref=f1e214]:
+                    - generic [ref=f1e216]: 105 · 60.0 s
+                    - generic [ref=f1e217]: "+0.4"
+                    - generic [ref=f1e218]: "0"
+                    - generic [ref=f1e219]: −0.4
+                  - generic [ref=f1e221]:
+                    - generic [ref=f1e222]: mV
+                    - generic [ref=f1e223]: 3.003 h
+                    - generic [ref=f1e224]: 3.009 h
+                    - generic [ref=f1e225]: 3.014 h
+                    - generic [ref=f1e226]: 3.020 h
+                    - generic [ref=f1e227]: 3.025 h
+              - generic [ref=f1e228]:
+                - generic [ref=f1e229]:
+                  - generic [ref=f1e230]:
+                    - heading "Shape · mV" [level=3] [ref=f1e231]
+                    - generic [ref=f1e232]: candidate
+                  - img "trace, 60 samples, −0.44 to 0.44 mV" [ref=f1e237]:
+                    - generic [ref=f1e239]: "+0.4"
+                    - generic [ref=f1e240]: "0"
+                    - generic [ref=f1e241]: −0.4
+                    - generic [ref=f1e242]: mV
+                    - generic [ref=f1e244]:
+                      - generic [ref=f1e245]: 0 s
+                      - generic [ref=f1e246]: 10 s
+                      - generic [ref=f1e247]: 20 s
+                      - generic [ref=f1e248]: 30 s
+                      - generic [ref=f1e249]: 40 s
+                      - generic [ref=f1e250]: 50 s
+                - generic [ref=f1e251]:
+                  - generic [ref=f1e252]:
+                    - heading "Nearest families" [level=3] [ref=f1e256]
+                    - generic [ref=f1e257]: hidden until verdict
+                  - generic [ref=f1e258]: "Family affinity is machine opinion: it is hidden in a blind queue until you give a verdict. Artifact likelihood stays visible."
+              - generic [ref=f1e259]:
+                - generic [ref=f1e260]:
+                  - heading "Verdict" [level=3] [ref=f1e261]
+                  - 'generic "unavailable: no earlier verdict this session" [ref=f1e263]':
+                    - button "earlier verdict" [disabled]
+                  - 'generic "unavailable: this is the latest verdict" [ref=f1e265]':
+                    - button "later verdict" [disabled]
+                  - generic [ref=f1e266]: no verdict yet in this queue
+                  - 'generic "unavailable: nothing to undo in this queue this session" [ref=f1e268]':
+                    - button "Ctrl Z undo" [disabled]:
+                      - generic: Ctrl Z
+                      - generic: undo
+                - generic [ref=f1e269]:
+                  - button "S seed promotes to Library" [ref=f1e270] [cursor=pointer]:
+                    - generic [ref=f1e271]: S
+                    - generic [ref=f1e272]:
+                      - generic [ref=f1e273]: seed
+                      - generic [ref=f1e274]: promotes to Library
+                  - button "I interesting" [ref=f1e275] [cursor=pointer]:
+                    - generic [ref=f1e276]: I
+                    - generic [ref=f1e277]: interesting
+                  - button "N not interesting" [ref=f1e279] [cursor=pointer]:
+                    - generic [ref=f1e280]: "N"
+                    - generic [ref=f1e281]: not interesting
+                  - button "A artifact kept out of training" [ref=f1e283] [cursor=pointer]:
+                    - generic [ref=f1e284]: A
+                    - generic [ref=f1e285]:
+                      - generic [ref=f1e286]: artifact
+                      - generic [ref=f1e287]: kept out of training
+                  - button "U unsure" [ref=f1e288] [cursor=pointer]:
+                    - generic [ref=f1e289]: U
+                    - generic [ref=f1e290]: unsure
+                  - button "Space skip no write" [ref=f1e292] [cursor=pointer]:
+                    - generic [ref=f1e293]: Space
+                    - generic [ref=f1e294]:
+                      - generic [ref=f1e295]: skip
+                      - generic [ref=f1e296]: no write
+              - generic [ref=f1e297]:
+                - generic [ref=f1e298]:
+                  - heading "Annotate" [level=3] [ref=f1e299]
+                  - generic [ref=f1e300]: optional
+                  - button "about Classes" [ref=f1e301] [cursor=pointer]
+                  - generic [ref=f1e305]: a class implies interesting, unless the class is non-informative
+                - generic [ref=f1e306]:
+                  - generic [ref=f1e307]: class
+                  - button "1 spike-train" [ref=f1e308] [cursor=pointer]:
+                    - generic [ref=f1e309]: "1"
+                    - text: spike-train
+                  - button "2 burst" [ref=f1e310] [cursor=pointer]:
+                    - generic [ref=f1e311]: "2"
+                    - text: burst
+                  - button "3 slow-drift" [ref=f1e312] [cursor=pointer]:
+                    - generic [ref=f1e313]: "3"
+                    - text: slow-drift
+                  - button "4 plateau" [ref=f1e314] [cursor=pointer]:
+                    - generic [ref=f1e315]: "4"
+                    - text: plateau
+                  - button "9 electrode artifact" [ref=f1e316] [cursor=pointer]:
+                    - generic [ref=f1e317]: "9"
+                    - text: electrode artifact
+                - generic [ref=f1e318]:
+                  - generic [ref=f1e319]: tags
+                  - button "spike-train" [ref=f1e320] [cursor=pointer]
+                  - button "regular" [ref=f1e321] [cursor=pointer]
+                  - button "decaying" [ref=f1e322] [cursor=pointer]
+                  - button "+ tag" [ref=f1e323] [cursor=pointer]
+                  - generic [ref=f1e325]: note
+                  - textbox "note" [ref=f1e328]:
+                    - /placeholder: Add a note…
+          - complementary [ref=f1e329]:
+            - button "open evidence rail" [ref=f1e330] [cursor=pointer]
+            - generic [ref=f1e334]:
+              - button "score" [ref=f1e335] [cursor=pointer]
+              - button "family d" [ref=f1e341] [cursor=pointer]
+              - button "… artifact" [ref=f1e347] [cursor=pointer]:
+                - generic [ref=f1e348]: …
+                - generic [ref=f1e349]: artifact
+              - button "0 history" [ref=f1e350] [cursor=pointer]:
+                - generic [ref=f1e351]: "0"
+                - generic [ref=f1e352]: history
+  - dialog [ref=f1e353]:
+    - generic [ref=f1e354]:
+      - generic [ref=f1e355]: Other channels
+      - generic [ref=f1e356]: same 3.003 → 3.025 h
+      - button "close other channels" [active] [ref=f1e357] [cursor=pointer]
+    - generic [ref=f1e360]:
+      - generic [ref=f1e361]:
+        - generic [ref=f1e362]: CH1
+        - img "thumbnail trace" [ref=f1e363]
+        - generic [ref=f1e366]: this channel
+      - generic [ref=f1e367]:
+        - generic [ref=f1e368]: shared mV scale · r = coherence in the span
+        - generic [ref=f1e369]:
+          - generic [ref=f1e370]: 1–1 of 1
+          - button "previous page" [disabled] [ref=f1e371]
+          - button "next page" [disabled] [ref=f1e374]
+    - generic [ref=f1e377]:
+      - generic [ref=f1e378]:
+        - generic [ref=f1e379]: artifact likelihood
+        - generic [ref=f1e380]: not computed
+        - button "about Artifact likelihood" [ref=f1e381] [cursor=pointer]
+        - generic [ref=f1e385]: not blinded in any queue
+      - generic [ref=f1e386]: coherence in span — (flag ≥ 0.5) clipping not computed step change not computed electrode flag not computed
+      - button "Open all channels in Explore" [ref=f1e387] [cursor=pointer]

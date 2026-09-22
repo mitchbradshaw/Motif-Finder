@@ -1,0 +1,24 @@
+- generic [ref=e3]:
+  - navigation [ref=e4]:
+    - generic "Underground Brains" [ref=e5]
+    - generic [ref=e8]:
+      - button "Explore" [ref=e772] [cursor=pointer]
+      - button "Analyse" [ref=e776] [cursor=pointer]
+      - button "Discovery" [ref=e783] [cursor=pointer]
+      - button "Models" [ref=e790] [cursor=pointer]
+      - button "Review" [ref=e795] [cursor=pointer]
+      - button "Library" [ref=e800] [cursor=pointer]
+    - generic [ref=e44]:
+      - button "Jobs · 3" [ref=e807] [cursor=pointer]
+      - button "Settings" [ref=e814] [cursor=pointer]
+  - banner [ref=e820]:
+    - generic [ref=e821]:
+      - generic [ref=e822]: Review
+      - generic [ref=e824]: Inspector
+      - generic [ref=e825]: queue 2
+    - generic [ref=e826]:
+      - button "Search spans, runs, families Ctrl K" [ref=e827]:
+        - generic [ref=e831]: Search spans, runs, families
+        - generic [ref=e832]: Ctrl K
+      - button "● 3 need you" [ref=e833] [cursor=pointer]
+      - button "M4 held out" [ref=e834] [cursor=pointer]

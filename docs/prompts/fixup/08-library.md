@@ -1,0 +1,32 @@
+# Fixup 08 — Library: Recurrence, Atlas, Family, Edit grouping, Import, Window sets, Templates
+
+**Status: skeleton.** Symptoms only. The prompt body is written after `QUESTIONS.md` Q-L1…Q-L6.
+
+This page has the most user feedback of any in the app, and most of it lands on one decision (L1/L2).
+
+## Symptoms
+
+| # | Symptom | Evidence |
+|---|---|---|
+| L1 | **Every family plot has the same y-axis, and the user reads that as broken.** It is deliberate: PRD D5 mandates ONE shared unnormalised mV domain per page, set at the **75th percentile of the per-family peak** rather than the maximum — because family peaks span four decades and setting the domain by the largest drew almost every card flat. The consequence the user sees is `±0.0043 mV` on every plot, and a `clipped` badge on the families above it. **The rule is doing exactly what it says; the question is whether D5 is right.** | user + screenshot; `webui/client/src/library/AtlasPage.tsx:128-133`, `library/chrome.tsx:301-306` |
+| L2 | **Too many flat families and clipped motifs.** The direct consequence of L1: 97 of 149 families in one grouping drew under the domain, and the ones above it are clamped and badged. Also visible in the screenshot: ten member cards on F-103 that are all near-flat noise. | user + screenshot |
+| L3 | **The exemplar looks different in the thumbnail than in the plot.** It is two different renderings of the same member. The Family page keeps **two** domains on purpose: the overlay plot draws the real stored snippet on a domain measured from itself, while the member cards and the rail's member plot are a **shape sketch** — amplitude and duration measured, *the waveform not carried by that read*. The caption says so on both. Screenshot: F-103's overlay shows a deep square trough; m-149's card and rail plot show near-flat noise. **Honestly labelled and still wrong for a human.** | user + screenshot; `webui/client/src/library/FamilyPage.tsx:190-199` |
+| L4 | **Hand edits are never written from the UI.** `POST`/`DELETE /api/library/hand-edits` work, `hand_edits.py` is tested including survival across a regroup, and members carry the `contentHash` the route needs — but every hand-edit control on the Family page is a `not wired yet:` toast writing to an in-memory store. `hand_edits` holds 0 rows. The screenshot's *Remove from family*, *Make exemplar*, `+ tag` and class select are all in this state. | user + screenshot; wiring `reports/03-library.md` §9 |
+| L5 | **Polar and cube plots.** The user wants family/member structure shown in polar and 3-D form. Nothing like this exists; `charts/` has no polar or 3-D primitive. | user |
+| L6 | **Clicking into a cluster on a plot should show its waveforms.** Same ask as `01-explore.md` E6 — the Atlas grid and the Recurrence raster should be indexes into the members, not pictures of them. | user |
+| L7 | **`judged` reads 0.0 % on every family.** Verdicts are matched on *exact span equality* against a human row, and no human annotation shares a span endpoint-for-endpoint with a library member. Not wrong, but a zero nobody can interpret. Matching by the §4.6 IoU rule instead changes what "judged" *means*. | wiring `reports/03-library.md` §8.8 |
+| L8 | **The sequences atlas shows 1 of its 26 families.** The grouping bar's default `≥ 10 members` filter is applied to sequence counts, and F-31 is the only sequence family with ten. The filter is doing what it says; the default is wrong for a unit whose families run 2–10, and it makes the atlas look empty. Needs a per-unit default — a Settings › Library groupings decision. | wiring `reports/03-library.md` §8.10 |
+| L9 | **The `custom` grouping basis cannot work end to end** — `_grouping_items` never puts `cluster_label` on an item, so every member omits as `no_label`. The select is live; the parameter has nowhere to land. | wiring `reports/03-library.md` §9 |
+| L10 | **437 near-duplicate flags sit in `audit_log` and no surface shows them**; and those 437 keep the old, wrong span shape (the fix names both spans correctly for *new* flags only — re-flagging needs a re-import). | wiring `reports/03-library.md` §9 |
+| L11 | **`motif_edge` is empty.** Nothing computes edges; `match_span_to_entry` is the path and Discovery's seeded search is its likeliest caller. Spike-train-to-spike-train edges are what `motif_edge` was shaped for (see `00-cross-cutting.md` X3). | wiring `reports/03-library.md` §9 |
+| L12 | **Spike trains are defined and not populated.** `scale = 'train'` exists; nothing on this machine writes one. This is the blocker under the supervisor's workflow. | wiring `reports/03-library.md` §8.7 |
+| L13 | **Four type-specimen entries are untagged in the live database** — the importer fix is right and tested but short-circuits on `already_imported`, so those four rows need dropping and re-importing. | wiring `reports/03-library.md` §9 |
+| L14 | **The default cut (0.60, measured) lives in `scripts/populate_library.py`**, not in the `settings` table where §9.10 puts it. | wiring `reports/03-library.md` §8.3 |
+| L15 | **Template versions and per-run scores have no table anywhere.** §4.5's "no second template store" is right, but the Templates rail wants version history and scores. The pages say "not recorded" rather than drawing an empty table. Either §4 should call those aspirational or `template_versions`/`template_scores` are missing from it. | wiring `reports/03-library.md` §8.9 |
+| L16 | **Window sets page has nothing to show** — `window_sets` holds 0 rows (see `04-analyse-training.md` T4). | wiring `reports/03-library.md` §9 |
+| L17 | **Excluded on purpose, reversible**: `drop_motifs12a` (partial, `recording_id = -1` on 844 rows, two floor policies colliding on one span) and the `reishi_1hz` control corpus (double-counts one organism). | wiring `reports/03-library.md` §8.1, §8.2 |
+| L18 | `api/library.ts` still holds 1 fixture read. | wiring `reports/05-review.md` §7 |
+
+## Goal · Work · Testing and critique · Report
+
+*(written after the questions)*

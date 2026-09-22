@@ -1,231 +1,29 @@
 {
-  "failures": [
-    "discovery: discovery.compare--unpick-b: TimeoutError: Locator.click: Timeout 30000ms exceeded.\nCall log:\n  - waiting for locator(\"[data-testid=\\\"pick-smoke_seed\\\"]\").first\n",
-    "discovery: discovery.compare--overlap-segment: OSError: [Errno 22] Invalid argument: 'C:\\\\Users\\\\mmebr\\\\Documents\\\\CNN\\\\webui\\\\screenshots\\\\pages\\\\discovery\\\\discovery.compare--overlap-segment.png'"
-  ],
+  "failures": [],
   "browser_errors": [],
   "evidence": {
-    "heatmap_cells": 912,
-    "heatmap_distinct_fills": 6,
-    "envelope_path_lengths": [
-      28973,
-      27561
-    ],
-    "span_bands": 4,
-    "zoom_stats": [
-      {
-        "seq": 1,
-        "t0": 995040,
-        "t1": 1002240,
-        "px": 1304,
-        "n_points": 2400,
-        "decimate_ms": 0.5094999942230061,
-        "round_trip_ms": 19.600000008940697,
-        "paint_ms": 12.700000002980232
-      },
-      {
-        "seq": 2,
-        "t0": 996168.1605153364,
-        "t1": 1001316.3874163145,
-        "px": 1304,
-        "n_points": 2576,
-        "decimate_ms": 0.49479999870527536,
-        "round_trip_ms": 16,
-        "paint_ms": 11.100000008940697
-      },
-      {
-        "seq": 3,
-        "t0": 996974.8308366804,
-        "t1": 1000655.9753122295,
-        "px": 1304,
-        "n_points": 2456,
-        "decimate_ms": 0.4954000032739714,
-        "round_trip_ms": 19.200000002980232,
-        "paint_ms": 12.799999997019768
-      },
-      {
-        "seq": 4,
-        "t0": 997551.6255378698,
-        "t1": 1000183.7598455653,
-        "px": 1304,
-        "n_points": 1756,
-        "decimate_ms": 0.31269999453797936,
-        "round_trip_ms": 14.700000002980232,
-        "paint_ms": 18.600000008940697
-      },
-      {
-        "seq": 5,
-        "t0": 997964.0519263427,
-        "t1": 999846.1109054906,
-        "px": 1304,
-        "n_points": 1883,
-        "decimate_ms": 0.6466000049840659,
-        "round_trip_ms": 15.699999988079071,
-        "paint_ms": 17.299999997019768
-      },
-      {
-        "seq": 6,
-        "t0": 998258.9497913162,
-        "t1": 999604.6812726601,
-        "px": 1304,
-        "n_points": 1347,
-        "decimate_ms": 0.48040000547189265,
-        "round_trip_ms": 29.299999997019768,
-        "paint_ms": 22.399999991059303
-      },
-      {
-        "seq": 7,
-        "t0": 998469.8110581909,
-        "t1": 999432.0514767669,
-        "px": 1304,
-        "n_points": 964,
-        "decimate_ms": 0.23920000239741057,
-        "round_trip_ms": 28,
-        "paint_ms": 19.30000001192093
-      },
-      {
-        "seq": 8,
-        "t0": 998620.5835090935,
-        "t1": 999308.6157324438,
-        "px": 1304,
-        "n_points": 689,
-        "decimate_ms": 0.18429999181535095,
-        "round_trip_ms": 14.200000002980232,
-        "paint_ms": 19.299999997019768
-      },
-      {
-        "seq": 9,
-        "t0": 998728.3905629355,
-        "t1": 999220.3552852954,
-        "px": 1304,
-        "n_points": 493,
-        "decimate_ms": 0.14960000407882035,
-        "round_trip_ms": 25.900000005960464,
-        "paint_ms": 12.200000002980232
-      }
-    ],
-    "zoom_round_trip_ms": {
-      "min": 14.200000002980232,
-      "max": 29.299999997019768,
-      "median": 19.200000002980232
-    },
-    "run_wall_s": 31.86,
-    "badges_after_run": [
-      "cached \u00b7 0 s",
-      "cached \u00b7 0 s",
-      "cached \u00b7 0 s"
-    ],
-    "row_plots": [
-      "path",
-      "path",
-      "path"
-    ],
-    "badges_after_edit": [
-      "cached \u00b7 0 s",
-      "cached \u00b7 0 s",
-      "stale"
-    ],
-    "badges_after_rerun": [
-      "cached \u00b7 0 s",
-      "cached \u00b7 0 s",
-      "cached \u00b7 0 s"
-    ],
-    "badge_titles_after_rerun": [
-      "restored from the prefix cache (core step time 0.0 s)",
-      "restored from the prefix cache (core step time 0.0 s)",
-      "restored from the prefix cache (core step time 0.0 s)"
-    ],
-    "discovery_scope": {
-      "recording": "M2_aug_concat_fs1",
-      "channels": [
-        "CH1_A1",
-        "CH2_A1"
-      ],
-      "section_h": [
-        80.0,
-        84.0
-      ],
-      "runs": [
-        "mp_threshold_3",
-        "smoke_seed_2"
-      ]
-    },
-    "discovery_run_rows": 8,
-    "discovery_strip_paths": [
-      7739,
-      7852
-    ],
-    "discovery_fires_cells": 13,
-    "route_states": 46,
-    "server_log_error_lines": [
-      "2026-09-22 06:16:48,411 ERROR proto.runs: run 21 failed at step 1: ValueError: window (m=30000 samples) must be shorter than the span (750 samples)."
-    ]
+    "route_states": 19,
+    "server_log_error_lines": []
   },
   "screenshots": [
-    "C:\\Users\\mmebr\\Documents\\CNN\\webui\\screenshots\\01-explore-1-corpus.png",
-    "C:\\Users\\mmebr\\Documents\\CNN\\webui\\screenshots\\02-explore-1-corpus-colour-by.png",
-    "C:\\Users\\mmebr\\Documents\\CNN\\webui\\screenshots\\03-explore-1-corpus-selected.png",
-    "C:\\Users\\mmebr\\Documents\\CNN\\webui\\screenshots\\04-explore-2-signal.png",
-    "C:\\Users\\mmebr\\Documents\\CNN\\webui\\screenshots\\05-explore-2-signal-zoomed.png",
-    "C:\\Users\\mmebr\\Documents\\CNN\\webui\\screenshots\\06-explore-2-signal-motif.png",
-    "C:\\Users\\mmebr\\Documents\\CNN\\webui\\screenshots\\07-explore-m4-held-out.png",
-    "C:\\Users\\mmebr\\Documents\\CNN\\webui\\screenshots\\08-chain-1-chain-before-run.png",
-    "C:\\Users\\mmebr\\Documents\\CNN\\webui\\screenshots\\09-chain-2-insert-stage.png",
-    "C:\\Users\\mmebr\\Documents\\CNN\\webui\\screenshots\\10-chain-1-chain-completed.png",
-    "C:\\Users\\mmebr\\Documents\\CNN\\webui\\screenshots\\11-chain-7b-block-threshold.png",
-    "C:\\Users\\mmebr\\Documents\\CNN\\webui\\screenshots\\12-chain-7b-block-threshold-dragged.png",
-    "C:\\Users\\mmebr\\Documents\\CNN\\webui\\screenshots\\13-chain-1-chain-suffix-rerun.png",
-    "C:\\Users\\mmebr\\Documents\\CNN\\webui\\screenshots\\14-chain-1b-run-history.png",
-    "C:\\Users\\mmebr\\Documents\\CNN\\webui\\screenshots\\15-chain-1e-invalid-junction.png",
-    "C:\\Users\\mmebr\\Documents\\CNN\\webui\\screenshots\\16-chain-1f-failed-block.png",
-    "C:\\Users\\mmebr\\Documents\\CNN\\webui\\screenshots\\17-chain-1d-running.png",
-    "C:\\Users\\mmebr\\Documents\\CNN\\webui\\screenshots\\18-discovery-1-runs-live.png",
-    "C:\\Users\\mmebr\\Documents\\CNN\\webui\\screenshots\\19-discovery-2-seed-live.png",
-    "C:\\Users\\mmebr\\Documents\\CNN\\webui\\screenshots\\20-discovery-3-compare-live.png",
-    "C:\\Users\\mmebr\\Documents\\CNN\\webui\\screenshots\\21-loud-failure-render-error.png",
-    "C:\\Users\\mmebr\\Documents\\CNN\\webui\\screenshots\\pages\\discovery\\discovery.runs--default.png",
-    "C:\\Users\\mmebr\\Documents\\CNN\\webui\\screenshots\\pages\\discovery\\discovery.runs--modal-add-template.png",
-    "C:\\Users\\mmebr\\Documents\\CNN\\webui\\screenshots\\pages\\discovery\\discovery.runs--modal-slurm.png",
-    "C:\\Users\\mmebr\\Documents\\CNN\\webui\\screenshots\\pages\\discovery\\discovery.runs--popover-history.png",
-    "C:\\Users\\mmebr\\Documents\\CNN\\webui\\screenshots\\pages\\discovery\\discovery.runs--confirm-discard.png",
-    "C:\\Users\\mmebr\\Documents\\CNN\\webui\\screenshots\\pages\\discovery\\discovery.runs--discarded.png",
-    "C:\\Users\\mmebr\\Documents\\CNN\\webui\\screenshots\\pages\\discovery\\discovery.runs--discarded-param.png",
-    "C:\\Users\\mmebr\\Documents\\CNN\\webui\\screenshots\\pages\\discovery\\discovery.runs--fires-spans.png",
-    "C:\\Users\\mmebr\\Documents\\CNN\\webui\\screenshots\\pages\\discovery\\discovery.runs--section-popover.png",
-    "C:\\Users\\mmebr\\Documents\\CNN\\webui\\screenshots\\pages\\discovery\\discovery.runs--running.png",
-    "C:\\Users\\mmebr\\Documents\\CNN\\webui\\screenshots\\pages\\discovery\\discovery.runs--empty.png",
-    "C:\\Users\\mmebr\\Documents\\CNN\\webui\\screenshots\\pages\\discovery\\discovery.runs--held-out-refused.png",
-    "C:\\Users\\mmebr\\Documents\\CNN\\webui\\screenshots\\pages\\discovery\\discovery.seed--default.png",
-    "C:\\Users\\mmebr\\Documents\\CNN\\webui\\screenshots\\pages\\discovery\\discovery.seed--source-explore.png",
-    "C:\\Users\\mmebr\\Documents\\CNN\\webui\\screenshots\\pages\\discovery\\discovery.seed--source-medoid.png",
-    "C:\\Users\\mmebr\\Documents\\CNN\\webui\\screenshots\\pages\\discovery\\discovery.seed--change-seed.png",
-    "C:\\Users\\mmebr\\Documents\\CNN\\webui\\screenshots\\pages\\discovery\\discovery.seed--view-popover.png",
-    "C:\\Users\\mmebr\\Documents\\CNN\\webui\\screenshots\\pages\\discovery\\discovery.seed--running.png",
-    "C:\\Users\\mmebr\\Documents\\CNN\\webui\\screenshots\\pages\\discovery\\discovery.seed--done.png",
-    "C:\\Users\\mmebr\\Documents\\CNN\\webui\\screenshots\\pages\\discovery\\discovery.seed--failed.png",
-    "C:\\Users\\mmebr\\Documents\\CNN\\webui\\screenshots\\pages\\discovery\\discovery.seed--modal-save-template.png",
-    "C:\\Users\\mmebr\\Documents\\CNN\\webui\\screenshots\\pages\\discovery\\discovery.seed--save-template-invalid.png",
-    "C:\\Users\\mmebr\\Documents\\CNN\\webui\\screenshots\\pages\\discovery\\discovery.seed--held-out-refused.png",
-    "C:\\Users\\mmebr\\Documents\\CNN\\webui\\screenshots\\pages\\discovery\\discovery.compare--default.png",
-    "C:\\Users\\mmebr\\Documents\\CNN\\webui\\screenshots\\pages\\discovery\\discovery.compare--empty-one-pick.png",
-    "C:\\Users\\mmebr\\Documents\\CNN\\webui\\screenshots\\pages\\discovery\\discovery.compare--swapped.png",
-    "C:\\Users\\mmebr\\Documents\\CNN\\webui\\screenshots\\pages\\discovery\\discovery.compare--filter-only-b.png",
-    "C:\\Users\\mmebr\\Documents\\CNN\\webui\\screenshots\\pages\\discovery\\discovery.compare--popover-roles.png",
-    "C:\\Users\\mmebr\\Documents\\CNN\\webui\\screenshots\\pages\\discovery\\discovery.compare--popover-stage.png",
-    "C:\\Users\\mmebr\\Documents\\CNN\\webui\\screenshots\\pages\\discovery\\discovery.compare--human-as-b.png",
-    "C:\\Users\\mmebr\\Documents\\CNN\\webui\\screenshots\\pages\\discovery\\discovery.compare--held-out-refused.png",
-    "C:\\Users\\mmebr\\Documents\\CNN\\webui\\screenshots\\pages\\discovery\\discovery.compare--route-default.png",
-    "C:\\Users\\mmebr\\Documents\\CNN\\webui\\screenshots\\pages\\discovery\\discovery.stages--default.png",
-    "C:\\Users\\mmebr\\Documents\\CNN\\webui\\screenshots\\pages\\discovery\\discovery.stages--re-running.png",
-    "C:\\Users\\mmebr\\Documents\\CNN\\webui\\screenshots\\pages\\discovery\\discovery.stages--stepped.png",
-    "C:\\Users\\mmebr\\Documents\\CNN\\webui\\screenshots\\pages\\discovery\\discovery.stages--swapped.png",
-    "C:\\Users\\mmebr\\Documents\\CNN\\webui\\screenshots\\pages\\discovery\\discovery.stages--popover-first-differing.png",
-    "C:\\Users\\mmebr\\Documents\\CNN\\webui\\screenshots\\pages\\discovery\\discovery.stages--popover-stage-params.png",
-    "C:\\Users\\mmebr\\Documents\\CNN\\webui\\screenshots\\pages\\discovery\\discovery.stages--filter-only-b.png",
-    "C:\\Users\\mmebr\\Documents\\CNN\\webui\\screenshots\\pages\\discovery\\discovery.stages--human-as-b.png",
-    "C:\\Users\\mmebr\\Documents\\CNN\\webui\\screenshots\\pages\\discovery\\discovery.stages--empty-same-run.png",
-    "C:\\Users\\mmebr\\Documents\\CNN\\webui\\screenshots\\pages\\discovery\\discovery.stages--route-default.png",
-    "C:\\Users\\mmebr\\Documents\\CNN\\webui\\screenshots\\pages\\discovery\\discovery.runs--failed-deep-link.png",
-    "C:\\Users\\mmebr\\Documents\\CNN\\webui\\screenshots\\pages\\discovery\\discovery.runs--null-unsupported.png"
+    "C:\\Users\\mmebr\\Documents\\CNN\\webui\\screenshots\\pages\\review\\review.inspector--1-candidate (redirect from review root).png",
+    "C:\\Users\\mmebr\\Documents\\CNN\\webui\\screenshots\\pages\\review\\review.inspector--1-candidate (deep link, live detection).png",
+    "C:\\Users\\mmebr\\Documents\\CNN\\webui\\screenshots\\pages\\review\\review.inspector--context trace paints on real samples.png",
+    "C:\\Users\\mmebr\\Documents\\CNN\\webui\\screenshots\\pages\\review\\review.inspector--1b-other-channels (click, then Escape).png",
+    "C:\\Users\\mmebr\\Documents\\CNN\\webui\\screenshots\\pages\\review\\review.inspector--3-queue-rail (deep link).png",
+    "C:\\Users\\mmebr\\Documents\\CNN\\webui\\screenshots\\pages\\review\\review.inspector--3-queue-rail (click toggle).png",
+    "C:\\Users\\mmebr\\Documents\\CNN\\webui\\screenshots\\pages\\review\\review.inspector--3-queue-rail filters reset.png",
+    "C:\\Users\\mmebr\\Documents\\CNN\\webui\\screenshots\\pages\\review\\review.inspector--4-evidence-rail (deep link).png",
+    "C:\\Users\\mmebr\\Documents\\CNN\\webui\\screenshots\\pages\\review\\review.inspector--4-evidence-rail (micro-stat click).png",
+    "C:\\Users\\mmebr\\Documents\\CNN\\webui\\screenshots\\pages\\review\\review.inspector--queue-picker popover lists the live queues.png",
+    "C:\\Users\\mmebr\\Documents\\CNN\\webui\\screenshots\\pages\\review\\review.inspector--shortcuts popover.png",
+    "C:\\Users\\mmebr\\Documents\\CNN\\webui\\screenshots\\pages\\review\\review.inspector--blind-toggle popover on a sighted queue.png",
+    "C:\\Users\\mmebr\\Documents\\CNN\\webui\\screenshots\\pages\\review\\review.inspector--extract-events queue (sequence unit, writes annotations).png",
+    "C:\\Users\\mmebr\\Documents\\CNN\\webui\\screenshots\\pages\\review\\review.inspector--verdict given (I) writes to the database and advances.png",
+    "C:\\Users\\mmebr\\Documents\\CNN\\webui\\screenshots\\pages\\review\\review.inspector--Ctrl-Z undoes through the server.png",
+    "C:\\Users\\mmebr\\Documents\\CNN\\webui\\screenshots\\pages\\review\\review.inspector--Space skips without writing.png",
+    "C:\\Users\\mmebr\\Documents\\CNN\\webui\\screenshots\\pages\\review\\review.inspector--tag input validation.png",
+    "C:\\Users\\mmebr\\Documents\\CNN\\webui\\screenshots\\pages\\review\\review.inspector--item not found is loud, not blank.png",
+    "C:\\Users\\mmebr\\Documents\\CNN\\webui\\screenshots\\pages\\review\\review.inspector--queue rail shows real remaining count.png"
   ]
 }

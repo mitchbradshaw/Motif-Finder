@@ -1,0 +1,25 @@
+- generic [ref=e3]:
+  - navigation [ref=e4]:
+    - generic "Underground Brains" [ref=e5]
+    - generic [ref=e8]:
+      - button "Explore" [ref=e80] [cursor=pointer]
+      - button "Analyse" [ref=e84] [cursor=pointer]
+      - button "Discovery" [ref=e91] [cursor=pointer]
+      - button "Models" [ref=e98] [cursor=pointer]
+      - button "Review" [ref=e103] [cursor=pointer]
+      - button "Library" [ref=e108] [cursor=pointer]
+    - generic [ref=e44]:
+      - button "Jobs · 3" [ref=e115] [cursor=pointer]
+      - button "Settings" [ref=e122] [cursor=pointer]
+  - banner [ref=e128]:
+    - generic [ref=e129]:
+      - generic [ref=e130]: Review
+      - generic [ref=e132]: Inspector
+      - generic [ref=e133]: queue 1
+      - generic "parts of this page show fixture data from the spec §0 placeholder canon, not your database; writes stay in this browser tab until reload (live pages keep their live regions live)" [ref=e134]: demo data
+    - generic [ref=e135]:
+      - button "Search spans, runs, families Ctrl K" [ref=e136]:
+        - generic [ref=e140]: Search spans, runs, families
+        - generic [ref=e141]: Ctrl K
+      - button "● 3 need you" [ref=e142] [cursor=pointer]
+      - button "M4 held out" [ref=e143] [cursor=pointer]

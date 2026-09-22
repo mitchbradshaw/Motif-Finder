@@ -22,7 +22,7 @@ not the live DB: the live DB has real recording names (e.g. `Mushroom_260720`) t
 | shell | every route (`App.tsx` chrome) | shell-nav-rail.pdf, shell-header.pdf | §2, §3, §0 (Jobs, M4 lock) | nav-rail → active workspace → route prefix · header → `need-you` popover → click chip (`?popover=need-you`) · header → `held-out` popover → click lock chip (`?popover=held-out`) · header → search open → click pill / `Ctrl K` (`?popover=search`) |
 | explore.corpus | `#/explore/corpus` (`?rec=<recordingId>&ch=<channelId>&colour=<annotations\|detections\|both\|disagree>`) | explore-1-corpus.pdf, explore-1b-corpus-menus.pdf | §5.1 | 1 → `default` → route · 1b → `recordings-menu` → click recording selector (`?popover=recordings`) · 1b → `map-legend` → click (i) on the coverage card (`?popover=legend`) · (no frame) `held-out` → pick M4 (`?rec=<M4 id>`) · `no-selection` · `nothing-shown` (both Show boxes off) · `zero-match` · `loading` · `error` |
 | explore.signal | `#/explore/signal/<channelId>` (`?popover=…&drawer=…&motif=<n>`) | explore-2-signal.pdf, explore-2a-signal-popovers.pdf, explore-2b-signal-drawer.pdf, explore-2c-drawer-detections.pdf, explore-2d-drawer-shortcuts.pdf | §5.2, §5.3, P6, P9 | 2 → `default` → route · 2a → `detections-picker` → click the `detections 6 runs · 4 methods` chip (`?popover=detections`) · 2a → `span-legend` → click (i) on the SPAN card (`?popover=span-legend`) · 2b → `drawer-annotations` → click the `Annotations 708` ribbon, `D`, or `1` (`?drawer=annotations`) · 2c → `drawer-detections` → click the `Detections 1284` ribbon or `2` (`?drawer=detections`) · 2d → `drawer-shortcuts` → click the `Keyboard shortcuts` ribbon, `3` or `?` (`?drawer=shortcuts`) · (no frame) `no-motif` · `held-out` (`#/explore/signal/52`) · `loading` · `error` · `tag-input` |
-| explore.cross-channel | `#/explore/cross-channel/<channelId>` (`?align=recorded\|lag&window=motif-233&channels=4,3,1,2,5,6`) | explore-3-cross-channel.pdf, explore-3b-cross-channel-aligned.pdf | §5.4 | 3 → `as-recorded` → route / Seg (`?align=recorded`) · 3b → `lag-aligned` → click `lag-aligned` (`?align=lag`) · (no frame) `channels-picker` (`?popover=channels`) · `questions-open` (`?questions=open`) · `computing` (`?state=computing`) · `too-few-channels` · `held-out` · `unknown-channel` |
+| explore.cross-channel | `#/explore/cross-channel/<channelId>` (`?align=recorded\|lag&pad=20\|60&maxlag=10\|30\|60&y=absolute\|centred\|per-channel&channels=4,3,1,2,5,6`; `y` defaults to `centred`) | explore-3-cross-channel.pdf, explore-3b-cross-channel-aligned.pdf | §5.4 | 3 → `as-recorded` → route / Seg (`?align=recorded`) · 3b → `lag-aligned` → click `lag-aligned` (`?align=lag`) · (no frame) `channels-picker` (`?popover=channels`) · `questions-open` (`?questions=open`) · `computing` (`?state=computing`) · `too-few-channels` · `held-out` · `unknown-channel` |
 | explore.span-edit | `#/explore/span-edit/<spanId>` (`spanId` = member id, e.g. `m-1846`; `?queue=q-12&candidate=12&of=50`) | explore-4-span-edit.pdf | §4.2, §4.3, §5.5 | 4 → `edited` → route with the canned edit (`?state=edited`) · (no frame) `pristine` (the default on arrival, Save disabled) · `invalid` (end ≤ start) · `saving → saved` (Save click) · `held-out` · `unknown-span` |
 
 ---
@@ -803,8 +803,12 @@ Content column x 89–1351.
 ### Plots
 - **Channel stack** (SmallMultiples of Trace, one per channel, ≤ 10 per P8).
   - **X:** seconds relative to the window's motif onset (`−20 s … +40 s`), shared across rows.
-  - **Y:** mV per row. **Recommend a shared y scale** across rows, with a single `±0.4 mV` scale note in the stack
-    head (§3: never normalised). The frame shows no y labels; see Fog.
+  - **Y:** mV per row, **built 2026-09-22** — `explore/crossScale.ts`, three modes on `?y=`, default `centred`:
+    `absolute` (one absolute mV domain across the stack), `centred` (one shared gain, each row about its own
+    median) and `per-channel` (autoscaled per row, badged `normalised`). The `±0.4 mV` prescribed here was a
+    fixture number and is impossible on live data — the sixteen M2_aug electrodes sit from −0.10 to −3.79 mV, so
+    one absolute domain is ~3.9 mV tall and every row's 0.001–0.03 mV waveform drew as a flat line. The scale
+    note is computed from the drawn rows, never a literal, and each row prints its own absolute extent in mV.
   - **Marks.**
     - The reference trace in blue, the others black.
     - The orange motif region on the reference only.
@@ -844,7 +848,10 @@ interface CrossChannelFixture { recordingId: 'M2_aug fs1'; referenceId: 4; windo
    for human origin, above chance and cached, and amber for "needs attention". Recommendation: keep the frame
    colours; this is a placeholder page (§5.4). Flagged for the owner.
 3. **The `Apply a template` row uses the Analyse icon but opens Discovery** (B25/P3 changed the copy). Use the Discovery icon.
-4. **The stack has no mV scale**, against §3 ("waveforms are never normalised on screen"). Add a shared y-scale note, e.g. `shared y · ±0.4 mV`.
+4. ~~**The stack has no mV scale**, against §3 ("waveforms are never normalised on screen"). Add a shared y-scale note, e.g. `shared y · ±0.4 mV`.~~
+   **Resolved 2026-09-22.** The note is in the stack head (`scale-note`) and is computed from the drawn rows; a
+   literal `±0.4 mV` cannot be right for electrodes 3.9 mV apart. See **Y** above for the three modes and why
+   `centred` is the default: PRD:523 asks for *detrended* mV, which is what an absolute domain does not draw.
 
 ### Fog (Cross-channel)
 - **F16.** How lag, r and the bins are computed, and their thresholds, are unspecified. §5.4 parks it, and the bridge has no endpoint, so every value is fixture.

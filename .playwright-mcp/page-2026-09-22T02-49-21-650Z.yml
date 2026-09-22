@@ -1,0 +1,239 @@
+- generic [ref=e1]:
+  - generic [ref=e3]:
+    - navigation [ref=e4]:
+      - generic "Underground Brains" [ref=e5]
+      - generic [ref=e8]:
+        - button "Explore" [ref=e408] [cursor=pointer]
+        - button "Analyse" [ref=e412] [cursor=pointer]
+        - button "Discovery" [ref=e419] [cursor=pointer]
+        - button "Models" [ref=e426] [cursor=pointer]
+        - button "Review" [ref=e431] [cursor=pointer]
+        - button "Library" [ref=e436] [cursor=pointer]
+      - generic [ref=e44]:
+        - button "Jobs · 3" [ref=e443] [cursor=pointer]
+        - button "Settings" [ref=e450] [cursor=pointer]
+    - generic [ref=e59]:
+      - banner [ref=e128]:
+        - generic [ref=e129]:
+          - generic [ref=e130]: Review
+          - generic [ref=e132]: Inspector
+          - generic [ref=e133]: queue extract events
+        - generic [ref=e134]:
+          - button "Search spans, runs, families Ctrl K" [ref=e135]:
+            - generic [ref=e139]: Search spans, runs, families
+            - generic [ref=e140]: Ctrl K
+          - button "● 3 need you" [ref=e141] [cursor=pointer]
+          - button "M4 held out" [ref=e142] [cursor=pointer]
+      - generic [ref=e146]:
+        - generic [ref=e147]:
+          - button "queue Library - extract events" [expanded] [ref=e148] [cursor=pointer]:
+            - generic [ref=e151]: queue
+            - generic [ref=e152]: Library - extract events
+          - button "machine opinion visible" [ref=e155] [cursor=pointer]
+          - generic [ref=e164]:
+            - generic [ref=e169]: writes
+            - generic [ref=e170]: annotations
+            - button "about Write target" [ref=e171] [cursor=pointer]
+          - generic "0 of 30 judged" [ref=e175]:
+            - generic [ref=e176]:
+              - generic [ref=e177]: 0 / 30
+              - generic [ref=e178]: pace not yet measured
+            - progressbar "queue progress" [ref=e180]
+          - switch "auto-advance" [checked] [ref=e183] [cursor=pointer]
+          - button "Shortcuts" [ref=e186] [cursor=pointer]
+        - generic [ref=e191]:
+          - complementary [ref=e192]:
+            - button "open queue rail" [ref=e193] [cursor=pointer]
+            - generic [ref=e197]:
+              - generic [ref=e198]: "30"
+              - generic [ref=e199]: left
+            - generic [ref=e200]:
+              - button "open 119" [ref=e201] [cursor=pointer]:
+                - generic "119 · CH1_A1" [ref=e456]:
+                  - img "thumbnail trace" [ref=e457]
+              - button "open 120" [ref=e205] [cursor=pointer]:
+                - generic "120 · CH1_A1" [ref=e459]:
+                  - img "thumbnail trace" [ref=e460]
+              - button "open 121" [ref=e209] [cursor=pointer]:
+                - generic "121 · CH1_A1" [ref=e462]:
+                  - img "thumbnail trace" [ref=e463]
+              - button "open 122" [ref=e213] [cursor=pointer]:
+                - generic "122 · CH1_A1" [ref=e465]:
+                  - img "thumbnail trace" [ref=e466]
+              - button "open 123" [ref=e217] [cursor=pointer]:
+                - generic "123 · CH1_A1" [ref=e468]:
+                  - img "thumbnail trace" [ref=e469]
+              - button "open 124" [ref=e221] [cursor=pointer]:
+                - generic "124 · CH4_A2" [ref=e471]:
+                  - img "thumbnail trace" [ref=e472]
+              - button "open 125" [ref=e224] [cursor=pointer]:
+                - generic "125 · CH4" [ref=e473]:
+                  - img "thumbnail trace" [ref=e474]
+              - button "open 126" [ref=e227] [cursor=pointer]:
+                - generic "126 · CH5" [ref=e475]:
+                  - img "thumbnail trace" [ref=e476]
+              - button "open 127" [ref=e230] [cursor=pointer]:
+                - generic "127 · CH5" [ref=e477]:
+                  - img "thumbnail trace" [ref=e478]
+              - button "open 128" [ref=e233] [cursor=pointer]:
+                - generic "128 · CH1_A1" [ref=e479]:
+                  - img "thumbnail trace" [ref=e480]
+              - generic "20 more units materialised; 30 left in the queue" [ref=e237]: "+20"
+          - main [ref=e238]:
+            - generic [ref=e239]:
+              - generic [ref=e240]:
+                - heading "119" [level=1] [ref=e241]
+                - generic "status unadjudicated" [ref=e242]:
+                  - generic [ref=e244]: status
+                  - generic [ref=e245]: unadjudicated
+                - generic "human spans carry no machine score" [ref=e246]:
+                  - generic [ref=e252]: score
+                  - generic [ref=e253]: n/a · human span
+                - generic "nothing has computed artifact factors for this queue yet" [ref=e254]:
+                  - generic [ref=e256]: artifact
+                  - generic [ref=e257]: not computed
+              - generic [ref=e258]: M2_aug fs1 · CH1_A1 · 336.000 → 346.000 h · 36000.0 s · run undefined · rank undefined of 30 by score
+              - generic [ref=e259]:
+                - generic [ref=e260]:
+                  - heading "Candidate in context" [level=3] [ref=e261]
+                  - generic [ref=e262]: padding
+                  - radiogroup [ref=e263]:
+                    - radio "±30 s" [ref=e264] [cursor=pointer]
+                    - radio "±120 s" [checked] [ref=e265] [cursor=pointer]
+                    - radio "±300 s" [ref=e266] [cursor=pointer]
+                  - button "Other channels" [ref=e267] [cursor=pointer]
+                  - button "Edit span in Explore" [ref=e270] [cursor=pointer]
+                - generic [ref=e273]:
+                  - img "trace, 278 samples, −0.44 to 0.44 mV" [ref=e275]:
+                    - generic "detected" [ref=e280]
+                    - generic [ref=e281]: 119 · 36000.0 s
+                    - generic [ref=e282]: "+0.4"
+                    - generic [ref=e283]: "0"
+                    - generic [ref=e284]: −0.4
+                  - generic [ref=e286]:
+                    - generic [ref=e287]: mV
+                    - generic [ref=e288]: 335.967 h
+                    - generic [ref=e289]: 335.986 h
+                    - generic [ref=e290]: 336.005 h
+                    - generic [ref=e291]: 336.024 h
+                    - generic [ref=e292]: 336.044 h
+              - generic [ref=e293]:
+                - generic [ref=e294]:
+                  - generic [ref=e295]:
+                    - heading "Shape · mV" [level=3] [ref=e296]
+                    - generic [ref=e297]: candidate
+                  - img "trace, 120 samples, −0.44 to 0.44 mV" [ref=e302]:
+                    - generic [ref=e304]: "+0.4"
+                    - generic [ref=e305]: "0"
+                    - generic [ref=e306]: −0.4
+                    - generic [ref=e307]: mV
+                    - generic [ref=e309]:
+                      - generic [ref=e310]: 0 s
+                      - generic [ref=e311]: 20 s
+                      - generic [ref=e312]: 40 s
+                      - generic [ref=e313]: 60 s
+                      - generic [ref=e314]: 80 s
+                      - generic [ref=e315]: 100 s
+                - generic [ref=e316]:
+                  - heading "Nearest families" [level=3] [ref=e318]
+                  - paragraph [ref=e319]: Family affinity is not computed for this queue yet — no distance is being withheld and none is being guessed at.
+              - generic [ref=e320]:
+                - generic [ref=e321]:
+                  - heading "Verdict" [level=3] [ref=e322]
+                  - 'generic "unavailable: no earlier verdict this session" [ref=e324]':
+                    - button "earlier verdict" [disabled]
+                  - 'generic "unavailable: this is the latest verdict" [ref=e326]':
+                    - button "later verdict" [disabled]
+                  - generic [ref=e327]: no verdict yet in this queue
+                  - 'generic "unavailable: nothing to undo in this queue this session" [ref=e329]':
+                    - button "Ctrl Z undo" [disabled]:
+                      - generic: Ctrl Z
+                      - generic: undo
+                - generic [ref=e330]:
+                  - button "S seed promotes to Library" [ref=e331] [cursor=pointer]:
+                    - generic [ref=e332]: S
+                    - generic [ref=e333]:
+                      - generic [ref=e334]: seed
+                      - generic [ref=e335]: promotes to Library
+                  - button "I interesting" [ref=e336] [cursor=pointer]:
+                    - generic [ref=e337]: I
+                    - generic [ref=e338]: interesting
+                  - button "N not interesting" [ref=e340] [cursor=pointer]:
+                    - generic [ref=e341]: "N"
+                    - generic [ref=e342]: not interesting
+                  - button "A artifact kept out of training" [ref=e344] [cursor=pointer]:
+                    - generic [ref=e345]: A
+                    - generic [ref=e346]:
+                      - generic [ref=e347]: artifact
+                      - generic [ref=e348]: kept out of training
+                  - button "U unsure" [ref=e349] [cursor=pointer]:
+                    - generic [ref=e350]: U
+                    - generic [ref=e351]: unsure
+                  - button "Space skip no write" [ref=e353] [cursor=pointer]:
+                    - generic [ref=e354]: Space
+                    - generic [ref=e355]:
+                      - generic [ref=e356]: skip
+                      - generic [ref=e357]: no write
+              - generic [ref=e358]:
+                - generic [ref=e359]:
+                  - heading "Annotate" [level=3] [ref=e360]
+                  - generic [ref=e361]: optional
+                  - button "about Classes" [ref=e362] [cursor=pointer]
+                  - generic [ref=e366]: a class implies interesting, unless the class is non-informative
+                - generic [ref=e367]:
+                  - generic [ref=e368]: class
+                  - button "1 spike-train" [ref=e369] [cursor=pointer]:
+                    - generic [ref=e370]: "1"
+                    - text: spike-train
+                  - button "2 burst" [ref=e371] [cursor=pointer]:
+                    - generic [ref=e372]: "2"
+                    - text: burst
+                  - button "3 slow-drift" [ref=e373] [cursor=pointer]:
+                    - generic [ref=e374]: "3"
+                    - text: slow-drift
+                  - button "4 plateau" [ref=e375] [cursor=pointer]:
+                    - generic [ref=e376]: "4"
+                    - text: plateau
+                  - button "9 electrode artifact" [ref=e377] [cursor=pointer]:
+                    - generic [ref=e378]: "9"
+                    - text: electrode artifact
+                - generic [ref=e379]:
+                  - generic [ref=e380]: tags
+                  - button "spike-train" [ref=e381] [cursor=pointer]
+                  - button "regular" [ref=e382] [cursor=pointer]
+                  - button "decaying" [ref=e383] [cursor=pointer]
+                  - button "+ tag" [ref=e384] [cursor=pointer]
+                  - generic [ref=e386]: note
+                  - textbox "note" [ref=e389]:
+                    - /placeholder: Add a note…
+          - complementary [ref=e390]:
+            - button "open evidence rail" [ref=e391] [cursor=pointer]
+            - generic [ref=e395]:
+              - button "n/a score" [ref=e396] [cursor=pointer]:
+                - generic [ref=e397]: n/a
+                - generic [ref=e398]: score
+              - button "… family d" [ref=e399] [cursor=pointer]:
+                - generic [ref=e400]: …
+                - generic [ref=e401]: family d
+              - button "… artifact" [ref=e402] [cursor=pointer]:
+                - generic [ref=e403]: …
+                - generic [ref=e404]: artifact
+              - button "0 history" [ref=e405] [cursor=pointer]:
+                - generic [ref=e406]: "0"
+                - generic [ref=e407]: history
+  - dialog "Queues" [ref=e482]:
+    - generic [ref=e483]:
+      - text: Queues
+      - generic [ref=e484]: one source each
+    - generic [ref=e485]:
+      - button "Library - extract events sequences · annotations 30" [ref=e486] [cursor=pointer]:
+        - generic [ref=e489]:
+          - generic [ref=e490]: Library - extract events
+          - generic [ref=e491]: sequences · annotations
+        - generic [ref=e492]: "30"
+      - button "drop_detection_v1 - Mushroom_260720 CH14 detections · adjudications 129" [ref=e494] [cursor=pointer]:
+        - generic [ref=e500]:
+          - generic [ref=e501]: drop_detection_v1 - Mushroom_260720 CH14
+          - generic [ref=e502]: detections · adjudications
+        - generic [ref=e503]: "129"
+    - button "Open in Jobs" [active] [ref=e506] [cursor=pointer]

@@ -205,9 +205,18 @@ export const SHORTCUTS: { column: string; rows: { keys: string[]; label: string 
 
 /* ------------------------------------------------------------------ cross-channel ---- */
 export type XBin = 'reference' | 'artifact' | 'propagation' | 'independent' | 'no match'
-export interface XRow { channelId: number; name: string; lagS: number | null; r: number | null; sharedGroundWith?: string; trace: number[]; classification?: string }
+/** One channel's window. `t` / `v` are the bridge's peak-preserving envelope verbatim — `t` in the same
+ *  absolute seconds as `window.t0S`, `v` with a null wherever a bucket was entirely NaN, so the x mapping
+ *  survives decimation (where `t` is neither uniform nor `t0 + i / fs`) and a gap breaks the line instead
+ *  of poisoning the whole SVG path. `error` is the bridge's own message for a channel it could not read. */
+export interface XRow {
+  channelId: number; name: string; lagS: number | null; r: number | null; sharedGroundWith?: string
+  t: number[]; v: (number | null)[]; classification?: string; error?: string
+}
 export interface CrossDemo {
   recording: string; file: string; referenceId: number; referenceName: string
+  /** every time here is absolute seconds from the start of the recording — `motifStartS` / `motifEndS`
+   *  included, so one x scale over [t0S, t0S + durS] places the traces, the ticks and the band alike. */
   window: { label: string; startH: number; endH: number; durS: number; t0S: number; fs: number; motifStartS: number; motifEndS: number }
   channels: { id: number; name: string }[]; rows: XRow[]; defaultSelected: number[]; sharedGround: [string, string][]; openQuestions: string[]
   yDomain: [number, number]
@@ -233,8 +242,10 @@ export function crossDemo(referenceId: number, pad = 20): CrossDemo | null {
     else if ((ref.name === 'CH3_A2' && c.name === 'CH4_A2') || (ref.name === 'CH4_A2' && c.name === 'CH3_A2')) { lag = 0.04; corr = 0.98 }
     else { const u = r(); lag = u < 0.12 ? null : +((r() - 0.5) * 50).toFixed(2); corr = lag === null ? null : +(0.2 + r() * 0.7).toFixed(2) }
     const trace: number[] = []
+    const ts: number[] = []
     for (let i = 0; i < n; i++) {
       const t = t0S + i / fs
+      ts.push(t)
       const noise = (Math.sin(i * 12.9898 + ci * 78.233) * 43758.5453) % 1 * 0.012
       const v = c.id === referenceId ? baseSignal(t, 0)
         : lag === null ? baseSignal(t + 17, ci + 3) * 0.9
@@ -243,7 +254,7 @@ export function crossDemo(referenceId: number, pad = 20): CrossDemo | null {
       trace.push(+v.toFixed(4))
     }
     const shared = (c.name === 'CH3_A2' && ref.name === 'CH4_A2') || (c.name === 'CH4_A2' && ref.name === 'CH3_A2') ? ref.name : undefined
-    return { channelId: c.id, name: c.name, lagS: lag, r: corr, sharedGroundWith: shared, trace }
+    return { channelId: c.id, name: c.name, lagS: lag, r: corr, sharedGroundWith: shared, t: ts, v: trace }
   })
   const defaultNames = ['CH4_A2', 'CH3_A2', 'CH1_A1', 'CH2_A1', 'CH5_B1', 'CH6_B1']
   const defaultSelected = [referenceId, ...defaultNames.map(nm => channels.find(c => c.name === nm)!.id).filter(id => id !== referenceId)].slice(0, 6)
