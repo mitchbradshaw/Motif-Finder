@@ -126,11 +126,14 @@ function MotifAtlas({ families, grouping, labels }: { families: MotifFamily[]; g
   const [sort, setSort] = useQueryState<SortKey>('sort', 'id')
   const [filters] = useFilters()
   /* ONE shared, unnormalised mV domain — but set at the 75th percentile of the per-family peak rather than at
-     the maximum, and after each trace's own DC offset is removed. Before: the global extent was −3.67…+0.0004
-     mV (one family's baseline), so the domain was ±3.8 while the median family peaks at 0.0009 mV — 97 of 149
-     cards drew as a straight line under a caption asserting that the amplitudes compare. Normalising per card
-     is forbidden (PRD Part 2: it destroys the evidence of the scaling laws), so instead the outliers no longer
-     set the scale for everyone and the families past the domain are marked with their own measured peak. */
+     the maximum, and after each trace's own DC offset is removed. Before: the global extent was −3.67 V…+0.4
+     mV (one family's baseline), so the domain was ±3.8 V while the median family peaks at 0.9 mV — 97 of 149
+     cards drew as a straight line under a caption asserting that the amplitudes compare. (Those numbers were
+     first written here as "−3.67…+0.0004 mV" and "0.0009 mV": stored volts printed as mV, before fixup-b.)
+     Normalising per card is forbidden (PRD Part 2: it destroys the evidence of the scaling laws), so instead the
+     outliers no longer set the scale for everyone and the families past the domain are marked with their own
+     measured peak. A family whose recordings declare no unit carries no trace (the bridge withholds it) and so
+     sets nothing. */
   const traces = useMemo(() => centredTraces(families), [families])
   const yDomain = useMemo(() => sharedMvDomain([...traces.values()].map(t => t.peak)), [traces])
   const clippedCount = useMemo(() => [...traces.values()].filter(t => t.peak > yDomain[1]).length, [traces, yDomain])
@@ -173,10 +176,13 @@ function MotifAtlas({ families, grouping, labels }: { families: MotifFamily[]; g
                 <span className={`k-badge ${f.recordings > 1 ? 't-blue' : 't-grey'}`} title={`spans ${f.recordings} recording${f.recordings === 1 ? '' : 's'}`}>{f.recordings} rec</span>
                 {f.hand > 0 && <button type="button" className="k-badge t-purple lib-badge-btn" data-testid={`hand-badge-${f.id}`} title="open the family's hand edits" onClick={e => { e.stopPropagation(); navigate(`library/family/${f.id}?hand=1`) }}>{f.hand} hand</button>}
                 {f.artifact > 0 && <span className="k-badge t-red" title={`${f.artifact} channels where ${f.id} is a cross-channel artifact (flagged, kept visible)`}>artifact {f.artifact}</span>}
+                {!!f.unitNote && <span className="k-badge t-amber" data-testid={`unit-badge-${f.id}`} title={f.unitNote}>{f.unit === null ? 'unit?' : `${f.undeclaredMembers ?? ''} unit?`}</span>}
               </div>
-              <MotifPlot exemplar={traces.get(f.id)?.ex} medoid={traces.get(f.id)?.me} colour={f.colour} yDomain={yDomain} height={92} testid={`family-plot-${f.id}`} clippedPeak={clipOf(f.id)} />
+              <MotifPlot exemplar={traces.get(f.id)?.ex} medoid={traces.get(f.id)?.me} colour={f.colour} yDomain={yDomain} height={92} testid={`family-plot-${f.id}`} clippedPeak={clipOf(f.id)} unitNote={f.unitNote} />
               <div className="lib-foot"><span title="duration">{f.durationS < 10 ? f.durationS.toFixed(1) : f.durationS} s</span>
-                <span title={`peak-to-baseline of the exemplar and medoid traces, measured: ${fmtMv(peakOf(f.id))} mV · mean member depth ${f.depthLabel}`}>peak {fmtMv(peakOf(f.id))} mV</span>
+                {f.unit === null || (!!f.unitNote && peakOf(f.id) === 0)
+                  ? <span title={f.unitNote ?? undefined}>peak · unit undeclared</span>
+                  : <span title={`peak-to-baseline of the exemplar and medoid traces, measured: ${fmtMv(peakOf(f.id))} mV · mean member depth ${f.depthLabel}`}>peak {fmtMv(peakOf(f.id))} mV</span>}
                 <span className="lib-judged" title={`${f.judged} of ${f.members} judged`}><span className="bar"><i style={{ width: `${f.judgedPct}%` }} /></span>{f.judgedPct}% judged</span></div>
             </div>
           ))}

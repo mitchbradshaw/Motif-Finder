@@ -12,7 +12,8 @@ verbatim, so the line that was refused is the one the researcher reads.
 
 What this module *does* add is presentation: the payload shapes
 ``webui/client/src/api/review.ts`` declares (`QueueData`, `ItemDetail`,
-`OtherChannelRow`), built from real rows — and real decimated mV read off the
+`OtherChannelRow`), built from real rows — and real decimated mV (converted from the
+stored unit at `corpus.display_channel`, fixup-b) read off the
 channel memmap through ``decimate.envelope``, never a synthesised trace
 (rule 4: the bulk array never enters the database and never reaches the
 client whole).
@@ -112,14 +113,18 @@ def _trace(conn, rec: dict | None, start_idx: int, end_idx: int, px: int) -> lis
     list (the client's traces are values, the x axis is implied). A channel
     whose `.npy` is missing yields an empty list — the client draws nothing
     rather than a synthesised shape, because a synthetic trace beside a real
-    one is a finding that is not there."""
+    one is a finding that is not there. So does a recording whose unit is
+    undeclared: Review's axes say mV, and a stored number of unknown unit
+    drawn on them would be the fixup-b error again."""
     if not rec:
         return []
     row = corpus.recording_row(conn, int(rec["recording_id"]))
     path = (row or {}).get("npy_path")
     if not path or not os.path.isfile(path):
         return []
-    x = corpus.load_channel(path)
+    x = corpus.display_channel(row)
+    if x.unit is None:
+        return []
     env = decimate.envelope(x, float(rec["fs"] or 1.0), int(start_idx), int(end_idx), px)
     return [None if v is None else round(float(v), 4) for v in env["v"]]
 

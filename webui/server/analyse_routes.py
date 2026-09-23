@@ -176,7 +176,9 @@ def derive_rows(request: Request, body: DeriveBody):
     if rec is None or rec["held_out"]:
         raise HTTPException(404 if rec is None else 423, f"recording {body.recording_id} is not available")
     s0, s1 = (int(body.span[0]), int(body.span[1])) if body.span else (0, int(rec["n_samples"]))
-    x = np.asarray(corpus.load_channel(rec["npy_path"])[s0:s1], dtype=float)
+    # the block's own derive rows (e.g. drop_detection's "mV/s" threshold) convert from volts
+    # themselves: they are handed the stored samples, never the display ones
+    x = np.asarray(corpus.load_native(rec["npy_path"])[s0:s1], dtype=float)
     t = np.arange(s0, s1) / float(rec["fs"])
     rows = spec.derive(x, t, float(rec["fs"]), params)
     return {"block": name, "has_derive": True, "rows": [{"label": r[0], "value": str(r[1]), "severity": r[2] if len(r) > 2 else ""} for r in rows]}

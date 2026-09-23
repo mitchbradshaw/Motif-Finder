@@ -108,7 +108,7 @@ export function MotifView({ ch, motif, label, onSend, onReview, medoid, compact 
             <text x={x(motif.start_s) + 4} y={x(motif.start_s) < 70 ? 24 : 12} style={{ fill: 'var(--red)' }}>ONSET</text>
             <line x1={x(motif.end_s)} x2={x(motif.end_s)} y1={0} y2={H} stroke="var(--red)" strokeWidth={1} />
             <text x={x(motif.end_s) + 4} y={12} style={{ fill: 'var(--red)' }}>END</text>
-            <MvLabels y={y} lo={range[0]} hi={range[1]} />
+            <MvLabels y={y} lo={range[0]} hi={range[1]} unit={win?.data.unit} />
             <line x1={0} x2={W} y1={H} y2={H} stroke="var(--border)" />
             <g className="time-axis" transform={`translate(0,${H})`}>
               {relativeTicks(t0, t1, motif.start_s).map(k => <g key={k.t} transform={`translate(${x(k.t)},0)`}><line y1={0} y2={4} stroke="var(--border-strong)" /><text y={14} textAnchor="middle">{k.label}</text></g>)}

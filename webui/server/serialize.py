@@ -30,6 +30,8 @@ from typing import Any
 
 import numpy as np
 
+from Working.units import to_mv_factor
+
 from .decimate import envelope
 
 SPAN_CAP = 5000
@@ -99,17 +101,24 @@ def _finite_range(a: np.ndarray) -> list | None:
 # ---------------------------------------------------------------- per type --
 
 def _signal(value, meta, ctx):
+    """Every Signal-producing block (detrend, band/high/low-pass, surrogate)
+    preserves units, so a chain's Signal is in the recording's STORED unit
+    (``ctx["units"]``). It is converted to mV here for drawing only — the core's
+    value is not touched — and an undeclared unit is drawn as stored and says so."""
     fs = float(value.fs)
     n = int(len(value.x))
     ss = int(ctx.get("span_start", 0))
-    env = envelope(value.x, fs, 0, n, ctx.get("px", 1200))
+    factor = to_mv_factor(ctx.get("units"))
+    unit = "mV" if factor is not None else None
+    x = np.asarray(value.x, dtype=float) * (factor if factor is not None else 1.0)
+    env = envelope(x, fs, 0, n, ctx.get("px", 1200))
     # envelope() reports t from index 0; shift to absolute seconds.
     env["t"] = [tt + ss / fs for tt in env["t"]]
-    yr = _finite_range(value.x)
+    yr = _finite_range(x)
     return {
         "type": "signal", "fs": fs, "n": n, "t0_s": ss / fs, "t1_s": (ss + n) / fs,
-        "y_range": yr, "envelope": env,
-        "summary": f"{n:,} samples · {'%.3f' % yr[0] if yr else '–'} … {'%.3f' % yr[1] if yr else '–'} mV",
+        "y_range": yr, "envelope": env, "unit": unit,
+        "summary": f"{n:,} samples · {'%.3f' % yr[0] if yr else '–'} … {'%.3f' % yr[1] if yr else '–'} {unit or '(unit undeclared)'}",
     }
 
 

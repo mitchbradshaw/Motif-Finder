@@ -227,7 +227,7 @@ export function ChainPage() {
 
   /* ---- rows ---- */
   const sourceEnvelope: EnvelopeSeries | null = env?.envelope ?? null
-  const sourcePayload: SignalPayload | null = env ? { type: 'signal', fs: env.fs, n: env.n_samples, t0_s: env.t0_s, t1_s: env.t1_s, y_range: null, envelope: env.envelope, summary: '' } : null
+  const sourcePayload: SignalPayload | null = env ? { type: 'signal', fs: env.fs, n: env.n_samples, t0_s: env.t0_s, t1_s: env.t1_s, y_range: null, envelope: env.envelope, summary: '', unit: env.unit } : null
   const ghostFor = (i: number): EnvelopeSeries | null => {
     for (let j = i - 1; j >= 0; j--) { const p = rows[j]?.payload; if (p && p.type === 'signal') return (p as SignalPayload).envelope }
     return sourceEnvelope

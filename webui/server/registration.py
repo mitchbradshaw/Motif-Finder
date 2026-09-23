@@ -231,6 +231,40 @@ def delete_registered(request: Request, kind: str, row_id: int):
         c.close()
 
 
+class UnitsBody(BaseModel):
+    units: str
+    note: str | None = None
+    actor: str = "this installation"
+
+
+@router.put("/api/registry/recording/{row_id}/units")
+def put_recording_units(request: Request, row_id: int, body: UnitsBody):
+    """Declare the unit a registered recording's samples are stored in (fixup-b).
+    Every channel of the recording takes it together; the change is audited.
+    A unit it cannot read is a 422 — never a guess."""
+    from Working.registration.kinds import declare_units
+    c = _conn(request)
+    try:
+        r = c.execute("SELECT source_file, units FROM recordings WHERE id = ?", (row_id,)).fetchone()
+        if r is None:
+            raise HTTPException(404, f"no recordings row {row_id}")
+        if r["source_file"] == HELD_OUT_FILE:
+            raise HTTPException(423, f"{HELD_OUT_FILE} is held out; its unit is not declared through the interface")
+        try:
+            out = declare_units(c, r["source_file"], body.units, note=body.note, actor=body.actor)
+        except ValueError as e:
+            raise HTTPException(422, str(e))
+        append_audit(c, "settings", f"Declared the unit of {r['source_file']}: {r['units'] or 'undeclared'} → {out['units']} "
+                     f"({out['channels']} channel{'s' if out['channels'] != 1 else ''})", "Settings › Datasets",
+                     route="settings/datasets", actor=body.actor,
+                     detail={"source_file": r["source_file"], "from": r["units"], "to": out["units"], "note": out["units_note"]},
+                     commit=False)
+        c.commit()
+        return out
+    finally:
+        c.close()
+
+
 # ---------------------------------------------------------------- settings --
 
 def _page_extras(request: Request, page: str, c) -> dict:

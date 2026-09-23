@@ -1,6 +1,7 @@
 /* discovery.seed — frame discovery-2. A seed search set up in place as a draft run (§7.6, P17): seed source and
  * provenance, carry / rebind, parameters with the where-to-cut histogram (null behind, draggable threshold), the distance
  * profile on one channel, match cards sorted by distance, and the apply bar (Save as template · Run seed search). */
+import { axisUnit } from '../charts/units'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   Button, Callout, Checkbox, DisabledReason, Dropdown, EmptyState, Icon, InfoTip, Modal, NumberField, Pager, Popover, ProgressBar, RadioCards, RangeSlider,
@@ -212,7 +213,7 @@ function SeedCard({ draft, seed, seeds, source, onSource, onSeed, exploreSpan, o
             ) : <EmptyState size="sm" icon="scan" title="No span selected in Explore" caption="select a span in Explore, then come back" testid="seed-explore-empty" action={<Button size="sm" icon="external" onClick={() => navigate('explore/corpus')}>Select a span in Explore</Button>} />
         ) : seed && (
           <div className="dsc-seed-row" data-testid="seed-provenance">
-            <div className="dsc-seed-thumb"><SeedThumb values={seed.trace} yDomain={yDomain} /><span className="small muted mono">{seed.samples} samples · {seed.lengthS} s</span></div>
+            <div className="dsc-seed-thumb"><SeedThumb values={seed.trace} yDomain={yDomain} unit={seed.unit} /><span className="small muted mono">{seed.samples} samples · {seed.lengthS} s</span></div>
             <div className="dsc-seed-kv">
               <b>{seed.title}</b>
               <span>{seed.familyLine}</span>
@@ -254,7 +255,7 @@ function padDomain(values: number[]): [number, number] {
   const lo = Math.min(...f), hi = Math.max(...f), m = (hi - lo) * 0.12 || 0.05
   return [lo - m, hi + m]
 }
-function SeedThumb({ values, yDomain, width = 132, height = 78, overlay }: { values: number[]; yDomain: [number, number]; width?: number; height?: number; overlay?: number[] }) {
+function SeedThumb({ values, yDomain, width = 132, height = 78, overlay, unit }: { values: number[]; yDomain: [number, number]; width?: number; height?: number; overlay?: number[]; unit?: 'mV' | null }) {
   const padL = width > 80 ? 26 : 2
   const x = (i: number, n: number) => padL + (i / Math.max(1, n - 1)) * (width - padL - 3)
   const y = (v: number) => 3 + (1 - (v - yDomain[0]) / (yDomain[1] - yDomain[0])) * (height - 6)
@@ -271,7 +272,7 @@ function SeedThumb({ values, yDomain, width = 132, height = 78, overlay }: { val
   return (
     <svg width={width} height={height} role="img" aria-label="seed shape in mV" className="dsc-seed-svg">
       <rect x={padL} y={0} width={width - padL} height={height} fill="#fff" />
-      {padL > 2 && <><text x={padL - 3} y={10} textAnchor="end" className="dsc-axis-t">{fmtTick(yDomain[1])}</text><text x={padL - 3} y={height - 3} textAnchor="end" className="dsc-axis-t">{fmtTick(yDomain[0])}</text><text x={padL - 3} y={height / 2 + 3} textAnchor="end" className="dsc-axis-t">mV</text></>}
+      {padL > 2 && <><text x={padL - 3} y={10} textAnchor="end" className="dsc-axis-t">{fmtTick(yDomain[1])}</text><text x={padL - 3} y={height - 3} textAnchor="end" className="dsc-axis-t">{fmtTick(yDomain[0])}</text><text x={padL - 3} y={height / 2 + 3} textAnchor="end" className="dsc-axis-t">{axisUnit(unit)}</text></>}
       {overlay && <path d={path(overlay)} fill="none" stroke="var(--trace)" strokeWidth={1.1} />}
       <path d={path(values)} fill="none" stroke={SEED_COLOUR} strokeWidth={1.5} strokeLinejoin="round" />
     </svg>

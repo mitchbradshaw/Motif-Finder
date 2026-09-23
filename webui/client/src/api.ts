@@ -2,6 +2,8 @@
    Every non-2xx response throws ApiError carrying the server's message and, for
    500s, the traceback — so a backend failure is never silent in the page. */
 
+import type { DisplayUnit } from './charts/units'
+
 export class ApiError extends Error {
   status: number
   detail: unknown
@@ -31,6 +33,8 @@ export interface ChannelRef { id: number; channel: number; name: string; npy_exi
 export interface RecordingFile {
   source_file: string; fs: number; n_samples: number; duration_h: number; n_channels: number; held_out: boolean
   held_out_reason: string | null; channels: ChannelRef[]
+  /** fixup-b: the unit the samples are stored in ('V' | 'mV' | 'uV'; null = undeclared), why, and what the pages draw */
+  units?: string | null; units_note?: string | null; display_unit?: DisplayUnit
 }
 export interface CoverageRow {
   id: number; channel: number; name: string
@@ -45,9 +49,10 @@ export interface Ribbons { buckets: number; bucket_s: number; coverage: (string 
 export interface Channel {
   id: number; source_file: string; channel: number; fs: number; n_samples: number; duration_s: number; name: string; held_out: boolean; npy_path: string
   summary: { annotations: number; detections: number; detection_runs: number }; ribbons: Ribbons; y_range: [number, number]
+  units?: string | null; units_note?: string | null; display_unit?: DisplayUnit
 }
 export interface Envelope { t: number[]; v: (number | null)[]; n_source: number; n_points: number; decimated: boolean }
-export interface WindowData { recording_id: number; fs: number; n_samples: number; t0_s: number; t1_s: number; envelope: Envelope; decimate_ms: number }
+export interface WindowData { recording_id: number; fs: number; n_samples: number; t0_s: number; t1_s: number; envelope: Envelope; decimate_ms: number; unit?: DisplayUnit }
 export interface Annotation { id: number; start_s: number; end_s: number; verdict: string; tag: string | null; note: string | null; source: string }
 export interface Detection { id: number; start_s: number; end_s: number; score: number | null; run_id: number }
 export interface Spans { recording_id: number; t0_s: number; t1_s: number; annotations: Annotation[]; detections: Detection[]; annotations_capped: boolean; detections_capped: boolean }
@@ -148,7 +153,7 @@ export function subscribeRun(jobId: number, onEvent: (e: RunEvent) => void, onEr
 
 /* ---------------- the seven payload types (server/serialize.py) ---------------- */
 export interface EnvelopeSeries { t: number[]; v: (number | null)[]; n_source: number; n_points: number; decimated: boolean }
-export interface SignalPayload { type: 'signal'; fs: number; n: number; t0_s: number; t1_s: number; y_range: [number, number] | null; envelope: EnvelopeSeries; summary: string }
+export interface SignalPayload { type: 'signal'; fs: number; n: number; t0_s: number; t1_s: number; y_range: [number, number] | null; envelope: EnvelopeSeries; summary: string; unit?: DisplayUnit }
 export interface ScoresPayload {
   type: 'scores'; fs: number; n: number; t0_s: number; t1_s: number; nan_tail: number; value_range: [number, number] | null; envelope: EnvelopeSeries
   top: { low: { t_s: number; v: number }[]; high: { t_s: number; v: number }[] }; histogram: { counts: number[]; edges: number[] } | null; m: number | null; summary: string
@@ -194,6 +199,7 @@ export interface RegisteredChannel { id: number; channel: number; name: string; 
 export interface RegisteredRecording {
   kind: 'recording'; id: number; ids: number[]; name: string; source_file: string; dir: string; n_channels: number; fs: number; fs_source: 'read' | 'inferred' | 'unrecorded'
   n_samples: number; duration_h: number | null; held_out: boolean; warnings: string[]; registered_at: string | null; registered_by: string | null
+  units?: string | null; units_note?: string | null
   excerpt_of: { recording_id: number; source_file: string; channel: number; name: string; offset: number | null; decimation: number | null } | null
   channels: RegisteredChannel[]; npy_exists: boolean; manifest: Record<string, any> | null
 }
@@ -212,6 +218,9 @@ export const checkCandidate = (kind: string, path: string, overrides: Record<str
 export const registerCandidate = (kind: string, path: string, overrides: Record<string, unknown> = {}, provenance: Record<string, unknown> = {}) =>
   post<RegisterResult>(`/api/registry/${encodeURIComponent(kind)}/register`, { path, overrides, provenance })
 export const unregisterRow = (kind: string, id: number) => del<{ table: string; id: number; active: number }>(`/api/registry/${encodeURIComponent(kind)}/${id}`)
+/** Declare the unit a registered recording's samples are stored in (fixup-b); every channel takes it; audited. */
+export const declareRecordingUnits = (rowId: number, units: string, note?: string) =>
+  put<{ source_file: string; units: string; units_note: string; channels: number }>(`/api/registry/recording/${rowId}/units`, { units, note })
 
 export interface HeldOutState { on: boolean; recording: string; name: string; file: string }
 export interface SettingsPageData {
@@ -293,8 +302,8 @@ export interface Tags {
 }
 export const getTags = (id: number, t0?: number, t1?: number) => req<Tags>(`/api/channels/${id}/tags?t0=${t0 ?? 0}${t1 != null ? `&t1=${t1}` : ''}`)
 export const getSiblings = (id: number) => req<{ recording_id: number; source_file: string; channels: { id: number; channel: number; name: string; npy_exists: boolean }[] }>(`/api/channels/${id}/siblings`)
-export interface CrossRow { id: number; channel: number; name: string; is_reference: boolean; lag_s: number | null; r: number | null; classification: string; envelope?: EnvelopeSeries; y_range?: [number, number]; error?: string }
-export const getCross = (id: number, t0: number, t1: number, px = 900) => req<{ reference_id: number; source_file: string; t0_s: number; t1_s: number; fs: number; stride: number; channels: CrossRow[] }>(`/api/cross/${id}?t0=${t0}&t1=${t1}&px=${Math.round(px)}`)
+export interface CrossRow { id: number; channel: number; name: string; is_reference: boolean; lag_s: number | null; r: number | null; classification: string; envelope?: EnvelopeSeries; y_range?: [number, number]; error?: string; unit?: DisplayUnit }
+export const getCross = (id: number, t0: number, t1: number, px = 900) => req<{ reference_id: number; source_file: string; t0_s: number; t1_s: number; fs: number; stride: number; channels: CrossRow[]; unit?: DisplayUnit }>(`/api/cross/${id}?t0=${t0}&t1=${t1}&px=${Math.round(px)}`)
 export const takeSpanForReview = (recording_id: number, start_idx: number, end_idx: number, note?: string, scale_viewed?: string) =>
   post<{ id: number; recording_id: number; start_s: number; end_s: number; verdict: 'seed'; source: string; note: string | null; banner: string }>('/api/annotations/seed', { recording_id, start_idx, end_idx, note, scale_viewed })
 
@@ -409,14 +418,14 @@ export interface DiscDetectionWindow { t0H: number; stepS: number; values: (numb
 export const getDiscoveryDetectionWindow = (detectionId: number, padS = 120, px = 900) =>
   req<DiscDetectionWindow>(`/api/discovery/detections/${detectionId}/window${dq({ pad_s: padS, px })}`)
 
-export interface DiscSignal { t0H: number; stepS: number; values: (number | null)[] }
+export interface DiscSignal { t0H: number; stepS: number; values: (number | null)[]; unit?: DisplayUnit }
 export const getDiscoverySignal = (channel: string, t0: number, t1: number, px = 1200) =>
   req<DiscSignal>(`/api/discovery/signal${dq({ channel, t0, t1, px })}`)
 
 export interface DiscSeedInfo {
   id: string; role: string; source: string; title: string; family: string | null; familyLine: string | null
   recording: string; channel: string; startH: number; samples: number; lengthS: number
-  hash: string; trace: (number | null)[]
+  hash: string; trace: (number | null)[]; unit?: DisplayUnit
 }
 export const getDiscoverySeeds = () => req<{ seeds: DiscSeedInfo[]; counts: Record<string, number>; note: string | null }>('/api/discovery/seeds')
 
@@ -580,12 +589,15 @@ export interface LibCell { perHour: number | null; count: number; artifact?: boo
 export interface LibFamily {
   id: string; name: string; colour: string; shape: string
   members: number; inScope: number; recordings: number; hand: number; artifact: number
-  durationS: number; durationSd: number; depthMv: number; depthLabel: string
+  /** null when no member's recording declares a unit: a number with no unit behind it is not printed as mV (fixup-b) */
+  durationS: number; durationSd: number; depthMv: number | null; depthLabel: string
   judgedPct: number; judged: number
   exemplar: string; medoid: string; exemplarMedoidD: number; meanMemberD: number; snrDb: number
   artifactChannels: number; propChannels: number; indChannels: number; edges: string
   cells: Record<string, LibCell>; exemplarTrace: number[]; medoidTrace: number[]
   ampBins: number[]; ampDomain?: [number, number]; grouping?: string
+  /** fixup-b: 'mV', or null when nothing drawn is in a declared unit; `unitNote` names the undeclared recordings */
+  unit?: DisplayUnit; unitNote?: string | null; undeclaredMembers?: number
 }
 export interface LibRecGroup {
   key: string; label: string; hours: number; reviewedPct: number; channels: string[]

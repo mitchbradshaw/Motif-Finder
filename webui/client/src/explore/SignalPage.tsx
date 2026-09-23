@@ -10,7 +10,7 @@ import { ApiError, getChannel, getRecordings, getSpans, listRuns, type Channel, 
 import { useSourced } from '../api/seam'
 import { getSignalDemo } from '../api/explore'
 import type { BandKind } from '../charts/primitives'
-import { Dropdown, InfoTip, Seg, recordDemoWrite, useDemoState, useQueryState } from '../kit'
+import { Callout, Dropdown, InfoTip, Seg, recordDemoWrite, useDemoState, useQueryState } from '../kit'
 import { ErrorBoundary } from '../shell/ErrorBoundary'
 import { Header } from '../shell/Header'
 import { useToast } from '../shell/Toast'
@@ -270,10 +270,15 @@ function SignalBody({ ch }: { ch: Channel }) {
             options={[{ value: 'signal', label: 'Signal' }, { value: 'cross', label: 'Cross-channel' }]} ariaLabel="mode" testid="mode-seg" /></span>
           <DetectionsChip ref={pickerAnchor} label={chipLabel(runs, st)} open={popover === 'detections'} onClick={() => setPopover(popover === 'detections' ? null : 'detections')} />
           <Dropdown size="md" variant="outline" prefix="display" value="raw" onChange={() => {}} testid="display-chip"
-            options={[{ value: 'raw', label: 'raw', description: 'real mV as recorded' }, { value: 'detrended', label: 'detrended (display only)', disabled: true, reason: 'the bridge serves raw mV only — no display transform yet' }]} />
+            options={[{ value: 'raw', label: 'raw', description: ch.display_unit === null ? 'as stored — this recording declares no unit' : `in mV, converted from the ${ch.units ?? 'declared'} the files hold` }, { value: 'detrended', label: 'detrended (display only)', disabled: true, reason: 'the bridge serves raw mV only — no display transform yet' }]} />
           <InfoTip title="Signal" testid="signal-info">Three tiers on one time axis: the channel, the span you chose, the motif you opened. Press ? for the keyboard map.</InfoTip>
         </>} />
 
+        {ch.display_unit === null && (
+          <Callout tone="amber" icon="alert-triangle" testid="unit-undeclared">
+            <b>{ch.source_file} declares no unit.</b> Its numbers are drawn as stored and the axis says “?”, not mV. {ch.units_note ?? ''}
+          </Callout>
+        )}
         {allErr && <ErrorCard error={allErr} title="span list for the whole channel failed" />}
         {runsErr && <ErrorCard error={runsErr} title="GET /api/runs failed" />}
         {demoRead.error && <ErrorCard error={asApiError(demoRead.error)} title="demo read getSignalDemo failed" />}

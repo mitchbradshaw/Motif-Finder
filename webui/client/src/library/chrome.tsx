@@ -1,6 +1,7 @@
 /* Shared Library chrome (inventory "Shared Library chrome"): section bar (Motifs · Window sets · Templates, P22),
  * breadcrumb, grouping bar with its popovers, omitted drawer, queue toast, and the in-memory Library store. */
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { UNDECLARED_NOTE } from '../charts/units'
 import {
   Breadcrumb, Button, Checkbox, Chip, DividerV, Drawer, Icon, InfoTip, MiniTrace, NumberField, Popover, Seg, Spacer, Tabs, Toolbar, fmtInt, recordDemoWrite,
   useDemoState, useQueryState, type CrumbItem,
@@ -263,8 +264,9 @@ export function GroupingBar({ unit, grouping, from, inert, onUnit }: { unit: Uni
 
 /* ================================================================ mV scale ================================================================ */
 /** A mV value with enough significant figures to be distinguishable from zero. `toFixed(1)` printed every mV
- *  axis label in the Library as `0.0`/`−0.0` once the real traces arrived (per-family peaks run from 2e-5 mV
- *  to 0.07 mV), which is a number that is not true. */
+ *  axis label in the Library as `0.0`/`−0.0` once the real traces arrived (per-family peaks run from 0.02 mV
+ *  to 70 mV — first recorded here 1000x smaller, when stored volts were printed as mV), which is a number
+ *  that is not true. */
 export function fmtMv(v: number): string {
   if (!Number.isFinite(v)) return '—'
   const a = Math.abs(v)
@@ -278,9 +280,10 @@ export const fmtMvSigned = (v: number) => (v > 0 ? `+${fmtMv(v)}` : v < 0 ? `−
 
 /** The trace with its OWN DC offset (its median) removed. Nothing is scaled — the mV span of the trace stays
  *  exactly what the recording held, which is the property PRD Part 2 forbids destroying. Removing the offset
- *  is what makes one shared domain possible at all: the library's traces carry baselines down to −3.67 mV
- *  while the motifs riding on them are micro-volts, so an offset-carrying domain is 4,000x too tall and every
- *  card draws as a flat line pinned to the floor. */
+ *  is what makes one shared domain possible at all: the library's traces carry baselines down to −3.67 V
+ *  while the motifs riding on them are millivolts, so an offset-carrying domain is ~1,000x too tall and every
+ *  card draws as a flat line pinned to the floor. (This comment once said "−3.67 mV" and "micro-volts": the
+ *  bridge printed stored volts as mV until fixup-b. The ratio was right; the unit was not.) */
 export function centreTrace(values: number[]): number[] {
   if (!values || values.length === 0) return values ?? []
   const s = [...values].sort((a, b) => a - b)
@@ -302,7 +305,7 @@ function ceilSig(v: number, digits = 2): number {
  *  instead of at its maximum.
  *
  *  This is D5 made usable. The domain stays shared and nothing is normalised, so a 0.1 mV family is still
- *  drawn 200x taller than a 0.5 µV one; what changes is that one outlier no longer sets the scale for all 149.
+ *  drawn 200x taller than a 0.5 µV one (mV-scale families and µV-scale ones, after fixup-b); what changes is that one outlier no longer sets the scale for all 149.
  *  A family above the domain is CLIPPED, and a clipped card is marked and prints its own measured peak — a
  *  clip marker is still unnormalised evidence, a flat line is not. */
 export function sharedMvDomain(peaks: number[], p = 0.75): [number, number] {
@@ -353,9 +356,19 @@ export function omittedReasonSummary(list: OmittedEntry[]): string {
 export const OMITTED_SKETCH_NOTE = 'shape sketch from the recorded shape and amplitude — this read carries no waveform for an omitted entry'
 export function OmittedThumb({ e, yDomain, width = 62, height = 44, title }: { e: OmittedEntry; yDomain: [number, number]; width?: number | string; height?: number; title?: string }) {
   const known = shapeKnown(e)
-  const values = useMemo(() => !known ? [] : e.kind === 'sequence'
-    ? [...motifShape(e.shape, e.amp, e.seed, { n: 50 }), ...new Array(20).fill(0), ...motifShape(e.shape, e.amp * 0.8, e.seed + 1, { n: 50 })]
-    : motifShape(e.shape, e.amp, e.seed, { n: 80 }), [e, known])
+  const amp = e.amp
+  const values = useMemo(() => !known || amp === null ? [] : e.kind === 'sequence'
+    ? [...motifShape(e.shape, amp, e.seed, { n: 50 }), ...new Array(20).fill(0), ...motifShape(e.shape, amp * 0.8, e.seed + 1, { n: 50 })]
+    : motifShape(e.shape, amp, e.seed, { n: 80 }), [e, known, amp])
+  if (known && amp === null) {
+    // fixup-b: the entry's recording declares no unit, so there is no mV amplitude to sketch it at
+    return (
+      <span className="mono" data-testid={`omitted-nounit-${e.id}`} title={`${e.id} · ${UNDECLARED_NOTE}`}
+        style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: typeof width === 'number' ? width : '100%', height, background: '#f6f7f9', border: '1px dashed var(--border-strong)', borderRadius: 6, fontSize: 9, color: 'var(--text-2)', textAlign: 'center', lineHeight: 1.1, padding: 2 }}>
+        unit undeclared
+      </span>
+    )
+  }
   if (!known) {
     return (
       <span className="mono" data-testid={`omitted-noshape-${e.id}`} title={`${e.id} · ${shapeLabelOf(e)} — there is nothing to sketch`}
@@ -371,9 +384,11 @@ export function OmittedThumb({ e, yDomain, width = 62, height = 44, title }: { e
 /** Motif card plot: exemplar (black) + medoid (family colour) on the page's shared mV domain, with its real
  *  +/mV/− labels. `clippedPeak` is the trace's own measured peak when it runs past the domain — the plot then
  *  says so, because `MiniTrace` clamps every sample to the domain silently. */
-export function MotifPlot({ exemplar, medoid, colour, yDomain, height = 92, labels = true, testid, overlays = [], clippedPeak }: {
+export function MotifPlot({ exemplar, medoid, colour, yDomain, height = 92, labels = true, testid, overlays = [], clippedPeak, unitNote }: {
   exemplar?: number[]; medoid?: number[]; colour: string; yDomain: [number, number]; height?: number; labels?: boolean; testid?: string
   overlays?: { values: number[]; stroke: string; width?: number }[]; clippedPeak?: number | null
+  /** fixup-b: set when the family's traces are withheld because their recording declares no unit */
+  unitNote?: string | null
 }) {
   const top = fmtMvSigned(yDomain[1]), bot = fmtMvSigned(yDomain[0])
   const ov = [...overlays, ...(medoid ? [{ values: medoid, stroke: colour, width: 1.5 }] : [])]
@@ -382,6 +397,8 @@ export function MotifPlot({ exemplar, medoid, colour, yDomain, height = 92, labe
     <div className="lib-mplot" data-testid={testid} style={{ position: 'relative' }}>
       {labels && <div className="lib-mplot-y" aria-hidden><span>{top}</span><span>mV</span><span>{bot}</span></div>}
       <MiniTrace values={exemplar ?? medoid ?? []} overlays={exemplar ? ov : overlays} yDomain={yDomain} width="100%" height={height} strokeWidth={1.5} stroke={exemplar ? '#1f2937' : colour} ground="grey" title={`exemplar and medoid, shared scale ${bot}…${top} mV${clipNote}`} />
+      {!!unitNote && !(exemplar?.length || medoid?.length) && <span className="lib-cap" data-testid="plot-unit-undeclared" title={unitNote}
+        style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, textAlign: 'center', padding: '0 34px', pointerEvents: 'auto' }}>unit undeclared · not drawn in mV</span>}
       {!!clippedPeak && <span className="k-badge t-amber" data-testid="plot-clipped" title={`this family peaks at ${fmtMv(clippedPeak)} mV, past the shared domain of ${top} mV — the drawing is cut off, the number is not`}
         style={{ position: 'absolute', top: 2, right: 2, fontSize: 9 }}>clipped · {fmtMv(clippedPeak)} mV</span>}
     </div>

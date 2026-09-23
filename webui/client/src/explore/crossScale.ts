@@ -2,17 +2,19 @@
    that governs whether a trace is visible at all deserves to be readable on its own.
 
    The problem it solves, measured against the bridge on M2_aug_concat_fs1 (fs 1 Hz, the 640 s window
-   at 3.33 h): the sixteen channels sit at DC baselines from −0.10 mV to −3.79 mV, while each channel's
-   own signal *inside* the window spans 0.001–0.03 mV. One absolute mV domain across the stack is
-   therefore ~3.9 mV tall, and a typical channel's entire waveform occupies 0.07 px of a 48 px row.
+   at 3.33 h): the sixteen channels sit at DC baselines from −0.10 V to −3.79 V, while each channel's
+   own signal *inside* the window spans 1–30 mV. One absolute mV domain across the stack is
+   therefore ~3.9 V tall, and a typical channel's entire waveform occupies 0.07 px of a 48 px row.
    Every trace draws as a flat line — which is exactly what the page did before this module existed.
+   (This paragraph first recorded those numbers 1000x too small — "−0.10 mV", "0.001–0.03 mV" — because
+   the bridge printed stored volts as mV until fixup-b. The ratios, and so every conclusion here, stand.)
 
    The governing rule is docs/PIPELINE_PRD.md:523: figures draw *detrended* millivolts, unnormalised,
    on a shared y-scale so relative depth is real. The harm it names, restated in the decision log at
    :604, is *amplitude* normalisation — "normalisation of amplitude destroys the evidence of scaling
    laws for depolarisation events". Subtracting a per-row constant is additive, not multiplicative, so
-   it leaves every amplitude relationship intact: with one shared gain, a 0.032 mV row still draws 19×
-   the depth of a 0.0017 mV row. Note which way that cuts — an *absolute* domain is the mode that
+   it leaves every amplitude relationship intact: with one shared gain, a 32 mV row still draws 19×
+   the depth of a 1.7 mV row. Note which way that cuts — an *absolute* domain is the mode that
    departs from :523, because the per-electrode DC offset it renders as vertical position is precisely
    what "detrended" removes. The old comment on this page ("§3: never normalised per row") is how the
    opposite reading survived review.
@@ -26,7 +28,7 @@
                    library/FamilyPage.tsx; the median is what library/chrome.tsx::centreTrace uses, and
                    for an asymmetric drop transient a min/max midpoint is *not* a baseline).
      'per-channel' each row autoscaled to its own extent. This is the amplitude normalisation :523
-                   forbids; it is kept reachable because a 0.0017 mV channel is otherwise unreadable,
+                   forbids; it is kept reachable because a 1.7 mV channel is otherwise unreadable,
                    and every row that is drawn this way says so on the row, not just in the card head.
 
    No mode can clip. 'absolute' covers every row by construction; 'per-channel' fits each row exactly;
@@ -61,7 +63,7 @@ export interface RowGeom {
   centre: number
   /** true when `centre` is this row's measured baseline and may be stated as one */
   centreIsBaseline: boolean
-  /** decimals that keep *this* row's own extent legible — a 0.0017 mV row needs more than a 0.03 mV one */
+  /** decimals that keep *this* row's own extent legible — a 1.7 mV row needs more than a 30 mV one */
   places: number
   /** mV → px within one row panel */
   y: XScale
@@ -85,8 +87,8 @@ export function stackGeom(traces: { v: (number | null)[] }[], mode: YMode, heigh
   const hi = live.length ? Math.max(...live.map(s => s.extent[1])) : fallback[1]
   const mid = (lo + hi) / 2
   const span = (y: XScale) => { const [a, b] = y.domain(); return Math.abs(b - a) }
-  // decimals come from the row's own extent, never from the stack's: taking them from a 3.6 mV stack
-  // span prints a 0.0017 mV row's two bounds as the same number, in the mode added to make it readable
+  // decimals come from the row's own extent, never from the stack's: taking them from a 3.6 V stack
+  // span prints a 1.7 mV row's two bounds as the same number, in the mode added to make it readable
   const placesOf = (s: { extent: [number, number] } | null) => mvDigits(0, s ? s.extent[1] - s.extent[0] : Math.abs(hi - lo))
 
   if (mode === 'per-channel') {

@@ -440,6 +440,15 @@ _RECORDINGS_REGISTRATION_COLUMNS = [
     ("active", "INTEGER NOT NULL DEFAULT 1"),
 ]
 
+# fixup-b: the unit the channel's samples are stored in ('V' | 'mV' | 'uV';
+# NULL = undeclared) and where that unit came from. Nothing recorded it before,
+# and the web UI printed stored volts as "mV" for two years. `Working.units`
+# is the vocabulary and holds the per-file evidence the backfill below applies.
+_RECORDINGS_UNITS_COLUMNS = [
+    ("units", "TEXT"),
+    ("units_note", "TEXT"),
+]
+
 # `encodings` += the same soft-unregister flag (an encoding is a registrable kind).
 _ENCODINGS_REGISTRATION_COLUMNS = [
     ("active", "INTEGER NOT NULL DEFAULT 1"),
@@ -935,6 +944,20 @@ def _migrate_recordings_registration_columns(conn):
     _migrate_columns(conn, "recordings", _RECORDINGS_REGISTRATION_COLUMNS)
 
 
+def _migrate_recordings_units(conn):
+    """Add the unit columns, then backfill the measured unit onto every row of
+    a known source file that carries neither a unit nor a note. The guard is
+    what keeps this idempotent AND what keeps a unit a person declared (or a
+    registration supplied) from ever being overwritten by the table."""
+    from Working.units import RECORDING_UNITS_EVIDENCE
+    _migrate_columns(conn, "recordings", _RECORDINGS_UNITS_COLUMNS)
+    for source_file, (units, note) in RECORDING_UNITS_EVIDENCE.items():
+        conn.execute("UPDATE recordings SET units = ?, units_note = ? "
+                     "WHERE source_file = ? AND units IS NULL AND units_note IS NULL",
+                     (units, note, source_file))
+    conn.commit()
+
+
 def _migrate_encodings_registration_columns(conn):
     _migrate_columns(conn, "encodings", _ENCODINGS_REGISTRATION_COLUMNS)
 
@@ -1193,6 +1216,7 @@ def init_db(db_path=None):
     # After the library tables: `window_verdicts` references `window_sets`.
     _migrate_review_tables(conn)
     _migrate_recordings_registration_columns(conn)
+    _migrate_recordings_units(conn)
     _migrate_encodings_registration_columns(conn)
     _create_registration_tables(conn)
     # The backfill must run after `motif_entry` has every column it copies

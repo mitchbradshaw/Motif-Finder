@@ -51,7 +51,7 @@ const fmtWhen = (iso: string) => {
 }
 
 /** The Datasets row of a registered recording (id = the directory stem, never the row id). */
-export function recordingRow(r: RegisteredRecording, values: Values): RecordingRow & { warnings: string[]; excerpt_of: RegisteredRecording['excerpt_of']; ids: number[]; npy_exists: boolean } {
+export function recordingRow(r: RegisteredRecording, values: Values): RecordingRow & { warnings: string[]; excerpt_of: RegisteredRecording['excerpt_of']; ids: number[]; npy_exists: boolean; units: string | null; units_note: string | null } {
   const status: RecordingRow['status'] = r.held_out ? 'held out · locked' : r.warnings.length || r.fs_source === 'inferred' ? 'provisional' : 'in use'
   const species = values[metaKey(r.name, 'species')]
   const start = values[metaKey(r.name, 'start')]
@@ -60,6 +60,8 @@ export function recordingRow(r: RegisteredRecording, values: Values): RecordingR
     n_channels: r.n_channels, duration_h: r.duration_h != null ? Math.round(r.duration_h * 10) / 10 : 0,
     start: start ? String(start) : null, species: species ? String(species) : null,
     linked: r.excerpt_of ? [r.excerpt_of.name] : [], status, warnings: r.warnings, excerpt_of: r.excerpt_of, ids: r.ids, npy_exists: r.npy_exists,
+    // fixup-b: the unit the samples are stored in (null: undeclared) and the evidence or reason for it
+    units: r.units ?? null, units_note: r.units_note ?? null,
   }
 }
 

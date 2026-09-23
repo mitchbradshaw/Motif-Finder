@@ -6,14 +6,17 @@
    ?y=absolute|centred|per-channel · ?popover=channels · ?questions=open · ?state=computing
 
    The y scale lives in ./crossScale — read its header before changing how a row is drawn. One absolute
-   mV domain across the stack is ~3.9 mV tall on M2_aug while a channel's own window spans 0.001–0.03 mV,
-   so an absolute domain draws every trace as a flat line; 'centred' is the default for that reason. */
+   domain across the stack is ~3.9 V of inter-channel DC offset on M2_aug while a channel's own window spans
+   1–30 mV, so an absolute domain draws every trace as a flat line; 'centred' is the default for that reason.
+   (Those two numbers were written down here 1000x too small, as "~3.9 mV" and "0.001–0.03 mV", before fixup-b:
+   the stored volts were printed as mV. The ratio, and so the reason for 'centred', was always right.) */
 import { useMemo, useRef, useState } from 'react'
 import { ApiError } from '../api'
 import { useSourced } from '../api/seam'
 import { getCrossChannel, getSignalDemo, lookupChannel, type CrossDemo, type XBin, type XRow } from '../api/explore'
 import { EnvelopePath } from '../charts/primitives'
 import { makeX } from '../charts/scale'
+import { unitWords } from '../charts/units'
 import { Y_MODES, Y_MODE_LABEL, Y_MODE_NOTE, fmtMvAt, isYMode, scaleNote, stackGeom, type YMode } from './crossScale'
 import { Badge, Button, Checkbox, Chip, DisabledReason, Dropdown, EmptyState, Icon, InfoTip, Popover, ProgressBar, Seg, Tooltip, cx, fmtInt, recordDemoWrite, useDemoState, useNotWired, useQueryState, useSim, type IconName } from '../kit'
 import { Header } from '../shell/Header'
@@ -147,7 +150,7 @@ function CrossBody({ data }: { data: CrossDemo }) {
   const x = useMemo(() => makeX(t0, t1, Math.max(1, W)), [t0, t1, W])
   const px = (t: number) => x(t)
   // y geometry: ./crossScale. 'centred' is the default because one absolute domain across electrodes
-  // sitting ~3.9 mV apart draws every 0.005 mV waveform as a flat line, which is what this page did.
+  // sitting ~3.9 V apart in DC offset draws every ~5 mV waveform as a flat line, which is what this page did.
   const rowsKey = rows.map(r => r.channelId).join(',')
   const geom = useMemo(() => stackGeom(rows, yMode, ROWH, data.yDomain), [rowsKey, yMode, data])  // eslint-disable-line react-hooks/exhaustive-deps
   const ticks = useMemo(() => relativeTicks(t0, t1, data.window.motifStartS, pad === '60' ? 9 : 7), [t0, t1, data.window.motifStartS, pad])
@@ -197,8 +200,8 @@ function CrossBody({ data }: { data: CrossDemo }) {
           <span className="grow" />
           <InfoTip title="Lag, r and the y scale" placement="bottom-end">
             Every selected channel over the reference's window. Lag is where the cross-correlation peaks within max lag; r is its height.
-            The channels of this recording sit several mV apart in DC offset while each one&rsquo;s signal inside a window spans
-            thousandths of a mV, so one <b>absolute mV</b> domain across the stack flattens every trace. <b>Shared gain, centred</b>
+            The channels of this recording sit up to volts apart in DC offset while each one&rsquo;s signal inside a window spans
+            a few mV, so one <b>absolute mV</b> domain across the stack flattens every trace. <b>Shared gain, centred</b>
             keeps one mV-per-pixel for the whole stack and moves only each row&rsquo;s origin — no value and no span changes, so depth
             stays comparable. <b>Per channel</b> autoscales each row and is therefore normalised: amplitude no longer compares across
             rows, and every such row says so on the row. r is signed — a row at r &minus;0.9 is genuinely anti-correlated and draws as
@@ -249,7 +252,7 @@ function CrossBody({ data }: { data: CrossDemo }) {
                           {/* the baseline 'centred' subtracted, carrying its value: a dashed line with no number
                               attached is the line a reader mistakes for zero. Never drawn in 'per-channel',
                               where the origin is an autoscaled midpoint and means nothing. */}
-                          {g?.centreIsBaseline && <line x1={0} x2={W} y1={g.y(g.centre)} y2={g.y(g.centre)} stroke="var(--border-strong)" strokeOpacity={0.5} strokeDasharray="2 4" data-testid={`baseline-${r.name}`}><title>{`baseline ${fmtMvAt(g.centre, g.places)} mV — subtracted for drawing only`}</title></line>}
+                          {g?.centreIsBaseline && <line x1={0} x2={W} y1={g.y(g.centre)} y2={g.y(g.centre)} stroke="var(--border-strong)" strokeOpacity={0.5} strokeDasharray="2 4" data-testid={`baseline-${r.name}`}><title>{`baseline ${fmtMvAt(g.centre, g.places)} ${unitWords(data.unit)} — subtracted for drawing only`}</title></line>}
                           {g && <EnvelopePath t={tShifted} v={r.v} x={x} y={g.y} stroke={i === 0 ? 'var(--blue)' : 'var(--trace)'} width={1.2} testid={`xtrace-${r.name}`} />}
                         </g>
                         {/* short in the panel, whole on hover: the panel clips, and a loud failure trimmed
@@ -259,7 +262,7 @@ function CrossBody({ data }: { data: CrossDemo }) {
                         {/* the row's own ABSOLUTE extent, in every mode — the sentence that makes centring
                             honest, since the raw record is still stated when the drawing origin has moved */}
                         {g?.extent && <text x={W - 4} y={ROWH - 4} textAnchor="end" className="mono ex-xrow-mv" data-testid={`mv-${r.name}`}>
-                          {yMode === 'per-channel' ? 'own scale · ' : ''}{fmtMvAt(g.extent[0], g.places)} … {fmtMvAt(g.extent[1], g.places)} mV
+                          {yMode === 'per-channel' ? 'own scale · ' : ''}{fmtMvAt(g.extent[0], g.places)} … {fmtMvAt(g.extent[1], g.places)} {unitWords(data.unit)}
                         </text>}
                         {hoverT !== null && <line x1={px(hoverT)} x2={px(hoverT)} y1={0} y2={ROWH} stroke="var(--blue)" strokeOpacity={0.55} strokeDasharray="3 3" data-testid="crosshair" />}
                         {hoverT !== null && i === 0 && <text x={Math.min(px(hoverT) + 5, W - 60)} y={12} className="mono ex-xrow-mv">t = {hoverT - data.window.motifStartS >= 0 ? '+' : '−'}{Math.abs(hoverT - data.window.motifStartS).toFixed(1)} s</text>}

@@ -220,6 +220,8 @@ export interface CrossDemo {
   window: { label: string; startH: number; endH: number; durS: number; t0S: number; fs: number; motifStartS: number; motifEndS: number }
   channels: { id: number; name: string }[]; rows: XRow[]; defaultSelected: number[]; sharedGround: [string, string][]; openQuestions: string[]
   yDomain: [number, number]
+  /** fixup-b: the unit the rows are drawn in; `null` = the recording declares none (absent on the demo: mV) */
+  unit?: 'mV' | null
 }
 /** A smooth synthetic "channel" in mV with the MOTIF_233 drop at 0–21 s; channels are lagged copies of it. */
 function baseSignal(t: number, seed: number): number {

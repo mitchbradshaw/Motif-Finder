@@ -10,9 +10,12 @@ Three things this file is deliberate about.
 
 **Real waveforms.** Every trace the Library draws today is synthesised in the
 browser by ``motifShape(kind, amp, seed)``. Here ``exemplarTrace`` and
-``medoidTrace`` are decimated mV read off the channel memmap through
-``decimate.envelope`` — rule 4, the bulk array never enters the database and
-never reaches the client whole.
+``medoidTrace`` are decimated mV read off the channel through
+``corpus.display_channel`` and ``decimate.envelope`` — rule 4, the bulk array
+never enters the database and never reaches the client whole. A recording
+whose unit is undeclared draws no trace and prints no mV number: the payload
+says why instead (fixup-b). The grouping engine is the core, and is handed
+the stored samples (``_native_waveform``), never the display ones.
 
 **Two recording identifiers, reconciled.** The fixtures use a key
 (``M2_aug_fs1``) for cell and coverage keys and a *label* (``M2_aug fs1``) on
@@ -54,6 +57,7 @@ from Working.library.importers import annotations as ann_importer
 from Working.library.importers import catalogue as cat_importer
 from Working.library.importers import event_store as store_importer
 from Working.library.importers import sequences as seq_importer
+from Working.units import to_mv_factor
 
 from . import corpus, decimate, writes
 from .runtime import HELD_OUT_FILE, REPO_ROOT
@@ -238,6 +242,7 @@ def _recordings_index(conn) -> dict:
                 "channel": int(ch["channel"]), "name": ch["name"],
                 "fs": float(g["fs"]), "n_samples": int(g["n_samples"]),
                 "held_out": bool(g["held_out"]), "npy_exists": bool(ch["npy_exists"]),
+                "units": g.get("units"), "mv_factor": to_mv_factor(g.get("units")),
             }
     # npy_path is not on corpus.recordings(); fetch it once for the traces
     for r in conn.execute("SELECT id, npy_path FROM recordings"):
@@ -319,15 +324,32 @@ def _reviewed_fraction(conn, index) -> dict:
 def _trace(index, recording_id, start_idx, end_idx, px=MOTIF_TRACE_PX) -> list:
     """Real decimated mV for one span. `[]` when the channel is not on disk —
     an empty trace draws as an empty plot, which is honest; a synthesised one
-    would draw as a finding that is not there."""
+    would draw as a finding that is not there — and `[]` when the recording's
+    unit is undeclared, because a trace on an "mV" axis is a claim about its
+    unit (the payload's `unitNote` says which recording and where to fix it)."""
+    meta = index["by_id"].get(int(recording_id or 0))
+    if meta is None or meta.get("held_out") or meta.get("mv_factor") is None:
+        return []
+    path = meta.get("npy_path")
+    if not path or not os.path.isfile(path):
+        return []
+    x = corpus.display_channel({"npy_path": path, "units": meta.get("units")})
+    env = decimate.envelope(x, meta["fs"], int(start_idx or 0), int(end_idx or 0), int(px))
+    return [0.0 if v is None else round(_f(v), 5) for v in env["v"]]
+
+
+def _native_waveform(index, recording_id, start_idx, end_idx, px=64) -> list:
+    """The same decimated span in the STORED unit, for the grouping engine
+    (`Working.library.grouping`, the core). It is never drawn; what it hands
+    the engine is exactly what the engine was handed before fixup-b, whatever
+    the recording's unit — including an undeclared one."""
     meta = index["by_id"].get(int(recording_id or 0))
     if meta is None or meta.get("held_out"):
         return []
     path = meta.get("npy_path")
     if not path or not os.path.isfile(path):
         return []
-    x = corpus.load_channel(path)
-    env = decimate.envelope(x, meta["fs"], int(start_idx or 0), int(end_idx or 0), int(px))
+    env = decimate.envelope(corpus.load_native(path), meta["fs"], int(start_idx or 0), int(end_idx or 0), int(px))
     return [0.0 if v is None else round(_f(v), 5) for v in env["v"]]
 
 
@@ -340,37 +362,50 @@ def _amplitude_mv(trace) -> float:
 #: each — 3000 members made the Atlas a 4.7 s read. `np.ptp` over the memmap
 #: slice is the same number for a fraction of the work, and the cache means the
 #: second request pays nothing at all. Bounded so a long-lived server cannot
-#: grow it without limit.
+#: grow it without limit. It holds the STORED peak-to-peak; the unit's factor is
+#: applied on the way out, so a unit declared later is never served stale.
 _AMP_CACHE: dict = {}
 _AMP_CACHE_MAX = 50000
 
 
-def _span_amplitude(index, recording_id, start_idx, end_idx) -> float:
-    """Peak-to-peak mV of one span, straight off the memmap.
+def _span_amplitude(index, recording_id, start_idx, end_idx) -> float | None:
+    """Peak-to-peak mV of one span, straight off the memmap. None when the
+    recording's unit is undeclared: a number with no unit behind it is not
+    printed as mV.
 
     Rule 4 holds: a bounded slice is read to produce one number, and the array
     itself never leaves this function.
     """
     key = (int(recording_id or 0), int(start_idx or 0), int(end_idx or 0))
-    hit = _AMP_CACHE.get(key)
-    if hit is not None:
-        return hit
     meta = index["by_id"].get(key[0])
     if meta is None or meta.get("held_out"):
         return 0.0
-    path = meta.get("npy_path")
-    if not path or not os.path.isfile(path):
-        return 0.0
-    x = corpus.load_channel(path)
-    seg = np.asarray(x[key[1]:key[2]], dtype=float)
-    if seg.size == 0:
-        value = 0.0
-    else:
-        finite = seg[np.isfinite(seg)]
-        value = round(float(np.ptp(finite)), 4) if finite.size else 0.0
-    if len(_AMP_CACHE) < _AMP_CACHE_MAX:
-        _AMP_CACHE[key] = value
-    return value
+    factor = meta.get("mv_factor")
+    if factor is None:
+        return None
+    hit = _AMP_CACHE.get(key)
+    if hit is None:
+        path = meta.get("npy_path")
+        if not path or not os.path.isfile(path):
+            return 0.0
+        seg = np.asarray(corpus.load_native(path)[key[1]:key[2]], dtype=float)
+        finite = seg[np.isfinite(seg)] if seg.size else seg
+        hit = float(np.ptp(finite)) if finite.size else 0.0
+        if len(_AMP_CACHE) < _AMP_CACHE_MAX:
+            _AMP_CACHE[key] = hit
+    return round(hit * factor, 4)
+
+
+def _unit_note(index, recording_ids) -> str | None:
+    """Words for the recordings in a set whose unit is undeclared, or None.
+    Says which files and where the unit is declared — the fix, not only the fault."""
+    files = sorted({index["by_id"][int(r)]["source_file"] for r in recording_ids
+                    if int(r or 0) in index["by_id"] and index["by_id"][int(r)].get("mv_factor") is None
+                    and not index["by_id"][int(r)].get("held_out")})
+    if not files:
+        return None
+    return (f"unit undeclared for {', '.join(files)}: its waveforms and amplitudes are not drawn in mV "
+            "until the unit is declared in Settings › Datasets")
 
 
 def _snr_db(trace) -> float:
@@ -391,8 +426,9 @@ def _amp_domain(values) -> tuple:
     """The extent the amplitude axis is drawn at, measured from the values.
 
     `AMP_DOMAIN` — the fixture's (0.1, 0.4) mV — is a fixture's number, and on
-    this catalogue the real depths run about 0.006 to 0.015 mV: an order of
-    magnitude below its floor. Binning against it put **every** member of
+    this catalogue the real depths run about 6 to 15 mV: well above its
+    ceiling. (Before fixup-b the stored volts were printed as mV, and this
+    comment recorded that 1000x-small number as the depths' true range.) Binning against it put **every** member of
     **every** family in bin 0 and drew an axis labelled 0.1 / 0.25 / 0.4 over
     data that is nowhere near it. A histogram that is one full bar and eleven
     empty ones, under an axis stating a range the data does not occupy, is a
@@ -750,14 +786,22 @@ def _one_family(conn, index, label, members, i, tags_by_entry, verdicts, hand, g
     # member contributes a single number, not a polyline
     ex_trace = _trace(index, exemplar_row["recording_id"], exemplar_row["start_idx"], exemplar_row["end_idx"])
     me_trace = _trace(index, medoid_row["recording_id"], medoid_row["start_idx"], medoid_row["end_idx"])
-    amps = [_span_amplitude(index, m["recording_id"], m["start_idx"], m["end_idx"]) for m in members]
-    amps = [a for a in amps if a > 0]
+    amps_all = [_span_amplitude(index, m["recording_id"], m["start_idx"], m["end_idx"]) for m in members]
+    undeclared = sum(1 for a in amps_all if a is None)
+    amps = [a for a in amps_all if a is not None and a > 0]
     amp_domain = _amp_domain(amps)
+    unit_note = _unit_note(index, [m["recording_id"] for m in members])
 
     dur = float(np.mean(durations)) if durations else 0.0
     dur_sd = float(np.std(durations)) if len(durations) > 1 else 0.0
-    depth = float(np.mean(amps)) if amps else _amplitude_mv(ex_trace)
+    depth = float(np.mean(amps)) if amps else (_amplitude_mv(ex_trace) if ex_trace else None)
     depth_sd = float(np.std(amps)) if len(amps) > 1 else 0.0
+    if depth is None:
+        depth_label = "unit undeclared"
+    else:
+        depth_label = f"{depth:.2f} mV ± {depth_sd:.2f}"
+        if undeclared:
+            depth_label += f" · {len(members) - undeclared} of {len(members)} members (the rest: unit undeclared)"
     dists = [_f(m["distance"]) for m in members if m["distance"] is not None]
     member_ids = [int(m["member_id"]) for m in members if m["member_id"] is not None]
     edges, art_ch, prop_ch, ind_ch = _edges_label(conn, member_ids)
@@ -769,7 +813,11 @@ def _one_family(conn, index, label, members, i, tags_by_entry, verdicts, hand, g
         "members": len(members), "inScope": len(members), "recordings": len(recordings),
         "hand": hand, "artifact": artifact,
         "durationS": round(dur, 2), "durationSd": round(dur_sd, 2),
-        "depthMv": round(depth, 3), "depthLabel": f"{depth:.2f} mV ± {depth_sd:.2f}",
+        "depthMv": None if depth is None else round(depth, 3), "depthLabel": depth_label,
+        # fixup-b: the unit the traces and amplitudes are in, and — when some
+        # members' recordings declare none — which, and where to declare it
+        "unit": "mV" if (ex_trace or me_trace or amps) else None, "unitNote": unit_note,
+        "undeclaredMembers": undeclared,
         "judgedPct": round(100.0 * judged / len(members), 1) if members else 0.0,
         "judged": judged,
         "exemplar": f"m-{exemplar_row['member_id']}", "medoid": f"m-{medoid_row['member_id']}",
@@ -931,6 +979,8 @@ def _one_sequence_family(conn, index, label, seqs, i, comps=None, verdicts=None)
         "medoidTrace": _trace(index, medoid["recording_id"], medoid["start_idx"],
                               medoid["end_idx"], px=SEQUENCE_TRACE_PX),
     }
+    payload["unit"] = "mV" if (payload["exemplarTrace"] or payload["medoidTrace"]) else None
+    payload["unitNote"] = _unit_note(index, [exemplar["recording_id"], medoid["recording_id"]])
     if order_kept is not None:
         payload["orderKept"] = order_kept
         payload["orderKeptOf"] = len(comparable)
@@ -1385,14 +1435,20 @@ def _distributions(conn, index) -> tuple:
         meta = index["by_id"].get(int(r["recording_id"] or 0))
         if meta is None or meta.get("held_out"):
             continue
-        trace = _trace(index, r["recording_id"], r["start_idx"], r["end_idx"], px=64)
+        trace = _native_waveform(index, r["recording_id"], r["start_idx"], r["end_idx"], px=64)
         if not trace:
             continue
         waveforms.append(trace)
         fs = meta["fs"] or 1.0
+        factor = meta.get("mv_factor")
         for name in values:
+            # the amplitude histogram is drawn in mV: a member whose unit is
+            # undeclared has no mV amplitude and is left out of that one bin set
+            if name == "amplitude" and factor is None:
+                continue
             try:
-                values[name].append(float(bases_mod.compute_feature(name, trace, fs)))
+                basis_trace = [v * factor for v in trace] if name == "amplitude" else trace
+                values[name].append(float(bases_mod.compute_feature(name, basis_trace, fs)))
             except Exception:
                 # a feature that cannot be computed for one span is not a reason
                 # to fail the whole editor; it is one fewer sample in that bin
@@ -1643,7 +1699,8 @@ def _grouping_items(conn, index, unit_db, limit=None):
         meta = index["by_id"].get(int(r["recording_id"] or 0))
         if meta is None or meta.get("held_out"):
             continue
-        trace = _trace(index, r["recording_id"], r["start_idx"], r["end_idx"], px=64)
+        # the engine is the core: it is handed the stored samples, as before fixup-b
+        trace = _native_waveform(index, r["recording_id"], r["start_idx"], r["end_idx"], px=64)
         if not trace:
             continue
         # `member_ref` / `values` are what `engine._ref` and `engine._waveform`

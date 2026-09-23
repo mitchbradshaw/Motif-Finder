@@ -194,6 +194,8 @@ export interface SeedParams {
 export interface SeedInfo {
   id: string; role: string; source: string; title: string; family: string | null; familyLine: string | null
   recording: string; channel: string; startH: number; samples: number; lengthS: number; hash: string; trace: number[]
+  /** fixup-b: 'mV', or null when the seed's recording declares no unit */
+  unit?: 'mV' | null
 }
 export interface SeedDraft {
   key: string; label: string; seedId: string; source: string; bind: 'carry' | 'rebind'
@@ -327,8 +329,8 @@ export function getDisagreementWindow(a: string, b: string, d: Disagreement): Pr
   })))
 }
 
-export function getChannelSignal(channel: string, view: [number, number]): Promise<Sourced<{ t0H: number; stepS: number; values: number[] }>> {
-  return live(getDiscoverySignal(channel, view[0], view[1]).then(s => ({ t0H: s.t0H, stepS: s.stepS, values: nums(s.values) })))
+export function getChannelSignal(channel: string, view: [number, number]): Promise<Sourced<{ t0H: number; stepS: number; values: number[]; unit?: 'mV' | null }>> {
+  return live(getDiscoverySignal(channel, view[0], view[1]).then(s => ({ t0H: s.t0H, stepS: s.stepS, values: nums(s.values), unit: s.unit })))
 }
 
 /* ------------------------------------------------------------------ compare every stage (3b) */

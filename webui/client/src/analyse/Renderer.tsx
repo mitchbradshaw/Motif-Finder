@@ -10,6 +10,7 @@ import type {
 } from '../api'
 import { EnvelopePath, SpanBands, YLabels } from '../charts/primitives'
 import { makeY, type XScale } from '../charts/scale'
+import { axisUnit } from '../charts/units'
 import type { DemoPayload, DemoScoresPayload, DemoSignalPayload, DemoSlopePayload, DemoSpansPayload, DemoStripsPayload, DemoTextPayload, DemoWindowsPayload } from '../api/analyse'
 
 export interface RenderCtx {
@@ -72,7 +73,7 @@ function SignalR({ p, ctx }: { p: SignalPayload; ctx: RenderCtx }) {
     <svg width={ctx.width} height={ctx.height} data-render="signal">
       <GhostPath ghost={ctx.ghost} x={ctx.x} height={ctx.height} />
       <EnvelopePath t={p.envelope.t} v={p.envelope.v} x={ctx.x} y={y} stroke="var(--trace-blue)" testid="signal-path" />
-      <YLabels y={y} values={[r[1], mid, r[0]]} unit="mV" />
+      <YLabels y={y} values={[r[1], mid, r[0]]} unit={axisUnit(p.unit)} />
       {ctx.ghost && <text x={ctx.width - 6} y={ctx.height - 5} textAnchor="end" fill="var(--muted-2)">input ghosted · own scale</text>}
     </svg>
   )

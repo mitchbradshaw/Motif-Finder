@@ -99,10 +99,13 @@ export const recHours = (key: string) => RECURRENCE_RECORDINGS.find(r => r.key =
 /* ================================================================ motif families (g-07) ================================================================ */
 export interface MotifFamily {
   id: string; name: string; colour: string; shape: ShapeKind; members: number; inScope: number; recordings: number; hand: number; artifact: number
-  durationS: number; durationSd: number; depthMv: number; depthLabel: string; judgedPct: number; judged: number
+  durationS: number; durationSd: number; depthMv: number | null; depthLabel: string; judgedPct: number; judged: number
   exemplar: string; medoid: string; exemplarMedoidD: number; meanMemberD: number; snrDb: number
   artifactChannels: number; propChannels: number; indChannels: number; edges: string
   cells: Record<string, Cell>; exemplarTrace: number[]; medoidTrace: number[]; ampBins: number[]
+  /** fixup-b: the unit the traces are in (null: the recordings declare none) and, when some members' recordings
+   *  declare no unit, which and where to fix it. Absent on the fixture: mV. */
+  unit?: 'mV' | null; unitNote?: string | null; undeclaredMembers?: number
 }
 const FAM_ROWS: [string, string, ShapeKind, number, number, number, number, number, number, number, number, string, number][] = [
   // id, name, shape, inScope, members, recordings, hand, artifact, duration s, depth mV, judged %, depth label, dur sd
@@ -170,6 +173,7 @@ export interface SequenceFamily {
   id: string; name: string; colour: string; sequences: number; composition: string[]; compositionLabel: string; recordings: number; hand: number
   durationLabel: string; gapLabel: string; judgedPct: number; exemplar: string; motifs: number; exemplarMedoidD: number; orderKept: number
   meanMemberD: number; judgedMotifs: number; gapS: string; exemplarTrace: number[]; medoidTrace: number[]
+  unit?: 'mV' | null; unitNote?: string | null
 }
 const famBy = (id: string) => MOTIF_FAMILIES.find(f => f.id === id)!
 function seqTrace(comp: string[], gapFrac: number, seed: number, scale = 1): number[] {
@@ -177,7 +181,7 @@ function seqTrace(comp: string[], gapFrac: number, seed: number, scale = 1): num
   const each = Math.floor((n - gapFrac * n * (comp.length - 1)) / comp.length)
   comp.forEach((fid, k) => {
     const f = famBy(fid), start = Math.round(k * (each + gapFrac * n))
-    const s = motifShape(f.shape, f.depthMv * scale, seed + k * 11, { n: each, noise: 0.008 })
+    const s = motifShape(f.shape, (f.depthMv ?? 0) * scale, seed + k * 11, { n: each, noise: 0.008 })
     s.forEach((v, j) => { if (start + j < n) out[start + j] += v })
   })
   return out.map(v => +v.toFixed(4))
@@ -203,7 +207,7 @@ export const SEQUENCE_FAMILIES: SequenceFamily[] = SEQ_ROWS.map(([id, name, sequ
 })
 
 /* ================================================================ omitted ================================================================ */
-export interface OmittedEntry { id: string; kind: 'motif' | 'sequence'; nearest: string; d: number; recording: string; channel: string; onsetH: number; shape: ShapeKind; amp: number; seed: number }
+export interface OmittedEntry { id: string; kind: 'motif' | 'sequence'; nearest: string; d: number; recording: string; channel: string; onsetH: number; shape: ShapeKind; amp: number | null; seed: number }
 function omitted(n: number, kind: 'motif' | 'sequence', prefix: string, seed0: number, seqNearest = false): OmittedEntry[] {
   const rnd = seeded(seed0)
   const recs = [['M2_aug fs1', ['CH3_A2', 'CH4_A2', 'CH1_A1', 'CH6_B1']], ['M3_jul', ['CH1', 'CH2', 'CH4']], ['L_LM_Jul26_J', ['CH3', 'CH5']]] as const
@@ -213,7 +217,7 @@ function omitted(n: number, kind: 'motif' | 'sequence', prefix: string, seed0: n
     return {
       id: `${prefix}${String(2000 + i * 3 + Math.floor(rnd() * 2)).padStart(4, '0')}`, kind, nearest: seqNearest ? SEQUENCE_FAMILIES[i % 6].id : f.id,
       d: +(0.51 + rnd() * 0.36).toFixed(2), recording: r[0], channel: r[1][Math.floor(rnd() * r[1].length)], onsetH: +(rnd() * hours).toFixed(2),
-      shape: f.shape, amp: Math.max(-0.4, Math.min(0.4, f.depthMv)) * (0.7 + rnd() * 0.5), seed: seed0 + i,
+      shape: f.shape, amp: Math.max(-0.4, Math.min(0.4, f.depthMv ?? 0)) * (0.7 + rnd() * 0.5), seed: seed0 + i,
     }
   })
 }
@@ -225,7 +229,7 @@ export const OMITTED_G08_SEQUENCES = omitted(17, 'sequence', 'sq-', 1210, true)
 export type Verdict = 'unjudged' | 'seed' | 'interesting' | 'not interesting' | 'artifact'
 export interface Revision { rev: number; spanId: string; origin: 'machine' | 'human edit'; run: string; role: string }
 export interface Member {
-  id: string; role?: 'exemplar' | 'medoid'; addedByHand?: boolean; d: number; recording: string; channel: string; onsetH: number; durationS: number; amplitudeMv: number
+  id: string; role?: 'exemplar' | 'medoid'; addedByHand?: boolean; d: number; recording: string; channel: string; onsetH: number; durationS: number; amplitudeMv: number | null
   verdict: Verdict; verdictAt?: string; foundBy: string; revisions: Revision[]; tags: string[]; cls?: string; note?: string; seed: number
   handRecord?: string
 }
@@ -285,7 +289,7 @@ export function genericFamilyMembers(f: MotifFamily): Member[] {
     return {
       id: i === 0 ? f.medoid : i === 1 ? f.exemplar : `m-${f.id.slice(2)}${String(i).padStart(3, '0')}`, role: i === 0 ? 'medoid' : i === 1 ? 'exemplar' : undefined,
       d: i === 0 ? 0 : i === 1 ? f.exemplarMedoidD : +(0.08 + (i / f.members) * 0.33).toFixed(2), recording: r, channel: chs[Math.floor(rnd() * chs.length)], onsetH: +(rnd() * hours).toFixed(1),
-      durationS: +(f.durationS + (rnd() - 0.5) * f.durationSd * 2).toFixed(1), amplitudeMv: +Math.abs(f.depthMv * (0.8 + rnd() * 0.4)).toFixed(3), verdict,
+      durationS: +(f.durationS + (rnd() - 0.5) * f.durationSd * 2).toFixed(1), amplitudeMv: +Math.abs((f.depthMv ?? 0) * (0.8 + rnd() * 0.4)).toFixed(3), verdict,
       verdictAt: verdict === 'unjudged' ? undefined : `${4 + Math.floor(rnd() * 10)} Sep`, foundBy: 'run #128 drop_motifs9',
       revisions: [{ rev: 1, spanId: `d-${70000 + i * 13}`, origin: 'machine', run: '#128', role: 'current' }], tags: [], seed: f.id.charCodeAt(3) * 1000 + i,
     }

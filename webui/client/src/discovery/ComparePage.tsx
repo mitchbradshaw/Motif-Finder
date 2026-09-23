@@ -1,6 +1,7 @@
 /* discovery.compare — frame discovery-3. Two runs side by side (§7.7): what differs (chains aligned by role),
  * where A and B fire on one channel, set overlap at IoU ≥ 0.5, and a stepper through every disagreement with the
  * non-firing side's own score at that place. "Compare every stage" opens discovery.stages (3b). */
+import { axisUnit } from '../charts/units'
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
 import {
   Button, Chip, Dropdown, EmptyState, Icon, InfoTip, Pager, Popover, Seg, StatTile, cx, useNotWired, useQueryState,
@@ -289,7 +290,7 @@ function WhereFire({ dx, data, current, onJump }: { dx: Discovery; data: Compare
               <text x={0} y={TRACKS.b + 9} className="dsc-axis-t">B</text>
               <text x={0} y={TRACKS.agree + 9} className="dsc-axis-t">agreement</text>
               <text x={labelW - 8} y={20} textAnchor="end" className="dsc-axis-t">{(hi + pad).toFixed(2)}</text>
-              <text x={labelW - 8} y={90} textAnchor="end" className="dsc-axis-t">{(lo - pad).toFixed(2)} mV</text>
+              <text x={labelW - 8} y={90} textAnchor="end" className="dsc-axis-t">{(lo - pad).toFixed(2)} {axisUnit(sig.data.unit)}</text>
               {bandX != null && <rect x={bandX - 5} y={8} width={10} height={140} fill={A_COLOUR} opacity={0.1} data-testid="fire-band" />}
               <path d={d} fill="none" stroke="var(--trace)" strokeWidth={1.1} />
               {(['a', 'b', 'agree'] as const).map(k => <rect key={k} x={labelW} y={TRACKS[k]} width={Math.max(0, W - labelW - padR)} height={12} fill="#f3f4f6" rx={2} />)}

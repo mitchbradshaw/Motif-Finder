@@ -15,7 +15,8 @@ import { SHORTCUTS } from './keys'
 import { counts, isJudged, queueCounts, unitHash, unitKey, units, type UnitRef } from './queue'
 import { effective, useAutoAdvance, useBlindOverrides, useFilters, useRecords, useReviewVersion } from './store'
 
-export const THUMB_Y: [number, number] = [-0.45, 0.45]
+/* [-0.45, 0.45] before fixup-b: right in volts, served as mV. Now mV, so x1000. Data-driven domains are prompt C. */
+export const THUMB_Y: [number, number] = [-450, 450]
 export const verdictColour = (v: string) => v === 'seed' ? 'var(--green)' : VOCABULARY.verdictColours[v] ?? 'var(--muted-2)'
 
 export interface MicroStat { value: ReactNode; label: string; tone?: 'green' | 'amber' | 'purple' | 'muted'; icon?: IconName; section?: string; title?: string }

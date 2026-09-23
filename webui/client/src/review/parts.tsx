@@ -9,7 +9,10 @@ import { CONTEXT_PAD_MAX, VOCABULARY, getOtherChannels, useTagVocabulary, type A
 import { THUMB_Y } from './Shell'
 import { VERDICT_LABEL, type Draft, type VerdictRecord } from './store'
 
-export const Y_MV: [number, number] = [-0.44, 0.44]
+/* Hand-measured off the live queues' traces. It was [-0.44, 0.44] — a correct centred domain in VOLTS, measured
+   off data the bridge served unconverted under an "mV" axis. The bridge now converts at one seam (fixup-b), so
+   the same domain in mV is 1000x wider. Whether a hard-coded domain is right at all is Q-R1.1 (prompt C). */
+export const Y_MV: [number, number] = [-440, 440]
 
 export function useNow(ms = 1000) {
   const [now, setNow] = useState(Date.now())

@@ -67,19 +67,22 @@ def window_straddles_boundary(local_start, window_length, channel_length):
 # ── recordings ────────────────────────────────────────────────────────────────
 
 def insert_recording(conn, source_file, channel, fs, n_samples, global_offset,
-                      npy_path, notes=None, commit=True):
+                      npy_path, notes=None, commit=True, units=None, units_note=None):
     """Insert a recording row, or return the existing id if (source_file,
     channel) is already present (UNIQUE constraint) — idempotent.
 
     `commit=False` lets a caller doing many inserts in a loop (e.g. the
     channel materializer) batch them into one transaction instead of
     fsync-ing per row — commit yourself once the loop is done.
+
+    `units` is the unit the samples are stored in (`Working.units`); None
+    leaves it undeclared, which every page then says rather than assumes.
     """
     conn.execute(
         """INSERT OR IGNORE INTO recordings
-               (source_file, channel, fs, n_samples, global_offset, npy_path, notes)
-           VALUES (?, ?, ?, ?, ?, ?, ?)""",
-        (source_file, channel, fs, n_samples, global_offset, npy_path, notes),
+               (source_file, channel, fs, n_samples, global_offset, npy_path, notes, units, units_note)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+        (source_file, channel, fs, n_samples, global_offset, npy_path, notes, units, units_note),
     )
     if commit:
         conn.commit()

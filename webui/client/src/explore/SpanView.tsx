@@ -18,9 +18,14 @@ import type { Viewport } from './useViewport'
 const H = 150, TOP = 18, AXIS_H = 20
 /** Past this CSS scale the kept path is a stretched/squashed sliver, not a preview: show the skeleton instead (critique r1). */
 const MAX_STRETCH = 8
-/** Left gutter kept clear of the y labels ("−0.2016 mV" at x=4, 10 px mono ≈ 6.2 px/glyph) so the motif label
- *  never overprints them; widens with the label's digit count, never below the critique's 64 px. */
-const labelGutter = (lo: number, hi: number) => Math.max(64, 12 + (mvDigits(lo, hi) + 7) * 6.2)
+/** Left gutter kept clear of the y labels ("−201.60 mV" at x=4, 10 px mono ≈ 6.2 px/glyph) so the motif label
+ *  never overprints them; widens with the labels' own printed length — integer digits too, now that a
+ *  baseline reads −3670 mV rather than −3.67 — never below the critique's 64 px. */
+const labelGutter = (lo: number, hi: number) => {
+  const d = mvDigits(lo, hi)
+  const chars = Math.max(Math.abs(lo).toFixed(d).length, Math.abs(hi).toFixed(d).length) + 4   // sign, space, "mV"
+  return Math.max(64, 12 + chars * 6.2)
+}
 
 export interface Band { start_s: number; end_s: number; kind: BandKind; id: string; title: string; motif: Motif; colour?: string; capOnly?: boolean }
 
@@ -166,7 +171,7 @@ export function SpanView({ ch, vp, plotRef, width, bands, selected, selectedLabe
                 <EnvelopePath t={win.data.envelope.t} v={win.data.envelope.v} x={xf} y={y} testid="envelope-path" />
               </g>
             ) : <rect className="skeleton" x={0} y={TOP + 8} width={W} height={H - TOP - 16} fill="var(--grey-100)" data-testid="span-skeleton" data-reason={!win ? 'no-data' : !envOk ? 'malformed' : 'stale-transform'} />}
-            <MvLabels y={y} lo={range[0]} hi={range[1]} dim={dim || stale} />
+            <MvLabels y={y} lo={range[0]} hi={range[1]} dim={dim || stale} unit={win?.data.unit} />
             <line x1={0} x2={W} y1={H} y2={H} stroke="var(--border)" />
             <g className="time-axis" transform={`translate(0,${H})`}>
               {ticks.map(k => { const px = x(k.t); return <g key={k.t} transform={`translate(${px},0)`}><line y1={0} y2={4} stroke="var(--border-strong)" /><text x={px < 24 ? 2 : 0} y={14} textAnchor={px < 24 ? 'start' : px > W - 24 ? 'end' : 'middle'}>{k.label}</text></g> })}

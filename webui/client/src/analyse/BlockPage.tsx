@@ -6,6 +6,7 @@ import { ApiError, saveTemplate, type EncodingSymbolicPayload, type EnvelopeSeri
 import { EnvelopePath, SpanBands, TimeAxis, YLabels } from '../charts/primitives'
 import { clamp, makeX, makeY, polylinePath, type XScale } from '../charts/scale'
 import { useSize } from '../charts/useSize'
+import { axisUnit, unitWords, type DisplayUnit } from '../charts/units'
 import { ErrorBoundary } from '../shell/ErrorBoundary'
 import { Header } from '../shell/Header'
 import { useToast } from '../shell/Toast'
@@ -104,6 +105,11 @@ export function BlockPage({ index }: { index: number }) {
     for (let j = index - 1; j >= 0; j--) { const p = rows[j]?.payload; if (p?.type === 'signal') return (p as SignalPayload).envelope }
     return sourceEnvelope
   })()
+  // the unit that signal is drawn in: a chain Signal's own, else the source window's (fixup-b)
+  const upstreamUnit: DisplayUnit | undefined = (() => {
+    for (let j = index - 1; j >= 0; j--) { const p = rows[j]?.payload; if (p?.type === 'signal') return (p as SignalPayload).unit }
+    return env?.unit
+  })()
   const perStep = val.v?.estimate?.per_step_s ?? null
   const staleFrom = job ? st.staleFrom : null      // nothing is stale relative to another source's job
   const rerunFrom = staleFrom !== null ? staleFrom : index
@@ -170,9 +176,9 @@ export function BlockPage({ index }: { index: number }) {
                 {name === 'detection.threshold' ? (
                   <ThresholdProcess scores={upstream?.type === 'scores' ? upstream as ScoresPayload : null} result={row.payload?.type === 'spanset' ? row.payload as SpansetPayload : null} threshold={Number(step.params.threshold ?? 0)} onThreshold={v => setParam('threshold', v)} stale={stale} t0={t0} t1={t1} />
                 ) : name === 'detection.matrix_profile' ? (
-                  <MatrixProfileProcess signal={upstreamSignal} scores={row.payload?.type === 'scores' ? row.payload as ScoresPayload : null} windowMin={Number(step.params.window_min ?? 10)} fs={source.fs} stale={stale} t0={t0} t1={t1} />
+                  <MatrixProfileProcess signal={upstreamSignal} unit={upstreamUnit} scores={row.payload?.type === 'scores' ? row.payload as ScoresPayload : null} windowMin={Number(step.params.window_min ?? 10)} fs={source.fs} stale={stale} t0={t0} t1={t1} />
                 ) : name === 'detection.sax_dsax' ? (
-                  <DsaxProcess signal={upstreamSignal} enc={row.payload?.type === 'encoding' && (row.payload as EncodingSymbolicPayload).kind === 'symbolic' ? row.payload as EncodingSymbolicPayload : null} stale={stale} t0={t0} t1={t1} trend={String(step.params.trend_estimator ?? 'ols_slope')} />
+                  <DsaxProcess signal={upstreamSignal} unit={upstreamUnit} enc={row.payload?.type === 'encoding' && (row.payload as EncodingSymbolicPayload).kind === 'symbolic' ? row.payload as EncodingSymbolicPayload : null} stale={stale} t0={t0} t1={t1} trend={String(step.params.trend_estimator ?? 'ols_slope')} />
                 ) : (
                   <GenericProcess payload={row.payload} ghost={upstreamSignal} stale={stale} t0={t0} t1={t1} caption={paramCaption(step, ad)} />
                 )}
@@ -232,7 +238,7 @@ function statTiles(p: Payload | null): { k: string; v: string; red?: boolean }[]
   switch (p.type) {
     case 'spanset': { const s = p as SpansetPayload; const mean = s.n ? s.start_s.reduce((a, x, i) => a + (s.end_s[i] - x), 0) / s.n : 0; return [{ k: 'spans', v: String(s.n) }, { k: 'mean duration', v: s.n ? fmtDuration(mean) : '—' }, { k: 'longest', v: s.n ? fmtDuration(Math.max(...s.start_s.map((x, i) => s.end_s[i] - x))) : '—' }, { k: 'capped', v: s.capped ? 'yes' : 'no', red: s.capped }] }
     case 'scores': { const s = p as ScoresPayload; return [{ k: 'values', v: s.n.toLocaleString() }, { k: 'NaN tail', v: String(s.nan_tail) }, { k: 'min', v: s.value_range ? fmtParam(s.value_range[0]) : '—' }, { k: 'max', v: s.value_range ? fmtParam(s.value_range[1]) : '—' }] }
-    case 'signal': { const s = p as SignalPayload; return [{ k: 'samples', v: s.n.toLocaleString() }, { k: 'min mV', v: s.y_range ? fmtParam(s.y_range[0]) : '—' }, { k: 'max mV', v: s.y_range ? fmtParam(s.y_range[1]) : '—' }, { k: 'fs', v: `${s.fs} Hz` }] }
+    case 'signal': { const s = p as SignalPayload; const u = unitWords(s.unit); return [{ k: 'samples', v: s.n.toLocaleString() }, { k: `min ${u}`, v: s.y_range ? fmtParam(s.y_range[0]) : '—' }, { k: `max ${u}`, v: s.y_range ? fmtParam(s.y_range[1]) : '—' }, { k: 'fs', v: `${s.fs} Hz` }] }
     case 'encoding': { const e = p as EncodingSymbolicPayload; if (e.kind !== 'symbolic') return [{ k: 'kind', v: 'image' }]; return [{ k: 'symbols', v: String(e.n_symbols) }, { k: 'alphabet', v: String(e.alphabet_size) }, { k: 's per symbol', v: e.seconds_per_symbol != null ? fmtParam(e.seconds_per_symbol) : '—' }, { k: 'trimmed', v: e.n_trimmed != null ? String(e.n_trimmed) : '—' }] }
     case 'windowset': { const w = p as WindowsetPayload; return [{ k: 'windows', v: String(w.n_windows) }, { k: 'length', v: `${w.length_s} s` }, { k: 'features', v: w.features ? String(w.features.n_columns) : '—' }, { k: 'capped', v: w.capped ? 'yes' : 'no', red: w.capped }] }
     case 'grouping': { const g = p as GroupingPayload; return [{ k: 'clusters', v: String(g.k) }, { k: 'windows', v: String(g.n) }, { k: 'largest', v: String(Math.max(...g.clusters.map(c => c.count))) }, { k: 'linkage', v: g.linkage ?? '—' }] }
@@ -392,7 +398,7 @@ function Histogram({ counts, edges, cut, onCut, note, testid }: { counts: number
 }
 
 /* ---------------- Signal → Scores: matrix profile ---------------- */
-function MatrixProfileProcess({ signal, scores, windowMin, fs, stale, t0, t1 }: { signal: EnvelopeSeries | null; scores: ScoresPayload | null; windowMin: number; fs: number; stale: boolean; t0: number; t1: number }) {
+function MatrixProfileProcess({ signal, unit, scores, windowMin, fs, stale, t0, t1 }: { signal: EnvelopeSeries | null; unit?: DisplayUnit; scores: ScoresPayload | null; windowMin: number; fs: number; stale: boolean; t0: number; t1: number }) {
   const mS = windowMin * 60
   const marks = scores ? motifLabels(scores) : []
   const query = marks.find(m => m.label === 'M1a' || m.label === 'M1')
@@ -406,7 +412,7 @@ function MatrixProfileProcess({ signal, scores, windowMin, fs, stale, t0, t1 }: 
           return (
             <>
               {signal ? <GhostPath ghost={signal} x={x} height={h} opacity={1} /> : <text x={4} y={14} fill="var(--muted)">upstream signal not loaded</text>}
-              {signal && <SignalOwnScale env={signal} x={x} h={h} />}
+              {signal && <SignalOwnScale env={signal} x={x} h={h} unit={unit} />}
               {query ? <g><rect x={x(query.t_s)} y={4} width={mW} height={h - 8} fill="var(--band-detected)" stroke="var(--blue)" /><text x={x(query.t_s) > w * 0.7 ? x(query.t_s) - 3 : x(query.t_s) + 3} y={h - 6} textAnchor={x(query.t_s) > w * 0.7 ? 'end' : 'start'} fill="var(--blue-600)">query · m = {mS.toFixed(0)} s · at the lowest profile value</text></g>
                 : <g><rect x={x(t0 + (t1 - t0) * 0.1)} y={4} width={mW} height={h - 8} fill="var(--band-detected)" stroke="var(--blue)" strokeDasharray="3 2" /><text x={x(t0 + (t1 - t0) * 0.1) + 3} y={h - 6} fill="var(--blue-600)">m = {mS.toFixed(0)} s to scale · no result yet</text></g>}
               {nn && <g><rect x={x(nn.t_s)} y={4} width={mW} height={h - 8} fill="var(--band-annotated)" stroke="var(--green)" /><text x={x(nn.t_s) > w * 0.7 ? x(nn.t_s) - 3 : x(nn.t_s) + mW + 3} y={14} textAnchor={x(nn.t_s) > w * 0.7 ? 'end' : 'start'} fill="#15794f">nearest neighbour · d {nn.v.toFixed(2)}</text></g>}
@@ -430,13 +436,13 @@ function MatrixProfileProcess({ signal, scores, windowMin, fs, stale, t0, t1 }: 
   )
 }
 
-/** The upstream signal on its own real scale with a mV axis. */
-function SignalOwnScale({ env, x, h }: { env: EnvelopeSeries; x: XScale; h: number }) {
+/** The upstream signal on its own real scale with a mV axis ("?" when the recording declares no unit). */
+function SignalOwnScale({ env, x, h, unit }: { env: EnvelopeSeries; x: XScale; h: number; unit?: DisplayUnit }) {
   let lo = Infinity, hi = -Infinity
   for (const v of env.v) if (v !== null) { if (v < lo) lo = v; if (v > hi) hi = v }
   if (!(lo <= hi)) return null
   const y = makeY(lo, hi, h)
-  return <g><EnvelopePath t={env.t} v={env.v} x={x} y={y} stroke="var(--trace)" /><YLabels y={y} values={[hi, lo]} unit="mV" /></g>
+  return <g><EnvelopePath t={env.t} v={env.v} x={x} y={y} stroke="var(--trace)" /><YLabels y={y} values={[hi, lo]} unit={axisUnit(unit)} /></g>
 }
 
 /* ---------------- Signal → Encoding: dSAX ---------------- */
@@ -448,7 +454,7 @@ function dsaxTiles(enc: EncodingSymbolicPayload | null): { k: string; v: string 
   const pct = n ? Math.round(100 * c[1] / n) : 0
   return [{ k: 'segments', v: n.toLocaleString() }, { k: 'down (d)', v: String(c[0]) }, { k: 'same', v: String(c[1]) }, { k: 'up (u)', v: String(c[2]) }, { k: '% SAME', v: `${pct} %` }]
 }
-function DsaxProcess({ signal, enc, stale, t0, t1, trend }: { signal: EnvelopeSeries | null; enc: EncodingSymbolicPayload | null; stale: boolean; t0: number; t1: number; trend: string }) {
+function DsaxProcess({ signal, unit, enc, stale, t0, t1, trend }: { signal: EnvelopeSeries | null; unit?: DisplayUnit; enc: EncodingSymbolicPayload | null; stale: boolean; t0: number; t1: number; trend: string }) {
   const sps = enc?.seconds_per_symbol ?? null
   const paa = enc?.paa ?? null
   const deltas = paa ? paa.slice(1).map((v, i) => v - paa[i]) : null
@@ -461,7 +467,7 @@ function DsaxProcess({ signal, enc, stale, t0, t1, trend }: { signal: EnvelopeSe
       <Strip label="signal + PAA" sub={sps ? `${fmtParam(sps)} s segments` : 'segments'} height={110} t0={t0} t1={t1} testid="dsax-signal">
         {(x, _w, h) => (
           <>
-            {signal && <SignalOwnScale env={signal} x={x} h={h} />}
+            {signal && <SignalOwnScale env={signal} x={x} h={h} unit={unit} />}
             {paa && sps && enc && <PaaSteps paa={paa} t0={enc.t0_s} sps={sps} x={x} h={h} />}
             {!signal && <text x={4} y={14} fill="var(--muted)">upstream signal not loaded</text>}
           </>

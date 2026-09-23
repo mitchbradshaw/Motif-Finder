@@ -17,6 +17,7 @@ from Working.database import queries as q
 from Working.database import runs as r
 from Working.database.runs import list_runs, load_recipe
 from Working.database.schema import VERDICTS
+from Working.units import to_mv_factor
 
 from .decimate import envelope
 from .runtime import HELD_OUT_FILE
@@ -45,9 +46,62 @@ def _mmap(npy_path: str, mtime_ns: int):
     return np.load(npy_path, mmap_mode="r")
 
 
-def load_channel(npy_path: str):
+def load_native(npy_path: str):
+    """The stored samples, memory-mapped: what the CORE is handed (a detector,
+    a seeded search, a chain window). Volts for a volts file — `detect5` and the
+    drop-motif store multiply by 1000 themselves, so a converted array reaching
+    them would print amplitudes 1000x too large. Never draw this: a page draws
+    `display_channel(rec)`."""
     st = os.stat(npy_path)
     return _mmap(npy_path, st.st_mtime_ns)
+
+
+class DisplayChannel:
+    """A channel as a page draws it: millivolts when the recording declares its
+    unit (`recordings.units`), the stored numbers with ``unit = None`` when it
+    does not — so the page can say "unit undeclared" instead of "mV".
+
+    This is the ONE place the bridge converts (fixup-b). Slicing returns a
+    float64 array already in the display unit; `len()` is the channel's. The
+    raw memmap stays inside: a stored-volts array and a millivolt array are
+    never in circulation under the same name.
+    """
+
+    __slots__ = ("_raw", "factor", "unit", "declared")
+
+    def __init__(self, raw, declared: str | None):
+        self._raw = raw
+        self.declared = declared
+        f = to_mv_factor(declared)
+        self.factor = 1.0 if f is None else f
+        self.unit = "mV" if f is not None else None
+
+    def __len__(self) -> int:
+        return int(len(self._raw))
+
+    def __getitem__(self, key):
+        return np.asarray(self._raw[key], dtype=np.float64) * self.factor
+
+    @property
+    def shape(self):
+        return (len(self),)
+
+
+def _units_of(rec) -> str | None:
+    """A recordings row's declared unit — from a dict or a `sqlite3.Row`."""
+    if isinstance(rec, dict):
+        return rec.get("units")
+    return rec["units"] if "units" in rec.keys() else None
+
+
+def display_channel(rec) -> DisplayChannel:
+    """`rec` is a recordings row; its `units` decides the factor."""
+    return DisplayChannel(load_native(rec["npy_path"]), _units_of(rec))
+
+
+def display_unit(rec) -> str | None:
+    """'mV' when the recording declares a unit the pages can convert, else None."""
+    return "mV" if to_mv_factor(_units_of(rec)) is not None else None
 
 
 def recordings(conn) -> list[dict]:
@@ -68,6 +122,8 @@ def recordings(conn) -> list[dict]:
                 parent = {"recording_id": p[0], "source_file": p[1], "channel": p[2], "offset": c0.get("parent_offset"), "decimation": c0.get("decimation")}
         out.append({
             "source_file": sf, "fs": fs, "n_samples": n, "duration_h": n / fs / 3600.0,
+            # fixup-b: the unit the samples are stored in, and the one the pages draw them in
+            "units": c0.get("units"), "units_note": c0.get("units_note"), "display_unit": display_unit(c0),
             # registration facts (stage-3 Prompt 02): where fs came from, the warnings the row carries, the excerpt link
             "fs_source": c0.get("fs_source") or "unrecorded",
             "warnings": json.loads(c0["warnings_json"]) if c0.get("warnings_json") else [],
@@ -93,6 +149,7 @@ def recording_row(conn, recording_id: int) -> dict | None:
     d["name"] = channel_name(d["source_file"], d["channel"], n_ch)
     d["held_out"] = d["source_file"] == HELD_OUT_FILE
     d["duration_s"] = d["n_samples"] / d["fs"]
+    d["display_unit"] = display_unit(d)
     return d
 
 
@@ -290,14 +347,14 @@ def channel_summary(conn, recording_id: int) -> dict:
 
 
 def window(conn, rec: dict, t0_s: float, t1_s: float, px: int) -> dict:
-    x = load_channel(rec["npy_path"])
+    x = display_channel(rec)
     fs = float(rec["fs"])
     i0 = int(max(0, np.floor(t0_s * fs))); i1 = int(min(len(x), np.ceil(t1_s * fs)))
     tt = time.perf_counter()
     env = envelope(x, fs, i0, i1, px)
     ms = (time.perf_counter() - tt) * 1e3
     return {"recording_id": rec["id"], "fs": fs, "n_samples": int(len(x)), "t0_s": i0 / fs, "t1_s": i1 / fs,
-            "envelope": env, "decimate_ms": ms}
+            "envelope": env, "decimate_ms": ms, "unit": x.unit}
 
 
 @functools.lru_cache(maxsize=64)
@@ -307,6 +364,10 @@ def _yrange(npy_path: str, mtime_ns: int):
 
 
 def y_range(rec: dict) -> list:
+    """The channel's full extent in its display unit (mV when declared). The
+    scan is cached on the stored samples; the factor is applied after, so a
+    unit declared later is never served from a stale extent."""
     st = os.stat(rec["npy_path"])
     lo, hi = _yrange(rec["npy_path"], st.st_mtime_ns)
-    return [lo, hi]
+    f = to_mv_factor(_units_of(rec)) or 1.0
+    return [lo * f, hi * f]

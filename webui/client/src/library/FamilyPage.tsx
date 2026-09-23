@@ -138,7 +138,12 @@ function SequenceFamilyPlaceholder({ f }: { f: SequenceFamily }) {
 /** A member's SKETCH, from the family's shape and the member's own measured amplitude and seed. It is not the
  *  recorded waveform — the read carries real traces for the exemplar and the medoid only — so every surface
  *  that draws one titles it as a sketch and never puts one in a panel with a real trace. */
-function memberTrace(m: { amplitudeMv: number; seed: number }, shape: MotifFamily['shape'], sign: number) { return motifShape(shape, sign * m.amplitudeMv, m.seed, { jitter: 0.07 }) }
+function memberTrace(m: { amplitudeMv: number | null; seed: number }, shape: MotifFamily['shape'], sign: number) {
+  // a member whose recording declares no unit has no mV amplitude to sketch at (fixup-b): an empty plot, titled
+  return m.amplitudeMv === null ? [] : motifShape(shape, sign * m.amplitudeMv, m.seed, { jitter: 0.07 })
+}
+/** Descending, members with no mV amplitude (unit undeclared) last. */
+const byAmplitude = (a: Member, b: Member) => (b.amplitudeMv ?? -Infinity) === (a.amplitudeMv ?? -Infinity) ? 0 : (b.amplitudeMv ?? -Infinity) > (a.amplitudeMv ?? -Infinity) ? 1 : -1
 
 function MotifFamilyView({ detail }: { detail: FamilyDetail }) {
   const f = detail.family
@@ -166,7 +171,7 @@ function MotifFamilyView({ detail }: { detail: FamilyDetail }) {
   const [memberQ, setMemberQ] = useQueryState('member', '')
   const [modal, setModal] = useQueryState('modal', '')
   const [popover, setPopover] = useQueryState('popover', '')
-  const sign = f.depthMv < 0 ? -1 : 1
+  const sign = (f.depthMv ?? 0) < 0 ? -1 : 1
 
   const removedIds = new Set(edits.removed.map(r => r.id))
   const members = useMemo(() => detail.members.filter(m => !removedIds.has(m.id) && !edits.undone.includes(m.id)), [detail.members, edits.removed, edits.undone]) // eslint-disable-line react-hooks/exhaustive-deps
@@ -175,7 +180,7 @@ function MotifFamilyView({ detail }: { detail: FamilyDetail }) {
   const ordered = useMemo(() => {
     const list = members.map(withEdits).filter(m => !handOnly || m.addedByHand)
     if (sort === 'time') return [...list].sort((a, b) => a.onsetH - b.onsetH)
-    if (sort === 'amplitude') return [...list].sort((a, b) => b.amplitudeMv - a.amplitudeMv)
+    if (sort === 'amplitude') return [...list].sort(byAmplitude)
     if (sort === 'unjudged') return [...list].sort((a, b) => Number(a.verdict !== 'unjudged') - Number(b.verdict !== 'unjudged') || a.d - b.d)
     // distance: members kept past the cut by hand stay on the first page (see InfoTip)
     const pinned = list.filter(m => m.addedByHand && m.d > detail.cut)
@@ -192,12 +197,13 @@ function MotifFamilyView({ detail }: { detail: FamilyDetail }) {
      amplitude, seed)` around zero, so the members' own amplitudes set it. `traceDomain` is for the two REAL
      traces (the exemplar and the medoid, read off the memmap) — they carry their recording's DC offset, and
      drawing them on the zero-centred amplitude domain pinned every sample to the floor of the plot: F-01's
-     exemplar spans −1.148…−1.131 mV against a ±0.1 mV domain, which `MiniTrace` clamps silently, so a real
-     17.6 µV drop rendered as a dead-flat line and nothing said so. The traces are centred on their own median
+     exemplar spans −1.148…−1.131 V against a ±0.1 mV domain, which `MiniTrace` clamps silently, so a real
+     17.6 mV drop rendered as a dead-flat line and nothing said so. (First written here as "−1.148…−1.131 mV"
+     and "17.6 µV" — stored volts printed as mV, before fixup-b.) The traces are centred on their own median
      (DC offset removed, mV span untouched — nothing is normalised) and get a domain measured from themselves. */
   const yDomain = useMemo(() => {
     // an empty family (every member removed by hand) must not make Math.max(-Infinity) the domain
-    const a = Math.max(...detail.members.map(m => m.amplitudeMv), Math.abs(f.depthMv), 0.01)
+    const a = Math.max(...detail.members.map(m => m.amplitudeMv ?? 0), Math.abs(f.depthMv ?? 0), 0.01)
     return niceMvDomain([[a * 1.05, -a * 1.05]])
   }, [detail.members, f.depthMv])
   const realTraces = useMemo(() => ({ ex: centreTrace(f.exemplarTrace ?? []), me: centreTrace(f.medoidTrace ?? []) }), [f.exemplarTrace, f.medoidTrace])
@@ -272,9 +278,12 @@ function MotifFamilyView({ detail }: { detail: FamilyDetail }) {
 
         <div className="k-card" style={{ padding: 12, display: 'grid', gridTemplateColumns: '300px minmax(0, 1fr) 222px', gap: 14, alignItems: 'start' }} data-testid="family-summary">
           <div>
-            <MotifPlot exemplar={exemplarTrace} medoid={realTraces.me} colour={f.colour} yDomain={traceDomain} height={108} testid="summary-exemplar-medoid" />
+            <MotifPlot exemplar={exemplarTrace} medoid={realTraces.me} colour={f.colour} yDomain={traceDomain} height={108} testid="summary-exemplar-medoid" unitNote={f.unitNote} />
             <div className="row lib-cap" style={{ justifyContent: 'space-between', paddingLeft: 30 }}><span>0</span><span>{f.durationS} s</span></div>
-            <div className="lib-cap" style={{ fontSize: 10 }} data-testid="summary-trace-note">measured · each trace centred on its own baseline, nothing normalised · peak {fmtMv(tracePeakMv)} mV</div>
+            <div className="lib-cap" style={{ fontSize: 10 }} data-testid="summary-trace-note">{f.unit === null
+              ? 'unit undeclared · the exemplar and medoid are not drawn in mV'
+              : `measured · each trace centred on its own baseline, nothing normalised · peak ${fmtMv(tracePeakMv)} mV`}</div>
+            {!!f.unitNote && <div className="lib-cap" style={{ fontSize: 10, color: 'var(--amber-700, #b76a00)' }} data-testid="family-unit-note">{f.unitNote}</div>}
           </div>
           <div className="stack" style={{ gap: 10 }}>
             <div className="row lib-cap" style={{ fontSize: 10.5 }}>

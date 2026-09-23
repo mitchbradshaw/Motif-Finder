@@ -61,7 +61,9 @@ function mvTicks(lo: number, hi: number): number[] {
   if (lo < 0 && hi > 0) out.splice(1, 0, 0)
   return [...new Set(out.map(v => +v.toPrecision(6)))]
 }
-const fmtMvTick = (v: number) => v === 0 ? '0' : `${v > 0 ? '+' : '−'}${Math.abs(v).toPrecision(2).replace(/\.?0+$/, '') || '0'}`
+// Number(…) round-trips toPrecision's exponent form ("4.0e+2") back to plain digits ("400"): hundreds of mV are
+// ordinary since fixup-b stopped printing stored volts as mV
+const fmtMvTick = (v: number) => v === 0 ? '0' : `${v > 0 ? '+' : '−'}${String(Number(Math.abs(v).toPrecision(2)))}`
 
 function decimate(values: number[], t: number[], buckets: number): [number[], number[]] {
   if (values.length <= buckets * 2) return [t, values]

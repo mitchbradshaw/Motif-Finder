@@ -38,6 +38,7 @@ import numpy as np
 
 from .core import ACTOR, Candidate, Report, now_iso, plain_insert, portable, read_sidecar, sidecar_path
 from .excerpt import R_THRESHOLD, find_excerpt, is_excerpt
+from Working.units import UNITS, parse_units
 
 HELD_OUT_FILE = "M4_aug_concat_fs1.mat"
 HELD_OUT_STEM = HELD_OUT_FILE[:-4]
@@ -305,15 +306,34 @@ def _scan_recording(roots, conn, **kw):
             if fs_note and "inferred" in fs_note:
                 warnings.append(f"fs is inferred: {fs_note}")
                 fs_source = "inferred"
+            units_text = man.get("units")
+            units = parse_units(units_text)
+            warnings.extend(_units_warnings(units_text, units))
             facts = {"stem": name, "dir": portable(d), "source_file": man.get("source_file") or f"{name}.mat", "source_file_from_manifest": bool(man.get("source_file")),
                      "fs": fs, "fs_source": fs_source if fs is not None else None, "fs_note": fs_note, "n_channels": len(chans), "n_samples": n,
-                     "dtype": man.get("dtype"), "time_base": man.get("time_base"), "units": man.get("units"), "imported_at": man.get("imported_at"),
+                     "dtype": man.get("dtype"), "time_base": man.get("time_base"), "units": units, "units_text": units_text, "imported_at": man.get("imported_at"),
                      "raw_file": man.get("raw_file"), "has_manifest": bool(man) and "error" not in man, "channel_files": [fn for _i, fn in chans],
                      "duration_h": (n / fs / 3600.0) if (fs and n) else None, "held_out": man.get("source_file") == HELD_OUT_FILE or name == HELD_OUT_STEM}
             if not man.get("source_file"):
                 warnings.append(f"no manifest.json: the recording is labelled '{name}.mat' after its directory; pass source_file to override")
             cands.append(Candidate(kind="recording", path=portable(d), name=name, facts=facts, warnings=warnings))
     return cands
+
+
+UNITS_UNDECLARED = ("units undeclared: manifest.json declares no unit for these samples — supply units "
+                    f"({' or '.join(UNITS[:2])}) at registration, or declare it later in Settings › Datasets; until then "
+                    "every page prints this recording's numbers as unit undeclared, never as mV")
+
+
+def _units_warnings(units_text, units) -> list:
+    """The scan's words about the unit: nothing when it is declared, a warning
+    when it is absent, a different one when it is there but unreadable."""
+    if units is not None:
+        return []
+    if units_text is None or not str(units_text).strip():
+        return [UNITS_UNDECLARED]
+    return [f"units unreadable: manifest.json says {units_text!r}, which is not one of {', '.join(UNITS)} — "
+            "supply units at registration"]
 
 
 def _recording_ids_for_dir(conn, d: str, source_file: str | None = None) -> list:
@@ -333,12 +353,16 @@ def _enrich_recording(conn, cand: Candidate, **kw) -> None:
     directories carry no manifest.json, and the row is the truth anyway."""
     if not cand.registered_ids:
         return
-    r = conn.execute("SELECT source_file, fs, n_samples, fs_source FROM recordings WHERE id = ?", (cand.registered_ids[0],)).fetchone()
+    r = conn.execute("SELECT source_file, fs, n_samples, fs_source, units, units_note FROM recordings WHERE id = ?", (cand.registered_ids[0],)).fetchone()
     if r is None:
         return
     sf, fs, n, fs_source = r[0], r[1], r[2], r[3]
     cand.facts.update({"source_file": sf, "fs": fs, "n_samples": n, "fs_source": fs_source or "unrecorded",
-                       "duration_h": n / fs / 3600.0 if fs else None, "facts_from": "recordings rows"})
+                       "duration_h": n / fs / 3600.0 if fs else None, "facts_from": "recordings rows",
+                       "units": r[4], "units_note": r[5]})
+    # the row is the truth: a unit declared on it answers the manifest's silence
+    if r[4]:
+        cand.warnings = [w for w in cand.warnings if not w.startswith(("units undeclared", "units unreadable"))]
 
 
 def _load_channels(d, files):
@@ -402,6 +426,18 @@ def _check_recording(cand: Candidate, conn, rep: Report, ov: dict, **kw):
                 f["fs_source"] = "read"
             if f.get("n_samples"):
                 f["duration_h"] = f["n_samples"] / fs / 3600.0
+    # units: flagged in words when undeclared (the file is still readable data), refused when unreadable
+    if ov.get("units") is not None and str(ov.get("units")).strip():
+        u = parse_units(ov["units"])
+        rep.add("units", u is not None, f"units {u} (supplied)" if u else
+                f"units {ov['units']!r} not recognised — one of {', '.join(UNITS)}")
+        if u:
+            f["units"] = u
+            f["units_note"] = "declared at registration"
+            rep.warnings = [w for w in rep.warnings if not w.startswith(("units undeclared", "units unreadable"))]
+    elif f.get("units"):
+        rep.add("units", True, f"units {f['units']} (from manifest.json)")
+        f.setdefault("units_note", f"from manifest.json: {f.get('units_text') or f['units']}")
     # held out
     held = f.get("source_file") == HELD_OUT_FILE or cand.name == HELD_OUT_STEM
     rep.add("held_out", not held, f"{HELD_OUT_FILE} is held out (spec §0 D6): it is never registered through the interface" if held else "not the held-out recording")
@@ -471,7 +507,8 @@ def _register_recording(conn, cand: Candidate, rep: Report, provenance, actor, w
         row = {"source_file": f["source_file"], "channel": ch, "fs": float(f["fs"]), "n_samples": int(f["n_samples"]), "global_offset": 0,
                "npy_path": portable(os.path.join(d, fn)), "notes": (provenance or {}).get("notes"),
                "fs_source": f.get("fs_source") or "read", "registered_at": now_iso(), "registered_by": actor,
-               "warnings_json": _json_dumps(list(rep.warnings)), "active": 1}
+               "warnings_json": _json_dumps(list(rep.warnings)), "active": 1,
+               "units": f.get("units"), "units_note": f.get("units_note") if f.get("units") else None}
         if ex and ex.get("candidate_channel") == ch:
             row.update({"parent_recording_id": ex["recording_id"], "parent_offset": ex["offset"], "decimation": ex["decimation"]})
         rid = writer(conn, "recordings", row)
@@ -495,6 +532,25 @@ def _unregister_recording(conn, row_id, actor):
     return {"table": "recordings", "id": int(row_id), "source_file": sf, "channels": n, "active": 0}
 
 
+def declare_units(conn, source_file: str, units: str, note: str | None = None, actor: str = ACTOR) -> dict:
+    """Declare the unit an already-registered recording's samples are stored in.
+
+    Every channel row of ``source_file`` takes the unit together — a recording
+    is one export in one unit. The note says who declared it and on what
+    evidence; the schema backfill never overwrites a row that carries one.
+    Raises ``ValueError`` for a unit it cannot read, ``KeyError`` for a file
+    with no rows. Does not commit (the caller audits and commits)."""
+    u = parse_units(units)
+    if u is None:
+        raise ValueError(f"units {units!r} not recognised — one of {', '.join(UNITS)}")
+    n = conn.execute("SELECT COUNT(*) FROM recordings WHERE source_file = ?", (source_file,)).fetchone()[0]
+    if not n:
+        raise KeyError(f"no recordings rows for {source_file!r}")
+    text = (note or "").strip() or f"declared by {actor} on {now_iso()[:10]}"
+    conn.execute("UPDATE recordings SET units = ?, units_note = ? WHERE source_file = ?", (u, text, source_file))
+    return {"source_file": source_file, "units": u, "units_note": text, "channels": int(n)}
+
+
 def _list_recordings(conn, sidecar_root=None, **kw):
     rows = _rows(conn, "SELECT * FROM recordings WHERE active = 1 ORDER BY source_file, channel")
     by = {}
@@ -514,6 +570,7 @@ def _list_recordings(conn, sidecar_root=None, **kw):
         out.append({
             "kind": "recording", "id": c0["id"], "ids": [c["id"] for c in chans], "name": stem, "source_file": sf, "dir": portable(d),
             "n_channels": len(chans), "fs": c0["fs"], "fs_source": c0.get("fs_source") or "unrecorded", "n_samples": c0["n_samples"],
+            "units": c0.get("units"), "units_note": c0.get("units_note"),
             "duration_h": c0["n_samples"] / c0["fs"] / 3600.0 if c0["fs"] else None, "held_out": sf == HELD_OUT_FILE,
             "warnings": json.loads(c0["warnings_json"]) if c0.get("warnings_json") else [], "excerpt_of": parent,
             "registered_at": c0.get("registered_at"), "registered_by": c0.get("registered_by"),
@@ -675,6 +732,13 @@ def _check_raw(cand: Candidate, conn, rep: Report, ov: dict, channels_root=None,
     if lay.get("layout") == "flat" and lay.get("total") and lay.get("n_channels") and lay["total"] % lay["n_channels"]:
         rep.add("shape", False, f"{lay['total']:,} samples do not divide into {lay['n_channels']} channels")
     f["source_file"] = f["basename"]
+    if ov.get("units") is not None and str(ov.get("units")).strip():
+        u = parse_units(ov["units"])
+        rep.add("units", u is not None, f"units {u} (supplied)" if u else f"units {ov['units']!r} not recognised — one of {', '.join(UNITS)}")
+        f["units"] = u
+    else:
+        f["units"] = None
+        rep.warn(UNITS_UNDECLARED.replace("manifest.json declares", "the raw file declares"))
 
 
 def _load_raw_channels(path: str, lay: dict):
@@ -723,7 +787,7 @@ def derive_channels(path: str, lay: dict, fs: float, channels_root: str, stem: s
             np.save(os.path.join(staging, f"CH{i}.npy"), c)
         man = {"source_file": os.path.basename(path), "n_channels": len(chans), "fs": fs, "n_samples_per_channel": int(L), "dtype": str(chans[0].dtype),
                "imported_at": now_iso(), "raw_file": portable(path), "variable": lay.get("variable"), "layout": lay.get("layout"),
-               "derived_by": "Working.registration (kind raw)"}
+               "derived_by": "Working.registration (kind raw)", "units": None}
         man.update(extra or {})
         with open(os.path.join(staging, "manifest.json"), "w", encoding="utf-8") as fh:
             json.dump(man, fh, indent=2)
@@ -744,10 +808,12 @@ def _register_raw(conn, cand: Candidate, rep: Report, provenance, actor, writer,
     extra = {}
     if f.get("fs_source") == "inferred":
         extra["fs_note"] = f"{f['fs']} Hz was supplied at registration, not read from the file"
+    extra["units"] = f.get("units")
     d = derive_channels(cand.path, f["layout"], float(f["fs"]), root, extra=extra)
     rc = _scan_recording([root], conn)
     rc = next(c for c in rc if _same_path(c.path, d))
-    rrep = _check(rc, conn, overrides={"source_file": f["basename"], **({"fs": f["fs"], "fs_source": f["fs_source"]} if f.get("fs_source") == "inferred" else {})})
+    rrep = _check(rc, conn, overrides={"source_file": f["basename"], **({"fs": f["fs"], "fs_source": f["fs_source"]} if f.get("fs_source") == "inferred" else {}),
+                                       **({"units": f["units"]} if f.get("units") else {})})
     if not rrep.ok:
         from .core import RegistrationError
         raise RegistrationError("derived channels failed the recording checks: " + "; ".join(f"{c.name}: {c.detail}" for c in rrep.failures()), rrep)
@@ -1397,7 +1463,7 @@ KINDS: dict = {}
 KINDS["recording"] = KindSpec(
     name="recording", label="Recording", roots=["DATA/derived/channels"], table="recordings",
     ui="Settings › Datasets; Explore recording menu (GET /api/recordings); Analyse source picker; Channels & events",
-    naming="DATA/derived/channels/<stem>/CH<n>.npy + manifest.json (source_file, fs, n_channels, n_samples_per_channel, fs_note, time_base)",
+    naming="DATA/derived/channels/<stem>/CH<n>.npy + manifest.json (source_file, fs, n_channels, n_samples_per_channel, fs_note, time_base, units)",
     scan=_scan_recording, check=_check_recording, register=_register_recording, registered_ids=_recording_registered_ids,
     unregister=_unregister_recording, list_registered=_list_recordings, enrich=_enrich_recording)
 KINDS["raw"] = KindSpec(

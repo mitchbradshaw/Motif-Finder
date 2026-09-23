@@ -573,8 +573,9 @@ def get_overview(request: Request, recording: str, channels: str = ""):
         names = _split(channels) or [ch["name"] for ch in rec["channels"][:3]]
         rows = _ids_for(c, recording, names)
         out = {}
+        unit = corpus.display_unit(rows[0]) if rows else None
         for ch in rows:
-            x = corpus.load_channel(ch["npy_path"])
+            x = corpus.display_channel(ch)
             fs = float(ch["fs"])
             per = max(1, int(round(fs * 3600)))
             n_full = len(x) // per
@@ -588,7 +589,7 @@ def get_overview(request: Request, recording: str, channels: str = ""):
                 idx = np.linspace(0, n_full - 1, OVERVIEW_MAX_POINTS).round().astype(int)
                 vals = vals[idx]
             out[ch["name"]] = [None if not np.isfinite(v) else round(float(v), 5) for v in vals]
-        return {"data": out}
+        return {"data": out, "unit": unit}
     finally:
         c.close()
 
@@ -764,7 +765,9 @@ def get_scoreboard(request: Request, runs: str = "", channels: str = "", t0: flo
 # ── browsing detections ─────────────────────────────────────────────────────
 
 def _depth_mv(ch, a, b):
-    x = corpus.load_channel(ch["npy_path"])
+    x = corpus.display_channel(ch)
+    if x.unit is None:
+        return None             # no unit behind it: not printed as mV
     seg = np.asarray(x[max(0, a):min(len(x), b)], dtype=float)
     if not seg.size or not np.isfinite(seg).any():
         return None
@@ -826,7 +829,7 @@ def get_detection_window(request: Request, detection_id: int, pad_s: float = 120
         fs = float(rec["fs"])
         pad = int(round(pad_s * fs))
         lo, hi = max(0, a - pad), min(int(rec["n_samples"]), b + pad)
-        x = corpus.load_channel(rec["npy_path"])
+        x = corpus.display_channel(rec)
         seg = np.asarray(x[lo:hi], dtype=float)
         if len(seg) > px:
             idx = np.linspace(0, len(seg) - 1, px).round().astype(int)
@@ -836,7 +839,7 @@ def get_detection_window(request: Request, detection_id: int, pad_s: float = 120
             step = 1.0 / fs
         return {"t0H": lo / fs / 3600.0, "stepS": step,
                 "values": [None if not np.isfinite(v) else round(float(v), 5) for v in seg],
-                "spanS": [(a - lo) / fs, (b - lo) / fs]}
+                "spanS": [(a - lo) / fs, (b - lo) / fs], "unit": x.unit}
     finally:
         c.close()
 
@@ -848,7 +851,7 @@ def get_signal(request: Request, channel: str, t0: float = 0.0, t1: float = 0.0,
         s, rec, _, _ = _session_scope(c)
         ch = _ids_for(c, _stem(s["source_file"]), [channel])[0]
         fs = float(ch["fs"])
-        x = corpus.load_channel(ch["npy_path"])
+        x = corpus.display_channel(ch)
         lo = max(0, int(round(t0 * 3600 * fs)))
         hi = min(len(x), max(lo + 1, int(round(t1 * 3600 * fs))))
         seg = np.asarray(x[lo:hi], dtype=float)
@@ -857,7 +860,7 @@ def get_signal(request: Request, channel: str, t0: float = 0.0, t1: float = 0.0,
         vals = seg[idx] if len(seg) else seg
         step = ((hi - lo) / max(1, n)) / fs
         return {"t0H": lo / fs / 3600.0, "stepS": step,
-                "values": [None if not np.isfinite(v) else round(float(v), 5) for v in vals]}
+                "values": [None if not np.isfinite(v) else round(float(v), 5) for v in vals], "unit": x.unit}
     finally:
         c.close()
 
@@ -894,7 +897,7 @@ def _seed_store():
 
 
 def _trace(conn, rec_row, a, b, n=TRACE_POINTS):
-    x = corpus.load_channel(rec_row["npy_path"])
+    x = corpus.display_channel(dict(rec_row))
     seg = np.asarray(x[max(0, a):min(len(x), b)], dtype=float)
     if not seg.size:
         return []
@@ -937,6 +940,7 @@ def _seed_info(conn, seed, *, title=None, family=None, family_line=None):
         "startH": round(seed["start_h"], 4), "samples": seed["samples"],
         "lengthS": round(seed["length_s"], 2), "hash": seed["hash"],
         "trace": _trace(conn, rec, seed["start_idx"], seed["end_idx"]),
+        "unit": corpus.display_unit(dict(rec)),
     }
 
 
@@ -1130,7 +1134,8 @@ def _seed_search(conn, seed, chans, span, *, k, max_distance, null, job=None):
     for i, ch in enumerate(chans):
         if job is not None:
             job.progress(i, n, f"{ch['name']} · matching")
-        x = np.asarray(corpus.load_channel(ch["npy_path"])[span[0]:span[1]], dtype=float)
+        # the core matches stored samples against a stored-unit exemplar
+        x = np.asarray(corpus.load_native(ch["npy_path"])[span[0]:span[1]], dtype=float)
         fs = float(ch["fs"])
         found = seeded_search.candidates(x, exemplar, k=k,
                                          max_distance=(max_distance if max_distance > 0 else None))
@@ -1320,10 +1325,11 @@ def get_seed_profile(request: Request, seedId: str, channel: str, t0: float = 0.
             raise HTTPException(422, {"message": (
                 f"the view [{t0}, {t1}] h is not a window: t1 must be greater than t0. A clamped "
                 f"range that inverts is a bug in the caller, not a window to serve.")})
-        x = np.asarray(corpus.load_channel(ch["npy_path"]), dtype=float)
+        x = np.asarray(corpus.load_native(ch["npy_path"]), dtype=float)
         lo = max(0, int(round(t0 * 3600 * fs)))
         hi = min(len(x), max(lo + len(exemplar) + 1, int(round(t1 * 3600 * fs))))
         view = seeded_search.distance_profile(x, exemplar, view=(lo, hi))
+        disp = corpus.display_channel(ch)          # the drawn signal; the distance is the core's
 
         def thin(vals, n):
             vals = np.asarray(vals, dtype=float)
@@ -1334,7 +1340,8 @@ def get_seed_profile(request: Request, seedId: str, channel: str, t0: float = 0.
 
         n_sig = min(px, max(1, hi - lo))
         return {"t0H": lo / fs / 3600.0, "stepS": (hi - lo) / n_sig / fs,
-                "signal": thin(view["signal"], px), "distance": thin(view["distance"], px),
+                "signal": thin(np.asarray(view["signal"], dtype=float) * disp.factor, px),
+                "distance": thin(view["distance"], px), "unit": disp.unit,
                 "m": view["m"], "seedId": seedId, "channel": ch["name"],
                 "nSignal": len(view["signal"]), "nDistance": len(view["distance"])}
     finally:
@@ -1953,7 +1960,7 @@ def _window_scores(conn, session_id, run_key, ch, lo, hi, fs):
     distance profile, for a chain the last Scores its steps produce. Empty with
     a reason when the chain has no scoring stage at all (a Signal → SpanSet
     detector decides without one)."""
-    x_full = corpus.load_channel(ch["npy_path"])
+    x_full = corpus.load_native(ch["npy_path"])
     x = np.asarray(x_full[lo:hi], dtype=float)
     if run_key == "human":
         return [], "human verdicts carry no score"
@@ -2008,7 +2015,7 @@ def get_compare_window(request: Request, a: str, b: str, channel: str, atH: floa
         ch = _ids_for(c, _stem(s["source_file"]), [channel])[0]
         centre = int(round(atH * 3600 * fs))
         half = int(round(windowS * fs / 2))
-        x_full = corpus.load_channel(ch["npy_path"])
+        x_full = corpus.display_channel(ch)
         lo = max(0, centre - half)
         hi = min(len(x_full), centre + half)
         seg = np.asarray(x_full[lo:hi], dtype=float)
@@ -2018,7 +2025,7 @@ def get_compare_window(request: Request, a: str, b: str, channel: str, atH: floa
         track = [ (near["start"] - lo) / fs, (near["end"] - lo) / fs ] if near else None
         other_scores, note = _window_scores(c, s["id"], other, ch, lo, hi, fs)
         return {
-            "t0H": lo / fs / 3600.0, "windowS": (hi - lo) / fs, "stepS": 1.0 / fs,
+            "t0H": lo / fs / 3600.0, "windowS": (hi - lo) / fs, "stepS": 1.0 / fs, "unit": x_full.unit,
             "values": [None if not np.isfinite(v) else round(float(v), 5) for v in seg],
             "aSpan": track if kind == "only A" else None,
             "bSpan": track if kind == "only B" else None,
@@ -2038,7 +2045,7 @@ _THUMB_BY_KIND = {"signal": "trace", "scores": "distance", "encoding": "symbols"
 
 
 def _stage_cells(conn, side, recipe, steps_out, other_cells, x, fs, lo, threshold, is_seed,
-                 side_label="A"):
+                 side_label="A", factor=1.0):
     """Five cells in ROLES order, each the block's own output drawn as its
     chain-row thumbnail (§6.8) so any chain renders."""
     by_role = {}
@@ -2081,15 +2088,16 @@ def _stage_cells(conn, side, recipe, steps_out, other_cells, x, fs, lo, threshol
                           "thumb": {"kind": "absent"}, "caption": reason, "decided": "could not run here",
                           "error": reason})
             continue
-        cells.append(_thumb_cell(role, mine, badge, out, x, fs, threshold, is_seed))
+        cells.append(_thumb_cell(role, mine, badge, out, x, fs, threshold, is_seed, factor=factor))
     return cells
 
 
-def _thumb_cell(role, cell, badge, out, x, fs, threshold, is_seed):
+def _thumb_cell(role, cell, badge, out, x, fs, threshold, is_seed, factor=1.0):
     kind = out["kind"]
     value = out["value"]
     if kind == "signal":
-        vals = [round(float(v), 5) for v in np.asarray(value.x, dtype=float)]
+        # a Signal stage preserves units: drawn by the same factor as its ghost `x`
+        vals = [round(float(v), 5) for v in np.asarray(value.x, dtype=float) * factor]
         return {"role": role, "cell": cell, "badge": badge,
                 "thumb": {"kind": "trace", "values": vals, "ghost": x, "stroke": "var(--trace-blue)"},
                 "caption": f"{cell['param']}", "decided": cell["param"]}
@@ -2148,19 +2156,20 @@ def get_compare_stages(request: Request, a: str, b: str, channel: str, atH: floa
         ch = _ids_for(c, _stem(s["source_file"]), [channel])[0]
         centre = int(round(atH * 3600 * fs))
         half = int(round(windowS * fs / 2))
-        x_full = corpus.load_channel(ch["npy_path"])
+        x_full = corpus.load_native(ch["npy_path"])
         lo, hi = max(0, centre - half), min(len(x_full), centre + half)
-        seg = np.asarray(x_full[lo:hi], dtype=float)
-        x = [None if not np.isfinite(v) else round(float(v), 5) for v in seg]
+        seg = np.asarray(x_full[lo:hi], dtype=float)           # what both chains are handed
+        disp = corpus.display_channel(ch)
+        x = [None if not np.isfinite(v) else round(float(v), 5) for v in seg * disp.factor]
 
         side_a, recipe_a = _side(c, s["id"], a, [ch], (lo, hi), ch["name"])
         side_b, recipe_b = _side(c, s["id"], b, [ch], (lo, hi), ch["name"])
         out_a = window_chain.run_window(c, recipe_a, seg, fs, span_start=lo) if recipe_a else []
         out_b = window_chain.run_window(c, recipe_b, seg, fs, span_start=lo) if recipe_b else []
         cells_a = _stage_cells(c, side_a, recipe_a, out_a, side_b["cells"], x, fs, lo,
-                               side_a["threshold"], side_a["isSeed"], side_label="A")
+                               side_a["threshold"], side_a["isSeed"], side_label="A", factor=disp.factor)
         cells_b = _stage_cells(c, side_b, recipe_b, out_b, side_a["cells"], x, fs, lo,
-                               side_b["threshold"], side_b["isSeed"], side_label="B")
+                               side_b["threshold"], side_b["isSeed"], side_label="B", factor=disp.factor)
         first = next((r for r, ca, cb in zip(D.ROLES, cells_a, cells_b)
                       if ca["badge"] != "identical" or cb["badge"] != "identical"), None)
         return {
@@ -2168,7 +2177,7 @@ def get_compare_stages(request: Request, a: str, b: str, channel: str, atH: floa
             "index": index, "of": of, "firstDiffering": first,
             "a": cells_a, "b": cells_b,
             "aSubtitle": side_a["subtitle"], "bSubtitle": side_b["subtitle"],
-            "windowS": (hi - lo) / fs,
+            "windowS": (hi - lo) / fs, "unit": disp.unit,
             "note": ("the window is pushed through both chains here and nothing is written: no run row, "
                      "no detections, no step cache"),
         }

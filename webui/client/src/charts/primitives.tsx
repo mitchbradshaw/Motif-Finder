@@ -92,7 +92,7 @@ export function CrosshairLayer({ x, height, children }: { x: XScale; height: num
 }
 
 /** Small y-axis labels at the left (e.g. "+0.4 mV / 0 / −0.4 mV"). Digits adapt to the
- *  scale's range (a 60 s viewport spans ~0.0005 mV) unless `digits` is given; the group never
+ *  scale's range (a 60 s viewport spans ~0.5 mV) unless `digits` is given; the group never
  *  intercepts pointer events (bands underneath stay clickable) and text carries a white halo. */
 export function YLabels({ y, values, x = 4, unit = '', digits }: { y: XScale; values: number[]; x?: number; unit?: string; digits?: number }) {
   const [d0, d1] = y.domain()

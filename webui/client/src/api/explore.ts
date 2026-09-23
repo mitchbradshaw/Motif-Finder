@@ -184,6 +184,7 @@ export async function getCrossChannel(referenceId: number, padS = 20): Promise<S
       ].slice(0, 6),
       sharedGround: [], openQuestions: ['lag is the peak of the z-normalised cross-correlation over this window (Working.cross_channel); a shared-ground flag needs the montage, which is not registered yet'],
       yDomain: [lo, hi],
+      unit: x.unit,
     },
     source: 'live',
   }

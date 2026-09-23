@@ -136,7 +136,7 @@ def _load_csv_channels(path, n_channels):
     return [df.iloc[:, i].to_numpy() for i in range(n_channels)]
 
 
-def materialize_arbitrary_file(conn, path, n_channels, fs, progress_callback=None):
+def materialize_arbitrary_file(conn, path, n_channels, fs, progress_callback=None, units=None):
     """Materialize a user-supplied .mat or .csv file with an explicitly
     confirmed channel count and fs (no assumptions), atomically.
 
@@ -154,6 +154,10 @@ def materialize_arbitrary_file(conn, path, n_channels, fs, progress_callback=Non
     n_channels, fs : as confirmed/overridden by the caller (e.g. the UI),
         never silently assumed.
     progress_callback : callable(done, total), optional
+    units : 'V' | 'mV' | 'uV' | None
+        The unit the samples are stored in (`Working.units`). Written to the
+        manifest's `units` key and the rows either way; None records it as
+        undeclared, which every page then says instead of assuming "mV".
 
     Returns
     -------
@@ -198,6 +202,9 @@ def materialize_arbitrary_file(conn, path, n_channels, fs, progress_callback=Non
             "fs": fs,
             "n_samples_per_channel": L,
             "dtype": str(dtype),
+            # always present: `Working/registration/kinds.py` reads it, and a
+            # missing key was how every channel came to be drawn as "mV"
+            "units": units,
             "imported_at": datetime.datetime.now(datetime.timezone.utc).isoformat(),
         }
         with open(os.path.join(staging_dir, "manifest.json"), "w") as f:
@@ -216,7 +223,8 @@ def materialize_arbitrary_file(conn, path, n_channels, fs, progress_callback=Non
             conn, source_file=source_file, channel=i, fs=fs, n_samples=L,
             global_offset=i * L,
             npy_path=os.path.join(final_dir, f"CH{i}.npy").replace(os.sep, "/"),
-            commit=False,
+            commit=False, units=units,
+            units_note=None if units is None else "declared when the file was materialised",
         )
     conn.commit()
 

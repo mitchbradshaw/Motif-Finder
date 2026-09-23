@@ -54,8 +54,8 @@ def _insert(conn, source_file, channel=0, npy_path="x.npy", n=100, fs=1.0):
 
 
 def _units(conn, source_file):
-    return conn.execute("SELECT units, units_note FROM recordings WHERE source_file = ? ORDER BY channel",
-                        (source_file,)).fetchall()
+    return [tuple(r) for r in conn.execute("SELECT units, units_note FROM recordings WHERE source_file = ? ORDER BY channel",
+                                           (source_file,)).fetchall()]
 
 
 # ------------------------------------------------------------ vocabulary --

@@ -10,7 +10,7 @@ import {
 } from '../kit'
 import { useSourced } from '../api/seam'
 import { navigate } from '../state'
-import { ApiError, checkCandidate, registerCandidate, unregisterRow, type Candidate, type CheckReport } from '../api'
+import { ApiError, checkCandidate, declareRecordingUnits, registerCandidate, unregisterRow, type Candidate, type CheckReport } from '../api'
 import { getDatasets, metaKey, type MetaField } from '../api/settings'
 import { useToast } from '../shell/Toast'
 import { GridField, LoadFailed, Loading, LockedField, Row, SettingsShell } from './chrome'
@@ -75,6 +75,17 @@ function Body({ data, reload }: { data: Data; reload: () => void }) {
   })
   const mark = (f: MetaField) => ({ dot: s.differs(field(f)), unsaved: s.dirty(field(f)) })
 
+  // fixup-b: the unit is a fact about the data, declared once per recording and audited — not a draft setting
+  const [unitDraft, setUnitDraft] = useState('')
+  useEffect(() => setUnitDraft(''), [current?.id])
+  const declareUnit = async (r: Rec, units: string) => {
+    try {
+      const out = await declareRecordingUnits(r.ids[0], units)
+      push({ text: `${r.name}: samples declared ${out.units} on ${out.channels} channel${out.channels === 1 ? '' : 's'} · every page now draws it in mV` })
+      reload()
+    } catch (e) { push({ text: `Could not declare the unit · ${e instanceof Error ? e.message : String(e)}`, kind: 'error' }) }
+  }
+
   const unregister = async (r: Rec) => {
     try {
       await unregisterRow('recording', r.ids[0])
@@ -93,13 +104,18 @@ function Body({ data, reload }: { data: Data; reload: () => void }) {
           <Table rows={rows} rowKey={r => r.id} onRowClick={r => setRec(r.id)} highlighted={current?.id} testid="recordings-table"
             columns={[
               { key: 'name', header: 'name', width: '16%', render: r => <span className="mono" style={{ fontWeight: 600 }}>{r.name}</span> },
-              { key: 'file', header: 'file', width: '16%', render: r => <span className="mono small">{r.file}</span> },
+              { key: 'file', header: 'file', width: '13%', render: r => <span className="mono small">{r.file}</span> },
+              {
+                key: 'unit', header: 'stored in', width: '7%', render: r => r.units
+                  ? <Badge tone="green" testid={`unit-${r.id}`} title={r.units_note ?? undefined}>{r.units}</Badge>
+                  : <Badge tone="amber" testid={`unit-${r.id}`} title={r.units_note ?? 'no unit declared: its numbers are shown as stored, never labelled mV'}>undeclared</Badge>,
+              },
               { key: 'fs', header: 'sampling rate', width: '12%', render: r => <>{r.fs_hz} Hz <Badge tone={r.fs_source === 'read' ? 'green' : r.fs_source === 'inferred' ? 'amber' : 'grey'}>{r.fs_source === 'unrecorded' ? 'not recorded' : r.fs_source}</Badge></> },
               { key: 'ch', header: 'ch', width: '4%', render: r => r.n_channels },
               { key: 'dur', header: 'duration', width: '8%', render: r => `${r.duration_h} h` },
               { key: 'species', header: 'species', width: '9%', render: r => r.species ?? <span className="muted">not set</span> },
               {
-                key: 'linked', header: 'excerpt of', width: '12%', render: r => r.excerpt_of
+                key: 'linked', header: 'excerpt of', width: '8%', render: r => r.excerpt_of
                   ? <Button variant="link" size="sm" icon="link" testid={`linked-${r.id}`} onClick={e => { e.stopPropagation(); setRec(r.excerpt_of!.name) }}>
                     {r.excerpt_of.name} CH{r.excerpt_of.channel}{r.excerpt_of.decimation ? ` · ${r.excerpt_of.decimation}:1` : ''}</Button>
                   : <span className="muted">—</span>,
@@ -164,6 +180,16 @@ function Body({ data, reload }: { data: Data; reload: () => void }) {
               {current.fs_source === 'inferred'
                 ? <LockedField reason="inferred at registration (recorded on the row as fs_source = inferred); re-register to change it" width="100%" testid="fs-inferred">{current.fs_hz} Hz · inferred</LockedField>
                 : <LockedField reason={current.fs_source === 'read' ? 'read from the file — cannot be edited' : 'registered before this standard: the row carries fs but not where it came from'} width="100%" testid="fs-locked">{current.fs_hz} Hz · {current.fs_source === 'read' ? 'read from the file' : 'source not recorded'}</LockedField>}
+            </GridField>
+            <GridField label="stored in" info="The unit the channel files hold. Every page converts from it to mV at one place; a recording with no declared unit is drawn as stored and never labelled mV." testid="f-units">
+              {current.units
+                ? <LockedField reason={current.units_note ?? 'declared'} width="100%" testid="units-declared">{current.units} · drawn in mV</LockedField>
+                : <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                  <SelectField value={unitDraft} onChange={setUnitDraft} disabled={locked} disabledReason={locked ? 'held out · locked' : undefined} width={120} testid="units-select"
+                    options={[{ value: '', label: 'undeclared' }, { value: 'V', label: 'V (volts)' }, { value: 'mV', label: 'mV (millivolts)' }, { value: 'uV', label: 'µV (microvolts)' }]} />
+                  <Button size="sm" testid="units-declare" disabled={!unitDraft || locked} onClick={() => void declareUnit(current, unitDraft)}>Declare</Button>
+                </div>}
+              {!current.units && <div className="small muted" data-testid="units-note" style={{ marginTop: 4 }}>{current.units_note ?? 'no unit declared for this recording'}</div>}
             </GridField>
             <GridField label="noise floor" info="Every detector reads the noise floor from here; a channel can override it in Channels & events. Empty means detectors estimate it." {...mark('noise_floor')} testid="f-noise-floor">
               <TextField {...ro('noise_floor')} suffix="mV" block placeholder="estimated" invalid={!!floorError && !locked} testid="noise-floor" />

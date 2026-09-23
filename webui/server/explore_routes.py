@@ -130,7 +130,8 @@ def get_cross_channel(request: Request, recording_id: int, t0: float = 0.0, t1: 
     c = _conn(request)
     try:
         sibs = [dict(r) for r in q.list_recordings(c, rec["source_file"])]
-        ref_x = np.asarray(corpus.load_channel(rec["npy_path"])[s0:s1], dtype=float)
+        # lag and r are scale-free and come from the core: it is handed the stored samples
+        ref_x = np.asarray(corpus.load_native(rec["npy_path"])[s0:s1], dtype=float)
         stride = max(1, int(np.ceil(len(ref_x) / CROSS_MAX_SAMPLES)))
         ref_d = ref_x[::stride]
         out = []
@@ -142,7 +143,7 @@ def get_cross_channel(request: Request, recording_id: int, t0: float = 0.0, t1: 
                     "is_reference": r["id"] == recording_id, "lag_s": 0.0, "r": 1.0, "classification": "reference"}
             try:
                 w = corpus.window(c, row, t0, t1, px_used)
-                item["envelope"] = w["envelope"]; item["y_range"] = corpus.y_range(row)
+                item["envelope"] = w["envelope"]; item["y_range"] = corpus.y_range(row); item["unit"] = w["unit"]
             except Exception as e:
                 # the item still carries the reference's lag 0.0 / r 1.0 / "reference" defaults; leaving
                 # them would draw an unreadable channel as a second reference row, perfectly correlated
@@ -151,7 +152,7 @@ def get_cross_channel(request: Request, recording_id: int, t0: float = 0.0, t1: 
                     item.update({"lag_s": None, "r": None, "classification": "undefined"})
                 out.append(item); continue
             if r["id"] != recording_id:
-                y = np.asarray(corpus.load_channel(row["npy_path"])[s0:s1], dtype=float)[::stride]
+                y = np.asarray(corpus.load_native(row["npy_path"])[s0:s1], dtype=float)[::stride]
                 n = min(len(y), len(ref_d))
                 if n >= 4 and np.isfinite(ref_d[:n]).all() and np.isfinite(y[:n]).all() and ref_d[:n].std() > 0 and y[:n].std() > 0:
                     lag, corr, cls = classify_waveforms(ref_d[:n], y[:n])
@@ -162,7 +163,7 @@ def get_cross_channel(request: Request, recording_id: int, t0: float = 0.0, t1: 
     finally:
         c.close()
     return {"reference_id": recording_id, "source_file": rec["source_file"], "t0_s": t0, "t1_s": t1, "fs": fs,
-            "stride": stride, "channels": out}
+            "stride": stride, "channels": out, "unit": corpus.display_unit(rec)}
 
 
 class SeedBody(BaseModel):

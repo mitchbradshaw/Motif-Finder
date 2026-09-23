@@ -178,7 +178,7 @@ class RunManager:
         def on_step_result(i, result):
             wall = time.perf_counter() - step_wall.get(i, time.perf_counter())
             kind = result.output_kind
-            ctx = {"fs": fs, "span_start": span_start, "px": job.px, "n_samples": n_span,
+            ctx = {"fs": fs, "span_start": span_start, "px": job.px, "n_samples": n_span, "units": job.recording.get("units"),
                    "windowset": job._windowset, "params": job.recipe["steps"][i].get("params") or {}}
             # The core's step cache restores the typed value only; AdapterResult.meta (SAX cutlines,
             # MP window m, the model card) is lost on a hit. The bridge keeps a JSON sidecar per
