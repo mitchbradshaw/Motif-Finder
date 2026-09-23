@@ -84,6 +84,19 @@ that **a raw-volt array and a millivolt array are never both in circulation unde
   cache entry is now wrong rather than merely old. Check `Working/config.py`'s cache-key derivation and
   say in your report whether existing cache entries are still valid.
 
+### 2b. A second unit trap, in the slopes — check it, do not assume it
+
+Amplitude is not the only quantity with a unit problem. `Pipelines/drop_motifs/store11.py:60`
+carries this note, and it is load-bearing for prompt `D`:
+
+> `max_slope_raw` is **V/s** (`detect5.py:596` already multiplies the gradient by fs); mV/s =
+> `max_slope_raw * 1000`, with **no second fs factor**.
+
+So a slope is volts-per-second on disk, and the `* fs` is already applied. **Verify this holds** — the
+same way §"The finding" was verified, against real data — and **state the answer in your report**,
+because `D` writes slopes into a table and a second `fs` factor there would be silent and permanent.
+If any display path prints a slope, it has the same 1000x error as the amplitudes; fix it with them.
+
 ### 3. Fix the comments that wrote the bug down as a fact
 
 Each of these is a true number shrunk 1000x, and each is a developer meeting the bug and explaining it
