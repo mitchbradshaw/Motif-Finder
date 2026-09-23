@@ -30,7 +30,8 @@ export function SourcePage() {
   return (
     <>
       <Header workspace="Analyse" page="Library family" search="Search spans, runs, families" demo={block.source === 'demo'}
-        subtitle={fam ? `${fam.id} ${fam.name} · ${nScope} of ${fam.within} members in scope` : 'source block'} />
+        subtitle={fam ? `${fam.id} ${fam.name} · ${nScope} of ${fam.within} members in scope` : 'source block'}
+        extra={<button className="btn ghost" onClick={() => navigate('analyse/interrogation/sequence')} data-testid="open-sequences" title="the steepest-slope rose across the events of one stored sequence">Sequences · slope rose →</button>} />
       <Page testid="interrogation-source">
         {block.error ? <LoadFailed what="the source block" error={block.error} onRetry={block.reload} />
           : !block.data ? <Loading what="the family" /> : <SourceBody block={block.data} />}

@@ -54,6 +54,7 @@ from scipy.spatial.distance import pdist
 from scipy.stats import linregress
 
 from Pipelines.drop_motifs import nulls1 as n1
+from Working.interrogation.intervals import inter_event_intervals
 
 K_RANGE = tuple(range(2, 13))
 
@@ -200,7 +201,7 @@ def isi_by_channel(rows):
                             dtype=float) / fs
         out[channel] = {
             "onsets_s": onsets,
-            "isi_s": np.diff(onsets),
+            "isi_s": inter_event_intervals(onsets),      # the one implementation (fixup-d)
             "depths_mv": np.asarray([abs(float(r["drop_depth_mv"]))
                                      for r in members], dtype=float),
             "durations_s": np.asarray([float(r["fall_duration_s"])

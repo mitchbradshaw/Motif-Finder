@@ -35,7 +35,10 @@ No ORM, no UI imports — callable from a bare script exactly like
 import hashlib
 import json
 
-STAGES = ("preprocessing", "detection", "catalogue", "comparison")
+# `interrogation` (fixup-d): the per-event feature blocks — SpanSet -> SpanSet
+# measures of the events a detector found (`interrogation.event_shape`,
+# `interrogation.intervals`). Additive; no existing recipe names it.
+STAGES = ("preprocessing", "detection", "catalogue", "comparison", "interrogation")
 
 
 def _normalize(obj):

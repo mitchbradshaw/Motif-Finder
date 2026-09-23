@@ -95,6 +95,9 @@ def test_the_detectors_own_depth_is_carried():
     assert r["detector"]["fall_duration_s"] == pytest.approx(float(seed["fall_duration_s"]))
     # max_slope_raw is V/s with fs applied once: mV/s = raw * 1000, no second fs factor
     assert r["detector"]["max_slope_mv_s"] == pytest.approx(float(seed["max_slope_raw"]) * 1000.0)
+    # measured from the detector's own anchors, so the stored depth IS the detector's depth
+    assert r["measures"]["event_amplitude_mv"] == pytest.approx(float(seed["drop_depth_mv"]))
+    assert r["measures"]["event_width_s"] == pytest.approx(float(seed["fall_duration_s"]))
 
 
 def test_write_and_read_back_by_hash_and_rewrite_replaces(conn):

@@ -64,13 +64,22 @@ types differ on purpose:
 | Type | `starts` / index 0 means | who shifts |
 |---|---|---|
 | `Signal`, `Scores` | sample `i` of the value is channel sample `span_start + i` | the bridge, when drawing |
-| `SpanSet` | **span-relative** (`x[start:end]` is the span) | the executor adds `span_start` when it writes `detections`; the bridge adds it when drawing |
+| `SpanSet` | **span-relative** (`x[start:end]` is the span); so are the `*_idx` columns of its `features` table | the executor adds `span_start` when it writes `detections`; the bridge adds it when drawing |
 | `WindowSet` | **channel-absolute** (`starts` index the whole channel); producers add `t[0] * fs`, consumers that slice `x` subtract it | nobody else |
 | `Encoding`, `Grouping`, `Model` | no time of their own; a symbolic Encoding's segment `k` covers `x[k*sps:(k+1)*sps]` with `sps = len(x) // n_symbols` | — |
 
 `preprocessing.sliding_windows` and `preprocessing.window_matrix` both emit absolute starts;
 `catalogue.window_images` and `catalogue.cnn_score` subtract `t[0] * fs` before slicing `x`. A block that
 mixes the two conventions draws every window in the wrong place and raises nothing.
+
+**A SpanSet can carry measures** (fixup-d): `SpanSet.features` is an optional DataFrame, one row per span,
+mirroring `WindowSet.features` (parquet beside the JSON, compared by `__eq__`). A **feature block** is
+`SpanSet → SpanSet`: it passes the spans through and adds columns (`interrogation.event_shape`,
+`interrogation.intervals`), keeping any columns it was given. The executor writes a SpanSet to
+`detections` only when the block that produced it did not take a SpanSet in — a feature block measures
+the detector's events, it does not detect them again, so a detector's spans are written once however
+many feature blocks follow. A block that had to *define* a measure prints the rule in `meta["rules"]`
+(`[{name, rule}]`), which the page shows beside the numbers.
 
 **Rules that are not negotiable** (from `CLAUDE.md`): a block imports no UI library and never learns a
 browser exists; bulk arrays never enter the database (persist writes a file and registers its path); a
@@ -87,7 +96,7 @@ client draws every payload through one seam (`webui/client/src/analyse/Renderer.
 |---|---|---|
 | `Signal` | peak-preserving envelope sized to the viewport, y-range, summary | curve, upstream signal ghosted behind, mV axis |
 | `Scores` | envelope, value range, NaN tail, top-k low/high, 40-bin histogram, `m` if known | series with motif/discord marks |
-| `SpanSet` | absolute seconds per span (capped at 5000), labels, scores | tinted bands over the ghosted signal |
+| `SpanSet` | absolute seconds per span (capped at 5000), labels, scores; `features` (columns, capped matrix, column ranges) and, from meta, `rules` / `rose` / `interval_stats` | tinted bands over the ghosted signal; with features, the block page adds the per-event table, the rose, the interval statistics and the rules (`analyse/EventFeatures.tsx`) |
 | `WindowSet` | starts, length, capped feature matrix + column ranges | window ticks + feature heatmap |
 | `Encoding` symbolic | symbols, letters, samples per symbol, cutlines, PAA | symbol strip (3-letter = amber/grey/blue) |
 | `Encoding` image | block-averaged uint8 image (≤ 256 px a side), value range; a 4-D stack ships a contact sheet of its first 16 images plus `n_images` | canvas, viridis |
@@ -141,9 +150,10 @@ and route a long stage to the cluster instead of a spinner:
 A **template is a named, versioned chain** — a row of `templates` (`name`, `steps_json`, `kind`, `version`,
 `builtin`, `description`, timestamps; `Working/database/schema.py::_migrate_templates_columns`). Its `kind`
 is a consequence of the chain's terminal type (spec §6.1): `spanset | scores | signal` → **detection**,
-`encoding` → **encoding**, `windowset | grouping | model` → **training**; **interrogation** is reserved for
-the feature chains (`SpanSet → SpanSet + Features`), whose blocks do not exist yet, so no rule produces it
-today.
+`encoding` → **encoding**, `windowset | grouping | model` → **training**; **interrogation** is a chain whose
+terminal block is in stage `interrogation` — the feature chains (`SpanSet → SpanSet` + features). Since
+fixup-d two ship: `drop_event_features` (the drop detector → Event shape → Intervals) and
+`spike_event_features` (Invert → the drop detector → Event shape told the chain inverted → Intervals).
 
 The canonical templates **ship as code** in `webui/server/templates.py::CANONICAL` and are **seeded into
 the table on the first `--project` (or sandbox) start** by `seed_canonical`, by name, never overwriting.

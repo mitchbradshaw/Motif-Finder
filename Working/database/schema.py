@@ -1187,6 +1187,42 @@ def get_connection(db_path=None):
     return conn
 
 
+# fixup-d (Q-I1 / Q-I4 / Q14, 2026-09-23): per-event features stored ON THE
+# MOTIF, keyed by content hash — a versioned, additive change to Library spec
+# §4.4 / LIBRARY_STORAGE.md §3.4, which rejected measured features on Library
+# ROWS because a row's meaning would then depend on whichever interrogation
+# ran last. This table is beside the rows, not on them: keyed by the hash of
+# the waveform the features were measured on (so a stale measurement cannot
+# outlive its waveform), recomputable from the snippet
+# (`Working.library.features.backfill_library`), never authoritative, and
+# holding only per-event numbers — a cross-event comparison (a rose, an
+# interval statistic) is never stored. Long rather than wide so a new feature
+# block adds rows, not columns. `source` separates the shape block's own
+# measures from the detector's (`detector`: its `drop_depth_mv`, which the
+# Library import dropped and Q-X2.5's floor filter needs). `fs` is part of the
+# key because the hash deliberately is not fs-aware and every duration is.
+_MOTIF_FEATURES_SCHEMA = """
+CREATE TABLE IF NOT EXISTS motif_features (
+    id            INTEGER PRIMARY KEY AUTOINCREMENT,
+    content_hash  TEXT    NOT NULL,
+    fs            REAL    NOT NULL,
+    source        TEXT    NOT NULL,
+    feature       TEXT    NOT NULL,
+    value         REAL,
+    rule_version  TEXT    NOT NULL,
+    computed_at   TEXT    NOT NULL,
+    UNIQUE (content_hash, fs, source, feature)
+);
+CREATE INDEX IF NOT EXISTS idx_motif_features_hash ON motif_features(content_hash);
+CREATE INDEX IF NOT EXISTS idx_motif_features_feature ON motif_features(feature, value);
+"""
+
+
+def _migrate_motif_features(conn):
+    conn.executescript(_MOTIF_FEATURES_SCHEMA)
+    conn.commit()
+
+
 def init_db(db_path=None):
     """Create every table (and index) if it doesn't already exist.
 
@@ -1219,6 +1255,7 @@ def init_db(db_path=None):
     _migrate_recordings_units(conn)
     _migrate_encodings_registration_columns(conn)
     _create_registration_tables(conn)
+    _migrate_motif_features(conn)
     # The backfill must run after `motif_entry` has every column it copies
     # into, and after `motifs.sax_string` exists on legacy databases.
     _backfill_motif_entries(conn)

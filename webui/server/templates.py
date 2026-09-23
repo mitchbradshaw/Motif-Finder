@@ -127,6 +127,33 @@ CANONICAL: list[dict] = [
 ]
 
 
+# fixup-d: the feature chains, the first `interrogation` templates. The detector's
+# steps are drop_detection_v1's, verbatim, so a feature run's spans are exactly the
+# detection template's; Event shape then measures every event and Intervals times
+# them from their measured onsets — one linear chain, shape and timing together.
+_DROP_STEPS = [s for t in CANONICAL if t["name"] == "drop_detection_v1" for s in t["steps"]]
+CANONICAL += [
+    {
+        "name": "drop_event_features", "kind": "interrogation", "version": 1,
+        "description": "The drop detector (drop_detection_v1's three blocks) → Event shape (amplitude, width, FWHM, "
+                       "recovery, slopes, the steepest-slope rose) → Intervals (per-event interval, CV, trend, drift). "
+                       "Every rule is printed beside its numbers.",
+        "steps": [*[json.loads(json.dumps(s)) for s in _DROP_STEPS],
+                  _step("interrogation", "event_shape", {}),
+                  _step("interrogation", "intervals", {})],
+    },
+    {
+        "name": "spike_event_features", "kind": "interrogation", "version": 1,
+        "description": "Invert → the drop detector → Event shape told the chain inverted (so the events are reported "
+                       "as the spikes they are) → Intervals. The researcher's inverted-signal route to spikes, as a template.",
+        "steps": [_step("preprocessing", "invert", {}),
+                  *[json.loads(json.dumps(s)) for s in _DROP_STEPS],
+                  _step("interrogation", "event_shape", {"upstream_inverted": True}),
+                  _step("interrogation", "intervals", {})],
+    },
+]
+
+
 def canonical(name: str) -> dict:
     """A deep copy of one canonical template by name (KeyError if unknown)."""
     for t in CANONICAL:
@@ -136,11 +163,15 @@ def canonical(name: str) -> dict:
 
 
 def kind_for_steps(steps) -> str:
-    """The template kind a chain's terminal type implies (spec §6.1)."""
+    """The template kind a chain's terminal type implies (spec §6.1). A chain whose
+    terminal block is an interrogation block (SpanSet -> SpanSet + features) is an
+    `interrogation` template — the kind this module reserved for them (fixup-d)."""
     if not steps:
         return "detection"
     last = steps[-1]
     spec = get_adapter(f"{last['stage']}.{last['algorithm']}")
+    if spec.stage == "interrogation":
+        return "interrogation"
     return _KIND_BY_TERMINAL.get(spec.output_kind, "detection")
 
 

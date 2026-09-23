@@ -336,6 +336,30 @@ The cost is that you cannot ask "which species did *this occurrence* come from" 
 member's `recording_id` instead, which is exact. A future ticket wanting per-occurrence labels should add
 `motif_member_tags` rather than reinterpreting the entry's.
 
+**Amended 2026-09-23 (fixup-d; QUESTIONS.md Q-I1, Q-I4, Q14) — a versioned change, not a reversal.**
+The researcher asked for exactly the stored measurements the paragraph above refuses: width, amplitude,
+depth, recovery and slope per motif, to group, filter and sort the whole Library by. The fear above is
+kept; the answer is to move the features OFF the rows, not onto them. **`motif_features`**
+(`schema.py::_MOTIF_FEATURES_SCHEMA`, written only by `Working/library/features.py::backfill_library`):
+
+- keyed by **content hash** (plus `fs`, because the hash is fs-blind and every duration is not), so a
+  measurement is tied to the waveform it was taken on and cannot outlive it — the failure the
+  paragraph above guards against;
+- measured on the **same samples the hash was taken over** (the store's `detrended_mv` snippet, §5.1),
+  from the **detector's own onset and trough** where a detector produced the event, so the stored depth
+  is the detector's depth (410 / 410 seed events, to 1e-14 mV);
+- carrying the **detector's own numbers** beside ours (`source = 'detector'`: `drop_depth_mv`,
+  `fall_duration_s`, `peak_to_peak_mv`, `rise_height_mv`, slopes in mV/s), which §5.1's import dropped
+  and Q-X2.5's floor filter needs;
+- **recomputable, never authoritative**: re-running the backfill replaces a row, and nothing reads it as
+  ground truth. `motif_entry` / `motif_member` gain no column;
+- **per-event only**: a comparison across events (a rose, an interval statistic) is never stored — it
+  is a view over these rows, computed where it is drawn.
+
+`grouping/bases.py` still computes its four grouping features on demand; the two are not merged. One
+caveat, recorded: the hash is z-normalised and so blind to amplitude, so two motifs of one shape at two
+depths would share a feature row. None of the 3,603 live members share a hash today.
+
 ### 3.5 Which door each table writes through (rule 5)
 
 `webui/server/writes.py` already routes `motif_*` to `write_human`. The new tables split by origin:
@@ -415,7 +439,7 @@ scale, and a `sequences` row pointing at the same events.
 | `span_key` | `motif_entry.label` | |
 | `morphology`, `species`, `corpus`, `framing` | **tags** (§3.4) | reusing vocabulary rows; `Stegasauras` normalises to `stegasaurus` |
 | the `__detrended_mv` snippet | the **hashed waveform** | detrended rather than raw: detection ran on the detrended trace, and hashing `__raw_mv` would let the same drop on a drifting baseline and on a flat one become two entries. `Working/library/importers/event_store.py::WAVEFORM_FIELD` is the single place this is stated in code |
-| `drop_depth_mv`, `fall_duration_s`, slopes, `purity` … | **nothing** | measured features are computed on demand (§3.4, spec §4.4) |
+| `drop_depth_mv`, `fall_duration_s`, slopes, `purity` … | **nothing** on the Library rows | measured features are computed on demand (§3.4, spec §4.4); since fixup-d the detector's own numbers are carried in `motif_features` (§3.4 amendment) |
 | `cluster_id` | **nothing** | it is `-1` on all 11,106 rows of all four stores |
 
 ### 5.2 What was imported on this machine, and what was not
@@ -639,4 +663,5 @@ edit and the assignments belong to the same grouping. Two consequences worth sta
 | L6 | the window-set schema (spec OPEN 7) | `window_sets` — §3.3 |
 | L7 | the revision schema (spec OPEN 8) | `motif_member_revision` + `motif_member.current_revision_id` — §3.3 |
 | L8 | where species / corpus / morphology live | tags, not columns — §3.4 |
+| L8b (fixup-d) | where per-event measurements live | `motif_features`, keyed by content hash, beside the rows — §3.4 amendment |
 | L9 | where amplitude / timescale / frequency / polarity live | computed on demand, never stored — §3.4 |

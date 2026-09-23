@@ -29,6 +29,7 @@ import warnings
 from typing import Any
 
 import numpy as np
+import pandas as pd
 
 from Working.units import to_mv_factor
 
@@ -164,12 +165,51 @@ def _spanset(value, meta, ctx):
     scores = list(value.scores)[sl] if value.scores is not None else None
     labels = list(value.labels)[sl] if value.labels is not None else None
     dur = (ends - starts) / fs if n else np.array([])
-    return {
+    feats = _feature_table(getattr(value, "features", None), n)
+    out = {
         "type": "spanset", "fs": fs, "n": n, "capped": capped,
         "start_s": ((starts[sl] + ss) / fs).tolist(), "end_s": ((ends[sl] + ss) / fs).tolist(),
-        "labels": labels, "scores": _clean(scores),
-        "summary": (f"{n} span{'s' if n != 1 else ''}" + (f" · mean {dur.mean():.1f} s" if n else " · none found")),
+        "labels": labels, "scores": _clean(scores), "features": feats,
+        "summary": (f"{n} span{'s' if n != 1 else ''}" + (f" · mean {dur.mean():.1f} s" if n else " · none found")
+                    + (f" · {feats['n_columns']} features" if feats else "")),
     }
+    # the feature blocks' own printed rules, rose and interval statistics (fixup-d):
+    # passed through so the page draws the measurement it was given
+    for key in _SPANSET_META_VIEWS:
+        if key in (meta or {}):
+            out[key] = _clean(meta[key])
+    if feats is not None and "units" in ctx:
+        # the core measured in mV on the assumption the samples are volts (detect5's
+        # convention); say so where the recording's declared unit does not back it (fixup-b)
+        u = ctx.get("units")
+        out["features_unit_note"] = (None if u == "V" else
+                                     "unit undeclared: amplitudes and slopes assume the samples are volts" if u is None else
+                                     f"recording stored in {u}: amplitudes and slopes assume volts and read "
+                                     f"{1000.0 / (to_mv_factor(u) or 1000.0):g}x off (QUESTIONS.md Q-X2.8)")
+    return out
+
+
+_SPANSET_META_VIEWS = ("rules", "rose", "interval_stats")
+
+
+def _feature_table(df, n):
+    """A per-row feature table as the page draws it — columns, the matrix while
+    it fits under FEATURE_CELL_CAP, per-column finite ranges. One shape for a
+    WindowSet's features and a SpanSet's (fixup-d)."""
+    if df is None:
+        return None
+    cols = [str(c) for c in df.columns]
+    feat = {"n_columns": len(cols), "columns": cols, "matrix": None}
+    if n * len(cols) <= FEATURE_CELL_CAP:
+        mat = df.apply(pd.to_numeric, errors="coerce").to_numpy(dtype=float)
+        mat = np.where(np.isfinite(mat), np.round(mat, 4), np.nan)
+        feat["matrix"] = [[None if np.isnan(c) else float(c) for c in row] for row in mat]
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", RuntimeWarning)      # an all-NaN column has no range: None, said so
+            colmin = np.nanmin(mat, axis=0) if n else np.full(len(cols), np.nan)
+            colmax = np.nanmax(mat, axis=0) if n else np.full(len(cols), np.nan)
+        feat["col_range"] = [[None if np.isnan(a) else float(a), None if np.isnan(b) else float(b)] for a, b in zip(colmin, colmax)]
+    return feat
 
 
 def _windowset(value, meta, ctx):
@@ -179,20 +219,8 @@ def _windowset(value, meta, ctx):
     out = {
         "type": "windowset", "fs": fs, "n_windows": n, "length": int(value.length),
         "length_s": int(value.length) / fs, "starts_s": (starts[:SPAN_CAP] / fs).tolist(),
-        "capped": n > SPAN_CAP, "features": None,
+        "capped": n > SPAN_CAP, "features": _feature_table(value.features, n),
     }
-    if value.features is not None:
-        df = value.features
-        cols = [str(c) for c in df.columns]
-        feat = {"n_columns": len(cols), "columns": cols, "matrix": None}
-        if n * len(cols) <= FEATURE_CELL_CAP:
-            mat = df.to_numpy(dtype=float)
-            mat = np.where(np.isfinite(mat), np.round(mat, 4), np.nan)
-            feat["matrix"] = [[None if np.isnan(c) else float(c) for c in row] for row in mat]
-            colmin = np.nanmin(mat, axis=0) if n else np.array([])
-            colmax = np.nanmax(mat, axis=0) if n else np.array([])
-            feat["col_range"] = [[None if np.isnan(a) else float(a), None if np.isnan(b) else float(b)] for a, b in zip(colmin, colmax)]
-        out["features"] = feat
     out["summary"] = f"{n} windows · {out['length_s']:g} s each" + (f" · {out['features']['n_columns']} features" if out["features"] else "")
     return out
 

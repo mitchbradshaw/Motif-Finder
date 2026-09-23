@@ -495,5 +495,18 @@
    "[data-testid=\"hist-max_slope\"]",
    "[data-testid=\"wiring-popover\"]"
   ]
+ },
+ {
+  "page": "analyse.interrogation",
+  "state": "fixup-d-sequence-rose",
+  "hash": "analyse/interrogation/sequence?id=1",
+  "actions": [],
+  "expect": [
+   "[data-testid=\"interrogation-sequence\"]",
+   "[data-testid=\"sequence-rose-card\"] [data-render=\"rose\"]",
+   "[data-testid=\"sequence-feature-table\"]",
+   "[data-testid=\"measure-rules\"]"
+  ],
+  "settle_ms": 4000
  }
 ]

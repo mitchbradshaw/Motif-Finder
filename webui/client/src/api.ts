@@ -158,7 +158,22 @@ export interface ScoresPayload {
   type: 'scores'; fs: number; n: number; t0_s: number; t1_s: number; nan_tail: number; value_range: [number, number] | null; envelope: EnvelopeSeries
   top: { low: { t_s: number; v: number }[]; high: { t_s: number; v: number }[] }; histogram: { counts: number[]; edges: number[] } | null; m: number | null; summary: string
 }
-export interface SpansetPayload { type: 'spanset'; fs: number; n: number; capped: boolean; start_s: number[]; end_s: number[]; labels: (string | null)[] | null; scores: (number | null)[] | null; summary: string }
+export interface FeatureTable { n_columns: number; columns: string[]; matrix: (number | null)[][] | null; col_range?: [number | null, number | null][] }
+/** A measure's rule, printed beside its number (fixup-d: a measure whose rule is unstated cannot be argued with). */
+export interface MeasureRule { name: string; rule: string }
+export interface RoseGroup { n: number; counts: number[]; mean_deg: number | null; resultant_length: number | null; circular_sd_deg: number | null; uniformity_p: number | null; median_slope_mv_s: number | null }
+/** gradients.rose_data as JSON (Working/interrogation/event_shape.py::rose_payload). */
+export interface RosePayload {
+  n: number; counts: number[]; bin_centres_deg: number[]; bin_width_deg: number; angles_deg: number[]; event_index: number[]
+  slopes_mv_s?: number[]; groups: Record<string, RoseGroup>; scale: string; field: string; caption: string
+  mean_deg: number | null; resultant_length: number | null; circular_sd_deg: number | null; uniformity_p: number | null; note?: string
+}
+export interface IntervalStats { n_events: number; n_intervals: number; median_s: number | null; mean_s: number | null; min_s: number | null; max_s: number | null; cv: number | null; r2_trend: number | null; drift_ratio: number | null }
+export interface SpansetPayload {
+  type: 'spanset'; fs: number; n: number; capped: boolean; start_s: number[]; end_s: number[]; labels: (string | null)[] | null; scores: (number | null)[] | null; summary: string
+  /** fixup-d: one row of measures per span, and the feature blocks' rules / rose / interval statistics */
+  features?: FeatureTable | null; rules?: MeasureRule[]; rose?: RosePayload; interval_stats?: Record<string, IntervalStats>; features_unit_note?: string | null
+}
 export interface WindowsetPayload {
   type: 'windowset'; fs: number; n_windows: number; length: number; length_s: number; starts_s: number[]; capped: boolean
   features: { n_columns: number; columns: string[]; matrix: (number | null)[][] | null; col_range?: [number | null, number | null][] } | null; summary: string
@@ -319,6 +334,18 @@ export const getFamilies = () => req<{ source: 'seed'; store: string; manifest: 
 export const getFamilyMembers = (key: string, snippets = true) => req<{ family: string; source: 'seed'; members: SeedMember[] }>(`/api/interrogation/families/${encodeURIComponent(key)}/members?snippets=${snippets}`)
 export const getFamilySlope = (key: string, scale = 'raw') => req<{ family: string; source: 'seed'; features: { name: string; unit: string; kind: string; label: string }[]; rules: { name: string; rule: string }[]; members: SlopeMember[]; rose: { bin_centres_deg: number[]; counts: number[]; scale: string; caption: string; groups: Record<string, Record<string, unknown>> } }>(`/api/interrogation/families/${encodeURIComponent(key)}/slope?scale=${scale}`)
 export interface Dist { n: number; counts: number[]; edges: number[]; median: number | null; iqr: [number, number] | null; min?: number; max?: number }
+/* fixup-d: the steepest-slope rose across the events of one stored sequence (Working/interrogation/sequences.py) */
+export interface SequenceRow { id: number; sequence_key: string; origin: 'machine' | 'human'; recording_id: number | null; channel: number | null; n_events: number | null; source_kind: string | null; source_file: string | null; fs: number | null; n_members: number }
+export interface SequenceEvent {
+  position: number; member_id: number | null; content_hash: string | null; start_idx: number; end_idx: number; gap_before_s: number | null
+  stored: boolean; features: Record<string, number | null> | null; detector: Record<string, number | null> | null; why: string | null
+}
+export interface SequenceShape {
+  sequence: { id: number; sequence_key: string; origin: string; recording_id: number | null; channel: number | null; n_events: number | null; source_kind: string | null; source_store: string | null; source_file: string | null; n_members: number; n_stored: number }
+  events: SequenceEvent[]; rose: RosePayload; rules: MeasureRule[]; unit_note: string | null
+}
+export const getSequences = () => req<{ sequences: SequenceRow[] }>('/api/interrogation/sequences')
+export const getSequenceShape = (id: number, scale = 'raw') => req<SequenceShape>(`/api/interrogation/sequences/${id}/shape?scale=${encodeURIComponent(scale)}`)
 export const getFamilyAggregate = (key: string) => req<{ family: string; source: 'seed'; n: number; distributions: Record<string, Dist>; timeline: { event_id: string; onset_h: number; depth_mv: number; max_slope_mv_s: number; position: number }[]; scaling: { x: string; y: string; beta: number; ci95: [number, number]; n: number } | null }>(`/api/interrogation/families/${encodeURIComponent(key)}/aggregate`)
 
 export const saveWindowSet = (job_id: number, step: number, name: string, notes?: string) =>

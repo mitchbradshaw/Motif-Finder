@@ -52,6 +52,7 @@ import numpy as np
 from Pipelines.drop_motifs import config11
 from Pipelines.drop_motifs.clusterfigs7 import _waveform_of
 from Working.Detection.drop_motifs import motifs5
+from Working.interrogation.intervals import inter_event_intervals
 
 # Volts per second -> millivolts per second. `fs` is already in the stored
 # value; see the module docstring.
@@ -287,8 +288,8 @@ def interval_stats(rows):
     for key, members in groups(rows).items():
         if len(members) < 2:
             continue
-        onsets = np.array([r["onset_s"] for r in members], dtype=float)
-        intervals = np.diff(onsets)
+        # the one interval implementation (fixup-d); members are onset-sorted by `groups`
+        intervals = inter_event_intervals([r["onset_s"] for r in members])
         intervals = intervals[intervals > 0]
         if intervals.size == 0:
             continue

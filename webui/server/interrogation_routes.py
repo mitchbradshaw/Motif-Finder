@@ -15,11 +15,14 @@ import os
 import threading
 
 import numpy as np
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request
 
 from Working.Detection.drop_motifs import gradients as G
 from Working.Detection.drop_motifs import store as S
+from Working.interrogation import sequences as SEQ
+from Working.interrogation.intervals import inter_event_intervals
 
+from . import corpus
 from .runtime import REPO_ROOT
 from .serialize import _clean
 
@@ -141,7 +144,7 @@ def family_aggregate(key: str):
     grads = G.event_gradients(members, snips)
     onsets = np.array([float(e["onset_h"]) for e in members]) * 3600.0
     order = np.argsort(onsets)
-    intervals = np.diff(onsets[order])
+    intervals = inter_event_intervals(onsets)          # the one implementation (fixup-d)
     depth = np.array([float(e["drop_depth_mv"]) for e in members])
     slope = np.array([g["max_slope_mv_s"] for g in grads])
     dur = np.array([float(e["fall_duration_s"]) for e in members])
@@ -168,3 +171,60 @@ def family_aggregate(key: str):
             "timeline": [{"event_id": members[i]["event_id"], "onset_h": float(members[i]["onset_h"]), "depth_mv": float(depth[i]),
                           "max_slope_mv_s": float(slope[i]), "position": float(k / max(1, len(order) - 1))} for k, i in enumerate(order)],
             "scaling": beta}
+
+
+# ---------------------------------------------------------------- sequences (fixup-d) --
+# The steepest-slope rose compared across the events of ONE sequence. The events'
+# features are `motif_features` rows where the backfill stored them, measured on the
+# spot from the Library snippet (and flagged `stored: false`) where it did not; the
+# view writes nothing. Snippets are the event stores' `detrended_mv`, which the store
+# wrote as samples x 1000 whatever the file's unit — so a sequence on a recording
+# whose unit is not a declared V says so beside every mV (fixup-b).
+
+_SEQ_STORES = SEQ.store_cache(REPO_ROOT)
+
+
+def _seq_conn(request: Request):
+    return corpus.connect(request.app.state.rt.db_path)
+
+
+def _unit_note(conn, recording_id):
+    if recording_id is None:
+        return "no recording on this sequence: the unit of its snippets is not known"
+    cols = {r[1] for r in conn.execute("PRAGMA table_info(recordings)")}
+    units = conn.execute("SELECT units FROM recordings WHERE id = ?", (int(recording_id),)).fetchone()[0]         if "units" in cols else None
+    if units == "V":
+        return None
+    if units is None:
+        return ("unit undeclared for this recording: the store wrote samples x 1000 as 'mV', which is mV only if "
+                "the samples are volts — declare it in Settings › Datasets")
+    return f"recording stored in {units}: the store's 'mV' assumed volts and is off by the same factor (QUESTIONS.md Q-X2.8)"
+
+
+@router.get("/api/interrogation/sequences")
+def list_sequences(request: Request):
+    c = _seq_conn(request)
+    try:
+        return {"sequences": SEQ.list_sequences(c)}
+    finally:
+        c.close()
+
+
+@router.get("/api/interrogation/sequences/{sequence_id}/shape")
+def sequence_shape(request: Request, sequence_id: int, scale: str = "raw", reference: float = G.DEFAULT_SLOPE_REF_MV_S):
+    if scale not in G.SLOPE_SCALES:
+        raise HTTPException(422, f"scale must be one of {G.SLOPE_SCALES}, got {scale!r}")
+    c = _seq_conn(request)
+    try:
+        try:
+            with _lock:
+                out = SEQ.sequence_shape(c, sequence_id, scale=scale, reference=reference, repo_root=REPO_ROOT,
+                                         stores=_SEQ_STORES)
+        except LookupError as e:
+            raise HTTPException(404, str(e))
+        from Working.interrogation.event_shape import rules
+        out["rules"] = rules(to_mv=1.0)
+        out["unit_note"] = _unit_note(c, out["sequence"]["recording_id"])
+        return _clean(out)
+    finally:
+        c.close()

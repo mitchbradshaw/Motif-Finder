@@ -44,6 +44,7 @@ import os
 import numpy as np
 
 from Pipelines.drop_motifs import config11, store11
+from Working.interrogation.intervals import drift_ratio, regularity
 
 # Step 1
 GAP_MULTIPLE = 2.0        # cut where the gap exceeds this x the group median
@@ -68,42 +69,10 @@ FIELDS = ("sequence_key", "species", "catalogue_id", "channel",
           "median_fall_s", "median_depth_mv")
 
 
-def _regularity(intervals):
-    """`(cv, r2)` for one run's intervals.
-
-    CV uses the sample standard deviation (ddof=1): these are samples of a
-    process, not a population, and on a five-event run - four intervals -
-    the difference between the two definitions is 15%, which is large
-    enough to move runs across a 0.5 threshold.
-    """
-    intervals = np.asarray(intervals, dtype=float)
-    mean = float(intervals.mean()) if intervals.size else 0.0
-    if intervals.size < 2 or mean <= 0:
-        return float("inf"), 0.0
-    cv = float(intervals.std(ddof=1) / mean)
-    if float(intervals.std()) == 0.0:
-        # A perfectly constant gap has no trend to fit, and R-squared of a
-        # flat line is undefined rather than 1. CV already qualifies it.
-        return cv, 0.0
-    index = np.arange(intervals.size, dtype=float)
-    r = float(np.corrcoef(index, intervals)[0, 1])
-    return cv, float(r * r)
-
-
-def _drift(intervals):
-    """Last third's mean interval over the first third's.
-
-    1.0 is no drift, above 1 is widening, below 1 is tightening. Thirds
-    rather than first-against-last interval because a single interval is
-    noise and a third is a measurement.
-    """
-    intervals = np.asarray(intervals, dtype=float)
-    if intervals.size < 2:
-        return float("nan")
-    third = max(1, intervals.size // 3)
-    head = float(intervals[:third].mean())
-    tail = float(intervals[-third:].mean())
-    return tail / head if head > 0 else float("nan")
+# The regularity gate lives in the core now (fixup-d): `interrogation.intervals`
+# reports it per group for any SpanSet, and this module keeps its old names.
+_regularity = regularity
+_drift = drift_ratio
 
 
 def candidates(rows):

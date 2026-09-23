@@ -41,12 +41,14 @@ STAGE_DISPLAY = {
     "detection": "Detection",
     "catalogue": "Catalogue",
     "comparison": "Comparison",
+    "interrogation": "Interrogation",
 }
 _STAGE_ABBREV = {
     "preprocessing": "prep",
     "detection": "det",
     "catalogue": "cat",
     "comparison": "comp",
+    "interrogation": "intr",
 }
 
 # Short tags for common parameter names, purely cosmetic (filenames stay

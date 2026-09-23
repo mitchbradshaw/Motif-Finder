@@ -405,6 +405,13 @@ def _execute_recipe_with_conn(conn, recipe, force, on_progress, should_cancel, r
                         "span's, and Signal carries no absolute offset to rebuild "
                         "a different one from."
                     )
+            elif result.output_kind == "spanset" and spec.input_kind == "spanset":
+                # A SpanSet -> SpanSet block (the fixup-d feature blocks) MEASURES the
+                # spans it was handed; it does not detect them. They were written when
+                # the detector emitted them, so writing them again would put every event
+                # in `detections` once per feature block (Q14: the features are data on
+                # the SpanSet, the detections are the detector's claim, written once).
+                pass
             elif result.output_kind == "spanset":
                 # A SpanSet is span-relative (index 0 = the first sample the chain
                 # ran over); `detections` is channel-absolute, like `annotations`

@@ -12,6 +12,7 @@ import { Header } from '../shell/Header'
 import { useToast } from '../shell/Toast'
 import { fmtDuration, fmtHours, navigate, useApp } from '../state'
 import { paramCaption } from './captions'
+import { EventFeaturesPanel } from './EventFeatures'
 import { ParamsPanel, fmtParam } from './ParamsPanel'
 import { GhostPath, motifLabels, renderByType, SYM3 } from './Renderer'
 import { deriveRows, fmtTiming, jobForSource } from './rowState'
@@ -180,7 +181,10 @@ export function BlockPage({ index }: { index: number }) {
                 ) : name === 'detection.sax_dsax' ? (
                   <DsaxProcess signal={upstreamSignal} unit={upstreamUnit} enc={row.payload?.type === 'encoding' && (row.payload as EncodingSymbolicPayload).kind === 'symbolic' ? row.payload as EncodingSymbolicPayload : null} stale={stale} t0={t0} t1={t1} trend={String(step.params.trend_estimator ?? 'ols_slope')} />
                 ) : (
-                  <GenericProcess payload={row.payload} ghost={upstreamSignal} stale={stale} t0={t0} t1={t1} caption={paramCaption(step, ad)} />
+                  <>
+                    <GenericProcess payload={row.payload} ghost={upstreamSignal} stale={stale} t0={t0} t1={t1} caption={paramCaption(step, ad)} />
+                    {row.payload?.type === 'spanset' && (row.payload as SpansetPayload).features && <EventFeaturesPanel p={row.payload as SpansetPayload} />}
+                  </>
                 )}
               </ErrorBoundary>
             )}
