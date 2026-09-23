@@ -223,10 +223,14 @@ Library §4.4?
 from the snippet, never authoritative. §4.4's real fear is a stale measurement outliving its waveform;
 a content-hash key kills that. This is a versioned change to the spec and must be recorded as one.
 
+**Implemented by prompt `D` (2026-09-23, `reports/D-event-features.md`).** Recorded as a versioned amendment in `LIBRARY_STORAGE.md` §3.4 (decision L8b). Long rather than wide (`content_hash, fs, source, feature, value`), so a new feature block adds rows, not columns; `fs` is in the key because the hash is fs-blind and every duration is not. Measured on the snippet the hash was taken over, from the detector's own onset / trough, so the stored depth equals the detector's (410 / 410 seed events). Caveat recorded: the hash is amplitude-blind, so two same-shape motifs of different depth would share a row — none of the 3,603 live members do.
+
 **Q-I2** Is "drop width vs recovery time" a plot, or a stored feature set?
 
 **A: a stored feature set** you can group, filter and sort the whole Library by. The plot falls out of
 it. Follows from Q-I1.
+
+**Implemented by prompt `D`** as far as the data: `motif_features` holds every measure per motif, with the detector's `drop_depth_mv` beside ours (34.3 % of `drop_motifs10`'s 3,189 imported entries fall under 0.1 mV on it; 0 of the seed store's 410) — the number Q-X2.5's floor filter needs. The Library filter / sort / group UI over it is not built (Q-X2.5 / Q-X2.7 own it).
 
 **Q-I3 (new, answered 2026-09-23)** How do the new statistics reach the app?
 
@@ -236,6 +240,8 @@ composable into a chain, which a page-local computation is none of. The measures
 **inter-spike interval, amplitude, drop width, drop depth, recovery time, rose plots**, "etc." — the
 "etc." is itself a question (Q-B1, round 2).
 
+**Implemented by prompt `D`**: `interrogation.event_shape`, `interrogation.intervals`, `preprocessing.invert`, stage `interrogation`, the first two `interrogation` templates. The rose is `gradients.rose_data` unchanged, per event in the shape block's meta and per sequence in Interrogation › Sequence.
+
 **Q-X3** What populates a spike train?
 
 **A: a Review gesture first, then a detector.** But **not only** a Review gesture — **Explore must be
@@ -243,6 +249,8 @@ able to send a span for review carrying a `train` flag, a note and its morpholog
 researcher spots it while reading a dataset. That is the friction Q-0.4 puts first. The human gesture
 produces the ground truth; the proximity-grouping detector is then scored against it. A detector
 without the gesture has nothing to check it against.
+
+**Prompt `D` built the analysis side, not the gesture**: a stored sequence can be measured and rosed (Interrogation › Sequence), and a detector's events measured and timed in one chain. The Review / Explore `train` gesture and the proximity-grouping detector are still to build.
 
 ---
 
