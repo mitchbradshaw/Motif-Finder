@@ -2,6 +2,8 @@
  * breadcrumb, grouping bar with its popovers, omitted drawer, queue toast, and the in-memory Library store. */
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { UNDECLARED_NOTE } from '../charts/units'
+import { measuredDomain, referenceScale, type ReferenceScale } from '../charts/domain'
+import { ReferenceBar, referenceWords } from '../charts/ReferenceBar'
 import {
   Breadcrumb, Button, Checkbox, Chip, DividerV, Drawer, Icon, InfoTip, MiniTrace, NumberField, Popover, Seg, Spacer, Tabs, Toolbar, fmtInt, recordDemoWrite,
   useDemoState, useQueryState, type CrumbItem,
@@ -278,42 +280,13 @@ export function fmtMv(v: number): string {
 /** `fmtMv` with an explicit sign, for an axis label. */
 export const fmtMvSigned = (v: number) => (v > 0 ? `+${fmtMv(v)}` : v < 0 ? `−${fmtMv(Math.abs(v))}` : '0')
 
-/** The trace with its OWN DC offset (its median) removed. Nothing is scaled — the mV span of the trace stays
- *  exactly what the recording held, which is the property PRD Part 2 forbids destroying. Removing the offset
- *  is what makes one shared domain possible at all: the library's traces carry baselines down to −3.67 V
- *  while the motifs riding on them are millivolts, so an offset-carrying domain is ~1,000x too tall and every
- *  card draws as a flat line pinned to the floor. (This comment once said "−3.67 mV" and "micro-volts": the
- *  bridge printed stored volts as mV until fixup-b. The ratio was right; the unit was not.) */
-export function centreTrace(values: number[]): number[] {
-  if (!values || values.length === 0) return values ?? []
-  const s = [...values].sort((a, b) => a - b)
-  const mid = s.length % 2 ? s[(s.length - 1) / 2] : (s[s.length / 2 - 1] + s[s.length / 2]) / 2
-  return values.map(v => v - mid)
-}
-/** Largest |v| in a trace — its peak deviation from its own baseline, once centred. */
-export const tracePeak = (values: number[]) => (values ?? []).reduce((m, v) => Math.max(m, Math.abs(v)), 0)
-
-/** Round a magnitude UP to two significant figures, so a domain of 0.01435 mV prints as 0.015 rather than the
- *  0.1 mV that `niceMvDomain`'s fixed 0.1 step forces on it. */
-function ceilSig(v: number, digits = 2): number {
-  if (!(v > 0) || !Number.isFinite(v)) return 0
-  const mag = Math.pow(10, Math.floor(Math.log10(v)) - (digits - 1))
-  return +(Math.ceil(v / mag) * mag).toPrecision(digits + 2)
-}
-
-/** ONE shared, unnormalised mV domain for a page of traces, set at the `p`-th percentile of the per-trace peak
- *  instead of at its maximum.
- *
- *  This is D5 made usable. The domain stays shared and nothing is normalised, so a 0.1 mV family is still
- *  drawn 200x taller than a 0.5 µV one (mV-scale families and µV-scale ones, after fixup-b); what changes is that one outlier no longer sets the scale for all 149.
- *  A family above the domain is CLIPPED, and a clipped card is marked and prints its own measured peak — a
- *  clip marker is still unnormalised evidence, a flat line is not. */
-export function sharedMvDomain(peaks: number[], p = 0.75): [number, number] {
-  const s = peaks.filter(v => Number.isFinite(v) && v > 0).sort((a, b) => a - b)
-  if (!s.length) return [-0.01, 0.01]
-  const top = ceilSig(s[Math.min(s.length - 1, Math.floor(p * (s.length - 1)))]) || ceilSig(s[s.length - 1]) || 0.01
-  return [-top, top]
-}
+/* The domain rule lives in `charts/domain.ts` (fixup-c) and is the ONLY one: every Library card is drawn on a
+   domain measured from its own traces, and the page's shared scale is a reference bar beside it. D5's
+   percentile rule — one domain per page at the 75th percentile of the family peaks, with the families above
+   it clipped and badged — is gone, and with it every "clipped" marker: no card can be clipped any more.
+   `centreTrace` / `tracePeak` moved there too, so Review measures a candidate's peak the way the Library
+   measures a family's. */
+export { centreTrace, tracePeak } from '../charts/domain'
 
 /* ================================================================ omission reasons ================================================================ */
 /** The engine's five omission reasons, in the words `grouping_assignments.omit_reason` stores them. Imported
@@ -354,7 +327,7 @@ export function omittedReasonSummary(list: OmittedEntry[]): string {
  *  which described a drawing as signal read off the recording. An entry whose shape was never recorded gets no
  *  drawing at all. */
 export const OMITTED_SKETCH_NOTE = 'shape sketch from the recorded shape and amplitude — this read carries no waveform for an omitted entry'
-export function OmittedThumb({ e, yDomain, width = 62, height = 44, title }: { e: OmittedEntry; yDomain: [number, number]; width?: number | string; height?: number; title?: string }) {
+export function OmittedThumb({ e, width = 62, height = 44, title }: { e: OmittedEntry; width?: number | string; height?: number; title?: string }) {
   const known = shapeKnown(e)
   const amp = e.amp
   const values = useMemo(() => !known || amp === null ? [] : e.kind === 'sequence'
@@ -377,30 +350,43 @@ export function OmittedThumb({ e, yDomain, width = 62, height = 44, title }: { e
       </span>
     )
   }
-  return <MiniTrace values={values} yDomain={yDomain} width={width} height={height} stroke="#b76a00" ground="none" zeroLine={false}
+  // on its own measured domain, like every card (fixup-c): it used to be ±0.45 mV for every sketch, which
+  // after fixup-b clipped every omitted entry above half a millivolt
+  return <MiniTrace values={values} width={width} height={height} stroke="#b76a00" ground="none" zeroLine={false}
     title={title ?? `${e.id} · ${omittedReasonText(e)} · ${OMITTED_SKETCH_NOTE}`} style={{ background: '#fff4e0', border: '1px solid #f6cf8f', borderRadius: 6 }} />
 }
 
-/** Motif card plot: exemplar (black) + medoid (family colour) on the page's shared mV domain, with its real
- *  +/mV/− labels. `clippedPeak` is the trace's own measured peak when it runs past the domain — the plot then
- *  says so, because `MiniTrace` clamps every sample to the domain silently. */
-export function MotifPlot({ exemplar, medoid, colour, yDomain, height = 92, labels = true, testid, overlays = [], clippedPeak, unitNote }: {
-  exemplar?: number[]; medoid?: number[]; colour: string; yDomain: [number, number]; height?: number; labels?: boolean; testid?: string
-  overlays?: { values: number[]; stroke: string; width?: number }[]; clippedPeak?: number | null
+/** The page's shared scale and where this card sits on it (fixup-c). `peak` is the card's own measured peak;
+ *  `what` names the card in the bar's tooltip. */
+export interface CardReference { scale: ReferenceScale | null; peak: number | null | undefined; what: string }
+
+/** Motif card plot: exemplar (black) + medoid (family colour) on a domain measured from THESE traces — the
+ *  app's one plot-domain rule (`charts/domain.ts`) — with the card's own +/mV/− labels. Nothing can be clipped:
+ *  the domain contains every sample drawn. How big the card is against the rest of the page is the reference
+ *  bar's job, not the axis's. `title` names what is drawn, for the tooltip. */
+export function MotifPlot({ exemplar, medoid, colour, height = 92, labels = true, testid, overlays = [], unitNote, reference, title }: {
+  exemplar?: number[]; medoid?: number[]; colour: string; height?: number; labels?: boolean; testid?: string
+  overlays?: { values: number[]; stroke: string; width?: number }[]
   /** fixup-b: set when the family's traces are withheld because their recording declares no unit */
   unitNote?: string | null
+  reference?: CardReference
+  title?: string
 }) {
-  const top = fmtMvSigned(yDomain[1]), bot = fmtMvSigned(yDomain[0])
-  const ov = [...overlays, ...(medoid ? [{ values: medoid, stroke: colour, width: 1.5 }] : [])]
-  const clipNote = clippedPeak ? ` · CLIPPED: this trace peaks at ${fmtMv(clippedPeak)} mV, past the shared domain` : ''
+  const ov = [...overlays, ...(exemplar && medoid ? [{ values: medoid, stroke: colour, width: 1.5 }] : [])]
+  const main = exemplar ?? medoid ?? []
+  const domain = measuredDomain(main, ...ov.map(o => o.values))
+  const top = domain ? fmtMvSigned(domain[1]) : '', bot = domain ? fmtMvSigned(domain[0]) : ''
+  const what = title ?? (exemplar && medoid ? 'exemplar and medoid' : 'trace')
   return (
     <div className="lib-mplot" data-testid={testid} style={{ position: 'relative' }}>
-      {labels && <div className="lib-mplot-y" aria-hidden><span>{top}</span><span>mV</span><span>{bot}</span></div>}
-      <MiniTrace values={exemplar ?? medoid ?? []} overlays={exemplar ? ov : overlays} yDomain={yDomain} width="100%" height={height} strokeWidth={1.5} stroke={exemplar ? '#1f2937' : colour} ground="grey" title={`exemplar and medoid, shared scale ${bot}…${top} mV${clipNote}`} />
+      {labels && domain && <div className="lib-mplot-y" aria-hidden data-testid={testid ? `${testid}-labels` : undefined}><span>{top}</span><span>mV</span><span>{bot}</span></div>}
+      <div className="lib-mplot-row">
+        <MiniTrace values={main} overlays={ov} yDomain={domain ?? undefined} width="100%" height={height} strokeWidth={1.5} stroke={exemplar ? '#1f2937' : colour} ground="grey"
+          title={domain ? `${what} · its own measured scale ${bot}…${top} mV, centred on its own baseline, not normalised` : what} />
+        {reference && main.length > 0 && <ReferenceBar scale={reference.scale} peak={reference.peak} height={height} colour={colour} what={reference.what} />}
+      </div>
       {!!unitNote && !(exemplar?.length || medoid?.length) && <span className="lib-cap" data-testid="plot-unit-undeclared" title={unitNote}
         style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, textAlign: 'center', padding: '0 34px', pointerEvents: 'auto' }}>unit undeclared · not drawn in mV</span>}
-      {!!clippedPeak && <span className="k-badge t-amber" data-testid="plot-clipped" title={`this family peaks at ${fmtMv(clippedPeak)} mV, past the shared domain of ${top} mV — the drawing is cut off, the number is not`}
-        style={{ position: 'absolute', top: 2, right: 2, fontSize: 9 }}>clipped · {fmtMv(clippedPeak)} mV</span>}
     </div>
   )
 }
@@ -420,7 +406,9 @@ export function OmittedDrawer({ groupingId, unit }: { groupingId: string; unit: 
   const total = data.data ? data.data.singles.length + data.data.sequences.length : 0
   const pageCount = Math.max(1, Math.ceil(list.length / 10))
   const items = list.slice((page - 1) * 10, page * 10)
-  const yDomain: [number, number] = [-0.45, 0.45]
+  // each sketch on its own measured scale; the reference bar places its recorded amplitude among every entry
+  // in this list (computed once for the list, not per page of it)
+  const refScale = referenceScale(list.map(e => e.amp))
   const tabs = unit === 'sequences' && data.data ? [{ value: 'singles', label: `${fmtInt(data.data.singles.length)} single motifs` }, { value: 'sequences', label: `${data.data.sequences.length} sequences` }] : undefined
   return (
     <Drawer open onClose={() => setDrawer(null)} title={`Omitted from ${gLabel}`} subtitle={data.data && !tabs ? `${fmtInt(total)} · flagged, not deleted` : undefined} width={540} testid="omitted-drawer"
@@ -437,7 +425,7 @@ export function OmittedDrawer({ groupingId, unit }: { groupingId: string; unit: 
             {/* the caption is the SET OF REASONS this list actually carries. It used to state the `omit_d`
                 reason for every list, which is false for all 364 entries here: the min-group rule dropped
                 them, and the drawer was telling the researcher to re-cut looser, which recovers none. */}
-            <span className="mono small muted" data-testid="omitted-reason-summary">{omittedReasonSummary(list)}<InfoTip title="what these drawings are">{OMITTED_SKETCH_NOTE}. They share one mV scale (±0.45 mV) and nothing is normalised, but none of them is a waveform read off the recording.</InfoTip></span>
+            <span className="mono small muted" data-testid="omitted-reason-summary">{omittedReasonSummary(list)}<InfoTip title="what these drawings are">{OMITTED_SKETCH_NOTE}. Each is drawn on its own scale; the bar beside it places its recorded amplitude on {referenceWords(refScale)}. None of them is a waveform read off the recording.</InfoTip></span>
             <span className="mono small" style={{ whiteSpace: 'nowrap', flex: 'none' }}>{fmtInt((page - 1) * 10 + 1)}–{fmtInt(Math.min(list.length, page * 10))} of {fmtInt(list.length)}
               <button type="button" className="lib-pg" disabled={page <= 1} aria-label="previous page" title={page <= 1 ? 'already at the first page' : 'previous page'} onClick={() => setPage(p => p - 1)} data-testid="omitted-prev">‹</button>
               <button type="button" className="lib-pg" disabled={page >= pageCount} aria-label="next page" title={page >= pageCount ? 'already at the last page' : 'next page'} onClick={() => setPage(p => p + 1)} data-testid="omitted-next">›</button>
@@ -446,7 +434,7 @@ export function OmittedDrawer({ groupingId, unit }: { groupingId: string; unit: 
           <div className="lib-omitted-grid" data-testid="omitted-grid">
             {items.map(e => (
               <div key={e.id} className="lib-omitted-cell">
-                <OmittedThumb e={e} yDomain={yDomain} width="100%" height={52} />
+                <div className="lib-thumbcell"><OmittedThumb e={e} width="100%" height={52} />{e.amp != null && <ReferenceBar scale={refScale} peak={e.amp} height={52} colour="#b76a00" what={e.id} />}</div>
                 {/* the per-entry reason the bridge already sends. `nearest`/`d` are printed only for the one
                     reason they measure; for the rest the bridge carries `—`/`0.0`, and "d 0.00" read as a
                     perfect match that was discarded anyway. */}

@@ -5,6 +5,7 @@ import { scaleLinear } from 'd3'
 import { useMemo, useState, type CSSProperties, type ReactNode } from 'react'
 import { EnvelopePath, SpanBands, TimeAxis, type BandKind } from '../charts/primitives'
 import { makeX } from '../charts/scale'
+import { measuredDomain } from '../charts/domain'
 import { useSize } from '../charts/useSize'
 import { Button } from './display'
 import { fmtInt, sampleIndices } from './hooks'
@@ -102,7 +103,8 @@ export function Trace({ values, fs = 1, t0 = 0, timeUnit = 'h', yDomain, height 
   const padL = 44, padR = 10, padT = 8, padB = timeUnit === 'none' ? 6 : 22
   const n = values.length
   const t1 = t0 + Math.max(1, n - 1) / fs
-  const [lo, hi] = yDomain ?? (() => { const [a, b] = extent([values, ...overlays.map(o => o.values)]); const m = (b - a) * 0.08 || 0.1; return [a - m, b + m] as [number, number] })()
+  // no domain handed in: the one rule (charts/domain.ts, fixup-c) measures it from everything drawn here
+  const [lo, hi] = yDomain ?? measuredDomain(values, ...overlays.map(o => o.values)) ?? [-1, 1]
   const x = makeX(t0, t1, w, padL, padR)
   const y = scaleLinear().domain([lo, hi]).range([height - padB, padT])
   const series = useMemo(() => {
@@ -118,14 +120,16 @@ export function Trace({ values, fs = 1, t0 = 0, timeUnit = 'h', yDomain, height 
         <svg width={w} height={height} role="img" aria-label={`trace, ${n} samples, ${minus(lo.toFixed(2))} to ${minus(hi.toFixed(2))} mV`}
           onPointerMove={crosshair ? e => { const r = e.currentTarget.getBoundingClientRect(); const px = e.clientX - r.left; setHover(px >= padL && px <= w - padR ? x.invert(px) : null) } : undefined}
           onPointerLeave={() => setHover(null)}>
-          <rect x={padL} y={padT} width={Math.max(0, w - padL - padR)} height={height - padT - padB} fill={GROUND[ground]} />
+          <rect x={padL} y={padT} width={Math.max(0, w - padL - padR)} height={height - padT - padB} fill={GROUND[ground]} data-plot-box />
           <g transform={`translate(0,${padT})`}><SpanBands spans={bands} x={x} height={height - padT - padB} onClick={onBandClick} /></g>
           {bands.filter(b => b.label).map((b, i) => <text key={i} x={x(b.start_s) + 4} y={padT + 11} style={{ fill: 'var(--blue-600)' }}>{b.label}</text>)}
           {zeroLine && lo < 0 && hi > 0 && <line x1={padL} x2={w - padR} y1={y(0)} y2={y(0)} stroke="var(--grey-200)" strokeDasharray="3 3" />}
           {yt.map(v => <text key={v} x={padL - 6} y={y(v) + 3} textAnchor="end">{fmtMvTick(v)}</text>)}
           {unitLabel && <text x={padL - 6} y={height - padB + (timeUnit === 'none' ? 0 : 14)} textAnchor="end" className="axis-title">mV</text>}
-          {series.over.map((o, i) => <EnvelopePath key={i} t={o[0]} v={o[1]} x={x} y={y} stroke={overlays[i].stroke} width={overlays[i].width ?? 1.2} />)}
-          <EnvelopePath t={series.main[0]} v={series.main[1]} x={x} y={y} stroke={stroke} width={strokeWidth} />
+          <g data-trace>
+            {series.over.map((o, i) => <EnvelopePath key={i} t={o[0]} v={o[1]} x={x} y={y} stroke={overlays[i].stroke} width={overlays[i].width ?? 1.2} />)}
+            <EnvelopePath t={series.main[0]} v={series.main[1]} x={x} y={y} stroke={stroke} width={strokeWidth} />
+          </g>
           {markers.map((m, i) => <g key={i}><line x1={x(m.t)} x2={x(m.t)} y1={padT} y2={height - padB} stroke={m.colour ?? 'var(--amber)'} strokeDasharray="3 2" />{m.label && <text x={x(m.t) + 3} y={padT + 10} style={{ fill: m.colour ?? 'var(--amber)' }}>{m.label}</text>}</g>)}
           {timeUnit === 'h' && <TimeAxis x={x} y={height - padB} t0={t0} t1={t1} n={5} />}
           {timeUnit === 's' && <g>{sTicks.map(v => { const px = x(t0 + v); const [r0, r1] = x.range(); return <text key={v} x={px} y={height - padB + 14} textAnchor={px - r0 < 14 ? 'start' : r1 - px < 14 ? 'end' : 'middle'}>{fmtNum(v, sTicks[1] - sTicks[0] || 1)} s</text> })}</g>}
@@ -145,30 +149,45 @@ export function Trace({ values, fs = 1, t0 = 0, timeUnit = 'h', yDomain, height 
 /* ================= MiniTrace ================= */
 export interface MiniTraceProps extends TestIdProps {
   values: number[]
-  /** Required: a family / small-multiple set shares one mV scale — the kit never auto-normalises a thumbnail. */
-  yDomain: [number, number]
+  /** Omit it and the thumbnail is drawn on a domain measured from its own trace and overlays — the app's one
+   *  plot-domain rule (`charts/domain.ts`, fixup-c). Pass one only where several traces genuinely share an axis. */
+  yDomain?: [number, number]
   width?: number | string; height?: number; stroke?: string; strokeWidth?: number
   overlays?: { values: number[]; stroke: string; width?: number }[]; ground?: 'white' | 'grey' | 'none'; zeroLine?: boolean; band?: [number, number]; bandColour?: string; title?: string; style?: CSSProperties
 }
-/** Sparkline thumbnail on a caller-supplied y domain. `width` may be "100%" (stretches, strokes stay thin). */
-export function MiniTrace({ values, yDomain, width = 120, height = 36, stroke = 'var(--trace)', strokeWidth = 1.2, overlays = [], ground = 'grey', zeroLine = true, band, bandColour = 'var(--band-detected)', title, style, ...t }: MiniTraceProps) {
+/** Sparkline thumbnail. `width` may be "100%" (stretches, strokes stay thin).
+ *
+ *  It no longer clamps. A sample outside a caller's domain used to be pinned to the frame, where it drew as a
+ *  line along the edge and read as data; now it leaves the box (and the svg clips it), which `webui/smoke.py`
+ *  measures: the plot box is `[data-plot-box]` (the svg itself) and the traces are `[data-trace]`. With no domain
+ *  handed in, the domain is the trace's own and nothing can leave. */
+export function MiniTrace({ values, yDomain: given, width = 120, height = 36, stroke = 'var(--trace)', strokeWidth = 1.2, overlays = [], ground = 'grey', zeroLine = true, band, bandColour = 'var(--band-detected)', title, style, ...t }: MiniTraceProps) {
   const VW = 200
-  const path = (vs: number[]) => {
+  const yDomain: [number, number] = given ?? measuredDomain(values, ...overlays.map(o => o.values)) ?? [-1, 1]
+  const path = (vs: (number | null)[]) => {
     const n = vs.length; if (!n) return ''
     const y = scaleLinear().domain(yDomain).range([height - 2, 2])
-    let d = ''
+    let d = '', pen = false
     const step = Math.max(1, Math.floor(n / 400))
-    for (let i = 0; i < n; i += step) d += `${i ? 'L' : 'M'}${((i / Math.max(1, n - 1)) * VW).toFixed(1)} ${y(Math.max(yDomain[0], Math.min(yDomain[1], vs[i]))).toFixed(1)}`
+    for (let i = 0; i < n; i += step) {
+      const v = vs[i]
+      if (v === null || v === undefined || !Number.isFinite(v)) { pen = false; continue }
+      d += `${pen ? 'L' : 'M'}${((i / Math.max(1, n - 1)) * VW).toFixed(1)} ${y(v).toFixed(1)}`
+      pen = true
+    }
     return d
   }
   const y0 = scaleLinear().domain(yDomain).range([height - 2, 2])(0)
   return (
-    <svg className="k-mini" width={width} height={height} viewBox={`0 0 ${VW} ${height}`} preserveAspectRatio="none" role="img" aria-label={title ?? 'thumbnail trace'} style={{ background: ground === 'none' ? undefined : GROUND[ground], ...style }} data-testid={tid(t)}>
+    <svg className="k-mini" width={width} height={height} viewBox={`0 0 ${VW} ${height}`} preserveAspectRatio="none" role="img" aria-label={title ?? 'thumbnail trace'} style={{ background: ground === 'none' ? undefined : GROUND[ground], ...style }} data-testid={tid(t)}
+      data-plot-box data-domain={`${yDomain[0]},${yDomain[1]}`}>
       {title && <title>{title}</title>}
       {band && values.length > 1 && <rect x={(band[0] / (values.length - 1)) * VW} width={((band[1] - band[0]) / (values.length - 1)) * VW} y={0} height={height} fill={bandColour} />}
       {zeroLine && yDomain[0] < 0 && yDomain[1] > 0 && <line x1={0} x2={VW} y1={y0} y2={y0} stroke="var(--grey-200)" vectorEffect="non-scaling-stroke" />}
-      {overlays.map((o, i) => <path key={i} d={path(o.values)} fill="none" stroke={o.stroke} strokeWidth={o.width ?? 1.2} vectorEffect="non-scaling-stroke" />)}
-      <path d={path(values)} fill="none" stroke={stroke} strokeWidth={strokeWidth} vectorEffect="non-scaling-stroke" strokeLinejoin="round" />
+      <g data-trace>
+        {overlays.map((o, i) => <path key={i} d={path(o.values)} fill="none" stroke={o.stroke} strokeWidth={o.width ?? 1.2} vectorEffect="non-scaling-stroke" />)}
+        <path d={path(values)} fill="none" stroke={stroke} strokeWidth={strokeWidth} vectorEffect="non-scaling-stroke" strokeLinejoin="round" />
+      </g>
     </svg>
   )
 }

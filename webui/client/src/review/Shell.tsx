@@ -15,8 +15,9 @@ import { SHORTCUTS } from './keys'
 import { counts, isJudged, queueCounts, unitHash, unitKey, units, type UnitRef } from './queue'
 import { effective, useAutoAdvance, useBlindOverrides, useFilters, useRecords, useReviewVersion } from './store'
 
-/* [-0.45, 0.45] before fixup-b: right in volts, served as mV. Now mV, so x1000. Data-driven domains are prompt C. */
-export const THUMB_Y: [number, number] = [-450, 450]
+/* The queue thumbnails used to share one hand-set domain, [-0.45, 0.45] (right in volts, served as mV), then ±450 mV after
+   fixup-b. Each is drawn on its own measured domain now (charts/domain.ts, fixup-c): at 38 px a thumbnail's job is
+   to show which shape an item is, and a shared domain drew most of them flat or along the frame. */
 export const verdictColour = (v: string) => v === 'seed' ? 'var(--green)' : VOCABULARY.verdictColours[v] ?? 'var(--muted-2)'
 
 export interface MicroStat { value: ReactNode; label: string; tone?: 'green' | 'amber' | 'purple' | 'muted'; icon?: IconName; section?: string; title?: string }
@@ -204,7 +205,7 @@ function QueueRailCollapsed({ data, unit, left, onOpen }: { data: QueueData; uni
     const rec = effective(records, r)
     return (
       <span className={cx('rv-thumb', current && 'current', rec && !current && 'judged')} title={`${r.id} · ${r.channel}${r.score != null ? ` · ${r.score.toFixed(2)}` : ''}${rec ? ` · ${rec.verdict.replace('_', ' ')}` : ''}`}>
-        <MiniTrace values={r.thumb} yDomain={THUMB_Y} width={38} height={28} zeroLine={false} />
+        <MiniTrace values={r.thumb} width={38} height={28} zeroLine={false} />
         {rec && <i className="dot" style={{ background: verdictColour(rec.verdict) }} />}
       </span>
     )
@@ -263,7 +264,7 @@ function QueueRailOpen({ data, unit, blind, left, onClose }: { data: QueueData; 
     const current = unit?.kind === 'item' && unit.id === r.id
     return (
       <button type="button" className={cx('rv-next-row', current && 'on', rec && !current && 'judged', inCluster && 'member')} onClick={() => navigate(`review/queue/${queue.id}/${r.id}`)} data-testid={`next-row-${r.id}`}>
-        <MiniTrace values={r.thumb} yDomain={THUMB_Y} width={44} height={24} zeroLine={false} />
+        <MiniTrace values={r.thumb} width={44} height={24} zeroLine={false} />
         <b className="mono">{r.id}</b><span className="mono muted">{r.channel}</span><span className="grow" />
         {hasScore && (blind ? <span className="mono muted" title="hidden in a blind queue"><Icon name="eye-off" size={12} /></span> : <span className="mono">{isDistance ? `d ${value(r).toFixed(2)}` : value(r).toFixed(2)}</span>)}
         {rec && <i className="dot" style={{ background: verdictColour(rec.verdict) }} title={rec.verdict} />}

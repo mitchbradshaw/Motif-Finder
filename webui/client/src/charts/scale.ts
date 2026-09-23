@@ -2,16 +2,17 @@
    uses the same one, which is what makes the rows share a time axis. */
 import { scaleLinear, type ScaleLinear } from 'd3'
 import { fmtAxis } from '../state'
+import { padDomain } from './domain'
 
 export type XScale = ScaleLinear<number, number>
 
 export function makeX(t0: number, t1: number, width: number, padL = 0, padR = 0): XScale {
   return scaleLinear().domain([t0, t1]).range([padL, Math.max(padL + 1, width - padR)])
 }
+/** A y scale over a measured extent. The pad and the flat-trace floor are the app's one plot-domain rule
+ *  (`charts/domain.ts`, fixup-c) — this used to carry its own copy (6 %, and ±1 around a flat trace). */
 export function makeY(lo: number, hi: number, height: number, padT = 4, padB = 4): XScale {
-  if (!(hi > lo)) { const c = lo || 0; lo = c - 1; hi = c + 1 }
-  const m = (hi - lo) * 0.06
-  return scaleLinear().domain([lo - m, hi + m]).range([height - padB, padT])
+  return scaleLinear().domain(padDomain(lo, hi)).range([height - padB, padT])
 }
 
 /** ~n nice ticks over [t0,t1] in seconds, plus labels in the span's natural unit. */

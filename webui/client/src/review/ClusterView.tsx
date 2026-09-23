@@ -8,7 +8,7 @@ import { Button, Checkbox, Chip, DisabledReason, Icon, InfoTip, Kbd, MiniTrace, 
 import { useSourced } from '../api/seam'
 import { useToast } from '../shell/Toast'
 import { VOCABULARY, getCluster, postBatch, postClusterVerdict, postPromote, postUndo, type ClusterDetail, type ItemDetail, type QueueData, type Verdict } from '../api/review'
-import { Shell, THUMB_Y, useBlind, useRails, type MicroStat } from './Shell'
+import { Shell, useBlind, useRails, type MicroStat } from './Shell'
 import { useReviewKeys } from './keys'
 import { goUnit, nextUnjudgedAfter, relTime, step, type UnitRef } from './queue'
 import { AnnotateCard, ArtifactPill, ContextCard, EvidenceRail, Pill, PromotionPanel, VerdictCard, editInExplore, useNow, type PreviousLine } from './parts'
@@ -321,7 +321,7 @@ function ClusterInner({ data, no }: { data: QueueData; no: number }) {
                       <b className="mono">{r.id}</b>
                       {i === 0 && page === 1 && r.id === cl.nearestMember && <span className="mono muted sm" title="nearest to the medoid">nearest</span>}
                     </div>
-                    <MiniTrace values={m.shape} yDomain={THUMB_Y} width="100%" height={54} ground={isShown ? 'white' : 'grey'} stroke={far ? 'var(--amber)' : 'var(--text)'} strokeWidth={1.4} zeroLine={false} />
+                    <MiniTrace values={m.shape} width="100%" height={54} ground={isShown ? 'white' : 'grey'} stroke={far ? 'var(--amber)' : 'var(--text)'} strokeWidth={1.4} zeroLine={false} />
                     <div className="dline mono">{masked ? <span className="muted"><Icon name="eye-off" size={11} /> d hidden</span> : <b className={far ? 'rv-amber' : ''}>d {(r.d ?? 0).toFixed(2)}</b>}{far && !masked && r.d === worst && <span className="rv-amber sm">least similar</span>}</div>
                     <span className={cx('rv-status-chip mono', pending ? 'pending' : rec ? `v-${rec.verdict}` : '')} data-testid={`member-status-${r.id}`}>{pending ? 'writing…' : rec ? (rec.verdict === 'seed' ? `seed · ${rec.exemplarId}` : VERDICT_LABEL[rec.verdict]) : 'unadjudicated'}</span>
                   </div>

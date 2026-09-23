@@ -232,8 +232,10 @@ export interface Member {
   id: string; role?: 'exemplar' | 'medoid'; addedByHand?: boolean; d: number; recording: string; channel: string; onsetH: number; durationS: number; amplitudeMv: number | null
   verdict: Verdict; verdictAt?: string; foundBy: string; revisions: Revision[]; tags: string[]; cls?: string; note?: string; seed: number
   handRecord?: string
+  /** the member's own decimated mV waveform (fixup-c); absent in the demo fixtures, `[]` for an undeclared unit */
+  trace?: number[]
 }
-export interface RemovedMember { id: string; d: number; channel: string; recording: string; removedAt: string; note: string; seed: number }
+export interface RemovedMember { id: string; d: number; channel: string; recording: string; removedAt: string; note: string; seed: number; trace?: number[] }
 export interface FamilyDetail {
   family: MotifFamily; cut: number; members: Member[]; removed: RemovedMember[]; channels: number; depthLabel: string; handAdded: number
 }

@@ -97,6 +97,42 @@ class Smoke:
         self.evidence[f"axis_labels_{where}"] = {"labels": n, "overlaps": bad[:8]}
         self.check(not bad, f"{where}: {n} time-axis labels, none overlapping" + (f" — {bad[:4]}" if bad else ""))
 
+    #: JS that measures every trace against its plot box (fixup-c's acceptance test: no motif is clipped in its
+    #: own thumbnail). `MiniTrace` used to clamp silently, so a trace past its domain ran along the frame and
+    #: read as data; it no longer clamps, and every plot marks its box (`[data-plot-box]`, the svg itself for a
+    #: MiniTrace, the ground rect for a Trace) and its traces (`[data-trace]`). A path's client rect is its
+    #: geometry, unclipped by the svg, so a trace drawn off its domain is measured as leaving the box.
+    _TRACES_IN_BOX_JS = """() => {
+      const out = { traces: 0, outside: [] };
+      for (const svg of document.querySelectorAll('svg')) {
+        const box = svg.hasAttribute('data-plot-box') ? svg : svg.querySelector('[data-plot-box]');
+        if (!box) continue;
+        const b = box.getBoundingClientRect();
+        if (b.width === 0 || b.height === 0) continue;
+        for (const g of svg.querySelectorAll('[data-trace]')) {
+          for (const p of g.querySelectorAll('path')) {
+            const r = p.getBoundingClientRect();
+            if (!(p.getAttribute('d') || '') || (r.width === 0 && r.height === 0)) continue;
+            out.traces++;
+            if (r.top < b.top - 1 || r.bottom > b.bottom + 1 || r.left < b.left - 1 || r.right > b.right + 1) {
+              const host = svg.closest('[data-testid]');
+              out.outside.push(((host && host.getAttribute('data-testid')) || 'svg') + ' '
+                + Math.round(r.top - b.top) + '/' + Math.round(b.bottom - r.bottom));
+            }
+          }
+        }
+      }
+      return out;
+    }"""
+
+    def traces_in_box(self, page, where: str):
+        """No trace's rendered path leaves its plot box (fixup-c)."""
+        m = page.evaluate(self._TRACES_IN_BOX_JS)
+        self.evidence.setdefault("traces_in_box", {})[where] = {"traces": m["traces"], "outside": m["outside"][:8]}
+        return m["traces"] > 0 and not m["outside"], (
+            f" — {m['traces']} traces measured" if m["traces"] == 0 else
+            f" — {len(m['outside'])} of {m['traces']} traces leave their plot box: {m['outside'][:4]}" if m["outside"] else "")
+
     def goto(self, page, hash_: str, settle_ms=600):
         page.goto(f"{self.url}/#/{hash_}", wait_until="networkidle")
         page.wait_for_timeout(settle_ms)
@@ -553,6 +589,8 @@ class Smoke:
                 missing = [s for s in e.get("expect", []) if page.locator(s).count() == 0]
                 present = [s for s in e.get("expect_absent", []) if page.locator(s).count() > 0]
                 err_card = page.locator('[data-testid="render-error"]').count()
+                # fixup-c: a state flagged `traces_in_box` also asserts that no trace leaves its plot box
+                in_box, box_msg = self.traces_in_box(page, name) if e.get("traces_in_box") else (True, "")
                 # A state may declare console errors it provokes on purpose (a read that rejects renders a
                 # loud error card — the brief's failure state). Declared ones are dropped from the run's
                 # error list so they neither fail this state nor the whole run; anything else still fails.
@@ -560,8 +598,9 @@ class Smoke:
                 if allowed:
                     kept = [x for x in self.errors[before:] if not any(a in x for a in allowed)]
                     self.errors = self.errors[:before] + kept
-                self.check(ok and not missing and not present and (err_card == 0 or e.get("allow_error_card")) and len(self.errors) == before,
-                           f"{unit}: {name} renders" + (f" — missing {missing}" if missing else "") + (f" — unexpected {present}" if present else "")
+                self.check(ok and in_box and not missing and not present and (err_card == 0 or e.get("allow_error_card")) and len(self.errors) == before,
+                           f"{unit}: {name} renders" + (" · every trace inside its plot box" if e.get("traces_in_box") and in_box else "") + box_msg
+                           + (f" — missing {missing}" if missing else "") + (f" — unexpected {present}" if present else "")
                            + (" — render-error card" if err_card and not e.get("allow_error_card") else "") + ("" if ok else " — blank or no header")
                            + (f" — {len(self.errors) - before} console errors" if len(self.errors) > before else ""))
                 os.makedirs(os.path.join(pdir, unit), exist_ok=True)

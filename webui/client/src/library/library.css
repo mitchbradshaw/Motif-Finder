@@ -27,9 +27,16 @@
 .lib-hr { height: 1px; background: var(--border); margin: 2px 0; }
 
 /* motif plot */
-.lib-mplot { position: relative; padding-left: 30px; }
-.lib-mplot-y { position: absolute; left: 0; top: 0; bottom: 0; width: 28px; display: flex; flex-direction: column; justify-content: space-between; font-family: var(--font-mono); font-size: 9.5px; color: var(--muted-2); line-height: 1; padding: 2px 0; }
+/* fixup-c: each card's axis is its own measured domain, so its labels are the card's own numbers (up to
+   "+0.0031") and need the wider gutter; the reference bar sits at the right edge */
+.lib-mplot { position: relative; padding-left: 38px; }
+.lib-mplot-y { position: absolute; left: 0; top: 0; bottom: 0; width: 36px; display: flex; flex-direction: column; justify-content: space-between; font-family: var(--font-mono); font-size: 9px; color: var(--muted-2); line-height: 1; padding: 2px 0; text-align: right; }
+.lib-mplot-row { display: flex; align-items: stretch; gap: 3px; }
+.lib-mplot-row > .k-mini { flex: 1 1 auto; min-width: 0; }
 .lib-mplot svg { border-radius: 4px; display: block; }
+.lib-mplot svg.k-refbar { border-radius: 0; }
+.lib-thumbcell { display: flex; align-items: stretch; gap: 2px; }
+.lib-thumbcell > .k-mini { flex: 1 1 auto; min-width: 0; }
 
 /* atlas */
 .lib-scope { display: flex; align-items: center; gap: 8px; min-height: 30px; flex-wrap: wrap; }

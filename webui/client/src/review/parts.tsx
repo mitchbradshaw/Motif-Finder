@@ -5,14 +5,18 @@ import {
   Button, Callout, Chip, DisabledReason, Icon, IconButton, InfoTip, Kbd, Legend, MiniTrace, Pager, Popover, Seg, TextField, Trace, cx, fmtInt, useQueryState, type IconName,
 } from '../kit'
 import { useSourced } from '../api/seam'
-import { CONTEXT_PAD_MAX, VOCABULARY, getOtherChannels, useTagVocabulary, type ArtifactFactors, type ItemDetail, type NearestFamily, type Verdict } from '../api/review'
-import { THUMB_Y } from './Shell'
+import { CONTEXT_PAD_MAX, VOCABULARY, getOtherChannels, useTagVocabulary, type ArtifactFactors, type ItemDetail, type NearestFamily, type QueueRow, type Verdict } from '../api/review'
+import { baselinePeak, centreTrace, referenceScale } from '../charts/domain'
+import { ReferenceBar, fmtRef, referenceWords } from '../charts/ReferenceBar'
 import { VERDICT_LABEL, type Draft, type VerdictRecord } from './store'
 
-/* Hand-measured off the live queues' traces. It was [-0.44, 0.44] — a correct centred domain in VOLTS, measured
-   off data the bridge served unconverted under an "mV" axis. The bridge now converts at one seam (fixup-b), so
-   the same domain in mV is 1000x wider. Whether a hard-coded domain is right at all is Q-R1.1 (prompt C). */
-export const Y_MV: [number, number] = [-440, 440]
+/* Every Review plot is drawn on a domain measured from its own trace (charts/domain.ts, fixup-c, Q-R1.1). There
+   used to be one hand-set domain for every trace, [-0.44, 0.44] — a correct centred domain for a whole channel's
+   swing in VOLTS, hand-measured off data the bridge served unconverted — then ±440 mV after fixup-b. A
+   candidate's own trace is a small fraction of a channel's swing, which is exactly why every Review plot read
+   flat, and a candidate whose baseline sat outside it ran along the frame. The reviewer is judging whether this
+   is a real event, so how big it is against the rest of the queue is evidence too: that is the Shape card's
+   reference bar. */
 
 export function useNow(ms = 1000) {
   const [now, setNow] = useState(Date.now())
@@ -85,7 +89,7 @@ export function ContextCard({ d, title, pad, setPad, bandLabel, canEdit, testid 
         {canEdit && <Button icon="pencil" onClick={() => editInExplore(d)} testid="edit-span-button">Edit span in Explore</Button>}
       </div>
       <div className="rv-plot">
-        <Trace values={ctx.values} t0={ctx.t0} timeUnit="none" yDomain={Y_MV} height={170} crosshair unitLabel={false}
+        <Trace values={ctx.values} t0={ctx.t0} timeUnit="none" height={170} crosshair unitLabel={false}
           bands={[{ start_s: ctx.bandStart, end_s: ctx.bandEnd, kind: 'detected', label: bandLabel }]} testid="context-trace" />
         <TimeTicks t0={ctx.t0} t1={ctx.t1} testid="context-ticks" />
       </div>
@@ -112,6 +116,9 @@ function OtherChannelsPopover({ d, pad, open, onClose, anchorRef }: { d: ItemDet
   const off = CONTEXT_PAD_MAX - pad
   const i0 = CONTEXT_PAD_MAX - off, i1 = i0 + d.entry.durationS
   const shown = all.slice((page - 1) * OC_PAGE, page * OC_PAGE)
+  // each channel on its own measured scale; the bar places each channel's peak over this window on one shared
+  // scale for every channel of the recording, so a quiet channel does not look like a loud one
+  const chanScale = useMemo(() => referenceScale(all.map(r => baselinePeak(r.values.slice(off, r.values.length - off)))), [all, off])
   const a = d.artifact
   return (
     <Popover open={open} onClose={onClose} anchorRef={anchorRef} placement="bottom-end" width={590} className="rv-pop" testid="other-channels-popover"
@@ -123,12 +130,13 @@ function OtherChannelsPopover({ d, pad, open, onClose, anchorRef }: { d: ItemDet
           {shown.map(r => (
             <div key={r.channel} className={cx('rv-oc-row', r.current && 'current')} data-testid={`oc-row-${r.channel}`}>
               <span className="mono ch">{r.channel}</span>
-              <MiniTrace values={r.values.slice(off, r.values.length - off)} yDomain={THUMB_Y} width="100%" height={30} ground="none" zeroLine={false} band={[i0, i1]} stroke={r.current ? 'var(--text)' : 'var(--muted)'} strokeWidth={r.current ? 1.3 : 0.9} />
+              <span className="rv-oc-plot"><MiniTrace values={r.values.slice(off, r.values.length - off)} width="100%" height={30} ground="none" zeroLine={false} band={[i0, i1]} stroke={r.current ? 'var(--text)' : 'var(--muted)'} strokeWidth={r.current ? 1.3 : 0.9} />
+                <ReferenceBar scale={chanScale} peak={baselinePeak(r.values.slice(off, r.values.length - off))} height={30} what={r.channel} testid={`oc-reference-${r.channel}`} /></span>
               <span className="mono r">{r.current ? 'this channel' : `r ${r.r!.toFixed(2)}`}</span>
             </div>
           ))}
           <div className="row between" style={{ marginTop: 4 }}>
-            <span className="mono muted sm">shared mV scale · r = coherence in the span</span>
+            <span className="mono muted sm" title={referenceWords(chanScale)}>each channel on its own scale · bar: its peak across channels · r = coherence in the span</span>
             <Pager page={page} pageCount={Math.ceil(all.length / OC_PAGE)} onPage={setPage} format="range" total={all.length} pageSize={OC_PAGE} testid="other-channels-pager" />
           </div>
         </div>
@@ -148,20 +156,32 @@ function OtherChannelsPopover({ d, pad, open, onClose, anchorRef }: { d: ItemDet
 }
 
 /* ---------------- shape and nearest families ---------------- */
-export function ShapeCard({ d, family, blind }: { d: ItemDetail; family: NearestFamily | null; blind: boolean }) {
+export function ShapeCard({ d, family, blind, rows }: { d: ItemDetail; family: NearestFamily | null; blind: boolean; rows: QueueRow[] }) {
   const showMedoid = !blind && family
+  // the candidate and the medoid each centred on their own baseline, on a domain measured from both (the one
+  // rule) — so neither is ever cut off, and the medoid no longer drags the candidate's shape flat
+  const shape = useMemo(() => centreTrace(d.shape.filter(v => Number.isFinite(v))), [d.shape])
+  const medoid = useMemo(() => showMedoid ? centreTrace(d.medoids[family.id] ?? []) : [], [showMedoid, family, d.medoids])
+  const peak = baselinePeak(d.shape)
+  // the queue's shared scale: every candidate in it, by the same measure, computed once per queue read
+  const scale = useMemo(() => referenceScale([...rows.map(r => baselinePeak(r.thumb)), peak]), [rows, peak])
+  const what = d.entry.unit === 'window' ? 'this window' : 'this candidate'
   return (
     <section className="rv-card" data-testid="shape-card">
       <div className="rv-card-head">
         <h3>{showMedoid ? `Shape vs ${family.id} medoid · mV` : 'Shape · mV'}</h3>
-        {showMedoid && <InfoTip title="Shape">Drawn in mV, never normalised (D5). The medoid is stretched to the candidate's duration to overlay it.</InfoTip>}
+        <InfoTip title="Shape">Drawn in mV on its own measured scale, centred on its own baseline, never normalised.{showMedoid ? " The medoid is stretched to the candidate's duration to overlay it." : ''} The bar at the right is {referenceWords(scale)}: the mark is where {what} sits against every candidate in this queue.</InfoTip>
+        <span className="mono muted sm" data-testid="shape-peak">peak {fmtRef(peak)} mV</span>
         <span className="grow" />
         <Legend items={showMedoid ? [{ label: d.entry.unit === 'window' ? 'this window' : 'candidate', colour: 'var(--blue)', shape: 'line' }, { label: `${family.id} medoid`, colour: family.colour, shape: 'line' }]
           : [{ label: d.entry.unit === 'window' ? 'this window' : 'candidate', colour: 'var(--text)', shape: 'line' }]} />
       </div>
       <div className="rv-plot">
-        <Trace values={d.shape} timeUnit="s" yDomain={Y_MV} height={122} stroke={showMedoid ? 'var(--blue)' : 'var(--text)'} strokeWidth={2}
-          overlays={showMedoid ? [{ values: d.medoids[family.id], stroke: family.colour, width: 2 }] : []} zeroLine={false} testid="shape-trace" />
+        <div className="rv-shape-row">
+          <Trace values={shape} timeUnit="s" height={122} stroke={showMedoid ? 'var(--blue)' : 'var(--text)'} strokeWidth={2}
+            overlays={showMedoid && medoid.length ? [{ values: medoid, stroke: family.colour, width: 2 }] : []} zeroLine={false} testid="shape-trace" style={{ flex: 1, minWidth: 0 }} />
+          <span style={{ paddingTop: 8 }}><ReferenceBar scale={scale} peak={peak} height={92} what={what} testid="shape-reference" /></span>
+        </div>
       </div>
     </section>
   )
@@ -200,7 +220,7 @@ export function NearestFamiliesCard({ d, overlay, setOverlay }: { d: ItemDetail;
       <div className="rv-fams">
         {d.nearest.map(f => (
           <button key={f.id} type="button" className={cx('rv-fam', overlay === f.id && 'on')} onClick={() => setOverlay(f.id)} aria-pressed={overlay === f.id} data-testid={`family-row-${f.id}`}>
-            <MiniTrace values={d.medoids[f.id]} yDomain={THUMB_Y} width={58} height={30} stroke={f.colour} strokeWidth={1.5} ground="white" zeroLine={false} />
+            <MiniTrace values={d.medoids[f.id] ?? []} width={58} height={30} stroke={f.colour} strokeWidth={1.5} ground="white" zeroLine={false} />
             <span className="id"><b className="mono">{f.id}</b><span className="mono muted">{f.name}</span></span>
             <span className="mono muted mem">{f.members != null ? `${fmtInt(f.members)} members` : 'members n/a'}</span>
             <DistanceBar d={f.d} colour={f.colour} />
@@ -423,7 +443,7 @@ export function EvidenceRail({ d, blind, judged, historyVerdicts }: { d: ItemDet
             workspace down on every live item that had an evidence rail open. */}
         {f ? (
           <div className="rv-ev-fam">
-            <MiniTrace values={d.medoids[f.id]} yDomain={THUMB_Y} width={70} height={34} stroke={f.colour} strokeWidth={1.5} ground="white" zeroLine={false} />
+            <MiniTrace values={d.medoids[f.id] ?? []} width={70} height={34} stroke={f.colour} strokeWidth={1.5} ground="white" zeroLine={false} />
             <span><b className="mono">{f.id} · {f.name}</b><br /><span className="mono muted sm">d {f.d.toFixed(2)} · {f.members != null ? `${f.members} members` : 'members n/a'}</span></span>
           </div>
         ) : (

@@ -209,6 +209,10 @@
 .rv-oc { display: flex; flex-direction: column; gap: 2px; }
 .rv-oc-row { display: grid; grid-template-columns: 70px minmax(0, 1fr) 84px; align-items: center; gap: 10px; padding: 3px 8px; border-radius: 6px; }
 .rv-oc-row .ch { font-size: 11.5px; color: var(--text-2); }
+/* fixup-c: a plot on its own measured domain with the shared scale as a reference bar beside it */
+.rv-oc-plot { display: flex; align-items: center; gap: 3px; min-width: 0; }
+.rv-oc-plot > .k-mini { flex: 1 1 auto; min-width: 0; }
+.rv-shape-row { display: flex; align-items: flex-start; gap: 4px; }
 .rv-oc-row .r { font-size: 11px; color: var(--muted); text-align: right; }
 .rv-oc-row.current { background: var(--blue-100); }
 .rv-oc-row.current .r, .rv-oc-row.current .ch { color: var(--blue-600); }

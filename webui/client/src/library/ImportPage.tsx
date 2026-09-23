@@ -166,7 +166,6 @@ function ImportPanel({ empty, selectRef }: { empty: boolean; selectRef: React.Re
     return [...b.sample.slice(k), ...b.sample.slice(0, k)].slice(0, 9)
   }, [b, rotate])
   const traces = useMemo(() => sample.map(s => motifShape(s.shape, s.amp, s.seed, { n: 70 })), [sample])
-  const yDomain: [number, number] = [-0.35, 0.35]
   const motifs = b?.counts.motifs ?? null
   const done = job?.status === 'completed'
   const failed = job?.status === 'failed'
@@ -239,10 +238,10 @@ function ImportPanel({ empty, selectRef }: { empty: boolean; selectRef: React.Re
             : <span className="lib-cap">the dry run reports no outcomes for this bundle — nothing would be written</span>}
         </div>
         <div className="stack" style={{ gap: 6 }} data-testid="import-sample">
-          <div className="row"><b style={{ fontSize: 13 }}>Sample</b><span className="lib-cap">{b.heldOut ? 'withheld' : sample.length ? `${sample.length} of ${fmtInt(b.counts.motifs)} · shared mV scale · shape glyph at the sample's amplitude, not signal` : 'the dry run returned no sample'}</span>
+          <div className="row"><b style={{ fontSize: 13 }}>Sample</b><span className="lib-cap">{b.heldOut ? 'withheld' : sample.length ? `${sample.length} of ${fmtInt(b.counts.motifs)} · each on its own scale · shape glyph at the sample's amplitude, not signal` : 'the dry run returned no sample'}</span>
             <Button variant="link" icon="shuffle" style={{ marginLeft: 'auto' }} testid="import-resample" disabled={!!b.heldOut || b.sample.length <= 9} disabledReason={b.heldOut ? 'nothing from a held-out recording is sampled' : 'the dry run returned no more than nine samples'} onClick={() => setRotate(s => s + 1)}>resample</Button></div>
           {b.heldOut ? <div className="lib-locked" style={{ width: 'auto' }} data-testid="sample-withheld"><span className="row" style={{ gap: 6 }}><Icon name="lock" size={13} />sample withheld — this bundle is held out and locked (D6); nothing from it is shown or imported</span></div> : <div className="row" style={{ gap: 6 }}>
-            {sample.map((s, i) => <MiniTrace key={`${s.id}-${i}`} values={traces[i]} yDomain={yDomain} width={62} height={42} ground="grey" zeroLine={false} title={`motif ${s.id} · ${s.recording} · ${s.channel} · ${s.onsetH} h · ${s.durationS} s${s.provisional ? ' (provisional)' : ''}`} style={{ borderRadius: 4 }} />)}
+            {sample.map((s, i) => <MiniTrace key={`${s.id}-${i}`} values={traces[i]} width={62} height={42} ground="grey" zeroLine={false} title={`motif ${s.id} · ${s.recording} · ${s.channel} · ${s.onsetH} h · ${s.durationS} s${s.provisional ? ' (provisional)' : ''}`} style={{ borderRadius: 4 }} />)}
           </div>}
         </div>
       </>}

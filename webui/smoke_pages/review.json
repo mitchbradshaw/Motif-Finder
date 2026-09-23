@@ -15,12 +15,14 @@
  {
   "page": "review.inspector",
   "state": "1-candidate (deep link, live detection)",
+  "traces_in_box": true,
   "hash": "review/queue/2/100",
   "settle_ms": 1200,
   "expect": [
    "[data-testid=\"inspector\"][data-item=\"100\"]",
    "[data-testid=\"title-row\"]",
    "[data-testid=\"shape-card\"]",
+   "[data-testid=\"shape-reference\"]",
    "[data-testid=\"verdict-card\"]",
    "[data-testid=\"queue-progress\"]"
   ]
@@ -38,6 +40,7 @@
  {
   "page": "review.inspector",
   "state": "1b-other-channels (click, then Escape)",
+  "traces_in_box": true,
   "hash": "review/queue/2/100",
   "settle_ms": 1200,
   "actions": [
@@ -116,6 +119,7 @@
  {
   "page": "review.inspector",
   "state": "4-evidence-rail (deep link)",
+  "traces_in_box": true,
   "hash": "review/queue/2/100?rail=evidence",
   "settle_ms": 1500,
   "expect": [

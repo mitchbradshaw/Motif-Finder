@@ -20,7 +20,7 @@ import { navigate } from '../state'
 import { live, useSourced } from '../api/seam'
 import { UNIT_LABEL, getOmitted, getRecurrence, getSequenceFamilies, type Cell, type RecGroup, type RecurrenceData, type SequenceFamily, type Unit } from '../api/library'
 import {
-  GroupingBar, LoadFailed, Loading, MotifsActions, OMITTED_SKETCH_NOTE, OmittedDrawer, OmittedThumb, SectionBar, omittedReasonSummary, sharedMvDomain,
+  GroupingBar, LoadFailed, Loading, MotifsActions, OMITTED_SKETCH_NOTE, OmittedDrawer, OmittedThumb, SectionBar, omittedReasonSummary,
   useAllGroupings, useEmptyLibrary, useMotifGroupingId, useQueueToast,
   useRememberMotifsRoute, useSelection, useSequenceGroupingId,
 } from './chrome'
@@ -146,10 +146,10 @@ function Recurrence({ recordings, rows, coverage, sharedGround, unit, groupingId
   const groups = recordings.slice((page - 1) * RECORDINGS_PER_PAGE, page * RECORDINGS_PER_PAGE)
   const firstShown = recordings.length ? (page - 1) * RECORDINGS_PER_PAGE + 1 : 0
   const lastShown = Math.min(recordings.length, page * RECORDINGS_PER_PAGE)
-  // the row glyphs are real traces: DC offset removed per trace, one shared unnormalised domain at a high
-  // percentile of the per-row peak (see `sharedMvDomain`)
+  // the row glyphs are real traces: DC offset removed per trace, each on a domain measured from itself (the
+  // one rule, charts/domain.ts, fixup-c). A 36 px glyph says which shape the row is; the family's size against
+  // the others is on its Atlas card's reference bar, one click away.
   const rowTraces = useMemo(() => centredTraces(rows.map(r => ({ id: r.id, exemplarTrace: r.trace, medoidTrace: [] }))), [rows])
-  const yDomain = useMemo(() => sharedMvDomain([...rowTraces.values()].map(t => t.peak)), [rowTraces])
   const keyOf = (r: RecGroup, ch: string) => `${r.key}:${ch}`
   const recLabel = (key: string) => recordings.find(r => r.key === key)?.label ?? key
   const selectedRecKeys = new Set(sel.map(k => k.split(':')[0]))
@@ -257,7 +257,7 @@ function Recurrence({ recordings, rows, coverage, sharedGround, unit, groupingId
                   <tr key={row.id}>
                     <td>
                       <button type="button" className="lib-rowlabel" data-testid={`row-label-${row.id}`} title={`open ${row.id} in the atlas`} onClick={() => navigate(`library/atlas?${unit === 'sequences' ? 'unit=sequences&' : ''}family=${row.id}`)}>
-                        <MiniTrace values={rowTraces.get(row.id)?.ex ?? row.trace} yDomain={yDomain} width={36} height={24} ground="none" zeroLine={false} strokeWidth={1.4} />
+                        <MiniTrace values={rowTraces.get(row.id)?.ex ?? row.trace} width={36} height={24} ground="none" zeroLine={false} strokeWidth={1.4} />
                         <span className="stack" style={{ gap: 0 }}>
                           <span className="row" style={{ gap: 6 }}><span className="id" style={{ color: row.colour }}>{row.id}</span><span className="nm" title={row.name}>{familyName(row.id, row.name)}</span></span>
                           <span className="sub">{row.recordings} recording{row.recordings === 1 ? '' : 's'}</span>
@@ -323,7 +323,7 @@ function Recurrence({ recordings, rows, coverage, sharedGround, unit, groupingId
           </div>
           {omitted.error && <LoadFailed what="omitted motifs" error={omitted.error} onRetry={omitted.reload} />}
           {omitted.data && <button type="button" className="lib-thumbrow lib-plain" style={{ width: '100%' }} onClick={() => setDrawer('omitted')} title={`open the omitted drawer · ${OMITTED_SKETCH_NOTE}`}>
-            {omitted.data.singles.slice(0, 12).map(e => <OmittedThumb key={e.id} e={e} yDomain={[-0.45, 0.45]} width={66} height={44} />)}
+            {omitted.data.singles.slice(0, 12).map(e => <OmittedThumb key={e.id} e={e} width={66} height={44} />)}
           </button>}
         </div>
       </div>

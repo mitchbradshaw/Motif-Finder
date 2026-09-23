@@ -1,13 +1,16 @@
 /* library.atlas — frames library-2 (single motifs) and library-2b (sequences).
  * The density test: the family cards × exemplar + medoid, the rail's exemplar-vs-medoid and the amplitude
- * histogram, all on ONE shared mV domain (D5), unnormalised.
+ * histogram. Each card is drawn on a domain measured from its own traces, unnormalised, and carries the page's
+ * shared scale as a reference bar (fixup-c; this replaced D5's one shared domain, which clipped a quarter of
+ * the cards and drew most of the rest flat).
  *
  * Live notes (stage-3 wiring):
  *  - No grouping is named here. Which atlas is drawn follows the resolved grouping's `unit`; `g-07`/`g-08` were
  *    fixture ids and gating on them meant a live grouping always fell to "undrawn".
- *  - `exemplarTrace` / `medoidTrace` are real decimated mV off the memmap and are drawn as they arrive, on the
- *    page's shared domain. Nothing is normalised: PRD Part 2 is explicit that normalising the cards destroys the
- *    evidence of the scaling laws, which is the reason the cards exist.
+ *  - `exemplarTrace` / `medoidTrace` are real decimated mV off the memmap and are drawn as they arrive, each card
+ *    on its own measured domain. Nothing is normalised: PRD Part 2 is explicit that normalising the cards destroys
+ *    the evidence of the scaling laws, which is the reason the cards exist — and the reference bar is where that
+ *    evidence now lives.
  *  - The member overlay is gone. It used to synthesise ten waveforms with `motifShape` and draw them over a real
  *    medoid; a synthesised trace beside a real one is a finding that is not there. This read carries two traces
  *    per family and says so.
@@ -27,14 +30,16 @@ import { live } from '../api/seam'
 import { AMP_DOMAIN, FAMILY_COLOURS, UNIT_LABEL, getMotifFamilies, getOmitted, getRecordingGroups, getSequenceFamilies, type Grouping, type MotifFamily, type RecGroup, type SequenceFamily, type Unit } from '../api/library'
 import { useToast } from '../shell/Toast'
 import {
-  GroupingBar, LoadFailed, Loading, MotifPlot, MotifsActions, OMITTED_SKETCH_NOTE, OmittedDrawer, OmittedThumb, SectionBar, centreTrace, fmtMv, fmtMvSigned,
-  omittedReasonSummary, sharedMvDomain, tracePeak, useAllGroupings, useEmptyLibrary, useFilters,
+  GroupingBar, LoadFailed, Loading, MotifPlot, MotifsActions, OMITTED_SKETCH_NOTE, OmittedDrawer, OmittedThumb, SectionBar, centreTrace, fmtMv,
+  omittedReasonSummary, tracePeak, useAllGroupings, useEmptyLibrary, useFilters,
   useMotifGroupingId, useQueueToast, useRememberMotifsRoute, useSelection, useSequenceGroupingId,
 } from './chrome'
 import { EmptyMotifsPage } from './EmptyLibrary'
+import { referenceScale, type ReferenceScale } from '../charts/domain'
+import { referenceWords } from '../charts/ReferenceBar'
 
 /** The exemplar and medoid of one family, DC offset removed and their own peak measured. Nothing is scaled;
- *  see `centreTrace`. `peak` is what the card prints when the family runs past the shared domain. */
+ *  see `centreTrace`. `peak` is what the card prints and where its mark sits on the reference bar. */
 export interface FamilyTraces { ex: number[]; me: number[]; peak: number }
 export function centredTraces(fs: { id: string; exemplarTrace: number[]; medoidTrace: number[] }[]): Map<string, FamilyTraces> {
   const out = new Map<string, FamilyTraces>()
@@ -125,20 +130,16 @@ function MotifAtlas({ families, grouping, labels }: { families: MotifFamily[]; g
   const [familyQ, setFamilyQ] = useQueryState('family', '')
   const [sort, setSort] = useQueryState<SortKey>('sort', 'id')
   const [filters] = useFilters()
-  /* ONE shared, unnormalised mV domain — but set at the 75th percentile of the per-family peak rather than at
-     the maximum, and after each trace's own DC offset is removed. Before: the global extent was −3.67 V…+0.4
-     mV (one family's baseline), so the domain was ±3.8 V while the median family peaks at 0.9 mV — 97 of 149
-     cards drew as a straight line under a caption asserting that the amplitudes compare. (Those numbers were
-     first written here as "−3.67…+0.0004 mV" and "0.0009 mV": stored volts printed as mV, before fixup-b.)
-     Normalising per card is forbidden (PRD Part 2: it destroys the evidence of the scaling laws), so instead the
-     outliers no longer set the scale for everyone and the families past the domain are marked with their own
-     measured peak. A family whose recordings declare no unit carries no trace (the bridge withholds it) and so
-     sets nothing. */
+  /* Each card on a domain measured from its own traces (charts/domain.ts, fixup-c), after each trace's own DC
+     offset is removed, and the page's shared scale drawn beside it as a reference bar. This replaced D5's ONE
+     shared domain, set at the 75th percentile of the family peaks: family peaks span four decades, so a quarter
+     of the cards ran past it (clamped along the frame and badged "clipped") and most of the rest drew nearly
+     flat. The bar keeps what D5 was for — a micro-volt family never looks like a millivolt one — without taking
+     the shape away. The scale is computed ONCE here, from every family on the page, and passed to every card. A
+     family whose recordings declare no unit carries no trace (the bridge withholds it) and is not on the bar. */
   const traces = useMemo(() => centredTraces(families), [families])
-  const yDomain = useMemo(() => sharedMvDomain([...traces.values()].map(t => t.peak)), [traces])
-  const clippedCount = useMemo(() => [...traces.values()].filter(t => t.peak > yDomain[1]).length, [traces, yDomain])
+  const refScale = useMemo(() => referenceScale([...traces.values()].map(t => t.peak)), [traces])
   const peakOf = (id: string) => traces.get(id)?.peak ?? 0
-  const clipOf = (id: string) => (peakOf(id) > yDomain[1] ? peakOf(id) : null)
   const withScope = families.map(f => ({ f, inScope: inScopeOf(f, scope) }))
   const visible = withScope.filter(x => x.f.members >= filters.minMembers)
   const hidden = withScope.length - visible.length
@@ -178,7 +179,8 @@ function MotifAtlas({ families, grouping, labels }: { families: MotifFamily[]; g
                 {f.artifact > 0 && <span className="k-badge t-red" title={`${f.artifact} channels where ${f.id} is a cross-channel artifact (flagged, kept visible)`}>artifact {f.artifact}</span>}
                 {!!f.unitNote && <span className="k-badge t-amber" data-testid={`unit-badge-${f.id}`} title={f.unitNote}>{f.unit === null ? 'unit?' : `${f.undeclaredMembers ?? ''} unit?`}</span>}
               </div>
-              <MotifPlot exemplar={traces.get(f.id)?.ex} medoid={traces.get(f.id)?.me} colour={f.colour} yDomain={yDomain} height={92} testid={`family-plot-${f.id}`} clippedPeak={clipOf(f.id)} unitNote={f.unitNote} />
+              <MotifPlot exemplar={traces.get(f.id)?.ex} medoid={traces.get(f.id)?.me} colour={f.colour} height={92} testid={`family-plot-${f.id}`} unitNote={f.unitNote}
+                reference={{ scale: refScale, peak: peakOf(f.id), what: f.id }} />
               <div className="lib-foot"><span title="duration">{f.durationS < 10 ? f.durationS.toFixed(1) : f.durationS} s</span>
                 {f.unit === null || (!!f.unitNote && peakOf(f.id) === 0)
                   ? <span title={f.unitNote ?? undefined}>peak · unit undeclared</span>
@@ -189,20 +191,19 @@ function MotifAtlas({ families, grouping, labels }: { families: MotifFamily[]; g
           <div className="lib-legend" style={{ gridColumn: `span ${legendSpan}`, alignSelf: 'start', paddingTop: 4 }} data-testid="atlas-legend">
             <span><i style={{ background: '#1f2937' }} />exemplar (human seed)</span>
             <span><i style={{ background: 'var(--muted-2)' }} />medoid (computed, family colour)</span>
-            <span data-testid="atlas-scale-note">shared mV scale on every card · {fmtMvSigned(yDomain[0])}…{fmtMvSigned(yDomain[1])} mV{clippedCount ? ` · ${clippedCount} clipped` : ''}
-              <InfoTip title="shared scale">Each trace has its own DC offset (its median) removed and nothing else done to it — no card is normalised (D5), so amplitudes compare across the whole atlas.
-                The shared domain is the 75th percentile of the per-family peak, not the maximum: family peaks in this grouping span four decades, and setting the domain by the largest one drew almost every card as a flat line.
-                {clippedCount ? ` ${clippedCount} of ${families.length} families run past it; each is marked "clipped" and prints its own measured peak.` : ''} Every card prints its measured peak, so a family far below the domain is still readable as a number.</InfoTip></span>
+            <span data-testid="atlas-scale-note">each card on its own mV scale{refScale ? ` · the bar at its right: its peak on ${referenceWords(refScale)}` : ''}
+              <InfoTip title="reading the scale">Each trace has its own DC offset (its median) removed and nothing else done to it — no card is normalised. Each card's axis is measured from its own traces, so every shape is legible and none is cut off.
+                How big a family is against the others is the bar: the same bar on every card, a tick per decade, with the family's peak marked on it. Family peaks here span several decades, which is why the bar is logarithmic — equal steps are equal ratios.</InfoTip></span>
           </div>
         </div>
         {!sorted.length && <EmptyState title="No families match" caption={`every family has fewer than ${filters.minMembers} members`} bordered />}
       </div>
-      {selected ? <MotifRail f={selected.f} inScope={selected.inScope} scoped={scope.length > 0} yDomain={yDomain} grouping={grouping} traces={traces.get(selected.f.id)} clippedPeak={clipOf(selected.f.id)} /> : <div />}
+      {selected ? <MotifRail f={selected.f} inScope={selected.inScope} scoped={scope.length > 0} refScale={refScale} grouping={grouping} traces={traces.get(selected.f.id)} /> : <div />}
     </div>
   )
 }
 
-function MotifRail({ f, inScope, scoped, yDomain, grouping, traces, clippedPeak }: { f: MotifFamily; inScope: number; scoped: boolean; yDomain: [number, number]; grouping: Grouping; traces?: FamilyTraces; clippedPeak?: number | null }) {
+function MotifRail({ f, inScope, scoped, refScale, grouping, traces }: { f: MotifFamily; inScope: number; scoped: boolean; refScale: ReferenceScale | null; grouping: Grouping; traces?: FamilyTraces }) {
   const queue = useQueueToast()
   const pool = scoped ? inScope : f.members
   const unjudged = f.members - f.judged
@@ -216,8 +217,8 @@ function MotifRail({ f, inScope, scoped, yDomain, grouping, traces, clippedPeak 
       <div className="row"><span className="mono b" style={{ color: f.colour, fontSize: 15 }}>{f.id}</span><span style={{ fontWeight: 700, fontSize: 15 }}>{familyName(f.id, f.name)}</span><span className="k-chip blue sm" style={{ marginLeft: 'auto' }}>{f.recordings} recordings</span></div>
       <div className="lib-cap" style={{ fontSize: 11, marginTop: -6 }}>{f.members} members · {scoped ? `${inScope} in scope · ` : ''}{f.hand} hand edits</div>
       <div>
-        <MotifPlot exemplar={traces?.ex} medoid={traces?.me} colour={f.colour} yDomain={yDomain} height={88} testid="rail-exemplar-medoid" clippedPeak={clippedPeak} />
-        <div className="row lib-cap" style={{ justifyContent: 'space-between', paddingLeft: 30 }}><span>0</span><span>{f.durationS < 10 ? f.durationS.toFixed(1) : f.durationS} s</span></div>
+        <MotifPlot exemplar={traces?.ex} medoid={traces?.me} colour={f.colour} height={88} testid="rail-exemplar-medoid" reference={{ scale: refScale, peak: traces?.peak, what: f.id }} />
+        <div className="row lib-cap" style={{ justifyContent: 'space-between', paddingLeft: 38, paddingRight: 15 }}><span>0</span><span>{f.durationS < 10 ? f.durationS.toFixed(1) : f.durationS} s</span></div>
       </div>
       <div className="row lib-cap" style={{ fontSize: 10.5 }}>
         <span><i style={{ display: 'inline-block', width: 12, height: 2, background: '#1f2937', verticalAlign: 'middle', marginRight: 4 }} />exemplar {f.exemplar}</span>
@@ -225,8 +226,8 @@ function MotifRail({ f, inScope, scoped, yDomain, grouping, traces, clippedPeak 
         <span className="k-chip green sm" style={{ marginLeft: 'auto' }} title="distance between exemplar and medoid">d {f.exemplarMedoidD.toFixed(2)}</span>
       </div>
       <div className="lib-cap" style={{ fontSize: 10.5 }} data-testid="rail-members-not-drawn">
-        the other {Math.max(0, pool - 2)} member{pool - 2 === 1 ? '' : 's'} of this family {pool - 2 === 1 ? 'is' : 'are'} not drawn: this read carries the exemplar and the medoid
-        as real mV, and no waveform for the rest. <Button variant="link" size="sm" style={{ padding: 0 }} testid="rail-open-members" onClick={() => navigate(`library/family/${f.id}`)}>Open the family</Button> to list them.
+        the other {Math.max(0, pool - 2)} member{pool - 2 === 1 ? '' : 's'} of this family {pool - 2 === 1 ? 'is' : 'are'} not drawn here: the atlas carries the exemplar and the medoid
+        as real mV. <Button variant="link" size="sm" style={{ padding: 0 }} testid="rail-open-members" onClick={() => navigate(`library/family/${f.id}`)}>Open the family</Button> to see every member's own waveform.
       </div>
       <div className="row lib-cap" style={{ fontSize: 10.5 }}><span>peak-to-peak amplitude · mV</span><span style={{ marginLeft: 'auto' }}>n per bin</span></div>
       <Histogram bins={bins} height={66} showCounts={false} colour="#dcc6f1" highlightBin={(_, i) => i === modal} highlightColour={f.colour}
@@ -266,11 +267,10 @@ function SequenceAtlas({ families, motifFamilies, grouping }: { families: Sequen
   const [filters] = useFilters()
   const omitted = useSourced(() => getOmitted(grouping.id), [grouping.id])
   const queue = useQueueToast()
-  // same rule as the motif atlas: DC offset removed per trace, nothing normalised, the shared domain set at a
-  // high percentile of the per-family peak and the families past it marked
+  // the same rule as the motif atlas: DC offset removed per trace, nothing normalised, each card on its own
+  // measured domain and the page's shared scale as a reference bar, computed once here
   const traces = useMemo(() => centredTraces(families), [families])
-  const yDomain = useMemo(() => sharedMvDomain([...traces.values()].map(t => t.peak)), [traces])
-  const clipOf = (id: string) => { const p = traces.get(id)?.peak ?? 0; return p > yDomain[1] ? p : null }
+  const refScale = useMemo(() => referenceScale([...traces.values()].map(t => t.peak)), [traces])
   const visible = families.filter(f => f.sequences >= filters.minMembers)
   const selected = visible.find(f => f.id === familyQ) ?? visible[0]
   const onKey = (e: KeyboardEvent) => {
@@ -279,7 +279,6 @@ function SequenceAtlas({ families, motifFamilies, grouping }: { families: Sequen
     if (d) { e.preventDefault(); setFamilyQ(visible[Math.max(0, Math.min(visible.length - 1, i + d))].id) }
   }
   const [, setUnit] = useQueryState('unit', 'motifs')
-  const thumbDomain: [number, number] = [-0.45, 0.45]
   const singles = omitted.data ? fmtInt(omitted.data.singles.length) : null
   const omittedSeqs = omitted.data ? fmtInt(omitted.data.sequences.length) : null
   /* "motifs in no sequence" is a CATALOGUE count (members with no `sequence_members` row) and the bridge
@@ -308,7 +307,8 @@ function SequenceAtlas({ families, motifFamilies, grouping }: { families: Sequen
                 <span className={`k-badge ${f.recordings > 1 ? 't-blue' : 't-grey'}`}>{f.recordings} rec</span>
                 {f.hand > 0 && <span className="k-badge t-purple">{f.hand} hand</span>}
               </div>
-              <MotifPlot exemplar={traces.get(f.id)?.ex} medoid={traces.get(f.id)?.me} colour={f.colour} yDomain={yDomain} height={105} testid={`family-plot-${f.id}`} clippedPeak={clipOf(f.id)} />
+              <MotifPlot exemplar={traces.get(f.id)?.ex} medoid={traces.get(f.id)?.me} colour={f.colour} height={105} testid={`family-plot-${f.id}`}
+                reference={{ scale: refScale, peak: traces.get(f.id)?.peak, what: f.id }} />
               <div className="lib-foot"><span>{f.durationLabel}</span><span>{f.gapLabel}</span>
                 <span className="lib-judged"><span className="bar"><i style={{ width: `${f.judgedPct}%` }} /></span>{f.judgedPct}% judged</span></div>
             </div>
@@ -325,24 +325,24 @@ function SequenceAtlas({ families, motifFamilies, grouping }: { families: Sequen
             <div className="lib-grid" style={{ gridTemplateColumns: '1fr 1fr', gap: 20, marginTop: 8 }}>
               <div className="stack" style={{ gap: 8 }}>
                 <span className="lib-cap" style={{ color: 'var(--text-2)' }} data-testid="omitted-singles-label">{singles} single motifs omitted by the current motif grouping</span>
-                <button type="button" className="lib-thumbrow lib-plain" onClick={() => setDrawer('omitted')} title={`show omitted single motifs · ${OMITTED_SKETCH_NOTE}`}>{omitted.data.singles.slice(0, 7).map(e => <OmittedThumb key={e.id} e={e} yDomain={thumbDomain} />)}</button>
+                <button type="button" className="lib-thumbrow lib-plain" onClick={() => setDrawer('omitted')} title={`show omitted single motifs · ${OMITTED_SKETCH_NOTE}`}>{omitted.data.singles.slice(0, 7).map(e => <OmittedThumb key={e.id} e={e} />)}</button>
                 <span className="lib-cap">switch the unit to <Button variant="link" size="sm" testid="switch-to-singles" onClick={() => setUnit(null)}>single motifs</Button> to group these</span>
               </div>
               <div className="stack" style={{ gap: 8 }}>
                 <span className="lib-cap" style={{ color: 'var(--text-2)' }}>{omittedSeqs} sequences omitted by {grouping.id}</span>
-                <button type="button" className="lib-thumbrow lib-plain" onClick={() => setDrawer('omitted')} title={`show omitted sequences · ${OMITTED_SKETCH_NOTE}`}>{omitted.data.sequences.slice(0, 5).map(e => <OmittedThumb key={e.id} e={e} yDomain={thumbDomain} width={86} />)}</button>
+                <button type="button" className="lib-thumbrow lib-plain" onClick={() => setDrawer('omitted')} title={`show omitted sequences · ${OMITTED_SKETCH_NOTE}`}>{omitted.data.sequences.slice(0, 5).map(e => <OmittedThumb key={e.id} e={e} width={86} />)}</button>
                 <span className="lib-cap" data-testid="omitted-sequences-reason">{omittedReasonSummary(omitted.data.sequences)}</span>
               </div>
             </div>
           )}
         </div>
       </div>
-      {selected ? <SequenceRail f={selected} yDomain={yDomain} grouping={grouping} motifFamilies={motifFamilies} traces={traces.get(selected.id)} clippedPeak={clipOf(selected.id)} /> : <div />}
+      {selected ? <SequenceRail f={selected} refScale={refScale} grouping={grouping} motifFamilies={motifFamilies} traces={traces.get(selected.id)} /> : <div />}
     </div>
   )
 }
 
-function SequenceRail({ f, yDomain, grouping, motifFamilies, traces, clippedPeak }: { f: SequenceFamily; yDomain: [number, number]; grouping: Grouping; motifFamilies: MotifFamily[]; traces?: FamilyTraces; clippedPeak?: number | null }) {
+function SequenceRail({ f, refScale, grouping, motifFamilies, traces }: { f: SequenceFamily; refScale: ReferenceScale | null; grouping: Grouping; motifFamilies: MotifFamily[]; traces?: FamilyTraces }) {
   const queue = useQueueToast()
   const m = measured(f)
   // `judgedOf` is the motif count the bridge actually counted verdicts over; `f.motifs` is a different total
@@ -354,8 +354,8 @@ function SequenceRail({ f, yDomain, grouping, motifFamilies, traces, clippedPeak
       <div className="row"><span className="mono b" style={{ color: f.colour, fontSize: 15 }}>{f.id}</span><span style={{ fontWeight: 700, fontSize: 15 }}>{familyName(f.id, f.name)}</span><span className="k-chip blue sm" style={{ marginLeft: 'auto' }}>{f.recordings} recordings</span></div>
       <div className="lib-cap" style={{ fontSize: 11, marginTop: -6 }}>{f.sequences} sequences · {f.motifs} motifs · exemplar {f.exemplar}</div>
       <div>
-        <MotifPlot exemplar={traces?.ex} medoid={traces?.me} colour={f.colour} yDomain={yDomain} height={88} testid="rail-exemplar-medoid" clippedPeak={clippedPeak} />
-        <div className="row lib-cap" style={{ justifyContent: 'space-between', paddingLeft: 30 }}><span>0</span><span>{f.durationLabel.replace('~', '')}</span></div>
+        <MotifPlot exemplar={traces?.ex} medoid={traces?.me} colour={f.colour} height={88} testid="rail-exemplar-medoid" reference={{ scale: refScale, peak: traces?.peak, what: f.id }} />
+        <div className="row lib-cap" style={{ justifyContent: 'space-between', paddingLeft: 38, paddingRight: 15 }}><span>0</span><span>{f.durationLabel.replace('~', '')}</span></div>
       </div>
       <div className="row lib-cap" style={{ fontSize: 10.5 }}>
         <span><i style={{ display: 'inline-block', width: 12, height: 2, background: '#1f2937', verticalAlign: 'middle', marginRight: 4 }} />exemplar</span>

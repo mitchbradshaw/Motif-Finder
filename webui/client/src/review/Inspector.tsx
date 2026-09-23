@@ -7,7 +7,7 @@ import { Chip, Icon, InfoTip, MiniTrace, cx, fmtInt, recordDemoWrite, useQuerySt
 import { useSourced } from '../api/seam'
 import { useToast } from '../shell/Toast'
 import { VOCABULARY, getItem, postPromote, postUndo, postVerdict, type ItemDetail, type QueueData, type QueueRow, type Verdict } from '../api/review'
-import { Shell, THUMB_Y, useBlind, useRails, type MicroStat } from './Shell'
+import { Shell, useBlind, useRails, type MicroStat } from './Shell'
 import { useReviewKeys } from './keys'
 import { goUnit, nextUnjudgedAfter, relTime, step } from './queue'
 import {
@@ -251,7 +251,7 @@ function InspectorItem({ data, row }: { data: QueueData; row: QueueRow }) {
             bandLabel={isWindow ? `${id} · ${row.durationS} s` : `${id} · ${row.durationS.toFixed(1)} s`} canEdit={!isWindow} />
 
           <div className="rv-row2">
-            <ShapeCard d={d} family={masked ? null : (d.nearest.find(f => f.id === overlay) ?? d.nearest[0] ?? null)} blind={masked || isWindow} />
+            <ShapeCard d={d} family={masked ? null : (d.nearest.find(f => f.id === overlay) ?? d.nearest[0] ?? null)} blind={masked || isWindow} rows={data.rows} />
             {promoted && rec
               ? <PromotionPanel d={d} rec={rec} onUndo={undo} onConfirm={confirmPromotion} confirmRef={confirmRef} />
               : isWindow && blind ? <RevealCard data={data} current={row} now={now} />
@@ -319,7 +319,7 @@ function RevealCard({ data, current, now }: { data: QueueData; current: QueueRow
       {lastRow && rec ? (
         <div className="rv-reveal">
           <div className="rv-reveal-box">
-            <MiniTrace values={lastRow.thumb} yDomain={THUMB_Y} width={70} height={48} ground="white" zeroLine={false} />
+            <MiniTrace values={lastRow.thumb} width={70} height={48} ground="white" zeroLine={false} />
             <div className="kv mono">
               <b>{lastRow.id}</b>
               <div><span className="muted">you</span> <b>{you}</b>{last && <span className="muted"> · {relTime(last.at, now)}</span>}</div>

@@ -13,10 +13,16 @@
  *    a verdict or a `foundBy` for them.
  *  - Revisions are the real `motif_member_revision` rows. A member with none says so, and "Redraw in Explore"
  *    is disabled rather than reading `undefined.spanId`.
- *  - WAVEFORMS: the read carries a real decimated trace for the family's exemplar and medoid only. A MEMBER
- *    carries `(shape, amplitude, seed)`, so a member card is a SKETCH, labelled as one, and a sketch is never
- *    drawn in the same panel as a real trace (see `api/library.ts`'s header). The old ±30 s "context" strip
- *    was noise generated from `Math.sin(seed)`; there is no real context window in this read, so it is gone. */
+ *  - WAVEFORMS (fixup-c, Q-X2.3): every member carries its OWN decimated mV trace, read off its span, and its
+ *    card draws that. The member cards used to be a SKETCH from `(shape, amplitude, seed)` — honestly captioned,
+ *    and still wrong: the exemplar looked like two different things on one page (a deep square trough in the
+ *    summary, near-flat noise on its own card), and a member card that does not show the member's waveform is
+ *    not worth its space on a page whose job is looking at every member. The old ±30 s "context" strip was noise
+ *    generated from `Math.sin(seed)`; there is no real context window in this read, so it is gone.
+ *  - DOMAINS (fixup-c): every plot on this page is drawn on a domain measured from its own traces
+ *    (`charts/domain.ts`), and the page's shared scale — computed once from every member's peak — is the
+ *    reference bar beside each card. The two domains this page kept (a sketch domain and a measured one) are gone
+ *    with the sketch. */
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react'
 import {
   Badge, Button, Checkbox, Chip, EmptyState, Icon, InfoTip, KeyValue, MiniTrace, Modal, Page, Pager, Popover, Seg, SelectField, TextField,
@@ -27,17 +33,19 @@ import { useToast } from '../shell/Toast'
 import { navigate, useApp } from '../state'
 import { live, useSourced } from '../api/seam'
 import {
-  CLASS_OPTIONS, TAG_RULE, TAG_VOCABULARY, getFamily, getMotifFamilies, motifShape, niceMvDomain,
+  CLASS_OPTIONS, TAG_RULE, TAG_VOCABULARY, getFamily, getMotifFamilies,
   type FamilyDetail, type FamilyRead, type Member, type MotifFamily, type RemovedMember, type SequenceFamily, type Verdict,
 } from '../api/library'
-import { GroupingBar, LoadFailed, Loading, MotifPlot, SectionBar, centreTrace, fmtMv, fmtMvSigned, sharedMvDomain, tracePeak, useAllGroupings, useEmptyLibrary, useMotifGroupingId, useQueueToast, useRememberMotifsRoute, useSequenceGroupingId } from './chrome'
+import { GroupingBar, LoadFailed, Loading, MotifPlot, SectionBar, centreTrace, fmtMv, tracePeak, useAllGroupings, useEmptyLibrary, useMotifGroupingId, useQueueToast, useRememberMotifsRoute, useSequenceGroupingId } from './chrome'
+import { baselinePeak, referenceScale, type ReferenceScale } from '../charts/domain'
+import { ReferenceBar, referenceWords } from '../charts/ReferenceBar'
 import { familyName } from './AtlasPage'
 import { EmptyMotifsPage } from './EmptyLibrary'
 
 /** What the bridge actually returns for a removed member — `RemovedMember` plus the two fields
  *  `server/library.py` adds when the source row is still there. Declared here rather than widened in
  *  `fixtures/library.ts`, which this ticket does not own. */
-type LiveRemoved = RemovedMember & { onsetH?: number | null; contentHash?: string | null }
+type LiveRemoved = RemovedMember & { onsetH?: number | null; contentHash?: string | null; trace?: number[] }
 /** A removed member as the strip draws it: what the bridge gave, plus the two measurements a member removed
  *  in THIS session still has to hand. Never a whole `Member` — there is no verdict, no run and no revision
  *  list for a row that was removed by a hand edit, and inventing them is what this replaces. */
@@ -45,6 +53,8 @@ interface RemovedEntry {
   id: string; d: number; channel: string; recording: string; seed: number
   removedAt: string; removedNote: string
   onsetH?: number | null; durationS?: number | null; amplitudeMv?: number | null
+  /** the removed member's own waveform, from the read or carried over from the member removed this session */
+  trace?: number[]
 }
 interface FamilyEdits { removed: RemovedEntry[]; undone: string[]; exemplar: string; tags: Record<string, string[]>; cls: Record<string, string>; notes: Record<string, string>; queued: boolean; staleEdges: boolean; log: string[] }
 type SortKey = 'distance' | 'time' | 'amplitude' | 'unjudged'
@@ -54,20 +64,10 @@ const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', '
 /** Today, in the `'12 Sep'` form the bridge renders its own stamps in (`_iso_to_human`). Read from the clock
  *  every time it is asked, so a hand edit made now is dated now. */
 const today = () => { const d = new Date(); return `${d.getDate()} ${MONTHS[d.getMonth()]}` }
-/** The sketch caption, written once so every surface that draws one says the same thing. */
-const SKETCH_NOTE = 'shape sketch · amplitude and duration are measured, the waveform itself is not carried by this read'
-
-/** What the family's tags actually call its shape, for the sketch caption.
- *
- *  `f.shape` is coerced to one of the ten drawable glyphs (`api/library.ts`), and the live vocabulary is
- *  mostly `trough`, which is not one of them — so the sketches for five families in six are drawn with a
- *  `drop` glyph. Saying so beside them is the difference between a sketch and a wrong claim. */
-function shapeNote(f: MotifFamily): string {
-  const live = f as unknown as { shapeLabel?: string; shapeKnown?: boolean }
-  if (live.shapeKnown === false || !live.shapeLabel) return 'shape not recorded'
-  return live.shapeLabel === f.shape ? live.shapeLabel
-    : `${live.shapeLabel} · drawn with the ${f.shape} glyph`
-}
+/** Why a member card has nothing to draw: the bridge withholds a trace on an undeclared unit (fixup-b) and
+ *  returns none for a channel that is not on disk. */
+const noWaveNote = (m: { amplitudeMv?: number | null }) => (m.amplitudeMv === null
+  ? 'unit undeclared · not drawn in mV' : 'no waveform on disk for this span')
 
 export function FamilyPage({ familyId }: { familyId?: string } = {}) {
   useRememberMotifsRoute()
@@ -135,13 +135,9 @@ function SequenceFamilyPlaceholder({ f }: { f: SequenceFamily }) {
 }
 
 /* ================================================================ motif family ================================================================ */
-/** A member's SKETCH, from the family's shape and the member's own measured amplitude and seed. It is not the
- *  recorded waveform — the read carries real traces for the exemplar and the medoid only — so every surface
- *  that draws one titles it as a sketch and never puts one in a panel with a real trace. */
-function memberTrace(m: { amplitudeMv: number | null; seed: number }, shape: MotifFamily['shape'], sign: number) {
-  // a member whose recording declares no unit has no mV amplitude to sketch at (fixup-b): an empty plot, titled
-  return m.amplitudeMv === null ? [] : motifShape(shape, sign * m.amplitudeMv, m.seed, { jitter: 0.07 })
-}
+/** A member's own waveform, centred on its own baseline (its median) — the recording's DC offset removed and
+ *  nothing else done to it. `[]` when the read carries none (unit undeclared, channel not on disk). */
+const memberWave = (m: { trace?: number[] }) => centreTrace(m.trace ?? [])
 /** Descending, members with no mV amplitude (unit undeclared) last. */
 const byAmplitude = (a: Member, b: Member) => (b.amplitudeMv ?? -Infinity) === (a.amplitudeMv ?? -Infinity) ? 0 : (b.amplitudeMv ?? -Infinity) > (a.amplitudeMv ?? -Infinity) ? 1 : -1
 
@@ -154,7 +150,7 @@ function MotifFamilyView({ detail }: { detail: FamilyDetail }) {
     // run or revision list (a removal is a hand edit, and a hand edit has none of those)
     removed: detail.removed.map(r => {
       const live = r as LiveRemoved
-      return { id: r.id, d: r.d, channel: r.channel, recording: r.recording, seed: r.seed, removedAt: r.removedAt, removedNote: r.note, onsetH: live.onsetH ?? null }
+      return { id: r.id, d: r.d, channel: r.channel, recording: r.recording, seed: r.seed, removedAt: r.removedAt, removedNote: r.note, onsetH: live.onsetH ?? null, trace: live.trace ?? [] }
     }),
     undone: [], exemplar: f.exemplar, tags: Object.fromEntries(detail.members.map(m => [m.id, m.tags])), cls: Object.fromEntries(detail.members.filter(m => m.cls).map(m => [m.id, m.cls!])),
     notes: Object.fromEntries(detail.members.filter(m => m.note).map(m => [m.id, m.note!])), queued: false, staleEdges: false, log: [],
@@ -171,7 +167,6 @@ function MotifFamilyView({ detail }: { detail: FamilyDetail }) {
   const [memberQ, setMemberQ] = useQueryState('member', '')
   const [modal, setModal] = useQueryState('modal', '')
   const [popover, setPopover] = useQueryState('popover', '')
-  const sign = (f.depthMv ?? 0) < 0 ? -1 : 1
 
   const removedIds = new Set(edits.removed.map(r => r.id))
   const members = useMemo(() => detail.members.filter(m => !removedIds.has(m.id) && !edits.undone.includes(m.id)), [detail.members, edits.removed, edits.undone]) // eslint-disable-line react-hooks/exhaustive-deps
@@ -192,23 +187,16 @@ function MotifFamilyView({ detail }: { detail: FamilyDetail }) {
   const page = Math.min(pageCount, Math.max(1, Number(pageQ) || 1))
   const pageItems = ordered.slice((page - 1) * 10, page * 10)
   const railMember = ordered.find(m => m.id === memberQ) ?? members.map(withEdits).find(m => m.id === memberQ) ?? pageItems[0] ?? null
-  /* TWO domains, because this page draws two different kinds of thing and they are never in the same panel.
-     `yDomain` is the SKETCH domain: the member cards and the rail's member plot are drawn from `(shape,
-     amplitude, seed)` around zero, so the members' own amplitudes set it. `traceDomain` is for the two REAL
-     traces (the exemplar and the medoid, read off the memmap) — they carry their recording's DC offset, and
-     drawing them on the zero-centred amplitude domain pinned every sample to the floor of the plot: F-01's
-     exemplar spans −1.148…−1.131 V against a ±0.1 mV domain, which `MiniTrace` clamps silently, so a real
-     17.6 mV drop rendered as a dead-flat line and nothing said so. (First written here as "−1.148…−1.131 mV"
-     and "17.6 µV" — stored volts printed as mV, before fixup-b.) The traces are centred on their own median
-     (DC offset removed, mV span untouched — nothing is normalised) and get a domain measured from themselves. */
-  const yDomain = useMemo(() => {
-    // an empty family (every member removed by hand) must not make Math.max(-Infinity) the domain
-    const a = Math.max(...detail.members.map(m => m.amplitudeMv ?? 0), Math.abs(f.depthMv ?? 0), 0.01)
-    return niceMvDomain([[a * 1.05, -a * 1.05]])
-  }, [detail.members, f.depthMv])
+  /* ONE rule for every plot here (charts/domain.ts, fixup-c): each is drawn on a domain measured from the traces
+     in it, centred on their own baselines (DC offset removed, mV span untouched — nothing is normalised). This
+     page used to keep TWO domains, a sketch domain for the member cards and a measured one for the real
+     exemplar/medoid, which is how the exemplar looked like two different things on one page. The page's shared
+     scale is computed ONCE, from every member's peak and the exemplar/medoid's, and drawn beside each card as
+     its reference bar: how big a member is against its family is the bar's job, not the axis's. */
   const realTraces = useMemo(() => ({ ex: centreTrace(f.exemplarTrace ?? []), me: centreTrace(f.medoidTrace ?? []) }), [f.exemplarTrace, f.medoidTrace])
   const tracePeakMv = Math.max(tracePeak(realTraces.ex), tracePeak(realTraces.me))
-  const traceDomain = useMemo(() => sharedMvDomain([tracePeakMv], 1), [tracePeakMv])
+  const peakOfMember = useMemo(() => new Map(detail.members.map(m => [m.id, baselinePeak(m.trace ?? [])])), [detail.members])
+  const refScale = useMemo(() => referenceScale([...peakOfMember.values(), tracePeakMv]), [peakOfMember, tracePeakMv])
   const judged = members.filter(m => m.verdict !== 'unjudged').length
   const unjudged = members.length - judged
   const added = members.filter(m => m.addedByHand).length
@@ -218,6 +206,7 @@ function MotifFamilyView({ detail }: { detail: FamilyDetail }) {
   const exemplarTrace = realTraces.ex
   const handExemplar = edits.exemplar !== f.exemplar
   const selInList = sel.filter(s => members.some(m => m.id === s))
+  const overlayWaves = useMemo(() => pageItems.map(memberWave).filter(v => v.length > 0), [pageItems])
   const pageIds = pageItems.map(m => m.id)
   const pageTicked = pageIds.filter(x => sel.includes(x)).length
 
@@ -231,7 +220,7 @@ function MotifFamilyView({ detail }: { detail: FamilyDetail }) {
       ...e,
       removed: [...e.removed, ...targets.map(m => ({
         id: m.id, d: m.d, channel: m.channel, recording: m.recording, seed: m.seed,
-        onsetH: m.onsetH, durationS: m.durationS, amplitudeMv: m.amplitudeMv,
+        onsetH: m.onsetH, durationS: m.durationS, amplitudeMv: m.amplitudeMv, trace: m.trace ?? [],
         removedAt: stamp, removedNote: 'removed by hand',
       }))],
     }))
@@ -278,8 +267,9 @@ function MotifFamilyView({ detail }: { detail: FamilyDetail }) {
 
         <div className="k-card" style={{ padding: 12, display: 'grid', gridTemplateColumns: '300px minmax(0, 1fr) 222px', gap: 14, alignItems: 'start' }} data-testid="family-summary">
           <div>
-            <MotifPlot exemplar={exemplarTrace} medoid={realTraces.me} colour={f.colour} yDomain={traceDomain} height={108} testid="summary-exemplar-medoid" unitNote={f.unitNote} />
-            <div className="row lib-cap" style={{ justifyContent: 'space-between', paddingLeft: 30 }}><span>0</span><span>{f.durationS} s</span></div>
+            <MotifPlot exemplar={exemplarTrace} medoid={realTraces.me} colour={f.colour} height={108} testid="summary-exemplar-medoid" unitNote={f.unitNote}
+              reference={{ scale: refScale, peak: tracePeakMv, what: `${f.id}'s exemplar and medoid` }} />
+            <div className="row lib-cap" style={{ justifyContent: 'space-between', paddingLeft: 38, paddingRight: 15 }}><span>0</span><span>{f.durationS} s</span></div>
             <div className="lib-cap" style={{ fontSize: 10 }} data-testid="summary-trace-note">{f.unit === null
               ? 'unit undeclared · the exemplar and medoid are not drawn in mV'
               : `measured · each trace centred on its own baseline, nothing normalised · peak ${fmtMv(tracePeakMv)} mV`}</div>
@@ -308,12 +298,14 @@ function MotifFamilyView({ detail }: { detail: FamilyDetail }) {
             </div>
           </div>
           <div>
-            {/* this panel used to overlay ten SYNTHESISED member traces on the real medoid — a sketch drawn
-                on top of a measurement, which is the one thing `api/library.ts` says must not happen. The
-                medoid is drawn alone, and the caption says why there is nothing over it. */}
-            <div className="row lib-cap" style={{ fontSize: 10.5 }}><span>medoid {f.medoid} · measured</span></div>
-            <MiniTrace values={realTraces.me} yDomain={traceDomain} width="100%" height={104} strokeWidth={1.8} testid="summary-overlay" title={`the medoid of ${f.id}, read off the recording · ${fmtMvSigned(traceDomain[0])}…${fmtMvSigned(traceDomain[1])} mV, centred on its own baseline, not normalised`} />
-            <div className="lib-cap" style={{ fontSize: 10 }}>member waveforms are not carried by this read, so none are overlaid</div>
+            {/* this panel once overlaid ten SYNTHESISED member traces on the real medoid, then drew the medoid
+                alone because the read carried no member waveform. It carries them now (fixup-c), so the members
+                on this page are overlaid for real — each centred on its own baseline and stretched to one width,
+                on one domain measured from all of them, the medoid on top in the family colour. */}
+            <div className="row lib-cap" style={{ fontSize: 10.5 }}><span>medoid {f.medoid} · the {overlayWaves.length} members on this page</span></div>
+            <MiniTrace values={realTraces.me} overlays={overlayWaves.map(v => ({ values: v, stroke: 'rgba(107,114,128,0.45)', width: 1 }))} width="100%" height={104} strokeWidth={1.8} stroke={f.colour} testid="summary-overlay"
+              title={`the medoid of ${f.id} over the ${overlayWaves.length} members on this page, each read off the recording and centred on its own baseline, stretched to one width, on one measured mV scale — not normalised`} />
+            <div className="lib-cap" style={{ fontSize: 10 }}>members read off the recording · each centred on its own baseline · one measured scale</div>
           </div>
         </div>
 
@@ -343,7 +335,7 @@ function MotifFamilyView({ detail }: { detail: FamilyDetail }) {
                   {m.role === 'exemplar' && <span className="k-badge t-green">exemplar</span>}
                   {m.addedByHand && <span className="k-badge t-purple">added by hand</span>}
                 </div>
-                <MiniTrace values={memberTrace(m, f.shape, sign)} yDomain={yDomain} width="100%" height={48} ground={on ? 'white' : 'grey'} stroke={m.verdict === 'artifact' ? 'var(--red)' : '#1f2937'} strokeWidth={1.3} title={`${m.id} · ${m.recording} ${m.channel} · ${m.onsetH.toFixed(1)} h — ${SKETCH_NOTE}`} />
+                <MemberWave m={m} height={48} ground={on ? 'white' : 'grey'} scale={refScale} peak={peakOfMember.get(m.id)} />
                 <span className="lib-cap">{m.channel} · {m.onsetH.toFixed(1)} h</span>
                 <VerdictLine v={m.verdict} />
               </div>
@@ -351,7 +343,7 @@ function MotifFamilyView({ detail }: { detail: FamilyDetail }) {
           })}
         </div>
         {!pageItems.length && <EmptyState title={handOnly ? 'No hand-edited members' : 'No members'} caption={handOnly ? 'nobody has added a member to this family by hand' : 'every member was removed'} bordered testid="members-empty" />}
-        <span className="lib-cap" style={{ marginTop: -4 }}>shared mV scale · ±{fmtMv(yDomain[1])} mV · {f.durationS} s · {shapeNote(f)} · {SKETCH_NOTE}</span>
+        <span className="lib-cap" style={{ marginTop: -4 }} data-testid="member-scale-note">{refScale ? `each member's own waveform, read off the recording, on its own mV scale · the bar at its right: its peak on ${referenceWords(refScale)}` : 'no member of this family is drawn in mV on this page'}</span>
 
         {edits.removed.length > 0 && (
           <div className="k-card" style={{ padding: '10px 14px', display: 'grid', gridTemplateColumns: '240px 1fr', gap: 12, alignItems: 'center' }} data-testid="removed-strip">
@@ -359,11 +351,11 @@ function MotifFamilyView({ detail }: { detail: FamilyDetail }) {
             <div className="stack" style={{ gap: 4 }}>
               {edits.removed.slice(0, 3).map(r => (
                 <div key={r.id} className="row" style={{ gap: 12 }}>
-                  {/* a removal recorded in an earlier session carries no amplitude, so there is nothing to
-                      sketch from and the slot says so rather than drawing a default-shaped line */}
-                  {r.amplitudeMv != null
-                    ? <MiniTrace values={memberTrace({ amplitudeMv: r.amplitudeMv, seed: r.seed }, f.shape, sign)} yDomain={yDomain} width={62} height={34} ground="white" stroke="#6b7280" style={{ border: '1px solid var(--border)', borderRadius: 4 }} title={`${r.id} — ${SKETCH_NOTE}`} />
-                    : <span className="lib-cap" style={{ width: 62, height: 34, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', border: '1px solid var(--border)', borderRadius: 4, fontSize: 10 }} title="a removed member carries no amplitude in this read">no sketch</span>}
+                  {/* the removed member's own waveform, on its own measured scale; a removal whose source row is
+                      gone (or whose unit is undeclared) has none, and the slot says so */}
+                  {(r.trace ?? []).length
+                    ? <MiniTrace values={centreTrace(r.trace ?? [])} width={62} height={34} ground="white" stroke="#6b7280" style={{ border: '1px solid var(--border)', borderRadius: 4 }} title={`${r.id} — read off the recording, on its own mV scale`} />
+                    : <span className="lib-cap" style={{ width: 62, height: 34, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', border: '1px solid var(--border)', borderRadius: 4, fontSize: 10 }} title="this read carries no waveform for this removal">no waveform</span>}
                   <span className="lib-cap" style={{ color: 'var(--text-2)', fontSize: 11 }}>{r.id} · d {r.d.toFixed(2)} · {r.channel}{r.onsetH != null ? ` · ${r.onsetH.toFixed(1)} h` : ''} · removed {r.removedAt} · “{r.removedNote}”</span>
                   <Button variant="link" icon="undo" style={{ marginLeft: 'auto' }} testid={`restore-${r.id}`} onClick={() => { restore([r.id]); push({ text: `Restored ${r.id} · not wired yet: DELETE hand edit` }) }}>Restore</Button>
                 </div>
@@ -389,7 +381,7 @@ function MotifFamilyView({ detail }: { detail: FamilyDetail }) {
         </div>
       </div>
 
-      {railMember ? <MemberRail key={railMember.id} m={railMember} f={f} detail={detail} yDomain={yDomain} sign={sign} edits={edits} setEdits={setEdits}
+      {railMember ? <MemberRail key={railMember.id} m={railMember} f={f} detail={detail} refScale={refScale} edits={edits} setEdits={setEdits}
         onUndoAdd={undoAdd} onRemove={() => setModal('remove-member')} onMakeExemplar={() => setModal('make-exemplar')} popover={popover} setPopover={setPopover} />
         : <aside className="k-card lib-rail"><EmptyState title="No member open" caption="click a member card" size="sm" /></aside>}
 
@@ -414,6 +406,22 @@ function MotifFamilyView({ detail }: { detail: FamilyDetail }) {
           onClick={() => { if (!railMember) return; setEdits(e => ({ ...e, exemplar: railMember.id, staleEdges: true })); log('hand-edit.exemplar', { member: railMember.id, previous: edits.exemplar }); setModal(null); push({ text: `${railMember.id} is the exemplar of ${f.id} · edges partially stale · not wired yet: POST hand edit` }) }}>Make exemplar</Button></>}>
         <p style={{ margin: 0 }}>{edits.exemplar} {edits.exemplar === f.exemplar ? '(seed) ' : ''}stays a member. The exemplar is the human anchor; the medoid {f.medoid} is still computed.</p>
       </Modal>
+    </div>
+  )
+}
+
+/** A member card's plot: the member's own waveform on its own measured domain, and the page's shared scale as
+ *  a reference bar beside it. With no waveform in the read, the slot says why instead of drawing a line. */
+function MemberWave({ m, height, ground, scale, peak }: { m: Member; height: number; ground: 'white' | 'grey'; scale: ReferenceScale | null; peak?: number }) {
+  const wave = useMemo(() => memberWave(m), [m])
+  if (!wave.length) {
+    return <span className="lib-cap" data-testid={`member-nowave-${m.id}`} style={{ height, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, border: '1px dashed var(--border-strong)', borderRadius: 4 }} title={noWaveNote(m)}>{noWaveNote(m)}</span>
+  }
+  return (
+    <div className="lib-thumbcell" data-testid={`member-plot-${m.id}`}>
+      <MiniTrace values={wave} width="100%" height={height} ground={ground} stroke={m.verdict === 'artifact' ? 'var(--red)' : '#1f2937'} strokeWidth={1.3}
+        title={`${m.id} · ${m.recording} ${m.channel} · ${m.onsetH.toFixed(1)} h — read off the recording, on its own mV scale, peak ${fmtMv(peak ?? 0)} mV`} />
+      <ReferenceBar scale={scale} peak={peak} height={height} what={m.id} />
     </div>
   )
 }
@@ -459,15 +467,15 @@ function ClassPicker({ onApply, onCancel }: { onApply: (cls: string) => void; on
 }
 
 /* ================================================================ member rail ================================================================ */
-function MemberRail({ m, f, detail, yDomain, sign, edits, setEdits, onUndoAdd, onRemove, onMakeExemplar, popover, setPopover }: {
-  m: Member; f: MotifFamily; detail: FamilyDetail; yDomain: [number, number]; sign: number; edits: FamilyEdits; setEdits: (fn: (e: FamilyEdits) => FamilyEdits) => void
+function MemberRail({ m, f, detail, refScale, edits, setEdits, onUndoAdd, onRemove, onMakeExemplar, popover, setPopover }: {
+  m: Member; f: MotifFamily; detail: FamilyDetail; refScale: ReferenceScale | null; edits: FamilyEdits; setEdits: (fn: (e: FamilyEdits) => FamilyEdits) => void
   onUndoAdd: (id: string) => void; onRemove: () => void; onMakeExemplar: () => void; popover: string; setPopover: (v: string | null) => void
 }) {
   const { push } = useToast()
   const revRef = useRef<HTMLButtonElement>(null), tagRef = useRef<HTMLButtonElement>(null)
   const [note, setNote] = useState(edits.notes[m.id] ?? '')
   const [saved, setSaved] = useState<string | null>(null)
-  const trace = useMemo(() => memberTrace(m, f.shape, sign), [m, f.shape, sign])
+  const trace = useMemo(() => memberWave(m), [m])
   const tags = edits.tags[m.id] ?? m.tags
   const past = m.d > detail.cut
   const exemplarReason = m.id === edits.exemplar ? 'already the exemplar' : m.verdict === 'artifact' ? 'artifact verdict — cannot anchor a family' : null
@@ -486,11 +494,12 @@ function MemberRail({ m, f, detail, yDomain, sign, edits, setEdits, onUndoAdd, o
         <span className="mono" style={{ marginLeft: 'auto', color: past ? 'var(--purple)' : 'var(--muted)', fontSize: 12 }}>d {m.d.toFixed(2)}</span>
       </div>
       <div>
-        {/* the member's sketch alone: overlaying it on the family's REAL medoid put a drawing and a
-            measurement in one frame at one scale, which reads as a comparison and is not one */}
-        <MotifPlot exemplar={trace} colour={f.colour} yDomain={yDomain} height={92} testid="rail-member-plot" />
-        <div className="row lib-cap" style={{ justifyContent: 'space-between', paddingLeft: 30 }}><span>0</span><span>{m.durationS.toFixed(1)} s</span></div>
-        <div className="lib-cap" style={{ fontSize: 10 }}>{SKETCH_NOTE}</div>
+        {/* the member's own waveform, read off its span, on its own measured scale, with the family page's
+            shared scale as its reference bar */}
+        <MotifPlot exemplar={trace} colour={f.colour} height={92} testid="rail-member-plot" title={`${m.id}, read off the recording`}
+          reference={{ scale: refScale, peak: tracePeak(trace), what: m.id }} />
+        <div className="row lib-cap" style={{ justifyContent: 'space-between', paddingLeft: 38, paddingRight: 15 }}><span>0</span><span>{m.durationS.toFixed(1)} s</span></div>
+        <div className="lib-cap" style={{ fontSize: 10 }} data-testid="rail-member-note">{trace.length ? `read off the recording · centred on its own baseline · peak ${fmtMv(tracePeak(trace))} mV` : noWaveNote(m)}</div>
       </div>
       {/* the ±30 s context strip was `Math.sin(seed)` noise, not signal; open the span in Explore for the
           real thing */}

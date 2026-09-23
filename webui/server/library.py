@@ -107,6 +107,12 @@ AMP_BINS = 12
 #: `decimate.envelope` emits about 2*px points, so px is half the target.
 MOTIF_TRACE_PX = 60
 SEQUENCE_TRACE_PX = 80
+#: A family member's own waveform on the Family page (fixup-c, which dropped the shape sketch). The same
+#: resolution as the exemplar's, so a member card and the summary plot draw the same kind of thing: about 120
+#: points, ~1 KB of JSON per member. The largest family in this installation (F-30, 79 members) went from 41 KB
+#: to 130 KB and from ~0.27 s to ~0.35 s on a warm read (measured, reports/C-one-plot-domain-rule.md §3), so nothing is decimated
+#: further. If a family ever makes the read slow, lower THIS, not the drawing: a sketch is not a member.
+MEMBER_TRACE_PX = MOTIF_TRACE_PX
 
 #: How many entries the grouping editor's distributions are computed over. The
 #: real catalogue holds thousands and every one costs a memmap slice; the cap
@@ -1170,6 +1176,9 @@ def _family_detail(conn, index, fam, grouping_row) -> dict:
             "onsetH": round(start / fs / 3600.0, 3),
             "durationS": round((end - start) / fs, 2),
             "amplitudeMv": _span_amplitude(index, r["recording_id"], start, end),
+            # fixup-c (Q-X2.3): the member's OWN waveform, so its card draws the member and not a sketch
+            # from (shape, amplitude, seed). `[]` for an undeclared unit, exactly as the exemplar's is.
+            "trace": _trace(index, r["recording_id"], start, end, MEMBER_TRACE_PX),
             "verdict": (verdict_row[0] if verdict_row else "unjudged"),
             "foundBy": str(r["scale"] or "event"),
             "revisions": _revisions_for(conn, r["member_id"]),
@@ -1211,6 +1220,9 @@ def _family_detail(conn, index, fam, grouping_row) -> dict:
             "seed": int(src["id"]) if src else 0,
             "onsetH": round(int(src["start_idx"]) / (meta["fs"] or 1.0) / 3600.0, 3) if (src and meta) else None,
             "contentHash": digest,
+            # the removed strip draws what was removed, not a sketch of it (fixup-c)
+            "trace": (_trace(index, src["recording_id"], src["start_idx"], src["end_idx"], MEMBER_TRACE_PX)
+                      if src else []),
         })
 
     return {
