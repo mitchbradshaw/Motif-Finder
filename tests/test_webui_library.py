@@ -960,3 +960,49 @@ def test_the_recording_list_carries_the_declared_unit(bridge):
     m2 = next(r for r in recs if r["source_file"] == "M2_aug_concat_fs1.mat")
     assert m2["units"] == "V" and m2["display_unit"] == "mV"
     assert m2["units_note"]
+
+
+# ── fixup-c: every member card draws the member's own waveform ─────────────
+
+def test_every_family_member_carries_its_own_real_waveform(bridge):
+    """Q-X2.3: the shape sketch is dropped. Each member carries a decimated mV
+    trace read off ITS span — not the exemplar's, not `(shape, amp, seed)` — so
+    a member card shows the member. The envelope keeps each bucket's extremes,
+    so the trace's peak-to-peak is the member's measured amplitude."""
+    client, _ = bridge
+    detail = _ok(client.get("/api/library/family/F-01"))["detail"]
+    assert detail["members"], "F-01 has members"
+    for m in detail["members"]:
+        assert "trace" in m, f"{m['id']} carries no waveform"
+        assert len(m["trace"]) > 10, f"{m['id']}'s trace is real samples, not a placeholder"
+        assert float(np.ptp(m["trace"])) == pytest.approx(m["amplitudeMv"], rel=0.02), m["id"]
+    traces = {tuple(m["trace"]) for m in detail["members"]}
+    assert len(traces) == len(detail["members"]), "each member's own span, not one trace copied onto every card"
+
+
+def test_a_member_of_an_undeclared_recording_carries_no_waveform(bridge):
+    import sqlite3
+    client, info = bridge
+    _ok(client.get("/api/library/families"))
+    conn = sqlite3.connect(info["rt"].db_path)
+    conn.execute("UPDATE recordings SET units = NULL, units_note = 'undeclared for the test' "
+                 "WHERE source_file = 'M2_aug_concat_fs1.mat'")
+    conn.commit(); conn.close()
+    detail = _ok(client.get("/api/library/family/F-01"))["detail"]
+    assert all(m["trace"] == [] for m in detail["members"]), "a trace on an mV axis is a claim about its unit"
+
+
+def test_a_removed_member_carries_its_waveform_too(bridge):
+    import sqlite3
+    client, info = bridge
+    _ok(client.get("/api/library/families"))
+    conn = sqlite3.connect(info["rt"].db_path)
+    digest = conn.execute("SELECT content_hash FROM motif_member WHERE content_hash IS NOT NULL LIMIT 1").fetchone()[0]
+    conn.execute("INSERT INTO hand_edits (content_hash, kind, family_label, value, grouping_id, active, "
+                 "created_at, actor) VALUES (?, 'remove_member', 'F-01', 'noise', ?, 1, "
+                 "'2026-09-23T12:00:00', 'this installation')", (digest, info["gid"]))
+    conn.commit(); conn.close()
+    detail = _ok(client.get("/api/library/family/F-01"))["detail"]
+    assert detail["removed"], "the removal surfaces"
+    assert all(len(r.get("trace") or []) > 10 for r in detail["removed"]), (
+        "the removed strip drew a sketch; it draws the removed member's own span")
