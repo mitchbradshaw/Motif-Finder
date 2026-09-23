@@ -439,3 +439,84 @@ changes what lands in the database.
 
 **Q-D2b** `drop_motifs10`'s `scale_band` (eight bands, medians 0.115 to 1.813 mV) and `is_pure`
 (2,960 / 3,511) are richer than a single floor. Should the Library expose them as filters?
+
+
+---
+
+## Round 3, answered 2026-09-24
+
+**Q18 — Fig2A's unit.** **A: volts.** Declared through the UI. The researcher also ran the project-mode
+start and the `--real` feature backfill. Verified in the real database 2026-09-24: `recordings.units`
+= **54 V, 5 mV, 71 undeclared**; `motif_features` = **71,980 values over 3,599 hashes** (50,386 from
+`interrogation.event_shape`, 21,594 from the detector). The 71 undeclared are M1/M100/M101_t/MJu26a
+and the held-out M4 — none of which the Library draws from.
+
+**Q19 — the fabricated features.** **A: new prompt (`E`).** *Clarification the researcher asked for:*
+the fabrication is **not** in the event-shape block, which measures honestly. It is in the
+**Interrogation › Aggregate page** (`#/analyse/interrogation/block/2`), whose
+`api/interrogation.ts::featureOf` returns `half_width_s = duration x 0.84`, `rise_s = duration x 0.31`
+and `isi_s = duration x 4.2` — constants multiplied by duration and drawn as if measured. Prompt `D`
+now measures all of them for real; `E` replaces the fabrication with those measurements.
+
+**Also decided:** **rise time joins the shape block as a parameter, null for detected drop events.**
+It is the one measure `D` left unmeasured. Null rather than zero, so a drop's missing rise is
+distinguishable from a rise of no height.
+
+**Q20 — convert mV recordings to volts in the core (Q-X2.8).** **A: yes, convert, and record it.**
+`execution._load_signal` converts from `recordings.units`, so the core always receives volts and one
+recording is not permanently special. This changes the core's input for `L_LM_Jul_26_J` and the
+meaning of any L_LM step-cache entries — the prompt that does it must say so and invalidate them.
+
+**Q21 — where the per-dataset noise floor applies.** **A: a VIEW filter only.** The Library hides
+sub-floor motifs; the rows stay. A run-time gate would silently change what lands in the database and
+leave no way to tell later whether a detector found nothing or was gagged.
+
+**Q22 — `scale_band` and `is_pure` as Library filters.** **A: yes — but `scale_band` cannot be used
+as its index, and this corrects what was recommended in round 3.**
+
+Measured 2026-09-24: **`scale_band` is a WITHIN-SPAN octave index of `fall_duration_s`, not a global
+scale.** `Pipelines/drop_motifs/passes6.py:368 scale_bands()` splits *one span's* motifs into octaves
+from that span's own shortest fall, and only when the spread exceeds `MAX_UNSPLIT_RATIO`. So band 1
+means a median fall of **174 s** in span `id001` and **4 s** in span `id021` — a 43x difference under
+the same label. Filtering "band 1" across the Library would pool unrelated timescales.
+
+| band | n | median fall | range | median depth | pure |
+|---|---|---|---|---|---|
+| 0 | 352 | 3.0 s | 0.1–114 | 0.272 mV | 95 % |
+| 1 | 1455 | 0.6 s | 0.2–252 | 0.115 mV | 92 % |
+| 2 | 823 | 1.0 s | 0.4–311 | 0.208 mV | 72 % |
+| 3 | 150 | 13.0 s | 0.8–284 | 0.483 mV | 69 % |
+| 4 | 457 | 1.0 s | 0.5–241 | 0.682 mV | 89 % |
+| 5 | 247 | 0.8 s | 0.3–356 | 0.163 mV | 66 % |
+| 7 | 27 | 73.0 s | 3.0–155 | 1.813 mV | 93 % |
+
+**So: filter on `fall_duration_s` directly** — globally comparable, and `motif_features` now carries
+it for every entry — and show the band's *label* (its duration range, in `scale_band_labels`) as
+provenance on a card rather than as a filter axis. **`is_pure` is a genuine global flag** (2,960 of
+3,511) and becomes a filter as recommended.
+
+**Q23 — order.** **A: dataset naming first**, done by the researcher. *Clarification asked for:* it
+means both — the editable columns (`species`, `organism id`, `experiment date`, `condition`,
+`display name`, `notes`) have to be built before they can be filled, and the display name then
+replaces the file name across the site. Derived fields (channels, fs, duration) come for free.
+
+---
+
+## Round 4 — new symptoms from use, 2026-09-24
+
+Nine from the researcher, with screenshots. Recorded here; ownership assigned as prompts are written.
+
+| # | Symptom | Owner |
+|---|---|---|
+| U1 | **Review plots are pixelated** — the trace renders as a time-quantised staircase, not a curve | `G` |
+| U2 | **Review's candidate highlight misses the actual event** — item 102 on Mushroom CH14 highlights a flat stretch at ~0.656 h while the obvious drop is at ~0.626 h. **Suspected the same legacy span-relative/absolute defect wiring 01 found, in a fourth reader nobody shifted** | `G`, P0 if confirmed |
+| U3 | **Review padding is one-sided** — `±30/±120/±300 s` should pad both sides of the candidate | `G` |
+| U4 | **Explore needs fine span adjustment** — the slider cannot move a span by seconds or minutes; it needs typed/stepped controls | `I` |
+| U5 | **Settings › Channels & events: the recording tab list runs off the page** with no scroll affordance | `F` |
+| U6 | **The Dehshibi template still does not read as detecting anything.** Prompt `A` fixed its black image; the thumbnails are now legible but the researcher cannot tell what the algorithm is doing or whether it works. **Wants it checked against the paper**, by an agent reading the paper alongside the code | `J` — its own prompt, and it needs the paper |
+| U7 | **Analysis blocks answer with tables where they should answer with pictures.** The whole point of the UI is to avoid large tables. The researcher supplied an exemplar figure (the drop-motif "how a fall becomes an angle" plate: anatomy of one event, the same construction across the depth range, the rose beside it) | `H` |
+| U8 | **Anything that outputs a SpanSet should offer a slideshow of its spans** on the block page | `H` |
+| U9 | **Every existing analysis block needs a bespoke process view** — a drawing of what that block did, not a generic payload dump | `H` |
+
+U7, U8 and U9 are one theme: **a block must show its work.** They are the "legibility" pillar of
+`CLAUDE.md`'s priority order, and the exemplar figure the researcher supplied is the standard to hit.
