@@ -47,6 +47,8 @@ COSTED = (
     "catalogue.gramian_fusion", "detection.wavelet_scattering",
     # stage-3 prompt 01 blocks that are not O(n)-cheap, and Pelt (worst-case O(n²))
     "preprocessing.wavelet_transform", "catalogue.window_images", "catalogue.cnn_score", "detection.rupture",
+    # fixup-d: the feature blocks and the inversion, each with a calibrated model
+    "interrogation.event_shape", "interrogation.intervals", "preprocessing.invert",
 )
 
 

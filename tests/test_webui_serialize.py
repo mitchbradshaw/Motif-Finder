@@ -124,5 +124,38 @@ def test_a_capped_grouping_says_so_in_its_summary():
     assert "5,000" in p["summary"] and "6,000" in p["summary"], p["summary"]
 
 
+# ------------------------------------------- a SpanSet with features (fixup-d) --
+# `SpanSet.features` is a new shape inside the SpanSet type: the feature blocks
+# (`interrogation.event_shape`, `interrogation.intervals`) carry one row of
+# measures per span. The payload ships them the way a WindowSet ships its own
+# (columns, a capped matrix, per-column ranges), and passes the blocks' printed
+# rules, the rose and the interval statistics through from `meta`, so the page
+# draws the measurement it was given and never re-derives one.
+
+def test_a_spanset_with_features_ships_the_feature_table():
+    import pandas as pd
+    feats = pd.DataFrame({"polarity": [-1, 1], "event_amplitude_mv": [10.0, 4.5], "recovery_time_s": [3.5, np.nan]})
+    ss = SpanSet(starts=(10, 40), ends=(20, 50), features=feats)
+    meta = {"rules": [{"name": "recovery", "rule": "half recovery"}],
+            "rose": {"n": 2, "counts": [0] * 18, "bin_centres_deg": list(range(18)), "caption": "45° = 1 mV/s"},
+            "interval_stats": {"all": {"n_events": 2, "cv": None}}, "events": "not passed through"}
+    p = to_payload("spanset", ss, meta, {"fs": 2.0, "span_start": 100})
+    f = p["features"]
+    assert f["columns"] == ["polarity", "event_amplitude_mv", "recovery_time_s"] and f["n_columns"] == 3
+    assert f["matrix"] == [[-1.0, 10.0, 3.5], [1.0, 4.5, None]]
+    assert f["col_range"][2] == [3.5, 3.5]
+    assert p["rules"] == meta["rules"] and p["rose"]["caption"] == "45° = 1 mV/s"
+    assert p["interval_stats"] == {"all": {"n_events": 2, "cv": None}}
+    assert "events" not in p
+    assert "3 features" in p["summary"]
+
+
+def test_a_spanset_without_features_says_none_and_nothing_else_changes():
+    p = to_payload("spanset", SpanSet(starts=(10,), ends=(20,)), {}, {"fs": 1.0})
+    assert p["features"] is None
+    assert "rules" not in p and "rose" not in p
+    assert "features" not in p["summary"]
+
+
 if __name__ == "__main__":
     sys.exit(pytest.main([__file__, "-q"]))
