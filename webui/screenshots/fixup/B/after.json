@@ -1,0 +1,135 @@
+{
+  "tag": "after",
+  "url": "http://127.0.0.1:8765",
+  "pages": {
+    "library-atlas": {
+      "route": "library/atlas",
+      "screenshot": "webui/screenshots/fixup/B/after-library-atlas.png",
+      "unit_strings": [
+        "1 unit?",
+        "10 unit?",
+        "11 unit?",
+        "12 unit?",
+        "13 unit?",
+        "14 unit?",
+        "15 unit?",
+        "16 unit?",
+        "17 unit?",
+        "18 unit?",
+        "19 unit?",
+        "2 unit?",
+        "20 unit?",
+        "21 unit?",
+        "22 unit?",
+        "23 unit?",
+        "25 unit?",
+        "26 unit?",
+        "28 unit?",
+        "29 unit?",
+        "3 unit?",
+        "30 unit?",
+        "32 unit?",
+        "33 unit?",
+        "35 unit?",
+        "37 unit?",
+        "38 unit?",
+        "39 unit?",
+        "4 unit?",
+        "5 unit?",
+        "6 unit?",
+        "7 unit?",
+        "8 unit?",
+        "9 unit?",
+        "clipped \u00b7 15.61 mV",
+        "clipped \u00b7 15.67 mV",
+        "clipped \u00b7 16.24 mV",
+        "clipped \u00b7 16.26 mV",
+        "clipped \u00b7 17.20 mV",
+        "clipped \u00b7 20.66 mV",
+        "clipped \u00b7 22.85 mV",
+        "clipped \u00b7 34.28 mV",
+        "clipped \u00b7 46.08 mV",
+        "clipped \u00b7 67.75 mV",
+        "clipped \u00b7 67.97 mV",
+        "exemplar and medoid, shared scale \u221215.00\u2026+15.00 mV",
+        "exemplar and medoid, shared scale \u221215.00\u2026+15.00 mV \u00b7 CLIPPED: this trace peaks at 15.61 mV, past the shared domain",
+        "exemplar and medoid, shared scale \u221215.00\u2026+15.00 mV \u00b7 CLIPPED: this trace peaks at 15.67 mV, past the shared domain",
+        "exemplar and medoid, shared scale \u221215.00\u2026+15.00 mV \u00b7 CLIPPED: this trace peaks at 16.24 mV, past the shared domain",
+        "exemplar and medoid, shared scale \u221215.00\u2026+15.00 mV \u00b7 CLIPPED: this trace peaks at 16.26 mV, past the shared domain",
+        "exemplar and medoid, shared scale \u221215.00\u2026+15.00 mV \u00b7 CLIPPED: this trace peaks at 17.20 mV, past the shared domain",
+        "exemplar and medoid, shared scale \u221215.00\u2026+15.00 mV \u00b7 CLIPPED: this trace peaks at 20.66 mV, past the shared domain",
+        "exemplar and medoid, shared scale \u221215.00\u2026+15.00 mV \u00b7 CLIPPED: this trace peaks at 22.85 mV, past the shared domain",
+        "exemplar and medoid, shared scale \u221215.00\u2026+15.00 mV \u00b7 CLIPPED: this trace peaks at 34.28 mV, past the shared domain",
+        "exemplar and medoid, shared scale \u221215.00\u2026+15.00 mV \u00b7 CLIPPED: this trace peaks at 46.08 mV, past the shared domain",
+        "exemplar and medoid, shared scale \u221215.00\u2026+15.00 mV \u00b7 CLIPPED: this trace peaks at 67.75 mV, past the shared domain",
+        "exemplar and medoid, shared scale \u221215.00\u2026+15.00 mV \u00b7 CLIPPED: this trace peaks at 67.97 mV, past the shared domain",
+        "mV",
+        "peak 0.55 mV",
+        "peak 1.42 mV"
+      ],
+      "errors": [],
+      "pinned": [
+        "shared mV scale on every card \u00b7 \u221215.00\u2026+15.00 mV \u00b7 11 clipped"
+      ]
+    },
+    "library-family-F-01": {
+      "route": "library/family/F-01",
+      "screenshot": "webui/screenshots/fixup/B/after-library-family-F-01.png",
+      "unit_strings": [
+        "18.83 mV \u00b1 9.34 \u00b7 40 of 49 members (the rest: unit undeclared)",
+        "exemplar and medoid, shared scale \u221216.00\u2026+16.00 mV",
+        "exemplar and medoid, shared scale \u221252.10\u2026+52.10 mV",
+        "mV",
+        "measured \u00b7 each trace centred on its own baseline, nothing normalised \u00b7 peak 15.61 mV",
+        "shared mV scale \u00b7 \u00b152.10 mV \u00b7 1235.39 s \u00b7 mixed \u00b7 sharkfin 40 \u00b7 trough 9 \u00b7 drawn with the sharkfin glyph \u00b7 shape sketch \u00b7 amplitude and duration are measured, the waveform itself is not carried by this read",
+        "the medoid of F-01, read off the recording \u00b7 \u221216.00\u2026+16.00 mV, centred on its own baseline, not normalised",
+        "unit undeclared for Fig2A_dt0p1.csv: its waveforms and amplitudes are not drawn in mV until the unit is declared in Settings \u203a Datasets"
+      ],
+      "errors": [],
+      "pinned": [
+        "measured \u00b7 each trace centred on its own baseline, nothing normalised \u00b7 peak 15.61 mV"
+      ]
+    },
+    "library-family-F-117": {
+      "route": "library/family/F-117",
+      "screenshot": "webui/screenshots/fixup/B/after-library-family-F-117.png",
+      "unit_strings": [
+        "exemplar and medoid, shared scale \u22120.010\u2026+0.010 mV",
+        "exemplar and medoid, shared scale \u22120.10\u2026+0.10 mV",
+        "mV",
+        "shared mV scale \u00b7 \u00b10.10 mV \u00b7 1.32 s \u00b7 mixed \u00b7 trough 36 \u00b7 sharkfin 1 \u00b7 drawn with the drop glyph \u00b7 shape sketch \u00b7 amplitude and duration are measured, the waveform itself is not carried by this read",
+        "the medoid of F-117, read off the recording \u00b7 \u22120.010\u2026+0.010 mV, centred on its own baseline, not normalised",
+        "unit undeclared",
+        "unit undeclared for Fig2A_dt0p1.csv: its waveforms and amplitudes are not drawn in mV until the unit is declared in Settings \u203a Datasets",
+        "unit undeclared \u00b7 not drawn in mV",
+        "unit undeclared \u00b7 the exemplar and medoid are not drawn in mV"
+      ],
+      "errors": [],
+      "pinned": [
+        "unit undeclared \u00b7 the exemplar and medoid are not drawn in mV"
+      ]
+    },
+    "explore-signal-1": {
+      "route": "explore/signal/1",
+      "screenshot": "webui/screenshots/fixup/B/after-explore-signal-1.png",
+      "unit_strings": [
+        "-112.23 mV",
+        "-156.20 mV",
+        "-200.17 mV"
+      ],
+      "errors": [],
+      "pinned": [
+        "-112.23 mV-156.20 mV-200.17 mV"
+      ]
+    },
+    "review-q2-item-100": {
+      "route": "review/queue/2/100",
+      "screenshot": "webui/screenshots/fixup/B/after-review-q2-item-100.png",
+      "unit_strings": [
+        "Shape \u00b7 mV",
+        "mV"
+      ],
+      "errors": []
+    }
+  }
+}

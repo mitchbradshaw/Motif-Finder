@@ -121,6 +121,23 @@ below the instrument floor.** That is not a units bug; that is a detector run wh
 noise, and it is the real answer to "too many flat families" (L2). It has been invisible because the
 axis said 0.0043 and everything looked equally tiny.
 
+**Implemented by prompt `B` (2026-09-23, `reports/B-units-and-amplitude.md`).** The unit is recorded on the
+data — `recordings.units` / `units_note`, and a `units` key both manifest writers now always emit — and the bridge
+converts to mV at one seam (`webui/server/corpus.py::display_channel`; the core keeps `load_native`, the stored
+samples). For 38 of 38 seed-store spans the amplitude the app prints now equals the store's own mV peak-to-peak to
+1e-4 mV. **Not every file is volts:** M2_aug fs1/fs2, M2_concat and Mushroom_260720 are V; **L_LM_Jul_26_J is mV**
+(998.2 × the Mushroom excerpt it contains); **Fig2A, M1, M100, M101_t, MJu26a and M4 could not be verified and are
+recorded as undeclared** — the pages say "unit undeclared" instead of "mV", and the researcher declares each in
+Settings › Datasets. Fig2A is 67 % of the Library, so most Atlas cards wait on that one declaration. Two things
+found, both for round 3: **L_LM hands the core mV** where detect5 expects V (any web-UI chain on it reads 1000x
+large; no such run exists yet), and the §2b slope note is **verified** — `max_slope_raw` is V/s with `fs` applied
+once (338/338 events at 10 Hz).
+
+**Q-X2.8 (new, from prompt `B`) — should the core convert L_LM (and any future mV file) to volts on load?** The
+core's loaders read stored samples; for a millivolt recording the drop detector gets mV where it expects V.
+Converting in `execution._load_signal` from `recordings.units` fixes it, but changes the core's input for that
+recording and the meaning of its step-cache entries — a decision, not a default.
+
 **Q-X2.5 (Q11 of round 2) — what happens to `drop_motifs10`?**
 
 **A (2026-09-23): filter now, re-run later. The floor becomes a per-dataset editable setting in

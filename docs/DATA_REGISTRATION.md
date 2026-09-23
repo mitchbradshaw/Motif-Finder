@@ -83,6 +83,21 @@ at (`registered_artifacts.manifest_path`) and what "Show manifest" opens.
 `producer` is the recipe hash, the script, or the job that made the file — pass it as
 `provenance={"producer": …, "notes": …}`; the checkers fill it for kinds that can tell.
 
+## Units: what the samples are stored in (fixup-b)
+
+`recordings.units` is `V`, `mV` or `uV`; NULL means **undeclared**, and `units_note` says where the unit came from
+or why it is unknown. The vocabulary and the one factor to mV are `Working/units.py`. A recording's unit comes from
+its manifest's `units` key (free text is read by its first word, so `"millivolts as stored …"` is `mV`), or from
+`overrides.units` at registration, or from Settings › Datasets afterwards (`PUT /api/registry/recording/{id}/units`,
+audited, every channel together). An undeclared unit is a **warning, never a guess**: the pages draw such a recording
+as stored and say "unit undeclared" instead of "mV", and the Library and Review withhold its traces. An unreadable
+unit fails the `units` check. `init_db()` backfills the per-file evidence measured on 2026-09-23 onto rows that carry
+no unit and no note, so a declared unit is never overwritten.
+
+**The core never converts.** Detection code expects volts and multiplies by 1000 itself; the bridge converts only
+what it draws (`webui/server/corpus.py::display_channel`), and hands the core the stored samples
+(`corpus.load_native`). A producer writing channels should write `units` in the manifest — both writers here do.
+
 ## Excerpts: a subset of a registered recording is not a new recording
 
 User decision 2026-09-21. `Mushroom_260720_0509_4hrs_CH14_fs1` (row 385; six runs and 217 detections

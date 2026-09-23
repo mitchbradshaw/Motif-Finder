@@ -1,0 +1,132 @@
+{
+  "tag": "before",
+  "url": "http://127.0.0.1:8765",
+  "pages": {
+    "library-atlas": {
+      "route": "library/atlas",
+      "screenshot": "webui/screenshots/fixup/B/before-library-atlas.png",
+      "unit_strings": [
+        "clipped \u00b7 0.0041 mV",
+        "clipped \u00b7 0.0042 mV",
+        "clipped \u00b7 0.0043 mV",
+        "clipped \u00b7 0.0045 mV",
+        "clipped \u00b7 0.005 mV",
+        "clipped \u00b7 0.0052 mV",
+        "clipped \u00b7 0.0056 mV",
+        "clipped \u00b7 0.0058 mV",
+        "clipped \u00b7 0.006 mV",
+        "clipped \u00b7 0.0065 mV",
+        "clipped \u00b7 0.0068 mV",
+        "clipped \u00b7 0.0075 mV",
+        "clipped \u00b7 0.0091 mV",
+        "clipped \u00b7 0.010 mV",
+        "clipped \u00b7 0.012 mV",
+        "clipped \u00b7 0.013 mV",
+        "clipped \u00b7 0.014 mV",
+        "clipped \u00b7 0.015 mV",
+        "clipped \u00b7 0.016 mV",
+        "clipped \u00b7 0.017 mV",
+        "clipped \u00b7 0.021 mV",
+        "clipped \u00b7 0.023 mV",
+        "clipped \u00b7 0.034 mV",
+        "clipped \u00b7 0.046 mV",
+        "clipped \u00b7 0.068 mV",
+        "exemplar and medoid, shared scale \u22120.0041\u2026+0.0041 mV",
+        "exemplar and medoid, shared scale \u22120.0041\u2026+0.0041 mV \u00b7 CLIPPED: this trace peaks at 0.0041 mV, past the shared domain",
+        "exemplar and medoid, shared scale \u22120.0041\u2026+0.0041 mV \u00b7 CLIPPED: this trace peaks at 0.0042 mV, past the shared domain",
+        "exemplar and medoid, shared scale \u22120.0041\u2026+0.0041 mV \u00b7 CLIPPED: this trace peaks at 0.0043 mV, past the shared domain",
+        "exemplar and medoid, shared scale \u22120.0041\u2026+0.0041 mV \u00b7 CLIPPED: this trace peaks at 0.0045 mV, past the shared domain",
+        "exemplar and medoid, shared scale \u22120.0041\u2026+0.0041 mV \u00b7 CLIPPED: this trace peaks at 0.005 mV, past the shared domain",
+        "exemplar and medoid, shared scale \u22120.0041\u2026+0.0041 mV \u00b7 CLIPPED: this trace peaks at 0.0052 mV, past the shared domain",
+        "exemplar and medoid, shared scale \u22120.0041\u2026+0.0041 mV \u00b7 CLIPPED: this trace peaks at 0.0056 mV, past the shared domain",
+        "exemplar and medoid, shared scale \u22120.0041\u2026+0.0041 mV \u00b7 CLIPPED: this trace peaks at 0.0058 mV, past the shared domain",
+        "exemplar and medoid, shared scale \u22120.0041\u2026+0.0041 mV \u00b7 CLIPPED: this trace peaks at 0.006 mV, past the shared domain",
+        "exemplar and medoid, shared scale \u22120.0041\u2026+0.0041 mV \u00b7 CLIPPED: this trace peaks at 0.0065 mV, past the shared domain",
+        "exemplar and medoid, shared scale \u22120.0041\u2026+0.0041 mV \u00b7 CLIPPED: this trace peaks at 0.0068 mV, past the shared domain",
+        "exemplar and medoid, shared scale \u22120.0041\u2026+0.0041 mV \u00b7 CLIPPED: this trace peaks at 0.0075 mV, past the shared domain",
+        "exemplar and medoid, shared scale \u22120.0041\u2026+0.0041 mV \u00b7 CLIPPED: this trace peaks at 0.0091 mV, past the shared domain",
+        "exemplar and medoid, shared scale \u22120.0041\u2026+0.0041 mV \u00b7 CLIPPED: this trace peaks at 0.010 mV, past the shared domain",
+        "exemplar and medoid, shared scale \u22120.0041\u2026+0.0041 mV \u00b7 CLIPPED: this trace peaks at 0.012 mV, past the shared domain",
+        "exemplar and medoid, shared scale \u22120.0041\u2026+0.0041 mV \u00b7 CLIPPED: this trace peaks at 0.013 mV, past the shared domain",
+        "exemplar and medoid, shared scale \u22120.0041\u2026+0.0041 mV \u00b7 CLIPPED: this trace peaks at 0.014 mV, past the shared domain",
+        "exemplar and medoid, shared scale \u22120.0041\u2026+0.0041 mV \u00b7 CLIPPED: this trace peaks at 0.015 mV, past the shared domain",
+        "exemplar and medoid, shared scale \u22120.0041\u2026+0.0041 mV \u00b7 CLIPPED: this trace peaks at 0.016 mV, past the shared domain",
+        "exemplar and medoid, shared scale \u22120.0041\u2026+0.0041 mV \u00b7 CLIPPED: this trace peaks at 0.017 mV, past the shared domain",
+        "exemplar and medoid, shared scale \u22120.0041\u2026+0.0041 mV \u00b7 CLIPPED: this trace peaks at 0.021 mV, past the shared domain",
+        "exemplar and medoid, shared scale \u22120.0041\u2026+0.0041 mV \u00b7 CLIPPED: this trace peaks at 0.023 mV, past the shared domain",
+        "exemplar and medoid, shared scale \u22120.0041\u2026+0.0041 mV \u00b7 CLIPPED: this trace peaks at 0.034 mV, past the shared domain",
+        "exemplar and medoid, shared scale \u22120.0041\u2026+0.0041 mV \u00b7 CLIPPED: this trace peaks at 0.046 mV, past the shared domain",
+        "exemplar and medoid, shared scale \u22120.0041\u2026+0.0041 mV \u00b7 CLIPPED: this trace peaks at 0.068 mV, past the shared domain",
+        "mV",
+        "peak 0.00001 mV",
+        "peak 0.000015 mV",
+        "peak 0.00002 mV",
+        "peak 0.000025 mV",
+        "peak 0.00003 mV",
+        "peak 0.000035 mV",
+        "peak 0.00004 mV",
+        "peak 0.000045 mV"
+      ],
+      "errors": [],
+      "pinned": [
+        "shared mV scale on every card \u00b7 \u22120.0041\u2026+0.0041 mV \u00b7 37 clipped"
+      ]
+    },
+    "library-family-F-01": {
+      "route": "library/family/F-01",
+      "screenshot": "webui/screenshots/fixup/B/before-library-family-F-01.png",
+      "unit_strings": [
+        "0.02 mV \u00b1 0.01",
+        "exemplar and medoid, shared scale \u22120.016\u2026+0.016 mV",
+        "exemplar and medoid, shared scale \u22120.20\u2026+0.20 mV",
+        "mV",
+        "measured \u00b7 each trace centred on its own baseline, nothing normalised \u00b7 peak 0.016 mV",
+        "shared mV scale \u00b7 \u00b10.20 mV \u00b7 1235.39 s \u00b7 mixed \u00b7 sharkfin 40 \u00b7 trough 9 \u00b7 drawn with the sharkfin glyph \u00b7 shape sketch \u00b7 amplitude and duration are measured, the waveform itself is not carried by this read",
+        "the medoid of F-01, read off the recording \u00b7 \u22120.016\u2026+0.016 mV, centred on its own baseline, not normalised"
+      ],
+      "errors": [],
+      "pinned": [
+        "measured \u00b7 each trace centred on its own baseline, nothing normalised \u00b7 peak 0.016 mV"
+      ]
+    },
+    "library-family-F-117": {
+      "route": "library/family/F-117",
+      "screenshot": "webui/screenshots/fixup/B/before-library-family-F-117.png",
+      "unit_strings": [
+        "0.00 mV \u00b1 0.00",
+        "exemplar and medoid, shared scale \u22120.000025\u2026+0.000025 mV",
+        "exemplar and medoid, shared scale \u22120.10\u2026+0.10 mV",
+        "mV",
+        "measured \u00b7 each trace centred on its own baseline, nothing normalised \u00b7 peak 0.000025 mV",
+        "shared mV scale \u00b7 \u00b10.10 mV \u00b7 1.32 s \u00b7 mixed \u00b7 trough 36 \u00b7 sharkfin 1 \u00b7 drawn with the drop glyph \u00b7 shape sketch \u00b7 amplitude and duration are measured, the waveform itself is not carried by this read",
+        "the medoid of F-117, read off the recording \u00b7 \u22120.000025\u2026+0.000025 mV, centred on its own baseline, not normalised"
+      ],
+      "errors": [],
+      "pinned": [
+        "measured \u00b7 each trace centred on its own baseline, nothing normalised \u00b7 peak 0.000025 mV"
+      ]
+    },
+    "explore-signal-1": {
+      "route": "explore/signal/1",
+      "screenshot": "webui/screenshots/fixup/B/before-explore-signal-1.png",
+      "unit_strings": [
+        "-0.112 mV",
+        "-0.156 mV",
+        "-0.200 mV"
+      ],
+      "errors": [],
+      "pinned": [
+        "-0.112 mV-0.156 mV-0.200 mV"
+      ]
+    },
+    "review-q2-item-100": {
+      "route": "review/queue/2/100",
+      "screenshot": "webui/screenshots/fixup/B/before-review-q2-item-100.png",
+      "unit_strings": [
+        "Shape \u00b7 mV",
+        "mV"
+      ],
+      "errors": []
+    }
+  }
+}
