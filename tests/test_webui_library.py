@@ -879,3 +879,84 @@ def test_the_dry_run_counts_rows_that_are_already_held(tmp_path):
     assert row["outcome"] == "already_present", "and says what would happen to it"
     # a field this read does not carry is absent, never a zero standing in for one
     assert row["amp"] is None and row["shape"] is None and row["seed"] is None
+
+
+# ── fixup-b: the amplitude the Library prints is millivolts, off the declared unit ──
+
+def _member_span(rt, member_id):
+    import sqlite3
+    conn = sqlite3.connect(rt.db_path)
+    try:
+        rid, a, b = conn.execute("SELECT recording_id, start_idx, end_idx FROM motif_member WHERE id = ?",
+                                 (member_id,)).fetchone()
+        path, units = conn.execute("SELECT npy_path, units FROM recordings WHERE id = ?", (rid,)).fetchone()
+    finally:
+        conn.close()
+    return path, units, a, b
+
+
+def test_a_member_amplitude_is_the_millivolt_peak_to_peak_of_its_span(bridge):
+    """The seed recording is `M2_aug_concat_fs1.mat`, which the schema backfill
+    declares volts: the member's printed amplitude is ptp(span) x 1000, the same
+    number the drop-motif store records as mV for the same samples."""
+    client, info = bridge
+    detail = _ok(client.get("/api/library/family/F-01"))["detail"]
+    assert detail["members"], "F-01 has members"
+    for m in detail["members"]:
+        path, units, a, b = _member_span(info["rt"], int(m["id"].split("-")[1]))
+        assert units == "V", "the backfill declared the seed recording volts"
+        expect = float(np.ptp(np.load(path)[a:b].astype(float))) * 1000.0
+        assert m["amplitudeMv"] == pytest.approx(expect, rel=1e-3), m["id"]
+    fam = next(f for f in _ok(client.get("/api/library/families")) if f["id"] == "F-01")
+    assert fam["depthMv"] > 1.0, "a volts recording's depth reads in millivolts, not in volts labelled mV"
+    assert max(abs(v) for v in fam["exemplarTrace"]) > 10.0, "the trace is millivolts too"
+    assert fam["unit"] == "mV"
+
+
+def test_an_undeclared_recording_prints_no_millivolt_number_and_says_why(bridge):
+    import sqlite3
+    client, info = bridge
+    _ok(client.get("/api/library/families"))            # schema ensured, backfill done
+    conn = sqlite3.connect(info["rt"].db_path)
+    conn.execute("UPDATE recordings SET units = NULL, units_note = 'undeclared for the test' "
+                 "WHERE source_file = 'M2_aug_concat_fs1.mat'")
+    conn.commit(); conn.close()
+    fam = next(f for f in _ok(client.get("/api/library/families")) if f["id"] == "F-01")
+    assert fam["depthMv"] is None, "a number with no unit behind it is not printed as mV"
+    assert fam["exemplarTrace"] == [] and fam["medoidTrace"] == []
+    assert fam["unit"] is None
+    assert "undeclared" in fam["unitNote"] and "M2_aug_concat_fs1.mat" in fam["unitNote"]
+    assert "Settings" in fam["unitNote"], "the note says where the unit is declared"
+    detail = _ok(client.get("/api/library/family/F-01"))["detail"]
+    assert all(m["amplitudeMv"] is None for m in detail["members"])
+
+
+def test_declaring_a_unit_is_one_request_and_is_audited(bridge):
+    import sqlite3
+    client, info = bridge
+    _ok(client.get("/api/library/families"))
+    conn = sqlite3.connect(info["rt"].db_path)
+    rid = conn.execute("SELECT id FROM recordings WHERE source_file = 'M2_aug_concat_fs1.mat' ORDER BY channel").fetchone()[0]
+    conn.execute("UPDATE recordings SET units = NULL, units_note = 'undeclared for the test' "
+                 "WHERE source_file = 'M2_aug_concat_fs1.mat'")
+    conn.commit(); conn.close()
+    bad = client.put(f"/api/registry/recording/{rid}/units", json={"units": "furlongs"})
+    assert bad.status_code == 422
+    r = _ok(client.put(f"/api/registry/recording/{rid}/units", json={"units": "V", "note": "confirmed"}))
+    assert r["units"] == "V" and r["channels"] == len(CHANNELS)
+    conn = sqlite3.connect(info["rt"].db_path)
+    try:
+        assert {u for (u,) in conn.execute("SELECT units FROM recordings WHERE source_file = 'M2_aug_concat_fs1.mat'")} == {"V"}
+        assert conn.execute("SELECT COUNT(*) FROM audit_log WHERE what LIKE '%unit%'").fetchone()[0] >= 1
+    finally:
+        conn.close()
+    fam = next(f for f in _ok(client.get("/api/library/families")) if f["id"] == "F-01")
+    assert fam["depthMv"] is not None and fam["depthMv"] > 1.0, "the declaration reaches the next read (no stale cache)"
+
+
+def test_the_recording_list_carries_the_declared_unit(bridge):
+    client, _ = bridge
+    recs = _ok(client.get("/api/recordings"))
+    m2 = next(r for r in recs if r["source_file"] == "M2_aug_concat_fs1.mat")
+    assert m2["units"] == "V" and m2["display_unit"] == "mV"
+    assert m2["units_note"]

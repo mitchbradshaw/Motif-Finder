@@ -630,3 +630,20 @@ def test_the_settings_vocabulary_route_serves_what_the_annotate_card_offers(seed
     tags = got.json()["tags"]
     assert tags and all({"category", "value", "active"} <= set(t) for t in tags)
     assert "sharkfin" in {t["value"] for t in tags if t["active"]}
+
+
+# ── fixup-b: Review draws millivolts off the declared unit ─────────────────
+
+def test_the_candidate_context_is_millivolts_off_a_volts_recording(seeded):
+    """The seed channel is `0.2 sin + 0.02 cos` stored as if volts, on
+    `M2_aug_concat_fs1.mat` — declared volts by the schema backfill. The
+    context the inspector draws is that x 1000; before fixup-b it was the
+    stored volts under an "mV" axis."""
+    client, rt, info = seeded
+    q = _make_queue(client, info)
+    qid = q["queue"]["id"]
+    row = client.get(f"/api/review/queues/{qid}").json()["rows"][0]
+    d = client.get(f"/api/review/queues/{qid}/items/{row['id']}").json()
+    vals = [v for v in d["context"]["values"] if v is not None]
+    assert vals and max(abs(v) for v in vals) > 10.0, "millivolts, not volts labelled mV"
+    assert max(abs(v) for v in vals) <= 221.0, "and not converted twice (0.22 V peak -> 220 mV)"

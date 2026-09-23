@@ -68,8 +68,8 @@ def _bump_mtime(path, seconds=2):
 
 def test_channel_mmap_is_reused_for_the_same_file(tmp_path):
     path = _npy(tmp_path, np.arange(100.0))
-    a = corpus.load_channel(path)
-    b = corpus.load_channel(path)
+    a = corpus.load_native(path)
+    b = corpus.load_native(path)
     assert a is b, "the same channel file was memory-mapped twice"
     assert float(a[7]) == 7.0
 
@@ -82,10 +82,10 @@ def test_channel_mmap_is_invalidated_when_the_file_changes(tmp_path):
     to notice, which is a far worse bug than the slowness the cache fixes.
     """
     path = _npy(tmp_path, np.arange(100.0))
-    first = corpus.load_channel(path)
+    first = corpus.load_native(path)
     misses = corpus._mmap.cache_info().misses
     _bump_mtime(path)
-    second = corpus.load_channel(path)
+    second = corpus.load_native(path)
     assert second is not first, "stale mmap served after the file changed"
     assert corpus._mmap.cache_info().misses == misses + 1
 
