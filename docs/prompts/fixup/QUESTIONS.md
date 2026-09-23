@@ -49,16 +49,33 @@ micro-volt family must not be made to look like a millivolt one) is kept by the 
 shape becomes legible because each card gets its own domain. **No motif may be clipped in its own
 thumbnail** — that is the acceptance test, not a nicety.
 
+**Implemented by prompt `C` (2026-09-23, `reports/C-one-plot-domain-rule.md`).** The one rule is
+`webui/client/src/charts/domain.ts` (`measuredDomain` / `padDomain`, run under Node by
+`tests/test_webui_plot_domain.py`); `makeY` (Explore), the kit's `Trace` and `MiniTrace` defaults, and
+every Library and Review plot go through it, and no second rule is left in the tree. The reference bar
+is **logarithmic**, a tick per decade, computed once per page from every card's peak: on a linear bar
+every sub-mV family of a page whose largest is 100 mV sits at zero, which is D5's flat line moved into
+the bar. `MiniTrace` no longer clamps; smoke measures that no trace leaves its plot box on the Atlas,
+the Family page and the Review inspector.
+
 **Q-X2.3** Should the Family page's **shape sketch** be dropped and the real waveform fetched?
 
 **A: yes, fetch the real waveform for the member cards.** A member card that does not show the
 member's waveform is not worth its space on a page whose job is looking at every member. The cost is
 a payload-size question, to be measured and reported, not a design one.
 
+**Implemented by prompt `C`.** `members[].trace` / `removed[].trace` on the family read, at the
+exemplar's resolution (~120 points). Largest family (F-30, 79 members): 41 KB → 130 KB, warm read
+~0.27 s → ~0.35 s. Not decimated; `library.py::MEMBER_TRACE_PX` is the knob if a family ever makes
+the read slow.
+
 **Q-R1.1** Review's `[-0.44, 0.44]`: data-driven per candidate, or per queue, or a settings key?
 
 **A: follows Q-X2.1** — per-candidate measured, reference bar for the shared scale. One rule across
 Review, Library and Explore; that is the whole point of making it a cluster prompt.
+
+**Implemented by prompt `C`.** `Y_MV` / `THUMB_Y` deleted; the Shape card's bar is the queue's shared
+scale (every candidate's peak by the same measure as the Library's).
 
 **Q-X2.4 (new, raised by the researcher 2026-09-23) — THE UNITS QUESTION, AND IT OUTRANKS ALL OF THE
 ABOVE.** The Library's shared domain reads ±0.0043 "mV". The researcher states the recording noise

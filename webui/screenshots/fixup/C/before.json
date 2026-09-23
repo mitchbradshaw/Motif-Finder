@@ -1,0 +1,116 @@
+{
+  "declared": null,
+  "payload": {
+    "F-01": {
+      "bytes": 30041,
+      "members": 49,
+      "member_traces": 0,
+      "points_per_member_trace": 0,
+      "first_read_s": 0.28,
+      "warm_read_s": 0.245
+    },
+    "F-117": {
+      "bytes": 22392,
+      "members": 37,
+      "member_traces": 0,
+      "points_per_member_trace": 0,
+      "first_read_s": 0.252,
+      "warm_read_s": 0.257
+    },
+    "F-30": {
+      "bytes": 41376,
+      "members": 79,
+      "member_traces": 0,
+      "points_per_member_trace": 0,
+      "first_read_s": 0.274,
+      "warm_read_s": 0.267
+    },
+    "F-130": {
+      "bytes": 32752,
+      "members": 55,
+      "member_traces": 0,
+      "points_per_member_trace": 0,
+      "first_read_s": 0.521,
+      "warm_read_s": 0.277
+    }
+  },
+  "tag": "before",
+  "url": "http://127.0.0.1:8775",
+  "pages": {
+    "library-atlas": {
+      "route": "library/atlas",
+      "screenshot": "webui/screenshots/fixup/C/before-library-atlas.png",
+      "scale_text": [
+        "clipped \u00b7 15.61 mV",
+        "clipped \u00b7 17.20 mV",
+        "clipped \u00b7 16.26 mV",
+        "clipped \u00b7 46.08 mV",
+        "clipped \u00b7 20.66 mV",
+        "clipped \u00b7 34.28 mV",
+        "clipped \u00b7 67.75 mV",
+        "clipped \u00b7 16.24 mV",
+        "clipped \u00b7 67.97 mV",
+        "clipped \u00b7 15.67 mV",
+        "clipped \u00b7 22.85 mV",
+        "shared mV scale on every card \u00b7 \u221215.00\u2026+15.00 mV \u00b7 11 clipped",
+        "clipped \u00b7 15.61 mV"
+      ],
+      "traces": {
+        "outside": [],
+        "pinned": 24,
+        "traces": 106
+      },
+      "errors": []
+    },
+    "library-family-F-01": {
+      "route": "library/family/F-01",
+      "screenshot": "webui/screenshots/fixup/C/before-library-family-F-01.png",
+      "scale_text": [
+        "measured \u00b7 each trace centred on its own baseline, nothing normalised \u00b7 peak 15.61 mV"
+      ],
+      "traces": {
+        "outside": [],
+        "pinned": 0,
+        "traces": 14
+      },
+      "errors": []
+    },
+    "library-family-F-117": {
+      "route": "library/family/F-117",
+      "screenshot": "webui/screenshots/fixup/C/before-library-family-F-117.png",
+      "scale_text": [
+        "unit undeclared \u00b7 the exemplar and medoid are not drawn in mV"
+      ],
+      "traces": {
+        "outside": [],
+        "pinned": 0,
+        "traces": 0
+      },
+      "errors": []
+    },
+    "explore-signal-1": {
+      "route": "explore/signal/1",
+      "screenshot": "webui/screenshots/fixup/C/before-explore-signal-1.png",
+      "scale_text": [
+        "-112.23 mV-156.20 mV-200.17 mV"
+      ],
+      "traces": {
+        "outside": [],
+        "pinned": 0,
+        "traces": 0
+      },
+      "errors": []
+    },
+    "review-q2-item-100": {
+      "route": "review/queue/2/100",
+      "screenshot": "webui/screenshots/fixup/C/before-review-q2-item-100.png",
+      "scale_text": [],
+      "traces": {
+        "outside": [],
+        "pinned": 0,
+        "traces": 10
+      },
+      "errors": []
+    }
+  }
+}

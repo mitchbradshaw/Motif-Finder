@@ -1,0 +1,157 @@
+{
+  "declared": null,
+  "payload": {
+    "F-01": {
+      "bytes": 86620,
+      "members": 49,
+      "member_traces": 40,
+      "points_per_member_trace": 120,
+      "first_read_s": 1.53,
+      "warm_read_s": 1.59
+    },
+    "F-117": {
+      "bytes": 22799,
+      "members": 37,
+      "member_traces": 0,
+      "points_per_member_trace": 0,
+      "first_read_s": 2.124,
+      "warm_read_s": 2.016
+    },
+    "F-30": {
+      "bytes": 130423,
+      "members": 79,
+      "member_traces": 72,
+      "points_per_member_trace": 120,
+      "first_read_s": 1.759,
+      "warm_read_s": 1.318
+    },
+    "F-130": {
+      "bytes": 51894,
+      "members": 55,
+      "member_traces": 17,
+      "points_per_member_trace": 120,
+      "first_read_s": 0.762,
+      "warm_read_s": 0.498
+    }
+  },
+  "tag": "after",
+  "url": "http://127.0.0.1:8775",
+  "pages": {
+    "library-atlas": {
+      "route": "library/atlas",
+      "screenshot": "webui/screenshots/fixup/C/after-library-atlas.png",
+      "scale_text": [
+        "F-01 peaks at 15.6 mV \u00b7 the bar is one shared log scale for the page, 0.1\u2013100 mV, a tick per decade; the mark is where F-01 sits on it",
+        "F-02 peaks at 17.2 mV \u00b7 the bar is one shared log scale for the page, 0.1\u2013100 mV, a tick per decade; the mark is where F-02 sits on it",
+        "F-03 peaks at 7.49 mV \u00b7 the bar is one shared log scale for the page, 0.1\u2013100 mV, a tick per decade; the mark is where F-03 sits on it",
+        "F-108 peaks at 11.7 mV \u00b7 the bar is one shared log scale for the page, 0.1\u2013100 mV, a tick per decade; the mark is where F-108 sits on it",
+        "F-109 peaks at 5.01 mV \u00b7 the bar is one shared log scale for the page, 0.1\u2013100 mV, a tick per decade; the mark is where F-109 sits on it",
+        "F-111 peaks at 4.17 mV \u00b7 the bar is one shared log scale for the page, 0.1\u2013100 mV, a tick per decade; the mark is where F-111 sits on it",
+        "F-122 peaks at 4.14 mV \u00b7 the bar is one shared log scale for the page, 0.1\u2013100 mV, a tick per decade; the mark is where F-122 sits on it",
+        "F-130 peaks at 0.55 mV \u00b7 the bar is one shared log scale for the page, 0.1\u2013100 mV, a tick per decade; the mark is where F-130 sits on it",
+        "F-139 peaks at 4.06 mV \u00b7 the bar is one shared log scale for the page, 0.1\u2013100 mV, a tick per decade; the mark is where F-139 sits on it",
+        "F-140 peaks at 5.99 mV \u00b7 the bar is one shared log scale for the page, 0.1\u2013100 mV, a tick per decade; the mark is where F-140 sits on it",
+        "F-141 peaks at 16.3 mV \u00b7 the bar is one shared log scale for the page, 0.1\u2013100 mV, a tick per decade; the mark is where F-141 sits on it",
+        "F-144 peaks at 46.1 mV \u00b7 the bar is one shared log scale for the page, 0.1\u2013100 mV, a tick per decade; the mark is where F-144 sits on it",
+        "F-148 peaks at 2.47 mV \u00b7 the bar is one shared log scale for the page, 0.1\u2013100 mV, a tick per decade; the mark is where F-148 sits on it",
+        "F-154 peaks at 1.87 mV \u00b7 the bar is one shared log scale for the page, 0.1\u2013100 mV, a tick per decade; the mark is where F-154 sits on it",
+        "F-157 peaks at 4.46 mV \u00b7 the bar is one shared log scale for the page, 0.1\u2013100 mV, a tick per decade; the mark is where F-157 sits on it",
+        "F-158 peaks at 13.9 mV \u00b7 the bar is one shared log scale for the page, 0.1\u2013100 mV, a tick per decade; the mark is where F-158 sits on it",
+        "F-165 peaks at 2.57 mV \u00b7 the bar is one shared log scale for the page, 0.1\u2013100 mV, a tick per decade; the mark is where F-165 sits on it",
+        "F-166 peaks at 20.7 mV \u00b7 the bar is one shared log scale for the page, 0.1\u2013100 mV, a tick per decade; the mark is where F-166 sits on it",
+        "F-17 peaks at 5.64 mV \u00b7 the bar is one shared log scale for the page, 0.1\u2013100 mV, a tick per decade; the mark is where F-17 sits on it",
+        "F-170 peaks at 9.15 mV \u00b7 the bar is one shared log scale for the page, 0.1\u2013100 mV, a tick per decade; the mark is where F-170 sits on it",
+        "F-171 peaks at 10.5 mV \u00b7 the bar is one shared log scale for the page, 0.1\u2013100 mV, a tick per decade; the mark is where F-171 sits on it",
+        "F-172 peaks at 14.9 mV \u00b7 the bar is one shared log scale for the page, 0.1\u2013100 mV, a tick per decade; the mark is where F-172 sits on it",
+        "F-173 peaks at 34.3 mV \u00b7 the bar is one shared log scale for the page, 0.1\u2013100 mV, a tick per decade; the mark is where F-173 sits on it",
+        "F-178 peaks at 4.29 mV \u00b7 the bar is one shared log scale for the page, 0.1\u2013100 mV, a tick per decade; the mark is where F-178 sits on it",
+        "F-20 peaks at 2.5 mV \u00b7 the bar is one shared log scale for the page, 0.1\u2013100 mV, a tick per decade; the mark is where F-20 sits on it",
+        "F-200 peaks at 1.9 mV \u00b7 the bar is one shared log scale for the page, 0.1\u2013100 mV, a tick per decade; the mark is where F-200 sits on it",
+        "F-24 peaks at 4.27 mV \u00b7 the bar is one shared log scale for the page, 0.1\u2013100 mV, a tick per decade; the mark is where F-24 sits on it",
+        "F-25 peaks at 5.23 mV \u00b7 the bar is one shared log scale for the page, 0.1\u2013100 mV, a tick per decade; the mark is where F-25 sits on it",
+        "F-30 peaks at 67.7 mV \u00b7 the bar is one shared log scale for the page, 0.1\u2013100 mV, a tick per decade; the mark is where F-30 sits on it",
+        "F-34 peaks at 14.7 mV \u00b7 the bar is one shared log scale for the page, 0.1\u2013100 mV, a tick per decade; the mark is where F-34 sits on it",
+        "F-37 peaks at 13.8 mV \u00b7 the bar is one shared log scale for the page, 0.1\u2013100 mV, a tick per decade; the mark is where F-37 sits on it",
+        "F-46 peaks at 7.45 mV \u00b7 the bar is one shared log scale for the page, 0.1\u2013100 mV, a tick per decade; the mark is where F-46 sits on it",
+        "F-47 peaks at 5.82 mV \u00b7 the bar is one shared log scale for the page, 0.1\u2013100 mV, a tick per decade; the mark is where F-47 sits on it",
+        "F-48 peaks at 1.91 mV \u00b7 the bar is one shared log scale for the page, 0.1\u2013100 mV, a tick per decade; the mark is where F-48 sits on it",
+        "F-62 peaks at 16.2 mV \u00b7 the bar is one shared log scale for the page, 0.1\u2013100 mV, a tick per decade; the mark is where F-62 sits on it",
+        "F-63 peaks at 68 mV \u00b7 the bar is one shared log scale for the page, 0.1\u2013100 mV, a tick per decade; the mark is where F-63 sits on it",
+        "F-64 peaks at 12.7 mV \u00b7 the bar is one shared log scale for the page, 0.1\u2013100 mV, a tick per decade; the mark is where F-64 sits on it",
+        "F-65 peaks at 1.79 mV \u00b7 the bar is one shared log scale for the page, 0.1\u2013100 mV, a tick per decade; the mark is where F-65 sits on it",
+        "F-66 peaks at 1.42 mV \u00b7 the bar is one shared log scale for the page, 0.1\u2013100 mV, a tick per decade; the mark is where F-66 sits on it",
+        "F-67 peaks at 2.63 mV \u00b7 the bar is one shared log scale for the page, 0.1\u2013100 mV, a tick per decade; the mark is where F-67 sits on it"
+      ],
+      "traces": {
+        "outside": [],
+        "pinned": 0,
+        "traces": 106
+      },
+      "errors": []
+    },
+    "library-family-F-01": {
+      "route": "library/family/F-01",
+      "screenshot": "webui/screenshots/fixup/C/after-library-family-F-01.png",
+      "scale_text": [
+        "F-01's exemplar and medoid peaks at 15.6 mV \u00b7 the bar is one shared log scale for the page, 1\u2013100 mV, a tick per decade; the mark is where F-01's exemplar and medoid sits on it",
+        "measured \u00b7 each trace centred on its own baseline, nothing normalised \u00b7 peak 15.61 mV",
+        "m-883 peaks at 15.6 mV \u00b7 the bar is one shared log scale for the page, 1\u2013100 mV, a tick per decade; the mark is where m-883 sits on it",
+        "m-249 peaks at 20 mV \u00b7 the bar is one shared log scale for the page, 1\u2013100 mV, a tick per decade; the mark is where m-249 sits on it",
+        "m-234 peaks at 18 mV \u00b7 the bar is one shared log scale for the page, 1\u2013100 mV, a tick per decade; the mark is where m-234 sits on it",
+        "m-247 peaks at 16.3 mV \u00b7 the bar is one shared log scale for the page, 1\u2013100 mV, a tick per decade; the mark is where m-247 sits on it",
+        "m-250 peaks at 17.4 mV \u00b7 the bar is one shared log scale for the page, 1\u2013100 mV, a tick per decade; the mark is where m-250 sits on it",
+        "m-248 peaks at 18.5 mV \u00b7 the bar is one shared log scale for the page, 1\u2013100 mV, a tick per decade; the mark is where m-248 sits on it",
+        "m-876 peaks at 16.9 mV \u00b7 the bar is one shared log scale for the page, 1\u2013100 mV, a tick per decade; the mark is where m-876 sits on it",
+        "m-238 peaks at 18.8 mV \u00b7 the bar is one shared log scale for the page, 1\u2013100 mV, a tick per decade; the mark is where m-238 sits on it",
+        "m-240 peaks at 21 mV \u00b7 the bar is one shared log scale for the page, 1\u2013100 mV, a tick per decade; the mark is where m-240 sits on it",
+        "m-235 peaks at 20.9 mV \u00b7 the bar is one shared log scale for the page, 1\u2013100 mV, a tick per decade; the mark is where m-235 sits on it",
+        "each member's own waveform, read off the recording, on its own mV scale \u00b7 the bar at its right: its peak on one shared log scale for the page, 1\u2013100 mV, a tick per decade",
+        "m-883 peaks at 15.6 mV \u00b7 the bar is one shared log scale for the page, 1\u2013100 mV, a tick per decade; the mark is where m-883 sits on it"
+      ],
+      "traces": {
+        "outside": [],
+        "pinned": 0,
+        "traces": 24
+      },
+      "errors": []
+    },
+    "library-family-F-117": {
+      "route": "library/family/F-117",
+      "screenshot": "webui/screenshots/fixup/C/after-library-family-F-117.png",
+      "scale_text": [
+        "unit undeclared \u00b7 the exemplar and medoid are not drawn in mV",
+        "no member of this family is drawn in mV on this page"
+      ],
+      "traces": {
+        "outside": [],
+        "pinned": 0,
+        "traces": 0
+      },
+      "errors": []
+    },
+    "explore-signal-1": {
+      "route": "explore/signal/1",
+      "screenshot": "webui/screenshots/fixup/C/after-explore-signal-1.png",
+      "scale_text": [
+        "-112.23 mV-156.20 mV-200.17 mV"
+      ],
+      "traces": {
+        "outside": [],
+        "pinned": 0,
+        "traces": 0
+      },
+      "errors": []
+    },
+    "review-q2-item-100": {
+      "route": "review/queue/2/100",
+      "screenshot": "webui/screenshots/fixup/C/after-review-q2-item-100.png",
+      "scale_text": [],
+      "traces": {
+        "outside": [],
+        "pinned": 0,
+        "traces": 12
+      },
+      "errors": []
+    }
+  }
+}
