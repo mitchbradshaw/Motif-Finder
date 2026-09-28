@@ -534,7 +534,13 @@ Review has been judging event shape on a tenth of the available detail.) Owner: 
 **Q25 — the 115 legacy rows: fix the reader or the rows?** **A: both, in that order — and the
 migration is its own prompt, run FIRST.** `M-migrate-legacy-detections.md` written 2026-09-28.
 `absolute_bounds` and its readers stay regardless: a database restored from an old backup still holds
-relative rows.
+relative rows. **`M` ran 2026-09-28** (`reports/M-migrate-legacy-detections.md`): the re-run audit
+matched the 2026-09-24 table to the row (56 / 18 / 8 runs, 115 rows, none ambiguous, none mixed);
+backup `DATA/db/backups/20260928-211406-fixup-m.sqlite` passed `integrity_check` first; the rewrite is
+`audit_log` id 482; a second pass plans 0 rows; and re-running each run's own recipe on its span
+reproduces the migrated rows exactly for 114 of 115 (the last is a whole-span catalogue window, now
+exactly its span). The migration lives in `init_db()`, so a restored backup migrates itself on open.
+`G` is still to add Review's `absolute_bounds` call.
 
 **U5** folds into the dataset-naming prompt `F` (same page). **U6** — the researcher has the Dehshibi
 PDF locally and will attach it with `J`; **`J` is to include a grilling session of its own** to
