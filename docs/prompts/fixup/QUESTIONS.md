@@ -520,3 +520,84 @@ Nine from the researcher, with screenshots. Recorded here; ownership assigned as
 
 U7, U8 and U9 are one theme: **a block must show its work.** They are the "legibility" pillar of
 `CLAUDE.md`'s priority order, and the exemplar figure the researcher supplied is the standard to hit.
+
+
+---
+
+## Round 4, answered 2026-09-28
+
+**Q24 — read the higher-resolution parent in Review?** **A: yes, with the toggle defaulted ON.** Few
+datasets are decimated subsets of a higher-resolution parent, so it is an edge case and the cost of
+defaulting it on is small. (Recording 385 is a 10:1 decimation of `L_LM_Jul_26_J_raw` at 10 Hz;
+Review has been judging event shape on a tenth of the available detail.) Owner: `G`.
+
+**Q25 — the 115 legacy rows: fix the reader or the rows?** **A: both, in that order — and the
+migration is its own prompt, run FIRST.** `M-migrate-legacy-detections.md` written 2026-09-28.
+`absolute_bounds` and its readers stay regardless: a database restored from an old backup still holds
+relative rows.
+
+**U5** folds into the dataset-naming prompt `F` (same page). **U6** — the researcher has the Dehshibi
+PDF locally and will attach it with `J`; **`J` is to include a grilling session of its own** to
+confirm the site's implementation against the paper before changing anything.
+
+---
+
+## Round 4 findings — measured, 2026-09-28
+
+### U2 is NOT a wrong detection. The highlight is right; the trace is on a compressed x-axis.
+
+`webui/server/review.py:111` `_trace` discards `env["t"]` and returns only `env["v"]`, on a docstring
+contract that the x axis is implied. The client honours it literally — `parts.tsx:70-75` treats
+`context.values` as one value per second. But `decimate.envelope` returns **fewer, non-uniformly
+spaced** points once a span exceeds `2 x px`. Reproduced exactly for item 102:
+
+    context [2033, 2693) = 660 samples -> envelope at px=320 -> 440 points
+    client draws 440 points at 1/s from t0=2033 -> 0.5647 h .. 0.6867 h   [screenshot: 0.565 .. 0.687]
+    the drop is DRAWN at 0.6294 h  [screenshot: ~0.626 h]
+    its TRUE position is 0.6619 h  -- INSIDE the highlight 0.6481-0.6647 h
+
+Everything right of `t0` is compressed by 440/660 = two thirds. The band is drawn in true absolute
+seconds, so **band and trace are on two different x-axes.** The detector was right all along.
+
+**U1's context-card zigzag is the same root cause**: each envelope bucket emits its min *and* max,
+meant to land on the same x and draw as a vertical tick; with `t` discarded they sit a full second
+apart, so every bucket becomes a diagonal.
+
+**U3 is probably the same.** `parts.tsx:71` computes `off = CONTEXT_PAD_MAX - pad` and slices
+*envelope points* as though they were seconds; at +/-120 s that strips 180 of 440 from each end. The
+padding is not one-sided by design — it is computed against the wrong array length.
+
+**U1's Shape card is NOT a bug.** `SHAPE_PX = 60` over a 60-sample candidate at fs = 1 Hz returns 60
+raw samples undecimated, ~6 px between vertices at stroke width 2. Real data resolution; value
+quantisation ruled out (smallest non-zero step 2.2e-9 V, no plateaus). **Latent:** `SHAPE_PX` never
+sees the card's width, so a 3600 s candidate gets 120 points over ~380 px; `CONTEXT_PX = 320` likewise
+discards a third of the samples that would fit on an ~816 px plot.
+
+**U1, U2 and U3 are largely one fix**: carry `t`, make the axis real, size decimation to the width.
+
+### U10 (new) — Resolve spans and Spike shape are the same block wearing two names
+
+`api/interrogation.ts:142,156`: `getSlopeBlock` and `getAggregateBlock` both call
+`familyAndMembers(familyId)` — the same data — and swap only `UPSTREAMS[upstream]` and
+`CHAIN_SPIKE`/`CHAIN_SLOPE`, i.e. the labels. The features list claims Spike shape declares
+"amplitude, half-width, rise, decay"; the members and their features are the slope block's either way.
+The revert the researcher saw is `useUpstreamQuery()` defaulting to slope when the query param is not
+carried. **Same class as Q19's fabrication, so `E` owns it.**
+
+### U11 (new) — the members-overlaid plot is drawn in too narrow a time window
+
+The app's overlay spans **-20 to +40 s** from onset and the members look flat; the researcher's
+matplotlib plate spans **-1000 to +1500 s** and the sharkfin shape is obvious. The window comes from
+Source settings `context padding = +/- 0.5 x span`, far too narrow for a short event to show the rise
+that precedes the drop. Plus excess y headroom (axis to 40 mV, data to ~25) and an aspect that should
+be narrower and taller. **The time window is the main cause, not the aspect ratio.**
+
+### U12 (new) — the bridge reports a Ctrl-C on first start with no input
+
+`webui/run_server.py` installs no SIGINT/SIGBREAK handler and calls `uvicorn.run()` directly. Prompt
+`D` also recorded Windows asyncio `WinError 10022` teardown lines on a first smoke run that did not
+recur. **Not diagnosed — needs reproduction, not a guess.**
+
+### U13 (new) — global search is not wired
+
+The header's "Search spans, runs, families" box is on every page and does nothing. Future prompt.
