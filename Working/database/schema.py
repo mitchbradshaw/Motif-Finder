@@ -41,9 +41,18 @@ destructive: a CHECK constraint cannot be altered in place, so widening the
 verdict vocabulary rebuilds the table. It backs the file up first, runs in one
 transaction, verifies its row and tag-link counts before committing, and is a
 no-op once the live constraint is current.
+
+One migration rewrites *rows* rather than the schema: `_migrate_legacy_detections`
+(fixup M, 2026-09-28) shifts the span-relative `detections` rows a spanned run
+wrote before 2026-09-21 into channel-absolute coordinates, by the same rule
+`Working.discovery.spans.absolute_bounds` applies on read. It is keyed on the
+data itself — a legacy row is one whose `start_idx` lies below its run's
+`span_start` — so a second pass finds nothing, and it refuses any run where
+that rule cannot be trusted. Every rewrite is recorded in `audit_log`.
 """
 
 import datetime
+import logging
 import os
 import sqlite3
 
@@ -1223,6 +1232,124 @@ def _migrate_motif_features(conn):
     conn.commit()
 
 
+# Fixup M (docs/prompts/fixup/M-migrate-legacy-detections.md): a `detections`
+# row written by a spanned run before 2026-09-21 is span-relative — the
+# executor added no offset — while every reader treats the table as
+# channel-absolute. Three readers shift such a row on the way out through
+# `Working.discovery.spans.absolute_bounds` (start below the run's span_start
+# → add span_start); a fourth (Review) was missed, which is what a latent
+# data-format inconsistency does. This rewrites the rows once, so the rule is
+# a no-op on the migrated database. `absolute_bounds` and its callers stay: a
+# database restored from an older backup still holds relative rows.
+#
+# Two properties make the rewrite safe, and both are asserted per run rather
+# than assumed:
+#   * not ambiguous — span_length <= span_start, else a relative index could
+#     land at or above span_start and be indistinguishable from an absolute one;
+#   * not mixed — every row of the run is below span_start, or none is; a run
+#     with both means the heuristic is wrong about it.
+# A run failing either is refused and reported, never guessed at.
+LEGACY_DETECTIONS_RULE = ("start_idx < span_start on a run with span_start > 0 "
+                          "→ start_idx + span_start, end_idx + span_start")
+
+
+def plan_legacy_detections(conn):
+    """What `migrate_legacy_detections` would rewrite, without writing.
+
+    Returns ``{"runs": [...], "refused": [...], "n_rows": int}``. Each entry
+    of ``runs`` names a run that will be migrated: its ``span_start``,
+    ``span_end``, ``span_length``, the row count ``n``, ``n_legacy`` (equal to
+    ``n`` — a migratable run is never mixed) and the row ``ids``. Each entry
+    of ``refused`` names a run left alone and why (``reason`` = ``ambiguous``
+    or ``mixed``). Runs with no detections, whole-channel runs
+    (``span_start = 0``) and spanned runs whose rows are all absolute already
+    are not listed: there is nothing to say about them.
+    """
+    rows = conn.execute(
+        """SELECT r.id AS run_id, r.span_start, r.span_end,
+                  COUNT(d.id) AS n,
+                  SUM(CASE WHEN d.start_idx < r.span_start THEN 1 ELSE 0 END) AS n_legacy
+           FROM runs r JOIN detections d ON d.run_id = r.id
+           WHERE r.span_start > 0
+           GROUP BY r.id ORDER BY r.id""").fetchall()
+    plan = {"runs": [], "refused": [], "n_rows": 0}
+    for r in rows:
+        run_id, span_start, span_end = int(r[0]), int(r[1]), int(r[2])
+        n, n_legacy = int(r[3]), int(r[4] or 0)
+        entry = {"run_id": run_id, "span_start": span_start, "span_end": span_end,
+                 "span_length": span_end - span_start, "n": n, "n_legacy": n_legacy}
+        if entry["span_length"] > span_start:
+            plan["refused"].append(dict(entry, reason="ambiguous"))
+        elif n_legacy == 0:
+            continue
+        elif n_legacy < n:
+            plan["refused"].append(dict(entry, reason="mixed"))
+        else:
+            ids = [int(x[0]) for x in conn.execute(
+                "SELECT id FROM detections WHERE run_id = ? AND start_idx < ? ORDER BY id",
+                (run_id, span_start))]
+            entry["ids"] = ids
+            plan["runs"].append(entry)
+            plan["n_rows"] += len(ids)
+    return plan
+
+
+def migrate_legacy_detections(conn):
+    """Rewrite every legacy span-relative `detections` row to channel-absolute,
+    run by run, refusing any run `plan_legacy_detections` refuses.
+
+    Idempotent: after the rewrite every touched row has ``start_idx >=
+    span_start``, so `absolute_bounds` leaves it alone and a second pass plans
+    nothing. One `audit_log` row (kind ``migration``) records each run, its
+    ``span_start``, the row ids and the count — written only when something
+    was rewritten, so a refusal alone leaves no audit trace beyond the log
+    warning. Returns the plan it applied plus ``rewritten``, the number of
+    rows actually changed (asserted equal to the plan, run by run).
+    """
+    plan = plan_legacy_detections(conn)
+    for refused in plan["refused"]:
+        logging.getLogger(__name__).warning(
+            "legacy detections: refusing run %d (%s): span [%d, %d) n=%d n_legacy=%d",
+            refused["run_id"], refused["reason"], refused["span_start"], refused["span_end"],
+            refused["n"], refused["n_legacy"])
+    if plan["n_rows"] == 0:
+        return dict(plan, rewritten=0)
+    from Working.registration.settings import append_audit
+    rewritten = 0
+    with conn:  # one transaction: every run or none
+        for entry in plan["runs"]:
+            cur = conn.execute(
+                "UPDATE detections SET start_idx = start_idx + ?, end_idx = end_idx + ? "
+                "WHERE run_id = ? AND start_idx < ?",
+                (entry["span_start"], entry["span_start"], entry["run_id"], entry["span_start"]))
+            if cur.rowcount != len(entry["ids"]):
+                raise RuntimeError(
+                    "legacy detections: run %d planned %d rows, rewrote %d"
+                    % (entry["run_id"], len(entry["ids"]), cur.rowcount))
+            left = conn.execute(
+                "SELECT COUNT(*) FROM detections WHERE run_id = ? AND start_idx < ?",
+                (entry["run_id"], entry["span_start"])).fetchone()[0]
+            if left:
+                raise RuntimeError(
+                    "legacy detections: run %d still holds %d rows below span_start"
+                    % (entry["run_id"], left))
+            rewritten += cur.rowcount
+        append_audit(
+            conn, "migration",
+            "Rewrote %d legacy span-relative detections to channel-absolute across %d runs (%s)"
+            % (rewritten, len(plan["runs"]), LEGACY_DETECTIONS_RULE),
+            "Working/database/schema.py::_migrate_legacy_detections",
+            actor="init_db (fixup M)",
+            detail={"rule": LEGACY_DETECTIONS_RULE, "n_rows": rewritten,
+                    "runs": plan["runs"], "refused": plan["refused"]},
+            commit=False)
+    return dict(plan, rewritten=rewritten)
+
+
+def _migrate_legacy_detections(conn):
+    migrate_legacy_detections(conn)
+
+
 def init_db(db_path=None):
     """Create every table (and index) if it doesn't already exist.
 
@@ -1256,6 +1383,8 @@ def init_db(db_path=None):
     _migrate_encodings_registration_columns(conn)
     _create_registration_tables(conn)
     _migrate_motif_features(conn)
+    # After the registration tables: the rewrite records itself in `audit_log`.
+    _migrate_legacy_detections(conn)
     # The backfill must run after `motif_entry` has every column it copies
     # into, and after `motifs.sax_string` exists on legacy databases.
     _backfill_motif_entries(conn)
