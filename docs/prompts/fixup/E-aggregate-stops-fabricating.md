@@ -13,6 +13,38 @@ behind each), `docs/BLOCK_INTEGRATION.md` for the rise-time parameter, and
 
 Commit prefix `fixup-e:`. Test-first; first commit touches only `tests/` and must fail.
 
+## Running in parallel
+
+**Prompt `G` (`G-review-axis-and-resolution.md`) runs in the same checkout at the same time.** It owns
+Review's time axis, decimation and source-resolution toggle. You own Analyse › Interrogation. Read
+this before your first commit.
+
+| | you (`E`) | `G` |
+|---|---|---|
+| client | `webui/client/src/interrogation/**`, `api/interrogation.ts` | `webui/client/src/review/**` |
+| server | `webui/server/interrogation_routes.py` | `webui/server/review.py`, `webui/server/decimate.py` |
+| core | `Adapters/interrogation_event_shape.py` | `Working/review/queues.py`, `Working/database/queries.py` (`queue_candidates` only) |
+| smoke | `webui/smoke_pages/interrogation.json`, `analyse.json` | `webui/smoke_pages/review.json` |
+| port / dist | **8765**, a private client build | 8766 |
+
+**Shared files — small hunks, commit immediately with explicit `--` paths, never `git add -A`:**
+`webui/client/src/api.ts` (append only), `webui/smoke.py` (extend only). A path-scoped commit can still
+carry the other agent's hunks in a file you both touched, so commit the moment your hunk is green.
+
+**`G` is changing `webui/client/src/kit/plots.tsx` (`Trace`, `MiniTrace`) to carry a real x axis.** It
+is instructed to make that **additive and optional**, so your existing calls keep working untouched.
+**Do not edit `kit/plots.tsx` or `webui/client/src/charts/` yourself.** If you need something from
+them, say so in your report and work around it locally; if one of your pages breaks after pulling
+`G`'s commits, that is a `G` bug — report it, do not patch their file.
+
+**`charts/domain.ts` belongs to prompt `C`.** Neither of you changes the y-domain rule.
+
+**Gates collide on this machine.** `pytest -n auto` and `webui/smoke.py` must not run together —
+prompt `B`'s report §9 records 23 spurious smoke failures from exactly that. With two agents: use
+`pytest -n 4`, and **announce in your report when you took the machine for smoke**.
+
+---
+
 ## The defect
 
 `webui/client/src/api/interrogation.ts::featureOf`, for the live `spike-shape` upstream:
@@ -77,7 +109,25 @@ window's start. An event that does not recover inside that bound is **not measur
 as such. Report how many events in the live store are in that class — if it is a large fraction, that
 is a finding about the data the researcher needs, not a rendering detail to smooth over.
 
-### 4. The scatter the researcher actually asked for
+### 4. "Resolve spans" and "Spike shape" are the same block wearing two names (U10)
+
+Measured 2026-09-28: `api/interrogation.ts:142,156` — `getSlopeBlock` and `getAggregateBlock` **both**
+call `familyAndMembers(familyId)`, the same data, and swap only `UPSTREAMS[upstream]` and
+`CHAIN_SPIKE`/`CHAIN_SLOPE`. The labels. The members and their features are the slope block's whichever
+you pick, while the features list claims Spike shape declares *"amplitude, half-width, rise, decay"*.
+
+The researcher noticed because picking Spike shape **reverts to Resolve spans** when the block opens —
+`useUpstreamQuery()` defaults to `'slope'` when the `?upstream=spike-shape` query param is not carried.
+That is the symptom; the two-names-one-block is the disease, and it is **the same class as the
+fabrication above**: a surface claiming to be something it is not.
+
+Resolve it. Either the two upstreams genuinely differ — in which case Spike shape computes what it
+declares, now that `D`'s block measures amplitude, half-width, rise and decay for real — or there is
+one block and the picker should not offer a choice that changes only the words. **Take the first if
+`D`'s measures support it, which they should.** Fix the query-param loss either way: a picker that
+silently reverts is worse than one that is absent.
+
+### 5. The scatter the researcher actually asked for
 
 `D`'s report §8.6 notes the block page draws the feature table, rose and rules but **no scatter**, and
 that the Aggregate page is where `width vs recovery` belongs. That relationship — *drop width against
@@ -87,6 +137,26 @@ measurements, with the fit and null the page already has machinery for.
 Keep it to the relationships the measurements support. **This prompt is not the place to redesign the
 page's visual language** — that is prompt `H` (blocks must show their work), and doing it twice
 produces two idioms.
+
+### 6. The members-overlaid plot is drawn in far too narrow a time window (U11)
+
+The researcher compared the app's overlay against their own matplotlib plate of the same family and
+the app's is unreadable. **The cause is the time window, not the styling.** The app draws **-20 to
++40 s** from onset; their plate draws **-1000 to +1500 s**, and the sharkfin's *rise* — which is most
+of what makes the shape recognisable — happens before the onset the app anchors on and is simply off
+the left edge.
+
+The window comes from Source settings `context padding = ± 0.5 × span`, which is proportional to a
+span that is often seconds long. **Proportional padding cannot show a slow precursor to a fast
+event.** Give the padding an absolute option, or a much larger multiple, or make it follow the
+family's own inter-event spacing — and default it to something that shows the shape.
+
+Secondary and real, but secondary: excess y headroom (the axis runs to 40 mV over data reaching ~25)
+and an aspect ratio the researcher would like **narrower and taller**. The y headroom is
+`liveYDomain`'s own 5 % pad (`api/interrogation.ts:74-80`), which prompt `C` left alone because
+Analyse was outside its three workspaces — **it is yours now, and it should use
+`charts/domain.ts::measuredDomain` like every other trace in the app** rather than keeping a fourth
+pad rule. That is the one exception to "do not touch `charts/`": you may *call* it, not change it.
 
 ## Explicitly NOT in scope
 

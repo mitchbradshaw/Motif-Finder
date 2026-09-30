@@ -13,6 +13,16 @@ being either a bug or a spec change.
 
 | File | Workspace / pages |
 |---|---|
+| **WAVE 1 — run together** | |
+| `E-aggregate-stops-fabricating.md` | **ready.** Interrogation stops fabricating half-width / rise / ISI; Resolve-spans vs Spike-shape resolved; rise time on the shape block; the members-overlaid window widened. Port **8765** |
+| `G-review-axis-and-resolution.md` | **ready.** Review's trace gets a real x axis (the cause of U1/U2/U3); decimation follows the rendered width; source-resolution toggle, default ON; Review shifts a legacy row. Port **8766** |
+| **WAVE 2 — run together, after wave 1** | |
+| `F-datasets-and-naming.md` | *(not written)* editable dataset metadata + display name across the site, and the Settings channel-list overflow |
+| `J-dehshibi-vs-the-paper.md` | *(not written)* needs the researcher's PDF and a grilling round of its own |
+| **WAVE 3 — alone** | |
+| `H-blocks-show-their-work.md` | *(not written)* U7/U8/U9/U11 — process views per block, span slideshows, figures instead of tables. Cross-cutting; conflicts with everything |
+| **DONE** | |
+| `M-migrate-legacy-detections.md` | **run 2026-09-28** (`reports/M-…`; 115 rows rewritten on the real database, backup verified, second pass plans zero, suite 1786/0) |
 | `B-units-and-amplitude.md` | **written and ready to run — the highest-priority item in the stage.** The derived channels are in volts and the whole UI labels them mV; every amplitude ever shown is 1000x too small. Blocks the plot-domain prompt `C` |
 | `C-one-plot-domain-rule.md` | **run and reported 2026-09-23** (`reports/C-one-plot-domain-rule.md`; one rule in `charts/domain.ts`, suite 1775/0). Per-card measured domains with the shared scale as a reference bar, replacing PRD D5, across Review + Library + Explore. Acceptance test: no motif clipped in its own thumbnail |
 | `D-event-features.md` | **run and reported 2026-09-23** (`reports/D-event-features.md`: `interrogation.event_shape`, `interrogation.intervals`, `preprocessing.invert`, `motif_features`, the sequence rose; the Library backfill ran on the sandbox only — `--real` is the researcher's call).** The researcher's top-priority capability. Polarity-neutral per-event feature blocks, inter-event intervals, the max-slope rose over `Working/Detection/drop_motifs/gradients.py` (which already exists), `preprocessing.invert`, and `motif_features` keyed by content hash. Adds `SpanSet.features` mirroring `WindowSet.features` — **no eighth type** |
