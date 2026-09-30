@@ -33,13 +33,35 @@ export interface InterrogationMember {
   depth_mV: number
   max_slope: number          // mV/s, negative
   peakedness: number
-  duration_s: number         // onset → trough
-  recovery_s: number         // trough → baseline
+  duration_s: number         // onset → trough (the fall; the shape block's event_width_s)
+  /** trough → half recovery (fixup-e: the core's recovery_time_s). `null` = did not recover inside the rule's
+   *  bound (10 event widths, never past the next event) — NOT measured, never 0 s. */
+  recovery_s: number | null
   flags: string[]
   /* live (seed store) only: the stored detrended snippet and where the onset sits in it */
   snippet?: { t_s: number[]; v: number[] }
   onset_offset_s?: number
+  /** live only (fixup-e): every measure of interrogation.event_shape for this event; `null` = not measured */
+  measures?: EventMeasures
 }
+
+/** The shape block's measures of one event (fixup-e, from GET …/families/{key}/shape). Every value is
+ *  `number | null`, and null means NOT MEASURED — the page must leave the event out of that distribution
+ *  and say so, never draw it at 0. */
+export interface EventMeasures {
+  /** read back from motif_features (true) or measured on the store snippet for this view (false) */
+  stored: boolean
+  amplitude_mV: number | null; precursor_mV: number | null
+  width_s: number | null; event_duration_s: number | null; fwhm_s: number | null; recovery_s: number | null
+  /** a spike's 10–90 % rise; a drop has no rise → null (QUESTIONS.md Q19) */
+  rise_time_s: number | null
+  max_slope: number | null; onset_slope: number | null; chord_slope: number | null; peakedness: number | null; span_ptp_mV: number | null
+  polarity: number | null
+}
+
+/** The two feature blocks 01 can be (fixup-e, U10): the store's slope analysis, or interrogation.event_shape.
+ *  `spike-shape` was the old key for a block that only relabelled the slope block; it is read as an alias. */
+export type Upstream = 'slope' | 'event-shape'
 
 /** −45° on the rose is −0.1 mV/s (frame −45° = −1 mV/s, ÷10). */
 export const ROSE_REF_SLOPE = 0.1
@@ -257,9 +279,9 @@ export const CHAIN_SLOPE: ChainBlock[] = [
   { id: 'block1', index: 1, label: 'Resolve spans', glyph: 'drop_detection', signature: 'SpanSet → Features' },
   { id: 'block2', index: 2, label: 'Aggregate', glyph: 'window_matrix', signature: 'Features → View' },
 ]
-export const CHAIN_SPIKE: ChainBlock[] = [
+export const CHAIN_EVENT_SHAPE: ChainBlock[] = [
   CHAIN_SLOPE[0],
-  { id: 'block1', index: 1, label: 'Spike shape', glyph: 'spike', signature: 'SpanSet → Features' },
+  { id: 'block1', index: 1, label: 'Event shape', glyph: 'event_shape', signature: 'SpanSet → SpanSet + Features' },
   CHAIN_SLOPE[2],
 ]
 
@@ -317,21 +339,25 @@ export const MARKS = [
 /* ---------------------------------------------------------------- 02 Aggregate ---------------------------------------------------------------- */
 export interface FeatureSpec { key: string; label: string; unit: string; kind: 'measure' | 'time' }
 export interface HistSpec {
-  feature: string; title: string; unit: string; colour: string; nullColour: string; domain: [number, number]
-  verdict: string; verdictTone?: 'amber' | 'muted'
+  feature: string; title: string; unit: string; colour: string; nullColour: string
+  /* The frame's recorded domain and verdicts (demo). The live page (fixup-e) measures its own domain, median
+   * and IQR from the values it draws and never prints these. */
+  domain?: [number, number]
+  verdict?: string; verdictTone?: 'amber' | 'muted'
   /** the same verdict against the shuffled-onset null — the `null` parameter switches between the two */
-  verdictShuffled: string; verdictShuffledTone?: 'amber' | 'muted'
+  verdictShuffled?: string; verdictShuffledTone?: 'amber' | 'muted'
 }
 export interface PairSpec {
   key: string; label: string; x: string; y: string; xLabel: string; yLabel: string
-  beta: number; ci: [number, number]; r2: number; nullBeta: number; nullCi: [number, number]
+  /* The frame's recorded fit (demo). The live page fits the drawn points (fitLogLog) and never prints these. */
+  beta?: number; ci?: [number, number]; r2?: number; nullBeta?: number; nullCi?: [number, number]
   /** the same fit against the shuffled-onset null */
-  nullShuffled: { beta: number; ci: [number, number] }
+  nullShuffled?: { beta: number; ci: [number, number] }
   relation: string; pooled?: boolean
   byRecording?: { recording: string; beta: number | null; ci?: [number, number]; n: number; note?: string }[]
 }
 export interface UpstreamSpec {
-  key: 'slope' | 'spike-shape'
+  key: Upstream
   block: string; blockTitle: string; subtitle: string
   features: FeatureSpec[]
   hists: HistSpec[]
@@ -345,7 +371,7 @@ export interface UpstreamSpec {
 export const FEATURE_COLOURS = ['#2F6FED', '#8B5CF6', '#0E9AA8']
 export const NULL_GREY = '#d1d5db'
 
-export const UPSTREAMS: Record<'slope' | 'spike-shape', UpstreamSpec> = {
+export const UPSTREAMS: Record<Upstream, UpstreamSpec> = {
   slope: {
     key: 'slope', block: '01 Resolve spans', blockTitle: 'Resolve spans — slope analysis', subtitle: 'distributions and scaling',
     features: [
@@ -389,32 +415,41 @@ export const UPSTREAMS: Record<'slope' | 'spike-shape', UpstreamSpec> = {
     ],
     timelineHeight: 'depth',
   },
-  'spike-shape': {
-    key: 'spike-shape', block: '01 Spike shape', blockTitle: 'Spike shape', subtitle: 'features from 01 Spike shape',
+  'event-shape': {
+    key: 'event-shape', block: '01 Event shape', blockTitle: 'Event shape — per-event measures (interrogation.event_shape)',
+    subtitle: 'per-event measures from interrogation.event_shape',
+    /* every key here is a measure the core makes (Working/interrogation/event_shape.py, fixup-d) — nothing on
+       this list is derived on the page. `rise_time_s` is null for every drop (Q19); `interval_h` is the
+       inter-event interval, onset → onset within a recording × channel (the honest replacement for `isi_s`). */
     features: [
       { key: 'amplitude_mV', label: 'amplitude_mV', unit: 'mV', kind: 'measure' },
-      { key: 'half_width_s', label: 'half_width_s', unit: 's', kind: 'measure' },
-      { key: 'rise_s', label: 'rise_s', unit: 's', kind: 'measure' },
-      { key: 'decay_s', label: 'decay_s', unit: 's', kind: 'measure' },
-      { key: 'isi_s', label: 'isi_s', unit: 's', kind: 'measure' },
+      { key: 'width_s', label: 'width_s', unit: 's', kind: 'measure' },
+      { key: 'fwhm_s', label: 'fwhm_s', unit: 's', kind: 'measure' },
+      { key: 'recovery_s', label: 'recovery_s', unit: 's', kind: 'measure' },
+      { key: 'event_duration_s', label: 'event_duration_s', unit: 's', kind: 'measure' },
+      { key: 'rise_time_s', label: 'rise_time_s', unit: 's', kind: 'measure' },
+      { key: 'precursor_mV', label: 'precursor_mV', unit: 'mV', kind: 'measure' },
+      { key: 'max_slope', label: 'max_slope', unit: 'mV/s', kind: 'measure' },
+      { key: 'peakedness', label: 'peakedness', unit: '—', kind: 'measure' },
+      { key: 'interval_h', label: 'interval_h', unit: 'h', kind: 'time' },
       { key: 'onset_h', label: 'onset_h', unit: 'h', kind: 'time' },
     ],
     hists: [
-      { feature: 'amplitude_mV', title: 'Amplitude', unit: 'mV', colour: FEATURE_COLOURS[0], nullColour: NULL_GREY, domain: [0.10, 0.40], verdict: 'dip test p 0.34 · n too small to call modes', verdictTone: 'amber', verdictShuffled: 'dip test p 0.29 · n too small to call modes', verdictShuffledTone: 'amber' },
-      { feature: 'half_width_s', title: 'Half-width', unit: 's', colour: FEATURE_COLOURS[1], nullColour: NULL_GREY, domain: [0, 9.0], verdict: 'median 8.4 s · null median 5.1 s · p < 0.01', verdictShuffled: 'median 8.4 s · shuffled-onset median 6.2 s · p 0.04' },
-      { feature: 'rise_s', title: 'Rise time', unit: 's', colour: FEATURE_COLOURS[2], nullColour: NULL_GREY, domain: [0, 9.0], verdict: 'median 3.1 s · null median 4.4 s · p 0.03', verdictShuffled: 'median 3.1 s · shuffled-onset median 3.6 s · p 0.21' },
+      { feature: 'amplitude_mV', title: 'Amplitude', unit: 'mV', colour: FEATURE_COLOURS[0], nullColour: NULL_GREY },
+      { feature: 'fwhm_s', title: 'Full width at half maximum', unit: 's', colour: FEATURE_COLOURS[1], nullColour: NULL_GREY },
+      { feature: 'recovery_s', title: 'Recovery time', unit: 's', colour: FEATURE_COLOURS[2], nullColour: NULL_GREY },
     ],
     pairs: [
-      { key: 'amp-hw', label: 'amplitude ~ half-width', x: 'half_width_s', y: 'amplitude_mV', xLabel: 'half-width →', yLabel: 'amplitude mV', beta: 0.88, ci: [0.61, 1.15], r2: 0.62, nullBeta: 0.05, nullCi: [-0.40, 0.49], nullShuffled: { beta: 0.14, ci: [-0.33, 0.60] }, relation: 'amplitude ∝ half-width^β' },
-      { key: 'rise-decay', label: 'rise ~ decay', x: 'decay_s', y: 'rise_s', xLabel: 'decay s', yLabel: 'rise s', beta: 0.54, ci: [0.21, 0.87], r2: 0.38, nullBeta: 0.02, nullCi: [-0.35, 0.39], nullShuffled: { beta: 0.11, ci: [-0.31, 0.52] }, relation: 'rise ∝ decay^β' },
-      { key: 'amp-isi', label: 'amplitude ~ ISI', x: 'isi_s', y: 'amplitude_mV', xLabel: 'ISI s', yLabel: 'amplitude mV', beta: 0.31, ci: [-0.04, 0.66], r2: 0.14, nullBeta: 0.01, nullCi: [-0.33, 0.35], nullShuffled: { beta: 0.04, ci: [-0.30, 0.38] }, relation: 'amplitude ∝ ISI^β' },
+      { key: 'width-recovery', label: 'width ~ recovery', x: 'width_s', y: 'recovery_s', xLabel: 'width s →', yLabel: 'recovery s', relation: 'recovery ∝ width^β' },
+      { key: 'amp-fwhm', label: 'amplitude ~ FWHM', x: 'fwhm_s', y: 'amplitude_mV', xLabel: 'FWHM s →', yLabel: 'amplitude mV', relation: 'amplitude ∝ FWHM^β' },
+      { key: 'amp-width', label: 'amplitude ~ width', x: 'width_s', y: 'amplitude_mV', xLabel: 'width s →', yLabel: 'amplitude mV', relation: 'amplitude ∝ width^β' },
     ],
-    purity: 'one spike per window',
+    purity: 'one event per window',
     tiles: [
-      { label: 'events', value: '16' },
-      { label: 'β amp~hw', value: '0.88', tone: 'blue' },
-      { label: 'half-width med', value: '8.4 s', tone: 'blue' },
-      { label: 'one spike / window', value: '100 %', tone: 'green' },
+      { label: 'events', value: '' },
+      { label: 'β', value: '', tone: 'blue' },
+      { label: 'interval CV', value: '', tone: 'blue' },
+      { label: 'one event / window', value: '', tone: 'green' },
     ],
     timelineHeight: 'amplitude',
   },
@@ -474,7 +509,7 @@ export function eventCurve(m: InterrogationMember, pre = 10, post = 24): number[
     const t = i - pre
     let v = (rnd() - 0.5) * 0.014
     if (t > 0 && t <= m.duration_s) { const u = t / m.duration_s; v -= m.depth_mV * (u * u * (3 - 2 * u)) }
-    else if (t > m.duration_s) { const u = (t - m.duration_s) / Math.max(1, m.recovery_s); v -= m.depth_mV * Math.exp(-2.1 * u) }
+    else if (t > m.duration_s) { const u = (t - m.duration_s) / Math.max(1, m.recovery_s ?? 12); v -= m.depth_mV * Math.exp(-2.1 * u) }
     out.push(+v.toFixed(5))
   }
   return out

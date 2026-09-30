@@ -10,21 +10,27 @@ import { Header } from '../shell/Header'
 import { useToast } from '../shell/Toast'
 import { navigate } from '../state'
 import { useSourced } from '../api/seam'
-import { getSlopeBlock, liveEventCurve, liveYDomain, type SlopeBlock } from '../api/interrogation'
+import { getSlopeBlock, liveEventCurve, liveEventPoints, liveYDomain, paddingLabel, windowOver, type SlopeBlock } from '../api/interrogation'
+import { measuredDomain } from '../charts/domain'
 import {
-  FAMILY_Y_DOMAIN, MARKS, ROSE_REF_SLOPE, RULES, RUN_STEPS, STALE_PREVIEW, UNITS, VERDICT_COLOUR, angleOf,
+  FAMILY_Y_DOMAIN, MARKS, ROSE_REF_SLOPE, RULES, RUN_STEPS, STALE_PREVIEW, UNITS, UPSTREAMS, VERDICT_COLOUR, angleOf,
   eventCurve, eventMarks, unitScale, type InterrogationMember,
 } from '../fixtures/interrogation'
 import { AddStagePopover, ChainCard, InterrogationToolbar, LoadFailed, Loading, RunVeil, SaveTemplateModal } from './chrome'
 import { SourcePicker } from './SourcePicker'
-import { inScopeIds, markSimForced, useFamilyQuery, useInterrogationDraft, useUpstreamQuery, wasSimForced } from './draft'
+import { inScopeIds, interrogationHref, markSimForced, useFamilyQuery, useInterrogationDraft, useUpstreamQuery, wasSimForced } from './draft'
+import { fmtMeasure } from './features'
 import { Rose } from './Rose'
 
 const STRIP = 10
 const TABLE_PAGE = 4
 /** Why a parameter control is dead while the chain runs (the shared convention). */
 const BUSY = 'wait for the run'
-/** Clip a curve to the plotted window so a long recovery never draws past the axis. */
+/** Why the four rule selectors are dead on a live family (fixup-e, symptom I4): the seed store's numbers were
+ *  measured with the rules printed above them, and no re-run exists yet that could apply different ones. A
+ *  selector that changed nothing but a caption claimed otherwise. */
+const FIXED_RULES = "the seed store's rules are fixed · the numbers on this page were measured with the rules listed above; nothing here re-runs them yet"
+/** Clip a synthetic (fixture) curve to the plotted window so a long recovery never draws past the axis. */
 const clip = (vs: number[], pre = 10, hi = 24) => vs.map((v, i) => [i - pre, v] as [number, number]).filter(pt => pt[0] <= hi)
 
 export function SlopePage() {
@@ -35,7 +41,7 @@ export function SlopePage() {
   return (
     <>
       <Header workspace="Analyse" page={b?.upstream.block ?? '01 Resolve spans'} search="Search spans, runs, families" demo={block.source === 'demo'}
-        subtitle={b ? `${upstream === 'slope' ? 'slope analysis' : 'spike shape'} · ${b.family.id} ${b.family.name}` : 'slope analysis'} />
+        subtitle={b ? `${upstream === 'slope' ? 'slope analysis' : 'per-event measures · interrogation.event_shape'} · ${b.family.id} ${b.family.name}` : 'slope analysis'} />
       <Page testid="interrogation-slope">
         {block.error ? <LoadFailed what="01 Resolve spans" error={block.error} onRetry={block.reload} />
           : !b ? <Loading what="the events" /> : <SlopeBody block={b} />}
@@ -110,10 +116,14 @@ function SlopeBody({ block }: { block: SlopeBlock }) {
     block2: sim.status === 'running' && sim.step >= 2 ? 'running' : stale ? 'stale' : 'cached',
   }
 
-  /* live members carry their stored snippet: draw that, on a y domain from the data; fixtures keep the synthetic curve */
-  const curveOf = (m: InterrogationMember, pre = 10, post = 24) => liveEventCurve(m, pre, post) ?? eventCurve(m, pre, post)
-  const yDomain = useMemo(() => liveYDomain(block.members) ?? FAMILY_Y_DOMAIN, [block.members])
+  /* live members carry their stored snippet: draw that; fixtures keep the synthetic curve. The window around
+     every event follows Source settings › context padding (fixup-e, U11): the stored context by default, so a
+     slow precursor to a fast event is on the plot rather than off its left edge. */
+  const padding = draft.settings.padding
+  const win = useMemo(() => windowOver(events, padding), [events, padding])
+  const curveOf = (m: InterrogationMember, pre = win.pre, post = win.post) => liveEventCurve(m, pre, post) ?? eventCurve(m, Math.min(pre, 10), Math.min(post, 24))
   const storeRules = block.storeRules
+  const href = (page: 'source' | 'block1' | 'block2', extra?: Record<string, string | null | undefined>) => interrogationHref(page, familyId, upstream, extra)
   const rerun = () => {
     /* Clear the forced-run flag first: the `[stateQ]` effect below runs after this navigation and would
        otherwise reset the run we are about to start (critique r1: re-run cleared stale with no run). */
@@ -168,21 +178,42 @@ function SlopeBody({ block }: { block: SlopeBlock }) {
     const xs = Array.from({ length: Math.min(sampleSize, events.length) }, (_, i) => events[(i * step + overlaySeed) % events.length])
     return xs
   }, [events, sampleSize, overlaySeed])
+  /* THE plot-domain rule (charts/domain.ts): each card's y is measured from what that card draws */
+  const drawnOverlay = useMemo(() => (event && !sample.some(e => e.id === event.id) ? [...sample, event] : sample), [sample, event])
+  const overlayDomain = useMemo(() => liveYDomain(drawnOverlay) ?? FAMILY_Y_DOMAIN, [drawnOverlay])
+  const stripDomain = useMemo(() => liveYDomain(strip) ?? FAMILY_Y_DOMAIN, [strip])
+  const anatomyDomain = useMemo(() => (anatomy ? measuredDomain(anatomy.pts.map(p => p[1])) ?? FAMILY_Y_DOMAIN : FAMILY_Y_DOMAIN), [anatomy])
+  /** a member's stored samples inside the shared window, in the plotted unit; a fixture member's synthetic curve */
+  const overlayPoints = (m: InterrogationMember): [number, number][] =>
+    (liveEventPoints(m, win.pre, win.post) ?? clip(curveOf(m, 10, 24), 10, 24)).map(([a, b]) => [t(a), b] as [number, number])
 
-  /* ---- table ---- */
+  /* ---- table ----
+     Recovery is the core's (fixup-e): null = not recovered inside the rule's bound, printed as such, never 0.
+     Under Event shape the columns are that block's measures (FWHM, rise time — null for a drop — duration). */
+  const notMeasured = (why: string) => <span className="ig-amber-text" title={why}>—</span>
+  const shapeCols: Column<InterrogationMember>[] = upstream === 'event-shape' ? [
+    { key: 'fwhm', header: 'FWHM s', align: 'right', render: r => r.measures?.fwhm_s == null ? notMeasured('no full width at half maximum: the half level was not re-crossed inside the bound') : fmtSec(r.measures.fwhm_s), sortValue: r => r.measures?.fwhm_s ?? null },
+    { key: 'rise', header: 'rise s', align: 'right', render: r => r.measures?.rise_time_s == null ? notMeasured('a drop has no rise (null, not 0 — Q19)') : fmtSec(r.measures.rise_time_s), sortValue: r => r.measures?.rise_time_s ?? null },
+    { key: 'edur', header: 'onset→recovery s', align: 'right', render: r => r.measures?.event_duration_s == null ? notMeasured('not recovered, so no duration') : fmtSec(r.measures.event_duration_s), sortValue: r => r.measures?.event_duration_s ?? null },
+  ] : []
   const columns: Column<InterrogationMember>[] = [
     { key: 'id', header: 'span', render: r => <span className="primary-text">{r.id}</span>, sortValue: r => r.id },
     { key: 'recording', header: 'recording', sortValue: r => r.recording },
     { key: 'channel', header: 'ch', sortValue: r => r.channel },
     { key: 'onset', header: 'onset h', align: 'right', render: r => r.onset_h.toFixed(2), sortValue: r => r.onset_h },
-    { key: 'depth', header: 'depth mV', align: 'right', render: r => r.depth_mV.toFixed(3), sortValue: r => r.depth_mV },
-    { key: 'slope', header: 'max slope mV/s', align: 'right', render: r => fmtSlope(r.max_slope), sortValue: r => r.max_slope },
+    { key: 'depth', header: upstream === 'event-shape' ? 'amplitude mV' : 'depth mV', align: 'right',
+      render: r => upstream === 'event-shape' ? fmtMeasure(r.measures?.amplitude_mV, 3) : r.depth_mV.toFixed(3), sortValue: r => upstream === 'event-shape' ? r.measures?.amplitude_mV ?? null : r.depth_mV },
+    { key: 'slope', header: 'max slope mV/s', align: 'right', render: r => fmtSlope(upstream === 'event-shape' ? r.measures?.max_slope ?? r.max_slope : r.max_slope), sortValue: r => upstream === 'event-shape' ? r.measures?.max_slope ?? null : r.max_slope },
     { key: 'angle', header: 'angle', align: 'right', render: r => `${Math.round(angleOf(r.max_slope))}°`.replace('-', '−'), sortValue: r => angleOf(r.max_slope) },
-    { key: 'peak', header: 'peakedness', align: 'right', render: r => r.peakedness.toFixed(2), sortValue: r => r.peakedness },
-    { key: 'duration', header: 'duration s', align: 'right', render: r => fmtSec(r.duration_s), sortValue: r => r.duration_s },
-    { key: 'recovery', header: 'recovery s', align: 'right', render: r => fmtSec(r.recovery_s), sortValue: r => r.recovery_s },
+    { key: 'peak', header: 'peakedness', align: 'right', render: r => upstream === 'event-shape' ? fmtMeasure(r.measures?.peakedness) : r.peakedness.toFixed(2), sortValue: r => upstream === 'event-shape' ? r.measures?.peakedness ?? null : r.peakedness },
+    { key: 'duration', header: upstream === 'event-shape' ? 'width s' : 'duration s', align: 'right', render: r => fmtSec(r.duration_s), sortValue: r => r.duration_s },
+    ...shapeCols,
+    { key: 'recovery', header: 'recovery s', align: 'right',
+      render: r => r.recovery_s == null ? <span className="ig-amber-text" title="did not return to half the amplitude within 10 event widths, or before the next event — not measured, not 0 s" data-testid="not-recovered">not recovered</span> : fmtSec(r.recovery_s),
+      sortValue: r => r.recovery_s ?? null },
     { key: 'flags', header: 'flags', render: r => r.flags.length ? <span className="ig-amber-text"><Icon name="alert-triangle" size={11} /> {r.flags.join(' · ')}</span> : null },
   ]
+  const nNotRecovered = events.filter(e => e.recovery_s == null).length
   /* the whole run is sorted, then paged — so "depth ↓" means the deepest events in the run, not on this page */
   const sortedEvents = useMemo(() => {
     if (!tableSort) return events
@@ -216,9 +247,9 @@ function SlopeBody({ block }: { block: SlopeBlock }) {
       </InterrogationToolbar>
 
       <ChainCard chain={block.chain} current="block1" status={status} onAddStage={() => setPopover(popover === 'stage' ? null : 'stage')}
-        onSelect={id => navigate(id === 'source' ? `analyse/interrogation${familyId === 'F-03' ? '' : `?family=${familyId}`}`
-          : id === 'block2' ? `analyse/interrogation/block/2${familyId === 'F-03' ? '' : `?family=${familyId}`}` : `analyse/interrogation/block/1`)} />
-      <AddStagePopover open={popover === 'stage'} onClose={() => setPopover(null)} anchorRef={sourceRef} onPick={() => push({ text: 'the chain already holds a feature block · swap it from the ribbon chip' })} />
+        onSelect={id => navigate(id === 'source' ? href('source') : id === 'block2' ? href('block2') : href('block1'))} />
+      <AddStagePopover open={popover === 'stage'} onClose={() => setPopover(null)} anchorRef={sourceRef}
+        onPick={kind => { navigate(interrogationHref('block1', familyId, kind)); push({ text: `01 is now ${UPSTREAMS[kind].block}` }) }} />
 
       <div className={large ? 'ig-cols even' : 'ig-cols wide-right'}>
         {/* ------------------------------------------------ anatomy ------------------------------------------------ */}
@@ -235,7 +266,7 @@ function SlopeBody({ block }: { block: SlopeBlock }) {
             )}
             {anatomy && event ? (
               <>
-                <LineChart testid="anatomy-plot" height={210} yLabel="mV" xDomain={anatomy.dom} yDomain={yDomain}
+                <LineChart testid="anatomy-plot" height={210} yLabel="mV" xDomain={anatomy.dom} yDomain={anatomyDomain}
                   xFormat={fmtT} legend={false}
                   markers={showMarks ? [
                     { x: anatomy.marks.onset, label: 'onset', colour: 'var(--blue)' },
@@ -267,6 +298,9 @@ function SlopeBody({ block }: { block: SlopeBlock }) {
                   <span>event <b>{event.id}</b> · {event.channel} · {event.onset_h.toFixed(2)} h</span>
                   <span>depth <b>{event.depth_mV.toFixed(3)} mV</b></span>
                   <span>duration <b>{fmtSec(event.duration_s)} s</b></span>
+                  <span>recovery <b data-testid="readout-recovery">{event.recovery_s == null ? 'not recovered' : `${fmtSec(event.recovery_s)} s`}</b></span>
+                  {upstream === 'event-shape' && <span>FWHM <b>{event.measures?.fwhm_s == null ? '—' : `${fmtSec(event.measures.fwhm_s)} s`}</b></span>}
+                  {upstream === 'event-shape' && <span>rise <b>{event.measures?.rise_time_s == null ? '— (a drop has no rise)' : `${fmtSec(event.measures.rise_time_s)} s`}</b></span>}
                   <span>max slope <b>{fmtSlope(event.max_slope)} mV/s</b></span>
                   <span>angle <b>{angleOf(event.max_slope).toFixed(1).replace('-', '−')}°</b></span>
                   <span>peakedness <b>{event.peakedness.toFixed(2)}</b></span>
@@ -282,7 +316,7 @@ function SlopeBody({ block }: { block: SlopeBlock }) {
                     {strip.map((e, i) => (
                       <button key={e.id} type="button" className={`ig-cell ${e.id === event.id ? 'on' : ''}`} onClick={() => pick(e.id)}
                         data-testid={`strip-${stripFrom + i + 1}`} title={`${e.id} · ${e.depth_mV.toFixed(3)} mV`}>
-                        <MiniTrace values={curveOf(e)} yDomain={yDomain} width="100%" height={40} ground="none"
+                        <MiniTrace values={curveOf(e)} yDomain={stripDomain} width="100%" height={40} ground="none"
                           stroke={e.id === event.id ? 'var(--blue-600)' : '#4b5563'} />
                         <span className="n">{stripFrom + i + 1}</span>
                         {e.flags.length > 0 && <span className="flag" />}
@@ -318,15 +352,18 @@ function SlopeBody({ block }: { block: SlopeBlock }) {
               ? <Rose events={events} selected={event.id} colourBy={colourQ} onSelect={pick} />
               : (
                 <>
-                  <LineChart testid="overlay-plot" height={230} yLabel="mV" xDomain={[t(-10), t(24)]} yDomain={yDomain}
+                  <LineChart testid="overlay-plot" height={340} yLabel="mV" xDomain={[t(-win.pre), t(win.post)]} yDomain={overlayDomain}
                     xFormat={fmtT} legend={false}
                     series={[
-                      ...sample.filter(e => e.id !== event?.id).map(e => ({ label: e.id, colour: '#9ca3af', points: clip(curveOf(e)).map(([a, b]) => [t(a), b] as [number, number]), width: 1 })),
-                      ...(event ? [{ label: `event ${selectedIdx + 1}`, colour: 'var(--blue)', points: clip(curveOf(event)).map(([a, b]) => [t(a), b] as [number, number]), width: 2 }] : []),
+                      ...sample.filter(e => e.id !== event?.id).map(e => ({ label: e.id, colour: '#9ca3af', points: overlayPoints(e), width: 1 })),
+                      ...(event ? [{ label: `event ${selectedIdx + 1}`, colour: 'var(--blue)', points: overlayPoints(event), width: 2 }] : []),
                     ]} />
                   <div className="ig-foot" style={{ marginTop: 4 }}>
                     <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}><span style={{ width: 14, height: 2, background: 'var(--blue)' }} />current event {selectedIdx + 1} · drawn if in sample, else added</span>
                     <span className="k-spacer" /><span>seed {overlaySeed}</span>
+                  </div>
+                  <div className="ig-foot" style={{ marginTop: 2 }} data-testid="overlay-window-note">
+                    <Icon name="info" size={11} /> window {fmtT(t(-win.pre))} … {fmtT(t(win.post))} from onset · context padding {paddingLabel(padding)} (Source settings) · the stored samples, nothing held past a snippet's end · y measured from the traces drawn
                   </div>
                 </>
               )}
@@ -345,7 +382,7 @@ function SlopeBody({ block }: { block: SlopeBlock }) {
       {/* ------------------------------------------------ rules ------------------------------------------------ */}
       <SectionCard testid="rules-card" title="Rules" style={pending != null ? { borderColor: 'var(--amber)' } : undefined}
         info="Three rules turn a span into numbers: where the fall starts, where it ends, and over how many samples the slope is measured. Everything on this page is downstream of them."
-        subtitle={storeRules ? 'the store\'s numbers were measured with the rules listed below; the selectors are a preview and do not recompute (the seed store is fixed until Prompt 05 wires a real re-run)' : 'these three rules define every number on this page'}
+        subtitle={storeRules ? 'the store\'s numbers were measured with the rules listed below; the selectors are disabled: nothing on this page re-runs them yet (I4)' : 'these three rules define every number on this page'}
         actions={pending != null
           ? <>
             <span className="ig-amber-text ig-small mono" data-testid="rules-preview"><Icon name="alert-triangle" size={11} /> {STALE_PREVIEW}</span>
@@ -358,16 +395,16 @@ function SlopeBody({ block }: { block: SlopeBlock }) {
         <div className="ig-rules">
           <div>
             <div className="lb">onset rule <InfoTip title="Onset rule">Where the fall is taken to start. "Walk back from steepest while descending" is the recommended rule (Settings › Recommended values).</InfoTip></div>
-            <Dropdown block testid="rule-onset" disabled={sim.busy} disabledReason={BUSY} value={draft.rules.onset} onChange={v => { setDraft(d => ({ ...d, rules: { ...d.rules, onset: v }, staleFrom: 'block1' })) }} options={RULES.onset} />
+            <Dropdown block testid="rule-onset" disabled={sim.busy || !!storeRules} disabledReason={storeRules ? FIXED_RULES : BUSY} value={draft.rules.onset} onChange={v => { setDraft(d => ({ ...d, rules: { ...d.rules, onset: v }, staleFrom: 'block1' })) }} options={RULES.onset} />
           </div>
           <div>
             <div className="lb">trough rule <InfoTip title="Trough rule">Where the fall is taken to end. A run of samples above the noise band avoids stopping on a single noisy sample.</InfoTip></div>
-            <Dropdown block testid="rule-trough" disabled={sim.busy} disabledReason={BUSY} value={draft.rules.trough} onChange={v => { setDraft(d => ({ ...d, rules: { ...d.rules, trough: v }, staleFrom: 'block1' })) }} options={RULES.trough} />
+            <Dropdown block testid="rule-trough" disabled={sim.busy || !!storeRules} disabledReason={storeRules ? FIXED_RULES : BUSY} value={draft.rules.trough} onChange={v => { setDraft(d => ({ ...d, rules: { ...d.rules, trough: v }, staleFrom: 'block1' })) }} options={RULES.trough} />
           </div>
           <div>
             <div className="lb">steepest window <InfoTip title="Steepest window">The slope is the steepest difference over this many consecutive samples. Wider windows are less noisy and shallower.</InfoTip></div>
             <div className="ig-row">
-              <Slider testid="rule-window" disabled={sim.busy} disabledReason={BUSY} value={showWindow} min={RULES.steepestWindow.min} max={RULES.steepestWindow.max} step={RULES.steepestWindow.step}
+              <Slider testid="rule-window" disabled={sim.busy || !!storeRules} disabledReason={storeRules ? FIXED_RULES : BUSY} value={showWindow} min={RULES.steepestWindow.min} max={RULES.steepestWindow.max} step={RULES.steepestWindow.step}
                 onChange={v => setDraft(d => ({ ...d, pendingWindow: v === d.rules.steepestWindow ? null : v, staleFrom: v === d.rules.steepestWindow ? d.staleFrom : 'block1' }))}
                 format={v => `${v} samples`} ariaLabel="steepest window" width={150} />
               {pending != null && <span className="ig-muted ig-small mono" data-testid="window-was">(was {appliedWindow})</span>}
@@ -375,7 +412,7 @@ function SlopeBody({ block }: { block: SlopeBlock }) {
           </div>
           <div>
             <div className="lb">slope noise σ <InfoTip title="Slope noise σ">The dispersion the trough rule compares against. MAD is robust to the fall itself.</InfoTip></div>
-            <Dropdown block testid="rule-sigma" disabled={sim.busy} disabledReason={BUSY} value={draft.rules.sigma} onChange={v => setDraft(d => ({ ...d, rules: { ...d.rules, sigma: v }, staleFrom: 'block1' }))} options={RULES.sigma} />
+            <Dropdown block testid="rule-sigma" disabled={sim.busy || !!storeRules} disabledReason={storeRules ? FIXED_RULES : BUSY} value={draft.rules.sigma} onChange={v => setDraft(d => ({ ...d, rules: { ...d.rules, sigma: v }, staleFrom: 'block1' }))} options={RULES.sigma} />
           </div>
         </div>
       </SectionCard>
@@ -388,6 +425,11 @@ function SlopeBody({ block }: { block: SlopeBlock }) {
           <span className="ig-foot">{fmtInt(events.length)} rows</span>
           <Button size="sm" icon="download" onClick={() => notWired(`export ${events.length} per-event rows as CSV`)} testid="events-csv">CSV</Button>
         </>}>
+        {nNotRecovered > 0 && (
+          <div className="ig-foot" style={{ marginBottom: 6 }} data-testid="table-not-recovered">
+            <Icon name="alert-triangle" size={11} /> {nNotRecovered} of {events.length} events did not return to {block.shape.recovery.frac * 100} % of their amplitude within {block.shape.recovery.max_mult} event widths (or before the next event) — their recovery is not measured, which is not 0 s
+          </div>
+        )}
         <Table rows={tableRows} rowKey={r => r.id} columns={columns} selection="multi" selected={sel} onSelectionChange={setSel}
           highlighted={event?.id ?? null} onRowClick={r => pick(r.id)} sort={tableSort} onSortChange={setTableSort} testid="events-table"
           rowTone={r => (r.flags.length ? 'amber' : undefined)} dense
@@ -403,15 +445,15 @@ function SlopeBody({ block }: { block: SlopeBlock }) {
 
       <div className="ig-row">
         <Badge status={stale ? 'stale' : 'cached'} />
-        <span className="ig-foot">
-          declares {block.upstream.features.map(f => f.label).join(' · ')} — 02 Aggregate is wired from this list (P7)
+        <span className="ig-foot" data-testid={`upstream-${upstream}`}>
+          <b>{block.upstream.block}</b> declares {block.upstream.features.map(f => f.label).join(' · ')} — 02 Aggregate is wired from this list (P7)
         </span>
         <span className="k-spacer" />
-        <Button variant="link" icon="arrow-right" onClick={() => navigate(`analyse/interrogation/block/2${upstream === 'slope' ? '' : '?upstream=spike-shape'}`)} testid="to-aggregate">02 Aggregate →</Button>
+        <Button variant="link" icon="arrow-right" onClick={() => navigate(href('block2'))} testid="to-aggregate">02 Aggregate →</Button>
       </div>
 
       <SaveTemplateModal open={saveOpen} onClose={() => setSaveOpen(false)}
-        defaultName={upstream === 'spike-shape' ? 'spike_shape_v1' : 'sharkfin_slope_v1'}
+        defaultName={upstream === 'event-shape' ? 'event_shape_v1' : 'sharkfin_slope_v1'}
         stages={block.chain.map(b => (b.index ? `${String(b.index).padStart(2, '0')} ${b.label}` : b.label))} />
     </>
   )

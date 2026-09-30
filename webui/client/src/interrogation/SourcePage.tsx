@@ -10,14 +10,14 @@ import { Header } from '../shell/Header'
 import { useToast } from '../shell/Toast'
 import { navigate, setQuery } from '../state'
 import { useSourced } from '../api/seam'
-import { getSourceBlock, liveEventCurve, liveYDomain, type SourceBlock } from '../api/interrogation'
+import { getSourceBlock, liveEventCurve, liveEventPoints, liveYDomain, paddingLabel, windowOver, type SourceBlock } from '../api/interrogation'
 import {
-  ALIGNMENTS, FAMILY_Y_DOMAIN, RUN_STEPS, SORTS, VERDICT_COLOUR, VERDICT_ORDER, eventCurve,
+  ALIGNMENTS, FAMILY_Y_DOMAIN, RUN_STEPS, SORTS, UPSTREAMS, VERDICT_COLOUR, VERDICT_ORDER, eventCurve,
   type InterrogationMember,
 } from '../fixtures/interrogation'
 import { AddStagePopover, ChainCard, EmptyScope, InterrogationToolbar, LoadFailed, Loading, RunVeil, SaveTemplateModal } from './chrome'
 import { SourcePicker } from './SourcePicker'
-import { inScopeIds, markSimForced, useFamilyQuery, useInterrogationDraft, useUpstreamQuery, wasSimForced } from './draft'
+import { inScopeIds, interrogationHref, markSimForced, useFamilyQuery, useInterrogationDraft, useUpstreamQuery, wasSimForced } from './draft'
 
 export function SourcePage() {
   const [familyId] = useFamilyQuery()
@@ -64,9 +64,8 @@ function SourceBody({ block }: { block: SourceBlock }) {
   const stageRef = useRef<HTMLButtonElement>(null)
 
   const fam = block.family
-  const curveOf = (m: InterrogationMember, pre = 10, post = 24) => liveEventCurve(m, pre, post) ?? eventCurve(m, pre, post)
-  const yDomain = liveYDomain(block.members) ?? FAMILY_Y_DOMAIN
   const hidesArtifacts = excludeArtifacts === 'out'
+  const href = (page: 'source' | 'block1' | 'block2', extra?: Record<string, string | null | undefined>) => interrogationHref(page, familyId, upstream, extra)
   const handExcluded = draft.excluded[fam.id] ?? []
   const scope = scopeQ === 'none' ? new Set<string>() : inScopeIds(block.members, draft, fam.id, hidesArtifacts)
 
@@ -87,6 +86,13 @@ function SourceBody({ block }: { block: SourceBlock }) {
   const pageCount = Math.max(1, Math.ceil(visible.length / 10))
   const p = Math.min(page, pageCount)
   const tiles = visible.slice((p - 1) * 10, p * 10)
+
+  /* The window around every event follows Source settings › context padding (fixup-e, U11): the stored context
+     by default. Each card's y is measured from what it draws (charts/domain.ts), not from the whole family. */
+  const padding = draft.settings.padding
+  const tileWindow = useMemo(() => windowOver(tiles, padding), [tiles, padding])
+  const curveOf = (m: InterrogationMember) => liveEventCurve(m, tileWindow.pre, tileWindow.post) ?? eventCurve(m, 10, 24)
+  const tileDomain = useMemo(() => liveYDomain(tiles) ?? FAMILY_Y_DOMAIN, [tiles])
 
   /* ---- the run ---- */
   const sim = useSim('analyse.interrogation.run')
@@ -140,18 +146,25 @@ function SourceBody({ block }: { block: SourceBlock }) {
     return { rows, excludedCells }
   }, [block.members, channels, scope])
 
-  /* ---- overlay: a seeded random 10 of the members in scope (P8) ---- */
+  /* ---- overlay: a seeded random 10 of the members in scope (P8) ----
+     Drawn from the stored samples over the padding window, aligned on the onset or the trough (both are the
+     store's own indices). The synthetic "medoid" curve that used to be drawn in black over the real members
+     is gone: it was a fixture shape, not a measurement of this family. */
   const overlayMembers = useMemo(() => {
     const inScope = block.members.filter(m => scope.has(m.id))
     const step = Math.max(1, Math.floor(inScope.length / 10))
     return Array.from({ length: Math.min(10, inScope.length) }, (_, i) => inScope[(i * step + overlaySeed * 3) % inScope.length])
   }, [block.members, scope, overlaySeed])
-  const medoidCurve = useMemo(() => {
-    const m = block.members.find(x => scope.has(x.id)) ?? block.members[0]
-    return eventCurve({ ...m, depth_mV: 0.27, duration_s: 8.4, recovery_s: 12.6 }, 20, 30)
-  }, [block.members, scope])
-
-  const toPoints = (vs: number[], pre: number) => vs.map((v, i) => [i - pre, v] as [number, number]).filter(pt => pt[0] <= 40)
+  const overlayWindow = useMemo(() => windowOver(overlayMembers, padding), [overlayMembers, padding])
+  const overlayDomain = useMemo(() => liveYDomain(overlayMembers) ?? FAMILY_Y_DOMAIN, [overlayMembers])
+  const alignShift = (m: InterrogationMember) => (alignQ === 'trough' ? m.duration_s : 0)
+  const overlayPoints = (m: InterrogationMember): [number, number][] => {
+    const pts = liveEventPoints(m, overlayWindow.pre, overlayWindow.post)
+      ?? eventCurve(m, 20, 30).map((v, i) => [i - 20, v] as [number, number]).filter(pt => pt[0] <= 40)
+    const shift = alignShift(m)
+    return shift ? pts.map(([a, b]) => [a - shift, b] as [number, number]) : pts
+  }
+  const alignOptions = ALIGNMENTS.map(o => o.value === 'steepest' ? { ...o, disabled: true, reason: 'the steepest sample is not served per member yet · align on onset or trough' } : o)
 
   return (
     <>
@@ -172,17 +185,17 @@ function SourceBody({ block }: { block: SourceBlock }) {
       </InterrogationToolbar>
 
       <ChainCard chain={block.chain} current="source" status={status} onAddStage={() => setPopover(popover === 'stage' ? null : 'stage')}
-        onSelect={id => { if (id === 'block1') navigate(`analyse/interrogation/block/1${familyId === 'F-03' ? '' : `?family=${familyId}`}`); else if (id === 'block2') navigate(`analyse/interrogation/block/2${familyId === 'F-03' ? '' : `?family=${familyId}`}`) }} />
+        onSelect={id => { if (id === 'block1') navigate(href('block1')); else if (id === 'block2') navigate(href('block2')) }} />
       <span ref={stageRef} style={{ display: 'none' }} />
       <AddStagePopover open={popover === 'stage'} onClose={() => setPopover(null)} anchorRef={sourceRef}
-        onPick={kind => { setQuery({ upstream: kind === 'slope' ? null : kind }, false); push({ text: `01 is now ${kind === 'slope' ? 'Resolve spans — slope analysis' : 'Spike shape'} · 02 Aggregate re-wires from its Features` }) }} />
+        onPick={kind => { setQuery({ upstream: kind === 'slope' ? null : kind }, false); push({ text: `01 is now ${UPSTREAMS[kind].block} · 02 Aggregate re-wires from its Features` }) }} />
 
       {sim.status === 'failed' && (
         <Callout tone="red" title="The run failed at 01 Resolve spans" testid="run-failed"
           action={<Button size="sm" icon="refresh" onClick={runChain}>Retry</Button>}>{sim.error}</Callout>
       )}
       {sim.status === 'done' && (
-        <Callout tone="green" icon="check-circle" testid="run-done" action={<Button size="sm" variant="primary" icon="bar-chart" onClick={() => navigate('analyse/interrogation/block/2')}>Open 02 Aggregate</Button>}>
+        <Callout tone="green" icon="check-circle" testid="run-done" action={<Button size="sm" variant="primary" icon="bar-chart" onClick={() => navigate(href('block2'))}>Open 02 Aggregate</Button>}>
           ran {RUN_STEPS.length} stages over {nScope} members · results are the fixture results (demo)
         </Callout>
       )}
@@ -218,7 +231,7 @@ function SourceBody({ block }: { block: SourceBlock }) {
               <Button size="sm" variant="link" onClick={() => setAll('none')} testid="select-none">none</Button>
               <Button size="sm" variant="link" onClick={() => setAll('invert')} testid="select-invert">invert</Button>
               <span className="k-spacer" />
-              <span className="ig-foot"><Icon name="link" size={11} />shared y · 0 to −0.45 mV · unnormalised</span>
+              <span className="ig-foot"><Icon name="link" size={11} />shared y · measured from the tiles shown ({tileDomain[0].toFixed(2)} to {tileDomain[1].toFixed(2)} mV) · unnormalised · window −{Math.round(tileWindow.pre)} … +{Math.round(tileWindow.post)} s</span>
             </div>
 
             <div className="ig-rel">
@@ -242,10 +255,10 @@ function SourceBody({ block }: { block: SourceBlock }) {
                             <span className="k-spacer" />
                             <ColourDot colour={VERDICT_COLOUR[m.verdict]} title={m.verdict} />
                           </div>
-                          <div className="bd" role="button" tabIndex={0} title={`open ${m.id} in 01 Resolve spans`}
-                            onClick={() => navigate(`analyse/interrogation/block/1?event=${m.id}${familyId === 'F-03' ? '' : `&family=${familyId}`}`)}
-                            onKeyDown={e => { if (e.key === 'Enter') navigate(`analyse/interrogation/block/1?event=${m.id}`) }}>
-                            <MiniTrace values={curveOf(m)} yDomain={yDomain} width="100%" height={54}
+                          <div className="bd" role="button" tabIndex={0} title={`open ${m.id} in ${UPSTREAMS[upstream].block}`}
+                            onClick={() => navigate(href('block1', { event: m.id }))}
+                            onKeyDown={e => { if (e.key === 'Enter') navigate(href('block1', { event: m.id })) }}>
+                            <MiniTrace values={curveOf(m)} yDomain={tileDomain} width="100%" height={54}
                               stroke={on ? fam.colour : 'var(--muted-2)'} title={`${m.id} · ${m.depth_mV.toFixed(3)} mV`} />
                           </div>
                           <div className="ft">
@@ -271,23 +284,21 @@ function SourceBody({ block }: { block: SourceBlock }) {
           </SectionCard>
 
           <SectionCard testid="members-overlaid" title="Members overlaid"
-            info="A seeded random sample, never all of them: families run to hundreds of members (P8). Traces are detrended mV on the family's shared scale — not normalised (D5)."
-            subtitle={`random ${overlayMembers.length} of ${nScope} in scope · aligned on ${alignQ}`}
+            info="A seeded random sample, never all of them: families run to hundreds of members (P8). Traces are the store's detrended mV samples over the context-padding window, on a y axis measured from the traces drawn — not normalised (D5). The window follows Source settings › context padding: the stored context by default, so a slow precursor (a sharkfin's rise) is on the plot."
+            subtitle={`random ${overlayMembers.length} of ${nScope} in scope · aligned on ${alignQ} · window −${Math.round(overlayWindow.pre)} … +${Math.round(overlayWindow.post)} s`}
             actions={<>
               <Button size="sm" icon="shuffle" onClick={() => setOverlaySeed(s => s + 1)} testid="overlay-resample">resample</Button>
-              <Dropdown testid="overlay-align" prefix="align" value={alignQ} onChange={setAlignQ} options={ALIGNMENTS} />
+              <Dropdown testid="overlay-align" prefix="align" value={alignQ} onChange={setAlignQ} options={alignOptions} />
             </>}>
             {nScope === 0
               ? <EmptyState testid="overlay-empty" size="sm" icon="wave" title="nothing in scope to overlay" caption="tick a member above" />
-              : <><LineChart testid="overlay-plot" height={190} xLabel={`seconds from ${alignQ}`} yLabel="mV" yDomain={yDomain}
-              xDomain={[-20, 40]} xFormat={v => `${v > 0 ? '+' : ''}${v} s`}
-              series={[
-                ...overlayMembers.map(m => ({ label: m.id, colour: fam.colour, points: toPoints(curveOf(m, 20, 30), 20), width: 1 })),
-                { label: `medoid ${fam.medoid}`, colour: '#111827', points: toPoints(medoidCurve, 20), width: 2 },
-              ]} legend={false} />
-              <div className="ig-foot" style={{ marginTop: 4 }}>
-                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}><span style={{ width: 14, height: 2, background: fam.colour }} />member</span>
-                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}><span style={{ width: 14, height: 2, background: '#111827' }} />medoid {fam.medoid}</span>
+              : <><LineChart testid="overlay-plot" height={340} xLabel={`seconds from ${alignQ}`} yLabel="mV" yDomain={overlayDomain}
+              xFormat={v => `${v > 0 ? '+' : ''}${Math.round(v)} s`}
+              series={overlayMembers.map(m => ({ label: m.id, colour: fam.colour, points: overlayPoints(m), width: 1 }))} legend={false} />
+              <div className="ig-foot" style={{ marginTop: 4 }} data-testid="overlay-window-note">
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}><span style={{ width: 14, height: 2, background: fam.colour }} />member · the stored samples, nothing held past a snippet's end</span>
+                <span className="k-spacer" />
+                <span>context padding {paddingLabel(padding)} · y {overlayDomain[0].toFixed(2)} to {overlayDomain[1].toFixed(2)} mV, measured from the traces drawn</span>
               </div></>}
           </SectionCard>
         </div>
@@ -323,8 +334,8 @@ function SourceBody({ block }: { block: SourceBlock }) {
             <Field inline label="resolve from" info="Where the samples come from. The original recording is the only source with full resolution." labelWidth={120}>
               <Dropdown testid="setting-resolve" value={draft.settings.resolveFrom} onChange={v => setDraft(d => ({ ...d, staleFrom: 'block1', settings: { ...d.settings, resolveFrom: v } }))} options={block.settings.resolveFrom} />
             </Field>
-            <Field inline label="context padding" info="Samples either side of each span, so 01 can walk back to an onset that sits before the span." labelWidth={120}>
-              <Dropdown testid="setting-padding" value={draft.settings.padding} onChange={v => setDraft(d => ({ ...d, staleFrom: 'block1', settings: { ...d.settings, padding: v } }))} options={block.settings.padding} />
+            <Field inline label="context padding" info="The window drawn around every event on these three pages, before the onset and after the trough. The stored context is what the store kept (about a minute each side, up to 46 min); a proportional padding cannot show a slow precursor to a fast event." labelWidth={120}>
+              <Dropdown testid="setting-padding" value={draft.settings.padding} onChange={v => setDraft(d => ({ ...d, settings: { ...d.settings, padding: v } }))} options={block.settings.padding} />
             </Field>
             <Field inline label="on missing source" info="What happens when a member's recording is not on this installation." labelWidth={120}>
               <Dropdown testid="setting-missing" value={draft.settings.onMissing} onChange={v => setDraft(d => ({ ...d, staleFrom: 'block1', settings: { ...d.settings, onMissing: v } }))} options={block.settings.onMissing} />
@@ -358,7 +369,7 @@ function SourceBody({ block }: { block: SourceBlock }) {
       </div>
 
       <SaveTemplateModal open={saveOpen} onClose={() => setSaveOpen(false)}
-        defaultName={upstream === 'spike-shape' ? 'spike_shape_v1' : 'sharkfin_slope_v1'}
+        defaultName={upstream === 'event-shape' ? 'event_shape_v1' : 'sharkfin_slope_v1'}
         stages={block.chain.map(b => (b.index ? `${String(b.index).padStart(2, '0')} ${b.label}` : b.label))} />
     </>
   )

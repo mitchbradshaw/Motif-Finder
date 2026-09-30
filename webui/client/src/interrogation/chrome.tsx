@@ -8,7 +8,7 @@ import {
 } from '../kit'
 import { navigate } from '../state'
 import { useToast } from '../shell/Toast'
-import { ESTIMATE, NULL_SPEC, type ChainBlock } from '../fixtures/interrogation'
+import { ESTIMATE, NULL_SPEC, type ChainBlock, type Upstream } from '../fixtures/interrogation'
 import './interrogation.css'
 
 /* ----------------------------------------------------------- loading / failure ----------------------------------------------------------- */
@@ -145,16 +145,20 @@ export function SaveTemplateModal({ open, onClose, defaultName, stages }: { open
 }
 
 /* ----------------------------------------------------------- "+ stage" popover ----------------------------------------------------------- */
+/** The two feature blocks 01 can be. They read the same members and measure them with DIFFERENT code: the
+ *  store's slope analysis (detect5's anchors + gradients) or interrogation.event_shape (fixup-d). Before
+ *  fixup-e the second option was "Spike shape", which relabelled the slope block and declared features the
+ *  page then fabricated (U10). */
 export function AddStagePopover({ open, onClose, anchorRef, onPick }: {
-  open: boolean; onClose: () => void; anchorRef: React.RefObject<HTMLElement | null>; onPick: (kind: 'slope' | 'spike-shape') => void
+  open: boolean; onClose: () => void; anchorRef: React.RefObject<HTMLElement | null>; onPick: (kind: Upstream) => void
 }) {
   return (
-    <Popover open={open} onClose={onClose} anchorRef={anchorRef} placement="bottom-start" width={380} title="Insert a feature block"
+    <Popover open={open} onClose={onClose} anchorRef={anchorRef} placement="bottom-start" width={420} title="Insert a feature block"
       subtitle="one block per analysis type (P7) · Aggregate is wired from whatever it emits" testid="add-stage-popover">
       <div className="k-menu" role="menu">
         {[
-          { key: 'slope' as const, label: '01 Resolve spans — slope analysis', d: 'SpanSet → Features · depth, duration, max slope, peakedness' },
-          { key: 'spike-shape' as const, label: '01 Spike shape', d: 'SpanSet → Features · amplitude, half-width, rise, decay' },
+          { key: 'slope' as const, label: '01 Resolve spans — slope analysis', d: 'SpanSet → Features · the store\'s depth, fall duration, max slope, peakedness (gradients over detect5\'s anchors)' },
+          { key: 'event-shape' as const, label: '01 Event shape — interrogation.event_shape', d: 'SpanSet → SpanSet + Features · amplitude, width, FWHM, recovery, duration, precursor, slopes; rise time for spikes (null for drops)' },
         ].map(o => (
           <button key={o.key} type="button" role="menuitem" className="k-menu-item" data-testid={`add-stage-${o.key}`} onClick={() => { onPick(o.key); onClose() }}>
             <span className="body"><span>{o.label}</span><span className="desc">{o.d}</span></span>

@@ -2,12 +2,15 @@
  * pending rule edit. Survives navigation between the three pages, not a reload — brief: writes go to the
  * demo store. Family and upstream live in the URL so every state is deep-linkable. */
 import { useDemoState, useQueryState } from '../kit'
-import { RULES } from '../fixtures/interrogation'
-import { DEFAULT_FAMILY } from '../api/interrogation'
+import { RULES, type Upstream } from '../fixtures/interrogation'
+import { DEFAULT_FAMILY, DEFAULT_PADDING } from '../api/interrogation'
+
+export type { Upstream }
 
 export interface InterrogationDraft {
   /** member ids scoped out of this run (the Library entry is unchanged) */
   excluded: Record<string, string[]>
+  /** `padding` is the window drawn around every event (fixup-e, U11): `api/interrogation.ts::PADDING_OPTIONS` */
   settings: { members: string; resolveFrom: string; padding: string; onMissing: string }
   rules: { onset: string; trough: string; sigma: string; steepestWindow: number }
   /** an unapplied steepest-window edit (frame 2c) */
@@ -23,7 +26,7 @@ export interface InterrogationDraft {
 
 export const SEED_DRAFT: InterrogationDraft = {
   excluded: {},
-  settings: { members: 'in-scope', resolveFrom: 'original', padding: '0.5', onMissing: 'fail' },
+  settings: { members: 'in-scope', resolveFrom: 'original', padding: DEFAULT_PADDING, onMissing: 'fail' },
   rules: { onset: 'walk-back', trough: 'run3', sigma: 'mad', steepestWindow: RULES.steepestWindow.recommended },
   pendingWindow: null,
   staleFrom: null,
@@ -36,7 +39,27 @@ export function useInterrogationDraft() {
 }
 
 export function useFamilyQuery() { return useQueryState('family', DEFAULT_FAMILY) }
-export function useUpstreamQuery() { return useQueryState<'slope' | 'spike-shape'>('upstream', 'slope') }
+
+/** Which feature block 01 is. `spike-shape` was the old key for a block that only relabelled the slope
+ *  block (fixup-e, U10); an old link with it opens the shape block, which is what the label promised. */
+export function useUpstreamQuery(): [Upstream, (next: Upstream | null) => void] {
+  const [raw, set] = useQueryState<string>('upstream', 'slope')
+  const value: Upstream = raw === 'event-shape' || raw === 'spike-shape' ? 'event-shape' : 'slope'
+  return [value, set]
+}
+
+/** One hash for every walk between the three pages, carrying the family AND the upstream. U10's symptom was
+ *  a ribbon chip that navigated to `block/1` without `?upstream=`, so picking Event shape reverted to Resolve
+ *  spans the moment the block opened. Every navigation between these pages goes through here. */
+export function interrogationHref(page: 'source' | 'block1' | 'block2', familyId: string, upstream: Upstream,
+                                  extra: Record<string, string | null | undefined> = {}): string {
+  const path = page === 'source' ? 'analyse/interrogation' : page === 'block1' ? 'analyse/interrogation/block/1' : 'analyse/interrogation/block/2'
+  const q: string[] = []
+  if (familyId && familyId !== DEFAULT_FAMILY) q.push(`family=${encodeURIComponent(familyId)}`)
+  if (upstream !== 'slope') q.push(`upstream=${upstream}`)
+  for (const [k, v] of Object.entries(extra)) if (v != null && v !== '') q.push(`${encodeURIComponent(k)}=${encodeURIComponent(v)}`)
+  return q.length ? `${path}?${q.join('&')}` : path
+}
 
 /** Members in scope for the run: not an artifact, not excluded by hand, and inside the `members` setting. */
 export function inScopeIds(members: { id: string; verdict: string }[], draft: InterrogationDraft, familyId: string, excludeArtifacts: boolean): Set<string> {
