@@ -48,7 +48,7 @@ NAME = "interrogation.event_shape"
 FS = 10.0
 
 COLUMNS = ("polarity", "onset_idx", "extremum_idx", "recovery_idx", "event_amplitude_mv",
-           "precursor_height_mv", "event_width_s", "duration_s", "fwhm_s", "recovery_time_s",
+           "precursor_height_mv", "event_width_s", "duration_s", "fwhm_s", "recovery_time_s", "rise_time_s",
            "max_slope_mv_s", "onset_slope_mv_s", "chord_slope_mv_s", "peakedness", "span_ptp_mv")
 
 
@@ -240,6 +240,57 @@ def test_refuses_a_missing_input():
     spec = get_adapter(NAME)
     with pytest.raises(ValueError, match="SpanSet"):
         spec.run(drop(), np.arange(300) / FS, FS, **spec.validate_params({}))
+
+
+# ---------------------------------------------------------------- rise time (fixup-e, QUESTIONS.md Q19) --
+# The one measure fixup-d left unmeasured. It is a PARAMETER of the shape block (the
+# fraction that defines the 10-90 % rise time) and it is NULL for a drop: a drop has
+# no rise, and a rise of no height is a different statement. Zero has done double
+# duty as "absent" once in this codebase already (detect5's rise_height_mv is 0.000
+# for 85.8 % of drop_motifs10) and misled everyone.
+
+def test_rise_time_is_a_parameter_with_the_10_90_default():
+    spec = get_adapter(NAME)
+    p = spec.validate_params({})
+    assert p["rise_time_frac"] == 0.1
+    for bad in ({"rise_time_frac": 0.5}, {"rise_time_frac": -0.1}):
+        with pytest.raises(ValueError):
+            spec.validate_params(bad)
+
+
+def test_a_drop_has_no_rise_time_and_it_is_null_not_zero():
+    f = _run(drop()).value.features
+    assert "rise_time_s" in f.columns
+    assert np.isnan(f.iloc[0]["rise_time_s"])
+    assert f.iloc[0]["event_width_s"] == pytest.approx(2.0)      # the drop's own measures are untouched
+
+
+def test_a_spikes_rise_time_is_the_10_to_90_percent_crossing():
+    """-drop(): the spike rises from -0.002 V to +0.008 V over samples 50..70 (0.0005 V per
+    sample, fs 10). 10 % of the amplitude is crossed at sample 52 and 90 % at 68: 1.6 s.
+    With rise_time_frac = 0 the rise is the whole onset -> extremum, the event width."""
+    s = _run(-drop(), polarity="spike").value.features.iloc[0]
+    assert s["rise_time_s"] == pytest.approx(1.6)
+    full = _run(-drop(), polarity="spike", rise_time_frac=0.0).value.features.iloc[0]
+    assert full["rise_time_s"] == pytest.approx(2.0)
+    # a drop the chain inverted before detection IS a spike in the recorded frame, so it has a rise
+    inv = _run(drop(), upstream_inverted=True).value.features.iloc[0]
+    assert inv["rise_time_s"] == pytest.approx(1.6)
+    # and a genuine drop measured under the inversion flag is a spike upside down: no rise
+    assert np.isnan(_run(-drop(), polarity="spike", upstream_inverted=True).value.features.iloc[0]["rise_time_s"])
+
+
+def test_the_rise_time_rule_is_printed_and_says_null_for_a_drop():
+    meta = _run(drop(), rise_time_frac=0.2).meta
+    rule = next(r for r in meta["rules"] if r["name"] == "rise_time")
+    assert "0.2" in rule["rule"] and "NaN" in rule["rule"] and "drop" in rule["rule"]
+    assert "rise_time_s" in meta["measures"]
+    assert meta["n_no_rise"] == 1
+
+
+def test_rise_time_rides_on_the_stored_measures():
+    from Working.interrogation import event_shape as ES
+    assert "rise_time_s" in ES.MEASURES
 
 
 def test_why_not_reuse_is_written_down():
