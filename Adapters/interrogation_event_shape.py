@@ -6,7 +6,9 @@ shape measure from ONE block, because the researcher asked to see all measures
 from a single block rather than run three to characterise one event
 (QUESTIONS.md Q13): amplitude (a drop's depth, a spike's height), precursor
 height, event width (onset -> extremum), duration (onset -> recovery), FWHM,
-recovery time, steepest / onset / chord slope and peakedness. Polarity-neutral:
+recovery time, a spike's rise time (fixup-e, Q19: a parameter, `rise_time_frac`,
+and NULL for a drop — a drop has no rise, and a rise of no height is a different
+statement), steepest / onset / chord slope and peakedness. Polarity-neutral:
 one block, polarity handled inside (Q12). The first block in the registry that
 consumes a SpanSet.
 
@@ -77,8 +79,8 @@ def _merge(upstream, measured):
 
 
 def _run(x, t, fs, polarity="drop", upstream_inverted=False, knee_frac=ES.KNEE_FRAC,
-         recovery_frac=ES.RECOVERY_FRAC, recovery_max_mult=ES.RECOVERY_MAX_MULT, walk_onset_back=True,
-         rose_scale="raw", rose_reference_mv_s=DEFAULT_SLOPE_REF_MV_S, value=None):
+         recovery_frac=ES.RECOVERY_FRAC, recovery_max_mult=ES.RECOVERY_MAX_MULT, rise_time_frac=ES.RISE_TIME_FRAC,
+         walk_onset_back=True, rose_scale="raw", rose_reference_mv_s=DEFAULT_SLOPE_REF_MV_S, value=None):
     spans = _require(value)
     up = spans.features
     # an upstream block that already located each event (its own onset_idx / extremum_idx
@@ -88,7 +90,7 @@ def _run(x, t, fs, polarity="drop", upstream_inverted=False, knee_frac=ES.KNEE_F
     feats, detail = ES.measure_events(
         x, spans.starts, spans.ends, fs, polarity=polarity, upstream_inverted=bool(upstream_inverted),
         knee_frac=knee_frac, recovery_frac=recovery_frac, recovery_max_mult=recovery_max_mult,
-        walk_onset_back=bool(walk_onset_back), anchors=anchors)
+        rise_time_frac=rise_time_frac, walk_onset_back=bool(walk_onset_back), anchors=anchors)
     groups = (up["group"].astype(str).tolist() if up is not None and "group" in up.columns
               else ["all"] * len(spans.starts))
     rose = ES.event_rose(detail, groups, fs, scale=rose_scale, reference=rose_reference_mv_s)
@@ -97,13 +99,14 @@ def _run(x, t, fs, polarity="drop", upstream_inverted=False, knee_frac=ES.KNEE_F
     return AdapterResult(
         output_kind="spanset", value=out,
         meta={"rules": ES.rules(knee_frac=knee_frac, recovery_frac=recovery_frac,
-                                recovery_max_mult=recovery_max_mult, walk_onset_back=bool(walk_onset_back),
+                                recovery_max_mult=recovery_max_mult, rise_time_frac=rise_time_frac,
+                                walk_onset_back=bool(walk_onset_back),
                                 upstream_inverted=bool(upstream_inverted), polarity=polarity,
                                 anchors_used=("the upstream onset_idx / extremum_idx columns: the event was already located"
                                               if anchored else None)),
               "rose": rose, "n_events": len(spans.starts), "n_no_fall": detail["n_no_fall"],
               "n_not_recovered": detail["n_not_recovered"], "n_no_fwhm": detail["n_no_fwhm"],
-              "measures": list(ES.COLUMNS)},
+              "n_no_rise": detail["n_no_rise"], "measures": list(ES.COLUMNS)},
     )
 
 
@@ -144,6 +147,9 @@ SPEC = register(AdapterSpec(
                   "Recovered when the trace is back this fraction of the amplitude from the extremum", min=0.01, max=1.0),
         ParamSpec("recovery_max_mult", float, ES.RECOVERY_MAX_MULT,
                   "Search for recovery at most this many event widths past the extremum", min=0.5),
+        ParamSpec("rise_time_frac", float, ES.RISE_TIME_FRAC,
+                  "A spike's rise time runs from this fraction of the amplitude to 1 minus it (0.1: the 10-90 % rise time; "
+                  "0: the whole onset -> extremum). A drop has no rise: null, never 0", min=0.0, max=0.49),
         ParamSpec("walk_onset_back", bool, True, "Move the onset back onto the shoulder the event departs from (detect5)"),
         ParamSpec("rose_scale", str, "raw", "What 45° means on the rose (gradients.SLOPE_SCALES)",
                   choices=list(SLOPE_SCALES)),
@@ -157,7 +163,8 @@ SPEC = register(AdapterSpec(
     output_kind="spanset",
     description=(
         "Every shape measure of every event in one block, polarity-neutral: amplitude, precursor, width, "
-        "duration, FWHM, recovery time, steepest / onset / chord slope, peakedness. The spans pass through; the "
+        "duration, FWHM, recovery time, a spike's rise time (null for a drop), steepest / onset / chord slope, "
+        "peakedness. The spans pass through; the "
         "measures ride on the SpanSet as a feature table, with the rule for each printed beside it and the "
         "steepest-slope rose in meta."
     ),

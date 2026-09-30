@@ -66,6 +66,18 @@ The measures this block had to DEFINE (nothing in the repo measured them)
                     window before it (a drop's rise, a spike's dip). It is not
                     detect5's `rise_height_mv`, which is 0.0 unless the event
                     was rise-triggered (85.8 % of `drop_motifs10`)
+    rise_time       (fixup-e, QUESTIONS.md Q19) a SPIKE's rise: the time from
+                    the crossing of `rise_time_frac` of the amplitude to the
+                    crossing of `1 - rise_time_frac` on the way from the onset
+                    to the extremum, both interpolated. The default 0.1 is the
+                    electrophysiologist's 10-90 % rise time; 0 makes it the
+                    whole onset -> extremum, the event width. For a DROP it is
+                    NaN, never 0: a drop has no rise, and a rise of no height is
+                    a different statement. Zero has done double duty as
+                    "absent" once already in this tree (`rise_height_mv` above)
+                    and misled everyone. A drop the chain inverted before
+                    detection (`upstream_inverted`) is a spike in the recorded
+                    frame, so it has one. Counted (`n_no_rise`)
 
 Why `data_analysis.half_width` is not the FWHM here: it finds the most
 prominent PEAK with `scipy.signal.find_peaks` (so a drop needs inverting), and
@@ -101,11 +113,12 @@ DROP, SPIKE = -1, 1
 KNEE_FRAC = 0.05          # detect5's default, the same number the detector ran with
 RECOVERY_FRAC = 0.5
 RECOVERY_MAX_MULT = 10.0
+RISE_TIME_FRAC = 0.1      # the 10-90 % rise time
 TO_MV_FROM_VOLTS = 1000.0
 
 # Index columns are in the SpanSet's own frame (span-relative, like `starts`).
 COLUMNS = ("polarity", "onset_idx", "extremum_idx", "recovery_idx", "event_amplitude_mv",
-           "precursor_height_mv", "event_width_s", "duration_s", "fwhm_s", "recovery_time_s",
+           "precursor_height_mv", "event_width_s", "duration_s", "fwhm_s", "recovery_time_s", "rise_time_s",
            "max_slope_mv_s", "onset_slope_mv_s", "chord_slope_mv_s", "peakedness", "span_ptp_mv")
 
 # The measures a stored motif carries (`motif_features`): everything but the indices,
@@ -116,8 +129,8 @@ UNLIT = {c: float("nan") for c in COLUMNS}
 
 
 def rules(*, knee_frac=KNEE_FRAC, recovery_frac=RECOVERY_FRAC, recovery_max_mult=RECOVERY_MAX_MULT,
-          walk_onset_back=True, to_mv=TO_MV_FROM_VOLTS, upstream_inverted=False, polarity="drop",
-          anchors_used=None):
+          rise_time_frac=RISE_TIME_FRAC, walk_onset_back=True, to_mv=TO_MV_FROM_VOLTS, upstream_inverted=False,
+          polarity="drop", anchors_used=None):
     """The rule behind every measure, as printed beside the numbers — a measure
     whose rule is unstated cannot be argued with."""
     unit = ("x is in volts, the core's convention (detect5.py:81): amplitudes x1000 -> mV, "
@@ -149,6 +162,7 @@ def rules(*, knee_frac=KNEE_FRAC, recovery_frac=RECOVERY_FRAC, recovery_max_mult
                                      f"and at most {recovery_max_mult:g} event widths; not reached -> NaN"},
         {"name": "recovery_time", "rule": "extremum -> recovery, s"},
         {"name": "duration", "rule": "onset -> recovery, s"},
+        {"name": "rise_time", "rule": _rise_rule(rise_time_frac)},
         {"name": "fwhm", "rule": "full width at half maximum: the half level is onset level - amplitude/2; the last "
                                  "crossing on the way out to the first on the way back, interpolated (not "
                                  "data_analysis.half_width, which is the narrower half of the most prominent peak, in samples)"},
@@ -160,6 +174,13 @@ def rules(*, knee_frac=KNEE_FRAC, recovery_frac=RECOVERY_FRAC, recovery_max_mult
         {"name": "span_ptp", "rule": "peak-to-peak over the whole window, mV (the denominator of detect5's fall_dominance)"},
         {"name": "units", "rule": unit},
     ]
+
+
+def _rise_rule(f):
+    span = "the whole onset -> extremum" if f == 0 else f"the {f * 100:g}-{(1 - f) * 100:g} % rise time"
+    return (f"a spike's rise only: from the crossing of {f:g} x amplitude to the crossing of {1 - f:g} x amplitude "
+            f"on the way from onset to extremum, interpolated, s ({span}). A drop has no rise: NaN, never 0 "
+            "(a rise of no height is a different statement); counted as n_no_rise")
 
 
 def _crossing_down(z, start, stop, level):
@@ -216,7 +237,7 @@ def _is_drop(segment, polarity):
 
 
 def measure_event(z, lo, hi, search_end, fs, *, knee_frac=KNEE_FRAC, recovery_frac=RECOVERY_FRAC,
-                  recovery_max_mult=RECOVERY_MAX_MULT, walk_onset_back=True, anchor=None):
+                  recovery_max_mult=RECOVERY_MAX_MULT, rise_time_frac=RISE_TIME_FRAC, walk_onset_back=True, anchor=None):
     """The anatomy and measures of one ORIENTED event (a fall) in mV.
 
     `z` is the oriented trace in mV over at least `[lo, search_end)`; the event
@@ -261,6 +282,10 @@ def measure_event(z, lo, hi, search_end, fs, *, knee_frac=KNEE_FRAC, recovery_fr
     left = _crossing_down(z, lo + onset, ext_abs, half)
     right = _crossing_up(z, ext_abs, limit, half)
     rec = _crossing_up(z, ext_abs, limit, float(w[extremum]) + recovery_frac * depth)
+    # the oriented fall's own rise time (a spike's rise once turned back): the last crossing of
+    # onset - f x depth to the last crossing of onset - (1 - f) x depth, on the way to the extremum
+    r_hi = _crossing_down(z, lo + onset, ext_abs, float(w[onset]) - rise_time_frac * depth)
+    r_lo = _crossing_down(z, lo + onset, ext_abs, float(w[onset]) - (1.0 - rise_time_frac) * depth)
     nan = float("nan")
     out.update(
         ok=True, onset=onset, extremum=extremum, depth=depth,
@@ -270,6 +295,7 @@ def measure_event(z, lo, hi, search_end, fs, *, knee_frac=KNEE_FRAC, recovery_fr
         fwhm_s=(right - left) / fs if (left is not None and right is not None) else nan,
         recovery_time_s=(rec - ext_abs) / fs if rec is not None else nan,
         duration_s=(rec - (lo + onset)) / fs if rec is not None else nan,
+        rise_time_s=(r_lo - r_hi) / fs if (r_lo is not None and r_hi is not None) else nan,
         span_ptp=float(np.ptp(w)),
         **grads,
     )
@@ -277,8 +303,8 @@ def measure_event(z, lo, hi, search_end, fs, *, knee_frac=KNEE_FRAC, recovery_fr
 
 
 def measure_events(x, starts, ends, fs, *, polarity="drop", upstream_inverted=False, knee_frac=KNEE_FRAC,
-                   recovery_frac=RECOVERY_FRAC, recovery_max_mult=RECOVERY_MAX_MULT, walk_onset_back=True,
-                   to_mv=TO_MV_FROM_VOLTS, anchors=None):
+                   recovery_frac=RECOVERY_FRAC, recovery_max_mult=RECOVERY_MAX_MULT, rise_time_frac=RISE_TIME_FRAC,
+                   walk_onset_back=True, to_mv=TO_MV_FROM_VOLTS, anchors=None):
     """Measure every window `[starts[i], ends[i])` of `x`.
 
     `anchors`, when given, is one `(onset, extremum)` per window in `x`'s frame
@@ -303,7 +329,7 @@ def measure_events(x, starts, ends, fs, *, polarity="drop", upstream_inverted=Fa
     flip = -1.0 if upstream_inverted else 1.0
 
     rows, events = [], []
-    counts = {"n_no_fall": 0, "n_not_recovered": 0, "n_no_fwhm": 0}
+    counts = {"n_no_fall": 0, "n_not_recovered": 0, "n_no_fwhm": 0, "n_no_rise": 0}
     for i, (lo, hi) in enumerate(zip(starts, ends)):
         lo_c, hi_c = max(0, lo), min(n, hi)
         drop = _is_drop(x[lo_c:hi_c], polarity)
@@ -317,12 +343,13 @@ def measure_events(x, starts, ends, fs, *, polarity="drop", upstream_inverted=Fa
             a = None
         m = measure_event(z, 0, hi_c - lo_c, search_end - lo_c, fs, knee_frac=knee_frac,
                           recovery_frac=recovery_frac, recovery_max_mult=recovery_max_mult,
-                          walk_onset_back=walk_onset_back,
+                          rise_time_frac=rise_time_frac, walk_onset_back=walk_onset_back,
                           anchor=None if a is None else (int(a[0]) - lo_c, int(a[1]) - lo_c))
         recorded = (DROP if drop else SPIKE) * (-1 if upstream_inverted else 1)
         row = dict(UNLIT, polarity=recorded)
         if not m["ok"]:
             counts["n_no_fall"] += 1
+            counts["n_no_rise"] += 1
             row["span_ptp_mv"] = float(np.ptp(x[lo_c:hi_c]) * abs(to_mv)) if hi_c > lo_c else float("nan")
             rows.append(row)
             events.append(None)
@@ -334,11 +361,14 @@ def measure_events(x, starts, ends, fs, *, polarity="drop", upstream_inverted=Fa
             event_amplitude_mv=m["depth"], precursor_height_mv=m["precursor"],
             event_width_s=m["event_width_s"], duration_s=m["duration_s"], fwhm_s=m["fwhm_s"],
             recovery_time_s=m["recovery_time_s"],
+            # a rise belongs to a spike in the RECORDED frame; a drop's is NaN, never 0 (see the docstring)
+            rise_time_s=m["rise_time_s"] if recorded == SPIKE else float("nan"),
             max_slope_mv_s=sign * m["max_slope_mv_s"], onset_slope_mv_s=sign * m["onset_slope_mv_s"],
             chord_slope_mv_s=sign * m["mean_slope_mv_s"], peakedness=m["peakedness"], span_ptp_mv=m["span_ptp"],
         )
         counts["n_not_recovered"] += int(not np.isfinite(m["recovery_time_s"]))
         counts["n_no_fwhm"] += int(not np.isfinite(m["fwhm_s"]))
+        counts["n_no_rise"] += int(not np.isfinite(row["rise_time_s"]))
         rows.append(row)
         events.append({"index": i, "snippet_mv": z[:hi_c - lo_c].copy(), "onset": m["onset"],
                        "extremum": m["extremum"], "depth": m["depth"], "width_s": m["event_width_s"],

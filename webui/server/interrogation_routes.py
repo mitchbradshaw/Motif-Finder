@@ -173,6 +173,88 @@ def family_aggregate(key: str):
             "scaling": beta}
 
 
+# ---------------------------------------------------------------- event shape (fixup-e) --
+# 01 Event shape: `interrogation.event_shape`'s measures of every member of a seed family,
+# so the Aggregate page draws measurements and never a constant times a duration. Each
+# member's features come from `motif_features` when the Library carries them (fixup-d's
+# backfill, keyed by the content hash of the store's own `detrended_mv` snippet) and are
+# otherwise measured on that snippet on the spot from the detector's own onset and trough
+# (`Working.library.features.measure_snippet`) — flagged `stored: false`, and NOT written:
+# a view writes nothing. Recovery that is not reached inside the rule's bound is None and
+# counted, never 0; a drop's rise time is None, never 0 (Q19).
+
+def _shape_rules():
+    from Working.interrogation.event_shape import rules
+    return rules(to_mv=1.0, anchors_used=("the detector's own onset_idx / trough_idx from events.csv: the event was already "
+                                          "located, so the anatomy search is not run (fixup-d: 410 / 410 seed depths agree)"))
+
+
+@router.get("/api/interrogation/families/{key}/shape")
+def family_shape(request: Request, key: str):
+    """01 Event shape: every member's per-event measures from the core, with the rule behind each."""
+    from Working.interrogation import event_shape as ES
+    from Working.library import features as F
+    from Working.library.identity import content_hash
+
+    members, snips = _members_of(key)
+    hashes = {e["event_id"]: content_hash(np.asarray(snips[e["event_id"]]["detrended_mv"], dtype=float))
+              for e in members if e["event_id"] in snips}
+    c = _seq_conn(request)
+    try:
+        stored = F.read_features(c, list(hashes.values())) if hashes else {}
+    finally:
+        c.close()
+
+    wanted = tuple(ES.MEASURES) + ("polarity", "onset_idx", "extremum_idx")
+    counts = {"n": len(members), "n_stored": 0, "n_measured_here": 0, "n_no_snippet": 0,
+              "n_not_recovered": 0, "n_no_fwhm": 0, "n_no_rise": 0}
+    out = []
+    for e in members:
+        eid = e["event_id"]
+        row = {"event_id": eid, "content_hash": hashes.get(eid), "stored": False, "features": None,
+               "detector": F.detector_measures(e), "completed_from_snippet": [], "why": None}
+        snip = snips.get(eid)
+        have = stored.get(hashes[eid]) if eid in hashes else None
+        feats = None
+        if have and any(k in have for k in ES.MEASURES):
+            row["stored"] = True
+            counts["n_stored"] += 1
+            feats = {k: have.get(k, float("nan")) for k in wanted}
+            row["detector"] = {**row["detector"], **{k[len(F.DETECTOR_PREFIX):]: v for k, v in have.items()
+                                                    if k.startswith(F.DETECTOR_PREFIX)}}
+            missing = [k for k in ES.MEASURES if k not in have]
+            if missing and snip is not None:
+                # a row written under an older rule set (before rise_time_s existed): fill the gap from
+                # the same snippet the row was measured on, and say which measures were filled
+                fresh = F.measure_snippet(snip["detrended_mv"], float(e["fs"]), F.detector_anchor(e))
+                for k in missing:
+                    feats[k] = fresh.get(k, float("nan"))
+                row["completed_from_snippet"] = missing
+        elif snip is not None:
+            feats = F.measure_snippet(snip["detrended_mv"], float(e["fs"]), F.detector_anchor(e))
+            counts["n_measured_here"] += 1
+        else:
+            row["why"] = "no snippet in the store for this event, and no stored features"
+            counts["n_no_snippet"] += 1
+            out.append(row)
+            continue
+        row["features"] = {k: _clean(None if v is None else float(v)) for k, v in feats.items()}
+        pol = row["features"].get("polarity")
+        row["features"]["polarity"] = None if pol is None else int(pol)
+        counts["n_not_recovered"] += int(row["features"]["recovery_time_s"] is None)
+        counts["n_no_fwhm"] += int(row["features"]["fwhm_s"] is None)
+        counts["n_no_rise"] += int(row["features"]["rise_time_s"] is None)
+        out.append(row)
+    return _clean({
+        "family": key, "source": SOURCE, "block": "interrogation.event_shape", "members": out, "rules": _shape_rules(),
+        "counts": counts,
+        "recovery": {"frac": ES.RECOVERY_FRAC, "max_mult": ES.RECOVERY_MAX_MULT},
+        "rise_time_frac": ES.RISE_TIME_FRAC,
+        "measured_on": ("the store's own detrended_mv snippet, the waveform the Library's content hash covers; "
+                        "the store wrote samples x 1000 as mV, which is mV only where the recording is in volts (Q-X2.8)"),
+    })
+
+
 # ---------------------------------------------------------------- sequences (fixup-d) --
 # The steepest-slope rose compared across the events of ONE sequence. The events'
 # features are `motif_features` rows where the backfill stored them, measured on the

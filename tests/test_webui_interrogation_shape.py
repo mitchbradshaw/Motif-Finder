@@ -116,12 +116,14 @@ def test_a_drop_has_no_rise_time_on_the_route_either(client):
 
 @needs_seed
 def test_nothing_on_the_route_is_a_constant_multiple_of_the_width(client):
-    """The three fabrications: half_width = 0.84 x duration, rise = 0.31 x, isi = 4.2 x."""
-    d = client.get("/api/interrogation/families/id001/shape").json()
+    """The three fabrications: half_width = 0.84 x duration, rise = 0.31 x, isi = 4.2 x.
+    On id010 (84 trough events) FWHM is measured on 83; on id001 (sharkfin) it is measured on
+    none — every event stays low until the next rise, so its half level is never re-crossed."""
+    d = client.get("/api/interrogation/families/id010/shape").json()
     width = np.array([m["features"]["event_width_s"] for m in d["members"]], dtype=float)
     fwhm = np.array([np.nan if m["features"]["fwhm_s"] is None else m["features"]["fwhm_s"] for m in d["members"]])
     ok = np.isfinite(fwhm)
-    assert ok.sum() >= 3
+    assert ok.sum() >= 80
     ratio = fwhm[ok] / width[ok]
     assert np.std(ratio) > 1e-3, "FWHM over width is not a constant on real events"
 
