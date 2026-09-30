@@ -785,3 +785,23 @@ export const libraryFamilyExportUrl = (familyId: string, grouping?: string, form
   `/api/library/export/family/${encodeURIComponent(familyId)}${dq({ grouping, format })}`
 export const libraryAtlasExportUrl = (grouping?: string, format: 'json' | 'csv' = 'json') =>
   `/api/library/export/atlas${dq({ grouping, format })}`
+
+/* fixup-e: 01 Event shape — interrogation.event_shape's measures of every member of a seed family, read from
+ * motif_features by content hash when the Library carries them, otherwise measured on the store's own snippet.
+ * Never-recovered is null (never 0); a drop's rise time is null (never 0). The rules ride beside the numbers. */
+export interface ShapeFeatures {
+  polarity: number | null; onset_idx: number | null; extremum_idx: number | null
+  event_amplitude_mv: number | null; precursor_height_mv: number | null; event_width_s: number | null; duration_s: number | null
+  fwhm_s: number | null; recovery_time_s: number | null; rise_time_s: number | null
+  max_slope_mv_s: number | null; onset_slope_mv_s: number | null; chord_slope_mv_s: number | null; peakedness: number | null; span_ptp_mv: number | null
+}
+export interface ShapeMember {
+  event_id: string; content_hash: string | null; stored: boolean; features: ShapeFeatures | null
+  detector: Record<string, number>; completed_from_snippet: string[]; why: string | null
+}
+export interface FamilyShape {
+  family: string; source: 'seed'; block: string; members: ShapeMember[]; rules: { name: string; rule: string }[]
+  counts: { n: number; n_stored: number; n_measured_here: number; n_no_snippet: number; n_not_recovered: number; n_no_fwhm: number; n_no_rise: number }
+  recovery: { frac: number; max_mult: number }; rise_time_frac: number; measured_on: string
+}
+export const getFamilyShape = (key: string) => req<FamilyShape>(`/api/interrogation/families/${encodeURIComponent(key)}/shape`)
