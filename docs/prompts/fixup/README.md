@@ -14,7 +14,7 @@ being either a bug or a spec change.
 | File | Workspace / pages |
 |---|---|
 | **WAVE 1 — run together** | |
-| `E-aggregate-stops-fabricating.md` | **ready.** Interrogation stops fabricating half-width / rise / ISI; Resolve-spans vs Spike-shape resolved; rise time on the shape block; the members-overlaid window widened. Port **8765** |
+| `E-aggregate-stops-fabricating.md` | **run 2026-09-30** (`reports/E-aggregate-stops-fabricating.md`). Interrogation reads every measure from the core (the three constants and the browser recovery are gone; not-measured is null, counted and explained); `spike-shape` → `event-shape` = `interrogation.event_shape`, the upstream carried on every walk; `rise_time_frac` on the shape block, null for a drop; the overlay window is the stored context on a measured y. Port **8765** |
 | `G-review-axis-and-resolution.md` | **ready.** Review's trace gets a real x axis (the cause of U1/U2/U3); decimation follows the rendered width; source-resolution toggle, default ON; Review shifts a legacy row. Port **8766** |
 | **WAVE 2 — run together, after wave 1** | |
 | `F-datasets-and-naming.md` | *(not written)* editable dataset metadata + display name across the site, and the Settings channel-list overflow |

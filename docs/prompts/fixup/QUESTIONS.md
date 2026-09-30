@@ -451,7 +451,7 @@ start and the `--real` feature backfill. Verified in the real database 2026-09-2
 `interrogation.event_shape`, 21,594 from the detector). The 71 undeclared are M1/M100/M101_t/MJu26a
 and the held-out M4 — none of which the Library draws from.
 
-**Q19 — the fabricated features.** **A: new prompt (`E`).** *Clarification the researcher asked for:*
+**Q19 — the fabricated features.** **[CLOSED — fixup-e, run 2026-09-30, `reports/E-aggregate-stops-fabricating.md`. The three constants are deleted; every value on the page is read from the store's slope measures or from `interrogation.event_shape` (GET `…/families/{key}/shape`, from `motif_features` by content hash or measured on the store snippet); never-recovered and a drop's rise time are null, counted and explained, never 0. `rise_time_frac` is a parameter of the shape block (default 0.1, the 10–90 % rise time), `rise_time_s` a column and a stored measure, NaN for a drop. The size of the error is tabulated in the report: half_width read 0.43× the measured FWHM (median), the browser's recovery read 0 s on 305 of 410 seed events.]** **A: new prompt (`E`).** *Clarification the researcher asked for:*
 the fabrication is **not** in the event-shape block, which measures honestly. It is in the
 **Interrogation › Aggregate page** (`#/analyse/interrogation/block/2`), whose
 `api/interrogation.ts::featureOf` returns `half_width_s = duration x 0.84`, `rise_s = duration x 0.31`
@@ -583,6 +583,8 @@ discards a third of the samples that would fit on an ~816 px plot.
 
 ### U10 (new) — Resolve spans and Spike shape are the same block wearing two names
 
+**[CLOSED — fixup-e. The second upstream is now `event-shape` = `interrogation.event_shape`, a block whose features are measured by different code from the slope block's and which declares only what the core measures; `spike-shape` is read as an alias so old links open the shape block. Every navigation between the three pages goes through `draft.ts::interrogationHref`, which carries the family AND the upstream — the ribbon chip that dropped it was the revert.]**
+
 `api/interrogation.ts:142,156`: `getSlopeBlock` and `getAggregateBlock` both call
 `familyAndMembers(familyId)` — the same data — and swap only `UPSTREAMS[upstream]` and
 `CHAIN_SPIKE`/`CHAIN_SLOPE`, i.e. the labels. The features list claims Spike shape declares
@@ -591,6 +593,8 @@ The revert the researcher saw is `useUpstreamQuery()` defaulting to slope when t
 carried. **Same class as Q19's fabrication, so `E` owns it.**
 
 ### U11 (new) — the members-overlaid plot is drawn in too narrow a time window
+
+**[CLOSED — fixup-e. Source settings › context padding defaults to *the stored context* (what the store kept around each event: median ≈ 1 min each side, up to 46 min), with ± 60 / 300 / 1000 s and the proportional options beside it; the Source page's overlay of id001 now runs −679 … +863 s and shows the sharkfin's rise. The overlays draw the store's own samples (nothing held past a snippet's end), are taller (340 px), and their y is `charts/domain.ts::measuredDomain` over the traces drawn, so the 40 mV headroom over 25 mV data is gone. The synthetic medoid curve drawn over real members is removed.]**
 
 The app's overlay spans **-20 to +40 s** from onset and the members look flat; the researcher's
 matplotlib plate spans **-1000 to +1500 s** and the sharkfin shape is obvious. The window comes from
