@@ -5,7 +5,9 @@ import { useEffect, useRef, useState } from 'react'
 import { navigate, setQuery } from '../state'
 import { Chip, Icon, InfoTip, MiniTrace, cx, fmtInt, recordDemoWrite, useQueryState } from '../kit'
 import { useSourced } from '../api/seam'
+import { useSize } from '../charts/useSize'
 import { useToast } from '../shell/Toast'
+import { plotPx } from './axis'
 import { VOCABULARY, getItem, postPromote, postUndo, postVerdict, type ItemDetail, type QueueData, type QueueRow, type Verdict } from '../api/review'
 import { Shell, useBlind, useRails, type MicroStat } from './Shell'
 import { useReviewKeys } from './keys'
@@ -31,13 +33,18 @@ function InspectorItem({ data, row }: { data: QueueData; row: QueueRow }) {
   const { queue } = data
   const q = queue.id, id = row.id
   const version = useReviewVersion()
-  const det = useSourced(() => getItem(q, id), [q, id, version])
+  const [pad, setPad] = usePad()
+  // The traces are fetched at the width of the column that will draw them (fixup-g): measured, never guessed,
+  // so the bridge serves at least one point per device pixel; and over the padding shown, so the context is
+  // exactly the window drawn. Nothing is fetched until the column has a width (one frame).
+  const [measureRef, column] = useSize<HTMLDivElement>()
+  const px = plotPx(column.width, window.devicePixelRatio || 1)
+  const det = useSourced(() => px ? getItem(q, id, { px, padS: +pad }) : Promise.resolve({ data: null, source: 'live' as const }), [q, id, version, px, pad])
   const records = useRecords()
   const stack = useStack()
   const writeError = useWriteError()
   const [blind, setBlind] = useBlind(q, queue.blind)
   const [auto] = useAutoAdvance()
-  const [pad, setPad] = usePad()
   const [padQ] = useQueryState<string>('pad', '')
   const [state] = useQueryState<string>('state', '')
   const [drafts, setDrafts] = useDrafts()
@@ -213,6 +220,7 @@ function InspectorItem({ data, row }: { data: QueueData; row: QueueRow }) {
   return (
     <Shell data={data} unit={unit} blind={blind} setBlind={setBlind} paused={promoted} micro={micro} evidence={evidence}
       evidenceTitle={`${id}${row.detectionId ? ` · ${row.detectionId}` : ''}`}>
+      <div ref={measureRef} aria-hidden style={{ width: '100%', height: 0, margin: 0, padding: 0 }} data-testid="review-measure" />
       {writeError && <div className="error-card" data-testid="write-refused">
         <h3><Icon name="alert-circle" /> Not written · {writeError.label}{writeError.status ? ` · HTTP ${writeError.status}` : ''}</h3>
         <p className="mono">{writeError.message}</p>

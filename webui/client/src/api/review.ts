@@ -35,6 +35,67 @@ export { CONTEXT_PAD_MAX } from '../fixtures/review'
 export interface QueueRow extends QueueEntry { thumb: number[]; family: string; judged: boolean }
 export interface QueueData { queue: ReviewQueue; rows: QueueRow[]; clusters: ReviewCluster[] }
 
+/* ---------------- a trace WITH its axis (fixup-g) ----------------
+ * The bridge used to serve a decimated envelope's VALUES and discard its `t`, on a contract that "the x axis is
+ * implied". `decimate.envelope` returns fewer, non-uniformly spaced points once a window exceeds 2 x px, so the
+ * page drew everything right of t0 compressed by n_points/n_source while it drew the highlight band in true
+ * seconds (U2), each bucket's min and max a whole "second" apart (U1's zigzag), and sliced envelope points as
+ * though they were seconds for the padding (U3). Every trace now says where each point is. */
+
+/** Which recording a trace was drawn from, and at what rate — the card says it, because "this event looks
+ *  smooth" means something different at 1 Hz and at 10 Hz (Q24). */
+export interface TraceSource {
+  recording_id: number; label: string; source_file?: string; channel: string; fs: number; n_samples?: number
+  /** `self`: the item's own recording. `parent`: the higher-resolution recording it was decimated from. */
+  kind: 'self' | 'parent'; decimation: number | null; offset?: number | null
+}
+export interface TimeTrace {
+  /** Seconds (absolute in the item's recording) and mV; a null is an all-NaN envelope bucket. Same length. */
+  t: number[]; v: (number | null)[]
+  /** The window's own edges, in the same seconds — the x extent to draw, whatever the points cover. */
+  t0_s: number; t1_s: number
+  fs: number | null
+  /** Samples in the window, points served, and whether the points are a min/max envelope of the samples. */
+  n_source: number; n_points: number; decimated: boolean
+  /** The pixel budget the bridge served at; `capped` when the width asked for exceeded the bound and points were lost. */
+  px: number; capped: boolean
+  unit: string | null
+  source: TraceSource | null
+  /** Why the trace is empty, when it is. */
+  reason?: string | null
+}
+export const EMPTY_TRACE: TimeTrace = { t: [], v: [], t0_s: 0, t1_s: 0, fs: null, n_source: 0, n_points: 0, decimated: false, px: 0, capped: false, unit: null, source: null, reason: null }
+
+/** A served trace, validated: `t` and `v` are same-length arrays or the trace is empty WITH a reason. A bridge
+ *  that sent a bare value list (the old contract) is reported, not drawn on a guessed axis. */
+function traceOf(raw: any): TimeTrace {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
+    return { ...EMPTY_TRACE, reason: Array.isArray(raw) ? 'the bridge served a trace without its time axis' : (raw == null ? 'no trace was served' : 'malformed trace') }
+  }
+  const t = Array.isArray(raw.t) ? raw.t as number[] : []
+  const v = Array.isArray(raw.v) ? raw.v as (number | null)[] : []
+  if (t.length !== v.length) return { ...EMPTY_TRACE, reason: `the trace's axis has ${t.length} times for ${v.length} values` }
+  return {
+    t, v,
+    t0_s: Number(raw.t0_s ?? (t.length ? t[0] : 0)), t1_s: Number(raw.t1_s ?? (t.length ? t[t.length - 1] : 0)),
+    fs: raw.fs == null ? null : Number(raw.fs),
+    n_source: Number(raw.n_source ?? v.length), n_points: Number(raw.n_points ?? v.length), decimated: !!raw.decimated,
+    px: Number(raw.px ?? 0), capped: !!raw.capped, unit: raw.unit ?? null,
+    source: raw.source ?? null, reason: raw.reason ?? null,
+  }
+}
+
+/** What the card tells the bridge: the width that will draw the traces (device pixels, so it is never served
+ *  fewer points than pixels) and the context padding shown (seconds, symmetric). */
+export interface TraceOpts { px?: number; padS?: number }
+function traceQuery(o: TraceOpts = {}): string {
+  const p = new URLSearchParams()
+  if (o.px && o.px > 0) p.set('px', String(Math.round(o.px)))
+  if (o.padS != null && o.padS >= 0) p.set('pad_s', String(Math.round(o.padS)))
+  const s = p.toString()
+  return s ? `?${s}` : ''
+}
+
 /** Artifact factors as the bridge serves them: a TYPED ABSENCE when nothing has
  *  computed them. Plain `null` is what `d.artifact.level` crashed the whole
  *  workspace on, and a plausible-looking number beside a real waveform would be
@@ -51,8 +112,15 @@ export interface ArtifactPanel {
 
 export interface ItemDetail {
   entry: QueueEntry; queue: ReviewQueue
-  context: { values: number[]; t0_s: number }
-  shape: number[]; nearest: NearestFamily[]; medoids: Record<string, number[]>
+  /** The candidate with its padding, over exactly the window the card shows (`pad_s`), with its axis. */
+  context: TimeTrace
+  /** The candidate's own samples, from its own recording. */
+  shape: TimeTrace
+  /** The same window from the higher-resolution recording this one was decimated from (Q24) — at the parent's
+   *  rate, in THIS recording's seconds — or null, with `shapeSourceReason` saying why. */
+  shapeSource: TimeTrace | null
+  shapeSourceReason: string | null
+  nearest: NearestFamily[]; medoids: Record<string, number[]>
   /** Whether anything actually computed family affinity. An empty `nearest` with
    *  `nearestComputed: false` means nobody looked; with `true` it means nothing is near. */
   nearestComputed?: boolean
@@ -62,7 +130,7 @@ export interface ItemDetail {
 }
 
 export interface ClusterDetail { cluster: ReviewCluster; queue: ReviewQueue; members: ItemDetail[] }
-export interface OtherChannelRow { channel: string; r: number | null; values: number[]; current: boolean }
+export interface OtherChannelRow { channel: string; r: number | null; trace: TimeTrace; current: boolean }
 
 const HELD_OUT = RECORDINGS.filter(r => r.held_out).map(r => r.label)
 const refusal = (rec: string) => `${rec} is held out (D6): it is locked for the final evaluation and cannot be reviewed, plotted or queued.`
@@ -167,8 +235,10 @@ function detailOf(raw: any, fallbackQueue?: ReviewQueue): ItemDetail {
   const queue = raw?.queue ? queueOf(raw.queue as SrvQueue) : fallbackQueue
   return {
     entry, queue: queue as ReviewQueue,
-    context: raw?.context ?? { values: [], t0_s: 0 },
-    shape: Array.isArray(raw?.shape) ? raw.shape : [],
+    context: traceOf(raw?.context),
+    shape: traceOf(raw?.shape),
+    shapeSource: raw?.shapeSource ? traceOf(raw.shapeSource) : null,
+    shapeSourceReason: raw?.shapeSource ? null : (typeof raw?.shapeSourceReason === 'string' ? raw.shapeSourceReason : 'the bridge offered no source resolution for this item'),
     nearest: Array.isArray(raw?.nearest) ? raw.nearest : [],
     nearestComputed: !!raw?.nearestComputed,
     medoids: raw?.medoids ?? {},
@@ -219,13 +289,15 @@ export function getQueue(queueId: string): Promise<Sourced<QueueData | null>> {
   }))
 }
 
-export function getItem(queueId: string, itemId: string): Promise<Sourced<ItemDetail | null>> {
-  return live(req<any>(`/queues/${encodeURIComponent(queueId)}/items/${encodeURIComponent(itemId)}`)
+/** `opts.px` is the width of the plot that will draw the traces and `opts.padS` the context padding shown;
+ *  the bridge sizes and pads the traces to them (fixup-g). */
+export function getItem(queueId: string, itemId: string, opts: TraceOpts = {}): Promise<Sourced<ItemDetail | null>> {
+  return live(req<any>(`/queues/${encodeURIComponent(queueId)}/items/${encodeURIComponent(itemId)}${traceQuery(opts)}`)
     .then(d => (d ? detailOf(d) : null)))
 }
 
-export function getCluster(queueId: string, no: number): Promise<Sourced<ClusterDetail | null>> {
-  return live(req<any>(`/queues/${encodeURIComponent(queueId)}/cluster/${no}`).then(d => {
+export function getCluster(queueId: string, no: number, opts: TraceOpts = {}): Promise<Sourced<ClusterDetail | null>> {
+  return live(req<any>(`/queues/${encodeURIComponent(queueId)}/cluster/${no}${traceQuery(opts)}`).then(d => {
     if (!d?.cluster) return null
     const queue = d.queue ? queueOf(d.queue as SrvQueue) : undefined
     return {
@@ -241,9 +313,9 @@ export function getCluster(queueId: string, no: number): Promise<Sourced<Cluster
  *  caller would have to become async to get one. */
 export function clusterQueue(no: number): string | null { return CLUSTERS.find(c => c.no === no)?.queueId ?? null }
 
-export function getOtherChannels(queueId: string, itemId: string): Promise<Sourced<OtherChannelRow[]>> {
-  return live(req<OtherChannelRow[]>(`/queues/${encodeURIComponent(queueId)}/items/${encodeURIComponent(itemId)}/channels`)
-    .then(rows => (Array.isArray(rows) ? rows : [])))
+export function getOtherChannels(queueId: string, itemId: string, opts: TraceOpts = {}): Promise<Sourced<OtherChannelRow[]>> {
+  return live(req<any[]>(`/queues/${encodeURIComponent(queueId)}/items/${encodeURIComponent(itemId)}/channels${traceQuery(opts)}`)
+    .then(rows => (Array.isArray(rows) ? rows.map(r => ({ channel: String(r?.channel ?? ''), r: r?.r ?? null, trace: traceOf(r?.trace), current: !!r?.current })) : [])))
 }
 
 /* ---------------------------------------------------------------- writes --------------------------------------------------------------- */

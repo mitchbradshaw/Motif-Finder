@@ -74,7 +74,8 @@ def _node(expr: str):
 
 # ── a decimated context, as `decimate.envelope` would serve detection 102 ────
 #
-# 660 samples [2033, 2693) in 220 buckets of 3; each bucket emits its min and
+# 660 samples [2033, 2693) in 220 buckets of 3 (the window's edges are t0_s = 2033
+# and t1_s = 2693, the exclusive end in seconds); each bucket emits its min and
 # its max at THEIR OWN sample times, so the axis is non-uniform. The one real
 # feature is a drop to -1 at t = 2382, inside the detection [2333, 2393).
 
@@ -85,7 +86,7 @@ _CONTEXT_JS = """(() => {
     if (s <= 2382 && 2382 < s + 3) { t.push(s, 2382); v.push(0.01, -1) }
     else { t.push(s, s + 2); v.push(0.01, 0.02) }
   }
-  return { t, v, t0_s: 2033, t1_s: 2692, fs: 1, n_source: 660, n_points: t.length, decimated: true }
+  return { t, v, t0_s: 2033, t1_s: 2693, fs: 1, n_source: 660, n_points: t.length, decimated: true }
 })()"""
 _BAND = "{ start_s: 2333, end_s: 2393 }"
 

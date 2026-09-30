@@ -2,10 +2,11 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { navigate } from '../state'
 import {
-  Button, Callout, Chip, DisabledReason, Icon, IconButton, InfoTip, Kbd, Legend, MiniTrace, Pager, Popover, Seg, TextField, Trace, cx, fmtInt, useQueryState, type IconName,
+  Button, Callout, Chip, DisabledReason, Icon, IconButton, InfoTip, Kbd, Legend, MiniTrace, Pager, Popover, Seg, TextField, Toggle, Trace, cx, fmtInt, useDemoState, useQueryState, type IconName,
 } from '../kit'
 import { useSourced } from '../api/seam'
-import { CONTEXT_PAD_MAX, VOCABULARY, getOtherChannels, useTagVocabulary, type ArtifactFactors, type ItemDetail, type NearestFamily, type QueueRow, type Verdict } from '../api/review'
+import { VOCABULARY, getOtherChannels, useTagVocabulary, type ArtifactFactors, type ItemDetail, type NearestFamily, type QueueRow, type TimeTrace, type Verdict } from '../api/review'
+import { drawable, sliceContext } from './axis'
 import { baselinePeak, centreTrace, referenceScale } from '../charts/domain'
 import { ReferenceBar, fmtRef, referenceWords } from '../charts/ReferenceBar'
 import { VERDICT_LABEL, type Draft, type VerdictRecord } from './store'
@@ -67,29 +68,41 @@ export function TimeTicks({ t0, t1, n = 5, testid }: { t0: number; t1: number; n
 }
 
 /* ---------------- context card (frames 1, 1b, 2, 5) ---------------- */
-export function sliceContext(d: ItemDetail, pad: number) {
-  const off = CONTEXT_PAD_MAX - pad
-  const values = d.context.values.slice(off, d.context.values.length - off)
-  const t0 = d.context.t0_s + off
-  return { values, t0, t1: t0 + values.length - 1, bandStart: d.entry.startH * 3600, bandEnd: d.entry.startH * 3600 + d.entry.durationS }
+/* The band the item's own bounds draw, in absolute seconds — the ONE coordinate system every trace here shares. */
+export const itemBand = (d: ItemDetail) => ({ start_s: d.entry.startH * 3600, end_s: d.entry.startH * 3600 + d.entry.durationS })
+
+/** How a trace was served, in words a reviewer can check: samples in the window, points drawn, and whether the
+ *  points are every sample or a min/max envelope. A capped trace says so rather than looking merely coarse. */
+export function ResolutionNote({ tr, testid }: { tr: TimeTrace; testid?: string }) {
+  if (!tr.n_source) return <span className="mono muted sm" data-testid={testid}>{tr.reason ?? 'no samples'}</span>
+  const rate = tr.fs != null ? ` · ${tr.fs % 1 === 0 ? tr.fs : tr.fs.toFixed(2)} Hz` : ''
+  return (
+    <span className="mono muted sm" data-testid={testid} data-decimated={tr.decimated ? '1' : '0'} data-capped={tr.capped ? '1' : '0'}
+      title={tr.decimated ? `${fmtInt(tr.n_source)} samples drawn as ${fmtInt(tr.n_points)} min/max points over ${tr.px} px` : `every one of the ${fmtInt(tr.n_source)} samples is drawn`}>
+      {fmtInt(tr.n_source)} samples{rate}{tr.decimated ? ` · ${fmtInt(tr.n_points)} points` : ' · every sample drawn'}{tr.capped ? <b className="rv-amber"> · capped at {tr.px} px</b> : null}
+    </span>
+  )
 }
 
 export function ContextCard({ d, title, pad, setPad, bandLabel, canEdit, testid = 'context-card' }: { d: ItemDetail; title: string; pad: '30' | '120' | '300'; setPad: (p: '30' | '120' | '300') => void; bandLabel: string; canEdit: boolean; testid?: string }) {
-  const ctx = sliceContext(d, +pad)
+  // by TIME, not by index: the served points are an envelope — fewer than the samples, not evenly spaced — and
+  // the band beside them is in seconds. Slicing points as seconds is what made ±120 s look one-sided (U3).
+  const ctx = useMemo(() => sliceContext(d.context, itemBand(d), +pad), [d, pad])
   const [pop, setPop] = useQueryPop()
   const ocRef = useRef<HTMLButtonElement>(null)
   const open = pop === 'other-channels'
   return (
-    <section className="rv-card" data-testid={testid}>
+    <section className="rv-card" data-testid={testid} data-pad={pad}>
       <div className="rv-card-head">
         <h3>{title}</h3><span className="mono muted sm">padding</span>
         <Seg size="sm" value={pad} onChange={setPad} options={[{ value: '30', label: '±30 s' }, { value: '120', label: '±120 s' }, { value: '300', label: '±300 s' }]} testid="padding-seg" />
+        <ResolutionNote tr={d.context} testid="context-resolution" />
         <span className="grow" />
         <Button ref={ocRef} variant={open ? 'primary' : 'default'} icon="list" aria-expanded={open} onClick={() => setPop(open ? null : 'other-channels')} testid="other-channels-button">Other channels</Button>
         {canEdit && <Button icon="pencil" onClick={() => editInExplore(d)} testid="edit-span-button">Edit span in Explore</Button>}
       </div>
       <div className="rv-plot">
-        <Trace values={ctx.values} t0={ctx.t0} timeUnit="none" height={170} crosshair unitLabel={false}
+        <Trace t={ctx.t} values={ctx.v} xDomain={[ctx.t0, ctx.t1]} timeUnit="none" height={170} crosshair unitLabel={false}
           bands={[{ start_s: ctx.bandStart, end_s: ctx.bandEnd, kind: 'detected', label: bandLabel }]} testid="context-trace" />
         <TimeTicks t0={ctx.t0} t1={ctx.t1} testid="context-ticks" />
       </div>
@@ -106,19 +119,22 @@ function useQueryPop() { return useQueryState<string>('pop', '') }
 
 /* ---------------- other channels (frame 1b) ---------------- */
 const OC_PAGE = 6
+const OC_PX = 480   // the popover's plots are ~400 css px wide
 function OtherChannelsPopover({ d, pad, open, onClose, anchorRef }: { d: ItemDetail; pad: number; open: boolean; onClose: () => void; anchorRef: React.RefObject<HTMLButtonElement | null> }) {
-  const rows = useSourced(() => open ? getOtherChannels(d.entry.queueId, d.entry.id) : Promise.resolve({ data: [], source: 'demo' as const }), [open, d.entry.id])
+  // fetched over the padding shown, at the popover's width — each row is a trace WITH its axis
+  const rows = useSourced(() => open ? getOtherChannels(d.entry.queueId, d.entry.id, { px: OC_PX, padS: pad }) : Promise.resolve({ data: [], source: 'demo' as const }), [open, d.entry.id, pad])
   const all = rows.data ?? []
   const curIdx = Math.max(0, all.findIndex(r => r.current))
   const [page, setPage] = useState(1)
   useEffect(() => { setPage(Math.floor(curIdx / OC_PAGE) + 1) }, [curIdx, d.entry.id])
-  const ctx = sliceContext(d, pad)
-  const off = CONTEXT_PAD_MAX - pad
-  const i0 = CONTEXT_PAD_MAX - off, i1 = i0 + d.entry.durationS
+  const band = itemBand(d)
+  const ctx = sliceContext(d.context, band, pad)
+  // every row sliced by TIME to the same window, so the band (in seconds) sits on the same axis as the trace
+  const sliced = useMemo(() => all.map(r => sliceContext(r.trace, band, pad)), [all, band.start_s, band.end_s, pad])
   const shown = all.slice((page - 1) * OC_PAGE, page * OC_PAGE)
   // each channel on its own measured scale; the bar places each channel's peak over this window on one shared
   // scale for every channel of the recording, so a quiet channel does not look like a loud one
-  const chanScale = useMemo(() => referenceScale(all.map(r => baselinePeak(r.values.slice(off, r.values.length - off)))), [all, off])
+  const chanScale = useMemo(() => referenceScale(sliced.map(s => baselinePeak(s.v))), [sliced])
   const a = d.artifact
   return (
     <Popover open={open} onClose={onClose} anchorRef={anchorRef} placement="bottom-end" width={590} className="rv-pop" testid="other-channels-popover"
@@ -127,14 +143,17 @@ function OtherChannelsPopover({ d, pad, open, onClose, anchorRef }: { d: ItemDet
       {!rows.data && !rows.error && <div className="skeleton" style={{ height: 230 }} />}
       {rows.data && (
         <div className="rv-oc" data-testid="other-channels-rows">
-          {shown.map(r => (
+          {shown.map((r, k) => {
+            const s = sliced[(page - 1) * OC_PAGE + k] ?? sliceContext(r.trace, band, pad)
+            return (
             <div key={r.channel} className={cx('rv-oc-row', r.current && 'current')} data-testid={`oc-row-${r.channel}`}>
               <span className="mono ch">{r.channel}</span>
-              <span className="rv-oc-plot"><MiniTrace values={r.values.slice(off, r.values.length - off)} width="100%" height={30} ground="none" zeroLine={false} band={[i0, i1]} stroke={r.current ? 'var(--text)' : 'var(--muted)'} strokeWidth={r.current ? 1.3 : 0.9} />
-                <ReferenceBar scale={chanScale} peak={baselinePeak(r.values.slice(off, r.values.length - off))} height={30} what={r.channel} testid={`oc-reference-${r.channel}`} /></span>
-              <span className="mono r">{r.current ? 'this channel' : `r ${r.r!.toFixed(2)}`}</span>
+              <span className="rv-oc-plot"><MiniTrace t={s.t} values={s.v} width="100%" height={30} ground="none" zeroLine={false} band={[s.bandStart, s.bandEnd]} stroke={r.current ? 'var(--text)' : 'var(--muted)'} strokeWidth={r.current ? 1.3 : 0.9} />
+                <ReferenceBar scale={chanScale} peak={baselinePeak(s.v)} height={30} what={r.channel} testid={`oc-reference-${r.channel}`} /></span>
+              <span className="mono r">{r.current ? 'this channel' : r.r != null ? `r ${r.r.toFixed(2)}` : 'r not computed'}</span>
             </div>
-          ))}
+            )
+          })}
           <div className="row between" style={{ marginTop: 4 }}>
             <span className="mono muted sm" title={referenceWords(chanScale)}>each channel on its own scale · bar: its peak across channels · r = coherence in the span</span>
             <Pager page={page} pageCount={Math.ceil(all.length / OC_PAGE)} onPage={setPage} format="range" total={all.length} pageSize={OC_PAGE} testid="other-channels-pager" />
@@ -156,29 +175,60 @@ function OtherChannelsPopover({ d, pad, open, onClose, anchorRef }: { d: ItemDet
 }
 
 /* ---------------- shape and nearest families ---------------- */
+/** Source resolution (Q24, default ON): when the item's recording is a decimated excerpt of a higher-resolution
+ *  one, draw the Shape card from the parent. Persisted across items; a reviewer who turns it off for one queue
+ *  keeps it off. */
+export function useSourceResolution() { return useDemoState<boolean>('review.sourceResolution', () => true) }
+
+/** Which recording a shape was drawn from, in words: the card has to say it, because "this event looks smooth"
+ *  means something different at 1 Hz and at 10 Hz. */
+export function drawnFrom(tr: TimeTrace): string {
+  const s = tr.source
+  if (!s) return tr.reason ?? 'nothing drawn'
+  const rate = `${s.fs % 1 === 0 ? s.fs : s.fs.toFixed(2)} Hz`
+  const samples = `${fmtInt(tr.n_source)} sample${tr.n_source === 1 ? '' : 's'}`
+  return s.kind === 'parent'
+    ? `${s.label} ${s.channel} · ${rate} · ${samples} · the ${s.decimation}:1 source of this recording`
+    : `${s.label} ${s.channel} · ${rate} · ${samples}`
+}
+
 export function ShapeCard({ d, family, blind, rows }: { d: ItemDetail; family: NearestFamily | null; blind: boolean; rows: QueueRow[] }) {
   const showMedoid = !blind && family
+  const [wantSource, setWantSource] = useSourceResolution()
+  // the parent when one is registered and the toggle is on; the item's own recording otherwise. A missing
+  // parent is a DISABLED toggle carrying the bridge's reason, never a present-and-inert one.
+  const fromSource = wantSource && !!d.shapeSource && d.shapeSource.v.length > 0
+  const drawn = fromSource ? (d.shapeSource as TimeTrace) : d.shape
   // the candidate and the medoid each centred on their own baseline, on a domain measured from both (the one
-  // rule) — so neither is ever cut off, and the medoid no longer drags the candidate's shape flat
-  const shape = useMemo(() => centreTrace(d.shape.filter(v => Number.isFinite(v))), [d.shape])
+  // rule) — so neither is ever cut off, and the medoid no longer drags the candidate's shape flat. Centring keeps
+  // every point at its own time: the values shift, the axis does not.
+  const shape = useMemo(() => centreTrace(drawable(drawn.v)), [drawn])
   const medoid = useMemo(() => showMedoid ? centreTrace(d.medoids[family.id] ?? []) : [], [showMedoid, family, d.medoids])
-  const peak = baselinePeak(d.shape)
+  const peak = baselinePeak(drawn.v)
   // the queue's shared scale: every candidate in it, by the same measure, computed once per queue read
   const scale = useMemo(() => referenceScale([...rows.map(r => baselinePeak(r.thumb)), peak]), [rows, peak])
   const what = d.entry.unit === 'window' ? 'this window' : 'this candidate'
+  const staircase = !drawn.decimated && drawn.n_source > 0 && drawn.n_source <= 200
   return (
-    <section className="rv-card" data-testid="shape-card">
+    <section className="rv-card" data-testid="shape-card" data-source={drawn.source?.kind ?? 'none'} data-source-available={d.shapeSource ? '1' : '0'}>
       <div className="rv-card-head">
         <h3>{showMedoid ? `Shape vs ${family.id} medoid · mV` : 'Shape · mV'}</h3>
-        <InfoTip title="Shape">Drawn in mV on its own measured scale, centred on its own baseline, never normalised.{showMedoid ? " The medoid is stretched to the candidate's duration to overlay it." : ''} The bar at the right is {referenceWords(scale)}: the mark is where {what} sits against every candidate in this queue.</InfoTip>
+        <InfoTip title="Shape">Drawn in mV on its own measured scale, centred on its own baseline, never normalised — and never smoothed: every vertex is a sample the recording holds, so a short candidate at 1 Hz is a staircase, which is its real resolution.{showMedoid ? " The medoid is stretched to the candidate's duration to overlay it." : ''} The bar at the right is {referenceWords(scale)}: the mark is where {what} sits against every candidate in this queue.</InfoTip>
         <span className="mono muted sm" data-testid="shape-peak">peak {fmtRef(peak)} mV</span>
         <span className="grow" />
         <Legend items={showMedoid ? [{ label: d.entry.unit === 'window' ? 'this window' : 'candidate', colour: 'var(--blue)', shape: 'line' }, { label: `${family.id} medoid`, colour: family.colour, shape: 'line' }]
           : [{ label: d.entry.unit === 'window' ? 'this window' : 'candidate', colour: 'var(--text)', shape: 'line' }]} />
       </div>
+      <div className="rv-card-head" data-testid="shape-source-row">
+        <span className="mono muted sm" data-testid="shape-drawn-from" title={drawn.capped ? `capped at ${drawn.px} px: fewer points than samples` : undefined}>drawn from {drawnFrom(drawn)}{drawn.capped ? <b className="rv-amber"> · capped</b> : null}</span>
+        <span className="grow" />
+        {d.shapeSource
+          ? <Toggle size="sm" checked={fromSource} onChange={setWantSource} label={<span className="mono sm">source resolution</span>} ariaLabel="draw the shape from the higher-resolution source recording" testid="shape-source-toggle" />
+          : <Toggle size="sm" checked={false} onChange={() => {}} disabled disabledReason={d.shapeSourceReason ?? 'no higher-resolution source is registered for this recording'} label={<span className="mono sm">source resolution</span>} ariaLabel="source resolution unavailable" testid="shape-source-toggle" />}
+      </div>
       <div className="rv-plot">
         <div className="rv-shape-row">
-          <Trace values={shape} timeUnit="s" height={122} stroke={showMedoid ? 'var(--blue)' : 'var(--text)'} strokeWidth={2}
+          <Trace t={drawn.t} values={shape} xDomain={[drawn.t0_s, drawn.t1_s]} timeUnit="s" height={122} stroke={showMedoid ? 'var(--blue)' : 'var(--text)'} strokeWidth={2} sampleDots={staircase}
             overlays={showMedoid && medoid.length ? [{ values: medoid, stroke: family.colour, width: 2 }] : []} zeroLine={false} testid="shape-trace" style={{ flex: 1, minWidth: 0 }} />
           <span style={{ paddingTop: 8 }}><ReferenceBar scale={scale} peak={peak} height={92} what={what} testid="shape-reference" /></span>
         </div>

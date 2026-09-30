@@ -6,6 +6,8 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { navigate, setQuery } from '../state'
 import { Button, Checkbox, Chip, DisabledReason, Icon, InfoTip, Kbd, MiniTrace, Pager, ProgressBar, cx, recordDemoWrite, useDemoState, useQueryState } from '../kit'
 import { useSourced } from '../api/seam'
+import { useSize } from '../charts/useSize'
+import { drawable, plotPx } from './axis'
 import { useToast } from '../shell/Toast'
 import { VOCABULARY, getCluster, postBatch, postClusterVerdict, postPromote, postUndo, type ClusterDetail, type ItemDetail, type QueueData, type Verdict } from '../api/review'
 import { Shell, useBlind, useRails, type MicroStat } from './Shell'
@@ -33,7 +35,11 @@ function ClusterInner({ data, no }: { data: QueueData; no: number }) {
   const q = queue.id
   const cl = data.clusters.find(c => c.no === no)!
   const version = useReviewVersion()
-  const det = useSourced(() => getCluster(q, no), [q, no, version])
+  const [pad, setPad] = usePad()
+  // fetched at the measured column width and over the padding shown (fixup-g) — see Inspector
+  const [measureRef, column] = useSize<HTMLDivElement>()
+  const px = plotPx(column.width, window.devicePixelRatio || 1)
+  const det = useSourced(() => px ? getCluster(q, no, { px, padS: +pad }) : Promise.resolve({ data: null, source: 'live' as const }), [q, no, version, px, pad])
   const records = useRecords()
   const stack = useStack()
   const writeError = useWriteError()
@@ -42,7 +48,6 @@ function ClusterInner({ data, no }: { data: QueueData; no: number }) {
   const now = useNow(1000)
   const [blind, setBlind] = useBlind(q, queue.blind)
   const [auto] = useAutoAdvance()
-  const [pad, setPad] = usePad()
   const [state] = useQueryState<string>('state', '')
   const [memberQ, setMemberQ] = useQueryState<string>('member', cl.defaultMember)
   const [includeQ, setIncludeQ] = useQueryState<string>('include', '')
@@ -258,6 +263,7 @@ function ClusterInner({ data, no }: { data: QueueData; no: number }) {
     <Shell data={data} unit={unit} blind={blind} setBlind={setBlind} paused={paused} micro={micro}
       evidence={shown ? <EvidenceRail d={shown} blind={blind} judged={!!shownRec} historyVerdicts={historyText} /> : <Loading />}
       evidenceTitle={`${shownId}${shownRow.detectionId ? ` · ${shownRow.detectionId}` : ''} · cluster ${no}`}>
+      <div ref={measureRef} aria-hidden style={{ width: '100%', height: 0, margin: 0, padding: 0 }} data-testid="review-measure" />
       {writeError && <div className="error-card" data-testid="write-refused">
         <h3><Icon name="alert-circle" /> Not written · {writeError.label}{writeError.status ? ` · HTTP ${writeError.status}` : ''}</h3>
         <p className="mono">{writeError.message}</p>
@@ -321,7 +327,7 @@ function ClusterInner({ data, no }: { data: QueueData; no: number }) {
                       <b className="mono">{r.id}</b>
                       {i === 0 && page === 1 && r.id === cl.nearestMember && <span className="mono muted sm" title="nearest to the medoid">nearest</span>}
                     </div>
-                    <MiniTrace values={m.shape} width="100%" height={54} ground={isShown ? 'white' : 'grey'} stroke={far ? 'var(--amber)' : 'var(--text)'} strokeWidth={1.4} zeroLine={false} />
+                    <MiniTrace t={m.shape.t} values={drawable(m.shape.v)} width="100%" height={54} ground={isShown ? 'white' : 'grey'} stroke={far ? 'var(--amber)' : 'var(--text)'} strokeWidth={1.4} zeroLine={false} />
                     <div className="dline mono">{masked ? <span className="muted"><Icon name="eye-off" size={11} /> d hidden</span> : <b className={far ? 'rv-amber' : ''}>d {(r.d ?? 0).toFixed(2)}</b>}{far && !masked && r.d === worst && <span className="rv-amber sm">least similar</span>}</div>
                     <span className={cx('rv-status-chip mono', pending ? 'pending' : rec ? `v-${rec.verdict}` : '')} data-testid={`member-status-${r.id}`}>{pending ? 'writing…' : rec ? (rec.verdict === 'seed' ? `seed · ${rec.exemplarId}` : VERDICT_LABEL[rec.verdict]) : 'unadjudicated'}</span>
                   </div>

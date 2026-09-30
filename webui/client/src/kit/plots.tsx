@@ -7,6 +7,7 @@ import { EnvelopePath, SpanBands, TimeAxis, type BandKind } from '../charts/prim
 import { makeX } from '../charts/scale'
 import { measuredDomain } from '../charts/domain'
 import { useSize } from '../charts/useSize'
+import { nearestIndex } from '../charts/timeAxis'
 import { Button } from './display'
 import { fmtInt, sampleIndices } from './hooks'
 import { cx, tid, type TestIdProps } from './portal'
@@ -90,37 +91,60 @@ export interface TraceMarker { t: number; label?: string; colour?: string }
 export interface TraceProps extends TestIdProps {
   /** Samples in mV (never normalised). */
   values: number[]; fs?: number; t0?: number
-  /** h: hours-since-start axis (spec §0) · s: seconds relative to t0 ("0 s … 35 s") · none. */
+  /** The time of each point, in seconds (fixup-g). OPTIONAL and additive: without it point `i` sits at
+   *  `t0 + i / fs`, exactly as before. With it every point sits at its own time — which a decimated envelope
+   *  needs, because its points are fewer than the samples and not evenly spaced — and the bands, markers,
+   *  crosshair and axis are all in those same seconds. One coordinate system per plot. */
+  t?: number[]
+  /** The x extent drawn, in the same seconds as `t`; default the trace's own first and last time. Pass it where
+   *  the window is wider than the trace (a context clipped at the recording's start) so the band keeps its place. */
+  xDomain?: [number, number]
+  /** Mark each point with a dot when they are at least 3 px apart: makes the sample rate legible on a short
+   *  candidate (a 60-sample event at 1 Hz IS a staircase — real data resolution, not a rendering fault; U1). */
+  sampleDots?: boolean
+  /** h: hours-since-start axis (spec §0) · s: seconds relative to the window's start ("0 s … 35 s") · none. */
   timeUnit?: 'h' | 's' | 'none'
   yDomain?: [number, number]; height?: number; width?: number; stroke?: string; strokeWidth?: number
-  overlays?: { values: number[]; stroke: string; label?: string; width?: number }[]
+  /** An overlay may carry its own `t`; without one it is placed at `t0 + i / fs` as before — or, when the main
+   *  trace has a `t`, stretched across the x extent (the Shape card's medoid, "stretched to the candidate's duration"). */
+  overlays?: { values: number[]; t?: number[]; stroke: string; label?: string; width?: number }[]
   bands?: TraceBand[]; markers?: TraceMarker[]; onBandClick?: (b: TraceBand) => void
   ground?: 'white' | 'grey'; bordered?: boolean; unitLabel?: boolean; zeroLine?: boolean; crosshair?: boolean; style?: CSSProperties
 }
-export function Trace({ values, fs = 1, t0 = 0, timeUnit = 'h', yDomain, height = 140, width, stroke = 'var(--trace)', strokeWidth = 1, overlays = [], bands = [], markers = [], onBandClick, ground = 'white', bordered, unitLabel = true, zeroLine = true, crosshair = true, style, ...t }: TraceProps) {
+export function Trace({ values, fs = 1, t0 = 0, t, xDomain, sampleDots, timeUnit = 'h', yDomain, height = 140, width, stroke = 'var(--trace)', strokeWidth = 1, overlays = [], bands = [], markers = [], onBandClick, ground = 'white', bordered, unitLabel = true, zeroLine = true, crosshair = true, style, ...rest }: TraceProps) {
   const [ref, w] = useWidth(width)
   const [hover, setHover] = useState<number | null>(null)
   const padL = 44, padR = 10, padT = 8, padB = timeUnit === 'none' ? 6 : 22
   const n = values.length
-  const t1 = t0 + Math.max(1, n - 1) / fs
+  const timed = !!t && t.length === n && n > 0
+  // the time of every point: its own `t` when given, else the implied `t0 + i / fs` (unchanged behaviour)
+  const tt = useMemo(() => (timed ? (t as number[]) : values.map((_, i) => t0 + i / fs)), [timed, t, values, t0, fs])
+  const x0 = xDomain ? xDomain[0] : timed ? tt[0] : t0
+  const x1 = xDomain ? xDomain[1] : timed ? (tt[n - 1] > tt[0] ? tt[n - 1] : tt[0] + 1) : t0 + Math.max(1, n - 1) / fs
   // no domain handed in: the one rule (charts/domain.ts, fixup-c) measures it from everything drawn here
   const [lo, hi] = yDomain ?? measuredDomain(values, ...overlays.map(o => o.values)) ?? [-1, 1]
-  const x = makeX(t0, t1, w, padL, padR)
+  const x = makeX(x0, x1, w, padL, padR)
   const y = scaleLinear().domain([lo, hi]).range([height - padB, padT])
   const series = useMemo(() => {
-    const tt = values.map((_, i) => t0 + i / fs)
     const buckets = Math.max(50, Math.floor(w - padL - padR))
-    return { main: decimate(values, tt, buckets), over: overlays.map(o => decimate(o.values, o.values.map((_, i) => t0 + i / fs), buckets)) }
-  }, [values, overlays, t0, fs, w])
+    const overlayT = (o: { values: number[]; t?: number[] }) =>
+      o.t && o.t.length === o.values.length ? o.t
+        : timed ? o.values.map((_, i) => x0 + (o.values.length > 1 ? i / (o.values.length - 1) : 0) * (x1 - x0))
+          : o.values.map((_, i) => t0 + i / fs)
+    return { main: decimate(values, tt, buckets), over: overlays.map(o => decimate(o.values, overlayT(o), buckets)) }
+  }, [values, overlays, tt, timed, x0, x1, t0, fs, w])
   const yt = mvTicks(lo, hi)
-  const sTicks = timeUnit === 's' ? ticks(0, t1 - t0, 6) : []
+  const sTicks = timeUnit === 's' ? ticks(0, x1 - x0, 6) : []
+  const plotW = Math.max(0, w - padL - padR)
+  const dots = sampleDots && n > 1 && plotW / (n - 1) >= 3
   return (
-    <div ref={ref} className={cx('k-plot', bordered && 'bordered')} style={style} data-testid={tid(t)}>
+    <div ref={ref} className={cx('k-plot', bordered && 'bordered')} style={style} data-testid={tid(rest)}>
       {w > 0 && (
         <svg width={w} height={height} role="img" aria-label={`trace, ${n} samples, ${minus(lo.toFixed(2))} to ${minus(hi.toFixed(2))} mV`}
+          data-t0={x0} data-t1={x1} data-timed={timed ? '1' : '0'}
           onPointerMove={crosshair ? e => { const r = e.currentTarget.getBoundingClientRect(); const px = e.clientX - r.left; setHover(px >= padL && px <= w - padR ? x.invert(px) : null) } : undefined}
           onPointerLeave={() => setHover(null)}>
-          <rect x={padL} y={padT} width={Math.max(0, w - padL - padR)} height={height - padT - padB} fill={GROUND[ground]} data-plot-box />
+          <rect x={padL} y={padT} width={plotW} height={height - padT - padB} fill={GROUND[ground]} data-plot-box />
           <g transform={`translate(0,${padT})`}><SpanBands spans={bands} x={x} height={height - padT - padB} onClick={onBandClick} /></g>
           {bands.filter(b => b.label).map((b, i) => <text key={i} x={x(b.start_s) + 4} y={padT + 11} style={{ fill: 'var(--blue-600)' }}>{b.label}</text>)}
           {zeroLine && lo < 0 && hi > 0 && <line x1={padL} x2={w - padR} y1={y(0)} y2={y(0)} stroke="var(--grey-200)" strokeDasharray="3 3" />}
@@ -130,14 +154,17 @@ export function Trace({ values, fs = 1, t0 = 0, timeUnit = 'h', yDomain, height 
             {series.over.map((o, i) => <EnvelopePath key={i} t={o[0]} v={o[1]} x={x} y={y} stroke={overlays[i].stroke} width={overlays[i].width ?? 1.2} />)}
             <EnvelopePath t={series.main[0]} v={series.main[1]} x={x} y={y} stroke={stroke} width={strokeWidth} />
           </g>
+          {dots && <g data-sample-dots pointerEvents="none">{values.map((v, i) => Number.isFinite(v) ? <circle key={i} cx={x(tt[i])} cy={y(v)} r={1.6} fill={stroke} /> : null)}</g>}
           {markers.map((m, i) => <g key={i}><line x1={x(m.t)} x2={x(m.t)} y1={padT} y2={height - padB} stroke={m.colour ?? 'var(--amber)'} strokeDasharray="3 2" />{m.label && <text x={x(m.t) + 3} y={padT + 10} style={{ fill: m.colour ?? 'var(--amber)' }}>{m.label}</text>}</g>)}
-          {timeUnit === 'h' && <TimeAxis x={x} y={height - padB} t0={t0} t1={t1} n={5} />}
-          {timeUnit === 's' && <g>{sTicks.map(v => { const px = x(t0 + v); const [r0, r1] = x.range(); return <text key={v} x={px} y={height - padB + 14} textAnchor={px - r0 < 14 ? 'start' : r1 - px < 14 ? 'end' : 'middle'}>{fmtNum(v, sTicks[1] - sTicks[0] || 1)} s</text> })}</g>}
-          {hover !== null && (() => {
-            const i = Math.max(0, Math.min(n - 1, Math.round((hover - t0) * fs)))
-            const px = x(t0 + i / fs)
+          {timeUnit === 'h' && <TimeAxis x={x} y={height - padB} t0={x0} t1={x1} n={5} />}
+          {timeUnit === 's' && <g>{sTicks.map(v => { const px = x(x0 + v); const [r0, r1] = x.range(); return <text key={v} x={px} y={height - padB + 14} textAnchor={px - r0 < 14 ? 'start' : r1 - px < 14 ? 'end' : 'middle'}>{fmtNum(v, sTicks[1] - sTicks[0] || 1)} s</text> })}</g>}
+          {hover !== null && n > 0 && (() => {
+            // the nearest POINT: by time on a `t` axis (the points are not evenly spaced), by index otherwise
+            const i = timed ? nearestIndex(tt, hover) : Math.max(0, Math.min(n - 1, Math.round((hover - t0) * fs)))
+            const ti = tt[i]
+            const px = x(ti)
             return <g pointerEvents="none"><line x1={px} x2={px} y1={padT} y2={height - padB} stroke="var(--blue)" strokeOpacity={0.5} strokeDasharray="3 3" /><circle cx={px} cy={y(values[i])} r={2.5} fill="var(--blue)" />
-              <text x={Math.min(px + 6, w - 110)} y={padT + 22} style={{ fill: 'var(--text-2)', paintOrder: 'stroke', stroke: '#fff', strokeWidth: 3 }}>{minus(values[i]?.toFixed(3) ?? '')} mV · {timeUnit === 'h' ? `${((t0 + i / fs) / 3600).toFixed(3)} h` : `${(i / fs).toFixed(1)} s`}</text></g>
+              <text x={Math.min(px + 6, w - 110)} y={padT + 22} style={{ fill: 'var(--text-2)', paintOrder: 'stroke', stroke: '#fff', strokeWidth: 3 }}>{minus(values[i]?.toFixed(3) ?? '')} mV · {timeUnit === 'h' ? `${(ti / 3600).toFixed(3)} h` : `${(ti - x0).toFixed(1)} s`}</text></g>
           })()}
         </svg>
       )}
@@ -149,6 +176,10 @@ export function Trace({ values, fs = 1, t0 = 0, timeUnit = 'h', yDomain, height 
 /* ================= MiniTrace ================= */
 export interface MiniTraceProps extends TestIdProps {
   values: number[]
+  /** The time of each point (fixup-g). OPTIONAL and additive: without it the points are spread evenly across the
+   *  width, exactly as before; with it each point sits at its own time and `band` is read in those same seconds
+   *  (a decimated envelope's points are neither evenly spaced nor one per sample). */
+  t?: number[]
   /** Omit it and the thumbnail is drawn on a domain measured from its own trace and overlays — the app's one
    *  plot-domain rule (`charts/domain.ts`, fixup-c). Pass one only where several traces genuinely share an axis. */
   yDomain?: [number, number]
@@ -161,32 +192,40 @@ export interface MiniTraceProps extends TestIdProps {
  *  line along the edge and read as data; now it leaves the box (and the svg clips it), which `webui/smoke.py`
  *  measures: the plot box is `[data-plot-box]` (the svg itself) and the traces are `[data-trace]`. With no domain
  *  handed in, the domain is the trace's own and nothing can leave. */
-export function MiniTrace({ values, yDomain: given, width = 120, height = 36, stroke = 'var(--trace)', strokeWidth = 1.2, overlays = [], ground = 'grey', zeroLine = true, band, bandColour = 'var(--band-detected)', title, style, ...t }: MiniTraceProps) {
+export function MiniTrace({ values, t, yDomain: given, width = 120, height = 36, stroke = 'var(--trace)', strokeWidth = 1.2, overlays = [], ground = 'grey', zeroLine = true, band, bandColour = 'var(--band-detected)', title, style, ...rest }: MiniTraceProps) {
   const VW = 200
   const yDomain: [number, number] = given ?? measuredDomain(values, ...overlays.map(o => o.values)) ?? [-1, 1]
-  const path = (vs: (number | null)[]) => {
-    const n = vs.length; if (!n) return ''
+  const n = values.length
+  const timed = !!t && t.length === n && n > 1
+  // the x extent in the trace's own units: its times when given, else its indices (unchanged behaviour)
+  const m0 = timed ? (t as number[])[0] : 0
+  const m1 = timed ? ((t as number[])[n - 1] > m0 ? (t as number[])[n - 1] : m0 + 1) : Math.max(1, n - 1)
+  const toX = (u: number) => ((u - m0) / (m1 - m0)) * VW
+  const path = (vs: (number | null)[], ts?: number[]) => {
+    const k = vs.length; if (!k) return ''
     const y = scaleLinear().domain(yDomain).range([height - 2, 2])
+    const own = ts && ts.length === k
     let d = '', pen = false
-    const step = Math.max(1, Math.floor(n / 400))
-    for (let i = 0; i < n; i += step) {
+    const step = Math.max(1, Math.floor(k / 400))
+    for (let i = 0; i < k; i += step) {
       const v = vs[i]
       if (v === null || v === undefined || !Number.isFinite(v)) { pen = false; continue }
-      d += `${pen ? 'L' : 'M'}${((i / Math.max(1, n - 1)) * VW).toFixed(1)} ${y(v).toFixed(1)}`
+      const px = own ? toX((ts as number[])[i]) : (i / Math.max(1, k - 1)) * VW
+      d += `${pen ? 'L' : 'M'}${px.toFixed(1)} ${y(v).toFixed(1)}`
       pen = true
     }
     return d
   }
   const y0 = scaleLinear().domain(yDomain).range([height - 2, 2])(0)
   return (
-    <svg className="k-mini" width={width} height={height} viewBox={`0 0 ${VW} ${height}`} preserveAspectRatio="none" role="img" aria-label={title ?? 'thumbnail trace'} style={{ background: ground === 'none' ? undefined : GROUND[ground], ...style }} data-testid={tid(t)}
-      data-plot-box data-domain={`${yDomain[0]},${yDomain[1]}`}>
+    <svg className="k-mini" width={width} height={height} viewBox={`0 0 ${VW} ${height}`} preserveAspectRatio="none" role="img" aria-label={title ?? 'thumbnail trace'} style={{ background: ground === 'none' ? undefined : GROUND[ground], ...style }} data-testid={tid(rest)}
+      data-plot-box data-domain={`${yDomain[0]},${yDomain[1]}`} data-timed={timed ? '1' : '0'}>
       {title && <title>{title}</title>}
-      {band && values.length > 1 && <rect x={(band[0] / (values.length - 1)) * VW} width={((band[1] - band[0]) / (values.length - 1)) * VW} y={0} height={height} fill={bandColour} />}
+      {band && n > 1 && <rect x={toX(band[0])} width={Math.max(0, toX(band[1]) - toX(band[0]))} y={0} height={height} fill={bandColour} />}
       {zeroLine && yDomain[0] < 0 && yDomain[1] > 0 && <line x1={0} x2={VW} y1={y0} y2={y0} stroke="var(--grey-200)" vectorEffect="non-scaling-stroke" />}
       <g data-trace>
         {overlays.map((o, i) => <path key={i} d={path(o.values)} fill="none" stroke={o.stroke} strokeWidth={o.width ?? 1.2} vectorEffect="non-scaling-stroke" />)}
-        <path d={path(values)} fill="none" stroke={stroke} strokeWidth={strokeWidth} vectorEffect="non-scaling-stroke" strokeLinejoin="round" />
+        <path d={path(values, timed ? (t as number[]) : undefined)} fill="none" stroke={stroke} strokeWidth={strokeWidth} vectorEffect="non-scaling-stroke" strokeLinejoin="round" />
       </g>
     </svg>
   )
