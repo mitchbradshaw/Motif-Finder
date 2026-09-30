@@ -647,3 +647,212 @@ def test_the_candidate_context_is_millivolts_off_a_volts_recording(seeded):
     vals = [v for v in d["context"]["values"] if v is not None]
     assert vals and max(abs(v) for v in vals) > 10.0, "millivolts, not volts labelled mV"
     assert max(abs(v) for v in vals) <= 221.0, "and not converted twice (0.22 V peak -> 220 mV)"
+
+
+# ── fixup-g · the trace carries its own time axis; padding is symmetric; ────
+# ── resolution follows the width; the parent recording is the shape's source ─
+#
+# U2 (`docs/prompts/fixup/QUESTIONS.md`, Round 4 findings): `_trace` discarded
+# `env["t"]` and the client drew the decimated points at one per second from
+# `t0_s`, so everything right of `t0` was compressed by n_points/n_source and the
+# highlight band — drawn in true seconds — sat on a different x axis from the
+# trace. The contract itself was the defect. These tests pin the replacement:
+# every served trace says where each point is, the padding is the padding asked
+# for on BOTH sides, the point budget follows the pixels the card has, and the
+# Shape card can be drawn from the higher-resolution parent when one is
+# registered — through the one unit seam.
+
+def _plant(rt, tmp_path, *, name, n=N_SAMPLES, fs=FS, units="V", dip_at=3055,
+           depth=0.05, base=0.1, parent=None):
+    """A recording whose channel has ONE unique minimum at sample `dip_at`, so
+    the true position of the feature is known to the sample. Stored in `units`.
+    `parent=(parent_rec_id, offset, decimation)` links it as an excerpt."""
+    t = np.arange(n, dtype=float)
+    x = base + 0.01 * np.sin(t / 97.0)
+    x[dip_at] -= depth
+    path = os.path.join(str(tmp_path), f"{name}.npy")
+    np.save(path, x.astype(np.float64))
+    rid = _exec(rt, "INSERT INTO recordings (source_file, channel, fs, n_samples, global_offset, "
+                    "npy_path, units) VALUES (?, 0, ?, ?, 0, ?, ?)",
+                (f"{name}.mat", fs, n, path, units))
+    if parent is not None:
+        prid, off, dec = parent
+        _exec(rt, "UPDATE recordings SET parent_recording_id = ?, parent_offset = ?, decimation = ? "
+                  "WHERE id = ?", (prid, off, dec, rid))
+    return rid, x
+
+
+def _run_with_detection(rt, rid, start, end, span=(0, N_SAMPLES)):
+    cfg = _exec(rt, "INSERT INTO configs (config_hash, config_json, created_at) VALUES (?, '{}', "
+                    "'2026-09-28T09:00:00')", (f"cfg-g-{rid}-{start}",))
+    run = _exec(rt, "INSERT INTO runs (config_id, recording_id, span_start, span_end, started_at, status) "
+                    "VALUES (?, ?, ?, ?, '2026-09-28T09:00:00', 'ok')", (cfg, rid, span[0], span[1]))
+    det = _exec(rt, "INSERT INTO detections (run_id, start_idx, end_idx, score, meta_json) "
+                    "VALUES (?, ?, ?, 0.5, '{}')", (run, start, end))
+    return run, det
+
+
+def _item(client, qid, det, **params):
+    query = "&".join(f"{k}={v}" for k, v in params.items())
+    r = client.get(f"/api/review/queues/{qid}/items/{det}" + (f"?{query}" if query else ""))
+    assert r.status_code == 200, r.text
+    return r.json()
+
+
+def _argmin(values):
+    finite = [(v, i) for i, v in enumerate(values) if v is not None]
+    return min(finite)[1]
+
+
+def test_the_context_trace_carries_its_own_time_axis_under_decimation(seeded, tmp_path):
+    """The reproduction of U2 on a synthetic channel: a 660-sample context asked
+    for at a width that forces decimation must still put its one minimum at
+    the sample it is at. The old payload had no `t`; the client drew point i at
+    `t0 + i`, and the drop landed a third of the way early."""
+    client, rt, info = seeded
+    rid, _x = _plant(rt, tmp_path, name="planted_fs1", dip_at=3055)
+    run, det = _run_with_detection(rt, rid, 3000, 3060)
+    q = _make_queue(client, info, filters={"run_id": run})
+    d = _item(client, q["queue"]["id"], det, px=100, pad_s=300)
+    ctx = d["context"]
+    assert "t" in ctx and "v" in ctx, "every served trace says where each point is"
+    assert len(ctx["t"]) == len(ctx["v"]) > 0
+    assert ctx["decimated"] is True, "660 samples at 100 px must be decimated for the test to bite"
+    assert ctx["n_points"] < ctx["n_source"] == 660
+    drawn_at = ctx["t"][_argmin(ctx["v"])]
+    assert drawn_at == pytest.approx(3055.0, abs=1e-6), (
+        f"the minimum is drawn at {drawn_at}s but is at 3055.0s — the trace is on a compressed axis")
+    # and the band the client draws beside it is in the same seconds
+    assert d["entry"]["startH"] * 3600 == pytest.approx(3000.0)
+    assert 3000.0 <= drawn_at <= 3000.0 + d["entry"]["durationS"], "the feature sits inside its own detection"
+
+
+def test_the_padding_is_symmetric_about_the_candidate(seeded, tmp_path):
+    """±30 / ±120 / ±300 s pad BOTH sides (U3). The client used to slice
+    envelope points as though they were seconds."""
+    client, rt, info = seeded
+    rid, _x = _plant(rt, tmp_path, name="padded_fs1")
+    run, det = _run_with_detection(rt, rid, 3000, 3060)
+    qid = _make_queue(client, info, filters={"run_id": run})["queue"]["id"]
+    for pad in (30, 120, 300):
+        ctx = _item(client, qid, det, px=2000, pad_s=pad)["context"]
+        assert ctx["t0_s"] == pytest.approx(3000 - pad), f"pad {pad}: left edge"
+        assert ctx["t1_s"] == pytest.approx(3060 + pad), f"pad {pad}: right edge"
+        assert min(ctx["t"]) >= ctx["t0_s"] - 1e-9 and max(ctx["t"]) <= ctx["t1_s"] + 1e-9
+        assert ctx["n_source"] == 60 + 2 * pad
+
+
+def test_the_resolution_follows_the_requested_width(seeded, tmp_path):
+    """Never fewer points than the plot has pixels — unless the payload would
+    be unreasonable, and then the payload says so."""
+    client, rt, info = seeded
+    rid, _x = _plant(rt, tmp_path, name="wide_fs1")
+    run, det = _run_with_detection(rt, rid, 3000, 3060)
+    qid = _make_queue(client, info, filters={"run_id": run})["queue"]["id"]
+    wide = _item(client, qid, det, px=2000, pad_s=300)["context"]
+    assert wide["decimated"] is False and wide["n_points"] == wide["n_source"] == 660, (
+        "660 samples on 2000 px are served raw; the old CONTEXT_PX = 320 threw a third away")
+    assert wide["capped"] is False
+    narrow = _item(client, qid, det, px=100, pad_s=300)["context"]
+    assert narrow["n_points"] >= 100, "at least one point per pixel"
+    assert narrow["px"] == 100
+
+    # a long candidate at an absurd width is capped, and says so
+    run2, det2 = _run_with_detection(rt, rid, 1000, 15000)
+    qid2 = _make_queue(client, info, name="long", filters={"run_id": run2})["queue"]["id"]
+    capped = _item(client, qid2, det2, px=100000, pad_s=300)["context"]
+    assert capped["decimated"] is True and capped["capped"] is True
+    assert capped["px"] < 100000, "the served width is the cap, not the request"
+    assert capped["n_points"] <= 2 * capped["px"] + 2
+    fitted = _item(client, qid2, det2, px=800, pad_s=300)["context"]
+    assert fitted["capped"] is False and fitted["n_points"] >= 800
+
+
+def test_the_shape_is_served_from_the_higher_resolution_source_when_one_is_registered(seeded, tmp_path):
+    """Q24: recording 385 is a 10:1 block-mean decimation of L_LM_Jul_26_J_raw
+    at 10 Hz. The Shape card can draw the parent — at the parent's rate, in the
+    CHILD's seconds so it lines up with the context card, and through
+    `corpus.display_channel` so a parent stored in another unit is not 1000x
+    out (the bug fixup-b existed to kill). Here the parent is stored in
+    microvolts and the child in volts; both must come out in millivolts."""
+    client, rt, info = seeded
+    dec, off, n_child = 10, 40000, N_SAMPLES
+    # the parent: 10 Hz, microvolts, a V-shaped dip 3 s wide centred on
+    # parent sample off + 30555  (child time 3055.5 s)
+    n_parent = off + n_child * dec + 5000
+    tp = np.arange(n_parent, dtype=float)
+    p = 100_000.0 + 10_000.0 * np.sin(tp / 970.0)                  # uV: 100 mV baseline
+    centre = off + 30555
+    for k in range(-30, 31):
+        p[centre + k] -= 50_000.0 * (1 - abs(k) / 30.0)             # 50 mV deep
+    ppath = os.path.join(str(tmp_path), "parent_fs10.npy")
+    np.save(ppath, p)
+    prid = _exec(rt, "INSERT INTO recordings (source_file, channel, fs, n_samples, global_offset, "
+                     "npy_path, units) VALUES ('parent_fs10.mat', 2, 10.0, ?, 0, ?, 'uV')",
+                 (n_parent, ppath))
+    # the child: block means of the parent, stored in VOLTS
+    blocks = p[off:off + n_child * dec].reshape(n_child, dec).mean(axis=1) / 1e6
+    cpath = os.path.join(str(tmp_path), "child_fs1.npy")
+    np.save(cpath, blocks)
+    crid = _exec(rt, "INSERT INTO recordings (source_file, channel, fs, n_samples, global_offset, "
+                     "npy_path, units, parent_recording_id, parent_offset, decimation) "
+                     "VALUES ('child_fs1.mat', 0, 1.0, ?, 0, ?, 'V', ?, ?, ?)",
+                 (n_child, cpath, prid, off, dec))
+    run, det = _run_with_detection(rt, crid, 3000, 3060)
+    qid = _make_queue(client, info, filters={"run_id": run})["queue"]["id"]
+    d = _item(client, qid, det, px=800, pad_s=300)
+
+    own = d["shape"]
+    src = d["shapeSource"]
+    assert src is not None, "a registered parent is offered as the shape's source"
+    assert d["shapeSourceReason"] is None
+    assert src["fs"] == pytest.approx(10.0) and own["fs"] == pytest.approx(1.0)
+    assert src["n_source"] == 600 and own["n_source"] == 60
+    assert src["source"]["recording_id"] == prid and src["source"]["decimation"] == dec
+    assert src["source"]["fs"] == pytest.approx(10.0)
+    assert own["source"]["recording_id"] == crid
+    # the parent's points are placed in the CHILD's seconds
+    assert src["t"][0] == pytest.approx(3000.0) and src["t"][-1] == pytest.approx(3059.9)
+    assert src["t"][_argmin(src["v"])] == pytest.approx(3055.5, abs=0.11)
+    assert own["t"][_argmin(own["v"])] == pytest.approx(3055.0, abs=1e-6)
+    # both in millivolts: the dip is ~50 mV in the parent and ~46 mV block-averaged in the child
+    own_depth = max(own["v"]) - min(own["v"])
+    src_depth = max(src["v"]) - min(src["v"])
+    assert 40 < own_depth < 60, f"child dip {own_depth} mV (stored volts -> mV)"
+    assert 45 < src_depth < 60, f"parent dip {src_depth} mV (stored microvolts -> mV, not 1000x out)"
+    # and the card is told what it is drawing
+    assert src["unit"] == "mV" and own["unit"] == "mV"
+    assert "parent_fs10" in src["source"]["label"]
+
+
+def test_the_shape_source_is_an_explicit_absence_without_a_parent(seeded):
+    """The common case: no parent. The toggle is absent or disabled WITH the
+    reason, never present and inert."""
+    client, rt, info = seeded
+    q = _make_queue(client, info)
+    qid = q["queue"]["id"]
+    row = client.get(f"/api/review/queues/{qid}").json()["rows"][0]
+    d = _item(client, qid, row["id"], px=800, pad_s=300)
+    assert d["shapeSource"] is None
+    assert isinstance(d["shapeSourceReason"], str) and d["shapeSourceReason"].strip()
+    assert d["shape"]["source"]["fs"] == pytest.approx(FS)
+    assert len(d["shape"]["t"]) == len(d["shape"]["v"]) == 40
+
+
+def test_other_channels_carry_time_axes(seeded):
+    """The other-channels popover drew its band against `values.length` as if
+    it were seconds (parts.tsx:117) — the same mistake twice."""
+    client, rt, info = seeded
+    q = _make_queue(client, info)
+    qid = q["queue"]["id"]
+    row = client.get(f"/api/review/queues/{qid}").json()["rows"][0]
+    r = client.get(f"/api/review/queues/{qid}/items/{row['id']}/channels?px=400&pad_s=120")
+    assert r.status_code == 200, r.text
+    rows = r.json()
+    assert rows and all("trace" in x for x in rows)
+    for x in rows:
+        tr = x["trace"]
+        assert len(tr["t"]) == len(tr["v"]) > 0
+        assert tr["t0_s"] == pytest.approx(row["startH"] * 3600 - 120)
+        assert tr["t1_s"] == pytest.approx(row["startH"] * 3600 + row["durationS"] + 120)
+    assert sum(1 for x in rows if x["current"]) == 1

@@ -703,3 +703,37 @@ def test_an_undone_gesture_and_another_queues_rows_are_outside_the_measurement()
     _audit(conn, qid, "2026-09-22T10:00:06+00:00")
     _audit(conn, qid, "2026-09-22T10:00:09+00:00", action="undo")
     assert qs.queue_pace_s(conn, qid) == 6.0
+
+
+# ── fixup-g · Review shifts a legacy span-relative row like the other readers ─
+
+def test_a_legacy_span_relative_detection_is_shifted_into_channel_indices():
+    """A `detections` row written by a spanned run before 2026-09-21 is
+    span-relative; every other reader (`corpus._absolute`, the scoreboard, the
+    fan-out) shifts it through `absolute_bounds`, and Review's resolver copied
+    `start_idx` raw. Prompt M rewrote the real rows, so this is a no-op on
+    today's database — a restored backup holds relative rows again."""
+    conn = _fresh_conn()
+    rid = _insert_recording(conn)
+    cid = conn.execute(
+        "INSERT INTO configs (config_hash, config_json, created_at) VALUES (?, ?, ?)",
+        ("hash-legacy", json.dumps({"steps": [{"stage": "detection", "algorithm": "rupture"}]}),
+         "2026-01-01T00:00:00")).lastrowid
+    run_id = conn.execute(
+        "INSERT INTO runs (config_id, recording_id, span_start, span_end, started_at, status) "
+        "VALUES (?, ?, 5000, 6000, '2026-01-01T00:00:00', 'done')", (cid, rid)).lastrowid
+    legacy = conn.execute(
+        "INSERT INTO detections (run_id, start_idx, end_idx, score) VALUES (?, 100, 200, 0.9)",
+        (run_id,)).lastrowid
+    absolute = conn.execute(
+        "INSERT INTO detections (run_id, start_idx, end_idx, score) VALUES (?, 5300, 5400, 0.8)",
+        (run_id,)).lastrowid
+    conn.commit()
+    qid = qs.create_queue(conn, name="q", source_kind="discovery-run",
+                          filters={"run_id": run_id})
+    by_id = {it["target_id"]: it for it in qs.queue_items(conn, qid)}
+    assert set(by_id) == {legacy, absolute}
+    assert (by_id[legacy]["start_idx"], by_id[legacy]["end_idx"]) == (5100, 5200), (
+        "a legacy row below its run's span_start is shifted into the channel's index space")
+    assert (by_id[absolute]["start_idx"], by_id[absolute]["end_idx"]) == (5300, 5400), (
+        "a row the executor wrote absolute is untouched")
