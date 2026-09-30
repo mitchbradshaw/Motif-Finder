@@ -125,6 +125,52 @@ class Smoke:
       return out;
     }"""
 
+    #: fixup-g: the Review context card's trace and its highlight band are in ONE coordinate system. Before,
+    #: the bridge served a decimated envelope's values without its `t` and the client drew them one per second
+    #: while the band was drawn in true seconds, so detection 102's drop was drawn a third of the way early and
+    #: the band appeared to miss it (U2). This measures the DOM: the trace path's lowest vertex against the band
+    #: rect (`feature_in_band`, for an item whose event IS the window's minimum), and the band's distance from
+    #: each edge of the plot (`band_centred`, the padding is symmetric — U3).
+    _CONTEXT_AXIS_JS = """() => {
+      const host = document.querySelector('[data-testid="context-trace"]');
+      if (!host) return { error: 'no context trace' };
+      const svg = host.querySelector('svg');
+      const boxEl = svg && svg.querySelector('[data-plot-box]');
+      const band = svg && svg.querySelector('.span-bands rect');
+      const path = svg && svg.querySelector('[data-trace] > path:last-of-type');
+      if (!boxEl || !band || !path) return { error: 'context trace has no ' + (!boxEl ? 'plot box' : !band ? 'band' : 'path') };
+      const box = boxEl.getBoundingClientRect(), br = band.getBoundingClientRect();
+      const pts = Array.from((path.getAttribute('d') || '').matchAll(/[ML]([-\\d.]+) ([-\\d.]+)/g)).map(m => [parseFloat(m[1]), parseFloat(m[2])]);
+      let low = null; for (const p of pts) if (!low || p[1] > low[1]) low = p;
+      const sr = svg.getBoundingClientRect();
+      return { points: pts.length, lowestX: low ? low[0] + sr.left : null, bandLeft: br.left, bandRight: br.right,
+               padLeft: br.left - box.left, padRight: box.right - br.right, timed: svg.getAttribute('data-timed') };
+    }"""
+
+    def context_axis(self, page, e: dict, where: str):
+        """`feature_in_band`: the context trace's lowest vertex lies inside the band. `band_centred`: the band
+        is the same distance from both edges of the plot (within 2 px, or 1.5 % of the plot)."""
+        want_feature, want_centred = bool(e.get("feature_in_band")), bool(e.get("band_centred"))
+        if not (want_feature or want_centred):
+            return True, ""
+        m = page.evaluate(self._CONTEXT_AXIS_JS)
+        self.evidence.setdefault("context_axis", {})[where] = m
+        if m.get("error"):
+            return False, f" — {m['error']}"
+        msgs, ok = [], True
+        if want_feature:
+            inside = m["lowestX"] is not None and m["bandLeft"] - 1 <= m["lowestX"] <= m["bandRight"] + 1
+            ok &= inside
+            msgs.append(" · the trace's minimum sits inside the band" if inside else
+                        f" — the trace's minimum is drawn at x={m['lowestX']}, outside the band [{m['bandLeft']:.0f}, {m['bandRight']:.0f}]")
+        if want_centred:
+            tol = max(2.0, 0.015 * (m["padLeft"] + m["padRight"] + (m["bandRight"] - m["bandLeft"])))
+            centred = abs(m["padLeft"] - m["padRight"]) <= tol
+            ok &= centred
+            msgs.append(" · padding symmetric" if centred else
+                        f" — padding is one-sided: {m['padLeft']:.0f} px left, {m['padRight']:.0f} px right")
+        return bool(ok), "".join(msgs)
+
     def traces_in_box(self, page, where: str):
         """No trace's rendered path leaves its plot box (fixup-c)."""
         m = page.evaluate(self._TRACES_IN_BOX_JS)
@@ -591,6 +637,9 @@ class Smoke:
                 err_card = page.locator('[data-testid="render-error"]').count()
                 # fixup-c: a state flagged `traces_in_box` also asserts that no trace leaves its plot box
                 in_box, box_msg = self.traces_in_box(page, name) if e.get("traces_in_box") else (True, "")
+                # fixup-g: a Review state may also assert the context trace and its band share one axis
+                axis_ok, axis_msg = self.context_axis(page, e, name)
+                in_box, box_msg = in_box and axis_ok, box_msg + axis_msg
                 # A state may declare console errors it provokes on purpose (a read that rejects renders a
                 # loud error card — the brief's failure state). Declared ones are dropped from the run's
                 # error list so they neither fail this state nor the whole run; anything else still fails.

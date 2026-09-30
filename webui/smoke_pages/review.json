@@ -39,6 +39,91 @@
  },
  {
   "page": "review.inspector",
+  "state": "context axis: 102's drop sits inside its band (fixup-g, U2)",
+  "hash": "review/queue/2/102?pad=300",
+  "settle_ms": 1500,
+  "traces_in_box": true,
+  "feature_in_band": true,
+  "band_centred": true,
+  "expect": [
+   "[data-testid=\"context-card\"][data-pad=\"300\"]",
+   "[data-testid=\"context-trace\"] svg[data-timed=\"1\"]",
+   "[data-testid=\"context-resolution\"][data-decimated=\"0\"]"
+  ],
+  "_why": "Detection 102 (Mushroom_260720 CH14, [2333, 2393)) is the item the researcher screenshotted: its drop is the only large one in the +/-300 s context and the highlight appeared to miss it. The old contract drew the 440 envelope points one per second, so the drop sat at 0.629 h instead of 0.662 h. `feature_in_band` measures the DOM; `data-timed` says the trace was drawn on its own axis; `data-decimated=0` says the 660-sample context came back raw at the card's width (the old CONTEXT_PX = 320 threw a third of it away)."
+ },
+ {
+  "page": "review.inspector",
+  "state": "padding +/-30 s is symmetric (fixup-g, U3)",
+  "hash": "review/queue/2/102?pad=30",
+  "settle_ms": 1500,
+  "traces_in_box": true,
+  "feature_in_band": true,
+  "band_centred": true,
+  "expect": [
+   "[data-testid=\"context-card\"][data-pad=\"30\"]"
+  ]
+ },
+ {
+  "page": "review.inspector",
+  "state": "padding +/-120 s is symmetric (fixup-g, U3)",
+  "hash": "review/queue/2/102?pad=120",
+  "settle_ms": 1500,
+  "traces_in_box": true,
+  "feature_in_band": true,
+  "band_centred": true,
+  "expect": [
+   "[data-testid=\"context-card\"][data-pad=\"120\"]"
+  ]
+ },
+ {
+  "page": "review.inspector",
+  "state": "shape card drawn from the 10 Hz source, and says so (fixup-g, Q24)",
+  "hash": "review/queue/2/102",
+  "settle_ms": 1500,
+  "traces_in_box": true,
+  "expect": [
+   "[data-testid=\"shape-card\"][data-source=\"parent\"][data-source-available=\"1\"]",
+   "[data-testid=\"shape-source-toggle\"][aria-checked=\"true\"]",
+   "[data-testid=\"shape-drawn-from\"]",
+   "[data-testid=\"shape-trace\"] svg[data-timed=\"1\"]"
+  ],
+  "_why": "Recording 385 is a 10:1 decimation of L_LM_Jul_26_J_raw CH2 at 10 Hz (recordings.parent_recording_id); with the toggle defaulted ON the card draws the parent's 600 samples over the same 60 s and names the recording and the rate it drew."
+ },
+ {
+  "page": "review.inspector",
+  "state": "shape card toggled to its own 1 Hz samples",
+  "hash": "review/queue/2/102",
+  "settle_ms": 1500,
+  "actions": [
+   {
+    "click": "[data-testid=\"shape-source-toggle\"]"
+   },
+   {
+    "wait": 500
+   }
+  ],
+  "traces_in_box": true,
+  "expect": [
+   "[data-testid=\"shape-card\"][data-source=\"self\"]",
+   "[data-testid=\"shape-source-toggle\"][aria-checked=\"false\"]",
+   "[data-testid=\"shape-trace\"] svg [data-sample-dots]"
+  ],
+  "_why": "Off, the card draws the recording's own 60 samples at 1 Hz, undecimated, with a dot on every sample: the staircase IS the data's resolution (U1's shape card is not a bug) and nothing is smoothed or interpolated."
+ },
+ {
+  "page": "review.inspector",
+  "state": "shape card without a parent: the toggle is disabled with the reason",
+  "hash": "review/queue/1",
+  "settle_ms": 1800,
+  "expect": [
+   "[data-testid=\"shape-card\"][data-source-available=\"0\"]",
+   "[data-disabled-reason]"
+  ],
+  "_why": "The Library queue's sequences are on recordings with no registered parent. The toggle is present but disabled and carries the bridge's reason; it is never present and inert."
+ },
+ {
+  "page": "review.inspector",
   "state": "1b-other-channels (click, then Escape)",
   "traces_in_box": true,
   "hash": "review/queue/2/100",

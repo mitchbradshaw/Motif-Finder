@@ -1,0 +1,215 @@
+{
+ "q2-item-102": {
+  "true_t": 2383.0,
+  "band": [
+   2333.0016,
+   2393.0016
+  ],
+  "n_source": 660,
+  "before_payload": {
+   "n_points": 440,
+   "t0_s": 2033.0
+  },
+  "before": {
+   "drawn_t": 2265.998867595819,
+   "band_px": [
+    2333.001588402725,
+    2393.001607330003
+   ],
+   "axis": [
+    2033.0,
+    2472.0
+   ],
+   "nPts": 440,
+   "ticks": [
+    "mV",
+    "0.565 h",
+    "0.595 h",
+    "0.626 h",
+    "0.656 h",
+    "0.687 h"
+   ],
+   "shot": "webui/screenshots/fixup/G\\before-q2-item-102.png",
+   "pad_px": [
+    784.514404296875,
+    206.58349609375
+   ]
+  },
+  "after": {
+   "drawn_t": 2383.007720139373,
+   "band_px": [
+    2333.0016064233655,
+    2393.0016077080386
+   ],
+   "axis": [
+    2033.0016,
+    2693.0
+   ],
+   "nPts": 659,
+   "ticks": [
+    "mV",
+    "0.56 h",
+    "0.61 h",
+    "0.66 h",
+    "0.70 h",
+    "0.75 h"
+   ],
+   "shot": "webui/screenshots/fixup/G\\after-q2-item-102.png",
+   "pad_px": [
+    521.8194580078125,
+    521.816650390625
+   ]
+  }
+ },
+ "long-run28-item-13": {
+  "true_t": 10685.0,
+  "band": [
+   10095.0012,
+   10695.0012
+  ],
+  "n_source": 1200,
+  "before_payload": {
+   "n_points": 600,
+   "t0_s": 9795.0
+  },
+  "before": {
+   "drawn_t": 10238.980052264807,
+   "band_px": [
+    10095.00120400884,
+    10394.0
+   ],
+   "axis": [
+    9795.0,
+    10394.0
+   ],
+   "nPts": 600,
+   "ticks": [
+    "mV",
+    "2.72 h",
+    "2.76 h",
+    "2.80 h",
+    "2.85 h",
+    "2.89 h"
+   ],
+   "shot": "webui/screenshots/fixup/G\\before-long-run28-item-13.png",
+   "pad_px": [
+    574.9605712890625,
+    0
+   ]
+  },
+  "after": {
+   "drawn_t": 10684.024701219512,
+   "band_px": [
+    10095.00118709888,
+    10695.001225096392
+   ],
+   "axis": [
+    9795.0012,
+    10995.0
+   ],
+   "nPts": 1199,
+   "ticks": [
+    "mV",
+    "2.72 h",
+    "2.80 h",
+    "2.89 h",
+    "2.97 h",
+    "3.05 h"
+   ],
+   "shot": "webui/screenshots/fixup/G\\after-long-run28-item-13.png",
+   "pad_px": [
+    287.0002746582031,
+    286.9991149902344
+   ]
+  }
+ },
+ "pad-30": {
+  "drawn_t": 2382.9970490592336,
+  "band_px": [
+   2333.0015987435263,
+   2393.001602610476
+  ],
+  "axis": [
+   2303.0016,
+   2423.0
+  ],
+  "nPts": 119,
+  "ticks": [
+   "mV",
+   "0.640 h",
+   "0.648 h",
+   "0.656 h",
+   "0.665 h",
+   "0.673 h"
+  ],
+  "shot": "webui/screenshots/fixup/G\\after-q2-item-102-pad30.png",
+  "pad_px": [
+   287.0038146972656,
+   286.9884948730469
+  ]
+ },
+ "pad-120": {
+  "drawn_t": 2382.9919825783973,
+  "band_px": [
+   2333.00160118472,
+   2393.0016097520142
+  ],
+  "axis": [
+   2213.0016,
+   2513.0
+  ],
+  "nPts": 299,
+  "ticks": [
+   "mV",
+   "0.615 h",
+   "0.636 h",
+   "0.656 h",
+   "0.677 h",
+   "0.698 h"
+  ],
+  "shot": "webui/screenshots/fixup/G\\after-q2-item-102-pad120.png",
+  "pad_px": [
+   459.20245361328125,
+   459.1962890625
+  ]
+ },
+ "pad-300": {
+  "drawn_t": 2383.007720139373,
+  "band_px": [
+   2333.0016064233655,
+   2393.0016077080386
+  ],
+  "axis": [
+   2033.0016,
+   2693.0
+  ],
+  "nPts": 659,
+  "ticks": [
+   "mV",
+   "0.56 h",
+   "0.61 h",
+   "0.66 h",
+   "0.70 h",
+   "0.75 h"
+  ],
+  "shot": "webui/screenshots/fixup/G\\after-q2-item-102-pad300.png",
+  "pad_px": [
+   521.8194580078125,
+   521.816650390625
+  ]
+ },
+ "shape_default": {
+  "source": "parent",
+  "drawn_from": "drawn from L_LM_Jul_26_J_raw CH3 \u00b7 10 Hz \u00b7 600 samples \u00b7 the 10:1 source of this recording"
+ },
+ "shape_toggled": {
+  "source": "self",
+  "drawn_from": "drawn from Mushroom_260720_0509_4hrs_CH14_fs1 CH14 \u00b7 1 Hz \u00b7 60 samples"
+ },
+ "shape_no_parent": {
+  "source": "self",
+  "available": "0",
+  "reason": "no higher-resolution source is registered for this recording",
+  "drawn_from": "drawn from M2_aug_fs1 CH1_A1 \u00b7 1 Hz \u00b7 36,000 samples"
+ }
+}
