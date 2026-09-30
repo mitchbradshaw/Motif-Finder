@@ -16,7 +16,9 @@ What this module *does* add is presentation: the payload shapes
 stored unit at `corpus.display_channel`, fixup-b) read off the
 channel memmap through ``decimate.envelope``, never a synthesised trace
 (rule 4: the bulk array never enters the database and never reaches the
-client whole).
+client whole). Every trace is served WITH its time axis (fixup-g, U1/U2/U3):
+`t` beside `v`, the window's edges, the sample count and the point count, sized
+to the `px` the card measured — see `_trace_env`.
 
 Loud failure is structural (CLAUDE.md, "Web UI"): nothing here catches an
 error into a blank or an empty list. An unknown queue is a 404, a held-out
@@ -47,10 +49,18 @@ router = APIRouter(prefix="/api/review")
 #: The recording token inside the held-out file name — see `library.py`.
 HELD_OUT_STEM = HELD_OUT_FILE.split("_concat")[0]
 
-#: Trace widths. `decimate.envelope` emits about 2*px points.
-CONTEXT_PAD_S = 300           # matches the client's CONTEXT_PAD_MAX
-CONTEXT_PX = 320
-SHAPE_PX = 60
+#: Trace widths (fixup-g). `decimate.envelope` emits about 2*px points, and
+#: `px` now comes from the CLIENT — the width of the card that will draw the
+#: trace, measured with `charts/useSize.ts` — so a plot is never served fewer
+#: points than it has pixels. `CONTEXT_PX = 320` and `SHAPE_PX = 60` were
+#: constants that never saw the card: the ~816 px context card was served 440
+#: points for 660 samples, and a 3600 s candidate got 120 points over ~380 px.
+#: `DEFAULT_PX` is what a client that measured nothing gets; `MAX_PX` bounds the
+#: payload (about 2*4096 points, ~130 KB), and a trace that hit it says so
+#: (`capped: true`) rather than silently.
+CONTEXT_PAD_S = 300           # the default; the client sends the pad it shows
+DEFAULT_PX = 1200
+MAX_PX = 4096
 THUMB_PX = 24
 
 #: `review_queues.source_kind` -> the client's `ReviewQueue.icon`/`rankKind`
@@ -108,25 +118,137 @@ def _index(conn) -> dict:
     return out
 
 
-def _trace(conn, rec: dict | None, start_idx: int, end_idx: int, px: int) -> list:
-    """Decimated mV for `[start_idx, end_idx)` of a channel, as a bare value
-    list (the client's traces are values, the x axis is implied). A channel
-    whose `.npy` is missing yields an empty list — the client draws nothing
-    rather than a synthesised shape, because a synthetic trace beside a real
-    one is a finding that is not there. So does a recording whose unit is
-    undeclared: Review's axes say mV, and a stored number of unknown unit
-    drawn on them would be the fixup-b error again."""
-    if not rec:
-        return []
-    row = corpus.recording_row(conn, int(rec["recording_id"]))
-    path = (row or {}).get("npy_path")
+def _empty_trace(reason: str | None = None) -> dict:
+    """A trace that draws nothing. The client draws nothing rather than a
+    synthesised shape, because a synthetic trace beside a real one is a
+    finding that is not there."""
+    return {"t": [], "v": [], "t0_s": 0.0, "t1_s": 0.0, "fs": None, "n_source": 0,
+            "n_points": 0, "decimated": False, "px": 0, "capped": False, "unit": None,
+            "source": None, "reason": reason}
+
+
+def _clamp_px(px) -> int:
+    try:
+        px = int(px)
+    except (TypeError, ValueError):
+        px = DEFAULT_PX
+    return max(8, min(MAX_PX, px if px > 0 else DEFAULT_PX))
+
+
+def _source_of(row: dict, *, kind: str = "self", decimation=None, offset=None) -> dict:
+    """Which recording a trace was drawn from, and at what rate — the card has
+    to say it, because "this event looks smooth" means something different at
+    1 Hz and at 10 Hz (Q24)."""
+    return {"recording_id": int(row["id"]), "label": rec_key(row["source_file"]),
+            "source_file": os.path.basename(str(row["source_file"])),
+            "channel": _channel_label({"source_file": row["source_file"], "name": row.get("name")}, {}),
+            "fs": float(row["fs"] or 1.0), "n_samples": int(row["n_samples"] or 0),
+            "kind": kind, "decimation": decimation, "offset": offset}
+
+
+def _trace_env(row: dict | None, start_idx: int, end_idx: int, px_req, *, t_shift_s: float = 0.0,
+               source: dict | None = None) -> dict:
+    """Decimated mV for `[start_idx, end_idx)` of a recordings row, WITH its
+    time axis: `t` (seconds, absolute in the recording — or shifted by
+    `t_shift_s` into another recording's seconds) beside `v`, plus where the
+    window sits (`t0_s`/`t1_s`, the window's own edges), how many samples it
+    had and how many points it got, and whether the point budget was capped.
+
+    The old contract — "the client's traces are values, the x axis is implied"
+    — WAS the U2 defect: `decimate.envelope` returns fewer, non-uniformly
+    spaced points once the window exceeds 2*px, and a client drawing them one
+    per sample compressed everything right of `t0` by n_points/n_source while
+    it drew the highlight band in true seconds. Band and trace on two axes.
+
+    A channel whose `.npy` is missing yields an empty trace; so does a
+    recording whose unit is undeclared (Review's axes say mV, and a stored
+    number of unknown unit drawn on them would be the fixup-b error again).
+    Converted at the one seam, `corpus.display_channel`.
+    """
+    if not row:
+        return _empty_trace("no recording")
+    path = row.get("npy_path")
     if not path or not os.path.isfile(path):
-        return []
+        return _empty_trace(f"the channel file for {rec_key(row['source_file'])} is missing")
     x = corpus.display_channel(row)
     if x.unit is None:
-        return []
-    env = decimate.envelope(x, float(rec["fs"] or 1.0), int(start_idx), int(end_idx), px)
-    return [None if v is None else round(float(v), 4) for v in env["v"]]
+        return _empty_trace(f"{rec_key(row['source_file'])} declares no unit; nothing is drawn as mV")
+    fs = float(row["fs"] or 1.0)
+    px = _clamp_px(px_req)
+    start_idx = max(0, int(start_idx))
+    end_idx = max(start_idx, min(int(len(x)), int(end_idx)))
+    env = decimate.envelope(x, fs, start_idx, end_idx, px)
+    try:
+        asked = int(px_req)
+    except (TypeError, ValueError):
+        asked = px
+    return {
+        "t": [round(float(a) + t_shift_s, 4) for a in env["t"]],
+        "v": [None if a is None else round(float(a), 4) for a in env["v"]],
+        "t0_s": round(start_idx / fs + t_shift_s, 4),
+        "t1_s": round(end_idx / fs + t_shift_s, 4),
+        "fs": fs,
+        "n_source": int(env["n_source"]), "n_points": int(env["n_points"]),
+        "decimated": bool(env["decimated"]),
+        "px": px,
+        # capped: the client asked for more width than the payload bound allows
+        # AND the window had more samples than the bound serves — points were lost
+        "capped": bool(asked > MAX_PX and env["decimated"]),
+        "unit": x.unit,
+        "source": source or _source_of(row),
+        "reason": None,
+    }
+
+
+def _row_for(conn, rec: dict | None) -> dict | None:
+    return corpus.recording_row(conn, int(rec["recording_id"])) if rec else None
+
+
+NO_SOURCE = "no higher-resolution source is registered for this recording"
+
+
+def _shape_source(conn, row: dict | None, start_idx: int, end_idx: int, px_req):
+    """The Shape card's higher-resolution source, when one is registered
+    (Q24, default ON in the client): `recordings.parent_recording_id`,
+    `parent_offset` (in the parent's samples) and `decimation` link an excerpt
+    to the channel it was block-mean decimated from — recording 385 is a 10:1
+    decimation of `L_LM_Jul_26_J_raw` at 10 Hz, and Review had been judging
+    event shape on a tenth of the detail that exists.
+
+    Returns `(trace, None)` or `(None, reason)`. The trace is the parent's
+    samples over the SAME window, in the CHILD's seconds (shifted by
+    -offset/fs_parent) so it lines up with the context card, at the parent's
+    own rate, converted through `corpus.display_channel` — the parent is a
+    different recordings row with its own `units`, and a parent read raw would
+    be 1000x out for a volts file. When there is no parent the answer is an
+    explicit reason, never an inert toggle.
+    """
+    if not row:
+        return None, NO_SOURCE
+    pid = row.get("parent_recording_id")
+    if not pid:
+        return None, NO_SOURCE
+    prow = corpus.recording_row(conn, int(pid))
+    if prow is None:
+        return None, f"the registered source recording {pid} no longer exists"
+    if prow.get("held_out") or _is_held_out(prow.get("source_file")):
+        return None, refusal(rec_label(prow["source_file"]))
+    dec = int(row.get("decimation") or 0)
+    off = int(row.get("parent_offset") or 0)
+    if dec <= 0:
+        return None, f"the link to {rec_key(prow['source_file'])} records no decimation factor"
+    fs_c = float(row["fs"] or 1.0)
+    fs_p = float(prow["fs"] or 1.0)
+    if abs(fs_p - dec * fs_c) > 1e-6 * max(1.0, fs_p):
+        return None, (f"{rec_key(prow['source_file'])} runs at {fs_p:g} Hz, which is not "
+                      f"{dec} x this recording's {fs_c:g} Hz")
+    j0 = off + int(start_idx) * dec
+    j1 = off + int(end_idx) * dec
+    tr = _trace_env(prow, j0, j1, px_req, t_shift_s=-off / fs_p,
+                    source=_source_of(prow, kind="parent", decimation=dec, offset=off))
+    if not tr["v"]:
+        return None, tr.get("reason") or f"{rec_key(prow['source_file'])} could not be drawn"
+    return tr, None
 
 
 def _queue_or_404(conn, qid) -> dict:
@@ -220,7 +342,9 @@ def _entry_payload(conn, item: dict, queue: dict, index: dict, *, px: int = THUM
         row["score"] = float(item["score"])
     if item.get("verdict"):
         row["baseVerdict"] = item["verdict"]
-    row["thumb"] = [] if (rec or {}).get("held_out") else _trace(conn, rec, start, end, px)
+    # the thumbnail stays a bare value list: it is a sparkline with nothing
+    # drawn beside it, so there is no second coordinate system to disagree with
+    row["thumb"] = [] if (rec or {}).get("held_out") else _trace_env(_row_for(conn, rec), start, end, px)["v"]
     row["family"] = str(item.get("family") or "")
     # The run that wrote this detection, and where the item sits in the queue.
     # Without them the inspector subtitle read "run undefined - rank undefined"
@@ -249,29 +373,46 @@ def _item_or_404(conn, queue: dict, item_id: str) -> dict:
     raise HTTPException(status_code=404, detail=f"no item {item_id!r} in queue {queue['id']}")
 
 
-def _detail(conn, queue: dict, item: dict, index: dict, *, rank: int | None = None) -> dict:
-    """The `ItemDetail` shape, key for key."""
+def _detail(conn, queue: dict, item: dict, index: dict, *, rank: int | None = None,
+            px=DEFAULT_PX, pad_s=CONTEXT_PAD_S) -> dict:
+    """The `ItemDetail` shape, key for key.
+
+    `px` is the width of the plot that will draw the traces and `pad_s` the
+    padding the context card is showing — both from the client, so the context
+    is served over exactly the window drawn, symmetric about the candidate
+    (U3: the client used to slice envelope points as though they were seconds),
+    and at a resolution the card can use (fixup-g)."""
     rid = item.get("recording_id")
     rec = index.get(int(rid)) if rid is not None else None
     qp = _queue_payload(conn, queue)
     entry = _entry_payload(conn, item, queue, index, rank=rank)
     if rec and rec["held_out"]:
-        return {"entry": entry, "queue": qp, "context": {"values": [], "t0_s": 0.0},
-                "shape": [], "nearest": [], "nearestComputed": False,
+        why = refusal(rec["label"])
+        return {"entry": entry, "queue": qp, "context": _empty_trace(why),
+                "shape": _empty_trace(why), "shapeSource": None, "shapeSourceReason": why,
+                "nearest": [], "nearestComputed": False,
                 "medoids": {}, "artifact": _artifact(item),
-                "evidence": None, "thumb": [], "refused": refusal(rec["label"])}
+                "evidence": None, "thumb": [], "refused": why}
 
     start = int(item.get("start_idx") or 0)
     end = int(item.get("end_idx") or start)
     fs = float((rec or {}).get("fs") or 1.0)
-    pad = int(CONTEXT_PAD_S * fs)
+    try:
+        pad_s = max(0, int(pad_s))
+    except (TypeError, ValueError):
+        pad_s = CONTEXT_PAD_S
+    pad = int(round(pad_s * fs))
     c0 = max(0, start - pad)
     c1 = min(int((rec or {}).get("n_samples") or end + pad), end + pad)
+    row = _row_for(conn, rec)
+    source, source_reason = _shape_source(conn, row, start, end, px)
     return {
         "entry": entry,
         "queue": qp,
-        "context": {"values": _trace(conn, rec, c0, c1, CONTEXT_PX), "t0_s": round(c0 / fs, 3)},
-        "shape": _trace(conn, rec, start, end, SHAPE_PX),
+        "context": _trace_env(row, c0, c1, px),
+        "shape": _trace_env(row, start, end, px),
+        "shapeSource": source,
+        "shapeSourceReason": source_reason,
         "nearest": list(item.get("nearest") or []),
         "nearestComputed": bool(item.get("nearest_computed")),
         "medoids": dict(item.get("medoids") or {}),
@@ -514,20 +655,27 @@ def _clusters(items: list, queue: dict) -> list:
 
 
 @router.get("/queues/{qid}/items/{item_id}")
-def get_item(request: Request, qid: str, item_id: str):
+def get_item(request: Request, qid: str, item_id: str,
+             px: int = Query(default=DEFAULT_PX), pad_s: int = Query(default=CONTEXT_PAD_S)):
+    """`px`: the width of the plot that will draw the traces; `pad_s`: the
+    context padding shown. Both come from the card (fixup-g)."""
     conn = _conn(request)
     try:
         queue = _queue_or_404(conn, qid)
         item = _item_or_404(conn, queue, item_id)
         ranks = _ranks(conn, queue, _held_out_ids(conn))
-        return _detail(conn, queue, item, _index(conn), rank=ranks.get(str(item_id)))
+        return _detail(conn, queue, item, _index(conn), rank=ranks.get(str(item_id)),
+                       px=px, pad_s=pad_s)
     finally:
         conn.close()
 
 
 @router.get("/queues/{qid}/items/{item_id}/channels")
-def get_item_channels(request: Request, qid: str, item_id: str):
-    """The other channels of the same recording over the item's window."""
+def get_item_channels(request: Request, qid: str, item_id: str,
+                      px: int = Query(default=DEFAULT_PX), pad_s: int = Query(default=CONTEXT_PAD_S)):
+    """The other channels of the same recording over the item's window, each
+    as a trace WITH its axis (`trace`), over the same padded window as the
+    context card (the popover's band is drawn in the same seconds)."""
     conn = _conn(request)
     try:
         queue = _queue_or_404(conn, qid)
@@ -540,14 +688,14 @@ def get_item_channels(request: Request, qid: str, item_id: str):
         start = int(item.get("start_idx") or 0)
         end = int(item.get("end_idx") or start)
         fs = float(rec["fs"] or 1.0)
-        pad = int(CONTEXT_PAD_S * fs)
+        pad = int(round(max(0, int(pad_s)) * fs))
         out = []
         for other in index.values():
             if other["source_file"] != rec["source_file"]:
                 continue
             out.append({"channel": other["name"], "r": None,
-                        "values": _trace(conn, other, max(0, start - pad),
-                                         min(other["n_samples"], end + pad), CONTEXT_PX),
+                        "trace": _trace_env(_row_for(conn, other), max(0, start - pad),
+                                            min(other["n_samples"], end + pad), px),
                         "current": other["recording_id"] == rec["recording_id"]})
         return out
     finally:
@@ -555,7 +703,8 @@ def get_item_channels(request: Request, qid: str, item_id: str):
 
 
 @router.get("/queues/{qid}/cluster/{no}")
-def get_cluster(request: Request, qid: str, no: int):
+def get_cluster(request: Request, qid: str, no: int,
+                px: int = Query(default=DEFAULT_PX), pad_s: int = Query(default=CONTEXT_PAD_S)):
     conn = _conn(request)
     try:
         queue = _queue_or_404(conn, qid)
@@ -569,7 +718,7 @@ def get_cluster(request: Request, qid: str, no: int):
         members = [it for it in items
                    if str(it.get("target_id", it.get("id"))) in cluster["members"]]
         return {"cluster": cluster, "queue": _queue_payload(conn, queue),
-                "members": [_detail(conn, queue, it, index) for it in members]}
+                "members": [_detail(conn, queue, it, index, px=px, pad_s=pad_s) for it in members]}
     finally:
         conn.close()
 

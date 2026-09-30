@@ -196,8 +196,11 @@ def test_item_detail_carries_the_client_shape(seeded):
     for key in ("entry", "queue", "context", "shape", "nearest", "medoids",
                 "artifact", "evidence", "thumb"):
         assert key in d, f"ItemDetail.{key} missing: the panel would draw blank"
-    assert "values" in d["context"] and "t0_s" in d["context"]
-    assert d["context"]["values"], "context trace must be real decimated mV, never empty"
+    # fixup-g: the trace carries its axis — `t` beside `v` — never a bare value list
+    assert "t" in d["context"] and "v" in d["context"] and "t0_s" in d["context"]
+    assert d["context"]["v"], "context trace must be real decimated mV, never empty"
+    assert len(d["context"]["t"]) == len(d["context"]["v"])
+    assert "shapeSource" in d and "shapeSourceReason" in d
 
 
 # ── rule 5: the verdict lands in one table and not the other ────────────────
@@ -644,7 +647,7 @@ def test_the_candidate_context_is_millivolts_off_a_volts_recording(seeded):
     qid = q["queue"]["id"]
     row = client.get(f"/api/review/queues/{qid}").json()["rows"][0]
     d = client.get(f"/api/review/queues/{qid}/items/{row['id']}").json()
-    vals = [v for v in d["context"]["values"] if v is not None]
+    vals = [v for v in d["context"]["v"] if v is not None]
     assert vals and max(abs(v) for v in vals) > 10.0, "millivolts, not volts labelled mV"
     assert max(abs(v) for v in vals) <= 221.0, "and not converted twice (0.22 V peak -> 220 mV)"
 

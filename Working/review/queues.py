@@ -398,9 +398,20 @@ def _resolve_detections(conn, q):
     blind = bool(q["blind"])
     live = [c for c in queue.candidates if c["run_id"] not in superseded]
     priors = _prior_verdicts(conn, live)
+    # The coordinates the item carries OUT are channel-absolute (fixup-g). A
+    # `detections` row written by a spanned run before 2026-09-21 is
+    # span-relative, and Review was the fourth reader that copied `start_idx`
+    # raw — so a legacy candidate was drawn at the wrong hour, band and trace
+    # both. Prompt M rewrote the real rows once; the shift stays because a
+    # database restored from an older backup holds relative rows again, and
+    # `_prior_verdicts` already matched on the shifted bounds — the item must
+    # say the same thing its rediscovery check used.
+    span_starts = _run_span_starts(conn, {c["run_id"] for c in live})
     items = []
     for cand in live:
         prior = priors.get(cand["id"])
+        start_idx, end_idx = absolute_bounds(
+            cand["start_idx"], cand["end_idx"], span_starts.get(cand["run_id"], 0))
         item = {
             "target_id": cand["id"],
             "unit": q["unit"],
@@ -408,8 +419,8 @@ def _resolve_detections(conn, q):
             "run_id": cand["run_id"],
             "recording_id": cand["recording_id"],
             "channel": cand["channel"],
-            "start_idx": cand["start_idx"],
-            "end_idx": cand["end_idx"],
+            "start_idx": start_idx,
+            "end_idx": end_idx,
             "judged": cand["id"] in judged_ids,
             "verdict": judged_verdicts.get(cand["id"]),
             "prior_verdict": prior["verdict"] if prior else None,
