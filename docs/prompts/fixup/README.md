@@ -52,7 +52,7 @@ prompts carry:
 1. **Disjoint page trees, disjoint server modules, separate `smoke_pages` files.** Each prompt
    carries an ownership table naming the other agent's files.
 2. **A private port and a private client build.** **`run_server.py --dist DIR` exists as of
-   2026-10-01** (`addb4f0` red → `a1c…` green; env `WEBUI_DIST`). Build with
+   2026-10-01** (`addb4f0` red → `fc08257` green; env `WEBUI_DIST`). Build with
    `npx vite build --outDir <yours>` in `webui/client` and serve that, so the shared
    `webui/client/dist` is never anyone's working bundle — without it, whoever builds last owns it,
    and in wave 1 that cost `G` its before/after baseline mid-run. A relative `--dist` is made
