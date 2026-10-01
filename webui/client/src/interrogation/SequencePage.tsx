@@ -7,6 +7,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { getSequenceShape, getSequences, type FeatureTable as FeatureTableT, type SequenceRow, type SequenceShape } from '../api'
 import { FeatureTable, RoseFan, RulesList } from '../analyse/EventFeatures'
+import { datasetName, useDatasetNames } from '../naming'
 import { Header } from '../shell/Header'
 import { navigate, setQuery, useApp } from '../state'
 
@@ -22,6 +23,7 @@ export function SequencePage() {
   const [listErr, setListErr] = useState<string | null>(null)
   const [shape, setShape] = useState<SequenceShape | null>(null)
   const [err, setErr] = useState<string | null>(null)
+  const names = useDatasetNames()   // a sequence's recording is printed by its dataset name (fixup-f)
 
   useEffect(() => { getSequences().then(r => setList(r.sequences), e => setListErr(String(e?.message ?? e))) }, [])
   const id = Number.isFinite(idQ) ? idQ : list?.[0]?.id ?? null
@@ -41,13 +43,13 @@ export function SequencePage() {
 
   return (
     <>
-      <Header workspace="Analyse" page="Sequence · slope rose" subtitle={shape ? `${shape.sequence.sequence_key} · ${shape.sequence.n_members} events · ${shape.sequence.source_file ?? 'no recording'}` : 'the steepest slope of every event in one sequence'} />
+      <Header workspace="Analyse" page="Sequence · slope rose" subtitle={shape ? `${shape.sequence.sequence_key} · ${shape.sequence.n_members} events · ${shape.sequence.source_file ? datasetName(names, shape.sequence.source_file) : 'no recording'}` : 'the steepest slope of every event in one sequence'} />
       <div className="page"><div className="page-inner" data-testid="interrogation-sequence" style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
         <div className="an-toolbar">
           <button className="btn ghost" onClick={() => navigate('analyse/interrogation')}>‹ Interrogation</button>
           <label className="muted small" htmlFor="seq-pick">sequence</label>
           <select id="seq-pick" data-testid="sequence-picker" value={id ?? ''} onChange={e => setQuery({ id: e.target.value })} style={{ maxWidth: 420 }}>
-            {(list ?? []).map(s => <option key={s.id} value={s.id}>{s.sequence_key} · {s.n_members} events · {s.origin} · {s.source_file ?? '—'}</option>)}
+            {(list ?? []).map(s => <option key={s.id} value={s.id}>{s.sequence_key} · {s.n_members} events · {s.origin} · {s.source_file ? datasetName(names, s.source_file) : '—'}</option>)}
           </select>
           <label className="muted small" htmlFor="seq-scale">45° means</label>
           <select id="seq-scale" data-testid="rose-scale" value={scaleQ} onChange={e => setQuery({ scale: e.target.value })}>

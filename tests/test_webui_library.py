@@ -1006,3 +1006,21 @@ def test_a_removed_member_carries_its_waveform_too(bridge):
     assert detail["removed"], "the removal surfaces"
     assert all(len(r.get("trace") or []) > 10 for r in detail["removed"]), (
         "the removed strip drew a sketch; it draws the removed member's own span")
+
+
+def test_a_named_dataset_is_called_by_its_name_and_keyed_as_before(bridge):
+    """fixup-f: the Library's recording label goes through the one naming seam
+    (`corpus.dataset_name`); its key does not move, because a display name is a
+    label and nothing keys on it. The file is carried beside the name."""
+    import sqlite3
+    from Working.database import datasets
+    client, info = bridge
+    conn = sqlite3.connect(info["rt"].db_path)
+    datasets.put_dataset(conn, "M2_aug_concat_fs1.mat", {"display_name": "M2 August"})
+    conn.close()
+    body = _ok(client.get("/api/library/recurrence"))
+    row = next(r for r in body["recordings"] if r["key"] == "M2_aug_fs1")
+    assert row["label"] == "M2 August" and row["file"] == "M2_aug_concat_fs1.mat"
+    member = _ok(client.get("/api/library/family/F-01"))["detail"]["members"][0]
+    assert member["recording"] == "M2 August"
+    assert member["recordingKey"] == "M2_aug_fs1" and member["recordingFile"] == "M2_aug_concat_fs1.mat"

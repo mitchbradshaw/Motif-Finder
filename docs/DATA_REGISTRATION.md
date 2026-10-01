@@ -98,6 +98,39 @@ no unit and no note, so a declared unit is never overwritten.
 what it draws (`webui/server/corpus.py::display_channel`), and hands the core the stored samples
 (`corpus.load_native`). A producer writing channels should write `units` in the manifest — both writers here do.
 
+## Datasets: identity and naming (fixup-f)
+
+`recordings` is one row per **channel** (`UNIQUE (source_file, channel)`), so what a researcher calls a dataset is the
+set of rows sharing a `source_file`. Its identity — **display name, species, organism id, experiment date, condition,
+notes** — is a property of that set and lives in the `datasets` table, keyed by `source_file`, one row per file,
+created the first time a field is filled (`Working/database/schema.py`, additive through `init_db()`;
+`Working/database/datasets.py`, plain SQL). A file with no row has no metadata. `recordings.notes` is per-channel
+text written at registration; it is a different field, it is never copied into a dataset's notes, and Settings ›
+Datasets shows it read-only under "read from the data".
+
+**The naming rule, and the one seam.** A dataset is printed by its display name when it has one and by its source
+file when it does not. That sentence is implemented once on each side of the bridge and nowhere else:
+`Working.database.datasets.display_name` (the bridge reaches it only through `webui/server/corpus.py::dataset_name`)
+and `webui/client/src/naming.tsx` (`<DatasetName file=… />`, `datasetName(names, file)`), which reads
+`GET /api/datasets` once and re-reads it when Settings › Datasets saves. No route or page formats a file name into a
+label itself. **The source file is always reachable** — on hover wherever the name is printed, under the name on
+Settings › Datasets, and in the audit entry, which is written by file name — because it is what the directory on
+disk, every key and every log line use. **A display name is never an identifier**: nothing keys, joins, filters,
+caches or routes on it; the directory stem (`meta.<stem>.<field>`, `?rec=<stem>`) and `source_file` stay the keys.
+Two datasets cannot answer to the same name, and a name cannot be another dataset's file name (422).
+
+**Writing it.** Settings › Datasets saves through the audited settings path like every other page:
+`PUT /api/settings/datasets` with `meta.<stem>.<field>`; the six identity fields are routed into `datasets`, the
+rest (substrate, electrode config, start time, time zone, noise floor, temperature, humidity) stay in `settings`.
+A save is all-or-nothing; `experiment_date` must be `YYYY-MM-DD`; the held-out dataset's identity is refused (423)
+while the lock is on. From a script: `Working.database.datasets.put_dataset(conn, source_file, {...})`.
+
+**Channel names.** One convention, through `Working/discovery/channels.py::channel_name`: a channel's name is
+**one-based** everywhere it is printed (`recordings.channel = 2` is `CH3`; the sixteen-channel M2 files keep their
+electrode names, `CH3_A2`). The stored index is zero-based and so are the files on disk (`CH2.npy`); where that
+matters it is shown *beside* the name (`channel_index_note`, the "stored index · file" column of Settings › Channels
+& events), never instead of it.
+
 ## Excerpts: a subset of a registered recording is not a new recording
 
 User decision 2026-09-21. `Mushroom_260720_0509_4hrs_CH14_fs1` (row 385; six runs and 217 detections
