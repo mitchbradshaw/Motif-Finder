@@ -204,8 +204,9 @@ no schema change.
    the shared `webui/screenshots/pages/discovery/` — another process had those files open, most
    likely `F`'s smoke. The pages themselves rendered. A full smoke on a quiet machine is still owed.
 
-**The machine was taken for smoke** from about 17:50 to 18:05 on 2026-10-01, after my `pytest` had
-finished. I could not see whether `F` was running `pytest` during it; the `[Errno 22]`s above say
+**The machine was taken for smoke** from 17:51 to 18:10 on 2026-10-01 (full run to 18:07, the two re-walks after), after my `pytest` had
+finished at 17:49. I could not see whether `F` was running `pytest` during it; two other sandbox
+runtimes were created at 17:50 and 17:56, and the `[Errno 22]`s above say
 `F` was at least writing screenshots during my re-walk.
 
 **Defaults taken without asking:** the event-found criterion in §6; a tail shorter than half a
