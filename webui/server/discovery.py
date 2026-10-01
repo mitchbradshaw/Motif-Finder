@@ -110,7 +110,8 @@ def _recording_options(conn):
     out = []
     for r in _recordings(conn):
         out.append({
-            "key": _stem(r["source_file"]), "label": _stem(r["source_file"]),
+            # `key` and `stem` are identifiers and never move; `label` is what the dataset is called (fixup-f)
+            "key": _stem(r["source_file"]), "label": r["display_name"],
             "file": r["source_file"], "stem": _stem(r["source_file"]),
             "hours": round(r["duration_h"], 3), "channels": [c["name"] for c in r["channels"]],
             "heldOut": bool(r["held_out"]), "fs": r["fs"],
@@ -247,6 +248,7 @@ def _session_payload(conn):
             "id": int(s["id"]),
             "name": s["name"],
             "recording": _stem(s["source_file"]),
+            "recordingLabel": corpus.dataset_name(conn, s["source_file"]), "recordingFile": s["source_file"],
             "channels": json.loads(s["channels_json"]),
             "section": [int(s["span_start"]) / fs / 3600.0, int(s["span_end"]) / fs / 3600.0],
             "sectionSamples": [int(s["span_start"]), int(s["span_end"])],
@@ -932,9 +934,10 @@ def _seed_info(conn, seed, *, title=None, family=None, family_line=None):
         "role": {"library": "Library exemplar", "explore": "Explore selection",
                  "medoid": "Family medoid"}.get(seed["source"], seed["source"]),
         "source": seed["source"],
-        "title": title or f"{_stem(rec['source_file'])} · {seed['start_h']:.1f} h",
+        "title": title or f"{corpus.dataset_name(conn, rec['source_file'])} · {seed['start_h']:.1f} h",
         "family": family, "familyLine": family_line,
         "recording": _stem(rec["source_file"]),
+        "recordingLabel": corpus.dataset_name(conn, rec["source_file"]), "recordingFile": rec["source_file"],
         "channel": corpus.channel_name(rec["source_file"], int(rec["channel"]),
                                        len(q.list_recordings(conn, rec["source_file"]))),
         "startH": round(seed["start_h"], 4), "samples": seed["samples"],

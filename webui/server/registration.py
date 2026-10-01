@@ -21,6 +21,8 @@ from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import PlainTextResponse
 from pydantic import BaseModel, Field
 
+from Working.database import datasets
+from Working.discovery.channels import channel_index_note
 from Working.registration import KINDS, RegistrationError, check, list_registered, register, scan, unregister
 from Working.registration.settings import (
     ConfirmationRequired, append_audit, audit_csv, audit_kinds, get_settings, held_out_state, list_audit, put_settings, settings_meta,
@@ -134,11 +136,101 @@ def _find_candidate(request: Request, kind: str, path: str):
 def _registered_payload(request: Request, kind: str, c) -> list:
     out = list_registered(c, kind, sidecar_root=_sidecar_root(request))
     if kind == "recording":
+        meta = datasets.list_datasets(c)
         for r in out:
             n = r["n_channels"]
+            notes = dict(c.execute("SELECT id, notes FROM recordings WHERE source_file = ?", (r["source_file"],)).fetchall())
             for ch in r["channels"]:
                 ch["name"] = corpus.channel_name(r["source_file"], ch["channel"], n)
+                # per-CHANNEL text (recordings.notes): a different field from the dataset's notes, shown apart
+                ch["notes"] = notes.get(ch["id"])
+            # fixup-f: what the dataset is called and the identity Settings › Datasets authors; `name` stays
+            # the directory stem (a key), `display_name` is the label
+            r["display_name"] = corpus.dataset_name(c, r["source_file"])
+            r["dataset"] = {f: (meta.get(r["source_file"]) or {}).get(f) for f in datasets.FIELDS}
+            if r.get("excerpt_of"):
+                _name_excerpt(c, r["excerpt_of"])
     return out
+
+
+def _name_excerpt(c, link: dict, key: str = "channel") -> None:
+    """An excerpt link names its parent's channel by the one convention and its parent by the one name."""
+    sf = link.get("source_file")
+    if sf is None or link.get(key) is None:
+        return
+    n = c.execute("SELECT COUNT(*) FROM recordings WHERE source_file = ?", (sf,)).fetchone()[0]
+    link["channel_name"] = corpus.channel_name(sf, link[key], n)
+    link["channel_note"] = channel_index_note(link[key])
+    link["display_name"] = corpus.dataset_name(c, sf)
+
+
+# ---------------------------------------------------------------- datasets --
+
+_META = "meta."
+
+
+def _stems(request: Request, c) -> dict:
+    """`directory stem -> source_file` for every registered recording (the stem is what the page keys by)."""
+    return {r["name"]: r["source_file"] for r in list_registered(c, "recording", sidecar_root=_sidecar_root(request))}
+
+
+def _dataset_values(request: Request, c) -> dict:
+    """The `datasets` table as the page's `meta.<stem>.<field>` values (only what is filled)."""
+    meta = datasets.list_datasets(c)
+    out = {}
+    for stem, sf in _stems(request, c).items():
+        for f in datasets.FIELDS:
+            v = (meta.get(sf) or {}).get(f)
+            if v is not None:
+                out[f"{_META}{stem}.{f}"] = v
+    return out
+
+
+def _split_dataset_keys(request: Request, c, values: dict) -> tuple:
+    """(`{source_file: {field: value}}`, the remaining settings values, `{(source_file, field): key}`)."""
+    stems = _stems(request, c)
+    by_file, rest, keys = {}, {}, {}
+    for k, v in values.items():
+        stem, _, field = k[len(_META):].rpartition(".") if k.startswith(_META) else ("", "", "")
+        if field in datasets.FIELDS and stem in stems:
+            by_file.setdefault(stems[stem], {})[field] = v
+            keys[(stems[stem], field)] = k
+        else:
+            rest[k] = v
+    return by_file, rest, keys
+
+
+def _put_datasets(c, by_file: dict, keys: dict, actor: str) -> list:
+    """Write the dataset fields (uncommitted), audit each file's change by its FILE name; the changed page keys."""
+    changed = []
+    lock_on = held_out_state(c)["on"]
+    for sf, fields in by_file.items():
+        if sf == HELD_OUT_FILE and lock_on:
+            raise HTTPException(423, f"{HELD_OUT_FILE} is held out · its metadata is read-only while the lock is on (D6)")
+        before = datasets.get_dataset(c, sf)
+        did = datasets.put_dataset(c, sf, fields, actor=actor, commit=False)
+        if did:
+            after = datasets.get_dataset(c, sf)
+            what = f"Dataset {sf}: " + " · ".join(f"{f.replace('_', ' ')} {before[f] or 'not set'} → {after[f] or 'not set'}" for f in did)
+            append_audit(c, "settings", what[:400], "Datasets", route="settings/datasets", actor=actor,
+                         detail={"source_file": sf, "changed": did, "from": {f: before[f] for f in did}, "to": {f: after[f] for f in did}}, commit=False)
+        changed += [keys[(sf, f)] for f in did]
+    return changed
+
+
+@router.get("/api/datasets")
+def get_datasets(request: Request):
+    """Every registered dataset with the name it is called by — the client naming seam's one read (fixup-f)."""
+    c = _conn(request)
+    try:
+        out = []
+        for r in corpus.recordings(c):
+            out.append({"source_file": r["source_file"], "stem": r["stem"], "name": r["display_name"], "named": r["named"], **r["dataset"],
+                        "n_channels": r["n_channels"], "fs": r["fs"], "duration_h": r["duration_h"], "units": r["units"],
+                        "fs_source": r["fs_source"], "held_out": r["held_out"], "has_parent": r["excerpt_of"] is not None})
+        return {"datasets": out, "species_values": datasets.species_values(c), "fields": list(datasets.FIELDS)}
+    finally:
+        c.close()
 
 
 # ---------------------------------------------------------------- registry --
@@ -167,9 +259,22 @@ def post_check(request: Request, kind: str, body: PathBody):
     cand = _find_candidate(request, kind, body.path)
     c = _conn(request)
     try:
-        return check(cand, c, overrides=body.overrides, **_kw(request, kind)).to_dict()
+        return _name_report(c, cand, check(cand, c, overrides=body.overrides, **_kw(request, kind)).to_dict())
     finally:
         c.close()
+
+
+def _name_report(c, cand, report: dict) -> dict:
+    """A check report's excerpt links name their channels by the one convention (fixup-f): the registered
+    side through its own file, the candidate's side through the file and channel count it would register as."""
+    facts = report.get("facts") or {}
+    cand_file = facts.get("source_file") or cand.name
+    cand_n = facts.get("n_channels") or 0
+    for link in [*(report.get("excerpts") or []), *([report["excerpt_of"]] if report.get("excerpt_of") else [])]:
+        _name_excerpt(c, link)
+        if link.get("candidate_channel") is not None:
+            link["candidate_channel_name"] = corpus.channel_name(cand_file, link["candidate_channel"], cand_n)
+    return report
 
 
 @router.post("/api/registry/{kind}/register")
@@ -276,9 +381,10 @@ def _page_extras(request: Request, page: str, c) -> dict:
         state = held_out_state(c)
         defaults = {"heldout.on": True, "heldout.recording": HELD_OUT_FILE[:-4]}
         for r in regs:
-            for f in ("display_name", "species", "substrate", "electrode_config", "start", "time_zone", "noise_floor", "temperature", "humidity", "notes"):
-                defaults[f"meta.{r['name']}.{f}"] = r["name"] if f == "display_name" else "Europe/London" if f == "time_zone" else ""
-        return {"recordings": regs, "candidates": [x for x in cands if not x["registered"]], "raw_candidates": [x for x in raws if not x["registered"]],
+            # an unnamed dataset has an EMPTY display name (it is called by its source file), not its stem
+            for f in (*datasets.FIELDS, "substrate", "electrode_config", "start", "time_zone", "noise_floor", "temperature", "humidity"):
+                defaults[f"meta.{r['name']}.{f}"] = "Europe/London" if f == "time_zone" else ""
+        return {"recordings": regs, "species_values": datasets.species_values(c), "candidates": [x for x in cands if not x["registered"]], "raw_candidates": [x for x in raws if not x["registered"]],
                 "held_out": state, "defaults": defaults}
     if page == "vocabulary":
         from Working.database.schema import VERDICTS
@@ -313,7 +419,7 @@ def get_page(request: Request, page: str):
         raise HTTPException(404, f"no settings page {page!r}; pages: {sorted(PAGE_TITLES)}")
     c = _conn(request)
     try:
-        out = {"page": page, "title": PAGE_TITLES[page], "values": get_settings(c, page), **settings_meta(c, page), "mode": _rt(request).mode}
+        out = {"page": page, "title": PAGE_TITLES[page], "values": _page_values(request, page, c), **settings_meta(c, page), "mode": _rt(request).mode}
         out.update(_page_extras(request, page, c))
         return out
     finally:
@@ -326,23 +432,40 @@ def put_page(request: Request, page: str, body: SettingsBody):
         raise HTTPException(404, f"no settings page {page!r}")
     c = _conn(request)
     try:
-        before = get_settings(c, page)
+        before = _page_values(request, page, c)
+        # fixup-f: a dataset's identity lives in `datasets`, keyed by source file; the page still saves it as
+        # `meta.<stem>.<field>` through this one audited path. Everything in a save lands or nothing does.
+        by_file, rest, keys = _split_dataset_keys(request, c, body.values) if page == "datasets" else ({}, body.values, {})
         try:
-            changed = put_settings(c, page, body.values, actor=body.actor, confirm_name=body.confirm_name)
+            changed = _put_datasets(c, by_file, keys, body.actor)
+            changed += put_settings(c, page, rest, actor=body.actor, confirm_name=body.confirm_name)
         except ConfirmationRequired as e:
+            c.rollback()
             raise HTTPException(409, {"message": str(e), "name": e.name, "confirm": "type the recording name exactly"})
-        except ValueError as e:
-            raise HTTPException(422, str(e))
-        if changed and not (page == "datasets" and changed == ["heldout.on"]):
+        except (ValueError, KeyError) as e:
+            c.rollback()
+            raise HTTPException(422, str(e.args[0]) if e.args else str(e))
+        except HTTPException:
+            c.rollback()
+            raise
+        told = [k for k in changed if k != "heldout.on" and k not in keys.values()]
+        if told:
             brief = lambda v: (f"{len(v)} rows" if isinstance(v, list) else str(v))[:60]  # noqa: E731
             was = lambda k: before.get(k, body.previous.get(k, "default"))  # noqa: E731
-            what = f"{PAGE_TITLES[page]}: " + " · ".join(f"{k} {brief(was(k))} → {brief(body.values[k])}" for k in changed if k != "heldout.on")
-            if what.rstrip(": "):
-                append_audit(c, "settings", what, PAGE_TITLES[page], route=f"settings/{page}", actor=body.actor, detail={"changed": changed})
-        return {"page": page, "changed": changed, "values": get_settings(c, page), **settings_meta(c, page),
+            what = f"{PAGE_TITLES[page]}: " + " · ".join(f"{k} {brief(was(k))} → {brief(body.values[k])}" for k in told)
+            append_audit(c, "settings", what, PAGE_TITLES[page], route=f"settings/{page}", actor=body.actor, detail={"changed": told})
+        return {"page": page, "changed": changed, "values": _page_values(request, page, c), **settings_meta(c, page),
                 **({"held_out": held_out_state(c)} if page == "datasets" else {})}
     finally:
         c.close()
+
+
+def _page_values(request: Request, page: str, c) -> dict:
+    """A page's saved values. Datasets reads its identity fields from the `datasets` table."""
+    values = get_settings(c, page)
+    if page == "datasets":
+        values.update(_dataset_values(request, c))
+    return values
 
 
 # ------------------------------------------------------------------- audit --

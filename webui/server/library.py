@@ -164,9 +164,10 @@ def rec_key(source_file: str) -> str:
     return stem.replace("_concat", "")
 
 
-def rec_label(source_file: str) -> str:
-    """`M2_aug_concat_fs1.mat` -> `M2_aug fs1`, the form Member.recording carries."""
-    return re.sub(r"_(fs\d+)$", r" \1", rec_key(source_file))
+def rec_label(conn, source_file: str) -> str:
+    """What the dataset is called — the form Member.recording carries. The
+    bridge's one naming seam (fixup-f); it used to prettify the file name here."""
+    return corpus.dataset_name(conn, source_file)
 
 
 def gid_str(row_id) -> str:
@@ -244,7 +245,7 @@ def _recordings_index(conn) -> dict:
         for ch in g["channels"]:
             by_id[int(ch["id"])] = {
                 "recording_id": int(ch["id"]), "source_file": g["source_file"],
-                "key": key, "label": rec_label(g["source_file"]),
+                "key": key, "label": g["display_name"],
                 "channel": int(ch["channel"]), "name": ch["name"],
                 "fs": float(g["fs"]), "n_samples": int(g["n_samples"]),
                 "held_out": bool(g["held_out"]), "npy_exists": bool(ch["npy_exists"]),
@@ -267,7 +268,7 @@ def _rec_groups(conn, index) -> list[dict]:
         shown = [] if g["held_out"] else names[:CHANNELS_SHOWN]
         pcts = [reviewed.get(f"{key}:{n}", 0.0) for n in names] or [0.0]
         row = {
-            "key": key, "label": rec_label(g["source_file"]),
+            "key": key, "label": g["display_name"], "file": g["source_file"],
             "hours": round(_f(g["duration_h"]), 2),
             "reviewedPct": round(100.0 * (sum(pcts) / len(pcts)), 1),
             "channels": shown,
@@ -1172,7 +1173,7 @@ def _family_detail(conn, index, fam, grouping_row) -> dict:
         role = "medoid" if r["member_id"] == medoid_id else ("exemplar" if r["member_id"] == exemplar_id else None)
         member = {
             "id": f"m-{r['member_id']}", "d": round(_f(r["distance"]), 4),
-            "recording": meta["label"], "recordingKey": meta["key"], "channel": meta["name"],
+            "recording": meta["label"], "recordingKey": meta["key"], "recordingFile": meta["source_file"], "channel": meta["name"],
             "onsetH": round(start / fs / 3600.0, 3),
             "durationS": round((end - start) / fs, 2),
             "amplitudeMv": _span_amplitude(index, r["recording_id"], start, end),

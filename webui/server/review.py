@@ -99,9 +99,10 @@ def rec_key(source_file) -> str:
     return stem.replace("_concat", "")
 
 
-def rec_label(source_file) -> str:
-    import re
-    return re.sub(r"_(fs\d+)$", r" \1", rec_key(source_file))
+def rec_label(conn, source_file) -> str:
+    """What the dataset is called: the bridge's one naming seam (fixup-f). It
+    used to prettify the file name here (`M2_aug fs1`), a second fallback."""
+    return corpus.dataset_name(conn, source_file)
 
 
 def _index(conn) -> dict:
@@ -111,7 +112,7 @@ def _index(conn) -> dict:
         for ch in g["channels"]:
             out[int(ch["id"])] = {
                 "recording_id": int(ch["id"]), "source_file": g["source_file"],
-                "label": rec_label(g["source_file"]), "channel": int(ch["channel"]),
+                "label": g["display_name"], "channel": int(ch["channel"]),
                 "name": ch["name"], "fs": float(g["fs"]), "n_samples": int(g["n_samples"]),
                 "held_out": bool(g.get("held_out") or _is_held_out(g["source_file"])),
             }
@@ -232,7 +233,7 @@ def _shape_source(conn, row: dict | None, start_idx: int, end_idx: int, px_req):
     if prow is None:
         return None, f"the registered source recording {pid} no longer exists"
     if prow.get("held_out") or _is_held_out(prow.get("source_file")):
-        return None, refusal(rec_label(prow["source_file"]))
+        return None, refusal(rec_label(conn, prow["source_file"]))
     dec = int(row.get("decimation") or 0)
     off = int(row.get("parent_offset") or 0)
     if dec <= 0:
@@ -332,6 +333,10 @@ def _entry_payload(conn, item: dict, queue: dict, index: dict, *, px: int = THUM
     row["queueId"] = str(queue["id"])
     row["unit"] = queue.get("unit") or item.get("unit") or "detection"
     row["recording"] = (rec or {}).get("label") or str(item.get("recording") or "")
+    # fixup-f: the label is what the dataset is CALLED; the file is carried beside it (hover, provenance)
+    # and is what anything that has to recognise the recording keys on — never the label
+    row["recordingFile"] = (rec or {}).get("source_file")
+    row["heldOut"] = bool((rec or {}).get("held_out"))
     row["channel"] = _channel_label(rec, item)
     row["startH"] = round(start / fs / 3600.0, 6)
     row["durationS"] = round(max(0, end - start) / fs, 3)

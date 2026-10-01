@@ -13,6 +13,7 @@ import time
 
 import numpy as np
 
+from Working.database import datasets as _datasets
 from Working.database import queries as q
 from Working.database import runs as r
 from Working.database.runs import list_runs, load_recipe
@@ -39,6 +40,20 @@ def connect(db_path: str) -> sqlite3.Connection:
 
 def channel_name(source_file: str, channel: int, n_channels: int) -> str:
     return _core_channel_name(source_file, channel, n_channels)
+
+
+def dataset_name(conn, source_file: str) -> str:
+    """What a dataset is CALLED, on every page and in every payload (fixup-f):
+    its display name when Settings › Datasets gave it one, its source file when
+    not. This is the bridge's one door to `Working.database.datasets.display_name`
+    — no route formats a file name into a label itself. A name is a label, never
+    a key; whatever carries it carries `source_file` beside it."""
+    return _datasets.display_name(conn, source_file)
+
+
+def dataset_names(conn) -> dict:
+    """`source_file -> name` for every registered file, in one query."""
+    return _datasets.display_names(conn)
 
 
 @functools.lru_cache(maxsize=32)
@@ -110,6 +125,7 @@ def recordings(conn) -> list[dict]:
     by_file: dict[str, list[dict]] = {}
     for row in rows:
         by_file.setdefault(row["source_file"], []).append(row)
+    names, meta = dataset_names(conn), _datasets.list_datasets(conn)
     out = []
     for sf, chans in by_file.items():
         chans.sort(key=lambda c: c["channel"])
@@ -122,6 +138,11 @@ def recordings(conn) -> list[dict]:
                 parent = {"recording_id": p[0], "source_file": p[1], "channel": p[2], "offset": c0.get("parent_offset"), "decimation": c0.get("decimation")}
         out.append({
             "source_file": sf, "fs": fs, "n_samples": n, "duration_h": n / fs / 3600.0,
+            # fixup-f: what the dataset is called (its display name, else the file), whether that is a
+            # given name, the directory stem Settings keys by, and the identity Settings › Datasets authors
+            "display_name": names.get(sf) or sf, "named": bool((meta.get(sf) or {}).get("display_name")),
+            "stem": os.path.basename(os.path.dirname(c0["npy_path"])) or sf.rsplit(".", 1)[0],
+            "dataset": {f: (meta.get(sf) or {}).get(f) for f in _datasets.FIELDS},
             # fixup-b: the unit the samples are stored in, and the one the pages draw them in
             "units": c0.get("units"), "units_note": c0.get("units_note"), "display_unit": display_unit(c0),
             # registration facts (stage-3 Prompt 02): where fs came from, the warnings the row carries, the excerpt link

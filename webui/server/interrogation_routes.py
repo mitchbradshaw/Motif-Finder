@@ -72,10 +72,31 @@ def _decimate(t, v, n=SNIPPET_POINTS):
     return t[idx].tolist(), v[idx].tolist()
 
 
+def _named(request: Request, rows: list) -> list:
+    """Each row's dataset and channel by the names the rest of the site uses
+    (fixup-f). The seed store's own `source_file` is the channel FILE it read
+    (`CH0.npy`) and its `channel` the stored index, so the pages printed
+    "CH0 · CH0"; both stay on the row as provenance, and `dataset`,
+    `dataset_file` and `channel_name` are resolved from `recording_id`."""
+    c = _seq_conn(request)
+    try:
+        recs = {}
+        for row in rows:
+            rid = row.get("recording_id")
+            if rid not in recs:
+                rec = corpus.recording_row(c, int(rid)) if rid is not None else None
+                recs[rid] = (corpus.dataset_name(c, rec["source_file"]), rec["source_file"], rec["name"]) if rec else None
+            if recs[rid]:
+                row["dataset"], row["dataset_file"], row["channel_name"] = recs[rid]
+    finally:
+        c.close()
+    return rows
+
+
 @router.get("/api/interrogation/families")
-def list_families():
+def list_families(request: Request):
     d = _load()
-    return {"source": SOURCE, "store": SEED_DIR, "manifest": _clean(d["manifest"]), "families": _families(d["events"])}
+    return {"source": SOURCE, "store": SEED_DIR, "manifest": _clean(d["manifest"]), "families": _named(request, _families(d["events"]))}
 
 
 def _members_of(key):
@@ -87,7 +108,7 @@ def _members_of(key):
 
 
 @router.get("/api/interrogation/families/{key}/members")
-def family_members(key: str, snippets: bool = True):
+def family_members(request: Request, key: str, snippets: bool = True):
     members, snips = _members_of(key)
     out = []
     for e in members:
@@ -101,7 +122,7 @@ def family_members(key: str, snippets: bool = True):
             t, v = _decimate(s["t_s"], s["detrended_mv"])
             row["snippet"] = {"t_s": t, "detrended_mv": v, "n": int(len(s["t_s"]))}
         out.append(row)
-    return {"family": key, "source": SOURCE, "members": out}
+    return {"family": key, "source": SOURCE, "members": _named(request, out)}
 
 
 @router.get("/api/interrogation/families/{key}/slope")

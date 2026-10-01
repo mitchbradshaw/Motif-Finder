@@ -77,8 +77,21 @@ def held_out_state(conn: sqlite3.Connection) -> dict:
     v = get_settings(conn, HELD_OUT_PAGE)
     on = v.get(HELD_OUT_ON_KEY, True)
     rec = v.get(HELD_OUT_RECORDING_KEY) or HELD_OUT_STEM
-    name = v.get(f"meta.{rec}.display_name") or rec
+    name = _dataset_display_name(conn, str(rec)) or rec
     return {"on": bool(on), "recording": str(rec), "name": str(name), "file": HELD_OUT_FILE}
+
+
+def _dataset_display_name(conn: sqlite3.Connection, stem: str) -> str | None:
+    """The display name of the dataset whose directory stem is `stem` (fixup-f:
+    the name lives in `datasets`, keyed by source file — the lock is typed
+    against the name the page prints). None when it has none."""
+    import os
+    rows = conn.execute("SELECT d.display_name, r.source_file, MIN(r.npy_path) FROM datasets d JOIN recordings r "
+                        "ON r.source_file = d.source_file WHERE d.display_name IS NOT NULL GROUP BY r.source_file").fetchall()
+    for name, source_file, npy_path in rows:
+        if stem in (os.path.basename(os.path.dirname(npy_path or "")), source_file.rsplit(".", 1)[0], source_file):
+            return name
+    return None
 
 
 def put_settings(conn: sqlite3.Connection, page: str, values, actor: str = ACTOR, confirm_name: str | None = None) -> list:

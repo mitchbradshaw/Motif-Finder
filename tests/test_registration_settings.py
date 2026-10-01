@@ -125,7 +125,11 @@ def test_unlocking_needs_the_name_typed_and_is_audited(conn):
 
 
 def test_the_typed_name_is_the_display_name_when_one_is_set(conn):
-    put_settings(conn, "datasets", {"meta.M4_aug_concat_fs1.display_name": "M4 August"})
+    # fixup-f: a dataset's name lives in the `datasets` table keyed by source file, not in a settings row
+    from Working.database import datasets
+    conn.execute("INSERT INTO recordings (source_file, channel, fs, n_samples, global_offset, npy_path) "
+                 "VALUES ('M4_aug_concat_fs1.mat', 0, 1, 10, 0, 'M4_aug_concat_fs1/CH0.npy')")
+    datasets.put_dataset(conn, "M4_aug_concat_fs1.mat", {"display_name": "M4 August"})
     assert held_out_state(conn)["name"] == "M4 August"
     with pytest.raises(ConfirmationRequired):
         put_settings(conn, "datasets", {"heldout.on": False}, confirm_name="M4_aug_concat_fs1")
