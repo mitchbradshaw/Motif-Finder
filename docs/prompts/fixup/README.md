@@ -10,15 +10,19 @@ traced to its evidence, and nothing else. A lettered prompt is written only once
 its symptoms are answered in `QUESTIONS.md`, because most of them are one design decision away from
 being either a bug or a spec change.
 
-## Where the stage is, 2026-10-01
+## Where the stage is, 2026-10-02
 
-**Wave 1 is done.** `E` and `G` ran in parallel on 2026-09-30, both clean, and closed every row they
-were given. **Wave 2 is `F` + `J`, written and ready** — `J` needs the researcher's PDF attached.
-The suite baseline is now **1799 passed / 7 skipped / 0 failed**, failure set empty.
+**Waves 1 and 2 are done.** `E` + `G` ran in parallel on 2026-09-30 and `F` + `J` on 2026-10-01,
+all four clean, each closing every row it was given. **Wave 3 is `H` alone, and it is not written —
+the researcher asked to be grilled on it first.**
+
+**The suite baseline is 1874 passed / 8 skipped / 0 failed**, failure set empty, verified on the
+merged tree after both wave-2 prompts landed (neither agent could run it on the final state, because
+each had the other's tests in flight). `pytest -n auto`, conda, 5 m 45 s.
 
 | File | State |
 |---|---|
-| **WAVE 2 — run together, next** | |
+| **WAVE 2 — run and reported 2026-10-01** | |
 | `F-datasets-and-naming.md` | **run and reported 2026-10-01** (`reports/F-datasets-and-naming.md`). Closes `10` S1, `00` X4, U5, Q23's build and the Round 5 channel-label row. One-based channel names won. Found in passing: the four standing Settings registration smoke failures name candidates that have since been registered (report §7). *As written:* A `datasets` table keyed by `source_file`; the editable columns Q23 names; the display name replaces the file name across the site through one seam; the `CH2`/`CH3` convention settled; the Settings channel-tab overflow (U5). Port **8765** |
 | `J-dehshibi-vs-the-paper.md` | **run and reported 2026-10-01** (`reports/J-…`). The detector diverged from the paper in four places and the paper diverges from its authors' code; the blocks are now a port of that code, checked against MATLAB. 17 of 20 known synthetic events found; on M2_aug CH0 it is faithful and unselective (Q34). *Was:* **scaffold — attach the paper.** Opens with its own grilling round before any code. Two implementations of the detector exist and nothing asserts they agree; 87 % of cells on a real span are honestly marked uncovered and that is the thread to pull (U6). Port **8766** |
 | **WAVE 3 — alone** | |
@@ -70,17 +74,27 @@ prompts carry:
 
 ## Standing gate facts
 
-The baseline is **1799 passed / 7 skipped / 0 failed**, failure set empty. Under `webui/.venv`,
+The baseline is **1874 passed / 8 skipped / 0 failed**, failure set empty (verified on the merged
+tree, 2026-10-02). The eighth skip is `tests/test_webui_dataset_naming.py`, which needs FastAPI and
+so runs only under `webui/.venv`. Under `webui/.venv`,
 `test_webui_discovery.py::test_the_scoreboard_cells_are_the_tables_own_numbers` fails pre-existing.
 **Five smoke states are standing failures**: the four Settings registration states
 (`datasets--import-check-fails-fs-unknown`, `datasets--import-check-passes-MJu26a`,
 `models-registration--check-a-joblib`, `storage-backups--scan-check-a-matrix-profile`) and, since
 wave 1 measured it on both a pre-change and a post-change bridge, `discovery.runs--default`.
+**`F` found the cause of the four** (report §7) and did not fix them: each state names a specific
+*unregistered* candidate and clicks its Check button, and every one of those candidates has since
+been registered in the real database the sandbox copies — so the button is disabled and
+`Locator.click` waits 30 s. The first is a one-word fix (`path=F2B`); the "passes" state has no
+candidate left that passes without typed input, so it needs a fixture candidate or a different
+assertion. Whoever takes them should say so in their own report rather than quietly re-pointing a
+standing failure.
 
 ## The open decisions
 
 `QUESTIONS.md` is the live list, with the answers recorded beside each question as they are given.
-**Rounds 1–4 are answered. Round 5 (2026-10-01) is open** and holds the two that matter:
+**Rounds 1–4 and 6 are answered; Round 5 is still open** and holds the two that matter — both are
+research decisions rather than engineering ones, and both now have the measurement behind them:
 
 - **Q26** — the sharkfin morphology has no recovery and no FWHM under the current definition, across
   41 % of the seed store and 34 % of the Library. Measure to the next onset, lower the fraction, or
@@ -88,7 +102,25 @@ wave 1 measured it on both a pre-change and a post-change bridge, `discovery.run
 - **Q27** — the Aggregate page's null still says "matched random windows · 200×" and is a seeded
   jitter. Relabel now, or build the real null?
 
+**Q34** is answered (2026-10-02): keep the Dehshibi detector as an untuned baseline. `J` made it
+faithful to its authors' code and measured it as weak on these recordings — on M2_aug CH0 its spans
+cover 53 % of the labelled time and hit 91 % of *interesting* windows against 86 % of *not
+interesting* ones. Whether to tune `epsilon_factor` / `min_separation_s` / `window_s` is a later
+research question, not a fixup.
+
 Also open and blocking nothing written: **Q-B-CHAIN** (fan-out), **U4** (fine span adjustment),
 **U12** (the phantom Ctrl-C, undiagnosed), **U13** (global search unwired).
+
+## What is left after wave 3
+
+Not prompts yet, in rough order of how much friction each removes:
+
+| | why it is not written |
+|---|---|
+| **Review behaviour** — `07` R3 (a class 1/2/3/4/9 is never stored), R4 (no extract-events editor), R7 (a rediscovery can be put twice), R8's "sorted by score" wording, R16 coherence | Needs Q-R1…Q-R4 answered. R3 and R7 are the two that cost the researcher real time |
+| **Library** — the filters Q21/Q22 settled (noise floor as a view filter, `fall_duration_s` not `scale_band`, `is_pure`), the window-sets unblock, `RULE_VERSION` and the `rise_time_s` backfill | The decisions are made; nobody has written the prompt |
+| **Jobs, Models, Training** | Still fixture pages wearing the `demo data` chip. `F` noted their labels must come from `corpus.dataset_name` when they are wired |
+| **`I`** — U4, Explore's fine span adjustment | Small and self-contained |
+| **U13** global search; **U12** the phantom Ctrl-C | U13 needs a design; U12 needs reproduction, not a guess |
 
 Reports go in `reports/`, cross-agent requests in `requests/`, same convention as the wiring stage.
