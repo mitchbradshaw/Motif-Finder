@@ -157,5 +157,29 @@ def test_a_spanset_without_features_says_none_and_nothing_else_changes():
     assert "features" not in p["summary"]
 
 
+# ----------------------------------------- the detector's funnel (fixup-j) --
+# `detection.summation_threshold` puts every stage's regions in `meta["funnel"]`
+# in span samples, half-open. The page needs them where it draws the spans:
+# in absolute seconds, with the count that was actually found beside the ones
+# it was sent (the cap is the spans' own).
+
+def test_a_spanset_with_a_funnel_ships_every_stage_in_absolute_seconds():
+    meta = {"funnel": {"chunks": [[0, 100]], "omega_peaks": [30], "omega_valleys": [60],
+                       "stages": [{"key": "B", "label": "candidate regions", "n": 2, "regions": [[10, 20], [40, 50]]},
+                                  {"key": "S", "label": "spikes", "n": 1, "regions": [[10, 50]]}]}}
+    p = to_payload("spanset", SpanSet(starts=(10,), ends=(50,)), meta, {"fs": 2.0, "span_start": 100})
+    f = p["funnel"]
+    assert [s["key"] for s in f["stages"]] == ["B", "S"]
+    assert f["stages"][0] == {"key": "B", "label": "candidate regions", "n": 2, "capped": False,
+                              "start_s": [55.0, 70.0], "end_s": [60.0, 75.0]}
+    assert f["stages"][1]["start_s"] == [55.0] and f["stages"][1]["end_s"] == [75.0]
+    assert f["chunks_s"] == [[50.0, 100.0]]
+    assert f["peaks_s"] == [65.0] and f["valleys_s"] == [80.0]
+
+
+def test_a_spanset_without_a_funnel_has_no_funnel_key():
+    assert "funnel" not in to_payload("spanset", SpanSet(starts=(10,), ends=(20,)), {}, {"fs": 1.0})
+
+
 if __name__ == "__main__":
     sys.exit(pytest.main([__file__, "-q"]))

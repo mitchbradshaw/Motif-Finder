@@ -3,8 +3,10 @@ test_template_dehshibi.py
 ===========================
 The `dehshibi_spikes` TEMPLATE (stage-3 decision 2): wavelet transform →
 summation → summation threshold, run end to end through `execute_recipe`
-on a 30 s synthetic signal, reproduces the monolithic `detect_spikes`
-detector and writes its spans to `detections`.
+with its DEFAULT parameters on a synthetic recording with known events,
+reproduces what the authors' MATLAB returned on that recording
+(`tests/fixtures/dehshibi/reference.json`; fixup-J, Q33), agrees with the
+core's `detect_spikes`, and writes its spans to `detections`.
 
 The canonical templates ship as code in `webui/server/templates.py` and are
 seeded into the `templates` table (see `test_webui_templates.py`); this test
@@ -13,6 +15,7 @@ takes the template from the code and runs it through the ordinary executor.
 Runnable standalone:  python tests/test_template_dehshibi.py
 """
 
+import json
 import os
 import shutil
 import sys
@@ -32,26 +35,20 @@ for p in (PROJECT_ROOT, os.path.join(PROJECT_ROOT, "webui")):
 from Working.database import queries as q  # noqa: E402
 from Working.database.runs import list_detections  # noqa: E402
 from Working.database.schema import init_db  # noqa: E402
-from Working.Detection.analysis.dehshibi_detection_analysis import detect_spikes  # noqa: E402
+from Working.Detection.analysis.dehshibi_authors import detect_spikes  # noqa: E402
 from Working.execution import execute_recipe  # noqa: E402
 from Working.templates import apply_template  # noqa: E402
 from server.templates import CANONICAL, canonical  # noqa: E402
 
-FS = 10.0
-SMALL = {"n_p": 10, "min_spike_duration": 10, "min_roi_wavelet": 5}
+FS = 1.0
+
+with open(os.path.join(PROJECT_ROOT, "tests", "fixtures", "dehshibi", "reference.json")) as _f:
+    CASE = json.load(_f)["cases"]["a"]
 
 
-def synthetic(seconds=30.0, seed=0, fs=FS):
-    """Two broad depolarisations each with a sharp core — the shape Algorithm 4
-    confirms (an envelope region nested inside a wavelet region). Noise-free
-    on purpose: a grid search over shapes found the monolithic detector
-    confirms exactly this and nothing simpler (wiring report 01)."""
-    n = int(fs * seconds)
-    t = np.arange(n) / fs
-    x = np.zeros(n)
-    for centre in (0.3 * seconds, 0.7 * seconds):
-        x += np.exp(-0.5 * ((t - centre) / (0.2 * seconds)) ** 2) + 0.3 * np.exp(-0.5 * ((t - centre) / (0.005 * seconds)) ** 2)
-    return x
+def synthetic():
+    """3000 s at 1 Hz with six injected events; the authors' code finds five."""
+    return np.asarray(CASE["x"], dtype=float)
 
 
 @pytest.fixture
@@ -82,28 +79,35 @@ def test_dehshibi_is_a_canonical_detection_template_of_three_blocks():
     assert "dehshibi_spikes" in {t["name"] for t in CANONICAL}
 
 
-def test_template_runs_end_to_end_and_reproduces_the_monolith(db_and_signal):
+def test_template_runs_end_to_end_and_reproduces_the_authors(db_and_signal):
     db, x = db_and_signal
-    tpl = canonical("dehshibi_spikes")
-    # the paper's sample-count defaults are for 1 Hz; the 30 s / 10 Hz synthetic needs smaller ones
-    tpl["steps"][0]["params"]["min_chunk_samples"] = 2 * SMALL["n_p"]
-    tpl["steps"][2]["params"].update(SMALL)
+    tpl = canonical("dehshibi_spikes")          # default parameters: nothing to tune for a 1 Hz recording
     recipe = apply_template(None, tpl, recording_id=1)
     out = execute_recipe(recipe, db_path=db, force=True)
     assert out["result"].output_kind == "spanset"
-    spikes, _, _ = detect_spikes(x, fs=FS, **SMALL)
-    assert len(spikes) >= 1
     got = list(zip(out["result"].value.starts, out["result"].value.ends))
-    # the monolith speaks inclusive pairs; the template's last block converts to
-    # SpanSet's half-open form at the seam (fixup-a item 3)
-    assert got == [(s, e + 1) for s, e in spikes]
+    # MATLAB speaks 1-based inclusive pairs, SpanSet 0-based half-open
+    assert got == [(a - 1, b) for a, b in CASE["spikes"]]
+    assert len(got) == 5
+    spikes, _, _ = detect_spikes(x, fs=FS)
+    assert got == [(s, e + 1) for s, e in spikes], "the template and the core's one-call detector disagree"
     conn = init_db(db)
     try:
         rows = list_detections(conn, out["run_id"])
     finally:
         conn.close()
     assert [(r["start_idx"], r["end_idx"]) for r in rows] == got
-    assert out["detections_written"] == len(spikes)
+    assert out["detections_written"] == len(got)
+
+
+def test_the_monolith_adapter_agrees_with_the_template(db_and_signal):
+    """Two entry points, one detector (fixup-J report 2.1)."""
+    from Adapters.registry import discover_adapters, get_adapter
+    discover_adapters()
+    _, x = db_and_signal
+    spec = get_adapter("detection.dehshibi_spikes")
+    r = spec.run(x, np.arange(len(x), dtype=float), FS, **spec.validate_params({}))
+    assert list(zip(r.value.starts, r.value.ends)) == [(a - 1, b) for a, b in CASE["spikes"]]
 
 
 def test_the_monolithic_adapter_is_deprecated_in_favour_of_the_template():
