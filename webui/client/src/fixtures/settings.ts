@@ -65,11 +65,14 @@ export const RECORDING_ROWS: RecordingRow[] = [
 export const RECORDING_COUNT_CAPTION = `${RECORDING_ROWS.length} recordings · ${TOTAL_CHANNELS} channels`
 
 /** Metadata card values per recording (frame 01 draws M2_aug fs1; the others follow the canon). */
-const META_FIELDS = ['display_name', 'species', 'substrate', 'electrode_config', 'start', 'time_zone', 'noise_floor', 'temperature', 'humidity', 'notes'] as const
+/* fixup-f: the first six are the dataset's IDENTITY and live in the `datasets` table keyed by source file
+ * (Working/database/datasets.py); the rest are recording conditions and stay in the settings table. */
+const META_FIELDS = ['display_name', 'species', 'organism_id', 'experiment_date', 'condition', 'notes', 'substrate', 'electrode_config', 'start', 'time_zone', 'noise_floor', 'temperature', 'humidity'] as const
 export type MetaField = (typeof META_FIELDS)[number]
 const metaFor = (r: RecordingRow): Record<MetaField, string> => ({
   display_name: r.name,
   species: r.species ? 'Pleurotus ostreatus' : '',
+  organism_id: '', experiment_date: '', condition: '',
   substrate: r.species ? 'hardwood sawdust block' : '',
   electrode_config: r.species ? 'sub-dermal pairs · 12 mm' : '',
   start: r.start ?? '',
@@ -86,8 +89,9 @@ export const TIME_ZONES = ['Europe/London', 'UTC', 'Europe/Berlin', 'America/New
  *  registered recording); only the lock keys are static. The held-out id is the real stem, not the canon key. */
 export const HELD_OUT_STEM = 'M4_aug_concat_fs1'
 export const META_FIELD_LIST = META_FIELDS
-export const metaDefaults = (rec: string, name: string): Record<MetaField, string> => ({
-  display_name: name, species: '', substrate: '', electrode_config: '', start: '', time_zone: 'Europe/London', noise_floor: '', temperature: '', humidity: '', notes: '',
+/** An unnamed dataset has an EMPTY display name — it is called by its source file — never its stem as a default. */
+export const metaDefaults = (_rec: string, _name: string): Record<MetaField, string> => ({
+  display_name: '', species: '', organism_id: '', experiment_date: '', condition: '', substrate: '', electrode_config: '', start: '', time_zone: 'Europe/London', noise_floor: '', temperature: '', humidity: '', notes: '',
 })
 const datasetsValues = (): Values => ({ 'heldout.on': true, 'heldout.recording': HELD_OUT_STEM })
 void metaFor; void HELD_OUT_KEY

@@ -6,6 +6,7 @@
    Deep links: ?popover=detections|span-legend · ?drawer=annotations|detections|shortcuts · ?filters=closed ·
    ?motif=<ordinal> · ?state=loading|error */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { DatasetName } from '../naming'
 import { ApiError, getChannel, getRecordings, getSpans, listRuns, type Channel, type DbRun, type Spans } from '../api'
 import { useSourced } from '../api/seam'
 import { getSignalDemo } from '../api/explore'
@@ -34,7 +35,7 @@ function TopBar({ channelId, file, name, extra }: { channelId: number; file: str
     <div className="ex-topbar" data-testid="signal-topbar">
       <div className="ex-crumb">
         <a onClick={() => navigate('explore/corpus')} data-testid="crumb-corpus">Corpus</a><span>›</span>
-        <a onClick={() => navigate(`explore/corpus?rec=${encodeURIComponent(file)}&ch=${channelId}`)} data-testid="crumb-file">{file}</a><span>›</span>
+        <a onClick={() => navigate(`explore/corpus?rec=${encodeURIComponent(file)}&ch=${channelId}`)} data-testid="crumb-file"><DatasetName file={file} /></a><span>›</span>
         <span className="cur">{name}</span>
       </div>
       {extra}

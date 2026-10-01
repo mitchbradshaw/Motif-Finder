@@ -253,7 +253,7 @@ function InspectorItem({ data, row }: { data: QueueData; row: QueueRow }) {
             </>}
             <ArtifactPill a={d.artifact} short={narrow} />
           </div>
-          <div className="rv-meta mono" data-testid="meta-line">{metaLine(d, narrow)}</div>
+          <div className="rv-meta mono" data-testid="meta-line" title={d.entry.recordingFile ? `source file ${d.entry.recordingFile}` : undefined}>{metaLine(d, narrow)}</div>
 
           <ContextCard d={d} title={isWindow ? 'Window in context' : row.unit === 'human span' ? 'Span in context' : 'Candidate in context'} pad={pad} setPad={p => { setPad(p); if (padQ) setQuery({ pad: null }, true) }}
             bandLabel={isWindow ? `${id} · ${row.durationS} s` : `${id} · ${row.durationS.toFixed(1)} s`} canEdit={!isWindow} />

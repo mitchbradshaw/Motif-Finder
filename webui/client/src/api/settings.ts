@@ -14,7 +14,7 @@
 import { live, type Sourced } from './seam'
 import {
   getAbout as apiAbout, getAdapters, getAudit as apiAudit, getRegistry, getSettingsPage, getStorage as apiStorage, getTemplates,
-  type About, type AuditRow, type BackupRow, type Candidate, type RegisteredArtifact, type RegisteredRecording, type StorageRootRow,
+  type About, type AuditRow, type BackupRow, type Candidate, type ExcerptNames, type RegisteredArtifact, type RegisteredRecording, type StorageRootRow,
 } from '../api'
 import {
   AUDIT_KINDS, BASIS_BY_UNIT, BEHAVIOUR_ROWS, BUNDLE_CONTENTS, CLASS_ROWS, CLUSTERS, DEFAULTS, EVENT_EFFECTS, EVENT_KINDS, EXPORT_ALWAYS,
@@ -50,16 +50,24 @@ const fmtWhen = (iso: string) => {
   return Number.isNaN(d.getTime()) ? iso : d.toLocaleString('en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }).replace(',', '')
 }
 
-/** The Datasets row of a registered recording (id = the directory stem, never the row id). */
-export function recordingRow(r: RegisteredRecording, values: Values): RecordingRow & { warnings: string[]; excerpt_of: RegisteredRecording['excerpt_of']; ids: number[]; npy_exists: boolean; units: string | null; units_note: string | null } {
+/** An excerpt link with the names the bridge resolved for it (fixup-f): the parent by the one name, its channel one-based. */
+export type ExcerptOf = NonNullable<RegisteredRecording['excerpt_of']> & ExcerptNames
+/** The Datasets row of a registered recording (id = the directory stem, never the row id). `name` is what the
+ *  dataset is CALLED — the bridge's `display_name`: the name it was given, else its source file. */
+export function recordingRow(r: RegisteredRecording, values: Values): RecordingRow & {
+  warnings: string[]; excerpt_of: ExcerptOf | null; ids: number[]; npy_exists: boolean; units: string | null; units_note: string | null
+  named: boolean; registered_at: string | null; registered_by: string | null; channel_notes: string[]
+} {
   const status: RecordingRow['status'] = r.held_out ? 'held out · locked' : r.warnings.length || r.fs_source === 'inferred' ? 'provisional' : 'in use'
   const species = values[metaKey(r.name, 'species')]
   const start = values[metaKey(r.name, 'start')]
   return {
-    id: r.name, name: String(values[metaKey(r.name, 'display_name')] || r.name), file: r.source_file, fs_hz: r.fs, fs_source: r.fs_source,
+    named: Boolean(r.dataset?.display_name), registered_at: r.registered_at, registered_by: r.registered_by,
+    channel_notes: [...new Set(r.channels.map(c => (c as { notes?: string | null }).notes).filter((n): n is string => Boolean(n)))],
+    id: r.name, name: r.display_name ?? r.source_file, file: r.source_file, fs_hz: r.fs, fs_source: r.fs_source,
     n_channels: r.n_channels, duration_h: r.duration_h != null ? Math.round(r.duration_h * 10) / 10 : 0,
     start: start ? String(start) : null, species: species ? String(species) : null,
-    linked: r.excerpt_of ? [r.excerpt_of.name] : [], status, warnings: r.warnings, excerpt_of: r.excerpt_of, ids: r.ids, npy_exists: r.npy_exists,
+    linked: r.excerpt_of ? [r.excerpt_of.name] : [], status, warnings: r.warnings, excerpt_of: r.excerpt_of as ExcerptOf | null, ids: r.ids, npy_exists: r.npy_exists,
     // fixup-b: the unit the samples are stored in (null: undeclared) and the evidence or reason for it
     units: r.units ?? null, units_note: r.units_note ?? null,
   }
@@ -70,6 +78,8 @@ export function recordingRow(r: RegisteredRecording, values: Values): RecordingR
 export interface DatasetsData {
   recordings: ReturnType<typeof recordingRow>[]; registered: RegisteredRecording[]; candidates: Candidate[]; rawCandidates: Candidate[]
   caption: string; timeZones: string[]; heldOut: { on: boolean; recording: string; name: string; file: string }; mode: string
+  /** The species already in use on other datasets — offered beside a free text field, never a locked list. */
+  speciesValues: string[]
 }
 export const getDatasets = (): Promise<Sourced<DatasetsData>> => live((async () => {
   const p = await getSettingsPage('datasets')
@@ -82,6 +92,7 @@ export const getDatasets = (): Promise<Sourced<DatasetsData>> => live((async () 
     recordings: regs.map(r => recordingRow(r, values)), registered: regs, candidates: p.candidates ?? [], rawCandidates: p.raw_candidates ?? [],
     caption: `${regs.length} recordings · ${channels} channels · ${(p.candidates ?? []).length + (p.raw_candidates ?? []).length} on disk, not registered`,
     timeZones: TIME_ZONES, heldOut: p.held_out ?? { on: true, recording: 'M4_aug_concat_fs1', name: 'M4_aug_concat_fs1', file: 'M4_aug_concat_fs1.mat' }, mode: p.mode,
+    speciesValues: p.species_values ?? [],
   }
 })())
 
@@ -89,15 +100,23 @@ export interface ChannelsData {
   channels: ChannelRow[]; events: TimedEvent[]; kinds: typeof EVENT_KINDS; effects: typeof EVENT_EFFECTS; duration_h: number
   /** The display name of the recording, never its id — every caption reads this. */
   label: string
+  /** The source file behind the name: what the disk and the logs call it. */
+  file: string
   /** Every registered recording, for the picker. */
-  options: { value: string; label: string; held_out: boolean }[]
+  options: { value: string; label: string; hint: string; held_out: boolean }[]
   ids: number[]
 }
 /** Channels of one registered recording (by directory stem). The held-out one reads back locked (D6). */
 export function getChannels(recording: string): Promise<Sourced<ChannelsData>> {
   return live((async () => {
     const [reg, p] = await Promise.all([getRegistry<RegisteredRecording>('recording'), getSettingsPage('channels-events')])
-    const options = reg.registered.map(r => ({ value: r.name, label: r.name, held_out: r.held_out }))
+    /* `value` is the directory stem (the key the settings are saved under); `label` is what the dataset is
+       called, resolved by the bridge — never formatted here (fixup-f) */
+    const called = (r: RegisteredRecording) => r.display_name ?? r.source_file
+    const options = reg.registered.map(r => ({
+      value: r.name, label: called(r), held_out: r.held_out,
+      hint: `${called(r) === r.source_file ? '' : `${r.source_file} · `}${r.n_channels} ch${r.held_out ? ' · held out' : ''}`,
+    }))
     const rec = reg.registered.find(r => r.name === recording)
     if (!rec) throw new Error(`no registered recording called ${recording} · known: ${reg.registered.map(r => r.name).join(', ')}`)
     const names = rec.channels.map(c => c.name)
@@ -105,9 +124,9 @@ export function getChannels(recording: string): Promise<Sourced<ChannelsData>> {
     for (const r of reg.registered) Object.assign(defaults, channelDefaults(r.name, r.channels.map(c => c.name)))
     hydrateSaved('channels-events', p.values, defaults)
     return {
-      channels: names.map((ch, i) => ({ ch, name: ch, electrode: `CH${rec.channels[i].channel} · ${rec.channels[i].npy_path.split('/').pop()}`, gain: 1, shared_ground: null,
+      channels: names.map((ch, i) => ({ ch, name: ch, electrode: `index ${rec.channels[i].channel} · ${rec.channels[i].npy_path.split('/').pop()}`, gain: 1, shared_ground: null,
         status: 'ok', spans: '—', noise_floor: 'recording' })),
-      events: [], kinds: EVENT_KINDS, effects: EVENT_EFFECTS, duration_h: Math.round((rec.duration_h ?? 0) * 10) / 10, label: rec.name, options, ids: rec.ids,
+      events: [], kinds: EVENT_KINDS, effects: EVENT_EFFECTS, duration_h: Math.round((rec.duration_h ?? 0) * 10) / 10, label: called(rec), file: rec.source_file, options, ids: rec.ids,
     }
   })())
 }

@@ -132,7 +132,6 @@ export interface ItemDetail {
 export interface ClusterDetail { cluster: ReviewCluster; queue: ReviewQueue; members: ItemDetail[] }
 export interface OtherChannelRow { channel: string; r: number | null; trace: TimeTrace; current: boolean }
 
-const HELD_OUT = RECORDINGS.filter(r => r.held_out).map(r => r.label)
 const refusal = (rec: string) => `${rec} is held out (D6): it is locked for the final evaluation and cannot be reviewed, plotted or queued.`
 
 /* ---------------------------------------------------------------- bridge ---------------------------------------------------------------- */
@@ -245,7 +244,8 @@ function detailOf(raw: any, fallbackQueue?: ReviewQueue): ItemDetail {
     artifact: raw?.artifact,
     evidence: raw?.evidence,
     thumb: Array.isArray(raw?.thumb) ? raw.thumb : [],
-    refused: raw?.refused ?? (entry?.recording && HELD_OUT.includes(entry.recording) ? refusal(entry.recording) : undefined),
+    /* by the bridge's own flag, never by matching the label: a display name is not an identifier (fixup-f) */
+    refused: raw?.refused ?? (entry?.heldOut ? refusal(entry.recording) : undefined),
   }
 }
 
@@ -275,7 +275,7 @@ export function getQueue(queueId: string): Promise<Sourced<QueueData | null>> {
     if (!d?.queue) return null
     const queue = queueOf(d.queue)
     const raw = (d.rows ?? d.items ?? []) as any[]
-    const rows = raw.map(r => rowOf(r, queue.id)).filter(r => !HELD_OUT.includes(r.recording))
+    const rows = raw.map(r => rowOf(r, queue.id)).filter(r => !r.heldOut)
     // The queue rail's channel filter is `f.channels.includes(r.channel)`, and its
     // default is the queue's own channel list. An empty list therefore matches
     // NOTHING: the rail read "129 left · No items match these filters", which is

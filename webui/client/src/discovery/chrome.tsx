@@ -2,6 +2,7 @@
  * cost, History), the Scope card (recording, channel chips, section brush across ≤ 3 strips with paging), the Runs
  * card (two ways to add a run, rows with A / B pick boxes), load/fail states and the SLURM script modal. */
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { DatasetName } from '../naming'
 import {
   Button, Callout, Checkbox, Chip, CodeBlock, DisabledReason, Dropdown, EmptyState, Icon, IconButton, InfoTip, Modal, NumberField, Popover, ProgressBar,
   RangeSlider, TextField, Tooltip, cx, recordDemoWrite, useNotWired, useQueryState, useSim,
@@ -71,7 +72,7 @@ export function ScopeSummaryChip({ dx }: { dx: Discovery }) {
   return (
     <Chip tone="blue" icon="layers" size="lg" testid="scope-chip" title="jump to the Scope card"
       onClick={() => { const el = document.querySelector<HTMLElement>('[data-testid="scope-card"]'); el?.scrollIntoView({ behavior: 'smooth', block: 'start' }); el?.querySelector<HTMLElement>('[data-testid="section-chip"]')?.focus() }}>
-      {dx.recording.stem} · {s.channels.length} channel{s.channels.length === 1 ? '' : 's'} · {s.section[0]}–{s.section[1]} h <Icon name="chevron-down" size={11} />
+      <DatasetName file={dx.recording.file} testid="scope-dataset" /> · {s.channels.length} channel{s.channels.length === 1 ? '' : 's'} · {s.section[0]}–{s.section[1]} h <Icon name="chevron-down" size={11} />
     </Chip>
   )
 }
@@ -133,7 +134,7 @@ export function HistoryButton({ dx }: { dx: Discovery }) {
   return (
     <>
       <Button ref={ref} icon="clock" onClick={() => setQ(open ? null : 'history')} testid="history-button" aria-expanded={open}>History</Button>
-      <Popover open={open} onClose={() => setQ(null)} anchorRef={ref} placement="bottom-end" title="Discovery history" subtitle={dx.recording?.stem} width={380} testid="history-popover">
+      <Popover open={open} onClose={() => setQ(null)} anchorRef={ref} placement="bottom-end" title="Discovery history" subtitle={dx.recording?.label} width={380} testid="history-popover">
         {hist.error && <LoadFailed what="history" error={hist.error} onRetry={hist.reload} />}
         {hist.data?.map(h => {
           const inSession = h.inSession || dx.runs.some(r => r.key === h.runKey)
@@ -204,7 +205,7 @@ export function ScopeCard({ dx, previewable = true }: { dx: Discovery; previewab
     dx.setScope({ recording: key, channels: r.channels.slice(0, Math.min(3, r.channels.length)), section: [0, Math.min(r.hours, 174)] })
     dx.setStale(true); dx.setChPage(1)
     recordDemoWrite('discovery', 'change-recording', { recording: key })
-    toast.push({ text: `recording changed to ${r.stem} · ${dx.runs.filter(hasResults).length} runs marked stale` })
+    toast.push({ text: `recording changed to ${r.label} · ${dx.runs.filter(hasResults).length} runs marked stale` })
     setConfirmRec(null)
   }
   const runPreview = () => {
@@ -219,7 +220,7 @@ export function ScopeCard({ dx, previewable = true }: { dx: Discovery; previewab
         <span ref={recRef}>
           <Dropdown prefix="recording" value={s.recording} testid="recording-select"
             onChange={v => { if (v !== s.recording) setConfirmRec(v) }}
-            options={dx.recordings.map(r => ({ value: r.key, label: r.file, hint: `${r.channels.length} ch · ${r.hours} h`, disabled: r.heldOut, reason: r.heldOut ? 'held out · locked (D6)' : undefined }))} />
+            options={dx.recordings.map(r => ({ value: r.key, label: r.label, hint: `${r.label === r.file ? '' : `${r.file} · `}${r.channels.length} ch · ${r.hours} h`, disabled: r.heldOut, reason: r.heldOut ? 'held out · locked (D6)' : undefined }))} />
         </span>
         <Popover open={!!confirmRec} onClose={() => setConfirmRec(null)} anchorRef={recRef} title="Change the recording?" width={320} testid="recording-confirm">
           <p className="small">Changing the recording clears {s.channels.length} channel{s.channels.length === 1 ? '' : 's'} and marks {dx.runs.filter(hasResults).length} runs stale.</p>
@@ -236,7 +237,7 @@ export function ScopeCard({ dx, previewable = true }: { dx: Discovery; previewab
             return last ? <Tooltip key={ch} content="scope needs at least one channel"><span>{chip}</span></Tooltip> : chip
           })}
           <button ref={addRef} type="button" className="dsc-add-channel" onClick={() => { setAddSel(s.channels); setAddOpen(o => !o) }} data-testid="add-channel" disabled={!!refused} title={refused ?? undefined}><Icon name="plus" size={11} /> channel</button>
-          <Popover open={addOpen} onClose={() => setAddOpen(false)} anchorRef={addRef} title="Channels in scope" subtitle={rec.stem} width={300} testid="add-channel-popover">
+          <Popover open={addOpen} onClose={() => setAddOpen(false)} anchorRef={addRef} title="Channels in scope" subtitle={rec.label} width={300} testid="add-channel-popover">
             <div className="dsc-ch-grid">
               {rec.channels.map(ch => <Checkbox key={ch} checked={addSel.includes(ch)} label={ch} testid={`add-channel-${ch}`} onChange={v => setAddSel(v ? [...addSel, ch] : addSel.filter(c => c !== ch))} />)}
             </div>

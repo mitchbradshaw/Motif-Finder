@@ -2,6 +2,7 @@
    each drawing its result on the shared time axis; validation on every edit; runs streamed
    over SSE; history and templates behind popovers (P2). */
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
+import { DatasetName } from '../naming'
 import {
   ApiError, compatibleAt, exportRun, saveTemplate, validateParams, TYPE_LABEL,
   type Compatible, type EnvelopeSeries, type SignalPayload, type SpansetPayload, type Step, type Template,
@@ -366,7 +367,7 @@ export function ChainPage() {
             {pop === 'source' && (
               <div className="an-pop left" style={{ width: 380 }} data-testid="source-popover">
                 <h4>Source <span>single channel · one span (P3)</span></h4>
-                {source ? <div className="an-pop-item"><span className="chip blue" style={{ height: 22 }}>current</span><span>{source.source_file} · {source.channel_name} · samples {source.start_idx}–{source.end_idx}{source.label ? ` · ${source.label}` : ''}</span></div> : <div className="an-pop-note">no source yet</div>}
+                {source ? <div className="an-pop-item"><span className="chip blue" style={{ height: 22 }}>current</span><span><DatasetName file={source.source_file} /> · {source.channel_name} · samples {source.start_idx}–{source.end_idx}{source.label ? ` · ${source.label}` : ''}</span></div> : <div className="an-pop-note">no source yet</div>}
                 <div className="an-pop-item btnlike" onClick={useExample} data-testid="use-example">⌇ Use the example span ({EXAMPLE_SOURCE.channel_name} · {(EXAMPLE_SOURCE.start_idx / EXAMPLE_SOURCE.fs / 3600).toFixed(1)}–{(EXAMPLE_SOURCE.end_idx / EXAMPLE_SOURCE.fs / 3600).toFixed(1)} h)</div>
                 <div className="an-pop-item btnlike" onClick={() => navigate('explore/corpus')}>→ Pick in Explore</div>
               </div>

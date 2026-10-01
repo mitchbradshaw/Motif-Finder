@@ -7,7 +7,7 @@
  * back (fix round 1: an added row used to live outside the draft and survived Discard). */
 import { useEffect, useRef, useState } from 'react'
 import {
-  Badge, Button, Callout, Chip, EmptyState, Icon, IconButton, InfoTip, Popover, SectionCard, Seg,
+  Badge, Button, Callout, Chip, Dropdown, EmptyState, Icon, IconButton, InfoTip, Popover, SectionCard, Seg,
   SelectField, Table, TextField, useQueryState, recordDemoWrite,
 } from '../kit'
 import { TimeAxis } from '../charts/primitives'
@@ -28,13 +28,19 @@ export function ChannelsEventsPage() {
   const [rec, setRec] = useQueryState('rec', 'M2_aug_concat_fs1')
   const rd = useSourced(() => getChannels(rec), [rec])
   /* the picker lists every registered recording (live); before the first read it shows the one asked for */
-  const options = rd.data?.options.map(o => ({ value: o.value, label: o.label })) ?? [{ value: rec, label: rec }]
-  const seg = <Seg label="recording" options={options} value={rec} onChange={setRec} testid="rec-seg" />
+  const options = rd.data?.options ?? [{ value: rec, label: rec, hint: '', held_out: false }]
+  /* U5 (fixup-f): this was a segmented tab strip, one tab per recording, and with a dozen datasets it ran off
+     the right edge of the card with no way to reach the later ones. A list that keeps growing is a picker,
+     not a row of tabs: one control of bounded width, its menu scrolls, and each row carries the dataset's
+     name with its source file and channel count beside it. `value` is the directory stem — the key, never
+     the name. */
+  const seg = <Dropdown prefix="dataset" variant="outline" value={rec} onChange={setRec} testid="rec-picker" menuWidth={460} placement="bottom-end"
+    placeholder={rec} options={options.map(o => ({ value: o.value, label: o.label, hint: o.hint }))} />
   return (
     <SettingsShell slug="channels-events" demo={rd.source === 'demo'}>
       {rd.loading && <Loading />}
       {/* the picker has to survive a failed read, or an unknown ?rec is a dead end */}
-      {rd.error && <><div style={{ display: 'flex', justifyContent: 'flex-end' }}>{seg}</div>
+      {rd.error && <><div style={{ display: 'flex', justifyContent: 'flex-start' }}>{seg}</div>
         <LoadFailed what={`channels of ${rec}`} error={rd.error} onRetry={rd.reload} /></>}
       {rd.data && <Body rec={rec} data={rd.data} seg={seg} />}
     </SettingsShell>
@@ -136,7 +142,11 @@ function Body({ rec, data, seg }: { rec: string; data: Data; seg: React.ReactNod
     <>
       {locked && <Callout tone="amber" icon="lock" testid="rec-locked">{data.label} is held out · locked — channels and events are read-only (D6).</Callout>}
 
-      <SectionCard title="Channels" subtitle={`${data.label} · ${data.channels.length} channels`} testid="channels-card" actions={seg}
+      {/* the picker sits at the START of the header, beside the title: right-aligned, it was the first thing a
+          narrow window pushed out of reach (U5) */}
+      <SectionCard title="Channels" testid="channels-card"
+        subtitle={<span style={{ display: 'inline-flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>{seg}
+          <span title={`source file ${data.file}`} data-testid="channels-dataset">{data.file === data.label ? '' : `${data.file} · `}{data.channels.length} channels</span></span>}
         footer={
           <div style={{ display: 'flex', alignItems: 'center' }}>
             {data.channels.length > 8 && (
@@ -152,7 +162,9 @@ function Body({ rec, data, seg }: { rec: string; data: Data; seg: React.ReactNod
           columns={[
             { key: 'ch', header: 'ch', width: '10%', render: c => <span className="mono" style={{ fontWeight: 600 }}>{c.ch}</span> },
             { key: 'name', header: 'name', width: '11%' },
-            { key: 'electrode', header: 'electrode · position', width: '15%', render: c => <span className="muted small">{c.electrode}</span> },
+            /* the channel's NAME is one-based everywhere (CH3 for recordings.channel = 2); this column is where the
+               stored index and the file on disk are said, beside the name and never instead of it (fixup-f §4) */
+            { key: 'electrode', header: 'stored index · file', width: '15%', render: c => <span className="muted small" data-testid={`index-${c.ch}`}>{c.electrode}</span> },
             {
               key: 'gain', header: 'gain', width: '14%', render: c => (
                 <span className={s.dirty(gainKey(rec, c.ch)) ? 'unsaved' : undefined} style={{ display: 'inline-flex' }}>

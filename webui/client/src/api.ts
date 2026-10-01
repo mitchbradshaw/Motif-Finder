@@ -805,3 +805,24 @@ export interface FamilyShape {
   recovery: { frac: number; max_mult: number }; rise_time_frac: number; measured_on: string
 }
 export const getFamilyShape = (key: string) => req<FamilyShape>(`/api/interrogation/families/${encodeURIComponent(key)}/shape`)
+
+/* ---------------- datasets: identity and naming (fixup-f · server/registration.py) ----------------
+ * Appended, and the existing interfaces are extended by declaration merging, so this block is the whole of
+ * fixup-f's change to this shared file. `name` is what the dataset is CALLED (its display name, else its
+ * source file — the server's one rule); `source_file` and `stem` are identifiers and never labels. */
+export interface DatasetFields {
+  display_name: string | null; species: string | null; organism_id: string | null; experiment_date: string | null; condition: string | null; notes: string | null
+}
+export interface DatasetIdentity extends DatasetFields {
+  source_file: string; stem: string; name: string; named: boolean
+  n_channels: number; fs: number; duration_h: number; units: string | null; fs_source: string; held_out: boolean; has_parent: boolean
+}
+export const getDatasetNames = () => req<{ datasets: DatasetIdentity[]; species_values: string[]; fields: string[] }>('/api/datasets')
+/** What an excerpt link is called: its parent by the one name, the channel by the one convention (one-based), the stored index beside it. */
+export interface ExcerptNames { channel_name?: string; channel_note?: string; display_name?: string; candidate_channel_name?: string }
+export interface RecordingFile { display_name?: string; named?: boolean; stem?: string; dataset?: DatasetFields }
+export interface RegisteredRecording { display_name?: string; dataset?: DatasetFields }
+export interface SettingsPageData { species_values?: string[] }
+export interface ExcerptLink extends ExcerptNames {}
+export interface SeedFamily { dataset?: string; dataset_file?: string; channel_name?: string }
+export interface SeedMember { dataset?: string; dataset_file?: string; channel_name?: string }

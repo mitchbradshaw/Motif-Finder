@@ -32,7 +32,7 @@ const PALETTE = ['#2F6FED', '#8B5CF6', '#0E9AA8', '#D97706', '#DB2777', '#059669
 function familyFrom(f: SeedFamily, i: number): InterrogationFamily {
   return {
     id: f.id, name: `${f.label} · ${f.morphology ?? '?'}`, colour: PALETTE[i % PALETTE.length],
-    members: f.n_members, within: f.n_members, recordings: [f.source_file.replace(/\.mat$/, '')], channels: [`CH${f.channel}`],
+    members: f.n_members, within: f.n_members, recordings: [f.dataset ?? f.source_file], channels: [f.channel_name ?? `channel index ${f.channel}`],
     adjudicated: 0, threshold: 0, medoid: '', exemplar: undefined,
     promotedFrom: 'seed store drop_motifs5 (PROVENANCE.md: not regenerable)', promotedOn: '2026-08-27', recipe: 'detect5 · autoderived per span',
     crossRecording: false,
@@ -57,7 +57,7 @@ function memberFrom(m: SeedMember, s: SlopeMember | undefined, sh: ShapeMember |
   const snippet = m.snippet
   const measures = measuresFrom(sh)
   return {
-    id: m.event_id, family, recording: m.source_file.replace(/\.mat$/, ''), channel: `CH${m.channel}`, onset_h: m.onset_h,
+    id: m.event_id, family, recording: m.dataset ?? m.source_file, channel: m.channel_name ?? `channel index ${m.channel}`, onset_h: m.onset_h,
     d: 0, verdict: 'seed', excluded: false, fs_hz: m.fs,
     depth_mV: m.drop_depth_mv, max_slope: s?.max_slope_mv_s ?? 0, peakedness: s?.peakedness ?? 0, duration_s: m.fall_duration_s,
     /* the core's recovery (half the amplitude back from the extremum, bounded); null = not recovered, never 0 */

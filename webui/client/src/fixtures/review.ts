@@ -46,6 +46,8 @@ export interface ArtifactFactors { level: 'low' | 'medium' | 'high'; p: number; 
 
 export interface QueueEntry {
   id: string; queueId: string; unit: Unit; recording: string; channel: string
+  /** fixup-f: `recording` is what the dataset is CALLED; the file behind it, and the bridge's held-out flag. Never match on `recording`. */
+  recordingFile?: string | null; heldOut?: boolean
   startH: number; durationS: number; score?: number; d?: number; rank?: number
   /** The run that wrote this detection. Absent on a unit that has no run behind it. */
   runId?: string

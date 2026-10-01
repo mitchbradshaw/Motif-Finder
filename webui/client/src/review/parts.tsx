@@ -1,5 +1,6 @@
 /* Review page parts shared by the inspector (frames 1, 1b, 3–6) and the cluster page (frames 2, 7). */
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { datasetName, useDatasetNames, type DatasetNames } from '../naming'
 import { navigate } from '../state'
 import {
   Button, Callout, Chip, DisabledReason, Icon, IconButton, InfoTip, Kbd, Legend, MiniTrace, Pager, Popover, Seg, TextField, Toggle, Trace, cx, fmtInt, useDemoState, useQueryState, type IconName,
@@ -182,17 +183,18 @@ export function useSourceResolution() { return useDemoState<boolean>('review.sou
 
 /** Which recording a shape was drawn from, in words: the card has to say it, because "this event looks smooth"
  *  means something different at 1 Hz and at 10 Hz. */
-export function drawnFrom(tr: TimeTrace): string {
+export function drawnFrom(tr: TimeTrace, names: DatasetNames = {}): string {
   const s = tr.source
   if (!s) return tr.reason ?? 'nothing drawn'
   const rate = `${s.fs % 1 === 0 ? s.fs : s.fs.toFixed(2)} Hz`
   const samples = `${fmtInt(tr.n_source)} sample${tr.n_source === 1 ? '' : 's'}`
   return s.kind === 'parent'
-    ? `${s.label} ${s.channel} · ${rate} · ${samples} · the ${s.decimation}:1 source of this recording`
-    : `${s.label} ${s.channel} · ${rate} · ${samples}`
+    ? `${datasetName(names, s.source_file ?? s.label)} ${s.channel} · ${rate} · ${samples} · the ${s.decimation}:1 source of this recording`
+    : `${datasetName(names, s.source_file ?? s.label)} ${s.channel} · ${rate} · ${samples}`
 }
 
 export function ShapeCard({ d, family, blind, rows }: { d: ItemDetail; family: NearestFamily | null; blind: boolean; rows: QueueRow[] }) {
+  const names = useDatasetNames()
   const showMedoid = !blind && family
   const [wantSource, setWantSource] = useSourceResolution()
   // the parent when one is registered and the toggle is on; the item's own recording otherwise. A missing
@@ -220,7 +222,7 @@ export function ShapeCard({ d, family, blind, rows }: { d: ItemDetail; family: N
           : [{ label: d.entry.unit === 'window' ? 'this window' : 'candidate', colour: 'var(--text)', shape: 'line' }]} />
       </div>
       <div className="rv-card-head" data-testid="shape-source-row">
-        <span className="mono muted sm" data-testid="shape-drawn-from" title={drawn.capped ? `capped at ${drawn.px} px: fewer points than samples` : undefined}>drawn from {drawnFrom(drawn)}{drawn.capped ? <b className="rv-amber"> · capped</b> : null}</span>
+        <span className="mono muted sm" data-testid="shape-drawn-from" title={drawn.capped ? `capped at ${drawn.px} px: fewer points than samples` : undefined}>drawn from {drawnFrom(drawn, names)}{drawn.capped ? <b className="rv-amber"> · capped</b> : null}</span>
         <span className="grow" />
         {d.shapeSource
           ? <Toggle size="sm" checked={fromSource} onChange={setWantSource} label={<span className="mono sm">source resolution</span>} ariaLabel="draw the shape from the higher-resolution source recording" testid="shape-source-toggle" />

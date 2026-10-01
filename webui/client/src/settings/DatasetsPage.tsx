@@ -11,7 +11,8 @@ import {
 import { useSourced } from '../api/seam'
 import { navigate } from '../state'
 import { ApiError, checkCandidate, declareRecordingUnits, registerCandidate, unregisterRow, type Candidate, type CheckReport } from '../api'
-import { getDatasets, metaKey, type MetaField } from '../api/settings'
+import { getDatasets, metaKey, type ExcerptOf, type MetaField } from '../api/settings'
+import { DatasetName } from '../naming'
 import { useToast } from '../shell/Toast'
 import { GridField, LoadFailed, Loading, LockedField, Row, SettingsShell } from './chrome'
 import { useSettingsPage } from './store'
@@ -46,13 +47,22 @@ function Body({ data, reload }: { data: Data; reload: () => void }) {
   const meta = (f: MetaField) => s.str(field(f))
   const setMeta = (f: MetaField, v: string) => s.set(field(f), v)
 
+  /* A display name is optional: with none, the dataset is called by its source file everywhere. What it may
+     not be is another dataset's name OR another dataset's file — that is the confusion the name exists to end.
+     The bridge refuses the same things (Working/database/datasets.py); this only says so before the save. */
   const nameError = (() => {
     if (!current) return null
     const v = meta('display_name').trim()
-    if (!v) return 'A recording needs a display name'
-    if (v.length > 40) return 'At most 40 characters'
-    const clash = rows.find(r => r.id !== current.id && r.name.toLowerCase() === v.toLowerCase())
-    return clash ? `Another recording is already called ${clash.name}` : null
+    if (!v) return null
+    if (v.length > 60) return 'At most 60 characters'
+    const clash = rows.find(r => r.id !== current.id && [r.name.toLowerCase(), r.file.toLowerCase()].includes(v.toLowerCase()))
+    return clash ? `${clash.file} already answers to that` : null
+  })()
+  const dateError = (() => {
+    const v = meta('experiment_date').trim()
+    if (!v) return null
+    const ok = /^\d{4}-\d{2}-\d{2}$/.test(v) && !Number.isNaN(Date.parse(`${v}T00:00:00Z`)) && new Date(`${v}T00:00:00Z`).toISOString().slice(0, 10) === v
+    return ok ? null : 'Use YYYY-MM-DD'
   })()
   const startError = meta('start') && !/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}$/.test(meta('start')) ? 'Use YYYY-MM-DD HH:MM' : null
   const floorError = (() => {
@@ -63,10 +73,15 @@ function Body({ data, reload }: { data: Data; reload: () => void }) {
   useEffect(() => {
     if (!current) return
     s.markInvalid(field('display_name'), locked ? null : nameError)
+    s.markInvalid(field('experiment_date'), locked ? null : dateError)
     s.markInvalid(field('start'), locked ? null : startError)
     s.markInvalid(field('noise_floor'), locked ? null : floorError)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [nameError, startError, floorError, current?.id, locked])
+  }, [nameError, dateError, startError, floorError, current?.id, locked])
+
+  /* "the same mushroom, three weeks apart": the other datasets carrying this organism id */
+  const organism = meta('organism_id').trim().toLowerCase()
+  const sameOrganism = organism && current ? rows.filter(r => r.id !== current.id && s.str(metaKey(r.id, 'organism_id')).trim().toLowerCase() === organism) : []
 
   const ro = (f: MetaField) => ({
     disabled: locked,
@@ -103,27 +118,55 @@ function Body({ data, reload }: { data: Data; reload: () => void }) {
         {rows.length ? (
           <Table rows={rows} rowKey={r => r.id} onRowClick={r => setRec(r.id)} highlighted={current?.id} testid="recordings-table"
             columns={[
-              { key: 'name', header: 'name', width: '16%', render: r => <span className="mono" style={{ fontWeight: 600 }}>{r.name}</span> },
-              { key: 'file', header: 'file', width: '13%', render: r => <span className="mono small">{r.file}</span> },
+              /* one column says both: what the dataset is CALLED (the naming seam, so it changes the moment a name
+                 is saved) and, under it, the source file it is — always, named or not */
               {
-                key: 'unit', header: 'stored in', width: '7%', render: r => r.units
+                key: 'name', header: 'dataset · source file', width: '25%', render: r => (
+                  /* a file name has no spaces to break at: it wraps anywhere rather than push the status and the
+                     actions off the card (they were clipped before this prompt, too) */
+                  <span style={{ display: 'flex', flexDirection: 'column', gap: 1, minWidth: 0, overflowWrap: 'anywhere' }}>
+                    <DatasetName file={r.file} className="mono s-ds-name" testid={`name-${r.id}`} />
+                    {r.named ? <span className="mono small muted" data-testid={`file-${r.id}`}>{r.file}</span>
+                      : <span className="small muted" data-testid={`unnamed-${r.id}`}>not named · called by its file</span>}
+                  </span>
+                ),
+              },
+              {
+                /* who it is: species, then the organism and the date under it — the three things that tell two
+                   similarly named files apart at a glance */
+                key: 'identity', header: 'species · organism · date', width: '18%', render: r => {
+                  const [sp, org, date] = [s.str(metaKey(r.id, 'species')), s.str(metaKey(r.id, 'organism_id')), s.str(metaKey(r.id, 'experiment_date'))]
+                  return (
+                    <span style={{ display: 'flex', flexDirection: 'column', gap: 1 }} data-testid={`identity-${r.id}`}>
+                      <span>{sp || <span className="muted">species not set</span>}</span>
+                      <span className="small muted">{[org ? `organism ${org}` : null, date || null].filter(Boolean).join(' · ') || '—'}</span>
+                    </span>
+                  )
+                },
+              },
+              {
+                key: 'unit', header: 'stored in', width: '8%', render: r => r.units
                   ? <Badge tone="green" testid={`unit-${r.id}`} title={r.units_note ?? undefined}>{r.units}</Badge>
                   : <Badge tone="amber" testid={`unit-${r.id}`} title={r.units_note ?? 'no unit declared: its numbers are shown as stored, never labelled mV'}>undeclared</Badge>,
               },
-              { key: 'fs', header: 'sampling rate', width: '12%', render: r => <>{r.fs_hz} Hz <Badge tone={r.fs_source === 'read' ? 'green' : r.fs_source === 'inferred' ? 'amber' : 'grey'}>{r.fs_source === 'unrecorded' ? 'not recorded' : r.fs_source}</Badge></> },
-              { key: 'ch', header: 'ch', width: '4%', render: r => r.n_channels },
-              { key: 'dur', header: 'duration', width: '8%', render: r => `${r.duration_h} h` },
-              { key: 'species', header: 'species', width: '9%', render: r => r.species ?? <span className="muted">not set</span> },
               {
-                key: 'linked', header: 'excerpt of', width: '8%', render: r => r.excerpt_of
+                key: 'shape', header: 'channels · length · rate', width: '15%', render: r => (
+                  <span style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                    <span>{r.n_channels} ch · {r.duration_h} h</span>
+                    <span>{fmtFsHz(r.fs_hz)} Hz <Badge tone={r.fs_source === 'read' ? 'green' : r.fs_source === 'inferred' ? 'amber' : 'grey'}>{r.fs_source === 'unrecorded' ? 'not recorded' : r.fs_source}</Badge></span>
+                  </span>
+                ),
+              },
+              {
+                key: 'linked', header: 'excerpt of', width: '16%', render: r => r.excerpt_of
                   ? <Button variant="link" size="sm" icon="link" testid={`linked-${r.id}`} onClick={e => { e.stopPropagation(); setRec(r.excerpt_of!.name) }}>
-                    {r.excerpt_of.name} CH{r.excerpt_of.channel}{r.excerpt_of.decimation ? ` · ${r.excerpt_of.decimation}:1` : ''}</Button>
+                    <span title={excerptTitle(r.excerpt_of)} style={{ whiteSpace: 'normal', overflowWrap: 'anywhere', textAlign: 'left' }}>{excerptName(r.excerpt_of)}{r.excerpt_of.decimation ? ` · ${r.excerpt_of.decimation}:1` : ''}</span></Button>
                   : <span className="muted">—</span>,
               },
               {
-                key: 'status', header: 'status', width: '12%', render: r => {
+                key: 'status', header: 'status', width: '11%', render: r => {
                   const st = r.id === lockRec ? (lockOn ? 'held out · locked' : 'available') : r.status
-                  return <span style={{ display: 'inline-flex', gap: 4, alignItems: 'center' }}>
+                  return <span style={{ display: 'inline-flex', gap: 4, alignItems: 'center', flexWrap: 'wrap' }}>
                     <Badge tone={st === 'in use' ? 'green' : st === 'provisional' ? 'amber' : 'grey'}>{st}</Badge>
                     {r.warnings.length > 0 && <Badge tone="amber" testid={`warnings-${r.id}`} title={r.warnings.join('\n')}>{r.warnings.length} ⚠</Badge>}
                     {!r.npy_exists && <Badge tone="red" testid={`missing-${r.id}`}>files missing</Badge>}
@@ -131,7 +174,7 @@ function Body({ data, reload }: { data: Data; reload: () => void }) {
                 },
               },
               {
-                key: 'actions', header: '', width: '11%', render: r => r.id === lockRec
+                key: 'actions', header: '', width: '7%', render: r => r.id === lockRec
                   ? <span className="muted small">locked</span>
                   : <Button variant="link" size="sm" testid={`unregister-${r.id}`} onClick={e => { e.stopPropagation(); void unregister(r) }}>unregister</Button>,
               },
@@ -140,7 +183,8 @@ function Body({ data, reload }: { data: Data; reload: () => void }) {
       </SectionCard>
 
       {current && (
-        <SectionCard title={<span className="mono">{current.name}</span>} subtitle="metadata · travels with every export" testid="metadata-card">
+        <SectionCard title={<DatasetName file={current.file} className="mono" testid="metadata-name" />}
+          subtitle={<span className="mono" data-testid="metadata-file">{current.file} · identity and conditions · travels with every export</span>} testid="metadata-card">
           {locked && (
             <Callout tone="amber" icon="lock" testid="metadata-locked">
               {current.name} is held out · locked — metadata is read-only while the lock is on (D6).
@@ -154,32 +198,68 @@ function Body({ data, reload }: { data: Data; reload: () => void }) {
           )}
           {current.excerpt_of && (
             <Callout tone="blue" icon="link" testid="excerpt-note">
-              excerpt of <b>{current.excerpt_of.name}</b> CH{current.excerpt_of.channel}
+              excerpt of <b title={excerptTitle(current.excerpt_of)}>{excerptName(current.excerpt_of)}</b>
               {current.excerpt_of.offset != null ? ` at sample ${current.excerpt_of.offset.toLocaleString('en-US')}` : ''}
               {current.excerpt_of.decimation ? ` · ${current.excerpt_of.decimation}:1 block mean` : ''} · a subset of a registered recording, kept as its own row (id {current.ids[0]}) because runs reference it
             </Callout>
           )}
-          <div className="s-grid" style={{ marginTop: locked || current.warnings.length ? 10 : 0 }}>
-            <GridField label="display name" {...mark('display_name')} testid="f-display-name">
-              <TextField {...ro('display_name')} block invalid={!!nameError && !locked} testid="display-name" />
-            </GridField>
-            <GridField label="species" {...mark('species')}>
-              <TextField {...ro('species')} block placeholder="not set" testid="species" />
-            </GridField>
-            <GridField label="substrate" {...mark('substrate')}><TextField {...ro('substrate')} block placeholder="not set" /></GridField>
-            <GridField label="electrode config" {...mark('electrode_config')}><TextField {...ro('electrode_config')} block placeholder="not set" /></GridField>
 
-            <GridField label="start time" {...mark('start')}>
-              <TextField {...ro('start')} block invalid={!!startError} placeholder="YYYY-MM-DD HH:MM" testid="start-time" />
+          {/* ---- identity: what the dataset IS. Saved to the `datasets` table, keyed by the source file (fixup-f). */}
+          <SubHead testid="identity-head" title="Identity" caption="what this dataset is, and what every page calls it · one row per source file, audited" />
+          <div className="s-grid">
+            <GridField label="display name" info="What every workspace calls this dataset — headers, queues, cards, menus. Leave it empty and the dataset is called by its source file. The file is never renamed and stays one hover away wherever the name is printed; nothing keys on the name." {...mark('display_name')} testid="f-display-name">
+              <TextField {...ro('display_name')} block invalid={!!nameError && !locked} placeholder={current.file} testid="display-name" />
+              {nameError && !locked
+                ? <div className="small" style={{ color: 'var(--red)' }} data-testid="display-name-error">{nameError}</div>
+                : <div className="small muted" data-testid="display-name-hint">{meta('display_name').trim() ? `the file stays ${current.file}` : 'empty · called by its file'}</div>}
             </GridField>
-            <GridField label="time zone" {...mark('time_zone')}>
-              <SelectField value={meta('time_zone') || 'Europe/London'} onChange={v => setMeta('time_zone', v)} disabled={locked}
-                disabledReason={locked ? 'held out · locked' : undefined} options={data.timeZones.map(z => ({ value: z, label: z }))} width="100%" />
+            <GridField label="species" info="Free text. The species already used on other datasets are offered below — click one to use it — but nothing is locked: type a new one." {...mark('species')} testid="f-species">
+              <TextField {...ro('species')} block placeholder="not set" testid="species" />
+              {!locked && data.speciesValues.filter(v => v !== meta('species')).length > 0 && (
+                <div className="s-suggest" data-testid="species-suggestions">
+                  {data.speciesValues.filter(v => v !== meta('species')).map(v => <button key={v} type="button" onClick={() => setMeta('species', v)}>{v}</button>)}
+                </div>
+              )}
+            </GridField>
+            <GridField label="organism id" info="Identifies the individual organism across recordings. Give two datasets the same organism id and they are the same mushroom — three weeks apart, or resampled, or an excerpt of one another." {...mark('organism_id')} testid="f-organism">
+              <TextField {...ro('organism_id')} block placeholder="not set" testid="organism-id" />
+              {sameOrganism.length > 0 && <div className="small muted" data-testid="same-organism">same organism: {sameOrganism.map(r => r.name).join(' · ')}</div>}
+            </GridField>
+            <GridField label="experiment date" {...mark('experiment_date')} testid="f-experiment-date">
+              <TextField {...ro('experiment_date')} block invalid={!!dateError && !locked} placeholder="YYYY-MM-DD" testid="experiment-date" />
+              {dateError && !locked && <div className="small" style={{ color: 'var(--red)' }} data-testid="experiment-date-error">{dateError}</div>}
+            </GridField>
+            <GridField label="condition" info="The experimental condition this dataset was recorded under — baseline, a stimulus, a treatment." {...mark('condition')} testid="f-condition">
+              <TextField {...ro('condition')} block placeholder="not set" testid="condition" />
+            </GridField>
+            <div style={{ gridColumn: 'span 3' }}>
+              <GridField label="dataset notes" info="About the dataset as a whole. This is NOT the per-channel text written at registration (recordings.notes) — that is shown read-only below, under “read from the data”, and is never copied here." {...mark('notes')} testid="f-notes">
+                <TextField {...ro('notes')} block placeholder="about the whole dataset · timed events go in Channels & events" testid="notes"
+                  suffix={<IconButton icon="external" label="open Channels & events" testid="notes-events-link"
+                    onClick={() => navigate(`settings/channels-events?rec=${current.id}`)} />} />
+              </GridField>
+            </div>
+          </div>
+
+          {/* ---- derived: read from the data and the registration. Shown, never edited here. */}
+          <SubHead testid="derived-head" title="Read from the data" caption="derived at registration · shown, not editable here" />
+          <div className="s-grid">
+            <GridField label="source file">
+              <LockedField reason="the file on disk: what the channel directory, every key and every log line use. A display name never renames it" width="100%" testid="source-file">{current.file}</LockedField>
+            </GridField>
+            <GridField label="channels">
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                <span className="mono small" data-testid="channel-count">{current.n_channels} · rows {current.ids[0]}–{current.ids[current.ids.length - 1]}</span>
+                <Button variant="link" size="sm" iconRight="arrow-right" testid="to-channels" onClick={() => navigate(`settings/channels-events?rec=${current.id}`)}>Channels &amp; events</Button>
+              </div>
             </GridField>
             <GridField label="sampling rate">
               {current.fs_source === 'inferred'
-                ? <LockedField reason="inferred at registration (recorded on the row as fs_source = inferred); re-register to change it" width="100%" testid="fs-inferred">{current.fs_hz} Hz · inferred</LockedField>
-                : <LockedField reason={current.fs_source === 'read' ? 'read from the file — cannot be edited' : 'registered before this standard: the row carries fs but not where it came from'} width="100%" testid="fs-locked">{current.fs_hz} Hz · {current.fs_source === 'read' ? 'read from the file' : 'source not recorded'}</LockedField>}
+                ? <LockedField reason="inferred at registration (recorded on the row as fs_source = inferred); re-register to change it" width="100%" testid="fs-inferred">{fmtFsHz(current.fs_hz)} Hz · inferred</LockedField>
+                : <LockedField reason={current.fs_source === 'read' ? 'read from the file — cannot be edited' : 'registered before this standard: the row carries fs but not where it came from'} width="100%" testid="fs-locked">{fmtFsHz(current.fs_hz)} Hz · {current.fs_source === 'read' ? 'read from the file' : 'source not recorded'}</LockedField>}
+            </GridField>
+            <GridField label="duration">
+              <LockedField reason="samples ÷ sampling rate" width="100%" testid="duration">{current.duration_h} h</LockedField>
             </GridField>
             <GridField label="stored in" info="The unit the channel files hold. Every page converts from it to mV at one place; a recording with no declared unit is drawn as stored and never labelled mV." testid="f-units">
               {current.units
@@ -191,24 +271,39 @@ function Body({ data, reload }: { data: Data; reload: () => void }) {
                 </div>}
               {!current.units && <div className="small muted" data-testid="units-note" style={{ marginTop: 4 }}>{current.units_note ?? 'no unit declared for this recording'}</div>}
             </GridField>
+            <GridField label="registered">
+              <LockedField reason="registration provenance: when the rows were written and by whom. Rows that predate the registry carry neither" width="100%" testid="provenance">
+                {current.registered_at ? `${current.registered_at.slice(0, 10)} · ${current.registered_by ?? 'unknown'}` : 'before the registry · not recorded'}
+              </LockedField>
+            </GridField>
+            <GridField label="higher-resolution parent" info="When this dataset is a decimated excerpt of a registered recording, Review draws event shape from the parent at its own rate.">
+              <LockedField reason="found by the excerpt check at registration (cross-correlation against every comparable registered channel)" width="100%" testid="parent">
+                {current.excerpt_of ? `${excerptName(current.excerpt_of)}${current.excerpt_of.decimation ? ` · ${current.excerpt_of.decimation}:1` : ''}` : 'none'}
+              </LockedField>
+            </GridField>
+            <GridField label="channel notes" info="Per-channel text written when the channels were registered (recordings.notes). It belongs to the channel rows, not to the dataset, and is not editable here.">
+              <span className="small muted" data-testid="channel-notes">{current.channel_notes.length ? current.channel_notes.join(' · ') : 'none'}</span>
+            </GridField>
+          </div>
+
+          {/* ---- conditions: the settings table, as before. */}
+          <SubHead testid="conditions-head" title="Recording conditions" caption="project settings · every detector reads the noise floor from here" />
+          <div className="s-grid">
+            <GridField label="substrate" {...mark('substrate')}><TextField {...ro('substrate')} block placeholder="not set" /></GridField>
+            <GridField label="electrode config" {...mark('electrode_config')}><TextField {...ro('electrode_config')} block placeholder="not set" /></GridField>
+            <GridField label="start time" {...mark('start')}>
+              <TextField {...ro('start')} block invalid={!!startError} placeholder="YYYY-MM-DD HH:MM" testid="start-time" />
+            </GridField>
+            <GridField label="time zone" {...mark('time_zone')}>
+              <SelectField value={meta('time_zone') || 'Europe/London'} onChange={v => setMeta('time_zone', v)} disabled={locked}
+                disabledReason={locked ? 'held out · locked' : undefined} options={data.timeZones.map(z => ({ value: z, label: z }))} width="100%" />
+            </GridField>
             <GridField label="noise floor" info="Every detector reads the noise floor from here; a channel can override it in Channels & events. Empty means detectors estimate it." {...mark('noise_floor')} testid="f-noise-floor">
               <TextField {...ro('noise_floor')} suffix="mV" block placeholder="estimated" invalid={!!floorError && !locked} testid="noise-floor" />
               {floorError && !locked && <div className="small" style={{ color: 'var(--red)' }} data-testid="noise-floor-error">{floorError}</div>}
             </GridField>
-
             <GridField label="temperature" {...mark('temperature')}><TextField {...ro('temperature')} suffix="°C" block placeholder="not set" /></GridField>
             <GridField label="humidity" {...mark('humidity')}><TextField {...ro('humidity')} suffix="% RH" block placeholder="not set" /></GridField>
-            <GridField label="channels">
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-                <span className="mono small">{current.n_channels} · rows {current.ids[0]}–{current.ids[current.ids.length - 1]}</span>
-                <Button variant="link" size="sm" iconRight="arrow-right" testid="to-channels" onClick={() => navigate(`settings/channels-events?rec=${current.id}`)}>Channels &amp; events</Button>
-              </div>
-            </GridField>
-            <GridField label="notes" {...mark('notes')}>
-              <TextField {...ro('notes')} block placeholder="timed events → Channels & events" testid="notes"
-                suffix={<IconButton icon="external" label="open Channels & events" testid="notes-events-link"
-                  onClick={() => navigate(`settings/channels-events?rec=${current.id}`)} />} />
-            </GridField>
           </div>
         </SectionCard>
       )}
@@ -217,7 +312,7 @@ function Body({ data, reload }: { data: Data; reload: () => void }) {
 
       <ImportModal open={modal === 'import'} onClose={() => setModal('')} candidates={data.candidates} rawCandidates={data.rawCandidates} mode={data.mode}
         onRegistered={name => { reload(); setRec(name) }} />
-      <UnlockModal open={modal === 'unlock'} onClose={() => setModal('')} name={rows.find(r => r.id === lockRec)?.name ?? lockRec}
+      <UnlockModal open={modal === 'unlock'} onClose={() => setModal('')} name={data.heldOut.recording === lockRec ? data.heldOut.name : lockRec}
         onConfirm={async typed => { await s.applyNow('heldout.on', false, typed); setModal('') }} />
     </>
   )
@@ -399,17 +494,28 @@ function ImportModal({ open, onClose, candidates, rawCandidates, mode, onRegiste
           {report && phase !== 'checking' && <Checklist items={[...items, ...warnItems]} testid="import-checks" />}
           {!report && phase === 'pick' && <span className="muted small">pick a candidate and press Check</span>}
           {report?.excerpt_of && <Callout tone="amber" icon="link" testid="excerpt-of-note">
-            {cand?.name} is a {report.excerpt_of.decimation}:1 excerpt of <b>{report.excerpt_of.name}</b> CH{report.excerpt_of.channel} at sample {report.excerpt_of.offset.toLocaleString('en-US')} (r = {report.excerpt_of.r}).
+            {cand?.name} is a {report.excerpt_of.decimation}:1 excerpt of <b title={report.excerpt_of.channel_note}>{report.excerpt_of.display_name ?? report.excerpt_of.name} {report.excerpt_of.channel_name}</b> at sample {report.excerpt_of.offset.toLocaleString('en-US')} (r = {report.excerpt_of.r}).
             A subset of a registered recording is an excerpt, not a new recording — tick “register even if it is an excerpt” to register it linked to its parent.
           </Callout>}
           {report && report.excerpts.length > 0 && <Callout tone="blue" icon="link" testid="excerpts-note">
-            {report.excerpts.map(e => <div key={e.recording_id} className="small">registered <b>{e.source_file}</b> CH{e.channel} (id {e.recording_id}) is a {e.decimation}:1 excerpt of this recording’s CH{e.candidate_channel} at sample {e.offset.toLocaleString('en-US')} (r = {e.r}) — it will be linked, its id kept</div>)}
+            {report.excerpts.map(e => <div key={e.recording_id} className="small">registered <b title={`${e.source_file} · ${e.channel_note ?? ''}`}>{e.display_name ?? e.source_file} {e.channel_name}</b> (id {e.recording_id}) is a {e.decimation}:1 excerpt of this recording’s {e.candidate_channel_name} at sample {e.offset.toLocaleString('en-US')} (r = {e.r}) — it will be linked, its id kept</div>)}
           </Callout>}
           {error && <div className="small" style={{ color: 'var(--red)', marginTop: 6 }} data-testid="import-error">{error}</div>}
         </SubCard>
       </div>
     </Modal>
   )
+}
+
+/** An excerpt's parent, by the one name and the one channel convention (both resolved by the bridge). */
+const excerptName = (x: ExcerptOf) => `${x.display_name ?? x.source_file} ${x.channel_name ?? ''}`.trim()
+/** …with the file and the stored index one hover away. */
+const excerptTitle = (x: ExcerptOf) => `source file ${x.source_file}${x.channel_note ? ` · ${x.channel_note}` : ''}`
+/** 7.246376815848827 Hz is a measured rate, not a label: three significant decimals on the page, the stored value in the registry. */
+const fmtFsHz = (fs: number) => (Number.isInteger(fs) ? String(fs) : fs.toFixed(3).replace(/0+$/, ''))
+
+function SubHead({ title, caption, testid }: { title: string; caption: string; testid?: string }) {
+  return <div className="s-subhead" data-testid={testid}><b>{title}</b><span>{caption}</span></div>
 }
 
 function describe(c: Candidate): string {

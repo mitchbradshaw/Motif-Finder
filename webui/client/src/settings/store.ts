@@ -14,6 +14,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { setDemo, useDemoState } from '../kit'
 import { ApiError, putSettingsPage } from '../api'
+import { refreshDatasetNames } from '../naming'
 import { useToast } from '../shell/Toast'
 import {
   CONSEQUENCE, DEFAULTS, HELD_OUT_STEM, PAGE_META, SEEDS, SEED_SENTENCE, SLUGS, genericConsequence,
@@ -192,6 +193,7 @@ export function useSettingsPage(slug: string): SettingsPageStore {
   const applyNow = useCallback(async (id: string, v: unknown, confirmName?: string) => {
     const r = await putSettingsPage(slug, { [id]: v }, confirmName)
     commit(r.values, [id])
+    if (slug === 'datasets') void refreshDatasetNames()
   }, [slug, commit])
 
   const save = useCallback(async () => {
@@ -204,6 +206,8 @@ export function useSettingsPage(slug: string): SettingsPageStore {
     try {
       const r = await putSettingsPage(slug, payload, undefined, previous)
       commit(r.values, changes.map(c => c.id), true)
+      /* a saved display name is what every workspace calls the dataset from now on: re-read the one names seam */
+      if (slug === 'datasets') void refreshDatasetNames()
       push({ text: `Saved · ${sentence || `${n} change${n === 1 ? '' : 's'} applied`}` })
     } catch (e) {
       const msg = e instanceof ApiError ? e.message : String(e)

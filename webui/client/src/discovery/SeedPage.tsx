@@ -2,6 +2,7 @@
  * provenance, carry / rebind, parameters with the where-to-cut histogram (null behind, draggable threshold), the distance
  * profile on one channel, match cards sorted by distance, and the apply bar (Save as template · Run seed search). */
 import { axisUnit } from '../charts/units'
+import { DatasetName } from '../naming'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   Button, Callout, Checkbox, DisabledReason, Dropdown, EmptyState, Icon, InfoTip, Modal, NumberField, Pager, Popover, ProgressBar, RadioCards, RangeSlider,
@@ -204,7 +205,7 @@ function SeedCard({ draft, seed, seeds, source, onSource, onSeed, exploreSpan, o
                 <div className="dsc-seed-thumb unavailable"><Icon name="wave" size={16} /><span className="small muted">shape read when the search runs</span></div>
                 <div className="dsc-seed-kv">
                   <b>{exploreSpan.label ?? 'span from Explore'}</b>
-                  <span>{exploreSpan.source_file.replace(/\.(mat|csv)$/, '')} · {exploreSpan.channel_name}</span>
+                  <span><DatasetName file={exploreSpan.source_file} /> · {exploreSpan.channel_name}</span>
                   <span>{(exploreSpan.start_idx / exploreSpan.fs / 3600).toFixed(2)} h · {Math.round((exploreSpan.end_idx - exploreSpan.start_idx) / exploreSpan.fs)} s · {exploreSpan.end_idx - exploreSpan.start_idx} samples</span>
                   <span className="muted">hash unavailable until read</span>
                   <Button variant="link" size="sm" onClick={() => navigate('explore/corpus')}>change in Explore ›</Button>
@@ -217,7 +218,7 @@ function SeedCard({ draft, seed, seeds, source, onSource, onSeed, exploreSpan, o
             <div className="dsc-seed-kv">
               <b>{seed.title}</b>
               <span>{seed.familyLine}</span>
-              <span>{seed.recording} · {seed.channel}</span>
+              <span><DatasetName file={seed.recordingFile ?? seed.recording} /> · {seed.channel}</span>
               <span>{seed.startH.toFixed(2)} h · {seed.lengthS} s · hash {seed.hash}</span>
               <button ref={changeRef} type="button" className="dsc-inline-link blue" onClick={() => setPopQ(popQ === 'change-seed' ? null : 'change-seed')} data-testid="change-seed">change seed ›</button>
               <Popover open={popQ === 'change-seed'} onClose={() => setPopQ(null)} anchorRef={changeRef} title="Change seed" width={320} testid="change-seed-popover">

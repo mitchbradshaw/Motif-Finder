@@ -1,6 +1,7 @@
 /* Toolbar pieces shared by the chain page and the block page: name chip, source chip,
    estimate chip, the example span, and the source-envelope hook. */
 import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { useDatasetName } from '../naming'
 import { ApiError, getWindow, type WindowData } from '../api'
 import { useDismiss } from '../shell/useDismiss'
 import { fmtHours, type ChainDraft, type SourceSpan } from '../state'
@@ -32,10 +33,12 @@ export function NameChip({ chain, onRename, extra }: { chain: ChainDraft; onRena
 }
 
 export function SourceChip({ source, onClick }: { source: SourceSpan | null; onClick?: () => void }) {
+  /* the chip says WHICH dataset the span is from, by name; the file stays one hover away (fixup-f) */
+  const dataset = useDatasetName(source?.source_file)
   return (
     <button className="an-source" onClick={onClick} data-testid="source-chip" title={source ? `${source.source_file} · recording ${source.recording_id} · samples ${source.start_idx}–${source.end_idx} · ${source.fs} Hz` : 'no source yet'}>
       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M3 12h3l2-7 3 14 3-10 2 6 2-3h3" /></svg>
-      <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{source ? sourceLabel(source) : 'no source · send a span from Explore'}</span>{onClick && <span style={{ fontSize: 10, flex: 'none' }}>▾</span>}
+      <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{source ? sourceLabel(source).replace('Signal span · ', `${dataset} · `) : 'no source · send a span from Explore'}</span>{onClick && <span style={{ fontSize: 10, flex: 'none' }}>▾</span>}
     </button>
   )
 }

@@ -4,6 +4,7 @@
    card stating what saving writes. Fully demo (getSpanEdit): saving is an in-memory rev 2, then back to Review.
    Deep links: ?state=edited|invalid|saved · ?queue=q-12&candidate=12&of=50&return=<route> */
 import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { DatasetName } from '../naming'
 import { ApiError } from '../api'
 import { useSourced } from '../api/seam'
 import { getSpanEdit, type Revision, type SnapRule, type SpanEditDemo } from '../api/explore'
@@ -131,7 +132,7 @@ function SpanEditBody({ d }: { d: SpanEditDemo }) {
         <div className="ex-topbar" data-testid="span-edit-topbar">
           <div className="ex-crumb">
             <a onClick={() => { if (changed && !saved) toast.push({ text: 'edit discarded' }); navigate('explore/corpus') }} data-testid="crumb-corpus">Corpus</a><span>›</span>
-            <a onClick={() => { if (changed && !saved) toast.push({ text: 'edit discarded' }); navigate(`explore/corpus?rec=${encodeURIComponent(d.file)}&ch=${d.channelId}`) }}>{d.recordingLabel}</a><span>›</span>
+            <a onClick={() => { if (changed && !saved) toast.push({ text: 'edit discarded' }); navigate(`explore/corpus?rec=${encodeURIComponent(d.file)}&ch=${d.channelId}`) }}><DatasetName file={d.file} /></a><span>›</span>
             <a onClick={() => { if (changed && !saved) toast.push({ text: 'edit discarded' }); navigate(`explore/signal/${d.channelId}`) }} data-testid="crumb-channel">{d.channelName}</a><span>›</span>
             <span className="cur">edit span</span>
           </div>

@@ -81,13 +81,14 @@ const HELD_OUT_FALLBACK = 'M4_aug_concat_fs1.mat'
 const heldOutOptions = () => (RECORDINGS ?? []).filter(r => r.heldOut)
 
 export const heldOutReason = (label = heldOutOptions()[0]?.file ?? HELD_OUT_FALLBACK) => {
-  const known = (RECORDINGS ?? []).find(r => r.file === label || r.key === label || r.stem === label || r.label === label)
+  const known = (RECORDINGS ?? []).find(r => r.file === label || r.key === label || r.stem === label)
   return known?.heldOutReason
     ?? `${label} is held out (D6): locked for the final evaluation — Discovery will not scope, run or plot it`
 }
 export const isHeldOut = (recording: string) =>
   recording === HELD_OUT_FALLBACK || recording === HELD_OUT_FALLBACK.replace(/\.mat$/, '')
-  || heldOutOptions().some(r => r.key === recording || r.file === recording || r.stem === recording || r.label === recording)
+  /* by identifier only: `label` is what the dataset is CALLED and nothing may key on it (fixup-f) */
+  || heldOutOptions().some(r => r.key === recording || r.file === recording || r.stem === recording)
 
 const toRecording = (r: DiscRecordingOption): RecordingOption => ({ ...r })
 
@@ -194,6 +195,8 @@ export interface SeedParams {
 export interface SeedInfo {
   id: string; role: string; source: string; title: string; family: string | null; familyLine: string | null
   recording: string; channel: string; startH: number; samples: number; lengthS: number; hash: string; trace: number[]
+  /** fixup-f: what the seed's dataset is called, and the file behind the name */
+  recordingLabel?: string; recordingFile?: string
   /** fixup-b: 'mV', or null when the seed's recording declares no unit */
   unit?: 'mV' | null
 }

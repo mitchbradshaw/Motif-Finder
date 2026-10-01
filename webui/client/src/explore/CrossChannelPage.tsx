@@ -11,6 +11,7 @@
    (Those two numbers were written down here 1000x too small, as "~3.9 mV" and "0.001–0.03 mV", before fixup-b:
    the stored volts were printed as mV. The ratio, and so the reason for 'centred', was always right.) */
 import { useMemo, useRef, useState } from 'react'
+import { DatasetName } from '../naming'
 import { ApiError } from '../api'
 import { useSourced } from '../api/seam'
 import { getCrossChannel, getSignalDemo, lookupChannel, type CrossDemo, type XBin, type XRow } from '../api/explore'
@@ -169,7 +170,7 @@ function CrossBody({ data }: { data: CrossDemo }) {
         <div className="ex-topbar" data-testid="cross-topbar">
           <div className="ex-crumb">
             <a onClick={() => navigate('explore/corpus')} data-testid="crumb-corpus">Corpus</a><span>›</span>
-            <a onClick={() => navigate(`explore/corpus?rec=${encodeURIComponent(data.file)}&ch=${ref}`)}>{data.file}</a><span>›</span>
+            <a onClick={() => navigate(`explore/corpus?rec=${encodeURIComponent(data.file)}&ch=${ref}`)}><DatasetName file={data.file} /></a><span>›</span>
             <span className="cur">{refName}</span>
           </div>
           <span className="ex-topbar-seg"><Seg size="sm" value="cross" onChange={v => { if (v === 'signal') navigate(`explore/signal/${ref}${windowQ.startsWith('motif-') ? `?motif=${windowQ.slice(6)}` : ''}`) }}
