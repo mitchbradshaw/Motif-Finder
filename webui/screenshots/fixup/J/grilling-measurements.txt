@@ -1,0 +1,60 @@
+=== 1. chunk accounting, CH0 ===
+[0-4 h] n=14400 low=-0.16343 high=-0.11220 mid=-0.13781 range=107.32 mV
+   chunks=1  >=120: 1  median len=1831  max=1831
+   never in any chunk: 87.3%   in a too-short chunk: 0.0%   analysed: 12.7%
+[50-54 h] n=14400 low=-0.10994 high=-0.10657 mid=-0.10825 range=9.97 mV
+   chunks=39  >=120: 4  median len=2  max=4684
+   never in any chunk: 52.2%   in a too-short chunk: 0.8%   analysed: 47.0%
+[200-204 h] n=14400 low=-0.29962 high=-0.25556 mid=-0.27759 range=124.32 mV
+   chunks=2  >=120: 2  median len=2760  max=4861
+   never in any chunk: 61.7%   in a too-short chunk: 0.0%   analysed: 38.3%
+[400-404 h] n=14400 low=-0.45388 high=-0.42840 mid=-0.44114 range=39.14 mV
+   chunks=1  >=120: 1  median len=14400  max=14400
+   never in any chunk: 0.0%   in a too-short chunk: 0.0%   analysed: 100.0%
+[600-604 h] n=14400 low=-0.43254 high=-0.43057 mid=-0.43156 range=5.20 mV
+   chunks=55  >=120: 3  median len=3  max=5101
+   never in any chunk: 52.7%   in a too-short chunk: 1.5%   analysed: 45.8%
+[0-18 h] n=64800 low=-0.38257 high=-0.13888 mid=-0.26073 range=390.88 mV
+   chunks=1  >=120: 1  median len=138  max=138
+   never in any chunk: 99.8%   in a too-short chunk: 0.0%   analysed: 0.2%
+
+=== 2. template vs monolith; funnel ===
+[0-4 h] slice_by_state=True nan cols=87.3%  B=4 (<=30 samples: 1)  C=3 D=0  R=11 (start>=end: 11)  F_s=5 (dupes 0)  F_p=0
+   monolith: F_s=5 F_p=0  identical to template: True
+[0-4 h] slice_by_state=False nan cols=0.0%  B=3 (<=30 samples: 1)  C=2 D=0  R=75 (start>=end: 75)  F_s=41 (dupes 0)  F_p=0
+[50-54 h] slice_by_state=True nan cols=53.0%  B=333 (<=30 samples: 309)  C=23 D=1  R=31 (start>=end: 25)  F_s=1 (dupes 0)  F_p=0
+   monolith: F_s=1 F_p=0  identical to template: True
+[50-54 h] slice_by_state=False nan cols=0.0%  B=24 (<=30 samples: 4)  C=20 D=0  R=70 (start>=end: 0)  F_s=30 (dupes 0)  F_p=12
+[200-204 h] slice_by_state=True nan cols=61.7%  B=383 (<=30 samples: 372)  C=9 D=2  R=22 (start>=end: 2)  F_s=0 (dupes 0)  F_p=0
+   monolith: F_s=0 F_p=0  identical to template: True
+[200-204 h] slice_by_state=False nan cols=0.0%  B=22 (<=30 samples: 7)  C=15 D=0  R=61 (start>=end: 0)  F_s=23 (dupes 0)  F_p=12
+[400-404 h] slice_by_state=True nan cols=0.0%  B=14 (<=30 samples: 1)  C=12 D=1  R=59 (start>=end: 59)  F_s=23 (dupes 0)  F_p=0
+   monolith: F_s=23 F_p=0  identical to template: True
+[400-404 h] slice_by_state=False nan cols=0.0%  B=14 (<=30 samples: 1)  C=12 D=1  R=59 (start>=end: 59)  F_s=23 (dupes 0)  F_p=0
+[600-604 h] slice_by_state=True nan cols=54.2%  B=1054 (<=30 samples: 1053)  C=0 D=1  R=28 (start>=end: 1)  F_s=0 (dupes 0)  F_p=0
+   monolith: F_s=0 F_p=0  identical to template: True
+[600-604 h] slice_by_state=False nan cols=0.0%  B=19 (<=30 samples: 1)  C=18 D=0  R=70 (start>=end: 70)  F_s=21 (dupes 0)  F_p=0
+
+=== 3. paper-scale 3000 s windows, no slicing ===
+[0+3000] slice_by_state=False nan cols=0.0%  B=3 (<=30 samples: 1)  C=2 D=0  R=18 (start>=end: 18)  F_s=10 (dupes 0)  F_p=0
+     spikes: [(1463, 1527), (1463, 1674), (1463, 1813), (1463, 2033), (1463, 2183), (1463, 2433), (1463, 2575), (1463, 2669)]  pseudo: []
+[3000+3000] slice_by_state=False nan cols=0.0%  B=6 (<=30 samples: 2)  C=4 D=0  R=15 (start>=end: 0)  F_s=4 (dupes 0)  F_p=3
+     spikes: [(5, 122), (5, 374), (662, 757), (1198, 1457)]  pseudo: [(473, 566), (856, 919), (1772, 1880)]
+[6000+3000] slice_by_state=False nan cols=0.0%  B=4 (<=30 samples: 1)  C=3 D=0  R=18 (start>=end: 0)  F_s=8 (dupes 0)  F_p=2
+     spikes: [(6, 85), (6, 205), (6, 325), (6, 512), (6, 679), (6, 890), (6, 1029), (1715, 1923)]  pseudo: [(1132, 1248), (1130, 1238)]
+[9000+3000] slice_by_state=False nan cols=0.0%  B=4 (<=30 samples: 1)  C=3 D=0  R=13 (start>=end: 13)  F_s=4 (dupes 0)  F_p=0
+     spikes: [(6, 151), (6, 307), (6, 592), (6, 791)]  pseudo: []
+[720000+3000] slice_by_state=False nan cols=0.0%  B=3 (<=30 samples: 1)  C=2 D=0  R=13 (start>=end: 0)  F_s=6 (dupes 0)  F_p=1
+     spikes: [(5, 171), (5, 432), (5, 655), (5, 793), (5, 1196), (5, 1356)]  pseudo: [(1828, 1902)]
+[1440000+3000] slice_by_state=False nan cols=0.0%  B=131 (<=30 samples: 122)  C=9 D=0  R=11 (start>=end: 11)  F_s=0 (dupes 0)  F_p=0
+     spikes: []  pseudo: []
+
+=== 4. real part vs modulus (one 3000 s window) ===
+  [0] phi imag max abs = 0  (0 => only the real part is kept)
+     repo |Re|  Omega range 313..6810  raw local maxima 376  eps-extrema 3+3  B=3  B>30: 2
+     modulus    Omega range 211..15350  raw local maxima 27  eps-extrema 0+1  B=1  B>30: 0
+     corr(Omega_repo, Omega_modulus) = 0.973
+  [720000] phi imag max abs = 0  (0 => only the real part is kept)
+     repo |Re|  Omega range 306..6475  raw local maxima 574  eps-extrema 3+2  B=3  B>30: 2
+     modulus    Omega range 110..15337  raw local maxima 34  eps-extrema 0+1  B=1  B>30: 0
+     corr(Omega_repo, Omega_modulus) = 0.973

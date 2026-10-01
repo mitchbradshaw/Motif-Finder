@@ -1,0 +1,17 @@
+{
+ "channel": {
+  "id": 1,
+  "name": "CH1_A1",
+  "file": "M2_aug_concat_fs1.mat",
+  "fs": 1.0
+ },
+ "span_s": [
+  294000,
+  306000
+ ],
+ "client": "C:\\Users\\mmebr\\AppData\\Local\\Temp\\claude\\C--Users-mmebr-Documents-CNN\\ab538730-cac2-498c-aba6-1aec2ad27905\\scratchpad\\dist-j (a private build, not the shared client/dist)",
+ "footer": "terminal SpanSet \u2192 detection template",
+ "funnel_present": true,
+ "funnel_summary": "38 candidate regions \u2192 38 confirmed by the signal, 0 set aside \u00b7 55 envelope regions, 50 kept \u2192 26 spikes, covering 62% of the span",
+ "console_errors": []
+}

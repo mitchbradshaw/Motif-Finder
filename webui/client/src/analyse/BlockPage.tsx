@@ -13,6 +13,7 @@ import { useToast } from '../shell/Toast'
 import { fmtDuration, fmtHours, navigate, useApp } from '../state'
 import { paramCaption } from './captions'
 import { EventFeaturesPanel } from './EventFeatures'
+import { DetectorFunnel, funnelOf } from './DetectorFunnel'
 import { ParamsPanel, fmtParam } from './ParamsPanel'
 import { GhostPath, motifLabels, renderByType, SYM3 } from './Renderer'
 import { deriveRows, fmtTiming, jobForSource } from './rowState'
@@ -184,6 +185,7 @@ export function BlockPage({ index }: { index: number }) {
                   <>
                     <GenericProcess payload={row.payload} ghost={upstreamSignal} stale={stale} t0={t0} t1={t1} caption={paramCaption(step, ad)} />
                     {row.payload?.type === 'spanset' && (row.payload as SpansetPayload).features && <EventFeaturesPanel p={row.payload as SpansetPayload} />}
+                    {row.payload?.type === 'spanset' && funnelOf(row.payload) && <DetectorFunnel funnel={funnelOf(row.payload)!} />}
                   </>
                 )}
               </ErrorBoundary>
