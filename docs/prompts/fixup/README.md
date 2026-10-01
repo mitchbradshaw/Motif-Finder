@@ -5,47 +5,86 @@ pages read and write real data. This stage fixes what the live data then showed 
 missing — from the wiring reports' own "Left" / "What is still not true" lists, from the critics'
 unfixed findings, and from the user's and the supervisor's use of the running app.
 
-**These files are skeletons.** They carry the *symptoms* — grouped by page, each traced to its evidence
-(a report section, a source line, or a screenshot) — and nothing else. The prompt body, the file list,
-the test-first work plan and the gate are written only after the questions in
-`QUESTIONS.md` are answered, because most of the symptoms below are one design decision away from
+The numbered files (`00`–`10`) are **skeletons**: they carry the *symptoms*, grouped by page and each
+traced to its evidence, and nothing else. A lettered prompt is written only once the questions behind
+its symptoms are answered in `QUESTIONS.md`, because most of them are one design decision away from
 being either a bug or a spec change.
 
-| File | Workspace / pages |
+## Where the stage is, 2026-10-01
+
+**Wave 1 is done.** `E` and `G` ran in parallel on 2026-09-30, both clean, and closed every row they
+were given. **Wave 2 is `F` + `J`, written and ready** — `J` needs the researcher's PDF attached.
+The suite baseline is now **1799 passed / 7 skipped / 0 failed**, failure set empty.
+
+| File | State |
 |---|---|
-| **WAVE 1 — run together** | |
-| `E-aggregate-stops-fabricating.md` | **run 2026-09-30** (`reports/E-aggregate-stops-fabricating.md`). Interrogation reads every measure from the core (the three constants and the browser recovery are gone; not-measured is null, counted and explained); `spike-shape` → `event-shape` = `interrogation.event_shape`, the upstream carried on every walk; `rise_time_frac` on the shape block, null for a drop; the overlay window is the stored context on a measured y. Port **8765** |
-| `G-review-axis-and-resolution.md` | **ready.** Review's trace gets a real x axis (the cause of U1/U2/U3); decimation follows the rendered width; source-resolution toggle, default ON; Review shifts a legacy row. Port **8766** |
-| **WAVE 2 — run together, after wave 1** | |
-| `F-datasets-and-naming.md` | *(not written)* editable dataset metadata + display name across the site, and the Settings channel-list overflow |
-| `J-dehshibi-vs-the-paper.md` | *(not written)* needs the researcher's PDF and a grilling round of its own |
+| **WAVE 2 — run together, next** | |
+| `F-datasets-and-naming.md` | **ready.** A `datasets` table keyed by `source_file`; the editable columns Q23 names; the display name replaces the file name across the site through one seam; the `CH2`/`CH3` convention settled; the Settings channel-tab overflow (U5). Port **8765** |
+| `J-dehshibi-vs-the-paper.md` | **scaffold — attach the paper.** Opens with its own grilling round before any code. Two implementations of the detector exist and nothing asserts they agree; 87 % of cells on a real span are honestly marked uncovered and that is the thread to pull (U6). Port **8766** |
 | **WAVE 3 — alone** | |
-| `H-blocks-show-their-work.md` | *(not written)* U7/U8/U9/U11 — process views per block, span slideshows, figures instead of tables. Cross-cutting; conflicts with everything |
+| `H-blocks-show-their-work.md` | *(not written — the researcher wants a grilling round first)* U7/U8/U9: process views per block, span slideshows, figures instead of tables. Now also owns the Slope page's anatomy figure, which still draws its marks from fixtures over a real trace (`E` §8.2), and the `200×` null label (Q27). Cross-cutting; conflicts with everything |
 | **DONE** | |
-| `M-migrate-legacy-detections.md` | **run 2026-09-28** (`reports/M-…`; 115 rows rewritten on the real database, backup verified, second pass plans zero, suite 1786/0) |
-| `B-units-and-amplitude.md` | **written and ready to run — the highest-priority item in the stage.** The derived channels are in volts and the whole UI labels them mV; every amplitude ever shown is 1000x too small. Blocks the plot-domain prompt `C` |
-| `C-one-plot-domain-rule.md` | **run and reported 2026-09-23** (`reports/C-one-plot-domain-rule.md`; one rule in `charts/domain.ts`, suite 1775/0). Per-card measured domains with the shared scale as a reference bar, replacing PRD D5, across Review + Library + Explore. Acceptance test: no motif clipped in its own thumbnail |
-| `D-event-features.md` | **run and reported 2026-09-23** (`reports/D-event-features.md`: `interrogation.event_shape`, `interrogation.intervals`, `preprocessing.invert`, `motif_features`, the sequence rose; the Library backfill ran on the sandbox only — `--real` is the researcher's call).** The researcher's top-priority capability. Polarity-neutral per-event feature blocks, inter-event intervals, the max-slope rose over `Working/Detection/drop_motifs/gradients.py` (which already exists), `preprocessing.invert`, and `motif_features` keyed by content hash. Adds `SpanSet.features` mirroring `WindowSet.features` — **no eighth type** |
-| `M-migrate-legacy-detections.md` | **run and reported 2026-09-28** (`reports/M-migrate-legacy-detections.md`; 115 legacy span-relative `detections` rows across 8 runs rewritten to channel-absolute through `init_db()`, `audit_log` id 482, verified by re-running each run's recipe; suite 1786/0). Q25. Runs before `G`, which still adds Review's `absolute_bounds` call |
-| `A-no-decision-fixes.md` | **run and reported 2026-09-22** (`reports/A-no-decision-fixes.md`; all seventeen done, suite 1660/0) — the seventeen defects across six workspaces that have a known cause, a known line and exactly one defensible fix. Carries an explicit not-in-scope table so it cannot widen into the decisions still open |
+| `E-aggregate-stops-fabricating.md` | **run and reported 2026-09-30** (`reports/E-…`). Interrogation reads every measure from the core — the three constants (`×0.84`, `×0.31`, `×4.2`) and the browser's recovery are gone, and not-measured is null, counted and explained. `spike-shape` → `event-shape` = `interrogation.event_shape`, a block that really differs, the upstream carried on every walk. `rise_time_frac` on the shape block, null for a drop. The overlays draw the stored context on a measured y. **Found: 41 % of the seed store and 34 % of the Library have no recovery and no FWHM under the current definition — all of it sharkfin morphology (Q26)** |
+| `G-review-axis-and-resolution.md` | **run and reported 2026-09-30** (`reports/G-…`). Every Review trace carries `t` beside `v`; detection 102's drop was drawn at 0.629 h and is at 0.662 h, inside its band — the detector was right. Decimation follows the card's measured width (660 samples come back raw where 440 points used to); padding is symmetric by time; the Shape card dots its samples rather than smoothing them; source resolution reads the 10 Hz parent, default ON, and says so; Review shifts a legacy row. The `kit/plots.tsx` change stayed additive |
+| `M-migrate-legacy-detections.md` | **run and reported 2026-09-28** (`reports/M-…`). 115 legacy span-relative `detections` rows across 8 runs rewritten to channel-absolute through `init_db()`, `audit_log` id 482, backup `DATA/db/backups/20260928-211406-fixup-m.sqlite` verified; re-running each run's own recipe reproduces the migrated rows exactly for 114 of 115. A second pass plans zero. Q25 |
+| `D-event-features.md` | **run and reported 2026-09-23** (`reports/D-…`). The researcher's top-priority capability: `interrogation.event_shape`, `interrogation.intervals`, `preprocessing.invert`, `motif_features` keyed by content hash, the max-slope rose over the existing `gradients.py`. Adds `SpanSet.features` mirroring `WindowSet.features` — **no eighth type**. The `--real` backfill was run by the researcher 2026-09-24: 71,980 values over 3,599 hashes |
+| `C-one-plot-domain-rule.md` | **run and reported 2026-09-23** (`reports/C-…`). One rule in `charts/domain.ts`: per-card measured domains with the shared scale as a reference bar, replacing PRD D5, across Review + Library + Explore. 66 clipped traces → 0 |
+| `B-units-and-amplitude.md` | **run and reported 2026-09-23** (`reports/B-…`). The derived channels are volts and the whole UI labelled them mV; every amplitude ever shown was 1000× too small. The unit now lives on `recordings.units` (54 V / 5 mV / 71 undeclared) and the conversion is one seam, `corpus.display_channel` |
+| `A-no-decision-fixes.md` | **run and reported 2026-09-22** (`reports/A-…`). The seventeen defects with a known cause, a known line and exactly one defensible fix |
+| **SKELETONS** | |
 | `00-cross-cutting.md` | the shell, the `demo` chip, shared chart primitives, naming, workflow |
-| `01-explore.md` | Corpus, Signal, Cross-channel, Span edit |
+| `01-explore.md` | Corpus, Signal, Cross-channel, Span edit (U4 lives here) |
 | `02-analyse-chain.md` | Chain, Block, Algorithm glyphs |
-| `03-analyse-interrogation.md` | Interrogation, Slope, Aggregate |
+| `03-analyse-interrogation.md` | Interrogation, Slope, Aggregate — I1/I4 closed by `E`, I2/I3 by `D` |
 | `04-analyse-training.md` | Training chain, blocks 01–05 |
 | `05-discovery.md` | Runs, Seed search, Compare, Compare every stage |
 | `06-models.md` | Launch, Results, Compare, Registry |
-| `07-review.md` | Queue (inspector), Cluster |
+| `07-review.md` | Queue (inspector), Cluster — R1 closed by `C` (y) and `G` (x); R3/R4/R7 are the Review *behaviour* prompt |
 | `08-library.md` | Recurrence, Atlas, Family, Edit grouping, Import, Window sets, Templates |
 | `09-jobs.md` | All jobs, Paused run, Upload and continue, Cluster job |
-| `10-settings.md` | the sixteen settings pages |
+| `10-settings.md` | the sixteen settings pages — S1 is `F`'s |
 
-`QUESTIONS.md` is the live list of what must be decided before a prompt can be written, with the
-answers recorded beside each question as they are given. **Rounds 1 and 2 are answered (2026-09-23);
-round 3 is open.**
+## Running two prompts at once
 
-**The order of work, as it stands:** `A` (done) → **`B` (units — everything amplitude-shaped waits on
-it)** → `C` (plot domains) and the window-sets unblock, in parallel → `D` (event features, the
-researcher's top-priority capability) → the page prompts.
+Wave 1 proved it works and showed where it chafes (`QUESTIONS.md` Round 5). The rules both wave-2
+prompts carry:
+
+1. **Disjoint page trees, disjoint server modules, separate `smoke_pages` files.** Each prompt
+   carries an ownership table naming the other agent's files.
+2. **A private port and a private client build.** `run_server.py` needs a `--dist` argument
+   (`Runtime(client_dist=…)` already exists and is not exposed) — **about four lines, and it should
+   land before wave 2 starts.** Without it there is one shared `webui/client/dist` and whoever
+   builds last owns it; in wave 1 that cost `G` its before/after baseline mid-run.
+3. **`npm run build` is `tsc -b && vite build`** and type-checks the whole tree, so the other
+   agent's in-flight files can make it red. Run it for the gate at the end; `npx vite build
+   --outDir …` to get something to serve meanwhile.
+4. **`pytest -n auto` and `webui/smoke.py` cannot run together on this machine** (prompt `B` §9: 23
+   spurious smoke failures). `pytest -n 4`, and announce in the report when the machine was taken
+   for smoke.
+5. **Shared files are append-only and committed immediately, path-scoped** — `webui/client/src/api.ts`,
+   `webui/smoke.py`. A path-scoped commit can still carry the other agent's hunks.
+
+## Standing gate facts
+
+The baseline is **1799 passed / 7 skipped / 0 failed**, failure set empty. Under `webui/.venv`,
+`test_webui_discovery.py::test_the_scoreboard_cells_are_the_tables_own_numbers` fails pre-existing.
+**Five smoke states are standing failures**: the four Settings registration states
+(`datasets--import-check-fails-fs-unknown`, `datasets--import-check-passes-MJu26a`,
+`models-registration--check-a-joblib`, `storage-backups--scan-check-a-matrix-profile`) and, since
+wave 1 measured it on both a pre-change and a post-change bridge, `discovery.runs--default`.
+
+## The open decisions
+
+`QUESTIONS.md` is the live list, with the answers recorded beside each question as they are given.
+**Rounds 1–4 are answered. Round 5 (2026-10-01) is open** and holds the two that matter:
+
+- **Q26** — the sharkfin morphology has no recovery and no FWHM under the current definition, across
+  41 % of the seed store and 34 % of the Library. Measure to the next onset, lower the fraction, or
+  accept it and say so? A research decision, and it is the supervisor-facing statistic.
+- **Q27** — the Aggregate page's null still says "matched random windows · 200×" and is a seeded
+  jitter. Relabel now, or build the real null?
+
+Also open and blocking nothing written: **Q-B-CHAIN** (fan-out), **U4** (fine span adjustment),
+**U12** (the phantom Ctrl-C, undiagnosed), **U13** (global search unwired).
 
 Reports go in `reports/`, cross-agent requests in `requests/`, same convention as the wiring stage.

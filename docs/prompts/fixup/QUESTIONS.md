@@ -611,3 +611,102 @@ recur. **Not diagnosed — needs reproduction, not a guess.**
 ### U13 (new) — global search is not wired
 
 The header's "Search spans, runs, families" box is on every page and does nothing. Future prompt.
+
+---
+
+## Round 5 — what wave 1 left, 2026-10-01
+
+`E` and `G` both ran clean on 2026-09-30 and both closed every row they were given (U1/U2/U3,
+U10/U11, Q19, `03` I1/I4, `07` R1). What follows is what their reports left behind: two decisions
+that are the researcher's, one infrastructure fix that is nobody's ticket and blocks clean parallel
+waves, and a handful of items with an owner already.
+
+### Q26 — the sharkfin has no recovery, and that is a research decision, not a rendering one
+
+**The most important thing either report found.** `E` measured it on the data:
+
+| store | events | no `recovery_time_s` | no `fwhm_s` |
+|---|---|---|---|
+| the seed store `drop_motifs5` (the 16 families Interrogation reads) | 410 | **170 (41 %)** | 170 |
+| the real Library `motif_features` | 3,599 | **1,238 (34 %)** | 1,238 |
+
+And it is **all-or-nothing by family**, which is the tell: id001 17/17, id003 16/16, id021 14/14,
+id024 40/40, id026 2/2, id028 19/19, id029 48/48 never recover — against id008, id033, id385 where
+every event does. Those are the **sharkfin** spans against the **trough** spans. On a sharkfin the
+trace falls and stays low until the next rise begins, so it never re-crosses its half level: under
+`D`'s definition (recovery at 50 % of depth, within 10 event widths, never past the next window)
+*recovery and FWHM do not exist for that morphology*, and the researcher's default family is one of
+them.
+
+The page is honest about it now — it draws nothing and says why — but "honest and empty" is not the
+answer for the one statistic the supervisor reads. **Three options, and the researcher picks:**
+
+1. **Measure a sharkfin's recovery to the next onset** instead of to a level. It is the natural
+   reading of "how long until the next event" for a morphology that does not return, and `D` already
+   measures `interval_before_s` / `interval_after_s`, so the number exists — it would be a
+   *different measure under a different name*, not a redefinition of recovery.
+2. **Lower `recovery_frac`** (it is already a parameter). Cheap, but it does not help: the sharkfin
+   does not return to *any* fraction before the next rise. Measurable, not recommended.
+3. **Accept it and say so on the page** — recovery is a trough-morphology measure, and the
+   sharkfin's regularity is carried by `interval` instead. This is what the app does today.
+
+The width-vs-recovery relationship the researcher named in round 2 exists on troughs and `E` drew it:
+**id010, β 0.28 [0.16–0.40], R² 0.23, n 83**, against a null β of 0.25 — so it does *not* clear its
+null. That is worth knowing before any more is built on it.
+
+### Q27 — the Aggregate page's null says "matched random windows · 200×" and is a seeded jitter
+
+`E` §8.1. The null **β** is now honestly recomputed from the points drawn, but the points behind it
+are a jitter of the data, not 200 matched random windows, and the label still claims they are. It is
+the last unearned claim on a page this stage has just spent two prompts making honest.
+
+**Relabel or build?** Relabelling is a line. Building the real null (P10's machinery) is page-wide
+and would be prompt `H`'s or its own. Recommend **relabel now, build later** — a wrong label on a
+page that has just been cleaned is worse than a missing feature.
+
+### The infrastructure fix neither prompt owned: `run_server.py --dist`
+
+Both wave-1 agents needed a private client build and **neither could have one**. `Runtime(client_dist=…)`
+exists (`webui/server/runtime.py:63,71`) and `run_server.py` does not expose it, so there is one
+shared `webui/client/dist` and whoever builds last owns it. What actually happened:
+
+- `E` built the shared dist three times (13:33, 13:37, 13:45), **compiling `G`'s uncommitted sources
+  into it** each time (`E` §8.6);
+- `G` had been using that dist as its *pre-change* client for the before/after evidence; when it
+  changed underneath, `G` had to build the old client from `faaefca` in a scratch directory with a
+  temporary `node_modules` junction (`G` §10) — a junction, in this repo, on the week of the
+  `git worktree remove` data loss;
+- `G` could not run `npm run build` at all for most of the run, because `tsc -b` was red on `E`'s
+  in-flight Interrogation files and the script is `tsc -b && vite build`. It served
+  `npx vite build --outDir <scratch>` instead and ran the real script at the end.
+
+None of that corrupted anything and both gates passed, but it is luck rather than design, and
+**wave 2 runs two agents again**. The fix is about four lines: an `--dist` argument passed to
+`Runtime(client_dist=…)`. It is a no-decision change and it should land **before** `F` and `J` start,
+not inside either of them.
+
+Two things follow for every future parallel wave, and both prompts in wave 2 carry them:
+
+- **build to your own `--outDir` and serve it with `--dist`; never touch `webui/client/dist`;**
+- **`npm run build` is a shared gate** — it type-checks the whole tree, so the other agent's in-flight
+  errors will block it. Run it for the gate, at the end, and use `npx vite build --outDir …` to get a
+  bundle to serve meanwhile. Say in your report if the other agent's files were red while you ran it.
+
+### Reassigned, with an owner
+
+| item | from | owner |
+|---|---|---|
+| **The Slope page's anatomy figure still draws its chord, tangent and "steepest" marker from `fixtures/interrogation.ts::eventMarks`** (steepest = duration / 2) over a real trace, and opens 10 s before the onset whatever the padding says. **The same class as the fabrication `E` just removed, on a figure instead of a number** | `E` §8.2 | **`H`** — and it is the exemplar case for "a block must show its work" |
+| The Shape card's medoid overlay is index-stretched across the candidate's duration (unchanged semantics; a medoid carrying its own `t` would now be honoured) | `G` §11 | `H` |
+| **`channel_name` says `CH3` for `recordings.channel = 2`** (`Working/discovery/channels.py:30`, `CH{channel+1}`) and Settings › Datasets prints the raw index as `CH2`. One convention must win | `G` §10 | **`F`** — it owns Settings › Datasets |
+| Coherence `r` in the other-channels popover is still not computed — it now says so instead of throwing a TypeError on a `null` | `G` §11 | `07-review.md`, the Review *behaviour* prompt |
+| Fixture τ per recording (`TIMELINE_TREND`) is keyed by fixture recording names; a live recording prints "n N · no trend test", which is honest and useless. A Kendall τ from the core is a two-line route | `E` §8.3 | `H`, or a crumb prompt |
+| `motif_features` predates `rise_time_s`, so the route measures it per request. `--only-missing` would store 3,599 nulls (every stored event is a drop); `RULE_VERSION` in `Working/library/features.py` does not mention `rise_time_frac` and should, when a spike store is first backfilled | `E` §8.4 | the Library prompt |
+| `discovery.runs--default` fails in smoke on **both** the pre-change and post-change bridges (missing `browser-trace svg`; `E` measured it settling in 4.4 s against a 900 ms allowance under load) — **pre-existing, and now the fifth standing smoke failure beside the four Settings registration states** | `E` §9, `G` §9 | `05-discovery.md` |
+
+### Still open from earlier rounds
+
+**Q-B-CHAIN** (fan-out: one train of motifs → a width analysis *and* an ISI analysis without running
+the chain twice) is unanswered and now blocks nothing that is written. **Q-X2.7** is answered by Q21.
+**U4** (fine span adjustment) has no prompt. **U12** (the phantom Ctrl-C) is undiagnosed. **U13**
+(global search) has no prompt.
