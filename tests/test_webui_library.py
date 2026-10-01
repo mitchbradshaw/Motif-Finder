@@ -336,7 +336,7 @@ def test_recurrence_carries_recordings_families_coverage_and_shared_ground(bridg
     normal = next(r for r in body["recordings"] if r["key"] == "M2_aug_fs1")
     for key in ("key", "label", "hours", "reviewedPct", "channels", "hiddenChannels"):
         assert key in normal, key
-    assert normal["label"] == "M2_aug fs1"
+    assert normal["label"] == "M2_aug_concat_fs1.mat", "fixup-f: an unnamed dataset is called by its source file"
     assert all(":" in k for k in body["coverage"]), "coverage is keyed `${recKey}:${channel}`"
 
 
@@ -392,7 +392,7 @@ def test_family_detail_carries_real_revisions_and_the_hand_edit_record(bridge):
     for key in ("id", "d", "recording", "channel", "onsetH", "durationS", "amplitudeMv",
                 "verdict", "foundBy", "revisions", "tags", "seed"):
         assert key in member, key
-    assert member["recording"] == "M2_aug fs1", "Member.recording carries the LABEL"
+    assert member["recording"] == "M2_aug_concat_fs1.mat", "Member.recording carries the LABEL (fixup-f: the source file until it is named)"
     assert member["recordingKey"] == "M2_aug_fs1", "and recordingKey carries the key"
     assert member["revisions"], "revisions come from motif_member_revision, not invented"
     assert member["revisions"][0]["rev"] == 1
