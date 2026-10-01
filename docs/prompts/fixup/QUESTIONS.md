@@ -513,7 +513,7 @@ Nine from the researcher, with screenshots. Recorded here; ownership assigned as
 | U3 | **[FIXED — fixup-g, 2026-09-30.** The client sliced envelope POINTS as though they were seconds. The bridge now serves the context over exactly the padding asked for (`pad_s`) and the client slices by time; measured left/right padding for item 102 is 287/287 px at ±30 s, 459/459 at ±120 s, 522/522 at ±300 s, and a 600 s candidate whose band used to run off the right edge (0 px) is centred. `band_centred` in the smoke gate. `reports/G-review-axis-and-resolution.md`.**] **Review padding is one-sided** — `±30/±120/±300 s` should pad both sides of the candidate | `G` |
 | U4 | **Explore needs fine span adjustment** — the slider cannot move a span by seconds or minutes; it needs typed/stepped controls | `I` |
 | U5 | **Settings › Channels & events: the recording tab list runs off the page** with no scroll affordance | `F` |
-| U6 | **The Dehshibi template still does not read as detecting anything.** Prompt `A` fixed its black image; the thumbnails are now legible but the researcher cannot tell what the algorithm is doing or whether it works. **Wants it checked against the paper**, by an agent reading the paper alongside the code | `J` — its own prompt, and it needs the paper |
+| U6 | **[CLOSED — fixup-j, 2026-10-01.** The implementation diverged from the paper in four places; it is now a port of the authors' own MATLAB, tested against that MATLAB, with every sample analysed and the funnel on the block page. It finds 17 of 20 known synthetic events — and on M2_aug CH0 marks 91 % of the *interesting* windows and 86 % of the *not interesting* ones, so it is faithful and not selective here. `reports/J-dehshibi-vs-the-paper.md`.**] **The Dehshibi template still does not read as detecting anything.** Prompt `A` fixed its black image; the thumbnails are now legible but the researcher cannot tell what the algorithm is doing or whether it works. **Wants it checked against the paper**, by an agent reading the paper alongside the code | `J` — its own prompt, and it needs the paper |
 | U7 | **Analysis blocks answer with tables where they should answer with pictures.** The whole point of the UI is to avoid large tables. The researcher supplied an exemplar figure (the drop-motif "how a fall becomes an angle" plate: anatomy of one event, the same construction across the depth range, the rose beside it) | `H` |
 | U8 | **Anything that outputs a SpanSet should offer a slideshow of its spans** on the block page | `H` |
 | U9 | **Every existing analysis block needs a bespoke process view** — a drawing of what that block did, not a generic payload dump | `H` |
@@ -712,3 +712,114 @@ Two things follow for every future parallel wave, and both prompts in wave 2 car
 the chain twice) is unanswered and now blocks nothing that is written. **Q-X2.7** is answered by Q21.
 **U4** (fine span adjustment) has no prompt. **U12** (the phantom Ctrl-C) is undiagnosed. **U13**
 (global search) has no prompt.
+
+---
+
+## Round 6 — `J`, the Dehshibi detector against the paper, 2026-10-01 — answered and built
+
+The grilling round `J` was told to open with. Read and measured first; nothing changed. The
+evidence, and the clause-by-clause table, are in `reports/J-dehshibi-vs-the-paper.md`; the plots are
+`webui/screenshots/fixup/J/grilling-asis-vs-trial-*.png` (look at `-720000` first).
+
+**What it is.** The implementation diverges from the paper, in four places that each change the
+output. The template and the monolith agree exactly on five real spans — they share the faulty code.
+
+1. The wavelet transform keeps only the real part of an analytic transform (`phi.imag` is exactly 0).
+2. It has no boundary handling, so the wrap-around jump is the largest event in every window; the
+   scalogram is a bowl, Ω a bathtub, and the "spikes" a staircase of nested spans from sample 5.
+3. Slicing keeps only the time the signal spends below the midpoint of the span's own histogram.
+   **That is the 87 %** — 87.3 % in no chunk at all, 0.0 % in a too-short one. On 0–18 h it is 99.8 %.
+4. Algorithm 3 pairs by value, as the paper literally prints, and returns regions that end before
+   they start — every region, in 5 of 10 four-hour runs.
+
+With 1, 2 and 4 removed in a scratch trial, Ω peaks on the events a reader can see. Algorithms 2–4
+then still confirm few of them (1, 2, 0, 0 spikes over four 3000 s windows; an 8 mV sharkfin gets Ω's
+one dominant peak and no spike). The paper reports 76 % true-positive on its own data.
+
+### Q28 — fix it to the paper, or stop here?
+
+The table is the deliverable and it exists. Fixing 1, 2 and 4 is three small changes to one core file
+with a red test each, and makes the detector *the paper's*. It does not make it a good detector for
+these recordings — the trial says it will still miss most of what the drop detectors find.
+**Recommended: fix them.** A detector labelled Dehshibi that is not Dehshibi is the kind of lie
+`CLAUDE.md` ranks below ugliness, and the comparison against the other detectors (the prompt's
+question 3) means nothing until it is the real method.
+
+### Q29 — what should slicing do on a span?
+
+The paper slices a whole recording once and then works on 3000 s pieces; it never says the high-state
+time is thrown away, and its Slice2 would not survive this code's reading. Three options:
+**(a) recommended — default `slice_by_state` off and analyse the span in fixed windows** (3000 s,
+the paper's own figure scale; the per-scale normalisation and the 5 % ε are relative to the window,
+so window length is the method's real parameter), with the histogram slicing kept as an option;
+(b) keep the slicing but analyse both sides of every transition; (c) leave it and explain the grey.
+
+### Q30 — the nested spikes
+
+Algorithm 4 as printed emits `(6, 85) (6, 205) (6, 325) …` when several envelope regions fall in one
+wavelet region. Faithful, and useless on a page. **Recommended: keep the paper's output in `meta`
+for the funnel, and emit merged spans** (one per wavelet region, ending at the last envelope end) as
+the SpanSet, said in words on the block. Or keep it literal and let the page show the staircase.
+
+### Q31 — may I fetch the authors' MATLAB code?
+
+The paper cites it: Zenodo, `10.5281/zenodo.3997031`. It settles the two readings the text cannot —
+whether the envelopes are splines through the peaks of |z| or of L itself (`envelope(L, 60, 'peak')`),
+and what "intersection point" is in Algorithm 4 — and confirms the scale set and the padding. It is a
+download, so it needs a yes. Without it those rows stay `reading` and the code's choices stand.
+
+### Q32 — sample counts or seconds?
+
+`n_p = 60`, 30 and 60 are seconds in the paper and samples in the code; on the 10 Hz recordings the
+defaults mean 6 s, 3 s and 6 s. **Recommended: the blocks take seconds and convert with `fs`.**
+It changes two blocks' parameter names, so an old saved recipe needs the old names honoured.
+
+### On the Morse constants
+
+No case for exposing β, γ or η yet: the basis was never the problem, the transform around it was.
+Revisit only if Q28 is yes and the fixed Ω still reads wrong.
+
+### Round 6, answered 2026-10-01
+
+**Q28–Q32: yes to every recommendation.** Fix to the paper; slicing off by default with fixed
+3000 s windows; merged spans as the SpanSet with the literal output in `meta`; the blocks take
+seconds; **Q31: yes, fetch the authors' code.**
+
+**The authors' MATLAB was fetched and read** (Zenodo `10.5281/zenodo.3997031`,
+`FungiSpikeDetectionAnalysis.rar`, 91 MB, kept outside the repo; only the `.m` files were extracted).
+It is not the printed paper. Where they differ:
+
+| | printed paper | authors' code (`imMain.m` and the `i*.m` it calls) |
+|---|---|---|
+| slicing | chunks "enclosed between" transitions | `pulsesep` start points are **cut points**: the recording is partitioned and nothing is discarded (`iSplitSignal`) |
+| transform | Eq. (2) | `cwt(chunk, Fs)` — MATLAB's default Morse(3, 60), L1, 10 voices per octave, reflection padding; modulus |
+| Eq. (3) | `η(κ − min)/max` | `1 + fix(240·(κ − min)/max(κ − min))`, per frequency — the repo's denominator was right |
+| Ω | the sum over scales | `method = 2`: the sum over **only the frequencies ≤ a quarter of the frequency range** — Step 1's "sum of the scales below the threshold" |
+| Alg. 1 extrema | prominence ε | `findpeaks` with prominence ε **and** minimum distance 60 **and** minimum width 30; each region's start is then moved earlier by up to 30 samples |
+| Alg. 2 | regions longer than 30; spline extrema | regions of **60 or more**; `islocalmin` / `islocalmax`, no spline |
+| envelope | analytic signal, `\|z\|` | `envelope(del2(chunk), 60, 'peak')` — spline envelopes of **L itself**; no analytic signal anywhere |
+| Alg. 3 pairing | minimum i with maximum j, in lockstep | first maximum dropped, minima and maxima sorted together and paired consecutively, as in Alg. 1 |
+| Alg. 3 threshold | mean − std | mean − std if std < mean, else the mean |
+| Alg. 4 | three subset cases over C ∪ D → F_s, F_p; drop < 60 | uses **C only**; each wavelet region is widened to the hull of the envelope regions it intersects, overlapping results merged; no F_p, no length filter. With no intersection at all, the wavelet regions are returned as they are |
+| pseudo-spikes | F_p | D is computed and never used |
+
+### Q33 — which is the detector: the printed algorithms or the authors' code? — **A: the authors' code** (2026-10-01)
+
+They cannot both be implemented as one block chain. **Recommended: the authors' code**, with every
+departure from the print in the report's table. It is what produced the paper's figures and its 76 %;
+it never emits a region that ends before it starts; and its Algorithm 4 is already the merged-span
+output Q30 asked for.
+
+**Also confirmed before building (2026-10-01):** three blocks, the same three types; the third takes
+ANY per-sample `Scores`, so another summation — or a `Signal → Scores` block replacing the first two
+stages — drops in front of it unchanged. The band of the scalogram that is summed is a fraction of
+its rows (an `Encoding` has no frequency axis). The existing STFT block cannot replace the transform
+as it stands: one column per hop, not per sample.
+
+### What `J` leaves open
+
+- **Q34 — keep the Dehshibi detector in the comparison set?** It is now a faithful baseline and a
+  weak one on these recordings (spans cover 53 % of M2_aug CH0's labelled time). Keep as a baseline,
+  tune (`epsilon_factor`, `min_separation_s`, `window_s`), or retire from the detect tab?
+- The funnel strips do not share the x-axis of the plot above them — `H`.
+

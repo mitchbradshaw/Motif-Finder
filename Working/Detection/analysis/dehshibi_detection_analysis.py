@@ -1,4 +1,15 @@
 """
+*** SUPERSEDED FOR DETECTION (fixup-J, 2026-10-01) ***
+The detection half of this file is an early reading of the PRINTED algorithms
+and is not what the app runs any more: its transform keeps only the real part
+and wraps around at the window's ends, its slicing discards most of a span,
+and its Algorithm 3 can return regions that end before they start
+(`docs/prompts/fixup/reports/J-dehshibi-vs-the-paper.md`). The detector is
+`dehshibi_authors.py`, a port of the authors' own MATLAB, checked against it.
+This file stays for its other importers (`wavelet_analysis.py`, the
+experiment scripts), for the Sect. 4.2 complexity measures, and for
+`plot_spike_detection`.
+
 Full implementation of the spike-detection and complexity-analysis pipeline from:
 
     Dehshibi, M.M. & Adamatzky, A. (2021).

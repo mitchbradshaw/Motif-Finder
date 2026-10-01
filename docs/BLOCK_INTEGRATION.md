@@ -14,7 +14,7 @@ SLURM export) reads it and never the wrapped function.
 ```python
 SPEC = register(AdapterSpec(
     name="detection.summation_threshold",        # "<stage>.<short_name>"; stage ∈ Working.recipes.STAGES
-    display_name="Summation threshold (Dehshibi stage 3)",
+    display_name="Summation threshold: regions, envelope, merge (Dehshibi stage 3)",
     stage="detection",
     category="detect",                           # insert-modal tab: preprocess·encode·detect·cluster·model·control
     page_name="Summation threshold",             # what the concept pages call it (defaults to display_name)
@@ -196,35 +196,57 @@ is built.
 
 ```python
 import numpy as np
-from Adapters.base import AdapterResult, AdapterSpec
+from Adapters.base import AdapterResult, AdapterSpec, ParamSpec
 from Adapters.registry import register
 from Working.types import Scores
 
-def _run(x, t, fs, value=None):
+def band_rows(n_rows, row_from, row_to):
+    return int(round(row_from * n_rows)), int(round(row_to * n_rows))
+
+def _run(x, t, fs, row_from=0.0, row_to=1.0, value=None):
     if value is None:
         raise ValueError("detection.wavelet_summation requires an Encoding input from a prior step (input_kind='encoding').")
     if getattr(value, "kind", None) != "image":
-        raise ValueError(f"… sums a scales × time image; got an Encoding of kind {value.kind!r}. Put Wavelet transform before it.")
-    g = np.asarray(value.values, dtype=float)
+        raise ValueError(f"… sums a rows × time image; got an Encoding of kind {value.kind!r}. Put Wavelet transform before it.")
+    g = np.asarray(value.values)
     if g.ndim != 2 or g.shape[1] != len(x):
-        raise ValueError(f"… expects an image with one column per sample (shape (scales, {len(x)})); got {g.shape}.")
-    omega = g.sum(axis=0)                       # NaN columns (a skipped chunk) stay NaN
+        raise ValueError(f"… expects an image with one column per sample (shape (rows, {len(x)})); got {g.shape}.")
+    lo, hi = band_rows(g.shape[0], row_from, row_to)
+    if hi <= lo:
+        raise ValueError(f"… the band row_from={row_from:g} … row_to={row_to:g} holds no row of a {g.shape[0]}-row image.")
+    omega = g[lo:hi].astype(float).sum(axis=0)  # NaN columns stay NaN
     return AdapterResult(output_kind="scores", value=Scores(values=omega, fs=float(fs)),
-                         meta={"n_scales": int(g.shape[0]), "n_nan": int(np.isnan(omega).sum())})
+                         meta={"n_rows": int(g.shape[0]), "rows_used": [lo, hi], "n_nan": int(np.isnan(omega).sum())})
 
 SPEC = register(AdapterSpec(
     name="detection.wavelet_summation", display_name="Wavelet summation Ω(τ) (Dehshibi stage 2)",
     stage="detection", category="detect", page_name="Wavelet summation",
-    params=[], run=_run, input_kind="encoding", output_kind="scores",
-    description="Ω(τ) = Σ_s g(τ, s): collapses the normalised Morse coefficients to one value per sample.",
+    params=[ParamSpec("row_from", float, 0.0, "…", min=0.0, max=1.0), ParamSpec("row_to", float, 1.0, "…", min=0.0, max=1.0)],
+    run=_run, input_kind="encoding", output_kind="scores",
+    description="Ω(τ): sums a band of rows of a time-aligned image to one value per sample.",
 ))
 ```
 
 What it *did not* need: an estimate (a column sum is O(n)), a glyph of its own to be usable (it drew with
 the `encoding→scores` signature glyph until one was added), any change to the bridge or a page. Its test
-(`tests/test_adapter_wavelet_summation.py`) checks the types, the sum, NaN propagation and the two error
-messages. The template that uses it (`dehshibi_spikes`) is tested end to end in
-`tests/test_template_dehshibi.py`, where it reproduces the monolithic `detect_spikes` span for span.
+(`tests/test_adapter_wavelet_summation.py`) checks the types, the sum, the band, NaN propagation and the
+error messages. The template that uses it (`dehshibi_spikes`) is tested end to end in
+`tests/test_template_dehshibi.py`, where it reproduces, span for span, what the authors' own MATLAB returned
+on the same recording (`tests/fixtures/dehshibi/reference.json`; fixup-J).
+
+**Two contracts this template taught** (fixup-J), which make its middle block replaceable:
+
+- **A time-aligned image**: an `Encoding` of kind `image` with **one column per sample of the span and rows
+  ordered low to high**. `preprocessing.wavelet_transform` emits one; `detection.wavelet_summation` accepts
+  any. An `Encoding` carries no axis and a block does not see the previous block's `meta`, so a block that
+  selects rows does it by **fraction of the image height**, and the block that made the image prints the
+  fraction that matters in its own readout. (`detection.freq_stft` is *not* time-aligned — one column per
+  hop — and cannot feed the summation as it stands.)
+- **A block that consumes a `Scores` asks nothing about how it was made.** `detection.summation_threshold`
+  needs one value per sample and the signal (`x`, which every block gets); it windows the score itself.
+  Any `Encoding → Scores` block, or any `Signal → Scores` block replacing the first two stages, drops in
+  front of it unchanged. If two blocks in a chain must agree on something (a window, a chunking), make
+  each compute it from its own inputs — never a parameter the researcher has to keep equal in two places.
 
 ## 7. Long work — the job model
 
@@ -240,6 +262,6 @@ rebuilt from its `jobs` row and, for a chain run, the `runs` row the core wrote.
 
 Before adding a block, grep the registry. Reuse when the *semantics* match, not just the types:
 `detection.threshold` cuts any Scores at an absolute value and any Scores-producing block may feed it;
-`detection.summation_threshold` was added because Algorithms 1–4 need extrema pairs at a relative prominence
+`detection.summation_threshold` was added because the Dehshibi regions need extrema pairs at a relative prominence
 and the raw signal — same signature, different meaning. Write the "why not reuse" sentence in the new
 block's docstring.

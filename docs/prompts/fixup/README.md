@@ -20,7 +20,7 @@ The suite baseline is now **1799 passed / 7 skipped / 0 failed**, failure set em
 |---|---|
 | **WAVE 2 — run together, next** | |
 | `F-datasets-and-naming.md` | **ready.** A `datasets` table keyed by `source_file`; the editable columns Q23 names; the display name replaces the file name across the site through one seam; the `CH2`/`CH3` convention settled; the Settings channel-tab overflow (U5). Port **8765** |
-| `J-dehshibi-vs-the-paper.md` | **scaffold — attach the paper.** Opens with its own grilling round before any code. Two implementations of the detector exist and nothing asserts they agree; 87 % of cells on a real span are honestly marked uncovered and that is the thread to pull (U6). Port **8766** |
+| `J-dehshibi-vs-the-paper.md` | **run and reported 2026-10-01** (`reports/J-…`). The detector diverged from the paper in four places and the paper diverges from its authors' code; the blocks are now a port of that code, checked against MATLAB. 17 of 20 known synthetic events found; on M2_aug CH0 it is faithful and unselective (Q34). *Was:* **scaffold — attach the paper.** Opens with its own grilling round before any code. Two implementations of the detector exist and nothing asserts they agree; 87 % of cells on a real span are honestly marked uncovered and that is the thread to pull (U6). Port **8766** |
 | **WAVE 3 — alone** | |
 | `H-blocks-show-their-work.md` | *(not written — the researcher wants a grilling round first)* U7/U8/U9: process views per block, span slideshows, figures instead of tables. Now also owns the Slope page's anatomy figure, which still draws its marks from fixtures over a real trace (`E` §8.2), and the `200×` null label (Q27). Cross-cutting; conflicts with everything |
 | **DONE** | |

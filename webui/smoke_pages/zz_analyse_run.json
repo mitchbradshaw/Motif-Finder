@@ -1,0 +1,3 @@
+[
+ {"page": "analyse.block", "state": "fixup-j-dehshibi-funnel", "hash": "analyse/chain", "settle_ms": 900, "actions": [{"press": "Escape"}, {"wait": 300}, {"click": "[data-testid=\"import-button\"]"}, {"wait": 400}, {"click": "[data-testid=\"template-dehshibi_spikes\"]"}, {"wait": 600}, {"click": "[data-testid=\"use-example\"]"}, {"wait": 900}, {"click": "[data-testid=\"run-button\"]"}, {"wait": 9000}, {"click": "[data-testid=\"settings-step-3\"]"}, {"wait": 1500}], "expect": ["[data-testid=\"block-page\"]", "[data-testid=\"detector-funnel\"]", "[data-testid=\"funnel-stage-S\"] [data-render=\"funnel-strip\"]"]}
+]
