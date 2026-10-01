@@ -13,6 +13,13 @@ here, imported by both, rather than restated.
 
 The fallback is ``CH<n+1>`` — one-based, like the electrode names — for any
 recording that is not a sixteen-channel M2-style file.
+
+ONE convention (fixup-f): a channel's name is one-based everywhere it is
+printed — ``recordings.channel = 2`` is **CH3** on every page, in every
+payload and in every scoreboard row. The stored index is zero-based and so
+are the files on disk (``CH2.npy``); where that matters it is shown BESIDE
+the name by ``channel_index_note``, never instead of it. Nothing may format
+``f"CH{channel}"`` itself.
 """
 
 #: The sixteen M2-style electrode names, in channel order.
@@ -28,3 +35,10 @@ def channel_name(source_file, channel, n_channels):
     if str(source_file).startswith(M2_STYLE_PREFIXES) and int(n_channels) == 16 and 0 <= channel < 16:
         return M2_STYLE_NAMES[channel]
     return f"CH{channel + 1}"
+
+
+def channel_index_note(channel):
+    """What the stored index and the file on disk say, for a hover or a
+    provenance line beside the channel's name."""
+    channel = int(channel)
+    return f"recordings.channel = {channel} · CH{channel}.npy"

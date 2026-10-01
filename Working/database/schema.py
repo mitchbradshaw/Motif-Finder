@@ -518,6 +518,36 @@ CREATE INDEX IF NOT EXISTS idx_audit_log_kind ON audit_log(kind);
 """
 
 
+# fixup-f: a dataset's identity. `recordings` is one row per CHANNEL, so what a
+# researcher calls a dataset -- Mushroom_260720, M2_aug, L_LM_Jul_26_J -- is
+# the set of rows sharing a `source_file`, and species / organism / date /
+# condition / display name / notes are properties of that set, not of a
+# channel. One row per source file, created the first time a field is filled;
+# a file with no row has no metadata and is called by its file name
+# (`Working.database.datasets.display_name` is the one fallback). The name is
+# a label and never a key: nothing joins, filters, caches or routes on it.
+# `notes` here is the dataset's; `recordings.notes` stays per-channel and is
+# deliberately NOT migrated into it. Additive: CREATE TABLE IF NOT EXISTS.
+_DATASETS_SCHEMA = """
+CREATE TABLE IF NOT EXISTS datasets (
+    source_file      TEXT PRIMARY KEY,
+    display_name     TEXT,
+    species          TEXT,
+    organism_id      TEXT,
+    experiment_date  TEXT,              -- ISO YYYY-MM-DD
+    condition        TEXT,
+    notes            TEXT,
+    updated_at       TEXT NOT NULL,
+    actor            TEXT
+);
+"""
+
+
+def _create_datasets_table(conn):
+    conn.executescript(_DATASETS_SCHEMA)
+    conn.commit()
+
+
 def _migrate_columns(conn, table, new_columns):
     existing = {row["name"] for row in conn.execute(f"PRAGMA table_info({table})")}
     for name, coltype in new_columns:
@@ -1382,6 +1412,7 @@ def init_db(db_path=None):
     _migrate_recordings_units(conn)
     _migrate_encodings_registration_columns(conn)
     _create_registration_tables(conn)
+    _create_datasets_table(conn)
     _migrate_motif_features(conn)
     # After the registration tables: the rewrite records itself in `audit_log`.
     _migrate_legacy_detections(conn)

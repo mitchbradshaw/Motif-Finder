@@ -48,6 +48,7 @@ Headless: plain SQL over an open connection, no UI import, no bridge import.
 
 from Working.database import queries as _q
 from Working.database import runs as _runs
+from Working.discovery.channels import channel_name
 from Working.discovery.matching import match_span_sets, normalise_rule, rule_from_settings
 from Working.discovery.spans import absolute_bounds, clip, contains, merged, total_length
 
@@ -184,7 +185,7 @@ def channel_score(conn, run_id, *, rule=None, null_run_id=None, span=None):
         span_end = min(span_end, int(span[1]))
         if span_end <= span_start:
             span_start = span_end = int(run["span_start"])
-            return _empty_row(run, rec, rule, [span_start, span_end],
+            return _empty_row(conn, run, rec, rule, [span_start, span_end],
                               "this run does not reach the section on screen")
     fs = float(rec["fs"]) if rec and rec["fs"] else 1.0
 
@@ -281,7 +282,7 @@ def channel_score(conn, run_id, *, rule=None, null_run_id=None, span=None):
         "status": status,
         "recording_id": int(run["recording_id"]),
         "channel": int(rec["channel"]) if rec else None,
-        "channel_name": f"CH{int(rec['channel'])}" if rec else None,
+        "channel_name": _channel_name(conn, rec),
         "source_file": rec["source_file"] if rec else None,
         "fs": fs,
         "span": [span_start, span_end],
@@ -309,7 +310,16 @@ def channel_score(conn, run_id, *, rule=None, null_run_id=None, span=None):
     }
 
 
-def _empty_row(run, rec, rule, span, note):
+def _channel_name(conn, rec):
+    """The channel's name by the one convention (`channels.channel_name`); it
+    used to be the raw index, so a row said CH2 where Explore said CH3."""
+    if not rec:
+        return None
+    n = conn.execute("SELECT COUNT(*) FROM recordings WHERE source_file = ?", (rec["source_file"],)).fetchone()[0]
+    return channel_name(rec["source_file"], int(rec["channel"]), n)
+
+
+def _empty_row(conn, run, rec, rule, span, note):
     """A row for a run the section does not reach: counts zero, every ratio a
     word. Never a 0.00 precision with no denominator behind it."""
     fs = float(rec["fs"]) if rec and rec["fs"] else 1.0
@@ -317,7 +327,7 @@ def _empty_row(run, rec, rule, span, note):
         "run_id": int(run["id"]), "run_name": run["name"], "status": run["status"],
         "recording_id": int(run["recording_id"]),
         "channel": int(rec["channel"]) if rec else None,
-        "channel_name": f"CH{int(rec['channel'])}" if rec else None,
+        "channel_name": _channel_name(conn, rec),
         "source_file": rec["source_file"] if rec else None, "fs": fs, "span": span,
         "found": 0, "already_judged": 0, "reviewed": 0, "interesting": 0,
         "precision": None, "precision_label": "precision", "precision_note": note,
