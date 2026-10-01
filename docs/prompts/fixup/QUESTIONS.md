@@ -818,7 +818,7 @@ as it stands: one column per hop, not per sample.
 
 ### What `J` leaves open
 
-- **Q34 — keep the Dehshibi detector in the comparison set?** It is now a faithful baseline and a
+- **Q34 — [A, 2026-10-02: keep it for now, untuned.]** **keep the Dehshibi detector in the comparison set?** It is now a faithful baseline and a
   weak one on these recordings (spans cover 53 % of M2_aug CH0's labelled time). Keep as a baseline,
   tune (`epsilon_factor`, `min_separation_s`, `window_s`), or retire from the detect tab?
 - The funnel strips do not share the x-axis of the plot above them — `H`.
