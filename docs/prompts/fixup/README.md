@@ -90,6 +90,20 @@ candidate left that passes without typed input, so it needs a fixture candidate 
 assertion. Whoever takes them should say so in their own report rather than quietly re-pointing a
 standing failure.
 
+**A sixth state flakes on a cold bridge.** `analyse.interrogation--fixup-d-sequence-rose` was still
+showing *"measuring the events of sequence 1…"* at its 4000 ms allowance on the clean gate run of
+2026-10-02, and passed — with all 49 interrogation states — on a re-walk against the same bridge
+once warm; the route it waits on answers 200 in 20–55 ms. That is cold-start cost, the same class as
+`discovery.runs--default`, and the allowance was deliberately **not** raised, because it measures the
+page's first paint. Two cold-start flakes is a pattern: whoever next owns `smoke.py` should look at
+the first-touch allowance across the whole walk rather than at these two states.
+
+**The clean gate run, 2026-10-02** — client rebuilt, every earlier bridge and browser stopped, a
+fresh `--sandbox` bridge alone on the machine: **573 screenshots, 6 failures** (the five standing
+plus the flake above), **0 browser console/page errors, 0 unexpected server tracebacks**. The
+tracked screenshot set in `webui/screenshots/` is that run's output (`cd18360`); the sets the
+wave-2 agents left behind were taken with two browsers and two bridges running at once.
+
 ## The open decisions
 
 `QUESTIONS.md` is the live list, with the answers recorded beside each question as they are given.
