@@ -12,7 +12,7 @@ import { useSourced } from '../api/seam'
 import { navigate } from '../state'
 import { ApiError, checkCandidate, declareRecordingUnits, registerCandidate, unregisterRow, type Candidate, type CheckReport } from '../api'
 import { getDatasets, metaKey, type ExcerptOf, type MetaField } from '../api/settings'
-import { DatasetName } from '../naming'
+import { DatasetName, datasetOf, useDatasetNames } from '../naming'
 import { useToast } from '../shell/Toast'
 import { GridField, LoadFailed, Loading, LockedField, Row, SettingsShell } from './chrome'
 import { useSettingsPage } from './store'
@@ -35,6 +35,10 @@ function Body({ data, reload }: { data: Data; reload: () => void }) {
   const s = useSettingsPage('datasets')
   const { push } = useToast()
   const rows = data.recordings
+  /* whether a dataset is NAMED comes from the naming seam, like the name itself: the seam is re-read when this
+     page saves, and the page's own read is not — so the row must not keep saying "not named" after a save */
+  const names = useDatasetNames()
+  const isNamed = (r: Rec) => datasetOf(names, r.file)?.named ?? r.named
   const [rec, setRec] = useQueryState('rec', rows[0]?.id ?? '')
   const [modal, setModal] = useQueryState('modal', '')
   const current = rows.find(r => r.id === rec) ?? rows[0]
@@ -55,7 +59,7 @@ function Body({ data, reload }: { data: Data; reload: () => void }) {
     const v = meta('display_name').trim()
     if (!v) return null
     if (v.length > 60) return 'At most 60 characters'
-    const clash = rows.find(r => r.id !== current.id && [r.name.toLowerCase(), r.file.toLowerCase()].includes(v.toLowerCase()))
+    const clash = rows.find(r => r.id !== current.id && [(s.str(metaKey(r.id, 'display_name')).trim() || r.file).toLowerCase(), r.file.toLowerCase()].includes(v.toLowerCase()))
     return clash ? `${clash.file} already answers to that` : null
   })()
   const dateError = (() => {
@@ -126,7 +130,7 @@ function Body({ data, reload }: { data: Data; reload: () => void }) {
                      actions off the card (they were clipped before this prompt, too) */
                   <span style={{ display: 'flex', flexDirection: 'column', gap: 1, minWidth: 0, overflowWrap: 'anywhere' }}>
                     <DatasetName file={r.file} className="mono s-ds-name" testid={`name-${r.id}`} />
-                    {r.named ? <span className="mono small muted" data-testid={`file-${r.id}`}>{r.file}</span>
+                    {isNamed(r) ? <span className="mono small muted" data-testid={`file-${r.id}`}>{r.file}</span>
                       : <span className="small muted" data-testid={`unnamed-${r.id}`}>not named · called by its file</span>}
                   </span>
                 ),
