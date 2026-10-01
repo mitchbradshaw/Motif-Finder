@@ -5,8 +5,9 @@ Run 2026-10-01 on `main`, in the main checkout, from base `6994b55`. Commit pref
 `tests/test_webui_dataset_naming.py`; the two `tests/test_webui_library.py` expectations it changes on purpose).
 The implementation is `60008a8` (core), `9ee9686` (bridge), `7c6be58` (client), `83d4261` (smoke states, one more
 test, the Sequence page, the registration doc) and `5d7eb95` (a defect my own new smoke state found, §7). Prompt `J` ran in the same checkout throughout — its Dehshibi
-tests, fixtures, scripts and `QUESTIONS.md` hunks were uncommitted and mid-edit the whole time. The two prompts
-shared no source file; every commit here is path-scoped.
+tests, fixtures, scripts and `QUESTIONS.md` hunks were uncommitted and mid-edit for most of the run (it committed
+at 18:10, before this report's commit). The two prompts shared no source file; every commit here is path-scoped,
+and the stage docs both prompts edit were staged from `HEAD` plus this prompt's lines only.
 
 **What the researcher sees.** Settings › Datasets has the six fields Q23 names. Give a dataset a display name
 there and it is that name in Explore's recording menu and breadcrumbs, in Analyse's source chip, in Discovery's
