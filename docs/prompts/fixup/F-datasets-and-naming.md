@@ -35,10 +35,14 @@ does not touch it. If `J` needs a column, it asks you.
 
 - **Build to your own `--outDir` and serve it with `run_server.py --dist`. Never build
   `webui/client/dist`** — wave 1 had no `--dist` and the two agents overwrote each other's bundle.
-  If `--dist` is not in `run_server.py` when you arrive, **that is your first commit** (it is about
-  four lines: an argument passed through to `Runtime(client_dist=…)`, which already exists at
-  `webui/server/runtime.py:63,71`) — commit it on its own, path-scoped, and say so in your report so
-  `J` can use it.
+  The flag landed 2026-10-01 (`tests/test_webui_run_server_dist.py`), so:
+
+      cd webui/client && npx vite build --outDir ../../<scratch>/dist-f
+      python webui/run_server.py --sandbox --port 8765 --dist <scratch>/dist-f
+
+  The bridge prints `CLIENT = …` in its banner when it is on a private build; **check that line
+  before you trust a screenshot.** If it is missing, you are on the shared dist and `J` can
+  overwrite you.
 - **`npm run build` is `tsc -b && vite build`, so it type-checks the whole tree** and `J`'s in-flight
   files can make it red through no fault of yours. Run it for the gate at the end; use
   `npx vite build --outDir <yours>` to get something to serve meanwhile. Report it if `J`'s files

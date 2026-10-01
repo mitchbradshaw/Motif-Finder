@@ -51,10 +51,14 @@ prompts carry:
 
 1. **Disjoint page trees, disjoint server modules, separate `smoke_pages` files.** Each prompt
    carries an ownership table naming the other agent's files.
-2. **A private port and a private client build.** `run_server.py` needs a `--dist` argument
-   (`Runtime(client_dist=…)` already exists and is not exposed) — **about four lines, and it should
-   land before wave 2 starts.** Without it there is one shared `webui/client/dist` and whoever
-   builds last owns it; in wave 1 that cost `G` its before/after baseline mid-run.
+2. **A private port and a private client build.** **`run_server.py --dist DIR` exists as of
+   2026-10-01** (`addb4f0` red → `a1c…` green; env `WEBUI_DIST`). Build with
+   `npx vite build --outDir <yours>` in `webui/client` and serve that, so the shared
+   `webui/client/dist` is never anyone's working bundle — without it, whoever builds last owns it,
+   and in wave 1 that cost `G` its before/after baseline mid-run. A relative `--dist` is made
+   absolute before `Runtime.setup()` chdirs, a `--dist` that is not a directory is refused the way
+   a busy port is, and a bridge on a private build **says so in its banner** (`CLIENT = …`) and in
+   `/api/runtime`.
 3. **`npm run build` is `tsc -b && vite build`** and type-checks the whole tree, so the other
    agent's in-flight files can make it red. Run it for the gate at the end; `npx vite build
    --outDir …` to get something to serve meanwhile.

@@ -666,6 +666,8 @@ page that has just been cleaned is worse than a missing feature.
 
 ### The infrastructure fix neither prompt owned: `run_server.py --dist`
 
+**[DONE 2026-10-01.** `run_server.py --dist DIR` (env `WEBUI_DIST`), threaded to the `Runtime(client_dist=…)` that already existed. Two traps pinned by `tests/test_webui_run_server_dist.py`: a relative `--dist` is made absolute **before** `Runtime.setup()` chdirs to the repo root (otherwise it would silently name the repo's own `client/dist`, which exists, so the mistake would serve a real-looking stale bundle rather than failing); and a `--dist` that is not a directory is refused like a busy port, rather than falling through to `app.py`'s JSON note and starting a bridge that looks alive and serves no app. A bridge on a private build announces it — `CLIENT = … (a private build, not the shared client/dist)` in the banner, and `client_dist` in `/api/runtime`. Verified end to end: a probe bundle served at `/`, the shared default unchanged.** The account below is kept because it is why the flag exists.]**
+
 Both wave-1 agents needed a private client build and **neither could have one**. `Runtime(client_dist=…)`
 exists (`webui/server/runtime.py:63,71`) and `run_server.py` does not expose it, so there is one
 shared `webui/client/dist` and whoever builds last owns it. What actually happened:

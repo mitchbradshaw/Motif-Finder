@@ -56,9 +56,14 @@ You own the Dehshibi template and its block pages.
 **The build rules wave 1 learned the hard way** (QUESTIONS Round 5):
 
 - **Build to your own `--outDir` and serve it with `run_server.py --dist`. Never build
-  `webui/client/dist`.** `F` adds `--dist` as its first commit if it is not already there; if you
-  arrive first and it is missing, add it yourself (four lines through to
-  `Runtime(client_dist=…)`, `webui/server/runtime.py:63,71`), commit it alone, and tell `F`.
+  `webui/client/dist`.** The flag landed 2026-10-01 (`tests/test_webui_run_server_dist.py`):
+
+      cd webui/client && npx vite build --outDir ../../<scratch>/dist-j
+      python webui/run_server.py --sandbox --port 8766 --dist <scratch>/dist-j
+
+  The bridge prints `CLIENT = …` in its banner when it is on a private build; **check that line
+  before you trust a screenshot.** If it is missing, you are on the shared dist and `F` can
+  overwrite you.
 - **`npm run build` is `tsc -b && vite build`** and type-checks the whole tree, so `F`'s in-flight
   files can make it red. Run it for the gate at the end; `npx vite build --outDir <yours>`
   meanwhile. Report it if `F`'s files were red while you ran it.

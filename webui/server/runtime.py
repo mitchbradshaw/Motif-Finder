@@ -53,6 +53,7 @@ HELD_OUT_FILE = "M4_aug_concat_fs1.mat"
 
 MODES = ("sandbox", "project")
 BACKUPS_KEPT = 10
+_DEFAULT_CLIENT_DIST = os.path.join(WEBUI_DIR, "client", "dist")
 
 
 class Runtime:
@@ -68,7 +69,7 @@ class Runtime:
         self.stamp = stamp
         self.db_source = os.path.abspath(db_source or REAL_DB)
         self.dir = os.path.join(runtime_root or os.path.join(WEBUI_DIR, "runtime"), stamp)
-        self.client_dist = client_dist or os.path.join(WEBUI_DIR, "client", "dist")
+        self.client_dist = client_dist or _DEFAULT_CLIENT_DIST
         # the runtime dir always holds the server's own scratch: log, exports, meta sidecar
         self.log_path = os.path.join(self.dir, "server.log")
         self.exports_dir = os.path.join(self.dir, "exports")
@@ -210,12 +211,19 @@ class Runtime:
 
     # --------------------------------------------------------- describe --
     def banner(self) -> str:
-        """One loud line for the log and the terminal."""
+        """The loud lines for the log and the terminal: the mode always, and
+        the client build when it is not the shared one."""
         if self.mode == "project":
-            return (f"MODE = PROJECT: the REAL database {self.db_path} is open IN PLACE (journal_mode={self.journal_mode}); "
+            line = (f"MODE = PROJECT: the REAL database {self.db_path} is open IN PLACE (journal_mode={self.journal_mode}); "
                     f"backup written to {self.db_backup}; step cache, results and models stay at their real locations")
-        return (f"MODE = SANDBOX: the real database is NOT open; every write lands in the copy {self.db_path} "
-                f"and every core path is redirected under {self.dir}")
+        else:
+            line = (f"MODE = SANDBOX: the real database is NOT open; every write lands in the copy {self.db_path} "
+                    f"and every core path is redirected under {self.dir}")
+        # A private build is the whole point of --dist, and serving the wrong
+        # one is invisible from the browser: say which bundle this bridge has.
+        if not _same_path(self.client_dist, _DEFAULT_CLIENT_DIST):
+            line += f"\nCLIENT = {self.client_dist} (a private build, not the shared client/dist)"
+        return line
 
     def describe(self) -> dict:
         sandbox = self.mode == "sandbox"
@@ -246,6 +254,10 @@ class Runtime:
 
 
 # ------------------------------------------------------------ helpers --
+def _same_path(a: str, b: str) -> bool:
+    return os.path.normcase(os.path.abspath(a)) == os.path.normcase(os.path.abspath(b))
+
+
 def _inside(path: str, root: str) -> bool:
     return os.path.abspath(path).lower().startswith(os.path.abspath(root).lower() + os.sep) \
         or os.path.abspath(path).lower() == os.path.abspath(root).lower()
