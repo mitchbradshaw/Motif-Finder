@@ -178,6 +178,8 @@ def _spanset(value, meta, ctx):
     for key in _SPANSET_META_VIEWS:
         if key in (meta or {}):
             out[key] = _clean(meta[key])
+    if "funnel" in (meta or {}):
+        out["funnel"] = _funnel(meta["funnel"], fs, ss)
     if feats is not None and "units" in ctx:
         # the core measured in mV on the assumption the samples are volts (detect5's
         # convention); say so where the recording's declared unit does not back it (fixup-b)
@@ -190,6 +192,24 @@ def _spanset(value, meta, ctx):
 
 
 _SPANSET_META_VIEWS = ("rules", "rose", "interval_stats")
+
+
+def _funnel(funnel, fs, span_start):
+    """A detector's own account of what it decided (fixup-j): each stage's
+    regions, from span samples (half-open) to the absolute seconds the spans
+    are drawn in, under the spans' own cap, with the count that was found."""
+    sec = lambda v: (float(v) + span_start) / fs
+    stages = []
+    for st in funnel.get("stages", []):
+        regs = st.get("regions", [])
+        stages.append({"key": st["key"], "label": st["label"], "n": int(st.get("n", len(regs))),
+                       "capped": len(regs) > SPAN_CAP,
+                       "start_s": [sec(a) for a, _ in regs[:SPAN_CAP]],
+                       "end_s": [sec(b) for _, b in regs[:SPAN_CAP]]})
+    return {"stages": stages,
+            "chunks_s": [[sec(a), sec(b)] for a, b in funnel.get("chunks", [])[:SPAN_CAP]],
+            "peaks_s": [sec(v) for v in funnel.get("omega_peaks", [])[:SPAN_CAP]],
+            "valleys_s": [sec(v) for v in funnel.get("omega_valleys", [])[:SPAN_CAP]]}
 
 
 def _feature_table(df, n):

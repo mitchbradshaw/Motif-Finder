@@ -51,12 +51,15 @@ CANONICAL: list[dict] = [
         ],
     },
     {
-        "name": "dehshibi_spikes", "kind": "detection", "version": 1,
-        "description": "Dehshibi & Adamatzky 2021 as three blocks: Morse wavelet transform → Ω summation → "
-                       "Algorithms 1–4. Replaces the monolithic detection.dehshibi_spikes adapter.",
+        "name": "dehshibi_spikes", "kind": "detection", "version": 2,
+        "description": "Dehshibi & Adamatzky 2021 as three blocks, following the authors' own code: Morse "
+                       "scalogram in 3000 s windows → Ω, the sum of the low-frequency band → candidate "
+                       "regions, envelope regions, merge. Replaces the monolithic detection.dehshibi_spikes adapter.",
         "steps": [
             _step("preprocessing", "wavelet_transform", {}),
-            _step("detection", "wavelet_summation", {}),
+            # the authors sum the frequencies at or below a quarter of the range: the lowest 66 of the
+            # 87 rows a 3000 s window makes (Wavelet transform prints the fraction for any other window)
+            _step("detection", "wavelet_summation", {"row_to": 0.7586}),
             _step("detection", "summation_threshold", {}),
         ],
     },
@@ -245,13 +248,27 @@ def delete(conn, template_id: int) -> None:
 
 
 def seed_canonical(conn) -> int:
-    """Insert every canonical template whose name is not yet in the table.
-    Returns how many rows were written (0 on every start after the first)."""
-    have = {r[0] for r in conn.execute("SELECT name FROM templates")}
+    """Insert every canonical template whose name is not yet in the table, and
+    bring a BUILTIN row up to the code's version when the code's is newer (a
+    builtin row cannot be edited, so nothing of the researcher's is lost; a
+    saved copy is never touched). Returns how many rows were written (0 on
+    every start once the table is current)."""
+    have = {r[0]: (int(r[1]), int(r[2]), int(r[3]))
+            for r in conn.execute("SELECT name, id, version, builtin FROM templates")}
     n = 0
     for t in CANONICAL:
-        if t["name"] in have:
+        version = int(t.get("version", 1))
+        if t["name"] not in have:
+            tid = save(conn, t["name"], t["steps"], kind=t["kind"], description=t["description"], builtin=True)
+            if version != 1:
+                conn.execute("UPDATE templates SET version = ? WHERE id = ?", (version, tid))
+                conn.commit()
+            n += 1
             continue
-        save(conn, t["name"], t["steps"], kind=t["kind"], description=t["description"], builtin=True)
-        n += 1
+        tid, have_version, builtin = have[t["name"]]
+        if builtin and have_version < version:
+            conn.execute("UPDATE templates SET steps_json = ?, kind = ?, description = ?, version = ?, updated_at = ? "
+                         "WHERE id = ?", (_dumps(t["steps"]), t["kind"], t["description"], version, _now(), tid))
+            conn.commit()
+            n += 1
     return n

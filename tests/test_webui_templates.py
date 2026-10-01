@@ -81,6 +81,25 @@ def test_seed_is_idempotent_and_marks_rows_builtin(db):
     assert all(r["kind"] in KINDS for r in builtin)
 
 
+def test_a_builtin_row_older_than_the_code_is_brought_up_to_date(db):
+    """fixup-j changed what `dehshibi_spikes` passes its second block; a database
+    seeded before that holds the old steps under a builtin row nobody can edit.
+    Seeding upgrades it, once, and leaves a saved copy alone."""
+    import json
+    T.seed_canonical(db)
+    code = T.canonical("dehshibi_spikes")
+    assert code["version"] >= 2
+    old_steps = [dict(s, params={}) for s in code["steps"]]
+    db.execute("UPDATE templates SET steps_json = ?, version = 1 WHERE name = 'dehshibi_spikes'", (json.dumps(old_steps),))
+    T.save(db, "my dehshibi", old_steps)
+    assert T.seed_canonical(db) == 1
+    row = db.execute("SELECT steps_json, version FROM templates WHERE name = 'dehshibi_spikes'").fetchone()
+    assert json.loads(row[0])[1]["params"] == code["steps"][1]["params"] and row[1] == code["version"]
+    copy = db.execute("SELECT steps_json FROM templates WHERE name = 'my dehshibi'").fetchone()
+    assert json.loads(copy[0])[1]["params"] == {}
+    assert T.seed_canonical(db) == 0
+
+
 def test_saving_a_copy_is_an_editable_non_builtin_row(db):
     T.seed_canonical(db)
     src = T.canonical("mp_threshold")
