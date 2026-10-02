@@ -3,7 +3,8 @@
 One page for the researcher who has a new detector, encoder or feature extractor next year and
 wants it runnable from Analyse, composable into templates, and drawn on every page — without
 touching the UI. Written 2026-09-21 (stage 3, wiring prompt 01). Where this page and the code
-disagree, `tests/test_block_standard.py` is the arbiter: it is this page made checkable.
+disagree, `tests/test_block_standard.py` is the arbiter: it is this page made checkable — the contract in
+§1 and, since fixup-h, the drawing standard in §2.
 
 ## 1. What a block is
 
@@ -86,29 +87,104 @@ browser exists; bulk arrays never enter the database (persist writes a file and 
 `SpanSet` a block emits is written to `detections` by the executor — machine-only; no block writes
 `annotations`.
 
-## 2. What the UI needs from it
+## 2. What the UI needs from it — the drawing standard
 
-Nothing beyond the spec, because the pages are keyed on the **output type**, not on the algorithm. The
-bridge serialises every typed value through one seam (`webui/server/serialize.py::to_payload`) and the
-client draws every payload through one seam (`webui/client/src/analyse/Renderer.tsx::renderByType`):
+Nothing beyond the spec, because **a block's picture is a consequence of its type signature** (fixup-h,
+`QUESTIONS.md` Round 7):
 
-| Output type | Server payload (`serialize.py`) | Client renderer (`Renderer.tsx`) |
+> **The OUTPUT type decides what kind of picture you get. The INPUT type decides what one "thing" is in
+> that picture, and whether there is a before/after to show.**
+
+So there are **seven type views**, keyed on the output type, and **twelve modifiers**, keyed on the
+conversion `input->output`. The table lives in `webui/server/views.py`, rides on every catalog card
+(`view`, `modifier`), and the client holds one component per key in
+`webui/client/src/analyse/views/registry.tsx`. The bridge serialises every typed value through one seam
+(`webui/server/serialize.py::to_payload`); the client draws every payload through one seam
+(`analyse/Renderer.tsx::renderByType` → `VIEWS`). **No view is ever selected by a block's name.**
+
+**Two tiers, one component.** Each view is drawn twice by the same component, with `ctx.interactive` as the
+whole difference: the **chain thumbnail** (about 90 px, no interaction — *did this step do roughly what I
+expected*) and the **block settings page** (full width, tall, hover / click / drag — *why did it decide
+that*: the shape plus the evidence).
+
+| Output | settings page, minimum | thumbnail | payload fields it draws |
+|---|---|---|---|
+| `Signal` | **before and after overlaid**, the input grey beneath; one axis when the block leaves the scale alone, **both axes (original left, new right)** when a shared axis would flatten either trace below 35 % of the plot | the overlaid plot | `envelope` (min/max, or every sample), `y_range`, `unit` |
+| `Scores` | the curve, **the scored signal above it on the same x**, the value histogram, the next stage's cut if it has one | the curve alone | `envelope`, `value_range`, `histogram`, `top`, `m` |
+| `SpanSet` | every span on the full trace (clickable), **the slideshow**, a duration distribution | every span on the full trace; a density ribbon when spans outnumber pixels | `start_s` / `end_s`, `scores`, `labels`, `marks`, `window_counts` |
+| `Encoding` | **3 sampled images**, a scan through the rest, a colour bar with the real value range, no-data grey | 3 images side by side, each marked on the row's time axis | image: `frames`; symbolic: `symbols`, `paa`, `cutlines` |
+| `WindowSet` | the windows on the time axis and the feature matrix **as a heatmap** | the heatmap on the source signal's time axis, grey where no window | `starts_s`, `features`, `split` |
+| `Grouping` | clusters over time, cluster sizes, **one exemplar drawn per cluster** | when each cluster is active, as a heatmap | `labels`, `strip`, `clusters`, `exemplars` |
+| `Model` | **accuracy per class** as bars | a card | `card.per_class_accuracy`, `card.holdout_class_counts` |
+
+| Modifier | blocks | what the settings page adds |
 |---|---|---|
-| `Signal` | peak-preserving envelope sized to the viewport, y-range, summary | curve, upstream signal ghosted behind, mV axis |
-| `Scores` | envelope, value range, NaN tail, top-k low/high, 40-bin histogram, `m` if known | series with motif/discord marks |
-| `SpanSet` | absolute seconds per span (capped at 5000), labels, scores; `features` (columns, capped matrix, column ranges) and, from meta, `rules` / `rose` / `interval_stats` | tinted bands over the ghosted signal; with features, the block page adds the per-event table, the rose, the interval statistics and the rules (`analyse/EventFeatures.tsx`) |
-| `WindowSet` | starts, length, capped feature matrix + column ranges | window ticks + feature heatmap |
-| `Encoding` symbolic | symbols, letters, samples per symbol, cutlines, PAA | symbol strip (3-letter = amber/grey/blue) |
-| `Encoding` image | block-averaged uint8 image (≤ 256 px a side), value range; a 4-D stack ships a contact sheet of its first 16 images plus `n_images` | canvas, viridis |
-| `Grouping` | labels, cluster sizes, a time strip when the upstream WindowSet is at hand | class-per-window strip |
-| `Model` | a card (accuracy, classes, windows, features) — never the joblib | text card |
+| `signal->signal` | 6 | the before/after overlay; dual axes when the scale changes |
+| `signal->scores` | 1 | the source signal above the curve; a windowed score's window `m` drawn to scale on it |
+| `encoding->scores` | 2 | the image above, the curve below, same x, **the summed band marked on the image** |
+| `scores->spanset` | 3 | **the cut drawn on the upstream score curve, draggable** |
+| `encoding->spanset` | 2 | which cells / symbols fired, outlined on the encoding itself |
+| `signal->spanset` | 4 | spans on the trace — no intermediate exists to show |
+| `spanset->spanset` | 2 | **the features, not the spans**: a histogram per measure, the rose, the table folded away |
+| `signal->encoding` | 11 | 3 sampled images and which chunk of signal each came from |
+| `windowset->encoding` | 1 | 3 sampled images and which window each is |
+| `signal->windowset` | 2 | a feature matrix draws the heatmap; a set with no features draws its windows by train / validation / test |
+| `windowset->grouping` | 1 | clusters over time and one exemplar per cluster |
+| `grouping->model` | 1 | accuracy per class |
 
-So **a block gets its chain-row thumbnail, its block-page output and its summary line for free** from its
-output type. It needs its own drawing only for a detail the type renderer cannot draw (the drop detector's
-per-event anatomy, the noise floor's histogram). That drawing is a **payload**: JSON the block puts in
-`meta` and a small client component draws — **never a matplotlib figure sent to the browser**. `plot` on
-the spec exists for figure *export* (matplotlib is the one drawing library the core keeps); the bridge does
-not call it.
+**A new block with an existing conversion needs nothing.** A block whose conversion is new still draws —
+its output type's view, with no modifier — and `tests/test_block_standard.py` fails until a row is added to
+`views.py` and `registry.tsx`: one line each, on purpose, because what the input contributes to the picture
+is a decision and not a default.
+
+**Conventions a view reads off a block** (payload-driven, never name-driven — follow them and the view
+lights up; ignore them and the block still draws):
+
+| If the block … | … the view … |
+|---|---|
+| is `scores->spanset` and has a `float` parameter named **`threshold`** (an absolute level in the scores' units) | draws the cut on the upstream curve and makes it draggable |
+| is `encoding->scores` and has **`row_from` / `row_to`** (fractions of the image height) | marks the summed band on the upstream image |
+| emits a SpanSet and puts **`meta["events"]`** = one dict per span with `onset_idx` / `trough_idx` (span-relative) | marks each fall inside its window and counts **falls** per window |
+| is a feature block whose table carries **`onset_idx` / `extremum_idx`** | the same, from the table |
+| emits an image with **one column per sample of the span** | frames are chunks of columns at the image's own resolution, each located in time |
+| emits a WindowSet whose table has a **`split`** column | ships it apart from the features and colours the windows by role |
+| prints its rules in **`meta["rules"]`** (`[{name, rule}]`) | puts each rule behind the info icon of its measure |
+
+**The drawing rules** (the ones of `Pipelines/drop_motifs/drawing_rules.py` that carry over; the thesis
+figure rules are for thesis figures):
+
+1. **Never interpolate.** A drawn curve implying samples the recording does not have is a fabrication.
+   Nothing is resampled on a settings page.
+2. **Decimate by min/max envelope, and say so.** Each pixel column carries the true minimum and maximum of
+   its samples (`decimate.envelope`); the view prints which it drew (*"7,200 samples · 1 Hz · every sample
+   drawn"*) and **dots the vertices when samples are 3 px or more apart**. Never a stride: a stride deletes
+   a narrow event.
+3. **A drop must look like a drop** — rule 9. A drawn trace varies, is not flattened, and is not clipped by
+   its axis. Mark the plot `data-rule9` and its trace `[data-trace]`; `webui/smoke.py` measures it.
+4. **Small multiples: per-panel measured domain and an explicit scale bar**, never a shared y
+   (`SmallMultiples domain="per-panel"`, `charts/ScaleBar.tsx`). Clustering is scale-invariant, so a shared
+   axis draws most of a family as flat lines.
+5. **Colour graded by time only where order is the subject.**
+6. **Select by SAMPLE RANGE, never by a window index** (`DETECTION_AND_FIGURES.md` §5b). Overlapping
+   windows are shared context, not double-counting: never deduplicate them visually.
+7. **No-data is grey**, never the bottom of a colour ramp, and a colour bar carries the real value range.
+
+**The text budget.** One short line on the face, the full definition behind an info icon — **but an
+absence is never hidden.** *"half-width · FWHM"* on the face; the rule on hover; and *"17 of 17 events have
+no recovery"* **stays on the face of the card**, because that is the result, not commentary.
+
+**The slideshow** (`kit/Slideshow.tsx::EventSlideshow`, on `SmallMultiples`) is what any SpanSet-emitting
+block gets: one card per span, sorted by score / time / duration, paged at ten or sampled with a seeded
+shuffle, selection shared with the plot above, a window holding more than one event drawn **red with
+`[2 falls]`**, an extent set by the detector's cap drawn with a **dashed edge**. It is **read-only**; its
+one action is *send to Review*.
+
+So **a block gets its chain-row thumbnail, its block-page view and its summary line for free** from its
+type signature. It needs its own drawing only for a detail no view draws (the Dehshibi funnel). That drawing
+is a **payload**: JSON the block puts in `meta` and a small client component draws — **never a matplotlib
+figure sent to the browser**. `plot` on the spec exists for figure *export* (matplotlib is the one drawing
+library the core keeps); the bridge does not call it. **How reports and exports are drawn inherits this
+standard** rather than inventing a second one.
 
 **The glyph** — the static thumbnail of *the algorithm* on every card — lives in the client registry
 `webui/client/src/analyse/glyphs.tsx`, `BY_NAME`, keyed by the adapter name. A block without an entry gets
@@ -178,8 +254,9 @@ registered (deprecated, tab *control*) so an old recipe still runs.
    `to_payload` case to `tests/test_webui_serialize.py` too — the serializer is the seam the page trusts. If it belongs to a template, add the template to `CANONICAL` and a test that runs
    the template end to end through `execute_recipe` (`tests/test_template_<name>.py`).
 4. **Add its glyph** to `BY_NAME` in `webui/client/src/analyse/glyphs.tsx`.
-5. **Add a smoke state** for its block page to `webui/smoke_pages/analyse.json` (open the block page with
-   the template that contains it; expect the params panel and a painted output).
+5. **Add a smoke state** for its block page to `webui/smoke_pages/zz_analyse_run.json` (run the template that
+   contains it, open the block page; expect `[data-testid="block-view"]` with its `data-view` / `data-modifier`,
+   the evidence its modifier adds, and set `"rule9": true` so the gate measures what was drawn).
 6. **Run the gate**: `pytest -n auto` (zero new failures; `tests/test_block_standard.py` now includes your
    block), `npx tsc -b` + `npm run build` in `webui/client`, `webui/smoke.py` against a running bridge.
 

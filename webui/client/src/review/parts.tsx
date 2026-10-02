@@ -8,7 +8,8 @@ import {
 import { useSourced } from '../api/seam'
 import { VOCABULARY, getOtherChannels, useTagVocabulary, type ArtifactFactors, type ItemDetail, type NearestFamily, type QueueRow, type TimeTrace, type Verdict } from '../api/review'
 import { drawable, sliceContext } from './axis'
-import { baselinePeak, centreTrace, referenceScale } from '../charts/domain'
+import { baselinePeak, centreTrace, measuredDomain, referenceScale } from '../charts/domain'
+import { ScaleBar } from '../charts/ScaleBar'
 import { ReferenceBar, fmtRef, referenceWords } from '../charts/ReferenceBar'
 import { VERDICT_LABEL, type Draft, type VerdictRecord } from './store'
 
@@ -215,7 +216,7 @@ export function ShapeCard({ d, family, blind, rows }: { d: ItemDetail; family: N
     <section className="rv-card" data-testid="shape-card" data-source={drawn.source?.kind ?? 'none'} data-source-available={d.shapeSource ? '1' : '0'}>
       <div className="rv-card-head">
         <h3>{showMedoid ? `Shape vs ${family.id} medoid · mV` : 'Shape · mV'}</h3>
-        <InfoTip title="Shape">Drawn in mV on its own measured scale, centred on its own baseline, never normalised — and never smoothed: every vertex is a sample the recording holds, so a short candidate at 1 Hz is a staircase, which is its real resolution.{showMedoid ? " The medoid is stretched to the candidate's duration to overlay it." : ''} The bar at the right is {referenceWords(scale)}: the mark is where {what} sits against every candidate in this queue.</InfoTip>
+        <InfoTip title="Shape">Drawn in mV on its own measured scale, centred on its own baseline, never normalised — and never smoothed: every vertex is a sample the recording holds, so a short candidate at 1 Hz is a staircase, which is its real resolution.{showMedoid ? ' The medoid is drawn in its own panel beneath, on its own samples: the bridge serves a medoid with no time axis, and stretching it across the candidate would draw a duration it does not have.' : ''} The bar at the right is {referenceWords(scale)}: the mark is where {what} sits against every candidate in this queue.</InfoTip>
         <span className="mono muted sm" data-testid="shape-peak">peak {fmtRef(peak)} mV</span>
         <span className="grow" />
         <Legend items={showMedoid ? [{ label: d.entry.unit === 'window' ? 'this window' : 'candidate', colour: 'var(--blue)', shape: 'line' }, { label: `${family.id} medoid`, colour: family.colour, shape: 'line' }]
@@ -231,9 +232,24 @@ export function ShapeCard({ d, family, blind, rows }: { d: ItemDetail; family: N
       <div className="rv-plot">
         <div className="rv-shape-row">
           <Trace t={drawn.t} values={shape} xDomain={[drawn.t0_s, drawn.t1_s]} timeUnit="s" height={122} stroke={showMedoid ? 'var(--blue)' : 'var(--text)'} strokeWidth={2} sampleDots={staircase}
-            overlays={showMedoid && medoid.length ? [{ values: medoid, stroke: family.colour, width: 2 }] : []} zeroLine={false} testid="shape-trace" style={{ flex: 1, minWidth: 0 }} />
+            zeroLine={false} testid="shape-trace" style={{ flex: 1, minWidth: 0 }} />
           <span style={{ paddingTop: 8 }}><ReferenceBar scale={scale} peak={peak} height={92} what={what} testid="shape-reference" /></span>
         </div>
+        {/* fixup-h (`07` R17): the medoid used to be overlaid INDEX-STRETCHED across the candidate's duration — a
+            medoid of any length redrawn as if it lasted exactly as long as the candidate. It has no time axis of
+            its own (the bridge serves bare values), so it is drawn beside the candidate as what it is: its own
+            samples, evenly spaced, on its own measured y with a scale bar. The comparison is of SHAPE, and the
+            card says the durations are not comparable. */}
+        {showMedoid && medoid.length > 1 && (() => {
+          const dom = measuredDomain(medoid) ?? [-1, 1]
+          return (
+            <div className="rv-shape-row" style={{ marginTop: 6, alignItems: 'center' }} data-testid="shape-medoid">
+              <MiniTrace values={medoid} yDomain={dom} width="100%" height={56} stroke={family.colour} strokeWidth={2} ground="white" zeroLine={false} style={{ flex: 1, minWidth: 0 }} title={`${family.id} medoid`} />
+              <ScaleBar domain={dom} height={56} unit="mV" testid="shape-medoid-scale" />
+              <span className="mono muted sm" style={{ maxWidth: 190 }}>{family.id} medoid · {medoid.length} samples on its own y · no time axis is served for it, so it is not stretched onto the candidate</span>
+            </div>
+          )
+        })()}
       </div>
     </section>
   )

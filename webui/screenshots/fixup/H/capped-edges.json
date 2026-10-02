@@ -1,0 +1,187 @@
+{
+  "total": {
+    "n": 410,
+    "cap_mult": 6.0,
+    "left": 185,
+    "right": 119,
+    "both": 90
+  },
+  "families": [
+    {
+      "family": "id001",
+      "morphology": "sharkfin",
+      "n": 17,
+      "cap_mult": 6.0,
+      "left": 3,
+      "right": 8,
+      "both": 2,
+      "impure": 0,
+      "mismatch": 0
+    },
+    {
+      "family": "id003",
+      "morphology": "sharkfin",
+      "n": 16,
+      "cap_mult": 6.0,
+      "left": 0,
+      "right": 0,
+      "both": 0,
+      "impure": 0,
+      "mismatch": 0
+    },
+    {
+      "family": "id008",
+      "morphology": "trough",
+      "n": 4,
+      "cap_mult": 6.0,
+      "left": 4,
+      "right": 3,
+      "both": 3,
+      "impure": 0,
+      "mismatch": 0
+    },
+    {
+      "family": "id010",
+      "morphology": "trough",
+      "n": 84,
+      "cap_mult": 6.0,
+      "left": 48,
+      "right": 23,
+      "both": 15,
+      "impure": 2,
+      "mismatch": 0
+    },
+    {
+      "family": "id020",
+      "morphology": "trough",
+      "n": 4,
+      "cap_mult": 6.0,
+      "left": 2,
+      "right": 0,
+      "both": 0,
+      "impure": 0,
+      "mismatch": 0
+    },
+    {
+      "family": "id021",
+      "morphology": "sharkfin",
+      "n": 14,
+      "cap_mult": 6.0,
+      "left": 0,
+      "right": 0,
+      "both": 0,
+      "impure": 0,
+      "mismatch": 0
+    },
+    {
+      "family": "id022",
+      "morphology": "trough",
+      "n": 24,
+      "cap_mult": 6.0,
+      "left": 3,
+      "right": 4,
+      "both": 2,
+      "impure": 5,
+      "mismatch": 0
+    },
+    {
+      "family": "id024",
+      "morphology": "sharkfin",
+      "n": 40,
+      "cap_mult": 6.0,
+      "left": 33,
+      "right": 28,
+      "both": 26,
+      "impure": 12,
+      "mismatch": 0
+    },
+    {
+      "family": "id025",
+      "morphology": "trough",
+      "n": 26,
+      "cap_mult": 6.0,
+      "left": 22,
+      "right": 20,
+      "both": 17,
+      "impure": 4,
+      "mismatch": 0
+    },
+    {
+      "family": "id026",
+      "morphology": "sharkfin",
+      "n": 2,
+      "cap_mult": 6.0,
+      "left": 0,
+      "right": 0,
+      "both": 0,
+      "impure": 0,
+      "mismatch": 0
+    },
+    {
+      "family": "id028",
+      "morphology": "sharkfin",
+      "n": 19,
+      "cap_mult": 6.0,
+      "left": 19,
+      "right": 1,
+      "both": 1,
+      "impure": 0,
+      "mismatch": 0
+    },
+    {
+      "family": "id029",
+      "morphology": "sharkfin",
+      "n": 48,
+      "cap_mult": 6.0,
+      "left": 0,
+      "right": 1,
+      "both": 0,
+      "impure": 10,
+      "mismatch": 0
+    },
+    {
+      "family": "id033",
+      "morphology": "trough",
+      "n": 30,
+      "cap_mult": 6.0,
+      "left": 23,
+      "right": 12,
+      "both": 8,
+      "impure": 1,
+      "mismatch": 0
+    },
+    {
+      "family": "id034",
+      "morphology": "trough",
+      "n": 40,
+      "cap_mult": 6.0,
+      "left": 6,
+      "right": 5,
+      "both": 3,
+      "impure": 10,
+      "mismatch": 0
+    },
+    {
+      "family": "id035",
+      "morphology": "trough",
+      "n": 18,
+      "cap_mult": 6.0,
+      "left": 1,
+      "right": 2,
+      "both": 1,
+      "impure": 1,
+      "mismatch": 0
+    },
+    {
+      "family": "id385",
+      "morphology": "trough",
+      "n": 24,
+      "cap_mult": 6.0,
+      "left": 21,
+      "right": 12,
+      "both": 12,
+      "impure": 3,
+      "mismatch": 0
+    }
+  ]
+}
