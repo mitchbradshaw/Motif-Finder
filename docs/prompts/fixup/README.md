@@ -13,8 +13,12 @@ being either a bug or a spec change.
 ## Where the stage is, 2026-10-02
 
 **Waves 1 and 2 are done.** `E` + `G` ran in parallel on 2026-09-30 and `F` + `J` on 2026-10-01,
-all four clean, each closing every row it was given. **Wave 3 is `H` alone, and it is not written —
-the researcher asked to be grilled on it first.**
+all four clean, each closing every row it was given. **Wave 3 is written and ready: `K` (small,
+first), then `H` alone.** `H` came out of the Round 7 grilling (`QUESTIONS.md`), which produced the
+standard it implements and corrected two of my own recommendations by measurement.
+
+**Everything that grilling found and could not scope is written down** in `future/` — seven stubs,
+each carrying its evidence, so none of it has to be rediscovered.
 
 **The suite baseline is 1874 passed / 8 skipped / 0 failed**, failure set empty, verified on the
 merged tree after both wave-2 prompts landed (neither agent could run it on the final state, because
@@ -25,8 +29,9 @@ each had the other's tests in flight). `pytest -n auto`, conda, 5 m 45 s.
 | **WAVE 2 — run and reported 2026-10-01** | |
 | `F-datasets-and-naming.md` | **run and reported 2026-10-01** (`reports/F-datasets-and-naming.md`). Closes `10` S1, `00` X4, U5, Q23's build and the Round 5 channel-label row. One-based channel names won. Found in passing: the four standing Settings registration smoke failures name candidates that have since been registered (report §7). *As written:* A `datasets` table keyed by `source_file`; the editable columns Q23 names; the display name replaces the file name across the site through one seam; the `CH2`/`CH3` convention settled; the Settings channel-tab overflow (U5). Port **8765** |
 | `J-dehshibi-vs-the-paper.md` | **run and reported 2026-10-01** (`reports/J-…`). The detector diverged from the paper in four places and the paper diverges from its authors' code; the blocks are now a port of that code, checked against MATLAB. 17 of 20 known synthetic events found; on M2_aug CH0 it is faithful and unselective (Q34). *Was:* **scaffold — attach the paper.** Opens with its own grilling round before any code. Two implementations of the detector exist and nothing asserts they agree; 87 % of cells on a real span are honestly marked uncovered and that is the thread to pull (U6). Port **8766** |
-| **WAVE 3 — alone** | |
-| `H-blocks-show-their-work.md` | *(not written — the researcher wants a grilling round first)* U7/U8/U9: process views per block, span slideshows, figures instead of tables. Now also owns the Slope page's anatomy figure, which still draws its marks from fixtures over a real trace (`E` §8.2), and the `200×` null label (Q27). Cross-cutting; conflicts with everything |
+| **WAVE 3 — `K` first, then `H` alone** | |
+| `K-slope-anatomy-figure.md` | **ready, runs first.** Small: the Slope page's anatomy figure draws its chord, tangent and "steepest" marker from `fixtures/interrogation.ts::eventMarks` over a real trace ("steepest" is `duration / 2`). The same lie `E` removed from the numbers, surviving on the figure beside them. `D` measured the real values and `E` built the route that serves them |
+| `H-blocks-show-their-work.md` | **ready.** U7/U8/U9 + Q27. **Seven type views and twelve input-driven modifiers**, so all 36 blocks — and future ones — are drawn from their type signature; today 31 of 36 fall through to a view captioned *"this signature has no bespoke process view yet"*. Two tiers (chain thumbnail / settings page, one component, interaction as a flag), the span slideshow wired to real data with the impurity flag, the two fabricated nulls deleted. Enforced by a test and by a rule-9 check in the smoke gate. Cross-cutting; **runs alone** |
 | **DONE** | |
 | `E-aggregate-stops-fabricating.md` | **run and reported 2026-09-30** (`reports/E-…`). Interrogation reads every measure from the core — the three constants (`×0.84`, `×0.31`, `×4.2`) and the browser's recovery are gone, and not-measured is null, counted and explained. `spike-shape` → `event-shape` = `interrogation.event_shape`, a block that really differs, the upstream carried on every walk. `rise_time_frac` on the shape block, null for a drop. The overlays draw the stored context on a measured y. **Found: 41 % of the seed store and 34 % of the Library have no recovery and no FWHM under the current definition — all of it sharkfin morphology (Q26)** |
 | `G-review-axis-and-resolution.md` | **run and reported 2026-09-30** (`reports/G-…`). Every Review trace carries `t` beside `v`; detection 102's drop was drawn at 0.629 h and is at 0.662 h, inside its band — the detector was right. Decimation follows the card's measured width (660 samples come back raw where 440 points used to); padding is symmetric by time; the Shape card dots its samples rather than smoothing them; source resolution reads the 10 Hz parent, default ON, and says so; Review shifts a legacy row. The `kit/plots.tsx` change stayed additive |
@@ -107,7 +112,7 @@ wave-2 agents left behind were taken with two browsers and two bridges running a
 ## The open decisions
 
 `QUESTIONS.md` is the live list, with the answers recorded beside each question as they are given.
-**Rounds 1–4 and 6 are answered; Round 5 is still open** and holds the two that matter — both are
+**Rounds 1–4, 6 and 7 are answered; Round 5 is still open** and holds the two that matter — both are
 research decisions rather than engineering ones, and both now have the measurement behind them:
 
 - **Q26** — the sharkfin morphology has no recovery and no FWHM under the current definition, across
@@ -124,6 +129,16 @@ research question, not a fixup.
 
 Also open and blocking nothing written: **Q-B-CHAIN** (fan-out), **U4** (fine span adjustment),
 **U12** (the phantom Ctrl-C, undiagnosed), **U13** (global search unwired).
+
+## Recorded for later, not scoped
+
+`future/` holds seven stubs from the Round 7 grilling, each with the finding and the evidence that
+created it: `N-event-extent` (the `6 × fall` cap beats the morphology bracket on ~half of catalogue
+events, and re-defining extent re-hashes 3,603 Library rows), `R-interrogation-null` (build P10
+properly), `P-persist-recovery-index` (`recovery_idx` is computed and dropped one line before it
+could be stored), `Q-extent-corrections` (the human-correction path is written and called by
+nothing), `S-reports` (**inherits `H`'s standard, never a second one**), `U12-bridge-sigint`,
+`U13-global-search`.
 
 ## What is left after wave 3
 

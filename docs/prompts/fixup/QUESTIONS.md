@@ -823,3 +823,219 @@ as it stands: one column per hop, not per sample.
   tune (`epsilon_factor`, `min_separation_s`, `window_s`), or retire from the detect tab?
 - The funnel strips do not share the x-axis of the plot above them — `H`.
 
+
+---
+
+## Round 7 — the `H` grilling, 2026-10-02 — answered, and `H` written from it
+
+The researcher asked to be grilled before `H` was written. Three rounds, two sub-agent surveys, and
+**two of my own recommendations corrected by measurement** (Q3 below, and the 50 s window). The
+result is `H-blocks-show-their-work.md`. Recorded here because the prompt is the implementation and
+this is the reasoning.
+
+### The framing the researcher set, which is not what I proposed
+
+I opened by proposing the nine drawing rules of `Pipelines/drop_motifs/drawing_rules.py` as the
+standard. **That was rejected, and the replacement is better:** the thesis figure rules are for
+thesis figures. What the UI needs is
+
+> **a plot rule per data TYPE, and a plot rule per block CONVERSION (input→output), so that current
+> and future algorithms all have an expected view.**
+
+Some thesis rules do carry over (a drop must look like a drop; no resampling on the settings page —
+though resampling *is* fine for a chain thumbnail; colour-by-time only where order is the subject).
+The rest do not.
+
+**Scope boundary set by the researcher:** `H` is the UI's analysis pages. **How plots come out on
+generated reports is a separate prompt** — which must *inherit* this standard rather than invent a
+second one, or the app re-earns prompt `C`'s four-padding-rules problem in a new place.
+
+### Q9 — the organising principle — **A: as recommended**
+
+> The OUTPUT type decides what kind of picture. The INPUT type decides what one "thing" is in it, and
+> whether there is a before/after to show.
+
+7 × 7 collapses to seven views plus twelve modifiers. It matches where the code already is: both
+dispatch tables are keyed on interchange type (`serialize.py:378`, `Renderer.tsx:32`).
+
+### Q10 — the seven minimums — **A: as drafted, with a thumbnail defined for each**
+
+| Output | n | settings page | thumbnail (the researcher's own spec) |
+|---|---|---|---|
+| Signal | 6 | before/after overlaid, input grey beneath; **both axes, left and right, when the scale changes** (normalise, baseline removal) | the overlaid plot |
+| Scores | 3 | curve + source signal above on the same x + value histogram + threshold | the scores plot alone |
+| SpanSet | 11 | slideshow + every span on the full trace + duration distribution | every span marked on the full trace |
+| Encoding | 12 | 3 sampled images, scan the rest, real-range colour bar, no-data grey | 3 images side by side across the thumbnail bar |
+| WindowSet | 2 | windows on the time axis + feature matrix as a heatmap | heatmap stretched to width, **on the source signal's visual time axis**, grey where no window |
+| Grouping | 1 | clusters over time + sizes + one exemplar per cluster | heatmap distribution of clusters |
+| Model | 1 | accuracy per class as bars | low priority; a card is acceptable |
+
+### Q11 — thumbnail vs settings page — **A: (b)**
+
+Thumbnail = the shape only; settings page = the shape plus the evidence. **One component,
+interaction as a flag.** For sets too large to plot (window-matrix features over many windows), the
+thumbnail buckets them into discrete chunks — the pattern of the detection-density ribbon on Explore
+(`explore/Overview.tsx:143`) and the Library.
+
+### Q12 — "no resampling" vs a 2.6 M-sample channel — **A: (a)**
+
+Never interpolate; **decimate by min/max envelope** when samples exceed pixels, and say so on the
+card. Nothing is invented and a one-sample spike still reaches full height. Pair with `G`'s dotting
+rule so real resolution is distinguishable from drawn resolution.
+
+### Q13 — where thumbnails render — **A: (b)** browser SVG, non-interactive. matplotlib stays for
+multi-panel export plates. A thumbnail is drawn most often and must be cheapest; and one component
+with interaction off is what keeps Q11(b) from drifting into two pictures of one thing.
+
+### Q14 — enforcement — **A: (c)** written in `BLOCK_INTEGRATION.md` + a test that no block falls
+through to "no bespoke process view yet" + **rule 9 ported into the smoke gate** (a drawn trace
+varies, nothing is flattened, no axis clips). Precedent: smoke already measures Review's band
+containing its event (`G`) and non-overlapping axis labels (`A`); both caught real defects.
+
+### Q15 — shared y or per-panel scale on small multiples — **A: (c)**
+
+Per-panel measured domain **+ aspect lock + an explicit scale bar**. Not shared-y: the researcher's
+own figures tried it and rejected it (`figures12b_s3.py:50-65`), because clustering is
+scale-invariant — a 0.014 mV and a 0.39 mV motif can be siblings, so a shared axis draws most of a
+family flat. The scale bar is what stops "legible" and "comparable" being a trade-off.
+
+### Q16 — the slideshow's affordances — **A: the UI set, plus the impurity flag, plus the shuffle**
+
+The researcher meant the **UI** one: "Each kept detection" on block 04 of `drop_motifs9`
+(`analyse/demo/blocks/DetectionBlock.tsx:90`) — cards sorted by score/time/depth, paged, and
+**click-to-centre in the plot above, bidirectionally.** It is **fixture-backed** (six hard-coded
+detections, `demo data` chip), so this is **wiring, not design**.
+
+Add from its matplotlib ancestor (`Plots/drop_motifs5/id385_contact.png`): **a panel whose window
+holds more than one fall turns red and says `[2 falls]`** — an automatic "suspect" marker the UI
+version lost. Build on `SmallMultiples` (`kit/plots.tsx:534`), which already has the pager and adds a
+seeded resample shuffle. Read-only; the one action is *send to Review*.
+
+The rationale for panels over an overlay, from `figures5.py:7`: *"an overlay hid the defect — a
+window holding three spikes drawn on top of four others that also hold three looks like a busy
+family; it takes seeing the panels side by side to notice that every one of them is a train."* That
+is U7 in one sentence, written by the researcher about their own data.
+
+### Q17 — **A: confirmed, `H` draws only.** The stored extent **is** the Library's identity (the
+content hash covers the whole snippet, `event_store.py:571`), so redefining it re-hashes 3,603 rows.
+That is `M`-class migration work and never belongs in a visual-language prompt. → `N-event-extent.md`.
+
+### Q18 — mark a capped edge — **A: yes, behind an info icon**
+
+`detect5.window_bounds`' morphology bracket loses to a scale-free `6 × fall` cap on **46 % of seed
+events (left edge), 49 % of oyster**, and the row does not record which rule set its edge. Draw a
+capped edge differently; count it behind the icon.
+
+### Q19 — which frame to draw — **A: (c)**
+
+Single event → the stored window (`E`'s default, correct). Sequence or overlay → the
+`sequence_frames` rule (`drawing_rules.py:146`): back to **the previous event's trough**, capped at
+14 falls. **Never `1.2 / 1.8` falls for a sharkfin** — its own author says so: *"an Oyster event is a
+6 s fall on the end of a 55 s rise … a frame of 1.2 falls before the onset shows the last tenth of
+that rise, which is a shoulder rather than a sharkfin."*
+
+### Q20 — the modifier table — **A: as drafted.** Twelve rows, all 36 blocks, in `H` §"The twelve
+modifiers". The two load-bearing rows: **spanset → spanset**, which inverts the rule (an
+interrogation block outputs spans but the measures are the point), and **signal → windowset**, where
+the two producers need different thumbnails because `sliding_windows` carries no features at all.
+
+### Q21 — the text budget — **A: (b), with absence always visible**
+
+Explanation behind an info icon, one short line on the face. **But an absence is never hidden:**
+*"17 of 17 events have no recovery"* stays on the card, because that is the result, not commentary.
+Hiding it would re-create by omission the fabrication `E` removed by invention.
+
+### Q27 — the Aggregate page's null — **A: delete now, build later**
+
+There are **two** fabricated nulls, not one. The scatter null (`AggregatePage.tsx:310`) multiplies
+each real point by random factors three times; the histogram null (`:82`) is three summed uniforms
+centred on the observed range. Both are labelled "matched windows" / "shuffled onsets" and cite
+**P10**, which specifies *"matched random windows (200×) and shuffled onsets"* and is still
+`ticketable now` — **specified, never built.**
+
+Consequence worth keeping: the scatter null is the data with independent noise on x and y, so its
+exponent is a **regression-diluted copy of the real one** and lands below it by construction. `E`'s
+id010 result — **β 0.28 against a null of 0.25** — was therefore never a meaningful comparison; that
+null can be neither cleared nor failed. `H` deletes both and the P10 claim; → `R-interrogation-null.md`.
+
+---
+
+## Round 7 corrections — two things I had wrong
+
+Recorded because both were stated to the researcher as evidence before being measured.
+
+**1. The "50 s window for a 0.7 s fall" is the wrong column.** `drawing_rules.py:51-66` uses it to
+argue that drawing the whole stored snippet is a trap. Measured on disk: the stored Reishi snippet is
+**3.10 s against a 0.725 s fall (4.3×), max 13.2 s** — not 50 s. The 50 s is
+`passes9.DEFAULT_WINDOW_S`, the **sliding detection-pass window**, a different quantity stored in
+separate `window_start_idx`/`window_end_idx` columns that exist only in `drop_motifs10/12a`.
+
+**The repo has three different things that have been called "the window"**: the `detect5` bracket
+(stored as `snippet_*`), the 50 s sliding pass window, and the figure frame. `drawing_rules.py`'s
+rule-2 note conflates the first two. **Do not anchor a decision on that number.**
+
+Consequence: I had recommended that rule 2 overrule `E`'s "whole stored context" default and that `H`
+re-open `E`'s overlays. **Withdrawn.** `E`'s default is better supported than I said; `H` adds the
+sequence frame beside it (Q19) rather than replacing it.
+
+**2. `detect5` already does what the researcher asked for.** `window_bounds` (`detect5.py:507`) is
+morphology-aware by design — sharkfin: its own preceding rise → the next rise; trough: previous
+recovery → **its own recovery end**, with the stated reason that *"a trough spike's RECOVERY is an UP
+run and is part of the motif, so a naive 'stop at the next UP run' would end the window at the bottom
+of the trough and discard the right half of every event."* The researcher's "I want the drop and the
+rise to recovery stored too" is the existing design. The failure is the `6 × fall` backstop (Q18),
+not the rule.
+
+### Measured, for whoever needs it later
+
+Stored snippet against fall duration, by corpus:
+
+| corpus · morphology | fs | n | snippet s | fall s | ratio |
+|---|---|---|---|---|---|
+| reishi_10hz · trough | 10 | 2194 | 3.10 | 0.725 | 4.3 |
+| reishi_1hz · trough | 1 | 190 | 15.1 | 4.06 | 3.7 |
+| oyster · sharkfin | 1 | 338 | 992 | 85.9 | 11.5 |
+| oyster · trough | 1 | 416 | 271 | 28.0 | 9.7 |
+| sp385 · sharkfin | 1 | 52 | 124 | 12.2 | 10.2 |
+
+Seed store (410 events, 1 Hz): sharkfin median **240 s pre / 116 s post** (its own rise is in frame);
+trough **42 s / 43 s** (roughly symmetric). That asymmetry is evidence the morphology rule works.
+
+### Three findings `H` carries, which would otherwise bite silently
+
+1. **Select spans by SAMPLE RANGE, never window index** (`DETECTION_AND_FIGURES.md` §5b, verbatim:
+   *"Any UI panel showing 'the motifs in this window' must use the range."*). Measured undercounts:
+   CH4 showed **11 where 21 exist**.
+2. **30 of 1058 store rows have `len(detrended_mv) != snippet_end_idx - snippet_start_idx`** — slice
+   by stored indices and those render as a 1-sample "fall".
+3. **Overlapping snippet context is not double-counting**: 261 of 1058 snippet spans overlap while
+   only 1 onset→trough pair does.
+
+### What the survey found about the surface being fixed
+
+- **31 of 36 blocks** fall through to `GenericProcess`, captioned *"this signature has no bespoke
+  process view yet"* (`BlockPage.tsx:567`). Three bespoke views exist, selected by a hard-coded `if`
+  chain on block name; two more unlock from a `meta` key.
+- Blocks per output type: **Encoding 12, SpanSet 11, Signal 6, Scores 3, WindowSet 2, Grouping 1,
+  Model 1.**
+- **`analyse/` imports zero plot components from the kit.** `kit/plots.tsx` has thirteen, used by six
+  other workspaces; `BlockPage.tsx:386` hand-rolls its own histogram. `Scatter`, `NullBand` and
+  `SmallMultiples` have no caller outside the component gallery. **Wiring `analyse/` to the kit is
+  most of `H`.**
+- **Two rose implementations**: `RoseFan` (`analyse/EventFeatures.tsx:77`, real) and
+  `interrogation/Rose.tsx:21` (prototype on fixtures, header says *"the kit has no polar plot"*).
+- `interrogation.intervals`' entire visual output is a 10-column table. No plot of any kind.
+- 47 per-block algorithm glyphs already exist (`analyse/glyphs.tsx:50`) — every block has bespoke
+  artwork for *what it does*, none for *what it found*.
+
+### The prompts Round 7 produced
+
+| prompt | what |
+|---|---|
+| `H-blocks-show-their-work.md` | **written, ready** — the standard and the views |
+| `K-slope-anatomy-figure.md` | **written, ready, runs first** — Q8: the Slope page's fabricated anatomy figure |
+| `N-event-extent.md` | stub — redefine extent + re-hash the Library (Q17) |
+| `R-interrogation-null.md` | stub — build P10 properly (Q27) |
+| `P-persist-recovery-index.md` | stub — `recovery_idx` is computed and discarded |
+| `Q-extent-corrections.md` | stub — `motif_member_revision` is written and nothing calls it |
+| the reports prompt | stub — inherits `H`'s standard, does not invent one |
