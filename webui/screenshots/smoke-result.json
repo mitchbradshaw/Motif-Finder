@@ -1,7 +1,6 @@
 {
   "failures": [
-    "discovery: discovery.runs--default renders \u2014 missing ['[data-testid=\"where-fires\"] [data-testid=\"fires-cell\"]', '[data-testid=\"browser-trace\"] svg']",
-    "interrogation: analyse.interrogation--fixup-d-sequence-rose renders \u2014 missing ['[data-testid=\"sequence-rose-card\"] [data-render=\"rose\"]', '[data-testid=\"sequence-feature-table\"]', '[data-testid=\"measure-rules\"]']",
+    "discovery: discovery.runs--default renders \u2014 missing ['[data-testid=\"browser-trace\"] svg']",
     "settings: settings.datasets--import-check-fails-fs-unknown: TimeoutError: Locator.click: Timeout 30000ms exceeded.\nCall log:\n  - waiting for locator(\"[data-testid=\\\"run-check\\\"]\").first\n    - locator resolved to <button disabled type=\"button\" class=\"k-btn\" data-testid=\"run-check\">Check</button>\n  - attempting click action\n    2 \u00d7 waiting for element to be visible, enabled and stable\n      - element is not enabled\n    - retrying click action\n    - waiting 20ms\n    2 \u00d7 waiting for element to be visible, enabled and stable\n      - element is not enabled\n    - retrying click action\n      - waiting 100ms\n    57 \u00d7 waiting for element to be visible, enabled and stable\n       - element is not enabled\n     - retrying click action\n       - waiting 500ms\n",
     "settings: settings.datasets--import-check-passes-MJu26a: TimeoutError: Locator.click: Timeout 30000ms exceeded.\nCall log:\n  - waiting for locator(\"[data-testid=\\\"run-check\\\"]\").first\n    - locator resolved to <button disabled type=\"button\" class=\"k-btn\" data-testid=\"run-check\">Check</button>\n  - attempting click action\n    2 \u00d7 waiting for element to be visible, enabled and stable\n      - element is not enabled\n    - retrying click action\n    - waiting 20ms\n    2 \u00d7 waiting for element to be visible, enabled and stable\n      - element is not enabled\n    - retrying click action\n      - waiting 100ms\n    57 \u00d7 waiting for element to be visible, enabled and stable\n       - element is not enabled\n     - retrying click action\n       - waiting 500ms\n",
     "settings: settings.models-registration--check-a-joblib: TimeoutError: Locator.click: Timeout 30000ms exceeded.\nCall log:\n  - waiting for locator(\"[data-testid=\\\"check-model-catalogue_classifier_16750c76ade64016.joblib\\\"]\").first\n",
@@ -37,9 +36,9 @@
         "t1": 1002240,
         "px": 1304,
         "n_points": 2400,
-        "decimate_ms": 0.5946999881416559,
-        "round_trip_ms": 20.600000023841858,
-        "paint_ms": 14.599999904632568
+        "decimate_ms": 0.7432000711560249,
+        "round_trip_ms": 12.100000023841858,
+        "paint_ms": 18.600000023841858
       },
       {
         "seq": 2,
@@ -47,9 +46,9 @@
         "t1": 1001316.3874163145,
         "px": 1304,
         "n_points": 2576,
-        "decimate_ms": 2.9859000351279974,
-        "round_trip_ms": 19.90000009536743,
-        "paint_ms": 14.5
+        "decimate_ms": 0.5031999899074435,
+        "round_trip_ms": 15.100000023841858,
+        "paint_ms": 14.299999952316284
       },
       {
         "seq": 3,
@@ -57,9 +56,49 @@
         "t1": 1000655.9753122295,
         "px": 1304,
         "n_points": 2456,
-        "decimate_ms": 2.6871999725699425,
-        "round_trip_ms": 29.199999928474426,
-        "paint_ms": 17.200000047683716
+        "decimate_ms": 0.8643999462947249,
+        "round_trip_ms": 39.699999928474426,
+        "paint_ms": 19.800000071525574
+      },
+      {
+        "seq": 4,
+        "t0": 997551.6255378698,
+        "t1": 1000183.7598455653,
+        "px": 1304,
+        "n_points": 1756,
+        "decimate_ms": 0.29450003057718277,
+        "round_trip_ms": 21,
+        "paint_ms": 10.399999976158142
+      },
+      {
+        "seq": 5,
+        "t0": 997964.0519263427,
+        "t1": 999846.1109054906,
+        "px": 1304,
+        "n_points": 1883,
+        "decimate_ms": 0.6359000690281391,
+        "round_trip_ms": 94.70000004768372,
+        "paint_ms": 19.59999990463257
+      },
+      {
+        "seq": 6,
+        "t0": 998258.9497913162,
+        "t1": 999604.6812726601,
+        "px": 1304,
+        "n_points": 1347,
+        "decimate_ms": 0.31849998049438,
+        "round_trip_ms": 21.799999952316284,
+        "paint_ms": 6.399999976158142
+      },
+      {
+        "seq": 7,
+        "t0": 998469.8110581909,
+        "t1": 999432.0514767669,
+        "px": 1304,
+        "n_points": 964,
+        "decimate_ms": 0.1854998990893364,
+        "round_trip_ms": 21.700000047683716,
+        "paint_ms": 14.699999928474426
       },
       {
         "seq": 8,
@@ -67,9 +106,9 @@
         "t1": 999308.6157324438,
         "px": 1304,
         "n_points": 689,
-        "decimate_ms": 0.8916000369936228,
-        "round_trip_ms": 110.5,
-        "paint_ms": 18.100000023841858
+        "decimate_ms": 0.21870003547519445,
+        "round_trip_ms": 21.100000023841858,
+        "paint_ms": 13.199999928474426
       },
       {
         "seq": 9,
@@ -77,21 +116,21 @@
         "t1": 999220.3552852954,
         "px": 1304,
         "n_points": 493,
-        "decimate_ms": 0.34719996619969606,
-        "round_trip_ms": 24.299999952316284,
-        "paint_ms": 10.299999952316284
+        "decimate_ms": 0.12420001439750195,
+        "round_trip_ms": 10.400000095367432,
+        "paint_ms": 15.700000047683716
       }
     ],
     "zoom_round_trip_ms": {
-      "min": 19.90000009536743,
-      "max": 110.5,
-      "median": 24.299999952316284
+      "min": 10.400000095367432,
+      "max": 94.70000004768372,
+      "median": 21.100000023841858
     },
     "axis_labels_analyse-chain": {
       "labels": 9,
       "overlaps": []
     },
-    "run_wall_s": 32.94,
+    "run_wall_s": 32.4,
     "badges_after_run": [
       "computed \u00b7 now cached",
       "computed \u00b7 now cached",
@@ -102,9 +141,15 @@
       "path",
       "path"
     ],
+    "pass_to_review": {
+      "label": "\u2192 Pass 2 to Review",
+      "headline": "last run \u00b7 2 spans \u00b7 mean 9.0 s",
+      "landed": "#/review/queue/3/1206",
+      "progress": "0 / 2\npace not yet measured"
+    },
     "badges_after_edit": [
-      "computed \u00b7 now cached",
-      "computed \u00b7 now cached",
+      "cached \u00b7 0 s",
+      "cached \u00b7 0 s",
       "stale"
     ],
     "badges_after_rerun": [
@@ -142,7 +187,365 @@
       920.5,
       920.5
     ],
-    "route_states": 555,
+    "fixup_l": {
+      "toast": "3 unjudged in 'Discovery \u00b7 mp_threshold' \u00b7 verdicts write adjudications\nOpen Review",
+      "queue": {
+        "id": 4,
+        "name": "Discovery \u00b7 mp_threshold",
+        "source_kind": "discovery-run",
+        "writes_to": "adjudications",
+        "unit": "detection",
+        "total": 3,
+        "judged": 0,
+        "remaining": 3,
+        "filters": {
+          "run_ids": [
+            84,
+            86
+          ]
+        }
+      },
+      "adjudications_written": [
+        {
+          "id": 1,
+          "detection_id": 1208,
+          "verdict": "interesting",
+          "created_at": "2026-10-02T23:13:29.119771+00:00",
+          "run_id": 84,
+          "surrogate_of_run_id": null
+        }
+      ],
+      "score_row_before": "mp_threshold\n\t3\t0\t0\t0\tno detections in the reviewed overlap\t0.00 over 2 h\t1 / 2\t3.0\u00d7",
+      "score_row_after": "mp_threshold\n\t3\t0\t0\t0\tno detections in the reviewed overlap\t0.00 over 2 h\t1 / 2\t3.0\u00d7",
+      "seed_queue": {
+        "id": 5,
+        "name": "Discovery \u00b7 smoke_seed",
+        "source_kind": "seed-search",
+        "source_ref": null,
+        "unit": "detection",
+        "writes_to": "adjudications",
+        "blind": 0,
+        "cap": null,
+        "verdict_options": null,
+        "filters_json": "{\"run_ids\": [88, 90]}",
+        "created_at": "2026-10-02T23:13:39+00:00",
+        "closed_at": null,
+        "note": "Discovery run 'smoke_seed' (smoke_seed) \u00b7 session 2 \u00b7 runs 88, 90",
+        "filters": {
+          "run_ids": [
+            88,
+            90
+          ]
+        },
+        "total": 110,
+        "judged": 0,
+        "remaining": 110,
+        "pace_s": null
+      }
+    },
+    "route_states": 584,
+    "anatomy_marks": {
+      "analyse.interrogation.slope--fixup-k-marks-are-the-payloads": {
+        "event": "id001_r1_1216093",
+        "family": "id001",
+        "onsetX": 502.6913946587538,
+        "steepestX": 504.1216617210683,
+        "troughX": 599.2344213649851,
+        "tangent": [
+          [
+            501.3,
+            14
+          ],
+          [
+            519.6,
+            138
+          ]
+        ],
+        "chord": [
+          [
+            502.7,
+            24.2
+          ],
+          [
+            599.2,
+            161.2
+          ]
+        ],
+        "served": {
+          "onset": 647,
+          "steepest": 649,
+          "trough": 782,
+          "max_slope": -0.7036234419022236,
+          "chord_slope": -0.14743499997680157
+        }
+      },
+      "analyse.interrogation.slope--fixup-k-marks-on-a-trough-family": {
+        "event": "id010_r4_1365139",
+        "family": "id010",
+        "onsetX": 426.66666666666663,
+        "steepestX": 435.8730158730159,
+        "troughX": 491.11111111111114,
+        "tangent": [
+          [
+            425.6,
+            18.3
+          ],
+          [
+            446.2,
+            90.8
+          ]
+        ],
+        "chord": [
+          [
+            426.7,
+            23.3
+          ],
+          [
+            491.1,
+            178.7
+          ]
+        ],
+        "served": {
+          "onset": 42,
+          "steepest": 43,
+          "trough": 49,
+          "max_slope": -0.5859862968375928,
+          "chord_slope": -0.40184564026660546
+        }
+      },
+      "analyse.interrogation.slope--fixup-k-all-marks-names-what-is-not-drawn": {
+        "event": "id001_r1_1216093",
+        "family": "id001",
+        "onsetX": 502.551403313551,
+        "steepestX": 503.981237636004,
+        "troughX": 599.0652200791295,
+        "tangent": [
+          [
+            501.1,
+            14
+          ],
+          [
+            519.4,
+            138
+          ]
+        ],
+        "chord": [
+          [
+            502.6,
+            24.2
+          ],
+          [
+            599.1,
+            161.2
+          ]
+        ],
+        "served": {
+          "onset": 647,
+          "steepest": 649,
+          "trough": 782,
+          "max_slope": -0.7036234419022236,
+          "chord_slope": -0.14743499997680157
+        }
+      },
+      "analyse.interrogation.slope--fixup-k-padding-is-honoured": {
+        "event": "id001_r1_1216093",
+        "family": "id001",
+        "onsetX": 210.11764705882354,
+        "steepestX": 215.78823529411764,
+        "troughX": 592.8823529411764,
+        "tangent": [
+          [
+            204.7,
+            14
+          ],
+          [
+            277,
+            144.6
+          ]
+        ],
+        "chord": [
+          [
+            210.1,
+            24.2
+          ],
+          [
+            592.9,
+            169.1
+          ]
+        ],
+        "served": {
+          "onset": 647,
+          "steepest": 649,
+          "trough": 782,
+          "max_slope": -0.7036234419022236,
+          "chord_slope": -0.14743499997680157
+        }
+      },
+      "analyse.interrogation.slope--fixup-k-padding-restored": {
+        "event": "id001_r1_1216093",
+        "family": "id001",
+        "onsetX": 502.6913946587538,
+        "steepestX": 504.1216617210683,
+        "troughX": 599.2344213649851,
+        "tangent": [
+          [
+            501.3,
+            14
+          ],
+          [
+            519.6,
+            138
+          ]
+        ],
+        "chord": [
+          [
+            502.7,
+            24.2
+          ],
+          [
+            599.2,
+            161.2
+          ]
+        ],
+        "served": {
+          "onset": 647,
+          "steepest": 649,
+          "trough": 782,
+          "max_slope": -0.7036234419022236,
+          "chord_slope": -0.14743499997680157
+        }
+      }
+    },
+    "rule9": {
+      "analyse.interrogation--fixup-h-slideshow-on-the-store": {
+        "plots": 10,
+        "traces": 10,
+        "exempt": 0,
+        "constant": [],
+        "flat": [],
+        "clipped": []
+      },
+      "analyse.chain--fixup-h-thumbnails-mp_threshold": {
+        "plots": 4,
+        "traces": 4,
+        "exempt": 0,
+        "constant": [],
+        "flat": [],
+        "clipped": []
+      },
+      "analyse.block--fixup-h-signal-before-after": {
+        "plots": 1,
+        "traces": 1,
+        "exempt": 0,
+        "constant": [],
+        "flat": [],
+        "clipped": []
+      },
+      "analyse.block--fixup-h-scores-signal-above": {
+        "plots": 1,
+        "traces": 1,
+        "exempt": 0,
+        "constant": [],
+        "flat": [],
+        "clipped": []
+      },
+      "analyse.block--fixup-h-spanset-cut-and-slideshow": {
+        "plots": 10,
+        "traces": 10,
+        "exempt": 0,
+        "constant": [],
+        "flat": [],
+        "clipped": []
+      },
+      "analyse.chain--fixup-h-thumbnails-dsax_encoding": {
+        "plots": 2,
+        "traces": 2,
+        "exempt": 0,
+        "constant": [],
+        "flat": [],
+        "clipped": []
+      },
+      "analyse.block--fixup-h-encoding-symbolic-chunks": {
+        "plots": 3,
+        "traces": 3,
+        "exempt": 0,
+        "constant": [],
+        "flat": [],
+        "clipped": []
+      },
+      "analyse.chain--fixup-h-thumbnails-dehshibi_spikes": {
+        "plots": 3,
+        "traces": 3,
+        "exempt": 0,
+        "constant": [],
+        "flat": [],
+        "clipped": []
+      },
+      "analyse.block--fixup-h-scores-band-on-the-image": {
+        "plots": 1,
+        "traces": 1,
+        "exempt": 0,
+        "constant": [],
+        "flat": [],
+        "clipped": []
+      },
+      "analyse.block--fixup-h-spanset-no-draggable-cut": {
+        "plots": 12,
+        "traces": 12,
+        "exempt": 0,
+        "constant": [],
+        "flat": [],
+        "clipped": []
+      },
+      "analyse.chain--fixup-h-thumbnails-windows_model": {
+        "plots": 1,
+        "traces": 1,
+        "exempt": 0,
+        "constant": [],
+        "flat": [],
+        "clipped": []
+      },
+      "analyse.block--fixup-h-grouping-exemplars": {
+        "plots": 3,
+        "traces": 3,
+        "exempt": 0,
+        "constant": [],
+        "flat": [],
+        "clipped": []
+      },
+      "analyse.chain--fixup-h-thumbnails-drop_event_features": {
+        "plots": 5,
+        "traces": 5,
+        "exempt": 0,
+        "constant": [],
+        "flat": [],
+        "clipped": []
+      },
+      "analyse.block--fixup-h-spanset-fired-on-the-encoding": {
+        "plots": 5,
+        "traces": 5,
+        "exempt": 0,
+        "constant": [],
+        "flat": [],
+        "clipped": []
+      },
+      "analyse.block--fixup-h-features-not-spans": {
+        "plots": 5,
+        "traces": 5,
+        "exempt": 0,
+        "constant": [],
+        "flat": [],
+        "clipped": []
+      },
+      "analyse.block--fixup-h-intervals-are-plotted": {
+        "plots": 5,
+        "traces": 5,
+        "exempt": 0,
+        "constant": [],
+        "flat": [],
+        "clipped": []
+      }
+    },
     "traces_in_box": {
       "library.atlas--motifs": {
         "traces": 300,
@@ -227,7 +630,7 @@
       }
     },
     "server_log_error_lines": [
-      "2026-10-02 08:19:46,188 ERROR proto.runs: run 30 failed at step 1: ValueError: window (m=30000 samples) must be shorter than the span (750 samples)."
+      "2026-10-03 09:13:05,532 ERROR proto.runs: run 31 failed at step 1: ValueError: window (m=30000 samples) must be shorter than the span (750 samples)."
     ]
   },
   "screenshots": [
@@ -241,18 +644,24 @@
     "C:\\Users\\mmebr\\Documents\\CNN\\webui\\screenshots\\08-chain-1-chain-before-run.png",
     "C:\\Users\\mmebr\\Documents\\CNN\\webui\\screenshots\\09-chain-2-insert-stage.png",
     "C:\\Users\\mmebr\\Documents\\CNN\\webui\\screenshots\\10-chain-1-chain-completed.png",
-    "C:\\Users\\mmebr\\Documents\\CNN\\webui\\screenshots\\11-chain-7b-block-threshold.png",
-    "C:\\Users\\mmebr\\Documents\\CNN\\webui\\screenshots\\12-chain-7b-block-threshold-dragged.png",
-    "C:\\Users\\mmebr\\Documents\\CNN\\webui\\screenshots\\13-chain-1-chain-suffix-rerun.png",
-    "C:\\Users\\mmebr\\Documents\\CNN\\webui\\screenshots\\14-chain-1b-run-history.png",
-    "C:\\Users\\mmebr\\Documents\\CNN\\webui\\screenshots\\15-chain-1e-invalid-junction.png",
-    "C:\\Users\\mmebr\\Documents\\CNN\\webui\\screenshots\\16-chain-1f-failed-block.png",
-    "C:\\Users\\mmebr\\Documents\\CNN\\webui\\screenshots\\17-chain-1d-running.png",
-    "C:\\Users\\mmebr\\Documents\\CNN\\webui\\screenshots\\18-chain-cancelled.png",
-    "C:\\Users\\mmebr\\Documents\\CNN\\webui\\screenshots\\19-discovery-1-runs-live.png",
-    "C:\\Users\\mmebr\\Documents\\CNN\\webui\\screenshots\\20-discovery-2-seed-live.png",
-    "C:\\Users\\mmebr\\Documents\\CNN\\webui\\screenshots\\21-discovery-3-compare-live.png",
-    "C:\\Users\\mmebr\\Documents\\CNN\\webui\\screenshots\\22-loud-failure-render-error.png",
+    "C:\\Users\\mmebr\\Documents\\CNN\\webui\\screenshots\\11-chain-8-pass-to-review-queue.png",
+    "C:\\Users\\mmebr\\Documents\\CNN\\webui\\screenshots\\12-chain-7b-block-threshold.png",
+    "C:\\Users\\mmebr\\Documents\\CNN\\webui\\screenshots\\13-chain-7b-block-threshold-dragged.png",
+    "C:\\Users\\mmebr\\Documents\\CNN\\webui\\screenshots\\14-chain-1-chain-suffix-rerun.png",
+    "C:\\Users\\mmebr\\Documents\\CNN\\webui\\screenshots\\15-chain-1b-run-history.png",
+    "C:\\Users\\mmebr\\Documents\\CNN\\webui\\screenshots\\16-chain-1e-invalid-junction.png",
+    "C:\\Users\\mmebr\\Documents\\CNN\\webui\\screenshots\\17-chain-1f-failed-block.png",
+    "C:\\Users\\mmebr\\Documents\\CNN\\webui\\screenshots\\18-chain-1d-running.png",
+    "C:\\Users\\mmebr\\Documents\\CNN\\webui\\screenshots\\19-chain-cancelled.png",
+    "C:\\Users\\mmebr\\Documents\\CNN\\webui\\screenshots\\20-discovery-1-runs-live.png",
+    "C:\\Users\\mmebr\\Documents\\CNN\\webui\\screenshots\\21-discovery-4-send-to-review-toast.png",
+    "C:\\Users\\mmebr\\Documents\\CNN\\webui\\screenshots\\22-discovery-5-review-opens-that-queue.png",
+    "C:\\Users\\mmebr\\Documents\\CNN\\webui\\screenshots\\23-discovery-6-review-verdict-written.png",
+    "C:\\Users\\mmebr\\Documents\\CNN\\webui\\screenshots\\24-discovery-7-refresh-after-reviewing.png",
+    "C:\\Users\\mmebr\\Documents\\CNN\\webui\\screenshots\\25-discovery-8-seed-run-sent.png",
+    "C:\\Users\\mmebr\\Documents\\CNN\\webui\\screenshots\\26-discovery-2-seed-live.png",
+    "C:\\Users\\mmebr\\Documents\\CNN\\webui\\screenshots\\27-discovery-3-compare-live.png",
+    "C:\\Users\\mmebr\\Documents\\CNN\\webui\\screenshots\\28-loud-failure-render-error.png",
     "C:\\Users\\mmebr\\Documents\\CNN\\webui\\screenshots\\pages\\analyse\\analyse.chain--live.png",
     "C:\\Users\\mmebr\\Documents\\CNN\\webui\\screenshots\\pages\\analyse\\analyse.chain--1-chain.png",
     "C:\\Users\\mmebr\\Documents\\CNN\\webui\\screenshots\\pages\\analyse\\analyse.chain--1b-run-history.png",
@@ -438,7 +847,7 @@
     "C:\\Users\\mmebr\\Documents\\CNN\\webui\\screenshots\\pages\\interrogation\\analyse.interrogation.aggregate--wiring-by-click.png",
     "C:\\Users\\mmebr\\Documents\\CNN\\webui\\screenshots\\pages\\interrogation\\analyse.interrogation.aggregate--nothing-to-aggregate.png",
     "C:\\Users\\mmebr\\Documents\\CNN\\webui\\screenshots\\pages\\interrogation\\analyse.interrogation.aggregate--running.png",
-    "C:\\Users\\mmebr\\Documents\\CNN\\webui\\screenshots\\pages\\interrogation\\analyse.interrogation.aggregate--null-shuffled.png",
+    "C:\\Users\\mmebr\\Documents\\CNN\\webui\\screenshots\\pages\\interrogation\\analyse.interrogation.aggregate--no-null-is-drawn.png",
     "C:\\Users\\mmebr\\Documents\\CNN\\webui\\screenshots\\pages\\interrogation\\analyse.interrogation.aggregate--outliers-excluded.png",
     "C:\\Users\\mmebr\\Documents\\CNN\\webui\\screenshots\\pages\\interrogation\\analyse.interrogation.aggregate--small-family.png",
     "C:\\Users\\mmebr\\Documents\\CNN\\webui\\screenshots\\pages\\interrogation\\analyse.interrogation.aggregate--stage-outlier.png",
@@ -449,6 +858,15 @@
     "C:\\Users\\mmebr\\Documents\\CNN\\webui\\screenshots\\pages\\interrogation\\analyse.interrogation.aggregate--rewired.png",
     "C:\\Users\\mmebr\\Documents\\CNN\\webui\\screenshots\\pages\\interrogation\\analyse.interrogation.aggregate--wiring-reset.png",
     "C:\\Users\\mmebr\\Documents\\CNN\\webui\\screenshots\\pages\\interrogation\\analyse.interrogation--fixup-d-sequence-rose.png",
+    "C:\\Users\\mmebr\\Documents\\CNN\\webui\\screenshots\\pages\\interrogation\\analyse.interrogation.slope--fixup-k-marks-are-the-payloads.png",
+    "C:\\Users\\mmebr\\Documents\\CNN\\webui\\screenshots\\pages\\interrogation\\analyse.interrogation.slope--fixup-k-marks-on-a-trough-family.png",
+    "C:\\Users\\mmebr\\Documents\\CNN\\webui\\screenshots\\pages\\interrogation\\analyse.interrogation.slope--fixup-k-all-marks-names-what-is-not-drawn.png",
+    "C:\\Users\\mmebr\\Documents\\CNN\\webui\\screenshots\\pages\\interrogation\\analyse.interrogation.slope--fixup-k-marks-rule-behind-the-icon.png",
+    "C:\\Users\\mmebr\\Documents\\CNN\\webui\\screenshots\\pages\\interrogation\\analyse.interrogation.slope--fixup-k-padding-is-honoured.png",
+    "C:\\Users\\mmebr\\Documents\\CNN\\webui\\screenshots\\pages\\interrogation\\analyse.interrogation.slope--fixup-k-padding-restored.png",
+    "C:\\Users\\mmebr\\Documents\\CNN\\webui\\screenshots\\pages\\interrogation\\analyse.interrogation--fixup-h-slideshow-on-the-store.png",
+    "C:\\Users\\mmebr\\Documents\\CNN\\webui\\screenshots\\pages\\interrogation\\analyse.interrogation--fixup-h-overlay-sequence-frame.png",
+    "C:\\Users\\mmebr\\Documents\\CNN\\webui\\screenshots\\pages\\interrogation\\analyse.interrogation.aggregate--fixup-h-timeline-tau-from-the-core.png",
     "C:\\Users\\mmebr\\Documents\\CNN\\webui\\screenshots\\pages\\jobs\\jobs.all--all.png",
     "C:\\Users\\mmebr\\Documents\\CNN\\webui\\screenshots\\pages\\jobs\\jobs.all--needs-you.png",
     "C:\\Users\\mmebr\\Documents\\CNN\\webui\\screenshots\\pages\\jobs\\jobs.all--paused.png",
@@ -803,6 +1221,26 @@
     "C:\\Users\\mmebr\\Documents\\CNN\\webui\\screenshots\\pages\\training\\analyse.training.cluster--criterion-locked-in-params.png",
     "C:\\Users\\mmebr\\Documents\\CNN\\webui\\screenshots\\pages\\training\\analyse.training--stage-deleted-by-click.png",
     "C:\\Users\\mmebr\\Documents\\CNN\\webui\\screenshots\\pages\\training\\analyse.training--stage-deleted.png",
-    "C:\\Users\\mmebr\\Documents\\CNN\\webui\\screenshots\\pages\\zz_analyse_run\\analyse.block--fixup-j-dehshibi-funnel.png"
+    "C:\\Users\\mmebr\\Documents\\CNN\\webui\\screenshots\\pages\\zz_analyse_run\\analyse.block--fixup-j-dehshibi-funnel.png",
+    "C:\\Users\\mmebr\\Documents\\CNN\\webui\\screenshots\\pages\\zz_analyse_run\\analyse.chain--fixup-h-thumbnails-mp_threshold.png",
+    "C:\\Users\\mmebr\\Documents\\CNN\\webui\\screenshots\\pages\\zz_analyse_run\\analyse.block--fixup-h-signal-before-after.png",
+    "C:\\Users\\mmebr\\Documents\\CNN\\webui\\screenshots\\pages\\zz_analyse_run\\analyse.block--fixup-h-scores-signal-above.png",
+    "C:\\Users\\mmebr\\Documents\\CNN\\webui\\screenshots\\pages\\zz_analyse_run\\analyse.block--fixup-h-spanset-cut-and-slideshow.png",
+    "C:\\Users\\mmebr\\Documents\\CNN\\webui\\screenshots\\pages\\zz_analyse_run\\analyse.block--fixup-h-slideshow-selection-drives-the-plot.png",
+    "C:\\Users\\mmebr\\Documents\\CNN\\webui\\screenshots\\pages\\zz_analyse_run\\analyse.chain--fixup-h-thumbnails-dsax_encoding.png",
+    "C:\\Users\\mmebr\\Documents\\CNN\\webui\\screenshots\\pages\\zz_analyse_run\\analyse.block--fixup-h-encoding-symbolic-chunks.png",
+    "C:\\Users\\mmebr\\Documents\\CNN\\webui\\screenshots\\pages\\zz_analyse_run\\analyse.chain--fixup-h-thumbnails-dehshibi_spikes.png",
+    "C:\\Users\\mmebr\\Documents\\CNN\\webui\\screenshots\\pages\\zz_analyse_run\\analyse.block--fixup-h-encoding-image-frames.png",
+    "C:\\Users\\mmebr\\Documents\\CNN\\webui\\screenshots\\pages\\zz_analyse_run\\analyse.block--fixup-h-encoding-image-scan.png",
+    "C:\\Users\\mmebr\\Documents\\CNN\\webui\\screenshots\\pages\\zz_analyse_run\\analyse.block--fixup-h-scores-band-on-the-image.png",
+    "C:\\Users\\mmebr\\Documents\\CNN\\webui\\screenshots\\pages\\zz_analyse_run\\analyse.block--fixup-h-spanset-no-draggable-cut.png",
+    "C:\\Users\\mmebr\\Documents\\CNN\\webui\\screenshots\\pages\\zz_analyse_run\\analyse.chain--fixup-h-thumbnails-windows_model.png",
+    "C:\\Users\\mmebr\\Documents\\CNN\\webui\\screenshots\\pages\\zz_analyse_run\\analyse.block--fixup-h-windowset-heatmap.png",
+    "C:\\Users\\mmebr\\Documents\\CNN\\webui\\screenshots\\pages\\zz_analyse_run\\analyse.block--fixup-h-grouping-exemplars.png",
+    "C:\\Users\\mmebr\\Documents\\CNN\\webui\\screenshots\\pages\\zz_analyse_run\\analyse.block--fixup-h-model-accuracy-per-class.png",
+    "C:\\Users\\mmebr\\Documents\\CNN\\webui\\screenshots\\pages\\zz_analyse_run\\analyse.chain--fixup-h-thumbnails-drop_event_features.png",
+    "C:\\Users\\mmebr\\Documents\\CNN\\webui\\screenshots\\pages\\zz_analyse_run\\analyse.block--fixup-h-spanset-fired-on-the-encoding.png",
+    "C:\\Users\\mmebr\\Documents\\CNN\\webui\\screenshots\\pages\\zz_analyse_run\\analyse.block--fixup-h-features-not-spans.png",
+    "C:\\Users\\mmebr\\Documents\\CNN\\webui\\screenshots\\pages\\zz_analyse_run\\analyse.block--fixup-h-intervals-are-plotted.png"
   ]
 }
