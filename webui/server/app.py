@@ -314,6 +314,20 @@ def create_app(rt: Runtime) -> FastAPI:
             raise HTTPException(404, f"step {index} of job {job_id} has no payload yet (status {job.steps[index]['status'] if index < len(job.steps) else '?'})")
         return job.payloads[index]
 
+    @app.get("/api/runs/{job_id}/steps/{index}/frames/{frame}")
+    def get_step_frame(job_id: int, index: int, frame: int):
+        """One frame of an image Encoding the payload did not sample (fixup-h: "scan through the rest")."""
+        from .serialize import frame_payload
+        job = job_or_404(job_id)
+        src = job.frame_sources.get(index)
+        if src is None:
+            raise HTTPException(410, f"the images of step {index} of job {job_id} are no longer held in memory "
+                                     f"(only the most recent runs keep them) · re-run the chain to scan its frames")
+        try:
+            return frame_payload(src[0], {}, src[1], frame)
+        except IndexError as e:
+            raise HTTPException(404, str(e))
+
     @app.get("/api/runs/{job_id}/log")
     def get_run_log(job_id: int):
         job = job_or_404(job_id)

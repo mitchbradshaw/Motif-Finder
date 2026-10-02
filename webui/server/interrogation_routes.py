@@ -20,9 +20,13 @@ from fastapi import APIRouter, HTTPException, Request
 from Working.Detection.drop_motifs import gradients as G
 from Working.Detection.drop_motifs import store as S
 from Working.interrogation import sequences as SEQ
+from Working.interrogation.event_shape import rose_payload
 from Working.interrogation.intervals import inter_event_intervals
 
+from Working.Detection.drop_motifs import extent as X
+
 from . import corpus
+from .decimate import _fast_minmax
 from .runtime import REPO_ROOT
 from .serialize import _clean
 
@@ -65,11 +69,15 @@ def _families(events):
 
 
 def _decimate(t, v, n=SNIPPET_POINTS):
+    """`(t, v, decimated)`: every stored sample while they fit, else a min/max
+    envelope - each bucket's true minimum and true maximum, at the times they
+    occur (fixup-h). This used to pick every k-th sample, and a stride deletes a
+    narrow event, which is the one thing a snippet exists to show."""
     t = np.asarray(t, dtype=float); v = np.asarray(v, dtype=float)
-    if len(t) <= n:
-        return t.tolist(), v.tolist()
-    idx = np.linspace(0, len(t) - 1, n).round().astype(int)
-    return t[idx].tolist(), v[idx].tolist()
+    if len(t) <= n or not np.isfinite(v).all():
+        return t.tolist(), v.tolist(), False
+    idx, vals = _fast_minmax(v, max(1, n // 2))
+    return t[idx].tolist(), vals.astype(float).tolist(), True
 
 
 def _named(request: Request, rows: list) -> list:
@@ -110,19 +118,26 @@ def _members_of(key):
 @router.get("/api/interrogation/families/{key}/members")
 def family_members(request: Request, key: str, snippets: bool = True):
     members, snips = _members_of(key)
+    # fixup-h: what the drawing needs to say about each event's extent, read off the row and never
+    # changed - which edges sit at the fall-multiple cap (Q18), the frame a sequence is drawn in (Q19),
+    # and whether the stored array is the length its indices claim (DETECTION_AND_FIGURES.md 6.7).
+    frames = X.sequence_frames(members)
     out = []
-    for e in members:
+    for e, frame in zip(members, frames):
         row = {k: _clean(e[k]) for k in ("event_id", "recording_id", "source_file", "channel", "fs", "morphology", "trigger",
                                           "onset_idx", "onset_h", "trough_idx", "trough_h", "snippet_start_idx", "snippet_end_idx",
                                           "drop_depth_mv", "rise_height_mv", "fall_duration_s", "peak_to_peak_mv", "fall_dominance",
                                           "purity", "is_pure", "cluster_id") if k in e}
         row["source"] = SOURCE
+        row["left_capped"], row["right_capped"] = X.capped_edges(e)
+        row["sequence_frame"] = frame
         if snippets and e["event_id"] in snips:
             s = snips[e["event_id"]]
-            t, v = _decimate(s["t_s"], s["detrended_mv"])
-            row["snippet"] = {"t_s": t, "detrended_mv": v, "n": int(len(s["t_s"]))}
+            t, v, decimated = _decimate(s["t_s"], s["detrended_mv"])
+            row["snippet"] = {"t_s": t, "detrended_mv": v, "n": int(len(s["t_s"])), "decimated": decimated,
+                              "mismatch": X.snippet_mismatch(e, len(s["detrended_mv"]))}
         out.append(row)
-    return {"family": key, "source": SOURCE, "members": _named(request, out)}
+    return {"family": key, "source": SOURCE, "members": _named(request, out), "capped": X.capped_counts(members)}
 
 
 @router.get("/api/interrogation/families/{key}/slope")
@@ -162,9 +177,9 @@ def family_slope(key: str, scale: str = "raw"):
                             "n_samples": int(len(v)),
                             "angle_deg": float(np.rad2deg(rose["angles"][len(members_out)])) if len(rose["angles"]) else None})
     return {"family": key, "source": SOURCE, "features": features, "rules": rules, "members": members_out,
-            "rose": {"bin_centres_deg": np.rad2deg(rose["bin_centres"]).tolist(), "counts": [int(c) for c in rose["counts"]],
-                     "scale": scale, "caption": rose.get("caption", ""),
-                     "groups": {k: {kk: _clean(vv) for kk, vv in v.items() if kk not in ("angles", "counts", "slopes_mv_s")} for k, v in rose["groups"].items()}}}
+            # the whole of `rose_data` in the one shape the kit's Rose draws (fixup-h): bins, every event's
+            # angle, the circular statistics. `event_index` is the member's position in `members` above.
+            "rose": _clean(rose_payload(rose))}
 
 
 @router.get("/api/interrogation/families/{key}/aggregate")

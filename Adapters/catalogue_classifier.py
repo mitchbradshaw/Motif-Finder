@@ -243,10 +243,17 @@ def _run(x, t, fs, n_estimators=300, class_weight="balanced", holdout_frac=0.25,
     joblib.dump(pipeline, path)
 
     kept = pipeline.named_steps["variancethreshold"].get_support()
-    holdout_accuracy = (
-        float((pipeline.predict(X_holdout) == y_holdout).mean())
-        if X_holdout is not None else None
-    )
+    # The same holdout, per class (fixup-h): the page draws these as bars, and
+    # weighted by the holdout's class counts they add up to the headline
+    # number. Both are None when there is no holdout - never a zero.
+    per_class_accuracy = holdout_class_counts = None
+    holdout_accuracy = None
+    if X_holdout is not None:
+        hit = pipeline.predict(X_holdout) == y_holdout
+        holdout_accuracy = float(hit.mean())
+        classes = np.unique(y_holdout)
+        per_class_accuracy = {int(c): float(hit[y_holdout == c].mean()) for c in classes}
+        holdout_class_counts = {int(c): int((y_holdout == c).sum()) for c in classes}
 
     return AdapterResult(
         output_kind="model",
@@ -270,6 +277,8 @@ def _run(x, t, fs, n_estimators=300, class_weight="balanced", holdout_frac=0.25,
             "n_train": int(len(y_train)),
             "n_holdout": int(len(y_holdout)) if y_holdout is not None else 0,
             "holdout_accuracy": holdout_accuracy,
+            "per_class_accuracy": per_class_accuracy,
+            "holdout_class_counts": holdout_class_counts,
             # why there is no number, when there is none (fixup-a item 10)
             "holdout_reason": holdout_reason,
             # NESTED, not spread: `serialize.py`'s `keep` tuple whitelists

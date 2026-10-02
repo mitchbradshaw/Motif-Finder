@@ -24,6 +24,8 @@ from Working.hpc.job_export import estimate_recipe_seconds
 from Working.recipes import make_recipe, recipe_hash, short_hash
 from Working.database.runs import get_step_artifact
 
+from . import views as views_mod
+
 discover_adapters()
 
 # `category`, `page_name` and `known_broken` live on `AdapterSpec` (stage-3
@@ -45,6 +47,8 @@ def adapter_card(spec) -> dict:
         "input_kind": in_kind, "output_kind": spec.output_kind,
         "signature": f"{TYPE_LABEL.get(in_kind, in_kind)} → {TYPE_LABEL.get(spec.output_kind, spec.output_kind)}",
         "category": spec.category,
+        # the drawing standard (fixup-h): the picture is a consequence of the type signature
+        **views_mod.resolve(spec),
         "has_estimate": spec.estimate is not None,
         "has_derive": spec.derive is not None,
         "max_span_samples": spec.max_span_samples,

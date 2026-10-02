@@ -39,6 +39,9 @@ import re
 
 log = logging.getLogger("proto.runs")
 
+#: How many runs keep their image Encodings in memory for the block page's frame scan.
+FRAME_JOBS_HELD = 3
+
 
 class Job:
     _ids = itertools.count(1)
@@ -69,6 +72,7 @@ class Job:
         self.subscribers: list[asyncio.Queue] = []
         self.cancel_event = threading.Event()
         self._windowset = None          # last WindowSet seen, for Grouping strips
+        self.frame_sources: dict[int, tuple] = {}   # step -> (Encoding, ctx) while the run is recent (fixup-h)
         self.log_lines: list[str] = []
 
     def snapshot(self) -> dict:
@@ -126,6 +130,9 @@ class RunManager:
         job.config_hash = chain_mod.hashes(recipe)["config_hash"]
         with self._lock:
             self.jobs[job.id] = job
+            # an image Encoding can be tens of MB: only the newest runs keep theirs for frame scanning
+            for old in sorted(j for j in self.jobs if self.jobs[j].frame_sources)[:-FRAME_JOBS_HELD]:
+                self.jobs[old].frame_sources = {}
         conn = init_db(self.db_path)
         try:
             for row in chain_mod.cache_status(recipe, conn):
@@ -202,6 +209,10 @@ class RunManager:
                 if kind == "windowset":
                     job._windowset = result.value
                 payload = to_payload(kind, result.value, meta, ctx)
+                if kind == "encoding" and payload.get("frames") and payload["frames"]["n"] > len(payload["frames"]["shown"]):
+                    # the frames that were not sampled are asked for one at a time (GET …/frames/{k});
+                    # the value is held for the most recent runs only (`FRAME_JOBS_HELD`)
+                    job.frame_sources[i] = (result.value, ctx)
                 if meta_from_sidecar:
                     payload["meta_from_sidecar"] = True
                 job.payloads[i] = payload

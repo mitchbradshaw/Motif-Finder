@@ -175,6 +175,7 @@ def _spanset(value, meta, ctx):
     }
     # the feature blocks' own printed rules, rose and interval statistics (fixup-d):
     # passed through so the page draws the measurement it was given
+    out.update(_span_anatomy(value, meta or {}, starts, ends, fs, ss, sl))
     for key in _SPANSET_META_VIEWS:
         if key in (meta or {}):
             out[key] = _clean(meta[key])
@@ -192,6 +193,51 @@ def _spanset(value, meta, ctx):
 
 
 _SPANSET_META_VIEWS = ("rules", "rose", "interval_stats")
+
+
+def _span_anatomy(value, meta, starts, ends, fs, ss, sl):
+    """Where each span's event sits inside it, and how many events each span's
+    window holds (fixup-h).
+
+    A span's *anchors* are the onset and the extremum of the event it brackets,
+    when something measured them: a feature block's own `onset_idx` /
+    `extremum_idx` columns, else the detector's `meta["events"]` rows (`onset_idx`
+    / `trough_idx`). Both are span-relative, like the spans.
+
+    `window_counts[i]` is how many events lie in span i's SAMPLE RANGE - never a
+    lookup by window index, which undercounts (`DETECTION_AND_FIGURES.md` 5b: 11
+    shown where 21 exist). With anchors it counts FALLS (onset..extremum), because
+    overlapping windows are shared context and not double-counting; without them
+    it counts the spans that share samples with this one. More than one is the
+    slideshow's impurity flag."""
+    n = len(starts)
+    onset = extremum = None
+    feats = getattr(value, "features", None)
+    if feats is not None and {"onset_idx", "extremum_idx"} <= set(map(str, feats.columns)) and len(feats) == n:
+        onset = pd.to_numeric(feats["onset_idx"], errors="coerce").to_numpy(dtype=float)
+        extremum = pd.to_numeric(feats["extremum_idx"], errors="coerce").to_numpy(dtype=float)
+    else:
+        events = meta.get("events")
+        if isinstance(events, (list, tuple)) and len(events) == n and n and all(
+                isinstance(e, dict) and "onset_idx" in e and "trough_idx" in e for e in events):
+            onset = np.array([float(e["onset_idx"]) for e in events])
+            extremum = np.array([float(e["trough_idx"]) for e in events])
+    if onset is not None and not (np.isfinite(onset).all() and np.isfinite(extremum).all()):
+        onset = extremum = None
+    if n == 0:
+        return {"marks": None, "window_counts": [], "window_count_of": "spans"}
+    if onset is not None:
+        lo, hi = np.minimum(onset, extremum), np.maximum(onset, extremum)
+        # a fall [lo, hi] lies in window [a, b) when it starts at or after a and ends before b
+        inside = (lo[None, :] >= starts[:, None]) & (hi[None, :] < ends[:, None]) if n <= SPAN_CAP else None
+        counts = inside.sum(axis=1) if inside is not None else np.array(
+            [int(((lo >= a) & (hi < b)).sum()) for a, b in zip(starts[sl], ends[sl])])
+        marks = {"onset_s": ((onset[sl] + ss) / fs).tolist(), "extremum_s": ((extremum[sl] + ss) / fs).tolist()}
+        return {"marks": marks, "window_counts": [int(c) for c in counts[sl]], "window_count_of": "falls"}
+    # spans sharing samples with [a, b): every span that starts before b, less those that end at or before a
+    s_sorted, e_sorted = np.sort(starts), np.sort(ends)
+    counts = np.searchsorted(s_sorted, ends[sl], side="left") - np.searchsorted(e_sorted, starts[sl], side="right")
+    return {"marks": None, "window_counts": [int(c) for c in counts], "window_count_of": "spans"}
 
 
 def _funnel(funnel, fs, span_start):
@@ -236,13 +282,144 @@ def _windowset(value, meta, ctx):
     fs = float(value.fs)
     starts = np.asarray(value.starts, dtype=np.int64)
     n = int(len(starts))
+    # The split is metadata riding on the feature table (`preprocessing.sliding_windows`), not a
+    # measure: it is shipped apart, and a table that held nothing else is no feature matrix (fixup-h).
+    feats, split = value.features, None
+    if feats is not None and SPLIT_COLUMN in feats.columns:
+        labels = pd.to_numeric(feats[SPLIT_COLUMN], errors="coerce").fillna(-1).astype(int).to_numpy()
+        names = {str(k): SPLIT_NAMES.get(int(k), f"split {int(k)}") for k in np.unique(labels)}
+        split = {"labels": labels[:SPAN_CAP].tolist(), "names": names,
+                 "counts": {names[str(k)]: int((labels == k).sum()) for k in np.unique(labels)}}
+        feats = feats.drop(columns=[SPLIT_COLUMN])
+        if feats.shape[1] == 0:
+            feats = None
     out = {
         "type": "windowset", "fs": fs, "n_windows": n, "length": int(value.length),
         "length_s": int(value.length) / fs, "starts_s": (starts[:SPAN_CAP] / fs).tolist(),
-        "capped": n > SPAN_CAP, "features": _feature_table(value.features, n),
+        "capped": n > SPAN_CAP, "features": _feature_table(feats, n), "split": split,
     }
-    out["summary"] = f"{n} windows · {out['length_s']:g} s each" + (f" · {out['features']['n_columns']} features" if out["features"] else "")
+    out["summary"] = (f"{n} windows · {out['length_s']:g} s each"
+                      + (f" · {out['features']['n_columns']} features" if out["features"] else " · no features")
+                      + (" · " + " / ".join(f"{c} {k}" for k, c in split["counts"].items()) if split else ""))
     return out
+
+
+SPLIT_COLUMN = "split"
+SPLIT_NAMES = {0: "train", 1: "validation", 2: "test"}
+
+
+# ------------------------------------------------------- image frames (fixup-h) --
+# The Encoding view draws "3 sampled images, scan through the rest". What one
+# image IS depends on the value's shape, and it is decided here, once:
+#
+#   stack   a 4-D stack (n, H, W[, C]): frame k is image k, and it came from window k
+#           of the WindowSet the stack was made over (when that is at hand);
+#   time    a time-aligned image, one column per sample of the span: frame k is the
+#           k-th chunk of FRAME_COLUMNS columns AT THE IMAGE'S OWN RESOLUTION - the
+#           whole span block-averaged to 256 px is a smear of what the block computed;
+#   whole   any other 2-D / 3-D image: one frame, the whole span.
+#
+# Every frame of a result is scaled to ONE value range - the result's own - so the
+# colour bar on the page is true of every frame and a later frame can be compared
+# with an earlier one. A cell with no finite value is marked, never painted.
+
+FRAME_COLUMNS = 256
+FRAMES_SHOWN = 3
+
+
+def _frame_plan(vals, ctx):
+    """`(axis, n_frames)` for an image-kind value, or `(None, 0)` when it has no frames."""
+    if vals.ndim == 4:
+        return "stack", int(vals.shape[0])
+    if vals.ndim in (2, 3):
+        n_samples = ctx.get("n_samples")
+        if n_samples and int(n_samples) == int(vals.shape[1]) and vals.shape[1] > 1:
+            return "time", int(np.ceil(vals.shape[1] / FRAME_COLUMNS))
+        return "whole", 1
+    return None, 0
+
+
+def _value_range(vals):
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", RuntimeWarning)
+        lo, hi = np.nanmin(vals), np.nanmax(vals)
+    if not (np.isfinite(lo) and np.isfinite(hi)):
+        f = np.asarray(vals, dtype=float)
+        f = f[np.isfinite(f)]
+        return None if f.size == 0 else [float(f.min()), float(f.max())]
+    return [float(lo), float(hi)]
+
+
+def _shrink(img, max_h, max_w):
+    """Block-average an (H, W, C) float image to at most max_h x max_w, ignoring NaN."""
+    h, w = img.shape[0], img.shape[1]
+    fh = max(1, int(np.ceil(h / max_h))); fw = max(1, int(np.ceil(w / max_w)))
+    if fh == 1 and fw == 1:
+        return img
+    hh, ww = max(fh, h // fh * fh), max(fw, w // fw * fw)
+    img = img[:hh, :ww]
+    hh, ww = img.shape[0] // fh * fh, img.shape[1] // fw * fw
+    return _block_nanmean(img[:hh, :ww].reshape(hh // fh, fh, ww // fw, fw, img.shape[2]))
+
+
+def _one_frame(vals, axis, index, rng, ctx):
+    fs = float(ctx.get("fs", 1.0))
+    ss = int(ctx.get("span_start", 0))
+    t0 = t1 = None
+    if axis == "stack":
+        img = np.asarray(vals[index], dtype=float)
+        ws = ctx.get("windowset")
+        if ws is not None and len(ws.starts) == vals.shape[0]:
+            t0 = float(ws.starts[index]) / float(ws.fs)          # WindowSet.starts are channel-absolute
+            t1 = t0 + int(ws.length) / float(ws.fs)
+        label = f"image {index + 1} of {vals.shape[0]}"
+    elif axis == "time":
+        c0 = index * FRAME_COLUMNS
+        c1 = min(int(vals.shape[1]), c0 + FRAME_COLUMNS)
+        img = np.asarray(vals[:, c0:c1], dtype=float)
+        t0, t1 = (ss + c0) / fs, (ss + c1) / fs
+        label = f"columns {c0:,}–{c1:,} of {vals.shape[1]:,}"
+    else:
+        img = np.asarray(vals, dtype=float)
+        n_samples = ctx.get("n_samples")
+        if n_samples:
+            t0, t1 = ss / fs, (ss + int(n_samples)) / fs
+        label = "the whole span"
+    if img.ndim == 2:
+        img = img[:, :, None]
+    chans = 3 if img.shape[2] == 3 else 1
+    img = img[:, :, :chans]
+    img = _shrink(img, IMAGE_SIDE, FRAME_COLUMNS if axis == "time" else IMAGE_SIDE)
+    blank = ~np.isfinite(img).any(axis=-1)
+    if rng is None:
+        u8 = np.zeros(img.shape, dtype=np.uint8)
+    else:
+        u8 = np.clip(np.nan_to_num((img - rng[0]) / ((rng[1] - rng[0]) or 1.0) * 255), 0, 255).astype(np.uint8)
+    n_blank = int(blank.sum())
+    return {"index": int(index), "label": label, "shape": [int(u8.shape[0]), int(u8.shape[1])], "channels": chans,
+            "t0_s": t0, "t1_s": t1, "nan_cells": n_blank, "n_cells": int(blank.size),
+            "pixels_b64": base64.b64encode(np.ascontiguousarray(u8).tobytes()).decode("ascii"),
+            "nan_b64": (base64.b64encode(np.ascontiguousarray(blank, dtype=np.uint8).tobytes()).decode("ascii") if n_blank else None)}
+
+
+def _frames(vals, ctx):
+    axis, n = _frame_plan(vals, ctx)
+    if axis is None or n == 0:
+        return None
+    rng = _value_range(vals)
+    picks = list(range(n)) if n <= FRAMES_SHOWN else [0, (n - 1) // 2, n - 1]
+    return {"axis": axis, "n": n, "value_range": rng, "frame_columns": FRAME_COLUMNS if axis == "time" else None,
+            "shown": [_one_frame(vals, axis, k, rng, ctx) for k in picks]}
+
+
+def frame_payload(value, meta, ctx, index: int) -> dict:
+    """One frame of an image Encoding by index - what the settings page asks for when it scans past the
+    three that were sampled. `IndexError` for an index the value does not have."""
+    vals = np.asarray(value.values)
+    axis, n = _frame_plan(vals, ctx or {})
+    if axis is None or not (0 <= int(index) < n):
+        raise IndexError(f"frame {index} of {n}")
+    return _one_frame(vals, axis, int(index), _value_range(vals), ctx or {})
 
 
 def _encoding(value, meta, ctx):
@@ -250,6 +427,7 @@ def _encoding(value, meta, ctx):
     vals = np.asarray(value.values)
     fs = float(ctx.get("fs", 1.0))
     ss = int(ctx.get("span_start", 0))
+    frames = _frames(vals, ctx) if value.kind != "symbolic" else None
     if value.kind == "symbolic":
         details = meta.get("details", {}) or {}
         syms = vals.astype(int).ravel()
@@ -283,7 +461,7 @@ def _encoding(value, meta, ctx):
         # what the model saw; the full stack stays on disk (rule 4)
         n_images = int(vals.shape[0])
         if n_images == 0:
-            return {"type": "encoding", "kind": "image", "ndim": 4, "shape": list(vals.shape), "n_images": 0,
+            return {"type": "encoding", "kind": "image", "ndim": 4, "shape": list(vals.shape), "n_images": 0, "frames": None,
                     "summary": "0 images · the window set was empty"}
         k = min(n_images, STACK_TILES)
         cols = int(np.ceil(np.sqrt(k))); rows_ = int(np.ceil(k / cols))
@@ -334,7 +512,7 @@ def _encoding(value, meta, ctx):
                 "value_range": rng, "pixels_b64": base64.b64encode(np.ascontiguousarray(u8).tobytes()).decode("ascii"),
                 "all_nan": rng is None, "nan_cells": n_blank, "n_cells": n_cells,
                 "nan_b64": (base64.b64encode(np.ascontiguousarray(blank, dtype=np.uint8).tobytes()).decode("ascii") if n_blank else None),
-                "summary": summary}
+                "frames": frames, "summary": summary}
     return {"type": "encoding", "kind": value.kind, "shape": list(vals.shape), "summary": f"{value.kind} {vals.shape}"}
 
 
@@ -347,15 +525,45 @@ def _grouping(value, meta, ctx):
     shown = min(n, SPAN_CAP)
     out = {"type": "grouping", "n": n, "k": int(len(ids)), "label_base": int(ids.min()) if n else 1,
            "linkage": meta.get("linkage"), "clusters": clusters, "labels": labels[:SPAN_CAP].tolist(),
-           "capped": n > SPAN_CAP, "n_shown": int(shown), "strip": None}
+           "capped": n > SPAN_CAP, "n_shown": int(shown), "strip": None, "exemplars": []}
     ws = ctx.get("windowset")
     if ws is not None and len(ws.starts) == n:
         out["strip"] = {"starts_s": (np.asarray(ws.starts) / float(ws.fs))[:SPAN_CAP].tolist(),
                         "length_s": int(ws.length) / float(ws.fs)}
+        out["exemplars"] = _exemplars(labels, ids, ws)
     out["summary"] = (f"{len(ids)} clusters · sizes " + ", ".join(str(int(c)) for c in counts)
                       # the strip is capped; saying so is the difference between
                       # a short strip and a wrong one (fixup-a item 10)
                       + (f" · strip shows the first {shown:,} of {n:,} windows" if out["capped"] else ""))
+    return out
+
+
+def _exemplars(labels, ids, ws):
+    """One member window per cluster, to be DRAWN (fixup-h): the window nearest its
+    cluster's centroid in the z-scored feature space, or the cluster's first window
+    when the window set carries no features. A member, never an average - a mean
+    of windows is a waveform the recording does not contain."""
+    feats = ws.features
+    if feats is not None and SPLIT_COLUMN in feats.columns:
+        feats = feats.drop(columns=[SPLIT_COLUMN])
+    z = None
+    if feats is not None and feats.shape[1] and len(feats) == len(labels):
+        m = feats.apply(pd.to_numeric, errors="coerce").to_numpy(dtype=float)
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", RuntimeWarning)
+            mu, sd = np.nanmean(m, axis=0), np.nanstd(m, axis=0)
+        z = np.nan_to_num((m - mu) / np.where(sd > 0, sd, 1.0))
+    fs, length = float(ws.fs), int(ws.length)
+    out = []
+    for cid in ids:
+        members = np.flatnonzero(labels == cid)
+        if z is not None:
+            d = np.linalg.norm(z[members] - z[members].mean(axis=0), axis=1)
+            pick, rule = int(members[int(np.argmin(d))]), "the member nearest its cluster's centroid in z-scored feature space"
+        else:
+            pick, rule = int(members[0]), "the cluster's first window (the window set carries no features)"
+        out.append({"cluster": int(cid), "window": pick, "start_s": float(ws.starts[pick]) / fs,
+                    "length_s": length / fs, "n": int(len(members)), "rule": rule})
     return out
 
 
@@ -365,7 +573,7 @@ def _model(value, meta, ctx):
     exists = os.path.isfile(path)
     keep = ("n_windows", "n_classes", "class_counts", "feature_names", "n_features_in",
             "n_features_kept", "n_train", "n_holdout", "holdout_accuracy", "holdout_reason",
-            "params")
+            "per_class_accuracy", "holdout_class_counts", "params")
     card = {k: _clean(meta[k]) for k in keep if k in meta}
     acc = card.get("holdout_accuracy")
     return {"type": "model", "path": path, "exists": exists,
