@@ -271,8 +271,14 @@ export function LineChart({ series, xDomain, yDomain, height = 180, width, marke
 
 /* ================= Histogram ================= */
 export interface HistBin { x0: number; x1: number; count: number }
+/** A domain with no width — every value equal, as two spans of one duration are — has no bin width: widen it by
+ *  half a unit each side. Without this the bin index is NaN and `bins[NaN].count++` threw on the threshold block
+ *  page the first time a chain found exactly two 9 s spans (fixup-l). */
+export function widenDegenerate(domain: [number, number]): [number, number] {
+  return domain[1] > domain[0] ? domain : [domain[0] - 0.5, domain[1] + 0.5]
+}
 export function binValues(values: number[], domain: [number, number], nBins: number): HistBin[] {
-  const [a, b] = domain, wdt = (b - a) / nBins
+  const [a, b] = widenDegenerate(domain), wdt = (b - a) / nBins
   const bins = Array.from({ length: nBins }, (_, i) => ({ x0: a + i * wdt, x1: a + (i + 1) * wdt, count: 0 }))
   for (const v of values) { if (v < a || v > b) continue; bins[Math.min(nBins - 1, Math.floor((v - a) / wdt))].count++ }
   return bins
@@ -291,7 +297,7 @@ export interface HistogramProps extends TestIdProps {
 /** Bars over bins, optional second series, threshold line, labelled markers with CI bands, and dots (models-3 null plot). */
 export function Histogram({ values, bins, nBins = 20, domain, colour = '#d1d5db', overlay, threshold, markers = [], dots = [], highlightBin, highlightColour = 'var(--blue)', height = 160, width, xLabel, yLabel, format, label, style, showCounts = true, xTicks = 5, ...t }: HistogramProps) {
   const [ref, w] = useWidth(width)
-  const dom: [number, number] = domain ?? (bins?.length ? [bins[0].x0, bins[bins.length - 1].x1] : extent([values ?? [], overlay?.values ?? []]))
+  const dom: [number, number] = widenDegenerate(domain ?? (bins?.length ? [bins[0].x0, bins[bins.length - 1].x1] : extent([values ?? [], overlay?.values ?? []])))
   const b = bins ?? binValues(values ?? [], dom, nBins)
   const ob = overlay ? overlay.bins ?? binValues(overlay.values ?? [], dom, b.length) : null
   const padL = showCounts ? 34 : 8, padR = 10, padT = markers.some(m => m.label) ? 18 : 8, padB = (xLabel ? 32 : 22) + (dots.length ? 14 : 0)
