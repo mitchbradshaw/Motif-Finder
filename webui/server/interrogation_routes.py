@@ -142,15 +142,24 @@ def family_slope(key: str, scale: str = "raw"):
     rules = [
         {"name": "onset", "rule": "first sample steeper than −slope_sigma·σ after the rise, walked back to the shoulder (detect5)"},
         {"name": "trough", "rule": "steepest fall onward to the knee (trough_knee_frac of the steepest slope)"},
-        {"name": "steepest", "rule": "minimum of d/dt over [onset, trough] in mV/s"},
+        {"name": "steepest", "rule": "minimum of np.gradient × fs (a central difference, so one sample either side) over [onset, trough], "
+                                     "mV/s, and the sample that minimum is at (gradients.fall_gradients)"},
         {"name": "chord", "rule": "(x[trough] − x[onset]) / duration"},
     ]
     members_out = []
     for e, g in zip(members, grads):
-        s = snips[e["event_id"]]
+        # fixup-k: the anatomy figure's marks. The offsets are clipped into the snippet exactly as
+        # `fall_gradients` clips them, so a mark is always at the sample the slope was measured from; the
+        # three heights are the full-resolution snippet's own samples (the page holds a 400-point decimation).
+        v = np.asarray(snips[e["event_id"]]["detrended_mv"], dtype=float).ravel()
         start = int(e["snippet_start_idx"])
-        members_out.append({**{k: _clean(v) for k, v in g.items()},
-                            "onset_offset": int(e["onset_idx"]) - start, "trough_offset": int(e["trough_idx"]) - start,
+        onset, trough = (int(np.clip(int(e[k]) - start, 0, max(len(v) - 1, 0))) for k in ("onset_idx", "trough_idx"))
+        steepest = g.pop("max_slope_idx")
+        at = lambda i: None if i is None or not len(v) else float(v[i])
+        members_out.append({**{k: _clean(v_) for k, v_ in g.items()},
+                            "onset_offset": onset, "trough_offset": trough, "steepest_offset": steepest,
+                            "onset_mv": at(onset), "trough_mv": at(trough), "steepest_mv": at(steepest),
+                            "n_samples": int(len(v)),
                             "angle_deg": float(np.rad2deg(rose["angles"][len(members_out)])) if len(rose["angles"]) else None})
     return {"family": key, "source": SOURCE, "features": features, "rules": rules, "members": members_out,
             "rose": {"bin_centres_deg": np.rad2deg(rose["bin_centres"]).tolist(), "counts": [int(c) for c in rose["counts"]],

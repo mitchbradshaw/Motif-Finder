@@ -115,12 +115,14 @@ def fall_gradients(values_mv, fs, onset, trough):
 
     if trough > onset:
         span = derivative[onset:trough + 1]
-        max_slope = float(span.min())
+        max_slope_idx = onset + int(np.argmin(span))
+        max_slope = float(span[max_slope_idx - onset])
         mean_slope = float((values[trough] - values[onset]) / ((trough - onset) / fs))
     else:
         # No fall between the two marks - report the onset sample's own
         # gradient for both rather than inventing a range. `peakedness`
         # then comes out at 1.0, which is the honest "no shape measured".
+        max_slope_idx = onset
         max_slope = onset_slope
         mean_slope = onset_slope
 
@@ -131,6 +133,11 @@ def fall_gradients(values_mv, fs, onset, trough):
     return {
         "onset_slope_mv_s": onset_slope,
         "max_slope_mv_s": max_slope,
+        # The sample `max_slope_mv_s` was measured AT, as an offset into
+        # `values` like `onset` and `trough`. A figure that draws the
+        # tangent needs it: the value alone says how steep, not where,
+        # and "half way down the fall" is wrong for a front-loaded one.
+        "max_slope_idx": max_slope_idx,
         "mean_slope_mv_s": mean_slope,
         "peakedness": peakedness,
     }
@@ -138,6 +145,7 @@ def fall_gradients(values_mv, fs, onset, trough):
 
 def _empty_gradients():
     return {"onset_slope_mv_s": 0.0, "max_slope_mv_s": 0.0,
+            "max_slope_idx": None,
             "mean_slope_mv_s": 0.0, "peakedness": 0.0}
 
 
