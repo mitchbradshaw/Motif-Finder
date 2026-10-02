@@ -514,9 +514,9 @@ Nine from the researcher, with screenshots. Recorded here; ownership assigned as
 | U4 | **Explore needs fine span adjustment** — the slider cannot move a span by seconds or minutes; it needs typed/stepped controls | `I` |
 | U5 | **[FIXED — fixup-f, 2026-10-01.** The segmented tab strip (nine of eleven recordings visible at 1440 px, five at 900 px, no scroll) is a picker at the start of the card header: bounded width, a scrolling menu, each row the dataset's name with its file and channel count. `reports/F-datasets-and-naming.md` §5.**]** **Settings › Channels & events: the recording tab list runs off the page** with no scroll affordance | `F` |
 | U6 | **[CLOSED — fixup-j, 2026-10-01.** The implementation diverged from the paper in four places; it is now a port of the authors' own MATLAB, tested against that MATLAB, with every sample analysed and the funnel on the block page. It finds 17 of 20 known synthetic events — and on M2_aug CH0 marks 91 % of the *interesting* windows and 86 % of the *not interesting* ones, so it is faithful and not selective here. `reports/J-dehshibi-vs-the-paper.md`.**] **The Dehshibi template still does not read as detecting anything.** Prompt `A` fixed its black image; the thumbnails are now legible but the researcher cannot tell what the algorithm is doing or whether it works. **Wants it checked against the paper**, by an agent reading the paper alongside the code | `J` — its own prompt, and it needs the paper |
-| U7 | **Analysis blocks answer with tables where they should answer with pictures.** The whole point of the UI is to avoid large tables. The researcher supplied an exemplar figure (the drop-motif "how a fall becomes an angle" plate: anatomy of one event, the same construction across the depth range, the rose beside it) | `H` |
-| U8 | **Anything that outputs a SpanSet should offer a slideshow of its spans** on the block page | `H` |
-| U9 | **Every existing analysis block needs a bespoke process view** — a drawing of what that block did, not a generic payload dump | `H` |
+| U7 | **[CLOSED — fixup-h, 2026-10-02, `reports/H-blocks-show-their-work.md` §2: a feature block (`spanset → spanset`) leads with a histogram per measure, the rose and the interval statistics; its per-event table is folded away, and what was not measured stays on the face of each card. `interrogation.intervals`, whose whole output was a ten-column table, is plotted.]** **Analysis blocks answer with tables where they should answer with pictures.** The whole point of the UI is to avoid large tables. The researcher supplied an exemplar figure (the drop-motif "how a fall becomes an angle" plate: anatomy of one event, the same construction across the depth range, the rose beside it) | `H` |
+| U8 | **[CLOSED — fixup-h, 2026-10-02, `reports/H-blocks-show-their-work.md` §4: every SpanSet-emitting block draws `kit/Slideshow.tsx` — real samples at their own times, per-panel y with a scale bar, the red `[2 falls]` impurity flag counted by sample range, selection shared with the plot above, read-only with one action (*Send to Review*, which creates a real queue). The Interrogation member grid is the same component on the seed store.]** **Anything that outputs a SpanSet should offer a slideshow of its spans** on the block page | `H` |
+| U9 | **[CLOSED — fixup-h, 2026-10-02, `reports/H-blocks-show-their-work.md` §1, §7: seven type views and twelve modifiers draw all 36 blocks from their type signature; `GenericProcess` and its caption are deleted, zero blocks resolve to a generic view, and `tests/test_block_standard.py` fails if one does.]** **Every existing analysis block needs a bespoke process view** — a drawing of what that block did, not a generic payload dump | `H` |
 
 U7, U8 and U9 are one theme: **a block must show its work.** They are the "legibility" pillar of
 `CLAUDE.md`'s priority order, and the exemplar figure the researcher supplied is the standard to hit.
@@ -656,6 +656,11 @@ null. That is worth knowing before any more is built on it.
 
 ### Q27 — the Aggregate page's null says "matched random windows · 200×" and is a seeded jitter
 
+**[CLOSED — fixup-h, 2026-10-02, `reports/H-blocks-show-their-work.md` §6.** Both nulls deleted, not relabelled: the scatter's jitter, the
+histograms' summed uniforms, the method selector, the null-β tile, and the toolbar chip's claim on all three
+Interrogation pages (it now reads *no null*). The page says once, on its face, that nothing on it is tested
+against chance. Building P10 is `future/R-interrogation-null.md`.**]**
+
 `E` §8.1. The null **β** is now honestly recomputed from the points drawn, but the points behind it
 are a jitter of the data, not 200 matched random windows, and the label still claims they are. It is
 the last unearned claim on a page this stage has just spent two prompts making honest.
@@ -699,10 +704,10 @@ Two things follow for every future parallel wave, and both prompts in wave 2 car
 | item | from | owner |
 |---|---|---|
 | **[CLOSED — fixup-k, 2026-10-02, `reports/K-slope-anatomy-figure.md`: every mark is the store's — the detector's onset and trough samples, the sample `gradients.fall_gradients` found steepest (`max_slope_idx`, new, served as `steepest_offset`), and the snippet's own height at each. `eventMarks` is deleted, the window follows Source settings › context padding, a mark the store did not measure is not drawn and is named on the card, and smoke measures the drawn marks against the payload. On the 410 seed events the steepest sample is a median 5 % into the fall, not 50 %; 372 are in the first quarter.]** **The Slope page's anatomy figure still draws its chord, tangent and "steepest" marker from `fixtures/interrogation.ts::eventMarks`** (steepest = duration / 2) over a real trace, and opens 10 s before the onset whatever the padding says. **The same class as the fabrication `E` just removed, on a figure instead of a number** | `E` §8.2 | ~~`H`~~ → **`K`**, done. `H` still owns the figure's visual language |
-| The Shape card's medoid overlay is index-stretched across the candidate's duration (unchanged semantics; a medoid carrying its own `t` would now be honoured) | `G` §11 | `H` |
+| **[CLOSED — fixup-h, 2026-10-02, `reports/H-blocks-show-their-work.md` §9: the medoid is drawn in its own panel on its own samples with a scale bar, not stretched across the candidate — the bridge serves it no time axis (and, live, serves no medoid at all today).]** The Shape card's medoid overlay is index-stretched across the candidate's duration (unchanged semantics; a medoid carrying its own `t` would now be honoured) | `G` §11 | `H`, done |
 | **[CLOSED — fixup-f, 2026-10-01: one-based won, through `channel_name`. The M2 electrode names are already one-based, saved Discovery sessions store channel names, and Explore and Review already printed it; Settings › Datasets, the import modal, the scoreboard and Interrogation no longer print the raw index, and the stored index and file (`recordings.channel = 2 · CH2.npy`) are shown beside the name. `reports/F-datasets-and-naming.md` §4.]** **`channel_name` says `CH3` for `recordings.channel = 2`** (`Working/discovery/channels.py:30`, `CH{channel+1}`) and Settings › Datasets prints the raw index as `CH2`. One convention must win | `G` §10 | **`F`** — it owns Settings › Datasets |
 | Coherence `r` in the other-channels popover is still not computed — it now says so instead of throwing a TypeError on a `null` | `G` §11 | `07-review.md`, the Review *behaviour* prompt |
-| Fixture τ per recording (`TIMELINE_TREND`) is keyed by fixture recording names; a live recording prints "n N · no trend test", which is honest and useless. A Kendall τ from the core is a two-line route | `E` §8.3 | `H`, or a crumb prompt |
+| **[CLOSED — fixup-h, 2026-10-02: `Working/interrogation/intervals.py::kendall_trend` behind `POST /api/interrogation/trend`; the timeline prints τ, p and n per recording for whichever measure is plotted, and a lane that cannot be tested says why. `TIMELINE_TREND` is deleted.]** Fixture τ per recording (`TIMELINE_TREND`) is keyed by fixture recording names; a live recording prints "n N · no trend test", which is honest and useless. A Kendall τ from the core is a two-line route | `E` §8.3 | `H`, done |
 | `motif_features` predates `rise_time_s`, so the route measures it per request. `--only-missing` would store 3,599 nulls (every stored event is a drop); `RULE_VERSION` in `Working/library/features.py` does not mention `rise_time_frac` and should, when a spike store is first backfilled | `E` §8.4 | the Library prompt |
 | `discovery.runs--default` fails in smoke on **both** the pre-change and post-change bridges (missing `browser-trace svg`; `E` measured it settling in 4.4 s against a 900 ms allowance under load) — **pre-existing, and now the fifth standing smoke failure beside the four Settings registration states** | `E` §9, `G` §9 | `05-discovery.md` |
 
@@ -1032,10 +1037,29 @@ trough **42 s / 43 s** (roughly symmetric). That asymmetry is evidence the morph
 
 | prompt | what |
 |---|---|
-| `H-blocks-show-their-work.md` | **written, ready** — the standard and the views |
+| `H-blocks-show-their-work.md` | **run and reported 2026-10-02** (`reports/H-blocks-show-their-work.md`) — the standard and the views |
 | `K-slope-anatomy-figure.md` | **run and reported 2026-10-02** (`reports/K-slope-anatomy-figure.md`) — Q8: the Slope page's fabricated anatomy figure |
 | `N-event-extent.md` | stub — redefine extent + re-hash the Library (Q17) |
 | `R-interrogation-null.md` | stub — build P10 properly (Q27) |
 | `P-persist-recovery-index.md` | stub — `recovery_idx` is computed and discarded |
 | `Q-extent-corrections.md` | stub — `motif_member_revision` is written and nothing calls it |
 | the reports prompt | stub — inherits `H`'s standard, does not invent one |
+
+---
+
+## Round 8 — `H`, 2026-10-02 — not opened
+
+`H` was told it could open its own grilling round and stop if anything was ambiguous or contradicted the prompt.
+Nothing contradicted it, so it ran through. Where the prompt left a choice it took a default; the twelve are listed
+in `reports/H-blocks-show-their-work.md` §9 and any of them can be overturned without touching the others. Three are worth a
+researcher's eye, because they are findings rather than preferences:
+
+1. **Only one of the three `scores → spanset` blocks has a cut to drag.** `detection.threshold` cuts at an
+   absolute level; `summation_threshold` cuts by prominence relative to each window and `mp_motifs` takes the k
+   lowest groups. The view is generalised to all three; the draggable line is drawn only where a level exists.
+2. **No seed family spans two orders of magnitude.** The widest (id025) spans one, and the detector's
+   `min_depth_frac = 0.10` makes that a ceiling. The per-panel-scale evidence is therefore on a 10× family; on it
+   the old shared y drew two of ten members under 20 % of their panel.
+3. **The Slope page computed its own rose angle** — `arctan(|slope| / 0.1 mV/s)` — against the core's reference
+   of 1 mV/s, so one event read about −82° there and −35° on the Sequence page and the block page. With one rose
+   the page shows the core's. If 0.1 mV/s was the intended convention, change `rose_reference_mv_s` in the core.

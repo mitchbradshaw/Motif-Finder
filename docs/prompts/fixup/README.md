@@ -13,25 +13,26 @@ being either a bug or a spec change.
 ## Where the stage is, 2026-10-02
 
 **Waves 1 and 2 are done.** `E` + `G` ran in parallel on 2026-09-30 and `F` + `J` on 2026-10-01,
-all four clean, each closing every row it was given. **Wave 3: `K` ran 2026-10-02 and is
-reported; `H` is ready and runs alone.** `H` came out of the Round 7 grilling (`QUESTIONS.md`), which produced the
-standard it implements and corrected two of my own recommendations by measurement.
+all four clean, each closing every row it was given. **Wave 3 is done too: `K` and then `H` ran 2026-10-02,
+both reported.** `H` came out of the Round 7 grilling (`QUESTIONS.md`), which produced the standard it
+implements; it ran through without opening a Round 8, and the three findings it made along the way are recorded
+there under that heading.
 
 **Everything that grilling found and could not scope is written down** in `future/` — seven stubs,
 each carrying its evidence, so none of it has to be rediscovered.
 
-**The suite baseline is 1874 passed / 8 skipped / 0 failed**, failure set empty, verified on the
-merged tree after both wave-2 prompts landed (neither agent could run it on the final state, because
-each had the other's tests in flight). `pytest -n auto`, conda, 5 m 45 s.
+**The suite baseline is 1952 passed / 17 skipped / 0 failed**, failure set empty, after `H` (`pytest -n 4`,
+conda, 5 m 48 s). It was 1874 / 8 after wave 2 and 1878 / 13 after `K`; ten of the skips are route tests that
+need FastAPI and run only under `webui/.venv`.
 
 | File | State |
 |---|---|
 | **WAVE 2 — run and reported 2026-10-01** | |
 | `F-datasets-and-naming.md` | **run and reported 2026-10-01** (`reports/F-datasets-and-naming.md`). Closes `10` S1, `00` X4, U5, Q23's build and the Round 5 channel-label row. One-based channel names won. Found in passing: the four standing Settings registration smoke failures name candidates that have since been registered (report §7). *As written:* A `datasets` table keyed by `source_file`; the editable columns Q23 names; the display name replaces the file name across the site through one seam; the `CH2`/`CH3` convention settled; the Settings channel-tab overflow (U5). Port **8765** |
 | `J-dehshibi-vs-the-paper.md` | **run and reported 2026-10-01** (`reports/J-…`). The detector diverged from the paper in four places and the paper diverges from its authors' code; the blocks are now a port of that code, checked against MATLAB. 17 of 20 known synthetic events found; on M2_aug CH0 it is faithful and unselective (Q34). *Was:* **scaffold — attach the paper.** Opens with its own grilling round before any code. Two implementations of the detector exist and nothing asserts they agree; 87 % of cells on a real span are honestly marked uncovered and that is the thread to pull (U6). Port **8766** |
-| **WAVE 3 — `K` done, `H` next and alone** | |
+| **WAVE 3 — run and reported 2026-10-02** | |
 | `K-slope-anatomy-figure.md` | **run and reported 2026-10-02** (`reports/K-slope-anatomy-figure.md`). The figure draws the store's own marks inside the context-padding window; `eventMarks` is deleted; `gradients.fall_gradients` now returns the sample its steepest slope was measured at and the slope route serves it. **Measured: the steepest sample is a median 5 % into the fall on the 410 seed events (372 in the first quarter), and it was drawn at 50 % on every one.** Smoke gains an `anatomy_marks` check and six Slope states. *As written:* Small: the Slope page's anatomy figure draws its chord, tangent and "steepest" marker from `fixtures/interrogation.ts::eventMarks` over a real trace ("steepest" is `duration / 2`). The same lie `E` removed from the numbers, surviving on the figure beside them. `D` measured the real values and `E` built the route that serves them |
-| `H-blocks-show-their-work.md` | **ready.** U7/U8/U9 + Q27. **Seven type views and twelve input-driven modifiers**, so all 36 blocks — and future ones — are drawn from their type signature; today 31 of 36 fall through to a view captioned *"this signature has no bespoke process view yet"*. Two tiers (chain thumbnail / settings page, one component, interaction as a flag), the span slideshow wired to real data with the impurity flag, the two fabricated nulls deleted. Enforced by a test and by a rule-9 check in the smoke gate. Cross-cutting; **runs alone** |
+| `H-blocks-show-their-work.md` | **run and reported 2026-10-02** (`reports/H-blocks-show-their-work.md`). All 36 blocks are drawn from their type signature — seven views, twelve modifiers, zero falling through to a generic view, pinned by `tests/test_block_standard.py`; the slideshow is on real samples with the impurity flag and a real *Send to Review*; both Aggregate nulls are deleted; rule 9 is in the smoke gate. Closes U7/U8/U9, Q27, `03` I7/I8, `07` R17 and the two Round 5 rows it was given. **Found:** only one of the three `scores → spanset` blocks has a draggable cut; no seed family spans two orders of magnitude; the Slope page computed its own rose angle against a different reference from the core's. *As written:* U7/U8/U9 + Q27. **Seven type views and twelve input-driven modifiers**, so all 36 blocks — and future ones — are drawn from their type signature; today 31 of 36 fall through to a view captioned *"this signature has no bespoke process view yet"*. Two tiers (chain thumbnail / settings page, one component, interaction as a flag), the span slideshow wired to real data with the impurity flag, the two fabricated nulls deleted. Enforced by a test and by a rule-9 check in the smoke gate. Cross-cutting; **runs alone** |
 | **DONE** | |
 | `E-aggregate-stops-fabricating.md` | **run and reported 2026-09-30** (`reports/E-…`). Interrogation reads every measure from the core — the three constants (`×0.84`, `×0.31`, `×4.2`) and the browser's recovery are gone, and not-measured is null, counted and explained. `spike-shape` → `event-shape` = `interrogation.event_shape`, a block that really differs, the upstream carried on every walk. `rise_time_frac` on the shape block, null for a drop. The overlays draw the stored context on a measured y. **Found: 41 % of the seed store and 34 % of the Library have no recovery and no FWHM under the current definition — all of it sharkfin morphology (Q26)** |
 | `G-review-axis-and-resolution.md` | **run and reported 2026-09-30** (`reports/G-…`). Every Review trace carries `t` beside `v`; detection 102's drop was drawn at 0.629 h and is at 0.662 h, inside its band — the detector was right. Decimation follows the card's measured width (660 samples come back raw where 440 points used to); padding is symmetric by time; the Shape card dots its samples rather than smoothing them; source resolution reads the 10 Hz parent, default ON, and says so; Review shifts a legacy row. The `kit/plots.tsx` change stayed additive |
@@ -79,9 +80,9 @@ prompts carry:
 
 ## Standing gate facts
 
-The baseline is **1874 passed / 8 skipped / 0 failed**, failure set empty (verified on the merged
-tree, 2026-10-02). The eighth skip is `tests/test_webui_dataset_naming.py`, which needs FastAPI and
-so runs only under `webui/.venv`. Under `webui/.venv`,
+The baseline is **1952 passed / 17 skipped / 0 failed**, failure set empty (after `H`, 2026-10-02). Ten of
+the skips need FastAPI and so run only under `webui/.venv` (`test_webui_dataset_naming.py`, five route tests
+of `test_webui_slope_anatomy.py`, four of `test_webui_block_views.py` — the last file skips them one by one). Under `webui/.venv`,
 `test_webui_discovery.py::test_the_scoreboard_cells_are_the_tables_own_numbers` fails pre-existing.
 **Five smoke states are standing failures**: the four Settings registration states
 (`datasets--import-check-fails-fs-unknown`, `datasets--import-check-passes-MJu26a`,
@@ -103,24 +104,32 @@ once warm; the route it waits on answers 200 in 20–55 ms. That is cold-start c
 page's first paint. Two cold-start flakes is a pattern: whoever next owns `smoke.py` should look at
 the first-touch allowance across the whole walk rather than at these two states.
 
-**The clean gate run, 2026-10-02** — client rebuilt, every earlier bridge and browser stopped, a
-fresh `--sandbox` bridge alone on the machine: **573 screenshots, 6 failures** (the five standing
-plus the flake above), **0 browser console/page errors, 0 unexpected server tracebacks**. The
-tracked screenshot set in `webui/screenshots/` is that run's output (`cd18360`); the sets the
-wave-2 agents left behind were taken with two browsers and two bridges running at once.
+**The clean gate run, 2026-10-02, after `H`** — a fresh `--sandbox` bridge alone on the machine: **602
+screenshots over 584 page states, 5 failures** (the five standing; the flake above did not occur), **0 browser
+console/page errors, 0 unexpected server tracebacks**. The tracked set in `webui/screenshots/` is the
+`cd18360` run's, with the Interrogation and Analyse-run pages replaced by this one's.
+
+**Three things `H` learned about the gate itself**, for whoever runs it next:
+
+- **A partial walk is not the gate.** `--only zz_` passed while the full walk failed every chain run: the
+  bridge keeps Discovery's jobs in the same table as chain runs, and a bug that only shows once another kind of
+  job exists cannot be seen by walking Analyse alone.
+- **A state that runs a chain after another state has set a source cannot click `use-example`** (the button
+  is only there with no source). `{"click_if": selector}` is an optional click.
+- **Screenshot writes into the tracked tree fail now and then with `[Errno 22]`** — a different handful each
+  run, never in a scratch directory, cause not found. `smoke.py` retries the write; point `SMOKE_SHOTS` at the
+  scratchpad if it comes back.
 
 ## The open decisions
 
 `QUESTIONS.md` is the live list, with the answers recorded beside each question as they are given.
-**Rounds 1–4, 6 and 7 are answered; Round 5 is still open** and holds the two that matter — both are
-research decisions rather than engineering ones, and both now have the measurement behind them:
+**Rounds 1–4, 6 and 7 are answered; Round 5 still holds one open decision** — a research decision rather
+than an engineering one, with the measurement behind it. (Q27 was the other; `H` closed it by deleting both
+nulls. Building the real one is `future/R-interrogation-null.md`.)
 
 - **Q26** — the sharkfin morphology has no recovery and no FWHM under the current definition, across
   41 % of the seed store and 34 % of the Library. Measure to the next onset, lower the fraction, or
   accept it and say so? A research decision, and it is the supervisor-facing statistic.
-- **Q27** — the Aggregate page's null still says "matched random windows · 200×" and is a seeded
-  jitter. Relabel now, or build the real null?
-
 **Q34** is answered (2026-10-02): keep the Dehshibi detector as an untuned baseline. `J` made it
 faithful to its authors' code and measured it as weak on these recordings — on M2_aug CH0 its spans
 cover 53 % of the labelled time and hit 91 % of *interesting* windows against 86 % of *not

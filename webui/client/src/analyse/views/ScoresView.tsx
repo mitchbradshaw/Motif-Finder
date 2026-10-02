@@ -106,7 +106,7 @@ export function ScoreHistogram({ p, cut, testid = 'score-histogram' }: { p: Scor
   return (
     <div data-testid={testid}>
       <Histogram bins={bins} height={130} colour="var(--blue-200)" highlightBin={cut ? b => b.x0 >= cut.value : undefined} highlightColour="var(--amber)"
-        threshold={cut ? { value: cut.value, label: cut.label } : undefined} xLabel={scoreWords(p)} format={v => fmtN(v)} label={`${scoreWords(p)} values`} />
+        threshold={cut ? { value: cut.value, label: `cut ${fmtN(cut.value)}` } : undefined} xLabel={scoreWords(p)} format={v => fmtN(v)} label={`${scoreWords(p)} values`} />
       <div className="muted mono small">{resolutionWords(p.envelope, p.fs)}{above !== null ? ` · ≈ ${Math.round(above).toLocaleString()} values above the cut` : ''}</div>
     </div>
   )

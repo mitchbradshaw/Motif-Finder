@@ -43,6 +43,19 @@ log = logging.getLogger("proto.runs")
 FRAME_JOBS_HELD = 3
 
 
+def prune_frame_sources(jobs: dict, keep: int = FRAME_JOBS_HELD) -> None:
+    """Drop the image Encodings held for frame scanning from all but the `keep` newest runs that hold any
+    (an image Encoding can be tens of MB).
+
+    `jobs` is the manager's whole table, and it is NOT only chain runs: `JobManager` keeps Discovery's and
+    Training's jobs in the same dict, and those have no `frame_sources`. Reading the attribute off every job
+    made every chain run a 500 once any other kind of job existed - found by the full smoke walk, which runs
+    Discovery before Analyse; the walk of the Analyse states alone could not see it."""
+    holding = sorted(j for j, job in jobs.items() if getattr(job, "frame_sources", None))
+    for old in holding[:-keep] if keep > 0 else holding:
+        jobs[old].frame_sources = {}
+
+
 class Job:
     _ids = itertools.count(1)
 
@@ -130,9 +143,7 @@ class RunManager:
         job.config_hash = chain_mod.hashes(recipe)["config_hash"]
         with self._lock:
             self.jobs[job.id] = job
-            # an image Encoding can be tens of MB: only the newest runs keep theirs for frame scanning
-            for old in sorted(j for j in self.jobs if self.jobs[j].frame_sources)[:-FRAME_JOBS_HELD]:
-                self.jobs[old].frame_sources = {}
+            prune_frame_sources(self.jobs)
         conn = init_db(self.db_path)
         try:
             for row in chain_mod.cache_status(recipe, conn):

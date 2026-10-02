@@ -11,7 +11,8 @@ its block page (the settings tier).
     python scripts/fixup_h_evidence.py shots URL LABEL      # LABEL is `before` or `after`
     python scripts/fixup_h_evidence.py store URL LABEL      # the Interrogation member grid on the seed store,
                                                             #   and rule 9 measured on every tile of it
-    python scripts/fixup_h_evidence.py split URL            # a WindowSet with no features (after only)
+    python scripts/fixup_h_evidence.py split URL            # a WindowSet with no features, and an image stack (after only)
+    python scripts/fixup_h_evidence.py review URL           # the slideshow's hand-off to Review (after only)
     python scripts/fixup_h_evidence.py capped               # capped-edge counts on the seed store (md + json)
 
 Run it against a `--sandbox` bridge. Writes under webui/screenshots/fixup/H/ (or $H_OUT). Dev tooling.
@@ -178,6 +179,39 @@ def split(url):
         page.wait_for_timeout(2500)
         page.screenshot(path=os.path.join(OUT, "after-settings-windowset-sliding_windows.png"), full_page=True)
         print("wrote after-*-windowset-sliding_windows.png")
+        # windowset -> encoding: a stack of images, three sampled, each located by the window it is
+        chain["name"] = "window_images"
+        chain["steps"].append({"stage": "catalogue", "algorithm": "window_images", "params": {"image_type": "fusion", "img_size": 64}})
+        page.goto(f"{url}/#/analyse/chain", wait_until="networkidle")
+        page.evaluate("c => sessionStorage.setItem('ub-proto-a:chain', JSON.stringify(c))", chain)
+        page.reload(wait_until="networkidle")
+        page.wait_for_timeout(800)
+        _run(page, 60)
+        page.locator('[data-testid="chain-row-2"]').first.screenshot(path=os.path.join(OUT, "after-thumbnail-encoding-window_images.png"))
+        page.goto(f"{url}/#/analyse/block/1", wait_until="networkidle")
+        page.wait_for_timeout(2500)
+        if page.locator('[data-testid="frame-scan-next"]').count():
+            page.locator('[data-testid="frame-scan-next"]').first.click()
+            page.wait_for_timeout(1200)
+        page.screenshot(path=os.path.join(OUT, "after-settings-encoding-window_images.png"), full_page=True)
+        print("wrote after-*-encoding-window_images.png", page.locator('[data-render="image"]').first.get_attribute('data-frames'), page.locator('[data-render="image"]').first.get_attribute('data-axis'))
+        b.close()
+    _done(errors)
+
+
+def review(url):
+    """The slideshow's one action: a Review queue over the detections the run wrote."""
+    os.makedirs(OUT, exist_ok=True)
+    errors = []
+    with _browser() as p:
+        b, page = _page(p, errors)
+        _run_template(page, url, "drop_detection_v1", 60)
+        page.goto(f"{url}/#/analyse/block/2", wait_until="networkidle")
+        page.wait_for_timeout(3000)
+        page.locator('[data-testid="send-to-review"]').first.click()
+        page.wait_for_timeout(4000)
+        print("landed on", page.url)
+        page.screenshot(path=os.path.join(OUT, "after-send-to-review.png"), full_page=False)
         b.close()
     _done(errors)
 
@@ -195,6 +229,8 @@ if __name__ == "__main__":
         store(sys.argv[2].rstrip("/"), sys.argv[3])
     elif len(sys.argv) == 3 and sys.argv[1] == "split":
         split(sys.argv[2].rstrip("/"))
+    elif len(sys.argv) == 3 and sys.argv[1] == "review":
+        review(sys.argv[2].rstrip("/"))
     elif len(sys.argv) == 2 and sys.argv[1] == "capped":
         from Working.Detection.drop_motifs import extent as X
         X.main(OUT)

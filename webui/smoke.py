@@ -53,10 +53,29 @@ class Smoke:
         self.n = 0
 
     # ------------------------------------------------------------ helpers --
+    @staticmethod
+    def write_shot(page, path: str, full_page: bool = False):
+        """Take a screenshot and write it, retrying the WRITE. The picture is taken once, in memory; only
+        putting it on disk is retried. On this machine a write into the tracked screenshot tree fails now
+        and then with `[Errno 22] Invalid argument` (a different file each run - something else holds the
+        file for a moment), and that used to count as the page state failing although the page had
+        rendered and every assertion about it had already passed (fixup-h)."""
+        png = page.screenshot(full_page=full_page)
+        last = None
+        for attempt in range(5):
+            try:
+                with open(path, "wb") as f:
+                    f.write(png)
+                return
+            except OSError as e:
+                last = e
+                time.sleep(0.4 * (attempt + 1))
+        raise last
+
     def shot(self, page, name: str):
         self.n += 1
         path = os.path.join(SHOTS, f"{self.n:02d}-{name}.png")
-        page.screenshot(path=path, full_page=False)
+        self.write_shot(page, path)
         if os.path.getsize(path) > 1_000_000:          # gitignore rule: *.big.png
             big = path.replace(".png", ".big.png"); os.replace(path, big); path = big
         self.shots.append(path)
@@ -777,7 +796,7 @@ class Smoke:
                            + (f" — {len(self.errors) - before} console errors" if len(self.errors) > before else ""))
                 os.makedirs(os.path.join(pdir, unit), exist_ok=True)
                 path = os.path.join(pdir, unit, f"{name}.png")
-                page.screenshot(path=path, full_page=bool(e.get("full_page")))
+                self.write_shot(page, path, bool(e.get("full_page")))
                 self.shots.append(path)
             except Exception as ex:
                 self.failures.append(f"{unit}: {name}: {type(ex).__name__}: {ex}")

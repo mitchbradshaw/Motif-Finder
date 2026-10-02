@@ -319,7 +319,7 @@ def create_app(rt: Runtime) -> FastAPI:
         """One frame of an image Encoding the payload did not sample (fixup-h: "scan through the rest")."""
         from .serialize import frame_payload
         job = job_or_404(job_id)
-        src = job.frame_sources.get(index)
+        src = (getattr(job, "frame_sources", None) or {}).get(index)
         if src is None:
             raise HTTPException(410, f"the images of step {index} of job {job_id} are no longer held in memory "
                                      f"(only the most recent runs keep them) · re-run the chain to scan its frames")

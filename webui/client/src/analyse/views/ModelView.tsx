@@ -33,7 +33,7 @@ export function ModelView({ p, ctx }: { p: ModelPayload; ctx: ViewCtx }) {
         per && classes.length
           ? <div data-testid="model-per-class" style={{ marginTop: 8 }}>
               <Bars categories={classes.map(k => `class ${k} · n ${counts[k] ?? '?'}`)} series={[{ key: 'acc', label: 'holdout accuracy', colour: 'var(--blue)', values: classes.map(k => per[k]) }]}
-                yMax={1} format={v => v.toFixed(2)} height={170} legend={false} yLabel="holdout accuracy" />
+                yMax={1} format={v => v.toFixed(2)} height={170} legend={false} />
               <div className="muted" style={{ fontSize: 10.5 }}>accuracy on the holdout windows of each class · weighted by the class counts these are the headline {acc}</div>
             </div>
           : <div className="callout warn" data-testid="model-no-per-class" style={{ marginTop: 8, padding: '6px 10px', background: '#fff7e6', borderRadius: 6 }}>

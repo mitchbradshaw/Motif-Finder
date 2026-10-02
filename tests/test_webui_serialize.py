@@ -329,5 +329,21 @@ def test_a_model_card_keeps_the_accuracy_per_class():
     assert p["card"]["holdout_class_counts"] == {"1": 4, "2": 4}
 
 
+# ----------------------------------------- the frames a run holds for scanning --
+
+def test_pruning_held_frames_survives_jobs_that_are_not_chain_runs():
+    """The bridge keeps every kind of job in one table. A Discovery job has no `frame_sources`, and reading it
+    off every job turned each chain run into a 500 once one existed."""
+    from types import SimpleNamespace
+    from server.runs import prune_frame_sources
+    jobs = {1: SimpleNamespace(frame_sources={0: "a"}), 2: SimpleNamespace(kind="sweep"),
+            3: SimpleNamespace(frame_sources={0: "b"}), 4: SimpleNamespace(frame_sources={}),
+            5: SimpleNamespace(frame_sources={1: "c"}), 6: SimpleNamespace(frame_sources={0: "d"})}
+    prune_frame_sources(jobs, keep=2)
+    assert jobs[1].frame_sources == {} and jobs[3].frame_sources == {}, "the oldest holders are released"
+    assert jobs[5].frame_sources == {1: "c"} and jobs[6].frame_sources == {0: "d"}, "the newest two keep theirs"
+    assert not hasattr(jobs[2], "frame_sources"), "a job of another kind is left alone"
+
+
 if __name__ == "__main__":
     sys.exit(pytest.main([__file__, "-q"]))
