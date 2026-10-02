@@ -16,6 +16,7 @@ import threading
 
 import numpy as np
 from fastapi import APIRouter, HTTPException, Request
+from pydantic import BaseModel
 
 from Working.Detection.drop_motifs import gradients as G
 from Working.Detection.drop_motifs import store as S
@@ -216,6 +217,26 @@ def family_aggregate(key: str):
             "timeline": [{"event_id": members[i]["event_id"], "onset_h": float(members[i]["onset_h"]), "depth_mv": float(depth[i]),
                           "max_slope_mv_s": float(slope[i]), "position": float(k / max(1, len(order) - 1))} for k, i in enumerate(order)],
             "scaling": beta}
+
+
+# ---------------------------------------------------------------- trend (fixup-h, `03` I8) --
+class TrendBody(BaseModel):
+    """One lane of the timeline: when its events happened and the measure drawn as their height."""
+    lanes: dict[str, dict]
+
+
+@router.post("/api/interrogation/trend")
+def timeline_trend(body: TrendBody):
+    """Kendall's tau per recording between onset time and the plotted measure, from the core. The page
+    used to read it from a fixture keyed by fixture recording names, so a live recording had none."""
+    from Working.interrogation.intervals import kendall_trend
+    out = {}
+    for name, lane in body.lanes.items():
+        t, v = lane.get("t") or [], lane.get("v") or []
+        if len(t) != len(v):
+            raise HTTPException(422, f"lane {name!r}: {len(t)} times against {len(v)} values")
+        out[name] = kendall_trend(t, [float("nan") if x is None else x for x in v])
+    return {"trend": out, "statistic": "Kendall tau, two-sided (scipy.stats.kendalltau), over the events whose measure is finite"}
 
 
 # ---------------------------------------------------------------- event shape (fixup-e) --

@@ -1,5 +1,5 @@
 /* Analyse › Interrogation fixtures (frames prototyping/imgs/analyse-interrogation/*.pdf; spec §0, §6.2, §6.6,
- * §6.8 `SpanSet → SpanSet + Features` and `Features → views`, P7, P8, P10).
+ * §6.8 `SpanSet → SpanSet + Features` and `Features → views`, P7, P8).
  *
  * TIMESCALE (inventory "the one timescale decision"): the frames draw ~1 s falls and ~−0.7 mV/s slopes,
  * which cannot exist at the canon's 1 Hz. Every frame time is multiplied by 10 and every frame slope
@@ -39,7 +39,13 @@ export interface InterrogationMember {
   recovery_s: number | null
   flags: string[]
   /* live (seed store) only: the stored detrended snippet and where the onset sits in it */
-  snippet?: { t_s: number[]; v: number[]; n?: number }
+  snippet?: { t_s: number[]; v: number[]; n?: number; decimated?: boolean; mismatch?: { stored: number; claimed: number } | null }
+  /** live only (fixup-h): how many falls the stored window holds (the store's own purity count); which stored
+   *  edges sit at the detector's fall-multiple cap; the frame a sequence is drawn in; the core's rose angle */
+  purity?: number
+  left_capped?: boolean; right_capped?: boolean
+  sequence?: { pre_s: number; post_s: number; reach_falls: number; first: boolean; capped: boolean; clipped: boolean }
+  angle_deg?: number | null
   onset_offset_s?: number
   /** live only (fixup-k): where the store's slope analysis put this event's marks — seconds from the onset and
    *  the snippet's own mV at full resolution. Absent when the store served no slope row; a `null` inside is a
@@ -304,9 +310,12 @@ export const CHAIN_EVENT_SHAPE: ChainBlock[] = [
 ]
 
 export const ESTIMATE = { cached: '≈ 6 s', cachedNote: '3 of 3 cached', stale: '≈ 2 s', staleNote: 're-runs 01 → 02' }
-export const NULL_SPEC = {
-  label: 'matched random windows', repeats: '200×',
-  detail: 'Every number on an interrogation page carries a null (P10). Windows of the same length are drawn at matched positions in the same channel, 200 times; interval statistics use shuffled onsets instead.',
+/* fixup-h (QUESTIONS.md Q27): there is no null. P10 specifies one and it has not been built; the two that were
+ * drawn on 02 Aggregate were a jitter of the data and a bell curve, labelled with P10's wording. Both are
+ * deleted, and this is what the chain says instead. */
+export const NULL_STATE = {
+  label: 'no null',
+  detail: 'No number on these pages is compared with a null. The null this chain was designed around (P10) is specified and not built, so nothing here draws one or claims one: an exponent, a median or a CV on these pages is a description of the events, not a test.',
 }
 export const RUN_STEPS = ['Library family', '01 Resolve spans', '02 Aggregate']
 
@@ -480,11 +489,6 @@ export const AGGREGATE_PARAMS = {
     { value: 'channel', label: 'channel' },
     { value: 'verdict', label: 'verdict' },
   ],
-  nulls: [
-    { value: 'matched', label: 'matched random windows · 200×' },
-    { value: 'shuffled', label: 'shuffled onsets · 200×' },
-    { value: 'none', label: 'no null', disabled: true, reason: 'every interrogation result carries a null (P10) · change the method in Settings › Nulls' },
-  ],
   binning: [
     { value: 'fd', label: 'Freedman–Diaconis' },
     { value: 'sturges', label: 'Sturges' },
@@ -507,12 +511,6 @@ export const AGGREGATE_PARAMS = {
 }
 
 /** τ per recording for the occurrence timeline ("When events happened"). */
-export const TIMELINE_TREND: Record<string, { tau: number | null; p: number | null; note?: string }> = {
-  'M2_aug fs1': { tau: 0.52, p: 0.006 },
-  'M2_aug fs2': { tau: 0.18, p: 0.31 },
-  M3_jul: { tau: -0.20, p: 0.62 },
-  L_LM_Jul26_J: { tau: null, p: null, note: 'n 2 · no trend test' },
-}
 
 /* ---------------------------------------------------------------- traces ---------------------------------------------------------------- */
 const hash = (s: string) => { let h = 7; for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0; return h }

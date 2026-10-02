@@ -102,3 +102,30 @@ RULES = [
     {"name": "r2_trend", "rule": "R² of interval against event index; 0 for a perfectly constant gap (sequences11)"},
     {"name": "drift_ratio", "rule": "mean of the last third of intervals / mean of the first third; 1 = no drift (sequences11)"},
 ]
+
+
+#: Below this many events a rank correlation is not a test of anything.
+MIN_TREND_N = 3
+
+
+def kendall_trend(times, values):
+    """Kendall's tau between when events happened and a measure of them.
+
+    `{"tau", "p", "n", "note"}`: the rank correlation and its two-sided p, over
+    the events whose measure is finite. Fewer than `MIN_TREND_N` such events, or
+    a measure that never varies, has no tau - `tau` and `p` are None and `note`
+    says why, because "no trend" and "not testable" are different results.
+    """
+    from scipy.stats import kendalltau
+
+    t = np.asarray(times, dtype=float)
+    v = np.asarray(values, dtype=float)
+    keep = np.isfinite(t) & np.isfinite(v)
+    t, v = t[keep], v[keep]
+    n = int(len(t))
+    if n < MIN_TREND_N:
+        return {"tau": None, "p": None, "n": n, "note": "n {} · fewer than {} measured events, not tested".format(n, MIN_TREND_N)}
+    if np.ptp(v) == 0 or np.ptp(t) == 0:
+        return {"tau": None, "p": None, "n": n, "note": "n {} · the measure does not vary, no rank to correlate".format(n)}
+    tau, p = kendalltau(t, v)
+    return {"tau": _num(tau), "p": _num(p), "n": n, "note": None}

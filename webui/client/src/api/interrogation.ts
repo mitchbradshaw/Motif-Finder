@@ -13,13 +13,13 @@
  * `isi = 4.2 ×`) that used to be drawn as features are gone. */
 import {
   getFamilies, getFamilyMembers, getFamilyShape, getFamilySlope, listRuns,
-  type DbRun, type FamilyShape, type SeedFamily, type SeedMember, type ShapeMember, type SlopeMember,
+  type CappedCounts, type DbRun, type FamilyShape, type RosePayload, type SeedFamily, type SeedMember, type ShapeMember, type SlopeMember,
 } from '../api'
 import { measuredDomain } from '../charts/domain'
 import { live, type Sourced } from './seam'
 import {
   AGGREGATE_PARAMS, CHAIN_EVENT_SHAPE, CHAIN_SLOPE, CLUSTERING, ESTIMATE, FAMILIES, HELD_OUT_FAMILY, MEMBERS_BY_FAMILY, RULES, SOURCE_SETTINGS,
-  TIMELINE_TREND, UPSTREAMS, type ChainBlock, type EventMeasures, type InterrogationFamily, type InterrogationMember, type Upstream, type UpstreamSpec,
+  UPSTREAMS, type ChainBlock, type EventMeasures, type InterrogationFamily, type InterrogationMember, type Upstream, type UpstreamSpec,
 } from '../fixtures/interrogation'
 
 export type { InterrogationFamily, InterrogationMember, UpstreamSpec, ChainBlock, Upstream }
@@ -63,7 +63,9 @@ function memberFrom(m: SeedMember, s: SlopeMember | undefined, sh: ShapeMember |
     /* the core's recovery (half the amplitude back from the extremum, bounded); null = not recovered, never 0 */
     recovery_s: measures?.recovery_s ?? null,
     flags: [...(m.is_pure ? [] : ['impure window']), ...(m.trigger === 'fall' ? ['fall-triggered'] : [])],
-    snippet: snippet ? { t_s: snippet.t_s, v: snippet.detrended_mv, n: snippet.n } : undefined,
+    snippet: snippet ? { t_s: snippet.t_s, v: snippet.detrended_mv, n: snippet.n, decimated: snippet.decimated, mismatch: snippet.mismatch ?? null } : undefined,
+    /* fixup-h: read off the row by the bridge and never recomputed here */
+    purity: m.purity, left_capped: m.left_capped, right_capped: m.right_capped, sequence: m.sequence_frame, angle_deg: s?.angle_deg ?? null,
     onset_offset_s: snippet ? (m.onset_idx - m.snippet_start_idx) / m.fs : undefined,
     /* fixup-k: the anatomy figure's marks are the slope route's — offsets into the snippet turned into seconds
        from the onset, and the full-resolution snippet's own heights. No slope row, no marks. */
@@ -139,25 +141,17 @@ export function liveEventPoints(m: InterrogationMember, pre: number, post: numbe
   return out
 }
 
-/** The event's curve at one value per second from `pre` s before the onset to `post` s after the trough,
- *  interpolated from the stored snippet (mV, detrended) for a `MiniTrace`, which takes a plain series. The
- *  window is clipped to the snippet — `undefined` for a fixture member with no snippet. */
-export function liveEventCurve(m: InterrogationMember, pre = 10, post = 24): number[] | undefined {
-  const s = m.snippet
-  if (!s || m.onset_offset_s === undefined || s.t_s.length < 2) return undefined
-  const reach = snippetReach(m)!
-  const p0 = Math.min(pre, reach.pre), p1 = Math.min(post, reach.post)
-  const n = Math.max(2, Math.round(p0 + m.duration_s + p1))
-  const out: number[] = []
-  let j = 0
-  for (let i = 0; i < n; i++) {
-    const t = s.t_s[0] + m.onset_offset_s + (i - p0)     // t_s is the channel's absolute axis; the offset is from the snippet start
-    while (j < s.t_s.length - 2 && s.t_s[j + 1] < t) j++
-    const t0 = s.t_s[j], t1 = s.t_s[j + 1]
-    const f = t1 > t0 ? Math.max(0, Math.min(1, (t - t0) / (t1 - t0))) : 0
-    out.push(t <= s.t_s[0] ? s.v[0] : t >= s.t_s[s.t_s.length - 1] ? s.v[s.v.length - 1] : s.v[j] + f * (s.v[j + 1] - s.v[j]))
-  }
-  return out
+/** The window of a member under the SEQUENCE frame (fixup-h, QUESTIONS.md Q19; `drawing_rules.sequence_frames`):
+ *  back to the previous event's trough, capped at 14 falls, 1.8 falls after the trough, clipped to the stored
+ *  snippet — computed by the core (`extent.sequence_frames`) and only read here. Falls back to the stored context
+ *  for a member the bridge served no frame for. */
+export function sequenceWindow(m: InterrogationMember): { pre: number; post: number } {
+  return m.sequence ? { pre: m.sequence.pre_s, post: m.sequence.post_s } : eventWindow(m, 'snippet')
+}
+export function sequenceWindowOver(members: InterrogationMember[]): { pre: number; post: number } {
+  let pre = 0, post = 0
+  for (const m of members) { const w = sequenceWindow(m); pre = Math.max(pre, w.pre); post = Math.max(post, m.duration_s + w.post) }
+  return { pre: pre || 10, post: post || 24 }
 }
 
 /** THE plot-domain rule (charts/domain.ts::measuredDomain) over the snippets that are drawn — no fourth pad
@@ -175,7 +169,7 @@ export interface ShapeSummary {
   measuredOn: string
 }
 
-async function familyAndMembers(familyId: string): Promise<{ family: InterrogationFamily; members: InterrogationMember[]; storeRules: { name: string; rule: string }[]; shape: ShapeSummary }> {
+async function familyAndMembers(familyId: string): Promise<{ family: InterrogationFamily; members: InterrogationMember[]; storeRules: { name: string; rule: string }[]; shape: ShapeSummary; rose: RosePayload; capped: CappedCounts | null }> {
   const fams = await getFamilies()
   const i = fams.families.findIndex(f => f.id === familyId)
   const fam = fams.families[i >= 0 ? i : 0]
@@ -185,7 +179,7 @@ async function familyAndMembers(familyId: string): Promise<{ family: Interrogati
   return {
     family: familyFrom(fam, i >= 0 ? i : 0),
     members: mem.members.map(m => memberFrom(m, byId.get(m.event_id), shapeById.get(m.event_id), fam.id)),
-    storeRules: slope.rules,
+    storeRules: slope.rules, rose: slope.rose, capped: mem.capped ?? null,
     shape: { rules: shape.rules, counts: shape.counts, recovery: shape.recovery, riseTimeFrac: shape.rise_time_frac, measuredOn: shape.measured_on },
   }
 }
@@ -203,11 +197,13 @@ export interface SourceBlock {
   settings: Omit<typeof SOURCE_SETTINGS, 'padding'> & { padding: typeof PADDING_OPTIONS }
   estimate: typeof ESTIMATE
   chain: ChainBlock[]
+  /** how many members have a stored edge at the detector's fall-multiple cap (fixup-h, Q18) */
+  capped: CappedCounts | null
 }
 /** The source block (frame interrogation-1): the family, its members and how the run resolves them — live (seed). */
 export const getSourceBlock = (familyId: string, upstream: Upstream = 'slope') =>
-  live<SourceBlock>(familyAndMembers(familyId).then(({ family, members }) => ({
-    family, members, clustering: CLUSTERING, settings: { ...SOURCE_SETTINGS, padding: PADDING_OPTIONS }, estimate: ESTIMATE, chain: chainFor(upstream),
+  live<SourceBlock>(familyAndMembers(familyId).then(({ family, members, capped }) => ({
+    family, members, clustering: CLUSTERING, settings: { ...SOURCE_SETTINGS, padding: PADDING_OPTIONS }, estimate: ESTIMATE, chain: chainFor(upstream), capped,
   })))
 
 export interface SourceChoices {
@@ -243,13 +239,16 @@ export interface SlopeBlock {
   storeRules?: { name: string; rule: string }[]
   /** the shape block's rules and counts (fixup-e) */
   shape: ShapeSummary
+  /** the core's rose of the family's steepest slopes (fixup-h): bins, every event's angle, the circular statistics.
+   *  `event_index` is the member's position in `members`. */
+  rose: RosePayload
 }
 /** 01 Resolve spans (the store's slope analysis) or 01 Event shape (interrogation.event_shape) — the two
  *  upstreams read the SAME members but their features are measured by different code (U10 resolved: the
  *  labels now name two blocks that really differ). */
 export const getSlopeBlock = (familyId: string, upstream: Upstream = 'slope') =>
-  live<SlopeBlock>(familyAndMembers(familyId).then(({ family, members, storeRules, shape }) => ({
-    family, members, rules: RULES, chain: chainFor(upstream), upstream: UPSTREAMS[upstream], storeRules, shape,
+  live<SlopeBlock>(familyAndMembers(familyId).then(({ family, members, storeRules, shape, rose }) => ({
+    family, members, rules: RULES, chain: chainFor(upstream), upstream: UPSTREAMS[upstream], storeRules, shape, rose,
   })))
 
 export interface AggregateBlock {
@@ -257,7 +256,6 @@ export interface AggregateBlock {
   members: InterrogationMember[]
   upstream: UpstreamSpec
   params: typeof AGGREGATE_PARAMS
-  trend: typeof TIMELINE_TREND
   chain: ChainBlock[]
   /** the shape block's rules and counts (fixup-e): the page prints the rule behind every measure it draws */
   shape: ShapeSummary
@@ -265,5 +263,5 @@ export interface AggregateBlock {
 /** 02 Aggregate — `Features → views` (§6.8, P7) — live (seed). */
 export const getAggregateBlock = (familyId: string, upstream: Upstream = 'slope') =>
   live<AggregateBlock>(familyAndMembers(familyId).then(({ family, members, shape }) => ({
-    family, members, upstream: UPSTREAMS[upstream], params: AGGREGATE_PARAMS, trend: TIMELINE_TREND, chain: chainFor(upstream), shape,
+    family, members, upstream: UPSTREAMS[upstream], params: AGGREGATE_PARAMS, chain: chainFor(upstream), shape,
   })))

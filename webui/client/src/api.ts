@@ -361,6 +361,10 @@ export interface SlopeMember { event_id: string; onset_slope_mv_s: number; max_s
 export const getFamilies = () => req<{ source: 'seed'; store: string; manifest: Record<string, unknown>; families: SeedFamily[] }>('/api/interrogation/families')
 export const getFamilyMembers = (key: string, snippets = true) => req<{ family: string; source: 'seed'; members: SeedMember[]; capped?: CappedCounts }>(`/api/interrogation/families/${encodeURIComponent(key)}/members?snippets=${snippets}`)
 export const getFamilySlope = (key: string, scale = 'raw') => req<{ family: string; source: 'seed'; features: { name: string; unit: string; kind: string; label: string }[]; rules: { name: string; rule: string }[]; members: SlopeMember[]; rose: RosePayload }>(`/api/interrogation/families/${encodeURIComponent(key)}/slope?scale=${scale}`)
+/** Kendall's tau per timeline lane, from the core (fixup-h, `03` I8). `tau` null = not testable, and `note` says why. */
+export interface LaneTrend { tau: number | null; p: number | null; n: number; note: string | null }
+export const getTimelineTrend = (lanes: Record<string, { t: number[]; v: (number | null)[] }>) =>
+  post<{ trend: Record<string, LaneTrend>; statistic: string }>('/api/interrogation/trend', { lanes })
 export interface Dist { n: number; counts: number[]; edges: number[]; median: number | null; iqr: [number, number] | null; min?: number; max?: number }
 /* fixup-d: the steepest-slope rose across the events of one stored sequence (Working/interrogation/sequences.py) */
 export interface SequenceRow { id: number; sequence_key: string; origin: 'machine' | 'human'; recording_id: number | null; channel: number | null; n_events: number | null; source_kind: string | null; source_file: string | null; fs: number | null; n_members: number }

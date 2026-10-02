@@ -8,7 +8,7 @@ import {
 } from '../kit'
 import { navigate } from '../state'
 import { useToast } from '../shell/Toast'
-import { ESTIMATE, NULL_SPEC, type ChainBlock, type Upstream } from '../fixtures/interrogation'
+import { ESTIMATE, NULL_STATE, type ChainBlock, type Upstream } from '../fixtures/interrogation'
 import './interrogation.css'
 
 /* ----------------------------------------------------------- loading / failure ----------------------------------------------------------- */
@@ -27,20 +27,15 @@ export function LoadFailed({ what, error, onRetry }: { what: string; error: Erro
   )
 }
 
-/* ----------------------------------------------------------- null chip (P10) ----------------------------------------------------------- */
-/** `method` follows 02 Aggregate's null parameter, so the chip never names a null the page is not
- *  drawing (critique r1: switching to shuffled onsets left the chip reading matched windows). */
-export function NullChip({ method = 'matched' }: { method?: string }) {
-  const label = method === 'shuffled' ? 'shuffled onsets' : method === 'none' ? 'switched off' : NULL_SPEC.label
-  const off = method === 'none'
+/* ----------------------------------------------------------- the null there is not ----------------------------------------------------------- */
+/** fixup-h: the chip used to name a null method, with a green dot, over pages whose "null"
+ *  was a seeded jitter of the data. There is no null (it is specified and unbuilt), and the chip says that. */
+export function NullChip() {
   return (
-    <span className="ig-chip null" data-testid="null-chip" title="every interrogation result carries a null (P10)">
-      <span className="ig-dot" style={{ background: off ? 'var(--amber)' : 'var(--green)' }} />
-      <span className="mono">null {label}{off ? '' : ` · ${NULL_SPEC.repeats}`}</span>
-      <InfoTip title="The null on this chain">
-        {NULL_SPEC.detail}
-        <div style={{ marginTop: 8 }}><Button size="sm" variant="link" icon="external" onClick={() => navigate('settings/nulls')}>Settings › Nulls →</Button></div>
-      </InfoTip>
+    <span className="ig-chip null" data-testid="null-chip" title="no number on this chain is compared with a null">
+      <span className="ig-dot" style={{ background: 'var(--amber)' }} />
+      <span className="mono">{NULL_STATE.label}</span>
+      <InfoTip title="No null on this chain">{NULL_STATE.detail}</InfoTip>
     </span>
   )
 }
@@ -57,8 +52,6 @@ export interface ToolbarProps {
   stale?: boolean
   primary: ReactNode
   children?: ReactNode          // the source picker popover
-  /** the null method the page is drawing, for the chip (02 Aggregate's `null` parameter) */
-  nullMethod?: string
   onSaveTemplate: () => void
 }
 
@@ -74,7 +67,7 @@ export function InterrogationToolbar(p: ToolbarProps) {
       {p.children}
       {p.arrived && <span className="ig-muted ig-small" data-testid="arrived-note">arrived via Analyse events</span>}
       <span className="k-spacer" />
-      <NullChip method={p.nullMethod} />
+      <NullChip />
       <span className={`ig-estimate mono ${p.stale ? 'amber' : ''}`} data-testid="estimate">
         {p.stale ? `${ESTIMATE.stale} · ${ESTIMATE.staleNote}` : `${ESTIMATE.cached} · ${ESTIMATE.cachedNote}`}
       </span>

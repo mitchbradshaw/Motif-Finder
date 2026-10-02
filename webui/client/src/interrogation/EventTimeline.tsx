@@ -4,9 +4,15 @@
  *
  * fixup-e: `valueOf` may return null — the event was NOT measured for the plotted height (a drop's rise
  * time, an event that never recovered). Such an event is drawn as a hollow stub at the baseline and titled
- * "not measured", never as a tick of height 0 among real heights. */
+ * "not measured", never as a tick of height 0 among real heights.
+ *
+ * fixup-h (`03` I8): the τ per recording is Kendall's, computed by the core over the events of the lane whose
+ * height is measured (`POST /api/interrogation/trend`). It used to be read from a fixture keyed by fixture
+ * recording names, so every live recording printed "no trend test". A lane that cannot be tested says why. */
+import { useEffect, useMemo, useState } from 'react'
+import { getTimelineTrend, type LaneTrend } from '../api'
 import { Tooltip } from '../kit'
-import { TIMELINE_TREND, type InterrogationMember } from '../fixtures/interrogation'
+import type { InterrogationMember } from '../fixtures/interrogation'
 
 export function EventTimeline({ members, heightBy, valueOf, unit = 'mV', colourOf, selected, onSelect }: {
   members: InterrogationMember[]
@@ -24,6 +30,20 @@ export function EventTimeline({ members, heightBy, valueOf, unit = 'mV', colourO
   const nMissing = members.length - measured.length
   const hLo = Math.min(0, ...measured)
   const hSpan = Math.max(1e-6, Math.max(...measured) - hLo)
+  const lanes = useMemo(() => Object.fromEntries(recordings.map(rec => {
+    const xs = members.filter(m => m.recording === rec)
+    return [rec, { t: xs.map(m => m.onset_h), v: xs.map(m => { const v = height(m); return v === null || !Number.isFinite(v) ? null : v }) }]
+  })), [members, heightBy])   // eslint-disable-line react-hooks/exhaustive-deps
+  const [trend, setTrend] = useState<Record<string, LaneTrend> | null>(null)
+  const [trendError, setTrendError] = useState<string | null>(null)
+  const lanesKey = JSON.stringify(lanes)
+  useEffect(() => {
+    let alive = true
+    setTrend(null); setTrendError(null)
+    getTimelineTrend(lanes).then(r => { if (alive) setTrend(r.trend) }, e => { if (alive) setTrendError(String(e?.message ?? e)) })
+    return () => { alive = false }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lanesKey])
   return (
     <div className="ig-tl" data-testid="timeline">
       {recordings.map(rec => {
@@ -31,13 +51,13 @@ export function EventTimeline({ members, heightBy, valueOf, unit = 'mV', colourO
         const lo = Math.floor(Math.min(...xs.map(m => m.onset_h)))
         const hi = Math.ceil(Math.max(...xs.map(m => m.onset_h)))
         const span = Math.max(1, hi - lo)
-        const t = TIMELINE_TREND[rec]
+        const t = trend?.[rec]
         return (
           <div key={rec} data-testid={`timeline-${rec}`}>
             <div className="hd">
               <span className="nm">{rec}</span>
               <span>{lo} – {hi} h</span>
-              <span className="tau">{t?.tau == null ? (t?.note ?? `n ${xs.length} · no trend test`) : `τ ${t.tau.toFixed(2).replace('-', '−')} · p ${t.p}`}</span>
+              <span className="tau" data-testid="timeline-tau">{trendError ? 'trend not computed' : !t ? '…' : t.tau == null ? (t.note ?? `n ${t.n} · not tested`) : `τ ${t.tau.toFixed(2).replace('-', '−')} · p ${t.p == null ? '—' : t.p < 0.001 ? '< 0.001' : t.p.toFixed(3)} · n ${t.n}`}</span>
             </div>
             <svg className="lane" width="100%" height={54} viewBox="0 0 400 54" preserveAspectRatio="none" role="img" aria-label={`${xs.length} events in ${rec}`}>
               {xs.map(m => {

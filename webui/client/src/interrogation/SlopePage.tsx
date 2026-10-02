@@ -3,24 +3,23 @@
  * a per-event table, a sliding strip (P8) and — for a large family — a sampled overlay. */
 import { useEffect, useMemo, useRef, useState } from 'react'
 import {
-  Badge, Button, Callout, Chip, ColourDot, Dropdown, Icon, IconButton, InfoTip, LineChart, MiniTrace, Page, Seg, SectionCard,
+  Badge, Button, Callout, Chip, ColourDot, Dropdown, Icon, IconButton, InfoTip, LineChart, MiniTrace, Page, Rose, Seg, SectionCard,
   Slider, Table, fmtInt, recordDemoWrite, useNotWired, useQueryState, useSim, type BadgeStatus, type Column, type SortState,
 } from '../kit'
 import { Header } from '../shell/Header'
 import { useToast } from '../shell/Toast'
 import { navigate } from '../state'
 import { useSourced } from '../api/seam'
-import { eventWindow, getSlopeBlock, liveEventCurve, liveEventPoints, liveYDomain, paddingLabel, windowOver, type SlopeBlock } from '../api/interrogation'
+import { eventWindow, getSlopeBlock, liveEventPoints, liveYDomain, paddingLabel, windowOver, type SlopeBlock } from '../api/interrogation'
 import { measuredDomain } from '../charts/domain'
 import {
-  FAMILY_Y_DOMAIN, MARKS, ROSE_REF_SLOPE, RULES, RUN_STEPS, STALE_PREVIEW, UNITS, UPSTREAMS, VERDICT_COLOUR, angleOf,
+  FAMILY_Y_DOMAIN, MARKS, RULES, RUN_STEPS, STALE_PREVIEW, UNITS, UPSTREAMS, VERDICT_COLOUR,
   eventCurve, unitScale, type InterrogationMember,
 } from '../fixtures/interrogation'
 import { AddStagePopover, ChainCard, InterrogationToolbar, LoadFailed, Loading, RunVeil, SaveTemplateModal } from './chrome'
 import { SourcePicker } from './SourcePicker'
 import { inScopeIds, interrogationHref, markSimForced, useFamilyQuery, useInterrogationDraft, useUpstreamQuery, wasSimForced } from './draft'
 import { fmtMeasure } from './features'
-import { Rose } from './Rose'
 
 const STRIP = 10
 const TABLE_PAGE = 4
@@ -37,6 +36,8 @@ const TANGENT_REACH = 0.16
 const finite = (v: number | null | undefined): v is number => v != null && Number.isFinite(v)
 /** Clip a synthetic (fixture) curve to the plotted window so a long recovery never draws past the axis. */
 const clip = (vs: number[], pre = 10, hi = 24) => vs.map((v, i) => [i - pre, v] as [number, number]).filter(pt => pt[0] <= hi)
+
+const ROSE_PALETTE = ['#2F6FED', '#E8900C', '#7446E0', '#1E6F7A', '#C97B63', '#059669']
 
 export function SlopePage() {
   const [familyId] = useFamilyQuery()
@@ -126,7 +127,32 @@ function SlopeBody({ block }: { block: SlopeBlock }) {
      slow precursor to a fast event is on the plot rather than off its left edge. */
   const padding = draft.settings.padding
   const win = useMemo(() => windowOver(events, padding), [events, padding])
-  const curveOf = (m: InterrogationMember, pre = win.pre, post = win.post) => liveEventCurve(m, pre, post) ?? eventCurve(m, Math.min(pre, 10), Math.min(post, 24))
+  /* a strip thumbnail is the event's stored samples at their own times (fixup-h: it used to be the snippet
+     resampled to one value per second by interpolation); a fixture member with no snippet keeps its synthetic curve */
+  const stripTrace = (m: InterrogationMember): { values: number[]; t?: number[] } => {
+    const pts = liveEventPoints(m, win.pre, win.post)
+    return pts && pts.length > 1 ? { values: pts.map(q => q[1]), t: pts.map(q => q[0]) } : { values: eventCurve(m, Math.min(win.pre, 10), Math.min(win.post, 24)) }
+  }
+  /* the angle of an event is the core's (`gradients.rose_data`, served per member); the page derives none */
+  const fmtAngle = (m: InterrogationMember, digits = 1) => (m.angle_deg == null ? '—' : `${m.angle_deg.toFixed(digits).replace('-', '−')}°`)
+  const rose = block.rose
+  const memberIndex = useMemo(() => new Map(block.members.map((m, i) => [m.id, i])), [block.members])
+  const depths = events.map(e => e.depth_mV)
+  const dLo = Math.min(...depths), dHi = Math.max(...depths)
+  const recordings = [...new Set(block.members.map(e => e.recording))]
+  const roseColour = (i: number): string => {
+    const e = block.members[i]
+    if (!e) return 'var(--blue)'
+    if (colourQ === 'recording') return ROSE_PALETTE[recordings.indexOf(e.recording) % ROSE_PALETTE.length]
+    if (colourQ === 'verdict') return VERDICT_COLOUR[e.verdict]
+    const u01 = dHi > dLo ? (e.depth_mV - dLo) / (dHi - dLo) : 0.5
+    return `rgb(${Math.round(88 + (232 - 88) * u01)}, ${Math.round(86 + (144 - 86) * u01)}, ${Math.round(214 + (12 - 214) * u01)})`
+  }
+  const roseLegend = colourQ === 'depth' ? `dot colour = depth, ${dLo.toFixed(2)} (violet) to ${dHi.toFixed(2)} mV (amber)` : colourQ === 'recording' ? `dot colour = recording: ${recordings.join(', ')}` : 'dot colour = verdict'
+  const theRose = (
+    <Rose rose={rose} testid="rose" highlight={event ? memberIndex.get(event.id) ?? null : null} colourOf={roseColour} legend={roseLegend}
+      labelOf={i => block.members[i]?.id ?? `event ${i + 1}`} onSelect={i => { const m = block.members[i]; if (m) pick(m.id) }} />
+  )
   const storeRules = block.storeRules
   const href = (page: 'source' | 'block1' | 'block2', extra?: Record<string, string | null | undefined>) => interrogationHref(page, familyId, upstream, extra)
   const rerun = () => {
@@ -206,7 +232,6 @@ function SlopeBody({ block }: { block: SlopeBlock }) {
      by 10. The angle is the same under either, because the slope and the −45° reference scale together. */
   const unitLabel = UNITS.find(o => o.value === unitsQ)?.label ?? 'mV · 10 s'
   const u = unitScale(unitsQ)
-  const refSlope = +(ROSE_REF_SLOPE * u.slope).toFixed(4)
   const t = (v: number) => +(v * u.time).toFixed(3)
   const fmtT = (v: number) => `${v > 0 ? '+' : ''}${+v.toFixed(u.time === 1 ? 0 : 1)} s`
   const fmtSlope = (v: number) => (v * u.slope).toFixed(u.slope === 1 ? 4 : 3).replace('-', '−')
@@ -227,7 +252,7 @@ function SlopeBody({ block }: { block: SlopeBlock }) {
   const stripDomain = useMemo(() => liveYDomain(strip) ?? FAMILY_Y_DOMAIN, [strip])
   /** a member's stored samples inside the shared window, in the plotted unit; a fixture member's synthetic curve */
   const overlayPoints = (m: InterrogationMember): [number, number][] =>
-    (liveEventPoints(m, win.pre, win.post) ?? clip(curveOf(m, 10, 24), 10, 24)).map(([a, b]) => [t(a), b] as [number, number])
+    (liveEventPoints(m, win.pre, win.post) ?? clip(eventCurve(m, 10, 24), 10, 24)).map(([a, b]) => [t(a), b] as [number, number])
 
   /* ---- table ----
      Recovery is the core's (fixup-e): null = not recovered inside the rule's bound, printed as such, never 0.
@@ -246,7 +271,7 @@ function SlopeBody({ block }: { block: SlopeBlock }) {
     { key: 'depth', header: upstream === 'event-shape' ? 'amplitude mV' : 'depth mV', align: 'right',
       render: r => upstream === 'event-shape' ? fmtMeasure(r.measures?.amplitude_mV, 3) : r.depth_mV.toFixed(3), sortValue: r => upstream === 'event-shape' ? r.measures?.amplitude_mV ?? null : r.depth_mV },
     { key: 'slope', header: 'max slope mV/s', align: 'right', render: r => fmtSlope(upstream === 'event-shape' ? r.measures?.max_slope ?? r.max_slope : r.max_slope), sortValue: r => upstream === 'event-shape' ? r.measures?.max_slope ?? null : r.max_slope },
-    { key: 'angle', header: 'angle', align: 'right', render: r => `${Math.round(angleOf(r.max_slope))}°`.replace('-', '−'), sortValue: r => angleOf(r.max_slope) },
+    { key: 'angle', header: 'angle', align: 'right', render: r => fmtAngle(r, 0), sortValue: r => r.angle_deg ?? 0 },
     { key: 'peak', header: 'peakedness', align: 'right', render: r => upstream === 'event-shape' ? fmtMeasure(r.measures?.peakedness) : r.peakedness.toFixed(2), sortValue: r => upstream === 'event-shape' ? r.measures?.peakedness ?? null : r.peakedness },
     { key: 'duration', header: upstream === 'event-shape' ? 'width s' : 'duration s', align: 'right', render: r => fmtSec(r.duration_s), sortValue: r => r.duration_s },
     ...shapeCols,
@@ -365,11 +390,11 @@ function SlopeBody({ block }: { block: SlopeBlock }) {
                   <span>steepest at <b data-testid="readout-steepest">{anatomy.trace && anatomy.steepest_s != null
                     ? `${fmtT(t(anatomy.steepest_s))}${anatomy.trough_s ? ` · ${Math.round(100 * anatomy.steepest_s / anatomy.trough_s)} % of the fall` : ''}`
                     : 'not measured'}</b></span>
-                  <span>angle <b>{angleOf(event.max_slope).toFixed(1).replace('-', '−')}°</b></span>
+                  <span>angle <b>{fmtAngle(event)}</b></span>
                   <span>peakedness <b>{event.peakedness.toFixed(2)}</b></span>
                 </div>
                 <div className="ig-foot" style={{ marginTop: 4 }} data-testid="units-note">
-                  units {unitLabel} · {u.note} · −45° = −{refSlope} mV/s · the angle is the same under either convention
+                  units {unitLabel} · {u.note} · the angle is the core's: {rose.caption || 'arctan of the steepest slope over the stated reference'}
                 </div>
 
                 <div className="ig-strip" style={{ marginTop: 10 }} data-testid="event-strip">
@@ -379,7 +404,7 @@ function SlopeBody({ block }: { block: SlopeBlock }) {
                     {strip.map((e, i) => (
                       <button key={e.id} type="button" className={`ig-cell ${e.id === event.id ? 'on' : ''}`} onClick={() => pick(e.id)}
                         data-testid={`strip-${stripFrom + i + 1}`} title={`${e.id} · ${e.depth_mV.toFixed(3)} mV`}>
-                        <MiniTrace values={curveOf(e)} yDomain={stripDomain} width="100%" height={40} ground="none"
+                        <MiniTrace {...stripTrace(e)} yDomain={stripDomain} width="100%" height={40} ground="none"
                           stroke={e.id === event.id ? 'var(--blue-600)' : '#4b5563'} />
                         <span className="n">{stripFrom + i + 1}</span>
                         {e.flags.length > 0 && <span className="flag" />}
@@ -412,7 +437,7 @@ function SlopeBody({ block }: { block: SlopeBlock }) {
               <Dropdown testid="sample-size" prefix="sample size" value={sampleQ} onChange={setSample} options={['5', '10', '20'].map(v => ({ value: v, label: v }))} />
             </>}>
             {viewQ === 'rose' && event
-              ? <Rose events={events} selected={event.id} colourBy={colourQ} onSelect={pick} />
+              ? theRose
               : (
                 <>
                   <LineChart testid="overlay-plot" height={340} yLabel="mV" xDomain={[t(-win.pre), t(win.post)]} yDomain={overlayDomain}
@@ -433,11 +458,10 @@ function SlopeBody({ block }: { block: SlopeBlock }) {
           </SectionCard>
         ) : (
           <SectionCard testid="rose-card" title="Each fall as one angle"
-            info={`Every fall becomes one angle: the arctangent of its steepest slope in ${unitLabel}. −45° is −${refSlope} mV/s. The radius is the event's order in the run, so the rose is not a density.`}
+            info="Every fall becomes one angle: the arctangent of its steepest slope over a stated reference. The angles, the 18 bins and the circular statistics are the core's (gradients.rose_data) — the page draws them and derives none. A wedge's length is the number of events in its bin; each event is a dot at its own angle."
             actions={<Dropdown testid="rose-colour" prefix="colour" value={colourQ} onChange={setColour}
               options={[{ value: 'depth', label: 'depth' }, { value: 'recording', label: 'recording' }, { value: 'verdict', label: 'verdict' }]} />}>
-            <div className="ig-foot" style={{ marginBottom: 6 }}>angle of max slope in {unitLabel} · −45° = −{refSlope} mV/s · radius = event order</div>
-            <Rose events={events} selected={event?.id ?? null} colourBy={colourQ} onSelect={pick} />
+            {theRose}
           </SectionCard>
         )}
       </div>

@@ -85,7 +85,7 @@ export function EventTrace({ trace, domain, event, height = 56, colour = 'var(--
   return (
     <div ref={ref} style={{ height, flex: 1, minWidth: 0, background: impure ? 'var(--red-100, #fdeaea)' : '#f5f6f8', borderRadius: 5, overflow: 'hidden' }}>
       {size.width > 0 && (
-        <svg width={w} height={height} role="img" aria-label={`${event.title ?? event.id}: ${n} points`} data-plot-box data-rule9="event"
+        <svg width={w} height={height} role="img" aria-label={`${event.title ?? event.id}: ${n} points`} data-plot-box data-rule9="event" data-flat={pts.every(q => Math.abs(q[1] - pts[0][1]) < 0.5) ? "1" : "0"}
           data-points={n} data-decimated={trace.decimated ? '1' : '0'} data-domain={`${domain[0]},${domain[1]}`} style={{ display: 'block' }}>
           {event.band && <rect x={X(event.band[0])} width={Math.max(1, X(event.band[1]) - X(event.band[0]))} y={0} height={height} fill="var(--band-detected)" />}
           {event.onset != null && <line x1={X(event.onset)} x2={X(event.onset)} y1={0} y2={height} stroke="var(--blue)" strokeOpacity={0.7} />}
@@ -100,7 +100,7 @@ export function EventTrace({ trace, domain, event, height = 56, colour = 'var(--
   )
 }
 
-function Card({ event, trace, domain, colour, unit, selected }: { event: SlideEvent; trace: SlideTrace | 'loading'; domain: [number, number] | null; colour: string; unit: string; selected: boolean }) {
+function Card({ event, trace, domain, colour, unit, selected, extra }: { event: SlideEvent; trace: SlideTrace | 'loading'; domain: [number, number] | null; colour: string; unit: string; selected: boolean; extra?: ReactNode }) {
   const impure = (event.count ?? 1) > 1
   const of = event.countOf ?? 'events'
   const H = 56
@@ -110,6 +110,7 @@ function Card({ event, trace, domain, colour, unit, selected }: { event: SlideEv
         <b title={event.title ?? event.id}>{event.title ?? event.id}</b>
         {impure && <span className="flag" data-testid="impurity-flag" title={`this window holds ${event.count} ${of}, counted by sample range — depth and duration of a window with more than one are not one event's`}>[{event.count} {of}]</span>}
         {event.chip && <Chip size="sm" tone="outline" dot={event.chip.colour}>{event.chip.text}</Chip>}
+        {extra && <span style={{ marginLeft: 'auto', flex: 'none' }} onClick={e => e.stopPropagation()} onKeyDown={e => e.stopPropagation()}>{extra}</span>}
       </div>
       <div style={{ display: 'flex', gap: 2, alignItems: 'stretch' }}>
         {trace === 'loading' ? <div className="skeleton" style={{ height: H, flex: 1, borderRadius: 5 }} />
@@ -129,7 +130,7 @@ function Card({ event, trace, domain, colour, unit, selected }: { event: SlideEv
   )
 }
 
-export function EventSlideshow({ events, load, sorts, selected, onSelect, cap = 10, columns = 5, colour = 'var(--trace)', unit = 'mV', title = 'Each event', capRule, action, frameNote, testid = 'event-slideshow' }: {
+export function EventSlideshow({ events, load, sorts, selected, onSelect, cap = 10, columns = 5, colour = 'var(--trace)', unit = 'mV', title = 'Each event', capRule, action, frameNote, cardExtra, testid = 'event-slideshow' }: {
   events: SlideEvent[]
   /** fetch an event's samples when the event does not carry them; cached per event id for the component's life */
   load?: (e: SlideEvent) => Promise<SlideTrace>
@@ -142,6 +143,8 @@ export function EventSlideshow({ events, load, sorts, selected, onSelect, cap = 
   action?: ReactNode
   /** which extent the cards draw, in a few words: "the stored window" */
   frameNote?: string
+  /** a control of the PAGE's own on each card (a scope tick). Never a verdict: the slideshow writes nothing. */
+  cardExtra?: (e: SlideEvent) => ReactNode
   testid?: string
 }) {
   const [sortKey, setSortKey] = useState(sorts[0]?.value ?? '')
@@ -203,7 +206,7 @@ export function EventSlideshow({ events, load, sorts, selected, onSelect, cap = 
           const tr = traceOf(e)
           const vals = tr === 'loading' ? [] : e.window ? tr.v.filter((_, i) => tr.t[i] >= e.window![0] && tr.t[i] <= e.window![1]) : tr.v
           const dom = tr === 'loading' ? null : measuredDomain(vals)
-          return <Card event={e} trace={tr} domain={dom} colour={colour} unit={unit} selected={e.id === selected} />
+          return <Card event={e} trace={tr} domain={dom} colour={colour} unit={unit} selected={e.id === selected} extra={cardExtra?.(e)} />
         }} />
       <div className="k-slide-foot">
         {/* an absence or a defect is a RESULT and stays on the face (Q21); the explanation is behind the icon */}

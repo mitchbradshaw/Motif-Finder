@@ -53,12 +53,15 @@ def _tree(*parts):
 
 def test_analyse_draws_with_the_kits_plots():
     """`analyse/` imported zero plot components from the kit and hand-rolled its own histogram, while
-    `Scatter`, `NullBand` and `SmallMultiples` had no caller outside the gallery."""
+    `Scatter`, `NullBand` and `SmallMultiples` had no caller outside the gallery. The slideshow is the kit's
+    (Interrogation draws it too), and it is built on `SmallMultiples`."""
     views = "\n".join(src for path, src in _tree("analyse", "views").items())
     assert views, "analyse/views/ does not exist"
-    for component in ("Histogram", "Bars", "SmallMultiples"):
+    for component in ("Histogram", "Bars", "EventSlideshow"):
         assert re.search(r"import\s*\{[^}]*\b%s\b[^}]*\}\s*from\s*'[./]+kit" % component, views, re.S), (
             f"analyse/views never imports the kit's {component}")
+    assert re.search(r"import\s*\{[^}]*\bSmallMultiples\b[^}]*\}\s*from\s*'\./plots'", _src("kit", "Slideshow.tsx")), (
+        "the slideshow is not built on the kit's SmallMultiples")
     assert "function Histogram(" not in _src("analyse", "BlockPage.tsx"), "BlockPage.tsx still hand-rolls a histogram"
 
 

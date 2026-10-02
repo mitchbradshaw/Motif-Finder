@@ -240,6 +240,55 @@ class Smoke:
                     f" — the tangent falls {ty1 - ty0:.1f} px where the served max slope gives {want_dy if want_dy is None else round(want_dy, 1)} px")
         return bool(ok), "".join(msgs)
 
+    #: fixup-h: RULE 9 of `Pipelines/drop_motifs/drawing_rules.py` ("a drop must look like a drop", `check_drop_shape`),
+    #: ported to the browser. The thesis rule measures a figure's height-to-width against the median event; a UI
+    #: plot is not aspect-locked, so the port keeps what the rule is FOR and measures it on what was drawn. Every
+    #: view marks its plot (`svg[data-rule9]`) and its traces (`[data-trace] path`), and for each trace:
+    #:   * it VARIES - the path has more than one distinct y;
+    #:   * it is NOT FLATTENED - its drawn height is at least `RULE9_MIN_FILL` of its plot's height. A trace drawn
+    #:     on a domain much wider than itself (a shared y, a stale domain, an offset left in) is the flat-line
+    #:     failure the rule exists to stop. A plot whose DATA is constant says so (`data-flat="1"`) and is exempt:
+    #:     a flat line is then the honest picture, and the exemption is the view's claim about its payload;
+    #:   * NO AXIS CLIPS IT - every vertex lies inside the plot.
+    #: A page with no rule-9 plot at all fails too: the check must have something to measure.
+    RULE9_MIN_FILL = 0.2
+    _RULE9_JS = """(minFill) => {
+      const out = { plots: 0, traces: 0, exempt: 0, constant: [], flat: [], clipped: [] };
+      for (const svg of document.querySelectorAll('svg[data-rule9]')) {
+        const b = svg.getBoundingClientRect();
+        if (b.width === 0 || b.height === 0) continue;
+        out.plots++;
+        const host = svg.closest('[data-testid]');
+        const name = ((host && host.getAttribute('data-testid')) || 'svg') + ':' + svg.getAttribute('data-rule9');
+        if (svg.getAttribute('data-flat') === '1') { out.exempt++; continue; }
+        for (const p of svg.querySelectorAll('[data-trace] path')) {
+          const ys = Array.from((p.getAttribute('d') || '').matchAll(/[ML]([-\\d.]+) ([-\\d.]+)/g)).map(m => parseFloat(m[2]));
+          if (ys.length < 2) continue;
+          out.traces++;
+          const r = p.getBoundingClientRect();
+          if (Math.max(...ys) - Math.min(...ys) < 0.5) { out.constant.push(name); continue; }
+          if (r.height / b.height < minFill) out.flat.push(name + ' ' + Math.round(100 * r.height / b.height) + '%');
+          if (r.top < b.top - 1.5 || r.bottom > b.bottom + 1.5) out.clipped.push(name + ' ' + Math.round(r.top - b.top) + '/' + Math.round(b.bottom - r.bottom));
+        }
+      }
+      return out;
+    }"""
+
+    def rule9(self, page, where: str):
+        """`rule9`: every drawn trace varies, is not flattened, and is not clipped by its axis."""
+        m = page.evaluate(self._RULE9_JS, self.RULE9_MIN_FILL)
+        self.evidence.setdefault("rule9", {})[where] = {k: (v if isinstance(v, int) else v[:8]) for k, v in m.items()}
+        bad = []
+        if m["traces"] == 0:
+            bad.append(f"no trace to measure ({m['plots']} rule-9 plots, {m['exempt']} declared flat)")
+        if m["constant"]:
+            bad.append(f"{len(m['constant'])} traces do not vary: {m['constant'][:3]}")
+        if m["flat"]:
+            bad.append(f"{len(m['flat'])} traces are flattened below {int(100 * self.RULE9_MIN_FILL)} % of their plot: {m['flat'][:3]}")
+        if m["clipped"]:
+            bad.append(f"{len(m['clipped'])} traces are clipped by their axis: {m['clipped'][:3]}")
+        return not bad, (f" · rule 9: {m['traces']} traces vary, fill their plots, unclipped" if not bad else " — rule 9: " + "; ".join(bad))
+
     def goto(self, page, hash_: str, settle_ms=600):
         page.goto(f"{self.url}/#/{hash_}", wait_until="networkidle")
         page.wait_for_timeout(settle_ms)
@@ -687,6 +736,9 @@ class Smoke:
                 page.wait_for_timeout(e.get("settle_ms", 500))
                 for a in e.get("actions", []):
                     if "click" in a: page.locator(a["click"]).first.click(); page.wait_for_timeout(250)
+                    # an optional click: the control is only on the page in some states (the example-span button once a source is set)
+                    elif "click_if" in a:
+                        if page.locator(a["click_if"]).count(): page.locator(a["click_if"]).first.click(); page.wait_for_timeout(250)
                     elif "press" in a: page.keyboard.press(a["press"]); page.wait_for_timeout(200)
                     elif "fill" in a: page.locator(a["fill"][0]).first.fill(a["fill"][1]); page.wait_for_timeout(200)
                     elif "hover" in a: page.locator(a["hover"]).first.hover(); page.wait_for_timeout(200)
@@ -707,6 +759,10 @@ class Smoke:
                 if e.get("anatomy_marks"):
                     marks_ok, marks_msg = self.anatomy_marks(page, name)
                     in_box, box_msg = in_box and marks_ok, box_msg + marks_msg
+                # fixup-h: a state may also assert rule 9 on every plot the type views drew
+                if e.get("rule9"):
+                    r9_ok, r9_msg = self.rule9(page, name)
+                    in_box, box_msg = in_box and r9_ok, box_msg + r9_msg
                 # A state may declare console errors it provokes on purpose (a read that rejects renders a
                 # loud error card — the brief's failure state). Declared ones are dropped from the run's
                 # error list so they neither fail this state nor the whole run; anything else still fails.
@@ -742,7 +798,17 @@ class Smoke:
             page = browser.new_page(viewport={"width": 1440, "height": 900})
             page.on("console", lambda m: self.errors.append(f"console.{m.type}: {m.text}") if m.type == "error" else None)
             page.on("pageerror", lambda e: self.errors.append(f"pageerror: {e}"))
-            page.on("requestfailed", lambda r: self.errors.append(f"requestfailed: {r.url}") if "fonts.g" not in r.url else None)
+            # A run's event stream is CLOSED BY THE CLIENT when `run_end` lands (api.ts `subscribeRun`). When that
+            # close beats the server's own end-of-response the browser reports the request as aborted - a
+            # deliberate close, not a failed request. It only shows on runs short enough to lose the race, which
+            # the walk did not have until fixup-h's page states ran five chains.
+            def _failed(r):
+                if "fonts.g" in r.url:
+                    return
+                if r.url.endswith("/events") and "ERR_ABORTED" in (r.failure or ""):
+                    return
+                self.errors.append(f"requestfailed: {r.url}")
+            page.on("requestfailed", _failed)
             steps = (self.routes,) if self.pages_only else (self.corpus, self.signal, self.m4, self.analyse, self.discovery, self.loud_failure, self.routes)
             for step in steps:
                 try:

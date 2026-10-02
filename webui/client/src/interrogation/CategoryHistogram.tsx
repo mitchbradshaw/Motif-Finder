@@ -1,9 +1,10 @@
-/* One histogram with the null behind it, split into per-category bars in front (frames interrogation-3
- * and 3b). The kit's `Histogram` draws exactly two series, so colour-by used to fall back to stacked
- * `Bars` — which dropped the grey null and re-binned the data (critique r1). P10 puts a null behind
- * *every* distribution, so this draws both: the null bars at full bin width behind, the observed bars
- * (one stack per colour-by category, or a single series when colour-by is off) in front.
- * Kit change requested in webui/pages/requests/interrogation.md; this is the local stand-in. */
+/* One histogram, its bars split into per-category stacks when colour-by is on (frames interrogation-3, 3b).
+ * The kit's `Histogram` draws at most two series, so a colour-by split needs this.
+ *
+ * fixup-h: this used to be `NullHistogram` and drew a grey "null" behind the bars. That null was three uniforms
+ * summed and centred on the midpoint of the observed range — a bell curve, labelled with the wording of a null
+ * that is specified and has never been built (QUESTIONS.md Q27). It is gone, not relabelled: a grey cloud that
+ * looks exactly like a null is worse than no null. `kit/plots.tsx::NullBand` is written for the real one. */
 import { scaleLinear } from 'd3'
 import { Legend, fmtInt } from '../kit'
 import { useSize } from '../charts/useSize'
@@ -11,13 +12,11 @@ import { useSize } from '../charts/useSize'
 export interface HistBar { x0: number; x1: number; count: number }
 export interface HistSeries { key: string; label: string; colour: string; counts: number[] }
 
-export function NullHistogram({ bars, nulls, series, height = 150, format, nullLabel = 'null', legend = true, testid }: {
+export function CategoryHistogram({ bars, series, height = 150, format, legend = true, testid }: {
   bars: HistBar[]                 // the bin edges every series is counted into
-  nulls: number[] | null          // null counts per bin, or null when the null is switched off
   series: HistSeries[]            // observed counts per bin, stacked in order
   height?: number
   format: (v: number) => string
-  nullLabel?: string
   legend?: boolean
   testid?: string
 }) {
@@ -26,7 +25,7 @@ export function NullHistogram({ bars, nulls, series, height = 150, format, nullL
   const padL = 34, padR = 10, padT = 8, padB = 22
   const dom: [number, number] = bars.length ? [bars[0].x0, bars[bars.length - 1].x1] : [0, 1]
   const totals = bars.map((_, i) => series.reduce((s, se) => s + (se.counts[i] ?? 0), 0))
-  const maxC = Math.max(1, ...totals, ...(nulls ?? []))
+  const maxC = Math.max(1, ...totals)
   const x = scaleLinear().domain(dom).range([padL, Math.max(padL + 1, w - padR)])
   const y = scaleLinear().domain([0, maxC]).range([height - padB, padT])
   const bw = bars.length ? Math.max(1, x(bars[0].x1) - x(bars[0].x0)) : 1
@@ -35,17 +34,12 @@ export function NullHistogram({ bars, nulls, series, height = 150, format, nullL
   return (
     <div ref={ref} className="k-plot" data-testid={testid}>
       {w > 0 && (
-        <svg width={w} height={height} role="img" aria-label={`histogram of ${bars.length} bins with its null behind`}>
+        <svg width={w} height={height} role="img" aria-label={`histogram of ${bars.length} bins`}>
           {ticks.map(t => <g key={t}><text x={padL - 6} y={y(t) + 3} textAnchor="end">{fmtInt(t)}</text></g>)}
-          {/* the null, behind — full bin width */}
-          {nulls && bars.map((b, i) => (
-            <rect key={`n${i}`} x={x(b.x0) + 0.5} width={Math.max(0.5, bw - 1)} y={y(nulls[i] ?? 0)} height={Math.max(0, y(0) - y(nulls[i] ?? 0))}
-              fill="#d1d5db"><title>{`${format(b.x0)}–${format(b.x1)} · ${nullLabel} ${fmtInt(nulls[i] ?? 0)}`}</title></rect>
-          ))}
-          {/* the observed bars, stacked by category, in front and narrower so the null stays visible */}
+          {/* the observed bars, stacked by category */}
           {bars.map((b, i) => {
             let acc = 0
-            const iw = Math.max(1, bw * 0.62)
+            const iw = Math.max(1, bw - 1)
             const bx = x(b.x0) + (bw - iw) / 2
             return (
               <g key={`o${i}`}>
@@ -67,10 +61,7 @@ export function NullHistogram({ bars, nulls, series, height = 150, format, nullL
         </svg>
       )}
       {w === 0 && <div style={{ height }} />}
-      {legend && <Legend items={[
-        ...(nulls ? [{ label: nullLabel, colour: '#d1d5db' }] : []),
-        ...series.map(se => ({ label: se.label, colour: se.colour })),
-      ]} />}
+      {legend && series.length > 1 && <Legend items={series.map(se => ({ label: se.label, colour: se.colour }))} />}
     </div>
   )
 }

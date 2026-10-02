@@ -1,11 +1,10 @@
 /* analyse.interrogation.aggregate — 02 Aggregate (frames interrogation-3, 3b, 3c).
  * §6.8 `Features → views`, P7: the block is generic — every plot is wired from the Features the upstream
- * block declares, so the same page serves slope analysis and event shape. P10: a null behind every plot.
+ * block declares, so the same page serves slope analysis and event shape.
  *
  * Fix round 1: the Parameters card and the feature wiring were decorative. Everything on both now
- * recomputes what it names — binning, the interval definition, outlier handling, the purity check, the
- * null method and every wiring slot — the null stays behind the bars when colour-by splits them, and a
- * family too small to fit says so instead of reprinting F-03's exponent.
+ * recomputes what it names — binning, the interval definition, outlier handling, the purity check and every
+ * wiring slot — and a family too small to fit says so instead of reprinting F-03's exponent.
  *
  * fixup-e: the page stops inventing its measurements. Every value comes from `featureOf` (features.ts),
  * which READS the store's slope measures or interrogation.event_shape's measures and returns null when the
@@ -13,7 +12,15 @@
  * rule that made it null; the scaling fit is `fitLogLog` on the drawn points (never the frame's recorded β);
  * the tiles are this family's own numbers; and the rule behind every measure is printed on the page. The
  * three constants (`half_width = 0.84 × duration`, `rise = 0.31 ×`, `isi = 4.2 ×`) and the browser-side
- * recovery that read 0 s for a never-recovered event are gone. */
+ * recovery that read 0 s for a never-recovered event are gone.
+ *
+ * fixup-h (QUESTIONS.md Q27): the page draws NO null. It carried two, and neither was one: the scatter's took
+ * each real point and multiplied it by random factors three times; the histograms' was three uniforms summed,
+ * centred on the midpoint of the observed range. Both wore the labels of a null that is specified and has never
+ * been built. They are deleted along with the method selector and the comparison tile — the scatter's was the
+ * data with independent noise on x and y, so its exponent was a regression-diluted copy of the real one and sat
+ * below it by construction: a comparison that could be neither cleared nor failed. The page says there is no
+ * null, once, on its face. */
 import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   Badge, Button, Callout, Chip, ColourDot, Dropdown, EmptyState, Icon, InfoTip, Legend, LineChart,
@@ -25,13 +32,13 @@ import { useToast } from '../shell/Toast'
 import { navigate, setQuery } from '../state'
 import { useSourced } from '../api/seam'
 import { getAggregateBlock, type AggregateBlock } from '../api/interrogation'
-import { FAMILY_COLOURS, seeded } from '../fixtures/canon'
+import { FAMILY_COLOURS } from '../fixtures/canon'
 import {
   INTERVAL_ENDS, MIN_FIT_N, RUN_STEPS, UPSTREAMS, VERDICT_COLOUR, binCount, fitLogLog, percentile,
   type FitResult, type InterrogationMember, type PairSpec, type Upstream,
 } from '../fixtures/interrogation'
 import { AddStagePopover, ChainCard, InterrogationToolbar, LoadFailed, Loading, RunVeil, SaveTemplateModal } from './chrome'
-import { NullHistogram, type HistSeries } from './NullHistogram'
+import { CategoryHistogram, type HistSeries } from './CategoryHistogram'
 import { SourcePicker } from './SourcePicker'
 import { EventTimeline } from './EventTimeline'
 import { inScopeIds, interrogationHref, markSimForced, useFamilyQuery, useInterrogationDraft, useUpstreamQuery, wasSimForced } from './draft'
@@ -76,19 +83,6 @@ function intervalRows(members: InterrogationMember[], definition: string): Featu
   return out
 }
 
-/** A deterministic null sample for a feature. The two methods draw differently on purpose: matched
- *  random windows are wide and flat around the same centre; shuffled onsets keep the marginal spread
- *  but lose the timing, so an interval null is wider still. */
-function nullSample(values: number[], key: string, method: string): number[] {
-  if (!values.length) return []
-  const shuffled = method === 'shuffled'
-  const rnd = seeded(key.length * 977 + values.length + (shuffled ? 131 : 0))
-  const lo = Math.min(...values), hi = Math.max(...values)
-  const mid = (lo + hi) / 2, half = (hi - lo) / 2 || 0.1
-  const spread = shuffled ? 2.0 : 1.5
-  return Array.from({ length: Math.round(values.length * 1.6) }, () => +(mid + (rnd() + rnd() + rnd() - 1.5) * half * spread).toFixed(4))
-}
-
 /** Counts per bin, with the same edge rule `binValues` uses. */
 function countsIn(rows: FeatureRow[], bars: HistBin[]): number[] {
   return bars.map((b, i) => rows.filter(r => r.v >= b.x0 && (i === bars.length - 1 ? r.v <= b.x1 : r.v < b.x1)).length)
@@ -120,7 +114,6 @@ function AggregateBody({ block, upstream }: { block: AggregateBlock; upstream: U
   const [stateQ, setStateQ] = useQueryState('state', '')
   const [colourQ, setColour] = useQueryState('colour', 'none')
   const [axesQ, setAxes] = useQueryState('axes', 'log-log')
-  const [nullQ, setNull] = useQueryState('null', 'matched')
   const [binQ, setBin] = useQueryState('binning', 'fd')
   const [intervalQ, setInterval] = useQueryState('interval', 'onset-onset')
   const [outliersQ, setOutliers] = useQueryState('outliers', 'kept')
@@ -215,10 +208,8 @@ function AggregateBody({ block, upstream }: { block: AggregateBlock; upstream: U
   const labelOf = (key: string) => up.features.find(f => f.key === key)?.label ?? key
   const unitOf = (key: string) => up.features.find(f => f.key === key)?.unit ?? (key === 'interval_h' ? 'h' : '')
 
-  /* Under MIN_FIT_N there are too few members for a null comparison to mean anything (§3: nothing claims
-     more than it knows). */
+  /* Under MIN_FIT_N there are too few members to fit (§3: nothing claims more than it knows). */
   const tooFewForStats = events.length < MIN_FIT_N
-  const nullLabel = nullQ === 'shuffled' ? 'shuffled onsets' : nullQ === 'none' ? 'no null' : 'matched windows'
 
   /* ---- three distributions ---- */
   const hists = up.hists.map((h, i) => {
@@ -229,7 +220,6 @@ function AggregateBody({ block, upstream }: { block: AggregateBlock; upstream: U
     const domain = paddedDomain(values)
     const nBins = binCount(values, binQ)
     const bars = binValues(values, domain, nBins)
-    const nulls = nullQ === 'none' || !values.length ? null : binValues(nullSample(values, key, nullQ), domain, nBins).map(b => b.count)
     const series: HistSeries[] = colourQ === 'none'
       ? [{ key: 'observed', label: 'observed', colour: h.colour, counts: countsIn(rows, bars) }]
       : categories.map(c => ({ key: c, label: c, colour: catColours[c], counts: countsIn(rows.filter(r => catOf(r.m) === c), bars) }))
@@ -239,9 +229,9 @@ function AggregateBody({ block, upstream }: { block: AggregateBlock; upstream: U
     /* the verdict is this family's own summary of what was drawn — never a recorded string */
     const verdict = !values.length
       ? `not measured for any of the ${of} events`
-      : `median ${formatShort(median!)} ${unit}${iqr ? ` · IQR ${formatShort(iqr[0])} – ${formatShort(iqr[1])}` : ''} · n ${values.length}${missing ? ` of ${of}` : ''}${tooFewForStats ? ` · too few to compare with the ${nullLabel}` : ''}`
+      : `median ${formatShort(median!)} ${unit}${iqr ? ` · IQR ${formatShort(iqr[0])} – ${formatShort(iqr[1])}` : ''} · n ${values.length}${missing ? ` of ${of}` : ''}${tooFewForStats ? ` · fewer than ${MIN_FIT_N} events` : ''}`
     return {
-      ...h, key, rewired, bars, nulls, series, values, median, missing, of, verdict,
+      ...h, key, rewired, bars, series, values, median, missing, of, verdict,
       tone: (!values.length || missing > 0 || tooFewForStats ? 'amber' : 'muted') as 'amber' | 'muted',
       title: rewired ? labelOf(key) : h.title, unit, nBins,
       why: missing > 0 ? whyMissing(key, shape.recovery) : null,
@@ -306,17 +296,6 @@ function AggregateBody({ block, upstream }: { block: AggregateBlock; upstream: U
     () => (used.length < MIN_FIT_N ? null : fitLogLog(used.map(p => ({ x: p.x, y: p.y })))),
     [used],
   )
-
-  const nullPoints = useMemo(() => {
-    if (nullQ === 'none') return []
-    const rnd = seeded(pair.key.length * 31 + events.length + (nullQ === 'shuffled' ? 7 : 0))
-    const spread = nullQ === 'shuffled' ? 1.1 : 0.8
-    return used.flatMap(p => Array.from({ length: 3 }, () => ({
-      x: p.x * (0.7 + rnd() * spread), y: p.y * (0.55 + rnd() * (spread + 0.1)),
-    })))
-  }, [used, pair.key, events.length, nullQ])
-  /* the null β is the same fit on the null points that are drawn — never a recorded number */
-  const nullFit: FitResult | null = useMemo(() => (nullPoints.length < MIN_FIT_N ? null : fitLogLog(nullPoints)), [nullPoints])
 
   /* β per recording, from the same points, when the fit is split by recording */
   const byRecording = useMemo(() => {
@@ -385,7 +364,7 @@ function AggregateBody({ block, upstream }: { block: AggregateBlock; upstream: U
     <>
       <InterrogationToolbar
         sourceLabel={<>Library family · {fam.id} {fam.name}</>}
-        sourceOpen={popover === 'source'} sourceRef={sourceRef} arrived={!stale} nullMethod={nullQ}
+        sourceOpen={popover === 'source'} sourceRef={sourceRef} arrived={!stale}
         onSourceToggle={() => setPopover(popover === 'source' ? null : 'source')}
         onSaveTemplate={() => setSaveOpen(true)} stale={stale}
         primary={sim.busy
@@ -427,17 +406,22 @@ function AggregateBody({ block, upstream }: { block: AggregateBlock; upstream: U
             </Callout>
           )}
 
+          {/* the one absence this page must not hide (Q21): nothing here is compared with a null */}
+          <div className="ig-foot" data-testid="no-null-note" style={{ gap: 6 }}>
+            <Icon name="info" size={11} /> no null is drawn on this page: every number below describes these events and is not tested against chance
+            <InfoTip title="Why there is no null">The null this page was designed around is specified (windows drawn from the same channel at matched positions, and onsets shuffled in time) and has not been built. What used to be drawn in grey here was not that: it was the data itself with noise added, and a bell curve centred on the observed range. Both are removed rather than relabelled.</InfoTip>
+          </div>
+
           {/* ------------------------------------------------ three distributions ------------------------------------------------ */}
           <div className="ig-grid3">
             {hists.map((h, i) => (
               <SectionCard key={h.key} testid={`hist-${h.key}`} title={h.title}
-                info={`${h.key} · ${h.nBins} bins (${binQ === 'fd' ? 'Freedman–Diaconis' : binQ === 'sturges' ? 'Sturges' : 'fixed 20'}) · ${nullQ === 'none' ? 'the null is switched off, which P10 does not allow for a result' : `every bar is compared with the ${nullLabel} null drawn in grey behind it (P10)`}.`}
+                info={`${h.key} · ${h.nBins} bins (${binQ === 'fd' ? 'Freedman–Diaconis' : binQ === 'sturges' ? 'Sturges' : 'fixed 20'}) · the bars are the measured events and nothing else; no null is drawn behind them.`}
                 subtitle={<span className="mono">{h.unit} · n {h.values.length}{h.missing ? ` of ${h.of}` : ''}{h.key === 'interval_h' ? ` · ${INTERVAL_ENDS[intervalQ]?.label ?? intervalQ}` : ''}</span>}>
                 <div className="ig-rel">
                   {sim.busy && <RunVeil label={veilLabel} fraction={sim.fraction} />}
                   {h.values.length
-                    ? <NullHistogram testid={`hist-plot-${h.key}`} height={150} bars={h.bars} nulls={h.nulls} series={h.series}
-                      nullLabel={nullQ === 'shuffled' ? 'shuffled null' : 'null'} format={v => formatShort(v)} />
+                    ? <CategoryHistogram testid={`hist-plot-${h.key}`} height={150} bars={h.bars} series={h.series} format={v => formatShort(v)} />
                     : <div className="ig-foot" style={{ height: 150, display: 'flex', alignItems: 'center', justifyContent: 'center' }} data-testid={`hist-plot-${h.key}`}>
                       nothing to draw · {h.title.toLowerCase()} was not measured on any of these {h.of} events
                     </div>}
@@ -461,7 +445,7 @@ function AggregateBody({ block, upstream }: { block: AggregateBlock; upstream: U
           {/* ------------------------------------------------ scaling + timeline ------------------------------------------------ */}
           <div className="ig-cols">
             <SectionCard testid="scaling-card" title="Scaling"
-              info="A power-law fit on log axes: ordinary least squares on log10 x and log10 y over the points drawn. β is the exponent with its 95 % CI; the null β beneath it is the same fit on the null points drawn, so an exponent that does not clear its null is not a relationship (P10). Fewer than 12 points is not a fit and is not shown as one."
+              info="A power-law fit on log axes: ordinary least squares on log10 x and log10 y over the points drawn. β is the exponent with its 95 % CI. It is not compared with a null — none is built — so it describes these events and is not a test of a relationship. Fewer than 12 points is not a fit and is not shown as one."
               actions={<Dropdown testid="axes" prefix="axes" value={axesQ} onChange={setAxes} options={block.params.axes} disabled={sim.busy} disabledReason={BUSY} />}>
               <div className="ig-row" style={{ marginBottom: 8 }}>
                 <Seg testid="pair-seg" value={pair.key} onChange={setPair} options={wiredPairs.map(p => ({ value: p.key, label: p.label }))} />
@@ -474,7 +458,6 @@ function AggregateBody({ block, upstream }: { block: AggregateBlock; upstream: U
                     <LineChart testid="scaling-plot" height={230} xLabel={`${pair.xLabel} · ${pair.x}`} yLabel={pair.yLabel} legend={false}
                       xFormat={fmtAx} yFormat={fmtAx}
                       series={[
-                        ...(nullQ === 'none' ? [] : [{ label: 'null', colour: '#cbd5e1', points: nullPoints.map(p => [tx(p.x), tx(p.y)] as [number, number]), dots: true, width: 0 }]),
                         ...(dropped.length ? [{ label: 'excluded', colour: '#9ca3af', points: dropped.map(p => [tx(p.x), tx(p.y)] as [number, number]), dots: true, width: 0 }] : []),
                         ...catSeries,
                         ...(fit ? [{ label: 'fit', colour: 'var(--blue)', points: fitLine, width: 2 }] : []),
@@ -486,7 +469,6 @@ function AggregateBody({ block, upstream }: { block: AggregateBlock; upstream: U
                   )}
                   <Legend items={[
                     { label: 'event', colour: 'var(--blue)', shape: 'dot' },
-                    ...(nullQ === 'none' ? [] : [{ label: nullLabel, colour: '#cbd5e1', shape: 'dot' as const }]),
                     ...(dropped.length ? [{ label: 'excluded from the fit', colour: '#9ca3af', shape: 'dot' as const }] : []),
                     ...(fit ? [{ label: 'fit', colour: 'var(--blue)', shape: 'line' as const }] : []),
                   ]} />
@@ -505,17 +487,11 @@ function AggregateBody({ block, upstream }: { block: AggregateBlock; upstream: U
                       <div className="ig-foot" style={{ marginTop: 2 }}>{used.length} point{used.length === 1 ? '' : 's'} · a power-law fit needs at least {MIN_FIT_N}</div>
                     </div>
                   )}
-                  {fit && (
-                    <div className="ig-null-beta" data-testid="null-beta-tile">
-                      <div className="lbl">null β ({nullQ === 'shuffled' ? 'shuffled onsets' : nullQ === 'none' ? 'switched off' : 'matched windows'}) · the same fit on the null points drawn</div>
-                      <div className="v">{nullQ === 'none' || !nullFit ? '—' : fmtBeta(nullFit)}</div>
-                    </div>
-                  )}
                   <div className="ig-foot" data-testid="fit-points">x {pair.x} · y {pair.y} · from {up.block} · {outlierNote}{pairMissing > 0 ? ` · ${pairMissing} of ${events.length} events have no point (${pairWhy})` : ''}</div>
                   {pairMissing > 0 && <span style={{ display: 'none' }} data-testid="not-measured-note" />}
                   {fit && byRecording && (
                     <div className="ig-foot" style={{ flexDirection: 'column', alignItems: 'flex-start', gap: 4 }} data-testid="beta-by-recording">
-                      <span>β by recording{nullFit ? ` · null β ${nullFit.beta.toFixed(2)}` : ''}</span>
+                      <span>β by recording</span>
                       {byRecording.map((r, i) => (
                         <span key={r.recording} style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
                           <ColourDot colour={catColours[r.recording] ?? [FAMILY_COLOURS['F-06'], '#E8900C', '#7446E0'][i % 3]} />
@@ -547,10 +523,6 @@ function AggregateBody({ block, upstream }: { block: AggregateBlock; upstream: U
                 <div>
                   <div className="lb">colour by</div>
                   <Dropdown block testid="param-colour" value={colourQ} onChange={setColour} options={block.params.colourBy} disabled={sim.busy} disabledReason={BUSY} />
-                </div>
-                <div>
-                  <div className="lb">null <InfoTip title="Null">Every interrogation result carries a null (P10). The method per analysis kind lives in Settings › Nulls.</InfoTip></div>
-                  <Dropdown block active testid="param-null" value={nullQ} onChange={setNull} options={block.params.nulls} disabled={sim.busy} disabledReason={BUSY} />
                 </div>
                 <div>
                   <div className="lb">binning</div>
@@ -592,7 +564,7 @@ function AggregateBody({ block, upstream }: { block: AggregateBlock; upstream: U
               <div className="ig-foot"><Icon name="info" size={11} />figures export with parameters and recipe hash beneath</div>
               {tooFewForStats && (
                 <Callout tone="amber" icon="alert-triangle" testid="too-few-callout">
-                  {fam.id} {fam.name} has {events.length} events in scope · below {MIN_FIT_N} no exponent is fitted and no verdict is drawn against the null
+                  {fam.id} {fam.name} has {events.length} events in scope · below {MIN_FIT_N} no exponent is fitted
                 </Callout>
               )}
               {stale && <Callout tone="amber" icon="alert-triangle" testid="aggregate-stale">01 changed · these views are drawn from the last run</Callout>}

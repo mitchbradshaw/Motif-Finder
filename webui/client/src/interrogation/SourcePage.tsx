@@ -3,16 +3,16 @@
  * per-member include/exclude that scopes the run and leaves the Library entry alone. */
 import { useEffect, useMemo, useRef, useState } from 'react'
 import {
-  Badge, Button, Callout, Checkbox, ColourDot, Dropdown, EmptyState, Field, Icon, InfoTip, LineChart, MiniTrace, Page, Pager,
-  SectionCard, fmtInt, recordDemoWrite, useNotWired, useQueryState, useSim, type BadgeStatus,
+  Badge, Button, Callout, Checkbox, ColourDot, Dropdown, EmptyState, EventSlideshow, Field, Icon, InfoTip, LineChart, Page,
+  SectionCard, fmtInt, recordDemoWrite, useNotWired, useQueryState, useSim, type BadgeStatus, type SlideEvent, type SlideSort,
 } from '../kit'
 import { Header } from '../shell/Header'
 import { useToast } from '../shell/Toast'
 import { navigate, setQuery } from '../state'
 import { useSourced } from '../api/seam'
-import { getSourceBlock, liveEventCurve, liveEventPoints, liveYDomain, paddingLabel, windowOver, type SourceBlock } from '../api/interrogation'
+import { eventWindow, getSourceBlock, liveEventPoints, liveYDomain, paddingLabel, sequenceWindow, sequenceWindowOver, windowOver, type SourceBlock } from '../api/interrogation'
 import {
-  ALIGNMENTS, FAMILY_Y_DOMAIN, RUN_STEPS, SORTS, UPSTREAMS, VERDICT_COLOUR, VERDICT_ORDER, eventCurve,
+  ALIGNMENTS, FAMILY_Y_DOMAIN, RUN_STEPS, UPSTREAMS, VERDICT_COLOUR, VERDICT_ORDER, eventCurve,
   type InterrogationMember,
 } from '../fixtures/interrogation'
 import { AddStagePopover, ChainCard, EmptyScope, InterrogationToolbar, LoadFailed, Loading, RunVeil, SaveTemplateModal } from './chrome'
@@ -52,11 +52,10 @@ function SourceBody({ block }: { block: SourceBlock }) {
   const [adjOnly, setAdjOnly] = useQueryState('adjudicated', '')
   const [recordingQ, setRecordingQ] = useQueryState('recording', 'all')
   const [channelQ, setChannelQ] = useQueryState('channel', 'all')
-  const [sortQ, setSortQ] = useQueryState('sort', 'distance')
   const [alignQ, setAlignQ] = useQueryState('align', 'onset')
   const [distanceQ, setDistanceQ] = useQueryState('distance', block.family.threshold.toFixed(2))
   const [scopeQ, setScopeQ] = useQueryState('scope', 'all')
-  const [page, setPage] = useState(1)
+  const [frameQ, setFrameQ] = useQueryState('frame', 'padding')
   const [overlaySeed, setOverlaySeed] = useState(0)
   const [saveOpen, setSaveOpen] = useState(false)
 
@@ -69,30 +68,45 @@ function SourceBody({ block }: { block: SourceBlock }) {
   const handExcluded = draft.excluded[fam.id] ?? []
   const scope = scopeQ === 'none' ? new Set<string>() : inScopeIds(block.members, draft, fam.id, hidesArtifacts)
 
-  /* ---- filters, sort, paging (the tile grid caps at 10 — P8) ---- */
+  /* ---- filters. Sorting and paging are the slideshow's own (P8: ten cards at once). ---- */
   const visible = useMemo(() => {
     let xs = block.members.filter(m => m.d <= Number(distanceQ))
     if (adjOnly === '1') xs = xs.filter(m => m.verdict !== 'unadjudicated')
     if (recordingQ !== 'all') xs = xs.filter(m => m.recording === recordingQ)
     if (channelQ !== 'all') xs = xs.filter(m => m.channel === channelQ)
-    const by: Record<string, (a: InterrogationMember, b: InterrogationMember) => number> = {
-      distance: (a, b) => a.d - b.d,
-      onset: (a, b) => a.onset_h - b.onset_h,
-      depth: (a, b) => b.depth_mV - a.depth_mV,
-      verdict: (a, b) => VERDICT_ORDER.indexOf(a.verdict) - VERDICT_ORDER.indexOf(b.verdict),
-    }
-    return [...xs].sort(by[sortQ] ?? by.distance)
-  }, [block.members, distanceQ, adjOnly, recordingQ, channelQ, sortQ])
-  const pageCount = Math.max(1, Math.ceil(visible.length / 10))
-  const p = Math.min(page, pageCount)
-  const tiles = visible.slice((p - 1) * 10, p * 10)
+    return xs
+  }, [block.members, distanceQ, adjOnly, recordingQ, channelQ])
+  const setPage = (_n: number) => {}
 
-  /* The window around every event follows Source settings › context padding (fixup-e, U11): the stored context
-     by default. Each card's y is measured from what it draws (charts/domain.ts), not from the whole family. */
+  /* fixup-h: every member is a slideshow card drawn from its STORED SAMPLES at their own times — the grid used to
+     resample each snippet to one value per second by linear interpolation and put every tile on one shared y.
+     The window follows Source settings › context padding (the stored context by default, U11); each card is on a
+     y measured from its own trace with a scale bar (Q15); a window the store counted more than one fall in is
+     red and says so; and an edge the detector's fall-multiple cap set, rather than the event's own morphology,
+     is dashed where the card reaches it (Q18). */
   const padding = draft.settings.padding
-  const tileWindow = useMemo(() => windowOver(tiles, padding), [tiles, padding])
-  const curveOf = (m: InterrogationMember) => liveEventCurve(m, tileWindow.pre, tileWindow.post) ?? eventCurve(m, 10, 24)
-  const tileDomain = useMemo(() => liveYDomain(tiles) ?? FAMILY_Y_DOMAIN, [tiles])
+  const slides = useMemo<SlideEvent[]>(() => visible.map(m => {
+    const sn = m.snippet
+    const onset = sn && m.onset_offset_s !== undefined ? sn.t_s[0] + m.onset_offset_s : null
+    const w = eventWindow(m, padding)
+    const whole = padding === 'snippet'
+    return {
+      id: m.id, title: m.id,
+      onset, extremum: onset === null ? null : onset + m.duration_s,
+      window: onset === null ? null : [onset - w.pre, onset + m.duration_s + w.post],
+      count: m.purity ?? null, countOf: 'falls',
+      // an edge is only on the card when the card draws the whole stored extent
+      leftCapped: whole && !!m.left_capped, rightCapped: whole && !!m.right_capped,
+      facts: `${m.depth_mV.toFixed(Math.abs(m.depth_mV) >= 10 ? 1 : 3)} mV · ${m.duration_s >= 10 ? m.duration_s.toFixed(0) : m.duration_s.toFixed(1)} s · ${m.channel} · ${m.onset_h.toFixed(1)} h`,
+      sort: { onset: m.onset_h, depth: m.depth_mV, duration: m.duration_s, falls: m.purity ?? null },
+      trace: sn ? { t: sn.t_s, v: sn.v, decimated: !!sn.decimated, nSource: sn.n ?? sn.t_s.length, mismatch: sn.mismatch ?? null }
+        : { t: [], v: [], decimated: false, nSource: 0, error: 'the store holds no snippet for this event' },
+    }
+  }), [visible, padding])
+  const SLIDE_SORTS: SlideSort[] = [
+    { value: 'onset', label: 'onset time' }, { value: 'depth', label: 'depth', descending: true },
+    { value: 'duration', label: 'fall duration', descending: true }, { value: 'falls', label: 'falls in window', descending: true },
+  ]
 
   /* ---- the run ---- */
   const sim = useSim('analyse.interrogation.run')
@@ -131,6 +145,7 @@ function SourceBody({ block }: { block: SourceBlock }) {
   const runChain = () => { setStateQ(null); setDraft(d => ({ ...d, staleFrom: null })); sim.start({ steps: RUN_STEPS, stepMs: 800 }) }
 
   const nScope = scope.size
+  const nVisibleScope = visible.filter(m => scope.has(m.id)).length
   const runReason = nScope === 0 ? 'no members in scope · nothing to measure'
     : fam.disabledReason ? fam.disabledReason : sim.busy ? 'the chain is already running' : undefined
 
@@ -155,11 +170,17 @@ function SourceBody({ block }: { block: SourceBlock }) {
     const step = Math.max(1, Math.floor(inScope.length / 10))
     return Array.from({ length: Math.min(10, inScope.length) }, (_, i) => inScope[(i * step + overlaySeed * 3) % inScope.length])
   }, [block.members, scope, overlaySeed])
-  const overlayWindow = useMemo(() => windowOver(overlayMembers, padding), [overlayMembers, padding])
+  /* Which frame the overlay draws (fixup-h, Q19). The stored window is right for ONE event; a sequence or an
+     overlay of many wants each event framed back to the previous event's trough (capped at 14 falls), or a
+     sharkfin's slow rise — most of what makes the shape — is a shoulder at the left edge. The frame is the
+     core's (`extent.sequence_frames`); E's context-padding default stays, and this sits beside it. */
+  const sequenceFrame = frameQ === 'sequence'
+  const overlayWindow = useMemo(() => (sequenceFrame ? sequenceWindowOver(overlayMembers) : windowOver(overlayMembers, padding)), [overlayMembers, padding, sequenceFrame])
   const overlayDomain = useMemo(() => liveYDomain(overlayMembers) ?? FAMILY_Y_DOMAIN, [overlayMembers])
   const alignShift = (m: InterrogationMember) => (alignQ === 'trough' ? m.duration_s : 0)
   const overlayPoints = (m: InterrogationMember): [number, number][] => {
-    const pts = liveEventPoints(m, overlayWindow.pre, overlayWindow.post)
+    const own = sequenceFrame ? sequenceWindow(m) : overlayWindow
+    const pts = liveEventPoints(m, own.pre, own.post)
       ?? eventCurve(m, 20, 30).map((v, i) => [i - 20, v] as [number, number]).filter(pt => pt[0] <= 40)
     const shift = alignShift(m)
     return shift ? pts.map(([a, b]) => [a - shift, b] as [number, number]) : pts
@@ -221,8 +242,6 @@ function SourceBody({ block }: { block: SourceBlock }) {
                   { value: 'M4_aug', label: 'M4_aug', disabled: true, reason: 'M4_aug_concat_fs1.mat is held out (D6) · every workspace refuses it' }]} />
               <Dropdown size="sm" testid="filter-channel" prefix="channel" value={channelQ} onChange={v => { setChannelQ(v); setPage(1) }}
                 options={[{ value: 'all', label: 'all' }, ...channels.map(ch => ({ value: ch, label: ch }))]} />
-              <span className="k-spacer" />
-              <Dropdown size="sm" testid="filter-sort" prefix="sort" value={sortQ} onChange={v => { setSortQ(v); setPage(1) }} options={SORTS} />
             </div>
 
             <div className="ig-row" style={{ marginBottom: 8 }} data-testid="scope-row">
@@ -231,44 +250,35 @@ function SourceBody({ block }: { block: SourceBlock }) {
               <Button size="sm" variant="link" onClick={() => setAll('none')} testid="select-none">none</Button>
               <Button size="sm" variant="link" onClick={() => setAll('invert')} testid="select-invert">invert</Button>
               <span className="k-spacer" />
-              <span className="ig-foot"><Icon name="link" size={11} />shared y · measured from the tiles shown ({tileDomain[0].toFixed(2)} to {tileDomain[1].toFixed(2)} mV) · unnormalised · window −{Math.round(tileWindow.pre)} … +{Math.round(tileWindow.post)} s</span>
+              <span className="ig-foot"><Icon name="link" size={11} />window: context padding {paddingLabel(padding)} · the stored samples, never resampled</span>
             </div>
 
-            <div className="ig-rel">
+            <div className="ig-rel" data-testid="member-grid">
               {sim.busy && <RunVeil label={`${sim.steps[sim.step] ?? 'queued'} · ${Math.round(sim.fraction * 100)} %`} fraction={sim.fraction} />}
               {nScope === 0 && <EmptyScope onSelectAll={() => setAll('all')} />}
-              {tiles.length === 0
+              {visible.length === 0
                 ? <EmptyState testid="no-member-match" size="sm" icon="filter" title="no member matches these filters"
                   caption={`${fam.within} members are within d ≤ ${fam.threshold.toFixed(2)} · widen the distance, recording or channel filter`}
                   action={<Button onClick={() => { setDistanceQ(null); setRecordingQ(null); setChannelQ(null); setAdjOnly(null); setPage(1) }} testid="clear-filters">Clear filters</Button>} />
                 : (
-                  <div className="ig-members" data-testid="member-grid">
-                    {tiles.map(m => {
+                  <EventSlideshow testid="event-slideshow" events={slides} sorts={SLIDE_SORTS} cap={10} columns={5} colour={fam.colour} unit="mV"
+                    title={`${visible.length} members · ${nVisibleScope} in scope`} selected={null}
+                    onSelect={id => navigate(href('block1', { event: id }))}
+                    capRule={block.capped ? `${block.capped.cap_mult} × fall` : undefined}
+                    frameNote={padding === 'snippet' ? 'the whole stored window — the extent the detector kept, which is also what the Library hashes' : `context padding ${paddingLabel(padding)} around the fall, inside the stored window`}
+                    cardExtra={e => {
+                      const m = visible.find(x => x.id === e.id)
+                      if (!m) return null
                       const on = scope.has(m.id)
-                      const excludedByHand = handExcluded.includes(m.id)
                       return (
-                        <div key={m.id} className={`ig-member ${on ? 'on' : 'off'}`} data-testid={`member-${m.id}`}>
-                          <div className="hd">
-                            <Checkbox checked={on} onChange={v => toggleMember(m.id, v)} ariaLabel={`${m.id} in scope`} testid={`member-check-${m.id}`}
-                              disabled={m.verdict === 'artifact' && hidesArtifacts} disabledReason={m.verdict === 'artifact' && hidesArtifacts ? 'artifacts are excluded by the filter above' : undefined} />
-                            <span className="id">{m.id}</span>
-                            <span className="k-spacer" />
-                            <ColourDot colour={VERDICT_COLOUR[m.verdict]} title={m.verdict} />
-                          </div>
-                          <div className="bd" role="button" tabIndex={0} title={`open ${m.id} in ${UPSTREAMS[upstream].block}`}
-                            onClick={() => navigate(href('block1', { event: m.id }))}
-                            onKeyDown={e => { if (e.key === 'Enter') navigate(href('block1', { event: m.id })) }}>
-                            <MiniTrace values={curveOf(m)} yDomain={tileDomain} width="100%" height={54}
-                              stroke={on ? fam.colour : 'var(--muted-2)'} title={`${m.id} · ${m.depth_mV.toFixed(3)} mV`} />
-                          </div>
-                          <div className="ft">
-                            <span>{m.channel} · {m.onset_h.toFixed(1)} h</span>
-                            {excludedByHand || (m.verdict === 'artifact' && hidesArtifacts) ? <span className="ex">excluded</span> : <span>d {m.d.toFixed(2)}</span>}
-                          </div>
-                        </div>
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }} data-testid={`member-${m.id}`}>
+                          {(handExcluded.includes(m.id) || (m.verdict === 'artifact' && hidesArtifacts)) && <span style={{ color: '#a05e00' }}>excluded</span>}
+                          <ColourDot colour={VERDICT_COLOUR[m.verdict]} title={m.verdict} />
+                          <Checkbox checked={on} onChange={v => toggleMember(m.id, v)} ariaLabel={`${m.id} in scope`} testid={`member-check-${m.id}`}
+                            disabled={m.verdict === 'artifact' && hidesArtifacts} disabledReason={m.verdict === 'artifact' && hidesArtifacts ? 'artifacts are excluded by the filter above' : undefined} />
+                        </span>
                       )
-                    })}
-                  </div>
+                    }} />
                 )}
             </div>
 
@@ -279,7 +289,7 @@ function SourceBody({ block }: { block: SourceBlock }) {
                 </span>)}
               </span>
               <span className="k-spacer" />
-              <Pager format="range" page={p} pageCount={pageCount} total={visible.length} pageSize={10} onPage={setPage} testid="member-pager" />
+              <span className="ig-foot">click a card to open the event in {UPSTREAMS[upstream].block} · the tick scopes it in or out of this run</span>
             </div>
           </SectionCard>
 
@@ -287,6 +297,8 @@ function SourceBody({ block }: { block: SourceBlock }) {
             info="A seeded random sample, never all of them: families run to hundreds of members (P8). Traces are the store's detrended mV samples over the context-padding window, on a y axis measured from the traces drawn — not normalised (D5). The window follows Source settings › context padding: the stored context by default, so a slow precursor (a sharkfin's rise) is on the plot."
             subtitle={`random ${overlayMembers.length} of ${nScope} in scope · aligned on ${alignQ} · window −${Math.round(overlayWindow.pre)} … +${Math.round(overlayWindow.post)} s`}
             actions={<>
+              <Dropdown testid="overlay-frame" prefix="frame" value={frameQ} onChange={setFrameQ}
+                options={[{ value: 'padding', label: 'context padding', description: 'one window for every event, from Source settings' }, { value: 'sequence', label: 'sequence frame', description: 'each event back to the previous event\'s trough, capped at 14 falls; 1.8 falls after the trough' }]} />
               <Button size="sm" icon="shuffle" onClick={() => setOverlaySeed(s => s + 1)} testid="overlay-resample">resample</Button>
               <Dropdown testid="overlay-align" prefix="align" value={alignQ} onChange={setAlignQ} options={alignOptions} />
             </>}>
@@ -298,7 +310,9 @@ function SourceBody({ block }: { block: SourceBlock }) {
               <div className="ig-foot" style={{ marginTop: 4 }} data-testid="overlay-window-note">
                 <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}><span style={{ width: 14, height: 2, background: fam.colour }} />member · the stored samples, nothing held past a snippet's end</span>
                 <span className="k-spacer" />
-                <span>context padding {paddingLabel(padding)} · y {overlayDomain[0].toFixed(2)} to {overlayDomain[1].toFixed(2)} mV, measured from the traces drawn</span>
+                <span data-testid="overlay-frame-note">{sequenceFrame
+                  ? `sequence frame · each event back to the previous trough · ${overlayMembers.filter(m => m.sequence?.capped).length} of ${overlayMembers.length} capped at 14 falls, ${overlayMembers.filter(m => m.sequence?.clipped).length} clipped by the stored snippet`
+                  : `context padding ${paddingLabel(padding)}`} · y {overlayDomain[0].toFixed(2)} to {overlayDomain[1].toFixed(2)} mV, measured from the traces drawn</span>
               </div></>}
           </SectionCard>
         </div>

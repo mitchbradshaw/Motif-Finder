@@ -162,5 +162,28 @@ def test_the_callers_still_produce_what_they_did():
     assert list(isi) == [10.0, 15.0, 5.0]
 
 
+# ── the per-recording trend (fixup-h, `03` I8) ──────────────────────────────
+# The Aggregate page's timeline printed a Kendall tau per recording from a fixture
+# keyed by fixture recording names, so every live recording read "no trend test".
+
+def test_kendall_trend_is_scipys_tau_over_the_measured_events():
+    from scipy.stats import kendalltau
+    from Working.interrogation.intervals import kendall_trend
+    t = [0.0, 1.0, 2.0, 3.0, 4.0, 5.0]
+    v = [1.0, 2.0, float("nan"), 2.5, 4.0, 3.5]
+    r = kendall_trend(t, v)
+    tau, p = kendalltau([0.0, 1.0, 3.0, 4.0, 5.0], [1.0, 2.0, 2.5, 4.0, 3.5])
+    assert r["n"] == 5 and r["note"] is None
+    assert r["tau"] == pytest.approx(tau) and r["p"] == pytest.approx(p)
+
+
+def test_a_trend_that_cannot_be_tested_says_why_and_is_not_zero():
+    from Working.interrogation.intervals import kendall_trend
+    few = kendall_trend([0.0, 1.0], [1.0, 2.0])
+    assert few["tau"] is None and few["n"] == 2 and "not tested" in few["note"]
+    flat = kendall_trend([0.0, 1.0, 2.0, 3.0], [5.0, 5.0, 5.0, 5.0])
+    assert flat["tau"] is None and "does not vary" in flat["note"]
+
+
 if __name__ == "__main__":
     sys.exit(pytest.main([__file__, "-v"]))
