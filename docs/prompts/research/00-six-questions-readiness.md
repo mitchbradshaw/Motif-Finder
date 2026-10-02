@@ -48,10 +48,14 @@ Read these before you start; each bears on at least one question.
 
 - `docs/prompts/fixup/README.md` — the state of every page, and "What is left after wave 3". **Jobs, Models
   and Training are still fixture pages.** Questions 1 and 6 lean on them.
-- `docs/prompts/fixup/QUESTIONS.md` **Q26** is open and is a research decision, not an engineering one:
-  41 % of the seed store and 34 % of the Library have **no recovery time and no FWHM** under the current
-  definition, all of it sharkfin morphology. Any question whose answer is a distribution over those measures
-  inherits it.
+- `docs/prompts/fixup/QUESTIONS.md` **"Q26, REVISED"**. 41 % of the seed store and 34 % of the Library
+  have **no recovery time and no FWHM**. It is **not** a property of the morphology, as the first two
+  entries of Q26 claim — measured on the real channel, 121 of 154 sharkfins do recover, at a median 199 s
+  against a stored post-context of 121 s. The null is an artifact of the measurement window, and on two
+  families also of a detrend window shorter than the recovery. **So treat any recovery, FWHM or duration
+  number you meet as unreliable for sharkfin families**, say so where it bears on a question, and do not
+  build a comparison on it. The live question (`future/N-event-extent.md` step 0) is whether the slow rise
+  belongs to the fall before it or the fall after it; it is the researcher's, not yours.
 - `docs/prompts/fixup/future/R-interrogation-null.md` — **there is no null anywhere in the app.** Both
   fabricated ones were deleted on 2026-10-02 and the real one is not built. So no page can tell you whether
   a number beats chance, and no section of your report may imply one does.
