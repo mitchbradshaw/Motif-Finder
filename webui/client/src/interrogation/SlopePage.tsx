@@ -10,11 +10,11 @@ import { Header } from '../shell/Header'
 import { useToast } from '../shell/Toast'
 import { navigate } from '../state'
 import { useSourced } from '../api/seam'
-import { getSlopeBlock, liveEventCurve, liveEventPoints, liveYDomain, paddingLabel, windowOver, type SlopeBlock } from '../api/interrogation'
+import { eventWindow, getSlopeBlock, liveEventCurve, liveEventPoints, liveYDomain, paddingLabel, windowOver, type SlopeBlock } from '../api/interrogation'
 import { measuredDomain } from '../charts/domain'
 import {
   FAMILY_Y_DOMAIN, MARKS, ROSE_REF_SLOPE, RULES, RUN_STEPS, STALE_PREVIEW, UNITS, UPSTREAMS, VERDICT_COLOUR, angleOf,
-  eventCurve, eventMarks, unitScale, type InterrogationMember,
+  eventCurve, unitScale, type InterrogationMember,
 } from '../fixtures/interrogation'
 import { AddStagePopover, ChainCard, InterrogationToolbar, LoadFailed, Loading, RunVeil, SaveTemplateModal } from './chrome'
 import { SourcePicker } from './SourcePicker'
@@ -30,6 +30,11 @@ const BUSY = 'wait for the run'
  *  measured with the rules printed above them, and no re-run exists yet that could apply different ones. A
  *  selector that changed nothing but a caption claimed otherwise. */
 const FIXED_RULES = "the seed store's rules are fixed · the numbers on this page were measured with the rules listed above; nothing here re-runs them yet"
+/** How far the drawn tangent reaches either side of the steepest sample, as a fraction of the fall — and never
+ *  less than one sample. The slope itself is a central difference AT that sample; the line is only long enough
+ *  to read, the reach the researcher's own anatomy figure uses (Pipelines/drop_motifs/casestudy9.py). */
+const TANGENT_REACH = 0.16
+const finite = (v: number | null | undefined): v is number => v != null && Number.isFinite(v)
 /** Clip a synthetic (fixture) curve to the plotted window so a long recovery never draws past the axis. */
 const clip = (vs: number[], pre = 10, hi = 24) => vs.map((v, i) => [i - pre, v] as [number, number]).filter(pt => pt[0] <= hi)
 
@@ -135,28 +140,66 @@ function SlopeBody({ block }: { block: SlopeBlock }) {
   }
   const discard = () => { setDraft(d => ({ ...d, pendingWindow: null, staleFrom: null })); setStateQ(null) }
 
-  /* ---- the anatomy figure, drawn in the chosen unit convention ---- */
+  /* ---- the anatomy figure (fixup-k) ----
+     The trace is the event's stored samples inside the context-padding window (Source settings), and every mark
+     on it is the store's: the detector's onset and trough samples, the sample `gradients.fall_gradients` found
+     steepest, and the snippet's own height at each (GET …/families/{key}/slope). Nothing is placed by a constant.
+     A mark the store did not measure is NOT drawn, and `absent` names it on the face of the card. */
   const uTime = unitScale(unitsQ).time
   const anatomy = useMemo(() => {
     if (!event) return null
-    const pre = 10
-    const vs = curveOf(event, pre, 24)
-    const marks = eventMarks(event)
-    const hi = Math.round(event.duration_s) + 14
-    const pts = vs.map((v, i) => [i - pre, v] as [number, number]).filter(pt => pt[0] <= hi)
-    const troughV = -event.depth_mV
-    const steepV = -event.depth_mV / 2
-    const tan = 0.5 * (showWindow + 2)
-    const sc = (xs: [number, number][]) => xs.map(([a, b]) => [+(a * uTime).toFixed(3), b] as [number, number])
-    return {
-      pts: sc(pts), troughV, steepV,
-      marks: { onset: marks.onset * uTime, steepest: +(marks.steepest * uTime).toFixed(2), trough: +(marks.trough * uTime).toFixed(2) },
-      chord: sc([[0, pts[pre][1]], [marks.trough, troughV]]),
-      tangent: sc([[marks.steepest - tan, steepV + event.max_slope * -tan], [marks.steepest + tan, steepV + event.max_slope * tan]]),
-      depthLine: sc([[marks.trough, 0], [marks.trough, troughV]]),
-      dom: [-pre * uTime, +((Math.round(event.duration_s) + 14) * uTime).toFixed(2)] as [number, number],
+    const w = eventWindow(event, padding)
+    const raw = liveEventPoints(event, w.pre, w.post)
+    if (!raw || raw.length < 2) return { trace: null, why: 'the store holds no snippet for this event, so there is no trace to draw and nothing to mark' } as const
+    const sc = (xs: [number, number][]) => xs.map(([x, y]) => [+(x * uTime).toFixed(3), y] as [number, number])
+    const yDomain = measuredDomain(raw.map(p => p[1])) ?? FAMILY_Y_DOMAIN
+    const a = event.anatomy
+    const absent: string[] = []
+    const fall = a && a.trough_s > 0 && finite(a.onset_mV) && finite(a.trough_mV)
+      ? { trough_s: a.trough_s, onset_mV: a.onset_mV, trough_mV: a.trough_mV } : null
+    const steep = a && finite(a.steepest_s) && finite(a.steepest_mV) && Number.isFinite(event.max_slope)
+      ? { s: a.steepest_s, mV: a.steepest_mV } : null
+    if (!a) absent.push('trough, steepest, chord, tangent and depth · the store served no slope measurement for this event')
+    else {
+      if (!fall) absent.push("trough, chord and depth · the store's trough is not after its onset, so there is no fall between the marks")
+      if (!steep) absent.push('steepest and its tangent · no steepest sample was measured')
     }
-  }, [event, showWindow, uTime])
+    /* the tangent: through the steepest sample at the measured slope. Each end is shortened (never bent) where
+       it would leave the trace's own y range, so the plot's domain is still measured from the trace alone — on
+       a sharkfin the steepest sample is at the top of the trace and the line runs mostly forward from it */
+    let tangent: [number, number][] | null = null
+    if (a && steep) {
+      const reach = Math.max(TANGENT_REACH * (fall?.trough_s ?? 0), a.sample_s)
+      const k = Math.abs(event.max_slope)
+      const above = Math.max(0, yDomain[1] - steep.mV), below = Math.max(0, steep.mV - yDomain[0])
+      const end = (room: number) => (k * reach > room ? room / k : reach)
+      const before = end(event.max_slope < 0 ? above : below), after = end(event.max_slope < 0 ? below : above)
+      tangent = sc([[steep.s - before, steep.mV - event.max_slope * before], [steep.s + after, steep.mV + event.max_slope * after]])
+    }
+    /* marker labels: marks closer than 8 % of the plotted window share one label at the first of them, so two
+       names are never printed on top of each other (the lines themselves are still drawn where they are) */
+    const span = (event.duration_s + w.post + w.pre) * uTime
+    const named: { x: number; label: string; colour: string }[] = []
+    for (const m of [
+      { x: 0, label: 'onset', colour: 'var(--blue)' },
+      ...(steep ? [{ x: +(steep.s * uTime).toFixed(3), label: 'steepest', colour: '#7446E0' }] : []),
+      ...(fall ? [{ x: +(fall.trough_s * uTime).toFixed(3), label: 'trough', colour: 'var(--red)' }] : []),
+    ].sort((p, q) => p.x - q.x)) {
+      const host = [...named].reverse().find(n => n.label)
+      if (host && m.x - host.x < 0.08 * span) { host.label += ` · ${m.label}`; named.push({ ...m, label: '' }) }
+      else named.push(m)
+    }
+    return {
+      trace: sc(raw), yDomain, absent, window: w, nDrawn: raw.length, nStored: event.snippet?.n ?? null,
+      dom: [+(-w.pre * uTime).toFixed(3), +((event.duration_s + w.post) * uTime).toFixed(3)] as [number, number],
+      /* seconds from the onset, real (unscaled), for the readout */
+      steepest_s: steep?.s ?? null, trough_s: fall?.trough_s ?? null,
+      markers: named,
+      chord: fall ? sc([[0, fall.onset_mV], [fall.trough_s, fall.trough_mV]]) : null,
+      tangent,
+      depthLine: fall ? sc([[fall.trough_s, fall.onset_mV], [fall.trough_s, fall.trough_mV]]) : null,
+    } as const
+  }, [event, padding, uTime])
 
   /* ---- units (fix r1: the control used to rewrite a caption and recompute nothing) ----
      `mV · s` is the frame's compressed convention: every time divides by 10 and every slope multiplies
@@ -182,7 +225,6 @@ function SlopeBody({ block }: { block: SlopeBlock }) {
   const drawnOverlay = useMemo(() => (event && !sample.some(e => e.id === event.id) ? [...sample, event] : sample), [sample, event])
   const overlayDomain = useMemo(() => liveYDomain(drawnOverlay) ?? FAMILY_Y_DOMAIN, [drawnOverlay])
   const stripDomain = useMemo(() => liveYDomain(strip) ?? FAMILY_Y_DOMAIN, [strip])
-  const anatomyDomain = useMemo(() => (anatomy ? measuredDomain(anatomy.pts.map(p => p[1])) ?? FAMILY_Y_DOMAIN : FAMILY_Y_DOMAIN), [anatomy])
   /** a member's stored samples inside the shared window, in the plotted unit; a fixture member's synthetic curve */
   const overlayPoints = (m: InterrogationMember): [number, number][] =>
     (liveEventPoints(m, win.pre, win.post) ?? clip(curveOf(m, 10, 24), 10, 24)).map(([a, b]) => [t(a), b] as [number, number])
@@ -254,7 +296,7 @@ function SlopeBody({ block }: { block: SlopeBlock }) {
       <div className={large ? 'ig-cols even' : 'ig-cols wide-right'}>
         {/* ------------------------------------------------ anatomy ------------------------------------------------ */}
         <SectionCard testid="anatomy-card" number="01" title={block.upstream.blockTitle}
-          info="One event at a time, with the three rules drawn on it. Onset, trough and steepest sample are where every number on this page comes from — change a rule and the numbers change."
+          info="One event at a time, with the store's own marks drawn on it: the detector's onset and trough samples and the steepest sample between them. Every number on this page is measured from those three."
           actions={<>
             <Dropdown testid="units" prefix="units" value={unitsQ} onChange={setUnits} options={UNITS} disabled={sim.busy} disabledReason={BUSY} />
             <Dropdown testid="marks" prefix="marks" value={marksQ} onChange={setMarks} options={MARKS} disabled={sim.busy} disabledReason={BUSY} />
@@ -266,20 +308,19 @@ function SlopeBody({ block }: { block: SlopeBlock }) {
             )}
             {anatomy && event ? (
               <>
-                <LineChart testid="anatomy-plot" height={210} yLabel="mV" xDomain={anatomy.dom} yDomain={anatomyDomain}
-                  xFormat={fmtT} legend={false}
-                  markers={showMarks ? [
-                    { x: anatomy.marks.onset, label: 'onset', colour: 'var(--blue)' },
-                    { x: anatomy.marks.steepest, label: 'steepest', colour: '#7446E0' },
-                    { x: anatomy.marks.trough, label: 'trough', colour: 'var(--red)' },
-                  ] : []}
-                  series={[
-                    { label: 'event', colour: '#111827', points: anatomy.pts, width: 1.6 },
-                    ...(showMarks ? [{ label: 'chord', colour: '#9ca3af', points: anatomy.chord, dashed: true, width: 1.2 }] : []),
-                    ...(showMarks ? [{ label: 'steepest slope', colour: '#7446E0', points: anatomy.tangent, width: 1.8 }] : []),
-                    ...(showMarks ? [{ label: 'depth', colour: 'var(--green)', points: anatomy.depthLine, width: 2.4 }] : []),
-                    ...(allMarks ? [{ label: 'baseline band', colour: '#d1d5db', points: [[anatomy.dom[0], 0.012], [anatomy.dom[1], 0.012]] as [number, number][], dashed: true, width: 1 }] : []),
-                  ]} />
+                {anatomy.trace ? (
+                  <div data-testid="anatomy-figure" data-family={fam.id} data-event={event.id}>
+                    <LineChart testid="anatomy-plot" height={210} yLabel="mV" xDomain={anatomy.dom} yDomain={anatomy.yDomain}
+                      xFormat={fmtT} legend={false}
+                      markers={showMarks ? anatomy.markers.map(m => ({ x: m.x, colour: m.colour, ...(m.label ? { label: m.label } : {}) })) : []}
+                      series={[
+                        { label: 'event', colour: '#111827', points: anatomy.trace, width: 1.6 },
+                        ...(showMarks && anatomy.chord ? [{ label: 'chord', colour: '#9ca3af', points: anatomy.chord, dashed: true, width: 1.2 }] : []),
+                        ...(showMarks && anatomy.tangent ? [{ label: 'steepest slope', colour: '#7446E0', points: anatomy.tangent, width: 1.8 }] : []),
+                        ...(showMarks && anatomy.depthLine ? [{ label: 'depth', colour: 'var(--green)', points: anatomy.depthLine, width: 2.4 }] : []),
+                      ]} />
+                  </div>
+                ) : <Callout tone="amber" icon="alert-triangle" testid="anatomy-no-trace">{anatomy.why}</Callout>}
                 <div className="ig-row" style={{ marginTop: 4 }}>
                   <span className="ig-foot" data-testid="mark-legend">
                     <span><ColourDot colour="var(--blue)" /> onset</span>
@@ -287,12 +328,31 @@ function SlopeBody({ block }: { block: SlopeBlock }) {
                     <span><ColourDot colour="var(--red)" /> trough</span>
                     <span><span style={{ display: 'inline-block', width: 3, height: 10, background: 'var(--green)', verticalAlign: 'middle' }} /> depth</span>
                     <span><span style={{ display: 'inline-block', width: 14, height: 1, background: '#9ca3af', verticalAlign: 'middle' }} /> chord</span>
+                    <InfoTip title="Where the marks come from" testid="marks-info">
+                      Every mark is the store's measurement, drawn at the sample it was measured at — none is placed by the page.
+                      <ul style={{ margin: '6px 0', paddingLeft: 16 }}>
+                        {(storeRules ?? []).map((r: { name: string; rule: string }) => <li key={r.name}><b>{r.name}</b> · {r.rule}</li>)}
+                        <li><b>depth</b> · from the trace at the onset down to the trace at the trough, drawn at the trough</li>
+                      </ul>
+                      The tangent passes through the steepest sample at the measured slope ({fmtSlope(event.max_slope)} mV/s). It is drawn up to {TANGENT_REACH * 100} % of the fall either side (at least one sample; an end is cut short where it would leave the plot) so it can be read; the slope itself is the difference one sample either side.
+                      {anatomy.trace && anatomy.nStored != null && anatomy.nStored > (event.snippet?.t_s.length ?? 0) && <> The trace is {fmtInt(event.snippet?.t_s.length ?? 0)} of the {fmtInt(anatomy.nStored)} stored samples; the marks sit at the full-resolution samples, so one can stand a little off the drawn line.</>}
+                    </InfoTip>
                   </span>
                   <span className="k-spacer" />
                   {event.flags.length
                     ? <Chip tone="amber" icon="alert-triangle" testid="rules-verdict">{event.flags.join(' · ')}</Chip>
                     : <Chip tone="green" icon="check" testid="rules-verdict">rules resolved cleanly</Chip>}
                 </div>
+                {anatomy.trace && showMarks && (anatomy.absent.length > 0 || allMarks) && (
+                  <div className="ig-foot ig-amber-text" style={{ marginTop: 4 }} data-testid="anatomy-absent">
+                    <span><Icon name="alert-triangle" size={11} /> not drawn: {[...anatomy.absent, ...(allMarks ? ['baseline band · the store serves no noise band for an event, so there is none to draw'] : [])].join(' ; ')}</span>
+                  </div>
+                )}
+                {anatomy.trace && (
+                  <div className="ig-foot" style={{ marginTop: 2 }} data-testid="anatomy-window-note" data-padding={padding}>
+                    <span><Icon name="info" size={11} /> window {fmtT(t(-anatomy.window.pre))} … {fmtT(t(event.duration_s + anatomy.window.post))} from onset · context padding {paddingLabel(padding)} (Source settings) · the stored samples · y measured from the trace drawn</span>
+                  </div>
+                )}
 
                 <div className="ig-readout" style={{ marginTop: 8 }} data-testid="event-readout">
                   <span>event <b>{event.id}</b> · {event.channel} · {event.onset_h.toFixed(2)} h</span>
@@ -302,6 +362,9 @@ function SlopeBody({ block }: { block: SlopeBlock }) {
                   {upstream === 'event-shape' && <span>FWHM <b>{event.measures?.fwhm_s == null ? '—' : `${fmtSec(event.measures.fwhm_s)} s`}</b></span>}
                   {upstream === 'event-shape' && <span>rise <b>{event.measures?.rise_time_s == null ? '— (a drop has no rise)' : `${fmtSec(event.measures.rise_time_s)} s`}</b></span>}
                   <span>max slope <b>{fmtSlope(event.max_slope)} mV/s</b></span>
+                  <span>steepest at <b data-testid="readout-steepest">{anatomy.trace && anatomy.steepest_s != null
+                    ? `${fmtT(t(anatomy.steepest_s))}${anatomy.trough_s ? ` · ${Math.round(100 * anatomy.steepest_s / anatomy.trough_s)} % of the fall` : ''}`
+                    : 'not measured'}</b></span>
                   <span>angle <b>{angleOf(event.max_slope).toFixed(1).replace('-', '−')}°</b></span>
                   <span>peakedness <b>{event.peakedness.toFixed(2)}</b></span>
                 </div>

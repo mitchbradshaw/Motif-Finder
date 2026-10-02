@@ -63,8 +63,16 @@ function memberFrom(m: SeedMember, s: SlopeMember | undefined, sh: ShapeMember |
     /* the core's recovery (half the amplitude back from the extremum, bounded); null = not recovered, never 0 */
     recovery_s: measures?.recovery_s ?? null,
     flags: [...(m.is_pure ? [] : ['impure window']), ...(m.trigger === 'fall' ? ['fall-triggered'] : [])],
-    snippet: snippet ? { t_s: snippet.t_s, v: snippet.detrended_mv } : undefined,
+    snippet: snippet ? { t_s: snippet.t_s, v: snippet.detrended_mv, n: snippet.n } : undefined,
     onset_offset_s: snippet ? (m.onset_idx - m.snippet_start_idx) / m.fs : undefined,
+    /* fixup-k: the anatomy figure's marks are the slope route's — offsets into the snippet turned into seconds
+       from the onset, and the full-resolution snippet's own heights. No slope row, no marks. */
+    anatomy: s ? {
+      trough_s: (s.trough_offset - s.onset_offset) / m.fs,
+      steepest_s: s.steepest_offset == null ? null : (s.steepest_offset - s.onset_offset) / m.fs,
+      onset_mV: s.onset_mv, steepest_mV: s.steepest_mv, trough_mV: s.trough_mv,
+      chord_slope: s.mean_slope_mv_s, sample_s: 1 / m.fs,
+    } : undefined,
     measures,
   }
 }

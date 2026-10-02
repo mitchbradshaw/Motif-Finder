@@ -39,10 +39,28 @@ export interface InterrogationMember {
   recovery_s: number | null
   flags: string[]
   /* live (seed store) only: the stored detrended snippet and where the onset sits in it */
-  snippet?: { t_s: number[]; v: number[] }
+  snippet?: { t_s: number[]; v: number[]; n?: number }
   onset_offset_s?: number
+  /** live only (fixup-k): where the store's slope analysis put this event's marks — seconds from the onset and
+   *  the snippet's own mV at full resolution. Absent when the store served no slope row; a `null` inside is a
+   *  mark that was not measured. The anatomy figure draws these and nothing else. */
+  anatomy?: EventAnatomy
   /** live only (fixup-e): every measure of interrogation.event_shape for this event; `null` = not measured */
   measures?: EventMeasures
+}
+
+/** The marks of one event's anatomy figure, every one of them the store's (fixup-k, GET …/families/{key}/slope):
+ *  the detector's onset and trough samples, the sample `gradients.fall_gradients` found steepest, and the
+ *  snippet's value at each. Times are seconds from the onset. */
+export interface EventAnatomy {
+  trough_s: number
+  steepest_s: number | null
+  onset_mV: number | null
+  steepest_mV: number | null
+  trough_mV: number | null
+  /** onset → trough chord, mV/s: `mean_slope_mv_s` */
+  chord_slope: number
+  sample_s: number           // one sample, seconds (1 / fs): the central difference reaches this far either side
 }
 
 /** The shape block's measures of one event (fixup-e, from GET …/families/{key}/shape). Every value is
@@ -514,9 +532,6 @@ export function eventCurve(m: InterrogationMember, pre = 10, post = 24): number[
   }
   return out
 }
-
-/** Sample index of the steepest sample, the onset and the trough, in seconds relative to onset. */
-export const eventMarks = (m: InterrogationMember) => ({ onset: 0, steepest: +(m.duration_s / 2).toFixed(1), trough: m.duration_s })
 
 export const FAMILY_Y_DOMAIN: [number, number] = [-0.45, 0.05]
 
