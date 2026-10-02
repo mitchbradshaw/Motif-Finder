@@ -122,6 +122,37 @@ def test_a_degenerate_fall_does_not_raise_or_return_nonsense():
     assert np.isfinite(g["peakedness"])
 
 
+# -- where the steepest sample is (fixup-k) ---------------------------------
+
+def test_the_steepest_slope_comes_with_the_sample_it_was_measured_at():
+    """`max_slope_mv_s` is a value AT a sample, and a figure that draws a
+    tangent has to put it there. Before fixup-k nothing returned the
+    sample, so the Slope page drew its tangent at half the fall - on a
+    front-loaded fall the steepest sample is in the first few, nowhere
+    near the middle."""
+    values = np.concatenate([
+        np.zeros(10),
+        np.linspace(0.0, -20.0, 11),      # steep: samples 10..20
+        np.linspace(-20.0, -30.0, 40),    # shallow: to sample 60
+    ])
+    g = fall_gradients(values, FS, onset=10, trough=60)
+
+    idx = g["max_slope_idx"]
+    assert 10 <= idx <= 20, f"steepest sample reported at {idx}, outside the steep stretch"
+    assert idx != (10 + 60) // 2
+    # the position and the value are one measurement
+    assert np.gradient(values)[idx] * FS == g["max_slope_mv_s"]
+
+
+def test_the_steepest_sample_of_a_degenerate_fall_is_the_onset_or_absent():
+    # no fall between the marks: the value reported IS the onset sample's
+    g = fall_gradients(np.linspace(0, -10, 40), FS, onset=20, trough=20)
+    assert g["max_slope_idx"] == 20
+    # nothing to measure at all: no sample, rather than sample 0
+    g = fall_gradients(np.zeros(2), FS, onset=0, trough=1)
+    assert g["max_slope_idx"] is None
+
+
 # -- slope -> angle --------------------------------------------------------
 
 def test_slope_angle_needs_a_reference_and_honours_it():
