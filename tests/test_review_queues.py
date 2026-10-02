@@ -737,3 +737,94 @@ def test_a_legacy_span_relative_detection_is_shifted_into_channel_indices():
         "a legacy row below its run's span_start is shifted into the channel's index space")
     assert (by_id[absolute]["start_idx"], by_id[absolute]["end_idx"]) == (5300, 5400), (
         "a row the executor wrote absolute is untouched")
+
+
+# ── fixup-L: a queue over a Discovery run names its RUN IDS, not its group ──
+
+def _insert_surrogate_run(conn, rid, of_run_id, run_group_id, n_detections=2):
+    """A paired null run: the same group as the run it shadows, linked by
+    `runs.surrogate_of_run_id`, with detections of its own (phase-randomised
+    noise put through the same chain finds things too)."""
+    cid = conn.execute(
+        "INSERT INTO configs (config_hash, config_json, created_at) VALUES (?, ?, ?)",
+        (f"hash-surrogate-of-{of_run_id}",
+         json.dumps({"steps": [{"stage": "preprocessing", "algorithm": "surrogate"},
+                               {"stage": "detection", "algorithm": "rupture"}]}),
+         "2026-01-01T00:00:00"),
+    ).lastrowid
+    run_id = conn.execute(
+        """INSERT INTO runs
+               (config_id, recording_id, span_start, span_end, started_at, status,
+                run_group_id, surrogate_of_run_id)
+           VALUES (?, ?, 0, 1000, '2026-01-01T00:00:00', 'done', ?, ?)""",
+        (cid, rid, run_group_id, of_run_id),
+    ).lastrowid
+    dets = []
+    for k in range(n_detections):
+        dets.append(conn.execute(
+            "INSERT INTO detections (run_id, start_idx, end_idx, score) VALUES (?, ?, ?, ?)",
+            (run_id, 600 + 50 * k, 620 + 50 * k, 0.5),
+        ).lastrowid)
+    conn.commit()
+    return run_id, dets
+
+
+def test_a_queue_over_run_ids_holds_none_of_the_paired_surrogates_detections():
+    """The trap (fixup-L): a template run's paired surrogate joins the SAME run
+    group and writes `detections` rows of its own — in the 2026-10-02 sandbox,
+    group 7 held 74 real detections and 249 surrogate ones. A queue keyed on the
+    group alone would put phase-randomised noise in front of the researcher
+    and write human verdicts against it. The filter carries the run ids."""
+    conn = _fresh_conn()
+    rid = _insert_recording(conn)
+    gid = _insert_run_group(conn)
+    real_det = _insert_detection(conn, rid, 0, 100, score=0.9, run_group_id=gid)
+    real_run = conn.execute("SELECT run_id FROM detections WHERE id = ?",
+                            (real_det,)).fetchone()["run_id"]
+    sur_run, sur_dets = _insert_surrogate_run(conn, rid, real_run, gid, n_detections=3)
+    assert conn.execute("SELECT run_group_id FROM runs WHERE id = ?",
+                        (sur_run,)).fetchone()["run_group_id"] == gid
+
+    qid = qs.create_queue(conn, name="q", source_kind="discovery-run",
+                          filters={"run_ids": [real_run]})
+    ids = [it["target_id"] for it in qs.queue_items(conn, qid)]
+    assert ids == [real_det]
+    assert not set(ids) & set(sur_dets)
+    counts = qs.queue_counts(conn, qid)
+    assert counts == {"total": 1, "judged": 0, "remaining": 1}
+    # and the same queue, read with the judged rows in, still never sees them
+    everything = [it["target_id"] for it in qs.queue_items(conn, qid, include_judged=True)]
+    assert not set(everything) & set(sur_dets)
+
+
+def test_a_seed_search_queue_takes_run_ids_too():
+    conn = _fresh_conn()
+    rid = _insert_recording(conn)
+    gid = _insert_run_group(conn)
+    d = _insert_detection(conn, rid, 0, 100, score=0.2, run_group_id=gid)
+    run = conn.execute("SELECT run_id FROM detections WHERE id = ?", (d,)).fetchone()["run_id"]
+    _insert_surrogate_run(conn, rid, run, gid)
+    qid = qs.create_queue(conn, name="seed", source_kind="seed-search",
+                          filters={"run_ids": [run]})
+    assert [it["target_id"] for it in qs.queue_items(conn, qid)] == [d]
+    assert qs.get_queue(conn, qid)["writes_to"] == "adjudications"
+
+
+def test_find_open_queue_matches_on_source_kind_and_the_same_run_set():
+    """Sending the same run twice returns the same open queue rather than a
+    second one. The match is on what the queue IS — its source kind and its
+    filters — with the run-id set compared as a set."""
+    conn = _fresh_conn()
+    assert qs.find_open_queue(conn, source_kind="discovery-run",
+                              filters={"run_ids": [2, 1]}) is None
+    qid = qs.create_queue(conn, name="q", source_kind="discovery-run",
+                          filters={"run_ids": [1, 2]})
+    assert qs.find_open_queue(conn, source_kind="discovery-run",
+                              filters={"run_ids": [2, 1]}) == qid
+    assert qs.find_open_queue(conn, source_kind="discovery-run",
+                              filters={"run_ids": [1]}) is None
+    assert qs.find_open_queue(conn, source_kind="seed-search",
+                              filters={"run_ids": [1, 2]}) is None
+    qs.close_queue(conn, qid)
+    assert qs.find_open_queue(conn, source_kind="discovery-run",
+                              filters={"run_ids": [1, 2]}) is None

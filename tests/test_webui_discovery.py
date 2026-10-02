@@ -509,16 +509,112 @@ def test_a_discard_is_reversible(client):
     assert next(x for x in runs if x["key"] == out["run_key"])["status"] == "done"
 
 
-def test_send_to_review_is_a_filter_over_the_runs_own_detections(client):
+def _runs_split(client):
+    """Real run ids and paired-surrogate run ids in the sandbox copy, plus how
+    many detections the surrogates wrote."""
+    import sqlite3
+    conn = sqlite3.connect(client.app.state.rt.db_path)
+    try:
+        real = {r[0] for r in conn.execute("SELECT id FROM runs WHERE surrogate_of_run_id IS NULL")}
+        sur = {r[0] for r in conn.execute("SELECT id FROM runs WHERE surrogate_of_run_id IS NOT NULL")}
+        sur_dets = conn.execute("SELECT COUNT(*) FROM detections d JOIN runs r ON r.id = d.run_id "
+                                "WHERE r.surrogate_of_run_id IS NOT NULL").fetchone()[0]
+        return real, sur, sur_dets
+    finally:
+        conn.close()
+
+
+def test_send_to_review_makes_a_review_queue_over_the_runs_real_runs_only(client):
+    """fixup-L. Two wiring prompts each built half of this hand-off: Discovery
+    wrote a descriptor into `discovery_sessions.state_json`, Review listed only
+    `review_queues` rows, and *Open Review* landed on somebody else's queue.
+    The route now creates the row Review reads — and filters it by the run ids
+    the Discovery run is made of, because the run group also holds the paired
+    surrogate runs and THEIR detections (the sandbox's group 7: 74 real, 249
+    surrogate)."""
     out = _apply(client)
-    r = client.post(f"/api/discovery/runs/{out['run_key']}/review", json={"limit": 500})
+    r = client.post(f"/api/discovery/runs/{out['run_key']}/review", json={})
     assert r.status_code == 200, r.text
     body = r.json()
     assert body["writes"] == "adjudications"
-    assert body["queued"] <= body["unjudged"]
-    assert "filter" in body["note"]
-    queues = client.get("/api/discovery/queues").json()
-    assert any(q["run_key"] == out["run_key"] for q in queues)
+    assert body["unjudged"] > 0
+    qid = body["queue_id"]
+
+    got = client.get(f"/api/review/queues/{qid}")
+    assert got.status_code == 200, got.text
+    queue, rows = got.json()["queue"], got.json()["rows"]
+    assert queue["name"] == body["queue"]
+    assert queue["source_kind"] == "discovery-run"
+    assert queue["writes_to"] == "adjudications"
+    assert queue["unit"] == "detection"
+    assert queue["total"] == body["unjudged"] == len(rows)
+    assert queue["judged"] == 0
+
+    real, sur, sur_dets = _runs_split(client)
+    assert sur, "the fixture pairs a surrogate run with every real run (Settings › Nulls default)"
+    assert sur_dets > 0, "the surrogate found something, so the exclusion is being tested"
+    queued_runs = {int(row["runId"]) for row in rows}
+    assert queued_runs and queued_runs <= real
+    assert not queued_runs & sur, "no surrogate's detection reaches the researcher"
+
+
+def test_sending_the_same_run_twice_reuses_its_open_queue(client):
+    out = _apply(client)
+    a = client.post(f"/api/discovery/runs/{out['run_key']}/review", json={}).json()
+    b = client.post(f"/api/discovery/runs/{out['run_key']}/review", json={}).json()
+    assert a["queue_id"] == b["queue_id"]
+    assert a["reused"] is False and b["reused"] is True
+    listing = client.get("/api/review/queues").json()
+    assert sum(1 for x in listing if x["id"] == a["queue_id"]) == 1
+
+
+def test_a_seed_run_sends_as_a_seed_search_queue(client):
+    s = _seed(client)
+    started = client.post("/api/discovery/seed/run", json={
+        "seedId": s["id"], "channels": [CH[0]], "t0": 0.0, "t1": N / 3600.0, "k": 20,
+        "maxDistance": 0.0, "label": "seedy"})
+    assert started.status_code == 200, started.text
+    run = started.json()
+    if run.get("job_id"):
+        snap = _wait_job(client, run["job_id"])
+        assert snap["status"] == "completed", snap.get("error")
+    body = client.post(f"/api/discovery/runs/{run['run_key']}/review", json={}).json()
+    queue = client.get(f"/api/review/queues/{body['queue_id']}").json()["queue"]
+    assert queue["source_kind"] == "seed-search"
+    assert queue["writes_to"] == "adjudications"
+    assert queue["total"] == body["unjudged"] > 0
+
+
+def test_the_descriptor_is_retired(client):
+    """One record of one queue: the row in `review_queues`. Nothing is written
+    into the session's `state_json` any more, and the route that listed the
+    descriptors is gone (an unknown API path falls through to the SPA shell,
+    which is not JSON)."""
+    out = _apply(client)
+    client.post(f"/api/discovery/runs/{out['run_key']}/review", json={})
+    import sqlite3
+    conn = sqlite3.connect(client.app.state.rt.db_path)
+    try:
+        import json as _json
+        for (state_json,) in conn.execute("SELECT state_json FROM discovery_sessions"):
+            assert "review_queues" not in _json.loads(state_json or "{}")
+    finally:
+        conn.close()
+    r = client.get("/api/discovery/queues")
+    assert r.status_code == 404 or "application/json" not in r.headers.get("content-type", "")
+
+
+def test_a_discarded_runs_queue_serves_nothing(client):
+    """§7.4 step 5: *Discard run* on a sent run — its queue stops serving items
+    (`runs.superseded_at`, honoured by the resolver) and no verdict is written."""
+    out = _apply(client)
+    a = client.post(f"/api/discovery/runs/{out['run_key']}/review", json={}).json()
+    assert a["unjudged"] > 0
+    adj_before = _counts(client, "adjudications")
+    client.post(f"/api/discovery/runs/{out['run_key']}/discard")
+    got = client.get(f"/api/review/queues/{a['queue_id']}").json()
+    assert got["queue"]["total"] == 0 and got["rows"] == []
+    assert _counts(client, "adjudications") == adj_before
 
 
 def test_an_unknown_run_key_is_a_404_naming_it(client):

@@ -247,3 +247,24 @@ def test_queue_pages_with_limit_and_offset():
     page2 = q.queue_candidates(conn, limit=2, offset=2)
     assert [r["id"] for r in page1] == ids[:2]
     assert [r["id"] for r in page2] == ids[2:4]
+
+
+def test_queue_filters_by_a_set_of_run_ids():
+    """fixup-L: a Discovery run is MADE OF a set of runs, and its run group also
+    holds the paired surrogate runs. `run_ids` names the set exactly; an empty
+    set is a queue over nothing, not a queue over everything."""
+    conn = _fresh_conn()
+    rid = q.insert_recording(conn, "a.mat", 0, 1.0, 1000, 0, "a/CH0.npy")
+    g = _insert_run_group(conn)
+    d1 = _insert_detection(conn, rid, start_idx=0, end_idx=100, score=0.5, run_group_id=g)
+    d2 = _insert_detection(conn, rid, start_idx=200, end_idx=300, score=0.7, run_group_id=g)
+    d3 = _insert_detection(conn, rid, start_idx=400, end_idx=500, score=0.9, run_group_id=g)
+
+    def run_of(det_id):
+        return conn.execute("SELECT run_id FROM detections WHERE id = ?", (det_id,)).fetchone()["run_id"]
+
+    assert [r["id"] for r in q.queue_candidates(conn, run_ids=[run_of(d1), run_of(d3)])] == [d1, d3]
+    assert d2 not in [r["id"] for r in q.queue_candidates(conn, run_ids=[run_of(d1), run_of(d3)])]
+    # composes with the group filter rather than replacing it
+    assert [r["id"] for r in q.queue_candidates(conn, run_group_id=g, run_ids=[run_of(d2)])] == [d2]
+    assert list(q.queue_candidates(conn, run_ids=[])) == []
