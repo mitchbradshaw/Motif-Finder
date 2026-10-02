@@ -13,7 +13,7 @@
  * not. `tests/test_block_standard.py` checks these two tables against the server's, key for key. */
 import { useMemo, useRef, useState, type ReactNode } from 'react'
 import {
-  ApiError, sendRunToReview, type EncodingFrame, type EncodingImagePayload, type EncodingSymbolicPayload, type EnvelopeSeries, type GroupingPayload,
+  type EncodingFrame, type EncodingImagePayload, type EncodingSymbolicPayload, type EnvelopeSeries, type GroupingPayload,
   type ModelPayload, type Payload, type ScoresPayload, type SignalPayload, type SpansetPayload, type TypeKind, type WindowsetPayload,
 } from '../../api'
 import { EnvelopePath, SpanBands } from '../../charts/primitives'
@@ -21,9 +21,9 @@ import { clamp, makeX, makeY, polylinePath, type XScale } from '../../charts/sca
 import { useSize } from '../../charts/useSize'
 import { axisUnit } from '../../charts/units'
 import { Button, Histogram, InfoTip, Rose } from '../../kit'
-import { useToast } from '../../shell/Toast'
-import { fmtHours, navigate } from '../../state'
+import { fmtHours } from '../../state'
 import { DetectorFunnel, funnelOf } from '../DetectorFunnel'
+import { useSendRunToReview } from '../sendToReview'
 import { FeatureTable, IntervalStatsTable, RulesList, labelOf, unitOf } from '../EventFeatures'
 import { AlignedImage, ImageEvidence, ImageView, PaaSteps, SYM3, SymbolChunks, SymbolicView, secondsPerSymbol, symbolColour } from './EncodingView'
 import { ClusterExemplars, ClusterSizes, GroupingView } from './GroupingView'
@@ -128,18 +128,8 @@ function EncodingToScores(q: ProcessProps) {
 
 /* ---------------- SpanSet ---------------- */
 function useSendToReview(q: ProcessProps, n: number) {
-  const toast = useToast()
-  const [busy, setBusy] = useState(false)
-  const reason = q.stale ? 'these spans are from a stale run · re-run first' : q.dbRunId === null ? 'needs a completed run: Review reads the detections the run wrote' : n === 0 ? 'no spans to review' : undefined
-  const send = async () => {
-    if (q.dbRunId === null) return
-    setBusy(true)
-    try {
-      const r = await sendRunToReview(`${q.chainName} · run #${q.dbRunId}`, q.dbRunId)
-      toast.push({ text: `queue “${r.queue.name}” created over the ${n} detections of run #${q.dbRunId}` })
-      navigate(`review/queue/${r.queue.id}`)
-    } catch (e) { toast.push({ kind: 'error', text: `could not create the review queue · ${e instanceof ApiError ? e.message : String(e)}` }) } finally { setBusy(false) }
-  }
+  // the same call the chain footer's *Pass N to Review* makes (fixup-L): one queue over this run, opened
+  const { send, busy, reason } = useSendRunToReview({ chainName: q.chainName, dbRunId: q.dbRunId, n, stale: q.stale })
   return <Button variant="primary" icon="arrow-right" onClick={send} disabled={!!reason || busy} disabledReason={reason} loading={busy} testid="send-to-review">Send {n} to Review</Button>
 }
 

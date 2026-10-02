@@ -31,6 +31,10 @@ SHOTS = os.environ.get("SMOKE_SHOTS") or os.path.join(HERE, "screenshots")   # t
 #: coverage, which is what gives the scoreboard a denominator.
 SMOKE_SECTION_H = (80.0, 84.0)
 SMOKE_TEMPLATE = "mp_threshold"
+#: fixup-L: the `detection.threshold` value at which the default chain finds spans on the smoke span
+#: (recording 4, samples 1002725–1003475): 6.0 → 2 spans, 5.0 → 5, 4.0 → 6 (measured 2026-10-03). The
+#: chain's default 8.0 finds none, and *Pass 0 to Review* is rightly grey.
+SMOKE_PASS_THRESHOLD = 6.0
 #: added but never started, so the Runs page has something pending to route
 SMOKE_PENDING_TEMPLATE = "drop_detection_v1"
 #: The k the seed page itself asks for (SeedPage.tsx::SEED_K). A result computed
@@ -473,6 +477,7 @@ class Smoke:
         self.evidence["row_plots"] = painted
         self.check(all(p != "blank" and p != "missing" for p in painted), f"every result row painted something: {painted}")
         self.shot(page, "chain-1-chain-completed")
+        self.pass_to_review(page)
         # block page for the threshold (step index 2) with a draggable line
         page.locator('[data-testid="settings-step-3"]').first.click() if page.locator('[data-testid="settings-step-3"]').count() else self.goto(page, "analyse/block/2", 800)
         page.wait_for_timeout(900)
@@ -566,6 +571,61 @@ class Smoke:
         self.shot(page, "loud-failure-render-error")
         self.errors = [e for e in self.errors if "deliberate render failure" not in e]
 
+    def pass_to_review(self, page):
+        """fixup-L: the chain footer's *Pass N to Review* is the slideshow's *Send N to
+        Review* on the same run — one call, two buttons — and it opens the queue it made.
+
+        At the chain's default threshold (8.0) the smoke span yields 0 spans, and 0 spans
+        is *no spans to review*: the grey button must say so. Then the threshold is set to
+        one that finds spans on this span (`SMOKE_PASS_THRESHOLD`, measured 2026-10-03:
+        6.0 → 2 spans; 5.0 → 5; 4.0 → 6), the chain re-run, and the button pressed.
+        """
+        pass_btn = page.locator('[data-testid="pass-to-review"]')
+        self.check(pass_btn.count() == 1, "the chain footer has Pass to Review")
+        if not pass_btn.count():
+            return
+        if not pass_btn.first.is_enabled():
+            title = pass_btn.first.get_attribute("title") or ""
+            self.check(bool(title.strip()), f"a grey Pass to Review carries its reason ({title!r})")
+        self.goto(page, "analyse/block/2", 900)
+        p = page.locator('input[data-testid="param-threshold"], [data-testid="param-threshold"] input[type=number]')
+        self.check(p.count() >= 1, "the threshold block page has its threshold parameter")
+        if not p.count():
+            return
+        p.first.fill(str(SMOKE_PASS_THRESHOLD)); p.first.press("Enter"); page.wait_for_timeout(400)
+        self.goto(page, "analyse/chain", 900)
+        page.locator('[data-testid="run-button"]').first.click()
+        for _ in range(120):
+            page.wait_for_timeout(250)
+            ft = page.locator('[data-testid="footer-headline"]').inner_text().lower() if page.locator('[data-testid="footer-headline"]').count() else ""
+            if "last run" in ft or "no result" in ft or "failed" in ft or "cancelled" in ft:
+                break
+        page.wait_for_timeout(600)
+        head = page.locator('[data-testid="footer-headline"]').inner_text().strip()
+        pass_btn = page.locator('[data-testid="pass-to-review"]')
+        plabel = pass_btn.first.inner_text().strip()
+        m = re.search(r"Pass (\d+) to Review", plabel)
+        n = int(m.group(1)) if m else 0
+        self.check(pass_btn.first.is_enabled() and n > 0,
+                   f"Pass N to Review is enabled after a run that found spans ({head!r} · {plabel!r} · {pass_btn.first.get_attribute('title')!r})")
+        if not (pass_btn.first.is_enabled() and n > 0):
+            return
+        pass_btn.first.click()
+        page.wait_for_selector('[data-testid="queue-progress"]', timeout=20000)
+        page.wait_for_timeout(1200)
+        where = page.evaluate("() => location.hash")
+        self.check(where.startswith("#/review/queue/"), f"Pass to Review opened the queue it made ({where})")
+        self.check("adjudications" in page.locator('[data-testid="writes-chip"]').inner_text(),
+                   "the chain's queue writes adjudications")
+        prog = page.locator('[data-testid="queue-progress"]').inner_text()
+        pm = re.search(r"(?<!\d)0\s*/\s*(\d+)", prog)
+        # the queue leaves out a span that is a rediscovery of a judged annotation, so it holds at most N
+        self.check(pm is not None and 1 <= int(pm.group(1)) <= n,
+                   f"the queue holds the spans the footer offered, less rediscoveries ({prog!r} for {n})")
+        self.evidence["pass_to_review"] = {"label": plabel, "headline": head, "landed": where, "progress": prog}
+        self.shot(page, "chain-8-pass-to-review-queue")
+        self.goto(page, "analyse/chain", 1200)
+
     def discovery(self, page):
         """Discovery (stage-3 prompt 04, spec §7).
 
@@ -614,6 +674,8 @@ class Smoke:
         self.check(abs(h1 - h0) < 1.0, f"the page height is unchanged across a poll ({h0} -> {h1})")
         self.shot(page, "discovery-1-runs-live")
 
+        self.send_to_review_walk(page, scope)
+
         self.goto(page, "discovery/seed", 2000)
         page.wait_for_timeout(1500)
         hist = page.locator('[data-testid="cut-histogram"]').count()
@@ -625,6 +687,135 @@ class Smoke:
         self.check(page.locator('[data-testid="what-differs"]').count() >= 1,
                    "compare opens with what differs")
         self.shot(page, "discovery-3-compare-live")
+
+    def _api(self, path, body=None, method="GET"):
+        import urllib.error
+        import urllib.request
+        data = json.dumps(body).encode() if body is not None else None
+        req = urllib.request.Request(self.url + path, data=data, method=method,
+                                     headers={"content-type": "application/json"})
+        try:
+            with urllib.request.urlopen(req, timeout=120) as r:
+                return json.loads(r.read().decode() or "null")
+        except urllib.error.HTTPError as e:
+            return {"__error__": e.code, "body": e.read().decode(errors="replace")[:300]}
+
+    def _adjudications(self):
+        """Every `adjudications` row in the bridge's sandbox copy, with the run that
+        wrote its detection and whether that run is a paired surrogate. Read-only."""
+        import sqlite3
+        db = self._api("/api/runtime").get("db_path")
+        conn = sqlite3.connect(f"file:{db}?mode=ro", uri=True)
+        conn.row_factory = sqlite3.Row
+        try:
+            return [dict(r) for r in conn.execute(
+                "SELECT a.id, a.detection_id, a.verdict, a.created_at, d.run_id, r.surrogate_of_run_id "
+                "FROM adjudications a JOIN detections d ON d.id = a.detection_id "
+                "JOIN runs r ON r.id = d.run_id ORDER BY a.id").fetchall()]
+        finally:
+            conn.close()
+
+    def send_to_review_walk(self, page, scope):
+        """fixup-L — the researcher's walk, §7.4 → §10.1.
+
+        *Send N unjudged to Review* makes a real `review_queues` row and the toast's
+        *Open Review* opens THAT queue (its name, *writes adjudications*, `0 / N`);
+        `I` on the first item writes one `adjudications` row on a detection of a
+        REAL run — never of the paired surrogate that shares the run group; back in
+        Discovery the acts read *Sent N* and link to the queue, and *Refresh after
+        reviewing* re-reads the scoreboard. Then the same send from the seed run.
+        """
+        print("[discovery → review]")
+        a_key = scope["a"]
+        self.goto(page, f"discovery/runs?run={a_key}", 1500)
+        page.wait_for_selector('[data-testid="run-acts"]', timeout=20000)
+        page.wait_for_timeout(800)
+        btn = page.locator('[data-testid="send-to-review"]')
+        label = btn.first.inner_text().strip() if btn.count() else ""
+        m = re.search(r"Send (\d+) unjudged", label)
+        offered = bool(m) and int(m.group(1)) > 0 and btn.first.is_enabled()
+        self.check(offered, f"the run acts offer to send ({label!r})")
+        if not offered:
+            return
+        row_sel = f'[data-testid="score-row-{a_key}"]'
+        before = page.locator(row_sel).inner_text() if page.locator(row_sel).count() else ""
+        btn.first.click()
+        page.wait_for_selector('[data-testid="toasts"] button', timeout=15000)
+        page.wait_for_timeout(500)
+        toast = page.locator('[data-testid="toasts"]').inner_text()
+        mine = [q for q in (self._api("/api/review/queues") or []) if q.get("name") == f"Discovery · {a_key}"]
+        self.check(len(mine) == 1, f"one review_queues row named 'Discovery · {a_key}' ({len(mine)} found)")
+        if len(mine) != 1:
+            return
+        q = mine[0]
+        self.evidence["fixup_l"] = {"toast": toast, "queue": {k: q.get(k) for k in (
+            "id", "name", "source_kind", "writes_to", "unit", "total", "judged", "remaining", "filters")}}
+        self.check(f"'{q['name']}'" in toast and "write adjudications" in toast,
+                   f"the toast names the queue and what a verdict writes ({toast!r})")
+        self.check(q["total"] == q["remaining"] > 0 and f"{q['remaining']} unjudged" in toast,
+                   f"the toast's count is the queue's own ({q['remaining']} of {q['total']})")
+        real_runs = set(q["filters"].get("run_ids") or [])
+        self.check(bool(real_runs), f"the queue filters by run ids ({sorted(real_runs)})")
+        self.shot(page, "discovery-4-send-to-review-toast")
+
+        page.locator('[data-testid="toasts"] button', has_text="Open Review").first.click()
+        page.wait_for_selector('[data-testid="queue-progress"]', timeout=20000)
+        page.wait_for_timeout(1500)
+        where = page.evaluate("() => location.hash")
+        self.check(where.startswith(f"#/review/queue/{q['id']}"), f"Open Review landed on queue {q['id']} ({where})")
+        chip = page.locator('[data-testid="queue-chip"]').inner_text() if page.locator('[data-testid="queue-chip"]').count() else ""
+        self.check(q["name"] in chip, f"the toolbar names the queue ({chip!r})")
+        writes = page.locator('[data-testid="writes-chip"]').inner_text()
+        self.check("adjudications" in writes, f"the toolbar says what a verdict writes ({writes!r})")
+        prog = page.locator('[data-testid="queue-progress"]').inner_text()
+        # "0 / 23" is followed by the pace text with no space between, so no word boundary after the total
+        self.check(re.search(r"(?<!\d)0\s*/\s*{}(?!\d)".format(q["total"]), prog) is not None, f"progress reads 0 / {q['total']} ({prog!r})")
+        self.shot(page, "discovery-5-review-opens-that-queue")
+
+        adj_before = {r["id"] for r in self._adjudications()}
+        page.keyboard.press("i")
+        page.wait_for_timeout(2000)
+        self.check(page.locator('[data-testid="write-refused"]').count() == 0, "the verdict was not refused")
+        new = [r for r in self._adjudications() if r["id"] not in adj_before]
+        self.evidence["fixup_l"]["adjudications_written"] = new
+        self.check(len(new) == 1 and new[0]["surrogate_of_run_id"] is None and new[0]["run_id"] in real_runs,
+                   f"I wrote one adjudications row, on a detection of a real run in the queue ({new})")
+        prog = page.locator('[data-testid="queue-progress"]').inner_text()
+        self.check(re.search(r"(?<!\d)1\s*/\s*{}(?!\d)".format(q["total"]), prog) is not None, f"progress reads 1 / {q['total']} ({prog!r})")
+        self.shot(page, "discovery-6-review-verdict-written")
+
+        self.goto(page, f"discovery/runs?run={a_key}", 1500)
+        page.wait_for_selector('[data-testid="run-acts"]', timeout=20000)
+        page.wait_for_timeout(800)
+        sent = page.locator('[data-testid="send-to-review"][data-queue]')
+        self.check(sent.count() == 1 and sent.first.get_attribute("data-queue") == str(q["id"]),
+                   f"the acts read 'Sent N' and link to queue {q['id']} ({sent.first.inner_text().strip() if sent.count() else 'absent'!r})")
+        page.locator('[data-testid="refresh-scores"]').first.click()
+        page.wait_for_timeout(3000)
+        after = page.locator(row_sel).inner_text() if page.locator(row_sel).count() else ""
+        self.evidence["fixup_l"]["score_row_before"] = before
+        self.evidence["fixup_l"]["score_row_after"] = after
+        self.check(bool(after.strip()), f"the scoreboard re-read after reviewing ({after!r})")
+        self.shot(page, "discovery-7-refresh-after-reviewing")
+
+        # the same gesture from the seed run makes a seed-search queue
+        b_key = scope.get("b")
+        if b_key and b_key != "human":
+            self.goto(page, f"discovery/runs?run={b_key}", 1500)
+            page.wait_for_selector('[data-testid="run-acts"]', timeout=20000)
+            page.wait_for_timeout(800)
+            btn = page.locator('[data-testid="send-to-review"]')
+            if btn.count() and btn.first.is_enabled() and "Send" in btn.first.inner_text():
+                btn.first.click()
+                page.wait_for_selector('[data-testid="toasts"] button', timeout=15000)
+                page.wait_for_timeout(500)
+                seed_q = [x for x in (self._api("/api/review/queues") or []) if x.get("name") == f"Discovery · {b_key}"]
+                self.evidence["fixup_l"]["seed_queue"] = seed_q[0] if seed_q else None
+                self.check(len(seed_q) == 1 and seed_q[0]["source_kind"] == "seed-search" and seed_q[0]["writes_to"] == "adjudications",
+                           f"the seed run's queue is a seed-search queue writing adjudications ({seed_q[0]['source_kind'] if seed_q else 'none'})")
+                self.shot(page, "discovery-8-seed-run-sent")
+            else:
+                self.check(False, f"the seed run offers nothing to send ({btn.first.inner_text().strip() if btn.count() else 'no button'!r})")
 
     def discovery_scope(self):
         """Set the session's scope and make two runs, through the bridge.

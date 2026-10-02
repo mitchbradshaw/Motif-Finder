@@ -361,7 +361,9 @@ function Browser({ dx, run }: { dx: Discovery; run: DiscoveryRun | null }) {
 /* ------------------------------------------------------------------ run acts */
 function RunActs({ dx, run }: { dx: Discovery; run: DiscoveryRun | null }) {
   const [confirm, setConfirm] = useQueryState('confirm', '')
-  const [sent, setSent] = useDemoState<Record<string, number>>('discovery.sent', () => ({}))
+  /* which queue a run was sent to, so the button can open it again (fixup-L); the server returns the
+   * same open queue for the same run, so losing this on a reload costs nothing */
+  const [sent, setSent] = useDemoState<Record<string, { n: number; queueId: number }>>('discovery.sent', () => ({}))
   const toast = useToast()
   const notWired = useNotWired()
   if (!run) return null
@@ -391,14 +393,18 @@ function RunActs({ dx, run }: { dx: Discovery; run: DiscoveryRun | null }) {
       })
       .catch(e => toast.push({ text: `could not discard ${run.label}: ${e.message}` }))
   }
-  /* The queue is a FILTER over this run's unadjudicated detections, not a copy
-   * of them, so the count comes back from the server rather than from the
-   * scoreboard's arithmetic. */
+  /* The queue is a real `review_queues` row — the one Review lists and opens — and a FILTER over the
+   * run ids this run is made of, not a copy of their detections (and never the run group alone: that
+   * holds the paired surrogates' detections too). The count comes back from the server, which is the
+   * number Review's progress will show. *Open Review* opens THAT queue (fixup-L). */
   const send = () => {
     sendDiscoveryRunToReview(run.key)
       .then(r => {
-        setSent({ ...sent, [run.key]: r.queued })
-        toast.push({ text: `${r.queued} of ${r.unjudged} unjudged in '${r.queue}' · verdicts write ${r.writes}`, action: { label: 'Open Review', onClick: () => navigate('review') } })
+        setSent({ ...sent, [run.key]: { n: r.unjudged, queueId: r.queue_id } })
+        toast.push({
+          text: `${r.reused ? 'already sent · ' : ''}${r.unjudged} unjudged in '${r.queue}' · verdicts write ${r.writes}`,
+          action: { label: 'Open Review', onClick: () => navigate(`review/queue/${r.queue_id}`) },
+        })
       })
       .catch(e => toast.push({ text: `could not build the queue: ${e.message}` }))
   }
@@ -411,7 +417,7 @@ function RunActs({ dx, run }: { dx: Discovery; run: DiscoveryRun | null }) {
       <Button icon="trash" onClick={() => setConfirm('discard')} disabled={!!reason} disabledReason={reason ?? undefined} testid="discard-run">Discard run</Button>
       <Button icon="branch" onClick={() => { recordDemoWrite('analyse', 'import-spanset', { run: run.key }); notWired(`send SpanSet of ${run.label} to Analyse`); navigate('analyse/chain') }} disabled={!!reason} disabledReason={reason ?? undefined} testid="analyse-events">Analyse events</Button>
       {sent[run.key] != null
-        ? <Button icon="check" disabled disabledReason="already sent — judge them in Review, then Refresh after reviewing" testid="send-to-review">Sent {sent[run.key]} · refresh after reviewing</Button>
+        ? <Button icon="check" onClick={() => navigate(`review/queue/${sent[run.key].queueId}`)} testid="send-to-review" data-queue={sent[run.key].queueId}>Sent {sent[run.key].n} · open in Review · then refresh</Button>
         : <Button variant="primary" icon="arrow-right" onClick={send} disabled={!!reason || unjudged === 0} disabledReason={reason ?? 'nothing unjudged'} testid="send-to-review">Send {unjudged} unjudged to Review</Button>}
       <Modal open={confirm === 'discard' && !reason} onClose={() => setConfirm(null)} title={`Discard ${run.label}?`} size="sm" testid="discard-modal"
         footer={<><Button onClick={() => setConfirm(null)}>Cancel</Button><Button variant="danger-solid" icon="trash" onClick={discard} testid="discard-confirm">Discard run</Button></>}>

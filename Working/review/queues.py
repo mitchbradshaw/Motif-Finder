@@ -192,6 +192,42 @@ def close_queue(conn, queue_id):
     conn.commit()
 
 
+def _normalised_filters(filters):
+    """Filters as a comparable value: `run_ids` is a set, so the order a
+    caller happened to list the runs in does not make a different queue."""
+    out = {}
+    for k, v in (filters or {}).items():
+        if v is None:
+            continue
+        if k == "run_ids":
+            v = sorted(int(i) for i in v)
+        out[k] = v
+    return out
+
+
+def find_open_queue(conn, *, source_kind, filters=None, source_ref=None):
+    """The id of an open queue that IS this queue already — same source kind,
+    same source ref, same filters — or None.
+
+    *Send N unjudged to Review* pressed twice must return the same queue
+    rather than a second one over the same rows (fixup-L): two open queues
+    over one run would show two progress counts for one set of verdicts.
+    """
+    want = _normalised_filters(filters)
+    want_ref = None if source_ref is None else str(source_ref)
+    for row in conn.execute(
+            "SELECT id, source_ref, filters_json FROM review_queues "
+            "WHERE closed_at IS NULL AND source_kind = ? ORDER BY id",
+            (source_kind,)).fetchall():
+        if row["source_ref"] != want_ref:
+            continue
+        have = _normalised_filters(
+            json.loads(row["filters_json"]) if row["filters_json"] else {})
+        if have == want:
+            return int(row["id"])
+    return None
+
+
 # ── the resolver ────────────────────────────────────────────────────────────
 
 def queue_items(conn, queue_id, *, limit=-1, offset=0, include_judged=False,

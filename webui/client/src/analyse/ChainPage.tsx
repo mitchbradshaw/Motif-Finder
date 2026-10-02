@@ -20,6 +20,7 @@ import { InsertStageModal } from './InsertStageModal'
 import { renderByType } from './Renderer'
 import { deriveRows, firstStale, fmtTiming, jobForSource, sameStep, terminalWording } from './rowState'
 import { RunLogModal } from './RunLogModal'
+import { useSendRunToReview } from './sendToReview'
 import { attachRun, cancelCurrent, cancelPending, clearStale, dropUndo, markStale, popUndo, pushUndo, resetRun, startRun, stepElapsed, syncToSource, useAnalyseStore, type UndoEntry } from './store'
 import { shortName, TemplatesPopover } from './TemplatesPopover'
 import { EstimateChip, EXAMPLE_SOURCE, isHeldOut, NameChip, Popwrap, RunErrorCard, SourceChip, SurrogateToggle, t0Of, t1Of, useSourceEnvelope } from './toolbar'
@@ -210,6 +211,9 @@ export function ChainPage() {
   const lastRow = rows[n - 1]
   const terminalPayload = lastRow?.payload ?? null
   const nSpans = terminalPayload?.type === 'spanset' ? (terminalPayload as SpansetPayload).n : null
+  // *Pass N to Review* is the slideshow's *Send N to Review* on the same run: one call, two buttons (fixup-L)
+  const pass = useSendRunToReview({ chainName: chain.name, dbRunId: job?.status === 'completed' ? (job.db_run_id ?? null) : null, n: nSpans ?? 0, stale: stale !== null })
+  const passReason = nSpans === null ? 'needs a completed run with a SpanSet terminal' : pass.reason
   let headline: string, sub: string
   if (running && job) {
     headline = cancelling ? `Cancelling · stage ${pad2((job.current_step ?? 0) + 1)} of ${pad2(job.n_steps)} is still running` : `Running ${pad2((job.current_step ?? 0) + 1)} of ${pad2(job.n_steps)}`
@@ -446,7 +450,8 @@ export function ChainPage() {
           <div className="acts">
             <button className="btn" onClick={doExport} disabled={job?.status !== 'completed'} data-testid="export-run" title={job?.status === 'completed' ? 'write a JSON report of this run' : 'needs a completed run'}>⤒ Export run</button>
             <button className="btn" disabled aria-disabled="true" title="sends the terminal SpanSet into a new chain · out of slice scope">→ Analyse events</button>
-            <button className="btn primary" disabled aria-disabled="true" title={nSpans === null ? 'needs a completed run with a SpanSet terminal · out of slice scope' : 'hands the spans to a Review queue · out of slice scope'}>→ Pass {nSpans ?? ''} to Review</button>
+            <button className="btn primary" onClick={pass.send} disabled={!!passReason || pass.busy} aria-disabled={!!passReason || pass.busy} data-testid="pass-to-review"
+              title={passReason ?? `a Review queue over the ${nSpans} spans run #${job?.db_run_id} wrote · verdicts write adjudications`}>→ Pass {nSpans ?? ''} to Review</button>
           </div>
         </div>
       </div></div>

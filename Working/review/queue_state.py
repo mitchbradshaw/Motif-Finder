@@ -27,6 +27,7 @@ from Working.database import queries as _queries
 # `queue_candidates`. Anything else is a typo and should say so.
 _FILTER_KEYS = (
     "run_id",
+    "run_ids",
     "run_group_id",
     "method",
     "score_min",
@@ -49,12 +50,15 @@ class ReviewQueue:
     newest last, so `undo` can step back through them.
     """
 
-    def __init__(self, conn, *, run_id=None, run_group_id=None, method=None,
+    def __init__(self, conn, *, run_id=None, run_ids=None, run_group_id=None, method=None,
                  score_min=None, score_max=None, channel=None,
                  adjudication_status="unadjudicated"):
         self._conn = conn
         self._filters = {
             "run_id": run_id,
+            # the exact set of runs a Discovery run is made of (fixup-L): the
+            # run group also holds the paired surrogates' detections
+            "run_ids": None if run_ids is None else [int(i) for i in run_ids],
             "run_group_id": run_group_id,
             "method": method,
             "score_min": score_min,

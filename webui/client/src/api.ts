@@ -570,10 +570,15 @@ export const discardDiscoveryRun = (runKey: string) =>
   post<{ run_key: string; status: string; superseded: number; adjudications_written: number; annotations_written: number; note: string }>(`/api/discovery/runs/${encodeURIComponent(runKey)}/discard`, {})
 export const restoreDiscoveryRun = (runKey: string) =>
   post<{ run_key: string; status: string; restored: number }>(`/api/discovery/runs/${encodeURIComponent(runKey)}/restore`, {})
-export const sendDiscoveryRunToReview = (runKey: string, limit = 500, name?: string) =>
-  post<{ run_key: string; queued: number; unjudged: number; queue: string; run_group_id: number; writes: string; note: string }>(`/api/discovery/runs/${encodeURIComponent(runKey)}/review`, { limit, name })
-export interface DiscQueue { name: string; run_key: string; run_group_id: number; n: number; created_at: string; source: string; blind: boolean; writes: string }
-export const getDiscoveryQueues = () => req<DiscQueue[]>('/api/discovery/queues')
+/** §7.4 *Send N unjudged to Review*: a `review_queues` row over the run ids this Discovery run is made of
+ *  (never its run group alone — the group holds the paired surrogates' detections too). The same run sent
+ *  twice comes back as the same open queue (`reused`). `queue_id` is what `review/queue/<id>` opens. */
+export const sendDiscoveryRunToReview = (runKey: string, name?: string) =>
+  post<{
+    run_key: string; queue_id: number; queue: string; reused: boolean
+    unjudged: number; judged: number; total: number
+    source_kind: 'discovery-run' | 'seed-search'; run_ids: number[]; run_group_id: number; writes: string; note: string
+  }>(`/api/discovery/runs/${encodeURIComponent(runKey)}/review`, { name })
 
 export interface DiscRoleCell { index?: string; name: string; param: string; signature: string; glyph: string; algorithm?: string | null }
 export interface DiscSide {

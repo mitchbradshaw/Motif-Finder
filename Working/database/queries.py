@@ -447,15 +447,21 @@ def divergence_annotations_without_detection(conn, recording_id=None):
 
 def queue_candidates(conn, run_id=None, run_group_id=None, method=None,
                      score_min=None, score_max=None, channel=None,
-                     adjudication_status=None, limit=50, offset=0):
+                     adjudication_status=None, limit=50, offset=0, run_ids=None):
     """Paginated candidate queue for adjudication.
 
-    Filters compose: run, run group, method (the recipe's detection
+    Filters compose: run, run set, run group, method (the recipe's detection
     algorithm), score range, channel, and adjudication status. Detections are
     ordered by id for stable paging.
 
     Parameters
     ----------
+    run_ids : iterable of int, optional
+        The exact set of runs the queue is over. A Discovery run is MADE OF a
+        set of runs, and its run group also holds the paired surrogate runs
+        and their detections, so a group filter alone would put
+        phase-randomised noise in front of the researcher (fixup-L). An
+        empty set is a queue over nothing, not over everything.
     adjudication_status : str, optional
         None (no filter), 'unadjudicated', 'adjudicated', 'accepted', or
         'rejected'.
@@ -473,6 +479,15 @@ def queue_candidates(conn, run_id=None, run_group_id=None, method=None,
     if run_id is not None:
         clauses.append("d.run_id = ?")
         params.append(run_id)
+    if run_ids is not None:
+        ids = [int(i) for i in run_ids]
+        if not ids:
+            clauses.append("0")
+        else:
+            # A fan-out is a few dozen runs at most; SQLite's host-parameter
+            # ceiling (999) is nowhere near.
+            clauses.append("d.run_id IN ({})".format(",".join("?" * len(ids))))
+            params.extend(ids)
     if run_group_id is not None:
         clauses.append("r.run_group_id = ?")
         params.append(run_group_id)

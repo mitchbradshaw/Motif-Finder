@@ -45,6 +45,7 @@ from Working.discovery import fanout, seeded_search
 from Working.discovery import scoreboard as SB
 from Working.discovery.matching import match_span_sets, rule_from_settings
 from Working.discovery.spans import absolute_bounds, clip, merged, total_length
+from Working.review import queues as queues_mod
 
 from . import corpus
 from .runtime import HELD_OUT_FILE, REPO_ROOT
@@ -1753,65 +1754,64 @@ def restore_run(request: Request, run_key: str):
 
 
 class ReviewBody(BaseModel):
-    limit: int = 500
     name: str | None = None
 
 
 @router.post("/api/discovery/runs/{run_key}/review")
 def send_to_review(request: Request, run_key: str, body: ReviewBody):
-    """§7.4's *Send N unjudged to Review* (P20): a named queue over this run's
-    unadjudicated detections. The queue is a **filter over the existing rows**
-    — `Working.review.queue_state.ReviewQueue` on `run_group_id` — not a copy
-    of them, so nothing is duplicated and no verdict is written here."""
-    from Working.review.queue_state import ReviewQueue
+    """§7.4's *Send N unjudged to Review* (P20): a named Review queue over this
+    run's detections — a `review_queues` row made through
+    `Working.review.queues.create_queue`, the same row Review's own page lists
+    and opens (fixup-L). The queue is a **filter over the existing rows**, not a
+    copy of them: nothing is duplicated and no verdict is written here.
 
+    The filter carries the **run ids** the Discovery run is made of
+    (`_run_ids`, which already excludes the paired surrogates), never the run
+    group alone — a surrogate run joins the same group and writes `detections`
+    of its own, and a queue over the group would put phase-randomised noise in
+    front of the researcher and write human verdicts against it.
+
+    Sending the same run twice returns the same open queue.
+    """
     c = _conn(request)
     try:
         s = _session(c)
         row = _dr_by_key(c, s["id"], run_key)
         if not row["run_group_id"]:
             raise HTTPException(422, {"message": f"{run_key} has not run yet, so it has nothing to send"})
-        # The queue must cover the runs this Discovery run is MADE of. A
-        # fan-out that reused runs spans more than one `run_groups` row, and
-        # filtering on the lowest group would hand Review a silently short
-        # queue; `ReviewQueue` takes one group, so the union is counted here
-        # and the run ids travel on the descriptor for Review to filter by.
         ids = _run_ids(c, row)
-        groups = sorted({int(r["run_group_id"]) for r in
-                         (R.get_run(c, i) for i in ids) if r and r["run_group_id"]})
-        seen, n = set(), 0
-        for gid in groups or [int(row["run_group_id"])]:
-            for cand in ReviewQueue(c, run_group_id=gid, adjudication_status="unadjudicated").candidates:
-                if int(cand["id"]) in seen or int(cand["run_id"]) not in set(ids):
-                    continue
-                seen.add(int(cand["id"]))
-                n += 1
-        name = body.name or f"Discovery · {row['label']} unjudged"
+        if not ids:
+            raise HTTPException(422, {"message": f"{run_key} has no runs recorded, so it has nothing to send"})
+        kind = "seed-search" if row["kind"] == "seed" else "discovery-run"
+        filters = {"run_ids": [int(i) for i in ids]}
+        existing = queues_mod.find_open_queue(c, source_kind=kind, filters=filters)
+        if existing is not None:
+            qid, reused = existing, True
+        else:
+            name = body.name or f"Discovery · {run_key}"
+            qid = queues_mod.create_queue(
+                c, name=name, source_kind=kind, filters=filters,
+                note=f"Discovery run {run_key!r} ({row['label']}) · session {int(s['id'])} · "
+                     f"runs {', '.join(str(i) for i in ids)}")
+            reused = False
+        # Retire the descriptor: the row above is the one record of this
+        # queue. A session that still carries the pre-fixup-L list loses it
+        # here rather than keeping two records of one queue.
         state = json.loads(s["state_json"] or "{}")
-        queues = state.setdefault("review_queues", [])
-        queues = [x for x in queues if x.get("run_key") != run_key]
-        queues.append({"name": name, "run_key": run_key, "run_group_id": int(row["run_group_id"]),
-                       "run_ids": ids, "run_groups": groups,
-                       "n": n, "created_at": _now(), "source": "discovery run", "blind": False,
-                       "writes": "adjudications"})
-        state["review_queues"] = queues
-        c.execute("UPDATE discovery_sessions SET state_json = ?, updated_at = ? WHERE id = ?",
-                  (json.dumps(state), _now(), int(s["id"])))
-        c.commit()
-        return {"run_key": run_key, "queued": min(n, body.limit), "unjudged": n, "queue": name,
-                "run_group_id": int(row["run_group_id"]), "writes": "adjudications",
-                "note": ("the queue is a filter over this run's unadjudicated detections, not a copy; "
-                         "Review's own page reads it through ReviewQueue(run_group_id=…)")}
-    finally:
-        c.close()
-
-
-@router.get("/api/discovery/queues")
-def get_queues(request: Request):
-    c = _conn(request)
-    try:
-        s = _session(c)
-        return json.loads(s["state_json"] or "{}").get("review_queues", [])
+        if "review_queues" in state:
+            state.pop("review_queues", None)
+            c.execute("UPDATE discovery_sessions SET state_json = ?, updated_at = ? WHERE id = ?",
+                      (json.dumps(state), _now(), int(s["id"])))
+            c.commit()
+        queue = queues_mod.get_queue(c, qid)
+        counts = queues_mod.queue_counts(c, qid)
+        return {"run_key": run_key, "queue_id": int(qid), "queue": queue["name"], "reused": reused,
+                "unjudged": int(counts["remaining"]), "judged": int(counts["judged"]),
+                "total": int(counts["total"]), "source_kind": kind,
+                "run_ids": filters["run_ids"], "run_group_id": int(row["run_group_id"]),
+                "writes": queue["writes_to"],
+                "note": ("the queue is a filter over this run's detections, not a copy; Review reads it "
+                         "live through review_queues, so a verdict there moves this scoreboard")}
     finally:
         c.close()
 
