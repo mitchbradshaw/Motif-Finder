@@ -654,6 +654,49 @@ The width-vs-recovery relationship the researcher named in round 2 exists on tro
 **id010, β 0.28 [0.16–0.40], R² 0.23, n 83**, against a null β of 0.25 — so it does *not* clear its
 null. That is worth knowing before any more is built on it.
 
+#### Q26, measured — 2026-10-02, before asking the researcher to decide
+
+The three options above were written from `E`'s counts. Two of their premises were **assertions**, so
+`scripts/q26_recovery_probe.py` measured them on all 410 seed events
+(`webui/screenshots/fixup/Q26/recovery-probe.json`). Both survive, but the number splits into **two
+different failures that were being reported as one**:
+
+| | n | post-context stored | … in event widths | how far back up it got, median | p90 |
+|---|---|---|---|---|---|
+| **sharkfin, no recovery** | **156** | 118 s | 1.62 | **0.7 % of depth** | 15.5 % |
+| **trough, no recovery** | **14** | 94 s | 2.33 | **35.2 %** | 47.2 % |
+| trough, recovered | 240 | 43 s | 4.00 | 86.6 % | 108 % |
+
+1. **No sharkfin recovers — 156 of 156, not one.** It is not a data pattern, it is what the morphology
+   is: the trace falls and sits on the floor until the next rise. Q26's "all of it sharkfin" is
+   **92 %** (156 of 170), not all; the other 14 are troughs and are a *different* problem (below).
+2. **Option 2 is dead, and now measurably.** Lowering `recovery_frac` rescues 53 of 170 at 0.1, 17 at
+   0.2, 12 at 0.25. Worse, those 53 would report *"climbed back a tenth of the way"* in a column named
+   recovery — a smaller lie than the old browser's 0 s, but the same kind.
+3. **The `recovery_max_mult = 10` cap is innocent.** 167 of the 170 are bounded by the **end of the
+   stored snippet**, not by the ten-width cap — and letting the search run to the end of the whole
+   snippet changes the count by **one event** (53 → 53 at 0.1; one event reaches 0.5). So neither
+   bound is what is stopping these.
+4. **The 14 troughs are a near-miss, not a floor.** Eight of them reached 0.35–0.48 — climbing back and
+   cut off just under the line, with a median 2.3 widths of post-context against 4.0 for the troughs
+   that do recover. `id022_r1_1055945` has **3 s** of post-context after a 58 s fall (0.1 widths): it
+   was never measurable. That is a storage question (`future/N-event-extent.md`), not a definition one.
+5. **Option 1 has its data.** `interval_after_s` exists for 160 of the 170 (the other 10 are the last
+   event in their span): median **525 s**, p10 81 s, p90 5834 s — a median **6.2×** the event's own fall.
+
+**So Q26 is three decisions, not one.** They are independent and the first is the one that matters:
+
+- **Q26a — is any statistic ever reported across both morphologies?** If the supervisor reads one
+  recovery distribution for the corpus, a column that is 100 % null for one morphology makes it
+  silently a trough-only statistic. If everything is reported split by morphology, the nulls are
+  correct and option 3 is the answer.
+- **Q26b — what goes in a sharkfin's box?** `time_to_next_onset` under its own name (option 1,
+  data above), or nothing (option 3). **Never** a relabelled `recovery_time_s`.
+- **Q26c — is 48 % recovered "not recovered"?** A one-column suggestion: store
+  `max_recovery_frac` beside `recovery_time_s`, so a null is self-explaining — 0.007 for a sharkfin
+  that never moved, 0.48 for a trough that ran out of recording. It separates the two populations in
+  the data instead of in a footnote, and it is the number the probe already computes.
+
 ### Q27 — the Aggregate page's null says "matched random windows · 200×" and is a seeded jitter
 
 **[CLOSED — fixup-h, 2026-10-02, `reports/H-blocks-show-their-work.md` §6.** Both nulls deleted, not relabelled: the scatter's jitter, the
