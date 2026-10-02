@@ -137,5 +137,112 @@ def test_bridge_catalog_reads_category_and_page_name_off_the_spec():
         assert card["input_kind"] == spec.input_kind
 
 
+# ── the drawing standard (fixup-h) ──────────────────────────────────────────
+# "The OUTPUT type decides what kind of picture you get. The INPUT type decides
+# what one thing is in that picture, and whether there is a before/after to
+# show." Seven type views and twelve modifiers, so every block - including one
+# nobody has written yet - is drawn from its type signature alone. The table
+# lives in `webui/server/views.py`, rides on every catalog card, and the
+# client's registry (`analyse/views/registry.tsx`) must name a component for
+# every key of it. The acceptance criterion is a caption: no block may fall
+# through to "this signature has no bespoke process view yet".
+
+CLIENT_SRC = os.path.join(PROJECT_ROOT, "webui", "client", "src")
+REGISTRY_TSX = os.path.join(CLIENT_SRC, "analyse", "views", "registry.tsx")
+BLOCK_PAGE_TSX = os.path.join(CLIENT_SRC, "analyse", "BlockPage.tsx")
+SEVEN = {"signal", "scores", "spanset", "encoding", "windowset", "grouping", "model"}
+
+
+def _views():
+    from server import views
+    return views
+
+
+def _registry_keys(const_name):
+    """The keys of `export const <const_name> ... = { ... }` in the client's registry, one entry per line."""
+    import re
+    with open(REGISTRY_TSX, encoding="utf-8") as f:
+        src = f.read()
+    m = re.search(r"export const %s\b[^=]*=\s*\{(.*?)\n\}" % const_name, src, re.S)
+    assert m, f"{REGISTRY_TSX} declares no `export const {const_name} = {{ ... }}`"
+    return {k for k in re.findall(r"^\s*'?([a-z]+(?:->[a-z]+)?)'?\s*:", m.group(1), re.M)}
+
+
+def test_there_are_seven_type_views_one_per_interchange_type():
+    assert set(_views().VIEWS) == SEVEN
+
+
+def test_there_are_twelve_modifiers_and_each_names_two_interchange_types():
+    mods = _views().MODIFIERS
+    assert len(mods) == 12, sorted(mods)
+    for key in mods:
+        a, b = key.split("->")
+        assert a in SEVEN and b in SEVEN, key
+
+
+@pytest.mark.parametrize("spec", list_adapters(), ids=lambda s: s.name)
+def test_every_adapter_resolves_to_a_type_view_and_a_modifier(spec):
+    views = _views()
+    r = views.resolve(spec)
+    assert r["view"] == spec.output_kind and r["view"] in views.VIEWS, (
+        f"{spec.name}: no type view for output {spec.output_kind!r}")
+    assert r["modifier"] in views.MODIFIERS, (
+        f"{spec.name}: the conversion {spec.input_kind}->{spec.output_kind} has no modifier row; "
+        f"add one to webui/server/views.py and to analyse/views/registry.tsx")
+
+
+def test_the_twelve_modifiers_are_exactly_the_registered_conversions():
+    """No block without a modifier, and no modifier nobody uses."""
+    have = {f"{s.input_kind}->{s.output_kind}" for s in list_adapters()}
+    assert set(_views().MODIFIERS) == have
+
+
+def test_a_conversion_nobody_has_written_yet_still_gets_its_type_view():
+    """A future `scores -> scores` block is drawn by the Scores view, with no modifier and no error."""
+    r = _views().resolve_kinds("scores", "scores")
+    assert r == {"view": "scores", "modifier": None}
+    with pytest.raises(ValueError, match="interchange type"):
+        _views().resolve_kinds("signal", "features")
+
+
+def test_the_catalog_card_carries_the_view_and_the_modifier():
+    from server import chain as chain_mod
+    cards = {c["name"]: c for c in chain_mod.catalog()}
+    for spec in list_adapters():
+        assert cards[spec.name]["view"] == spec.output_kind
+        assert cards[spec.name]["modifier"] == f"{spec.input_kind}->{spec.output_kind}"
+
+
+def test_the_client_registry_has_a_component_for_every_view_and_modifier():
+    views = _views()
+    assert _registry_keys("VIEWS") == set(views.VIEWS)
+    assert _registry_keys("MODIFIERS") == set(views.MODIFIERS)
+
+
+def test_no_block_falls_through_to_a_generic_process_view():
+    """The caption is the acceptance criterion: when it cannot appear, the standard holds."""
+    hits = []
+    for root, _dirs, files in os.walk(CLIENT_SRC):
+        for fn in files:
+            if fn.endswith((".ts", ".tsx")):
+                with open(os.path.join(root, fn), encoding="utf-8") as f:
+                    if "no bespoke process view yet" in f.read():
+                        hits.append(os.path.relpath(os.path.join(root, fn), CLIENT_SRC))
+    assert not hits, f"the generic-view caption is still in {hits}"
+    with open(BLOCK_PAGE_TSX, encoding="utf-8") as f:
+        page = f.read()
+    assert "GenericProcess" not in page, "BlockPage.tsx still carries the generic process view"
+
+
+def test_the_block_page_picks_its_view_by_signature_never_by_block_name():
+    """Three bespoke views used to be selected by `name === 'detection.threshold'` and its siblings, so a new
+    block of the same signature got none of them."""
+    import re
+    with open(BLOCK_PAGE_TSX, encoding="utf-8") as f:
+        page = f.read()
+    named = re.findall(r"name\s*===\s*'[a-z_]+\.[a-z_0-9]+'", page)
+    assert not named, f"BlockPage.tsx dispatches on block names: {named}"
+
+
 if __name__ == "__main__":
     sys.exit(pytest.main([__file__, "-q"]))

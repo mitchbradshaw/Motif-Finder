@@ -181,5 +181,153 @@ def test_a_spanset_without_a_funnel_has_no_funnel_key():
     assert "funnel" not in to_payload("spanset", SpanSet(starts=(10,), ends=(20,)), {}, {"fs": 1.0})
 
 
+# ----------------------------------------- what the seven views need (fixup-h) --
+# Each type view draws from its payload alone. These are the fields the views
+# added: a SpanSet says how many events each span's window holds (by SAMPLE
+# RANGE, never by a window index), an image Encoding ships sampled frames with
+# the chunk of signal each came from, a WindowSet separates its split from its
+# features, a Grouping names one exemplar per cluster, and a Model's card keeps
+# the per-class accuracy.
+
+def test_a_spanset_counts_the_spans_in_each_window_by_sample_range():
+    ss = SpanSet(starts=(0, 50, 60, 200), ends=(40, 100, 90, 240))
+    p = to_payload("spanset", ss, {}, {"fs": 1.0})
+    assert p["window_count_of"] == "spans"
+    assert p["window_counts"] == [1, 2, 2, 1], "the second and third spans share samples; the others stand alone"
+
+
+def test_a_detector_that_names_its_falls_is_counted_in_falls_not_in_windows():
+    """`DETECTION_AND_FIGURES.md` 5b: overlapping snippet context is not double-counting (261 of 1058 snippet
+    spans overlap, 1 onset->trough pair does). A window is impure when it holds more than one FALL."""
+    ss = SpanSet(starts=(0, 50), ends=(100, 150))
+    events = [{"onset_idx": 20, "trough_idx": 30}, {"onset_idx": 70, "trough_idx": 80}]
+    p = to_payload("spanset", ss, {"events": events}, {"fs": 2.0, "span_start": 1000})
+    assert p["window_count_of"] == "falls"
+    assert p["window_counts"] == [2, 1], "window 0 holds both falls; window 1 holds only its own"
+    assert p["marks"]["onset_s"] == [510.0, 535.0] and p["marks"]["extremum_s"] == [515.0, 540.0]
+
+
+def test_a_feature_blocks_anchors_are_the_marks_when_the_table_carries_them():
+    import pandas as pd
+    feats = pd.DataFrame({"onset_idx": [12, 55], "extremum_idx": [18, 61], "event_amplitude_mv": [1.0, 2.0]})
+    p = to_payload("spanset", SpanSet(starts=(10, 50), ends=(30, 70), features=feats), {}, {"fs": 1.0, "span_start": 100})
+    assert p["marks"]["onset_s"] == [112.0, 155.0] and p["marks"]["extremum_s"] == [118.0, 161.0]
+    assert p["window_count_of"] == "falls" and p["window_counts"] == [1, 1]
+
+
+def test_a_spanset_with_no_anchors_has_no_marks():
+    p = to_payload("spanset", SpanSet(starts=(10,), ends=(20,)), {}, {"fs": 1.0})
+    assert p["marks"] is None
+
+
+def test_a_windowset_ships_its_split_apart_from_its_features():
+    """`preprocessing.sliding_windows` carries NO features: its table is the split column alone, and the heatmap
+    used to draw that column as if it were a measure."""
+    import pandas as pd
+    from Working.types import WindowSet
+    ws = WindowSet(starts=np.array([0, 600, 1200, 1800]), length=600, fs=1.0, features=pd.DataFrame({"split": [0, 0, 1, 2]}))
+    p = to_payload("windowset", ws, {}, {"fs": 1.0})
+    assert p["features"] is None, "a split column alone is not a feature matrix"
+    assert p["split"]["labels"] == [0, 0, 1, 2]
+    assert p["split"]["names"] == {"0": "train", "1": "validation", "2": "test"}
+    assert p["split"]["counts"] == {"train": 2, "validation": 1, "test": 1}
+    both = WindowSet(starts=np.array([0, 600]), length=600, fs=1.0, features=pd.DataFrame({"split": [0, 2], "mean": [1.0, 2.0]}))
+    q = to_payload("windowset", both, {}, {"fs": 1.0})
+    assert q["features"]["columns"] == ["mean"] and q["split"]["labels"] == [0, 2]
+    plain = WindowSet(starts=np.array([0, 600]), length=600, fs=1.0, features=pd.DataFrame({"mean": [1.0, 2.0]}))
+    assert to_payload("windowset", plain, {}, {"fs": 1.0})["split"] is None
+
+
+def _frame_pixels(frame):
+    h, w = frame["shape"]
+    return np.frombuffer(base64.b64decode(frame["pixels_b64"]), dtype=np.uint8).reshape(h, w, -1)
+
+
+def test_a_time_aligned_image_ships_three_sampled_chunks_and_where_each_came_from():
+    """One column per sample: a frame is a chunk of columns at the image's own resolution, not the whole span
+    block-averaged to 256 px, and each says which seconds of the signal it is."""
+    from server.serialize import FRAME_COLUMNS, FRAMES_SHOWN
+    n = 4 * FRAME_COLUMNS + 10
+    vals = np.tile(np.arange(n, dtype=float), (16, 1))
+    p = to_payload("encoding", Encoding(values=vals, kind="image"), {}, {"fs": 2.0, "span_start": 100, "n_samples": n})
+    fr = p["frames"]
+    assert fr["axis"] == "time" and fr["n"] == 5
+    assert [f["index"] for f in fr["shown"]] == [0, 2, 4] and len(fr["shown"]) == FRAMES_SHOWN
+    first, last = fr["shown"][0], fr["shown"][-1]
+    assert first["t0_s"] == 50.0 and first["t1_s"] == (100 + FRAME_COLUMNS) / 2.0
+    assert last["t1_s"] == (100 + n) / 2.0, "the last chunk ends where the span ends"
+    assert first["shape"] == [16, FRAME_COLUMNS], "a chunk is drawn at the image's own resolution"
+    assert fr["value_range"] == [0.0, float(n - 1)], "one real range for every frame, so one colour bar is true of all of them"
+    assert _frame_pixels(first).max() < _frame_pixels(last).min(), "frames share the range: a later chunk of a ramp is brighter"
+
+
+def test_an_image_stack_ships_three_sampled_images_and_the_window_each_is():
+    from Working.types import WindowSet
+    stack = np.random.default_rng(0).integers(0, 255, size=(7, 32, 32, 3), dtype=np.uint8)
+    ws = WindowSet(starts=np.arange(7) * 600, length=600, fs=1.0)
+    p = to_payload("encoding", Encoding(values=stack, kind="image"), {}, {"fs": 1.0, "windowset": ws})
+    fr = p["frames"]
+    assert fr["axis"] == "stack" and fr["n"] == 7 and [f["index"] for f in fr["shown"]] == [0, 3, 6]
+    assert fr["shown"][1]["t0_s"] == 1800.0 and fr["shown"][1]["t1_s"] == 2400.0
+    assert fr["shown"][0]["channels"] == 3
+    bare = to_payload("encoding", Encoding(values=stack, kind="image"), {}, {"fs": 1.0})["frames"]
+    assert bare["shown"][0]["t0_s"] is None, "without the window set at hand the frame does not guess where it came from"
+
+
+def test_an_image_that_is_not_time_aligned_is_one_frame_of_the_whole_span():
+    vals = np.random.default_rng(1).uniform(size=(64, 64))
+    p = to_payload("encoding", Encoding(values=vals, kind="image"), {}, {"fs": 1.0, "span_start": 0, "n_samples": 1000})
+    fr = p["frames"]
+    assert fr["axis"] == "whole" and fr["n"] == 1 and len(fr["shown"]) == 1
+    assert fr["shown"][0]["t0_s"] == 0.0 and fr["shown"][0]["t1_s"] == 1000.0
+
+
+def test_any_one_frame_can_be_asked_for_by_index():
+    """The settings page scans through the frames that were not sampled."""
+    from server.serialize import FRAME_COLUMNS, frame_payload
+    n = 3 * FRAME_COLUMNS
+    vals = np.tile(np.arange(n, dtype=float), (8, 1))
+    ctx = {"fs": 1.0, "span_start": 0, "n_samples": n}
+    f = frame_payload(Encoding(values=vals, kind="image"), {}, ctx, 1)
+    assert f["index"] == 1 and f["t0_s"] == float(FRAME_COLUMNS) and f["shape"] == [8, FRAME_COLUMNS]
+    with pytest.raises(IndexError):
+        frame_payload(Encoding(values=vals, kind="image"), {}, ctx, 3)
+
+
+def test_a_frame_marks_its_no_data_cells_rather_than_painting_them():
+    from server.serialize import FRAME_COLUMNS
+    vals = np.ones((8, 2 * FRAME_COLUMNS))
+    vals[:, :10] = np.nan
+    p = to_payload("encoding", Encoding(values=vals, kind="image"), {}, {"fs": 1.0, "n_samples": 2 * FRAME_COLUMNS})
+    first = p["frames"]["shown"][0]
+    mask = np.frombuffer(base64.b64decode(first["nan_b64"]), dtype=np.uint8).reshape(first["shape"])
+    assert mask[:, :10].all() and mask.sum() == 80
+
+
+def test_a_grouping_names_one_exemplar_per_cluster():
+    """The window nearest its cluster's centroid in the feature space the clustering saw - a member, never an
+    average - or the cluster's first window when the features are not at hand, and it says which."""
+    import pandas as pd
+    from Working.types import Grouping, WindowSet
+    feats = pd.DataFrame({"a": [0.0, 1.0, 10.0, 20.0, 21.0, 30.0], "split": [0, 0, 0, 0, 0, 0]})
+    ws = WindowSet(starts=np.arange(6) * 60, length=60, fs=1.0, features=feats)
+    g = Grouping(labels=np.array([1, 1, 1, 2, 2, 2]))
+    p = to_payload("grouping", g, {}, {"fs": 1.0, "windowset": ws})
+    ex = {e["cluster"]: e for e in p["exemplars"]}
+    assert set(ex) == {1, 2}
+    assert ex[1]["window"] == 1 and ex[1]["start_s"] == 60.0 and ex[1]["length_s"] == 60.0
+    assert ex[2]["window"] == 4 and "centroid" in ex[1]["rule"]
+    bare = to_payload("grouping", g, {}, {"fs": 1.0})
+    assert bare["exemplars"] == [], "with no window set there is no window to draw"
+
+
+def test_a_model_card_keeps_the_accuracy_per_class():
+    from Working.types import Model
+    meta = {"holdout_accuracy": 0.75, "n_classes": 2, "per_class_accuracy": {1: 1.0, 2: 0.5}, "holdout_class_counts": {1: 4, 2: 4}}
+    p = to_payload("model", Model(path="nowhere.joblib"), meta, {})
+    assert p["card"]["per_class_accuracy"] == {"1": 1.0, "2": 0.5}
+    assert p["card"]["holdout_class_counts"] == {"1": 4, "2": 4}
+
+
 if __name__ == "__main__":
     sys.exit(pytest.main([__file__, "-q"]))
