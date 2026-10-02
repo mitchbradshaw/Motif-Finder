@@ -698,7 +698,7 @@ Two things follow for every future parallel wave, and both prompts in wave 2 car
 
 | item | from | owner |
 |---|---|---|
-| **The Slope page's anatomy figure still draws its chord, tangent and "steepest" marker from `fixtures/interrogation.ts::eventMarks`** (steepest = duration / 2) over a real trace, and opens 10 s before the onset whatever the padding says. **The same class as the fabrication `E` just removed, on a figure instead of a number** | `E` §8.2 | **`H`** — and it is the exemplar case for "a block must show its work" |
+| **[CLOSED — fixup-k, 2026-10-02, `reports/K-slope-anatomy-figure.md`: every mark is the store's — the detector's onset and trough samples, the sample `gradients.fall_gradients` found steepest (`max_slope_idx`, new, served as `steepest_offset`), and the snippet's own height at each. `eventMarks` is deleted, the window follows Source settings › context padding, a mark the store did not measure is not drawn and is named on the card, and smoke measures the drawn marks against the payload. On the 410 seed events the steepest sample is a median 5 % into the fall, not 50 %; 372 are in the first quarter.]** **The Slope page's anatomy figure still draws its chord, tangent and "steepest" marker from `fixtures/interrogation.ts::eventMarks`** (steepest = duration / 2) over a real trace, and opens 10 s before the onset whatever the padding says. **The same class as the fabrication `E` just removed, on a figure instead of a number** | `E` §8.2 | ~~`H`~~ → **`K`**, done. `H` still owns the figure's visual language |
 | The Shape card's medoid overlay is index-stretched across the candidate's duration (unchanged semantics; a medoid carrying its own `t` would now be honoured) | `G` §11 | `H` |
 | **[CLOSED — fixup-f, 2026-10-01: one-based won, through `channel_name`. The M2 electrode names are already one-based, saved Discovery sessions store channel names, and Explore and Review already printed it; Settings › Datasets, the import modal, the scoreboard and Interrogation no longer print the raw index, and the stored index and file (`recordings.channel = 2 · CH2.npy`) are shown beside the name. `reports/F-datasets-and-naming.md` §4.]** **`channel_name` says `CH3` for `recordings.channel = 2`** (`Working/discovery/channels.py:30`, `CH{channel+1}`) and Settings › Datasets prints the raw index as `CH2`. One convention must win | `G` §10 | **`F`** — it owns Settings › Datasets |
 | Coherence `r` in the other-channels popover is still not computed — it now says so instead of throwing a TypeError on a `null` | `G` §11 | `07-review.md`, the Review *behaviour* prompt |
@@ -1033,7 +1033,7 @@ trough **42 s / 43 s** (roughly symmetric). That asymmetry is evidence the morph
 | prompt | what |
 |---|---|
 | `H-blocks-show-their-work.md` | **written, ready** — the standard and the views |
-| `K-slope-anatomy-figure.md` | **written, ready, runs first** — Q8: the Slope page's fabricated anatomy figure |
+| `K-slope-anatomy-figure.md` | **run and reported 2026-10-02** (`reports/K-slope-anatomy-figure.md`) — Q8: the Slope page's fabricated anatomy figure |
 | `N-event-extent.md` | stub — redefine extent + re-hash the Library (Q17) |
 | `R-interrogation-null.md` | stub — build P10 properly (Q27) |
 | `P-persist-recovery-index.md` | stub — `recovery_idx` is computed and discarded |
