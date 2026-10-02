@@ -127,16 +127,20 @@ console/page errors, 0 unexpected server tracebacks**. The tracked set in `webui
 than an engineering one, with the measurement behind it. (Q27 was the other; `H` closed it by deleting both
 nulls. Building the real one is `future/R-interrogation-null.md`.)
 
-- **Q26** — the sharkfin morphology has no recovery and no FWHM under the current definition, across
-  41 % of the seed store and 34 % of the Library. **Measured 2026-10-02** (`scripts/q26_recovery_probe.py`,
-  `QUESTIONS.md` "Q26, measured"): it is **two failures reported as one** — 156 of 156 sharkfins never
-  recover at all (median 0.7 % of depth; a definition, not a parameter), and 14 troughs are near-misses
-  cut off by the stored post-context (median 35 %, eight of them 0.35–0.48). Lowering the fraction
-  rescues 53 of 170 at 0.1 and would report "climbed back a tenth" as recovery; the ten-width cap is
-  innocent (167 of 170 are bounded by the snippet's end, and removing the cap moves one event). So it is
-  **three decisions** — Q26a is any statistic reported across both morphologies, Q26b what goes in a
-  sharkfin's box, Q26c whether 48 % recovered is "not recovered". A research decision, and Q26a is the
-  supervisor-facing one.
+- **Q26 — mostly dissolved, 2026-10-02, by the researcher's reframe.** It was "the sharkfin morphology
+  has no recovery and no FWHM, across 41 % of the seed store and 34 % of the Library". The researcher's
+  reading — a sharkfin is a *trough whose slow rise back up is its recovery*, which the detector has
+  attributed to the next fall as its precursor — is **measured and correct**
+  (`scripts/q26_sharkfin_recovery.py`, `QUESTIONS.md` "Q26, REVISED"): searching from the trough to the
+  **next onset** on the real channel instead of to the end of the stored snippet, **121 of 154 sharkfins
+  reach half recovery** (113 reach 90 %) at a median **199 s** — against a stored post-context of
+  **121 s**. Exactly one of 154 genuinely fails. The 41 % is an artifact of the stored window, and on two
+  families also of a **detrend window shorter than the recovery** (id029 110 s vs 40 s, id024 780 s vs
+  476 s), which subtracts part of it from the stored values. What survives is a *timing* difference,
+  which nothing measures: a sharkfin sits on its floor — drifting slightly lower — for half to
+  two-thirds of the interval, then climbs. **The live question is now Q26d: does the slow rise belong to
+  the event before it (its recovery) or the event after it (its precursor)?** Both cannot be true of the
+  same samples, so one event's extent is wrong today. That is `future/N-event-extent.md`, not a fixup.
 **Q34** is answered (2026-10-02): keep the Dehshibi detector as an untuned baseline. `J` made it
 faithful to its authors' code and measured it as weak on these recordings — on M2_aug CH0 its spans
 cover 53 % of the labelled time and hit 91 % of *interesting* windows against 86 % of *not

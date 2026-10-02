@@ -47,3 +47,38 @@ report are the template.
 Also unresolved and relevant: **Q26** (the sharkfin that never recovers — 41 % of the seed store,
 34 % of the Library have no recovery and no FWHM under the current definition). A morphology-aware
 extent and a morphology-aware recovery are the same question asked twice.
+
+---
+
+## Step 0 (added 2026-10-02) — does the slow rise belong to the fall before it or the fall after it?
+
+**This now comes before everything else in this stub, because it decides what an event *is*.**
+
+The researcher's reframe, measured (`QUESTIONS.md` "Q26, REVISED", `scripts/q26_sharkfin_recovery.py`,
+`scripts/q26_rise_provenance.py`):
+
+- A sharkfin's slow rise is recorded by the detector as the **next** fall's precursor
+  (`up_region_start_idx` / `up_region_end_idx`, `detect5.py:827`), and `choose_morphology` is literally
+  *"is each fall preceded by its own substantial rise"*.
+- The researcher reads the same samples as the **previous** fall's **recovery** — every sharkfin
+  sequence opens with a drop, so the shape is trough → floor → slow rise, not rise → fall.
+- Measured on the real channel to the next onset: **121 of 154 sharkfins reach half recovery** (median
+  199 s), against a stored post-context of 121 s. Exactly one of 154 genuinely does not recover.
+
+**Both readings cannot be true of the same samples.** Today that climb is counted once, as
+`precursor_height_mv` on the later event, and the earlier event's `recovery_time_s` is null — so one
+event's extent is wrong whichever reading is right, and the sharkfin/trough discriminator rests on it.
+
+Consequences this stub already carries apply in full: **extent is the Library's identity**, so changing
+it re-hashes the affected rows (3,603 in `motif_features`).
+
+Two findings to carry with it:
+
+- **The detrend window is shorter than the recovery on two families** — id029 110 s against a 40 s
+  half-recovery, id024 780 s against 476 s. So a longer stored snippet alone does not fix the numbers;
+  the detrend window has to be set from the recovery scale, or recovery measured on the parent trace.
+  It is also the open caveat on the measurement above: some of what was measured as recovery on the
+  undetrended channel could be slow baseline drift, and separating those two is the first real task.
+- **`trough_idx` is not the bottom of the excursion** — the trace keeps drifting down after it (a median
+  −0.04 of depth by the quarter point, p10 −0.36). It marks the end of the fast fall. That affects
+  `drop_depth_mv` and where a recovery clock starts.

@@ -623,6 +623,13 @@ waves, and a handful of items with an owner already.
 
 ### Q26 — the sharkfin has no recovery, and that is a research decision, not a rendering one
 
+> **[SUPERSEDED, 2026-10-02 — read "Q26, REVISED" below first.** The researcher's reframe plus a
+> measurement on the real channel shows a sharkfin **does** recover: 121 of 154 reach half recovery
+> by their next onset, at a median 199 s against a stored post-context of 121 s. The premise of
+> everything in this entry and in "Q26, measured" — that recovery does not exist for the
+> morphology — is an artifact of the measurement window and is withdrawn. The three options below
+> are kept because the reasoning is the record of how the error was found.**]
+
 **The most important thing either report found.** `E` measured it on the data:
 
 | store | events | no `recovery_time_s` | no `fwhm_s` |
@@ -655,6 +662,9 @@ The width-vs-recovery relationship the researcher named in round 2 exists on tro
 null. That is worth knowing before any more is built on it.
 
 #### Q26, measured — 2026-10-02, before asking the researcher to decide
+
+> **[Its measurements are sound but its window is wrong: every number here is bounded by the
+> STORED SNIPPET. See "Q26, REVISED" below.]**
 
 The three options above were written from `E`'s counts. Two of their premises were **assertions**, so
 `scripts/q26_recovery_probe.py` measured them on all 410 seed events
@@ -696,6 +706,75 @@ different failures that were being reported as one**:
   `max_recovery_frac` beside `recovery_time_s`, so a null is self-explaining — 0.007 for a sharkfin
   that never moved, 0.48 for a trough that ran out of recording. It separates the two populations in
   the data instead of in a footnote, and it is the number the probe already computes.
+
+#### Q26, REVISED — 2026-10-02, the researcher's reframe, measured: a sharkfin DOES recover
+
+**The researcher's hypothesis:** a sharkfin is not rise-then-fall. Every sharkfin sequence begins with a
+drop, so what is being called one event is a **trough whose slow rise back up is its recovery** — and
+the detector has attributed that rise to the *next* fall as its precursor (`up_region_start_idx`).
+
+**It is right, and both my probes above were measuring an artifact.**
+`scripts/q26_sharkfin_recovery.py` searches from the trough to the **next event's onset** on the real
+channel (read-only, `mode=ro` + `mmap_mode='r'`, raw mV by `recordings.units`) instead of to the end of
+the stored snippet:
+
+| | n | reach 50 % recovered | reach 90 % | half-recovery | … in its own fall widths | stored post-context |
+|---|---|---|---|---|---|---|
+| **sharkfin** | 154 | **121** | 113 | **199 s** | 1.71 | 121 s |
+| trough | 254 | 247 | 219 | 16 s | 1.32 | 44 s |
+
+**The stored snippet ends at a median 121 s; the recovery happens at a median 199 s.** That is the whole
+of the "0 of 156". And of the 33 sharkfins that still did not reach half, **32 were cut off by this
+probe's own 20-fall-width bound, not by the next onset** (`frac_max` median 0.0, searched a median
+601 s; 26 of the 33 are id024, whose recovery is slower than that). **Exactly one of 154 genuinely
+failed to recover before its next onset.**
+
+So the earlier entry's "no sharkfin recovers — it is what the morphology is" is **withdrawn**. It was
+an artifact of the measurement window, twice over.
+
+**What is still a real difference — timing, not existence.** The recovered fraction of depth at
+quarter / half / three-quarters of the way to the next onset:
+
+| | 25 % | 50 % | 75 % |
+|---|---|---|---|
+| **sharkfin** | **−0.04** | **−0.01** | 0.45 |
+| trough | 0.63 | 0.88 | 0.99 |
+
+A sharkfin sits on its floor — and drifts slightly **lower**, p10 −0.36 — for roughly half to
+two-thirds of the interval, then climbs. A trough is most of the way back by the quarter point. That
+plateau is the sharkfin's real distinguishing feature and **nothing in the repo measures it.**
+
+**Two second-order findings, both load-bearing:**
+
+1. **The detrend window is shorter than the recovery on two families.** id029's is 110 s against a 40 s
+   half-recovery (19 of 48 events flagged), id024's 780 s against 476 s (10 of 38). So even with a
+   longer stored snippet, the **stored detrended values have part of the recovery subtracted out**.
+   Recovery has to be measured on the parent trace, or with a detrend window set from the recovery
+   scale rather than the fall scale. This is why the probe above deliberately did not detrend — and it
+   is also the caveat on it: some of what it measured as recovery could be slow baseline drift. That is
+   the one thing still worth measuring before any of this is built on.
+2. **The detector's trough is not the bottom of the excursion.** The trace keeps drifting down after it
+   (median −0.04 of depth by the quarter point). `trough_idx` marks the end of the *fast fall*. That
+   affects `drop_depth_mv` and where a recovery clock should start.
+
+**What this does to Q26a–c.** Q26b is answered: a sharkfin's box holds *recovery*, measured properly —
+not `interval_after_s` under another name. Q26a drops in urgency, because the column is no longer 100 %
+null for one morphology, but the question stands for any figure drawn before this is fixed. Q26c
+(`max_recovery_frac`) is still worth storing, now as the diagnostic that would have caught this in the
+first place: a null beside a `frac_max` of 0.009 is a floor, beside 0.48 it is a cut-off window.
+
+**And it opens the real question, which is the researcher's, not mine:**
+
+- **Q26d — does the slow rise belong to the event before it or the event after it?** The detector has
+  it as the *next* fall's precursor (`up_region_start_idx`, and `choose_morphology` is literally "is
+  each fall preceded by its own substantial rise"). The researcher's reading is that it is the
+  *previous* fall's recovery. **Both cannot be true of the same samples.** Whichever it is, one event's
+  extent is currently wrong, every sharkfin's `precursor_height_mv` and the previous event's
+  `recovery_time_s` are the same climb counted once in the wrong column, and the sharkfin/trough
+  discriminator rests on the answer.
+
+That is not a UI question and it is not a fixup. It is `future/N-event-extent.md`, and it is now the
+first thing in it: redefining a sharkfin's extent re-hashes its Library rows.
 
 ### Q27 — the Aggregate page's null says "matched random windows · 200×" and is a seeded jitter
 
