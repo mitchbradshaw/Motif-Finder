@@ -179,6 +179,67 @@ class Smoke:
             f" — {m['traces']} traces measured" if m["traces"] == 0 else
             f" — {len(m['outside'])} of {m['traces']} traces leave their plot box: {m['outside'][:4]}" if m["outside"] else "")
 
+    #: fixup-k: the Slope page's anatomy figure, measured in the browser against the payload it claims to draw.
+    #: The marker lines are found by their stroke, the tangent and the chord by theirs; everything is compared
+    #: in pixels and as ratios, so no axis scale has to be recovered from the DOM.
+    _ANATOMY_MARKS_JS = """async () => {
+      const fig = document.querySelector('[data-testid="anatomy-figure"]');
+      const svg = fig && fig.querySelector('svg');
+      if (!svg) return { error: 'no anatomy figure on the page' };
+      const fam = fig.getAttribute('data-family'), ev = fig.getAttribute('data-event');
+      const res = await fetch('/api/interrogation/families/' + encodeURIComponent(fam) + '/slope');
+      if (!res.ok) return { error: 'slope route answered ' + res.status };
+      const m = (await res.json()).members.find(x => x.event_id === ev);
+      if (!m) return { error: 'event ' + ev + ' is not in the slope payload of ' + fam };
+      const vline = c => { const l = Array.from(svg.querySelectorAll('line')).find(l => l.getAttribute('stroke') === c && l.getAttribute('x1') === l.getAttribute('x2')); return l ? parseFloat(l.getAttribute('x1')) : null; };
+      const seg = c => { const p = svg.querySelector('path[stroke="' + c + '"]'); if (!p) return null;
+        const pts = Array.from((p.getAttribute('d') || '').matchAll(/[ML]([-\\d.]+) ([-\\d.]+)/g)).map(q => [parseFloat(q[1]), parseFloat(q[2])]);
+        return pts.length === 2 ? pts : null; };
+      return { event: ev, family: fam, onsetX: vline('var(--blue)'), steepestX: vline('#7446E0'), troughX: vline('var(--red)'),
+               tangent: seg('#7446E0'), chord: seg('#9ca3af'),
+               served: { onset: m.onset_offset, steepest: m.steepest_offset, trough: m.trough_offset,
+                         max_slope: m.max_slope_mv_s, chord_slope: m.mean_slope_mv_s } };
+    }"""
+
+    def anatomy_marks(self, page, where: str):
+        """`anatomy_marks`: every mark of the Slope page's anatomy figure is where the served payload puts it.
+        The steepest marker divides onset..trough in the served ratio (within 1.5 px), the chord runs from the
+        onset marker to the trough marker, and the tangent passes through the steepest marker with a slope that
+        stands to the chord's as the served `max_slope_mv_s` stands to the served chord slope."""
+        m = page.evaluate(self._ANATOMY_MARKS_JS)
+        self.evidence.setdefault("anatomy_marks", {})[where] = m
+        if m.get("error"):
+            return False, f" — {m['error']}"
+        need = [k for k in ("onsetX", "steepestX", "troughX", "tangent", "chord") if m.get(k) is None]
+        if need:
+            return False, f" — the figure draws no {need}"
+        sv = m["served"]
+        if sv["steepest"] is None or sv["trough"] <= sv["onset"]:
+            return False, " — the payload has no steepest sample or no fall for this event, and the figure drew marks anyway"
+        fall_px = m["troughX"] - m["onsetX"]
+        want = m["onsetX"] + fall_px * (sv["steepest"] - sv["onset"]) / (sv["trough"] - sv["onset"])
+        msgs, ok = [], True
+        at = abs(m["steepestX"] - want) <= 1.5
+        ok &= at
+        msgs.append(f" · steepest drawn at {100 * (m['steepestX'] - m['onsetX']) / fall_px:.0f} % of the fall, as served" if at else
+                    f" — steepest drawn at x={m['steepestX']:.1f}, the payload puts it at x={want:.1f} "
+                    f"({100 * (sv['steepest'] - sv['onset']) / (sv['trough'] - sv['onset']):.0f} % of the fall)")
+        (cx0, cy0), (cx1, cy1) = m["chord"]
+        chord_ok = abs(cx0 - m["onsetX"]) <= 1 and abs(cx1 - m["troughX"]) <= 1
+        ok &= chord_ok
+        if not chord_ok:
+            msgs.append(f" — the chord runs x={cx0:.1f}..{cx1:.1f}, not onset {m['onsetX']:.1f} .. trough {m['troughX']:.1f}")
+        (tx0, ty0), (tx1, ty1) = m["tangent"]
+        through = tx0 - 1 <= m["steepestX"] <= tx1 + 1
+        # pixel slopes share one pair of axes, so their ratio is the ratio of the mV/s slopes
+        want_dy = (cy1 - cy0) / (cx1 - cx0) * (sv["max_slope"] / sv["chord_slope"]) * (tx1 - tx0) if cx1 != cx0 and sv["chord_slope"] else None
+        slope_ok = want_dy is not None and abs((ty1 - ty0) - want_dy) <= 1.0 + 0.05 * abs(want_dy)
+        ok &= through and slope_ok
+        msgs.append(" · tangent through it at the served slope" if through and slope_ok else
+                    f" — the tangent x={tx0:.1f}..{tx1:.1f} misses the steepest marker at {m['steepestX']:.1f}" if not through else
+                    f" — the tangent falls {ty1 - ty0:.1f} px where the served max slope gives {want_dy if want_dy is None else round(want_dy, 1)} px")
+        return bool(ok), "".join(msgs)
+
     def goto(self, page, hash_: str, settle_ms=600):
         page.goto(f"{self.url}/#/{hash_}", wait_until="networkidle")
         page.wait_for_timeout(settle_ms)
@@ -593,7 +654,7 @@ class Smoke:
         state expects one), every `expect` selector is present, and no console/page error fires.
         Manifest entry: {"page": "models.launch", "state": "default", "hash": "models/launch?x=1",
         "actions": [{"click": "[data-testid=add-arm]"}, {"press": "Escape"}, {"fill": ["sel", "text"]},
-        {"wait": 300}], "expect": ["[data-testid=launch-sources]"], "expect_absent": [], "allow_error_card": false}"""
+        {"wait": 300}, {"hash": "#/models/results"}], "expect": ["[data-testid=launch-sources]"], "expect_absent": [], "allow_error_card": false}"""
         print("[routes]")
         # the live flows ran in this same tab: start the page walk from a hard reload, so a row whose error
         # boundary the loud-failure flow tripped (?throw=1) or an in-memory write (a span sent from Explore)
@@ -630,6 +691,8 @@ class Smoke:
                     elif "fill" in a: page.locator(a["fill"][0]).first.fill(a["fill"][1]); page.wait_for_timeout(200)
                     elif "hover" in a: page.locator(a["hover"]).first.hover(); page.wait_for_timeout(200)
                     elif "wait" in a: page.wait_for_timeout(int(a["wait"]))
+                    # an in-app walk: the hash changes and the page does NOT reload, so in-memory state survives
+                    elif "hash" in a: page.evaluate("h => { location.hash = h }", a["hash"]); page.wait_for_timeout(400)
                 main_txt = page.locator(".main").inner_text() if page.locator(".main").count() else ""
                 ok = page.locator('[data-testid="header"]').count() == 1 and len(main_txt.strip()) > 40
                 missing = [s for s in e.get("expect", []) if page.locator(s).count() == 0]
@@ -640,6 +703,10 @@ class Smoke:
                 # fixup-g: a Review state may also assert the context trace and its band share one axis
                 axis_ok, axis_msg = self.context_axis(page, e, name)
                 in_box, box_msg = in_box and axis_ok, box_msg + axis_msg
+                # fixup-k: a Slope state may also assert its anatomy marks are where the payload puts them
+                if e.get("anatomy_marks"):
+                    marks_ok, marks_msg = self.anatomy_marks(page, name)
+                    in_box, box_msg = in_box and marks_ok, box_msg + marks_msg
                 # A state may declare console errors it provokes on purpose (a read that rejects renders a
                 # loud error card — the brief's failure state). Declared ones are dropped from the run's
                 # error list so they neither fail this state nor the whole run; anything else still fails.
