@@ -73,6 +73,8 @@ export interface ParamSpec { name: string; type: 'int' | 'float' | 'str' | 'bool
 export interface AdapterCard {
   name: string; stage: string; algorithm: string; display_name: string; page_name: string; description: string
   input_kind: TypeKind; output_kind: TypeKind; signature: string; category: 'preprocess' | 'encode' | 'detect' | 'cluster' | 'model' | 'control'
+  /** fixup-h, the drawing standard (server/views.py): the type view is the output kind; the modifier is the conversion, null when it has no row */
+  view: TypeKind; modifier: string | null
   has_estimate: boolean; max_span_samples: number | null; has_recommend: boolean
   side_inputs: { name: string; type_kind: TypeKind; sources: string[] }[]; known_broken: string | null; params: ParamSpec[]
 }
@@ -125,6 +127,11 @@ export const startRun = (recording_id: number, span: [number, number] | null, st
 export const getRun = (jobId: number) => req<JobSnapshot>(`/api/runs/${jobId}`)
 export const cancelRun = (jobId: number) => post<{ accepted: boolean; status: string; note: string }>(`/api/runs/${jobId}/cancel`, {})
 export const getStepPayload = (jobId: number, index: number) => req<Payload>(`/api/runs/${jobId}/steps/${index}`)
+/** One frame of an image Encoding the payload did not sample (410 once the run is no longer among the newest). */
+export const getStepFrame = (jobId: number, index: number, frame: number) => req<EncodingFrame>(`/api/runs/${jobId}/steps/${index}/frames/${frame}`)
+/** A Review queue over the detections one run wrote (the slideshow's one action). */
+export const sendRunToReview = (name: string, dbRunId: number) =>
+  post<{ queue: { id: string | number; name: string } }>('/api/review/queues', { name, source_kind: 'discovery-run', filters: { run_id: dbRunId } })
 export const getRunLog = (jobId: number) => req<{ job_id: number; lines: string[]; error: JobError | null }>(`/api/runs/${jobId}/log`)
 export const listRuns = (recording_id?: number, limit = 30) => req<{ db_runs: DbRun[]; jobs: JobSnapshot[] }>(`/api/runs?limit=${limit}${recording_id ? `&recording_id=${recording_id}` : ''}`)
 export const exportRun = (jobId: number) => req<{ path: string; bytes: number }>(`/api/runs/${jobId}/export`)
@@ -173,16 +180,28 @@ export interface SpansetPayload {
   type: 'spanset'; fs: number; n: number; capped: boolean; start_s: number[]; end_s: number[]; labels: (string | null)[] | null; scores: (number | null)[] | null; summary: string
   /** fixup-d: one row of measures per span, and the feature blocks' rules / rose / interval statistics */
   features?: FeatureTable | null; rules?: MeasureRule[]; rose?: RosePayload; interval_stats?: Record<string, IntervalStats>; features_unit_note?: string | null
+  /** fixup-h: where each span's event sits (when something measured it), and how many events each span's window
+   *  holds, counted by SAMPLE RANGE — `falls` when the anchors are known, else the `spans` sharing its samples */
+  marks?: { onset_s: number[]; extremum_s: number[] } | null; window_counts?: number[]; window_count_of?: 'falls' | 'spans'
 }
 export interface WindowsetPayload {
   type: 'windowset'; fs: number; n_windows: number; length: number; length_s: number; starts_s: number[]; capped: boolean
   features: { n_columns: number; columns: string[]; matrix: (number | null)[][] | null; col_range?: [number | null, number | null][] } | null; summary: string
+  /** fixup-h: the train / validation / test assignment, shipped apart from the features (it is not a measure) */
+  split?: { labels: number[]; names: Record<string, string>; counts: Record<string, number> } | null
 }
 export interface EncodingSymbolicPayload {
   type: 'encoding'; kind: 'symbolic'; n_symbols: number; alphabet_size: number; symbols: number[]; letters: string; capped: boolean; alphabet?: string | null
   samples_per_symbol: number | null; seconds_per_symbol: number | null; t0_s: number; fs: number; cutlines: number[] | null; cutline_domain: string | null
   representatives: number[] | null; paa: number[] | null; n_trimmed: number | null; summary: string
 }
+/** One image of an Encoding (fixup-h): a stack's k-th image, a chunk of a time-aligned image's columns at its own
+ *  resolution, or the whole of any other image — with the seconds of signal it came from when that is known. */
+export interface EncodingFrame {
+  index: number; label: string; shape: [number, number]; channels: number; t0_s: number | null; t1_s: number | null
+  nan_cells: number; n_cells: number; pixels_b64: string; nan_b64: string | null
+}
+export interface EncodingFrames { axis: 'stack' | 'time' | 'whole'; n: number; value_range: [number, number] | null; frame_columns: number | null; shown: EncodingFrame[] }
 export interface EncodingImagePayload {
   type: 'encoding'; kind: 'image'; ndim: number; shape: number[]; n_images?: number | null; display_shape?: [number, number]; channels?: number
   /** null when no cell of the image holds a finite value — then `all_nan` is true and there is no range to state. */
@@ -190,12 +209,15 @@ export interface EncodingImagePayload {
   /** `nan_b64` is one uint8 per displayed cell, 1 where the block held no finite value at all (serialize.py `_block_nanmean`). */
   all_nan?: boolean; nan_cells?: number; n_cells?: number; nan_b64?: string | null
   pixels_b64?: string; series?: number[]; bin_freqs?: number[] | null; summary: string
+  frames?: EncodingFrames | null
 }
 export interface GroupingPayload {
   type: 'grouping'; n: number; k: number; label_base: number; linkage: string | null; clusters: { id: number; count: number }[]; labels: number[]
   /** `labels` is the first `n_shown` of `n`; past the cap the strip is a prefix, and must say so. */
   capped: boolean; n_shown?: number
   strip: { starts_s: number[]; length_s: number } | null; summary: string
+  /** fixup-h: one member window per cluster, to be drawn — never an average */
+  exemplars?: { cluster: number; window: number; start_s: number; length_s: number; n: number; rule: string }[]
 }
 export interface ModelPayload { type: 'model'; path: string; exists: boolean; size_bytes: number | null; card: Record<string, unknown>; summary: string }
 export interface ErrorPayload { type: string; error: string; traceback?: string; summary: string }
@@ -327,12 +349,18 @@ export interface SeedMember {
   event_id: string; recording_id: number; source_file: string; channel: number; fs: number; morphology: string; trigger: string
   onset_idx: number; onset_h: number; trough_idx: number; trough_h: number; snippet_start_idx: number; snippet_end_idx: number
   drop_depth_mv: number; rise_height_mv: number; fall_duration_s: number; peak_to_peak_mv: number; fall_dominance: number; purity: number; is_pure: number; cluster_id: number
-  source: 'seed'; snippet?: { t_s: number[]; detrended_mv: number[]; n: number }
+  source: 'seed'
+  /** `t_s`/`detrended_mv` are every stored sample, or — `decimated` — a min/max envelope of `n` of them (fixup-h) */
+  snippet?: { t_s: number[]; detrended_mv: number[]; n: number; decimated?: boolean; mismatch?: { stored: number; claimed: number } | null }
+  /** fixup-h: which stored edges sit exactly at the detector's fall-multiple cap (Q18), and the frame a sequence is drawn in (Q19) */
+  left_capped?: boolean; right_capped?: boolean
+  sequence_frame?: { pre_s: number; post_s: number; reach_falls: number; first: boolean; capped: boolean; clipped: boolean }
 }
+export interface CappedCounts { n: number; cap_mult: number; left: number; right: number; both: number }
 export interface SlopeMember { event_id: string; onset_slope_mv_s: number; max_slope_mv_s: number; mean_slope_mv_s: number; peakedness: number; drop_depth_mv: number; fall_duration_s: number; onset_h: number; onset_offset: number; trough_offset: number; /* fixup-k: the sample the steepest slope was measured at, and the full-resolution snippet's own heights at the three marks */ steepest_offset: number | null; onset_mv: number | null; steepest_mv: number | null; trough_mv: number | null; n_samples: number; angle_deg: number | null; recording_id: number; source_file: string; span_key: string }
 export const getFamilies = () => req<{ source: 'seed'; store: string; manifest: Record<string, unknown>; families: SeedFamily[] }>('/api/interrogation/families')
-export const getFamilyMembers = (key: string, snippets = true) => req<{ family: string; source: 'seed'; members: SeedMember[] }>(`/api/interrogation/families/${encodeURIComponent(key)}/members?snippets=${snippets}`)
-export const getFamilySlope = (key: string, scale = 'raw') => req<{ family: string; source: 'seed'; features: { name: string; unit: string; kind: string; label: string }[]; rules: { name: string; rule: string }[]; members: SlopeMember[]; rose: { bin_centres_deg: number[]; counts: number[]; scale: string; caption: string; groups: Record<string, Record<string, unknown>> } }>(`/api/interrogation/families/${encodeURIComponent(key)}/slope?scale=${scale}`)
+export const getFamilyMembers = (key: string, snippets = true) => req<{ family: string; source: 'seed'; members: SeedMember[]; capped?: CappedCounts }>(`/api/interrogation/families/${encodeURIComponent(key)}/members?snippets=${snippets}`)
+export const getFamilySlope = (key: string, scale = 'raw') => req<{ family: string; source: 'seed'; features: { name: string; unit: string; kind: string; label: string }[]; rules: { name: string; rule: string }[]; members: SlopeMember[]; rose: RosePayload }>(`/api/interrogation/families/${encodeURIComponent(key)}/slope?scale=${scale}`)
 export interface Dist { n: number; counts: number[]; edges: number[]; median: number | null; iqr: [number, number] | null; min?: number; max?: number }
 /* fixup-d: the steepest-slope rose across the events of one stored sequence (Working/interrogation/sequences.py) */
 export interface SequenceRow { id: number; sequence_key: string; origin: 'machine' | 'human'; recording_id: number | null; channel: number | null; n_events: number | null; source_kind: string | null; source_file: string | null; fs: number | null; n_members: number }

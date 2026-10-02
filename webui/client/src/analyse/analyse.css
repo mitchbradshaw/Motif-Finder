@@ -238,3 +238,5 @@
 .bp-next { padding: 12px 14px; }
 .bp-next .acts { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
 .bp-next .s { font-family: var(--font-mono); font-size: 10.5px; color: var(--muted); margin-top: 4px; }
+/* fixup-h: a strip's label never spills onto the row beneath it */
+.bp-strip .lbl { overflow: hidden; max-height: 100%; }

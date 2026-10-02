@@ -4,9 +4,8 @@
    Shared by the Analyse block page (interrogation.event_shape / interrogation.intervals) and the
    Interrogation › Sequence page. Draws only what the payload carries. */
 import { useState } from 'react'
-import type { FeatureTable as FeatureTableT, IntervalStats, MeasureRule, RosePayload, SpansetPayload } from '../api'
-
-const B = '#0a84ff', BL = '#bfdcff', G = '#9ca3af', AM = '#e8900c'
+import type { FeatureTable as FeatureTableT, IntervalStats, MeasureRule, SpansetPayload } from '../api'
+import { Rose } from '../kit'
 
 const UNIT: [RegExp, string][] = [[/_mv_s$/, 'mV/s'], [/_mv$/, 'mV'], [/_s$/, 's']]
 export function unitOf(col: string): string { for (const [re, u] of UNIT) if (re.test(col)) return u; return '' }
@@ -72,55 +71,6 @@ function FragmentRule({ r }: { r: MeasureRule }) {
   return <><dt className="mono" style={{ fontWeight: 600 }}>{r.name.replace(/_/g, ' ')}</dt><dd style={{ margin: 0 }}>{r.rule}</dd></>
 }
 
-/** The rose: gradients.rose_data's own 18 bins over the falling quadrant (0° … −90°), each a wedge whose
-    length is its count; every event a dot at its angle; the circular mean as an arrow. */
-export function RoseFan({ rose, highlight, testid = 'rose-fan' }: { rose: RosePayload; highlight?: number | null; testid?: string }) {
-  const W = 300, H = 230, cx = 24, cy = 20, R = 190
-  const max = Math.max(1, ...rose.counts)
-  const at = (deg: number, r: number) => { const a = (deg * Math.PI) / 180; return [cx + r * Math.cos(a), cy - r * Math.sin(a)] as const }
-  const half = rose.bin_width_deg / 2
-  const stats = rose.n ? [
-    ['events', String(rose.n)],
-    ['mean direction', rose.mean_deg !== null ? `${rose.mean_deg.toFixed(1)}°` : '—'],
-    ['resultant R', rose.resultant_length !== null ? rose.resultant_length.toFixed(3) : '—'],
-    ['circular sd', rose.circular_sd_deg !== null ? `${rose.circular_sd_deg.toFixed(1)}°` : '—'],
-    ['uniform over the quadrant, KS p', rose.uniformity_p !== null ? rose.uniformity_p.toPrecision(2) : '— (n < 3)'],
-  ] : []
-  return (
-    <div data-testid={testid} style={{ display: 'flex', gap: 16, alignItems: 'flex-start', flexWrap: 'wrap' }}>
-      <svg width={W} height={H} viewBox={`0 0 ${W} ${H}`} role="img" aria-label={`rose of ${rose.n} steepest-slope angles`} data-render="rose">
-        <path d={`M ${at(0, R).join(' ')} A ${R} ${R} 0 0 1 ${at(-90, R).join(' ')}`} fill="none" stroke="#e5e7eb" />
-        {[0, -15, -30, -45, -60, -75, -90].map(s => {
-          const [x2, y2] = at(s, R); const [lx, ly] = at(s, R + 12)
-          return <g key={s}><line x1={cx} y1={cy} x2={x2} y2={y2} stroke={s === -45 ? '#c8ccd4' : '#f0f1f3'} /><text x={lx} y={ly + 3} fontSize={9} fill={G} textAnchor={s <= -75 ? 'middle' : 'start'}>{s === 0 ? '0°' : `−${-s}°`}</text></g>
-        })}
-        {rose.counts.map((c, i) => {
-          if (!c) return null
-          const mid = rose.bin_centres_deg[i]; const r = R * (c / max)
-          const [x1, y1] = at(mid + half, r); const [x2, y2] = at(mid - half, r)
-          return <path key={i} d={`M ${cx} ${cy} L ${x1} ${y1} A ${r} ${r} 0 0 1 ${x2} ${y2} Z`} fill={BL} stroke={B} strokeWidth={0.8}><title>{`${(mid + half).toFixed(0)}° … ${(mid - half).toFixed(0)}° · ${c} event${c === 1 ? '' : 's'}`}</title></path>
-        })}
-        {rose.angles_deg.map((a, k) => {
-          const [x, y] = at(a, R - 6); const on = highlight !== undefined && highlight !== null && rose.event_index[k] === highlight
-          return <circle key={k} cx={x} cy={y} r={on ? 4.5 : 2.6} fill={on ? AM : B} fillOpacity={on ? 1 : 0.7}><title>{`event ${rose.event_index[k] + 1} · ${a.toFixed(1)}°${rose.slopes_mv_s ? ` · ${rose.slopes_mv_s[k].toFixed(3)} mV/s` : ''}`}</title></circle>
-        })}
-        {rose.mean_deg !== null && (() => { const [x, y] = at(rose.mean_deg, R * 0.9); return <line x1={cx} y1={cy} x2={x} y2={y} stroke={AM} strokeWidth={2} data-testid="rose-mean" /> })()}
-      </svg>
-      <div style={{ fontSize: 12, minWidth: 200, maxWidth: 320 }}>
-        <div style={{ fontWeight: 600, marginBottom: 4 }}>{rose.caption || 'no events with a measured fall'}</div>
-        {stats.map(([k, v]) => <div key={k} className="mono" style={{ display: 'flex', justifyContent: 'space-between', gap: 12 }}><span className="muted">{k}</span><span>{v}</span></div>)}
-        {Object.keys(rose.groups).length > 1 && (
-          <div style={{ marginTop: 6 }}>
-            {Object.entries(rose.groups).map(([k, g]) => <div key={k} className="mono small">{k}: n {g.n} · mean {g.mean_deg?.toFixed(1) ?? '—'}° · R {g.resultant_length?.toFixed(2) ?? '—'}</div>)}
-          </div>
-        )}
-        {rose.note && <div className="muted small" style={{ marginTop: 6 }}>{rose.note}</div>}
-        <div className="muted small" style={{ marginTop: 4 }}>angle = arctan(steepest slope / reference) · scale {rose.scale} · bins {rose.bin_width_deg.toFixed(0)}° · KS against uniform over the quadrant, not Rayleigh (a Rayleigh test is significant by construction when every angle is in one quadrant)</div>
-      </div>
-    </div>
-  )
-}
-
 export function IntervalStatsTable({ stats, testid = 'interval-stats' }: { stats: Record<string, IntervalStats>; testid?: string }) {
   const cols: [keyof IntervalStats, string][] = [['n_events', 'events'], ['n_intervals', 'intervals'], ['median_s', 'median s'], ['mean_s', 'mean s'], ['min_s', 'min s'], ['max_s', 'max s'], ['cv', 'CV (ddof=1)'], ['r2_trend', 'R² trend'], ['drift_ratio', 'drift (last/first third)']]
   return (
@@ -141,7 +91,7 @@ export function EventFeaturesPanel({ p }: { p: SpansetPayload }) {
         <div className="bp-card-title"><h3 style={{ fontSize: 13 }}>Per-event measures</h3><span className="sg">{p.n} events · {p.features.n_columns} columns · one row per span</span></div>
         <FeatureTable table={p.features} />
       </div>
-      {p.rose && <div><div className="bp-card-title"><h3 style={{ fontSize: 13 }}>Steepest slope, each event as one angle</h3></div><RoseFan rose={p.rose} /></div>}
+      {p.rose && <div><div className="bp-card-title"><h3 style={{ fontSize: 13 }}>Steepest slope, each event as one angle</h3></div><Rose rose={p.rose} testid="rose-fan" /></div>}
       {p.interval_stats && <div><div className="bp-card-title"><h3 style={{ fontSize: 13 }}>Inter-event intervals</h3><span className="sg">per group, never pooled</span></div><IntervalStatsTable stats={p.interval_stats} /></div>}
       {p.rules && <RulesList rules={p.rules} />}
     </div>

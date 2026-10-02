@@ -10,6 +10,9 @@ export { Table, type Column, type SortState, type TableProps } from './Table'
 export * from './ChainRibbon'
 export * from './glyphs'
 export * from './plots'
+export { Rose, type RoseData } from './Rose'
+export { EventSlideshow, EventTrace, type SlideEvent, type SlideTrace, type SlideSort } from './Slideshow'
+export { ScaleBar, niceBar, fmtBar } from '../charts/ScaleBar'
 export * from './icons'
 export {
   useQueryState, useQueryFlag, usePagedList, copyToClipboard, fmtInt, fmtMv, fmtPct, useControllable, sampleIndices,

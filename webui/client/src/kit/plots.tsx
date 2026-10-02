@@ -2,7 +2,7 @@
  * Trace, MiniTrace, LineChart, Histogram, Bars, Scatter, Heatmap, BandStrip, NullBand, SmallMultiples.
  * Every plot sizes to its container width unless `width` is given. */
 import { scaleLinear } from 'd3'
-import { useMemo, useState, type CSSProperties, type ReactNode } from 'react'
+import { useEffect, useMemo, useState, type CSSProperties, type ReactNode } from 'react'
 import { EnvelopePath, SpanBands, TimeAxis, type BandKind } from '../charts/primitives'
 import { makeX } from '../charts/scale'
 import { measuredDomain } from '../charts/domain'
@@ -42,9 +42,10 @@ function XAxisNum({ x, y, n = 6, format, label, tickValues }: { x: Lin; y: numbe
     </g>
   )
 }
-function YAxisNum({ y, x, n = 4, format, label, grid, width }: { y: Lin; x: number; n?: number; format?: (v: number) => string; label?: string; grid?: boolean; width?: number }) {
+function YAxisNum({ y, x, n = 4, format, label, grid, width, integer }: { y: Lin; x: number; n?: number; format?: (v: number) => string; label?: string; grid?: boolean; width?: number; integer?: boolean }) {
   const [d0, d1] = y.domain()
-  const tv = ticks(d0, d1, n)
+  // a count axis has no half counts: `ticks` would offer 0.5 steps under a small maximum, and they print as "2 2 1 1 0"
+  const tv = ticks(d0, d1, n).filter(v => !integer || Number.isInteger(v))
   const step = tv.length > 1 ? Math.abs(tv[1] - tv[0]) : 1
   return (
     <g>
@@ -284,9 +285,11 @@ export interface HistogramProps extends TestIdProps {
   dots?: { x: number; colour?: string }[]
   highlightBin?: (bin: HistBin, i: number) => boolean; highlightColour?: string
   height?: number; width?: number; xLabel?: string; yLabel?: string; format?: (v: number) => string; label?: string; style?: CSSProperties; showCounts?: boolean
+  /** how many x ticks to ask for (default 5); a narrow histogram wants fewer or its labels collide */
+  xTicks?: number
 }
 /** Bars over bins, optional second series, threshold line, labelled markers with CI bands, and dots (models-3 null plot). */
-export function Histogram({ values, bins, nBins = 20, domain, colour = '#d1d5db', overlay, threshold, markers = [], dots = [], highlightBin, highlightColour = 'var(--blue)', height = 160, width, xLabel, yLabel, format, label, style, showCounts = true, ...t }: HistogramProps) {
+export function Histogram({ values, bins, nBins = 20, domain, colour = '#d1d5db', overlay, threshold, markers = [], dots = [], highlightBin, highlightColour = 'var(--blue)', height = 160, width, xLabel, yLabel, format, label, style, showCounts = true, xTicks = 5, ...t }: HistogramProps) {
   const [ref, w] = useWidth(width)
   const dom: [number, number] = domain ?? (bins?.length ? [bins[0].x0, bins[bins.length - 1].x1] : extent([values ?? [], overlay?.values ?? []]))
   const b = bins ?? binValues(values ?? [], dom, nBins)
@@ -299,14 +302,14 @@ export function Histogram({ values, bins, nBins = 20, domain, colour = '#d1d5db'
   return (
     <div ref={ref} className="k-plot" style={style} data-testid={tid(t)}>
       {w > 0 && <svg width={w} height={height} role="img" aria-label={label ?? `histogram, ${b.length} bins`}>
-        {showCounts && <YAxisNum y={y} x={padL - 6} n={3} format={v => fmtInt(v)} label={yLabel} />}
+        {showCounts && <YAxisNum y={y} x={padL - 6} n={3} format={v => fmtInt(v)} label={yLabel} integer />}
         {markers.filter(m => m.band).map((m, i) => <rect key={`b${i}`} x={x(m.band![0])} width={Math.max(1, x(m.band![1]) - x(m.band![0]))} y={padT} height={plotBottom - padT} fill={m.colour ?? 'var(--green)'} opacity={0.14} />)}
         {b.map((d, i) => { const hl = highlightBin?.(d, i); return <rect key={i} x={x(d.x0) + 0.5} width={Math.max(0.5, x(d.x1) - x(d.x0) - 1)} y={y(d.count)} height={plotBottom - y(d.count)} fill={hl ? highlightColour : colour}><title>{`${fmtNum(d.x0, d.x1 - d.x0)}–${fmtNum(d.x1, d.x1 - d.x0)}: ${d.count}`}</title></rect> })}
         {ob && ob.map((d, i) => <rect key={`o${i}`} x={x(d.x0) + 0.5} width={Math.max(0.5, x(d.x1) - x(d.x0) - 1)} y={y(d.count)} height={plotBottom - y(d.count)} fill={overlay!.colour} opacity={0.55} />)}
         {threshold && <g><line x1={x(threshold.value)} x2={x(threshold.value)} y1={padT - 4} y2={plotBottom} stroke={threshold.colour ?? 'var(--amber)'} strokeWidth={1.5} strokeDasharray="4 3" />{threshold.label && <text x={x(threshold.value) + 4} y={padT + 6} style={{ fill: threshold.colour ?? 'var(--amber)' }}>{threshold.label}</text>}</g>}
         {markers.map((m, i) => <g key={i}><line x1={x(m.x)} x2={x(m.x)} y1={padT - 6} y2={plotBottom} stroke={m.colour ?? 'var(--text)'} strokeWidth={1.5} />{m.label && <text x={x(m.x) + (i % 2 ? 4 : -4)} y={padT - 7} textAnchor={i % 2 ? 'start' : 'end'} style={{ fill: m.colour ?? 'var(--text)' }}>{m.label}</text>}</g>)}
         {dots.map((d, i) => <circle key={`d${i}`} cx={x(d.x)} cy={plotBottom + 9} r={3.5} fill={d.colour ?? '#4b5563'} />)}
-        <XAxisNum x={x} y={height - (xLabel ? 32 : 22) + (dots.length ? 14 : 0)} format={format} label={xLabel} n={5} />
+        <XAxisNum x={x} y={height - (xLabel ? 32 : 22) + (dots.length ? 14 : 0)} format={format} label={xLabel} n={xTicks} />
       </svg>}
       {w === 0 && <div style={{ height }} />}
       {overlay && <Legend items={[{ label: label ?? 'values', colour }, { label: overlay.label, colour: overlay.colour }]} />}
@@ -522,45 +525,74 @@ export function NullBand({ values, p5, p95, p50, x: xs, colour = 'var(--trace-bl
 /* ================= SmallMultiples ================= */
 export interface SmallMultiplesProps<T> extends TestIdProps {
   items: T[]
-  /** Render one cell. `yDomain` is shared across ALL items (never per cell). */
+  /** Render one cell. `yDomain` is the shared domain, or — with `domain="per-panel"` — this cell's own. */
   render: (item: T, ctx: { yDomain: [number, number]; index: number }) => ReactNode
-  /** Values used to compute the shared y domain (ignored when `yDomain` is given). */
+  /** Values used to compute the y domain (ignored when `yDomain` is given). */
   getValues?: (item: T) => number[]; yDomain?: [number, number]
+  /** 'shared' (the default): one y domain across ALL items. 'per-panel' (fixup-h, Q15): every cell is drawn on
+   *  a domain measured from its own values (`charts/domain.ts`), and the cell is expected to draw a `ScaleBar`
+   *  — a shared y draws most of a scale-invariant family as flat lines. */
+  domain?: 'shared' | 'per-panel'
   /** Spec P8: at most `cap` cells at once (default 10). */
   cap?: number; columns?: number; title?: ReactNode; unitLabel?: string
-  onSelect?: (item: T, index: number) => void; selectedIndex?: number | null; cellStyle?: CSSProperties; style?: CSSProperties
+  /** Open on the seeded sample rather than on page 1 when there are more items than fit (for hundreds of
+   *  events a shuffle is the better default than in-order paging). */
+  defaultSampled?: boolean
+  /** Controlled selection DRIVES THE PAGE: when the selected item is not among the cells shown, the grid goes
+   *  to the page that holds it (and leaves the sample). Arrow keys move the selection through `items`. */
+  onSelect?: (item: T, index: number) => void; selectedIndex?: number | null
+  cellClass?: (item: T, index: number) => string | undefined
+  /** extra controls in the head row (a sort dropdown, an info tip) */
+  headExtra?: ReactNode
+  cellStyle?: CSSProperties; style?: CSSProperties
 }
-/** Grid of child plots capped at `cap` with "‹ 1–10 of 112 ›" paging and a seeded "resample" (P8), sharing one y domain. */
-export function SmallMultiples<T>({ items, render, getValues, yDomain, cap = 10, columns = 5, title, unitLabel = 'shared y · mV', onSelect, selectedIndex, cellStyle, style, ...t }: SmallMultiplesProps<T>) {
+/** Grid of child plots capped at `cap` with "‹ 1–10 of 112 ›" paging and a seeded "resample" (P8). */
+export function SmallMultiples<T>({ items, render, getValues, yDomain, domain = 'shared', cap = 10, columns = 5, title, unitLabel, defaultSampled, onSelect, selectedIndex, cellClass, headExtra, cellStyle, style, ...t }: SmallMultiplesProps<T>) {
   const [page, setPage] = useState(1)
-  const [seed, setSeed] = useState<number | null>(null)
+  const [seed, setSeed] = useState<number | null>(defaultSampled && items.length > cap ? 1 : null)
   const dom = useMemo<[number, number]>(() => {
     if (yDomain) return yDomain
-    if (!getValues) return [-1, 1]
+    if (!getValues || domain === 'per-panel') return [-1, 1]
     const [a, b] = extent(items.map(getValues)); const m = (b - a) * 0.06 || 0.1
     return [a - m, b + m]
-  }, [items, getValues, yDomain])
+  }, [items, getValues, yDomain, domain])
   const pageCount = Math.max(1, Math.ceil(items.length / cap))
   const p = Math.min(page, pageCount)
   const idx = seed !== null ? sampleIndices(items.length, cap, seed) : Array.from({ length: Math.min(cap, Math.max(0, items.length - (p - 1) * cap)) }, (_, i) => (p - 1) * cap + i)
   const over = items.length > cap
+  // selection drives the page (the pattern of review/ClusterView): a selection made elsewhere — a band clicked
+  // on the plot above — brings its cell into view rather than leaving the grid on a page that does not hold it
+  const shown = selectedIndex != null && idx.includes(selectedIndex)
+  useEffect(() => {
+    if (selectedIndex == null || selectedIndex < 0 || selectedIndex >= items.length || shown) return
+    setSeed(null); setPage(Math.floor(selectedIndex / cap) + 1)
+  }, [selectedIndex, shown, items.length, cap])
+  const domOf = (item: T): [number, number] => domain === 'per-panel' && getValues && !yDomain ? measuredDomain(getValues(item)) ?? [-1, 1] : dom
+  const move = (d: 1 | -1) => {
+    if (!onSelect || !items.length) return
+    const cur = selectedIndex != null && selectedIndex >= 0 ? selectedIndex : idx[0] - d
+    const j = Math.max(0, Math.min(items.length - 1, cur + d))
+    onSelect(items[j], j)
+  }
   return (
-    <div className="k-sm" style={style} data-testid={tid(t)}>
+    <div className="k-sm" style={style} data-testid={tid(t)} data-domain-mode={domain}>
       <div className="k-sm-head">
         {title && <span className="t">{title}</span>}
-        <span>{unitLabel}</span>
+        <span>{unitLabel ?? (domain === 'per-panel' ? 'each panel on its own y · read sizes off the scale bars' : 'shared y · mV')}</span>
+        {headExtra}
         <span className="k-spacer" />
         {seed !== null
           ? <><span>{Math.min(cap, items.length)} of {fmtInt(items.length)} sampled</span><Button size="sm" variant="ghost" onClick={() => setSeed(null)} testid={tid(t) ? `${tid(t)}-pages` : undefined}>show in order</Button></>
           : over && <Pager format="range" page={p} pageCount={pageCount} total={items.length} pageSize={cap} onPage={setPage} label="page" testid={tid(t) ? `${tid(t)}-pager` : undefined} />}
         {over && <Button size="sm" variant="link" icon="shuffle" onClick={() => setSeed(s => (s ?? 0) + 1)} testid={tid(t) ? `${tid(t)}-resample` : undefined}>resample</Button>}
       </div>
-      <div className="k-sm-grid" style={{ gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))` }}>
+      <div className="k-sm-grid" style={{ gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))` }}
+        onKeyDown={onSelect ? e => { if (e.key === 'ArrowRight') { e.preventDefault(); move(1) } else if (e.key === 'ArrowLeft') { e.preventDefault(); move(-1) } } : undefined}>
         {idx.map(i => (
-          <div key={i} className={cx('k-sm-cell', onSelect && 'clickable', selectedIndex === i && 'on')} style={cellStyle}
+          <div key={i} className={cx('k-sm-cell', onSelect && 'clickable', selectedIndex === i && 'on', cellClass?.(items[i], i))} style={cellStyle} data-index={i}
             onClick={onSelect ? () => onSelect(items[i], i) : undefined} tabIndex={onSelect ? 0 : undefined} role={onSelect ? 'button' : undefined}
             onKeyDown={onSelect ? e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onSelect(items[i], i) } } : undefined}>
-            {render(items[i], { yDomain: dom, index: i })}
+            {render(items[i], { yDomain: domOf(items[i]), index: i })}
           </div>
         ))}
       </div>
