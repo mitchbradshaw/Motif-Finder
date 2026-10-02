@@ -1,0 +1,249 @@
+{
+  "runtime_dir": "C:\\Users\\mmebr\\Documents\\CNN\\webui\\runtime\\20261003-091114",
+  "db_path": "C:\\Users\\mmebr\\Documents\\CNN\\webui\\runtime\\20261003-091114\\annotations.sqlite",
+  "adjudications": [
+    {
+      "id": 1,
+      "detection_id": 1208,
+      "verdict": "interesting",
+      "created_at": "2026-10-02T23:13:29.119771+00:00",
+      "run_id": 84,
+      "recording_id": 1,
+      "run_group_id": 3,
+      "surrogate_of_run_id": null,
+      "start_idx": 298754,
+      "end_idx": 298766,
+      "score": 8.43659782409668
+    },
+    {
+      "id": 2,
+      "detection_id": 102,
+      "verdict": "interesting",
+      "created_at": "2026-10-02T23:23:45.413685+00:00",
+      "run_id": 32,
+      "recording_id": 385,
+      "run_group_id": null,
+      "surrogate_of_run_id": null,
+      "start_idx": 2333,
+      "end_idx": 2393,
+      "score": 0.09669756889343262
+    }
+  ],
+  "review_queues": [
+    {
+      "id": 1,
+      "name": "Library - extract events",
+      "source_kind": "extract-events",
+      "source_ref": null,
+      "unit": "sequence",
+      "writes_to": "annotations",
+      "blind": 0,
+      "cap": null,
+      "filters_json": null,
+      "note": "Sequences catalogued with needs_extraction = 1 (Prompt 03). Mark the individual events; the sequence loses the flag when the reviewer says it is complete.",
+      "created_at": "2026-09-22T00:29:43+00:00",
+      "closed_at": null
+    },
+    {
+      "id": 2,
+      "name": "drop_detection_v1 - Mushroom_260720 CH14",
+      "source_kind": "discovery-run",
+      "source_ref": null,
+      "unit": "detection",
+      "writes_to": "adjudications",
+      "blind": 0,
+      "cap": null,
+      "filters_json": "{\"run_id\": 32}",
+      "note": "Template application of drop_detection_v1 to Mushroom_260720_0509_4hrs_CH14_fs1.mat (run 32, recording 385). Pointed at the run, not a run group: this database has no run_groups.",
+      "created_at": "2026-09-22T00:29:43+00:00",
+      "closed_at": null
+    },
+    {
+      "id": 3,
+      "name": "mp_threshold · run #80",
+      "source_kind": "discovery-run",
+      "source_ref": null,
+      "unit": "detection",
+      "writes_to": "adjudications",
+      "blind": 0,
+      "cap": null,
+      "filters_json": "{\"run_id\": 80}",
+      "note": null,
+      "created_at": "2026-10-02T23:12:32+00:00",
+      "closed_at": null
+    },
+    {
+      "id": 4,
+      "name": "Discovery · mp_threshold",
+      "source_kind": "discovery-run",
+      "source_ref": null,
+      "unit": "detection",
+      "writes_to": "adjudications",
+      "blind": 0,
+      "cap": null,
+      "filters_json": "{\"run_ids\": [84, 86]}",
+      "note": "Discovery run 'mp_threshold' (mp_threshold) · session 2 · runs 84, 86",
+      "created_at": "2026-10-02T23:13:25+00:00",
+      "closed_at": null
+    },
+    {
+      "id": 5,
+      "name": "Discovery · smoke_seed",
+      "source_kind": "seed-search",
+      "source_ref": null,
+      "unit": "detection",
+      "writes_to": "adjudications",
+      "blind": 0,
+      "cap": null,
+      "filters_json": "{\"run_ids\": [88, 90]}",
+      "note": "Discovery run 'smoke_seed' (smoke_seed) · session 2 · runs 88, 90",
+      "created_at": "2026-10-02T23:13:39+00:00",
+      "closed_at": null
+    }
+  ],
+  "run_groups_of_the_queues": {
+    "3": [
+      {
+        "id": 84,
+        "recording_id": 1,
+        "surrogate_of_run_id": null,
+        "superseded_at": null,
+        "detections": 1
+      },
+      {
+        "id": 85,
+        "recording_id": 1,
+        "surrogate_of_run_id": 84,
+        "superseded_at": null,
+        "detections": 1
+      },
+      {
+        "id": 86,
+        "recording_id": 2,
+        "surrogate_of_run_id": null,
+        "superseded_at": null,
+        "detections": 2
+      },
+      {
+        "id": 87,
+        "recording_id": 2,
+        "surrogate_of_run_id": 86,
+        "superseded_at": null,
+        "detections": 0
+      }
+    ],
+    "4": [
+      {
+        "id": 88,
+        "recording_id": 1,
+        "surrogate_of_run_id": null,
+        "superseded_at": null,
+        "detections": 67
+      },
+      {
+        "id": 89,
+        "recording_id": 1,
+        "surrogate_of_run_id": 88,
+        "superseded_at": null,
+        "detections": 68
+      },
+      {
+        "id": 90,
+        "recording_id": 2,
+        "surrogate_of_run_id": null,
+        "superseded_at": null,
+        "detections": 65
+      },
+      {
+        "id": 91,
+        "recording_id": 2,
+        "surrogate_of_run_id": 90,
+        "superseded_at": null,
+        "detections": 68
+      }
+    ]
+  },
+  "descriptor_in_state_json": [
+    [
+      1,
+      false
+    ],
+    [
+      2,
+      false
+    ]
+  ],
+  "smoke": {
+    "screenshots": 608,
+    "failures": [
+      "discovery: discovery.runs--default renders — missing ['[data-testid=\"browser-trace\"] svg']",
+      "settings: settings.datasets--import-check-fails-fs-unknown: TimeoutError: Locator.click: Timeout 30000ms exceeded.\nCall log:\n  - waiting for locator(\"[data-testid=\\\"run-check\\\"]\").first\n    - locator resolved to <button disabled type=\"button\" class=\"k-btn\" data-testid=\"run-check\">Check</button>\n  - attempting click action\n    2 × waiting for element to be visible, enabled and stable\n      - element is not enabled\n    - retrying click action\n    - waiting 20ms\n    2 × waiting for element to be visible, enabled and stable\n      - element is not enabled\n    - retrying click action\n      - waiting 100ms\n    57 × waiting for element to be visible, enabled and stable\n       - element is not enabled\n     - retrying click action\n       - waiting 500ms\n",
+      "settings: settings.datasets--import-check-passes-MJu26a: TimeoutError: Locator.click: Timeout 30000ms exceeded.\nCall log:\n  - waiting for locator(\"[data-testid=\\\"run-check\\\"]\").first\n    - locator resolved to <button disabled type=\"button\" class=\"k-btn\" data-testid=\"run-check\">Check</button>\n  - attempting click action\n    2 × waiting for element to be visible, enabled and stable\n      - element is not enabled\n    - retrying click action\n    - waiting 20ms\n    2 × waiting for element to be visible, enabled and stable\n      - element is not enabled\n    - retrying click action\n      - waiting 100ms\n    57 × waiting for element to be visible, enabled and stable\n       - element is not enabled\n     - retrying click action\n       - waiting 500ms\n",
+      "settings: settings.models-registration--check-a-joblib: TimeoutError: Locator.click: Timeout 30000ms exceeded.\nCall log:\n  - waiting for locator(\"[data-testid=\\\"check-model-catalogue_classifier_16750c76ade64016.joblib\\\"]\").first\n",
+      "settings: settings.storage-backups--scan-check-a-matrix-profile: TimeoutError: Locator.click: Timeout 30000ms exceeded.\nCall log:\n  - waiting for locator(\"[data-testid=\\\"scan-check-mp_v2_Mushroom_260720_0509_4hrs_CH14_fs1_CH0_WIN1min.npz\\\"]\").first\n"
+    ],
+    "browser_errors": [],
+    "fixup_l": {
+      "toast": "3 unjudged in 'Discovery · mp_threshold' · verdicts write adjudications\nOpen Review",
+      "queue": {
+        "id": 4,
+        "name": "Discovery · mp_threshold",
+        "source_kind": "discovery-run",
+        "writes_to": "adjudications",
+        "unit": "detection",
+        "total": 3,
+        "judged": 0,
+        "remaining": 3,
+        "filters": {
+          "run_ids": [
+            84,
+            86
+          ]
+        }
+      },
+      "adjudications_written": [
+        {
+          "id": 1,
+          "detection_id": 1208,
+          "verdict": "interesting",
+          "created_at": "2026-10-02T23:13:29.119771+00:00",
+          "run_id": 84,
+          "surrogate_of_run_id": null
+        }
+      ],
+      "score_row_before": "mp_threshold\n\t3\t0\t0\t0\tno detections in the reviewed overlap\t0.00 over 2 h\t1 / 2\t3.0×",
+      "score_row_after": "mp_threshold\n\t3\t0\t0\t0\tno detections in the reviewed overlap\t0.00 over 2 h\t1 / 2\t3.0×",
+      "seed_queue": {
+        "id": 5,
+        "name": "Discovery · smoke_seed",
+        "source_kind": "seed-search",
+        "source_ref": null,
+        "unit": "detection",
+        "writes_to": "adjudications",
+        "blind": 0,
+        "cap": null,
+        "verdict_options": null,
+        "filters_json": "{\"run_ids\": [88, 90]}",
+        "created_at": "2026-10-02T23:13:39+00:00",
+        "closed_at": null,
+        "note": "Discovery run 'smoke_seed' (smoke_seed) · session 2 · runs 88, 90",
+        "filters": {
+          "run_ids": [
+            88,
+            90
+          ]
+        },
+        "total": 110,
+        "judged": 0,
+        "remaining": 110,
+        "pace_s": null
+      }
+    },
+    "pass_to_review": {
+      "label": "→ Pass 2 to Review",
+      "headline": "last run · 2 spans · mean 9.0 s",
+      "landed": "#/review/queue/3/1206",
+      "progress": "0 / 2\npace not yet measured"
+    }
+  }
+}
