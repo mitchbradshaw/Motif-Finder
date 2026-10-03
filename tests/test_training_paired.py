@@ -299,6 +299,21 @@ def test_propose_clusters_the_training_windows_only(store):
     assert a["suggested_k"] in (2, 3, 4)
 
 
+def test_the_draft_cut_ignores_a_cut_whose_second_cluster_is_an_outlier_speck(store):
+    # measured on M2_aug (2026-10-03): Ward splits off single-window outliers
+    # first, and k = 2 (5,266 + 1) scored silhouette 0.95 — a perfect score for
+    # a cut that separates nothing
+    tmp, db, conn = store
+    tp = _tp()
+    ps = _pooled(conn)
+    first_train = int(np.flatnonzero(ps.table["role"].to_numpy() == "train")[0])
+    ps.features.iloc[first_train] = 1e6
+    a = tp.propose(ps, k_range=(2, 4))
+    k2 = a["by_k"][0]
+    assert k2["k"] == 2 and k2["effective_k"] == 1 and k2["small_clusters"]
+    assert a["suggested_k"] != 2
+
+
 def test_a_recipe_translation_table_is_what_scores_arm_b(store):
     tmp, db, conn = store
     tp = _tp()

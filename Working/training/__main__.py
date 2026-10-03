@@ -171,8 +171,10 @@ def main(argv=None):
             lo, hi = (_ints(a.k_range)[0], _ints(a.k_range)[-1])
             prop = tp.propose(ps, linkage=a.linkage, k_range=(lo, hi))
             print(f"{prop['n_windows_clustered']:,} training windows clustered ({a.linkage}); {prop['note']}")
+            print(f"draft cut rule: {prop['suggestion_rule']}")
             for r in prop["by_k"]:
-                print(f"  k {r['k']:2d} silhouette {_f(r['silhouette'])} sizes {r['sizes']}")
+                print(f"  k {r['k']:2d} silhouette {_f(r['silhouette'])} sizes {r['sizes']} · effective k "
+                      f"{r['effective_k']}" + (f" (specks: clusters {r['small_clusters']})" if r["small_clusters"] else ""))
                 for p_ in r["purity"]:
                     c = r["contingency"][p_["cluster"] - 1]
                     print(f"      cluster {p_['cluster']}: not_interesting {c[0]:5d} · interesting {c[1]:5d} → "

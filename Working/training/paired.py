@@ -57,6 +57,8 @@ EXAM_I, EXAM_II, EXAM_III = "i_later_block", "ii_unseen_channels", "iii_held_out
 LOCAL_LIMIT_S = 2 * 3600          # spec §7b.1: local when the estimate is <= 2 h
 TEST_WARN_BELOW = 50              # spec §7b.1: warn below 50 test windows per class
 IMPURE_BELOW = 0.75               # a cluster whose majority human class is < 75 % is flagged impure
+SMALL_CLUSTER_MIN = 10            # a cluster under max(10, 0.5 % of the training windows) is an outlier speck
+SMALL_CLUSTER_FRAC = 0.005
 
 TILT_NOTE = ("Yardstick (A) scores both arms against the human verdicts, so it is marked in arm A's own language "
              "and is tilted toward it; arm B is judged through a translation table fixed before any test score.")
@@ -230,7 +232,14 @@ def _silhouette(X, labels, seed=0):
     if len(np.unique(labels)) < 2 or len(labels) < 3:
         return None
     n = len(labels)
-    return float(silhouette_score(X, labels, sample_size=(min(n, 4000) if n > 4000 else None), random_state=seed))
+    if n <= 8000:
+        return float(silhouette_score(X, labels))
+    # beyond that, a stratified sample: a random one can miss a small cluster
+    # entirely (Ward splits off outlier groups of a handful of windows)
+    rng = np.random.default_rng(seed)
+    pick = np.concatenate([rng.choice(np.flatnonzero(labels == c), max(2, int(8000 * (labels == c).mean())), replace=True)
+                           for c in np.unique(labels)])
+    return float(silhouette_score(X[pick], labels[pick]))
 
 
 def propose(pooled, linkage="ward", k_range=(2, 8)):
@@ -240,20 +249,28 @@ def propose(pooled, linkage="ward", k_range=(2, 8)):
     feats = _Features(pooled.features, train)
     Z = _linkage(feats.X_scaled_train, linkage)
     human = pooled.table["label"].to_numpy()[train]
+    small_below = max(SMALL_CLUSTER_MIN, int(np.ceil(SMALL_CLUSTER_FRAC * len(human))))
     by_k = []
     for k in range(int(k_range[0]), int(k_range[1]) + 1):
         if k >= len(human):
             break
         lab = _cut(Z, k)
         cont = _contingency(lab, human, k)
-        by_k.append({"k": k, "silhouette": _silhouette(feats.X_scaled_train, lab),
-                     "sizes": {str(c): int((lab == c).sum()) for c in range(1, k + 1)},
+        sizes = {str(c): int((lab == c).sum()) for c in range(1, k + 1)}
+        small = [int(c) for c, n in sizes.items() if n < small_below]
+        by_k.append({"k": k, "silhouette": _silhouette(feats.X_scaled_train, lab), "sizes": sizes,
+                     "small_clusters": small, "effective_k": k - len(small),
                      "contingency": cont, "translation": _majority(cont), "purity": _purity(cont)})
-    scored = [r for r in by_k if r["silhouette"] is not None]
-    suggested = max(scored, key=lambda r: r["silhouette"])["k"] if scored else None
+    # Ward splits off outlier specks first; a cut whose "clusters" are one big
+    # group and a few specks scores a near-perfect silhouette and means nothing.
+    # The draft cut is the best silhouette among cuts with >= 2 real clusters.
+    scored = [r for r in by_k if r["silhouette"] is not None and r["effective_k"] >= 2]
+    suggested = max(scored, key=lambda r: (round(r["silhouette"], 3), r["effective_k"]))["k"] if scored else None
     heights = Z[:, 2]
     return {"linkage": linkage, "n_windows_clustered": int(train.sum()), "features": feats.names,
-            "by_k": by_k, "suggested_k": suggested,
+            "by_k": by_k, "suggested_k": suggested, "small_below": small_below,
+            "suggestion_rule": (f"best silhouette among cuts with at least two clusters of {small_below}+ windows; "
+                                "smaller clusters are outlier specks and do not count"),
             "merge_heights_top": [float(h) for h in heights[-12:][::-1]],
             "note": "clusters formed on the training windows of every training channel, pooled; "
                     "silhouette is a guide, the cut is the researcher's"}
