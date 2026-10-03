@@ -21,6 +21,10 @@ motifs after stretching them all to the same length. If that assumption is wrong
   slow recovery to the next event. A sharkfin family's duration spread is not yet a safe basis for a scale claim. See
   `docs/prompts/fixup/future/N-event-extent.md`.
 
+- **Nothing surrogate-derived can reach the Library by any route** (`T`, 2026-10-03, `docs/prompts/fixup/reports/T-surrogates-one-null-never-a-detection.md`): Review's
+  promotion refuses a surrogate run's detection by name, as `insert_motif_entry` already did, and no queue serves one.
+  So an edge `V` writes can only ever be over real matches.
+
 ## Decisions already made
 
 - **Q39:** only accepted matches become members, on an explicit act.
@@ -57,3 +61,4 @@ in `future/N-event-extent.md`.
 ## Log
 
 - 2026-10-03 · grilling · file created; Q26d decided.
+- 2026-10-03 · fixup-t · promotion from Review refuses surrogate spans; no change to what RQ3 still needs.

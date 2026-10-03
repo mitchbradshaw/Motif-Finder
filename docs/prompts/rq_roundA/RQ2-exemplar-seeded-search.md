@@ -2,8 +2,8 @@
 
 **Status (2026-10-03, after `Y`): walkable end to end, not yet readable.** You can now promote an exemplar in Review,
 search for it, send the matches to Review and judge them. **The scoreboard still does not count your verdicts on those
-matches as accepted** (walk: 2 of 4 accepted, row reads *"0 interesting · 0 %"*). That is `X`'s to fix. `T` (true null
-counts) is also needed to read the result.
+matches as accepted** (walk: 2 of 4 accepted, row reads *"0 interesting · 0 %"*). That is `X`'s to fix. The null
+counts are true as of `T` (2026-10-03).
 
 ## In plain words
 
@@ -47,6 +47,16 @@ things you also agree with, and whether it finds more than it would by chance.
 - In Analyse, `detection.seed_matches` fails with `SideInputResolutionError`, because the exemplar can't be bound there.
   Not touched by `Y`; Discovery is the route.
 
+- **The null a seed run is scored against is the null it drew** (`T`, 2026-10-03, `docs/prompts/fixup/reports/T-surrogates-one-null-never-a-detection.md`):
+  - A seed run is paired with **200** surrogate runs per channel (Settings › Nulls, *Seed search*). The scoreboard row
+    reads *"null expects 0 / 200 draws"* and Compare's *× null* tile says *"over 200 draws"*. Sandbox: 34.5 s for
+    4 h × 3 channels.
+  - **The recommended cut is computed per channel**, each channel's closest match against its own null, under
+    Settings' α and correction (none / Holm / Benjamini–Hochberg). The sentence beside the cut says which, e.g.
+    *"α = 0.01 per null draw · correction: none · each of 3 channels against its own null · 2 of 3 channels have a
+    match under it"*.
+  - A surrogate run's matches can never be sent to Review, judged, promoted or counted by Explore.
+
 ## Decisions already made
 
 - **Q35:** a seed search draws **200** surrogates (Settings key). Every surface prints the count actually drawn.
@@ -64,7 +74,7 @@ things you also agree with, and whether it finds more than it would by chance.
 | ~~Explore's *Take span for Review* writes a real seed~~ | `Y`, done 2026-10-03 |
 | ~~*Open in Runs* uses the right key; the Seed page's defects~~ | `Y`, done 2026-10-03 |
 | The scoreboard counts a Review verdict on the run's own detection as accepted (`interesting` reads `adjudications`) | `X` |
-| The null count printed is the count drawn; surrogate detections are never detections | `T` |
+| ~~The null count printed is the count drawn; surrogate detections are never detections~~ | `T`, done 2026-10-03 |
 | Precision means what it says | `X` |
 | The exclusion zone is m/4 (stumpy's default), not §7.6's m/2. It is printed on the page; changing it changes every stored result | a decision; raised in `Y`'s report |
 
@@ -89,3 +99,5 @@ Follow `RESEARCH_RUNBOOK.md` Q2:
 - 2026-10-03 · fixup-y · the seed picker pages the whole Library, `S` names its entry and links to a seed search,
   Explore's take writes a seed, the Seed page's four defects are fixed. The walk reaches step 5; step 5's count waits
   on `X`.
+- 2026-10-03 · fixup-t · a seed run draws 200 paired surrogates and every surface prints that count; the cut reads
+  Settings' α and correction per channel; surrogate spans are refused by Review, promotion and Explore.

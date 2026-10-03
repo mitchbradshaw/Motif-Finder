@@ -55,7 +55,7 @@ The question is: after you remove the first two, is there still recurrence left?
 | Classify a family across channels on simultaneous windows; bins stored on edges | `W` |
 | The Q40 rule in named constants, printed on the page | `W` |
 | Recurrence counted with artifacts excluded and propagation counted once | `W` |
-| True surrogate count per channel | `T` |
+| ~~True surrogate count per channel~~ — a template run draws 20 per channel; the row prints the count drawn | `T`, done 2026-10-03 |
 
 ## How it gets answered
 
@@ -73,3 +73,5 @@ None.
 ## Log
 
 - 2026-10-03 · grilling · file created; W Parts 1–2 measured; Q40a/b/c and Q-W5 recorded.
+- 2026-10-03 · fixup-t · template runs draw 20 surrogates per channel and say so (`docs/prompts/fixup/reports/T-surrogates-one-null-never-a-detection.md`); surrogate spans can no
+  longer be classified or counted as recurrence.

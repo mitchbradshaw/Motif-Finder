@@ -69,6 +69,10 @@ which one does better on the exam.
 - **The existing MODELS/ score 0.89–0.97 on both exams**, an upper bound: their training data was never recorded and
   was very likely these labels. `fusion_cnn.pth` loads with one output class and cannot be scored.
 
+- **A surrogate run's spans are no longer counted as detections anywhere** (`T`, 2026-10-03, `docs/prompts/fixup/reports/T-surrogates-one-null-never-a-detection.md`). This
+  does not touch the paired training job or its label-shuffle null. It does mean the detection counts Explore shows
+  beside the labelled windows are the real runs' only (M2_aug: 576 → 546).
+
 ## Decisions already made (`docs/prompts/fixup/QUESTIONS.md`)
 
 - **Q41 (2026-10-03):**
@@ -139,3 +143,4 @@ None. Q-W1, Q-W2 and Q-W4 were answered 2026-10-03.
   names carry span + key; non-overlap revised to labelled-first by the researcher after measurement.
 - 2026-10-03 · fixup-ab · paired training job (`Working/training/`, CLI), window set across channels, Models › Launch /
   Results / Compare live; first real run: exam (i) ΔF1 +0.228 [0.169, 0.290], exam (ii) ΔF1 +0.026 [−0.022, 0.071].
+- 2026-10-03 · fixup-t · surrogate spans are out of every detection count; nothing in the training path changed.

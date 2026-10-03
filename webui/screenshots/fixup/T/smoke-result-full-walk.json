@@ -1,0 +1,1459 @@
+{
+  "failures": [
+    "discovery: discovery.runs--default renders \u2014 missing ['[data-testid=\"browser-trace\"] svg']",
+    "review: review.inspector--padding +/-30 s is symmetric (fixup-g, U3): FileNotFoundError: [Errno 2] No such file or directory: 'C:\\\\Users\\\\mmebr\\\\AppData\\\\Local\\\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\\\pages\\\\review\\\\review.inspector--padding +/-30 s is symmetric (fixup-g, U3).png'",
+    "review: review.inspector--padding +/-120 s is symmetric (fixup-g, U3): FileNotFoundError: [Errno 2] No such file or directory: 'C:\\\\Users\\\\mmebr\\\\AppData\\\\Local\\\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\\\pages\\\\review\\\\review.inspector--padding +/-120 s is symmetric (fixup-g, U3).png'",
+    "settings: settings.datasets--import-check-fails-fs-unknown: TimeoutError: Locator.click: Timeout 30000ms exceeded.\nCall log:\n  - waiting for locator(\"[data-testid=\\\"run-check\\\"]\").first\n    - locator resolved to <button disabled type=\"button\" class=\"k-btn\" data-testid=\"run-check\">Check</button>\n  - attempting click action\n    2 \u00d7 waiting for element to be visible, enabled and stable\n      - element is not enabled\n    - retrying click action\n    - waiting 20ms\n    2 \u00d7 waiting for element to be visible, enabled and stable\n      - element is not enabled\n    - retrying click action\n      - waiting 100ms\n    57 \u00d7 waiting for element to be visible, enabled and stable\n       - element is not enabled\n     - retrying click action\n       - waiting 500ms\n",
+    "settings: settings.datasets--import-check-passes-MJu26a: TimeoutError: Locator.click: Timeout 30000ms exceeded.\nCall log:\n  - waiting for locator(\"[data-testid=\\\"run-check\\\"]\").first\n    - locator resolved to <button disabled type=\"button\" class=\"k-btn\" data-testid=\"run-check\">Check</button>\n  - attempting click action\n    2 \u00d7 waiting for element to be visible, enabled and stable\n      - element is not enabled\n    - retrying click action\n    - waiting 20ms\n    2 \u00d7 waiting for element to be visible, enabled and stable\n      - element is not enabled\n    - retrying click action\n      - waiting 100ms\n    57 \u00d7 waiting for element to be visible, enabled and stable\n       - element is not enabled\n     - retrying click action\n       - waiting 500ms\n",
+    "settings: settings.models-registration--check-a-joblib: TimeoutError: Locator.click: Timeout 30000ms exceeded.\nCall log:\n  - waiting for locator(\"[data-testid=\\\"check-model-catalogue_classifier_16750c76ade64016.joblib\\\"]\").first\n",
+    "settings: settings.storage-backups--scan-check-a-matrix-profile: TimeoutError: Locator.click: Timeout 30000ms exceeded.\nCall log:\n  - waiting for locator(\"[data-testid=\\\"scan-check-mp_v2_Mushroom_260720_0509_4hrs_CH14_fs1_CH0_WIN1min.npz\\\"]\").first\n",
+    "zzz_surrogates: settings.nulls--fixup-t-offers-the-blocks-methods renders \u2014 missing ['[data-testid=\"draws-detection\"][value=\"20\"]'] \u2014 unexpected ['[data-testid=\"alpha-error\"]']",
+    "zzz_surrogates: discovery.runs--fixup-t-chip-names-a-count-per-run-kind renders \u2014 missing ['[data-testid=\"null-chip-text\"]:has-text(\"template run 20\u00d7\")', '[data-testid=\"null-chip-text\"]:has-text(\"seed search 200\u00d7\")']"
+  ],
+  "browser_errors": [],
+  "evidence": {
+    "heatmap_cells": 912,
+    "heatmap_distinct_fills": 6,
+    "axis_labels_corpus": {
+      "labels": 7,
+      "overlaps": []
+    },
+    "need_you": {
+      "route": 160,
+      "header": 160,
+      "chip": "\u25cf 160 need you"
+    },
+    "rail_tag_terms": 34,
+    "envelope_path_lengths": [
+      28973,
+      27561
+    ],
+    "span_bands": 4,
+    "axis_labels_signal": {
+      "labels": 11,
+      "overlaps": []
+    },
+    "zoom_stats": [
+      {
+        "seq": 1,
+        "t0": 995040,
+        "t1": 1002240,
+        "px": 1304,
+        "n_points": 2400,
+        "decimate_ms": 0.9617999894544482,
+        "round_trip_ms": 16.799999952316284,
+        "paint_ms": 4
+      },
+      {
+        "seq": 2,
+        "t0": 996168.1605153364,
+        "t1": 1001316.3874163145,
+        "px": 1304,
+        "n_points": 2576,
+        "decimate_ms": 0.6640000501647592,
+        "round_trip_ms": 13.399999976158142,
+        "paint_ms": 6.5
+      },
+      {
+        "seq": 3,
+        "t0": 996974.8308366804,
+        "t1": 1000655.9753122295,
+        "px": 1304,
+        "n_points": 2456,
+        "decimate_ms": 0.58230001013726,
+        "round_trip_ms": 23.600000023841858,
+        "paint_ms": 11.5
+      },
+      {
+        "seq": 4,
+        "t0": 997551.6255378698,
+        "t1": 1000183.7598455653,
+        "px": 1304,
+        "n_points": 1756,
+        "decimate_ms": 0.25919999461621046,
+        "round_trip_ms": 7.200000047683716,
+        "paint_ms": 13.799999952316284
+      },
+      {
+        "seq": 5,
+        "t0": 997964.0519263427,
+        "t1": 999846.1109054906,
+        "px": 1304,
+        "n_points": 1883,
+        "decimate_ms": 0.6122000049799681,
+        "round_trip_ms": 32.5,
+        "paint_ms": 5.700000047683716
+      },
+      {
+        "seq": 6,
+        "t0": 998258.9497913162,
+        "t1": 999604.6812726601,
+        "px": 1304,
+        "n_points": 1347,
+        "decimate_ms": 0.3936999710276723,
+        "round_trip_ms": 28.200000047683716,
+        "paint_ms": 6.399999976158142
+      },
+      {
+        "seq": 7,
+        "t0": 998469.8110581909,
+        "t1": 999432.0514767669,
+        "px": 1304,
+        "n_points": 964,
+        "decimate_ms": 0.6238000933080912,
+        "round_trip_ms": 10,
+        "paint_ms": 12.200000047683716
+      },
+      {
+        "seq": 8,
+        "t0": 998620.5835090935,
+        "t1": 999308.6157324438,
+        "px": 1304,
+        "n_points": 689,
+        "decimate_ms": 0.32329990062862635,
+        "round_trip_ms": 19,
+        "paint_ms": 13.200000047683716
+      },
+      {
+        "seq": 9,
+        "t0": 998728.3905629355,
+        "t1": 999220.3552852954,
+        "px": 1304,
+        "n_points": 493,
+        "decimate_ms": 0.13940001372247934,
+        "round_trip_ms": 9.300000071525574,
+        "paint_ms": 3.700000047683716
+      }
+    ],
+    "zoom_round_trip_ms": {
+      "min": 7.200000047683716,
+      "max": 32.5,
+      "median": 16.799999952316284
+    },
+    "axis_labels_analyse-chain": {
+      "labels": 9,
+      "overlaps": []
+    },
+    "run_wall_s": 32.13,
+    "badges_after_run": [
+      "computed \u00b7 now cached",
+      "computed \u00b7 now cached",
+      "computed \u00b7 now cached"
+    ],
+    "row_plots": [
+      "path",
+      "path",
+      "path"
+    ],
+    "pass_to_review": {
+      "label": "\u2192 Pass 2 to Review",
+      "headline": "last run \u00b7 2 spans \u00b7 mean 9.0 s",
+      "landed": "#/review/queue/3/1206",
+      "progress": "0 / 2\npace not yet measured"
+    },
+    "badges_after_edit": [
+      "cached \u00b7 0 s",
+      "cached \u00b7 0 s",
+      "stale"
+    ],
+    "badges_after_rerun": [
+      "cached \u00b7 0 s",
+      "cached \u00b7 0 s",
+      "computed \u00b7 now cached"
+    ],
+    "badge_titles_after_rerun": [
+      "restored from the prefix cache (core step time 0.0 s)",
+      "restored from the prefix cache (core step time 0.0 s)",
+      "core step time 0.000 s"
+    ],
+    "discovery_scope": {
+      "recording": "M2_aug_concat_fs1",
+      "channels": [
+        "CH1_A1",
+        "CH2_A1"
+      ],
+      "section_h": [
+        80.0,
+        84.0
+      ],
+      "runs": [
+        "mp_threshold",
+        "smoke_seed"
+      ]
+    },
+    "discovery_run_rows": 6,
+    "discovery_strip_paths": [
+      7739,
+      7852
+    ],
+    "discovery_fires_cells": 9,
+    "discovery_page_height": [
+      920.953125,
+      920.953125
+    ],
+    "fixup_l": {
+      "toast": "3 unjudged in 'Discovery \u00b7 mp_threshold' \u00b7 verdicts write adjudications\nOpen Review",
+      "queue": {
+        "id": 4,
+        "name": "Discovery \u00b7 mp_threshold",
+        "source_kind": "discovery-run",
+        "writes_to": "adjudications",
+        "unit": "detection",
+        "total": 3,
+        "judged": 0,
+        "remaining": 3,
+        "filters": {
+          "run_ids": [
+            84,
+            88
+          ]
+        }
+      },
+      "adjudications_written": [
+        {
+          "id": 1,
+          "detection_id": 1208,
+          "verdict": "interesting",
+          "created_at": "2026-10-03T11:16:40.860096+00:00",
+          "run_id": 84,
+          "surrogate_of_run_id": null
+        }
+      ],
+      "score_row_before": "mp_threshold\n\t3\t0\t0\t0\tno detections in the reviewed overlap\t0.00 over 2 h\t0.33 / 3 draws\t9.1\u00d7",
+      "score_row_after": "mp_threshold\n\t3\t0\t0\t0\tno detections in the reviewed overlap\t0.00 over 2 h\t0.33 / 3 draws\t9.1\u00d7",
+      "seed_queue": {
+        "id": 5,
+        "name": "Discovery \u00b7 smoke_seed",
+        "source_kind": "seed-search",
+        "source_ref": null,
+        "unit": "detection",
+        "writes_to": "adjudications",
+        "blind": 0,
+        "cap": null,
+        "verdict_options": null,
+        "filters_json": "{\"run_ids\": [92, 96]}",
+        "created_at": "2026-10-03T11:16:50+00:00",
+        "closed_at": null,
+        "note": "Discovery run 'smoke_seed' (smoke_seed) \u00b7 session 2 \u00b7 runs 92, 96",
+        "filters": {
+          "run_ids": [
+            92,
+            96
+          ]
+        },
+        "total": 400,
+        "judged": 0,
+        "remaining": 400,
+        "pace_s": null
+      }
+    },
+    "fixup_z": {
+      "bands_offered": [
+        {
+          "kind": "bandpass",
+          "label": "0.001\u20130.01 Hz",
+          "low_hz": 0.001,
+          "high_hz": 0.01
+        },
+        {
+          "kind": "bandpass",
+          "label": "0.01\u20130.1 Hz",
+          "low_hz": 0.01,
+          "high_hz": 0.1
+        },
+        {
+          "kind": "bandpass",
+          "label": "0.1\u20130.45 Hz",
+          "low_hz": 0.1,
+          "high_hz": 0.45
+        }
+      ],
+      "band_runs": [
+        {
+          "key": "symbol_search_0.001_0.01Hz",
+          "label": "symbol_search \u00b7 0.001\u20130.01 Hz",
+          "status": "done",
+          "found": 3,
+          "channelsDone": "2 / 2",
+          "band": {
+            "kind": "bandpass",
+            "label": "0.001\u20130.01 Hz",
+            "low_hz": 0.001,
+            "high_hz": 0.01
+          }
+        },
+        {
+          "key": "symbol_search_0.01_0.1Hz",
+          "label": "symbol_search \u00b7 0.01\u20130.1 Hz",
+          "status": "done",
+          "found": 13,
+          "channelsDone": "2 / 2",
+          "band": {
+            "kind": "bandpass",
+            "label": "0.01\u20130.1 Hz",
+            "low_hz": 0.01,
+            "high_hz": 0.1
+          }
+        },
+        {
+          "key": "symbol_search_0.1_0.45Hz",
+          "label": "symbol_search \u00b7 0.1\u20130.45 Hz",
+          "status": "done",
+          "found": 9,
+          "channelsDone": "2 / 2",
+          "band": {
+            "kind": "bandpass",
+            "label": "0.1\u20130.45 Hz",
+            "low_hz": 0.1,
+            "high_hz": 0.45
+          }
+        }
+      ],
+      "compare_before": {
+        "total": {
+          "channel": "all channels",
+          "onlyA": 3,
+          "both": 0,
+          "onlyB": 24
+        },
+        "verdicts": {
+          "onlyA": {
+            "n": 3,
+            "judged": 1,
+            "accepted": 1,
+            "rejected": 0,
+            "other": 0,
+            "unjudged": 2
+          },
+          "both": {
+            "n": 0,
+            "judged": 0,
+            "accepted": 0,
+            "rejected": 0,
+            "other": 0,
+            "unjudged": 0
+          },
+          "onlyB": {
+            "n": 24,
+            "judged": 0,
+            "accepted": 0,
+            "rejected": 0,
+            "other": 0,
+            "unjudged": 24
+          }
+        },
+        "perBand": [
+          {
+            "run": "symbol_search_0.001_0.01Hz",
+            "label": "symbol_search \u00b7 0.001\u20130.01 Hz",
+            "band": {
+              "kind": "bandpass",
+              "label": "0.001\u20130.01 Hz",
+              "low_hz": 0.001,
+              "high_hz": 0.01
+            },
+            "found": 3,
+            "both": 0,
+            "only": 3,
+            "alone": 3,
+            "colour": "#d6409f",
+            "nullExpects": 6,
+            "nullDraws": 3
+          },
+          {
+            "run": "symbol_search_0.01_0.1Hz",
+            "label": "symbol_search \u00b7 0.01\u20130.1 Hz",
+            "band": {
+              "kind": "bandpass",
+              "label": "0.01\u20130.1 Hz",
+              "low_hz": 0.01,
+              "high_hz": 0.1
+            },
+            "found": 13,
+            "both": 0,
+            "only": 13,
+            "alone": 12,
+            "colour": "#0f766e",
+            "nullExpects": 174.32999999999998,
+            "nullDraws": 3
+          },
+          {
+            "run": "symbol_search_0.1_0.45Hz",
+            "label": "symbol_search \u00b7 0.1\u20130.45 Hz",
+            "band": {
+              "kind": "bandpass",
+              "label": "0.1\u20130.45 Hz",
+              "low_hz": 0.1,
+              "high_hz": 0.45
+            },
+            "found": 9,
+            "both": 0,
+            "only": 9,
+            "alone": 8,
+            "colour": "#b45309",
+            "nullExpects": 34.0,
+            "nullDraws": 3
+          }
+        ],
+        "likeForLike": {
+          "run": null,
+          "label": null,
+          "isThis": false,
+          "note": "apply symbol_search with no band to compare the band alone, like for like"
+        },
+        "differing": [
+          "Preprocess",
+          "Score / estimate",
+          "Encode",
+          "Detect"
+        ]
+      },
+      "queue": {
+        "id": 6,
+        "name": "Compare \u00b7 only B \u00b7 A mp_threshold vs B symbol_search \u00b7 3 bands",
+        "source_kind": "discovery-run",
+        "writes_to": "adjudications",
+        "total": 24,
+        "judged": 0,
+        "remaining": 24
+      },
+      "adjudication_written": [
+        {
+          "id": 2,
+          "detection_id": 2812,
+          "verdict": "interesting",
+          "created_at": "2026-10-03T11:17:07.247735+00:00",
+          "run_id": 100,
+          "surrogate_of_run_id": null
+        }
+      ],
+      "compare_after": {
+        "verdicts": {
+          "onlyA": {
+            "n": 3,
+            "judged": 1,
+            "accepted": 1,
+            "rejected": 0,
+            "other": 0,
+            "unjudged": 2
+          },
+          "both": {
+            "n": 0,
+            "judged": 0,
+            "accepted": 0,
+            "rejected": 0,
+            "other": 0,
+            "unjudged": 0
+          },
+          "onlyB": {
+            "n": 24,
+            "judged": 1,
+            "accepted": 1,
+            "rejected": 0,
+            "other": 0,
+            "unjudged": 23
+          }
+        }
+      }
+    },
+    "route_states": 579,
+    "anatomy_marks": {
+      "analyse.interrogation.slope--fixup-k-marks-are-the-payloads": {
+        "event": "id001_r1_1216093",
+        "family": "id001",
+        "onsetX": 502.6913946587538,
+        "steepestX": 504.1216617210683,
+        "troughX": 599.2344213649851,
+        "tangent": [
+          [
+            501.3,
+            14
+          ],
+          [
+            519.6,
+            138
+          ]
+        ],
+        "chord": [
+          [
+            502.7,
+            24.2
+          ],
+          [
+            599.2,
+            161.2
+          ]
+        ],
+        "served": {
+          "onset": 647,
+          "steepest": 649,
+          "trough": 782,
+          "max_slope": -0.7036234419022236,
+          "chord_slope": -0.14743499997680157
+        }
+      },
+      "analyse.interrogation.slope--fixup-k-marks-on-a-trough-family": {
+        "event": "id010_r4_1365139",
+        "family": "id010",
+        "onsetX": 426.66666666666663,
+        "steepestX": 435.8730158730159,
+        "troughX": 491.11111111111114,
+        "tangent": [
+          [
+            425.6,
+            18.3
+          ],
+          [
+            446.2,
+            90.8
+          ]
+        ],
+        "chord": [
+          [
+            426.7,
+            23.3
+          ],
+          [
+            491.1,
+            178.7
+          ]
+        ],
+        "served": {
+          "onset": 42,
+          "steepest": 43,
+          "trough": 49,
+          "max_slope": -0.5859862968375928,
+          "chord_slope": -0.40184564026660546
+        }
+      },
+      "analyse.interrogation.slope--fixup-k-all-marks-names-what-is-not-drawn": {
+        "event": "id001_r1_1216093",
+        "family": "id001",
+        "onsetX": 502.551403313551,
+        "steepestX": 503.981237636004,
+        "troughX": 599.0652200791295,
+        "tangent": [
+          [
+            501.1,
+            14
+          ],
+          [
+            519.4,
+            138
+          ]
+        ],
+        "chord": [
+          [
+            502.6,
+            24.2
+          ],
+          [
+            599.1,
+            161.2
+          ]
+        ],
+        "served": {
+          "onset": 647,
+          "steepest": 649,
+          "trough": 782,
+          "max_slope": -0.7036234419022236,
+          "chord_slope": -0.14743499997680157
+        }
+      },
+      "analyse.interrogation.slope--fixup-k-padding-is-honoured": {
+        "event": "id001_r1_1216093",
+        "family": "id001",
+        "onsetX": 210.11764705882354,
+        "steepestX": 215.78823529411764,
+        "troughX": 592.8823529411764,
+        "tangent": [
+          [
+            204.7,
+            14
+          ],
+          [
+            277,
+            144.6
+          ]
+        ],
+        "chord": [
+          [
+            210.1,
+            24.2
+          ],
+          [
+            592.9,
+            169.1
+          ]
+        ],
+        "served": {
+          "onset": 647,
+          "steepest": 649,
+          "trough": 782,
+          "max_slope": -0.7036234419022236,
+          "chord_slope": -0.14743499997680157
+        }
+      },
+      "analyse.interrogation.slope--fixup-k-padding-restored": {
+        "event": "id001_r1_1216093",
+        "family": "id001",
+        "onsetX": 502.6913946587538,
+        "steepestX": 504.1216617210683,
+        "troughX": 599.2344213649851,
+        "tangent": [
+          [
+            501.3,
+            14
+          ],
+          [
+            519.6,
+            138
+          ]
+        ],
+        "chord": [
+          [
+            502.7,
+            24.2
+          ],
+          [
+            599.2,
+            161.2
+          ]
+        ],
+        "served": {
+          "onset": 647,
+          "steepest": 649,
+          "trough": 782,
+          "max_slope": -0.7036234419022236,
+          "chord_slope": -0.14743499997680157
+        }
+      }
+    },
+    "rule9": {
+      "analyse.interrogation--fixup-h-slideshow-on-the-store": {
+        "plots": 10,
+        "traces": 10,
+        "exempt": 0,
+        "constant": [],
+        "flat": [],
+        "clipped": []
+      },
+      "analyse.chain--fixup-h-thumbnails-mp_threshold": {
+        "plots": 4,
+        "traces": 4,
+        "exempt": 0,
+        "constant": [],
+        "flat": [],
+        "clipped": []
+      },
+      "analyse.block--fixup-h-signal-before-after": {
+        "plots": 1,
+        "traces": 1,
+        "exempt": 0,
+        "constant": [],
+        "flat": [],
+        "clipped": []
+      },
+      "analyse.block--fixup-h-scores-signal-above": {
+        "plots": 1,
+        "traces": 1,
+        "exempt": 0,
+        "constant": [],
+        "flat": [],
+        "clipped": []
+      },
+      "analyse.block--fixup-h-spanset-cut-and-slideshow": {
+        "plots": 10,
+        "traces": 10,
+        "exempt": 0,
+        "constant": [],
+        "flat": [],
+        "clipped": []
+      },
+      "analyse.chain--fixup-h-thumbnails-dsax_encoding": {
+        "plots": 2,
+        "traces": 2,
+        "exempt": 0,
+        "constant": [],
+        "flat": [],
+        "clipped": []
+      },
+      "analyse.block--fixup-h-encoding-symbolic-chunks": {
+        "plots": 3,
+        "traces": 3,
+        "exempt": 0,
+        "constant": [],
+        "flat": [],
+        "clipped": []
+      },
+      "analyse.chain--fixup-h-thumbnails-dehshibi_spikes": {
+        "plots": 3,
+        "traces": 3,
+        "exempt": 0,
+        "constant": [],
+        "flat": [],
+        "clipped": []
+      },
+      "analyse.block--fixup-h-scores-band-on-the-image": {
+        "plots": 1,
+        "traces": 1,
+        "exempt": 0,
+        "constant": [],
+        "flat": [],
+        "clipped": []
+      },
+      "analyse.block--fixup-h-spanset-no-draggable-cut": {
+        "plots": 12,
+        "traces": 12,
+        "exempt": 0,
+        "constant": [],
+        "flat": [],
+        "clipped": []
+      },
+      "analyse.chain--fixup-h-thumbnails-windows_model": {
+        "plots": 1,
+        "traces": 1,
+        "exempt": 0,
+        "constant": [],
+        "flat": [],
+        "clipped": []
+      },
+      "analyse.block--fixup-h-grouping-exemplars": {
+        "plots": 3,
+        "traces": 3,
+        "exempt": 0,
+        "constant": [],
+        "flat": [],
+        "clipped": []
+      },
+      "analyse.chain--fixup-h-thumbnails-drop_event_features": {
+        "plots": 5,
+        "traces": 5,
+        "exempt": 0,
+        "constant": [],
+        "flat": [],
+        "clipped": []
+      },
+      "analyse.block--fixup-h-spanset-fired-on-the-encoding": {
+        "plots": 5,
+        "traces": 5,
+        "exempt": 0,
+        "constant": [],
+        "flat": [],
+        "clipped": []
+      },
+      "analyse.block--fixup-h-features-not-spans": {
+        "plots": 5,
+        "traces": 5,
+        "exempt": 0,
+        "constant": [],
+        "flat": [],
+        "clipped": []
+      },
+      "analyse.block--fixup-h-intervals-are-plotted": {
+        "plots": 5,
+        "traces": 5,
+        "exempt": 0,
+        "constant": [],
+        "flat": [],
+        "clipped": []
+      }
+    },
+    "traces_in_box": {
+      "library.atlas--motifs": {
+        "traces": 300,
+        "outside": []
+      },
+      "library.atlas--sequences": {
+        "traces": 11,
+        "outside": []
+      },
+      "library.atlas--omitted-drawer": {
+        "traces": 310,
+        "outside": []
+      },
+      "library.family--member-selected": {
+        "traces": 24,
+        "outside": []
+      },
+      "library.recurrence--default": {
+        "traces": 161,
+        "outside": []
+      },
+      "review.inspector--1-candidate (deep link, live detection)": {
+        "traces": 12,
+        "outside": []
+      },
+      "review.inspector--context axis: 102's drop sits inside its band (fixup-g, U2)": {
+        "traces": 12,
+        "outside": []
+      },
+      "review.inspector--padding +/-30 s is symmetric (fixup-g, U3)": {
+        "traces": 12,
+        "outside": []
+      },
+      "review.inspector--padding +/-120 s is symmetric (fixup-g, U3)": {
+        "traces": 12,
+        "outside": []
+      },
+      "review.inspector--shape card drawn from the 10 Hz source, and says so (fixup-g, Q24)": {
+        "traces": 12,
+        "outside": []
+      },
+      "review.inspector--shape card toggled to its own 1 Hz samples": {
+        "traces": 12,
+        "outside": []
+      },
+      "review.inspector--1b-other-channels (click, then Escape)": {
+        "traces": 13,
+        "outside": []
+      },
+      "review.inspector--4-evidence-rail (deep link)": {
+        "traces": 12,
+        "outside": []
+      }
+    },
+    "context_axis": {
+      "review.inspector--context axis: 102's drop sits inside its band (fixup-g, U2)": {
+        "points": 659,
+        "lowestX": 803.8,
+        "bandLeft": 716.8194580078125,
+        "bandRight": 821.183349609375,
+        "padLeft": 521.8194580078125,
+        "padRight": 521.816650390625,
+        "timed": "1"
+      },
+      "review.inspector--padding +/-30 s is symmetric (fixup-g, U3)": {
+        "points": 119,
+        "lowestX": 960.3,
+        "bandLeft": 482.0038146972656,
+        "bandRight": 1056.0115051269531,
+        "padLeft": 287.0038146972656,
+        "padRight": 286.9884948730469,
+        "timed": "1"
+      },
+      "review.inspector--padding +/-120 s is symmetric (fixup-g, U3)": {
+        "points": 299,
+        "lowestX": 845.5,
+        "bandLeft": 654.2024536132812,
+        "bandRight": 883.8037109375,
+        "padLeft": 459.20245361328125,
+        "padRight": 459.1962890625,
+        "timed": "1"
+      }
+    },
+    "server_log_error_lines": [
+      "2026-10-03 21:16:16,894 ERROR proto.runs: run 31 failed at step 1: ValueError: window (m=30000 samples) must be shorter than the span (750 samples)."
+    ]
+  },
+  "screenshots": [
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\01-explore-1-corpus.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\02-explore-1-corpus-colour-by.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\03-explore-1-corpus-selected.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\04-explore-2-signal.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\05-explore-2-signal-zoomed.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\06-explore-2-signal-motif.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\07-explore-m4-held-out.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\08-chain-1-chain-before-run.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\09-chain-2-insert-stage.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\10-chain-1-chain-completed.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\11-chain-8-pass-to-review-queue.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\12-chain-7b-block-threshold.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\13-chain-7b-block-threshold-dragged.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\14-chain-1-chain-suffix-rerun.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\15-chain-1b-run-history.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\16-chain-1e-invalid-junction.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\17-chain-1f-failed-block.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\18-chain-1d-running.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\19-chain-cancelled.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\20-discovery-1-runs-live.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\21-discovery-4-send-to-review-toast.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\22-discovery-5-review-opens-that-queue.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\23-discovery-6-review-verdict-written.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\24-discovery-7-refresh-after-reviewing.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\25-discovery-8-seed-run-sent.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\26-discovery-9-band-scope.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\27-discovery-10-band-runs-and-set.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\28-discovery-11-compare-band-set.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\29-discovery-12-remainder-sent.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\30-discovery-13-remainder-judged.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\31-discovery-14-compare-after-review.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\32-settings-bands.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\33-discovery-2-seed-live.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\34-discovery-3-compare-live.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\35-loud-failure-render-error.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\analyse\\analyse.chain--live.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\analyse\\analyse.chain--1-chain.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\analyse\\analyse.chain--1b-run-history.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\analyse\\analyse.chain--1b-run-history-click.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\analyse\\analyse.chain--1c-empty-import-template.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\analyse\\analyse.chain--1c-import-apply.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\analyse\\analyse.chain--1d-running.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\analyse\\analyse.chain--1d-cancelled.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\analyse\\analyse.chain--1e-invalid-junction.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\analyse\\analyse.chain--1e-delete-click.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\analyse\\analyse.chain--1f-failed-block.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\analyse\\analyse.chain--1f-failed-by-run.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\analyse\\analyse.chain--1f-view-log.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\analyse\\analyse.chain--1g-heavy-stage-hpc.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\analyse\\analyse.chain--1g-create-slurm.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\analyse\\analyse.chain--1g-upload-artifact.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\analyse\\analyse.chain--1h-scores-chain.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\analyse\\analyse.chain--1i-paused-result-in-place.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\analyse\\analyse.chain--1i-continue.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\analyse\\analyse.chain--2-insert-stage.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\analyse\\analyse.chain--2-insert-click.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\analyse\\analyse.block--live.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\analyse\\analyse.block--5-baseline-unapplied.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\analyse\\analyse.block--5-baseline-try-window.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\analyse\\analyse.block--5-baseline-apply-running.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\analyse\\analyse.block--6-noise-floor.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\analyse\\analyse.block--6-noise-floor-linear.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\analyse\\analyse.block--3-encoding.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\analyse\\analyse.block--3-encoding-sweep-click.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\analyse\\analyse.block--4-drop-detection.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\analyse\\analyse.block--4-drop-detection-fix.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\analyse\\analyse.block--4-drop-detection-failed.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\analyse\\analyse.block--7-matrix-profile.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\analyse\\analyse.block--7-matrix-profile-top-click.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\analyse\\analyse.block--7b-threshold-to-spans.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\analyse\\analyse.block--8-model-stage.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\analyse\\analyse.block--running.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\analyse\\analyse.block--inserted-generic.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\analyse\\analyse.block--missing-stage.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\analyse\\analyse.glyphs--default.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\analyse\\analyse.glyphs--detail-drawer.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\analyse\\analyse.glyphs--card-click.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\analyse\\analyse.glyphs--filter-empty.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\analyse\\analyse.chain--fixup-d-import-feature-template.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\analyse\\analyse.block--fixup-d-event-shape-block.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\analyse\\analyse.chain--fixup-d-feature-blocks-in-insert-modal.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\analyse\\analyse.chain--fixup-d-invert-in-insert-modal.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\band_scope\\discovery.runs--fixup-z-band-scope-offered.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\band_scope\\discovery.compare--fixup-z-band-set-as-side-b.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\band_scope\\settings.analysis-defaults--fixup-z-named-band-list.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\discovery\\discovery.runs--default.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\discovery\\discovery.runs--modal-add-template.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\discovery\\discovery.runs--modal-slurm.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\discovery\\discovery.runs--popover-history.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\discovery\\discovery.runs--confirm-discard.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\discovery\\discovery.runs--discarded.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\discovery\\discovery.runs--discarded-param.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\discovery\\discovery.runs--fires-spans.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\discovery\\discovery.runs--section-popover.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\discovery\\discovery.runs--running.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\discovery\\discovery.runs--empty.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\discovery\\discovery.runs--held-out-refused.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\discovery\\discovery.seed--default.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\discovery\\discovery.seed--source-explore.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\discovery\\discovery.seed--source-medoid.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\discovery\\discovery.seed--change-seed.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\discovery\\discovery.seed--view-popover.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\discovery\\discovery.seed--running.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\discovery\\discovery.seed--done.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\discovery\\discovery.seed--failed.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\discovery\\discovery.seed--modal-save-template.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\discovery\\discovery.seed--save-template-invalid.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\discovery\\discovery.seed--held-out-refused.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\discovery\\discovery.compare--default.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\discovery\\discovery.compare--empty-one-pick.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\discovery\\discovery.compare--unpick-b.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\discovery\\discovery.compare--swapped.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\discovery\\discovery.compare--filter-only-b.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\discovery\\discovery.compare--popover-roles.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\discovery\\discovery.compare--popover-stage.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\discovery\\discovery.compare--overlap-segment.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\discovery\\discovery.compare--human-as-b.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\discovery\\discovery.compare--held-out-refused.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\discovery\\discovery.compare--route-default.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\discovery\\discovery.stages--default.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\discovery\\discovery.stages--re-running.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\discovery\\discovery.stages--stepped.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\discovery\\discovery.stages--swapped.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\discovery\\discovery.stages--popover-first-differing.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\discovery\\discovery.stages--popover-stage-params.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\discovery\\discovery.stages--filter-only-b.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\discovery\\discovery.stages--human-as-b.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\discovery\\discovery.stages--empty-same-run.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\discovery\\discovery.stages--route-default.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\discovery\\discovery.runs--failed-deep-link.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\discovery\\discovery.runs--null-unsupported.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\explore\\explore.corpus--default.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\explore\\explore.corpus--recordings-menu.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\explore\\explore.corpus--recordings-menu-deeplink.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\explore\\explore.corpus--map-legend.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\explore\\explore.corpus--disagree-reviewed.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\explore\\explore.corpus--runs-picker.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\explore\\explore.corpus--nothing-shown.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\explore\\explore.corpus--zero-match.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\explore\\explore.corpus--no-selection.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\explore\\explore.corpus--loading.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\explore\\explore.corpus--error.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\explore\\explore.corpus--held-out.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\explore\\explore.signal--default.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\explore\\explore.signal--motif.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\explore\\explore.signal--motif-next-review.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\explore\\explore.signal--detections-picker.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\explore\\explore.signal--detections-picker-by-method.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\explore\\explore.signal--span-legend.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\explore\\explore.signal--tag-input.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\explore\\explore.signal--drawer-annotations.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\explore\\explore.signal--drawer-from-ribbon.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\explore\\explore.signal--drawer-bulk-tag.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\explore\\explore.signal--drawer-detections.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\explore\\explore.signal--drawer-filters-collapsed.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\explore\\explore.signal--drawer-shortcuts.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\explore\\explore.signal--keyboard-drawer.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\explore\\explore.signal--live-channel.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\explore\\explore.signal--loading.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\explore\\explore.signal--error.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\explore\\explore.signal--held-out.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\explore\\explore.cross-channel--as-recorded.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\explore\\explore.cross-channel--lag-aligned.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\explore\\explore.cross-channel--align-click.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\explore\\explore.cross-channel--channels-picker.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\explore\\explore.cross-channel--detections-picker.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\explore\\explore.cross-channel--questions-open.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\explore\\explore.cross-channel--computing.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\explore\\explore.cross-channel--bin-focus.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\explore\\explore.cross-channel--max-lag-10.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\explore\\explore.cross-channel--too-few-channels.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\explore\\explore.cross-channel--held-out.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\explore\\explore.cross-channel--unknown-channel.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\explore\\explore.cross-channel--y-absolute.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\explore\\explore.cross-channel--y-per-channel.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\explore\\explore.cross-channel--y-centred-axis.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\explore\\explore.span-edit--pristine.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\explore\\explore.span-edit--edited.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\explore\\explore.span-edit--nudge.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\explore\\explore.span-edit--snap-trough.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\explore\\explore.span-edit--invalid.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\explore\\explore.span-edit--typed-invalid.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\explore\\explore.span-edit--saved.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\explore\\explore.span-edit--held-out.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\explore\\explore.span-edit--unknown-span.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\interrogation\\analyse.interrogation--default.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\interrogation\\analyse.interrogation--members-overlaid-window.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\interrogation\\analyse.interrogation--source-picker.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\interrogation\\analyse.interrogation--source-picker-by-click.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\interrogation\\analyse.interrogation--picker-prior-run.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\interrogation\\analyse.interrogation--picker-review.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\interrogation\\analyse.interrogation--swapped.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\interrogation\\analyse.interrogation--empty-scope.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\interrogation\\analyse.interrogation--running.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\interrogation\\analyse.interrogation--failed.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\interrogation\\analyse.interrogation--save-template.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\interrogation\\analyse.interrogation--add-stage.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\interrogation\\analyse.interrogation.slope--default.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\interrogation\\analyse.interrogation.slope--event-picked.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\interrogation\\analyse.interrogation.slope--jump-to-flagged.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\interrogation\\analyse.interrogation.slope--large-family.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\interrogation\\analyse.interrogation.slope--large-family-rose.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\interrogation\\analyse.interrogation.slope--upstream-event-shape.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\interrogation\\analyse.interrogation.slope--not-recovered-is-not-zero.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\interrogation\\analyse.interrogation.slope--overlay-window-is-the-stored-context.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\interrogation\\analyse.interrogation.slope--event-shape-columns.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\interrogation\\analyse.interrogation.slope--marks-all.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\interrogation\\analyse.interrogation.slope--running.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\interrogation\\analyse.interrogation.slope--units-mv-s.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\interrogation\\analyse.interrogation.aggregate--default.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\interrogation\\analyse.interrogation.aggregate--histograms.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\interrogation\\analyse.interrogation.aggregate--colour-by-recording.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\interrogation\\analyse.interrogation.aggregate--pair-by-click.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\interrogation\\analyse.interrogation.aggregate--linear-axes.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\interrogation\\analyse.interrogation.aggregate--wired-from-event-shape.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\interrogation\\analyse.interrogation.aggregate--old-spike-shape-key-is-an-alias.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\interrogation\\analyse.interrogation.aggregate--width-vs-recovery.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\interrogation\\analyse.interrogation.aggregate--not-measured-is-counted-not-zero.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\interrogation\\analyse.interrogation.aggregate--upstream-carried-to-block-1.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\interrogation\\analyse.interrogation.aggregate--feature-wiring.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\interrogation\\analyse.interrogation.aggregate--wiring-by-click.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\interrogation\\analyse.interrogation.aggregate--nothing-to-aggregate.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\interrogation\\analyse.interrogation.aggregate--running.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\interrogation\\analyse.interrogation.aggregate--no-null-is-drawn.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\interrogation\\analyse.interrogation.aggregate--outliers-excluded.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\interrogation\\analyse.interrogation.aggregate--small-family.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\interrogation\\analyse.interrogation.aggregate--stage-outlier.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\interrogation\\analyse.interrogation.slope--stale-after-edit.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\interrogation\\analyse.interrogation.slope--stale-discarded.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\interrogation\\analyse.interrogation--empty-scope-by-click.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\interrogation\\analyse.interrogation--scope-restored.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\interrogation\\analyse.interrogation.aggregate--rewired.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\interrogation\\analyse.interrogation.aggregate--wiring-reset.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\interrogation\\analyse.interrogation--fixup-d-sequence-rose.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\interrogation\\analyse.interrogation.slope--fixup-k-marks-are-the-payloads.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\interrogation\\analyse.interrogation.slope--fixup-k-marks-on-a-trough-family.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\interrogation\\analyse.interrogation.slope--fixup-k-all-marks-names-what-is-not-drawn.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\interrogation\\analyse.interrogation.slope--fixup-k-marks-rule-behind-the-icon.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\interrogation\\analyse.interrogation.slope--fixup-k-padding-is-honoured.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\interrogation\\analyse.interrogation.slope--fixup-k-padding-restored.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\interrogation\\analyse.interrogation--fixup-h-slideshow-on-the-store.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\interrogation\\analyse.interrogation--fixup-h-overlay-sequence-frame.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\interrogation\\analyse.interrogation.aggregate--fixup-h-timeline-tau-from-the-core.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\jobs\\jobs.all--all.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\jobs\\jobs.all--needs-you.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\jobs\\jobs.all--paused.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\jobs\\jobs.all--cluster.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\jobs\\jobs.all--local.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\jobs\\jobs.all--queues.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\jobs\\jobs.all--finished.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\jobs\\jobs.all--filter-empty.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\jobs\\jobs.all--finished-expanded-by-click.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\jobs\\jobs.all--rail-paused.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\jobs\\jobs.all--rail-cluster.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\jobs\\jobs.all--rail-queue.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\jobs\\jobs.all--rail-local.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\jobs\\jobs.all--rail-by-row-click.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\jobs\\jobs.all--inbox-drawer.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\jobs\\jobs.all--inbox-drawer-by-click.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\jobs\\jobs.all--mark-menu.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\jobs\\jobs.all--new-script-modal.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\jobs\\jobs.all--cancel-confirm.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\jobs\\jobs.all--cancel-confirm-escape.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\jobs\\jobs.paused--result-arrived.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\jobs\\jobs.paused--waiting.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\jobs\\jobs.paused--a-0098-arrived.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\jobs\\jobs.paused--unknown-run.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\jobs\\jobs.paused--new-script-modal.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\jobs\\jobs.paused--looking.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\jobs\\jobs.upload--refused.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\jobs\\jobs.upload--no-file.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\jobs\\jobs.upload--passes.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\jobs\\jobs.upload--passes-no-nulls.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\jobs\\jobs.upload--held-out-refused.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\jobs\\jobs.upload--file-menu.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\jobs\\jobs.upload--checking-by-click.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\jobs\\jobs.cluster--running-overdue.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\jobs\\jobs.cluster--running.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\jobs\\jobs.cluster--finished-imported.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\jobs\\jobs.cluster--failed.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\jobs\\jobs.cluster--unknown-job.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\jobs\\jobs.cluster--new-script-modal.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\jobs\\jobs.cluster--marked-failed.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\jobs\\jobs.paused--continuing.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\jobs\\jobs.paused--finished.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\jobs\\jobs.paused--cancelled.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\jobs\\jobs.cluster--snoozed.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\jobs\\jobs.cluster--inbox-pending.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\jobs\\jobs.cluster--imported.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\library\\library.atlas--motifs.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\library\\library.atlas--sequences.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\library\\library.atlas--family-selected.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\library\\library.atlas--groupings-popover.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\library\\library.atlas--omitted-drawer.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\library\\library.atlas--no-scope.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\library\\library.atlas--empty.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\library\\library.family--member-selected.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\library\\library.family--revisions-popover.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\library\\library.family--hand-only-none.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\library\\library.family--sort-time-page-2.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\library\\library.family--tag-popover-invalid.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\library\\library.family--class-popover.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\library\\library.family--confirm-make-exemplar.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\library\\library.family--confirm-remove.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\library\\library.family--sequence-family-renders.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\library\\library.family--unknown-family.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\library\\library.recurrence--default.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\library\\library.recurrence--count.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\library\\library.recurrence--held-out-recording.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\library\\library.recurrence--omitted-drawer.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\library\\library.recurrence--sequences-have-no-cells.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\library\\library.recurrence--empty.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\library\\library.recurrence--selected-shares-ground.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\library\\library.recurrence--no-selection.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\library\\library.grouping--frequency-content.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\library\\library.grouping--shape-distance-default.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\library\\library.grouping--invalid.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\library\\library.grouping--applying.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\library\\library.grouping--failed.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\library\\library.grouping--unit-sequences.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\library\\library.grouping--unit-spike-trains-none.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\library\\library.grouping--basis-custom-no-clustering.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\library\\library.import--empty-dry-run.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\library\\library.import--dry-run-populated.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\library\\library.import--catalogue-bundle.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\library\\library.import--bundle-select-lists-the-registry.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\library\\library.window-sets--none.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\library\\library.window-sets--filter-deep-link-still-none.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\library\\library.window-sets--import-modal-opens-while-empty.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\library\\library.templates--template-selected.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\library\\library.templates--training-selected.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\library\\library.templates--run-but-never-scored.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\library\\library.templates--kind-training.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\library\\library.templates--model-stage.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\library\\library.templates--page-2.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\library\\library.templates--filtered-empty.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\library\\library.templates--diff-modal.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\library\\library.templates--export-json.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\library\\library.templates--import-json-invalid.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\library\\library.templates--archive-confirm.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\models\\models.launch--live-default.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\models\\models.launch--template-off-the-labels-grid.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\models\\models.launch--held-out-locked.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\models\\models.results--no-run-yet.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\models\\models.compare--no-run-yet.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\models\\models.registry--candidate.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\models\\models.registry--filter-registered.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\models\\models.registry--filter-retired.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\models\\models.registry--candidate-failing.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\models\\models.registry--registered.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\models\\models.registry--retired.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\models\\models.registry--rejected.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\models\\models.registry--why-popover.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\models\\models.registry--row-click-registered.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\models\\models.registry--verified.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\models\\models.registry--name-invalid.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\models\\models.registry--retire-modal.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\models\\models.registry--retire-modal-escape.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\models\\models.registry--reject-modal.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\models\\models.registry--restore-modal.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\models\\models.registry--add-20-more.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\models\\models.registry--registered-now.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\models\\models.registry--retired-now.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\review\\review.inspector--1-candidate (redirect from review root).png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\review\\review.inspector--1-candidate (deep link, live detection).png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\review\\review.inspector--context trace paints on real samples.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\review\\review.inspector--context axis: 102's drop sits inside its band (fixup-g, U2).png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\review\\review.inspector--shape card drawn from the 10 Hz source, and says so (fixup-g, Q24).png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\review\\review.inspector--shape card toggled to its own 1 Hz samples.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\review\\review.inspector--shape card without a parent: the toggle is disabled with the reason.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\review\\review.inspector--1b-other-channels (click, then Escape).png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\review\\review.inspector--3-queue-rail (deep link).png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\review\\review.inspector--3-queue-rail (click toggle).png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\review\\review.inspector--3-queue-rail filters reset.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\review\\review.inspector--4-evidence-rail (deep link).png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\review\\review.inspector--4-evidence-rail (micro-stat click).png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\review\\review.inspector--queue-picker popover lists the live queues.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\review\\review.inspector--shortcuts popover.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\review\\review.inspector--blind-toggle popover on a sighted queue.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\review\\review.inspector--extract-events queue (sequence unit, writes annotations).png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\review\\review.inspector--verdict given (I) writes to the database and advances.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\review\\review.inspector--Ctrl-Z undoes through the server.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\review\\review.inspector--Space skips without writing.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\review\\review.inspector--tag input validation.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\review\\review.inspector--item not found is loud, not blank.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\review\\review.inspector--queue rail shows real remaining count.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\seed_sources\\discovery.seed--fixup-y-picker-pages-the-library.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\seed_sources\\discovery.seed--fixup-y-picker-filters-by-kind.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\seed_sources\\review.inspector--fixup-y-seed-names-the-entry.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\seed_sources\\discovery.seed--fixup-y-seed-search-from-review.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\seed_sources\\explore.signal--fixup-y-take-span-is-a-seed.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\settings\\settings.shell--search.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\settings\\settings.shell--search-hit.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\settings\\settings.shell--search-empty.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\settings\\settings.shell--leave-guard.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\settings\\settings.shell--confirm-reset.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\settings\\settings.shell--reset-stages-defaults.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\settings\\settings.shell--save-writes-the-settings-table.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\settings\\settings.shell--saved-value-survives-reload.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\settings\\settings.shell--discard.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\settings\\settings.shell--unknown-slug.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\settings\\settings.datasets--default.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\settings\\settings.datasets--unsaved.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\settings\\settings.datasets--selected-M2_concat_fs1.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\settings\\settings.datasets--selected-by-click.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\settings\\settings.datasets--identity-fields.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\settings\\settings.datasets--invalid-experiment-date.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\settings\\settings.datasets--a-name-that-is-another-datasets-file-is-refused.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\settings\\settings.datasets--naming-a-dataset-saves-and-renames-the-row.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\settings\\settings.datasets--the-name-survives-a-reload.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\settings\\settings.datasets--the-name-in-explore.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\settings\\settings.datasets--the-name-in-channels-events.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\settings\\settings.datasets--discovery-scope-names-its-dataset-through-the-seam.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\settings\\settings.datasets--review-item-carries-its-source-file.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\settings\\settings.datasets--held-out-locked.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\settings\\settings.datasets--invalid-noise-floor.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\settings\\settings.datasets--import-scan.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\settings\\settings.datasets--import-by-click.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\settings\\settings.datasets--unlock-confirm.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\settings\\settings.datasets--unlock-typed.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\settings\\settings.datasets--unlock-wrong-name-is-refused-by-the-server.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\settings\\settings.channels-events--default.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\settings\\settings.channels-events--picker-open-lists-every-dataset.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\settings\\settings.channels-events--unsaved.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\settings\\settings.channels-events--rows-all.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\settings\\settings.channels-events--rows-all-by-click.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\settings\\settings.channels-events--rec-Fig2A.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\settings\\settings.channels-events--rec-M4_aug-locked.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\settings\\settings.channels-events--add-event.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\settings\\settings.channels-events--add-event-valid.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\settings\\settings.channels-events--add-kind.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\settings\\settings.channels-events--add-kind-valid.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\settings\\settings.channels-events--event-added-staged.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\settings\\settings.channels-events--floor-invalid.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\settings\\settings.channels-events--ground-select.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\settings\\settings.channels-events--ground-select-by-click.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\settings\\settings.channels-events--kind-staged.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\settings\\settings.channels-events--unknown-recording-fails-loudly.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\settings\\settings.vocabulary--default.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\settings\\settings.vocabulary--rename.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\settings\\settings.vocabulary--rename-by-click.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\settings\\settings.vocabulary--rekey.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\settings\\settings.vocabulary--add-verdict.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\settings\\settings.vocabulary--add-class.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\settings\\settings.vocabulary--add-tag.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\settings\\settings.vocabulary--merge-tag.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\settings\\settings.vocabulary--class-non-informative.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\settings\\settings.nulls--default.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\settings\\settings.nulls--unsaved.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\settings\\settings.nulls--invalid-alpha.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\settings\\settings.nulls--method-changed.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\settings\\settings.analysis-defaults--default.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\settings\\settings.analysis-defaults--unsaved.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\settings\\settings.analysis-defaults--history.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\settings\\settings.analysis-defaults--context-M3_jul.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\settings\\settings.analysis-defaults--invalid-band.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\settings\\settings.analysis-defaults--clear-cache.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\settings\\settings.analysis-defaults--clearing.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\settings\\settings.compute-hpc--default.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\settings\\settings.compute-hpc--unsaved.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\settings\\settings.compute-hpc--benchmark-running.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\settings\\settings.compute-hpc--benchmark-done.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\settings\\settings.compute-hpc--profile-cpu-array.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\settings\\settings.compute-hpc--editor-raw.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\settings\\settings.compute-hpc--email-off.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\settings\\settings.compute-hpc--add-cluster.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\settings\\settings.compute-hpc--add-cluster-empty-profiles.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\settings\\settings.blocks--default.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\settings\\settings.blocks--every-adapter-listed.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\settings\\settings.blocks--disable-by-click.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\settings\\settings.blocks--used-by.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\settings\\settings.review-queues--default.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\settings\\settings.review-queues--unsaved.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\settings\\settings.review-queues--unblind-warning.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\settings\\settings.review-queues--invalid-cap.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\settings\\settings.review-queues--suggest-warning.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\settings\\settings.models-registration--default.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\settings\\settings.models-registration--unsaved.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\settings\\settings.models-registration--repeats-on.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\settings\\settings.models-registration--invalid-split.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\settings\\settings.models-registration--no-arm.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\settings\\settings.models-registration--unpaired-arms.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\settings\\settings.library-groupings--default.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\settings\\settings.library-groupings--unsaved.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\settings\\settings.library-groupings--unit-spike-trains.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\settings\\settings.library-groupings--omit-warning.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\settings\\settings.library-groupings--weights.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\settings\\settings.storage-backups--default.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\settings\\settings.storage-backups--unsaved.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\settings\\settings.storage-backups--low-disk.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\settings\\settings.storage-backups--scan-matrix-profiles.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\settings\\settings.storage-backups--scan-by-click.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\settings\\settings.storage-backups--token-removed.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\settings\\settings.storage-backups--add-token.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\settings\\settings.storage-backups--backup-now-writes-a-file.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\settings\\settings.storage-backups--restore.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\settings\\settings.export--default.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\settings\\settings.export--unsaved.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\settings\\settings.export--include-notes.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\settings\\settings.export--layout-per-family.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\settings\\settings.audit-log--all.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\settings\\settings.audit-log--filter-settings.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\settings\\settings.audit-log--empty-filter.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\settings\\settings.audit-log--entry-link-navigates.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\settings\\settings.about--default.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\settings\\settings.about--packages.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\settings\\settings.about--copy-diagnostics.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\settings\\settings.display--default.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\settings\\settings.display--applied-immediately.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\settings\\settings.keyboard--default.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\settings\\settings.keyboard--capture.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\settings\\settings.keyboard--conflict.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\training\\analyse.training--default.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\training\\analyse.training--source-popover.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\training\\analyse.training--source-popover-by-click.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\training\\analyse.training--illustrative-human-windows.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\training\\analyse.training--history.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\training\\analyse.training--import.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\training\\analyse.training--send-review.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\training\\analyse.training--queued-to-review.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\training\\analyse.training--save-template.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\training\\analyse.training--rename-invalid.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\training\\analyse.training--running.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\training\\analyse.training--failed.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\training\\analyse.training.windows--default.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\training\\analyse.training.windows--edited.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\training\\analyse.training.windows--invalid-gap.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\training\\analyse.training.windows--random-split.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\training\\analyse.training.windows--boundary.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\training\\analyse.training.windows--verdicts.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\training\\analyse.training.windows--save-window-set.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\training\\analyse.training.windows--send-review.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\training\\analyse.training.windows--running.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\training\\analyse.training.matrix--default.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\training\\analyse.training.matrix--edited.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\training\\analyse.training.matrix--group-open.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\training\\analyse.training.matrix--label-derived-on.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\training\\analyse.training.matrix--readout.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\training\\analyse.training.matrix--slurm.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\training\\analyse.training.matrix--upload.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\training\\analyse.training.matrix--running.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\training\\analyse.training.cluster--default.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\training\\analyse.training.cluster--occupancy.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\training\\analyse.training.cluster--choose-k.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\training\\analyse.training.cluster--choose-k-by-click.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\training\\analyse.training.cluster--criterion-locked.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\training\\analyse.training.cluster--merge-pending.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\training\\analyse.training.cluster--save-grouping.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\training\\analyse.training.cluster--send-review.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\training\\analyse.training.cluster--running.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\training\\analyse.training.encode--default.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\training\\analyse.training.encode--window.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\training\\analyse.training.encode--window-by-pager.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\training\\analyse.training.encode--edited.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\training\\analyse.training.encode--new-encoder-version.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\training\\analyse.training.encode--browse-gadf.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\training\\analyse.training.encode--running.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\training\\analyse.training.model--default.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\training\\analyse.training.model--labels-manual.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\training\\analyse.training.model--labels-both.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\training\\analyse.training.model--trial-job-created.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\training\\analyse.training.model--focus-trial.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\training\\analyse.training.model--send-review.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\training\\analyse.training.model--save-template.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\training\\analyse.training.model--held-out-locked.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\training\\analyse.training.model--stage-04-off.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\training\\analyse.training--rename-cancelled.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\training\\analyse.training.cluster--criterion-locked-in-params.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\training\\analyse.training--stage-deleted-by-click.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\training\\analyse.training--stage-deleted.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\zz_analyse_run\\analyse.block--fixup-j-dehshibi-funnel.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\zz_analyse_run\\analyse.chain--fixup-h-thumbnails-mp_threshold.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\zz_analyse_run\\analyse.block--fixup-h-signal-before-after.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\zz_analyse_run\\analyse.block--fixup-h-scores-signal-above.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\zz_analyse_run\\analyse.block--fixup-h-spanset-cut-and-slideshow.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\zz_analyse_run\\analyse.block--fixup-h-slideshow-selection-drives-the-plot.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\zz_analyse_run\\analyse.chain--fixup-h-thumbnails-dsax_encoding.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\zz_analyse_run\\analyse.block--fixup-h-encoding-symbolic-chunks.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\zz_analyse_run\\analyse.chain--fixup-h-thumbnails-dehshibi_spikes.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\zz_analyse_run\\analyse.block--fixup-h-encoding-image-frames.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\zz_analyse_run\\analyse.block--fixup-h-encoding-image-scan.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\zz_analyse_run\\analyse.block--fixup-h-scores-band-on-the-image.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\zz_analyse_run\\analyse.block--fixup-h-spanset-no-draggable-cut.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\zz_analyse_run\\analyse.chain--fixup-h-thumbnails-windows_model.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\zz_analyse_run\\analyse.block--fixup-h-windowset-heatmap.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\zz_analyse_run\\analyse.block--fixup-h-grouping-exemplars.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\zz_analyse_run\\analyse.block--fixup-h-model-accuracy-per-class.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\zz_analyse_run\\analyse.chain--fixup-h-thumbnails-drop_event_features.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\zz_analyse_run\\analyse.block--fixup-h-spanset-fired-on-the-encoding.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\zz_analyse_run\\analyse.block--fixup-h-features-not-spans.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\zz_analyse_run\\analyse.block--fixup-h-intervals-are-plotted.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\zz_analyse_run_aa\\analyse.chain--fixup-aa-manual-labels-row.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\zz_analyse_run_aa\\analyse.chain--fixup-aa-save-window-set-dialog.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\zz_analyse_run_aa\\analyse.block--fixup-aa-manual-labels-block.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\zz_models_ab\\models.launch--fixup-ab-save-a-window-set-across-channels.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\zz_models_ab\\models.launch--fixup-ab-propose-cuts.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\zz_models_ab\\models.launch--fixup-ab-train-locally.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\zz_models_ab\\models.results--fixup-ab-arm-a.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\zz_models_ab\\models.results--fixup-ab-arm-b-exam-ii.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\zz_models_ab\\models.results--fixup-ab-exam-iii-locked.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\zz_models_ab\\models.compare--fixup-ab-a-vs-b.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\zz_models_ab\\models.compare--fixup-ab-both-wrong.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\zz_models_ab\\models.launch--fixup-ab-after-a-run-the-cut-is-frozen.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\zzz_surrogates\\settings.nulls--fixup-t-offers-the-blocks-methods.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\zzz_surrogates\\discovery.runs--fixup-t-chip-names-a-count-per-run-kind.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\zzz_surrogates\\analyse.chain--fixup-t-null-toggle-off-by-default.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\zzz_surrogates\\analyse.chain--fixup-t-run-with-null-reads-detected-versus-surrogate.png",
+    "C:\\Users\\mmebr\\AppData\\Local\\Temp/claude/C--Users-mmebr-Documents-CNN/6c844c22-7dfa-437c-a414-c5a6e3630f15/scratchpad/gate_shots\\pages\\zzz_surrogates\\analyse.chain--fixup-t-null-toggle-back-off.png"
+  ]
+}

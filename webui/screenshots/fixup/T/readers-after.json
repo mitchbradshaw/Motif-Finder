@@ -1,0 +1,20 @@
+{
+ "files_with_surrogate_runs": [
+  "M2_aug_concat_fs1.mat"
+ ],
+ "M2_aug_concat_fs1.mat": {
+  "explore.corpus detections (map total)": 546,
+  "explore.corpus disagree": 11221,
+  "explore.corpus detection runs": 19,
+  "explore.corpus method filter runs": 45,
+  "explore.signal channel summary detections": 546,
+  "explore.signal spans drawn": 546,
+  "explore.signal density ribbon": 546,
+  "core list_detections_for_recording": 546,
+  "divergence annotations_without_detection": 11117
+ },
+ "review queue_candidates (no filter)": 1175,
+ "review queue_candidates run_group 1": 3,
+ "review queue_candidates run_group 2": 186,
+ "divergence rejected_detections": 0
+}

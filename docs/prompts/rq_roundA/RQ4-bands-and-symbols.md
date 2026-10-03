@@ -2,7 +2,7 @@
 
 **Status (2026-10-03, after `Z`): answerable in the app, bandpass bands.** The whole walk is now one action per step:
 a band scope on *Apply template*, the band set as one side of Compare, the overlap split by verdict, and *Send only-B
-unjudged to Review*. Still owed: the true null draw count (`T` — today one surrogate per band per channel) and the
+unjudged to Review*. The null is now 20 draws per band per channel (`T`, 2026-10-03). Still owed: the
 wavelet kind of band (`AC`).
 
 ## In plain words
@@ -18,6 +18,9 @@ that find things the plain, un-split signal hides? You check the extra finds by 
   - Discovery over 3 channels: raw `drop_detection_v1` vs band gives **only A 3 · both 0 · only B 74**.
 - **At untuned defaults, the single surrogate per channel produced more spans than the real signal did**, so nothing yet
   beats chance.
+- **Each band run now draws 20 surrogates per channel** (`T`, 2026-10-03, `docs/prompts/fixup/reports/T-surrogates-one-null-never-a-detection.md`), each bandpassed the same way,
+  and the per-band rows and Compare print *"N draws per channel per band"*. **The 297 below is still the old
+  one-draw figure; it has not been re-measured at 20 draws.** Your first band run will print the real expectation.
 - ~~**Band fan-out has no caller.**~~ Closed by `Z` (2026-10-03, `docs/prompts/fixup/reports/Z-band-scope-and-compare-by-verdict.md`):
   - *Apply template* has a **Bands** scope beside *Channels in scope*. Each band is **one Discovery run across the
     channels in scope** — the template's chain with that band's bandpass prepended, built by the core's own
@@ -82,7 +85,9 @@ that find things the plain, un-split signal hides? You check the extra finds by 
 |---|---|
 | ~~Band scope on *Apply template* (one template, run per band)~~ | done, `Z` |
 | ~~Compare takes the set of band runs as one side; overlap split by verdict; *Send only-B unjudged to Review*~~ | done, `Z` |
-| True surrogate count (today one per band per channel; the per-band rows print the count drawn) | `T` |
+| ~~True surrogate count~~ — 20 draws per band per channel, printed | `T`, done 2026-10-03 |
+| Re-measure the bands' null (was 297 on one draw) at 20 draws on the 3-channel scope | the researcher's first band run |
+| A band run routed to the cluster comes back with no null (the SLURM job has no null task) | open; raised in `T`'s report |
 | The SLURM modal writes the script of the **first** pending run only, so an over-ceiling band application gets one script, not N | open (pre-existing; `AB` owns the `/slurm` writer) |
 | Wavelet-decomposition block and the wavelet kind in the band scope | `AC` |
 
@@ -108,3 +113,4 @@ None.
 - 2026-10-03 · fixup-Z · band scope on Apply template, band set as a Compare side, verdict split, only-B to Review, like-for-like; Q43 built (third band 0.1–0.45 Hz); sandbox numbers recorded; the role-count Compare fix
 - 2026-10-03 · fixup-dsax-seed · learned dSAX / pSAX seeded by a fixed constant: one recipe, one span set; stored counts need one forced re-run
 - 2026-10-03 · fixup-csax-seed · cSAX's Mean-Shift seeded by the same constant: one recipe, one string; its alphabet size is seed-sensitive (3–6 over 32 seeds)
+- 2026-10-03 · fixup-t · band runs draw 20 paired surrogates per channel and print the count; the 297 is not yet re-measured.

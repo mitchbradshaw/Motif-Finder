@@ -52,7 +52,7 @@ Q3 and Q6. The ranking is by what is left, not by the order run.
    `GET /api/review/queues` still listed two queues, and *Open Review* landed on `#/review/queue/1/119` —
    *"Library - extract events"*. **This is the blocker for Q2 and Q4 and half of Q5.** The Analyse block page's
    slideshow *Send N to Review* does create a real queue, for one chain run on one span.
-2. **Where a null exists.** Interrogation has none and says so: *"no null is drawn on this page: every number
+2. **[Discovery's and Analyse's half CLOSED by fixup-T, 2026-10-03 — `docs/prompts/fixup/reports/T-surrogates-one-null-never-a-detection.md`: a template run draws 20 surrogates per channel and a seed search 200, every surface prints the count the run drew, Analyse has a working toggle (default off), and surrogate spans are out of every detection count. Interrogation's null is still `future/R-interrogation-null.md`.]** **Where a null exists.** Interrogation has none and says so: *"no null is drawn on this page: every number
    below describes these events and is not tested against chance"*. Analyse chains have none (*"surrogate · not
    in this slice"*, every run footer ends *"no null"*). **Discovery does draw a surrogate**
    (`preprocessing.surrogate`, phase-randomised): 200 draws per channel for a seeded search, and **one** paired

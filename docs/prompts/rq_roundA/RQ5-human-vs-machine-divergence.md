@@ -22,6 +22,12 @@ scattered randomly? If they bunch up, that tells you something about either the 
   (`trough` 2,827, `sharkfin` 772). Classes given in Review are not stored (R3).
 - `L` landed on 2026-10-03, so queues from Discovery now open and verdicts can accumulate.
 
+- **Surrogate detections are out of every count** (`T`, 2026-10-03, `docs/prompts/fixup/reports/T-surrogates-one-null-never-a-detection.md`). One predicate in the core
+  (`queries.not_surrogate`) and every reader goes through it. On M2_aug: Explore's detections 576 → 546, *disagree*
+  11,234 → 11,221, and *annotations with no detection* 11,109 → 11,117 — **eight human spans had been counted as
+  "the machine found this" only because a null draw happened to overlap them.** Both core divergence queries
+  exclude surrogate runs, so `X` builds on clean inputs.
+
 ## Decisions already made
 
 - **Q-D2:** precision is reported as two numbers, each with its own rule. Containment over the window labels; extent
@@ -37,7 +43,7 @@ scattered randomly? If they bunch up, that tells you something about either the 
 | *Disagree* conditions on verdict and on where a run actually ran | `X` |
 | Q-D2's two-number precision | `X` |
 | A breakdown by channel, time and morphology over the two core queries | `X` |
-| Surrogate detections kept out of every count | `T` |
+| ~~Surrogate detections kept out of every count~~ | `T`, done 2026-10-03 |
 | Classes / tags given in Review stored | Review-behaviour prompt |
 | Adjudication hours on real queues | the researcher |
 
@@ -54,3 +60,5 @@ None blocking. For the RQ5 round: what counts as "structured" (a null for cluste
 ## Log
 
 - 2026-10-03 · grilling · file created.
+- 2026-10-03 · fixup-t · surrogate runs' spans excluded from Explore, Review and both divergence queries (8 false
+  "machine found it" on M2_aug removed).
