@@ -901,7 +901,8 @@ def test_each_band_run_is_paired_with_a_surrogate_bandpassed_the_same_way(client
         ids, _ = _first_run_recipe(client, o["run_key"])
         sur = _db_rows(client, "SELECT id, config_id FROM runs WHERE surrogate_of_run_id IN (%s)"
                        % ",".join(str(i) for i in ids))
-        assert len(sur) == len(ids), "every band run has its null"
+        # the session's explicit null is 2 draws (`_scope`), and each draw is a run (fixup-T, Q35)
+        assert len(sur) == 2 * len(ids), "every band run has its null, at the count the session names"
         conn = sqlite3.connect(client.app.state.rt.db_path)
         conn.row_factory = sqlite3.Row
         try:

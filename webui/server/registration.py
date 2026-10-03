@@ -394,6 +394,15 @@ def _page_extras(request: Request, page: str, c) -> dict:
         return {"verdicts": [{"name": v, "n_annotations": int(ann.get(v, 0)), "n_adjudications": int(adj.get(v, 0))} for v in VERDICTS], "tags": tags}
     if page == "compute-hpc":
         return {"machine": _machine()}
+    if page == "nulls":
+        # Q36: the page offers what `preprocessing.surrogate` implements, read off the block, so it
+        # cannot name a method `resolve_null` refuses. The defaults are the core's too (Q35, Q37).
+        from Working.discovery import seeded_search as ss
+        return {"null_methods": ss.offered_methods(),
+                "null_defaults": {"draws": dict(ss.DEFAULT_DRAWS_BY_KIND), "method": ss.DEFAULT_NULL_METHOD,
+                                  "alpha": ss.CUT_ALPHA, "correction": ss.CUT_CORRECTION},
+                "block_rule": "twice the longest motif under test: the seed for a seed search, the run's "
+                              "longest detection for a detection chain. A block under 2 samples is refused."}
     if page == "analysis-defaults":
         return {"cache_gb": _tree_bytes(rt.step_cache_root) / 1e9 if rt.step_cache_root and os.path.isdir(rt.step_cache_root) else 0.0, "cache_root": rt.step_cache_root}
     if page == "blocks":

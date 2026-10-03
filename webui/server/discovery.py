@@ -234,6 +234,38 @@ def _session(conn):
     return _session_row(conn) or _default_session(conn)
 
 
+def _live_null(conn, kind, s=None):
+    """Settings › Nulls for one run kind, in the session's `null` shape.
+
+    Read LIVE, not from the session row: the row's `null_json` was frozen when
+    the session was made, from the seed-search kind, and the chip then stated
+    that one count ("200×") over template runs that drew one (D4). Each run
+    kind has its own count (Q35) and each run records the count it drew; this
+    is what the NEXT run of a kind will draw.
+
+    A session whose null was set EXPLICITLY (`PUT /api/discovery/session` with
+    a `null`) keeps that method and count for both kinds — the session said so,
+    and it is marked `explicit` so the page can say where the number is from."""
+    r = seeded_search.null_from_settings(conn, kind=kind)
+    out = {"method": r["method"], "n": r["draws"], "requested": r["requested"],
+           "supported": r["supported"], "reason": r["reason"], "blockS": r.get("block_s"),
+           "kind": kind, "explicit": False}
+    if s is not None:
+        own = json.loads(s["null_json"] or "{}")
+        if own.get("explicit"):
+            out.update({k: own.get(k) for k in ("method", "n", "requested", "supported", "reason")})
+            out["explicit"] = True
+    return out
+
+
+def _seed_null(conn, s=None):
+    """The Seed page's null, with the cut's rule riding along so a changed α or
+    correction is a different result key, not a stale marker."""
+    null = _live_null(conn, seeded_search.NULL_KIND, s)
+    null["rule"] = seeded_search.cut_rule_from_settings(conn)
+    return null
+
+
 def _session_scope(conn):
     """(session row, recording dict, [channel rows], (span_start, span_end))."""
     s = _session(conn)
@@ -247,7 +279,7 @@ def _session_payload(conn):
     s = _session(conn)
     rec = _file_for_key(conn, _stem(s["source_file"]))
     fs = rec["fs"]
-    null = json.loads(s["null_json"] or "{}")
+    null = _live_null(conn, seeded_search.NULL_KIND, s)
     return {
         "session": {
             "id": int(s["id"]),
@@ -258,6 +290,9 @@ def _session_payload(conn):
             "section": [int(s["span_start"]) / fs / 3600.0, int(s["span_end"]) / fs / 3600.0],
             "sectionSamples": [int(s["span_start"]), int(s["span_end"])],
             "null": null,
+            # one null per run KIND, each with its own draw count (Q35); the chip
+            # prints both, and a run's own row prints what that run drew
+            "nulls": {"template": _live_null(conn, seeded_search.DETECTION_KIND, s), "seed": null},
             "localLimitMin": fanout.ceiling_s(conn) / 60.0,
             "savedAt": (s["updated_at"] or "")[11:16],
             "matchingRule": rule_from_settings(conn),
@@ -305,7 +340,7 @@ def put_session(request: Request, body: SessionBody):
         if body.null is not None:
             resolved = seeded_search.resolve_null(body.null.get("method"), body.null.get("n"))
             null = {"method": resolved["method"], "n": resolved["draws"], "requested": resolved["requested"],
-                    "supported": resolved["supported"], "reason": resolved["reason"]}
+                    "supported": resolved["supported"], "reason": resolved["reason"], "explicit": True}
         c.execute("UPDATE discovery_sessions SET name = ?, source_file = ?, channels_json = ?, span_start = ?, "
                   "span_end = ?, null_json = ?, updated_at = ? WHERE id = ?",
                   (body.name or s["name"], rec["source_file"], json.dumps([ch["name"] for ch in chans]),
@@ -1372,9 +1407,12 @@ def _seed_key(seed_id, channels, t0, t1, k, max_distance, null, source_file="", 
     matching rule matters too — the `judged` flags on every candidate were
     computed under it."""
     r = rule or {}
+    cut = null.get("rule") or {}
     return "|".join([source_file, seed_id, ",".join(channels), f"{t0:.6f}", f"{t1:.6f}", str(k),
                      f"{max_distance:g}", str(null.get("method")), str(null.get("n")),
-                     f"{r.get('iou')}:{r.get('onset')}"])
+                     f"{r.get('iou')}:{r.get('onset')}",
+                     # the marker is computed under these (fixup-T, Q37 / Q-Null-1)
+                     f"{cut.get('alpha')}:{cut.get('correction')}:{null.get('blockS')}"])
 
 
 def _seed_search(conn, seed, chans, span, *, k, max_distance, null, job=None):
@@ -1386,6 +1424,7 @@ def _seed_search(conn, seed, chans, span, *, k, max_distance, null, job=None):
     """
     exemplar = np.asarray(seeded_search.exemplar_signal(conn, seed).x, dtype=float)
     per_channel, pooled_null, candidates, capped = [], [], [], []
+    for_cut, block_s = [], None
     n = len(chans)
     rule = rule_from_settings(conn)
     for i, ch in enumerate(chans):
@@ -1420,6 +1459,7 @@ def _seed_search(conn, seed, chans, span, *, k, max_distance, null, job=None):
             candidates[first + p["candidate"]]["verdict"] = humans[p["reference"]]["verdict"]
 
         draws = 0
+        channel_null = {"distances": [], "draws": 0}
         if null.get("supported", True) and null.get("method") and int(null.get("n") or 0) > 0:
             want = int(null["n"])
             afford = max(NULL_MIN_DRAWS, NULL_SAMPLE_BUDGET // max(1, len(x)))
@@ -1432,12 +1472,16 @@ def _seed_search(conn, seed, chans, span, *, k, max_distance, null, job=None):
             nulls = seeded_search.null_distances(
                 x, exemplar, draws=asked, seed=0, method=null["method"], k=k,
                 max_distance=(max_distance if max_distance > 0 else None), fs=fs,
+                block_s=null.get("blockS"),
                 on_progress=((lambda d, t, ch=ch, i=i: job.progress(i, n, f"{ch['name']} · null {d}/{t}"))
                              if job is not None else None),
                 should_cancel=(job.cancel_event.is_set if job is not None else None))
             pooled_null.extend(nulls["distances"])
             draws = nulls["draws"]
+            block_s = nulls["block_s"]
+            channel_null = {"distances": nulls["distances"], "draws": draws}
         per_channel.append({"channel": ch["name"], "n": len(found), "nullDraws": draws})
+        for_cut.append({"distances": [c_["distance"] for c_ in found], "null": channel_null})
 
     candidates.sort(key=lambda c_: (c_["d"], c_["index"]))
     # `draws` is the count PER CHANNEL, because `kept` is one realisation over
@@ -1455,14 +1499,28 @@ def _seed_search(conn, seed, chans, span, *, k, max_distance, null, job=None):
         "reason": null.get("reason"), "requested": null.get("requested"),
         "asked": int(null.get("n") or 0),
         "capped": (" · ".join(capped) or None),
+        # the block a block shuffle dealt (None for a method with no block)
+        "blockS": block_s,
     }
     ds = [c_["d"] for c_ in candidates]
-    cut = seeded_search.recommended_cut(ds, null_obj)
+    # Q37: α and the correction are Settings › Nulls' own, applied per channel —
+    # each channel's closest match against its own null, the correction across
+    # the channels in scope — and the sentence is generated from the same values.
+    rule_used = null.get("rule") or seeded_search.cut_rule_from_settings(conn)
+    corrected = seeded_search.recommended_cut_corrected(
+        for_cut, alpha=rule_used["alpha"], correction=rule_used["correction"])
+    cut = round(corrected["cut"], 4) if corrected["cut"] is not None else None
+    for row, c_ in zip(per_channel, corrected["per_channel"]):
+        row.update({"p": c_["p"], "level": c_["level"],
+                    "cut": (round(c_["cut"], 4) if c_["cut"] is not None else None)})
+    cut_rule = dict(corrected["rule"], channels_passing=corrected["channels_passing"])
+    if len(for_cut) > 1:
+        cut_rule["text"] += f" · {corrected['channels_passing']} of {len(for_cut)} channels have a match under it"
     return {
         "candidates": candidates, "nullDistances": null_obj["distances"], "null": null_obj,
         # the rule the marker was computed under, so the figure can be checked
         # against it (fixup-a item 12)
-        "recommendedCut": cut, "cutRule": seeded_search.cut_rule(),
+        "recommendedCut": cut, "cutRule": cut_rule,
         "perChannel": per_channel, "m": seed["samples"],
         "seedId": seed["id"], "span": [span[0], span[1]],
         "counts": (seeded_search.cut_counts(ds, null_obj, cut) if cut is not None else None),
@@ -1511,7 +1569,7 @@ def start_seed_results(request: Request, body: SeedBody):
         names = body.channels or json.loads(s["channels_json"])
         _ids_for(c, _stem(s["source_file"]), names)          # refuses held out / unknown names
         _seed_by_id(c, body.seedId)
-        null = json.loads(s["null_json"] or "{}")
+        null = _seed_null(c, s)
         key = _seed_key(body.seedId, names, body.t0, body.t1, body.k, body.maxDistance, null,
                         source_file=s["source_file"], rule=rule_from_settings(c))
         cached = _cached_result(c, s["id"], key)
@@ -1550,7 +1608,7 @@ def get_seed_results(request: Request, seedId: str, channels: str = "", t0: floa
     c = _conn(request)
     try:
         s = _session(c)
-        null = json.loads(s["null_json"] or "{}")
+        null = _seed_null(c, s)
         names = _split(channels) or json.loads(s["channels_json"])
         key = _seed_key(seedId, names, t0, t1, k, maxDistance, null,
                         source_file=s["source_file"], rule=rule_from_settings(c))
@@ -1749,8 +1807,14 @@ def _plan(conn, body: PlanBody):
         mm = int(round(window_min * 60 * float(rec_row["fs"])))
         return seeded_search.find_reusable_profile(c2, recording_id, mm, span=target_span)
 
+    # the paired null is N more sweeps (Q35), so it is in the estimate and in the
+    # route: "null draws count toward local limits" (§9.4)
+    on, sp, why, draws = _surrogate_for(
+        conn, seeded_search.NULL_KIND if seed else seeded_search.DETECTION_KIND, s)
     plan = fanout.plan(conn, steps=steps, recording_ids=[ch["id"] for ch in chans], span=span,
-                       measured_per_channel_s=body.measuredPerChannelS, reuse_lookup=reuse)
+                       measured_per_channel_s=body.measuredPerChannelS, reuse_lookup=reuse,
+                       null_draws=(draws if on else 0))
+    plan["null"] = {"paired": on, "params": sp, "reason": why, "draws": (draws if on else 0)}
     plan["template"] = template["name"] if template else None
     plan["seedId"] = seed["id"] if seed else None
     plan["m"] = m
@@ -1845,20 +1909,28 @@ def _insert_run(conn, session_id, *, run_key, kind, label, template_name=None, t
                         (int(session_id), run_key)).fetchone()
 
 
-def _surrogate_for(conn):
-    """The paired null run's settings, from Settings › Nulls' `detection` kind.
+def _surrogate_for(conn, kind=seeded_search.DETECTION_KIND, s=None):
+    """The paired null's settings for one run kind, from Settings › Nulls:
+    ``(on, params, reason, draws)``.
 
     §7.3's *null expects* is "how many detections the null gives on the same
     scope", which is a **run** — `run_paired_recipe` prepends
-    `preprocessing.surrogate` and links it by `runs.surrogate_of_run_id`. The
-    PRD has surrogates on by default; a method the block does not implement
-    turns the pairing off and says why, rather than quietly running a different
-    null under the name the page prints.
+    `preprocessing.surrogate` and links it by `runs.surrogate_of_run_id`, once
+    per draw. The count is the kind's own (Q35: 20 for a template run, 200 for
+    a seed search). The PRD has surrogates on by default; a method the block
+    does not implement turns the pairing off and says why, rather than quietly
+    running a different null under the name the page prints.
+
+    A block shuffle's block is left to `run_paired_recipe` (twice the run's
+    longest detection, Q-Null-1) unless Settings fixes `null.block_s`.
     """
-    resolved = seeded_search.null_from_settings(conn, kind="detection")
+    resolved = _live_null(conn, kind, s)
     if not resolved["supported"]:
-        return False, None, resolved["reason"]
-    return True, {"method": resolved["method"], "seed": 0}, None
+        return False, None, resolved["reason"], 0
+    params = {"method": resolved["method"], "seed": 0}
+    if resolved["method"] == "block_shuffle" and resolved.get("blockS"):
+        params["block_s"] = resolved["blockS"]
+    return True, params, None, int(resolved["n"])
 
 
 def _start_sweep(request, *, session_id, run_key, plan, label, surrogate=True,
@@ -1881,14 +1953,28 @@ def _start_sweep(request, *, session_id, run_key, plan, label, surrogate=True,
                     return
                 job.progress(i + 1, n, f"{row['channel_name']} · {row['detections_written']} spans")
 
+            def on_draw(i, n, j, m):
+                # N draws is N more sweeps: say which one is running
+                job.progress(i, n, f"{plan['targets'][i]['channel_name']} · null {j + 1} of {m}")
+
             out = fanout.start(plan, db_path=db_path, on_progress=on_progress,
                                on_target_done=on_target_done, should_cancel=job.cancel_event.is_set,
-                               surrogate=surrogate, surrogate_params=surrogate_params)
+                               surrogate=surrogate, surrogate_params=surrogate_params,
+                               surrogate_draws=(plan.get("null_draws") or None), on_draw=on_draw)
             cur = conn2.execute("SELECT params_json FROM discovery_runs WHERE session_id = ? AND run_key = ?",
                                 (int(session_id), run_key)).fetchone()
             params = json.loads((cur["params_json"] if cur else "{}") or "{}")
             params["run_ids"] = out["run_ids"]
             params["reused_run_ids"] = out["reused"]
+            # what this run's null really was: draws per channel (fewer than
+            # asked after a cancel), and why a channel has none
+            drawn = [len(r["surrogate_run_ids"]) for r in out["runs"]]
+            null_rec = dict(params.get("null") or {})
+            null_rec["drawn"] = (min(drawn) if drawn else 0)
+            skipped = next((r["surrogate_skipped"] for r in out["runs"] if r.get("surrogate_skipped")), None)
+            if skipped:
+                null_rec["skipped"] = skipped
+            params["null"] = null_rec
             # the group the runs are actually in: a reused run keeps the first
             # group it joined, so this is not always out["run_group_id"]
             groups = sorted({r["run_group_id"] for r in out["runs"] if r["run_group_id"]})
@@ -1912,7 +1998,7 @@ def _start_sweep(request, *, session_id, run_key, plan, label, surrogate=True,
     job = request.app.state.manager.start_job("sweep", run, meta={
         "what": label, "run_key": run_key, "channels": plan["channels"],
         "span": plan["span"], "route": plan["route"],
-        "null": ("paired surrogate run per channel" if surrogate else "off")})
+        "null": (f"{plan.get('null_draws') or 1} paired surrogate runs per channel" if surrogate else "off")})
     return job
 
 
@@ -1955,13 +2041,12 @@ def _apply_bands(request, c, body: ApplyBody, name: str, bands: list[dict]):
             raise HTTPException(422, {"message": plan["reason"], "refused": plan["refused"], "template": name})
     s = plans[0][6]
     set_key = _band_set_key(c, s["id"], name)
-    on, sp, why = _surrogate_for(c)
     out = []
     for i, (band, (plan, steps, template, _seed, span, chans, _s)) in enumerate(zip(bands, plans)):
         key = _next_key(c, s["id"], _slug(f"{name}_{band['label'].replace(' ', '')}"))
         label = f"{name} · {band['label']}"
         params = {"stage_count": len(steps), "version": template.get("version"),
-                  "null": {"paired": on, "params": sp, "reason": why},
+                  "null": dict(plan["null"]),
                   "detail": f"v{template.get('version') or 1} · {len(steps)} stages · band {band['label']}",
                   "glyph": D.glyph_for(f"{steps[-1]['stage']}.{steps[-1]['algorithm']}"),
                   "route": route, "estimate_s": plan["estimate_s"],
@@ -1972,7 +2057,7 @@ def _apply_bands(request, c, body: ApplyBody, name: str, bands: list[dict]):
         job_id = None
         if body.run and route != "cluster":
             job = _start_sweep(request, session_id=int(s["id"]), run_key=key, plan=plan, label=label,
-                               surrogate=on, surrogate_params=sp)
+                               surrogate=plan["null"]["paired"], surrogate_params=plan["null"]["params"])
             job_id = job.id
             c.execute("UPDATE discovery_runs SET job_id = ?, status = 'running', updated_at = ? "
                       "WHERE session_id = ? AND run_key = ?", (job_id, _now(), int(s["id"]), key))
@@ -2013,9 +2098,8 @@ def apply_templates(request: Request, body: ApplyBody):
                 raise HTTPException(422, {"message": plan["reason"], "refused": plan["refused"],
                                           "template": name})
             key = _next_key(c, s["id"], name)
-            on, sp, why = _surrogate_for(c)
             params = {"stage_count": len(steps), "version": template.get("version"),
-                      "null": {"paired": on, "params": sp, "reason": why},
+                      "null": dict(plan["null"]),
                       "detail": f"v{template.get('version') or 1} · {len(steps)} stages",
                       "glyph": D.glyph_for(f"{steps[-1]['stage']}.{steps[-1]['algorithm']}"),
                       "route": plan["route"], "estimate_s": plan["estimate_s"]}
@@ -2024,7 +2108,7 @@ def apply_templates(request: Request, body: ApplyBody):
             job_id = None
             if body.run and plan["route"] != "cluster":
                 job = _start_sweep(request, session_id=int(s["id"]), run_key=key, plan=plan, label=name,
-                                   surrogate=on, surrogate_params=sp)
+                                   surrogate=plan["null"]["paired"], surrogate_params=plan["null"]["params"])
                 job_id = job.id
                 c.execute("UPDATE discovery_runs SET job_id = ?, status = 'running', updated_at = ? "
                           "WHERE session_id = ? AND run_key = ?", (job_id, _now(), int(s["id"]), key))
@@ -2103,17 +2187,16 @@ def run_seed_search(request: Request, body: SeedBody):
         bits = _seed_differs(first, ident, float(chans[0]["fs"])) if first else []
         label = " · ".join([base] + bits)
         key = _next_key(c, s["id"], _slug(label))
-        on, sp, why = _surrogate_for(c)
         params = {"stage_count": 1, "glyph": "seed", "seedId": seed["id"], "cut": body.cut,
                   "entryId": (int(seed.get("entry_id") or 0) or None), "identity": ident,
-                  "null": {"paired": on, "params": sp, "reason": why},
+                  "null": dict(plan["null"]),
                   "k": body.k, "detail": f"{seed['samples']} samples · MASS",
                   "route": plan["route"], "exclusion_note": seeded_search.recommended_params(seed)["exclusion_note"]}
         _insert_run(c, s["id"], run_key=key, kind="seed", label=label, params=params)
         job_id = None
         if plan["route"] != "cluster":
             job = _start_sweep(request, session_id=int(s["id"]), run_key=key, plan=plan, label=label,
-                               surrogate=on, surrogate_params=sp)
+                               surrogate=plan["null"]["paired"], surrogate_params=plan["null"]["params"])
             job_id = job.id
             c.execute("UPDATE discovery_runs SET job_id = ?, status = 'running', updated_at = ? "
                       "WHERE session_id = ? AND run_key = ?", (job_id, _now(), int(s["id"]), key))

@@ -368,6 +368,8 @@ def cut_rule(alpha=CUT_ALPHA, correction=CUT_CORRECTION, n_channels=1):
     text = f"marker: α = {alpha:g} per null draw · correction: {_CORRECTION_NAMES[correction]}"
     if correction != "none":
         text += f" over {n_channels} channel{'' if n_channels == 1 else 's'}"
+    elif n_channels > 1:
+        text += f" · each of {n_channels} channels against its own null"
     return {"alpha": alpha, "correction": correction, "correction_name": _CORRECTION_NAMES[correction],
             "n_channels": n_channels, "text": text}
 
