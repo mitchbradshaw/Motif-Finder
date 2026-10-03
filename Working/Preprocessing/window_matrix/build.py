@@ -275,6 +275,46 @@ def _result(values, computed, columns, start_idx, m, step, stages_run,
     }
 
 
+def features_at(x, starts, m, stages, *, span_start=0, cnn_model_dir=DEFAULT_CNN_MODEL_DIR,
+                rf_model_path=None, on_progress=None, should_cancel=None):
+    """The window-matrix measures at ARBITRARY window starts, not a regular grid.
+
+    `build_window_matrix` lays its own grid over a span; a training set pooled
+    from the labels' grid (fixup-ab: labelled-first, non-overlapping, several
+    channels) has starts no step describes. Same stage functions, same columns,
+    same attempted-vs-computed mask — only the starts are given. `starts` are
+    absolute in the channel and `x[0]` sits at `span_start`.
+
+    Returns `(values, computed, columns)`; a cancelled call raises
+    `BuildCancelled` rather than handing back a partial table a caller could
+    mistake for a whole one.
+    """
+    start_idx = np.asarray(starts, dtype=np.int64)
+    requested = tuple(stages)
+    available, unavailable = store.stages_available_at(int(m))
+    columns = list(store.measure_columns(requested))
+    col_index = {c: i for i, c in enumerate(columns)}
+    values = np.full((len(start_idx), len(columns)), np.nan, dtype=np.float32)
+    computed = np.zeros(values.shape, dtype=bool)
+    for stage in requested:
+        if stage not in available:
+            continue
+        targets = [col_index[c] for c in store.STAGE_COLUMNS[stage]()]
+        if stage == "cnn":
+            _, cancelled = _run_cnn_stage(x, start_idx, span_start, int(m), targets, values, computed,
+                                          cnn_model_dir, None, on_progress, should_cancel, len(start_idx))
+        elif stage == "rf":
+            _, cancelled = _run_rf_stage(x, start_idx, span_start, int(m), targets, values, computed,
+                                         rf_model_path, None, on_progress, should_cancel, len(start_idx))
+        else:
+            _, cancelled = _run_scalar_stage(x, start_idx, span_start, int(m), targets, values, computed,
+                                             _STAGE_FN_FACTORIES[stage](), stage, None, on_progress,
+                                             should_cancel, len(start_idx))
+        if cancelled:
+            raise BuildCancelled(f"cancelled during the {stage} stage")
+    return values, computed, columns
+
+
 def _only_skipped_missing(computed, columns, stages_skipped):
     """True when every uncomputed cell belongs to a stage that could not run
     at this window length."""

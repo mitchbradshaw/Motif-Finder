@@ -956,6 +956,24 @@ CREATE TABLE IF NOT EXISTS window_sets (
     UNIQUE (name, version)
 );
 CREATE INDEX IF NOT EXISTS idx_window_sets_name ON window_sets(name);
+
+-- fixup-ab: a window set ACROSS channels (Models › Launch, the paired training
+-- job). The `window_sets` row of such a set leaves `recording_id`/`channel`
+-- NULL and names its channels here, one row each, with the role the channel
+-- plays (`train` — split by time within the channel — or `exam`, a channel
+-- never trained on) and its counts at save time. Additive: a one-channel set
+-- has no members and reads exactly as before.
+CREATE TABLE IF NOT EXISTS window_set_members (
+    id             INTEGER PRIMARY KEY AUTOINCREMENT,
+    window_set_id  INTEGER NOT NULL REFERENCES window_sets(id),
+    recording_id   INTEGER NOT NULL REFERENCES recordings(id),
+    channel        INTEGER,
+    role           TEXT    NOT NULL CHECK (role IN ('train', 'exam')),
+    n_windows      INTEGER NOT NULL,
+    counts_json    TEXT,
+    UNIQUE (window_set_id, recording_id)
+);
+CREATE INDEX IF NOT EXISTS idx_window_set_members_set ON window_set_members(window_set_id);
 """
 
 

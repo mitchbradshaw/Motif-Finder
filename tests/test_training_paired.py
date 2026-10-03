@@ -207,7 +207,10 @@ def test_the_pooled_set_holds_every_labelled_window_of_every_channel(store):
     assert set(t["label"].unique()) <= {0, 1}
     per_ch = t.groupby("channel").size()
     expected = sum(1 for _ in _labels_for(0))
-    assert all(v == expected for v in per_ch.values)
+    # every labelled window is in the set, or was dropped to keep the gap — and counted
+    gap = {c["channel"]: c["dropped_for_gap"] for c in ps.meta["per_channel"]}
+    assert all(per_ch[ch] + gap[ch] == expected for ch in per_ch.index)
+    assert all(gap[ch] > 0 for ch in TRAIN_CH) and all(gap[ch] == 0 for ch in EXAM_CH)
     # the exam channels are never trained on
     assert set(t.loc[t["channel"].isin(EXAM_CH), "role"]) == {"exam"}
     assert {"train", "validation", "test"} <= set(t.loc[t["channel"].isin(TRAIN_CH), "role"])

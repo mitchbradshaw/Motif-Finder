@@ -212,9 +212,11 @@ def human_spans(conn, recording_id):
     `[(start, end, verdict, source)]` from `annotations` and from the
     `window_verdicts` written on any saved window set of that recording (whose
     bounds are read from the set's own files on disk)."""
+    # a soft-deleted annotation (`deleted_at`, Part E7) is not a label: every
+    # default view excludes it (`queries.list_annotations`), and so must training
     out = [(int(r[0]), int(r[1]), str(r[2]), str(r[3])) for r in conn.execute(
-        "SELECT start_idx, end_idx, verdict, source FROM annotations WHERE recording_id = ?",
-        (int(recording_id),))]
+        "SELECT start_idx, end_idx, verdict, source FROM annotations WHERE recording_id = ? "
+        "AND deleted_at IS NULL", (int(recording_id),))]
     sets = conn.execute(
         "SELECT ws.id, ws.path, ws.window_length FROM window_sets ws WHERE ws.recording_id = ? "
         "AND EXISTS (SELECT 1 FROM window_verdicts wv WHERE wv.window_set_id = ws.id)",
