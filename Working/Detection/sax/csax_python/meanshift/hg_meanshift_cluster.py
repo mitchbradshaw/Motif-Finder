@@ -11,11 +11,12 @@
 import numpy as np
 from scipy.stats import iqr
 
+from Working.Detection.sax.psax_python.kmeanspp import KMEANSPP_SEED, as_rng
 from .gaussfun   import gaussfun
 from .epanechfun import epanechfun
 
 
-def hg_meanshift_cluster(data_pts, kernel, multi_factor=1.0):
+def hg_meanshift_cluster(data_pts, kernel, multi_factor=1.0, random_state=KMEANSPP_SEED):
     """
     Mean-Shift clustering with a chosen kernel.
 
@@ -24,6 +25,11 @@ def hg_meanshift_cluster(data_pts, kernel, multi_factor=1.0):
     data_pts     : array-like, shape (numDim, numPts) or (numPts,) for 1-D data
     kernel       : str — 'flat', 'gaussian', or 'epanechnikov'
     multi_factor : float — bandwidth multiplier (default 1.0)
+    random_state : int, Generator, RandomState or None — the source of the
+        seed-point draws. Defaults to the fixed `KMEANSPP_SEED` (shared with
+        pSAX/dSAX's k-means++, see kmeanspp.py), so the same data always
+        gives the same clusters; pass another seed for a seed sweep, or
+        None to opt into a fresh draw. Never touches global `np.random`.
 
     Returns
     -------
@@ -37,6 +43,7 @@ def hg_meanshift_cluster(data_pts, kernel, multi_factor=1.0):
         data_pts = data_pts.T
 
     num_dim, num_pts = data_pts.shape
+    rng = as_rng(random_state)
 
     # ── Bandwidth selection ──────────────────────────────────────────────────
     std_per_dim = np.std(data_pts, axis=1, ddof=1)
@@ -80,7 +87,7 @@ def hg_meanshift_cluster(data_pts, kernel, multi_factor=1.0):
         num_init = len(init_pt_inds)
 
         # Pick a random seed point
-        rand_idx = int(np.ceil((num_init - 1e-6) * np.random.rand())) - 1
+        rand_idx = int(np.ceil((num_init - 1e-6) * rng.random())) - 1
         rand_idx = max(0, rand_idx)
         st_ind   = init_pt_inds[rand_idx]
 
