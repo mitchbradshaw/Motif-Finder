@@ -10,12 +10,12 @@ import {
 } from '../kit'
 import { Header } from '../shell/Header'
 import { useToast } from '../shell/Toast'
-import { navigate, useApp } from '../state'
+import { navigate } from '../state'
 import { useSourced } from '../api/seam'
-import { runDiscoverySeedSearch, type CutRule } from '../api'
+import { runDiscoverySeedSearchOnce, type CutRule } from '../api'
 import { useSize } from '../charts/useSize'
 import {
-  getSeedProfile, getSeedResults, getSeedSetup, getTemplates, heldOutReason, isHeldOut, type SeedDraft, type SeedInfo, type SeedMatch, type SeedParams, type SeedResults, type SeedSource,
+  getSeedPage, getSeedProfile, getSeedResults, getSeedSetup, getTemplates, saveSeedDraft, type DiscoveryRun, type SeedDraft, type SeedInfo, type SeedMatch, type SeedParams, type SeedResults, type SeedSource,
 } from '../api/discovery'
 import { CostChip, DiscoveryToolbar, HistoryButton, LoadFailed, Loading, NullChip, Refreshing, RunsCard, ScopeCard } from './chrome'
 import { RunGlyph } from './glyphs'
@@ -32,28 +32,40 @@ const SIM_ID = 'discovery.seed.seed_F03_native_2'
 
 export function SeedPage() {
   const dx = useDiscovery()
-  const setup = useSourced(getSeedSetup, [])
+  /* `?seed=` / `?entry=` open that seed and make it the draft on the session row (fixup-y): Review's
+   * *Seed search in Discovery →* links here with `?entry=N`, and picking a seed in the picker sets
+   * `?seed=`, so a reload stays on the seed that was chosen. */
+  const [seedQ, setSeedQ] = useQueryState('seed', '')
+  const [entryQ, setEntryQ] = useQueryState('entry', '')
+  const setup = useSourced(() => getSeedSetup({ seed: seedQ || undefined, entry: entryQ ? Number(entryQ) : undefined }), [seedQ, entryQ])
   const [draftStore, setDraftStore] = useDemoState<SeedDraft | null>('discovery.seed.draft', () => null)
-  const draft = draftStore ?? setup.data?.draft ?? null
-  const [sourceQ, setSourceQ] = useQueryState<SeedSource>('source', 'library')
+  // the in-memory draft is this seed's only: a cut is read off one seed's distances
+  const draft = draftStore && draftStore.seedId === setup.data?.draft.seedId ? draftStore : setup.data?.draft ?? null
+  const [sourceQ, setSourceQ] = useQueryState<SeedSource | ''>('source', '')
   const [stateQ] = useQueryState('state', '')
   const [modal, setModal] = useQueryState('modal', '')
   const sim = useSim(SIM_ID)
   const toast = useToast()
-  const { source: exploreSpan } = useApp()
 
+  /* A dragged cut was lost on reload: the draft lived only in this tab's memory. It is written to the
+   * session row too (PUT /api/discovery/seed/draft), a beat after the last change. */
+  const saveTimer = useRef<number | null>(null)
+  const persist = (d: SeedDraft) => {
+    if (saveTimer.current) window.clearTimeout(saveTimer.current)
+    saveTimer.current = window.setTimeout(() => { saveSeedDraft(d.seedId, d.params).catch(e => console.error('the seed draft could not be saved', e)) }, 400)
+  }
   const setDraft = (patch: Partial<SeedDraft>) => { if (draft) setDraftStore({ ...draft, ...patch }) }
-  const setParams = (patch: Partial<SeedParams>) => { if (draft) setDraftStore({ ...draft, params: { ...draft.params, ...patch } }) }
-  const seeds = setup.data?.seeds ?? []
-  /* The seed is the draft's, and `?source=` narrows to that KIND of seed
-   * rather than naming one. The old line looked up 'm-1846' and 'E-0102',
-   * invented ids no seed carries — a real seed id is
-   * "<source>:<recording>:<start>:<end>" — so `seed` was always null and the
-   * page drew none of its histogram, profile or matches. */
-  const wanted = sourceQ === 'medoid' || sourceQ === 'explore' || sourceQ === 'library' ? sourceQ : null
-  const seed: SeedInfo | null = (wanted
-    ? seeds.find(s => s.source === wanted) ?? null
-    : seeds.find(s => s.id === draft?.seedId) ?? seeds[0] ?? null)
+  const setParams = (patch: Partial<SeedParams>) => {
+    if (!draft) return
+    const next = { ...draft, params: { ...draft.params, ...patch } }
+    setDraftStore(next)
+    persist(next)
+  }
+  const pickSeed = (id: string) => { setEntryQ(null); setSeedQ(id); setSourceQ(null) }
+  /* The seed is the draft's own — `setup.seed` — whether or not it is on any page of the picker. The old
+   * line took the first seed of the `?source=` kind, so a seed chosen in *change seed* never took effect. */
+  const seed: SeedInfo | null = setup.data?.seed ?? null
+  const tab: SeedSource = (sourceQ || seed?.source || 'library') as SeedSource
   const channels = dx.scope?.channels ?? []
   const noResults: SeedResults = { candidates: [], nullDistances: [], recommendedCut: null, cutRule: null, nullDraws: 0, nullMethod: null, nullSupported: true, nullReason: null }
   const results = useSourced(() => seed ? getSeedResults(seed.id, channels) : Promise.resolve({ data: noResults, source: 'demo' as const }), [seed?.id, channels.join(',')])
@@ -87,27 +99,38 @@ export function SeedPage() {
   const nullDraws = Math.max(1, results.data?.nullDraws ?? 1)
   const perDraw = (cut: number | null) => cut == null ? 0
     : (results.data?.nullDistances ?? []).filter(d => d <= cut).length / nullDraws
+  /* One cut, one figure: the parameter card printed the null at the RECOMMENDED cut beside the
+   * histogram's figure at the cut in force — "chosen 14.5 · the null gives 0 per draw" beside "5 kept
+   * · the null gives 6.3 per draw" (fixup-y). Both read this one number now. */
   const nullKept = perDraw(threshold)
-  const recCut = recommendedCut
-  const nullAtRec = perDraw(recCut)
+
+  /* The Seed page's own run is found by its SEED and its CUT, which the server carries on the row
+   * (fixup-y) — never by the label, which three runs of one seed all shared. */
+  const sameCut = (a: number | null | undefined, b: number | null) => (a ?? null) == null ? b == null : b != null && Math.abs((a as number) - b) < 1e-9
+  const finished = seed ? dx.runs.find(r => r.kind === 'seed' && r.seedId === seed.id && sameCut(r.cut, threshold)) ?? null : null
 
   /* The run row is the server's: the old version invented one client-side,
    * keyed by the draft and carrying `template: 'seed_F03_native_2'`, a name no
    * templates row has. When the sweep lands, re-read the runs list and mark the
    * draft's parameters applied. */
+  const [lastRun, setLastRun] = useState<{ key: string; label: string } | null>(null)
+  /* Only a search that finishes while the page is open says so: the simulated strip stays `done` across
+   * navigation, and remounting the page toasted "seed c61395 finished · 0 matches" for a run long done,
+   * before its matches had been read (fixup-y). */
+  const wasBusy = useRef(sim.busy)
   useEffect(() => {
+    const finishedHere = wasBusy.current && sim.status === 'done'
+    wasBusy.current = sim.busy
+    if (!finishedHere && stateQ !== 'done') return
     if (sim.status !== 'done' || !draft) return
     dx.reload()
     setDraftStore({ ...draft, applied: { ...draft.params } })
-    if (stateQ !== 'done') toast.push({ text: `${draft.label} finished · ${kept.length} matches`, action: { label: 'Open in Runs', onClick: () => navigate('discovery/runs') } })
+    const key = lastRun?.key ?? finished?.key
+    if (stateQ !== 'done') toast.push({ text: `${lastRun?.label ?? draft.label} finished · ${kept.length} matches`, action: { label: 'Open in Runs', onClick: () => navigate(key ? `discovery/runs?run=${encodeURIComponent(key)}` : 'discovery/runs') } })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sim.status, draft?.key])
 
-  // the server keys a seed run on the label it was given, and appends `_2`,
-  // `_3`… when that key is taken in this session
-  const seedRunKey = (r: { key: string }) => draft && (r.key === draft.label || r.key.startsWith(draft.label + '_'))
-  const runs = !!draft && dx.runs.some(seedRunKey)
-  const draftRow = draft && !runs ? <DraftRow draft={draft} seed={seed} sim={sim} /> : null
+  const draftRow = draft && !finished ? <DraftRow draft={draft} seed={seed} sim={sim} /> : null
 
   return (
     <>
@@ -124,15 +147,16 @@ export function SeedPage() {
               <ScopeCard dx={dx} />
               {!dx.recording?.heldOut && (
                 <div className="dsc-cols">
-                  <RunsCard dx={dx} mode="seed" selected={runs ? dx.runs.find(seedRunKey)?.key : undefined} draft={draftRow} onAddTemplate={() => navigate('discovery/runs?modal=add-template')} />
+                  <RunsCard dx={dx} mode="seed" selected={finished?.key} draft={draftRow} onAddTemplate={() => navigate('discovery/runs?modal=add-template')} />
                   <div className="dsc-right">
                     <div className="dsc-seed-top">
-                      <SeedCard draft={draft} seed={seed} seeds={seeds} source={sourceQ} onSource={s => { setSourceQ(s); setDraft({ source: s, seedId: s === 'medoid' ? 'm-1846' : s === 'library' ? 'E-0102' : draft.seedId }) }}
-                        onSeed={id => { setDraft({ seedId: id, source: id.startsWith('m-') ? 'medoid' : 'library' }); setSourceQ(id.startsWith('m-') ? 'medoid' : 'library') }}
-                        exploreSpan={exploreSpan} onBind={b => { setDraft({ bind: b }); recordDemoWrite('discovery', 'seed-bind', { bind: b }) }} />
-                      <ParamsCard draft={draft} recommended={setup.data!.recommended} seed={seed} setParams={setParams} results={results.data} nullAtRec={nullAtRec} kept={kept.length} nullKept={nullKept} cut={threshold} cutIsRecommended={cutIsRecommended} />
+                      <SeedCard draft={draft} seed={seed} tab={tab} dx={dx} onTab={s => setSourceQ(s === seed?.source ? null : s)}
+                        onSeed={pickSeed} onBind={b => { setDraft({ bind: b }); recordDemoWrite('discovery', 'seed-bind', { bind: b }) }} />
+                      <ParamsCard draft={draft} recommended={setup.data!.recommended} seed={seed} setParams={setParams} results={results.data} kept={kept.length} nullKept={nullKept} cut={threshold} cutIsRecommended={cutIsRecommended} />
                     </div>
-                    {!seed ? null : results.error ? <LoadFailed what="seed matches" error={results.error} onRetry={results.reload} /> : !results.data ? <Loading height={220} /> : (
+                    {/* while a new seed's search runs, the previous seed's (or the empty) result is still in
+                        hand — reading "No matches" off it said the search found nothing before it had run */}
+                    {!seed ? null : results.error ? <LoadFailed what="seed matches" error={results.error} onRetry={results.reload} /> : !results.data || results.loading ? <Loading height={220} label="searching for the seed" /> : (
                       <>
                         {results.data.candidates.length === 0
                           ? <section className="k-card" data-testid="no-cut"><EmptyState size="sm" icon="bar-chart" title="No matches"
@@ -148,7 +172,8 @@ export function SeedPage() {
                           </>}
                       </>
                     )}
-                    <ApplyBar dx={dx} draft={draft} recommended={setup.data!.recommended} kept={threshold == null ? null : kept.length} seed={seed} sim={sim} onSave={() => setModal('save-template')} />
+                    <ApplyBar dx={dx} draft={draft} kept={threshold == null ? null : kept.length} cut={threshold} finished={finished} seed={seed} sim={sim}
+                      onStarted={r => setLastRun(r)} onSave={() => setModal('save-template')} />
                   </div>
                 </div>
               )}
@@ -169,7 +194,7 @@ function DraftRow({ draft, seed, sim }: { draft: SeedDraft; seed: SeedInfo | nul
         <RunGlyph kind="seed" width={40} height={28} />
         <span className="dsc-run-text">
           <b>{draft.label}</b>
-          <span className="dsc-run-meta"><span className="k-badge t-amber">draft</span><span className="muted">{seed ? `${seed.id} ${seed.role}` : 'Explore selection'} · MASS</span></span>
+          <span className="dsc-run-meta"><span className="k-badge t-amber">draft</span><span className="muted">{seed ? `${seed.title} · ${seed.role}` : 'no seed'} · MASS</span></span>
           <span className="dsc-run-line small">
             {sim.busy ? <span className="dsc-run-progress"><ProgressBar value={sim.fraction} size="sm" labelPosition="none" width={96} /><span className="blue">{sim.steps[sim.step] ?? 'queued'}</span></span>
               : sim.status === 'failed' ? <span className="red">failed · see the apply bar</span> : <span className="amber">draft · not run</span>}
@@ -181,57 +206,39 @@ function DraftRow({ draft, seed, sim }: { draft: SeedDraft; seed: SeedInfo | nul
 }
 
 /* ------------------------------------------------------------------ seed card */
-function SeedCard({ draft, seed, seeds, source, onSource, onSeed, exploreSpan, onBind }: {
-  draft: SeedDraft; seed: SeedInfo | null; seeds: SeedInfo[]; source: SeedSource; onSource: (s: SeedSource) => void; onSeed: (id: string) => void
-  exploreSpan: ReturnType<typeof useApp>['source']; onBind: (b: 'carry' | 'rebind') => void
+const SOURCE_KIND: Record<string, string> = { review: 'promoted in Review', annotation: 'from an annotation', event_store: 'machine-extracted' }
+function SeedCard({ draft, seed, tab, dx, onTab, onSeed, onBind }: {
+  draft: SeedDraft; seed: SeedInfo | null; tab: SeedSource; dx: Discovery; onTab: (s: SeedSource) => void; onSeed: (id: string) => void
+  onBind: (b: 'carry' | 'rebind') => void
 }) {
   const changeRef = useRef<HTMLButtonElement>(null)
   const [popQ, setPopQ] = useQueryState('popover', '')
   const yDomain = useMemo<[number, number]>(() => seed ? padDomain(seed.trace) : [-0.4, 0.1], [seed])
-  const exploreRefused = exploreSpan && isHeldOut(exploreSpan.source_file) ? heldOutReason(exploreSpan.source_file) : null
+  const showing = !!seed && seed.source === tab
   return (
     <section className="k-card dsc-seed" data-testid="seed-card" aria-label="Seed">
       <div className="dsc-card-head">
         <h3>Seed</h3>
-        <InfoTip title="Seed">The shape to search for. Its window is its native length; the card shows provenance — recording, channel, samples and content hash — so a saved template can say exactly what it carried.</InfoTip>
+        <InfoTip title="Seed">The shape to search for. Its window is its native length; the card shows provenance — recording, channel, samples and content hash — so a saved template can say exactly what it carried. A Library exemplar names its entry; the researcher's own (promoted in Review, or from an annotation) are listed first.</InfoTip>
         <span className="muted small">type Signal span</span>
       </div>
       <div className="dsc-seed-body">
-        <Seg value={source} onChange={onSource} size="sm" testid="seed-source" options={[{ value: 'library', label: 'Library exemplar' }, { value: 'explore', label: 'Explore selection' }, { value: 'medoid', label: 'Family medoid' }]} />
-        {source === 'explore' ? (
-          exploreRefused ? <Callout tone="red" icon="lock" title="Held out" testid="seed-explore-refused">{exploreRefused}</Callout>
-            : exploreSpan ? (
-              <div className="dsc-seed-row" data-testid="seed-explore">
-                <div className="dsc-seed-thumb unavailable"><Icon name="wave" size={16} /><span className="small muted">shape read when the search runs</span></div>
-                <div className="dsc-seed-kv">
-                  <b>{exploreSpan.label ?? 'span from Explore'}</b>
-                  <span><DatasetName file={exploreSpan.source_file} /> · {exploreSpan.channel_name}</span>
-                  <span>{(exploreSpan.start_idx / exploreSpan.fs / 3600).toFixed(2)} h · {Math.round((exploreSpan.end_idx - exploreSpan.start_idx) / exploreSpan.fs)} s · {exploreSpan.end_idx - exploreSpan.start_idx} samples</span>
-                  <span className="muted">hash unavailable until read</span>
-                  <Button variant="link" size="sm" onClick={() => navigate('explore/corpus')}>change in Explore ›</Button>
-                </div>
-              </div>
-            ) : <EmptyState size="sm" icon="scan" title="No span selected in Explore" caption="select a span in Explore, then come back" testid="seed-explore-empty" action={<Button size="sm" icon="external" onClick={() => navigate('explore/corpus')}>Select a span in Explore</Button>} />
-        ) : seed && (
-          <div className="dsc-seed-row" data-testid="seed-provenance">
+        <Seg value={tab} onChange={onTab} size="sm" testid="seed-source" options={[{ value: 'library', label: 'Library exemplar' }, { value: 'explore', label: 'Explore selection' }, { value: 'medoid', label: 'Family medoid' }]} />
+        {showing && seed ? (
+          <div className="dsc-seed-row" data-testid="seed-provenance" data-seed-id={seed.id} data-entry-id={seed.entryId ?? ''}>
             <div className="dsc-seed-thumb"><SeedThumb values={seed.trace} yDomain={yDomain} unit={seed.unit} /><span className="small muted mono">{seed.samples} samples · {seed.lengthS} s</span></div>
             <div className="dsc-seed-kv">
-              <b>{seed.title}</b>
+              <b data-testid="seed-title">{seed.title}</b>
               <span>{seed.familyLine}</span>
               <span><DatasetName file={seed.recordingFile ?? seed.recording} /> · {seed.channel}</span>
               <span>{seed.startH.toFixed(2)} h · {seed.lengthS} s · hash {seed.hash}</span>
               <button ref={changeRef} type="button" className="dsc-inline-link blue" onClick={() => setPopQ(popQ === 'change-seed' ? null : 'change-seed')} data-testid="change-seed">change seed ›</button>
-              <Popover open={popQ === 'change-seed'} onClose={() => setPopQ(null)} anchorRef={changeRef} title="Change seed" width={320} testid="change-seed-popover">
-                {seeds.map(s => (
-                  <button key={s.id} type="button" className={cx('dsc-seed-option', s.id === seed.id && 'on')} onClick={() => { onSeed(s.id); setPopQ(null) }} data-testid={`seed-option-${s.id}`}>
-                    <SeedThumb values={s.trace} yDomain={padDomain(s.trace)} width={54} height={30} />
-                    <span><b>{s.title}</b><span className="muted small mono">{s.samples} samples · {s.familyLine}</span></span>
-                  </button>
-                ))}
+              <Popover open={popQ === 'change-seed'} onClose={() => setPopQ(null)} anchorRef={changeRef} title="Change seed" subtitle={seed.role} width={420} testid="change-seed-popover">
+                <SeedPicker source={tab} dx={dx} currentId={seed.id} onPick={id => { onSeed(id); setPopQ(null) }} />
               </Popover>
             </div>
           </div>
-        )}
+        ) : <SeedPicker source={tab} dx={dx} currentId={seed?.id ?? null} onPick={onSeed} inline />}
         <div className="row" style={{ gap: 8 }}>
           <DisabledReason reason="MASS takes one seed"><button type="button" className="dsc-add-channel" disabled><Icon name="plus" size={11} /> seed</button></DisabledReason>
           <span className="muted small mono">MASS takes one seed</span>
@@ -247,6 +254,72 @@ function SeedCard({ draft, seed, seeds, source, onSource, onSeed, exploreSpan, o
     </section>
   )
 }
+
+/** §7.6's seed sources, paged and filtered (fixup-y). The Library half reaches every entry — it was the
+ *  first 24 of 3,603 rows, all machine-extracted — with the researcher's own exemplars first; the
+ *  Explore half is the spans taken for Review in Explore › Signal, newest first. */
+const PICK_PER = 8
+function SeedPicker({ source, dx, currentId, onPick, inline }: { source: SeedSource; dx: Discovery; currentId: string | null; onPick: (id: string) => void; inline?: boolean }) {
+  const [kind, setKind] = useState<string>('')
+  const [family, setFamily] = useState('')
+  const [recording, setRecording] = useState('')
+  const [channel, setChannel] = useState('')
+  const [page, setPage] = useState(1)
+  useEffect(() => { setPage(1) }, [source, kind, family, recording, channel])
+  const q = { source, kind: kind || undefined, family: family || undefined, recording: recording || undefined, channel: channel || undefined, offset: (page - 1) * PICK_PER, limit: PICK_PER }
+  const data = useSourced(() => getSeedPage(q), [source, kind, family, recording, channel, page])
+  const p = data.data
+  const rec = dx.recordings.find(r => r.file === recording) ?? null
+  const channelOptions = rec ? rec.channels : [...new Set(dx.recordings.filter(r => !r.heldOut).flatMap(r => r.channels))]
+  const pages = Math.max(1, Math.ceil((p?.total ?? 0) / PICK_PER))
+  return (
+    <div className={cx('dsc-seed-picker', inline && 'inline')} data-testid={`seed-picker-${source}`}>
+      {source === 'library' && (
+        <div className="row wrap" style={{ gap: 6 }}>
+          <Seg value={kind} onChange={setKind} size="sm" testid="seed-filter-kind" options={[
+            { value: '', label: `all${p ? ` ${fmtCount(p.counts.library)}` : ''}` },
+            { value: 'review', label: `review ${p?.kinds.review ?? 0}` },
+            { value: 'annotation', label: `annotation ${p?.kinds.annotation ?? 0}` },
+            { value: 'event_store', label: `machine ${fmtCount(p?.kinds.event_store ?? 0)}` },
+          ]} />
+          <Dropdown size="sm" prefix="family" value={family} onChange={setFamily} testid="seed-filter-family"
+            options={[{ value: '', label: 'any' }, ...(p?.families ?? []).map(f => ({ value: f, label: f }))]} />
+        </div>
+      )}
+      {source !== 'medoid' && (
+        <div className="row wrap" style={{ gap: 6 }}>
+          <Dropdown size="sm" prefix="recording" value={recording} onChange={v => { setRecording(v); setChannel('') }} testid="seed-filter-recording"
+            options={[{ value: '', label: 'any' }, ...dx.recordings.filter(r => !r.heldOut).map(r => ({ value: r.file, label: r.label }))]} />
+          <Dropdown size="sm" prefix="channel" value={channel} onChange={setChannel} testid="seed-filter-channel"
+            options={[{ value: '', label: 'any' }, ...channelOptions.map(c => ({ value: c, label: c }))]} />
+        </div>
+      )}
+      {data.error ? <LoadFailed what="the seeds" error={data.error} onRetry={data.reload} />
+        : !p ? <Loading height={120} />
+          : p.seeds.length === 0 ? (source === 'explore'
+            ? <EmptyState size="sm" icon="scan" title="No span taken in Explore" caption="brush a span on Explore › Signal and press Take span for Review; it is offered here at once" testid="seed-explore-empty"
+              action={<Button size="sm" icon="external" onClick={() => navigate('explore/corpus')}>Select a span in Explore</Button>} />
+            : <EmptyState size="sm" icon="search" title="No seed under these filters" caption={`${fmtCount(p.counts.library ?? 0)} Library entries in all`} testid="seed-picker-empty" />)
+            : (
+              <>
+                <div className="dsc-seed-options" data-testid="seed-options">
+                  {p.seeds.map(s => (
+                    <button key={s.id} type="button" className={cx('dsc-seed-option', s.id === currentId && 'on')} onClick={() => onPick(s.id)} data-testid={`seed-option-${s.id}`} data-source-kind={s.sourceKind ?? ''}>
+                      <SeedThumb values={s.trace} yDomain={padDomain(s.trace)} width={54} height={30} />
+                      <span>
+                        <b>{s.title}</b>{s.sourceKind && s.sourceKind !== 'event_store' && <span className="k-badge t-green" style={{ marginLeft: 6 }}>{SOURCE_KIND[s.sourceKind] ?? s.sourceKind}</span>}
+                        <span className="muted small mono">{s.recordingLabel ?? s.recording} · {s.channel} · {s.startH.toFixed(2)} h · {s.samples} samples{s.family ? ` · ${s.family}` : ''}</span>
+                      </span>
+                    </button>
+                  ))}
+                </div>
+                {source !== 'medoid' && <Pager page={page} pageCount={pages} onPage={setPage} format="range" total={p.total} pageSize={PICK_PER} label="page of seeds" testid="seed-picker-pager" />}
+              </>
+            )}
+    </div>
+  )
+}
+const fmtCount = (n: number | undefined) => (n ?? 0).toLocaleString('en-US')
 /** A domain over the FINITE values. The wire spells a non-finite sample null
  *  and the adapter turns it back into NaN, and Math.min over an array holding
  *  one NaN is NaN — which makes every y NaN and the browser reject the path. */
@@ -279,12 +352,19 @@ function SeedThumb({ values, yDomain, width = 132, height = 78, overlay, unit }:
     </svg>
   )
 }
+/** A trace less its own mean over the finite samples; non-finite samples stay NaN (the pen lifts there). */
+function centred(values: number[]): number[] {
+  const f = values.filter(Number.isFinite)
+  if (!f.length) return values
+  const mean = f.reduce((a, b) => a + b, 0) / f.length
+  return values.map(v => Number.isFinite(v) ? v - mean : NaN)
+}
 const fmtTick = (v: number) => `${v < 0 ? '−' : '+'}${Math.abs(v).toFixed(2)}`
 
 /* ------------------------------------------------------------------ parameters + where to cut */
-function ParamsCard({ draft, recommended, seed, setParams, results, nullAtRec, kept, nullKept, cut, cutIsRecommended }: {
+function ParamsCard({ draft, recommended, seed, setParams, results, kept, nullKept, cut, cutIsRecommended }: {
   draft: SeedDraft; recommended: SeedParams; seed: SeedInfo | null; setParams: (p: Partial<SeedParams>) => void
-  results: { candidates: SeedMatch[]; nullDistances: number[]; cutRule?: CutRule | null } | null; nullAtRec: number; kept: number; nullKept: number
+  results: { candidates: SeedMatch[]; nullDistances: number[]; cutRule?: CutRule | null } | null; kept: number; nullKept: number
   /** The cut in force: the researcher's if they chose one, else the null's own
    *  recommendation. `recommended.threshold` is always null — the parameter card
    *  cannot know a cut before the search has drawn a null. */
@@ -338,7 +418,7 @@ function ParamsCard({ draft, recommended, seed, setParams, results, nullAtRec, k
           {p.threshold != null ? (
             <>
               <Slider value={cut ?? 0} onChange={v => setParams({ threshold: +v.toFixed(1) })} min={0} max={8} step={0.1} showValue={false} marks={cut != null ? [{ value: cut, label: '' }] : []} testid="param-threshold" ariaLabel="match threshold" />
-              <span className="small mono green">{thrRaw ? <span className="dsc-err">{thrRaw}</span> : cut != null ? <>{cutIsRecommended ? 'recommended' : 'chosen'} {cut} · the null gives {fmtNull(nullAtRec)} per draw</> : 'no recommended cut yet — it is read off the null distribution'}</span>
+              <span className="small mono green">{thrRaw ? <span className="dsc-err">{thrRaw}</span> : cut != null ? <><span data-testid="param-cut-line">{cutIsRecommended ? 'recommended' : 'chosen'} {cut} · {kept} kept · the null gives {fmtNull(nullKept)} per draw</span></> : 'no recommended cut yet — it is read off the null distribution'}</span>
               {/* a statistic whose rule is unstated cannot be falsified (fixup-a item 12) */}
               {results?.cutRule && <span className="small mono muted" data-testid="cut-rule">{results.cutRule.text}</span>}
             </>
@@ -572,7 +652,13 @@ function MatchesCard({ seed, matches, channels, note = null }: { seed: SeedInfo;
   const pages = Math.max(1, Math.ceil(matches.length / per))
   const page = Math.min(pages, Math.max(1, parseInt(pageQ, 10) || 1))
   const shown = matches.slice((page - 1) * per, page * per)
-  const yDomain = useMemo<[number, number]>(() => padDomain([...seed.trace, ...shown.flatMap(m => m.trace)]), [seed, shown])
+  /* Each card overlays the MATCH on the seed (§7.6). The server served every candidate `trace: []`, so the
+   * cards drew the seed alone (fixup-y). MASS compares z-normalised shapes, so a match an hour away can sit
+   * millivolts above or below the seed; each trace is centred on its own mean, in mV on one shared scale,
+   * so the two shapes are drawn on top of each other rather than as two flat lines far apart. */
+  const seedC = useMemo(() => centred(seed.trace), [seed])
+  const shownC = useMemo(() => shown.map(m => ({ ...m, trace: centred(m.trace) })), [shown])
+  const yDomain = useMemo<[number, number]>(() => padDomain([...seedC, ...shownC.flatMap(m => m.trace)]), [seedC, shownC])
   return (
     <section className="k-card dsc-matches" data-testid="matches-card" aria-label="Matches">
       <div className="dsc-card-head">
@@ -580,7 +666,7 @@ function MatchesCard({ seed, matches, channels, note = null }: { seed: SeedInfo;
         {/* the note explains a truncation; it was passed in and never rendered,
             which left "12 closest" over a search that returned 132 */}
         {note && <span className="muted small" data-testid="matches-note">{note}</span>}
-        <InfoTip title="Matches">Sorted by distance, eight at a time. Each card overlays the match (black) on the seed (purple) in mV on one shared scale. A green dot marks a match that already has a verdict — it will not be put to you twice.</InfoTip>
+        <InfoTip title="Matches">Sorted by distance, eight at a time. Each card overlays the match (black) on the seed (purple), each centred on its own mean, in mV on one shared scale. A green dot marks a match that already has a verdict — it will not be put to you twice.</InfoTip>
         <span className="muted small">{channels} channel{channels === 1 ? '' : 's'} · sorted by distance</span>
         <span className="k-spacer" />
         <Pager page={page} pageCount={pages} onPage={p => setPageQ(String(p))} format="range" total={matches.length} pageSize={per} label="page of matches" testid="matches-pager" />
@@ -588,11 +674,12 @@ function MatchesCard({ seed, matches, channels, note = null }: { seed: SeedInfo;
       </div>
       {matches.length === 0 ? <EmptyState size="sm" icon="search" title="No match under this threshold" caption="raise the threshold, or check what the null gives first" testid="matches-empty" /> : (
         <div className="dsc-match-grid" data-testid="match-grid">
-          {shown.map(mt => (
+          {shownC.map(mt => (
             <button key={mt.id} type="button" className={cx('dsc-match', selQ === mt.id && 'on')} data-testid={`match-${mt.id}`}
               onClick={() => { setSelQ(mt.id); setChQ(mt.channel); setViewQ(`${Math.max(0, mt.atH - 1).toFixed(1)}-${(mt.atH + 1).toFixed(1)}`) }} title={`show ${mt.id} in the distance profile`}>
               <span className="row between mono small"><b>{mt.id}</b><span className="muted">d {mt.d.toFixed(2)}</span></span>
-              <SeedThumb values={seed.trace} overlay={mt.trace} yDomain={yDomain} width={130} height={40} />
+              <SeedThumb values={seedC} overlay={mt.trace} yDomain={yDomain} width={130} height={40} />
+              {mt.trace.length === 0 && <span className="small muted" data-testid="match-no-trace">no trace served for this match</span>}
               <span className="mono small muted row" style={{ gap: 4 }}>{mt.judged && <span className="dot" style={{ background: 'var(--green)' }} title="already judged" />}{mt.channel} · {mt.atH.toFixed(1)} h</span>
             </button>
           ))}
@@ -603,7 +690,10 @@ function MatchesCard({ seed, matches, channels, note = null }: { seed: SeedInfo;
 }
 
 /* ------------------------------------------------------------------ apply bar */
-function ApplyBar({ dx, draft, recommended, kept, seed, sim, onSave }: { dx: Discovery; draft: SeedDraft; recommended: SeedParams; kept: number | null; seed: SeedInfo | null; sim: ReturnType<typeof useSim>; onSave: () => void }) {
+function ApplyBar({ dx, draft, kept, cut, finished, seed, sim, onStarted, onSave }: {
+  dx: Discovery; draft: SeedDraft; kept: number | null; cut: number | null; finished: DiscoveryRun | null; seed: SeedInfo | null
+  sim: ReturnType<typeof useSim>; onStarted: (r: { key: string; label: string }) => void; onSave: () => void
+}) {
   // §7.6's apply bar diffs the parameters against the ones the last search ran with. `applied` is null
   // until the search has run once: then every parameter is unapplied, which is not "no changes".
   const label: Record<keyof SeedParams, string> = {
@@ -622,21 +712,27 @@ function ApplyBar({ dx, draft, recommended, kept, seed, sim, onSave }: { dx: Dis
   const changes = applied ? settable.filter(k => draft.params[k] !== applied[k]) : settable
   const diff = applied ? changes.map(k => `${label[k]} ${show(applied[k])} → ${show(draft.params[k])}`).join(' · ')
     : settable.map(k => `${label[k]} ${show(draft.params[k])}`).join(' · ')
-  const finished = dx.runs.find(r => r.key === draft.label || r.key.startsWith(draft.label + '_'))
+  /* `finished` is THIS search — the run with this seed and this cut (fixup-y). It used to be the first run
+   * whose label began with the draft's, and *Open in Runs* navigated to the draft's key `seed_a9147c`
+   * while the run's key was `seed a9147c`. The link now carries the run's own key. */
+  const done = !!finished && (finished.status === 'done' || finished.status === 'completed')
   const channels = dx.scope?.channels ?? []
-  const noSeedReason = !seed ? 'pick a seed first — no span selected' : null
+  const noSeedReason = !seed ? 'pick a seed first' : null
   /* §7.6's apply bar: "A run seed search becomes a normal run row." It is a
    * real run — POST /api/discovery/seed/run starts a sweep over the scope and
-   * the row arrives from the server on the next read of the runs list. The
+   * the row arrives from the server on the next read of the runs list. The cut
+   * sent is the cut IN FORCE — the recommended one until the line is dragged —
+   * so the run keeps what the histogram says is kept. An unchanged search is
+   * the same run: the server returns it rather than adding a second row. The
    * progress strip still comes from `sim`, because the page has no SSE
    * subscription yet (reported in 04-discovery.md, "Left"). */
   const run = () => {
     if (!seed || !dx.scope) return
     sim.start({ steps: stepsFor(channels), stepMs: 800 })
-    runDiscoverySeedSearch({
+    runDiscoverySeedSearchOnce({
       seedId: seed.id, channels, t0: dx.scope.section[0], t1: dx.scope.section[1],
-      k: SEED_K, cut: draft.params.threshold ?? undefined, label: draft.label,
-    }).then(() => dx.reload())
+      k: SEED_K, cut: cut ?? undefined, label: draft.label,
+    }).then(r => { onStarted({ key: r.run_key, label: r.label }); dx.reload() })
       .catch(e => { sim.reset?.(); console.error('the seed search could not start', e) })
   }
   return (
@@ -658,14 +754,18 @@ function ApplyBar({ dx, draft, recommended, kept, seed, sim, onSave }: { dx: Dis
         </>
       ) : (
         <>
-          <span className="dot" style={{ background: finished && changes.length === 0 ? 'var(--green)' : 'var(--amber)', width: 9, height: 9 }} />
-          {finished && changes.length === 0
-            ? <><b data-testid="seed-done">{draft.label} · {kept == null ? 'no cut chosen — nothing kept yet' : `${kept} found`} · done {finished.doneAt}</b><Button variant="link" size="sm" icon="external" onClick={() => navigate(`discovery/runs?run=${draft.key}`)} testid="seed-open-runs">Open in Runs</Button></>
-            : <><b data-testid="apply-state">{finished ? 'run' : 'draft'} · {!applied ? 'never run — no parameters applied yet' : changes.length === 0 ? 'no unapplied changes' : `${changes.length} unapplied change${changes.length === 1 ? '' : 's'}`}</b><span className="muted small mono">{diff ? `${diff} · ` : ''}preview counts update live</span></>}
+          <span className="dot" style={{ background: finished ? 'var(--green)' : 'var(--amber)', width: 9, height: 9 }} />
+          {finished
+            ? <><b data-testid="seed-done">{finished.label} · {kept == null ? 'no cut chosen — nothing kept' : `${finished.found ?? kept} found`}{done ? ` · done ${finished.doneAt ?? ''}` : ` · ${finished.status}`}</b>
+              <Button variant="link" size="sm" icon="external" onClick={() => navigate(`discovery/runs?run=${encodeURIComponent(finished.key)}`)} testid="seed-open-runs">Open in Runs</Button></>
+            : sim.status === 'done'
+              ? <><b data-testid="seed-done">{draft.label} · {kept == null ? 'no cut chosen — nothing kept yet' : `${kept} found`}</b>
+                <Button variant="link" size="sm" icon="external" onClick={() => navigate('discovery/runs')} testid="seed-open-runs">Open in Runs</Button></>
+              : <><b data-testid="apply-state">draft · {!applied ? 'not run with this cut yet' : changes.length === 0 ? 'no unapplied changes' : `${changes.length} unapplied change${changes.length === 1 ? '' : 's'}`}</b><span className="muted small mono">{diff ? `${diff} · ` : ''}preview counts update live</span></>}
           {sim.status === 'cancelled' && <span className="muted small">last search cancelled · nothing written</span>}
           <span className="k-spacer" />
           <Button icon="save" onClick={onSave} testid="save-as-template">Save as template</Button>
-          <Button variant="primary" icon="play" onClick={run} disabled={!!noSeedReason || (!!finished && changes.length === 0)} disabledReason={noSeedReason ?? 'already run with these settings'} testid="run-seed-search">Run seed search</Button>
+          <Button variant="primary" icon="play" onClick={run} disabled={!!noSeedReason || !!finished} disabledReason={noSeedReason ?? `already run with this seed and cut — ${finished?.label}`} testid="run-seed-search">Run seed search</Button>
         </>
       )}
     </section>

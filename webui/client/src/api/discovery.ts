@@ -15,9 +15,9 @@
 import {
   ApiError, getDiscoveryCompare, getDiscoveryCompareStages, getDiscoveryCompareWindow, getDiscoveryDetectionWindow, getDiscoveryDetections,
   getDiscoveryFires, getDiscoveryHistory, getDiscoveryOverview, getDiscoveryRuns, getDiscoveryScoreboard, getDiscoverySeedProfile,
-  getDiscoverySeedSetup, getDiscoverySeeds, getDiscoverySession, getDiscoverySignal, getDiscoveryTemplates, pollDiscoverySeedResults,
+  getDiscoverySeedPage, getDiscoverySeedSetupFor, getDiscoverySeeds, getDiscoverySession, putDiscoverySeedDraft, getDiscoverySignal, getDiscoveryTemplates, pollDiscoverySeedResults,
   postDiscoveryPlan, postDiscoveryPreview, startDiscoverySeedResults,
-  type CutRule, type DiscPlan, type DiscPlanBody, type DiscPreview, type DiscRecordingOption, type DiscSeedParams, type DiscSeedQuery, type DiscSeedResults,
+  type CutRule, type DiscSeedPageQuery, type DiscPlan, type DiscPlanBody, type DiscPreview, type DiscRecordingOption, type DiscSeedParams, type DiscSeedQuery, type DiscSeedResults,
 } from '../api'
 import { live, type Sourced } from './seam'
 import type { GlyphKind, Role } from '../fixtures/discovery'
@@ -54,6 +54,8 @@ export interface DiscoveryRun {
   job?: string; pausedAt?: { stage: number; of: number }
   error?: string; addedThisSession?: boolean
   runGroupId?: number; channelsDone?: string; found?: number
+  /** fixup-y: a seed run's seed and cut — what the Seed page finds its own run by, never the label */
+  seedId?: string; cut?: number | null; entryId?: number | null
 }
 
 export interface TemplateStage { index: string; name: string; signature: string; locked?: string; glyph: GlyphKind }
@@ -116,6 +118,7 @@ export const getRuns = (): Promise<Sourced<DiscoveryRun[]>> => live(getDiscovery
   template: opt(r.template), stageCount: opt(r.stageCount), version: opt(r.version),
   perChannelMin: opt(r.perChannelMin), job: opt(r.job), progress: r.progress, doneAt: r.doneAt, error: r.error,
   reviewedH: r.reviewedH, runGroupId: opt(r.runGroupId), channelsDone: opt(r.channelsDone), found: opt(r.found),
+  seedId: opt(r.seedId), cut: r.cut ?? null, entryId: r.entryId ?? null,
 }))))
 
 export const getTemplates = (): Promise<Sourced<DiscoveryTemplate[]>> => live(getDiscoveryTemplates().then(rows => rows.map(t => ({
@@ -199,12 +202,16 @@ export interface SeedInfo {
   recordingLabel?: string; recordingFile?: string
   /** fixup-b: 'mV', or null when the seed's recording declares no unit */
   unit?: 'mV' | null
+  /** fixup-y: the Library entry a library seed is (null for a span not in the Library), how it got there
+   *  (`review` · `annotation` · `event_store`), and the annotation an Explore selection is */
+  entryId?: number | null; sourceKind?: string | null; annotationId?: number | null
 }
 export interface SeedDraft {
   key: string; label: string; seedId: string; source: string; bind: 'carry' | 'rebind'
   params: SeedParams; applied: SeedParams | null; estimateS: number | null
 }
-export interface SeedSetup { draft: SeedDraft; seeds: SeedInfo[]; recommended: SeedParams }
+/** `seed` is the draft's own seed, which need not be on any page of the picker (fixup-y). */
+export interface SeedSetup { draft: SeedDraft; seed: SeedInfo; seeds: SeedInfo[]; recommended: SeedParams }
 export interface SeedMatch { id: string; d: number; channel: string; atH: number; judged: boolean; verdict?: string | null; trace: number[] }
 export interface SeedResults {
   candidates: SeedMatch[]; nullDistances: number[]
@@ -221,16 +228,28 @@ const toParams = (p: DiscSeedParams): SeedParams => ({
 })
 const toSeed = (s: { trace: (number | null)[] } & Omit<SeedInfo, 'trace'>): SeedInfo => ({ ...s, trace: nums(s.trace) })
 
-export const getSeedSetup = (seedId?: string): Promise<Sourced<SeedSetup>> => live(getDiscoverySeedSetup(seedId).then(p => ({
+/** `?seed=` or `?entry=` opens that seed and makes it the draft — the link Review's *Seed search in
+ *  Discovery →* and Explore's toast follow (fixup-y). */
+export const getSeedSetup = (o: { seed?: string; entry?: number } = {}): Promise<Sourced<SeedSetup>> => live(getDiscoverySeedSetupFor(o).then(p => ({
   draft: {
     key: p.draft.key, label: p.draft.label, seedId: p.draft.seedId, source: p.draft.source,
     bind: p.draft.bind === 'rebind' ? 'rebind' as const : 'carry' as const,
     params: toParams(p.draft.params), applied: p.draft.applied ? toParams(p.draft.applied) : null,
     estimateS: p.draft.estimateS,
   },
+  seed: toSeed(p.draft.seed),
   seeds: p.seeds.map(toSeed),
   recommended: toParams(p.recommended),
 })))
+
+/** The seed picker: one page of one source, filtered, with the total under the filters (fixup-y). */
+export interface SeedPage { seeds: SeedInfo[]; total: number; offset: number; limit: number; counts: Record<string, number>; kinds: Record<string, number>; families: string[]; note: string | null }
+export const getSeedPage = (q: DiscSeedPageQuery): Promise<Sourced<SeedPage>> =>
+  live(getDiscoverySeedPage(q).then(p => ({ ...p, seeds: p.seeds.map(toSeed) })))
+
+/** The draft lives on the session row, so a dragged cut survives a reload (fixup-y). */
+export const saveSeedDraft = (seedId: string, params: SeedParams) =>
+  putDiscoverySeedDraft({ seedId, params: { ...params, exclusion_note: params.exclusionNote } as Record<string, unknown> })
 
 const POLL_MS = 1500
 const GIVE_UP_MS = 4 * 60 * 1000

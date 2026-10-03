@@ -988,6 +988,9 @@ def _seed_info(conn, seed, *, title=None, family=None, family_line=None, familie
     if family_line is None and entry_id:
         family_line = " · ".join(x for x in (SOURCE_KIND_LABEL.get(kind, kind or "no source recorded"),
                                              f"family {family}" if family else "no family yet") if x)
+    if seed.get("annotation_id") and seed["source"] == "explore":
+        title = title or f"span {seed['annotation_id']}"
+        family_line = family_line or "taken for Review in Explore"
     return {
         "id": seed["id"],
         "role": {"library": "Library exemplar", "explore": "Explore selection",
@@ -1025,7 +1028,8 @@ def _recording_ids_for(conn, recording=None, channel=None):
     return out
 
 
-def _library_page(conn, *, kind=None, family=None, recording=None, channel=None, offset=0, limit=SEED_LIMIT):
+def _library_page(conn, *, kind=None, family=None, recording=None, channel=None, entry=None, offset=0,
+                  limit=SEED_LIMIT):
     """§7.6's *Library exemplar*, over the WHOLE library (fixup-y).
 
     It was `motif_entry ORDER BY id LIMIT 24`: the first 24 of 3,603 rows, all
@@ -1040,6 +1044,9 @@ def _library_page(conn, *, kind=None, family=None, recording=None, channel=None,
     if held:
         where.append(f"recording_id NOT IN ({','.join('?' * len(held))})")
         args += held
+    if entry is not None:
+        where.append("id = ?")
+        args.append(int(entry))
     if kind:
         if kind == "event_store":
             where.append("(source_kind = 'event_store' OR source_kind IS NULL)")
@@ -1135,12 +1142,14 @@ def _seeds_inline(conn, candidates=None):
 
 @router.get("/api/discovery/seeds")
 def get_seeds(request: Request, source: str | None = None, kind: str | None = None, family: str | None = None,
-              recording: str | None = None, channel: str | None = None, offset: int = 0,
-              limit: int = SEED_LIMIT):
+              recording: str | None = None, channel: str | None = None, entry: int | None = None,
+              offset: int = 0, limit: int = SEED_LIMIT):
     """The seed picker (§7.6). With no `source`, the first page of each of the
     three sources. `source=library` pages and filters the whole Library
     (`kind`, `family`, `recording`, `channel`, `offset`, `limit`) and says
-    `total`; `source=explore` pages the spans taken in Explore."""
+    `total`; `source=explore` pages the spans taken in Explore. `entry=N`
+    answers for one Library entry — what Review's promotion card reads to
+    say which family, if any, holds the entry it just wrote."""
     c = _conn(request)
     try:
         limit = max(1, min(int(limit), 200))
@@ -1153,7 +1162,7 @@ def get_seeds(request: Request, source: str | None = None, kind: str | None = No
         families = sorted(set(_families_by_entry(c).values()))
         if source == "library":
             rows, total = _library_page(c, kind=kind, family=family, recording=recording, channel=channel,
-                                        offset=offset, limit=limit)
+                                        entry=entry, offset=offset, limit=limit)
             seeds = _seeds_inline(c, [("library", int(e["recording_id"]), int(e["start_idx"]), int(e["end_idx"]),
                                        None, None, None) for e in rows])
         elif source == "explore":
