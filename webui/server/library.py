@@ -1521,6 +1521,13 @@ def get_window_sets(request: Request):
 
 def _window_set_row(conn, index, r) -> dict:
     meta = index["by_id"].get(int(r["recording_id"] or 0))
+    # fixup-ab: a set saved across channels (Models › Launch) names no one
+    # recording; its channels are its `window_set_members` rows
+    members = [index["by_id"].get(int(m["recording_id"])) for m in conn.execute(
+        "SELECT recording_id FROM window_set_members WHERE window_set_id = ? ORDER BY channel", (r["id"],))]
+    members = [m for m in members if m]
+    if meta is None and members:
+        meta = members[0]
     split = json.loads(r["split_json"] or "null")
     spacing = json.loads(r["spacing_json"] or "{}")
     coverage = json.loads(r["coverage_json"] or "{}")
@@ -1570,8 +1577,8 @@ def _window_set_row(conn, index, r) -> dict:
         "saved": str(r["created_at"] or ""), "savedBy": "this installation",
         "source": str(r["labels_source"] or "—"),
         "recording": meta["label"] if meta else "—",
-        "recordingKeys": [meta["key"]] if meta else [],
-        "channels": [meta["name"]] if meta else [],
+        "recordingKeys": sorted({m["key"] for m in members}) if members else ([meta["key"]] if meta else []),
+        "channels": [m["name"] for m in members] if members else ([meta["name"]] if meta else []),
         "spacing": f"{_f(r['stride']) / fs:g} s" if r["stride"] else "—",
         "windowS": round(window_s, 3) if window_s else None,
         "gapS": round(gap_s, 3) if gap_s else None,
@@ -1608,6 +1615,17 @@ def _coverage_now(conn, r):
     `(class counts | None, note | None)` — None with the reason when the set's
     files cannot be read, so the page shows the save-time counts and says why."""
     from Adapters.catalogue_manual_labels import _saved_window_bounds, human_spans, label_windows
+    pooled = os.path.join(str(r["path"]), "pooled_windows.npz")
+    if not r["recording_id"] and os.path.isfile(pooled):
+        # a set across channels (fixup-ab): recount each channel's windows
+        with np.load(pooled, allow_pickle=False) as z:
+            starts, rids = z["start"], z["recording_id"]
+        out = {"interesting": 0, "not_interesting": 0}
+        for rid in np.unique(rids):
+            lab = label_windows(starts[rids == rid], int(r["window_length"]), human_spans(conn, int(rid)))
+            out["interesting"] += int(lab.counts["interesting"])
+            out["not_interesting"] += int(lab.counts["not_interesting"])
+        return out, None
     if not r["recording_id"]:
         return None, "the set names no recording, so its coverage cannot be recounted"
     try:

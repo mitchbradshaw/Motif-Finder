@@ -224,3 +224,442 @@ def list_window_sets(request: Request):
     finally:
         c.close()
     return {"window_sets": out, "root": request.app.state.rt.window_sets_root}
+
+
+# ── Models › Launch / Results / Compare (fixup-ab) ─────────────────────────
+#
+# The paired training job of RQ1 lives in the core (`Working/training/`); these
+# routes only hand it a connection, a sandbox root and a job, and hand its
+# results back. A window set ACROSS channels is saved from Launch as a
+# `training` job (measuring ~10k windows takes a minute or two); the cut
+# proposal and the Before-launch checks answer directly; training is a
+# `training` job with per-stage progress. The held-out recording is never a
+# source: it appears only as a locked slot, unlocked on Settings › Datasets.
+
+from Working.training import paired as _tp  # noqa: E402
+from Working.training import store as _ts  # noqa: E402
+from Working.training import windows as _tw  # noqa: E402
+
+from . import templates as _templates  # noqa: E402
+from .runtime import HELD_OUT_FILE, REPO_ROOT  # noqa: E402
+
+_LABEL_LENGTH, _LABEL_GRID = 600, 200     # the 10-minute labels' own grid (AA, Q-W1)
+_HPC_NOTE = ("An HPC job's results re-enter the app only when Jobs › Manifest inbox is wired (its own prompt). "
+             "For Q42's default — a random forest per arm — nothing needs the cluster: train locally.")
+
+
+def _training_root(rt) -> str:
+    return os.path.join(rt.dir, "training") if rt.mode == "sandbox" else os.path.join(REPO_ROOT, "DATA", "derived", "training")
+
+
+def _hpc_dir(rt) -> str:
+    return os.path.join(rt.dir, "hpc", "training") if rt.mode == "sandbox" else os.path.join(REPO_ROOT, "HPC", "Training", "generated")
+
+
+def _template_geometry(t: dict, fs: float = 1.0) -> dict:
+    """Window length, step and feature stages a training template's window matrix
+    implies, and whether its windows can hold the 10-minute labels at all."""
+    from Working.database import window_matrix_store as wm_store
+    wm = next((s for s in t["steps"] if s.get("algorithm") == "window_matrix"), None)
+    clf = next((s for s in t["steps"] if s.get("algorithm") == "classifier"), None)
+    out = {"name": t["name"], "id": t.get("id"), "kind": t.get("kind"), "description": t.get("description", ""),
+           "steps": [f"{s['stage']}.{s['algorithm']}" for s in t["steps"]],
+           "n_estimators": int(((clf or {}).get("params") or {}).get("n_estimators", 300))}
+    if wm is None:
+        return {**out, "on_label_grid": False, "length": None, "grid": None, "stages": [],
+                "reason": "no window-matrix step: the paired job measures windows with one"}
+    p = wm.get("params") or {}
+    m = int(round(float(p.get("window_min", 10.0)) * 60 * fs))
+    step = int(wm_store.step_samples(m, float(p.get("step_frac", 1.0))))
+    stages = [s for s, on in (("catch22", p.get("catch22", True)), ("fast_entropy", p.get("fast_entropy", True)),
+                              ("slow_entropy", p.get("slow_entropy", True))) if on]
+    on_grid = m == _LABEL_LENGTH and step == _LABEL_GRID
+    reason = None if on_grid else (
+        f"{m}-sample windows on a {step}-sample step are off the labels' {_LABEL_LENGTH}/{_LABEL_GRID} grid: no window "
+        f"wholly contains a 10-minute label, so arm A would have no labels. Use manual_labels_model's geometry.")
+    if p.get("cnn") or p.get("rf"):
+        on_grid, reason = False, "its window matrix computes label-derived columns (cnn / rf); they stay off"
+    return {**out, "on_label_grid": on_grid, "length": m, "grid": step, "stages": stages, "reason": reason}
+
+
+def _multi_sets(c) -> list[dict]:
+    out = []
+    runs = _ts.list_runs(c)
+    for r in c.execute("SELECT * FROM window_sets WHERE recording_id IS NULL AND EXISTS "
+                       "(SELECT 1 FROM window_set_members m WHERE m.window_set_id = window_sets.id) ORDER BY id DESC"):
+        d = {k: r[k] for k in r.keys()}
+        for k in ("split_json", "spacing_json", "coverage_json"):
+            d[k[:-5]] = json.loads(d.pop(k) or "null")
+        d["members"] = _ts.members(c, r["id"])
+        for m in d["members"]:
+            m["counts"] = json.loads(m.pop("counts_json") or "{}")
+        d["runs"] = [x for x in runs if (x["window_set"] or {}).get("key") == r["recipe_hash"]]
+        out.append(d)
+    return out
+
+
+@router.get("/api/models/setup")
+def models_setup(request: Request):
+    rt = request.app.state.rt
+    c = _conn(request)
+    try:
+        temps = [_template_geometry(t) for t in _templates.list_all(c) if t.get("kind") == "training"]
+        names = corpus.dataset_names(c)
+        recs = {}
+        for r in c.execute("SELECT id, source_file, channel, fs, n_samples FROM recordings ORDER BY source_file, channel"):
+            if r["source_file"] == HELD_OUT_FILE:
+                continue
+            counts = {v: n for v, n in c.execute(
+                "SELECT verdict, COUNT(*) FROM annotations WHERE recording_id = ? AND deleted_at IS NULL GROUP BY verdict",
+                (r["id"],))}
+            g = recs.setdefault(r["source_file"], {"source_file": r["source_file"],
+                                                   "name": names.get(r["source_file"], r["source_file"]),
+                                                   "channels": []})
+            g["channels"].append({"recording_id": int(r["id"]), "channel": int(r["channel"]),
+                                  "hours": round(r["n_samples"] / float(r["fs"]) / 3600.0, 2), "fs": float(r["fs"]),
+                                  "verdicts": int(sum(counts.values())),
+                                  "interesting": int(counts.get("interesting", 0) + counts.get("seed", 0)),
+                                  "not_interesting": int(counts.get("not_interesting", 0)),
+                                  "artifact": int(counts.get("artifact", 0))})
+        for g in recs.values():
+            n = len(g["channels"])
+            for ch in g["channels"]:
+                ch["name"] = corpus.channel_name(g["source_file"], ch["channel"], n)
+        return {
+            "templates": temps,
+            "recordings": [g for g in recs.values() if any(ch["verdicts"] for ch in g["channels"])],
+            "recordings_without_verdicts": [g["source_file"] for g in recs.values()
+                                            if not any(ch["verdicts"] for ch in g["channels"])],
+            "held_out": {"file": HELD_OUT_FILE, "name": names.get(HELD_OUT_FILE, HELD_OUT_FILE), "locked": True,
+                         "where": "Settings › Datasets",
+                         "reason": "exam (iii): a different mushroom, scored once after the freeze when the researcher "
+                                   "unlocks it; nothing on this page reads it"},
+            "window_sets": _multi_sets(c),
+            "runs": _ts.list_runs(c),
+            "defaults": {"split": dict(_tw.DEFAULT_SPLIT), "stages": list(_tw.DEFAULT_STAGES),
+                         "length": _LABEL_LENGTH, "grid": _LABEL_GRID, "rf_shuffles": 200, "full_shuffles": 5,
+                         "bootstrap_n": 1000, "block_hours": 24.0, "n_estimators": 300, "linkage": "ward",
+                         "test_warn_below": _tp.TEST_WARN_BELOW},
+            "local_limit_s": _tp.LOCAL_LIMIT_S,
+            "hpc_note": _HPC_NOTE,
+            "note": rt.banner(),
+        }
+    finally:
+        c.close()
+
+
+class PooledSetBody(BaseModel):
+    name: str
+    source_file: str
+    channels: list[int]
+    exam_channels: list[int] = []
+    length: int = _LABEL_LENGTH
+    grid: int = _LABEL_GRID
+    stages: list[str] = list(_tw.DEFAULT_STAGES)
+    split: dict = {}
+    template: str | None = None
+    notes: str | None = None
+
+
+def _refuse_held_out(source_file: str):
+    if source_file == HELD_OUT_FILE:
+        raise HTTPException(423, f"{HELD_OUT_FILE} is held out (exam iii); it is never a training source and is "
+                                 "unlocked only on Settings › Datasets, after the freeze")
+
+
+@router.post("/api/models/windowsets")
+def models_save_window_set(request: Request, body: PooledSetBody):
+    rt, manager = request.app.state.rt, request.app.state.manager
+    _refuse_held_out(body.source_file)
+    if not _NAME.match(body.name):
+        raise HTTPException(422, "name must be 1–64 characters of letters, digits, _ . - (no spaces)")
+    try:
+        _tw.check_split({**_tw.DEFAULT_SPLIT, **body.split})
+        _tw.check_stages(tuple(body.stages))
+    except ValueError as e:
+        raise HTTPException(422, str(e))
+    if not body.channels:
+        raise HTTPException(422, "tick at least one training channel")
+    root = rt.window_sets_root
+
+    def work(job):
+        c = _conn(request)
+        try:
+            ps = _tw.build_pooled_set(c, body.source_file, body.channels, exam_channels=body.exam_channels,
+                                      length=body.length, grid=body.grid, split=body.split, stages=tuple(body.stages),
+                                      progress=lambda d, t, m: job.progress(d, t, m),
+                                      cancel=job.cancel_event.is_set)
+            ws_id = _ts.save_window_set(c, ps, root, body.name, notes=body.notes)
+            row = _ts.window_set_row(c, {"id": ws_id})
+            return {"window_set_id": int(ws_id), "name": body.name, "version": int(row["version"]), "key": ps.key,
+                    "n_windows": int(len(ps.table)), "by_role": _tw.role_counts(ps), "path": row["path"],
+                    "per_channel": [{k: v for k, v in ch.items() if k != "blocks"} for ch in ps.meta["per_channel"]]}
+        finally:
+            c.close()
+
+    job = manager.start_job("training", work, meta={"stage": "window set", "name": body.name,
+                                                    "source_file": body.source_file, "channels": body.channels,
+                                                    "exam_channels": body.exam_channels, "template": body.template})
+    return job.snapshot()
+
+
+def _load(c, window_set_id: int):
+    try:
+        return _ts.load_window_set(c, {"id": int(window_set_id)})
+    except _tw.HeldOutRefused as e:
+        raise HTTPException(423, str(e))
+    except (ValueError, FileNotFoundError) as e:
+        raise HTTPException(404, str(e))
+
+
+class ProposeBody(BaseModel):
+    window_set_id: int
+    linkage: str = "ward"
+    k_min: int = 2
+    k_max: int = 8
+
+
+_PROPOSALS: dict = {}
+
+
+@router.post("/api/models/propose")
+def models_propose(request: Request, body: ProposeBody):
+    c = _conn(request)
+    try:
+        row, ps = _load(c, body.window_set_id)
+    finally:
+        c.close()
+    key = (ps.key, body.linkage, body.k_min, body.k_max)
+    if key not in _PROPOSALS:
+        _PROPOSALS[key] = _tp.propose(ps, linkage=body.linkage, k_range=(body.k_min, body.k_max))
+    return {**_PROPOSALS[key], "window_set_id": int(row["id"]), "key": ps.key}
+
+
+class RecipeBody(BaseModel):
+    window_set_id: int
+    k: int | None = None
+    translation: dict | None = None
+    linkage: str = "ward"
+    n_estimators: int = 300
+    class_weight: str = "balanced"
+    random_state: int = 42
+    rf_shuffles: int = 200
+    full_shuffles: int = 5
+    bootstrap_n: int = 1000
+    block_hours: float = 24.0
+    target_precision: float = 0.8
+    reference: bool = False
+
+
+def _recipe(row, ps, body: RecipeBody) -> dict:
+    return _tp.make_recipe({"id": int(row["id"]), "name": row["name"], "version": int(row["version"]), "key": ps.key},
+                           k=body.k, translation=body.translation, linkage=body.linkage,
+                           n_estimators=body.n_estimators, class_weight=body.class_weight,
+                           random_state=body.random_state, rf_shuffles=body.rf_shuffles,
+                           full_shuffles=body.full_shuffles, bootstrap_n=body.bootstrap_n,
+                           block_hours=body.block_hours, target_precision=body.target_precision,
+                           reference=body.reference)
+
+
+@router.post("/api/models/checks")
+def models_checks(request: Request, body: RecipeBody):
+    c = _conn(request)
+    try:
+        row, ps = _load(c, body.window_set_id)
+        recipe = _recipe(row, ps, body)
+        checks = _tp.validate(recipe, ps)
+        frozen = None
+        if body.k is not None:
+            try:
+                _ts.check_cut_frozen(c, recipe, ps.key)
+            except _ts.CutFrozen as e:
+                frozen = str(e)
+        checks.append({"name": "cut not changed after a test score", "ok": frozen is None,
+                       "level": "error" if frozen else "pass",
+                       "detail": frozen or "no run on this set has scored a different cut"})
+    finally:
+        c.close()
+    est = _tp.estimate(recipe, ps)
+    if body.reference:
+        est["parts"]["reference"] = 0.25 * int(ps.role_mask("test", "exam").sum())
+        est["seconds"] = float(sum(est["parts"].values()))
+        est["where"] = "local" if est["seconds"] <= _tp.LOCAL_LIMIT_S else "slurm"
+    return {"checks": checks, "estimate": est, "recipe": recipe, "recipe_hash": short_hash(recipe),
+            "by_role": _tw.role_counts(ps), "ok": not any(ch["level"] == "error" for ch in checks)}
+
+
+_STAGES = {0: "features", 1: "cluster", 2: "train", 3: "null", 4: "score", 5: "calibrate", 6: "done"}
+
+
+@router.post("/api/models/train")
+def models_train(request: Request, body: RecipeBody):
+    rt, manager = request.app.state.rt, request.app.state.manager
+    c = _conn(request)
+    try:
+        row, ps = _load(c, body.window_set_id)
+        recipe = _recipe(row, ps, body)
+        if body.k is None:
+            raise HTTPException(422, "choose arm B's cut (k) first")
+        try:
+            _ts.check_cut_frozen(c, recipe, ps.key)
+        except _ts.CutFrozen as e:
+            raise HTTPException(409, str(e))
+        errors = [ch for ch in _tp.validate(recipe, ps) if ch["level"] == "error"]
+        if errors:
+            raise HTTPException(422, {"message": "the Before-launch checks refuse this job", "checks": errors})
+    finally:
+        c.close()
+    root = _training_root(rt)
+
+    def work(job):
+        cc = _conn(request)
+        try:
+            def progress(done, total, message):
+                job.meta["stage"] = _STAGES.get(int(done), "reference") if total == 6 else "reference"
+                job.progress(done, total, message)
+            out = _ts.run_and_record(cc, recipe, root, progress=progress, cancel=job.cancel_event.is_set)
+            ex = out["results"]["exams"].get(_tp.EXAM_I) or {}
+            head = ({arm: ex["arms"][arm]["macro_f1"] for arm in ("A", "B")} if ex.get("status") == "scored" else None)
+            return {"run_id": int(out["run_id"]), "recipe_hash": out["config_hash"], "macro_f1": head,
+                    "results_path": out["results_path"]}
+        finally:
+            cc.close()
+
+    job = manager.start_job("training", work, meta={"stage": "queued", "window_set": recipe["window_set"],
+                                                    "k": recipe["arms"]["B"]["k"], "recipe_hash": short_hash(recipe),
+                                                    "where": "local"})
+    return job.snapshot()
+
+
+@router.post("/api/models/slurm")
+def models_slurm(request: Request, body: RecipeBody):
+    from Working.hpc.job_export import export_training_job
+    rt = request.app.state.rt
+    c = _conn(request)
+    try:
+        row, ps = _load(c, body.window_set_id)
+        recipe = _recipe(row, ps, body)
+    finally:
+        c.close()
+    est = _tp.estimate(recipe, ps)
+    base = f"paired_{row['name']}_k{body.k}_{short_hash(recipe)}"
+    res = export_training_job(recipe, out_dir=_hpc_dir(rt), base_name=base, est_seconds=est["seconds"])
+    return {**res, "estimate": est, "note": _HPC_NOTE}
+
+
+@router.get("/api/models/runs")
+def models_runs(request: Request):
+    manager = request.app.state.manager
+    c = _conn(request)
+    try:
+        runs = _ts.list_runs(c)
+    finally:
+        c.close()
+    live = [j.snapshot() for j in list(manager.jobs.values()) if getattr(j, "kind", None) == "training"]
+    return {"runs": runs, "jobs": sorted(live, key=lambda s: -s["job_id"])}
+
+
+def _run_or_404(c, run_id: int) -> dict:
+    got = _ts.get_run(c, run_id)
+    if got is None:
+        raise HTTPException(404, f"no paired training run {run_id}")
+    return got
+
+
+@router.get("/api/models/runs/{run_id}")
+def models_run(request: Request, run_id: int):
+    c = _conn(request)
+    try:
+        return _run_or_404(c, run_id)
+    finally:
+        c.close()
+
+
+_DIFFERS = (
+    ("template", lambda r: (r["window_set"].get("length"), r["window_set"].get("grid"),
+                            tuple(r["window_set"].get("stages") or ()))),
+    ("window set", lambda r: r["window_set"].get("key")),
+    ("split", lambda r: json.dumps(r["window_set"].get("split"), sort_keys=True)),
+    ("classifier", lambda r: json.dumps(r["recipe"]["classifier"], sort_keys=True)),
+    ("options", lambda r: json.dumps({k: r["recipe"][k] for k in ("null", "bootstrap", "train_on")}, sort_keys=True)),
+)
+
+
+@router.get("/api/models/runs/{run_id}/compare")
+def models_compare(request: Request, run_id: int):
+    """Arm A against arm B of one paired run (spec §7b.4): what differs between
+    them (only the label source, by construction), and per exam the paired numbers."""
+    c = _conn(request)
+    try:
+        got = _run_or_404(c, run_id)
+    finally:
+        c.close()
+    res = got["results"]
+    if not res:
+        raise HTTPException(409, f"run {run_id} is {got['status']}: no results to compare")
+    differs = [{"name": n, "a": str(f(res)), "b": str(f(res)), "same": True} for n, f in _DIFFERS]
+    differs.append({"name": "label source", "a": "manual (human verdicts)",
+                    "b": f"cluster ({res['cluster']['linkage']}, k = {res['cluster']['k']}, translated)", "same": False})
+    exams = {}
+    for e, ex in res["exams"].items():
+        if ex.get("status") != "scored":
+            exams[e] = {"status": ex.get("status"), "reason": ex.get("reason")}
+            continue
+        arms = {}
+        for arm in ("A", "B"):
+            a = ex["arms"][arm]
+            d = a["null"]["draws"] or [0.0]
+            arms[arm] = {"macro_f1": a["macro_f1"], "macro_f1_ci": a["macro_f1_ci"],
+                         "balanced_accuracy": a["balanced_accuracy"],
+                         "null_band": [float(np.quantile(d, 0.05)), float(np.quantile(d, 0.95))],
+                         "null_p": a["null"]["p"], "per_class": a["per_class"]}
+        exams[e] = {"status": "scored", "n_windows": ex["n_windows"], "class_counts": ex["class_counts"],
+                    "n_units": ex["n_units"], "unit": ex["unit"], "arms": arms,
+                    **{k: ex["paired"][k] for k in ("delta_f1", "delta_f1_ci", "delta_draws_sample", "mcnemar",
+                                                    "agreement", "per_class_delta")},
+                    "per_channel": ex["per_channel"]}
+    return {"run_id": run_id, "recipe_hash": res["recipe_hash"],
+            "attributable": sum(not d["same"] for d in differs) == 1,
+            "differs": differs, "exams": exams, "cluster": res["cluster"], "notes": res["notes"],
+            "reference": res.get("reference") or [], "yardstick_b": res["yardstick_b"]}
+
+
+@router.get("/api/models/runs/{run_id}/disagreements")
+def models_disagreement(request: Request, run_id: int, filter: str = "only_a", i: int = 1, exam: str = _tp.EXAM_I):
+    """The i-th window (1-based) where only A, only B, or neither arm was right:
+    the window's signal, the human verdict and both arms' predictions."""
+    if filter not in ("only_a", "only_b", "both_wrong"):
+        raise HTTPException(422, "filter is only_a | only_b | both_wrong")
+    c = _conn(request)
+    try:
+        got = _run_or_404(c, run_id)
+        res = got["results"]
+        ex = (res or {}).get("exams", {}).get(exam) or {}
+        if ex.get("status") != "scored":
+            raise HTTPException(404, f"exam {exam} has no scored windows in run {run_id}")
+        row, ps = _load(c, res["window_set"]["id"])
+        ids = np.asarray(ex["window_ids"])
+        y = ps.table["label"].to_numpy()[ids]
+        pa, pb = np.asarray(ex["predictions"]["A"]), np.asarray(ex["predictions"]["B"])
+        ok_a, ok_b = pa == y, pb == y
+        masks = {"only_a": ok_a & ~ok_b, "only_b": ~ok_a & ok_b, "both_wrong": ~ok_a & ~ok_b}
+        hits = np.flatnonzero(masks[filter])
+        counts = {k: int(v.sum()) for k, v in masks.items()}
+        if not (1 <= i <= len(hits)):
+            raise HTTPException(404, f"{filter}: {len(hits)} window(s); there is no #{i}")
+        j = int(hits[i - 1])
+        w = ps.table.iloc[int(ids[j])]
+        rec = corpus.recording_row(c, int(w["recording_id"]))
+        length = int(ps.meta["length"])
+        ch = corpus.display_channel(rec)
+        x = ch[int(w["start"]):int(w["start"]) + length]
+        step = max(1, len(x) // 300)
+        names = ("not_interesting", "interesting")
+        return {"run_id": run_id, "exam": exam, "filter": filter, "i": i, "n": int(len(hits)), "counts": counts,
+                "window": {"recording_id": int(w["recording_id"]), "channel": int(w["channel"]),
+                           "channel_name": rec["name"], "start": int(w["start"]), "end": int(w["start"]) + length,
+                           "fs": float(rec["fs"])},
+                "human": names[int(y[j])], "a": names[int(pa[j])], "b": names[int(pb[j])],
+                "trace": [float(v) for v in x[::step]], "unit": ch.unit}
+    finally:
+        c.close()
