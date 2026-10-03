@@ -39,6 +39,7 @@ import numpy as np
 from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel, Field
 
+from Working import run_groups as RG
 from Working.database import queries as q
 from Working.database import runs as R
 from Working.discovery import compare as D
@@ -408,6 +409,13 @@ def _run_payload(conn, row, index, span):
         "channelsDone": channels_done,
         "found": n_found,
     }
+    if params.get("band"):
+        # fixup-Z: a band run is one band of one *Apply template* with a band
+        # scope; the runs of one application are one set, which Compare can
+        # take as a side
+        out["band"] = params["band"]
+        out["bandSet"] = params.get("bandSet")
+        out["bandIndex"] = params.get("bandIndex")
     if out["kind"] == "seed":
         # what the Seed page finds its own run by: the seed and the cut, not the
         # label (fixup-y)
@@ -642,11 +650,56 @@ def _human_spans(conn, recording_id, span, verdicts=("interesting", "seed")):
     return out
 
 
+#: Compare's name for a band set as one side (fixup-Z): `set:<bandSet>`.
+SET_PREFIX = "set:"
+
+
+def _band_members(conn, session_id, set_key):
+    """The live band runs of one band set, in band order. A discarded band run
+    is left out: its detections are not meant to count anywhere."""
+    key = set_key[len(SET_PREFIX):] if set_key.startswith(SET_PREFIX) else set_key
+    rows = [r for r in _discovery_runs(conn, session_id)
+            if json.loads(r["params_json"] or "{}").get("bandSet") == key and not r["superseded_at"]]
+    if not rows:
+        raise HTTPException(404, {"message": f"no band set {key!r} in this session"})
+    rows.sort(key=lambda r: json.loads(r["params_json"] or "{}").get("bandIndex") or 0)
+    return rows
+
+
+def _band_of(row):
+    return json.loads(row["params_json"] or "{}").get("band") or {}
+
+
+def _regions_for(conn, session_id, key, ch, span, rule=None):
+    """One side's spans on one channel, each with the detection ids it is made
+    of. A plain run's span is one detection; a band set's region is the union
+    of its band runs' spans, de-duplicated by the matching rule
+    (`compare.union_span_sets`), naming every band that fired it."""
+    if key == "human":
+        return [{**x, "ids": [], "bands": None, "bandRuns": None} for x in _human_spans(conn, ch["id"], span)]
+    if not key.startswith(SET_PREFIX):
+        row = _dr_by_key(conn, session_id, key)
+        return [{**x, "ids": [x["id"]], "bands": None, "bandRuns": None}
+                for x in _run_detections(conn, _run_ids(conn, row), int(ch["id"]), span)]
+    members = _band_members(conn, session_id, key)
+    named, by_id, run_of = [], {}, {}
+    for m in members:
+        label = _band_of(m).get("label") or m["run_key"]
+        run_of[label] = m["run_key"]
+        dets = _run_detections(conn, _run_ids(conn, m), int(ch["id"]), span)
+        by_id.update({d["id"]: d for d in dets})
+        named.append((label, [(d["start"], d["end"], d["id"]) for d in dets]))
+    out = []
+    for r in D.union_span_sets(named, rule=rule):
+        rep = by_id[r["id"]]
+        out.append({"id": r["id"], "start": r["start"], "end": r["end"], "score": rep.get("score"),
+                    "run_id": rep.get("run_id"), "ids": [m["id"] for m in r["members"]],
+                    "bands": list(r["sets"]), "bandRuns": [run_of[b] for b in r["sets"]]})
+    return out
+
+
 def _spans_for(conn, session_id, run_key, ch, span):
-    if run_key == "human":
-        return _human_spans(conn, ch["id"], span)
-    row = _dr_by_key(conn, session_id, run_key)
-    return _run_detections(conn, _run_ids(conn, row), int(ch["id"]), span)
+    return _regions_for(conn, session_id, run_key, ch, span)
 
 
 @router.get("/api/discovery/fires")
@@ -1569,6 +1622,71 @@ class PlanBody(BaseModel):
     measuredPerChannelS: float | None = None
     sampleHours: float = 4.0
     label: str | None = None
+    #: fixup-Z: one band of a band scope — the plan, preview and SLURM script
+    #: are of the template's chain with that band's step prepended
+    band: dict | None = None
+    #: fixup-Z, /plan only: a whole band scope, costed as N bands × the sweep
+    bands: list[dict] | None = None
+
+
+# ── the band scope (fixup-Z, Q43) ───────────────────────────────────────────
+
+def _bands_or_422(bands):
+    try:
+        return [RG.normalize_band(b) for b in bands]
+    except ValueError as e:
+        raise HTTPException(422, {"message": str(e)})
+
+
+def _check_nyquist(bands, fs):
+    """A band whose upper edge is at or above Nyquist cannot be filtered at
+    all (Butterworth needs `high / nyquist < 1`), and would fail inside the
+    fan-out after the earlier bands had written their runs. Refused before
+    anything runs, naming the band."""
+    nyq = float(fs) / 2.0
+    bad = [b for b in bands if b["kind"] == "bandpass" and b["high_hz"] >= nyq]
+    if bad:
+        raise HTTPException(422, {"message": "; ".join(
+            f"band {b['label']!r} reaches {b['high_hz']:g} Hz, at or above this recording's Nyquist "
+            f"({nyq:g} Hz at {float(fs):g} Hz) — a bandpass edge must lie strictly below it" for b in bad)})
+
+
+def _banded_steps(conn, steps, band, recording_id, span):
+    """The template's steps with one band's step prepended, built by the core's
+    own band materialisation (`run_groups.band_recipes` → `materialize_target`),
+    so a band run records exactly the recipe of the chain a researcher builds by
+    hand in Analyse — insert the bandpass, save, apply."""
+    try:
+        return RG.band_recipes(recording_id, steps, span=(list(span) if span else None),
+                               bands=[band])[0]["steps"]
+    except ValueError as e:
+        raise HTTPException(422, {"message": str(e)})
+
+
+@router.get("/api/discovery/bands")
+def get_bands(request: Request):
+    """The project's band list (Q43): Settings › Analysis defaults' `bands`,
+    else the three seeded bands. What *Apply template*'s band scope offers and
+    every bandpass block's presets."""
+    from Working.registration.settings import get_settings
+
+    c = _conn(request)
+    try:
+        saved = get_settings(c, RG.BANDS_SETTINGS_PAGE).get(RG.BANDS_SETTINGS_KEY)
+        try:
+            bands = RG.bands_from_settings(c)
+        except ValueError as e:
+            raise HTTPException(422, {"message": f"Settings › Analysis defaults › bands: {e}"})
+        # the session's recording, when there is a session: Analyse reads this
+        # list for its bandpass presets and must not mint a Discovery session
+        row = _session_row(c)
+        rec = _file_for_key(c, _stem(row["source_file"])) if row is not None else None
+        return {"bands": bands, "source": "default" if saved is None else "settings",
+                "page": RG.BANDS_SETTINGS_PAGE, "key": RG.BANDS_SETTINGS_KEY,
+                "kinds": list(RG.BAND_KINDS),
+                "nyquistHz": float(rec["fs"]) / 2.0 if rec else None}
+    finally:
+        c.close()
 
 
 def _steps_for(conn, body: PlanBody):
@@ -1604,6 +1722,14 @@ def _plan(conn, body: PlanBody):
     steps, template, seed = _steps_for(conn, body)
     s, rec, chans, span = _scope(conn, body)
     m = seed["samples"] if seed else None
+    band = None
+    if body.band is not None:
+        if seed is not None:
+            raise HTTPException(422, {"message": "a band scope applies to a template, not a seed search"})
+        band = _bands_or_422([body.band])[0]
+        _check_nyquist([band], rec["fs"])
+        if chans:
+            steps = _banded_steps(conn, steps, band, chans[0]["id"], span)
 
     def reuse(c2, recording_id, target_span):
         """A matrix profile already on disk for this exact question. Only the
@@ -1631,13 +1757,40 @@ def _plan(conn, body: PlanBody):
                          else seeded_search.WHY_NO_PROFILE if seed else None)
     plan["sectionH"] = [span[0] / rec["fs"] / 3600.0, span[1] / rec["fs"] / 3600.0]
     plan["channels"] = [ch["name"] for ch in chans]
+    plan["band"] = band
     return plan, steps, template, seed, span, chans, s
+
+
+def _band_plans(conn, body: PlanBody, bands):
+    """One plan per band, and the scope's whole cost: §7.5's ceiling applies to
+    the application, which is N bands × the sweep. Any band that cannot be
+    costed makes the whole `unknown`; a total over the ceiling routes every band
+    to the cluster, because a ceiling that one band fits and three do not is
+    still exceeded."""
+    plans = []
+    for band in bands:
+        pb = body.model_copy(update={"band": band, "bands": None})
+        plans.append(_plan(conn, pb))
+    ests = [p[0]["estimate_s"] for p in plans]
+    total = None if any(e is None for e in ests) else float(sum(ests))
+    ceiling = plans[0][0]["ceiling_s"] if plans else fanout.ceiling_s(conn)
+    route = "unknown" if total is None else ("cluster" if total > ceiling else "local")
+    return plans, total, route, ceiling
 
 
 @router.post("/api/discovery/plan")
 def post_plan(request: Request, body: PlanBody):
     c = _conn(request)
     try:
+        if body.bands:
+            bands = _bands_or_422(body.bands)
+            plans, total, route, ceiling = _band_plans(c, body, bands)
+            plan = dict(plans[0][0])
+            plan.update({"estimate_s": total, "route": route, "ceiling_s": ceiling, "nBands": len(bands),
+                         "bands": [{**p[0]["band"], "estimate_s": p[0]["estimate_s"], "route": p[0]["route"]}
+                                   for p in plans],
+                         "note": f"{len(bands)} bands × one sweep across {plan['n_channels']} channels"})
+            return _clean(plan)
         plan, *_ = _plan(c, body)
         return _clean(plan)
     finally:
@@ -1767,17 +1920,91 @@ class ApplyBody(BaseModel):
     t0: float = 0.0
     t1: float = 0.0
     run: bool = True
+    #: fixup-Z: a band scope. None or [] is today's behaviour — one run per
+    #: template. Each band becomes one Discovery run across the channels in
+    #: scope: the template's chain with that band's step prepended.
+    bands: list[dict] | None = None
+
+
+def _band_set_key(conn, session_id, template_name):
+    """A name for the band runs of one application, unique in the session.
+    Compare takes it as one side (`set:<key>`)."""
+    taken = set()
+    for r in _discovery_runs(conn, session_id):
+        bs = json.loads(r["params_json"] or "{}").get("bandSet")
+        if bs:
+            taken.add(bs)
+    base = _slug(f"{template_name}_bands")
+    key, n = base, 1
+    while key in taken:
+        n += 1
+        key = f"{base}_{n}"
+    return key
+
+
+def _apply_bands(request, c, body: ApplyBody, name: str, bands: list[dict]):
+    """One template × N bands → N Discovery runs, one band set. The cost is the
+    whole application (`_band_plans`): over the ceiling every band run is added
+    and none started, and the page's primary action is *Create SLURM script*."""
+    pb = PlanBody(template=name, channels=body.channels, t0=body.t0, t1=body.t1)
+    plans, total, route, ceiling = _band_plans(c, pb, bands)
+    for plan, *_ in plans:
+        if not plan["runnable"]:
+            raise HTTPException(422, {"message": plan["reason"], "refused": plan["refused"], "template": name})
+    s = plans[0][6]
+    set_key = _band_set_key(c, s["id"], name)
+    on, sp, why = _surrogate_for(c)
+    out = []
+    for i, (band, (plan, steps, template, _seed, span, chans, _s)) in enumerate(zip(bands, plans)):
+        key = _next_key(c, s["id"], _slug(f"{name}_{band['label'].replace(' ', '')}"))
+        label = f"{name} · {band['label']}"
+        params = {"stage_count": len(steps), "version": template.get("version"),
+                  "null": {"paired": on, "params": sp, "reason": why},
+                  "detail": f"v{template.get('version') or 1} · {len(steps)} stages · band {band['label']}",
+                  "glyph": D.glyph_for(f"{steps[-1]['stage']}.{steps[-1]['algorithm']}"),
+                  "route": route, "estimate_s": plan["estimate_s"],
+                  "band": band, "bandSet": set_key, "bandIndex": i, "bandCount": len(bands),
+                  "applicationEstimate_s": total}
+        _insert_run(c, s["id"], run_key=key, kind="template", label=label,
+                    template_name=name, template_id=template.get("id"), params=params)
+        job_id = None
+        if body.run and route != "cluster":
+            job = _start_sweep(request, session_id=int(s["id"]), run_key=key, plan=plan, label=label,
+                               surrogate=on, surrogate_params=sp)
+            job_id = job.id
+            c.execute("UPDATE discovery_runs SET job_id = ?, status = 'running', updated_at = ? "
+                      "WHERE session_id = ? AND run_key = ?", (job_id, _now(), int(s["id"]), key))
+            c.commit()
+        out.append({"run_key": key, "job_id": job_id, "route": route, "ceiling_s": ceiling,
+                    "estimate_s": plan["estimate_s"], "applicationEstimate_s": total,
+                    "started": job_id is not None, "band": band, "bandSet": set_key,
+                    "note": (None if job_id else
+                             (f"{len(bands)} bands × the sweep is over the local ceiling — create a SLURM script"
+                              if route == "cluster" else "added, not started"))})
+    return out
 
 
 @router.post("/api/discovery/templates/apply")
 def apply_templates(request: Request, body: ApplyBody):
     """§7.5: "Each template becomes **one run across all channels in scope**".
     Over the ceiling the run is added but not started — the page's primary
-    action becomes *Create SLURM script*."""
+    action becomes *Create SLURM script*.
+
+    With a band scope (fixup-Z) each template becomes one run **per band**,
+    each across all channels in scope, each paired with its surrogate the way
+    an unbanded run is (the null's `preprocessing.surrogate` goes ahead of the
+    band step, so the surrogate is bandpassed the same way)."""
     c = _conn(request)
     try:
         out = []
+        bands = _bands_or_422(body.bands) if body.bands else []
+        if bands:
+            _, rec, _, _ = _session_scope(c)
+            _check_nyquist(bands, rec["fs"])
         for name in body.templates:
+            if bands:
+                out.extend(_apply_bands(request, c, body, name, bands))
+                continue
             pb = PlanBody(template=name, channels=body.channels, t0=body.t0, t1=body.t1)
             plan, steps, template, _seed, span, chans, s = _plan(c, pb)
             if not plan["runnable"]:
@@ -2078,7 +2305,10 @@ def send_to_review(request: Request, run_key: str, body: ReviewBody):
 def _recipe_of(conn, run_key, session_id):
     """The recipe behind a Discovery run: its first run's config. Every member
     of a fan-out shares one recipe but for its `recording_id`, so any of them
-    is the chain."""
+    is the chain. A band set's chain is its first band's: the band runs differ
+    from each other in the band and nothing else."""
+    if run_key.startswith(SET_PREFIX):
+        run_key = _band_members(conn, session_id, run_key)[0]["run_key"]
     row = _dr_by_key(conn, session_id, run_key)
     ids = _run_ids(conn, row)
     if not ids:
@@ -2103,6 +2333,8 @@ def _side(conn, session_id, run_key, chans, span, scope_label):
         return {"run": "human", "label": "human annotations", "subtitle": "reference", "isSeed": False,
                 "cells": cells, "precision": None, "reviewed": 0, "xNull": None, "threshold": None,
                 "found": sum(len(_human_spans(conn, ch["id"], span)) for ch in chans)}, None
+    if run_key.startswith(SET_PREFIX):
+        return _set_side(conn, session_id, run_key, chans, span, scope_label)
     recipe, row = _recipe_of(conn, run_key, session_id)
     params = json.loads(row["params_json"] or "{}")
     cells = (D.role_cells(recipe, source_label=scope_label) if recipe
@@ -2130,6 +2362,63 @@ def _side(conn, session_id, run_key, chans, span, scope_label):
             "threshold": threshold, "found": found}, recipe
 
 
+def _set_side(conn, session_id, set_key, chans, span, scope_label):
+    """A band set as one column of §7.7's "what differs" (fixup-Z). Its chain
+    is drawn from the first band's recipe — the band runs differ from each other
+    only in the band — and the column says so. Precision and × null are per
+    band run (the Runs page); the union's own measure is the verdict split, so
+    the tiles carry no pooled number that double-counts a region two bands
+    found."""
+    members = _band_members(conn, session_id, set_key)
+    recipe, _ = _recipe_of(conn, members[0]["run_key"], session_id)
+    cells = (D.role_cells(recipe, source_label=scope_label) if recipe else {r: None for r in D.ROLES})
+    template = members[0]["template_name"] or members[0]["label"]
+    bands = [_band_of(m) for m in members]
+    threshold = None
+    if recipe:
+        for st in recipe["steps"]:
+            for name in ("threshold", "max_distance"):
+                v = (st.get("params") or {}).get(name)
+                if v:
+                    threshold = float(v)
+    member_out = []
+    for m, band in zip(members, bands):
+        ids = _run_ids(conn, m)
+        found = sum(len(_run_detections(conn, ids, int(ch["id"]), span)) for ch in chans) if ids else 0
+        member_out.append({"run": m["run_key"], "label": m["label"], "band": band, "found": found,
+                           "status": m["status"], "colour": m["colour"]})
+    return {"run": set_key, "label": f"{template} · {len(members)} band{'' if len(members) == 1 else 's'}",
+            "subtitle": f"band set · union of {len(members)} runs", "isSeed": False, "isSet": True,
+            "cells": cells, "template": template, "members": member_out,
+            "cellsNote": (f"drawn from {bands[0].get('label')}'s chain: the {len(members)} band runs differ "
+                          f"from each other only in the band"),
+            "precision": None, "reviewed": 0, "xNull": None,
+            "precisionNote": "per band run on the Runs page; the union is read by verdict below",
+            "threshold": threshold, "found": 0}, recipe
+
+
+def _like_for_like(conn, session_id, set_side, other_key):
+    """§7.7 / fixup-Z item 5: a banded template differs from a raw-signal
+    detector in more than its band, so the comparison that attributes a
+    difference to the band is the same template with and without it. The most
+    recent unbanded, undiscarded run of the set's template in this session."""
+    template = set_side.get("template")
+    twin = None
+    for r in _discovery_runs(conn, session_id):
+        p = json.loads(r["params_json"] or "{}")
+        if r["template_name"] == template and not p.get("bandSet") and not r["superseded_at"]:
+            twin = r
+    if twin is None:
+        return {"run": None, "label": None, "isThis": False,
+                "note": f"apply {template} with no band to compare the band alone, like for like"}
+    is_this = twin["run_key"] == other_key
+    return {"run": twin["run_key"], "label": twin["label"], "isThis": is_this,
+            "note": (f"like for like: {template} with and without the band, so only the band differs"
+                     if is_this else
+                     f"compare against {twin['label']} — {template} with no band — to attribute a "
+                     f"difference to the band alone")}
+
+
 def _same_cell(x, y):
     if x is None and y is None:
         return True
@@ -2138,42 +2427,118 @@ def _same_cell(x, y):
     return x.get("name") == y.get("name") and x.get("param") == y.get("param")
 
 
+def _compare_scope(c, channels, t0, t1):
+    s, rec, _, session_span = _session_scope(c)
+    fs = rec["fs"]
+    names = (channels if isinstance(channels, list) else _split(channels)) or json.loads(s["channels_json"])
+    chans = _ids_for(c, _stem(s["source_file"]), names)
+    span = (int(round(t0 * 3600 * fs)), int(round(t1 * 3600 * fs))) if t1 > t0 else session_span
+    return s, rec, fs, chans, span
+
+
+def _overlap(c, session_id, a, b, chans, span, rule):
+    """Per channel: both sides' regions and their pairing under the page's
+    matching rule. The one place Compare's counts, verdict split and *Send
+    only-B unjudged* read from, so the three can never disagree."""
+    out = []
+    for ch in chans:
+        ra = _regions_for(c, session_id, a, ch, span, rule=rule)
+        rb = _regions_for(c, session_id, b, ch, span, rule=rule)
+        m = D.compare_spans([(x["start"], x["end"]) for x in ra], [(x["start"], x["end"]) for x in rb], rule=rule)
+        out.append((ch, ra, rb, m))
+    return out
+
+
+def _verdicts(c, a, b, per):
+    """§7.7's set overlap split by verdict (fixup-Z), live from `adjudications`:
+    a region is judged when any detection it is made of carries a verdict. The
+    human side has no detections — its annotations ARE the verdict — so a
+    remainder on that side has no split."""
+    groups = {"onlyA": [], "both": [], "onlyB": []}
+    for _ch, ra, rb, m in per:
+        for p in m["pairs"]:
+            groups["both"].append(ra[p["a"]]["ids"] + rb[p["b"]]["ids"])
+        groups["onlyA"].extend(ra[i]["ids"] for i in m["only_a"])
+        groups["onlyB"].extend(rb[j]["ids"] for j in m["only_b"])
+    return {
+        "onlyA": None if a == "human" else D.verdict_split(c, groups["onlyA"]),
+        "both": D.verdict_split(c, groups["both"]),
+        "onlyB": None if b == "human" else D.verdict_split(c, groups["onlyB"]),
+    }
+
+
+def _per_band(c, session_id, set_key, other_key, chans, span, rule, per, set_is_b):
+    """The per-band counts under a band set's union: what each band found on
+    the scope, how much of it the other side also found, and how many union
+    regions that band alone fired."""
+    members = _band_members(c, session_id, set_key)
+    rows = []
+    for m in members:
+        band = _band_of(m)
+        ids = _run_ids(c, m)
+        found = matched = 0
+        for ch, ra, rb, _m in per:
+            other = ra if set_is_b else rb
+            mine = _run_detections(c, ids, int(ch["id"]), span) if ids else []
+            found += len(mine)
+            mm = D.compare_spans([(x["start"], x["end"]) for x in other], [(x["start"], x["end"]) for x in mine],
+                                 rule=rule)
+            matched += len(mm["pairs"])
+        alone = sum(1 for _ch, ra, rb, _m in per for r in (rb if set_is_b else ra)
+                    if r["bands"] == [band.get("label")])
+        # the band's own null on the same scope: its paired surrogate runs, as
+        # the scoreboard counts them (the draw count is the count drawn)
+        tot = SB.score_runs(c, ids, span=span)["total"] if ids else {}
+        rows.append({"run": m["run_key"], "label": m["label"], "band": band, "found": found,
+                     "both": matched, "only": found - matched, "alone": alone, "colour": m["colour"],
+                     "nullExpects": tot.get("null_expects"), "nullDraws": tot.get("null_draws")})
+    return rows
+
+
 @router.get("/api/discovery/compare")
 def get_compare(request: Request, a: str, b: str, channels: str = "", t0: float = 0.0, t1: float = 0.0,
                 limit: int = 400):
     """§7.7 — what differs, where A and B fire, set overlap, and the
-    disagreements to step through."""
+    disagreements to step through.
+
+    fixup-Z: either side may be a band set (`set:<bandSet>`), compared as the
+    **union** of its band runs de-duplicated by the page's matching rule, with
+    the per-band counts beneath; the overlap is split by verdict, read live
+    from `adjudications`; and a band set names its like-for-like twin."""
     c = _conn(request)
     try:
-        s, rec, _, session_span = _session_scope(c)
-        fs = rec["fs"]
-        names = _split(channels) or json.loads(s["channels_json"])
-        chans = _ids_for(c, _stem(s["source_file"]), names)
-        span = (int(round(t0 * 3600 * fs)), int(round(t1 * 3600 * fs))) if t1 > t0 else session_span
+        s, rec, fs, chans, span = _compare_scope(c, channels, t0, t1)
+        rule = rule_from_settings(c)
         scope_label = " · ".join(ch["name"] for ch in chans)
         side_a, recipe_a = _side(c, s["id"], a, chans, span, scope_label)
         side_b, recipe_b = _side(c, s["id"], b, chans, span, scope_label)
         differing = [r for r in D.ROLES if not _same_cell(side_a["cells"].get(r), side_b["cells"].get(r))]
 
+        per = _overlap(c, s["id"], a, b, chans, span, rule)
         per_channel, disagreements, both = [], [], []
-        for ch in chans:
-            sa = _spans_for(c, s["id"], a, ch, span)
-            sb = _spans_for(c, s["id"], b, ch, span)
+        for ch, ra, rb, m in per:
             per_channel.append({"channel": ch["name"],
-                                "a": [(x["start"], x["end"]) for x in sa],
-                                "b": [(x["start"], x["end"]) for x in sb]})
-            out = D.compare_spans([(x["start"], x["end"]) for x in sa],
-                                  [(x["start"], x["end"]) for x in sb])
-            paired_a = {p["a"] for p in out["pairs"]}
-            for p in out["pairs"]:
-                both.append({"channel": ch["name"], "atH": round(sa[p["a"]]["start"] / fs / 3600.0, 5),
+                                "a": [(x["start"], x["end"]) for x in ra],
+                                "b": [(x["start"], x["end"]) for x in rb]})
+            for p in m["pairs"]:
+                both.append({"channel": ch["name"], "atH": round(ra[p["a"]]["start"] / fs / 3600.0, 5),
                              "iou": round(p["iou"], 3)})
-            for i in out["only_a"]:
-                disagreements.append(_disagreement("only A", ch["name"], sa[i], fs, side_b))
-            for j in out["only_b"]:
-                disagreements.append(_disagreement("only B", ch["name"], sb[j], fs, side_a))
-        rows = D.overlap_rows(per_channel)
+            for i in m["only_a"]:
+                disagreements.append(_disagreement("only A", ch["name"], ra[i], fs, side_b))
+            for j in m["only_b"]:
+                disagreements.append(_disagreement("only B", ch["name"], rb[j], fs, side_a))
+        rows = D.overlap_rows(per_channel, rule=rule)
         total = rows[-1] if rows else {"channel": "all channels", "onlyA": 0, "both": 0, "onlyB": 0}
+        for side, regions in ((side_a, [ra for _ch, ra, _rb, _m in per]), (side_b, [rb for _ch, _ra, rb, _m in per])):
+            if side.get("isSet"):
+                side["found"] = sum(len(r) for r in regions)
+
+        per_band, like = [], None
+        set_side, other_key, set_is_b = ((side_b, a, True) if side_b.get("isSet") else
+                                         (side_a, b, False) if side_a.get("isSet") else (None, None, None))
+        if set_side is not None:
+            per_band = _per_band(c, s["id"], set_side["run"], other_key, chans, span, rule, per, set_is_b)
+            like = _like_for_like(c, s["id"], set_side, other_key)
 
         # §7.7 asks for the closest call first. The other side's nearest score at
         # a place is a per-window computation (it is what /compare/window draws),
@@ -2185,6 +2550,9 @@ def get_compare(request: Request, a: str, b: str, channels: str = "", t0: float 
         return {
             "a": side_a, "b": side_b, "differing": differing,
             "overlap": rows[:-1], "total": total,
+            "verdicts": _verdicts(c, a, b, per),
+            "perBand": per_band, "perBandSide": (None if set_side is None else ("B" if set_is_b else "A")),
+            "likeForLike": like,
             "disagreements": disagreements[:limit], "disagreementsTotal": len(disagreements),
             "disagreementsCapped": capped,
             "sortedBy": ("this run's own score, highest first — the other side's nearest score is "
@@ -2195,9 +2563,77 @@ def get_compare(request: Request, a: str, b: str, channels: str = "", t0: float 
                                 f"{len(differing)} roles differ, so a difference in output cannot be "
                                 f"attributed to any single stage"),
             "stageDiff": (D.stage_diff(recipe_a, recipe_b) if recipe_a and recipe_b else []),
-            "rule": rule_from_settings(c),
+            "rule": rule,
             "channels": [ch["name"] for ch in chans],
         }
+    finally:
+        c.close()
+
+
+class CompareReviewBody(BaseModel):
+    a: str
+    b: str
+    channels: list[str] = Field(default_factory=list)
+    t0: float = 0.0
+    t1: float = 0.0
+    which: str = "only B"
+    name: str | None = None
+
+
+@router.post("/api/discovery/compare/review")
+def send_remainder_to_review(request: Request, body: CompareReviewBody):
+    """fixup-Z: *Send only-B unjudged to Review* — the act RQ4's last clause
+    asks for, *hand adjudication of the remainder*. A `review_queues` row over
+    exactly the regions only one side found (an additive `detection_ids` filter
+    on `queries.queue_candidates`, beside fixup-L's `run_ids`), opened the way
+    fixup-L opens one.
+
+    One detection per region: a region two bands found is judged once. The
+    region is represented by a detection that already carries a verdict when
+    one does, so a region judged through another queue is counted judged here
+    rather than served again. The filter is the whole remainder and Review serves
+    its unjudged rows, so judging some and sending again returns the same queue
+    with the progress moved."""
+    if body.which not in ("only A", "only B"):
+        raise HTTPException(422, {"message": f"which must be 'only A' or 'only B', got {body.which!r}"})
+    side = body.a if body.which == "only A" else body.b
+    if side == "human":
+        raise HTTPException(422, {"message": "the human side's spans are annotations — they are already "
+                                             "verdicts and have no detections to send"})
+    c = _conn(request)
+    try:
+        s, rec, fs, chans, span = _compare_scope(c, body.channels, body.t0, body.t1)
+        rule = rule_from_settings(c)
+        per = _overlap(c, s["id"], body.a, body.b, chans, span, rule)
+        regions = []
+        for _ch, ra, rb, m in per:
+            if body.which == "only A":
+                regions.extend(ra[i] for i in m["only_a"])
+            else:
+                regions.extend(rb[j] for j in m["only_b"])
+        if not regions:
+            raise HTTPException(422, {"message": f"{body.which} is empty on this scope — nothing to send"})
+        judged = {int(r["detection_id"]) for r in c.execute("SELECT detection_id FROM adjudications").fetchall()}
+        ids = sorted({next((i for i in r["ids"] if i in judged), r["ids"][0]) for r in regions})
+        filters = {"detection_ids": ids}
+        existing = queues_mod.find_open_queue(c, source_kind="discovery-run", filters=filters)
+        label_a, label_b = (_side(c, s["id"], k, chans, span, "")[0]["label"] for k in (body.a, body.b))
+        if existing is not None:
+            qid, reused = existing, True
+        else:
+            name = body.name or f"Compare · {body.which} · A {label_a} vs B {label_b}"
+            qid = queues_mod.create_queue(
+                c, name=name, source_kind="discovery-run", filters=filters,
+                note=f"Discovery Compare {body.which}: A {body.a!r} vs B {body.b!r} · session {int(s['id'])} · "
+                     f"{len(ids)} regions, one detection each")
+            reused = False
+        queue = queues_mod.get_queue(c, qid)
+        counts = queues_mod.queue_counts(c, qid)
+        return {"queue_id": int(qid), "queue": queue["name"], "reused": reused, "which": body.which,
+                "regions": len(ids), "unjudged": int(counts["remaining"]), "judged": int(counts["judged"]),
+                "total": int(counts["total"]), "writes": queue["writes_to"], "source_kind": "discovery-run",
+                "note": ("one detection per region; the queue is a filter over these detections, so a "
+                         "verdict in Review moves this page's verdict split")}
     finally:
         c.close()
 
@@ -2212,6 +2648,11 @@ def _disagreement(kind, channel, span_row, fs, other_side):
         "otherNearest": None,
         "otherThreshold": other_side.get("threshold"),
         "otherIsSeed": bool(other_side.get("isSeed")),
+        # fixup-Z: on a band set's side, the bands that fired this region and
+        # their runs — what the stepper names, and which chain *Compare every
+        # stage* opens
+        "bands": span_row.get("bands"),
+        "bandRuns": span_row.get("bandRuns"),
     }
 
 
@@ -2224,6 +2665,14 @@ def _window_scores(conn, session_id, run_key, ch, lo, hi, fs):
     x = np.asarray(x_full[lo:hi], dtype=float)
     if run_key == "human":
         return [], "human verdicts carry no score"
+    if run_key.startswith(SET_PREFIX):
+        # a band set is N chains with N scores; the page steps a set's own
+        # disagreements against the band that fired, and reads the first
+        # band's score where the set is the side that did not fire
+        members = _band_members(conn, session_id, run_key)
+        vals, note = _window_scores(conn, session_id, members[0]["run_key"], ch, lo, hi, fs)
+        label = _band_of(members[0]).get("label") or members[0]["run_key"]
+        return vals, (note or f"the band set's first band ({label}) — open a band run as a side for its own")
     row = _dr_by_key(conn, session_id, run_key)
     params = json.loads(row["params_json"] or "{}")
     if row["kind"] == "seed" and params.get("seedId"):
