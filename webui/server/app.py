@@ -19,6 +19,7 @@ from starlette.routing import Match
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
+from Working.database.queries import not_surrogate
 from Working.database.runs import list_runs, load_recipe
 
 from . import chain as chain_mod
@@ -272,7 +273,11 @@ def create_app(rt: Runtime) -> FastAPI:
         c = conn()
         try:
             held = {r["id"] for r in c.execute("SELECT id FROM recordings WHERE source_file = ?", (HELD_OUT_FILE,))}
-            rows = [r for r in list_runs(c, recording_id=recording_id) if r["recording_id"] not in held][:limit]
+            # the run history lists results; a paired surrogate run is its parent's null, not
+            # a result, and its n_detections is not a count of detections (fixup-T)
+            real = {r["id"] for r in c.execute("SELECT r.id FROM runs r WHERE " + not_surrogate("r"))}
+            rows = [r for r in list_runs(c, recording_id=recording_id)
+                    if r["recording_id"] not in held and r["id"] in real][:limit]
             out = []
             for row in rows:
                 d = dict(row)

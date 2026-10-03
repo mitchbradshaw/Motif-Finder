@@ -318,9 +318,13 @@ def list_detections(conn, run_id):
 
 
 def list_detections_for_recording(conn, recording_id):
+    """What the machine found on a recording — a paired surrogate run's spans
+    are not that (`queries.not_surrogate`)."""
+    from Working.database.queries import not_surrogate
+
     return conn.execute(
         """SELECT d.* FROM detections d JOIN runs r ON r.id = d.run_id
-           WHERE r.recording_id = ? ORDER BY d.start_idx""",
+           WHERE r.recording_id = ? AND {} ORDER BY d.start_idx""".format(not_surrogate("r")),
         (recording_id,),
     ).fetchall()
 

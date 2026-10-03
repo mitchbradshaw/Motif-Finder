@@ -377,6 +377,33 @@ def recording_summary(conn, recording_id):
 # queries therefore read across both sources with a join at the call site — the
 # same read, without the schema-level discriminator.
 
+# ── a surrogate is never a detection ─────────────────────────────────────────
+
+def not_surrogate(alias="r"):
+    """The ONE statement of "this run is a real run, not a paired null", as a
+    SQL predicate over a `runs` row aliased `alias`.
+
+    A paired surrogate run is a real `runs` row (`surrogate_of_run_id` set), it
+    joins its parent's run group, and the executor writes its spans to
+    `detections` like any other run's — they are what the scoreboard's *null
+    expects* counts. Every reader that means "what the machine found" must
+    leave them out: Explore's coverage, spans and counts, Review's queues and
+    *N need you*, the divergence queries, Library promotion, the run history.
+    They all say so with this clause rather than each pasting its own
+    (fixup-T; `tests/test_surrogate_never_a_detection.py` keeps it that way).
+
+    The scoreboard and the seed page's null are the only readers that want a
+    surrogate run's rows, and they reach them by `surrogate_of_run_id`.
+    """
+    return f"{alias}.surrogate_of_run_id IS NULL"
+
+
+def is_surrogate_run(conn, run_id):
+    """True when `run_id` is some run's paired null."""
+    row = conn.execute("SELECT surrogate_of_run_id FROM runs WHERE id = ?", (int(run_id),)).fetchone()
+    return bool(row is not None and row["surrogate_of_run_id"] is not None)
+
+
 def _verdict_placeholders(verdicts):
     return ", ".join("?" * len(verdicts))
 
@@ -401,8 +428,8 @@ def divergence_rejected_detections(conn, recording_id=None):
         JOIN adjudications a ON a.detection_id = d.id
         JOIN runs r ON r.id = d.run_id
         JOIN recordings rec ON rec.id = r.recording_id
-        WHERE a.verdict IN (__REJECTED__)
-    """.replace("__REJECTED__", _verdict_placeholders(REJECTED_VERDICTS))
+        WHERE a.verdict IN (__REJECTED__) AND __REAL__
+    """.replace("__REJECTED__", _verdict_placeholders(REJECTED_VERDICTS)).replace("__REAL__", not_surrogate("r"))
     params = list(REJECTED_VERDICTS)
     if recording_id is not None:
         query += " AND r.recording_id = ?"
@@ -431,10 +458,10 @@ def divergence_annotations_without_detection(conn, recording_id=None):
           AND NOT EXISTS (
               SELECT 1 FROM detections d
               JOIN runs r ON r.id = d.run_id
-              WHERE r.recording_id = a.recording_id
+              WHERE r.recording_id = a.recording_id AND __REAL__
                 AND a.start_idx < d.end_idx AND d.start_idx < a.end_idx
           )
-    """
+    """.replace("__REAL__", not_surrogate("r"))
     params = []
     if recording_id is not None:
         query += " AND a.recording_id = ?"
@@ -478,7 +505,11 @@ def queue_candidates(conn, run_id=None, run_group_id=None, method=None,
     list[sqlite3.Row] — detection rows (d.*) plus `recording_id`, `channel`
     and `config_json`.
     """
-    clauses = []
+    # A surrogate run's spans are never candidates — not through its run group
+    # (which it shares with its parent), and not when asked for by run or by
+    # detection id either: there is no verdict a human can give a
+    # phase-randomised signal that means anything (fixup-T).
+    clauses = [not_surrogate("r")]
     params = []
 
     if run_id is not None:

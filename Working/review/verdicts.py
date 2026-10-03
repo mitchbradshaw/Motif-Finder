@@ -204,6 +204,19 @@ def _resolve_target(conn, queue, target_id):
                     f"ever shown.")
         raise ValueError(f"no {_UNIT_NOUN[unit]} with id {rid}")
 
+    if unit == "detection":
+        # A paired surrogate run writes `detections` rows too. They are a
+        # run's null, never a thing a human judges: no queue serves one
+        # (`queries.not_surrogate`), and an id typed past the queue is refused
+        # here rather than becoming a verdict on phase-randomised noise.
+        from Working.database.queries import is_surrogate_run
+
+        run = conn.execute("SELECT run_id FROM detections WHERE id = ?", (rid,)).fetchone()
+        if run is not None and is_surrogate_run(conn, run["run_id"]):
+            raise ValueError(
+                f"detection {rid} belongs to a surrogate run: it is a null draw, not a "
+                f"detection, and takes no verdict")
+
     if unit == "sequence":
         # `sequences.annotation_id` is the pointer; `sequences.id` is not. On
         # the project database every sequence id in the seeded extract-events

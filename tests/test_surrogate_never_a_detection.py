@@ -184,6 +184,7 @@ REASONED = {
     "Working/discovery/scoreboard.py": "the scoreboard is the reader that WANTS the null's count",
     "Working/discovery/fanout.py": "counts per explicitly-named real run (members filtered above it)",
     "webui/server/jobs.py": "one job's own run id",
+    "webui/server/review.py": "the held-out refusal looks a detection up by id and must see every row to refuse it",
 }
 _READS = re.compile(r"\b(FROM|JOIN)\s+detections\b", re.IGNORECASE)
 

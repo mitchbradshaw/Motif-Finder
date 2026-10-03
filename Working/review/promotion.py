@@ -43,6 +43,7 @@ import datetime
 import json
 
 from Working.database import runs as R
+from Working.database.queries import is_surrogate_run
 from Working.library import dedupe, revisions
 from Working.library.identity import hash_span
 
@@ -106,7 +107,7 @@ def resolve_target(conn, queue_id, target_id):
 
     if writes_to == "adjudications":
         row = conn.execute(
-            """SELECT d.id AS detection_id, d.start_idx, d.end_idx,
+            """SELECT d.id AS detection_id, d.start_idx, d.end_idx, d.run_id,
                       r.recording_id
                  FROM detections d JOIN runs r ON r.id = d.run_id
                 WHERE d.id = ?""",
@@ -114,6 +115,10 @@ def resolve_target(conn, queue_id, target_id):
         ).fetchone()
         if row is None:
             raise ValueError(f"No detection with id={target_id}")
+        if is_surrogate_run(conn, row["run_id"]):
+            raise ValueError(
+                f"Detection {target_id} belongs to a surrogate run; "
+                "surrogate-derived spans cannot enter the library.")
         recording_id = row["recording_id"]
         detection_id, annotation_id = int(row["detection_id"]), None
         origin = revisions.MACHINE

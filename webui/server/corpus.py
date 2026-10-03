@@ -207,6 +207,8 @@ def run_methods(conn, source_file: str) -> list[dict]:
     for row in list_runs(conn):
         if row["recording_id"] not in recs:
             continue
+        if row["surrogate_of_run_id"] is not None:
+            continue    # a run's null is not a method to filter Explore by (q.not_surrogate)
         n = conn.execute("SELECT COUNT(*) FROM detections WHERE run_id = ?", (row["id"],)).fetchone()[0]
         try:
             recipe = load_recipe(conn, row["config_id"])
@@ -260,7 +262,7 @@ def coverage(conn, source_file: str, bins: int = 57, verdicts: tuple | None = No
         rid = rec["id"]
         ann = conn.execute("SELECT start_idx, end_idx, verdict FROM annotations WHERE recording_id = ? AND deleted_at IS NULL",
                            (rid,)).fetchall()
-        det = conn.execute("SELECT d.start_idx, d.end_idx, d.run_id, r.span_start FROM detections d JOIN runs r ON r.id = d.run_id WHERE r.recording_id = ?",
+        det = conn.execute("SELECT d.start_idx, d.end_idx, d.run_id, r.span_start FROM detections d JOIN runs r ON r.id = d.run_id WHERE r.recording_id = ? AND " + q.not_surrogate("r"),
                            (rid,)).fetchall()
         if keep_runs is not None:
             det = [d for d in det if d["run_id"] in keep_runs]
@@ -293,7 +295,7 @@ def coverage(conn, source_file: str, bins: int = 57, verdicts: tuple | None = No
             "counts": {"annotations": int(len(a_s)), "detections": int(len(d_s)), "disagree": int((~a_flag).sum() + (~d_flag).sum()),
                        "reviewed_pct": reviewed_pct},
         })
-    n_runs = conn.execute("SELECT COUNT(DISTINCT r.id) FROM runs r JOIN detections d ON d.run_id = r.id JOIN recordings x ON x.id = r.recording_id WHERE x.source_file = ?", (source_file,)).fetchone()[0]
+    n_runs = conn.execute("SELECT COUNT(DISTINCT r.id) FROM runs r JOIN detections d ON d.run_id = r.id JOIN recordings x ON x.id = r.recording_id WHERE x.source_file = ? AND " + q.not_surrogate("r"), (source_file,)).fetchone()[0]
     return {"source_file": source_file, "fs": fs, "n_samples": n, "duration_h": n / fs / 3600.0,
             "bins": bins, "bin_h": n / fs / 3600.0 / bins, "bin_edges_h": (edges / fs / 3600.0).tolist(),
             "rows": rows, "verdict_counts": verdict_counts, "n_detection_runs": int(n_runs),
@@ -318,7 +320,7 @@ def spans(conn, recording_id: int, t0_s: float, t1_s: float, fs: float, cap: int
     # legacy relative rows must be shifted before the window test, so the filter is done in Python
     det_all = conn.execute(
         "SELECT d.id, d.start_idx, d.end_idx, d.score, d.run_id, r.span_start FROM detections d JOIN runs r ON r.id = d.run_id "
-        "WHERE r.recording_id = ? ORDER BY d.start_idx", (recording_id,)).fetchall()
+        "WHERE r.recording_id = ? AND " + q.not_surrogate("r") + " ORDER BY d.start_idx", (recording_id,)).fetchall()
     det = []
     for d in det_all:
         a, b = _absolute(d["start_idx"], d["end_idx"], d["span_start"])
@@ -340,7 +342,7 @@ def ribbons(conn, recording_id: int, fs: float, n: int, buckets: int = 300) -> d
     verdict (coverage) and detection count (density)."""
     edges = np.linspace(0, n, buckets + 1)
     ann = conn.execute("SELECT start_idx, end_idx, verdict FROM annotations WHERE recording_id = ? AND deleted_at IS NULL", (recording_id,)).fetchall()
-    det = conn.execute("SELECT d.start_idx, d.end_idx, r.span_start FROM detections d JOIN runs r ON r.id = d.run_id WHERE r.recording_id = ?", (recording_id,)).fetchall()
+    det = conn.execute("SELECT d.start_idx, d.end_idx, r.span_start FROM detections d JOIN runs r ON r.id = d.run_id WHERE r.recording_id = ? AND " + q.not_surrogate("r"), (recording_id,)).fetchall()
     det_starts = [_absolute(d["start_idx"], d["end_idx"], d["span_start"])[0] for d in det]   # legacy relative rows shifted, like spans()
     cov = [None] * buckets
     counts = {v: np.zeros(buckets, int) for v in VERDICTS}
@@ -362,8 +364,9 @@ def ribbons(conn, recording_id: int, fs: float, n: int, buckets: int = 300) -> d
 
 def channel_summary(conn, recording_id: int) -> dict:
     a = conn.execute("SELECT COUNT(*) FROM annotations WHERE recording_id = ? AND deleted_at IS NULL", (recording_id,)).fetchone()[0]
-    d = conn.execute("SELECT COUNT(*) FROM detections d JOIN runs r ON r.id = d.run_id WHERE r.recording_id = ?", (recording_id,)).fetchone()[0]
-    runs = conn.execute("SELECT COUNT(DISTINCT r.id) FROM runs r JOIN detections d ON d.run_id = r.id WHERE r.recording_id = ?", (recording_id,)).fetchone()[0]
+    real = q.not_surrogate("r")     # a paired null's spans are not detections (fixup-T)
+    d = conn.execute("SELECT COUNT(*) FROM detections d JOIN runs r ON r.id = d.run_id WHERE r.recording_id = ? AND " + real, (recording_id,)).fetchone()[0]
+    runs = conn.execute("SELECT COUNT(DISTINCT r.id) FROM runs r JOIN detections d ON d.run_id = r.id WHERE r.recording_id = ? AND " + real, (recording_id,)).fetchone()[0]
     return {"annotations": int(a), "detections": int(d), "detection_runs": int(runs)}
 
 

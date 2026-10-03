@@ -623,7 +623,7 @@ def _run_detections(conn, run_ids, recording_id, span):
     rows = conn.execute(
         "SELECT d.id, d.start_idx, d.end_idx, d.score, r.span_start, r.id AS run_id FROM detections d "
         "JOIN runs r ON r.id = d.run_id WHERE r.id IN (" + marks + ") AND r.recording_id = ? "
-        "AND r.surrogate_of_run_id IS NULL ORDER BY d.start_idx",
+        "AND " + q.not_surrogate("r") + " ORDER BY d.start_idx",
         (int(recording_id),)).fetchall()
     out = []
     for r in rows:
@@ -885,8 +885,10 @@ def get_detection_window(request: Request, detection_id: int, pad_s: float = 120
     c = _conn(request)
     try:
         row = c.execute("SELECT d.start_idx, d.end_idx, r.span_start, r.recording_id FROM detections d "
-                        "JOIN runs r ON r.id = d.run_id WHERE d.id = ?", (int(detection_id),)).fetchone()
+                        "JOIN runs r ON r.id = d.run_id WHERE d.id = ? AND " + q.not_surrogate("r"),
+                        (int(detection_id),)).fetchone()
         if row is None:
+            # a paired null's span is not a detection either (fixup-T)
             raise HTTPException(404, {"message": f"no detection {detection_id}"})
         rec = corpus.recording_row(c, int(row["recording_id"]))
         _refuse_held_out(rec["source_file"])
