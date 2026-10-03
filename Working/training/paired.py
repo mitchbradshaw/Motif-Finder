@@ -287,7 +287,7 @@ def _p_interesting_b(proba, classes_, translation):
     return proba[:, cols].sum(axis=1) if cols else np.zeros(len(proba))
 
 
-def per_channel(y, preds, channel, mask):
+def per_channel(y, preds, channel, mask, names=None):
     """Both arms' macro F1 on each channel's windows of one exam. A channel whose
     windows there hold ONE class has no macro F1 — half of a perfect score on the
     one class present reads as a coin toss (measured: 7 of 12 M2_aug test blocks
@@ -297,7 +297,8 @@ def per_channel(y, preds, channel, mask):
         cm = mask & (channel == ch)
         n_int = int((cm & (y == 1)).sum())
         one = n_int == 0 or n_int == int(cm.sum())
-        row = {"channel": int(ch), "n": int(cm.sum()), "interesting": n_int, "one_class": bool(one)}
+        row = {"channel": int(ch), "name": (names or {}).get(int(ch), f"CH{int(ch)}"), "n": int(cm.sum()),
+               "interesting": n_int, "one_class": bool(one)}
         for arm, pr in preds.items():
             row[arm] = None if one else tm.macro_f1(y[cm], pr[cm], CLASSES)
             row[f"accuracy_{arm}"] = float((pr[cm] == y[cm]).mean()) if cm.any() else None
@@ -429,7 +430,9 @@ def run_paired(recipe, pooled, progress=None, cancel=None, model_dir=None):
         cb = preds["B"][mask] == y[mask]
         per_class_delta = {nm: {"delta": arms_out["A"]["per_class"][nm]["f1"] - arms_out["B"]["per_class"][nm]["f1"],
                                 "ci": boot["delta"]["per_class_ci"][i]} for i, nm in enumerate(CLASS_NAMES)}
-        per_channel_rows = per_channel(y, preds, channel, mask)
+        per_channel_rows = per_channel(y, preds, channel, mask,
+                                       {int(c["channel"]): c.get("name") or f"CH{int(c['channel'])}"
+                                        for c in pooled.meta.get("per_channel", [])})
         out_exams[e] = {
             "status": "scored", "n_windows": int(mask.sum()),
             "class_counts": {nm: int((y[mask] == c).sum()) for c, nm in zip(CLASSES, CLASS_NAMES)},

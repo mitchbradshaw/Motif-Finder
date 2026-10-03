@@ -89,10 +89,10 @@ def summary(res):
                      f"c {p['mcnemar']['c']} p {_f(p['mcnemar']['p'], 4)} · agreement {p['agreement']}")
         for r in ex["per_channel"]:
             if r.get("one_class"):
-                lines.append(f"      CH{r['channel']:<3d} n {r['n']:4d} one class only (interesting {r['interesting']}) — "
+                lines.append(f"      {r.get('name', r['channel']):<8} n {r['n']:4d} one class only (interesting {r['interesting']}) — "
                              f"no macro F1 · accuracy A {_f(r['accuracy_A'])} B {_f(r['accuracy_B'])}")
             else:
-                lines.append(f"      CH{r['channel']:<3d} n {r['n']:4d} interesting {r['interesting']:3d} · "
+                lines.append(f"      {r.get('name', r['channel']):<8} n {r['n']:4d} interesting {r['interesting']:3d} · "
                              f"A {_f(r['A'])} B {_f(r['B'])}")
     for r in res.get("reference") or []:
         if r.get("status") != "scored":

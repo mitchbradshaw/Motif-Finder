@@ -266,6 +266,9 @@ def build_pooled_set(conn, source_file, channels, exam_channels=(), *, length=DE
         raise ValueError(f"channel(s) {overlap} are both trained on and an exam; an exam channel is never trained on")
     check_leakage([source_file], [source_file])
 
+    from Working.discovery.channels import channel_name
+    n_file_channels = conn.execute("SELECT COUNT(*) FROM recordings WHERE source_file = ?",
+                                   (str(source_file),)).fetchone()[0]
     rows, feats, per_channel = [], [], []
     columns = None
     plan = [(c, "train") for c in channels] + [(c, "exam") for c in exam_channels]
@@ -298,7 +301,8 @@ def build_pooled_set(conn, source_file, channels, exam_channels=(), *, length=DE
                        "not_interesting": int(((roles == r) & (y == 0)).sum())}
                    for r in (("train", "validation", "test") if kind == "train" else ("exam",))}
         per_channel.append({
-            "channel": ch, "recording_id": int(rec["id"]), "kind": kind, "n_samples": n,
+            "channel": ch, "name": channel_name(source_file, ch, n_file_channels),
+            "recording_id": int(rec["id"]), "kind": kind, "n_samples": n,
             "hours": round(n / float(rec["fs"]) / 3600.0, 2), "fs": float(rec["fs"]),
             "grid_windows": int(len(starts)), **counts, "dropped_for_gap": int((roles == "gap").sum()),
             "n_windows": int(kept.sum()), "by_role": by_role, "blocks": blocks,
