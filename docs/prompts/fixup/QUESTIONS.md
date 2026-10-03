@@ -308,6 +308,13 @@ filtering the candidate out of the queue entirely?
 **Q-T4** `window_sets` has zero rows. Three pages, two Review queue kinds and Models › Launch are all
 blocked on one *Save window set* click working. Is this the first thing in the stage?
 
+**CLOSED 2026-10-03 by `AA`** (`reports/AA-manual-labels-and-window-sets.md`): it was the first thing in that prompt.
+*Save window set* is on the chain row and the block page of every WindowSet-producing block and writes a real
+`window_sets` row — split and its rule, spacing check, human-verdict coverage per split and class at save, recipe
+hash; bounds on disk (`windows.npz`, and `windowset.npz` + `features.parquet` for `WindowSet.from_path`). Library ›
+Window sets lists it with coverage now and at save. A saved set as an Analyse *source* (frame 0b) is a validator change
+and was not built; Models › Launch reading it is `AB`.
+
 **Q-L4** Hand edits: the routes and core are tested and the controls are toasts. Same shape as T4 —
 a small wire with a lot behind it.
 
@@ -1435,6 +1442,12 @@ session; the short form is here.
   non-overlapping windows): of any two overlapping windows only one is kept, so the set is a stride-600
   subset of the grid, the phase offset chosen to keep the most labelled windows, the dropped and the
   unlabelled both counted. Owner: `AA` (the window set), used by `AB`.
+  **REVISED 2026-10-03 during `AA` — labelled-first, not one phase.** Measured on the 16 M2_aug channels, the
+  single best phase kept **3,906 of the 11,110** labelled grid windows: the labels are sparse (about one an hour per
+  channel), spread over all three phases, and only 1,135 of them overlap a neighbour. Keeping every labelled window
+  unless it overlaps one already kept, then filling the gaps with unlabelled windows, keeps **10,077** under the same
+  no-two-windows-overlap guarantee. Put to the researcher in plain words with both numbers; **the researcher chose
+  labelled-first.** The set records the rule (`non_overlap_rule: labelled-first`) instead of a phase offset.
 - **Q-W2 — A: as recommended.** One clustering over the pooled training windows of every training channel.
   The researcher's note: what is specific to the training data is the **mushroom** — training and exams (i)
   and (ii) are one organism; exam (iii), the held-out `M4`, is a different one. Owner: `AB`.
