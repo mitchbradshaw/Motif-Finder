@@ -1,353 +1,189 @@
-/* models.results (frame models-3; spec §7b.3). One arm of one training job on the test block: headline metrics, the
- * arm against its RF baseline and the label-shuffle null, confusion + per-class, calibration with suggested
- * thresholds, training curves and the held-out checks that gate registration. */
-import { useRef } from 'react'
-import {
-  Badge, Button, Chip, Checklist, DisabledReason, EmptyState, Histogram, Icon, InfoTip, Legend, LineChart, Page, Popover, ProgressBar,
-  SectionCard, Seg, StatTile, useDemoWrites, useQueryState, type CheckState,
-} from '../kit'
+/* models.results (spec §7b.3; fixup-ab). One paired run at a time, one arm at a time (A manual · B cluster), one exam at a
+ * time — never pooled: macro F1 with its block-bootstrap CI, balanced accuracy, the label-shuffle null, the confusion
+ * matrix, per-class P/R/F1 with n, per channel, calibration on the validation block, the reference line ("trained
+ * differently") and the yardstick-(B) row. Read from `/api/models/runs/{id}`; nothing here is a fixture. */
+import { Button, Callout, Dropdown, EmptyState, Heatmap, Histogram, InfoTip, Page, SectionCard, Seg, StatRow, StatTile, fmtInt, useQueryState } from '../kit'
 import { Header } from '../shell/Header'
-import { useToast } from '../shell/Toast'
-import { navigate, useApp } from '../state'
+import { navigate } from '../state'
+import { useApp } from '../state'
 import { useSourced } from '../api/seam'
 import {
-  CAL_TARGETS, CLASS_COLOUR, CLASS_SHORT, MODEL_CLASSES, getJobResults, getResultJobs, suggestionFor,
-  type ArmKey, type ArmResult, type CalTarget, type JobResults, type ModelClass, type ResultsJob,
+  CLASS_NAMES, EXAM_TITLES, getPairedRun, getPairedRuns,
+  type ArmScore, type ExamKey, type PairedArm, type PairedResults, type PairedRunRow,
 } from '../api/models'
-import { JobLink, Loading, LoadFailed, ModelsTabs, NullChip, f2 } from './chrome'
+import { ArmBadge, Loading, LoadFailed, ModelsTabs, JobsPageLink } from './chrome'
 
-const ARM_OPTIONS: { value: ArmKey; label: string }[] = [
-  { value: 'a', label: 'A · manual labels' },
-  { value: 'b', label: 'B · cluster labels' },
-  { value: 'rf', label: 'RF baseline' },
-]
-const ARM_LETTER: Record<ArmKey, 'A' | 'B' | 'RF'> = { a: 'A', b: 'B', rf: 'RF' }
-const ARM_COLOUR_VAR: Record<ArmKey, string> = { a: 'var(--green)', b: 'var(--purple)', rf: '#4b5563' }
+const EXAMS: ExamKey[] = ['i_later_block', 'ii_unseen_channels', 'iii_held_out']
+const ci = (c: [number | null, number | null] | undefined) => (!c || c[0] == null || c[1] == null ? '—' : `${c[0].toFixed(3)} – ${c[1].toFixed(3)}`)
+const f3 = (v: number | null | undefined) => (v == null ? '—' : v.toFixed(3))
 
 export function ResultsPage() {
   const { route } = useApp()
-  const jobId = route.parts[1] || 'j-0212'
-  const [stateQ] = useQueryState('state', '')
-  const [arm, setArm] = useQueryState<ArmKey>('arm', 'a')
-  const jobs = useSourced(getResultJobs, [])
-  const res = useSourced(() => getJobResults(jobId), [jobId])
-  const empty = stateQ === 'empty'
-  const listed = jobs.data?.find(j => j.id === jobId)
-  // a rejected read keeps the previous job's data in the hook — never show it beside another job's id
-  const data = res.error ? null : res.data
-  const job = data?.job ?? listed
-  const subtitle = empty ? 'no training results imported yet' : job ? `${job.template} · ${job.id} · ${job.session}` : jobId
-  const demo = res.source === 'demo' || jobs.source === 'demo'
-
+  const runs = useSourced(getPairedRuns, [])
+  const idPart = route.parts[1]
+  const list: PairedRunRow[] = runs.data?.runs ?? []
+  const runId = idPart ? Number(idPart) : list.find(r => r.status === 'completed')?.run_id ?? null
   return (
     <>
-      <Header workspace="Models" page="Results" subtitle={subtitle} demo={demo} />
+      <Header workspace="Models" page="Results" subtitle="one paired run · one arm · one exam at a time" />
       <Page testid="models-results">
-        <Toolbar job={job} jobs={jobs.data ?? []} jobId={jobId} arm={arm} results={data} empty={empty} />
-        <ModelsTabs current="results"
-          middle={<Seg testid="arm-seg" ariaLabel="label arm" options={ARM_OPTIONS} value={arm} onChange={v => setArm(v === 'a' ? null : v)} />}
-          jobsLink={<JobLink id={jobId} status={job?.status ?? 'unknown'} />} />
-        {empty ? (
-          <EmptyState icon="inbox" bordered testid="results-empty" title="No training results imported yet"
-            caption="a finished cluster job returns through Jobs › Manifest inbox; import it there and it appears here"
-            action={<><Button icon="rocket" onClick={() => navigate('models/launch')}>Open Launch</Button>
-              <Button icon="external" onClick={() => navigate('jobs?kind=cluster')}>Open Jobs</Button></>} />
-        ) : res.error ? (
-          <LoadFailed what={`the results of ${jobId}`} error={res.error} onRetry={res.reload}
-            action={<Button size="sm" icon="external" onClick={() => navigate(`jobs/cluster/${jobId}`)}>Open {jobId} in Jobs</Button>} />
-        ) : !data || res.loading ? <Loading />
-          : data.arms == null ? <RunningBody job={data.job} />
-            : <ResultsBody data={data} arm={arm} />}
+        {runs.error ? <LoadFailed what="the training runs" error={runs.error} onRetry={runs.reload} />
+          : !runs.data ? <Loading />
+            : runId == null ? (
+              <>
+                <ModelsTabs current="results" jobsLink={<JobsPageLink />} />
+                <EmptyState icon="bar-chart" bordered testid="results-empty" title="No paired run yet"
+                  caption="Train one on Models › Launch: a window set across channels, arm B's cut, Train locally."
+                  action={<Button variant="primary" icon="rocket" onClick={() => navigate('models/launch')}>Open Launch</Button>} />
+              </>
+            ) : <RunResults runId={runId} runs={list} />}
       </Page>
     </>
   )
 }
 
-/* ---------------------------------------------------------------- toolbar ---------------------------------------------------------------- */
-function Toolbar({ job, jobs, jobId, arm, results, empty }: { job?: ResultsJob; jobs: ResultsJob[]; jobId: string; arm: ArmKey; results: JobResults | null; empty: boolean }) {
-  const { push } = useToast()
-  const [popover, setPopover] = useQueryState('popover', '')
-  const jobRef = useRef<HTMLButtonElement>(null)
-  const launched = useDemoWrites('models').filter(w => w.kind === 'add-training-job')
-  const armResult = results?.arms?.[arm] ?? null
-  const finished = job?.status === 'finished'
-  const registryId = armResult?.registryId ?? null
-
-  return (
-    <div className="m-toolbar" data-testid="results-toolbar">
-      <span className="m-tool-chip strong" data-testid="model-chip">
-        <Icon name="cpu" size={13} />{job?.template ?? 'training job'} · arm {ARM_LETTER[arm]}
-      </span>
-      <button ref={jobRef} type="button" className="m-tool-chip btn blue" data-testid="job-chip" aria-expanded={popover === 'job'}
-        onClick={() => setPopover(popover === 'job' ? null : 'job')} title="pick another training job">
-        {jobId} · test block · {armResult ? `${armResult.testWindows} windows` : job?.status ?? 'no results'}
-        <Icon name="chevron-down" size={13} />
-      </button>
-      <Popover open={popover === 'job'} onClose={() => setPopover(null)} anchorRef={jobRef} title="Training jobs" width={360} testid="job-popover">
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-          {jobs.map(j => (
-            <button key={j.id} type="button" className="m-usedby" data-testid={`job-option-${j.id}`} style={{ cursor: 'pointer', textAlign: 'left', border: 0, width: '100%' }}
-              onClick={() => { setPopover(null); navigate(`models/results/${j.id}`) }}>
-              <span><span className="t">{j.id}</span> <span className="s">{j.title}</span><div className="s">{j.detail}</div></span>
-              <span className="r"><Badge status={j.status} size="sm" /></span>
-            </button>
-          ))}
-          {launched.map(w => (
-            <DisabledReason key={w.seq} reason="a SLURM script was created for this job but nothing has been submitted or imported yet" block>
-              <div className="m-usedby" data-testid={`job-option-${String(w.detail.id)}`}>
-                <span><span className="t">{String(w.detail.id)}</span> <span className="s">{String(w.detail.template ?? '')} · this session</span></span>
-                <span className="r"><Badge status="queued" size="sm" /></span>
-              </div>
-            </DisabledReason>
-          ))}
-        </div>
-      </Popover>
-      <span className="k-spacer" />
-      <NullChip />
-      <Button icon="compare" testid="compare-arms" disabled={!finished || empty}
-        disabledReason={empty ? 'nothing imported yet — there are no arms to compare' : finished ? undefined : `${jobId} has no finished arms to compare`}
-        onClick={() => navigate(`models/compare?a=cnn_windows_v3.${arm === 'b' ? 'cluster' : 'manual'}&b=cnn_windows_v3.${arm === 'b' ? 'manual' : 'cluster'}`)}>Compare arms</Button>
-      <Button variant="primary" icon="arrow-right" testid="send-to-registry" disabled={!registryId || empty}
-        disabledReason={arm === 'rf' ? 'the RF baseline is a reference, not a registrable model'
-          : empty ? 'nothing imported yet — there is no trained model to send'
-            : !finished ? `${jobId} has no finished model to register` : undefined}
-        onClick={() => { push({ text: `${registryId} opened in the registry` }); navigate(`models/registry/${registryId}`) }}>Send to registry</Button>
-    </div>
+function RunResults({ runId, runs }: { runId: number; runs: PairedRunRow[] }) {
+  const run = useSourced(() => getPairedRun(runId), [runId])
+  const [armQ, setArm] = useQueryState<'a' | 'b'>('arm', 'a')
+  const [examQ, setExam] = useQueryState<ExamKey>('exam', 'i_later_block')
+  const arm: PairedArm = armQ === 'b' ? 'B' : 'A'
+  const picker = (
+    <Dropdown prefix="run" value={String(runId)} onChange={v => navigate(`models/results/${v}`)} testid="run-select" width={280}
+      options={runs.map(r => ({ value: String(r.run_id), label: `run ${r.run_id} · ${r.window_set?.name ?? '?'} · k = ${r.k}`, description: `${r.status}${r.macro_f1 ? ` · F1 A ${r.macro_f1.A.toFixed(3)} B ${r.macro_f1.B.toFixed(3)}` : ''}` }))} />
   )
-}
-
-/* ---------------------------------------------------------------- running ---------------------------------------------------------------- */
-function RunningBody({ job }: { job: ResultsJob }) {
-  return (
-    <SectionCard title={`${job.id} is still running`} icon="hourglass" testid="results-running"
-      subtitle={job.detail} actions={<Badge status="running" />}>
-      <ProgressBar indeterminate label={`${job.session} · started ${job.since ?? 'today'}`} eta={job.overrun ? `${job.overrun} its estimate` : undefined} />
-      <p className="m-mono m-small m-muted" style={{ marginTop: 10 }}>
-        Results arrive through Jobs › Manifest inbox. Nothing is scored here until the manifest is imported — the test block is scored once, after training.
-      </p>
-      <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
-        <Button icon="external" onClick={() => navigate(`jobs/cluster/${job.id}`)} testid="running-open-jobs">Open {job.id} in Jobs</Button>
-        <Button onClick={() => navigate('models/results/j-0212')}>Open the finished job instead</Button>
-      </div>
-    </SectionCard>
-  )
-}
-
-/* ---------------------------------------------------------------- body ---------------------------------------------------------------- */
-function ResultsBody({ data, arm }: { data: JobResults; arm: ArmKey }) {
-  const r = data.arms![arm]
-  return (
+  const armSeg = <Seg value={armQ} onChange={v => setArm(v)} testid="arm-seg" ariaLabel="arm" options={[{ value: 'a', label: 'A · manual' }, { value: 'b', label: 'B · cluster' }]} />
+  if (run.error) return <><ModelsTabs current="results" jobsLink={<JobsPageLink />} middle={picker} /><LoadFailed what={`run ${runId}`} error={run.error} onRetry={run.reload} /></>
+  if (!run.data) return <><ModelsTabs current="results" jobsLink={<JobsPageLink />} middle={picker} /><Loading /></>
+  const r = run.data
+  if (!r.results) return (
     <>
-      <div className="m-stats" data-testid="results-stats">
-        <StatTile variant="flat" label="macro F1 · test" value={f2(r.macroF1)} tone={arm === 'rf' ? undefined : 'green'} caption={`${f2(r.ci[0])}–${f2(r.ci[1])} · bootstrap over test blocks`} testid="stat-macro-f1" />
-        <StatTile variant="flat" label="balanced accuracy" value={f2(r.balancedAcc)} caption={`${MODEL_CLASSES.length} classes`} />
-        <StatTile variant="flat" label="RF baseline F1" value={f2(r.rfF1)} caption="same labels · same windows" />
-        <StatTile variant="flat" label="label-shuffle null F1" value={f2(r.nullF1)} caption={`RF 200× · ${r.nullP}`} />
-        <StatTile variant="flat" label="full-model shuffles" value={r.shuffles.length ? `${f2(r.shuffles[0])}–${f2(r.shuffles[r.shuffles.length - 1])}` : 'unavailable'}
-          caption={r.shuffles.length ? '5×, within the RF null' : 'the RF baseline is its own null'} />
-        <StatTile variant="flat" label="test windows" value={String(r.testWindows)} caption="scored once" />
-      </div>
-
-      <div className="m-grid2">
-        <NullCard r={r} />
-        <ConfusionCard r={r} />
-      </div>
-
-      <CalibrationCard r={r} />
-
-      <div className="m-grid2">
-        <CurvesCard r={r} />
-        <ChecksCard r={r} />
-      </div>
+      <ModelsTabs current="results" jobsLink={<JobsPageLink />} middle={picker} />
+      {r.status === 'running'
+        ? <Callout tone="blue" icon="hourglass" testid="results-running" title={`Run ${runId} is still training`}>Follow it on Launch; this page fills when it finishes.</Callout>
+        : <Callout tone="red" testid="results-failed" title={`Run ${runId} ${r.status}`}><pre className="m-mono m-small" style={{ whiteSpace: 'pre-wrap' }}>{r.error}</pre></Callout>}
     </>
   )
-}
-
-/* ------------------------------- against baseline and null ------------------------------- */
-function NullCard({ r }: { r: ArmResult }) {
-  const letter = ARM_LETTER[r.arm]
-  const colour = ARM_COLOUR_VAR[r.arm]
-  return (
-    <SectionCard title="Against baseline and null" subtitle="macro F1 on the test block" testid="null-card"
-      info="The grey histogram is the RF baseline trained 200× on shuffled labels — what this task looks like with no signal in the labels. The dark dots are five full-model shuffles (each one a full retrain). The arm's own score sits to the right with its bootstrap CI.">
-      <Histogram testid="null-plot" values={r.nullDist} domain={[0, 1]} nBins={26} height={200} colour="#d1d5db" showCounts={false}
-        markers={r.arm === 'rf'
-          ? [{ x: r.macroF1, label: `RF baseline ${f2(r.macroF1)}`, colour, band: r.ci }]
-          : [
-            { x: r.rfF1, label: `RF ${f2(r.rfF1)}`, colour: 'var(--text)' },
-            { x: r.macroF1, label: `${letter} ${f2(r.macroF1)}`, colour, band: r.ci },
-          ]}
-        dots={r.shuffles.map(s => ({ x: s, colour: '#4b5563' }))} format={v => v.toFixed(1)} />
-      <Legend items={[
-        { label: 'RF label-shuffle null · 200×', colour: '#d1d5db' },
-        { label: 'full-model shuffle · 5×', colour: '#4b5563', shape: 'dot' },
-        { label: `arm ${letter} with 95 % CI`, colour },
-      ]} />
-      {!r.shuffles.length && <p className="m-mono m-small m-muted" style={{ marginTop: 6 }}>full-model shuffles: unavailable — the RF baseline is the thing being shuffled</p>}
-    </SectionCard>
-  )
-}
-
-/* ------------------------------- confusion ------------------------------- */
-function ConfusionCard({ r }: { r: ArmResult }) {
-  const rows = r.confusion
-  const low = r.perClass.filter(p => p.n < 50).map(p => p.cls)
-  return (
-    <SectionCard title="Confusion" subtitle="rows = label · normalised per row" testid="confusion-card"
-      info="Each row is one true class, coloured by the share of that row (counts printed). The diagonal is right; everything off it is where the model swaps one class for another.">
-      <div className="m-grid2" style={{ gap: 18 }}>
-        <div>
-          <div className="m-conf" style={{ gridTemplateColumns: '78px repeat(4, minmax(0, 1fr))' }} data-testid="confusion-grid">
-            <span />
-            {MODEL_CLASSES.map(c => <span key={c} className="cl">{CLASS_SHORT[c]}</span>)}
-            {MODEL_CLASSES.map((cls, i) => {
-              const total = rows[i].reduce((a, b) => a + b, 0)
-              return (
-                <ConfusionRow key={cls} cls={cls} counts={rows[i]} total={total} />
-              )
-            })}
-          </div>
-          <div className="m-mono m-small m-muted" style={{ marginTop: 6, textAlign: 'right' }}>predicted →</div>
-        </div>
-        <div>
-          <table className="m-table" data-testid="per-class-table">
-            <thead><tr><th>class</th><th className="num">precision</th><th className="num">recall</th><th className="num">F1</th><th className="num">n</th></tr></thead>
-            <tbody>
-              {r.perClass.map(p => (
-                <tr key={p.cls}>
-                  <td style={{ fontWeight: 600 }}><span className="m-dot" style={{ background: CLASS_COLOUR[p.cls], marginRight: 6 }} />{p.cls}</td>
-                  <td className="num">{f2(p.precision)}</td>
-                  <td className="num">{f2(p.recall)}</td>
-                  <td className="num">{f2(p.f1)}</td>
-                  <td className={`num ${p.n < 50 ? 'm-amber-text' : ''}`}>{p.n}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-          {low.length > 0 && <div style={{ marginTop: 8 }}><Chip tone="amber" testid="few-windows-chip">{low.join(', ')}: few test windows · wide CI</Chip></div>}
-        </div>
-      </div>
-    </SectionCard>
-  )
-}
-
-function ConfusionRow({ cls, counts, total }: { cls: ModelClass; counts: number[]; total: number }) {
+  const res = r.results
+  const ex = res.exams[examQ]
   return (
     <>
-      <span className="rl">{cls}</span>
-      {counts.map((v, j) => {
-        const p = total ? v / total : 0
-        const diagonal = MODEL_CLASSES[j] === cls
-        const bg = diagonal ? `rgba(58,168,116,${(0.15 + 0.85 * p).toFixed(3)})` : `rgba(232,144,12,${(0.05 + 0.45 * p).toFixed(3)})`
-        const colour = diagonal && p > 0.45 ? '#fff' : 'var(--text)'
-        return (
-          <span key={j} className="cell" style={{ background: bg, color: colour }} title={`${cls} predicted ${MODEL_CLASSES[j]}: ${v} of ${total} · ${Math.round(p * 100)} %`}>{v}</span>
-        )
-      })}
-    </>
-  )
-}
-
-/* ------------------------------- calibration ------------------------------- */
-function CalibrationCard({ r }: { r: ArmResult }) {
-  const { push } = useToast()
-  const [target, setTarget] = useQueryState<CalTarget>('target', '0.8')
-  if (!r.calibration) {
-    return (
-      <SectionCard title="Calibration and suggested thresholds" subtitle="validation block · one class at a time" testid="calibration-card">
-        <EmptyState size="sm" bordered icon="circle-dashed" testid="calibration-unavailable" title="unavailable for the RF baseline"
-          caption="the RF baseline is scored as a reference; no calibration was fitted and no threshold is recommended from it" />
+      <ModelsTabs current="results" jobsLink={<JobsPageLink />} middle={<>{picker}{armSeg}</>} />
+      <div className="m-foot-line" data-testid="run-line">
+        <ArmBadge letter={arm} /> run {runId} · recipe {res.recipe_hash} · {res.window_set.name} v{res.window_set.version} · {fmtInt(res.window_set.n_windows)} windows
+        · {res.window_set.source_file} · train ch {res.window_set.channels.join(', ')} · exam ch {res.window_set.exam_channels.join(', ') || '—'}
+        · split {res.window_set.split.n_blocks} blocks, test {Math.round(res.window_set.split.test_frac * 100)} %, gap ≥ {res.window_set.split.gap_windows} window
+      </div>
+      <Callout tone="blue" icon="info" testid="tilt-note">{res.notes[0]}</Callout>
+      <Seg value={examQ} onChange={v => setExam(v)} testid="exam-seg" ariaLabel="exam"
+        options={EXAMS.map(e => ({ value: e, label: EXAM_TITLES[e].split(' · ')[0], disabled: res.exams[e].status !== 'scored', reason: res.exams[e].reason ?? res.exams[e].status }))} />
+      <div className="m-foot-line">{EXAM_TITLES[examQ]}</div>
+      {ex.status !== 'scored' || !ex.arms ? (
+        <Callout tone={ex.status === 'locked' ? 'blue' : 'amber'} icon={ex.status === 'locked' ? 'lock' : 'info'} testid={`exam-${ex.status}`}>{ex.reason}</Callout>
+      ) : <ArmExam res={res} examKey={examQ} arm={arm} a={ex.arms[arm]} />}
+      <Training res={res} arm={arm} />
+      <Reference res={res} />
+      <SectionCard title="Yardstick (B)" testid="yardstick-b" subtitle="blind hand-labelling of test windows in the cluster vocabulary">
+        <div className="m-foot-line"><span className="k-chip sm grey">{res.yardstick_b.status}</span> {res.yardstick_b.note}</div>
       </SectionCard>
-    )
-  }
+    </>
+  )
+}
+
+function ArmExam({ res, examKey, arm, a }: { res: PairedResults; examKey: ExamKey; arm: PairedArm; a: ArmScore }) {
+  const ex = res.exams[examKey]
+  const rowSums = a.confusion.map(r => r.reduce((x, y) => x + y, 0) || 1)
+  const norm = a.confusion.map((r, i) => r.map(v => v / rowSums[i]))
+  const warn = 50
   return (
-    <SectionCard title="Calibration and suggested thresholds" subtitle="validation block · one class at a time" testid="calibration-card"
-      info="Reliability on the validation block: the green line is the observed rate at each score, the grey diagonal is perfect calibration. The amber line is the score that reaches the target precision — the value Analyse's Threshold to spans offers as its recommended threshold."
-      actions={<>
-        <Seg size="sm" label="target precision" testid="target-precision" options={CAL_TARGETS.map(t => ({ value: t, label: t }))} value={target} onChange={v => setTarget(v === '0.8' ? null : v)} />
-        <Button variant="link" icon="link" testid="threshold-link"
-          onClick={() => { push({ text: 'not wired yet: hand these thresholds to Analyse › Threshold to spans' }); navigate('analyse/chain') }}>
-          used as the recommended value in Threshold to spans
-        </Button>
-      </>}>
-      <div className="m-cal" data-testid="calibration-grid">
-        {r.calibration.map(c => {
-          const s = suggestionFor(r.arm, c.cls, target)
-          return (
-            <div key={c.cls} className="m-cal-item" data-testid={`calibration-${c.cls}`}>
-              <div className="ttl">{c.cls}</div>
-              <LineChart height={140} xDomain={[0, 1]} yDomain={[0, 1]} diagonal legend={false} xLabel="score" yLabel="observed"
-                series={[{ label: 'observed', colour: 'var(--green)', points: c.curve, dots: true }]}
-                markers={s ? [{ x: s.thr, label: s.thr.toFixed(2), colour: 'var(--amber)' }] : []} />
-              <div className="m-cal-num">
-                <span className="m-muted">suggested</span>
-                <span className="big">{s ? s.thr.toFixed(2) : '—'}</span>
-                <span>precision {s ? s.precision.toFixed(2) : '—'}</span>
-                <span>recall {s ? s.recall.toFixed(2) : '—'}</span>
-                <span className={c.ece > 0.10 ? 'm-amber-text' : ''}>ECE {c.ece.toFixed(2)}</span>
-                <span className="m-muted">target precision {target}</span>
-              </div>
-            </div>
-          )
-        })}
+    <>
+      <StatRow columns={5}>
+        <StatTile label="macro F1" value={f3(a.macro_f1)} caption={`95 % CI ${ci(a.macro_f1_ci)} · ${ex.n_units} units of ${ex.unit}`} testid="results-stats" />
+        <StatTile label="balanced accuracy" value={f3(a.balanced_accuracy)} caption={`accuracy ${f3(a.accuracy)}`} />
+        <StatTile label="label-shuffle null" value={`${f3(a.null.mean)} · q95 ${f3(a.null.q95)}`} caption={`p ${a.null.p == null ? '—' : a.null.p.toFixed(4)} · ${a.null.draws.length} shuffles`} tone={a.null.p != null && a.null.p <= 0.05 ? 'green' : 'amber'} />
+        <StatTile label="test windows" value={fmtInt(a.n)} caption={`interesting ${fmtInt(ex.class_counts?.interesting ?? 0)} · not ${fmtInt(ex.class_counts?.not_interesting ?? 0)}`} />
+        <StatTile label="the other arm" value={f3(ex.arms?.[arm === 'A' ? 'B' : 'A'].macro_f1)} caption={`ΔF1 A − B ${f3(ex.paired?.delta_f1)}`} />
+      </StatRow>
+      <div className="m-cols" style={{ gridTemplateColumns: '1fr 1fr' }}>
+        <SectionCard title="Against the null" testid="null-card" info="The arm's macro F1 (blue, with its CI band) over the macro F1s of the same forest trained on shuffled labels.">
+          <Histogram values={a.null.draws} nBins={24} testid="null-plot" xLabel="macro F1" height={170}
+            markers={[{ x: a.macro_f1, label: `arm ${arm}`, colour: 'var(--blue)', band: (a.macro_f1_ci[0] != null && a.macro_f1_ci[1] != null ? [a.macro_f1_ci[0], a.macro_f1_ci[1]] : undefined) as [number, number] | undefined }]}
+            domain={[Math.min(0.3, ...a.null.draws, a.macro_f1_ci[0] ?? a.macro_f1) - 0.02, Math.max(a.macro_f1_ci[1] ?? a.macro_f1, ...a.null.draws) + 0.02]} />
+          <div className="m-foot-line m-small">{a.null.full_model}</div>
+        </SectionCard>
+        <SectionCard title="Confusion" testid="confusion-card" info="Rows: the human verdict. Columns: the arm's prediction. Row-normalised; counts below.">
+          <Heatmap rows={[...CLASS_NAMES]} cols={CLASS_NAMES.map(c => `→ ${c}`)} values={norm} testid="confusion-grid" format={v => `${Math.round(v * 100)} %`} />
+          <div className="m-foot-line m-mono m-small">counts {a.confusion.map(r => r.join(' / ')).join(' · ')}</div>
+        </SectionCard>
       </div>
+      <SectionCard title="Per class" testid="per-class">
+        <table className="m-table">
+          <thead><tr><th>class</th><th>precision</th><th>recall</th><th>F1 (95 % CI)</th><th>test n</th><th>predicted</th></tr></thead>
+          <tbody>{CLASS_NAMES.map(c => { const p = a.per_class[c]; return (
+            <tr key={c} data-testid={`class-row-${c}`}><td>{c}</td><td>{f3(p.precision)}</td><td>{f3(p.recall)}</td><td>{f3(p.f1)} ({ci(p.f1_ci)})</td>
+              <td>{fmtInt(p.n)}{p.n < warn && <span className="k-chip amber sm" style={{ marginLeft: 6 }}>few</span>}</td><td>{fmtInt(p.n_predicted)}</td></tr>) })}</tbody>
+        </table>
+      </SectionCard>
+      <SectionCard title="Per channel" testid="per-channel" subtitle="macro F1 of both arms on each channel's windows of this exam">
+        <table className="m-table">
+          <thead><tr><th>channel</th><th>windows</th><th>interesting</th><th>A</th><th>B</th></tr></thead>
+          <tbody>{(ex.per_channel ?? []).map(r => <tr key={r.channel}><td>{r.name ?? `CH${r.channel}`}</td><td>{fmtInt(r.n)}</td><td>{fmtInt(r.interesting)}</td>{r.one_class
+            ? <td colSpan={2} className="m-muted" data-testid={`one-class-${r.channel}`}>one class only — no macro F1 · accuracy A {f3(r.accuracy_A)} · B {f3(r.accuracy_B)}</td>
+            : <><td>{f3(r.A)}</td><td>{f3(r.B)}</td></>}</tr>)}</tbody>
+        </table>
+      </SectionCard>
+      <Calibration res={res} arm={arm} />
+    </>
+  )
+}
+
+function Calibration({ res, arm }: { res: PairedResults; arm: PairedArm }) {
+  const c = res.calibration[arm]
+  return (
+    <SectionCard title="Calibration · validation block" testid="calibration-card"
+      info="Reliability of P(interesting) on the validation block, and the lowest threshold that reaches the target precision there — the value Analyse's threshold stage would recommend when this model feeds it.">
+      {!c.n ? <div className="m-foot-line" data-testid="calibration-unavailable">{c.reason}</div> : (
+        <>
+          <div className="m-foot-line" data-testid="calibration-grid">
+            {fmtInt(c.n)} validation windows · {fmtInt(c.n_positive ?? 0)} interesting · ECE {f3(c.ece)} ·
+            {c.suggested ? ` threshold ${c.suggested.threshold.toFixed(3)} reaches precision ${c.suggested.precision.toFixed(3)} (target ${c.target_precision}) at recall ${c.suggested.recall.toFixed(3)}` : ` ${c.suggested_reason}`}
+          </div>
+          <table className="m-table">
+            <thead><tr><th>P(interesting)</th><th>windows</th><th>mean P</th><th>fraction interesting</th></tr></thead>
+            <tbody>{(c.bins ?? []).map(b => <tr key={b.lo}><td>{b.lo.toFixed(1)}–{b.hi.toFixed(1)}</td><td>{fmtInt(b.n)}</td><td>{b.mean_p.toFixed(3)}</td><td>{b.fraction_positive.toFixed(3)}</td></tr>)}</tbody>
+          </table>
+        </>
+      )}
+      <div className="m-foot-line m-small" data-testid="curves-unavailable">training curves: none — a random forest has no epochs; early stopping applies to the CNN arm.</div>
     </SectionCard>
   )
 }
 
-/* ------------------------------- training curves ------------------------------- */
-function CurvesCard({ r }: { r: ArmResult }) {
+function Training({ res, arm }: { res: PairedResults; arm: PairedArm }) {
+  const t = res.training[arm]
   return (
-    <SectionCard title="Training curves" subtitle="loss per epoch" testid="curves-card"
-      info="Validation loss decides when training stops: the run keeps the weights from the marked epoch, so the epochs after it never reach the test block.">
-      {!r.curves ? (
-        <EmptyState size="sm" bordered icon="circle-dashed" testid="curves-unavailable" title="unavailable for the RF baseline"
-          caption="a random forest is fitted in one pass — it has no epochs and no early stopping" />
-      ) : (
-        <LineChart testid="curves-plot" height={210} xDomain={[1, 30]} xLabel="epoch" yLabel="loss"
-          series={[
-            { label: 'train', colour: 'var(--blue)', points: r.curves.train },
-            { label: 'validation', colour: 'var(--amber)', points: r.curves.val },
-          ]}
-          markers={r.earlyStop ? [{ x: r.earlyStop, label: `early stop · epoch ${r.earlyStop}`, colour: 'var(--muted)' }] : []} />
-      )}
+    <SectionCard title={`Arm ${arm} · what it was trained on`} testid="training-card">
+      <div className="m-foot-line">{fmtInt(t.n_train)} training windows (the same for both arms) · {t.label_source} labels · {t.n_classes} classes
+        {arm === 'B' && <> · clusters {Object.entries(res.cluster.sizes).map(([c, n]) => `${c}: ${n}`).join(', ')} · translation {Object.entries(res.cluster.translation).map(([c, v]) => `${c}→${v === 'interesting' ? 'int' : 'not'}`).join(' ')} ({res.cluster.translation_source})</>}
+        · forest {t.classifier.n_estimators} trees, seed {t.classifier.random_state}</div>
+      <div className="m-foot-line m-small">most important features: {t.feature_importance.slice(0, 6).map(f => `${f.feature} ${f.importance.toFixed(3)}`).join(' · ')}</div>
+      <div className="m-foot-line m-small">features kept: {res.features.kept.length} · dropped {Object.entries(res.features.removed).filter(([, v]) => v.length).map(([k, v]) => `${k}: ${v.join(', ')}`).join(' · ') || 'none'}</div>
     </SectionCard>
   )
 }
 
-/* ------------------------------- held-out checks ------------------------------- */
-function ChecksCard({ r }: { r: ArmResult }) {
-  const checks = r.checks
-  const count = (s: CheckState) => (checks ?? []).filter(c => c.state === s).length
-  const summary = checks ? [
-    count('pass') ? `${count('pass')} pass` : '',
-    count('warn') ? `${count('warn')} warning` : '',
-    count('fail') ? `${count('fail')} failed` : '',
-    count('pending') ? `${count('pending')} pending` : '',
-  ].filter(Boolean).join(' · ') : ''
+function Reference({ res }: { res: PairedResults }) {
   return (
-    <SectionCard title="Held-out checks" subtitle="needed before registering" testid="checks-card"
-      info="The automatic half of the registration gate (§7b.5). A failure blocks registration; a warning needs a written reason; human verification is judged in Review and finished in the Registry."
-      actions={checks ? <Chip tone={count('fail') ? 'red' : count('warn') || count('pending') ? 'amber' : 'green'} testid="checks-summary">{summary}</Chip> : undefined}>
-      {!checks ? (
-        <EmptyState size="sm" bordered icon="circle-dashed" testid="checks-unavailable" title="unavailable for the RF baseline"
-          caption="the RF baseline is not registrable — it is the reference the CNN arms are measured against" />
-      ) : (
-        <Checklist testid="checks-list" columns={2} items={checks.map(c => ({
-          state: c.state,
-          label: c.to
-            ? <button type="button" className="m-jobs-link" style={{ fontSize: 'inherit' }} data-testid="check-to-registry" onClick={() => navigate(c.to!)}>{c.label}<Icon name="arrow-right" size={12} /></button>
-            : c.label,
-        }))} />
-      )}
-      {checks && (
-        <div className="m-foot-line" style={{ marginTop: 10 }}>
-          <InfoTip title="What happens next">Registration is decided in the Registry tab: the checks above, a judged verification sample and a written sign-off.</InfoTip>
-          <span>the registry repeats these checks and adds human verification</span>
-          <Button variant="link" size="sm" icon="arrow-right" testid="checks-open-registry"
-            onClick={() => navigate(r.registryId ? `models/registry/${r.registryId}` : 'models/registry')}>Open in Registry</Button>
-        </div>
-      )}
+    <SectionCard title="Reference line · the existing MODELS/" testid="reference-card" subtitle="trained differently — not an arm"
+      info="Scored on the same exams where their inputs allow. Their training data and split were never recorded; they were very likely trained on the same 10-minute labels, so an exam window may have been one of their training windows.">
+      <table className="m-table">
+        <thead><tr><th>model</th><th>exam (i)</th><th>exam (ii)</th><th>exam (iii)</th><th>note</th></tr></thead>
+        <tbody>{res.reference.map(r => (
+          <tr key={r.name} data-testid={`reference-${r.name}`}>
+            <td>{r.name}</td>
+            {EXAMS.map(e => { const x = r.exams?.[e]; return <td key={e}>{x?.status === 'scored' ? `${f3(x.macro_f1)} (n ${fmtInt(x.n ?? 0)})` : x?.status ?? r.status}</td> })}
+            <td className="m-small">{r.status === 'scored' ? <InfoTip title="Trained differently">{r.trained_differently}</InfoTip> : r.reason}</td>
+          </tr>))}</tbody>
+      </table>
     </SectionCard>
   )
 }

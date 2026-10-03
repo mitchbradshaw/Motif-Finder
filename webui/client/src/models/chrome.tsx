@@ -35,6 +35,17 @@ export function TrainingJobsLink({ base }: { base: number }) {
   )
 }
 
+/** fixup-ab: the live pages' link to Jobs. Jobs is still a fixture page (its own prompt); a training job is
+ * followed on Launch and listed on Results — the link says so instead of counting fixture jobs. */
+export function JobsPageLink() {
+  return (
+    <button type="button" className="m-jobs-link" onClick={() => navigate('jobs')} data-testid="open-training-jobs"
+      title="Jobs is still a fixture page (its own prompt); training jobs are followed here on Launch and Results">
+      <Icon name="checklist" size={14} />Jobs (demo page) · open<Icon name="external" size={13} />
+    </button>
+  )
+}
+
 export function JobLink({ id, status }: { id: string; status: string }) {
   return (
     <button type="button" className="m-jobs-link" onClick={() => navigate(`jobs/cluster/${id}`)} data-testid="open-job" title={`opens ${id} in Jobs`}>

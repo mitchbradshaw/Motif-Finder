@@ -1,490 +1,453 @@
-/* models.launch (frames models-1, models-1b; spec §7b.1, P11, P18, P19). Train a template across channels or from a saved
- * window set, with paired label arms, a blocked split set aside before training, and the ≤ 2 h local rule. */
+/* models.launch (spec §7b.1, P11, P18, P19; fixup-ab). Train ONE paired job over the core's paired training job
+ * (`Working/training/`): a window set pooled across the channels of one recording, saved with its blocked split; arm A
+ * the human labels, arm B one clustering of the pooled training windows at a cut the researcher chooses and a
+ * translation table written before any test score; one random forest for both; the label-shuffle null; three exams
+ * reported separately — the held-out recording a slot that stays locked. Every number on this page is read from the
+ * bridge (`/api/models/*`); nothing here is a fixture. */
 import { useEffect, useMemo, useRef, useState } from 'react'
 import {
-  BandStrip, Button, Callout, ChainRibbon, Checkbox, Checklist, CodeBlock, DisabledReason, Dropdown, Icon, InfoTip, NumberField, Popover, ProgressBar,
-  SectionCard, Seg, StatRow, StatTile, TextField, Toggle, fmtInt, recordDemoWrite, useDemoState, useDemoWrites, useQueryState, useSim, type CheckState,
+  BandStrip, Button, Callout, Checkbox, Checklist, CodeBlock, Dropdown, Icon, InfoTip, NumberField, Page, Popover, ProgressBar,
+  SectionCard, Seg, StatRow, StatTile, TextField, fmtInt, useQueryState, type CheckState,
 } from '../kit'
 import { Header } from '../shell/Header'
 import { useToast } from '../shell/Toast'
 import { navigate, setQuery } from '../state'
 import { useSourced } from '../api/seam'
+import { getJob, type JobRow } from '../api'
 import {
-  BASE_SPLIT_COUNTS, DEFAULT_CHANNELS, ESTIMATE_MODEL, FRAME_SPLIT_BLOCKS, MODEL_CLASSES, NEXT_JOB_NUMBER, TEST_WARN_BELOW, getLaunchSetup,
-  type LaunchSetup, type SourceChannelRow, type TrainingTemplate, type WindowSetRow,
+  checkPairedJob, getModelsSetup, proposeCut, savePooledWindowSet, slurmPairedJob, trainPairedJob,
+  type ChecksResult, type ModelsSetup, type PooledSetRow, type Proposal, type RecipeBody, type SlurmResult,
 } from '../api/models'
-import { seeded } from '../fixtures/canon'
-import { ArmBadge, Loading, LoadFailed, ModelsTabs, NullChip, TrainingJobsLink } from './chrome'
-import { Page } from '../kit'
+import { ArmBadge, Loading, LoadFailed, ModelsTabs, JobsPageLink } from './chrome'
 
-const SESSION_RE = /^[A-Za-z0-9_]{3,60}$/
-const WS_RE = /^ws_[A-Za-z0-9_]+$/
-const TRAIN_STEPS = ['arm A · manual labels', 'arm B · cluster labels', 'RF baseline', 'RF null 200×', 'model null 5×']
+const NAME_RE = /^[A-Za-z0-9][A-Za-z0-9_.-]{0,63}$/
+type Role = 'train' | 'exam' | 'off'
 
 export function LaunchPage() {
-  const setup = useSourced(getLaunchSetup, [])
+  const setup = useSourced(getModelsSetup, [])
   return (
     <>
-      <Header workspace="Models" page="Launch" subtitle="train a template across channels · paired label arms" demo={setup.source === 'demo'} />
+      <Header workspace="Models" page="Launch" subtitle="one paired job · arm A manual labels vs arm B cluster labels" />
       <Page testid="models-launch">
         {setup.error ? <LoadFailed what="the training setup" error={setup.error} onRetry={setup.reload} />
-          : !setup.data ? <Loading /> : <LaunchBody setup={setup.data} />}
+          : !setup.data ? <Loading /> : <LaunchBody setup={setup.data} reload={setup.reload} />}
       </Page>
     </>
   )
 }
 
-type Check = { id: string; label: string; state: CheckState }
+function fmtDur(s: number) {
+  if (!isFinite(s)) return '—'
+  if (s < 90) return `${Math.round(s)} s`
+  if (s < 5400) return `${Math.round(s / 60)} min`
+  return `${(s / 3600).toFixed(1)} h`
+}
 
-function LaunchBody({ setup }: { setup: LaunchSetup }) {
-  const { push } = useToast()
-  /* ---------------- deep-linkable form state ---------------- */
-  const [templateName, setTemplate] = useQueryState('template', 'cnn_windows_v3')
-  const template: TrainingTemplate = setup.templates.find(t => t.name === templateName) ?? setup.templates[0]
-  const fromSet = template.source === 'WindowSet'
-  const [channelsQ, setChannelsQ] = useQueryState('channels', DEFAULT_CHANNELS.join(','))
-  const checked = channelsQ === 'none' ? [] : channelsQ.split(',').filter(Boolean)
-  const setChecked = (xs: string[]) => setChannelsQ(xs.length ? xs.join(',') : 'none')
-  const [wsQ, setWsQ] = useQueryState('windowset', `${setup.windowSets[0].id}@${setup.windowSets[0].version}`)
-  const windowSet: WindowSetRow = setup.windowSets.find(w => `${w.id}@${w.version}` === wsQ && !w.disabledReason) ?? setup.windowSets[0]
-  const [armsQ, setArmsQ] = useQueryState('arms', 'a,b')
-  const arms = armsQ === 'none' ? [] : armsQ.split(',').filter(a => a === 'a' || a === 'b')
-  const [paired, setPaired] = useQueryState<'all' | 'each'>('paired', 'all')
-  const [testPct, setTestPct] = useQueryState('test', '20')
-  const [valPct, setValPct] = useQueryState('val', '10')
-  const [gapQ, setGap] = useQueryState('gap', '600')
-  const [seedsQ, setSeedsQ] = useQueryState('seeds', '')
-  const [epochs, setEpochs] = useQueryState('epochs', '30')
-  const [batch, setBatch] = useQueryState('batch', '64')
-  const [nullQ, setNull] = useQueryState<'model5' | 'model0'>('null', 'model5')
-  const [saveWsQ, setSaveWs] = useQueryState('savews', '1')
-  const [popover, setPopover] = useQueryState('popover', '')
-  const [stateQ, setStateQ] = useQueryState('state', '')
-
-  /* ---------------- in-memory drafts ---------------- */
-  const [sessions, setSessions] = useDemoState<Record<string, { name: string; saved: boolean }>>('models.launch.sessions', () => ({}))
-  const session = sessions[template.name] ?? { name: template.sessionDefault, saved: false }
-  const [wsName, setWsName] = useDemoState<string | null>('models.launch.wsName', () => null)
-  const [submitted, setSubmitted] = useDemoState<{ jobId: string; session: string } | null>('models.launch.submitted', () => null)
-  const addedJobs = useDemoWrites('models').filter(w => w.kind === 'add-training-job').length
-
-  const seedsOn = seedsQ !== ''
-  const seeds = seedsOn ? Number(seedsQ) || 3 : 1
-  const gapS = fromSet ? windowSet.windowS : Number(gapQ)
-  const windowS = fromSet ? windowSet.windowS : 600
-  const saveWs = !fromSet && saveWsQ === '1'
-
-  /* ---------------- derived: sources, counts, estimate ---------------- */
-  const chosenChannels: SourceChannelRow[] = setup.channels.filter(c => !c.disabledReason && checked.includes(c.channel))
-  const sourceLabels = fromSet ? (windowSet.channels === 'all' ? ['all'] : windowSet.channels) : chosenChannels.map(c => c.channel)
-  const labelledEvery = fromSet ? windowSet.verdictsNow : chosenChannels.reduce((a, c) => a + c.humanVerdicts, 0)
-  const clusterWindows = fromSet ? windowSet.clusterWindows : chosenChannels.reduce((a, c) => a + (c.windows ?? 0), 0)
-  const scale = fromSet ? windowSet.windows / 15660 : chosenChannels.length / 3
-  const defaultName = `ws_M2aug_${chosenChannels.length}ch_600s`
-  const wsDisplayName = wsName ?? defaultName
-  const wsVersion = wsDisplayName === setup.windowSets[0].id ? 2 : 1
-  const wsNameError = !saveWs ? null : !wsDisplayName.trim() ? 'a window-set name is required' : !WS_RE.test(wsDisplayName) ? 'window-set names start with ws_ (letters, digits and _)' : null
-
-  const tPct = fromSet ? 20 : Number(testPct), vPct = fromSet ? 10 : Number(valPct)
-  const counts = useMemo(() => {
-    const totals = MODEL_CLASSES.map((_, i) => fromSet
-      ? Math.round((BASE_SPLIT_COUNTS.train[i] + BASE_SPLIT_COUNTS.val[i] + BASE_SPLIT_COUNTS.test[i]) * windowSet.verdictsNow / 2140)
-      : chosenChannels.reduce((a, c) => a + c.perClass[i], 0))
-    return MODEL_CLASSES.map((cls, i) => {
-      const base = BASE_SPLIT_COUNTS.train[i] + BASE_SPLIT_COUNTS.val[i] + BASE_SPLIT_COUNTS.test[i]
-      const test = Math.round(totals[i] * (BASE_SPLIT_COUNTS.test[i] / base) * (tPct / 20))
-      const val = Math.round(totals[i] * (BASE_SPLIT_COUNTS.val[i] / base) * (vPct / 10))
-      return { cls, train: Math.max(0, totals[i] - test - val), val, test }
-    })
-  }, [fromSet, windowSet, chosenChannels, tPct, vPct])
-  const lowClasses = counts.filter(c => c.test < TEST_WARN_BELOW)
-
-  const nArms = arms.length
-  const localH = (nArms * ESTIMATE_MODEL.perArmH + ESTIMATE_MODEL.rfH + (nullQ === 'model5' ? ESTIMATE_MODEL.modelNullsH : 0)) * scale * (Number(epochs) / 30) * seeds
-  const hpcH = localH * ESTIMATE_MODEL.hpcRatio
-  const diskGb = ESTIMATE_MODEL.diskGbPer3ch * scale * (saveWs || fromSet ? 1 : 0.92)
-  const overLimit = localH > ESTIMATE_MODEL.localLimitH
-
-  /* ---------------- checks ---------------- */
-  const hasCh7 = fromSet ? (windowSet.channels !== 'all' && windowSet.channels.includes('CH7_B2')) : checked.includes('CH7_B2')
-  const checks: Check[] = []
-  if (!fromSet && chosenChannels.length === 0) checks.push({ id: 'sources', label: 'pick at least one source channel', state: 'fail' })
-  if (nArms === 0) checks.push({ id: 'arms-none', label: 'add at least one label arm', state: 'fail' })
-  if (!SESSION_RE.test(session.name)) checks.push({ id: 'session', label: 'session name: 3–60 letters, digits and _ only', state: 'fail' })
-  if (wsNameError) checks.push({ id: 'wsname', label: `Save window set: ${wsNameError}`, state: 'fail' })
-  checks.push({ id: 'unseen', label: 'test block never seen in training, validation or early stopping', state: 'pass' })
-  checks.push(fromSet
-    ? { id: 'gap', label: 'gap between blocks ≥ window length · checked at save', state: 'pass' }
-    : gapS < windowS ? { id: 'gap', label: `gap between blocks ≥ window length · ${gapS} s < ${windowS} s`, state: 'fail' } : { id: 'gap', label: 'gap between blocks ≥ window length', state: 'pass' })
-  checks.push({ id: 'features', label: `label-derived features off in ${template.matrixStage}`, state: 'pass' })
-  if (nArms === 2) checks.push(paired === 'all'
-    ? { id: 'paired', label: `every arm trains on the same ${fmtInt(labelledEvery)} windows`, state: 'pass' }
-    : { id: 'paired', label: 'arms are not paired · Compare can’t attribute the difference', state: 'warn' })
-  else if (nArms === 1) checks.push({ id: 'paired', label: 'one label arm · nothing to pair (Compare needs two)', state: 'pending' })
-  if (lowClasses.length) checks.push({
-    id: 'classes', state: 'warn',
-    label: lowClasses.length === 1 ? `${lowClasses[0].cls} class: ${lowClasses[0].test} test windows (≥ ${TEST_WARN_BELOW} recommended)`
-      : `${lowClasses.map(c => c.cls).join(', ')}: ${lowClasses.map(c => c.test).join(', ')} test windows (≥ ${TEST_WARN_BELOW} recommended)`,
-  })
-  if (hasCh7) checks.push({ id: 'ch7', label: 'CH7 has no plateau verdicts', state: 'warn' })
-  if (nullQ === 'model0') checks.push({ id: 'null', label: 'no full-model null · only the RF label shuffle', state: 'warn' })
-  const failing = checks.find(c => c.state === 'fail')
-
-  /* ---------------- script ---------------- */
-  const hh = String(Math.max(1, Math.ceil(hpcH * 2.5))).padStart(2, '0')
-  const script = [
-    '#!/bin/bash',
-    `#SBATCH --job-name=${session.name}`,
-    `#SBATCH --gres=gpu:1  --time=${hh}:00:00`,
-    '#SBATCH --mem=32G',
-    '',
-    'python -m pipeline.train \\',
-    `  --template ${template.name}@${template.version} \\`,
-    fromSet ? `  --windowset ${windowSet.id}@${windowSet.version} \\` : `  --sources M2_aug_fs1:${chosenChannels.map(c => c.channel).join(',') || '—'} \\`,
-    `  --arms ${arms.map(a => (a === 'a' ? 'manual' : 'cluster')).join(',') || '—'} --baseline rf \\`,
-    `  --paired-windows ${paired === 'all' ? 'labelled-in-all' : 'each-arm'} \\`,
-    fromSet ? '  --split from-windowset \\' : `  --split blocked:test=${tPct / 100},val=${vPct / 100},gap=${gapS} \\`,
-    `  --null rf:200,model:${nullQ === 'model5' ? 5 : 0} \\`,
-    ...(seedsOn ? [`  --repeats ${seeds} \\`] : []),
-    ...(epochs !== '30' || batch !== '64' ? [`  --epochs ${epochs} --batch ${batch} \\`] : []),
-    ...(saveWs ? [`  --save-windowset ${wsDisplayName}_v${wsVersion} \\`] : []),
-    ...(fromSet ? ['  --verdicts-as-of launch \\'] : []),
-    '  --manifest inbox/',
-  ].join('\n')
-
-  /* ---------------- local training simulation ---------------- */
-  const sim = useSim(`models.train.${session.name}`)
+/** Poll one job until it ends. */
+function useJob(jobId: number | null, onEnd?: (j: JobRow) => void) {
+  const [job, setJob] = useState<JobRow | null>(null)
+  const endRef = useRef(onEnd); endRef.current = onEnd
   useEffect(() => {
-    if (stateQ === 'running') sim.force({ status: 'running', steps: TRAIN_STEPS, step: 1, fraction: 0.32, startedAt: Date.now() })
-    if (stateQ === 'failed') sim.force({ status: 'failed', steps: TRAIN_STEPS, step: 3, fraction: 0.64, error: 'RF null 200× failed (simulated): the local worker ran out of memory at shuffle 118', finishedAt: Date.now() })
-    if (stateQ === 'done') sim.force({ status: 'done', steps: TRAIN_STEPS, step: 4, fraction: 1, finishedAt: Date.now() })
+    if (jobId == null) { setJob(null); return }
+    let alive = true
+    const tick = () => getJob(jobId).then(j => {
+      if (!alive) return
+      setJob(j)
+      if (['completed', 'failed', 'cancelled'].includes(j.status)) endRef.current?.(j)
+      else window.setTimeout(tick, 800)
+    }, e => { if (alive) { console.error('job poll failed', e); window.setTimeout(tick, 2000) } })
+    tick()
+    return () => { alive = false }
+  }, [jobId])
+  return job
+}
+
+function LaunchBody({ setup, reload }: { setup: ModelsSetup; reload: () => void }) {
+  const { push } = useToast()
+  const d = setup.defaults
+  /* ---------------- template ---------------- */
+  const onGrid = setup.templates.filter(t => t.on_label_grid)
+  const [templateQ, setTemplateQ] = useQueryState('template', (onGrid[0] ?? setup.templates[0])?.name ?? '')
+  const template = setup.templates.find(t => t.name === templateQ) ?? setup.templates[0]
+
+  /* ---------------- sources ---------------- */
+  const [recQ, setRecQ] = useQueryState('rec', setup.recordings[0]?.source_file ?? '')
+  const rec = setup.recordings.find(r => r.source_file === recQ) ?? setup.recordings[0]
+  const defaultRoles = useMemo<Record<number, Role>>(() => {
+    const out: Record<number, Role> = {}
+    const chans = (rec?.channels ?? []).filter(c => c.verdicts > 0)
+    chans.forEach((c, i) => { out[c.channel] = chans.length >= 8 && i >= chans.length - 4 ? 'exam' : 'train' })
+    return out
+  }, [rec])
+  const [roles, setRoles] = useState<Record<number, Role>>(defaultRoles)
+  useEffect(() => setRoles(defaultRoles), [defaultRoles])
+  const trainCh = Object.entries(roles).filter(([, r]) => r === 'train').map(([c]) => Number(c)).sort((a, b) => a - b)
+  const examCh = Object.entries(roles).filter(([, r]) => r === 'exam').map(([c]) => Number(c)).sort((a, b) => a - b)
+
+  /* ---------------- split (saved WITH the set) ---------------- */
+  const [testPct, setTestPct] = useState(String(Math.round(d.split.test_frac * 100)))
+  const [valPct, setValPct] = useState(String(Math.round(d.split.validation_frac * 100)))
+  const [gapW, setGapW] = useState(String(d.split.gap_windows))
+  const stem = (rec?.source_file ?? 'rec').replace(/\.mat$/i, '').replace(/[^A-Za-z0-9_]/g, '_')
+  const [wsName, setWsName] = useState(`ws_${stem}_${trainCh.length}tr${examCh.length}ex`)
+  useEffect(() => setWsName(`ws_${stem}_${trainCh.length}tr${examCh.length}ex`), [stem, trainCh.length, examCh.length])
+  const wsNameError = !NAME_RE.test(wsName) ? 'letters, digits, _ . - only (no spaces), up to 64' : null
+
+  /* ---------------- the chosen saved set ---------------- */
+  const [setQ, setSetQ] = useQueryState('set', setup.window_sets[0] ? String(setup.window_sets[0].id) : '')
+  const chosen: PooledSetRow | undefined = setup.window_sets.find(w => String(w.id) === setQ)
+  const [saveJobId, setSaveJobId] = useState<number | null>(null)
+  const saveJob = useJob(saveJobId, j => {
+    setSaveJobId(null)
+    if (j.status === 'completed') {
+      const r = j.result as { window_set_id: number; name: string; version: number; n_windows: number }
+      push({ text: `${r.name} v${r.version} saved · ${fmtInt(r.n_windows)} windows across ${trainCh.length + examCh.length} channels` })
+      setQuery({ set: String(r.window_set_id), k: null }, true)
+      reload()
+    } else push({ text: `saving the window set ${j.status}: ${j.error?.message ?? ''}`, kind: 'error' })
+  })
+  const saveSet = () => {
+    if (!rec) return
+    savePooledWindowSet({
+      name: wsName, source_file: rec.source_file, channels: trainCh, exam_channels: examCh,
+      length: template?.length ?? d.length, grid: template?.grid ?? d.grid, stages: template?.stages?.length ? template.stages : d.stages,
+      split: { n_blocks: d.split.n_blocks, test_frac: Number(testPct) / 100, validation_frac: Number(valPct) / 100, gap_windows: Number(gapW) },
+      template: template?.name,
+    }).then(j => setSaveJobId(j.job_id), e => push({ text: `could not save: ${e.message}`, kind: 'error' }))
+  }
+
+  /* ---------------- arm B: the cut ---------------- */
+  const [proposal, setProposal] = useState<Proposal | null>(null)
+  const [proposing, setProposing] = useState(false)
+  const [proposeError, setProposeError] = useState<string | null>(null)
+  const [kQ, setKQ] = useQueryState('k', '')
+  const [translation, setTranslation] = useState<Record<string, string> | null>(null)
+  useEffect(() => { setProposal(null); setTranslation(null); setProposeError(null) }, [chosen?.id])
+  const propose = () => {
+    if (!chosen) return
+    setProposing(true); setProposeError(null)
+    proposeCut(chosen.id, 2, 8).then(p => {
+      setProposal(p); setProposing(false)
+      const k = kQ ? Number(kQ) : p.suggested_k
+      if (k) { setKQ(String(k)); setTranslation(p.by_k.find(r => r.k === k)?.translation ?? null) }
+    }, e => { setProposing(false); setProposeError(e.message) })
+  }
+  const k = kQ ? Number(kQ) : null
+  const cut = proposal?.by_k.find(r => r.k === k) ?? null
+  const chooseK = (v: number) => { setKQ(String(v)); setTranslation(proposal?.by_k.find(r => r.k === v)?.translation ?? null) }
+  const frozen = chosen?.runs.find(r => r.status === 'completed')
+
+  /* ---------------- options ---------------- */
+  const [shuffles, setShuffles] = useState(d.rf_shuffles)
+  const [boot, setBoot] = useState(d.bootstrap_n)
+  const [trees, setTrees] = useState(template?.n_estimators ?? d.n_estimators)
+  const [reference, setReference] = useState(false)
+
+  const body: RecipeBody | null = chosen ? {
+    window_set_id: chosen.id, k, translation: translation ?? undefined, n_estimators: trees, rf_shuffles: shuffles,
+    bootstrap_n: boot, full_shuffles: d.full_shuffles, block_hours: d.block_hours, reference,
+  } : null
+
+  /* ---------------- checks + estimate (from the bridge) ---------------- */
+  const [checks, setChecks] = useState<ChecksResult | null>(null)
+  const [checksError, setChecksError] = useState<string | null>(null)
+  const bodyKey = JSON.stringify(body)
+  useEffect(() => {
+    if (!body) { setChecks(null); return }
+    let alive = true
+    const t = window.setTimeout(() => checkPairedJob(body).then(r => { if (alive) { setChecks(r); setChecksError(null) } },
+      e => { if (alive) setChecksError(e.message) }), 250)
+    return () => { alive = false; window.clearTimeout(t) }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [stateQ])
-  const isSubmitted = stateQ === 'submitted' || !!submitted
-  const submittedJob = submitted?.jobId ?? `j-0${NEXT_JOB_NUMBER}`
+  }, [bodyKey])
 
-  const trainLocally = () => {
-    setSessions(s => ({ ...s, [template.name]: { ...session, saved: true } }))
-    recordDemoWrite('models', 'train-local', { session: session.name, template: template.name, arms, estimate_h: +localH.toFixed(2) })
-    sim.start({ steps: TRAIN_STEPS, stepMs: 1100 })
-    setStateQ(null)
-  }
-  const scriptRef = useRef<HTMLDivElement>(null)
-  const createScript = () => {
-    const id = `j-0${NEXT_JOB_NUMBER + addedJobs}`
-    recordDemoWrite('jobs', 'add-job', { id, kind: 'cluster', title: `${session.name} paired arms`, status: 'queue', detail: 'script created · not submitted', for: session.name })
-    recordDemoWrite('models', 'add-training-job', { id, template: `${template.name}@${template.version}`, arms: arms.map(a => (a === 'a' ? 'manual' : 'cluster')), session: session.name })
-    if (saveWs) recordDemoWrite('library', 'save-window-set', { id: wsDisplayName, version: wsVersion, channels: chosenChannels.map(c => c.channel), windows: clusterWindows })
-    setSessions(s => ({ ...s, [template.name]: { ...session, saved: true } }))
-    setSubmitted({ jobId: id, session: session.name })
-    push({ text: `${id} added to Jobs · mark it submitted there${saveWs ? ` · ${wsDisplayName} v${wsVersion} saved to Library` : ''}`, action: { label: 'Open in Jobs', onClick: () => navigate(`jobs/cluster/${id}`) } })
-    setScriptOpen(true)
-    window.setTimeout(() => { scriptRef.current?.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); scriptRef.current?.classList.add('m-flash'); window.setTimeout(() => scriptRef.current?.classList.remove('m-flash'), 1300) }, 50)
-  }
-  const [scriptOpen, setScriptOpen] = useState(false)
-  const showScript = overLimit || scriptOpen
-
-  const launchReason = failing ? `fix first: ${failing.label}` : null
-  const localReason = launchReason ?? (overLimit ? `over the ${ESTIMATE_MODEL.localLimitH} h local limit · ≈ ${localH.toFixed(1)} h` : sim.busy ? 'already training' : undefined)
-
-  /* ---------------- popover anchors ---------------- */
-  const estRef = useRef<HTMLButtonElement>(null)
-  const addArmRef = useRef<HTMLButtonElement>(null)
+  /* ---------------- train / script ---------------- */
+  const [trainJobId, setTrainJobId] = useQueryState('job', '')
+  const trainJob = useJob(trainJobId ? Number(trainJobId) : null, j => { if (j.status === 'completed') reload() })
+  const [slurm, setSlurm] = useState<SlurmResult | null>(null)
+  const errors = checks?.checks.filter(c => c.level === 'error') ?? []
+  const launchReason = !chosen ? 'save or pick a window set first' : k == null ? "choose arm B's cut (Propose cuts)" : errors.length ? `fix first: ${errors[0].name}` : !checks ? 'checking…' : null
+  const overLimit = checks?.estimate.where === 'slurm'
+  const busy = !!trainJob && ['queued', 'running'].includes(trainJob.status)
+  const localReason = launchReason ?? (overLimit ? `over the ${fmtDur(setup.local_limit_s)} local limit · ≈ ${fmtDur(checks!.estimate.seconds)}` : busy ? 'already training' : null)
+  const train = () => { if (body) trainPairedJob(body).then(j => setTrainJobId(String(j.job_id)), e => push({ text: `training refused: ${e.message}`, kind: 'error' })) }
+  const makeScript = () => { if (body) slurmPairedJob(body).then(setSlurm, e => push({ text: `no script: ${e.message}`, kind: 'error' })) }
   const m4Ref = useRef<HTMLButtonElement>(null)
+  const [m4Open, setM4Open] = useState(false)
 
-  const chooseTemplate = (name: string) => setQuery({ template: name === 'cnn_windows_v3' ? null : name, state: null }, true)
+  const checkItems = (checks?.checks ?? []).map(c => ({ id: c.name, label: `${c.name} · ${c.detail}`, state: (c.level === 'error' ? 'fail' : c.level) as CheckState }))
+  const byRole = chosen?.coverage.by_role ?? checks?.by_role
+  const warnBelow = d.test_warn_below
 
   return (
     <>
-      {/* ------------------------------------------------ toolbar ------------------------------------------------ */}
       <div className="m-toolbar" data-testid="launch-toolbar">
-        <SessionChip name={session.name} saved={session.saved} onRename={name => setSessions(s => ({ ...s, [template.name]: { name, saved: true } }))} />
+        <span className="m-tool-chip strong"><Icon name="cpu" size={14} />{chosen ? `${chosen.name} v${chosen.version}` : 'no window set yet'}</span>
         <span className="k-spacer" />
-        <NullChip />
-        <button ref={estRef} type="button" className={`m-tool-chip btn ${overLimit ? 'amber' : 'grey'}`} onClick={() => setPopover(popover === 'estimate' ? null : 'estimate')} data-testid="estimate-chip"
-          aria-expanded={popover === 'estimate'} title="how the estimate adds up">
-          <Icon name="hourglass" size={13} />≈ {localH.toFixed(1)} h local{overLimit ? ` above ${ESTIMATE_MODEL.localLimitH} h limit` : ` · within the ${ESTIMATE_MODEL.localLimitH} h limit`}
-        </button>
-        <Popover open={popover === 'estimate'} onClose={() => setPopover(null)} anchorRef={estRef} placement="bottom-end" title="Estimate" width={320} testid="estimate-popover">
-          <div className="m-mono m-small" style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: '4px 12px' }}>
-            {arms.includes('a') && <><span>arm A · manual labels</span><span>≈ {(ESTIMATE_MODEL.perArmH * scale * seeds * Number(epochs) / 30).toFixed(1)} h</span></>}
-            {arms.includes('b') && <><span>arm B · cluster labels</span><span>≈ {(ESTIMATE_MODEL.perArmH * scale * seeds * Number(epochs) / 30).toFixed(1)} h</span></>}
-            <span>RF baseline + 200× shuffle</span><span>≈ {(ESTIMATE_MODEL.rfH * scale * seeds * Number(epochs) / 30).toFixed(1)} h</span>
-            <span>model nulls {nullQ === 'model5' ? '5×' : '0×'}</span><span>≈ {((nullQ === 'model5' ? ESTIMATE_MODEL.modelNullsH : 0) * scale * seeds * Number(epochs) / 30).toFixed(1)} h</span>
-            <span style={{ borderTop: '1px solid var(--border)', paddingTop: 4 }}>local total</span><span style={{ borderTop: '1px solid var(--border)', paddingTop: 4, fontWeight: 600 }}>≈ {localH.toFixed(1)} h</span>
-            <span className="m-muted">local limit</span><span className="m-muted">{ESTIMATE_MODEL.localLimitH} h</span>
-          </div>
-          <div style={{ marginTop: 8 }}><Button variant="link" size="sm" icon="external" onClick={() => navigate('settings/compute-hpc')}>Settings › Compute & HPC</Button></div>
-        </Popover>
-        {sim.busy ? (
+        <span className="m-tool-chip" data-testid="null-chip"><span className="m-dot" style={{ background: 'var(--green)' }} /><span className="muted">null</span> label shuffle · RF {shuffles}×
+          <InfoTip title="Null">Each arm's training labels are shuffled and the forest refitted, {shuffles} times; the arm's macro F1 is set against that spread. The arm's full model is the random forest (Q42), so these are also its full-model shuffles; the 5 full-model shuffles of spec §9.4 apply when the CNN arm exists.</InfoTip></span>
+        <span className={`m-tool-chip ${overLimit ? 'amber' : 'grey'}`} data-testid="estimate-chip"><Icon name="hourglass" size={13} />{checks ? `≈ ${fmtDur(checks.estimate.seconds)} ${overLimit ? `above the ${fmtDur(setup.local_limit_s)} limit` : 'local'}` : 'estimate after a set is chosen'}</span>
+        {busy && trainJob ? (
           <span className="row" style={{ gap: 8, display: 'inline-flex', alignItems: 'center' }} data-testid="train-progress">
-            <ProgressBar value={sim.fraction} width={160} label={`${sim.status === 'queued' ? 'queued' : sim.steps[sim.step] ?? 'training'} · ${Math.round(sim.fraction * 100)} %`} />
-            <Button icon="stop" onClick={() => { sim.cancel(); setStateQ(null) }} testid="train-cancel">Cancel</Button>
+            <ProgressBar value={((trainJob.progress as any)?.done ?? 0) / Math.max(1, (trainJob.progress as any)?.total ?? 6)} width={180}
+              label={`${(trainJob.meta as any)?.stage ?? 'running'} · ${(trainJob.progress as any)?.message ?? ''}`} />
           </span>
         ) : (
-          <Button icon="play" variant={overLimit ? 'default' : 'primary'} disabled={!!localReason} disabledReason={localReason} onClick={trainLocally} testid="train-locally">Train locally</Button>
+          <Button icon="play" variant={overLimit ? 'default' : 'primary'} disabled={!!localReason} disabledReason={localReason ?? undefined} onClick={train} testid="train-locally">Train locally</Button>
         )}
-        <Button icon="file" variant={overLimit ? 'cluster' : 'default'} disabled={!!launchReason} disabledReason={launchReason ?? undefined} onClick={createScript} testid="create-slurm">Create SLURM script</Button>
+        <Button icon="file" variant={overLimit ? 'cluster' : 'default'} disabled={!!launchReason} disabledReason={launchReason ?? undefined} onClick={makeScript} testid="create-slurm">Create SLURM script</Button>
       </div>
 
-      <ModelsTabs current="launch" jobsLink={<TrainingJobsLink base={setup.trainingJobs.length} />} />
+      <ModelsTabs current="launch" jobsLink={<JobsPageLink />} />
 
-      {sim.status === 'failed' && <Callout tone="red" title="Local training failed" testid="train-failed" action={<Button size="sm" icon="refresh" onClick={trainLocally} disabled={!!localReason} disabledReason={localReason}>Retry</Button>}>{sim.error}</Callout>}
-      {sim.status === 'done' && <Callout tone="green" title="Training finished (demo)" testid="train-done" action={<Button size="sm" variant="primary" icon="bar-chart" onClick={() => navigate('models/results')}>Open Results</Button>}>{TRAIN_STEPS.length} steps · the Results tab shows the fixture results of j-0212</Callout>}
-      {sim.status === 'cancelled' && <Callout tone="blue" icon="info" testid="train-cancelled" action={<Button size="sm" onClick={() => sim.reset()}>Dismiss</Button>}>Local training cancelled at {sim.steps[sim.step] ?? 'queue'} · nothing was kept</Callout>}
+      {trainJob?.status === 'failed' && <Callout tone="red" title={`Training job ${trainJob.job_id} failed`} testid="train-failed">{trainJob.error?.message}</Callout>}
+      {trainJob?.status === 'completed' && (
+        <Callout tone="green" title={`Training job ${trainJob.job_id} finished`} testid="train-done"
+          action={<Button size="sm" variant="primary" icon="bar-chart" onClick={() => navigate(`models/results/${(trainJob.result as any)?.run_id}`)} testid="open-results">Open Results</Button>}>
+          run {(trainJob.result as any)?.run_id} · macro F1 on exam (i): A {(trainJob.result as any)?.macro_f1?.A?.toFixed(3) ?? '—'} · B {(trainJob.result as any)?.macro_f1?.B?.toFixed(3) ?? '—'}
+        </Callout>)}
 
       <div className="m-cols">
-        {/* ------------------------------------------------ left column ------------------------------------------------ */}
         <div className="m-stack">
-          <SectionCard number={1} title="Training template" info="Picked from Analyse templates whose terminal type is Model. The classifier stage decides binary or multi-class." subtitle="from Analyse" testid="launch-template"
-            actions={<Button variant="link" icon="external" onClick={() => navigate('analyse/training')} testid="open-in-analyse">Open in Analyse</Button>}>
-            <div className="m-foot-line" style={{ marginBottom: 10, color: 'var(--text-2)' }}>
-              <Dropdown value={template.name} onChange={chooseTemplate} active width={236} testid="template-select" ariaLabel="training template"
-                options={setup.templates.map(t => ({ value: t.name, label: `${t.name} · v${t.version}`, description: `source ${t.source} · ${t.stages.length - 1} stages`, icon: t.source === 'WindowSet' ? 'layers' as const : 'wave' as const }))} />
-              <span className="k-chip blue sm">source {template.source}</span>
-              <span className="k-chip sm" style={{ background: 'var(--purple-100)', color: '#7446e0', borderColor: 'transparent' }}>{template.multiClass ? 'multi-class' : 'binary'} · {template.classes} classes</span>
-              <span>{template.classifier}</span>
+          <SectionCard number={1} title="Training template" subtitle="its window matrix sets the windows and features" testid="launch-template"
+            info="A training template from Analyse. The paired job takes the window length, step and feature stages of its window-matrix step; both arms then train the same random forest (Q42)."
+            actions={<Button variant="link" icon="external" onClick={() => navigate('analyse/chain')} testid="open-in-analyse">Open in Analyse</Button>}>
+            <div className="m-foot-line" style={{ marginBottom: 8 }}>
+              <Dropdown value={template?.name ?? ''} onChange={v => setTemplateQ(v)} active width={240} testid="template-select" ariaLabel="training template"
+                options={setup.templates.map(t => ({ value: t.name, label: t.name, description: t.on_label_grid ? `${t.length}/${t.grid} · ${t.stages.join(' + ')}` : 'off the labels’ grid' }))} />
+              {template && <span className={`k-chip sm ${template.on_label_grid ? 'green' : 'red'}`} data-testid="grid-chip">{template.on_label_grid ? `on the labels' grid · ${template.length} samples, step ${template.grid}` : 'off the labels’ grid'}</span>}
             </div>
-            <ChainRibbon testid="template-ribbon" blocks={template.stages.map(s => ({ id: s.id, label: s.index ? `${String(s.index).padStart(2, '0')} ${s.label}` : s.label, glyph: s.glyph, signature: undefined }))} />
+            {template && <div className="m-foot-line" data-testid="template-steps">{template.steps.join(' → ')} · features {template.stages.join(', ') || '—'}</div>}
+            {template && !template.on_label_grid && <Callout tone="red" testid="template-off-grid">{template.reason}</Callout>}
           </SectionCard>
 
-          <SectionCard number={2} title="Sources" testid="launch-sources"
-            info={fromSet ? 'The template starts from WindowSet, so its source is one saved window set; it arrives with its split and spacing check (§6.9).' : 'The template starts from Signal and makes its own window set with sliding windows, so each recording × channel is a source.'}
-            subtitle={fromSet ? 'the template starts from WindowSet, so the source is one saved set' : 'the template starts from Signal, so each channel is a source'}
-            actions={<Seg testid="sources-mode" value={fromSet ? 'windowset' : 'channels'} onChange={() => undefined}
-              options={[{ value: 'channels', label: 'Channels', disabled: fromSet, reason: 'the template starts from WindowSet' }, { value: 'windowset', label: 'Saved window set', disabled: !fromSet, reason: 'the template starts from Signal' }]} />}>
-            {!fromSet ? (
-              <>
-                <table className="m-table" data-testid="source-channels">
-                  <thead><tr><th style={{ width: 24 }} /><th>recording · channel</th><th>hours</th><th>windows</th><th>human verdicts</th><th>classes seen</th><th /></tr></thead>
-                  <tbody>
-                    {setup.channels.map(c => {
-                      const on = !c.disabledReason && checked.includes(c.channel)
-                      return (
-                        <tr key={c.key} className={c.disabledReason ? 'dim' : undefined} data-testid={`source-row-${c.channel}`}>
-                          <td><Checkbox checked={on} disabled={!!c.disabledReason} disabledReason={c.disabledReason} ariaLabel={`use ${c.recording} ${c.channel}`} testid={`source-check-${c.channel}`}
-                            onChange={v => setChecked(v ? [...checked, c.channel] : checked.filter(x => x !== c.channel))} /></td>
-                          <td style={{ color: c.disabledReason ? undefined : 'var(--text)' }}>{c.recording} · {c.channel}</td>
-                          <td>{c.hours} h</td>
-                          <td>{c.windows == null ? '—' : fmtInt(c.windows)}</td>
-                          <td>{fmtInt(c.humanVerdicts)}</td>
-                          <td>{c.classesSeen ? `${c.classesSeen[0]} / ${c.classesSeen[1]}` : '—'}</td>
-                          <td className="num">{c.flag && <span className="k-chip amber sm">{c.flag}</span>}</td>
-                        </tr>
-                      )
-                    })}
-                  </tbody>
-                </table>
-                {chosenChannels.length === 0 && <div className="k-field-error" role="alert" style={{ marginTop: 6 }} data-testid="sources-empty"><Icon name="alert-circle" size={11} />pick at least one source channel</div>}
-                <div className="m-foot-line" style={{ marginTop: 8, borderTop: '1px solid var(--border)', paddingTop: 8 }}>
-                  <Toggle checked={saveWs} onChange={v => setSaveWs(v ? null : '0')} label={<span style={{ color: 'var(--text)' }}>Save window set</span>} testid="save-ws-toggle" />
-                  <span style={{ display: 'inline-flex', flexDirection: 'column', gap: 2 }}>
-                    <TextField value={wsDisplayName} onChange={v => setWsName(v)} icon="save" width={220} suffix={`v${wsVersion}`} disabled={!saveWs} disabledReason="Save window set is off" invalid={!!wsNameError} testid="ws-name" ariaLabel="window-set name" />
-                    {wsNameError && <span className="k-field-error" role="alert"><Icon name="alert-circle" size={11} />{wsNameError}</span>}
-                  </span>
-                  <span>{saveWs ? `at ${template.windowsStage} · ${chosenChannels.length} channel${chosenChannels.length === 1 ? '' : 's'} · ${fmtInt(clusterWindows)} windows · split included${wsVersion === 2 ? ` · ${setup.windowSets[0].id} exists, this saves v2` : ''}` : 'the window set is not kept after training'}</span>
-                </div>
-              </>
-            ) : (
-              <>
-                <table className="m-table" data-testid="source-windowsets">
-                  <thead><tr><th style={{ width: 24 }} /><th>window set</th><th>channels</th><th>windows · split</th><th>verdicts now (at save)</th><th /></tr></thead>
-                  <tbody>
-                    {setup.windowSets.map(w => {
-                      const key = `${w.id}@${w.version}`
-                      const on = key === `${windowSet.id}@${windowSet.version}`
-                      const radio = <input type="radio" name="launch-windowset" checked={on} disabled={!!w.disabledReason} onChange={() => setWsQ(key)} aria-label={`${w.id} v${w.version}`} data-testid={`ws-radio-${w.id}`} />
-                      return (
-                        <tr key={key} className={w.disabledReason ? 'dim' : 'm-row-click'} onClick={() => { if (!w.disabledReason) setWsQ(key) }} data-testid={`ws-row-${w.id}`}>
-                          <td>{w.disabledReason ? <DisabledReason reason={w.disabledReason}>{radio}</DisabledReason> : radio}</td>
-                          <td style={{ color: w.disabledReason ? undefined : 'var(--text)' }}>{w.id} · v{w.version}</td>
-                          <td>{w.channelsLabel}</td>
-                          <td>{fmtInt(w.windows)} · {w.split}</td>
-                          <td>{fmtInt(w.verdictsNow)} ({fmtInt(w.verdictsAtSave)})</td>
-                          <td className="num"><span className={`k-chip sm ${w.badge === 'train-safe' ? 'green' : w.badge === 'not train-safe' ? 'red' : 'amber'}`} title={w.disabledReason}>{w.badge}</span></td>
-                        </tr>
-                      )
-                    })}
-                  </tbody>
-                </table>
-                <div className="m-foot-line" style={{ marginTop: 6 }}>arrives with its split and spacing check · {windowSet.savedFrom}</div>
-              </>
+          <SectionCard number={2} title="Sources · channels" testid="launch-sources"
+            subtitle="train = split by time within the channel · exam = never trained on (exam ii)"
+            info="One window set pooled across these channels: the labels' grid, labelled-first non-overlap, labelled windows only. A training channel is cut into blocks by time; the last blocks are its test block (exam i). An exam channel is scored, never trained on (exam ii).">
+            <div className="m-foot-line" style={{ marginBottom: 8 }}>
+              <Dropdown prefix="recording" value={rec?.source_file ?? ''} onChange={v => setRecQ(v)} width={300} testid="recording-select"
+                options={setup.recordings.map(r => ({ value: r.source_file, label: r.name, description: r.source_file }))} />
+              <button ref={m4Ref} type="button" className="m-lock-toggle" role="switch" aria-checked={false} aria-disabled onClick={() => setM4Open(o => !o)} data-testid="m4-toggle" title={`${setup.held_out.name} is held out`}>
+                <span className="sw" />{setup.held_out.name} locked · {setup.held_out.where}
+              </button>
+              <Popover open={m4Open} onClose={() => setM4Open(false)} anchorRef={m4Ref} placement="bottom-end" title={`${setup.held_out.name} is held out`} width={320} testid="m4-popover">
+                <div className="m-small" style={{ lineHeight: 1.45 }}>{setup.held_out.reason}</div>
+                <div style={{ marginTop: 8 }}><Button size="sm" icon="lock" onClick={() => navigate('settings/datasets')}>Settings › Datasets</Button></div>
+              </Popover>
+            </div>
+            {!rec ? <Callout tone="amber" testid="no-recordings">No recording has human verdicts yet: Review or import labels first.</Callout> : (
+              <table className="m-table" data-testid="source-channels">
+                <thead><tr><th>channel</th><th>role</th><th>hours</th><th>human verdicts</th><th>interesting / not</th><th>artifact</th></tr></thead>
+                <tbody>
+                  {rec.channels.map(c => (
+                    <tr key={c.channel} className={c.verdicts ? undefined : 'dim'} data-testid={`source-row-${c.channel}`}>
+                      <td style={{ color: 'var(--text)' }}>{c.name}</td>
+                      <td><Seg size="sm" value={roles[c.channel] ?? 'off'} onChange={v => setRoles(r => ({ ...r, [c.channel]: v }))} testid={`role-${c.channel}`} ariaLabel={`${c.name} role`}
+                        options={[{ value: 'train', label: 'train', disabled: !c.verdicts, reason: 'no human verdicts on this channel' }, { value: 'exam', label: 'exam', disabled: !c.verdicts, reason: 'no human verdicts on this channel' }, { value: 'off', label: 'off' }]} /></td>
+                      <td>{c.hours} h</td>
+                      <td>{fmtInt(c.verdicts)}</td>
+                      <td>{fmtInt(c.interesting)} / {fmtInt(c.not_interesting)}</td>
+                      <td>{fmtInt(c.artifact)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+            <div className="m-foot-line" style={{ marginTop: 8, flexWrap: 'wrap' }}>
+              <Dropdown prefix="test" value={testPct} onChange={setTestPct} testid="test-pct" options={['10', '20', '30'].map(v => ({ value: v, label: `${v} %` }))} />
+              <Dropdown prefix="validation" value={valPct} onChange={setValPct} testid="val-pct" options={['0', '10', '20'].map(v => ({ value: v, label: `${v} %` }))} />
+              <Dropdown prefix="gap" value={gapW} onChange={setGapW} testid="gap-select" options={[{ value: '1', label: '≥ 1 window' }, { value: '2', label: '≥ 2 windows' }]} />
+              <span className="m-muted">of {d.split.n_blocks} blocks per channel, the last ones held out</span>
+            </div>
+            <div className="m-foot-line" style={{ marginTop: 8, borderTop: '1px solid var(--border)', paddingTop: 8 }}>
+              <span style={{ display: 'inline-flex', flexDirection: 'column', gap: 2 }}>
+                <TextField value={wsName} onChange={setWsName} icon="save" width={260} invalid={!!wsNameError} testid="ws-name" ariaLabel="window-set name" />
+                {wsNameError && <span className="k-field-error" role="alert"><Icon name="alert-circle" size={11} />{wsNameError}</span>}
+              </span>
+              <Button icon="save" variant={chosen ? 'default' : 'primary'} onClick={saveSet} testid="save-ws"
+                disabled={!!wsNameError || !trainCh.length || !template?.on_label_grid || saveJobId != null}
+                disabledReason={!trainCh.length ? 'mark at least one channel train' : !template?.on_label_grid ? 'the template is off the labels’ grid' : wsNameError ?? (saveJobId != null ? 'saving…' : undefined)}>Save window set</Button>
+              <span>{trainCh.length} train · {examCh.length} exam · split and gap saved with the set</span>
+            </div>
+            {saveJob && ['queued', 'running'].includes(saveJob.status) && (
+              <div style={{ marginTop: 6 }} data-testid="save-progress"><ProgressBar value={((saveJob.progress as any)?.done ?? 0) / Math.max(1, (saveJob.progress as any)?.total ?? 1)} width={320} label={(saveJob.progress as any)?.message ?? 'measuring'} /></div>
+            )}
+            {setup.window_sets.length > 0 && (
+              <table className="m-table" style={{ marginTop: 10 }} data-testid="source-windowsets">
+                <thead><tr><th style={{ width: 24 }} /><th>saved set</th><th>channels</th><th>windows · train / val / test / exam</th><th>runs</th></tr></thead>
+                <tbody>
+                  {setup.window_sets.map(w => {
+                    const on = String(w.id) === setQ
+                    const br = w.coverage.by_role
+                    return (
+                      <tr key={w.id} className="m-row-click" onClick={() => setQuery({ set: String(w.id), k: null }, true)} data-testid={`ws-row-${w.name}`}>
+                        <td><input type="radio" name="launch-windowset" checked={on} onChange={() => setQuery({ set: String(w.id), k: null }, true)} aria-label={`${w.name} v${w.version}`} /></td>
+                        <td style={{ color: 'var(--text)' }}>{w.name} · v{w.version}</td>
+                        <td>{w.members.filter(m => m.role === 'train').length} train · {w.members.filter(m => m.role === 'exam').length} exam</td>
+                        <td>{fmtInt(w.n_windows)} · {fmtInt(br.train?.n ?? 0)} / {fmtInt(br.validation?.n ?? 0)} / {fmtInt(br.test?.n ?? 0)} / {fmtInt(br.exam?.n ?? 0)}</td>
+                        <td>{w.runs.length ? `${w.runs.length} · k = ${w.runs[0].k}` : '—'}</td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
             )}
           </SectionCard>
 
-          <SectionCard number={3} title="Label arms" info="One or more label sources trained as a paired job: same windows, split and test block, so the arms differ only in their labels. The RF baseline is always on." subtitle="paired — same windows, split and test block" testid="launch-arms"
-            actions={<>
-              <Button ref={addArmRef} icon="plus" onClick={() => setPopover(popover === 'add-arm' ? null : 'add-arm')} aria-expanded={popover === 'add-arm'} testid="add-arm">Add arm</Button>
-              <Popover open={popover === 'add-arm'} onClose={() => setPopover(null)} anchorRef={addArmRef} placement="bottom-end" title="Add a label arm" width={320} testid="add-arm-popover">
-                <div className="k-menu" role="menu">
-                  {[
-                    { key: 'a', label: 'manual labels', d: 'Review verdicts · 4 classes', reason: arms.includes('a') ? 'already an arm' : undefined },
-                    { key: 'b', label: 'cluster labels', d: `${template.clusterStage} · k = 4`, reason: arms.includes('b') ? 'already an arm' : undefined },
-                    { key: 'ws', label: 'labels from a window set', d: 'verdicts frozen in a saved set', reason: 'not built' },
-                  ].map(o => (
-                    <button key={o.key} type="button" role="menuitem" className="k-menu-item" aria-disabled={!!o.reason || undefined} title={o.reason} data-testid={`add-arm-${o.key}`}
-                      onClick={() => { if (o.reason) return; setQuery({ arms: [...arms, o.key].sort().join(',') === 'a,b' ? null : [...arms, o.key].sort().join(','), popover: null }, true) }}>
-                      <span className="body"><span>{o.label}</span><span className="desc">{o.d}</span>{o.reason && <span className="reason">⊘ {o.reason}</span>}</span>
-                    </button>
-                  ))}
+          <SectionCard number={3} title="Label arms" subtitle="paired — same windows, same forest, same seed; only the labels differ" testid="launch-arms"
+            info="Arm A: the human verdicts by containment (catalogue.manual_labels). Arm B: one Ward clustering of the pooled TRAINING windows of every training channel, cut at k; test windows take no part. Both train a random forest on the windows labelled in every arm.">
+            <div className="m-stack" style={{ gap: 6 }}>
+              <div className="m-arm-row" data-testid="arm-row-a"><ArmBadge letter="A" /><span className="nm">manual labels</span><span className="src">human verdicts · interesting vs not_interesting</span>
+                <span className="cnt">{byRole ? `${fmtInt(byRole.train?.n ?? 0)} training windows` : '—'}</span></div>
+              <div className="m-arm-row" data-testid="arm-row-b"><ArmBadge letter="B" /><span className="nm">cluster labels</span>
+                <span className="src">{k ? `Ward · k = ${k}${cut ? ` · ${cut.effective_k} real cluster(s)` : ''}` : 'choose a cut'}</span>
+                <Button size="sm" icon="layers" onClick={propose} disabled={!chosen || proposing} disabledReason={!chosen ? 'save or pick a window set first' : 'clustering…'} testid="propose-cuts">{proposing ? 'Clustering…' : 'Propose cuts'}</Button></div>
+              <div className="m-arm-row" data-testid="arm-row-rf"><ArmBadge letter="RF" /><span className="nm">random forest</span><span className="src">the classifier of both arms (Q42) — so it is also each arm's baseline</span>
+                <span className="cnt" title="the CNN arm is a later cluster job">CNN arm: later</span></div>
+              {frozen && <Callout tone="blue" icon="lock" testid="cut-frozen">Run {frozen.run_id} scored this set's test block at k = {frozen.k}. The cut is frozen on this set: another k is refused (that would be tuning on the test block).</Callout>}
+              {proposeError && <Callout tone="red" testid="propose-error">{proposeError}</Callout>}
+              {proposal && (
+                <div data-testid="cut-table">
+                  <div className="m-foot-line" style={{ marginBottom: 4 }}>{fmtInt(proposal.n_windows_clustered)} training windows clustered · {proposal.suggestion_rule}</div>
+                  <table className="m-table">
+                    <thead><tr><th /><th>k</th><th>silhouette</th><th>sizes</th><th>real clusters</th></tr></thead>
+                    <tbody>{proposal.by_k.map(r => (
+                      <tr key={r.k} className="m-row-click" onClick={() => chooseK(r.k)} data-testid={`cut-${r.k}`}>
+                        <td><input type="radio" name="launch-k" checked={r.k === k} onChange={() => chooseK(r.k)} aria-label={`k = ${r.k}`} /></td>
+                        <td>{r.k}{r.k === proposal.suggested_k && <span className="k-chip sm blue" style={{ marginLeft: 6 }}>draft</span>}</td>
+                        <td>{r.silhouette == null ? '—' : r.silhouette.toFixed(3)}</td>
+                        <td className="m-mono">{Object.values(r.sizes).join(' / ')}</td>
+                        <td>{r.effective_k}{r.small_clusters.length ? <span className="m-muted"> + {r.small_clusters.length} speck(s)</span> : null}</td>
+                      </tr>))}</tbody>
+                  </table>
                 </div>
-              </Popover>
-            </>}>
-            <div className="m-stack" style={{ gap: 5 }}>
-              {arms.includes('a') && (
-                <div className="m-arm-row" data-testid="arm-row-a"><ArmBadge letter="A" /><span className="nm">manual labels</span><span className="src">Review verdicts · 4 classes</span>
-                  <span className="cnt">{fmtInt(labelledEvery)} windows labelled</span>
-                  <button type="button" className="k-icon-btn" aria-label="remove arm A" title="remove arm A" onClick={() => setArmsQ(arms.filter(a => a !== 'a').join(',') || 'none')} data-testid="remove-arm-a"><Icon name="x" size={12} /></button></div>
               )}
-              {arms.includes('b') && (
-                <div className="m-arm-row" data-testid="arm-row-b"><ArmBadge letter="B" /><span className="nm">cluster labels</span><span className="src">{template.clusterStage} · k = 4 · criterion max silhouette</span>
-                  <span className="cnt">{fmtInt(clusterWindows)} windows labelled</span>
-                  <button type="button" className="k-icon-btn" aria-label="remove arm B" title="remove arm B" onClick={() => setArmsQ(arms.filter(a => a !== 'b').join(',') || 'none')} data-testid="remove-arm-b"><Icon name="x" size={12} /></button></div>
+              {cut && translation && (
+                <div data-testid="translation-table">
+                  <div className="m-foot-line" style={{ margin: '6px 0 4px' }}>
+                    translation table — written into the recipe before any test score <InfoTip title="Translation">Yardstick (A) scores arm B against the human verdicts through this table. Majority on the training windows is the draft; change it now — once a run has a test score the cut and table are frozen on this set.</InfoTip>
+                  </div>
+                  <table className="m-table">
+                    <thead><tr><th>cluster</th><th>windows</th><th>not_interesting</th><th>interesting</th><th>purity</th><th>translated to</th></tr></thead>
+                    <tbody>{cut.purity.map(p => (
+                      <tr key={p.cluster} data-testid={`map-${p.cluster}`}>
+                        <td>{p.cluster}{cut.small_clusters.includes(p.cluster) && <span className="m-muted"> speck</span>}</td>
+                        <td>{fmtInt(p.n)}</td>
+                        <td>{fmtInt(cut.contingency[p.cluster - 1][0])}</td>
+                        <td>{fmtInt(cut.contingency[p.cluster - 1][1])}</td>
+                        <td>{p.purity == null ? '—' : `${Math.round(p.purity * 100)} %`}{p.impure && <span className="k-chip amber sm" style={{ marginLeft: 6 }} data-testid="impure-chip">impure</span>}</td>
+                        <td><Dropdown size="sm" value={translation[String(p.cluster)]} onChange={v => setTranslation(t => ({ ...(t ?? {}), [String(p.cluster)]: v }))} testid={`translate-${p.cluster}`}
+                          options={[{ value: 'interesting', label: 'interesting' }, { value: 'not_interesting', label: 'not_interesting' }]} /></td>
+                      </tr>))}</tbody>
+                  </table>
+                </div>
               )}
-              <div className="m-arm-row" data-testid="arm-row-rf"><ArmBadge letter="RF" /><span className="nm">random-forest baseline</span><span className="src">{template.matrixStage} features · trained once per arm</span>
-                <span className="cnt" title="the RF baseline cannot be removed: every arm is judged against it">always on</span><Icon name="lock" size={12} style={{ color: 'var(--muted)' }} /></div>
-              {nArms === 0 && <div className="k-field-error" role="alert" data-testid="arms-empty"><Icon name="alert-circle" size={11} />add at least one label arm</div>}
-              {nArms === 1 && <div className="m-foot-line" data-testid="arms-single">a single arm can’t be compared in Compare</div>}
-              <div className="m-foot-line" style={{ marginTop: 4 }}>
-                <span>train every arm on</span>
-                <Dropdown value={paired} onChange={v => setPaired(v)} active testid="paired-select" ariaLabel="train every arm on"
-                  options={[{ value: 'all', label: `windows labelled in every arm · ${fmtInt(labelledEvery)}` }, { value: 'each', label: 'every window each arm labels', description: 'arms are not paired' }]} />
-                <InfoTip title="Paired">Arms differ only in their labels when they train on the windows labelled in every arm.</InfoTip>
-                <span>so the comparison is paired</span>
-              </div>
             </div>
           </SectionCard>
 
           <SectionCard number={4} title="Evaluation" testid="launch-evaluation"
-            info="A test block and a validation block are set aside before training, blocked by time within each channel with a gap ≥ one window — never a random sample of windows. The test block is scored once, after training."
-            subtitle={fromSet ? 'split comes with the window set · locked here, change it by saving a new version' : 'test block set aside before training · blocked by time'}>
-            <div className="m-foot-line" style={{ marginBottom: 10 }}>
-              <Dropdown prefix="test" value={String(tPct)} onChange={setTestPct} disabled={fromSet} disabledReason="split comes with the window set" testid="test-pct"
-                options={['10', '15', '20', '25'].map(v => ({ value: v, label: `${v} %` }))} />
-              <Dropdown prefix="validation" value={String(vPct)} onChange={setValPct} disabled={fromSet} disabledReason="split comes with the window set" testid="val-pct"
-                options={['5', '10', '15'].map(v => ({ value: v, label: `${v} %` }))} />
-              <span style={{ display: 'inline-flex', flexDirection: 'column', gap: 2 }}>
-                <Dropdown prefix="gap" value={String(gapS)} onChange={setGap} disabled={fromSet} disabledReason="split comes with the window set" testid="gap-select"
-                  options={fromSet ? [{ value: String(windowSet.windowS), label: `≥ ${windowSet.windowS} s (1 window)` }] : [{ value: '600', label: '≥ 600 s (1 window)' }, { value: '1200', label: '≥ 1,200 s (2 windows)' }, { value: '0', label: '0 s' }]} />
-                {!fromSet && gapS < windowS && <span className="k-field-error" role="alert" data-testid="gap-error"><Icon name="alert-circle" size={11} />gap must be ≥ window length ({windowS} s)</span>}
-              </span>
-              <span className="k-spacer" />
-              <button ref={m4Ref} type="button" className="m-lock-toggle" role="switch" aria-checked={false} aria-disabled onClick={() => setPopover(popover === 'm4' ? null : 'm4')} data-testid="m4-toggle" title="M4_aug is held out (D6)">
-                <span className="sw" />M4_aug locked · Settings › Datasets <span className="m-muted m-small">held out</span>
-              </button>
-              <Popover open={popover === 'm4'} onClose={() => setPopover(null)} anchorRef={m4Ref} placement="bottom-end" title="M4_aug is held out" width={320} testid="m4-popover">
-                <div className="m-small" style={{ lineHeight: 1.45 }}>{setup.heldOut.reason}</div>
-                <div style={{ marginTop: 8 }}><Button size="sm" icon="lock" onClick={() => navigate('settings/datasets')}>Settings › Datasets</Button></div>
-              </Popover>
-            </div>
-            <SplitStrip channels={sourceLabels.filter(c => c !== 'all')} hours={fromSet ? (windowSet.recordingKey === 'M3_jul' ? 280 : 721) : 721} test={tPct} val={vPct} />
-            <div className="m-counts" style={{ marginTop: 10 }} data-testid="class-counts">
-              <span className="h">windows per class</span>{MODEL_CLASSES.map(c => <span key={c} className="h">{c}</span>)}<span />
-              {(['train', 'val', 'test'] as const).map(split => (
-                <div key={split} style={{ display: 'contents' }}>
-                  <span style={{ textAlign: 'right', paddingRight: 16 }}>{split}</span>
-                  {counts.map(c => <span key={c.cls} className={split === 'test' && c.test < TEST_WARN_BELOW ? 'm-amber-text' : undefined} style={{ fontWeight: split === 'test' && c.test < TEST_WARN_BELOW ? 600 : 400 }}>{fmtInt(c[split])}</span>)}
-                  <span>{split === 'train' && lowClasses.length > 0 && <span className="k-chip amber sm" data-testid="low-class-chip">{lowClasses.map(c => `${c.cls}: ${c.test}`).join(' · ')} test &lt; {TEST_WARN_BELOW}</span>}</span>
+            subtitle="blocked by time within each channel · scored once, after training"
+            info="Three exams, never pooled: (i) the later time block of each training channel, (ii) channels never trained on, (iii) the held-out recording — locked until the researcher unlocks it after the freeze.">
+            {chosen ? (
+              <>
+                <SplitStrip set={chosen} />
+                <div className="m-counts" style={{ marginTop: 10 }} data-testid="class-counts">
+                  <span className="h">windows</span><span className="h">interesting</span><span className="h">not_interesting</span><span />
+                  {(['train', 'validation', 'test', 'exam'] as const).map(r => {
+                    const c = byRole?.[r]; const low = (r === 'test' || r === 'exam') && c && c.n > 0 && Math.min(c.interesting, c.not_interesting) < warnBelow
+                    return (
+                      <div key={r} style={{ display: 'contents' }}>
+                        <span style={{ textAlign: 'right', paddingRight: 16 }}>{r}</span>
+                        <span className={low && (c?.interesting ?? 0) < warnBelow ? 'm-amber-text' : undefined}>{fmtInt(c?.interesting ?? 0)}</span>
+                        <span className={low && (c?.not_interesting ?? 0) < warnBelow ? 'm-amber-text' : undefined}>{fmtInt(c?.not_interesting ?? 0)}</span>
+                        <span>{low && <span className="k-chip amber sm" data-testid={`low-${r}`}>&lt; {warnBelow} in a class</span>}</span>
+                      </div>
+                    )
+                  })}
                 </div>
-              ))}
-            </div>
+                <div className="m-foot-line" style={{ marginTop: 8 }} data-testid="exam-iii">exam (iii) · {setup.held_out.name}: locked — {setup.held_out.where}</div>
+              </>
+            ) : <div className="m-foot-line" data-testid="split-strip-empty">save or pick a window set to see its split</div>}
           </SectionCard>
 
-          <SectionCard number={5} title="Options" testid="launch-options" info="Seeds repeat the whole paired job. The null is a label shuffle: 200× on the RF baseline plus a few on the full model, since every full-model shuffle is a full retrain.">
-            <div className="m-foot-line">
-              <Toggle checked={seedsOn} onChange={v => setSeedsQ(v ? '3' : null)} label={<span style={{ color: 'var(--text)' }}>repeat with different seeds</span>} testid="seeds-toggle" />
-              <NumberField value={seedsOn ? seeds : 3} onValid={n => setSeedsQ(String(n))} min={2} max={10} integer unit="seeds" width={96} disabled={!seedsOn} disabledReason="turn on repeat with different seeds" testid="seeds-count" ariaLabel="number of seeds" />
-              <Dropdown prefix="epochs" value={epochs} onChange={setEpochs} testid="epochs" options={['10', '20', '30', '50'].map(v => ({ value: v, label: v }))} />
-              <Dropdown prefix="batch" value={batch} onChange={setBatch} testid="batch" options={['32', '64', '128'].map(v => ({ value: v, label: v }))} />
-              <Dropdown prefix="null" value={nullQ} onChange={v => setNull(v)} testid="null-select" options={[{ value: 'model5', label: 'RF 200× · model 5×' }, { value: 'model0', label: 'RF 200× · model 0×', description: 'no full-model null' }]} />
+          <SectionCard number={5} title="Options" testid="launch-options" info="The forest's size and seed are shared by both arms. The null and the bootstrap only change how precisely the numbers are known, not the numbers themselves.">
+            <div className="m-foot-line" style={{ flexWrap: 'wrap' }}>
+              <NumberField value={trees} onValid={setTrees} min={10} max={2000} integer unit="trees" width={120} testid="n-trees" ariaLabel="trees per forest" />
+              <NumberField value={shuffles} onValid={setShuffles} min={0} max={5000} integer unit="shuffles" width={140} testid="rf-shuffles" ariaLabel="label shuffles" />
+              <NumberField value={boot} onValid={setBoot} min={100} max={20000} integer unit="bootstrap" width={150} testid="bootstrap-n" ariaLabel="bootstrap draws" />
+              <Checkbox checked={reference} onChange={setReference} label="score the existing MODELS/ as a reference line (slow: CNNs on CPU)" testid="reference-toggle" />
             </div>
           </SectionCard>
         </div>
 
-        {/* ------------------------------------------------ right column ------------------------------------------------ */}
         <div className="k-card m-rcard" data-testid="launch-right">
-          <h4>Before launch <InfoTip title="Before launch">Warnings do not block a launch; a failed check disables both launch buttons and names itself as the reason.</InfoTip></h4>
-          <Checklist items={checks.map(c => ({ id: c.id, label: c.label, state: c.state }))} testid="before-launch" />
+          <h4>Before launch <InfoTip title="Before launch">Read from the bridge: the same checks the job runs before it starts. An error disables both launch buttons and names itself.</InfoTip></h4>
+          {checksError ? <Callout tone="red" testid="checks-error">{checksError}</Callout>
+            : checkItems.length ? <Checklist items={checkItems} testid="before-launch" />
+              : <div className="m-foot-line" data-testid="before-launch-empty">save or pick a window set, then choose a cut</div>}
           <hr />
           <h4>Estimate</h4>
-          <StatRow columns={3}>
-            <StatTile label="local" value={`≈ ${localH.toFixed(1)} h`} caption={`${nArms + 1} arm${nArms ? 's' : ''} + ${nullQ === 'model5' ? 5 : 0} model nulls`} tone={overLimit ? 'amber' : undefined} testid="est-local" />
-            <StatTile label="disk" value={`${diskGb.toFixed(1)} GB`} caption={saveWs || fromSet ? 'images + window set' : 'images'} testid="est-disk" />
-            <StatTile label="HPC" value={`≈ ${hpcH.toFixed(1)} h`} caption="1 GPU node" testid="est-hpc" />
-          </StatRow>
-          {overLimit
-            ? <Callout tone="amber" icon="hourglass" testid="over-limit">over the {ESTIMATE_MODEL.localLimitH} h local limit · Train locally is off <InfoTip title="Local limit">Local training is allowed when the estimate is ≤ 2 h (Settings › Compute & HPC › local limits).</InfoTip></Callout>
-            : <Callout tone="green" icon="check-circle" testid="within-limit">within the {ESTIMATE_MODEL.localLimitH} h local limit · Train locally is available</Callout>}
-          {showScript ? (
-            <div ref={scriptRef} style={{ borderRadius: 8 }}>
-              <CodeBlock title="SLURM script" code={script} filename={`${session.name}.sh`} testid="slurm-script" />
-            </div>
-          ) : (
-            <Button variant="link" icon="chevron-right" onClick={() => setScriptOpen(true)} testid="show-script">Show SLURM script</Button>
+          {checks ? (
+            <>
+              <StatRow columns={3}>
+                <StatTile label="here" value={`≈ ${fmtDur(checks.estimate.seconds)}`} caption={`${checks.estimate.n_fits} forest fits`} tone={overLimit ? 'amber' : undefined} testid="est-local" />
+                <StatTile label="per fit" value={`${checks.estimate.seconds_per_fit.toFixed(2)} s`} caption="measured here" testid="est-fit" />
+                <StatTile label="recipe" value={checks.recipe_hash} caption="reproducible from it" testid="est-hash" />
+              </StatRow>
+              {overLimit
+                ? <Callout tone="amber" icon="hourglass" testid="over-limit">over the {fmtDur(setup.local_limit_s)} local limit · Train locally is off — create the SLURM script</Callout>
+                : <Callout tone="green" icon="check-circle" testid="within-limit">within the {fmtDur(setup.local_limit_s)} local limit · Train locally is available</Callout>}
+            </>
+          ) : <div className="m-foot-line">—</div>}
+          {slurm && (
+            <>
+              <CodeBlock title="SLURM script (CPU)" code={slurm.script} filename={slurm.script_path.split(/[\\/]/).pop()} testid="slurm-script" />
+              {slurm.warnings.map(w => <Callout key={w} tone="amber" testid="slurm-warning">{w}</Callout>)}
+            </>
           )}
-          <h4 style={{ marginTop: 4 }}>After submitting</h4>
-          {isSubmitted && <Callout tone="green" icon="check-circle" testid="submitted" action={<Button size="sm" icon="external" onClick={() => navigate(`jobs/cluster/${submittedJob}`)}>Open in Jobs</Button>}>{submittedJob} added to Jobs · script created, not submitted yet</Callout>}
-          <div className="m-after-row"><Icon name={isSubmitted ? 'check-circle' : 'eye-off'} size={15} style={{ color: isSubmitted ? 'var(--green)' : 'var(--muted)' }} />
-            <div><div>Creating the script adds the job to Jobs</div><div className="d">mark it submitted / running / finished there</div></div></div>
-          <div className="m-after-row"><Icon name="inbox" size={15} style={{ color: 'var(--muted)' }} />
-            <div><div>Results return through Jobs › Manifest inbox</div><div className="d">checked against this launch, then imported</div></div></div>
+          <Callout tone="blue" icon="info" testid="hpc-note">{setup.hpc_note}</Callout>
+          <h4 style={{ marginTop: 4 }}>Runs</h4>
+          {setup.runs.length ? (
+            <table className="m-table" data-testid="runs-table">
+              <thead><tr><th>run</th><th>set</th><th>k</th><th>status</th><th>F1 A / B</th></tr></thead>
+              <tbody>{setup.runs.slice(0, 8).map(r => (
+                <tr key={r.run_id} className="m-row-click" onClick={() => navigate(`models/results/${r.run_id}`)} data-testid={`run-row-${r.run_id}`}>
+                  <td>{r.run_id}</td><td>{r.window_set?.name}</td><td>{r.k}</td><td>{r.status}</td>
+                  <td>{r.macro_f1 ? `${r.macro_f1.A.toFixed(3)} / ${r.macro_f1.B.toFixed(3)}` : '—'}</td>
+                </tr>))}</tbody>
+            </table>
+          ) : <div className="m-foot-line" data-testid="runs-empty">no paired run yet</div>}
         </div>
       </div>
     </>
   )
 }
 
-/* ------------------------------------------------ session name chip (inline rename) ------------------------------------------------ */
-function SessionChip({ name, saved, onRename }: { name: string; saved: boolean; onRename: (n: string) => void }) {
-  const [editing, setEditing] = useState(false)
-  const [draft, setDraft] = useState(name)
-  const err = !draft.trim() ? 'a session name is required' : !SESSION_RE.test(draft) ? '3–60 letters, digits and _ only' : null
-  if (editing) return (
-    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }} data-testid="session-edit"
-      onKeyDown={e => { if (e.key === 'Escape') { e.stopPropagation(); setEditing(false); setDraft(name) } }}>
-      <span style={{ display: 'inline-flex', flexDirection: 'column', gap: 2 }}>
-        <TextField value={draft} onChange={setDraft} autoFocus width={260} invalid={!!err} variant="outline" testid="session-name" ariaLabel="session name" onEnter={() => { if (!err) { onRename(draft); setEditing(false) } }} />
-        {err && <span className="k-field-error" role="alert" data-testid="session-name-error"><Icon name="alert-circle" size={11} />{err}</span>}
-      </span>
-      <Button size="sm" variant="primary" disabled={!!err} disabledReason={err ?? undefined} onClick={() => { onRename(draft); setEditing(false) }} testid="session-save">Save</Button>
-      <Button size="sm" variant="ghost" onClick={() => { setEditing(false); setDraft(name) }}>Cancel</Button>
-    </span>
-  )
-  return (
-    <button type="button" className="m-tool-chip btn strong" onClick={() => { setDraft(name); setEditing(true) }} data-testid="session-chip" title="rename this training session">
-      <Icon name="cpu" size={14} />{name}<Icon name="pencil" size={12} style={{ color: 'var(--muted)' }} />{!saved && <span className="m-muted m-small" style={{ fontWeight: 400 }}>unsaved</span>}
-    </button>
-  )
-}
-
-/* ------------------------------------------------ split strip ------------------------------------------------ */
-function SplitStrip({ channels, hours, test, val }: { channels: string[]; hours: number; test: number; val: number }) {
-  const nBlocks = test % 10 === 0 && val % 10 === 0 ? 10 : 20
-  const nTest = Math.round(test / 100 * nBlocks), nVal = Math.round(val / 100 * nBlocks)
-  const blockS = hours * 3600 / nBlocks
-  const rows = channels.slice(0, 10).map(ch => {
-    const frame = nBlocks === 10 && test === 20 && val === 10 ? FRAME_SPLIT_BLOCKS[ch] : undefined
-    let testIdx: number[], valIdx: number[]
-    if (frame) { testIdx = frame.test.map(b => b - 1); valIdx = frame.val.map(b => b - 1) }
-    else {
-      const r = seeded([...ch].reduce((a, c) => a * 31 + c.charCodeAt(0), 7) + nBlocks + test * 3 + val)
-      const order = Array.from({ length: nBlocks - 2 }, (_, i) => i + 2).sort(() => r() - 0.5)
-      testIdx = order.slice(0, nTest); valIdx = order.slice(nTest, nTest + nVal)
-    }
+/* ------------------------------------------------ split strip: each channel's blocks ------------------------------------------------ */
+function SplitStrip({ set }: { set: PooledSetRow }) {
+  const s = set.split as { n_blocks: number; test_frac: number; validation_frac: number }
+  const nB = s.n_blocks || 10
+  const nT = Math.max(1, Math.round(nB * (s.test_frac ?? 0.2)))
+  const nV = Math.round(nB * (s.validation_frac ?? 0))
+  const rows = set.members.slice(0, 16).map(m => {
+    const hours = Number(m.counts?.hours ?? 0) || 1
+    const blockS = hours * 3600 / nB
+    const name = String(m.counts?.channel ?? m.channel)
     return {
-      label: ch,
-      segments: Array.from({ length: nBlocks }, (_, b) => {
-        const kind = testIdx.includes(b) ? 'test' as const : valIdx.includes(b) ? 'validation' as const : 'train' as const
-        return { start: b * blockS, end: (b + 1) * blockS, kind, label: `${ch} · block ${b + 1} · ${(b * blockS / 3600).toFixed(1)}–${((b + 1) * blockS / 3600).toFixed(1)} h · ${kind}` }
-      }),
+      label: `CH${name}${m.role === 'exam' ? ' ·exam' : ''}`,
+      segments: m.role === 'exam'
+        ? [{ start: 0, end: hours * 3600, kind: 'test' as const, label: `CH${name} · exam (ii): every window, never trained on` }]
+        : Array.from({ length: nB }, (_, b) => {
+          const kind = b >= nB - nT ? 'test' as const : b >= nB - nT - nV ? 'validation' as const : 'train' as const
+          return { start: b * blockS, end: (b + 1) * blockS, kind, label: `CH${name} · block ${b + 1} · ${kind}` }
+        }),
     }
   })
-  if (!rows.length) return <div className="m-foot-line" data-testid="split-strip-empty" style={{ padding: '10px 0' }}>no sources · nothing to split</div>
+  const maxH = Math.max(1, ...set.members.map(m => Number(m.counts?.hours ?? 0)))
   return (
     <div data-testid="split-strip">
-      <BandStrip rows={rows} domain={[0, hours * 3600]} rowHeight={12} gap={5} labelWidth={70} segmentGap={3}
-        legend={[{ label: 'train', colour: '#a8c1ec' }, { label: 'validation', colour: '#fdc77e' }, { label: 'test — scored once, after training', colour: '#86d69e' }]} />
-      {channels.length > 10 && <div className="m-foot-line">showing 10 of {channels.length} channels</div>}
+      <BandStrip rows={rows} domain={[0, maxH * 3600]} rowHeight={10} gap={4} labelWidth={84} segmentGap={2}
+        legend={[{ label: 'train', colour: '#a8c1ec' }, { label: 'validation', colour: '#fdc77e' }, { label: 'test / exam — scored once', colour: '#86d69e' }]} />
     </div>
   )
 }

@@ -1,0 +1,278 @@
+[
+ {
+  "page": "models.launch",
+  "state": "fixup-ab-save-a-window-set-across-channels",
+  "hash": "models/launch",
+  "actions": [
+   {
+    "click": "[data-testid=\"role-1\"] button:nth-of-type(2)"
+   },
+   {
+    "click": "[data-testid=\"role-2\"] button:nth-of-type(3)"
+   },
+   {
+    "click": "[data-testid=\"role-3\"] button:nth-of-type(3)"
+   },
+   {
+    "click": "[data-testid=\"role-4\"] button:nth-of-type(3)"
+   },
+   {
+    "click": "[data-testid=\"role-5\"] button:nth-of-type(3)"
+   },
+   {
+    "click": "[data-testid=\"role-6\"] button:nth-of-type(3)"
+   },
+   {
+    "click": "[data-testid=\"role-7\"] button:nth-of-type(3)"
+   },
+   {
+    "click": "[data-testid=\"role-8\"] button:nth-of-type(3)"
+   },
+   {
+    "click": "[data-testid=\"role-9\"] button:nth-of-type(3)"
+   },
+   {
+    "click": "[data-testid=\"role-10\"] button:nth-of-type(3)"
+   },
+   {
+    "click": "[data-testid=\"role-11\"] button:nth-of-type(3)"
+   },
+   {
+    "click": "[data-testid=\"role-12\"] button:nth-of-type(3)"
+   },
+   {
+    "click": "[data-testid=\"role-13\"] button:nth-of-type(3)"
+   },
+   {
+    "click": "[data-testid=\"role-14\"] button:nth-of-type(3)"
+   },
+   {
+    "click": "[data-testid=\"role-15\"] button:nth-of-type(3)"
+   },
+   {
+    "fill": [
+     "[data-testid=\"ws-name\"]",
+     "ws_smoke_ab"
+    ]
+   },
+   {
+    "wait": 300
+   },
+   {
+    "click": "[data-testid=\"save-ws\"]"
+   },
+   {
+    "wait_for": [
+     "[data-testid=\"ws-row-ws_smoke_ab\"]",
+     240000
+    ]
+   },
+   {
+    "wait": 500
+   }
+  ],
+  "expect": [
+   "[data-testid=\"source-windowsets\"]",
+   "[data-testid=\"ws-row-ws_smoke_ab\"]",
+   "[data-testid=\"split-strip\"]",
+   "[data-testid=\"class-counts\"]"
+  ]
+ },
+ {
+  "page": "models.launch",
+  "state": "fixup-ab-propose-cuts",
+  "hash": "models/launch",
+  "actions": [
+   {
+    "click": "[data-testid=\"propose-cuts\"]"
+   },
+   {
+    "wait_for": [
+     "[data-testid=\"translation-table\"]",
+     120000
+    ]
+   },
+   {
+    "wait_for": [
+     "[data-testid=\"before-launch\"]",
+     60000
+    ]
+   }
+  ],
+  "expect": [
+   "[data-testid=\"cut-table\"]",
+   "[data-testid=\"translation-table\"]",
+   "[data-testid=\"before-launch\"]",
+   "[data-testid=\"est-local\"]"
+  ]
+ },
+ {
+  "page": "models.launch",
+  "state": "fixup-ab-train-locally",
+  "hash": "models/launch",
+  "actions": [
+   {
+    "click": "[data-testid=\"propose-cuts\"]"
+   },
+   {
+    "wait_for": [
+     "[data-testid=\"translation-table\"]",
+     120000
+    ]
+   },
+   {
+    "fill": [
+     "[data-testid=\"rf-shuffles\"]",
+     "5"
+    ]
+   },
+   {
+    "fill": [
+     "[data-testid=\"bootstrap-n\"]",
+     "200"
+    ]
+   },
+   {
+    "wait": 800
+   },
+   {
+    "wait_for": [
+     "[data-testid=\"within-limit\"]",
+     60000
+    ]
+   },
+   {
+    "click": "[data-testid=\"train-locally\"]"
+   },
+   {
+    "wait_for": [
+     "[data-testid=\"train-done\"], [data-testid=\"train-failed\"]",
+     600000
+    ]
+   }
+  ],
+  "expect": [
+   "[data-testid=\"train-done\"]",
+   "[data-testid=\"open-results\"]"
+  ]
+ },
+ {
+  "page": "models.results",
+  "state": "fixup-ab-arm-a",
+  "hash": "models/results",
+  "actions": [
+   {
+    "wait_for": [
+     "[data-testid=\"results-stats\"]",
+     60000
+    ]
+   }
+  ],
+  "expect": [
+   "[data-testid=\"results-stats\"]",
+   "[data-testid=\"null-plot\"]",
+   "[data-testid=\"confusion-grid\"]",
+   "[data-testid=\"per-class\"]",
+   "[data-testid=\"per-channel\"]",
+   "[data-testid=\"calibration-card\"]",
+   "[data-testid=\"reference-card\"]",
+   "[data-testid=\"yardstick-b\"]",
+   "[data-testid=\"tilt-note\"]"
+  ]
+ },
+ {
+  "page": "models.results",
+  "state": "fixup-ab-arm-b-exam-ii",
+  "hash": "models/results?arm=b&exam=ii_unseen_channels",
+  "actions": [
+   {
+    "wait_for": [
+     "[data-testid=\"results-stats\"]",
+     60000
+    ]
+   }
+  ],
+  "expect": [
+   "[data-testid=\"results-stats\"]",
+   "[data-testid=\"training-card\"]"
+  ]
+ },
+ {
+  "page": "models.results",
+  "state": "fixup-ab-exam-iii-locked",
+  "hash": "models/results?exam=iii_held_out",
+  "actions": [
+   {
+    "wait_for": [
+     "[data-testid=\"run-line\"]",
+     60000
+    ]
+   }
+  ],
+  "expect": [
+   "[data-testid=\"exam-locked\"]"
+  ]
+ },
+ {
+  "page": "models.compare",
+  "state": "fixup-ab-a-vs-b",
+  "hash": "models/compare",
+  "actions": [
+   {
+    "wait_for": [
+     "[data-testid=\"macro-forest\"]",
+     60000
+    ]
+   },
+   {
+    "wait": 800
+   }
+  ],
+  "expect": [
+   "[data-testid=\"differs\"]",
+   "[data-testid=\"attribution-note\"]",
+   "[data-testid=\"macro-forest\"]",
+   "[data-testid=\"mcnemar\"]",
+   "[data-testid=\"agreement-grid\"]",
+   "[data-testid=\"per-class-delta\"]",
+   "[data-testid=\"cluster-mapping\"]",
+   "[data-testid=\"step-through\"]"
+  ]
+ },
+ {
+  "page": "models.compare",
+  "state": "fixup-ab-both-wrong",
+  "hash": "models/compare",
+  "actions": [
+   {
+    "wait_for": [
+     "[data-testid=\"agreement-grid\"]",
+     60000
+    ]
+   },
+   {
+    "click": "[data-testid=\"cell-both-wrong\"]"
+   },
+   {
+    "wait": 1500
+   }
+  ],
+  "expect": [
+   "[data-testid=\"step-through\"]"
+  ]
+ },
+ {
+  "page": "models.launch",
+  "state": "fixup-ab-after-a-run-the-cut-is-frozen",
+  "hash": "models/launch",
+  "actions": [
+   {
+    "wait": 800
+   }
+  ],
+  "expect": [
+   "[data-testid=\"runs-table\"]",
+   "[data-testid=\"cut-frozen\"]"
+  ]
+ }
+]
