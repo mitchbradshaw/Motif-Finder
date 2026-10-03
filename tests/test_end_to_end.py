@@ -70,8 +70,9 @@ def test_discover_adapters_registers_the_expected_count():
         if name not in ("base", "registry") and not name.startswith("_")
     )
     # 33 + fixup-d's interrogation_event_shape, interrogation_intervals, preprocessing_invert
-    assert len(module_names) == 36, (
-        f"expected 36 shipped adapter modules, got {len(module_names)}"
+    # + fixup-aa's catalogue_manual_labels
+    assert len(module_names) == 37, (
+        f"expected 37 shipped adapter modules, got {len(module_names)}"
     )
 
     discover_adapters()
