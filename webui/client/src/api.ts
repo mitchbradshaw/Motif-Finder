@@ -905,3 +905,35 @@ export interface SavedWindowSet {
 export const saveWindowSetAs = (job_id: number, step: number, name: string, opts: { notes?: string; non_overlapping?: boolean } = {}) =>
   post<SavedWindowSet>('/api/windowsets', { job_id, step, name, notes: opts.notes, non_overlapping: opts.non_overlapping ?? true })
 export interface DiscSeedPageQuery { entry?: number }
+
+/* ---------------- band scope and Compare by verdict (fixup-z · server/discovery.py) ----------------
+ * Appended; existing interfaces extended by declaration merging. A band is a typed entry (`kind`), so AC's
+ * wavelet level arrives as a second kind. *Apply template* with `bands` makes one run per band, each across the
+ * channels in scope; the band runs of one application share a `bandSet`, which Compare takes as one side as
+ * `set:<bandSet>` — the union of its runs, de-duplicated by the matching rule. The overlap is split by verdict,
+ * read live from `adjudications`; *Send only-B unjudged to Review* is a queue over exactly those regions. */
+export interface DiscBand { kind: 'bandpass'; label: string; low_hz: number; high_hz: number }
+export interface DiscBandsPayload { bands: DiscBand[]; source: 'default' | 'settings'; page: string; key: string; kinds: string[]; nyquistHz: number | null }
+export const getDiscoveryBands = () => req<DiscBandsPayload>('/api/discovery/bands')
+export interface DiscRun { band?: DiscBand; bandSet?: string | null; bandIndex?: number | null }
+export interface DiscPlanBody { band?: DiscBand; bands?: DiscBand[] }
+export interface DiscPlan { nBands?: number; bands?: (DiscBand & { estimate_s: number | null; route: string })[]; band?: DiscBand | null }
+export interface DiscApplyResult { band?: DiscBand; bandSet?: string; applicationEstimate_s?: number | null }
+export const applyDiscoveryTemplatesWithBands = (templates: string[], channels: string[], t0: number, t1: number, run: boolean, bands: DiscBand[]) =>
+  post<DiscApplyResult[]>('/api/discovery/templates/apply', { templates, channels, t0, t1, run, bands })
+export interface DiscVerdictSplit { n: number; judged: number; accepted: number; rejected: number; other: number; unjudged: number }
+export interface DiscSetMember { run: string; label: string; band: DiscBand; found: number; status: string; colour: string }
+export interface DiscSide { isSet?: boolean; members?: DiscSetMember[]; template?: string; cellsNote?: string; precisionNote?: string }
+export interface DiscDisagreement { bands?: string[] | null; bandRuns?: string[] | null }
+export interface DiscPerBand { run: string; label: string; band: DiscBand; found: number; both: number; only: number; alone: number; colour: string }
+export interface DiscLikeForLike { run: string | null; label: string | null; isThis: boolean; note: string }
+export interface DiscCompare {
+  verdicts?: { onlyA: DiscVerdictSplit | null; both: DiscVerdictSplit; onlyB: DiscVerdictSplit | null }
+  perBand?: DiscPerBand[]; perBandSide?: 'A' | 'B' | null; likeForLike?: DiscLikeForLike | null
+}
+export interface DiscRemainderSent {
+  queue_id: number; queue: string; reused: boolean; which: 'only A' | 'only B'; regions: number
+  unjudged: number; judged: number; total: number; writes: string; source_kind: string; note: string
+}
+export const sendDiscoveryRemainderToReview = (body: { a: string; b: string; channels: string[]; t0: number; t1: number; which: 'only A' | 'only B'; name?: string }) =>
+  post<DiscRemainderSent>('/api/discovery/compare/review', body)
