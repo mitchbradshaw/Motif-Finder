@@ -402,7 +402,9 @@ def test_band_fan_out_materializes_a_bandpass_step():
         span=(0, 100),
         fan_out={"kind": "bands", "targets": bands},
     )
-    assert run_groups.target_for_index(recipe, 0) == bands[0]
+    # fixup-Z: a band target is typed — a band written without a kind is a
+    # bandpass, and the normalised target says so
+    assert run_groups.target_for_index(recipe, 0) == {**bands[0], "kind": "bandpass"}
 
     per_target = run_groups.materialize_target(recipe, 0)
     assert "fan_out" not in per_target

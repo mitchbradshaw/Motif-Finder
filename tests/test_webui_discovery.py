@@ -794,3 +794,216 @@ def test_the_wavelet_transform_counts_as_heavy_in_a_plans_complexity():
     steps = [{"stage": "preprocessing", "algorithm": "wavelet_transform"},
              {"stage": "detection", "algorithm": "wavelet_summation"}]
     assert "1 heavy" in _complexity(steps), _complexity(steps)
+
+
+# ── fixup-Z: a band is a scope, and Compare says what a human made of the remainder ──
+
+#: Two bands below this fixture's 0.5 Hz Nyquist (fs 1 Hz).
+BANDS = [{"label": "slow", "low_hz": 0.01, "high_hz": 0.1},
+         {"label": "fast", "low_hz": 0.1, "high_hz": 0.4}]
+
+
+def _apply_bands(client, template="mp_threshold", bands=BANDS, channels=(CH[0], CH[1])):
+    r = client.post("/api/discovery/templates/apply", json={
+        "templates": [template], "channels": list(channels), "t0": 0.0, "t1": N / FS / 3600.0,
+        "bands": bands})
+    assert r.status_code == 200, r.text
+    out = r.json()
+    for o in out:
+        if o.get("job_id"):
+            snap = _wait_job(client, o["job_id"])
+            assert snap["status"] == "completed", snap.get("error")
+    return out
+
+
+def _db_rows(client, sql, args=()):
+    conn = sqlite3.connect(client.app.state.rt.db_path)
+    conn.row_factory = sqlite3.Row
+    try:
+        return conn.execute(sql, args).fetchall()
+    finally:
+        conn.close()
+
+
+def _first_run_recipe(client, run_key):
+    import json
+    from Working.database import runs as R
+    conn = sqlite3.connect(client.app.state.rt.db_path)
+    conn.row_factory = sqlite3.Row
+    try:
+        row = conn.execute("SELECT params_json FROM discovery_runs WHERE run_key = ?", (run_key,)).fetchone()
+        ids = json.loads(row["params_json"])["run_ids"]
+        run = R.get_run(conn, ids[0])
+        return ids, R.load_recipe(conn, run["config_id"])
+    finally:
+        conn.close()
+
+
+def test_the_band_list_comes_from_settings_analysis_defaults(client):
+    """Q43: a named band list in Settings › Analysis defaults, seeded with three
+    log-spaced bands for a 1 Hz recording."""
+    body = client.get("/api/discovery/bands").json()
+    assert body["source"] == "default"
+    assert [(b["low_hz"], b["high_hz"]) for b in body["bands"]] == [(0.001, 0.01), (0.01, 0.1), (0.1, 0.5)]
+    r = client.put("/api/settings/analysis-defaults", json={"values": {"bands": [
+        {"label": "slow", "low_hz": 0.01, "high_hz": 0.1}]}})
+    assert r.status_code == 200, r.text
+    body = client.get("/api/discovery/bands").json()
+    assert body["source"] == "settings"
+    assert body["bands"] == [{"kind": "bandpass", "label": "slow", "low_hz": 0.01, "high_hz": 0.1}]
+
+
+def test_a_band_scope_adds_one_run_per_band_each_across_every_channel(client):
+    out = _apply_bands(client)
+    assert len(out) == len(BANDS), "one Discovery run per band"
+    assert len({o["bandSet"] for o in out}) == 1, "the band runs of one application are one set"
+    runs = {r["key"]: r for r in client.get("/api/discovery/runs").json()}
+    for o, band in zip(out, BANDS):
+        row = runs[o["run_key"]]
+        assert row["template"] == "mp_threshold", "the template stays one template"
+        assert row["band"]["label"] == band["label"] and row["band"]["kind"] == "bandpass"
+        assert band["label"] in row["label"], "the run's label carries its band"
+        assert row["bandSet"] == o["bandSet"]
+        assert row["channelsDone"] == "2 / 2", "each band is one run across the channels in scope"
+        ids, recipe = _first_run_recipe(client, o["run_key"])
+        first = recipe["steps"][0]
+        assert (first["algorithm"], first["params"]["low_hz"], first["params"]["high_hz"]) == (
+            "bandpass", band["low_hz"], band["high_hz"])
+        assert first["params"]["order"] == 4, "the block Analyse inserts carries its own defaults"
+
+
+def test_a_band_run_is_the_run_the_hand_built_twin_would_make(client):
+    """The 2026-10-02 hand route: insert the bandpass ahead of the template in
+    Analyse (the inserted block arrives with its defaults filled), save it as a
+    template, apply it. `execute_recipe` is idempotent on the recipe, so if the
+    band scope recorded the same recipe the twin is MADE OF the band run's own
+    runs — the strongest form of "they hash the same"."""
+    from Working.recipes import recipe_hash
+    out = _apply_bands(client, bands=[BANDS[0]])
+    band_ids, band_recipe = _first_run_recipe(client, out[0]["run_key"])
+    tpl = next(t for t in client.get("/api/templates").json() if t["name"] == "mp_threshold")
+    inserted = client.post("/api/chain/params", json={
+        "stage": "preprocessing", "algorithm": "bandpass", "params": {}}).json()["params"]
+    inserted.update({"low_hz": BANDS[0]["low_hz"], "high_hz": BANDS[0]["high_hz"]})
+    steps = [{"stage": "preprocessing", "algorithm": "bandpass", "params": inserted}] + tpl["steps"]
+    r = client.post("/api/templates", json={"name": "band_mp_threshold_twin", "steps": steps})
+    assert r.status_code == 200, r.text
+    twin = _apply(client, template="band_mp_threshold_twin")
+    twin_ids, twin_recipe = _first_run_recipe(client, twin["run_key"])
+    assert recipe_hash(twin_recipe) == recipe_hash(band_recipe)
+    assert sorted(twin_ids) == sorted(band_ids)
+
+
+def test_each_band_run_is_paired_with_a_surrogate_bandpassed_the_same_way(client):
+    from Working.database import runs as R
+    out = _apply_bands(client)
+    for o, band in zip(out, BANDS):
+        ids, _ = _first_run_recipe(client, o["run_key"])
+        sur = _db_rows(client, "SELECT id, config_id FROM runs WHERE surrogate_of_run_id IN (%s)"
+                       % ",".join(str(i) for i in ids))
+        assert len(sur) == len(ids), "every band run has its null"
+        conn = sqlite3.connect(client.app.state.rt.db_path)
+        conn.row_factory = sqlite3.Row
+        try:
+            recipe = R.load_recipe(conn, sur[0]["config_id"])
+        finally:
+            conn.close()
+        assert [s["algorithm"] for s in recipe["steps"]][:2] == ["surrogate", "bandpass"]
+        assert recipe["steps"][1]["params"]["low_hz"] == band["low_hz"]
+
+
+def _compare(client, a, b):
+    r = client.get("/api/discovery/compare", params={
+        "a": a, "b": b, "channels": ",".join([CH[0], CH[1]]), "t0": 0.0, "t1": N / 3600.0})
+    assert r.status_code == 200, r.text
+    return r.json()
+
+
+def test_compare_takes_the_band_set_as_one_side_and_counts_its_union(client):
+    raw = _apply(client, template="mp_threshold")
+    bands = _apply_bands(client)
+    side = f"set:{bands[0]['bandSet']}"
+    cmp_ = _compare(client, raw["run_key"], side)
+    assert cmp_["b"]["run"] == side
+    assert cmp_["b"]["isSet"] is True
+    assert [m["run"] for m in cmp_["b"]["members"]] == [o["run_key"] for o in bands]
+    # the union is de-duplicated: never more regions than the band runs found
+    per_band = cmp_["perBand"]
+    assert [p["band"]["label"] for p in per_band] == [b["label"] for b in BANDS]
+    union_n = cmp_["total"]["both"] + cmp_["total"]["onlyB"]
+    assert union_n <= sum(p["found"] for p in per_band)
+    assert union_n >= max(p["found"] for p in per_band)
+    assert cmp_["b"]["found"] == union_n
+    for d in cmp_["disagreements"]:
+        if d["kind"] == "only B":
+            assert d["bands"] and set(d["bands"]) <= {b["label"] for b in BANDS}, \
+                "a disagreement names the band that fired"
+    # 'what differs' is kept on the union view, and the like-for-like twin is named
+    assert "attributable" in cmp_
+    assert cmp_["likeForLike"]["run"] == raw["run_key"]
+
+
+def test_set_overlap_splits_by_verdict_and_only_b_unjudged_goes_to_review(client):
+    """Acceptance step 4: *Send only-B unjudged to Review* → judge them → back in
+    Compare the only-B row reads judged n · accepted k."""
+    import json
+    from Working.database import adjudications as adj
+    raw = _apply(client, template="mp_threshold")
+    bands = _apply_bands(client)
+    side = f"set:{bands[0]['bandSet']}"
+    cmp_ = _compare(client, raw["run_key"], side)
+    only_b = cmp_["total"]["onlyB"]
+    assert only_b > 0, "the fixture must leave the band set something A missed"
+    v = cmp_["verdicts"]
+    assert set(v) == {"onlyA", "both", "onlyB"}
+    assert v["onlyB"] == {"n": only_b, "judged": 0, "accepted": 0, "rejected": 0, "other": 0,
+                          "unjudged": only_b}
+
+    send = {"a": raw["run_key"], "b": side, "channels": [CH[0], CH[1]], "t0": 0.0, "t1": N / 3600.0,
+            "which": "only B"}
+    r = client.post("/api/discovery/compare/review", json=send)
+    assert r.status_code == 200, r.text
+    sent = r.json()
+    assert sent["unjudged"] == only_b
+    qid = sent["queue_id"]
+    queue = client.get(f"/api/review/queues/{qid}").json()
+    assert queue["queue"]["writes_to"] == "adjudications"
+    assert queue["queue"]["total"] == only_b
+    # one detection per region, and never a surrogate's
+    det_ids = json.loads(_db_rows(client, "SELECT filters_json FROM review_queues WHERE id = ?",
+                                  (qid,))[0]["filters_json"])["detection_ids"]
+    assert len(det_ids) == only_b
+    on_surrogate = _db_rows(client, "SELECT COUNT(*) AS n FROM detections d JOIN runs r ON r.id = d.run_id "
+                                    "WHERE r.surrogate_of_run_id IS NOT NULL AND d.id IN (%s)"
+                            % ",".join(str(i) for i in det_ids))[0]["n"]
+    assert on_surrogate == 0
+
+    # judge two, one accepted and one rejected, written the way Review writes them
+    conn = sqlite3.connect(client.app.state.rt.db_path)
+    conn.row_factory = sqlite3.Row
+    try:
+        adj.insert_adjudication(conn, det_ids[0], "interesting")
+        if len(det_ids) > 1:
+            adj.insert_adjudication(conn, det_ids[1], "not_interesting")
+    finally:
+        conn.close()
+    after = _compare(client, raw["run_key"], side)["verdicts"]["onlyB"]
+    judged = min(2, len(det_ids))
+    assert after["judged"] == judged and after["accepted"] == 1
+    assert after["rejected"] == judged - 1
+    assert after["unjudged"] == only_b - judged
+
+    # a second send is the same open queue
+    again = client.post("/api/discovery/compare/review", json=send).json()
+    assert again["queue_id"] == qid and again["reused"] is True
+    assert again["unjudged"] == only_b - judged
+
+
+def test_a_band_application_is_costed_as_n_bands_times_the_sweep(client):
+    """Cost is N bands × the sweep: three bands of a sweep that fits the ceiling
+    once may not fit it three times, and the route is decided on the whole."""
+    plan = client.post("/api/discovery/plan", json={
+        "template": "mp_threshold", "channels": [CH[0], CH[1]], "t0": 0.0, "t1": N / 3600.0,
+        "measuredPerChannelS": 100.0, "bands": BANDS}).json()
+    assert plan["nBands"] == len(BANDS)
+    assert plan["estimate_s"] == pytest.approx(100.0 * 2 * len(BANDS))
