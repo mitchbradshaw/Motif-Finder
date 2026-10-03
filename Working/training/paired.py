@@ -287,6 +287,24 @@ def _p_interesting_b(proba, classes_, translation):
     return proba[:, cols].sum(axis=1) if cols else np.zeros(len(proba))
 
 
+def per_channel(y, preds, channel, mask):
+    """Both arms' macro F1 on each channel's windows of one exam. A channel whose
+    windows there hold ONE class has no macro F1 — half of a perfect score on the
+    one class present reads as a coin toss (measured: 7 of 12 M2_aug test blocks
+    hold no interesting window) — so it reports accuracy and says so."""
+    rows = []
+    for ch in sorted(np.unique(channel[mask]).tolist()):
+        cm = mask & (channel == ch)
+        n_int = int((cm & (y == 1)).sum())
+        one = n_int == 0 or n_int == int(cm.sum())
+        row = {"channel": int(ch), "n": int(cm.sum()), "interesting": n_int, "one_class": bool(one)}
+        for arm, pr in preds.items():
+            row[arm] = None if one else tm.macro_f1(y[cm], pr[cm], CLASSES)
+            row[f"accuracy_{arm}"] = float((pr[cm] == y[cm]).mean()) if cm.any() else None
+        rows.append(row)
+    return rows
+
+
 def run_paired(recipe, pooled, progress=None, cancel=None, model_dir=None):
     """Train both arms, score the exams, return the results dict (module docstring).
     `model_dir`, when given, is where the two fitted forests are written."""
@@ -411,13 +429,7 @@ def run_paired(recipe, pooled, progress=None, cancel=None, model_dir=None):
         cb = preds["B"][mask] == y[mask]
         per_class_delta = {nm: {"delta": arms_out["A"]["per_class"][nm]["f1"] - arms_out["B"]["per_class"][nm]["f1"],
                                 "ci": boot["delta"]["per_class_ci"][i]} for i, nm in enumerate(CLASS_NAMES)}
-        per_channel = []
-        for ch in sorted(np.unique(channel[mask]).tolist()):
-            cm = mask & (channel == ch)
-            per_channel.append({"channel": int(ch), "n": int(cm.sum()),
-                                "interesting": int((cm & (y == 1)).sum()),
-                                "A": tm.macro_f1(y[cm], preds["A"][cm], CLASSES),
-                                "B": tm.macro_f1(y[cm], preds["B"][cm], CLASSES)})
+        per_channel_rows = per_channel(y, preds, channel, mask)
         out_exams[e] = {
             "status": "scored", "n_windows": int(mask.sum()),
             "class_counts": {nm: int((y[mask] == c).sum()) for c, nm in zip(CLASSES, CLASS_NAMES)},
@@ -427,7 +439,7 @@ def run_paired(recipe, pooled, progress=None, cancel=None, model_dir=None):
                        "delta_f1_ci": boot["delta"]["ci"], "delta_draws_sample": boot["delta"]["draws"][:400],
                        "mcnemar": tm.mcnemar(ca, cb), "agreement": tm.agreement(ca, cb),
                        "per_class_delta": per_class_delta},
-            "per_channel": per_channel,
+            "per_channel": per_channel_rows,
             "window_ids": np.flatnonzero(mask).tolist(),
             "predictions": {"A": preds["A"][mask].tolist(), "B": preds["B"][mask].tolist()},
         }

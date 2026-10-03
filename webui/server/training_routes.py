@@ -481,7 +481,8 @@ def models_checks(request: Request, body: RecipeBody):
         c.close()
     est = _tp.estimate(recipe, ps)
     if body.reference:
-        est["parts"]["reference"] = 0.25 * int(ps.role_mask("test", "exam").sum())
+        # measured 2026-10-03: four CNNs + the catch22 forest on CPU, ~1.5 s per exam window
+        est["parts"]["reference"] = 1.5 * int(ps.role_mask("test", "exam").sum())
         est["seconds"] = float(sum(est["parts"].values()))
         est["where"] = "local" if est["seconds"] <= _tp.LOCAL_LIMIT_S else "slurm"
     return {"checks": checks, "estimate": est, "recipe": recipe, "recipe_hash": short_hash(recipe),

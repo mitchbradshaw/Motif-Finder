@@ -88,7 +88,12 @@ def summary(res):
         lines.append(f"  ΔF1 (A − B) {_f(p['delta_f1'])} {_ci(p['delta_f1_ci'])} · McNemar b {p['mcnemar']['b']} "
                      f"c {p['mcnemar']['c']} p {_f(p['mcnemar']['p'], 4)} · agreement {p['agreement']}")
         for r in ex["per_channel"]:
-            lines.append(f"      CH{r['channel']:<3d} n {r['n']:4d} A {_f(r['A'])} B {_f(r['B'])}")
+            if r.get("one_class"):
+                lines.append(f"      CH{r['channel']:<3d} n {r['n']:4d} one class only (interesting {r['interesting']}) — "
+                             f"no macro F1 · accuracy A {_f(r['accuracy_A'])} B {_f(r['accuracy_B'])}")
+            else:
+                lines.append(f"      CH{r['channel']:<3d} n {r['n']:4d} interesting {r['interesting']:3d} · "
+                             f"A {_f(r['A'])} B {_f(r['B'])}")
     for r in res.get("reference") or []:
         if r.get("status") != "scored":
             lines.append(f"reference {r['name']}: {r['status']} — {r.get('reason', '')}")

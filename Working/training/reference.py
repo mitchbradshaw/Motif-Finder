@@ -99,22 +99,30 @@ def score_reference(conn, pooled, results, cfg, progress=None, cancel=None):
             rows_out.append(row)
             continue
         p = columns.get(col)
-        row["status"] = "scored"
         for e, mask in masks.items():
-            if not mask.any():
-                row["exams"][e] = {"status": "empty"}
-                continue
-            pe = None if p is None else p[mask]
-            if pe is None or np.isnan(pe).all():
-                row["exams"][e] = {"status": "not scored",
-                                   "reason": "the model produced no probability for these windows (see the server log)"}
-                continue
-            ok = ~np.isnan(pe)
-            pred = (pe[ok] >= 0.5).astype(int)
-            sc = tm.classification_scores(y[mask][ok], pred, tp.CLASSES, tp.CLASS_NAMES)
-            row["exams"][e] = {"status": "scored", "macro_f1": sc["macro_f1"],
-                               "balanced_accuracy": sc["balanced_accuracy"], "n": int(ok.sum()),
-                               "n_failed": int((~ok).sum()), "per_class": sc["per_class"]}
+            row["exams"][e] = {"status": "empty"} if not mask.any() else score_exam(y[mask], None if p is None else p[mask])
+        scored = [x for x in row["exams"].values() if x["status"] == "scored"]
+        row["status"] = "scored" if scored else "not scored"
+        if not scored:
+            row["reason"] = next((x["reason"] for x in row["exams"].values() if x.get("reason")), "no exam scored")
         row["exams"][tp.EXAM_III] = {"status": "locked"}
         rows_out.append(row)
     return rows_out
+
+
+def score_exam(y, p):
+    """One reference model on one exam: P(interesting) >= 0.5 read as interesting.
+    A model whose output does not vary is not scored — measured: `fusion_cnn.pth`
+    loads with ONE output class, so its softmax is 1.0 everywhere and it
+    "predicted" interesting for every window."""
+    if p is None or np.isnan(p).all():
+        return {"status": "not scored", "reason": "the model produced no probability for these windows (see the server log)"}
+    ok = ~np.isnan(p)
+    if np.nanmax(p) - np.nanmin(p) < 1e-9:
+        return {"status": "not scored",
+                "reason": f"its output is constant (p = {float(np.nanmax(p)):.3g} for every window): the checkpoint "
+                          "does not separate the classes as loaded (fusion_cnn.pth loads with one output class)"}
+    pred = (p[ok] >= 0.5).astype(int)
+    sc = tm.classification_scores(np.asarray(y)[ok], pred, tp.CLASSES, tp.CLASS_NAMES)
+    return {"status": "scored", "macro_f1": sc["macro_f1"], "balanced_accuracy": sc["balanced_accuracy"],
+            "n": int(ok.sum()), "n_failed": int((~ok).sum()), "per_class": sc["per_class"]}
