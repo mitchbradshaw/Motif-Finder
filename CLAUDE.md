@@ -36,6 +36,18 @@ describes the chain builder as a vertical staged list, which is exactly what Par
 
 **Stage 3 — wiring the web UI to the core** (2026-09-21 →) is planned in `docs/WIRING_PLAN.md`; the agent prompts for it are `docs/prompts/wiring/0N-*.md`. Frontend v1 (every concept page as a working shell on fixture data) is complete: `webui/PAGES_REPORT.md`.
 
+## Talking to the researcher
+
+Any question, decision or finding put to the researcher (a grilling round, a `QUESTIONS.md` row, a report's
+summary) opens with a **plain-language explanation** of what is at stake, as if to someone new to the field,
+using an everyday analogy where one helps; then the options; then a recommendation. This is a standing request
+(2026-10-03), most of all for technical or statistical points. The detail still goes in the report; the plain
+version goes first.
+
+**Research-question files.** `docs/prompts/rq_roundA/RQ1…RQ6-*.md` track whether each of the six PRD research
+questions can be answered yet. If your work changes what one of them can do, update its file before you report
+(the rule is in `docs/prompts/rq_roundA/README.md`).
+
 ## Layout
 
 | Path | What lives there |

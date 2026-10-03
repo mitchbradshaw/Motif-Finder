@@ -1185,3 +1185,281 @@ researcher's eye, because they are findings rather than preferences:
 3. **The Slope page computed its own rose angle** — `arctan(|slope| / 0.1 mV/s)` — against the core's reference
    of 1 mV/s, so one event read about −82° there and −35° on the Sequence page and the block page. With one rose
    the page shows the core's. If 0.1 mV/s was the intended convention, change `rose_reference_mv_s` in the core.
+
+---
+
+## Round 9 — the research prompts, 2026-10-03 — open
+
+`docs/RESEARCH_READINESS.md` (research prompt 00) found that none of the six PRD questions can be answered
+in the app today, and nine prompts were written from it (`README.md`, "Stage 5 — prompts from the readiness
+pass"). Most need no decision. These do. **Each carries a recommended default, and the prompt that owns it
+takes the default if the row is still open when it runs — except `W`, which must wait for Q40.** Answer
+inline, as before.
+
+### Q35 — how many surrogate draws does a template run get? — `T`
+
+Today a template run across channels is scored against **one** phase-randomised realisation per channel
+(scoreboard *"… / 3"*), while the session chip says *"200×"* and a seeded search really draws 200. Spec §9.4
+says 200 for detection chains. Each draw costs a whole extra sweep. Options: (a) **N draws, N a Settings ›
+Nulls key per run kind, default 20 for template runs and 200 for seed searches, every surface printing the
+count that run drew**; (b) 200 everywhere, routed to SLURM past the ceiling; (c) keep 1 and make the chip
+say so. **Recommend (a).** Whatever is chosen, a chip that names a count the run did not draw is the thing
+being removed.
+
+### Q36 — the null method Settings offers — `T`
+
+Settings › Nulls names *circular shift*; `preprocessing.surrogate` implements `phase_randomize` and
+`block_shuffle`. **Recommend: the page offers what the block implements** (wiring's note: a circular shift
+is a degenerate null for a shape search). Adding the method to the block is a test and a day, if wanted.
+
+### Q37 — the multiple-comparison correction behind the recommended cut — `T`
+
+`cut_rule()` prints α = 0.01 and *"correction: none"* honestly; the Settings keys do not reach it. Options
+per §9.4: none / Holm / Benjamini–Hochberg, applied per channel. **Recommend: wire the keys, default stays
+`none`, and the sentence beside the cut is generated from the values used** — the choice itself is yours
+and can change later without touching the prompt.
+
+### Q38 — does an Analyse chain run carry a paired surrogate? — `T`
+
+The PRD says every run carries a surrogate toggle, on by default; the toolbar says *"surrogate · not in
+this slice"*. **Recommend: wire the toggle, default off in Analyse** (the tuning loop there is seconds,
+and Discovery is where a claim is made), with the terminal row reading detected-versus-surrogate when it
+is on. If you would rather Analyse stay null-free, say so and `T` makes the chip say exactly that.
+
+### Q39 — when does a seed-search match become a Library member? — `V`
+
+A `motif_member` is the identity of a motif, so an edge should not be written for a span a human has
+rejected. Options: (a) **only matches with an accepting verdict (`interesting` / `seed`), on an explicit
+*Add N matches to E-xxxx* act, with *include unjudged* as a flag that is off** (the Family page already
+marks unjudged members as a proposal, not a finding); (b) every kept match, judged or not; (c) only on
+promotion in Review. **Recommend (a).** The rejected matches keep their distance on the detection row, so
+the accepted-versus-rejected distance distribution is still a query.
+
+### Q40 — the cross-channel rule — `W` (blocking; `W` does not build until this is answered)
+
+Three parts, all measured in `W` Part 1–2 before you need to answer:
+
+- **Q40a — what is lag?** The Library's `classify_cross_channel_edges` cross-correlates two member
+  *snippets* wherever in the recording each sits; Explore's route compares the **same absolute window** on
+  two channels. Only the second measures a lag between electrodes. **Recommend: the same absolute window,
+  always**; the Library action classifies a member against its sibling channels at the member's own time.
+- **Q40b — the thresholds.** Today: artifact = |lag| ≤ 1 sample **and** r ≥ 0.99 (signed); propagation =
+  |lag| ≤ 50 samples; else independent. On a real window five zero-lag pairs at |r| 0.70–0.82, three of
+  them negative, all read *propagation*. Is a zero-lag pair at r = 0.8 contamination, propagation, or a
+  fourth thing (*common-mode*)? Is an inverted copy (r = −0.99 at lag 0) an artifact? **Recommend: |r| for
+  the artifact test, a zero-lag band from a Settings key, and a fourth bin `common_mode` for zero-lag pairs
+  under the artifact line**, each printed with its rule. The PRD's three bins stay the vocabulary on the edge;
+  the fourth is additive.
+- **Q40c — a co-occurrence with no member.** When the sibling channel has no family member at that time, is
+  the pair recorded (as an edge to nothing), counted on the family, or dropped? **Recommend: counted on the
+  family as *co-occurrence without a member*, not written as an edge.**
+
+#### Q40, measured — 2026-10-03 (W Parts 1–2, read-only; scripts, `part2_pairs.csv` and the scatter in `webui/screenshots/fixup/W/`)
+
+**Part 1, synthetic (60-sample biphasic pulse, fs 1):**
+
+| case | Explore (same absolute window) | Library (each member's own snippet) |
+|---|---|---|
+| +5 offset, no noise | lag +5, r 1.00, propagation | lag 0, r 1.00, **artifact** |
+| +5 offset, noise sd 0.02 | lag +5, r 0.95, propagation | lag 0, r 0.989, propagation |
+| +1 h, no noise | lag +299 / +3600 (window-dependent), independent | lag 0, r 1.00, **artifact** |
+
+The Library path's lag is only the difference in where the two snippets were cut — it cannot see an hour
+from a sample. It recovers +5 only when both spans are the same absolute samples, i.e. Explore's
+computation. Unequal snippet lengths are resampled to a common length (120 vs 80 → lag 0, r 0.88).
+**The propagation bin has no r floor**: a window with no event on B returned lag −26, r 0.16 → propagation.
+
+**Part 2, real:** 300 `interesting` windows on M2_aug (298 of 600 samples), each against its 15 siblings
+= **4,500 pairs**: artifact 12 · propagation 2,219 · independent 2,269.
+
+| |r| at |lag| ≤ 1 (1,517 pairs) | r > 0 | r < 0 | today's bin |
+|---|---|---|---|
+| < 0.5 | 55 | 33 | all propagation |
+| 0.5–0.7 | 183 | 174 | all propagation |
+| 0.7–0.9 | 367 | 340 | all propagation |
+| 0.9–0.99 | 202 | 146 | all propagation |
+| ≥ 0.99 | 12 | 5 | 12 artifact, 5 (the negative ones) propagation |
+
+**1,412 pairs** sit at |lag| ≤ 1 with 0.5 ≤ |r| < 0.99, every one called propagation. Lag ±1 is almost
+entirely negative r (184 of 185). Non-zero |lag| median 105 samples, max 1,377; 407 of the independent
+pairs have |lag| over half the window — possibly edge/drift effects of full-mode correlation (inferred,
+not tested). Explore's lag is in strided samples against sample thresholds — harmless at stride 1, wrong
+past 200,000-sample windows.
+
+### Q41 — the manual-label vocabulary and the window-to-verdict rule — `AA`
+
+The labels are 11,234 600-sample windows on a 200-sample stride: `interesting` 2,333 · `not_interesting`
+8,773 · `artifact` 128. Options: (a) **binary — `interesting` vs `not_interesting`, `artifact` windows
+excluded from training and counted**; (b) three classes including `artifact`; (c) the Review classes 1–9
+(none stored yet, R3). Window-to-verdict rule: exact grid match when the chain's windows are 600 s on the
+same stride; otherwise containment of the window's centre in a labelled window, as a parameter. **Recommend
+(a) and the rule as stated.**
+
+### Q42 — which classifier answers Q1, and what "generalises" means — `AB`
+
+The PRD's classifier is the CNN on encodings; the template that runs today is `catalogue.classifier`, a
+random forest on window-matrix features, local in seconds. Options: (a) **RF arms first — the paired
+comparison with the same split, baseline and null, local, this month; the CNN arm as a second job on the
+cluster once Jobs can bring a result back**; (b) CNN only, on the cluster, now. "Generalises": (i) the
+time-blocked test block within the reviewed channels; (ii) channels never trained on; (iii) the held-out
+recording, once, after the freeze. **Recommend (a) and all three of (i)–(iii) reported separately**, never
+pooled.
+
+### Q43 — which bands? — `Z`
+
+No frequency-band list exists anywhere in Settings (the `band_*` keys on Analysis defaults are artifact
+likelihood bands). `preprocessing.bandpass` defaults to 0.01–0.1 Hz. **Recommend: a Settings › Analysis
+defaults list of named bands, seeded with three log-spaced bands below Nyquist for a 1 Hz recording, each
+band naming its `low_hz`/`high_hz`**, editable, recorded in every band run's recipe. The bands themselves
+are a research choice this round cannot make for you.
+
+---
+
+## Round 9, answered 2026-10-03 (grilling session, part 1)
+
+**Q35 — A: (a).** N surrogate draws per run, N a Settings › Nulls key per run kind — **20 for template
+runs, 200 for seed searches** — and every surface prints the count that run actually drew.
+
+**Q36 — A: the page offers what the block implements** (`phase_randomize`, `block_shuffle`); *circular
+shift* is dropped. **The researcher's follow-up, and it is right for one of the two methods:** *if a motif
+sits wholly inside a piece that is merely moved, won't the detector still find it?* Yes —
+`block_shuffle` cuts the signal into blocks of `block_s` seconds and deals them in a new order, so any
+motif shorter than a block survives intact and a shape detector finds it again. **Block shuffle is a null
+for *timing and order* (trains, intervals, sequences), not for *shape*.** `phase_randomize` keeps no
+window intact: it keeps the signal's frequency content and scrambles every local shape, so it is the null
+for "would this detector fire this often on a signal with the same spectrum and no real events". So:
+**phase randomisation is the default null for every detection chain**; block shuffle stays on offer with
+that sentence beside it and `block_s` as a visible Settings value. Found in passing: `block_s` defaults to
+**1.0 s** (`preprocessing_surrogate.py`, `seeded_search.py:143`), which at 1 Hz is a one-sample block — a
+sample shuffle that destroys spectrum *and* shape, i.e. neither null. `T` must make the default a block
+length that means something (a multiple of the longest motif under test) or refuse `block_s · fs < 2`.
+
+**Q37 — A: as recommended.** Wire the keys; default `none`; the sentence beside the cut is generated from
+the values used.
+
+**Q38 — A: as recommended.** The toggle is wired, **default off in Analyse**; when on, the terminal row
+reads detected-versus-surrogate.
+
+**Q39 — A: (a).** Only accepted matches (`interesting` / `seed`), on an explicit *Add N matches to
+E-xxxx* act, *include unjudged* a flag that is off.
+
+**Q40a — A: the same absolute window, always.** The researcher's words: *two motifs on sibling channels
+that occur at time points a large amount apart can no longer be considered lag.* Measured above: the
+Library path returns lag 0 for events an hour apart.
+
+**Q40c — A: as recommended.** Counted on the family as *co-occurrence without a member*, never written as
+an edge.
+
+## Round 9, answered 2026-10-03 (grilling session, part 2)
+
+**Q40b — A: THREE bins, not four; common-mode folds into artifact.** The researcher's rule: *any events
+on different electrodes at the exact same time are artifacts; anything with lag over 1 s is more likely a
+real propagation through the mushroom* — and a sub-second propagation is out of reach at 1 Hz anyway; it
+would need a dedicated study at a higher sampling rate. So the sign of r does not rescue a simultaneous
+pair (an inverted copy at lag 0 is an artifact too); the sign is stored on the edge, not given a bin.
+Sub-points (the lag unit, an r floor, the propagation ceiling) are Round 10 below.
+
+**Q41 — A: binary, with labels from ANY human span and a containment rule** (the Q41 recommendation was
+expanded into four answers):
+- *The classes* — `interesting` (with `seed`, a subset of it) vs `not_interesting`; `artifact` excluded
+  and counted (too few to learn: 128). The researcher already has models trained this way on the
+  existing set (`MODELS/`: GADF, GASF, recurrence and fusion CNNs, and `catch22_rf_prelabeled`).
+- *Which labels* — any human-labelled span of any length (the 600-sample set, the Excel catalogue, a span
+  drawn in Review or Explore). Machine labels never enter the human store (PRD's one-way door).
+- *Matching rule* — **a window takes a label only if it wholly CONTAINS at least one labelled span, and
+  every span it wholly contains agrees.** Partially overlapped spans do not label it. The researcher's
+  reason: an `interesting` span whose event sits at its far end must not label a window that misses the
+  end. Windows containing spans that disagree are left out and counted. (Spans LONGER than the window
+  are Round 10, Q-W1.)
+- *Unlabelled is unlabelled* — time nobody labelled is never "not interesting"; excluded and counted.
+
+**Q42 — A: both arms trained identically, only the label source differs** (that the existing models are
+a reference line rather than an arm is proposed — Round 10, Q-W4). And the researcher's framing of Q1, recorded because it sharpens it: the
+NEW model is trained on **machine labels — a window-matrix dendrogram clustering at a chosen cut**, whose
+classes may be morphological (sharkfin / trough / drop / noise). Two yardsticks, **both used**:
+- **(A) the primary comparison** — cluster classes translated to the human vocabulary (sharkfin / trough
+  / drop → interesting, noise → not), both arms scored on windows neither saw, on each of exam (i) later
+  time, (ii) unseen channels, (iii) the held-out recording once after the freeze — **reported separately,
+  never pooled**. The translation table is fixed and recorded in the recipe **before** any test score
+  exists. Stated caveat: (A) is marked in the manual arm's own language, so it is tilted toward it.
+- **(B) validation** — the researcher labels a sample of windows **blind** in the cluster vocabulary;
+  this scores the cluster arm on its own terms and checks the translation table.
+- **The dendrogram cut is chosen on training windows only** (by eye, silhouette as a guide), frozen into
+  the recipe, and refused a change once a test score exists.
+- **Blind labelling in Review is LATER** (the Review-behaviour prompt, with classes R3), not `AB`.
+  **First priority is training a model.**
+
+**Q43 — A: as recommended** — a named band list in Settings › Analysis defaults, used as `Z`'s band scope
+and as every bandpass block's presets; seeded ~0.001–0.01, 0.01–0.1, 0.1–0.5 Hz; editable; recorded in
+each run's recipe. **The researcher also wants Q4 to cover wavelet decompositions** — Round 10, Q-W3.
+
+**Q-Null-1 (from Q36) — block shuffle's block length — A: as recommended.** Default twice the longest
+motif under test; refused under 2 samples; shown in Settings › Nulls.
+
+**Standing instruction from the researcher (2026-10-03):** every question put to the researcher is
+explained in simple terms first ("like I'm five"), then the options, then a recommendation. Recorded in
+`CLAUDE.md`.
+
+---
+
+## Round 10 — the 2026-10-03 grilling, part 3 — open
+
+Follow-ups from Round 9's answers, plus every older row still open. Each is asked in plain words in the
+session; the short form is here.
+
+- **Q-W1 — labels on spans longer than the window.** Under Q41's containment rule a window can only take a
+  label from a span it wholly contains, so a 60 s window can never take the label of a 600-sample span.
+  Proposed: inside a `not_interesting` span → `not_interesting` (nothing is anywhere in it); inside a longer
+  `interesting` span → unlabelled (the event could be anywhere). And RQ1's first windows sit on the labels'
+  own 600/200 grid.
+- **Q-W2 — one clustering over the pooled training windows of all training channels** (not one per channel),
+  so a cluster means the same thing everywhere.
+- **Q-W3 — a wavelet-decomposition block for RQ4.** No block turns a wavelet decomposition back into a
+  band-limited Signal. Proposed `preprocessing.wavelet_bands` (Signal → Signal, one stationary-wavelet level
+  reconstructed; `pywt` 1.8.0 is already installed), offered as a second band source on `Z`'s band scope.
+- **Q-W4 — the existing `MODELS/` as a reference line** on Results, scored on the same exams, labelled as
+  trained differently — not one of the two arms.
+- **Q-W5 — the Q40b sub-points:** lag threshold in seconds (1 s, so 10 samples at 10 Hz); an r floor below
+  which a pair is `independent` whatever its lag (0.5); propagation ceiling (50 s, a Settings key).
+- **Q-B-CHAIN** — still open (fan-out).
+- **Q26c / Q26d** — `max_recovery_frac`; whose is the sharkfin's slow rise.
+- **Rose reference** (Round 8 #3) — the core uses 1 mV/s, the old Slope page 0.1 mV/s; the thesis figures use
+  the pooled median steepest slope (`Pipelines/drop_motifs/store11.py:175`), so the median event sits at 45°.
+- **Q-L5** polar and cube plots; **Q-L6 / Q-E6** click a cluster to see its waveforms.
+
+## Round 10, answered 2026-10-03 — every row above is closed
+
+- **Q-W1 — A: as recommended, plus non-overlapping training windows.** Inside a `not_interesting` span →
+  `not_interesting`; inside a longer `interesting` span → unlabelled. RQ1's windows sit on the labels'
+  600/200 grid **but the training set is non-overlapping** (the researcher: it is better to train on
+  non-overlapping windows): of any two overlapping windows only one is kept, so the set is a stride-600
+  subset of the grid, the phase offset chosen to keep the most labelled windows, the dropped and the
+  unlabelled both counted. Owner: `AA` (the window set), used by `AB`.
+- **Q-W2 — A: as recommended.** One clustering over the pooled training windows of every training channel.
+  The researcher's note: what is specific to the training data is the **mushroom** — training and exams (i)
+  and (ii) are one organism; exam (iii), the held-out `M4`, is a different one. Owner: `AB`.
+- **Q-W3 — A: yes, its own prompt** (`AC-wavelet-bands.md`). The decomposition yields several signals; the
+  block's parameter chooses **which level goes on down the chain**, and its view shows every level. In
+  `Z`'s band scope a wavelet level is a band.
+- **Q-W4 — A: as recommended.** The existing `MODELS/` are a reference line on Results, not an arm.
+- **Q-W5 — A: as recommended.** Lag in seconds; artifact |lag| ≤ 1 s and |r| ≥ 0.5 (either sign);
+  propagation 1 s < |lag| ≤ 50 s and |r| ≥ 0.5; independent otherwise; all three numbers Settings keys.
+  Owner: `W`.
+- **Q-B-CHAIN — A: out of scope.** Branching chains is a new capability; one chain per intent, the step cache
+  makes shared steps free. Revisit with **multivariate analysis** after the first research-question results
+  (`docs/prompts/rq_roundB/`).
+- **Q26d — A: the researcher's reading** — a sharkfin's slow rise is the previous event's recovery. Built in
+  `future/N-event-extent.md` after the fixups (it re-hashes Library rows); until then RQ3 prefers troughs.
+- **Q26c — A: yes**, `max_recovery_frac` stored beside `recovery_time_s` — `future/P-persist-recovery-index.md`.
+- **Rose reference — A: the thesis rule, restricted to accepted motifs.** The 45° slope is the median
+  steepest slope over **human-reviewed, accepted** Library motifs (so sharp noise and artifacts do not skew
+  it), computed once and printed on every rose. Until enough accepted motifs exist the rose says which
+  population its reference came from. Owner: the Library prompt (unwritten).
+- **Q-L5 — A: dropped for this stage**; maybe research round B.
+- **Q-L6 / Q-E6 — A: as recommended.** A click opens the cluster's members in place in the `H` slideshow,
+  with *Open family page →*. Owner: the Library prompt (unwritten).
+
+**The researcher's plan for after the fixups (2026-10-03):** about **18 research questions over about three
+rounds** (A, B, C), each answered with the website *as it currently stands*, each round developing what
+the site can do. Round A is the six PRD questions (`docs/prompts/rq_roundA/`); round B's notes are in
+`docs/prompts/rq_roundB/`.

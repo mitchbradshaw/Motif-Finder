@@ -36,3 +36,8 @@ A channel-absolute recovery boundary stored beside the content hash, or a docume
 recovering it. Additive, through `init_db()`. The hard part is not the column — it is deciding what a
 recovery boundary *means* for a morphology that never returns, which is Q26, and which is the
 researcher's call.
+
+
+## Decided 2026-10-03 (`QUESTIONS.md` Round 10, Q26c)
+
+**Store `max_recovery_frac` beside `recovery_time_s`** — how far back up the event got, as a fraction of its depth, even when it never reached the recovery level. It makes a null self-explaining: 0.007 means it never moved, 0.48 means the recording window ran out. Measure recovery on the parent trace to the next onset (`QUESTIONS.md` "Q26, REVISED"), not to the end of the stored snippet.

@@ -82,3 +82,8 @@ Two findings to carry with it:
 - **`trough_idx` is not the bottom of the excursion** — the trace keeps drifting down after it (a median
   −0.04 of depth by the quarter point, p10 −0.36). It marks the end of the fast fall. That affects
   `drop_depth_mv` and where a recovery clock starts.
+
+
+## Decided 2026-10-03 (`QUESTIONS.md` Round 10, Q26d)
+
+**The researcher's reading wins:** a sharkfin's slow rise is the **previous** event's recovery, not the next event's precursor. Build it after the fixups. It re-hashes Library rows, so it is an `M`-class migration with a backup first. Until then, RQ3 prefers trough families.

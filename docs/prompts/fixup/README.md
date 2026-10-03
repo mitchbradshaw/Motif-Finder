@@ -18,6 +18,9 @@ both reported.** `H` came out of the Round 7 grilling (`QUESTIONS.md`), which pr
 implements; it ran through without opening a Round 8, and the three findings it made along the way are recorded
 there under that heading.
 
+**The readiness pass of 2026-10-02 produced the nine Stage 5 prompts below** (`L`, `T`, `V`, `W`, `X`, `Y`,
+`Z`, `AA`, `AB`), none run yet.
+
 **Everything that grilling found and could not scope is written down** in `future/` — seven stubs,
 each carrying its evidence, so none of it has to be rediscovered.
 
@@ -53,6 +56,48 @@ need FastAPI and run only under `webui/.venv`.
 | `08-library.md` | Recurrence, Atlas, Family, Edit grouping, Import, Window sets, Templates |
 | `09-jobs.md` | All jobs, Paused run, Upload and continue, Cluster job |
 | `10-settings.md` | the sixteen settings pages — S1 is `F`'s |
+
+## Stage 5 — prompts from the readiness pass (written 2026-10-03, none run)
+
+Research prompt 00 (`docs/prompts/research/00-six-questions-readiness.md` → `docs/RESEARCH_READINESS.md`)
+drove the app on real data and found that **none of the six PRD questions can be answered in it today**.
+Nine prompts were written from that report. Three fix seams that several questions share; six are keyed
+to one question each. Their decisions are `QUESTIONS.md` **Round 9 and Round 10, all answered in the 2026-10-03
+grilling** and copied into each prompt's *Decided* section; a tenth prompt, `AC`, came out of it. The explicit per-question walk the
+researcher follows once they land is `docs/RESEARCH_RUNBOOK.md`.
+
+| File | Unblocks | Runs after | One line |
+|---|---|---|---|
+| `L-send-to-review-opens-a-queue.md` | Q2, Q4, Q5 | — (**first**) | **run and reported 2026-10-03** (`reports/L-send-to-review-opens-a-queue.md`). *Send N unjudged to Review* makes a `review_queues` row filtered by the run ids the Discovery run is made of (a queue over run group 7 would have carried 249 surrogate detections beside 74 real); *Open Review* opens that queue; a second send returns it; the chain footer's *Pass N to Review* shares the slideshow's hook; the descriptor and `GET /api/discovery/queues` are gone. **Found:** a verdict Review writes on the run's own detection moves neither *already judged* (pre-run by definition) nor *interesting* (annotations only) — handed to `X` with *precision means what it says*. *As written:* Discovery's *Send N unjudged to Review* writes a descriptor and no `review_queues` row; *Open Review* lands on another queue. Also the Analyse footer's *Pass N to Review*. The queue must filter by **run ids**, because a run group holds the paired surrogates' detections too |
+| `T-surrogates-one-null-never-a-detection.md` | all | `L`; **alone** | Surrogate runs' detections are counted as detections by Explore, Review and the divergence queries (30 of 1,205 in the real database); a template run is scored against one draw while the chip says 200×; Settings offers a null method the block lacks; α and the correction never reach the cut. Q35–Q38 |
+| `Y-seed-sources.md` | Q2 | `L` | The seed picker is the first 24 Library entries; *Explore selection* is empty because Explore's *Take span for Review* is a demo write; a promoted exemplar cannot be chosen; four Seed-page defects |
+| `V-library-edges-and-scale.md` | Q3 (and `W`) | `L`, `Y` | `motif_edge` has 0 rows and no route writes one. Matches resolve onto members with an edge per distance function; the scale bank is built; the Family page shows edges and the scale read-out. Explains what an edge is. Q39 |
+| `W-cross-channel-onto-edges.md` | Q6 | `V`; **waits for Q40** | Classification reaches an edge; the Library function compares snippets, not simultaneous windows — measure first; recurrence counted with the bins taken out |
+| `X-divergence-read-properly.md` | Q5 | `L`, `T` | Explore's *disagree* ignores verdict and coverage; Q-D2's two-number rule (answered 2026-09-23) was never built; the two core divergence queries have no caller; a breakdown by channel, time and morphology |
+| `Z-band-scope-and-compare-by-verdict.md` | Q4 | `L` | A band scope on *Apply template* (the core's band fan-out has no caller); Compare takes a set of runs as one side; set overlap split by verdict and *Send only-B unjudged to Review*. Q43 |
+| `AA-manual-labels-and-window-sets.md` | Q1 (1 of 2) | — | No block reads a human label; `catalogue.manual_labels` (`WindowSet → Grouping`); *Save window set* on every WindowSet row (`window_sets` has 0 rows); the window-matrix artifact name collides with its own surrogate's. Q41 |
+| `AC-wavelet-bands.md` | Q4 | `Z` | Written 2026-10-03 from Q-W3: `preprocessing.wavelet_bands` (stationary wavelet transform, Signal → Signal, the user picks which level goes on), its every-layer view, and a wavelet kind in `Z`'s band scope |
+| `AB-models-paired-job.md` | Q1 (2 of 2) | `AA`; may split in three | A paired training job in the core (two label arms, blocked split, RF baseline, label-shuffle null, paired difference) and Models › Launch / Results / Compare reading it; the SLURM script the bridge writes bakes Windows paths. Q42 |
+
+**Every Stage 5 prompt also updates its research question's file** in `docs/prompts/rq_roundA/` (`L`/`Y` → RQ2,
+`V` → RQ3, `Z` → RQ4, `X` → RQ5, `W` → RQ6, `AA`/`AB` → RQ1, `T` → all), per that folder's README.
+
+**Waves — what can run now (2026-10-03).** Two at a time, never more; each prompt carries a *Running in
+parallel* section naming its partner and the file split.
+
+| wave | prompts | why together |
+|---|---|---|
+| **1 — now** | **`AA` ∥ `Y`** | disjoint (Analyse/training core vs Discovery seed + Explore); the researcher's first priority is a trained model, so `AA` starts now |
+| 2 | `AB` ∥ `Z` | `AB` needs `AA`; `Z` needs only `L`. Share `discovery.py` — `AB` the `/slurm` writer only |
+| 3 | `T` **alone** | cross-cutting; touches every count |
+| 4 | `V` ∥ `X` | `V` needs `Y` (and `T` for true nulls); `X` needs `T`. Share `RunsPage.tsx` — separate components |
+| 5 | `W` ∥ `AC` | `W` needs `V`'s edges; `AC` needs `Z`'s band scope |
+
+**Order and parallelism (as first written).** Two independent lines: the Discovery/Library line `L` → (`Y` ∥ `Z`) → `T`
+(alone) → (`V` ∥ `X`) → `W`; and the Q1 line `AA` → `AB`, which touches Adapters, `training_routes.py` and
+the Models tree and can run beside any of the others under the two-prompt rules below. `L` is a day;
+`AB` is the largest and should start early. Each prompt names its own owned files and what it leaves to
+its neighbours.
 
 ## Running two prompts at once
 
@@ -147,7 +192,8 @@ cover 53 % of the labelled time and hit 91 % of *interesting* windows against 86
 interesting* ones. Whether to tune `epsilon_factor` / `min_separation_s` / `window_s` is a later
 research question, not a fixup.
 
-Also open and blocking nothing written: **Q-B-CHAIN** (fan-out), **U4** (fine span adjustment),
+**Q-B-CHAIN** is out of scope (2026-10-03) and parked in `docs/prompts/rq_roundB/` with multivariate analysis.
+Also open and blocking nothing written: **U4** (fine span adjustment),
 **U12** (the phantom Ctrl-C, undiagnosed), **U13** (global search unwired).
 
 ## Recorded for later, not scoped
@@ -166,8 +212,8 @@ Not prompts yet, in rough order of how much friction each removes:
 
 | | why it is not written |
 |---|---|
-| **Review behaviour** — `07` R3 (a class 1/2/3/4/9 is never stored), R4 (no extract-events editor), R7 (a rediscovery can be put twice), R8's "sorted by score" wording, R16 coherence | Needs Q-R1…Q-R4 answered. R3 and R7 are the two that cost the researcher real time |
-| **Library** — the filters Q21/Q22 settled (noise floor as a view filter, `fall_duration_s` not `scale_band`, `is_pure`), the window-sets unblock, `RULE_VERSION` and the `rise_time_s` backfill | The decisions are made; nobody has written the prompt |
+| **Review behaviour** — `07` R3 (a class 1/2/3/4/9 is never stored), R7 (a rediscovery can be put twice — carry the prior verdict), R8's "sorted by score" wording, R16 coherence; **plus the blind-labelling mode for RQ1's yardstick (B)** (Q42: hides the model's guess, the cluster vocabulary as buttons). R4's extract-events editor is its own later prompt (Q16) | Decided (Q16, Q42); nobody has written the prompt. R3 and R7 are the two that cost the researcher real time |
+| **Library** — the filters Q21/Q22 settled (noise floor as a view filter, `fall_duration_s` not `scale_band`, `is_pure`), `RULE_VERSION` and the `rise_time_s` backfill; **click a cluster → its members in place in the `H` slideshow** (Q-L6/Q-E6); **the rose reference = the median steepest slope over human-accepted Library motifs, printed on every rose** (Round 10) | The decisions are made; nobody has written the prompt. Q-L5 (polar / cube plots) is dropped for this stage |
 | **Jobs, Models, Training** | Still fixture pages wearing the `demo data` chip. `F` noted their labels must come from `corpus.dataset_name` when they are wired |
 | **`I`** — U4, Explore's fine span adjustment | Small and self-contained |
 | **U13** global search; **U12** the phantom Ctrl-C | U13 needs a design; U12 needs reproduction, not a guess |
