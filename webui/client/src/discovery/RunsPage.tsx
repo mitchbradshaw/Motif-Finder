@@ -240,7 +240,7 @@ function Scoreboard({ dx }: { dx: Discovery }) {
     {/* "null expects 3" is unreadable without the draw count it is over, and
         the server sends one on every row. Without it a 50-draw null and a
         single-draw null print the same number and mean different things. */}
-    <td data-testid="score-null">{row.nullRun === false ? <span className="muted">no null run</span> : <>{row.nullExpects}{row.nullDraws ? <span className="muted small" data-testid="score-null-draws" title="the mean count over this many surrogate draws per channel — the count this run drew"> / {row.nullDraws}{row.nullDrawsMax && row.nullDrawsMax !== row.nullDraws ? `–${row.nullDrawsMax}` : ''} {row.nullDraws === 1 && !row.nullDrawsMax ? 'draw' : 'draws'}</span> : null}</>}</td>
+    <td data-testid="score-null">{row.nullRun === false ? <span className="muted">no null run</span> : <>{row.nullExpects}{row.nullDraws ? <span className="muted small" data-testid="score-null-draws" title="the mean count over this many surrogate draws per channel — the count this run drew"> / {row.nullDraws}{row.nullDrawsMax && row.nullDrawsMax !== row.nullDraws ? `–${row.nullDrawsMax}` : ''} {row.nullDraws === 1 && (row.nullDrawsMax ?? 1) === 1 ? 'draw' : 'draws'}</span> : null}</>}</td>
     <td data-testid="score-xnull">{row.xNull == null
       ? <span className="muted">{row.xNullNote ?? '—'}</span>
       : <>{`${row.xNull.toFixed(1)}×`}{row.xNullNote && <InfoTip title="× null">{row.xNullNote}</InfoTip>}</>}</td>

@@ -68,7 +68,7 @@ export function SurrogateToggle() {
 export function nullText(n: RunNull | null | undefined): string {
   if (!n || !n.null_draws) return n?.skipped ? `no null · ${n.skipped}` : 'no null · the surrogate toggle was off'
   const exp = n.null_expects ?? 0
-  const expects = Number.isInteger(exp) ? String(exp) : exp.toFixed(1)
+  const expects = Number.isInteger(exp) ? String(exp) : exp.toFixed(exp < 10 ? 2 : 1)   // 0.05 must not read 0.1 beside a 160×
   const ratio = n.x_null != null ? `${n.x_null.toFixed(1)}× null` : 'the null found nothing'
   const short = n.asked && n.null_draws < n.asked ? ` of ${n.asked} asked` : ''
   return `detected ${n.found} · null expects ${expects} over ${n.null_draws}${short} ${(n.method ?? 'surrogate').replace('_', ' ')} draw${n.null_draws === 1 ? '' : 's'} · ${ratio}`

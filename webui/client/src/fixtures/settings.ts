@@ -321,8 +321,10 @@ export interface NullKind { id: string; kind: string; used_in: string; methods: 
 export const NULL_KINDS: NullKind[] = [
   /* fixup-T (Q35, Q36): the two surrogate-backed kinds offer exactly `preprocessing.surrogate`'s methods — the
      live page replaces these two lists with the block's own (GET /api/settings/nulls `null_methods`), so it
-     cannot name a third — and a detection chain draws 20, because each draw is the whole sweep again. */
-  { id: 'detection', kind: 'Detection chains', used_in: 'Analyse · Discovery', methods: ['phase_randomize', 'block_shuffle'], draws: 20, seed: 'per recipe', shown_as: 'null expects · × null', p_value: true },
+     cannot name a third — and a detection chain draws 20, because each draw is the whole sweep again.
+     A detection chain's null is shown as a COUNT and a ratio (null expects · × null), never a p, so its 20
+     draws do not bound α; the seed search's 200 do (its recommended cut is computed at α). */
+  { id: 'detection', kind: 'Detection chains', used_in: 'Analyse · Discovery', methods: ['phase_randomize', 'block_shuffle'], draws: 20, seed: 'per recipe', shown_as: 'null expects · × null', p_value: false },
   { id: 'seed-search', kind: 'Seed search', used_in: 'Discovery', methods: ['phase_randomize', 'block_shuffle'], draws: 200, seed: 'per recipe', shown_as: 'distances behind the histogram', p_value: true },
   { id: 'distributions', kind: 'Interrogation · distributions', used_in: 'Analyse', methods: ['matched random windows', 'random windows'], draws: 200, seed: 'per recipe', shown_as: 'null histogram · null β', p_value: true },
   { id: 'intervals', kind: 'Interrogation · intervals', used_in: 'Analyse', methods: ['shuffled onsets', 'Poisson onsets'], draws: 200, seed: 'per recipe', shown_as: 'null interval distribution', p_value: true },

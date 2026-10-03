@@ -2225,15 +2225,24 @@ def post_slurm(request: Request, body: PlanBody):
             else os.path.join(REPO_ROOT, "HPC", "Detection", "generated")
         os.makedirs(out_dir, exist_ok=True)
         base = f"{name}_{plan['n_channels']}ch_{int(span[0])}-{int(span[1])}"
+        # The array job runs the REAL chain per channel and nothing else: `job_export` has no
+        # paired-null task. So the wall time it asks for is the real sweep's, not the
+        # (1 + draws) figure that routed the run here, and the response says the null is
+        # not in the script rather than letting the page imply it is (fixup-T; left open).
+        real_s = plan.get("estimate_real_s") if plan.get("estimate_real_s") is not None else plan["estimate_s"]
         res = export_job(plan["recipe"], out_dir=out_dir, base_name=base, job_name=base,
-                         est_seconds=plan["estimate_s"])
+                         est_seconds=real_s)
+        draws = (plan.get("null") or {}).get("draws") or 0
+        null_note = (f"this script runs the real chain only — the {draws} paired null draws per channel that "
+                     f"routed the run past the local ceiling are not in it" if draws else None)
         script = ""
         if os.path.isfile(res["script_path"]):
             with open(res["script_path"], encoding="utf-8") as f:
                 script = f.read()
         return {**res, "script": script, "route": plan["route"], "estimate_s": plan["estimate_s"],
+                "estimate_real_s": real_s, "nullNote": null_note,
                 "ceiling_s": plan["ceiling_s"], "channels": plan["channels"],
-                "note": request.app.state.rt.banner()}
+                "note": request.app.state.rt.banner() + (f" · {null_note}" if null_note else "")}
     finally:
         c.close()
 

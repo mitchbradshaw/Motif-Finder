@@ -454,7 +454,7 @@ export function ChainPage() {
           <span className={`chip ${term.kind}`} data-testid="footer-terminal" title="spec §6.1: the terminal type decides what the chain is">{term.chip}</span>
           <div style={{ minWidth: 0 }}>
             <div className="head" data-testid="footer-headline">{headline}</div>
-            <div className="sub">{sub}</div>
+            <div className="sub" data-testid="footer-sub">{sub}</div>
           </div>
           <div className="acts">
             <button className="btn" onClick={doExport} disabled={job?.status !== 'completed'} data-testid="export-run" title={job?.status === 'completed' ? 'write a JSON report of this run' : 'needs a completed run'}>⤒ Export run</button>
