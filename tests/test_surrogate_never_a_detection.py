@@ -183,6 +183,7 @@ REASONED = {
     "Working/database/schema.py": "migrations rewrite rows of every run, null or not",
     "Working/discovery/scoreboard.py": "the scoreboard is the reader that WANTS the null's count",
     "Working/discovery/fanout.py": "counts per explicitly-named real run (members filtered above it)",
+    "Working/run_groups.py": "the null's own module: sizes a block by one named real run and counts a run's draws",
     "webui/server/jobs.py": "one job's own run id",
     "webui/server/review.py": "the held-out refusal looks a detection up by id and must see every row to refuse it",
 }
