@@ -32,6 +32,9 @@ that find things the plain, un-split signal hides? You check the extra finds by 
   - Counts stored before the fix keep their old draw. **Re-run the band runs once with *force* before reading them.**
   - The fixed seed picks one answer, not the right one. A seed sweep (`random_state=` from a script) measures how
     sensitive a count is to it.
+  - `detection.sax_csax` had the same defect in its Mean-Shift (6 strings from 8 runs on CH1_A1 80–84 h) and now uses
+    the same fixed seed (fixup-csax-seed, `docs/prompts/fixup/reports/csax-seed-meanshift.md`). Its **alphabet size is
+    seed-sensitive** there: 3–6 letters over 32 seeds, 4 in 24. Seed-sweep any finding that leans on it.
 
 ## Decisions already made
 
@@ -72,3 +75,4 @@ None.
 
 - 2026-10-03 · grilling · file created; Q43 and Q-W3 recorded; `AC` written.
 - 2026-10-03 · fixup-dsax-seed · learned dSAX / pSAX seeded by a fixed constant: one recipe, one span set; stored counts need one forced re-run
+- 2026-10-03 · fixup-csax-seed · cSAX's Mean-Shift seeded by the same constant: one recipe, one string; its alphabet size is seed-sensitive (3–6 over 32 seeds)
