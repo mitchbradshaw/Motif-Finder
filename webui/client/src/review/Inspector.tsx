@@ -17,7 +17,7 @@ import {
 } from './parts'
 import { Loading, NotFound, previousLines } from './common'
 import {
-  VERDICT_LABEL, amendWrite, applyWrite, clearWriteError, commitRedo, commitUndo, commitWrite, effective, getRecords, getWriteError, key, lastLive, mintExemplar, nextRedo,
+  VERDICT_LABEL, amendWrite, applyWrite, clearWriteError, commitRedo, commitUndo, commitWrite, effective, getRecords, getWriteError, key, lastLive, nextRedo,
   patchRecord, rawRecord, releaseExemplar, resend, useAutoAdvance, useDrafts, usePad, useRecords, useReviewVersion, useStack, useWriteError, type Draft, type VerdictRecord,
 } from './store'
 
@@ -87,20 +87,23 @@ function InspectorItem({ data, row }: { data: QueueData; row: QueueRow }) {
   async function write(v: Verdict, className: string | undefined, kind: 'verdict' | 'class' | 'promotion', opts: { advance: boolean; flash?: boolean }): Promise<VerdictRecord | null> {
     const before = rawRecord(q, id)
     const next: VerdictRecord = { verdict: v, className, blind, at: Date.now(), tags: draft.tags, note: draft.note }
-    const minted = v === 'seed' && !rec?.exemplarId
-    if (v === 'seed') { next.exemplarId = rec?.exemplarId ?? mintExemplar(); next.family = d?.nearest?.[0] && d.nearest[0].d <= 0.3 ? d.nearest[0].id : null }
+    if (v === 'seed') { next.exemplarId = rec?.exemplarId; next.entryId = rec?.entryId; next.memberId = rec?.memberId; next.family = d?.nearest?.[0] && d.nearest[0].d <= 0.3 ? d.nearest[0].id : null }
     const note = draft.note.trim() || undefined
     // the Annotate card's tags go to the database with the verdict, through
     // whatever table the queue's `writes_to` names (fixup-a item 9)
     const tags = draft.tags.length ? draft.tags : undefined
-    const send = () => v === 'seed' ? postPromote(q, id, 'seed', { note, tags }) : postVerdict(q, id, v, { note, tags })
+    /* fixup-y: the exemplar is named by what was WRITTEN — the bridge's `entry_id` — and is filled in before
+     * the write joins the session stack. It was minted here ("E-0217") while the row was motif_entry 3609. */
+    const send = () => v === 'seed'
+      ? postPromote(q, id, 'seed', { note, tags }).then(ack => {
+        if (ack.entry_id != null) { next.entryId = ack.entry_id; next.memberId = ack.member_id; next.entryCreated = ack.created; next.exemplarId = `entry ${ack.entry_id}` }
+        return ack
+      })
+      : postVerdict(q, id, v, { note, tags })
     const w = await commitWrite(send, { queueId: q, items: [id], kind, verdict: v, className, label: `${id} · ${VERDICT_LABEL[v]}`, before: { [k]: before }, after: { [k]: next } })
-    if (!w) { if (minted && next.exemplarId) releaseExemplar(next.exemplarId); refused(); return null }
-    if (v === 'seed') {
-      // P21: the seed verdict itself creates the Library exemplar; the panel only chooses its family
-      if (minted) recordDemoWrite('library', 'exemplar.create', { id: next.exemplarId, from: `${q}/${id}`, family: next.family, recording: row.recording, channel: row.channel, span_h: [row.startH, +(row.startH + row.durationS / 3600).toFixed(4)], blind })
-      return next
-    }
+    if (!w) { refused(); return null }
+    // P21: the seed verdict itself creates the Library exemplar (the bridge wrote it); the panel only chooses its family
+    if (v === 'seed') return next
     if (opts.flash !== false) { setFlash(v); later(() => setFlash(null), ADVANCE_MS) }
     if (opts.advance && auto) later(advance, ADVANCE_MS)
     return next
@@ -113,7 +116,9 @@ function InspectorItem({ data, row }: { data: QueueData; row: QueueRow }) {
     if (!next) return
     if (v === 'seed') {
       setQuery({ state: 'promoted' }, true)
-      say(`seed · exemplar ${next.exemplarId} created in the Library · auto-advance paused`)
+      say(next.entryId == null ? 'seed · written, but the bridge named no Library entry · auto-advance paused'
+        : next.entryCreated === false ? `seed · already in the Library as entry ${next.entryId} · auto-advance paused`
+          : `seed · Library entry ${next.entryId} created · auto-advance paused`)
     }
   }
 
@@ -288,7 +293,10 @@ function metaLine(d: ItemDetail, narrow: boolean) {
   const h = (x: number) => x.toFixed(3)
   const base = [e.recording, e.channel, `${h(e.startH)} → ${h(endH)} h`, `${e.durationS.toFixed(1)} s`]
   if (e.unit === 'human span') return [...base, 'annotation, taken for Review'].join(' · ')
-  if (q.source === 'seed-search') return [...base, `run ${q.runId} seed search, exemplar ${q.exemplar}`, `match d ${e.d?.toFixed(2)}`].join(' · ')
+  // a clause is printed only when there is something in it: a Discovery seed run's queue read
+  // "run undefined seed search, exemplar undefined · match d undefined" (fixup-y)
+  if (q.source === 'seed-search') return [...base, ['seed search', q.runId ? `run ${q.runId}` : null, q.exemplar ? `exemplar ${q.exemplar}` : null].filter(Boolean).join(' · '),
+    e.d != null ? `match d ${e.d.toFixed(2)}` : null].filter(Boolean).join(' · ')
   /* Neither clause is printed unless there is something to print. This read
    * `run undefined · rank undefined of 30 by score` on every item (fixup-a
    * item 7) — and the ordering claim is gone with it: the resolver orders by

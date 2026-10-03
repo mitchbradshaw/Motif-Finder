@@ -16,7 +16,7 @@ import { goUnit, nextUnjudgedAfter, relTime, step, type UnitRef } from './queue'
 import { AnnotateCard, ArtifactPill, ContextCard, EvidenceRail, Pill, PromotionPanel, VerdictCard, editInExplore, useNow, type PreviousLine } from './parts'
 import { Loading, NotFound, previousLines } from './common'
 import {
-  VERDICT_LABEL, amendWrite, clearWriteError, commitRedo, commitUndo, commitWrite, effective, getRecords, getWriteError, key, lastLive, mintExemplar, nextRedo, patchRecord,
+  VERDICT_LABEL, amendWrite, clearWriteError, commitRedo, commitUndo, commitWrite, effective, getRecords, getWriteError, key, lastLive, nextRedo, patchRecord,
   rawRecord, releaseExemplar, resend, seedUndoneBatch, useAutoAdvance, useDrafts, usePad, useRecords, useReviewVersion, useStack, useWriteError, writeLabel,
   type Draft, type SessionWrite, type VerdictRecord,
 } from './store'
@@ -127,16 +127,15 @@ function ClusterInner({ data, no }: { data: QueueData; no: number }) {
     const seedId = v === 'seed' ? (targets.find(r => r.id === cl.nearestMember) ?? targets[0]).id : null
     const before: Record<string, VerdictRecord | null | undefined> = {}
     const after: Record<string, VerdictRecord> = {}
-    let exemplar: string | undefined
     for (const r of targets) {
       const k = key(q, r.id)
       before[k] = rawRecord(q, r.id)
       const prev = effective(getRecords(), r)
       const rv: Verdict = v === 'seed' ? (r.id === seedId ? 'seed' : 'interesting') : v
       after[k] = { verdict: rv, className: className ?? prev?.className, blind, at: Date.now(), tags: draft.tags, note: draft.note }
-      if (r.id === seedId) { exemplar = mintExemplar(); after[k].exemplarId = exemplar; after[k].family = cl.family.d <= 0.3 ? cl.family.id : null }
+      if (r.id === seedId) after[k].family = cl.family.d <= 0.3 ? cl.family.id : null
     }
-    const label = v === 'seed' ? `Cluster ${no} · seed ${exemplar} + ${targets.length - 1} × interesting` : className ? `Cluster ${no} · ${targets.length} × ${className} (class)` : `Cluster ${no} · ${targets.length} × ${VERDICT_LABEL[v]}`
+    const label = v === 'seed' ? `Cluster ${no} · seed ${seedId} + ${targets.length - 1} × interesting` : className ? `Cluster ${no} · ${targets.length} × ${className} (class)` : `Cluster ${no} · ${targets.length} × ${VERDICT_LABEL[v]}`
     const ids = targets.map(r => r.id)
     const note = draft.note.trim() || undefined
     // the Annotate card's tags reach the database with the gesture (fixup-a
@@ -148,7 +147,9 @@ function ClusterInner({ data, no }: { data: QueueData; no: number }) {
       if (seedId) {
         const rest = ids.filter(i => i !== seedId)
         if (rest.length) await postBatch(q, rest, 'interesting', { note, tags })
-        await postPromote(q, seedId, 'seed', { note, tags })
+        // fixup-y: the exemplar is the row the bridge wrote, not a minted "E-0217"
+        const ack = await postPromote(q, seedId, 'seed', { note, tags })
+        if (ack.entry_id != null) Object.assign(after[key(q, seedId)], { entryId: ack.entry_id, memberId: ack.member_id, entryCreated: ack.created, exemplarId: `entry ${ack.entry_id}` })
         return
       }
       if (wholeCluster && !tags && (v === 'interesting' || v === 'not_interesting')) {
@@ -158,12 +159,12 @@ function ClusterInner({ data, no }: { data: QueueData; no: number }) {
       await postBatch(q, ids, v, { note, tags })
     }
     const w = await commitWrite(send, { queueId: q, items: ids, kind: 'batch', clusterNo: no, verdict: v, className, count: targets.length, label, before, after })
-    if (!w) { if (exemplar) releaseExemplar(exemplar); refused(); return false }
-    if (seedId && exemplar) { const r = data.rows.find(x => x.id === seedId)!; recordDemoWrite('library', 'exemplar.create', { id: exemplar, from: `${q}/${seedId}`, cluster: no, family: after[key(q, seedId)].family, recording: r.recording, channel: r.channel, span_h: [r.startH, +(r.startH + r.durationS / 3600).toFixed(4)], blind }) }
+    if (!w) { refused(); return false }
+    const exemplar = seedId ? after[key(q, seedId)].exemplarId ?? 'no Library entry named' : undefined
     if (undoneBanner) setQuery({ state: null }, true)
     if (v === 'seed') {
       setQuery({ state: 'promoted' }, true)
-      say(targets.length > 1 ? `seed promotes one exemplar (${seedId} → ${exemplar}); ${targets.length - 1} others marked interesting` : `seed · exemplar ${exemplar} created in the Library`)
+      say(targets.length > 1 ? `seed promotes one exemplar (${seedId} → Library ${exemplar}); ${targets.length - 1} others marked interesting` : `seed · Library ${exemplar} written`)
       return true
     }
     // the batch writes member by member; auto-advance waits for the whole batch (§10.5)

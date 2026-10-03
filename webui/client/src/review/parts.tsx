@@ -6,6 +6,7 @@ import {
   Button, Callout, Chip, DisabledReason, Icon, IconButton, InfoTip, Kbd, Legend, MiniTrace, Pager, Popover, Seg, TextField, Toggle, Trace, cx, fmtInt, useDemoState, useQueryState, type IconName,
 } from '../kit'
 import { useSourced } from '../api/seam'
+import { getSeedPage } from '../api/discovery'
 import { VOCABULARY, getOtherChannels, useTagVocabulary, type ArtifactFactors, type ItemDetail, type NearestFamily, type QueueRow, type TimeTrace, type Verdict } from '../api/review'
 import { drawable, sliceContext } from './axis'
 import { baselinePeak, centreTrace, measuredDomain, referenceScale } from '../charts/domain'
@@ -429,7 +430,7 @@ export function PromotionPanel({ d, rec, onUndo, onConfirm, confirmRef }: { d: I
   return (
     <section className="rv-card rv-promo" data-testid="promotion-panel">
       <div className="rv-card-head">
-        <Icon name="library" size={15} /><h3>Promoted to Library</h3><Chip size="sm" tone="green">exemplar {rec.exemplarId}</Chip>
+        <Icon name="library" size={15} /><h3>Promoted to Library</h3><Chip size="sm" tone="green" testid="promo-entry">{rec.exemplarId ?? 'no Library entry named'}</Chip>
         <span className="grow" /><span className="mono muted sm">seed verdict · {relTimeShort(rec.at)}</span>
       </div>
       <div className="rv-promo-body">
@@ -439,16 +440,37 @@ export function PromotionPanel({ d, rec, onUndo, onConfirm, confirmRef }: { d: I
           {opt('none', 'no family yet', 'promo-family-none')}
         </div>
         {choice === 'new' && <div className="row"><TextField value={name} onChange={setName} placeholder="F-12 · name" width={220} size="sm" invalid={!!nameErr} testid="promo-family-name" ariaLabel="family name" autoFocus />{nameErr && <span className="mono sm rv-red">{nameErr}</span>}</div>}
-        <div className="mono sm muted row"><Icon name="link" size={13} /> keeps span, recording, channel, content hash and the run's recipe hash</div>
+        <div className="mono sm muted row"><Icon name="link" size={13} /> keeps span, recording, channel, content hash and the run's recipe hash{rec.entryCreated === false ? ' · this shape was already in the Library, so it joined that entry' : ''}</div>
         <Callout tone="amber" icon="pause">auto-advance paused until you confirm · Enter confirms and moves on</Callout>
+        <div className="row wrap" style={{ gap: 12 }}><PromotedEntryLinks rec={rec} /></div>
         <div className="row">
           <Button icon="undo" onClick={onUndo} testid="promo-undo">Undo promotion</Button><Kbd size="sm">Ctrl Z</Kbd>
           <span className="grow" />
-          <Button variant="link" onClick={() => navigate(choice === 'nearest' ? `library/family/${nearest.id}?exemplar=${rec.exemplarId}` : 'library/atlas')} testid="promo-open-library">Open in Library</Button>
           <Button variant="primary" icon="check" onClick={confirm} disabled={!!nameErr} disabledReason={nameErr ?? undefined} testid="promo-confirm">Confirm and next</Button>
         </div>
       </div>
     </section>
+  )
+}
+/** fixup-y: the two ways on from a promotion, both about the entry that was WRITTEN. *Open in Library* opens
+ *  the family that holds it in the current grouping, with its member selected — it opened the panel's own
+ *  family choice with a minted exemplar id no page knew. A freshly written entry is in no family until the
+ *  next regroup, and the button says so rather than opening the Atlas. *Seed search in Discovery →* (§8.5,
+ *  wiring `05-review.md` §12 item 5) opens the Seed page with this entry as the seed. */
+function PromotedEntryLinks({ rec }: { rec: VerdictRecord }) {
+  const entryId = rec.entryId ?? null
+  const found = useSourced(() => entryId == null ? Promise.resolve({ data: null, source: 'live' as const }) : getSeedPage({ source: 'library', entry: entryId, limit: 1 }), [entryId])
+  const family = found.data?.seeds[0]?.family ?? null
+  const noEntry = entryId == null ? 'the bridge named no Library entry for this promotion' : null
+  const noFamily = found.loading ? 'reading which family holds the entry…' : found.error ? `could not read the entry: ${found.error.message}`
+    : !family ? `entry ${entryId} is in no family of the current grouping yet — the next regroup places it` : null
+  return (
+    <>
+      <Button variant="link" disabled={!!(noEntry ?? noFamily)} disabledReason={noEntry ?? noFamily ?? undefined}
+        onClick={() => navigate(`library/family/${encodeURIComponent(family!)}${rec.memberId != null ? `?member=m-${rec.memberId}` : ''}`)} testid="promo-open-library">Open in Library</Button>
+      <Button variant="link" iconRight="arrow-right" disabled={!!noEntry} disabledReason={noEntry ?? undefined}
+        onClick={() => navigate(`discovery/seed?entry=${entryId}`)} testid="promo-seed-search">Seed search in Discovery</Button>
+    </>
   )
 }
 function relTimeShort(at: number) { const s = Math.round((Date.now() - at) / 1000); return s < 5 ? 'just now' : s < 60 ? `${s} s ago` : `${Math.round(s / 60)} min ago` }

@@ -12,6 +12,9 @@ import { postBatch, postPromote, postVerdict, type QueueEntry, type Verdict } fr
 export interface VerdictRecord {
   verdict: Verdict; className?: string; blind: boolean; at: number
   exemplarId?: string; family?: string | null; familyName?: string; tags?: string[]; note?: string
+  /** fixup-y: the `motif_entry` / `motif_member` the promotion wrote, from the bridge's own reply. `exemplarId`
+   *  is its label ("entry 3609"); it used to be minted here ("E-0217") and named no row at all. */
+  entryId?: number; memberId?: number; entryCreated?: boolean
 }
 type Raw = VerdictRecord | null | undefined   // undefined = no session override (fixture state applies)
 
