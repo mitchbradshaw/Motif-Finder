@@ -863,3 +863,24 @@ export interface SettingsPageData { species_values?: string[] }
 export interface ExcerptLink extends ExcerptNames {}
 export interface SeedFamily { dataset?: string; dataset_file?: string; channel_name?: string }
 export interface SeedMember { dataset?: string; dataset_file?: string; channel_name?: string }
+
+/* ---------------- seed sources (fixup-y · server/discovery.py, server/explore_routes.py) ----------------
+ * Appended; the existing interfaces are extended by declaration merging, as fixup-f did. The picker pages and
+ * filters the whole Library (it was the first 24 rows); a library seed names the `motif_entry` it is; a seed
+ * run row carries its seed and cut, which is how the Seed page finds its own run; a span taken in Explore
+ * comes back with the Explore spans queue it is in. */
+export interface DiscSeedInfo { entryId?: number | null; sourceKind?: string | null; annotationId?: number | null; recordingLabel?: string; recordingFile?: string }
+export interface DiscRun { seedId?: string | null; cut?: number | null; entryId?: number | null }
+export interface DiscSeedPageQuery { source: 'library' | 'explore' | 'medoid'; kind?: string; family?: string; recording?: string; channel?: string; offset?: number; limit?: number }
+export interface DiscSeedPage {
+  seeds: DiscSeedInfo[]; total: number; offset: number; limit: number
+  counts: Record<string, number>; kinds: Record<string, number>; families: string[]; note: string | null
+}
+export const getDiscoverySeedPage = (q: DiscSeedPageQuery) => req<DiscSeedPage>(`/api/discovery/seeds${dq({ ...q })}`)
+export const getDiscoverySeedSetupFor = (o: { seed?: string; entry?: number }) => req<DiscSeedSetup>(`/api/discovery/seed/setup${dq(o)}`)
+export interface DiscSeedRunAck { run_key: string; job_id: number | null; route: string; started: boolean; reused: boolean; label: string; note?: string }
+export const runDiscoverySeedSearchOnce = (body: DiscSeedQuery & { label?: string; cut?: number }) =>
+  post<DiscSeedRunAck>('/api/discovery/seed/run', body)
+export interface TakenSpan { id: number; recording_id: number; start_s: number; end_s: number; verdict: 'seed'; source: string; note: string | null; queue_id: number; seed_id: string }
+export const takeSpanForReviewInQueue = (recording_id: number, start_idx: number, end_idx: number, note?: string, scale_viewed?: string) =>
+  post<TakenSpan>('/api/annotations/seed', { recording_id, start_idx, end_idx, note, scale_viewed })
