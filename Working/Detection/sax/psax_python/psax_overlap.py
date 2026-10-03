@@ -23,11 +23,12 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspa
 from Working.Detection.sax.csax_python.ts_paa           import ts_paa
 from Working.Detection.sax.csax_python.timeseries2symbol import timeseries2symbol
 from .kde      import epanechnikov_kde
-from .kmeanspp import kmeanspp
+from .kmeanspp import KMEANSPP_SEED, kmeanspp
 from .lloydmax import lloydmax
 
 
-def psax_overlap(data, training_len, win_size, paa_size, alphabet_size, normalize=True):
+def psax_overlap(data, training_len, win_size, paa_size, alphabet_size, normalize=True,
+                 random_state=KMEANSPP_SEED):
     """
     pSAX symbolic representation with overlapping sliding windows.
 
@@ -39,6 +40,10 @@ def psax_overlap(data, training_len, win_size, paa_size, alphabet_size, normaliz
     paa_size      : int        — PAA segments per window
     alphabet_size : int        — quantiser codebook size
     normalize     : bool       — z-normalise each subsequence independently
+    random_state  : int, Generator, RandomState or None — source of
+                    k-means++'s initialisation draws; defaults to the fixed
+                    `KMEANSPP_SEED`, so the same input always gives the same
+                    string. Never touches global `np.random` (see `kmeanspp`)
 
     Returns
     -------
@@ -68,7 +73,7 @@ def psax_overlap(data, training_len, win_size, paa_size, alphabet_size, normaliz
     f, x = epanechnikov_kde(training_paa, npoints=training_len)
 
     # Lloyd-Max quantisation: initialise codebook with k-means++
-    _, init_codewords = kmeanspp(training_paa, alphabet_size)
+    _, init_codewords = kmeanspp(training_paa, alphabet_size, random_state=random_state)
     init_codewords    = np.sort(init_codewords)
 
     _, cutlines = lloydmax(f, x, alphabet_size, init=init_codewords)

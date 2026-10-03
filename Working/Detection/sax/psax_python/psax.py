@@ -23,13 +23,14 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspa
 from Working.Detection.sax.csax_python.ts_paa          import ts_paa
 from Working.Detection.sax.csax_python.timeseries2symbol import timeseries2symbol
 from .kde      import epanechnikov_kde
-from .kmeanspp import kmeanspp
+from .kmeanspp import KMEANSPP_SEED, kmeanspp
 from .lloydmax import lloydmax
 
 _NORM_THRESH = 0.001  # matches timeseries2symbol's own normalisation threshold
 
 
-def psax(data, training_len, dim_ratio, alphabet_size, normalize=True, return_details=False):
+def psax(data, training_len, dim_ratio, alphabet_size, normalize=True, return_details=False,
+         random_state=KMEANSPP_SEED):
     """
     pSAX symbolic representation (non-overlapping windows).
 
@@ -48,6 +49,10 @@ def psax(data, training_len, dim_ratio, alphabet_size, normalize=True, return_de
         `training_paa`/the raw `cutlines` from `lloydmax` — the identical
         "timeseries2symbol re-normalises its single window" mechanism
         applies here too, and is replicated the same way.
+    random_state  : int, Generator, RandomState or None — source of
+                    k-means++'s initialisation draws; defaults to the fixed
+                    `KMEANSPP_SEED`, so the same input always gives the same
+                    string. Never touches global `np.random` (see `kmeanspp`)
 
     Returns
     -------
@@ -92,7 +97,7 @@ def psax(data, training_len, dim_ratio, alphabet_size, normalize=True, return_de
     f, x = epanechnikov_kde(training_paa, npoints=min(training_len, 1000))
 
     # Lloyd-Max quantisation: initialise codebook with k-means++
-    _, init_codewords = kmeanspp(training_paa, alphabet_size)
+    _, init_codewords = kmeanspp(training_paa, alphabet_size, random_state=random_state)
     init_codewords    = np.sort(init_codewords)
 
     codewords, cutlines = lloydmax(f, x, alphabet_size, init=init_codewords)

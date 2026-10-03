@@ -36,7 +36,7 @@ that find things the plain, un-split signal hides? You check the extra finds by 
   `drop_detection_v1`: **only A 3 · both 0 · only B 92**; 3 of 5 roles differ (not attributable). The bands' nulls
   expect **297** on the same scope (8 + 249 + 40, one surrogate per band per channel) — again more than the real
   signal found. Five demonstration verdicts (not a researcher's) moved the only-B row to *judged 5 · accepted 2*.
-- **Found by `Z` — the symbolic encoder is not reproducible.** `detection.sax_dsax` (default `threshold_mode="learned"`)
+- ~~**Found by `Z` — the symbolic encoder is not reproducible.**~~ Closed by fixup-dsax-seed: see *The symbolic chain is reproducible* below. `detection.sax_dsax` (default `threshold_mode="learned"`)
   draws its symbol boundaries from an unseeded random start, so one recipe gives different spans run to run (11 · 11 ·
   13 · 11 on M2_aug CH1_A1 80–84 h, 0.01–0.1 Hz band). Any RQ4 count on this chain carries that noise until it is
   seeded (its own task). This bears directly on the answer.
@@ -48,6 +48,14 @@ that find things the plain, un-split signal hides? You check the extra finds by 
   - `detection.wavelet_scattering`: Signal → Encoding, but its kymatio dependency is broken against the installed scipy.
 - **No block turns a wavelet decomposition back into a band-limited Signal** that the symbolic blocks could encode. See
   Q-W3.
+- **The symbolic chain is reproducible** (fixup-dsax-seed, 2026-10-03,
+  `docs/prompts/fixup/reports/dsax-seed-learned-thresholds.md`):
+  - `detection.sax_dsax`'s learned boundaries (and pSAX's) used to start from an unseeded random guess, so one recipe
+    gave different spans run to run: 11 · 11 · 13 · 11 on M2_aug CH1_A1 80–84 h, 0.01–0.1 Hz, found by `Z`.
+  - The guess now comes from a fixed private seed: that chain reads **11 every time**, and no recipe hash changed.
+  - Counts stored before the fix keep their old draw. **Re-run the band runs once with *force* before reading them.**
+  - The fixed seed picks one answer, not the right one. A seed sweep (`random_state=` from a script) measures how
+    sensitive a count is to it.
 
 ## Decisions already made
 
@@ -95,3 +103,4 @@ None.
 
 - 2026-10-03 · grilling · file created; Q43 and Q-W3 recorded; `AC` written.
 - 2026-10-03 · fixup-Z · band scope on Apply template, band set as a Compare side, verdict split, only-B to Review, like-for-like; Q43 built (third band 0.1–0.45 Hz); sandbox numbers recorded; the role-count Compare fix
+- 2026-10-03 · fixup-dsax-seed · learned dSAX / pSAX seeded by a fixed constant: one recipe, one span set; stored counts need one forced re-run

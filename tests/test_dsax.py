@@ -20,10 +20,10 @@ rules living in the same dict. `test_delta_raw_round_trip_excludes_the_mean`
 asserts the wrong rule would give a different answer, so the right rule
 cannot be "accidentally" right on data whose mean happens to be zero.
 
-`threshold_mode="learned"` consumes `np.random` via `kmeanspp`, exactly as
-`psax()` does, so every pair of calls being compared here reseeds
-`np.random` identically immediately beforehand — the same discipline
-`test_sax_details.py` follows.
+`threshold_mode="learned"` once consumed the global `np.random` via
+`kmeanspp`, so the comparisons here reseed it before each call. Since
+fixup-dsax-seed the draw is a fixed local seed (`tests/test_sax_determinism.py`)
+and the reseeding is redundant but harmless.
 
 Pure-numpy, no database/UI, ASCII-only output (the repo's Windows console
 is cp1252 — see BASELINE.md). Runnable standalone:
