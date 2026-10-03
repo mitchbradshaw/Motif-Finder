@@ -884,3 +884,23 @@ export const runDiscoverySeedSearchOnce = (body: DiscSeedQuery & { label?: strin
 export interface TakenSpan { id: number; recording_id: number; start_s: number; end_s: number; verdict: 'seed'; source: string; note: string | null; queue_id: number; seed_id: string }
 export const takeSpanForReviewInQueue = (recording_id: number, start_idx: number, end_idx: number, note?: string, scale_viewed?: string) =>
   post<TakenSpan>('/api/annotations/seed', { recording_id, start_idx, end_idx, note, scale_viewed })
+
+/* ---------------- manual labels and saved window sets (fixup-aa · server/chain.py, server/training_routes.py) ----------------
+ * Appended; existing interfaces extended by declaration merging. `template_kind` is the kind the server will SAVE
+ * the chain as (the footer prints it). A labelled Grouping (`catalogue.manual_labels`) names its classes, -1 being
+ * "excluded", and carries its coverage and rules. Save window set takes `non_overlapping` (a training set keeps no
+ * two overlapping windows, on by default) and answers with the coverage it counted at save. */
+export interface Validation { template_kind?: 'detection' | 'encoding' | 'training' | 'interrogation' | null }
+export interface LabelCoverage {
+  n_windows: number; labelled: number; interesting: number; not_interesting: number; seed?: number
+  unlabelled: number; conflicting: number; artifact: number; dropped_for_overlap: number; phase_offset: number | null
+  sources?: Record<string, number>; n_spans?: number
+}
+export interface GroupingPayload { class_names?: Record<string, string>; coverage?: LabelCoverage; rules?: { name: string; rule: string }[] }
+export interface SavedWindowSet {
+  id: number; window_set_id: number; name: string; path: string; n_windows: number; n_windows_offered: number; length: number
+  coverage: { labelled_windows: number; class_counts_at_save: Record<string, number>; unlabelled: number; conflicting: number; artifact: number; dropped_for_overlap: number; phase_offset: number | null }
+  split: Record<string, unknown>; spacing: Record<string, boolean>; run_id: number; note: string
+}
+export const saveWindowSetAs = (job_id: number, step: number, name: string, opts: { notes?: string; non_overlapping?: boolean } = {}) =>
+  post<SavedWindowSet>('/api/windowsets', { job_id, step, name, notes: opts.notes, non_overlapping: opts.non_overlapping ?? true })
