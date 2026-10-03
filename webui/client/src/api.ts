@@ -904,3 +904,4 @@ export interface SavedWindowSet {
 }
 export const saveWindowSetAs = (job_id: number, step: number, name: string, opts: { notes?: string; non_overlapping?: boolean } = {}) =>
   post<SavedWindowSet>('/api/windowsets', { job_id, step, name, notes: opts.notes, non_overlapping: opts.non_overlapping ?? true })
+export interface DiscSeedPageQuery { entry?: number }
