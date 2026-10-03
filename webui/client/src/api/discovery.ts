@@ -303,7 +303,9 @@ export function getSeedProfile(seedId: string, channel: string, view: [number, n
 }
 
 /* ------------------------------------------------------------------ compare */
-export interface RoleCell { index?: string; name: string; short?: string; param: string; signature: string; glyph: GlyphKind }
+export interface RoleCell { index?: string; name: string; short?: string; param: string; signature: string; glyph: GlyphKind
+  /** fixup-z: how many stages the chain has in this role; the cell draws the last */
+  n_stages?: number }
 export interface OverlapRow { channel: string; onlyA: number; both: number; onlyB: number }
 export interface CompareSide {
   run: string; label: string; subtitle: string; isSeed: boolean; cells: Record<Role, RoleCell | null>

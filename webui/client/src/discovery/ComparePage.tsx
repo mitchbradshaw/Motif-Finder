@@ -215,7 +215,7 @@ export function StageChip({ role, cell, run, differs, side, other }: { role: Rol
     <>
       <button ref={ref} type="button" className={cx('dsc-stage', differs && 'differs')} onClick={() => setOpen(o => !o)} data-testid={`stage-${side}-${role.replace(/\W+/g, '-')}`} aria-expanded={open} title={`${cell.name} · ${cell.signature}`}>
         <RunGlyph kind={cell.glyph} width={34} height={22} />
-        <span className="dsc-stage-text"><b>{cell.short ?? cell.name}</b><span className={cx('mono', differs ? 'amber' : 'muted')}>{cell.param}</span></span>
+        <span className="dsc-stage-text"><b>{cell.short ?? cell.name}{(cell.n_stages ?? 1) > 1 && <span className="muted" data-testid="role-n-stages"> +{(cell.n_stages ?? 1) - 1} stage{(cell.n_stages ?? 1) > 2 ? 's' : ''} before</span>}</b><span className={cx('mono', differs ? 'amber' : 'muted')}>{cell.param}</span></span>
       </button>
       <Popover open={open} onClose={() => setOpen(false)} anchorRef={ref} title={`${cell.index ? `${cell.index} ` : ''}${cell.name}`} subtitle={`${role} · ${run}`} width={320} testid="stage-popover">
         <div className="dsc-pop-list mono small">

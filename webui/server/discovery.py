@@ -2424,7 +2424,12 @@ def _same_cell(x, y):
         return True
     if not x or not y:
         return False
-    return x.get("name") == y.get("name") and x.get("param") == y.get("param")
+    # A role cell draws its LAST stage. Two chains whose role holds a different
+    # number of stages differ there even when the drawn stage is the same: a
+    # bandpass prepended ahead of a baseline removal (fixup-Z) read "0 of 5
+    # roles differ" against the unbanded template.
+    return (x.get("name") == y.get("name") and x.get("param") == y.get("param")
+            and (x.get("n_stages") or 1) == (y.get("n_stages") or 1))
 
 
 def _compare_scope(c, channels, t0, t1):

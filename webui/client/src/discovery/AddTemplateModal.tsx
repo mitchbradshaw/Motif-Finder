@@ -163,7 +163,7 @@ export function AddTemplateModal({ open, onClose, dx, onSlurm }: { open: boolean
               : `${fmtMin(estimate)}${nBands ? ` (${nBands} bands × the sweep)` : ''} · ${over ? 'cluster' : 'local'}${unpriced > 0 ? ` · ${unpriced} not previewed` : ''}`}
           </span>}
           <Button onClick={onClose}>Cancel</Button>
-          <Button icon="plus" onClick={() => add(false)} disabled={!!blockReason || busy} disabledReason={blockReason ?? (busy ? 'adding the run…' : undefined)} testid="add-runs">Add {chosen.length || ''} run{chosen.length === 1 ? '' : 's'}</Button>
+          <Button icon="plus" onClick={() => add(false)} disabled={!!blockReason || busy} disabledReason={blockReason ?? (busy ? 'adding the run…' : undefined)} testid="add-runs">Add {chosen.length * bandMult || ''} run{chosen.length * bandMult === 1 ? '' : 's'}</Button>
           {over ? (
             <>
               <DisabledReason reason={blockReason ?? `above the ${DISCOVERY_LIMIT_MIN} min local limit · create a SLURM script`}><Button icon="play" disabled disabledReason={blockReason ?? `above the ${DISCOVERY_LIMIT_MIN} min local limit · create a SLURM script`} testid="add-and-run">Add and run</Button></DisabledReason>
