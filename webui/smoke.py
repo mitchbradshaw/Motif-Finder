@@ -675,6 +675,7 @@ class Smoke:
         self.shot(page, "discovery-1-runs-live")
 
         self.send_to_review_walk(page, scope)
+        self.band_scope_walk(page, scope)
 
         self.goto(page, "discovery/seed", 2000)
         page.wait_for_timeout(1500)
@@ -816,6 +817,130 @@ class Smoke:
                 self.shot(page, "discovery-8-seed-run-sent")
             else:
                 self.check(False, f"the seed run offers nothing to send ({btn.first.inner_text().strip() if btn.count() else 'no button'!r})")
+
+    def band_scope_walk(self, page, scope):
+        """fixup-Z — the researcher's walk for Q4, through the page.
+
+        *Apply template* with a band scope: `symbol_search` ticked, the band scope
+        set to the seeded list, *Add and run* → one run per band, each across the
+        channels in scope, and one band-set row. Compare A = the smoke's raw run
+        against the band set: the union's overlap, the per-band rows, the verdict
+        split. *Send only-B unjudged to Review* → the toast's *Open Review* opens
+        that queue → `I` writes one verdict on a band run's own detection → back in
+        Compare the only-B row reads one more judged and accepted. Then the band
+        list in Settings › Analysis defaults.
+        """
+        print("[discovery · band scope → compare by verdict]")
+        tpl = "symbol_search"
+        self.goto(page, "discovery/runs?modal=add-template", 1500)
+        page.wait_for_selector('[data-testid="add-template-modal"]', timeout=20000)
+        page.wait_for_selector(f'[data-testid="template-check-{tpl}"]', timeout=20000)
+        page.locator(f'[data-testid="template-check-{tpl}"]').first.click()
+        page.locator('[data-testid="band-scope-mode"] button', has_text="band").first.click()
+        page.wait_for_selector('[data-testid="band-scope"] input[type="checkbox"]', timeout=15000)
+        page.wait_for_timeout(500)
+        ticked = page.locator('[data-testid="band-scope"] input[type="checkbox"]:checked').count()
+        offered = (self._api("/api/discovery/bands") or {}).get("bands") or []
+        self.evidence["fixup_z"] = {"bands_offered": offered}
+        self.check(ticked == len(offered) >= 1, f"the band scope offers the Settings list, every band ticked ({ticked} of {len(offered)})")
+        mult = page.locator('[data-testid="add-multiplier"]').inner_text()
+        self.check(f"× {ticked} band" in mult, f"the footer multiplies by the bands ({mult!r})")
+        self.shot(page, "discovery-9-band-scope")
+        page.locator('[data-testid="add-and-run"]').first.click()
+        page.wait_for_selector('[data-testid="toasts"]', timeout=20000)
+        toast = page.locator('[data-testid="toasts"]').inner_text()
+        self.check(f"{ticked} bands" in toast or f"{ticked} band" in toast, f"the toast counts the band runs ({toast!r})")
+
+        def band_runs():
+            rows = [r for r in (self._api("/api/discovery/runs") or []) if r.get("template") == tpl and r.get("bandSet")]
+            newest = max((r["bandSet"] for r in rows), key=lambda k: (len(k), k), default=None)
+            return [r for r in rows if r["bandSet"] == newest], newest
+        t0 = time.time()
+        runs, band_set = band_runs()
+        while time.time() - t0 < 1800 and (len(runs) < ticked or any(r["status"] not in ("done", "failed") for r in runs)):
+            time.sleep(2.0)
+            runs, band_set = band_runs()
+        self.evidence["fixup_z"]["band_runs"] = [{k: r.get(k) for k in ("key", "label", "status", "found", "channelsDone", "band")} for r in runs]
+        n_ch = len(scope["channels"])
+        self.check(len(runs) == ticked and all(r["status"] == "done" and r.get("channelsDone") == f"{n_ch} / {n_ch}" for r in runs),
+                   f"{ticked} band runs, each across the {n_ch} channels in scope ({[(r['key'], r['status'], r.get('channelsDone')) for r in runs]})")
+        if not band_set:
+            return
+        self.goto(page, "discovery/runs", 1500)
+        page.wait_for_selector(f'[data-testid="band-set-row-{band_set}"]', timeout=20000)
+        self.check(all(page.locator(f'[data-testid="run-row-{r["key"]}"]').count() == 1 for r in runs),
+                   "every band run has its own row")
+        self.shot(page, "discovery-10-band-runs-and-set")
+
+        a_key, side = scope["a"], f"set:{band_set}"
+        self.goto(page, f"discovery/compare?a={a_key}&b={side}", 2500)
+        page.wait_for_selector('[data-testid="verdict-split"]', timeout=30000)
+        page.wait_for_timeout(800)
+        cmp_ = self._api(f"/api/discovery/compare?a={a_key}&b={side}&channels={','.join(scope['channels'])}&t0={scope['t0']}&t1={scope['t1']}")
+        tot, ob = cmp_.get("total") or {}, (cmp_.get("verdicts") or {}).get("onlyB") or {}
+        self.evidence["fixup_z"]["compare_before"] = {"total": tot, "verdicts": cmp_.get("verdicts"),
+                                                      "perBand": cmp_.get("perBand"), "likeForLike": cmp_.get("likeForLike"),
+                                                      "differing": cmp_.get("differing")}
+        per_band = page.locator('[data-testid^="per-band-"]').count()
+        self.check(per_band == ticked, f"one per-band row per band ({per_band})")
+        self.check(cmp_.get("b", {}).get("found") == tot.get("both", 0) + tot.get("onlyB", 0),
+                   f"the set side counts its union ({cmp_.get('b', {}).get('found')} = both {tot.get('both')} + only B {tot.get('onlyB')})")
+        sentence = page.locator('[data-testid="remainder-sentence"]').inner_text() if page.locator('[data-testid="remainder-sentence"]').count() else ""
+        self.check(f"{ob.get('n')} region" in sentence, f"the remainder sentence reads the only-B count ({sentence!r})")
+        self.check(page.locator('[data-testid="like-for-like"]').count() == 1, "the band set names its like-for-like comparison")
+        self.shot(page, "discovery-11-compare-band-set")
+        if not ob.get("unjudged"):
+            self.check(False, f"the band set found nothing only-B and unjudged on the smoke scope ({ob})")
+            return
+        page.locator('[data-testid="step-filter"] button', has_text="only B").first.click()
+        page.wait_for_timeout(1200)
+        bands_named = page.locator('[data-testid="step-bands"]').inner_text() if page.locator('[data-testid="step-bands"]').count() else ""
+        self.check(bands_named.startswith("band"), f"the stepper names the band that fired ({bands_named!r})")
+
+        page.locator('[data-testid="send-only-b"]').first.click()
+        page.wait_for_selector('[data-testid="toasts"] button', timeout=15000)
+        page.wait_for_timeout(500)
+        toast = page.locator('[data-testid="toasts"]').inner_text()
+        mine = [q for q in (self._api("/api/review/queues") or []) if str(q.get("name", "")).startswith("Compare · only B")]
+        self.check(len(mine) >= 1 and f"{ob['unjudged']} unjudged" in toast, f"the remainder queue exists and the toast counts it ({toast!r})")
+        if not mine:
+            return
+        q = mine[-1]
+        self.evidence["fixup_z"]["queue"] = {k: q.get(k) for k in ("id", "name", "source_kind", "writes_to", "total", "judged", "remaining")}
+        self.check(q["total"] == ob["n"] and q["writes_to"] == "adjudications",
+                   f"one queue row per only-B region, writing adjudications ({q['total']} of {ob['n']})")
+        self.shot(page, "discovery-12-remainder-sent")
+        page.locator('[data-testid="toasts"] button', has_text="Open Review").first.click()
+        page.wait_for_selector('[data-testid="queue-progress"]', timeout=20000)
+        page.wait_for_timeout(1500)
+        where = page.evaluate("() => location.hash")
+        self.check(where.startswith(f"#/review/queue/{q['id']}"), f"Open Review landed on the remainder queue {q['id']} ({where})")
+        adj_before = {r["id"] for r in self._adjudications()}
+        page.keyboard.press("i")
+        page.wait_for_timeout(2000)
+        new = [r for r in self._adjudications() if r["id"] not in adj_before]
+        self.evidence["fixup_z"]["adjudication_written"] = new
+        self.check(len(new) == 1 and new[0]["surrogate_of_run_id"] is None,
+                   f"I wrote one verdict, on a real band run's detection ({new})")
+        self.shot(page, "discovery-13-remainder-judged")
+
+        self.goto(page, f"discovery/compare?a={a_key}&b={side}", 2500)
+        page.wait_for_selector('[data-testid="verdicts-onlyB"]', timeout=30000)
+        page.wait_for_timeout(800)
+        after = self._api(f"/api/discovery/compare?a={a_key}&b={side}&channels={','.join(scope['channels'])}&t0={scope['t0']}&t1={scope['t1']}")
+        ob2 = (after.get("verdicts") or {}).get("onlyB") or {}
+        self.evidence["fixup_z"]["compare_after"] = {"verdicts": after.get("verdicts")}
+        row = page.locator('[data-testid="verdicts-onlyB"]').inner_text()
+        self.check(ob2.get("judged") == ob.get("judged", 0) + 1 and ob2.get("accepted") == ob.get("accepted", 0) + 1
+                   and f"judged {ob2.get('judged')}" in row.replace("\n", " "),
+                   f"back in Compare the only-B row reads one more judged and accepted ({row!r})")
+        self.shot(page, "discovery-14-compare-after-review")
+
+        self.goto(page, "settings/analysis-defaults", 1500)
+        page.wait_for_selector('[data-testid="bands-card"]', timeout=20000)
+        n_rows = page.locator('[data-testid^="band-label-"]').count()
+        self.check(n_rows == len(offered), f"Settings › Analysis defaults lists the {len(offered)} bands ({n_rows})")
+        self.shot(page, "settings-bands")
 
     def discovery_scope(self):
         """Set the session's scope and make two runs, through the bridge.
