@@ -1,0 +1,98 @@
+{
+  "band_run": "symbol_search_0.01_0.1Hz",
+  "band_run_ids": [
+    82,
+    88,
+    94
+  ],
+  "twin_run": "band_symbol_search_0p01_0p1_twin",
+  "twin_run_ids": [
+    82,
+    88,
+    94
+  ],
+  "band_recipe_hash": "1e2f356728a1c81bf4c284b29bd0f33fa86b723ef10ff68ba98b789f1ed1c42e",
+  "twin_recipe_hash": "1e2f356728a1c81bf4c284b29bd0f33fa86b723ef10ff68ba98b789f1ed1c42e",
+  "same_hash": true,
+  "twin_made_of_band_runs": true,
+  "band_recipe": {
+    "recording_id": 2,
+    "span": [
+      1627200,
+      1641600
+    ],
+    "steps": [
+      {
+        "algorithm": "bandpass",
+        "params": {
+          "high_hz": 0.1,
+          "low_hz": 0.01,
+          "order": 4
+        },
+        "side_inputs": {},
+        "stage": "preprocessing"
+      },
+      {
+        "algorithm": "detrend",
+        "params": {
+          "mode": "rolling_mean",
+          "window_s": 600.0
+        },
+        "side_inputs": {},
+        "stage": "preprocessing"
+      },
+      {
+        "algorithm": "sax_dsax",
+        "params": {
+          "alphabet_size": 3,
+          "seconds_per_symbol": 20.0
+        },
+        "side_inputs": {},
+        "stage": "detection"
+      },
+      {
+        "algorithm": "symbol_search",
+        "params": {
+          "pattern": "c+a+"
+        },
+        "side_inputs": {},
+        "stage": "detection"
+      }
+    ],
+    "surrogate": true
+  },
+  "twin_template_steps": [
+    {
+      "stage": "preprocessing",
+      "algorithm": "bandpass",
+      "params": {
+        "low_hz": 0.01,
+        "high_hz": 0.1,
+        "order": 4
+      }
+    },
+    {
+      "algorithm": "detrend",
+      "params": {
+        "mode": "rolling_mean",
+        "window_s": 600.0
+      },
+      "stage": "preprocessing"
+    },
+    {
+      "algorithm": "sax_dsax",
+      "params": {
+        "alphabet_size": 3,
+        "seconds_per_symbol": 20.0
+      },
+      "stage": "detection"
+    },
+    {
+      "algorithm": "symbol_search",
+      "params": {
+        "pattern": "c+a+"
+      },
+      "stage": "detection"
+    }
+  ]
+}

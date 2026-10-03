@@ -1,0 +1,65 @@
+bringing up nodes...
+bringing up nodes...
+
+........................................................................ [  3%]
+........................................................................ [  7%]
+........................................................................ [ 10%]
+........................................................................ [ 14%]
+........................................................................ [ 17%]
+........................................................................ [ 21%]
+........................................................................ [ 24%]
+........................................................................ [ 28%]
+........................................................................ [ 31%]
+........................................................................ [ 35%]
+........................................................................ [ 38%]
+........................................................................ [ 42%]
+........................................................................ [ 45%]
+........................................................................ [ 49%]
+........................................................................ [ 52%]
+........................................................................ [ 56%]
+........................................................................ [ 59%]
+........................................................................ [ 63%]
+........................................................................ [ 66%]
+........................................................................ [ 70%]
+........................................................................ [ 73%]
+........................................................................ [ 77%]
+........................................................................ [ 80%]
+........................................................................ [ 84%]
+........................................................................ [ 87%]
+..ssss.................................................................. [ 91%]
+...........................sssss........................................ [ 94%]
+........................................................................ [ 98%]
+......................................                                   [100%]
+============================== warnings summary ===============================
+tests/test_dsax.py: 2352 warnings
+tests/test_dsax_diagnostics.py: 715 warnings
+tests/test_dsax_engineered.py: 273 warnings
+tests/test_sax_adapters.py: 136 warnings
+tests/test_sax_details.py: 768 warnings
+  C:\Users\mmebr\Documents\CNN\Working\Detection\sax\psax_python\lloydmax.py:111: DeprecationWarning: `trapz` is deprecated. Use `trapezoid` instead, or one of the numerical integration functions in `scipy.integrate`.
+    I1   = np.trapz(xs * fs, xs)
+
+tests/test_dsax.py: 2352 warnings
+tests/test_dsax_diagnostics.py: 715 warnings
+tests/test_dsax_engineered.py: 273 warnings
+tests/test_sax_adapters.py: 136 warnings
+tests/test_sax_details.py: 768 warnings
+  C:\Users\mmebr\Documents\CNN\Working\Detection\sax\psax_python\lloydmax.py:112: DeprecationWarning: `trapz` is deprecated. Use `trapezoid` instead, or one of the numerical integration functions in `scipy.integrate`.
+    I2   = np.trapz(fs,      xs)
+
+tests/test_drop_motifs_figures12b.py::test_sequence_morph_is_written_and_states_what_it_drew
+tests/test_drop_motifs_figures12b.py::test_the_drawn_median_event_lands_in_the_band
+tests/test_drop_motifs_figures12b.py::test_a_missing_source_trace_is_said_rather_than_raised
+tests/test_drop_motifs_figures12b.py::test_a_long_sequence_is_thinned_and_says_by_how_much
+tests/test_drop_motifs_figures12b.py::test_contact_sheet_locks_every_panel_to_its_own_event
+  C:\Users\mmebr\Documents\CNN\Pipelines\drop_motifs\config11.py:341: UserWarning: This figure includes Axes that are not compatible with tight_layout, so results might be incorrect.
+    fig.savefig(path, bbox_inches="tight")
+
+tests/test_drop_motifs_pipelines12.py::test_store_rows_replaces_the_replayed_detections
+tests/test_drop_motifs_pipelines12.py::test_the_default_path_is_unchanged
+tests/test_drop_motifs_pipelines12.py::test_the_panel_states_its_millivolts_per_second
+  C:\Users\mmebr\Documents\CNN\Pipelines\drop_motifs\casestudy9.py:332: UserWarning: This figure includes Axes that are not compatible with tight_layout, so results might be incorrect.
+    fig.savefig(out_path, dpi=180)
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+2045 passed, 20 skipped, 8496 warnings in 828.70s (0:13:48)

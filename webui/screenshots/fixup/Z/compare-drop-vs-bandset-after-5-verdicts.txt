@@ -1,0 +1,8 @@
+total {'channel': 'all channels', 'onlyA': 3, 'both': 0, 'onlyB': 92}
+overlap [{'channel': 'CH2_A1', 'onlyA': 3, 'both': 0, 'onlyB': 3}, {'channel': 'CH6_B1', 'onlyA': 0, 'both': 0, 'onlyB': 77}, {'channel': 'CH7_B2', 'onlyA': 0, 'both': 0, 'onlyB': 12}]
+verdicts {"onlyA": {"n": 3, "judged": 0, "accepted": 0, "rejected": 0, "other": 0, "unjudged": 3}, "both": {"n": 0, "judged": 0, "accepted": 0, "rejected": 0, "other": 0, "unjudged": 0}, "onlyB": {"n": 92, "judged": 5, "accepted": 2, "rejected": 2, "other": 1, "unjudged": 87}}
+perBand [('0.001–0.01 Hz', 1, 0, 1, 1, 8, 3), ('0.01–0.1 Hz', 75, 0, 75, 74, 249, 3), ('0.1–0.45 Hz', 17, 0, 17, 16, 40, 3)]
+like {'run': 'symbol_search', 'label': 'symbol_search', 'isThis': False, 'note': 'compare against symbol_search — symbol_search with no band — to attribute a difference to the band alone'}
+differing ['Preprocess', 'Encode', 'Detect'] False 3 roles differ, so a difference in output cannot be attributed to any single stage
+b symbol_search · 3 bands 92
+[{'kind': 'only B', 'channel': 'CH6_B1', 'atH': 453.94444, 'index': 1634200, 'end': 1634340, 'detection': 'd-1312', 'score': 7.0, 'otherNearest': None, 'otherThreshold': None, 'otherIsSeed': False, 'bands': ['0.1–0.45 Hz'], 'bandRuns': ['symbol_search_0.1_0.45Hz']}, {'kind': 'only B', 'channel': 'CH6_B1', 'atH': 454.96667, 'index': 1637880, 'end': 1638000, 'detection': 'd-1316', 'score': 6.0, 'otherNearest': None, 'otherThreshold': None, 'otherIsSeed': False, 'bands': ['0.1–0.45 Hz'], 'bandRuns': ['symbol_search_0.1_0.45Hz']}]

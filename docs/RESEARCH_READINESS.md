@@ -108,6 +108,8 @@ list. Second: **band fan-out is in the core and unreachable** — `Working/run_g
 `kind: "bands"` prepends a bandpass per target) has no caller in `webui/server/`, so each band is a chain
 built, saved and applied by hand, and Compare takes two runs at a time.
 
+**Closed 2026-10-03 by `fixup-Z`** (`docs/prompts/fixup/reports/Z-band-scope-and-compare-by-verdict.md`): *Apply template* has a band scope (one run per band, each the hand-built chain's exact recipe), Compare takes the band runs as one side (their union), the overlap is split by verdict, and *Send only-B unjudged to Review* queues exactly the remainder. Measured on the same scope: union 92 regions, only A 3 · both 0 · only B 92, the bands' nulls expecting 297. What was written on 2026-10-02 stays below as the record.
+
 **What it would take.** Make Discovery's send-to-review create a real queue; with that, Q4 is answerable today
 for a handful of hand-built bands. A band scope on *Apply template* turns it into one action.
 

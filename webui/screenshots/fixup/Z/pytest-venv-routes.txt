@@ -1,0 +1,81 @@
+...............F........................................................ [ 76%]
+......................                                                   [100%]
+================================== FAILURES ===================================
+____________ test_the_scoreboard_cells_are_the_tables_own_numbers _____________
+
+client = <starlette.testclient.TestClient object at 0x000002DAB406D040>
+
+    def test_the_scoreboard_cells_are_the_tables_own_numbers(client):
+        out = _apply(client)
+        sb = client.get("/api/discovery/scoreboard", params={
+            "runs": out["run_key"], "channels": ",".join([CH[0], CH[1]]), "t0": 0.0,
+            "t1": N / 3600.0}).json()
+        assert len(sb) == 1
+        row = sb[0]
+        assert row["run"] == out["run_key"]
+        assert row["rule"]["criterion"] == "reciprocal_iou_onset"
+>       assert row["reviewedCriterion"] == "onset inside reviewed coverage"
+E       AssertionError: assert 'onset inside...ation that is' == 'onset inside...ewed coverage'
+E         
+E         - onset inside reviewed coverage
+E         + onset inside reviewed coverage, or matching an annotation that is
+
+tests\test_webui_discovery.py:354: AssertionError
+============================== warnings summary ===============================
+webui\.venv\Lib\site-packages\fastapi\testclient.py:1
+  C:\Users\mmebr\Documents\CNN\webui\.venv\Lib\site-packages\fastapi\testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
+    from starlette.testclient import TestClient as TestClient  # noqa
+
+tests/test_webui_discovery.py: 45 warnings
+tests/test_webui_review.py: 32 warnings
+tests/test_webui_routes.py: 12 warnings
+  C:\Users\mmebr\Documents\CNN\webui\server\app.py:100: DeprecationWarning: 
+          on_event is deprecated, use lifespan event handlers instead.
+  
+          Read more about it in the
+          [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).
+          
+    @app.on_event("startup")
+
+tests/test_webui_discovery.py: 45 warnings
+tests/test_webui_review.py: 32 warnings
+tests/test_webui_routes.py: 12 warnings
+  C:\Users\mmebr\Documents\CNN\webui\.venv\Lib\site-packages\fastapi\applications.py:4681: DeprecationWarning: 
+          on_event is deprecated, use lifespan event handlers instead.
+  
+          Read more about it in the
+          [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).
+          
+    return self.router.on_event(event_type)  # ty: ignore[deprecated]
+
+tests/test_webui_discovery.py::test_the_preview_measures_rather_than_models
+  C:\ProgramData\anaconda3\Lib\site-packages\_pytest\threadexception.py:82: PytestUnhandledThreadExceptionWarning: Exception in thread job-1-sweep
+  
+  Traceback (most recent call last):
+    File "C:\ProgramData\anaconda3\Lib\threading.py", line 1043, in _bootstrap_inner
+      self.run()
+      ~~~~~~~~^^
+    File "C:\ProgramData\anaconda3\Lib\threading.py", line 994, in run
+      self._target(*self._args, **self._kwargs)
+      ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    File "C:\Users\mmebr\Documents\CNN\webui\server\jobs.py", line 180, in _run
+      self._emit(job, {"event": "job_end", "status": job.status, "error": job.error, "result": _clean(job.result),
+      ~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+                       "elapsed_s": job.finished_at - job.started_at})
+                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    File "C:\Users\mmebr\Documents\CNN\webui\server\runs.py", line 125, in _emit
+      self.loop.call_soon_threadsafe(self._publish, job, event)
+      ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    File "C:\ProgramData\anaconda3\Lib\asyncio\base_events.py", line 878, in call_soon_threadsafe
+      self._check_closed()
+      ~~~~~~~~~~~~~~~~~~^^
+    File "C:\ProgramData\anaconda3\Lib\asyncio\base_events.py", line 556, in _check_closed
+      raise RuntimeError('Event loop is closed')
+  RuntimeError: Event loop is closed
+  
+    warnings.warn(pytest.PytestUnhandledThreadExceptionWarning(msg))
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED tests/test_webui_discovery.py::test_the_scoreboard_cells_are_the_tables_own_numbers
+1 failed, 93 passed, 180 warnings in 367.09s (0:06:07)

@@ -1,0 +1,368 @@
+[corpus]
+  ok: heatmap has 912 cells (>= 448)
+  ok: heatmap painted 912 cells (>= 800)
+  ok: heatmap uses 6 distinct fills (>= 3, i.e. real counts, not one colour)
+  ok: nav rail present
+  ok: header present
+  ok: corpus: 7 time-axis labels, none overlapping
+  ok: the header's need-you chip is present
+  ok: the header's review count is /api/review/counts (160 vs 160)
+  ok: the rail no longer claims this database has no tags
+  ok: no demo chip is left on the Corpus rail (every read on it is live)
+  ok: the Morphology tag filter is the rail's MultiPick, not 36 checkboxes
+  ok: the tag list offers 34 live vocabulary terms
+  ok: bottom bar shows channel counts
+  ok: Open channel button present
+[signal]
+  ok: overview + span envelope paths painted (d lengths [28973, 27561])
+  ok: 4 tinted span bands drawn in the viewport
+  ok: signal: 11 time-axis labels, none overlapping
+  ok: viewport refetch instrumentation recorded 9 fetches
+  ok: motif tier present
+  ok: Send span to Analyse present
+  ok: sending a span navigates to Analyse
+[held-out]
+  ok: M4 channel shows a held-out / locked state
+[analyse]
+  ok: 4 chain rows (source + 3 steps)
+  ok: analyse-chain: 9 time-axis labels, none overlapping
+  ok: insert-stage modal opens
+  ok: modal lists 37 adapters
+  ok: 37 incompatible adapters shown disabled with reasons
+  ok: run button present and enabled
+  FAIL: all rows completed: ['computed · now cached', 'running', '⌛ waiting']
+  FAIL: every result row painted something: ['path', 'blank', 'blank']
+  ok: the chain footer has Pass to Review
+  ok: a grey Pass to Review carries its reason ('needs a completed run with a SpanSet terminal')
+  ok: the threshold block page has its threshold parameter
+  EXC: analyse Locator.fill: Timeout 30000ms exceeded.
+Call log:
+  - waiting for locator("input[data-testid=\"param-threshold\"], [data-testid=\"param-threshold\"] input[type=number]").first
+    - locator resolved to <input disabled value="8" step="0.1" class="input" type="number" data-testid="param-threshold"/>
+    - fill("6.0")
+  - attempting fill action
+    2 × waiting for element to be visible, enabled and editable
+      - element is not enabled
+    - retrying fill action
+    - waiting 20ms
+    2 × waiting for element to be visible, enabled and editable
+      - element is not enabled
+    - retrying fill action
+      - waiting 100ms
+    57 × waiting for element to be visible, enabled and editable
+       - element is not enabled
+     - retrying fill action
+       - waiting 500ms
+
+[discovery]
+  ok: 6 run rows (the human reference plus the runs just made)
+  ok: the scope strips painted real overviews (path lengths [7739, 7852])
+  ok: where-each-run-fires painted 9 bins
+  ok: the scoreboard has rows
+  ok: the Runs page has the quiet in-place reload indicator
+  ok: the 600 px first-load card is gone once the page has content
+  ok: the page height is unchanged across a poll (920.953125 -> 920.953125)
+[discovery → review]
+  ok: the run acts offer to send ('Send 3 unjudged to Review')
+  ok: one review_queues row named 'Discovery · mp_threshold' (1 found)
+  ok: the toast names the queue and what a verdict writes ("3 unjudged in 'Discovery · mp_threshold' · verdicts write adjudications\nOpen Review")
+  ok: the toast's count is the queue's own (3 of 3)
+  ok: the queue filters by run ids ([80, 82])
+  ok: Open Review landed on queue 3 (#/review/queue/3/1206)
+  ok: the toolbar names the queue ('queue\nDiscovery · mp_threshold')
+  ok: the toolbar says what a verdict writes ('writes\nadjudications')
+  ok: progress reads 0 / 3 ('0 / 3\npace not yet measured')
+  ok: the verdict was not refused
+  ok: I wrote one adjudications row, on a detection of a real run in the queue ([{'id': 1, 'detection_id': 1206, 'verdict': 'interesting', 'created_at': '2026-10-03T06:18:02.817747+00:00', 'run_id': 80, 'surrogate_of_run_id': None}])
+  ok: progress reads 1 / 3 ('1 / 3\npace not yet measured')
+  ok: the acts read 'Sent N' and link to queue 3 ('Sent 3 · open in Review · then refresh')
+  ok: the scoreboard re-read after reviewing ('mp_threshold\n\t3\t0\t0\t0\tno detections in the reviewed overlap\t0.00 over 2 h\t1 / 2\t3.0×')
+  ok: the seed run's queue is a seed-search queue writing adjudications (seed-search)
+[discovery · band scope → compare by verdict]
+  ok: the band scope offers the Settings list, every band ticked (3 of 3)
+  ok: the footer multiplies by the bands ('× 3 bands × 2 channels')
+  ok: the toast counts the band runs ('3 runs added · 3 bands × 1 template · 3 running locally')
+  ok: 3 band runs, each across the 2 channels in scope ([('symbol_search_0.001_0.01Hz', 'done', '2 / 2'), ('symbol_search_0.01_0.1Hz', 'done', '2 / 2'), ('symbol_search_0.1_0.45Hz', 'done', '2 / 2')])
+  ok: every band run has its own row
+  ok: one per-band row per band (3)
+  ok: the set side counts its union (24 = both 0 + only B 24)
+  ok: the remainder sentence reads the only-B count ("Of the 24 regions only a band found, a human has judged 0 and accepted 0. The bands' nulls expect 210 on this scope (6 draws).")
+  ok: the band set names its like-for-like comparison
+  ok: the stepper names the band that fired ('band 0.001–0.01 Hz')
+  ok: the remainder queue exists and the toast counts it ("24 unjudged of 24 regions in 'Compare · only B · A mp_threshold vs B symbol_search · 3 bands' · verdicts write adjudications\nOpen Review")
+  ok: one queue row per only-B region, writing adjudications (24 of 24)
+  ok: Open Review landed on the remainder queue 5 (#/review/queue/5/2010)
+  ok: I wrote one verdict, on a real band run's detection ([{'id': 2, 'detection_id': 2010, 'verdict': 'interesting', 'created_at': '2026-10-03T06:18:35.022094+00:00', 'run_id': 88, 'surrogate_of_run_id': None}])
+  ok: back in Compare the only-B row reads one more judged and accepted ('only B\n24 regions · judged 1 · accepted 1 · rejected 0 · unjudged 23')
+  ok: Settings › Analysis defaults lists the 3 bands (3)
+  ok: the seed page draws its match-distance histogram
+  ok: compare opens with what differs
+[loud failure]
+  ok: a thrown render error is shown as a red card (not a blank pane)
+  ok: the thrown render error reached the browser console
+[routes]
+  ok: 574 page states listed in smoke_pages/*.json
+  ok: analyse: analyse.chain--live renders
+  ok: analyse: analyse.chain--1-chain renders
+  ok: analyse: analyse.chain--1b-run-history renders
+  ok: analyse: analyse.chain--1b-run-history-click renders
+  ok: analyse: analyse.chain--1c-empty-import-template renders
+  ok: analyse: analyse.chain--1c-import-apply renders
+  ok: analyse: analyse.chain--1d-running renders
+  ok: analyse: analyse.chain--1d-cancelled renders
+  ok: analyse: analyse.chain--1e-invalid-junction renders
+  ok: analyse: analyse.chain--1e-delete-click renders
+  ok: analyse: analyse.chain--1f-failed-block renders
+  ok: analyse: analyse.chain--1f-failed-by-run renders
+  ok: analyse: analyse.chain--1f-view-log renders
+  ok: analyse: analyse.chain--1g-heavy-stage-hpc renders
+  ok: analyse: analyse.chain--1g-create-slurm renders
+  ok: analyse: analyse.chain--1g-upload-artifact renders
+  ok: analyse: analyse.chain--1h-scores-chain renders
+  ok: analyse: analyse.chain--1i-paused-result-in-place renders
+  ok: analyse: analyse.chain--1i-continue renders
+  ok: analyse: analyse.chain--2-insert-stage renders
+  ok: analyse: analyse.chain--2-insert-click renders
+  ok: analyse: analyse.block--live renders
+  ok: analyse: analyse.block--5-baseline-unapplied renders
+  ok: analyse: analyse.block--5-baseline-try-window renders
+  ok: analyse: analyse.block--5-baseline-apply-running renders
+  ok: analyse: analyse.block--6-noise-floor renders
+  ok: analyse: analyse.block--6-noise-floor-linear renders
+  ok: analyse: analyse.block--3-encoding renders
+  ok: analyse: analyse.block--3-encoding-sweep-click renders
+  ok: analyse: analyse.block--4-drop-detection renders
+  ok: analyse: analyse.block--4-drop-detection-fix renders
+  ok: analyse: analyse.block--4-drop-detection-failed renders
+  ok: analyse: analyse.block--7-matrix-profile renders
+  ok: analyse: analyse.block--7-matrix-profile-top-click renders
+  ok: analyse: analyse.block--7b-threshold-to-spans renders
+  ok: analyse: analyse.block--8-model-stage renders
+  ok: analyse: analyse.block--running renders
+  ok: analyse: analyse.block--inserted-generic renders
+  ok: analyse: analyse.block--missing-stage renders
+  ok: analyse: analyse.glyphs--default renders
+  ok: analyse: analyse.glyphs--detail-drawer renders
+  ok: analyse: analyse.glyphs--card-click renders
+  ok: analyse: analyse.glyphs--filter-empty renders
+  ok: analyse: analyse.chain--fixup-d-import-feature-template renders
+  ok: analyse: analyse.block--fixup-d-event-shape-block renders
+  ok: analyse: analyse.chain--fixup-d-feature-blocks-in-insert-modal renders
+  ok: analyse: analyse.chain--fixup-d-invert-in-insert-modal renders
+  ok: band_scope: discovery.runs--fixup-z-band-scope-offered renders
+  ok: band_scope: discovery.compare--fixup-z-band-set-as-side-b renders
+  ok: band_scope: settings.analysis-defaults--fixup-z-named-band-list renders
+  FAIL: discovery: discovery.runs--default renders — missing ['[data-testid="where-fires"] [data-testid="fires-cell"]', '[data-testid="browser-trace"] svg']
+  ok: discovery: discovery.runs--modal-add-template renders
+  ok: discovery: discovery.runs--modal-slurm renders
+  ok: discovery: discovery.runs--popover-history renders
+  ok: discovery: discovery.runs--confirm-discard renders
+  ok: discovery: discovery.runs--discarded renders
+  ok: discovery: discovery.runs--discarded-param renders
+  ok: discovery: discovery.runs--fires-spans renders
+  ok: discovery: discovery.runs--section-popover renders
+  ok: discovery: discovery.runs--running renders
+  ok: discovery: discovery.runs--empty renders
+  ok: discovery: discovery.runs--held-out-refused renders
+  FAIL: discovery: discovery.seed--default renders — missing ['[data-testid="seed-card"]', '[data-testid="cut-histogram"]', '[data-testid="match-grid"]']
+  FAIL: discovery: discovery.seed--source-explore renders — missing ['[data-testid="seed-explore-empty"]']
+  ok: discovery: discovery.seed--source-medoid renders
+  ok: discovery: discovery.seed--change-seed renders
+  ok: discovery: discovery.seed--view-popover renders
+  ok: discovery: discovery.seed--running renders
+  ok: discovery: discovery.seed--done renders
+  ok: discovery: discovery.seed--failed renders
+  ok: discovery: discovery.seed--modal-save-template renders
+  ok: discovery: discovery.seed--save-template-invalid renders
+  ok: discovery: discovery.seed--held-out-refused renders
+  ok: discovery: discovery.compare--default renders
+  ok: discovery: discovery.compare--empty-one-pick renders
+  ok: discovery: discovery.compare--unpick-b renders
+  ok: discovery: discovery.compare--swapped renders
+  ok: discovery: discovery.compare--filter-only-b renders
+  ok: discovery: discovery.compare--popover-roles renders
+  ok: discovery: discovery.compare--popover-stage renders
+  ok: discovery: discovery.compare--overlap-segment renders
+  ok: discovery: discovery.compare--human-as-b renders
+  ok: discovery: discovery.compare--held-out-refused renders
+  ok: discovery: discovery.compare--route-default renders
+  ok: discovery: discovery.stages--default renders
+  ok: discovery: discovery.stages--re-running renders
+  ok: discovery: discovery.stages--stepped renders
+  ok: discovery: discovery.stages--swapped renders
+  ok: discovery: discovery.stages--popover-first-differing renders
+  ok: discovery: discovery.stages--popover-stage-params renders
+  ok: discovery: discovery.stages--filter-only-b renders
+  ok: discovery: discovery.stages--human-as-b renders
+  ok: discovery: discovery.stages--empty-same-run renders
+  ok: discovery: discovery.stages--route-default renders
+  ok: discovery: discovery.runs--failed-deep-link renders
+  ok: discovery: discovery.runs--null-unsupported renders
+  ok: explore: explore.corpus--default renders
+  ok: explore: explore.corpus--recordings-menu renders
+  ok: explore: explore.corpus--recordings-menu-deeplink renders
+  ok: explore: explore.corpus--map-legend renders
+  ok: explore: explore.corpus--disagree-reviewed renders
+  ok: explore: explore.corpus--runs-picker renders
+  ok: explore: explore.corpus--nothing-shown renders
+  ok: explore: explore.corpus--zero-match renders
+  ok: explore: explore.corpus--no-selection renders
+  ok: explore: explore.corpus--loading renders
+  ok: explore: explore.corpus--error renders
+  ok: explore: explore.corpus--held-out renders
+  ok: explore: explore.signal--default renders
+  ok: explore: explore.signal--motif renders
+  ok: explore: explore.signal--motif-next-review renders
+  ok: explore: explore.signal--detections-picker renders
+  ok: explore: explore.signal--detections-picker-by-method renders
+  ok: explore: explore.signal--span-legend renders
+  ok: explore: explore.signal--tag-input renders
+  ok: explore: explore.signal--drawer-annotations renders
+  ok: explore: explore.signal--drawer-from-ribbon renders
+  ok: explore: explore.signal--drawer-bulk-tag renders
+  ok: explore: explore.signal--drawer-detections renders
+  ok: explore: explore.signal--drawer-filters-collapsed renders
+  ok: explore: explore.signal--drawer-shortcuts renders
+  ok: explore: explore.signal--keyboard-drawer renders
+  ok: explore: explore.signal--live-channel renders
+  ok: explore: explore.signal--loading renders
+  ok: explore: explore.signal--error renders
+  ok: explore: explore.signal--held-out renders
+  FAIL: explore: explore.cross-channel--as-recorded renders — missing ['[data-testid="channel-stack"]', '[data-testid="classification"]', '[data-testid="reference-trace"]']
+  ok: explore: explore.cross-channel--lag-aligned renders
+  ok: explore: explore.cross-channel--align-click renders
+  ok: explore: explore.cross-channel--channels-picker renders
+  ok: explore: explore.cross-channel--detections-picker renders
+  ok: explore: explore.cross-channel--questions-open renders
+  ok: explore: explore.cross-channel--computing renders
+  ok: explore: explore.cross-channel--bin-focus renders
+  ok: explore: explore.cross-channel--max-lag-10 renders
+  ok: explore: explore.cross-channel--too-few-channels renders
+  ok: explore: explore.cross-channel--held-out renders
+  ok: explore: explore.cross-channel--unknown-channel renders
+  ok: explore: explore.cross-channel--y-absolute renders
+  ok: explore: explore.cross-channel--y-per-channel renders
+  ok: explore: explore.cross-channel--y-centred-axis renders
+  ok: explore: explore.span-edit--pristine renders
+  ok: explore: explore.span-edit--edited renders
+  ok: explore: explore.span-edit--nudge renders
+  ok: explore: explore.span-edit--snap-trough renders
+  ok: explore: explore.span-edit--invalid renders
+  ok: explore: explore.span-edit--typed-invalid renders
+  ok: explore: explore.span-edit--saved renders
+  ok: explore: explore.span-edit--held-out renders
+  ok: explore: explore.span-edit--unknown-span renders
+  ok: interrogation: analyse.interrogation--default renders
+  ok: interrogation: analyse.interrogation--members-overlaid-window renders
+  ok: interrogation: analyse.interrogation--source-picker renders
+  ok: interrogation: analyse.interrogation--source-picker-by-click renders
+  ok: interrogation: analyse.interrogation--picker-prior-run renders
+  ok: interrogation: analyse.interrogation--picker-review renders
+  ok: interrogation: analyse.interrogation--swapped renders
+  ok: interrogation: analyse.interrogation--empty-scope renders
+  ok: interrogation: analyse.interrogation--running renders
+  ok: interrogation: analyse.interrogation--failed renders
+  ok: interrogation: analyse.interrogation--save-template renders
+  ok: interrogation: analyse.interrogation--add-stage renders
+  ok: interrogation: analyse.interrogation.slope--default renders
+  ok: interrogation: analyse.interrogation.slope--event-picked renders
+  ok: interrogation: analyse.interrogation.slope--jump-to-flagged renders
+  ok: interrogation: analyse.interrogation.slope--large-family renders
+  ok: interrogation: analyse.interrogation.slope--large-family-rose renders
+  ok: interrogation: analyse.interrogation.slope--upstream-event-shape renders
+  ok: interrogation: analyse.interrogation.slope--not-recovered-is-not-zero renders
+  FAIL: interrogation: analyse.interrogation.slope--overlay-window-is-the-stored-context renders — missing ['[data-testid="overlay-plot"]', '[data-testid="overlay-window-note"]']
+  ok: interrogation: analyse.interrogation.slope--event-shape-columns renders
+  ok: interrogation: analyse.interrogation.slope--marks-all renders
+  ok: interrogation: analyse.interrogation.slope--running renders
+  ok: interrogation: analyse.interrogation.slope--units-mv-s renders
+  ok: interrogation: analyse.interrogation.aggregate--default renders
+  ok: interrogation: analyse.interrogation.aggregate--histograms renders
+  ok: interrogation: analyse.interrogation.aggregate--colour-by-recording renders
+  ok: interrogation: analyse.interrogation.aggregate--pair-by-click renders
+  ok: interrogation: analyse.interrogation.aggregate--linear-axes renders
+  ok: interrogation: analyse.interrogation.aggregate--wired-from-event-shape renders
+  ok: interrogation: analyse.interrogation.aggregate--old-spike-shape-key-is-an-alias renders
+  ok: interrogation: analyse.interrogation.aggregate--width-vs-recovery renders
+  ok: interrogation: analyse.interrogation.aggregate--not-measured-is-counted-not-zero renders
+  ok: interrogation: analyse.interrogation.aggregate--upstream-carried-to-block-1 renders
+  ok: interrogation: analyse.interrogation.aggregate--feature-wiring renders
+  ok: interrogation: analyse.interrogation.aggregate--wiring-by-click renders
+  ok: interrogation: analyse.interrogation.aggregate--nothing-to-aggregate renders
+  ok: interrogation: analyse.interrogation.aggregate--running renders
+  ok: interrogation: analyse.interrogation.aggregate--no-null-is-drawn renders
+  ok: interrogation: analyse.interrogation.aggregate--outliers-excluded renders
+  ok: interrogation: analyse.interrogation.aggregate--small-family renders
+  ok: interrogation: analyse.interrogation.aggregate--stage-outlier renders
+  ok: interrogation: analyse.interrogation.slope--stale-after-edit renders
+  ok: interrogation: analyse.interrogation.slope--stale-discarded renders
+  ok: interrogation: analyse.interrogation--empty-scope-by-click renders
+  ok: interrogation: analyse.interrogation--scope-restored renders
+  ok: interrogation: analyse.interrogation.aggregate--rewired renders
+  ok: interrogation: analyse.interrogation.aggregate--wiring-reset renders
+  FAIL: interrogation: analyse.interrogation--fixup-d-sequence-rose renders — missing ['[data-testid="sequence-rose-card"] [data-render="rose"]', '[data-testid="sequence-feature-table"]', '[data-testid="measure-rules"]']
+  FAIL: interrogation: analyse.interrogation.slope--fixup-k-marks-are-the-payloads renders — no anatomy figure on the page — missing ['[data-testid="anatomy-figure"]', '[data-testid="readout-steepest"]', '[data-testid="marks-info"]', '[data-testid="anatomy-window-note"][data-padding="snippet"]']
+  FAIL: interrogation: analyse.interrogation.slope--fixup-k-marks-on-a-trough-family renders — no anatomy figure on the page — missing ['[data-testid="anatomy-figure"]', '[data-testid="readout-steepest"]']
+  FAIL: interrogation: analyse.interrogation.slope--fixup-k-all-marks-names-what-is-not-drawn renders — no anatomy figure on the page — missing ['[data-testid="anatomy-absent"]']
+  ok: interrogation: analyse.interrogation.slope--fixup-k-marks-rule-behind-the-icon renders
+  ok: interrogation: analyse.interrogation.slope--fixup-k-padding-is-honoured renders · steepest drawn at 1 % of the fall, as served · tangent through it at the served slope
+  ok: interrogation: analyse.interrogation.slope--fixup-k-padding-restored renders · steepest drawn at 1 % of the fall, as served · tangent through it at the served slope
+  ok: interrogation: analyse.interrogation--fixup-h-slideshow-on-the-store renders · rule 9: 10 traces vary, fill their plots, unclipped
+  ok: interrogation: analyse.interrogation--fixup-h-overlay-sequence-frame renders
+  ok: interrogation: analyse.interrogation.aggregate--fixup-h-timeline-tau-from-the-core renders
+  ok: jobs: jobs.all--all renders
+  ok: jobs: jobs.all--needs-you renders
+  ok: jobs: jobs.all--paused renders
+  ok: jobs: jobs.all--cluster renders
+  ok: jobs: jobs.all--local renders
+  ok: jobs: jobs.all--queues renders
+  ok: jobs: jobs.all--finished renders
+  ok: jobs: jobs.all--filter-empty renders
+  ok: jobs: jobs.all--finished-expanded-by-click renders
+  ok: jobs: jobs.all--rail-paused renders
+  ok: jobs: jobs.all--rail-cluster renders
+  ok: jobs: jobs.all--rail-queue renders
+  ok: jobs: jobs.all--rail-local renders
+  ok: jobs: jobs.all--rail-by-row-click renders
+  ok: jobs: jobs.all--inbox-drawer renders
+  ok: jobs: jobs.all--inbox-drawer-by-click renders
+  ok: jobs: jobs.all--mark-menu renders
+  ok: jobs: jobs.all--new-script-modal renders
+  ok: jobs: jobs.all--cancel-confirm renders
+  ok: jobs: jobs.all--cancel-confirm-escape renders
+  ok: jobs: jobs.paused--result-arrived renders
+  ok: jobs: jobs.paused--waiting renders
+  ok: jobs: jobs.paused--a-0098-arrived renders
+  ok: jobs: jobs.paused--unknown-run renders
+  ok: jobs: jobs.paused--new-script-modal renders
+  ok: jobs: jobs.paused--looking renders
+  ok: jobs: jobs.upload--refused renders
+  ok: jobs: jobs.upload--no-file renders
+  ok: jobs: jobs.upload--passes renders
+  ok: jobs: jobs.upload--passes-no-nulls renders
+  ok: jobs: jobs.upload--held-out-refused renders
+  ok: jobs: jobs.upload--file-menu renders
+  ok: jobs: jobs.upload--checking-by-click renders
+  ok: jobs: jobs.cluster--running-overdue renders
+  ok: jobs: jobs.cluster--running renders
+  ok: jobs: jobs.cluster--finished-imported renders
+  ok: jobs: jobs.cluster--failed renders
+  ok: jobs: jobs.cluster--unknown-job renders
+  ok: jobs: jobs.cluster--new-script-modal renders
+  ok: jobs: jobs.cluster--marked-failed renders
+  ok: jobs: jobs.paused--continuing renders
+  ok: jobs: jobs.paused--finished renders
+  ok: jobs: jobs.paused--cancelled renders
+  ok: jobs: jobs.cluster--snoozed renders
+  ok: jobs: jobs.cluster--inbox-pending renders
+  ok: jobs: jobs.cluster--imported renders
+  ok: library: library.atlas--motifs renders · every trace inside its plot box
+  ok: library: library.atlas--sequences renders · every trace inside its plot box
+  ok: library: library.atlas--family-selected renders
+  ok: library: library.atlas--groupings-popover renders
+  ok: library: library.atlas--omitted-drawer renders · every trace inside its plot box
+  ok: library: library.atlas--no-scope renders
+  ok: library: library.atlas--empty renders
+  ok: library: library.family--member-selected renders · every trace inside its plot box
+  ok: library: library.family--revisions-popover renders
+  ok: library: library.family--hand-only-none renders
