@@ -494,9 +494,9 @@ def test_a_recipe_naming_a_different_set_than_the_one_on_disk_is_refused(store):
 
 
 def test_a_channel_whose_exam_windows_hold_one_class_reports_no_macro_f1():
-    # measured on M2_aug (2026-10-03): 7 of 12 channels' test blocks hold no
-    # interesting window, and their "macro F1" read 0.50 — half of a perfect
-    # score on the one class present, which reads as a coin toss
+    # measured on M2_aug (2026-10-03): CH10_C1's test block holds no interesting
+    # window, and its "macro F1" read 0.50 — half of a perfect score on the one
+    # class present, which reads as a coin toss
     tp = _tp()
     y = np.array([0, 0, 0, 0, 1, 0, 1, 1])
     ch = np.array([0, 0, 0, 0, 1, 1, 1, 1])

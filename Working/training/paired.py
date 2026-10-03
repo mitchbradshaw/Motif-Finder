@@ -290,8 +290,9 @@ def _p_interesting_b(proba, classes_, translation):
 def per_channel(y, preds, channel, mask, names=None):
     """Both arms' macro F1 on each channel's windows of one exam. A channel whose
     windows there hold ONE class has no macro F1 — half of a perfect score on the
-    one class present reads as a coin toss (measured: 7 of 12 M2_aug test blocks
-    hold no interesting window) — so it reports accuracy and says so."""
+    one class present reads as a coin toss (on M2_aug, CH10_C1's test block holds
+    no interesting window) — so it reports accuracy and says so. A channel with a
+    few interesting windows keeps its macro F1: missing them is a real miss."""
     rows = []
     for ch in sorted(np.unique(channel[mask]).tolist()):
         cm = mask & (channel == ch)
