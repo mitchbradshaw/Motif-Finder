@@ -925,7 +925,7 @@ export interface DiscVerdictSplit { n: number; judged: number; accepted: number;
 export interface DiscSetMember { run: string; label: string; band: DiscBand; found: number; status: string; colour: string }
 export interface DiscSide { isSet?: boolean; members?: DiscSetMember[]; template?: string; cellsNote?: string; precisionNote?: string }
 export interface DiscDisagreement { bands?: string[] | null; bandRuns?: string[] | null }
-export interface DiscPerBand { run: string; label: string; band: DiscBand; found: number; both: number; only: number; alone: number; colour: string }
+export interface DiscPerBand { run: string; label: string; band: DiscBand; found: number; both: number; only: number; alone: number; colour: string; nullExpects: number | null; nullDraws: number | null }
 export interface DiscLikeForLike { run: string | null; label: string | null; isThis: boolean; note: string }
 export interface DiscCompare {
   verdicts?: { onlyA: DiscVerdictSplit | null; both: DiscVerdictSplit; onlyB: DiscVerdictSplit | null }
