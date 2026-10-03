@@ -11,7 +11,7 @@ import { ApiError, getChannel, getRecordings, getSpans, listRuns, type Channel, 
 import { useSourced } from '../api/seam'
 import { getSignalDemo } from '../api/explore'
 import type { BandKind } from '../charts/primitives'
-import { Callout, Dropdown, InfoTip, Seg, recordDemoWrite, useDemoState, useQueryState } from '../kit'
+import { Callout, Dropdown, InfoTip, Seg, useDemoState, useQueryState } from '../kit'
 import { ErrorBoundary } from '../shell/ErrorBoundary'
 import { Header } from '../shell/Header'
 import { useToast } from '../shell/Toast'
@@ -24,7 +24,7 @@ import { Overview } from './Overview'
 import { Ribbons, type DrawerTab } from './Ribbons'
 import { SignalDrawer } from './SignalDrawer'
 import { buildMotifs, chipLabel, defaultPicker, demoDetectionMotif, pickerRuns, visibleRunIds, type PickerState } from './signalModel'
-import { SpanActions } from './SpanActions'
+import { SpanActions, takeSpanForReview } from './SpanActions'
 import { SpanView, type Band } from './SpanView'
 import { useElementSize } from './useElementSize'
 import { useViewport } from './useViewport'
@@ -199,10 +199,13 @@ function SignalBody({ ch }: { ch: Channel }) {
     toast.push({ text: `${label} sent to Analyse as the chain source` })
     navigate('analyse/chain')
   }
+  /* The selected motif's *Take for Review* is the same act as the span row's (fixup-y): its extent becomes
+   * an `annotations` row with verdict `seed`, in the Explore spans queue. It was a demo write and a toast. */
   const reviewMotif = (m: Motif) => {
     const label = labelOf(m, motifs.findIndex(x => x.key === m.key)) ?? `MOTIF_${m.id}`
-    recordDemoWrite('explore', 'stage-motif-for-review', { queue: 'Explore spans', channel: ch.name, motif: label, kind: m.kind, id: m.id, start_s: m.start_s, end_s: m.end_s })
-    toast.push({ text: `${label} staged for Review · Explore spans queue`, action: { label: 'Open Review →', onClick: () => navigate('review') } })
+    takeSpanForReview(ch.id, ch.fs, [m.start_s, m.end_s])
+      .then(r => toast.push({ text: `${label} taken for Review · annotation ${r.id} · in the Explore spans queue and offered as a seed in Discovery`, action: { label: 'Open Review →', onClick: () => navigate(`review/queue/${r.queue_id}`) } }))
+      .catch(e => toast.push({ kind: 'error', text: `${label} was not taken for Review: ${e instanceof Error ? e.message : String(e)}` }))
   }
   const openDrawer = useCallback((t: DrawerTab, focus = false) => { setLastTab(t); setDrawerQ(t); if (focus) setFocusSignal(n => n + 1) }, [setLastTab, setDrawerQ])
   const [focusSignal, setFocusSignal] = useState(0)
@@ -316,7 +319,7 @@ function SignalBody({ ch }: { ch: Channel }) {
               <MotifView key="motif-tier" ch={ch} motif={sel} label={selLabel} medoid={demo?.medoid ?? null} onSend={m => send(m.start_s, m.end_s, `${selLabel ?? `MOTIF ${m.id}`} · ${ch.name}`)} onReview={reviewMotif} />
             </ErrorBoundary>
             <ErrorBoundary label="span actions">
-              <SpanActionsBound actionsRef={actions} channelKey={String(ch.id)} channelName={ch.name} initial={initialDraft} view={vp.view} nInView={inView.length} tagSignal={tagSignal}
+              <SpanActionsBound actionsRef={actions} channelKey={String(ch.id)} channelName={ch.name} recordingId={ch.id} fs={ch.fs} initial={initialDraft} view={vp.view} nInView={inView.length} tagSignal={tagSignal}
                 onSend={() => send(vp.view[0], vp.view[1], `${ch.name} · ${fmtRangeH(vp.view[0], vp.view[1])}`)} />
             </ErrorBoundary>
             <ErrorBoundary label="ribbons">

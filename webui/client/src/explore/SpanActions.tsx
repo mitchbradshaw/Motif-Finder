@@ -1,9 +1,11 @@
 /* Span-action row (frame explore-2): the selected span with tags + note, Save span (in-memory write of
-   range, tags and note only), Send span to Analyse (live), Take span for Review (in-memory staging into the
-   Explore spans queue). Verdicts are never given here — the caption says so. Tags are removable chips; a
+   range, tags and note only), Send span to Analyse (live), Take span for Review (live since fixup-y: an
+   `annotations` row with verdict `seed`, in Review's Explore spans queue and offered as a seed in Discovery ›
+   Seed search › Explore selection). Verdicts are never given here — the caption says so. Tags are removable chips; a
    click toggles a chip selected; `+ tag` opens an inline input with suggestions and validation. */
 import { useEffect, useId, useState } from 'react'
 import { Button, Chip, recordDemoWrite, useDemoState } from '../kit'
+import { takeSpanForReviewInQueue } from '../api'
 import { useToast } from '../shell/Toast'
 import { fmtDuration, navigate } from '../state'
 import { fmtRangeH } from './util'
@@ -13,8 +15,8 @@ const SUGGEST = ['sharkfin', 'spike-train', 'slow-drift', 'burst', 'plateau', 'b
 
 export interface SpanDraft { tags: string[]; selected: string[]; note: string }
 
-export function SpanActions({ channelKey, channelName, initial, view, nInView, onSend, tagSignal }: {
-  channelKey: string; channelName: string; initial: SpanDraft; view: [number, number]; nInView: number; onSend: () => void; tagSignal: number
+export function SpanActions({ channelKey, channelName, recordingId, fs, initial, view, nInView, onSend, tagSignal }: {
+  channelKey: string; channelName: string; recordingId: number; fs: number; initial: SpanDraft; view: [number, number]; nInView: number; onSend: () => void; tagSignal: number
 }) {
   const toast = useToast()
   const [draft, setDraft] = useDemoState<SpanDraft>(`explore.signal.span.${channelKey}`, () => initial)
@@ -36,9 +38,16 @@ export function SpanActions({ channelKey, channelName, initial, view, nInView, o
     toast.push({ text: `span saved · ${range} · tags and note only` })
   }
   const [, setDemoSaved] = useDemoState<number>('explore.savedSpans.count', () => 0)
+  /* fixup-y: this was a demo write and a toast — "span staged for Review" while `annotations` stayed where it
+   * was. It now writes the human row (rule 5: a person's span, in the human table) and names what it wrote. */
+  const [taking, setTaking] = useState(false)
   const take = () => {
-    recordDemoWrite('explore', 'stage-span-for-review', { queue: 'Explore spans', channel: channelName, t0_s: view[0], t1_s: view[1], tags: draft.tags })
-    toast.push({ text: 'span staged for Review · Explore spans queue', action: { label: 'Open Review →', onClick: () => navigate('review') } })
+    if (taking) return
+    setTaking(true)
+    takeSpanForReview(recordingId, fs, view, draft.note.trim() || undefined)
+      .then(r => toast.push({ text: `span taken for Review · annotation ${r.id} · in the Explore spans queue and offered as a seed in Discovery`, action: { label: 'Open Review →', onClick: () => navigate(`review/queue/${r.queue_id}`) } }))
+      .catch(e => toast.push({ kind: 'error', text: `the span was not taken for Review: ${e instanceof Error ? e.message : String(e)}` }))
+      .finally(() => setTaking(false))
   }
   return (
     <div className="card ex-span-act" data-testid="span-actions">
@@ -75,10 +84,18 @@ export function SpanActions({ channelKey, channelName, initial, view, nInView, o
         <div className="row" style={{ justifyContent: 'flex-end' }}>
           <Button onClick={save} testid="save-span">Save span</Button>
           <Button iconRight="arrow-right" onClick={onSend} testid="send-span">Send span to Analyse</Button>
-          <Button variant="primary" iconRight="arrow-right" onClick={take} testid="take-span">Take span for Review</Button>
+          <Button variant="primary" iconRight="arrow-right" onClick={take} disabled={taking} disabledReason="writing the span…" testid="take-span">Take span for Review</Button>
         </div>
-        <div className="caption" style={{ textAlign: 'right' }}>saving stores tags and note only · verdicts are given in Review</div>
+        <div className="caption" style={{ textAlign: 'right' }}>saving stores tags and note only · taking writes the span for Review · verdicts are given in Review</div>
       </div>
     </div>
   )
+}
+
+/** Take a span (seconds on the channel) for Review: one `annotations` row with verdict `seed`, through
+ *  `POST /api/annotations/seed`. Shared by the span-action row and the selected motif's *Take for Review*. */
+export function takeSpanForReview(recordingId: number, fs: number, spanS: [number, number], note?: string) {
+  const a = Math.max(0, Math.round(spanS[0] * fs)), b = Math.round(spanS[1] * fs)
+  if (!(b > a)) return Promise.reject(new Error('the span is empty'))
+  return takeSpanForReviewInQueue(recordingId, a, b, note)
 }
