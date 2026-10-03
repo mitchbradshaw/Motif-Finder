@@ -1078,6 +1078,9 @@ class Smoke:
                     elif "fill" in a: page.locator(a["fill"][0]).first.fill(a["fill"][1]); page.wait_for_timeout(200)
                     elif "hover" in a: page.locator(a["hover"]).first.hover(); page.wait_for_timeout(200)
                     elif "wait" in a: page.wait_for_timeout(int(a["wait"]))
+                    # fixup-ab: wait for a selector, up to a timeout (ms) — a live job (a window set measured, a
+                    # paired model trained) takes as long as it takes; a fixed wait is either flaky or slow
+                    elif "wait_for" in a: page.wait_for_selector(a["wait_for"][0], timeout=int(a["wait_for"][1]))
                     # an in-app walk: the hash changes and the page does NOT reload, so in-memory state survives
                     elif "hash" in a: page.evaluate("h => { location.hash = h }", a["hash"]); page.wait_for_timeout(400)
                 main_txt = page.locator(".main").inner_text() if page.locator(".main").count() else ""
