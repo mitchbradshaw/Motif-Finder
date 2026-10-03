@@ -8,8 +8,8 @@ import {
 import { useSourced } from '../api/seam'
 import { navigate } from '../state'
 import { useToast } from '../shell/Toast'
-import { REBIND_EXEMPLARS, getTemplates, previewRun, fmtMin, DISCOVERY_LIMIT_MIN, type DiscoveryTemplate, type MeasuredPreview } from '../api/discovery'
-import { applyDiscoveryTemplates } from '../api'
+import { REBIND_EXEMPLARS, getBands, getTemplates, previewRun, fmtMin, DISCOVERY_LIMIT_MIN, type DiscoveryTemplate, type MeasuredPreview } from '../api/discovery'
+import { applyDiscoveryTemplates, applyDiscoveryTemplatesWithBands, type DiscBand } from '../api'
 import { RunGlyph } from './glyphs'
 import { LoadFailed, Loading } from './chrome'
 import type { Discovery } from './session'
@@ -34,6 +34,23 @@ export function AddTemplateModal({ open, onClose, dx, onSlurm }: { open: boolean
   const notWired = useNotWired()
   const s = dx.scope!
   const nCh = s.channels.length
+  /* fixup-z: the band scope. `none` is today's behaviour; with bands, each band becomes ONE run across the
+   * channels in scope -- the template's chain with that band's bandpass prepended, built by the core's own band
+   * materialisation, paired with its own null bandpassed the same way. The list is Settings › Analysis
+   * defaults' (Q43). A band reaching this recording's Nyquist cannot be filtered and is offered disabled. */
+  const bandsRead = useSourced(getBands, [])
+  const [bandMode, setBandMode] = useQueryState('bands', 'none')
+  const [bandSel, setBandSel] = useState<string[]>([])
+  const bandList: DiscBand[] = bandsRead.data?.bands ?? []
+  const nyq = bandsRead.data?.nyquistHz ?? null
+  const bandReason = (b: DiscBand) => nyq != null && b.high_hz >= nyq ? `reaches ${b.high_hz} Hz, at or above this recording's Nyquist (${nyq} Hz) — a bandpass edge must lie below it` : null
+  const chosenBands = bandMode === 'bands' ? bandList.filter(b => bandSel.includes(b.label) && !bandReason(b)) : []
+  const nBands = chosenBands.length
+  const bandMult = Math.max(1, nBands)
+  const setMode = (v: string) => {
+    setBandMode(v)
+    if (v === 'bands' && bandSel.length === 0) setBandSel(bandList.filter(b => !bandReason(b)).map(b => b.label))
+  }
   /* Already in this session is a NOTE, not a refusal. The same template against
    * a different scope is a different run and the server mints `<name>_2` for it
    * (`discovery.py::_next_key`) -- which is also why the client's own test was
@@ -56,15 +73,17 @@ export function AddTemplateModal({ open, onClose, dx, onSlurm }: { open: boolean
   /* Keyed on the scope as well as the template: a measurement taken over
    * 320 h of six channels is not a measurement of 4 h of two, and the card was
    * still badging it "measured" after the scope shrank — out by eighty. */
-  const scopeKey = `${s.channels.join(',')}|${s.section.join('-')}`
+  // and on the band: a preview with a band scope is the FIRST chosen band's chain, bandpass included
+  const scopeKey = `${s.channels.join(',')}|${s.section.join('-')}|${chosenBands[0]?.label ?? ''}`
   const [previews, setPreviews] = useState<Record<string, MeasuredPreview & { scope: string }>>({})
   const previewOf = (name: string) => { const p = previews[name]; return p && p.scope === scopeKey ? p : undefined }
   const [previewing, setPreviewing] = useState<string | null>(null)
   const [previewErr, setPreviewErr] = useState<string | null>(null)
-  const costMin = (t: DiscoveryTemplate): number | null => { const p = previewOf(t.name); return p ? p.estimate_s / 60 : null }
+  // cost is N bands × the sweep (fixup-z): one band's measured sweep, once per band
+  const costMin = (t: DiscoveryTemplate): number | null => { const p = previewOf(t.name); return p ? (p.estimate_s / 60) * bandMult : null }
   const noCost = (t: DiscoveryTemplate) => t.previewNote ?? 'not previewed — run Preview on a sample to get a measured number'
   const focusPreview = focus ? previewOf(focus.name) : undefined
-  const focusCost = focusPreview ? focusPreview.estimate_s / 60 : null
+  const focusCost = focusPreview ? (focusPreview.estimate_s / 60) * bandMult : null
   const priced = chosen.filter(t => costMin(t) != null)
   const estimate = priced.reduce((a, t) => a + (costMin(t) ?? 0), 0)
   const unpriced = chosen.length - priced.length
@@ -75,7 +94,7 @@ export function AddTemplateModal({ open, onClose, dx, onSlurm }: { open: boolean
     setPreviewing(t.name)
     setPreviewErr(null)
     try {
-      const r = await previewRun({ template: t.name, channels: s.channels, t0: s.section[0], t1: s.section[1], sampleHours: 4 })
+      const r = await previewRun({ template: t.name, channels: s.channels, t0: s.section[0], t1: s.section[1], sampleHours: 4, band: chosenBands[0] })
       setPreviews(prev => ({ ...prev, [t.name]: { ...r.data, scope: scopeKey } }))
     } catch (e) {
       setPreviewErr(e instanceof Error ? e.message : String(e))
@@ -84,7 +103,11 @@ export function AddTemplateModal({ open, onClose, dx, onSlurm }: { open: boolean
     }
   }
   const needsExemplar = chosen.find(t => t.bind === 'rebind' && !exemplar[t.name])
-  const blockReason = chosen.length === 0 ? 'select at least one template' : needsExemplar ? `${needsExemplar.name} needs an exemplar` : null
+  const blockReason = chosen.length === 0 ? 'select at least one template' : needsExemplar ? `${needsExemplar.name} needs an exemplar`
+    : bandMode === 'bands' && nBands === 0 ? 'choose at least one band, or set the band scope to none' : null
+  const apply = (run: boolean) => nBands
+    ? applyDiscoveryTemplatesWithBands(chosen.map(t => t.name), s.channels, s.section[0], s.section[1], run, chosenBands)
+    : applyDiscoveryTemplates(chosen.map(t => t.name), s.channels, s.section[0], s.section[1], run)
 
   /* §7.5's *Add runs* / *Add and run*. This is a real POST: it used to add a
    * row to React state and drive a timer, which meant the row's "running", its
@@ -95,7 +118,7 @@ export function AddTemplateModal({ open, onClose, dx, onSlurm }: { open: boolean
   const add = async (run: boolean) => {
     setBusy(true)
     try {
-      const results = await applyDiscoveryTemplates(chosen.map(t => t.name), s.channels, s.section[0], s.section[1], run)
+      const results = await apply(run)
       setSel([])            // or reopening the modal shows the last add's templates, silently un-checked
       onClose()
       await dx.reload()
@@ -103,6 +126,7 @@ export function AddTemplateModal({ open, onClose, dx, onSlurm }: { open: boolean
       const held = results.filter(r => !r.started)
       toast.push({
         text: `${results.length} run${results.length === 1 ? '' : 's'} added`
+          + (nBands ? ` · ${nBands} band${nBands === 1 ? '' : 's'} × ${chosen.length} template${chosen.length === 1 ? '' : 's'}` : '')
           + (started ? ` · ${started} running locally` : '')
           + (held.length ? ` · ${held.length} not started: ${held[0].note ?? 'over the local ceiling'}` : ''),
       })
@@ -116,7 +140,7 @@ export function AddTemplateModal({ open, onClose, dx, onSlurm }: { open: boolean
   const slurm = async () => {
     setBusy(true)
     try {
-      const results = await applyDiscoveryTemplates(chosen.map(t => t.name), s.channels, s.section[0], s.section[1], false)
+      const results = await apply(false)
       setSel([])
       await dx.reload()
       onSlurm(results.map(r => r.run_key))
@@ -132,11 +156,11 @@ export function AddTemplateModal({ open, onClose, dx, onSlurm }: { open: boolean
       headerExtra={<Seg size="sm" value="template" onChange={v => { if (v === 'seed') { onClose(); navigate('discovery/seed') } }} options={[{ value: 'template', label: 'Apply template' }, { value: 'seed', label: 'Seed search' }]} testid="add-runs-mode" />}
       footer={
         <div className="dsc-add-foot">
-          <span><b>{chosen.length} template{chosen.length === 1 ? '' : 's'} selected</b> <span className="muted small">× {nCh} channel{nCh === 1 ? '' : 's'}</span></span>
+          <span><b>{chosen.length} template{chosen.length === 1 ? '' : 's'} selected</b> <span className="muted small" data-testid="add-multiplier">{nBands ? `× ${nBands} band${nBands === 1 ? '' : 's'} ` : ''}× {nCh} channel{nCh === 1 ? '' : 's'}</span></span>
           <span className="k-spacer" />
           {chosen.length > 0 && <span className={cx('small mono', over ? 'amber' : 'muted')} data-testid="add-estimate">
             {priced.length === 0 ? 'cost not measured — Preview on a sample'
-              : `${fmtMin(estimate)} · ${over ? 'cluster' : 'local'}${unpriced > 0 ? ` · ${unpriced} not previewed` : ''}`}
+              : `${fmtMin(estimate)}${nBands ? ` (${nBands} bands × the sweep)` : ''} · ${over ? 'cluster' : 'local'}${unpriced > 0 ? ` · ${unpriced} not previewed` : ''}`}
           </span>}
           <Button onClick={onClose}>Cancel</Button>
           <Button icon="plus" onClick={() => add(false)} disabled={!!blockReason || busy} disabledReason={blockReason ?? (busy ? 'adding the run…' : undefined)} testid="add-runs">Add {chosen.length || ''} run{chosen.length === 1 ? '' : 's'}</Button>
@@ -222,6 +246,35 @@ export function AddTemplateModal({ open, onClose, dx, onSlurm }: { open: boolean
                     </div>
                   ))}
                 </div>
+                <div className="dsc-sub-label row" style={{ gap: 6 }} data-testid="band-scope-head">
+                  Bands
+                  <InfoTip title="Band scope">A band is a scope, like the channel list. With bands, each band becomes one run across every channel in scope: this template's chain with a bandpass prepended — exactly the chain you would build by inserting the block in Analyse, saving and applying it. Each band run is paired with its own null, bandpassed the same way. Compare takes the band runs of one application as one side, their union.</InfoTip>
+                  <span className="k-spacer" />
+                  <Seg size="sm" value={bandMode} onChange={setMode} testid="band-scope-mode"
+                    options={[{ value: 'none', label: 'none' }, { value: 'bands', label: nBands ? `${nBands} band${nBands === 1 ? '' : 's'}` : 'bands' }]} />
+                </div>
+                {bandMode === 'bands' && (
+                  <div className="dsc-scope-channels" data-testid="band-scope">
+                    {bandsRead.error ? <LoadFailed what="the band list" error={bandsRead.error} onRetry={bandsRead.reload} />
+                      : !bandsRead.data ? <Loading height={60} label="reading the band list" />
+                        : bandList.map(b => {
+                          const why = bandReason(b)
+                          return (
+                            <div key={b.label} className="row between small">
+                              <Checkbox checked={bandSel.includes(b.label) && !why} disabled={!!why} disabledReason={why ?? undefined}
+                                onChange={v => setBandSel(v ? [...bandSel, b.label] : bandSel.filter(x => x !== b.label))}
+                                label={<span className="mono">{b.label}</span>} testid={`band-check-${b.label.replace(/[^A-Za-z0-9]+/g, '_')}`} />
+                              <span className="mono muted">{b.kind} {b.low_hz}–{b.high_hz} Hz</span>
+                            </div>
+                          )
+                        })}
+                    <div className="muted small" data-testid="band-scope-note">
+                      {nBands ? `${nBands} run${nBands === 1 ? '' : 's'} per template, each across ${nCh} channel${nCh === 1 ? '' : 's'} · cost is ${nBands} × the sweep` : 'no band chosen'}
+                      {bandsRead.data && ` · ${bandsRead.data.source === 'settings' ? 'your list' : 'the seeded list'} from Settings › Analysis defaults`}
+                      <Button variant="link" size="sm" icon="external" onClick={() => { onClose(); navigate('settings/analysis-defaults') }} testid="edit-bands">edit</Button>
+                    </div>
+                  </div>
+                )}
                 <div className="dsc-tiles">
                   <StatTile label="compute" value={!focus.fits ? '—' : focusCost != null ? fmtMin(focusCost) : 'not measured'}
                     caption={!focus.fits ? (focus.fitsReason ?? 'does not fit the scope') : focusCost != null ? focus.complexity : noCost(focus)}

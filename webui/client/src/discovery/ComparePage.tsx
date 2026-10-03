@@ -14,7 +14,9 @@ import {
   ROLES, getChannelSignal, getCompare, getDisagreementWindow,
   type CompareData, type CompareSide, type Disagreement, type Role, type RoleCell,
 } from '../api/discovery'
-import { DiscoveryToolbar, LoadFailed, Loading, NullChip, Refreshing, RunsCard, ScopeCard } from './chrome'
+import { DiscoveryToolbar, LoadFailed, Loading, NullChip, Refreshing, RunsCard, ScopeCard, sideRun } from './chrome'
+import { sendDiscoveryRemainderToReview, type DiscRemainderSent, type DiscVerdictSplit } from '../api'
+import { useToast } from '../shell/Toast'
 import { RunGlyph } from './glyphs'
 import { ViewPopover, parseView } from './SeedPage'
 import { useDiscovery, type Discovery } from './session'
@@ -66,8 +68,9 @@ export function ComparePage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [picksKey])
 
-  const runA = dx.runs.find(r => r.key === aQ) ?? null
-  const runB = dx.runs.find(r => r.key === bQ) ?? null
+  // a side is a run or, since fixup-z, a band set (`set:<bandSet>`): the union of one application's band runs
+  const runA = sideRun(dx.runs, aQ)
+  const runB = sideRun(dx.runs, bQ)
   const channels = dx.scope?.channels ?? []
   const section = dx.scope?.section ?? [0, 0] as [number, number]
   const valid = !!runA && !!runB && aQ !== bQ
@@ -118,10 +121,14 @@ export function ComparePage() {
                       : !cmp.data ? <Loading height={520} label="comparing the two runs" />
                         : (
                           <>
-                            <WhatDiffers data={cmp.data} />
+                            <WhatDiffers data={cmp.data} onLikeForLike={twin => {
+                              // replace the side that is NOT the band set with its like-for-like twin
+                              const next = cmp.data!.b.isSet ? [twin, bQ] : [aQ, twin]
+                              setAQ(next[0]); setBQ(next[1]); dx.setPicks(next)
+                            }} />
                             <WhereFire dx={dx} data={cmp.data} current={current}
                               onJump={(d) => { const all = cmp.data!.disagreements; const kind: OnlyFilter = d.kind === 'only A' ? 'a' : 'b'; const within = all.filter(x => x.kind === d.kind); setOnlyQ(kind); setIQ(String(within.indexOf(d) + 1)) }} />
-                            <SetOverlap data={cmp.data}
+                            <SetOverlap data={cmp.data} a={aQ} b={bQ} channels={channels} section={section} onReload={cmp.reload}
                               onSegment={(kind, channel) => {
                                 if (kind === 'both') return
                                 const want: OnlyFilter = kind === 'onlyA' ? 'a' : 'b'
@@ -145,7 +152,7 @@ export function ComparePage() {
 
 /* ------------------------------------------------------------------ what differs */
 
-export function WhatDiffers({ data }: { data: CompareData }) {
+export function WhatDiffers({ data, onLikeForLike }: { data: CompareData; onLikeForLike?: (twin: string) => void }) {
   const [pop, setPop] = useQueryState('popover', '')
   const ref = useRef<HTMLButtonElement>(null)
   const n = data.differing.length
@@ -182,6 +189,15 @@ export function WhatDiffers({ data }: { data: CompareData }) {
           )
         })}
       </div>
+      {(data.a.cellsNote || data.b.cellsNote) && <div className="muted small" data-testid="set-cells-note">{data.b.isSet ? 'B' : 'A'} · {data.b.cellsNote ?? data.a.cellsNote}</div>}
+      {data.likeForLike && (
+        <div className={cx('dsc-notice small', !data.likeForLike.isThis && 'amber')} data-testid="like-for-like" data-this={data.likeForLike.isThis ? 'yes' : 'no'}>
+          <Icon name="info" size={13} /> {data.likeForLike.note}
+          <span className="k-spacer" />
+          {data.likeForLike.run && !data.likeForLike.isThis && onLikeForLike &&
+            <Button variant="link" size="sm" onClick={() => onLikeForLike(data.likeForLike!.run!)} testid="like-for-like-open">Compare like for like</Button>}
+        </div>
+      )}
     </section>
   )
 }
@@ -322,7 +338,10 @@ function WhereFire({ dx, data, current, onJump }: { dx: Discovery; data: Compare
 
 /* ------------------------------------------------------------------ set overlap */
 
-function SetOverlap({ data, onSegment }: { data: CompareData; onSegment: (kind: 'onlyA' | 'both' | 'onlyB', channel: string) => void }) {
+function SetOverlap({ data, a, b, channels, section, onReload, onSegment }: {
+  data: CompareData; a: string; b: string; channels: string[]; section: [number, number]; onReload: () => void
+  onSegment: (kind: 'onlyA' | 'both' | 'onlyB', channel: string) => void
+}) {
   const rows = [data.total, ...data.overlap]
   const max = Math.max(...rows.map(r => r.onlyA + r.both + r.onlyB), 1)
   const pct = (v: number | null) => v == null ? '—' : `${Math.round(v * 100)} %`
@@ -354,12 +373,105 @@ function SetOverlap({ data, onSegment }: { data: CompareData; onSegment: (kind: 
         <div className="dsc-overlap-tiles">
           <StatTile label="A precision" value={pct(data.a.precision)} caption={`${data.a.reviewed} reviewed`} tone="blue" variant="card"
             info={<InfoTip title="Precision">Of the detections a human has reviewed, the share judged interesting. It exists only where reviewed hours overlap the run — a run with no reviewed overlap shows —.</InfoTip>} />
-          <StatTile label="B precision" value={pct(data.b.precision)} caption={`${data.b.reviewed} reviewed`} tone="purple" variant="card" />
+          <StatTile label="B precision" value={pct(data.b.precision)} caption={data.b.precisionNote ?? `${data.b.reviewed} reviewed`} tone="purple" variant="card" />
           <StatTile label="× null" value={`${data.a.xNull?.toFixed(1) ?? '—'} · ${data.b.xNull?.toFixed(1) ?? '—'}`} caption="A · B" variant="card"
             info={<InfoTip title="× null">How many times more than the null expects each run found on this scope. The method and its draw count are the ones the toolbar's null chip names — this tile is the ratio, not the null.</InfoTip>} />
         </div>
       </div>
+      {data.verdicts && <VerdictSplit data={data} a={a} b={b} channels={channels} section={section} onReload={onReload} />}
+      {(data.perBand?.length ?? 0) > 0 && <PerBand data={data} />}
     </section>
+  )
+}
+
+/* fixup-z: §7.7's set overlap split by what a human made of it, read live from `adjudications` (a region is
+ * judged when any detection it is made of carries a verdict). Then the act RQ4's last clause asks for -- hand
+ * adjudication of the remainder: a Review queue over exactly the regions only B found, one detection each. */
+function VerdictSplit({ data, a, b, channels, section, onReload }: {
+  data: CompareData; a: string; b: string; channels: string[]; section: [number, number]; onReload: () => void
+}) {
+  const toast = useToast()
+  const [sent, setSent] = useState<DiscRemainderSent | null>(null)
+  const [busy, setBusy] = useState(false)
+  const v = data.verdicts!
+  const plural = (n: number, w: string) => `${n} ${w}${n === 1 ? '' : 's'}`
+  const row = (key: 'onlyA' | 'both' | 'onlyB', label: string, split: DiscVerdictSplit | null, human: boolean) => (
+    <div className="dsc-verdict-row small mono" data-testid={`verdicts-${key}`} key={key}>
+      <b className="dsc-verdict-k">{label}</b>
+      {split == null
+        ? <span className="muted">{human ? 'human annotations — these are already verdicts' : 'no detections on this side'}</span>
+        : <span>{plural(split.n, 'region')} · judged <b>{split.judged}</b> · accepted <b className="green">{split.accepted}</b> · rejected <b>{split.rejected}</b>{split.other ? ` · other ${split.other}` : ''} · unjudged <b>{split.unjudged}</b></span>}
+    </div>
+  )
+  const onlyB = v.onlyB
+  const send = async () => {
+    setBusy(true)
+    try {
+      const r = await sendDiscoveryRemainderToReview({ a, b, channels, t0: section[0], t1: section[1], which: 'only B' })
+      setSent(r)
+      toast.push({
+        text: `${r.reused ? 'already sent · ' : ''}${r.unjudged} unjudged of ${plural(r.regions, 'region')} in '${r.queue}' · verdicts write ${r.writes}`,
+        action: { label: 'Open Review', onClick: () => navigate(`review/queue/${r.queue_id}`) },
+      })
+    } catch (e) {
+      toast.push({ text: `could not send the remainder: ${e instanceof Error ? e.message : String(e)}` })
+    } finally {
+      setBusy(false)
+    }
+  }
+  const bIsSet = !!data.b.isSet
+  const perBand = data.perBand ?? []
+  const nullExpects = perBand.reduce((acc, p) => acc + (p.nullExpects ?? 0), 0)
+  const nullDraws = perBand.reduce((acc, p) => acc + (p.nullDraws ?? 0), 0)
+  const anyNull = perBand.some(p => p.nullExpects != null)
+  const sendWhy = !onlyB ? (b === 'human' ? 'B is the human annotations — already verdicts' : 'nothing only B found')
+    : onlyB.n === 0 ? 'nothing only B found on this scope'
+      : onlyB.unjudged === 0 ? 'every only-B region already has a verdict' : busy ? 'sending…' : undefined
+  return (
+    <div className="dsc-verdicts" data-testid="verdict-split">
+      <div className="dsc-card-head">
+        <h4>What a human made of it</h4>
+        <InfoTip title="Verdict split">Each region of the overlap, read live from the verdicts Review writes (adjudications). A region is judged when any detection it is made of carries a verdict; accepted means interesting or seed, rejected means not interesting, other is artifact or unsure.</InfoTip>
+      </div>
+      {row('onlyA', 'only A', v.onlyA, a === 'human')}
+      {row('both', 'both', v.both, false)}
+      {row('onlyB', 'only B', v.onlyB, b === 'human')}
+      {onlyB && (
+        <div className="dsc-q-sentence small" data-testid="remainder-sentence">
+          Of the <b>{plural(onlyB.n, 'region')}</b> only {bIsSet ? 'a band' : 'B'} found, a human has judged <b>{onlyB.judged}</b> and accepted <b>{onlyB.accepted}</b>.
+          {bIsSet && <span className="muted"> {anyNull ? `The bands' nulls expect ${nullExpects} on this scope (${plural(nullDraws, 'draw')}).` : 'No null was drawn for these band runs.'}</span>}
+        </div>
+      )}
+      <div className="row" style={{ gap: 8 }}>
+        <Button variant="primary" icon="inbox" onClick={send} loading={busy} disabled={!!sendWhy} disabledReason={sendWhy}
+          testid="send-only-b">Send only-B unjudged to Review{onlyB ? ` (${onlyB.unjudged})` : ''}</Button>
+        {sent && <Button variant="link" size="sm" icon="external" onClick={() => navigate(`review/queue/${sent.queue_id}`)} testid="open-remainder-queue">open {sent.queue}</Button>}
+        <span className="k-spacer" />
+        <Button size="sm" icon="refresh" onClick={onReload} testid="refresh-verdicts">Refresh after reviewing</Button>
+      </div>
+    </div>
+  )
+}
+
+function PerBand({ data }: { data: CompareData }) {
+  const other = (data.perBandSide ?? 'B') === 'B' ? 'A' : 'B'
+  return (
+    <div className="dsc-per-band" data-testid="per-band">
+      <div className="dsc-card-head">
+        <h4>Per band</h4>
+        <InfoTip title="Per band">The union above de-duplicates a region two bands both found. Underneath it, each band run on its own: what it found on this scope, how much of that the other side also found, and how many union regions that band alone fired. Its null is its own paired surrogate run.</InfoTip>
+      </div>
+      <div className="dsc-per-band-grid small mono" role="table">
+        <span className="muted">band</span><span className="muted">found</span><span className="muted">also {other}</span><span className="muted">not {other}</span><span className="muted">alone</span><span className="muted">null expects</span>
+        {data.perBand!.map(p => (
+          <Fragment key={p.run}>
+            <span data-testid={`per-band-${p.run}`}><i className="sw" style={{ background: p.colour }} /> {p.band.label}</span>
+            <span>{p.found}</span><span>{p.both}</span><span>{p.only}</span><span>{p.alone}</span>
+            <span>{p.nullExpects == null ? '—' : `${p.nullExpects}${p.nullDraws ? ` / ${p.nullDraws} draws` : ''}`}</span>
+          </Fragment>
+        ))}
+      </div>
+    </div>
   )
 }
 
@@ -393,7 +505,13 @@ function Disagreements({ data, a, b, only, setOnly, list, i, setI, current }: {
         {/* "0 / 1" claimed a page that is not there. An empty filter is 0 / 0. */}
         <Pager page={Math.min(i, list.length)} pageCount={list.length} onPage={setI} label="disagreement" testid="step-pager" />
         <Button variant="primary" icon="list" disabled={!current} disabledReason={current ? undefined : 'no disagreement to open'}
-          onClick={() => navigate(`discovery/compare/stages?a=${encodeURIComponent(a)}&b=${encodeURIComponent(b)}&only=${only}&i=${i}`)} testid="compare-every-stage">Compare every stage</Button>
+          onClick={() => {
+            // a band set is N chains: every stage is shown for the band that fired this region
+            const fired = current?.bandRuns?.[0]
+            const sa = fired && current?.kind === 'only A' && a.startsWith('set:') ? fired : a
+            const sb = fired && current?.kind === 'only B' && b.startsWith('set:') ? fired : b
+            navigate(`discovery/compare/stages?a=${encodeURIComponent(sa)}&b=${encodeURIComponent(sb)}&only=${only}&i=${i}`)
+          }} testid="compare-every-stage">Compare every stage</Button>
       </div>
       {!current ? <EmptyState size="sm" icon="check-circle" title={data.disagreements.length ? 'Nothing under this filter' : 'No disagreement here'} caption={data.disagreements.length
           ? `${data.disagreements.length} disagreement${data.disagreements.length === 1 ? '' : 's'} on this scope — ${nA} only A, ${nB} only B — but none under this filter`
@@ -402,6 +520,7 @@ function Disagreements({ data, a, b, only, setOnly, list, i, setI, current }: {
           <div className="dsc-steps-text mono small" data-testid="step-text">
             <b>{current.atH.toFixed(1)} h · {current.channel} · 40 s</b>
             <span className={current.kind === 'only A' ? 'blue' : 'purple'}>{current.kind} fired</span>
+            {current.bands && current.bands.length > 0 && <span className="purple" data-testid="step-bands">band{current.bands.length === 1 ? '' : 's'} {current.bands.join(' · ')}</span>}
             <span className="dsc-steps-gap" />
             <span style={{ color: current.kind === 'only A' ? B_COLOUR : A_COLOUR }} data-testid="step-nearest">{current.kind === 'only A' ? 'B' : 'A'} nearest {nearest != null
               ? (current.otherIsSeed ? `d ${nearest.toFixed(1)}` : `score ${nearest.toFixed(2)}`)

@@ -279,3 +279,15 @@
 .dsc-decided-table tr.differs { background: #fffaf0; }
 .dsc-decided-table tr.hi { outline: 2px solid var(--blue-100); outline-offset: -2px; }
 .dsc-stg-veil-box { display: flex; align-items: center; gap: 10px; background: #fff; border: 1px solid var(--border); border-radius: 999px; padding: 7px 14px; box-shadow: 0 2px 10px rgba(16, 24, 40, 0.08); color: var(--text-2); }
+
+/* fixup-z: the band scope, a band set as a Compare side, the verdict split and the per-band counts */
+.dsc-notice.amber { background: #fffaf0; color: var(--amber, #b45309); white-space: normal; }
+.dsc-band-set { border-style: dashed; }
+.dsc-band-set .dsc-run-body { cursor: default; }
+.dsc-verdicts, .dsc-per-band { border-top: 1px solid var(--border); margin-top: 10px; padding-top: 8px; display: flex; flex-direction: column; gap: 6px; }
+.dsc-verdicts h4, .dsc-per-band h4 { margin: 0; font-size: 13px; }
+.dsc-verdict-row { display: flex; gap: 10px; align-items: baseline; flex-wrap: wrap; }
+.dsc-verdict-k { width: 56px; flex: none; }
+.dsc-q-sentence { background: var(--grey-100); border-radius: 7px; padding: 6px 10px; }
+.dsc-per-band-grid { display: grid; grid-template-columns: minmax(120px, 2fr) repeat(5, minmax(56px, 1fr)); gap: 3px 10px; }
+.dsc-per-band-grid .sw { display: inline-block; width: 8px; height: 8px; border-radius: 2px; vertical-align: -1px; }

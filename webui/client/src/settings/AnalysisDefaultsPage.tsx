@@ -9,6 +9,7 @@ import {
 import { useSourced } from '../api/seam'
 import { navigate } from '../state'
 import { getAnalysisDefaults, ruleKey, type RecommendRule } from '../api/settings'
+import { DEFAULT_BANDS, type BandEntry } from '../fixtures/settings'
 import { LoadFailed, Loading, LockedField, Row, SettingsShell } from './chrome'
 import { useSettingsPage } from './store'
 
@@ -67,6 +68,8 @@ function Body({ data }: { data: Data }) {
             options={['m / 4', 'm / 2', 'm'].map(o => ({ value: o, label: o }))} />
         </Row>
       </SectionCard>
+
+      <BandsCard s={s} />
 
       <SectionCard title="Recommended values" subtitle="Settings holds the rule · each block evaluates it on its span" testid="rules-card"
         footer={<Button variant="link" size="sm" icon="plus" testid="add-rule" onClick={() => notWired('POST /api/settings/analysis-defaults/rules')}>Add a rule for a block parameter</Button>}>
@@ -161,6 +164,47 @@ function Body({ data }: { data: Data }) {
         {clearing === 'running' && <ProgressBar indeterminate label="clearing…" testid="clear-progress" />}
       </Modal>
     </>
+  )
+}
+
+/* fixup-z, Q43: the project's named band list. It is Discovery › Apply template's band scope (each band one run
+ * across the channels in scope) and the presets every bandpass block offers in Analyse. A band is a typed entry --
+ * `bandpass` today, AC adds a wavelet level -- and each band run records its band in its recipe through the
+ * bandpass step it prepends. A band reaching a recording's Nyquist is refused when it is applied, by name. */
+function BandsCard({ s }: { s: ReturnType<typeof useSettingsPage> }) {
+  const raw = s.value('bands')
+  const bands: BandEntry[] = Array.isArray(raw) ? (raw as BandEntry[]) : DEFAULT_BANDS
+  const write = (next: BandEntry[]) => {
+    s.set('bands', next)
+    const bad = next.find(b => !(b.low_hz > 0 && b.low_hz < b.high_hz))
+    const dup = next.find((b, i) => next.findIndex(x => x.label === b.label) !== i)
+    s.markInvalid('bands', bad ? `${bad.label || 'a band'}: the lower edge must be above 0 and below the upper edge`
+      : dup ? `two bands are called ${dup.label}` : next.some(b => !b.label.trim()) ? 'every band needs a name' : null)
+  }
+  const edit = (i: number, patch: Partial<BandEntry>) => write(bands.map((b, j) => j === i ? { ...b, ...patch } : b))
+  const err = s.invalid['bands']
+  return (
+    <SectionCard title="Bands" subtitle="Discovery's band scope · every bandpass block's presets · each band run records its band" testid="bands-card"
+      footer={<Button variant="link" size="sm" icon="plus" testid="add-band"
+        onClick={() => { const last = bands[bands.length - 1]; const lo = last ? last.high_hz : 0.01; write([...bands, { kind: 'bandpass', label: `band ${bands.length + 1}`, low_hz: lo, high_hz: +(lo * 4).toPrecision(3) }]) }}>Add a band</Button>}>
+      <Row label="named bands" dot={s.differs('bands')} unsaved={s.dirty('bands')} testid="bands-row"
+        caption="seeded with three log-spaced bands for a 1 Hz recording; the last stops at 0.45 Hz because 0.5 Hz is its Nyquist">
+        <div className="s-band-list" data-testid="band-list">
+          {bands.map((b, i) => (
+            <div key={i} className="s-band" data-testid={`band-${i}`}>
+              <TextField value={b.label} onChange={v => edit(i, { label: v })} width={130} testid={`band-label-${i}`} ariaLabel={`band ${i + 1} name`} />
+              <span className="mono small muted">{b.kind}</span>
+              <NumberField value={b.low_hz} min={0.000001} step={0.001} width={96} onValid={v => edit(i, { low_hz: v })} testid={`band-low-${i}`} />
+              <span className="mono small">–</span>
+              <NumberField value={b.high_hz} min={0.000001} step={0.01} width={96} unit="Hz" onValid={v => edit(i, { high_hz: v })} testid={`band-high-${i}`} />
+              <Button variant="link" size="sm" icon="trash" onClick={() => write(bands.filter((_, j) => j !== i))} disabled={bands.length === 1}
+                disabledReason="keep at least one band — set Apply template's band scope to none instead" testid={`band-remove-${i}`} aria-label={`remove ${b.label}`}>remove</Button>
+            </div>
+          ))}
+          {err && <span className="small" style={{ color: 'var(--red)' }} data-testid="bands-error">{err}</span>}
+        </div>
+      </Row>
+    </SectionCard>
   )
 }
 

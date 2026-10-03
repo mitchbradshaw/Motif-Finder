@@ -346,6 +346,14 @@ export const RECOMMEND_RULES: RecommendRule[] = [
   { block: 'Symbolic encoding', parameter: 'alphabet', rule: '5 symbols · Gaussian breakpoints', locked: false, evaluated_on: 'fixed', example: null, history: [] },
 ]
 export const ruleKey = (block: string, param: string) => `rule.${block}.${param}`
+/* fixup-z, Q43: the band list's default -- the core's `Working.run_groups.DEFAULT_BANDS`, entry for entry. The
+ * decision seeded ~0.1–0.5 Hz; 0.5 Hz is Nyquist at 1 Hz and a Butterworth edge must lie below it. */
+export interface BandEntry { kind: 'bandpass'; label: string; low_hz: number; high_hz: number }
+export const DEFAULT_BANDS: BandEntry[] = [
+  { kind: 'bandpass', label: '0.001–0.01 Hz', low_hz: 0.001, high_hz: 0.01 },
+  { kind: 'bandpass', label: '0.01–0.1 Hz', low_hz: 0.01, high_hz: 0.1 },
+  { kind: 'bandpass', label: '0.1–0.45 Hz', low_hz: 0.1, high_hz: 0.45 },
+]
 export const RULE_CONTEXTS = ['M2_aug fs1 CH4_A2', 'M3_jul CH2']
 export const RULE_EXAMPLES: Record<string, Record<string, string | null>> = {
   'M2_aug fs1 CH4_A2': { 'Sliding windows.window': '600 s', 'Sliding windows.gap': '600 s', 'Matrix profile.m': '120 s', 'Threshold to spans.threshold': '0.62', 'Noise floor.floor': '0.10 mV', 'Bandpass filter.band': null, 'Symbolic encoding.alphabet': null },
@@ -356,6 +364,7 @@ const analysisValues = (band: string): Values => {
     iou: 0.5, onset: 0.25, exclusion: 'm / 2',
     coherence: 0.5, clipping: 98, step_x: 5, step_within: 1, band_low: 0.3, band_medium: 0.6,
     cache_min_s: 2, cache_keep_days: 14, cache_location: './artifacts/steps',
+    bands: DEFAULT_BANDS,
   }
   for (const r of RECOMMEND_RULES) v[ruleKey(r.block, r.parameter)] = r.block === 'Bandpass filter' ? band : r.rule
   return v

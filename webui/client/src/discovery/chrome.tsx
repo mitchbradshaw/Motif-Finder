@@ -362,6 +362,29 @@ function StripLine({ values, yDomain }: { values: number[]; yDomain: [number, nu
 /* ------------------------------------------------------------------ runs card */
 export type RunsMode = 'runs' | 'seed' | 'compare'
 
+/* fixup-z: the band runs of one *Apply template* with a band scope are one band set, and Compare takes the set as
+ * one side -- `set:<bandSet>`, the union of its runs de-duplicated by the matching rule. A set is not a run: it
+ * has no row of its own on the server, so the page derives it from its members, in band order. */
+export interface BandSet { key: string; bandSet: string; label: string; members: DiscoveryRun[]; done: boolean }
+export const SET_PREFIX = 'set:'
+export function bandSets(runs: DiscoveryRun[]): BandSet[] {
+  const by = new Map<string, DiscoveryRun[]>()
+  for (const r of runs) if (r.bandSet && r.status !== 'superseded') by.set(r.bandSet, [...(by.get(r.bandSet) ?? []), r])
+  return [...by.entries()].map(([bandSet, ms]) => {
+    const members = [...ms].sort((a, b) => (a.bandIndex ?? 0) - (b.bandIndex ?? 0))
+    const tpl = members[0].template ?? members[0].label
+    return { key: `${SET_PREFIX}${bandSet}`, bandSet, members, done: members.every(m => m.status === 'done'),
+      label: `${tpl} · ${members.length} band${members.length === 1 ? '' : 's'}` }
+  })
+}
+/** A Compare side by key: a run, or a band set as a run-shaped stand-in (label, colour of its first band). */
+export function sideRun(runs: DiscoveryRun[], key: string): DiscoveryRun | null {
+  const r = runs.find(x => x.key === key)
+  if (r) return r
+  const set = bandSets(runs).find(x => x.key === key)
+  return set ? { ...set.members[0], key: set.key, label: `${set.label} (union)`, status: set.done ? 'done' : set.members[0].status } : null
+}
+
 export function RunsCard({ dx, mode, selected, onSelect, draft, compareActive, onAddTemplate }: {
   dx: Discovery; mode: RunsMode; selected?: string | null; onSelect?: (key: string) => void; draft?: ReactNode; compareActive?: boolean; onAddTemplate: () => void
 }) {
@@ -386,6 +409,7 @@ export function RunsCard({ dx, mode, selected, onSelect, draft, compareActive, o
         {listed.slice(0, 4).map(r => <RunRow key={r.key} dx={dx} run={r} selected={selected === r.key} onSelect={onSelect} mode={mode} />)}
         {draft}
         {listed.slice(4).map(r => <RunRow key={r.key} dx={dx} run={r} selected={selected === r.key} onSelect={onSelect} mode={mode} />)}
+        {mode !== 'seed' && bandSets(listed).map(set => <BandSetRow key={set.key} dx={dx} set={set} />)}
         {listed.length === 1 && listed[0].kind === 'reference' && <EmptyState size="sm" icon="layers" title="Only the human reference" caption="Apply template or Seed search adds the first run" testid="runs-empty" />}
       </div>
       <div className="dsc-runs-foot" data-testid="runs-foot">
@@ -401,6 +425,28 @@ export function RunsCard({ dx, mode, selected, onSelect, draft, compareActive, o
         )}
       </div>
     </section>
+  )
+}
+
+function BandSetRow({ dx, set }: { dx: Discovery; set: BandSet }) {
+  const pickIdx = dx.picks.indexOf(set.key)
+  const found = set.members.map(m => dx.foundOf(m.key) ?? m.found)
+  return (
+    <div className="dsc-run dsc-band-set" style={{ ['--run' as string]: set.members[0].colour }} data-testid={`band-set-row-${set.bandSet}`} data-status={set.done ? 'done' : 'running'}>
+      <span className="dsc-run-body" title="the band runs of one application, compared as their union">
+        <Icon name="layers" size={16} />
+        <span className="dsc-run-text">
+          <b>{set.label}</b>
+          <span className="dsc-run-meta"><span className="k-badge t-purple">band set</span><span className="muted">{set.members.map(m => m.band?.label ?? m.key).join(' · ')}</span></span>
+          <span className="dsc-run-line small">{set.done ? <span>union of {set.members.length} runs · {found.map(f => f ?? '…').join(' + ')} found before de-duplication</span> : <span className="blue">waiting for every band to finish</span>}</span>
+        </span>
+      </span>
+      {pickIdx >= 0
+        ? <button type="button" className={cx('dsc-pick', pickIdx === 0 ? 'a' : 'b')} onClick={() => dx.togglePick(set.key)} aria-label={`unpick ${set.label} (${pickIdx === 0 ? 'A' : 'B'})`} data-testid={`pick-${set.key}`}>{pickIdx === 0 ? 'A' : 'B'}</button>
+        : <DisabledReason disabled={!set.done} reason="every band run needs results before the set can be compared">
+          <button type="button" className="dsc-pick" disabled={!set.done} onClick={() => dx.togglePick(set.key)} aria-label={`pick ${set.label} to compare`} data-testid={`pick-${set.key}`} />
+        </DisabledReason>}
+    </div>
   )
 }
 
@@ -490,7 +536,7 @@ export function SlurmModal({ open, onClose, dx, runs, onCreated }: { open: boole
   useEffect(() => {
     if (!open || !first || !dx.scope || made[first.key]) return
     setBusy(true); setErr(null)
-    postDiscoverySlurm({ template: first.template ?? first.key, channels: dx.scope.channels, t0: dx.scope.section[0], t1: dx.scope.section[1] })
+    postDiscoverySlurm({ template: first.template ?? first.key, channels: dx.scope.channels, t0: dx.scope.section[0], t1: dx.scope.section[1], band: first.band ?? undefined })
       .then(r => setMade(m => ({ ...m, [first.key]: r })))
       .catch(e => setErr(e instanceof Error ? e : new Error(String(e))))
       .finally(() => setBusy(false))

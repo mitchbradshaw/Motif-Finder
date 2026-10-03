@@ -3,7 +3,8 @@
    text otherwise. "= default" marks a value equal to the adapter default; "= recommended"
    is printed only for a value the adapter's recommend hook actually produced (none are served
    by this slice — critique r1); the description sits behind an info icon (P9). */
-import type { AdapterCard, ParamSpec } from '../api'
+import { useEffect, useState } from 'react'
+import { getDiscoveryBands, type AdapterCard, type DiscBand, type ParamSpec } from '../api'
 
 export interface ParamsPanelProps {
   adapter: AdapterCard
@@ -80,6 +81,35 @@ export function ParamsPanel({ adapter, params, onChange, disabled, recommended }
         )
       })}
       {!adapter.params.length && <div className="muted mono small">this block has no parameters</div>}
+      {adapter.name === 'preprocessing.bandpass' && <BandPresets params={params} onChange={onChange} disabled={disabled} />}
+    </div>
+  )
+}
+
+/* fixup-z, Q43: the project's named band list (Settings › Analysis defaults) as a bandpass block's presets — the
+ * same bands Discovery's band scope offers, so a chain built here by hand and a band run there are one recipe. */
+function BandPresets({ params, onChange, disabled }: { params: Record<string, unknown>; onChange: (name: string, value: unknown) => void; disabled?: boolean }) {
+  const [bands, setBands] = useState<DiscBand[] | null>(null)
+  const [err, setErr] = useState<string | null>(null)
+  // read on every mount, so a list edited in Settings is the list offered next time the block opens
+  useEffect(() => {
+    let live = true
+    getDiscoveryBands().then(r => { if (live) setBands(r.bands) }).catch(e => { if (live) setErr(e instanceof Error ? e.message : String(e)) })
+    return () => { live = false }
+  }, [])
+  if (err) return <div className="pp-row wide small" data-testid="band-presets-error"><span className="muted">band presets unavailable: {err}</span></div>
+  if (!bands) return null
+  return (
+    <div className="pp-row wide" data-testid="band-presets">
+      <div className="pp-lab"><span>presets</span><span className="info" title="the named bands in Settings › Analysis defaults — the same list Discovery's band scope offers">i</span></div>
+      <div className="pp-ctl seg">
+        {bands.map(b => {
+          const on = eq(params.low_hz, b.low_hz) && eq(params.high_hz, b.high_hz)
+          return <button key={b.label} className={on ? 'on' : ''} disabled={disabled} data-testid={`band-preset-${b.label.replace(/[^A-Za-z0-9]+/g, '_')}`}
+            onClick={() => { onChange('low_hz', b.low_hz); onChange('high_hz', b.high_hz) }}>{b.label}</button>
+        })}
+      </div>
+      <div className="pp-rec">Settings › Analysis defaults</div>
     </div>
   )
 }

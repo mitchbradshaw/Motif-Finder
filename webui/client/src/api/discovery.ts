@@ -14,10 +14,10 @@
  * M4_aug (held out, D6) is refused by the bridge on every route that names it. */
 import {
   ApiError, getDiscoveryCompare, getDiscoveryCompareStages, getDiscoveryCompareWindow, getDiscoveryDetectionWindow, getDiscoveryDetections,
-  getDiscoveryFires, getDiscoveryHistory, getDiscoveryOverview, getDiscoveryRuns, getDiscoveryScoreboard, getDiscoverySeedProfile,
+  getDiscoveryBands, getDiscoveryFires, getDiscoveryHistory, getDiscoveryOverview, getDiscoveryRuns, getDiscoveryScoreboard, getDiscoverySeedProfile,
   getDiscoverySeedPage, getDiscoverySeedSetupFor, getDiscoverySeeds, getDiscoverySession, putDiscoverySeedDraft, getDiscoverySignal, getDiscoveryTemplates, pollDiscoverySeedResults,
   postDiscoveryPlan, postDiscoveryPreview, startDiscoverySeedResults,
-  type CutRule, type DiscSeedPageQuery, type DiscPlan, type DiscPlanBody, type DiscPreview, type DiscRecordingOption, type DiscSeedParams, type DiscSeedQuery, type DiscSeedResults,
+  type CutRule, type DiscBand, type DiscBandsPayload, type DiscLikeForLike, type DiscPerBand, type DiscSetMember, type DiscVerdictSplit, type DiscSeedPageQuery, type DiscPlan, type DiscPlanBody, type DiscPreview, type DiscRecordingOption, type DiscSeedParams, type DiscSeedQuery, type DiscSeedResults,
 } from '../api'
 import { live, type Sourced } from './seam'
 import type { GlyphKind, Role } from '../fixtures/discovery'
@@ -56,6 +56,9 @@ export interface DiscoveryRun {
   runGroupId?: number; channelsDone?: string; found?: number
   /** fixup-y: a seed run's seed and cut — what the Seed page finds its own run by, never the label */
   seedId?: string; cut?: number | null; entryId?: number | null
+  /** fixup-z: one band of a band-scoped *Apply template*; the band runs of one application share `bandSet`,
+   *  which Compare takes as one side (`set:<bandSet>`) */
+  band?: DiscBand | null; bandSet?: string | null; bandIndex?: number | null
 }
 
 export interface TemplateStage { index: string; name: string; signature: string; locked?: string; glyph: GlyphKind }
@@ -119,6 +122,7 @@ export const getRuns = (): Promise<Sourced<DiscoveryRun[]>> => live(getDiscovery
   perChannelMin: opt(r.perChannelMin), job: opt(r.job), progress: r.progress, doneAt: r.doneAt, error: r.error,
   reviewedH: r.reviewedH, runGroupId: opt(r.runGroupId), channelsDone: opt(r.channelsDone), found: opt(r.found),
   seedId: opt(r.seedId), cut: r.cut ?? null, entryId: r.entryId ?? null,
+  band: r.band ?? null, bandSet: r.bandSet ?? null, bandIndex: r.bandIndex ?? null,
 }))))
 
 export const getTemplates = (): Promise<Sourced<DiscoveryTemplate[]>> => live(getDiscoveryTemplates().then(rows => rows.map(t => ({
@@ -127,6 +131,10 @@ export const getTemplates = (): Promise<Sourced<DiscoveryTemplate[]>> => live(ge
 }))))
 
 export const getHistory = (): Promise<Sourced<HistoryEntry[]>> => live(getDiscoveryHistory())
+
+/** fixup-z: the project's band list (Settings › Analysis defaults, Q43) — what *Apply template*'s band scope
+ *  offers. `nyquistHz` is the session recording's; a band reaching it cannot be filtered. */
+export const getBands = (): Promise<Sourced<DiscBandsPayload>> => live(getDiscoveryBands())
 
 /** The exemplars a `rebind` template can be bound to: the bridge's seed list, as dropdown options. */
 export const getRebindExemplars = (): Promise<Sourced<{ value: string; label: string }[]>> =>
@@ -300,6 +308,8 @@ export interface OverlapRow { channel: string; onlyA: number; both: number; only
 export interface CompareSide {
   run: string; label: string; subtitle: string; isSeed: boolean; cells: Record<Role, RoleCell | null>
   precision: number | null; reviewed: number; xNull: number | null; threshold: number | null; found?: number
+  /** fixup-z: a band set as one side — the union of its band runs */
+  isSet?: boolean; members?: DiscSetMember[]; template?: string; cellsNote?: string; precisionNote?: string
 }
 /** `otherNearest` is null in the list on purpose: the other side's score at a place is a per-window
  *  computation, and /compare/window returns it as `bScore` when you step to it. `sortedBy` is the
@@ -308,6 +318,8 @@ export interface Disagreement {
   kind: 'only A' | 'only B'; channel: string; atH: number; detection: string
   score: number | null; otherNearest: number | null; otherThreshold: number | null; otherIsSeed: boolean
   index?: number; end?: number
+  /** fixup-z: on a band set's side, the bands that fired this region and their run keys */
+  bands?: string[] | null; bandRuns?: string[] | null
 }
 export interface CompareData {
   a: CompareSide; b: CompareSide
@@ -317,6 +329,10 @@ export interface CompareData {
   disagreementsTotal?: number; disagreementsCapped?: boolean; sortedBy?: string
   attributable?: boolean; attributionNote?: string | null
   both: { channel: string; atH: number }[]
+  /** fixup-z: the overlap split by verdict (live from `adjudications`), the per-band counts under a band set's
+   *  union, and the like-for-like twin a band set should be compared against */
+  verdicts?: { onlyA: DiscVerdictSplit | null; both: DiscVerdictSplit; onlyB: DiscVerdictSplit | null }
+  perBand?: DiscPerBand[]; perBandSide?: 'A' | 'B' | null; likeForLike?: DiscLikeForLike | null
 }
 
 const toSide = (s: { cells: Record<string, { glyph: string } & Omit<RoleCell, 'glyph'> | null> } & Omit<CompareSide, 'cells'>): CompareSide => ({
@@ -332,6 +348,7 @@ export function getCompare(a: string, b: string, channels: string[], section: [n
     disagreementsTotal: d.disagreementsTotal, disagreementsCapped: d.disagreementsCapped, sortedBy: d.sortedBy,
     attributable: d.attributable, attributionNote: d.attributionNote,
     both: d.both,
+    verdicts: d.verdicts, perBand: d.perBand ?? [], perBandSide: d.perBandSide ?? null, likeForLike: d.likeForLike ?? null,
   })))
 }
 

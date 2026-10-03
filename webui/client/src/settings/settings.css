@@ -118,3 +118,7 @@ html[data-density="compact"] .k-nav-item { height: 24px; }
 .s-suggest { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; }
 .s-suggest button { border: 1px solid var(--border); background: var(--card); border-radius: 999px; padding: 1px 8px; font-size: 11px; color: var(--text-2); cursor: pointer; }
 .s-suggest button:hover { background: var(--blue-100); color: var(--blue-600); border-color: transparent; }
+
+/* fixup-z: the named band list (Analysis defaults) */
+.s-band-list { display: flex; flex-direction: column; gap: 6px; }
+.s-band { display: flex; align-items: center; gap: 8px; }
