@@ -48,7 +48,10 @@ FS_RATIO_TOL = 1e-6
 _CH_FILE = re.compile(r"^(?:.*_)?CH(\d+)\.npy$")
 _FS_SUFFIX = re.compile(r"_fs(\d+(?:\.\d+)?)$", re.IGNORECASE)
 _MP_NAME = re.compile(r"^mp_v2_(?P<stem>.+)_CH(?P<ch>\d+)_WIN(?P<win>[\d.]+)min(?:_span(?P<a>\d+)-(?P<b>\d+))?\.npz$")
-_WM_NAME = re.compile(r"^wm_v1_(?P<stem>.+)_CH(?P<ch>\d+)_WIN(?P<win>[\d.]+)min_STEP(?P<step>[\d.]+)pct\.npz$")
+# fixup-aa: a name may end `_span<a>-<b>_<key8>` (the span and the recipe-prefix
+# key); names written before it do not, and both are read
+_WM_NAME = re.compile(r"^wm_v1_(?P<stem>.+?)_CH(?P<ch>\d+)_WIN(?P<win>[\d.]+)min_STEP(?P<step>[\d.]+)pct"
+                      r"(?:_span(?P<a>\d+)-(?P<b>\d+)_(?P<key>[0-9a-f]{8}))?\.npz$")
 _HEX8 = re.compile(r"(?<![0-9a-f])([0-9a-f]{8})(?![0-9a-f])")
 
 
@@ -991,7 +994,7 @@ def _scan_window_matrix(roots, conn, **kw):
         if m:
             facts.update({"stem": m.group("stem"), "channel": int(m.group("ch")), "window_min": float(m.group("win")), "step_pct": float(m.group("step"))})
         elif facts["format"] == "npz":
-            warnings.append("file name does not follow wm_v1_<stem>_CH<n>_WIN<len>min_STEP<pct>pct.npz")
+            warnings.append("file name does not follow wm_v1_<stem>_CH<n>_WIN<len>min_STEP<pct>pct[_span<a>-<b>_<key>].npz")
         else:
             warnings.append("legacy CSV window matrix: no manifest fields; the recording is inferred from the file name and must be checked by eye")
         cands.append(Candidate(kind="window_matrix", path=p, name=base, facts=facts, warnings=warnings))

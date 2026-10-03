@@ -232,6 +232,7 @@ function WindowSetRail({ ws, onDelete }: { ws: WindowSetRow; onDelete: () => voi
       </> : <span className="lib-cap" data-testid="split-plan-none">no split plan — these windows were supplied, not cut by a sliding-windows block</span>}
       {ws.spacingChecks.length ? <Checklist items={ws.spacingChecks.map(c => ({ label: c.label, state: c.ok ? 'pass' : 'fail' }))} testid="spacing-checks" />
         : <span className="lib-cap" data-testid="spacing-checks-none">no spacing checks were recorded when this set was saved</span>}
+      {ws.coverageNote && coverage === 'now' && <span className="lib-cap" style={{ color: 'var(--amber)' }} data-testid="coverage-note">{ws.coverageNote} — showing the counts at save</span>}
       <span className="lib-cap" style={{ fontSize: 11 }}>labels · {fmtInt(labelled)} windows · {ws.windows ? Math.round((labelled / ws.windows) * 100) : 0} % labelled</span>
       <div className="row" style={{ justifyContent: 'flex-end', marginTop: -4 }}>
         <span className="lib-cap">coverage</span><InfoTip title="coverage now and at save">verdict coverage is live: “now” counts today's labels, “at save” the labels when the set was saved (§6.9)</InfoTip>

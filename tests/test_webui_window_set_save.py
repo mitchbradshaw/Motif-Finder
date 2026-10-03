@@ -9,8 +9,9 @@ The saved row carries what §6.9 lists: the split assignment and its rule, the
 spacing check, human-verdict coverage per split and per class AT SAVE TIME, and
 the producing recipe's hash; the window bounds live on disk and the row holds
 the path (rule 4). A training set keeps no two overlapping windows by default
-(Q-W1): on the labels' 600/200 grid that is a stride-600 subset on the phase
-that keeps the most labelled windows, the offset recorded, the dropped counted.
+(Q-W1, revised 2026-10-03): labelled windows first, each kept unless it overlaps
+one already kept, then unlabelled windows fill the gaps; the rule recorded, the
+dropped counted.
 Coverage is live: the Library shows it now and at save.
 
 FastAPI lives only in `webui/.venv`:
@@ -132,7 +133,7 @@ def test_save_window_set_makes_a_window_sets_row_with_what_6_9_lists(client):
     spacing = json.loads(row["spacing_json"])
     assert spacing and all(spacing.values()), spacing
     cov = json.loads(row["coverage_json"])
-    assert cov["phase_offset"] == 200
+    assert cov["non_overlap_rule"] == "labelled-first"
     assert row["n_windows"] == len(PHASE200) == cov["labelled_windows"]
     assert cov["dropped_for_overlap"] > 0
     assert cov["class_counts_at_save"] == {"interesting": 4, "not_interesting": 7}

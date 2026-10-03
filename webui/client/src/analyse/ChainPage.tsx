@@ -15,6 +15,7 @@ import { useToast } from '../shell/Toast'
 import { fmtDuration, navigate, useApp } from '../state'
 import { paramCaption } from './captions'
 import { ChainRow, PLOT_H } from './ChainRow'
+import { SaveWindowSetButton } from './SaveWindowSet'
 import { HistoryPopover } from './HistoryPopover'
 import { InsertStageModal } from './InsertStageModal'
 import { renderByType } from './Renderer'
@@ -207,7 +208,7 @@ export function ChainPage() {
   const runTitle = !source ? 'no source' : locked ? 'the held-out recording cannot be run' : invalid ? 'fix the red junction first' : !n ? 'add a stage' : overTitle ?? undefined
 
   /* ---- footer ---- */
-  const term = val.v ? terminalWording(val.v.terminal_kind, val.v.terminal_label) : { chip: val.error ? 'terminal — validation refused' : 'terminal — validating…', kind: 'grey' as const }
+  const term = val.v ? terminalWording(val.v.terminal_kind, val.v.terminal_label, val.v.template_kind) : { chip: val.error ? 'terminal — validation refused' : 'terminal — validating…', kind: 'grey' as const }
   const lastRow = rows[n - 1]
   const terminalPayload = lastRow?.payload ?? null
   const nSpans = terminalPayload?.type === 'spanset' ? (terminalPayload as SpansetPayload).n : null
@@ -317,7 +318,11 @@ export function ChainPage() {
     return (
       <ChainRow key={`step-${i}`} testIndex={i + 1} rowClass={r.status === 'failed' || r.status === 'invalid' ? r.status : ''} num={pad2(i + 1)} title={title} badge={r.status} badgeText={badgeText} badgeTitle={badgeTitle} timingText={timing} resetKey={`${job?.job_id ?? 'none'}-${i}`}
         signature={sig} caption={caption} t0={t0} t1={t1} plot={plot} overlay={overlay} replace={replace}
-        onSettings={() => navigate(`analyse/block/${i}`)} onDelete={running ? undefined : () => deleteStep(i)} />
+        onSettings={() => navigate(`analyse/block/${i}`)} onDelete={running ? undefined : () => deleteStep(i)}
+        actions={ad?.output_kind === 'windowset' ? <SaveWindowSetButton small jobId={job?.status === 'completed' ? job.job_id : null} step={i}
+          defaultName={`ws_${(chain.name || 'chain').replace(/[^A-Za-z0-9_.-]+/g, '_')}_${pad2(i + 1)}`.slice(0, 64)}
+          disabledReason={r.status === 'stale' ? 'this step is stale · re-run before saving its windows' : r.status !== 'cached' ? 'this step has no result in the last run' : null}
+          testid={`save-window-set-${i + 1}`} /> : undefined} />
     )
   }
 

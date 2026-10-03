@@ -535,6 +535,21 @@ def _grouping(value, meta, ctx):
                       # the strip is capped; saying so is the difference between
                       # a short strip and a wrong one (fixup-a item 10)
                       + (f" · strip shows the first {shown:,} of {n:,} windows" if out["capped"] else ""))
+    if meta.get("class_names"):
+        # a labelled Grouping (fixup-aa, `catalogue.manual_labels`): the groups are
+        # named classes, -1 is "excluded", and the coverage line is the summary —
+        # it is the result (class sizes and what was left out), not commentary
+        names = {int(k): str(v) for k, v in meta["class_names"].items()}
+        excluded = meta.get("excluded_label")
+        if excluded is not None:
+            names[int(excluded)] = "excluded"
+        for c in out["clusters"]:
+            c["name"] = names.get(c["id"])
+        out["class_names"] = {str(k): v for k, v in names.items()}
+        out["coverage"] = _clean(meta.get("coverage") or {})
+        out["rules"] = _clean(meta.get("rules") or [])
+        out["summary"] = str(meta.get("summary") or out["summary"]) + (
+            f" · strip shows the first {shown:,} of {n:,} windows" if out["capped"] else "")
     return out
 
 
@@ -573,14 +588,17 @@ def _model(value, meta, ctx):
     exists = os.path.isfile(path)
     keep = ("n_windows", "n_classes", "class_counts", "feature_names", "n_features_in",
             "n_features_kept", "n_train", "n_holdout", "holdout_accuracy", "holdout_reason",
-            "per_class_accuracy", "holdout_class_counts", "params")
+            "per_class_accuracy", "holdout_class_counts", "params", "n_excluded", "excluded_reason")
     card = {k: _clean(meta[k]) for k in keep if k in meta}
     acc = card.get("holdout_accuracy")
     return {"type": "model", "path": path, "exists": exists,
             "size_bytes": os.path.getsize(path) if exists else None, "card": card,
             "summary": (f"holdout accuracy {acc:.2f}" if isinstance(acc, (int, float)) else "model") +
                        (f" · {card['n_classes']} classes" if "n_classes" in card else "") +
-                       (f" · {card['n_windows']} windows" if "n_windows" in card else "")}
+                       (f" · {card['n_windows']} windows" if "n_windows" in card else "") +
+                       # fixup-aa: a labelled Grouping leaves windows out; the card says how many
+                       (f" · trained on {card['n_windows'] - card['n_excluded']} labelled, "
+                        f"{card['n_excluded']} excluded" if card.get("n_excluded") else "")}
 
 
 _DISPATCH = {

@@ -14,7 +14,11 @@ import { fmtDuration, fmtHours } from '../../state'
 import { CAT9 } from './EncodingView'
 import { Empty, loadWindow, type ViewCtx } from './common'
 
-export const clusterColour = (p: GroupingPayload, id: number) => CAT9[(((id - p.label_base) % 9) + 9) % 9]
+export const clusterColour = (p: GroupingPayload, id: number) => p.class_names
+  ? (id < 0 ? '#b9bec7' : CAT9[id % 9])          // a labelled Grouping: excluded is grey, the classes keep their colour
+  : CAT9[(((id - p.label_base) % 9) + 9) % 9]
+/** What a group is called: a labelled Grouping's class name (fixup-aa: `catalogue.manual_labels`), else `cluster N`. */
+export const groupName = (p: GroupingPayload, id: number) => p.class_names?.[String(id)] ?? `cluster ${id}`
 const BUCKET_PX = 10
 
 export function GroupingView({ p, ctx }: { p: GroupingPayload; ctx: ViewCtx }) {
@@ -46,7 +50,7 @@ export function GroupingView({ p, ctx }: { p: GroupingPayload; ctx: ViewCtx }) {
         <g data-testid="cluster-strip">
           {p.strip.starts_s.map((s, i) => {
             const lab = p.labels[i]; if (lab === undefined) return null
-            return <rect key={i} x={ctx.x(s)} y={0} width={cellW} height={stripH} fill={clusterColour(p, lab)} opacity={0.9}><title>{`window ${i + 1} · cluster ${lab}`}</title></rect>
+            return <rect key={i} x={ctx.x(s)} y={0} width={cellW} height={stripH} fill={clusterColour(p, lab)} opacity={0.9}><title>{`window ${i + 1} · ${groupName(p, lab)}`}</title></rect>
           })}
         </g>
       )}
@@ -56,15 +60,15 @@ export function GroupingView({ p, ctx }: { p: GroupingPayload; ctx: ViewCtx }) {
             <rect x={r0} y={0} width={r1 - r0} height={Math.max(1, rowH - 1.5)} fill="var(--grey-100)" />
             {heat.counts[row].map((n, col) => n ? (
               <rect key={col} x={r0 + col * heat.w} y={0} width={heat.w + 0.4} height={Math.max(1, rowH - 1.5)} fill={clusterColour(p, c.id)} fillOpacity={0.15 + 0.85 * (n / heat.totals[col])}>
-                <title>{`cluster ${c.id} · ${n} of the ${heat.totals[col]} windows in this stretch`}</title>
+                <title>{`${groupName(p, c.id)} · ${n} of the ${heat.totals[col]} windows in this stretch`}</title>
               </rect>
             ) : null)}
-            <text x={r0 + 4} y={Math.min(rowH - 3, 11)} style={{ fill: 'var(--text-2)', paintOrder: 'stroke', stroke: '#fff', strokeWidth: 3 }}>{c.id} · {c.count}</text>
+            <text x={r0 + 4} y={Math.min(rowH - 3, 11)} style={{ fill: 'var(--text-2)', paintOrder: 'stroke', stroke: '#fff', strokeWidth: 3 }}>{p.class_names ? groupName(p, c.id) : c.id} · {c.count}</text>
           </g>
         ))}
       </g>
       <text x={ctx.width - 6} y={ctx.height - 4} textAnchor="end" fill="var(--muted)" style={{ paintOrder: 'stroke', stroke: '#fff', strokeWidth: 3 }}>
-        {ctx.interactive ? '' : `${p.k} clusters${p.linkage ? ` · ${p.linkage}` : ''}`}{p.capped ? ` · the first ${(p.n_shown ?? p.labels.length).toLocaleString()} of ${p.n.toLocaleString()} windows` : ''}
+        {ctx.interactive ? '' : p.coverage ? `${p.coverage.labelled.toLocaleString()} labelled of ${p.n.toLocaleString()}` : `${p.k} clusters${p.linkage ? ` · ${p.linkage}` : ''}`}{p.capped ? ` · the first ${(p.n_shown ?? p.labels.length).toLocaleString()} of ${p.n.toLocaleString()} windows` : ''}
       </text>
     </svg>
   )
@@ -73,7 +77,7 @@ export function GroupingView({ p, ctx }: { p: GroupingPayload; ctx: ViewCtx }) {
 export function ClusterSizes({ p }: { p: GroupingPayload }) {
   return (
     <div data-testid="cluster-sizes">
-      <Bars categories={p.clusters.map(c => `cluster ${c.id}`)} series={[{ key: 'n', label: 'windows', colour: 'var(--blue)', values: p.clusters.map(c => c.count) }]}
+      <Bars categories={p.clusters.map(c => groupName(p, c.id))} series={[{ key: 'n', label: 'windows', colour: 'var(--blue)', values: p.clusters.map(c => c.count) }]}
         height={150} legend={false} yLabel="windows" />
     </div>
   )
@@ -92,11 +96,11 @@ function Exemplar({ p, ex, recordingId, unit }: { p: GroupingPayload; ex: NonNul
   const colour = clusterColour(p, ex.cluster)
   return (
     <div className="k-slide" style={{ borderColor: colour }} data-testid={`exemplar-${ex.cluster}`}>
-      <div className="r1"><b style={{ color: colour }}>cluster {ex.cluster}</b><span>{ex.n} windows</span></div>
+      <div className="r1"><b style={{ color: colour }}>{groupName(p, ex.cluster)}</b><span>{ex.n} windows</span></div>
       <div style={{ display: 'flex', gap: 2 }}>
         {!tr ? <div className="skeleton" style={{ height: H, flex: 1, borderRadius: 5 }} />
           : tr.error || !dom ? <div className="k-slide-note" style={{ height: H }}>{tr.error ?? 'no finite samples in this window'}</div>
-            : <><EventTrace trace={tr} domain={dom} event={{ id: `c${ex.cluster}`, title: `cluster ${ex.cluster} exemplar`, sort: {} }} height={H} colour={colour} /><ScaleBar domain={dom} height={H} unit={unit} /></>}
+            : <><EventTrace trace={tr} domain={dom} event={{ id: `c${ex.cluster}`, title: `${groupName(p, ex.cluster)} exemplar`, sort: {} }} height={H} colour={colour} /><ScaleBar domain={dom} height={H} unit={unit} /></>}
       </div>
       <div className="facts">window {ex.window + 1} · {fmtHours(ex.start_s, 3)} + {fmtDuration(ex.length_s)}</div>
       {tr && !tr.error && <div className="res">{tr.decimated ? `${tr.nSource.toLocaleString()} samples · min/max envelope` : `${tr.nSource.toLocaleString()} samples · every one drawn`}</div>}
@@ -111,7 +115,7 @@ export function ClusterExemplars({ p, recordingId, unit }: { p: GroupingPayload;
   return (
     <div data-testid="cluster-exemplars">
       <div className="bp-card-title" style={{ marginTop: 10 }}>
-        <h3 style={{ fontSize: 13 }}>One exemplar per cluster</h3>
+        <h3 style={{ fontSize: 13 }}>{p.class_names ? 'One exemplar per class' : 'One exemplar per cluster'}</h3>
         <span className="sg">a member window, never an average · each on its own y, sizes on the scale bars</span>
         <InfoTip title="Which window">{ex[0].rule}. The trace is the source channel over that window, as recorded.</InfoTip>
       </div>

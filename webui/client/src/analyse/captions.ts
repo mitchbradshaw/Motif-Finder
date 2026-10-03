@@ -25,7 +25,9 @@ export function paramCaption(step: Step, adapter: AdapterCard | undefined): stri
     case 'catalogue.cluster':
       return `${String(p.linkage ?? 'ward')} linkage · cut into k = ${fmtNum(p.k ?? 3)}`
     case 'catalogue.classifier':
-      return `${fmtNum(p.n_estimators ?? 300)} trees · ${Math.round(Number(p.holdout_frac ?? 0.25) * 100)} % held out · classes = clusters`
+      return `${fmtNum(p.n_estimators ?? 300)} trees · ${Math.round(Number(p.holdout_frac ?? 0.25) * 100)} % held out · classes = the Grouping's labels, excluded windows left out`
+    case 'catalogue.manual_labels':
+      return `human verdicts by containment · ${p.non_overlapping === false ? 'every window, overlaps kept' : 'non-overlapping training windows'}`
     case 'preprocessing.bandpass':
       return `${fmtNum(p.low_hz ?? 0.01)}–${fmtNum(p.high_hz ?? 0.1)} Hz · order ${fmtNum(p.order ?? 4)}`
     case 'preprocessing.highpass':

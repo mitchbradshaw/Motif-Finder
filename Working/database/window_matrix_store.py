@@ -186,21 +186,65 @@ def n_windows_for(span_len, m, step, partial_tail=False):
 # The v1 artifact
 # ===========================================================================
 
-def artifact_name(source_stem, channel, window_min, step_frac):
+def artifact_name(source_stem, channel, window_min, step_frac, span=None, key=None):
     """Canonical filename stem. Unlike the pre-v1 CSVs, every field needed
     to identify a matrix is present and consistently encoded — the old names
     variously omitted the channel entirely
     (`M2_concat_fs1_10min_27118wins_consecutive.csv`), encoded the window
-    count instead of the geometry, or carried `.mat` inside a `.csv` name."""
-    return (f"wm_v{ARTIFACT_VERSION}_{source_stem}_CH{channel}"
+    count instead of the geometry, or carried `.mat` inside a `.csv` name.
+
+    `span` and `key` (fixup-aa) add `_span<a>-<b>_<key>`: the geometry alone
+    named a run and its own paired surrogate — and a second span of the same
+    channel — the same file, so the second write replaced the first's matrix
+    on disk. `key` is `matrix_key` of the producing recipe. A name without
+    them is the pre-fixup-aa form; registered files keep it."""
+    name = (f"wm_v{ARTIFACT_VERSION}_{source_stem}_CH{channel}"
             f"_WIN{window_min:g}min_STEP{int(round(step_frac * 100)):d}pct")
+    if span is not None and key:
+        name += f"_span{int(span[0])}-{int(span[1])}_{key}"
+    return name
+
+
+# Parameters that change how a build RUNS, not what it computes: the resubmit
+# chain bakes `resume_path` into the recipe before job 1 (so it cannot be part of
+# the name it points at) and `timeout_s` only decides where a job stops.
+_EXECUTION_ONLY_PARAMS = ("resume_path", "timeout_s")
+# Recipe keys that are controls, not content (the surrogate switch is recorded on
+# the original's recipe; its null run carries the surrogate as a step instead).
+_CONTROL_KEYS = ("fan_out", "surrogate")
+
+
+def matrix_key(recipe, step_index=None):
+    """An 8-hex key for the matrix a recipe's window-matrix step builds: the hash
+    of the recipe prefix through that step (recording, span, every upstream step
+    — a surrogate step included — and the step's own parameters), without the
+    execution-only parameters. `step_index` defaults to the first
+    `preprocessing.window_matrix` step."""
+    from Working.recipes import recipe_hash
+
+    steps = list(recipe["steps"])
+    if step_index is None:
+        step_index = next((i for i, st in enumerate(steps)
+                           if st.get("stage") == "preprocessing" and st.get("algorithm") == "window_matrix"),
+                          None)
+        if step_index is None:
+            raise ValueError("matrix_key: the recipe has no preprocessing.window_matrix step")
+    prefix = {k: v for k, v in recipe.items() if k not in _CONTROL_KEYS and k != "steps"}
+    trimmed = []
+    for st in steps[:step_index + 1]:
+        st = dict(st)
+        if st.get("stage") == "preprocessing" and st.get("algorithm") == "window_matrix":
+            st["params"] = {k: v for k, v in (st.get("params") or {}).items() if k not in _EXECUTION_ONLY_PARAMS}
+        trimmed.append(st)
+    prefix["steps"] = trimmed
+    return recipe_hash(prefix)[:8]
 
 
 def save_wm(values, computed, columns, start_idx, *, m, step, fs, window_min,
             step_frac, span_start, span_end, n_samples, source_file, channel,
             recording_id, data_sha1, config_hash, partial_tail=False,
             elapsed_s=0.0, backfilled=False, out_dir=DEFAULT_RESULTS_DIR,
-            builder_version=ARTIFACT_VERSION):
+            builder_version=ARTIFACT_VERSION, name_key=None):
     """Write a v1 window-matrix artifact and return its path.
 
     `values` is (n_windows, n_features) float32; `computed` is a bool array
@@ -227,7 +271,10 @@ def save_wm(values, computed, columns, start_idx, *, m, step, fs, window_min,
         raise ValueError(f"{len(start_idx)} start index/indices for {values.shape[0]} row(s)")
 
     os.makedirs(out_dir, exist_ok=True)
-    stem = artifact_name(os.path.splitext(source_file)[0], channel, window_min, step_frac)
+    # `name_key` (fixup-aa): the producing recipe's `matrix_key`, which puts the
+    # span and the key in the name; None keeps the geometry-only name
+    stem = artifact_name(os.path.splitext(source_file)[0], channel, window_min, step_frac,
+                         span=(span_start, span_end) if name_key else None, key=name_key)
     path = os.path.join(out_dir, f"{stem}.npz")
 
     np.savez_compressed(

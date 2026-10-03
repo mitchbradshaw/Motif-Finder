@@ -15,6 +15,7 @@ import { deriveRows, fmtTiming, isErrorPayload, jobForSource } from './rowState'
 import { attachRun, cancelCurrent, cancelPending, markStale, startRun, stepElapsed, syncToSource, useAnalyseStore } from './store'
 import { EstimateChip, isHeldOut, NameChip, RunErrorCard, SourceChip, SurrogateToggle, t0Of, t1Of, useSourceEnvelope } from './toolbar'
 import { pad2, stepName, useAdapters } from './useAdapters'
+import { SaveWindowSetButton } from './SaveWindowSet'
 import { spanOf, useValidation } from './useValidation'
 import { BlockProcess } from './views/registry'
 
@@ -204,6 +205,10 @@ export function BlockPage({ index }: { index: number }) {
           {running ? <span className="st"><span className="dot" style={{ background: 'var(--blue)' }} /> Running {pad2(curStep + 1)} of {pad2(job?.n_steps ?? steps.length)}</span> : staleFrom !== null ? <span className="st"><span className="dot" /> Unapplied changes</span> : <span className="st">No unapplied changes</span>}
           <span className="sub">{running ? 'stages land as they finish · this page updates in place' : staleFrom !== null ? `${pad2(staleFrom + 1)} and later are stale · re-running costs ≈ ${costText}` : job?.status === 'completed' ? `every stage is cached from job ${job.job_id} · db run #${job.db_run_id ?? '—'} · no null` : job?.status === 'failed' ? `run ${job.db_run_id ? `#${job.db_run_id}` : `job ${job.job_id}`} failed at ${pad2((job.error?.step ?? 0) + 1)}` : 'edit a parameter and the block goes stale'}</span>
           <div className="acts">
+            {ad?.output_kind === 'windowset' && <SaveWindowSetButton jobId={job?.status === 'completed' ? job.job_id : null} step={index}
+              defaultName={`ws_${(chain.name || 'chain').replace(/[^A-Za-z0-9_.-]+/g, '_')}_${pad2(index + 1)}`.slice(0, 64)}
+              disabledReason={stale ? 'this step is stale · re-run before saving its windows' : row.status !== 'cached' ? 'this step has no result in the last run' : null}
+              testid="block-save-window-set" />}
             <button className="btn" onClick={revert} disabled={!ad || running} data-testid="revert-defaults" title={running ? 'wait for the run' : 'reset every parameter of this block to the adapter defaults'}>↶ Revert to defaults</button>
             {running ? <button className="btn danger" onClick={cancel} disabled={cancelling}
                 title={cancelling ? 'cancel accepted · the run stops when the current stage ends' : 'stop the run after the current stage'}>{cancelling ? '■ Cancelling…' : '■ Cancel'}</button>
@@ -224,7 +229,7 @@ function statTiles(p: Payload | null): { k: string; v: string; red?: boolean }[]
     case 'signal': { const s = p as SignalPayload; const u = unitWords(s.unit); return [{ k: 'samples', v: s.n.toLocaleString() }, { k: `min ${u}`, v: s.y_range ? fmtParam(s.y_range[0]) : '—' }, { k: `max ${u}`, v: s.y_range ? fmtParam(s.y_range[1]) : '—' }, { k: 'fs', v: `${s.fs} Hz` }] }
     case 'encoding': { const e = p as EncodingSymbolicPayload; if (e.kind !== 'symbolic') return [{ k: 'kind', v: 'image' }]; return [{ k: 'symbols', v: String(e.n_symbols) }, { k: 'alphabet', v: String(e.alphabet_size) }, { k: 's per symbol', v: e.seconds_per_symbol != null ? fmtParam(e.seconds_per_symbol) : '—' }, { k: 'trimmed', v: e.n_trimmed != null ? String(e.n_trimmed) : '—' }] }
     case 'windowset': { const w = p as WindowsetPayload; return [{ k: 'windows', v: String(w.n_windows) }, { k: 'length', v: `${w.length_s} s` }, { k: 'features', v: w.features ? String(w.features.n_columns) : '—' }, { k: 'capped', v: w.capped ? 'yes' : 'no', red: w.capped }] }
-    case 'grouping': { const g = p as GroupingPayload; return [{ k: 'clusters', v: String(g.k) }, { k: 'windows', v: String(g.n) }, { k: 'largest', v: String(Math.max(...g.clusters.map(c => c.count))) }, { k: 'linkage', v: g.linkage ?? '—' }] }
+    case 'grouping': { const g = p as GroupingPayload; if (g.coverage) { const c = g.coverage; return [{ k: 'labelled', v: `${c.labelled} / ${c.n_windows}` }, { k: 'interesting', v: String(c.interesting) }, { k: 'not_interesting', v: String(c.not_interesting) }, { k: 'excluded', v: String(c.n_windows - c.labelled), red: c.labelled === 0 }] } return [{ k: 'clusters', v: String(g.k) }, { k: 'windows', v: String(g.n) }, { k: 'largest', v: String(Math.max(...g.clusters.map(c => c.count))) }, { k: 'linkage', v: g.linkage ?? '—' }] }
     case 'model': { const m = p as ModelPayload; const c = m.card; return [{ k: 'holdout acc.', v: typeof c.holdout_accuracy === 'number' ? (c.holdout_accuracy as number).toFixed(2) : '—' }, { k: 'classes', v: String(c.n_classes ?? '—') }, { k: 'windows', v: String(c.n_windows ?? '—') }, { k: 'features kept', v: `${String(c.n_features_kept ?? '—')} / ${String(c.n_features_in ?? '—')}` }] }
     default: return []
   }

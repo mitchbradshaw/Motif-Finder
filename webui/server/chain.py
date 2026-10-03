@@ -93,8 +93,14 @@ def validate(steps: list[dict]) -> dict:
         ok_all = ok_all and bool(ok)
         producing = spec.output_kind
         terminal = spec.output_kind
+    # The kind `templates.kind_for_steps` will SAVE this chain as (fixup-aa): the
+    # footer prints this rather than keeping a second table of which terminals
+    # are template types — the two disagreed on Grouping. None when the chain
+    # does not validate or has no stages.
+    from .templates import kind_for_steps
+    template_kind = kind_for_steps(steps) if steps and ok_all else None
     return {"ok": ok_all, "junctions": junctions, "terminal_kind": terminal if steps else None,
-            "terminal_label": TYPE_LABEL.get(terminal) if steps else None}
+            "terminal_label": TYPE_LABEL.get(terminal) if steps else None, "template_kind": template_kind}
 
 
 def compatible_at(steps: list[dict], position: int) -> dict:

@@ -30,7 +30,8 @@ WM = {"stage": "preprocessing", "algorithm": "window_matrix", "params": {}}
 LABELS = {"stage": "catalogue", "algorithm": "manual_labels", "params": {}}
 CLUSTER = {"stage": "catalogue", "algorithm": "cluster", "params": {}}
 DETREND = {"stage": "preprocessing", "algorithm": "detrend", "params": {}}
-DROPS = {"stage": "detection", "algorithm": "drop_detection", "params": {}}
+MP = {"stage": "detection", "algorithm": "matrix_profile", "params": {}}
+THRESH = {"stage": "detection", "algorithm": "threshold", "params": {}}
 
 
 def test_a_grouping_terminal_is_a_training_template():
@@ -42,7 +43,7 @@ def test_a_grouping_terminal_is_a_training_template():
 
 
 def test_the_validate_payload_carries_the_kind_the_server_saves():
-    for steps in ([DETREND, DROPS], [WM]):
+    for steps in ([DETREND, MP, THRESH], [WM]):
         assert chain.validate(steps)["template_kind"] == templates.kind_for_steps(steps)
     assert chain.validate([])["template_kind"] is None
 

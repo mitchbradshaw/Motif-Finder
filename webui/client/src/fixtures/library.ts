@@ -402,6 +402,8 @@ export interface WindowSetRow {
   check: SetCheck; checkReason: string; madeBy: string; recipeHash: string; lastUsed: string
   splitPlan: Record<string, SplitBlock[]>; planHours: number; dropped: number; spacingChecks: { label: string; ok: boolean }[]
   classCounts: { now: Record<string, number>; atSave: Record<string, number>; atSaveLabelled: number }
+  /** fixup-aa: why "now" could not be recounted (the set's files are missing), or null */
+  coverageNote?: string | null
 }
 const plan = (hours: number, fr: [number, number, number, number], gapH: number): SplitBlock[] => {
   const [a, b, c] = [fr[0] * hours, (fr[0] + fr[1]) * hours, (fr[0] + fr[1] + fr[2]) * hours]

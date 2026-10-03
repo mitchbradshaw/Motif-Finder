@@ -23,7 +23,8 @@ Resume
 `resume_path` is a normal recipe parameter, and it is DELIBERATELY set from
 the very first export rather than being filled in on the second job: the
 artifact path is deterministic from (source stem, channel, window_min,
-step_frac), so passing it up front keeps the recipe — and therefore the
+step_frac, span, and the recipe-prefix key `matrix_key`, which leaves
+`resume_path` and `timeout_s` out), so passing it up front keeps the recipe — and therefore the
 config hash — identical across every job in a resubmit chain. A path added
 only on resumption would make job 2 a different recipe from job 1, and the
 chain would build two half-matrices instead of one whole one.
@@ -154,7 +155,12 @@ def _estimate(x, t, fs, window_min=10.0, step_frac=1.0, catch22=True,
     return wm_estimate(n_windows, m, stages)
 
 
-def _persist(conn, run_id, config_hash, recording, span_start, span_end, params, result):
+def _persist(conn, run_id, config_hash, recording, span_start, span_end, params, result,
+             recipe_prefix=None):
+    """Write the v1 npz under a name that carries the span and the recipe-prefix
+    key (`store.matrix_key`), so a run, its paired surrogate and a second span of
+    the same channel each keep their own file (fixup-aa). The executor hands the
+    prefix in; without one (a direct call) the run's own config hash keys it."""
     from Working.database.matrix_profile_store import compute_data_sha1
 
     meta = result.meta
@@ -174,19 +180,25 @@ def _persist(conn, run_id, config_hash, recording, span_start, span_end, params,
         recording_id=recording["id"], data_sha1=sha1, config_hash=config_hash,
         partial_tail=meta.get("partial_tail", params.get("partial_tail", False)),
         elapsed_s=meta["elapsed_s"], out_dir=RESULTS_DIR,
+        name_key=store.matrix_key(recipe_prefix) if recipe_prefix is not None else str(config_hash)[:8],
     )
 
 
-def default_artifact_path(recording, window_min, step_frac=1.0, out_dir=None):
-    """The path `persist` will write for this (recording, geometry).
+def default_artifact_path(recording, window_min, step_frac=1.0, out_dir=None, *, recipe=None, span=None):
+    """The path `persist` will write for this (recording, geometry) — and, given
+    the `recipe` and `span`, for that exact build (fixup-aa: the name carries the
+    span and `store.matrix_key(recipe)`).
 
     Deterministic, and exposed so a caller can put it in `resume_path`
     BEFORE the first run — see the module docstring for why the resume path
     has to be in the recipe from the start rather than added on the second
-    job.
+    job. `matrix_key` ignores `resume_path` itself, so that is possible.
     """
     stem = os.path.splitext(recording["source_file"])[0]
-    name = store.artifact_name(stem, recording["channel"], window_min, step_frac)
+    key = store.matrix_key(recipe) if recipe is not None else None
+    span = span if span is not None else (0, int(recording["n_samples"]))
+    name = store.artifact_name(stem, recording["channel"], window_min, step_frac,
+                               span=span if key else None, key=key)
     return os.path.join(out_dir or RESULTS_DIR, f"{name}.npz")
 
 

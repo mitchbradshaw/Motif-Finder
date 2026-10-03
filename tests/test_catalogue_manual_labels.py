@@ -16,9 +16,12 @@ The rule is the researcher's (QUESTIONS.md Q41 + Round 10 Q-W1, 2026-10-03):
   wholly inside a longer `interesting` span it is unlabelled (the event could be
   anywhere in it);
 * time nobody labelled is unlabelled, never `not_interesting`;
-* a training set keeps no two overlapping windows: on the labels' 600/200 grid
-  that is a stride-600 subset, the phase chosen to keep the most labelled
-  windows, the dropped counted.
+* a training set keeps no two overlapping windows, LABELLED WINDOWS FIRST (each
+  kept unless it overlaps one already kept, then unlabelled windows fill the
+  gaps), the dropped counted. Q-W1 first said one phase of the 600/200 grid;
+  measured on the 16 M2_aug channels that kept 3,906 of 11,110 labelled windows
+  against 10,077 for labelled-first, and the researcher chose labelled-first
+  (2026-10-03, Q-W1 revised).
 
 Labels in the emitted Grouping: 1 = interesting, 0 = not_interesting, -1 =
 excluded (unlabelled, artifact, conflicting, dropped for overlap) — so the
@@ -150,10 +153,10 @@ def _grid(n=30, stride=200):
     return np.arange(n, dtype=np.int64) * stride
 
 
-def test_a_600_200_grid_is_thinned_to_a_stride_600_subset_on_the_best_phase():
+def test_a_600_200_grid_keeps_its_labelled_windows_first():
     ml = _ml()
     starts = _grid()
-    # labels only on windows whose start is 200 mod 600: phase offset 200 must win
+    # labels only on windows whose start is 200 mod 600: those are kept, their overlapping neighbours dropped
     spans = [(int(s), int(s) + 600, "not_interesting" if k % 2 else "interesting")
              for k, s in enumerate(s for s in starts if s % 600 == 200)]
     r = ml.label_windows(starts, 600, spans, non_overlapping=True)
@@ -161,9 +164,26 @@ def test_a_600_200_grid_is_thinned_to_a_stride_600_subset_on_the_best_phase():
     assert len(kept) == 10
     assert set(int(s) % 600 for s in kept) == {200}
     assert np.all(np.diff(kept) >= 600), "no two kept windows overlap"
-    assert r.counts["phase_offset"] == 200
+    assert r.counts["non_overlap_rule"] == "labelled-first"
     assert r.counts["dropped_for_overlap"] == 20
     assert r.counts["labelled"] == 10
+
+
+def test_sparse_labels_on_different_phases_are_all_kept():
+    """The measured case: labels an hour apart sit on all three phases of the
+    600/200 grid and overlap nothing. One phase would keep a third of them;
+    labelled-first keeps every one, and still no two kept windows overlap."""
+    ml = _ml()
+    starts = _grid(n=200)
+    labelled_starts = [0, 3800, 8200, 12000, 16400, 20800, 24600, 29000]   # 0, 200, 400 mod 600, far apart
+    assert {s % 600 for s in labelled_starts} == {0, 200, 400}
+    spans = [(s, s + 600, "interesting" if k % 2 else "not_interesting") for k, s in enumerate(labelled_starts)]
+    r = ml.label_windows(starts, 600, spans, non_overlapping=True)
+    assert r.counts["labelled"] == len(labelled_starts)
+    kept = np.sort(starts[r.fate != "dropped_for_overlap"])
+    assert np.all(np.diff(kept) >= 600)
+    # the gaps between labels are filled with unlabelled windows, so later labels can land on them
+    assert r.counts["unlabelled"] > 0
 
 
 def test_non_overlap_is_a_no_op_on_a_grid_that_already_tiles():
@@ -178,7 +198,7 @@ def test_without_non_overlap_every_grid_window_is_kept():
     ml = _ml()
     r = ml.label_windows(_grid(), 600, [(0, 600, "interesting")], non_overlapping=False)
     assert r.counts["dropped_for_overlap"] == 0
-    assert r.counts["phase_offset"] is None
+    assert r.counts["non_overlap_rule"] is None
 
 
 # ── the block, through the executor, on a synthetic store ───────────────────
@@ -255,7 +275,7 @@ def test_the_block_labels_the_window_matrix_windows_from_the_human_store(store):
     labels = np.asarray(res.value.labels)
     cov = res.meta["coverage"]
     assert len(labels) == cov["n_windows"]
-    assert cov["phase_offset"] == 200, "the phase the 600/200 labels sit on"
+    assert cov["non_overlap_rule"] == "labelled-first"
     assert cov["labelled"] == int((labels >= 0).sum()) > 0
     assert cov["interesting"] == int((labels == 1).sum()) > 0
     assert cov["not_interesting"] == int((labels == 0).sum()) > 0

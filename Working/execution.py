@@ -117,6 +117,20 @@ def _recipe_prefix_hash(recipe, up_to_index):
     return recipe_hash(prefix)
 
 
+def _first_store_reading_step(steps):
+    """Index of the first step whose adapter's `run` declares `conn` — it reads
+    the live store, so it and every later step bypass the step cache and run
+    reuse. None when no step does."""
+    for i, step in enumerate(steps):
+        try:
+            spec = get_adapter(f"{step['stage']}.{step['algorithm']}")
+        except KeyError:
+            continue
+        if "conn" in inspect.signature(spec.run).parameters:
+            return i
+    return None
+
+
 def invalidated_step_indices(recipe, step_index):
     """The step indices a change at `step_index` invalidates: that step and
     every step after it — the suffix, and only the suffix.
@@ -295,7 +309,14 @@ def _execute_recipe_with_conn(conn, recipe, force, on_progress, should_cancel, r
 
     config_id, hash8 = get_or_create_config(conn, recipe)
 
-    if not force:
+    # A step whose `run` declares `conn` reads the live store (fixup-aa:
+    # `catalogue.manual_labels` reads the human verdicts). Its output is then a
+    # function of the store as well as of the recipe, so neither a completed run
+    # of the same recipe nor a prefix-cache entry may stand in for it — or for any
+    # step after it, which consumed it. `store_from` is the first such step.
+    store_from = _first_store_reading_step(recipe["steps"])
+
+    if not force and store_from is None:
         existing = find_completed_run(conn, config_id, recipe["recording_id"], span_start, span_end)
         if existing is not None:
             existing_detections = list_detections(conn, existing["id"])
@@ -355,7 +376,8 @@ def _execute_recipe_with_conn(conn, recipe, force, on_progress, should_cancel, r
             # skips `spec.run`; a miss computes it and (if slow enough)
             # writes the next cache entry.
             prefix_hash = _recipe_prefix_hash(recipe, i)
-            cached = get_step_artifact(conn, prefix_hash, i)
+            reads_store = store_from is not None and i >= store_from
+            cached = None if reads_store else get_step_artifact(conn, prefix_hash, i)
             result = _load_cached_result(spec, cached["path"]) if cached is not None else None
             from_cache = result is not None
 
@@ -377,14 +399,18 @@ def _execute_recipe_with_conn(conn, recipe, force, on_progress, should_cancel, r
                 # thread a `Scores` through without going back via (x, t).
                 if spec.input_kind is not None and "value" in accepted:
                     extra["value"] = current_value
+                if "conn" in accepted:
+                    extra["conn"] = conn
+                    extra["recording"] = dict(recording)
 
                 t0 = time.time()
                 result = spec.run(x, t, fs, **params, **extra)
                 step_timings[i] = time.time() - t0
-                _cache_step_result(
-                    conn, recipe, i, result, step_timings[i], fs,
-                    STEP_CACHE_ROOT, STEP_CACHE_WRITE_THRESHOLD_S,
-                )
+                if not reads_store:
+                    _cache_step_result(
+                        conn, recipe, i, result, step_timings[i], fs,
+                        STEP_CACHE_ROOT, STEP_CACHE_WRITE_THRESHOLD_S,
+                    )
 
             if i in referenced_steps:
                 step_results[i] = typed_step_value(result)
@@ -440,8 +466,18 @@ def _execute_recipe_with_conn(conn, recipe, force, on_progress, should_cancel, r
                 # the seven types may declare `persist`, not just 'encoding'.
                 # Skipped on a cache hit because only the typed value was
                 # restored, not the adapter's raw persist payload.
+                # A persist that declares `recipe_prefix` is handed the recipe
+                # through this step, so a file it names can be keyed on what
+                # produced it rather than on the whole chain (fixup-aa: the window
+                # matrix's name, so a run and its surrogate keep their own file).
+                persist_extra = {}
+                if "recipe_prefix" in inspect.signature(spec.persist).parameters:
+                    prefix = dict(recipe)
+                    prefix["steps"] = recipe["steps"][:i + 1]
+                    persist_extra["recipe_prefix"] = prefix
                 persisted = spec.persist(
-                    conn, run_id, hash8, recording, span_start, span_end, params, result
+                    conn, run_id, hash8, recording, span_start, span_end, params, result,
+                    **persist_extra,
                 )
                 # A bare path is an 'encoding' artifact (the original contract);
                 # a `(kind, path)` pair names the artifacts.kind itself, which is

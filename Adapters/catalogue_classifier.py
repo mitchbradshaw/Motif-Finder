@@ -111,6 +111,17 @@ def _feature_matrix(window_set, grouping):
             "have been assigned over this exact window set."
         )
 
+    # A negative label is "excluded" (fixup-aa: `catalogue.manual_labels` marks
+    # unlabelled, conflicting, artifact and overlap-dropped windows -1 so its
+    # Grouping still lines up with the WindowSet). Those windows are never a
+    # class: they are left out of the fit and counted.
+    import numpy as np
+    keep = np.asarray(labels) >= 0
+    n_excluded = int((~keep).sum())
+    if n_excluded:
+        features = features.loc[keep].reset_index(drop=True)
+        labels = np.asarray(labels)[keep]
+
     n_classes = len(set(labels.tolist()))
     if n_classes < 2:
         raise ValueError(
@@ -128,7 +139,7 @@ def _feature_matrix(window_set, grouping):
             f"{preprocessed.n_samples_dropped} window(s), so the remaining rows no "
             "longer line up with the Grouping's labels."
         )
-    return preprocessed, labels, n_classes
+    return preprocessed, labels, n_classes, n_excluded
 
 
 def _split(X, labels, holdout_frac, random_state):
@@ -210,7 +221,7 @@ def _run(x, t, fs, n_estimators=300, class_weight="balanced", holdout_frac=0.25,
     from sklearn.feature_selection import VarianceThreshold
     from sklearn.pipeline import make_pipeline
 
-    preprocessed, labels, n_classes = _feature_matrix(windows, value)
+    preprocessed, labels, n_classes, n_excluded = _feature_matrix(windows, value)
     params = {
         "n_estimators": n_estimators,
         "class_weight": class_weight,
@@ -260,6 +271,12 @@ def _run(x, t, fs, n_estimators=300, class_weight="balanced", holdout_frac=0.25,
         value=Model(path=path),
         meta={
             "n_windows": int(windows.n_windows),
+            # windows the Grouping left out (label < 0), never a class (fixup-aa)
+            "n_excluded": n_excluded,
+            "excluded_reason": (
+                f"{n_excluded:,} of {int(windows.n_windows):,} windows were excluded by the Grouping "
+                "(label -1: unlabelled, conflicting, artifact or dropped for overlap) and not trained on"
+                if n_excluded else None),
             "n_classes": int(n_classes),
             "class_counts": {
                 int(label): int(count)
@@ -311,6 +328,8 @@ def _derive(x, t, fs, params, value=None, windows=None):
             "error",
         )]
 
+    labels = np.asarray(labels)
+    labels = labels[labels >= 0]
     unique, counts = np.unique(labels, return_counts=True)
     if len(unique) < 2:
         return [("Training set", "every window in one class — nothing to separate", "error")]

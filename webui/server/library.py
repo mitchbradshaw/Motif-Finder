@@ -1530,7 +1530,9 @@ def _window_set_row(conn, index, r) -> dict:
 
     counts = split if isinstance(split, dict) else None
     if counts and {"train", "validation", "test"} <= set(counts):
-        split_counts = {k: int(counts[k]) for k in ("train", "validation", "test")}
+        # the split bar draws shares (`width: split[k] * 100 %`), the row holds counts
+        total = sum(int(counts[k]) for k in ("train", "validation", "test")) or 1
+        split_counts = {k: int(counts[k]) / total for k in ("train", "validation", "test")}
         split_label = "blocked"
     elif counts and counts.get("test"):
         split_counts, split_label = None, "test only"
@@ -1553,8 +1555,15 @@ def _window_set_row(conn, index, r) -> dict:
         check, reason = "test sample", "test windows only; nothing here may train a model"
     else:
         check, reason = "not train-safe", "no split recorded, so nothing prevents a train/test leak"
+        if spacing.get("no two windows overlap"):
+            # fixup-aa: say what IS true of a non-overlapping set saved without a split
+            reason += (" — the windows do not overlap"
+                       + (f" ({coverage['non_overlap_rule']})" if coverage.get("non_overlap_rule") else "")
+                       + "; a blocked split is applied where it is trained on")
 
-    labelled = int(coverage.get("labelled_windows") or 0)
+    labelled_at_save = int(coverage.get("labelled_windows") or 0)
+    now, now_note = _coverage_now(conn, r)
+    labelled = int(sum(now.values())) if now is not None else labelled_at_save
     n_windows = int(r["n_windows"] or 0)
     return {
         "id": r["name"], "version": int(r["version"] or 1),
@@ -1570,18 +1579,43 @@ def _window_set_row(conn, index, r) -> dict:
         "split": split_counts, "splitLabel": split_label,
         "labelledPct": round(100.0 * labelled / n_windows, 1) if n_windows else 0.0,
         "labelledWindows": labelled,
+        "coverageNote": now_note,
+        "nonOverlapRule": coverage.get("non_overlap_rule"),
+        "droppedForOverlap": coverage.get("dropped_for_overlap"),
+        "unlabelledAtSave": coverage.get("unlabelled"),
+        "conflictingAtSave": coverage.get("conflicting"),
+        "splitRule": (split or {}).get("rule") if isinstance(split, dict) else None,
         "usedBy": [], "usedLabel": None,
         "check": check, "checkReason": reason,
         "madeBy": str(r["labels_source"] or "—"), "recipeHash": r["recipe_hash"] or "",
-        "lastUsed": "", "splitPlan": (split if isinstance(split, dict) and not split_counts else {}),
+        # a per-channel plan is {channel: [blocks]}; a split RULE dict (fixup-aa) is not a plan
+        "lastUsed": "", "splitPlan": (split if isinstance(split, dict) and not split_counts
+                                      and all(isinstance(v, list) for v in split.values()) else {}),
         "planHours": round(n_windows * (window_s or 0) / 3600.0, 2),
         "dropped": int(coverage.get("dropped") or 0),
         "spacingChecks": [{"label": k, "ok": bool(v)} for k, v in sorted(spacing.items())],
-        "classCounts": {"now": coverage.get("class_counts") or {},
+        "classCounts": {"now": now if now is not None else (coverage.get("class_counts") or {}),
                         "atSave": coverage.get("class_counts_at_save") or {},
-                        "atSaveLabelled": labelled},
+                        "atSaveLabelled": labelled_at_save},
         "path": r["path"],
     }
+
+
+def _coverage_now(conn, r):
+    """Verdict coverage of a saved set NOW (§6.9: "live, not frozen"), by the same
+    rule the set was counted with at save (`catalogue.manual_labels`): the saved
+    windows' bounds from disk against today's human spans. Returns
+    `(class counts | None, note | None)` — None with the reason when the set's
+    files cannot be read, so the page shows the save-time counts and says why."""
+    from Adapters.catalogue_manual_labels import _saved_window_bounds, human_spans, label_windows
+    if not r["recording_id"]:
+        return None, "the set names no recording, so its coverage cannot be recounted"
+    try:
+        starts, length = _saved_window_bounds(r["path"], r["window_length"])
+    except FileNotFoundError as e:
+        return None, f"coverage now not recounted: {e}"
+    lab = label_windows(starts, length, human_spans(conn, int(r["recording_id"])))
+    return {"interesting": int(lab.counts["interesting"]), "not_interesting": int(lab.counts["not_interesting"])}, None
 
 
 @router.get("/templates")

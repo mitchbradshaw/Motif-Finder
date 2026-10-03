@@ -38,6 +38,7 @@ export interface ChainRowProps {
   rowTone?: 'cluster' | 'paused'     // 1g purple / 1i amber outline
   plotHeight?: number                // a Scores row is taller (frame chain-1h)
   onMoveUp?: () => void              // demo chains: the grip moves the stage up one place
+  actions?: ReactNode                // a row's own act under the icons (fixup-aa: Save window set on a WindowSet row)
 }
 
 const I = {
@@ -79,6 +80,7 @@ export function ChainRow(p: ChainRowProps) {
           <button className="icon-btn" title={p.onDuplicate ? 'duplicate this stage below itself' : p.num ? 'duplicate · out of slice scope' : 'the source cannot be duplicated'} onClick={p.onDuplicate} disabled={!p.onDuplicate} data-testid={`duplicate-step-${p.testIndex}`}><svg width="14" height="14" viewBox="0 0 24 24">{I.duplicate}</svg></button>
           <button className="icon-btn" title={p.onDelete ? 'delete this stage' : p.deleteReason ?? 'the source cannot be deleted'} onClick={p.onDelete} disabled={!p.onDelete} data-testid={`delete-step-${p.testIndex}`}><svg width="14" height="14" viewBox="0 0 24 24">{I.delete}</svg></button>
         </div>
+        {p.actions && <div className="an-row-acts" style={{ marginTop: 4 }}>{p.actions}</div>}
       </div>
       {p.replace ? (
         <div data-testid={`row-plot-${p.testIndex}`}>{p.replace}</div>

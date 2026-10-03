@@ -13,7 +13,7 @@
  * not. `tests/test_block_standard.py` checks these two tables against the server's, key for key. */
 import { useMemo, useRef, useState, type ReactNode } from 'react'
 import {
-  type EncodingFrame, type EncodingImagePayload, type EncodingSymbolicPayload, type EnvelopeSeries, type GroupingPayload,
+  type EncodingFrame, type EncodingImagePayload, type EncodingSymbolicPayload, type EnvelopeSeries, type GroupingPayload, type LabelCoverage,
   type ModelPayload, type Payload, type ScoresPayload, type SignalPayload, type SpansetPayload, type TypeKind, type WindowsetPayload,
 } from '../../api'
 import { EnvelopePath, SpanBands } from '../../charts/primitives'
@@ -462,15 +462,29 @@ function GroupingProcess(q: ProcessProps) {
   return (
     <>
       <Full q={q} height={Math.min(300, 70 + 30 * Math.max(1, p.clusters.length))}>{ctx => <GroupingView p={p} ctx={ctx} />}</Full>
-      <div className="muted mono small" style={{ marginTop: 2 }}>top: the cluster of every window, in time · below: when each cluster is active</div>
+      <div className="muted mono small" style={{ marginTop: 2 }}>{p.class_names ? 'top: the label of every window, in time (grey = excluded) · below: where each label falls' : 'top: the cluster of every window, in time · below: when each cluster is active'}</div>
+      {p.coverage && <LabelCoverageLine c={p.coverage} />}
+      {p.rules && <RulesList rules={p.rules} testid="label-rules" />}
       <div className="row" style={{ alignItems: 'flex-start', gap: 12 }}>
         <div style={{ width: 300 }}>
-          <div className="bp-card-title" style={{ marginTop: 10 }}><h3 style={{ fontSize: 13 }}>Cluster sizes</h3><span className="sg">{p.n.toLocaleString()} windows</span></div>
+          <div className="bp-card-title" style={{ marginTop: 10 }}><h3 style={{ fontSize: 13 }}>{p.class_names ? 'Class sizes' : 'Cluster sizes'}</h3><span className="sg">{p.n.toLocaleString()} windows</span></div>
           <ClusterSizes p={p} />
         </div>
         <div style={{ flex: 1, minWidth: 0 }}><ClusterExemplars p={p} recordingId={q.source.recording_id} unit={q.sourceUnit || 'as stored'} /></div>
       </div>
     </>
+  )
+}
+
+/** The labelled Grouping's coverage, every fate on the face (an absence is the result, never hidden). */
+function LabelCoverageLine({ c }: { c: LabelCoverage }) {
+  const cells: [string, number | string][] = [['windows', c.n_windows], ['labelled', c.labelled], ['interesting', c.interesting], ['not_interesting', c.not_interesting],
+    ['unlabelled', c.unlabelled], ['conflicting', c.conflicting], ['artifact', c.artifact], ['dropped for overlap', c.dropped_for_overlap]]
+  return (
+    <div className="bp-tiles" data-testid="label-coverage" style={{ marginTop: 8 }}>
+      {cells.map(([k, v]) => <div className="bp-tile" key={k}><div className="k">{k}</div><div className="v">{typeof v === 'number' ? v.toLocaleString() : v}</div></div>)}
+      {c.non_overlap_rule && <div className="bp-tile"><div className="k">non-overlap</div><div className="v">{c.non_overlap_rule}</div></div>}
+    </div>
   )
 }
 

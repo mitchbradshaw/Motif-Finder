@@ -81,10 +81,12 @@ export function fmtTiming(t: number | null | undefined): string {
   return `${t.toFixed(1)} s`
 }
 
-/** spec §6.1 wording for the footer's terminal chip. */
-export function terminalWording(kind: string | null, label: string | null): { chip: string; kind: 'green' | 'grey' | 'amber' } {
+/** spec §6.1 wording for the footer's terminal chip. The template kind is the one the server will SAVE the
+ *  chain as (`templateKind`, the validate payload's `template_kind` = `templates.kind_for_steps`), so the chip
+ *  and the saved row cannot disagree — they did on Grouping, which the footer called "add a stage" and the
+ *  server saved as a training template (fixup-aa). */
+export function terminalWording(kind: string | null, label: string | null, templateKind?: string | null): { chip: string; kind: 'green' | 'grey' | 'amber' } {
   if (!kind) return { chip: 'no stages — the terminal type is the source', kind: 'grey' }
-  if (kind === 'spanset') return { chip: `terminal ${label} → detection template`, kind: 'green' }
-  if (kind === 'model') return { chip: `terminal ${label} → training template`, kind: 'green' }
-  return { chip: `terminal ${label} — add a stage to reach a template type`, kind: 'grey' }
+  if (templateKind) return { chip: `terminal ${label} → ${templateKind} template`, kind: 'green' }
+  return { chip: `terminal ${label} — not a template until the chain validates`, kind: 'grey' }
 }

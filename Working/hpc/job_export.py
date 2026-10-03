@@ -522,12 +522,6 @@ def export_wm_job(conn, recording_id, window_min, span=None, *, step_frac=1.0,
         # the status check, and small relative to the 30-minute floor.
         timeout_s = max(60.0, (hours * 3600 + minutes * 60) - 300)
 
-    artifact_path = os.path.join(
-        results_dir or wm_store.DEFAULT_RESULTS_DIR,
-        wm_store.artifact_name(os.path.splitext(recording["source_file"])[0],
-                               recording["channel"], window_min, step_frac) + ".npz",
-    )
-
     params = {
         "window_min": float(window_min),
         "step_frac": float(step_frac),
@@ -538,14 +532,26 @@ def export_wm_job(conn, recording_id, window_min, span=None, *, step_frac=1.0,
         "rf": "rf" in stages,
         "timeout_s": float(timeout_s),
         # Baked in from the FIRST export so every job in the chain hashes to
-        # the same recipe -- see the adapter's module docstring.
-        "resume_path": artifact_path.replace(os.sep, "/"),
+        # the same recipe -- see the adapter's module docstring. Filled below,
+        # once the recipe exists to key the name on.
+        "resume_path": "",
         "cnn_model_dir": cnn_model_dir,
         "rf_model_path": rf_model_path,
     }
     recipe = make_recipe(recording_id, [
         {"stage": "preprocessing", "algorithm": "window_matrix", "params": params},
     ], span=span, fan_out=fan_out)
+    # fixup-aa: the name carries the span and the recipe-prefix key, and the key
+    # ignores `resume_path` -- so the path is computed from the recipe and then
+    # baked into it without changing the key it was computed from.
+    name_span = tuple(span) if span is not None else (0, int(recording["n_samples"]))
+    artifact_path = os.path.join(
+        results_dir or wm_store.DEFAULT_RESULTS_DIR,
+        wm_store.artifact_name(os.path.splitext(recording["source_file"])[0],
+                               recording["channel"], window_min, step_frac,
+                               span=name_span, key=wm_store.matrix_key(recipe)) + ".npz",
+    )
+    recipe["steps"][0]["params"]["resume_path"] = artifact_path.replace(os.sep, "/")
     _config_id, hash8 = get_or_create_config(conn, recipe)
 
     channel = recording["channel"]

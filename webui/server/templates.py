@@ -109,6 +109,22 @@ CANONICAL: list[dict] = [
         ],
     },
     {
+        # fixup-aa: the manual-label arm of RQ1 on the labels' own grid (Q-W1). A
+        # 10-minute window on a 200-sample step (0.334 × 600 floors to 200; 1/3 floors
+        # to 199) is the only geometry whose windows can wholly contain the 600-sample
+        # labels; the span must start on a multiple of 200 samples, and the labels step
+        # says so when it does not.
+        "name": "manual_labels_model", "kind": "training", "version": 1,
+        "description": "10-minute windows on the labels' 600/200 grid + features → manual labels (human verdicts, "
+                       "containment, non-overlapping) → classifier: RQ1's manual-label arm.",
+        "steps": [
+            _step("preprocessing", "window_matrix", {"window_min": 10.0, "step_frac": 0.334, "slow_entropy": False}),
+            _step("catalogue", "manual_labels", {"non_overlapping": True}),
+            _step("catalogue", "classifier", {"n_estimators": 100},
+                  side_inputs={"windows": {"source_kind": "earlier_step", "step_index": 0}}),
+        ],
+    },
+    {
         "name": "cnn_detection", "kind": "detection", "version": 1,
         "description": "Sliding windows (blocked split) → window images (fusion) → CNN score → threshold to spans: "
                        "detecting with a trained model (D2; the image stack + window set → Scores form of spec §6.8's model stage).",
