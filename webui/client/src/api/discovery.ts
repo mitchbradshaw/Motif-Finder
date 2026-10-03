@@ -32,9 +32,12 @@ const nums = (xs: (number | null)[] | null | undefined): number[] => (xs ?? []).
 const opt = <T,>(v: T | null | undefined): T | undefined => (v == null ? undefined : v)
 
 /* ------------------------------------------------------------------ session, runs, templates */
+export interface SessionNull { method: string | null; n: number; requested?: string | null; supported?: boolean; reason?: string | null; explicit?: boolean; blockS?: number | null }
 export interface DiscoverySession {
   id: number; name: string; recording: string; channels: string[]; section: [number, number]; sectionSamples: [number, number]
-  null: { method: string | null; n: number; requested?: string | null; supported?: boolean; reason?: string | null }
+  null: SessionNull
+  /** fixup-T (Q35): one null per run KIND, each with its own draw count — what the NEXT run of that kind draws */
+  nulls?: { template: SessionNull; seed: SessionNull }
   localLimitMin: number; savedAt: string; matchingRule: { criterion: string; iou: number; onset: number }
 }
 export interface RecordingOption { key: string; label: string; file: string; stem: string; hours: number; channels: string[]; heldOut: boolean; fs: number; heldOutReason: string | null }
@@ -172,7 +175,7 @@ export type Recall = { value: number; overH: number } | { none: true; note?: str
 export interface ScoreCells { found: number; judged: number; reviewed: number; interesting: number; recall: Recall; nullExpects: number }
 export interface ScoreRow extends ScoreCells {
   precision: number | null; xNull: number | null
-  nullRun?: boolean; nullDraws?: number | null; xNullNote?: string | null
+  nullRun?: boolean; nullDraws?: number | null; nullDrawsMax?: number | null; xNullNote?: string | null
   note?: string | null; precisionNote?: string | null; reviewedH?: number; status?: string | null
 }
 export interface ScoreRun { run: string; total: ScoreRow; channels: (ScoreRow & { channel: string })[]; pooledH: number; rule?: { criterion: string; iou: number; onset: number }; reviewedCriterion?: string }
@@ -310,6 +313,8 @@ export interface OverlapRow { channel: string; onlyA: number; both: number; only
 export interface CompareSide {
   run: string; label: string; subtitle: string; isSeed: boolean; cells: Record<Role, RoleCell | null>
   precision: number | null; reviewed: number; xNull: number | null; threshold: number | null; found?: number
+  /** fixup-t: the surrogate draws per channel this side's × null is over */
+  nullDraws?: number | null
   /** fixup-z: a band set as one side — the union of its band runs */
   isSet?: boolean; members?: DiscSetMember[]; template?: string; cellsNote?: string; precisionNote?: string
 }

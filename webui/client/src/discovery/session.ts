@@ -17,6 +17,9 @@ const RUNNING_LINK_TEMPLATE = 'mp_threshold'
 export interface ScopeState {
   name: string; saved: boolean; recording: string; channels: string[]; section: [number, number]
   nullMethod: string | null; nullN: number; nullRequested: string | null; nullReason: string | null
+  /** fixup-T: `nullN` is the SEED SEARCH's draw count; a template run has its own (Q35: 20 against 200).
+   *  `nullExplicit` is true when the session's null was set on the session rather than read from Settings. */
+  nullTemplateN: number; nullTemplateMethod: string | null; nullExplicit: boolean
 }
 
 export interface Discovery {
@@ -65,7 +68,7 @@ export function useDiscovery(): Discovery {
   const [recordingQ] = useQueryState('recording', '')
   const [stateQ] = useQueryState('state', '')
 
-  const fixtureScope: ScopeState | null = sess.data ? { name: sess.data.session.name, saved: true, recording: sess.data.session.recording, channels: sess.data.session.channels, section: sess.data.session.section, nullMethod: sess.data.session.null.method, nullN: sess.data.session.null.n, nullRequested: sess.data.session.null.requested ?? null, nullReason: sess.data.session.null.reason ?? null } : null
+  const fixtureScope: ScopeState | null = sess.data ? { name: sess.data.session.name, saved: true, recording: sess.data.session.recording, channels: sess.data.session.channels, section: sess.data.session.section, nullMethod: sess.data.session.null.method, nullN: sess.data.session.null.n, nullRequested: sess.data.session.null.requested ?? null, nullReason: sess.data.session.null.reason ?? null, nullTemplateN: sess.data.session.nulls?.template.n ?? sess.data.session.null.n, nullTemplateMethod: sess.data.session.nulls?.template.method ?? sess.data.session.null.method, nullExplicit: !!sess.data.session.null.explicit } : null
   const scope0 = scopeStore ?? fixtureScope
   const recordings = sess.data?.recordings ?? []
   // deep links: ?channels=a,b,c and ?recording=<key> seed the scope

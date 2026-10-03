@@ -112,18 +112,26 @@ export interface JobError { step: number | null; message: string; type: string; 
 export interface JobSnapshot {
   job_id: number; status: 'queued' | 'running' | 'completed' | 'failed' | 'cancelled'; n_steps: number; current_step: number | null
   steps: JobStep[]; error: JobError | null; step_timings: Record<string, number> | null; detections_written: number | null
+  /** fixup-T: the run's paired null when the toolbar's surrogate toggle was on, else null/absent */
+  null?: RunNull | null
   config_hash: string | null; db_run_id: number | null; started_at: number; finished_at: number | null; recipe: { recording_id: number; span: [number, number] | null; steps: Step[] }
   recording_id: number; elapsed_s: number
 }
-export interface RunEvent { event: 'hello' | 'step_start' | 'step_done' | 'run_end' | 'cancel_requested'; job_id: number; ts: number; [k: string]: unknown }
+/** Detected versus surrogate for one run (Working.run_groups.null_summary). `null_expects` and `x_null` are
+ *  null — not 0 — when no null was drawn; `x_null` is null when the null found nothing. */
+export interface RunNull {
+  found: number; null_draws: number; null_expects: number | null; x_null: number | null
+  method: string | null; block_s: number | null; asked?: number; skipped?: string | null
+}
+export interface RunEvent { event: 'hello' | 'step_start' | 'step_done' | 'run_end' | 'cancel_requested' | 'null_progress'; job_id: number; ts: number; [k: string]: unknown }
 export interface DbRun {
   id: number; config_id: number; recording_id: number; span_start: number; span_end: number; started_at: string; status: string
   finished_at: string | null; duration_s: number | null; error_text: string | null; current_step: number | null; name: string | null
   steps: string[]; recipe: { recording_id: number; span: [number, number] | null; steps: Step[] } | null; step_timings: Record<string, number> | null; n_detections: number; cancelled?: boolean
 }
 
-export const startRun = (recording_id: number, span: [number, number] | null, steps: Step[], px = 1200) =>
-  post<JobSnapshot>('/api/runs', { recording_id, span, steps, px })
+export const startRun = (recording_id: number, span: [number, number] | null, steps: Step[], px = 1200, surrogate = false) =>
+  post<JobSnapshot>('/api/runs', { recording_id, span, steps, px, surrogate })
 export const getRun = (jobId: number) => req<JobSnapshot>(`/api/runs/${jobId}`)
 export const cancelRun = (jobId: number) => post<{ accepted: boolean; status: string; note: string }>(`/api/runs/${jobId}/cancel`, {})
 export const getStepPayload = (jobId: number, index: number) => req<Payload>(`/api/runs/${jobId}/steps/${index}`)
@@ -517,7 +525,7 @@ export interface DiscSeedMatch {
 export interface DiscSeedNull { distances: number[]; draws: number; method: string | null; supported: boolean; reason: string | null; requested: string | null }
 /** The rule the recommended marker was computed under. A statistic whose rule is unstated cannot be
  *  falsified, so it travels with the number (`Working.discovery.seeded_search.cut_rule`). */
-export interface CutRule { alpha: number; correction: string; text: string }
+export interface CutRule { alpha: number; correction: string; text: string; correction_name?: string; n_channels?: number; channels_passing?: number }
 export interface DiscSeedResults {
   ready: true; key: string; candidates: DiscSeedMatch[]; nullDistances: number[]; null: DiscSeedNull
   recommendedCut: number | null; cutRule?: CutRule | null; perChannel: { channel: string; n: number; nullDraws: number }[]
@@ -585,6 +593,8 @@ export interface DiscSide {
   run: string; label: string; subtitle: string; isSeed: boolean
   cells: Record<string, DiscRoleCell | null>
   precision: number | null; reviewed: number; xNull: number | null; threshold: number | null; found: number
+  /** the draws per channel this side's × null is over (fixup-T); null when it has no null */
+  nullDraws?: number | null
 }
 export interface DiscOverlapRow { channel: string; onlyA: number; both: number; onlyB: number }
 /** `otherNearest` is null in the list: the other side's score at a place is a

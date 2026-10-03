@@ -1007,7 +1007,9 @@ def test_a_band_application_is_costed_as_n_bands_times_the_sweep(client):
         "template": "mp_threshold", "channels": [CH[0], CH[1]], "t0": 0.0, "t1": N / 3600.0,
         "measuredPerChannelS": 100.0, "bands": BANDS}).json()
     assert plan["nBands"] == len(BANDS)
-    assert plan["estimate_s"] == pytest.approx(100.0 * 2 * len(BANDS))
+    # each sweep is 1 real run + the null's draws (fixup-T, Q35: "null draws count toward local
+    # limits"); the session's explicit null is 2 draws (`_scope`)
+    assert plan["estimate_s"] == pytest.approx(100.0 * 2 * len(BANDS) * (1 + 2))
 
 
 def test_a_role_holding_one_more_stage_differs(client):

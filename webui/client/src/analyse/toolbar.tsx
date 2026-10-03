@@ -2,10 +2,10 @@
    estimate chip, the example span, and the source-envelope hook. */
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { useDatasetName } from '../naming'
-import { ApiError, getWindow, type WindowData } from '../api'
+import { ApiError, getWindow, type RunNull, type WindowData } from '../api'
 import { useDismiss } from '../shell/useDismiss'
 import { fmtHours, type ChainDraft, type SourceSpan } from '../state'
-import { retryNow, type RunErrorKind } from './store'
+import { retryNow, setNullOn, useAnalyseStore, type RunErrorKind } from './store'
 
 export const EXAMPLE_SOURCE: SourceSpan = { recording_id: 1, channel_name: 'CH1_A1', source_file: 'M2_aug_concat_fs1.mat', fs: 1, start_idx: 1209600, end_idx: 1216800, label: 'example span · the reference span (336–338 h)' }
 
@@ -47,14 +47,31 @@ export function EstimateChip({ text, kind }: { text: string; kind: 'amber' | 'bl
   return <span className={`an-est ${kind}`} data-testid="estimate-chip">{text}</span>
 }
 
-/** Null runs are not part of this slice: the toggle renders OFF and disabled so the default chain never claims
- *  a surrogate it does not run (critique r1 — the 200× was the placeholder canon value, not a live setting). */
+/** The paired surrogate null of an Analyse run (Q38). OFF by default here: the tuning loop is seconds and
+ *  Discovery is where a claim is made. ON, the next run is followed by its null — the detection-chain method
+ *  and draw count of Settings › Nulls, each draw the whole chain again on a surrogate of the span — and the
+ *  footer reads detected versus surrogate (`nullText`). The draws are a count, never detections. */
 export function SurrogateToggle() {
+  const { nullOn } = useAnalyseStore()
+  const title = nullOn
+    ? 'the next run draws its paired surrogate null (Settings › Nulls · detection chains) and the footer reads detected versus surrogate'
+    : 'Analyse runs carry no null unless this is on · Discovery runs always carry one'
   return (
-    <span className="an-toggle-wrap" title="surrogate null runs · out of slice scope" data-testid="surrogate-toggle">
-      <button className="toggle" disabled aria-disabled="true" title="surrogate null runs · out of slice scope" style={{ border: 0, background: 'transparent', opacity: 0.6, cursor: 'not-allowed', padding: 0 }}><span className="knob" /> surrogate · not in this slice</button>
+    <span className="an-toggle-wrap" title={title} data-testid="surrogate-toggle">
+      <button type="button" role="switch" aria-checked={nullOn} className={`toggle${nullOn ? ' on' : ''}`} onClick={() => setNullOn(!nullOn)} data-testid="surrogate-switch"
+        style={{ border: 0, background: 'transparent', cursor: 'pointer', padding: 0 }}><span className="knob" /> surrogate null · {nullOn ? 'on' : 'off'}</button>
     </span>
   )
+}
+
+/** The footer's account of a run's null: detected versus surrogate when one was drawn, and why not when not. */
+export function nullText(n: RunNull | null | undefined): string {
+  if (!n || !n.null_draws) return n?.skipped ? `no null · ${n.skipped}` : 'no null · the surrogate toggle was off'
+  const exp = n.null_expects ?? 0
+  const expects = Number.isInteger(exp) ? String(exp) : exp.toFixed(1)
+  const ratio = n.x_null != null ? `${n.x_null.toFixed(1)}× null` : 'the null found nothing'
+  const short = n.asked && n.null_draws < n.asked ? ` of ${n.asked} asked` : ''
+  return `detected ${n.found} · null expects ${expects} over ${n.null_draws}${short} ${(n.method ?? 'surrogate').replace('_', ' ')} draw${n.null_draws === 1 ? '' : 's'} · ${ratio}`
 }
 
 /** One card for the run store's error, titled by kind (critique r1: the re-attach title was used for every failure). */

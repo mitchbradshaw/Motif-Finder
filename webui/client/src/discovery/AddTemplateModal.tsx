@@ -281,7 +281,7 @@ export function AddTemplateModal({ open, onClose, dx, onSlurm }: { open: boolean
                     tone={focusCost != null && focusCost > DISCOVERY_LIMIT_MIN ? 'amber' : undefined} size="sm" />
                   <StatTile label="disk" value={!focus.fits ? '—' : focus.diskGB != null ? `${focus.diskGB.toFixed(focus.diskGB < 0.1 ? 2 : 1)} GB` : 'not measured'}
                     caption={focus.diskGB != null ? 'scores kept' : noCost(focus)} size="sm" />
-                  <StatTile label="null" value={s.nullMethod ? `${s.nullN}×` : 'off'} caption={s.nullMethod ?? s.nullReason ?? 'Settings › Nulls names no method this scope can run'} size="sm" />
+                  <StatTile label="null" value={s.nullMethod ? `${focus.kind === 'seed' ? s.nullN : s.nullTemplateN}×` : 'off'} caption={s.nullMethod ? `${(focus.kind === 'seed' ? s.nullMethod : s.nullTemplateMethod) ?? s.nullMethod} · draws per channel, in the estimate` : s.nullReason ?? 'Settings › Nulls names no method this scope can run'} size="sm" />
                 </div>
                 {focus.fits && (
                   <div className="dsc-preview-card" data-testid="template-preview">

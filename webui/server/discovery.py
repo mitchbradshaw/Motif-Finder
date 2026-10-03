@@ -813,6 +813,7 @@ def _score_row(row):
         "nullExpects": (row["null_expects"] if row["null_expects"] is not None else 0),
         "nullRun": row["null_expects"] is not None,
         "nullDraws": row.get("null_draws"),
+        "nullDrawsMax": row.get("null_draws_max"),
         "xNullNote": (row.get("x_null_scope") or
                       (None if row["x_null"] is not None else
                        ("no paired null run on this scope" if row["null_expects"] is None
@@ -2425,13 +2426,13 @@ def _side(conn, session_id, run_key, chans, span, scope_label):
     cells = (D.role_cells(recipe, source_label=scope_label) if recipe
              else {r: None for r in D.ROLES})
     is_seed = row["kind"] == "seed"
-    precision = reviewed = x_null = None
+    precision = reviewed = x_null = null_draws = None
     found = 0
     ids = _run_ids(conn, row)
     if ids:
         total = SB.score_runs(conn, ids, span=span)["total"]
         precision, reviewed, x_null = total["precision"], total["reviewed"], total["x_null"]
-        found = total["found"]
+        found, null_draws = total["found"], total.get("null_draws")
     threshold = params.get("cut")
     if threshold is None and recipe:
         for st in recipe["steps"]:
@@ -2444,6 +2445,8 @@ def _side(conn, session_id, run_key, chans, span, scope_label):
             "precision": (round(precision, 4) if precision is not None else None),
             "reviewed": reviewed or 0,
             "xNull": (round(x_null, 2) if x_null is not None else None),
+            # the draws that ratio is over, per channel — the count THIS run drew (fixup-T)
+            "nullDraws": null_draws,
             "threshold": threshold, "found": found}, recipe
 
 

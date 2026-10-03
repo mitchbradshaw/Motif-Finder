@@ -24,7 +24,7 @@ import { RunLogModal } from './RunLogModal'
 import { useSendRunToReview } from './sendToReview'
 import { attachRun, cancelCurrent, cancelPending, clearStale, dropUndo, markStale, popUndo, pushUndo, resetRun, startRun, stepElapsed, syncToSource, useAnalyseStore, type UndoEntry } from './store'
 import { shortName, TemplatesPopover } from './TemplatesPopover'
-import { EstimateChip, EXAMPLE_SOURCE, isHeldOut, NameChip, Popwrap, RunErrorCard, SourceChip, SurrogateToggle, t0Of, t1Of, useSourceEnvelope } from './toolbar'
+import { EstimateChip, EXAMPLE_SOURCE, isHeldOut, NameChip, Popwrap, RunErrorCard, SourceChip, SurrogateToggle, nullText, t0Of, t1Of, useSourceEnvelope } from './toolbar'
 import { pad2, stepName, useAdapters } from './useAdapters'
 import { spanOf, useValidation } from './useValidation'
 
@@ -216,7 +216,11 @@ export function ChainPage() {
   const pass = useSendRunToReview({ chainName: chain.name, dbRunId: job?.status === 'completed' ? (job.db_run_id ?? null) : null, n: nSpans ?? 0, stale: stale !== null })
   const passReason = nSpans === null ? 'needs a completed run with a SpanSet terminal' : pass.reason
   let headline: string, sub: string
-  if (running && job) {
+  if (running && job && st.nullProgress) {
+    // every stage has landed; the paired null is N more runs of the whole chain on a surrogate
+    headline = `Drawing the null · draw ${st.nullProgress.draw} of ${st.nullProgress.draws}`
+    sub = 'every stage is done · each draw is the whole chain again on a surrogate of the span · draws already made for this recipe are reused'
+  } else if (running && job) {
     headline = cancelling ? `Cancelling · stage ${pad2((job.current_step ?? 0) + 1)} of ${pad2(job.n_steps)} is still running` : `Running ${pad2((job.current_step ?? 0) + 1)} of ${pad2(job.n_steps)}`
     sub = cancelling
       ? 'cancel accepted · the run stops when this stage ends, because cancel is checked between steps and never mid-step · the stages already done are kept'
@@ -228,7 +232,7 @@ export function ChainPage() {
   else if (job?.status === 'completed') {
     headline = `last run · ${terminalPayload?.summary ?? job.steps[job.n_steps - 1]?.summary ?? 'done'}`
     const core = job.step_timings ? Object.values(job.step_timings).reduce((a, b) => a + b, 0) : null
-    sub = `job ${job.job_id} · db run #${job.db_run_id ?? '—'} · ${job.detections_written ?? 0} written to detections · ${core !== null ? fmtTiming(core) + ' core' : ''} · ${fmtDuration(job.elapsed_s)} wall · no null${stale !== null ? ` · ${pad2(stale + 1)} → ${pad2(n)} stale` : ''}`
+    sub = `job ${job.job_id} · db run #${job.db_run_id ?? '—'} · ${job.detections_written ?? 0} written to detections · ${core !== null ? fmtTiming(core) + ' core' : ''} · ${fmtDuration(job.elapsed_s)} wall · ${nullText(job.null)}${stale !== null ? ` · ${pad2(stale + 1)} → ${pad2(n)} stale` : ''}`
   } else { headline = 'No result yet'; sub = source ? 'run the chain to see every intermediate' : 'send a span from Explore or use the example span' }
 
   /* ---- rows ---- */

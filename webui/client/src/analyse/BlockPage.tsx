@@ -13,7 +13,7 @@ import { ParamsPanel, fmtParam } from './ParamsPanel'
 import { renderByType } from './Renderer'
 import { deriveRows, fmtTiming, isErrorPayload, jobForSource } from './rowState'
 import { attachRun, cancelCurrent, cancelPending, markStale, startRun, stepElapsed, syncToSource, useAnalyseStore } from './store'
-import { EstimateChip, isHeldOut, NameChip, RunErrorCard, SourceChip, SurrogateToggle, t0Of, t1Of, useSourceEnvelope } from './toolbar'
+import { EstimateChip, isHeldOut, NameChip, RunErrorCard, SourceChip, SurrogateToggle, nullText, t0Of, t1Of, useSourceEnvelope } from './toolbar'
 import { pad2, stepName, useAdapters } from './useAdapters'
 import { SaveWindowSetButton } from './SaveWindowSet'
 import { spanOf, useValidation } from './useValidation'
@@ -196,14 +196,14 @@ export function BlockPage({ index }: { index: number }) {
             </div>
             <div className="card bp-null" data-testid="null-card">
               <div className="row"><span className="b">This parameter against the null</span><span className="muted mono small" style={{ marginLeft: 'auto' }}>ⓘ</span></div>
-              <div className="e">null sweeps are out of slice scope — surrogate runs are not part of this prototype{ad?.input_kind === 'signal' ? '' : ' · this block declares no signal null'}</div>
+              <div className="e">a null is drawn per chain run, not per block — turn the toolbar's surrogate toggle on and the run's footer reads detected versus surrogate{ad?.input_kind === 'signal' ? '' : ' · this block declares no signal null'}</div>
             </div>
           </div>
         </div>
 
         <div className="card bp-foot" data-testid="block-footer">
           {running ? <span className="st"><span className="dot" style={{ background: 'var(--blue)' }} /> Running {pad2(curStep + 1)} of {pad2(job?.n_steps ?? steps.length)}</span> : staleFrom !== null ? <span className="st"><span className="dot" /> Unapplied changes</span> : <span className="st">No unapplied changes</span>}
-          <span className="sub">{running ? 'stages land as they finish · this page updates in place' : staleFrom !== null ? `${pad2(staleFrom + 1)} and later are stale · re-running costs ≈ ${costText}` : job?.status === 'completed' ? `every stage is cached from job ${job.job_id} · db run #${job.db_run_id ?? '—'} · no null` : job?.status === 'failed' ? `run ${job.db_run_id ? `#${job.db_run_id}` : `job ${job.job_id}`} failed at ${pad2((job.error?.step ?? 0) + 1)}` : 'edit a parameter and the block goes stale'}</span>
+          <span className="sub">{running ? 'stages land as they finish · this page updates in place' : staleFrom !== null ? `${pad2(staleFrom + 1)} and later are stale · re-running costs ≈ ${costText}` : job?.status === 'completed' ? `every stage is cached from job ${job.job_id} · db run #${job.db_run_id ?? '—'} · ${nullText(job.null)}` : job?.status === 'failed' ? `run ${job.db_run_id ? `#${job.db_run_id}` : `job ${job.job_id}`} failed at ${pad2((job.error?.step ?? 0) + 1)}` : 'edit a parameter and the block goes stale'}</span>
           <div className="acts">
             {ad?.output_kind === 'windowset' && <SaveWindowSetButton jobId={job?.status === 'completed' ? job.job_id : null} step={index}
               defaultName={`ws_${(chain.name || 'chain').replace(/[^A-Za-z0-9_.-]+/g, '_')}_${pad2(index + 1)}`.slice(0, 64)}

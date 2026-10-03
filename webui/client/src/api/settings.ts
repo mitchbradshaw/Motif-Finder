@@ -144,10 +144,17 @@ export const getVocabulary = (): Promise<Sourced<VocabularyData>> => live((async
     source_note: dbTags.length ? `${dbTags.length} tags from tag_vocabulary` : 'tag_vocabulary is empty · the six shape tags below are the proposed vocabulary, with no members yet' }
 })())
 
-export interface NullsData { kinds: typeof NULL_KINDS; seedOptions: string[] }
+/** A null method `preprocessing.surrogate` implements, with the sentence that goes beside it (Q36). */
+export interface NullMethod { id: string; label: string; note: string | null; default: boolean }
+/** The two kinds whose null is a surrogate of the signal — the ones `preprocessing.surrogate` draws. */
+export const SURROGATE_KINDS = ['detection', 'seed-search']
+export interface NullsData { kinds: typeof NULL_KINDS; seedOptions: string[]; methods: NullMethod[]; blockRule: string | null }
 export const getNulls = (): Promise<Sourced<NullsData>> => live((async () => {
   const p = await getSettingsPage('nulls'); hydrateSaved('nulls', p.values)
-  return { kinds: NULL_KINDS, seedOptions: SEED_OPTIONS }
+  const methods = ((p as { null_methods?: NullMethod[] }).null_methods ?? [])
+  /* the surrogate-backed kinds offer what the block implements, read off the block by the bridge */
+  const kinds = NULL_KINDS.map(k => (SURROGATE_KINDS.includes(k.id) && methods.length ? { ...k, methods: methods.map(m => m.id) } : k))
+  return { kinds, seedOptions: SEED_OPTIONS, methods, blockRule: (p as { block_rule?: string }).block_rule ?? null }
 })())
 
 export interface AnalysisDefaultsData { rules: typeof RECOMMEND_RULES; contexts: string[]; examples: typeof RULE_EXAMPLES; cacheGb: number; cacheRoot: string | null }

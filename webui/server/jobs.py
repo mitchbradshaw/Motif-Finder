@@ -123,6 +123,7 @@ class JobManager(RunManager):
         progress = snap.get("progress") if kind != "chain_run" else {"current_step": snap.get("current_step"), "n_steps": snap.get("n_steps"),
                                                                      "steps": [{k: v for k, v in s.items() if k != "summary"} | {"summary": s.get("summary")} for s in snap.get("steps", [])],
                                                                      "step_timings": snap.get("step_timings"), "detections_written": snap.get("detections_written"),
+                                                                     "null": snap.get("null"),
                                                                      "config_hash": snap.get("config_hash")}
         row = (job.id, kind, job.status, _now(), _dt.datetime.fromtimestamp(job.started_at).isoformat(timespec="seconds"),
                (_dt.datetime.fromtimestamp(job.finished_at).isoformat(timespec="seconds") if job.finished_at else None),
@@ -149,8 +150,8 @@ class JobManager(RunManager):
             self._persist(job)
 
     # ---------------------------------------------------------- starts --
-    def start(self, recipe: dict, recording: dict, px: int = 1200) -> Job:
-        job = super().start(recipe, recording, px)
+    def start(self, recipe: dict, recording: dict, px: int = 1200, null: dict | None = None) -> Job:
+        job = super().start(recipe, recording, px, null=null)
         job.kind = "chain_run"
         self._persist(job)
         return job
@@ -245,7 +246,8 @@ class JobManager(RunManager):
             snap.update({"recipe": meta.get("recipe"), "recording_id": meta.get("recording_id"), "px": meta.get("px"),
                          "steps": progress.get("steps") or [], "n_steps": progress.get("n_steps"),
                          "current_step": progress.get("current_step"), "step_timings": progress.get("step_timings"),
-                         "detections_written": progress.get("detections_written"), "config_hash": progress.get("config_hash")})
+                         "detections_written": progress.get("detections_written"), "null": progress.get("null"),
+                         "config_hash": progress.get("config_hash")})
             # a run the server lost mid-flight (restart) is reported as failed, never as running forever
             if snap["status"] in ("running", "queued"):
                 snap["status"] = "failed"

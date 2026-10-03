@@ -36,6 +36,10 @@ export interface AnalyseState {
   staleFrom: number | null   // first step index edited since the last run started; null = nothing stale
   run: RunState
   tick: number               // bumps every 250 ms while a run is live so elapsed labels re-render
+  /** the toolbar's surrogate toggle (Q38): OFF by default in Analyse; kept for the tab's session */
+  nullOn: boolean
+  /** which draw of the paired null is running, while one is */
+  nullProgress: { draw: number; draws: number } | null
 }
 
 const SS_KEY = 'ub-proto-a:analyse:staleFrom'
@@ -43,9 +47,11 @@ function loadStale(): number | null {
   try { const raw = sessionStorage.getItem(SS_KEY); return raw ? (JSON.parse(raw) as number | null) : null } catch { return null }
 }
 function saveStale(v: number | null) { try { sessionStorage.setItem(SS_KEY, JSON.stringify(v)) } catch { /* ignore */ } }
+const NULL_KEY = 'ub-proto-a:analyse:nullOn'
+function loadNullOn(): boolean { try { return sessionStorage.getItem(NULL_KEY) === '1' } catch { return false } }
 
 const EMPTY_RUN: RunState = { job: null, payloads: {}, stepStartedAt: {}, live: false, polling: false, error: null, errorKind: null, cancelRequestedAt: null }
-let state: AnalyseState = { staleFrom: loadStale(), run: EMPTY_RUN, tick: 0 }
+let state: AnalyseState = { staleFrom: loadStale(), run: EMPTY_RUN, tick: 0, nullOn: loadNullOn(), nullProgress: null }
 const listeners = new Set<() => void>()
 let handle: SseHandle | null = null
 let ticker: number | null = null
@@ -65,6 +71,11 @@ function set(patch: Partial<AnalyseState>) { state = { ...state, ...patch }; emi
 function setRun(patch: Partial<RunState>) { set({ run: { ...state.run, ...patch } }) }
 
 export function getAnalyseState() { return state }
+/** Turn the paired surrogate null on or off for the NEXT run (the run in hand keeps what it drew). */
+export function setNullOn(on: boolean) {
+  try { sessionStorage.setItem(NULL_KEY, on ? '1' : '0') } catch { /* ignore */ }
+  set({ nullOn: on })
+}
 export function useAnalyseStore(): AnalyseState {
   return useSyncExternalStore(l => { listeners.add(l); return () => { listeners.delete(l) } }, () => state, () => state)
 }
@@ -228,6 +239,7 @@ function applyRunEnd(job: JobSnapshot, e: RunEvent): JobSnapshot {
     ...job, status, steps, error,
     step_timings: (e.step_timings as JobSnapshot['step_timings']) ?? job.step_timings,
     detections_written: (e.detections_written as number | null | undefined) ?? job.detections_written,
+    null: (e.null as JobSnapshot['null']) ?? job.null,
     config_hash: (e.config_hash as string | null | undefined) ?? job.config_hash,
     db_run_id: (e.db_run_id as number | null | undefined) ?? job.db_run_id,
     finished_at: typeof e.ts === 'number' ? e.ts : job.finished_at,
@@ -284,6 +296,10 @@ function onEvent(jobId: number, e: RunEvent) {
       fetchPayload(jobId, i)
       break
     }
+    case 'null_progress':
+      // every stage is done; the paired null is being drawn, one whole-chain draw at a time
+      set({ nullProgress: { draw: e.draw as number, draws: e.draws as number } })
+      break
     case 'cancel_requested':
       // a cancel accepted anywhere (this tab, another tab, the Jobs page)
       setRun({ cancelRequestedAt: state.run.cancelRequestedAt ?? Date.now() })
@@ -291,6 +307,7 @@ function onEvent(jobId: number, e: RunEvent) {
     case 'run_end': {
       // provisional final state from the event itself, then the definitive snapshot (with backoff)
       finalConfirmed = false
+      set({ nullProgress: null })
       setRun({ job: applyRunEnd(job, e), live: false })
       handle = null   // api.ts closed the EventSource on run_end
       syncFinal(jobId, 0)
@@ -320,12 +337,12 @@ function subscribe(jobId: number) {
 /** Start a run for the current chain and follow it. Throws ApiError on a refused start
  *  (e.g. 422 for a stage over its local ceiling) — the previous run is kept in that case. */
 export async function startRun(recording_id: number, span: [number, number] | null, steps: Step[], px = 1200): Promise<JobSnapshot> {
-  const snap = await apiStart(recording_id, span, steps, px)
+  const snap = await apiStart(recording_id, span, steps, px, state.nullOn)
   detach()
   rememberMyJob(snap.job_id)   // the header's "N need you" counts only this tab's failures
   clearStale()                 // the run covers the chain as it is now; later edits mark stale again
   noteClock(snap)
-  set({ run: { ...EMPTY_RUN, job: snap } })
+  set({ run: { ...EMPTY_RUN, job: snap }, nullProgress: null })
   subscribe(snap.job_id)
   return snap
 }

@@ -79,7 +79,7 @@ export function ScopeSummaryChip({ dx }: { dx: Discovery }) {
 
 export function NullChip({ dx }: { dx: Discovery }) {
   if (!dx.scope) return null
-  const { nullMethod, nullN, nullRequested, nullReason } = dx.scope
+  const { nullMethod, nullN, nullRequested, nullReason, nullTemplateN, nullTemplateMethod, nullExplicit } = dx.scope
   // no method means no null ran: say the server's reason, not a method and a draw count nothing produced
   if (!nullMethod) return (
     <span className="dsc-null" data-testid="null-chip">
@@ -93,9 +93,17 @@ export function NullChip({ dx }: { dx: Discovery }) {
   )
   return (
     <span className="dsc-null" data-testid="null-chip">
-      <span className="dot" style={{ background: 'var(--green)' }} /><span className="muted">null</span> <b>{nullMethod} {nullN}×</b>
+      {/* one count per run KIND (Q35): a template run's draw is the whole sweep again, a seed search's is one
+          match. The chip used to print the seed search's 200× over template runs that had drawn one (D4). */}
+      <span className="dot" style={{ background: 'var(--green)' }} /><span className="muted">null</span>{' '}
+      <b data-testid="null-chip-text">{nullTemplateMethod && nullTemplateMethod !== nullMethod
+        ? `template run ${nullTemplateMethod} ${nullTemplateN}× · seed search ${nullMethod} ${nullN}×`
+        : `${nullMethod} · template run ${nullTemplateN}× · seed search ${nullN}×`}</b>
       <InfoTip title="Null for every run">
-        Every run carries a null: {nullMethod}, {nullN}×, on the same scope. “Null expects” and “× null” in the scoreboard come from it.{' '}
+        The next template run is paired with <b>{nullTemplateN}</b> surrogate draws per channel and the next seed search with <b>{nullN}</b>{' '}
+        ({nullExplicit ? 'set on this session' : 'Settings › Nulls'}). Each draw is the whole chain again on a {nullMethod} surrogate of the same scope, and it is
+        counted in the estimate. “Null expects” in the scoreboard is the mean over a run’s draws, and each row states the count <i>that run</i> drew —
+        a run made under an earlier setting keeps the count it has.{' '}
         <Button variant="link" size="sm" onClick={() => navigate('settings/nulls')}>Settings › Nulls</Button>
       </InfoTip>
     </span>
@@ -503,26 +511,6 @@ function RunRow({ dx, run, selected, onSelect, mode }: { dx: Discovery; run: Dis
 }
 
 /* ------------------------------------------------------------------ SLURM script */
-export function slurmScript(runs: { label: string; perChannelMin?: number }[], channels: string[], section: [number, number], session: string, recordingFile: string) {
-  const hours = Math.max(1, Math.ceil(runs.reduce((s, r) => s + (r.perChannelMin ?? 1) * channels.length, 0) / 60 * 1.5))
-  return [
-    '#!/bin/bash',
-    `#SBATCH --job-name=discovery_${session}`,
-    `#SBATCH --array=0-${runs.length * channels.length - 1}`,
-    `#SBATCH --time=${String(hours).padStart(2, '0')}:00:00`,
-    '#SBATCH --cpus-per-task=8 --mem=16G',
-    '',
-    `RUNS=(${runs.map(r => r.label).join(' ')})`,
-    `CHANNELS=(${channels.join(' ')})`,
-    `RUN=\${RUNS[$((SLURM_ARRAY_TASK_ID / ${channels.length}))]}`,
-    `CH=\${CHANNELS[$((SLURM_ARRAY_TASK_ID % ${channels.length}))]}`,
-    '',
-    `python -m Working.discovery.run --template "$RUN" \\`,
-    `  --recording ${recordingFile} --channel "$CH" --section ${section[0]} ${section[1]} \\`,
-    '  --null circular_shift:200 --manifest out/manifest_${SLURM_ARRAY_TASK_ID}.json',
-  ].join('\n')
-}
-
 /* The script is the core's, not the page's. `Working.hpc.job_export` writes a
  * SLURM ARRAY job whose task index selects its own channel from the fan-out
  * target list baked into the recipe, and clamps --time to this account's QOS

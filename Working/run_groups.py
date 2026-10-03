@@ -207,8 +207,7 @@ def run_paired_recipe(recipe, db_path=None, force=False, on_progress=None,
     the first draw under the single-draw keys `surrogate_run_id` /
     `surrogate_result` that earlier callers read.
     """
-    from Working.database.schema import init_db
-    from Working.execution import RecipeCancelled, execute_recipe
+    from Working.execution import execute_recipe
 
     enabled = _surrogate_enabled(recipe, surrogate)
     original_recipe = dict(recipe)
@@ -228,15 +227,48 @@ def run_paired_recipe(recipe, db_path=None, force=False, on_progress=None,
     if not enabled:
         return out
 
-    n_draws = 1 if surrogate_draws is None else int(surrogate_draws)
-    if n_draws < 1:
-        raise ValueError(f"a paired null needs at least one draw, got {surrogate_draws!r}")
+    null = draw_paired_null(
+        original_recipe, original["run_id"], db_path=db_path, params=surrogate_params,
+        draws=surrogate_draws, force=force, should_cancel=should_cancel,
+        should_cancel_draws=should_cancel_draws, run_kwargs=run_kwargs, on_draw=on_draw)
+    out["surrogate_skipped"] = null["skipped"]
+    out["surrogate_run_ids"] = null["run_ids"]
+    out["surrogate_results"] = null["results"]
+    out["surrogate_draws"] = null["draws"]
+    if null["run_ids"]:
+        out["surrogate_run_id"] = null["run_ids"][0]
+        out["surrogate_result"] = null["results"][0]
+    return out
 
+
+def draw_paired_null(recipe, original_run_id, db_path=None, params=None, draws=None, force=False,
+                     should_cancel=None, should_cancel_draws=None, run_kwargs=None, on_draw=None):
+    """Draw the paired null of a run that already exists: `draws` runs of the
+    identical chain with `preprocessing.surrogate` prepended, each linked to
+    `original_run_id`.
+
+    This is the second half of `run_paired_recipe`, callable on its own
+    because one caller executes the real run itself: the Analyse run manager
+    streams every stage of the chain to the page as it lands, and draws the
+    null afterwards when the toolbar's toggle is on (Q38).
+
+    Returns ``{run_ids, results, draws, skipped}`` — `draws` is the count
+    actually drawn (fewer than asked on a cancel), `skipped` a sentence when no
+    null could be drawn at all.
+    """
+    from Working.database.schema import init_db
+    from Working.execution import RecipeCancelled, execute_recipe
+
+    n_draws = 1 if draws is None else int(draws)
+    if n_draws < 1:
+        raise ValueError(f"a paired null needs at least one draw, got {draws!r}")
+
+    out = {"run_ids": [], "results": [], "draws": 0, "skipped": None}
     conn = init_db(db_path)
     try:
-        base, skipped = surrogate_draw_params(conn, original["run_id"], surrogate_params)
+        base, skipped = surrogate_draw_params(conn, original_run_id, params)
         if skipped:
-            out["surrogate_skipped"] = skipped
+            out["skipped"] = skipped
             return out
         for i in range(n_draws):
             if should_cancel is not None and should_cancel():
@@ -245,25 +277,51 @@ def run_paired_recipe(recipe, db_path=None, force=False, on_progress=None,
                 break
             if on_draw is not None:
                 on_draw(i, n_draws)
-            params = dict(base, seed=base["seed"] + i)
             try:
                 draw = execute_recipe(
-                    surrogate_recipe(original_recipe, params),
+                    surrogate_recipe(recipe, dict(base, seed=base["seed"] + i)),
                     db_path=db_path, force=force,
                     should_cancel=should_cancel, run_kwargs=run_kwargs,
                 )
             except RecipeCancelled:
                 break
-            R.update_run(conn, draw["run_id"], surrogate_of_run_id=original["run_id"])
-            out["surrogate_run_ids"].append(draw["run_id"])
-            out["surrogate_results"].append(draw)
-        out["surrogate_draws"] = len(out["surrogate_run_ids"])
-        if out["surrogate_run_ids"]:
-            out["surrogate_run_id"] = out["surrogate_run_ids"][0]
-            out["surrogate_result"] = out["surrogate_results"][0]
+            R.update_run(conn, draw["run_id"], surrogate_of_run_id=original_run_id)
+            out["run_ids"].append(draw["run_id"])
+            out["results"].append(draw)
+        out["draws"] = len(out["run_ids"])
         return out
     finally:
         conn.close()
+
+
+def null_summary(conn, run_id):
+    """Detected versus surrogate for one run: what it found, how many draws
+    its null is, what the null expects (the draws' mean count) and the ratio.
+
+    ``null_expects`` and ``x_null`` are None — not 0 — for a run with no null,
+    and ``x_null`` is None when the null found nothing (there is no ratio to
+    zero; the page says so in words).
+    """
+    found = conn.execute("SELECT COUNT(*) FROM detections WHERE run_id = ?", (int(run_id),)).fetchone()[0]
+    nulls = conn.execute(
+        "SELECT r.id, c.config_json, (SELECT COUNT(*) FROM detections d WHERE d.run_id = r.id) AS n "
+        "FROM runs r JOIN configs c ON c.id = r.config_id WHERE r.surrogate_of_run_id = ? ORDER BY r.id",
+        (int(run_id),)).fetchall()
+    out = {"run_id": int(run_id), "found": int(found), "null_draws": len(nulls),
+           "null_run_ids": [int(r["id"]) for r in nulls], "null_expects": None, "x_null": None,
+           "method": None, "block_s": None}
+    if not nulls:
+        return out
+    import json
+
+    expects = sum(int(r["n"]) for r in nulls) / float(len(nulls))
+    out["null_expects"] = expects
+    out["x_null"] = (found / expects) if expects else None
+    step = (json.loads(nulls[0]["config_json"]).get("steps") or [{}])[0]
+    if step.get("algorithm") == "surrogate":
+        out["method"] = (step.get("params") or {}).get("method")
+        out["block_s"] = (step.get("params") or {}).get("block_s") or None
+    return out
 
 
 def target_for_index(recipe, target_index):

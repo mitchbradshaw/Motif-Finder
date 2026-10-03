@@ -319,8 +319,11 @@ const vocabularyValues = (): Values => {
 /** `p_value`: whether this null yields a p-value (then its draws bound the smallest reportable p, and α). */
 export interface NullKind { id: string; kind: string; used_in: string; methods: string[]; draws: number; seed: string; shown_as: string; p_value: boolean }
 export const NULL_KINDS: NullKind[] = [
-  { id: 'detection', kind: 'Detection chains', used_in: 'Analyse · Discovery', methods: ['circular shift', 'phase randomisation', 'block shuffle'], draws: 200, seed: 'per recipe', shown_as: 'null expects · × null', p_value: true },
-  { id: 'seed-search', kind: 'Seed search', used_in: 'Discovery', methods: ['circular shift of the channel', 'phase randomisation'], draws: 200, seed: 'per recipe', shown_as: 'distances behind the histogram', p_value: true },
+  /* fixup-T (Q35, Q36): the two surrogate-backed kinds offer exactly `preprocessing.surrogate`'s methods — the
+     live page replaces these two lists with the block's own (GET /api/settings/nulls `null_methods`), so it
+     cannot name a third — and a detection chain draws 20, because each draw is the whole sweep again. */
+  { id: 'detection', kind: 'Detection chains', used_in: 'Analyse · Discovery', methods: ['phase_randomize', 'block_shuffle'], draws: 20, seed: 'per recipe', shown_as: 'null expects · × null', p_value: true },
+  { id: 'seed-search', kind: 'Seed search', used_in: 'Discovery', methods: ['phase_randomize', 'block_shuffle'], draws: 200, seed: 'per recipe', shown_as: 'distances behind the histogram', p_value: true },
   { id: 'distributions', kind: 'Interrogation · distributions', used_in: 'Analyse', methods: ['matched random windows', 'random windows'], draws: 200, seed: 'per recipe', shown_as: 'null histogram · null β', p_value: true },
   { id: 'intervals', kind: 'Interrogation · intervals', used_in: 'Analyse', methods: ['shuffled onsets', 'Poisson onsets'], draws: 200, seed: 'per recipe', shown_as: 'null interval distribution', p_value: true },
   { id: 'baseline', kind: 'Training · baseline', used_in: 'Models', methods: ['label shuffle · random forest'], draws: 200, seed: 'per job', shown_as: 'null band · p', p_value: true },
@@ -329,7 +332,7 @@ export const NULL_KINDS: NullKind[] = [
 ]
 export const SEED_OPTIONS = ['per recipe', 'per job', 'per grouping', 'fixed']
 const nullsValues = (correction: string): Values => {
-  const v: Values = { alpha: 0.01, correction, show_x_null: true, reuse_draws: true }
+  const v: Values = { alpha: 0.01, correction, show_x_null: true, reuse_draws: true, 'null.block_s': 0 }
   for (const k of NULL_KINDS) { v[`null.${k.id}.method`] = k.methods[0]; v[`null.${k.id}.draws`] = k.draws; v[`null.${k.id}.seed`] = k.seed }
   return v
 }
@@ -656,7 +659,7 @@ export const DEFAULTS: Record<string, Values> = {
 /** What the frames draw as the current project value. Differs from DEFAULTS on the seven pages whose rail item carries a dot. */
 export const SAVED: Record<string, Values> = {
   ...DEFAULTS,
-  nulls: nullsValues('Holm'),
+  nulls: nullsValues('none'),
   'analysis-defaults': analysisValues('0.01 – 0.1 Hz'),
   'compute-hpc': computeValues(20),
   'review-queues': queuesValues('20,000'),

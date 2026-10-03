@@ -93,6 +93,7 @@ class Job:
             "job_id": self.id, "status": self.status, "n_steps": self.n_steps,
             "current_step": self.current_step, "steps": self.steps, "error": self.error,
             "step_timings": self.step_timings, "detections_written": self.detections_written,
+            "null": getattr(self, "null", None),
             "config_hash": self.config_hash, "db_run_id": self.db_run_id,
             "started_at": self.started_at, "finished_at": self.finished_at,
             "recipe": self.recipe, "recording_id": self.recording["id"],
@@ -136,8 +137,12 @@ class RunManager:
             job.subscribers.remove(q)
 
     # ---------------------------------------------------------------- start --
-    def start(self, recipe: dict, recording: dict, px: int = 1200) -> Job:
+    def start(self, recipe: dict, recording: dict, px: int = 1200, null: dict | None = None) -> Job:
+        """`null` is the toolbar's surrogate toggle (Q38, default off in Analyse):
+        ``{params, draws}`` from Settings › Nulls, or None for a run with no null."""
         job = Job(recipe, recording, px)
+        job.null_request = null
+        job.null = None
         # the recipe's short hash is known before the run, so a FAILED run still
         # carries it (frame chain-1f: "adapter … · recipe a7f39c · traceback in log")
         job.config_hash = chain_mod.hashes(recipe)["config_hash"]
@@ -154,6 +159,32 @@ class RunManager:
         job.status = "running"
         t.start()
         return job
+
+    def _draw_null(self, job: Job, should_cancel) -> dict:
+        """The paired null of the run that just finished, and the terminal row's
+        detected-versus-surrogate read-out. The chain is not re-streamed: a
+        draw is the same stages on a surrogate signal, and its spans are a
+        count, never a result (`queries.not_surrogate`). Draws are reused while
+        the recipe is unchanged (`force=False`), so a second run of the same
+        chain pays for no null."""
+        from Working import run_groups
+
+        req = job.null_request
+        n = int(req.get("draws") or 1)
+
+        def on_draw(i, total):
+            self._emit(job, {"event": "null_progress", "draw": i + 1, "draws": total})
+
+        drawn = run_groups.draw_paired_null(
+            job.recipe, job.db_run_id, db_path=self.db_path, params=req.get("params"), draws=n,
+            should_cancel_draws=should_cancel, on_draw=on_draw)
+        conn = init_db(self.db_path)
+        try:
+            summary = run_groups.null_summary(conn, job.db_run_id)
+        finally:
+            conn.close()
+        summary.update({"asked": n, "skipped": drawn["skipped"]})
+        return summary
 
     def cancel(self, job: Job) -> bool:
         if job.status != "running":
@@ -259,9 +290,12 @@ class RunManager:
             job.detections_written = out.get("detections_written")
             job.config_hash = out.get("config_hash")
             job.db_run_id = out.get("run_id")
+            if getattr(job, "null_request", None):
+                job.null = self._draw_null(job, should_cancel)
             job.status = "completed"
             job.finished_at = time.time()
             self._emit(job, {"event": "run_end", "status": "completed", "step_timings": job.step_timings,
+                             "null": getattr(job, "null", None),
                              "detections_written": job.detections_written, "config_hash": job.config_hash,
                              "db_run_id": job.db_run_id, "elapsed_s": time.perf_counter() - t0})
         except RecipeCancelled as e:

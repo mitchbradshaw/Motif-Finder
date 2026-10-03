@@ -374,8 +374,9 @@ function SetOverlap({ data, a, b, channels, section, onReload, onSegment }: {
           <StatTile label="A precision" value={pct(data.a.precision)} caption={`${data.a.reviewed} reviewed`} tone="blue" variant="card"
             info={<InfoTip title="Precision">Of the detections a human has reviewed, the share judged interesting. It exists only where reviewed hours overlap the run — a run with no reviewed overlap shows —.</InfoTip>} />
           <StatTile label="B precision" value={pct(data.b.precision)} caption={data.b.precisionNote ?? `${data.b.reviewed} reviewed`} tone="purple" variant="card" />
-          <StatTile label="× null" value={`${data.a.xNull?.toFixed(1) ?? '—'} · ${data.b.xNull?.toFixed(1) ?? '—'}`} caption="A · B" variant="card"
-            info={<InfoTip title="× null">How many times more than the null expects each run found on this scope. The method and its draw count are the ones the toolbar's null chip names — this tile is the ratio, not the null.</InfoTip>} />
+          <StatTile label="× null" value={`${data.a.xNull?.toFixed(1) ?? '—'} · ${data.b.xNull?.toFixed(1) ?? '—'}`}
+            caption={<span data-testid="xnull-draws">A · B · over {data.a.nullDraws ?? 'no'} · {data.b.nullDraws ?? 'no'} draws</span>} variant="card"
+            info={<InfoTip title="× null">How many times more than the null expects each run found on this scope. Each side's ratio is over the surrogate draws <i>that run</i> drew per channel, stated beneath — a run made under an earlier Settings › Nulls count keeps its own.</InfoTip>} />
         </div>
       </div>
       {data.verdicts && <VerdictSplit data={data} a={a} b={b} channels={channels} section={section} onReload={onReload} />}
@@ -422,7 +423,9 @@ function VerdictSplit({ data, a, b, channels, section, onReload }: {
   const bIsSet = !!data.b.isSet
   const perBand = data.perBand ?? []
   const nullExpects = perBand.reduce((acc, p) => acc + (p.nullExpects ?? 0), 0)
-  const nullDraws = perBand.reduce((acc, p) => acc + (p.nullDraws ?? 0), 0)
+  // draws PER CHANNEL of each band run; summing them across bands made a count nothing drew
+  const bandDraws = perBand.map(p => p.nullDraws ?? 0).filter(n => n > 0)
+  const nullDraws = bandDraws.length ? Math.min(...bandDraws) : 0
   const anyNull = perBand.some(p => p.nullExpects != null)
   const sendWhy = !onlyB ? (b === 'human' ? 'B is the human annotations — already verdicts' : 'nothing only B found')
     : onlyB.n === 0 ? 'nothing only B found on this scope'
@@ -439,7 +442,7 @@ function VerdictSplit({ data, a, b, channels, section, onReload }: {
       {onlyB && (
         <div className="dsc-q-sentence small" data-testid="remainder-sentence">
           Of the <b>{plural(onlyB.n, 'region')}</b> only {bIsSet ? 'a band' : 'B'} found, a human has judged <b>{onlyB.judged}</b> and accepted <b>{onlyB.accepted}</b>.
-          {bIsSet && <span className="muted"> {anyNull ? `The bands' nulls expect ${nullExpects} on this scope (${plural(nullDraws, 'draw')}).` : 'No null was drawn for these band runs.'}</span>}
+          {bIsSet && <span className="muted"> {anyNull ? `The bands' nulls expect ${nullExpects} on this scope (${plural(nullDraws, 'draw')} per channel per band).` : 'No null was drawn for these band runs.'}</span>}
         </div>
       )}
       <div className="row" style={{ gap: 8 }}>

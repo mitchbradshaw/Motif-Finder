@@ -28,6 +28,10 @@ function Body({ data }: { data: Data }) {
      retrains drawn as dots) and grouping stability never quote a p, so their draws do not bound α */
   const minDraws = Math.min(...data.kinds.filter(k => k.p_value).map(k => Number(s.value(`null.${k.id}.draws`) ?? k.draws)))
   const smallestP = 1 / minDraws
+  const label = (id: string) => data.methods.find(m => m.id === id)?.label ?? id
+  const blockNote = data.methods.find(m => m.id === 'block_shuffle')?.note ?? null
+  const blockChosen = data.kinds.some(k => String(s.value(`null.${k.id}.method`) ?? k.methods[0]) === 'block_shuffle')
+  const blockS = Number(s.value('null.block_s') ?? 0)
   const alpha = Number(s.value('alpha') ?? 0.01)
   const alphaTooSmall = alpha > 0 && alpha < smallestP
   useEffect(() => {
@@ -41,7 +45,10 @@ function Body({ data }: { data: Data }) {
     <>
       <SectionCard title="Null per analysis kind" testid="nulls-card"
         actions={<LockedChip reason="whether a null runs is not a setting (P10)" testid="always-on">always on</LockedChip>}
-        footer={<span className="s-note">each method is chosen per kind because the thing that must be destroyed differs: timing for detection, labels for training, membership for groupings</span>}>
+        footer={<span className="s-note">each method is chosen per kind because the thing that must be destroyed differs: shape for detection, labels for training, membership for groupings
+          · phase randomisation is the default null for every detection chain · a detection chain's draw is the whole sweep again, so it draws 20 where a seed search draws 200
+          · an Analyse chain run carries its null only when the toolbar's surrogate toggle is on; a Discovery run always does
+          {blockNote && <span data-testid="block-shuffle-note"> · <b>{blockNote}</b></span>}</span>}>
         <Table rows={data.kinds} rowKey={k => k.id} testid="nulls-table" dense
           columns={[
             { key: 'kind', header: 'analysis kind', width: '20%', render: k => <b>{k.kind}</b> },
@@ -50,7 +57,7 @@ function Body({ data }: { data: Data }) {
               key: 'method', header: 'method', width: '21%', render: k => (
                 <span className={s.dirty(`null.${k.id}.method`) ? 'unsaved' : undefined} style={{ display: 'inline-flex' }}>
                   <SelectField value={String(s.value(`null.${k.id}.method`) ?? k.methods[0])} onChange={v => s.set(`null.${k.id}.method`, v)}
-                    options={k.methods.map(m => ({ value: m, label: m }))} size="sm" width={200} testid={`method-${k.id}`} />
+                    options={k.methods.map(m => ({ value: m, label: label(m) }))} size="sm" width={200} testid={`method-${k.id}`} />
                 </span>
               ),
             },
@@ -90,7 +97,7 @@ function Body({ data }: { data: Data }) {
         </Row>
         <Row label="multiple channels" sub="correction when a result is tested per channel" testid="correction-row"
           dot={s.differs('correction')} unsaved={s.dirty('correction')}
-          caption="per-channel p values in Discovery shown corrected; runs are not re-run">
+          caption="applied per channel to the seed search's recommended cut: each channel's closest match against its own null, the correction across the channels in scope · the sentence beside the cut names the α and the correction it was computed under">
           <Seg value={String(s.value('correction') ?? 'none')} onChange={v => s.set('correction', v)} testid="correction"
             options={['none', 'Holm', 'Benjamini–Hochberg'].map(o => ({ value: o, label: o }))} />
         </Row>
@@ -107,8 +114,16 @@ function Body({ data }: { data: Data }) {
           caption="a changed parameter invalidates the cached draws">
           <Toggle checked={s.bool('reuse_draws')} onChange={v => s.set('reuse_draws', v)} testid="reuse-draws" />
         </Row>
+        <Row label="block shuffle · block length" sub="0 = twice the longest motif under test" id="f-block-length" testid="block-row"
+          dot={s.differs('null.block_s')} unsaved={s.dirty('null.block_s')}
+          caption={<span data-testid="block-rule">{data.blockRule ?? 'twice the longest motif under test'}{blockChosen ? '' : ' · no kind uses block shuffle at present'}</span>}>
+          <NumberField value={blockS} min={0} max={86400} step={10} unit="s" width={110} testid="block-s"
+            onValid={n => { s.set('null.block_s', n); s.markInvalid('null.block_s', null) }}
+            onChange={(_r, reason) => s.markInvalid('null.block_s', reason ? 'the block length is a number of seconds, 0 for twice the longest motif' : null)} />
+          <span className="small muted" data-testid="block-s-reads">{blockS > 0 ? `fixed at ${blockS} s for every block shuffle` : 'twice the seed for a seed search · twice the run’s longest detection for a detection chain'}</span>
+        </Row>
         <Row label="null draws count toward local limits" testid="count-limits-row"
-          caption={<>estimates include them, so a 200× null can route a stage to the cluster · <button type="button" className="k-link" onClick={() => navigate('settings/compute-hpc')}>Compute &amp; HPC</button></>}>
+          caption={<>estimates include them — a template run is costed at (1 + draws) sweeps — so a null can route a run to the cluster · <button type="button" className="k-link" onClick={() => navigate('settings/compute-hpc')}>Compute &amp; HPC</button></>}>
           <LockedToggle reason="estimates include null draws (Compute & HPC)" testid="count-toward-limits" />
         </Row>
       </SectionCard>

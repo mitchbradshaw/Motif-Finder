@@ -114,9 +114,12 @@ def test_a_run_request_carries_the_toggle():
 
 
 def test_the_footer_reads_detected_versus_surrogate():
-    src = _read("analyse", "ChainPage.tsx")
-    assert "null expects" in src, "with the toggle on the terminal row states what the null expects"
-    assert "wall · no null" not in src, "the footer must not say 'no null' unconditionally"
+    assert "null expects" in _read("analyse", "toolbar.tsx"), (
+        "with the toggle on the terminal row states what the null expects")
+    for page in ("ChainPage.tsx", "BlockPage.tsx"):
+        src = _read("analyse", page)
+        assert "nullText(" in src, f"{page} must print the run's own null read-out"
+        assert "· no null" not in src, f"{page} must not say 'no null' unconditionally"
 
 
 if __name__ == "__main__":

@@ -58,6 +58,9 @@ class RunBody(BaseModel):
     span: list[int] | None = None
     steps: list[Step]
     px: int = 1200
+    #: the toolbar's surrogate toggle (Q38). Off by default in Analyse: the
+    #: tuning loop is seconds, and Discovery is where a claim is made.
+    surrogate: bool = False
 
 
 class TemplateBody(BaseModel):
@@ -263,7 +266,23 @@ def create_app(rt: Runtime) -> FastAPI:
         if over:
             raise HTTPException(422, {"message": f"stage {over[0]['index'] + 1:02d} ({over[0]['name']}) exceeds its local ceiling of {over[0]['max_span_samples']:,} samples (span is {n:,}); shorten the span or route it to HPC (out of slice scope)",
                                       "over_ceiling": over})
-        job = manager.start(recipe, rec, px=body.px)
+        null = None
+        if body.surrogate:
+            # the detection-chain null of Settings › Nulls: method, draws, and a fixed block if one is set
+            from Working.discovery import seeded_search as ss
+            c = conn()
+            try:
+                resolved = ss.null_from_settings(c, kind=ss.DETECTION_KIND)
+            finally:
+                c.close()
+            if not resolved["supported"]:
+                raise HTTPException(422, {"message": resolved["reason"]})
+            params = {"method": resolved["method"], "seed": 0}
+            if resolved["method"] == "block_shuffle" and resolved.get("block_s"):
+                params["block_s"] = resolved["block_s"]
+            null = {"params": params, "draws": int(resolved["draws"])}
+            recipe["surrogate"] = True     # the run records that it carried a null, as a Discovery run does
+        job = manager.start(recipe, rec, px=body.px, null=null)
         return job.snapshot()
 
     @app.get("/api/runs")
