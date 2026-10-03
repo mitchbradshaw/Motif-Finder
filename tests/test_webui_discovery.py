@@ -1007,3 +1007,18 @@ def test_a_band_application_is_costed_as_n_bands_times_the_sweep(client):
         "measuredPerChannelS": 100.0, "bands": BANDS}).json()
     assert plan["nBands"] == len(BANDS)
     assert plan["estimate_s"] == pytest.approx(100.0 * 2 * len(BANDS))
+
+
+def test_a_role_holding_one_more_stage_differs(client):
+    """fixup-Z, found on the sandbox walk: the band step sits in the same
+    Preprocess role as the template's baseline removal, and a role cell draws
+    its LAST stage — so `symbol_search` against its banded twin read "0 of 5
+    roles differ" although the chains differ by a whole bandpass. A role with a
+    different number of stages differs; the like-for-like comparison reads
+    exactly one role, and so attributable."""
+    raw = _apply(client, template="mp_threshold")
+    bands = _apply_bands(client, bands=[BANDS[0]])
+    for b in (bands[0]["run_key"], f"set:{bands[0]['bandSet']}"):
+        cmp_ = _compare(client, raw["run_key"], b)
+        assert cmp_["differing"] == ["Preprocess"], (b, cmp_["differing"])
+        assert cmp_["attributable"] is True
