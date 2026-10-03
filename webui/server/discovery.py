@@ -32,6 +32,7 @@ from __future__ import annotations
 import datetime as _dt
 import json
 import os
+import re
 import threading
 
 import numpy as np
@@ -61,6 +62,8 @@ SEED_DIR = os.path.join(REPO_ROOT, "DATA", "library_seed", "drop_motifs5", "moti
 FIRES_BIN_H = 3
 OVERVIEW_MAX_POINTS = 2000
 TRACE_POINTS = 120
+#: a match card is 130 px wide; 60 points draw it and keep the stored result small
+MATCH_TRACE_POINTS = 60
 SEED_LIMIT = 24
 #: A first session opens on four hours, not on a 721-hour recording — see
 #: `_densest_section`.
@@ -405,6 +408,12 @@ def _run_payload(conn, row, index, span):
         "channelsDone": channels_done,
         "found": n_found,
     }
+    if out["kind"] == "seed":
+        # what the Seed page finds its own run by: the seed and the cut, not the
+        # label (fixup-y)
+        out["seedId"] = params.get("seedId")
+        out["cut"] = params.get("cut")
+        out["entryId"] = params.get("entryId")
     if progress is not None and status == "running":
         out["progress"] = round(progress, 3)
     if done_at:
@@ -912,6 +921,15 @@ def _seed_id(source, recording_id, a, b):
     return f"{source}:{recording_id}:{a}:{b}"
 
 
+def _entry_for_span(conn, recording_id, a, b):
+    """The `motif_entry` row whose exemplar span this is, or None. The seed id
+    stays content-addressed (`04-to-03.md` §2); this is only so the binding can
+    name the entry it came from instead of entry 0."""
+    return conn.execute("SELECT id, source_kind, label FROM motif_entry "
+                        "WHERE recording_id = ? AND start_idx = ? AND end_idx = ?",
+                        (int(recording_id), int(a), int(b))).fetchone()
+
+
 def _seed_by_id(conn, seed_id: str):
     try:
         source, rid, a, b = seed_id.split(":")
@@ -921,15 +939,55 @@ def _seed_by_id(conn, seed_id: str):
     if rec is None:
         raise HTTPException(404, {"message": f"no recording {rid} for seed {seed_id!r}"})
     _refuse_held_out(rec["source_file"])
+    entry = _entry_for_span(conn, rid, a, b) if source == "library" else None
     seed = seeded_search.seed_from_content(conn, rec["source_file"], int(rec["channel"]), int(a), int(b),
-                                           role=source)
+                                           role=source, entry_id=(int(entry["id"]) if entry else 0))
     seed["id"] = seed_id
     seed["source"] = source
+    seed["source_kind"] = entry["source_kind"] if entry else None
+    seed["entry_label"] = entry["label"] if entry else None
+    if source == "explore":
+        ann = conn.execute("SELECT id FROM annotations WHERE recording_id = ? AND start_idx = ? AND end_idx = ? "
+                           "AND verdict = 'seed' ORDER BY id DESC LIMIT 1", (int(rid), int(a), int(b))).fetchone()
+        seed["annotation_id"] = int(ann["id"]) if ann else None
     return seed
 
 
-def _seed_info(conn, seed, *, title=None, family=None, family_line=None):
+#: How a Library entry's `source_kind` reads on the picker. The first two are
+#: the researcher's own exemplars and are listed first (fixup-y).
+SOURCE_KIND_LABEL = {"review": "promoted in Review", "annotation": "from a human annotation",
+                     "event_store": "machine-extracted"}
+
+
+def _families_by_entry(conn):
+    """`entry_id -> family label` in the current grouping — the newest
+    single-motif grouping, which is what the Library's pages open on
+    (`library._default_grouping`). An entry with members in two families takes
+    the family of its closest member."""
+    g = conn.execute("SELECT id FROM groupings WHERE unit = 'single_motifs' ORDER BY id DESC LIMIT 1").fetchone()
+    if g is None:
+        return {}
+    out = {}
+    for r in conn.execute(
+            "SELECT mm.entry_id AS entry_id, ga.family_label AS family FROM grouping_assignments ga "
+            "JOIN motif_member mm ON mm.id = ga.member_ref "
+            "WHERE ga.grouping_id = ? AND ga.unit = 'single_motifs' AND ga.family_label IS NOT NULL "
+            "ORDER BY ga.distance DESC", (int(g["id"]),)):
+        out[int(r["entry_id"])] = r["family"]
+    return out
+
+
+def _seed_info(conn, seed, *, title=None, family=None, family_line=None, families=None):
     rec = q.get_recording_by_id(conn, seed["recording_id"])
+    entry_id = int(seed.get("entry_id") or 0) or None
+    if entry_id and family is None:
+        family = (families if families is not None else _families_by_entry(conn)).get(entry_id)
+    kind = seed.get("source_kind")
+    if title is None and entry_id:
+        title = f"entry {entry_id}"
+    if family_line is None and entry_id:
+        family_line = " · ".join(x for x in (SOURCE_KIND_LABEL.get(kind, kind or "no source recorded"),
+                                             f"family {family}" if family else "no family yet") if x)
     return {
         "id": seed["id"],
         "role": {"library": "Library exemplar", "explore": "Explore selection",
@@ -937,6 +995,7 @@ def _seed_info(conn, seed, *, title=None, family=None, family_line=None):
         "source": seed["source"],
         "title": title or f"{corpus.dataset_name(conn, rec['source_file'])} · {seed['start_h']:.1f} h",
         "family": family, "familyLine": family_line,
+        "entryId": entry_id, "sourceKind": kind, "annotationId": seed.get("annotation_id"),
         "recording": _stem(rec["source_file"]),
         "recordingLabel": corpus.dataset_name(conn, rec["source_file"]), "recordingFile": rec["source_file"],
         "channel": corpus.channel_name(rec["source_file"], int(rec["channel"]),
@@ -948,16 +1007,76 @@ def _seed_info(conn, seed, *, title=None, family=None, family_line=None):
     }
 
 
-def _seed_candidates(conn):
-    """The three sources §7.6 names, from what actually exists on this machine."""
+def _recording_ids_for(conn, recording=None, channel=None):
+    """The recording ids a picker filter names: a dataset (`recording`, its
+    file stem) and/or a channel name. None when neither filter is set."""
+    if not recording and not channel:
+        return None
     out = []
-    entries = conn.execute("SELECT * FROM motif_entry ORDER BY id LIMIT ?", (SEED_LIMIT,)).fetchall()
-    for e in entries:
-        rec = q.get_recording_by_id(conn, int(e["recording_id"]))
-        if rec is None or rec["source_file"] == HELD_OUT_FILE:
+    for rec in corpus.recordings(conn):
+        if rec["source_file"] == HELD_OUT_FILE:
             continue
+        if recording and _stem(rec["source_file"]) != recording and rec["source_file"] != recording:
+            continue
+        for ch in rec["channels"]:
+            if channel and ch["name"] != channel:
+                continue
+            out.append(int(ch["id"]))
+    return out
+
+
+def _library_page(conn, *, kind=None, family=None, recording=None, channel=None, offset=0, limit=SEED_LIMIT):
+    """§7.6's *Library exemplar*, over the WHOLE library (fixup-y).
+
+    It was `motif_entry ORDER BY id LIMIT 24`: the first 24 of 3,603 rows, all
+    machine-extracted, so an entry Review had just promoted was never offered.
+    The researcher's own exemplars come first — `review`, then `annotation`,
+    newest first within each — then the rest in id order. Filters by
+    `source_kind`, by family in the current grouping, and by recording and
+    channel; `total` is the count under the filters, so the page can say how
+    many it is not showing."""
+    where, args = [], []
+    held = [int(r["id"]) for r in q.list_recordings(conn, HELD_OUT_FILE)]
+    if held:
+        where.append(f"recording_id NOT IN ({','.join('?' * len(held))})")
+        args += held
+    if kind:
+        if kind == "event_store":
+            where.append("(source_kind = 'event_store' OR source_kind IS NULL)")
+        else:
+            where.append("source_kind = ?")
+            args.append(kind)
+    rids = _recording_ids_for(conn, recording, channel)
+    if rids is not None:
+        if not rids:
+            return [], 0
+        where.append(f"recording_id IN ({','.join('?' * len(rids))})")
+        args += rids
+    families = _families_by_entry(conn)
+    if family:
+        ids = [e for e, f in families.items() if f == family]
+        if not ids:
+            return [], 0
+        where.append(f"id IN ({','.join('?' * len(ids))})")
+        args += ids
+    sql_where = (" WHERE " + " AND ".join(where)) if where else ""
+    total = conn.execute(f"SELECT COUNT(*) FROM motif_entry{sql_where}", args).fetchone()[0]
+    rank = "CASE source_kind WHEN 'review' THEN 0 WHEN 'annotation' THEN 1 ELSE 2 END"
+    rows = conn.execute(
+        f"SELECT * FROM motif_entry{sql_where} ORDER BY {rank}, CASE WHEN {rank} < 2 THEN -id ELSE id END "
+        f"LIMIT ? OFFSET ?", args + [int(limit), int(offset)]).fetchall()
+    return rows, int(total)
+
+
+def _seed_candidates(conn):
+    """The three sources §7.6 names, from what actually exists on this machine.
+    The Library half is the first page of `_library_page`; the picker pages
+    and filters through `GET /api/discovery/seeds`."""
+    out = []
+    entries, _ = _library_page(conn)
+    for e in entries:
         out.append(("library", int(e["recording_id"]), int(e["start_idx"]), int(e["end_idx"]),
-                    f"entry {e['id']}", f"E-{e['id']:04d}", None))
+                    None, None, None))
     events = _seed_store()
     if not entries and events:
         pure = [e for e in events if int(e.get("is_pure", 1) or 0)]
@@ -966,9 +1085,16 @@ def _seed_candidates(conn):
             out.append(("library", int(e["recording_id"]), int(e["snippet_start_idx"]), int(e["snippet_end_idx"]),
                         f"{e['event_id']} · {float(e['drop_depth_mv']):.1f} mV",
                         e.get("span_key"), e.get("span_label")))
+    out += _medoid_candidates(events)
+    out += _explore_candidates(conn)
+    return out
+
+
+def _medoid_candidates(events):
     by_family = {}
     for e in events:
         by_family.setdefault(e.get("span_key") or f"r{e['recording_id']}", []).append(e)
+    out = []
     for key, members in sorted(by_family.items()):
         depths = sorted(float(m["drop_depth_mv"]) for m in members)
         median = depths[len(depths) // 2]
@@ -976,53 +1102,101 @@ def _seed_candidates(conn):
         out.append(("medoid", int(medoid["recording_id"]), int(medoid["snippet_start_idx"]),
                     int(medoid["snippet_end_idx"]), f"{key} medoid · {len(members)} members",
                     key, f"{len(members)} members · {medoid.get('morphology')}"))
-    seeds = conn.execute(
-        "SELECT id, recording_id, start_idx, end_idx FROM annotations WHERE verdict = 'seed' "
-        "ORDER BY id DESC LIMIT ?", (SEED_LIMIT,)).fetchall()
-    for a in seeds:
-        out.append(("explore", int(a["recording_id"]), int(a["start_idx"]), int(a["end_idx"]),
-                    f"span {a['id']}", None, "taken for Review in Explore"))
     return out
 
 
-def _seeds_inline(conn):
+def _explore_candidates(conn, *, offset=0, limit=SEED_LIMIT):
+    """Spans taken for Review in Explore — `annotations` rows with verdict
+    `seed`, newest first, one per span."""
+    rows = conn.execute(
+        "SELECT MAX(id) AS id, recording_id, start_idx, end_idx FROM annotations "
+        "WHERE verdict = 'seed' AND deleted_at IS NULL GROUP BY recording_id, start_idx, end_idx "
+        "ORDER BY MAX(id) DESC LIMIT ? OFFSET ?", (int(limit), int(offset))).fetchall()
+    return [("explore", int(a["recording_id"]), int(a["start_idx"]), int(a["end_idx"]),
+             f"span {a['id']}", None, "taken for Review in Explore") for a in rows]
+
+
+def _seeds_inline(conn, candidates=None):
     out = []
-    for source, rid, a, b, title, family, family_line in _seed_candidates(conn):
+    families = _families_by_entry(conn)
+    for source, rid, a, b, title, family, family_line in (candidates if candidates is not None
+                                                           else _seed_candidates(conn)):
         rec = q.get_recording_by_id(conn, rid)
         if rec is None or rec["source_file"] == HELD_OUT_FILE:
             continue
         try:
-            seed = seeded_search.seed_from_content(conn, rec["source_file"], int(rec["channel"]), a, b, role=source)
-        except (ValueError, PermissionError):
+            seed = _seed_by_id(conn, _seed_id(source, rid, a, b))
+        except (ValueError, PermissionError, HTTPException):
             continue
-        seed["id"] = _seed_id(source, rid, a, b)
-        seed["source"] = source
-        out.append(_seed_info(conn, seed, title=title, family=family, family_line=family_line))
+        out.append(_seed_info(conn, seed, title=title, family=family, family_line=family_line,
+                              families=families))
     return out
 
 
 @router.get("/api/discovery/seeds")
-def get_seeds(request: Request):
+def get_seeds(request: Request, source: str | None = None, kind: str | None = None, family: str | None = None,
+              recording: str | None = None, channel: str | None = None, offset: int = 0,
+              limit: int = SEED_LIMIT):
+    """The seed picker (§7.6). With no `source`, the first page of each of the
+    three sources. `source=library` pages and filters the whole Library
+    (`kind`, `family`, `recording`, `channel`, `offset`, `limit`) and says
+    `total`; `source=explore` pages the spans taken in Explore."""
     c = _conn(request)
     try:
-        seeds = _seeds_inline(c)
-        counts = {}
+        limit = max(1, min(int(limit), 200))
+        offset = max(0, int(offset))
+        lib_total = c.execute("SELECT COUNT(*) FROM motif_entry").fetchone()[0]
+        explore_total = c.execute("SELECT COUNT(*) FROM (SELECT 1 FROM annotations WHERE verdict = 'seed' AND "
+                                  "deleted_at IS NULL GROUP BY recording_id, start_idx, end_idx)").fetchone()[0]
+        kinds = {(r[0] or "event_store"): r[1] for r in
+                 c.execute("SELECT source_kind, COUNT(*) FROM motif_entry GROUP BY source_kind")}
+        families = sorted(set(_families_by_entry(c).values()))
+        if source == "library":
+            rows, total = _library_page(c, kind=kind, family=family, recording=recording, channel=channel,
+                                        offset=offset, limit=limit)
+            seeds = _seeds_inline(c, [("library", int(e["recording_id"]), int(e["start_idx"]), int(e["end_idx"]),
+                                       None, None, None) for e in rows])
+        elif source == "explore":
+            seeds = _seeds_inline(c, _explore_candidates(c, offset=offset, limit=limit))
+            total = explore_total
+        elif source == "medoid":
+            seeds = _seeds_inline(c, _medoid_candidates(_seed_store()))
+            total = len(seeds)
+        elif source:
+            raise HTTPException(400, {"message": f"unknown seed source {source!r}: library, explore or medoid"})
+        else:
+            seeds = _seeds_inline(c)
+            total = len(seeds)
+        counts = {"library": lib_total, "explore": explore_total}
         for s in seeds:
-            counts[s["source"]] = counts.get(s["source"], 0) + 1
+            if s["source"] == "medoid":
+                counts["medoid"] = counts.get("medoid", 0) + 1
         note = None
-        if not c.execute("SELECT COUNT(*) FROM motif_entry").fetchone()[0]:
+        if not lib_total:
             note = ("the motif library is empty, so a Library exemplar here is a span of the drop-motif seed "
                     "store (DATA/library_seed/drop_motifs5/motifs, 410 extracted events)")
-        return {"seeds": seeds, "counts": counts, "note": note}
+        return {"seeds": seeds, "total": total, "offset": offset, "limit": limit, "counts": counts,
+                "kinds": kinds, "families": families, "note": note}
     finally:
         c.close()
+
+
+def _seed_id_for_entry(conn, entry_id: int) -> str:
+    e = conn.execute("SELECT recording_id, start_idx, end_idx FROM motif_entry WHERE id = ?",
+                     (int(entry_id),)).fetchone()
+    if e is None:
+        raise HTTPException(404, {"message": f"no Library entry {entry_id}"})
+    return _seed_id("library", int(e["recording_id"]), int(e["start_idx"]), int(e["end_idx"]))
 
 
 def _draft(conn, session, seed_id=None):
     state = json.loads(session["state_json"] or "{}")
     draft = dict(state.get("seed_draft") or {})
-    if seed_id:
+    if seed_id and seed_id != draft.get("seedId"):
+        # a cut is read off one seed's distances, so it does not travel to another
         draft["seedId"] = seed_id
+        draft.pop("params", None)
+        draft.pop("applied", None)
     if not draft.get("seedId"):
         first = next(iter(_seed_candidates(conn)), None)
         if first is None:
@@ -1054,15 +1228,30 @@ def _draft(conn, session, seed_id=None):
 
 
 @router.get("/api/discovery/seed/setup")
-def get_seed_setup(request: Request, seed: str | None = None):
+def get_seed_setup(request: Request, seed: str | None = None, entry: int | None = None):
+    """`?entry=N` opens Library entry N as the seed — what Review's *Seed
+    search in Discovery →* links to (§8.5, wiring `05-review.md` §12 item 5)."""
     c = _conn(request)
     try:
         s = _session(c)
+        if entry is not None:
+            seed = _seed_id_for_entry(c, entry)
         draft = _draft(c, s, seed)
         if draft is None:
             raise HTTPException(404, {"message": (
                 "no seed is available: the motif library is empty and the drop-motif seed store is not on "
                 "disk, so there is nothing to search for")})
+        if seed:
+            # opening a seed by link makes it the draft, so a reload stays on it
+            state = json.loads(s["state_json"] or "{}")
+            stored = dict(state.get("seed_draft") or {})
+            if stored.get("seedId") != draft["seedId"]:
+                stored = {k: v for k, v in stored.items() if k not in ("params", "applied")}
+                stored["seedId"] = draft["seedId"]
+                state["seed_draft"] = stored
+                c.execute("UPDATE discovery_sessions SET state_json = ?, updated_at = ? WHERE id = ?",
+                          (json.dumps(state), _now(), int(s["id"])))
+                c.commit()
         return {"draft": draft, "recommended": draft["recommended"], "seeds": _seeds_inline(c)}
     finally:
         c.close()
@@ -1144,12 +1333,18 @@ def _seed_search(conn, seed, chans, span, *, k, max_distance, null, job=None):
         found = seeded_search.candidates(x, exemplar, k=k,
                                          max_distance=(max_distance if max_distance > 0 else None))
         first = len(candidates)
+        # the match's own samples, in the unit the seed card draws, so a match
+        # card overlays the MATCH on the seed (§7.6) — every candidate used to
+        # be served `[]` and each card drew the seed alone (fixup-y)
+        rec_row = q.get_recording_by_id(conn, int(ch["id"]))
         for c_ in found:
+            at = span[0] + c_["index"]
             candidates.append({
-                "id": f"{ch['name']}:{span[0] + c_['index']}",
+                "id": f"{ch['name']}:{at}",
                 "d": round(c_["distance"], 4), "channel": ch["name"],
-                "atH": round((span[0] + c_["index"]) / fs / 3600.0, 5),
-                "index": span[0] + c_["index"], "judged": False, "verdict": None, "trace": [],
+                "atH": round(at / fs / 3600.0, 5),
+                "index": at, "judged": False, "verdict": None,
+                "trace": _trace(conn, rec_row, at, at + int(seed["samples"]), n=MATCH_TRACE_POINTS),
             })
         # §4.7: a rediscovery is a new row pointing at the prior verdict, never
         # a second question to the researcher — so say which matches are judged
@@ -1607,9 +1802,44 @@ def apply_templates(request: Request, body: ApplyBody):
         c.close()
 
 
+def _slug(text: str) -> str:
+    """A run key that survives a URL: *Open in Runs* navigated to
+    `?run=seed_a9147c` while the key was `seed a9147c` (fixup-y)."""
+    out = re.sub(r"[^A-Za-z0-9_.-]+", "_", text or "").strip("_")
+    return out or "seed"
+
+
+def _seed_identity(body, seed_id, chans, span):
+    """Everything a seed run's result depends on. Two presses of *Run seed
+    search* with the same identity are one run."""
+    return {"seedId": seed_id, "channels": sorted(ch["name"] for ch in chans),
+            "span": [int(span[0]), int(span[1])], "k": int(body.k),
+            "cut": (None if body.cut is None else float(body.cut))}
+
+
+def _seed_differs(first, this, fs):
+    """How this seed run differs from the first run of the same seed, in the
+    words its label carries — so three runs never all read *seed a9147c*."""
+    bits = []
+    if this["cut"] != first["cut"]:
+        bits.append("no cut" if this["cut"] is None else f"d ≤ {this['cut']:g}")
+    if this["channels"] != first["channels"]:
+        bits.append(f"{len(this['channels'])} ch")
+    if this["span"] != first["span"]:
+        bits.append(f"{this['span'][0] / fs / 3600:.1f}–{this['span'][1] / fs / 3600:.1f} h")
+    if this["k"] != first["k"]:
+        bits.append(f"k {this['k']}")
+    return bits
+
+
 @router.post("/api/discovery/seed/run")
 def run_seed_search(request: Request, body: SeedBody):
-    """§7.6's apply bar: "A run seed search becomes a normal run row"."""
+    """§7.6's apply bar: "A run seed search becomes a normal run row".
+
+    **An unchanged search is the same run** (fixup-y): pressing *Run seed
+    search* again with the same seed, scope, k and cut returns the run already
+    made rather than adding a second row with the same label. A changed cut is
+    a new run, and its label says how it differs from the first."""
     c = _conn(request)
     try:
         pb = PlanBody(seedId=body.seedId, channels=body.channels, t0=body.t0, t1=body.t1,
@@ -1617,23 +1847,41 @@ def run_seed_search(request: Request, body: SeedBody):
         plan, steps, _t, seed, span, chans, s = _plan(c, pb)
         if not plan["runnable"]:
             raise HTTPException(422, {"message": plan["reason"], "refused": plan["refused"]})
-        base = body.label or f"seed_{seed['hash'][:6]}"
-        key = _next_key(c, s["id"], base)
+        ident = _seed_identity(body, seed["id"], chans, span)
+        same_seed = []
+        for row in _discovery_runs(c, s["id"]):
+            if row["kind"] != "seed" or row["superseded_at"]:
+                continue
+            p = json.loads(row["params_json"] or "{}")
+            if p.get("seedId") != seed["id"]:
+                continue
+            same_seed.append((row, p))
+            if p.get("identity") == ident and row["status"] not in ("failed", "cancelled"):
+                return {"run_key": row["run_key"], "job_id": row["job_id"], "route": plan["route"],
+                        "started": False, "reused": True, "label": row["label"],
+                        "note": "this search has already run with these settings; it is the same run"}
+        base = body.label or f"seed {seed['hash'][:6]}"
+        first = next((p.get("identity") for _, p in same_seed if p.get("identity")), None)
+        bits = _seed_differs(first, ident, float(chans[0]["fs"])) if first else []
+        label = " · ".join([base] + bits)
+        key = _next_key(c, s["id"], _slug(label))
         on, sp, why = _surrogate_for(c)
         params = {"stage_count": 1, "glyph": "seed", "seedId": seed["id"], "cut": body.cut,
+                  "entryId": (int(seed.get("entry_id") or 0) or None), "identity": ident,
                   "null": {"paired": on, "params": sp, "reason": why},
                   "k": body.k, "detail": f"{seed['samples']} samples · MASS",
                   "route": plan["route"], "exclusion_note": seeded_search.recommended_params(seed)["exclusion_note"]}
-        _insert_run(c, s["id"], run_key=key, kind="seed", label=base, params=params)
+        _insert_run(c, s["id"], run_key=key, kind="seed", label=label, params=params)
         job_id = None
         if plan["route"] != "cluster":
-            job = _start_sweep(request, session_id=int(s["id"]), run_key=key, plan=plan, label=base,
+            job = _start_sweep(request, session_id=int(s["id"]), run_key=key, plan=plan, label=label,
                                surrogate=on, surrogate_params=sp)
             job_id = job.id
             c.execute("UPDATE discovery_runs SET job_id = ?, status = 'running', updated_at = ? "
                       "WHERE session_id = ? AND run_key = ?", (job_id, _now(), int(s["id"]), key))
             c.commit()
-        return {"run_key": key, "job_id": job_id, "route": plan["route"], "started": job_id is not None}
+        return {"run_key": key, "job_id": job_id, "route": plan["route"], "started": job_id is not None,
+                "reused": False, "label": label}
     finally:
         c.close()
 

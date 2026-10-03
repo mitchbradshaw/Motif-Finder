@@ -16,6 +16,7 @@ from pydantic import BaseModel
 from Working.cross_channel import classify_waveforms
 from Working.database import queries as q
 from Working.database.runs import list_runs, load_recipe
+from Working.review import queues as queues_mod
 
 from . import corpus
 from .corpus import run_methods          # lives there so the fastapi-free coverage path can use it
@@ -189,8 +190,18 @@ def take_span_for_review(request: Request, body: SeedBody):
             "source": "explore.take_for_review", "created_at": _dt.datetime.now().isoformat(timespec="seconds"),
         })
         c.commit()
+        # fixup-y: the span is IN Review's Explore spans queue — one open queue
+        # over every span taken in Explore, reused on each take (as fixup-L's
+        # *Send to Review* reuses its queue), so the toast's *Open Review* lands
+        # on a queue that holds it
+        qid = queues_mod.find_open_queue(c, source_kind="explore-spans")
+        if qid is None:
+            qid = queues_mod.create_queue(c, name="Explore spans", source_kind="explore-spans",
+                                          note="spans taken for Review in Explore › Signal")
     finally:
         c.close()
     fs = float(rec["fs"])
     return {"id": aid, "recording_id": body.recording_id, "start_s": body.start_idx / fs, "end_s": body.end_idx / fs,
-            "verdict": "seed", "source": "explore.take_for_review", "note": body.note, "banner": request.app.state.rt.banner()}
+            "verdict": "seed", "source": "explore.take_for_review", "note": body.note, "queue_id": int(qid),
+            "seed_id": f"explore:{body.recording_id}:{int(body.start_idx)}:{int(body.end_idx)}",
+            "banner": request.app.state.rt.banner()}

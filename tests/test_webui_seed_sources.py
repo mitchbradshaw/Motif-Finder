@@ -232,18 +232,33 @@ def test_an_unknown_entry_is_a_404_naming_it(client):
     assert "99999" in r.text
 
 
-def test_the_seed_runs_recipe_records_which_entry_it_searched_for(client):
+def test_the_seed_run_records_which_entry_it_searched_for(client):
+    """The binding handed to the run names the entry, and the Discovery run row
+    keeps it. The stored `configs` row does not, by design: `recipes._normalize`
+    strips `entry_id` from a `library_exemplar` binding so the recipe hash is
+    content-addressed (ticket 14) — the same shape on another machine is the
+    same recipe."""
+    from server import discovery as DS
     review = _review_entry(client)
     seed_id = f"library:{review['recording_id']}:{review['start_idx']}:{review['end_idx']}"
+    conn = sqlite3.connect(client.app.state.rt.db_path)
+    conn.row_factory = sqlite3.Row
+    try:
+        steps, _, _ = DS._steps_for(conn, DS.PlanBody(seedId=seed_id, k=20))
+    finally:
+        conn.close()
+    assert steps[0]["side_inputs"]["exemplar"]["entry_id"] == review["id"]
     run = client.post("/api/discovery/seed/run", json={
         "seedId": seed_id, "channels": [CH[0]], "t0": 0.0, "t1": N / 3600.0, "k": 20}).json()
     snap = _wait_job(client, run["job_id"])
     assert snap["status"] == "completed", snap.get("error")
-    row = _q(client, "SELECT params_json FROM discovery_runs WHERE run_key = ?", (run["run_key"],))[0]
-    run_ids = json.loads(row["params_json"])["run_ids"]
+    row = next(r for r in client.get("/api/discovery/runs").json() if r["key"] == run["run_key"])
+    assert row["entryId"] == review["id"]
+    params = json.loads(_q(client, "SELECT params_json FROM discovery_runs WHERE run_key = ?",
+                           (run["run_key"],))[0]["params_json"])
     cfg = _q(client, "SELECT c.config_json FROM runs r JOIN configs c ON c.id = r.config_id WHERE r.id = ?",
-             (run_ids[0],))[0]["config_json"]
-    assert f'"entry_id": {review["id"]}' in cfg, "the binding names the entry, not entry 0"
+             (params["run_ids"][0],))[0]["config_json"]
+    assert "entry_id" not in cfg, "the recipe hash stays content-addressed"
 
 
 # ── 2. Explore's Take span for Review writes ───────────────────────────────
