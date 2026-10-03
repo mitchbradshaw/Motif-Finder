@@ -1,0 +1,727 @@
+[corpus]
+  ok: heatmap has 912 cells (>= 448)
+  ok: heatmap painted 912 cells (>= 800)
+  ok: heatmap uses 6 distinct fills (>= 3, i.e. real counts, not one colour)
+  ok: nav rail present
+  ok: header present
+  ok: corpus: 7 time-axis labels, none overlapping
+  ok: the header's need-you chip is present
+  ok: the header's review count is /api/review/counts (160 vs 160)
+  ok: the rail no longer claims this database has no tags
+  ok: no demo chip is left on the Corpus rail (every read on it is live)
+  ok: the Morphology tag filter is the rail's MultiPick, not 36 checkboxes
+  ok: the tag list offers 34 live vocabulary terms
+  ok: bottom bar shows channel counts
+  ok: Open channel button present
+[signal]
+  ok: overview + span envelope paths painted (d lengths [28973, 27561])
+  ok: 4 tinted span bands drawn in the viewport
+  ok: signal: 11 time-axis labels, none overlapping
+  ok: viewport refetch instrumentation recorded 9 fetches
+  ok: motif tier present
+  ok: Send span to Analyse present
+  ok: sending a span navigates to Analyse
+[held-out]
+  ok: M4 channel shows a held-out / locked state
+[analyse]
+  ok: 4 chain rows (source + 3 steps)
+  ok: analyse-chain: 9 time-axis labels, none overlapping
+  ok: insert-stage modal opens
+  ok: modal lists 37 adapters
+  ok: 37 incompatible adapters shown disabled with reasons
+  ok: run button present and enabled
+  FAIL: all rows completed: ['computed · now cached', 'running', '⌛ waiting']
+  FAIL: every result row painted something: ['path', 'blank', 'blank']
+  ok: the chain footer has Pass to Review
+  ok: a grey Pass to Review carries its reason ('needs a completed run with a SpanSet terminal')
+  ok: the threshold block page has its threshold parameter
+  EXC: analyse Locator.fill: Timeout 30000ms exceeded.
+Call log:
+  - waiting for locator("input[data-testid=\"param-threshold\"], [data-testid=\"param-threshold\"] input[type=number]").first
+    - locator resolved to <input disabled value="8" step="0.1" class="input" type="number" data-testid="param-threshold"/>
+    - fill("6.0")
+  - attempting fill action
+    2 × waiting for element to be visible, enabled and editable
+      - element is not enabled
+    - retrying fill action
+    - waiting 20ms
+    2 × waiting for element to be visible, enabled and editable
+      - element is not enabled
+    - retrying fill action
+      - waiting 100ms
+    57 × waiting for element to be visible, enabled and editable
+       - element is not enabled
+     - retrying fill action
+       - waiting 500ms
+
+[discovery]
+  ok: 6 run rows (the human reference plus the runs just made)
+  ok: the scope strips painted real overviews (path lengths [7739, 7852])
+  ok: where-each-run-fires painted 9 bins
+  ok: the scoreboard has rows
+  ok: the Runs page has the quiet in-place reload indicator
+  ok: the 600 px first-load card is gone once the page has content
+  ok: the page height is unchanged across a poll (920.953125 -> 920.953125)
+[discovery → review]
+  ok: the run acts offer to send ('Send 3 unjudged to Review')
+  ok: one review_queues row named 'Discovery · mp_threshold' (1 found)
+  ok: the toast names the queue and what a verdict writes ("3 unjudged in 'Discovery · mp_threshold' · verdicts write adjudications\nOpen Review")
+  ok: the toast's count is the queue's own (3 of 3)
+  ok: the queue filters by run ids ([80, 82])
+  ok: Open Review landed on queue 3 (#/review/queue/3/1206)
+  ok: the toolbar names the queue ('queue\nDiscovery · mp_threshold')
+  ok: the toolbar says what a verdict writes ('writes\nadjudications')
+  ok: progress reads 0 / 3 ('0 / 3\npace not yet measured')
+  ok: the verdict was not refused
+  ok: I wrote one adjudications row, on a detection of a real run in the queue ([{'id': 1, 'detection_id': 1206, 'verdict': 'interesting', 'created_at': '2026-10-03T06:47:11.084114+00:00', 'run_id': 80, 'surrogate_of_run_id': None}])
+  ok: progress reads 1 / 3 ('1 / 3\npace not yet measured')
+  ok: the acts read 'Sent N' and link to queue 3 ('Sent 3 · open in Review · then refresh')
+  ok: the scoreboard re-read after reviewing ('mp_threshold\n\t3\t0\t0\t0\tno detections in the reviewed overlap\t0.00 over 2 h\t1 / 2\t3.0×')
+  ok: the seed run's queue is a seed-search queue writing adjudications (seed-search)
+[discovery · band scope → compare by verdict]
+  ok: the band scope offers the Settings list, every band ticked (3 of 3)
+  ok: the footer multiplies by the bands ('× 3 bands × 2 channels')
+  ok: the toast counts the band runs ('3 runs added · 3 bands × 1 template · 3 running locally')
+  ok: 3 band runs, each across the 2 channels in scope ([('symbol_search_0.001_0.01Hz', 'done', '2 / 2'), ('symbol_search_0.01_0.1Hz', 'done', '2 / 2'), ('symbol_search_0.1_0.45Hz', 'done', '2 / 2')])
+  ok: every band run has its own row
+  ok: one per-band row per band (3)
+  ok: the set side counts its union (26 = both 0 + only B 26)
+  ok: the remainder sentence reads the only-B count ("Of the 26 regions only a band found, a human has judged 0 and accepted 0. The bands' nulls expect 211 on this scope (6 draws).")
+  ok: the band set names its like-for-like comparison
+  ok: the stepper names the band that fired ('band 0.001–0.01 Hz')
+  ok: the remainder queue exists and the toast counts it ("26 unjudged of 26 regions in 'Compare · only B · A mp_threshold vs B symbol_search · 3 bands' · verdicts write adjudications\nOpen Review")
+  ok: one queue row per only-B region, writing adjudications (26 of 26)
+  ok: Open Review landed on the remainder queue 5 (#/review/queue/5/2010)
+  ok: I wrote one verdict, on a real band run's detection ([{'id': 2, 'detection_id': 2010, 'verdict': 'interesting', 'created_at': '2026-10-03T06:47:40.429732+00:00', 'run_id': 88, 'surrogate_of_run_id': None}])
+  ok: back in Compare the only-B row reads one more judged and accepted ('only B\n26 regions · judged 1 · accepted 1 · rejected 0 · unjudged 25')
+  ok: Settings › Analysis defaults lists the 3 bands (3)
+  ok: the seed page draws its match-distance histogram
+  ok: compare opens with what differs
+[loud failure]
+  ok: a thrown render error is shown as a red card (not a blank pane)
+  ok: the thrown render error reached the browser console
+[routes]
+  ok: 574 page states listed in smoke_pages/*.json
+  ok: analyse: analyse.chain--live renders
+  ok: analyse: analyse.chain--1-chain renders
+  ok: analyse: analyse.chain--1b-run-history renders
+  ok: analyse: analyse.chain--1b-run-history-click renders
+  ok: analyse: analyse.chain--1c-empty-import-template renders
+  ok: analyse: analyse.chain--1c-import-apply renders
+  ok: analyse: analyse.chain--1d-running renders
+  ok: analyse: analyse.chain--1d-cancelled renders
+  ok: analyse: analyse.chain--1e-invalid-junction renders
+  ok: analyse: analyse.chain--1e-delete-click renders
+  ok: analyse: analyse.chain--1f-failed-block renders
+  ok: analyse: analyse.chain--1f-failed-by-run renders
+  ok: analyse: analyse.chain--1f-view-log renders
+  ok: analyse: analyse.chain--1g-heavy-stage-hpc renders
+  ok: analyse: analyse.chain--1g-create-slurm renders
+  ok: analyse: analyse.chain--1g-upload-artifact renders
+  ok: analyse: analyse.chain--1h-scores-chain renders
+  ok: analyse: analyse.chain--1i-paused-result-in-place renders
+  ok: analyse: analyse.chain--1i-continue renders
+  ok: analyse: analyse.chain--2-insert-stage renders
+  ok: analyse: analyse.chain--2-insert-click renders
+  ok: analyse: analyse.block--live renders
+  ok: analyse: analyse.block--5-baseline-unapplied renders
+  ok: analyse: analyse.block--5-baseline-try-window renders
+  ok: analyse: analyse.block--5-baseline-apply-running renders
+  ok: analyse: analyse.block--6-noise-floor renders
+  ok: analyse: analyse.block--6-noise-floor-linear renders
+  ok: analyse: analyse.block--3-encoding renders
+  ok: analyse: analyse.block--3-encoding-sweep-click renders
+  ok: analyse: analyse.block--4-drop-detection renders
+  ok: analyse: analyse.block--4-drop-detection-fix renders
+  ok: analyse: analyse.block--4-drop-detection-failed renders
+  ok: analyse: analyse.block--7-matrix-profile renders
+  ok: analyse: analyse.block--7-matrix-profile-top-click renders
+  ok: analyse: analyse.block--7b-threshold-to-spans renders
+  ok: analyse: analyse.block--8-model-stage renders
+  ok: analyse: analyse.block--running renders
+  ok: analyse: analyse.block--inserted-generic renders
+  ok: analyse: analyse.block--missing-stage renders
+  ok: analyse: analyse.glyphs--default renders
+  ok: analyse: analyse.glyphs--detail-drawer renders
+  ok: analyse: analyse.glyphs--card-click renders
+  ok: analyse: analyse.glyphs--filter-empty renders
+  ok: analyse: analyse.chain--fixup-d-import-feature-template renders
+  ok: analyse: analyse.block--fixup-d-event-shape-block renders
+  ok: analyse: analyse.chain--fixup-d-feature-blocks-in-insert-modal renders
+  ok: analyse: analyse.chain--fixup-d-invert-in-insert-modal renders
+  ok: band_scope: discovery.runs--fixup-z-band-scope-offered renders
+  ok: band_scope: discovery.compare--fixup-z-band-set-as-side-b renders
+  ok: band_scope: settings.analysis-defaults--fixup-z-named-band-list renders
+  FAIL: discovery: discovery.runs--default renders — missing ['[data-testid="where-fires"] [data-testid="fires-cell"]', '[data-testid="browser-trace"] svg']
+  ok: discovery: discovery.runs--modal-add-template renders
+  ok: discovery: discovery.runs--modal-slurm renders
+  ok: discovery: discovery.runs--popover-history renders
+  ok: discovery: discovery.runs--confirm-discard renders
+  ok: discovery: discovery.runs--discarded renders
+  ok: discovery: discovery.runs--discarded-param renders
+  ok: discovery: discovery.runs--fires-spans renders
+  ok: discovery: discovery.runs--section-popover renders
+  ok: discovery: discovery.runs--running renders
+  ok: discovery: discovery.runs--empty renders
+  ok: discovery: discovery.runs--held-out-refused renders
+  FAIL: discovery: discovery.seed--default renders — missing ['[data-testid="cut-histogram"]', '[data-testid="match-grid"]']
+  FAIL: discovery: discovery.seed--source-explore renders — missing ['[data-testid="seed-explore-empty"]']
+  ok: discovery: discovery.seed--source-medoid renders
+  ok: discovery: discovery.seed--change-seed renders
+  ok: discovery: discovery.seed--view-popover renders
+  ok: discovery: discovery.seed--running renders
+  ok: discovery: discovery.seed--done renders
+  ok: discovery: discovery.seed--failed renders
+  ok: discovery: discovery.seed--modal-save-template renders
+  ok: discovery: discovery.seed--save-template-invalid renders
+  ok: discovery: discovery.seed--held-out-refused renders
+  ok: discovery: discovery.compare--default renders
+  ok: discovery: discovery.compare--empty-one-pick renders
+  ok: discovery: discovery.compare--unpick-b renders
+  ok: discovery: discovery.compare--swapped renders
+  ok: discovery: discovery.compare--filter-only-b renders
+  ok: discovery: discovery.compare--popover-roles renders
+  ok: discovery: discovery.compare--popover-stage renders
+  ok: discovery: discovery.compare--overlap-segment renders
+  ok: discovery: discovery.compare--human-as-b renders
+  ok: discovery: discovery.compare--held-out-refused renders
+  ok: discovery: discovery.compare--route-default renders
+  FAIL: discovery: discovery.stages--default renders — missing ['[data-testid="stage-columns"]', '[data-testid="decided-table"]']
+  ok: discovery: discovery.stages--re-running renders
+  ok: discovery: discovery.stages--stepped renders
+  ok: discovery: discovery.stages--swapped renders
+  ok: discovery: discovery.stages--popover-first-differing renders
+  ok: discovery: discovery.stages--popover-stage-params renders
+  ok: discovery: discovery.stages--filter-only-b renders
+  ok: discovery: discovery.stages--human-as-b renders
+  ok: discovery: discovery.stages--empty-same-run renders
+  ok: discovery: discovery.stages--route-default renders
+  ok: discovery: discovery.runs--failed-deep-link renders
+  ok: discovery: discovery.runs--null-unsupported renders
+  ok: explore: explore.corpus--default renders
+  ok: explore: explore.corpus--recordings-menu renders
+  ok: explore: explore.corpus--recordings-menu-deeplink renders
+  ok: explore: explore.corpus--map-legend renders
+  ok: explore: explore.corpus--disagree-reviewed renders
+  ok: explore: explore.corpus--runs-picker renders
+  ok: explore: explore.corpus--nothing-shown renders
+  ok: explore: explore.corpus--zero-match renders
+  ok: explore: explore.corpus--no-selection renders
+  ok: explore: explore.corpus--loading renders
+  ok: explore: explore.corpus--error renders
+  ok: explore: explore.corpus--held-out renders
+  ok: explore: explore.signal--default renders
+  ok: explore: explore.signal--motif renders
+  ok: explore: explore.signal--motif-next-review renders
+  ok: explore: explore.signal--detections-picker renders
+  ok: explore: explore.signal--detections-picker-by-method renders
+  ok: explore: explore.signal--span-legend renders
+  ok: explore: explore.signal--tag-input renders
+  ok: explore: explore.signal--drawer-annotations renders
+  ok: explore: explore.signal--drawer-from-ribbon renders
+  ok: explore: explore.signal--drawer-bulk-tag renders
+  ok: explore: explore.signal--drawer-detections renders
+  ok: explore: explore.signal--drawer-filters-collapsed renders
+  ok: explore: explore.signal--drawer-shortcuts renders
+  ok: explore: explore.signal--keyboard-drawer renders
+  ok: explore: explore.signal--live-channel renders
+  ok: explore: explore.signal--loading renders
+  ok: explore: explore.signal--error renders
+  ok: explore: explore.signal--held-out renders
+  FAIL: explore: explore.cross-channel--as-recorded renders — missing ['[data-testid="channel-stack"]', '[data-testid="classification"]', '[data-testid="reference-trace"]']
+  ok: explore: explore.cross-channel--lag-aligned renders
+  ok: explore: explore.cross-channel--align-click renders
+  ok: explore: explore.cross-channel--channels-picker renders
+  ok: explore: explore.cross-channel--detections-picker renders
+  ok: explore: explore.cross-channel--questions-open renders
+  ok: explore: explore.cross-channel--computing renders
+  ok: explore: explore.cross-channel--bin-focus renders
+  ok: explore: explore.cross-channel--max-lag-10 renders
+  ok: explore: explore.cross-channel--too-few-channels renders
+  ok: explore: explore.cross-channel--held-out renders
+  ok: explore: explore.cross-channel--unknown-channel renders
+  ok: explore: explore.cross-channel--y-absolute renders
+  ok: explore: explore.cross-channel--y-per-channel renders
+  ok: explore: explore.cross-channel--y-centred-axis renders
+  ok: explore: explore.span-edit--pristine renders
+  ok: explore: explore.span-edit--edited renders
+  ok: explore: explore.span-edit--nudge renders
+  ok: explore: explore.span-edit--snap-trough renders
+  ok: explore: explore.span-edit--invalid renders
+  ok: explore: explore.span-edit--typed-invalid renders
+  ok: explore: explore.span-edit--saved renders
+  ok: explore: explore.span-edit--held-out renders
+  ok: explore: explore.span-edit--unknown-span renders
+  ok: interrogation: analyse.interrogation--default renders
+  ok: interrogation: analyse.interrogation--members-overlaid-window renders
+  ok: interrogation: analyse.interrogation--source-picker renders
+  ok: interrogation: analyse.interrogation--source-picker-by-click renders
+  ok: interrogation: analyse.interrogation--picker-prior-run renders
+  ok: interrogation: analyse.interrogation--picker-review renders
+  ok: interrogation: analyse.interrogation--swapped renders
+  ok: interrogation: analyse.interrogation--empty-scope renders
+  ok: interrogation: analyse.interrogation--running renders
+  ok: interrogation: analyse.interrogation--failed renders
+  ok: interrogation: analyse.interrogation--save-template renders
+  ok: interrogation: analyse.interrogation--add-stage renders
+  ok: interrogation: analyse.interrogation.slope--default renders
+  ok: interrogation: analyse.interrogation.slope--event-picked renders
+  ok: interrogation: analyse.interrogation.slope--jump-to-flagged renders
+  FAIL: interrogation: analyse.interrogation.slope--large-family renders — missing ['[data-testid="overlaid-card"]', '[data-testid="overlay-plot"]']
+  ok: interrogation: analyse.interrogation.slope--large-family-rose renders
+  ok: interrogation: analyse.interrogation.slope--upstream-event-shape renders
+  ok: interrogation: analyse.interrogation.slope--not-recovered-is-not-zero renders
+  FAIL: interrogation: analyse.interrogation.slope--overlay-window-is-the-stored-context renders — missing ['[data-testid="overlay-plot"]', '[data-testid="overlay-window-note"]']
+  ok: interrogation: analyse.interrogation.slope--event-shape-columns renders
+  ok: interrogation: analyse.interrogation.slope--marks-all renders
+  ok: interrogation: analyse.interrogation.slope--running renders
+  ok: interrogation: analyse.interrogation.slope--units-mv-s renders
+  ok: interrogation: analyse.interrogation.aggregate--default renders
+  ok: interrogation: analyse.interrogation.aggregate--histograms renders
+  ok: interrogation: analyse.interrogation.aggregate--colour-by-recording renders
+  ok: interrogation: analyse.interrogation.aggregate--pair-by-click renders
+  ok: interrogation: analyse.interrogation.aggregate--linear-axes renders
+  ok: interrogation: analyse.interrogation.aggregate--wired-from-event-shape renders
+  ok: interrogation: analyse.interrogation.aggregate--old-spike-shape-key-is-an-alias renders
+  ok: interrogation: analyse.interrogation.aggregate--width-vs-recovery renders
+  ok: interrogation: analyse.interrogation.aggregate--not-measured-is-counted-not-zero renders
+  ok: interrogation: analyse.interrogation.aggregate--upstream-carried-to-block-1 renders
+  ok: interrogation: analyse.interrogation.aggregate--feature-wiring renders
+  ok: interrogation: analyse.interrogation.aggregate--wiring-by-click renders
+  ok: interrogation: analyse.interrogation.aggregate--nothing-to-aggregate renders
+  ok: interrogation: analyse.interrogation.aggregate--running renders
+  ok: interrogation: analyse.interrogation.aggregate--no-null-is-drawn renders
+  ok: interrogation: analyse.interrogation.aggregate--outliers-excluded renders
+  ok: interrogation: analyse.interrogation.aggregate--small-family renders
+  ok: interrogation: analyse.interrogation.aggregate--stage-outlier renders
+  ok: interrogation: analyse.interrogation.slope--stale-after-edit renders
+  ok: interrogation: analyse.interrogation.slope--stale-discarded renders
+  ok: interrogation: analyse.interrogation--empty-scope-by-click renders
+  ok: interrogation: analyse.interrogation--scope-restored renders
+  ok: interrogation: analyse.interrogation.aggregate--rewired renders
+  ok: interrogation: analyse.interrogation.aggregate--wiring-reset renders
+  FAIL: interrogation: analyse.interrogation--fixup-d-sequence-rose renders — missing ['[data-testid="sequence-rose-card"] [data-render="rose"]', '[data-testid="sequence-feature-table"]', '[data-testid="measure-rules"]']
+  FAIL: interrogation: analyse.interrogation.slope--fixup-k-marks-are-the-payloads renders — no anatomy figure on the page — missing ['[data-testid="anatomy-figure"]', '[data-testid="readout-steepest"]', '[data-testid="marks-info"]', '[data-testid="anatomy-window-note"][data-padding="snippet"]']
+  FAIL: interrogation: analyse.interrogation.slope--fixup-k-marks-on-a-trough-family renders — no anatomy figure on the page — missing ['[data-testid="anatomy-figure"]', '[data-testid="readout-steepest"]']
+  FAIL: interrogation: analyse.interrogation.slope--fixup-k-all-marks-names-what-is-not-drawn renders — no anatomy figure on the page — missing ['[data-testid="anatomy-absent"]']
+  ok: interrogation: analyse.interrogation.slope--fixup-k-marks-rule-behind-the-icon renders
+  ok: interrogation: analyse.interrogation.slope--fixup-k-padding-is-honoured renders · steepest drawn at 1 % of the fall, as served · tangent through it at the served slope
+  ok: interrogation: analyse.interrogation.slope--fixup-k-padding-restored renders · steepest drawn at 1 % of the fall, as served · tangent through it at the served slope
+  ok: interrogation: analyse.interrogation--fixup-h-slideshow-on-the-store renders · rule 9: 10 traces vary, fill their plots, unclipped
+  ok: interrogation: analyse.interrogation--fixup-h-overlay-sequence-frame renders
+  ok: interrogation: analyse.interrogation.aggregate--fixup-h-timeline-tau-from-the-core renders
+  ok: jobs: jobs.all--all renders
+  ok: jobs: jobs.all--needs-you renders
+  ok: jobs: jobs.all--paused renders
+  ok: jobs: jobs.all--cluster renders
+  ok: jobs: jobs.all--local renders
+  ok: jobs: jobs.all--queues renders
+  ok: jobs: jobs.all--finished renders
+  ok: jobs: jobs.all--filter-empty renders
+  ok: jobs: jobs.all--finished-expanded-by-click renders
+  ok: jobs: jobs.all--rail-paused renders
+  ok: jobs: jobs.all--rail-cluster renders
+  ok: jobs: jobs.all--rail-queue renders
+  ok: jobs: jobs.all--rail-local renders
+  ok: jobs: jobs.all--rail-by-row-click renders
+  ok: jobs: jobs.all--inbox-drawer renders
+  ok: jobs: jobs.all--inbox-drawer-by-click renders
+  ok: jobs: jobs.all--mark-menu renders
+  ok: jobs: jobs.all--new-script-modal renders
+  ok: jobs: jobs.all--cancel-confirm renders
+  ok: jobs: jobs.all--cancel-confirm-escape renders
+  ok: jobs: jobs.paused--result-arrived renders
+  ok: jobs: jobs.paused--waiting renders
+  ok: jobs: jobs.paused--a-0098-arrived renders
+  ok: jobs: jobs.paused--unknown-run renders
+  ok: jobs: jobs.paused--new-script-modal renders
+  ok: jobs: jobs.paused--looking renders
+  ok: jobs: jobs.upload--refused renders
+  ok: jobs: jobs.upload--no-file renders
+  ok: jobs: jobs.upload--passes renders
+  ok: jobs: jobs.upload--passes-no-nulls renders
+  ok: jobs: jobs.upload--held-out-refused renders
+  ok: jobs: jobs.upload--file-menu renders
+  ok: jobs: jobs.upload--checking-by-click renders
+  ok: jobs: jobs.cluster--running-overdue renders
+  ok: jobs: jobs.cluster--running renders
+  ok: jobs: jobs.cluster--finished-imported renders
+  ok: jobs: jobs.cluster--failed renders
+  ok: jobs: jobs.cluster--unknown-job renders
+  ok: jobs: jobs.cluster--new-script-modal renders
+  ok: jobs: jobs.cluster--marked-failed renders
+  ok: jobs: jobs.paused--continuing renders
+  ok: jobs: jobs.paused--finished renders
+  ok: jobs: jobs.paused--cancelled renders
+  ok: jobs: jobs.cluster--snoozed renders
+  ok: jobs: jobs.cluster--inbox-pending renders
+  ok: jobs: jobs.cluster--imported renders
+  FAIL: library: library.atlas--motifs renders — 0 traces measured — missing ['[data-testid="atlas-grid"]', '[data-testid="family-card-F-03"]', '[data-testid="atlas-rail"]', '[data-testid="rail-exemplar-medoid"]', '[data-testid="rail-amplitude-histogram"]', '[data-testid="reference-bar"]', '[data-testid="atlas-scale-note"]']
+  FAIL: library: library.atlas--sequences renders — 0 traces measured — missing ['[data-testid="sequences-banner"]', '[data-testid="family-card-F-31"]', '[data-testid="composition-strip"]', '[data-testid="sequences-omitted"]']
+  ok: library: library.atlas--family-selected renders
+  ok: library: library.atlas--groupings-popover renders
+  ok: library: library.atlas--omitted-drawer renders · every trace inside its plot box
+  ok: library: library.atlas--no-scope renders
+  ok: library: library.atlas--empty renders
+  ok: library: library.family--member-selected renders · every trace inside its plot box
+  ok: library: library.family--revisions-popover renders
+  ok: library: library.family--hand-only-none renders
+  ok: library: library.family--sort-time-page-2 renders
+  ok: library: library.family--tag-popover-invalid renders
+  ok: library: library.family--class-popover renders
+  ok: library: library.family--confirm-make-exemplar renders
+  ok: library: library.family--confirm-remove renders
+  ok: library: library.family--sequence-family-renders renders
+  ok: library: library.family--unknown-family renders
+  FAIL: library: library.recurrence--default renders — 0 traces measured — missing ['[data-testid="recurrence-matrix"]', '[data-testid="grouping-kv"]', '[data-testid="selection-empty"]', '[data-testid="omitted-strip"]']
+  FAIL: library: library.recurrence--count renders — missing ['[data-testid="recurrence-matrix"]', '[data-testid="cell-mode"] [aria-checked="true"][data-value="count"]']
+  FAIL: library: library.recurrence--held-out-recording renders — missing ['[data-testid="held-out-block"]', '[data-testid="rec-head-M4_aug_fs1"]']
+  ok: library: library.recurrence--omitted-drawer renders
+  ok: library: library.recurrence--sequences-have-no-cells renders
+  ok: library: library.recurrence--empty renders
+  ok: library: library.recurrence--selected-shares-ground renders
+  ok: library: library.recurrence--no-selection renders
+  FAIL: library: library.grouping--frequency-content renders — missing ['[data-testid="feature-histogram"]', '[data-testid="grouping-preview"]', '[data-testid="preview-uncomputed"]']
+  FAIL: library: library.grouping--shape-distance-default renders — missing ['[data-testid="basis-shape-distance"][aria-checked="true"]', '[data-testid="unit-motifs"][aria-checked="true"]', '[data-testid="preview-uncomputed"]', '[data-testid="compute-preview"]']
+  ok: library: library.grouping--invalid renders
+  ok: library: library.grouping--applying renders
+  ok: library: library.grouping--failed renders
+  ok: library: library.grouping--unit-sequences renders
+  ok: library: library.grouping--unit-spike-trains-none renders
+  ok: library: library.grouping--basis-custom-no-clustering renders
+  FAIL: library: library.import--empty-dry-run renders — missing ['[data-testid="import-checks"]', '[data-testid="import-sample"]', '[data-testid="check-ok"]']
+  FAIL: library: library.import--dry-run-populated renders — missing ['[data-testid="import-checks"]', '[data-testid="import-creates"]', '[data-testid="import-sample"]', '[data-testid="provenance-chip"]'] — unexpected ['[data-testid="import-run"][disabled]']
+  FAIL: library: library.import--catalogue-bundle renders — missing ['[data-testid="import-checks"]', '[data-testid="import-creates"]']
+  ok: library: library.import--bundle-select-lists-the-registry renders
+  FAIL: library: library.window-sets--none renders — missing ['[data-testid="window-sets-none"]']
+  FAIL: library: library.window-sets--filter-deep-link-still-none renders — missing ['[data-testid="window-sets-none"]']
+  FAIL: library: library.window-sets--import-modal-opens-while-empty renders — missing ['[data-testid="window-sets-none"]']
+  FAIL: library: library.templates--template-selected renders — missing ['[data-testid="template-list"]', '[data-testid="template-rail"]', '[data-testid="template-stages"]', '[data-testid="template-scores-none"]', '[data-testid="template-versions-none"]']
+  FAIL: library: library.templates--training-selected renders — missing ['[data-testid="launch-in-models"]', '[data-testid="apply-in-discovery"][disabled]']
+  FAIL: library: library.templates--run-but-never-scored renders — missing ['[data-testid="template-scores-none"]', '[data-testid="template-stages"]', '[data-testid="open-in-analyse"]']
+  ok: library: library.templates--kind-training renders
+  ok: library: library.templates--model-stage renders
+  ok: library: library.templates--page-2 renders
+  ok: library: library.templates--filtered-empty renders
+  ok: library: library.templates--diff-modal renders
+  ok: library: library.templates--export-json renders
+  ok: library: library.templates--import-json-invalid renders
+  ok: library: library.templates--archive-confirm renders
+  ok: models: models.launch--live-default renders
+  ok: models: models.launch--template-off-the-labels-grid renders
+  ok: models: models.launch--held-out-locked renders
+  ok: models: models.results--no-run-yet renders
+  ok: models: models.compare--no-run-yet renders
+  ok: models: models.registry--candidate renders
+  ok: models: models.registry--filter-registered renders
+  ok: models: models.registry--filter-retired renders
+  ok: models: models.registry--candidate-failing renders
+  ok: models: models.registry--registered renders
+  ok: models: models.registry--retired renders
+  ok: models: models.registry--rejected renders
+  ok: models: models.registry--why-popover renders
+  ok: models: models.registry--row-click-registered renders
+  ok: models: models.registry--verified renders
+  ok: models: models.registry--name-invalid renders
+  ok: models: models.registry--retire-modal renders
+  ok: models: models.registry--retire-modal-escape renders
+  ok: models: models.registry--reject-modal renders
+  ok: models: models.registry--restore-modal renders
+  ok: models: models.registry--add-20-more renders
+  ok: models: models.registry--registered-now renders
+  ok: models: models.registry--retired-now renders
+  FAIL: review: review.inspector--1-candidate (redirect from review root) renders — missing ['[data-testid="inspector"]', '[data-testid="verdict-card"]']
+  FAIL: review: review.inspector--1-candidate (deep link, live detection) renders · every trace inside its plot box — missing ['[data-testid="inspector"][data-item="100"]', '[data-testid="title-row"]', '[data-testid="shape-card"]', '[data-testid="shape-reference"]', '[data-testid="verdict-card"]']
+  ok: review: review.inspector--context trace paints on real samples renders
+  ok: review: review.inspector--context axis: 102's drop sits inside its band (fixup-g, U2) renders · every trace inside its plot box · the trace's minimum sits inside the band · padding symmetric
+  ok: review: review.inspector--padding +/-30 s is symmetric (fixup-g, U3) renders · every trace inside its plot box · the trace's minimum sits inside the band · padding symmetric
+  EXC: review.inspector--padding +/-30 s is symmetric (fixup-g, U3) [Errno 2] No such file or directory: 'C:/Users/mmebr/AppData/Local/Temp/claude/C--Users-mmebr-Documents-CNN/32c8262f-3897-49f5-b01e-f01cfda14601/scratchpad/ab/smoke2\\pages\\review\\review.inspector--padding +/-30 s is symmetric (fixup-g, U3).png'
+  ok: review: review.inspector--padding +/-120 s is symmetric (fixup-g, U3) renders · every trace inside its plot box · the trace's minimum sits inside the band · padding symmetric
+  EXC: review.inspector--padding +/-120 s is symmetric (fixup-g, U3) [Errno 2] No such file or directory: 'C:/Users/mmebr/AppData/Local/Temp/claude/C--Users-mmebr-Documents-CNN/32c8262f-3897-49f5-b01e-f01cfda14601/scratchpad/ab/smoke2\\pages\\review\\review.inspector--padding +/-120 s is symmetric (fixup-g, U3).png'
+  ok: review: review.inspector--shape card drawn from the 10 Hz source, and says so (fixup-g, Q24) renders · every trace inside its plot box
+  ok: review: review.inspector--shape card toggled to its own 1 Hz samples renders · every trace inside its plot box
+  ok: review: review.inspector--shape card without a parent: the toggle is disabled with the reason renders
+  ok: review: review.inspector--1b-other-channels (click, then Escape) renders · every trace inside its plot box
+  ok: review: review.inspector--3-queue-rail (deep link) renders
+  FAIL: review: review.inspector--3-queue-rail (click toggle) renders — missing ['[data-testid="queue-list"]']
+  ok: review: review.inspector--3-queue-rail filters reset renders
+  ok: review: review.inspector--4-evidence-rail (deep link) renders · every trace inside its plot box
+  ok: review: review.inspector--4-evidence-rail (micro-stat click) renders
+  ok: review: review.inspector--queue-picker popover lists the live queues renders
+  ok: review: review.inspector--shortcuts popover renders
+  ok: review: review.inspector--blind-toggle popover on a sighted queue renders
+  ok: review: review.inspector--extract-events queue (sequence unit, writes annotations) renders
+  ok: review: review.inspector--verdict given (I) writes to the database and advances renders
+  ok: review: review.inspector--Ctrl-Z undoes through the server renders
+  ok: review: review.inspector--Space skips without writing renders
+  ok: review: review.inspector--tag input validation renders
+  ok: review: review.inspector--item not found is loud, not blank renders
+  ok: review: review.inspector--queue rail shows real remaining count renders
+  ok: seed_sources: discovery.seed--fixup-y-picker-pages-the-library renders
+  ok: seed_sources: discovery.seed--fixup-y-picker-filters-by-kind renders
+  ok: seed_sources: review.inspector--fixup-y-seed-names-the-entry renders
+  ok: seed_sources: discovery.seed--fixup-y-seed-search-from-review renders
+  ok: seed_sources: explore.signal--fixup-y-take-span-is-a-seed renders
+  ok: settings: settings.shell--search renders
+  ok: settings: settings.shell--search-hit renders
+  ok: settings: settings.shell--search-empty renders
+  ok: settings: settings.shell--leave-guard renders
+  ok: settings: settings.shell--confirm-reset renders
+  ok: settings: settings.shell--reset-stages-defaults renders
+  ok: settings: settings.shell--save-writes-the-settings-table renders
+  ok: settings: settings.shell--saved-value-survives-reload renders
+  FAIL: settings: settings.shell--discard renders — missing ['[data-testid="rules-table"]']
+  ok: settings: settings.shell--unknown-slug renders
+  FAIL: settings: settings.datasets--default renders — missing ['[data-testid="recordings-table"]', '[data-testid="metadata-card"]', '[data-testid="held-out-card"]', '[data-testid="candidate-count"]']
+  ok: settings: settings.datasets--unsaved renders
+  ok: settings: settings.datasets--selected-M2_concat_fs1 renders
+  ok: settings: settings.datasets--selected-by-click renders
+  ok: settings: settings.datasets--identity-fields renders
+  ok: settings: settings.datasets--invalid-experiment-date renders
+  ok: settings: settings.datasets--a-name-that-is-another-datasets-file-is-refused renders
+  ok: settings: settings.datasets--naming-a-dataset-saves-and-renames-the-row renders
+  ok: settings: settings.datasets--the-name-survives-a-reload renders
+  ok: settings: settings.datasets--the-name-in-explore renders
+  FAIL: settings: settings.datasets--the-name-in-channels-events renders — missing ['[data-testid="rec-picker"]', '[data-testid="channels-dataset"][title="source file Fig2A_dt0p1.csv"]', '[data-testid="gain-CH5"]', '[data-testid="index-CH5"]']
+  ok: settings: settings.datasets--discovery-scope-names-its-dataset-through-the-seam renders
+  ok: settings: settings.datasets--review-item-carries-its-source-file renders
+  FAIL: settings: settings.datasets--held-out-locked renders — missing ['[data-testid="metadata-locked"]']
+  ok: settings: settings.datasets--invalid-noise-floor renders
+  ok: settings: settings.datasets--import-scan renders
+  ok: settings: settings.datasets--import-by-click renders
+  EXC: settings.datasets--import-check-fails-fs-unknown Locator.click: Timeout 30000ms exceeded.
+Call log:
+  - waiting for locator("[data-testid=\"run-check\"]").first
+    - locator resolved to <button disabled type="button" class="k-btn" data-testid="run-check">Check</button>
+  - attempting click action
+    2 × waiting for element to be visible, enabled and stable
+      - element is not enabled
+    - retrying click action
+    - waiting 20ms
+    2 × waiting for element to be visible, enabled and stable
+      - element is not enabled
+    - retrying click action
+      - waiting 100ms
+    56 × waiting for element to be visible, enabled and stable
+       - element is not enabled
+     - retrying click action
+       - waiting 500ms
+
+  EXC: settings.datasets--import-check-passes-MJu26a Locator.click: Timeout 30000ms exceeded.
+Call log:
+  - waiting for locator("[data-testid=\"run-check\"]").first
+    - locator resolved to <button disabled type="button" class="k-btn" data-testid="run-check">Check</button>
+  - attempting click action
+    2 × waiting for element to be visible, enabled and stable
+      - element is not enabled
+    - retrying click action
+    - waiting 20ms
+    2 × waiting for element to be visible, enabled and stable
+      - element is not enabled
+    - retrying click action
+      - waiting 100ms
+    50 × waiting for element to be visible, enabled and stable
+       - element is not enabled
+     - retrying click action
+       - waiting 500ms
+
+  ok: settings: settings.datasets--unlock-confirm renders
+  ok: settings: settings.datasets--unlock-typed renders
+  ok: settings: settings.datasets--unlock-wrong-name-is-refused-by-the-server renders
+  ok: settings: settings.channels-events--default renders
+  ok: settings: settings.channels-events--picker-open-lists-every-dataset renders
+  ok: settings: settings.channels-events--unsaved renders
+  ok: settings: settings.channels-events--rows-all renders
+  ok: settings: settings.channels-events--rows-all-by-click renders
+  ok: settings: settings.channels-events--rec-Fig2A renders
+  ok: settings: settings.channels-events--rec-M4_aug-locked renders
+  ok: settings: settings.channels-events--add-event renders
+  ok: settings: settings.channels-events--add-event-valid renders
+  ok: settings: settings.channels-events--add-kind renders
+  ok: settings: settings.channels-events--add-kind-valid renders
+  ok: settings: settings.channels-events--event-added-staged renders
+  ok: settings: settings.channels-events--floor-invalid renders
+  ok: settings: settings.channels-events--ground-select renders
+  ok: settings: settings.channels-events--ground-select-by-click renders
+  ok: settings: settings.channels-events--kind-staged renders
+  ok: settings: settings.channels-events--unknown-recording-fails-loudly renders
+  ok: settings: settings.vocabulary--default renders
+  ok: settings: settings.vocabulary--rename renders
+  ok: settings: settings.vocabulary--rename-by-click renders
+  ok: settings: settings.vocabulary--rekey renders
+  ok: settings: settings.vocabulary--add-verdict renders
+  ok: settings: settings.vocabulary--add-class renders
+  ok: settings: settings.vocabulary--add-tag renders
+  ok: settings: settings.vocabulary--merge-tag renders
+  ok: settings: settings.vocabulary--class-non-informative renders
+  ok: settings: settings.nulls--default renders
+  ok: settings: settings.nulls--unsaved renders
+  ok: settings: settings.nulls--invalid-alpha renders
+  ok: settings: settings.nulls--method-changed renders
+  FAIL: settings: settings.analysis-defaults--default renders — missing ['[data-testid="rules-table"]', '[data-testid="matching-card"]', '[data-testid="cache-card"]']
+  ok: settings: settings.analysis-defaults--unsaved renders
+  ok: settings: settings.analysis-defaults--history renders
+  ok: settings: settings.analysis-defaults--context-M3_jul renders
+  ok: settings: settings.analysis-defaults--invalid-band renders
+  ok: settings: settings.analysis-defaults--clear-cache renders
+  FAIL: settings: settings.analysis-defaults--clearing renders — missing ['[data-testid="clear-progress"]']
+  ok: settings: settings.compute-hpc--default renders
+  ok: settings: settings.compute-hpc--unsaved renders
+  ok: settings: settings.compute-hpc--benchmark-running renders
+  ok: settings: settings.compute-hpc--benchmark-done renders
+  ok: settings: settings.compute-hpc--profile-cpu-array renders
+  ok: settings: settings.compute-hpc--editor-raw renders
+  ok: settings: settings.compute-hpc--email-off renders
+  ok: settings: settings.compute-hpc--add-cluster renders
+  ok: settings: settings.compute-hpc--add-cluster-empty-profiles renders
+  FAIL: settings: settings.blocks--default renders — missing ['[data-testid="blocks-table"]', '[data-testid="block-detection.matrix_profile"]', '[data-testid="block-preprocessing.window_matrix"]']
+  FAIL: settings: settings.blocks--every-adapter-listed renders — missing ['[data-testid="block-detection.wavelet_scattering"]', '[data-testid="block-detection.threshold"]', '[data-testid="block-catalogue.classifier"]']
+  ok: settings: settings.blocks--disable-by-click renders
+  ok: settings: settings.blocks--used-by renders
+  ok: settings: settings.review-queues--default renders
+  ok: settings: settings.review-queues--unsaved renders
+  ok: settings: settings.review-queues--unblind-warning renders
+  ok: settings: settings.review-queues--invalid-cap renders
+  ok: settings: settings.review-queues--suggest-warning renders
+  ok: settings: settings.models-registration--default renders
+  EXC: settings.models-registration--check-a-joblib Locator.click: Timeout 30000ms exceeded.
+Call log:
+  - waiting for locator("[data-testid=\"check-model-catalogue_classifier_16750c76ade64016.joblib\"]").first
+
+  ok: settings: settings.models-registration--unsaved renders
+  ok: settings: settings.models-registration--repeats-on renders
+  ok: settings: settings.models-registration--invalid-split renders
+  ok: settings: settings.models-registration--no-arm renders
+  ok: settings: settings.models-registration--unpaired-arms renders
+  FAIL: settings: settings.library-groupings--default renders — missing ['[data-testid="grouping-card"]', '[data-testid="feature-bases-table"]', '[data-testid="hand-edits-card"]']
+  ok: settings: settings.library-groupings--unsaved renders
+  ok: settings: settings.library-groupings--unit-spike-trains renders
+  ok: settings: settings.library-groupings--omit-warning renders
+  ok: settings: settings.library-groupings--weights renders
+  FAIL: settings: settings.storage-backups--default renders — missing ['[data-testid="roots-table"]', '[data-testid="root-channels"]', '[data-testid="naming-preview"]', '[data-testid="backups-card"]']
+  ok: settings: settings.storage-backups--unsaved renders
+  FAIL: settings: settings.storage-backups--low-disk renders — missing ['[data-testid="low-disk"]']
+  FAIL: settings: settings.storage-backups--scan-matrix-profiles renders — missing ['[data-testid="scan-modal"]', '[data-testid="scan-candidates"]']
+  EXC: settings.storage-backups--scan-check-a-matrix-profile Locator.click: Timeout 30000ms exceeded.
+Call log:
+  - waiting for locator("[data-testid=\"scan-check-mp_v2_Mushroom_260720_0509_4hrs_CH14_fs1_CH0_WIN1min.npz\"]").first
+
+  FAIL: settings: settings.storage-backups--scan-by-click renders — missing ['[data-testid="scan-registered"]']
+  ok: settings: settings.storage-backups--token-removed renders
+  ok: settings: settings.storage-backups--add-token renders
+  ok: settings: settings.storage-backups--backup-now-writes-a-file renders
+  ok: settings: settings.storage-backups--restore renders
+  ok: settings: settings.export--default renders
+  ok: settings: settings.export--unsaved renders
+  ok: settings: settings.export--include-notes renders
+  ok: settings: settings.export--layout-per-family renders
+  FAIL: settings: settings.audit-log--all renders — missing ['[data-testid="entries-card"]', '[data-testid="kind-filter"]', '[data-testid="audit-table"]']
+  FAIL: settings: settings.audit-log--filter-settings renders — missing ['[data-testid="entries-card"]', '[data-testid="audit-table"]']
+  FAIL: settings: settings.audit-log--empty-filter renders — missing ['[data-testid="audit-empty"]']
+  EXC: settings.audit-log--entry-link-navigates Locator.click: Timeout 30000ms exceeded.
+Call log:
+  - waiting for locator("[data-testid=\"goto-settings-nulls\"]").first
+
+  FAIL: settings: settings.about--default renders — missing ['[data-testid="versions-card"]', '[data-testid="installation-card"]', '[data-testid="mode-badge"]', '[data-testid="future-card"]']
+  FAIL: settings: settings.about--packages renders — missing ['[data-testid="lock-file-modal"]', '[data-testid="lock-file"]']
+  FAIL: settings: settings.about--copy-diagnostics renders — missing ['[data-testid="versions-card"]']
+  ok: settings: settings.display--default renders
+  ok: settings: settings.display--applied-immediately renders
+  ok: settings: settings.keyboard--default renders
+  ok: settings: settings.keyboard--capture renders
+  ok: settings: settings.keyboard--conflict renders
+  ok: training: analyse.training--default renders
+  ok: training: analyse.training--source-popover renders
+  ok: training: analyse.training--source-popover-by-click renders
+  ok: training: analyse.training--illustrative-human-windows renders
+  ok: training: analyse.training--history renders
+  ok: training: analyse.training--import renders
+  ok: training: analyse.training--send-review renders
+  ok: training: analyse.training--queued-to-review renders
+  ok: training: analyse.training--save-template renders
+  ok: training: analyse.training--rename-invalid renders
+  ok: training: analyse.training--running renders
+  ok: training: analyse.training--failed renders
+  ok: training: analyse.training.windows--default renders
+  ok: training: analyse.training.windows--edited renders
+  ok: training: analyse.training.windows--invalid-gap renders
+  ok: training: analyse.training.windows--random-split renders
+  ok: training: analyse.training.windows--boundary renders
+  ok: training: analyse.training.windows--verdicts renders
+  ok: training: analyse.training.windows--save-window-set renders
+  ok: training: analyse.training.windows--send-review renders
+  ok: training: analyse.training.windows--running renders
+  ok: training: analyse.training.matrix--default renders
+  ok: training: analyse.training.matrix--edited renders
+  ok: training: analyse.training.matrix--group-open renders
+  ok: training: analyse.training.matrix--label-derived-on renders
+  ok: training: analyse.training.matrix--readout renders
+  ok: training: analyse.training.matrix--slurm renders
+  ok: training: analyse.training.matrix--upload renders
+  ok: training: analyse.training.matrix--running renders
+  ok: training: analyse.training.cluster--default renders
+  ok: training: analyse.training.cluster--occupancy renders
+  ok: training: analyse.training.cluster--choose-k renders
+  ok: training: analyse.training.cluster--choose-k-by-click renders
+  ok: training: analyse.training.cluster--criterion-locked renders
+  ok: training: analyse.training.cluster--merge-pending renders
+  ok: training: analyse.training.cluster--save-grouping renders
+  ok: training: analyse.training.cluster--send-review renders
+  ok: training: analyse.training.cluster--running renders
+  ok: training: analyse.training.encode--default renders
+  ok: training: analyse.training.encode--window renders
+  ok: training: analyse.training.encode--window-by-pager renders
+  ok: training: analyse.training.encode--edited renders
+  ok: training: analyse.training.encode--new-encoder-version renders
+  ok: training: analyse.training.encode--browse-gadf renders
+  ok: training: analyse.training.encode--running renders
+  ok: training: analyse.training.model--default renders
+  ok: training: analyse.training.model--labels-manual renders
+  ok: training: analyse.training.model--labels-both renders
+  ok: training: analyse.training.model--trial-job-created renders
+  ok: training: analyse.training.model--focus-trial renders
+  ok: training: analyse.training.model--send-review renders
+  ok: training: analyse.training.model--save-template renders
+  ok: training: analyse.training.model--held-out-locked renders
+  ok: training: analyse.training.model--stage-04-off renders
+  ok: training: analyse.training--rename-cancelled renders
+  ok: training: analyse.training.cluster--criterion-locked-in-params renders
+  ok: training: analyse.training--stage-deleted-by-click renders
+  ok: training: analyse.training--stage-deleted renders
+  FAIL: zz_analyse_run: analyse.block--fixup-j-dehshibi-funnel renders — missing ['[data-testid="detector-funnel"]', '[data-testid="funnel-stage-S"] [data-render="funnel-strip"]']
+  ok: zz_analyse_run: analyse.chain--fixup-h-thumbnails-mp_threshold renders · rule 9: 4 traces vary, fill their plots, unclipped
+  ok: zz_analyse_run: analyse.block--fixup-h-signal-before-after renders · rule 9: 1 traces vary, fill their plots, unclipped
+  ok: zz_analyse_run: analyse.block--fixup-h-scores-signal-above renders · rule 9: 1 traces vary, fill their plots, unclipped
+  ok: zz_analyse_run: analyse.block--fixup-h-spanset-cut-and-slideshow renders · rule 9: 10 traces vary, fill their plots, unclipped
+  ok: zz_analyse_run: analyse.block--fixup-h-slideshow-selection-drives-the-plot renders
+  ok: zz_analyse_run: analyse.chain--fixup-h-thumbnails-dsax_encoding renders · rule 9: 2 traces vary, fill their plots, unclipped
+  ok: zz_analyse_run: analyse.block--fixup-h-encoding-symbolic-chunks renders · rule 9: 3 traces vary, fill their plots, unclipped
+  ok: zz_analyse_run: analyse.chain--fixup-h-thumbnails-dehshibi_spikes renders · rule 9: 3 traces vary, fill their plots, unclipped
+  ok: zz_analyse_run: analyse.block--fixup-h-encoding-image-frames renders
+  ok: zz_analyse_run: analyse.block--fixup-h-encoding-image-scan renders
+  ok: zz_analyse_run: analyse.block--fixup-h-scores-band-on-the-image renders · rule 9: 1 traces vary, fill their plots, unclipped
+  ok: zz_analyse_run: analyse.block--fixup-h-spanset-no-draggable-cut renders · rule 9: 12 traces vary, fill their plots, unclipped
+  FAIL: zz_analyse_run: analyse.chain--fixup-h-thumbnails-windows_model renders · rule 9: 1 traces vary, fill their plots, unclipped — missing ['[data-testid="row-plot-1"] [data-render="windowset"][data-mode="heatmap"] canvas', '[data-testid="row-plot-2"] svg[data-render="grouping"] [data-testid="cluster-heatmap"]', '[data-testid="row-plot-3"] [data-render="model"]']
+  FAIL: zz_analyse_run: analyse.block--fixup-h-windowset-heatmap renders — missing ['[data-testid="feature-heatmap"]', '[data-testid="window-ticks"]', '[data-testid="windowset-key"]']
+  FAIL: zz_analyse_run: analyse.block--fixup-h-grouping-exemplars renders — rule 9: no trace to measure (0 rule-9 plots, 0 declared flat) — missing ['[data-testid="cluster-strip"]', '[data-testid="cluster-sizes"] svg', '[data-testid="exemplar-1"] [data-plot-box]', '[data-testid="exemplar-3"] [data-testid="scale-bar"]']
+  FAIL: zz_analyse_run: analyse.block--fixup-h-model-accuracy-per-class renders — missing ['[data-testid="model-per-class"] svg']
+  ok: zz_analyse_run: analyse.chain--fixup-h-thumbnails-drop_event_features renders · rule 9: 5 traces vary, fill their plots, unclipped
+  ok: zz_analyse_run: analyse.block--fixup-h-spanset-fired-on-the-encoding renders · rule 9: 5 traces vary, fill their plots, unclipped
+  ok: zz_analyse_run: analyse.block--fixup-h-features-not-spans renders · rule 9: 5 traces vary, fill their plots, unclipped
+  ok: zz_analyse_run: analyse.block--fixup-h-intervals-are-plotted renders · rule 9: 5 traces vary, fill their plots, unclipped
+  ok: zz_analyse_run_aa: analyse.chain--fixup-aa-manual-labels-row renders
+  ok: zz_analyse_run_aa: analyse.chain--fixup-aa-save-window-set-dialog renders
+  ok: zz_analyse_run_aa: analyse.block--fixup-aa-manual-labels-block renders
+  ok: zz_models_ab: models.launch--fixup-ab-save-a-window-set-across-channels renders
+  ok: zz_models_ab: models.launch--fixup-ab-propose-cuts renders
+  ok: zz_models_ab: models.launch--fixup-ab-train-locally renders
+  ok: zz_models_ab: models.results--fixup-ab-arm-a renders
+  ok: zz_models_ab: models.results--fixup-ab-arm-b-exam-ii renders
+  ok: zz_models_ab: models.results--fixup-ab-exam-iii-locked renders
+  ok: zz_models_ab: models.compare--fixup-ab-a-vs-b renders
+  ok: zz_models_ab: models.compare--fixup-ab-both-wrong renders
+  ok: zz_models_ab: models.launch--fixup-ab-after-a-run-the-cut-is-frozen renders
+  ok: no unexpected server tracebacks (0 unexpected of 0 error lines)
+  ok: no browser console/page errors (0)
+
+594 screenshots, 64 failures

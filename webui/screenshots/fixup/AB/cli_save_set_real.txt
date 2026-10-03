@@ -1,0 +1,5 @@
+saved window set m2_aug_pooled v1 (id 1, key 60da1c79e7485190) · 10,077 windows in 74 s
+  train       5,267 windows · interesting 1,425 · not_interesting 3,842
+  validation    751 windows · interesting 86 · not_interesting 665
+  test        1,496 windows · interesting 158 · not_interesting 1,338
+  exam        2,563 windows · interesting 449 · not_interesting 2,114

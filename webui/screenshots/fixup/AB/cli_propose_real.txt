@@ -1,0 +1,45 @@
+5,267 training windows clustered (ward); clusters formed on the training windows of every training channel, pooled; silhouette is a guide, the cut is the researcher's
+draft cut rule: best silhouette among cuts with at least two clusters of 27+ windows; smaller clusters are outlier specks and do not count
+  k  2 silhouette 0.949 sizes {'1': 5266, '2': 1} · effective k 1 (specks: clusters [2])
+      cluster 1: not_interesting  3842 · interesting  1424 → not_interesting  (impure)
+      cluster 2: not_interesting     0 · interesting     1 → interesting
+  k  3 silhouette 0.131 sizes {'1': 2364, '2': 2902, '3': 1} · effective k 2 (specks: clusters [3])
+      cluster 1: not_interesting  2024 · interesting   340 → not_interesting
+      cluster 2: not_interesting  1818 · interesting  1084 → not_interesting  (impure)
+      cluster 3: not_interesting     0 · interesting     1 → interesting
+  k  4 silhouette 0.132 sizes {'1': 2364, '2': 2901, '3': 1, '4': 1} · effective k 2 (specks: clusters [3, 4])
+      cluster 1: not_interesting  2024 · interesting   340 → not_interesting
+      cluster 2: not_interesting  1818 · interesting  1083 → not_interesting  (impure)
+      cluster 3: not_interesting     0 · interesting     1 → interesting
+      cluster 4: not_interesting     0 · interesting     1 → interesting
+  k  5 silhouette 0.141 sizes {'1': 2364, '2': 65, '3': 2836, '4': 1, '5': 1} · effective k 3 (specks: clusters [4, 5])
+      cluster 1: not_interesting  2024 · interesting   340 → not_interesting
+      cluster 2: not_interesting    21 · interesting    44 → interesting  (impure)
+      cluster 3: not_interesting  1797 · interesting  1039 → not_interesting  (impure)
+      cluster 4: not_interesting     0 · interesting     1 → interesting
+      cluster 5: not_interesting     0 · interesting     1 → interesting
+  k  6 silhouette 0.147 sizes {'1': 2364, '2': 65, '3': 465, '4': 2371, '5': 1, '6': 1} · effective k 4 (specks: clusters [5, 6])
+      cluster 1: not_interesting  2024 · interesting   340 → not_interesting
+      cluster 2: not_interesting    21 · interesting    44 → interesting  (impure)
+      cluster 3: not_interesting   126 · interesting   339 → interesting  (impure)
+      cluster 4: not_interesting  1671 · interesting   700 → not_interesting  (impure)
+      cluster 5: not_interesting     0 · interesting     1 → interesting
+      cluster 6: not_interesting     0 · interesting     1 → interesting
+  k  7 silhouette 0.114 sizes {'1': 748, '2': 1616, '3': 65, '4': 465, '5': 2371, '6': 1, '7': 1} · effective k 5 (specks: clusters [6, 7])
+      cluster 1: not_interesting   715 · interesting    33 → not_interesting
+      cluster 2: not_interesting  1309 · interesting   307 → not_interesting
+      cluster 3: not_interesting    21 · interesting    44 → interesting  (impure)
+      cluster 4: not_interesting   126 · interesting   339 → interesting  (impure)
+      cluster 5: not_interesting  1671 · interesting   700 → not_interesting  (impure)
+      cluster 6: not_interesting     0 · interesting     1 → interesting
+      cluster 7: not_interesting     0 · interesting     1 → interesting
+  k  8 silhouette 0.121 sizes {'1': 748, '2': 1616, '3': 65, '4': 465, '5': 8, '6': 2363, '7': 1, '8': 1} · effective k 5 (specks: clusters [5, 7, 8])
+      cluster 1: not_interesting   715 · interesting    33 → not_interesting
+      cluster 2: not_interesting  1309 · interesting   307 → not_interesting
+      cluster 3: not_interesting    21 · interesting    44 → interesting  (impure)
+      cluster 4: not_interesting   126 · interesting   339 → interesting  (impure)
+      cluster 5: not_interesting     7 · interesting     1 → not_interesting
+      cluster 6: not_interesting  1664 · interesting   699 → not_interesting  (impure)
+      cluster 7: not_interesting     0 · interesting     1 → interesting
+      cluster 8: not_interesting     0 · interesting     1 → interesting
+draft recipe written to C:/Users/mmebr/AppData/Local/Temp/claude/C--Users-mmebr-Documents-CNN/32c8262f-3897-49f5-b01e-f01cfda14601/scratchpad/ab/recipe_draft.json with k = 6, translation {'1': 'not_interesting', '2': 'interesting', '3': 'interesting', '4': 'not_interesting', '5': 'interesting', '6': 'interesting'}

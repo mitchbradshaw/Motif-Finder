@@ -1,9 +1,11 @@
 # RQ1 — Do cluster-derived labels produce a classifier that generalises better than manually-derived labels?
 
-**Status (2026-10-03, after `AA`): the manual arm exists in Analyse; still not answerable.** `catalogue.manual_labels`
-turns the human verdicts into a Grouping and the classifier trains on it; a training window set can be saved. Models,
-Training and Jobs are still fixture pages, so nothing trains across channels or scores an exam — that is `AB`.
-**The researcher's first priority after the fixups is training a model.**
+**Status (2026-10-03, after `AB`): answerable on exams (i) and (ii) for the random-forest arms; exam (iii) waits for
+the freeze; yardstick (B) waits for the Review-behaviour prompt.** A paired job — one window set pooled across a
+recording's channels, arm A the human labels, arm B one clustering of the pooled training windows, the same random
+forest for both, a blocked split with a gap, the label-shuffle null — runs from Models › Launch or
+`python -m Working.training`, and Models › Results / Compare read it. A first run is below; its cut (k = 6) was a draft
+chosen in a sandbox, not the researcher's.
 
 ## In plain words
 
@@ -47,6 +49,26 @@ which one does better on the exam.
 - **Non-overlap across the whole dataset, measured:** one grid phase would keep 3,906 of the 11,110 labelled windows;
   labelled-first keeps 10,077. Only 1,135 labels overlap a neighbour at all.
 
+- **The paired job exists (2026-10-03, `AB`, `docs/prompts/fixup/reports/AB-models-paired-job.md`).** `Working/training/`
+  (UI-free): pooled set (`window_sets` row + a `window_set_members` row per channel), split blocked by time within each
+  training channel (10 blocks: last 2 test, 1 validation, gap ≥ 1 window), arm B = Ward on the pooled TRAINING windows
+  only, cut and translation table in the recipe and frozen once a test score exists, RF (300 trees, seed 42) for both,
+  200 label shuffles per arm, a 24-hour-per-channel block bootstrap, McNemar, per class / per channel, calibration on
+  the validation block; the existing `MODELS/` as a reference line. Exam (iii) is a locked slot; nothing reads M4.
+- **First real paired run (sandbox, 2026-10-03):** M2_aug_concat_fs1, train CH1–CH12, exam (ii) CH13–CH16; 10,077
+  windows (train 5,267 · validation 751 · test 1,496 · exam 2,563); arm B Ward k = 6 (2,364 / 65 / 465 / 2,371 + two
+  single-window specks), majority translation. **Exam (i):** A 0.879 [0.790, 0.918] · B 0.651 [0.559, 0.708] ·
+  ΔF1 +0.228 [0.169, 0.290] · McNemar 80 vs 5, p < 0.0001; both far above their nulls (≈ 0.47, p = 0.005, the floor
+  at 200 shuffles). **Exam (ii):** A 0.623 [0.587, 0.662] · B 0.597 [0.556, 0.650] · ΔF1 +0.026 [−0.022, 0.071] —
+  the interval crosses zero. Both arms find under a quarter of the interesting windows on unseen channels (recall
+  0.21 / 0.21). The later time block is far poorer in `interesting` (11 % vs 27 % in training): CH3_A2 holds 91 of its
+  158 interesting windows, six channels hold 1–4 each and CH10_C1 none. On yardstick (A) — which is tilted toward arm A — manual labels win clearly on the same
+  channels and do not clearly win on unseen channels.
+- **Ward splits off single-window outliers first**: k = 2 (5,266 + 1) has silhouette 0.95. The draft cut ignores
+  clusters under max(10, 0.5 %) windows.
+- **The existing MODELS/ score 0.89–0.97 on both exams**, an upper bound: their training data was never recorded and
+  was very likely these labels. `fusion_cnn.pth` loads with one output class and cannot be scored.
+
 ## Decisions already made (`docs/prompts/fixup/QUESTIONS.md`)
 
 - **Q41 (2026-10-03):**
@@ -83,14 +105,17 @@ which one does better on the exam.
 |---|---|
 | ~~`catalogue.manual_labels` block (`WindowSet → Grouping`) implementing Q41's containment rule~~ | done, `AA` |
 | ~~*Save window set* on every WindowSet row~~ | done, `AA` |
-| Pooled clustering across channels, fitted on training windows only | `AB` |
-| Paired training job: two arms, blocked split with a gap ≥ one window, RF baseline, label-shuffle null, paired difference | `AB` |
-| Models › Launch / Results / Compare reading real jobs | `AB` |
-| CNN arm on the cluster; Jobs bringing results back; SLURM script without baked Windows paths | `AB` / later |
+| ~~Pooled clustering across channels, fitted on training windows only~~ | done, `AB` |
+| ~~Paired training job: two arms, blocked split with a gap ≥ one window, RF baseline, label-shuffle null, paired difference~~ | done, `AB` |
+| ~~Models › Launch / Results / Compare reading real jobs~~ | done, `AB` |
+| ~~SLURM script without baked Windows paths~~ (repo-relative, CPU profile for a CPU job) | done, `AB` |
+| **The researcher's cut** for arm B (k and translation) on the real database — `AB`'s k = 6 was a sandbox draft | researcher |
+| CNN arm on the cluster; Jobs › Manifest inbox bringing HPC results back | later (Jobs prompt) |
+| Exam (iii), once, after the freeze (Settings › Datasets unlock; the job has a locked slot for it) | researcher, after freeze |
 | Blind labelling mode in Review with the cluster vocabulary as buttons (yardstick B) | Review-behaviour prompt, later |
 | ~~Non-overlapping training window set; labels on spans longer than a window~~ | done, `AA` |
 | A saved window set as an Analyse **source** (§6.9 frame 0b) — a validator change; `AA` stopped at saving and listing | later |
-| A window set over **several channels / the whole recording** (Save window set saves one chain's span of one channel) | `AB` |
+| ~~A window set over **several channels / the whole recording**~~ | done, `AB` (Models › Launch) |
 
 ## How it gets answered
 
@@ -112,3 +137,5 @@ None. Q-W1, Q-W2 and Q-W4 were answered 2026-10-03.
 - 2026-10-03 · grilling · Round 10: Q-W1, non-overlap, Q-W2 and Q-W4 decided; `AA` and `AB` prompts carry them.
 - 2026-10-03 · fixup-aa · manual-label block, `manual_labels_model`, Save window set → `window_sets`, window-matrix
   names carry span + key; non-overlap revised to labelled-first by the researcher after measurement.
+- 2026-10-03 · fixup-ab · paired training job (`Working/training/`, CLI), window set across channels, Models › Launch /
+  Results / Compare live; first real run: exam (i) ΔF1 +0.228 [0.169, 0.290], exam (ii) ΔF1 +0.026 [−0.022, 0.071].

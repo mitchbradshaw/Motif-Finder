@@ -1,0 +1,48 @@
+run 79 · results C:/Users/mmebr/AppData/Local/Temp/claude/C--Users-mmebr-Documents-CNN/32c8262f-3897-49f5-b01e-f01cfda14601/scratchpad/ab/root\runs\paired_3b3a7ec2_run79\results.json
+paired job · recipe 3b3a7ec2 · window set m2_aug_pooled (key 60da1c79e7485190)
+  10,077 windows · M2_aug_concat_fs1.mat · train channels [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11] · exam channels [12, 13, 14, 15]
+  split {'rule': 'blocked_by_time', 'n_blocks': 10, 'test_frac': 0.2, 'validation_frac': 0.1, 'gap_windows': 1}
+  arm B: ward k = 6 on 5,267 training windows · translation {'1': 'not_interesting', '2': 'interesting', '3': 'interesting', '4': 'not_interesting', '5': 'interesting', '6': 'interesting'} (recipe)
+exam (i) later time block: 1,496 windows {'not_interesting': 1338, 'interesting': 158} · bootstrap over 78 units of 24 h of one channel
+  arm A (manual): macro F1 0.879 [0.790, 0.918] · balanced acc 0.827 · null mean 0.474 q95 0.484 p 0.0050 (200 shuffles)
+      not_interesting  P 0.961 R 0.996 F1 0.978 n 1338
+      interesting      P 0.954 R 0.658 F1 0.779 n 158
+  arm B (cluster): macro F1 0.651 [0.559, 0.708] · balanced acc 0.609 · null mean 0.472 q95 0.472 p 0.0050 (200 shuffles)
+      not_interesting  P 0.916 R 0.991 F1 0.952 n 1338
+      interesting      P 0.750 R 0.228 F1 0.350 n 158
+  ΔF1 (A − B) 0.228 [0.169, 0.290] · McNemar b 80 c 5 p 0.0000 · agreement {'both_right': 1357, 'only_a': 80, 'only_b': 5, 'both_wrong': 54}
+      CH0   n  128 A 0.498 B 0.498
+      CH1   n  130 A 0.490 B 0.490
+      CH2   n  126 A 0.883 B 0.458
+      CH3   n  101 A 0.887 B 0.708
+      CH4   n  125 A 0.650 B 0.539
+      CH5   n  129 A 0.498 B 0.498
+      CH6   n  116 A 0.895 B 0.487
+      CH7   n  126 A 0.562 B 0.477
+      CH8   n  139 A 0.496 B 0.496
+      CH9   n  116 A 0.500 B 0.500
+      CH10  n  142 A 0.486 B 0.486
+      CH11  n  118 A 0.498 B 0.498
+exam (ii) channels never trained on: 2,563 windows {'not_interesting': 2114, 'interesting': 449} · bootstrap over 122 units of 24 h of one channel
+  arm A (manual): macro F1 0.623 [0.587, 0.662] · balanced acc 0.598 · null mean 0.453 q95 0.458 p 0.0050 (200 shuffles)
+      not_interesting  P 0.854 R 0.991 F1 0.918 n 2114
+      interesting      P 0.829 R 0.205 F1 0.329 n 449
+  arm B (cluster): macro F1 0.597 [0.556, 0.650] · balanced acc 0.582 · null mean 0.452 q95 0.454 p 0.0050 (200 shuffles)
+      not_interesting  P 0.850 R 0.958 F1 0.901 n 2114
+      interesting      P 0.511 R 0.205 F1 0.293 n 449
+  ΔF1 (A − B) 0.026 [-0.022, 0.071] · McNemar b 133 c 64 p 0.0000 · agreement {'both_right': 2054, 'only_a': 133, 'only_b': 64, 'both_wrong': 312}
+      CH12  n  673 A 0.672 B 0.539
+      CH13  n  624 A 0.624 B 0.531
+      CH14  n  643 A 0.561 B 0.588
+      CH15  n  623 A 0.594 B 0.567
+exam (iii) held-out recording: locked — the held-out recording (M4_aug_concat_fs1.mat, a different mushroom) is scored once, after the freeze, when the researcher unlocks it in Settings › Datasets; this job never reads it
+reference catch22_rf_prelabeled (trained differently): macro F1 i_later_block 0.972 · ii_unseen_channels 0.967
+reference fusion_cnn (trained differently): macro F1 i_later_block 0.096 · ii_unseen_channels 0.149
+reference GASF_cnn (trained differently): macro F1 i_later_block 0.954 · ii_unseen_channels 0.910
+reference GADF_cnn (trained differently): macro F1 i_later_block 0.956 · ii_unseen_channels 0.915
+reference recurrence_cnn (trained differently): macro F1 i_later_block 0.945 · ii_unseen_channels 0.889
+yardstick (B): not yet labelled
+note: Yardstick (A) scores both arms against the human verdicts, so it is marked in arm A's own language and is tilted toward it; arm B is judged through a translation table fixed before any test score.
+note: Exams are reported separately and never pooled.
+note: Both arms: one random forest, same parameters and seed, same training windows; only the labels differ.
+timings cluster_s 1.0s, fit_s 2.2s, null_s 570.5s, total_s 578.0s
