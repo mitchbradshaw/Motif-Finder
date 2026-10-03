@@ -420,3 +420,83 @@ def stage_diff(recipe_a, recipe_b):
                         for c in diff.changed_params],
         })
     return rows
+
+
+def union_span_sets(named_sets, *, rule=None):
+    """One side of Compare made of several runs — a band set (fixup-Z) — as
+    the union of their span sets, **de-duplicated by the page's own matching
+    rule**: a region two bands both found is one region, not two.
+
+    ``named_sets`` is ``[(name, [(start, end, id), ...]), ...]`` in the order
+    the sets should be read (a band set in its band order). Each set is matched
+    against the union so far under §4.6 (`match_span_sets`, the set's span as
+    the candidate); a matched span joins that region, an unmatched one opens a
+    new region. A region is drawn as the span of the **first** set that found
+    it, so the union is a function of the inputs and their order alone.
+
+    Returns
+    -------
+    list[dict]
+        ``[{start, end, id, set, sets, members: [{set, start, end, id}]}]``,
+        ascending by start. ``sets`` names every set that fired the region —
+        what Compare's stepper reports as "the band that fired".
+    """
+    regions = []
+    for name, spans in named_sets:
+        spans = [tuple(s) for s in spans]
+        refs = [(r["start"], r["end"]) for r in regions]
+        matched = match_span_sets([(s[0], s[1]) for s in spans], refs, rule=rule)
+        for p in matched["pairs"]:
+            s = spans[p["candidate"]]
+            region = regions[p["reference"]]
+            region["members"].append({"set": name, "start": int(s[0]), "end": int(s[1]), "id": s[2]})
+            if name not in region["sets"]:
+                region["sets"].append(name)
+        for i in matched["candidate_only"]:
+            s = spans[i]
+            member = {"set": name, "start": int(s[0]), "end": int(s[1]), "id": s[2]}
+            regions.append({"start": member["start"], "end": member["end"], "id": s[2], "set": name,
+                            "sets": [name], "members": [member]})
+    regions.sort(key=lambda r: (r["start"], r["end"]))
+    return regions
+
+
+def verdict_split(conn, regions):
+    """What a human made of a set of regions, read live from `adjudications`
+    (fixup-Z: §7.7's set overlap, split by verdict).
+
+    ``regions`` is a list of detection-id lists, one list per region — a
+    union region can be made of one detection per band that fired it. A region
+    is **judged** when any of its detections carries a verdict, and its verdict
+    is the most recent of those. Accepted and rejected are the review queues'
+    own sets (`queries.ACCEPTED_VERDICTS` / `REJECTED_VERDICTS`); a judged
+    region in neither — *artifact*, *unsure* — is ``other``, so the four
+    always sum: ``judged = accepted + rejected + other``.
+    """
+    from Working.database.queries import ACCEPTED_VERDICTS, REJECTED_VERDICTS
+
+    out = {"n": 0, "judged": 0, "accepted": 0, "rejected": 0, "other": 0, "unjudged": 0}
+    regions = [[int(i) for i in ids if i is not None] for ids in regions]
+    out["n"] = len(regions)
+    wanted = sorted({i for ids in regions for i in ids})
+    latest = {}
+    for k in range(0, len(wanted), 900):
+        chunk = wanted[k:k + 900]
+        for r in conn.execute(
+                "SELECT detection_id, verdict, created_at, id FROM adjudications WHERE detection_id IN ({})"
+                .format(",".join("?" * len(chunk))), chunk).fetchall():
+            latest[int(r[0])] = (str(r[2] or ""), int(r[3]), str(r[1]))
+    for ids in regions:
+        verdicts = [latest[i] for i in ids if i in latest]
+        if not verdicts:
+            out["unjudged"] += 1
+            continue
+        out["judged"] += 1
+        verdict = max(verdicts)[2]
+        if verdict in ACCEPTED_VERDICTS:
+            out["accepted"] += 1
+        elif verdict in REJECTED_VERDICTS:
+            out["rejected"] += 1
+        else:
+            out["other"] += 1
+    return out

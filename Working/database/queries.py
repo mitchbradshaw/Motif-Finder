@@ -447,7 +447,8 @@ def divergence_annotations_without_detection(conn, recording_id=None):
 
 def queue_candidates(conn, run_id=None, run_group_id=None, method=None,
                      score_min=None, score_max=None, channel=None,
-                     adjudication_status=None, limit=50, offset=0, run_ids=None):
+                     adjudication_status=None, limit=50, offset=0, run_ids=None,
+                     detection_ids=None):
     """Paginated candidate queue for adjudication.
 
     Filters compose: run, run set, run group, method (the recipe's detection
@@ -462,6 +463,10 @@ def queue_candidates(conn, run_id=None, run_group_id=None, method=None,
         and their detections, so a group filter alone would put
         phase-randomised noise in front of the researcher (fixup-L). An
         empty set is a queue over nothing, not over everything.
+    detection_ids : iterable of int, optional
+        An exact set of detections (fixup-Z): Discovery › Compare's *Send
+        only-B unjudged to Review* is a queue over exactly the regions only one
+        side found, one detection per region. Empty is a queue over nothing.
     adjudication_status : str, optional
         None (no filter), 'unadjudicated', 'adjudicated', 'accepted', or
         'rejected'.
@@ -488,6 +493,18 @@ def queue_candidates(conn, run_id=None, run_group_id=None, method=None,
             # ceiling (999) is nowhere near.
             clauses.append("d.run_id IN ({})".format(",".join("?" * len(ids))))
             params.extend(ids)
+    if detection_ids is not None:
+        ids = [int(i) for i in detection_ids]
+        if not ids:
+            clauses.append("0")
+        else:
+            # past SQLite's 999 host parameters the ids (already coerced to
+            # int above, so nothing else can reach the SQL) are inlined
+            if len(ids) > 900:
+                clauses.append("d.id IN ({})".format(",".join(str(i) for i in ids)))
+            else:
+                clauses.append("d.id IN ({})".format(",".join("?" * len(ids))))
+                params.extend(ids)
     if run_group_id is not None:
         clauses.append("r.run_group_id = ?")
         params.append(run_group_id)

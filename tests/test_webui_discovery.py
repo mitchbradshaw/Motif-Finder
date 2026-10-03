@@ -844,7 +844,7 @@ def test_the_band_list_comes_from_settings_analysis_defaults(client):
     log-spaced bands for a 1 Hz recording."""
     body = client.get("/api/discovery/bands").json()
     assert body["source"] == "default"
-    assert [(b["low_hz"], b["high_hz"]) for b in body["bands"]] == [(0.001, 0.01), (0.01, 0.1), (0.1, 0.5)]
+    assert [(b["low_hz"], b["high_hz"]) for b in body["bands"]] == [(0.001, 0.01), (0.01, 0.1), (0.1, 0.45)]
     r = client.put("/api/settings/analysis-defaults", json={"values": {"bands": [
         {"label": "slow", "low_hz": 0.01, "high_hz": 0.1}]}})
     assert r.status_code == 200, r.text

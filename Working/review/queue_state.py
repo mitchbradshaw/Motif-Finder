@@ -28,6 +28,7 @@ from Working.database import queries as _queries
 _FILTER_KEYS = (
     "run_id",
     "run_ids",
+    "detection_ids",
     "run_group_id",
     "method",
     "score_min",
@@ -50,7 +51,7 @@ class ReviewQueue:
     newest last, so `undo` can step back through them.
     """
 
-    def __init__(self, conn, *, run_id=None, run_ids=None, run_group_id=None, method=None,
+    def __init__(self, conn, *, run_id=None, run_ids=None, detection_ids=None, run_group_id=None, method=None,
                  score_min=None, score_max=None, channel=None,
                  adjudication_status="unadjudicated"):
         self._conn = conn
@@ -59,6 +60,9 @@ class ReviewQueue:
             # the exact set of runs a Discovery run is made of (fixup-L): the
             # run group also holds the paired surrogates' detections
             "run_ids": None if run_ids is None else [int(i) for i in run_ids],
+            # an exact set of detections (fixup-Z): Compare's *Send only-B
+            # unjudged to Review* is a queue over just the regions one side found
+            "detection_ids": None if detection_ids is None else [int(i) for i in detection_ids],
             "run_group_id": run_group_id,
             "method": method,
             "score_min": score_min,

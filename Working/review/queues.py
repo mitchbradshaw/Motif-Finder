@@ -193,13 +193,14 @@ def close_queue(conn, queue_id):
 
 
 def _normalised_filters(filters):
-    """Filters as a comparable value: `run_ids` is a set, so the order a
-    caller happened to list the runs in does not make a different queue."""
+    """Filters as a comparable value: `run_ids` and `detection_ids` are sets,
+    so the order a caller happened to list them in does not make a different
+    queue."""
     out = {}
     for k, v in (filters or {}).items():
         if v is None:
             continue
-        if k == "run_ids":
+        if k in ("run_ids", "detection_ids"):
             v = sorted(int(i) for i in v)
         out[k] = v
     return out

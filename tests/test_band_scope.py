@@ -159,8 +159,10 @@ def _conn():
 
 def test_the_band_list_defaults_to_three_log_spaced_bands_for_a_1_hz_recording():
     bands = run_groups.bands_from_settings(_conn())
+    # Q43 seeds "~0.1–0.5 Hz"; 0.5 Hz is Nyquist at 1 Hz and a Butterworth edge
+    # must lie strictly below it, so the third band stops at 0.45 Hz
     assert [(b["kind"], b["low_hz"], b["high_hz"]) for b in bands] == [
-        ("bandpass", 0.001, 0.01), ("bandpass", 0.01, 0.1), ("bandpass", 0.1, 0.5)]
+        ("bandpass", 0.001, 0.01), ("bandpass", 0.01, 0.1), ("bandpass", 0.1, 0.45)]
     assert all(b["label"] for b in bands)
 
 

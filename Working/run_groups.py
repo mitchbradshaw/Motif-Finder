@@ -12,22 +12,89 @@ A channel fan-out and a band fan-out are deliberately the same mechanism
 carries an optional `fan_out` scope:
 
     {"kind": "channels", "targets": [recording_id, ...]}
-    {"kind": "bands",    "targets": [{"label": ..., "low_hz": ..., "high_hz": ...}, ...]}
+    {"kind": "bands",    "targets": [{"kind": "bandpass", "label": ..., "low_hz": ..., "high_hz": ...}, ...]}
 
-Band labels are caller-supplied and are NOT redefined here — a caller may
-reuse the existing `Working.database.bands` vocabulary to name its fan-out
-targets, rather than this module growing a parallel band list.
+A band is a **typed** entry (fixup-Z): `kind` names how the band is isolated
+— `bandpass` today; `AC` adds a wavelet level as one more kind and one more
+step builder in `_BAND_STEPS`, without reshaping the scope. Band labels are
+caller-supplied; the project's named list lives in Settings › Analysis
+defaults (`bands_from_settings`, Q43).
 
 `materialize_target` turns one target index into a plain per-target recipe
-(a channel target becomes the recipe's `recording_id`; a band target gets a
-bandpass step prepended). `fan_out_recipe` runs every target, linking each
-run row to the shared run-group row.
+(a channel target becomes the recipe's `recording_id`; a band target gets its
+band step prepended). `fan_out_recipe` runs every target, linking each run row
+to the shared run-group row. `band_recipes` is the band scope Discovery's
+*Apply template* uses: the same materialisation, one recipe per band.
+
+**The band step is the block Analyse inserts** — `preprocessing.bandpass` with
+the adapter's own defaults filled (`order 4`) and the band's two edges set —
+so a band run records byte-for-byte the recipe of the chain a researcher builds
+by hand in Analyse, saves and applies (fixup-Z). Half-filled params would hash
+apart from the hand-built twin and the step cache, the run history and "what
+have I already tried" would see two experiments where there is one.
 
 No UI imports — cluster-safe, headless-test-safe, same as `Working.execution`.
 """
 
 from Working.database import runs as R
-from Working.recipes import make_recipe
+from Working.recipes import BAND_KINDS, make_recipe, normalize_band  # noqa: F401  (re-exported)
+
+#: Where the project's band list lives (Q43): Settings › Analysis defaults.
+BANDS_SETTINGS_PAGE = "analysis-defaults"
+BANDS_SETTINGS_KEY = "bands"
+
+#: Q43's seed: three log-spaced bands for a 1 Hz recording. The third band's
+#: upper edge is 0.45 Hz, not the 0.5 Hz the decision names, because 0.5 Hz IS
+#: Nyquist at 1 Hz and a Butterworth edge must lie strictly below it — the
+#: filter refuses `Wn = 1` (fixup-Z report). Editable in Settings.
+DEFAULT_BANDS = (
+    {"kind": "bandpass", "label": "0.001–0.01 Hz", "low_hz": 0.001, "high_hz": 0.01},
+    {"kind": "bandpass", "label": "0.01–0.1 Hz", "low_hz": 0.01, "high_hz": 0.1},
+    {"kind": "bandpass", "label": "0.1–0.45 Hz", "low_hz": 0.1, "high_hz": 0.45},
+)
+
+
+def bands_from_settings(conn):
+    """The project's band list: Settings › Analysis defaults' `bands`, else
+    `DEFAULT_BANDS`. A saved band that cannot filter is refused loudly — a
+    band run over an impossible band is worse than no run."""
+    from Working.registration.settings import get_settings
+
+    saved = get_settings(conn, BANDS_SETTINGS_PAGE).get(BANDS_SETTINGS_KEY)
+    if saved is None:
+        return [dict(b) for b in DEFAULT_BANDS]
+    if not isinstance(saved, list):
+        raise ValueError(f"Settings › Analysis defaults {BANDS_SETTINGS_KEY!r} must be a list of bands, "
+                         f"got {saved!r}")
+    return [normalize_band(b) for b in saved]
+
+
+def _bandpass_step(band):
+    from Adapters.registry import discover_adapters, get_adapter
+
+    discover_adapters()
+    params = get_adapter("preprocessing.bandpass").validate_params(
+        {"low_hz": band["low_hz"], "high_hz": band["high_hz"]})
+    return {"stage": "preprocessing", "algorithm": "bandpass", "params": params}
+
+
+#: band kind -> the step that isolates it. `AC` adds "wavelet" here.
+_BAND_STEPS = {"bandpass": _bandpass_step}
+
+
+def band_step(band):
+    """The step a band prepends to a chain — the block Analyse inserts, with
+    the adapter's own defaults filled and the band's edges set."""
+    band = normalize_band(band)
+    return _BAND_STEPS[band["kind"]](band)
+
+
+def band_recipes(recording_id, steps, span=None, bands=()):
+    """One plain recipe per band: `steps` with each band's step prepended,
+    built by `materialize_target` over a band fan-out so there is one
+    materialisation, not two."""
+    fan = make_recipe(recording_id, steps, span=span, fan_out={"kind": "bands", "targets": list(bands)})
+    return [materialize_target(fan, i) for i in range(len(fan["fan_out"]["targets"]))]
 
 
 def _surrogate_enabled(recipe, surrogate):
@@ -120,21 +187,16 @@ def materialize_target(recipe, target_index):
     """Build the plain per-target recipe for one fan-out target.
 
     The returned recipe has no `fan_out` scope of its own: a channel target
-    becomes the recipe's `recording_id`, a band target gets a bandpass step
-    prepended. Rebuilt through `Working.recipes.make_recipe` so the chain is
-    re-validated exactly as an ordinary hand-built recipe would be.
+    becomes the recipe's `recording_id`, a band target gets its band step
+    (`band_step`) prepended. Rebuilt through `Working.recipes.make_recipe` so
+    the chain is re-validated exactly as an ordinary hand-built recipe would be.
     """
     fan = recipe["fan_out"]
     target = fan["targets"][target_index]
     if fan["kind"] == "channels":
         return make_recipe(target, recipe["steps"], span=recipe["span"])
-    bandpass_step = {
-        "stage": "preprocessing",
-        "algorithm": "bandpass",
-        "params": {"low_hz": target["low_hz"], "high_hz": target["high_hz"]},
-    }
     return make_recipe(
-        recipe["recording_id"], [bandpass_step] + recipe["steps"], span=recipe["span"],
+        recipe["recording_id"], [band_step(target)] + recipe["steps"], span=recipe["span"],
     )
 
 

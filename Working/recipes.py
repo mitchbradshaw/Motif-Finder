@@ -171,6 +171,49 @@ def _normalize_side_inputs(side_inputs, step_index, source_kinds):
     return normalized
 
 
+#: The kinds of band a band scope can hold (fixup-Z). A band is a typed entry
+#: so that a second way of isolating a frequency range — `AC`'s wavelet level,
+#: `{"kind": "wavelet", "level": ...}` — is one more entry here and one more
+#: step builder in `Working.run_groups`, not a reshaping of the scope.
+BAND_KINDS = ("bandpass",)
+
+
+def _band_label(low, high):
+    return f"{low:g}–{high:g} Hz"
+
+
+def normalize_band(band):
+    """Validate and normalise one band-scope entry.
+
+    A band with no `kind` is a bandpass — every band written before fixup-Z
+    was one. A kind this module does not know is refused by name rather than
+    filtered as a bandpass under the wrong name.
+
+    Returns
+    -------
+    dict : {"kind": "bandpass", "label": str, "low_hz": float, "high_hz": float}
+    """
+    if not isinstance(band, dict):
+        raise ValueError(f"a band must be a dict naming its kind and edges, got {band!r}.")
+    kind = band.get("kind") or "bandpass"
+    if kind not in BAND_KINDS:
+        raise ValueError(
+            f"band kind {kind!r} is not one this core can build; known kinds: "
+            f"{', '.join(BAND_KINDS)}."
+        )
+    try:
+        low = float(band["low_hz"])
+        high = float(band["high_hz"])
+    except (KeyError, TypeError, ValueError):
+        raise ValueError(f"a bandpass band needs numeric low_hz and high_hz, got {band!r}.")
+    if low <= 0 or high <= 0 or low >= high:
+        raise ValueError(
+            f"a bandpass band needs 0 < low_hz < high_hz, got ({low}, {high})."
+        )
+    label = str(band.get("label") or _band_label(low, high))
+    return {"kind": kind, "label": label, "low_hz": low, "high_hz": high}
+
+
 def _normalize_fan_out(fan_out):
     """Validate and normalise a recipe's optional `fan_out` scope.
 
@@ -205,22 +248,8 @@ def _normalize_fan_out(fan_out):
             norm_targets.append(int(t))
         return {"kind": "channels", "targets": norm_targets}
 
-    # bands
-    norm_targets = []
-    for t in targets:
-        if not isinstance(t, dict):
-            raise ValueError(
-                f"fan_out band targets must be dicts with low_hz/high_hz, got {t!r}."
-            )
-        low = float(t["low_hz"])
-        high = float(t["high_hz"])
-        if low <= 0 or high <= 0 or low >= high:
-            raise ValueError(
-                f"fan_out band target needs 0 < low_hz < high_hz, got ({low}, {high})."
-            )
-        label = str(t.get("label") or f"{low:g}-{high:g}Hz")
-        norm_targets.append({"label": label, "low_hz": low, "high_hz": high})
-    return {"kind": "bands", "targets": norm_targets}
+    # bands — each a typed entry (`normalize_band`)
+    return {"kind": "bands", "targets": [normalize_band(t) for t in targets]}
 
 
 def make_recipe(recording_id, steps, span=None, fan_out=None):
@@ -238,7 +267,8 @@ def make_recipe(recording_id, steps, span=None, fan_out=None):
     fan_out : dict, optional
         A scope over which this recipe fans out into N sibling runs. Either
         {"kind": "channels", "targets": [recording_id, ...]} or
-        {"kind": "bands", "targets": [{"label": ..., "low_hz": ..., "high_hz": ...}, ...]}.
+        {"kind": "bands", "targets": [{"kind": "bandpass", "label": ..., "low_hz": ..., "high_hz": ...}, ...]}
+        (a band's `kind` defaults to "bandpass"; see `normalize_band`).
         The target list is baked into the recipe.
     """
     if not steps:
