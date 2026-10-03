@@ -54,6 +54,60 @@ from Working.recipes import make_recipe
 DEFAULT_OUT_DIR = os.path.join("HPC", "Detection", "generated")
 DEFAULT_WM_OUT_DIR = os.path.join("HPC", "Preprocessing", "generated")
 
+# The repository root on THIS machine: an absolute `out_dir` is baked into the
+# script relative to it (fixup-ab). Working/hpc/job_export.py -> three levels up.
+REPO_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+# Steps that run a CNN and so need the GPU partition. Everything else — the
+# window matrix's statistics, the Gramian/recurrence IMAGE encodings (numpy),
+# clustering, the classifier's forest; matrix profiles go through
+# `export_mp_job`, which asks explicitly — is a CPU job.
+_GPU_ALGORITHMS = {"cnn_score"}
+
+
+def outside_repo(path):
+    """True when an absolute `path` does not lie under `REPO_ROOT`."""
+    p = str(path)
+    if not os.path.isabs(p):
+        return False
+    try:
+        rel = os.path.relpath(os.path.abspath(p), REPO_ROOT)
+    except ValueError:   # another drive on Windows
+        return True
+    return rel == ".." or rel.startswith(".." + os.sep) or os.path.isabs(rel)
+
+
+def repo_relative(path):
+    """`path` as the job will see it after `--chdir` to the remote repo root:
+    repo-relative with forward slashes. A relative path is taken as already
+    repo-relative (the exporter's contract since T-HPC); an absolute one under
+    the repo is made relative to `REPO_ROOT` — baking it verbatim wrote a
+    `C:/Users/...` path under a Linux `--chdir` (fixup-ab, measured on
+    Discovery's `/slurm`). One OUTSIDE the repo cannot be synced to the same
+    place; it is baked as given and the export result says so (`warnings`)."""
+    p = str(path)
+    if os.path.isabs(p) and not outside_repo(p):
+        p = os.path.relpath(os.path.abspath(p), REPO_ROOT)
+    return p.replace(os.sep, "/")
+
+
+def _location_warnings(out_dir):
+    if outside_repo(out_dir):
+        return [f"{out_dir} is outside the repo ({REPO_ROOT}): the script names it as it is here, and it will not "
+                "resolve under the cluster's repo root. Export inside the repo to sync it."]
+    return []
+
+
+def recipe_uses_gpu(recipe):
+    """True when a step of `recipe` runs a CNN (a window matrix with its `cnn`
+    stage on, or a CNN block)."""
+    for step in recipe.get("steps") or []:
+        if step.get("algorithm") in _GPU_ALGORITHMS:
+            return True
+        if step.get("algorithm") == "window_matrix" and (step.get("params") or {}).get("cnn"):
+            return True
+    return False
+
 _MIN_TIME_MINUTES = 30
 _TIME_ROUND_MINUTES = 15
 _TIME_SAFETY_FACTOR = 3  # est_seconds is from a DIFFERENT machine than the one the job lands on
@@ -170,9 +224,8 @@ _SCRIPT_TEMPLATE = """#!/bin/bash
 #SBATCH --output={remote_root}/logs/{base_name}_%j.out
 #SBATCH --error={remote_root}/logs/{base_name}_%j.err
 #SBATCH --time={slurm_time}
-#SBATCH --gres=gpu:a100
-#SBATCH --partition={gpu_partition}
-#SBATCH --cpus-per-task=4
+{gpu_line}
+#SBATCH --cpus-per-task={cpus}
 {array_line}
 
 echo "========================================"
@@ -185,10 +238,8 @@ echo "========================================"
 
 mkdir -p logs
 
-module load cuda/12.2
-
-source ~/miniconda3/etc/profile.d/conda.sh
-conda activate torch_env
+{module_line}source ~/miniconda3/etc/profile.d/conda.sh
+conda activate {conda_env}
 
 {run_command}
 
@@ -222,7 +273,7 @@ def _materialize_snippet(recipe_repo_path, per_target_repo_path):
 
 
 def export_job(recipe, *, out_dir, base_name, job_name, est_seconds=None,
-               slurm_time=None, resumable=False, max_chain=12, uses_gpu=True,
+               slurm_time=None, resumable=False, max_chain=12, uses_gpu=None,
                artifact_repo_path=None, timeout_s=None):
     """Write a recipe JSON + `sbatch` script for an arbitrary recipe.
 
@@ -240,7 +291,10 @@ def export_job(recipe, *, out_dir, base_name, job_name, est_seconds=None,
     """
     if slurm_time is None:
         slurm_time = _slurm_time_from_estimate(est_seconds)
-
+    if uses_gpu is None:
+        # fixup-ab: the generic template asked every recipe for an A100, a CPU
+        # clustering included; a recipe without a CNN step is a CPU job
+        uses_gpu = recipe_uses_gpu(recipe)
     os.makedirs(out_dir, exist_ok=True)
     recipe_path = os.path.join(out_dir, f"{base_name}.json")
     with open(recipe_path, "w") as f:
@@ -251,18 +305,18 @@ def export_job(recipe, *, out_dir, base_name, job_name, est_seconds=None,
     # puts it at HPC_REMOTE_REPO_ROOT, so a relative path here is what
     # resolves correctly once the generated pair is synced across to the
     # cluster at the same relative location.
-    recipe_repo_path = recipe_path.replace(os.sep, "/")
+    recipe_repo_path = repo_relative(recipe_path)
     script_path = os.path.join(out_dir, f"{base_name}.sh")
-    script_repo_path = script_path.replace(os.sep, "/")
+    script_repo_path = repo_relative(script_path)
 
     fan = recipe.get("fan_out")
     n_targets = len(fan["targets"]) if fan else 0
     array_line = f"#SBATCH --array=0-{n_targets - 1}" if fan else ""
     # The per-target recipe each array task writes sits next to the shared
     # fan-out recipe, named by task index so parallel tasks never collide.
-    per_target_repo_path = os.path.join(
+    per_target_repo_path = repo_relative(os.path.join(
         out_dir, f"{base_name}_task$SLURM_ARRAY_TASK_ID.json",
-    ).replace(os.sep, "/")
+    ))
 
     if resumable:
         materialize = _materialize_snippet(recipe_repo_path, per_target_repo_path) if fan else ""
@@ -320,7 +374,7 @@ def export_job(recipe, *, out_dir, base_name, job_name, est_seconds=None,
         script = _SCRIPT_TEMPLATE.format(
             job_name=job_name, remote_root=HPC_REMOTE_REPO_ROOT, base_name=base_name,
             slurm_time=slurm_time, array_line=array_line, run_command=run_command,
-            gpu_partition=HPC_GPU_PARTITION,
+            **_profile(uses_gpu),
         )
     # newline="\n": these scripts run on a Linux cluster via `sbatch`, which
     # rejects CRLF outright ("Batch script contains DOS line breaks"). Plain
@@ -336,7 +390,45 @@ def export_job(recipe, *, out_dir, base_name, job_name, est_seconds=None,
         "artifact_path": artifact_repo_path,
         "sbatch_command": f"sbatch {script_repo_path}",
         "job_name": job_name, "slurm_time": slurm_time, "timeout_s": timeout_s,
+        "uses_gpu": bool(uses_gpu), "warnings": _location_warnings(out_dir),
     }
+
+
+def _profile(uses_gpu, cpus=4):
+    """The scheduling lines of a job: the A100 partition with its GRES, CUDA and
+    the torch environment for a CNN; the CPU partition, no GRES, no CUDA and the
+    aeon environment otherwise (see the partition notes in `export_job`)."""
+    if uses_gpu:
+        return {"gpu_line": f"#SBATCH --gres=gpu:a100\n#SBATCH --partition={HPC_GPU_PARTITION}",
+                "module_line": "module load cuda/12.2\n\n", "conda_env": HPC_CONDA_ENV_GPU, "cpus": cpus}
+    return {"gpu_line": f"#SBATCH --partition={HPC_CPU_PARTITION}", "module_line": "",
+            "conda_env": HPC_CONDA_ENV_CPU, "cpus": cpus}
+
+
+def export_training_job(recipe, *, out_dir, base_name, est_seconds=None, slurm_time=None,
+                        db_repo_path="DATA/db/annotations.sqlite", root_repo_path="DATA/derived/training"):
+    """A SLURM script for the paired training job (fixup-ab, `Working.training`):
+    a CPU job — the forests, the clustering and the null are CPU work — that runs
+    `python -m Working.training run` on the recipe written beside it. The window
+    set the recipe names must be synced to the cluster with the database; the
+    results come back through Jobs › Manifest inbox once that is wired."""
+    if slurm_time is None:
+        slurm_time = _slurm_time_from_estimate(est_seconds)
+    os.makedirs(out_dir, exist_ok=True)
+    recipe_path = os.path.join(out_dir, f"{base_name}.json")
+    with open(recipe_path, "w") as f:
+        json.dump(recipe, f, indent=2)
+    script_path = os.path.join(out_dir, f"{base_name}.sh")
+    run_command = (f"python -m Working.training run --db {repo_relative(db_repo_path)} "
+                   f"--root {repo_relative(root_repo_path)} --recipe {repo_relative(recipe_path)}")
+    script = _SCRIPT_TEMPLATE.format(job_name=base_name, remote_root=HPC_REMOTE_REPO_ROOT, base_name=base_name,
+                                     slurm_time=slurm_time, array_line="", run_command=run_command,
+                                     **_profile(False, cpus=16))
+    with open(script_path, "w", newline="\n") as f:
+        f.write(script)
+    return {"script_path": script_path, "recipe_path": recipe_path, "script": script,
+            "sbatch_command": f"sbatch {repo_relative(script_path)}", "job_name": base_name,
+            "slurm_time": slurm_time, "profile": "cpu", "warnings": _location_warnings(out_dir)}
 
 
 def export_mp_job(conn, recording_id, window_min, span=None, *,
