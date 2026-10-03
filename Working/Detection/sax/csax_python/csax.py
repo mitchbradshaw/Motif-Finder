@@ -19,11 +19,13 @@ from .ts_paa                        import ts_paa
 from .normal_cutlines               import normal_cutlines
 from .timeseries2symbol             import timeseries2symbol
 from .meanshift.hg_meanshift_cluster import hg_meanshift_cluster
+from Working.Detection.sax.psax_python.kmeanspp import KMEANSPP_SEED, as_rng
 
 _NORM_THRESH = 0.001  # matches timeseries2symbol's own normalisation threshold
 
 
-def csax(data, training_len, dim_ratio, normalize=True, return_details=False):
+def csax(data, training_len, dim_ratio, normalize=True, return_details=False,
+         random_state=KMEANSPP_SEED):
     """
     cSAX symbolic representation (non-overlapping windows).
 
@@ -36,6 +38,12 @@ def csax(data, training_len, dim_ratio, normalize=True, return_details=False):
     return_details : bool     — if True, return `(str_out, details)` instead of
         just `str_out` (default False: byte-identical to every existing caller).
         See the module-level note below for what `details` contains and why.
+    random_state : int, Generator, RandomState or None — the source of
+        Mean-Shift's seed-point draws. Defaults to the fixed `KMEANSPP_SEED`
+        (fixup-csax-seed): the original drew from the global `np.random`, so
+        one recipe gave different strings run to run. One generator is built
+        here and shared by both Mean-Shift passes below. Not a recipe
+        parameter; never touches global `np.random`.
 
     Returns
     -------
@@ -92,12 +100,15 @@ def csax(data, training_len, dim_ratio, normalize=True, return_details=False):
     training_paa = ts_paa(training_set, training_nseg)   # (training_nseg,)
 
     # Mean-Shift clustering to learn data-adaptive cutlines
+    rng = as_rng(random_state)
     multi_factor = 1.0
-    clust_cent, _, _ = hg_meanshift_cluster(training_paa, 'gaussian', multi_factor)
+    clust_cent, _, _ = hg_meanshift_cluster(training_paa, 'gaussian', multi_factor,
+                                            random_state=rng)
 
     while clust_cent.shape[1] < 2 and multi_factor > 0.5:
         multi_factor /= 2
-        clust_cent, _, _ = hg_meanshift_cluster(training_paa, 'gaussian', multi_factor)
+        clust_cent, _, _ = hg_meanshift_cluster(training_paa, 'gaussian', multi_factor,
+                                                random_state=rng)
 
     fallback_used = clust_cent.shape[1] <= 1
     if not fallback_used:
