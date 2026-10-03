@@ -493,6 +493,31 @@ def test_a_recipe_naming_a_different_set_than_the_one_on_disk_is_refused(store):
         ts.run_and_record(conn, _recipe({"id": ws_id, "name": "ws_pooled", "key": "deadbeef"}), os.path.join(tmp, "tr"))
 
 
+def test_a_channel_whose_exam_windows_hold_one_class_reports_no_macro_f1():
+    # measured on M2_aug (2026-10-03): 7 of 12 channels' test blocks hold no
+    # interesting window, and their "macro F1" read 0.50 — half of a perfect
+    # score on the one class present, which reads as a coin toss
+    tp = _tp()
+    y = np.array([0, 0, 0, 0, 1, 0, 1, 1])
+    ch = np.array([0, 0, 0, 0, 1, 1, 1, 1])
+    pa = np.array([0, 0, 0, 0, 1, 0, 1, 0])
+    rows = tp.per_channel(y, {"A": pa, "B": pa}, ch, np.ones(8, dtype=bool))
+    r0 = [r for r in rows if r["channel"] == 0][0]
+    assert r0["one_class"] is True and r0["A"] is None and r0["accuracy_A"] == 1.0
+    r1 = [r for r in rows if r["channel"] == 1][0]
+    assert r1["one_class"] is False and r1["A"] is not None
+
+
+def test_a_reference_model_with_a_constant_output_is_not_scored():
+    # measured: fusion_cnn.pth loads with ONE output class, so its softmax is 1.0
+    # for every window and it "predicted" interesting everywhere (macro F1 0.10)
+    from Working.training import reference
+    y = np.array([0, 1, 0, 1, 0])
+    row = reference.score_exam(y, np.ones(5))
+    assert row["status"] == "not scored" and "constant" in row["reason"]
+    assert reference.score_exam(y, np.array([0.1, 0.9, 0.2, 0.8, 0.3]))["status"] == "scored"
+
+
 # ── metrics ─────────────────────────────────────────────────────────────────
 
 def test_macro_f1_and_balanced_accuracy_match_sklearn():
