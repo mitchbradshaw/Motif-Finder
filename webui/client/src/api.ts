@@ -893,13 +893,13 @@ export const takeSpanForReviewInQueue = (recording_id: number, start_idx: number
 export interface Validation { template_kind?: 'detection' | 'encoding' | 'training' | 'interrogation' | null }
 export interface LabelCoverage {
   n_windows: number; labelled: number; interesting: number; not_interesting: number; seed?: number
-  unlabelled: number; conflicting: number; artifact: number; dropped_for_overlap: number; phase_offset: number | null
+  unlabelled: number; conflicting: number; artifact: number; dropped_for_overlap: number; non_overlap_rule: string | null
   sources?: Record<string, number>; n_spans?: number
 }
 export interface GroupingPayload { class_names?: Record<string, string>; coverage?: LabelCoverage; rules?: { name: string; rule: string }[] }
 export interface SavedWindowSet {
   id: number; window_set_id: number; name: string; path: string; n_windows: number; n_windows_offered: number; length: number
-  coverage: { labelled_windows: number; class_counts_at_save: Record<string, number>; unlabelled: number; conflicting: number; artifact: number; dropped_for_overlap: number; phase_offset: number | null }
+  coverage: { labelled_windows: number; class_counts_at_save: Record<string, number>; unlabelled: number; conflicting: number; artifact: number; dropped_for_overlap: number; non_overlap_rule: string | null }
   split: Record<string, unknown>; spacing: Record<string, boolean>; run_id: number; note: string
 }
 export const saveWindowSetAs = (job_id: number, step: number, name: string, opts: { notes?: string; non_overlapping?: boolean } = {}) =>
