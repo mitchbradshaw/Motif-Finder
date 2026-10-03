@@ -227,7 +227,7 @@ function LaunchBody({ setup, reload }: { setup: ModelsSetup; reload: () => void 
             <div className="m-foot-line" style={{ marginBottom: 8 }}>
               <Dropdown prefix="recording" value={rec?.source_file ?? ''} onChange={v => setRecQ(v)} width={300} testid="recording-select"
                 options={setup.recordings.map(r => ({ value: r.source_file, label: r.name, description: r.source_file }))} />
-              <button ref={m4Ref} type="button" className="m-lock-toggle" role="switch" aria-checked={false} aria-disabled onClick={() => setM4Open(o => !o)} data-testid="m4-toggle" title={`${setup.held_out.name} is held out`}>
+              <button ref={m4Ref} type="button" className="m-lock-toggle" aria-expanded={m4Open} aria-label={`${setup.held_out.name} is held out: why, and where it is unlocked`} onClick={() => setM4Open(o => !o)} data-testid="m4-toggle" title={`${setup.held_out.name} is held out`}>
                 <span className="sw" />{setup.held_out.name} locked · {setup.held_out.where}
               </button>
               <Popover open={m4Open} onClose={() => setM4Open(false)} anchorRef={m4Ref} placement="bottom-end" title={`${setup.held_out.name} is held out`} width={320} testid="m4-popover">
