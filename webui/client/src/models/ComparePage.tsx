@@ -48,7 +48,7 @@ function CompareRun({ runId, runs }: { runId: number; runs: PairedRunRow[] }) {
   const [examQ, setExam] = useQueryState<ExamKey>('exam', 'i_later_block')
   const picker = (
     <Dropdown prefix="run" value={String(runId)} onChange={v => navigate(`models/compare/${v}`)} testid="run-select" width={280}
-      options={runs.map(r => ({ value: String(r.run_id), label: `run ${r.run_id} · ${r.window_set?.name ?? '?'} · k = ${r.k}` }))} />
+      options={runs.map(r => ({ value: String(r.run_id), label: `${r.run_id} · ${r.window_set?.name ?? '?'} · k = ${r.k}` }))} />
   )
   if (cmp.error) return <><ModelsTabs current="compare" jobsLink={<JobsPageLink />} middle={picker} /><LoadFailed what={`the comparison of run ${runId}`} error={cmp.error} onRetry={cmp.reload} /></>
   if (!cmp.data) return <><ModelsTabs current="compare" jobsLink={<JobsPageLink />} middle={picker} /><Loading /></>

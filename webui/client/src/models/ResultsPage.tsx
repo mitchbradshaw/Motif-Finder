@@ -49,7 +49,7 @@ function RunResults({ runId, runs }: { runId: number; runs: PairedRunRow[] }) {
   const arm: PairedArm = armQ === 'b' ? 'B' : 'A'
   const picker = (
     <Dropdown prefix="run" value={String(runId)} onChange={v => navigate(`models/results/${v}`)} testid="run-select" width={280}
-      options={runs.map(r => ({ value: String(r.run_id), label: `run ${r.run_id} · ${r.window_set?.name ?? '?'} · k = ${r.k}`, description: `${r.status}${r.macro_f1 ? ` · F1 A ${r.macro_f1.A.toFixed(3)} B ${r.macro_f1.B.toFixed(3)}` : ''}` }))} />
+      options={runs.map(r => ({ value: String(r.run_id), label: `${r.run_id} · ${r.window_set?.name ?? '?'} · k = ${r.k}`, description: `${r.status}${r.macro_f1 ? ` · F1 A ${r.macro_f1.A.toFixed(3)} B ${r.macro_f1.B.toFixed(3)}` : ''}` }))} />
   )
   const armSeg = <Seg value={armQ} onChange={v => setArm(v)} testid="arm-seg" ariaLabel="arm" options={[{ value: 'a', label: 'A · manual' }, { value: 'b', label: 'B · cluster' }]} />
   if (run.error) return <><ModelsTabs current="results" jobsLink={<JobsPageLink />} middle={picker} /><LoadFailed what={`run ${runId}`} error={run.error} onRetry={run.reload} /></>
