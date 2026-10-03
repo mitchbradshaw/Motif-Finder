@@ -175,7 +175,10 @@ def test_wm_recipe_json_is_loadable_and_resume_path_matches_the_store():
             # would write for this (recording, geometry) -- WINDOW_MATRIX_UI_PROMPT.md
             # §7: the recipe must never change across a resubmit chain, and
             # this is the value that has to stay stable.
-            expected_stem = wm_store.artifact_name("fake_hpc", 0, 10.0, 1.0)
+            # fixup-aa: the name carries the span and the recipe-prefix key, so a
+            # run and its surrogate (or a second span) no longer share one file
+            expected_stem = wm_store.artifact_name("fake_hpc", 0, 10.0, 1.0, span=(0, 100_000),
+                                                   key=wm_store.matrix_key(recipe))
             assert params["resume_path"].endswith(f"{expected_stem}.npz")
             assert params["resume_path"] == result["artifact_path"].replace(os.sep, "/")
     finally:
