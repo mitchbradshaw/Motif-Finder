@@ -687,9 +687,14 @@ Nothing in the cutline pipeline is hard-wired to k = 3.
    §6.4 exists. Do not use occupancy entropy alone as an encoding-quality
    gate.
 
-6. **`learned` mode consumes `np.random`** via `kmeanspp`, exactly as
-   `psax()` does. Reproducibility requires seeding. `absolute` and
-   `quantile` touch no RNG, which is why the exact-string tests use them.
+6. **`learned` mode's k-means++ init is seeded by a fixed constant**
+   (`kmeanspp.KMEANSPP_SEED`), shared with `psax()`. Until fixup-dsax-seed
+   (2026-10-03) it drew from the global `np.random`, unseeded by the
+   adapter, so one recipe gave different cutlines and spans run to run
+   (11, 11, 13, 11 detections on M2_aug CH1_A1 80-84 h). The draw now comes
+   from a local generator: same input, same string, and the global RNG is
+   left untouched. `random_state=` on `dsax()` sweeps it from a script; it
+   is not a recipe parameter. `absolute` and `quantile` touch no RNG.
 
 7. **Even alphabet sizes have no SAME bin.** A consequence of zero-anchored
    folding, not a bug — but it means `min_same_halfwidth` is a documented

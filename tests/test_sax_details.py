@@ -11,10 +11,10 @@ must reproduce `str_out` exactly, proving those two arrays are genuinely
 the ones the algorithm used, not `training_paa` (a similar-but-distinct
 array — see `csax.py`'s module docstring for why the two differ).
 
-Both `csax()` and `psax()` consume `np.random` (Mean-Shift's random seed
-point, k-means++'s random init) — every pair of calls being compared here
-reseeds `np.random` identically immediately beforehand so the comparison
-is meaningful rather than flaky.
+`csax()` consumes `np.random` (Mean-Shift's random seed point), and
+`psax()` did until fixup-dsax-seed gave k-means++ a fixed local seed —
+every pair of calls being compared here reseeds `np.random` identically
+immediately beforehand so the comparison is meaningful rather than flaky.
 
 Pure-numpy, no database/UI — runnable standalone:
     python tests/test_sax_details.py

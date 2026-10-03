@@ -95,7 +95,7 @@ import numpy as np
 
 from Working.Detection.sax.csax_python.ts_paa import ts_paa
 from Working.Detection.sax.psax_python.kde import epanechnikov_kde
-from Working.Detection.sax.psax_python.kmeanspp import kmeanspp
+from Working.Detection.sax.psax_python.kmeanspp import KMEANSPP_SEED, kmeanspp
 from Working.Detection.sax.psax_python.lloydmax import lloydmax
 
 from .trend_estimators import TREND_ESTIMATORS, compute_deltas
@@ -226,7 +226,7 @@ def _symmetrise(cutlines):
     return (c - c[::-1]) / 2.0
 
 
-def _learned_cutlines(training_deltas, alphabet_size, npoints):
+def _learned_cutlines(training_deltas, alphabet_size, npoints, random_state=KMEANSPP_SEED):
     """pSAX's quantiser, unchanged, run on deltas instead of PAA.
 
     The `npoints=min(training_len, 1000)` cap is inherited from `psax()`
@@ -236,7 +236,7 @@ def _learned_cutlines(training_deltas, alphabet_size, npoints):
     a tuning knob.
     """
     f, x = epanechnikov_kde(training_deltas, npoints=npoints)
-    _, init_codewords = kmeanspp(training_deltas, alphabet_size)
+    _, init_codewords = kmeanspp(training_deltas, alphabet_size, random_state=random_state)
     init_codewords = np.sort(init_codewords)
     codewords, cutlines = lloydmax(f, x, alphabet_size, init=init_codewords)
     return np.sort(np.asarray(codewords, dtype=float)), np.asarray(cutlines, dtype=float)
@@ -434,7 +434,7 @@ def dsax(data, training_len, dim_ratio, alphabet_size=3,
          trend_estimator="ols_slope", threshold_mode="learned",
          endpoint_k=1, absolute_threshold=None, same_fraction=0.5,
          min_same_halfwidth=None, force_symmetric=True,
-         normalize=True, return_details=False):
+         normalize=True, return_details=False, random_state=KMEANSPP_SEED):
     """
     dSAX symbolic representation (non-overlapping windows).
 
@@ -477,6 +477,9 @@ def dsax(data, training_len, dim_ratio, alphabet_size=3,
                                  privileged in delta space
     normalize     : bool       — z-normalise the dataset as a whole first
     return_details : bool      — if True return `(str_out, details)`
+    random_state  : int, Generator, RandomState or None — source of
+                    k-means++'s draws in `threshold_mode="learned"`; see
+                    Determinism below
 
     Returns
     -------
@@ -488,12 +491,15 @@ def dsax(data, training_len, dim_ratio, alphabet_size=3,
 
     Determinism
     -----------
-    `threshold_mode="learned"` consumes `np.random` via `kmeanspp`, exactly
-    as `psax()` does. Seed `np.random` before the call if you need
-    reproducibility, and reseed identically before any pair of calls being
-    compared — the existing SAX tests follow the same discipline.
-    `"absolute"` and `"quantile"` touch no RNG at all, which is why the
-    engineered exact-string tests use `"absolute"`.
+    `threshold_mode="learned"` initialises Lloyd-Max with `kmeanspp`, whose
+    draws come from a LOCAL generator seeded by `random_state` — by default
+    the fixed `KMEANSPP_SEED`, so the same input always gives the same
+    cutlines and string, and the global `np.random` is neither consumed nor
+    reseeded (fixup-dsax-seed; before it, the global generator was used and
+    one recipe gave different spans run to run). Pass another seed to sweep
+    the initialisation from a script; the adapter deliberately does not
+    expose it, so no recipe hash depends on it. `"absolute"` and
+    `"quantile"` touch no RNG at all.
     """
     # ── validate the enums BEFORE doing any work, so a typo fails fast and
     # cheaply rather than after a KDE on a 160k-sample recording.
@@ -614,7 +620,8 @@ def dsax(data, training_len, dim_ratio, alphabet_size=3,
         cutlines = _flat_nonzero_cutlines(deltas, alphabet_size)
     elif threshold_mode == "learned":
         codewords, cutlines = _learned_cutlines(
-            training_deltas, alphabet_size, npoints=min(training_len, 1000)
+            training_deltas, alphabet_size, npoints=min(training_len, 1000),
+            random_state=random_state,
         )
         if force_symmetric:
             cutlines = _symmetrise(cutlines)
@@ -741,12 +748,11 @@ def dsax(data, training_len, dim_ratio, alphabet_size=3,
 # ── post-hoc analysis of a finished encoding ─────────────────────────────
 #
 # Everything below reads a `details` dict and never re-runs the encoder.
-# That is deliberate: `learned` mode consumes `np.random` via `kmeanspp`,
-# so a "what if" recomputation would not be comparing like with like
-# unless the caller reseeded identically — which a UI button cannot be
-# trusted to do. Working from `details["deltas"]` and `details["cutlines"]`
-# instead makes every answer here EXACT with respect to the run being
-# inspected, not an approximation of a different run.
+# That is deliberate: a "what if" recomputation re-runs the KDE and
+# Lloyd-Max, and is only like-for-like if every input to them (the seed
+# included) is reproduced exactly. Working from `details["deltas"]` and
+# `details["cutlines"]` instead makes every answer here EXACT with respect
+# to the run being inspected, not an approximation of a different run.
 
 
 def same_band_halfwidth(details):

@@ -7,10 +7,11 @@
 # Python port: see psax_python
 
 import numpy as np
-from .kmeanspp import kmeanspp
+from .kmeanspp import KMEANSPP_SEED, as_rng, kmeanspp
 
 
-def lloydmax(f, x, ncodewords, data=None, init=None, lock_bounds=False):
+def lloydmax(f, x, ncodewords, data=None, init=None, lock_bounds=False,
+             random_state=KMEANSPP_SEED):
     """
     Lloyd-Max optimal scalar quantizer.
 
@@ -28,6 +29,9 @@ def lloydmax(f, x, ncodewords, data=None, init=None, lock_bounds=False):
                                        initial boundaries (length ncodewords-1),
                                        or a shorter codebook to be padded
     lock_bounds : bool       — if True, fix boundaries and only update codewords
+    random_state : int, Generator, RandomState or None — source for the
+                   k-means++ / fallback initialisation draws (see `kmeanspp`);
+                   unused when `init` is given
 
     Returns
     -------
@@ -64,12 +68,12 @@ def lloydmax(f, x, ncodewords, data=None, init=None, lock_bounds=False):
             init_codebook = True
 
     if not init_codebook and data is not None:
-        _, C = kmeanspp(data, ncodewords)
+        _, C = kmeanspp(data, ncodewords, random_state=random_state)
         C    = np.sort(C)
 
     if C is None:
         # Fallback random initialisation
-        C = np.sort((x[0] + (x[-1] - x[0]) * np.random.rand(2)) % x[-1])
+        C = np.sort((x[0] + (x[-1] - x[0]) * as_rng(random_state).random(2)) % x[-1])
 
     prev_C = np.zeros(ncodewords)
     prev_b = np.zeros(max(ncodewords - 1, 1))
