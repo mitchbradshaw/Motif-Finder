@@ -115,11 +115,10 @@ def _prior_adjudicated(conn, recording_id, started_at):
 def _null_runs(conn, run_id):
     """**Every** surrogate run paired with this one, not the first.
 
-    `run_paired_recipe` writes one surrogate per real run today, so the count
-    is usually 1 — and a column called "null expects" carrying a single draw is
-    not an expectation, which is why the row states `null_draws` beside it. If
-    a caller ever pairs N surrogates, this averages them without a further
-    change."""
+    `run_paired_recipe` pairs N draws (Settings › Nulls, Q35: 20 for a
+    detection chain), and a run made before fixup-T has one. *null expects* is
+    their mean, and the row states `null_draws` beside it so a single draw is
+    never read as an expectation."""
     return [int(r["id"]) for r in conn.execute(
         "SELECT id FROM runs WHERE surrogate_of_run_id = ? ORDER BY id", (int(run_id),)).fetchall()]
 
@@ -391,7 +390,14 @@ def run_total(conn, run_ids, *, rule=None, rows=None):
         "recall_found": recall_found,
         "reviewed_h": sum(r["reviewed_h"] for r in rows),
         "null_expects": null_expects,
-        "null_draws": (sum(r["null_draws"] or 0 for r in with_null) or None),
+        # Draws PER CHANNEL, because that is what `null_expects` on each row
+        # was averaged over; the sum across channels ("/ 60" for 3 channels at
+        # 20) is a number no channel drew and the denominator of nothing here.
+        # Channels that drew different counts state the smallest, and
+        # `null_draws_max` says there was a larger one.
+        "null_draws": (min(r["null_draws"] or 0 for r in with_null) if with_null else None),
+        "null_draws_max": (max(r["null_draws"] or 0 for r in with_null) if with_null else None),
+        "null_draw_runs": (sum(r["null_draws"] or 0 for r in with_null) or None),
         "x_null": _ratio(null_found, null_expects) if null_expects else None,
         "x_null_scope": (f"{len(with_null)} of {len(rows)} channels carry a null" if null_partial else None),
         "n_channels": len(rows),

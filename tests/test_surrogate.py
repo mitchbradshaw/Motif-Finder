@@ -76,7 +76,10 @@ def test_fixed_seed_reproduces_bit_identical_surrogate():
     spec = get_adapter(SURROGATE_NAME)
     x, t, fs = _signal()
     for method in SURROGATE_METHODS:
-        params = spec.validate_params({"method": method, "seed": 42})
+        # block_s is stated: since fixup-T (Q-Null-1) block shuffle has no
+        # default block length — an unset one is refused — and 1.0 s here is
+        # the 100-sample block this test always ran at
+        params = spec.validate_params({"method": method, "seed": 42, "block_s": 1.0})
         a = spec.run(x, t, fs, **params)
         b = spec.run(x, t, fs, **params)
         assert np.array_equal(a.value.x, b.value.x), method

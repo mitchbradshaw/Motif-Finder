@@ -126,25 +126,89 @@ def surrogate_recipe(recipe, params=None):
     return surrogate
 
 
+#: `preprocessing.surrogate`'s default, restated so a draw's recipe always names
+#: its method and its seed.
+DEFAULT_SURROGATE_PARAMS = {"method": "phase_randomize", "seed": 0}
+
+
+def _longest_detection_s(conn, run_id):
+    """The longest span a run detected, in seconds — "the longest motif under
+    test" for a paired block shuffle (Q-Null-1). None when it found nothing."""
+    row = conn.execute(
+        "SELECT MAX(d.end_idx - d.start_idx) AS n, rec.fs AS fs FROM detections d "
+        "JOIN runs r ON r.id = d.run_id JOIN recordings rec ON rec.id = r.recording_id "
+        "WHERE d.run_id = ?", (int(run_id),)).fetchone()
+    if row is None or row["n"] is None:
+        return None
+    return float(row["n"]) / (float(row["fs"]) or 1.0)
+
+
+def surrogate_draw_params(conn, original_run_id, params=None):
+    """The params every draw of one paired null shares, with the seed as the
+    BASE seed (draw i runs at `seed + i`).
+
+    Block shuffle keeps any motif shorter than a block intact, so its block
+    must be longer than the motif under test; unless the caller fixes
+    `block_s`, it is twice the longest span the real run detected (never under
+    two samples). A run that found nothing has no motif under test and so no
+    block length: the null is skipped with a reason rather than run at a length
+    nobody chose. Returns ``(params, skipped_reason)``.
+    """
+    out = dict(params or DEFAULT_SURROGATE_PARAMS)
+    out.setdefault("method", DEFAULT_SURROGATE_PARAMS["method"])
+    out["seed"] = int(out.get("seed") or 0)
+    if out["method"] == "block_shuffle" and not out.get("block_s"):
+        longest = _longest_detection_s(conn, original_run_id)
+        if longest is None:
+            return None, ("block shuffle needs a block twice the longest motif under test, and this run "
+                          "detected nothing: there is no motif to size the block by, and no null was drawn")
+        fs = conn.execute(
+            "SELECT rec.fs FROM runs r JOIN recordings rec ON rec.id = r.recording_id WHERE r.id = ?",
+            (int(original_run_id),)).fetchone()[0]
+        out["block_s"] = max(2.0 * longest, 2.0 / (float(fs) or 1.0))
+    return out, None
+
+
 def run_paired_recipe(recipe, db_path=None, force=False, on_progress=None,
                       should_cancel=None, run_kwargs=None, on_step_result=None,
-                      surrogate=None, surrogate_params=None):
+                      surrogate=None, surrogate_params=None, surrogate_draws=None,
+                      on_draw=None, should_cancel_draws=None):
     """Run a single recipe, optionally paired with its surrogate null.
 
     The original recipe always records the resolved `surrogate` switch in its
     stored config (so an explicitly-off control is visible rather than simply
-    absent). When the switch is on, a second run executes the identical chain
-    with `preprocessing.surrogate` prepended and is linked to the original by
+    absent). When the switch is on, `surrogate_draws` further runs (default 1)
+    execute the identical chain with `preprocessing.surrogate` prepended, draw
+    `i` at seed `seed + i`, each linked to the original by
     `runs.surrogate_of_run_id`.
+
+    **N draws, not one** (fixup-T, Q35): a column called "null expects" over a
+    single realisation is not an expectation. Each draw is its own recipe (the
+    seed is a parameter), so `execute_recipe`'s reuse-by-hash is what makes
+    "reuse null draws while the recipe is unchanged" true — raising N adds the
+    missing draws and re-runs none.
+
+    Parameters
+    ----------
+    on_draw : callable(i, n), optional
+        Fired before draw `i` of `n`, so a caller can show null progress.
+    should_cancel_draws : callable() -> bool, optional
+        Checked BETWEEN draws only. A caller that must never interrupt the
+        real run mid-chain (`fanout.start` cancels between targets) can still
+        stop a long null early; the draws already made stay linked and the
+        result says how many there are.
 
     Returns
     -------
     dict : the `execute_recipe` result for the original run, plus
-    `surrogate_run_id` (None when off) and `surrogate_result` (the
-    surrogate run's `execute_recipe` result, when on).
+    `surrogate_run_ids` (one per draw, [] when off), `surrogate_results`,
+    `surrogate_draws` (the count actually drawn — fewer than asked on a
+    cancel), `surrogate_skipped` (a sentence when no null could be drawn), and
+    the first draw under the single-draw keys `surrogate_run_id` /
+    `surrogate_result` that earlier callers read.
     """
     from Working.database.schema import init_db
-    from Working.execution import execute_recipe
+    from Working.execution import RecipeCancelled, execute_recipe
 
     enabled = _surrogate_enabled(recipe, surrogate)
     original_recipe = dict(recipe)
@@ -157,21 +221,46 @@ def run_paired_recipe(recipe, db_path=None, force=False, on_progress=None,
     )
     out = dict(original)
     out["surrogate_run_id"] = None
+    out["surrogate_run_ids"] = []
+    out["surrogate_results"] = []
+    out["surrogate_draws"] = 0
+    out["surrogate_skipped"] = None
     if not enabled:
         return out
 
+    n_draws = 1 if surrogate_draws is None else int(surrogate_draws)
+    if n_draws < 1:
+        raise ValueError(f"a paired null needs at least one draw, got {surrogate_draws!r}")
+
     conn = init_db(db_path)
     try:
-        surrogate_run = execute_recipe(
-            surrogate_recipe(original_recipe, surrogate_params),
-            db_path=db_path, force=force,
-            should_cancel=should_cancel, run_kwargs=run_kwargs,
-            on_progress=on_progress,
-        )
-        R.update_run(conn, surrogate_run["run_id"],
-                     surrogate_of_run_id=original["run_id"])
-        out["surrogate_run_id"] = surrogate_run["run_id"]
-        out["surrogate_result"] = surrogate_run
+        base, skipped = surrogate_draw_params(conn, original["run_id"], surrogate_params)
+        if skipped:
+            out["surrogate_skipped"] = skipped
+            return out
+        for i in range(n_draws):
+            if should_cancel is not None and should_cancel():
+                break
+            if should_cancel_draws is not None and should_cancel_draws():
+                break
+            if on_draw is not None:
+                on_draw(i, n_draws)
+            params = dict(base, seed=base["seed"] + i)
+            try:
+                draw = execute_recipe(
+                    surrogate_recipe(original_recipe, params),
+                    db_path=db_path, force=force,
+                    should_cancel=should_cancel, run_kwargs=run_kwargs,
+                )
+            except RecipeCancelled:
+                break
+            R.update_run(conn, draw["run_id"], surrogate_of_run_id=original["run_id"])
+            out["surrogate_run_ids"].append(draw["run_id"])
+            out["surrogate_results"].append(draw)
+        out["surrogate_draws"] = len(out["surrogate_run_ids"])
+        if out["surrogate_run_ids"]:
+            out["surrogate_run_id"] = out["surrogate_run_ids"][0]
+            out["surrogate_result"] = out["surrogate_results"][0]
         return out
     finally:
         conn.close()
@@ -202,7 +291,7 @@ def materialize_target(recipe, target_index):
 
 def fan_out_recipe(recipe, db_path=None, force=False, on_progress=None,
                    should_cancel=None, run_kwargs=None, on_step_result=None,
-                   surrogate=None, surrogate_params=None):
+                   surrogate=None, surrogate_params=None, surrogate_draws=None):
     """Execute every target of a fan-out recipe sequentially.
 
     One `run_groups` row is created, each target is materialised into a plain
@@ -231,6 +320,8 @@ def fan_out_recipe(recipe, db_path=None, force=False, on_progress=None,
         by `runs.surrogate_of_run_id`.
     surrogate_params : dict, optional
         Params for the prepended `preprocessing.surrogate` step.
+    surrogate_draws : int, optional
+        Null draws per target (default 1); see `run_paired_recipe`.
     should_cancel, run_kwargs, on_step_result
         Forwarded unchanged to `execute_recipe` for each target.
 
@@ -269,12 +360,13 @@ def fan_out_recipe(recipe, db_path=None, force=False, on_progress=None,
                 should_cancel=should_cancel, run_kwargs=run_kwargs,
                 on_step_result=on_step_result,
                 surrogate=enabled, surrogate_params=surrogate_params,
+                surrogate_draws=surrogate_draws,
             )
             R.update_run(conn, result["run_id"], run_group_id=group_id)
             surrogate_detections = None
+            for sid in result["surrogate_run_ids"]:
+                R.update_run(conn, sid, run_group_id=group_id)
             if result.get("surrogate_run_id") is not None:
-                R.update_run(conn, result["surrogate_run_id"],
-                             run_group_id=group_id)
                 surrogate_detections = result["surrogate_result"]["detections_written"]
             runs_out.append({
                 "run_id": result["run_id"],
@@ -283,6 +375,7 @@ def fan_out_recipe(recipe, db_path=None, force=False, on_progress=None,
                 "config_hash": result["config_hash"],
                 "detections_written": result["detections_written"],
                 "surrogate_run_id": result.get("surrogate_run_id"),
+                "surrogate_run_ids": list(result["surrogate_run_ids"]),
                 "surrogate_detections_written": surrogate_detections,
             })
         return {"run_group_id": group_id, "runs": runs_out}

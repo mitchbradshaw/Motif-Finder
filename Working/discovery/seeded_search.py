@@ -32,14 +32,32 @@ same seed must reproduce it (D6: the surrogate block stays the mechanism and
 Settings › Nulls holds the per-kind defaults).
 
 **A null the block cannot compute is refused, not substituted.** Settings ›
-Nulls names *circular shift of the channel* for seed search;
+Nulls used to name *circular shift of the channel* for seed search;
 `preprocessing.surrogate` implements `phase_randomize` and `block_shuffle`
 only. Falling back silently would put "circular shift 200×" on the page over a
 different computation, and a × null whose null is unstated cannot be falsified.
 `resolve_null` says so in words the page can print. (A circular shift would in
 any case be a degenerate null here: shifting a channel leaves the multiset of
 its z-normalised subsequences unchanged except at the wrap, so the distance
-distribution would be the original's by construction.)
+distribution would be the original's by construction.) Since fixup-T the page
+offers `offered_methods()` — the block's own choices — so it cannot name a
+third (Q36).
+
+**Which null tests what** (Q36). `phase_randomize` keeps the spectrum and
+scrambles every local shape: it is the null for "would this fire this often on
+a signal with the same spectrum and no real events", and the default for every
+detection chain. `block_shuffle` deals whole blocks in a new order, so any
+motif shorter than a block survives intact: it is a null for *timing and
+order*, not for shape, and its block must be longer than the motif under test
+— twice the seed here (`default_block_s`, Q-Null-1).
+
+**The draw count is per run kind** (Q35): `DEFAULT_DRAWS_BY_KIND`, 20 for a
+detection chain (each draw is the whole sweep again) and 200 for a seed search
+(each draw is one FFT match), both Settings › Nulls keys.
+
+**α and the correction reach the cut** (Q37). `cut_rule_from_settings` reads
+Settings › Nulls' `alpha` and `correction`; `recommended_cut_corrected` applies
+them per channel and `cut_rule` writes the sentence from the values used.
 
 No UI imports.
 """
@@ -69,6 +87,25 @@ DEFAULT_NULL_METHOD = "phase_randomize"
 DEFAULT_DRAWS = 200
 NULL_PAGE = "nulls"
 NULL_KIND = "seed-search"
+DETECTION_KIND = "detection"
+
+#: Q35 — draws per run kind. A detection chain's draw is the whole chain run
+#: again on a surrogate channel, so 20; a seed search's is one FFT match, so
+#: 200. Settings › Nulls `null.<kind>.draws` overrides either.
+DEFAULT_DRAWS_BY_KIND = {DETECTION_KIND: 20, NULL_KIND: 200}
+
+#: Settings › Nulls `null.block_s`: a fixed block length in seconds for block
+#: shuffle. Unset (the default) means twice the longest motif under test.
+BLOCK_S_KEY = "null.block_s"
+
+#: The sentence that goes beside block shuffle wherever it is offered (Q36).
+BLOCK_SHUFFLE_NOTE = ("block shuffle keeps any motif shorter than a block intact, so it tests timing and "
+                      "order (trains, intervals), not shape")
+PHASE_RANDOMIZE_NOTE = ("phase randomisation keeps the signal's frequency content and scrambles every local "
+                        "shape: would this fire as often on a signal with the same spectrum and no real events")
+
+_LABELS = {"phase_randomize": "phase randomisation", "block_shuffle": "block shuffle"}
+_NOTES = {"phase_randomize": PHASE_RANDOMIZE_NOTE, "block_shuffle": BLOCK_SHUFFLE_NOTE}
 
 _ALIASES = {
     "phase_randomize": "phase_randomize",
@@ -83,6 +120,23 @@ _ALIASES = {
 
 
 # ── the null ────────────────────────────────────────────────────────────────
+
+def offered_methods():
+    """The null methods a surrogate-backed kind may offer: the block's own
+    `method` choices, in its order, each with the label Settings prints and the
+    sentence that goes beside it. Settings › Nulls reads this, so it cannot
+    offer a method `resolve_null` refuses (Q36)."""
+    choices = next(p for p in _spec("preprocessing.surrogate").params if p.name == "method").choices
+    return [{"id": m, "label": _LABELS.get(m, m), "note": _NOTES.get(m),
+             "default": m == DEFAULT_NULL_METHOD} for m in choices]
+
+
+def default_block_s(longest_motif_samples, fs):
+    """Q-Null-1: a block shuffle's block is twice the longest motif under test
+    (and never under two samples, which the block refuses)."""
+    fs = float(fs) or 1.0
+    return max(2.0 * float(longest_motif_samples), 2.0) / fs
+
 
 def resolve_null(method=None, draws=None, seed=0):
     """Turn a Settings › Nulls value into something the block can run — or say
@@ -113,11 +167,23 @@ def resolve_null(method=None, draws=None, seed=0):
 
 def null_from_settings(conn, kind=NULL_KIND):
     """The project's null for a kind, from Settings › Nulls (`null.<kind>.method`
-    / `.draws`), resolved against what the block implements."""
+    / `.draws`), resolved against what the block implements. The draw count
+    defaults per kind (`DEFAULT_DRAWS_BY_KIND`, Q35); `block_s` is the fixed
+    block length if one is saved, else None for "twice the longest motif"."""
     from Working.registration.settings import get_settings
 
     saved = get_settings(conn, NULL_PAGE)
-    return resolve_null(saved.get(f"null.{kind}.method"), saved.get(f"null.{kind}.draws"))
+    draws = saved.get(f"null.{kind}.draws")
+    if draws is None:
+        draws = DEFAULT_DRAWS_BY_KIND.get(kind, DEFAULT_DRAWS)
+    out = resolve_null(saved.get(f"null.{kind}.method"), draws)
+    block_s = saved.get(BLOCK_S_KEY)
+    try:
+        out["block_s"] = float(block_s) if block_s not in (None, "", 0) else None
+    except (TypeError, ValueError):
+        raise ValueError(f"Settings › Nulls {BLOCK_S_KEY!r} is not a number of seconds: {block_s!r}")
+    out["kind"] = kind
+    return out
 
 
 def _spec(name):
@@ -140,26 +206,37 @@ def _surrogate(x, method, seed, fs, block_s):
 
 
 def null_distances(x, exemplar, *, draws=DEFAULT_DRAWS, seed=0, method=None, k=10,
-                   max_distance=None, fs=1.0, block_s=1.0, on_progress=None, should_cancel=None):
+                   max_distance=None, fs=1.0, block_s=None, on_progress=None, should_cancel=None):
     """The distances the seed gets against ``draws`` surrogate signals.
 
     One draw is one `preprocessing.surrogate` realisation at seed ``seed + i``
     put through the same `match_exemplar` the real search uses, so the two
     distributions are comparable by construction. Reproducible from ``seed``.
 
-    Returns ``{distances, per_draw, draws, method, seed}``; ``distances`` is the
-    pooled list (divide a count by ``draws`` for "what the null gives").
+    ``block_s`` is read by block shuffle only. None means twice the seed
+    (`default_block_s`): the seed is the motif under test, and a block shorter
+    than it would cut every instance in two while a much longer one would leave
+    them all intact.
+
+    Returns ``{distances, per_draw, draws, method, seed, block_s}``;
+    ``distances`` is the pooled list (divide a count by ``draws`` for "what the
+    null gives"), ``block_s`` the block length used (None for a method that has
+    no block).
     """
     resolved = resolve_null(method, draws, seed)
     if not resolved["supported"]:
         raise ValueError(resolved["reason"])
     x = np.asarray(x, dtype=float).ravel()
     q = np.asarray(exemplar, dtype=float).ravel()
+    if resolved["method"] == "block_shuffle":
+        block_s = float(block_s) if block_s else default_block_s(len(q), fs)
+    else:
+        block_s = None
     per_draw, pooled = [], []
     for i in range(resolved["draws"]):
         if should_cancel is not None and should_cancel():
             break
-        s = _surrogate(x, resolved["method"], resolved["seed"] + i, fs, block_s)
+        s = _surrogate(x, resolved["method"], resolved["seed"] + i, fs, block_s or 0.0)
         rows = match_exemplar(s, q, k=k, max_distance=max_distance)
         ds = [float(r[0]) for r in rows]
         per_draw.append(ds)
@@ -167,7 +244,7 @@ def null_distances(x, exemplar, *, draws=DEFAULT_DRAWS, seed=0, method=None, k=1
         if on_progress is not None:
             on_progress(i + 1, resolved["draws"])
     return {"distances": pooled, "per_draw": per_draw, "draws": len(per_draw),
-            "method": resolved["method"], "seed": resolved["seed"]}
+            "method": resolved["method"], "seed": resolved["seed"], "block_s": block_s}
 
 
 # ── the matches and the profile ─────────────────────────────────────────────
@@ -235,25 +312,132 @@ def cut_counts(distances, null, cut):
 
 
 #: The marker's own rule, in one place so the number and the words cannot
-#: drift apart. Settings > Nulls holds an `alpha` key and a correction key that
-#: the seeded search does not read; WIRING them is a decision about what the
-#: correction should be (Q-D5) and is deliberately not taken here. What IS
-#: taken: the figure states the rule it was computed under, so it can be
-#: falsified (fixup-a item 12).
+#: drift apart (fixup-a item 12). Since fixup-T (Q37) the two values come from
+#: Settings › Nulls (`alpha`, `correction`) through `cut_rule_from_settings`;
+#: these are the defaults when nothing is saved.
 CUT_ALPHA = 0.01
 CUT_CORRECTION = "none"
+CUT_PAGE_KEYS = ("alpha", "correction")
+
+#: §9.4's three corrections, applied across the channels in scope.
+CORRECTIONS = ("none", "holm", "bh")
+_CORRECTION_ALIASES = {
+    "none": "none", "holm": "holm", "holm–bonferroni": "holm", "holm-bonferroni": "holm",
+    "bh": "bh", "benjamini–hochberg": "bh", "benjamini-hochberg": "bh", "benjamini hochberg": "bh",
+    "fdr": "bh",
+}
+_CORRECTION_NAMES = {"none": "none", "holm": "Holm", "bh": "Benjamini–Hochberg"}
 
 
-def cut_rule(alpha=CUT_ALPHA, correction=CUT_CORRECTION):
+def normalise_correction(name):
+    """Settings' spelling ("Holm", "Benjamini–Hochberg") to one of
+    `CORRECTIONS`. An unknown name is refused: a cut computed under a
+    correction nobody can name cannot be falsified."""
+    if name is None:
+        return CUT_CORRECTION
+    key = _CORRECTION_ALIASES.get(str(name).strip().lower())
+    if key is None:
+        raise ValueError(f"unknown multiple-comparison correction {name!r}; expected one of "
+                         f"none, Holm, Benjamini–Hochberg")
+    return key
+
+
+def cut_rule_from_settings(conn):
+    """``{alpha, correction}`` from Settings › Nulls, defaults 0.01 and none."""
+    from Working.registration.settings import get_settings
+
+    saved = get_settings(conn, NULL_PAGE)
+    alpha = saved.get("alpha")
+    try:
+        alpha = float(alpha) if alpha is not None else CUT_ALPHA
+    except (TypeError, ValueError):
+        raise ValueError(f"Settings › Nulls 'alpha' is not a number: {alpha!r}")
+    if not 0.0 < alpha < 1.0:
+        raise ValueError(f"Settings › Nulls 'alpha' must lie between 0 and 1, got {alpha}")
+    return {"alpha": alpha, "correction": normalise_correction(saved.get("correction"))}
+
+
+def cut_rule(alpha=CUT_ALPHA, correction=CUT_CORRECTION, n_channels=1):
     """The recommended cut's rule as a payload: the alpha it uses, the
-    multiple-comparison correction it applies (none), and the sentence a
-    figure legend prints."""
+    multiple-comparison correction it applies and over how many channels, and
+    the sentence a figure legend prints — generated from those values, so the
+    words cannot say one rule while the number was computed under another."""
     alpha = float(alpha)
-    return {
-        "alpha": alpha,
-        "correction": correction,
-        "text": (f"marker: α = {alpha:g} per null draw · correction: {correction}"),
-    }
+    correction = normalise_correction(correction)
+    n_channels = int(n_channels)
+    text = f"marker: α = {alpha:g} per null draw · correction: {_CORRECTION_NAMES[correction]}"
+    if correction != "none":
+        text += f" over {n_channels} channel{'' if n_channels == 1 else 's'}"
+    return {"alpha": alpha, "correction": correction, "correction_name": _CORRECTION_NAMES[correction],
+            "n_channels": n_channels, "text": text}
+
+
+def corrected_levels(p_values, alpha=CUT_ALPHA, correction=CUT_CORRECTION):
+    """The level each of m tests is held to, or None where it fails.
+
+    none  every test at alpha.
+    Holm  step-down: the smallest p at alpha/m, the next at alpha/(m-1), …;
+          the first failure fails every test after it.
+    BH    step-up: with k the largest rank whose p(k) <= alpha·k/m, the k
+          smallest pass, all at alpha·k/m.
+    """
+    correction = normalise_correction(correction)
+    alpha = float(alpha)
+    m = len(p_values)
+    levels = [None] * m
+    order = sorted(range(m), key=lambda i: (p_values[i], i))
+    if correction == "none":
+        return [alpha if p_values[i] <= alpha else None for i in range(m)]
+    if correction == "holm":
+        for rank, i in enumerate(order):
+            level = alpha / (m - rank)
+            if p_values[i] > level:
+                break
+            levels[i] = level
+        return levels
+    k = 0
+    for rank, i in enumerate(order, start=1):
+        if p_values[i] <= alpha * rank / m:
+            k = rank
+    for i in order[:k]:
+        levels[i] = alpha * k / m
+    return levels
+
+
+def recommended_cut_corrected(channels, *, alpha=CUT_ALPHA, correction=CUT_CORRECTION):
+    """The marker under the stated alpha and correction, **per channel** (Q37).
+
+    ``channels`` is ``[{distances, null: {distances, draws}}]``, one entry per
+    channel in scope, each with its own null. A channel's p is the null rate of
+    its closest match — how many null matches per draw land at or below it,
+    the same quantity the page prints as "the null gives". The correction
+    decides the level each channel is held to (`corrected_levels`); the
+    channel's cut is `recommended_cut` at that level; and the marker is the
+    strictest of the passing channels' cuts, so every match under the one line
+    the page draws passes in its own channel.
+
+    Returns ``{cut, per_channel: [{p, level, cut}], channels_passing, rule}``.
+    One channel and no correction is exactly `recommended_cut`.
+    """
+    p_values = []
+    for ch in channels:
+        ds = [float(d) for d in ch.get("distances", [])]
+        null = ch.get("null") or {}
+        draws = int(null.get("draws") or 0)
+        if not ds or not draws:
+            p_values.append(1.0)
+            continue
+        best = min(ds)
+        hits = sum(1 for d in null.get("distances", []) if float(d) <= best)
+        p_values.append(min(1.0, hits / float(draws)))
+    levels = corrected_levels(p_values, alpha, correction)
+    per_channel = []
+    for ch, p, level in zip(channels, p_values, levels):
+        cut = recommended_cut(ch.get("distances", []), ch.get("null"), alpha=level) if level is not None else None
+        per_channel.append({"p": p, "level": level, "cut": cut})
+    cuts = [c["cut"] for c in per_channel if c["cut"] is not None]
+    return {"cut": (min(cuts) if cuts else None), "per_channel": per_channel,
+            "channels_passing": len(cuts), "rule": cut_rule(alpha, correction, n_channels=len(channels))}
 
 
 def recommended_cut(distances, null, *, alpha=CUT_ALPHA):

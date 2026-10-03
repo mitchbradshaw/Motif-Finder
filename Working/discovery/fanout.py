@@ -109,7 +109,7 @@ def _uncosted_steps(steps):
 
 
 def plan(conn, *, steps, recording_ids, span=None, ceiling_s=None, measured_per_channel_s=None,
-         reuse_lookup=None):
+         reuse_lookup=None, null_draws=0):
     """The scope, checked, costed and routed — before anything runs.
 
     Parameters
@@ -128,12 +128,18 @@ def plan(conn, *, steps, recording_ids, span=None, ceiling_s=None, measured_per_
     reuse_lookup : callable(conn, recording_id, span) -> dict | None, optional
         Per-target artifact reuse (a matrix profile already on disk). Recorded
         on the target, never assumed.
+    null_draws : int
+        Paired surrogate draws per channel (Settings › Nulls, Q35). Each draw
+        is the whole chain again on a surrogate signal, so the estimate is
+        ``per channel × channels × (1 + null_draws)`` and the ROUTE is decided
+        on that total — "null draws count toward local limits" (§9.4).
 
     Returns
     -------
     dict
         ``{targets, refused, runnable, reason, span, n_channels, recipe,
-        estimate_s, per_channel_s, uncosted, route, ceiling_s}``.
+        estimate_s, estimate_real_s, null_draws, per_channel_s, uncosted,
+        route, ceiling_s}``.
     """
     ids = [int(r) for r in recording_ids]
     if not ids:
@@ -186,7 +192,9 @@ def plan(conn, *, steps, recording_ids, span=None, ceiling_s=None, measured_per_
     elif not uncosted and targets:
         per_channel_s = _estimate_per_channel(steps, targets)
 
-    estimate_s = per_channel_s * len(targets) if per_channel_s is not None else None
+    null_draws = max(0, int(null_draws or 0))
+    estimate_real_s = per_channel_s * len(targets) if per_channel_s is not None else None
+    estimate_s = estimate_real_s * (1 + null_draws) if estimate_real_s is not None else None
     if estimate_s is None:
         route = "unknown"
     elif estimate_s > ceiling:
@@ -207,7 +215,8 @@ def plan(conn, *, steps, recording_ids, span=None, ceiling_s=None, measured_per_
     return {
         "targets": targets, "refused": refused, "runnable": runnable, "reason": reason,
         "span": (list(span) if span else None), "n_channels": len(targets),
-        "recipe": recipe, "estimate_s": estimate_s, "per_channel_s": per_channel_s,
+        "recipe": recipe, "estimate_s": estimate_s, "estimate_real_s": estimate_real_s,
+        "null_draws": null_draws, "per_channel_s": per_channel_s,
         "uncosted": uncosted, "route": route, "ceiling_s": ceiling,
         "measured": measured_per_channel_s is not None,
     }
@@ -235,7 +244,8 @@ def _estimate_per_channel(steps, targets):
 
 
 def start(plan_dict, *, db_path=None, on_progress=None, on_target_done=None, should_cancel=None,
-          surrogate=False, surrogate_params=None, force=False, run_kwargs=None):
+          surrogate=False, surrogate_params=None, force=False, run_kwargs=None,
+          surrogate_draws=None, on_draw=None):
     """Run every target of a plan, linked to one run group.
 
     The loop is `fan_out_recipe`'s, with two differences it needs and that one
@@ -264,18 +274,20 @@ def start(plan_dict, *, db_path=None, on_progress=None, on_target_done=None, sho
                 on_progress(i, n, plan_dict["targets"][i]["channel_name"])
             per_target = materialize_target(recipe, i)
             per_target["surrogate"] = bool(surrogate)
+            if surrogate_draws is None:
+                surrogate_draws = plan_dict.get("null_draws") or None
             result = run_paired_recipe(
                 per_target, db_path=db_path, force=force, run_kwargs=run_kwargs,
-                surrogate=bool(surrogate), surrogate_params=surrogate_params)
+                surrogate=bool(surrogate), surrogate_params=surrogate_params,
+                surrogate_draws=surrogate_draws, should_cancel_draws=should_cancel,
+                on_draw=((lambda j, m, _i=i: on_draw(_i, n, j, m)) if on_draw is not None else None))
             # `execute_recipe` is idempotent: an identical recipe over the same
             # recording and span returns the run that already exists. Re-pointing
             # its `run_group_id` would MOVE it out of the earlier fan-out, leaving
             # that one empty — a Discovery run that had results yesterday would
             # read as "queued · 0 found" today. A run therefore keeps the first
             # group it joined, and this fan-out records the run ids it is made of.
-            for rid in (result["run_id"], result.get("surrogate_run_id")):
-                if rid is None:
-                    continue
+            for rid in [result["run_id"], *result["surrogate_run_ids"]]:
                 if _runs.get_run(conn, rid)["run_group_id"] is None:
                     _runs.update_run(conn, rid, run_group_id=group_id)
             row = {
@@ -288,6 +300,8 @@ def start(plan_dict, *, db_path=None, on_progress=None, on_target_done=None, sho
                 "config_hash": result["config_hash"],
                 "detections_written": result["detections_written"],
                 "surrogate_run_id": result.get("surrogate_run_id"),
+                "surrogate_run_ids": list(result["surrogate_run_ids"]),
+                "surrogate_skipped": result.get("surrogate_skipped"),
                 "surrogate_detections_written": (
                     result["surrogate_result"]["detections_written"]
                     if result.get("surrogate_run_id") is not None else None),

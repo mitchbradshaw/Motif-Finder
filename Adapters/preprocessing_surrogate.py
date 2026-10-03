@@ -45,8 +45,25 @@ def _block_shuffle(x, rng, block_s, fs):
     The trailing partial block (if any) is left in place so the output has
     exactly the same length as the input. A signal too short to contain two
     full blocks is returned unchanged.
+
+    A block under two samples is refused (Q-Null-1). The old default of 1.0 s
+    is ONE sample at 1 Hz: a sample shuffle, which destroys the spectrum and
+    every shape and is therefore neither of the two nulls on offer. Block
+    shuffle keeps any motif shorter than a block intact — it tests timing and
+    order, not shape — so the block has to be longer than the motif under test,
+    and only the caller knows that length: twice the longest motif is the
+    default every caller in `Working/` supplies.
     """
     n = len(x)
+    if not block_s or block_s <= 0:
+        raise ValueError(
+            "block_shuffle needs a block length (block_s): twice the longest motif under test. "
+            "None was given, and there is no length that is right for every chain.")
+    if block_s * fs < 2:
+        raise ValueError(
+            f"block_shuffle refuses block_s = {block_s:g} s at {fs:g} Hz: that is "
+            f"{block_s * fs:g} samples, and a block under 2 samples is a sample shuffle — "
+            f"neither a timing null nor a shape null. Use twice the longest motif under test.")
     block_len = max(1, int(round(block_s * fs)))
     n_blocks = n // block_len
     if n_blocks <= 1:
@@ -58,7 +75,7 @@ def _block_shuffle(x, rng, block_s, fs):
     return np.concatenate([shuffled, remainder])
 
 
-def _run(x, t, fs, method="phase_randomize", seed=0, block_s=1.0):
+def _run(x, t, fs, method="phase_randomize", seed=0, block_s=0.0):
     rng = np.random.RandomState(seed)
     if method == "phase_randomize":
         x_surrogate = _phase_randomise(x, rng)
@@ -85,7 +102,9 @@ SPEC = register(AdapterSpec(
         ParamSpec(
             "method", str, "phase_randomize",
             "Surrogate method: phase randomisation preserves the power "
-            "spectrum; block shuffling preserves local amplitude statistics",
+            "spectrum and scrambles every local shape (the null for a "
+            "detection chain); block shuffling keeps any motif shorter than a "
+            "block intact, so it tests timing and order, not shape",
             choices=["phase_randomize", "block_shuffle"],
         ),
         ParamSpec(
@@ -94,8 +113,10 @@ SPEC = register(AdapterSpec(
             min=0,
         ),
         ParamSpec(
-            "block_s", float, 1.0,
-            "Block length in seconds for block shuffling", min=1e-6,
+            "block_s", float, 0.0,
+            "Block length in seconds for block shuffling: twice the longest "
+            "motif under test. 0 = not set, which block shuffling refuses, as "
+            "it refuses any block under 2 samples", min=0.0,
         ),
     ],
     run=_run,
