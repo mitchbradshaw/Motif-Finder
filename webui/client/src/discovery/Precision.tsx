@@ -34,11 +34,12 @@ export function PrecisionFigureLine({ f, testid }: { f: PrecisionFigure | null |
     <span className="dsc-prec-line" data-testid={testid} data-value={f.value ?? ''} data-judged={f.judged}>
       <span className="muted small">{SHORT[f.key]}</span>{' '}
       {f.value == null
-        ? <span className="muted small">{f.note ?? 'not yet scored'}</span>
+        ? <span className="muted small" title={f.note ?? undefined} data-testid={`${testid}-none`}>— nothing judged</span>
         : <b>{`${Math.round(f.value * 100)} %`}</b>}
       {f.value != null && <span className="muted small"> {f.yes}/{f.judged}</span>}
       <InfoTip title={f.label} testid={`${testid}-rule`}>
         <p>{f.rule}.</p>
+        {f.value == null && f.note && <p className="muted small" data-testid={`${testid}-note`}>Nothing to score: {f.note}.</p>}
         <p className="muted small">{f.yes} yes of {f.judged} judged{f.byAdjudication ? ` · ${f.byAdjudication} by a verdict given in Review` : ''}.</p>
         {widths && <p className="muted small" data-testid={`${testid}-widths`}>The denominator’s event rows: {widths}. A precision over rows this varied is dominated by whichever few are event-sized (Q-D2’s caveat).</p>}
       </InfoTip>

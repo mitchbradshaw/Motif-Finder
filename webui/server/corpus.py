@@ -313,7 +313,8 @@ def coverage(conn, source_file: str, bins: int = 57, verdicts: tuple | None = No
                            "scope": DIV.scope_text(len(div_runs), keep_runs is None),
                            "cells": div_totals, "not_comparable": div_nc,
                            "labels": DIV.CELL_LABEL, "disagree": list(DIV.DISAGREE),
-                           "rules": {"containment": DIV.CONTAINMENT_RULE,
+                           "containment": DIV.containment_from_settings(conn),
+                           "rules": {"containment": DIV.containment_rule_text(DIV.containment_from_settings(conn)),
                                      "extent": DIV.extent_rule_text(DIV.rule_from_settings(conn))},
                            "verdicts": "every verdict counts here; the verdict filter shapes the annotation layers only"},
             "held_out": source_file == HELD_OUT_FILE, "compute_ms": (time.perf_counter() - t0) * 1e3}

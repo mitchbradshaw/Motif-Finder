@@ -35,12 +35,23 @@ says which rule resolved it (``by``):
    (item 5). ``unsure`` is no verdict and falls through.
 2. **extent** — matched one-to-one to an event-shaped row under §4.6
    (`matching.match_span_sets`, the detection as the candidate).
-3. **containment** — the window labels that **wholly contain** it, every one
-   of which must agree. This is Q41's own rule (the researcher's, for the same
-   window/span mapping in the other direction): a span partially in a window
-   does not take its label, and windows that disagree are left out and
-   counted. The windows overlap (600 samples on a 200-sample stride), so a
-   short detection is usually inside two or three.
+3. **containment** — the window labels the detection falls in, every one of
+   which must agree; windows that disagree are left out and counted. The
+   windows overlap (600 samples on a 200-sample stride), so a detection usually
+   falls in two or three. *Falls in* is a setting (Settings › Analysis
+   defaults, ``containment``; the researcher, 2026-10-04 — "both, as a
+   setting"):
+
+   ``centre`` (the default) — the windows the detection's **centre** lies in.
+       It answers Q-D2 (a)'s question as asked: does the detector fire where a
+       human saw something.
+   ``whole`` — the windows that **wholly contain** it: Q41's rule for
+       labelling training windows, mirrored. Stricter, and blind to a detection
+       longer than a window or sticking out past one — on M2_aug it scores 16
+       of 562 detections where ``centre`` scores 91.
+
+   Changing it is a versioned act like the IoU keys (§4.6): every figure
+   prints the mode it was computed under in its rule.
 
 "Human yes" is ``interesting`` or ``seed`` (P21: seed implies interesting);
 "human no" is ``not_interesting`` or ``artifact``; ``unsure`` is neither.
@@ -81,10 +92,39 @@ CELL_LABEL = {
     NOT_COMPARABLE: "not comparable",
 }
 
-CONTAINMENT_RULE = (
-    "containment over the window labels: a detection takes the verdict of the reviewed 600-sample windows "
-    "(annotations.source = imported_10min) that wholly contain it, and every one of them must agree (Q41's rule); "
-    "a verdict given on the detection in Review comes first")
+#: Settings › Analysis defaults key for what "falls in a window" means.
+CONTAINMENT_KEY = "containment"
+CONTAINMENT_MODES = ("centre", "whole")
+DEFAULT_CONTAINMENT = "centre"
+
+_CONTAINMENT_TEXT = {
+    "centre": "whose span its centre lies in",
+    "whole": "that wholly contain it (Q41's rule, mirrored)",
+}
+
+
+def containment_rule_text(mode=DEFAULT_CONTAINMENT):
+    return ("containment over the window labels (mode: " + mode + "): a detection takes the verdict of the reviewed "
+            "600-sample windows (annotations.source = imported_10min) " + _CONTAINMENT_TEXT[mode]
+            + ", and every one of them must agree; a verdict given on the detection in Review comes first")
+
+
+#: The default's text, for callers that print the rule without a connection.
+CONTAINMENT_RULE = containment_rule_text(DEFAULT_CONTAINMENT)
+
+
+def normalise_containment(mode):
+    mode = DEFAULT_CONTAINMENT if mode in (None, "") else str(mode)
+    if mode not in CONTAINMENT_MODES:
+        raise ValueError(f"containment must be one of {CONTAINMENT_MODES}, got {mode!r}")
+    return mode
+
+
+def containment_from_settings(conn):
+    """Settings › Analysis defaults' containment mode, else ``centre``."""
+    from Working.registration.settings import get_settings
+
+    return normalise_containment(get_settings(conn, "analysis-defaults").get(CONTAINMENT_KEY))
 
 STRUCTURE_NOTE = (
     "No test of structure and no null: this table says where the two disagreements fall, not whether they "
@@ -189,8 +229,14 @@ def _detections(conn, runs):
 
 # ── the rules ───────────────────────────────────────────────────────────────
 
-def _containing(windows, starts, max_w, d):
-    """Windows that wholly contain detection ``d``."""
+def _containing(windows, starts, max_w, d, mode="whole"):
+    """Windows detection ``d`` falls in: those wholly containing it, or (mode
+    ``centre``) those its centre lies in."""
+    if mode == "centre":
+        mid = (d["start"] + d["end"]) / 2.0
+        lo = bisect_left(starts, mid - max_w)
+        hi = bisect_right(starts, mid)
+        return [w for w in windows[lo:hi] if w["start"] <= mid < w["end"]]
     lo = bisect_left(starts, d["end"] - max_w)
     hi = bisect_right(starts, d["start"])
     return [w for w in windows[lo:hi] if w["start"] <= d["start"] and d["end"] <= w["end"]]
@@ -203,9 +249,11 @@ def _containing(windows, starts, max_w, d):
 WHY = {
     "no window near it": "no human verdict here: no reviewed window is near it",
     "longer than a window": ("no human verdict here: it is longer than a review window, so no window can wholly "
-                             "contain it (the spans-longer-than-the-window case, Q-W1)"),
+                             "contain it (the spans-longer-than-the-window case, Q-W1; containment mode `whole`)"),
     "straddles a window edge": ("no human verdict here: it touches reviewed windows but sticks out past the "
-                                "edge of every one"),
+                                "edge of every one (containment mode `whole`)"),
+    "centre outside the windows": ("no human verdict here: it touches reviewed windows but its centre lies "
+                                   "outside every one"),
     "windows disagree": "windows disagree: the windows that contain it say both yes and no",
     "unsure window": "no verdict: the windows that contain it are marked unsure",
     "unsure event row": "no verdict: the event row it matches is marked unsure",
@@ -214,11 +262,13 @@ WHY = {
 }
 
 
-def _containment(windows, starts, max_w, d):
+def _containment(windows, starts, max_w, d, mode=DEFAULT_CONTAINMENT):
     """(side, why, window ids) under the containment rule."""
-    inside = _containing(windows, starts, max_w, d) if windows else []
+    inside = _containing(windows, starts, max_w, d, mode) if windows else []
     if not inside:
         if windows and _overlaps_any(windows, starts, max_w, d["start"], d["end"]):
+            if mode == "centre":
+                return None, "centre outside the windows", []
             return None, ("longer than a window" if d["end"] - d["start"] > max_w else "straddles a window edge"), []
         return None, "no window near it", []
     ids = [w["id"] for w in inside]
@@ -257,11 +307,12 @@ def _figure(key, rule_text, yes, judged, by_adj, note):
             "note": None if judged else note}
 
 
-def channel_divergence(conn, recording_id, run_ids=None, *, rule=None, span=None):
+def channel_divergence(conn, recording_id, run_ids=None, *, rule=None, span=None, containment=None):
     """The divergence between the human record and ``run_ids`` on one channel.
 
     ``run_ids`` None pools every real run on the recording (``pooled`` says
-    so); a list is the runs asked about, surrogates dropped. ``span`` narrows
+    so); a list is the runs asked about, surrogates dropped. ``containment``
+    is ``centre`` or ``whole`` (None reads Settings › Analysis defaults). ``span`` narrows
     it to the items whose onset lies in ``[span[0], span[1])`` — the section a
     Discovery page has on screen.
 
@@ -276,6 +327,7 @@ def channel_divergence(conn, recording_id, run_ids=None, *, rule=None, span=None
         ``run_ids``.
     """
     rule = normalise_rule(rule) if rule is not None else rule_from_settings(conn)
+    mode = normalise_containment(containment) if containment is not None else containment_from_settings(conn)
     runs = real_runs(conn, recording_id, run_ids)
     ids = [int(r["id"]) for r in runs]
     windows, events = human_labels(conn, recording_id)
@@ -306,7 +358,7 @@ def channel_divergence(conn, recording_id, run_ids=None, *, rule=None, span=None
         if not in_scope(d):
             continue
         verdict, adj_side = adjud.get(d["id"], (None, None))
-        c_side, c_why, c_ids = _containment(windows, w_starts, max_w, d)
+        c_side, c_why, c_ids = _containment(windows, w_starts, max_w, d, mode)
         ev = event_of.get(i)
         e_side = ev["side"] if ev is not None else None
 
@@ -373,8 +425,9 @@ def channel_divergence(conn, recording_id, run_ids=None, *, rule=None, span=None
 
     nc["n"] = sum(nc["detections"].values()) + sum(nc["labels"].values())
     no_run = "no run on this channel" if not ids else None
-    containment = _figure("containment", CONTAINMENT_RULE, a_yes, a_judged, a_adj,
-                          no_run or "no detection lies wholly inside a reviewed window, and none is adjudicated")
+    containment = _figure("containment", containment_rule_text(mode), a_yes, a_judged, a_adj,
+                          no_run or ("no detection falls in a reviewed window, and none is adjudicated"))
+    containment["mode"] = mode
     extent = _figure("extent", extent_rule_text(rule), c_yes, c_judged, c_adj,
                      no_run or "no detection overlaps an event-shaped row, and none is adjudicated")
     extent["widths"] = _width_summary(covered_events)
@@ -382,7 +435,7 @@ def channel_divergence(conn, recording_id, run_ids=None, *, rule=None, span=None
         "recording_id": int(recording_id), "run_ids": ids, "pooled": run_ids is None,
         "cells": cells, "not_comparable": nc, "items": items,
         "precision": {"containment": containment, "extent": extent},
-        "rule": rule, "span": (list(span) if span is not None else None),
+        "rule": rule, "containment": mode, "span": (list(span) if span is not None else None),
     }
 
 
@@ -407,6 +460,8 @@ def pool_precision(figures):
     notes = [f["note"] for f in figures if f.get("note")]
     out = _figure(first["key"], first["rule"], yes, judged, sum(f["by_adjudication"] for f in figures),
                   notes[0] if notes else "nothing to score")
+    if "mode" in first:
+        out["mode"] = first["mode"]
     if "widths" in first:
         out["widths"] = _width_summary([v for f in figures for v in (f.get("widths") or {}).get("values", [])])
     return out
@@ -490,7 +545,7 @@ def _tags_by_adjudicated_detection(conn, ids):
     return out
 
 
-def breakdown(conn, runs_by_recording, *, bins, n_samples, span=None, rule=None, names=None):
+def breakdown(conn, runs_by_recording, *, bins, n_samples, span=None, rule=None, names=None, containment=None):
     """The two disagreement cells by channel, by time bin and by morphology,
     for a set of runs against the human record (item 4).
 
@@ -502,13 +557,14 @@ def breakdown(conn, runs_by_recording, *, bins, n_samples, span=None, rule=None,
     showing an empty column as a finding.
     """
     rule = normalise_rule(rule) if rule is not None else rule_from_settings(conn)
+    mode = normalise_containment(containment) if containment is not None else containment_from_settings(conn)
     lo, hi = (int(span[0]), int(span[1])) if span is not None else (0, int(n_samples))
     edges = np.linspace(lo, hi, int(bins) + 1)
     by_time = [{"bin": i, "start": float(edges[i]), "end": float(edges[i + 1]),
                 **{c: 0 for c in DISAGREE}, NOT_COMPARABLE: 0} for i in range(int(bins))]
     by_channel, disagreements = [], []
     for rid, ids in runs_by_recording.items():
-        div = channel_divergence(conn, rid, ids, rule=rule, span=span)
+        div = channel_divergence(conn, rid, ids, rule=rule, span=span, containment=mode)
         row = {"recording_id": int(rid), "channel": (names or {}).get(rid), **div["cells"],
                NOT_COMPARABLE: div["not_comparable"]["n"], "run_ids": div["run_ids"],
                "not_comparable_why": {**div["not_comparable"]["detections"], **div["not_comparable"]["labels"]},
@@ -562,4 +618,6 @@ def breakdown(conn, runs_by_recording, *, bins, n_samples, span=None, rule=None,
         "structure_note": STRUCTURE_NOTE,
         "cells": list(DISAGREE),
         "rule": rule,
+        "containment": mode,
+        "rules": {"containment": containment_rule_text(mode), "extent": extent_rule_text(rule)},
     }

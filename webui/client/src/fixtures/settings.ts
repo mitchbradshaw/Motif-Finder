@@ -367,6 +367,8 @@ export const RULE_EXAMPLES: Record<string, Record<string, string | null>> = {
 const analysisValues = (band: string): Values => {
   const v: Values = {
     iou: 0.5, onset: 0.25, exclusion: 'm / 2',
+    // fixup-X: what "falls in a reviewed window" means for Q-D2's containment figure (the researcher, 2026-10-04)
+    containment: 'centre',
     coherence: 0.5, clipping: 98, step_x: 5, step_within: 1, band_low: 0.3, band_medium: 0.6,
     cache_min_s: 2, cache_keep_days: 14, cache_location: './artifacts/steps',
     bands: DEFAULT_BANDS,

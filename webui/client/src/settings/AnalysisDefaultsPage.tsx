@@ -62,6 +62,12 @@ function Body({ data }: { data: Data }) {
           caption="a detection whose onset is inside this counts as matched">
           <Slider value={s.num('onset')} onChange={v => s.set('onset', v)} min={0} max={1} step={0.05} width={170} format={v => `${v.toFixed(2)} × duration`} testid="onset" />
         </Row>
+        <Row label="window-label containment" info="Q-D2's containment figure scores a detection by the 600-sample review windows it falls in. Centre: the windows its middle lies in — does the detector fire where a human saw something. Wholly inside: only windows that contain all of it (Q41's rule, mirrored) — stricter, and a detection longer than a window, or sticking out past one, gets no verdict. Every containment figure prints the mode it was computed under."
+          dot={s.differs('containment')} unsaved={s.dirty('containment')} testid="containment-row"
+          caption="like the IoU, changing it is a versioned act — every precision · containment figure already shown was computed under the old mode">
+          <SelectField value={s.str('containment') || 'centre'} onChange={v => s.set('containment', v)} width={190} testid="containment"
+            options={[{ value: 'centre', label: 'centre in the window' }, { value: 'whole', label: 'wholly inside' }]} />
+        </Row>
         <Row label="seed-search exclusion zone" dot={s.differs('exclusion')} unsaved={s.dirty('exclusion')} testid="exclusion-row"
           caption="the trivial-match guard">
           <SelectField value={s.str('exclusion')} onChange={v => s.set('exclusion', v)} width={110} testid="exclusion"

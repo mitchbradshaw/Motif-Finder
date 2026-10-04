@@ -2691,8 +2691,7 @@ def _divergence_breakdown(c, chans, other_ids, span, fs, rule, bins=24):
     lo, hi = (span[0], span[1]) if span else (0, int(chans[0]["n_samples"]) if chans else 0)
     out["binH"] = round((hi - lo) / fs / 3600.0 / bins, 4)
     out["t0H"], out["t1H"] = round(lo / fs / 3600.0, 4), round(hi / fs / 3600.0, 4)
-    out["labels"] = DIV.CELL_LABEL
-    out["rules"] = {"containment": DIV.CONTAINMENT_RULE, "extent": DIV.extent_rule_text(rule)}
+    out["labels"] = DIV.CELL_LABEL       # `rules` comes from the core, naming the containment mode in force
     return out
 
 
