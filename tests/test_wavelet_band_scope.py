@@ -193,3 +193,17 @@ def test_a_wavelet_band_runs_stored_recipe_is_the_hand_built_one():
             conn.close()
     finally:
         shutil.rmtree(tmpdir, ignore_errors=True)
+
+
+def test_the_recipe_layer_offers_exactly_the_blocks_wavelets():
+    """`Working.recipes` restates the block's wavelet list so the recipe layer
+    stays free of the adapters; the two must not drift apart."""
+    from Adapters import preprocessing_wavelet_bands as WB
+    from Working.recipes import WAVELET_BAND_WAVELETS
+
+    assert list(WAVELET_BAND_WAVELETS) == list(WB.WAVELETS)
+
+
+def test_resolving_a_resolved_wavelet_band_changes_nothing():
+    once = run_groups.resolve_band({"kind": "wavelet", "level": 4}, fs=1.0, n_samples=14400)
+    assert run_groups.resolve_band(once, fs=1.0, n_samples=14400) == once

@@ -15,8 +15,11 @@ carries an optional `fan_out` scope:
     {"kind": "bands",    "targets": [{"kind": "bandpass", "label": ..., "low_hz": ..., "high_hz": ...}, ...]}
 
 A band is a **typed** entry (fixup-Z): `kind` names how the band is isolated
-— `bandpass` today; `AC` adds a wavelet level as one more kind and one more
-step builder in `_BAND_STEPS`, without reshaping the scope. Band labels are
+— `bandpass`, or (fixup-AC) `wavelet`, one layer of a stationary wavelet
+decomposition, `{"kind": "wavelet", "wavelet": "db4", "level": 4}` — one more
+kind and one more step builder in `_BAND_STEPS`, without reshaping the scope.
+A wavelet level's Hz range depends on the recording's rate, so its label gains
+the range when it is resolved against one (`resolve_band`). Band labels are
 caller-supplied; the project's named list lives in Settings › Analysis
 defaults (`bands_from_settings`, Q43).
 
@@ -78,8 +81,63 @@ def _bandpass_step(band):
     return {"stage": "preprocessing", "algorithm": "bandpass", "params": params}
 
 
-#: band kind -> the step that isolates it. `AC` adds "wavelet" here.
-_BAND_STEPS = {"bandpass": _bandpass_step}
+def _wavelet_step(band):
+    """fixup-AC: a wavelet level is the wavelet-bands block as Analyse inserts
+    it — the adapter's own defaults filled (`levels` 0, auto) and the wavelet and
+    level set — so a wavelet band run hashes the same as the hand-built chain."""
+    from Adapters.registry import discover_adapters, get_adapter
+
+    discover_adapters()
+    params = get_adapter("preprocessing.wavelet_bands").validate_params(
+        {"wavelet": band["wavelet"], "level": band["level"]})
+    return {"stage": "preprocessing", "algorithm": "wavelet_bands", "params": params}
+
+
+#: band kind -> the step that isolates it.
+_BAND_STEPS = {"bandpass": _bandpass_step, "wavelet": _wavelet_step}
+
+
+def resolve_band(band, fs, n_samples):
+    """A band as it reads against one recording and span: a bandpass band is
+    returned as it is; a wavelet band gains the depth its block will decompose
+    to (`levels`, auto — `preprocessing_wavelet_bands.auto_levels`), its Hz range
+    at `fs` (`low_hz`, `high_hz`), and a label carrying its level and that range
+    ("db4 level 4 · 0.031–0.062 Hz"; a named band keeps its name: "mid · …").
+
+    A level deeper than `n_samples` lets the filter fit is refused by name,
+    before anything runs — inside a fan-out it would fail after the earlier
+    bands had written their runs. Only the label and the range are added: the
+    step the band prepends (`band_step`) reads `wavelet` and `level` alone, so
+    the recipe does not depend on the span the label was resolved for.
+    """
+    band = normalize_band(band)
+    if band["kind"] != "wavelet":
+        return band
+    from Adapters import preprocessing_wavelet_bands as WB
+
+    wavelet, level, n = band["wavelet"], band["level"], int(n_samples)
+    ceiling = WB.max_levels(n, wavelet)
+    if level > ceiling:
+        raise ValueError(
+            f"wavelet band {band['label']!r}: level {level} is deeper than this scope's {n}-sample span "
+            f"allows with {wavelet} (at most level {ceiling}). Choose level {ceiling} or less, or a longer section.")
+    levels = WB.auto_levels(n, fs, wavelet, level)
+    lo, hi = WB.layer_range_hz(fs, level, levels)
+    default = f"{wavelet} residual" if level == 0 else f"{wavelet} level {level}"
+    name = band["label"].split(" · ")[0] if band["label"] != default else default
+    return {**band, "label": f"{name} · {WB.range_words(fs, level, levels)}", "low_hz": lo, "high_hz": hi,
+            "levels": levels}
+
+
+def wavelet_levels(fs, n_samples, wavelet="db4"):
+    """The wavelet levels a scope can offer as bands: every detail level the
+    block's auto depth reaches over `n_samples` at `fs`, fastest first, then the
+    residual — each resolved (`resolve_band`) so it carries its Hz range."""
+    from Adapters import preprocessing_wavelet_bands as WB
+
+    deepest = WB.auto_levels(int(n_samples), fs, wavelet)
+    return [resolve_band({"kind": "wavelet", "wavelet": wavelet, "level": lv}, fs, n_samples)
+            for lv in list(range(1, deepest + 1)) + [0]]
 
 
 def band_step(band):

@@ -172,10 +172,16 @@ def _normalize_side_inputs(side_inputs, step_index, source_kinds):
 
 
 #: The kinds of band a band scope can hold (fixup-Z). A band is a typed entry
-#: so that a second way of isolating a frequency range — `AC`'s wavelet level,
-#: `{"kind": "wavelet", "level": ...}` — is one more entry here and one more
-#: step builder in `Working.run_groups`, not a reshaping of the scope.
-BAND_KINDS = ("bandpass",)
+#: so that a second way of isolating a frequency range is one more entry here
+#: and one more step builder in `Working.run_groups`, not a reshaping of the
+#: scope. fixup-AC added `wavelet`: `{"kind": "wavelet", "wavelet", "level"}`,
+#: one layer of a stationary wavelet decomposition (`preprocessing.wavelet_bands`).
+BAND_KINDS = ("bandpass", "wavelet")
+
+#: The wavelets a wavelet band may name — the block's own short list. Restated
+#: here rather than imported so the recipe layer stays free of the adapters;
+#: `tests/test_wavelet_band_scope.py` holds the two lists equal.
+WAVELET_BAND_WAVELETS = ("db4", "db2", "db8", "sym4", "sym8", "coif2", "haar")
 
 
 def _band_label(low, high):
@@ -192,6 +198,10 @@ def normalize_band(band):
     Returns
     -------
     dict : {"kind": "bandpass", "label": str, "low_hz": float, "high_hz": float}
+        or {"kind": "wavelet", "label": str, "wavelet": str, "level": int} —
+        a wavelet level's Hz range depends on the recording's rate, so it is
+        added when the band is resolved against one
+        (`Working.run_groups.resolve_band`), not here.
     """
     if not isinstance(band, dict):
         raise ValueError(f"a band must be a dict naming its kind and edges, got {band!r}.")
@@ -201,6 +211,8 @@ def normalize_band(band):
             f"band kind {kind!r} is not one this core can build; known kinds: "
             f"{', '.join(BAND_KINDS)}."
         )
+    if kind == "wavelet":
+        return _normalize_wavelet_band(band)
     try:
         low = float(band["low_hz"])
         high = float(band["high_hz"])
@@ -212,6 +224,24 @@ def normalize_band(band):
         )
     label = str(band.get("label") or _band_label(low, high))
     return {"kind": kind, "label": label, "low_hz": low, "high_hz": high}
+
+
+def _normalize_wavelet_band(band):
+    """A wavelet band: one layer (`level`; 0 = the residual approximation) of a
+    stationary decomposition with `wavelet` (default db4)."""
+    wavelet = str(band.get("wavelet") or "db4")
+    if wavelet not in WAVELET_BAND_WAVELETS:
+        raise ValueError(
+            f"a wavelet band's wavelet {wavelet!r} is not one the wavelet-bands block offers; "
+            f"choose one of {', '.join(WAVELET_BAND_WAVELETS)}."
+        )
+    level = band.get("level")
+    if isinstance(level, bool) or not isinstance(level, int) or level < 0:
+        raise ValueError(
+            f"a wavelet band needs an integer level >= 0 (0 = the residual approximation), got {band!r}."
+        )
+    label = str(band.get("label") or (f"{wavelet} residual" if level == 0 else f"{wavelet} level {level}"))
+    return {"kind": "wavelet", "label": label, "wavelet": wavelet, "level": int(level)}
 
 
 def _normalize_fan_out(fan_out):
@@ -268,7 +298,8 @@ def make_recipe(recording_id, steps, span=None, fan_out=None):
         A scope over which this recipe fans out into N sibling runs. Either
         {"kind": "channels", "targets": [recording_id, ...]} or
         {"kind": "bands", "targets": [{"kind": "bandpass", "label": ..., "low_hz": ..., "high_hz": ...}, ...]}
-        (a band's `kind` defaults to "bandpass"; see `normalize_band`).
+        (a band's `kind` defaults to "bandpass"; a wavelet band is
+        `{"kind": "wavelet", "wavelet": ..., "level": ...}`; see `normalize_band`).
         The target list is baked into the recipe.
     """
     if not steps:
