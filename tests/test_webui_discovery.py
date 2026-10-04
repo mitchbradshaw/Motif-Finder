@@ -1025,3 +1025,87 @@ def test_a_role_holding_one_more_stage_differs(client):
         cmp_ = _compare(client, raw["run_key"], b)
         assert cmp_["differing"] == ["Preprocess"], (b, cmp_["differing"])
         assert cmp_["attributable"] is True
+
+
+# ── fixup-AC: a wavelet level is a band in the band scope ───────────────────
+
+#: Two wavelet levels and one bandpass band — the prompt's acceptance mix.
+WAVELET_MIX = [{"kind": "wavelet", "wavelet": "db4", "level": 3},
+               {"kind": "wavelet", "wavelet": "db4", "level": 5},
+               {"label": "slow", "low_hz": 0.01, "high_hz": 0.1}]
+
+
+def test_the_band_list_offers_wavelet_levels_for_the_scopes_span(client):
+    """Beside the named bandpass bands, *Apply template* offers wavelet levels:
+    each with its Hz range at this recording's rate, as deep as the scope's span
+    allows (6000 samples at 1 Hz → down to level 9, below 0.001 Hz), plus the
+    residual."""
+    body = client.get("/api/discovery/bands").json()
+    assert body["kinds"] == ["bandpass", "wavelet"]
+    wav = body["wavelet"]
+    assert wav["wavelet"] == "db4" and "db4" in wav["wavelets"]
+    assert [b["level"] for b in wav["levels"]] == [1, 2, 3, 4, 5, 6, 7, 8, 9, 0]
+    assert wav["levels"][3]["label"] == "db4 level 4 · 0.031–0.062 Hz"
+    other = client.get("/api/discovery/bands", params={"wavelet": "haar"}).json()["wavelet"]
+    assert other["wavelet"] == "haar" and other["levels"][0]["label"].startswith("haar level 1")
+
+
+def test_two_wavelet_levels_and_a_bandpass_band_are_three_runs_each_with_its_null(client):
+    from Working.database import runs as R
+    out = _apply_bands(client, bands=WAVELET_MIX)
+    assert len(out) == 3 and len({o["bandSet"] for o in out}) == 1
+    runs = {r["key"]: r for r in client.get("/api/discovery/runs").json()}
+    labels = [runs[o["run_key"]]["label"] for o in out]
+    assert "db4 level 3 · 0.062–0.12 Hz" in labels[0], labels
+    assert "db4 level 5 · 0.016–0.031 Hz" in labels[1], labels
+    assert "slow" in labels[2], labels
+    for o, band in zip(out, WAVELET_MIX):
+        row = runs[o["run_key"]]
+        assert row["channelsDone"] == "2 / 2"
+        ids, recipe = _first_run_recipe(client, o["run_key"])
+        first = recipe["steps"][0]
+        if band.get("kind") == "wavelet":
+            assert row["band"]["kind"] == "wavelet" and row["band"]["level"] == band["level"]
+            assert (first["algorithm"], first["params"]["level"], first["params"]["wavelet"]) == (
+                "wavelet_bands", band["level"], "db4")
+            assert first["params"]["levels"] == 0, "the block's own default (auto), as Analyse inserts it"
+        else:
+            assert first["algorithm"] == "bandpass"
+        sur = _db_rows(client, "SELECT config_id FROM runs WHERE surrogate_of_run_id IN (%s)"
+                       % ",".join(str(i) for i in ids))
+        assert len(sur) == 2 * len(ids), "every band run has its null, at the count the session names"
+        conn = sqlite3.connect(client.app.state.rt.db_path)
+        conn.row_factory = sqlite3.Row
+        try:
+            null = R.load_recipe(conn, sur[0]["config_id"])
+        finally:
+            conn.close()
+        assert [s["algorithm"] for s in null["steps"]][:2] == ["surrogate", first["algorithm"]]
+
+
+def test_compare_takes_wavelet_level_runs_into_the_band_sets_union(client):
+    raw = _apply(client, template="mp_threshold")
+    bands = _apply_bands(client, bands=WAVELET_MIX)
+    cmp_ = _compare(client, raw["run_key"], f"set:{bands[0]['bandSet']}")
+    members = cmp_["b"]["members"]
+    assert len(members) == 3 and members[0]["band"]["kind"] == "wavelet"
+    assert [p["band"]["label"] for p in cmp_["perBand"]] == [m["band"]["label"] for m in members]
+    tot = cmp_["total"]
+    assert cmp_["b"]["found"] == tot["both"] + tot["onlyB"]
+
+
+def test_a_wavelet_level_deeper_than_the_span_allows_is_refused_before_anything_runs(client):
+    before = _counts(client, "runs")
+    r = client.post("/api/discovery/templates/apply", json={
+        "templates": ["mp_threshold"], "channels": [CH[0], CH[1]], "t0": 0.0, "t1": N / FS / 3600.0,
+        "bands": [{"kind": "wavelet", "level": 3}, {"kind": "wavelet", "level": 12}]})
+    assert r.status_code == 422, r.text
+    assert "level 12" in r.text
+    assert _counts(client, "runs") == before
+
+
+def test_a_wavelet_band_plan_costs_the_wavelet_chain(client):
+    plan = client.post("/api/discovery/plan", json={
+        "template": "mp_threshold", "channels": [CH[0], CH[1]], "t0": 0.0, "t1": N / 3600.0,
+        "band": {"kind": "wavelet", "level": 4}}).json()
+    assert plan["band"]["kind"] == "wavelet" and plan["band"]["label"] == "db4 level 4 · 0.031–0.062 Hz"

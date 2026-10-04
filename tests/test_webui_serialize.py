@@ -345,5 +345,51 @@ def test_pruning_held_frames_survives_jobs_that_are_not_chain_runs():
     assert not hasattr(jobs[2], "frame_sources"), "a job of another kind is left alone"
 
 
+# ----------------------------------------- fixup-ac: a signal that carries its layers --
+
+def test_a_signal_carrying_wavelet_layers_ships_each_on_the_absolute_time_axis():
+    """`preprocessing.wavelet_bands` passes ONE layer on and puts every layer in
+    `meta["layers"]` as a span-relative min/max envelope. The payload ships each
+    layer on the channel's absolute seconds, converted to mV like the trace, with
+    its Hz range and whether it is the one that went on."""
+    from Adapters.registry import discover_adapters, get_adapter
+    from Working.types import Signal
+
+    discover_adapters()
+    spec = get_adapter("preprocessing.wavelet_bands")
+    x = np.random.default_rng(0).standard_normal(3000).cumsum() * 1e-3      # volts
+    res = spec.run(x, np.arange(3000) / 2.0, 2.0, **spec.validate_params({"level": 3, "levels": 5}))
+    p = to_payload("signal", res.value, res.meta, {"fs": 2.0, "span_start": 1000, "px": 400, "units": "V"})
+    assert p["type"] == "signal" and p["unit"] == "mV"
+    layers = p["layers"]
+    assert [L["name"] for L in layers] == ["D1", "D2", "D3", "D4", "D5", "A5"]
+    d3 = next(L for L in layers if L["name"] == "D3")
+    assert d3["chosen"] is True and (d3["low_hz"], d3["high_hz"]) == (0.125, 0.25)
+    env = d3["envelope"]
+    assert env["t"][0] >= 1000 / 2.0 and env["t"][-1] < (1000 + 3000) / 2.0, "absolute seconds, span offset added"
+    # the chosen layer's envelope is the value's own samples, in mV
+    raw_lo = float(np.min(res.value.x)) * 1000.0
+    assert min(v for v in env["v"] if v is not None) == pytest.approx(raw_lo)
+    assert p["decomposition"]["wavelet"] == "db4" and p["decomposition"]["levels"] == 5
+    assert p["decomposition"]["padding"]["padded_to"] % 32 == 0
+
+
+def test_a_signal_without_layers_ships_none():
+    from Working.types import Signal
+    p = to_payload("signal", Signal(x=np.arange(10.0), fs=1.0), {}, {"fs": 1.0})
+    assert "layers" not in p
+
+
+def test_layers_lost_to_a_cached_step_say_so_rather_than_vanish():
+    """On a step-cache hit the bridge reads `meta` back from a JSON sidecar; the
+    layers survive it because each envelope is small. A sidecar written before
+    they were (or one that lost them) must be said on the payload, not silently
+    drawn as a plain signal."""
+    from Working.types import Signal
+    meta = {"layer": "D2", "level": 2, "levels": 4, "wavelet": "db4"}
+    p = to_payload("signal", Signal(x=np.arange(10.0), fs=1.0), meta, {"fs": 1.0})
+    assert p["layers"] == [] and "not in this step's record" in p["layers_note"]
+
+
 if __name__ == "__main__":
     sys.exit(pytest.main([__file__, "-q"]))

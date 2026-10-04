@@ -93,9 +93,10 @@ def test_a_band_with_no_kind_is_a_bandpass():
 def test_an_unknown_band_kind_is_refused_by_name():
     with pytest.raises(ValueError) as e:
         make_recipe(1, STEPS, span=(0, 100), fan_out={
-            "kind": "bands", "targets": [{"kind": "wavelet", "level": 3}]})
+            "kind": "bands", "targets": [{"kind": "notch", "low_hz": 0.01, "high_hz": 0.1}]})
     msg = str(e.value)
-    assert "wavelet" in msg and "bandpass" in msg, msg
+    # fixup-AC made "wavelet" a known kind; the refusal by name still holds for any other
+    assert "notch" in msg and "bandpass" in msg and "wavelet" in msg, msg
 
 
 def test_a_band_is_refused_above_its_upper_edge_and_below_zero():
