@@ -116,11 +116,46 @@ def _signal(value, meta, ctx):
     # envelope() reports t from index 0; shift to absolute seconds.
     env["t"] = [tt + ss / fs for tt in env["t"]]
     yr = _finite_range(x)
-    return {
+    out = {
         "type": "signal", "fs": fs, "n": n, "t0_s": ss / fs, "t1_s": (ss + n) / fs,
         "y_range": yr, "envelope": env, "unit": unit,
         "summary": f"{n:,} samples · {'%.3f' % yr[0] if yr else '–'} … {'%.3f' % yr[1] if yr else '–'} {unit or '(unit undeclared)'}",
     }
+    if meta and "wavelet" in meta and "levels" in meta:
+        out.update(_signal_layers(meta, fs, ss, factor))
+    return out
+
+
+def _signal_layers(meta, fs, ss, factor):
+    """fixup-ac: a Signal block that passes ONE layer of a decomposition on
+    (`preprocessing.wavelet_bands`) puts every layer in ``meta["layers"]`` as a
+    min/max envelope over span-relative sample indices. Each ships on the
+    channel's absolute seconds and in the trace's display unit, beside its Hz
+    range and whether it is the layer that went on. A record that lost them (a
+    sidecar written without them) says so rather than drawing a plain signal."""
+    f = factor if factor is not None else 1.0
+    layers = []
+    for L in meta.get("layers") or []:
+        env = L.get("envelope") or {}
+        if not isinstance(env.get("i"), list):
+            continue
+        layers.append({
+            "name": L.get("name"), "level": L.get("level"), "kind": L.get("kind"), "label": L.get("label"),
+            "low_hz": L.get("low_hz"), "high_hz": L.get("high_hz"), "chosen": bool(L.get("chosen")),
+            "rms": None if L.get("rms") is None else float(L["rms"]) * f,
+            "envelope": {"t": [(ss + int(i)) / fs for i in env["i"]],
+                         "v": [None if v is None else float(v) * f for v in env["v"]],
+                         "n_source": env.get("n_source"), "n_points": env.get("n_points"),
+                         "decimated": bool(env.get("decimated"))},
+        })
+    out = {"layers": layers,
+           "decomposition": {k: _clean(meta.get(k)) for k in
+                             ("wavelet", "levels", "levels_auto", "level", "layer", "layer_label", "padding",
+                              "padding_note", "boundary_note", "edges_note", "reconstruction_error")}}
+    if not layers:
+        out["layers_note"] = ("the layers are not in this step's record (a cached result whose sidecar predates "
+                              "them) — re-run with this step changed to draw every layer")
+    return out
 
 
 def _scores(value, meta, ctx):

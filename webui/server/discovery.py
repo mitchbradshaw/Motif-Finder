@@ -1785,6 +1785,17 @@ def _bands_or_422(bands):
         raise HTTPException(422, {"message": str(e)})
 
 
+def _resolved_or_422(bands, fs, n_samples):
+    """fixup-AC: each band as it reads against this recording and span — a
+    wavelet level gains its Hz range and a label carrying it, and a level deeper
+    than the span allows is refused by name before anything runs
+    (`run_groups.resolve_band`). A bandpass band is unchanged."""
+    try:
+        return [RG.resolve_band(b, fs, n_samples) for b in bands]
+    except ValueError as e:
+        raise HTTPException(422, {"message": str(e)})
+
+
 def _check_nyquist(bands, fs):
     """A band whose upper edge is at or above Nyquist cannot be filtered at
     all (Butterworth needs `high / nyquist < 1`), and would fail inside the
@@ -1811,11 +1822,18 @@ def _banded_steps(conn, steps, band, recording_id, span):
 
 
 @router.get("/api/discovery/bands")
-def get_bands(request: Request):
+def get_bands(request: Request, wavelet: str = "db4"):
     """The project's band list (Q43): Settings › Analysis defaults' `bands`,
     else the three seeded bands. What *Apply template*'s band scope offers and
-    every bandpass block's presets."""
+    every bandpass block's presets.
+
+    fixup-AC: beside them, ``wavelet`` — the wavelet levels the session's scope
+    can offer as bands (`run_groups.wavelet_levels`): every level the
+    wavelet-bands block's auto depth reaches over the scope's section at the
+    recording's rate, then the residual, each labelled with its Hz range. None
+    without a session (Analyse reads this route for its bandpass presets)."""
     from Working.registration.settings import get_settings
+    from Working.recipes import WAVELET_BAND_WAVELETS
 
     c = _conn(request)
     try:
@@ -1828,10 +1846,19 @@ def get_bands(request: Request):
         # list for its bandpass presets and must not mint a Discovery session
         row = _session_row(c)
         rec = _file_for_key(c, _stem(row["source_file"])) if row is not None else None
+        if wavelet not in WAVELET_BAND_WAVELETS:
+            raise HTTPException(422, {"message": f"wavelet {wavelet!r} is not one the wavelet-bands block offers; "
+                                                 f"choose one of {', '.join(WAVELET_BAND_WAVELETS)}"})
+        wav = None
+        if rec is not None:
+            n = int(row["span_end"]) - int(row["span_start"])
+            wav = {"wavelet": wavelet, "wavelets": list(WAVELET_BAND_WAVELETS), "nSamples": n,
+                   "levels": RG.wavelet_levels(float(rec["fs"]), n, wavelet)}
         return {"bands": bands, "source": "default" if saved is None else "settings",
                 "page": RG.BANDS_SETTINGS_PAGE, "key": RG.BANDS_SETTINGS_KEY,
                 "kinds": list(RG.BAND_KINDS),
-                "nyquistHz": float(rec["fs"]) / 2.0 if rec else None}
+                "nyquistHz": float(rec["fs"]) / 2.0 if rec else None,
+                "wavelet": wav}
     finally:
         c.close()
 
@@ -1874,7 +1901,7 @@ def _plan(conn, body: PlanBody):
     if body.band is not None:
         if seed is not None:
             raise HTTPException(422, {"message": "a band scope applies to a template, not a seed search"})
-        band = _bands_or_422([body.band])[0]
+        band = _resolved_or_422(_bands_or_422([body.band]), rec["fs"], span[1] - span[0])[0]
         _check_nyquist([band], rec["fs"])
         if chans:
             steps = _banded_steps(conn, steps, band, chans[0]["id"], span)
@@ -2174,7 +2201,10 @@ def apply_templates(request: Request, body: ApplyBody):
         out = []
         bands = _bands_or_422(body.bands) if body.bands else []
         if bands:
-            _, rec, _, _ = _session_scope(c)
+            _, rec, _, span = _session_scope(c)
+            if body.t1 > body.t0:
+                span = (int(round(body.t0 * 3600 * rec["fs"])), int(round(body.t1 * 3600 * rec["fs"])))
+            bands = _resolved_or_422(bands, rec["fs"], span[1] - span[0])
             _check_nyquist(bands, rec["fs"])
         for name in body.templates:
             if bands:
