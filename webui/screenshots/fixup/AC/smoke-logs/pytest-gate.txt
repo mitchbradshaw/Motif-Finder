@@ -1,0 +1,118 @@
+bringing up nodes...
+bringing up nodes...
+
+........................................................................ [  3%]
+........................................................................ [  6%]
+........................................................................ [  9%]
+........................................................................ [ 12%]
+........................................................................ [ 16%]
+........................................................................ [ 19%]
+........................................................................ [ 22%]
+........................................................................ [ 25%]
+........................................................F............... [ 29%]
+........................................................................ [ 32%]
+.......................F................................................ [ 35%]
+........................................................................ [ 38%]
+........................................................................ [ 42%]
+........................................................................ [ 45%]
+........................................................................ [ 48%]
+........................................................................ [ 51%]
+........................................................................ [ 55%]
+........................................................................ [ 58%]
+........................................................................ [ 61%]
+........................................................................ [ 64%]
+........................................................................ [ 68%]
+........................................................................ [ 71%]
+........................................................................ [ 74%]
+........................................................................ [ 77%]
+........................................................................ [ 81%]
+........................................................................ [ 84%]
+.....................................................................sss [ 87%]
+s....................................................................... [ 90%]
+...................................................sssss................ [ 94%]
+........................................................................ [ 97%]
+.............................................................            [100%]
+================================== FAILURES ===================================
+__________ test_every_shipped_adapter_registers_without_modification __________
+[gw0] win32 -- Python 3.13.9 C:\ProgramData\anaconda3\python.exe
+
+    def test_every_shipped_adapter_registers_without_modification():
+        specs = _shipped_adapter_specs()
+        # 33 + fixup-d's three (interrogation.event_shape, interrogation.intervals, preprocessing.invert)
+        # + fixup-aa's catalogue.manual_labels
+>       assert len(specs) == 37, f"expected the thirty-seven shipped adapters, got {sorted(specs)}"
+E       AssertionError: expected the thirty-seven shipped adapters, got ['catalogue_classifier', 'catalogue_cluster', 'catalogue_cnn_score', 'catalogue_gramian_fusion', 'catalogue_gramian_gadf', 'catalogue_gramian_gasf', 'catalogue_gramian_recurrence', 'catalogue_manual_labels', 'catalogue_window_images', 'detection_dehshibi_spikes', 'detection_drop_detection', 'detection_freq_stft', 'detection_matrix_profile', 'detection_mp_motifs', 'detection_rupture', 'detection_sax_csax', 'detection_sax_dsax', 'detection_sax_psax', 'detection_seed_matches', 'detection_spike_v1', 'detection_stage_encoding', 'detection_summation_threshold', 'detection_symbol_search', 'detection_threshold', 'detection_wavelet_scattering', 'detection_wavelet_summation', 'interrogation_event_shape', 'interrogation_intervals', 'preprocessing_bandpass', 'preprocessing_detrend', 'preprocessing_highpass', 'preprocessing_invert', 'preprocessing_lowpass', 'preprocessing_sliding_windows', 'preprocessing_surrogate', 'preprocessing_wavelet_bands', 'preprocessing_wavelet_transform', 'preprocessing_window_matrix']
+E       assert 38 == 37
+E        +  where 38 = len({'catalogue_classifier': AdapterSpec(name='catalogue.classifier', display_name='Classifier training (Grouping -> Model...s.', recommend=None, derive=None, persist=None, category='encode', page_name='Gramian fusion', known_broken=None), ...})
+
+tests\test_adapter_spec.py:386: AssertionError
+_____________ test_discover_adapters_registers_the_expected_count _____________
+[gw1] win32 -- Python 3.13.9 C:\ProgramData\anaconda3\python.exe
+
+    def test_discover_adapters_registers_the_expected_count():
+        """No shipped adapter is silently skipped by a broken optional dependency.
+    
+        The wavelet-scattering adapter imports its heavy dependency lazily, so it
+        registers even when kymatio is broken against the installed scipy. If any
+        adapter module fails to import, `discover_adapters()` skips it and the
+        per-module `get_adapter` lookup below raises.
+    
+        The count is taken from the adapter *modules* on disk rather than from
+        `len(discover_adapters())`, because other tests register throwaway probe
+        adapters into the global registry (e.g. test_side_inputs); those probes
+        are not shipped and must not change the expected count.
+        """
+        import Adapters
+    
+        module_names = sorted(
+            name for _, name, _ in pkgutil.iter_modules(Adapters.__path__)
+            if name not in ("base", "registry") and not name.startswith("_")
+        )
+        # 33 + fixup-d's interrogation_event_shape, interrogation_intervals, preprocessing_invert
+        # + fixup-aa's catalogue_manual_labels
+>       assert len(module_names) == 37, (
+            f"expected 37 shipped adapter modules, got {len(module_names)}"
+        )
+E       AssertionError: expected 37 shipped adapter modules, got 38
+E       assert 38 == 37
+E        +  where 38 = len(['catalogue_classifier', 'catalogue_cluster', 'catalogue_cnn_score', 'catalogue_gramian_fusion', 'catalogue_gramian_gadf', 'catalogue_gramian_gasf', ...])
+
+tests\test_end_to_end.py:74: AssertionError
+============================== warnings summary ===============================
+tests/test_drop_motifs_pipelines12.py::test_store_rows_replaces_the_replayed_detections
+tests/test_drop_motifs_pipelines12.py::test_the_default_path_is_unchanged
+tests/test_drop_motifs_pipelines12.py::test_the_panel_states_its_millivolts_per_second
+  C:\Users\mmebr\Documents\CNN\Pipelines\drop_motifs\casestudy9.py:332: UserWarning: This figure includes Axes that are not compatible with tight_layout, so results might be incorrect.
+    fig.savefig(out_path, dpi=180)
+
+tests/test_dsax.py: 2956 warnings
+tests/test_dsax_diagnostics.py: 854 warnings
+tests/test_dsax_engineered.py: 342 warnings
+tests/test_sax_details.py: 704 warnings
+tests/test_sax_determinism.py: 4402 warnings
+tests/test_sax_adapters.py: 88 warnings
+  C:\Users\mmebr\Documents\CNN\Working\Detection\sax\psax_python\lloydmax.py:115: DeprecationWarning: `trapz` is deprecated. Use `trapezoid` instead, or one of the numerical integration functions in `scipy.integrate`.
+    I1   = np.trapz(xs * fs, xs)
+
+tests/test_dsax.py: 2956 warnings
+tests/test_dsax_diagnostics.py: 854 warnings
+tests/test_dsax_engineered.py: 342 warnings
+tests/test_sax_details.py: 704 warnings
+tests/test_sax_determinism.py: 4402 warnings
+tests/test_sax_adapters.py: 88 warnings
+  C:\Users\mmebr\Documents\CNN\Working\Detection\sax\psax_python\lloydmax.py:116: DeprecationWarning: `trapz` is deprecated. Use `trapezoid` instead, or one of the numerical integration functions in `scipy.integrate`.
+    I2   = np.trapz(fs,      xs)
+
+tests/test_drop_motifs_figures12b.py::test_sequence_morph_is_written_and_states_what_it_drew
+tests/test_drop_motifs_figures12b.py::test_the_drawn_median_event_lands_in_the_band
+tests/test_drop_motifs_figures12b.py::test_a_missing_source_trace_is_said_rather_than_raised
+tests/test_drop_motifs_figures12b.py::test_a_long_sequence_is_thinned_and_says_by_how_much
+tests/test_drop_motifs_figures12b.py::test_contact_sheet_locks_every_panel_to_its_own_event
+  C:\Users\mmebr\Documents\CNN\Pipelines\drop_motifs\config11.py:341: UserWarning: This figure includes Axes that are not compatible with tight_layout, so results might be incorrect.
+    fig.savefig(path, bbox_inches="tight")
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED tests/test_adapter_spec.py::test_every_shipped_adapter_registers_without_modification
+FAILED tests/test_end_to_end.py::test_discover_adapters_registers_the_expected_count
+2 failed, 2210 passed, 22 skipped, 18700 warnings in 303.23s (0:05:03)

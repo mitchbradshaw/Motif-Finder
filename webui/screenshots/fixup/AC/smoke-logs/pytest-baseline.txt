@@ -1,0 +1,553 @@
+bringing up nodes...
+bringing up nodes...
+
+........................................................................ [  3%]
+.........FFFFFFFFFFFFF.FFFFFF........................................... [  6%]
+........................................................................ [  9%]
+........................................................................ [ 13%]
+........................................................................ [ 16%]
+........................................................................ [ 19%]
+........................................................................ [ 23%]
+........................................................................ [ 26%]
+........................................................................ [ 29%]
+..............FFFFFFFF.................................................. [ 33%]
+........................................................................ [ 36%]
+........................................................................ [ 39%]
+........................................................................ [ 43%]
+........................................................................ [ 46%]
+........................................................................ [ 49%]
+........................................................................ [ 53%]
+........................................................................ [ 56%]
+........................................................................ [ 59%]
+........................................................................ [ 63%]
+........................................................................ [ 66%]
+........................................................................ [ 69%]
+........................................................................ [ 72%]
+........................................................................ [ 76%]
+........................................................................ [ 79%]
+........................................................................ [ 82%]
+......................................................................ss [ 86%]
+ss...................................................................... [ 89%]
+............................................................sssss....... [ 92%]
+........................................................................ [ 96%]
+........................................................................ [ 99%]
+..........                                                               [100%]
+================================== FAILURES ===================================
+_ test_bin_for_reads_lag_in_seconds_and_r_by_magnitude[50.0-0.5-propagation] __
+[gw3] win32 -- Python 3.13.9 C:\ProgramData\anaconda3\python.exe
+
+lag_s = 50.0, r = 0.5, expected = 'propagation'
+
+    @pytest.mark.parametrize("lag_s, r, expected", [
+        (0.0, 0.95, ARTIFACT),
+        (0.0, -0.95, ARTIFACT),                     # an inverted copy at lag 0 is an artifact too (Q40b)
+        (1.0, 0.5, ARTIFACT),                       # both boundaries inclusive
+        (-1.0, -0.7, ARTIFACT),
+        (0.0, 0.49, INDEPENDENT_RECURRENCE),        # under the r floor whatever its lag
+        (1.5, 0.8, PROPAGATION),
+        (-30.0, -0.6, PROPAGATION),
+        (50.0, 0.5, PROPAGATION),
+        (50.5, 0.9, INDEPENDENT_RECURRENCE),
+        (10.0, 0.2, INDEPENDENT_RECURRENCE),        # the old rule called this propagation (Part 1: r 0.16)
+    ])
+    def test_bin_for_reads_lag_in_seconds_and_r_by_magnitude(lag_s, r, expected):
+>       assert xc.bin_for(lag_s, r) == expected
+E       AttributeError: module 'Working.cross_channel' has no attribute 'bin_for'
+
+tests\test_cross_channel_simultaneous.py:125: AttributeError
+_ test_bin_for_reads_lag_in_seconds_and_r_by_magnitude[50.5-0.9-independent_recurrence] _
+[gw3] win32 -- Python 3.13.9 C:\ProgramData\anaconda3\python.exe
+
+lag_s = 50.5, r = 0.9, expected = 'independent_recurrence'
+
+    @pytest.mark.parametrize("lag_s, r, expected", [
+        (0.0, 0.95, ARTIFACT),
+        (0.0, -0.95, ARTIFACT),                     # an inverted copy at lag 0 is an artifact too (Q40b)
+        (1.0, 0.5, ARTIFACT),                       # both boundaries inclusive
+        (-1.0, -0.7, ARTIFACT),
+        (0.0, 0.49, INDEPENDENT_RECURRENCE),        # under the r floor whatever its lag
+        (1.5, 0.8, PROPAGATION),
+        (-30.0, -0.6, PROPAGATION),
+        (50.0, 0.5, PROPAGATION),
+        (50.5, 0.9, INDEPENDENT_RECURRENCE),
+        (10.0, 0.2, INDEPENDENT_RECURRENCE),        # the old rule called this propagation (Part 1: r 0.16)
+    ])
+    def test_bin_for_reads_lag_in_seconds_and_r_by_magnitude(lag_s, r, expected):
+>       assert xc.bin_for(lag_s, r) == expected
+E       AttributeError: module 'Working.cross_channel' has no attribute 'bin_for'
+
+tests\test_cross_channel_simultaneous.py:125: AttributeError
+_ test_bin_for_reads_lag_in_seconds_and_r_by_magnitude[10.0-0.2-independent_recurrence] _
+[gw3] win32 -- Python 3.13.9 C:\ProgramData\anaconda3\python.exe
+
+lag_s = 10.0, r = 0.2, expected = 'independent_recurrence'
+
+    @pytest.mark.parametrize("lag_s, r, expected", [
+        (0.0, 0.95, ARTIFACT),
+        (0.0, -0.95, ARTIFACT),                     # an inverted copy at lag 0 is an artifact too (Q40b)
+        (1.0, 0.5, ARTIFACT),                       # both boundaries inclusive
+        (-1.0, -0.7, ARTIFACT),
+        (0.0, 0.49, INDEPENDENT_RECURRENCE),        # under the r floor whatever its lag
+        (1.5, 0.8, PROPAGATION),
+        (-30.0, -0.6, PROPAGATION),
+        (50.0, 0.5, PROPAGATION),
+        (50.5, 0.9, INDEPENDENT_RECURRENCE),
+        (10.0, 0.2, INDEPENDENT_RECURRENCE),        # the old rule called this propagation (Part 1: r 0.16)
+    ])
+    def test_bin_for_reads_lag_in_seconds_and_r_by_magnitude(lag_s, r, expected):
+>       assert xc.bin_for(lag_s, r) == expected
+E       AttributeError: module 'Working.cross_channel' has no attribute 'bin_for'
+
+tests\test_cross_channel_simultaneous.py:125: AttributeError
+_____________ test_every_bin_prints_its_rule_from_the_values_used _____________
+[gw3] win32 -- Python 3.13.9 C:\ProgramData\anaconda3\python.exe
+
+    def test_every_bin_prints_its_rule_from_the_values_used():
+>       rule = xc.CrossChannelRule(artifact_max_lag_s=2.0, min_abs_r=0.6, propagation_max_lag_s=30.0)
+E       AttributeError: module 'Working.cross_channel' has no attribute 'CrossChannelRule'
+
+tests\test_cross_channel_simultaneous.py:129: AttributeError
+__________________ test_the_three_numbers_are_settings_keys ___________________
+[gw3] win32 -- Python 3.13.9 C:\ProgramData\anaconda3\python.exe
+
+    def test_the_three_numbers_are_settings_keys():
+        conn = init_db(":memory:")
+        try:
+>           assert xc.rule_from_settings(conn) == xc.DEFAULT_RULE
+E           AttributeError: module 'Working.cross_channel' has no attribute 'rule_from_settings'
+
+tests\test_cross_channel_simultaneous.py:140: AttributeError
+___________ test_a_saved_rule_that_is_not_a_rule_is_refused_loudly ____________
+[gw3] win32 -- Python 3.13.9 C:\ProgramData\anaconda3\python.exe
+
+    def test_a_saved_rule_that_is_not_a_rule_is_refused_loudly():
+        with pytest.raises(ValueError):
+>           xc.CrossChannelRule(artifact_max_lag_s=60.0, min_abs_r=0.5, propagation_max_lag_s=50.0)
+E           AttributeError: module 'Working.cross_channel' has no attribute 'CrossChannelRule'
+
+tests\test_cross_channel_simultaneous.py:155: AttributeError
+___________ test_classify_waveforms_converts_lag_to_seconds_with_fs ___________
+[gw3] win32 -- Python 3.13.9 C:\ProgramData\anaconda3\python.exe
+
+    def test_classify_waveforms_converts_lag_to_seconds_with_fs():
+        """At 10 Hz a 15-sample lag is 1.5 s — propagation; at 1 Hz it would be
+        15 s. And 8 samples at 10 Hz is 0.8 s — an artifact, not propagation."""
+        x = _channel(800, [(300, 1)], seed=1)
+        y15 = _channel(800, [(315, 1)], seed=2)
+        y8 = _channel(800, [(308, 1)], seed=3)
+>       lag, r, b = xc.classify_waveforms(x, y15, fs=10.0)
+E       TypeError: classify_waveforms() got an unexpected keyword argument 'fs'
+
+tests\test_cross_channel_simultaneous.py:166: TypeError
+___ test_an_injected_five_sample_offset_is_recovered_and_binned_propagation ___
+[gw3] win32 -- Python 3.13.9 C:\ProgramData\anaconda3\python.exe
+
+world = <tests.test_cross_channel_simultaneous._World object at 0x000002DBFF3092B0>
+
+    def test_an_injected_five_sample_offset_is_recovered_and_binned_propagation(world):
+        """fixup-W Part 1's case: the same pulse on two channels 5 samples apart.
+        The old Library path cut each member's own snippet and returned lag 0 /
+        artifact; on the same absolute window the lag is +5 s."""
+        a_rec = world.recording("p.mat", 0, _channel(3000, [(1000, 1)], seed=10))
+        b_rec = world.recording("p.mat", 1, _channel(3000, [(1005, 1)], seed=11))
+        a = world.member(a_rec, 990, 1070)
+        b = world.member(b_rec, 995, 1075)
+    
+>       out = matching.classify_family_across_channels(world.conn, [a, b])
+E       AttributeError: module 'Working.library.matching' has no attribute 'classify_family_across_channels'
+
+tests\test_cross_channel_simultaneous.py:183: AttributeError
+_______ test_a_simultaneous_pair_is_an_artifact_and_an_inverted_one_too _______
+[gw3] win32 -- Python 3.13.9 C:\ProgramData\anaconda3\python.exe
+
+world = <tests.test_cross_channel_simultaneous._World object at 0x000002DB8A579D10>
+
+    def test_a_simultaneous_pair_is_an_artifact_and_an_inverted_one_too(world):
+        a_rec = world.recording("s.mat", 0, _channel(3000, [(1000, 1)], seed=20))
+        b_rec = world.recording("s.mat", 1, _channel(3000, [(1000, 1)], seed=21))
+        c_rec = world.recording("s.mat", 2, _channel(3000, [(1000, -1)], seed=22))
+        a = world.member(a_rec, 990, 1070)
+        b = world.member(b_rec, 990, 1070)
+        c = world.member(c_rec, 990, 1070)
+    
+>       out = matching.classify_family_across_channels(world.conn, [a, b, c])
+E       AttributeError: module 'Working.library.matching' has no attribute 'classify_family_across_channels'
+
+tests\test_cross_channel_simultaneous.py:204: AttributeError
+________ test_an_existing_seed_edge_is_updated_in_place_not_duplicated ________
+[gw3] win32 -- Python 3.13.9 C:\ProgramData\anaconda3\python.exe
+
+world = <tests.test_cross_channel_simultaneous._World object at 0x000002DB8A57BED0>
+
+    def test_an_existing_seed_edge_is_updated_in_place_not_duplicated(world):
+        a_rec = world.recording("e.mat", 0, _channel(3000, [(1000, 1)], seed=30))
+        b_rec = world.recording("e.mat", 1, _channel(3000, [(1005, 1)], seed=31))
+        a = world.member(a_rec, 990, 1070)
+        b = world.member(b_rec, 995, 1075)
+        seed = world.seed_edge(a, b)
+    
+>       matching.classify_family_across_channels(world.conn, [a, b])
+E       AttributeError: module 'Working.library.matching' has no attribute 'classify_family_across_channels'
+
+tests\test_cross_channel_simultaneous.py:222: AttributeError
+________ test_a_pair_with_no_edge_gets_one_cross_correlation_edge_once ________
+[gw3] win32 -- Python 3.13.9 C:\ProgramData\anaconda3\python.exe
+
+world = <tests.test_cross_channel_simultaneous._World object at 0x000002DB8A8E4510>
+
+    def test_a_pair_with_no_edge_gets_one_cross_correlation_edge_once(world):
+        a_rec = world.recording("n.mat", 0, _channel(3000, [(1000, 1)], seed=40))
+        b_rec = world.recording("n.mat", 1, _channel(3000, [(1005, 1)], seed=41))
+        a = world.member(a_rec, 990, 1070)
+        b = world.member(b_rec, 995, 1075)
+    
+>       matching.classify_family_across_channels(world.conn, [a, b])
+E       AttributeError: module 'Working.library.matching' has no attribute 'classify_family_across_channels'
+
+tests\test_cross_channel_simultaneous.py:238: AttributeError
+__________________ test_members_an_hour_apart_are_never_lag ___________________
+[gw3] win32 -- Python 3.13.9 C:\ProgramData\anaconda3\python.exe
+
+world = <tests.test_cross_channel_simultaneous._World object at 0x000002DB8A8E48A0>
+
+    def test_members_an_hour_apart_are_never_lag(world):
+        """Q40a, and fixup-W Part 1's second case: the old path returned lag 0 /
+        artifact for events an hour apart. They are not simultaneous, so no lag is
+        measured; an edge between them (a seed match) is independent recurrence."""
+        a_rec = world.recording("h.mat", 0, _channel(6000, [(1000, 1)], seed=50))
+        b_rec = world.recording("h.mat", 1, _channel(6000, [(4600, 1)], seed=51))
+        a = world.member(a_rec, 990, 1070)
+        b = world.member(b_rec, 4590, 4670)
+        world.seed_edge(a, b)
+    
+>       out = matching.classify_family_across_channels(world.conn, [a, b])
+E       AttributeError: module 'Working.library.matching' has no attribute 'classify_family_across_channels'
+
+tests\test_cross_channel_simultaneous.py:257: AttributeError
+___________ test_members_on_the_same_channel_are_not_cross_channel ____________
+[gw3] win32 -- Python 3.13.9 C:\ProgramData\anaconda3\python.exe
+
+world = <tests.test_cross_channel_simultaneous._World object at 0x000002DB8A95AC30>
+
+    def test_members_on_the_same_channel_are_not_cross_channel(world):
+        rec = world.recording("one.mat", 0, _channel(3000, [(1000, 1), (1100, 1)], seed=60))
+        a = world.member(rec, 990, 1070)
+        b = world.member(rec, 1090, 1170)
+        world.seed_edge(a, b)
+>       out = matching.classify_family_across_channels(world.conn, [a, b])
+E       AttributeError: module 'Working.library.matching' has no attribute 'classify_family_across_channels'
+
+tests\test_cross_channel_simultaneous.py:271: AttributeError
+________ test_a_co_occurrence_with_no_member_is_counted_never_an_edge _________
+[gw3] win32 -- Python 3.13.9 C:\ProgramData\anaconda3\python.exe
+
+world = <tests.test_cross_channel_simultaneous._World object at 0x000002DB8ABA49E0>
+
+    def test_a_co_occurrence_with_no_member_is_counted_never_an_edge(world):
+        """Q40c: the pulse is on channel 1 at the member's time, but no family
+        member is there. Counted on the family; no edge, no member written."""
+        a_rec = world.recording("c.mat", 0, _channel(3000, [(1000, 1)], seed=70))
+        world.recording("c.mat", 1, _channel(3000, [(1000, 1)], seed=71))      # the same event, no member
+        world.recording("c.mat", 2, _channel(3000, [(1020, 1)], seed=72))      # 20 s later, no member
+        world.recording("c.mat", 3, _channel(3000, [], seed=73))               # nothing there
+        a = world.member(a_rec, 990, 1100)
+        n_members = world.conn.execute("SELECT COUNT(*) FROM motif_member").fetchone()[0]
+    
+>       out = matching.classify_family_across_channels(world.conn, [a])
+E       AttributeError: module 'Working.library.matching' has no attribute 'classify_family_across_channels'
+
+tests\test_cross_channel_simultaneous.py:286: AttributeError
+____________________ test_progress_is_reported_per_channel ____________________
+[gw3] win32 -- Python 3.13.9 C:\ProgramData\anaconda3\python.exe
+
+world = <tests.test_cross_channel_simultaneous._World object at 0x000002DB8ABA5150>
+
+    def test_progress_is_reported_per_channel(world):
+        a_rec = world.recording("g.mat", 0, _channel(3000, [(1000, 1)], seed=80))
+        b_rec = world.recording("g.mat", 1, _channel(3000, [(1005, 1)], seed=81))
+        a = world.member(a_rec, 990, 1070)
+        b = world.member(b_rec, 995, 1075)
+        seen = []
+>       matching.classify_family_across_channels(world.conn, [a, b], progress=lambda done, total, msg: seen.append((done, total, msg)))
+E       AttributeError: module 'Working.library.matching' has no attribute 'classify_family_across_channels'
+
+tests\test_cross_channel_simultaneous.py:305: AttributeError
+_____________________ test_a_held_out_file_is_never_read ______________________
+[gw3] win32 -- Python 3.13.9 C:\ProgramData\anaconda3\python.exe
+
+world = <tests.test_cross_channel_simultaneous._World object at 0x000002DB8AB99550>
+
+    def test_a_held_out_file_is_never_read(world):
+        a_rec = world.recording("M4_aug_concat_fs1.mat", 0, _channel(3000, [(1000, 1)], seed=90))
+        b_rec = world.recording("M4_aug_concat_fs1.mat", 1, _channel(3000, [(1000, 1)], seed=91))
+        a = world.member(a_rec, 990, 1070)
+        b = world.member(b_rec, 990, 1070)
+>       out = matching.classify_family_across_channels(world.conn, [a, b],
+                                                        exclude_source_files=("M4_aug_concat_fs1.mat",))
+E       AttributeError: module 'Working.library.matching' has no attribute 'classify_family_across_channels'
+
+tests\test_cross_channel_simultaneous.py:315: AttributeError
+_______________ test_recurrence_counts_with_the_bins_taken_out ________________
+[gw3] win32 -- Python 3.13.9 C:\ProgramData\anaconda3\python.exe
+
+world = <tests.test_cross_channel_simultaneous._World object at 0x000002DB8AB99950>
+
+    def test_recurrence_counts_with_the_bins_taken_out(world):
+        m0, m1, m2, m3 = _three_way(world)
+        ids = [m0, m1, m2, m3]
+>       before = matching.family_recurrence(world.conn, ids)
+E       AttributeError: module 'Working.library.matching' has no attribute 'family_recurrence'
+
+tests\test_cross_channel_simultaneous.py:340: AttributeError
+________ test_a_propagation_chain_counts_once_on_the_channel_it_starts ________
+[gw3] win32 -- Python 3.13.9 C:\ProgramData\anaconda3\python.exe
+
+world = <tests.test_cross_channel_simultaneous._World object at 0x000002DB8A907A70>
+
+    def test_a_propagation_chain_counts_once_on_the_channel_it_starts(world):
+        r0 = world.recording("q.mat", 0, _channel(3000, [(1000, 1)], seed=110))
+        r1 = world.recording("q.mat", 1, _channel(3000, [(1010, 1)], seed=111))
+        r2 = world.recording("q.mat", 2, _channel(3000, [(1020, 1)], seed=112))
+        m0 = world.member(r0, 990, 1070)
+        m1 = world.member(r1, 1000, 1080)
+        m2 = world.member(r2, 1010, 1090)
+>       matching.classify_family_across_channels(world.conn, [m0, m1, m2])
+E       AttributeError: module 'Working.library.matching' has no attribute 'classify_family_across_channels'
+
+tests\test_cross_channel_simultaneous.py:364: AttributeError
+________________ test_recurrence_count_is_the_same_definition _________________
+[gw3] win32 -- Python 3.13.9 C:\ProgramData\anaconda3\python.exe
+
+world = <tests.test_cross_channel_simultaneous._World object at 0x000002DB8A9073E0>
+
+    def test_recurrence_count_is_the_same_definition(world):
+        m0, m1, m2, m3 = _three_way(world)
+>       matching.classify_family_across_channels(world.conn, [m0, m1, m2, m3])
+E       AttributeError: module 'Working.library.matching' has no attribute 'classify_family_across_channels'
+
+tests\test_cross_channel_simultaneous.py:375: AttributeError
+_________ test_the_rule_is_the_researchers_in_seconds_with_an_r_floor _________
+[gw2] win32 -- Python 3.13.9 C:\ProgramData\anaconda3\python.exe
+
+    def test_the_rule_is_the_researchers_in_seconds_with_an_r_floor():
+>       assert xc.CROSS_CHANNEL_ARTIFACT_MAX_ABS_LAG_S == 1.0
+E       AttributeError: module 'Working.cross_channel' has no attribute 'CROSS_CHANNEL_ARTIFACT_MAX_ABS_LAG_S'. Did you mean: 'CROSS_CHANNEL_ARTIFACT_MAX_ABS_LAG'?
+
+tests\test_cross_channel_simultaneous.py:106: AttributeError
+___ test_bin_for_reads_lag_in_seconds_and_r_by_magnitude[0.0-0.95-artifact] ___
+[gw2] win32 -- Python 3.13.9 C:\ProgramData\anaconda3\python.exe
+
+lag_s = 0.0, r = 0.95, expected = 'artifact'
+
+    @pytest.mark.parametrize("lag_s, r, expected", [
+        (0.0, 0.95, ARTIFACT),
+        (0.0, -0.95, ARTIFACT),                     # an inverted copy at lag 0 is an artifact too (Q40b)
+        (1.0, 0.5, ARTIFACT),                       # both boundaries inclusive
+        (-1.0, -0.7, ARTIFACT),
+        (0.0, 0.49, INDEPENDENT_RECURRENCE),        # under the r floor whatever its lag
+        (1.5, 0.8, PROPAGATION),
+        (-30.0, -0.6, PROPAGATION),
+        (50.0, 0.5, PROPAGATION),
+        (50.5, 0.9, INDEPENDENT_RECURRENCE),
+        (10.0, 0.2, INDEPENDENT_RECURRENCE),        # the old rule called this propagation (Part 1: r 0.16)
+    ])
+    def test_bin_for_reads_lag_in_seconds_and_r_by_magnitude(lag_s, r, expected):
+>       assert xc.bin_for(lag_s, r) == expected
+E       AttributeError: module 'Working.cross_channel' has no attribute 'bin_for'
+
+tests\test_cross_channel_simultaneous.py:125: AttributeError
+__ test_bin_for_reads_lag_in_seconds_and_r_by_magnitude[0.0--0.95-artifact] ___
+[gw2] win32 -- Python 3.13.9 C:\ProgramData\anaconda3\python.exe
+
+lag_s = 0.0, r = -0.95, expected = 'artifact'
+
+    @pytest.mark.parametrize("lag_s, r, expected", [
+        (0.0, 0.95, ARTIFACT),
+        (0.0, -0.95, ARTIFACT),                     # an inverted copy at lag 0 is an artifact too (Q40b)
+        (1.0, 0.5, ARTIFACT),                       # both boundaries inclusive
+        (-1.0, -0.7, ARTIFACT),
+        (0.0, 0.49, INDEPENDENT_RECURRENCE),        # under the r floor whatever its lag
+        (1.5, 0.8, PROPAGATION),
+        (-30.0, -0.6, PROPAGATION),
+        (50.0, 0.5, PROPAGATION),
+        (50.5, 0.9, INDEPENDENT_RECURRENCE),
+        (10.0, 0.2, INDEPENDENT_RECURRENCE),        # the old rule called this propagation (Part 1: r 0.16)
+    ])
+    def test_bin_for_reads_lag_in_seconds_and_r_by_magnitude(lag_s, r, expected):
+>       assert xc.bin_for(lag_s, r) == expected
+E       AttributeError: module 'Working.cross_channel' has no attribute 'bin_for'
+
+tests\test_cross_channel_simultaneous.py:125: AttributeError
+___ test_bin_for_reads_lag_in_seconds_and_r_by_magnitude[1.0-0.5-artifact] ____
+[gw2] win32 -- Python 3.13.9 C:\ProgramData\anaconda3\python.exe
+
+lag_s = 1.0, r = 0.5, expected = 'artifact'
+
+    @pytest.mark.parametrize("lag_s, r, expected", [
+        (0.0, 0.95, ARTIFACT),
+        (0.0, -0.95, ARTIFACT),                     # an inverted copy at lag 0 is an artifact too (Q40b)
+        (1.0, 0.5, ARTIFACT),                       # both boundaries inclusive
+        (-1.0, -0.7, ARTIFACT),
+        (0.0, 0.49, INDEPENDENT_RECURRENCE),        # under the r floor whatever its lag
+        (1.5, 0.8, PROPAGATION),
+        (-30.0, -0.6, PROPAGATION),
+        (50.0, 0.5, PROPAGATION),
+        (50.5, 0.9, INDEPENDENT_RECURRENCE),
+        (10.0, 0.2, INDEPENDENT_RECURRENCE),        # the old rule called this propagation (Part 1: r 0.16)
+    ])
+    def test_bin_for_reads_lag_in_seconds_and_r_by_magnitude(lag_s, r, expected):
+>       assert xc.bin_for(lag_s, r) == expected
+E       AttributeError: module 'Working.cross_channel' has no attribute 'bin_for'
+
+tests\test_cross_channel_simultaneous.py:125: AttributeError
+__ test_bin_for_reads_lag_in_seconds_and_r_by_magnitude[-1.0--0.7-artifact] ___
+[gw2] win32 -- Python 3.13.9 C:\ProgramData\anaconda3\python.exe
+
+lag_s = -1.0, r = -0.7, expected = 'artifact'
+
+    @pytest.mark.parametrize("lag_s, r, expected", [
+        (0.0, 0.95, ARTIFACT),
+        (0.0, -0.95, ARTIFACT),                     # an inverted copy at lag 0 is an artifact too (Q40b)
+        (1.0, 0.5, ARTIFACT),                       # both boundaries inclusive
+        (-1.0, -0.7, ARTIFACT),
+        (0.0, 0.49, INDEPENDENT_RECURRENCE),        # under the r floor whatever its lag
+        (1.5, 0.8, PROPAGATION),
+        (-30.0, -0.6, PROPAGATION),
+        (50.0, 0.5, PROPAGATION),
+        (50.5, 0.9, INDEPENDENT_RECURRENCE),
+        (10.0, 0.2, INDEPENDENT_RECURRENCE),        # the old rule called this propagation (Part 1: r 0.16)
+    ])
+    def test_bin_for_reads_lag_in_seconds_and_r_by_magnitude(lag_s, r, expected):
+>       assert xc.bin_for(lag_s, r) == expected
+E       AttributeError: module 'Working.cross_channel' has no attribute 'bin_for'
+
+tests\test_cross_channel_simultaneous.py:125: AttributeError
+_ test_bin_for_reads_lag_in_seconds_and_r_by_magnitude[0.0-0.49-independent_recurrence] _
+[gw2] win32 -- Python 3.13.9 C:\ProgramData\anaconda3\python.exe
+
+lag_s = 0.0, r = 0.49, expected = 'independent_recurrence'
+
+    @pytest.mark.parametrize("lag_s, r, expected", [
+        (0.0, 0.95, ARTIFACT),
+        (0.0, -0.95, ARTIFACT),                     # an inverted copy at lag 0 is an artifact too (Q40b)
+        (1.0, 0.5, ARTIFACT),                       # both boundaries inclusive
+        (-1.0, -0.7, ARTIFACT),
+        (0.0, 0.49, INDEPENDENT_RECURRENCE),        # under the r floor whatever its lag
+        (1.5, 0.8, PROPAGATION),
+        (-30.0, -0.6, PROPAGATION),
+        (50.0, 0.5, PROPAGATION),
+        (50.5, 0.9, INDEPENDENT_RECURRENCE),
+        (10.0, 0.2, INDEPENDENT_RECURRENCE),        # the old rule called this propagation (Part 1: r 0.16)
+    ])
+    def test_bin_for_reads_lag_in_seconds_and_r_by_magnitude(lag_s, r, expected):
+>       assert xc.bin_for(lag_s, r) == expected
+E       AttributeError: module 'Working.cross_channel' has no attribute 'bin_for'
+
+tests\test_cross_channel_simultaneous.py:125: AttributeError
+__ test_bin_for_reads_lag_in_seconds_and_r_by_magnitude[1.5-0.8-propagation] __
+[gw2] win32 -- Python 3.13.9 C:\ProgramData\anaconda3\python.exe
+
+lag_s = 1.5, r = 0.8, expected = 'propagation'
+
+    @pytest.mark.parametrize("lag_s, r, expected", [
+        (0.0, 0.95, ARTIFACT),
+        (0.0, -0.95, ARTIFACT),                     # an inverted copy at lag 0 is an artifact too (Q40b)
+        (1.0, 0.5, ARTIFACT),                       # both boundaries inclusive
+        (-1.0, -0.7, ARTIFACT),
+        (0.0, 0.49, INDEPENDENT_RECURRENCE),        # under the r floor whatever its lag
+        (1.5, 0.8, PROPAGATION),
+        (-30.0, -0.6, PROPAGATION),
+        (50.0, 0.5, PROPAGATION),
+        (50.5, 0.9, INDEPENDENT_RECURRENCE),
+        (10.0, 0.2, INDEPENDENT_RECURRENCE),        # the old rule called this propagation (Part 1: r 0.16)
+    ])
+    def test_bin_for_reads_lag_in_seconds_and_r_by_magnitude(lag_s, r, expected):
+>       assert xc.bin_for(lag_s, r) == expected
+E       AttributeError: module 'Working.cross_channel' has no attribute 'bin_for'
+
+tests\test_cross_channel_simultaneous.py:125: AttributeError
+_ test_bin_for_reads_lag_in_seconds_and_r_by_magnitude[-30.0--0.6-propagation] _
+[gw2] win32 -- Python 3.13.9 C:\ProgramData\anaconda3\python.exe
+
+lag_s = -30.0, r = -0.6, expected = 'propagation'
+
+    @pytest.mark.parametrize("lag_s, r, expected", [
+        (0.0, 0.95, ARTIFACT),
+        (0.0, -0.95, ARTIFACT),                     # an inverted copy at lag 0 is an artifact too (Q40b)
+        (1.0, 0.5, ARTIFACT),                       # both boundaries inclusive
+        (-1.0, -0.7, ARTIFACT),
+        (0.0, 0.49, INDEPENDENT_RECURRENCE),        # under the r floor whatever its lag
+        (1.5, 0.8, PROPAGATION),
+        (-30.0, -0.6, PROPAGATION),
+        (50.0, 0.5, PROPAGATION),
+        (50.5, 0.9, INDEPENDENT_RECURRENCE),
+        (10.0, 0.2, INDEPENDENT_RECURRENCE),        # the old rule called this propagation (Part 1: r 0.16)
+    ])
+    def test_bin_for_reads_lag_in_seconds_and_r_by_magnitude(lag_s, r, expected):
+>       assert xc.bin_for(lag_s, r) == expected
+E       AttributeError: module 'Working.cross_channel' has no attribute 'bin_for'
+
+tests\test_cross_channel_simultaneous.py:125: AttributeError
+============================== warnings summary ===============================
+tests/test_drop_motifs_pipelines12.py::test_store_rows_replaces_the_replayed_detections
+tests/test_drop_motifs_pipelines12.py::test_the_default_path_is_unchanged
+tests/test_drop_motifs_pipelines12.py::test_the_panel_states_its_millivolts_per_second
+  C:\Users\mmebr\Documents\CNN\Pipelines\drop_motifs\casestudy9.py:332: UserWarning: This figure includes Axes that are not compatible with tight_layout, so results might be incorrect.
+    fig.savefig(out_path, dpi=180)
+
+tests/test_dsax.py: 2956 warnings
+tests/test_dsax_diagnostics.py: 854 warnings
+tests/test_dsax_engineered.py: 342 warnings
+tests/test_sax_details.py: 704 warnings
+tests/test_sax_determinism.py: 4402 warnings
+tests/test_sax_adapters.py: 88 warnings
+  C:\Users\mmebr\Documents\CNN\Working\Detection\sax\psax_python\lloydmax.py:115: DeprecationWarning: `trapz` is deprecated. Use `trapezoid` instead, or one of the numerical integration functions in `scipy.integrate`.
+    I1   = np.trapz(xs * fs, xs)
+
+tests/test_dsax.py: 2956 warnings
+tests/test_dsax_diagnostics.py: 854 warnings
+tests/test_dsax_engineered.py: 342 warnings
+tests/test_sax_details.py: 704 warnings
+tests/test_sax_determinism.py: 4402 warnings
+tests/test_sax_adapters.py: 88 warnings
+  C:\Users\mmebr\Documents\CNN\Working\Detection\sax\psax_python\lloydmax.py:116: DeprecationWarning: `trapz` is deprecated. Use `trapezoid` instead, or one of the numerical integration functions in `scipy.integrate`.
+    I2   = np.trapz(fs,      xs)
+
+tests/test_drop_motifs_figures12b.py::test_sequence_morph_is_written_and_states_what_it_drew
+tests/test_drop_motifs_figures12b.py::test_the_drawn_median_event_lands_in_the_band
+tests/test_drop_motifs_figures12b.py::test_a_missing_source_trace_is_said_rather_than_raised
+tests/test_drop_motifs_figures12b.py::test_a_long_sequence_is_thinned_and_says_by_how_much
+tests/test_drop_motifs_figures12b.py::test_contact_sheet_locks_every_panel_to_its_own_event
+  C:\Users\mmebr\Documents\CNN\Pipelines\drop_motifs\config11.py:341: UserWarning: This figure includes Axes that are not compatible with tight_layout, so results might be incorrect.
+    fig.savefig(path, bbox_inches="tight")
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED tests/test_cross_channel_simultaneous.py::test_bin_for_reads_lag_in_seconds_and_r_by_magnitude[50.0-0.5-propagation]
+FAILED tests/test_cross_channel_simultaneous.py::test_bin_for_reads_lag_in_seconds_and_r_by_magnitude[50.5-0.9-independent_recurrence]
+FAILED tests/test_cross_channel_simultaneous.py::test_bin_for_reads_lag_in_seconds_and_r_by_magnitude[10.0-0.2-independent_recurrence]
+FAILED tests/test_cross_channel_simultaneous.py::test_every_bin_prints_its_rule_from_the_values_used
+FAILED tests/test_cross_channel_simultaneous.py::test_the_three_numbers_are_settings_keys
+FAILED tests/test_cross_channel_simultaneous.py::test_a_saved_rule_that_is_not_a_rule_is_refused_loudly
+FAILED tests/test_cross_channel_simultaneous.py::test_classify_waveforms_converts_lag_to_seconds_with_fs
+FAILED tests/test_cross_channel_simultaneous.py::test_an_injected_five_sample_offset_is_recovered_and_binned_propagation
+FAILED tests/test_cross_channel_simultaneous.py::test_a_simultaneous_pair_is_an_artifact_and_an_inverted_one_too
+FAILED tests/test_cross_channel_simultaneous.py::test_an_existing_seed_edge_is_updated_in_place_not_duplicated
+FAILED tests/test_cross_channel_simultaneous.py::test_a_pair_with_no_edge_gets_one_cross_correlation_edge_once
+FAILED tests/test_cross_channel_simultaneous.py::test_members_an_hour_apart_are_never_lag
+FAILED tests/test_cross_channel_simultaneous.py::test_members_on_the_same_channel_are_not_cross_channel
+FAILED tests/test_cross_channel_simultaneous.py::test_a_co_occurrence_with_no_member_is_counted_never_an_edge
+FAILED tests/test_cross_channel_simultaneous.py::test_progress_is_reported_per_channel
+FAILED tests/test_cross_channel_simultaneous.py::test_a_held_out_file_is_never_read
+FAILED tests/test_cross_channel_simultaneous.py::test_recurrence_counts_with_the_bins_taken_out
+FAILED tests/test_cross_channel_simultaneous.py::test_a_propagation_chain_counts_once_on_the_channel_it_starts
+FAILED tests/test_cross_channel_simultaneous.py::test_recurrence_count_is_the_same_definition
+FAILED tests/test_cross_channel_simultaneous.py::test_the_rule_is_the_researchers_in_seconds_with_an_r_floor
+FAILED tests/test_cross_channel_simultaneous.py::test_bin_for_reads_lag_in_seconds_and_r_by_magnitude[0.0-0.95-artifact]
+FAILED tests/test_cross_channel_simultaneous.py::test_bin_for_reads_lag_in_seconds_and_r_by_magnitude[0.0--0.95-artifact]
+FAILED tests/test_cross_channel_simultaneous.py::test_bin_for_reads_lag_in_seconds_and_r_by_magnitude[1.0-0.5-artifact]
+FAILED tests/test_cross_channel_simultaneous.py::test_bin_for_reads_lag_in_seconds_and_r_by_magnitude[-1.0--0.7-artifact]
+FAILED tests/test_cross_channel_simultaneous.py::test_bin_for_reads_lag_in_seconds_and_r_by_magnitude[0.0-0.49-independent_recurrence]
+FAILED tests/test_cross_channel_simultaneous.py::test_bin_for_reads_lag_in_seconds_and_r_by_magnitude[1.5-0.8-propagation]
+FAILED tests/test_cross_channel_simultaneous.py::test_bin_for_reads_lag_in_seconds_and_r_by_magnitude[-30.0--0.6-propagation]
+27 failed, 2134 passed, 21 skipped, 18700 warnings in 397.24s (0:06:37)

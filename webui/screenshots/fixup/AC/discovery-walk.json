@@ -1,0 +1,172 @@
+{
+ "multiplier": "× 3 bands × 3 channels",
+ "band_note": "3 runs per template, each across 3 channels · cost is 3 × the sweep · the seeded list from Settings › Analysis defaults\nedit",
+ "toast": "3 runs added · 3 bands × 1 template · 3 running locally",
+ "wall_s": 33,
+ "band_set": "symbol_search_bands",
+ "runs": [
+  {
+   "key": "symbol_search_0.01_0.1Hz",
+   "label": "symbol_search · 0.01–0.1 Hz",
+   "status": "done",
+   "found": 75,
+   "channelsDone": "3 / 3",
+   "band": {
+    "kind": "bandpass",
+    "label": "0.01–0.1 Hz",
+    "low_hz": 0.01,
+    "high_hz": 0.1
+   },
+   "nullExpects": null,
+   "nullDraws": null,
+   "xNull": null
+  },
+  {
+   "key": "symbol_search_db4level4_0.031_0.062Hz",
+   "label": "symbol_search · db4 level 4 · 0.031–0.062 Hz",
+   "status": "done",
+   "found": 46,
+   "channelsDone": "3 / 3",
+   "band": {
+    "kind": "wavelet",
+    "label": "db4 level 4 · 0.031–0.062 Hz",
+    "wavelet": "db4",
+    "level": 4,
+    "low_hz": 0.03125,
+    "high_hz": 0.0625,
+    "levels": 9
+   },
+   "nullExpects": null,
+   "nullDraws": null,
+   "xNull": null
+  },
+  {
+   "key": "symbol_search_db4level6_0.0078_0.016Hz",
+   "label": "symbol_search · db4 level 6 · 0.0078–0.016 Hz",
+   "status": "done",
+   "found": 35,
+   "channelsDone": "3 / 3",
+   "band": {
+    "kind": "wavelet",
+    "label": "db4 level 6 · 0.0078–0.016 Hz",
+    "wavelet": "db4",
+    "level": 6,
+    "low_hz": 0.0078125,
+    "high_hz": 0.015625,
+    "levels": 9
+   },
+   "nullExpects": null,
+   "nullDraws": null,
+   "xNull": null
+  }
+ ],
+ "compare": {
+  "total": {
+   "channel": "all channels",
+   "onlyA": 3,
+   "both": 0,
+   "onlyB": 123
+  },
+  "verdicts": {
+   "onlyA": {
+    "n": 3,
+    "judged": 0,
+    "accepted": 0,
+    "rejected": 0,
+    "other": 0,
+    "unjudged": 3
+   },
+   "both": {
+    "n": 0,
+    "judged": 0,
+    "accepted": 0,
+    "rejected": 0,
+    "other": 0,
+    "unjudged": 0
+   },
+   "onlyB": {
+    "n": 123,
+    "judged": 0,
+    "accepted": 0,
+    "rejected": 0,
+    "other": 0,
+    "unjudged": 123
+   }
+  },
+  "perBand": [
+   {
+    "run": "symbol_search_0.01_0.1Hz",
+    "label": "symbol_search · 0.01–0.1 Hz",
+    "band": {
+     "kind": "bandpass",
+     "label": "0.01–0.1 Hz",
+     "low_hz": 0.01,
+     "high_hz": 0.1
+    },
+    "found": 75,
+    "both": 0,
+    "only": 75,
+    "alone": 44,
+    "colour": "#af52de",
+    "nullExpects": 247.75,
+    "nullDraws": 20
+   },
+   {
+    "run": "symbol_search_db4level4_0.031_0.062Hz",
+    "label": "symbol_search · db4 level 4 · 0.031–0.062 Hz",
+    "band": {
+     "kind": "wavelet",
+     "label": "db4 level 4 · 0.031–0.062 Hz",
+     "wavelet": "db4",
+     "level": 4,
+     "low_hz": 0.03125,
+     "high_hz": 0.0625,
+     "levels": 9
+    },
+    "found": 46,
+    "both": 0,
+    "only": 46,
+    "alone": 27,
+    "colour": "#e8900c",
+    "nullExpects": 125.25,
+    "nullDraws": 20
+   },
+   {
+    "run": "symbol_search_db4level6_0.0078_0.016Hz",
+    "label": "symbol_search · db4 level 6 · 0.0078–0.016 Hz",
+    "band": {
+     "kind": "wavelet",
+     "label": "db4 level 6 · 0.0078–0.016 Hz",
+     "wavelet": "db4",
+     "level": 6,
+     "low_hz": 0.0078125,
+     "high_hz": 0.015625,
+     "levels": 9
+    },
+    "found": 35,
+    "both": 0,
+    "only": 35,
+    "alone": 20,
+    "colour": "#5b6ef5",
+    "nullExpects": 123.35,
+    "nullDraws": 20
+   }
+  ],
+  "differing": [
+   "Preprocess",
+   "Encode",
+   "Detect"
+  ],
+  "b_found": 123,
+  "likeForLike": {
+   "run": null,
+   "label": null,
+   "isThis": false,
+   "note": "apply symbol_search with no band to compare the band alone, like for like"
+  }
+ },
+ "sentence": "Of the 123 regions only a band found, a human has judged 0 and accepted 0. The bands' nulls expect 496.35 on this scope (20 draws per channel per band).",
+ "send_toast": "123 unjudged of 123 regions in 'Compare · only B · A drop_detection_v1 vs B symbol_search · 3 bands' · verdicts write adjudications\nOpen Review",
+ "review_hash": "#/review/queue/3/1212",
+ "queue_progress": "0 / 123\npace not yet measured"
+}

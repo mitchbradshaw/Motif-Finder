@@ -1,9 +1,9 @@
 # RQ4 — Does band decomposition followed by symbolic encoding surface regions raw-signal methods miss?
 
-**Status (2026-10-03, after `Z`): answerable in the app, bandpass bands.** The whole walk is now one action per step:
-a band scope on *Apply template*, the band set as one side of Compare, the overlap split by verdict, and *Send only-B
-unjudged to Review*. The null is now 20 draws per band per channel (`T`, 2026-10-03). Still owed: the
-wavelet kind of band (`AC`).
+**Status (2026-10-04, after `AC`): answerable in the app, with bandpass bands and wavelet levels.** The whole walk is
+one action per step: a band scope on *Apply template* (named bandpass bands and, since `AC`, wavelet levels), the band
+set as one side of Compare, the overlap split by verdict, and *Send only-B unjudged to Review*. The null is 20 draws per
+band per channel (`T`, 2026-10-03). Nothing the question needs is still owed by a fixup prompt.
 
 ## In plain words
 
@@ -45,12 +45,35 @@ that find things the plain, un-split signal hides? You check the extra finds by 
   seeded (its own task). This bears directly on the answer.
 - **Found by `Z`:** Compare drew "0 of 5 roles differ" for a template against its banded twin (a role holding two stages
   drew only the last); fixed — it now reads 1 of 5, attributable.
-- **Wavelet blocks that exist today:**
+- **Wavelet blocks that existed before `AC`:**
   - `preprocessing.wavelet_transform`: Signal → Encoding, a Morse scalogram (Dehshibi stage 1).
   - `detection.wavelet_summation`: Encoding → Scores, a band of rows summed.
   - `detection.wavelet_scattering`: Signal → Encoding, but its kymatio dependency is broken against the installed scipy.
-- **No block turns a wavelet decomposition back into a band-limited Signal** that the symbolic blocks could encode. See
-  Q-W3.
+- ~~**No block turns a wavelet decomposition back into a band-limited Signal** that the symbolic blocks could encode. See
+  Q-W3.~~ Closed by `AC` (2026-10-04, `docs/prompts/fixup/reports/AC-wavelet-bands.md`):
+  - **`preprocessing.wavelet_bands`** (Signal → Signal) splits the span into octave layers with a **stationary**
+    wavelet transform, so every layer is sample-aligned with the recording and the layers add up to it. `level` picks
+    the layer that goes on down the chain (1 = fastest, 0 = the residual); `levels` 0 = auto, deep enough to reach
+    0.001 Hz within what the span allows. Default `db4`, level 4 (at 1 Hz: 0.031–0.062 Hz).
+  - **Every layer is drawn** on the block page, stacked on the source's time axis, the chosen one highlighted with its
+    Hz range. On the example span (M2_aug CH1_A1, 336–338 h) the fall at 336.815–336.866 h sits at the same time on
+    D1–D7, measured by the smoke gate (`layers_aligned`).
+  - **A wavelet level is a band** in the band scope: *Apply template* offers the levels for the section in scope, each
+    with its Hz range. A level run records the chain you would build by hand, so its hash matches the hand-built twin. It
+    is paired with its own null (the surrogate goes ahead of the decomposition), and Compare's union takes it like any
+    band.
+  - **Hz per level (nominal octave edges):** at 1 Hz, D1 0.25–0.5 · D2 0.12–0.25 · D3 0.062–0.12 · D4 0.031–0.062 ·
+    D5 0.016–0.031 · D6 0.0078–0.016 · D7 0.0039–0.0078 · D8 0.002–0.0039 · D9 0.00098–0.002 Hz, residual below
+    0.00098 Hz (4 h span: 9 levels auto). At 10 Hz every edge is ten times higher and a 4 h span reaches 13 levels.
+- **Measured on the sandbox (2026-10-04, `AC`)**, the same scope as `Z` (M2_aug 452–456 h × CH2_A1 · CH6_B1 · CH7_B2),
+  `symbol_search` × {0.01–0.1 Hz bandpass, db4 level 4 (0.031–0.062 Hz), db4 level 6 (0.0078–0.016 Hz)}, 20 null draws
+  each:
+  - found **75 · 46 · 35**; the nulls expect **247.75 · 125.25 · 123.35**. The null out-finds the signal on every
+    layer, wavelet included.
+  - Union **123 regions**. Against `drop_detection_v1`: **only A 3 · both 0 · only B 123**. *Send only-B unjudged to
+    Review* made a 123-item queue.
+  - This 0.01–0.1 Hz band's null at 20 draws (247.75) is the first re-measure of that band's part of the old one-draw
+    297 (it was 249 at one draw). The other two seeded bands have not been re-measured at 20 draws.
 - **The symbolic chain is reproducible** (fixup-dsax-seed, 2026-10-03,
   `docs/prompts/fixup/reports/dsax-seed-learned-thresholds.md`):
   - `detection.sax_dsax`'s learned boundaries (and pSAX's) used to start from an unseeded random guess, so one recipe
@@ -89,15 +112,15 @@ that find things the plain, un-split signal hides? You check the extra finds by 
 | Re-measure the bands' null (was 297 on one draw) at 20 draws on the 3-channel scope | the researcher's first band run |
 | A band run routed to the cluster comes back with no null (the SLURM job has no null task) | open; raised in `T`'s report |
 | The SLURM modal writes the script of the **first** pending run only, so an over-ceiling band application gets one script, not N | open (pre-existing; `AB` owns the `/slurm` writer) |
-| Wavelet-decomposition block and the wavelet kind in the band scope | `AC` |
+| ~~Wavelet-decomposition block and the wavelet kind in the band scope~~ | `AC`, done 2026-10-04 |
 
 ## How it gets answered
 
 Follow `RESEARCH_RUNBOOK.md` Q4:
 
 1. Apply the raw-signal template with no band, and the symbolic template with the band scope (Discovery › Runs ›
-   *Apply template* › Bands), over a Discovery scope. Apply the symbolic template with no band too, for the
-   like-for-like comparison.
+   *Apply template* › Bands: tick named bands and/or *Wavelet levels*), over a Discovery scope. Apply the symbolic
+   template with no band too, for the like-for-like comparison.
 2. Tick the raw run as A and the band-set row as B → *Compare*.
 3. *Send only-B unjudged to Review* → judge them → *Refresh after reviewing*.
 4. Read the sentence under the verdict split — *of the n regions only a band found, a human has judged j and accepted k*
@@ -114,3 +137,4 @@ None.
 - 2026-10-03 · fixup-dsax-seed · learned dSAX / pSAX seeded by a fixed constant: one recipe, one span set; stored counts need one forced re-run
 - 2026-10-03 · fixup-csax-seed · cSAX's Mean-Shift seeded by the same constant: one recipe, one string; its alphabet size is seed-sensitive (3–6 over 32 seeds)
 - 2026-10-03 · fixup-t · band runs draw 20 paired surrogates per channel and print the count; the 297 is not yet re-measured.
+- 2026-10-04 · fixup-AC · `preprocessing.wavelet_bands` (stationary wavelet transform, every layer drawn and aligned); a wavelet level is a band in the band scope; sandbox: 2 levels + 1 band = 3 runs, union 123 vs raw only-A 3, null out-finds every layer

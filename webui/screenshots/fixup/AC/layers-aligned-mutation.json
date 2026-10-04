@@ -1,0 +1,198 @@
+{
+ "clean": {
+  "onsetT": 1212535.6950672646,
+  "troughT": 1212718.923766816,
+  "fallS": 183.2,
+  "fs": 1,
+  "layers": [
+   {
+    "layer": "D1",
+    "level": 1,
+    "scaleS": 2,
+    "depth": 0.947,
+    "resolves": true,
+    "carries": true,
+    "atT": 1212655.2,
+    "aligned": true
+   },
+   {
+    "layer": "D2",
+    "level": 2,
+    "scaleS": 4,
+    "depth": 0.947,
+    "resolves": true,
+    "carries": true,
+    "atT": 1212659.2,
+    "aligned": true
+   },
+   {
+    "layer": "D3",
+    "level": 3,
+    "scaleS": 8,
+    "depth": 0.947,
+    "resolves": true,
+    "carries": true,
+    "atT": 1212661.6,
+    "aligned": true
+   },
+   {
+    "layer": "D4",
+    "level": 4,
+    "scaleS": 16,
+    "depth": 0.947,
+    "resolves": true,
+    "carries": true,
+    "atT": 1212665.7,
+    "aligned": true
+   },
+   {
+    "layer": "D5",
+    "level": 5,
+    "scaleS": 32,
+    "depth": 0.947,
+    "resolves": true,
+    "carries": true,
+    "atT": 1212675.3,
+    "aligned": true
+   },
+   {
+    "layer": "D6",
+    "level": 6,
+    "scaleS": 64,
+    "depth": 0.947,
+    "resolves": true,
+    "carries": true,
+    "atT": 1212693.9,
+    "aligned": true
+   },
+   {
+    "layer": "D7",
+    "level": 7,
+    "scaleS": 128,
+    "depth": 0.947,
+    "resolves": true,
+    "carries": true,
+    "atT": 1212709.2,
+    "aligned": true
+   },
+   {
+    "layer": "D8",
+    "level": 8,
+    "scaleS": 256,
+    "depth": 0.947,
+    "resolves": false,
+    "carries": false,
+    "atT": 1212760.9,
+    "aligned": true
+   },
+   {
+    "layer": "D9",
+    "level": 9,
+    "scaleS": 512,
+    "depth": 0.888,
+    "resolves": false,
+    "carries": false,
+    "atT": 1212768.2,
+    "aligned": true
+   }
+  ]
+ },
+ "shifted_240_samples": {
+  "onsetT": 1212535.6950672646,
+  "troughT": 1212718.923766816,
+  "fallS": 183.2,
+  "fs": 1,
+  "layers": [
+   {
+    "layer": "D1",
+    "level": 1,
+    "scaleS": 2,
+    "depth": 0.947,
+    "resolves": true,
+    "carries": true,
+    "atT": 1212895.1,
+    "aligned": false
+   },
+   {
+    "layer": "D2",
+    "level": 2,
+    "scaleS": 4,
+    "depth": 0.947,
+    "resolves": true,
+    "carries": true,
+    "atT": 1212899.2,
+    "aligned": false
+   },
+   {
+    "layer": "D3",
+    "level": 3,
+    "scaleS": 8,
+    "depth": 0.947,
+    "resolves": true,
+    "carries": true,
+    "atT": 1212901.6,
+    "aligned": false
+   },
+   {
+    "layer": "D4",
+    "level": 4,
+    "scaleS": 16,
+    "depth": 0.947,
+    "resolves": true,
+    "carries": true,
+    "atT": 1212905.6,
+    "aligned": false
+   },
+   {
+    "layer": "D5",
+    "level": 5,
+    "scaleS": 32,
+    "depth": 0.947,
+    "resolves": true,
+    "carries": true,
+    "atT": 1212915.3,
+    "aligned": false
+   },
+   {
+    "layer": "D6",
+    "level": 6,
+    "scaleS": 64,
+    "depth": 0.947,
+    "resolves": true,
+    "carries": true,
+    "atT": 1212933.9,
+    "aligned": false
+   },
+   {
+    "layer": "D7",
+    "level": 7,
+    "scaleS": 128,
+    "depth": 0.947,
+    "resolves": true,
+    "carries": true,
+    "atT": 1212949.2,
+    "aligned": false
+   },
+   {
+    "layer": "D8",
+    "level": 8,
+    "scaleS": 256,
+    "depth": 0.947,
+    "resolves": false,
+    "carries": false,
+    "atT": 1213000.9,
+    "aligned": false
+   },
+   {
+    "layer": "D9",
+    "level": 9,
+    "scaleS": 512,
+    "depth": 0.888,
+    "resolves": false,
+    "carries": false,
+    "atT": 1213008.1,
+    "aligned": true
+   }
+  ]
+ }
+}

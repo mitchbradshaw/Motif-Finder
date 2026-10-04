@@ -1,0 +1,130 @@
+{
+ "failures": [
+  "discovery: discovery.runs--default renders — missing ['[data-testid=\"browser-trace\"] svg']",
+  "review: review.inspector--padding +/-30 s is symmetric (fixup-g, U3): FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/mmebr/AppData/Local/Temp/claude/C--Users-mmebr-Documents-CNN/d7cb719b-437e-47b8-9021-865c737f151b/scratchpad/shots-gate\\\\pages\\\\review\\\\review.inspector--padding +/-30 s is symmetric (fixup-g, U3).png'",
+  "review: review.inspector--padding +/-120 s is symmetric (fixup-g, U3): FileNotFoundError: [Errno 2] No such file or directory: 'C:/Users/mmebr/AppData/Local/Temp/claude/C--Users-mmebr-Documents-CNN/d7cb719b-437e-47b8-9021-865c737f151b/scratchpad/shots-gate\\\\pages\\\\review\\\\review.inspector--padding +/-120 s is symmetric (fixup-g, U3).png'",
+  "settings: settings.datasets--import-check-fails-fs-unknown: TimeoutError: Locator.click: Timeout 30000ms exceeded.\nCall log:\n  - waiting for locator(\"[data-testid=\\\"run-check\\\"]\").first\n    - locator resolved to <button disabled type=\"button\" class=\"k-btn\" data-testid=\"run-check\">Check</button>\n  - attempting click action\n    2 × waiting for element to be visible, enabled and stable\n      - element is not enabled\n    - retrying click action\n    - waiting 20ms\n    2 × waiting for element to be visible, enabled and stable\n      - element is not enabled\n    - retrying click action\n      - waiting 100ms\n    57 × waiting for element to be visible, enabled and stable\n       - element is not enabled\n     - retrying click action\n       - waiting 500ms\n",
+  "settings: settings.datasets--import-check-passes-MJu26a: TimeoutError: Locator.click: Timeout 30000ms exceeded.\nCall log:\n  - waiting for locator(\"[data-testid=\\\"run-check\\\"]\").first\n    - locator resolved to <button disabled type=\"button\" class=\"k-btn\" data-testid=\"run-check\">Check</button>\n  - attempting click action\n    2 × waiting for element to be visible, enabled and stable\n      - element is not enabled\n    - retrying click action\n    - waiting 20ms\n    2 × waiting for element to be visible, enabled and stable\n      - element is not enabled\n    - retrying click action\n      - waiting 100ms\n    57 × waiting for element to be visible, enabled and stable\n       - element is not enabled\n     - retrying click action\n       - waiting 500ms\n",
+  "settings: settings.models-registration--check-a-joblib: TimeoutError: Locator.click: Timeout 30000ms exceeded.\nCall log:\n  - waiting for locator(\"[data-testid=\\\"check-model-catalogue_classifier_16750c76ade64016.joblib\\\"]\").first\n",
+  "settings: settings.storage-backups--scan-check-a-matrix-profile: TimeoutError: Locator.click: Timeout 30000ms exceeded.\nCall log:\n  - waiting for locator(\"[data-testid=\\\"scan-check-mp_v2_Mushroom_260720_0509_4hrs_CH14_fs1_CH0_WIN1min.npz\\\"]\").first\n"
+ ],
+ "browser_errors": [],
+ "layers_aligned": {
+  "analyse.block--fixup-ac-every-layer-stacked-and-aligned": {
+   "onsetT": 1212535.6950672646,
+   "troughT": 1212718.923766816,
+   "fallS": 183.2,
+   "fs": 1,
+   "layers": [
+    {
+     "layer": "D1",
+     "level": 1,
+     "scaleS": 2,
+     "depth": 0.947,
+     "resolves": true,
+     "carries": true,
+     "atT": 1212655.2,
+     "aligned": true
+    },
+    {
+     "layer": "D2",
+     "level": 2,
+     "scaleS": 4,
+     "depth": 0.947,
+     "resolves": true,
+     "carries": true,
+     "atT": 1212659.2,
+     "aligned": true
+    },
+    {
+     "layer": "D3",
+     "level": 3,
+     "scaleS": 8,
+     "depth": 0.947,
+     "resolves": true,
+     "carries": true,
+     "atT": 1212661.6,
+     "aligned": true
+    },
+    {
+     "layer": "D4",
+     "level": 4,
+     "scaleS": 16,
+     "depth": 0.947,
+     "resolves": true,
+     "carries": true,
+     "atT": 1212665.7,
+     "aligned": true
+    },
+    {
+     "layer": "D5",
+     "level": 5,
+     "scaleS": 32,
+     "depth": 0.947,
+     "resolves": true,
+     "carries": true,
+     "atT": 1212675.3,
+     "aligned": true
+    },
+    {
+     "layer": "D6",
+     "level": 6,
+     "scaleS": 64,
+     "depth": 0.947,
+     "resolves": true,
+     "carries": true,
+     "atT": 1212693.9,
+     "aligned": true
+    },
+    {
+     "layer": "D7",
+     "level": 7,
+     "scaleS": 128,
+     "depth": 0.947,
+     "resolves": true,
+     "carries": true,
+     "atT": 1212709.2,
+     "aligned": true
+    },
+    {
+     "layer": "D8",
+     "level": 8,
+     "scaleS": 256,
+     "depth": 0.947,
+     "resolves": false,
+     "carries": false,
+     "atT": 1212760.9,
+     "aligned": true
+    },
+    {
+     "layer": "D9",
+     "level": 9,
+     "scaleS": 512,
+     "depth": 0.888,
+     "resolves": false,
+     "carries": false,
+     "atT": 1212768.2,
+     "aligned": true
+    }
+   ]
+  }
+ },
+ "rule9_ac": {
+  "analyse.chain--fixup-ac-wavelet-bands-inserted-above-01": {
+   "plots": 4,
+   "traces": 4,
+   "exempt": 0,
+   "constant": [],
+   "flat": [],
+   "clipped": []
+  },
+  "analyse.block--fixup-ac-every-layer-stacked-and-aligned": {
+   "plots": 12,
+   "traces": 12,
+   "exempt": 0,
+   "constant": [],
+   "flat": [],
+   "clipped": []
+  }
+ }
+}
