@@ -289,6 +289,13 @@ happen to be genuinely event-sized. **The prompt that implements (c) must report
 of its denominator beside the number**, or (c) becomes the same kind of uninterpretable figure as the
 0.00 it replaces.
 
+**Q-D2c — what "falls in a window" means for (a). Asked and answered 2026-10-04, during `X`: both, as a
+setting.** Built as Q41's rule mirrored (the detection must lie *wholly inside* the window), (a) scored 16 of
+562 detections on M2_aug: most drops are longer than a window or stick out past one. Scored by the windows
+its **centre** lies in, 91 are. The researcher chose: **centre by default, *wholly inside* selectable** in
+Settings › Analysis defaults (`containment`), a versioned act like the IoU keys; every containment figure
+prints the mode it was computed under. `reports/X-divergence-read-properly.md`.
+
 ---
 
 ## Review's remaining gaps (R2, R3, R4, R7)
