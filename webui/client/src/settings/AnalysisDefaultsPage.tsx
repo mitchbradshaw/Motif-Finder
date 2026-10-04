@@ -6,7 +6,8 @@ import {
   Button, Modal, NumberField, Popover, ProgressBar, SectionCard, SelectField, Slider, Table, TextField,
   useNotWired, useQueryState,
 } from '../kit'
-import { useSourced } from '../api/seam'
+import { live, useSourced } from '../api/seam'
+import { getRoseReference, recomputeRoseReference, type LibRoseReference } from '../api'
 import { navigate } from '../state'
 import { getAnalysisDefaults, ruleKey, type RecommendRule } from '../api/settings'
 import { DEFAULT_BANDS, type BandEntry } from '../fixtures/settings'
@@ -76,6 +77,8 @@ function Body({ data }: { data: Data }) {
       </SectionCard>
 
       <BandsCard s={s} />
+
+      <RoseCard s={s} />
 
       {/* fixup-W: the cross-channel rule (QUESTIONS.md Q40b, Round 10 Q-W5) — three numbers, in seconds, read by the
           Library's *Classify across channels* job and by Explore › Cross-channel; every bin prints its rule */}
@@ -195,6 +198,36 @@ function Body({ data }: { data: Data }) {
         {clearing === 'running' && <ProgressBar indeterminate label="clearing…" testid="clear-progress" />}
       </Modal>
     </>
+  )
+}
+
+/* fixup-ae (Round 10): what 45° means on every rose — the median steepest slope over human-accepted Library motifs
+ * (accepted by the one verdict resolver), stored here WITH the population it came from, and recomputed only when
+ * someone presses Recompute. Until N motifs are accepted it is the median over every motif above the noise floor,
+ * and every rose says so. The minimum is a setting; the reference itself is written by the core
+ * (`Working/library/rose_reference.py`), never typed. */
+function RoseCard({ s }: { s: ReturnType<typeof useSettingsPage> }) {
+  const ref = useSourced(() => live(getRoseReference()), [])
+  const [busy, setBusy] = useState(false)
+  const [err, setErr] = useState<string | null>(null)
+  const [done, setDone] = useState<LibRoseReference | null>(null)
+  const r = done ?? ref.data
+  const minAccepted = s.value('rose.min_accepted') == null ? 30 : s.num('rose.min_accepted')
+  return (
+    <SectionCard title="Rose reference" subtitle="what 45° means on every rose · Round 10" testid="rose-card">
+      <Row label="45° =" info="The median steepest slope over human-accepted Library motifs (a verdict resolved by the divergence rules), so sharp noise and artifacts do not set the scale. Until enough motifs are accepted it is the median over every Library motif above its dataset's noise floor. Every rose prints which population it used."
+        testid="rose-reference-row" caption={r ? (r.stored ? `stored ${r.computed_at?.slice(0, 10) ?? ''} · recomputed only when you press Recompute` : 'not stored yet: the roses read this computed value until you store it') : 'reading…'}>
+        {ref.error && <span className="small" style={{ color: 'var(--red)' }}>{ref.error.message}</span>}
+        <span className="mono" data-testid="rose-reference-value" data-population={r?.population ?? ''} data-stored={r?.stored ? '1' : '0'}>{r ? r.text : '…'}</span>
+        <Button size="sm" icon="refresh" testid="rose-recompute" loading={busy} disabled={busy} disabledReason="recomputing…"
+          onClick={() => { setBusy(true); setErr(null); recomputeRoseReference().then(x => { setDone(x); ref.reload() }, e => setErr(String(e?.message ?? e))).finally(() => setBusy(false)) }}>Recompute and store</Button>
+        {err && <span className="small" style={{ color: 'var(--red)' }} data-testid="rose-recompute-error">{err}</span>}
+      </Row>
+      <Row label="accepted motifs needed" dot={s.differs('rose.min_accepted')} unsaved={s.dirty('rose.min_accepted')} testid="rose-min-row"
+        caption={`below this many accepted motifs the reference falls back to every motif above the noise floor${r?.n_accepted != null ? ` · ${r.n_accepted} accepted now` : ''}`}>
+        <NumberField value={minAccepted} min={1} max={100000} integer width={110} onValid={v => s.set('rose.min_accepted', v)} testid="rose-min-accepted" />
+      </Row>
+    </SectionCard>
   )
 }
 

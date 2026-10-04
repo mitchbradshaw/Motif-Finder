@@ -12,7 +12,11 @@ export interface RoseData {
   slopes_mv_s?: number[]; groups: Record<string, { n: number; mean_deg: number | null; resultant_length: number | null }>
   scale: string; caption: string
   mean_deg: number | null; resultant_length: number | null; circular_sd_deg: number | null; uniformity_p: number | null; note?: string
+  /** fixup-ae: what 45° is and the population it came from (`Working/library/rose_reference.py`) — printed on
+   *  every rose that carries it */
+  reference?: RoseReference | null
 }
+export interface RoseReference { value_mv_s: number | null; population: string | null; n: number | null; computed_at: string | null; stored: boolean; text: string }
 
 const B = '#0a84ff', BL = '#bfdcff', G = '#9ca3af', AM = '#e8900c'
 
@@ -71,6 +75,7 @@ export function Rose({ rose, highlight, onSelect, colourOf, labelOf, legend, tes
       </svg>
       <div style={{ fontSize: 12, minWidth: 200, maxWidth: 320 }}>
         <div style={{ fontWeight: 600, marginBottom: 4 }}>{rose.caption || 'no events with a measured fall'}</div>
+        {rose.reference && <div className="small" style={{ marginBottom: 6, color: rose.reference.population === 'accepted' ? undefined : '#b56b00' }} data-testid="rose-reference" data-population={rose.reference.population ?? ''}>{rose.reference.text}</div>}
         {stats.map(([k, v]) => <div key={k} className="mono" style={{ display: 'flex', justifyContent: 'space-between', gap: 12 }}><span className="muted">{k}</span><span>{v}</span></div>)}
         {sel >= 0 && <div className="mono" style={{ marginTop: 4, color: AM }} data-testid="rose-selected">{labelOf ? labelOf(highlight as number) : `event ${(highlight as number) + 1}`} · {rose.angles_deg[sel].toFixed(1).replace('-', '−')}°</div>}
         {Object.keys(rose.groups).length > 1 && (

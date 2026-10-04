@@ -141,12 +141,40 @@ def family_members(request: Request, key: str, snippets: bool = True):
     return {"family": key, "source": SOURCE, "members": _named(request, out), "capped": X.capped_counts(members)}
 
 
+def _rose_reference(request: Request, scale: str, reference=None):
+    """fixup-ae: what 45° is on a raw-scale rose — the Library's rose reference (Settings › Analysis defaults:
+    the median steepest slope over accepted motifs, or its stated fallback) unless the caller stated one.
+    `None` value: nothing to read, and the rose falls back to its own events' median and says so."""
+    from Working.library import rose_reference as RR
+    if scale != "raw":
+        return None
+    if reference is not None:
+        return RR.resolve(float(reference))
+    c = _seq_conn(request)
+    try:
+        return RR.current(c)
+    finally:
+        c.close()
+
+
+def _with_reference(rose: dict, ref) -> dict:
+    if ref is not None:
+        rose["reference"] = {k: ref.get(k) for k in ("value_mv_s", "population", "n", "computed_at", "stored", "text")}
+    return rose
+
+
 @router.get("/api/interrogation/families/{key}/slope")
-def family_slope(key: str, scale: str = "raw"):
+def family_slope(request: Request, key: str, scale: str = "raw"):
     """01 Resolve spans: the anatomy of every member (onset, steepest, trough, chord, depth) and the rose."""
     members, snips = _members_of(key)
     grads = G.event_gradients(members, snips)
-    rose = G.rose_data(members, snips, scale=scale, split_by="span_key")
+    ref = _rose_reference(request, scale)
+    if ref is not None and ref["value_mv_s"] is None:
+        rose = G.rose_data(members, snips, scale="pooled", split_by="span_key")
+        ref = {**ref, "text": "no Library reference to read: 45° = the median of these events (pooled)"}
+    else:
+        rose = G.rose_data(members, snips, scale=scale, split_by="span_key",
+                           **({"fixed": ref["value_mv_s"]} if ref is not None else {}))
     features = [
         {"name": "onset_slope_mv_s", "unit": "mV/s", "kind": "slope", "label": "Onset slope"},
         {"name": "max_slope_mv_s", "unit": "mV/s", "kind": "slope", "label": "Steepest slope"},
@@ -180,7 +208,7 @@ def family_slope(key: str, scale: str = "raw"):
     return {"family": key, "source": SOURCE, "features": features, "rules": rules, "members": members_out,
             # the whole of `rose_data` in the one shape the kit's Rose draws (fixup-h): bins, every event's
             # angle, the circular statistics. `event_index` is the member's position in `members` above.
-            "rose": _clean(rose_payload(rose))}
+            "rose": _clean(_with_reference(rose_payload(rose), ref))}
 
 
 @router.get("/api/interrogation/families/{key}/aggregate")
@@ -359,9 +387,14 @@ def list_sequences(request: Request):
 
 
 @router.get("/api/interrogation/sequences/{sequence_id}/shape")
-def sequence_shape(request: Request, sequence_id: int, scale: str = "raw", reference: float = G.DEFAULT_SLOPE_REF_MV_S):
+def sequence_shape(request: Request, sequence_id: int, scale: str = "raw", reference: float | None = None):
     if scale not in G.SLOPE_SCALES:
         raise HTTPException(422, f"scale must be one of {G.SLOPE_SCALES}, got {scale!r}")
+    # fixup-ae: 45° is the Library's rose reference unless the caller states one — never 1.0 mV/s silently
+    ref = _rose_reference(request, scale, reference)
+    if ref is not None and ref["value_mv_s"] is None:
+        scale, ref = "pooled", {**ref, "text": "no Library reference to read: 45° = the median of these events (pooled)"}
+    reference = ref["value_mv_s"] if ref is not None else G.DEFAULT_SLOPE_REF_MV_S
     c = _seq_conn(request)
     try:
         try:
@@ -373,6 +406,8 @@ def sequence_shape(request: Request, sequence_id: int, scale: str = "raw", refer
         from Working.interrogation.event_shape import rules
         out["rules"] = rules(to_mv=1.0)
         out["unit_note"] = _unit_note(c, out["sequence"]["recording_id"])
+        if isinstance(out.get("rose"), dict):
+            _with_reference(out["rose"], ref)
         return _clean(out)
     finally:
         c.close()

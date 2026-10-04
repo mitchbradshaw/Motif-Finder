@@ -22,7 +22,14 @@
  *  - DOMAINS (fixup-c): every plot on this page is drawn on a domain measured from its own traces
  *    (`charts/domain.ts`), and the page's shared scale — computed once from every member's peak — is the
  *    reference bar beside each card. The two domains this page kept (a sketch domain and a measured one) are gone
- *    with the sketch. */
+ *    with the sketch.
+ *  - fixup-ae: HAND EDITS ARE WRITTEN (L4). *Remove from family*, *Restore*, *Make exemplar*, `+ tag` (rail and batch),
+ *    an untag and an added member's *Undo* go to `POST` / `DELETE /api/library/hand-edits` and the family is read
+ *    again; the bridge applies the edits on every read (`hand_edits.apply_to_assignment`, the rule a regroup applies),
+ *    so a removed member is gone after a reload and after a regroup. The `not wired yet:` toasts and the in-memory
+ *    copy of the edits are gone. The class select waits for the Review-behaviour prompt's classes and says so.
+ *  - fixup-ae: the members are the ones the Library's VIEW shows (the noise floor on by default — `ViewFilterBar`),
+ *    and *judged* is the one resolver's (Review verdict, event row, reviewed windows), its rule printed beside it. */
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react'
 import {
   Badge, Button, Checkbox, Chip, EmptyState, Icon, InfoTip, KeyValue, MiniTrace, Modal, Page, Pager, Popover, Seg, SelectField, TextField,
@@ -36,19 +43,28 @@ import {
   CLASS_OPTIONS, TAG_RULE, TAG_VOCABULARY, getFamily, getMotifFamilies,
   type FamilyDetail, type FamilyRead, type Member, type MotifFamily, type RemovedMember, type SequenceFamily, type Verdict,
 } from '../api/library'
-import { GroupingBar, LoadFailed, Loading, MotifPlot, SectionBar, centreTrace, fmtMv, tracePeak, useAllGroupings, useEmptyLibrary, useMotifGroupingId, useQueueToast, useRememberMotifsRoute, useSequenceGroupingId } from './chrome'
+import { GroupingBar, LoadFailed, Loading, MotifPlot, SectionBar, ViewFilterBar, centreTrace, fmtMv, tracePeak, useAllGroupings, useEmptyLibrary, useLibraryView, useMotifGroupingId, useQueueToast, useRememberMotifsRoute, useSequenceGroupingId } from './chrome'
 import { baselinePeak, referenceScale, type ReferenceScale } from '../charts/domain'
 import { ReferenceBar, referenceWords } from '../charts/ReferenceBar'
 import { familyName } from './AtlasPage'
 import { EmptyMotifsPage } from './EmptyLibrary'
 import { EdgeList, MatchedMembers, ScaleReadout, memberEdges, type EdgeDetailExtras, type EdgeFamilyExtras } from './Edges'
 import { CrossChannelCard } from './CrossChannel'
-import type { LibCrossChannel } from '../api'
+import { deleteLibraryHandEdit, postLibraryHandEdit, type LibCrossChannel, type LibFamilyView, type LibHandEditBody, type LibMember, type LibViewReport } from '../api'
+
+/** fixup-ae: a member as the bridge sends it now — its hand edits (with their ids, so one can be undone), the rule
+ *  that judged it, and the view's measures. */
+type HandEditRef = { id: number; kind: string; value: string | null; familyLabel: string | null }
+type LiveMember = Member & LibMember & { handEdits?: HandEditRef[] }
+type LiveDetail = FamilyDetail & { view?: LibViewReport & { family?: LibFamilyView; hiddenByView?: boolean }; judgedRule?: string }
+/** The class select waits for the classes the Review-behaviour prompt defines (Q16, Q42): a class written now would
+ *  name a vocabulary nobody has settled. */
+const CLASS_WAITS = 'waits for the Review-behaviour prompt: its classes (1/2/3/4/9) are not settled, so nothing is written yet'
 
 /** What the bridge actually returns for a removed member — `RemovedMember` plus the two fields
  *  `server/library.py` adds when the source row is still there. Declared here rather than widened in
  *  `fixtures/library.ts`, which this ticket does not own. */
-type LiveRemoved = RemovedMember & { onsetH?: number | null; contentHash?: string | null; trace?: number[] }
+type LiveRemoved = RemovedMember & { onsetH?: number | null; contentHash?: string | null; trace?: number[]; editId?: number }
 /** A removed member as the strip draws it: what the bridge gave, plus the two measurements a member removed
  *  in THIS session still has to hand. Never a whole `Member` — there is no verdict, no run and no revision
  *  list for a row that was removed by a hand edit, and inventing them is what this replaces. */
@@ -56,12 +72,14 @@ interface RemovedEntry {
   id: string; d: number; channel: string; recording: string; seed: number
   removedAt: string; removedNote: string
   onsetH?: number | null; durationS?: number | null; amplitudeMv?: number | null
+  /** the `hand_edits` row that removed it: *Restore* deletes it (fixup-ae) */
+  editId?: number
   /** the removed member's own waveform, from the read or carried over from the member removed this session */
   trace?: number[]
 }
 interface FamilyEdits { removed: RemovedEntry[]; undone: string[]; exemplar: string; tags: Record<string, string[]>; cls: Record<string, string>; notes: Record<string, string>; queued: boolean; staleEdges: boolean; log: string[] }
 type SortKey = 'distance' | 'time' | 'amplitude' | 'unjudged'
-const VERDICT_COLOUR: Record<Verdict, string> = { seed: 'var(--green)', interesting: 'var(--green)', 'not interesting': 'var(--muted-2)', artifact: 'var(--red)', unjudged: 'var(--amber)' }
+const VERDICT_COLOUR: Record<string, string> = { seed: 'var(--green)', interesting: 'var(--green)', 'not interesting': 'var(--muted-2)', not_interesting: 'var(--muted-2)', artifact: 'var(--red)', unjudged: 'var(--amber)' }
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
 /** Today, in the `'12 Sep'` form the bridge renders its own stamps in (`_iso_to_human`). Read from the clock
@@ -82,7 +100,9 @@ export function FamilyPage({ familyId }: { familyId?: string } = {}) {
   const [seqGid] = useSequenceGroupingId()
   // `#/library/family` with no id used to open `F-03`. It opens the first family of the current grouping
   // instead; the families read is skipped entirely when the route names one.
-  const firstFamily = useSourced(() => (named ? live(Promise.resolve<MotifFamily[]>([])) : getMotifFamilies(gid || undefined)), [named, gid])
+  const [view] = useLibraryView()
+  const viewKey = `${view.floor}|${view.fallMin}|${view.fallMax}|${view.pure}`
+  const firstFamily = useSourced(() => (named ? live(Promise.resolve<MotifFamily[]>([])) : getMotifFamilies(gid || undefined, view)), [named, gid, viewKey])
   const id = named || firstFamily.data?.[0]?.id || ''
   // Which catalogue the label is looked up in. The Atlas links a sequence family as `?unit=sequences`,
   // and it has to: 19 of the 26 sequence labels also name a motif family, so asking without a unit
@@ -92,8 +112,8 @@ export function FamilyPage({ familyId }: { familyId?: string } = {}) {
   const unit = unitQ === 'sequences' ? 'sequences' : 'motifs'
   const unitGid = unit === 'sequences' ? seqGid : gid
   const fam = useSourced(
-    () => (id ? getFamily(id, unitGid || undefined, unit) : live(Promise.resolve<FamilyRead | null>(null))),
-    [id, unitGid, unit])
+    () => (id ? getFamily(id, unitGid || undefined, unit, unit === 'motifs' ? view : null) : live(Promise.resolve<FamilyRead | null>(null))),
+    [id, unitGid, unit, viewKey])
   if (empty) return <EmptyMotifsPage />
   const grouping = groupings.all.find(g => g.id === gid) ?? null
   const d = fam.data
@@ -110,6 +130,7 @@ export function FamilyPage({ familyId }: { familyId?: string } = {}) {
         <SectionBar section="motifs" crumbs={[{ label: 'Recurrence', onClick: () => navigate('library/recurrence') }, { label: 'Atlas', onClick: () => navigate(`library/atlas${d?.kind === 'sequence' ? '?unit=sequences' : ''}`) }, { label: title }]}
           actions={<ExportEntryBtn id={id} />} />
         <GroupingBar unit={d?.kind === 'sequence' ? 'sequences' : 'motifs'} grouping={d?.kind === 'sequence' ? groupings.all.find(g => g.id === seqGid) ?? null : grouping} from={`family/${id}`} />
+        {d?.kind !== 'sequence' && <ViewFilterBar report={d?.kind === 'motif' ? (d.detail as LiveDetail).view ?? null : null} />}
         {firstFamily.error && <LoadFailed what="the families of this grouping" error={firstFamily.error} onRetry={firstFamily.reload} />}
         {noFamilies && <EmptyState icon="grid" title={gid ? `Grouping ${gid} has no families` : 'No grouping has been computed yet'} caption="open Edit grouping to compute one" action={<Button onClick={() => navigate('library/grouping?from=atlas')}>Edit grouping…</Button>} bordered testid="family-no-families" />}
         {fam.error && <LoadFailed what={`family ${id}`} error={fam.error} onRetry={fam.reload} />}
@@ -148,16 +169,40 @@ function MotifFamilyView({ detail, grouping, onReload }: { detail: FamilyDetail;
   const f = detail.family
   const { push } = useToast()
   const queue = useQueueToast()
+  // fixup-ae: what is in `hand_edits` comes from the read, never from a copy kept here — the removals, the
+  // exemplar and the tags are the bridge's. Only page conveniences stay local (notes, the queued chip).
   const [edits, setEdits] = useDemoState<FamilyEdits>(`library.family.${f.id}.edits`, () => ({
-    // exactly what the bridge returned for each removal — no invented onset, duration, amplitude, verdict,
-    // run or revision list (a removal is a hand edit, and a hand edit has none of those)
-    removed: detail.removed.map(r => {
-      const live = r as LiveRemoved
-      return { id: r.id, d: r.d, channel: r.channel, recording: r.recording, seed: r.seed, removedAt: r.removedAt, removedNote: r.note, onsetH: live.onsetH ?? null, trace: live.trace ?? [] }
-    }),
-    undone: [], exemplar: f.exemplar, tags: Object.fromEntries(detail.members.map(m => [m.id, m.tags])), cls: Object.fromEntries(detail.members.filter(m => m.cls).map(m => [m.id, m.cls!])),
+    removed: [], undone: [], exemplar: f.exemplar, tags: {}, cls: {},
     notes: Object.fromEntries(detail.members.filter(m => m.note).map(m => [m.id, m.note!])), queued: false, staleEdges: false, log: [],
   }))
+  // exactly what the bridge returned for each removal — no invented onset, duration, amplitude, verdict, run or
+  // revision list (a removal is a hand edit, and a hand edit has none of those)
+  const removedList: RemovedEntry[] = useMemo(() => detail.removed.map(r => {
+    const live = r as LiveRemoved
+    return { id: r.id, d: r.d, channel: r.channel, recording: r.recording, seed: r.seed, removedAt: r.removedAt, removedNote: r.note, onsetH: live.onsetH ?? null, trace: live.trace ?? [], editId: live.editId }
+  }), [detail.removed])
+  const [busy, setBusy] = useState(false)
+  const gidBody = grouping ?? (f as typeof f & { grouping?: string }).grouping ?? null
+  /** Write hand edits, then read the family again. A failure is loud (a toast with the server's message) and the
+   *  page keeps showing the read, which is still the truth. */
+  const writeEdits = async (bodies: LibHandEditBody[]): Promise<number[]> => {
+    setBusy(true)
+    try {
+      const ids: number[] = []
+      for (const b of bodies) ids.push((await postLibraryHandEdit({ grouping: gidBody, actor: 'this installation', ...b })).id)
+      onReload()
+      return ids
+    } catch (e) {
+      push({ text: `The hand edit was not written: ${(e as Error).message}` })
+      return []
+    } finally { setBusy(false) }
+  }
+  const undoEdits = async (ids: number[], what: string) => {
+    setBusy(true)
+    try { for (const i of ids) await deleteLibraryHandEdit(i); onReload(); push({ text: `${what} · hand edit${ids.length === 1 ? '' : 's'} ${ids.map(i => `#${i}`).join(', ')} undone` }) }
+    catch (e) { push({ text: `The undo was not written: ${(e as Error).message}` }) }
+    finally { setBusy(false) }
+  }
   // nothing is selected until someone selects it — the three-id preselection named fixture rows
   const [sel, setSel] = useDemoState<string[]>(`library.family.${f.id}.sel`, () => [])
   const { route } = useApp()
@@ -171,9 +216,9 @@ function MotifFamilyView({ detail, grouping, onReload }: { detail: FamilyDetail;
   const [modal, setModal] = useQueryState('modal', '')
   const [popover, setPopover] = useQueryState('popover', '')
 
-  const removedIds = new Set(edits.removed.map(r => r.id))
-  const members = useMemo(() => detail.members.filter(m => !removedIds.has(m.id) && !edits.undone.includes(m.id)), [detail.members, edits.removed, edits.undone]) // eslint-disable-line react-hooks/exhaustive-deps
-  const withEdits = (m: Member): Member => ({ ...m, role: m.id === edits.exemplar ? 'exemplar' : m.role === 'exemplar' ? undefined : m.role, tags: edits.tags[m.id] ?? m.tags, cls: edits.cls[m.id], note: edits.notes[m.id] })
+  // the bridge applies the hand edits: a removed member is not in `members`, the hand exemplar carries the role
+  const members = detail.members as LiveMember[]
+  const withEdits = (m: Member): Member => ({ ...m, note: edits.notes[m.id] })
   const handOnly = handQ === '1'
   const ordered = useMemo(() => {
     const list = members.map(withEdits).filter(m => !handOnly || m.addedByHand)
@@ -207,7 +252,7 @@ function MotifFamilyView({ detail, grouping, onReload }: { detail: FamilyDetail;
   // hand does not produce a trace for it — that comes back on the next read — so the plot says so instead of
   // swapping a sketch in beside the real medoid.
   const exemplarTrace = realTraces.ex
-  const handExemplar = edits.exemplar !== f.exemplar
+  const handExemplar = !!members.find(m => m.id === f.exemplar)?.handEdits?.some(e => e.kind === 'make_exemplar')
   const selInList = sel.filter(s => members.some(m => m.id === s))
   const overlayWaves = useMemo(() => pageItems.map(memberWave).filter(v => v.length > 0), [pageItems])
   const pageIds = pageItems.map(m => m.id)
@@ -216,31 +261,46 @@ function MotifFamilyView({ detail, grouping, onReload }: { detail: FamilyDetail;
   const log = (kind: string, detailRec: Record<string, unknown>) => recordDemoWrite('library', kind, { family: f.id, ...detailRec })
   const setMember = (mid: string) => setMemberQ(mid)
   const toggle = (mid: string) => setSel(s => (s.includes(mid) ? s.filter(x => x !== mid) : [...s, mid]))
-  const removeMembers = (ids: string[]) => {
+  const removeMembers = async (ids: string[]) => {
     const targets = members.filter(m => ids.includes(m.id))
-    const stamp = today()
-    setEdits(e => ({
-      ...e,
-      removed: [...e.removed, ...targets.map(m => ({
-        id: m.id, d: m.d, channel: m.channel, recording: m.recording, seed: m.seed,
-        onsetH: m.onsetH, durationS: m.durationS, amplitudeMv: m.amplitudeMv, trace: m.trace ?? [],
-        removedAt: stamp, removedNote: 'removed by hand',
-      }))],
-    }))
-    setSel(s => s.filter(x => !ids.includes(x)))
+    const noHash = targets.filter(m => !m.contentHash)
+    if (noHash.length) { push({ text: `Not removed: ${noHash.map(m => m.id).join(', ')} carr${noHash.length === 1 ? 'ies' : 'y'} no content hash, and a hand edit is keyed by one` }); return }
     log('hand-edit.remove', { members: ids })
-    if (railMember && ids.includes(railMember.id)) { const next = ordered.find(m => !ids.includes(m.id)); if (next) setMemberQ(next.id) }
-    push({ text: `Removed ${ids.length} from ${f.id} · kept out on every regroup · not wired yet: POST hand edit`, action: { label: 'Undo', onClick: () => restore(ids) } })
+    const written = await writeEdits(targets.map(m => ({ contentHash: m.contentHash!, kind: 'remove_member', familyLabel: f.id, value: 'removed by hand' })))
+    if (!written.length) return
+    setSel(s => s.filter(x => !ids.includes(x)))
+    if (railMember && ids.includes(railMember.id)) { const next = ordered.find(m => !ids.includes(m.id)); setMemberQ(next ? next.id : null) }
+    push({ text: `Removed ${ids.length} from ${f.id} · written to hand_edits (${written.map(i => `#${i}`).join(', ')}) · kept out on every regroup`, action: { label: 'Undo', onClick: () => { void undoEdits(written, `${ids.length} back in ${f.id}`) } } })
   }
-  const restore = (ids: string[]) => {
-    setEdits(e => ({ ...e, removed: e.removed.filter(r => !ids.includes(r.id)) }))
-    log('hand-edit.restore', { members: ids })
+  const restore = (entries: RemovedEntry[]) => {
+    const ids = entries.map(r => r.editId).filter((x): x is number => x != null)
+    log('hand-edit.restore', { members: entries.map(r => r.id) })
+    if (!ids.length) { push({ text: 'This removal carries no hand-edit id to undo' }); return }
+    void undoEdits(ids, `Restored ${entries.map(r => r.id).join(', ')}`)
   }
   const undoAdd = (mid: string) => {
-    setEdits(e => ({ ...e, undone: [...e.undone, mid] }))
+    const m = members.find(x => x.id === mid)
+    const ids = (m?.handEdits ?? []).filter(e => e.kind === 'add_member').map(e => e.id)
     log('hand-edit.undo-add', { member: mid })
-    const next = ordered.find(m => m.id !== mid); if (next) setMemberQ(next.id)
-    push({ text: `Undone: ${mid} leaves ${f.id} · not wired yet: DELETE hand edit`, action: { label: 'Redo', onClick: () => { setEdits(e => ({ ...e, undone: e.undone.filter(x => x !== mid) })); setMemberQ(mid) } } })
+    if (!ids.length) { push({ text: `${mid} carries no addition to undo` }); return }
+    void undoEdits(ids, `${mid} leaves ${f.id}`)
+  }
+  const makeExemplar = async (m: LiveMember) => {
+    if (!m.contentHash) { push({ text: `${m.id} carries no content hash, and a hand edit is keyed by one` }); return }
+    log('hand-edit.exemplar', { member: m.id, previous: f.exemplar })
+    const written = await writeEdits([{ contentHash: m.contentHash, kind: 'make_exemplar', familyLabel: f.id }])
+    if (written.length) { setEdits(e => ({ ...e, staleEdges: true })); push({ text: `${m.id} is the exemplar of ${f.id} · written (#${written[0]}) · edges partially stale until recomputed`, action: { label: 'Undo', onClick: () => { void undoEdits(written, `${f.id}'s exemplar back to the computed one`) } } }) }
+  }
+  const tagMembers = async (targets: LiveMember[], tag: string) => {
+    const todo = targets.filter(m => m.contentHash && !m.tags.includes(tag))
+    log('hand-edit.tag', { members: todo.map(m => m.id), tag })
+    if (!todo.length) { push({ text: `Every one already carries “${tag}”` }); return }
+    const written = await writeEdits(todo.map(m => ({ contentHash: m.contentHash!, kind: 'tag', familyLabel: f.id, value: tag })))
+    if (written.length) push({ text: `Tagged ${written.length} “${tag}” · written to hand_edits`, action: { label: 'Undo', onClick: () => { void undoEdits(written, `“${tag}” removed`) } } })
+  }
+  const untag = (m: LiveMember, tag: string) => {
+    const ids = (m.handEdits ?? []).filter(e => e.kind === 'tag' && e.value === tag).map(e => e.id)
+    if (ids.length) void undoEdits(ids, `“${tag}” off ${m.id}`)
   }
   const onKey = (e: KeyboardEvent) => {
     if (!railMember) return
@@ -289,8 +349,8 @@ function MotifFamilyView({ detail, grouping, onReload }: { detail: FamilyDetail;
               <KeyValue align="right" dense items={[
                 { k: 'members', v: fmtInt(members.length), strong: true },
                 { k: 'recordings', v: `${f.recordings} · ${detail.channels} channels` },
-                { k: 'judged', v: `${judged} of ${members.length}`, tone: 'amber' },
-                { k: 'hand edits', v: <button type="button" className="lib-plain mono" style={{ color: 'var(--purple)', fontSize: 11 }} data-testid="hand-edits-link" onClick={() => { setHandQ(handOnly ? null : '1'); setPageQ(null) }}>{added} added · {edits.removed.length} removed</button> },
+                { k: 'judged', v: <span data-testid="family-judged">{judged} of {members.length}</span>, tone: 'amber', info: <InfoTip title="what judged means" testid="judged-rule-tip">{(detail as LiveDetail).judgedRule ?? 'a human verdict on the member'}</InfoTip> },
+                { k: 'hand edits', v: <button type="button" className="lib-plain mono" style={{ color: 'var(--purple)', fontSize: 11 }} data-testid="hand-edits-link" onClick={() => { setHandQ(handOnly ? null : '1'); setPageQ(null) }}>{added} added · {removedList.length} removed</button> },
               ]} testid="summary-kv-1" />
               <KeyValue align="right" dense items={[
                 { k: 'mean member d', v: f.meanMemberD.toFixed(2) },
@@ -300,6 +360,8 @@ function MotifFamilyView({ detail, grouping, onReload }: { detail: FamilyDetail;
                 { k: 'cross-channel', v: <span className="mono" data-testid="family-cross-channel-line">{(detail as FamilyDetail & { crossChannel?: LibCrossChannel }).crossChannel?.classified === false ? 'not classified' : `artifact ${f.artifactChannels} · propagation ${f.propChannels} · independent ${f.indChannels}`}</span> },
               ]} testid="summary-kv-2" />
             </div>
+            {/* fixup-ae (L7): the judged figure's rule, beside it — the one resolver, and which rule judged how many */}
+            <div className="lib-cap" style={{ fontSize: 10.5 }} data-testid="judged-rule">judged {judged} of {members.length} by the divergence resolver{Object.keys((detail.family as typeof detail.family & { view?: LibFamilyView }).view?.judgedBy ?? {}).length ? ` — ${Object.entries((detail.family as typeof detail.family & { view?: LibFamilyView }).view!.judgedBy).map(([k, n]) => `${k} ${n}`).join(' · ')}` : ''}: a Review verdict, else the event row it matches, else the reviewed windows it falls in · not exact span equality</div>
             {/* fixup-v: §8.5's *Seed search in Discovery →* — the family's exemplar, by its Library entry */}
             <div className="row" style={{ gap: 8 }}>
               <Button size="sm" icon="target" iconRight="arrow-right" testid="family-seed-search"
@@ -353,14 +415,14 @@ function MotifFamilyView({ detail, grouping, onReload }: { detail: FamilyDetail;
             )
           })}
         </div>
-        {!pageItems.length && <EmptyState title={handOnly ? 'No hand-edited members' : 'No members'} caption={handOnly ? 'nobody has added a member to this family by hand' : 'every member was removed'} bordered testid="members-empty" />}
+        {!pageItems.length && <EmptyState title={handOnly ? 'No hand-edited members' : 'No members'} caption={handOnly ? 'nobody has added a member to this family by hand' : (detail as LiveDetail).view?.hiddenByView ? 'every member is hidden by the view — under the noise floor or outside the filters; show sub-floor above to see them' : 'every member was removed'} bordered testid="members-empty" />}
         <span className="lib-cap" style={{ marginTop: -4 }} data-testid="member-scale-note">{refScale ? `each member's own waveform, read off the recording, on its own mV scale · the bar at its right: its peak on ${referenceWords(refScale)}` : 'no member of this family is drawn in mV on this page'}</span>
 
-        {edits.removed.length > 0 && (
+        {removedList.length > 0 && (
           <div className="k-card" style={{ padding: '10px 14px', display: 'grid', gridTemplateColumns: '240px 1fr', gap: 12, alignItems: 'center' }} data-testid="removed-strip">
-            <div><div className="row"><Icon name="user" size={14} /><b style={{ fontSize: 13 }}>Removed by hand · {edits.removed.length}</b></div><div className="lib-cap" style={{ marginLeft: 22 }}>kept out when {f.id} is regrouped</div></div>
+            <div><div className="row"><Icon name="user" size={14} /><b style={{ fontSize: 13 }}>Removed by hand · {removedList.length}</b></div><div className="lib-cap" style={{ marginLeft: 22 }}>written to hand_edits · kept out when {f.id} is regrouped</div></div>
             <div className="stack" style={{ gap: 4 }}>
-              {edits.removed.slice(0, 3).map(r => (
+              {removedList.slice(0, 3).map(r => (
                 <div key={r.id} className="row" style={{ gap: 12 }}>
                   {/* the removed member's own waveform, on its own measured scale; a removal whose source row is
                       gone (or whose unit is undeclared) has none, and the slot says so */}
@@ -368,10 +430,10 @@ function MotifFamilyView({ detail, grouping, onReload }: { detail: FamilyDetail;
                     ? <MiniTrace values={centreTrace(r.trace ?? [])} width={62} height={34} ground="white" stroke="#6b7280" style={{ border: '1px solid var(--border)', borderRadius: 4 }} title={`${r.id} — read off the recording, on its own mV scale`} />
                     : <span className="lib-cap" style={{ width: 62, height: 34, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', border: '1px solid var(--border)', borderRadius: 4, fontSize: 10 }} title="this read carries no waveform for this removal">no waveform</span>}
                   <span className="lib-cap" style={{ color: 'var(--text-2)', fontSize: 11 }}>{r.id} · d {r.d.toFixed(2)} · {r.channel}{r.onsetH != null ? ` · ${r.onsetH.toFixed(1)} h` : ''} · removed {r.removedAt} · “{r.removedNote}”</span>
-                  <Button variant="link" icon="undo" style={{ marginLeft: 'auto' }} testid={`restore-${r.id}`} onClick={() => { restore([r.id]); push({ text: `Restored ${r.id} · not wired yet: DELETE hand edit` }) }}>Restore</Button>
+                  <Button variant="link" icon="undo" style={{ marginLeft: 'auto' }} testid={`restore-${r.id}`} disabled={busy} disabledReason="writing…" onClick={() => restore([r])}>Restore</Button>
                 </div>
               ))}
-              {edits.removed.length > 3 && <span className="lib-cap">+ {edits.removed.length - 3} more removed by hand</span>}
+              {removedList.length > 3 && <span className="lib-cap">+ {removedList.length - 3} more removed by hand</span>}
             </div>
           </div>
         )}
@@ -390,38 +452,38 @@ function MotifFamilyView({ detail, grouping, onReload }: { detail: FamilyDetail;
             <span className="row lib-ui-btn" style={{ gap: 8 }}>
               <Button icon="checklist" testid="batch-send" onClick={() => queue(`Library · ${f.id} selection`, selInList.length)}>Send to Review</Button>
               <Button ref={batchTagRef} icon="tag" testid="batch-tag" onClick={() => setPopover(popover === 'tag' ? null : 'tag')}>Add tag</Button>
-              <Button ref={batchClassRef} icon="layers" testid="batch-class" onClick={() => setPopover(popover === 'class' ? null : 'class')}>Assign class</Button>
-              <Button icon="minus" testid="batch-remove" onClick={() => setModal('remove')}>Remove from family</Button>
+              <Button ref={batchClassRef} icon="layers" testid="batch-class" disabled disabledReason={CLASS_WAITS} onClick={() => setPopover(popover === 'class' ? null : 'class')}>Assign class</Button>
+              <Button icon="minus" testid="batch-remove" disabled={busy} disabledReason="writing…" onClick={() => setModal('remove')}>Remove from family</Button>
               <Button icon="upload" testid="batch-export" onClick={() => push({ text: `not wired yet: export ${selInList.length} members (CSV + spans)` })}>Export</Button>
             </span>
           </> : <span className="lib-cap" data-testid="batch-hint">tick members to act on several · send to Review, tag, assign class, remove, export</span>}
         </div>
       </div>
 
-      {railMember ? <MemberRail key={railMember.id} m={railMember} f={f} detail={detail} refScale={refScale} edits={edits} setEdits={setEdits}
-        onUndoAdd={undoAdd} onRemove={() => setModal('remove-member')} onMakeExemplar={() => setModal('make-exemplar')} popover={popover} setPopover={setPopover} />
+      {railMember ? <MemberRail key={railMember.id} m={railMember as LiveMember} f={f} detail={detail} refScale={refScale} edits={edits} setEdits={setEdits} busy={busy}
+        onUndoAdd={undoAdd} onRemove={() => setModal('remove-member')} onMakeExemplar={() => setModal('make-exemplar')} onTag={t => { void tagMembers([railMember as LiveMember], t) }} onUntag={t => untag(railMember as LiveMember, t)} popover={popover} setPopover={setPopover} />
         : <aside className="k-card lib-rail"><EmptyState title="No member open" caption="click a member card" size="sm" /></aside>}
 
       <Popover open={popover === 'tag' && selInList.length > 0} onClose={() => setPopover(null)} anchorRef={batchTagRef} title={`Tag ${selInList.length} members`} width={300} testid="batch-tag-popover" placement="top-start">
-        <TagInput onApply={t => { setEdits(e => ({ ...e, tags: Object.fromEntries(Object.entries({ ...Object.fromEntries(members.map(m => [m.id, e.tags[m.id] ?? m.tags])) }).map(([k, v]) => [k, selInList.includes(k) && !v.includes(t) ? [...v, t] : v])) })); log('hand-edit.tag', { members: selInList, tag: t }); setPopover(null); push({ text: `Tagged ${selInList.length} members “${t}” · hand edit` }) }} onCancel={() => setPopover(null)} />
+        <TagInput onApply={t => { setPopover(null); void tagMembers(members.filter(m => selInList.includes(m.id)), t) }} onCancel={() => setPopover(null)} />
       </Popover>
       <Popover open={popover === 'class' && selInList.length > 0} onClose={() => setPopover(null)} anchorRef={batchClassRef} title={`Assign class to ${selInList.length}`} width={260} testid="batch-class-popover" placement="top-start">
-        <ClassPicker onApply={c => { setEdits(e => ({ ...e, cls: { ...e.cls, ...Object.fromEntries(selInList.map(x => [x, c])) } })); log('hand-edit.class', { members: selInList, cls: c }); setPopover(null); push({ text: `Class ${c} on ${selInList.length} members · hand edit` }) }} onCancel={() => setPopover(null)} />
+        <ClassPicker onApply={() => { setPopover(null); push({ text: `Not written: the class ${CLASS_WAITS}` }) }} onCancel={() => setPopover(null)} />
       </Popover>
 
       <Modal open={modal === 'remove' && selInList.length > 0} onClose={() => setModal(null)} title={`Remove ${selInList.length} members from ${f.id}?`} size="sm" testid="remove-modal"
-        footer={<><Button onClick={() => setModal(null)}>Cancel</Button><Button variant="danger-solid" testid="remove-confirm" onClick={() => { removeMembers(selInList); setModal(null) }}>Remove {selInList.length}</Button></>}>
+        footer={<><Button onClick={() => setModal(null)}>Cancel</Button><Button variant="danger-solid" testid="remove-confirm" onClick={() => { void removeMembers(selInList); setModal(null) }}>Remove {selInList.length}</Button></>}>
         <p style={{ margin: 0 }}>They stay out of {f.id} on every regroup until restored. Verdicts are untouched.</p>
         <div className="row wrap" style={{ gap: 4, marginTop: 10 }}>{selInList.map(x => <Chip key={x} size="sm" tone="grey">{x}</Chip>)}</div>
       </Modal>
       <Modal open={modal === 'remove-member' && !!railMember} onClose={() => setModal(null)} title={`Remove ${railMember?.id} from ${f.id}?`} size="sm" testid="remove-member-modal"
-        footer={<><Button onClick={() => setModal(null)}>Cancel</Button><Button variant="danger-solid" testid="remove-member-confirm" onClick={() => { if (railMember) removeMembers([railMember.id]); setModal(null) }}>Remove</Button></>}>
+        footer={<><Button onClick={() => setModal(null)}>Cancel</Button><Button variant="danger-solid" testid="remove-member-confirm" onClick={() => { if (railMember) void removeMembers([railMember.id]); setModal(null) }}>Remove</Button></>}>
         <p style={{ margin: 0 }}>It stays out of {f.id} on every regroup until restored. Its verdict is untouched.</p>
       </Modal>
       <Modal open={modal === 'make-exemplar' && !!railMember} onClose={() => setModal(null)} title={`Make ${railMember?.id} the exemplar of ${f.id}?`} size="sm" testid="make-exemplar-modal"
-        footer={<><Button onClick={() => setModal(null)}>Cancel</Button><Button variant="primary" icon="sparkle" testid="make-exemplar-confirm" disabled={!railMember || railMember.id === edits.exemplar || railMember.verdict === 'artifact'} disabledReason={railMember?.verdict === 'artifact' ? 'artifact verdict — cannot anchor a family' : 'already the exemplar'}
-          onClick={() => { if (!railMember) return; setEdits(e => ({ ...e, exemplar: railMember.id, staleEdges: true })); log('hand-edit.exemplar', { member: railMember.id, previous: edits.exemplar }); setModal(null); push({ text: `${railMember.id} is the exemplar of ${f.id} · edges partially stale · not wired yet: POST hand edit` }) }}>Make exemplar</Button></>}>
-        <p style={{ margin: 0 }}>{edits.exemplar} {edits.exemplar === f.exemplar ? '(seed) ' : ''}stays a member. The exemplar is the human anchor; the medoid {f.medoid} is still computed.</p>
+        footer={<><Button onClick={() => setModal(null)}>Cancel</Button><Button variant="primary" icon="sparkle" testid="make-exemplar-confirm" disabled={!railMember || railMember.id === f.exemplar || railMember.verdict === 'artifact' || busy} disabledReason={railMember?.verdict === 'artifact' ? 'artifact verdict — cannot anchor a family' : busy ? 'writing…' : 'already the exemplar'}
+          onClick={() => { if (!railMember) return; setModal(null); void makeExemplar(railMember as LiveMember) }}>Make exemplar</Button></>}>
+        <p style={{ margin: 0 }}>{f.exemplar} stays a member. The exemplar is the human anchor; the medoid {f.medoid} is still computed. Written to hand_edits, so it holds on every regroup.</p>
       </Modal>
     </div>
   )
@@ -484,18 +546,20 @@ function ClassPicker({ onApply, onCancel }: { onApply: (cls: string) => void; on
 }
 
 /* ================================================================ member rail ================================================================ */
-function MemberRail({ m, f, detail, refScale, edits, setEdits, onUndoAdd, onRemove, onMakeExemplar, popover, setPopover }: {
-  m: Member; f: MotifFamily; detail: FamilyDetail; refScale: ReferenceScale | null; edits: FamilyEdits; setEdits: (fn: (e: FamilyEdits) => FamilyEdits) => void
-  onUndoAdd: (id: string) => void; onRemove: () => void; onMakeExemplar: () => void; popover: string; setPopover: (v: string | null) => void
+function MemberRail({ m, f, detail, refScale, edits, setEdits, busy, onUndoAdd, onRemove, onMakeExemplar, onTag, onUntag, popover, setPopover }: {
+  m: LiveMember; f: MotifFamily; detail: FamilyDetail; refScale: ReferenceScale | null; edits: FamilyEdits; setEdits: (fn: (e: FamilyEdits) => FamilyEdits) => void; busy: boolean
+  onUndoAdd: (id: string) => void; onRemove: () => void; onMakeExemplar: () => void; onTag: (tag: string) => void; onUntag: (tag: string) => void
+  popover: string; setPopover: (v: string | null) => void
 }) {
   const { push } = useToast()
   const revRef = useRef<HTMLButtonElement>(null), tagRef = useRef<HTMLButtonElement>(null)
   const [note, setNote] = useState(edits.notes[m.id] ?? '')
   const [saved, setSaved] = useState<string | null>(null)
   const trace = useMemo(() => memberWave(m), [m])
-  const tags = edits.tags[m.id] ?? m.tags
+  const tags = m.tags
+  const handTags = new Set((m.handEdits ?? []).filter(e => e.kind === 'tag' && e.value).map(e => e.value as string))
   const past = m.d > detail.cut
-  const exemplarReason = m.id === edits.exemplar ? 'already the exemplar' : m.verdict === 'artifact' ? 'artifact verdict — cannot anchor a family' : null
+  const exemplarReason = m.id === f.exemplar ? 'already the exemplar' : m.verdict === 'artifact' ? 'artifact verdict — cannot anchor a family' : busy ? 'writing…' : null
   const saveNote = () => { if ((edits.notes[m.id] ?? '') === note) return; if (note.length > 500) return; setEdits(e => ({ ...e, notes: { ...e.notes, [m.id]: note } })); recordDemoWrite('library', 'hand-edit.note', { member: m.id }); setSaved('note saved') }
   // §4.2's revision list, from `motif_member_revision`. It can be empty — a member imported without a
   // detection or an annotation behind it has no revision — and an empty one is said, not faked.
@@ -541,18 +605,19 @@ function MemberRail({ m, f, detail, refScale, edits, setEdits, onUndoAdd, onRemo
         <EdgeList edges={memberEdges(detail, m.id)} testid="rail-edges" limit={6} family={{ id: f.id, grouping: (detail.family as typeof detail.family & { grouping?: string }).grouping }} />
       </div>
       <div className="lib-kvrow"><span className="k">verdict <InfoTip title="verdicts are read-only here">verdicts are written only in Review and Explore (§4.1, P6)</InfoTip></span>
-        <span className="v">{m.verdict === 'unjudged' ? <span style={{ color: '#c27400' }}>unjudged</span> : <><span style={{ width: 7, height: 7, borderRadius: '50%', background: VERDICT_COLOUR[m.verdict], display: 'inline-block', marginRight: 5 }} />{m.verdict}{m.verdictAt ? ` · ${m.verdictAt}` : ''}</>}
+        <span className="v" data-testid="rail-verdict" data-by={m.verdictBy ?? ''}>{m.verdict === 'unjudged' ? <span style={{ color: '#c27400' }} title={m.verdictWhy ?? undefined}>unjudged</span> : <><span style={{ width: 7, height: 7, borderRadius: '50%', background: VERDICT_COLOUR[m.verdict] ?? 'var(--muted-2)', display: 'inline-block', marginRight: 5 }} />{m.verdict}{m.verdictBy ? ` · by ${m.verdictBy}` : ''}{m.verdictAt ? ` · ${m.verdictAt}` : ''}</>}
           <Button variant="link" size="sm" testid="open-in-review" onClick={() => navigate(`review?item=${m.id}`)}>Open in Review</Button></span></div>
       <div className="row" style={{ justifyContent: 'space-between' }}>
         <span className="lib-cap" style={{ fontSize: 11 }}>tags</span>
         <span className="row" style={{ gap: 4, flexWrap: 'wrap', justifyContent: 'flex-end' }} data-testid="rail-tags">
-          {tags.map((t, i) => <Chip key={t} size="sm" tone={i === 0 ? 'blue' : 'grey'} onRemove={() => { setEdits(e => ({ ...e, tags: { ...e.tags, [m.id]: tags.filter(x => x !== t) } })); recordDemoWrite('library', 'hand-edit.untag', { member: m.id, tag: t }) }} removeLabel={`remove tag ${t}`}>{t}</Chip>)}
-          <button ref={tagRef} type="button" className="k-chip sm outline k-chip-btn" style={{ borderStyle: 'dashed' }} data-testid="rail-add-tag" onClick={() => setPopover(popover === 'rail-tag' ? null : 'rail-tag')}>+ tag</button>
+          {/* a tag written by hand can be taken off (its hand edit undone); a tag the importer wrote is the entry's own */}
+          {tags.map((t, i) => <Chip key={t} size="sm" tone={i === 0 ? 'blue' : 'grey'} title={handTags.has(t) ? 'added by hand' : 'from the import: the entry\'s own tag'} onRemove={handTags.has(t) ? () => { recordDemoWrite('library', 'hand-edit.untag', { member: m.id, tag: t }); onUntag(t) } : undefined} removeLabel={`remove tag ${t}`}>{t}</Chip>)}
+          <button ref={tagRef} type="button" className="k-chip sm outline k-chip-btn" style={{ borderStyle: 'dashed' }} data-testid="rail-add-tag" disabled={busy} onClick={() => setPopover(popover === 'rail-tag' ? null : 'rail-tag')}>+ tag</button>
         </span>
       </div>
       <div className="stack" style={{ gap: 4 }}>
-        <span className="lib-cap" style={{ fontSize: 11 }}>class {saved === 'class saved' && <span style={{ color: 'var(--green)' }}>· saved ✓</span>}</span>
-        <SelectField value={edits.cls[m.id] ?? ''} testid="rail-class" ariaLabel="class" onChange={v => { setEdits(e => ({ ...e, cls: { ...e.cls, [m.id]: v } })); recordDemoWrite('library', 'hand-edit.class', { member: m.id, cls: v }); setSaved('class saved') }}
+        <span className="lib-cap" style={{ fontSize: 11 }}>class <span data-testid="rail-class-waits">· {CLASS_WAITS}</span></span>
+        <SelectField value={edits.cls[m.id] ?? ''} testid="rail-class" ariaLabel="class" disabled disabledReason={CLASS_WAITS} onChange={() => undefined}
           options={[{ value: '', label: '— none' }, ...CLASS_OPTIONS.map(c => ({ value: c.name, label: `${c.key} · ${c.name}` }))]} />
       </div>
       <div onBlur={saveNote} className="stack" style={{ gap: 3 }}>
@@ -565,7 +630,7 @@ function MemberRail({ m, f, detail, refScale, edits, setEdits, onUndoAdd, onRemo
           <Button icon="pencil" testid="redraw-in-explore" disabled={!current} disabledReason="this member has no revision to redraw from"
             onClick={() => { if (current) navigate(`explore/span-edit/${m.id}?from=library/family/${f.id}&span=${current.spanId}`) }}>Redraw in Explore</Button>
         </span>
-        <Button variant="danger" icon="minus" testid="rail-remove" onClick={onRemove}>Remove from family</Button>
+        <Button variant="danger" icon="minus" testid="rail-remove" disabled={busy} disabledReason="writing…" onClick={onRemove}>Remove from family</Button>
       </div>
       <Popover open={popover === 'revisions'} onClose={() => setPopover(null)} anchorRef={revRef} title={`Revisions of ${m.id}`} width={380} placement="left-start" testid="revisions-popover">
         <table className="lib-scores">
@@ -575,7 +640,7 @@ function MemberRail({ m, f, detail, refScale, edits, setEdits, onUndoAdd, onRemo
         <div className="lib-cap" style={{ marginTop: 6 }}>a human edit writes a new annotation; the detection stays on its run (§4.2)</div>
       </Popover>
       <Popover open={popover === 'rail-tag'} onClose={() => setPopover(null)} anchorRef={tagRef} title={`Tag ${m.id}`} width={280} placement="left-start" testid="rail-tag-popover">
-        <TagInput onApply={t => { setEdits(e => ({ ...e, tags: { ...e.tags, [m.id]: tags.includes(t) ? tags : [...tags, t] } })); recordDemoWrite('library', 'hand-edit.tag', { member: m.id, tag: t }); setPopover(null); push({ text: `Tagged ${m.id} “${t}” · hand edit` }) }} onCancel={() => setPopover(null)} />
+        <TagInput onApply={t => { setPopover(null); if (tags.includes(t)) { push({ text: `${m.id} already carries “${t}”` }); return } onTag(t) }} onCancel={() => setPopover(null)} />
       </Popover>
     </aside>
   )

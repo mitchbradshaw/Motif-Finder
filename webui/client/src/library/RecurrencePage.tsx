@@ -17,6 +17,10 @@
  *    `matching.family_recurrence` — one definition), never re-derived here; the rule is printed beside the toggle and
  *    the row's total changes with it. A family not yet classified across channels says so on its row: its three
  *    counts are equal because nothing has been taken out, not because nothing was there to take.
+ *  - fixup-ae: every count is over the members the Library's VIEW shows (`ViewFilterBar`: the noise floor on by
+ *    default, the fall range, *pure only*) — the bridge filters before it hands `family_recurrence` its member ids,
+ *    so recurrence is read on families whose members clear the floor (RQ6). A cell is an index: clicking it opens
+ *    that cell's members in place in H's slideshow (`?cellm=`); ticking a channel is the column checkbox's job.
  */
 import { Fragment, useMemo } from 'react'
 import { Button, Callout, Checkbox, EmptyState, Icon, InfoTip, KeyValue, MiniTrace, Page, Seg, fmtInt, recordDemoWrite, useQueryState } from '../kit'
@@ -33,6 +37,8 @@ import { centredTraces, familyName } from './AtlasPage'
 import { MODE_LABEL, MODE_RULE_FALLBACK } from './CrossChannel'
 import type { LibRecurrenceCounts, RecurrenceMode } from '../api'
 import { EmptyMotifsPage } from './EmptyLibrary'
+import { FamilyMembersInPlace } from './MemberSlideshow'
+import { ViewFilterBar, useLibraryView } from './chrome'
 
 const RAMP = ['#e6f0ff', '#c2dcff', '#94c2ff', '#539fff', '#0a84ff']
 const RECORDINGS_PER_PAGE = 3
@@ -112,7 +118,9 @@ export function RecurrencePage() {
   // id, doing the Library's two heaviest reads twice on every cold open
   const motifsReady = !groupings.loading && (!!gidMotifs || !groupings.all.some(g => g.unit === 'motifs'))
   const seqsReady = !groupings.loading && (!!gidSeq || !groupings.all.some(g => g.unit === 'sequences'))
-  const data = useSourced(() => (motifsReady ? getRecurrence(gidMotifs || undefined) : live(Promise.resolve<RecurrenceData | null>(null))), [motifsReady, gidMotifs])
+  const [view] = useLibraryView()
+  const viewKey = `${view.floor}|${view.fallMin}|${view.fallMax}|${view.pure}`
+  const data = useSourced(() => (motifsReady ? getRecurrence(gidMotifs || undefined, view) : live(Promise.resolve<RecurrenceData | null>(null))), [motifsReady, gidMotifs, viewKey])
   const seqs = useSourced(() => (seqsReady ? getSequenceFamilies(gidSeq || undefined) : live(Promise.resolve<SequenceFamily[]>([]))), [seqsReady, gidSeq])
   const grouping = groupings.all.find(g => g.id === gid) ?? null
   const noneOfUnit = !groupings.loading && !groupings.error && !groupings.all.some(g => g.unit === unit)
@@ -132,6 +140,7 @@ export function RecurrencePage() {
       <Page testid="recurrence-page">
         <SectionBar section="motifs" crumbs={[{ label: 'Recurrence' }]} actions={<MotifsActions />} />
         <GroupingBar unit={unit} grouping={grouping} from="recurrence" onUnit={u => setUnitQ(u === 'motifs' ? null : u)} />
+        {unit === 'motifs' && <ViewFilterBar report={data.data?.view} />}
         {error && <LoadFailed what="the recurrence matrix" error={error} onRetry={() => { data.reload(); seqs.reload(); groupings.reload() }} />}
         {loading && !error && <Loading height={640} testid="recurrence-loading" />}
         {!loading && !error && !grouping && (
@@ -160,6 +169,9 @@ function Recurrence({ recordings, rows, coverage, sharedGround, unit, groupingId
   const recur: RecurrenceMode = isRecurMode(recurQ) ? recurQ : 'all'
   const recurRule = rows.find(r => r.rec)?.rec?.rules?.[recur] ?? MODE_RULE_FALLBACK[recur]
   const [recQ, setRecQ] = useQueryState('rec', '1')
+  // fixup-ae: the cell whose members are open in place, `F-03|recKey:channel`
+  const [cellQ, setCellQ] = useQueryState('cellm', '')
+  const [cellFamily, cellKey] = cellQ.includes('|') ? cellQ.split('|') as [string, string] : ['', '']
   const [, setDrawer] = useQueryState('drawer', '')
   const queue = useQueueToast()
   const omitted = useSourced(() => getOmitted(groupingId), [groupingId])
@@ -317,8 +329,10 @@ function Recurrence({ recordings, rows, coverage, sharedGround, unit, groupingId
                                   : `${where} · ${measured}${c!.artifact ? ` · cross-channel artifact (flagged): ${xc?.artifactMembers ?? '?'} member${xc?.artifactMembers === 1 ? '' : 's'} in an artifact pair` : ''}`
                           return (
                             <td key={k} className={`lib-cell${on ? (ri === lastRow ? ' on lib-sel-bottom' : ' on lib-sel-lr') : ''}`}>
-                              <button type="button" className={cls} title={reason ? `${tip} · ${reason}` : tip} data-testid={`cell-${row.id}-${k}`} data-cell-state={state} disabled={!!reason}
-                                style={cls === '' ? { background: RAMP[idx], color: idx >= 3 ? '#fff' : 'var(--text-2)', ...(state === 'unreviewed-members' ? { outline: '1px dashed var(--amber)', outlineOffset: -2 } : null) } : undefined} onClick={() => toggle(k)}>{text}</button>
+                              <button type="button" className={cls} title={reason ? `${tip} · ${reason}` : `${tip}${drawsNumber && unit === 'motifs' ? ' · click: these members, in place' : ''}`} data-testid={`cell-${row.id}-${k}`} data-cell-state={state} disabled={!!reason}
+                                aria-pressed={cellQ === `${row.id}|${k}` || undefined}
+                                style={cls === '' ? { background: RAMP[idx], color: idx >= 3 ? '#fff' : 'var(--text-2)', ...(state === 'unreviewed-members' ? { outline: '1px dashed var(--amber)', outlineOffset: -2 } : null), ...(cellQ === `${row.id}|${k}` ? { boxShadow: 'inset 0 0 0 2px var(--amber)' } : null) } : undefined}
+                                onClick={() => (drawsNumber && unit === 'motifs' ? setCellQ(cellQ === `${row.id}|${k}` ? null : `${row.id}|${k}`) : toggle(k))}>{text}</button>
                             </td>
                           )
                         })}
@@ -338,8 +352,13 @@ function Recurrence({ recordings, rows, coverage, sharedGround, unit, groupingId
             <span className="row" style={{ gap: 5 }}><span className="lib-swatch" style={{ background: '#fde2e2', border: '1px solid var(--red)' }} />cross-channel artifact, kept visible</span>
             <span className="row" style={{ gap: 5 }}><span className="lib-swatch" style={{ border: '1.5px dashed var(--blue)' }} />selected</span>
           </div>
-          <div className="lib-cap" style={{ marginTop: 6 }}><Icon name="info" size={11} style={{ verticalAlign: -1 }} /> dark in one recording and empty in the others → a property of that recording, not of the organism</div>
+          <div className="lib-cap" style={{ marginTop: 6 }}><Icon name="info" size={11} style={{ verticalAlign: -1 }} /> dark in one recording and empty in the others → a property of that recording, not of the organism · click a number for its members</div>
         </div>
+        {/* fixup-ae (Q-L6): a cell is an index — that family's members on that channel, in place */}
+        {cellFamily && cellKey && unit === 'motifs' && (
+          <FamilyMembersInPlace familyId={cellFamily} grouping={groupingId} cell={cellKey} cellLabel={`${recLabel(cellKey.split(':')[0])} · ${cellKey.split(':')[1]}`}
+            colour={rows.find(r => r.id === cellFamily)?.colour} onClose={() => setCellQ(null)} testid="cell-members" />
+        )}
 
         <div className="k-card" style={{ padding: '12px 14px' }} data-testid="omitted-strip">
           <div className="row" style={{ marginBottom: 10 }}>

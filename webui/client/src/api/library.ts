@@ -27,7 +27,9 @@ import {
   getLibraryFamilies as apiFamilies, getLibrarySequenceFamilies as apiSequenceFamilies, getLibraryFamily as apiFamily,
   getLibraryOmitted as apiOmitted, getLibraryGroupingEditor as apiGroupingEditor, getLibraryWindowSets as apiWindowSets,
   getLibraryTemplates as apiTemplates, getLibraryImportBundles as apiImportBundles, dryRunLibraryImport as apiDryRun,
-  type LibBundleRef, type LibFamily, type LibSequenceFamily, type LibWindowSet,
+  getLibraryRecurrenceIn as apiRecurrenceIn, getLibraryFamiliesIn as apiFamiliesIn, getLibraryFamilyIn as apiFamilyIn,
+  getLibraryViewReport as apiViewReport,
+  type LibBundleRef, type LibFamily, type LibSequenceFamily, type LibView, type LibViewReport, type LibWindowSet,
 } from '../api'
 import { CUSTOM_CLUSTERINGS } from '../fixtures/library'
 import type {
@@ -98,12 +100,13 @@ export const getLibraryCounts = (): Promise<Sourced<LibraryCounts>> => live(apiC
 /** Every saved grouping, oldest first (the bridge orders by id, so the last of a unit is the newest). */
 export const getGroupings = (): Promise<Sourced<Grouping[]>> => live(apiGroupings() as Promise<Grouping[]>)
 
-export interface RecurrenceData { recordings: RecGroup[]; families: MotifFamily[]; coverage: Record<string, number>; sharedGround: { pair: [string, string]; family: string }[] }
+export interface RecurrenceData { recordings: RecGroup[]; families: MotifFamily[]; coverage: Record<string, number>; sharedGround: { pair: [string, string]; family: string }[]; view?: LibViewReport }
 /** The recurrence matrix. `groupingId` is optional and omitting it means "the newest grouping of motifs",
- *  which is what the bridge resolves when `?grouping=` is absent. */
-export const getRecurrence = (groupingId?: string): Promise<Sourced<RecurrenceData>> => live((async () => {
-  const r = await apiRecurrence(groupingId)
-  return { recordings: r.recordings as RecGroup[], families: r.families.map(family), coverage: r.coverage, sharedGround: r.sharedGround }
+ *  which is what the bridge resolves when `?grouping=` is absent. `view` (fixup-ae): the Library's view filter —
+ *  the members counted are the ones it shows; omitted, the bridge applies its default (the noise floor on). */
+export const getRecurrence = (groupingId?: string, view?: LibView | null): Promise<Sourced<RecurrenceData>> => live((async () => {
+  const r = await (view ? apiRecurrenceIn(groupingId, view) : apiRecurrence(groupingId))
+  return { recordings: r.recordings as RecGroup[], families: r.families.map(family), coverage: r.coverage, sharedGround: r.sharedGround, view: r.view }
 })())
 
 /** The recording rows of the recurrence matrix, on their own — the live replacement for the fixture
@@ -113,8 +116,11 @@ export const getRecurrence = (groupingId?: string): Promise<Sourced<RecurrenceDa
 export const getRecordingGroups = (groupingId?: string): Promise<Sourced<RecGroup[]>> =>
   live(apiRecurrence(groupingId).then(r => r.recordings as RecGroup[]))
 
-export const getMotifFamilies = (groupingId?: string): Promise<Sourced<MotifFamily[]>> =>
-  live(apiFamilies(groupingId).then(fs => fs.map(family)))
+export const getMotifFamilies = (groupingId?: string, view?: LibView | null): Promise<Sourced<MotifFamily[]>> =>
+  live((view ? apiFamiliesIn(groupingId, view) : apiFamilies(groupingId)).then(fs => fs.map(family)))
+/** fixup-ae: what the view showed and hid for one grouping — per import store and per dataset, families before →
+ *  after, and the rules. */
+export const getViewReport = (groupingId?: string, view?: LibView | null): Promise<Sourced<LibViewReport>> => live(apiViewReport(groupingId, view))
 export const getSequenceFamilies = (groupingId?: string): Promise<Sourced<SequenceFamily[]>> =>
   live(apiSequenceFamilies(groupingId).then(fs => fs.map(sequenceFamily)))
 
@@ -156,8 +162,8 @@ export type FamilyRead = { kind: 'motif'; detail: FamilyDetail } | { kind: 'sequ
  *  `getLibraryFamily` in `../api`: the same label names a motif family and a sequence family 19 times
  *  over, so omitting it is how a sequence family quietly opens as a motif one. */
 export const getFamily = (id: string, groupingId?: string,
-                          unit?: 'motifs' | 'sequences'): Promise<Sourced<FamilyRead>> => live((async () => {
-  const r = await apiFamily(id, groupingId, unit)
+                          unit?: 'motifs' | 'sequences', view?: LibView | null): Promise<Sourced<FamilyRead>> => live((async () => {
+  const r = await (view ? apiFamilyIn(id, groupingId, unit, view) : apiFamily(id, groupingId, unit))
   if (r.kind === 'motif') return { kind: 'motif', detail: { ...r.detail, family: family(r.detail.family) } } as FamilyRead
   if (r.kind === 'sequence') return { kind: 'sequence', family: sequenceFamily(r.family) } as FamilyRead
   return { kind: 'missing', id: r.id } as FamilyRead

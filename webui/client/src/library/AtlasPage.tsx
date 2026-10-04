@@ -18,6 +18,11 @@
  *    cannot claim 0.1–0.4 mV over some other range.
  *  - Scope chips are labelled from the recordings payload, and the omitted counts show a loading state rather
  *    than a fabricated number.
+ *  - fixup-ae: the cards are the families the Library's VIEW shows (the noise floor on by default, the fall range,
+ *    *pure only* — `ViewFilterBar`), counted after the filter; a family whose every member is under the floor is
+ *    gone from the grid and counted on the bar. A card prints its scale band as provenance (never a filter) and
+ *    what the view hid of it. Clicking a card opens its members in place in H's slideshow (`?members=`), with
+ *    *Open family page →*; the grid stays where it is.
  */
 import { useMemo, type KeyboardEvent } from 'react'
 import {
@@ -27,11 +32,13 @@ import { Header } from '../shell/Header'
 import { navigate, setQuery } from '../state'
 import { useSourced } from '../api/seam'
 import { live } from '../api/seam'
-import { AMP_DOMAIN, FAMILY_COLOURS, UNIT_LABEL, getMotifFamilies, getOmitted, getRecordingGroups, getSequenceFamilies, type Grouping, type MotifFamily, type RecGroup, type SequenceFamily, type Unit } from '../api/library'
+import { AMP_DOMAIN, FAMILY_COLOURS, UNIT_LABEL, getMotifFamilies, getOmitted, getRecordingGroups, getSequenceFamilies, getViewReport, type Grouping, type MotifFamily, type RecGroup, type SequenceFamily, type Unit } from '../api/library'
+import type { LibFamilyView, LibViewReport } from '../api'
+import { FamilyMembersInPlace } from './MemberSlideshow'
 import { useToast } from '../shell/Toast'
 import {
   GroupingBar, LoadFailed, Loading, MotifPlot, MotifsActions, OMITTED_SKETCH_NOTE, OmittedDrawer, OmittedThumb, SectionBar, centreTrace, fmtMv,
-  omittedReasonSummary, tracePeak, useAllGroupings, useEmptyLibrary, useFilters,
+  omittedReasonSummary, tracePeak, useAllGroupings, useEmptyLibrary, useFilters, useLibraryView, ViewFilterBar,
   useMotifGroupingId, useQueueToast, useRememberMotifsRoute, useSelection, useSequenceGroupingId,
 } from './chrome'
 import { EmptyMotifsPage } from './EmptyLibrary'
@@ -64,6 +71,8 @@ export const scopeLabel = (k: string, labels?: Record<string, string>) => { cons
 export const inScopeOf = (f: MotifFamily, sel: string[]) => (sel.length ? sel.reduce((s, k) => s + (f.cells[k]?.count ?? 0), 0) : f.members)
 /** The bridge echoes the extent its `ampBins` were counted over; the fixture type predates the field. */
 const ampDomainOf = (f: MotifFamily): [number, number] => (f as unknown as { ampDomain?: [number, number] }).ampDomain ?? AMP_DOMAIN
+/** fixup-ae: what the view hid of one family and its scale-band provenance (the bridge's `view`). */
+export const familyViewOf = (f: MotifFamily): LibFamilyView | undefined => (f as unknown as { view?: LibFamilyView }).view
 
 type SortKey = 'id' | 'scope' | 'judged' | 'duration' | 'hand'
 
@@ -83,7 +92,10 @@ export function AtlasPage({ inert, backdrop }: { inert?: boolean; backdrop?: boo
   // read says this library holds none of that unit, which resolves to "no grouping" rather than to an id).
   const motifsReady = !groupings.loading && (!!motifGid || !groupings.all.some(g => g.unit === 'motifs'))
   const seqsReady = !groupings.loading && (!!seqGid || !groupings.all.some(g => g.unit === 'sequences'))
-  const motifs = useSourced(() => (motifsReady ? getMotifFamilies(motifGid || undefined) : live(Promise.resolve<MotifFamily[]>([]))), [motifsReady, motifGid])
+  const [view] = useLibraryView()
+  const viewKey = `${view.floor}|${view.fallMin}|${view.fallMax}|${view.pure}`
+  const motifs = useSourced(() => (motifsReady ? getMotifFamilies(motifGid || undefined, view) : live(Promise.resolve<MotifFamily[]>([]))), [motifsReady, motifGid, viewKey])
+  const report = useSourced(() => (motifsReady && unit === 'motifs' ? getViewReport(motifGid || undefined, view) : live(Promise.resolve<LibViewReport | null>(null))), [motifsReady, motifGid, viewKey, unit])
   const seqs = useSourced(() => (seqsReady ? getSequenceFamilies(seqGid || undefined) : live(Promise.resolve<SequenceFamily[]>([]))), [seqsReady, seqGid])
   const recs = useSourced(() => (motifsReady ? getRecordingGroups(motifGid || undefined) : live(Promise.resolve<RecGroup[]>([]))), [motifsReady, motifGid])
   const labels = useMemo(() => Object.fromEntries((recs.data ?? []).map(r => [r.key, r.label])), [recs.data])
@@ -100,6 +112,7 @@ export function AtlasPage({ inert, backdrop }: { inert?: boolean; backdrop?: boo
         <SectionBar section="motifs" crumbs={[{ label: 'Recurrence', onClick: () => navigate('library/recurrence') }, { label: 'Atlas' }]} actions={<MotifsActions />} />
         <GroupingBar unit={unit} grouping={grouping} from="atlas" inert={inert}
           onUnit={u => { setQuery({ unit: u === 'motifs' ? null : u, family: null }, true); setUnitQ(u === 'motifs' ? null : u) }} />
+        {unit === 'motifs' && !inert && <ViewFilterBar report={report.data} />}
         {error && <LoadFailed what="the atlas" error={error} onRetry={() => { motifs.reload(); seqs.reload(); groupings.reload(); recs.reload() }} />}
         {loading && !error && <Loading height={600} testid="atlas-loading" />}
         {!loading && !error && !grouping && (
@@ -128,6 +141,8 @@ function MotifAtlas({ families, grouping, labels }: { families: MotifFamily[]; g
   const [scopeQ] = useQueryState('scope', '')
   const scope = scopeQ === 'all' ? [] : sel
   const [familyQ, setFamilyQ] = useQueryState('family', '')
+  // fixup-ae: the family whose members are open in place (the slideshow under the grid)
+  const [membersQ, setMembersQ] = useQueryState('members', '')
   const [sort, setSort] = useQueryState<SortKey>('sort', 'id')
   const [filters] = useFilters()
   /* Each card on a domain measured from its own traces (charts/domain.ts, fixup-c), after each trace's own DC
@@ -168,16 +183,22 @@ function MotifAtlas({ families, grouping, labels }: { families: MotifFamily[]; g
               options={[{ value: 'id', label: 'family id' }, { value: 'scope', label: scope.length ? 'members in scope' : 'members' }, { value: 'judged', label: 'judged fraction' }, { value: 'duration', label: 'duration' }, { value: 'hand', label: 'hand edits' }]} />
           </span>
         </div>
+        {/* fixup-ae (Q-L6): every card is an index — its members, in place, in H's slideshow, over the grid so the
+            click is answered where the eye already is; the grid and the rail stay as they were */}
+        {membersQ && <FamilyMembersInPlace familyId={membersQ} grouping={grouping.id} colour={families.find(f => f.id === membersQ)?.colour} onClose={() => setMembersQ(null)} testid="atlas-members" />}
         <div className="lib-grid c4" data-testid="atlas-grid" role="listbox" aria-label="families" tabIndex={0} onKeyDown={onKey}>
           {sorted.map(({ f, inScope }) => (
             <div key={f.id} role="option" aria-selected={f.id === selected?.f.id} tabIndex={-1} className={`k-card lib-fcard${f.id === selected?.f.id ? ' selected' : ''}`} style={{ cursor: 'pointer', ...(f.id === selected?.f.id ? { borderWidth: 1 } : null) }}
-              data-testid={`family-card-${f.id}`} onClick={() => setFamilyQ(f.id)} onDoubleClick={() => navigate(`library/family/${f.id}`)}>
+              data-testid={`family-card-${f.id}`} onClick={() => { setFamilyQ(f.id); setMembersQ(f.id) }} onDoubleClick={() => navigate(`library/family/${f.id}`)}>
               <div className="lib-fcard-head"><span className="id" style={{ color: f.colour }}>{f.id}</span><span className="nm">{familyName(f.id, f.name)}</span><span className="ct">{scope.length ? `${inScope} of ${f.members}` : `${f.members}`}</span></div>
               <div className="lib-badges">
                 <span className={`k-badge ${f.recordings > 1 ? 't-blue' : 't-grey'}`} title={`spans ${f.recordings} recording${f.recordings === 1 ? '' : 's'}`}>{f.recordings} rec</span>
                 {f.hand > 0 && <button type="button" className="k-badge t-purple lib-badge-btn" data-testid={`hand-badge-${f.id}`} title="open the family's hand edits" onClick={e => { e.stopPropagation(); navigate(`library/family/${f.id}?hand=1`) }}>{f.hand} hand</button>}
                 {f.artifact > 0 && <span className="k-badge t-red" title={`${f.artifact} channels where ${f.id} is a cross-channel artifact (flagged, kept visible)`}>artifact {f.artifact}</span>}
                 {!!f.unitNote && <span className="k-badge t-amber" data-testid={`unit-badge-${f.id}`} title={f.unitNote}>{f.unit === null ? 'unit?' : `${f.undeclaredMembers ?? ''} unit?`}</span>}
+                {!!familyViewOf(f)?.hidden && <span className="k-badge t-grey" data-testid={`hidden-badge-${f.id}`} title={`${familyViewOf(f)!.hidden} of ${familyViewOf(f)!.total} members hidden by the view (${familyViewOf(f)!.subFloor} under the noise floor) — not deleted`}>−{familyViewOf(f)!.hidden} hidden</span>}
+                {familyViewOf(f)?.scaleBands?.[0] && <span className="k-badge t-grey" data-testid={`band-badge-${f.id}`} style={{ fontWeight: 400 }}
+                  title={`provenance, not a filter: the detector's within-span octave of fall duration — ${familyViewOf(f)!.scaleBands.map(b => `band ${b.band} (${b.label ?? 'range not recorded'}) × ${b.n}`).join(' · ')}${familyViewOf(f)!.scaleBandsMore ? ` · +${familyViewOf(f)!.scaleBandsMore} more` : ''}`}>band {familyViewOf(f)!.scaleBands[0].band}{familyViewOf(f)!.scaleBands[0].label ? ` · ${familyViewOf(f)!.scaleBands[0].label}` : ''}</span>}
               </div>
               <MotifPlot exemplar={traces.get(f.id)?.ex} medoid={traces.get(f.id)?.me} colour={f.colour} height={92} testid={`family-plot-${f.id}`} unitNote={f.unitNote}
                 reference={{ scale: refScale, peak: peakOf(f.id), what: f.id }} />
@@ -185,7 +206,7 @@ function MotifAtlas({ families, grouping, labels }: { families: MotifFamily[]; g
                 {f.unit === null || (!!f.unitNote && peakOf(f.id) === 0)
                   ? <span title={f.unitNote ?? undefined}>peak · unit undeclared</span>
                   : <span title={`peak-to-baseline of the exemplar and medoid traces, measured: ${fmtMv(peakOf(f.id))} mV · mean member depth ${f.depthLabel}`}>peak {fmtMv(peakOf(f.id))} mV</span>}
-                <span className="lib-judged" title={`${f.judged} of ${f.members} judged`}><span className="bar"><i style={{ width: `${f.judgedPct}%` }} /></span>{f.judgedPct}% judged</span></div>
+                <span className="lib-judged" data-testid={`judged-${f.id}`} title={`${f.judged} of ${f.members} judged — by the divergence resolver: a Review verdict, else the event row it matches, else the reviewed windows it falls in`}><span className="bar"><i style={{ width: `${f.judgedPct}%` }} /></span>{f.judgedPct}% judged</span></div>
             </div>
           ))}
           <div className="lib-legend" style={{ gridColumn: `span ${legendSpan}`, alignSelf: 'start', paddingTop: 4 }} data-testid="atlas-legend">
@@ -196,7 +217,7 @@ function MotifAtlas({ families, grouping, labels }: { families: MotifFamily[]; g
                 How big a family is against the others is the bar: the same bar on every card, a tick per decade, with the family's peak marked on it. Family peaks here span several decades, which is why the bar is logarithmic — equal steps are equal ratios.</InfoTip></span>
           </div>
         </div>
-        {!sorted.length && <EmptyState title="No families match" caption={`every family has fewer than ${filters.minMembers} members`} bordered />}
+        {!sorted.length && <EmptyState title="No families match" caption={`every family has fewer than ${filters.minMembers} members${families.length ? '' : ' — or the view hides every member'}`} bordered />}
       </div>
       {selected ? <MotifRail f={selected.f} inScope={selected.inScope} scoped={scope.length > 0} refScale={refScale} grouping={grouping} traces={traces.get(selected.f.id)} /> : <div />}
     </div>
@@ -226,8 +247,8 @@ function MotifRail({ f, inScope, scoped, refScale, grouping, traces }: { f: Moti
         <span className="k-chip green sm" style={{ marginLeft: 'auto' }} title="distance between exemplar and medoid">d {f.exemplarMedoidD.toFixed(2)}</span>
       </div>
       <div className="lib-cap" style={{ fontSize: 10.5 }} data-testid="rail-members-not-drawn">
-        the other {Math.max(0, pool - 2)} member{pool - 2 === 1 ? '' : 's'} of this family {pool - 2 === 1 ? 'is' : 'are'} not drawn here: the atlas carries the exemplar and the medoid
-        as real mV. <Button variant="link" size="sm" style={{ padding: 0 }} testid="rail-open-members" onClick={() => navigate(`library/family/${f.id}`)}>Open the family</Button> to see every member's own waveform.
+        the other {Math.max(0, pool - 2)} member{pool - 2 === 1 ? '' : 's'} of this family {pool - 2 === 1 ? 'is' : 'are'} not drawn on the card: the atlas carries the exemplar and the medoid
+        as real mV, and every member's own waveform is in the slideshow under the grid (click the card), or <Button variant="link" size="sm" style={{ padding: 0 }} testid="rail-open-members" onClick={() => navigate(`library/family/${f.id}`)}>open the family</Button>.
       </div>
       <div className="row lib-cap" style={{ fontSize: 10.5 }}><span>peak-to-peak amplitude · mV</span><span style={{ marginLeft: 'auto' }}>n per bin</span></div>
       <Histogram bins={bins} height={66} showCounts={false} colour="#dcc6f1" highlightBin={(_, i) => i === modal} highlightColour={f.colour}

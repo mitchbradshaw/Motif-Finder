@@ -5,13 +5,14 @@ import { UNDECLARED_NOTE } from '../charts/units'
 import { measuredDomain, referenceScale, type ReferenceScale } from '../charts/domain'
 import { ReferenceBar, referenceWords } from '../charts/ReferenceBar'
 import {
-  Breadcrumb, Button, Checkbox, Chip, DividerV, Drawer, Icon, InfoTip, MiniTrace, NumberField, Popover, Seg, Spacer, Tabs, Toolbar, fmtInt, recordDemoWrite,
+  Breadcrumb, Button, Checkbox, Chip, DividerV, Drawer, Icon, InfoTip, MiniTrace, NumberField, Popover, Seg, Spacer, Tabs, TextField, Toolbar, fmtInt, recordDemoWrite,
   useDemoState, useQueryState, type CrumbItem,
 } from '../kit'
 import { useToast } from '../shell/Toast'
 import { navigate, setQuery, useApp } from '../state'
 import { GROUPING_G09, UNIT_LABEL, getGroupings, getLibraryCounts, getOmitted, motifShape, type Grouping, type OmittedEntry, type Unit } from '../api/library'
 import { useSourced, type SourcedState } from '../api/seam'
+import { LIB_VIEW_DEFAULT, type LibView, type LibViewReport } from '../api'
 
 /* ================================================================ store ================================================================ */
 /** Empty library is a data condition of the Motifs section, reached with `?library=empty` (inventory decision). It is
@@ -451,3 +452,91 @@ export function OmittedDrawer({ groupingId, unit }: { groupingId: string; unit: 
 }
 
 export function setQueryReplace(patch: Record<string, string | null>) { setQuery(patch, true) }
+
+/* ================================================================ the view (fixup-ae) ================================================================ */
+/** The Library's view: the noise floor (Q21 — a VIEW filter, never a gate; on by default), the fall-duration range
+ *  and *pure only* (Q22). Per viewer, kept across the Library's pages; `?floor=0`, `?fall=10-300` and `?pure=1` in
+ *  the URL set it (a deep link, a smoke state). `scale_band` is deliberately not here: it is a within-span index. */
+export function useLibraryView(): [LibView, (next: LibView) => void] {
+  const [view, setView] = useDemoState<LibView>('library.view', () => ({ ...LIB_VIEW_DEFAULT }))
+  const { route } = useApp()
+  const q = route.query
+  useEffect(() => {
+    if (q.floor === undefined && q.fall === undefined && q.pure === undefined) return
+    const [lo, hi] = String(q.fall ?? '').split('-')
+    const num = (s: string | undefined) => (s != null && s.trim() !== '' && Number.isFinite(Number(s)) ? Number(s) : null)
+    setView({ floor: q.floor !== '0', fallMin: num(lo), fallMax: num(hi), pure: q.pure === '1' })
+  }, [q.floor, q.fall, q.pure, setView])
+  const set = (next: LibView) => {
+    setView(next)
+    // the bar is now the source of truth; a URL that still said otherwise would undo it on the next reload
+    if (q.floor !== undefined || q.fall !== undefined || q.pure !== undefined) setQuery({ floor: null, fall: null, pure: null }, true)
+  }
+  return [view, set]
+}
+
+/** `Plots/drop_motifs10/motifs` → `drop_motifs10`: the import store a member came from, by its folder. */
+export const storeName = (path: string) => {
+  const parts = String(path).replace(/\\/g, '/').split('/').filter(Boolean)
+  const i = parts.lastIndexOf('motifs')
+  const name = i > 0 ? parts[i - 1] : parts[parts.length - 1] ?? path
+  return path.includes('library_seed') ? `${name} (seed)` : name
+}
+/** The view in words, as the page prints it beside the counts. */
+export function viewWords(v: LibView): string {
+  const parts = [v.floor ? 'noise floor on' : 'noise floor off']
+  if (v.fallMin != null || v.fallMax != null) parts.push(`fall ${v.fallMin ?? 0}–${v.fallMax ?? '∞'} s`)
+  if (v.pure) parts.push('pure windows only')
+  return parts.join(' · ')
+}
+
+/** The filter bar every motif page carries under its grouping bar: the floor, what it hides (by store, by dataset),
+ *  *show sub-floor (n)*, the fall range, *pure only*, and the rule. `report` is the bridge's count for this view —
+ *  the page's own read, so the bar and the cards cannot disagree. */
+export function ViewFilterBar({ report, what = 'members', testid = 'view-filter-bar' }: { report?: LibViewReport | null; what?: string; testid?: string }) {
+  const [view, setView] = useLibraryView()
+  const [lo, setLo] = useState(view.fallMin == null ? '' : String(view.fallMin))
+  const [hi, setHi] = useState(view.fallMax == null ? '' : String(view.fallMax))
+  useEffect(() => { setLo(view.fallMin == null ? '' : String(view.fallMin)); setHi(view.fallMax == null ? '' : String(view.fallMax)) }, [view.fallMin, view.fallMax])
+  const parse = (s: string) => (s.trim() === '' ? null : Number(s))
+  const bad = (s: string) => s.trim() !== '' && !(Number.isFinite(Number(s)) && Number(s) >= 0)
+  const invalid = bad(lo) || bad(hi) || (parse(lo) != null && parse(hi) != null && (parse(lo) as number) > (parse(hi) as number))
+  const applyFall = () => { if (!invalid) setView({ ...view, fallMin: parse(lo), fallMax: parse(hi) }) }
+  const sub = report?.subFloor ?? null
+  const stores = report ? Object.entries(report.byStore).filter(([, c]) => c.n > 0) : []
+  const datasets = report ? Object.entries(report.byDataset).filter(([, c]) => c.n > 0) : []
+  const under = report?.families.allSubFloor ?? 0
+  return (
+    <div className="k-card lib-gbar" data-testid={testid} data-floor={view.floor ? 'on' : 'off'} data-sub-floor={sub ?? ''} style={{ flexWrap: 'wrap', rowGap: 6 }}>
+      <span className="lib-muted-label">view</span>
+      <Chip tone={view.floor ? 'blue' : 'outline'} selected={view.floor} testid="view-floor" title="hide members whose depth is under their dataset's noise floor (Settings › Datasets; 0.1 mV where empty) — a view filter: nothing is deleted"
+        onClick={() => setView({ ...view, floor: !view.floor })}>noise floor {view.floor ? 'on' : 'off'}</Chip>
+      <b style={{ fontSize: 12, whiteSpace: 'nowrap' }} data-testid="view-floor-count">
+        {sub == null ? 'counting…' : view.floor ? `${fmtInt(sub)} sub-floor ${what} hidden` : `${fmtInt(sub)} sub-floor ${what} shown`}
+      </b>
+      {stores.length > 0 && <span className="lib-cap" data-testid="view-by-store" style={{ fontSize: 11, whiteSpace: 'nowrap' }} title="sub-floor members per import store">{stores.map(([k, c]) => `${storeName(k)} ${fmtInt(c.sub_floor)} of ${fmtInt(c.n)}`).join(' · ')}</span>}
+      {sub != null && sub > 0 && <Button variant="link" size="sm" testid="show-sub-floor" onClick={() => setView({ ...view, floor: !view.floor })}>{view.floor ? `show sub-floor (${fmtInt(sub)})` : `hide sub-floor (${fmtInt(sub)})`}</Button>}
+      {view.floor && under > 0 && <Chip tone="amber" size="sm" testid="view-families-under" title={`hidden from the grid: every member is under the floor — ${(report?.familiesAllSubFloor ?? []).join(', ')}`}>{under} famil{under === 1 ? 'y' : 'ies'} entirely under the floor</Chip>}
+      {!!report?.unmeasured && <Chip tone="grey" size="sm" testid="view-unmeasured" title="no detector depth and no event-shape depth (or the recording declares no unit): shown, never passed as above the floor">{fmtInt(report.unmeasured)} unmeasured · shown</Chip>}
+      <span style={{ flexBasis: '100%', height: 0 }} />
+      <span className="lib-muted-label">fall</span>
+      <TextField size="sm" width={64} value={lo} onChange={setLo} onEnter={applyFall} placeholder="min" ariaLabel="fall duration from, s" invalid={invalid} testid="view-fall-min" />
+      <span className="lib-cap">–</span>
+      <TextField size="sm" width={64} value={hi} onChange={setHi} onEnter={applyFall} placeholder="max" suffix="s" ariaLabel="fall duration to, s" invalid={invalid} testid="view-fall-max" />
+      <Button size="sm" testid="view-fall-apply" disabled={invalid || (parse(lo) === view.fallMin && parse(hi) === view.fallMax)} disabledReason={invalid ? 'two non-negative numbers of seconds, low to high' : 'already applied'} onClick={applyFall}>Apply</Button>
+      {(view.fallMin != null || view.fallMax != null) && <Button variant="link" size="sm" testid="view-fall-clear" onClick={() => setView({ ...view, fallMin: null, fallMax: null })}>clear</Button>}
+      <Chip tone={view.pure ? 'blue' : 'outline'} selected={view.pure} testid="view-pure" title="only windows holding one fall (the detector's is_pure); a window with two or more falls is not one event"
+        onClick={() => setView({ ...view, pure: !view.pure })}>pure only</Chip>
+      <Spacer />
+      <span className="lib-cap" data-testid="view-rule-line" style={{ fontSize: 11 }}>
+        {report ? `${fmtInt(report.shown)} of ${fmtInt(report.n)} ${what} shown · ${viewWords(view)}${report.fall?.hidden ? ` · fall hid ${fmtInt(report.fall.hidden)}` : ''}${report.pure?.hidden ? ` · impure hid ${fmtInt(report.pure.hidden)}` : ''}` : viewWords(view)}
+      </span>
+      <InfoTip title="what the view hides" testid="view-rule">
+        <div>{report?.rule ?? 'the view filter: the noise floor on by default, nothing deleted'}</div>
+        {datasets.length > 0 && <div style={{ marginTop: 6 }}>by dataset: {datasets.map(([k, c]) => `${c.name ?? k} ${fmtInt(c.sub_floor)} of ${fmtInt(c.n)} sub-floor (floor ${report?.floors[k]?.floorMv ?? 0.1} mV, ${report?.floors[k]?.from ?? 'default'})`).join(' · ')}</div>}
+        {!!(report?.fall?.unmeasured || report?.pure?.unmeasured) && <div style={{ marginTop: 6 }}>shown and counted, not judged: {report?.fall?.unmeasured ? `${fmtInt(report.fall.unmeasured)} with no fall duration` : ''}{report?.fall?.unmeasured && report?.pure?.unmeasured ? ' · ' : ''}{report?.pure?.unmeasured ? `${fmtInt(report.pure.unmeasured)} with no purity recorded` : ''}</div>}
+        <div style={{ marginTop: 6 }}>scale band is not a filter: it is the detector's within-span octave (band 1 is 174 s in one span and 4 s in another), shown on a card as provenance only (Q22).</div>
+      </InfoTip>
+    </div>
+  )
+}
