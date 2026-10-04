@@ -50,6 +50,14 @@ motifs after stretching them all to the same length. If that assumption is wrong
   promotion refuses a surrogate run's detection by name, as `insert_motif_entry` already did, and no queue serves one.
   So an edge `V` writes can only ever be over real matches.
 
+- **Families are filterable above the noise floor** (`AE`, 2026-10-04, `docs/prompts/fixup/reports/AE-library-floor-and-indexes.md`).
+  The Library hides members under their dataset's noise floor by default (961 of 3,239 in g-05, all `drop_motifs10`),
+  and filters by the detector's **fall duration** (a range, globally comparable) and by **pure windows only** (one
+  fall per window). That is the axis RQ3 is about: a family can now be read at one timescale at a time, e.g. falls of
+  10–300 s (705 of 3,239 members shown with *pure only* as well). The detector's `scale_band` is shown on a card as
+  provenance only — it is a within-span octave (band 1 is 174 s in one span and 4 s in another), never a filter.
+  Clicking a family shows its members' real waveforms in place, so a scale question can be looked at member by member.
+
 ## Decisions already made
 
 - **Q39:** only accepted matches become members, on an explicit act.
@@ -97,3 +105,5 @@ in `future/N-event-extent.md`.
 - 2026-10-03 · fixup-t · promotion from Review refuses surrogate spans; no change to what RQ3 still needs.
 - 2026-10-04 · fixup-v · scale bank, *Add N matches to E-xxxx* (edges per distance), Family edge lists and the scale
   read-out built and walked; status → answerable, not yet answered.
+- 2026-10-04 · fixup-ae · families filterable above the noise floor, by fall duration and by purity; scale band shown
+  as provenance only; members viewable in place from the Atlas.

@@ -1,6 +1,7 @@
 # RQ6 — Once contamination and propagation are separated out, does recurrence persist across channels and recordings?
 
-**Status (2026-10-04, after the Q40d plots): not yet answerable — `W`'s bins do not beat chance; `AD` and the Library prompt come first.** ~~Answerable for any family whose members share a recording, not yet answered.~~ `W` built the
+**Status (2026-10-04, after `AE`): not yet answerable — `W`'s bins do not beat chance; `AD` comes first. The Library
+half is built: recurrence is now counted on members above the noise floor.** ~~Status (2026-10-04, after the Q40d plots): not yet answerable — `W`'s bins do not beat chance; `AD` and the Library prompt come first.~~ ~~Answerable for any family whose members share a recording, not yet answered.~~ `W` built the
 classification on simultaneous windows and the counts with the bins taken out. **One sub-decision is open (Q40d, below)
 and it moves the answer a lot.** ~~Status (2026-10-03): not answerable. Classification never reaches an edge, and
 `motif_edge` has 0 rows.~~
@@ -51,6 +52,16 @@ The question is: after you remove the first two, is there still recurrence left?
     and the page says so. A recurrence count read against chance needs a family built from a run with paired surrogates
     (the runbook's step 1).
 
+- **Built 2026-10-04 (fixup `AE`, `docs/prompts/fixup/reports/AE-library-floor-and-indexes.md`): the Library shows
+  only members above their dataset's noise floor, by default.** The floor is Settings › Datasets' *noise floor* (0.1 mV
+  where empty); what is compared with it is the detector's own `drop_depth_mv` (else event shape's depth); nothing is
+  deleted, and *show sub-floor (n)* brings them back. **Recurrence counts only the members the view shows**: the bridge
+  filters before it hands `family_recurrence` its member ids, so every count on Library › Recurrence and every
+  *Classify across channels* read of the family's recurrence is over above-floor members. On the real grouping (g-05):
+  961 of 3,239 members are sub-floor, all from `drop_motifs10` (0 of the seed store); 4 families are entirely under the
+  floor. **The three Fig2A families shrink a lot:** F-130 55 → 11 members, F-119 40 → 7, F-39 40 → 26. A Recurrence
+  cell now opens its own members in place (H's slideshow), so a count can be looked at before it is believed.
+
 ## Decisions already made
 
 - **Q40a (2026-10-03): lag is measured on the same absolute window on both channels, always.** Motifs on sibling
@@ -80,7 +91,7 @@ The question is: after you remove the first two, is there still recurrence left?
 | ~~Recurrence counted with artifacts excluded and propagation counted once~~ | `W`, done 2026-10-04 |
 | ~~Q40d answered~~ — answered 2026-10-04 (Rounds 11–12): any sibling counts, but only behind a chance test | the researcher, done |
 | **A match must beat chance** (per-pair random-time null), r ≥ 0.98 for a suspected artifact, both swings over the noise floor, members under 30 samples *too short to tell*; a human confirms artifacts in a Review queue | `AD` |
-| **Build the Library** (the Library prompt): the per-dataset noise-floor view filter, so RQ6 is read on families whose members are real events | `AE` (∥ `AD`), **before RQ6 is answered** |
+| ~~**Build the Library** (the Library prompt): the per-dataset noise-floor view filter, so RQ6 is read on families whose members are real events~~ | `AE`, done 2026-10-04 |
 | A family built from a run with paired surrogates, so its count has a null beside it | the researcher (runbook step 1) |
 | ~~True surrogate count per channel~~ — a template run draws 20 per channel; the row prints the count drawn | `T`, done 2026-10-03 |
 
@@ -110,3 +121,5 @@ defect, not as a result.
 - 2026-10-03 · fixup-t · template runs draw 20 surrogates per channel and say so (`docs/prompts/fixup/reports/T-surrogates-one-null-never-a-detection.md`); surrogate spans can no
   longer be classified or counted as recurrence.
 - 2026-10-04 · grilling · Q40d plots: the rule does not beat chance; Rounds 11–12 answered; `AD` written; *build the Library* added as a step before RQ6.
+- 2026-10-04 · fixup-ae · the noise floor as a Library view filter (on by default); recurrence counted over above-floor
+  members only; a Recurrence cell opens its members in place; F-130 / F-119 / F-39 measured above the floor (11 / 7 / 26).

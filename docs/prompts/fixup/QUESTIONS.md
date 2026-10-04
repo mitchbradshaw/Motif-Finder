@@ -1580,3 +1580,22 @@ times. They are withdrawn pending Round 12.** The exclusion-zone answer (m/2) is
 - **Exclusion zone — (b), stands.** m/2 as a parameter.
 
 Built by **`AD-cross-channel-against-chance.md`** (written 2026-10-04).
+
+## Round 13 — from `AE`, 2026-10-04 — open
+
+### Q44 — which motifs count as *accepted* for the rose reference? — `AE` (`reports/AE-library-floor-and-indexes.md` §5)
+
+**In plain words.** The rose's 45° line is the "typical" steepness of a fall, and you decided (Round 10) it should come
+only from motifs a person said yes to. The prompt expected that to be none yet. But by the verdict rules you chose for
+*judged* (Review verdict, else a matching event row, else the reviewed windows it falls in), 166 Library motifs count as
+a yes today — every one because it sits inside a 10-minute CNN window someone labelled *interesting*. Nobody has said
+yes to a motif one at a time (0 Review verdicts). It is like counting every photo taken in a room someone called "nice"
+as a photo they liked.
+
+- **(a) as built:** accepted = resolved to interesting/seed by the one resolver → 45° = 0.788 mV/s, n = 162, all M2_aug.
+- **(b) a verdict on the motif itself** (Review, or an event row that matches it), not a window it falls in → at most 4
+  today, so the rose falls back to every motif above the floor (0.637 mV/s, n = 2,504) and says so until 30 are reviewed.
+
+**Recommendation: (b)** — a window labelled interesting says something in those ten minutes was worth a look, not that
+every fall in it is a good example, and one recording would set the scale for all of them. Built as (a) (the prompt's
+letter); (b) is a one-line change in `Working/library/rose_reference.py::compute`.
