@@ -1,0 +1,5 @@
+Fig2A CH0: best F2B col 2 row ~244210 (t=6.78 h at 10 Hz) r=-0.521
+Fig2A CH1: best F2B col 2 row ~4970480 (t=138.07 h at 10 Hz) r=0.502
+Fig2A CH2: best F2B col 1 row ~2394850 (t=66.52 h at 10 Hz) r=0.617
+Fig2A CH3: best F2B col 2 row ~2386400 (t=66.29 h at 10 Hz) r=-0.369
+Fig2A CH4: best F2B col 1 row ~2629480 (t=73.04 h at 10 Hz) r=-0.501

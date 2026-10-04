@@ -1,0 +1,5 @@
+Fig2A CH0: best F2B column 1 at row 4260853 (t=118.357 h if 10 Hz), r(diff)=0.069
+Fig2A CH1: best F2B column 1 at row 4263579 (t=118.433 h if 10 Hz), r(diff)=0.036
+Fig2A CH2: best F2B column 1 at row 4257345 (t=118.260 h if 10 Hz), r(diff)=0.124
+Fig2A CH3: best F2B column 1 at row 4258312 (t=118.286 h if 10 Hz), r(diff)=0.040
+Fig2A CH4: best F2B column 1 at row 4260744 (t=118.354 h if 10 Hz), r(diff)=0.039

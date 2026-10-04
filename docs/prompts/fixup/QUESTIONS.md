@@ -1513,3 +1513,70 @@ session; the short form is here.
 rounds** (A, B, C), each answered with the website *as it currently stands*, each round developing what
 the site can do. Round A is the six PRD questions (`docs/prompts/rq_roundA/`); round B's notes are in
 `docs/prompts/rq_roundB/`.
+
+---
+
+## Round 11 — Q40d and the exclusion zone, grilled 2026-10-04
+
+**Measured first (read-only, `W`'s sandbox `webui/runtime/20261004-184434`, F-130 / F-119 / F-39, 135 members):**
+members with a same-instant (|lag| ≤ 1 s) match on some other electrode, by the r floor — 0.5: 114 · 0.7: 106 ·
+0.8: 97 · 0.9: 74. 41 % of the matches at |r| ≥ 0.5 are negative r. Raising the floor does not rescue the families.
+The real database holds 0 seed-search runs, 0 `motif_edge` rows and 0 adjudications.
+
+**Answers — PROVISIONAL until the researcher has seen plots of the matches** (`webui/screenshots/fixup/Q40d/`).
+The researcher's reaction to the match rate: *a rate that high should perhaps be flagged and reviewed by human
+eyes* rather than silently removed; and *on the 5-channel Fig2A few artifact regions were identified, though its
+larger parent signal had some.* Asked: are the matches really near-identical at the same scale and time, and are
+they consecutive in time (artifacts usually come in bursts)?
+
+- **Q40d-1 — (b), provisionally.** The twin need not be a family member: a member with an exact same-time match on
+  any other electrode is an artifact, judged per member. As-built (member pairs only) shown behind the info icon.
+- **Q40d-2 — as recommended.** In a member–member artifact pair, both members are artifacts.
+- **Q40d-3 — (b).** The twin must also be an event: its swing in that window clears the dataset's noise floor
+  (Settings › Datasets, default 0.1 mV), not merely correlate.
+- **Q40d-4 — as recommended, after the plots.** If most Fig2A recurrence is simultaneous it is recorded in RQ6 as a
+  result: at this sampling rate it cannot be told apart from whole-organism synchrony.
+- **Exclusion zone — (b).** `detection.seed_matches` gets an exclusion parameter, default **m/2** (§7.6), shown on the
+  Seed page; done now, while the real database holds no seed results.
+
+Nothing is built until the researcher confirms from the plots.
+
+#### Round 11, measured — the plots overturn the provisional answers (2026-10-04)
+
+`webui/screenshots/fixup/Q40d/` (README, scripts, `pairs.csv`, `stats.json`). Every member recomputed against every
+sibling with `W`'s own `classify_waveforms` (matches the stored rows to 2e-11).
+
+- **The rule cannot tell an artifact from coincidence.** Control: each member against the same sibling cut at a
+  random other time (≥ 60 s away). `W`'s artifact rule passes **91.0 %** of real same-instant windows on Fig2A and
+  **90.4 %** at random times; 65.1 % vs 66.5 % on M2_aug. A strict rule (|r| ≥ 0.9, amplitude within 2×, both ≥
+  0.1 mV) also passes as often at random times on Fig2A (12.1 % vs 11.6 %); on M2_aug a small excess (18.7 % vs 13.0 %).
+- **Why:** the Fig2A members are ~1–1.6 s spans (10–16 samples at 10 Hz), median swing **0.205 mV**, 24 % under the
+  0.1 mV floor themselves — mostly slow drift, and any two short drifting clips correlate. A ±1 s lag search on 16
+  samples makes it worse.
+- **Same scale? Usually not:** median amplitude ratio 0.66–1.05 by stratum on Fig2A, 0.20–0.74 on M2_aug; 40 % of
+  matches are inverted. One M2_aug member is a 25 mV event whose "twin" is 0.01× its size.
+- **Not bunched in time:** strict-flagged members are no more clustered than the same flags shuffled (82 % vs 82 %
+  within 30 s, p = 0.56).
+- **No human artifact region nearby:** Fig2A has no parent link and no annotations (`F2B.mat` is not its parent by
+  sliding correlation, r ≤ 0.62); M2_aug's 21 members are all > 2 h from its 128 artifact windows.
+
+**So Q40d-1/-3 as provisionally answered would remove nearly every member for a reason that holds equally at random
+times. They are withdrawn pending Round 12.** The exclusion-zone answer (m/2) is unaffected and stands.
+
+## Round 12, answered 2026-10-04 — Q40d settled after the plots
+
+- **Q1 — (c), with r ≥ 0.98.** A match is suspicious only if it beats a per-pair random-time null (K = 100, 95th
+  percentile, Settings keys) **and** both swings clear the dataset noise floor **and** a minimum length holds; the
+  artifact test's r floor is raised to **0.98**. *Assumption flagged:* the 0.98 applies to the artifact test; the
+  propagation bin keeps its 0.5 floor plus the chance test.
+- **Q2 — yes.** Under 30 samples (Settings key) a member is *too short to tell*, counted, never binned, never padded.
+  The researcher: *many of these matches don't contain noticeable events at all — just regions of noisy samples.*
+- **Q3 — (a).** The machine flags; a human decides in a *Suspected artifact* Review queue (true-mV, every channel);
+  recurrence excludes only human-confirmed artifacts and prints flagged / confirmed / rejected / unjudged.
+- **Q4 — yes.** The same chance test for every bin; a pair that does not beat chance is independent.
+- **Q5 — yes.** RQ6 is answered on families whose members clear the noise floor, which needs the Library prompt
+  (noise-floor filter) first; Fig2A's three families get a note that cross-channel classification is not meaningful
+  at their scale.
+- **Exclusion zone — (b), stands.** m/2 as a parameter.
+
+Built by **`AD-cross-channel-against-chance.md`** (written 2026-10-04).

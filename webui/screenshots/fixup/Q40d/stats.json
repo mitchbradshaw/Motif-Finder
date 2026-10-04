@@ -1,0 +1,192 @@
+{
+ "strata": {
+  "0.5-0.7": {
+   "n": 112,
+   "median_amp_ratio": 0.671,
+   "iqr": [
+    0.275,
+    1.232
+   ],
+   "pct_ratio_0p5_to_2": 43.8,
+   "pct_sib_clears_floor": 66.1,
+   "pct_both_clear_floor": 58.0,
+   "pct_negative_r": 42.0,
+   "pct_lag_zero": 34.8,
+   "by_file": {
+    "Fig2A_dt0p1.csv": {
+     "n": 90,
+     "median_amp_ratio": 0.857,
+     "pct_sib_clears_floor": 60.0
+    },
+    "M2_aug_concat_fs1.mat": {
+     "n": 22,
+     "median_amp_ratio": 0.197,
+     "pct_sib_clears_floor": 90.9
+    }
+   }
+  },
+  "0.7-0.9": {
+   "n": 241,
+   "median_amp_ratio": 0.657,
+   "iqr": [
+    0.324,
+    1.543
+   ],
+   "pct_ratio_0p5_to_2": 42.3,
+   "pct_sib_clears_floor": 79.3,
+   "pct_both_clear_floor": 66.4,
+   "pct_negative_r": 53.1,
+   "pct_lag_zero": 63.1,
+   "by_file": {
+    "Fig2A_dt0p1.csv": {
+     "n": 181,
+     "median_amp_ratio": 0.807,
+     "pct_sib_clears_floor": 72.4
+    },
+    "M2_aug_concat_fs1.mat": {
+     "n": 60,
+     "median_amp_ratio": 0.273,
+     "pct_sib_clears_floor": 100.0
+    }
+   }
+  },
+  "0.9-1.0": {
+   "n": 267,
+   "median_amp_ratio": 1.047,
+   "iqr": [
+    0.522,
+    1.78
+   ],
+   "pct_ratio_0p5_to_2": 53.2,
+   "pct_sib_clears_floor": 90.6,
+   "pct_both_clear_floor": 78.7,
+   "pct_negative_r": 28.1,
+   "pct_lag_zero": 89.9,
+   "by_file": {
+    "Fig2A_dt0p1.csv": {
+     "n": 144,
+     "median_amp_ratio": 1.203,
+     "pct_sib_clears_floor": 82.6
+    },
+    "M2_aug_concat_fs1.mat": {
+     "n": 123,
+     "median_amp_ratio": 0.744,
+     "pct_sib_clears_floor": 100.0
+    }
+   }
+  }
+ },
+ "same_instant_rows": 620,
+ "pct_negative_r_same_instant": 40.3,
+ "pairs_total": 771,
+ "members": 135,
+ "members_flagged_stored_W": 133,
+ "members_flagged_own_span": 135,
+ "members_flagged_strict": 49,
+ "member_ptp_mV": {
+  "median": 0.205,
+  "pct_clear_floor": 75.6
+ },
+ "span_samples_median_by_file": {
+  "Fig2A_dt0p1.csv": 16.0,
+  "M2_aug_concat_fs1.mat": 357.0
+ },
+ "control": {
+  "Fig2A_dt0p1.csv": {
+   "pairs": 456,
+   "real_rule_pass": 91.0,
+   "random_time_rule_pass": 90.4,
+   "real_strict_pass": 12.1,
+   "random_time_strict_pass": 11.6
+  },
+  "M2_aug_concat_fs1.mat": {
+   "pairs": 315,
+   "real_rule_pass": 65.1,
+   "random_time_rule_pass": 66.5,
+   "real_strict_pass": 18.7,
+   "random_time_strict_pass": 13.0
+  }
+ },
+ "expected_members_flagged_at_random_times": {
+  "rule": 134.8,
+  "strict": 57.3
+ },
+ "fig2a_parent": [
+  {
+   "channel": 0,
+   "parent_recording_id": null,
+   "parent_offset": null,
+   "decimation": null
+  },
+  {
+   "channel": 1,
+   "parent_recording_id": null,
+   "parent_offset": null,
+   "decimation": null
+  },
+  {
+   "channel": 2,
+   "parent_recording_id": null,
+   "parent_offset": null,
+   "decimation": null
+  },
+  {
+   "channel": 3,
+   "parent_recording_id": null,
+   "parent_offset": null,
+   "decimation": null
+  },
+  {
+   "channel": 4,
+   "parent_recording_id": null,
+   "parent_offset": null,
+   "decimation": null
+  }
+ ],
+ "artifact_annotations_by_file": {
+  "M2_aug_concat_fs1.mat": 128,
+  "M2_concat_fs1.mat": 1
+ },
+ "m2_overlap": {
+  "members": 21,
+  "recording_fraction_marked_artifact_any_channel": 0.0141,
+  "members_inside_artifact_region": 0,
+  "members_within_30min": 0,
+  "members_within_2h": 0,
+  "expected_within_30min_if_uniform": 1.1
+ },
+ "clustering": {
+  "Fig2A_strict_30s": {
+   "n_flagged": 34,
+   "n_unflagged": 80,
+   "median_gap_flagged_s": 16.4,
+   "median_gap_unflagged_s": 10.2,
+   "frac_flagged_within": 0.824,
+   "window_s": 30.0,
+   "perm_mean": 0.815,
+   "perm_p_ge": 0.558
+  },
+  "Fig2A_strict_60s": {
+   "n_flagged": 34,
+   "n_unflagged": 80,
+   "median_gap_flagged_s": 16.4,
+   "median_gap_unflagged_s": 10.2,
+   "frac_flagged_within": 0.941,
+   "window_s": 60.0,
+   "perm_mean": 0.96,
+   "perm_p_ge": 0.8665
+  },
+  "Fig2A_all_members_gap_cv": 1.24,
+  "Fig2A_all_members_pct_gap_le_5s": 42.5,
+  "M2_strict_30min": {
+   "n_flagged": 15,
+   "n_unflagged": 6,
+   "median_gap_flagged_s": 6714.0,
+   "median_gap_unflagged_s": 15044.0,
+   "frac_flagged_within": 0.4,
+   "window_s": 1800.0,
+   "perm_mean": 0.269,
+   "perm_p_ge": 0.2835
+  }
+ }
+}

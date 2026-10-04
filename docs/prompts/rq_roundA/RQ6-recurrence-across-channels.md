@@ -1,6 +1,6 @@
 # RQ6 — Once contamination and propagation are separated out, does recurrence persist across channels and recordings?
 
-**Status (2026-10-04): answerable for any family whose members share a recording, not yet answered.** `W` built the
+**Status (2026-10-04, after the Q40d plots): not yet answerable — `W`'s bins do not beat chance; `AD` and the Library prompt come first.** ~~Answerable for any family whose members share a recording, not yet answered.~~ `W` built the
 classification on simultaneous windows and the counts with the bins taken out. **One sub-decision is open (Q40d, below)
 and it moves the answer a lot.** ~~Status (2026-10-03): not answerable. Classification never reaches an edge, and
 `motif_edge` has 0 rows.~~
@@ -78,7 +78,9 @@ The question is: after you remove the first two, is there still recurrence left?
 | ~~Classify a family across channels on simultaneous windows; bins stored on edges~~ | `W`, done 2026-10-04 |
 | ~~The Q40 rule in named constants, printed on the page~~ | `W`, done 2026-10-04 |
 | ~~Recurrence counted with artifacts excluded and propagation counted once~~ | `W`, done 2026-10-04 |
-| Q40d answered (does a co-occurrence without a member make a member an artifact?) | the researcher |
+| ~~Q40d answered~~ — answered 2026-10-04 (Rounds 11–12): any sibling counts, but only behind a chance test | the researcher, done |
+| **A match must beat chance** (per-pair random-time null), r ≥ 0.98 for a suspected artifact, both swings over the noise floor, members under 30 samples *too short to tell*; a human confirms artifacts in a Review queue | `AD` |
+| **Build the Library** (the Library prompt): the per-dataset noise-floor view filter, so RQ6 is read on families whose members are real events | Library prompt, **before RQ6 is answered** |
 | A family built from a run with paired surrogates, so its count has a null beside it | the researcher (runbook step 1) |
 | ~~True surrogate count per channel~~ — a template run draws 20 per channel; the row prints the count drawn | `T`, done 2026-10-03 |
 
@@ -93,12 +95,12 @@ Follow `RESEARCH_RUNBOOK.md` Q6:
 
 ## Open decisions
 
-- **Q40d (2026-10-04, from `W`) — does a co-occurrence *without* a member make a member an artifact?** In plain words: if
-  a family member's event shows up at the same instant on another electrode where the family has no member, is the
-  member itself contamination? Today (as built, the literal reading of Q40c): no — it is counted beside the family, and
-  only a member paired with another *member* is taken out. If yes, nearly every member of these three families is an
-  artifact (F-130 54 of 55, F-119 40 of 40, F-39 39 of 40, against 22 / 23 / 18 as built). Recommendation and options
-  in the report and `QUESTIONS.md`.
+None. **Q40d was settled 2026-10-04** after plots (`webui/screenshots/fixup/Q40d/`): `W`'s rule passed as often at
+random times as at the same instant (91 % vs 90 % on Fig2A), because the Fig2A members are ~1 s, ~0.2 mV clips of
+drift. So a match must now beat its own random-time null, and a human confirms each artifact (`QUESTIONS.md`
+Rounds 11–12). **Fig2A's three families (F-130, F-119, F-39) are below or near the noise floor: cross-channel
+classification is not meaningful at their scale.** Their counts in *What is known* are kept as the record of the
+defect, not as a result.
 
 ## Log
 
@@ -107,3 +109,4 @@ Follow `RESEARCH_RUNBOOK.md` Q6:
   with the bins taken out, Explore agreeing with the edge; measured on F-130 / F-119 / F-39; Q40d opened.
 - 2026-10-03 · fixup-t · template runs draw 20 surrogates per channel and say so (`docs/prompts/fixup/reports/T-surrogates-one-null-never-a-detection.md`); surrogate spans can no
   longer be classified or counted as recurrence.
+- 2026-10-04 · grilling · Q40d plots: the rule does not beat chance; Rounds 11–12 answered; `AD` written; *build the Library* added as a step before RQ6.
