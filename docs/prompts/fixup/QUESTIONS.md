@@ -1364,6 +1364,36 @@ Library path returns lag 0 for events an hour apart.
 **Q40c — A: as recommended.** Counted on the family as *co-occurrence without a member*, never written as
 an edge.
 
+**Q40d — OPEN (raised 2026-10-04 by `W`, which built the literal reading). Does a co-occurrence *without* a member
+make a member an artifact?**
+
+*In plain words.* Think of a family as a list of sightings of one bird song. An "artifact" is the same song heard on
+two microphones at the same instant — one bird, picked up twice, not two birds. `W` takes a sighting out of the count
+when **both** microphones have it on the family's list. But often the second microphone hears the song and nobody put
+that recording on the list (the detector or the import never made it a member). Is the first sighting still "heard
+twice", and so taken out?
+
+- **(a) No — as built.** Only a member paired with another *member* at the same instant is taken out. A simultaneous
+  correlate on a sibling with no member is counted beside the family (Q40c's words) and changes nothing else.
+- **(b) Yes.** Any member whose event is seen at the same instant (|lag| ≤ 1 s, |r| ≥ 0.5) on any sibling channel is an
+  artifact, member there or not — the researcher's Q40b rule applied to the event rather than to the pair.
+- **(c) Both, as a toggle** on Recurrence (*excluding artifacts — member pairs* vs *— any sibling*), each with its rule.
+
+**Measured** (sandbox, default rule, `W`'s report):
+
+| family | members | in an artifact pair (a) | with an artifact co-occurrence without a member | artifact under (b) |
+|---|---|---|---|---|
+| F-130 | 55 | 22 | 46 | **54** |
+| F-119 | 40 | 23 | 40 | **40** |
+| F-39 | 40 | 18 | 28 | **39** |
+
+Under (b) these three families all but vanish. That might be the truth (simultaneous correlated activity across
+electrodes is common on these recordings — Part 2 found 1,412 of 4,500 real pairs at |lag| ≤ 1 with |r| 0.5–0.99), or it
+might say the 0.5 floor is too low to separate common drift from contamination on a 5-channel 10 Hz recording.
+**Recommendation: (c)**, because the gap between the two numbers is itself the finding an examiner will ask about, and
+neither reading should be hidden; (a) stays the default until you choose. Building (c) is small: the per-member rows are
+already stored (`motif_member_cooccurrence`).
+
 ## Round 9, answered 2026-10-03 (grilling session, part 2)
 
 **Q40b — A: THREE bins, not four; common-mode folds into artifact.** The researcher's rule: *any events
