@@ -74,6 +74,7 @@ _DETECTOR_COLUMNS = {
     # and the detector's WITHIN-SPAN octave index, carried as provenance only (never a filter: band 1 is
     # 174 s in one span and 4 s in another). Its duration range is `scale_band_ranges`'.
     "is_pure": ("is_pure", 1.0),
+    "purity": ("falls_in_window", 1.0),      # how many falls the window holds (motifs5.py: `purity = falls`)
     "scale_band": ("scale_band", 1.0),
 }
 

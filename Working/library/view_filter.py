@@ -172,6 +172,8 @@ def member_measures(conn, members) -> dict:
             "status": status, "dataset": dataset, "store": store or "not imported from a store",
             "fall_duration_s": _num(f.get(det + "fall_duration_s")),
             "is_pure": None if pure is None else bool(pure >= 0.5),
+            "falls_in_window": (None if _num(f.get(det + "falls_in_window")) is None
+                                else int(_num(f.get(det + "falls_in_window")))),
             "scale_band": None if band is None else int(band),
             "scale_band_label": (F.scale_band_label(f.get(det + F.SCALE_BAND_RANGE[0]), f.get(det + F.SCALE_BAND_RANGE[1]))
                                  if band is not None else None),

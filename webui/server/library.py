@@ -56,6 +56,9 @@ from Working.database import queries as dbq
 from Working.distances import DISTANCE_NATIVE_LENGTH, DISTANCE_SCALE_INVARIANT, DISTANCE_SYMBOLIC
 from Working.library import hand_edits as hand_edits_mod
 from Working.library import matching as matching_mod
+from Working.library import rose_reference as rose_mod
+from Working.library import verdicts as verdicts_mod
+from Working.library import view_filter as vf_mod
 from Working.library.grouping import bases as bases_mod
 from Working.library.grouping import engine as engine_mod
 from Working.library.importers import annotations as ann_importer
@@ -751,22 +754,53 @@ def _recurrence_cells(conn, index, members, member_ids, cells) -> dict:
                                 "pairs", "withoutMember", "rules")}
 
 
-def _families_for(conn, index, grouping_row) -> list:
-    """`MotifFamily[]` for one grouping, built from real rows."""
+def _families_for(conn, index, grouping_row, view=None) -> list:
+    """`MotifFamily[]` for one grouping, built from real rows — the members the
+    view shows (fixup-ae: the noise floor on by default), hand edits applied."""
+    return _view_state(conn, index, grouping_row, view)["families"]
+
+
+def _build_view_state(conn, index, grouping_row, view) -> dict:
+    """The families one grouping draws under one view, and everything the view
+    hid, counted (fixup-ae). Hand edits are applied first (`hand_edits.
+    apply_to_assignment`, the rule a regroup applies), then the view filter
+    (`view_filter`, never a gate: nothing is written), then every shown member's
+    verdict is resolved by the one resolver (`library/verdicts.py`)."""
+    out = {"families": [], "rows": [], "measures": {}, "resolved": {}, "report": None, "view": view}
     if grouping_row is None:
-        return []
-    rows = _member_rows(conn, grouping_row["id"])
+        return out
+    rows = _hand_applied(conn, grouping_row, _member_rows(conn, grouping_row["id"]))
     # `family_label` on an omitted row names its NEAREST family, not the one it
     # joined — `family_id` is what says it joined at all. Filtering on the
     # label alone counted every omitted motif as a member of the family it
-    # failed to reach.
-    assigned = [r for r in rows if r["family_id"] is not None and r["member_id"] is not None]
+    # failed to reach. A member moved by hand has no `family_id` and is in.
+    assigned = [r for r in rows if r["member_id"] is not None and r.get("family_label")
+                and (r["family_id"] is not None or (r.get("hand") and not r.get("removed_by_hand")))]
+    by_family_all = {}
+    for r in assigned:
+        by_family_all.setdefault(r["family_label"], []).append(int(r["member_id"]))
+    filt = vf_mod.filter_members(conn, assigned, view, families=by_family_all)
+    out["measures"], out["report"] = filt["measures"], filt["report"]
+    assigned = [r for r in assigned if int(r["member_id"]) in filt["kept"]]
+    out["rows"] = assigned
+    resolved = verdicts_mod.member_verdicts(conn, assigned) if assigned else {}
+    out["resolved"] = resolved
+    out["report"]["families"] = {"before": len(by_family_all),
+                                 "after": len({r["family_label"] for r in assigned}),
+                                 "allSubFloor": len(out["report"]["families_all_sub_floor"])}
+    out["report"]["judgedRule"] = verdicts_mod.rule_text(conn)
     if not assigned:
-        return []
+        return out
 
     tags_by_entry, elements_by_entry = _tags_for_entries(
         conn, sorted({int(r["entry_id"]) for r in assigned if r["entry_id"]}))
-    verdicts = _verdicts(conn, index)
+    # fixup-ae (L7): a member's verdict is the resolver's (Review, event row, reviewed windows), handed to
+    # `_one_family` in the span-keyed shape it reads. Exact span equality matched 0.0 % on every family.
+    verdicts = {}
+    for r in assigned:
+        v = resolved.get(int(r["member_id"]))
+        if v and v["judged"]:
+            verdicts[(int(r["recording_id"]), int(r["start_idx"]), int(r["end_idx"]))] = (v["verdict"], None)
     edits = hand_edits_mod.active_edits(conn, grouping_row["id"])
     hand_by_family = {}
     for e in edits:
@@ -780,11 +814,16 @@ def _families_for(conn, index, grouping_row) -> list:
 
     # hoisted: this was one query per family, run 30 times for 30 families
     reviewed = _reviewed_fraction(conn, index)
-    out = []
-    for i, (label, members) in enumerate(sorted(by_family.items())):
-        out.append(_one_family(conn, index, label, members, i, tags_by_entry, verdicts,
-                               hand_by_family.get(label, 0), grouping_row, reviewed,
-                               elements_by_entry))
+    fams = []
+    # the colour index is the family's place among ALL the grouping's families, so a family keeps its colour
+    # whatever the view hides
+    order = {label: i for i, label in enumerate(sorted(by_family_all))}
+    for label, members in sorted(by_family.items()):
+        fam = _one_family(conn, index, label, members, order[label], tags_by_entry, verdicts,
+                          hand_by_family.get(label, 0), grouping_row, reviewed, elements_by_entry)
+        fam["view"] = _family_view(label, by_family_all[label], members, out["measures"], resolved)
+        fams.append(fam)
+    out["families"] = fams
     return out
 
 
@@ -798,7 +837,9 @@ def _one_family(conn, index, label, members, i, tags_by_entry, verdicts, hand, g
     recordings = set()
 
     medoid_row = next((m for m in members if m["is_medoid"]), members[0])
-    exemplar_row = min(members, key=lambda m: _f(m["distance"], 1e9))
+    # fixup-ae: a member made the exemplar by hand (`hand_edits`, kind make_exemplar) is the exemplar
+    exemplar_row = (next((m for m in members if _get(m, "is_exemplar")), None)
+                    or min(members, key=lambda m: _f(m["distance"], 1e9)))
 
     for m in members:
         meta = index["by_id"].get(int(m["recording_id"] or 0))
@@ -1094,13 +1135,17 @@ def get_groupings(request: Request):
 
 
 @router.get("/recurrence")
-def get_recurrence(request: Request, grouping: str | None = Query(default=None)):
-    """`{recordings, families, coverage, sharedGround}` — the recurrence matrix."""
+def get_recurrence(request: Request, grouping: str | None = Query(default=None),
+                   floor: str | None = Query(default=None), fallMin: str | None = Query(default=None),
+                   fallMax: str | None = Query(default=None), pure: str | None = Query(default=None)):
+    """`{recordings, families, coverage, sharedGround, view}` — the recurrence matrix, counted over the
+    members the view shows (fixup-ae: the noise floor on by default; `view` says what it hid)."""
     conn = _conn(request)
     try:
         index = _recordings_index(conn)
         row = _resolve_grouping(conn, grouping)
-        families = _families_for(conn, index, row)
+        state = _view_state(conn, index, row, vf_mod.ViewFilter.from_query(floor, fallMin, fallMax, pure))
+        families = state["families"]
         coverage = _reviewed_fraction(conn, index)
         shared = []
         for fam in families:
@@ -1116,18 +1161,23 @@ def get_recurrence(request: Request, grouping: str | None = Query(default=None))
             "grouping": gid_str(row["id"]) if row else None,
             # stated, not dropped: see `_unresolved_assignments`
             "unresolved": _unresolved_assignments(conn, row["id"], str(row["unit"])) if row else 0,
+            "view": _view_report_payload(state),
         }
     finally:
         conn.close()
 
 
 @router.get("/families")
-def get_families(request: Request, grouping: str | None = Query(default=None)):
-    """`MotifFamily[]` — the Atlas. Every row carries `colour`."""
+def get_families(request: Request, grouping: str | None = Query(default=None),
+                 floor: str | None = Query(default=None), fallMin: str | None = Query(default=None),
+                 fallMax: str | None = Query(default=None), pure: str | None = Query(default=None)):
+    """`MotifFamily[]` — the Atlas. Every row carries `colour`, and `view`: what the view filter hid
+    of it (fixup-ae). `GET /view` carries the page-wide counts."""
     conn = _conn(request)
     try:
         index = _recordings_index(conn)
-        return _families_for(conn, index, _resolve_grouping(conn, grouping))
+        return _families_for(conn, index, _resolve_grouping(conn, grouping),
+                             vf_mod.ViewFilter.from_query(floor, fallMin, fallMax, pure))
     finally:
         conn.close()
 
@@ -1145,7 +1195,9 @@ def get_sequence_families(request: Request, grouping: str | None = Query(default
 
 @router.get("/family/{family_id}")
 def get_family(request: Request, family_id: str, grouping: str | None = Query(default=None),
-               unit: str | None = Query(default=None)):
+               unit: str | None = Query(default=None),
+               floor: str | None = Query(default=None), fallMin: str | None = Query(default=None),
+               fallMax: str | None = Query(default=None), pure: str | None = Query(default=None)):
     """The `FamilyRead` union. An unknown family is `{kind:'missing', id}` —
     a 200 with a shape the page renders, not a 500 and not a blank.
 
@@ -1180,9 +1232,17 @@ def get_family(request: Request, family_id: str, grouping: str | None = Query(de
             g = _resolve_grouping(conn, grouping, "single_motifs")
             if g is not None and str(g["unit"]) != "single_motifs":
                 g = _default_grouping(conn, "single_motifs")
-            fams = _families_for(conn, index, g)
-            fam = next((f for f in fams if f["id"] == family_id), None)
-            return (({"kind": "motif", "detail": _family_detail(conn, index, fam, g),
+            view = vf_mod.ViewFilter.from_query(floor, fallMin, fallMax, pure)
+            state = _view_state(conn, index, g, view)
+            fam = next((f for f in state["families"] if f["id"] == family_id), None)
+            hidden = False
+            if fam is None and g is not None:
+                # fixup-ae: a family the view hid entirely is not a missing one — it opens with no member
+                # shown and says why, rather than reading "No family F-xx"
+                every = _view_state(conn, index, g, vf_mod.ViewFilter(floor=False))
+                fam = next((f for f in every["families"] if f["id"] == family_id), None)
+                hidden = fam is not None
+            return (({"kind": "motif", "detail": _family_detail(conn, index, fam, g, state, hidden),
                       "grouping": gid_str(g["id"])}) if fam is not None else None)
 
         def _sequence():
@@ -1209,12 +1269,13 @@ def get_family(request: Request, family_id: str, grouping: str | None = Query(de
         conn.close()
 
 
-def _family_detail(conn, index, fam, grouping_row) -> dict:
-    rows = [r for r in _member_rows(conn, grouping_row["id"])
-            if r["family_label"] == fam["id"] and r["family_id"] is not None]
+def _family_detail(conn, index, fam, grouping_row, state=None, hidden_by_view=False) -> dict:
+    # fixup-ae: the members the view shows, hand edits applied (`_view_state`), each verdict the resolver's
+    state = state if state is not None else _view_state(conn, index, grouping_row, None)
+    rows = [r for r in state["rows"] if r["family_label"] == fam["id"]]
     tags_by_entry, _elements = _tags_for_entries(
         conn, sorted({int(r["entry_id"]) for r in rows if r["entry_id"]}))
-    verdicts = _verdicts(conn, index)
+    resolved = state["resolved"]
     edits = hand_edits_mod.active_edits(conn, grouping_row["id"])
     edits_by_hash = {}
     for e in edits:
@@ -1223,7 +1284,8 @@ def _family_detail(conn, index, fam, grouping_row) -> dict:
     members, removed = [], []
     edge_ctx = _edge_context(conn, index, sorted({int(r["entry_id"]) for r in rows if r["entry_id"]}))
     medoid_id = next((r["member_id"] for r in rows if r["is_medoid"]), None)
-    exemplar_id = min(rows, key=lambda r: _f(r["distance"], 1e9))["member_id"] if rows else None
+    exemplar_id = (next((r["member_id"] for r in rows if r.get("is_exemplar")), None)
+                   or (min(rows, key=lambda r: _f(r["distance"], 1e9))["member_id"] if rows else None))
 
     for r in rows:
         meta = index["by_id"].get(int(r["recording_id"] or 0))
@@ -1231,7 +1293,8 @@ def _family_detail(conn, index, fam, grouping_row) -> dict:
             continue
         fs = meta["fs"] or 1.0
         start, end = int(r["start_idx"] or 0), int(r["end_idx"] or 0)
-        verdict_row = verdicts.get((meta["recording_id"], start, end))
+        res = resolved.get(int(r["member_id"])) or {}
+        verdict_row = (res["verdict"], None) if res.get("judged") else None
         hand_rows = edits_by_hash.get(r["content_hash"], [])
         role = "medoid" if r["member_id"] == medoid_id else ("exemplar" if r["member_id"] == exemplar_id else None)
         member = {
@@ -1246,10 +1309,12 @@ def _family_detail(conn, index, fam, grouping_row) -> dict:
             "verdict": (verdict_row[0] if verdict_row else "unjudged"),
             "foundBy": str(r["scale"] or "event"),
             "revisions": _revisions_for(conn, r["member_id"]),
-            "tags": tags_by_entry.get(int(r["entry_id"] or 0), []),
+            "tags": _with_hand_tags(tags_by_entry.get(int(r["entry_id"] or 0), []), r.get("tags")),
             "seed": int(r["member_id"] or 0),
             "contentHash": r["content_hash"],
         }
+        # fixup-ae: which rule judged it, the view's measures, and where its samples are (the slideshow)
+        member.update(_member_view_fields(r, meta, res, state["measures"].get(int(r["member_id"]))))
         if role:
             member["role"] = role
         member["edges"] = edge_ctx["by_member"].get(int(r["member_id"] or 0), [])
@@ -1305,6 +1370,9 @@ def _family_detail(conn, index, fam, grouping_row) -> dict:
         # Q3 read-out for the exemplar — filled from `motif_edge` rows
         "matched": _matched_members(conn, index, edge_ctx, in_family),
         "scaleReadout": _scale_readout_payload(conn, fam.get("exemplarEntryId"), edge_ctx),
+        # fixup-ae: what the view hid of this family, the rule it hid it by, and the rule *judged* is counted by
+        "view": {**_view_report_payload(state), "family": fam.get("view"), "hiddenByView": bool(hidden_by_view)},
+        "judgedRule": verdicts_mod.rule_text(conn),
     }
 
 
@@ -2537,11 +2605,13 @@ def export_family(request: Request, family_id: str,
     try:
         index = _recordings_index(conn)
         row = _resolve_grouping(conn, grouping)
-        families = _families_for(conn, index, row)
-        fam = next((f for f in families if f["id"] == family_id), None)
+        # fixup-ae: an export is a record, not a view — every member, sub-floor ones included (each carries
+        # its floor status), so a file never holds less than the Library without saying so
+        state = _view_state(conn, index, row, vf_mod.ViewFilter(floor=False))
+        fam = next((f for f in state["families"] if f["id"] == family_id), None)
         if fam is None:
             raise HTTPException(status_code=404, detail=f"no family {family_id!r} in grouping {grouping!r}")
-        detail = _family_detail(conn, index, fam, row)
+        detail = _family_detail(conn, index, fam, row, state)
         payload = detail["members"] if fmt == "csv" else detail
         return _attachment(payload, f"family-{family_id}", fmt)
     finally:
@@ -2557,7 +2627,7 @@ def export_atlas(request: Request, grouping: str | None = Query(default=None),
     try:
         index = _recordings_index(conn)
         row = _resolve_grouping(conn, grouping)
-        families = _families_for(conn, index, row)
+        families = _families_for(conn, index, row, vf_mod.ViewFilter(floor=False))   # a record, not a view
         payload = families if fmt == "csv" else {
             "grouping": _grouping_payload(conn, row) if row else None, "families": families}
         return _attachment(payload, "atlas", fmt)
@@ -2732,5 +2802,200 @@ def post_run_matches(request: Request, run_key: str, body: AddMatchesBody):
                 "edgesByFunction": out["edges_by_function"], "threshold": out["threshold"],
                 "entryId": summary["entryId"], "entryLabel": summary["entryLabel"],
                 "summary": _matches_summary(conn, row, params, body.includeUnjudged)}
+    finally:
+        conn.close()
+
+
+# ══════════════════════════════════════════ fixup-ae: the view, hand edits read back, the rose ═══════
+#
+# The Library shows what is above the noise floor (Q21: a VIEW filter, never a gate), filters by fall
+# duration and purity (Q22), applies the hand edits a person wrote (L4) on every read — not only on a
+# regroup — and counts *judged* through the one verdict resolver (L7). The core does each of these
+# (`Working/library/view_filter.py`, `hand_edits.apply_to_assignment`, `verdicts.py`); this is the wiring.
+
+def _get(row, key, default=None):
+    """A field of a member row whether it is a dict (after hand edits) or a `sqlite3.Row`."""
+    try:
+        v = row[key]
+    except (KeyError, IndexError):
+        return default
+    return default if v is None else v
+
+
+def _hand_applied(conn, grouping_row, rows) -> list:
+    """The grouping's member rows with its active hand edits applied — the rule a
+    regroup applies (`hand_edits.apply_to_assignment`), so a member removed by
+    hand is gone from the next read and not only from the next regroup."""
+    rows = [dict(r) for r in rows]
+    edits = hand_edits_mod.resolve_family_keys(conn, hand_edits_mod.active_edits(conn, grouping_row["id"]))
+    if not edits:
+        return rows
+    applied = hand_edits_mod.apply_to_assignment(rows, edits, grouping_id=int(grouping_row["id"]))
+    # an addition of a shape this grouping never assigned has no member row to draw; it stays an edit
+    return [r for r in applied["assignments"] if r.get("member_id") is not None]
+
+
+def _with_hand_tags(tags, hand) -> list:
+    out = list(tags or [])
+    for t in hand or []:
+        if t not in out:
+            out.append(t)
+    return out
+
+
+def _family_view(label, all_ids, members, measures, resolved) -> dict:
+    """What the view hid of one family, and the provenance its card prints."""
+    shown = [int(m["member_id"]) for m in members]
+    every = [measures[i] for i in all_ids if i in measures]
+    bands, by, falls = {}, {}, []
+    impure = 0
+    for i in shown:
+        x = measures.get(i)
+        if x is None:
+            continue
+        if x["scale_band"] is not None:
+            k = (x["scale_band"], x["scale_band_label"])
+            bands[k] = bands.get(k, 0) + 1
+        if x["fall_duration_s"] is not None:
+            falls.append(x["fall_duration_s"])
+        impure += x["is_pure"] is False
+        v = resolved.get(i)
+        if v and v["judged"]:
+            by[v["by"]] = by.get(v["by"], 0) + 1
+    ranked = sorted(bands.items(), key=lambda kv: (-kv[1], kv[0][0]))
+    return {
+        "total": len(all_ids), "shown": len(shown), "hidden": len(all_ids) - len(shown),
+        "subFloor": sum(1 for x in every if x["status"] == vf_mod.SUB_FLOOR),
+        "unmeasured": sum(1 for x in every if x["status"] == vf_mod.UNMEASURED),
+        "impure": impure, "judgedBy": by,
+        "fallRangeS": [round(min(falls), 2), round(max(falls), 2)] if falls else None,
+        # provenance only (Q22): the detector's within-span octave, with its own duration range
+        "scaleBands": [{"band": b, "label": lab, "n": n} for (b, lab), n in ranked[:3]],
+        "scaleBandsMore": max(0, len(ranked) - 3),
+    }
+
+
+def _member_view_fields(r, meta, res, x) -> dict:
+    fs = meta["fs"] or 1.0
+    start, end = int(r["start_idx"] or 0), int(r["end_idx"] or 0)
+    out = {"recordingId": int(meta["recording_id"]), "startS": round(start / fs, 3), "endS": round(end / fs, 3),
+           "verdictBy": res.get("by"), "verdictWhy": res.get("why")}
+    if x is not None:
+        out.update({"depthMv": x["depth_mv"], "depthSource": x["depth_source"], "floorMv": x["floor_mv"],
+                    "floorStatus": x["status"], "fallS": x["fall_duration_s"], "isPure": x["is_pure"],
+                    "fallsInWindow": x["falls_in_window"], "scaleBand": x["scale_band"],
+                    "scaleBandLabel": x["scale_band_label"]})
+    return out
+
+
+def _view_report_payload(state) -> dict:
+    r = state.get("report")
+    if r is None:
+        return {"rule": None, "n": 0, "shown": 0, "subFloor": 0, "floorOn": True, "unmeasured": 0, "byStore": {},
+                "byDataset": {}, "floors": {}, "fall": {}, "pure": {}, "families": {"before": 0, "after": 0, "allSubFloor": 0},
+                "familiesAllSubFloor": [], "judgedRule": None, "view": vf_mod.ViewFilter().as_dict()}
+    names = r.get("datasetNames", {})
+    return {
+        "rule": r["rule"], "view": r["view"], "n": r["n"], "shown": r["shown"],
+        "subFloor": r["floor"]["sub_floor"], "floorOn": r["floor"]["on"], "unmeasured": r["unmeasured"],
+        "byStore": r["floor"]["by_store"],
+        "byDataset": {sf: {**v, "name": names.get(sf, sf)} for sf, v in r["floor"]["by_dataset"].items()},
+        "floors": r["floor"]["floors"], "fall": r["fall"], "pure": r["pure"],
+        "families": r["families"], "familiesAllSubFloor": r["families_all_sub_floor"],
+        "judgedRule": r.get("judgedRule"),
+    }
+
+
+#: One built view per (database, grouping, view, fingerprint): the Atlas reads families, the view counts and the
+#: recording rows in three requests, and Recurrence again — each would otherwise resolve every member's verdict.
+_VIEW_CACHE: dict = {}
+_VIEW_CACHE_MAX = 8
+
+
+def _view_fingerprint(conn, grouping_id) -> tuple:
+    """Everything a view state is read from, cheaply: a write to any of it moves the fingerprint."""
+    def one(sql, args=()):
+        try:
+            return tuple(conn.execute(sql, args).fetchone())
+        except sqlite3.OperationalError:
+            return ()
+    return (one("SELECT COUNT(*), COALESCE(MAX(id), 0) FROM motif_member"),
+            one("SELECT COUNT(*), COALESCE(MAX(id), 0) FROM grouping_assignments WHERE grouping_id = ?", (int(grouping_id),)),
+            one("SELECT COUNT(*), COALESCE(MAX(id), 0), COALESCE(SUM(active), 0) FROM hand_edits"),
+            one("SELECT COUNT(*), COALESCE(MAX(id), 0), COUNT(deleted_at) FROM annotations"),
+            one("SELECT COUNT(*), COALESCE(MAX(id), 0) FROM adjudications"),
+            one("SELECT COUNT(*), MAX(computed_at) FROM motif_features"),
+            one("SELECT COUNT(*), MAX(updated_at) FROM settings WHERE page IN ('datasets', 'analysis-defaults')"),
+            # the traces and mV numbers a family carries depend on each recording's declared unit
+            one("SELECT COUNT(*), COUNT(units), TOTAL(LENGTH(COALESCE(units, '') || COALESCE(units_note, ''))), "
+                "COALESCE(SUM(active), 0) FROM recordings"),
+            one("SELECT COUNT(*), TOTAL(LENGTH(COALESCE(display_name, ''))) FROM datasets"))
+
+
+def _view_state(conn, index, grouping_row, view=None) -> dict:
+    view = view or vf_mod.ViewFilter()
+    if grouping_row is None:
+        return _build_view_state(conn, index, None, view)
+    db = conn.execute("PRAGMA database_list").fetchone()[2]
+    key = (db, int(grouping_row["id"]), view)
+    finger = _view_fingerprint(conn, grouping_row["id"])
+    hit = _VIEW_CACHE.get(key)
+    if hit is not None and hit[0] == finger:
+        return hit[1]
+    state = _build_view_state(conn, index, grouping_row, view)
+    if state["report"] is not None:
+        state["report"]["datasetNames"] = corpus.dataset_names(conn)
+    while len(_VIEW_CACHE) >= _VIEW_CACHE_MAX:
+        _VIEW_CACHE.pop(next(iter(_VIEW_CACHE)))
+    _VIEW_CACHE[key] = (finger, state)
+    return state
+
+
+@router.get("/view")
+def get_view(request: Request, grouping: str | None = Query(default=None),
+             floor: str | None = Query(default=None), fallMin: str | None = Query(default=None),
+             fallMax: str | None = Query(default=None), pure: str | None = Query(default=None)):
+    """What the Library's view shows and hides for one grouping (fixup-ae): the noise floor per import store and
+    per dataset, the families before → after, the members each filter hid and the ones it could not judge, and
+    the rules — so a page never has less in it without saying how much less."""
+    conn = _conn(request)
+    try:
+        index = _recordings_index(conn)
+        row = _resolve_grouping(conn, grouping)
+        state = _view_state(conn, index, row, vf_mod.ViewFilter.from_query(floor, fallMin, fallMax, pure))
+        return {**_view_report_payload(state), "grouping": gid_str(row["id"]) if row else None}
+    finally:
+        conn.close()
+
+
+class RoseReferenceBody(BaseModel):
+    actor: str = "this installation"
+
+
+@router.get("/rose-reference")
+def get_rose_reference(request: Request):
+    """What 45° means on every rose (Round 10): the stored reference with its population, or — when none is
+    stored yet — the one it would store, marked `stored: false`. Reading never writes."""
+    conn = _conn(request)
+    try:
+        return rose_mod.current(conn)
+    finally:
+        conn.close()
+
+
+@router.post("/rose-reference")
+def post_rose_reference(request: Request, body: RoseReferenceBody):
+    """Recompute and store the rose reference — the explicit act. Settings › Analysis defaults keys, not a rule-5
+    table; written to the audit log like any settings change."""
+    from Working.registration.settings import append_audit
+    conn = _conn(request)
+    try:
+        before = rose_mod.current(conn)
+        out = rose_mod.recompute(conn, actor=body.actor)
+        append_audit(conn, "settings", f"Recomputed the rose reference: {out['text']}", "Settings › Analysis defaults",
+                     route="settings/analysis-defaults", actor=body.actor,
+                     detail={"from": before.get("value_mv_s"), "to": out["value_mv_s"], "population": out["population"],
+                             "n": out["n"]})
+        return out
     finally:
         conn.close()
