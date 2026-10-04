@@ -1,0 +1,243 @@
+{
+ "g-04": {
+  "members": 2545,
+  "families_before": 151,
+  "families_after": 143,
+  "families_all_sub_floor": 8,
+  "report": {
+   "floor": {
+    "on": true,
+    "sub_floor": 771,
+    "by_store": {
+     "DATA/library_seed/drop_motifs5/motifs": {
+      "n": 314,
+      "sub_floor": 0,
+      "unmeasured": 0
+     },
+     "Plots/drop_motifs10/motifs": {
+      "n": 2228,
+      "sub_floor": 771,
+      "unmeasured": 0
+     },
+     "not imported from a store": {
+      "n": 3,
+      "sub_floor": 0,
+      "unmeasured": 3
+     }
+    },
+    "by_dataset": {
+     "M2_aug_concat_fs1.mat": {
+      "n": 844,
+      "sub_floor": 26,
+      "unmeasured": 3
+     },
+     "Mushroom_260720_0509_4hrs_CH14_fs1.mat": {
+      "n": 48,
+      "sub_floor": 1,
+      "unmeasured": 0
+     },
+     "Fig2A_dt0p1.csv": {
+      "n": 1653,
+      "sub_floor": 744,
+      "unmeasured": 0
+     }
+    },
+    "floors": {
+     "Fig2A_dt0p1.csv": {
+      "floorMv": 0.1,
+      "from": "default 0.1 mV (empty in Settings \u203a Datasets)"
+     },
+     "M2_aug_concat_fs1.mat": {
+      "floorMv": 0.1,
+      "from": "default 0.1 mV (empty in Settings \u203a Datasets)"
+     },
+     "Mushroom_260720_0509_4hrs_CH14_fs1.mat": {
+      "floorMv": 0.1,
+      "from": "default 0.1 mV (empty in Settings \u203a Datasets)"
+     }
+    }
+   },
+   "unmeasured": 3,
+   "shown": 1774,
+   "n": 2545
+  },
+  "judged_exact_span": 3,
+  "judged_resolver": 168,
+  "judged_by": {
+   "containment": 165,
+   "extent": 3
+  },
+  "accepted": 134,
+  "q22_example": {
+   "shown": 581,
+   "fall": {
+    "hidden": 1102,
+    "unmeasured": 3
+   },
+   "pure": {
+    "hidden": 91,
+    "unmeasured": 3
+   },
+   "families_after": 115
+  },
+  "seconds": {
+   "filter": 0.2,
+   "verdicts": 0.03
+  }
+ },
+ "g-05": {
+  "members": 3239,
+  "families_before": 149,
+  "families_after": 145,
+  "families_all_sub_floor": 4,
+  "report": {
+   "floor": {
+    "on": true,
+    "sub_floor": 961,
+    "by_store": {
+     "DATA/library_seed/drop_motifs5/motifs": {
+      "n": 379,
+      "sub_floor": 0,
+      "unmeasured": 0
+     },
+     "Plots/drop_motifs10/motifs": {
+      "n": 2857,
+      "sub_floor": 961,
+      "unmeasured": 0
+     },
+     "not imported from a store": {
+      "n": 3,
+      "sub_floor": 0,
+      "unmeasured": 3
+     }
+    },
+    "by_dataset": {
+     "M2_aug_concat_fs1.mat": {
+      "n": 1012,
+      "sub_floor": 35,
+      "unmeasured": 3
+     },
+     "Mushroom_260720_0509_4hrs_CH14_fs1.mat": {
+      "n": 65,
+      "sub_floor": 1,
+      "unmeasured": 0
+     },
+     "Fig2A_dt0p1.csv": {
+      "n": 2162,
+      "sub_floor": 925,
+      "unmeasured": 0
+     }
+    },
+    "floors": {
+     "Fig2A_dt0p1.csv": {
+      "floorMv": 0.1,
+      "from": "default 0.1 mV (empty in Settings \u203a Datasets)"
+     },
+     "M2_aug_concat_fs1.mat": {
+      "floorMv": 0.1,
+      "from": "default 0.1 mV (empty in Settings \u203a Datasets)"
+     },
+     "Mushroom_260720_0509_4hrs_CH14_fs1.mat": {
+      "floorMv": 0.1,
+      "from": "default 0.1 mV (empty in Settings \u203a Datasets)"
+     }
+    }
+   },
+   "unmeasured": 3,
+   "shown": 2278,
+   "n": 3239
+  },
+  "judged_exact_span": 3,
+  "judged_resolver": 197,
+  "judged_by": {
+   "containment": 194,
+   "extent": 3
+  },
+  "accepted": 157,
+  "q22_example": {
+   "shown": 705,
+   "fall": {
+    "hidden": 1460,
+    "unmeasured": 3
+   },
+   "pure": {
+    "hidden": 113,
+    "unmeasured": 3
+   },
+   "families_after": 116
+  },
+  "seconds": {
+   "filter": 0.21,
+   "verdicts": 0.03
+  }
+ },
+ "all_members": {
+  "floor": {
+   "on": true,
+   "sub_floor": 1095,
+   "by_store": {
+    "DATA/library_seed/drop_motifs5/motifs": {
+     "n": 410,
+     "sub_floor": 0,
+     "unmeasured": 0
+    },
+    "Plots/drop_motifs10/motifs": {
+     "n": 3189,
+     "sub_floor": 1095,
+     "unmeasured": 0
+    },
+    "not imported from a store": {
+     "n": 4,
+     "sub_floor": 0,
+     "unmeasured": 4
+    }
+   },
+   "by_dataset": {
+    "M2_aug_concat_fs1.mat": {
+     "n": 1089,
+     "sub_floor": 43,
+     "unmeasured": 4
+    },
+    "Mushroom_260720_0509_4hrs_CH14_fs1.mat": {
+     "n": 89,
+     "sub_floor": 1,
+     "unmeasured": 0
+    },
+    "Fig2A_dt0p1.csv": {
+     "n": 2425,
+     "sub_floor": 1051,
+     "unmeasured": 0
+    }
+   },
+   "floors": {
+    "Fig2A_dt0p1.csv": {
+     "floorMv": 0.1,
+     "from": "default 0.1 mV (empty in Settings \u203a Datasets)"
+    },
+    "M2_aug_concat_fs1.mat": {
+     "floorMv": 0.1,
+     "from": "default 0.1 mV (empty in Settings \u203a Datasets)"
+    },
+    "Mushroom_260720_0509_4hrs_CH14_fs1.mat": {
+     "floorMv": 0.1,
+     "from": "default 0.1 mV (empty in Settings \u203a Datasets)"
+    }
+   }
+  },
+  "unmeasured": 4,
+  "shown": 2508,
+  "n": 3603
+ },
+ "rose": {
+  "value_mv_s": 0.7884494057478486,
+  "population": "accepted",
+  "n": 162,
+  "n_accepted": 162,
+  "min_accepted": 30,
+  "field": "max_slope_mv_s",
+  "computed_at": null,
+  "stored": false,
+  "text": "45\u00b0 = 0.788 mV/s \u00b7 median steepest slope over human-accepted Library motifs, n = 162 \u00b7 not stored yet (Settings \u203a Analysis defaults)",
+  "seconds": 0.26
+ }
+}
