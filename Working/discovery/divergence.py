@@ -417,6 +417,52 @@ def scope_text(n_runs, pooled):
     return (f"pooling every run on this recording — {runs}" if pooled else f"the {runs} picked")
 
 
+# ── Compare with the human record as one side ───────────────────────────────
+
+def human_pairing(div, human_ids, run_det_ids, *, human_is_a=True):
+    """§7.7's set overlap when one side is *human annotations*, in the shape
+    `compare.compare_spans` returns (``pairs`` / ``only_a`` / ``only_b`` /
+    ``counts``), but paired by THIS module's rules instead of §4.6 alone.
+
+    Under §4.6 alone a 179-sample event can never match a 600-sample window,
+    so Compare read *both 0* by construction (05-discovery D2). Here a run's
+    detection and a human span are "both" when the divergence resolved the
+    detection *machine yes · human yes*: an accepted adjudication, an extent
+    match, or the reviewed windows wholly containing it saying yes. Every other
+    detection is the run's only (a human *no*, or no human verdict — the
+    breakdown separates the two). A human-yes span is the human side's only
+    when no *yes · yes* detection rests on it.
+
+    ``human_ids`` are annotation ids in the human side's order; ``run_det_ids``
+    detection ids in the run side's order. A pair whose detection was accepted
+    in Review with no human span under it carries ``None`` on the human side.
+    """
+    item_by_det = {it["id"]: it for it in div["items"] if it["kind"] == "detection"}
+    pos = {int(a): j for j, a in enumerate(human_ids)}
+    represented, taken, pairs, only_run = set(), set(), [], []
+    for i, did in enumerate(run_det_ids):
+        it = item_by_det.get(int(did))
+        if it is None or it["cell"] != "machine_yes_human_yes":
+            only_run.append(i)
+            continue
+        js = [pos[h] for h in it["human"] if h in pos]
+        represented.update(js)
+        j = next((x for x in js if x not in taken), js[0] if js else None)
+        if j is not None:
+            taken.add(j)
+        pairs.append({"human": j, "run": i, "by": it["by"]})
+    only_human = [j for j in range(len(human_ids)) if j not in represented]
+    a, b = ("human", "run") if human_is_a else ("run", "human")
+    out_pairs = [{"a": p[a], "b": p[b], "iou": None, "onset_gap": None, "by": p["by"]} for p in pairs]
+    only_a, only_b = (only_human, only_run) if human_is_a else (only_run, only_human)
+    return {
+        "pairs": out_pairs, "only_a": only_a, "only_b": only_b,
+        "counts": {"a_total": len(out_pairs) + len(only_a), "b_total": len(out_pairs) + len(only_b),
+                   "both": len(out_pairs), "only_a": len(only_a), "only_b": len(only_b)},
+        "rule": div["rule"], "paired_by": "divergence",
+    }
+
+
 # ── the breakdown ───────────────────────────────────────────────────────────
 
 def _tags_by_annotation(conn, ids):
@@ -464,7 +510,9 @@ def breakdown(conn, runs_by_recording, *, bins, n_samples, span=None, rule=None,
     for rid, ids in runs_by_recording.items():
         div = channel_divergence(conn, rid, ids, rule=rule, span=span)
         row = {"recording_id": int(rid), "channel": (names or {}).get(rid), **div["cells"],
-               NOT_COMPARABLE: div["not_comparable"]["n"], "run_ids": div["run_ids"]}
+               NOT_COMPARABLE: div["not_comparable"]["n"], "run_ids": div["run_ids"],
+               "not_comparable_why": {**div["not_comparable"]["detections"], **div["not_comparable"]["labels"]},
+               "bins": [0] * int(bins)}
         by_channel.append(row)
         for it in div["items"]:
             mid = (it["start"] + it["end"]) / 2.0
@@ -473,6 +521,7 @@ def breakdown(conn, runs_by_recording, *, bins, n_samples, span=None, rule=None,
             b = min(int(bins) - 1, int((mid - lo) / max(1e-9, hi - lo) * int(bins)))
             if it["cell"] in DISAGREE:
                 by_time[b][it["cell"]] += 1
+                row["bins"][b] += 1
                 disagreements.append({**it, "recording_id": int(rid)})
             elif it["cell"] == NOT_COMPARABLE:
                 by_time[b][NOT_COMPARABLE] += 1

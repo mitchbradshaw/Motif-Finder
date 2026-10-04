@@ -304,3 +304,20 @@ def test_the_scoreboard_row_carries_both_precision_figures(db):
     total = run_total(db["conn"], [db["run"]], rows=[row])
     assert total["precisions"]["containment"]["judged"] == 5
     assert total["precisions"]["extent"]["widths"]["n"] == 2
+
+
+# ── Compare with the human record as a side ─────────────────────────────────
+
+def test_compare_with_the_human_side_pairs_by_the_divergence_not_iou_alone(db):
+    D = _divergence()
+    div = D.channel_divergence(db["conn"], db["rec"], [db["run"]])
+    a = db["ann"]
+    human = [a[n] for n in ("W1", "W3", "W9", "W11", "E1", "E2")]       # the human-yes spans
+    dets = [db["det"][n] for n in sorted(DETECTIONS)]
+    m = D.human_pairing(div, human, dets, human_is_a=True)
+    # both: D1 (in W1), D6 (E1), D8 (accepted in Review, no yes span under it)
+    assert m["counts"]["both"] == 3
+    # only human: W3 (its detection D9 was rejected), W9 (D5's windows disagree),
+    # W11 (silent), E2 (D7 overlaps it without matching)
+    assert sorted(human[j] for j in m["only_a"]) == sorted([a["W3"], a["W9"], a["W11"], a["E2"]])
+    assert m["counts"]["only_b"] == len(DETECTIONS) - 3
