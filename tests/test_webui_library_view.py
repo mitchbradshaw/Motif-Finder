@@ -112,6 +112,31 @@ def test_a_member_removed_by_hand_is_gone_after_a_reload_and_back_after_undo(lib
     assert target["id"] in {m["id"] for m in back["members"]}
 
 
+def test_a_removal_holds_in_a_later_grouping_that_relabels_the_family(lib):
+    """§8.3: "a member removed by hand stays out of that family on every regroup until restored". The regroup job
+    only counts the edits, so the read must apply them — matched by the family's identity (its medoid's hash),
+    not by its label, which every grouping numbers afresh."""
+    client, info = lib
+    _ok(client.post("/api/library/hand-edits", json={
+        "contentHash": "hash1", "kind": "remove_member", "familyLabel": "F-01", "grouping": f"g-{info['gid']:02d}"}))
+    conn = sqlite3.connect(info["rt"].db_path)
+    new = conn.execute(
+        "INSERT INTO groupings (name, unit, basis, method, params_json, cut, n_families, n_assigned, n_omitted, "
+        "recipe_hash, created_at, actor) SELECT name || ' (regrouped)', unit, basis, method, params_json, cut, "
+        "n_families, n_assigned, n_omitted, 'regrouped', '2026-10-04T12:00:00', actor FROM groupings WHERE id = ?",
+        (info["gid"],)).lastrowid
+    conn.execute(
+        "INSERT INTO grouping_assignments (grouping_id, unit, member_ref, content_hash, family_id, family_label, "
+        "distance, is_medoid, omit_reason) SELECT ?, unit, member_ref, content_hash, family_id, "
+        "CASE family_label WHEN 'F-01' THEN 'F-07' WHEN 'F-02' THEN 'F-08' ELSE family_label END, distance, "
+        "is_medoid, omit_reason FROM grouping_assignments WHERE grouping_id = ?", (new, info["gid"]))
+    conn.commit()
+    conn.close()
+    d = _ok(client.get(f"/api/library/family/F-07?grouping=g-{new:02d}&floor=0"))["detail"]
+    assert "hash1" not in {m["contentHash"] for m in d["members"]}, "the removal followed F-01 into its new label"
+    assert [r["contentHash"] for r in d["removed"]] == ["hash1"]
+
+
 def test_judged_is_the_resolvers_and_says_which_rule(lib):
     client, info = lib
     conn = sqlite3.connect(info["rt"].db_path)

@@ -766,10 +766,11 @@ def _build_view_state(conn, index, grouping_row, view) -> dict:
     apply_to_assignment`, the rule a regroup applies), then the view filter
     (`view_filter`, never a gate: nothing is written), then every shown member's
     verdict is resolved by the one resolver (`library/verdicts.py`)."""
-    out = {"families": [], "rows": [], "measures": {}, "resolved": {}, "report": None, "view": view}
+    out = {"families": [], "rows": [], "measures": {}, "resolved": {}, "report": None, "view": view, "removed": []}
     if grouping_row is None:
         return out
-    rows = _hand_applied(conn, grouping_row, _member_rows(conn, grouping_row["id"]))
+    out["removed"] = []
+    rows = _hand_applied(conn, grouping_row, _member_rows(conn, grouping_row["id"]), out["removed"])
     # `family_label` on an omitted row names its NEAREST family, not the one it
     # joined — `family_id` is what says it joined at all. Filtering on the
     # label alone counted every omitted motif as a member of the family it
@@ -1276,7 +1277,8 @@ def _family_detail(conn, index, fam, grouping_row, state=None, hidden_by_view=Fa
     tags_by_entry, _elements = _tags_for_entries(
         conn, sorted({int(r["entry_id"]) for r in rows if r["entry_id"]}))
     resolved = state["resolved"]
-    edits = hand_edits_mod.active_edits(conn, grouping_row["id"])
+    # every active edit, as `_hand_applied` applies them: a tag or an exemplar written under an earlier grouping holds
+    edits = hand_edits_mod.active_edits(conn, None)
     edits_by_hash = {}
     for e in edits:
         edits_by_hash.setdefault(hand_edits_mod._field(e, "content_hash"), []).append(e)
@@ -1321,6 +1323,11 @@ def _family_detail(conn, index, fam, grouping_row, state=None, hidden_by_view=Fa
         if verdict_row and verdict_row[1]:
             member["verdictAt"] = _iso_to_human(verdict_row[1])
         if hand_rows:
+            # fixup-ae: the edits themselves, so the page can undo one (DELETE /hand-edits/{id}) — an untag, an
+            # added member's Undo — rather than keeping its own copy of what was written
+            member["handEdits"] = [{"id": int(hand_edits_mod._field(e, "id")), "kind": hand_edits_mod._field(e, "kind"),
+                                    "value": hand_edits_mod._field(e, "value"),
+                                    "familyLabel": hand_edits_mod._field(e, "family_label")} for e in hand_rows]
             member["addedByHand"] = any(hand_edits_mod._field(e, "kind") == "add_member" for e in hand_rows)
             e = hand_rows[0]
             member["handRecord"] = (f"{hand_edits_mod._field(e, 'kind')} · {fam['id']} · "
@@ -1328,12 +1335,11 @@ def _family_detail(conn, index, fam, grouping_row, state=None, hidden_by_view=Fa
                                     f"{_iso_to_human(hand_edits_mod._field(e, 'created_at'))}")
         members.append(member)
 
-    # a removal is a hand edit against this family, not a row that vanished
-    for e in edits:
-        if hand_edits_mod._field(e, "kind") != "remove_member":
-            continue
-        if hand_edits_mod._field(e, "family_label") != fam["id"]:
-            continue
+    # a removal is a hand edit against this family, not a row that vanished. fixup-ae: the removals are the ones
+    # `apply_to_assignment` actually applied to THIS grouping's family — matched by the family's identity (its
+    # medoid's hash), so an edit written against an earlier grouping still shows here after a regroup
+    for e in [x for x in state.get("removed", []) if x["family_label"] == fam["id"]]:
+        e = e["edit"]
         digest = hand_edits_mod._field(e, "content_hash")
         src = conn.execute(
             "SELECT mm.id, mm.recording_id, mm.start_idx, mm.end_idx FROM motif_member mm "
@@ -1350,6 +1356,7 @@ def _family_detail(conn, index, fam, grouping_row, state=None, hidden_by_view=Fa
             "seed": int(src["id"]) if src else 0,
             "onsetH": round(int(src["start_idx"]) / (meta["fs"] or 1.0) / 3600.0, 3) if (src and meta) else None,
             "contentHash": digest,
+            "editId": int(hand_edits_mod._field(e, "id")),       # fixup-ae: *Restore* deletes this edit
             # the removed strip draws what was removed, not a sketch of it (fixup-c)
             "trace": (_trace(index, src["recording_id"], src["start_idx"], src["end_idx"], MEMBER_TRACE_PX)
                       if src else []),
@@ -2822,15 +2829,34 @@ def _get(row, key, default=None):
     return default if v is None else v
 
 
-def _hand_applied(conn, grouping_row, rows) -> list:
-    """The grouping's member rows with its active hand edits applied — the rule a
-    regroup applies (`hand_edits.apply_to_assignment`), so a member removed by
-    hand is gone from the next read and not only from the next regroup."""
+def _hand_applied(conn, grouping_row, rows, removed=None) -> list:
+    """The grouping's member rows with EVERY active hand edit applied — the rule
+    `hand_edits.apply_to_assignment` states (§8.3: "a member removed by hand
+    stays out of that family on every regroup until restored"), so a removal is
+    gone from the next read and from every later grouping. An edit names its
+    family by the family's identity (the medoid's content hash), so one written
+    against g-05 finds the same family in g-07 under whatever label it now has,
+    and one whose family is not here is an orphan, not a mis-application.
+
+    The regroup job only COUNTS the edits (`engine._hand_edit_outcome`) and the
+    saved assignments are the computed ones, so applying them here, on read, is
+    what makes them hold. ``removed`` collects `{family_label, edit}` for every
+    removal applied, for the Family page's strip."""
     rows = [dict(r) for r in rows]
-    edits = hand_edits_mod.resolve_family_keys(conn, hand_edits_mod.active_edits(conn, grouping_row["id"]))
+    for r in rows:
+        r["orig_family_label"] = r["family_label"] if r["family_id"] is not None else None
+    edits = hand_edits_mod.resolve_family_keys(conn, hand_edits_mod.active_edits(conn, None))
     if not edits:
         return rows
     applied = hand_edits_mod.apply_to_assignment(rows, edits, grouping_id=int(grouping_row["id"]))
+    if removed is not None:
+        by_hash = {}
+        for e in edits:
+            if e.get("kind") == "remove_member":
+                by_hash.setdefault(e.get("content_hash"), e)
+        for r in applied["assignments"]:
+            if r.get("removed_by_hand") and r.get("orig_family_label") and r.get("content_hash") in by_hash:
+                removed.append({"family_label": r["orig_family_label"], "edit": by_hash[r["content_hash"]]})
     # an addition of a shape this grouping never assigned has no member row to draw; it stays an edit
     return [r for r in applied["assignments"] if r.get("member_id") is not None]
 
