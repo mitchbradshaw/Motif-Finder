@@ -495,7 +495,9 @@ def classify_family_across_channels(conn, member_ids, rule=None, progress=None, 
         here = ms[0]
         others = [s for s in sibs[here["source_file"]] if int(s["id"]) != rid and s["channel"] != here["channel"]]
         if progress is not None:
-            progress(i, total, f"{here['source_file']} · ch{here['channel']} · {len(ms)} member"
+            from Working.discovery.channels import channel_name
+            name = channel_name(here["source_file"], int(here["channel"]), len(sibs[here["source_file"]]))
+            progress(i, total, f"{here['source_file']} · {name} · {len(ms)} member"
                                f"{'s' if len(ms) != 1 else ''} against {len(others)} sibling channel"
                                f"{'s' if len(others) != 1 else ''}")
         for m in ms:
