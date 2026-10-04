@@ -947,3 +947,36 @@ export interface DiscRemainderSent {
 }
 export const sendDiscoveryRemainderToReview = (body: { a: string; b: string; channels: string[]; t0: number; t1: number; which: 'only A' | 'only B'; name?: string }) =>
   post<DiscRemainderSent>('/api/discovery/compare/review', body)
+
+/* ---------------- fixup-X: divergence read properly ----------------
+ * Appended; existing interfaces extended by declaration merging. `Working.discovery.divergence` is the one
+ * module the scoreboard, Compare and Explore read. Q-D2's two precision figures each carry their rule; the
+ * extent figure carries the width distribution of the event rows it is over (Q-D2's caveat). The divergence's
+ * four cells count detections on the machine-yes side and human labels on the machine-no side; a place no run
+ * covered or no human reviewed is `not_comparable`, counted beside the cells and never in them. */
+export interface DivCells { machine_yes_human_yes: number; machine_yes_human_no: number; machine_no_human_yes: number; machine_no_human_no: number }
+export interface DivWidths { n: number; min: number | null; p25: number | null; median: number | null; p75: number | null; max: number | null }
+export interface PrecisionFigure {
+  key: 'containment' | 'extent'; label: string; rule: string; value: number | null
+  yes: number; judged: number; byAdjudication: number; note: string | null; widths?: DivWidths
+}
+export interface PrecisionFigures { containment: PrecisionFigure | null; extent: PrecisionFigure | null }
+/** Explore › Corpus: a channel's divergence (inside `CoverageRow.counts`, read through this type). */
+export interface CoverageDivergence extends DivCells { not_comparable: number; not_comparable_why: Record<string, number>; runs: number }
+export interface Coverage {
+  divergence?: { pooled: boolean; n_runs: number; scope: string; cells: DivCells; not_comparable: number
+    labels: Record<string, string>; disagree: string[]; rules: { containment: string; extent: string }; verdicts: string }
+}
+export interface DiscScoreRow { precisions?: PrecisionFigures; divergence?: { cells: DivCells; not_comparable: number } | null }
+export interface DiscScoreRun { reviewedCriterion: string }
+export interface DiscSide { precisions?: PrecisionFigures | null }
+export interface DivTimeBin extends Pick<DivCells, 'machine_yes_human_no' | 'machine_no_human_yes'> { bin: number; not_comparable: number; t0H: number; t1H: number }
+export interface DivChannelRow extends DivCells { recording_id: number; channel: string; not_comparable: number; not_comparable_why: Record<string, number>; bins: number[]; run_ids: number[] }
+export interface DivMorphRow { machine_yes_human_no: number; machine_no_human_yes: number; tag?: string; morphology?: string }
+export interface DivBreakdown {
+  by_channel: DivChannelRow[]; by_time: DivTimeBin[]
+  by_morphology: { human: DivMorphRow[]; machine: DivMorphRow[]; human_note: string; machine_note: string | null }
+  n_disagreements: number; structure_note: string; labels: Record<string, string>
+  rules: { containment: string; extent: string }; binH: number; t0H: number; t1H: number
+}
+export interface DiscCompare { pairedBy?: 'divergence' | 'reciprocal_iou_onset'; divergence?: DivBreakdown | null }
