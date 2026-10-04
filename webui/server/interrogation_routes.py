@@ -152,9 +152,24 @@ def _rose_reference(request: Request, scale: str, reference=None):
         return RR.resolve(float(reference))
     c = _seq_conn(request)
     try:
-        return RR.current(c)
+        # the computed (not yet stored) reference resolves every Library member's verdict; it is the same answer
+        # until one of its inputs moves, so a Slope page does not pay ~0.5 s for it on every read
+        finger = tuple(tuple(c.execute(q).fetchone()) for q in (
+            "SELECT COUNT(*), MAX(updated_at) FROM settings WHERE page IN ('datasets', 'analysis-defaults')",
+            "SELECT COUNT(*), COALESCE(MAX(id), 0), COUNT(deleted_at) FROM annotations",
+            "SELECT COUNT(*), COALESCE(MAX(id), 0) FROM adjudications",
+            "SELECT COUNT(*), MAX(computed_at) FROM motif_features",
+            "SELECT COUNT(*), COALESCE(MAX(id), 0) FROM motif_member",
+            "SELECT COUNT(*), COUNT(units) FROM recordings"))
+        key = (request.app.state.rt.db_path, finger)
+        if _ROSE_CACHE.get("key") != key:
+            _ROSE_CACHE.update(key=key, value=RR.current(c))
+        return _ROSE_CACHE["value"]
     finally:
         c.close()
+
+
+_ROSE_CACHE: dict = {}
 
 
 def _with_reference(rose: dict, ref) -> dict:
