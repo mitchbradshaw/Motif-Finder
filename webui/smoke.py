@@ -312,6 +312,67 @@ class Smoke:
             bad.append(f"{len(m['clipped'])} traces are clipped by their axis: {m['clipped'][:3]}")
         return not bad, (f" · rule 9: {m['traces']} traces vary, fill their plots, unclipped" if not bad else " — rule 9: " + "; ".join(bad))
 
+    #: fixup-ac: a wavelet decomposition's layers are SAMPLE-ALIGNED with the recording (a stationary transform), and
+    #: the block page draws them stacked on one time axis. Measured the way fixup-g's `feature_in_band` is, on the DOM.
+    #: The DROP is the fall on the input row: its lowest vertex (the trough) and the highest vertex in the twentieth of
+    #: the plot before it (the onset). The layers that CARRY it are the detail layers fine enough to resolve it (an
+    #: octave time scale, 2^level samples, no longer than the fall) in which it is a prominent feature (their deepest
+    #: vertex near the fall in the bottom 40 % of their own row). Each must have that deepest vertex INSIDE the fall,
+    #: give or take its own time scale. A fast layer marks the steepest part of a fall, not its bottom, so a single
+    #: vertex is the wrong target; and a slower layer's trough is wider than any offset worth catching. A padding or
+    #: span-offset bug would put the carrying layers minutes away. The residual carries the trend and is left out.
+    _LAYERS_ALIGNED_JS = r"""() => {
+      const host = document.querySelector('[data-testid="wavelet-layers"]');
+      if (!host) return { error: 'no wavelet layers on the page' };
+      const [xd0, xd1] = host.getAttribute('data-x-domain').split(',').map(Number);
+      const [xr0, xr1] = host.getAttribute('data-x-range').split(',').map(Number);
+      const fs = Number(host.getAttribute('data-fs'));
+      const pxPerS = (xr1 - xr0) / (xd1 - xd0), tOf = px => xd0 + (px - xr0) / pxPerS;
+      const rows = Array.from(host.querySelectorAll('svg[data-render="signal-layer"]'));
+      const pts = s => { const p = s.querySelector('[data-trace] path');
+        return Array.from(((p && p.getAttribute('d')) || '').matchAll(/[ML]([-\d.]+) ([-\d.]+)/g)).map(m => [parseFloat(m[1]), parseFloat(m[2])]); };
+      const input = rows.find(s => s.getAttribute('data-input') === '1');
+      if (!input) return { error: 'the layers have no input row' };
+      const I = pts(input);
+      let trough = null; for (const q of I) if (!trough || q[1] > trough[1]) trough = q;
+      if (!trough) return { error: 'the input row drew nothing' };
+      const width = xr1 - xr0, look = 0.05 * width;
+      let onset = trough; for (const q of I) if (q[0] >= trough[0] - look && q[0] <= trough[0] && q[1] < onset[1]) onset = q;
+      const fallS = (trough[0] - onset[0]) / pxPerS;
+      const out = { onsetT: tOf(onset[0]), troughT: tOf(trough[0]), fallS: +fallS.toFixed(1), fs, layers: [] };
+      for (const s of rows) {
+        const level = Number(s.getAttribute('data-level'));
+        if (s.getAttribute('data-input') === '1' || !(level > 0)) continue;
+        const scaleS = Math.pow(2, level) / fs, tolPx = Math.max(2, scaleS * pxPerS);
+        const [r0, r1] = s.getAttribute('data-y-range').split(',').map(Number);   // [bottom px, top px]
+        const P = pts(s); if (!P.length) continue;
+        const lo = onset[0] - (trough[0] - onset[0]) - tolPx, hi = trough[0] + (trough[0] - onset[0]) + tolPx;
+        let loc = null; for (const q of P) if (q[0] >= lo && q[0] <= hi && (!loc || q[1] > loc[1])) loc = q;
+        const depth = loc ? (loc[1] - r1) / (r0 - r1) : 0;                            // 0 at the row's top, 1 at its bottom
+        const resolves = scaleS <= Math.max(fallS, 2 / pxPerS);
+        out.layers.push({ layer: s.getAttribute('data-layer'), level, scaleS, depth: +depth.toFixed(3), resolves,
+                          carries: resolves && depth >= 0.6, atT: loc ? +tOf(loc[0]).toFixed(1) : null,
+                          aligned: !!loc && loc[0] >= onset[0] - tolPx && loc[0] <= trough[0] + tolPx });
+      }
+      return out;
+    }"""
+
+    def layers_aligned(self, page, where: str):
+        """`layers_aligned`: every detail layer that carries the input's deepest fall has its deepest vertex inside
+        that fall, give or take its own octave's time scale."""
+        m = page.evaluate(self._LAYERS_ALIGNED_JS)
+        self.evidence.setdefault("layers_aligned", {})[where] = m
+        if m.get("error"):
+            return False, f" — {m['error']}"
+        carriers = [L for L in m["layers"] if L["carries"]]
+        off = [L for L in carriers if not L["aligned"]]
+        fall = f"the fall {m['onsetT'] / 3600:.3f}–{m['troughT'] / 3600:.3f} h ({m['fallS']:.0f} s)"
+        if not carriers:
+            return False, f" — no detail layer carries {fall}: {[(L['layer'], L['resolves'], L['depth']) for L in m['layers']]}"
+        if off:
+            return False, f" — layers drawn off {fall}: " + ", ".join(f"{L['layer']} at {L['atT']} s" for L in off)
+        return True, f" · {fall} sits at the same time on the {len(carriers)} layers that carry it ({', '.join(L['layer'] for L in carriers)})"
+
     def goto(self, page, hash_: str, settle_ms=600):
         page.goto(f"{self.url}/#/{hash_}", wait_until="networkidle")
         page.wait_for_timeout(settle_ms)
@@ -1097,6 +1158,10 @@ class Smoke:
                 if e.get("anatomy_marks"):
                     marks_ok, marks_msg = self.anatomy_marks(page, name)
                     in_box, box_msg = in_box and marks_ok, box_msg + marks_msg
+                # fixup-ac: a state may also assert a decomposition's layers sit at the same time as the drop they carry
+                if e.get("layers_aligned"):
+                    la_ok, la_msg = self.layers_aligned(page, name)
+                    in_box, box_msg = in_box and la_ok, box_msg + la_msg
                 # fixup-h: a state may also assert rule 9 on every plot the type views drew
                 if e.get("rule9"):
                     r9_ok, r9_msg = self.rule9(page, name)

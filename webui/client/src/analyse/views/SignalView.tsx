@@ -106,8 +106,8 @@ export function SignalNote({ p, ctx }: { p: SignalPayload; ctx: ViewCtx }) {
  * y it was drawn on (`data-y-domain`, `data-y-range`) so the smoke gate can read values back off the DOM. */
 const LAYER_ROW_H = 46
 
-function LayerRow({ name, label, t, v, x, width, chosen, input, unit, hover, handlers }: {
-  name: string; label: string; t: number[]; v: (number | null)[]; x: ViewCtx['x']; width: number; chosen: boolean; input?: boolean
+function LayerRow({ name, level, label, t, v, x, width, chosen, input, unit, hover, handlers }: {
+  name: string; level?: number; label: string; t: number[]; v: (number | null)[]; x: ViewCtx['x']; width: number; chosen: boolean; input?: boolean
   unit: string; hover: number | null; handlers: ReturnType<typeof useHoverT>[1]
 }) {
   const r = finiteRange(v)
@@ -118,7 +118,7 @@ function LayerRow({ name, label, t, v, x, width, chosen, input, unit, hover, han
   const barPx = bar ? Math.abs(y(r![0]) - y(r![0] + bar)) : 0
   const stroke = input ? 'var(--trace-ghost)' : chosen ? 'var(--trace-blue)' : 'var(--trace)'
   return (
-    <svg width={width} height={LAYER_ROW_H} data-render="signal-layer" data-layer={name} data-chosen={chosen ? '1' : '0'} data-input={input ? '1' : '0'}
+    <svg width={width} height={LAYER_ROW_H} data-render="signal-layer" data-layer={name} data-level={level ?? ''} data-chosen={chosen ? '1' : '0'} data-input={input ? '1' : '0'}
       data-rule9="layer" data-flat={flat ? '1' : '0'} data-y-domain={`${d0},${d1}`} data-y-range={`${p0},${p1}`} style={{ display: 'block' }} {...handlers}>
       {chosen && <rect x={0} y={0} width={width} height={LAYER_ROW_H} fill="var(--band-selected)" data-testid="layer-chosen" />}
       <line x1={0} x2={width} y1={LAYER_ROW_H - 0.5} y2={LAYER_ROW_H - 0.5} stroke="var(--border, #e5e7eb)" />
@@ -153,11 +153,11 @@ export function SignalLayers({ p, ctx }: { p: SignalPayload; ctx: ViewCtx }) {
   const ghost = ctx.ghost && ctx.ghost.t.length ? ctx.ghost : null
   const width = ctx.width
   return (
-    <div data-testid="wavelet-layers" data-n-layers={layers.length}>
+    <div data-testid="wavelet-layers" data-n-layers={layers.length} data-fs={p.fs} data-x-domain={ctx.x.domain().join(',')} data-x-range={ctx.x.range().join(',')}>
       {ghost && <LayerRow name="input" label="input · what this block was given" t={ghost.t} v={ghost.v} x={ctx.x} width={width} chosen={false} input
         unit={axisUnit(ctx.ghostUnit ?? p.unit) || ''} hover={hover} handlers={handlers} />}
       {layers.map(L => (
-        <LayerRow key={L.name} name={L.name} label={L.label} t={L.envelope.t} v={L.envelope.v} x={ctx.x} width={width} chosen={L.chosen}
+        <LayerRow key={L.name} name={L.name} level={L.level} label={L.label} t={L.envelope.t} v={L.envelope.v} x={ctx.x} width={width} chosen={L.chosen}
           unit={unit} hover={hover} handlers={handlers} />
       ))}
     </div>
