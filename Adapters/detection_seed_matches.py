@@ -30,7 +30,18 @@ matches of one length are left to `stumpy.match`'s own exclusion zone. A match
 is as long as the copy that found it, and its label says its scale
 (`match3@1.25x`). The default bank, `"1"`, is the search this block always
 ran, byte for byte, and a recipe that does not name `scales` hashes as before.
+
+**The exclusion zone (fixup-AD, Round 11).** `exclusion` is the trivial-match
+guard as a fraction of the query's length: two matches closer than
+`ceil(exclusion * m)` samples are one match. Default **m/2** (§7.6). Until
+2026-10-05 the block exposed none, so `stumpy.match` ran under its own m/4 while
+the Seed page printed §7.6's m/2 beside it. `stumpy.match` takes no zone
+argument — it reads `config.STUMPY_EXCL_ZONE_DENOM` — so the zone is passed by
+setting that denominator to `1 / exclusion` for the call, under a lock, and
+putting it back.
 """
+
+import threading
 
 import numpy as np
 import stumpy
@@ -40,8 +51,33 @@ from Adapters.registry import register
 from Working.types import SpanSet
 
 
-def match_exemplar(x, exemplar_x, k=10, max_distance=None):
-    """`(n_matches, 2)` array of `[distance, index]`, closest first."""
+#: §7.6 / Round 11: the exclusion zone is half the exemplar.
+DEFAULT_EXCLUSION = 0.5
+#: The zone is a fraction of m in (0, MAX_EXCLUSION].
+MAX_EXCLUSION = 2.0
+_STUMPY_CONFIG_LOCK = threading.Lock()
+
+
+def check_exclusion(exclusion):
+    """The zone as a float, or a ValueError naming what a zone must be."""
+    try:
+        v = float(exclusion)
+    except (TypeError, ValueError):
+        raise ValueError(f"the exclusion zone {exclusion!r} is not a number (a fraction of m, e.g. 0.5).") from None
+    if not np.isfinite(v) or v <= 0 or v > MAX_EXCLUSION:
+        raise ValueError(f"the exclusion zone must be a fraction of m in (0, {MAX_EXCLUSION:g}], got {exclusion!r}.")
+    return v
+
+
+def exclusion_samples(m, exclusion=DEFAULT_EXCLUSION):
+    """The zone in samples for a query of `m` samples — stumpy's own rounding."""
+    return int(np.ceil(int(m) * check_exclusion(exclusion)))
+
+
+def match_exemplar(x, exemplar_x, k=10, max_distance=None, exclusion=DEFAULT_EXCLUSION):
+    """`(n_matches, 2)` array of `[distance, index]`, closest first, no two
+    within `ceil(exclusion * m)` samples of each other."""
+    excl = check_exclusion(exclusion)
     x = np.asarray(x, dtype=float).ravel()
     q = np.asarray(exemplar_x, dtype=float).ravel()
     if len(q) < 3:
@@ -49,7 +85,13 @@ def match_exemplar(x, exemplar_x, k=10, max_distance=None):
     if len(q) > len(x):
         raise ValueError(f"the exemplar ({len(q)} samples) is longer than the span ({len(x)}).")
     md = float(max_distance) if max_distance is not None else np.inf
-    return stumpy.match(q, x, max_matches=int(k), max_distance=md)
+    with _STUMPY_CONFIG_LOCK:
+        before = stumpy.config.STUMPY_EXCL_ZONE_DENOM
+        stumpy.config.STUMPY_EXCL_ZONE_DENOM = 1.0 / excl
+        try:
+            return stumpy.match(q, x, max_matches=int(k), max_distance=md)
+        finally:
+            stumpy.config.STUMPY_EXCL_ZONE_DENOM = before
 
 
 OVERLAP_POLICIES = ("lowest", "first", "all")
@@ -101,7 +143,8 @@ def reduce_overlaps(rows, policy="lowest"):
     return sorted(kept, key=lambda r: (r["distance"], r["index"]))
 
 
-def match_exemplar_bank(x, exemplar_x, scales, k=10, max_distance=None, overlap="lowest"):
+def match_exemplar_bank(x, exemplar_x, scales, k=10, max_distance=None, overlap="lowest",
+                        exclusion=DEFAULT_EXCLUSION):
     """The bank: `[{index, length, scale, distance}]`, closest first, at most `k`.
 
     `distance` is on the native length's footing (`d * sqrt(m / L)`), and so is
@@ -117,18 +160,21 @@ def match_exemplar_bank(x, exemplar_x, scales, k=10, max_distance=None, overlap=
         qs = q if length == m else resample_to_length(q, length)
         footing = float(np.sqrt(m / length))
         md = None if max_distance is None else float(max_distance) / footing
-        for d, i in match_exemplar(x, qs, k=k, max_distance=md):
+        for d, i in match_exemplar(x, qs, k=k, max_distance=md, exclusion=exclusion):
             rows.append({"index": int(i), "length": length, "scale": float(s), "distance": float(d) * footing})
     return reduce_overlaps(rows, overlap)[:int(k)]
 
 
-def _run(x, t, fs, k=10, max_distance=0.0, exemplar=None, scales="1", overlap="lowest"):
+def _run(x, t, fs, k=10, max_distance=0.0, exemplar=None, scales="1", overlap="lowest",
+         exclusion=DEFAULT_EXCLUSION):
     if exemplar is None:
         raise ValueError("detection.seed_matches needs its `exemplar` side input bound (a Signal: a library exemplar, the root signal or an earlier step).")
     q = np.asarray(exemplar.x, dtype=float).ravel()
+    excl = check_exclusion(exclusion)
+    zone = {"exclusion": excl, "exclusion_samples": exclusion_samples(len(q), excl)}
     bank = parse_scales(scales)
     if bank != (1.0,):
-        rows = match_exemplar_bank(x, q, bank, k=k, overlap=overlap,
+        rows = match_exemplar_bank(x, q, bank, k=k, overlap=overlap, exclusion=excl,
                                    max_distance=(max_distance if max_distance and max_distance > 0 else None))
         per_scale = {float(s): 0 for s in bank}
         for r in rows:
@@ -141,10 +187,11 @@ def _run(x, t, fs, k=10, max_distance=0.0, exemplar=None, scales="1", overlap="l
                           scores=tuple(r["distance"] for r in rows)),
             meta={"m": int(len(q)), "exemplar_fs": float(getattr(exemplar, "fs", fs)), "n_matches": len(rows),
                   "distances": [r["distance"] for r in rows], "scales": list(bank),
-                  "per_scale": per_scale, "overlap": overlap,
+                  "per_scale": per_scale, "overlap": overlap, **zone,
                   "footing": "every distance is d * sqrt(m / L): on the native length's footing"},
         )
-    matches = match_exemplar(x, q, k=k, max_distance=(max_distance if max_distance and max_distance > 0 else None))
+    matches = match_exemplar(x, q, k=k, exclusion=excl,
+                             max_distance=(max_distance if max_distance and max_distance > 0 else None))
     m = len(q)
     starts = tuple(int(row[1]) for row in matches)
     return AdapterResult(
@@ -153,7 +200,7 @@ def _run(x, t, fs, k=10, max_distance=0.0, exemplar=None, scales="1", overlap="l
                       labels=tuple(f"match{i}" for i in range(len(starts))),
                       scores=tuple(float(row[0]) for row in matches)),
         meta={"m": int(m), "exemplar_fs": float(getattr(exemplar, "fs", fs)), "n_matches": len(starts),
-              "distances": [float(r[0]) for r in matches]},
+              "distances": [float(r[0]) for r in matches], **zone},
     )
 
 
@@ -170,6 +217,8 @@ SPEC = register(AdapterSpec(
                   "(e.g. '0.8,1,1.25'); '1' searches at the native length only"),
         ParamSpec("overlap", str, "lowest", "When matches of two lengths overlap, which survives",
                   choices=list(OVERLAP_POLICIES)),
+        ParamSpec("exclusion", float, DEFAULT_EXCLUSION, "Exclusion zone as a fraction of the exemplar's length: "
+                  "two matches closer than this are one (0.5 = m/2, §7.6)", min=0.01, max=MAX_EXCLUSION),
     ],
     run=_run,
     input_kind="signal",

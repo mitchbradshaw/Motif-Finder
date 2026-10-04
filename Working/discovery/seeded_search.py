@@ -585,44 +585,51 @@ def recommended_params(seed):
     """§7.6's parameter card. The window is **locked** to the exemplar's native
     length.
 
-    The exclusion zone is the one place the block and the spec differ, so the
-    card reports the guard that **ran**: `detection.seed_matches` exposes no
-    exclusion parameter and does not pass `query_idx`, so `stumpy.match`
-    applies its own default of m/4. `specExclusionSamples` carries §7.6's m/2
-    beside it and `exclusion_note` says which is which — a locked "m/2" drawn
-    over a search that used m/4 is a number about nothing.
-
-    `exclusionSettable` is False for the same reason: there is no parameter to
-    set. A slider that moved it would change the card and not the search.
+    The exclusion zone is `detection.seed_matches`' own `exclusion` parameter
+    (fixup-AD, Round 11): default m/2, §7.6's figure, passed to `stumpy.match`,
+    so the card's number is the guard the search runs under and it can be set.
+    Until 2026-10-05 the block exposed none and the search ran under stumpy's
+    m/4 while this card printed m/2 beside it.
     """
+    from Adapters.detection_seed_matches import DEFAULT_EXCLUSION, exclusion_samples
+
     m = int(seed["samples"])
     fs = float(seed["fs"]) or 1.0
+    zone = exclusion_samples(m, DEFAULT_EXCLUSION)
     return {
         "algorithm": "mass",
         "windowSamples": m,
         "windowS": m / fs,
         "windowLocked": True,
         "scaleBank": "none",
-        "exclusionSamples": m // 4,
-        "exclusionS": (m // 4) / fs,
-        "specExclusionSamples": m // 2,
-        "specExclusionS": (m // 2) / fs,
-        "exclusionSettable": False,
+        "exclusion": DEFAULT_EXCLUSION,
+        "exclusionSamples": zone,
+        "exclusionS": zone / fs,
+        "specExclusionSamples": zone,
+        "specExclusionS": zone / fs,
+        "exclusionSettable": True,
         "overlap": "lowest",
         "exclusion_note": (
-            "§7.6 specifies m/2 ({spec} samples). detection.seed_matches exposes no exclusion parameter "
-            "and does not pass query_idx, so the search ran under stumpy.match's own default of m/4 "
-            "({ran} samples) — which is the figure shown.").format(spec=m // 2, ran=m // 4),
+            "Two matches closer than the exclusion zone are one match. §7.6's m/2 ({z} samples) by default; "
+            "detection.seed_matches passes it to stumpy.match, so this is the zone the search runs under, and "
+            "the run's recipe records it.").format(z=zone),
     }
 
 
-def seed_steps(seed, *, k=10, max_distance=None, scales=None, overlap=None):
+def seed_steps(seed, *, k=10, max_distance=None, scales=None, overlap=None, exclusion=None):
     """The one chain step a seeded search is.
 
     A bank is named in the params only when it is on (more than the native
     length), so a native search's recipe — and its hash — is what it was
-    before the bank existed (fixup-v)."""
-    params = {"k": int(k), "max_distance": float(max_distance or 0.0)}
+    before the bank existed (fixup-v).
+
+    The exclusion zone is always named (fixup-AD): a fraction of m, default
+    m/2. That changed every seed recipe's hash on 2026-10-05 — the real
+    database held no seed run then, so nothing stored was orphaned."""
+    from Adapters.detection_seed_matches import DEFAULT_EXCLUSION, check_exclusion
+
+    params = {"k": int(k), "max_distance": float(max_distance or 0.0),
+              "exclusion": check_exclusion(DEFAULT_EXCLUSION if exclusion is None else exclusion)}
     bank = parse_scales(scales) if scales else None
     if bank and bank != (1.0,):
         params["scales"] = format_scales(bank)
@@ -635,12 +642,14 @@ def seed_steps(seed, *, k=10, max_distance=None, scales=None, overlap=None):
     }]
 
 
-def seed_recipe(seed, recording_ids, span=None, *, k=10, max_distance=None, scales=None, overlap=None):
+def seed_recipe(seed, recording_ids, span=None, *, k=10, max_distance=None, scales=None, overlap=None,
+                exclusion=None):
     """The fan-out recipe: one `detection.seed_matches` step over N channels."""
     ids = [int(r) for r in recording_ids]
     if not ids:
         raise ValueError("a seeded search needs at least one channel in scope")
-    return make_recipe(ids[0], seed_steps(seed, k=k, max_distance=max_distance, scales=scales, overlap=overlap),
+    return make_recipe(ids[0], seed_steps(seed, k=k, max_distance=max_distance, scales=scales, overlap=overlap,
+                                          exclusion=exclusion),
                        span=(list(span) if span else None),
                        fan_out={"kind": "channels", "targets": ids})
 

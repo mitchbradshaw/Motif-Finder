@@ -51,8 +51,8 @@ def test_the_default_zone_is_half_the_exemplar():
 def test_the_zone_is_a_parameter_that_reaches_stumpy():
     x = _periodic()
     q = x[200:200 + M].copy()
-    wide = sm.match_exemplar(x, q, k=20, exclusion=0.5)
-    narrow = sm.match_exemplar(x, q, k=20, exclusion=0.25)
+    wide = sm.match_exemplar(x, q, k=500, exclusion=0.5)
+    narrow = sm.match_exemplar(x, q, k=500, exclusion=0.25)
     assert _min_gap(narrow) <= math.ceil(M / 2) < _min_gap(wide)
     assert len(narrow) > len(wide)
     assert stumpy.config.STUMPY_EXCL_ZONE_DENOM == 4           # stumpy's global is put back
