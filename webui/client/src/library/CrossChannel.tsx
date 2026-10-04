@@ -88,7 +88,7 @@ export function CrossChannelCard({ familyId, grouping, cc, onReload }: { familyI
   const wm = cc.withoutMember ?? {}
   const n = cc.null
   return (
-    <section className="k-card" style={{ padding: 12, display: 'grid', gap: 8 }} data-testid="cross-channel-card" aria-label="Cross-channel classification">
+    <section className="k-card" style={{ padding: 12, display: 'grid', gap: 8 }} data-testid="cross-channel-card" data-classified={cc.classified ? 'yes' : 'no'} aria-label="Cross-channel classification">
       <div className="row" style={{ gap: 8, alignItems: 'center' }}>
         <b style={{ fontSize: 13 }}>Cross-channel</b>
         <InfoTip title="How a pair is classified">

@@ -218,6 +218,7 @@ function Recurrence({ recordings, rows, coverage, sharedGround, unit, groupingId
             {/* fixup-W: the count with the cross-channel bins taken out — the core's one definition, its rule printed */}
             <Seg size="sm" ariaLabel="what is counted" testid="recur-mode" value={recur} onChange={v => setRecurQ(v === 'all' ? null : v)}
               options={RECUR_MODES.map(m => ({ value: m, label: MODE_LABEL[m] }))} />
+            {recur !== 'all' && <span className="lib-cap" data-testid="recur-classified" title="a family not classified across channels reads the same under every mode — its total is drawn grey">{rows.filter(r => r.rec?.classified).length} of {rows.length} classified</span>}
             <InfoTip title={`counting: ${MODE_LABEL[recur]}`} testid="recur-rule">{recurRule}. Each family is classified across channels from Library › Family (*Classify across channels*); a family that has not been reads the same under every mode and says so on its row.</InfoTip>
             <span className="row lib-cap" style={{ gap: 6, fontSize: 11 }}>
               <button type="button" className="lib-pg" style={{ width: 24, height: 24 }} disabled={page <= 1} title={page <= 1 ? 'first page' : 'previous recordings'} aria-label="previous recordings" data-testid="rec-prev" onClick={() => setRecQ(page - 1 <= 1 ? null : String(page - 1))}><Icon name="chevron-left" size={12} /></button>
@@ -286,7 +287,9 @@ function Recurrence({ recordings, rows, coverage, sharedGround, unit, groupingId
                         <MiniTrace values={rowTraces.get(row.id)?.ex ?? row.trace} width={36} height={24} ground="none" zeroLine={false} strokeWidth={1.4} />
                         <span className="stack" style={{ gap: 0 }}>
                           <span className="row" style={{ gap: 6 }}><span className="id" style={{ color: row.colour }}>{row.id}</span><span className="nm" title={row.name}>{familyName(row.id, row.name)}</span></span>
-                          <span className="sub">{row.recordings} recording{row.recordings === 1 ? '' : 's'}{row.rec ? <> · <span data-testid={`row-total-${row.id}`} title={`${MODE_LABEL[recur]}: ${recurRule}`}>{fmtInt(row.rec[recur])} {recur === 'all' ? 'members' : 'counted'}</span>{!row.rec.classified && recur !== 'all' ? <span title="not classified across channels yet — nothing has been taken out"> · unclassified</span> : null}</> : null}</span>
+                          <span className="sub">{row.recordings} recording{row.recordings === 1 ? '' : 's'}{row.rec ? <> · <span data-testid={`row-total-${row.id}`} data-classified={row.rec.classified ? 'yes' : 'no'}
+                            title={`${fmtInt(row.rec[recur])} counted, ${MODE_LABEL[recur]}: ${recurRule}${row.rec.classified ? '' : ' — this family has not been classified across channels, so nothing has been taken out'}`}
+                            style={!row.rec.classified && recur !== 'all' ? { color: 'var(--text-3, #9ca3af)' } : undefined}>{fmtInt(row.rec[recur])}</span></> : null}</span>
                         </span>
                       </button>
                     </td>
