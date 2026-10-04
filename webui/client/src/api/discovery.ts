@@ -141,6 +141,8 @@ export const getHistory = (): Promise<Sourced<HistoryEntry[]>> => live(getDiscov
 /** fixup-z: the project's band list (Settings › Analysis defaults, Q43) — what *Apply template*'s band scope
  *  offers. `nyquistHz` is the session recording's; a band reaching it cannot be filtered. */
 export const getBands = (): Promise<Sourced<DiscBandsPayload>> => live(getDiscoveryBands())
+/** fixup-ac: the same list with the wavelet levels for another of the wavelet-bands block's wavelets. */
+export const getBandsFor = (wavelet: string): Promise<Sourced<DiscBandsPayload>> => live(getDiscoveryBands(wavelet))
 
 /** The exemplars a `rebind` template can be bound to: the bridge's seed list, as dropdown options. */
 export const getRebindExemplars = (): Promise<Sourced<{ value: string; label: string }[]>> =>

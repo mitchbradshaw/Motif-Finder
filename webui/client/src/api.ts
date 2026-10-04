@@ -922,9 +922,9 @@ export interface DiscSeedPageQuery { entry?: number }
  * channels in scope; the band runs of one application share a `bandSet`, which Compare takes as one side as
  * `set:<bandSet>` — the union of its runs, de-duplicated by the matching rule. The overlap is split by verdict,
  * read live from `adjudications`; *Send only-B unjudged to Review* is a queue over exactly those regions. */
-export interface DiscBand { kind: 'bandpass'; label: string; low_hz: number; high_hz: number }
+export interface DiscBand { kind: 'bandpass' | 'wavelet'; label: string; low_hz: number; high_hz: number }
 export interface DiscBandsPayload { bands: DiscBand[]; source: 'default' | 'settings'; page: string; key: string; kinds: string[]; nyquistHz: number | null }
-export const getDiscoveryBands = () => req<DiscBandsPayload>('/api/discovery/bands')
+export const getDiscoveryBands = (wavelet?: string) => req<DiscBandsPayload>('/api/discovery/bands' + (wavelet ? `?wavelet=${encodeURIComponent(wavelet)}` : ''))
 export interface DiscRun { band?: DiscBand; bandSet?: string | null; bandIndex?: number | null }
 export interface DiscPlanBody { band?: DiscBand; bands?: DiscBand[] }
 export interface DiscPlan { nBands?: number; bands?: (DiscBand & { estimate_s: number | null; route: string })[]; band?: DiscBand | null }
@@ -1031,3 +1031,19 @@ export interface LibScaleReadout {
   distances: { id: string; label: string }[]; runs: LibReadoutRun[]
 }
 export interface LibRunMatches { family?: string | null; grouping?: string | null }
+
+/* fixup-ac: a wavelet decomposition is a band source (appended, declaration merging). A Signal block that passes ONE
+ * layer on (`preprocessing.wavelet_bands`) ships every layer, each a min/max envelope on the channel's seconds with
+ * its Hz range; a wavelet band names its wavelet and level, and once resolved against a scope its range and depth. */
+export interface SignalLayer {
+  name: string; level: number; kind: 'detail' | 'residual'; label: string; low_hz: number; high_hz: number
+  chosen: boolean; rms: number | null; envelope: EnvelopeSeries
+}
+export interface SignalDecomposition {
+  wavelet: string; levels: number; levels_auto: boolean; level: number; layer: string; layer_label: string
+  padding: { n: number; padded_to: number; left: number; right: number; mode: string }
+  padding_note: string; boundary_note: string; edges_note: string; reconstruction_error: number | null
+}
+export interface SignalPayload { layers?: SignalLayer[]; decomposition?: SignalDecomposition; layers_note?: string }
+export interface DiscBand { wavelet?: string; level?: number; levels?: number }
+export interface DiscBandsPayload { wavelet?: { wavelet: string; wavelets: string[]; nSamples: number; levels: DiscBand[] } | null }
