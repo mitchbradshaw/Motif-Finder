@@ -60,7 +60,7 @@ Q3 and Q6. The ranking is by what is left, not by the order run.
    *"… / 3"* on three channels while the session chip reads *"null phase_randomize 200×"*. The marker is
    *"α = 0.01 per null draw · correction: none"*. **Nothing run in this pass came out ahead of its surrogate,
    and no number below should be read as beating chance.**
-3. **`motif_edge` has 0 rows and nothing in the app writes one.** The writers are in the core and tested
+3. **[CLOSED by fixup-V, 2026-10-04 — `docs/prompts/fixup/reports/V-library-edges-and-scale.md`: *Add N matches to E-xxxx* (Discovery › Runs) writes a member and an edge per distance function for each accepted seed-search match; the Family page reads them. `classify_cross_channel_edges` (Q6) is still uncalled — `W`'s.]** **`motif_edge` has 0 rows and nothing in the app writes one.** The writers are in the core and tested
    (`Working/library/matching.py`: `match_span_to_entry` :37, `search_entry_across_durations` :159,
    `classify_cross_channel_edges` :284) and no bridge route calls any of them. Q3 and Q6 both stand on edges.
 
@@ -228,6 +228,8 @@ cross-recording families span the import stores (entry tags: `reishi_10hz` 2,425
 family, so edges exist and carry a bin; the Recurrence page already has the fields to show them.
 
 ## Q3 — Is motif identity preserved under scale normalisation?
+
+**[Route BUILT by fixup-V, 2026-10-04 — see `docs/prompts/rq_roundA/RQ3-identity-under-scale.md`: the scale bank, edges per distance function and the Family page's scale read-out exist and were walked in a sandbox. What follows is the 2026-10-02 record.]**
 
 **The route.** Library › Edit grouping (basis *shape distance*) → Library › Family (members and their
 durations) → Discovery › Seed search with a scale bank (search at other scales) → edges carrying the distance
