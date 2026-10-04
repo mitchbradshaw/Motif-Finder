@@ -1,9 +1,10 @@
 # RQ2 — Does a human-adjudicated exemplar used as a matrix-profile seed recover instances a human also accepts?
 
-**Status (2026-10-03, after `Y`): walkable end to end, not yet readable.** You can now promote an exemplar in Review,
-search for it, send the matches to Review and judge them. **The scoreboard still does not count your verdicts on those
-matches as accepted** (walk: 2 of 4 accepted, row reads *"0 interesting · 0 %"*). That is `X`'s to fix. The null
-counts are true as of `T` (2026-10-03).
+**Status (2026-10-04, after `X`): answerable in the app; not yet answered.** Promote an exemplar, search for it, send the
+matches to Review, judge them, and the scoreboard's *interesting* and *precision* now count a verdict given in Review
+first (`X`'s `divergence.py`: adjudication → extent → containment). **Recall is still the old §4.6 rule** (0 by
+construction on window labels), so read precision and × null, not recall. ~~(2026-10-03, after `Y`: the scoreboard did
+not count Review verdicts on the matches.)~~
 
 ## In plain words
 
@@ -73,9 +74,10 @@ things you also agree with, and whether it finds more than it would by chance.
 | ~~Seed picker reaches any Library entry, at least `source_kind = 'review'`~~ | `Y`, done 2026-10-03 |
 | ~~Explore's *Take span for Review* writes a real seed~~ | `Y`, done 2026-10-03 |
 | ~~*Open in Runs* uses the right key; the Seed page's defects~~ | `Y`, done 2026-10-03 |
-| The scoreboard counts a Review verdict on the run's own detection as accepted (`interesting` reads `adjudications`) | `X` |
+| ~~The scoreboard counts a Review verdict on the run's own detection as accepted~~ | `X`, done 2026-10-04 |
 | ~~The null count printed is the count drawn; surrogate detections are never detections~~ | `T`, done 2026-10-03 |
-| Precision means what it says | `X` |
+| ~~Precision means what it says~~ (two figures, each with its rule) | `X`, done 2026-10-04 |
+| Recall under the same containment rule (still §4.6, 0 by construction) | unowned, small (`X` report, *Left*) |
 | The exclusion zone is m/4 (stumpy's default), not §7.6's m/2. It is printed on the page; changing it changes every stored result | a decision; raised in `Y`'s report |
 
 ## How it gets answered
@@ -86,7 +88,7 @@ Follow `RESEARCH_RUNBOOK.md` Q2:
 2. *Seed search in Discovery →*, or Seed search › *change seed* › filter *review*.
 3. Choose a cut against the null, and *Run seed search*.
 4. *Open in Runs* → *Send N unjudged to Review* → judge every one.
-5. Read the seed run's scoreboard row (precision, recall, × null) with its null. This step waits on `X`.
+5. Read the seed run's scoreboard row — precision (both figures) and × null — with its null.
 
 ## Open decisions
 
@@ -101,3 +103,4 @@ Follow `RESEARCH_RUNBOOK.md` Q2:
   on `X`.
 - 2026-10-03 · fixup-t · a seed run draws 200 paired surrogates and every surface prints that count; the cut reads
   Settings' α and correction per channel; surrogate spans are refused by Review, promotion and Explore.
+- 2026-10-04 · post-fixup summary · `X` made the scoreboard count Review verdicts first (this file had not been updated by `X`); recall still §4.6.
