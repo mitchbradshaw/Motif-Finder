@@ -444,7 +444,31 @@ _MOTIF_EDGE_NEW_COLUMNS = [
     ("detection_id", "INTEGER REFERENCES detections(id)"),
     ("recipe_json", "TEXT"),
     ("created_at", "TEXT"),
+    # fixup-W: the cross-channel classification's own provenance — the window it
+    # was measured on, the recording's fs and the rule (Q40/Q-W5) in force — so
+    # a bin is never read without the rule that produced it. NULL until
+    # classified; the seed edge's `recipe_json` is left as it was.
+    ("classification_json", "TEXT"),
 ]
+
+# fixup-W (QUESTIONS.md Q40c): a family member's event seen on a sibling channel
+# where the family has NO member — counted on the family, never written as an
+# edge (an edge joins two members). One row per (member, sibling channel), the
+# latest classification; machine-only, like `motif_edge`.
+_CROSS_CHANNEL_SCHEMA = """
+CREATE TABLE IF NOT EXISTS motif_member_cooccurrence (
+    id                   INTEGER PRIMARY KEY AUTOINCREMENT,
+    member_id            INTEGER NOT NULL REFERENCES motif_member(id),
+    recording_id         INTEGER NOT NULL REFERENCES recordings(id),
+    lag                  INTEGER,
+    waveform_correlation REAL,
+    classification_bin   TEXT NOT NULL,
+    classification_json  TEXT,
+    created_at           TEXT,
+    UNIQUE (member_id, recording_id)
+);
+CREATE INDEX IF NOT EXISTS idx_motif_member_cooccurrence_member ON motif_member_cooccurrence(member_id);
+"""
 
 
 # Stage-3 Prompt 02 (docs/DATA_REGISTRATION.md): registration provenance on
@@ -790,6 +814,8 @@ def _migrate_motif_member_columns(conn):
 
 def _migrate_motif_edge_columns(conn):
     _migrate_columns(conn, "motif_edge", _MOTIF_EDGE_NEW_COLUMNS)
+    conn.executescript(_CROSS_CHANNEL_SCHEMA)
+    conn.commit()
 
 
 # Stage-3 prompt 03 (docs/LIBRARY_STORAGE.md §3.3): the Library's new units.

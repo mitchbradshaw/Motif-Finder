@@ -28,12 +28,12 @@ the rest of `Working/`.
 
 import datetime as _dt
 import json
+import os
 
 import numpy as np
 
 from Working.database import queries as q
 from Working.database import runs as R
-from Working.cross_channel import ARTIFACT, classify_waveforms
 from Working.recipes import recipe_hash
 from Working.distances import (
     DISTANCE_NATIVE_LENGTH, DISTANCE_REGISTRY, DISTANCE_SCALE_INVARIANT, DISTANCE_SYMBOLIC,
@@ -304,79 +304,399 @@ def search_entry_across_durations(conn, entry_id, recording_id, durations,
         "recall": len(matches),
     }
 def _set_motif_edge_classification(conn, edge_id, lag, waveform_correlation,
-                                   classification_bin):
+                                   classification_bin, classification_json=None,
+                                   commit=True):
     """Write the cross-channel classification onto an existing motif edge.
 
     `R.insert_motif_edge` is deliberately idempotent and therefore cannot
     update a duplicate key, so the classification action needs this single
-    UPDATE path for edges the search/matching seam has already created.
+    UPDATE path for edges the search/matching seam has already created. The
+    edge's distance, threshold and recipe are left as they were.
     """
     conn.execute(
         """UPDATE motif_edge
-           SET lag = ?, waveform_correlation = ?, classification_bin = ?
+           SET lag = ?, waveform_correlation = ?, classification_bin = ?,
+               classification_json = ?
            WHERE id = ?""",
-        (lag, waveform_correlation, classification_bin, edge_id),
+        (lag, waveform_correlation, classification_bin, classification_json, edge_id),
     )
-    conn.commit()
+    if commit:
+        conn.commit()
 
 
-def classify_cross_channel_edges(conn, entry_id):
-    """Classify and persist every cross-channel edge of one motif family.
+# ── fixup-W: classification on SIMULTANEOUS windows (Q40a/b/c, Q-W5) ─────────
+#
+# Before 2026-10-04 `classify_cross_channel_edges` cut each member's OWN span,
+# wherever in the recording it sat, and cross-correlated the two snippets. Its
+# "lag" was only how far one cut-out had to slide to align with the other:
+# measured (fixup-W Part 1), it read a pulse injected 5 samples later on a
+# sibling as lag 0 / artifact, and the same pulse an HOUR later as lag 0 /
+# artifact too. The researcher's ruling (Q40a): lag is measured on the same
+# absolute window on both channels, always.
 
-    A pair is cross-channel when both member spans live in recordings with the
-    same `source_file` but different `channel` — the same acquisition seen on
-    two electrodes. For each such edge, the lag is the cross-correlation peak
-    and the waveform identity is the correlation at that lag, computed by
-    `Working.cross_channel.classify_waveforms`, then written back onto the
-    edge.
+#: The distance function an edge carries when the classifier had to write one
+#: (two members co-occur on sibling channels and no edge joined them): the
+#: correlation distance 1 - |r|, under the threshold 1 - (the r floor), so
+#: "within" reads as "|r| cleared the floor".
+CROSS_CHANNEL_DISTANCE = "cross_correlation"
 
-    Returns
-    -------
-    list[dict]
-        One dict per classified edge, in `list_motif_edges` order, with the
-        persisted `edge_id`, `member_a_id`, `member_b_id`, `lag`,
-        `waveform_correlation` and `classification_bin`.
+#: What a pair is measured on, in words — carried on every classification.
+SIMULTANEOUS_METHOD = ("the same absolute window on both channels (Q40a): the union of the two members' "
+                       "spans, cut from each channel, cross-correlated; lag is the second member's channel "
+                       "relative to the first's")
+
+_CHUNK = 500
+
+
+def _members_with_recordings(conn, member_ids):
+    ids = sorted({int(m) for m in member_ids or []})
+    out = []
+    for i in range(0, len(ids), _CHUNK):
+        part = ids[i:i + _CHUNK]
+        marks = ",".join("?" * len(part))
+        out.extend(dict(r) for r in conn.execute(
+            f"""SELECT mm.id AS id, mm.entry_id AS entry_id, mm.recording_id AS recording_id,
+                       mm.start_idx AS start_idx, mm.end_idx AS end_idx,
+                       r.source_file AS source_file, r.channel AS channel, r.fs AS fs,
+                       r.n_samples AS n_samples, r.npy_path AS npy_path
+                  FROM motif_member mm JOIN recordings r ON r.id = mm.recording_id
+                 WHERE mm.id IN ({marks})""", tuple(part)))
+    return out
+
+
+def _gap_s(a, b):
+    """Seconds between two members' spans; negative when they overlap."""
+    fs = float(a["fs"] or 1.0)
+    return (max(a["start_idx"], b["start_idx"]) - min(a["end_idx"], b["end_idx"])) / fs
+
+
+def _pair_edges(conn, a_id, b_id):
+    return conn.execute(
+        "SELECT * FROM motif_edge WHERE (member_a_id = ? AND member_b_id = ?) OR (member_a_id = ? AND member_b_id = ?) "
+        "ORDER BY id", (a_id, b_id, b_id, a_id)).fetchall()
+
+
+def _write_pair(conn, a_id, b_id, lag, r, b, info, rule):
+    """The pair's classification onto every edge that joins the two members
+    (a seed match carries one per distance function), with the lag's sign
+    turned to each row's own a->b direction; one `cross_correlation` edge when
+    none joins them. Returns the edge ids written."""
+    info_json = json.dumps(info, sort_keys=True)
+    distance = (1.0 - abs(r)) if r is not None else 1.0
+    threshold = round(1.0 - rule.min_abs_r, 12)
+    rows = _pair_edges(conn, a_id, b_id)
+    if not rows:
+        recipe = {"classifier": "cross_channel", "method": SIMULTANEOUS_METHOD, "rule": rule.as_dict()}
+        eid = R.insert_motif_edge(
+            conn, a_id, b_id, CROSS_CHANNEL_DISTANCE, threshold, distance, recipe_hash(recipe),
+            lag=lag, waveform_correlation=r, classification_bin=b, commit=False)
+        conn.execute("UPDATE motif_edge SET classification_json = ?, recipe_json = ?, created_at = ? WHERE id = ?",
+                     (info_json, json.dumps(recipe, sort_keys=True), _now(), eid))
+        return [int(eid)]
+    out = []
+    for row in rows:
+        own = lag if (lag is None or int(row["member_a_id"]) == int(a_id)) else -lag
+        _set_motif_edge_classification(conn, row["id"], own, r, b, info_json, commit=False)
+        if row["distance_function"] == CROSS_CHANNEL_DISTANCE:
+            # the classifier's own edge: its distance IS the correlation, its threshold the floor in force
+            conn.execute("UPDATE motif_edge SET distance_value = ?, threshold = ? WHERE id = ?",
+                         (distance, threshold, row["id"]))
+        out.append(int(row["id"]))
+    return out
+
+
+def _window(load, rec, w0, w1):
+    n = int(rec["n_samples"] or w1)
+    return np.asarray(load(rec)[max(0, int(w0)):min(n, int(w1))], dtype=float)
+
+
+def _measurable(x, y):
+    n = min(len(x), len(y))
+    ok = (n >= 4 and np.isfinite(x[:n]).all() and np.isfinite(y[:n]).all()
+          and x[:n].std() > 0 and y[:n].std() > 0)
+    return ok, n
+
+
+def _edges_among(conn, ids):
+    ids = sorted(ids)
+    if not ids:
+        return []
+    out = []
+    for i in range(0, len(ids), _CHUNK):
+        part = ids[i:i + _CHUNK]
+        marks = ",".join("?" * len(part))
+        out.extend(conn.execute(f"SELECT * FROM motif_edge WHERE member_a_id IN ({marks})", tuple(part)).fetchall())
+    keep = set(ids)
+    return [e for e in out if int(e["member_b_id"]) in keep]
+
+
+def classify_family_across_channels(conn, member_ids, rule=None, progress=None, cancel=None,
+                                    exclude_source_files=()):
+    """Classify one family's members against their sibling channels, on
+    simultaneous windows, and persist the result.
+
+    For each member, every other channel of the same recording (same
+    `source_file`) is examined over the same absolute samples:
+
+    - where the sibling holds another member of the family within the
+      propagation ceiling of this one, the PAIR is classified on the union of
+      the two spans, cut from both channels, and the bin, lag and r are written
+      onto the pair's edge(s) (`_write_pair`) — an edge is written if none
+      joined them;
+    - where it holds none, the member's own span is classified against the
+      sibling and the result kept in `motif_member_cooccurrence` — counted on
+      the family as a *co-occurrence without a member* when it bins artifact or
+      propagation, **never written as an edge** (Q40c).
+
+    An existing edge between two members on sibling channels that are further
+    apart than the ceiling is `independent_recurrence` with no lag and no r:
+    they are not simultaneous, so there is no lag to measure (Q40a).
+
+    `rule` defaults to Settings' (`Working.cross_channel.rule_from_settings`);
+    `progress(done, total, message)` is called once per channel holding
+    members; `cancel()` returning true stops between channels. Files in
+    `exclude_source_files` (the held-out recording) are never read.
     """
-    results = []
-    for edge in R.list_motif_edges(conn, entry_id):
-        member_a = R.get_motif_member(conn, edge["member_a_id"])
-        member_b = R.get_motif_member(conn, edge["member_b_id"])
-        recording_a = q.get_recording_by_id(conn, member_a["recording_id"])
-        recording_b = q.get_recording_by_id(conn, member_b["recording_id"])
+    from Working import cross_channel as xc
 
-        if (recording_a["source_file"] != recording_b["source_file"]
-                or recording_a["channel"] == recording_b["channel"]):
+    rule = rule or xc.rule_from_settings(conn)
+    excluded = set(exclude_source_files or ())
+    members, skipped = [], []
+    for m in _members_with_recordings(conn, member_ids):
+        if m["source_file"] in excluded:
+            skipped.append({"member_id": m["id"], "reason": f"{m['source_file']} is held out and is never read"})
+        else:
+            members.append(m)
+
+    by_rec = {}
+    for m in members:
+        by_rec.setdefault(int(m["recording_id"]), []).append(m)
+    sibs = {sf: [dict(r) for r in q.list_recordings(conn, sf)] for sf in {m["source_file"] for m in members}}
+    channels = sorted(by_rec, key=lambda rid: (by_rec[rid][0]["source_file"], int(by_rec[rid][0]["channel"])))
+    total = len(channels)
+
+    arrays = {}
+
+    def load(rec):
+        rid = int(rec["recording_id"])
+        if rid not in arrays:
+            arrays[rid] = np.load(rec["npy_path"], mmap_mode="r")
+        return arrays[rid]
+
+    def sib_rec(s):
+        return {"recording_id": s["id"], "npy_path": s["npy_path"], "n_samples": s["n_samples"]}
+
+    now = _now()
+    pairs, without, done_pairs = [], [], set()
+    for i, rid in enumerate(channels):
+        if cancel is not None and cancel():
+            break
+        ms = by_rec[rid]
+        here = ms[0]
+        others = [s for s in sibs[here["source_file"]] if int(s["id"]) != rid and s["channel"] != here["channel"]]
+        if progress is not None:
+            progress(i, total, f"{here['source_file']} · ch{here['channel']} · {len(ms)} member"
+                               f"{'s' if len(ms) != 1 else ''} against {len(others)} sibling channel"
+                               f"{'s' if len(others) != 1 else ''}")
+        for m in ms:
+            fs = float(m["fs"] or 1.0)
+            for s in others:
+                if not s["npy_path"] or not os.path.isfile(s["npy_path"]):
+                    skipped.append({"member_id": m["id"], "recording_id": s["id"],
+                                    "reason": "the sibling's samples are not on disk"})
+                    continue
+                if float(s["fs"] or 1.0) != fs:
+                    skipped.append({"member_id": m["id"], "recording_id": s["id"],
+                                    "reason": f"fs differs ({fs:g} vs {float(s['fs'] or 1.0):g} Hz): no common window"})
+                    continue
+                partners = [p for p in by_rec.get(int(s["id"]), []) if _gap_s(m, p) <= rule.propagation_max_lag_s]
+                if partners:
+                    # a member there now: whatever was counted without one is superseded
+                    conn.execute("DELETE FROM motif_member_cooccurrence WHERE member_id = ? AND recording_id = ?",
+                                 (m["id"], s["id"]))
+                    for p in partners:
+                        key = frozenset((int(m["id"]), int(p["id"])))
+                        if key in done_pairs:
+                            continue
+                        done_pairs.add(key)
+                        a, b = (m, p) if int(m["id"]) < int(p["id"]) else (p, m)
+                        w0, w1 = min(a["start_idx"], b["start_idx"]), max(a["end_idx"], b["end_idx"])
+                        x, y = _window(load, a, w0, w1), _window(load, b, w0, w1)
+                        ok, n = _measurable(x, y)
+                        if not ok:
+                            skipped.append({"member_a_id": a["id"], "member_b_id": b["id"],
+                                            "reason": "flat or non-finite samples in the window: lag and r undefined"})
+                            continue
+                        lag, r, cls = xc.classify_waveforms(x[:n], y[:n], fs=fs, rule=rule)
+                        info = {"method": SIMULTANEOUS_METHOD, "window": [int(w0), int(w1)], "fs": fs,
+                                "recording_ids": [int(a["recording_id"]), int(b["recording_id"])],
+                                "lag_s": lag / fs, "rule": rule.as_dict(), "simultaneous": True, "at": now}
+                        eids = _write_pair(conn, int(a["id"]), int(b["id"]), int(lag), float(r), cls, info, rule)
+                        pairs.append({"member_a_id": int(a["id"]), "member_b_id": int(b["id"]), "lag": int(lag),
+                                      "lag_s": lag / fs, "waveform_correlation": float(r),
+                                      "classification_bin": cls, "window": (int(w0), int(w1)),
+                                      "edge_ids": eids, "simultaneous": True})
+                    continue
+                x = _window(load, m, m["start_idx"], m["end_idx"])
+                y = _window(load, sib_rec(s), m["start_idx"], m["end_idx"])
+                ok, n = _measurable(x, y)
+                if not ok:
+                    continue
+                lag, r, cls = xc.classify_waveforms(x[:n], y[:n], fs=fs, rule=rule)
+                info = {"method": "the member's own span, cut from both channels (Q40a); no member on the sibling",
+                        "window": [int(m["start_idx"]), int(m["end_idx"])], "fs": fs, "rule": rule.as_dict(),
+                        "lag_s": lag / fs, "at": now}
+                conn.execute(
+                    """INSERT INTO motif_member_cooccurrence
+                           (member_id, recording_id, lag, waveform_correlation, classification_bin,
+                            classification_json, created_at)
+                       VALUES (?, ?, ?, ?, ?, ?, ?)
+                       ON CONFLICT(member_id, recording_id) DO UPDATE SET
+                           lag = excluded.lag, waveform_correlation = excluded.waveform_correlation,
+                           classification_bin = excluded.classification_bin,
+                           classification_json = excluded.classification_json, created_at = excluded.created_at""",
+                    (m["id"], s["id"], int(lag), float(r), cls, json.dumps(info, sort_keys=True), now))
+                if cls in (xc.ARTIFACT, xc.PROPAGATION):
+                    without.append({"member_id": int(m["id"]), "recording_id": int(s["id"]), "lag": int(lag),
+                                    "lag_s": lag / fs, "waveform_correlation": float(r), "classification_bin": cls})
+        conn.commit()
+
+    # an existing edge between members on sibling channels too far apart to be simultaneous
+    by_id = {int(m["id"]): m for m in members}
+    for e in _edges_among(conn, set(by_id)):
+        key = frozenset((int(e["member_a_id"]), int(e["member_b_id"])))
+        if key in done_pairs:
             continue
+        a, b = by_id[int(e["member_a_id"])], by_id[int(e["member_b_id"])]
+        if a["source_file"] != b["source_file"] or a["channel"] == b["channel"]:
+            continue
+        if _gap_s(a, b) <= rule.propagation_max_lag_s:
+            continue          # simultaneous but unmeasurable: said in `skipped` above
+        done_pairs.add(key)
+        info = {"method": ("not simultaneous: the two members are further apart than the propagation ceiling, so "
+                           "no lag is measured (Q40a)"), "gap_s": _gap_s(a, b), "rule": rule.as_dict(),
+                "simultaneous": False, "at": now}
+        eids = _write_pair(conn, int(a["id"]), int(b["id"]), None, None, xc.INDEPENDENT_RECURRENCE, info, rule)
+        pairs.append({"member_a_id": int(a["id"]), "member_b_id": int(b["id"]), "lag": None, "lag_s": None,
+                      "waveform_correlation": None, "classification_bin": xc.INDEPENDENT_RECURRENCE,
+                      "window": None, "edge_ids": eids, "simultaneous": False, "gap_s": _gap_s(a, b)})
+    conn.commit()
+    if progress is not None:
+        progress(total, total, f"done · {len(pairs)} pair{'s' if len(pairs) != 1 else ''} classified across "
+                               f"{total} channel{'s' if total != 1 else ''}")
 
-        x_a = _load_span(recording_a, member_a["start_idx"], member_a["end_idx"])
-        x_b = _load_span(recording_b, member_b["start_idx"], member_b["end_idx"])
-        lag, waveform_correlation, classification_bin = classify_waveforms(x_a, x_b)
-
-        _set_motif_edge_classification(
-            conn, edge["id"], lag, waveform_correlation, classification_bin,
-        )
-        results.append({
-            "edge_id": edge["id"],
-            "member_a_id": edge["member_a_id"],
-            "member_b_id": edge["member_b_id"],
-            "lag": lag,
-            "waveform_correlation": waveform_correlation,
-            "classification_bin": classification_bin,
-        })
-
-    return results
+    counts = {b: sum(1 for p in pairs if p["classification_bin"] == b) for b in xc.BINS}
+    wm = {}
+    for w in without:
+        wm[w["classification_bin"]] = wm.get(w["classification_bin"], 0) + 1
+    counts["withoutMember"] = wm
+    return {"pairs": pairs, "withoutMember": without, "counts": counts, "channels": total,
+            "members": len(members), "skipped": skipped, "rule": rule.as_dict(), "rules": rule.describe()}
 
 
-def recurrence_count(conn, entry_id):
-    """Recurrence count for a motif family, with artifact edges excluded.
+def classify_cross_channel_edges(conn, entry_id, rule=None):
+    """Classify one motif entry's members across channels — the entry-scoped
+    form of `classify_family_across_channels`, kept for
+    ``python Working/cross_channel.py ENTRY_ID`` and the exporter's callers.
 
-    An edge classified as `artifact` is a shared-ground recording error, not a
-    finding, so it contributes nothing to this count.
+    Returns the classified pairs: `member_a_id`, `member_b_id`, `lag`
+    (samples, b relative to a), `lag_s`, `waveform_correlation`,
+    `classification_bin`, `edge_ids`.
     """
-    return sum(
-        1 for edge in R.list_motif_edges(conn, entry_id)
-        if edge["classification_bin"] != ARTIFACT
-    )
+    ids = [int(r["id"]) for r in conn.execute("SELECT id FROM motif_member WHERE entry_id = ?", (int(entry_id),))]
+    return classify_family_across_channels(conn, ids, rule=rule)["pairs"]
+
+
+#: How the three recurrence counts are made, in the words the page prints.
+RECURRENCE_RULES = {
+    "all": "every member of the family, each counted once — nothing taken out",
+    "excluding_artifacts": ("members in an artifact pair are not counted: an event on two electrodes at the same "
+                            "time is contamination (Q40b), so neither copy is a recurrence. They stay on the "
+                            "matrix, flagged red"),
+    "propagation_once": ("artifacts taken out as above, then members joined by propagation count once — one "
+                         "travelling event — on the member with the earliest onset"),
+}
+RECURRENCE_MODES = tuple(RECURRENCE_RULES)
+
+
+def family_recurrence(conn, member_ids):
+    """Recurrence of one family with the cross-channel bins taken out — the ONE
+    definition (PIPELINE_PRD.md: artifacts excluded from counts, propagation
+    one event). Read from the bins on the members' edges, so it is whatever
+    the last classification wrote; `classified` says whether one ran.
+
+    Returns `all`, `excluding_artifacts`, `propagation_once` (counts of
+    members), `members` (per member: `artifact`, `counted` per mode), the pair
+    counts per bin (`pairs`), the Q40c `withoutMember` counts and `rules`.
+    """
+    from Working import cross_channel as xc
+
+    members = {int(m["id"]): m for m in _members_with_recordings(conn, member_ids)}
+    ids = set(members)
+    pairs = {}
+    for e in _edges_among(conn, ids):
+        if e["classification_bin"]:
+            pairs[frozenset((int(e["member_a_id"]), int(e["member_b_id"])))] = e["classification_bin"]
+    co_rows = []
+    sorted_ids = sorted(ids)
+    for i in range(0, len(sorted_ids), _CHUNK):
+        part = sorted_ids[i:i + _CHUNK]
+        marks = ",".join("?" * len(part))
+        co_rows.extend(conn.execute(
+            f"SELECT member_id, classification_bin FROM motif_member_cooccurrence WHERE member_id IN ({marks})",
+            tuple(part)).fetchall())
+
+    artifact = {mid for k, b in pairs.items() if b == xc.ARTIFACT for mid in k}
+    kept = [mid for mid in sorted(ids) if mid not in artifact]
+    parent = {mid: mid for mid in kept}
+
+    def find(x):
+        while parent[x] != x:
+            parent[x] = parent[parent[x]]
+            x = parent[x]
+        return x
+
+    for k, b in pairs.items():
+        if b != xc.PROPAGATION:
+            continue
+        a, c = tuple(k)
+        if a in parent and c in parent:
+            ra, rc = find(a), find(c)
+            if ra != rc:
+                parent[rc] = ra
+    onset = {mid: (members[mid]["start_idx"] / float(members[mid]["fs"] or 1.0), mid) for mid in ids}
+    first = {}
+    for mid in kept:
+        root = find(mid)
+        if root not in first or onset[mid] < onset[first[root]]:
+            first[root] = mid
+    once = set(first.values())
+
+    per = {mid: {"artifact": mid in artifact,
+                 "counted": {"all": True, "excluding_artifacts": mid not in artifact,
+                             "propagation_once": mid in once}} for mid in ids}
+    by_bin = {b: sum(1 for v in pairs.values() if v == b) for b in xc.BINS}
+    wm = {}
+    for r in co_rows:
+        if r["classification_bin"] in (xc.ARTIFACT, xc.PROPAGATION):
+            wm[r["classification_bin"]] = wm.get(r["classification_bin"], 0) + 1
+    return {"classified": bool(pairs) or bool(co_rows),
+            "all": len(ids), "excluding_artifacts": len(kept), "propagation_once": len(once),
+            "members": per, "pairs": by_bin, "withoutMember": wm, "rules": dict(RECURRENCE_RULES)}
+
+
+def recurrence_count(conn, entry_id, mode="excluding_artifacts"):
+    """Recurrence count for one motif entry's members under `mode` (one of
+    `RECURRENCE_MODES`) — `family_recurrence`, the one definition.
+
+    Before fixup-W this counted non-artifact EDGES; it now counts members, with
+    an artifact pair's members taken out (PIPELINE_PRD.md: a shared-ground
+    error is excluded from counts).
+    """
+    if mode not in RECURRENCE_RULES:
+        raise ValueError(f"mode must be one of {RECURRENCE_MODES}, got {mode!r}")
+    ids = [int(r["id"]) for r in conn.execute("SELECT id FROM motif_member WHERE entry_id = ?", (int(entry_id),))]
+    return family_recurrence(conn, ids)[mode]
 
 
 
