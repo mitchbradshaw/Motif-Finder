@@ -1,6 +1,6 @@
 # Fixup AD — a cross-channel match must beat chance, and a human decides what is an artifact
 
-**Ready to run. Runs alone, or beside anything that does not touch the files below.** Written 2026-10-04 from
+**Ready to run. Runs in parallel with `AE`** (see *Running in parallel* below). Written 2026-10-04 from
 `QUESTIONS.md` **Round 11** and **Round 12**, which are both answered. It replaces how `W` bins a pair, not where
 the bins are stored. It also carries one unrelated small change, the seed search's exclusion zone (Round 11), because
 that change is cheapest now, while the real database holds no seed results.
@@ -92,6 +92,25 @@ The agent's measurement predicts a large fall: say whether it happened. Re-use
 | Where edges and co-occurrence rows are stored | `W` built it; add fields additively through `init_db()` |
 | The Library noise-floor view filter | the Library prompt; RQ6 waits on it (Round 12 Q5) |
 | The scale bank, the three distances | `V` |
+
+## Running in parallel (2026-10-04)
+
+**You run beside `AE`** (`AE-library-floor-and-indexes.md`), another agent in the same checkout. The README's
+**"Running two prompts at once"** rules apply in full: your own port and a private client build served with
+`run_server.py --dist`; `npx vite build --outDir <yours>` while working and `npm run build` only for the gate (the other
+agent's in-flight files may make it red — say so in the report); `pytest -n 4`, never `-n auto`, and announce in your
+report when you took the machine for smoke; shared files are **append-only and committed immediately with your own
+hunks only** (`git add -p`). If you need a file `AE` owns, stop and write to `requests/` rather than editing it.
+
+| | files |
+|---|---|
+| **yours** | `Working/cross_channel.py`, `Working/library/matching.py` (`classify_family_across_channels`, `family_recurrence`), `webui/client/src/library/CrossChannel.tsx`, `Edges.tsx`, `Adapters/detection_seed_matches.py`, `Working/discovery/seeded_search.py`, the Seed page, the suspected-artifact queue in `Working/review/` |
+| **`AE`'s — do not edit** | `webui/client/src/library/AtlasPage.tsx`, `GroupingPage.tsx`, the Library filter bar in `chrome.tsx`, `Working/library/features.py`, the rose-reference function, `Adapters/interrogation_event_shape.py` |
+| **shared** | `webui/client/src/library/FamilyPage.tsx` and `RecurrencePage.tsx` (you add the classify / *send suspected artifacts* / flagged-confirmed lines; `AE` adds the floor filter, in-place slideshow and hand edits — keep to your own components and mount points), `webui/server/library.py` (append; do not edit `AE`'s helpers), `webui/client/src/api.ts` / `api/library.ts`, `webui/smoke.py` (own `smoke_pages` file), Settings pages |
+
+**One seam to keep stable:** `AE` filters members by the noise floor **in the caller** and passes the surviving ids
+to `family_recurrence(conn, member_ids)`. Keep that signature working; if you must change it, write to `requests/`
+first.
 
 **Talking to the researcher:** any question you put to them opens with a plain-language explanation, then the
 options, then your recommendation (`CLAUDE.md`). **Before you report, update**

@@ -80,7 +80,7 @@ The question is: after you remove the first two, is there still recurrence left?
 | ~~Recurrence counted with artifacts excluded and propagation counted once~~ | `W`, done 2026-10-04 |
 | ~~Q40d answered~~ — answered 2026-10-04 (Rounds 11–12): any sibling counts, but only behind a chance test | the researcher, done |
 | **A match must beat chance** (per-pair random-time null), r ≥ 0.98 for a suspected artifact, both swings over the noise floor, members under 30 samples *too short to tell*; a human confirms artifacts in a Review queue | `AD` |
-| **Build the Library** (the Library prompt): the per-dataset noise-floor view filter, so RQ6 is read on families whose members are real events | Library prompt, **before RQ6 is answered** |
+| **Build the Library** (the Library prompt): the per-dataset noise-floor view filter, so RQ6 is read on families whose members are real events | `AE` (∥ `AD`), **before RQ6 is answered** |
 | A family built from a run with paired surrogates, so its count has a null beside it | the researcher (runbook step 1) |
 | ~~True surrogate count per channel~~ — a template run draws 20 per channel; the row prints the count drawn | `T`, done 2026-10-03 |
 
