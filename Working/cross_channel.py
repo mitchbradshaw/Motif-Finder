@@ -21,6 +21,7 @@ seconds, editable as three Settings keys (`rule_from_settings`).
 from dataclasses import dataclass
 
 import numpy as np
+from scipy import signal as _signal
 
 from Working.distances import resample_to_length, z_normalize
 
@@ -332,7 +333,9 @@ def cross_correlate(x, y):
     zx = z_normalize(x)
     zy = z_normalize(y)
 
-    correlations = np.correlate(zx, zy, mode="full") / n
+    # scipy picks the direct sum for short windows and the FFT for long ones (fixup-AD: the chance test
+    # correlates 100 random windows per pair, and an M2_aug member runs to 7,000 samples); same values
+    correlations = _signal.correlate(zx, zy, mode="full", method="auto") / n
     lags = np.arange(-(n - 1), n)
     return lags, correlations
 

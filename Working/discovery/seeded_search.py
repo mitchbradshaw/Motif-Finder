@@ -235,7 +235,7 @@ def _surrogate(x, method, seed, fs, block_s):
 
 def null_distances(x, exemplar, *, draws=DEFAULT_DRAWS, seed=0, method=None, k=10,
                    max_distance=None, fs=1.0, block_s=None, on_progress=None, should_cancel=None,
-                   scales=None, overlap="lowest"):
+                   scales=None, overlap="lowest", exclusion=None):
     """The distances the seed gets against ``draws`` surrogate signals.
 
     One draw is one `preprocessing.surrogate` realisation at seed ``seed + i``
@@ -256,7 +256,12 @@ def null_distances(x, exemplar, *, draws=DEFAULT_DRAWS, seed=0, method=None, k=1
     as the real search is, and ``by_scale`` carries the null **per length**:
     ``{scale: {distances, draws}}``. A search at 1.25x is a different search
     from one at 0.8x and gets its own chance level.
+
+    ``exclusion`` is the search's exclusion zone (a fraction of m; None = the
+    block's default m/2): the null is searched under the same one (fixup-AD).
     """
+    from Adapters.detection_seed_matches import DEFAULT_EXCLUSION
+    exclusion = DEFAULT_EXCLUSION if exclusion is None else exclusion
     resolved = resolve_null(method, draws, seed)
     if not resolved["supported"]:
         raise ValueError(resolved["reason"])
@@ -276,14 +281,15 @@ def null_distances(x, exemplar, *, draws=DEFAULT_DRAWS, seed=0, method=None, k=1
             break
         s = _surrogate(x, resolved["method"], resolved["seed"] + i, fs, block_s or 0.0)
         if bank:
-            rows = match_exemplar_bank(s, q, bank, k=k, max_distance=max_distance, overlap=overlap)
+            rows = match_exemplar_bank(s, q, bank, k=k, max_distance=max_distance, overlap=overlap,
+                                       exclusion=exclusion)
             ds = [r["distance"] for r in rows]
             for v in bank:
                 by_scale[v]["draws"] += 1
             for r in rows:
                 by_scale[r["scale"]]["distances"].append(r["distance"])
         else:
-            rows = match_exemplar(s, q, k=k, max_distance=max_distance)
+            rows = match_exemplar(s, q, k=k, max_distance=max_distance, exclusion=exclusion)
             ds = [float(r[0]) for r in rows]
         per_draw.append(ds)
         pooled.extend(ds)
@@ -298,7 +304,7 @@ def null_distances(x, exemplar, *, draws=DEFAULT_DRAWS, seed=0, method=None, k=1
 
 # ── the matches and the profile ─────────────────────────────────────────────
 
-def candidates(x, exemplar, *, k=10, max_distance=None, scales=None, overlap="lowest"):
+def candidates(x, exemplar, *, k=10, max_distance=None, scales=None, overlap="lowest", exclusion=None):
     """The block's own matches: ``[{index, distance}]``, closest first.
 
     ``max_distance`` is passed straight through; the page fetches once with a
@@ -307,17 +313,22 @@ def candidates(x, exemplar, *, k=10, max_distance=None, scales=None, overlap="lo
 
     With a scale bank each match also carries its ``scale`` and ``length`` —
     the block's `match_exemplar_bank`, distances on the native footing.
+
+    ``exclusion``: the block's exclusion zone, a fraction of m (None = m/2).
     """
+    from Adapters.detection_seed_matches import DEFAULT_EXCLUSION
+    exclusion = DEFAULT_EXCLUSION if exclusion is None else exclusion
     bank = parse_scales(scales) if scales else None
     if bank and bank != (1.0,):
         rows = match_exemplar_bank(np.asarray(x, dtype=float).ravel(),
                                    np.asarray(exemplar, dtype=float).ravel(), bank,
-                                   k=int(k), max_distance=max_distance, overlap=overlap)
+                                   k=int(k), max_distance=max_distance, overlap=overlap,
+                                   exclusion=exclusion)
         return [{"index": r["index"], "distance": r["distance"], "scale": r["scale"], "length": r["length"]}
                 for r in rows]
     rows = match_exemplar(np.asarray(x, dtype=float).ravel(),
                           np.asarray(exemplar, dtype=float).ravel(),
-                          k=int(k), max_distance=max_distance)
+                          k=int(k), max_distance=max_distance, exclusion=exclusion)
     out = [{"index": int(r[1]), "distance": float(r[0])} for r in rows]
     out.sort(key=lambda c: (c["distance"], c["index"]))
     return out
