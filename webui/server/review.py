@@ -424,7 +424,42 @@ def _detail(conn, queue: dict, item: dict, index: dict, *, rank: int | None = No
         "artifact": _artifact(item),
         "evidence": _evidence(item, qp),
         "thumb": entry["thumb"],
+        **({"suspectedArtifact": _suspected_artifact(conn, item, rec, index, px, pad_s)}
+           if queue.get("unit") == "member" else {}),
     }
+
+
+def _suspected_artifact(conn, item: dict, rec: dict, index: dict, px: int, pad_s: int) -> dict:
+    """fixup-AD: a *Suspected artifact* card — every channel of the recording
+    over the member's span plus padding, in true mV on ONE shared axis (the
+    client draws them on one y), the member's channel marked, each flagging
+    sibling's r, lag, amplitude ratio and chance percentile printed beside it
+    (`webui/screenshots/fixup/Q40d/examples_gallery_mV.png`)."""
+    start, end = int(item["start_idx"]), int(item["end_idx"])
+    fs = float(rec["fs"] or 1.0)
+    pad = max(end - start, 10)          # one span each side, as the Q40d gallery draws it
+    c0, c1 = max(0, start - pad), min(int(rec["n_samples"]), end + pad)
+    flags = {int(f["recording_id"]): f for f in item.get("flags") or []}
+    channels = []
+    for other in sorted((o for o in index.values() if o["source_file"] == rec["source_file"]),
+                        key=lambda o: o["channel"]):
+        f = flags.get(other["recording_id"])
+        channels.append({
+            "recording_id": other["recording_id"], "channel": other["name"], "channel_index": other["channel"],
+            "member": other["recording_id"] == rec["recording_id"], "flagging": f is not None,
+            "r": f.get("r") if f else None, "lag_s": f.get("lag_s") if f else None,
+            "amplitude_ratio": f.get("amplitude_ratio") if f else None,
+            "chance": f.get("chance") if f else None, "other_member": (f"m-{f['other_member']}"
+                                                                       if f and f.get("other_member") else None),
+            "trace": _trace_env(_row_for(conn, other), c0, c1, px),
+        })
+    units = {c["trace"].get("unit") for c in channels if c["trace"].get("unit")}
+    return {"member": f"m-{item['member_id']}", "family": item.get("family"),
+            "t0_s": c0 / fs, "t1_s": c1 / fs, "span_s": [start / fs, end / fs],
+            "unit": units.pop() if len(units) == 1 else None, "shared_axis": True,
+            "channels": channels, "note": (item.get("artifact") or {}).get("reason"),
+            "verdictNote": ("answer artifact, or what the span really is (interesting / not_interesting), or unsure; "
+                            "the row carries a note that it was flagged as a suspected artifact")}
 
 
 #: Artifact likelihood is a real analysis (cross-channel coherence, clipping,
@@ -502,6 +537,7 @@ def _refuse_held_out(conn, queue, target_ids):
                      "JOIN runs r ON r.id = d.run_id WHERE d.id = ?",
         "human span": "SELECT recording_id FROM annotations WHERE id = ?",
         "sequence": "SELECT recording_id FROM sequences WHERE id = ?",
+        "member": "SELECT recording_id FROM motif_member WHERE id = ?",
     }.get(unit)
     if sql is None:
         return

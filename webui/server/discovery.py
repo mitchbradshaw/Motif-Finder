@@ -1443,6 +1443,18 @@ class SeedBody(BaseModel):
     #: None or [1] is the native-length search
     scales: list[float] | None = None
     overlap: str | None = None
+    #: fixup-AD: the exclusion zone, a fraction of m (None = the block's m/2)
+    exclusion: float | None = None
+
+
+def _exclusion(value):
+    """A request's exclusion zone as the block takes it (a fraction of m), the
+    block's default m/2 when none is given; 422 for a zone that is not one."""
+    from Adapters.detection_seed_matches import DEFAULT_EXCLUSION, check_exclusion
+    try:
+        return check_exclusion(DEFAULT_EXCLUSION if value is None else value)
+    except ValueError as e:
+        raise HTTPException(422, {"message": str(e)})
 
 
 def _bank(scales):
@@ -1458,7 +1470,7 @@ def _bank(scales):
 
 
 def _seed_key(seed_id, channels, t0, t1, k, max_distance, null, source_file="", rule=None, scales=None,
-              overlap=None) -> str:
+              overlap=None, exclusion=None) -> str:
     """Everything the result depends on.
 
     The recording matters: four registered files share the channel names
@@ -1474,10 +1486,13 @@ def _seed_key(seed_id, channels, t0, t1, k, max_distance, null, source_file="", 
                      # the marker is computed under these (fixup-T, Q37 / Q-Null-1)
                      f"{cut.get('alpha')}:{cut.get('correction')}:{null.get('blockS')}"]
                     # a bank is a different search (fixup-v); a native search keeps its old key
-                    + ([f"bank {','.join(f'{v:g}' for v in scales)}:{overlap or 'lowest'}"] if scales else []))
+                    + ([f"bank {','.join(f'{v:g}' for v in scales)}:{overlap or 'lowest'}"] if scales else [])
+                    # fixup-AD: the zone is a parameter now; a result cached under stumpy's old m/4 is not this one
+                    + [f"excl {_exclusion(exclusion):g}"])
 
 
-def _seed_search(conn, seed, chans, span, *, k, max_distance, null, job=None, scales=None, overlap=None):
+def _seed_search(conn, seed, chans, span, *, k, max_distance, null, job=None, scales=None, overlap=None,
+                 exclusion=None):
     """Candidates and the null, per channel.
 
     The candidates are the block's own `match_exemplar`; the null is N
@@ -1498,7 +1513,8 @@ def _seed_search(conn, seed, chans, span, *, k, max_distance, null, job=None, sc
         fs = float(ch["fs"])
         found = seeded_search.candidates(x, exemplar, k=k,
                                          max_distance=(max_distance if max_distance > 0 else None),
-                                         scales=scales, overlap=overlap or "lowest")
+                                         scales=scales, overlap=overlap or "lowest",
+                                         exclusion=_exclusion(exclusion))
         first = len(candidates)
         # the match's own samples, in the unit the seed card draws, so a match
         # card overlays the MATCH on the seed (§7.6) — every candidate used to
@@ -1543,7 +1559,7 @@ def _seed_search(conn, seed, chans, span, *, k, max_distance, null, job=None, sc
                 on_progress=((lambda d, t, ch=ch, i=i: job.progress(i, n, f"{ch['name']} · null {d}/{t}"))
                              if job is not None else None),
                 should_cancel=(job.cancel_event.is_set if job is not None else None),
-                scales=scales, overlap=overlap or "lowest")
+                scales=scales, overlap=overlap or "lowest", exclusion=_exclusion(exclusion))
             pooled_null.extend(nulls["distances"])
             for v, part in (nulls.get("by_scale") or {}).items():
                 slot = by_scale.setdefault(v, {"distances": [], "draws": 0})
@@ -1651,7 +1667,7 @@ def start_seed_results(request: Request, body: SeedBody):
         bank = _bank(body.scales)
         key = _seed_key(body.seedId, names, body.t0, body.t1, body.k, body.maxDistance, null,
                         source_file=s["source_file"], rule=rule_from_settings(c), scales=bank,
-                        overlap=body.overlap)
+                        overlap=body.overlap, exclusion=body.exclusion)
         cached = _cached_result(c, s["id"], key)
         if cached is not None:
             return {"ready": True, "key": key, **cached}
@@ -1668,7 +1684,7 @@ def start_seed_results(request: Request, body: SeedBody):
                 chans2 = _ids_for(conn2, _stem(source_file), names)
                 result = _seed_search(conn2, seed2, chans2, span, k=body.k,
                                       max_distance=body.maxDistance, null=null, job=job,
-                                      scales=bank, overlap=body.overlap)
+                                      scales=bank, overlap=body.overlap, exclusion=body.exclusion)
                 _store_result(conn2, session_id, key, result)
                 return {"key": key, "n_candidates": len(result["candidates"]),
                         "null_draws": result["null"]["draws"]}
@@ -1678,7 +1694,7 @@ def start_seed_results(request: Request, body: SeedBody):
         job = request.app.state.manager.start_job("sweep", run, meta={
             "what": "seeded search", "seed": body.seedId, "channels": names,
             "span": list(span), "k": body.k, "null": null, "key": key,
-            "scales": ([float(v) for v in bank] if bank else None)})
+            "scales": ([float(v) for v in bank] if bank else None), "exclusion": _exclusion(body.exclusion)})
         return {"ready": False, "job_id": job.id, "key": key}
     finally:
         c.close()
@@ -1686,7 +1702,8 @@ def start_seed_results(request: Request, body: SeedBody):
 
 @router.get("/api/discovery/seed/results")
 def get_seed_results(request: Request, seedId: str, channels: str = "", t0: float = 0.0, t1: float = 0.0,
-                     k: int = 200, maxDistance: float = 0.0, scales: str = "", overlap: str | None = None):
+                     k: int = 200, maxDistance: float = 0.0, scales: str = "", overlap: str | None = None,
+                     exclusion: float | None = None):
     c = _conn(request)
     try:
         s = _session(c)
@@ -1695,7 +1712,7 @@ def get_seed_results(request: Request, seedId: str, channels: str = "", t0: floa
         bank = _bank(scales or None)
         key = _seed_key(seedId, names, t0, t1, k, maxDistance, null,
                         source_file=s["source_file"], rule=rule_from_settings(c), scales=bank,
-                        overlap=overlap)
+                        overlap=overlap, exclusion=exclusion)
         cached = _cached_result(c, s["id"], key)
         if cached is not None:
             return {"ready": True, "key": key, **cached}
@@ -1774,6 +1791,8 @@ class PlanBody(BaseModel):
     #: fixup-v: a seed search's scale bank and its cross-length overlap policy
     scales: list[float] | None = None
     overlap: str | None = None
+    #: fixup-AD: a seed search's exclusion zone, a fraction of m (None = m/2)
+    exclusion: float | None = None
 
 
 # ── the band scope (fixup-Z, Q43) ───────────────────────────────────────────
@@ -1878,7 +1897,8 @@ def _steps_for(conn, body: PlanBody):
         seed = _seed_by_id(conn, body.seedId)
         return (seeded_search.seed_steps(seed, k=body.k,
                                          max_distance=(body.maxDistance if body.maxDistance > 0 else None),
-                                         scales=_bank(body.scales), overlap=body.overlap),
+                                         scales=_bank(body.scales), overlap=body.overlap,
+                                         exclusion=_exclusion(body.exclusion)),
                 None, seed)
     raise HTTPException(422, {"message": "name a template or a seedId"})
 
@@ -2255,6 +2275,8 @@ def _seed_identity(body, seed_id, chans, span):
     ident = {"seedId": seed_id, "channels": sorted(ch["name"] for ch in chans),
              "span": [int(span[0]), int(span[1])], "k": int(body.k),
              "cut": (None if body.cut is None else float(body.cut))}
+    # fixup-AD: the zone is part of what the search is
+    ident["exclusion"] = _exclusion(getattr(body, "exclusion", None))
     bank = _bank(getattr(body, "scales", None))
     if bank:
         # fixup-v: a bank is a different search; a native one keeps its old identity
@@ -2275,6 +2297,8 @@ def _seed_differs(first, this, fs):
         bits.append(f"{this['span'][0] / fs / 3600:.1f}–{this['span'][1] / fs / 3600:.1f} h")
     if this["k"] != first["k"]:
         bits.append(f"k {this['k']}")
+    if this.get("exclusion") != first.get("exclusion"):
+        bits.append(f"exclusion {this['exclusion']:g}·m")
     if this.get("scales") != first.get("scales"):
         bits.append(seeded_search.scale_bank_label(this["scales"]) if this.get("scales") else "native length")
     return bits
@@ -2292,7 +2316,7 @@ def run_seed_search(request: Request, body: SeedBody):
     try:
         pb = PlanBody(seedId=body.seedId, channels=body.channels, t0=body.t0, t1=body.t1,
                       k=body.k, maxDistance=(body.cut if body.cut is not None else body.maxDistance),
-                      scales=body.scales, overlap=body.overlap)
+                      scales=body.scales, overlap=body.overlap, exclusion=body.exclusion)
         plan, steps, _t, seed, span, chans, s = _plan(c, pb)
         if not plan["runnable"]:
             raise HTTPException(422, {"message": plan["reason"], "refused": plan["refused"]})
@@ -2317,7 +2341,8 @@ def run_seed_search(request: Request, body: SeedBody):
         params = {"stage_count": 1, "glyph": "seed", "seedId": seed["id"], "cut": body.cut,
                   "entryId": (int(seed.get("entry_id") or 0) or None), "identity": ident,
                   "null": dict(plan["null"]),
-                  "k": body.k, "detail": f"{seed['samples']} samples · MASS",
+                  "k": body.k, "detail": f"{seed['samples']} samples · MASS · exclusion {ident['exclusion']:g}·m",
+                  "exclusion": ident["exclusion"],
                   "route": plan["route"], "exclusion_note": seeded_search.recommended_params(seed)["exclusion_note"]}
         if ident.get("scales"):
             # fixup-v: the lengths this run searched, on the row and in the detail line

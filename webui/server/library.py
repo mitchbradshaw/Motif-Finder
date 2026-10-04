@@ -723,13 +723,13 @@ def _edges_label(conn, member_ids) -> tuple:
 def _recurrence_cells(conn, index, members, member_ids, cells) -> dict:
     """fixup-W: Library › Recurrence with the cross-channel bins taken out.
 
-    Every cell gains `artifact` (a flag) and `artifactMembers` (members there in
-    an artifact pair — drawn red
-    and still counted in `count`, spec §8.4: *flagged, not excluded*),
-    `countExArtifacts` and `countPropOnce` — the cell's share of
-    `matching.family_recurrence`'s counts, which is the core's one definition;
-    the page reads these, never re-derives them. Returns the family's three
-    totals with their rules."""
+    Every cell gains `artifact` (a flag) and `artifactMembers` (members there the
+    machine flagged as suspected artifacts — drawn red and still counted in
+    `count`, spec §8.4: *flagged, not excluded*), `confirmedMembers` (those a
+    human confirmed, fixup-AD), `countExArtifacts` and `countPropOnce` — the
+    cell's share of `matching.family_recurrence`'s counts, which is the core's
+    one definition; the page reads these, never re-derives them. Returns the
+    family's three totals with their rules and the flagged / confirmed line."""
     rec = matching_mod.family_recurrence(conn, member_ids)
     key_of = {}
     for m in members:
@@ -738,6 +738,7 @@ def _recurrence_cells(conn, index, members, member_ids, cells) -> dict:
             key_of[int(m["member_id"])] = f"{meta['key']}:{meta['name']}"
     for c in cells.values():
         c.setdefault("artifactMembers", 0)
+        c.setdefault("confirmedMembers", 0)
         c.setdefault("artifact", False)
         c.setdefault("countExArtifacts", 0)
         c.setdefault("countPropOnce", 0)
@@ -746,12 +747,17 @@ def _recurrence_cells(conn, index, members, member_ids, cells) -> dict:
         if ck is None or ck not in cells:
             continue
         cell = cells[ck]
-        cell["artifactMembers"] += 1 if st["artifact"] else 0
+        cell["artifactMembers"] += 1 if st["flagged"] else 0
+        cell["confirmedMembers"] += 1 if st["artifact"] else 0
         cell["artifact"] = cell["artifactMembers"] > 0
         cell["countExArtifacts"] += 1 if st["counted"]["excluding_artifacts"] else 0
         cell["countPropOnce"] += 1 if st["counted"]["propagation_once"] else 0
     return {k: rec[k] for k in ("classified", "all", "excluding_artifacts", "propagation_once",
-                                "pairs", "withoutMember", "rules")}
+                                "pairs", "withoutMember", "rules", *_FLAG_LINE)}
+
+
+#: fixup-AD: the line printed beside *excluding artifacts* — the machine flags, a human decides.
+_FLAG_LINE = ("flagged", "confirmed", "rejected", "unsure", "unjudged", "flagRule", "tooShort", "tooShortRule")
 
 
 def _families_for(conn, index, grouping_row, view=None) -> list:
@@ -1415,12 +1421,29 @@ def _cross_channel_payload(conn, member_ids) -> dict:
         "classified": rec["classified"],
         "counts": rec["pairs"], "withoutMember": rec["withoutMember"],
         "rule": rule.as_dict(), "rules": rule.describe(),
+        # fixup-AD: members under the minimum length, never binned, and the rule that says so
+        "tooShort": rec["tooShort"], "tooShortRule": rec["tooShortRule"], "chanceRule": rule.chance_words(),
         "computedUnder": computed,
         "stale": any(c != rule.as_dict() for c in computed),
-        "recurrence": {k: rec[k] for k in ("all", "excluding_artifacts", "propagation_once", "rules")},
+        "recurrence": {k: rec[k] for k in ("all", "excluding_artifacts", "propagation_once", "rules", *_FLAG_LINE)},
+        "suspectedQueue": _open_artifact_queue(conn, ids),
         "null": _family_null(conn, ids),
         "method": matching_mod.SIMULTANEOUS_METHOD,
     }
+
+
+def _open_artifact_queue(conn, member_ids):
+    """The open *Suspected artifact* queue over exactly these members, if one
+    was sent — so the card can say *Open in Review* rather than send twice."""
+    from Working.review import artifact_queue as aq
+    from Working.review import queues as rq
+    want = sorted(int(m) for m in member_ids)
+    for row in conn.execute("SELECT id, source_ref, filters_json FROM review_queues "
+                            "WHERE closed_at IS NULL AND source_kind = ? ORDER BY id DESC", (aq.SOURCE_KIND,)):
+        f = json.loads(row["filters_json"] or "{}")
+        if sorted(int(m) for m in f.get("member_ids") or []) == want:
+            return {"id": int(row["id"]), **rq.queue_counts(conn, int(row["id"]))}
+    return None
 
 
 def _family_null(conn, member_ids) -> dict:
@@ -1528,6 +1551,9 @@ def _classification_payload(e) -> dict:
         "lagS": (lag / fs) if (lag is not None and fs) else None,
         "r": e["waveform_correlation"],
         "simultaneous": info.get("simultaneous"),
+        # fixup-AD: the pair's chance test (percentile within the null, K), both swings against the floor
+        "chance": info.get("chance"), "floor": info.get("floor"), "amplitudeRatio": info.get("amplitude_ratio"),
+        "tooShort": bool(info.get("too_short")),
         "gapS": info.get("gap_s"),
         "window": ({"t0S": window[0] / fs, "t1S": window[1] / fs,
                     "recordingId": rec_ids[0] if rec_ids else None,
@@ -2706,6 +2732,37 @@ def classify_family_cross_channel(request: Request, family_id: str, body: CrossC
             "family": family_id, "grouping": grouping}
 
 
+@router.post("/family/{family_id}/suspected-artifacts")
+def send_suspected_artifacts(request: Request, family_id: str, body: CrossChannelBody):
+    """Library › Family *Send suspected artifacts to Review* (fixup-AD): the
+    family's *Suspected artifact · F-xxx* queue, made once through
+    `create_queue` (`Working.review.artifact_queue`); a second press returns
+    the same queue. Its items are the members the classifier flags, resolved
+    live; a verdict lands in `annotations` over the member's span."""
+    from Working.review import artifact_queue as aq
+    from Working.review import queues as rq
+    conn = _conn(request)
+    try:
+        g = _resolve_grouping(conn, body.grouping, "single_motifs")
+        if g is not None and str(g["unit"]) != "single_motifs":
+            g = _default_grouping(conn, "single_motifs")
+        if g is None:
+            raise HTTPException(404, f"no motif grouping to find {family_id} in")
+        ids = sorted({int(r["member_id"]) for r in _member_rows(conn, g["id"])
+                      if r["family_label"] == family_id and r["family_id"] is not None and r["member_id"] is not None})
+        if not ids:
+            raise HTTPException(404, f"{family_id} has no members in grouping {gid_str(g['id'])}")
+        rec = matching_mod.family_recurrence(conn, ids)
+        if not rec["flagged"]:
+            raise HTTPException(409, f"{family_id} has no member flagged as a suspected artifact"
+                                     + ("" if rec["classified"] else " — it has not been classified across channels"))
+        qid = aq.create_artifact_queue(conn, family=family_id, member_ids=ids, grouping=gid_str(g["id"]))
+        counts = rq.queue_counts(conn, qid)
+        return {"queueId": int(qid), "name": aq.queue_name(family_id), "flagged": rec["flagged"], **counts}
+    finally:
+        conn.close()
+
+
 class AddMatchesBody(BaseModel):
     #: Q39: off. A match with no verdict is a proposal, not a member.
     includeUnjudged: bool = False
@@ -2955,7 +3012,12 @@ def _view_fingerprint(conn, grouping_id) -> tuple:
             # the traces and mV numbers a family carries depend on each recording's declared unit
             one("SELECT COUNT(*), COUNT(units), TOTAL(LENGTH(COALESCE(units, '') || COALESCE(units_note, ''))), "
                 "COALESCE(SUM(active), 0) FROM recordings"),
-            one("SELECT COUNT(*), TOTAL(LENGTH(COALESCE(display_name, ''))) FROM datasets"))
+            one("SELECT COUNT(*), TOTAL(LENGTH(COALESCE(display_name, ''))) FROM datasets"),
+            # fixup-AD: a family card and a Recurrence cell carry the cross-channel bins, so a Classify
+            # (which UPDATEs edges in place and upserts co-occurrence rows) must move the fingerprint too
+            one("SELECT COUNT(*), COUNT(classification_bin), MAX(json_extract(classification_json, '$.at')) "
+                "FROM motif_edge"),
+            one("SELECT COUNT(*), MAX(created_at) FROM motif_member_cooccurrence"))
 
 
 def _view_state(conn, index, grouping_row, view=None) -> dict:

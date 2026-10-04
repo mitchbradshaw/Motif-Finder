@@ -441,7 +441,9 @@ def test_the_seed_window_is_locked_to_the_exemplars_native_length(client):
     assert rec["windowSamples"] == s["samples"]
     assert rec["windowLocked"] is True
     assert rec["algorithm"] == "mass"
-    assert "m/4" in rec["exclusion_note"], "the page must say the guard the block really used"
+    # fixup-AD: the block takes the zone now (m/2 by default) and the card's figure is the one that runs
+    assert "m/2" in rec["exclusion_note"] and "m/4" not in rec["exclusion_note"]
+    assert rec["exclusionSettable"] is True and rec["exclusion"] == 0.5
 
 
 def test_the_seeded_search_is_a_job_whose_result_survives_the_read(client):
