@@ -1047,3 +1047,42 @@ export interface SignalDecomposition {
 export interface SignalPayload { layers?: SignalLayer[]; decomposition?: SignalDecomposition; layers_note?: string }
 export interface DiscBand { wavelet?: string; level?: number; levels?: number }
 export interface DiscBandsPayload { wavelet?: { wavelet: string; wavelets: string[]; nSamples: number; levels: DiscBand[] } | null }
+
+/* fixup-w: cross-channel classification onto edges (appended, declaration merging). Lag is measured on the same
+ * absolute window on both channels (Q40a) and binned by the researcher's rule in seconds (Q40b, Q-W5); the bins land
+ * on the family's edges; a co-occurrence with no member is counted, never an edge (Q40c); recurrence is counted with
+ * the bins taken out, by ONE definition in the core (`matching.family_recurrence`). */
+export type XBinCore = 'artifact' | 'propagation' | 'independent_recurrence'
+export type RecurrenceMode = 'all' | 'excluding_artifacts' | 'propagation_once'
+export interface XRule { artifact_max_lag_s: number; min_abs_r: number; propagation_max_lag_s: number }
+export interface LibRecurrenceCounts {
+  classified: boolean; all: number; excluding_artifacts: number; propagation_once: number
+  pairs: Record<XBinCore, number>; withoutMember: Partial<Record<XBinCore, number>>; rules: Record<RecurrenceMode, string>
+}
+export interface LibCell { artifactMembers?: number; countExArtifacts?: number; countPropOnce?: number }
+export interface LibFamily { recurrence?: LibRecurrenceCounts }
+export interface LibFamilyNull {
+  runs: number; draws: number; drawsTotal: number; drawsPerRun?: Record<string, number>; nullDetections: number
+  perDraw: number | null; realDetections: number | null; members: number; reason: string | null
+}
+export interface LibCrossChannel {
+  classified: boolean; counts: Record<XBinCore, number>; withoutMember: Partial<Record<XBinCore, number>>
+  rule: XRule; rules: Record<XBinCore, string>; computedUnder: XRule[]; stale: boolean
+  recurrence: { all: number; excluding_artifacts: number; propagation_once: number; rules: Record<RecurrenceMode, string> }
+  null: LibFamilyNull; method: string
+}
+export interface LibFamilyDetail { crossChannel?: LibCrossChannel }
+export interface LibEdgeWindow { t0S: number; t1S: number; recordingId: number | null; otherRecordingId: number | null }
+export interface LibEdge {
+  a?: string; lag?: number | null; lagS?: number | null; r?: number | null; simultaneous?: boolean | null; gapS?: number | null
+  window?: LibEdgeWindow | null; classificationRule?: XRule | null
+}
+export interface LibClassifyAck { job_id: number; kind: 'cross_channel'; status: string; members: number; family: string; grouping: string }
+export interface LibClassifyResult {
+  family: string; grouping: string; members: number; channels: number
+  counts: { artifact: number; propagation: number; independent_recurrence: number; withoutMember: Partial<Record<XBinCore, number>> }
+  rule: XRule; rules: Record<XBinCore, string>; skipped: number; skippedReasons: string[]
+  pairs: { a: string; b: string; lag: number | null; lagS: number | null; r: number | null; bin: XBinCore; simultaneous: boolean }[]
+}
+export const classifyFamilyCrossChannel = (familyId: string, grouping?: string) =>
+  post<LibClassifyAck>(`/api/library/family/${encodeURIComponent(familyId)}/classify-cross-channel`, { grouping })
