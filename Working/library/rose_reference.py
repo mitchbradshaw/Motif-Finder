@@ -93,11 +93,15 @@ def compute(conn, *, min_accepted=None) -> dict:
     entries = {int(r[0]): r[1] for r in conn.execute("SELECT id, content_hash FROM motif_entry")}
     hashes = sorted({h for h in entries.values() if h})
     feats = F.read_features(conn, hashes) if hashes else {}
+    # the slope was measured on the store's snippet (samples x 1000, "mV" only for a volts file): converted by
+    # the recording's declared unit, and left out where none is declared
+    measures = VF.member_measures(conn, members) if members else {}
 
     def slope(m):
         v = feats.get(entries.get(int(m["entry_id"] or 0)), {}).get(FIELD)
+        k = measures[int(m["member_id"])]["store_to_mv"]
         try:
-            v = abs(float(v))
+            v = abs(float(v)) * k
         except (TypeError, ValueError):
             return None
         return v if math.isfinite(v) and v > 0 else None
@@ -107,7 +111,6 @@ def compute(conn, *, min_accepted=None) -> dict:
     if len(acc) >= min_accepted:
         pop, vals = POP_ACCEPTED, acc
     else:
-        measures = VF.member_measures(conn, members) if members else {}
         pop = POP_ABOVE_FLOOR
         vals = [s for m in members if measures[int(m["member_id"])]["status"] == VF.ABOVE for s in [slope(m)] if s is not None]
     value = float(np.median(vals)) if vals else None

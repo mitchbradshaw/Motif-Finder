@@ -86,6 +86,7 @@ def conn():
                   "VALUES (?, ?, ?, ?, ?, ?)", (mid, mid, recs[rec], 10 * mid, 10 * mid + 5, digest))
         rows.append({"content_hash": digest, "fs": 1.0, "measures": shape, "detector": det})
     F.write_features(c, rows)
+    c.execute("UPDATE recordings SET units = 'V'")       # the store's "mV" is samples x 1000: mV for a volts file
     put_settings(c, "datasets", {"meta.B.noise_floor": "0.5"})
     c.commit()
     yield c
@@ -117,6 +118,16 @@ def test_the_detector_depth_is_compared_first_then_event_shape_and_neither_is_un
     assert (m[4]["status"], m[4]["depth_source"]) == ("unmeasured", None)
     assert m[5]["status"] == "sub_floor" and m[5]["floor_mv"] == pytest.approx(0.5)  # B's own floor
     assert m[6]["status"] == "above"
+
+
+def test_the_depth_is_read_in_the_recordings_declared_unit(conn):
+    from Working.library import view_filter as VF
+    conn.execute("UPDATE recordings SET units = 'mV' WHERE source_file = 'B.mat'")
+    m = VF.member_measures(conn, _members(conn))
+    assert m[6]["depth_mv"] == pytest.approx(0.002), "a millivolt file's samples x 1000 is not mV"
+    conn.execute("UPDATE recordings SET units = NULL WHERE source_file = 'B.mat'")
+    m = VF.member_measures(conn, _members(conn))
+    assert m[6]["status"] == "unmeasured" and "unit undeclared" in m[6]["why"]
 
 
 def test_the_default_view_hides_sub_floor_members_and_says_how_many_by_store_and_dataset(conn):

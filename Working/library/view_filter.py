@@ -40,6 +40,7 @@ import os
 from dataclasses import dataclass
 
 from Working.library import features as F
+from Working.units import UNITS_TO_MV
 
 #: Q-X2.5: the instrument floor, used where a dataset's own floor is empty.
 DEFAULT_FLOOR_MV = 0.1
@@ -145,7 +146,7 @@ def member_measures(conn, members) -> dict:
     measured (``motif_entry.content_hash``, the store snippet's)."""
     members = list(members)
     floors = dataset_floors(conn)
-    recs = {int(r[0]): (str(r[1])) for r in conn.execute("SELECT id, source_file FROM recordings")}
+    recs = {int(r[0]): (str(r[1]), r[2]) for r in conn.execute("SELECT id, source_file, units FROM recordings")}
     entries = _entries(conn, [m.get("entry_id") for m in members])
     hashes = sorted({h for h, _ in entries.values() if h})
     feats = F.read_features(conn, hashes) if hashes else {}
@@ -156,20 +157,33 @@ def member_measures(conn, members) -> dict:
         digest, store = entries.get(int(m["entry_id"])) if m.get("entry_id") is not None and \
             int(m["entry_id"]) in entries else (None, None)
         f = feats.get(digest, {}) if digest else {}
-        dataset = recs.get(int(m.get("recording_id") or 0))
+        dataset, units = recs.get(int(m.get("recording_id") or 0), (None, None))
         fl = floors.get(dataset, {"floor_mv": DEFAULT_FLOOR_MV, "set": False, "from": "default"})
         depth, source = _num(f.get(det + DEPTH_FEATURE)), DEPTH_DETECTOR
         if depth is None:
             depth, source = _num(f.get(SHAPE_DEPTH_FEATURE)), DEPTH_SHAPE
+        # Both depths were measured on the store's snippet, which the store wrote as samples x 1000 and called
+        # mV — true only for a recording in volts (Q-X2.8). Converted by the recording's declared unit; with no
+        # unit declared there is no mV depth to compare, and the member is unmeasured, saying why.
+        why = None
+        factor = UNITS_TO_MV.get(units)
+        if depth is not None:
+            if factor is None:
+                depth, why = None, "unit undeclared: the store's depth is samples x 1000, mV only for a volts file"
+            else:
+                depth = depth * factor / 1000.0
         if depth is None:
             source, status = None, UNMEASURED
+            why = why or "no detector depth and no event-shape depth stored for this member"
         else:
             status = SUB_FLOOR if abs(depth) < fl["floor_mv"] else ABOVE
         pure = _num(f.get(det + "is_pure"))
         band = _num(f.get(det + "scale_band"))
         out[mid] = {
             "depth_mv": depth, "depth_source": source, "floor_mv": fl["floor_mv"], "floor_set": fl["set"],
-            "status": status, "dataset": dataset, "store": store or "not imported from a store",
+            "status": status, "why": why, "dataset": dataset,
+            # what turns a number the store measured on its snippet into mV (None: unit undeclared)
+            "store_to_mv": None if factor is None else factor / 1000.0, "store": store or "not imported from a store",
             "fall_duration_s": _num(f.get(det + "fall_duration_s")),
             "is_pure": None if pure is None else bool(pure >= 0.5),
             "falls_in_window": (None if _num(f.get(det + "falls_in_window")) is None

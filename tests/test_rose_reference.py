@@ -63,6 +63,7 @@ def conn():
             q.insert_annotation(c, rec, 1000 * mid, 1000 * mid + 600, "interesting", q.SOURCE_IMPORTED_10MIN,
                                 created_at=now)
     F.write_features(c, rows)
+    c.execute("UPDATE recordings SET units = 'V'")
     c.commit()
     yield c
     c.close()
