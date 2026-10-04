@@ -144,19 +144,28 @@ const windowLabel = (first: Annotation | Detection | null, startS: number, clamp
   !first ? 'first ten minutes'
     : `${clamped ? 'first 10 min of the ' : ''}${'verdict' in first ? first.verdict : `detection ${first.id}`} span at ${(startS / 3600).toFixed(2)} h`
 
+/** fixup-W: what the bridge adds to a cross-channel read — the rule in force, in words per bin, and whether the
+ *  window was named by the caller (an edge's window, from Library › Family) rather than chosen here. */
+export type CrossRead = CrossDemo & { rules?: Record<string, string>; explicitWindow?: boolean }
+
 /** The same window on every channel of the reference's recording, with lag and r — live.
- *  The window is the channel's most notable human span (± `padS`), or its first ten minutes when it has none. */
-export async function getCrossChannel(referenceId: number, padS = 20): Promise<Sourced<CrossDemo | null>> {
+ *  The window is the channel's most notable human span (± `padS`), or its first ten minutes when it has none —
+ *  or, when `explicit` is given (fixup-W: an edge's own window, opened from Library › Family), exactly that window,
+ *  unpadded, so the lag, r and bin recomputed here are the ones the edge stores. */
+export async function getCrossChannel(referenceId: number, padS = 20, explicit?: { t0: number; t1: number } | null): Promise<Sourced<CrossRead | null>> {
   if ((await locate(referenceId)).state !== 'ok') return { data: null, source: 'live' }
   const ch = await getChannel(referenceId)
   const spans = await getSpans(referenceId, 0, ch.duration_s)
-  const first = anchorSpan(spans)
+  const first = explicit ? null : anchorSpan(spans)
   const clamped = !!first && first.end_s - first.start_s > CROSS_MAX_SPAN_S
-  const motif = first
-    ? { s: first.start_s, e: clamped ? first.start_s + CROSS_MAX_SPAN_S : first.end_s }
-    : { s: 0, e: Math.min(CROSS_MAX_SPAN_S, ch.duration_s) }
-  const t0 = Math.max(0, motif.s - padS), t1 = Math.min(ch.duration_s, motif.e + padS)
-  const x = await getCross(referenceId, t0, t1, 600)
+  const motif = explicit
+    ? { s: Math.max(0, explicit.t0), e: Math.min(ch.duration_s, explicit.t1) }
+    : first
+      ? { s: first.start_s, e: clamped ? first.start_s + CROSS_MAX_SPAN_S : first.end_s }
+      : { s: 0, e: Math.min(CROSS_MAX_SPAN_S, ch.duration_s) }
+  const pad = explicit ? 0 : padS
+  const t0 = Math.max(0, motif.s - pad), t1 = Math.min(ch.duration_s, motif.e + pad)
+  const x = await getCross(referenceId, t0, t1, 600) as Awaited<ReturnType<typeof getCross>> & { rules?: Record<string, string> }
   // the envelope verbatim: t stays absolute (and non-uniform once decimated), a null stays a null so the
   // line breaks at a gap instead of writing NaN into the path and truncating the rest of the trace
   const rows: XRow[] = x.channels.map(row => ({
@@ -171,7 +180,7 @@ export async function getCrossChannel(referenceId: number, padS = 20): Promise<S
   return {
     data: {
       recording: ch.source_file.replace(/\.mat$/, ''), file: ch.source_file, referenceId, referenceName: ch.name,
-      window: { label: windowLabel(first, motif.s, clamped), startH: t0 / 3600, endH: t1 / 3600, durS: t1 - t0, t0S: t0, fs: x.fs, motifStartS: motif.s, motifEndS: motif.e },
+      window: { label: explicit ? `edge window at ${(motif.s / 3600).toFixed(2)} h` : windowLabel(first, motif.s, clamped), startH: t0 / 3600, endH: t1 / 3600, durS: t1 - t0, t0S: t0, fs: x.fs, motifStartS: motif.s, motifEndS: motif.e },
       channels: x.channels.map(c => ({ id: c.id, name: c.name })), rows,
       // |r|, not r: the core classifies r = −0.86 as propagation, so selecting on the signed value hid
       // exactly the channels it thought were most related. Ranked before the cap too — slicing in channel
@@ -183,6 +192,7 @@ export async function getCrossChannel(referenceId: number, padS = 20): Promise<S
           .map(r => r.channelId),
       ].slice(0, 6),
       sharedGround: [], openQuestions: ['lag is the peak of the z-normalised cross-correlation over this window (Working.cross_channel); a shared-ground flag needs the montage, which is not registered yet'],
+      rules: x.rules, explicitWindow: !!explicit,
       yDomain: [lo, hi],
       unit: x.unit,
     },

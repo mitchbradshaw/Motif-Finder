@@ -12,6 +12,11 @@
  *    about the MEMBERS, so the two make four states, not two — a channel can hold members from a machine run
  *    that nobody has reviewed, and collapsing that into `?` reported 2,229 real members as "no members found".
  *    An artifact cell stays visible in red — the artifact filter flags, never excludes.
+ *  - fixup-W: the count toggle gains *excluding artifacts* and *propagation counted once* (`?recur=`). Each cell's
+ *    number under a mode is the bridge's (`countExArtifacts`, `countPropOnce`, the cell's share of the core's
+ *    `matching.family_recurrence` — one definition), never re-derived here; the rule is printed beside the toggle and
+ *    the row's total changes with it. A family not yet classified across channels says so on its row: its three
+ *    counts are equal because nothing has been taken out, not because nothing was there to take.
  */
 import { Fragment, useMemo } from 'react'
 import { Button, Callout, Checkbox, EmptyState, Icon, InfoTip, KeyValue, MiniTrace, Page, Seg, fmtInt, recordDemoWrite, useQueryState } from '../kit'
@@ -25,6 +30,8 @@ import {
   useRememberMotifsRoute, useSelection, useSequenceGroupingId,
 } from './chrome'
 import { centredTraces, familyName } from './AtlasPage'
+import { MODE_LABEL, MODE_RULE_FALLBACK } from './CrossChannel'
+import type { LibRecurrenceCounts, RecurrenceMode } from '../api'
 import { EmptyMotifsPage } from './EmptyLibrary'
 
 const RAMP = ['#e6f0ff', '#c2dcff', '#94c2ff', '#539fff', '#0a84ff']
@@ -70,7 +77,19 @@ export function cellState(c: Cell | undefined): CellState {
   if (c.noCoverage) return n > 0 ? 'unreviewed-members' : 'unreviewed-empty'
   return n > 0 ? 'members' : 'reviewed-empty'
 }
-interface Row { id: string; name: string; colour: string; recordings: number; cells: Record<string, Cell>; cellsKnown: boolean; trace: number[] }
+interface Row { id: string; name: string; colour: string; recordings: number; cells: Record<string, Cell>; cellsKnown: boolean; trace: number[]; rec?: LibRecurrenceCounts }
+/** fixup-W: the cell fields the bridge adds — the cell's share of each recurrence count, and how many of its members
+ *  are in an artifact pair. */
+type XCell = Cell & { artifactMembers?: number; countExArtifacts?: number; countPropOnce?: number }
+const RECUR_MODES: RecurrenceMode[] = ['all', 'excluding_artifacts', 'propagation_once']
+const isRecurMode = (v: string): v is RecurrenceMode => (RECUR_MODES as string[]).includes(v)
+/** The cell's count under a mode — the bridge's number; a cell the read carries no mode count for keeps its raw count. */
+const modeCount = (c: XCell | undefined, m: RecurrenceMode): number => !c ? 0
+  : m === 'excluding_artifacts' ? c.countExArtifacts ?? c.count : m === 'propagation_once' ? c.countPropOnce ?? c.count : c.count
+/** The rate scales with the count: perHour is count / hours, so a mode's rate is its count / the same hours. */
+const modeRate = (c: XCell | undefined, m: RecurrenceMode): number | null =>
+  !c || c.perHour == null ? null : c.count > 0 ? c.perHour * modeCount(c, m) / c.count : c.perHour
+
 
 /** A sequence family's own per-channel cells, if the payload carries them. The bridge's `/sequence-families`
  *  does not build a cell map today, so this is `null` and the matrix says so rather than borrowing a motif
@@ -102,7 +121,7 @@ export function RecurrencePage() {
       const cells = sequenceCells(s)
       return { id: s.id, name: s.name, colour: s.colour, recordings: s.recordings, cells: cells ?? {}, cellsKnown: !!cells, trace: s.exemplarTrace }
     })
-    : (data.data?.families ?? []).map(f => ({ id: f.id, name: f.name, colour: f.colour, recordings: f.recordings, cells: f.cells, cellsKnown: true, trace: f.exemplarTrace })),
+    : (data.data?.families ?? []).map(f => ({ id: f.id, name: f.name, colour: f.colour, recordings: f.recordings, cells: f.cells, cellsKnown: true, trace: f.exemplarTrace, rec: (f as typeof f & { recurrence?: LibRecurrenceCounts }).recurrence })),
   [unit, seqs.data, data.data])
   if (empty) return <EmptyMotifsPage />
   const loading = data.loading || seqs.loading || groupings.loading || !motifsReady || !seqsReady
@@ -137,6 +156,9 @@ function Recurrence({ recordings, rows, coverage, sharedGround, unit, groupingId
 }) {
   const [sel, setSel] = useSelection()
   const [cell, setCell] = useQueryState<'hour' | 'count'>('cell', 'hour')
+  const [recurQ, setRecurQ] = useQueryState<string>('recur', 'all')
+  const recur: RecurrenceMode = isRecurMode(recurQ) ? recurQ : 'all'
+  const recurRule = rows.find(r => r.rec)?.rec?.rules?.[recur] ?? MODE_RULE_FALLBACK[recur]
   const [recQ, setRecQ] = useQueryState('rec', '1')
   const [, setDrawer] = useQueryState('drawer', '')
   const queue = useQueueToast()
@@ -163,12 +185,12 @@ function Recurrence({ recordings, rows, coverage, sharedGround, unit, groupingId
   }
   const setSelection = (next: string[]) => { setSel(next); recordDemoWrite('library', 'selection', { channels: next.length }) }
   const toggle = (k: string) => setSelection(sel.includes(k) ? sel.filter(x => x !== k) : [...sel, k])
-  const maxCount = Math.max(1, ...rows.flatMap(row => groups.flatMap(g => g.channels.map(ch => row.cells[keyOf(g, ch)]?.count ?? 0))))
+  const maxCount = Math.max(1, ...rows.flatMap(row => groups.flatMap(g => g.channels.map(ch => modeCount(row.cells[keyOf(g, ch)], recur)))))
   /* The rate ramp used to be hard-coded `0 → 1.0` members/h, and the legend advertised that maximum whatever
      the data held. Its extent is now the drawn cells' own, on a log scale because the rates span four decades
      — on a linear ramp 2,617 of 3,275 cells sat in the palest shade and a real rate was indistinguishable
      from a true zero. The count ramp stays linear (counts here run 1…30) and was already data-derived. */
-  const rates = rows.flatMap(row => groups.flatMap(g => g.channels.map(ch => row.cells[keyOf(g, ch)]?.perHour ?? 0))).filter(v => v > 0)
+  const rates = rows.flatMap(row => groups.flatMap(g => g.channels.map(ch => modeRate(row.cells[keyOf(g, ch)], recur) ?? 0))).filter(v => v > 0)
   const rateLo = rates.length ? Math.min(...rates) : 0
   const rateHi = rates.length ? Math.max(...rates) : 0
   const pageKeys = groups.filter(g => !g.heldOut && !disabledReason(g)).flatMap(g => g.channels.map(ch => keyOf(g, ch)))
@@ -178,7 +200,7 @@ function Recurrence({ recordings, rows, coverage, sharedGround, unit, groupingId
   const recs = [...new Set(sel.map(k => k.split(':')[0]))]
   const hoursOf = (key: string) => recordings.find(r => r.key === key)?.hours ?? 0
   const channelHours = sel.reduce((s, k) => s + hoursOf(k.split(':')[0]), 0)
-  const members = sel.reduce((s, k) => s + rows.reduce((t, row) => t + (row.cells[k]?.count ?? 0), 0), 0)
+  const members = sel.reduce((s, k) => s + rows.reduce((t, row) => t + modeCount(row.cells[k], recur), 0), 0)
   const reviewed = channelHours ? sel.reduce((s, k) => s + hoursOf(k.split(':')[0]) * (coverage[k] ?? 0), 0) / channelHours : 0
   const channelsText = recs.map(r => `${recLabel(r)} ${sel.filter(k => k.startsWith(`${r}:`)).map(k => k.split(':')[1]).join(', ')}`).join(' · ')
   const warnings = sharedGround.filter(w => sel.includes(w.pair[0]) && sel.includes(w.pair[1]))
@@ -193,6 +215,10 @@ function Recurrence({ recordings, rows, coverage, sharedGround, unit, groupingId
             <InfoTip title="reading the matrix">Cells are members per hour of recording, to two significant figures and on a log colour ramp whose extent is printed in the legend (toggle to count) — the rates here span four decades, and at two decimal places on a 0…1.0 ramp a real rate printed “0.00” in the palest shade, exactly like a true zero. A “?” means nobody has reviewed that channel, so “absent” and “never looked” differ (§8.4); a blank cell was reviewed and the family was not found there. A number in an amber dashed cell means members ARE recorded on a channel nobody has reviewed. Red cells are cross-channel artifacts; they stay visible (flagged, not excluded). Dark in one recording and empty in the others is a property of that recording, not of the organism.</InfoTip>
             <span style={{ marginLeft: 'auto' }} />
             <Seg size="sm" ariaLabel="cell value" testid="cell-mode" value={cell} onChange={v => setCell(v)} options={[{ value: 'hour', label: 'per hour' }, { value: 'count', label: 'count' }]} />
+            {/* fixup-W: the count with the cross-channel bins taken out — the core's one definition, its rule printed */}
+            <Seg size="sm" ariaLabel="what is counted" testid="recur-mode" value={recur} onChange={v => setRecurQ(v === 'all' ? null : v)}
+              options={RECUR_MODES.map(m => ({ value: m, label: MODE_LABEL[m] }))} />
+            <InfoTip title={`counting: ${MODE_LABEL[recur]}`} testid="recur-rule">{recurRule}. Each family is classified across channels from Library › Family (*Classify across channels*); a family that has not been reads the same under every mode and says so on its row.</InfoTip>
             <span className="row lib-cap" style={{ gap: 6, fontSize: 11 }}>
               <button type="button" className="lib-pg" style={{ width: 24, height: 24 }} disabled={page <= 1} title={page <= 1 ? 'first page' : 'previous recordings'} aria-label="previous recordings" data-testid="rec-prev" onClick={() => setRecQ(page - 1 <= 1 ? null : String(page - 1))}><Icon name="chevron-left" size={12} /></button>
               <span data-testid="rec-page-label">recordings {firstShown}–{lastShown} of {recordings.length}</span>
@@ -260,7 +286,7 @@ function Recurrence({ recordings, rows, coverage, sharedGround, unit, groupingId
                         <MiniTrace values={rowTraces.get(row.id)?.ex ?? row.trace} width={36} height={24} ground="none" zeroLine={false} strokeWidth={1.4} />
                         <span className="stack" style={{ gap: 0 }}>
                           <span className="row" style={{ gap: 6 }}><span className="id" style={{ color: row.colour }}>{row.id}</span><span className="nm" title={row.name}>{familyName(row.id, row.name)}</span></span>
-                          <span className="sub">{row.recordings} recording{row.recordings === 1 ? '' : 's'}</span>
+                          <span className="sub">{row.recordings} recording{row.recordings === 1 ? '' : 's'}{row.rec ? <> · <span data-testid={`row-total-${row.id}`} title={`${MODE_LABEL[recur]}: ${recurRule}`}>{fmtInt(row.rec[recur])} {recur === 'all' ? 'members' : 'counted'}</span>{!row.rec.classified && recur !== 'all' ? <span title="not classified across channels yet — nothing has been taken out"> · unclassified</span> : null}</> : null}</span>
                         </span>
                       </button>
                     </td>
@@ -271,19 +297,21 @@ function Recurrence({ recordings, rows, coverage, sharedGround, unit, groupingId
                         {!g.heldOut && g.channels.map(ch => {
                           const k = keyOf(g, ch), c = row.cells[k], on = sel.includes(k), reason = disabledReason(g)
                           const state = cellState(c)
-                          const rate = c && c.perHour != null ? c.perHour : null
-                          const idx = cell === 'count' ? rampIndex(c?.count ?? 0, maxCount) : rateRampIndex(rate ?? 0, rateLo, rateHi)
+                          const xc = c as XCell | undefined
+                          const n = modeCount(xc, recur)
+                          const rate = modeRate(xc, recur)
+                          const idx = cell === 'count' ? rampIndex(n, maxCount) : rateRampIndex(rate ?? 0, rateLo, rateHi)
                           const drawsNumber = state === 'members' || state === 'unreviewed-members'
                           const cls = !drawsNumber && (state === 'unknown' || state === 'unreviewed-empty') ? 'q' : !drawsNumber ? 'none' : c!.artifact ? 'art' : ''
-                          const shown = cell === 'count' ? fmtInt(c?.count ?? 0) : rate == null ? '—' : fmtRate(rate)
+                          const shown = cell === 'count' ? fmtInt(n) : rate == null ? '—' : fmtRate(rate)
                           const text = drawsNumber ? `${c!.artifact ? '! ' : ''}${shown}` : state === 'reviewed-empty' ? '' : '?'
                           const where = `${row.id} · ${g.label} · ${ch}`
-                          const measured = c ? `${c.count} member${c.count === 1 ? '' : 's'} · ${rate == null ? 'the recording length is not recorded, so no rate can be given' : `${fmtRate(rate)} per hour (${c.perHour})`}` : ''
+                          const measured = c ? `${c.count} member${c.count === 1 ? '' : 's'}${recur !== 'all' ? ` · ${n} counted ${MODE_LABEL[recur]}` : ''} · ${rate == null ? 'the recording length is not recorded, so no rate can be given' : `${fmtRate(rate)} per hour`}` : ''
                           const tip = state === 'unknown' ? `${where} · this read says nothing about this channel`
                             : state === 'unreviewed-empty' ? `${where} · nobody has reviewed this channel and no members are recorded on it — absent is not the same as never looked at (§8.4)`
-                              : state === 'unreviewed-members' ? `${where} · ${measured} — on a channel NOBODY HAS REVIEWED: the members are from a machine run, not from a review`
+                              : state === 'unreviewed-members' ? `${where} · ${measured} — on a channel NOBODY HAS REVIEWED: the members are from a machine run, not from a review${c!.artifact ? ` · cross-channel artifact (flagged): ${xc?.artifactMembers ?? '?'} member${xc?.artifactMembers === 1 ? '' : 's'} in an artifact pair` : ''}`
                                 : state === 'reviewed-empty' ? `${where} · reviewed, and no members of this family were found`
-                                  : `${where} · ${measured}${c!.artifact ? ' · cross-channel artifact (flagged)' : ''}`
+                                  : `${where} · ${measured}${c!.artifact ? ` · cross-channel artifact (flagged): ${xc?.artifactMembers ?? '?'} member${xc?.artifactMembers === 1 ? '' : 's'} in an artifact pair` : ''}`
                           return (
                             <td key={k} className={`lib-cell${on ? (ri === lastRow ? ' on lib-sel-bottom' : ' on lib-sel-lr') : ''}`}>
                               <button type="button" className={cls} title={reason ? `${tip} · ${reason}` : tip} data-testid={`cell-${row.id}-${k}`} data-cell-state={state} disabled={!!reason}

@@ -3,7 +3,13 @@
    summary, hand-offs and the open design questions. Live since stage-3 prompt 01 (getCrossChannel → GET /api/cross/{id}):
    lag, r and the bin are the core's (Working.cross_channel.classify_waveforms) on the window in view.
    Deep links: ?align=lag · ?window=motif-<n> · ?pad=60 · ?channels=4,3,1 · ?maxlag=10 · ?lag=channel ·
-   ?y=absolute|centred|per-channel · ?popover=channels · ?questions=open · ?state=computing
+   ?y=absolute|centred|per-channel · ?popover=channels · ?questions=open · ?state=computing ·
+   ?t0=&t1= (fixup-W: an edge's own window, unpadded — Library › Family's *Explore ›*) · ?family=F-xx&grouping=g-NN
+   (fixup-W: *Classify every F-xx member in Library* starts that family's cross_channel job)
+
+   fixup-W: the bins are the core's under the researcher's rule (Q40b, Q-W5: artifact |lag| ≤ 1 s and |r| ≥ 0.5 either
+   sign, propagation ≤ 50 s, independent otherwise — three Settings keys), and each bin's tip prints the rule the bridge
+   says produced it, never a copy written here.
 
    The y scale lives in ./crossScale — read its header before changing how a row is drawn. One absolute
    domain across the stack is ~3.9 V of inter-channel DC offset on M2_aug while a channel's own window spans
@@ -14,12 +20,13 @@ import { useMemo, useRef, useState } from 'react'
 import { DatasetName } from '../naming'
 import { ApiError } from '../api'
 import { useSourced } from '../api/seam'
-import { getCrossChannel, getSignalDemo, lookupChannel, type CrossDemo, type XBin, type XRow } from '../api/explore'
+import { getCrossChannel, getSignalDemo, lookupChannel, type CrossRead, type XBin, type XRow } from '../api/explore'
+import { useCrossChannelJob } from '../library/CrossChannel'
 import { EnvelopePath } from '../charts/primitives'
 import { makeX } from '../charts/scale'
 import { unitWords } from '../charts/units'
 import { Y_MODES, Y_MODE_LABEL, Y_MODE_NOTE, fmtMvAt, isYMode, scaleNote, stackGeom, type YMode } from './crossScale'
-import { Badge, Button, Checkbox, Chip, DisabledReason, Dropdown, EmptyState, Icon, InfoTip, Popover, ProgressBar, Seg, Tooltip, cx, fmtInt, recordDemoWrite, useDemoState, useNotWired, useQueryState, useSim, type IconName } from '../kit'
+import { Badge, Button, Checkbox, Chip, DisabledReason, Dropdown, EmptyState, Icon, InfoTip, Popover, ProgressBar, Seg, Tooltip, cx, fmtInt, recordDemoWrite, useDemoState, useQueryState, useSim, type IconName } from '../kit'
 import { Header } from '../shell/Header'
 import { useToast } from '../shell/Toast'
 import { navigate } from '../state'
@@ -32,20 +39,25 @@ import { asApiError, relativeTicks } from './util'
 
 const BIN_TONE: Record<XBin, 'blue' | 'red' | 'amber' | 'green' | 'grey'> = { reference: 'blue', artifact: 'red', propagation: 'amber', independent: 'green', 'no match': 'grey' }
 const BIN_DOT: Record<XBin, string> = { reference: 'var(--blue)', artifact: 'var(--red)', propagation: 'var(--amber)', independent: 'var(--green)', 'no match': '#9ca3af' }
-const BIN_TIP: Record<XBin, string> = {
+/** Only what has no rule behind it lives here; a bin's rule comes from the bridge (`data.rules`), so the tip cannot
+ *  drift from the rule that binned the row. */
+const BIN_TIP_FIXED: Pick<Record<XBin, string>, 'reference' | 'no match'> = {
   reference: 'the channel every other row is compared against',
-  artifact: 'core rule: |lag| ≤ 1 sample and r ≥ 0.99 — likely a shared electrical path',
-  propagation: 'core rule: |lag| ≤ 50 samples (and not an artifact)',
-  independent: 'core rule: |lag| > 50 samples — independent recurrence',
   'no match': 'lag or r undefined on this window (flat or non-finite trace)',
 }
+const binTip = (b: XBin, rules: Record<string, string> | undefined): string =>
+  b === 'reference' || b === 'no match' ? BIN_TIP_FIXED[b]
+    : rules?.[b === 'independent' ? 'independent_recurrence' : b] ?? 'the read carries no rule for this bin'
 const CAP = 10
 const fmtLag = (l: number | null) => (l === null ? '— s' : l === 0 ? '0.0 s' : `${l > 0 ? '+' : '−'}${Math.abs(l).toFixed(Math.abs(l) >= 10 ? 1 : 2)} s`)
 
 export function CrossChannelPage({ channelId }: { channelId: number }) {
   const look = useSourced(() => lookupChannel(channelId), [channelId])
   const [pad] = useQueryState<string>('pad', '20')
-  const read = useSourced(() => getCrossChannel(channelId, pad === '60' ? 60 : 20), [channelId, pad])
+  const [t0Q] = useQueryState<string>('t0', '')
+  const [t1Q] = useQueryState<string>('t1', '')
+  const explicit = t0Q !== '' && t1Q !== '' && Number(t1Q) > Number(t0Q) ? { t0: Number(t0Q), t1: Number(t1Q) } : null
+  const read = useSourced(() => getCrossChannel(channelId, pad === '60' ? 60 : 20, explicit), [channelId, pad, t0Q, t1Q])
   const header = (subtitle: string, demo = true) => <Header workspace="Explore" page="Cross-channel" subtitle={subtitle} search="Search spans, runs, families" demo={demo} />
   if (look.error || read.error) return <>{header(`channel ${channelId} · error`)}<div className="page"><div className="page-inner"><ErrorCard error={asApiError(look.error ?? read.error)} title="demo read for Cross-channel failed" /></div></div></>
   if (look.loading || read.loading || !look.data) return <>{header(`channel ${channelId} · loading…`)}<div className="page"><div className="page-inner" data-testid="cross-loading"><div className="skeleton" style={{ height: 30, width: 480 }} /><div className="skeleton" style={{ height: 50 }} /><div className="skeleton" style={{ height: 440 }} /></div></div></>
@@ -72,9 +84,8 @@ export function CrossChannelPage({ channelId }: { channelId: number }) {
   return <CrossBody key={channelId} data={read.data} />
 }
 
-function CrossBody({ data }: { data: CrossDemo }) {
+function CrossBody({ data }: { data: CrossRead }) {
   const toast = useToast()
-  const notWired = useNotWired()
   const ref = data.referenceId
   const [align, setAlign] = useQueryState<string>('align', 'recorded')
   const [windowQ] = useQueryState<string>('window', '')
@@ -87,6 +98,11 @@ function CrossBody({ data }: { data: CrossDemo }) {
   const [popover, setPopover] = useQueryState<string>('popover', '')
   const [questions, setQuestions] = useQueryState<string>('questions', '')
   const [forced] = useQueryState<string>('state', '')
+  const [familyQ] = useQueryState<string>('family', '')
+  const [groupingQ] = useQueryState<string>('grouping', '')
+  const [, setT0Q] = useQueryState<string>('t0', '')
+  const [, setT1Q] = useQueryState<string>('t1', '')
+  const xcJob = useCrossChannelJob(r => toast.push({ text: `${r.family}: ${r.counts.artifact} artifact · ${r.counts.propagation} propagation · ${r.counts.independent_recurrence} independent`, action: { label: `Open ${r.family} →`, onClick: () => navigate(`library/family/${r.family}`) } }))
   const [focusBin, setFocusBin] = useState<XBin | null>(null)
   const sim = useSim(`explore.cross.compute.${ref}`)
   const computing = forced === 'computing' || sim.busy
@@ -113,7 +129,7 @@ function CrossBody({ data }: { data: CrossDemo }) {
   const counts = { artifact: 0, propagation: 0, independent: 0, 'no match': 0 } as Record<Exclude<XBin, 'reference'>, number>
   for (const r of rows) { const b = binOf(r); if (b !== 'reference') counts[b]++ }
   const sharedPair = rows.find(r => r.sharedGroundWith)
-  const windowLabel = `${data.window.label} ± ${pad === '60' ? 60 : 20} s`
+  const windowLabel = data.explicitWindow ? `${data.window.label} · unpadded` : `${data.window.label} ± ${pad === '60' ? 60 : 20} s`
   const tooFew = rows.length < 2
   const subtitle = align === 'lag' ? `${refName} reference · lag-aligned` : `${refName} reference · ${rows.length} channel${rows.length === 1 ? '' : 's'}`
 
@@ -188,8 +204,10 @@ function CrossBody({ data }: { data: CrossDemo }) {
           <button ref={channelsAnchor} type="button" className="k-dd-trigger outline" aria-haspopup="dialog" aria-expanded={popover === 'channels'} onClick={() => setPopover(popover === 'channels' ? null : 'channels')} data-testid="channels-select">
             <span className="pre">channels</span><span className="val">{rows.length} of {data.channels.length}</span><Icon name="chevron-down" size={12} className="chev" />
           </button>
-          <Dropdown prefix="window" variant="outline" value={pad === '60' ? '60' : '20'} onChange={v => { setPad(v === '20' ? null : v); recompute() }} testid="window-select" menuWidth={260}
-            options={[{ value: '20', label: windowLabel.replace(/± \d+ s/, '± 20 s') }, { value: '60', label: windowLabel.replace(/± \d+ s/, '± 60 s') }, { value: 'span', label: 'selected span 276.4 – 278.4 h', disabled: true, reason: 'longer than 10 min — cross-channel compares short windows' }]} />
+          {data.explicitWindow
+            ? <Button size="sm" iconRight="x" testid="edge-window" onClick={() => { setT0Q(null); setT1Q(null) }} title="the window a Library edge was measured on, unpadded — click to return to the channel's own window">{windowLabel}</Button>
+            : <Dropdown prefix="window" variant="outline" value={pad === '60' ? '60' : '20'} onChange={v => { setPad(v === '20' ? null : v); recompute() }} testid="window-select" menuWidth={260}
+              options={[{ value: '20', label: windowLabel.replace(/± \d+ s/, '± 20 s') }, { value: '60', label: windowLabel.replace(/± \d+ s/, '± 60 s') }, { value: 'span', label: 'selected span 276.4 – 278.4 h', disabled: true, reason: 'longer than 10 min — cross-channel compares short windows' }]} />}
           <span className="lbl">align</span>
           <Seg value={align === 'lag' ? 'lag' : 'recorded'} onChange={v => setAlign(v === 'recorded' ? null : v)} options={[{ value: 'recorded', label: 'as recorded' }, { value: 'lag', label: 'lag-aligned' }]} ariaLabel="align" testid="align-seg" />
           <Dropdown prefix="lag" variant="outline" value={lagMode} onChange={v => { setLagMode(v === 'window' ? null : v); recompute() }} testid="lag-select" menuWidth={220}
@@ -277,7 +295,7 @@ function CrossBody({ data }: { data: CrossDemo }) {
                     ? <Tooltip content={`|lag| ${Math.abs(r.lagS).toFixed(1)} s is past max lag ±${maxLag} s — this row is still as recorded`}><span className="ex-unaligned" data-testid={`lag-unaligned-${r.name}`}>{fmtLag(r.lagS)} ·&nbsp;not aligned</span></Tooltip>
                     : fmtLag(r.lagS)}</span>
                   <span className="r mono">{computing ? '…' : r.channelId === ref ? '' : r.r === null ? '—' : r.r.toFixed(2)}</span>
-                  <span className="bin"><Tooltip content={BIN_TIP[bin]}><span><Badge tone={BIN_TONE[bin]} testid={`bin-${r.name}`}>{bin}</Badge></span></Tooltip></span>
+                  <span className="bin"><Tooltip content={binTip(bin, data.rules)}><span><Badge tone={BIN_TONE[bin]} testid={`bin-${r.name}`}>{bin}</Badge></span></Tooltip></span>
                 </div>
               )
             })}
@@ -297,7 +315,7 @@ function CrossBody({ data }: { data: CrossDemo }) {
 
         <div className="ex-cross-bottom">
           <div className="card card-pad" data-testid="classification">
-            <div className="ex-card-head"><b>Classification for this window</b><InfoTip title="Classification">Each channel is paired with the reference and binned by lag and r. Shared-ground pairs come from Settings › Channels &amp; events.</InfoTip><span className="grow" /><span className="muted mono small">pairs against {refName} reference</span></div>
+            <div className="ex-card-head"><b>Classification for this window</b><InfoTip title="Classification">Each channel is paired with the reference over the same absolute window and binned by lag (in seconds) and |r|, the sign of r kept: {data.rules ? <>artifact — {data.rules.artifact}; propagation — {data.rules.propagation}; independent — {data.rules.independent_recurrence}.</> : 'the read carries no rule.'} The three numbers are Settings › Analysis defaults. Shared-ground pairs come from Settings › Channels &amp; events.</InfoTip><span className="grow" /><span className="muted mono small">pairs against {refName} reference</span></div>
             <div className={cx('ex-tiles', computing && 'dim')}>
               {(['artifact', 'propagation', 'independent', 'no match'] as const).map(b => (
                 <button key={b} type="button" className={cx('ex-tile', `t-${BIN_TONE[b]}`, focusBin === b && 'on')} onClick={() => setFocusBin(focusBin === b ? null : b)} aria-pressed={focusBin === b} data-testid={`tile-${b.replace(' ', '-')}`}
@@ -314,7 +332,11 @@ function CrossBody({ data }: { data: CrossDemo }) {
           </div>
           <div className="card card-pad" data-testid="take-further">
             <b style={{ display: 'block', marginBottom: 8 }}>Take it further</b>
-            <ActionRow icon="library" title="Classify every F-03 member in Library" caption="runs across all channels and stores bins on edges" testid="act-classify" onClick={() => notWired('classify F-03 members across channels (Library edges job)')} />
+            {/* fixup-W: wired — the family comes from the link that opened this page (Library › Family's edge list) */}
+            <ActionRow icon="library" title={familyQ ? `Classify every ${familyQ} member in Library` : 'Classify a Library family across channels'}
+              caption={xcJob.busy ? `running · ${xcJob.job?.total ? `${xcJob.job.done} of ${xcJob.job.total} channels · ` : ''}${xcJob.job?.message ?? ''}` : xcJob.job?.status === 'failed' ? `job ${xcJob.job.id} failed · ${xcJob.job.error}` : xcJob.startError ? `could not start: ${xcJob.startError}` : 'runs across all channels and stores bins on edges'}
+              testid="act-classify" onClick={() => { if (familyQ) void xcJob.start(familyQ, groupingQ || undefined) }}
+              disabled={!familyQ || xcJob.busy} reason={!familyQ ? 'open this page from a Library family (an edge\u2019s Explore › link) to say which family to classify' : 'a classification is running'} />
             <ActionRow icon="target" title={`Apply a template across these ${rows.length} channels`} caption="opens Discovery with a channel scope" testid="act-template" onClick={() => navigate(`discovery/runs?modal=add-template&channels=${selected.join(',')}`)} />
             <ActionRow icon="checklist" title="Review this window on all channels" caption={`stages ${rows.length} spans in Review`} testid="act-review" onClick={reviewAll} disabled={tooFew} reason="pick at least one more channel first" />
           </div>

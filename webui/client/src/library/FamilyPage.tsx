@@ -42,6 +42,8 @@ import { ReferenceBar, referenceWords } from '../charts/ReferenceBar'
 import { familyName } from './AtlasPage'
 import { EmptyMotifsPage } from './EmptyLibrary'
 import { EdgeList, MatchedMembers, ScaleReadout, memberEdges, type EdgeDetailExtras, type EdgeFamilyExtras } from './Edges'
+import { CrossChannelCard } from './CrossChannel'
+import type { LibCrossChannel } from '../api'
 
 /** What the bridge actually returns for a removed member — `RemovedMember` plus the two fields
  *  `server/library.py` adds when the source row is still there. Declared here rather than widened in
@@ -114,7 +116,7 @@ export function FamilyPage({ familyId }: { familyId?: string } = {}) {
         {(fam.loading || (!named && firstFamily.loading)) && <Loading height={640} testid="family-loading" />}
         {d?.kind === 'missing' && <EmptyState icon="alert-triangle" title={`No family ${id} in grouping ${gid || 'the current grouping'}`} caption="the id is not in this grouping" action={<Button onClick={() => navigate('library/atlas')}>‹ back to atlas</Button>} bordered testid="family-missing" />}
         {d?.kind === 'sequence' && <SequenceFamilyPlaceholder f={d.family} />}
-        {d?.kind === 'motif' && <MotifFamilyView key={d.detail.family.id} detail={d.detail} />}
+        {d?.kind === 'motif' && <MotifFamilyView key={d.detail.family.id} detail={d.detail} grouping={unitGid || undefined} onReload={fam.reload} />}
       </Page>
     </>
   )
@@ -142,7 +144,7 @@ const memberWave = (m: { trace?: number[] }) => centreTrace(m.trace ?? [])
 /** Descending, members with no mV amplitude (unit undeclared) last. */
 const byAmplitude = (a: Member, b: Member) => (b.amplitudeMv ?? -Infinity) === (a.amplitudeMv ?? -Infinity) ? 0 : (b.amplitudeMv ?? -Infinity) > (a.amplitudeMv ?? -Infinity) ? 1 : -1
 
-function MotifFamilyView({ detail }: { detail: FamilyDetail }) {
+function MotifFamilyView({ detail, grouping, onReload }: { detail: FamilyDetail; grouping?: string; onReload: () => void }) {
   const f = detail.family
   const { push } = useToast()
   const queue = useQueueToast()
@@ -294,7 +296,8 @@ function MotifFamilyView({ detail }: { detail: FamilyDetail }) {
                 { k: 'mean member d', v: f.meanMemberD.toFixed(2) },
                 { k: 'duration', v: `${f.durationS} s ± ${f.durationSd}` },
                 { k: 'depth', v: detail.depthLabel },
-                { k: 'cross-channel', v: `artifact ${f.artifactChannels}` },
+                // fixup-W: member PAIRS per bin, as `Classify across channels` stored them on the edges
+                { k: 'cross-channel', v: <span className="mono" data-testid="family-cross-channel-line">{(detail as FamilyDetail & { crossChannel?: LibCrossChannel }).crossChannel?.classified === false ? 'not classified' : `artifact ${f.artifactChannels} · propagation ${f.propChannels} · independent ${f.indChannels}`}</span> },
               ]} testid="summary-kv-2" />
             </div>
             {/* fixup-v: §8.5's *Seed search in Discovery →* — the family's exemplar, by its Library entry */}
@@ -373,6 +376,8 @@ function MotifFamilyView({ detail }: { detail: FamilyDetail }) {
           </div>
         )}
 
+        {/* fixup-W: Classify across channels, the counts per bin with their rules, recurrence with the bins out, the null */}
+        <CrossChannelCard familyId={f.id} grouping={grouping} cc={(detail as FamilyDetail & { crossChannel?: LibCrossChannel }).crossChannel} onReload={onReload} />
         {/* fixup-v: the Q3 read-out for the exemplar, and the members seed searches added — from motif_edge rows */}
         <ScaleReadout readout={(detail as FamilyDetail & EdgeDetailExtras).scaleReadout} />
         <MatchedMembers matched={(detail as FamilyDetail & EdgeDetailExtras).matched ?? []} entryLabel={(detail as FamilyDetail & EdgeDetailExtras).scaleReadout?.entry ?? null} />
@@ -533,7 +538,7 @@ function MemberRail({ m, f, detail, refScale, edits, setEdits, onUndoAdd, onRemo
       {/* fixup-v: §8.5's edge provenance — every edge this member carries: distance, value, cut, scale, recipe */}
       <div className="stack" style={{ gap: 3 }} data-testid="rail-edge-provenance">
         <span className="lib-cap" style={{ fontSize: 11 }}>edges · distance, value, cut, scale, run and recipe</span>
-        <EdgeList edges={memberEdges(detail, m.id)} testid="rail-edges" limit={6} />
+        <EdgeList edges={memberEdges(detail, m.id)} testid="rail-edges" limit={6} family={{ id: f.id, grouping: (detail.family as typeof detail.family & { grouping?: string }).grouping }} />
       </div>
       <div className="lib-kvrow"><span className="k">verdict <InfoTip title="verdicts are read-only here">verdicts are written only in Review and Explore (§4.1, P6)</InfoTip></span>
         <span className="v">{m.verdict === 'unjudged' ? <span style={{ color: '#c27400' }}>unjudged</span> : <><span style={{ width: 7, height: 7, borderRadius: '50%', background: VERDICT_COLOUR[m.verdict], display: 'inline-block', marginRight: 5 }} />{m.verdict}{m.verdictAt ? ` · ${m.verdictAt}` : ''}</>}

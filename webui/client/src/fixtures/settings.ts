@@ -369,6 +369,8 @@ const analysisValues = (band: string): Values => {
     iou: 0.5, onset: 0.25, exclusion: 'm / 2',
     // fixup-X: what "falls in a reviewed window" means for Q-D2's containment figure (the researcher, 2026-10-04)
     containment: 'centre',
+    // fixup-W: the cross-channel rule (Q40b, Q-W5), in seconds; Working.cross_channel's defaults
+    'cross_channel.artifact_max_lag_s': 1, 'cross_channel.min_abs_r': 0.5, 'cross_channel.propagation_max_lag_s': 50,
     coherence: 0.5, clipping: 98, step_x: 5, step_within: 1, band_low: 0.3, band_medium: 0.6,
     cache_min_s: 2, cache_keep_days: 14, cache_location: './artifacts/steps',
     bands: DEFAULT_BANDS,

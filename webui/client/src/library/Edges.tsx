@@ -24,14 +24,14 @@ export type EdgeDetailExtras = { matched?: LibMatchedMember[]; scaleReadout?: Li
 const fmt = (v: number | null | undefined, d = 2) => v == null ? '—' : v.toFixed(d)
 const fmtScale = (s: number | null) => s == null ? '—' : `${s}×`
 
-export function EdgeList({ edges, testid = 'edge-list', limit }: { edges: LibEdge[]; testid?: string; limit?: number }) {
+export function EdgeList({ edges, testid = 'edge-list', limit, family }: { edges: LibEdge[]; testid?: string; limit?: number; family?: { id: string; grouping?: string } }) {
   const [all, setAll] = useState(false)
   if (!edges.length) return <span className="lib-cap" data-testid={`${testid}-none`}>no edges · nothing has measured this span against another yet</span>
   const shown = all || !limit ? edges : edges.slice(0, limit)
   return (
     <div data-testid={testid}>
       <table className="lib-scores" style={{ width: '100%' }}>
-        <thead><tr><th>distance</th><th>value</th><th>threshold</th><th>scale</th><th>to</th><th>run · recipe</th></tr></thead>
+        <thead><tr><th>distance</th><th>value</th><th>threshold</th><th>scale</th><th>to</th><th>cross-channel</th><th>run · recipe</th></tr></thead>
         <tbody>
           {shown.map(e => (
             <tr key={e.id} data-testid={`edge-${e.id}`} data-function={e.function}>
@@ -40,6 +40,7 @@ export function EdgeList({ edges, testid = 'edge-list', limit }: { edges: LibEdg
               <td className="mono" title={String((e.recipe?.threshold_is as string | undefined) ?? '')}>{e.threshold == null ? '—' : `${e.within ? '≤' : '>'} ${fmt(e.threshold)}`}</td>
               <td className="mono">{fmtScale(e.scale)}</td>
               <td className="mono">{e.other}</td>
+              <td className="mono small" data-testid={`edge-xc-${e.id}`}><CrossChannelCell e={e} family={family} /></td>
               <td className="mono small">
                 {e.runKey
                   ? <button type="button" className="lib-plain mono" style={{ color: 'var(--blue-600)', fontSize: 11 }} onClick={() => navigate(`discovery/runs?run=${encodeURIComponent(e.runKey!)}`)}>{e.run}</button>
@@ -52,6 +53,33 @@ export function EdgeList({ edges, testid = 'edge-list', limit }: { edges: LibEdg
       </table>
       {limit && edges.length > limit && <Button variant="link" size="sm" onClick={() => setAll(!all)} testid={`${testid}-more`}>{all ? 'fewer' : `all ${edges.length} edges`}</Button>}
     </div>
+  )
+}
+
+const XC_TONE: Record<string, string> = { artifact: 'var(--red)', propagation: 'var(--amber-700, #b76a00)', independent_recurrence: 'var(--green-700, #157a3a)' }
+const fmtLagS = (v: number) => `${v > 0 ? '+' : v < 0 ? '−' : ''}${Math.abs(v).toFixed(Math.abs(v) >= 10 ? 0 : 1)} s`
+
+/** fixup-W: what *Classify across channels* stored on the edge — lag (the edge's member b relative to its member a,
+ *  measured on the same absolute window on both channels), signed r, the bin — and a link that opens Explore ›
+ *  Cross-channel on exactly that window, where the same lag, r and bin are recomputed live. A pair further apart
+ *  than the propagation ceiling has no lag: it is not simultaneous (Q40a). */
+function CrossChannelCell({ e, family }: { e: LibEdge; family?: { id: string; grouping?: string } }) {
+  if (!e.classification) return <span className="muted" title="not classified across channels — same channel, another recording, or not run yet">—</span>
+  const label = e.classification === 'independent_recurrence' ? 'independent' : e.classification
+  const rule = e.classificationRule ? `computed under: artifact |lag| ≤ ${e.classificationRule.artifact_max_lag_s} s · propagation ≤ ${e.classificationRule.propagation_max_lag_s} s · |r| ≥ ${e.classificationRule.min_abs_r}` : ''
+  if (e.simultaneous === false || e.lagS == null) {
+    return <span title={`${e.gapS != null ? `${Math.round(e.gapS)} s apart — ` : ''}not simultaneous, so no lag is measured (Q40a) · ${rule}`} style={{ color: XC_TONE[e.classification] }}>{label} · not simultaneous</span>
+  }
+  const w = e.window
+  return (
+    <span className="row" style={{ gap: 4 }}>
+      <span title={`lag of ${e.other === e.a ? 'this member' : e.other} relative to ${e.a} · ${rule}`}>{fmtLagS(e.lagS)} · r {e.r == null ? '—' : e.r.toFixed(2)} · <b style={{ color: XC_TONE[e.classification] }}>{label}</b></span>
+      {w && w.recordingId != null && (
+        <button type="button" className="lib-plain mono" style={{ color: 'var(--blue-600)', fontSize: 11 }} data-testid={`edge-explore-${e.id}`}
+          title="open Explore › Cross-channel on the window this pair was measured on"
+          onClick={() => navigate(`explore/cross-channel/${w.recordingId}?t0=${w.t0S}&t1=${w.t1S}${w.otherRecordingId != null ? `&channels=${w.recordingId},${w.otherRecordingId}` : ''}${family ? `&family=${encodeURIComponent(family.id)}${family.grouping ? `&grouping=${encodeURIComponent(family.grouping)}` : ''}` : ''}`)}>Explore ›</button>
+      )}
+    </span>
   )
 }
 

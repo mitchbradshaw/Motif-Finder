@@ -77,6 +77,31 @@ function Body({ data }: { data: Data }) {
 
       <BandsCard s={s} />
 
+      {/* fixup-W: the cross-channel rule (QUESTIONS.md Q40b, Round 10 Q-W5) — three numbers, in seconds, read by the
+          Library's *Classify across channels* job and by Explore › Cross-channel; every bin prints its rule */}
+      <SectionCard title="Cross-channel classification" subtitle="lag on the same absolute window · seconds, converted with each recording's fs" testid="cross-channel-card">
+        <Row label="artifact: |lag| at most" info="Events on two electrodes at the same time are contamination (a shared ground, common-mode pickup), whatever the sign of r — the researcher's rule, Q40b. A sub-second propagation is out of reach at 1 Hz."
+          dot={s.differs('cross_channel.artifact_max_lag_s')} unsaved={s.dirty('cross_channel.artifact_max_lag_s')} testid="xc-artifact-row"
+          caption="and |r| at least the floor below">
+          <NumberField value={s.num('cross_channel.artifact_max_lag_s')} min={0} max={60} step={0.5} unit="s" width={110}
+            validate={v => v > s.num('cross_channel.propagation_max_lag_s') ? 'above the propagation ceiling' : null}
+            onValid={v => s.set('cross_channel.artifact_max_lag_s', v)} testid="xc-artifact-lag" />
+        </Row>
+        <Row label="r floor (|r|)" info="Below this |r| a pair is independent whatever its lag — two windows that do not look alike are not one event on two electrodes. Tested on |r|: the sign is stored on the edge, never binned."
+          dot={s.differs('cross_channel.min_abs_r')} unsaved={s.dirty('cross_channel.min_abs_r')} testid="xc-floor-row"
+          caption="applies to artifact and propagation alike">
+          <NumberField value={s.num('cross_channel.min_abs_r')} min={0} max={1} step={0.05} width={100}
+            onValid={v => s.set('cross_channel.min_abs_r', v)} testid="xc-min-r" />
+        </Row>
+        <Row label="propagation: |lag| at most" info="Above the artifact line and up to this many seconds, a pair at or above the r floor is the event travelling to the other electrode. Past it, independent recurrence."
+          dot={s.differs('cross_channel.propagation_max_lag_s')} unsaved={s.dirty('cross_channel.propagation_max_lag_s')} testid="xc-prop-row"
+          caption="bins already stored keep the rule they were computed under — the Family page says when it differs">
+          <NumberField value={s.num('cross_channel.propagation_max_lag_s')} min={0} max={3600} step={5} unit="s" width={110}
+            validate={v => v < s.num('cross_channel.artifact_max_lag_s') ? 'below the artifact line' : null}
+            onValid={v => s.set('cross_channel.propagation_max_lag_s', v)} testid="xc-prop-lag" />
+        </Row>
+      </SectionCard>
+
       <SectionCard title="Recommended values" subtitle="Settings holds the rule · each block evaluates it on its span" testid="rules-card"
         footer={<Button variant="link" size="sm" icon="plus" testid="add-rule" onClick={() => notWired('POST /api/settings/analysis-defaults/rules')}>Add a rule for a block parameter</Button>}>
         <Table rows={data.rules} rowKey={r => `${r.block}.${r.parameter}`} testid="rules-table" dense
