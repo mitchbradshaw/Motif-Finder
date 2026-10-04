@@ -2438,7 +2438,8 @@ def _matches_summary(conn, row, params, include_unjudged=False) -> dict:
             "cut": params.get("cut"), "scales": params.get("scales"),
             "includeUnjudged": bool(include_unjudged),
             "accepted": 0, "rejected": 0, "unjudged": 0, "judged": 0, "eligible": 0, "already": 0,
-            "acceptingVerdicts": list(matching_mod.ACCEPTING_VERDICTS), "reason": None}
+            "acceptingVerdicts": list(matching_mod.ACCEPTING_VERDICTS), "reason": None,
+            "family": None, "grouping": None}
     if row["kind"] != "seed":
         return dict(base, reason="only a seed search has matches to add to a Library entry")
     if not entry_id:
@@ -2449,6 +2450,14 @@ def _matches_summary(conn, row, params, include_unjudged=False) -> dict:
     if not run_ids:
         return dict(base, reason="the run has not finished: it has no runs to read matches from yet")
     entry = conn.execute("SELECT * FROM motif_entry WHERE id = ?", (int(entry_id),)).fetchone()
+    # the family that holds the entry in the current grouping, so the page can open it
+    g = _default_grouping(conn, "single_motifs")
+    fam = conn.execute(
+        "SELECT ga.family_label FROM grouping_assignments ga JOIN motif_member mm ON mm.id = ga.member_ref "
+        "WHERE ga.grouping_id = ? AND ga.unit = 'single_motifs' AND ga.family_id IS NOT NULL AND mm.entry_id = ? "
+        "LIMIT 1", (int(g["id"]), int(entry_id))).fetchone() if g is not None else None
+    base["family"] = fam["family_label"] if fam else None
+    base["grouping"] = gid_str(g["id"]) if g is not None else None
     rows = [r for r in matching_mod.match_verdicts(conn, run_ids, entry) if not r["is_exemplar"]]
     kinds = [matching_mod._classify(r["verdict"]) for r in rows]
     edged = set()

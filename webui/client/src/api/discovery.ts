@@ -19,6 +19,7 @@ import {
   postDiscoveryPlan, postDiscoveryPreview, startDiscoverySeedResults,
   type CutRule, type DivBreakdown, type PrecisionFigures, type DiscBand, type DiscBandsPayload, type DiscLikeForLike, type DiscPerBand, type DiscSetMember, type DiscVerdictSplit, type DiscSeedPageQuery, type DiscPlan, type DiscPlanBody, type DiscPreview, type DiscRecordingOption, type DiscSeedParams, type DiscSeedQuery, type DiscSeedResults,
 } from '../api'
+import { pollDiscoverySeedResultsBanked, type DiscSeedBank } from '../api'
 import { live, type Sourced } from './seam'
 import type { GlyphKind, Role } from '../fixtures/discovery'
 
@@ -59,6 +60,8 @@ export interface DiscoveryRun {
   runGroupId?: number; channelsDone?: string; found?: number
   /** fixup-y: a seed run's seed and cut — what the Seed page finds its own run by, never the label */
   seedId?: string; cut?: number | null; entryId?: number | null
+  /** fixup-v: the scale bank a seed run searched (null: the native length only) */
+  scales?: number[] | null
   /** fixup-z: one band of a band-scoped *Apply template*; the band runs of one application share `bandSet`,
    *  which Compare takes as one side (`set:<bandSet>`) */
   band?: DiscBand | null; bandSet?: string | null; bandIndex?: number | null
@@ -124,7 +127,7 @@ export const getRuns = (): Promise<Sourced<DiscoveryRun[]>> => live(getDiscovery
   template: opt(r.template), stageCount: opt(r.stageCount), version: opt(r.version),
   perChannelMin: opt(r.perChannelMin), job: opt(r.job), progress: r.progress, doneAt: r.doneAt, error: r.error,
   reviewedH: r.reviewedH, runGroupId: opt(r.runGroupId), channelsDone: opt(r.channelsDone), found: opt(r.found),
-  seedId: opt(r.seedId), cut: r.cut ?? null, entryId: r.entryId ?? null,
+  seedId: opt(r.seedId), cut: r.cut ?? null, entryId: r.entryId ?? null, scales: r.scales ?? null,
   band: r.band ?? null, bandSet: r.bandSet ?? null, bandIndex: r.bandIndex ?? null,
 }))))
 
@@ -207,6 +210,8 @@ export interface SeedParams {
   scaleBank: string; exclusionSamples?: number; exclusionS: number; overlap: string
   specExclusionS?: number; exclusionSettable?: boolean
   threshold: number | null; exclusionNote?: string
+  /** fixup-v: the bank Settings › Analysis defaults offers (`seed.scale_bank`), in words */
+  bank?: DiscSeedBank
 }
 export interface SeedInfo {
   id: string; role: string; source: string; title: string; family: string | null; familyLine: string | null
@@ -225,19 +230,23 @@ export interface SeedDraft {
 }
 /** `seed` is the draft's own seed, which need not be on any page of the picker (fixup-y). */
 export interface SeedSetup { draft: SeedDraft; seed: SeedInfo; seeds: SeedInfo[]; recommended: SeedParams }
-export interface SeedMatch { id: string; d: number; channel: string; atH: number; judged: boolean; verdict?: string | null; trace: number[] }
+export interface SeedMatch { id: string; d: number; channel: string; atH: number; judged: boolean; verdict?: string | null; trace: number[]
+  /** fixup-v: the factor of the seed's length this match was found at, and its length in samples */
+  scale?: number; length?: number }
 export interface SeedResults {
   candidates: SeedMatch[]; nullDistances: number[]
   recommendedCut: number | null; cutRule: CutRule | null
   nullDraws: number; nullMethod: string | null; nullSupported: boolean; nullReason: string | null
   exclusionNote?: string; m?: number
+  /** fixup-v: the bank searched, and the null drawn per length (distances pooled over channels, draws per channel) */
+  scales?: number[] | null; nullByScale?: Record<string, { distances: number[]; draws: number }> | null
 }
 
 const toParams = (p: DiscSeedParams): SeedParams => ({
   algorithm: p.algorithm, windowSamples: p.windowSamples, windowS: p.windowS, windowLocked: p.windowLocked,
   scaleBank: p.scaleBank, exclusionSamples: p.exclusionSamples, exclusionS: p.exclusionS, overlap: p.overlap,
   specExclusionS: p.specExclusionS, exclusionSettable: p.exclusionSettable,
-  threshold: p.threshold ?? null, exclusionNote: p.exclusion_note,
+  threshold: p.threshold ?? null, exclusionNote: p.exclusion_note, bank: p.bank,
 })
 const toSeed = (s: { trace: (number | null)[] } & Omit<SeedInfo, 'trace'>): SeedInfo => ({ ...s, trace: nums(s.trace) })
 
@@ -277,7 +286,7 @@ async function seedResults(q: DiscSeedQuery): Promise<DiscSeedResults> {
   const giveUpAt = Date.now() + GIVE_UP_MS
   for (;;) {
     await sleep(POLL_MS)
-    const r = await pollDiscoverySeedResults(q)
+    const r = await (q.scales?.length ? pollDiscoverySeedResultsBanked(q) : pollDiscoverySeedResults(q))
     if (r.ready) return r
     if (Date.now() > giveUpAt) {
       throw new ApiError(504, r.note ?? `the seeded search for ${q.seedId} is still running after ${GIVE_UP_MS / 60000} minutes`, r)
@@ -285,18 +294,20 @@ async function seedResults(q: DiscSeedQuery): Promise<DiscSeedResults> {
   }
 }
 
-export async function getSeedResults(seedId: string, channels: string[]): Promise<Sourced<SeedResults>> {
+export async function getSeedResults(seedId: string, channels: string[], bank?: { scales: number[]; overlap?: string } | null): Promise<Sourced<SeedResults>> {
   const s = await scope()
-  const r = await seedResults({ seedId, channels: channels.length ? channels : s.channels, t0: s.section[0], t1: s.section[1] })
+  const r = await seedResults({ seedId, channels: channels.length ? channels : s.channels, t0: s.section[0], t1: s.section[1],
+    ...(bank?.scales.length ? { scales: bank.scales, overlap: bank.overlap ?? 'lowest' } : {}) })
   return {
     source: 'live',
     data: {
-      candidates: r.candidates.map(c => ({ id: c.id, d: c.d, channel: c.channel, atH: c.atH, judged: c.judged, verdict: c.verdict, trace: nums(c.trace) })),
+      candidates: r.candidates.map(c => ({ id: c.id, d: c.d, channel: c.channel, atH: c.atH, judged: c.judged, verdict: c.verdict, trace: nums(c.trace), scale: c.scale, length: c.length })),
       nullDistances: r.nullDistances ?? [],
       recommendedCut: r.recommendedCut, cutRule: r.cutRule ?? null,
       nullDraws: r.null?.draws ?? 0, nullMethod: r.null?.method ?? null,
       nullSupported: r.null?.supported ?? true, nullReason: r.null?.reason ?? null,
       exclusionNote: r.exclusionNote, m: r.m,
+      scales: r.scales ?? null, nullByScale: r.null?.byScale ?? null,
     },
   }
 }

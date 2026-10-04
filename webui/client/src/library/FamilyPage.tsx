@@ -41,6 +41,7 @@ import { baselinePeak, referenceScale, type ReferenceScale } from '../charts/dom
 import { ReferenceBar, referenceWords } from '../charts/ReferenceBar'
 import { familyName } from './AtlasPage'
 import { EmptyMotifsPage } from './EmptyLibrary'
+import { EdgeList, MatchedMembers, ScaleReadout, memberEdges, type EdgeDetailExtras, type EdgeFamilyExtras } from './Edges'
 
 /** What the bridge actually returns for a removed member — `RemovedMember` plus the two fields
  *  `server/library.py` adds when the source row is still there. Declared here rather than widened in
@@ -296,6 +297,13 @@ function MotifFamilyView({ detail }: { detail: FamilyDetail }) {
                 { k: 'cross-channel', v: `artifact ${f.artifactChannels}` },
               ]} testid="summary-kv-2" />
             </div>
+            {/* fixup-v: §8.5's *Seed search in Discovery →* — the family's exemplar, by its Library entry */}
+            <div className="row" style={{ gap: 8 }}>
+              <Button size="sm" icon="target" iconRight="arrow-right" testid="family-seed-search"
+                disabled={(f as typeof f & EdgeFamilyExtras).exemplarEntryId == null} disabledReason="the exemplar is not a Library entry"
+                onClick={() => navigate(`discovery/seed?entry=${(f as typeof f & EdgeFamilyExtras).exemplarEntryId}`)}>Seed search in Discovery</Button>
+              <span className="lib-cap">edges {f.edges}</span>
+            </div>
           </div>
           <div>
             {/* this panel once overlaid ten SYNTHESISED member traces on the real medoid, then drew the medoid
@@ -364,6 +372,10 @@ function MotifFamilyView({ detail }: { detail: FamilyDetail }) {
             </div>
           </div>
         )}
+
+        {/* fixup-v: the Q3 read-out for the exemplar, and the members seed searches added — from motif_edge rows */}
+        <ScaleReadout readout={(detail as FamilyDetail & EdgeDetailExtras).scaleReadout} />
+        <MatchedMembers matched={(detail as FamilyDetail & EdgeDetailExtras).matched ?? []} entryLabel={(detail as FamilyDetail & EdgeDetailExtras).scaleReadout?.entry ?? null} />
 
         <div className="k-card lib-batch" data-testid="batch-bar">
           {selInList.length ? <>
@@ -518,6 +530,11 @@ function MemberRail({ m, f, detail, refScale, edits, setEdits, onUndoAdd, onRemo
         {revisions.length
           ? <button ref={revRef} type="button" className="lib-plain mono v" data-testid="revisions-link" onClick={() => setPopover(popover === 'revisions' ? null : 'revisions')}>{revisions.map(r => `rev ${r.rev} ${r.origin === 'machine' ? `machine ${r.spanId}` : `edited ${r.spanId}`}`).join(' · ')}</button>
           : <span className="mono v muted" data-testid="revisions-none">no revisions recorded for this member</span>}</div>
+      {/* fixup-v: §8.5's edge provenance — every edge this member carries: distance, value, cut, scale, recipe */}
+      <div className="stack" style={{ gap: 3 }} data-testid="rail-edge-provenance">
+        <span className="lib-cap" style={{ fontSize: 11 }}>edges · distance, value, cut, scale, run and recipe</span>
+        <EdgeList edges={memberEdges(detail, m.id)} testid="rail-edges" limit={6} />
+      </div>
       <div className="lib-kvrow"><span className="k">verdict <InfoTip title="verdicts are read-only here">verdicts are written only in Review and Explore (§4.1, P6)</InfoTip></span>
         <span className="v">{m.verdict === 'unjudged' ? <span style={{ color: '#c27400' }}>unjudged</span> : <><span style={{ width: 7, height: 7, borderRadius: '50%', background: VERDICT_COLOUR[m.verdict], display: 'inline-block', marginRight: 5 }} />{m.verdict}{m.verdictAt ? ` · ${m.verdictAt}` : ''}</>}
           <Button variant="link" size="sm" testid="open-in-review" onClick={() => navigate(`review?item=${m.id}`)}>Open in Review</Button></span></div>

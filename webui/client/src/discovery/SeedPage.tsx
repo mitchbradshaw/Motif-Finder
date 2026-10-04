@@ -68,7 +68,13 @@ export function SeedPage() {
   const tab: SeedSource = (sourceQ || seed?.source || 'library') as SeedSource
   const channels = dx.scope?.channels ?? []
   const noResults: SeedResults = { candidates: [], nullDistances: [], recommendedCut: null, cutRule: null, nullDraws: 0, nullMethod: null, nullSupported: true, nullReason: null }
-  const results = useSourced(() => seed ? getSeedResults(seed.id, channels) : Promise.resolve({ data: noResults, source: 'demo' as const }), [seed?.id, channels.join(',')])
+  /* fixup-v: the scale bank. Its lengths are Settings' one key (`analysis-defaults · seed.scale_bank`), served on
+   * the setup; choosing it searches the seed resampled to each length, and the result, the null and the run are
+   * all of that search. */
+  const bank = setup.data?.recommended.bank ?? null
+  const bankOn = !!bank && draft?.params.scaleBank === 'bank'
+  const bankQ = bankOn ? { scales: bank!.scales, overlap: draft!.params.overlap === 'first' || draft!.params.overlap === 'all' ? draft!.params.overlap : 'lowest' } : null
+  const results = useSourced(() => seed ? getSeedResults(seed.id, channels, bankQ) : Promise.resolve({ data: noResults, source: 'demo' as const }), [seed?.id, channels.join(','), bankQ?.scales.join(','), bankQ?.overlap])
 
   // deep links ?state=running|done|failed put the simulated search straight into that state
   useEffect(() => {
@@ -107,7 +113,8 @@ export function SeedPage() {
   /* The Seed page's own run is found by its SEED and its CUT, which the server carries on the row
    * (fixup-y) — never by the label, which three runs of one seed all shared. */
   const sameCut = (a: number | null | undefined, b: number | null) => (a ?? null) == null ? b == null : b != null && Math.abs((a as number) - b) < 1e-9
-  const finished = seed ? dx.runs.find(r => r.kind === 'seed' && r.seedId === seed.id && sameCut(r.cut, threshold)) ?? null : null
+  const sameBank = (a: number[] | null | undefined) => (a ?? []).join(',') === (bankQ?.scales ?? []).join(',')
+  const finished = seed ? dx.runs.find(r => r.kind === 'seed' && r.seedId === seed.id && sameCut(r.cut, threshold) && sameBank(r.scales)) ?? null : null
 
   /* The run row is the server's: the old version invented one client-side,
    * keyed by the draft and carrying `template: 'seed_F03_native_2'`, a name no
@@ -172,7 +179,7 @@ export function SeedPage() {
                           </>}
                       </>
                     )}
-                    <ApplyBar dx={dx} draft={draft} kept={threshold == null ? null : kept.length} cut={threshold} finished={finished} seed={seed} sim={sim}
+                    <ApplyBar dx={dx} draft={draft} kept={threshold == null ? null : kept.length} cut={threshold} finished={finished} seed={seed} sim={sim} bank={bankQ}
                       onStarted={r => setLastRun(r)} onSave={() => setModal('save-template')} />
                   </div>
                 </div>
@@ -364,7 +371,7 @@ const fmtTick = (v: number) => `${v < 0 ? '−' : '+'}${Math.abs(v).toFixed(2)}`
 /* ------------------------------------------------------------------ parameters + where to cut */
 function ParamsCard({ draft, recommended, seed, setParams, results, kept, nullKept, cut, cutIsRecommended }: {
   draft: SeedDraft; recommended: SeedParams; seed: SeedInfo | null; setParams: (p: Partial<SeedParams>) => void
-  results: { candidates: SeedMatch[]; nullDistances: number[]; cutRule?: CutRule | null } | null; kept: number; nullKept: number
+  results: { candidates: SeedMatch[]; nullDistances: number[]; cutRule?: CutRule | null; nullByScale?: SeedResults['nullByScale'] } | null; kept: number; nullKept: number
   /** The cut in force: the researcher's if they chose one, else the null's own
    *  recommendation. `recommended.threshold` is always null — the parameter card
    *  cannot know a cut before the search has drawn a null. */
@@ -373,6 +380,7 @@ function ParamsCard({ draft, recommended, seed, setParams, results, kept, nullKe
   const p = draft.params
   const m = seed?.samples ?? 21
   const half = Math.round(m / 2 - 0.01)
+  const bank = recommended.bank ?? null
   const differs = (Object.keys(recommended) as (keyof SeedParams)[]).some(k => p[k] !== recommended[k])
   const [thrRaw, setThrRaw] = useState<string | null>(null)
   return (
@@ -391,9 +399,9 @@ function ParamsCard({ draft, recommended, seed, setParams, results, kept, nullKe
         <ParamField label="window m" info="Locked at the exemplar's native length: a seed is searched at the length it was drawn.">
           <SelectField value="native" onChange={() => undefined} options={[{ value: 'native', label: `${m} samples · native` }]} disabled disabledReason={`window is the exemplar's native length (${m} samples)`} testid="param-window" />
         </ParamField>
-        <ParamField label="scale bank" info="A bank searches several stretched copies of the seed. MASS searches one length.">
-          <Dropdown value={p.scaleBank} onChange={v => setParams({ scaleBank: v })} block testid="param-scale-bank"
-            options={[{ value: 'none', label: 'none' }, { value: '3', label: '3 lengths · 0.8× 1× 1.25×', disabled: true, reason: 'needs a scale-bank algorithm' }]} />
+        <ParamField label="scale bank" info={`A bank searches stretched copies of the seed: the seed resampled to each length, MASS at each, every distance put on the native length's footing (d·√(m/L)) so one cut means one thing, and matches of two lengths that overlap reduced by the overlap policy below. The null is drawn per length. The lengths are Settings › Analysis defaults${bank ? ` (${bank.settings})` : ''}.`}>
+          <Dropdown value={p.scaleBank === 'bank' && bank ? 'bank' : 'none'} onChange={v => setParams({ scaleBank: v })} block testid="param-scale-bank"
+            options={[{ value: 'none', label: 'none · native length' }, { value: 'bank', label: bank ? `${bank.label} (${bank.lengths.join(' · ')} samples)` : 'scale bank', disabled: !bank, reason: 'no scale bank is set in Settings › Analysis defaults' }]} />
         </ParamField>
         {/* The figure is the guard that RAN — stumpy.match's m/4 — and the note carries §7.6's m/2
             beside it. The slider is disabled because `detection.seed_matches` takes no exclusion
@@ -429,11 +437,33 @@ function ParamsCard({ draft, recommended, seed, setParams, results, kept, nullKe
             options={[{ value: 'lowest', label: 'keep lowest distance' }, { value: 'first', label: 'keep first' }, { value: 'all', label: 'keep all (overlapping)' }]} />
         </ParamField>
       </div>
+      {results && results.candidates.length && results.nullByScale ? <NullPerLength results={results} cut={cut} m={m} /> : null}
       {results && results.candidates.length
         ? <CutHistogram candidates={results.candidates} nullDistances={results.nullDistances} threshold={cut} recommended={cut} kept={kept} nullKept={nullKept} rule={results.cutRule ?? null} onThreshold={t => setParams({ threshold: t })} />
         : <div className="dsc-cut-empty"><EmptyState size="sm" icon="bar-chart" title={results ? 'No cut yet' : 'No distances yet'}
           caption={results ? 'the recommended cut comes from the null distribution — run the search to draw one' : 'pick a seed to see where to cut'} /></div>}
     </section>
+  )
+}
+/** fixup-v: with a scale bank the null is drawn per length — a search at 1.25× is a different search from one at
+ *  0.8× and has its own chance level — so each length's kept count stands beside what its own null gives. Counts,
+ *  not a test: nothing here says whether a length beats its null. */
+function NullPerLength({ results, cut, m }: { results: { candidates: SeedMatch[]; nullByScale?: SeedResults['nullByScale'] }; cut: number | null; m: number }) {
+  const rows = Object.entries(results.nullByScale ?? {}).map(([k, v]) => {
+    const scale = Number(k)
+    const kept = cut == null ? 0 : results.candidates.filter(c => (c.scale ?? 1) === scale && c.d <= cut).length
+    const nullHits = cut == null ? 0 : v.distances.filter(d => d <= cut).length
+    return { scale, length: Math.round(m * scale), kept, perDraw: v.draws ? nullHits / v.draws : null, draws: v.draws }
+  }).sort((a, b) => a.scale - b.scale)
+  return (
+    <div className="mono small" data-testid="null-per-length" style={{ display: 'grid', gap: 2, margin: '4px 0 2px' }}>
+      <span className="muted">per length, at {cut == null ? 'no cut' : `d ≤ ${cut}`} · kept · the null gives (per draw)</span>
+      {rows.map(r => (
+        <span key={r.scale} data-testid={`null-length-${r.scale}`}>
+          {r.scale}× · {r.length} samples · {r.kept} kept · {r.perDraw == null ? 'no null drawn' : `${fmtNull(r.perDraw)} per draw (${r.draws} draws)`}
+        </span>
+      ))}
+    </div>
   )
 }
 function ParamField({ label, info, aside, children }: { label: string; info: string; aside?: React.ReactNode; children: React.ReactNode }) {
@@ -680,7 +710,7 @@ function MatchesCard({ seed, matches, channels, note = null }: { seed: SeedInfo;
               <span className="row between mono small"><b>{mt.id}</b><span className="muted">d {mt.d.toFixed(2)}</span></span>
               <SeedThumb values={seedC} overlay={mt.trace} yDomain={yDomain} width={130} height={40} />
               {mt.trace.length === 0 && <span className="small muted" data-testid="match-no-trace">no trace served for this match</span>}
-              <span className="mono small muted row" style={{ gap: 4 }}>{mt.judged && <span className="dot" style={{ background: 'var(--green)' }} title="already judged" />}{mt.channel} · {mt.atH.toFixed(1)} h</span>
+              <span className="mono small muted row" style={{ gap: 4 }}>{mt.judged && <span className="dot" style={{ background: 'var(--green)' }} title="already judged" />}{mt.channel} · {mt.atH.toFixed(1)} h{mt.scale != null && <span data-testid="match-scale" title={`found by the seed stretched to ${mt.length} samples`}> · {mt.scale}×</span>}</span>
             </button>
           ))}
         </div>
@@ -690,9 +720,10 @@ function MatchesCard({ seed, matches, channels, note = null }: { seed: SeedInfo;
 }
 
 /* ------------------------------------------------------------------ apply bar */
-function ApplyBar({ dx, draft, kept, cut, finished, seed, sim, onStarted, onSave }: {
+function ApplyBar({ dx, draft, kept, cut, finished, seed, sim, onStarted, onSave, bank = null }: {
   dx: Discovery; draft: SeedDraft; kept: number | null; cut: number | null; finished: DiscoveryRun | null; seed: SeedInfo | null
   sim: ReturnType<typeof useSim>; onStarted: (r: { key: string; label: string }) => void; onSave: () => void
+  bank?: { scales: number[]; overlap: string } | null
 }) {
   // §7.6's apply bar diffs the parameters against the ones the last search ran with. `applied` is null
   // until the search has run once: then every parameter is unapplied, which is not "no changes".
@@ -700,7 +731,7 @@ function ApplyBar({ dx, draft, kept, cut, finished, seed, sim, onStarted, onSave
     algorithm: 'algorithm', windowSamples: 'window', windowS: 'window length', windowLocked: 'window locked',
     scaleBank: 'scale bank', exclusionSamples: 'exclusion samples', exclusionS: 'exclusion zone',
     exclusionNote: 'exclusion guard', specExclusionS: 'spec exclusion zone', exclusionSettable: 'exclusion settable',
-    threshold: 'threshold', overlap: 'on overlap',
+    threshold: 'threshold', overlap: 'on overlap', bank: 'bank lengths',
   }
   // the fields the parameter card sets; the rest of SeedParams is the server describing what it did
   // `exclusionS` is not in this list any more: the block takes no exclusion
@@ -732,6 +763,7 @@ function ApplyBar({ dx, draft, kept, cut, finished, seed, sim, onStarted, onSave
     runDiscoverySeedSearchOnce({
       seedId: seed.id, channels, t0: dx.scope.section[0], t1: dx.scope.section[1],
       k: SEED_K, cut: cut ?? undefined, label: draft.label,
+      ...(bank ? { scales: bank.scales, overlap: bank.overlap } : {}),
     }).then(r => { onStarted({ key: r.run_key, label: r.label }); dx.reload() })
       .catch(e => { sim.reset?.(); console.error('the seed search could not start', e) })
   }

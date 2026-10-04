@@ -14,6 +14,7 @@ import {
 } from '../api/discovery'
 import { CostChip, DiscoveryToolbar, HistoryButton, LoadFailed, Loading, NullChip, Refreshing, RunsCard, ScopeCard, SlurmModal } from './chrome'
 import { AddTemplateModal } from './AddTemplateModal'
+import { AddMatchesButton } from './AddMatches'
 import { PrecisionCell } from './Precision'
 import { hasResults, useDiscovery, type Discovery } from './session'
 
@@ -418,6 +419,8 @@ function RunActs({ dx, run }: { dx: Discovery; run: DiscoveryRun | null }) {
       {sent[run.key] != null
         ? <Button icon="check" onClick={() => navigate(`review/queue/${sent[run.key].queueId}`)} testid="send-to-review" data-queue={sent[run.key].queueId}>Sent {sent[run.key].n} · open in Review · then refresh</Button>
         : <Button variant="primary" icon="arrow-right" onClick={send} disabled={!!reason || unjudged === 0} disabledReason={reason ?? 'nothing unjudged'} testid="send-to-review">Send {unjudged} unjudged to Review</Button>}
+      {/* fixup-v: a seed run's accepted matches become members of the entry it searched for, with their edges */}
+      {run.kind === 'seed' && results && <AddMatchesButton run={run} />}
       <Modal open={confirm === 'discard' && !reason} onClose={() => setConfirm(null)} title={`Discard ${run.label}?`} size="sm" testid="discard-modal"
         footer={<><Button onClick={() => setConfirm(null)}>Cancel</Button><Button variant="danger-solid" icon="trash" onClick={discard} testid="discard-confirm">Discard run</Button></>}>
         <p>Marks the run superseded. Writes <b>no adjudications</b> — its {total?.found ?? 0} detections are not marked not_interesting.</p>

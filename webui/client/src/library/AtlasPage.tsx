@@ -242,7 +242,9 @@ function MotifRail({ f, inScope, scoped, refScale, grouping, traces }: { f: Moti
       ]} testid="rail-stats" />
       <div className="lib-rail-actions">
         <Button variant="primary" iconRight="arrow-right" testid="open-family" onClick={() => navigate(`library/family/${f.id}`)}>Open all {f.members} members</Button>
-        <Button icon="target" iconRight="arrow-right" testid="seed-search" onClick={() => navigate(`discovery/seed?seed=${encodeURIComponent(f.exemplar)}&family=${encodeURIComponent(f.id)}`)}>Seed search in Discovery</Button>
+        {/* fixup-v: the seed is the exemplar's Library entry; `?seed=m-718` named a member id, which no seed id is */}
+        <Button icon="target" iconRight="arrow-right" testid="seed-search" disabled={(f as typeof f & { exemplarEntryId?: number | null }).exemplarEntryId == null} disabledReason="the exemplar is not a Library entry"
+          onClick={() => navigate(`discovery/seed?entry=${(f as typeof f & { exemplarEntryId?: number | null }).exemplarEntryId}`)}>Seed search in Discovery</Button>
         <Button icon="link" iconRight="arrow-right" testid="interrogate" onClick={() => navigate(`analyse/interrogation?source=family:${encodeURIComponent(f.id)}`)}>Interrogate in Analyse</Button>
         <Button icon="checklist" iconRight="arrow-right" testid="send-unjudged" disabled={!unjudged} disabledReason="every member is judged" onClick={() => queue(`Library · ${f.id} unjudged`, unjudged)}>Send {unjudged} unjudged to Review</Button>
         <ExportEntry id={f.id} grouping={grouping.id} />
