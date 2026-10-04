@@ -135,7 +135,8 @@ def test_every_bin_prints_its_rule_from_the_values_used():
     rule = xc.CrossChannelRule(artifact_max_lag_s=2.0, min_abs_r=0.6, propagation_max_lag_s=30.0)
     words = rule.describe()
     assert set(words) == set(xc.BINS)
-    assert "2 s" in words[ARTIFACT] and "0.6" in words[ARTIFACT]
+    # fixup-AD: the artifact test has its own r floor (0.98); 0.6 is propagation's
+    assert "2 s" in words[ARTIFACT] and "0.98" in words[ARTIFACT] and "0.6" in words[PROPAGATION]
     assert "30 s" in words[PROPAGATION]
     assert "0.6" in words[INDEPENDENT_RECURRENCE]
 

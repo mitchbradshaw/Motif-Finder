@@ -81,6 +81,9 @@ _UNIT_STORE = {
     "human span": "annotations",
     "sequence": "annotations",
     "window": "window_verdicts",
+    # fixup-AD: a family member flagged as a suspected artifact; the verdict is
+    # a human row over the member's span (`artifact_queue`)
+    "member": "annotations",
 }
 
 #: The table a unit's ids are ids OF. A `sequence` target is a `sequences` row
@@ -90,10 +93,11 @@ _UNIT_SOURCE = {
     "detection": "detections",
     "human span": "annotations",
     "sequence": "sequences",
+    "member": "motif_member",
 }
 
 _UNIT_NOUN = {"detection": "detection", "human span": "annotation",
-              "sequence": "sequence"}
+              "sequence": "sequence", "member": "family member"}
 
 
 def _row_exists(conn, table, row_id):
@@ -233,6 +237,12 @@ def _resolve_target(conn, queue, target_id):
                 f"span for its verdict to land on. Refusing rather than "
                 f"guessing at a row.")
         return rid, int(ann)
+
+    if unit == "member":
+        # the verdict lands on this queue's own annotation over the member's
+        # span, or on a new one: which is decided when it is written
+        from Working.review.artifact_queue import review_annotation_id
+        return rid, review_annotation_id(conn, rid)
 
     return rid, rid
 
@@ -447,6 +457,11 @@ def _restore_adjudication(conn, target_id, prior):
 def _restore_annotation(conn, target_id, prior):
     if prior is None:
         return
+    if prior.get("inserted"):
+        # the verdict created this row (a suspected-artifact queue's): undo
+        # withdraws it, the way every human row is withdrawn — soft
+        conn.execute("UPDATE annotations SET deleted_at = ? WHERE id = ?", (_now(), target_id))
+        return
     conn.execute("UPDATE annotations SET verdict = ?, note = ? WHERE id = ?",
                  (prior["verdict"], prior["note"], target_id))
     if prior.get("tags") is not None:
@@ -496,18 +511,23 @@ def _apply(conn, queue, target_id, row_id, verdict, note, tags, window_index):
     lands on. They differ only for a sequence queue, where the target names a
     `sequences` row and the verdict belongs on that sequence's own annotation.
 
-    Returns `(prior, coords)`: the state that was there before, and for a
+    Returns `(prior, coords, row_id)`: the state that was there before, for a
     window queue the `(window_set_id, window_index)` the write landed on —
     because the audit payload must carry BOTH halves of that key or undo
-    cannot find the row again.
+    cannot find the row again — and the row it landed on (a member queue's
+    verdict may create its annotation, so the row is known only here).
     """
     writes_to = queue["writes_to"]
     if writes_to == "adjudications":
-        return _write_adjudication(conn, row_id, verdict, note, tags), None
+        return _write_adjudication(conn, row_id, verdict, note, tags), None, row_id
+    if writes_to == "annotations" and queue["unit"] == "member":
+        from Working.review.artifact_queue import write_member_verdict
+        prior, row_id = write_member_verdict(conn, queue, target_id, verdict, note, tags)
+        return prior, None, row_id
     if writes_to == "annotations":
-        return _write_annotation(conn, row_id, verdict, note, tags), None
+        return _write_annotation(conn, row_id, verdict, note, tags), None, row_id
     coords = _window_coords(queue, target_id, window_index)
-    return _write_window(conn, queue, coords, verdict, note), coords
+    return _write_window(conn, queue, coords, verdict, note), coords, row_id
 
 
 def write_verdict(conn, queue_id, target_id, verdict, *, note=None, tags=None,
@@ -532,8 +552,8 @@ def write_verdict(conn, queue_id, target_id, verdict, *, note=None, tags=None,
     _check_membership(conn, queue, [target_id])
     tags = _normalise_tags(conn, tags)
     _check_tags(conn, tags)
-    prior, coords = _apply(conn, queue, target_id, row_id, verdict, note, tags,
-                           window_index)
+    prior, coords, row_id = _apply(conn, queue, target_id, row_id, verdict, note, tags,
+                                   window_index)
     payload = {
         "writes_to": queue["writes_to"],
         "verdict": verdict,
@@ -581,8 +601,8 @@ def write_batch(conn, queue_id, target_ids, verdict, *, note=None, tags=None):
     targets = []
     window_set_id = None
     for tid, row_id in resolved:
-        prior, coords = _apply(conn, queue, tid, row_id, verdict, note, tags,
-                               None)
+        prior, coords, row_id = _apply(conn, queue, tid, row_id, verdict, note, tags,
+                                       None)
         if coords is not None:
             window_set_id = coords[0]
         targets.append({"target_id": tid, "row_id": row_id, "prior": prior,

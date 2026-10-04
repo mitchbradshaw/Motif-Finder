@@ -738,14 +738,14 @@ CREATE TABLE IF NOT EXISTS review_queues (
     source_kind   TEXT    NOT NULL CHECK (source_kind IN (
                       'discovery-run', 'seed-search', 'explore-spans',
                       'training-windows', 'model-verification',
-                      'extract-events')),
+                      'extract-events', 'suspected-artifact')),
     -- What the source kind points at: a run_group_id, a session/search id, a
     -- window-set id, or empty for a whole-corpus sweep. TEXT because the five
     -- kinds key on different things and a typed column per kind would be five
     -- mostly-null columns.
     source_ref    TEXT,
     -- The unit a verdict lands on, and therefore which table it writes.
-    unit          TEXT    NOT NULL CHECK (unit IN ('detection', 'human span', 'window', 'sequence')),
+    unit          TEXT    NOT NULL CHECK (unit IN ('detection', 'human span', 'window', 'sequence', 'member')),
     writes_to     TEXT    NOT NULL CHECK (writes_to IN ('adjudications', 'annotations', 'window_verdicts')),
     blind         INTEGER NOT NULL DEFAULT 0,
     -- NULL = no cap. A cap is a promise about how long the queue is, so the
@@ -1162,14 +1162,14 @@ def _annotations_verdict_is_current(conn):
     return all("'{}'".format(v) in row[0] for v in VERDICTS)
 
 
-def _backup_database(conn, db_path):
+def _backup_database(conn, db_path, label="pre-seed-rebuild"):
     """Snapshot the database beside itself before anything destructive runs.
 
     Uses SQLite's own backup API rather than a file copy, so the snapshot is
     transactionally consistent even with the connection open.
     """
     stamp = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
-    backup_path = "{}.pre-seed-rebuild-{}.bak".format(db_path, stamp)
+    backup_path = "{}.{}-{}.bak".format(db_path, label, stamp)
     dest = sqlite3.connect(backup_path)
     try:
         conn.backup(dest)
@@ -1443,6 +1443,76 @@ def _migrate_legacy_detections(conn):
     migrate_legacy_detections(conn)
 
 
+# ── fixup-AD: `review_queues` learns the suspected-artifact kind ─────────────
+#
+# The table CHECKs its `source_kind` and `unit`, and SQLite cannot widen a
+# CHECK in place, so a database made before 2026-10-05 is rebuilt once: the
+# same pattern as `_migrate_annotations_verdict` — backed up first, one
+# transaction, the row count and the rows that point at it (`review_audit`,
+# `window_verdicts`) verified before COMMIT, the indexes put back. The new
+# table's text is `_REVIEW_SCHEMA`'s own, so the two cannot drift. Idempotent:
+# once the live table names the kind this is one `sqlite_master` read.
+_REVIEW_QUEUES_NEW_KIND = "'suspected-artifact'"
+
+
+def _review_queues_rebuild_sql():
+    start = _REVIEW_SCHEMA.index("CREATE TABLE IF NOT EXISTS review_queues (")
+    end = _REVIEW_SCHEMA.index(");", start) + 2
+    return _REVIEW_SCHEMA[start:end].replace(
+        "CREATE TABLE IF NOT EXISTS review_queues (", "CREATE TABLE review_queues_rebuild (", 1)
+
+
+def _migrate_review_queues_kinds(conn, db_path=None):
+    """Rebuild `review_queues` so its CHECKs accept the `suspected-artifact`
+    kind and the `member` unit. Returns the backup path, or None."""
+    row = conn.execute("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'review_queues'").fetchone()
+    if row is None or row[0] is None or _REVIEW_QUEUES_NEW_KIND in row[0]:
+        return None
+    dependents = [r[0] for r in conn.execute(
+        "SELECT sql FROM sqlite_master WHERE type IN ('index', 'trigger') AND tbl_name = 'review_queues' "
+        "AND sql IS NOT NULL")]
+    backup_path = None
+    if db_path and db_path != ":memory:":
+        backup_path = _backup_database(conn, db_path, label="pre-review-queues-rebuild")
+    live_cols = [r[1] for r in conn.execute("PRAGMA table_info(review_queues)")]
+    prior_isolation = conn.isolation_level
+    conn.commit()
+    conn.isolation_level = None
+    fk_was_on = conn.execute("PRAGMA foreign_keys").fetchone()[0]
+    conn.execute("PRAGMA foreign_keys = OFF")
+    try:
+        conn.execute("BEGIN")
+        n_rows = conn.execute("SELECT COUNT(*) FROM review_queues").fetchone()[0]
+        n_refs = (conn.execute("SELECT COUNT(*) FROM review_audit WHERE queue_id IS NOT NULL").fetchone()[0],
+                  conn.execute("SELECT COUNT(*) FROM window_verdicts WHERE queue_id IS NOT NULL").fetchone()[0])
+        conn.execute(_review_queues_rebuild_sql())
+        new_cols = {r[1] for r in conn.execute("PRAGMA table_info(review_queues_rebuild)")}
+        orphans = [c for c in live_cols if c not in new_cols]
+        if orphans:
+            raise RuntimeError("review_queues carries column(s) the rebuild would drop: {}".format(", ".join(orphans)))
+        cols = ", ".join(live_cols)
+        conn.execute("INSERT INTO review_queues_rebuild ({0}) SELECT {0} FROM review_queues".format(cols))
+        conn.execute("DROP TABLE review_queues")
+        conn.execute("ALTER TABLE review_queues_rebuild RENAME TO review_queues")
+        for sql in dependents:
+            conn.execute(sql)
+        final = conn.execute("SELECT COUNT(*) FROM review_queues").fetchone()[0]
+        refs = (conn.execute("SELECT COUNT(*) FROM review_audit WHERE queue_id IS NOT NULL").fetchone()[0],
+                conn.execute("SELECT COUNT(*) FROM window_verdicts WHERE queue_id IS NOT NULL").fetchone()[0])
+        if final != n_rows or refs != n_refs:
+            raise RuntimeError("review_queues rebuild ended with {} rows / {} references, expected {} / {}"
+                               .format(final, refs, n_rows, n_refs))
+        conn.execute("COMMIT")
+    except Exception:
+        conn.execute("ROLLBACK")
+        raise
+    finally:
+        conn.execute("PRAGMA foreign_keys = {}".format("ON" if fk_was_on else "OFF"))
+        conn.isolation_level = prior_isolation
+    logging.getLogger(__name__).info("review_queues rebuilt for the suspected-artifact kind (backup: %s)", backup_path)
+    return backup_path
+
+
 def init_db(db_path=None):
     """Create every table (and index) if it doesn't already exist.
 
@@ -1486,4 +1556,6 @@ def init_db(db_path=None):
     # Must run after the column migrations: the rebuild copies whatever columns
     # the live table has, so they need to be there first.
     _migrate_annotations_verdict(conn, db_path)
+    # After the review tables exist (fixup-AD): widen the queue kinds once.
+    _migrate_review_queues_kinds(conn, db_path)
     return conn

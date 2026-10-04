@@ -430,6 +430,82 @@ def _edges_among(conn, ids):
     return [e for e in out if int(e["member_b_id"]) in keep]
 
 
+# ── fixup-AD: the chance test, the noise floor and the minimum length ────────
+
+def _human_artifact_spans(conn, recording_ids):
+    """`{recording_id: [(start, end), ...]}` — the spans a HUMAN marked
+    artifact (`annotations`, never a machine row): the chance test's random
+    windows never cut one."""
+    ids = sorted({int(r) for r in recording_ids})
+    out = {rid: [] for rid in ids}
+    for i in range(0, len(ids), _CHUNK):
+        part = ids[i:i + _CHUNK]
+        marks = ",".join("?" * len(part))
+        for r in conn.execute(f"SELECT recording_id, start_idx, end_idx FROM annotations WHERE verdict = 'artifact' "
+                              f"AND deleted_at IS NULL AND recording_id IN ({marks})", tuple(part)):
+            out[int(r[0])].append((int(r[1]), int(r[2])))
+    return out
+
+
+def _ptp_mv(x, units):
+    """Peak-to-peak of `x` in mV by the recording's declared unit; None when the
+    unit is undeclared (never assumed — fixup-B)."""
+    from Working.units import to_mv_factor
+
+    f = to_mv_factor(units)
+    if f is None or len(x) == 0:
+        return None
+    return float(np.ptp(np.asarray(x, dtype=float))) * f
+
+
+def _floor_check(x, y, units_x, units_y, floor):
+    """Both swings against the dataset's noise floor (Round 11 Q40d-3: the twin
+    must itself be an event, not merely correlate)."""
+    px, py = _ptp_mv(x, units_x), _ptp_mv(y, units_y)
+    out = {"member_ptp_mv": px, "sibling_ptp_mv": py, "floor_mv": float(floor["floor_mv"]),
+           "from": floor["from"], "ok": False, "reason": None}
+    if px is None or py is None:
+        out["reason"] = "a unit is undeclared (Settings › Datasets), so neither swing can be put in mV"
+    elif px < out["floor_mv"] or py < out["floor_mv"]:
+        out["reason"] = (f"{'the member' if px < out['floor_mv'] else 'the sibling'}'s swing is under the noise "
+                         f"floor ({out['floor_mv']:g} mV)")
+    else:
+        out["ok"] = True
+    return out
+
+
+def _amplitude_ratio(floor):
+    px, py = floor.get("member_ptp_mv"), floor.get("sibling_ptp_mv")
+    return (py / px) if (px and py is not None) else None
+
+
+def _too_short(m, rule):
+    return int(m["end_idx"]) - int(m["start_idx"]) < int(rule.min_samples)
+
+
+def _clear_pair(conn, a_id, b_id, info):
+    """A pair the rule does not classify any more (a member too short to tell):
+    the classifier's own edge goes; any other edge (a seed match's) keeps its
+    distance and loses only the classification the classifier wrote on it."""
+    for row in _pair_edges(conn, a_id, b_id):
+        if row["distance_function"] == CROSS_CHANNEL_DISTANCE:
+            conn.execute("DELETE FROM motif_edge WHERE id = ?", (row["id"],))
+        elif row["classification_bin"] is not None or row["lag"] is not None:
+            _set_motif_edge_classification(conn, row["id"], None, None, None,
+                                           json.dumps(info, sort_keys=True), commit=False)
+
+
+def _judge(xc, x, y, sibling, w0, w1, fs, rule, seed, forbidden, units_x, units_y, floor):
+    """One pair, in full: the waveform's lag and r, its chance test on the
+    sibling, both swings against the floor, and the bin all three make."""
+    lag, r = xc.cross_correlation_peak(x, y)
+    null = xc.chance_null(x, sibling, w0, w1, fs, rule=rule, seed=seed, forbidden=forbidden)
+    chance = xc.chance_summary(r, null)
+    fl = _floor_check(x, y, units_x, units_y, floor)
+    b = xc.bin_for(lag / fs, r, rule, beats_chance=chance["beats"], above_floor=fl["ok"])
+    return int(lag), float(r), b, chance, fl
+
+
 def classify_family_across_channels(conn, member_ids, rule=None, progress=None, cancel=None,
                                     exclude_source_files=()):
     """Classify one family's members against their sibling channels, on
@@ -448,6 +524,15 @@ def classify_family_across_channels(conn, member_ids, rule=None, progress=None, 
       the family as a *co-occurrence without a member* when it bins artifact or
       propagation, **never written as an edge** (Q40c).
 
+    fixup-AD: every pair also carries its **chance test** (the same sibling at
+    `rule.null_k` random other times, seeded from the member ids;
+    `cross_channel.chance_null`) and the **noise floor** on both swings
+    (`view_filter.dataset_floors`, in mV by `recordings.units`); a pair that
+    fails either is independent. A member under `rule.min_samples` is **too
+    short to tell**: never classified, its stale rows cleared, its id in
+    `tooShort`. The bin `artifact` now means *suspected* — a human confirms it
+    (`Working.review.artifact_queue`).
+
     An existing edge between two members on sibling channels that are further
     apart than the ceiling is `independent_recurrence` with no lag and no r:
     they are not simultaneous, so there is no lag to measure (Q40a).
@@ -458,6 +543,7 @@ def classify_family_across_channels(conn, member_ids, rule=None, progress=None, 
     `exclude_source_files` (the held-out recording) are never read.
     """
     from Working import cross_channel as xc
+    from Working.library.view_filter import dataset_floors
 
     rule = rule or xc.rule_from_settings(conn)
     excluded = set(exclude_source_files or ())
@@ -467,6 +553,7 @@ def classify_family_across_channels(conn, member_ids, rule=None, progress=None, 
             skipped.append({"member_id": m["id"], "reason": f"{m['source_file']} is held out and is never read"})
         else:
             members.append(m)
+    short = {int(m["id"]) for m in members if _too_short(m, rule)}
 
     by_rec = {}
     for m in members:
@@ -474,6 +561,9 @@ def classify_family_across_channels(conn, member_ids, rule=None, progress=None, 
     sibs = {sf: [dict(r) for r in q.list_recordings(conn, sf)] for sf in {m["source_file"] for m in members}}
     channels = sorted(by_rec, key=lambda rid: (by_rec[rid][0]["source_file"], int(by_rec[rid][0]["channel"])))
     total = len(channels)
+    floors = dataset_floors(conn)
+    units = {int(r[0]): r[1] for r in conn.execute("SELECT id, units FROM recordings")}
+    forbidden = _human_artifact_spans(conn, [int(s["id"]) for ss in sibs.values() for s in ss])
 
     arrays = {}
 
@@ -487,6 +577,8 @@ def classify_family_across_channels(conn, member_ids, rule=None, progress=None, 
         return {"recording_id": s["id"], "npy_path": s["npy_path"], "n_samples": s["n_samples"]}
 
     now = _now()
+    too_short_info = {"too_short": True, "rule": rule.as_dict(), "at": now,
+                      "method": rule.describe_too_short()}
     pairs, without, done_pairs = [], [], set()
     for i, rid in enumerate(channels):
         if cancel is not None and cancel():
@@ -500,8 +592,12 @@ def classify_family_across_channels(conn, member_ids, rule=None, progress=None, 
             progress(i, total, f"{here['source_file']} · {name} · {len(ms)} member"
                                f"{'s' if len(ms) != 1 else ''} against {len(others)} sibling channel"
                                f"{'s' if len(others) != 1 else ''}")
+        floor = floors.get(here["source_file"]) or {"floor_mv": 0.1, "from": "default 0.1 mV"}
         for m in ms:
             fs = float(m["fs"] or 1.0)
+            if int(m["id"]) in short:
+                # too short to tell: never binned — whatever an earlier rule stored goes
+                conn.execute("DELETE FROM motif_member_cooccurrence WHERE member_id = ?", (m["id"],))
             for s in others:
                 if not s["npy_path"] or not os.path.isfile(s["npy_path"]):
                     skipped.append({"member_id": m["id"], "recording_id": s["id"],
@@ -522,6 +618,9 @@ def classify_family_across_channels(conn, member_ids, rule=None, progress=None, 
                             continue
                         done_pairs.add(key)
                         a, b = (m, p) if int(m["id"]) < int(p["id"]) else (p, m)
+                        if int(a["id"]) in short or int(b["id"]) in short:
+                            _clear_pair(conn, int(a["id"]), int(b["id"]), too_short_info)
+                            continue
                         w0, w1 = min(a["start_idx"], b["start_idx"]), max(a["end_idx"], b["end_idx"])
                         x, y = _window(load, a, w0, w1), _window(load, b, w0, w1)
                         ok, n = _measurable(x, y)
@@ -529,25 +628,36 @@ def classify_family_across_channels(conn, member_ids, rule=None, progress=None, 
                             skipped.append({"member_a_id": a["id"], "member_b_id": b["id"],
                                             "reason": "flat or non-finite samples in the window: lag and r undefined"})
                             continue
-                        lag, r, cls = xc.classify_waveforms(x[:n], y[:n], fs=fs, rule=rule)
+                        lag, r, cls, chance, fl = _judge(
+                            xc, x[:n], y[:n], load(b), int(w0), int(w0) + n, fs, rule,
+                            [int(a["id"]), int(b["recording_id"])], forbidden.get(int(b["recording_id"]), ()),
+                            units.get(int(a["recording_id"])), units.get(int(b["recording_id"])), floor)
                         info = {"method": SIMULTANEOUS_METHOD, "window": [int(w0), int(w1)], "fs": fs,
                                 "recording_ids": [int(a["recording_id"]), int(b["recording_id"])],
-                                "lag_s": lag / fs, "rule": rule.as_dict(), "simultaneous": True, "at": now}
-                        eids = _write_pair(conn, int(a["id"]), int(b["id"]), int(lag), float(r), cls, info, rule)
-                        pairs.append({"member_a_id": int(a["id"]), "member_b_id": int(b["id"]), "lag": int(lag),
-                                      "lag_s": lag / fs, "waveform_correlation": float(r),
+                                "lag_s": lag / fs, "rule": rule.as_dict(), "simultaneous": True, "at": now,
+                                "chance": chance, "floor": fl, "amplitude_ratio": _amplitude_ratio(fl)}
+                        eids = _write_pair(conn, int(a["id"]), int(b["id"]), lag, r, cls, info, rule)
+                        pairs.append({"member_a_id": int(a["id"]), "member_b_id": int(b["id"]), "lag": lag,
+                                      "lag_s": lag / fs, "waveform_correlation": r,
                                       "classification_bin": cls, "window": (int(w0), int(w1)),
-                                      "edge_ids": eids, "simultaneous": True})
+                                      "edge_ids": eids, "simultaneous": True, "chance": chance, "floor": fl,
+                                      "amplitude_ratio": _amplitude_ratio(fl)})
+                    continue
+                if int(m["id"]) in short:
                     continue
                 x = _window(load, m, m["start_idx"], m["end_idx"])
                 y = _window(load, sib_rec(s), m["start_idx"], m["end_idx"])
                 ok, n = _measurable(x, y)
                 if not ok:
                     continue
-                lag, r, cls = xc.classify_waveforms(x[:n], y[:n], fs=fs, rule=rule)
+                lag, r, cls, chance, fl = _judge(
+                    xc, x[:n], y[:n], load(sib_rec(s)), int(m["start_idx"]), int(m["start_idx"]) + n, fs, rule,
+                    [int(m["id"]), int(s["id"])], forbidden.get(int(s["id"]), ()),
+                    units.get(int(m["recording_id"])), units.get(int(s["id"])), floor)
                 info = {"method": "the member's own span, cut from both channels (Q40a); no member on the sibling",
                         "window": [int(m["start_idx"]), int(m["end_idx"])], "fs": fs, "rule": rule.as_dict(),
-                        "lag_s": lag / fs, "at": now}
+                        "lag_s": lag / fs, "at": now, "chance": chance, "floor": fl,
+                        "amplitude_ratio": _amplitude_ratio(fl)}
                 conn.execute(
                     """INSERT INTO motif_member_cooccurrence
                            (member_id, recording_id, lag, waveform_correlation, classification_bin,
@@ -557,10 +667,11 @@ def classify_family_across_channels(conn, member_ids, rule=None, progress=None, 
                            lag = excluded.lag, waveform_correlation = excluded.waveform_correlation,
                            classification_bin = excluded.classification_bin,
                            classification_json = excluded.classification_json, created_at = excluded.created_at""",
-                    (m["id"], s["id"], int(lag), float(r), cls, json.dumps(info, sort_keys=True), now))
+                    (m["id"], s["id"], lag, r, cls, json.dumps(info, sort_keys=True), now))
                 if cls in (xc.ARTIFACT, xc.PROPAGATION):
-                    without.append({"member_id": int(m["id"]), "recording_id": int(s["id"]), "lag": int(lag),
-                                    "lag_s": lag / fs, "waveform_correlation": float(r), "classification_bin": cls})
+                    without.append({"member_id": int(m["id"]), "recording_id": int(s["id"]), "lag": lag,
+                                    "lag_s": lag / fs, "waveform_correlation": r, "classification_bin": cls,
+                                    "chance": chance, "floor": fl, "amplitude_ratio": _amplitude_ratio(fl)})
         conn.commit()
 
     # an existing edge between members on sibling channels too far apart to be simultaneous
@@ -571,6 +682,10 @@ def classify_family_across_channels(conn, member_ids, rule=None, progress=None, 
             continue
         a, b = by_id[int(e["member_a_id"])], by_id[int(e["member_b_id"])]
         if a["source_file"] != b["source_file"] or a["channel"] == b["channel"]:
+            continue
+        if int(a["id"]) in short or int(b["id"]) in short:
+            done_pairs.add(key)
+            _clear_pair(conn, int(a["id"]), int(b["id"]), too_short_info)
             continue
         if _gap_s(a, b) <= rule.propagation_max_lag_s:
             continue          # simultaneous but unmeasurable: said in `skipped` above
@@ -585,15 +700,18 @@ def classify_family_across_channels(conn, member_ids, rule=None, progress=None, 
     conn.commit()
     if progress is not None:
         progress(total, total, f"done · {len(pairs)} pair{'s' if len(pairs) != 1 else ''} classified across "
-                               f"{total} channel{'s' if total != 1 else ''}")
+                               f"{total} channel{'s' if total != 1 else ''}"
+                               + (f" · {len(short)} too short to tell" if short else ""))
 
     counts = {b: sum(1 for p in pairs if p["classification_bin"] == b) for b in xc.BINS}
     wm = {}
     for w in without:
         wm[w["classification_bin"]] = wm.get(w["classification_bin"], 0) + 1
     counts["withoutMember"] = wm
+    counts["tooShort"] = len(short)
     return {"pairs": pairs, "withoutMember": without, "counts": counts, "channels": total,
-            "members": len(members), "skipped": skipped, "rule": rule.as_dict(), "rules": rule.describe()}
+            "members": len(members), "skipped": skipped, "tooShort": sorted(short),
+            "rule": rule.as_dict(), "rules": rule.describe(), "tooShortRule": rule.describe_too_short()}
 
 
 def classify_cross_channel_edges(conn, entry_id, rule=None):
@@ -612,44 +730,96 @@ def classify_cross_channel_edges(conn, entry_id, rule=None):
 #: How the three recurrence counts are made, in the words the page prints.
 RECURRENCE_RULES = {
     "all": "every member of the family, each counted once — nothing taken out",
-    "excluding_artifacts": ("members in an artifact pair are not counted: an event on two electrodes at the same "
-                            "time is contamination (Q40b), so neither copy is a recurrence. They stay on the "
-                            "matrix, flagged red"),
-    "propagation_once": ("artifacts taken out as above, then members joined by propagation count once — one "
-                         "travelling event — on the member with the earliest onset"),
+    "excluding_artifacts": ("members a human marked artifact in Review are not counted, and neither is the other "
+                            "member of a member–member artifact pair a human confirmed (Q40d-2). A machine flag "
+                            "alone takes nothing out: flagged members stay counted, drawn red, until a human "
+                            "decides"),
+    "propagation_once": ("human-confirmed artifacts taken out as above, then members joined by propagation that "
+                         "beat its chance test count once — one travelling event — on the member with the "
+                         "earliest onset"),
 }
 RECURRENCE_MODES = tuple(RECURRENCE_RULES)
+
+#: The flagged / confirmed / rejected / unsure / unjudged line, in words.
+FLAG_LINE_RULE = ("machine-flagged: a member in a suspected-artifact pair, or with a suspected-artifact match on a "
+                  "sibling channel holding no member (Q40d-1 b), under the chance test. confirmed: a human marked it "
+                  "artifact in Review; rejected: a human gave it another verdict (interesting, not_interesting, "
+                  "seed); unsure: a human answered unsure; unjudged: no human verdict yet")
+
+
+def _beat_chance(raw_json):
+    """A stored bin counts only if it was computed under the chance test and
+    beat it — a bin W wrote before the test existed carries no `chance`."""
+    if not raw_json:
+        return False
+    try:
+        info = json.loads(raw_json)
+    except (TypeError, ValueError):
+        return False
+    return bool((info.get("chance") or {}).get("beats"))
 
 
 def family_recurrence(conn, member_ids):
     """Recurrence of one family with the cross-channel bins taken out — the ONE
     definition (PIPELINE_PRD.md: artifacts excluded from counts, propagation
-    one event). Read from the bins on the members' edges, so it is whatever
-    the last classification wrote; `classified` says whether one ran.
+    one event). Read from the bins on the members' edges and co-occurrence
+    rows, so it is whatever the last classification wrote; `classified` says
+    whether one ran.
+
+    fixup-AD: the machine only FLAGS. *Excluding artifacts* takes out only
+    members a human marked artifact (`Working.review.artifact_queue`), plus the
+    other member of a member–member artifact pair a human confirmed (Q40d-2),
+    unless a human said otherwise of that one. Propagation counted once merges
+    only pairs that beat their chance test. A member under the rule's minimum
+    length is *too short to tell*: never flagged, counted in `tooShort`.
 
     Returns `all`, `excluding_artifacts`, `propagation_once` (counts of
-    members), `members` (per member: `artifact`, `counted` per mode), the pair
-    counts per bin (`pairs`), the Q40c `withoutMember` counts and `rules`.
+    members), `flagged`, `confirmed`, `rejected`, `unsure`, `unjudged`,
+    `tooShort`, `members` (per member: `flagged`, `artifact` (taken out),
+    `verdict`, `tooShort`, `counted` per mode), the pair counts per bin
+    (`pairs`), the Q40c `withoutMember` counts and `rules`.
     """
     from Working import cross_channel as xc
+    from Working.review.artifact_queue import CONFIRMING_VERDICTS, member_verdicts
 
+    rule = xc.rule_from_settings(conn)
     members = {int(m["id"]): m for m in _members_with_recordings(conn, member_ids)}
     ids = set(members)
-    pairs = {}
+    short = {mid for mid, m in members.items() if _too_short(m, rule)}
+    pairs, pair_beat = {}, {}
     for e in _edges_among(conn, ids):
         if e["classification_bin"]:
-            pairs[frozenset((int(e["member_a_id"]), int(e["member_b_id"])))] = e["classification_bin"]
+            k = frozenset((int(e["member_a_id"]), int(e["member_b_id"])))
+            pairs[k] = e["classification_bin"]
+            pair_beat[k] = pair_beat.get(k, False) or _beat_chance(e["classification_json"])
     co_rows = []
     sorted_ids = sorted(ids)
     for i in range(0, len(sorted_ids), _CHUNK):
         part = sorted_ids[i:i + _CHUNK]
         marks = ",".join("?" * len(part))
         co_rows.extend(conn.execute(
-            f"SELECT member_id, classification_bin FROM motif_member_cooccurrence WHERE member_id IN ({marks})",
-            tuple(part)).fetchall())
+            f"SELECT member_id, classification_bin, classification_json FROM motif_member_cooccurrence "
+            f"WHERE member_id IN ({marks})", tuple(part)).fetchall())
 
-    artifact = {mid for k, b in pairs.items() if b == xc.ARTIFACT for mid in k}
-    kept = [mid for mid in sorted(ids) if mid not in artifact]
+    # the machine's flags: only bins that beat chance, never on a member too short to tell
+    art_pairs = [k for k, b in pairs.items() if b == xc.ARTIFACT and pair_beat.get(k) and not (k & short)]
+    flagged = {mid for k in art_pairs for mid in k}
+    flagged |= {int(r["member_id"]) for r in co_rows
+                if r["classification_bin"] == xc.ARTIFACT and _beat_chance(r["classification_json"])
+                and int(r["member_id"]) not in short}
+
+    # the human's verdicts, and what they take out
+    verdicts = member_verdicts(conn, sorted(ids))
+    confirmed = {mid for mid in flagged if verdicts.get(mid) in CONFIRMING_VERDICTS}
+    out_set = set(confirmed)
+    for k in art_pairs:
+        if k & confirmed:
+            for mid in k:
+                if verdicts.get(mid) is None or verdicts.get(mid) in CONFIRMING_VERDICTS:
+                    out_set.add(mid)
+    # a human verdict of artifact on a member no flag points at is still a human verdict: it goes
+    out_set |= {mid for mid, v in verdicts.items() if v in CONFIRMING_VERDICTS}
+    kept = [mid for mid in sorted(ids) if mid not in out_set]
     parent = {mid: mid for mid in kept}
 
     def find(x):
@@ -659,7 +829,7 @@ def family_recurrence(conn, member_ids):
         return x
 
     for k, b in pairs.items():
-        if b != xc.PROPAGATION:
+        if b != xc.PROPAGATION or not pair_beat.get(k):
             continue
         a, c = tuple(k)
         if a in parent and c in parent:
@@ -674,9 +844,12 @@ def family_recurrence(conn, member_ids):
             first[root] = mid
     once = set(first.values())
 
-    per = {mid: {"artifact": mid in artifact,
-                 "counted": {"all": True, "excluding_artifacts": mid not in artifact,
+    per = {mid: {"flagged": mid in flagged, "artifact": mid in out_set, "verdict": verdicts.get(mid),
+                 "tooShort": mid in short,
+                 "counted": {"all": True, "excluding_artifacts": mid not in out_set,
                              "propagation_once": mid in once}} for mid in ids}
+    rejected = {mid for mid in flagged if verdicts.get(mid) not in (None, "unsure") and mid not in confirmed}
+    unsure = {mid for mid in flagged if verdicts.get(mid) == "unsure"}
     by_bin = {b: sum(1 for v in pairs.values() if v == b) for b in xc.BINS}
     wm = {}
     for r in co_rows:
@@ -684,6 +857,9 @@ def family_recurrence(conn, member_ids):
             wm[r["classification_bin"]] = wm.get(r["classification_bin"], 0) + 1
     return {"classified": bool(pairs) or bool(co_rows),
             "all": len(ids), "excluding_artifacts": len(kept), "propagation_once": len(once),
+            "flagged": len(flagged), "confirmed": len(confirmed), "rejected": len(rejected),
+            "unsure": len(unsure), "unjudged": len(flagged) - len(confirmed) - len(rejected) - len(unsure),
+            "tooShort": len(short), "tooShortRule": rule.describe_too_short(), "flagRule": FLAG_LINE_RULE,
             "members": per, "pairs": by_bin, "withoutMember": wm, "rules": dict(RECURRENCE_RULES)}
 
 
@@ -692,8 +868,8 @@ def recurrence_count(conn, entry_id, mode="excluding_artifacts"):
     `RECURRENCE_MODES`) — `family_recurrence`, the one definition.
 
     Before fixup-W this counted non-artifact EDGES; it now counts members, with
-    an artifact pair's members taken out (PIPELINE_PRD.md: a shared-ground
-    error is excluded from counts).
+    the artifacts taken out (PIPELINE_PRD.md: a shared-ground error is excluded
+    from counts) — since fixup-AD, only those a human confirmed.
     """
     if mode not in RECURRENCE_RULES:
         raise ValueError(f"mode must be one of {RECURRENCE_MODES}, got {mode!r}")

@@ -65,7 +65,7 @@ from Working.review.queue_state import ReviewQueue
 #: expanding an id set into an `IN (...)` list.
 _ID_CHUNK = 400
 
-# The six source kinds and what §10.1 says each one implies when the caller
+# The source kinds and what §10.1 says each one implies when the caller
 # does not say otherwise: the unit a verdict lands on, the table it writes,
 # and whether the machine's score is withheld.
 SOURCE_KINDS = (
@@ -75,6 +75,9 @@ SOURCE_KINDS = (
     "training-windows",
     "model-verification",
     "extract-events",
+    # fixup-AD: family members the cross-channel classifier flagged; a verdict
+    # lands in `annotations` over the member's span (`artifact_queue`)
+    "suspected-artifact",
 )
 
 _DEFAULTS = {
@@ -84,6 +87,7 @@ _DEFAULTS = {
     "training-windows":   ("window", "window_verdicts", 1),
     "model-verification": ("window", "window_verdicts", 1),
     "extract-events":     ("sequence", "annotations", 0),
+    "suspected-artifact": ("member", "annotations", 0),
 }
 
 _DETECTION_KINDS = ("discovery-run", "seed-search")
@@ -200,7 +204,7 @@ def _normalised_filters(filters):
     for k, v in (filters or {}).items():
         if v is None:
             continue
-        if k in ("run_ids", "detection_ids"):
+        if k in ("run_ids", "detection_ids", "member_ids"):
             v = sorted(int(i) for i in v)
         out[k] = v
     return out
@@ -389,6 +393,9 @@ def _resolve(conn, q):
         items = _resolve_spans(conn, q)
     elif kind == "extract-events":
         items = _resolve_sequences(conn, q)
+    elif kind == "suspected-artifact":
+        from Working.review.artifact_queue import resolve_items
+        items = resolve_items(conn, q)
     else:                                   # pragma: no cover - CHECKed above
         raise ValueError("unresolvable source_kind: {!r}".format(kind))
     return items

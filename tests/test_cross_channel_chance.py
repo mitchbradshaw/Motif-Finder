@@ -220,21 +220,26 @@ def test_no_room_for_a_null_is_said_not_passed():
 def test_a_real_copy_beats_chance_and_shared_drift_does_not():
     """The Q40d failure, in miniature: two channels sharing nothing but a slow
     drift correlate at |r| ~ 1 at the member's time AND at every random time,
-    so the match does not beat chance; a pulse planted on both channels on
-    quiet noise does."""
+    so a match there beats chance only at the test's own false-positive rate
+    (about 1 in 20 at the 95th percentile — by construction, never zero); a
+    pulse planted on both channels on quiet noise beats it every time."""
     n = 6000
     drift_a = _channel(n, [], seed=10, noise=0.001, drift=0.01)
     drift_b = _channel(n, [], seed=11, noise=0.001, drift=0.01)
-    lag, r, _b = xc.classify_waveforms(drift_a[3000:3080], drift_b[3000:3080])
-    null = xc.chance_null(drift_a[3000:3080], drift_b, 3000, 3080, fs=1.0, rule=xc.DEFAULT_RULE, seed=9)
-    assert abs(r) > 0.98 and not xc.beats_chance(r, null)
+    beats = 0
+    for i, at in enumerate(range(200, 5700, 140)):           # 40 members along the drift
+        lag, r, _b = xc.classify_waveforms(drift_a[at:at + 80], drift_b[at:at + 80])
+        assert abs(r) > 0.98                                   # W would have called every one an artifact
+        null = xc.chance_null(drift_a[at:at + 80], drift_b, at, at + 80, fs=1.0, rule=xc.DEFAULT_RULE, seed=i)
+        beats += xc.beats_chance(r, null)
+    assert beats <= 6                                          # ~5 % of 40, never "all of them"
 
     pa = _channel(n, [(3000, 1)], seed=12)
     pb = _channel(n, [(3000, 1)], seed=13)
     lag, r, _b = xc.classify_waveforms(pa[2990:3070], pb[2990:3070])
     null = xc.chance_null(pa[2990:3070], pb, 2990, 3070, fs=1.0, rule=xc.DEFAULT_RULE, seed=9)
     assert abs(r) > 0.98 and xc.beats_chance(r, null)
-    assert null["percentile"] > 95.0
+    assert xc.chance_summary(r, null)["percentile"] > 95.0
 
 
 # ── the family: chance, floor and too-short, persisted ──────────────────────
@@ -256,15 +261,15 @@ def test_a_simultaneous_copy_on_quiet_noise_is_a_suspected_artifact_with_its_cha
 
 
 def test_shared_drift_at_the_same_instant_is_not_an_artifact(world):
-    """W binned this artifact (|r| ~ 1 at lag 0); it does not beat the pair's
-    own random times, so it is independent."""
+    """W binned every one of these artifact (|r| ~ 1 at lag 0); against the
+    pair's own random times only the test's false-positive share survives."""
     a_rec = world.recording("d.mat", 0, _channel(6000, [], seed=30, noise=0.001, drift=0.01))
-    b_rec = world.recording("d.mat", 1, _channel(6000, [], seed=31, noise=0.001, drift=0.01))
-    a = world.member(a_rec, 3000, 3080)
-    b = world.member(b_rec, 3000, 3080)
-    out = matching.classify_family_across_channels(world.conn, [a, b])
-    assert out["pairs"][0]["classification_bin"] == INDEPENDENT_RECURRENCE
-    assert out["pairs"][0]["chance"]["beats"] is False
+    world.recording("d.mat", 1, _channel(6000, [], seed=31, noise=0.001, drift=0.01))
+    ids = [world.member(a_rec, at, at + 80) for at in range(300, 5600, 265)]       # 20 members, no twin member
+    matching.classify_family_across_channels(world.conn, ids)
+    rows = world.conn.execute("SELECT classification_bin, waveform_correlation FROM motif_member_cooccurrence").fetchall()
+    assert len(rows) == 20 and all(abs(r["waveform_correlation"]) > 0.98 for r in rows)
+    assert sum(r["classification_bin"] == ARTIFACT for r in rows) <= 4
 
 
 def test_a_sibling_under_the_noise_floor_is_no_twin(world):
