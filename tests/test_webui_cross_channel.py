@@ -176,7 +176,7 @@ def test_the_family_rail_reads_real_counts_per_bin_with_their_rules(client):
     assert set(cc["rules"]) == {ARTIFACT, PROPAGATION, INDEPENDENT_RECURRENCE}
     assert "1 s" in cc["rules"][ARTIFACT] and "50 s" in cc["rules"][PROPAGATION]
     assert cc["recurrence"]["all"] == 4
-    assert cc["recurrence"]["excluding_artifacts"] == 2
+    assert cc["recurrence"]["excluding_artifacts"] == 4        # fixup-AD: flagged, not yet confirmed by a human
     assert set(cc["recurrence"]["rules"]) == {"all", "excluding_artifacts", "propagation_once"}
     fam = d["family"]
     assert (fam["artifactChannels"], fam["propChannels"], fam["indChannels"]) == (1, 2, 0)
@@ -206,9 +206,10 @@ def test_recurrence_cells_flag_artifacts_and_carry_the_counts_with_the_bins_out(
     assert cells[ch0]["artifact"] is True and cells[ch1]["artifactMembers"] == 1     # red, and still counted in `count`
     assert cells[ch2]["artifact"] is False
     assert cells[ch0]["count"] == 1
-    assert cells[ch0]["countExArtifacts"] == 0 and cells[ch2]["countExArtifacts"] == 1
+    # fixup-AD: red = machine-flagged; only a human-confirmed artifact leaves the count
+    assert cells[ch0]["countExArtifacts"] == 1 and cells[ch2]["countExArtifacts"] == 1
     assert sum(c.get("countPropOnce", 0) for c in cells.values()) == fam["recurrence"]["propagation_once"] == 2
-    assert fam["recurrence"]["excluding_artifacts"] == 2
+    assert fam["recurrence"]["excluding_artifacts"] == 4
     assert "artifact" in fam["recurrence"]["rules"]["excluding_artifacts"]
 
 

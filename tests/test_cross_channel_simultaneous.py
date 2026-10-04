@@ -71,7 +71,10 @@ class _World:
     def recording(self, source_file, channel, data, fs=1.0):
         path = os.path.join(self.tmp, f"{source_file}_{channel}.npy")
         np.save(path, np.asarray(data, dtype=float))
-        return q.insert_recording(self.conn, source_file, channel, fs, len(data), 0, path)
+        rid = q.insert_recording(self.conn, source_file, channel, fs, len(data), 0, path)
+        # fixup-AD: both swings are compared with the dataset's noise floor in mV
+        self.conn.execute("UPDATE recordings SET units = 'mV' WHERE id = ?", (rid,))
+        return rid
 
     def member(self, recording_id, start, end):
         if self._entry is None:
@@ -110,10 +113,13 @@ def test_the_rule_is_the_researchers_in_seconds_with_an_r_floor():
 
 
 @pytest.mark.parametrize("lag_s, r, expected", [
-    (0.0, 0.95, ARTIFACT),
-    (0.0, -0.95, ARTIFACT),                     # an inverted copy at lag 0 is an artifact too (Q40b)
-    (1.0, 0.5, ARTIFACT),                       # both boundaries inclusive
-    (-1.0, -0.7, ARTIFACT),
+    # fixup-AD (Round 12 Q1): the artifact test's floor is |r| >= 0.98, so W's
+    # 0.95 / 0.5 / 0.7 at lag <= 1 s are no longer artifacts — nor propagation
+    (0.0, 0.99, ARTIFACT),
+    (0.0, -0.99, ARTIFACT),                     # an inverted copy at lag 0 is an artifact too (Q40b)
+    (1.0, 0.98, ARTIFACT),                      # both boundaries inclusive
+    (0.0, 0.95, INDEPENDENT_RECURRENCE),
+    (-1.0, -0.7, INDEPENDENT_RECURRENCE),
     (0.0, 0.49, INDEPENDENT_RECURRENCE),        # under the r floor whatever its lag
     (1.5, 0.8, PROPAGATION),
     (-30.0, -0.6, PROPAGATION),
@@ -346,10 +352,12 @@ def test_recurrence_counts_with_the_bins_taken_out(world):
 
     assert rec["classified"] is True
     assert rec["all"] == 4
-    # m0 and m1 are one event seen on two electrodes at once: both artifact, both flagged, neither counted
-    assert rec["members"][m0]["artifact"] and rec["members"][m1]["artifact"]
-    assert rec["excluding_artifacts"] == 2                   # m2 and m3
-    # m2 is not simultaneous with anything left; m3 is an hour away: two events
+    # m0 and m1 are one event seen on two electrodes at once: both FLAGGED (fixup-AD: the
+    # machine flags, a human decides), so nothing is taken out until a human confirms
+    assert rec["members"][m0]["flagged"] and rec["members"][m1]["flagged"]
+    assert not rec["members"][m0]["artifact"]
+    assert rec["excluding_artifacts"] == 4
+    # m2 is propagation from both m0 and m1, so the three are one travelling event; m3 is an hour away
     assert rec["propagation_once"] == 2
     assert set(rec["rules"]) == {"all", "excluding_artifacts", "propagation_once"}
 
@@ -374,6 +382,6 @@ def test_recurrence_count_is_the_same_definition(world):
     m0, m1, m2, m3 = _three_way(world)
     matching.classify_family_across_channels(world.conn, [m0, m1, m2, m3])
     entry_id = world.conn.execute("SELECT entry_id FROM motif_member WHERE id = ?", (m0,)).fetchone()[0]
-    assert matching.recurrence_count(world.conn, entry_id) == 2
+    assert matching.recurrence_count(world.conn, entry_id) == 4          # fixup-AD: no human has confirmed
     assert matching.recurrence_count(world.conn, entry_id, mode="propagation_once") == 2
     assert matching.recurrence_count(world.conn, entry_id, mode="all") == 4

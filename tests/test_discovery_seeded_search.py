@@ -336,24 +336,21 @@ def test_the_window_is_locked_to_the_exemplars_native_length(db):
 
 
 def test_the_exclusion_zone_reported_is_the_one_the_search_ran_under(db):
-    """The card must carry the guard that RAN, not the one the spec asks for.
-
-    §7.6 specifies m/2, but `detection.seed_matches` exposes no exclusion
-    parameter and does not pass `query_idx`, so `stumpy.match` applies its own
-    m/4. Reporting m/2 as the value draws a locked number over a search that
-    used something else; `specExclusionSamples` keeps the spec's figure beside
-    it so the difference is visible rather than silently resolved.
+    """The card carries the guard that RAN. Before fixup-AD the block exposed no
+    exclusion parameter and `stumpy.match` used its own m/4 while §7.6 asked for
+    m/2; the block now takes the zone (default m/2, Round 11) and passes it on,
+    so the card's figure and the search's are the same number and it can be set.
     """
     db_path, _ = db
     conn = init_db(db_path)
     try:
         seed = ss.seed_from_content(conn, "fake.mat", 0, 300, 360)
         params = ss.recommended_params(seed)
-        assert params["exclusionSamples"] == 15                 # m/4 at m = 60
-        assert params["exclusionS"] == pytest.approx(15.0)      # m/4 at fs = 1
-        assert params["specExclusionSamples"] == 30             # what §7.6 asks for
-        assert params["exclusionSettable"] is False             # no parameter reaches the block
-        assert "m/4" in params["exclusion_note"]
+        assert params["exclusionSamples"] == 30                 # m/2 at m = 60
+        assert params["exclusionS"] == pytest.approx(30.0)      # m/2 at fs = 1
+        assert params["specExclusionSamples"] == 30             # what §7.6 asks for: now the same
+        assert params["exclusionSettable"] is True              # a parameter reaches the block
+        assert "m/4" not in params["exclusion_note"]
     finally:
         conn.close()
 

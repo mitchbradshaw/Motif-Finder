@@ -54,7 +54,10 @@ def _write_recording(conn, npy_dir, source_file, channel, data):
     points at it. Returns the recording id."""
     npy_path = os.path.join(npy_dir, f"{source_file}_ch{channel}.npy")
     np.save(npy_path, np.asarray(data, dtype=float))
-    return q.insert_recording(conn, source_file, channel, 1.0, len(data), 0, npy_path)
+    rid = q.insert_recording(conn, source_file, channel, 1.0, len(data), 0, npy_path)
+    # fixup-AD: a swing is compared with the dataset's noise floor in mV, so the unit is declared
+    conn.execute("UPDATE recordings SET units = 'mV' WHERE id = ?", (rid,))
+    return rid
 
 
 def _make_base(n=400, seed=0):
@@ -102,7 +105,8 @@ def test_cross_channel_edges_are_classified_and_artifacts_excluded_from_count():
     with tempfile.TemporaryDirectory() as npy_dir:
         conn = init_db(":memory:")
         try:
-            base = _make_base()
+            # fixup-AD: long enough for the chance test's random windows (>= 60 s from the member)
+            base = _make_base(n=2000)
             rng = np.random.default_rng(2)
             rec_a = _write_recording(conn, npy_dir, "shared.mat", 0, base)
             rec_b = _write_recording(
@@ -141,8 +145,8 @@ def test_cross_channel_edges_are_classified_and_artifacts_excluded_from_count():
             assert abs(artifact["lag"]) <= CROSS_CHANNEL_ARTIFACT_MAX_ABS_LAG_S
             assert abs(artifact["waveform_correlation"]) >= CROSS_CHANNEL_MIN_ABS_CORRELATION
 
-            # fixup-W: recurrence counts MEMBERS with the artifact pair taken
-            # out (ma and mc are one event seen twice at once); mb remains
-            assert recurrence_count(conn, entry_id) == 1
+            # fixup-AD: the machine only FLAGS ma/mc; recurrence takes out only
+            # members a human marked artifact, and nobody has yet
+            assert recurrence_count(conn, entry_id) == 3
         finally:
             conn.close()
