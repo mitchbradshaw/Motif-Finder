@@ -13,7 +13,7 @@ import numpy as np
 from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel
 
-from Working.cross_channel import classify_waveforms
+from Working.cross_channel import classify_waveforms, rule_from_settings
 from Working.database import queries as q
 from Working.database.runs import list_runs, load_recipe
 from Working.review import queues as queues_mod
@@ -119,7 +119,13 @@ def get_siblings(request: Request, recording_id: int):
 @router.get("/api/cross/{recording_id}")
 def get_cross_channel(request: Request, recording_id: int, t0: float = 0.0, t1: float | None = None, px: int = 900):
     """The same window on every channel of the recording, each with its lag and
-    waveform correlation against the reference channel (`Working.cross_channel`)."""
+    waveform correlation against the reference channel (`Working.cross_channel`).
+
+    fixup-W: binned by the Settings rule in SECONDS (Q40b/Q-W5), with the lag
+    converted at the rate of the arrays actually correlated — the window is
+    strided past CROSS_MAX_SAMPLES, and the strided lag used to be compared
+    against thresholds written in samples. The rule's words travel with the
+    answer, so the page prints the rule that produced each bin."""
     rec = _rec(request, recording_id)
     fs = float(rec["fs"])
     if t1 is None:
@@ -131,6 +137,7 @@ def get_cross_channel(request: Request, recording_id: int, t0: float = 0.0, t1: 
     c = _conn(request)
     try:
         sibs = [dict(r) for r in q.list_recordings(c, rec["source_file"])]
+        rule = rule_from_settings(c)
         # lag and r are scale-free and come from the core: it is handed the stored samples
         ref_x = np.asarray(corpus.load_native(rec["npy_path"])[s0:s1], dtype=float)
         stride = max(1, int(np.ceil(len(ref_x) / CROSS_MAX_SAMPLES)))
@@ -156,7 +163,7 @@ def get_cross_channel(request: Request, recording_id: int, t0: float = 0.0, t1: 
                 y = np.asarray(corpus.load_native(row["npy_path"])[s0:s1], dtype=float)[::stride]
                 n = min(len(y), len(ref_d))
                 if n >= 4 and np.isfinite(ref_d[:n]).all() and np.isfinite(y[:n]).all() and ref_d[:n].std() > 0 and y[:n].std() > 0:
-                    lag, corr, cls = classify_waveforms(ref_d[:n], y[:n])
+                    lag, corr, cls = classify_waveforms(ref_d[:n], y[:n], fs=fs / stride, rule=rule)
                     item.update({"lag_s": float(lag * stride / fs), "r": float(corr), "classification": cls})
                 else:
                     item.update({"lag_s": None, "r": None, "classification": "undefined"})
@@ -164,7 +171,8 @@ def get_cross_channel(request: Request, recording_id: int, t0: float = 0.0, t1: 
     finally:
         c.close()
     return {"reference_id": recording_id, "source_file": rec["source_file"], "t0_s": t0, "t1_s": t1, "fs": fs,
-            "stride": stride, "channels": out, "unit": corpus.display_unit(rec)}
+            "stride": stride, "channels": out, "unit": corpus.display_unit(rec),
+            "rule": rule.as_dict(), "rules": rule.describe()}
 
 
 class SeedBody(BaseModel):

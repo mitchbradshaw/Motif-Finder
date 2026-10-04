@@ -50,7 +50,9 @@ from fastapi import APIRouter, HTTPException, Query, Request
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
+from Working import cross_channel as xc
 from Working.cross_channel import ARTIFACT, INDEPENDENT_RECURRENCE, PROPAGATION
+from Working.database import queries as dbq
 from Working.distances import DISTANCE_NATIVE_LENGTH, DISTANCE_SCALE_INVARIANT, DISTANCE_SYMBOLIC
 from Working.library import hand_edits as hand_edits_mod
 from Working.library import matching as matching_mod
@@ -715,6 +717,37 @@ def _edges_label(conn, member_ids) -> tuple:
     return text, art, prop, ind
 
 
+def _recurrence_cells(conn, index, members, member_ids, cells) -> dict:
+    """fixup-W: Library › Recurrence with the cross-channel bins taken out.
+
+    Every cell gains `artifact` (members there in an artifact pair — drawn red
+    and still counted in `count`, spec §8.4: *flagged, not excluded*),
+    `countExArtifacts` and `countPropOnce` — the cell's share of
+    `matching.family_recurrence`'s counts, which is the core's one definition;
+    the page reads these, never re-derives them. Returns the family's three
+    totals with their rules."""
+    rec = matching_mod.family_recurrence(conn, member_ids)
+    key_of = {}
+    for m in members:
+        meta = index["by_id"].get(int(m["recording_id"] or 0))
+        if meta is not None and m["member_id"] is not None:
+            key_of[int(m["member_id"])] = f"{meta['key']}:{meta['name']}"
+    for c in cells.values():
+        c.setdefault("artifact", 0)
+        c.setdefault("countExArtifacts", 0)
+        c.setdefault("countPropOnce", 0)
+    for mid, st in rec["members"].items():
+        ck = key_of.get(int(mid))
+        if ck is None or ck not in cells:
+            continue
+        cell = cells[ck]
+        cell["artifact"] += 1 if st["artifact"] else 0
+        cell["countExArtifacts"] += 1 if st["counted"]["excluding_artifacts"] else 0
+        cell["countPropOnce"] += 1 if st["counted"]["propagation_once"] else 0
+    return {k: rec[k] for k in ("classified", "all", "excluding_artifacts", "propagation_once",
+                                "pairs", "withoutMember", "rules")}
+
+
 def _families_for(conn, index, grouping_row) -> list:
     """`MotifFamily[]` for one grouping, built from real rows."""
     if grouping_row is None:
@@ -831,6 +864,7 @@ def _one_family(conn, index, label, members, i, tags_by_entry, verdicts, hand, g
     dists = [_f(m["distance"]) for m in members if m["distance"] is not None]
     member_ids = [int(m["member_id"]) for m in members if m["member_id"] is not None]
     edges, art_ch, prop_ch, ind_ch = _edges_label(conn, member_ids)
+    recurrence = _recurrence_cells(conn, index, members, member_ids, cells)
     shape, shape_label, shape_mix = _shape_of(elements, tags)
 
     return {
@@ -854,6 +888,9 @@ def _one_family(conn, index, label, members, i, tags_by_entry, verdicts, hand, g
         "meanMemberD": round(float(np.mean(dists)), 4) if dists else 0.0,
         "snrDb": _snr_db(ex_trace),
         "artifactChannels": art_ch, "propChannels": prop_ch, "indChannels": ind_ch, "edges": edges,
+        # fixup-W: the three recurrence counts (`matching.family_recurrence`, the one
+        # definition) with their rules; the per-cell versions are on `cells`
+        "recurrence": recurrence,
         "cells": cells, "exemplarTrace": ex_trace, "medoidTrace": me_trace,
         # the bars and the axis come from one measurement of this family's own
         # amplitudes, so the picture and its scale cannot disagree
@@ -1252,6 +1289,10 @@ def _family_detail(conn, index, fam, grouping_row) -> dict:
 
     in_family = {int(r["member_id"]) for r in rows if r["member_id"] is not None}
     return {
+        # fixup-W: the family's cross-channel classification — real counts per bin,
+        # each with its rule, the Q40c co-occurrences without a member, the
+        # recurrence counts with the bins out, and the surrogate count beside them
+        "crossChannel": _cross_channel_payload(conn, sorted(in_family)),
         "family": fam, "cut": _f(grouping_row["cut"]),
         "members": members, "removed": removed,
         "channels": len({m["channel"] for m in members}),
@@ -1269,6 +1310,88 @@ def _family_detail(conn, index, fam, grouping_row) -> dict:
 #: The three distances' names as the page prints them, primary first.
 DISTANCE_LABELS = {DISTANCE_SCALE_INVARIANT: "scale-invariant", DISTANCE_SYMBOLIC: "symbolic (SAX)",
                    DISTANCE_NATIVE_LENGTH: "native-length control"}
+
+
+def _cross_channel_payload(conn, member_ids) -> dict:
+    """The Family page's *cross-channel* card. The rules printed are the ones
+    in Settings now; `computedUnder` lists the rules the stored bins were
+    actually computed under, and `stale` says when they differ."""
+    rule = xc.rule_from_settings(conn)
+    rec = matching_mod.family_recurrence(conn, member_ids)
+    under = set()
+    ids = sorted(int(m) for m in member_ids)
+    for i in range(0, len(ids), 500):
+        part = ids[i:i + 500]
+        marks = ",".join("?" * len(part))
+        for r in conn.execute(f"SELECT classification_json FROM motif_edge WHERE classification_json IS NOT NULL "
+                              f"AND (member_a_id IN ({marks}) OR member_b_id IN ({marks}))", tuple(part) * 2):
+            under.add(json.dumps(json.loads(r[0]).get("rule"), sort_keys=True))
+        for r in conn.execute(f"SELECT classification_json FROM motif_member_cooccurrence WHERE member_id IN ({marks})",
+                              tuple(part)):
+            if r[0]:
+                under.add(json.dumps(json.loads(r[0]).get("rule"), sort_keys=True))
+    computed = [json.loads(u) for u in sorted(under) if u != "null"]
+    return {
+        "classified": rec["classified"],
+        "counts": rec["pairs"], "withoutMember": rec["withoutMember"],
+        "rule": rule.as_dict(), "rules": rule.describe(),
+        "computedUnder": computed,
+        "stale": any(c != rule.as_dict() for c in computed),
+        "recurrence": {k: rec[k] for k in ("all", "excluding_artifacts", "propagation_once", "rules")},
+        "null": _family_null(conn, ids),
+        "method": matching_mod.SIMULTANEOUS_METHOD,
+    }
+
+
+def _family_null(conn, member_ids) -> dict:
+    """The surrogate count beside the family's counts (fixup-T's true draws):
+    the runs whose detections the members are, and those runs' paired nulls.
+    A family imported rather than found by a run has no null, and says so —
+    no count on the page is read against chance without both numbers."""
+    ids = sorted(int(m) for m in member_ids)
+    dets = set()
+    for i in range(0, len(ids), 500):
+        part = ids[i:i + 500]
+        marks = ",".join("?" * len(part))
+        for r in conn.execute(f"SELECT detection_id FROM motif_member_revision WHERE detection_id IS NOT NULL "
+                              f"AND member_id IN ({marks})", tuple(part)):
+            dets.add(int(r[0]))
+        for r in conn.execute(f"SELECT me.detection_id FROM motif_member mm JOIN motif_entry me ON me.id = mm.entry_id "
+                              f"WHERE me.detection_id IS NOT NULL AND mm.id IN ({marks})", tuple(part)):
+            dets.add(int(r[0]))
+    runs = set()
+    det_list = sorted(dets)
+    for i in range(0, len(det_list), 500):
+        part = det_list[i:i + 500]
+        marks = ",".join("?" * len(part))
+        for r in conn.execute(f"SELECT DISTINCT d.run_id FROM detections d JOIN runs r ON r.id = d.run_id "
+                              f"WHERE d.id IN ({marks}) AND {dbq.not_surrogate('r')}", tuple(part)):
+            runs.add(int(r[0]))
+    if not runs:
+        return {"runs": 0, "draws": 0, "drawsTotal": 0, "nullDetections": 0, "perDraw": None,
+                "realDetections": None, "members": len(ids),
+                "reason": ("no run produced these members — they came into the Library by import or by hand, so "
+                           "no null was drawn for them, and no count here can be read against chance")}
+    run_list = sorted(runs)
+    marks = ",".join("?" * len(run_list))
+    nulls = conn.execute(f"SELECT id, surrogate_of_run_id FROM runs WHERE surrogate_of_run_id IN ({marks})",
+                         tuple(run_list)).fetchall()
+    per_run = {}
+    for n in nulls:
+        per_run[int(n["surrogate_of_run_id"])] = per_run.get(int(n["surrogate_of_run_id"]), 0) + 1
+    real = int(conn.execute(f"SELECT COUNT(*) FROM detections WHERE run_id IN ({marks})", tuple(run_list)).fetchone()[0])
+    null_ids = [int(n["id"]) for n in nulls]
+    null_dets = 0
+    for i in range(0, len(null_ids), 500):
+        part = null_ids[i:i + 500]
+        pm = ",".join("?" * len(part))
+        null_dets += int(conn.execute(f"SELECT COUNT(*) FROM detections WHERE run_id IN ({pm})", tuple(part)).fetchone()[0])
+    total = len(nulls)
+    return {"runs": len(run_list), "draws": max(per_run.values(), default=0), "drawsTotal": total,
+            "drawsPerRun": {str(k): v for k, v in sorted(per_run.items())},
+            "nullDetections": null_dets, "perDraw": (null_dets / total * len(run_list)) if total else None,
+            "realDetections": real, "members": len(ids),
+            "reason": (None if total else "the runs that produced these members drew no null")}
 
 
 def _seed_runs_by_run_id(conn) -> dict:
@@ -1304,6 +1427,31 @@ def _edge_payload(e, runs, other_member_id) -> dict:
         "runKey": run["key"] if run else None,
         "detectionId": e["detection_id"], "other": f"m-{other_member_id}",
         "classification": e["classification_bin"], "createdAt": e["created_at"],
+        **_classification_payload(e),
+    }
+
+
+def _classification_payload(e) -> dict:
+    """fixup-W: what the cross-channel classifier stored on the edge — lag in
+    samples and seconds (the edge's member b relative to its member a), r with
+    its sign, the window it was measured on (so Explore › Cross-channel can be
+    opened on exactly that window) and the rule in force."""
+    raw = e["classification_json"] if "classification_json" in e.keys() else None
+    info = json.loads(raw) if raw else {}
+    fs = info.get("fs")
+    lag = e["lag"]
+    window = info.get("window")
+    rec_ids = info.get("recording_ids") or []
+    return {
+        "a": f"m-{e['member_a_id']}", "lag": lag,
+        "lagS": (lag / fs) if (lag is not None and fs) else None,
+        "r": e["waveform_correlation"],
+        "simultaneous": info.get("simultaneous"),
+        "gapS": info.get("gap_s"),
+        "window": ({"t0S": window[0] / fs, "t1S": window[1] / fs,
+                    "recordingId": rec_ids[0] if rec_ids else None,
+                    "otherRecordingId": rec_ids[1] if len(rec_ids) > 1 else None} if (window and fs) else None),
+        "classificationRule": info.get("rule"),
     }
 
 
@@ -2413,6 +2561,67 @@ def export_atlas(request: Request, grouping: str | None = Query(default=None),
 
 
 # ── fixup-v: *Add N matches to E-xxxx* (Discovery › Runs) ──────────────────
+
+class CrossChannelBody(BaseModel):
+    grouping: str | None = None
+
+
+@router.post("/family/{family_id}/classify-cross-channel")
+def classify_family_cross_channel(request: Request, family_id: str, body: CrossChannelBody):
+    """Library › Family *Classify across channels* (and Explore › Cross-channel's
+    *Classify every … member in Library*): a `cross_channel` job that compares
+    each member of the family with its sibling channels on the same absolute
+    window and writes the bins onto the family's edges
+    (`matching.classify_family_across_channels`). Progress is per channel."""
+    rt = _rt(request)
+    manager = request.app.state.manager
+    conn = _conn(request)
+    try:
+        g = _resolve_grouping(conn, body.grouping, "single_motifs")
+        if g is not None and str(g["unit"]) != "single_motifs":
+            g = _default_grouping(conn, "single_motifs")
+        if g is None:
+            raise HTTPException(404, f"no motif grouping to find {family_id} in")
+        ids = sorted({int(r["member_id"]) for r in _member_rows(conn, g["id"])
+                      if r["family_label"] == family_id and r["family_id"] is not None and r["member_id"] is not None})
+    finally:
+        conn.close()
+    if not ids:
+        raise HTTPException(404, f"{family_id} has no members in grouping {gid_str(g['id'])}")
+    grouping = gid_str(g["id"])
+
+    def _work(job):
+        c = corpus.connect(rt.db_path)
+        try:
+            out = matching_mod.classify_family_across_channels(
+                c, ids, progress=job.progress, cancel=job.cancel_event.is_set,
+                exclude_source_files=(HELD_OUT_FILE,))
+            if job.cancel_event.is_set():
+                return None
+            from Working.registration.settings import append_audit
+            append_audit(c, "library",
+                         f"Classified {family_id} across channels: " + " · ".join(
+                             f"{b} {out['counts'][b]}" for b in xc.BINS),
+                         "Library › Family", route=f"library/family/{family_id}?grouping={grouping}",
+                         detail={"members": out["members"], "channels": out["channels"],
+                                 "counts": out["counts"], "rule": out["rule"]})
+        finally:
+            c.close()
+        return {
+            "family": family_id, "grouping": grouping, "members": out["members"], "channels": out["channels"],
+            "counts": out["counts"], "rule": out["rule"], "rules": out["rules"],
+            "skipped": len(out["skipped"]),
+            "skippedReasons": sorted({s["reason"] for s in out["skipped"]})[:10],
+            "pairs": [{"a": f"m-{p['member_a_id']}", "b": f"m-{p['member_b_id']}", "lag": p["lag"],
+                       "lagS": p["lag_s"], "r": p["waveform_correlation"], "bin": p["classification_bin"],
+                       "simultaneous": p["simultaneous"]} for p in out["pairs"][:200]],
+        }
+
+    job = manager.start_job("cross_channel", _work, meta={"what": "classify across channels", "family": family_id,
+                                                          "grouping": grouping, "members": len(ids)})
+    return {"job_id": job.id, "kind": "cross_channel", "status": job.status, "members": len(ids),
+            "family": family_id, "grouping": grouping}
+
 
 class AddMatchesBody(BaseModel):
     #: Q39: off. A match with no verdict is a proposal, not a member.

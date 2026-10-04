@@ -49,7 +49,8 @@ from .serialize import _clean
 
 log = logging.getLogger("webui.jobs")
 
-KINDS = ("chain_run", "sweep", "import", "regroup", "training")
+KINDS = ("chain_run", "sweep", "import", "regroup", "training",
+         "cross_channel")      # fixup-W: Library › Family *Classify across channels*
 TERMINAL = ("completed", "failed", "cancelled")
 
 

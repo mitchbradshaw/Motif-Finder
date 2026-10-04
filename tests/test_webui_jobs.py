@@ -74,7 +74,8 @@ def test_jobs_table_exists_with_the_persisted_columns(env):
 
 
 def test_kinds_are_the_five_the_prompts_share():
-    assert set(KINDS) == {"chain_run", "sweep", "import", "regroup", "training"}
+    # fixup-W adds a sixth: Library › Family *Classify across channels*
+    assert set(KINDS) == {"chain_run", "sweep", "import", "regroup", "training", "cross_channel"}
 
 
 def test_a_chain_run_is_a_persisted_job_with_a_restart_safe_snapshot(env):

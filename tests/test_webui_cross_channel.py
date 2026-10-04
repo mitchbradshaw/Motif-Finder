@@ -148,7 +148,9 @@ def test_classify_across_channels_is_a_job_with_per_channel_progress(client):
     assert snap["progress"]["done"] == snap["progress"]["total"] == 4
     assert "ch" in snap["progress"]["message"].lower() or "channel" in snap["progress"]["message"].lower()
     assert res["counts"][ARTIFACT] == 1 and res["counts"][PROPAGATION] == 2
-    assert res["counts"]["withoutMember"] == {ARTIFACT: 1}
+    # Q40c, counted per member x sibling channel: m1 and m2 each see ch3's
+    # simultaneous pulse (artifact), m3 sees it 10 s earlier (propagation)
+    assert res["counts"]["withoutMember"] == {ARTIFACT: 2, PROPAGATION: 1}
 
 
 def test_the_bins_land_on_the_members_edges(client):
@@ -170,7 +172,7 @@ def test_the_family_rail_reads_real_counts_per_bin_with_their_rules(client):
     cc = d["crossChannel"]
     assert cc["classified"] is True
     assert cc["counts"] == {ARTIFACT: 1, PROPAGATION: 2, INDEPENDENT_RECURRENCE: 0}
-    assert cc["withoutMember"] == {ARTIFACT: 1}
+    assert cc["withoutMember"] == {ARTIFACT: 2, PROPAGATION: 1}
     assert set(cc["rules"]) == {ARTIFACT, PROPAGATION, INDEPENDENT_RECURRENCE}
     assert "1 s" in cc["rules"][ARTIFACT] and "50 s" in cc["rules"][PROPAGATION]
     assert cc["recurrence"]["all"] == 4

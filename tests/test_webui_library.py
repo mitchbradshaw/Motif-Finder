@@ -352,7 +352,8 @@ def test_a_cell_never_looked_at_differs_from_one_looked_at_and_empty(bridge):
     assert reviewed, "the reviewed channel must produce cells without noCoverage"
     assert unreviewed, "the unreviewed channel must be flagged noCoverage, not left blank"
     for cell in cells.values():
-        assert set(cell) <= {"perHour", "count", "artifact", "noCoverage"}
+        # fixup-W: + the cell's share of the recurrence counts with the cross-channel bins taken out
+        assert set(cell) <= {"perHour", "count", "artifact", "noCoverage", "countExArtifacts", "countPropOnce"}
 
 
 def test_families_return_real_decimated_traces_and_a_colour_on_every_row(bridge):
