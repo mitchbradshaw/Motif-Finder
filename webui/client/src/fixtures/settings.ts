@@ -371,6 +371,9 @@ const analysisValues = (band: string): Values => {
     containment: 'centre',
     // fixup-W: the cross-channel rule (Q40b, Q-W5), in seconds; Working.cross_channel's defaults
     'cross_channel.artifact_max_lag_s': 1, 'cross_channel.min_abs_r': 0.5, 'cross_channel.propagation_max_lag_s': 50,
+    // fixup-AD: the artifact test's r floor, the chance test, the minimum length (Rounds 11-12)
+    'cross_channel.artifact_min_abs_r': 0.98, 'cross_channel.null_k': 100, 'cross_channel.null_percentile': 95,
+    'cross_channel.min_samples': 30,
     coherence: 0.5, clipping: 98, step_x: 5, step_within: 1, band_low: 0.3, band_medium: 0.6,
     cache_min_s: 2, cache_keep_days: 14, cache_location: './artifacts/steps',
     bands: DEFAULT_BANDS,

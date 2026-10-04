@@ -148,6 +148,14 @@ def test_a_member_the_queue_never_listed_is_refused(fam):
         V.write_verdict(conn, qid, m2, "artifact")              # not flagged: never asked
 
 
+def test_seed_is_not_this_queues_question(fam):
+    conn, (m0, m1, m2), _ = fam
+    qid = _queue(conn, [m0, m1, m2])
+    with pytest.raises(ValueError):
+        V.write_verdict(conn, qid, m0, "seed")
+    assert aq.member_verdicts(conn, [m0]) == {}
+
+
 def test_batch_writes_one_audit_row(fam):
     conn, (m0, m1, m2), _ = fam
     qid = _queue(conn, [m0, m1, m2])

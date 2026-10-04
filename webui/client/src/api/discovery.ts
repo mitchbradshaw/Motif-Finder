@@ -296,10 +296,11 @@ async function seedResults(q: DiscSeedQuery): Promise<DiscSeedResults> {
   }
 }
 
-export async function getSeedResults(seedId: string, channels: string[], bank?: { scales: number[]; overlap?: string } | null): Promise<Sourced<SeedResults>> {
+export async function getSeedResults(seedId: string, channels: string[], bank?: { scales: number[]; overlap?: string } | null, exclusion?: number | null): Promise<Sourced<SeedResults>> {
   const s = await scope()
   const r = await seedResults({ seedId, channels: channels.length ? channels : s.channels, t0: s.section[0], t1: s.section[1],
-    ...(bank?.scales.length ? { scales: bank.scales, overlap: bank.overlap ?? 'lowest' } : {}) })
+    ...(bank?.scales.length ? { scales: bank.scales, overlap: bank.overlap ?? 'lowest' } : {}),
+    ...(exclusion != null ? { exclusion } : {}) })
   return {
     source: 'live',
     data: {

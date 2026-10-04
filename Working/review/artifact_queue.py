@@ -256,6 +256,8 @@ def write_member_verdict(conn, queue, member_id, verdict, note=None, tags=None):
     `{"inserted": True}` for a new row, so undo withdraws it."""
     from Working.database import vocabulary as _vocabulary
 
+    if verdict not in VERDICT_OPTIONS:
+        raise ValueError(f"a suspected-artifact queue takes {', '.join(VERDICT_OPTIONS)}; got {verdict!r}")
     m = _members(conn, [member_id]).get(int(member_id))
     if m is None:
         raise ValueError(f"no family member with id {member_id}")

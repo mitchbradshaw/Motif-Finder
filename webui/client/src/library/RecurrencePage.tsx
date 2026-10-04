@@ -34,8 +34,8 @@ import {
   useRememberMotifsRoute, useSelection, useSequenceGroupingId,
 } from './chrome'
 import { centredTraces, familyName } from './AtlasPage'
-import { MODE_LABEL, MODE_RULE_FALLBACK } from './CrossChannel'
-import type { LibRecurrenceCounts, RecurrenceMode } from '../api'
+import { FlagLine, MODE_LABEL, MODE_RULE_FALLBACK } from './CrossChannel'
+import type { LibFlagLine, LibRecurrenceCounts, RecurrenceMode } from '../api'
 import { EmptyMotifsPage } from './EmptyLibrary'
 import { FamilyMembersInPlace } from './MemberSlideshow'
 import { ViewFilterBar, useLibraryView } from './chrome'
@@ -86,7 +86,7 @@ export function cellState(c: Cell | undefined): CellState {
 interface Row { id: string; name: string; colour: string; recordings: number; cells: Record<string, Cell>; cellsKnown: boolean; trace: number[]; rec?: LibRecurrenceCounts }
 /** fixup-W: the cell fields the bridge adds — the cell's share of each recurrence count, and how many of its members
  *  are in an artifact pair. */
-type XCell = Cell & { artifactMembers?: number; countExArtifacts?: number; countPropOnce?: number }
+type XCell = Cell & { artifactMembers?: number; confirmedMembers?: number; countExArtifacts?: number; countPropOnce?: number }
 const RECUR_MODES: RecurrenceMode[] = ['all', 'excluding_artifacts', 'propagation_once']
 const isRecurMode = (v: string): v is RecurrenceMode => (RECUR_MODES as string[]).includes(v)
 /** The cell's count under a mode — the bridge's number; a cell the read carries no mode count for keeps its raw count. */
@@ -231,6 +231,10 @@ function Recurrence({ recordings, rows, coverage, sharedGround, unit, groupingId
             <Seg size="sm" ariaLabel="what is counted" testid="recur-mode" value={recur} onChange={v => setRecurQ(v === 'all' ? null : v)}
               options={RECUR_MODES.map(m => ({ value: m, label: MODE_LABEL[m] }))} />
             {recur !== 'all' && <span className="lib-cap" data-testid="recur-classified" title="a family not classified across channels reads the same under every mode — its total is drawn grey">{rows.filter(r => r.rec?.classified).length} of {rows.length} classified</span>}
+            {recur !== 'all' && <FlagLine testid="recur-flag-line" f={rows.reduce((a, r) => r.rec?.flagged == null ? a : {
+              flagged: (a.flagged ?? 0) + (r.rec.flagged ?? 0), confirmed: (a.confirmed ?? 0) + (r.rec.confirmed ?? 0),
+              rejected: (a.rejected ?? 0) + (r.rec.rejected ?? 0), unsure: (a.unsure ?? 0) + (r.rec.unsure ?? 0),
+              unjudged: (a.unjudged ?? 0) + (r.rec.unjudged ?? 0), flagRule: r.rec.flagRule }, {} as Partial<LibFlagLine>)} />}
             <InfoTip title={`counting: ${MODE_LABEL[recur]}`} testid="recur-rule">{recurRule}. Each family is classified across channels from Library › Family (*Classify across channels*); a family that has not been reads the same under every mode and says so on its row.</InfoTip>
             <span className="row lib-cap" style={{ gap: 6, fontSize: 11 }}>
               <button type="button" className="lib-pg" style={{ width: 24, height: 24 }} disabled={page <= 1} title={page <= 1 ? 'first page' : 'previous recordings'} aria-label="previous recordings" data-testid="rec-prev" onClick={() => setRecQ(page - 1 <= 1 ? null : String(page - 1))}><Icon name="chevron-left" size={12} /></button>
@@ -300,7 +304,7 @@ function Recurrence({ recordings, rows, coverage, sharedGround, unit, groupingId
                         <span className="stack" style={{ gap: 0 }}>
                           <span className="row" style={{ gap: 6 }}><span className="id" style={{ color: row.colour }}>{row.id}</span><span className="nm" title={row.name}>{familyName(row.id, row.name)}</span></span>
                           <span className="sub">{row.recordings} recording{row.recordings === 1 ? '' : 's'}{row.rec ? <> · <span data-testid={`row-total-${row.id}`} data-classified={row.rec.classified ? 'yes' : 'no'}
-                            title={`${fmtInt(row.rec[recur])} counted, ${MODE_LABEL[recur]}: ${recurRule}${row.rec.classified ? '' : ' — this family has not been classified across channels, so nothing has been taken out'}`}
+                            title={`${fmtInt(row.rec[recur])} counted, ${MODE_LABEL[recur]}: ${recurRule}${row.rec.classified ? '' : ' — this family has not been classified across channels, so nothing has been taken out'}${row.rec.flagged != null ? ` · machine-flagged ${row.rec.flagged} · confirmed ${row.rec.confirmed} · rejected ${row.rec.rejected} · unjudged ${row.rec.unjudged}` : ''}`}
                             style={!row.rec.classified && recur !== 'all' ? { color: 'var(--text-3, #9ca3af)' } : undefined}>{fmtInt(row.rec[recur])}</span></> : null}</span>
                         </span>
                       </button>

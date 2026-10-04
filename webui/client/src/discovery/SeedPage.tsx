@@ -74,7 +74,11 @@ export function SeedPage() {
   const bank = setup.data?.recommended.bank ?? null
   const bankOn = !!bank && draft?.params.scaleBank === 'bank'
   const bankQ = bankOn ? { scales: bank!.scales, overlap: draft!.params.overlap === 'first' || draft!.params.overlap === 'all' ? draft!.params.overlap : 'lowest' } : null
-  const results = useSourced(() => seed ? getSeedResults(seed.id, channels, bankQ) : Promise.resolve({ data: noResults, source: 'demo' as const }), [seed?.id, channels.join(','), bankQ?.scales.join(','), bankQ?.overlap])
+  /* fixup-AD: the exclusion zone is the block's own parameter now (a fraction of m, default m/2, Round 11); the slider
+   * holds seconds, the search takes the fraction, and the result's key and the run's recipe carry it */
+  const exclusionQ = draft && (draft.params.windowS ?? 0) > 0 && draft.params.exclusionSettable !== false
+    ? Math.round((draft.params.exclusionS / (draft.params.windowS ?? 1)) * 1000) / 1000 : null
+  const results = useSourced(() => seed ? getSeedResults(seed.id, channels, bankQ, exclusionQ) : Promise.resolve({ data: noResults, source: 'demo' as const }), [seed?.id, channels.join(','), bankQ?.scales.join(','), bankQ?.overlap, exclusionQ])
 
   // deep links ?state=running|done|failed put the simulated search straight into that state
   useEffect(() => {
@@ -403,11 +407,11 @@ function ParamsCard({ draft, recommended, seed, setParams, results, kept, nullKe
           <Dropdown value={p.scaleBank === 'bank' && bank ? 'bank' : 'none'} onChange={v => setParams({ scaleBank: v })} block testid="param-scale-bank"
             options={[{ value: 'none', label: 'none · native length' }, { value: 'bank', label: bank ? `${bank.label} (${bank.lengths.join(' · ')} samples)` : 'scale bank', disabled: !bank, reason: 'no scale bank is set in Settings › Analysis defaults' }]} />
         </ParamField>
-        {/* The figure is the guard that RAN — stumpy.match's m/4 — and the note carries §7.6's m/2
-            beside it. The slider is disabled because `detection.seed_matches` takes no exclusion
-            parameter: a control that moved this would move the card and not the search. */}
+        {/* fixup-AD: the block takes the zone (a fraction of m, default m/2) and passes it to stumpy.match, so the
+            figure here IS the guard the search runs under, and moving the slider changes the search, its result
+            key and the run's recipe. Until 2026-10-05 the block took none and stumpy ran its own m/4. */}
         <ParamField label="exclusion zone" info={p.exclusionNote ?? 'Matches closer than this to a better match are dropped. m/2 is the trivial-match guard.'}
-          aside={<b className="mono">{p.exclusionSettable === false ? `m/4 = ${p.exclusionS} s` : p.exclusionS === half ? `m/2 = ${half} s` : `${p.exclusionS} s`}</b>}>
+          aside={<b className="mono" data-testid="exclusion-figure">{p.exclusionSettable === false ? `m/4 = ${p.exclusionS} s` : p.exclusionS === (p.specExclusionS ?? half) ? `m/2 = ${p.exclusionS} s` : `${p.exclusionS} s`}</b>}>
           <Slider value={p.exclusionS} onChange={v => setParams({ exclusionS: v })} min={0} max={m} step={1} showValue={false} testid="param-exclusion" ariaLabel="exclusion zone"
             disabled={p.exclusionSettable === false} disabledReason={p.exclusionSettable === false ? 'detection.seed_matches takes no exclusion parameter — stumpy.match applies its own m/4' : undefined} />
           {/* one line here, the whole sentence in the info-tip: the note runs to
@@ -415,7 +419,7 @@ function ParamsCard({ draft, recommended, seed, setParams, results, kept, nullKe
           <span className={cx('small mono', p.exclusionSettable === false ? 'muted' : p.exclusionS === half ? 'green' : p.exclusionS < half ? 'amber' : 'muted')} data-testid="exclusion-caption">
             {p.exclusionSettable === false
               ? `stumpy.match's own guard · §7.6 asks m/2 (${p.specExclusionS ?? half} s)`
-              : p.exclusionNote ?? (p.exclusionS === half ? '= trivial-match guard' : p.exclusionS < half ? 'below m/2 lets trivial matches through' : 'wider than m/2 · fewer neighbouring matches')}
+              : p.exclusionS === (p.specExclusionS ?? half) ? 'm/2 = the trivial-match guard (§7.6)' : p.exclusionS < (p.specExclusionS ?? half) ? 'below m/2 lets trivial matches through' : 'wider than m/2 · fewer neighbouring matches'}
           </span>
         </ParamField>
         {/* the cut is computed from the null distribution, so there is none until a search has drawn one */}
@@ -734,10 +738,8 @@ function ApplyBar({ dx, draft, kept, cut, finished, seed, sim, onStarted, onSave
     threshold: 'threshold', overlap: 'on overlap', bank: 'bank lengths',
   }
   // the fields the parameter card sets; the rest of SeedParams is the server describing what it did
-  // `exclusionS` is not in this list any more: the block takes no exclusion
-  // parameter, so it can never differ from the applied search and an "exclusion
-  // zone" chip in the apply bar would be a change nothing could make
-  const settable: (keyof SeedParams)[] = ['algorithm', 'windowSamples', 'scaleBank', 'threshold', 'overlap']
+  // fixup-AD: the exclusion zone is a parameter of the block again, so a changed zone is a change the apply bar shows
+  const settable: (keyof SeedParams)[] = ['algorithm', 'windowSamples', 'scaleBank', 'exclusionS', 'threshold', 'overlap']
   const applied = draft.applied
   const show = (v: SeedParams[keyof SeedParams]) => v == null ? 'none' : String(v)
   const changes = applied ? settable.filter(k => draft.params[k] !== applied[k]) : settable
@@ -764,6 +766,8 @@ function ApplyBar({ dx, draft, kept, cut, finished, seed, sim, onStarted, onSave
       seedId: seed.id, channels, t0: dx.scope.section[0], t1: dx.scope.section[1],
       k: SEED_K, cut: cut ?? undefined, label: draft.label,
       ...(bank ? { scales: bank.scales, overlap: bank.overlap } : {}),
+      // fixup-AD: the zone the slider holds, as the fraction of m the block takes; the run's recipe records it
+      ...((draft.params.windowS ?? 0) > 0 && draft.params.exclusionSettable !== false ? { exclusion: Math.round((draft.params.exclusionS / (draft.params.windowS ?? 1)) * 1000) / 1000 } : {}),
     }).then(r => { onStarted({ key: r.run_key, label: r.label }); dx.reload() })
       .catch(e => { sim.reset?.(); console.error('the seed search could not start', e) })
   }

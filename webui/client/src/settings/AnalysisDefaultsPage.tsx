@@ -85,14 +85,20 @@ function Body({ data }: { data: Data }) {
       <SectionCard title="Cross-channel classification" subtitle="lag on the same absolute window · seconds, converted with each recording's fs" testid="cross-channel-card">
         <Row label="artifact: |lag| at most" info="Events on two electrodes at the same time are contamination (a shared ground, common-mode pickup), whatever the sign of r — the researcher's rule, Q40b. A sub-second propagation is out of reach at 1 Hz."
           dot={s.differs('cross_channel.artifact_max_lag_s')} unsaved={s.dirty('cross_channel.artifact_max_lag_s')} testid="xc-artifact-row"
-          caption="and |r| at least the floor below">
+          caption="and |r| at least the artifact test's own floor below (fixup-AD)">
           <NumberField value={s.num('cross_channel.artifact_max_lag_s')} min={0} max={60} step={0.5} unit="s" width={110}
             validate={v => v > s.num('cross_channel.propagation_max_lag_s') ? 'above the propagation ceiling' : null}
             onValid={v => s.set('cross_channel.artifact_max_lag_s', v)} testid="xc-artifact-lag" />
         </Row>
-        <Row label="r floor (|r|)" info="Below this |r| a pair is independent whatever its lag — two windows that do not look alike are not one event on two electrodes. Tested on |r|: the sign is stored on the edge, never binned."
+        <Row label="artifact: |r| at least" info="A suspected artifact must be a near-copy: |r| at least this at |lag| within the artifact line (the researcher raised it from 0.5 to 0.98, Round 12). Under it, a simultaneous pair is independent — not propagation."
+          dot={s.differs('cross_channel.artifact_min_abs_r')} unsaved={s.dirty('cross_channel.artifact_min_abs_r')} testid="xc-artifact-r-row"
+          caption="the machine only flags; a human confirms in Review">
+          <NumberField value={s.num('cross_channel.artifact_min_abs_r')} min={0} max={1} step={0.01} width={100}
+            onValid={v => s.set('cross_channel.artifact_min_abs_r', v)} testid="xc-artifact-min-r" />
+        </Row>
+        <Row label="propagation: r floor (|r|)" info="Below this |r| a pair is independent whatever its lag — two windows that do not look alike are not one event on two electrodes. Tested on |r|: the sign is stored on the edge, never binned."
           dot={s.differs('cross_channel.min_abs_r')} unsaved={s.dirty('cross_channel.min_abs_r')} testid="xc-floor-row"
-          caption="applies to artifact and propagation alike">
+          caption="the artifact test has its own floor, above">
           <NumberField value={s.num('cross_channel.min_abs_r')} min={0} max={1} step={0.05} width={100}
             onValid={v => s.set('cross_channel.min_abs_r', v)} testid="xc-min-r" />
         </Row>
@@ -102,6 +108,26 @@ function Body({ data }: { data: Data }) {
           <NumberField value={s.num('cross_channel.propagation_max_lag_s')} min={0} max={3600} step={5} unit="s" width={110}
             validate={v => v < s.num('cross_channel.artifact_max_lag_s') ? 'below the artifact line' : null}
             onValid={v => s.set('cross_channel.propagation_max_lag_s', v)} testid="xc-prop-lag" />
+        </Row>
+        {/* fixup-AD (Rounds 11-12): every bin must beat chance — the same sibling at K random other times */}
+        <Row label="chance test: random windows (K)" info="Each pair's |r| is compared with the same sibling at K random other times — windows of the member's length, at least 60 s from it, inside the recording, never over a human-marked artifact. Seeded from the member id, so a re-run draws the same windows. Short clips of slow drift correlate with anything; this is what tells a copy from a coincidence (Q40d)."
+          dot={s.differs('cross_channel.null_k')} unsaved={s.dirty('cross_channel.null_k')} testid="xc-null-k-row"
+          caption="the percentile and K are stored with every result">
+          <NumberField value={s.num('cross_channel.null_k')} min={1} max={10000} step={10} width={110}
+            onValid={v => s.set('cross_channel.null_k', Math.round(v))} testid="xc-null-k" />
+        </Row>
+        <Row label="chance test: percentile" info="A match counts only if its |r| is above this percentile of its own pair's random |r|. At 95, one pair in twenty passes by chance — and a member is tested against every sibling channel, so a human looks at every flag."
+          dot={s.differs('cross_channel.null_percentile')} unsaved={s.dirty('cross_channel.null_percentile')} testid="xc-null-pct-row"
+          caption="strictly above">
+          <NumberField value={s.num('cross_channel.null_percentile')} min={50} max={99.9} step={0.5} width={110}
+            validate={v => v <= 0 || v >= 100 ? 'between 0 and 100' : null}
+            onValid={v => s.set('cross_channel.null_percentile', v)} testid="xc-null-pct" />
+        </Row>
+        <Row label="too short to tell: under" info="A member shorter than this is not classified: counted as too short to tell, never binned, never padded (padding adds shared drift, which correlates on its own). Most Fig2A members are 10–16 samples."
+          dot={s.differs('cross_channel.min_samples')} unsaved={s.dirty('cross_channel.min_samples')} testid="xc-min-samples-row"
+          caption="the noise floor on both swings is Settings › Datasets' (0.1 mV where empty)">
+          <NumberField value={s.num('cross_channel.min_samples')} min={4} max={10000} step={1} unit="samples" width={130}
+            onValid={v => s.set('cross_channel.min_samples', Math.round(v))} testid="xc-min-samples" />
         </Row>
       </SectionCard>
 

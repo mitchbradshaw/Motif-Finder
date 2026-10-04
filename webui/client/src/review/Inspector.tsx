@@ -16,6 +16,7 @@ import {
   AnnotateCard, ArtifactPill, ContextCard, EvidenceRail, NearestFamiliesCard, Pill, PromotionPanel, ShapeCard, VerdictCard, editInExplore, statusDot, statusText, useNow,
 } from './parts'
 import { Loading, NotFound, previousLines } from './common'
+import { SuspectedArtifactCard } from './SuspectedArtifact'
 import {
   VERDICT_LABEL, amendWrite, applyWrite, clearWriteError, commitRedo, commitUndo, commitWrite, effective, getRecords, getWriteError, key, lastLive, nextRedo,
   patchRecord, rawRecord, releaseExemplar, resend, useAutoAdvance, useDrafts, usePad, useRecords, useReviewVersion, useStack, useWriteError, type Draft, type VerdictRecord,
@@ -112,6 +113,8 @@ function InspectorItem({ data, row }: { data: QueueData; row: QueueRow }) {
   const verdict = async (v: Verdict) => {
     if (promoted) return say('confirm or undo the promotion first (Enter / Ctrl Z)')
     if (binary && (v === 'seed' || v === 'artifact' || v === 'unsure')) return say('this queue takes binary verdicts and classes')
+    // fixup-AD: a suspected-artifact queue asks "artifact, or what is it really?" — the four words its queue names
+    if ((queue.source as string) === 'suspected-artifact' && v === 'seed') return say('this queue takes artifact, interesting, not interesting or unsure — promote a seed from Explore or a detection queue')
     const next = await write(v, rec?.className, v === 'seed' ? 'promotion' : 'verdict', { advance: true })
     if (!next) return
     if (v === 'seed') {
@@ -260,8 +263,10 @@ function InspectorItem({ data, row }: { data: QueueData; row: QueueRow }) {
           </div>
           <div className="rv-meta mono" data-testid="meta-line" title={d.entry.recordingFile ? `source file ${d.entry.recordingFile}` : undefined}>{metaLine(d, narrow)}</div>
 
+          {d.suspectedArtifact && <SuspectedArtifactCard p={d.suspectedArtifact} />}
+
           <ContextCard d={d} title={isWindow ? 'Window in context' : row.unit === 'human span' ? 'Span in context' : 'Candidate in context'} pad={pad} setPad={p => { setPad(p); if (padQ) setQuery({ pad: null }, true) }}
-            bandLabel={isWindow ? `${id} · ${row.durationS} s` : `${id} · ${row.durationS.toFixed(1)} s`} canEdit={!isWindow} />
+            bandLabel={isWindow ? `${id} · ${row.durationS} s` : `${id} · ${row.durationS.toFixed(1)} s`} canEdit={!isWindow && !d.suspectedArtifact} />
 
           <div className="rv-row2">
             <ShapeCard d={d} family={masked ? null : (d.nearest.find(f => f.id === overlay) ?? d.nearest[0] ?? null)} blind={masked || isWindow} rows={data.rows} />

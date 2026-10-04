@@ -65,15 +65,20 @@ const fmtLagS = (v: number) => `${v > 0 ? '+' : v < 0 ? '−' : ''}${Math.abs(v)
  *  than the propagation ceiling has no lag: it is not simultaneous (Q40a). */
 function CrossChannelCell({ e, family }: { e: LibEdge; family?: { id: string; grouping?: string } }) {
   if (!e.classification) return <span className="muted" title="not classified across channels — same channel, another recording, or not run yet">—</span>
-  const label = e.classification === 'independent_recurrence' ? 'independent' : e.classification
-  const rule = e.classificationRule ? `computed under: artifact |lag| ≤ ${e.classificationRule.artifact_max_lag_s} s · propagation ≤ ${e.classificationRule.propagation_max_lag_s} s · |r| ≥ ${e.classificationRule.min_abs_r}` : ''
+  const label = e.classification === 'independent_recurrence' ? 'independent' : e.classification === 'artifact' ? 'suspected artifact' : e.classification
+  const cr = e.classificationRule
+  const rule = cr ? `computed under: artifact |lag| ≤ ${cr.artifact_max_lag_s} s${cr.artifact_min_abs_r != null ? ` & |r| ≥ ${cr.artifact_min_abs_r}` : ''} · propagation ≤ ${cr.propagation_max_lag_s} s & |r| ≥ ${cr.min_abs_r}${cr.null_k != null ? ` · chance: ${cr.null_percentile}th pct of ${cr.null_k} random times` : ' · before the chance test (fixup-AD): classify again'}` : ''
+  // fixup-AD: how the pair did against the same sibling at K random other times, and both swings against the floor
+  const ch = e.chance
+  const chance = ch ? ` · chance ${ch.percentile == null ? '—' : `${ch.percentile.toFixed(0)}th pct`} of ${ch.k}${ch.beats ? '' : ' (not beaten)'}` : ''
+  const floor = e.floor && !e.floor.ok ? ` · ${e.floor.reason}` : ''
   if (e.simultaneous === false || e.lagS == null) {
     return <span title={`${e.gapS != null ? `${Math.round(e.gapS)} s apart — ` : ''}not simultaneous, so no lag is measured (Q40a) · ${rule}`} style={{ color: XC_TONE[e.classification] }}>{label} · not simultaneous</span>
   }
   const w = e.window
   return (
     <span className="row" style={{ gap: 4 }}>
-      <span title={`lag of ${e.other === e.a ? 'this member' : e.other} relative to ${e.a} · ${rule}`}>{fmtLagS(e.lagS)} · r {e.r == null ? '—' : e.r.toFixed(2)} · <b style={{ color: XC_TONE[e.classification] }}>{label}</b></span>
+      <span title={`lag of ${e.other === e.a ? 'this member' : e.other} relative to ${e.a} · ${rule}${floor}`} data-testid={`edge-xc-${e.id}`}>{fmtLagS(e.lagS)} · r {e.r == null ? '—' : e.r.toFixed(2)}{chance} · <b style={{ color: XC_TONE[e.classification] }}>{label}</b></span>
       {w && w.recordingId != null && (
         <button type="button" className="lib-plain mono" style={{ color: 'var(--blue-600)', fontSize: 11 }} data-testid={`edge-explore-${e.id}`}
           title="open Explore › Cross-channel on the window this pair was measured on"

@@ -536,7 +536,7 @@ export interface DiscSeedPending { ready: false; job_id: number | null; key: str
 export const startDiscoverySeedResults = (q: DiscSeedQuery) =>
   post<DiscSeedResults | DiscSeedPending>('/api/discovery/seed/results', q)
 export const pollDiscoverySeedResults = (q: DiscSeedQuery) =>
-  req<DiscSeedResults | DiscSeedPending>(`/api/discovery/seed/results${dq({ seedId: q.seedId, channels: q.channels.join(','), t0: q.t0, t1: q.t1, k: q.k, maxDistance: q.maxDistance })}`)
+  req<DiscSeedResults | DiscSeedPending>(`/api/discovery/seed/results${dq({ seedId: q.seedId, channels: q.channels.join(','), t0: q.t0, t1: q.t1, k: q.k, maxDistance: q.maxDistance, exclusion: q.exclusion })}`)
 
 export interface DiscSeedProfile {
   t0H: number; stepS: number; signal: (number | null)[]; distance: (number | null)[]
@@ -993,7 +993,7 @@ export interface DiscSeedParams { bank?: DiscSeedBank }
 export interface DiscRun { scales?: number[] | null }
 /** The GET form of a banked query: the bank is part of the result's key, so the poll must name it. */
 export const pollDiscoverySeedResultsBanked = (q: DiscSeedQuery) =>
-  req<DiscSeedResults | DiscSeedPending>(`/api/discovery/seed/results${dq({ seedId: q.seedId, channels: q.channels.join(','), t0: q.t0, t1: q.t1, k: q.k, maxDistance: q.maxDistance, scales: (q.scales ?? []).join(','), overlap: q.overlap })}`)
+  req<DiscSeedResults | DiscSeedPending>(`/api/discovery/seed/results${dq({ seedId: q.seedId, channels: q.channels.join(','), t0: q.t0, t1: q.t1, k: q.k, maxDistance: q.maxDistance, scales: (q.scales ?? []).join(','), overlap: q.overlap, exclusion: q.exclusion })}`)
 export interface LibRunMatches {
   runKey: string; label: string; kind: string; entryId: number | null; entryLabel: string | null
   cut: number | null; scales: number[] | null; includeUnjudged: boolean
@@ -1129,3 +1129,29 @@ export interface LibRoseReference {
 }
 export const getRoseReference = () => req<LibRoseReference>('/api/library/rose-reference')
 export const recomputeRoseReference = (actor?: string) => post<LibRoseReference>('/api/library/rose-reference', { actor: actor ?? 'this installation' })
+
+/* ---------------- fixup-ad: a cross-channel match must beat chance; the machine flags, a human confirms ----------------
+   `server/library.py`: the chance test and noise floor on each edge, members too short to tell, the flagged / confirmed
+   line beside *excluding artifacts*, and POST /family/{id}/suspected-artifacts (a Review queue). Append-only (shared). */
+export interface XRule { artifact_min_abs_r?: number; null_k?: number; null_percentile?: number; min_samples?: number; null_min_gap_s?: number }
+export interface XChance { k: number; k_requested?: number; at: number; threshold: number | null; percentile: number | null; beats: boolean; reason?: string | null }
+export interface XFloor { member_ptp_mv: number | null; sibling_ptp_mv: number | null; floor_mv: number; from: string; ok: boolean; reason: string | null }
+/** The line printed beside *excluding artifacts*: the machine flags, a human decides (`matching.family_recurrence`). */
+export interface LibFlagLine {
+  flagged: number; confirmed: number; rejected: number; unsure: number; unjudged: number; flagRule: string
+  tooShort: number; tooShortRule: string
+}
+export interface LibRecurrenceCounts { flagged?: number; confirmed?: number; rejected?: number; unsure?: number; unjudged?: number; flagRule?: string; tooShort?: number; tooShortRule?: string }
+export interface LibCrossChannel {
+  tooShort?: number; tooShortRule?: string; chanceRule?: string
+  suspectedQueue?: { id: number; total: number; judged: number; remaining: number } | null
+}
+export interface LibEdge { chance?: XChance | null; floor?: XFloor | null; amplitudeRatio?: number | null; tooShort?: boolean }
+export interface LibCell { confirmedMembers?: number }
+export interface LibSuspectedAck { queueId: number; name: string; flagged: number; total: number; judged: number; remaining: number }
+export const sendSuspectedArtifacts = (familyId: string, grouping?: string) =>
+  post<LibSuspectedAck>(`/api/library/family/${encodeURIComponent(familyId)}/suspected-artifacts`, { grouping })
+/** fixup-AD: the seed search's exclusion zone, a fraction of m (the block's `exclusion`; m/2 by default). It is part
+ *  of the result's key and of the run's identity, so the poll and the run must name it. */
+export interface DiscSeedQuery { exclusion?: number }
+export interface DiscSeedParams { exclusion?: number }

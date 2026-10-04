@@ -127,6 +127,21 @@ export interface ItemDetail {
   artifact: ArtifactPanel; evidence: Evidence; thumb: number[]
   /** Set when the item belongs to a held-out recording (D6): nothing else is served. */
   refused?: string
+  /** fixup-AD: a *Suspected artifact* queue's item — every channel over the member's span, one mV axis. */
+  suspectedArtifact?: SuspectedArtifactPanel
+}
+
+/** fixup-AD: `server/review.py::_suspected_artifact`. Every channel of the recording over the member's span ± one
+ *  span, in true mV; the flagging siblings carry r, lag, amplitude ratio and the chance test. */
+export interface SuspectedArtifactChannel {
+  recording_id: number; channel: string; channel_index: number; member: boolean; flagging: boolean
+  r: number | null; lag_s: number | null; amplitude_ratio: number | null
+  chance: { k: number; at: number; percentile: number | null; threshold: number | null; beats: boolean } | null
+  other_member: string | null; trace: TimeTrace
+}
+export interface SuspectedArtifactPanel {
+  member: string; family: string | null; t0_s: number; t1_s: number; span_s: [number, number]
+  unit: string | null; shared_axis: boolean; channels: SuspectedArtifactChannel[]; note: string | null; verdictNote: string
 }
 
 export interface ClusterDetail { cluster: ReviewCluster; queue: ReviewQueue; members: ItemDetail[] }
@@ -161,10 +176,12 @@ interface SrvQueueData { queue: SrvQueue; rows?: unknown[]; items?: unknown[]; c
 const ICONS: Record<string, ReviewQueue['icon']> = {
   'discovery-run': 'target', 'seed-search': 'scan', 'explore-spans': 'wave',
   'training-windows': 'grid', 'model-verification': 'flask', 'extract-events': 'wave',
+  'suspected-artifact': 'target',
 }
 const RANKS: Record<string, ReviewQueue['rankKind']> = {
   'discovery-run': 'score', 'seed-search': 'distance', 'explore-spans': 'time',
   'training-windows': 'stratified', 'model-verification': 'stratified', 'extract-events': 'time',
+  'suspected-artifact': 'time',
 }
 const ORDER: Record<ReviewQueue['rankKind'], string> = {
   score: 'sorted by score', distance: 'sorted by distance', time: 'sorted by time', stratified: 'stratified by channel',
@@ -246,6 +263,10 @@ function detailOf(raw: any, fallbackQueue?: ReviewQueue): ItemDetail {
     thumb: Array.isArray(raw?.thumb) ? raw.thumb : [],
     /* by the bridge's own flag, never by matching the label: a display name is not an identifier (fixup-f) */
     refused: raw?.refused ?? (entry?.heldOut ? refusal(entry.recording) : undefined),
+    suspectedArtifact: raw?.suspectedArtifact ? {
+      ...raw.suspectedArtifact,
+      channels: (raw.suspectedArtifact.channels ?? []).map((c: any) => ({ ...c, trace: traceOf(c.trace) })),
+    } : undefined,
   }
 }
 
