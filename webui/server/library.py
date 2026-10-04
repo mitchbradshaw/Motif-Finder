@@ -50,7 +50,10 @@ from fastapi import APIRouter, HTTPException, Query, Request
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
+from Working.cross_channel import ARTIFACT, INDEPENDENT_RECURRENCE, PROPAGATION
+from Working.distances import DISTANCE_NATIVE_LENGTH, DISTANCE_SCALE_INVARIANT, DISTANCE_SYMBOLIC
 from Working.library import hand_edits as hand_edits_mod
+from Working.library import matching as matching_mod
 from Working.library.grouping import bases as bases_mod
 from Working.library.grouping import engine as engine_mod
 from Working.library.importers import annotations as ann_importer
@@ -678,21 +681,37 @@ def _shape_of(elements, tags=()) -> tuple:
 def _edges_label(conn, member_ids) -> tuple:
     """`(edges text, artifactChannels, propChannels, indChannels)` from
     `motif_edge.classification_bin`, which `matching.classify_cross_channel_edges`
-    writes. No edges yet is reported as such, not as zero of each."""
+    writes. No edges yet is reported as such, not as zero of each.
+
+    fixup-v: counted per PAIR, not per row — a resolved seed match carries one
+    edge per distance function, so three rows are one pair — and the bins are
+    read in the core's own spelling (`Working.cross_channel`: `artifact`,
+    `propagation`, `independent_recurrence`). This read `independent` and
+    `propagating`, which the core never writes; it was never wrong only because
+    there had never been a row."""
     if not member_ids:
         return "no edges", 0, 0, 0
     marks = ",".join("?" * len(member_ids))
     rows = conn.execute(
-        f"SELECT classification_bin, COUNT(*) AS n FROM motif_edge "
-        f"WHERE member_a_id IN ({marks}) OR member_b_id IN ({marks}) GROUP BY classification_bin",
+        f"SELECT member_a_id, member_b_id, classification_bin FROM motif_edge "
+        f"WHERE member_a_id IN ({marks}) OR member_b_id IN ({marks})",
         tuple(member_ids) * 2).fetchall()
-    counts = {str(r["classification_bin"] or "unclassified"): int(r["n"]) for r in rows}
-    if not counts:
+    if not rows:
         return "no edges", 0, 0, 0
-    art = counts.get("artifact", 0)
-    prop = counts.get("propagation", 0) + counts.get("propagating", 0)
-    ind = counts.get("independent", 0)
-    text = " · ".join(f"{k} {v}" for k, v in sorted(counts.items()))
+    pairs = {}
+    for r in rows:
+        key = tuple(sorted((int(r["member_a_id"]), int(r["member_b_id"]))))
+        b = r["classification_bin"]
+        if b or key not in pairs:
+            pairs[key] = str(b) if b else pairs.get(key) or "unclassified"
+    counts = {}
+    for b in pairs.values():
+        counts[b] = counts.get(b, 0) + 1
+    art = counts.get(ARTIFACT, 0)
+    prop = counts.get(PROPAGATION, 0)
+    ind = counts.get(INDEPENDENT_RECURRENCE, 0)
+    text = (f"{len(pairs)} pair{'s' if len(pairs) != 1 else ''} · {len(rows)} edges · "
+            + " · ".join(f"{k} {v}" for k, v in sorted(counts.items())))
     return text, art, prop, ind
 
 
@@ -828,6 +847,9 @@ def _one_family(conn, index, label, members, i, tags_by_entry, verdicts, hand, g
         "judgedPct": round(100.0 * judged / len(members), 1) if members else 0.0,
         "judged": judged,
         "exemplar": f"m-{exemplar_row['member_id']}", "medoid": f"m-{medoid_row['member_id']}",
+        # fixup-v: the Library entry the exemplar is, so *Seed search in Discovery →*
+        # opens that entry as the seed (`discovery/seed?entry=N`)
+        "exemplarEntryId": (int(exemplar_row["entry_id"]) if exemplar_row["entry_id"] is not None else None),
         "exemplarMedoidD": round(_f(exemplar_row["distance"]), 4),
         "meanMemberD": round(float(np.mean(dists)), 4) if dists else 0.0,
         "snrDb": _snr_db(ex_trace),
@@ -1159,6 +1181,7 @@ def _family_detail(conn, index, fam, grouping_row) -> dict:
         edits_by_hash.setdefault(hand_edits_mod._field(e, "content_hash"), []).append(e)
 
     members, removed = [], []
+    edge_ctx = _edge_context(conn, index, sorted({int(r["entry_id"]) for r in rows if r["entry_id"]}))
     medoid_id = next((r["member_id"] for r in rows if r["is_medoid"]), None)
     exemplar_id = min(rows, key=lambda r: _f(r["distance"], 1e9))["member_id"] if rows else None
 
@@ -1189,6 +1212,7 @@ def _family_detail(conn, index, fam, grouping_row) -> dict:
         }
         if role:
             member["role"] = role
+        member["edges"] = edge_ctx["by_member"].get(int(r["member_id"] or 0), [])
         if verdict_row and verdict_row[1]:
             member["verdictAt"] = _iso_to_human(verdict_row[1])
         if hand_rows:
@@ -1226,12 +1250,162 @@ def _family_detail(conn, index, fam, grouping_row) -> dict:
                       if src else []),
         })
 
+    in_family = {int(r["member_id"]) for r in rows if r["member_id"] is not None}
     return {
         "family": fam, "cut": _f(grouping_row["cut"]),
         "members": members, "removed": removed,
         "channels": len({m["channel"] for m in members}),
         "depthLabel": fam["depthLabel"],
         "handAdded": sum(1 for m in members if m.get("addedByHand")),
+        # fixup-v: the members seed searches added, each with its edge list, and the
+        # Q3 read-out for the exemplar — filled from `motif_edge` rows
+        "matched": _matched_members(conn, index, edge_ctx, in_family),
+        "scaleReadout": _scale_readout_payload(conn, fam.get("exemplarEntryId"), edge_ctx),
+    }
+
+
+# ── fixup-v: edges, matched members and the Q3 read-out ────────────────────
+
+#: The three distances' names as the page prints them, primary first.
+DISTANCE_LABELS = {DISTANCE_SCALE_INVARIANT: "scale-invariant", DISTANCE_SYMBOLIC: "symbolic (SAX)",
+                   DISTANCE_NATIVE_LENGTH: "native-length control"}
+
+
+def _seed_runs_by_run_id(conn) -> dict:
+    """`runs.id -> {key, label, cut, entryId, scales}` for every Discovery seed run,
+    so an edge can name the run that produced it in the words the Runs page uses."""
+    out = {}
+    try:
+        for r in conn.execute("SELECT run_key, label, params_json FROM discovery_runs WHERE kind = 'seed' "
+                              "ORDER BY id"):
+            p = json.loads(r["params_json"] or "{}")
+            for rid in p.get("run_ids") or []:
+                out[int(rid)] = {"key": r["run_key"], "label": r["label"], "cut": p.get("cut"),
+                                 "entryId": p.get("entryId"), "scales": p.get("scales")}
+    except sqlite3.OperationalError:
+        pass
+    return out
+
+
+def _edge_payload(e, runs, other_member_id) -> dict:
+    recipe = json.loads(e["recipe_json"]) if e["recipe_json"] else None
+    run = runs.get(int(recipe["run_id"])) if recipe and recipe.get("run_id") is not None else None
+    threshold = _f(e["threshold"], None) if e["threshold"] is not None else None
+    value = float(e["distance_value"])
+    return {
+        "id": int(e["id"]), "function": e["distance_function"],
+        "functionLabel": DISTANCE_LABELS.get(e["distance_function"], e["distance_function"]),
+        "value": round(value, 4), "threshold": threshold,
+        "within": (threshold is not None and value <= threshold),
+        "scale": (float(e["scale_factor"]) if e["scale_factor"] is not None else None),
+        "recipeHash": e["recipe_hash"], "recipe": recipe,
+        "run": (run["label"] if run else (f"run {recipe['run_id']}" if recipe and recipe.get("run_id") else
+                                           "no seed run recorded")),
+        "runKey": run["key"] if run else None,
+        "detectionId": e["detection_id"], "other": f"m-{other_member_id}",
+        "classification": e["classification_bin"], "createdAt": e["created_at"],
+    }
+
+
+def _edge_context(conn, index, entry_ids) -> dict:
+    """Every edge touching the family's entries, payload-shaped and indexed by
+    member, read once per Family page."""
+    runs = _seed_runs_by_run_id(conn)
+    by_member, rows = {}, []
+    seen = set()
+    for eid in entry_ids:
+        for e in matching_mod.edges_for_entry(conn, eid):
+            if int(e["id"]) in seen:
+                continue
+            seen.add(int(e["id"]))
+            rows.append(e)
+            a, b = int(e["member_a_id"]), int(e["member_b_id"])
+            by_member.setdefault(a, []).append(_edge_payload(e, runs, b))
+            by_member.setdefault(b, []).append(_edge_payload(e, runs, a))
+    return {"rows": rows, "by_member": by_member, "runs": runs}
+
+
+def _matched_members(conn, index, edge_ctx, in_family) -> list:
+    """The members on the far end of the family's edges that the grouping does
+    not hold — what *Add N matches to E-xxxx* added, or re-found — each with its
+    own edge list. Not grouping members: groupings and edges are different facts
+    (the grouping is recomputable; an edge is evidence about one pair)."""
+    others = {}
+    for e in edge_ctx["rows"]:
+        for mid, rec, a, b, ent in ((e["member_b_id"], e["b_recording_id"], e["b_start_idx"], e["b_end_idx"],
+                                     e["b_entry_id"]),
+                                    (e["member_a_id"], e["a_recording_id"], e["a_start_idx"], e["a_end_idx"],
+                                     e["a_entry_id"])):
+            if int(mid) not in in_family:
+                others[int(mid)] = (int(rec), int(a), int(b), int(ent))
+    verdicts = _verdicts(conn, index)
+    adj = {}
+    det_ids = sorted({int(e["detection_id"]) for e in edge_ctx["rows"] if e["detection_id"] is not None})
+    if det_ids:
+        marks = ",".join("?" * len(det_ids))
+        for r in conn.execute(f"SELECT detection_id, verdict FROM adjudications WHERE detection_id IN ({marks})",
+                              tuple(det_ids)):
+            adj[int(r["detection_id"])] = r["verdict"]
+    out = []
+    for mid, (rec, a, b, ent) in sorted(others.items()):
+        meta = index["by_id"].get(rec)
+        if meta is None:
+            continue
+        fs = meta["fs"] or 1.0
+        edges = edge_ctx["by_member"].get(mid, [])
+        dets = [e["detectionId"] for e in edges if e["detectionId"] is not None]
+        verdict = next((adj[d] for d in dets if d in adj), None)
+        if verdict is None:
+            v = verdicts.get((rec, a, b))
+            verdict = v[0] if v else "unjudged"
+        scales = sorted({e["scale"] for e in edges if e["scale"] is not None})
+        out.append({
+            "id": f"m-{mid}", "entry": f"E-{ent:04d}", "recording": meta["label"], "recordingKey": meta["key"],
+            "channel": meta["name"], "onsetH": round(a / fs / 3600.0, 3), "durationS": round((b - a) / fs, 2),
+            "trace": _trace(index, rec, a, b, MEMBER_TRACE_PX),
+            "verdict": str(verdict).replace("_", " "),
+            "scale": scales[0] if len(scales) == 1 else None, "scales": scales,
+            "foundBy": " · ".join(sorted({e["run"] for e in edges})) or "an edge",
+            "edges": edges,
+        })
+    return out
+
+
+#: §Q26d and future/N-event-extent.md, in the words the page prints beside the read-out.
+SCALE_CAVEAT = ("scale here is duration, and an event's stored extent sets the native length it is searched at: "
+                "an exemplar whose extent is wrong is searched at the wrong length.")
+SHARKFIN_CAVEAT = ("this exemplar is a sharkfin, whose stored extent is the open question (Q26d: does the slow rise "
+                   "belong to this event or the next?) — a scale comparison on it is not settled.")
+
+
+def _scale_readout_payload(conn, entry_id, edge_ctx) -> dict | None:
+    """The Q3 read-out for the family's exemplar: one table per seed run that
+    searched for it, newest first, each filled from that run's rows by
+    `matching.scale_readout`. None when the exemplar is no Library entry."""
+    if entry_id is None:
+        return None
+    tags, elements = _tags_for_entries(conn, [int(entry_id)])
+    shape, shape_label, _mix = _shape_of(elements.get(int(entry_id), []), tags.get(int(entry_id), []))
+    runs = []
+    try:
+        rows = conn.execute("SELECT run_key, label, params_json, status FROM discovery_runs WHERE kind = 'seed' "
+                            "ORDER BY id DESC").fetchall()
+    except sqlite3.OperationalError:
+        rows = []
+    for r in rows:
+        p = json.loads(r["params_json"] or "{}")
+        if p.get("entryId") is None or int(p["entryId"]) != int(entry_id) or not p.get("run_ids"):
+            continue
+        ro = matching_mod.scale_readout(conn, int(entry_id), [int(i) for i in p["run_ids"]])
+        ro.update({"runKey": r["run_key"], "label": r["label"], "cut": p.get("cut"),
+                   "bank": p.get("scales") or [1.0]})
+        runs.append(ro)
+    return {
+        "entryId": int(entry_id), "entry": f"E-{int(entry_id):04d}",
+        "morphology": shape_label, "shape": shape,
+        "caveat": SHARKFIN_CAVEAT if (shape == "sharkfin" or "sharkfin" in str(shape_label)) else SCALE_CAVEAT,
+        "distances": [{"id": d, "label": DISTANCE_LABELS[d]} for d in matching_mod.EDGE_DISTANCES],
+        "runs": runs,
     }
 
 
@@ -2233,5 +2407,106 @@ def export_atlas(request: Request, grouping: str | None = Query(default=None),
         payload = families if fmt == "csv" else {
             "grouping": _grouping_payload(conn, row) if row else None, "families": families}
         return _attachment(payload, "atlas", fmt)
+    finally:
+        conn.close()
+
+
+
+# ── fixup-v: *Add N matches to E-xxxx* (Discovery › Runs) ──────────────────
+
+class AddMatchesBody(BaseModel):
+    #: Q39: off. A match with no verdict is a proposal, not a member.
+    includeUnjudged: bool = False
+
+
+def _seed_run_for(conn, run_key: str):
+    """The current Discovery session's seed run `run_key`, with its params."""
+    row = conn.execute(
+        "SELECT dr.* FROM discovery_runs dr JOIN discovery_sessions s ON s.id = dr.session_id "
+        "WHERE dr.run_key = ? ORDER BY s.id DESC, dr.id DESC LIMIT 1", (run_key,)).fetchone()
+    if row is None:
+        raise HTTPException(404, {"message": f"no Discovery run {run_key!r}"})
+    return row, json.loads(row["params_json"] or "{}")
+
+
+def _matches_summary(conn, row, params, include_unjudged=False) -> dict:
+    entry_id = params.get("entryId")
+    run_ids = [int(i) for i in params.get("run_ids") or []]
+    base = {"runKey": row["run_key"], "label": row["label"], "kind": row["kind"],
+            "entryId": (int(entry_id) if entry_id else None),
+            "entryLabel": (f"E-{int(entry_id):04d}" if entry_id else None),
+            "cut": params.get("cut"), "scales": params.get("scales"),
+            "includeUnjudged": bool(include_unjudged),
+            "accepted": 0, "rejected": 0, "unjudged": 0, "judged": 0, "eligible": 0, "already": 0,
+            "acceptingVerdicts": list(matching_mod.ACCEPTING_VERDICTS), "reason": None}
+    if row["kind"] != "seed":
+        return dict(base, reason="only a seed search has matches to add to a Library entry")
+    if not entry_id:
+        return dict(base, reason=("this run's seed is not a Library entry (an Explore selection or a family "
+                                  "medoid), so there is no E-xxxx to add its matches to"))
+    if conn.execute("SELECT 1 FROM motif_entry WHERE id = ?", (int(entry_id),)).fetchone() is None:
+        return dict(base, reason=f"entry {entry_id} is no longer in the Library")
+    if not run_ids:
+        return dict(base, reason="the run has not finished: it has no runs to read matches from yet")
+    entry = conn.execute("SELECT * FROM motif_entry WHERE id = ?", (int(entry_id),)).fetchone()
+    rows = [r for r in matching_mod.match_verdicts(conn, run_ids, entry) if not r["is_exemplar"]]
+    kinds = [matching_mod._classify(r["verdict"]) for r in rows]
+    edged = set()
+    if rows:
+        marks = ",".join("?" * len(rows))
+        edged = {int(r["detection_id"]) for r in conn.execute(
+            f"SELECT DISTINCT detection_id FROM motif_edge WHERE detection_id IN ({marks})",
+            tuple(r["detection_id"] for r in rows))}
+    eligible = [r for r, k in zip(rows, kinds)
+                if k == "accepted" or (k == "unjudged" and include_unjudged)]
+    out = dict(base, accepted=kinds.count("accepted"), rejected=kinds.count("rejected"),
+               unjudged=kinds.count("unjudged"), judged=kinds.count("accepted") + kinds.count("rejected"),
+               already=sum(1 for r in eligible if r["detection_id"] in edged))
+    out["eligible"] = len(eligible) - out["already"]
+    if not out["eligible"]:
+        out["reason"] = ("every accepted match is already in the Library" if out["already"] else
+                         "no match of this run has an accepting verdict yet — judge them in Review first"
+                         if not out["accepted"] else None)
+    return out
+
+
+@router.get("/runs/{run_key}/matches")
+def get_run_matches(request: Request, run_key: str, includeUnjudged: bool = False):
+    """What *Add N matches to E-xxxx* would do: the run's matches by verdict and
+    how many would become members (Q39)."""
+    conn = _conn(request)
+    try:
+        row, params = _seed_run_for(conn, run_key)
+        return _matches_summary(conn, row, params, includeUnjudged)
+    finally:
+        conn.close()
+
+
+@router.post("/runs/{run_key}/matches")
+def post_run_matches(request: Request, run_key: str, body: AddMatchesBody):
+    """*Add N matches to E-xxxx*: the run's accepted matches become members of
+    the entry it searched for, each pair with an edge per distance function
+    (`Working.library.matching.resolve_run_matches`). Idempotent."""
+    conn = _conn(request)
+    try:
+        row, params = _seed_run_for(conn, run_key)
+        summary = _matches_summary(conn, row, params, body.includeUnjudged)
+        if summary["entryId"] is None or row["kind"] != "seed" or not params.get("run_ids"):
+            raise HTTPException(409, {"message": summary["reason"]})
+        out = matching_mod.resolve_run_matches(conn, summary["entryId"], params["run_ids"],
+                                               cut=params.get("cut"), include_unjudged=body.includeUnjudged)
+        from Working.registration.settings import append_audit
+        if out["members_new"] or out["edges_new"]:
+            append_audit(conn, "library",
+                         f"Added {out['members_new'] + out['members_resolved']} matches of {row['label']} to "
+                         f"{summary['entryLabel']}: {out['members_new']} new members, {out['edges_new']} edges",
+                         "Discovery › Runs", route=f"discovery/runs?run={run_key}",
+                         detail={k: out[k] for k in ("members_new", "members_resolved", "edges_new",
+                                                     "edges_by_function", "threshold", "include_unjudged")})
+        return {"membersNew": out["members_new"], "membersResolved": out["members_resolved"],
+                "edgesNew": out["edges_new"], "edgesKept": out["edges_kept"],
+                "edgesByFunction": out["edges_by_function"], "threshold": out["threshold"],
+                "entryId": summary["entryId"], "entryLabel": summary["entryLabel"],
+                "summary": _matches_summary(conn, row, params, body.includeUnjudged)}
     finally:
         conn.close()

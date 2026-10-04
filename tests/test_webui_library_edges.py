@@ -200,7 +200,7 @@ def test_the_seed_page_offers_the_bank_from_settings(client):
     bank = setup["recommended"]["bank"]
     assert bank["scales"] == BANK
     assert bank["label"] == "3 lengths · 0.8× 1× 1.25×"
-    r = client.put("/api/settings/analysis-defaults", json={"seed.scale_bank": [0.5, 1, 2]})
+    r = client.put("/api/settings/analysis-defaults", json={"values": {"seed.scale_bank": [0.5, 1, 2]}})
     assert r.status_code == 200, r.text
     bank = client.get("/api/discovery/seed/setup", params={"entry": 1}).json()["recommended"]["bank"]
     assert bank["scales"] == [0.5, 1.0, 2.0]
