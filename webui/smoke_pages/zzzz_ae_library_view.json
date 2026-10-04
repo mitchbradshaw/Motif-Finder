@@ -1,8 +1,8 @@
 [
  {"page": "library.atlas", "state": "fixup-ae-floor-on-by-default", "hash": "library/atlas?floor=1", "settle_ms": 6000, "traces_in_box": true,
-  "_why": "fixup-ae (Q21): the noise floor is a view filter, on by default; the bar says how many sub-floor members it hides, by store, and how many families are entirely under it; a card carries its scale band as provenance and what the view hid of it",
-  "actions": [{"wait_for": ["[data-testid=\"view-by-store\"]", 60000]}, {"wait_for": ["[data-testid^=\"band-badge-\"]", 60000]}, {"wait": 1500}],
-  "expect": ["[data-testid=\"view-filter-bar\"][data-floor=\"on\"]", "[data-testid=\"view-by-store\"]", "[data-testid=\"show-sub-floor\"]", "[data-testid=\"view-families-under\"]", "[data-testid^=\"band-badge-\"]", "[data-testid^=\"hidden-badge-\"]", "[data-testid=\"view-rule\"]"]},
+  "_why": "fixup-ae (Q21): the noise floor is a view filter, on by default; the bar says how many sub-floor members it hides, by store, and how many families are entirely under it; a card carries what the view hid of it (and its scale band as provenance once the backfill has stored scale_band — not yet in the real database)",
+  "actions": [{"wait_for": ["[data-testid=\"view-by-store\"]", 60000]}, {"wait": 1500}],
+  "expect": ["[data-testid=\"view-filter-bar\"][data-floor=\"on\"]", "[data-testid=\"view-by-store\"]", "[data-testid=\"show-sub-floor\"]", "[data-testid=\"view-families-under\"]", "[data-testid^=\"hidden-badge-\"]", "[data-testid=\"view-rule\"]"]},
  {"page": "library.atlas", "state": "fixup-ae-show-sub-floor", "hash": "library/atlas?floor=1", "settle_ms": 4000,
   "_why": "fixup-ae: 'show sub-floor (n)' brings them back — nothing was deleted",
   "actions": [{"wait_for": ["[data-testid=\"show-sub-floor\"]", 30000]}, {"click": "[data-testid=\"show-sub-floor\"]"}, {"wait_for": ["[data-testid=\"view-filter-bar\"][data-floor=\"off\"]", 30000]}, {"wait": 2500}],
