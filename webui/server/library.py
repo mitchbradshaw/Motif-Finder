@@ -1313,6 +1313,8 @@ def _family_detail(conn, index, fam, grouping_row) -> dict:
 #: The three distances' names as the page prints them, primary first.
 DISTANCE_LABELS = {DISTANCE_SCALE_INVARIANT: "scale-invariant", DISTANCE_SYMBOLIC: "symbolic (SAX)",
                    DISTANCE_NATIVE_LENGTH: "native-length control"}
+#: fixup-W: the edge *Classify across channels* writes when two co-occurring members had none
+DISTANCE_LABELS[matching_mod.CROSS_CHANNEL_DISTANCE] = "cross-correlation (1 − |r|)"
 
 
 def _cross_channel_payload(conn, member_ids) -> dict:
@@ -1426,7 +1428,8 @@ def _edge_payload(e, runs, other_member_id) -> dict:
         "scale": (float(e["scale_factor"]) if e["scale_factor"] is not None else None),
         "recipeHash": e["recipe_hash"], "recipe": recipe,
         "run": (run["label"] if run else (f"run {recipe['run_id']}" if recipe and recipe.get("run_id") else
-                                           "no seed run recorded")),
+                                           "Classify across channels" if e["distance_function"] == matching_mod.CROSS_CHANNEL_DISTANCE
+                                           else "no seed run recorded")),
         "runKey": run["key"] if run else None,
         "detectionId": e["detection_id"], "other": f"m-{other_member_id}",
         "classification": e["classification_bin"], "createdAt": e["created_at"],

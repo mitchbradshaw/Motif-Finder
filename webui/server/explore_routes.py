@@ -133,7 +133,9 @@ def get_cross_channel(request: Request, recording_id: int, t0: float = 0.0, t1: 
     if not (0 <= t0 < t1 <= rec["duration_s"] + 1e-9):
         raise HTTPException(422, f"window must satisfy 0 <= t0 < t1 <= {rec['duration_s']:.0f} s")
     px_used = max(16, min(4000, px))
-    s0, s1 = int(t0 * fs), int(t1 * fs)
+    # fixup-W: tolerant of a decimal second times fs landing a hair under the sample it names (322.6 s x 10 Hz is
+    # 3225.9999…), so an edge's window opened from Library › Family is cut on exactly the samples it was measured on
+    s0, s1 = int(np.floor(t0 * fs + 1e-6)), int(np.floor(t1 * fs + 1e-6))
     c = _conn(request)
     try:
         sibs = [dict(r) for r in q.list_recordings(c, rec["source_file"])]
