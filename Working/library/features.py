@@ -56,8 +56,11 @@ SHAPE_SOURCE = "interrogation.event_shape"
 DETECTOR_SOURCE = "detector"
 DETECTOR_PREFIX = "detector_"
 
+#: fixup-ae (E §8.4): names `rise_time_frac`, so a row measured before `rise_time_s` existed is
+#: told apart from one measured under the 10-90 % rule.
 RULE_VERSION = (f"event_shape/1 anchors=detector knee_frac={ES.KNEE_FRAC:g} recovery_frac={ES.RECOVERY_FRAC:g} "
-                f"recovery_max_mult={ES.RECOVERY_MAX_MULT:g} walk_onset_back=1 polarity=drop")
+                f"recovery_max_mult={ES.RECOVERY_MAX_MULT:g} rise_time_frac={ES.RISE_TIME_FRAC:g} "
+                f"walk_onset_back=1 polarity=drop")
 
 # detector column -> (feature name, factor to the stated unit)
 _DETECTOR_COLUMNS = {
@@ -67,7 +70,16 @@ _DETECTOR_COLUMNS = {
     "rise_height_mv": ("rise_height_mv", 1.0),
     "max_slope_raw": ("max_slope_mv_s", 1000.0),     # V/s, fs applied once -> mV/s
     "onset_slope_raw": ("onset_slope_mv_s", 1000.0),
+    # fixup-ae (Q22): a window holding one fall (1) or several (0) — a global flag, a Library filter;
+    # and the detector's WITHIN-SPAN octave index, carried as provenance only (never a filter: band 1 is
+    # 174 s in one span and 4 s in another). Its duration range is `scale_band_ranges`'.
+    "is_pure": ("is_pure", 1.0),
+    "scale_band": ("scale_band", 1.0),
 }
+
+#: The detector numbers a backfill writes beyond `_DETECTOR_COLUMNS`: a band's own fall-duration range
+#: inside its span, so the Library can print the label the detector wrote (`passes6._band_label`).
+SCALE_BAND_RANGE = ("scale_band_lo_s", "scale_band_hi_s")
 
 
 def _now():
@@ -121,6 +133,44 @@ def detector_measures(event):
     return out
 
 
+def scale_band_ranges(events):
+    """`{(span_key, band): (shortest fall s, longest fall s)}` — what the detector's
+    `scale_band_labels` describe (`Pipelines/drop_motifs/passes6.py::scale_bands`, one
+    span's octaves of `fall_duration_s`). Recomputed from the events themselves because
+    the labels are stored per span POSITION in a summary file, not beside the events."""
+    out = {}
+    for e in events:
+        band, fall = _finite(e.get("scale_band")), _finite(e.get("fall_duration_s"))
+        if band is None or fall is None:
+            continue
+        key = (str(e.get("span_key")), int(band))
+        lo, hi = out.get(key, (fall, fall))
+        out[key] = (min(lo, fall), max(hi, fall))
+    return out
+
+
+def scale_band_label(lo, hi):
+    """`"4-17 s"`, or `"12 s"` when a band holds one duration — `passes6._band_label`'s
+    wording, so the Library prints the label the detector wrote."""
+    lo, hi = _finite(lo), _finite(hi)
+    if lo is None or hi is None:
+        return None
+    fmt = (lambda v: f"{v:.0f}" if v >= 1 else f"{v:.2g}")
+    if hi - lo < 0.5:
+        return f"{lo:.0f} s" if lo >= 1 else f"{lo:.2g} s"
+    return f"{fmt(lo)}-{fmt(hi)} s"
+
+
+def _with_band_range(event, ranges):
+    out = detector_measures(event)
+    band = _finite(event.get("scale_band"))
+    if band is not None and ranges is not None:
+        lo_hi = ranges.get((str(event.get("span_key")), int(band)))
+        if lo_hi is not None:
+            out[SCALE_BAND_RANGE[0]], out[SCALE_BAND_RANGE[1]] = lo_hi
+    return out
+
+
 def features_from_event_store(store_path, event_ids=None, *, store=None):
     """One row per event of a drop-motif store: its content hash (over the
     `detrended_mv` snippet, the importer's hashed waveform), fs, Event shape's
@@ -130,6 +180,7 @@ def features_from_event_store(store_path, event_ids=None, *, store=None):
         from Working.library.importers.event_store import read_event_store
         store = read_event_store(store_path)
     wanted = None if event_ids is None else set(event_ids)
+    ranges = scale_band_ranges(store["events"])
     rows = []
     for e in store["events"]:
         eid = str(e["event_id"])
@@ -141,7 +192,7 @@ def features_from_event_store(store_path, event_ids=None, *, store=None):
         values = np.asarray(snip["detrended_mv"], dtype=float)
         fs = float(e["fs"])
         rows.append({"event_id": eid, "content_hash": content_hash(values), "fs": fs,
-                     "measures": measure_snippet(values, fs, detector_anchor(e)), "detector": detector_measures(e)})
+                     "measures": measure_snippet(values, fs, detector_anchor(e)), "detector": _with_band_range(e, ranges)})
     return rows
 
 
@@ -194,6 +245,21 @@ def _has_shape(conn, digest, fs):
                         (digest, float(fs), SHAPE_SOURCE)).fetchone() is not None
 
 
+def _is_complete(conn, digest, fs, event):
+    """Every current shape measure and every detector number this event carries is stored.
+
+    fixup-ae (E §8.4): `_has_shape` alone skipped a row written before `rise_time_s` (or the
+    detector's `is_pure`) existed, so the route measured the missing one on every request. A
+    row is complete only when it holds what a fresh measurement would write."""
+    have = {(r[0], r[1]) for r in conn.execute(
+        "SELECT source, feature FROM motif_features WHERE content_hash = ? AND fs = ?", (digest, float(fs)))}
+    if not have:
+        return False
+    want = {(SHAPE_SOURCE, k) for k in ES.MEASURES}
+    want |= {(DETECTOR_SOURCE, k) for k in detector_measures(event)}
+    return want <= have
+
+
 def backfill_library(conn, *, repo_root=None, only_missing=True, progress=None):
     """Measure every Library entry whose snippet a store holds and write its row.
 
@@ -212,6 +278,7 @@ def backfill_library(conn, *, repo_root=None, only_missing=True, progress=None):
         "SELECT id, content_hash, source_kind, source_store, source_ref FROM motif_entry "
         "WHERE content_hash IS NOT NULL ORDER BY source_store, id").fetchall()
     stores = {}
+    band_ranges = {}
     for i, (eid, digest, kind, store_ref, ref) in enumerate(entries):
         if progress is not None:
             progress(i, len(entries))
@@ -235,15 +302,17 @@ def backfill_library(conn, *, repo_root=None, only_missing=True, progress=None):
             skip("event_not_in_store")
             continue
         fs = float(event["fs"])
-        if only_missing and _has_shape(conn, digest, fs):
+        if only_missing and _is_complete(conn, digest, fs, event):
             report["already_present"] += 1
             continue
         values = np.asarray(st["snippets"][str(ref)]["detrended_mv"], dtype=float)
         if content_hash(values) != digest:
             skip("snippet_hash_mismatch")          # never file a measurement under a hash it does not describe
             continue
+        if store_ref not in band_ranges:
+            band_ranges[store_ref] = scale_band_ranges(st["events"])
         row = {"content_hash": digest, "fs": fs, "measures": measure_snippet(values, fs, detector_anchor(event)),
-               "detector": detector_measures(event)}
+               "detector": _with_band_range(event, band_ranges[store_ref])}
         report["values_written"] += write_features(conn, [row], commit=False)
         report["measured"] += 1
         report["stores"].setdefault(store_ref, "read")

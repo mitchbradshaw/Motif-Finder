@@ -54,7 +54,8 @@ import pandas as pd
 from Adapters.base import AdapterResult, AdapterSpec, ParamSpec
 from Adapters.registry import register
 from Working.block_cost import estimate_seconds, register_cost_model
-from Working.Detection.drop_motifs.gradients import DEFAULT_SLOPE_REF_MV_S, SLOPE_SCALES
+from Working.Detection.drop_motifs.gradients import SLOPE_SCALES
+from Working.library import rose_reference as RR
 from Working.interrogation import event_shape as ES
 from Working.types import SpanSet
 
@@ -80,7 +81,7 @@ def _merge(upstream, measured):
 
 def _run(x, t, fs, polarity="drop", upstream_inverted=False, knee_frac=ES.KNEE_FRAC,
          recovery_frac=ES.RECOVERY_FRAC, recovery_max_mult=ES.RECOVERY_MAX_MULT, rise_time_frac=ES.RISE_TIME_FRAC,
-         walk_onset_back=True, rose_scale="raw", rose_reference_mv_s=DEFAULT_SLOPE_REF_MV_S, value=None):
+         walk_onset_back=True, rose_scale="raw", rose_reference_mv_s=RR.USE_STORED, value=None):
     spans = _require(value)
     up = spans.features
     # an upstream block that already located each event (its own onset_idx / extremum_idx
@@ -93,7 +94,18 @@ def _run(x, t, fs, polarity="drop", upstream_inverted=False, knee_frac=ES.KNEE_F
         rise_time_frac=rise_time_frac, walk_onset_back=bool(walk_onset_back), anchors=anchors)
     groups = (up["group"].astype(str).tolist() if up is not None and "group" in up.columns
               else ["all"] * len(spans.starts))
-    rose = ES.event_rose(detail, groups, fs, scale=rose_scale, reference=rose_reference_mv_s)
+    # fixup-ae: 45° on the raw scale is the Library's rose reference (Settings › Analysis defaults) unless a
+    # number was stated here; with none to read, these events' own median is the reference and the rose says
+    # so — never `gradients.py`'s 1.0 mV/s silently
+    reference = RR.resolve(rose_reference_mv_s) if rose_scale == "raw" else None
+    if reference is not None and reference["value_mv_s"] is None:
+        rose = ES.event_rose(detail, groups, fs, scale="pooled")
+        reference = {**reference, "text": "no Library reference to read: 45° = the median of these events (pooled)"}
+    else:
+        rose = ES.event_rose(detail, groups, fs, scale=rose_scale,
+                             reference=(reference["value_mv_s"] if reference is not None else 1.0))
+    if reference is not None:
+        rose["reference"] = {k: reference.get(k) for k in ("value_mv_s", "population", "n", "computed_at", "stored", "text")}
     out = SpanSet(starts=tuple(spans.starts), ends=tuple(spans.ends), labels=spans.labels, scores=spans.scores,
                   features=_merge(up, feats))
     return AdapterResult(
@@ -153,8 +165,9 @@ SPEC = register(AdapterSpec(
         ParamSpec("walk_onset_back", bool, True, "Move the onset back onto the shoulder the event departs from (detect5)"),
         ParamSpec("rose_scale", str, "raw", "What 45° means on the rose (gradients.SLOPE_SCALES)",
                   choices=list(SLOPE_SCALES)),
-        ParamSpec("rose_reference_mv_s", float, DEFAULT_SLOPE_REF_MV_S,
-                  "The stated reference for the raw scale: 45° = this many mV/s", min=1e-6),
+        ParamSpec("rose_reference_mv_s", float, RR.USE_STORED,
+                  "The raw scale's 45° in mV/s. 0 = the Library's rose reference (the median steepest slope over "
+                  "accepted motifs, Settings › Analysis defaults), printed with its population on the rose", min=0.0),
     ],
     run=_run,
     derive=_derive,

@@ -123,6 +123,11 @@ class Runtime:
             self._setup_sandbox(cfg, _mp, _wm, _cc)
         else:
             self._setup_project(cfg, _mp, _wm, _cc)
+        # fixup-ae: the rose reference an `interrogation.event_shape` run reads by default comes from the
+        # database this bridge serves — never from `schema.DB_PATH`, which is the real file
+        import Working.library.rose_reference as _rr
+        self._originals["rr.DB_PATH"] = _rr.DB_PATH
+        _rr.DB_PATH = self.db_path
         return self
 
     def _setup_sandbox(self, cfg, _mp, _wm, _cc):
@@ -207,6 +212,9 @@ class Runtime:
         _cc.MODEL_ROOT = o["cc.MODEL_ROOT"]
         import Adapters.catalogue_cluster as _cl
         _cl.RESULTS_DIR = o["cl.RESULTS_DIR"]
+        if "rr.DB_PATH" in o:
+            import Working.library.rose_reference as _rr
+            _rr.DB_PATH = o["rr.DB_PATH"]
         self._originals = None
 
     # --------------------------------------------------------- describe --

@@ -439,6 +439,60 @@ def channel_divergence(conn, recording_id, run_ids=None, *, rule=None, span=None
     }
 
 
+# ── any span (fixup-AE: Library members) ────────────────────────────────────
+
+def resolve_spans(conn, recording_id, spans, *, detection_ids=None, rule=None, containment=None):
+    """The human verdict of arbitrary spans on one channel, by the same rules
+    and in the same order as ``channel_divergence`` resolves a detection:
+    a verdict given in Review on the span's detection (``detection_ids``,
+    parallel to ``spans``, None where it has none), then the event-shaped row
+    it matches under §4.6, then the reviewed windows it falls in (Settings'
+    containment mode). A Library member is not a detection of a run, so this
+    is the door it comes through; it is not a second resolver.
+
+    Returns one dict per span: ``side`` ('yes', 'no' or None), ``verdict``,
+    ``by`` ('adjudication', 'extent', 'containment' or None), ``why`` (the
+    reason it could not be resolved, `WHY`'s sentence) and ``human`` (the
+    annotation ids it rests on)."""
+    rule = normalise_rule(rule) if rule is not None else rule_from_settings(conn)
+    mode = normalise_containment(containment) if containment is not None else containment_from_settings(conn)
+    spans = [(int(a), int(b)) for a, b in spans]
+    det_ids = list(detection_ids) if detection_ids is not None else [None] * len(spans)
+    windows, events = human_labels(conn, recording_id)
+    w_starts = [w["start"] for w in windows]
+    max_w = max((w["width"] for w in windows), default=0)
+    adjud = {}
+    wanted = sorted({int(d) for d in det_ids if d is not None})
+    for i in range(0, len(wanted), 500):
+        part = wanted[i:i + 500]
+        for r in conn.execute(f"SELECT detection_id, verdict FROM adjudications WHERE detection_id IN "
+                              f"({','.join('?' * len(part))}) ORDER BY id", part):
+            adjud[int(r[0])] = (r[1], side_of(r[1]))
+    pairing = match_span_sets(spans, [(e["start"], e["end"]) for e in events], rule=rule) \
+        if spans and events else {"pairs": []}
+    event_of = {p["candidate"]: events[p["reference"]] for p in pairing["pairs"]}
+    by_id = {w["id"]: w for w in windows}
+    out = []
+    for i, (a, b) in enumerate(spans):
+        d = {"start": a, "end": b}
+        verdict, adj_side = adjud.get(int(det_ids[i]), (None, None)) if det_ids[i] is not None else (None, None)
+        ev = event_of.get(i)
+        if adj_side:
+            out.append({"side": adj_side, "verdict": verdict, "by": "adjudication", "why": None, "human": []})
+            continue
+        if ev is not None and ev["side"]:
+            out.append({"side": ev["side"], "verdict": ev["verdict"], "by": "extent", "why": None, "human": [ev["id"]]})
+            continue
+        c_side, c_why, c_ids = _containment(windows, w_starts, max_w, d, mode)
+        if c_side:
+            v = next((by_id[w]["verdict"] for w in c_ids if by_id[w]["side"] == c_side), None)
+            out.append({"side": c_side, "verdict": v, "by": "containment", "why": None, "human": c_ids})
+            continue
+        why = "unsure event row" if ev is not None else c_why
+        out.append({"side": None, "verdict": None, "by": None, "why": WHY[why], "human": c_ids})
+    return out
+
+
 # ── pooling ─────────────────────────────────────────────────────────────────
 
 def pool_cells(divs):
