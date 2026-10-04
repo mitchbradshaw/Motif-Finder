@@ -980,3 +980,53 @@ export interface DivBreakdown {
   rules: { containment: string; extent: string }; binH: number; t0H: number; t1H: number
 }
 export interface DiscCompare { pairedBy?: 'divergence' | 'reciprocal_iou_onset'; divergence?: DivBreakdown | null }
+
+/* ------------------------------------------------------------------ fixup-v: scale bank, Library edges
+ * A seed search at several lengths (`scales`), each match carrying the factor it was found at and the null
+ * drawn per length; *Add N matches to E-xxxx* (Q39: accepting verdicts only); the edges a Family page reads. */
+export interface DiscSeedQuery { scales?: number[]; overlap?: string }
+export interface DiscSeedMatch { scale?: number; length?: number }
+export interface DiscSeedNull { byScale?: Record<string, { distances: number[]; draws: number }> }
+export interface DiscSeedResults { scales?: number[] | null }
+export interface DiscSeedBank { scales: number[]; label: string; lengths: number[]; settings: string }
+export interface DiscSeedParams { bank?: DiscSeedBank }
+export interface DiscRun { scales?: number[] | null }
+/** The GET form of a banked query: the bank is part of the result's key, so the poll must name it. */
+export const pollDiscoverySeedResultsBanked = (q: DiscSeedQuery) =>
+  req<DiscSeedResults | DiscSeedPending>(`/api/discovery/seed/results${dq({ seedId: q.seedId, channels: q.channels.join(','), t0: q.t0, t1: q.t1, k: q.k, maxDistance: q.maxDistance, scales: (q.scales ?? []).join(','), overlap: q.overlap })}`)
+export interface LibRunMatches {
+  runKey: string; label: string; kind: string; entryId: number | null; entryLabel: string | null
+  cut: number | null; scales: number[] | null; includeUnjudged: boolean
+  accepted: number; rejected: number; unjudged: number; judged: number; eligible: number; already: number
+  acceptingVerdicts: string[]; reason: string | null
+}
+export interface LibRunMatchesAck {
+  membersNew: number; membersResolved: number; edgesNew: number; edgesKept: number
+  edgesByFunction: Record<string, number>; threshold: number; entryId: number; entryLabel: string; summary: LibRunMatches
+}
+export const getLibraryRunMatches = (runKey: string, includeUnjudged = false) =>
+  req<LibRunMatches>(`/api/library/runs/${encodeURIComponent(runKey)}/matches${dq({ includeUnjudged })}`)
+export const postLibraryRunMatches = (runKey: string, includeUnjudged = false) =>
+  post<LibRunMatchesAck>(`/api/library/runs/${encodeURIComponent(runKey)}/matches`, { includeUnjudged })
+export interface LibEdge {
+  id: number; function: string; functionLabel: string; value: number; threshold: number | null; within: boolean
+  scale: number | null; recipeHash: string; recipe: Record<string, unknown> | null; run: string; runKey: string | null
+  detectionId: number | null; other: string; classification: string | null; createdAt: string | null
+}
+export interface LibMatchedMember {
+  id: string; entry: string; recording: string; recordingKey: string; channel: string; onsetH: number; durationS: number
+  trace: (number | null)[]; verdict: string; scale: number | null; scales: number[]; foundBy: string; edges: LibEdge[]
+}
+export interface LibSpread { n: number; median: number | null; min: number | null; max: number | null; within: number; threshold: number | null }
+export interface LibReadoutRow {
+  scale: number; found: number; judged: number; accepted: number; members: number; nullCount: number; nullPerDraw: number | null
+  scale_invariant: LibSpread; symbolic_sax: LibSpread; native_length: LibSpread
+}
+export interface LibReadoutRun {
+  entryId: number; runIds: number[]; scales: number[]; rows: LibReadoutRow[]; nullDraws: number; distances: string[]; note: string
+  runKey: string; label: string; cut: number | null; bank: number[]
+}
+export interface LibScaleReadout {
+  entryId: number; entry: string; morphology: string; shape: string | null; caveat: string
+  distances: { id: string; label: string }[]; runs: LibReadoutRun[]
+}
