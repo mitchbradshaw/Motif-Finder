@@ -321,3 +321,51 @@ def test_compare_with_the_human_side_pairs_by_the_divergence_not_iou_alone(db):
     # W11 (silent), E2 (D7 overlaps it without matching)
     assert sorted(human[j] for j in m["only_a"]) == sorted([a["W3"], a["W9"], a["W11"], a["E2"]])
     assert m["counts"]["only_b"] == len(DETECTIONS) - 3
+
+
+# ── the containment mode is a setting (the researcher, 2026-10-04) ──────────
+#
+# "Both, as a setting": by default a detection is scored by the reviewed windows
+# its CENTRE lies in; Settings › Analysis defaults `containment = whole` asks
+# for the windows that WHOLLY contain it instead (Q41's rule mirrored). The
+# fixture above reads the same under both — every detection there is short and
+# sits well inside its windows. This one does not.
+
+@pytest.fixture
+def long_db():
+    conn = init_db(":memory:")
+    rec = q.insert_recording(conn, "long.mat", 0, 1.0, 5_000, 0, "long_CH0.npy")
+    q.insert_annotation(conn, rec, 0, 600, "interesting", q.SOURCE_IMPORTED_10MIN, created_at=BEFORE)
+    q.insert_annotation(conn, rec, 600, 1200, "not_interesting", q.SOURCE_IMPORTED_10MIN, created_at=BEFORE)
+    run_id = _run(conn, rec, (0, 5_000))
+    long_det = run_db.insert_detection(conn, run_id, 100, 900, score=1.0)      # 800 samples, centre 500
+    edge_det = run_db.insert_detection(conn, run_id, 1000, 1300, score=1.0)    # centre 1150, sticks out past 1200
+    yield {"conn": conn, "rec": rec, "run": run_id, "long": long_det, "edge": edge_det}
+    conn.close()
+
+
+def test_by_default_a_detection_is_scored_by_the_windows_its_centre_lies_in(long_db):
+    out = _divergence().channel_divergence(long_db["conn"], long_db["rec"], [long_db["run"]])
+    by_id = {it["id"]: it for it in out["items"] if it["kind"] == "detection"}
+    assert by_id[long_db["long"]]["cell"] == "machine_yes_human_yes"
+    assert by_id[long_db["edge"]]["cell"] == "machine_yes_human_no"
+    p = out["precision"]["containment"]
+    assert p["mode"] == "centre" and "centre" in p["rule"]
+
+
+def test_settings_can_ask_for_wholly_inside_and_the_rule_says_so(long_db):
+    from Working.registration.settings import put_settings
+    conn = long_db["conn"]
+    put_settings(conn, "analysis-defaults", {"containment": "whole"})
+    out = _divergence().channel_divergence(conn, long_db["rec"], [long_db["run"]])
+    by_id = {it["id"]: it for it in out["items"] if it["kind"] == "detection"}
+    assert by_id[long_db["long"]]["why"] == "longer than a window"
+    assert by_id[long_db["edge"]]["why"] == "straddles a window edge"
+    p = out["precision"]["containment"]
+    assert p["mode"] == "whole" and "wholly contain" in p["rule"]
+    assert p["judged"] == 0
+
+
+def test_an_unknown_containment_mode_is_refused(long_db):
+    with pytest.raises(ValueError):
+        _divergence().channel_divergence(long_db["conn"], long_db["rec"], [long_db["run"]], containment="nearby")
