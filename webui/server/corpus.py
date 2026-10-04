@@ -26,6 +26,7 @@ from .runtime import HELD_OUT_FILE
 # The one electrode-name table, in the core (Working/discovery/channels.py) so
 # Discovery's scope, fan-out and scoreboard call a channel what Explore calls
 # it. A second copy here drifted from it within an hour of being written.
+from Working.discovery import divergence as DIV
 from Working.discovery.channels import M2_STYLE_NAMES, channel_name as _core_channel_name
 
 # VERDICTS is imported from Working.database.schema above — the one vocabulary,
@@ -185,21 +186,6 @@ def _absolute(start_idx, end_idx, span_start):
     return s, e
 
 
-def _overlap_flags(a_start, a_end, b_start, b_end):
-    """For each interval in A, True if it overlaps any interval in B (B sorted by start)."""
-    if len(b_start) == 0 or len(a_start) == 0:
-        return np.zeros(len(a_start), dtype=bool)
-    order = np.argsort(b_start)
-    bs = b_start[order]; be = b_end[order]
-    # cumulative max of ends lets us test "any earlier-or-equal-start interval reaches past a_start"
-    be_cummax = np.maximum.accumulate(be)
-    idx = np.searchsorted(bs, a_end, side="left")   # b intervals starting before a_end
-    flags = np.zeros(len(a_start), dtype=bool)
-    has = idx > 0
-    flags[has] = be_cummax[idx[has] - 1] > a_start[has]
-    return flags
-
-
 def run_methods(conn, source_file: str) -> list[dict]:
     """Every run on a recording file (with or without detections), with its method (the algorithms of its recipe)."""
     out = []
@@ -240,9 +226,21 @@ def _runs_matching(conn, source_file: str, run_ids, method) -> list | None:
 def coverage(conn, source_file: str, bins: int = 57, verdicts: tuple | None = None,
              run_ids: list | None = None, method: str | None = None) -> dict:
     """channels × bins counts of annotation spans, detection spans, their SUM
-    and 'disagree' (annotations with no overlapping detection + detections with
-    no overlapping annotation), plus per-channel summaries. `run_ids` /
-    `method` restrict the detection layers to those runs.
+    and 'disagree', plus per-channel summaries. `run_ids` / `method` restrict
+    the detection layers to those runs.
+
+    'disagree' is the divergence's two disagreement cells
+    (`Working.discovery.divergence`, fixup-X): *machine yes · human no* (a
+    detection a human rejected, or one inside reviewed windows that say no)
+    plus *machine no · human yes* (a label a human said yes to where a run
+    covered the place and found nothing). It used to be every annotation with
+    no overlapping detection plus the reverse, whatever the verdict and
+    whether or not any run had looked — 11,261 "disagreements" against 11,265
+    annotations on M2_aug. A place no run covered, or no human reviewed, is
+    *not comparable* and is counted beside the cells, never in them. With no
+    run picked the divergence pools every run on the recording and
+    `divergence.scope` says so. It reads every verdict: the verdict filter
+    shapes the annotation layers, not what counts as a human yes or no.
 
     The `both` key is a sum, `annotations + detections`, NOT the bins where
     both are present — the map colours by total activity and that is what the
@@ -258,6 +256,9 @@ def coverage(conn, source_file: str, bins: int = 57, verdicts: tuple | None = No
     edges = np.linspace(0, n, bins + 1)
     rows = []
     verdict_counts = {v: 0 for v in VERDICTS}
+    div_runs = set()
+    div_totals = {c: 0 for c in DIV.CELLS}
+    div_nc = 0
     for rec in recs:
         rid = rec["id"]
         ann = conn.execute("SELECT start_idx, end_idx, verdict FROM annotations WHERE recording_id = ? AND deleted_at IS NULL",
@@ -278,9 +279,12 @@ def coverage(conn, source_file: str, bins: int = 57, verdicts: tuple | None = No
         d_mid = (d_s + d_e) / 2 if len(d_s) else d_s
         ah = np.histogram(a_mid, bins=edges)[0] if len(a_s) else np.zeros(bins, int)
         dh = np.histogram(d_mid, bins=edges)[0] if len(d_s) else np.zeros(bins, int)
-        a_flag = _overlap_flags(a_s, a_e, d_s, d_e)
-        d_flag = _overlap_flags(d_s, d_e, a_s, a_e)
-        dis_mid = np.concatenate([a_mid[~a_flag], d_mid[~d_flag]]) if (len(a_s) or len(d_s)) else np.array([])
+        div = DIV.channel_divergence(conn, rid, keep_runs)
+        div_runs.update(div["run_ids"])
+        for k in DIV.CELLS:
+            div_totals[k] += div["cells"][k]
+        div_nc += div["not_comparable"]["n"]
+        dis_mid = np.array([(it["start"] + it["end"]) / 2.0 for it in div["items"] if it["cell"] in DIV.DISAGREE])
         xh = np.histogram(dis_mid, bins=edges)[0] if len(dis_mid) else np.zeros(bins, int)
         reviewed = q.reviewed_fraction(conn, rid)
         try:
@@ -292,7 +296,12 @@ def coverage(conn, source_file: str, bins: int = 57, verdicts: tuple | None = No
             # `both` is annotations + detections per bin - a SUM, not an
             # intersection. See this function's docstring (fixup-a item 16).
             "annotations": ah.tolist(), "detections": dh.tolist(), "both": (ah + dh).tolist(), "disagree": xh.tolist(),
-            "counts": {"annotations": int(len(a_s)), "detections": int(len(d_s)), "disagree": int((~a_flag).sum() + (~d_flag).sum()),
+            "counts": {"annotations": int(len(a_s)), "detections": int(len(d_s)),
+                       "disagree": int(sum(div["cells"][k] for k in DIV.DISAGREE)),
+                       "divergence": {**div["cells"], "not_comparable": div["not_comparable"]["n"],
+                                      "not_comparable_why": {**div["not_comparable"]["detections"],
+                                                             **div["not_comparable"]["labels"]},
+                                      "runs": len(div["run_ids"])},
                        "reviewed_pct": reviewed_pct},
         })
     n_runs = conn.execute("SELECT COUNT(DISTINCT r.id) FROM runs r JOIN detections d ON d.run_id = r.id JOIN recordings x ON x.id = r.recording_id WHERE x.source_file = ? AND " + q.not_surrogate("r"), (source_file,)).fetchone()[0]
@@ -300,6 +309,13 @@ def coverage(conn, source_file: str, bins: int = 57, verdicts: tuple | None = No
             "bins": bins, "bin_h": n / fs / 3600.0 / bins, "bin_edges_h": (edges / fs / 3600.0).tolist(),
             "rows": rows, "verdict_counts": verdict_counts, "n_detection_runs": int(n_runs),
             "run_filter": keep_runs, "method_filter": method or None,
+            "divergence": {"pooled": keep_runs is None, "n_runs": len(div_runs),
+                           "scope": DIV.scope_text(len(div_runs), keep_runs is None),
+                           "cells": div_totals, "not_comparable": div_nc,
+                           "labels": DIV.CELL_LABEL, "disagree": list(DIV.DISAGREE),
+                           "rules": {"containment": DIV.CONTAINMENT_RULE,
+                                     "extent": DIV.extent_rule_text(DIV.rule_from_settings(conn))},
+                           "verdicts": "every verdict counts here; the verdict filter shapes the annotation layers only"},
             "held_out": source_file == HELD_OUT_FILE, "compute_ms": (time.perf_counter() - t0) * 1e3}
 
 

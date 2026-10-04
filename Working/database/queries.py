@@ -408,12 +408,22 @@ def _verdict_placeholders(verdicts):
     return ", ".join("?" * len(verdicts))
 
 
-def divergence_rejected_detections(conn, recording_id=None):
+def _run_id_list(run_ids):
+    return [int(i) for i in run_ids]
+
+
+def divergence_rejected_detections(conn, recording_id=None, *, run_ids=None, verdicts=None):
     """Detections a human rejected — machine says yes, human says no.
 
     Reads the machine side joined to its adjudication verdict; the annotation
     store is deliberately not consulted (standard 2.5). Optionally scoped to a
     recording.
+
+    ``run_ids`` restricts it to those runs' detections (an empty list is a
+    question about no run, and answers nothing). ``verdicts`` is the set that
+    counts as a rejection; it defaults to ``REJECTED_VERDICTS``, which the
+    review queues share. The divergence module asks with ``artifact`` added —
+    "human no" there is ``not_interesting`` or ``artifact`` (fixup-X).
 
     Returns
     -------
@@ -429,16 +439,22 @@ def divergence_rejected_detections(conn, recording_id=None):
         JOIN runs r ON r.id = d.run_id
         JOIN recordings rec ON rec.id = r.recording_id
         WHERE a.verdict IN (__REJECTED__) AND __REAL__
-    """.replace("__REJECTED__", _verdict_placeholders(REJECTED_VERDICTS)).replace("__REAL__", not_surrogate("r"))
-    params = list(REJECTED_VERDICTS)
+    """
+    rejected = tuple(verdicts) if verdicts is not None else REJECTED_VERDICTS
+    query = query.replace("__REJECTED__", _verdict_placeholders(rejected) or "NULL").replace("__REAL__", not_surrogate("r"))
+    params = list(rejected)
     if recording_id is not None:
         query += " AND r.recording_id = ?"
         params.append(recording_id)
+    if run_ids is not None:
+        ids = _run_id_list(run_ids)
+        query += " AND d.run_id IN ({})".format(_verdict_placeholders(ids) or "NULL")
+        params.extend(ids)
     query += " ORDER BY d.id"
     return conn.execute(query, params).fetchall()
 
 
-def divergence_annotations_without_detection(conn, recording_id=None):
+def divergence_annotations_without_detection(conn, recording_id=None, *, run_ids=None, verdicts=None):
     """Annotations with no overlapping detection — human says yes, machine
     said nothing.
 
@@ -447,10 +463,28 @@ def divergence_annotations_without_detection(conn, recording_id=None):
     annotations are excluded, same as `list_annotations`. Optionally scoped to
     a recording.
 
+    Called bare, it is blind to two things, and the bare form is kept only
+    for the callers that want exactly that: it counts an annotation whatever
+    its verdict, and it counts one no run ever looked at. "The machine said
+    nothing" is only true where a machine ran (fixup-X; Q41 — unlabelled is
+    never "not interesting", and unlooked-at is never "missed"). So:
+
+    ``run_ids``
+        Ask about these runs only: their detections, and **only annotations
+        wholly inside the span of one of them that completed**. A run that
+        never reached a place cannot have been silent there. Surrogate runs in
+        the list are ignored (`not_surrogate`). An empty list answers nothing.
+    ``verdicts``
+        Keep annotations with these verdicts — ``("interesting", "seed")``
+        for "human says yes", ``("not_interesting", "artifact")`` for the
+        agreeing silence.
+
     Returns
     -------
     list[sqlite3.Row] — annotation rows (a.*).
     """
+    ids = _run_id_list(run_ids) if run_ids is not None else None
+    in_runs = (" AND d.run_id IN ({})".format(_verdict_placeholders(ids) or "NULL")) if ids is not None else ""
     query = """
         SELECT a.*
         FROM annotations a
@@ -458,11 +492,23 @@ def divergence_annotations_without_detection(conn, recording_id=None):
           AND NOT EXISTS (
               SELECT 1 FROM detections d
               JOIN runs r ON r.id = d.run_id
-              WHERE r.recording_id = a.recording_id AND __REAL__
+              WHERE r.recording_id = a.recording_id AND __REAL__ __IN_RUNS__
                 AND a.start_idx < d.end_idx AND d.start_idx < a.end_idx
           )
-    """.replace("__REAL__", not_surrogate("r"))
-    params = []
+    """.replace("__REAL__", not_surrogate("r")).replace("__IN_RUNS__", in_runs)
+    params = list(ids) if ids is not None else []
+    if ids is not None:
+        query += """
+          AND EXISTS (
+              SELECT 1 FROM runs c
+              WHERE c.recording_id = a.recording_id AND c.status = 'completed' AND __REAL_C__
+                AND c.id IN ({}) AND c.span_start <= a.start_idx AND a.end_idx <= c.span_end
+          )""".replace("__REAL_C__", not_surrogate("c")).format(_verdict_placeholders(ids) or "NULL")
+        params.extend(ids)
+    if verdicts is not None:
+        vs = tuple(verdicts)
+        query += " AND a.verdict IN ({})".format(_verdict_placeholders(vs) or "NULL")
+        params.extend(vs)
     if recording_id is not None:
         query += " AND a.recording_id = ?"
         params.append(recording_id)

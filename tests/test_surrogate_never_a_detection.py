@@ -165,8 +165,12 @@ def test_explores_corpus_map_counts_the_real_runs_only(db):
     assert row["counts"]["detections"] == len(REAL)
     assert sum(row["detections"]) == len(REAL)
     assert cov["n_detection_runs"] == 1
-    # disagree = A2 (no real detection over it) + D2 (no annotation over it)
-    assert row["counts"]["disagree"] == 2
+    # disagree is the divergence's two cells (fixup-X): A2 is "machine no ·
+    # human yes" — S1 over it is a null draw, not the machine. D2 lies under no
+    # human label, so it is NOT a disagreement any more but "not comparable";
+    # before fixup-X it counted, and this read 2.
+    assert row["counts"]["divergence"]["machine_no_human_yes"] == 1
+    assert row["counts"]["disagree"] == 1
 
 
 def test_the_method_filter_does_not_offer_a_null_as_a_method(db):

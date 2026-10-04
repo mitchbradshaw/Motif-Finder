@@ -43,11 +43,26 @@ the duplicate-suppression priority §4.6 names.
 Every row records the rule it was computed under, because a precision figure
 is a function of it (§4.6) and changing the rule is a versioned act.
 
+``precisions`` — Q-D2's two figures (fixup-X)
+--------------------------------------------
+``precision`` above is §4.6 over every annotation, and on this project's
+ground truth it is 0 by construction: 11,234 of the 11,269 annotations are
+600-sample window labels no event can reach IoU 0.5 against (``shape_mismatch``
+says so beside it). Every row therefore also carries ``precisions`` —
+``containment`` (over the window labels) and ``extent`` (§4.6 over the
+event-shaped rows, with their width distribution) — computed by
+``Working.discovery.divergence``, the one module the scoreboard, Compare and
+Explore all read. Both count a verdict given on the run's own detection in
+Review, which ``precision`` cannot (fixup-L's finding: *precision means what it
+says*). The page draws these two; ``precision`` is kept on the row for the
+record and the tests that pin its arithmetic.
+
 Headless: plain SQL over an open connection, no UI import, no bridge import.
 """
 
 from Working.database import queries as _q
 from Working.database import runs as _runs
+from Working.discovery import divergence as _div
 from Working.discovery.channels import channel_name
 from Working.discovery.matching import match_span_sets, normalise_rule, rule_from_settings
 from Working.discovery.spans import absolute_bounds, clip, contains, merged, total_length
@@ -263,6 +278,8 @@ def channel_score(conn, run_id, *, rule=None, null_run_id=None, span=None):
     elif not coverage:
         note = NOT_SCORED
 
+    div = _div.channel_divergence(conn, run["recording_id"], [run_id], rule=rule, span=(span_start, span_end))
+
     null_ids = [null_run_id] if null_run_id is not None else _null_runs(conn, run_id)
     null_expects = null_draws = None
     if null_ids:
@@ -306,6 +323,8 @@ def channel_score(conn, run_id, *, rule=None, null_run_id=None, span=None):
         "x_null": _ratio(len(dets), null_expects) if null_expects else None,
         "note": note,
         "rule": rule,
+        "precisions": div["precision"],
+        "divergence": {"cells": div["cells"], "not_comparable": div["not_comparable"]["n"]},
     }
 
 
@@ -334,6 +353,8 @@ def _empty_row(conn, run, rec, rule, span, note):
         "recall_positives": 0, "recall_found": 0, "reviewed_h": 0.0,
         "reviewed_criterion": REVIEWED_CRITERION, "null_run_id": None, "null_expects": None,
         "x_null": None, "note": note, "rule": rule,
+        "precisions": _div.channel_divergence(conn, run["recording_id"], [], rule=rule)["precision"],
+        "divergence": None,
     }
 
 
@@ -351,6 +372,7 @@ def run_total(conn, run_ids, *, rule=None, rows=None):
                 "precision": None, "precision_label": "precision", "recall": None,
                 "recall_note": NO_OVERLAP, "pooled_h": 0.0, "reviewed_h": 0.0,
                 "null_expects": None, "x_null": None, "n_channels": 0,
+                "precisions": None, "divergence": None,
                 "rule": normalise_rule(rule) if rule is not None else rule_from_settings(conn)}
     summed = {k: sum(int(r[k]) for r in rows) for k in ("found", "already_judged", "reviewed", "interesting")}
     # x null must be a ratio over ONE scope. Dividing every channel's `found` by
@@ -401,8 +423,19 @@ def run_total(conn, run_ids, *, rule=None, rows=None):
         "x_null": _ratio(null_found, null_expects) if null_expects else None,
         "x_null_scope": (f"{len(with_null)} of {len(rows)} channels carry a null" if null_partial else None),
         "n_channels": len(rows),
+        "precisions": {k: _div.pool_precision([(r.get("precisions") or {}).get(k) for r in rows])
+                       for k in ("containment", "extent")},
+        "divergence": _pool_divergence(rows),
         "rule": rows[0]["rule"] if rows else (normalise_rule(rule) if rule is not None else rule_from_settings(conn)),
     }
+
+
+def _pool_divergence(rows):
+    divs = [r["divergence"] for r in rows if r.get("divergence")]
+    if not divs:
+        return None
+    return {"cells": {c: sum(d["cells"][c] for d in divs) for c in _div.CELLS},
+            "not_comparable": sum(d["not_comparable"] for d in divs)}
 
 
 def score_runs(conn, run_ids, *, rule=None, span=None):
