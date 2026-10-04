@@ -39,9 +39,9 @@ from Working.cross_channel import (
     ARTIFACT,
     INDEPENDENT_RECURRENCE,
     PROPAGATION,
-    CROSS_CHANNEL_ARTIFACT_MAX_ABS_LAG,
-    CROSS_CHANNEL_ARTIFACT_MIN_CORRELATION,
-    CROSS_CHANNEL_PROPAGATION_MAX_ABS_LAG,
+    CROSS_CHANNEL_ARTIFACT_MAX_ABS_LAG_S,
+    CROSS_CHANNEL_MIN_ABS_CORRELATION,
+    CROSS_CHANNEL_PROPAGATION_MAX_ABS_LAG_S,
     classify_waveforms,
 )
 from Working.library import classify_cross_channel_edges, recurrence_count
@@ -69,8 +69,8 @@ def test_artifact_pair_classifies_artifact():
     lag, correlation, classification = classify_waveforms(x, y)
 
     assert classification == ARTIFACT
-    assert abs(lag) <= CROSS_CHANNEL_ARTIFACT_MAX_ABS_LAG
-    assert correlation >= CROSS_CHANNEL_ARTIFACT_MIN_CORRELATION
+    assert abs(lag) <= CROSS_CHANNEL_ARTIFACT_MAX_ABS_LAG_S       # fs 1: a sample is a second
+    assert abs(correlation) >= CROSS_CHANNEL_MIN_ABS_CORRELATION
 
 
 def test_propagation_pair_classifies_propagation():
@@ -82,8 +82,8 @@ def test_propagation_pair_classifies_propagation():
 
     assert classification == PROPAGATION
     assert abs(lag) == 5
-    assert abs(lag) <= CROSS_CHANNEL_PROPAGATION_MAX_ABS_LAG
-    assert correlation < CROSS_CHANNEL_ARTIFACT_MIN_CORRELATION
+    assert abs(lag) <= CROSS_CHANNEL_PROPAGATION_MAX_ABS_LAG_S
+    assert abs(correlation) >= CROSS_CHANNEL_MIN_ABS_CORRELATION
 
 
 def test_independent_recurrence_pair_classifies_independent_recurrence():
@@ -93,7 +93,7 @@ def test_independent_recurrence_pair_classifies_independent_recurrence():
     lag, correlation, classification = classify_waveforms(x, y)
 
     assert classification == INDEPENDENT_RECURRENCE
-    assert abs(lag) > CROSS_CHANNEL_PROPAGATION_MAX_ABS_LAG
+    assert abs(lag) > CROSS_CHANNEL_PROPAGATION_MAX_ABS_LAG_S
 
 
 # ── criterion 2: classification is persisted on the edge ───────────────────
@@ -125,19 +125,24 @@ def test_cross_channel_edges_are_classified_and_artifacts_excluded_from_count():
 
             results = classify_cross_channel_edges(conn, entry_id)
 
-            assert len(results) == 2
-            by_pair = {(r["member_a_id"], r["member_b_id"]): r for r in results}
-            propagation = by_pair[(ma, mb)]
-            artifact = by_pair[(ma, mc)]
+            # fixup-W: every simultaneous pair of members on sibling channels is
+            # classified on the same absolute window (Q40a) — mb/mc too, which
+            # had no edge and now gets one — so the pairs are keyed, not counted
+            by_pair = {frozenset((r["member_a_id"], r["member_b_id"])): r for r in results}
+            assert {frozenset((ma, mb)), frozenset((ma, mc))} <= set(by_pair)
+            propagation = by_pair[frozenset((ma, mb))]
+            artifact = by_pair[frozenset((ma, mc))]
 
             assert propagation["classification_bin"] == PROPAGATION
             assert abs(propagation["lag"]) == 5
             assert propagation["waveform_correlation"] is not None
 
             assert artifact["classification_bin"] == ARTIFACT
-            assert abs(artifact["lag"]) <= CROSS_CHANNEL_ARTIFACT_MAX_ABS_LAG
-            assert artifact["waveform_correlation"] >= CROSS_CHANNEL_ARTIFACT_MIN_CORRELATION
+            assert abs(artifact["lag"]) <= CROSS_CHANNEL_ARTIFACT_MAX_ABS_LAG_S
+            assert abs(artifact["waveform_correlation"]) >= CROSS_CHANNEL_MIN_ABS_CORRELATION
 
+            # fixup-W: recurrence counts MEMBERS with the artifact pair taken
+            # out (ma and mc are one event seen twice at once); mb remains
             assert recurrence_count(conn, entry_id) == 1
         finally:
             conn.close()
