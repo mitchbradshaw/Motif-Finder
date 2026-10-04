@@ -1086,3 +1086,46 @@ export interface LibClassifyResult {
 }
 export const classifyFamilyCrossChannel = (familyId: string, grouping?: string) =>
   post<LibClassifyAck>(`/api/library/family/${encodeURIComponent(familyId)}/classify-cross-channel`, { grouping })
+
+/* ---------------- fixup-ae: the Library's view (noise floor, fall duration, purity), the rose reference ----------------
+   `server/library.py`: /families, /recurrence and /family/{id} take the view as query parameters (the floor ON when
+   absent); GET /view counts what it hid; GET/POST /rose-reference. Append-only (shared file). */
+export interface LibView { floor: boolean; fallMin: number | null; fallMax: number | null; pure: boolean }
+export const LIB_VIEW_DEFAULT: LibView = { floor: true, fallMin: null, fallMax: null, pure: false }
+export const libViewQuery = (v?: LibView | null) => (v ? { floor: v.floor ? undefined : 0, fallMin: v.fallMin ?? undefined, fallMax: v.fallMax ?? undefined, pure: v.pure ? 1 : undefined } : {})
+export interface LibStoreCount { n: number; sub_floor: number; unmeasured: number; name?: string }
+export interface LibViewReport {
+  rule: string | null; view: { floor: boolean; fallMinS: number | null; fallMaxS: number | null; pureOnly: boolean }
+  n: number; shown: number; subFloor: number; floorOn: boolean; unmeasured: number
+  byStore: Record<string, LibStoreCount>; byDataset: Record<string, LibStoreCount>; floors: Record<string, { floorMv: number; from: string }>
+  fall: { hidden?: number; unmeasured?: number }; pure: { hidden?: number; unmeasured?: number }
+  families: { before: number; after: number; allSubFloor: number }; familiesAllSubFloor: string[]
+  judgedRule: string | null; grouping?: string | null
+}
+export interface LibFamilyView {
+  total: number; shown: number; hidden: number; subFloor: number; unmeasured: number; impure: number
+  judgedBy: Record<string, number>; fallRangeS: [number, number] | null
+  scaleBands: { band: number; label: string | null; n: number }[]; scaleBandsMore: number
+}
+export interface LibFamily { view?: LibFamilyView }
+export interface LibRecurrence { view?: LibViewReport }
+export interface LibMember {
+  recordingId?: number; startS?: number; endS?: number; verdictBy?: string | null; verdictWhy?: string | null
+  depthMv?: number | null; depthSource?: string | null; floorMv?: number; floorStatus?: 'above' | 'sub_floor' | 'unmeasured'
+  fallS?: number | null; isPure?: boolean | null; fallsInWindow?: number | null; scaleBand?: number | null; scaleBandLabel?: string | null
+}
+export interface LibFamilyDetail { view?: LibViewReport & { family?: LibFamilyView; hiddenByView?: boolean }; judgedRule?: string }
+export const getLibraryRecurrenceIn = (grouping?: string, view?: LibView | null) =>
+  req<LibRecurrence>(`/api/library/recurrence${dq({ grouping, ...libViewQuery(view) })}`)
+export const getLibraryFamiliesIn = (grouping?: string, view?: LibView | null) =>
+  req<LibFamily[]>(`/api/library/families${dq({ grouping, ...libViewQuery(view) })}`)
+export const getLibraryFamilyIn = (familyId: string, grouping?: string, unit?: 'motifs' | 'sequences', view?: LibView | null) =>
+  req<LibFamilyRead>(`/api/library/family/${encodeURIComponent(familyId)}${dq({ grouping, unit, ...libViewQuery(view) })}`)
+export const getLibraryViewReport = (grouping?: string, view?: LibView | null) =>
+  req<LibViewReport>(`/api/library/view${dq({ grouping, ...libViewQuery(view) })}`)
+export interface LibRoseReference {
+  value_mv_s: number | null; population: 'accepted' | 'above_floor' | 'stated' | null; n: number; n_accepted?: number | null
+  min_accepted?: number; field: string; computed_at: string | null; stored: boolean; text: string
+}
+export const getRoseReference = () => req<LibRoseReference>('/api/library/rose-reference')
+export const recomputeRoseReference = (actor?: string) => post<LibRoseReference>('/api/library/rose-reference', { actor: actor ?? 'this installation' })
