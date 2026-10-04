@@ -43,6 +43,7 @@ from Working import run_groups as RG
 from Working.database import queries as q
 from Working.database import runs as R
 from Working.discovery import compare as D
+from Working.discovery import divergence as DIV
 from Working.discovery import fanout, seeded_search
 from Working.discovery import scoreboard as SB
 from Working.discovery.matching import match_span_sets, rule_from_settings
@@ -561,9 +562,12 @@ def _last_score(conn, template_name):
     if not ids:
         return "not yet scored"
     total = SB.score_runs(conn, ids)["total"]
-    if total["precision"] is None:
-        return total.get("recall_note") or "not yet scored"
-    return (f"precision {total['precision'] * 100:.0f} % over {total['reviewed']} reviewed detections "
+    # fixup-X: the containment figure (Q-D2 (a)) — the §4.6 one is 0 by
+    # construction on window labels and would put that 0 on the card
+    p = (total.get("precisions") or {}).get("containment")
+    if not p or p["value"] is None:
+        return (p or {}).get("note") or total.get("recall_note") or "not yet scored"
+    return (f"precision · containment {p['value'] * 100:.0f} % over {p['judged']} judged detections "
             f"· {total['n_channels']} ch · {total['reviewed_h']:.1f} h")
 
 
@@ -803,10 +807,42 @@ def _recall_cell(row):
     return {"none": True, "note": row.get("recall_note")}
 
 
+#: fixup-X: what *reviewed* means on the scoreboard now — the denominator of
+#: the containment figure, which the *precision* cell beside it is a ratio of.
+REVIEWED_CRITERION = ("a human verdict covers the detection: a verdict given on it in Review, or reviewed "
+                      "windows that wholly contain it and agree (Q-D2 (a), Q41's rule)")
+
+
+def _precision_wire(f):
+    """One of Q-D2's two figures for the wire, its rule with it (fixup-X)."""
+    if not f:
+        return None
+    out = {"key": f["key"], "label": f["label"], "rule": f["rule"],
+           "value": (round(f["value"], 4) if f["value"] is not None else None),
+           "yes": f["yes"], "judged": f["judged"], "byAdjudication": f["by_adjudication"], "note": f["note"]}
+    if "widths" in f:
+        w = f["widths"]
+        out["widths"] = {k: w[k] for k in ("n", "min", "p25", "median", "p75", "max")}
+    return out
+
+
 def _score_row(row):
+    """§7.3's cells. *reviewed*, *interesting* and *precision* are Q-D2's
+    containment figure (fixup-X): the detections a human verdict covers, the
+    yes among them, and their ratio — so *precision* is still the ratio of the
+    two cells beside it. ``precisions`` carries both figures with their rules;
+    ``iou`` keeps the §4.6-over-every-annotation numbers for the record (0 by
+    construction on window labels, which is why they are not drawn)."""
+    pr = row.get("precisions") or {}
+    cont = pr.get("containment") or {}
     return {
-        "found": row["found"], "judged": row["already_judged"], "reviewed": row["reviewed"],
-        "interesting": row["interesting"],
+        "found": row["found"], "judged": row["already_judged"],
+        "reviewed": int(cont.get("judged") or 0), "interesting": int(cont.get("yes") or 0),
+        "precisions": {k: _precision_wire(pr.get(k)) for k in ("containment", "extent")},
+        "divergence": row.get("divergence"),
+        "iou": {"reviewed": row["reviewed"], "interesting": row["interesting"],
+                "precision": (round(row["precision"], 4) if row["precision"] is not None else None),
+                "note": row.get("precision_note")},
         # §7.3's "null expects" is a count, and 0 is a real one: a surrogate run
         # that found nothing is the best × null there is, not a missing figure.
         # `nullRun` separates it from "no null was run at all".
@@ -819,9 +855,9 @@ def _score_row(row):
                        ("no paired null run on this scope" if row["null_expects"] is None
                         else "the null found nothing here"))),
         "recall": _recall_cell(row),
-        "precision": (round(row["precision"], 4) if row["precision"] is not None else None),
+        "precision": (round(cont["value"], 4) if cont.get("value") is not None else None),
         "xNull": (round(row["x_null"], 2) if row["x_null"] is not None else None),
-        "note": row.get("note"), "precisionNote": row.get("precision_note"),
+        "note": row.get("note"), "precisionNote": cont.get("note"),
         "reviewedH": round(float(row.get("reviewed_h") or 0.0), 3), "status": row.get("status"),
     }
 
@@ -850,13 +886,12 @@ def get_scoreboard(request: Request, runs: str = "", channels: str = "", t0: flo
             total = SB.run_total(c, [r["run_id"] for r in rows], rule=rule, rows=rows)
             out.append({
                 "run": key,
-                "total": _score_row(total) | {"recall": _recall_cell(total),
-                                             "precisionNote": total.get("precision_note")},
+                "total": _score_row(total) | {"recall": _recall_cell(total)},
                 "channels": [_score_row(r) | {"channel": next(ch["name"] for ch in chans
                                                               if ch["id"] == r["recording_id"])} for r in rows],
                 "pooledH": round(total["pooled_h"], 3),
                 "rule": total["rule"],
-                "reviewedCriterion": SB.REVIEWED_CRITERION,
+                "reviewedCriterion": REVIEWED_CRITERION,
             })
         return out
     finally:
@@ -2436,11 +2471,15 @@ def _side(conn, session_id, run_key, chans, span, scope_label):
              else {r: None for r in D.ROLES})
     is_seed = row["kind"] == "seed"
     precision = reviewed = x_null = null_draws = None
+    precisions = None
     found = 0
     ids = _run_ids(conn, row)
     if ids:
         total = SB.score_runs(conn, ids, span=span)["total"]
-        precision, reviewed, x_null = total["precision"], total["reviewed"], total["x_null"]
+        # fixup-X: the side's precision is Q-D2's containment figure, both beside it
+        cont = (total.get("precisions") or {}).get("containment") or {}
+        precision, reviewed, x_null = cont.get("value"), cont.get("judged"), total["x_null"]
+        precisions = {k: _precision_wire((total.get("precisions") or {}).get(k)) for k in ("containment", "extent")}
         found, null_draws = total["found"], total.get("null_draws")
     threshold = params.get("cut")
     if threshold is None and recipe:
@@ -2453,6 +2492,7 @@ def _side(conn, session_id, run_key, chans, span, scope_label):
             "isSeed": is_seed, "cells": cells,
             "precision": (round(precision, 4) if precision is not None else None),
             "reviewed": reviewed or 0,
+            "precisions": precisions,
             "xNull": (round(x_null, 2) if x_null is not None else None),
             # the draws that ratio is over, per channel — the count THIS run drew (fixup-T)
             "nullDraws": null_draws,
@@ -2543,11 +2583,50 @@ def _overlap(c, session_id, a, b, chans, span, rule):
     matching rule. The one place Compare's counts, verdict split and *Send
     only-B unjudged* read from, so the three can never disagree."""
     out = []
+    human_side = (a == "human") != (b == "human")
+    other_ids = _side_run_ids(c, session_id, b if a == "human" else a) if human_side else None
     for ch in chans:
         ra = _regions_for(c, session_id, a, ch, span, rule=rule)
         rb = _regions_for(c, session_id, b, ch, span, rule=rule)
-        m = D.compare_spans([(x["start"], x["end"]) for x in ra], [(x["start"], x["end"]) for x in rb], rule=rule)
+        if human_side:
+            # fixup-X: against the human record the pairing is the divergence's
+            # (containment / extent / adjudication), not §4.6 alone — under
+            # which a window label can never match an event (05-discovery D2)
+            div = DIV.channel_divergence(c, int(ch["id"]), other_ids, rule=rule, span=span)
+            hum, run = (ra, rb) if a == "human" else (rb, ra)
+            yes_yes = {it["id"] for it in div["items"]
+                       if it["kind"] == "detection" and it["cell"] == "machine_yes_human_yes"}
+            run_ids = [next((i for i in x["ids"] if i in yes_yes), x["ids"][0] if x["ids"] else x["id"]) for x in run]
+            m = DIV.human_pairing(div, [x["id"] for x in hum], run_ids, human_is_a=(a == "human"))
+        else:
+            m = D.compare_spans([(x["start"], x["end"]) for x in ra], [(x["start"], x["end"]) for x in rb], rule=rule)
         out.append((ch, ra, rb, m))
+    return out
+
+
+def _side_run_ids(c, session_id, key):
+    """The real runs one Compare side is made of: a plain run's, or every band
+    run's of a band set."""
+    if key.startswith(SET_PREFIX):
+        return sorted({i for m in _band_members(c, session_id, key) for i in _run_ids(c, m)})
+    return _run_ids(c, _dr_by_key(c, session_id, key))
+
+
+def _divergence_breakdown(c, chans, other_ids, span, fs, rule, bins=24):
+    """Compare's breakdown with *human annotations* as a side (fixup-X item 4):
+    the two disagreement cells by channel, by time bin and by morphology, over
+    the same divergence the overlap above was paired by."""
+    out = DIV.breakdown(c, {int(ch["id"]): other_ids for ch in chans}, bins=bins,
+                        n_samples=int(chans[0]["n_samples"]) if chans else 0, span=span, rule=rule,
+                        names={int(ch["id"]): ch["name"] for ch in chans})
+    for b in out["by_time"]:
+        b["t0H"] = round(b["start"] / fs / 3600.0, 4)
+        b["t1H"] = round(b["end"] / fs / 3600.0, 4)
+    lo, hi = (span[0], span[1]) if span else (0, int(chans[0]["n_samples"]) if chans else 0)
+    out["binH"] = round((hi - lo) / fs / 3600.0 / bins, 4)
+    out["t0H"], out["t1H"] = round(lo / fs / 3600.0, 4), round(hi / fs / 3600.0, 4)
+    out["labels"] = DIV.CELL_LABEL
+    out["rules"] = {"containment": DIV.CONTAINMENT_RULE, "extent": DIV.extent_rule_text(rule)}
     return out
 
 
@@ -2559,7 +2638,10 @@ def _verdicts(c, a, b, per):
     groups = {"onlyA": [], "both": [], "onlyB": []}
     for _ch, ra, rb, m in per:
         for p in m["pairs"]:
-            groups["both"].append(ra[p["a"]]["ids"] + rb[p["b"]]["ids"])
+            # a pair against the human side can have no human span (a detection
+            # accepted in Review with nothing under it — fixup-X)
+            groups["both"].append((ra[p["a"]]["ids"] if p["a"] is not None else [])
+                                  + (rb[p["b"]]["ids"] if p["b"] is not None else []))
         groups["onlyA"].extend(ra[i]["ids"] for i in m["only_a"])
         groups["onlyB"].extend(rb[j]["ids"] for j in m["only_b"])
     return {
@@ -2623,14 +2705,24 @@ def get_compare(request: Request, a: str, b: str, channels: str = "", t0: float 
                                 "a": [(x["start"], x["end"]) for x in ra],
                                 "b": [(x["start"], x["end"]) for x in rb]})
             for p in m["pairs"]:
-                both.append({"channel": ch["name"], "atH": round(ra[p["a"]]["start"] / fs / 3600.0, 5),
-                             "iou": round(p["iou"], 3)})
+                at = ra[p["a"]] if p["a"] is not None else rb[p["b"]]
+                both.append({"channel": ch["name"], "atH": round(at["start"] / fs / 3600.0, 5),
+                             "iou": (round(p["iou"], 3) if p["iou"] is not None else None),
+                             "by": p.get("by")})
             for i in m["only_a"]:
                 disagreements.append(_disagreement("only A", ch["name"], ra[i], fs, side_b))
             for j in m["only_b"]:
                 disagreements.append(_disagreement("only B", ch["name"], rb[j], fs, side_a))
-        rows = D.overlap_rows(per_channel, rule=rule)
-        total = rows[-1] if rows else {"channel": "all channels", "onlyA": 0, "both": 0, "onlyB": 0}
+        # the rows are the pairing's own counts, so a human side reads the
+        # divergence's pairing rather than §4.6 re-run on the raw spans
+        # (fixup-X); for two runs this is exactly `overlap_rows`
+        rows = [{"channel": ch["name"], "onlyA": m["counts"]["only_a"], "both": m["counts"]["both"],
+                 "onlyB": m["counts"]["only_b"]} for ch, _ra, _rb, m in per]
+        rows.append({"channel": "all channels", **{k: sum(r[k] for r in rows) for k in ("onlyA", "both", "onlyB")}})
+        total = rows[-1]
+        human_side = (a == "human") != (b == "human")
+        breakdown = (_divergence_breakdown(c, chans, _side_run_ids(c, s["id"], b if a == "human" else a), span, fs, rule)
+                     if human_side and chans else None)
         for side, regions in ((side_a, [ra for _ch, ra, _rb, _m in per]), (side_b, [rb for _ch, _ra, rb, _m in per])):
             if side.get("isSet"):
                 side["found"] = sum(len(r) for r in regions)
@@ -2667,6 +2759,10 @@ def get_compare(request: Request, a: str, b: str, channels: str = "", t0: float 
             "stageDiff": (D.stage_diff(recipe_a, recipe_b) if recipe_a and recipe_b else []),
             "rule": rule,
             "channels": [ch["name"] for ch in chans],
+            # fixup-X: with *human annotations* as a side the overlap is paired
+            # by the divergence and its breakdown sits below it
+            "pairedBy": ("divergence" if human_side else "reciprocal_iou_onset"),
+            "divergence": breakdown,
         }
     finally:
         c.close()
