@@ -1030,3 +1030,4 @@ export interface LibScaleReadout {
   entryId: number; entry: string; morphology: string; shape: string | null; caveat: string
   distances: { id: string; label: string }[]; runs: LibReadoutRun[]
 }
+export interface LibRunMatches { family?: string | null; grouping?: string | null }
