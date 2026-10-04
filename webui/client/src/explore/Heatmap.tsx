@@ -7,15 +7,23 @@
    unreviewed bins (reviewed coverage), dimmed reviewed bins (unreviewed only), dimmed rows with no
    span under the checked tags. A row without its matrix array renders an ErrorCard instead of throwing. */
 import { useMemo, useState } from 'react'
-import { ApiError, type Coverage } from '../api'
+import { ApiError, type Coverage, type CoverageDivergence } from '../api'
 import { useSize } from '../charts/useSize'
 import { ErrorCard } from './ErrorCard'
 import { AMBER_RAMP, hourTicks, quantileRamp, RAMP, type ColourBy } from './util'
 
 const LABEL_W = 64, ROW_H = 34, CELL_PAD = 3, AXIS_H = 22, RIGHT_PAD = 6
 
-/** What "disagree" counts (server/corpus.py): printed in the tooltip, the legend and the bottom bar. */
-export const DISAGREE_DEF = 'annotations with no overlapping detection + detections with no overlapping annotation'
+/** What "disagree" counts (server/corpus.py → Working/discovery/divergence.py, fixup-X): printed in the tooltip,
+ *  the legend and the bottom bar. It was every annotation with no overlapping detection plus the reverse, whatever
+ *  the verdict and wherever no run had looked — 11,261 "disagreements" against 11,265 annotations on M2_aug. */
+export const DISAGREE_DEF = 'machine yes · human no (a detection a human rejected in Review, or inside reviewed windows that say no) + machine no · human yes (a label a human said yes to, where a run covered the place and found nothing). A place no run covered, or no human reviewed, is not comparable and is never counted'
+
+/** A channel's divergence, read off its counts (the server puts it there; `CoverageRow.counts` is typed without it). */
+export const divergenceOf = (counts: unknown): CoverageDivergence | null =>
+  ((counts as { divergence?: CoverageDivergence } | null)?.divergence) ?? null
+const comparableCount = (d: CoverageDivergence) =>
+  d.machine_yes_human_yes + d.machine_yes_human_no + d.machine_no_human_yes + d.machine_no_human_no
 
 export interface HeatmapOverlay {
   /** per channel name: reviewed flag per bin (demo) */
@@ -73,10 +81,11 @@ export function Heatmap({ cov, matrix, unit, selectedId, onSelect, onOpen, range
             const vals = matrix ? r[matrix] : null
             const sel = r.id === selectedId
             const y = ri * ROW_H
-            // "disagree" is a comparison: with no detections (or no annotations) on the channel there is nothing to compare
-            const nAnn = r.counts?.annotations ?? 0, nDet = r.counts?.detections ?? 0
-            const degenerate = matrix === 'disagree' && !(nAnn > 0 && nDet > 0)
-            const missing = nDet > 0 ? 'no annotations' : 'no detections'
+            // "disagree" is a comparison: with nothing comparable on the channel (no run covered a place a human
+            // reviewed) there is nothing to compare, and the row says so rather than reading 0 (fixup-X)
+            const div = divergenceOf(r.counts)
+            const degenerate = matrix === 'disagree' && !(div && comparableCount(div) > 0)
+            const missing = !div || !div.runs ? 'no run on this channel' : 'no run covered a place a human reviewed'
             const dimRow = overlay.dimRows?.has(r.name)
             const rev = overlay.reviewed?.[r.name]
             return (
@@ -97,8 +106,8 @@ export function Heatmap({ cov, matrix, unit, selectedId, onSelect, onOpen, range
                     const cx = LABEL_W + k * cellW
                     const reviewed = rev?.[bi]
                     const text = degenerate
-                      ? `${r.name} · ${edge(bi)}–${edge(bi + 1)} h · disagree — (${missing} on this channel)`
-                      : `${r.name} · ${edge(bi)}–${edge(bi + 1)} h · ${c} ${unit}${matrix === 'disagree' ? ' · unmatched annotations + unmatched detections' : ''}${rev ? (reviewed ? ' · reviewed (demo)' : ' · not reviewed (demo)') : ''}`
+                      ? `${r.name} · ${edge(bi)}–${edge(bi + 1)} h · disagree — (${missing}: nothing comparable)`
+                      : `${r.name} · ${edge(bi)}–${edge(bi + 1)} h · ${c} ${unit}${matrix === 'disagree' ? ' · machine yes / human no + machine no / human yes' : ''}${rev ? (reviewed ? ' · reviewed (demo)' : ' · not reviewed (demo)') : ''}`
                     return (
                       <g key={bi}>
                         <rect data-testid="heatmap-cell" data-count={c} data-level={lvl}

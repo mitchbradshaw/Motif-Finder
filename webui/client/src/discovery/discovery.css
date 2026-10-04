@@ -291,3 +291,13 @@
 .dsc-q-sentence { background: var(--grey-100); border-radius: 7px; padding: 6px 10px; }
 .dsc-per-band-grid { display: grid; grid-template-columns: minmax(120px, 2fr) repeat(5, minmax(56px, 1fr)); gap: 3px 10px; }
 .dsc-per-band-grid .sw { display: inline-block; width: 8px; height: 8px; border-radius: 2px; vertical-align: -1px; }
+
+/* fixup-X: Q-D2's two precision figures in one cell; Compare's divergence breakdown */
+.dsc-prec { display: inline-flex; flex-direction: column; gap: 2px; }
+.dsc-prec-line { display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; }
+.dsc-divergence .dsc-div-grid { display: grid; grid-template-columns: 1fr; gap: 14px; margin-top: 10px; }
+.dsc-div-sub { margin-bottom: 4px; }
+.dsc-div-strips { display: flex; flex-direction: column; gap: 3px; }
+.dsc-div-strip { display: grid; grid-template-columns: 64px 1fr; align-items: center; gap: 6px; }
+.dsc-div-strip .cells { display: flex; gap: 1px; height: 18px; }
+.dsc-div-strip .cells i { flex: 1; border-radius: 2px; }

@@ -18,7 +18,7 @@ import { Header } from '../shell/Header'
 import { navigate, setQuery, useApp } from '../state'
 import { DemoTag, LegendRow } from './bits'
 import { ErrorCard } from './ErrorCard'
-import { DISAGREE_DEF, Heatmap } from './Heatmap'
+import { DISAGREE_DEF, divergenceOf, Heatmap } from './Heatmap'
 import { LockedCard } from './LockedCard'
 import { RecordingMenu } from './RecordingMenu'
 import { RightRail, type DemoFilters, type ShowState } from './RightRail'
@@ -173,6 +173,8 @@ export function CorpusPage() {
   const pageIdx = files.findIndex(f => f.source_file === fileName)
   const binH = cov && cov.source_file === fileName ? cov.bin_h : durH / bins
   const c = selRow?.counts
+  const dv = divergenceOf(c)
+  const divScope = cov && cov.source_file === fileName ? cov.divergence : undefined
   const legendRef = useRef<HTMLButtonElement>(null)
   const shownRange: [number, number] = range ?? [0, Math.round(durH * 10) / 10]
   const rangeLabel = `${fmtH(shownRange[0])} – ${fmtH(shownRange[1])} h`
@@ -221,6 +223,8 @@ export function CorpusPage() {
                 <span className="grow" />
                 <span className="ex-ramp-block">
                   <span className="meta" data-testid="matrix-label">{matrix ?? 'nothing shown'} · spans per bin</span>
+                  {matrix === 'disagree' && divScope && <span className="meta" data-testid="divergence-scope" title={`containment: ${divScope.rules.containment}. extent: ${divScope.rules.extent}. ${divScope.verdicts}.`}>
+                    {divScope.pooled ? `no run picked — ${divScope.scope}` : divScope.scope} · only places a run covered and a human reviewed</span>}
                   <span className="ex-legend" data-testid="ramp-legend" data-ramp={matrix === 'disagree' ? 'amber' : 'blue'}>low {(matrix === 'disagree' ? AMBER_RAMP : RAMP).map(col => <i key={col} style={{ background: col }} />)} high</span>
                 </span>
                 <button ref={legendRef} type="button" className="k-icon-btn bordered" aria-label="Reading the coverage map" title="Reading the coverage map" aria-expanded={popover === 'legend'}
@@ -253,10 +257,14 @@ export function CorpusPage() {
             <span className="name" data-testid="selected-channel-name">{heldOut ? '—' : selRow?.name ?? '—'}</span>
             <span className="counts" title={`disagree = ${DISAGREE_DEF}`} data-testid="selected-channel-counts">
               {heldOut ? 'held out · no channel can be opened' : c
-                ? `${fmtInt(c.annotations)} annotations · ${fmtInt(c.detections)} detections · ${
-                  // "disagree" compares the two sources; with one of them empty there is nothing to compare (critique r1)
-                  c.detections > 0 && c.annotations > 0 ? `${fmtInt(c.disagree)} disagree` : `— disagree (${c.detections > 0 ? 'no annotations' : 'no detections'})`
-                } · ${c.reviewed_pct == null ? '—' : Math.round(c.reviewed_pct) + ' %'} reviewed`
+                ? <>{`${fmtInt(c.annotations)} annotations · ${fmtInt(c.detections)} detections · `}
+                  {/* fixup-X: the two real disagreement cells, with the not-comparable count beside them */}
+                  {dv ? <>
+                    <span data-testid="divergence-yes-no" title="machine yes · human no: a detection a human rejected in Review, or one inside reviewed windows that say no">{fmtInt(dv.machine_yes_human_no)} machine yes · human no</span>{' · '}
+                    <span data-testid="divergence-no-yes" title="machine no · human yes: a label a human said yes to, where a run covered the place and found nothing">{fmtInt(dv.machine_no_human_yes)} machine no · human yes</span>{' · '}
+                    <span className="muted" data-testid="divergence-nc" title={`not comparable — not a cell: ${Object.entries(dv.not_comparable_why).map(([k, n]) => `${n} ${k}`).join(' · ') || 'nothing'}`}>{fmtInt(dv.not_comparable)} not comparable</span>
+                  </> : <span className="muted">— disagree</span>}
+                  {` · ${c.reviewed_pct == null ? '—' : Math.round(c.reviewed_pct) + ' %'} reviewed`}</>
                 : 'select a channel'}
             </span>
           </div>
@@ -271,7 +279,7 @@ export function CorpusPage() {
         <div className="ex-legend-pop">
           <LegendRow swatch={<span className="ramp">{RAMP.slice(1).map(col => <i key={col} style={{ background: col }} />)}</span>}>Cell darkness is spans per bin, counted under ‘colour by’. Grey cells hold none. Shades are quantile ranks among the non-zero cells.</LegendRow>
           <LegendRow swatch={<span className="outline" />}>Outlined row is the selected channel. Click to select, double-click to open.</LegendRow>
-          <LegendRow swatch={<span className="solid" style={{ background: 'var(--amber)' }} />}>Disagree mode: amber where a detection has no overlapping annotation or the reverse.</LegendRow>
+          <LegendRow swatch={<span className="solid" style={{ background: 'var(--amber)' }} />}>Disagree mode: amber where the machine said yes and a human no, or a human yes where a run covered the place and found nothing. Places no run covered, or no human reviewed, are not comparable and stay grey — they are counted in the bottom bar, never in the map. With no run picked under Detections from, every run on the recording is pooled.</LegendRow>
           <div className="foot">A tag that clusters on two channels is a lead; one spread evenly is probably not.</div>
         </div>
       </Popover>

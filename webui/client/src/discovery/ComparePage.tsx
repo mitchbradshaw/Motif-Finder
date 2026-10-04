@@ -18,6 +18,8 @@ import { DiscoveryToolbar, LoadFailed, Loading, NullChip, Refreshing, RunsCard, 
 import { sendDiscoveryRemainderToReview, type DiscRemainderSent, type DiscVerdictSplit } from '../api'
 import { useToast } from '../shell/Toast'
 import { RunGlyph } from './glyphs'
+import { DivergenceBreakdown } from './Divergence'
+import { PrecisionFigureLine } from './Precision'
 import { ViewPopover, parseView } from './SeedPage'
 import { useDiscovery, type Discovery } from './session'
 
@@ -136,6 +138,8 @@ export function ComparePage() {
                                 const at = channel === 'all channels' ? 0 : within.findIndex(d => d.channel === channel)
                                 setOnlyQ(want); setIQ(String(Math.max(1, at + 1)))
                               }} />
+                            {/* fixup-X: with human annotations as a side, where the two disagree — by channel, time, morphology */}
+                            {cmp.data.divergence && <DivergenceBreakdown data={cmp.data.divergence} humanSide={aQ === 'human' ? 'A' : 'B'} />}
                             <Disagreements data={cmp.data} a={aQ} b={bQ} only={only} setOnly={setOnly} list={list} i={i} setI={p => setIQ(String(p))} current={current} />
                           </>
                         )}
@@ -349,8 +353,15 @@ function SetOverlap({ data, a, b, channels, section, onReload, onSegment }: {
     <section className="k-card dsc-overlap" data-testid="set-overlap" aria-label="Set overlap">
       <div className="dsc-card-head">
         <h3>Set overlap</h3>
-        <InfoTip title="Set overlap">Two detections count as the same event when their spans overlap by IoU ≥ 0.5 (Settings › Analysis defaults). Everything else is only-A or only-B and lands in the stepper below.</InfoTip>
-        <span className="muted small">matched at IoU ≥ 0.5</span>
+        {data.pairedBy === 'divergence'
+          ? <>
+            <InfoTip title="Set overlap against the human record">Against human annotations, IoU ≥ 0.5 alone cannot work: 11,234 of the human labels are 600-sample review windows a short event can never match (Q-D2). So a detection and a human span are “both” when the detection's human verdict is yes — given on it in Review, or by the event row it matches under the extent rule, or by the reviewed windows that wholly contain it. Every other detection is the run's only; a human-yes span no such detection rests on is the human side's only. The breakdown below separates a human no from no human verdict.</InfoTip>
+            <span className="muted small" data-testid="overlap-paired-by">paired by the divergence · Review verdict, extent, containment</span>
+          </>
+          : <>
+            <InfoTip title="Set overlap">Two detections count as the same event when their spans overlap by IoU ≥ 0.5 (Settings › Analysis defaults). Everything else is only-A or only-B and lands in the stepper below.</InfoTip>
+            <span className="muted small">matched at IoU ≥ 0.5</span>
+          </>}
       </div>
       <div className="dsc-overlap-body">
         <div className="dsc-overlap-rows">
@@ -371,9 +382,9 @@ function SetOverlap({ data, a, b, channels, section, onReload, onSegment }: {
           })}
         </div>
         <div className="dsc-overlap-tiles">
-          <StatTile label="A precision" value={pct(data.a.precision)} caption={`${data.a.reviewed} reviewed`} tone="blue" variant="card"
-            info={<InfoTip title="Precision">Of the detections a human has reviewed, the share judged interesting. It exists only where reviewed hours overlap the run — a run with no reviewed overlap shows —.</InfoTip>} />
-          <StatTile label="B precision" value={pct(data.b.precision)} caption={data.b.precisionNote ?? `${data.b.reviewed} reviewed`} tone="purple" variant="card" />
+          <StatTile label="A precision · containment" value={pct(data.a.precision)} caption={data.a.precisions ? <PrecisionFigureLine f={data.a.precisions.extent} testid="compare-a-extent" /> : `${data.a.reviewed} reviewed`} tone="blue" variant="card"
+            info={<InfoTip title="Precision">Two figures, each with its own rule (Q-D2). The big one is containment: of the detections a human verdict covers — a verdict given in Review, or reviewed windows that wholly contain them — the share that is a yes. Beneath it, extent: the same over the event-shaped rows, matched by IoU, with the widths of those rows on its ⓘ. The human side has neither.</InfoTip>} />
+          <StatTile label="B precision · containment" value={pct(data.b.precision)} caption={data.b.precisions ? <PrecisionFigureLine f={data.b.precisions.extent} testid="compare-b-extent" /> : (data.b.precisionNote ?? `${data.b.reviewed} reviewed`)} tone="purple" variant="card" />
           <StatTile label="× null" value={`${data.a.xNull?.toFixed(1) ?? '—'} · ${data.b.xNull?.toFixed(1) ?? '—'}`}
             caption={<span data-testid="xnull-draws">A · B · over {data.a.nullDraws ?? 'no'} · {data.b.nullDraws ?? 'no'} draws</span>} variant="card"
             info={<InfoTip title="× null">How many times more than the null expects each run found on this scope. Each side's ratio is over the surrogate draws <i>that run</i> drew per channel, stated beneath — a run made under an earlier Settings › Nulls count keeps its own.</InfoTip>} />

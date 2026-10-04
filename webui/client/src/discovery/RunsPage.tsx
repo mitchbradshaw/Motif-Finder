@@ -14,6 +14,7 @@ import {
 } from '../api/discovery'
 import { CostChip, DiscoveryToolbar, HistoryButton, LoadFailed, Loading, NullChip, Refreshing, RunsCard, ScopeCard, SlurmModal } from './chrome'
 import { AddTemplateModal } from './AddTemplateModal'
+import { PrecisionCell } from './Precision'
 import { hasResults, useDiscovery, type Discovery } from './session'
 
 export function RunsPage() {
@@ -231,10 +232,8 @@ function Scoreboard({ dx }: { dx: Discovery }) {
   const cells = (row: ScoreRow) => <>
     <td>{row.found}</td><td>{row.judged}</td><td>{row.reviewed}</td><td>{row.interesting}</td>
     <td data-testid="score-precision">
-      {row.precision == null
-        ? <span className="muted">{row.note ?? row.precisionNote ?? 'not yet scored'}</span>
-        : <>{`${Math.round(row.precision * 100)} %`}{row.precisionNote &&
-            <InfoTip title="This precision is about the span shapes">{row.precisionNote}</InfoTip>}</>}
+      {/* fixup-X: Q-D2's two figures, each with its rule on hover; reviewed / interesting beside are the containment one's */}
+      {row.note && row.precision == null ? <span className="muted">{row.note}</span> : <PrecisionCell precisions={row.precisions} fallback={row.precisionNote} />}
     </td>
     <td className={cx(!('value' in row.recall) && 'muted')}>{fmtRecall(row.recall)}</td>
     {/* "null expects 3" is unreadable without the draw count it is over, and

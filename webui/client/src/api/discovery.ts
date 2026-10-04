@@ -17,7 +17,7 @@ import {
   getDiscoveryBands, getDiscoveryFires, getDiscoveryHistory, getDiscoveryOverview, getDiscoveryRuns, getDiscoveryScoreboard, getDiscoverySeedProfile,
   getDiscoverySeedPage, getDiscoverySeedSetupFor, getDiscoverySeeds, getDiscoverySession, putDiscoverySeedDraft, getDiscoverySignal, getDiscoveryTemplates, pollDiscoverySeedResults,
   postDiscoveryPlan, postDiscoveryPreview, startDiscoverySeedResults,
-  type CutRule, type DiscBand, type DiscBandsPayload, type DiscLikeForLike, type DiscPerBand, type DiscSetMember, type DiscVerdictSplit, type DiscSeedPageQuery, type DiscPlan, type DiscPlanBody, type DiscPreview, type DiscRecordingOption, type DiscSeedParams, type DiscSeedQuery, type DiscSeedResults,
+  type CutRule, type DivBreakdown, type PrecisionFigures, type DiscBand, type DiscBandsPayload, type DiscLikeForLike, type DiscPerBand, type DiscSetMember, type DiscVerdictSplit, type DiscSeedPageQuery, type DiscPlan, type DiscPlanBody, type DiscPreview, type DiscRecordingOption, type DiscSeedParams, type DiscSeedQuery, type DiscSeedResults,
 } from '../api'
 import { live, type Sourced } from './seam'
 import type { GlyphKind, Role } from '../fixtures/discovery'
@@ -177,6 +177,8 @@ export interface ScoreRow extends ScoreCells {
   precision: number | null; xNull: number | null
   nullRun?: boolean; nullDraws?: number | null; nullDrawsMax?: number | null; xNullNote?: string | null
   note?: string | null; precisionNote?: string | null; reviewedH?: number; status?: string | null
+  /** fixup-X: Q-D2's two figures, each with its rule; `precision` / `reviewed` / `interesting` are the containment one */
+  precisions?: PrecisionFigures
 }
 export interface ScoreRun { run: string; total: ScoreRow; channels: (ScoreRow & { channel: string })[]; pooledH: number; rule?: { criterion: string; iou: number; onset: number }; reviewedCriterion?: string }
 export function getScoreboard(runKeys: string[], channels: string[], section: [number, number]): Promise<Sourced<ScoreRun[]>> {
@@ -317,6 +319,8 @@ export interface CompareSide {
   nullDraws?: number | null
   /** fixup-z: a band set as one side — the union of its band runs */
   isSet?: boolean; members?: DiscSetMember[]; template?: string; cellsNote?: string; precisionNote?: string
+  /** fixup-X: Q-D2's two figures; `precision` is the containment one */
+  precisions?: PrecisionFigures | null
 }
 /** `otherNearest` is null in the list on purpose: the other side's score at a place is a per-window
  *  computation, and /compare/window returns it as `bScore` when you step to it. `sortedBy` is the
@@ -340,6 +344,8 @@ export interface CompareData {
    *  union, and the like-for-like twin a band set should be compared against */
   verdicts?: { onlyA: DiscVerdictSplit | null; both: DiscVerdictSplit; onlyB: DiscVerdictSplit | null }
   perBand?: DiscPerBand[]; perBandSide?: 'A' | 'B' | null; likeForLike?: DiscLikeForLike | null
+  /** fixup-X: with human annotations as a side the overlap is paired by the divergence, and its breakdown comes too */
+  pairedBy?: 'divergence' | 'reciprocal_iou_onset'; divergence?: DivBreakdown | null
 }
 
 const toSide = (s: { cells: Record<string, { glyph: string } & Omit<RoleCell, 'glyph'> | null> } & Omit<CompareSide, 'cells'>): CompareSide => ({
@@ -356,6 +362,7 @@ export function getCompare(a: string, b: string, channels: string[], section: [n
     attributable: d.attributable, attributionNote: d.attributionNote,
     both: d.both,
     verdicts: d.verdicts, perBand: d.perBand ?? [], perBandSide: d.perBandSide ?? null, likeForLike: d.likeForLike ?? null,
+    pairedBy: d.pairedBy, divergence: d.divergence ?? null,
   })))
 }
 
