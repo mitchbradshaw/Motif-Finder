@@ -68,7 +68,7 @@ import os
 
 import numpy as np
 
-from Adapters.detection_seed_matches import match_exemplar
+from Adapters.detection_seed_matches import format_scales, match_exemplar, match_exemplar_bank, parse_scales
 from Working.config import HELD_OUT_RECORDING_FILE, HELD_OUT_UNLOCK
 from Working.database import queries as _q
 from Working.recipes import make_recipe
@@ -103,6 +103,34 @@ BLOCK_SHUFFLE_NOTE = ("block shuffle keeps any motif shorter than a block intact
                       "order (trains, intervals), not shape")
 PHASE_RANDOMIZE_NOTE = ("phase randomisation keeps the signal's frequency content and scrambles every local "
                         "shape: would this fire as often on a signal with the same spectrum and no real events")
+
+#: fixup-v: the scale bank's lengths, from ONE Settings key. A bank searches the
+#: exemplar resampled to each factor (`detection.seed_matches`' `scales`); the
+#: native length is one of them. Settings › Analysis defaults, because the bank
+#: is a parameter of the search, not of its null.
+SCALE_BANK_PAGE = "analysis-defaults"
+SCALE_BANK_KEY = "seed.scale_bank"
+DEFAULT_SCALE_BANK = (0.8, 1.0, 1.25)
+
+
+def scale_bank_from_settings(conn):
+    """The bank's factors, sorted: Settings › Analysis defaults `seed.scale_bank`,
+    else `DEFAULT_SCALE_BANK`. A saved value that is not a bank is an error
+    said loudly, not quietly replaced by the default."""
+    from Working.registration.settings import get_settings
+
+    saved = get_settings(conn, SCALE_BANK_PAGE).get(SCALE_BANK_KEY)
+    if saved in (None, "", []):
+        return DEFAULT_SCALE_BANK
+    return parse_scales(saved)
+
+
+def scale_bank_label(scales):
+    """`(0.8, 1, 1.25)` -> `"3 lengths · 0.8× 1× 1.25×"` — the words the Seed page
+    and the run row both print."""
+    bank = parse_scales(scales)
+    return f"{len(bank)} length{'s' if len(bank) != 1 else ''} · " + " ".join(f"{v:g}×" for v in bank)
+
 
 _LABELS = {"phase_randomize": "phase randomisation", "block_shuffle": "block shuffle"}
 _NOTES = {"phase_randomize": PHASE_RANDOMIZE_NOTE, "block_shuffle": BLOCK_SHUFFLE_NOTE}
@@ -206,7 +234,8 @@ def _surrogate(x, method, seed, fs, block_s):
 
 
 def null_distances(x, exemplar, *, draws=DEFAULT_DRAWS, seed=0, method=None, k=10,
-                   max_distance=None, fs=1.0, block_s=None, on_progress=None, should_cancel=None):
+                   max_distance=None, fs=1.0, block_s=None, on_progress=None, should_cancel=None,
+                   scales=None, overlap="lowest"):
     """The distances the seed gets against ``draws`` surrogate signals.
 
     One draw is one `preprocessing.surrogate` realisation at seed ``seed + i``
@@ -222,6 +251,11 @@ def null_distances(x, exemplar, *, draws=DEFAULT_DRAWS, seed=0, method=None, k=1
     ``distances`` is the pooled list (divide a count by ``draws`` for "what the
     null gives"), ``block_s`` the block length used (None for a method that has
     no block).
+
+    With a scale bank (fixup-v) every draw is searched at every length, exactly
+    as the real search is, and ``by_scale`` carries the null **per length**:
+    ``{scale: {distances, draws}}``. A search at 1.25x is a different search
+    from one at 0.8x and gets its own chance level.
     """
     resolved = resolve_null(method, draws, seed)
     if not resolved["supported"]:
@@ -232,30 +266,55 @@ def null_distances(x, exemplar, *, draws=DEFAULT_DRAWS, seed=0, method=None, k=1
         block_s = float(block_s) if block_s else default_block_s(len(q), fs)
     else:
         block_s = None
+    bank = parse_scales(scales) if scales else None
+    if bank == (1.0,):
+        bank = None
+    by_scale = {v: {"distances": [], "draws": 0} for v in (bank or ())}
     per_draw, pooled = [], []
     for i in range(resolved["draws"]):
         if should_cancel is not None and should_cancel():
             break
         s = _surrogate(x, resolved["method"], resolved["seed"] + i, fs, block_s or 0.0)
-        rows = match_exemplar(s, q, k=k, max_distance=max_distance)
-        ds = [float(r[0]) for r in rows]
+        if bank:
+            rows = match_exemplar_bank(s, q, bank, k=k, max_distance=max_distance, overlap=overlap)
+            ds = [r["distance"] for r in rows]
+            for v in bank:
+                by_scale[v]["draws"] += 1
+            for r in rows:
+                by_scale[r["scale"]]["distances"].append(r["distance"])
+        else:
+            rows = match_exemplar(s, q, k=k, max_distance=max_distance)
+            ds = [float(r[0]) for r in rows]
         per_draw.append(ds)
         pooled.extend(ds)
         if on_progress is not None:
             on_progress(i + 1, resolved["draws"])
-    return {"distances": pooled, "per_draw": per_draw, "draws": len(per_draw),
-            "method": resolved["method"], "seed": resolved["seed"], "block_s": block_s}
+    out = {"distances": pooled, "per_draw": per_draw, "draws": len(per_draw),
+           "method": resolved["method"], "seed": resolved["seed"], "block_s": block_s}
+    if bank:
+        out["by_scale"] = by_scale
+    return out
 
 
 # ── the matches and the profile ─────────────────────────────────────────────
 
-def candidates(x, exemplar, *, k=10, max_distance=None):
+def candidates(x, exemplar, *, k=10, max_distance=None, scales=None, overlap="lowest"):
     """The block's own matches: ``[{index, distance}]``, closest first.
 
     ``max_distance`` is passed straight through; the page fetches once with a
     generous cut and re-thresholds that list, so dragging the line costs
     nothing (`cut_counts`).
+
+    With a scale bank each match also carries its ``scale`` and ``length`` —
+    the block's `match_exemplar_bank`, distances on the native footing.
     """
+    bank = parse_scales(scales) if scales else None
+    if bank and bank != (1.0,):
+        rows = match_exemplar_bank(np.asarray(x, dtype=float).ravel(),
+                                   np.asarray(exemplar, dtype=float).ravel(), bank,
+                                   k=int(k), max_distance=max_distance, overlap=overlap)
+        return [{"index": r["index"], "distance": r["distance"], "scale": r["scale"], "length": r["length"]}
+                for r in rows]
     rows = match_exemplar(np.asarray(x, dtype=float).ravel(),
                           np.asarray(exemplar, dtype=float).ravel(),
                           k=int(k), max_distance=max_distance)
@@ -557,22 +616,31 @@ def recommended_params(seed):
     }
 
 
-def seed_steps(seed, *, k=10, max_distance=None):
-    """The one chain step a seeded search is."""
+def seed_steps(seed, *, k=10, max_distance=None, scales=None, overlap=None):
+    """The one chain step a seeded search is.
+
+    A bank is named in the params only when it is on (more than the native
+    length), so a native search's recipe — and its hash — is what it was
+    before the bank existed (fixup-v)."""
+    params = {"k": int(k), "max_distance": float(max_distance or 0.0)}
+    bank = parse_scales(scales) if scales else None
+    if bank and bank != (1.0,):
+        params["scales"] = format_scales(bank)
+        params["overlap"] = overlap or "lowest"
     return [{
         "stage": "detection",
         "algorithm": "seed_matches",
-        "params": {"k": int(k), "max_distance": float(max_distance or 0.0)},
+        "params": params,
         "side_inputs": {"exemplar": dict(seed["binding"])},
     }]
 
 
-def seed_recipe(seed, recording_ids, span=None, *, k=10, max_distance=None):
+def seed_recipe(seed, recording_ids, span=None, *, k=10, max_distance=None, scales=None, overlap=None):
     """The fan-out recipe: one `detection.seed_matches` step over N channels."""
     ids = [int(r) for r in recording_ids]
     if not ids:
         raise ValueError("a seeded search needs at least one channel in scope")
-    return make_recipe(ids[0], seed_steps(seed, k=k, max_distance=max_distance),
+    return make_recipe(ids[0], seed_steps(seed, k=k, max_distance=max_distance, scales=scales, overlap=overlap),
                        span=(list(span) if span else None),
                        fan_out={"kind": "channels", "targets": ids})
 

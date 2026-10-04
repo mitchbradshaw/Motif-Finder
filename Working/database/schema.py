@@ -432,6 +432,21 @@ _MOTIF_MEMBER_NEW_COLUMNS = [
 ]
 
 
+# fixup-v: `motif_edge` += where a seed-search edge came from. An edge written
+# when a seed-search match is resolved onto the Library is one fact about one
+# pair under one distance; these say which scale the match was found at, which
+# detection it was, the recipe that produced the edge (the run's recipe hash,
+# the distance function and its parameters, the scale) in full rather than only
+# as the hash already on the row, and when. All nullable: the cross-channel
+# classifier and older callers write edges without them.
+_MOTIF_EDGE_NEW_COLUMNS = [
+    ("scale_factor", "REAL"),
+    ("detection_id", "INTEGER REFERENCES detections(id)"),
+    ("recipe_json", "TEXT"),
+    ("created_at", "TEXT"),
+]
+
+
 # Stage-3 Prompt 02 (docs/DATA_REGISTRATION.md): registration provenance on
 # `recordings`, all nullable / defaulted so the 70 existing rows are untouched.
 # `parent_recording_id` + `parent_offset` + `decimation` record that a row is
@@ -771,6 +786,10 @@ def _migrate_review_tables(conn):
 
 def _migrate_motif_member_columns(conn):
     _migrate_columns(conn, "motif_member", _MOTIF_MEMBER_NEW_COLUMNS)
+
+
+def _migrate_motif_edge_columns(conn):
+    _migrate_columns(conn, "motif_edge", _MOTIF_EDGE_NEW_COLUMNS)
 
 
 # Stage-3 prompt 03 (docs/LIBRARY_STORAGE.md §3.3): the Library's new units.
@@ -1420,6 +1439,7 @@ def init_db(db_path=None):
     # the index pass because an index needs its column to exist.
     _migrate_library_tables(conn)
     _migrate_motif_member_columns(conn)
+    _migrate_motif_edge_columns(conn)
     _migrate_library_indexes(conn)
     _migrate_templates_columns(conn)
     _migrate_jobs_table(conn)
