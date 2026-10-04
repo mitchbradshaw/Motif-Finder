@@ -1149,8 +1149,10 @@ export interface LibCrossChannel {
 export interface LibEdge { chance?: XChance | null; floor?: XFloor | null; amplitudeRatio?: number | null; tooShort?: boolean }
 export interface LibCell { confirmedMembers?: number }
 export interface LibSuspectedAck { queueId: number; name: string; flagged: number; total: number; judged: number; remaining: number }
-export const sendSuspectedArtifacts = (familyId: string, grouping?: string) =>
-  post<LibSuspectedAck>(`/api/library/family/${encodeURIComponent(familyId)}/suspected-artifacts`, { grouping })
+/** The view goes with it: the queue is over the members the page shows, the ones its flag count was taken over. */
+export const sendSuspectedArtifacts = (familyId: string, grouping?: string, view?: LibView | null) =>
+  post<LibSuspectedAck>(`/api/library/family/${encodeURIComponent(familyId)}/suspected-artifacts`, {
+    grouping, ...Object.fromEntries(Object.entries(libViewQuery(view)).filter(([, v]) => v !== undefined).map(([k, v]) => [k, String(v)])) })
 /** fixup-AD: the seed search's exclusion zone, a fraction of m (the block's `exclusion`; m/2 by default). It is part
  *  of the result's key and of the run's identity, so the poll and the run must name it. */
 export interface DiscSeedQuery { exclusion?: number }

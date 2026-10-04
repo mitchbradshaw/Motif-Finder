@@ -255,7 +255,7 @@ function InspectorItem({ data, row }: { data: QueueData; row: QueueRow }) {
               {row.unit === 'detection'
                 ? masked ? <Pill icon="eye-off" label="score" value="hidden until verdict" tone="purple" testid="pill-score" />
                   : <Pill icon="target" label={row.score != null ? 'score' : 'match'} value={row.score != null ? `${row.score.toFixed(2)}${q === 'q-12' ? ' · 6.1× null' : ''}` : `d ${row.d?.toFixed(2)} · seed search`} testid="pill-score" />
-                : <Pill icon="target" label="score" value="n/a · human span" testid="pill-score" title="human spans carry no machine score" />}
+                : <Pill icon="target" label="score" value={(row.unit as string) === 'member' ? 'n/a · family member' : 'n/a · human span'} testid="pill-score" title={(row.unit as string) === 'member' ? 'a flagged family member: what flagged it is on the Suspected artifact card' : 'human spans carry no machine score'} />}
               {masked ? <Pill icon="eye-off" label="family" value="hidden until verdict" tone="purple" testid="pill-family" />
                 : fam && <Pill dot={fam.colour} label="family" value={`${fam.id} d ${fam.d.toFixed(2)}`} testid="pill-family" />}
             </>}

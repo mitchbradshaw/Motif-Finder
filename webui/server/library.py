@@ -2732,13 +2732,26 @@ def classify_family_cross_channel(request: Request, family_id: str, body: CrossC
             "family": family_id, "grouping": grouping}
 
 
+class SuspectedBody(CrossChannelBody):
+    #: the view the page was showing (fixup-ae's floor on when absent): the queue is over the members it shows
+    floor: str | None = None
+    fallMin: str | None = None
+    fallMax: str | None = None
+    pure: str | None = None
+
+
 @router.post("/family/{family_id}/suspected-artifacts")
-def send_suspected_artifacts(request: Request, family_id: str, body: CrossChannelBody):
+def send_suspected_artifacts(request: Request, family_id: str, body: SuspectedBody):
     """Library › Family *Send suspected artifacts to Review* (fixup-AD): the
     family's *Suspected artifact · F-xxx* queue, made once through
     `create_queue` (`Working.review.artifact_queue`); a second press returns
     the same queue. Its items are the members the classifier flags, resolved
-    live; a verdict lands in `annotations` over the member's span."""
+    live; a verdict lands in `annotations` over the member's span.
+
+    Over the members the page SHOWS — the same view (noise floor, fall
+    duration, purity) the Family card counted its flags over, so the button's
+    number and the queue's are one number (AE filters in the caller of
+    `family_recurrence`; so does this)."""
     from Working.review import artifact_queue as aq
     from Working.review import queues as rq
     conn = _conn(request)
@@ -2748,10 +2761,13 @@ def send_suspected_artifacts(request: Request, family_id: str, body: CrossChanne
             g = _default_grouping(conn, "single_motifs")
         if g is None:
             raise HTTPException(404, f"no motif grouping to find {family_id} in")
-        ids = sorted({int(r["member_id"]) for r in _member_rows(conn, g["id"])
-                      if r["family_label"] == family_id and r["family_id"] is not None and r["member_id"] is not None})
+        view = vf_mod.ViewFilter.from_query(body.floor, body.fallMin, body.fallMax, body.pure)
+        state = _view_state(conn, _recordings_index(conn), g, view)
+        ids = sorted({int(r["member_id"]) for r in state["rows"]
+                      if r["family_label"] == family_id and r["member_id"] is not None})
         if not ids:
-            raise HTTPException(404, f"{family_id} has no members in grouping {gid_str(g['id'])}")
+            raise HTTPException(404, f"{family_id} has no members shown in grouping {gid_str(g['id'])} "
+                                     f"({view.describe()})")
         rec = matching_mod.family_recurrence(conn, ids)
         if not rec["flagged"]:
             raise HTTPException(409, f"{family_id} has no member flagged as a suspected artifact"

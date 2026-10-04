@@ -15,6 +15,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Badge, Button, InfoTip, ProgressBar } from '../kit'
 import { navigate } from '../state'
 import { useToast } from '../shell/Toast'
+import { useLibraryView } from './chrome'
 import { classifyFamilyCrossChannel, getJob, sendSuspectedArtifacts, type JobRow, type LibClassifyResult, type LibCrossChannel, type LibFlagLine, type RecurrenceMode, type XBinCore, type XRule } from '../api'
 
 export const XBINS: XBinCore[] = ['artifact', 'propagation', 'independent_recurrence']
@@ -34,6 +35,7 @@ const ruleWords = (r: XRule) => `artifact |lag| ≤ ${r.artifact_max_lag_s} s${r
 /** fixup-AD: *Send suspected artifacts to Review* — the family's queue, made once; then *Open in Review*. */
 function SendToReview({ familyId, grouping, flagged, queue }: { familyId: string; grouping?: string; flagged: number; queue: LibCrossChannel['suspectedQueue'] }) {
   const toast = useToast()
+  const [view] = useLibraryView()      // the page's view: the queue is over the members it shows
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState<string | null>(null)
   if (queue) {
@@ -47,7 +49,7 @@ function SendToReview({ familyId, grouping, flagged, queue }: { familyId: string
         onClick={async () => {
           setBusy(true); setErr(null)
           try {
-            const r = await sendSuspectedArtifacts(familyId, grouping)
+            const r = await sendSuspectedArtifacts(familyId, grouping, view)
             toast.push({ text: `${r.name}: ${r.total} flagged member${r.total === 1 ? '' : 's'} to judge`, action: { label: 'Open Review', onClick: () => navigate(`review/queue/${r.queueId}`) } })
             navigate(`review/queue/${r.queueId}`)
           } catch (e) { setErr((e as Error).message) } finally { setBusy(false) }
