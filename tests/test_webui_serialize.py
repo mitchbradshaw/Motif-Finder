@@ -374,6 +374,27 @@ def test_a_signal_carrying_wavelet_layers_ships_each_on_the_absolute_time_axis()
     assert p["decomposition"]["padding"]["padded_to"] % 32 == 0
 
 
+def test_the_layers_survive_the_meta_sidecar_of_a_step_cache_hit():
+    """On a slow span the wavelet step is step-cached, and the bridge reads its
+    `meta` back from the JSON sidecar it wrote with `_clean` (which drops any
+    array over 4096 values). Each layer's envelope is a list of at most 2400
+    points, so a 200 000-sample span's layers come back drawable."""
+    import json
+
+    from Adapters.registry import discover_adapters, get_adapter
+    from server.serialize import _clean
+
+    discover_adapters()
+    spec = get_adapter("preprocessing.wavelet_bands")
+    x = np.random.default_rng(1).standard_normal(200_000).cumsum()
+    res = spec.run(x, np.arange(len(x)), 1.0, **spec.validate_params({"level": 5, "levels": 8}))
+    side = json.loads(json.dumps(_clean(res.meta)))
+    p = to_payload("signal", res.value, side, {"fs": 1.0, "span_start": 0, "px": 800})
+    assert [L["name"] for L in p["layers"]] == [f"D{k}" for k in range(1, 9)] + ["A8"]
+    assert "layers_note" not in p
+    assert all(L["envelope"]["n_points"] <= 2400 and len(L["envelope"]["t"]) == L["envelope"]["n_points"] for L in p["layers"])
+
+
 def test_a_signal_without_layers_ships_none():
     from Working.types import Signal
     p = to_payload("signal", Signal(x=np.arange(10.0), fs=1.0), {}, {"fs": 1.0})

@@ -151,6 +151,7 @@ lights up; ignore them and the block still draws):
 | emits an image with **one column per sample of the span** | frames are chunks of columns at the image's own resolution, each located in time |
 | emits a WindowSet whose table has a **`split`** column | ships it apart from the features and colours the windows by role |
 | prints its rules in **`meta["rules"]`** (`[{name, rule}]`) | puts each rule behind the info icon of its measure |
+| is `signal->signal`, passes **one layer of a decomposition** on, and puts **`meta["layers"]`** = one dict per layer (`name`, `level`, `low_hz` / `high_hz`, `label`, `chosen`, and an `envelope` of span-relative sample indices `i` with values `v`, at most 4096 points) beside `meta["wavelet"]` / `meta["levels"]` | draws every layer stacked under the before/after plot on the same time axis, the input first, each on its own y with a scale bar, the chosen one highlighted with its Hz range (fixup-ac, `preprocessing.wavelet_bands`). The envelope is the block's, small enough to survive the bridge's meta sidecar on a step-cache hit |
 
 **The drawing rules** (the ones of `Pipelines/drop_motifs/drawing_rules.py` that carry over; the thesis
 figure rules are for thesis figures):

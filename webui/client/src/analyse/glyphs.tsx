@@ -53,7 +53,9 @@ const BY_NAME: Record<string, () => ReactElement> = {
   'preprocessing.bandpass': () => response('band'),
   'preprocessing.highpass': () => response('high'),
   'preprocessing.lowpass': () => response('low'),
-  'preprocessing.surrogate': () => <g>{smooth(8, 3, G, 1.2)}{smooth(19, 3, B, 1.4, 2, 42, 1.9)}<path d="M20 12l3 2-3 2M24 16l-3-2 3-2" fill="none" stroke={PU} strokeWidth={1.1} /><circle cx={35} cy={13} r={1.2} fill={PU} /><circle cx={38.5} cy={13} r={1.2} fill={PU} /></g>,
+  /* fixup-ac: a ladder of octave layers on one time axis, each half as fast as the one above; the chosen one (blue) goes on */
+  'preprocessing.wavelet_bands': () => <g><polyline points={Array.from({ length: 21 }, (_, i) => `${2 + i * 1.8},${(4 + Math.sin(i * 1.7) * 1.6 + Math.sin(i * 0.4) * 1.2).toFixed(1)}`).join(' ')} fill="none" stroke={G} strokeWidth={1} />{smooth(10.5, 1.6, G, 1, 2, 38, 0.3)}<polyline points={Array.from({ length: 19 }, (_, i) => `${2 + i * 2},${(16.5 + Math.sin(i * 0.65) * 2.2).toFixed(1)}`).join(' ')} fill="none" stroke={B} strokeWidth={1.5} /><polyline points={Array.from({ length: 19 }, (_, i) => `${2 + i * 2},${(22.5 + Math.sin(i * 0.3) * 1.6).toFixed(1)}`).join(' ')} fill="none" stroke={G} strokeWidth={1} /><path d="M39 16.5h4M41 14.5l2 2-2 2" fill="none" stroke={B} strokeWidth={1.1} /></g>,
+  'preprocessing.surrogate': () =><g>{smooth(8, 3, G, 1.2)}{smooth(19, 3, B, 1.4, 2, 42, 1.9)}<path d="M20 12l3 2-3 2M24 16l-3-2 3-2" fill="none" stroke={PU} strokeWidth={1.1} /><circle cx={35} cy={13} r={1.2} fill={PU} /><circle cx={38.5} cy={13} r={1.2} fill={PU} /></g>,
   /* ---- Signal → Encoding · symbolic (three SAX variants) ---- */
   'detection.sax_csax': () => <g>{wave(9, 4, G, 1)}{[5, 9, 13].map(y => <line key={y} x1={2} x2={42} y1={y} y2={y} stroke={AM} strokeWidth={0.7} strokeDasharray="1.5 1.5" />)}{blocks(17, 7, [B, '#7fb8ff', BL, B, '#7fb8ff', BL, B, '#7fb8ff'])}</g>,
   'detection.sax_dsax': () => <g>{wave(8, 3, G, 1)}<polyline points="2,11 8,11 8,6 14,6 14,12 20,12 20,9 26,9 26,5 32,5 32,10 38,10 38,8 42,8" fill="none" stroke={B} strokeWidth={1.1} />{blocks(17, 7, [AM, '#c7cbd1', B, AM, B, '#c7cbd1', AM, B])}</g>,

@@ -8,7 +8,7 @@ import {
 import { useSourced } from '../api/seam'
 import { navigate } from '../state'
 import { useToast } from '../shell/Toast'
-import { REBIND_EXEMPLARS, getBands, getTemplates, previewRun, fmtMin, DISCOVERY_LIMIT_MIN, type DiscoveryTemplate, type MeasuredPreview } from '../api/discovery'
+import { REBIND_EXEMPLARS, getBands, getBandsFor, getTemplates, previewRun, fmtMin, DISCOVERY_LIMIT_MIN, type DiscoveryTemplate, type MeasuredPreview } from '../api/discovery'
 import { applyDiscoveryTemplates, applyDiscoveryTemplatesWithBands, type DiscBand } from '../api'
 import { RunGlyph } from './glyphs'
 import { LoadFailed, Loading } from './chrome'
@@ -43,12 +43,21 @@ export function AddTemplateModal({ open, onClose, dx, onSlurm }: { open: boolean
   const [bandSel, setBandSel] = useState<string[]>([])
   const bandList: DiscBand[] = bandsRead.data?.bands ?? []
   const nyq = bandsRead.data?.nyquistHz ?? null
-  const bandReason = (b: DiscBand) => nyq != null && b.high_hz >= nyq ? `reaches ${b.high_hz} Hz, at or above this recording's Nyquist (${nyq} Hz) — a bandpass edge must lie below it` : null
-  const chosenBands = bandMode === 'bands' ? bandList.filter(b => bandSel.includes(b.label) && !bandReason(b)) : []
+  const bandReason = (b: DiscBand) => b.kind === 'bandpass' && nyq != null && b.high_hz >= nyq ? `reaches ${b.high_hz} Hz, at or above this recording's Nyquist (${nyq} Hz) — a bandpass edge must lie below it` : null
+  /* fixup-ac: wavelet levels beside the named bands. A level is one layer of a stationary wavelet decomposition
+   * (`preprocessing.wavelet_bands`), offered as deep as this scope's section allows at the recording's rate, each
+   * with its Hz range; each chosen level becomes one run across the channels in scope, with its paired null,
+   * exactly as a named band does. None is ticked until the researcher ticks it. */
+  const [wavelet, setWavelet] = useState('db4')
+  const waveRead = useSourced(() => getBandsFor(wavelet), [wavelet])
+  const waveInfo = waveRead.data?.wavelet ?? null
+  const waveLevels: DiscBand[] = waveInfo?.levels ?? []
+  const chosenBands = bandMode === 'bands' ? [...bandList, ...waveLevels].filter(b => bandSel.includes(b.label) && !bandReason(b)) : []
   const nBands = chosenBands.length
   const bandMult = Math.max(1, nBands)
   const setMode = (v: string) => {
     setBandMode(v)
+    // the named bands start ticked (fixup-z); wavelet levels start unticked — a ladder of nine is not a default
     if (v === 'bands' && bandSel.length === 0) setBandSel(bandList.filter(b => !bandReason(b)).map(b => b.label))
   }
   /* Already in this session is a NOTE, not a refusal. The same template against
@@ -268,6 +277,25 @@ export function AddTemplateModal({ open, onClose, dx, onSlurm }: { open: boolean
                             </div>
                           )
                         })}
+                    <div className="dsc-sub-label row" style={{ gap: 6, marginTop: 8 }} data-testid="wavelet-levels-head">
+                      Wavelet levels
+                      <InfoTip title="Wavelet levels">A wavelet decomposition splits the signal into a ladder of layers, each about half the speed of the one above, and keeps a sharp event sharp while doing it. Every layer stays sample-aligned with the recording. Tick a level and it becomes one run across every channel in scope: this template's chain with the Wavelet bands block prepended, that level chosen — the chain you would build by inserting the block in Analyse — paired with its own null, decomposed the same way. The ranges are for this recording's rate and this section's length; the last row is the residual, everything slower than the deepest level.</InfoTip>
+                      <span className="k-spacer" />
+                      {waveInfo && <Dropdown prefix="wavelet" value={wavelet} onChange={setWavelet} options={waveInfo.wavelets.map(w => ({ value: w, label: w }))} size="sm" testid="wavelet-select" />}
+                    </div>
+                    <div data-testid="wavelet-levels">
+                      {waveRead.error ? <LoadFailed what="the wavelet levels" error={waveRead.error} onRetry={waveRead.reload} />
+                        : !waveRead.data ? <Loading height={40} label="reading the wavelet levels" />
+                          : !waveInfo ? <div className="muted small">no Discovery scope yet — the levels depend on its section</div>
+                            : waveLevels.map(b => (
+                              <div key={b.label} className="row between small">
+                                <Checkbox checked={bandSel.includes(b.label)}
+                                  onChange={v => setBandSel(v ? [...bandSel, b.label] : bandSel.filter(x => x !== b.label))}
+                                  label={<span className="mono">{b.level === 0 ? 'residual' : `level ${b.level}`}</span>} testid={`wavelet-level-${b.level}`} />
+                                <span className="mono muted">{b.label.split(' · ')[1] ?? ''}</span>
+                              </div>
+                            ))}
+                    </div>
                     <div className="muted small" data-testid="band-scope-note">
                       {nBands ? `${nBands} run${nBands === 1 ? '' : 's'} per template, each across ${nCh} channel${nCh === 1 ? '' : 's'} · cost is ${nBands} × the sweep` : 'no band chosen'}
                       {bandsRead.data && ` · ${bandsRead.data.source === 'settings' ? 'your list' : 'the seeded list'} from Settings › Analysis defaults`}

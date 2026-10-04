@@ -94,3 +94,88 @@ export function SignalNote({ p, ctx }: { p: SignalPayload; ctx: ViewCtx }) {
     </div>
   )
 }
+
+/* ---------------- every layer of a decomposition (fixup-ac) ----------------
+ * A Signal block that passes ONE layer of a decomposition on (`preprocessing.wavelet_bands`) puts every layer in
+ * its payload (`layers`, a payload convention — docs/BLOCK_INTEGRATION.md §2 — never the block's name). They are
+ * drawn stacked on the page's own time axis under the before/after plot: the input first, grey, then each layer,
+ * fastest first, the one that went on highlighted. Each row is its own rule-9 plot on a y measured from its own
+ * trace with a scale bar (rule 4: small multiples never share a y — the slow layers are many times the size of the
+ * fast ones, and a shared axis would draw the fast ones flat). One shared hover line runs through every row, so a
+ * drop can be followed down the stack: the layers are sample-aligned, and so is the picture. Each row carries the
+ * y it was drawn on (`data-y-domain`, `data-y-range`) so the smoke gate can read values back off the DOM. */
+const LAYER_ROW_H = 46
+
+function LayerRow({ name, label, t, v, x, width, chosen, input, unit, hover, handlers }: {
+  name: string; label: string; t: number[]; v: (number | null)[]; x: ViewCtx['x']; width: number; chosen: boolean; input?: boolean
+  unit: string; hover: number | null; handlers: ReturnType<typeof useHoverT>[1]
+}) {
+  const r = finiteRange(v)
+  const flat = !r || !(r[1] > r[0])
+  const y = makeY(r ? r[0] : -1, r ? r[1] : 1, LAYER_ROW_H, 6, 6)
+  const [d0, d1] = y.domain(), [p0, p1] = y.range()
+  const bar = r && r[1] > r[0] ? niceBarSize(r[1] - r[0]) : 0
+  const barPx = bar ? Math.abs(y(r![0]) - y(r![0] + bar)) : 0
+  const stroke = input ? 'var(--trace-ghost)' : chosen ? 'var(--trace-blue)' : 'var(--trace)'
+  return (
+    <svg width={width} height={LAYER_ROW_H} data-render="signal-layer" data-layer={name} data-chosen={chosen ? '1' : '0'} data-input={input ? '1' : '0'}
+      data-rule9="layer" data-flat={flat ? '1' : '0'} data-y-domain={`${d0},${d1}`} data-y-range={`${p0},${p1}`} style={{ display: 'block' }} {...handlers}>
+      {chosen && <rect x={0} y={0} width={width} height={LAYER_ROW_H} fill="var(--band-selected)" data-testid="layer-chosen" />}
+      <line x1={0} x2={width} y1={LAYER_ROW_H - 0.5} y2={LAYER_ROW_H - 0.5} stroke="var(--border, #e5e7eb)" />
+      <g data-trace><EnvelopePath t={t} v={v} x={x} y={y} stroke={stroke} width={chosen ? 1.4 : 1} /></g>
+      {hover !== null && <line x1={x(hover)} x2={x(hover)} y1={0} y2={LAYER_ROW_H} stroke="var(--blue)" strokeOpacity={0.5} strokeDasharray="3 3" pointerEvents="none" />}
+      <text x={6} y={13} style={{ fill: chosen ? 'var(--blue-600)' : 'var(--text-2)', fontWeight: chosen ? 600 : 400, paintOrder: 'stroke', stroke: '#fff', strokeWidth: 3 }} pointerEvents="none">
+        {label}{chosen ? ' · goes on down the chain' : ''}
+      </text>
+      {barPx > 0 && (
+        <g pointerEvents="none" data-testid="layer-scale-bar">
+          <line x1={width - 4} x2={width - 4} y1={LAYER_ROW_H - 6 - barPx} y2={LAYER_ROW_H - 6} stroke="var(--text-2)" strokeWidth={2} />
+          <text x={width - 8} y={LAYER_ROW_H - 6 - barPx / 2 + 3} textAnchor="end" style={{ fontFamily: 'var(--font-mono)', fontSize: 9, fill: 'var(--muted)', paintOrder: 'stroke', stroke: '#fff', strokeWidth: 3 }}>
+            {fmtN(bar)}{unit ? ` ${unit}` : ''}
+          </text>
+        </g>
+      )}
+    </svg>
+  )
+}
+
+/** the largest 1 / 2 / 5 × 10^k at most half a row's span (charts/ScaleBar.tsx's rule) */
+function niceBarSize(span: number): number {
+  if (!(span > 0) || !Number.isFinite(span)) return 0
+  const target = span * 0.5, k = Math.pow(10, Math.floor(Math.log10(target))), m = target / k
+  return (m >= 5 ? 5 : m >= 2 ? 2 : 1) * k
+}
+
+export function SignalLayers({ p, ctx }: { p: SignalPayload; ctx: ViewCtx }) {
+  const layers = p.layers ?? []
+  const unit = axisUnit(p.unit) || ''
+  const [hover, handlers] = useHoverT(ctx.x)
+  const ghost = ctx.ghost && ctx.ghost.t.length ? ctx.ghost : null
+  const width = ctx.width
+  return (
+    <div data-testid="wavelet-layers" data-n-layers={layers.length}>
+      {ghost && <LayerRow name="input" label="input · what this block was given" t={ghost.t} v={ghost.v} x={ctx.x} width={width} chosen={false} input
+        unit={axisUnit(ctx.ghostUnit ?? p.unit) || ''} hover={hover} handlers={handlers} />}
+      {layers.map(L => (
+        <LayerRow key={L.name} name={L.name} label={L.label} t={L.envelope.t} v={L.envelope.v} x={ctx.x} width={width} chosen={L.chosen}
+          unit={unit} hover={hover} handlers={handlers} />
+      ))}
+    </div>
+  )
+}
+
+/** One line on the face — which layer went on, how deep, how it was padded — the rest behind the info icon. */
+export function SignalLayersNote({ p }: { p: SignalPayload }) {
+  const d = p.decomposition
+  if (!d) return null
+  const chosen = (p.layers ?? []).find(L => L.chosen)
+  return (
+    <div className="muted mono small" style={{ marginTop: 4 }} data-testid="wavelet-layers-note">
+      {d.wavelet} · {d.levels} level{d.levels === 1 ? '' : 's'}{d.levels_auto ? ' (auto: from the span and the sample rate)' : ''} ·{' '}
+      <b data-testid="wavelet-layer-chosen">{chosen ? chosen.label : d.layer_label}</b> goes on ·{' '}
+      {d.padding.padded_to !== d.padding.n ? `padded ${d.padding.n.toLocaleString()} → ${d.padding.padded_to.toLocaleString()} samples and trimmed back` : 'no padding needed'}
+      {d.reconstruction_error != null && <> · the layers add up to the input (largest difference {fmtN(d.reconstruction_error)}, in the recording's stored unit)</>}
+      {p.layers && p.layers[0] && <> · {resolutionWords(p.layers[0].envelope, p.fs)}</>}
+    </div>
+  )
+}

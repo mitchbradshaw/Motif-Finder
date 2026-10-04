@@ -29,7 +29,7 @@ import { AlignedImage, ImageEvidence, ImageView, PaaSteps, SYM3, SymbolChunks, S
 import { ClusterExemplars, ClusterSizes, GroupingView } from './GroupingView'
 import { ModelView } from './ModelView'
 import { ScoreHistogram, ScoresView, scoreWords, scoreY, type ScoreCut } from './ScoresView'
-import { SignalNote, SignalView } from './SignalView'
+import { SignalLayers, SignalLayersNote, SignalNote, SignalView } from './SignalView'
 import { DurationHistogram, SpanSetView, SpanSlideshow } from './SpanSetView'
 import { WindowSetKey, WindowSetView } from './WindowSetView'
 import { Empty, StaleVeil, Strip, Surface, finiteRange, fmtN, loadWindow, type ProcessProps, type ViewCtx } from './common'
@@ -91,7 +91,29 @@ function SignalProcess(q: ProcessProps) {
       <Full q={q} height={260}>{ctx => <SignalView p={p} ctx={ctx} />}</Full>
       <SignalNote p={p} ctx={q.ctx} />
       <div className="bp-legend" style={{ paddingLeft: 0 }}><span><i style={{ background: 'var(--trace-ghost)' }} />before · this block's input</span><span><i style={{ background: 'var(--trace-blue)' }} />after · this block's output</span><span>hover for both values at one time</span></div>
+      {(p.layers || p.layers_note) && <DecompositionLayers q={q} p={p} />}
     </>
+  )
+}
+
+/** fixup-ac: a Signal block that passes one layer of a decomposition on ships every layer (`payload.layers`, a payload
+ *  convention): they are drawn stacked under the before/after plot, on the same time axis, the chosen one highlighted. */
+function DecompositionLayers({ q, p }: { q: ProcessProps; p: SignalPayload }) {
+  const d = p.decomposition
+  const n = p.layers?.length ?? 0
+  return (
+    <div style={{ marginTop: 14 }}>
+      <div className="bp-card-title"><h3 style={{ fontSize: 13 }}>Every layer</h3>
+        <span className="sg">{n ? `the input, then ${n} layers fastest first · each on its own y with a scale bar · the highlighted one goes on` : ''}</span>
+        {d && <InfoTip title="How the layers were made">{`A stationary (undecimated) wavelet transform with ${d.wavelet}: nothing is downsampled, so every layer has one value per sample of the span and sits at the same time as the recording. D1 is the fastest octave (a quarter to a half of the sample rate); each next level is half as fast; the last row is the residual, everything slower than the deepest level. The layers add up to the input. ${d.padding_note}. ${d.boundary_note}. The Hz ranges are ${d.edges_note}. Change "level" to send a different layer on.`}</InfoTip>}
+      </div>
+      {p.layers_note
+        ? <div className="muted mono small" data-testid="wavelet-layers-missing">{p.layers_note}</div>
+        : <Surface height={(n + (q.ctx.ghost ? 1 : 0)) * 46} t0={q.ctx.t0} t1={q.ctx.t1} testid="wavelet-layers-surface">
+          {(x, w) => <><SignalLayers p={p} ctx={{ ...q.ctx, x, width: w, height: 46, interactive: true }} /><StaleVeil on={q.stale} /></>}
+        </Surface>}
+      <SignalLayersNote p={p} />
+    </div>
   )
 }
 
