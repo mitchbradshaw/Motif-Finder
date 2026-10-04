@@ -1599,3 +1599,22 @@ as a photo they liked.
 **Recommendation: (b)** — a window labelled interesting says something in those ten minutes was worth a look, not that
 every fall in it is a good example, and one recording would set the scale for all of them. Built as (a) (the prompt's
 letter); (b) is a one-line change in `Working/library/rose_reference.py::compute`.
+
+## Round 14 — from `AD`, 2026-10-05 — answered during the run
+
+### Q45 — how is a human's "not an artifact" stored? — **A: with the five words, plus a note** (the researcher, 2026-10-05)
+
+**In plain words.** The *Suspected artifact* queue asks "is this one wire picking up another?" The database's human
+verdicts are five words (seed / interesting / not_interesting / artifact / unsure) and none of them is "no". Asked
+whether to add a sixth word, the researcher said: *record as whatever is adjudicated from the five words — a real event
+is `interesting`, a non-artifact that is still dull is `not_interesting`; don't add another word; add a note that the
+span was flagged as a suspected artifact.*
+
+Built so (`reports/AD-cross-channel-against-chance.md` §4): the queue offers artifact / interesting / not_interesting /
+unsure; the row is an `annotations` row over the member's span with source `cross_channel_review` and a note naming
+what flagged it; *confirmed* = artifact, *rejected* = any other word but unsure.
+
+**Measured while building, recorded so nobody re-asks:** of 14,670 M2_aug member × sibling comparisons, 123 are
+near-copies (|r| ≥ 0.98 within 1 s, both over the floor) and 97 of those beat their own random-time null, where the 95th
+percentile passes about 6 by chance. The per-pair test is therefore not swamped by testing each member against 15
+siblings; no correction was added (Round 12 decided the per-pair test).

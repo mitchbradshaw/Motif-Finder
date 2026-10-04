@@ -1,0 +1,326 @@
+{
+ "source": "C:/Users/mmebr/Documents/CNN/webui/runtime/20261004-184434/annotations.sqlite",
+ "copy": "C:/Users/mmebr/AppData/Local/Temp/claude/C--Users-mmebr-Documents-CNN/a1dac401-4991-449f-8e8d-f41e06263766/scratchpad/measure\\ad_measure.sqlite",
+ "rule": {
+  "artifact_max_lag_s": 1.0,
+  "min_abs_r": 0.5,
+  "propagation_max_lag_s": 50.0,
+  "artifact_min_abs_r": 0.98,
+  "null_k": 100,
+  "null_percentile": 95.0,
+  "min_samples": 30,
+  "null_min_gap_s": 60.0
+ },
+ "families": {
+  "F-130": {
+   "members": 55,
+   "before": {
+    "pairs": {
+     "artifact": 17,
+     "propagation": 24,
+     "independent_recurrence": 19
+    },
+    "withoutMember": {
+     "artifact": 228,
+     "propagation": 22
+    },
+    "flagged_q40d": 54,
+    "recurrence": {
+     "all": 55,
+     "excluding_artifacts": 33,
+     "propagation_once": 29
+    }
+   },
+   "before_rederived": {
+    "pairs": {
+     "artifact": 6,
+     "propagation": 2,
+     "independent_recurrence": 2
+    },
+    "withoutMember": {
+     "propagation": 21,
+     "artifact": 166
+    },
+    "flagged_q40d": 28,
+    "recurrence": {
+     "all": 55,
+     "excluding_artifacts": 46,
+     "propagation_once": 46
+    }
+   },
+   "after": {
+    "pairs": {
+     "artifact": 0,
+     "propagation": 0,
+     "independent_recurrence": 10
+    },
+    "withoutMember": {
+     "artifact": 17
+    },
+    "tooShort": 26,
+    "flagged": 10,
+    "flaggedIds": [
+     621,
+     808,
+     828,
+     830,
+     832,
+     840,
+     842,
+     845,
+     846,
+     847
+    ],
+    "recurrence": {
+     "all": 55,
+     "excluding_artifacts": 55,
+     "propagation_once": 55
+    },
+    "ifEveryFlagConfirmed": 45
+   },
+   "by_dataset": {}
+  },
+  "F-119": {
+   "members": 40,
+   "before": {
+    "pairs": {
+     "artifact": 25,
+     "propagation": 18,
+     "independent_recurrence": 13
+    },
+    "withoutMember": {
+     "artifact": 109,
+     "propagation": 6
+    },
+    "flagged_q40d": 40,
+    "recurrence": {
+     "all": 40,
+     "excluding_artifacts": 17,
+     "propagation_once": 14
+    }
+   },
+   "before_rederived": {
+    "pairs": {
+     "artifact": 0,
+     "propagation": 0,
+     "independent_recurrence": 1
+    },
+    "withoutMember": {
+     "artifact": 35,
+     "propagation": 6
+    },
+    "flagged_q40d": 8,
+    "recurrence": {
+     "all": 40,
+     "excluding_artifacts": 40,
+     "propagation_once": 40
+    }
+   },
+   "after": {
+    "pairs": {
+     "artifact": 0,
+     "propagation": 0,
+     "independent_recurrence": 1
+    },
+    "withoutMember": {
+     "artifact": 3
+    },
+    "tooShort": 32,
+    "flagged": 2,
+    "flaggedIds": [
+     1054,
+     1055
+    ],
+    "recurrence": {
+     "all": 40,
+     "excluding_artifacts": 40,
+     "propagation_once": 40
+    },
+    "ifEveryFlagConfirmed": 38
+   },
+   "by_dataset": {}
+  },
+  "F-39": {
+   "members": 40,
+   "before": {
+    "pairs": {
+     "artifact": 13,
+     "propagation": 23,
+     "independent_recurrence": 19
+    },
+    "withoutMember": {
+     "propagation": 8,
+     "artifact": 70
+    },
+    "flagged_q40d": 39,
+    "recurrence": {
+     "all": 40,
+     "excluding_artifacts": 22,
+     "propagation_once": 18
+    }
+   },
+   "before_rederived": {
+    "pairs": {
+     "artifact": 0,
+     "propagation": 0,
+     "independent_recurrence": 0
+    },
+    "withoutMember": {
+     "propagation": 8,
+     "artifact": 17
+    },
+    "flagged_q40d": 4,
+    "recurrence": {
+     "all": 40,
+     "excluding_artifacts": 40,
+     "propagation_once": 40
+    }
+   },
+   "after": {
+    "pairs": {
+     "artifact": 0,
+     "propagation": 0,
+     "independent_recurrence": 0
+    },
+    "withoutMember": {},
+    "tooShort": 34,
+    "flagged": 0,
+    "flaggedIds": [],
+    "recurrence": {
+     "all": 40,
+     "excluding_artifacts": 40,
+     "propagation_once": 40
+    },
+    "ifEveryFlagConfirmed": 40
+   },
+   "by_dataset": {}
+  }
+ },
+ "m2_aug": {
+  "members": 1012,
+  "families": 124,
+  "before": {
+   "pairs": {
+    "artifact": 0,
+    "propagation": 0,
+    "independent_recurrence": 0
+   },
+   "withoutMember": {
+    "artifact": 3356,
+    "propagation": 4182
+   },
+   "flagged_q40d": 673,
+   "recurrence_summed_per_family": {
+    "all": 1012,
+    "excluding_artifacts": 1012,
+    "propagation_once": 1012
+   },
+   "note": "W's bins on the same windows; members W could classify but AD calls too short are not re-measured (no AD row), so their W bins are missing here"
+  },
+  "after": {
+   "pairs": {},
+   "withoutMember": {
+    "propagation": 495,
+    "artifact": 97
+   },
+   "flagged": 64,
+   "tooShort": 34,
+   "flaggedIds": [
+    197,
+    236,
+    237,
+    239,
+    240,
+    244,
+    247,
+    248,
+    249,
+    250,
+    619,
+    621,
+    646,
+    661,
+    698,
+    712,
+    715,
+    746,
+    764,
+    769,
+    798,
+    799,
+    800,
+    801,
+    802,
+    803,
+    808,
+    811,
+    815,
+    821,
+    826,
+    828,
+    830,
+    832,
+    840,
+    842,
+    845,
+    846,
+    847,
+    858,
+    868,
+    869,
+    873,
+    874,
+    881,
+    882,
+    887,
+    889,
+    898,
+    902,
+    903,
+    905,
+    908,
+    912,
+    916,
+    917,
+    918,
+    919,
+    920,
+    1041,
+    1054,
+    1055,
+    1061,
+    1062
+   ],
+   "recurrence_summed_per_family": {
+    "all": 1012,
+    "excluding_artifacts": 1012,
+    "propagation_once": 1012
+   }
+  }
+ },
+ "timing_s": {
+  "total": 318.8464231491089,
+  "slowest": [
+   [
+    "F-01",
+    25.680203676223755
+   ],
+   [
+    "F-30",
+    20.610232830047607
+   ],
+   [
+    "F-72",
+    13.486892938613892
+   ],
+   [
+    "F-02",
+    9.412091732025146
+   ],
+   [
+    "F-80",
+    8.666985511779785
+   ]
+  ]
+ }
+}

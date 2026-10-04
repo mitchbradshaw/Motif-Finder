@@ -1,7 +1,11 @@
 # RQ6 — Once contamination and propagation are separated out, does recurrence persist across channels and recordings?
 
-**Status (2026-10-04, after `AE`): not yet answerable — `W`'s bins do not beat chance; `AD` comes first. The Library
-half is built: recurrence is now counted on members above the noise floor.** ~~Status (2026-10-04, after the Q40d plots): not yet answerable — `W`'s bins do not beat chance; `AD` and the Library prompt come first.~~ ~~Answerable for any family whose members share a recording, not yet answered.~~ `W` built the
+**Status (2026-10-05, after `AD`): answerable on families whose members are long enough and above the noise floor, not
+yet answered.** Every bin now has to beat its own random-time null; the machine only flags a suspected artifact and a
+human confirms it in Review; recurrence takes out only what a human confirmed. **The three Fig2A families cannot answer
+it** (most members are too short to tell, and none of the rest is flagged); a family built from a run, on M2_aug-scale
+members, can. ~~**Status (2026-10-04, after `AE`): not yet answerable — `W`'s bins do not beat chance; `AD` comes first. The Library
+half is built: recurrence is now counted on members above the noise floor.**~~ ~~Status (2026-10-04, after the Q40d plots): not yet answerable — `W`'s bins do not beat chance; `AD` and the Library prompt come first.~~ ~~Answerable for any family whose members share a recording, not yet answered.~~ `W` built the
 classification on simultaneous windows and the counts with the bins taken out. **One sub-decision is open (Q40d, below)
 and it moves the answer a lot.** ~~Status (2026-10-03): not answerable. Classification never reaches an edge, and
 `motif_edge` has 0 rows.~~
@@ -62,6 +66,32 @@ The question is: after you remove the first two, is there still recurrence left?
   floor. **The three Fig2A families shrink a lot:** F-130 55 → 11 members, F-119 40 → 7, F-39 40 → 26. A Recurrence
   cell now opens its own members in place (H's slideshow), so a count can be looked at before it is believed.
 
+- **Built 2026-10-05 (fixup `AD`, `docs/prompts/fixup/reports/AD-cross-channel-against-chance.md`): a match must beat
+  chance, and a human decides what is an artifact.**
+  - Every pair is compared with the same sibling at 100 random other times (member-length windows, ≥ 60 s away, never
+    over a human-marked artifact, seeded from the member ids); it counts only above the 95th percentile. Suspected
+    artifact = |lag| ≤ 1 s and |r| ≥ 0.98; propagation = 1–50 s and |r| ≥ 0.5; both need the chance test and both
+    swings over the dataset's noise floor. A member under 30 samples is *too short to tell*. All Settings keys.
+  - *Send suspected artifacts to Review* makes a *Suspected artifact · F-xxx* queue; its card draws every channel on one
+    true-mV axis. The verdict is an `annotations` row over the member's span — five words plus a note (artifact, or what
+    the span really is, or unsure). *Excluding artifacts* takes out only human-confirmed members; beside it,
+    *machine-flagged n · confirmed k · rejected j · unjudged u*.
+  - **Measured (before = `W`'s rule → after = `AD`'s), g-05:**
+
+    | | W's rule | AD's rule |
+    |---|---|---|
+    | F-130 (55): pairs artifact · propagation · independent | 17 · 24 · 19 | 0 · 0 · 10 (26 too short) |
+    | F-130 without a member: artifact · propagation | 228 · 22 | 17 · 0 |
+    | F-130 members flagged / recurrence excl. artifacts | 54 / 33 | 10 (all M2_aug) / 55 until a human confirms |
+    | F-119 (40): flagged · too short | 40 · — | 2 · 32 |
+    | F-39 (40): flagged · too short | 39 · — | 0 · 34 |
+    | M2_aug, 1,012 members in 124 families: flagged | 673 | 64 (34 too short) |
+
+    Of 14,670 M2_aug member × sibling comparisons, 123 are near-copies (|r| ≥ 0.98 within 1 s, both over the floor) and
+    97 of those beat their own null — chance alone would pass about 6. On the members AE's floor shows, F-130 has 4
+    flagged of 11; a sandbox walk confirmed 2 and rejected 1, and *excluding artifacts* went 11 → 9.
+  - **No propagation survives on these families**: every 1–50 s pair either failed the chance test or fell under 0.5.
+
 ## Decisions already made
 
 - **Q40a (2026-10-03): lag is measured on the same absolute window on both channels, always.** Motifs on sibling
@@ -80,6 +110,12 @@ The question is: after you remove the first two, is there still recurrence left?
 - **Q40c:** co-occurrence on a sibling channel with no family member there is counted on the family, never written as
   an edge.
 - **Q35 / Q36:** template runs draw 20 phase-randomised surrogates per channel, and the count drawn is printed.
+- **Rounds 11–12 (2026-10-04, `QUESTIONS.md`):** a per-pair random-time null (K 100, 95th percentile, Settings keys)
+  for every bin; artifact |r| ≥ 0.98 (propagation keeps 0.5 — the assumption flagged in Round 12); both swings over the
+  dataset's noise floor; under 30 samples *too short to tell*; any sibling channel can flag a member (Q40d-1 b); the
+  machine flags, a human confirms; in a member–member pair a human confirmed, both go (Q40d-2).
+- **2026-10-05 (the researcher, during `AD`):** the verdict vocabulary stays at five words; a "not an artifact" answer is
+  whichever of the five is true (interesting / not_interesting), with a note that the span was flagged.
 
 ## What is still needed
 
@@ -90,7 +126,8 @@ The question is: after you remove the first two, is there still recurrence left?
 | ~~The Q40 rule in named constants, printed on the page~~ | `W`, done 2026-10-04 |
 | ~~Recurrence counted with artifacts excluded and propagation counted once~~ | `W`, done 2026-10-04 |
 | ~~Q40d answered~~ — answered 2026-10-04 (Rounds 11–12): any sibling counts, but only behind a chance test | the researcher, done |
-| **A match must beat chance** (per-pair random-time null), r ≥ 0.98 for a suspected artifact, both swings over the noise floor, members under 30 samples *too short to tell*; a human confirms artifacts in a Review queue | `AD` |
+| ~~**A match must beat chance** (per-pair random-time null), r ≥ 0.98 for a suspected artifact, both swings over the noise floor, members under 30 samples *too short to tell*; a human confirms artifacts in a Review queue~~ | `AD`, done 2026-10-05 |
+| Judge the flags: 64 M2_aug members are flagged across 124 families (F-130's 4 above the floor are in Review) | the researcher |
 | ~~**Build the Library** (the Library prompt): the per-dataset noise-floor view filter, so RQ6 is read on families whose members are real events~~ | `AE`, done 2026-10-04 |
 | A family built from a run with paired surrogates, so its count has a null beside it | the researcher (runbook step 1) |
 | ~~True surrogate count per channel~~ — a template run draws 20 per channel; the row prints the count drawn | `T`, done 2026-10-03 |
@@ -123,3 +160,4 @@ defect, not as a result.
 - 2026-10-04 · grilling · Q40d plots: the rule does not beat chance; Rounds 11–12 answered; `AD` written; *build the Library* added as a step before RQ6.
 - 2026-10-04 · fixup-ae · the noise floor as a Library view filter (on by default); recurrence counted over above-floor
   members only; a Recurrence cell opens its members in place; F-130 / F-119 / F-39 measured above the floor (11 / 7 / 26).
+- 2026-10-05 · fixup-ad · every bin beats a per-pair random-time null; artifact r ≥ 0.98; noise floor on both swings; < 30 samples too short to tell; the machine flags, a human confirms in a Suspected artifact Review queue (annotations, five words + a note); recurrence excludes only confirmed artifacts. M2_aug flags 673 → 64; F-130 54 → 10 (0 on Fig2A).

@@ -57,6 +57,12 @@ things you also agree with, and whether it finds more than it would by chance.
     *"α = 0.01 per null draw · correction: none · each of 3 channels against its own null · 2 of 3 channels have a
     match under it"*.
   - A surrogate run's matches can never be sent to Review, judged, promoted or counted by Explore.
+- **Built 2026-10-05 (fixup `AD`, `docs/prompts/fixup/reports/AD-cross-channel-against-chance.md` §4): the seed search's
+  exclusion zone is a parameter, default m/2.** `detection.seed_matches` takes `exclusion` (a fraction of m) and passes
+  it to `stumpy.match`; the search had run under stumpy's own m/4 while the Seed page printed §7.6's m/2 beside it. The
+  Seed page's slider is live, the search's result key and the run's identity carry the zone, and the run's recipe
+  records it (a sandbox run at 32 s of a 126-sample seed stored `exclusion: 0.254`). Every seed recipe's hash changed;
+  the real database held 0 seed runs, so nothing stored was orphaned.
 
 ## Decisions already made
 
@@ -66,6 +72,8 @@ things you also agree with, and whether it finds more than it would by chance.
   presses an explicit *Add N matches* button. *Include unjudged* is a flag that is off by default.
 - **Q-D2:** precision is reported as two numbers, each printing its own rule: containment over the window labels, and
   extent over the event rows.
+- **Round 11, exclusion zone (b) (2026-10-04):** `detection.seed_matches` gets an exclusion parameter, default **m/2**
+  (§7.6), shown on the Seed page and settable; done while the real database holds no seed results.
 
 ## What is still needed
 
@@ -78,7 +86,7 @@ things you also agree with, and whether it finds more than it would by chance.
 | ~~The null count printed is the count drawn; surrogate detections are never detections~~ | `T`, done 2026-10-03 |
 | ~~Precision means what it says~~ (two figures, each with its rule) | `X`, done 2026-10-04 |
 | Recall under the same containment rule (still §4.6, 0 by construction) | unowned, small (`X` report, *Left*) |
-| The exclusion zone is m/4 (stumpy's default), not §7.6's m/2. It is printed on the page; changing it changes every stored result | a decision; raised in `Y`'s report |
+| ~~The exclusion zone is m/4 (stumpy's default), not §7.6's m/2~~ — a parameter, default m/2, settable (Round 11) | `AD`, done 2026-10-05 |
 
 ## How it gets answered
 
@@ -92,8 +100,8 @@ Follow `RESEARCH_RUNBOOK.md` Q2:
 
 ## Open decisions
 
-- **The exclusion zone (m/4 vs m/2)**: see `Y`'s report. It is not blocking, but it changes which neighbouring
-  matches are kept.
+- ~~**The exclusion zone (m/4 vs m/2)**: see `Y`'s report. It is not blocking, but it changes which neighbouring
+  matches are kept.~~ Decided (Round 11: m/2, a parameter) and built by `AD` 2026-10-05.
 
 ## Log
 
@@ -104,3 +112,4 @@ Follow `RESEARCH_RUNBOOK.md` Q2:
 - 2026-10-03 · fixup-t · a seed run draws 200 paired surrogates and every surface prints that count; the cut reads
   Settings' α and correction per channel; surrogate spans are refused by Review, promotion and Explore.
 - 2026-10-04 · post-fixup summary · `X` made the scoreboard count Review verdicts first (this file had not been updated by `X`); recall still §4.6.
+- 2026-10-05 · fixup-ad · the seed search's exclusion zone is `detection.seed_matches`' own parameter, default m/2, settable on the Seed page and recorded in the run's recipe; seed recipe hashes changed (0 seed runs in the real database).
