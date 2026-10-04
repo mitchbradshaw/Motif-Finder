@@ -362,15 +362,29 @@ def _setup_library_entry(conn, tmpdir):
       matched to the exemplar so the family has one edge;
     - the entry carries a detection pointer to a run with one plot artifact;
     - the cross-channel edge is classified by the real classifier, which by
-      construction (identical waveforms) lands in the `artifact` bin;
+      construction (the same event at the same instant on both channels, on
+      quiet independent noise) lands in the `artifact` bin;
     - the entry carries one tag.
+
+    fixup-AD: the pair must beat chance and clear the noise floor, so this is a
+    pulse on noise in a recording long enough for random windows, with its unit
+    declared — two identical pure sines match themselves at EVERY time and are
+    exactly the coincidence the chance test refuses.
 
     Returns (entry_id, run_id, plot_path).
     """
-    n = 200
-    sine = np.sin(2 * np.pi * np.arange(n) / n)
-    rec_a = _write_recording_npy(conn, tmpdir, "A.mat", 0, sine)
-    rec_b = _write_recording_npy(conn, tmpdir, "A.mat", 1, sine)
+    n = 2000
+    pulse = np.sin(2 * np.pi * np.arange(40) / 40) * np.hanning(40)
+    chans = []
+    for ch in (0, 1):
+        x = np.random.default_rng(ch).standard_normal(n) * 0.01
+        x[10:50] = pulse                 # the same event, sample for sample, on both channels
+        chans.append(x)
+    sine = chans[0]
+    rec_a = _write_recording_npy(conn, tmpdir, "A.mat", 0, chans[0])
+    rec_b = _write_recording_npy(conn, tmpdir, "A.mat", 1, chans[1])
+    conn.execute("UPDATE recordings SET units = 'mV' WHERE id IN (?, ?)", (rec_a, rec_b))
+    conn.commit()
 
     config_id, _config_hash = R.get_or_create_config(
         conn, {"recording_id": rec_a, "span": [0, n], "steps": []},
