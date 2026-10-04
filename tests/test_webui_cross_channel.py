@@ -203,7 +203,8 @@ def test_recurrence_cells_flag_artifacts_and_carry_the_counts_with_the_bins_out(
     keys = sorted(k for k in cells if cells[k]["count"])
     assert len(keys) == 4
     ch0, ch1, ch2, ch3 = keys
-    assert cells[ch0]["artifact"] == 1 and cells[ch1]["artifact"] == 1          # red, and still counted in `count`
+    assert cells[ch0]["artifact"] is True and cells[ch1]["artifactMembers"] == 1     # red, and still counted in `count`
+    assert cells[ch2]["artifact"] is False
     assert cells[ch0]["count"] == 1
     assert cells[ch0]["countExArtifacts"] == 0 and cells[ch2]["countExArtifacts"] == 1
     assert sum(c.get("countPropOnce", 0) for c in cells.values()) == fam["recurrence"]["propagation_once"] == 2

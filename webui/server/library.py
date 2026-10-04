@@ -720,7 +720,8 @@ def _edges_label(conn, member_ids) -> tuple:
 def _recurrence_cells(conn, index, members, member_ids, cells) -> dict:
     """fixup-W: Library › Recurrence with the cross-channel bins taken out.
 
-    Every cell gains `artifact` (members there in an artifact pair — drawn red
+    Every cell gains `artifact` (a flag) and `artifactMembers` (members there in
+    an artifact pair — drawn red
     and still counted in `count`, spec §8.4: *flagged, not excluded*),
     `countExArtifacts` and `countPropOnce` — the cell's share of
     `matching.family_recurrence`'s counts, which is the core's one definition;
@@ -733,7 +734,8 @@ def _recurrence_cells(conn, index, members, member_ids, cells) -> dict:
         if meta is not None and m["member_id"] is not None:
             key_of[int(m["member_id"])] = f"{meta['key']}:{meta['name']}"
     for c in cells.values():
-        c.setdefault("artifact", 0)
+        c.setdefault("artifactMembers", 0)
+        c.setdefault("artifact", False)
         c.setdefault("countExArtifacts", 0)
         c.setdefault("countPropOnce", 0)
     for mid, st in rec["members"].items():
@@ -741,7 +743,8 @@ def _recurrence_cells(conn, index, members, member_ids, cells) -> dict:
         if ck is None or ck not in cells:
             continue
         cell = cells[ck]
-        cell["artifact"] += 1 if st["artifact"] else 0
+        cell["artifactMembers"] += 1 if st["artifact"] else 0
+        cell["artifact"] = cell["artifactMembers"] > 0
         cell["countExArtifacts"] += 1 if st["counted"]["excluding_artifacts"] else 0
         cell["countPropOnce"] += 1 if st["counted"]["propagation_once"] else 0
     return {k: rec[k] for k in ("classified", "all", "excluding_artifacts", "propagation_once",
