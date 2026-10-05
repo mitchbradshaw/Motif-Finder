@@ -1,0 +1,12 @@
+shot 01_pool_block_library
+run took 73.4 s last run · 2 clusters · clustered 20,000 · assigned 10,978 · not clustered 26,507 · tree re-used
+shot 02_chain_after_run
+shot 03_pool_counts
+shot 04_trace_shape_floor
+shot 05_dendrogram_proposed_cut
+preview: cut · k = 8
+shot 06_dendrogram_cut_moved_k8
+cluster 1 scales · 1 min 761 · 10 min 1,147 · 30 min 1,310 | raw range · 0.101 … 553.0 mV (median 2.822, middle half 0.803–8.294)
+cluster 2 scales · 1 min 446 · 10 min 737 · 30 min 854 | raw range · 0.100 … 285.1 mV (median 2.771, middle half 0.817–8.147)
+cluster 3 scales · 1 min 587 · 10 min 471 · 30 min 538 | raw range · 0.100 … 488.8 mV (median 1.675, middle half 0.370–7.116)
+console/page errors: []

@@ -1,0 +1,61 @@
+{
+  "k": 2,
+  "eta2_peak_by_cluster": 0.015583411705796635,
+  "nmi_cluster_position_decile": 0.010583801502937175,
+  "nmi_cluster_scale": 0.0018220073139901083,
+  "nmi_cluster_recording": 0.0002603408878679459,
+  "position_only_accuracy": 0.5916,
+  "chance_largest_cluster": 0.5761,
+  "pairs": [
+    {
+      "a": 1,
+      "b": 2,
+      "corr_lag0": -0.999,
+      "corr_best": -0.992,
+      "lag_frac": -0.5
+    }
+  ],
+  "pairs_shifted_copies": [],
+  "clusters": [
+    {
+      "cluster": 1,
+      "n": 13283,
+      "peak_frac_median": 0.622568093385214,
+      "peak_frac_iqr": [
+        0.048414023372287146,
+        0.9649415692821369
+      ],
+      "scales": {
+        "1.0": 3890,
+        "10.0": 4592,
+        "30.0": 4801
+      }
+    },
+    {
+      "cluster": 2,
+      "n": 17695,
+      "peak_frac_median": 0.2273485269594219,
+      "peak_frac_iqr": [
+        0.01669449081803005,
+        0.9491525423728814
+      ],
+      "scales": {
+        "1.0": 6105,
+        "10.0": 5857,
+        "30.0": 5733
+      }
+    }
+  ],
+  "aligned": {
+    "seconds": 94.9,
+    "ari_vs_grid": 0.4672325900488058,
+    "eta2_peak_by_cluster": 0.008040183975332845,
+    "nmi_cluster_position_decile": 0.021307425551590646,
+    "nmi_cluster_scale": 0.0032067459686248912,
+    "silhouette": 0.44357321878246564,
+    "sizes": [
+      17143,
+      13835
+    ]
+  }
+}

@@ -91,6 +91,22 @@ which one does better on the exam.
 - **Found by `AF`:** 4 windows of the baseline's window set 1 overlap a human artifact span (`AA`'s rule excludes a
   window *inside* one, not one that only touches one). Run 79 is history and was not changed.
 
+- **Shape clustering of the pool, in an Analyse chain** (`AG`, 2026-10-05, `docs/prompts/fixup/reports/AG-shape-clustering-and-dendrogram.md`):
+  Analyse › Chain › Source › *Start from a Window pool* → **Window pool** (every saved window set listed with a tick,
+  `AF`'s combine, pack D held out, 20,000 per scale) → **Trace shape** (the Library's resample + z-normalise at 256
+  points; windows under the dataset noise floor left out and counted) → **Shape clustering** (the Library's Ward on a
+  seeded 20,000 sample of training windows stratified by recording × scale, the rest to the nearest centre, the tree
+  kept; validation / test / exam not clustered). Its page is the dendrogram: a cut to drag, each cluster's medoid, 12
+  members, scale mix and raw range, and the interesting / not mapping (the block's `mapping` parameter).
+  **On the sandbox pool** (60,000, key `712f477b262b2fd8`): the floor (0.1 mV) left out 2,515 (12.5 % / 12.8 % of the
+  1-minute windows of M2_aug / M2, almost none at 10 and 30 min); 30,978 training windows, 20,000 clustered + 10,978
+  assigned; Ward 57 s, peak 3.1 GB; proposal k = 2 (silhouette 0.46), k = 8 silhouette 0.165. **Every pile mixes the
+  three scales** (NMI cluster × scale ≤ 0.012). **But the piles are drift shapes, not events:** the first split is
+  rising vs falling windows, the largest swing sits at a window edge in most windows, and from k ≈ 8 most piles are
+  one shape at two positions (19 of 28 pairs of pile averages are shifted copies). Position alone does not predict
+  the pile (0.31 vs chance 0.28 at k = 8). Re-cut **centred on its largest swing**, the piles become event shapes
+  (drops with recovery, spikes, V-shapes) across all three scales (ARI vs grid 0.33).
+
 ## Decisions already made (`docs/prompts/fixup/QUESTIONS.md`)
 
 - **Q41 (2026-10-03):**
@@ -136,12 +152,14 @@ which one does better on the exam.
 | Exam (iii), once, after the freeze (Settings › Datasets unlock; the job has a locked slot for it) | researcher, after freeze |
 | Blind labelling mode in Review with the cluster vocabulary as buttons (yardstick B) | Review-behaviour prompt, later |
 | ~~Non-overlapping training window set; labels on spans longer than a window~~ | done, `AA` |
-| A saved window set as an Analyse **source** (§6.9 frame 0b) — a validator change; `AA` stopped at saving and listing | later |
+| ~~A saved window set as an Analyse **source** (§6.9 frame 0b) — a validator change; `AA` stopped at saving and listing~~ | done, `AG` (the *Window pool* block, a chain source) |
 | ~~A window set over **several channels / the whole recording**~~ | done, `AB` (Models › Launch) |
 
 | ~~**New scope:** a pooled set that also holds **unlabelled** windows (> 10,000 across all M2_aug channels, test regions and artifact regions left out) for arm B to cluster~~ — six unlabelled sets (M2_aug, M2 × 1 / 10 / 30 min) and the region-first combine | done, `AF` (2026-10-05) |
-| The *Window pool* chain block over `pool.combine`, the shape clustering, the noise floor, the dendrogram | `AG` |
-| **Open (the researcher):** the pool's mix of scales — equal 20,000 per scale (`AF`'s recommendation and what its pool used), all 10 / 30-min windows plus a 1-min sample, or equal hours (`AF` report §7) | researcher |
+| ~~The *Window pool* chain block over `pool.combine`, the shape clustering, the noise floor, the dendrogram~~ | done, `AG` seams (i)–(ii) (2026-10-05) |
+| *Train model* → Models › Launch prefilled with arm **B.2 cluster labels · trace shape**, *Open in Analyse*, the freeze, the forest on the cluster categories | `AG` seam (iii), not built — waits on the alignment question below |
+| **Open (the researcher, `AG` report §7):** how a grid window is lined up before its shape is compared (centre on its largest swing / remove its trend / cluster detected events / as is); the noise floor per dataset; the forest now or after | researcher |
+| ~~**Open (the researcher):** the pool's mix of scales~~ — decided 2026-10-05: equal, 20,000 per scale | researcher |
 | **New scope:** blind labelling in Review with the cluster names as buttons, plus "can't tell" (this is yardstick (B), now the main yardstick) | to build |
 | **New scope:** the researcher's codebook — one page, each category defined with 2–3 example windows, written before labelling | researcher |
 
@@ -322,7 +340,14 @@ Follow `RESEARCH_RUNBOOK.md` Q1:
 
 Q-W1, Q-W2 and Q-W4 were answered 2026-10-03.
 
-- **The pool's mix of scales** (`AF` report §7, 2026-10-05): equal 20,000 per scale (recommended; what `AF`'s pool used), all
+- **How a grid window is lined up before its shape is compared** (`AG` report §7 q1): centre on its largest swing
+  (measured: event shapes appear), remove its straight-line trend (not measured), cluster detected events, or as is.
+  Recommended: centre, with detrend measured beside it.
+- **The noise floor per dataset** (`AG` §7 q2): 0.1 mV leaves many noise-like 1-minute windows; set M2_aug's and M2's
+  floors in Settings › Datasets. Recommended: read the raw-range histogram on Trace shape's page and set it there.
+- **The forest now or after the alignment decision** (`AG` §7 q3). Recommended: after.
+
+- ~~**The pool's mix of scales**~~ — decided 2026-10-05, equal (see Log) (`AF` report §7, 2026-10-05): equal 20,000 per scale (recommended; what `AF`'s pool used), all
   10- and 30-minute windows plus a 1-minute sample, or equal hours per scale. One parameter with a seed; no set needs
   rebuilding whichever is chosen.
 
@@ -358,3 +383,7 @@ Q-W1, Q-W2 and Q-W4 were answered 2026-10-03.
   9,050 · exam 15,110). Open: the mix of scales (report §7).
 - 2026-10-05 · researcher · the pool takes an equal number of windows per scale (20,000 each, 60,000 in all; one seeded
   setting) — option (a) of `AF`'s question. The smoke walk is re-pointed before `AG` starts.
+- 2026-10-05 · fixup-ag · seams (i)–(ii): Window pool (a chain source) → Trace shape (noise floor) → Shape clustering (the
+  Library's Ward on 20,000 training windows, tree kept) and the dendrogram page with the mapping; on the sandbox pool the
+  piles mix scales but sort by drift and split shifted copies; centring on the largest swing gives event shapes. Seam
+  (iii) (Train model, arm B.2, the forest) not built; three questions open (`AG` report §7).

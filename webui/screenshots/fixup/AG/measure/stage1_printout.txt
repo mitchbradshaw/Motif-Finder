@@ -1,0 +1,76 @@
+sets: [(2, 'ws_M2_aug_concat_fs1_1min', 690837), (3, 'ws_M2_aug_concat_fs1_10min', 69021), (4, 'ws_M2_aug_concat_fs1_30min', 22947), (5, 'ws_M2_concat_fs1_1min', 271184), (6, 'ws_M2_concat_fs1_10min', 27104), (7, 'ws_M2_concat_fs1_30min', 9024)]
+pool: 60,000 windows in 11.8 s · by role {'train': 31460, 'validation': 4380, 'test': 9050, 'exam': 15110}
+shapes: 57,485 kept of 60,000 in 37.3 s · under floor 2,515 · unmeasured 0 · floors {'M2_aug_concat_fs1.mat': {'floor_mv': 0.1, 'from': 'default 0.1 mV (empty in Settings › Datasets)'}, 'M2_concat_fs1.mat': {'floor_mv': 0.1, 'from': 'default 0.1 mV (empty in Settings › Datasets)'}}
+tree: 20,000 clustered of 30,978 training windows · Ward 57.43 s · stage 57.7 s · peak RSS 3073.3 MB
+propose (k 2–20) 38.1 s · suggested k 2 · specks under 155
+  k  2: silhouette 0.459 · effective 2 · sizes [17695, 13283]
+  k  3: silhouette 0.363 · effective 3 · sizes [14068, 12834, 4076]
+  k  4: silhouette 0.284 · effective 4 · sizes [13987, 9455, 3939, 3597]
+  k  5: silhouette 0.284 · effective 5 · sizes [13987, 7733, 3648, 3443, 2167]
+  k  6: silhouette 0.164 · effective 6 · sizes [9068, 7733, 5118, 3525, 3367, 2167]
+  k  7: silhouette 0.169 · effective 7 · sizes [8915, 7705, 5084, 3272, 2102, 2054, 1846]
+  k  8: silhouette 0.165 · effective 8 · sizes [8915, 6317, 5084, 3218, 2037, 1965, 1846, 1596]
+  k  9: silhouette 0.146 · effective 9 · sizes [8915, 6089, 4994, 2239, 2037, 1918, 1846, 1571, 1369]
+  k 10: silhouette 0.14 · effective 10 · sizes [8682, 6089, 4259, 2239, 2037, 1893, 1840, 1571, 1273, 1095]
+  k 11: silhouette 0.141 · effective 11 · sizes [8682, 6063, 4258, 2237, 1869, 1787, 1538, 1397, 1266, 1095, 786]
+  k 12: silhouette 0.119 · effective 12 · sizes [8490, 6063, 2923, 2237, 1833, 1729, 1670, 1538, 1397, 1262, 1054, 782]
+  k 13: silhouette 0.122 · effective 13 · sizes [8470, 6063, 2911, 2235, 1707, 1648, 1504, 1387, 1236, 1045, 1025, 1002, 745]
+  k 14: silhouette 0.093 · effective 14 · sizes [8470, 5161, 2911, 2175, 1707, 1648, 1481, 1305, 1236, 1101, 1045, 1025, 1002, 711]
+  k 15: silhouette 0.095 · effective 15 · sizes [8470, 5161, 2896, 2175, 1674, 1652, 1477, 1287, 1228, 1101, 1023, 1022, 711, 614, 487]
+  k 16: silhouette 0.096 · effective 16 · sizes [8458, 5161, 2896, 2175, 1595, 1477, 1349, 1279, 1228, 1101, 1022, 1014, 694, 614, 467, 448]
+  k 17: silhouette 0.047 · effective 17 · sizes [5257, 5161, 3548, 2647, 2175, 1572, 1477, 1279, 1279, 1228, 1101, 1022, 1014, 694, 615, 465, 444]
+  k 18: silhouette 0.047 · effective 18 · sizes [5257, 5161, 3548, 2647, 2125, 1570, 1467, 1279, 1279, 1101, 1006, 995, 693, 680, 662, 599, 465, 444]
+  k 19: silhouette 0.05 · effective 19 · sizes [5257, 5153, 3548, 2647, 2100, 1570, 1279, 1267, 1090, 1006, 970, 810, 761, 689, 676, 660, 593, 458, 444]
+  k 20: silhouette 0.048 · effective 20 · sizes [5257, 5131, 3548, 2647, 1570, 1427, 1279, 1267, 1089, 1006, 969, 803, 798, 738, 689, 657, 608, 593, 458, 444]
+{
+ "k": 2,
+ "eta2_peak_by_cluster": 0.015583411705796635,
+ "nmi_cluster_position_decile": 0.010583801502937175,
+ "nmi_cluster_scale": 0.0018220073139901083,
+ "nmi_cluster_recording": 0.0002603408878679459,
+ "position_only_accuracy": 0.5916,
+ "chance_largest_cluster": 0.5761,
+ "pairs_shifted_copies": [],
+ "clusters": [
+  {
+   "cluster": 1,
+   "n": 13283,
+   "peak_frac_median": 0.622568093385214,
+   "peak_frac_iqr": [
+    0.048414023372287146,
+    0.9649415692821369
+   ],
+   "scales": {
+    "1.0": 3890,
+    "10.0": 4592,
+    "30.0": 4801
+   }
+  },
+  {
+   "cluster": 2,
+   "n": 17695,
+   "peak_frac_median": 0.2273485269594219,
+   "peak_frac_iqr": [
+    0.01669449081803005,
+    0.9491525423728814
+   ],
+   "scales": {
+    "1.0": 6105,
+    "10.0": 5857,
+    "30.0": 5733
+   }
+  }
+ ],
+ "aligned": {
+  "seconds": 94.9,
+  "ari_vs_grid": 0.4672325900488058,
+  "eta2_peak_by_cluster": 0.008040183975332845,
+  "nmi_cluster_position_decile": 0.021307425551590646,
+  "nmi_cluster_scale": 0.0032067459686248912,
+  "silhouette": 0.44357321878246564,
+  "sizes": [
+   17143,
+   13835
+  ]
+ }
+}
