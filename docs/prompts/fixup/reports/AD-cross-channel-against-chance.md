@@ -218,7 +218,7 @@ keys), `webui/smoke_pages/zzzz_ad_suspected_artifact.json` (own file). `FamilyPa
 | `webui/server/library.py` — `_view_fingerprint` (AE's helper) | **a bug**: the Library's view cache did not include the cross-channel tables, so after *Classify* the family cards and Recurrence cells kept pre-classification bins (W's route test read 0 · 0 · 0). Two lines added to the fingerprint |
 | `tests/test_cross_channel.py`, `test_cross_channel_simultaneous.py`, `test_webui_cross_channel.py`, `test_discovery_seeded_search.py`, `test_webui_discovery.py`, `test_export.py` | changed deliberately — units declared so the floor can be read; W's 0.95 / 0.5 / 0.7 simultaneous pairs are no longer artifacts; recurrence no longer drops a machine flag; the seed card says m/2; `test_export`'s "artifact" pair was two identical pure sines, which match themselves at every time and so cannot beat chance — now a pulse on independent noise (found by the gate run, `c44e5a1`) — each said in its commit |
 | `webui/smoke_pages/zzz_w_cross_channel.json` | one expectation re-pointed: W's red Fig2A cell is not flagged any more (too short); F-130's M2_aug CH7_B2 cell is |
-| `docs/prompts/rq_roundA/RQ6-…`, `RQ2-…`, `docs/prompts/fixup/README.md`, `QUESTIONS.md` | the RQ files' rule; the README row; the vocabulary decision recorded |
+| `docs/rq_roundA/RQ6-…`, `RQ2-…`, `docs/prompts/fixup/README.md`, `QUESTIONS.md` | the RQ files' rule; the README row; the vocabulary decision recorded |
 
 ## 8. The gate
 

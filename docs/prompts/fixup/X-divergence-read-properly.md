@@ -26,7 +26,7 @@ Commit prefix `fixup-x:`. Test-first; first commit touches only `tests/` and mus
 
 `Working/database/schema.py` is `V`'s for this wave: if you need a column, request it.
 
-**Talking to the researcher:** any question you put to them opens with a plain-language explanation, then the options, then your recommendation (`CLAUDE.md`). **Before you report, update** `docs/prompts/rq_roundA/RQ5-human-vs-machine-divergence.md` per that folder's README.
+**Talking to the researcher:** any question you put to them opens with a plain-language explanation, then the options, then your recommendation (`CLAUDE.md`). **Before you report, update** `docs/rq_roundA/RQ5-human-vs-machine-divergence.md` per that folder's README.
 
 ## What is wrong today
 

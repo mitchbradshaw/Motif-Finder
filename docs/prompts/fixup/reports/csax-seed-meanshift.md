@@ -112,7 +112,7 @@ cSAX is in no shipped template, so the exposure is any chain the researcher buil
 | `Working/Detection/sax/csax_python/csax.py` | thread one `random_state` through both Mean-Shift passes |
 | `tests/test_sax_determinism.py` | the cSAX contract |
 | `tests/test_sax_details.py` | stale docstring |
-| `docs/prompts/rq_roundA/RQ4-bands-and-symbols.md` | one *What is known* sub-bullet and a *Log* line |
+| `docs/rq_roundA/RQ4-bands-and-symbols.md` | one *What is known* sub-bullet and a *Log* line |
 | this report | |
 
 No adapter changed. Nothing under `webui/` changed, so the UI gate does not apply.

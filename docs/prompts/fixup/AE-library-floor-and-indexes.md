@@ -104,7 +104,7 @@ This prompt does three things:
 already hands it `member_ids`. If that turns out not to be enough, write to `requests/` for `AD`.
 
 **Talking to the researcher:** any question you put to them opens with a plain-language explanation, then the
-options, then your recommendation (`CLAUDE.md`). **Before you report, update** `docs/prompts/rq_roundA/RQ6-*.md`
+options, then your recommendation (`CLAUDE.md`). **Before you report, update** `docs/rq_roundA/RQ6-*.md`
 (the *Build the Library* step) and `RQ3-*.md` (families are now filterable above the floor) per that folder's README.
 
 ## Acceptance (check these in a browser)

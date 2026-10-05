@@ -9,7 +9,7 @@ You are in `C:\Users\mmebr\Documents\CNN` (Windows; Bash = Git Bash; python
 `"/c/ProgramData/anaconda3/python.exe"`). Read these first:
 - `CLAUDE.md`;
 - `docs/BLOCK_INTEGRATION.md` (the whole thing; it is how a block is added and drawn);
-- `docs/prompts/rq_roundA/RQ4-bands-and-symbols.md`;
+- `docs/rq_roundA/RQ4-bands-and-symbols.md`;
 - `Z-band-scope-and-compare-by-verdict.md` and its report `reports/Z-*.md`;
 - `Adapters/preprocessing_bandpass.py`, the model for a Signal → Signal block;
 - `Working/run_groups.py::materialize_target`.
@@ -95,7 +95,7 @@ signal.
 
 **Talking to the researcher:** any question you put to them opens with a plain-language explanation, then the
 options, then your recommendation (`CLAUDE.md`). **Before you report, update**
-`docs/prompts/rq_roundA/RQ4-bands-and-symbols.md` per that folder's README.
+`docs/rq_roundA/RQ4-bands-and-symbols.md` per that folder's README.
 
 ## Acceptance (check these in a browser)
 

@@ -199,7 +199,7 @@ states are `webui/smoke_pages/zzz_w_cross_channel.json`.
 | `webui/client/src/library/FamilyPage.tsx`, `library/Edges.tsx` | the Family page *is* the acceptance walk's first two steps |
 | `webui/client/src/api/explore.ts` | the Explore adapter: an explicit window and the rule's words |
 | `tests/test_cross_channel.py`, `tests/test_webui_jobs.py`, `tests/test_webui_library.py` | changed deliberately (renamed constants and same-window semantics; a sixth job kind; two new cell counts) — each said in its commit |
-| `docs/prompts/fixup/QUESTIONS.md`, `docs/prompts/rq_roundA/RQ6-…`, `README.md` | Q40d, RQ6's state, the README row |
+| `docs/prompts/fixup/QUESTIONS.md`, `docs/rq_roundA/RQ6-…`, `README.md` | Q40d, RQ6's state, the README row |
 
 ## 9. The gate
 

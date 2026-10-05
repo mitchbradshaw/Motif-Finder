@@ -108,7 +108,7 @@ All of Q35–Q38 and Q-Null-1 were already answered; none took a default. Choice
 | `webui/smoke_pages/settings.json` | Two shell states saved `null.detection.draws = 300`, which every later chain and template run in the walk would now have drawn. They save the Library-groupings count instead |
 | `Working/review/verdicts.py`, `Working/review/promotion.py` | The refusal half of Part A |
 | `webui/client/src/discovery/chrome.tsx` | Deleted the dead browser-assembled `slurmScript`, which printed `--null circular_shift:200` |
-| `docs/prompts/rq_roundA/RQ2-…md` (commit `5370eaf`) | See §8 |
+| `docs/rq_roundA/RQ2-…md` (commit `5370eaf`) | See §8 |
 
 ## 8. Two things about the run itself
 

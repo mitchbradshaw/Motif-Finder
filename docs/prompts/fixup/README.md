@@ -81,8 +81,23 @@ researcher follows once they land is `docs/RESEARCH_RUNBOOK.md`.
 | `AE-library-floor-and-indexes.md` | Q6 (and Q3) | — ; **∥ `AD`** | **run and reported 2026-10-04** (`reports/AE-library-floor-and-indexes.md`). The floor hides 961 of 3,239 g-05 members (all `drop_motifs10`, 0 of the seed store; 4 families entirely under it; F-130 55 → 11); fall range + *pure only* (705 shown with 10–300 s); a card or a Recurrence cell opens its members in place; *judged* 3 → 197 by the resolver; hand edits written and held across a regroup (they were not: fixed). **Open: Q44** — the resolver counts 166 motifs as accepted (inside windows labelled interesting), so the rose reads 0.788 mV/s over them, not the fallback. The real `motif_features` backfill (is_pure, scale_band) is the researcher's. Gate: pytest 2,236 / 23 / 0; smoke 639 shots, 5 standing + 2 path + 1 cold flake (fixed, re-walked). *As written:* the noise floor as a Library view filter (detector depth vs the dataset's floor, default 0.1 mV), `fall_duration_s` and `is_pure` filters, every plot an index (in-place slideshow), *judged* by the one resolver, the rose reference over accepted motifs, hand edits written, `RULE_VERSION` + `rise_time_s` |
 | `AB-models-paired-job.md` | Q1 (2 of 2) | `AA`; may split in three | A paired training job in the core (two label arms, blocked split, RF baseline, label-shuffle null, paired difference) and Models › Launch / Results / Compare reading it; the SLURM script the bridge writes bakes Windows paths. Q42 |
 
-**Every Stage 5 prompt also updates its research question's file** in `docs/prompts/rq_roundA/` (`L`/`Y` → RQ2,
+**Every Stage 5 prompt also updates its research question's file** in `docs/rq_roundA/` (`L`/`Y` → RQ2,
 `V` → RQ3, `Z` → RQ4, `X` → RQ5, `W` → RQ6, `AA`/`AB` → RQ1, `T` → all), per that folder's README.
+
+## Stage 6 — RQ1 version 2 (written 2026-10-05, none run)
+
+The baseline paired run (run 79, 2026-10-05) put arm A ahead of arm B on both exams, close to built in under yardstick
+(A); the researcher reframed RQ1 the same day (`docs/rq_roundA/RQ1-cluster-vs-manual-labels.md`, "New scope, version
+2"): *can a classifier trained only on algorithmic clusters recognise the windows a blind human calls interesting?*
+Five prompts, each updating RQ1's file before it reports.
+
+| File | Runs after | One line |
+|---|---|---|
+| `AF-multiscale-window-pools.md` | — (**first**) | Unlabelled window sets per recording (M2_aug, M2) and scale (1 / 10 / 30 min) built from Library › Window sets, and the UI-free combine function: a region-first split laid over the pool so no scale leaks across roles, whole-pack hold-out, duplicates and overlaps removed. The page that combines is `AG`'s *Window pool* block |
+| `AG-shape-clustering-and-dendrogram.md` | `AF`; expect a split in three | **In an Analyse chain** (*Window pool* block picking from every saved window set → shape → cluster), ending in *Train model*, which opens Models › Launch prefilled: the Library's Ward on resampled, normalised shape across scales, windows under the noise floor left out by default, a kept tree on a 20,000 sample, the cluster block's page as the dendrogram (medoid and members on click) with the interesting / not mapping; Models › Launch reads it as arm **B.2** and *Open in Analyse* is wired; the forest on the cluster categories. Measures whether grid windows cluster by shape or by where the event sits |
+| `AH-blind-test-labelling.md` | `AG`; ∥ `AI` | A blind interesting / not Review queue over the model's test windows (even per cluster, some twice), and Results' *against a blind human*: agreement with CI, kappa, self-agreement, the null, and the four manual-label CNNs as the comparison line **scored at 1, 10 and 30 minutes** (one row per scale, *outside its training scale* marked) with their contamination stated |
+| `AI-cnn-arm-slurm.md` | `AG`; ∥ `AH` | The CNN arm (fusion images first, trained on the cluster categories), a SLURM script the site writes for it, a second script for Ward over every window of the pool, a local smoke, and one import function that brings the cluster's results back |
+| `AJ-jobs-usable-for-rq1.md` | `AI` | Jobs as far as RQ1 needs it: real local jobs, the scripts the site wrote with what to copy, and Manifest inbox importing returned results through `AI`'s function |
 
 **Waves — what can run now (2026-10-03).** Two at a time, never more; each prompt carries a *Running in
 parallel* section naming its partner and the file split.
@@ -195,7 +210,7 @@ cover 53 % of the labelled time and hit 91 % of *interesting* windows against 86
 interesting* ones. Whether to tune `epsilon_factor` / `min_separation_s` / `window_s` is a later
 research question, not a fixup.
 
-**Q-B-CHAIN** is out of scope (2026-10-03) and parked in `docs/prompts/rq_roundB/` with multivariate analysis.
+**Q-B-CHAIN** is out of scope (2026-10-03) and parked in `docs/rq_roundB/` with multivariate analysis.
 Also open and blocking nothing written: **U4** (fine span adjustment),
 **U12** (the phantom Ctrl-C, undiagnosed), **U13** (global search unwired).
 

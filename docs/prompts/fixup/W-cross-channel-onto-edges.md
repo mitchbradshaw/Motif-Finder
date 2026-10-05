@@ -37,7 +37,7 @@ Parts 1–2 were measured on 2026-10-03 (`QUESTIONS.md` "Q40, measured"; scripts
 | **`AC`'s — do not edit** | `Adapters/preprocessing_wavelet_bands.py` (new), the wavelet kind in `Working/run_groups.py` and the band picker on *Apply template* |
 | **shared** | `webui/client/src/api.ts`, `webui/smoke.py`, Settings (you add the three cross-channel keys; `AC` adds none — if it needs one, it requests it) |
 
-**Talking to the researcher:** any question you put to them opens with a plain-language explanation, then the options, then your recommendation (`CLAUDE.md`). **Before you report, update** `docs/prompts/rq_roundA/RQ6-recurrence-across-channels.md` per that folder's README.
+**Talking to the researcher:** any question you put to them opens with a plain-language explanation, then the options, then your recommendation (`CLAUDE.md`). **Before you report, update** `docs/rq_roundA/RQ6-recurrence-across-channels.md` per that folder's README.
 
 ## Where it stands
 

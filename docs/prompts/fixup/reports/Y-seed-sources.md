@@ -180,5 +180,5 @@ finished.**
 **Commits:** `12b16f0` (red tests) · `7bbed7e` (server) · `9b3075f`, `ff90892` (`api.ts`, appended) · `811480c`
 (Seed page) · `776e0d0` (Explore) · `c60f022` (Review) · `051a308` (smoke states) · this report.
 
-`docs/prompts/rq_roundA/RQ2-exemplar-seeded-search.md` is updated per that folder's README. The folder is still
+`docs/rq_roundA/RQ2-exemplar-seeded-search.md` is updated per that folder's README. The folder is still
 untracked in this checkout (the researcher's working docs), so the update is on disk and not committed.

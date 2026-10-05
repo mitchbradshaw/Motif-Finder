@@ -37,7 +37,7 @@ freeze day, never yours.**
 
 This prompt is large and may outlast `Z`. **`T` runs alone after this wave**, so if you split ("If it splits" below), finish and report a part before `T` starts rather than running through it.
 
-**Talking to the researcher:** any question you put to them opens with a plain-language explanation, then the options, then your recommendation (`CLAUDE.md`). **Before you report, update** `docs/prompts/rq_roundA/RQ1-cluster-vs-manual-labels.md` per that folder's README.
+**Talking to the researcher:** any question you put to them opens with a plain-language explanation, then the options, then your recommendation (`CLAUDE.md`). **Before you report, update** `docs/rq_roundA/RQ1-cluster-vs-manual-labels.md` per that folder's README.
 
 ## Where it stands, measured 2026-10-02/03
 

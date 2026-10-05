@@ -144,7 +144,7 @@ records it.
 | `docs/BLOCK_INTEGRATION.md` | the payload convention's row in §2 |
 | `tests/test_band_scope.py` (Z's) | **a deliberate behaviour change**: `test_an_unknown_band_kind_is_refused_by_name` used `wavelet` as its unknown kind; it now refuses `notch` and checks the message lists both kinds. Stated in `3d13730` |
 | `tests/test_webui_serialize.py`, `tests/test_webui_discovery.py` | appended tests |
-| `docs/prompts/rq_roundA/RQ4-bands-and-symbols.md` | the RQ rule |
+| `docs/rq_roundA/RQ4-bands-and-symbols.md` | the RQ rule |
 
 Nothing of `W`'s was edited.
 

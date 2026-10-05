@@ -21,7 +21,7 @@ Commit prefix `fixup-y:`. Test-first; first commit touches only `tests/` and mus
 | **`AA`'s — do not edit** | `Adapters/catalogue_manual_labels.py` (new), `Working/database/window_matrix_store.py`, `webui/server/training_routes.py`, `webui/server/templates.py`, Analyse WindowSet rows, Library › Window sets |
 | **shared** | `webui/client/src/api.ts`, `webui/smoke.py` (your states in your own `smoke_pages` file) |
 
-**Talking to the researcher:** any question you put to them opens with a plain-language explanation, then the options, then your recommendation (`CLAUDE.md`). **Before you report, update** `docs/prompts/rq_roundA/RQ2-exemplar-seeded-search.md` per that folder's README.
+**Talking to the researcher:** any question you put to them opens with a plain-language explanation, then the options, then your recommendation (`CLAUDE.md`). **Before you report, update** `docs/rq_roundA/RQ2-exemplar-seeded-search.md` per that folder's README.
 
 ## The defect — all three seed sources miss the human
 

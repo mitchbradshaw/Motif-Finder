@@ -27,7 +27,7 @@ Commit prefix `fixup-z:`. Test-first; first commit touches only `tests/` and mus
 | **`AB`'s — do not edit** | Models tree, the training-job core, `Adapters/catalogue_classifier.py`, `Working/hpc/job_export.py`, `Working/manifest.py`, `webui/server/training_routes.py` |
 | **shared** | `webui/server/discovery.py` — **`AB` touches only the `/slurm` script writer**; you touch the apply-template and compare routes. Also `webui/client/src/api.ts`, `webui/smoke.py` |
 
-**Talking to the researcher:** any question you put to them opens with a plain-language explanation, then the options, then your recommendation (`CLAUDE.md`). **Before you report, update** `docs/prompts/rq_roundA/RQ4-bands-and-symbols.md` per that folder's README.
+**Talking to the researcher:** any question you put to them opens with a plain-language explanation, then the options, then your recommendation (`CLAUDE.md`). **Before you report, update** `docs/rq_roundA/RQ4-bands-and-symbols.md` per that folder's README.
 
 ## Where it stands
 

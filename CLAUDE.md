@@ -44,9 +44,9 @@ using an everyday analogy where one helps; then the options; then a recommendati
 (2026-10-03), most of all for technical or statistical points. The detail still goes in the report; the plain
 version goes first.
 
-**Research-question files.** `docs/prompts/rq_roundA/RQ1…RQ6-*.md` track whether each of the six PRD research
+**Research-question files.** `docs/rq_roundA/RQ1…RQ6-*.md` track whether each of the six PRD research
 questions can be answered yet. If your work changes what one of them can do, update its file before you report
-(the rule is in `docs/prompts/rq_roundA/README.md`).
+(the rule is in `docs/rq_roundA/README.md`).
 
 ## Layout
 

@@ -14,7 +14,7 @@ You are in `C:\Users\mmebr\Documents\CNN` (Windows; Bash = Git Bash; python
 - `Working/cross_channel.py`;
 - `Working/library/matching.py::classify_family_across_channels` (:433) and `::family_recurrence` (:624);
 - `Working/review/queues.py::create_queue`;
-- `docs/prompts/rq_roundA/RQ6-recurrence-across-channels.md`.
+- `docs/rq_roundA/RQ6-recurrence-across-channels.md`.
 
 Commit prefix `fixup-ad:`. Test-first: your first commit touches only `tests/` and must fail. **`--sandbox`
 only.**
@@ -114,7 +114,7 @@ first.
 
 **Talking to the researcher:** any question you put to them opens with a plain-language explanation, then the
 options, then your recommendation (`CLAUDE.md`). **Before you report, update**
-`docs/prompts/rq_roundA/RQ6-recurrence-across-channels.md` and `RQ2-exemplar-seeded-search.md` (the exclusion zone)
+`docs/rq_roundA/RQ6-recurrence-across-channels.md` and `RQ2-exemplar-seeded-search.md` (the exclusion zone)
 per that folder's README.
 
 ## Acceptance (check these in a browser)

@@ -1497,7 +1497,7 @@ session; the short form is here.
   Owner: `W`.
 - **Q-B-CHAIN — A: out of scope.** Branching chains is a new capability; one chain per intent, the step cache
   makes shared steps free. Revisit with **multivariate analysis** after the first research-question results
-  (`docs/prompts/rq_roundB/`).
+  (`docs/rq_roundB/`).
 - **Q26d — A: the researcher's reading** — a sharkfin's slow rise is the previous event's recovery. Built in
   `future/N-event-extent.md` after the fixups (it re-hashes Library rows); until then RQ3 prefers troughs.
 - **Q26c — A: yes**, `max_recovery_frac` stored beside `recovery_time_s` — `future/P-persist-recovery-index.md`.
@@ -1511,8 +1511,8 @@ session; the short form is here.
 
 **The researcher's plan for after the fixups (2026-10-03):** about **18 research questions over about three
 rounds** (A, B, C), each answered with the website *as it currently stands*, each round developing what
-the site can do. Round A is the six PRD questions (`docs/prompts/rq_roundA/`); round B's notes are in
-`docs/prompts/rq_roundB/`.
+the site can do. Round A is the six PRD questions (`docs/rq_roundA/`); round B's notes are in
+`docs/rq_roundB/`.
 
 ---
 

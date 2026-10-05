@@ -16,7 +16,7 @@ where that work starts.
 
 **The plan (the researcher, 2026-10-03):** about **18 research questions over about three rounds** (A, B, C).
 Each question is answered with the website *as it currently stands*, and each round develops what the site can do for
-the next. Round A is these six PRD questions; round B's notes are in `docs/prompts/rq_roundB/`.
+the next. Round A is these six PRD questions; round B's notes are in `docs/rq_roundB/`.
 
 Each file has the same sections: **In plain words**, **What is known**, **Decisions already made**, **What is still
 needed**, **How it gets answered**, **Open decisions**, and **Log**.

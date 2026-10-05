@@ -149,7 +149,7 @@ line; the component is `AddMatches.tsx`). `webui/smoke.py` was not edited; my st
 | `Working/discovery/seeded_search.py` | The Settings key, per-length candidates and null, the step params |
 | `webui/client/src/api/discovery.ts` | The Discovery adapter: `scales` on runs, matches and results; the banked poll |
 | `webui/client/src/library/AtlasPage.tsx` | Its *Seed search in Discovery* passed a member id (`m-718`) as a seed id; it now opens the entry |
-| `docs/RESEARCH_READINESS.md`, `docs/prompts/fixup/08-library.md`, `docs/prompts/rq_roundA/RQ3-…` | Closed in place / updated as the README asks |
+| `docs/RESEARCH_READINESS.md`, `docs/prompts/fixup/08-library.md`, `docs/rq_roundA/RQ3-…` | Closed in place / updated as the README asks |
 
 None of `X`'s files was edited (`corpus.py`, `queries.py`, Explore › Corpus, the scoreboard cells). `queries.not_surrogate`
 is imported, not changed.

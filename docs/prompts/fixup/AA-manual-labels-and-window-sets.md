@@ -35,7 +35,7 @@ Commit prefix `fixup-aa:`. Test-first; first commit touches only `tests/` and mu
 
 `Y` makes Explore's *Take span for Review* write real `annotations` rows (seeds). Your block reads `annotations`; that is fine — read whatever is there, and do not assume the count is fixed while you run.
 
-**Talking to the researcher:** any question you put to them opens with a plain-language explanation, then the options, then your recommendation (`CLAUDE.md`). **Before you report, update** `docs/prompts/rq_roundA/RQ1-cluster-vs-manual-labels.md` per that folder's README.
+**Talking to the researcher:** any question you put to them opens with a plain-language explanation, then the options, then your recommendation (`CLAUDE.md`). **Before you report, update** `docs/rq_roundA/RQ1-cluster-vs-manual-labels.md` per that folder's README.
 
 ## What is missing, measured
 

@@ -229,7 +229,7 @@ family, so edges exist and carry a bin; the Recurrence page already has the fiel
 
 ## Q3 — Is motif identity preserved under scale normalisation?
 
-**[Route BUILT by fixup-V, 2026-10-04 — see `docs/prompts/rq_roundA/RQ3-identity-under-scale.md`: the scale bank, edges per distance function and the Family page's scale read-out exist and were walked in a sandbox. What follows is the 2026-10-02 record.]**
+**[Route BUILT by fixup-V, 2026-10-04 — see `docs/rq_roundA/RQ3-identity-under-scale.md`: the scale bank, edges per distance function and the Family page's scale read-out exist and were walked in a sandbox. What follows is the 2026-10-02 record.]**
 
 **The route.** Library › Edit grouping (basis *shape distance*) → Library › Family (members and their
 durations) → Discovery › Seed search with a scale bank (search at other scales) → edges carrying the distance

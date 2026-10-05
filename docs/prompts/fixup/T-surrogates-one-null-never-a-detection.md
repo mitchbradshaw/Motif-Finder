@@ -30,7 +30,7 @@ Commit prefix `fixup-t:`. Test-first; first commit touches only `tests/` and mus
 
 **Wave 3: nothing else runs while you do.** `AB` (wave 2) is told to finish or report a part before you start. Check `git status` and the worktree list before you begin; if another agent's uncommitted work is present, stop and say so.
 
-**Talking to the researcher:** any question you put to them opens with a plain-language explanation, then the options, then your recommendation (`CLAUDE.md`). **Before you report, update** `docs/prompts/rq_roundA/RQ1…RQ6 (all six)` per that folder's README.
+**Talking to the researcher:** any question you put to them opens with a plain-language explanation, then the options, then your recommendation (`CLAUDE.md`). **Before you report, update** `docs/rq_roundA/RQ1…RQ6 (all six)` per that folder's README.
 
 ## Part A — a surrogate detection is being read as a detection (no decision; do this first)
 

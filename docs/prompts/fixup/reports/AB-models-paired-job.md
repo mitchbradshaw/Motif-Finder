@@ -218,7 +218,7 @@ states rewritten, Registry's kept), `webui/smoke_pages/zz_models_ab.json` (new),
 | `Adapters/catalogue_manual_labels.py` | `human_spans` ignored `deleted_at`, so a **soft-deleted annotation still labelled windows** (AA's block; pinned by a test) |
 | `webui/server/library.py` | Library › Window sets: a set across channels names its channels and recounts coverage |
 | `webui/smoke.py` (shared) | a `wait_for` action, appended and committed alone (`72f45ca`) |
-| `docs/prompts/rq_roundA/RQ1-cluster-vs-manual-labels.md` | the RQ rule |
+| `docs/rq_roundA/RQ1-cluster-vs-manual-labels.md` | the RQ rule |
 
 None of `Z`'s files were edited; `discovery.py` was left alone (its `/slurm` is fixed through the exporter).
 

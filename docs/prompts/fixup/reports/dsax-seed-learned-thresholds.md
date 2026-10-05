@@ -133,7 +133,7 @@ All of them are inside the brief: the dSAX/pSAX core, its tests and docs, this r
 | `Working/Detection/sax/dsax_python/dsax.py` | thread `random_state`; *Determinism* rewritten |
 | `Working/Detection/sax/dsax_python/IMPLEMENTATION_NOTES.md` | limitation 6 rewritten |
 | `tests/test_sax_determinism.py` (new), `tests/test_dsax.py`, `tests/test_sax_details.py` | the contract; two stale docstrings |
-| `docs/prompts/rq_roundA/RQ4-bands-and-symbols.md` | one *What is known* bullet and a *Log* line |
+| `docs/rq_roundA/RQ4-bands-and-symbols.md` | one *What is known* bullet and a *Log* line |
 
 Nothing in Discovery or Compare was touched. No adapter changed: the adapters pass no seed and get the constant.
 `Experimentation/Detection experiments/multiscale_sax.py` also calls `kmeanspp`, so it now gets the constant too.

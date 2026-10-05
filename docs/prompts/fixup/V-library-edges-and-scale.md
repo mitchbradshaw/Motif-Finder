@@ -27,7 +27,7 @@ A seed-search match becomes a Library member **only with an accepting verdict (`
 | **`X`'s — do not edit** | `webui/server/corpus.py`, `Working/database/queries.py` (the divergence queries), Explore › Corpus, the Discovery scoreboard's precision cells and Compare's disagreement breakdown |
 | **shared** | `webui/client/src/discovery/RunsPage.tsx` (you add *Add N matches*; `X` changes scoreboard cells — touch only your own component), `webui/server/discovery.py`, `webui/client/src/api.ts`, `webui/smoke.py` |
 
-**Talking to the researcher:** any question you put to them opens with a plain-language explanation, then the options, then your recommendation (`CLAUDE.md`). **Before you report, update** `docs/prompts/rq_roundA/RQ3-identity-under-scale.md` per that folder's README.
+**Talking to the researcher:** any question you put to them opens with a plain-language explanation, then the options, then your recommendation (`CLAUDE.md`). **Before you report, update** `docs/rq_roundA/RQ3-identity-under-scale.md` per that folder's README.
 
 ## What an edge is, and why its absence matters
 

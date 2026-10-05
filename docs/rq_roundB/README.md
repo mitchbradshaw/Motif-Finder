@@ -1,7 +1,7 @@
 # rq_roundB: research questions, round two (rough notes)
 
 Started 2026-10-03. **This is deliberately mostly empty.** Round B's questions depend on what round A
-(`docs/prompts/rq_roundA/`) finds. The plan is about 18 questions over about three rounds, each answered with the
+(`docs/rq_roundA/`) finds. The plan is about 18 questions over about three rounds, each answered with the
 website as it stands at the time, each round developing the site for the next.
 
 When round A has results, turn the notes below into one file per question, using round A's shape: in plain words,

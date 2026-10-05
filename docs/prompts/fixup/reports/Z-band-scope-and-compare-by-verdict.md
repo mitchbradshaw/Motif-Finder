@@ -166,7 +166,7 @@ Nyquist is refused when it is applied, naming the band, before any run is writte
 | `webui/client/src/analyse/ParamsPanel.tsx` | Q43's "every bandpass block's presets" |
 | `webui/smoke_pages/band_scope.json` (new), `webui/smoke.py` | the walk and three page states |
 | `tests/test_run_groups.py` | one assertion: a band target is now typed (`kind: "bandpass"`), stated in `5578ea6` |
-| `docs/prompts/rq_roundA/RQ4-bands-and-symbols.md` | the RQ rule |
+| `docs/rq_roundA/RQ4-bands-and-symbols.md` | the RQ rule |
 
 ## 9. The gate
 
