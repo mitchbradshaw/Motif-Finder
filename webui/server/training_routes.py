@@ -664,3 +664,129 @@ def models_disagreement(request: Request, run_id: int, filter: str = "only_a", i
                 "trace": [float(v) for v in x[::step]], "unit": ch.unit}
     finally:
         c.close()
+
+
+# ── Library › Window sets › New window set (fixup-af) ──────────────────────
+#
+# RQ1 version 2: an UNLABELLED window set — one recording, one scale, its
+# channels, a non-overlapping grid, artifact spans left out — built by the core
+# (`Working/training/pool.py`) as a `training` job and saved into the library of
+# window sets. The pool that combines sets is `AG`'s *Window pool* block over
+# `pool.combine`; nothing here lays roles on a set.
+
+from Working.training import pool as _tpool  # noqa: E402
+
+_MAX_SCALE_MIN = 24 * 60.0
+
+
+@router.get("/api/windowsets/unlabelled/sources")
+def unlabelled_sources(request: Request):
+    """Every recording New window set can cut (the held-out one only as a locked
+    slot), with its channels, packs, hours and the supply per default scale."""
+    c = _conn(request)
+    try:
+        names = corpus.dataset_names(c)
+        recs = {}
+        for r in c.execute("SELECT id, source_file, channel, fs, n_samples FROM recordings ORDER BY source_file, channel"):
+            if r["source_file"] == HELD_OUT_FILE:
+                continue
+            g = recs.setdefault(r["source_file"], {"source_file": r["source_file"],
+                                                   "name": names.get(r["source_file"], r["source_file"]),
+                                                   "channels": [], "fs": float(r["fs"])})
+            g["channels"].append({"recording_id": int(r["id"]), "channel": int(r["channel"]),
+                                  "hours": round(r["n_samples"] / float(r["fs"]) / 3600.0, 2),
+                                  "n_samples": int(r["n_samples"])})
+        artifacts = {int(rid): int(n) for rid, n in c.execute(
+            "SELECT recording_id, COUNT(*) FROM annotations WHERE verdict = 'artifact' AND deleted_at IS NULL "
+            "GROUP BY recording_id")}
+        out = []
+        for g in recs.values():
+            n = len(g["channels"])
+            for ch in g["channels"]:
+                ch["name"] = corpus.channel_name(g["source_file"], ch["channel"], n)
+                ch["artifact_spans"] = artifacts.get(ch["recording_id"], 0)
+            g["packs"] = ({k: list(v) for k, v in _tpool.PACKS.items()} if n >= 16 else {})
+            g["supply"] = {f"{s:g}": int(sum(_tpool.supply(ch["n_samples"], g["fs"], s) for ch in g["channels"]))
+                           for s in _tpool.SCALES_MIN}
+            g["hours"] = max(ch["hours"] for ch in g["channels"])
+            out.append(g)
+        return {"recordings": out, "scales_min": list(_tpool.SCALES_MIN),
+                "held_out": {"file": HELD_OUT_FILE, "name": names.get(HELD_OUT_FILE, HELD_OUT_FILE), "locked": True,
+                             "reason": "the held-out recording is never cut into a training window set; it is "
+                                       "unlocked only on Settings › Datasets, after the freeze"},
+                "exclusions": _tpool.EXCLUSIONS_RULE,
+                "sets": _tpool.list_sets(c), "note": request.app.state.rt.banner()}
+    finally:
+        c.close()
+
+
+class UnlabelledSetBody(BaseModel):
+    source_file: str
+    channels: list[int] = []
+    scales_min: list[float] = [10.0]
+    grid: int | None = None            # samples; default = the window (no two windows overlap)
+    stride_factor: float = 1.0         # stride as a multiple of each scale's window (≥ 1; 1 = abutting)
+    exclude_artifacts: bool = True
+    sample: dict = {}                  # {"1": 20000}: a seeded uniform sample where the supply is large
+    seed: int = 0
+    name: str | None = None            # one scale only; default ws_<stem>_<scale>min
+    notes: str | None = None
+
+
+@router.post("/api/windowsets/unlabelled")
+def build_unlabelled(request: Request, body: UnlabelledSetBody):
+    rt, manager = request.app.state.rt, request.app.state.manager
+    _refuse_held_out(body.source_file)
+    scales = [float(s) for s in body.scales_min]
+    if not scales or any(not (0 < s <= _MAX_SCALE_MIN) for s in scales):
+        raise HTTPException(422, f"each scale is a window length in minutes, above 0 and at most {_MAX_SCALE_MIN:g}")
+    if not body.stride_factor >= 1.0:
+        raise HTTPException(422, "the stride is at least one window: an unlabelled set's windows never overlap")
+    if body.name is not None and (len(scales) != 1 or not _NAME.match(body.name)):
+        raise HTTPException(422, "a name is given for one scale only, 1–64 characters of letters, digits, _ . -")
+    sample = {}
+    for k, v in (body.sample or {}).items():
+        if v in (None, "", 0):
+            continue
+        try:
+            sample[f"{float(k):g}"] = int(v)
+        except (TypeError, ValueError):
+            raise HTTPException(422, f"sample {k!r}: {v!r} is not a number of windows")
+        if sample[f"{float(k):g}"] < 1:
+            raise HTTPException(422, "a sample keeps at least one window")
+    c = _conn(request)
+    try:
+        if not c.execute("SELECT 1 FROM recordings WHERE source_file = ?", (body.source_file,)).fetchone():
+            raise HTTPException(404, f"no recording {body.source_file}")
+    finally:
+        c.close()
+    root = rt.window_sets_root
+    stem = os.path.splitext(os.path.basename(body.source_file))[0]
+
+    def work(job):
+        c = _conn(request)
+        try:
+            built = []
+            fs = float(c.execute("SELECT fs FROM recordings WHERE source_file = ? LIMIT 1", (body.source_file,)).fetchone()[0])
+            for i, sc in enumerate(scales):
+                grid = body.grid if body.grid else (None if body.stride_factor == 1.0 else
+                                                    int(round(sc * 60.0 * fs * body.stride_factor)))
+                def prog(d, t, m, _i=i, _sc=sc):
+                    job.progress(_i * 100 + int(100 * d / max(t, 1)), 100 * len(scales), f"{_sc:g} min · {m}")
+                u = _tpool.build_unlabelled_set(c, body.source_file, body.channels or None, sc, grid=grid,
+                                                exclude_artifacts=body.exclude_artifacts,
+                                                sample=sample.get(f"{sc:g}"), seed=body.seed, progress=prog,
+                                                cancel=job.cancel_event.is_set)
+                name = body.name or f"ws_{stem}_{sc:g}min"
+                ws_id = _ts.save_window_set(c, u, root, name, notes=body.notes)
+                row = _ts.window_set_row(c, {"id": ws_id})
+                built.append({"window_set_id": ws_id, "name": name, "version": int(row["version"]), "key": u.key,
+                              "scale_min": u.meta["scale_min"], "n_windows": int(len(u.table)),
+                              "counts": u.meta["counts"], "path": row["path"]})
+            return {"sets": built}
+        finally:
+            c.close()
+
+    job = manager.start_job("training", work, meta={"stage": "unlabelled window set", "source_file": body.source_file,
+                                                    "scales_min": scales, "channels": body.channels})
+    return job.snapshot()

@@ -26,9 +26,10 @@ import { navigate } from '../state'
 import { useSourced } from '../api/seam'
 import { CLASS_COLOURS, HELD_OUT_KEY, REVIEW_QUEUE_CAP, getWindowSets, type SetCheck, type WindowSetRow } from '../api/library'
 import { LoadFailed, Loading, SectionBar, useExternalNavKey, useQueueToast } from './chrome'
+import { NewWindowSetModal } from './NewWindowSet'
 
 const SPLIT_COLOUR = { train: '#9cc3f7', validation: '#ff9f0a', test: '#34c759', gap: '#e9ebef' }
-const CHECK_TONE: Record<SetCheck, string> = { 'train-safe': 't-green', 'fs inferred': 't-amber', 'test sample': 't-blue', 'not train-safe': 't-red', 'gap < window': 't-red' }
+const CHECK_TONE: Record<SetCheck, string> = { 'train-safe': 't-green', 'fs inferred': 't-amber', 'test sample': 't-blue', 'not train-safe': 't-red', 'gap < window': 't-red', 'roles at pool': 't-blue' }
 const NOT_SAFE: SetCheck[] = ['not train-safe', 'gap < window']
 const MONTHS = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec']
 
@@ -70,6 +71,8 @@ export function WindowSetsPage() {
       <Page testid="window-sets-page">
         <SectionBar section="window-sets" windowSetsCount={sets.data ? rows.length : undefined}
           actions={<span className="row lib-ui-btn" style={{ gap: 8 }}>
+            {/* fixup-af: an unlabelled set per recording and scale, cut here (RQ1 version 2) */}
+            <Button variant="primary" icon="plus" testid="new-window-set" onClick={() => setModal('new')}>New window set</Button>
             <Button icon="link" testid="new-from-analyse" onClick={() => navigate('analyse/training')}>New from Analyse</Button>
             <Button icon="download" testid="window-set-import" onClick={() => setModal('import')}>Import</Button>
           </span>} />
@@ -84,6 +87,8 @@ export function WindowSetsPage() {
             and the only state this one can show: `GET /api/library/windowsets` returns `[]`) the Import button
             set `?modal=import` and nothing appeared. Importing is the only way to get a first window set in. */}
         <ImportWindowSetModal open={modal === 'import'} onClose={() => setModal(null)} />
+        <NewWindowSetModal open={modal === 'new'} onClose={() => setModal(null)}
+          onBuilt={built => { sets.reload(); push({ text: `${built.length} window set${built.length === 1 ? '' : 's'} saved · ${built.map(b => `${b.name} ${fmtInt(b.n_windows)}`).join(' · ')}` }) }} />
       </Page>
     </>
   )
@@ -119,10 +124,12 @@ function WindowSets({ rows, onDelete }: { rows: WindowSetRow[]; onDelete: (id: s
 
   const columns: Column<WindowSetRow>[] = [
     { key: 'name', header: 'name', width: 176, sortValue: r => r.id, render: r => <span className="stack" style={{ gap: 2 }}><span className="mono b" style={{ fontSize: 12 }}>{r.id} <span className="k-badge t-grey" style={{ height: 15, fontSize: 9.5 }}>v{r.version}</span></span><span className="lib-cap">{r.saved || 'save date not recorded'} · {r.savedBy}</span></span> },
-    { key: 'source', header: 'source', width: 150, render: r => <span className="mono small">{r.source}</span> },
+    { key: 'source', header: 'source', width: 150, render: r => <span className="stack" style={{ gap: 2 }}><span className="mono small">{r.source}</span>{kindLabel(r) && <span className="lib-cap" data-testid={`set-kind-${r.id}`}>{kindLabel(r)}</span>}</span> },
     { key: 'spacing', header: 'window · stride · gap', width: 144, render: r => <span className="mono small">{r.spacing}</span> },
     { key: 'windows', header: 'windows', width: 68, sortValue: r => r.windows, render: r => <span className="mono b">{fmtInt(r.windows)}</span> },
-    { key: 'split', header: 'split', width: 106, render: r => r.split ? <span className="stack" style={{ gap: 3 }}><SplitBar split={r.split} /><span className="lib-cap">{r.splitLabel}</span></span> : <span className="mono small" style={{ color: 'var(--red)' }}>no split</span> },
+    { key: 'split', header: 'split', width: 106, render: r => r.split ? <span className="stack" style={{ gap: 3 }}><SplitBar split={r.split} /><span className="lib-cap">{r.setKind === 'pool' ? `region plan${r.holdOutPack ? ` · pack ${r.holdOutPack} exam` : ''}` : r.splitLabel}</span></span>
+      : r.setKind === 'unlabelled' ? <span className="mono small" style={{ color: 'var(--blue)' }} title="no roles on purpose: the fence is laid over the pool">roles at pool</span>
+        : <span className="mono small" style={{ color: 'var(--red)' }}>no split</span> },
     { key: 'labelled', header: 'labelled', width: 78, sortValue: r => r.labelledPct, render: r => <span className="stack" style={{ gap: 3 }}><span className="lib-minibar"><i style={{ width: `${r.labelledPct}%` }} /></span><span className="lib-cap">{r.labelledPct} %</span></span> },
     { key: 'used', header: 'used by', width: 92, render: r => r.usedLabel ? <button type="button" className="lib-plain mono small" style={{ color: 'var(--blue)', whiteSpace: 'nowrap' }} data-testid={`used-link-${r.id}`} onClick={e => { e.stopPropagation(); if (r.usedBy.length > 1) setSetQ(r.id); else navigate(r.usedBy[0].to) }}>{r.usedLabel}</button> : <span className="muted" title="nothing records what uses a window set yet">—</span> },
     { key: 'check', header: 'check', render: r => <span className={`k-badge ${CHECK_TONE[r.check]}`} title={r.checkReason} data-testid={`check-badge-${r.id}`}>{r.check}</span> },
@@ -185,6 +192,52 @@ function WindowSets({ rows, onDelete }: { rows: WindowSetRow[]; onDelete: (id: s
   )
 }
 
+/** fixup-af: one line saying what kind of set a row is — an unlabelled set at its scale, or a pool of several. */
+function kindLabel(r: WindowSetRow): string | null {
+  if (r.setKind === 'unlabelled') return `unlabelled · ${r.scaleMin} min`
+  if (r.setKind === 'pool') return `pool · ${(r.scalesMin ?? []).map(s => `${s}`).join(' / ')} min · ${(r.poolMembers ?? []).length} sets`
+  return null
+}
+
+/** fixup-af: what an unlabelled set or a pool holds and what was left out of it, from its own counts. */
+function PoolFacts({ ws }: { ws: WindowSetRow }) {
+  const c = (ws.counts ?? {}) as Record<string, any>
+  const num = (v: unknown) => fmtInt(Number(v ?? 0))
+  if (ws.setKind === 'unlabelled') {
+    return <div className="stack" style={{ gap: 4 }} data-testid="unlabelled-facts">
+      <span className="lib-cap" style={{ fontSize: 11 }}>{ws.scaleMin} min windows · {num(c.grid_windows)} on the grid · {num(c.n_windows)} kept</span>
+      <span className="lib-cap">left out: artifact (human label) {num(c.artifact_human)} · excluded by Settings {num(c.excluded_by_settings)} · non-finite {num(c.non_finite)} · sampled out {num(c.sampled_out)}{ws.sample ? ` (sample ${num(ws.sample)}, seed ${ws.seed})` : ''}</span>
+      <span className="lib-cap">labels ignored — windows cut from the signal. No roles: the train / test fence is laid over the pool that combines this set.</span>
+    </div>
+  }
+  const role = ws.roleCounts ?? { train: 0, validation: 0, test: 0, exam: 0 }
+  const d = (c.dropped ?? {}) as Record<string, number>
+  const by = (c.by ?? []) as { recording: string; scale_min: number; role: string; n: number }[]
+  const recs = [...new Set(by.map(b => b.recording))]
+  const scales = [...new Set(by.map(b => b.scale_min))].sort((a, b) => a - b)
+  const roles = ['train', 'validation', 'test', 'exam']
+  return <div className="stack" style={{ gap: 4 }} data-testid="pool-facts">
+    <span className="lib-cap" style={{ fontSize: 11 }}>roles · train {num(role.train)} · validation {num(role.validation)} · test {num(role.test)} · exam {num(role.exam)}</span>
+    <table className="mono small" style={{ borderCollapse: 'collapse' }} data-testid="pool-mix">
+      <thead><tr><th style={{ textAlign: 'left' }}>recording · scale</th>{roles.map(r => <th key={r} style={{ textAlign: 'right', paddingLeft: 6 }}>{r}</th>)}</tr></thead>
+      <tbody>{recs.flatMap(rec => scales.map(sc => {
+        const row = roles.map(r => by.find(b => b.recording === rec && b.scale_min === sc && b.role === r)?.n ?? 0)
+        if (!row.some(Boolean)) return null
+        return <tr key={`${rec}-${sc}`}><td>{rec.replace(/\.mat$/, '')} · {sc} min</td>{row.map((n, i) => <td key={i} style={{ textAlign: 'right', paddingLeft: 6 }}>{fmtInt(n)}</td>)}</tr>
+      }))}</tbody>
+    </table>
+    <span className="lib-cap">dropped: in a gap {num(d.gap)} · straddling {num(d.straddle)} · artifact {num(d.artifact)} · duplicates {num(d.duplicate)} · overlap within a scale {num(d.overlap_within_scale)} · overlap across scales {num(d.overlap_across_scales)} · sampled out {num(d.sampled_out)}</span>
+    {ws.poolPlan && <div className="stack" style={{ gap: 2 }} data-testid="pool-plan">
+      {Object.entries(ws.poolPlan.recordings).map(([rec, r]) => <span key={rec} className="lib-cap mono">
+        {rec.replace(/\.mat$/, '')}: {r.stretches.map(st => `${st.role} ${(st.start_s / 3600).toFixed(1)}–${(st.end_s / 3600).toFixed(1)} h`).join(' · ')}
+        {r.exam_channels.length ? ` · exam CH${r.exam_channels.map(c => c + 1).join(', CH')} whole` : ''}</span>)}
+      <span className="lib-cap">gap {(ws.poolPlan.gap_s / 60).toFixed(0)} min at every role change</span>
+    </div>}
+    {ws.rule && <span className="lib-cap">rule: {ws.rule}</span>}
+    <span className="lib-cap">members: {(ws.poolMembers ?? []).join(' · ')}</span>
+  </div>
+}
+
 function SplitBar({ split }: { split: { train: number; validation: number; test: number } }) {
   return <span className="lib-splitbar" title={`train ${Math.round(split.train * 100)} % · validation ${Math.round(split.validation * 100)} % · test ${Math.round(split.test * 100)} %`}>
     {(['train', 'validation', 'test'] as const).filter(k => split[k] > 0).map(k => <i key={k} style={{ width: `${split[k] * 100}%`, background: SPLIT_COLOUR[k] }} />)}
@@ -206,7 +259,9 @@ function WindowSetRail({ ws, onDelete }: { ws: WindowSetRow; onDelete: () => voi
      one at random. */
   const recKey = ws.recordingKeys[0] ?? ''
   const recName = recKey || (ws.recording !== '—' ? ws.recording : "this set's recording")
-  const trainReason = ws.check === 'gap < window' ? `gap ${ws.gapS} s < ${ws.windowS} s window`
+  const trainReason = ws.setKind === 'unlabelled' ? 'an unlabelled set is combined into a pool first (Analyse › Window pool); Models › Launch trains on labelled sets'
+    : ws.setKind === 'pool' ? 'a pool is trained on from the Window pool block in Analyse (its chain ends in Train model); Models › Launch reads labelled sets'
+    : ws.check === 'gap < window' ? `gap ${ws.gapS} s < ${ws.windowS} s window`
     : ws.check === 'not train-safe' ? 'no split — supplied windows would leak (B7)'
       : ws.check === 'test sample' ? 'a test sample is never trained on'
         : ws.check === 'fs inferred' ? `fs inferred — confirm ${recName} in Settings › Datasets first` : null
@@ -220,8 +275,10 @@ function WindowSetRail({ ws, onDelete }: { ws: WindowSetRow; onDelete: () => voi
         { k: 'made by', v: ws.madeBy },
         { k: 'recipe hash', v: ws.recipeHash || '— not recorded' },
         { k: 'windows', v: `${fmtInt(ws.windows)} over ${ws.channels.length} channel${ws.channels.length === 1 ? '' : 's'}` },
+        ...(kindLabel(ws) ? [{ k: 'kind', v: kindLabel(ws) as string }] : []),
       ]} testid="window-set-kv" />
-      {ws.check !== 'train-safe' && <Callout tone={NOT_SAFE.includes(ws.check) ? 'red' : ws.check === 'test sample' ? 'blue' : 'amber'} testid="window-set-reason" stacked
+      {(ws.setKind === 'unlabelled' || ws.setKind === 'pool') && <PoolFacts ws={ws} />}
+      {ws.check !== 'train-safe' && <Callout tone={NOT_SAFE.includes(ws.check) ? 'red' : ws.check === 'test sample' || ws.check === 'roles at pool' ? 'blue' : 'amber'} testid="window-set-reason" stacked
         action={NOT_SAFE.includes(ws.check) ? <Button variant="link" size="sm" iconRight="arrow-right" onClick={() => navigate(`analyse/training/block/1?source=windowset:${ws.id}`)}>Re-split in Analyse</Button>
           : ws.check === 'fs inferred' ? <Button variant="link" size="sm" onClick={() => navigate(recKey ? `settings/datasets?recording=${encodeURIComponent(recKey)}` : 'settings/datasets')}>Settings › Datasets</Button> : undefined}>{ws.checkReason}</Callout>}
       <span className="lib-cap" style={{ fontSize: 11 }}>split plan · {ws.split ? (ws.splitLabel === 'test only' ? 'test block only' : 'blocked by time') : 'none'}</span>
@@ -229,7 +286,7 @@ function WindowSetRail({ ws, onDelete }: { ws: WindowSetRow; onDelete: () => voi
         <BandStrip rows={bandRows} domain={[0, ws.planHours]} rowHeight={16} gap={5} labelWidth={52} testid="split-plan" />
         {channels.length > 10 && <Button variant="link" size="sm" onClick={() => setShowAll(s => !s)}>{showAll ? 'show 10' : `+${channels.length - 10} channels`}</Button>}
         <span className="lib-cap">grey = gap ≥ {ws.gapS ?? ws.windowS} s · {ws.dropped} straddling windows dropped</span>
-      </> : <span className="lib-cap" data-testid="split-plan-none">no split plan — these windows were supplied, not cut by a sliding-windows block</span>}
+      </> : <span className="lib-cap" data-testid="split-plan-none">{ws.setKind === 'unlabelled' ? 'no split plan — roles are laid over the pool that combines this set' : ws.setKind === 'pool' ? 'the region plan is per recording, not per channel — its stretches are in the pool facts above' : 'no split plan — these windows were supplied, not cut by a sliding-windows block'}</span>}
       {ws.spacingChecks.length ? <Checklist items={ws.spacingChecks.map(c => ({ label: c.label, state: c.ok ? 'pass' : 'fail' }))} testid="spacing-checks" />
         : <span className="lib-cap" data-testid="spacing-checks-none">no spacing checks were recorded when this set was saved</span>}
       {ws.coverageNote && coverage === 'now' && <span className="lib-cap" style={{ color: 'var(--amber)' }} data-testid="coverage-note">{ws.coverageNote} — showing the counts at save</span>}

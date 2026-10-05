@@ -874,8 +874,6 @@ def check_pool(pool):
             f"the pool leaks across roles: {misplaced} window(s) sit outside their own role's stretch and "
             f"{cross_role} overlap a window of another role on one recording's time (the fs1 / fs2 files of one "
             "recording included). A pool's roles come from its plan and nothing else.")
-    if pool.meta.get("rule") == "no_overlap":
-        checks["overlaps across scales (allowed)"] = cross_scale
     return checks
 
 
@@ -938,7 +936,8 @@ def save_pool(conn, pool, root, name, notes=None):
         spacing["no overlap across scales (smaller scale wins)"] = True
     scales = sorted({_scale_value(s * 60.0, 1.0) for s in t["scale_min"].unique()})
     coverage = {"set_kind": "pool", "rule": m["rule"], "rule_text": m["rule_text"], "scales_min": scales,
-                "sample": m["sample"], "seed": m["seed"], "counts": counts, "dropped": counts["dropped"],
+                "sample": m["sample"], "seed": m["seed"], "counts": counts,
+                "dropped": int(sum(int(v) for v in counts["dropped"].values())), "dropped_by": counts["dropped"],
                 "checks": m.get("checks"), "members": [mm["name"] for mm in m["members"]],
                 "hold_out_pack": plan.get("hold_out_pack"), "labelled_windows": 0, "notes": notes,
                 "labels": "ignored — a pool is windows and roles; labels are read where the pool is used"}

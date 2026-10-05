@@ -109,7 +109,7 @@ def test_new_window_set_builds_the_three_scales_as_a_job_and_the_library_lists_t
         "source_file": SOURCE, "channels": list(range(16)), "scales_min": [1, 10, 30], "exclude_artifacts": True,
         "sample": {"1": 2000}, "seed": 4})
     assert r.status_code == 200, r.text
-    job = _wait_job(client, r.json()["id"])
+    job = _wait_job(client, r.json()["job_id"])
     built = job["result"]["sets"]
     assert [b["scale_min"] for b in built] == [1, 10, 30]
     assert built[0]["n_windows"] == 2000 and built[1]["counts"]["artifact_human"] == 1

@@ -1954,12 +1954,16 @@ def _window_set_row(conn, index, r) -> dict:
     # recording; its channels are its `window_set_members` rows
     members = [index["by_id"].get(int(m["recording_id"])) for m in conn.execute(
         "SELECT recording_id FROM window_set_members WHERE window_set_id = ? ORDER BY channel", (r["id"],))]
+    # fixup-af: an unlabelled set or a pool names its channels WITHOUT a role
+    members += [index["by_id"].get(int(m["recording_id"])) for m in conn.execute(
+        "SELECT recording_id FROM window_set_channels WHERE window_set_id = ? ORDER BY recording_id", (r["id"],))]
     members = [m for m in members if m]
     if meta is None and members:
         meta = members[0]
     split = json.loads(r["split_json"] or "null")
     spacing = json.loads(r["spacing_json"] or "{}")
     coverage = json.loads(r["coverage_json"] or "{}")
+    kind = coverage.get("set_kind") if isinstance(coverage, dict) else None
     fs = _f(r["fs"], meta["fs"] if meta else 1.0) or 1.0
     window_s = _f(r["window_length"]) / fs if r["window_length"] else None
     gap_s = _f(r["gap"]) / fs if r["gap"] else None
@@ -1983,6 +1987,19 @@ def _window_set_row(conn, index, r) -> dict:
         check, reason = "fs inferred", (
             f"{meta['key'] if meta else 'this recording'}'s {fs:g} Hz is {fs_source}, not read from the file; "
             "every window boundary below is only as good as that number")
+    elif kind == "unlabelled":
+        # fixup-af: no roles ON PURPOSE — the fence is laid over the pool that combines the set
+        check, reason = "roles at pool", (
+            "no roles on purpose: the train / test fence is laid over the pool that combines this set (a region-first "
+            "plan — stretches of time per channel, the same for every scale), never stored on the set; the windows "
+            "do not overlap")
+    elif kind == "pool":
+        plan = (split or {}).get("plan") or {}
+        pack = plan.get("hold_out_pack")
+        check, reason = "train-safe", (
+            f"region-first plan: every window lies wholly inside one role's stretch (blocked by time, gap "
+            f"{float(plan.get('gap_s') or 0) / 60:g} min{f', pack {pack} held out as exam' if pack else ''}); no "
+            f"window overlaps another role's on one recording's time (fs1 / fs2 included) · rule {coverage.get('rule')}")
     elif gap_s is not None and window_s is not None and gap_s < window_s:
         check, reason = "gap < window", f"the gap between splits ({gap_s:g} s) is shorter than one window ({window_s:g} s)"
     elif split_label == "blocked":
@@ -1998,7 +2015,8 @@ def _window_set_row(conn, index, r) -> dict:
                        + "; a blocked split is applied where it is trained on")
 
     labelled_at_save = int(coverage.get("labelled_windows") or 0)
-    now, now_note = _coverage_now(conn, r)
+    # fixup-af: an unlabelled set or a pool ignores labels by design; nothing to recount
+    now, now_note = ({}, None) if kind in ("unlabelled", "pool") else _coverage_now(conn, r)
     labelled = int(sum(now.values())) if now is not None else labelled_at_save
     n_windows = int(r["n_windows"] or 0)
     return {
@@ -2034,6 +2052,21 @@ def _window_set_row(conn, index, r) -> dict:
                         "atSave": coverage.get("class_counts_at_save") or {},
                         "atSaveLabelled": labelled_at_save},
         "path": r["path"],
+        # fixup-af: what kind of set this is, its scale(s), its counts, a pool's members and plan
+        "setKind": kind or ("labelled" if labelled_at_save or coverage.get("class_counts_at_save") else "supplied"),
+        "scaleMin": coverage.get("scale_min") if kind == "unlabelled" else (
+            round(window_s / 60.0, 3) if window_s and kind != "pool" else None),
+        "scalesMin": coverage.get("scales_min") if kind == "pool" else None,
+        "counts": coverage.get("counts") if kind in ("unlabelled", "pool") else None,
+        "exclusions": coverage.get("exclusions") if kind == "unlabelled" else None,
+        "sample": coverage.get("sample") if kind in ("unlabelled", "pool") else None,
+        "seed": coverage.get("seed") if kind in ("unlabelled", "pool") else None,
+        "poolMembers": coverage.get("members") if kind == "pool" else None,
+        "holdOutPack": ((split or {}).get("plan") or {}).get("hold_out_pack") if kind == "pool" else None,
+        "poolPlan": (split or {}).get("plan") if kind == "pool" else None,
+        "rule": coverage.get("rule_text") if kind == "pool" else None,
+        "roleCounts": ({k: int((split or {}).get(k) or 0) for k in ("train", "validation", "test", "exam")}
+                       if kind == "pool" else None),
     }
 
 

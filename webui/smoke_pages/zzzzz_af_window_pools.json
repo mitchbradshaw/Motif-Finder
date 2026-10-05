@@ -1,0 +1,15 @@
+[
+ {"page": "library.window-sets", "state": "fixup-af-new-window-set-opens", "hash": "library/window-sets?modal=new&nwsrec=M2_aug_concat_fs1.mat", "settle_ms": 2500,
+  "_why": "fixup-af: New window set — one recording, its channels (a pack one click), 1 / 10 / 30 min ticked, a non-overlapping grid, the artifact exclusion, the supply per scale and a seeded sample where it is large",
+  "actions": [{"wait_for": ["[data-testid=\"new-window-set-form\"]", 30000]}],
+  "expect": ["[data-testid=\"new-window-set-modal\"]", "[data-testid=\"nws-recording\"]", "[data-testid=\"nws-pack-D\"]", "[data-testid=\"nws-scale-1\"]", "[data-testid=\"nws-scale-30\"]", "[data-testid=\"nws-stride\"]", "[data-testid=\"nws-exclusions\"]", "[data-testid=\"nws-supply-1\"]", "[data-testid=\"nws-sample-on-1\"]", "[data-testid=\"nws-build\"]"]},
+ {"page": "library.window-sets", "state": "fixup-af-build-1-10-30-min-of-M2", "hash": "library/window-sets?modal=new&nwsrec=M2_concat_fs1.mat", "settle_ms": 2500,
+  "_why": "fixup-af: the build-at-1/10/30-min shortcut on M2 — three sets saved as a job; every window is saved (the 1-minute supply, 271,184, is sampled by the pool after the fence, not here)",
+  "actions": [{"wait_for": ["[data-testid=\"nws-build\"]", 30000]}, {"click": "[data-testid=\"nws-build\"]"},
+              {"wait_for": ["[data-testid=\"nws-done\"], [data-testid=\"nws-failed\"]", 180000]}, {"wait": 1500}],
+  "expect": ["[data-testid=\"nws-done\"]"], "expect_absent": ["[data-testid=\"nws-failed\"]"]},
+ {"page": "library.window-sets", "state": "fixup-af-the-new-sets-are-listed-with-scale-and-counts", "hash": "library/window-sets?set=ws_M2_concat_fs1_10min", "settle_ms": 3000,
+  "_why": "fixup-af: each saved set is a row with its scale and counts; no roles on purpose (the fence is laid over the pool)",
+  "actions": [{"wait_for": ["[data-testid=\"unlabelled-facts\"]", 30000]}],
+  "expect": ["[data-testid=\"set-kind-ws_M2_concat_fs1_1min\"]", "[data-testid=\"set-kind-ws_M2_concat_fs1_10min\"]", "[data-testid=\"set-kind-ws_M2_concat_fs1_30min\"]", "[data-testid=\"unlabelled-facts\"]", "[data-testid=\"check-badge-ws_M2_concat_fs1_10min\"]"]}
+]

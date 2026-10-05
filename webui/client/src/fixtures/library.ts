@@ -393,7 +393,8 @@ export const IMPORT_STEPS = ['hash 410 motifs', 'link 3 annotations', 'write 410
 export const IMPORT_FAIL_ERROR = 'sample range 0:88,100 outside L_LM_Jul26_J CH4 (806,400 samples)'
 
 /* ================================================================ window sets ================================================================ */
-export type SetCheck = 'train-safe' | 'test sample' | 'not train-safe' | 'gap < window' | 'fs inferred'
+/** fixup-af: `roles at pool` — an unlabelled set carries no roles ON PURPOSE; the fence is laid over the pool. */
+export type SetCheck = 'train-safe' | 'test sample' | 'not train-safe' | 'gap < window' | 'fs inferred' | 'roles at pool'
 export interface SplitBlock { split: 'train' | 'validation' | 'test' | 'gap'; fromH: number; toH: number; windows: number }
 export interface WindowSetRow {
   id: string; version: number; saved: string; savedBy: string; source: string; recording: string; recordingKeys: string[]; channels: string[]
@@ -404,6 +405,22 @@ export interface WindowSetRow {
   classCounts: { now: Record<string, number>; atSave: Record<string, number>; atSaveLabelled: number }
   /** fixup-aa: why "now" could not be recounted (the set's files are missing), or null */
   coverageNote?: string | null
+  /** fixup-af: the kind of set — an unlabelled set (one recording, one scale, no roles), a pool (several sets
+   *  combined, roles laid by a region-first plan), a labelled set (AA / AB), or supplied windows */
+  setKind?: 'unlabelled' | 'pool' | 'labelled' | 'supplied'
+  scaleMin?: number | null
+  scalesMin?: number[] | null
+  /** an unlabelled set's or a pool's counts: what the grid offered and what was left out, and why */
+  counts?: Record<string, unknown> | null
+  exclusions?: string | null
+  sample?: number | Record<string, number> | null
+  seed?: number | null
+  poolMembers?: string[] | null
+  holdOutPack?: string | null
+  rule?: string | null
+  roleCounts?: { train: number; validation: number; test: number; exam: number } | null
+  /** a pool's region plan: per recording, its stretches of time and its exam channels (zero-based) */
+  poolPlan?: { gap_s: number; hold_out_pack: string | null; recordings: Record<string, { duration_s: number; exam_channels: number[]; stretches: { role: string; start_s: number; end_s: number }[] }> } | null
 }
 const plan = (hours: number, fr: [number, number, number, number], gapH: number): SplitBlock[] => {
   const [a, b, c] = [fr[0] * hours, (fr[0] + fr[1]) * hours, (fr[0] + fr[1] + fr[2]) * hours]
