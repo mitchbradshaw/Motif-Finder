@@ -144,13 +144,13 @@ export function PoolView({ p }: { p: PoolPayload }) {
 }
 
 /* ---------------- Trace shape: before and after ---------------- */
-function LogHist({ h, floor, testid, height = 120 }: { h: HistData | null | undefined; floor?: number | null; testid: string; height?: number }) {
+function LogHist({ h, floor, testid, height = 120, ticks = 5 }: { h: HistData | null | undefined; floor?: number | null; testid: string; height?: number; ticks?: number }) {
   if (!h || !h.counts.length) return <div className="muted mono small" data-testid={testid}>no measured range to draw</div>
   const e = h.log ? h.edges.map(v => Math.log10(v)) : h.edges
   const bins = h.counts.map((c, i) => ({ x0: e[i], x1: e[i + 1], count: c }))
   const fmt = h.log ? (v: number) => fmtN(10 ** v) : (v: number) => fmtN(v)
   const thr = floor && h.log && floor > 0 ? { value: Math.log10(floor), label: `floor ${fmtN(floor)} mV`, colour: 'var(--red)' } : undefined
-  return <div data-testid={testid}><Histogram bins={bins} height={height} format={fmt} threshold={thr} xTicks={5} colour="var(--blue-200)" label={testid} /></div>
+  return <div data-testid={testid}><Histogram bins={bins} height={height} format={fmt} threshold={thr} xTicks={ticks} colour="var(--blue-200)" label={testid} /></div>
 }
 
 export function ShapeView({ p }: { p: PoolPayload }) {
@@ -170,11 +170,11 @@ export function ShapeView({ p }: { p: PoolPayload }) {
         {s.align === 'centre' && s.swing_rule ? <div className="muted" style={{ marginTop: 3 }}>{s.swing_rule}</div> : null}
       </div>
       {s.align === 'centre' && s.recut && (
-        <div className="bp-tiles" style={{ marginTop: 0 }} data-testid="shape-recut">
-          <div className="bp-tile"><div className="k">re-cut onto their swing</div><div className="v">{s.recut.n_moved.toLocaleString()}</div></div>
-          <div className="bp-tile"><div className="k">clamped · centre not reachable inside the fence</div><div className="v" data-testid="shape-clamped">{s.recut.n_clamped.toLocaleString()}</div></div>
-          <div className="bp-tile"><div className="k">near-duplicates · one event twice · left out</div><div className={`v${s.recut.n_near_duplicate ? ' red' : ''}`} data-testid="shape-near-duplicates">{s.recut.n_near_duplicate.toLocaleString()}</div></div>
-          <div className="bp-tile"><div className="k">overlap ≤ half within a scale · kept</div><div className="v">{s.recut.n_overlap_within_scale.toLocaleString()}</div></div>
+        <div className="bp-tiles" style={{ marginTop: 0, gridTemplateColumns: 'repeat(4, minmax(0, 1fr))' }} data-testid="shape-recut">
+          <div className="bp-tile"><div className="k">re-cut onto the swing</div><div className="v">{s.recut.n_moved.toLocaleString()}</div></div>
+          <div className="bp-tile"><div className="k">clamped · fence reached</div><div className="v" data-testid="shape-clamped">{s.recut.n_clamped.toLocaleString()}</div></div>
+          <div className="bp-tile"><div className="k">near-duplicates · left out</div><div className={`v${s.recut.n_near_duplicate ? ' red' : ''}`} data-testid="shape-near-duplicates">{s.recut.n_near_duplicate.toLocaleString()}</div></div>
+          <div className="bp-tile"><div className="k">overlap ≤ half · kept</div><div className="v">{s.recut.n_overlap_within_scale.toLocaleString()}</div></div>
         </div>
       )}
       <div className="muted small">{under.rule} · floors: {floors.map(([sf, f]) => `${sf.replace(/\.mat$/, '')} ${fmtN(f.floor_mv)} mV (${f.from})`).join(' · ')} · {s.method}</div>
@@ -189,7 +189,7 @@ export function ShapeView({ p }: { p: PoolPayload }) {
               {Object.entries(s.raw_range_by).flatMap(([sf, r]) => Object.entries(r.scales).map(([sc, h]) => (
                 <div key={`${sf}-${sc}`}>
                   <div className="muted small mono">{sf.replace(/\.mat$/, '')} · {sc} min · floor {r.floor_mv === null ? '—' : fmtN(r.floor_mv)} mV</div>
-                  <LogHist h={h} floor={r.floor_mv} testid={`shape-range-${sf.replace(/\.mat$/, '')}-${sc}`} height={80} />
+                  <LogHist h={h} floor={r.floor_mv} testid={`shape-range-${sf.replace(/\.mat$/, '')}-${sc}`} height={80} ticks={2} />
                 </div>
               )))}
             </div>
