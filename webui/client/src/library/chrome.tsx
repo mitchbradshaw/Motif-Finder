@@ -5,9 +5,10 @@ import { UNDECLARED_NOTE } from '../charts/units'
 import { measuredDomain, referenceScale, type ReferenceScale } from '../charts/domain'
 import { ReferenceBar, referenceWords } from '../charts/ReferenceBar'
 import {
-  Breadcrumb, Button, Checkbox, Chip, DividerV, Drawer, Icon, InfoTip, MiniTrace, NumberField, Popover, Seg, Spacer, Tabs, TextField, Toolbar, fmtInt, recordDemoWrite,
+  Breadcrumb, Button, Checkbox, Chip, DividerV, Drawer, Icon, InfoTip, MiniTrace, NumberField, Page, Popover, Seg, Spacer, Tabs, TextField, Toolbar, fmtInt, recordDemoWrite,
   useDemoState, useQueryState, type CrumbItem,
 } from '../kit'
+import { Header } from '../shell/Header'
 import { useToast } from '../shell/Toast'
 import { navigate, setQuery, useApp } from '../state'
 import { GROUPING_G09, UNIT_LABEL, getGroupings, getLibraryCounts, getOmitted, motifShape, type Grouping, type OmittedEntry, type Unit } from '../api/library'
@@ -30,15 +31,35 @@ export const useSelection = () => useDemoState<string[]>('library.selection', ()
  *  no live grouping is called either, so defaulting to one made every atlas and every matrix fall to
  *  "undrawn". It resolves to the NEWEST saved grouping of the right unit instead — the same one the bridge
  *  picks when a read omits `?grouping=` — and stays `''` when there is none, which is the honest state of a
- *  library nobody has grouped yet. */
+ *  library nobody has grouped yet.
+ *
+ *  fixup-grouping-url: `?grouping=g-NN` in the URL comes first. The bridge writes links of that form (the audit
+ *  trail, a suspected-artifact queue), and the Library used to ignore the parameter, so such a link opened the
+ *  newest grouping — where the family it named may not exist. The order is now: the grouping the URL names, if
+ *  it is of this unit; else the one picked in this session (the store); else the newest. While a URL names a
+ *  grouping and the groupings read has not landed, the id is `''` — the pages hold their reads on that — so a
+ *  link never draws the newest grouping first and its own second. A named id that is not saved, or is of the
+ *  other unit, is `GroupingGate`'s to refuse; this hook never substitutes another grouping for it. */
 function useResolvedGroupingId(key: string, unit: Unit): [string, (next: string | ((prev: string) => string)) => void] {
   const [id, setId] = useDemoState<string>(key, () => '')
-  const g = useSourced(getGroupings, [])
+  const { route } = useApp()
+  const named = route.query.grouping ?? ''
+  const g = useAllGroupings()
+  const loaded = !!g.data
+  const namedUnit = named && loaded ? (g.all.find(x => x.id === named)?.unit ?? null) : null
+  // the named grouping becomes the session's pick when the link ARRIVES (keyed on the URL, not on the store): an
+  // in-app link that carries no parameter then stays on it, and a pick made afterwards is not undone by a URL
+  // that is one render behind it
+  useEffect(() => { if (named && namedUnit === unit) setId(named) }, [named, namedUnit, unit, setId])
   useEffect(() => {
-    if (id || !g.data) return
-    const newest = newestGrouping(g.data, unit)
+    // a URL naming a grouping of the OTHER unit says nothing about this one, which still needs its default
+    if (id || !loaded || (named && (namedUnit === unit || namedUnit === null))) return
+    const newest = newestGrouping(g.all, unit)
     if (newest) setId(newest.id)
-  }, [id, g.data, unit, setId])
+  }, [id, loaded, named, g.all, unit, setId])
+  if (named && !loaded) return ['', setId]
+  if (named && namedUnit === unit) return [named, setId]
+  if (named && namedUnit === null) return ['', setId]
   return [id, setId]
 }
 export const useMotifGroupingId = () => useResolvedGroupingId('library.grouping.motifs', 'motifs')
@@ -49,6 +70,70 @@ export function newestGrouping(all: Grouping[], unit: Unit): Grouping | undefine
   const mine = all.filter(g => g.unit === unit)
   if (!mine.length) return undefined
   return mine.reduce((a, b) => (groupingNum(b.id) > groupingNum(a.id) ? b : a))
+}
+
+/** fixup-grouping-url: what stands between a Library URL and the pages that read "the current grouping" (atlas,
+ *  family, recurrence, the grouping editor). Two jobs.
+ *   - It REFUSES, by name, a `?grouping=` the page cannot honour: an id that is not among the saved groupings, or a
+ *     grouping of the other unit than the page is drawing. Neither falls back to another grouping: a link that
+ *     says g-05 and draws g-09 is a page that lies about what it shows.
+ *   - It keeps the URL in step when the URL names nothing but the session's pick is not the newest grouping (an
+ *     in-app link carries no parameter): the pick is written into the address, so a reload, or the address pasted
+ *     elsewhere, opens the grouping that is on screen. A URL with no parameter and no pick stays as it is, and
+ *     means the newest.
+ *  `editor`: the grouping editor changes its unit while it works, so a grouping of the other unit is not an
+ *  error there — the hooks simply do not apply it. */
+export function GroupingGate({ editor, children }: { editor?: boolean; children: ReactNode }) {
+  const { route } = useApp()
+  const named = route.query.grouping ?? ''
+  const pageUnit: Unit = route.query.unit === 'sequences' ? 'sequences' : 'motifs'
+  const g = useAllGroupings()
+  const [motifId] = useMotifGroupingId()
+  const [seqId] = useSequenceGroupingId()
+  const shown = pageUnit === 'sequences' ? seqId : motifId
+  const loaded = !!g.data
+  const hit = named && loaded ? g.all.find(x => x.id === named) ?? null : null
+  const newest = newestGrouping(g.all, pageUnit)?.id ?? ''
+  const pickIsSaved = g.all.some(x => x.id === shown)
+  useEffect(() => {
+    if (!loaded || named || !shown || shown === newest || !pickIsSaved) return
+    setQuery({ grouping: shown }, true)
+  }, [loaded, named, shown, newest, pickIsSaved])
+  if (!named || !loaded) return <>{children}</>
+  const ofUnit = (u: Unit) => g.all.filter(x => x.unit === u).map(x => x.id).join(', ') || 'none saved'
+  if (!hit) {
+    return (
+      <>
+        <Header workspace="Library" page="Motifs" subtitle={`grouping ${named} · not found`} />
+        <Page>
+          <div className="error-card" data-testid="grouping-unknown" role="alert">
+            <h3>No grouping called {named}</h3>
+            <div className="mono small">This address asks for grouping <b>{named}</b>, and it is not among the saved groupings ({UNIT_LABEL.motifs}: {ofUnit('motifs')} · {UNIT_LABEL.sequences}: {ofUnit('sequences')}). Nothing else has been opened in its place. The link may have been made against another database, or the grouping has since been deleted.</div>
+            <div style={{ marginTop: 8 }}><Button size="sm" testid="grouping-unknown-newest" onClick={() => setQuery({ grouping: null })}>Open the current grouping instead</Button></div>
+          </div>
+        </Page>
+      </>
+    )
+  }
+  if (!editor && hit.unit !== pageUnit) {
+    const drawn = hit.unit === 'motifs' || hit.unit === 'sequences'
+    return (
+      <>
+        <Header workspace="Library" page="Motifs" subtitle={`grouping ${named} · ${UNIT_LABEL[hit.unit]}`} />
+        <Page>
+          <div className="error-card" data-testid="grouping-wrong-unit" role="alert">
+            <h3>Grouping {named} groups {UNIT_LABEL[hit.unit]}, and this address asks for {UNIT_LABEL[pageUnit]}</h3>
+            <div className="mono small">{drawn ? `Nothing has been opened in its place. The ${UNIT_LABEL[pageUnit]} groupings are ${ofUnit(pageUnit)}.` : `No Library page draws a grouping of ${UNIT_LABEL[hit.unit]} yet, and nothing has been opened in its place.`}</div>
+            <div className="row" style={{ marginTop: 8, gap: 8 }}>
+              {drawn && <Button size="sm" variant="primary" testid="grouping-wrong-unit-open" onClick={() => setQuery({ unit: hit.unit === 'sequences' ? 'sequences' : null })}>Open {named} as {UNIT_LABEL[hit.unit]}</Button>}
+              <Button size="sm" testid="grouping-wrong-unit-newest" onClick={() => setQuery({ grouping: null })}>Open the current {UNIT_LABEL[pageUnit]} grouping instead</Button>
+            </div>
+          </div>
+        </Page>
+      </>
+    )
+  }
+  return <>{children}</>
 }
 
 /** What a section knows about its grouping, for pages that must tell "still loading" apart from "this library
@@ -193,13 +278,19 @@ export function GroupingBar({ unit, grouping, from, inert, onUnit }: { unit: Uni
     recordDemoWrite('library', 'switch-grouping', { grouping: g.id })
     if (g.unit === 'motifs') setMotifGrouping(g.id)
     if (g.unit === 'sequences') setSeqGrouping(g.id)
-    if (onUnit) onUnit(g.unit)
-    else if (g.unit === 'sequences') navigate('library/atlas?unit=sequences')
+    // fixup-grouping-url: the pick goes into the URL too, so the address names the grouping on screen and a
+    // reload keeps it. Only the units a page draws: a spike-train grouping has no atlas to name it on.
+    const drawn = g.unit === 'motifs' || g.unit === 'sequences'
+    const atlasOf = `library/atlas?${g.unit === 'sequences' ? 'unit=sequences&' : ''}grouping=${encodeURIComponent(g.id)}`
+    if (onUnit) { onUnit(g.unit); setQuery({ grouping: drawn ? g.id : null }, true) }
+    else if (drawn && g.unit !== unit) navigate(atlasOf)
+    else if (drawn) setQuery({ grouping: g.id }, true)
     push({ text: `Grouping ${g.id} applied · scope cleared` })
   }
   const unitChange = (u: Unit) => {
     if (u === 'spike-trains') { navigate(`library/grouping?unit=spike-trains&from=${encodeURIComponent(from)}`); return }
-    if (onUnit) onUnit(u)
+    // the URL's grouping is of the unit being left; the unit arrived at shows its own pick (or its newest)
+    if (onUnit) { if (u !== unit) setQuery({ grouping: null }, true); onUnit(u) }
   }
   const omittedLabel = grouping ? `${fmtInt(grouping.omitted)} omitted · flagged` : '…'
   return (

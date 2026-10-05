@@ -1096,9 +1096,10 @@ class Smoke:
     def pin_grouping(self, page, pins: dict):
         """fixup-smoke: a state that names a family (`F-03`, `F-130`) is about ONE grouping, but the Library opens on
         the NEWEST grouping of each unit (`chrome.tsx::useResolvedGroupingId`, the bridge's `_default_grouping`), and
-        the researcher makes groupings in the database the sandbox copies (g-07..g-09 on 2026-10-05). Nothing in the
-        URL names a grouping (the client ignores `?grouping=`), so the walk picks it the way a person does: the
-        grouping bar's basis chip, then the option. The pick lives in the client's in-memory store and survives the
+        the researcher makes groupings in the database the sandbox copies (g-07..g-09 on 2026-10-05). When this was
+        written the client ignored `?grouping=`; since fixup-grouping-url it honours it (`library_grouping_url.json`
+        walks that), and these states still pick the grouping the way a person does — the grouping bar's basis chip,
+        then the option — so the bar stays walked and their hashes stay the in-app links they are. The pick lives in the client's in-memory store and survives the
         walk's hash navigations, so it is done once and re-done only when the store says otherwise. The pick is
         verified, never assumed: a grouping id that is no longer offered, or a store that did not take it, raises,
         and the state fails with that reason."""
