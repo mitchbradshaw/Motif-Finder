@@ -77,6 +77,20 @@ which one does better on the exam.
   does not touch the paired training job or its label-shuffle null. It does mean the detection counts Explore shows
   beside the labelled windows are the real runs' only (M2_aug: 576 → 546).
 
+- **The unlabelled pool exists (2026-10-05, `AF`, `docs/prompts/fixup/reports/AF-multiscale-window-pools.md`).**
+  Library › Window sets › *New window set* cuts a recording into non-overlapping windows at 1 / 10 / 30 minutes,
+  manual labels ignored, artifact spans left out and counted, no roles; `Working/training/pool.py` `combine` (and
+  `python -m Working.training combine`) lays a **region-first** plan over any saved sets — roles are stretches of time
+  per channel, the same for every scale, blocked by time as `AB` with a 30-minute gap, a whole pack held out as exam —
+  and removes exact duplicates and within-scale overlaps (across scales allowed, never across roles; or *no overlap*,
+  smaller scale wins). The six sets on the real data (sandbox copy): M2_aug 690,837 / 69,021 / 22,947 and M2 271,184 /
+  27,104 / 9,024 windows at 1 / 10 / 30 min; 1,643 left out for artifact (all M2_aug). Fenced supply with pack D held
+  out: 1,088,365 windows. **One pool** (20,000 per scale, seed 0): **60,000** — train 31,460 · validation 4,380 · test
+  9,050 · exam 15,110; 1,512 in a gap and 240 straddling a boundary dropped; no window of one role in another's stretch.
+  Built in ~4 s per recording, combined in ~7 s. The *Window pool* block that calls it is `AG`'s.
+- **Found by `AF`:** 4 windows of the baseline's window set 1 overlap a human artifact span (`AA`'s rule excludes a
+  window *inside* one, not one that only touches one). Run 79 is history and was not changed.
+
 ## Decisions already made (`docs/prompts/fixup/QUESTIONS.md`)
 
 - **Q41 (2026-10-03):**
@@ -125,7 +139,9 @@ which one does better on the exam.
 | A saved window set as an Analyse **source** (§6.9 frame 0b) — a validator change; `AA` stopped at saving and listing | later |
 | ~~A window set over **several channels / the whole recording**~~ | done, `AB` (Models › Launch) |
 
-| **New scope:** a pooled set that also holds **unlabelled** windows (> 10,000 across all M2_aug channels, test regions and artifact regions left out) for arm B to cluster — today the set is labelled windows only (`AB` report §3, default 1) | to build |
+| ~~**New scope:** a pooled set that also holds **unlabelled** windows (> 10,000 across all M2_aug channels, test regions and artifact regions left out) for arm B to cluster~~ — six unlabelled sets (M2_aug, M2 × 1 / 10 / 30 min) and the region-first combine | done, `AF` (2026-10-05) |
+| The *Window pool* chain block over `pool.combine`, the shape clustering, the noise floor, the dendrogram | `AG` |
+| **Open (the researcher):** the pool's mix of scales — equal 20,000 per scale (`AF`'s recommendation and what its pool used), all 10 / 30-min windows plus a 1-min sample, or equal hours (`AF` report §7) | researcher |
 | **New scope:** blind labelling in Review with the cluster names as buttons, plus "can't tell" (this is yardstick (B), now the main yardstick) | to build |
 | **New scope:** the researcher's codebook — one page, each category defined with 2–3 example windows, written before labelling | researcher |
 
@@ -283,7 +299,12 @@ vectors), which works well there on **detected motifs**, each aligned to its eve
 shape can fall anywhere in a window; `AG` measures whether the piles gather by shape or by position before the piles
 are trusted.
 
-**Tickets (`docs/prompts/fixup/`, written 2026-10-05, none run):** `AF-multiscale-window-pools.md` →
+**Built by `AF` (2026-10-05):** the six window sets and the combine function — see *What is known*. Two choices `AF`
+made and said in its report: the *no overlap* rule keeps the smaller scale (larger-wins would erase every smaller
+window, since the 30-minute grid tiles the recording), and the per-scale sample is drawn after the fence, so each role
+keeps its share.
+
+**Tickets (`docs/prompts/fixup/`, written 2026-10-05):** `AF-multiscale-window-pools.md` (run) →
 `AG-shape-clustering-and-dendrogram.md` → `AH-blind-test-labelling.md`, with `AI-cnn-arm-slurm.md` beside `AH`, then
 `AJ-jobs-usable-for-rq1.md`.
 
@@ -299,7 +320,11 @@ Follow `RESEARCH_RUNBOOK.md` Q1:
 
 ## Open decisions
 
-None. Q-W1, Q-W2 and Q-W4 were answered 2026-10-03.
+Q-W1, Q-W2 and Q-W4 were answered 2026-10-03.
+
+- **The pool's mix of scales** (`AF` report §7, 2026-10-05): equal 20,000 per scale (recommended; what `AF`'s pool used), all
+  10- and 30-minute windows plus a 1-minute sample, or equal hours per scale. One parameter with a seed; no set needs
+  rebuilding whichever is chosen.
 
 ## Log
 
@@ -327,3 +352,7 @@ None. Q-W1, Q-W2 and Q-W4 were answered 2026-10-03.
 - 2026-10-05 · researcher · confirmed before `AF`: the *Window pool* chain block (`AG`) picks from the library of all
   saved window sets and combines them; `AF` builds the six sets and the combine function; the train / test fence is
   laid over the pool, not stored on a set; the chain ends in *Train model*, which opens Models › Launch prefilled.
+- 2026-10-05 · fixup-af · six unlabelled window sets built from Library › Window sets (M2_aug 690,837 / 69,021 / 22,947;
+  M2 271,184 / 27,104 / 9,024 at 1 / 10 / 30 min; 1,643 artifact windows left out) and `pool.combine` with a
+  region-first plan; one pool with pack D held out, 20,000 per scale: 60,000 (train 31,460 · validation 4,380 · test
+  9,050 · exam 15,110). Open: the mix of scales (report §7).

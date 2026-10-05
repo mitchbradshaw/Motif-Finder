@@ -1,0 +1,16 @@
+combined in 2.0 s (not saved: give --name to save it)
+pool key 86bf32c777d899a0 · 68,925 windows
+rule within_scale: within a scale no two windows overlap; across scales overlap is allowed (a 30-minute window and a 1-minute window inside it are different objects) but never across roles; exact duplicates removed; the first set listed wins
+plan: region-first, blocked by time · 10 blocks · test 0.2 · validation 0.1 · gap 30 min · pack D (CH13–16) held out as exam
+  M2_aug_concat.mat: 721.0 h · exam channels [13, 14, 15, 16] (one-based) · train 0.0–504.7 h · validation 505.2–576.8 h · test 577.3–721.0 h
+members, in order (the first listed wins a duplicate or an overlap):
+  1. ws_M2_aug_concat_fs1_10min v1 (unlabelled, key c3d49a3775166770) · offered 69,021 · kept 68,925
+  2. ws_M2_aug_concat_fs1_12tr4ex v1 (labelled_across_channels, key 158a86478d8df618) · offered 10,077 · kept 0
+  3. ws_M2_aug_concat_fs1_10min v1 (unlabelled, key c3d49a3775166770) · offered 69,021 · kept 0
+windows per recording × scale × role:
+  recording                      scale       train  validation        test        exam     total
+  M2_aug_concat_fs1.mat         10 min      36,184       5,133      10,343      17,265    68,925
+  all                                       36,184       5,133      10,343      17,265    68,925
+dropped when combined: in a gap 103 · straddling a role boundary 104 · artifact (checked again) 4 · exact duplicates 72,241 · overlap within a scale 6,742 · sampled out 0 · overlap across scales 0
+left out when the sets were built: artifact (human label) 390 · excluded by Settings 0 · non-finite samples 0 · sampled out 0
+checks: windows inside another role's stretch: 0 · overlaps across roles: 0 · overlaps within a scale: 0 · overlaps across scales (allowed): 0

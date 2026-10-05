@@ -1,0 +1,26 @@
+combined in 6.2 s (not saved: give --name to save it)
+pool key d90b47e4eedca5b6 · 41,570 windows
+rule no_overlap: no two windows overlap at all, across scales either: the SMALLER scale wins (sampled first, then every larger window touching a kept smaller one is dropped); exact duplicates removed; the first set listed wins within a scale
+plan: region-first, blocked by time · 10 blocks · test 0.2 · validation 0.1 · gap 30 min · pack D (CH13–16) held out as exam
+  M2_aug_concat.mat: 721.0 h · exam channels [13, 14, 15, 16] (one-based) · train 0.0–504.7 h · validation 505.2–576.8 h · test 577.3–721.0 h
+  M2_concat.mat: 282.5 h · exam channels [13, 14, 15, 16] (one-based) · train 0.0–197.7 h · validation 198.2–226.0 h · test 226.5–282.5 h
+sample per scale (seed 0): 1 min → 20,000, 10 min → 20,000, 30 min → 20,000
+members, in order (the first listed wins a duplicate or an overlap):
+  1. ws_M2_aug_concat_fs1_1min v1 (unlabelled, key 9d704590377daf70) · offered 690,837 · kept 14,415
+  2. ws_M2_aug_concat_fs1_10min v1 (unlabelled, key c3d49a3775166770) · offered 69,021 · kept 11,758
+  3. ws_M2_aug_concat_fs1_30min v1 (unlabelled, key 5d22833189e1027c) · offered 22,947 · kept 3,793
+  4. ws_M2_concat_fs1_1min v1 (unlabelled, key 7f0641769696991d) · offered 271,184 · kept 5,585
+  5. ws_M2_concat_fs1_10min v1 (unlabelled, key b6b67273e9802195) · offered 27,104 · kept 4,511
+  6. ws_M2_concat_fs1_30min v1 (unlabelled, key 0433fd66adc67fd3) · offered 9,024 · kept 1,508
+windows per recording × scale × role:
+  recording                      scale       train  validation        test        exam     total
+  M2_aug_concat_fs1.mat          1 min       7,565       1,035       2,160       3,655    14,415
+  M2_aug_concat_fs1.mat         10 min       6,126         899       1,766       2,967    11,758
+  M2_aug_concat_fs1.mat         30 min       1,974         283         590         946     3,793
+  M2_concat_fs1.mat              1 min       2,911         412         849       1,413     5,585
+  M2_concat_fs1.mat             10 min       2,382         325         669       1,135     4,511
+  M2_concat_fs1.mat             30 min         811         125         212         360     1,508
+  all                                       21,769       3,079       6,246      10,476    41,570
+dropped when combined: in a gap 1,512 · straddling a role boundary 240 · artifact (checked again) 0 · exact duplicates 0 · overlap within a scale 0 · sampled out 1,028,365 · overlap across scales 18,430
+left out when the sets were built: artifact (human label) 1,643 · excluded by Settings 0 · non-finite samples 0 · sampled out 0
+checks: windows inside another role's stretch: 0 · overlaps across roles: 0 · overlaps within a scale: 0 · overlaps across scales (allowed): 0

@@ -1,0 +1,6 @@
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+2312 passed, 25 skipped, 18700 warnings in 488.41s (0:08:08)
+FAILED tests/test_webui_discovery.py::test_the_scoreboard_cells_are_the_tables_own_numbers
+FAILED tests/test_webui_library.py::test_a_cell_never_looked_at_differs_from_one_looked_at_and_empty
+2 failed, 414 passed, 3 xpassed, 501 warnings in 619.55s (0:10:19)
