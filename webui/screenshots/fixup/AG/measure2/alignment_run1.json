@@ -1,0 +1,1735 @@
+{
+ "pool_key": "712f477b262b2fd8",
+ "combos": [
+  {
+   "align": "grid",
+   "detrend": "off",
+   "label": "grid-off",
+   "t_shape_s": 72.5,
+   "t_tree_s": 67.9,
+   "n_kept": 57485,
+   "n_train": 30978,
+   "under_floor": 2515,
+   "floors": {
+    "M2_aug_concat_fs1.mat": {
+     "floor_mv": 0.1,
+     "from": "default 0.1 mV (empty in Settings \u203a Datasets)"
+    },
+    "M2_concat_fs1.mat": {
+     "floor_mv": 0.1,
+     "from": "default 0.1 mV (empty in Settings \u203a Datasets)"
+    }
+   },
+   "recut": {
+    "n_moved": 0,
+    "n_clamped": 0,
+    "n_pinned_by_artifact": 0,
+    "n_near_duplicate": 0,
+    "n_overlap_within_scale": 0,
+    "by_scale": {},
+    "rule": "the window as the pool cut it, on the grid"
+   },
+   "silhouette_by_k": {
+    "2": 0.4590069565618067,
+    "3": 0.36345473060362393,
+    "4": 0.2836422468180643,
+    "5": 0.28393323926687414,
+    "6": 0.16426821908101286,
+    "7": 0.16868791660146107,
+    "8": 0.16510224540336735,
+    "9": 0.14640757876262792,
+    "10": 0.1397537296931066,
+    "11": 0.14082050119045764,
+    "12": 0.11949042252029408,
+    "13": 0.1220919418561227,
+    "14": 0.09306363107980578,
+    "15": 0.09479012757498874,
+    "16": 0.09565007027005382,
+    "17": 0.04742178676732331,
+    "18": 0.04740928673120178,
+    "19": 0.049556604312965165,
+    "20": 0.04814477563138943
+   },
+   "suggested_k": 2,
+   "at_k": {
+    "2": {
+     "k": 2,
+     "sizes": [
+      13283,
+      17695
+     ],
+     "piles": [
+      {
+       "cluster": 1,
+       "n": 13283,
+       "scales": {
+        "1": 3890,
+        "10": 4592,
+        "30": 4801
+       },
+       "under_1mv": 0.339,
+       "under_noise": 0.124,
+       "under_noise_by_scale": {
+        "1": 0.352,
+        "10": 0.048,
+        "30": 0.012
+       }
+      },
+      {
+       "cluster": 2,
+       "n": 17695,
+       "scales": {
+        "1": 6105,
+        "10": 5857,
+        "30": 5733
+       },
+       "under_1mv": 0.375,
+       "under_noise": 0.137,
+       "under_noise_by_scale": {
+        "1": 0.342,
+        "10": 0.05,
+        "30": 0.009
+       }
+      }
+     ],
+     "nmi_scale": 0.0018,
+     "nmi_recording": 0.0003,
+     "shifted_copies": 0,
+     "pairs": 1,
+     "noise_like_share": {
+      "under_1mv": 0.36,
+      "under_noise": 0.132,
+      "under_noise_by_scale": {
+       "1": 0.346,
+       "10": 0.049,
+       "30": 0.01
+      },
+      "under_1mv_by_scale": {
+       "1": 0.803,
+       "10": 0.243,
+       "30": 0.054
+      }
+     },
+     "noisy_piles": [],
+     "share_of_noise_in_noisy_piles": 0.0
+    },
+    "8": {
+     "k": 8,
+     "sizes": [
+      3218,
+      2037,
+      1596,
+      6317,
+      1846,
+      1965,
+      8915,
+      5084
+     ],
+     "piles": [
+      {
+       "cluster": 1,
+       "n": 3218,
+       "scales": {
+        "1": 761,
+        "10": 1147,
+        "30": 1310
+       },
+       "under_1mv": 0.288,
+       "under_noise": 0.099,
+       "under_noise_by_scale": {
+        "1": 0.331,
+        "10": 0.04,
+        "30": 0.015
+       }
+      },
+      {
+       "cluster": 2,
+       "n": 2037,
+       "scales": {
+        "1": 446,
+        "10": 737,
+        "30": 854
+       },
+       "under_1mv": 0.289,
+       "under_noise": 0.108,
+       "under_noise_by_scale": {
+        "1": 0.39,
+        "10": 0.052,
+        "30": 0.011
+       }
+      },
+      {
+       "cluster": 3,
+       "n": 1596,
+       "scales": {
+        "1": 587,
+        "10": 471,
+        "30": 538
+       },
+       "under_1mv": 0.39,
+       "under_noise": 0.256,
+       "under_noise_by_scale": {
+        "1": 0.618,
+        "10": 0.079,
+        "30": 0.015
+       }
+      },
+      {
+       "cluster": 4,
+       "n": 6317,
+       "scales": {
+        "1": 1996,
+        "10": 2224,
+        "30": 2097
+       },
+       "under_1mv": 0.362,
+       "under_noise": 0.103,
+       "under_noise_by_scale": {
+        "1": 0.265,
+        "10": 0.045,
+        "30": 0.01
+       }
+      },
+      {
+       "cluster": 5,
+       "n": 1846,
+       "scales": {
+        "1": 450,
+        "10": 632,
+        "30": 764
+       },
+       "under_1mv": 0.333,
+       "under_noise": 0.141,
+       "under_noise_by_scale": {
+        "1": 0.442,
+        "10": 0.079,
+        "30": 0.014
+       }
+      },
+      {
+       "cluster": 6,
+       "n": 1965,
+       "scales": {
+        "1": 977,
+        "10": 432,
+        "30": 556
+       },
+       "under_1mv": 0.487,
+       "under_noise": 0.278,
+       "under_noise_by_scale": {
+        "1": 0.518,
+        "10": 0.072,
+        "30": 0.016
+       }
+      },
+      {
+       "cluster": 7,
+       "n": 8915,
+       "scales": {
+        "1": 3246,
+        "10": 3077,
+        "30": 2592
+       },
+       "under_1mv": 0.37,
+       "under_noise": 0.1,
+       "under_noise_by_scale": {
+        "1": 0.234,
+        "10": 0.039,
+        "30": 0.005
+       }
+      },
+      {
+       "cluster": 8,
+       "n": 5084,
+       "scales": {
+        "1": 1532,
+        "10": 1729,
+        "30": 1823
+       },
+       "under_1mv": 0.362,
+       "under_noise": 0.154,
+       "under_noise_by_scale": {
+        "1": 0.441,
+        "10": 0.051,
+        "30": 0.009
+       }
+      }
+     ],
+     "nmi_scale": 0.0079,
+     "nmi_recording": 0.0048,
+     "shifted_copies": 19,
+     "pairs": 28,
+     "noise_like_share": {
+      "under_1mv": 0.36,
+      "under_noise": 0.132,
+      "under_noise_by_scale": {
+       "1": 0.346,
+       "10": 0.049,
+       "30": 0.01
+      },
+      "under_1mv_by_scale": {
+       "1": 0.803,
+       "10": 0.243,
+       "30": 0.054
+      }
+     },
+     "noisy_piles": [],
+     "share_of_noise_in_noisy_piles": 0.0
+    }
+   }
+  },
+  {
+   "align": "grid",
+   "detrend": "linear",
+   "label": "grid-linear",
+   "t_shape_s": 95.2,
+   "t_tree_s": 51.8,
+   "n_kept": 57485,
+   "n_train": 30978,
+   "under_floor": 2515,
+   "floors": {
+    "M2_aug_concat_fs1.mat": {
+     "floor_mv": 0.1,
+     "from": "default 0.1 mV (empty in Settings \u203a Datasets)"
+    },
+    "M2_concat_fs1.mat": {
+     "floor_mv": 0.1,
+     "from": "default 0.1 mV (empty in Settings \u203a Datasets)"
+    }
+   },
+   "recut": {
+    "n_moved": 0,
+    "n_clamped": 0,
+    "n_pinned_by_artifact": 0,
+    "n_near_duplicate": 0,
+    "n_overlap_within_scale": 0,
+    "by_scale": {},
+    "rule": "the window as the pool cut it, on the grid"
+   },
+   "silhouette_by_k": {
+    "2": 0.16058062995778352,
+    "3": 0.11596431817635501,
+    "4": 0.09991215125762848,
+    "5": 0.05980582629631941,
+    "6": 0.03624997309474473,
+    "7": 0.04029702202010025,
+    "8": 0.02851689218429857,
+    "9": 0.030695103845656952,
+    "10": 0.012528289777698454,
+    "11": 0.01552135290293519,
+    "12": -0.0004567818975235509,
+    "13": -0.0019046568110302874,
+    "14": 0.0012241719636372727,
+    "15": 0.0032967179649733085,
+    "16": 0.003967458975037265,
+    "17": 0.0056530622178514395,
+    "18": -0.009620030141107084,
+    "19": -0.012225734947262324,
+    "20": -0.013211856373912865
+   },
+   "suggested_k": 2,
+   "at_k": {
+    "2": {
+     "k": 2,
+     "sizes": [
+      11604,
+      19374
+     ],
+     "piles": [
+      {
+       "cluster": 1,
+       "n": 11604,
+       "scales": {
+        "1": 2921,
+        "10": 4372,
+        "30": 4311
+       },
+       "under_1mv": 0.295,
+       "under_noise": 0.089,
+       "under_noise_by_scale": {
+        "1": 0.277,
+        "10": 0.042,
+        "30": 0.009
+       }
+      },
+      {
+       "cluster": 2,
+       "n": 19374,
+       "scales": {
+        "1": 7074,
+        "10": 6077,
+        "30": 6223
+       },
+       "under_1mv": 0.398,
+       "under_noise": 0.157,
+       "under_noise_by_scale": {
+        "1": 0.374,
+        "10": 0.054,
+        "30": 0.011
+       }
+      }
+     ],
+     "nmi_scale": 0.008,
+     "nmi_recording": 0.0018,
+     "shifted_copies": 1,
+     "pairs": 1,
+     "noise_like_share": {
+      "under_1mv": 0.36,
+      "under_noise": 0.132,
+      "under_noise_by_scale": {
+       "1": 0.346,
+       "10": 0.049,
+       "30": 0.01
+      },
+      "under_1mv_by_scale": {
+       "1": 0.803,
+       "10": 0.243,
+       "30": 0.054
+      }
+     },
+     "noisy_piles": [],
+     "share_of_noise_in_noisy_piles": 0.0
+    },
+    "8": {
+     "k": 8,
+     "sizes": [
+      4729,
+      2803,
+      3390,
+      3679,
+      4484,
+      2915,
+      3838,
+      5140
+     ],
+     "piles": [
+      {
+       "cluster": 1,
+       "n": 4729,
+       "scales": {
+        "1": 996,
+        "10": 1869,
+        "30": 1864
+       },
+       "under_1mv": 0.242,
+       "under_noise": 0.053,
+       "under_noise_by_scale": {
+        "1": 0.178,
+        "10": 0.033,
+        "30": 0.007
+       }
+      },
+      {
+       "cluster": 2,
+       "n": 2803,
+       "scales": {
+        "1": 669,
+        "10": 1046,
+        "30": 1088
+       },
+       "under_1mv": 0.287,
+       "under_noise": 0.089,
+       "under_noise_by_scale": {
+        "1": 0.287,
+        "10": 0.044,
+        "30": 0.011
+       }
+      },
+      {
+       "cluster": 3,
+       "n": 3390,
+       "scales": {
+        "1": 942,
+        "10": 1273,
+        "30": 1175
+       },
+       "under_1mv": 0.333,
+       "under_noise": 0.119,
+       "under_noise_by_scale": {
+        "1": 0.352,
+        "10": 0.047,
+        "30": 0.009
+       }
+      },
+      {
+       "cluster": 4,
+       "n": 3679,
+       "scales": {
+        "1": 1022,
+        "10": 1334,
+        "30": 1323
+       },
+       "under_1mv": 0.334,
+       "under_noise": 0.118,
+       "under_noise_by_scale": {
+        "1": 0.339,
+        "10": 0.054,
+        "30": 0.011
+       }
+      },
+      {
+       "cluster": 5,
+       "n": 4484,
+       "scales": {
+        "1": 1041,
+        "10": 1686,
+        "30": 1757
+       },
+       "under_1mv": 0.289,
+       "under_noise": 0.08,
+       "under_noise_by_scale": {
+        "1": 0.25,
+        "10": 0.046,
+        "30": 0.012
+       }
+      },
+      {
+       "cluster": 6,
+       "n": 2915,
+       "scales": {
+        "1": 618,
+        "10": 1076,
+        "30": 1221
+       },
+       "under_1mv": 0.272,
+       "under_noise": 0.089,
+       "under_noise_by_scale": {
+        "1": 0.309,
+        "10": 0.053,
+        "30": 0.008
+       }
+      },
+      {
+       "cluster": 7,
+       "n": 3838,
+       "scales": {
+        "1": 1537,
+        "10": 1145,
+        "30": 1156
+       },
+       "under_1mv": 0.451,
+       "under_noise": 0.179,
+       "under_noise_by_scale": {
+        "1": 0.398,
+        "10": 0.054,
+        "30": 0.011
+       }
+      },
+      {
+       "cluster": 8,
+       "n": 5140,
+       "scales": {
+        "1": 3170,
+        "10": 1020,
+        "30": 950
+       },
+       "under_1mv": 0.586,
+       "under_noise": 0.28,
+       "under_noise_by_scale": {
+        "1": 0.426,
+        "10": 0.074,
+        "30": 0.014
+       }
+      }
+     ],
+     "nmi_scale": 0.0286,
+     "nmi_recording": 0.0035,
+     "shifted_copies": 17,
+     "pairs": 28,
+     "noise_like_share": {
+      "under_1mv": 0.36,
+      "under_noise": 0.132,
+      "under_noise_by_scale": {
+       "1": 0.346,
+       "10": 0.049,
+       "30": 0.01
+      },
+      "under_1mv_by_scale": {
+       "1": 0.803,
+       "10": 0.243,
+       "30": 0.054
+      }
+     },
+     "noisy_piles": [],
+     "share_of_noise_in_noisy_piles": 0.0
+    }
+   }
+  },
+  {
+   "align": "centre",
+   "detrend": "off",
+   "label": "centre-off",
+   "t_shape_s": 46.7,
+   "t_tree_s": 44.2,
+   "n_kept": 54281,
+   "n_train": 29370,
+   "under_floor": 2474,
+   "floors": {
+    "M2_aug_concat_fs1.mat": {
+     "floor_mv": 0.1,
+     "from": "default 0.1 mV (empty in Settings \u203a Datasets)"
+    },
+    "M2_concat_fs1.mat": {
+     "floor_mv": 0.1,
+     "from": "default 0.1 mV (empty in Settings \u203a Datasets)"
+    }
+   },
+   "recut": {
+    "n_moved": 53931,
+    "n_clamped": 86,
+    "n_pinned_by_artifact": 0,
+    "n_near_duplicate": 3245,
+    "n_overlap_within_scale": 4464,
+    "by_scale": {
+     "1": {
+      "moved": 17211,
+      "clamped": 1,
+      "near_duplicate": 66
+     },
+     "10": {
+      "moved": 19142,
+      "clamped": 20,
+      "near_duplicate": 807
+     },
+     "30": {
+      "moved": 17578,
+      "clamped": 65,
+      "near_duplicate": 2372
+     }
+    },
+    "rule": "re-cut, the same length, centred on its largest swing \u2014 kept wholly inside its own role's stretch on its own channel, inside the recording and clear of artifact spans; where the centre cannot be reached it is shifted as far as allowed (clamped, counted); a window whose re-cut overlaps an already-kept window of the same scale on the same channel by more than half is a near-duplicate (one event twice) and is dropped, counted"
+   },
+   "silhouette_by_k": {
+    "2": 0.43198802969921357,
+    "3": 0.3559623104295595,
+    "4": 0.3460234367636834,
+    "5": 0.2981224176738862,
+    "6": 0.14556191273834249,
+    "7": 0.1504852087818094,
+    "8": 0.07916893174231279,
+    "9": 0.07921783556736925,
+    "10": 0.07294899672090988,
+    "11": 0.07607553525706182,
+    "12": 0.06263186327426848,
+    "13": 0.06514469682875983,
+    "14": 0.06631872831970606,
+    "15": 0.06888737797275025,
+    "16": 0.06832788995955519,
+    "17": 0.07064881143971886,
+    "18": 0.07078340965789584,
+    "19": 0.07113973322099652,
+    "20": 0.07263656938091752
+   },
+   "suggested_k": 2,
+   "at_k": {
+    "2": {
+     "k": 2,
+     "sizes": [
+      13497,
+      15873
+     ],
+     "piles": [
+      {
+       "cluster": 1,
+       "n": 13497,
+       "scales": {
+        "1": 4315,
+        "10": 4622,
+        "30": 4560
+       },
+       "under_1mv": 0.345,
+       "under_noise": 0.13,
+       "under_noise_by_scale": {
+        "1": 0.344,
+        "10": 0.049,
+        "30": 0.011
+       }
+      },
+      {
+       "cluster": 2,
+       "n": 15873,
+       "scales": {
+        "1": 5642,
+        "10": 5435,
+        "30": 4796
+       },
+       "under_1mv": 0.382,
+       "under_noise": 0.142,
+       "under_noise_by_scale": {
+        "1": 0.345,
+        "10": 0.049,
+        "30": 0.009
+       }
+      }
+     ],
+     "nmi_scale": 0.0011,
+     "nmi_recording": 0.0002,
+     "shifted_copies": 0,
+     "pairs": 1,
+     "noise_like_share": {
+      "under_1mv": 0.365,
+      "under_noise": 0.137,
+      "under_noise_by_scale": {
+       "1": 0.344,
+       "10": 0.049,
+       "30": 0.01
+      },
+      "under_1mv_by_scale": {
+       "1": 0.793,
+       "10": 0.233,
+       "30": 0.052
+      }
+     },
+     "noisy_piles": [],
+     "share_of_noise_in_noisy_piles": 0.0
+    },
+    "8": {
+     "k": 8,
+     "sizes": [
+      1967,
+      2801,
+      3914,
+      4717,
+      2275,
+      2111,
+      5354,
+      6231
+     ],
+     "piles": [
+      {
+       "cluster": 1,
+       "n": 1967,
+       "scales": {
+        "1": 838,
+        "10": 604,
+        "30": 525
+       },
+       "under_1mv": 0.52,
+       "under_noise": 0.253,
+       "under_noise_by_scale": {
+        "1": 0.512,
+        "10": 0.094,
+        "30": 0.023
+       }
+      },
+      {
+       "cluster": 2,
+       "n": 2801,
+       "scales": {
+        "1": 654,
+        "10": 947,
+        "30": 1200
+       },
+       "under_1mv": 0.23,
+       "under_noise": 0.105,
+       "under_noise_by_scale": {
+        "1": 0.396,
+        "10": 0.032,
+        "30": 0.005
+       }
+      },
+      {
+       "cluster": 3,
+       "n": 3914,
+       "scales": {
+        "1": 1373,
+        "10": 1368,
+        "30": 1173
+       },
+       "under_1mv": 0.387,
+       "under_noise": 0.135,
+       "under_noise_by_scale": {
+        "1": 0.32,
+        "10": 0.053,
+        "30": 0.013
+       }
+      },
+      {
+       "cluster": 4,
+       "n": 4717,
+       "scales": {
+        "1": 1463,
+        "10": 1664,
+        "30": 1590
+       },
+       "under_1mv": 0.317,
+       "under_noise": 0.095,
+       "under_noise_by_scale": {
+        "1": 0.252,
+        "10": 0.038,
+        "30": 0.01
+       }
+      },
+      {
+       "cluster": 5,
+       "n": 2275,
+       "scales": {
+        "1": 912,
+        "10": 619,
+        "30": 744
+       },
+       "under_1mv": 0.416,
+       "under_noise": 0.23,
+       "under_noise_by_scale": {
+        "1": 0.52,
+        "10": 0.06,
+        "30": 0.017
+       }
+      },
+      {
+       "cluster": 6,
+       "n": 2111,
+       "scales": {
+        "1": 397,
+        "10": 816,
+        "30": 898
+       },
+       "under_1mv": 0.238,
+       "under_noise": 0.093,
+       "under_noise_by_scale": {
+        "1": 0.378,
+        "10": 0.049,
+        "30": 0.008
+       }
+      },
+      {
+       "cluster": 7,
+       "n": 5354,
+       "scales": {
+        "1": 1746,
+        "10": 1934,
+        "30": 1674
+       },
+       "under_1mv": 0.367,
+       "under_noise": 0.112,
+       "under_noise_by_scale": {
+        "1": 0.289,
+        "10": 0.044,
+        "30": 0.006
+       }
+      },
+      {
+       "cluster": 8,
+       "n": 6231,
+       "scales": {
+        "1": 2574,
+        "10": 2105,
+        "30": 1552
+       },
+       "under_1mv": 0.423,
+       "under_noise": 0.148,
+       "under_noise_by_scale": {
+        "1": 0.312,
+        "10": 0.051,
+        "30": 0.008
+       }
+      }
+     ],
+     "nmi_scale": 0.0089,
+     "nmi_recording": 0.0031,
+     "shifted_copies": 15,
+     "pairs": 28,
+     "noise_like_share": {
+      "under_1mv": 0.365,
+      "under_noise": 0.137,
+      "under_noise_by_scale": {
+       "1": 0.344,
+       "10": 0.049,
+       "30": 0.01
+      },
+      "under_1mv_by_scale": {
+       "1": 0.793,
+       "10": 0.233,
+       "30": 0.052
+      }
+     },
+     "noisy_piles": [],
+     "share_of_noise_in_noisy_piles": 0.0
+    }
+   }
+  },
+  {
+   "align": "centre",
+   "detrend": "linear",
+   "label": "centre-linear",
+   "t_shape_s": 53.3,
+   "t_tree_s": 49.9,
+   "n_kept": 54281,
+   "n_train": 29370,
+   "under_floor": 2474,
+   "floors": {
+    "M2_aug_concat_fs1.mat": {
+     "floor_mv": 0.1,
+     "from": "default 0.1 mV (empty in Settings \u203a Datasets)"
+    },
+    "M2_concat_fs1.mat": {
+     "floor_mv": 0.1,
+     "from": "default 0.1 mV (empty in Settings \u203a Datasets)"
+    }
+   },
+   "recut": {
+    "n_moved": 53931,
+    "n_clamped": 86,
+    "n_pinned_by_artifact": 0,
+    "n_near_duplicate": 3245,
+    "n_overlap_within_scale": 4464,
+    "by_scale": {
+     "1": {
+      "moved": 17211,
+      "clamped": 1,
+      "near_duplicate": 66
+     },
+     "10": {
+      "moved": 19142,
+      "clamped": 20,
+      "near_duplicate": 807
+     },
+     "30": {
+      "moved": 17578,
+      "clamped": 65,
+      "near_duplicate": 2372
+     }
+    },
+    "rule": "re-cut, the same length, centred on its largest swing \u2014 kept wholly inside its own role's stretch on its own channel, inside the recording and clear of artifact spans; where the centre cannot be reached it is shifted as far as allowed (clamped, counted); a window whose re-cut overlaps an already-kept window of the same scale on the same channel by more than half is a near-duplicate (one event twice) and is dropped, counted"
+   },
+   "silhouette_by_k": {
+    "2": 0.191857055438805,
+    "3": 0.10525708406488814,
+    "4": 0.10662886718401057,
+    "5": 0.11040509499705357,
+    "6": 0.07523289841151906,
+    "7": 0.056006953446475154,
+    "8": 0.03295087881701648,
+    "9": 0.03318469211320371,
+    "10": 0.038127896121896716,
+    "11": 0.03803480334658225,
+    "12": 0.03744584486351267,
+    "13": 0.02350991536324483,
+    "14": 0.023985566136916932,
+    "15": 0.027553210640181094,
+    "16": 0.020619245766667366,
+    "17": 0.02065233282027353,
+    "18": 0.02241069834438716,
+    "19": 0.012726347060689945,
+    "20": 0.011447722375127265
+   },
+   "suggested_k": 2,
+   "at_k": {
+    "2": {
+     "k": 2,
+     "sizes": [
+      9583,
+      19787
+     ],
+     "piles": [
+      {
+       "cluster": 1,
+       "n": 9583,
+       "scales": {
+        "1": 3538,
+        "10": 3374,
+        "30": 2671
+       },
+       "under_1mv": 0.404,
+       "under_noise": 0.145,
+       "under_noise_by_scale": {
+        "1": 0.331,
+        "10": 0.056,
+        "30": 0.012
+       }
+      },
+      {
+       "cluster": 2,
+       "n": 19787,
+       "scales": {
+        "1": 6419,
+        "10": 6683,
+        "30": 6685
+       },
+       "under_1mv": 0.346,
+       "under_noise": 0.132,
+       "under_noise_by_scale": {
+        "1": 0.352,
+        "10": 0.045,
+        "30": 0.009
+       }
+      }
+     ],
+     "nmi_scale": 0.0022,
+     "nmi_recording": 0.0,
+     "shifted_copies": 1,
+     "pairs": 1,
+     "noise_like_share": {
+      "under_1mv": 0.365,
+      "under_noise": 0.137,
+      "under_noise_by_scale": {
+       "1": 0.344,
+       "10": 0.049,
+       "30": 0.01
+      },
+      "under_1mv_by_scale": {
+       "1": 0.793,
+       "10": 0.233,
+       "30": 0.052
+      }
+     },
+     "noisy_piles": [],
+     "share_of_noise_in_noisy_piles": 0.0
+    },
+    "8": {
+     "k": 8,
+     "sizes": [
+      2815,
+      5747,
+      2905,
+      4291,
+      2008,
+      2704,
+      2915,
+      5985
+     ],
+     "piles": [
+      {
+       "cluster": 1,
+       "n": 2815,
+       "scales": {
+        "1": 780,
+        "10": 1095,
+        "30": 940
+       },
+       "under_1mv": 0.293,
+       "under_noise": 0.071,
+       "under_noise_by_scale": {
+        "1": 0.186,
+        "10": 0.04,
+        "30": 0.012
+       }
+      },
+      {
+       "cluster": 2,
+       "n": 5747,
+       "scales": {
+        "1": 2408,
+        "10": 1939,
+        "30": 1400
+       },
+       "under_1mv": 0.463,
+       "under_noise": 0.183,
+       "under_noise_by_scale": {
+        "1": 0.373,
+        "10": 0.068,
+        "30": 0.014
+       }
+      },
+      {
+       "cluster": 3,
+       "n": 2905,
+       "scales": {
+        "1": 678,
+        "10": 1166,
+        "30": 1061
+       },
+       "under_1mv": 0.274,
+       "under_noise": 0.074,
+       "under_noise_by_scale": {
+        "1": 0.233,
+        "10": 0.041,
+        "30": 0.008
+       }
+      },
+      {
+       "cluster": 4,
+       "n": 4291,
+       "scales": {
+        "1": 934,
+        "10": 1587,
+        "30": 1770
+       },
+       "under_1mv": 0.254,
+       "under_noise": 0.069,
+       "under_noise_by_scale": {
+        "1": 0.237,
+        "10": 0.04,
+        "30": 0.007
+       }
+      },
+      {
+       "cluster": 5,
+       "n": 2008,
+       "scales": {
+        "1": 489,
+        "10": 739,
+        "30": 780
+       },
+       "under_1mv": 0.272,
+       "under_noise": 0.086,
+       "under_noise_by_scale": {
+        "1": 0.297,
+        "10": 0.031,
+        "30": 0.006
+       }
+      },
+      {
+       "cluster": 6,
+       "n": 2704,
+       "scales": {
+        "1": 466,
+        "10": 1086,
+        "30": 1152
+       },
+       "under_1mv": 0.164,
+       "under_noise": 0.04,
+       "under_noise_by_scale": {
+        "1": 0.165,
+        "10": 0.025,
+        "30": 0.003
+       }
+      },
+      {
+       "cluster": 7,
+       "n": 2915,
+       "scales": {
+        "1": 1289,
+        "10": 912,
+        "30": 714
+       },
+       "under_1mv": 0.468,
+       "under_noise": 0.201,
+       "under_noise_by_scale": {
+        "1": 0.41,
+        "10": 0.054,
+        "30": 0.013
+       }
+      },
+      {
+       "cluster": 8,
+       "n": 5985,
+       "scales": {
+        "1": 2913,
+        "10": 1533,
+        "30": 1539
+       },
+       "under_1mv": 0.501,
+       "under_noise": 0.231,
+       "under_noise_by_scale": {
+        "1": 0.431,
+        "10": 0.07,
+        "30": 0.014
+       }
+      }
+     ],
+     "nmi_scale": 0.0212,
+     "nmi_recording": 0.0026,
+     "shifted_copies": 16,
+     "pairs": 28,
+     "noise_like_share": {
+      "under_1mv": 0.365,
+      "under_noise": 0.137,
+      "under_noise_by_scale": {
+       "1": 0.344,
+       "10": 0.049,
+       "30": 0.01
+      },
+      "under_1mv_by_scale": {
+       "1": 0.793,
+       "10": 0.233,
+       "30": 0.052
+      }
+     },
+     "noisy_piles": [],
+     "share_of_noise_in_noisy_piles": 0.0
+    }
+   }
+  }
+ ],
+ "floors": [
+  {
+   "align": "centre",
+   "detrend": "linear",
+   "label": "centre-linear-floor0.3",
+   "t_shape_s": 47.4,
+   "t_tree_s": 41.6,
+   "n_kept": 43893,
+   "n_train": 24843,
+   "under_floor": 12961,
+   "floors": {
+    "M2_aug_concat_fs1.mat": {
+     "floor_mv": 0.3,
+     "from": "Settings \u203a Datasets"
+    },
+    "M2_concat_fs1.mat": {
+     "floor_mv": 0.3,
+     "from": "Settings \u203a Datasets"
+    }
+   },
+   "recut": {
+    "n_moved": 43674,
+    "n_clamped": 84,
+    "n_pinned_by_artifact": 0,
+    "n_near_duplicate": 3146,
+    "n_overlap_within_scale": 4267,
+    "by_scale": {
+     "1": {
+      "moved": 8237,
+      "clamped": 1,
+      "near_duplicate": 27
+     },
+     "10": {
+      "moved": 17936,
+      "clamped": 18,
+      "near_duplicate": 759
+     },
+     "30": {
+      "moved": 17501,
+      "clamped": 65,
+      "near_duplicate": 2360
+     }
+    },
+    "rule": "re-cut, the same length, centred on its largest swing \u2014 kept wholly inside its own role's stretch on its own channel, inside the recording and clear of artifact spans; where the centre cannot be reached it is shifted as far as allowed (clamped, counted); a window whose re-cut overlaps an already-kept window of the same scale on the same channel by more than half is a near-duplicate (one event twice) and is dropped, counted"
+   },
+   "silhouette_by_k": {
+    "2": 0.23917932836262057,
+    "3": 0.18034205865536254,
+    "4": 0.12963706838560235,
+    "5": 0.12573843579537097,
+    "6": 0.08186831815375471,
+    "7": 0.09006469388221186,
+    "8": 0.08050994344858113,
+    "9": 0.04215689028690405,
+    "10": 0.04027425772500147,
+    "11": 0.04341575105516231,
+    "12": 0.03266224368313997,
+    "13": 0.0342915264347966,
+    "14": 0.03691908130068127,
+    "15": 0.03773201899701894,
+    "16": 0.04084376765397555,
+    "17": 0.04349506168962119,
+    "18": 0.0312438680830607,
+    "19": 0.0334485504359838,
+    "20": 0.03462388173519431
+   },
+   "suggested_k": 2,
+   "at_k": {
+    "2": {
+     "k": 2,
+     "sizes": [
+      9815,
+      15028
+     ],
+     "piles": [
+      {
+       "cluster": 1,
+       "n": 9815,
+       "scales": {
+        "1": 2615,
+        "10": 3947,
+        "30": 3253
+       },
+       "under_1mv": 0.293,
+       "under_noise": 0.06,
+       "under_noise_by_scale": {
+        "1": 0.135,
+        "10": 0.048,
+        "30": 0.015
+       }
+      },
+      {
+       "cluster": 2,
+       "n": 15028,
+       "scales": {
+        "1": 3075,
+        "10": 5860,
+        "30": 6093
+       },
+       "under_1mv": 0.221,
+       "under_noise": 0.05,
+       "under_noise_by_scale": {
+        "1": 0.138,
+        "10": 0.045,
+        "30": 0.011
+       }
+      }
+     ],
+     "nmi_scale": 0.0043,
+     "nmi_recording": 0.0002,
+     "shifted_copies": 1,
+     "pairs": 1,
+     "noise_like_share": {
+      "under_1mv": 0.249,
+      "under_noise": 0.054,
+      "under_noise_by_scale": {
+       "1": 0.137,
+       "10": 0.046,
+       "30": 0.012
+      },
+      "under_1mv_by_scale": {
+       "1": 0.637,
+       "10": 0.213,
+       "30": 0.051
+      }
+     },
+     "noisy_piles": [],
+     "share_of_noise_in_noisy_piles": 0.0
+    },
+    "8": {
+     "k": 8,
+     "sizes": [
+      2649,
+      2406,
+      1451,
+      3280,
+      2155,
+      5958,
+      3287,
+      3657
+     ],
+     "piles": [
+      {
+       "cluster": 1,
+       "n": 2649,
+       "scales": {
+        "1": 604,
+        "10": 1093,
+        "30": 952
+       },
+       "under_1mv": 0.24,
+       "under_noise": 0.036,
+       "under_noise_by_scale": {
+        "1": 0.066,
+        "10": 0.038,
+        "30": 0.015
+       }
+      },
+      {
+       "cluster": 2,
+       "n": 2406,
+       "scales": {
+        "1": 1272,
+        "10": 697,
+        "30": 437
+       },
+       "under_1mv": 0.482,
+       "under_noise": 0.135,
+       "under_noise_by_scale": {
+        "1": 0.218,
+        "10": 0.057,
+        "30": 0.016
+       }
+      },
+      {
+       "cluster": 3,
+       "n": 1451,
+       "scales": {
+        "1": 207,
+        "10": 617,
+        "30": 627
+       },
+       "under_1mv": 0.182,
+       "under_noise": 0.025,
+       "under_noise_by_scale": {
+        "1": 0.039,
+        "10": 0.034,
+        "30": 0.011
+       }
+      },
+      {
+       "cluster": 4,
+       "n": 3280,
+       "scales": {
+        "1": 550,
+        "10": 1521,
+        "30": 1209
+       },
+       "under_1mv": 0.254,
+       "under_noise": 0.043,
+       "under_noise_by_scale": {
+        "1": 0.062,
+        "10": 0.057,
+        "30": 0.017
+       }
+      },
+      {
+       "cluster": 5,
+       "n": 2155,
+       "scales": {
+        "1": 361,
+        "10": 905,
+        "30": 889
+       },
+       "under_1mv": 0.212,
+       "under_noise": 0.04,
+       "under_noise_by_scale": {
+        "1": 0.108,
+        "10": 0.048,
+        "30": 0.006
+       }
+      },
+      {
+       "cluster": 6,
+       "n": 5958,
+       "scales": {
+        "1": 1002,
+        "10": 2469,
+        "30": 2487
+       },
+       "under_1mv": 0.203,
+       "under_noise": 0.037,
+       "under_noise_by_scale": {
+        "1": 0.071,
+        "10": 0.049,
+        "30": 0.011
+       }
+      },
+      {
+       "cluster": 7,
+       "n": 3287,
+       "scales": {
+        "1": 1051,
+        "10": 1038,
+        "30": 1198
+       },
+       "under_1mv": 0.306,
+       "under_noise": 0.102,
+       "under_noise_by_scale": {
+        "1": 0.245,
+        "10": 0.055,
+        "30": 0.018
+       }
+      },
+      {
+       "cluster": 8,
+       "n": 3657,
+       "scales": {
+        "1": 643,
+        "10": 1467,
+        "30": 1547
+       },
+       "under_1mv": 0.173,
+       "under_noise": 0.03,
+       "under_noise_by_scale": {
+        "1": 0.079,
+        "10": 0.03,
+        "30": 0.009
+       }
+      }
+     ],
+     "nmi_scale": 0.0216,
+     "nmi_recording": 0.0096,
+     "shifted_copies": 12,
+     "pairs": 28,
+     "noise_like_share": {
+      "under_1mv": 0.249,
+      "under_noise": 0.054,
+      "under_noise_by_scale": {
+       "1": 0.137,
+       "10": 0.046,
+       "30": 0.012
+      },
+      "under_1mv_by_scale": {
+       "1": 0.637,
+       "10": 0.213,
+       "30": 0.051
+      }
+     },
+     "noisy_piles": [],
+     "share_of_noise_in_noisy_piles": 0.0
+    }
+   },
+   "floor_mv": 0.3
+  },
+  {
+   "align": "centre",
+   "detrend": "linear",
+   "label": "centre-linear-floor1",
+   "t_shape_s": 42.4,
+   "t_tree_s": 37.1,
+   "n_kept": 30760,
+   "n_train": 18668,
+   "under_floor": 26589,
+   "floors": {
+    "M2_aug_concat_fs1.mat": {
+     "floor_mv": 1.0,
+     "from": "Settings \u203a Datasets"
+    },
+    "M2_concat_fs1.mat": {
+     "floor_mv": 1.0,
+     "from": "Settings \u203a Datasets"
+    }
+   },
+   "recut": {
+    "n_moved": 30642,
+    "n_clamped": 80,
+    "n_pinned_by_artifact": 0,
+    "n_near_duplicate": 2651,
+    "n_overlap_within_scale": 3365,
+    "by_scale": {
+     "1": {
+      "moved": 2821,
+      "clamped": 1,
+      "near_duplicate": 13
+     },
+     "10": {
+      "moved": 12154,
+      "clamped": 17,
+      "near_duplicate": 521
+     },
+     "30": {
+      "moved": 15667,
+      "clamped": 62,
+      "near_duplicate": 2117
+     }
+    },
+    "rule": "re-cut, the same length, centred on its largest swing \u2014 kept wholly inside its own role's stretch on its own channel, inside the recording and clear of artifact spans; where the centre cannot be reached it is shifted as far as allowed (clamped, counted); a window whose re-cut overlaps an already-kept window of the same scale on the same channel by more than half is a near-duplicate (one event twice) and is dropped, counted"
+   },
+   "silhouette_by_k": {
+    "2": 0.20913028718095997,
+    "3": 0.16907242065192038,
+    "4": 0.12886702207319672,
+    "5": 0.10652687409579978,
+    "6": 0.086794091785482,
+    "7": 0.09064071253227218,
+    "8": 0.09469811441364333,
+    "9": 0.08820561728289562,
+    "10": 0.061468569151487934,
+    "11": 0.0663785746349951,
+    "12": 0.04789914626557984,
+    "13": 0.04387845075913601,
+    "14": 0.04810815663199017,
+    "15": 0.040934353752797116,
+    "16": 0.03054486337579117,
+    "17": 0.03536772353776042,
+    "18": 0.029948955372447864,
+    "19": 0.031572898817437814,
+    "20": 0.03276653783844222
+   },
+   "suggested_k": 2,
+   "at_k": {
+    "2": {
+     "k": 2,
+     "sizes": [
+      8092,
+      10576
+     ],
+     "piles": [
+      {
+       "cluster": 1,
+       "n": 8092,
+       "scales": {
+        "1": 810,
+        "10": 3212,
+        "30": 4070
+       },
+       "under_1mv": 0.0,
+       "under_noise": 0.0,
+       "under_noise_by_scale": {
+        "1": 0.0,
+        "10": 0.0,
+        "30": 0.0
+       }
+      },
+      {
+       "cluster": 2,
+       "n": 10576,
+       "scales": {
+        "1": 1254,
+        "10": 4513,
+        "30": 4809
+       },
+       "under_1mv": 0.0,
+       "under_noise": 0.0,
+       "under_noise_by_scale": {
+        "1": 0.002,
+        "10": 0.0,
+        "30": 0.0
+       }
+      }
+     ],
+     "nmi_scale": 0.0015,
+     "nmi_recording": 0.0005,
+     "shifted_copies": 1,
+     "pairs": 1,
+     "noise_like_share": {
+      "under_1mv": 0.0,
+      "under_noise": 0.0,
+      "under_noise_by_scale": {
+       "1": 0.001,
+       "10": 0.0,
+       "30": 0.0
+      },
+      "under_1mv_by_scale": {
+       "1": 0.0,
+       "10": 0.0,
+       "30": 0.0
+      }
+     },
+     "noisy_piles": [],
+     "share_of_noise_in_noisy_piles": 0.0
+    },
+    "8": {
+     "k": 8,
+     "sizes": [
+      1508,
+      2332,
+      4252,
+      1235,
+      2899,
+      3194,
+      892,
+      2356
+     ],
+     "piles": [
+      {
+       "cluster": 1,
+       "n": 1508,
+       "scales": {
+        "1": 129,
+        "10": 641,
+        "30": 738
+       },
+       "under_1mv": 0.0,
+       "under_noise": 0.0,
+       "under_noise_by_scale": {
+        "1": 0.0,
+        "10": 0.0,
+        "30": 0.0
+       }
+      },
+      {
+       "cluster": 2,
+       "n": 2332,
+       "scales": {
+        "1": 294,
+        "10": 874,
+        "30": 1164
+       },
+       "under_1mv": 0.0,
+       "under_noise": 0.0,
+       "under_noise_by_scale": {
+        "1": 0.0,
+        "10": 0.0,
+        "30": 0.0
+       }
+      },
+      {
+       "cluster": 3,
+       "n": 4252,
+       "scales": {
+        "1": 387,
+        "10": 1697,
+        "30": 2168
+       },
+       "under_1mv": 0.0,
+       "under_noise": 0.0,
+       "under_noise_by_scale": {
+        "1": 0.0,
+        "10": 0.0,
+        "30": 0.0
+       }
+      },
+      {
+       "cluster": 4,
+       "n": 1235,
+       "scales": {
+        "1": 90,
+        "10": 503,
+        "30": 642
+       },
+       "under_1mv": 0.0,
+       "under_noise": 0.0,
+       "under_noise_by_scale": {
+        "1": 0.0,
+        "10": 0.0,
+        "30": 0.0
+       }
+      },
+      {
+       "cluster": 5,
+       "n": 2899,
+       "scales": {
+        "1": 254,
+        "10": 1252,
+        "30": 1393
+       },
+       "under_1mv": 0.0,
+       "under_noise": 0.0,
+       "under_noise_by_scale": {
+        "1": 0.0,
+        "10": 0.0,
+        "30": 0.0
+       }
+      },
+      {
+       "cluster": 6,
+       "n": 3194,
+       "scales": {
+        "1": 405,
+        "10": 1443,
+        "30": 1346
+       },
+       "under_1mv": 0.0,
+       "under_noise": 0.0,
+       "under_noise_by_scale": {
+        "1": 0.002,
+        "10": 0.0,
+        "30": 0.0
+       }
+      },
+      {
+       "cluster": 7,
+       "n": 892,
+       "scales": {
+        "1": 69,
+        "10": 362,
+        "30": 461
+       },
+       "under_1mv": 0.0,
+       "under_noise": 0.0,
+       "under_noise_by_scale": {
+        "1": 0.0,
+        "10": 0.0,
+        "30": 0.0
+       }
+      },
+      {
+       "cluster": 8,
+       "n": 2356,
+       "scales": {
+        "1": 436,
+        "10": 953,
+        "30": 967
+       },
+       "under_1mv": 0.0,
+       "under_noise": 0.0,
+       "under_noise_by_scale": {
+        "1": 0.002,
+        "10": 0.0,
+        "30": 0.0
+       }
+      }
+     ],
+     "nmi_scale": 0.0049,
+     "nmi_recording": 0.007,
+     "shifted_copies": 14,
+     "pairs": 28,
+     "noise_like_share": {
+      "under_1mv": 0.0,
+      "under_noise": 0.0,
+      "under_noise_by_scale": {
+       "1": 0.001,
+       "10": 0.0,
+       "30": 0.0
+      },
+      "under_1mv_by_scale": {
+       "1": 0.0,
+       "10": 0.0,
+       "30": 0.0
+      }
+     },
+     "noisy_piles": [],
+     "share_of_noise_in_noisy_piles": 0.0
+    }
+   },
+   "floor_mv": 1.0
+  }
+ ]
+}
