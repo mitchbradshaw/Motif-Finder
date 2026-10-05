@@ -151,7 +151,7 @@
    }
   ],
   "expect": [
-   "[data-testid=\"run-row-mp_threshold\"]"
+   "[data-testid=\"run-row-{run:a}\"]"
   ],
   "settle_ms": 900
  },
@@ -194,10 +194,27 @@
   "hash": "discovery/seed?source=explore",
   "actions": [],
   "expect": [
-   "[data-testid=\"seed-explore-empty\"]",
    "[data-testid=\"apply-bar\"]"
   ],
-  "settle_ms": 900
+  "settle_ms": 900,
+  "branch_on": {
+   "api": "/api/discovery/seeds?source=explore&offset=0&limit=8",
+   "items": "seeds",
+   "empty": {
+    "expect": [
+     "[data-testid=\"seed-explore-empty\"]"
+    ]
+   },
+   "populated": {
+    "expect": [
+     "[data-testid=\"seed-picker-explore\"]",
+     "[data-testid^=\"seed-option-explore:\"]"
+    ],
+    "expect_absent": [
+     "[data-testid=\"seed-explore-empty\"]"
+    ]
+   }
+  }
  },
  {
   "page": "discovery.seed",
@@ -337,7 +354,7 @@
  {
   "page": "discovery.compare",
   "state": "default",
-  "hash": "discovery/compare?a=mp_threshold&b=smoke_seed&only=a&i=7",
+  "hash": "discovery/compare?a={run:a}&b={run:b}&only=a&i=7",
   "actions": [],
   "expect": [
    "[data-testid=\"what-differs\"]",
@@ -359,10 +376,10 @@
  {
   "page": "discovery.compare",
   "state": "unpick-b",
-  "hash": "discovery/compare?a=mp_threshold&b=smoke_seed",
+  "hash": "discovery/compare?a={run:a}&b={run:b}",
   "actions": [
    {
-    "click": "[data-testid=\"pick-smoke_seed\"]"
+    "click": "[data-testid=\"pick-{run:b}\"]"
    },
    {
     "wait": 400
@@ -376,7 +393,7 @@
  {
   "page": "discovery.compare",
   "state": "swapped",
-  "hash": "discovery/compare?a=mp_threshold&b=smoke_seed",
+  "hash": "discovery/compare?a={run:a}&b={run:b}",
   "actions": [
    {
     "click": "[data-testid=\"swap-ab\"]"
@@ -394,7 +411,7 @@
  {
   "page": "discovery.compare",
   "state": "filter-only-b",
-  "hash": "discovery/compare?a=mp_threshold&b=smoke_seed&only=b&i=2",
+  "hash": "discovery/compare?a={run:a}&b={run:b}&only=b&i=2",
   "actions": [],
   "expect": [
    "[data-testid=\"step-plot\"]",
@@ -405,7 +422,7 @@
  {
   "page": "discovery.compare",
   "state": "popover-roles",
-  "hash": "discovery/compare?a=mp_threshold&b=smoke_seed&popover=roles",
+  "hash": "discovery/compare?a={run:a}&b={run:b}&popover=roles",
   "actions": [
    {
     "wait": 300
@@ -419,7 +436,7 @@
  {
   "page": "discovery.compare",
   "state": "popover-stage",
-  "hash": "discovery/compare?a=mp_threshold&b=smoke_seed",
+  "hash": "discovery/compare?a={run:a}&b={run:b}",
   "actions": [
    {
     "click": "[data-testid=\"stage-A-Score-estimate\"]"
@@ -437,7 +454,7 @@
  {
   "page": "discovery.compare",
   "state": "overlap-segment",
-  "hash": "discovery/compare?a=mp_threshold&b=smoke_seed",
+  "hash": "discovery/compare?a={run:a}&b={run:b}",
   "actions": [
    {
     "click": "[data-testid=\"overlap-CH1_A1\"] [data-testid=\"overlap-seg-onlyB\"]"
@@ -454,7 +471,7 @@
  {
   "page": "discovery.compare",
   "state": "human-as-b",
-  "hash": "discovery/compare?a=mp_threshold&b=human",
+  "hash": "discovery/compare?a={run:a}&b=human",
   "actions": [
    {
     "wait": 300
@@ -469,7 +486,7 @@
  {
   "page": "discovery.compare",
   "state": "held-out-refused",
-  "hash": "discovery/compare?recording=M4_aug_concat_fs1&a=mp_threshold&b=smoke_seed",
+  "hash": "discovery/compare?recording=M4_aug_concat_fs1&a={run:a}&b={run:b}",
   "actions": [],
   "expect": [
    "[data-testid=\"scope-refused\"]"
@@ -489,7 +506,7 @@
  {
   "page": "discovery.stages",
   "state": "default",
-  "hash": "discovery/compare/stages?a=mp_threshold&b=smoke_seed&only=a&i=1",
+  "hash": "discovery/compare/stages?a={run:a}&b={run:b}&only=a&i=1",
   "actions": [],
   "expect": [
    "[data-testid=\"step-bar\"]",
@@ -501,7 +518,7 @@
  {
   "page": "discovery.stages",
   "state": "re-running",
-  "hash": "discovery/compare/stages?a=mp_threshold&b=smoke_seed&only=a&i=1&state=rerun",
+  "hash": "discovery/compare/stages?a={run:a}&b={run:b}&only=a&i=1&state=rerun",
   "actions": [
    {
     "wait": 300
@@ -516,7 +533,7 @@
  {
   "page": "discovery.stages",
   "state": "stepped",
-  "hash": "discovery/compare/stages?a=mp_threshold&b=smoke_seed&only=a&i=1",
+  "hash": "discovery/compare/stages?a={run:a}&b={run:b}&only=a&i=1",
   "actions": [
    {
     "click": "[data-testid=\"stage-pager\"] button:last-of-type"
@@ -534,7 +551,7 @@
  {
   "page": "discovery.stages",
   "state": "swapped",
-  "hash": "discovery/compare/stages?a=mp_threshold&b=smoke_seed&only=a&i=1",
+  "hash": "discovery/compare/stages?a={run:a}&b={run:b}&only=a&i=1",
   "actions": [
    {
     "click": "[data-testid=\"swap-ab\"]"
@@ -552,7 +569,7 @@
  {
   "page": "discovery.stages",
   "state": "popover-first-differing",
-  "hash": "discovery/compare/stages?a=mp_threshold&b=smoke_seed",
+  "hash": "discovery/compare/stages?a={run:a}&b={run:b}",
   "actions": [
    {
     "click": "[data-testid=\"first-differing\"]"
@@ -569,7 +586,7 @@
  {
   "page": "discovery.stages",
   "state": "popover-stage-params",
-  "hash": "discovery/compare/stages?a=mp_threshold&b=smoke_seed",
+  "hash": "discovery/compare/stages?a={run:a}&b={run:b}",
   "actions": [
    {
     "click": "[data-testid=\"stage-card-A-Score-estimate\"] .dsc-stg-title"
@@ -586,7 +603,7 @@
  {
   "page": "discovery.stages",
   "state": "filter-only-b",
-  "hash": "discovery/compare/stages?a=mp_threshold&b=smoke_seed&only=b&i=1",
+  "hash": "discovery/compare/stages?a={run:a}&b={run:b}&only=b&i=1",
   "actions": [],
   "expect": [
    "[data-testid=\"stage-columns\"]",
@@ -597,7 +614,7 @@
  {
   "page": "discovery.stages",
   "state": "human-as-b",
-  "hash": "discovery/compare/stages?a=mp_threshold&b=human&only=a&i=2",
+  "hash": "discovery/compare/stages?a={run:a}&b=human&only=a&i=2",
   "actions": [],
   "expect": [
    "[data-testid=\"stage-card-B-Detect\"]",
@@ -608,7 +625,7 @@
  {
   "page": "discovery.stages",
   "state": "empty-same-run",
-  "hash": "discovery/compare/stages?a=mp_threshold&b=mp_threshold",
+  "hash": "discovery/compare/stages?a={run:a}&b={run:a}",
   "actions": [],
   "expect": [
    "[data-testid=\"stages-empty\"]"
@@ -635,7 +652,7 @@
    }
   ],
   "expect": [
-   "[data-testid=\"run-row-mp_threshold\"]",
+   "[data-testid=\"run-row-{run:a}\"]",
    "[data-testid=\"run-failed-callout\"]"
   ],
   "settle_ms": 1200

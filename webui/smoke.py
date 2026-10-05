@@ -1092,6 +1092,87 @@ class Smoke:
             time.sleep(1.0)
         return None
 
+    # ------------------------------------------- states pinned against live data --
+    def pin_grouping(self, page, pins: dict):
+        """fixup-smoke: a state that names a family (`F-03`, `F-130`) is about ONE grouping, but the Library opens on
+        the NEWEST grouping of each unit (`chrome.tsx::useResolvedGroupingId`, the bridge's `_default_grouping`), and
+        the researcher makes groupings in the database the sandbox copies (g-07..g-09 on 2026-10-05). Nothing in the
+        URL names a grouping (the client ignores `?grouping=`), so the walk picks it the way a person does: the
+        grouping bar's basis chip, then the option. The pick lives in the client's in-memory store and survives the
+        walk's hash navigations, so it is done once and re-done only when the store says otherwise. The pick is
+        verified, never assumed: a grouping id that is no longer offered, or a store that did not take it, raises,
+        and the state fails with that reason."""
+        for unit, gid in pins.items():
+            key = f"library.grouping.{unit}"
+            read = "k => (window.__demoStore && window.__demoStore.get(k)) || ''"
+            if page.evaluate(read, key) == gid:
+                continue
+            page.goto(f"{self.url}/#/library/atlas{'?unit=sequences' if unit == 'sequences' else ''}", wait_until="networkidle")
+            page.wait_for_selector('[data-testid="basis-chip"]', timeout=30000)
+            page.locator('[data-testid="basis-chip"]').first.click()
+            opt = page.locator(f'[data-testid="grouping-option-{gid}"]')
+            opt.first.wait_for(timeout=15000)
+            opt.first.click()
+            # the pick raises a toast; toasts older than one second are cleared on the next hash change, so the
+            # state's own page does not inherit it
+            page.wait_for_timeout(1200)
+            got = page.evaluate(read, key)
+            if got != gid:
+                raise AssertionError(f"pinning the {unit} grouping to {gid} did not take (the store holds {got!r})")
+            # the pick happens on an atlas that first opened on the newest grouping, so two cold view builds queue
+            # behind one sqlite connection; wait here until the pinned grouping's atlas has painted, so the state
+            # that follows meets the warm page its own settle time was measured against
+            page.wait_for_selector('[data-testid="atlas-grid"], [data-testid="sequences-banner"]', timeout=180000)
+
+    def smoke_run_keys(self) -> dict:
+        """fixup-smoke: the keys of the two Discovery runs the walk itself made (`discovery_scope`), for the page
+        states that compare them. They used to be written into the manifests as `mp_threshold` and `smoke_seed`,
+        but a key is only the label when nothing in the session already holds that label or that seed: the
+        researcher's own seed searches on the same seed (2026-10-04) make the walk's run differ from the first, so
+        it is labelled `smoke_seed · 2 ch · 80.0–84.0 h` and keyed `smoke_seed_2_ch_80.0_84.0_h` — and every state
+        naming `smoke_seed` compared against a run that does not exist. A manifest names them `{run:a}` /
+        `{run:b}`. A full walk uses the keys `discovery_scope` returned; a page-only walk reads them off the
+        session: the first finished `SMOKE_TEMPLATE` run, and the newest seed run labelled `SMOKE_SEED_RUN`."""
+        runs = (self.evidence.get("discovery_scope") or {}).get("runs") or []
+        keys = {"a": runs[0] if runs else None, "b": runs[1] if len(runs) > 1 else None}
+        if not (keys["a"] and keys["b"]):
+            rows = self._api("/api/discovery/runs")
+            rows = rows if isinstance(rows, list) else []
+            keys["a"] = keys["a"] or next((r["key"] for r in rows if r.get("template") == SMOKE_TEMPLATE
+                                           and r.get("label") == SMOKE_TEMPLATE and r.get("status") == "done"
+                                           and not r.get("bandSet")), None)
+            keys["b"] = keys["b"] or next((r["key"] for r in reversed(rows) if not r.get("template")
+                                           and str(r.get("label", "")).startswith(SMOKE_SEED_RUN)), None)
+        self.evidence["smoke_run_keys"] = keys
+        return keys
+
+    def branch_on_store(self, e: dict):
+        """fixup-smoke: a state about an EMPTY store (no window set, no paired run) asserts the empty state only when
+        the store the page reads really is empty, and otherwise asserts the populated state the same page draws over
+        the same read. Both arms must name something to find, so neither side is a no-op; the message says which
+        arm ran and over how many rows. `branch_on`: {"api": route, "items": dotted key of the list in the answer
+        ("" = the answer is the list), "where": {field: value} rows must match, "empty": {expect, expect_absent},
+        "populated": {expect, expect_absent}}."""
+        b = e.get("branch_on")
+        if not b:
+            return e, ""
+        for arm in ("empty", "populated"):
+            if not (b.get(arm) or {}).get("expect"):
+                raise ValueError(f"branch_on.{arm} names nothing to expect: a branch must check something real")
+        data = self._api(b["api"])
+        if isinstance(data, dict) and data.get("__error__"):
+            raise RuntimeError(f"branch_on: {b['api']} answered {data['__error__']}: {data.get('body')}")
+        items = data
+        for k in filter(None, (b.get("items") or "").split(".")):
+            items = items[k]
+        where = b.get("where") or {}
+        rows = [x for x in items if all(x.get(k) == v for k, v in where.items())]
+        side = "populated" if rows else "empty"
+        arm = b[side]
+        e = {**e, "expect": list(e.get("expect", [])) + list(arm.get("expect", [])),
+             "expect_absent": list(e.get("expect_absent", [])) + list(arm.get("expect_absent", []))}
+        return e, f" [{b['api']}{' ' + str(where) if where else ''}: {len(rows)} rows, so the {side} state]"
+
     # ----------------------------------------------------- every page state --
     def routes(self, page):
         """Every route and state named in webui/smoke_pages/<workspace>.json renders: the page mounts,
@@ -1124,10 +1205,26 @@ class Smoke:
         self.evidence["route_states"] = len(entries)
         self.check(len(entries) > 0, f"{len(entries)} page states listed in smoke_pages/*.json")
         pdir = os.path.join(SHOTS, "pages")
+        run_keys = self.smoke_run_keys() if any("{run:" in json.dumps(e) for _, e in entries) else {}
         for unit, e in entries:
+            if "{run:" in json.dumps(e):
+                txt = json.dumps(e)
+                for k, v in run_keys.items():
+                    if v:
+                        txt = txt.replace("{run:%s}" % k, v)
+                e = json.loads(txt)
             name = f"{e.get('page', '?')}--{e.get('state', 'default')}"
             before = len(self.errors)
             try:
+                if "{run:" in json.dumps(e):
+                    raise RuntimeError(f"the state names a smoke run the walk could not find ({run_keys})")
+                # fixup-smoke: the Library states that name a family open the grouping they were written against
+                if e.get("grouping"):
+                    self.pin_grouping(page, e["grouping"])
+                # fixup-smoke: an empty-store state asserts whichever of empty / populated the store really is
+                e, branch_msg = self.branch_on_store(e)
+                if e.get("grouping"):
+                    branch_msg = f" [grouping {', '.join(e['grouping'].values())}]" + branch_msg
                 page.goto(f"{self.url}/#/{e['hash'].lstrip('#/')}", wait_until="networkidle")
                 page.wait_for_timeout(e.get("settle_ms", 500))
                 for a in e.get("actions", []):
@@ -1174,12 +1271,16 @@ class Smoke:
                     kept = [x for x in self.errors[before:] if not any(a in x for a in allowed)]
                     self.errors = self.errors[:before] + kept
                 self.check(ok and in_box and not missing and not present and (err_card == 0 or e.get("allow_error_card")) and len(self.errors) == before,
-                           f"{unit}: {name} renders" + (" · every trace inside its plot box" if e.get("traces_in_box") and in_box else "") + box_msg
+                           f"{unit}: {name} renders" + branch_msg + (" · every trace inside its plot box" if e.get("traces_in_box") and in_box else "") + box_msg
                            + (f" — missing {missing}" if missing else "") + (f" — unexpected {present}" if present else "")
                            + (" — render-error card" if err_card and not e.get("allow_error_card") else "") + ("" if ok else " — blank or no header")
                            + (f" — {len(self.errors) - before} console errors" if len(self.errors) > before else ""))
                 os.makedirs(os.path.join(pdir, unit), exist_ok=True)
-                path = os.path.join(pdir, unit, f"{name}.png")
+                # fixup-smoke: a state name is prose and may hold `/` or `:` ("padding +/-30 s", "context axis: 102's
+                # drop"). `/` made a sub-directory that only exists in a tree an earlier walk left behind, so in a fresh
+                # SMOKE_SHOTS the write failed; `:` wrote an NTFS alternate data stream behind an empty file. The file
+                # name swaps the characters Windows refuses for `-`; the state's own name, in the check above, is kept.
+                path = os.path.join(pdir, unit, re.sub(r'[<>:"/\\|?*]', "-", name) + ".png")
                 self.write_shot(page, path, bool(e.get("full_page")))
                 self.shots.append(path)
             except Exception as ex:
