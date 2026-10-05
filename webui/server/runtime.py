@@ -110,6 +110,9 @@ class Runtime:
         import Adapters.preprocessing_window_matrix as _wm
         import Adapters.catalogue_classifier as _cc
         import Adapters.catalogue_cluster as _cl
+        import Adapters.preprocessing_window_pool as _wp
+        import Adapters.preprocessing_trace_shape as _tsh
+        import Adapters.catalogue_shape_cluster as _csc
         self._originals = {
             "STEP_CACHE_ROOT": cfg.STEP_CACHE_ROOT,
             "STEP_CACHE_WRITE_THRESHOLD_S": cfg.STEP_CACHE_WRITE_THRESHOLD_S,
@@ -117,6 +120,10 @@ class Runtime:
             "wm.RESULTS_DIR": _wm.RESULTS_DIR,
             "cc.MODEL_ROOT": _cc.MODEL_ROOT,
             "cl.RESULTS_DIR": _cl.RESULTS_DIR,
+            # fixup-ag: the pool block saves pools, the shape block its vectors, the cluster block its tree
+            "wp.POOL_ROOT": _wp.POOL_ROOT,
+            "tsh.RESULTS_DIR": _tsh.RESULTS_DIR,
+            "csc.RESULTS_DIR": _csc.RESULTS_DIR,
         }
 
         if self.mode == "sandbox":
@@ -143,6 +150,12 @@ class Runtime:
         _cc.MODEL_ROOT = self.models_dir
         import Adapters.catalogue_cluster as _cl
         _cl.RESULTS_DIR = os.path.join(self.results_dir, "groupings")
+        import Adapters.preprocessing_window_pool as _wp
+        import Adapters.preprocessing_trace_shape as _tsh
+        import Adapters.catalogue_shape_cluster as _csc
+        _wp.POOL_ROOT = self.window_sets_root
+        _tsh.RESULTS_DIR = os.path.join(self.results_dir, "trace_shapes")
+        _csc.RESULTS_DIR = os.path.join(self.results_dir, "shape_trees")
         # Critique r1 P0: an adapter executed outside these redirects writes into the real DATA
         # tree. Assert every writable path the adapters read at call time is inside this runtime.
         for label, p in self._core_paths(cfg, _mp, _wm, _cc):
@@ -190,11 +203,17 @@ class Runtime:
     @staticmethod
     def _core_paths(cfg, _mp, _wm, _cc):
         import Adapters.catalogue_cluster as _cl
+        import Adapters.preprocessing_window_pool as _wp
+        import Adapters.preprocessing_trace_shape as _tsh
+        import Adapters.catalogue_shape_cluster as _csc
         return (("STEP_CACHE_ROOT", cfg.STEP_CACHE_ROOT),
                 ("matrix_profile.RESULTS_DIR", _mp.RESULTS_DIR),
                 ("window_matrix.RESULTS_DIR", _wm.RESULTS_DIR),
                 ("classifier.MODEL_ROOT", _cc.MODEL_ROOT),
-                ("cluster.RESULTS_DIR", _cl.RESULTS_DIR))
+                ("cluster.RESULTS_DIR", _cl.RESULTS_DIR),
+                ("window_pool.POOL_ROOT", _wp.POOL_ROOT),
+                ("trace_shape.RESULTS_DIR", _tsh.RESULTS_DIR),
+                ("shape_cluster.RESULTS_DIR", _csc.RESULTS_DIR))
 
     def restore(self) -> None:
         """Put every core module attribute back to what it was before setup()."""
@@ -212,6 +231,12 @@ class Runtime:
         _cc.MODEL_ROOT = o["cc.MODEL_ROOT"]
         import Adapters.catalogue_cluster as _cl
         _cl.RESULTS_DIR = o["cl.RESULTS_DIR"]
+        import Adapters.preprocessing_window_pool as _wp
+        import Adapters.preprocessing_trace_shape as _tsh
+        import Adapters.catalogue_shape_cluster as _csc
+        _wp.POOL_ROOT = o["wp.POOL_ROOT"]
+        _tsh.RESULTS_DIR = o["tsh.RESULTS_DIR"]
+        _csc.RESULTS_DIR = o["csc.RESULTS_DIR"]
         if "rr.DB_PATH" in o:
             import Working.library.rose_reference as _rr
             _rr.DB_PATH = o["rr.DB_PATH"]

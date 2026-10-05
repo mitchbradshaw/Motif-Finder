@@ -39,6 +39,9 @@ export interface SourceSpan {
   recording_id: number; channel_name: string; source_file: string; fs: number
   start_idx: number; end_idx: number       // half-open sample indices into the channel
   label?: string                            // e.g. "MOTIF 233" when a motif was sent
+  /** fixup-ag: 'pool' = the chain starts from a Window pool block (saved window sets) in place of a span; the
+   *  recording and the one-sample span are only the run row's formality, never drawn */
+  kind?: 'span' | 'pool'
 }
 
 export interface ChainDraft {

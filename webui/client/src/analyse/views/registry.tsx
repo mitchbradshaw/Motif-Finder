@@ -5,7 +5,7 @@
  *
  * `VIEWS` holds the seven type views, keyed on the output type. Each is ONE component drawn at two tiers: the
  * chain thumbnail (interaction off: one glanceable shape) and the block settings page (`ctx.interactive`: the
- * shape plus the evidence). `MODIFIERS` holds the twelve conversions, keyed `input->output`: each is the
+ * shape plus the evidence). `MODIFIERS` holds the thirteen conversions, keyed `input->output`: each is the
  * settings-tier composition for that conversion — the type view, plus what the INPUT contributes to it.
  *
  * Nothing here is selected by a block's name. A block nobody has written yet is drawn by `VIEWS[its output]`,
@@ -32,6 +32,8 @@ import { ScoreHistogram, ScoresView, scoreWords, scoreY, type ScoreCut } from '.
 import { SignalLayers, SignalLayersNote, SignalNote, SignalView } from './SignalView'
 import { DurationHistogram, SpanSetView, SpanSlideshow } from './SpanSetView'
 import { WindowSetKey, WindowSetView } from './WindowSetView'
+import { isPoolPayload, isTreePayload } from '../../api/shape'
+import { Guard, PoolPicker, PoolThumb, PoolView, ShapeView, TreeSummary, TreeThumb } from './ShapeViews'
 import { Empty, StaleVeil, Strip, Surface, finiteRange, fmtN, loadWindow, type ProcessProps, type ViewCtx } from './common'
 
 type View = (props: { payload: Payload; ctx: ViewCtx }) => ReactNode
@@ -42,8 +44,8 @@ export const VIEWS: Record<TypeKind, View> = {
   scores: ({ payload, ctx }) => <ScoresView p={payload as ScoresPayload} ctx={ctx} />,
   spanset: ({ payload, ctx }) => <SpanSetView p={payload as SpansetPayload} ctx={ctx} />,
   encoding: ({ payload, ctx }) => <EncodingAny p={payload as EncodingSymbolicPayload | EncodingImagePayload} ctx={ctx} />,
-  windowset: ({ payload, ctx }) => <WindowSetView p={payload as WindowsetPayload} ctx={ctx} />,
-  grouping: ({ payload, ctx }) => <GroupingView p={payload as GroupingPayload} ctx={ctx} />,
+  windowset: ({ payload, ctx }) => isPoolPayload(payload) ? <PoolThumb p={payload} ctx={ctx} /> : <WindowSetView p={payload as WindowsetPayload} ctx={ctx} />,
+  grouping: ({ payload, ctx }) => isTreePayload(payload) ? <TreeThumb p={payload} ctx={ctx} /> : <GroupingView p={payload as GroupingPayload} ctx={ctx} />,
   model: ({ payload, ctx }) => <ModelView p={payload as ModelPayload} ctx={ctx} />,
 }
 
@@ -467,9 +469,16 @@ function EncodingProcess(q: ProcessProps) {
 }
 
 /* ---------------- WindowSet · Grouping · Model ---------------- */
+/** fixup-ag: a block with a `window_sets` parameter (a str listing saved window-set ids — the convention, like
+ *  `threshold`) draws the library of saved sets with a tick each above its result. */
+const picksWindowSets = (q: ProcessProps) => !!q.card?.params.some(p => p.name === 'window_sets' && p.type === 'str')
+
 function WindowSetProcess(q: ProcessProps) {
   const p = as<WindowsetPayload>(q.payload, 'windowset')
-  if (!p) return <NoResult />
+  const picker = picksWindowSets(q) ? <Guard label="the library of window sets"><PoolPicker q={q} /></Guard> : null
+  // a pool's windows sit on many channels and scales: no one time axis, so the pool draws as its counts
+  if (p && isPoolPayload(p)) return <>{picker}<Guard label="the pool"><PoolView p={p} /></Guard></>
+  if (!p) return <>{picker}<NoResult /></>
   return (
     <>
       <Full q={q} height={p.features?.matrix ? Math.min(420, 60 + 12 * p.features.n_columns) : 150}>{ctx => <WindowSetView p={p} ctx={ctx} />}</Full>
@@ -481,6 +490,8 @@ function WindowSetProcess(q: ProcessProps) {
 function GroupingProcess(q: ProcessProps) {
   const p = as<GroupingPayload>(q.payload, 'grouping')
   if (!p) return <NoResult />
+  // fixup-ag: a Grouping that kept its tree draws the tree (a payload convention, like a Signal's `layers`)
+  if (isTreePayload(p)) return <Guard label="the cluster tree"><TreeSummary p={p} /></Guard>
   return (
     <>
       <Full q={q} height={Math.min(300, 70 + 30 * Math.max(1, p.clusters.length))}>{ctx => <GroupingView p={p} ctx={ctx} />}</Full>
@@ -516,7 +527,17 @@ function ModelProcess(q: ProcessProps) {
   return <div style={{ position: 'relative' }} data-testid="type-view"><ModelView p={p} ctx={{ ...q.ctx, interactive: true }} /><StaleVeil on={q.stale} /></div>
 }
 
-/* ============================== the twelve modifiers ============================== */
+/** windowset → windowset (fixup-ag, Trace shape): the windows before and after — what was kept, what was left out
+ *  and why, and the measure each window now carries. */
+function WindowsToWindows(q: ProcessProps) {
+  const p = as<WindowsetPayload>(q.payload, 'windowset')
+  if (!p) return <NoResult />
+  if (isPoolPayload(p) && p.shape) return <Guard label="the trace shapes"><ShapeView p={p} /></Guard>
+  if (isPoolPayload(p)) return <Guard label="the pool"><PoolView p={p} /></Guard>
+  return <WindowSetProcess {...q} />
+}
+
+/* ============================== the thirteen modifiers ============================== */
 type Process = (q: ProcessProps) => ReactNode
 
 export const MODIFIERS: Record<string, Process> = {
@@ -530,6 +551,7 @@ export const MODIFIERS: Record<string, Process> = {
   'signal->encoding': EncodingProcess,
   'windowset->encoding': EncodingProcess,
   'signal->windowset': WindowSetProcess,
+  'windowset->windowset': WindowsToWindows,
   'windowset->grouping': GroupingProcess,
   'grouping->model': ModelProcess,
 }

@@ -222,6 +222,13 @@ class AdapterSpec:
         reject it as an "unknown param" (or, if given a matching name,
         silently accept it as tunable, which it isn't). None means no
         derived readout.
+    source : bool
+        fixup-ag: a SOURCE block starts a chain in place of a span — it reads
+        its input from the store (e.g. *Window pool*: saved window sets), not
+        from the root signal, which it ignores. It declares `input_kind=
+        'signal'` like any root block and may only be step 01;
+        `Working.chain_validation` refuses it anywhere else. False (the
+        default, and every other block).
     persist : callable(conn, run_id, config_hash, recording, span_start, span_end, params, result) -> str | None, optional
         Opt-in hook for an 'encoding' step whose output should be written
         to disk and registered as an `artifacts(kind='encoding')` row
@@ -255,6 +262,7 @@ class AdapterSpec:
     category: str = "control"
     page_name: Optional[str] = None
     known_broken: Optional[str] = None
+    source: bool = False
 
     def __post_init__(self):
         if self.output_kind not in OUTPUT_KINDS:

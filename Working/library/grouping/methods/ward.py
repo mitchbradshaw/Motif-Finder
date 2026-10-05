@@ -50,6 +50,37 @@ DEFAULT_OMIT_D = 0.50       # "omit motifs whose nearest family is past d > 0.50
 DEFAULT_MIN_GROUP = 10      # "omit groups under 10 members"
 
 
+# --------------------------------------------------------------------------
+# The three pieces `fit` is made of, public so a caller with more items than a
+# square distance matrix can hold (fixup-ag: RQ1's window pool, 20,000 windows)
+# uses THIS method rather than a second one. `fit` is exactly these three plus
+# the square matrix the Library's medoids read.
+# --------------------------------------------------------------------------
+
+def shape_vectors(waveforms, n_samples=RESAMPLE_LENGTH):
+    """One resampled, z-normalised vector per waveform — `(n, n_samples)`."""
+    return np.vstack([z_normalize(resample_to_length(w, n_samples)) for w in waveforms])
+
+
+def distance_scale(n_samples):
+    """The divisor that puts every distance on [0, 1] (module docstring)."""
+    return 2.0 * np.sqrt(n_samples)
+
+
+def condensed_distances(vectors):
+    """The condensed scale-invariant distances between vectors, on [0, 1]. The
+    division is in place: at 20,000 items the condensed array alone is 1.6 GB."""
+    vectors = np.asarray(vectors, dtype=float)
+    condensed = pdist(vectors, metric="euclidean")
+    condensed /= distance_scale(vectors.shape[1])
+    return condensed
+
+
+def ward_linkage(condensed):
+    """The Ward tree over condensed scale-invariant distances."""
+    return linkage(condensed, method="ward")
+
+
 class WardMethod:
     """Ward linkage over the scale-invariant distance, cut at a distance."""
 
@@ -94,23 +125,22 @@ class WardMethod:
         n_samples = int(params.get("resample_length", RESAMPLE_LENGTH))
         waveforms = list(waveforms)
         n = len(waveforms)
-        scale = 2.0 * np.sqrt(n_samples)
+        scale = distance_scale(n_samples)
 
         payload = {"resample_length": n_samples, "distance_scale": float(scale)}
 
         if n == 0:
             return FitResult(method=self.name, n=0, payload=payload)
 
-        vectors = np.vstack([
-            z_normalize(resample_to_length(w, n_samples)) for w in waveforms])
+        vectors = shape_vectors(waveforms, n_samples)
         payload["vectors"] = vectors
 
         if n == 1:
             return FitResult(method=self.name, n=1, distances=np.zeros((1, 1)),
                              payload=payload)
 
-        condensed = pdist(vectors, metric="euclidean") / scale
-        tree = linkage(condensed, method="ward")
+        condensed = condensed_distances(vectors)
+        tree = ward_linkage(condensed)
         payload["linkage"] = tree
         return FitResult(
             method=self.name, n=n,

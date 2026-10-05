@@ -14,6 +14,12 @@ export const EXAMPLE_SOURCE: SourceSpan = { recording_id: 1, channel_name: 'CH1_
 export const HELD_OUT_FILE = 'M4_aug_concat_fs1.mat'
 export const isHeldOut = (s: SourceSpan | null) => !!s && s.source_file === HELD_OUT_FILE
 
+/** fixup-ag: a chain that starts from a *Window pool* block (saved window sets) in place of a span. The run still
+ *  names a recording and a one-sample span for its `runs` row (NOT NULL); the pool block ignores the signal, and
+ *  nothing of that span is drawn or fetched. */
+export const POOL_SOURCE: SourceSpan = { kind: 'pool', recording_id: EXAMPLE_SOURCE.recording_id, channel_name: 'window pool', source_file: 'window pool', fs: 1, start_idx: 0, end_idx: 1, label: 'window pool · saved window sets' }
+export const isPoolSource = (s: SourceSpan | null | undefined) => !!s && s.kind === 'pool'
+
 export const t0Of = (s: SourceSpan) => s.start_idx / s.fs
 export const t1Of = (s: SourceSpan) => s.end_idx / s.fs
 export const sourceLabel = (s: SourceSpan) => `Signal span · ${s.channel_name} · ${(t0Of(s) / 3600).toFixed(2)}–${fmtHours(t1Of(s))}`
@@ -38,7 +44,7 @@ export function SourceChip({ source, onClick }: { source: SourceSpan | null; onC
   return (
     <button className="an-source" onClick={onClick} data-testid="source-chip" title={source ? `${source.source_file} · recording ${source.recording_id} · samples ${source.start_idx}–${source.end_idx} · ${source.fs} Hz` : 'no source yet'}>
       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M3 12h3l2-7 3 14 3-10 2 6 2-3h3" /></svg>
-      <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{source ? sourceLabel(source).replace('Signal span · ', `${dataset} · `) : 'no source · send a span from Explore'}</span>{onClick && <span style={{ fontSize: 10, flex: 'none' }}>▾</span>}
+      <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{isPoolSource(source) ? 'Window pool · saved window sets (step 01)' : source ? sourceLabel(source).replace('Signal span · ', `${dataset} · `) : 'no source · send a span from Explore'}</span>{onClick && <span style={{ fontSize: 10, flex: 'none' }}>▾</span>}
     </button>
   )
 }
@@ -100,7 +106,7 @@ export function useSourceEnvelope(source: SourceSpan | null, px = 1200): { env: 
   const [status, setStatus] = useState<number | null>(null)
   const key = source ? `${source.recording_id}:${source.start_idx}:${source.end_idx}` : ''
   useEffect(() => {
-    if (!source) { setEnv(null); setStatus(null); return }
+    if (!source || isPoolSource(source)) { setEnv(null); setStatus(null); setError(null); return }
     let alive = true
     setError(null); setStatus(null); setEnv(null)
     if (isHeldOut(source)) { setStatus(423); setError(`held out · ${source.source_file} is refused by every workspace (D6) — no data request is made`); return }

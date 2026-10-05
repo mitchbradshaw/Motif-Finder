@@ -45,16 +45,33 @@ def check_step_compatibility(producing_kind, block):
     )
 
 
+def check_source_position(index, block):
+    """fixup-ag: a SOURCE block (`AdapterSpec.source`, e.g. *Window pool*) starts a
+    chain in place of a span, so it may only be the first step. Returns
+    `(bool, str)` like `check_step_compatibility`."""
+    if getattr(block, "source", False) and index > 0:
+        return False, (
+            f"'{block.name}' is a chain source: it reads its windows from the store in "
+            f"place of a span, so it can only be step 01 (here it is step {index + 1:02d}). "
+            f"Move it to the top of the chain, or start a new chain from it."
+        )
+    return True, ""
+
+
 def validate_chain(specs):
     """Walk an ordered list of `AdapterSpec` as a chain would run them —
     starting from the chain's root signal — and check every step-to-step
-    transition with `check_step_compatibility`.
+    transition with `check_step_compatibility`, and that a source block is
+    step 01 (`check_source_position`).
 
     Returns `(bool, str)`: `(True, "")` if the whole chain validates, or
     the first incompatibility found otherwise.
     """
     producing_kind = ROOT_SIGNAL_KIND
-    for spec in specs:
+    for i, spec in enumerate(specs):
+        ok, reason = check_source_position(i, spec)
+        if not ok:
+            return False, reason
         ok, reason = check_step_compatibility(producing_kind, spec)
         if not ok:
             return False, reason

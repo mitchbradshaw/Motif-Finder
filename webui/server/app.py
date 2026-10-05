@@ -34,6 +34,7 @@ from .interrogation_routes import router as interrogation_router
 from .library import router as library_router
 from .review import router as review_router
 from .training_routes import router as training_router
+from .shape_routes import router as shape_router
 from .registration import router as registration_router
 
 log = logging.getLogger("webui")
@@ -399,6 +400,7 @@ def create_app(rt: Runtime) -> FastAPI:
     app.include_router(explore_router)
     app.include_router(interrogation_router)
     app.include_router(training_router)
+    app.include_router(shape_router)   # fixup-ag
 
     # stage-3 prompt 04: Discovery — the session and its runs, the fan-out, the
     # scoreboard, the seeded search and the two Compare pages (server/discovery.py).

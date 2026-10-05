@@ -168,7 +168,7 @@ export function BlockPage({ index }: { index: number }) {
               </div>
             )}
             <div className="bp-card-title"><span className="mono muted">{pad2(index + 1)}</span><h3>{title}</h3><span className="sg">{ad?.signature ?? name}</span>
-              <span className="sg" style={{ marginLeft: 'auto' }}>{source ? `${fmtHours(t0)}–${fmtHours(t1)} of ${source.channel_name}` : 'no source'}{row.status === 'cached' && row.timing !== null ? ` · ${fmtTiming(row.timing)} core` : ''}</span></div>
+              <span className="sg" style={{ marginLeft: 'auto' }}>{source?.kind === 'pool' ? 'a Window pool · saved window sets' : source ? `${fmtHours(t0)}–${fmtHours(t1)} of ${source.channel_name}` : 'no source'}{row.status === 'cached' && row.timing !== null ? ` · ${fmtTiming(row.timing)} core` : ''}</span></div>
             {!source && <div className="muted mono small">no source — the process view needs a span. Use the example span from the chain page.</div>}
             {source && (
               <ErrorBoundary label={`block ${pad2(index + 1)} process`}>

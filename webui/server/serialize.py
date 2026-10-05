@@ -313,7 +313,70 @@ def _feature_table(df, n):
     return feat
 
 
+_POOL_COLS = ("pool_recording_id", "pool_source_file", "pool_channel", "pool_start", "pool_length", "pool_fs",
+              "pool_scale_min", "pool_role", "pool_set_id")
+_SHAPE_COLS = ("shape_raw_range_mv", "shape_peak_frac", "shape_row", "shape_file")
+
+
+def _hist(vals, bins, range_=None, log=False):
+    v = np.asarray(vals, dtype=float)
+    v = v[np.isfinite(v)]
+    if log:
+        v = v[v > 0]
+        if not v.size:
+            return None
+        counts, edges = np.histogram(np.log10(v), bins=bins, range=range_)
+        return {"counts": counts.tolist(), "edges": (10 ** edges).tolist(), "log": True}
+    if not v.size:
+        return None
+    counts, edges = np.histogram(v, bins=bins, range=range_)
+    return {"counts": counts.tolist(), "edges": edges.tolist(), "log": False}
+
+
+def _pool_windowset(value, meta, ctx):
+    """fixup-ag: a WindowSet that is a POOL (its features are the pool's per-window metadata, never measures)
+    ships the pool as its page draws it — windows per recording × scale × role, what was dropped and why, the
+    members, the plan — and, after a Trace shape step, what the floor left out and each window's raw range."""
+    f = value.features
+    n = int(value.n_windows)
+    roles = f["pool_role"].astype(str).to_numpy()
+    scales = f["pool_scale_min"].to_numpy(dtype=float)
+    files = f["pool_source_file"].astype(str).to_numpy()
+    by = [{"recording": sf, "scale_min": (int(sc) if float(sc).is_integer() else float(sc)), "role": r, "n": int(c)}
+          for (sf, sc, r), c in pd.DataFrame({"sf": files, "sc": scales, "r": roles}).groupby(["sf", "sc", "r"]).size().items()]
+    out = {"type": "windowset", "fs": float(value.fs), "n_windows": n, "length": int(value.length),
+           "length_s": int(value.length) / float(value.fs) if value.fs else 0.0, "starts_s": [], "capped": n > 0,
+           "features": None, "split": None,
+           "pool_windows": {"n": n, "by": by, "by_role": {r: int((roles == r).sum()) for r in ("train", "validation", "test", "exam")},
+                            "by_scale": {f"{(int(sc) if float(sc).is_integer() else float(sc))}": int((scales == sc).sum()) for sc in np.unique(scales)}}}
+    if meta.get("pool"):
+        out["pool"] = _clean(meta["pool"])
+    if meta.get("shape_file"):
+        shp = {k: _clean(meta.get(k)) for k in ("resample_length", "noise_floor", "floors", "n_in", "n_kept", "under_floor",
+                                                 "unmeasured", "method", "seconds", "shape_file", "shape_key")}
+        if "shape_raw_range_mv" in f.columns:
+            rr = pd.to_numeric(f["shape_raw_range_mv"], errors="coerce").to_numpy(dtype=float)
+            shp["raw_range_hist"] = _hist(rr, 40, log=True)
+            shp["raw_range_by_scale"] = {f"{(int(sc) if float(sc).is_integer() else float(sc))}": _hist(rr[scales == sc], 30, log=True) for sc in np.unique(scales)}
+        if "shape_peak_frac" in f.columns:
+            pk = pd.to_numeric(f["shape_peak_frac"], errors="coerce").to_numpy(dtype=float)
+            shp["peak_frac_hist"] = _hist(pk, 20, (0.0, 1.0))
+            shp["peak_frac_by_scale"] = {f"{(int(sc) if float(sc).is_integer() else float(sc))}": _hist(pk[scales == sc], 20, (0.0, 1.0)) for sc in np.unique(scales)}
+        out["shape"] = shp
+    head = (f"{n:,} windows · " + " · ".join(f"{k} {v:,}" for k, v in out["pool_windows"]["by_role"].items() if v)
+            + " · " + " / ".join(f"{k} min" for k in out["pool_windows"]["by_scale"]))
+    if out.get("shape"):
+        u = (out["shape"].get("under_floor") or {}).get("n") or 0
+        head += f" · {u:,} under the noise floor left out" if out["shape"].get("noise_floor") else " · noise floor off"
+    elif out.get("pool"):
+        head += f" · pool {out['pool'].get('name')} ({out['pool'].get('saved')})"
+    out["summary"] = head
+    return out
+
+
 def _windowset(value, meta, ctx):
+    if value.features is not None and all(c in value.features.columns for c in _POOL_COLS):
+        return _pool_windowset(value, meta or {}, ctx)
     fs = float(value.fs)
     starts = np.asarray(value.starts, dtype=np.int64)
     n = int(len(starts))
@@ -562,7 +625,8 @@ def _grouping(value, meta, ctx):
            "linkage": meta.get("linkage"), "clusters": clusters, "labels": labels[:SPAN_CAP].tolist(),
            "capped": n > SPAN_CAP, "n_shown": int(shown), "strip": None, "exemplars": []}
     ws = ctx.get("windowset")
-    if ws is not None and len(ws.starts) == n:
+    # a pool's windows sit on many channels: no one time strip, no exemplar by feature (fixup-ag)
+    if ws is not None and len(ws.starts) == n and not meta.get("tree"):
         out["strip"] = {"starts_s": (np.asarray(ws.starts) / float(ws.fs))[:SPAN_CAP].tolist(),
                         "length_s": int(ws.length) / float(ws.fs)}
         out["exemplars"] = _exemplars(labels, ids, ws)
@@ -570,6 +634,18 @@ def _grouping(value, meta, ctx):
                       # the strip is capped; saying so is the difference between
                       # a short strip and a wrong one (fixup-a item 10)
                       + (f" · strip shows the first {shown:,} of {n:,} windows" if out["capped"] else ""))
+    if meta.get("tree"):
+        # fixup-ag: a Grouping that KEPT its tree (Shape clustering) ships it: the truncated dendrogram, the
+        # proposal per k, a line per cluster at the cut and the mapping. -1 = not clustered (validation, test and
+        # exam windows never touch the tree; the trained model assigns them).
+        out["tree"] = _clean(meta["tree"])
+        for c in out["clusters"]:
+            if c["id"] == -1:
+                c["name"] = "not clustered · validation / test / exam"
+        t = meta["tree"]
+        out["summary"] = (f"{t.get('k')} clusters · clustered {int(t.get('n_clustered') or 0):,} · assigned "
+                          f"{int(t.get('n_assigned') or 0):,} · not clustered {sum((t.get('not_clustered') or {}).values()):,}"
+                          + (" · tree re-used" if t.get("reused") else ""))
     if meta.get("class_names"):
         # a labelled Grouping (fixup-aa, `catalogue.manual_labels`): the groups are
         # named classes, -1 is "excluded", and the coverage line is the summary —

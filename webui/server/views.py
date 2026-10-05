@@ -4,7 +4,7 @@
     The OUTPUT type decides what kind of picture you get. The INPUT type decides
     what one "thing" is in that picture, and whether there is a before/after.
 
-So there are seven **type views**, keyed on the output type, and twelve
+So there are seven **type views**, keyed on the output type, and thirteen
 **modifiers**, keyed on the conversion ``input->output``. A block names neither:
 both are read off its ``AdapterSpec`` here and ride on its catalog card, and the
 client holds a component for every key (``analyse/views/registry.tsx``;
@@ -47,6 +47,8 @@ MODIFIERS: dict[str, str] = {
     "signal->encoding": "three sampled images and which chunk of signal each came from",
     "windowset->encoding": "three sampled images and which window each is",
     "signal->windowset": "a feature matrix draws as a heatmap; a set with no features draws its windows by train / validation / test",
+    # fixup-ag: Trace shape, the first WindowSet -> WindowSet block
+    "windowset->windowset": "the windows before and after: what was kept, what was left out and why, and the measure each window now carries",
     "windowset->grouping": "clusters over time and one exemplar per cluster",
     "grouping->model": "accuracy per class",
 }

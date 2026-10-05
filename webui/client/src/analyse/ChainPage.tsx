@@ -24,7 +24,7 @@ import { RunLogModal } from './RunLogModal'
 import { useSendRunToReview } from './sendToReview'
 import { attachRun, cancelCurrent, cancelPending, clearStale, dropUndo, markStale, popUndo, pushUndo, resetRun, startRun, stepElapsed, syncToSource, useAnalyseStore, type UndoEntry } from './store'
 import { shortName, TemplatesPopover } from './TemplatesPopover'
-import { EstimateChip, EXAMPLE_SOURCE, isHeldOut, NameChip, Popwrap, RunErrorCard, SourceChip, SurrogateToggle, nullText, t0Of, t1Of, useSourceEnvelope } from './toolbar'
+import { EstimateChip, EXAMPLE_SOURCE, isHeldOut, isPoolSource, NameChip, POOL_SOURCE, Popwrap, RunErrorCard, SourceChip, SurrogateToggle, nullText, t0Of, t1Of, useSourceEnvelope } from './toolbar'
 import { pad2, stepName, useAdapters } from './useAdapters'
 import { spanOf, useValidation } from './useValidation'
 
@@ -172,6 +172,12 @@ export function ChainPage() {
     catch (e) { toast.push({ kind: 'error', text: errText(e) }) }
   }
   const useExample = () => { setSource(EXAMPLE_SOURCE); resetRun(); clearStale(); setChain(c => ({ ...c, lastRunJobId: null })); setPop(null) }
+  /* fixup-ag: start the chain from saved window sets — the source is the Window pool block, put at 01 if absent */
+  const pooled = isPoolSource(source)
+  const usePool = async () => {
+    setSource(POOL_SOURCE); resetRun(); clearStale(); setChain(c => ({ ...c, lastRunJobId: null })); setPop(null)
+    if (!(steps[0] && stepName(steps[0]) === 'preprocessing.window_pool')) await insertByName(0, 'preprocessing.window_pool')
+  }
 
   /* ---- toolbar derivations ---- */
   const n = steps.length
@@ -383,6 +389,7 @@ export function ChainPage() {
                 {source ? <div className="an-pop-item"><span className="chip blue" style={{ height: 22 }}>current</span><span><DatasetName file={source.source_file} /> · {source.channel_name} · samples {source.start_idx}–{source.end_idx}{source.label ? ` · ${source.label}` : ''}</span></div> : <div className="an-pop-note">no source yet</div>}
                 <div className="an-pop-item btnlike" onClick={useExample} data-testid="use-example">⌇ Use the example span ({EXAMPLE_SOURCE.channel_name} · {(EXAMPLE_SOURCE.start_idx / EXAMPLE_SOURCE.fs / 3600).toFixed(1)}–{(EXAMPLE_SOURCE.end_idx / EXAMPLE_SOURCE.fs / 3600).toFixed(1)} h)</div>
                 <div className="an-pop-item btnlike" onClick={() => navigate('explore/corpus')}>→ Pick in Explore</div>
+                <div className="an-pop-item btnlike" onClick={usePool} data-testid="use-pool">⌗ Start from a Window pool (saved window sets, in place of a span)</div>
               </div>
             )}
           </Popwrap>
@@ -405,7 +412,15 @@ export function ChainPage() {
 
         <CrosshairProvider value={{ t: cross, setT: setCross }}>
           {/* source row */}
-          {source ? (
+          {pooled ? (
+            <div className="card an-nosource" data-testid="chain-row-0">
+              <span className="badge cached">source</span>
+              <span className="mono">Window pool · step 01 reads saved window sets in place of a span · tick them on its page</span>
+              <span className="spacer" style={{ flex: 1 }} />
+              <button className="btn" onClick={() => navigate('analyse/block/0')} data-testid="open-pool-block">Open the Window pool</button>
+              <button className="btn" onClick={useExample}>Use the example span instead</button>
+            </div>
+          ) : source ? (
             <ChainRow testIndex={0} num={null} title="Source" badge={locked ? 'blocked' : 'source-cached'} badgeText={locked ? 'held out' : undefined} badgeTitle={locked ? 'the held-out recording is never loaded (D6)' : "the span is loaded from the channel's .npy on disk"} signature="— → Signal"
               caption={`${source.label === 'example span' ? 'example span' : 'signal span from Explore'} · ${fmtDuration(t1 - t0)} · ${source.fs} Hz`} captionTitle={`${source.source_file} · ${source.channel_name} · samples ${source.start_idx}–${source.end_idx}`} t0={t0} t1={t1}
               plot={(x, w, h) => sourcePayload ? <SourcePlot p={sourcePayload} x={x} w={w} h={h} throwTest={throwTest} /> : null}
@@ -423,6 +438,7 @@ export function ChainPage() {
               <span className="spacer" style={{ flex: 1 }} />
               <button className="btn" onClick={() => navigate('explore/corpus')}>Go to Explore</button>
               <button className="btn primary" onClick={useExample} data-testid="use-example">Use the example span ({EXAMPLE_SOURCE.channel_name} · {(EXAMPLE_SOURCE.start_idx / EXAMPLE_SOURCE.fs / 3600).toFixed(1)}–{(EXAMPLE_SOURCE.end_idx / EXAMPLE_SOURCE.fs / 3600).toFixed(1)} h)</button>
+              <button className="btn" onClick={usePool} data-testid="use-pool-card">Start from a Window pool</button>
             </div>
           )}
           {steps.map((_, i) => (
@@ -446,7 +462,7 @@ export function ChainPage() {
             </div>
           )}
           {/* shared axis */}
-          <FooterAxis t0={t0} t1={t1} enabled={!!source} />
+          {!pooled && <FooterAxis t0={t0} t1={t1} enabled={!!source} />}
         </CrosshairProvider>
 
         {/* footer */}

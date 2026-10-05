@@ -78,11 +78,24 @@ def _add_recording(conn, tmp, source, n, quiet=(), seed=0, units="V"):
     conn.commit()
 
 
+@pytest.fixture(scope="module")
+def _built(tmp_path_factory):
+    """The recordings, the six sets and the pool, built once per module; every test
+    gets its own copy of the database (the channels are only ever read)."""
+    tmp = tmp_path_factory.mktemp("shape")
+    conn = init_db(str(tmp / "t.sqlite"))
+    _add_recording(conn, str(tmp), AUG, N_AUG, seed=0)
+    _add_recording(conn, str(tmp), PLAIN, N_PLAIN, quiet=(QUIET,), seed=100)
+    _ids, pool = _six_and_pool(conn, tmp)
+    conn.close()
+    return tmp / "t.sqlite", pool
+
+
 @pytest.fixture
-def store(tmp_path):
+def store(_built, tmp_path):
+    import shutil
+    shutil.copyfile(_built[0], tmp_path / "t.sqlite")
     conn = init_db(str(tmp_path / "t.sqlite"))
-    _add_recording(conn, str(tmp_path), AUG, N_AUG, seed=0)
-    _add_recording(conn, str(tmp_path), PLAIN, N_PLAIN, quiet=(QUIET,), seed=100)
     yield conn, tmp_path
     conn.close()
 
@@ -102,10 +115,9 @@ def _six_and_pool(conn, tmp_path, per_scale=300, seed=0):
 
 
 @pytest.fixture
-def pooled(store):
+def pooled(store, _built):
     conn, tmp_path = store
-    _ids, pool = _six_and_pool(conn, tmp_path)
-    return conn, tmp_path, pool
+    return conn, tmp_path, _built[1]
 
 
 # ── the pool travels as a WindowSet ─────────────────────────────────────────
@@ -168,9 +180,10 @@ def test_windows_under_the_noise_floor_are_left_out_by_default_and_counted_per_r
     assert len(out.frame) == len(frame) - n_quiet
     removed = out.meta["under_floor"]
     assert removed["n"] == n_quiet
-    by = {(r["recording"], r["scale_min"]): r["n"] for r in removed["by"]}
-    assert sum(by.values()) == n_quiet
-    assert set(k[0] for k in by) == {PLAIN}
+    # counted per recording x scale (x role): every row names one
+    assert sum(r["n"] for r in removed["by"]) == n_quiet
+    assert {r["recording"] for r in removed["by"]} == {PLAIN}
+    assert {r["scale_min"] for r in removed["by"]} <= {1, 10, 30}
     # the floor is the dataset's: 0.1 mV where Settings › Datasets is empty, said so
     assert out.meta["floors"][PLAIN]["floor_mv"] == pytest.approx(0.1)
     assert out.meta["noise_floor"] is True

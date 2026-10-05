@@ -90,7 +90,7 @@ def register(method):
 def get(name):
     """The registered method, discovering the built-ins first if nothing has
     been imported yet."""
-    if not _REGISTRY:
+    if not _DISCOVERED:
         discover_methods()
     if name not in _REGISTRY:
         raise KeyError(f"Unknown grouping method '{name}'. "
@@ -102,7 +102,7 @@ def available():
     """name -> a small spec the grouping editor can render without importing
     anything: the name, its label, the bases it applies to, its parameters
     with types and defaults, and a one-line description."""
-    if not _REGISTRY:
+    if not _DISCOVERED:
         discover_methods()
     return {
         name: {
@@ -119,7 +119,7 @@ def available():
 def methods_for(basis):
     """Every registered method that can serve `basis`, in registration-name
     order — the editor's method choice for a basis the researcher picked."""
-    if not _REGISTRY:
+    if not _DISCOVERED:
         discover_methods()
     return [m for _, m in sorted(_REGISTRY.items()) if basis in m.applies_to]
 
@@ -130,12 +130,21 @@ def defaults_for(name):
     return {k: spec["default"] for k, spec in get(name).params.items()}
 
 
+# fixup-ag: discovery is keyed on whether it has RUN, not on an empty registry —
+# importing one method module directly (`from ...methods import ward`, as RQ1's
+# shape clustering does) registers that one, and an "is the registry empty?"
+# test then never imported the other built-ins.
+_DISCOVERED = False
+
+
 def discover_methods():
     """Import every method module in this package so it self-registers.
     Safe to call more than once. Unlike `Adapters.discover_adapters`, an
     import failure is NOT swallowed: these three modules depend only on
     numpy and scipy, so a failure here is a bug in the tree and not an
     optional dependency missing."""
+    global _DISCOVERED
     for _, modname, _ in pkgutil.iter_modules(__path__):
         importlib.import_module(f"{__name__}.{modname}")
+    _DISCOVERED = True
     return _REGISTRY

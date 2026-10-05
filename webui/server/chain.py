@@ -18,7 +18,7 @@ import os
 from typing import Any
 
 from Adapters.registry import discover_adapters, get_adapter, list_adapters
-from Working.chain_validation import ROOT_SIGNAL_KIND, check_step_compatibility
+from Working.chain_validation import ROOT_SIGNAL_KIND, check_source_position, check_step_compatibility
 from Working.execution import _recipe_prefix_hash, invalidated_step_indices
 from Working.hpc.job_export import estimate_recipe_seconds
 from Working.recipes import make_recipe, recipe_hash, short_hash
@@ -55,6 +55,8 @@ def adapter_card(spec) -> dict:
         "has_recommend": spec.recommend is not None,
         "side_inputs": [{"name": s.name, "type_kind": s.type_kind, "sources": list(s.sources)} for s in spec.side_inputs],
         "known_broken": spec.known_broken,
+        # fixup-ag: a source block (Window pool) starts a chain in place of a span and can only be step 01
+        "source": bool(getattr(spec, "source", False)),
         "params": [{
             "name": p.name, "type": _ptype(p.type), "default": p.default, "description": p.description or "",
             "choices": list(p.choices) if p.choices is not None else None, "min": p.min, "max": p.max,
@@ -87,9 +89,12 @@ def validate(steps: list[dict]) -> dict:
             continue
         ok, reason = check_step_compatibility(producing, spec)
         expected = spec.input_kind or ROOT_SIGNAL_KIND
+        why = "" if ok else f"{spec.page_name} needs {TYPE_LABEL.get(expected, expected)} · previous emits {TYPE_LABEL.get(producing, producing)}"
+        src_ok, src_reason = check_source_position(i, spec)
+        if not src_ok:
+            ok, reason, why = False, src_reason, f"{spec.page_name} is a chain source · it can only be step 01"
         junctions.append({"index": i, "ok": bool(ok), "producing": producing, "expected": expected,
-                          "reason": "" if ok else f"{spec.page_name} needs {TYPE_LABEL.get(expected, expected)} · previous emits {TYPE_LABEL.get(producing, producing)}",
-                          "core_reason": reason})
+                          "reason": why, "core_reason": reason, "source": not src_ok or None})
         ok_all = ok_all and bool(ok)
         producing = spec.output_kind
         terminal = spec.output_kind
@@ -133,6 +138,8 @@ def compatible_at(steps: list[dict], position: int) -> dict:
                 nexp = next_spec.input_kind or ROOT_SIGNAL_KIND
                 ok = False
                 why = f"emits {TYPE_LABEL.get(spec.output_kind, spec.output_kind)} · next needs {TYPE_LABEL.get(nexp, nexp)}"
+        if ok and position > 0 and getattr(spec, "source", False):
+            ok, why = False, "a chain source · only as step 01"
         if ok and spec.known_broken:
             why = "fits · " + spec.known_broken
         rows.append({"name": spec.name, "ok": bool(ok), "reason": why})
