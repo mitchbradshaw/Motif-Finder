@@ -46,6 +46,11 @@ export interface ShapeInfo {
   unmeasured: { n: number; by: CountRow[]; rule: string }
   method: string; seconds: number; shape_file: string; shape_key: string
   raw_range_hist?: HistData | null; raw_range_by_scale?: Record<string, HistData | null>
+  /** fixup-ag continuation: one histogram per recording × scale on shared log bins, with that recording's floor */
+  raw_range_by?: Record<string, { floor_mv: number | null; from: string | null; scales: Record<string, HistData | null> }>
+  align?: 'grid' | 'centre'; detrend?: 'off' | 'linear'; align_rule?: string; detrend_rule?: string; swing_rule?: string
+  recut?: { n_moved: number; n_clamped: number; n_pinned_by_artifact: number; n_near_duplicate: number; n_overlap_within_scale: number
+    by_scale: Record<string, { moved: number; clamped: number; near_duplicate: number }>; rule: string }
   peak_frac_hist?: HistData | null; peak_frac_by_scale?: Record<string, HistData | null>
 }
 export type PoolPayload = WindowsetPayload & {
@@ -59,6 +64,7 @@ export interface MappingEntry { name: string; class: 'interesting' | 'not_intere
 export interface TreeInfo {
   key: string; dir: string; reused: boolean; loaded_from: string | null; shape_file: string; shape_key: string
   k: number; k_param: number; suggested_k: number | null; cut_height: number
+  align?: string; detrend?: string; propose_cached?: boolean
   n_train: number; n_clustered: number; n_assigned: number; not_clustered: Record<string, number>
   sample: number | null; seed: number; stratified_by: string; ward_seconds: number | null; peak_rss_mb: number | null
   method_text: string; library_method: string; resample_length: number

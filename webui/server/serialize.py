@@ -324,7 +324,7 @@ def _hist(vals, bins, range_=None, log=False):
     if log:
         v = v[v > 0]
         if not v.size:
-            return None
+            return {"counts": [0] * bins, "edges": (10 ** np.linspace(range_[0], range_[1], bins + 1)).tolist(), "log": True} if range_ else None
         counts, edges = np.histogram(np.log10(v), bins=bins, range=range_)
         return {"counts": counts.tolist(), "edges": (10 ** edges).tolist(), "log": True}
     if not v.size:
@@ -353,10 +353,25 @@ def _pool_windowset(value, meta, ctx):
         out["pool"] = _clean(meta["pool"])
     if meta.get("shape_file"):
         shp = {k: _clean(meta.get(k)) for k in ("resample_length", "noise_floor", "floors", "n_in", "n_kept", "under_floor",
-                                                 "unmeasured", "method", "seconds", "shape_file", "shape_key")}
+                                                 "unmeasured", "method", "seconds", "shape_file", "shape_key", "align",
+                                                 "detrend", "align_rule", "detrend_rule", "swing_rule", "recut")}
         if "shape_raw_range_mv" in f.columns:
             rr = pd.to_numeric(f["shape_raw_range_mv"], errors="coerce").to_numpy(dtype=float)
             shp["raw_range_hist"] = _hist(rr, 40, log=True)
+            # fixup-ag: one small histogram per recording x scale, on SHARED log bins, each with its recording's floor —
+            # what the researcher reads to choose a floor in Settings › Datasets
+            pos = rr[np.isfinite(rr) & (rr > 0)]
+            if pos.size:
+                lo, hi = np.log10(pos.min()), np.log10(pos.max())
+                floors = meta.get("floors") or {}
+                lo = min(lo, *(np.log10(v["floor_mv"]) for v in floors.values() if v.get("floor_mv")))
+                rng = (float(np.floor(lo * 4) / 4), float(np.ceil(hi * 4) / 4 + 1e-9))
+                shp["raw_range_by"] = {
+                    sf: {"floor_mv": (floors.get(sf) or {}).get("floor_mv"), "from": (floors.get(sf) or {}).get("from"),
+                         "scales": {f"{(int(sc) if float(sc).is_integer() else float(sc))}":
+                                    _hist(rr[(files == sf) & (scales == sc)], 32, range_=rng, log=True)
+                                    for sc in np.unique(scales[files == sf])}}
+                    for sf in sorted(set(files.tolist()))}
             shp["raw_range_by_scale"] = {f"{(int(sc) if float(sc).is_integer() else float(sc))}": _hist(rr[scales == sc], 30, log=True) for sc in np.unique(scales)}
         if "shape_peak_frac" in f.columns:
             pk = pd.to_numeric(f["shape_peak_frac"], errors="coerce").to_numpy(dtype=float)

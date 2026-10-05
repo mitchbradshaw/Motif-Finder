@@ -78,9 +78,31 @@ K_RANGE = (2, 20)
 POOL_META = {"recording_id": "pool_recording_id", "source_file": "pool_source_file", "channel": "pool_channel",
              "start": "pool_start", "length": "pool_length", "fs": "pool_fs", "scale_min": "pool_scale_min",
              "role": "pool_role", "set_id": "pool_set_id"}
+#: the bounds (samples) of the role stretch each window lies in, from the pool's plan — what a re-cut must stay inside
+POOL_STRETCH = {"stretch_a": "pool_stretch_a", "stretch_b": "pool_stretch_b"}
 #: what the shape step adds to each window
 SHAPE_META = {"raw_range_mv": "shape_raw_range_mv", "peak_frac": "shape_peak_frac", "shape_row": "shape_row",
-              "shape_file": "shape_file"}
+              "shape_file": "shape_file", "orig_start": "shape_orig_start", "noise_mv": "shape_noise_mv",
+              "clamped": "shape_clamped"}
+SHAPE_EXTRA = ("orig_start", "noise_mv", "clamped")
+
+# ── alignment (fixup-ag continuation, the researcher 2026-10-05) ────────────
+ALIGNS = ("grid", "centre")
+DETRENDS = ("off", "linear")
+DEFAULT_ALIGN = "centre"     # the researcher chose centring (2026-10-05); measured: every pile an event shape (report part 2)
+DEFAULT_DETREND = "linear"  # with the straight line removed, the drift is no longer the shape
+SWING_RULE = ("the largest swing: the window's straight-line (least-squares) trend is removed, a running median of k "
+              "samples is taken (k odd, at least 5, about a sixtieth of the window: 5 at 1 min, 11 at 10 min, 31 at "
+              "30 min, so a glitch of a sample or two cannot be it), and the swing is the sample where that departs "
+              "furthest from its own median")
+ALIGN_RULE = {"grid": "the window as the pool cut it, on the grid",
+              "centre": ("re-cut, the same length, centred on its largest swing — kept wholly inside its own role's "
+                         "stretch on its own channel, inside the recording and clear of artifact spans; where the "
+                         "centre cannot be reached it is shifted as far as allowed (clamped, counted); a window whose "
+                         "re-cut overlaps an already-kept window of the same scale on the same channel by more than "
+                         "half is a near-duplicate (one event twice) and is dropped, counted")}
+DETREND_RULE = {"off": "no detrend: the shape is the trace as it is, drift included",
+                "linear": "the window's least-squares straight line is removed before the resample and normalise"}
 ROLES = ("train", "validation", "test", "exam")
 
 
@@ -120,9 +142,31 @@ def pool_windowset(pool):
     from Working.types import WindowSet
     t = pool.table
     feats = pd.DataFrame({POOL_META[c]: t[c].to_numpy() for c in POOL_META})
+    plan = (pool.meta or {}).get("plan")
+    if plan and len(t):
+        a, b = stretch_bounds(plan, t)
+        feats[POOL_STRETCH["stretch_a"]] = a
+        feats[POOL_STRETCH["stretch_b"]] = b
     return WindowSet(starts=t["start"].to_numpy().astype(np.int64),
                      length=int(t["length"].max()) if len(t) else 0,
                      fs=float(t["fs"].min()) if len(t) else 1.0, features=feats)
+
+
+def stretch_bounds(plan, table):
+    """Per window, `[a, b)` in samples: the role stretch of the plan it lies wholly inside."""
+    from Working.training import pool as tpool
+    a = np.zeros(len(table), dtype=np.int64)
+    b = np.zeros(len(table), dtype=np.int64)
+    t = table.reset_index(drop=True)
+    for (sf, ch), g in t.groupby(["source_file", "channel"], sort=False):
+        st = tpool.stretches_for(plan, sf, ch)
+        s0 = np.array([x["start_s"] for x in st], dtype=float)
+        s1 = np.array([x["end_s"] for x in st], dtype=float)
+        fs = g["fs"].to_numpy(dtype=float)
+        i = np.clip(np.searchsorted(s0, g["start"].to_numpy() / fs + 1e-9, side="right") - 1, 0, len(st) - 1)
+        a[g.index.to_numpy()] = np.ceil(s0[i] * fs - 1e-6).astype(np.int64)
+        b[g.index.to_numpy()] = np.floor(s1[i] * fs + 1e-6).astype(np.int64)
+    return a, b
 
 
 def is_pool(ws) -> bool:
@@ -137,7 +181,7 @@ def pool_frame(ws) -> pd.DataFrame:
                          "before it, so every window carries its recording, scale and role")
     f = ws.features
     out = pd.DataFrame({c: f[col].to_numpy() for c, col in POOL_META.items()})
-    for c, col in SHAPE_META.items():
+    for c, col in {**POOL_STRETCH, **SHAPE_META}.items():
         if col in f.columns:
             out[c] = f[col].to_numpy()
     out = out.astype({"recording_id": np.int64, "channel": np.int64, "start": np.int64, "length": np.int64,
@@ -151,7 +195,7 @@ def frame_windowset(frame, shape_file=None):
     """A pool table (with shape columns) back to a `WindowSet`."""
     from Working.types import WindowSet
     feats = pd.DataFrame({col: frame[c].to_numpy() for c, col in POOL_META.items()})
-    for c, col in SHAPE_META.items():
+    for c, col in {**POOL_STRETCH, **SHAPE_META}.items():
         if c in frame.columns:
             feats[col] = frame[c].to_numpy()
     if shape_file is not None:
@@ -175,19 +219,21 @@ class ShapeSet:
     def key(self):
         f = self.frame
         return _key({"kind": "trace_shapes", "how": {k: self.meta.get(k) for k in
-                                                     ("resample_length", "noise_floor", "floors_mv")}},
+                                                     ("resample_length", "noise_floor", "floors_mv", "align", "detrend")}},
                     [f[c].to_numpy() for c in ("source_file", "channel", "start", "length", "role")])
 
     def save(self, d):
         os.makedirs(d, exist_ok=True)
         path = os.path.join(d, "shapes.npz")
         f = self.frame
+        cols = [*POOL_META, "raw_range_mv", "peak_frac", "shape_row",
+                *[c for c in (*POOL_STRETCH, *SHAPE_EXTRA) if c in f.columns]]
         np.savez_compressed(path, vectors=np.asarray(self.vectors, dtype=np.float32),
                             **{c: (f[c].to_numpy().astype(str) if c in ("source_file", "role") else
                                    f[c].to_numpy().astype(np.float64) if c in ("fs", "scale_min", "raw_range_mv",
-                                                                              "peak_frac") else
+                                                                              "peak_frac", "noise_mv") else
                                    f[c].to_numpy().astype(np.int64))
-                               for c in (*POOL_META, "raw_range_mv", "peak_frac", "shape_row")})
+                               for c in cols})
         with open(os.path.join(d, "manifest.json"), "w", encoding="utf-8") as fh:
             json.dump({"kind": "trace_shapes", "key": self.key, **self.meta}, fh, indent=2, default=str)
         return path
@@ -197,7 +243,8 @@ class ShapeSet:
         d = os.path.dirname(path)
         with np.load(path, allow_pickle=False) as z:
             vectors = z["vectors"]
-            frame = pd.DataFrame({c: z[c] for c in (*POOL_META, "raw_range_mv", "peak_frac", "shape_row")})
+            frame = pd.DataFrame({c: z[c] for c in (*POOL_META, "raw_range_mv", "peak_frac", "shape_row",
+                                                    *POOL_STRETCH, *SHAPE_EXTRA) if c in z.files})
         frame["source_file"] = frame["source_file"].astype(str)
         frame["role"] = frame["role"].astype(str)
         meta = {}
@@ -225,41 +272,184 @@ def _count_by(frame, mask):
             for (sf, sc, r), n in sub.groupby(["source_file", "scale_min", "role"]).size().items()]
 
 
-def trace_shapes(conn, frame, *, resample_length=RESAMPLE_LENGTH, noise_floor=True, progress=None):
+def swing_width(length):
+    """The running-median width of the swing rule: odd, at least 5, about a sixtieth of the window."""
+    k = max(5, int(round(int(length) / 60.0)))
+    return k if k % 2 else k + 1
+
+
+def swing_index(seg):
+    """The sample of a window's LARGEST SWING (`SWING_RULE`)."""
+    from scipy.ndimage import median_filter
+    from scipy.signal import detrend as _detrend
+    seg = np.asarray(seg, dtype=float)
+    if len(seg) < 3:
+        return 0
+    r = _detrend(seg, type="linear")
+    k = min(swing_width(len(seg)), len(seg) if len(seg) % 2 else len(seg) - 1)
+    f = median_filter(r, size=max(1, k), mode="nearest")
+    return int(np.argmax(np.abs(f - np.median(f))))
+
+
+def _detrended(seg):
+    """The window less its least-squares straight line. What is left of an exact line is rounding dust, which
+    z-normalising would blow up into a full-amplitude shape: below 1e-9 of the window's own range it is zero."""
+    from scipy.signal import detrend as _detrend
+    seg = np.asarray(seg, dtype=float)
+    if len(seg) < 2:
+        return seg
+    r = _detrend(seg, type="linear")
+    scale = float(np.ptp(seg)) or 1.0
+    return np.zeros_like(r) if float(np.ptp(r)) <= 1e-9 * scale else r
+
+
+def shape_of(seg, detrend="off", n_samples=RESAMPLE_LENGTH):
+    """One window's shape vector: the Library's resample + z-normalise, after the detrend option."""
+    seg = np.asarray(seg, dtype=float)
+    if detrend == "linear":
+        seg = _detrended(seg)
+    return _ward.shape_vectors([seg], n_samples)[0]
+
+
+def allowed_interval(a, length, *, stretch, n_samples, spans):
+    """`[lo, hi)` a re-cut of window `[a, a + length)` may occupy: inside its role stretch, inside the
+    recording, between the artifact spans either side of it. A span overlapping the window pins it."""
+    a, length = int(a), int(length)
+    lo = max(int(stretch[0]), 0)
+    hi = min(int(stretch[1]), int(n_samples))
+    for sa, sb in spans:
+        sa, sb = int(sa), int(sb)
+        if sa < a + length and sb > a:          # touches the window itself: no room to move
+            return a, a + length
+        if sb <= a:
+            lo = max(lo, sb)
+        elif sa >= a + length:
+            hi = min(hi, sa)
+    return lo, hi
+
+
+def recut_start(a, length, swing, lo, hi):
+    """`(start, clamped)`: the window re-cut centred on sample `swing` of it, shifted as far as `[lo, hi)` allows."""
+    want = int(a) + int(swing) - int(length) // 2
+    start = int(min(max(want, int(lo)), int(hi) - int(length)))
+    return start, start != want
+
+
+def near_duplicates(frame):
+    """`(keep, n_duplicate, n_overlap)`: within one recording row and scale, a window overlapping the last kept one
+    by more than half its length is a near-duplicate (dropped); a smaller overlap is counted and kept. `keep` is in
+    the frame's own row order."""
+    f = frame.reset_index(drop=True)
+    keep = np.ones(len(f), dtype=bool)
+    n_dup = n_ov = 0
+    for _k, g in f.groupby(["recording_id", "scale_min"], sort=False):
+        order = g.sort_values("start", kind="stable")
+        prev = None
+        for i, a, L in zip(order.index.to_numpy(), order["start"].to_numpy(), order["length"].to_numpy()):
+            if prev is not None and a - prev < L / 2.0:
+                keep[i] = False
+                n_dup += 1
+                continue
+            if prev is not None and a - prev < L:
+                n_ov += 1
+            prev = int(a)
+    return keep, int(n_dup), int(n_ov)
+
+
+def check_recut(conn, frame):
+    """The pool's guarantees for re-cut bounds: every window wholly inside its own role stretch, inside its
+    recording, touching no artifact span. Raises `LeakageRefused`."""
+    from Working.training import pool as tpool
+    from Working.training.windows import LeakageRefused
+    a = frame["start"].to_numpy()
+    b = a + frame["length"].to_numpy()
+    out_stretch = int(((a < frame["stretch_a"].to_numpy()) | (b > frame["stretch_b"].to_numpy())).sum())
+    recs = {int(r["id"]): dict(r) for r in conn.execute("SELECT * FROM recordings")}
+    ex = tpool._Exclusions(conn)
+    out_rec = touching = 0
+    for rid, g in frame.groupby("recording_id"):
+        rec = recs[int(rid)]
+        ga = g["start"].to_numpy()
+        gb = ga + g["length"].to_numpy()
+        out_rec += int(((ga < 0) | (gb > int(rec["n_samples"]))).sum())
+        human, settings = ex.spans(rec)
+        touching += int(tpool._touches(ga, g["length"].to_numpy(), human + settings).sum())
+    if out_stretch or out_rec or touching:
+        raise LeakageRefused(f"re-cut windows leave their bounds: {out_stretch} outside their own role's stretch, "
+                             f"{out_rec} outside the recording, {touching} touching an artifact span")
+    return {"outside own stretch": 0, "outside the recording": 0, "touching an artifact span": 0}
+
+
+def trace_shapes(conn, frame, *, resample_length=RESAMPLE_LENGTH, noise_floor=True, align=DEFAULT_ALIGN,
+                 detrend=DEFAULT_DETREND, progress=None):
     """Resample and z-normalise every window of a pool table (the Library's
-    helpers, at the Library's length), keep its raw range and where its largest
-    excursion sits, and leave out the windows under their dataset's noise floor."""
+    helpers, at the Library's length) after the alignment and detrend options,
+    keep its raw range, its sample-to-sample noise and where its largest swing
+    sits, and leave out the windows under their dataset's noise floor."""
     from Working.library.view_filter import dataset_floors
+    from Working.training import pool as tpool
     from Working.units import to_mv_factor
 
+    if align not in ALIGNS:
+        raise ValueError(f"align must be one of {', '.join(ALIGNS)}; got {align!r}")
+    if detrend not in DETRENDS:
+        raise ValueError(f"detrend must be one of {', '.join(DETRENDS)}; got {detrend!r}")
     t0 = time.time()
     n_samples = int(resample_length)
     frame = frame.reset_index(drop=True).copy()
-    recs = {int(r[0]): (r[1], r[2]) for r in conn.execute("SELECT id, npy_path, units FROM recordings")}
+    if align == "centre" and not {"stretch_a", "stretch_b"} <= set(frame.columns):
+        raise ValueError("centring needs each window's role stretch: re-run the Window pool block (it now carries them)")
+    recs = {int(r["id"]): dict(r) for r in conn.execute("SELECT * FROM recordings")}
     floors_all = dataset_floors(conn)
     files = sorted(frame["source_file"].unique().tolist())
     floors = {sf: floors_all.get(sf, {"floor_mv": 0.1, "set": False, "from": "default"}) for sf in files}
+    ex = tpool._Exclusions(conn) if align == "centre" else None
 
     ranges = np.full(len(frame), np.nan)
+    noise = np.full(len(frame), np.nan)
     peaks = np.zeros(len(frame))
+    starts = frame["start"].to_numpy().astype(np.int64).copy()
+    clamped = np.zeros(len(frame), dtype=np.int64)
+    pinned = 0
     vectors = np.zeros((len(frame), n_samples), dtype=np.float32)
+    sa_col = frame["stretch_a"].to_numpy() if "stretch_a" in frame.columns else None
+    sb_col = frame["stretch_b"].to_numpy() if "stretch_b" in frame.columns else None
     groups = list(frame.groupby("recording_id", sort=True))
     for gi, (rid, g) in enumerate(groups):
         if progress is not None:
             progress(gi, len(groups), f"reading recording row {rid}")
-        npy, units = recs[int(rid)]
-        factor = to_mv_factor(units)
-        x = np.load(npy, mmap_mode="r")
+        rec = recs[int(rid)]
+        factor = to_mv_factor(rec.get("units"))
+        x = np.load(rec["npy_path"], mmap_mode="r")
+        spans = []
+        if ex is not None:
+            human, settings = ex.spans(rec)
+            spans = sorted(human + settings)
         segs = []
         for i, a, n in zip(g.index.to_numpy(), g["start"].to_numpy(), g["length"].to_numpy()):
-            seg = np.asarray(x[int(a):int(a) + int(n)], dtype=float)
-            segs.append(seg)
-            dev = np.abs(seg - np.median(seg))
-            peaks[i] = float(np.argmax(dev)) / max(1, len(seg) - 1)
+            a, n = int(a), int(n)
+            seg = np.asarray(x[a:a + n], dtype=float)
+            if ex is not None:
+                lo, hi = allowed_interval(a, n, stretch=(sa_col[i], sb_col[i]), n_samples=len(x), spans=spans)
+                if (lo, hi) == (a, a + n):
+                    pinned += 1
+                new, cl = recut_start(a, n, swing_index(seg), lo, hi)
+                if new != a:
+                    a = new
+                    seg = np.asarray(x[a:a + n], dtype=float)
+                starts[i] = a
+                clamped[i] = int(cl)
+            peaks[i] = float(swing_index(seg)) / max(1, len(seg) - 1)
             if factor is not None:
                 ranges[i] = float(np.ptp(seg)) * float(factor)
+                noise[i] = float(1.4826 * np.median(np.abs(np.diff(seg))) / np.sqrt(2.0)) * float(factor)
+            segs.append(_detrended(seg) if detrend == "linear" else seg)
         vectors[g.index.to_numpy()] = _ward.shape_vectors(segs, n_samples)
+    frame["orig_start"] = frame["start"].to_numpy().astype(np.int64)
+    frame["start"] = starts
+    frame["clamped"] = clamped
     frame["raw_range_mv"] = ranges
+    frame["noise_mv"] = noise
     frame["peak_frac"] = peaks
 
     floor_of = frame["source_file"].map({sf: float(floors[sf]["floor_mv"]) for sf in files}).to_numpy()
@@ -267,8 +457,29 @@ def trace_shapes(conn, frame, *, resample_length=RESAMPLE_LENGTH, noise_floor=Tr
     under = measured & (ranges < floor_of)
     unmeasured = ~measured
     drop = under if noise_floor else np.zeros(len(frame), dtype=bool)
+    dup = np.zeros(len(frame), dtype=bool)
+    recut = {"n_moved": 0, "n_clamped": 0, "n_pinned_by_artifact": 0, "n_near_duplicate": 0,
+             "n_overlap_within_scale": 0, "by_scale": {}, "rule": ALIGN_RULE[align]}
+    if align == "centre":
+        live = np.flatnonzero(~drop)
+        keep, n_dup, n_ov = near_duplicates(frame.iloc[live])
+        dup[live[~keep]] = True
+        moved = frame["start"].to_numpy() != frame["orig_start"].to_numpy()
+        cl = frame["clamped"].to_numpy().astype(bool)
+        sc_col = frame["scale_min"].to_numpy()
+        ok = ~drop & ~dup
+        recut = {"n_moved": int((moved & ok).sum()), "n_clamped": int((cl & ok).sum()),
+                 "n_pinned_by_artifact": int(pinned), "n_near_duplicate": int(n_dup),
+                 "n_overlap_within_scale": int(n_ov),
+                 "by_scale": {f"{_scale_label(sc)}": {"moved": int((moved & ok & (sc_col == sc)).sum()),
+                                                      "clamped": int((cl & ok & (sc_col == sc)).sum()),
+                                                      "near_duplicate": int((dup & (sc_col == sc)).sum())}
+                              for sc in sorted(np.unique(sc_col))},
+                 "rule": ALIGN_RULE["centre"]}
     meta = {
-        "resample_length": n_samples, "noise_floor": bool(noise_floor),
+        "resample_length": n_samples, "noise_floor": bool(noise_floor), "align": align, "detrend": detrend,
+        "align_rule": ALIGN_RULE[align], "detrend_rule": DETREND_RULE[detrend], "swing_rule": SWING_RULE,
+        "recut": recut,
         "floors": {sf: {"floor_mv": float(floors[sf]["floor_mv"]), "from": floors[sf].get("from")} for sf in files},
         "floors_mv": {sf: float(floors[sf]["floor_mv"]) for sf in files},
         "n_in": int(len(frame)),
@@ -281,9 +492,12 @@ def trace_shapes(conn, frame, *, resample_length=RESAMPLE_LENGTH, noise_floor=Tr
                        "rule": "no declared unit, so no mV range to compare with the floor: kept and counted"},
         "method": "Working.library.grouping.methods.ward.shape_vectors (resample_to_length + z_normalize)",
     }
+    drop = drop | dup
     kept = frame.loc[~drop].reset_index(drop=True)
     vecs = vectors[~drop]
     kept["shape_row"] = np.arange(len(kept), dtype=np.int64)
+    if align == "centre" and len(kept):
+        check_recut(conn, kept)
     meta["n_kept"] = int(len(kept))
     meta["seconds"] = round(time.time() - t0, 2)
     return ShapeSet(frame=kept, vectors=vecs, meta=meta)
@@ -447,6 +661,27 @@ def propose(tree, shapes, k_range=K_RANGE, seed=0):
                                 "(the baseline's written rule); smaller clusters are specks and do not count"),
             "note": "silhouette on the clustered sample (a stratified sample of it past 8,000), Euclidean on the "
                     "normalised shapes; a guide, the cut is the researcher's"}
+
+
+def propose_cached(tree, shapes, d, k_range=K_RANGE, seed=0):
+    """`(proposal, cached)`: `propose`, kept beside its tree (`propose.json`) and read back while the tree, the
+    windows and the k range are the same — it costs tens of seconds on 20,000 windows."""
+    path = os.path.join(d, "propose.json")
+    stamp = {"tree": tree.meta.get("key"), "shape_key": shapes.key, "k_range": [int(k_range[0]), int(k_range[1])],
+             "seed": int(seed), "n_leaves": int(len(tree.leaf_rows))}
+    if os.path.isfile(path):
+        try:
+            with open(path, encoding="utf-8") as fh:
+                saved = json.load(fh)
+            if saved.get("stamp") == stamp:
+                return saved["proposal"], True
+        except (ValueError, KeyError):
+            pass
+    prop = propose(tree, shapes, k_range=k_range, seed=seed)
+    os.makedirs(d, exist_ok=True)
+    with open(path, "w", encoding="utf-8") as fh:
+        json.dump({"stamp": stamp, "proposal": prop}, fh, default=float)
+    return json.loads(json.dumps(prop, default=float)), False
 
 
 def cut_height(tree, k):

@@ -135,7 +135,7 @@ def test_centring_keeps_every_window_inside_its_own_stretch_channel_and_clear_of
     from Working.training import pool as tpool
     frame = sh.pool_frame(sh.pool_windowset(pool))
     assert {"stretch_a", "stretch_b"} <= set(frame.columns)
-    out = sh.trace_shapes(conn, frame, align="centre", noise_floor=False)
+    out = sh.trace_shapes(conn, frame, align="centre", detrend="off", noise_floor=False)
     f = out.frame
     assert (f["start"] >= f["stretch_a"]).all() and (f["start"] + f["length"] <= f["stretch_b"]).all()
     plan = pool.meta["plan"]

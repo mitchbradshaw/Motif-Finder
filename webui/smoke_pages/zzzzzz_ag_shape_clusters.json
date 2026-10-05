@@ -19,7 +19,7 @@
  {"page": "analyse.block", "state": "fixup-ag-trace-shape-counts-the-noise-floor", "hash": "analyse/block/1", "settle_ms": 3000,
   "_why": "fixup-ag: Trace shape — windows under the dataset's noise floor are left out by default and counted per recording and scale; every window keeps its raw range",
   "actions": [{"wait_for": ["[data-testid=\"shape-view\"]", 60000]}],
-  "expect": ["[data-testid=\"shape-under-floor\"]", "[data-testid=\"shape-range-hist\"]"]},
+  "expect": ["[data-testid=\"shape-under-floor\"]", "[data-testid=\"shape-range-hist\"]", "[data-testid=\"shape-options\"]", "[data-testid=\"shape-range-by\"]"]},
  {"page": "analyse.block", "state": "fixup-ag-the-pool-page-shows-recording-by-scale-by-role", "hash": "analyse/block/0", "settle_ms": 3000,
   "_why": "fixup-ag: the pool the run combined — windows per recording × scale × role, what was removed and why, the members in order",
   "actions": [{"wait_for": ["[data-testid=\"pool-counts\"]", 60000]}],

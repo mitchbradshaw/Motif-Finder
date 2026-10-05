@@ -165,16 +165,38 @@ export function ShapeView({ p }: { p: PoolPayload }) {
         <div className="bp-tile"><div className="k">unmeasured · kept</div><div className="v">{s.unmeasured.n.toLocaleString()}</div></div>
         <div className="bp-tile"><div className="k">kept · shapes of {s.resample_length} points</div><div className="v">{s.n_kept.toLocaleString()}</div></div>
       </div>
+      <div className="callout small" data-testid="shape-options">
+        <b>align · {s.align ?? 'grid'}</b> — {s.align_rule ?? 'the window as the pool cut it'} · <b>detrend · {s.detrend ?? 'off'}</b> — {s.detrend_rule ?? 'the trace as it is'}
+        {s.align === 'centre' && s.swing_rule ? <div className="muted" style={{ marginTop: 3 }}>{s.swing_rule}</div> : null}
+      </div>
+      {s.align === 'centre' && s.recut && (
+        <div className="bp-tiles" style={{ marginTop: 0 }} data-testid="shape-recut">
+          <div className="bp-tile"><div className="k">re-cut onto their swing</div><div className="v">{s.recut.n_moved.toLocaleString()}</div></div>
+          <div className="bp-tile"><div className="k">clamped · centre not reachable inside the fence</div><div className="v" data-testid="shape-clamped">{s.recut.n_clamped.toLocaleString()}</div></div>
+          <div className="bp-tile"><div className="k">near-duplicates · one event twice · left out</div><div className={`v${s.recut.n_near_duplicate ? ' red' : ''}`} data-testid="shape-near-duplicates">{s.recut.n_near_duplicate.toLocaleString()}</div></div>
+          <div className="bp-tile"><div className="k">overlap ≤ half within a scale · kept</div><div className="v">{s.recut.n_overlap_within_scale.toLocaleString()}</div></div>
+        </div>
+      )}
       <div className="muted small">{under.rule} · floors: {floors.map(([sf, f]) => `${sf.replace(/\.mat$/, '')} ${fmtN(f.floor_mv)} mV (${f.from})`).join(' · ')} · {s.method}</div>
       {s.noise_floor && under.n > 0 && <div><div className="bp-card-title"><h3 style={{ fontSize: 13 }}>Left out under the floor, per recording × scale × role</h3></div><CountTable rows={under.by} testid="shape-under-floor-table" /></div>}
       {s.unmeasured.n > 0 && <div className="callout small" data-testid="shape-unmeasured">{s.unmeasured.n.toLocaleString()} windows come from a recording with no declared unit: {s.unmeasured.rule}</div>}
       <div className="row" style={{ gap: 14, alignItems: 'flex-start' }}>
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div className="bp-card-title"><h3 style={{ fontSize: 13 }}>Raw range of the kept windows</h3><span className="sg">peak to peak, mV, log axis · the red line is the floor</span></div>
+          <div className="bp-card-title"><h3 style={{ fontSize: 13 }}>Raw range of the kept windows</h3><span className="sg">peak to peak, mV, log axis · the red line is each recording's floor · set it in Settings › Datasets</span></div>
           <LogHist h={s.raw_range_hist} floor={floors.length === 1 ? floors[0][1].floor_mv : Math.min(...floors.map(([, f]) => f.floor_mv))} testid="shape-range-hist" />
+          {s.raw_range_by && (
+            <div data-testid="shape-range-by" style={{ display: 'grid', gridTemplateColumns: `repeat(${Math.max(1, ...Object.values(s.raw_range_by).map(r => Object.keys(r.scales).length))}, minmax(0, 1fr))`, gap: 6, marginTop: 6 }}>
+              {Object.entries(s.raw_range_by).flatMap(([sf, r]) => Object.entries(r.scales).map(([sc, h]) => (
+                <div key={`${sf}-${sc}`}>
+                  <div className="muted small mono">{sf.replace(/\.mat$/, '')} · {sc} min · floor {r.floor_mv === null ? '—' : fmtN(r.floor_mv)} mV</div>
+                  <LogHist h={h} floor={r.floor_mv} testid={`shape-range-${sf.replace(/\.mat$/, '')}-${sc}`} height={80} />
+                </div>
+              )))}
+            </div>
+          )}
         </div>
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div className="bp-card-title"><h3 style={{ fontSize: 13 }}>Where the largest excursion sits in its window</h3><span className="sg">0 = the start, 1 = the end · per scale</span></div>
+          <div className="bp-card-title"><h3 style={{ fontSize: 13 }}>Where the largest swing sits in its window</h3><span className="sg">0 = the start, 1 = the end · per scale</span></div>
           {Object.entries(s.peak_frac_by_scale ?? {}).map(([sc, h]) => <div key={sc}><div className="muted small mono">{sc} min</div><LogHist h={h} testid={`shape-peak-hist-${sc}`} height={70} /></div>)}
         </div>
       </div>

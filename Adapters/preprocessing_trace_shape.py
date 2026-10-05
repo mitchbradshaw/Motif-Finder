@@ -29,12 +29,18 @@ from Adapters.registry import register
 RESULTS_DIR = os.path.join("DATA", "derived", "trace_shapes")
 
 
+def _default(name):
+    from Working.training import shape as tshape
+    return getattr(tshape, name)
+
+
 def _resample_default():
     from Working.library.grouping.methods.ward import RESAMPLE_LENGTH
     return RESAMPLE_LENGTH
 
 
-def _run(x, t, fs, resample_length=None, noise_floor=True, value=None, conn=None, recording=None):
+def _run(x, t, fs, resample_length=None, noise_floor=True, align=None, detrend=None, value=None, conn=None,
+         recording=None):
     from Working.training import shape as tshape
     if conn is None:
         raise ValueError("the Trace shape block reads each window's trace and its dataset's noise floor from the "
@@ -43,13 +49,15 @@ def _run(x, t, fs, resample_length=None, noise_floor=True, value=None, conn=None
         raise ValueError("Trace shape needs the windows of a Window pool before it")
     frame = tshape.pool_frame(value)
     n = int(resample_length or _resample_default())
-    shapes = tshape.trace_shapes(conn, frame, resample_length=n, noise_floor=bool(noise_floor))
+    shapes = tshape.trace_shapes(conn, frame, resample_length=n, noise_floor=bool(noise_floor),
+                                 align=align or tshape.DEFAULT_ALIGN, detrend=detrend or tshape.DEFAULT_DETREND)
     d = os.path.join(RESULTS_DIR, shapes.key)
     path = os.path.join(d, "shapes.npz")
     if not os.path.isfile(path):
         path = shapes.save(d)
     meta = {k: shapes.meta[k] for k in ("resample_length", "noise_floor", "floors", "n_in", "n_kept", "under_floor",
-                                        "unmeasured", "method", "seconds")}
+                                        "unmeasured", "method", "seconds", "align", "detrend", "align_rule",
+                                        "detrend_rule", "swing_rule", "recut")}
     meta.update({"shape_file": os.path.abspath(path), "shape_key": shapes.key})
     return AdapterResult(output_kind="windowset", value=tshape.frame_windowset(shapes.frame, os.path.abspath(path)),
                          meta=meta)
@@ -70,6 +78,14 @@ SPEC = register(AdapterSpec(
         ParamSpec("resample_length", int, _resample_default(),
                   "Points every window is resampled to before z-normalising — the Library's own length, so a "
                   "distance here means what it means in the Library.", min=8),
+        ParamSpec("align", str, _default("DEFAULT_ALIGN"),
+                  "grid: the window as the pool cut it. centre: re-cut, the same length, centred on its largest swing "
+                  "(trend removed, a running median so a glitch cannot be it), kept inside its own role's stretch and "
+                  "clear of artifact spans; a window that cannot be centred is shifted as far as allowed (counted); "
+                  "two windows that centre onto one event keep one (counted).", choices=["grid", "centre"]),
+        ParamSpec("detrend", str, _default("DEFAULT_DETREND"),
+                  "off: the trace as it is. linear: the window's straight line removed before the resample and "
+                  "normalise, so a slow drift is not the shape.", choices=["off", "linear"]),
         ParamSpec("noise_floor", bool, True,
                   "Leave out windows whose raw range is under their dataset's noise floor (Settings › Datasets; "
                   "0.1 mV where empty). Normalising throws amplitude away: a wiggle and a drop would look alike."),

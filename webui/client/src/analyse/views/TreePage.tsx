@@ -56,7 +56,7 @@ export function TreePage({ q, p }: { q: ProcessProps; p: TreePayload }) {
         <div className="bp-tile"><div className="k">not clustered · val / test / exam</div><div className="v">{Object.values(t.not_clustered).reduce((a, b) => a + b, 0).toLocaleString()}</div></div>
         <div className="bp-tile"><div className="k">cut applied to the block</div><div className="v" data-testid="tree-applied-k">k = {applied}{t.k_param === 0 ? ' (proposed)' : ''}</div></div>
       </div>
-      <div className="muted small" data-testid="tree-rule">{t.rule} · {t.method_text} · {t.stratified_by} · seed {t.seed} · tree {t.reused ? 're-used' : 'built'}{t.ward_seconds !== null ? ` · Ward ${t.ward_seconds} s` : ''}{t.peak_rss_mb ? ` · peak memory ${Math.round(t.peak_rss_mb).toLocaleString()} MB` : ''}{t.loaded_from ? ` · loaded from ${t.loaded_from}` : ''}</div>
+      <div className="muted small" data-testid="tree-rule">{t.rule} · shapes: align {t.align ?? 'grid'} · detrend {t.detrend ?? 'off'}{t.propose_cached ? ' · proposal read from beside the tree' : ''} · {t.method_text} · {t.stratified_by} · seed {t.seed} · tree {t.reused ? 're-used' : 'built'}{t.ward_seconds !== null ? ` · Ward ${t.ward_seconds} s` : ''}{t.peak_rss_mb ? ` · peak memory ${Math.round(t.peak_rss_mb).toLocaleString()} MB` : ''}{t.loaded_from ? ` · loaded from ${t.loaded_from}` : ''}</div>
       <Guard label="the dendrogram">
         <Dendrogram t={t} k={k} onK={kk => { setK(kk); setSel(null) }} />
       </Guard>

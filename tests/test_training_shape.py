@@ -59,6 +59,12 @@ def _pool():
     return tpool
 
 
+def _grid_shapes(sh, conn, frame, **kw):
+    """These tests pin the windows AS THE POOL CUT THEM (align grid, no detrend). Since fixup-ag's continuation the
+    block's default is centred + detrended (`test_training_shape_align.py`)."""
+    return sh.trace_shapes(conn, frame, **{"align": "grid", "detrend": "off", **kw})
+
+
 def _add_recording(conn, tmp, source, n, quiet=(), seed=0, units="V"):
     stem = os.path.splitext(source)[0]
     d = os.path.join(tmp, "channels", stem)
@@ -153,7 +159,7 @@ def test_shapes_are_the_librarys_resample_and_z_normalise_at_the_librarys_length
     from Working.distances import resample_to_length, z_normalize
     from Working.library.grouping.methods import ward
     assert sh.RESAMPLE_LENGTH == ward.RESAMPLE_LENGTH
-    out = sh.trace_shapes(conn, sh.pool_frame(sh.pool_windowset(pool)))
+    out = _grid_shapes(sh, conn, sh.pool_frame(sh.pool_windowset(pool)))
     assert out.vectors.shape == (len(out.frame), ward.RESAMPLE_LENGTH)
     rec = {int(r[0]): r[1] for r in conn.execute("SELECT id, npy_path FROM recordings")}
     for i in (0, len(out.frame) // 2, len(out.frame) - 1):
@@ -175,7 +181,7 @@ def test_windows_under_the_noise_floor_are_left_out_by_default_and_counted_per_r
     quiet_rid = conn.execute("SELECT id FROM recordings WHERE source_file = ? AND channel = ?", (PLAIN, QUIET)).fetchone()[0]
     n_quiet = int((frame["recording_id"] == quiet_rid).sum())
     assert n_quiet > 0, "the fixture must put some quiet windows in the pool"
-    out = sh.trace_shapes(conn, frame)
+    out = _grid_shapes(sh, conn, frame)
     assert not (out.frame["recording_id"] == quiet_rid).any()
     assert len(out.frame) == len(frame) - n_quiet
     removed = out.meta["under_floor"]
@@ -196,10 +202,10 @@ def test_the_floor_is_read_from_settings_datasets_and_the_switch_turns_it_off(po
     frame = sh.pool_frame(sh.pool_windowset(pool))
     # a floor above every window of AUG: every AUG window goes
     put_settings(conn, "datasets", {"meta.syn_aug_concat_fs1.noise_floor": 1e9})
-    out = sh.trace_shapes(conn, frame)
+    out = _grid_shapes(sh, conn, frame)
     assert not (out.frame["source_file"] == AUG).any()
     assert out.meta["floors"][AUG]["floor_mv"] == pytest.approx(1e9)
-    off = sh.trace_shapes(conn, frame, noise_floor=False)
+    off = _grid_shapes(sh, conn, frame, noise_floor=False)
     assert len(off.frame) == len(frame) and off.meta["under_floor"]["n"] == 0
     assert off.meta["noise_floor"] is False
 
@@ -210,7 +216,7 @@ def test_a_recording_with_no_declared_unit_is_unmeasured_kept_and_counted(pooled
     conn.execute("UPDATE recordings SET units = NULL WHERE source_file = ?", (AUG,))
     conn.commit()
     frame = sh.pool_frame(sh.pool_windowset(pool))
-    out = sh.trace_shapes(conn, frame)
+    out = _grid_shapes(sh, conn, frame)
     n_aug = int((frame["source_file"] == AUG).sum())
     assert int((out.frame["source_file"] == AUG).sum()) == n_aug
     assert out.meta["unmeasured"]["n"] == n_aug
@@ -220,7 +226,7 @@ def test_a_recording_with_no_declared_unit_is_unmeasured_kept_and_counted(pooled
 def test_the_vectors_are_bulk_arrays_on_disk_by_path_and_load_back(pooled, tmp_path):
     conn, _tmp, pool = pooled
     sh = _shape()
-    out = sh.trace_shapes(conn, sh.pool_frame(sh.pool_windowset(pool)))
+    out = _grid_shapes(sh, conn, sh.pool_frame(sh.pool_windowset(pool)))
     path = out.save(str(tmp_path / "shapes"))
     assert os.path.isfile(path)
     back = sh.ShapeSet.load(path)
@@ -235,7 +241,7 @@ def test_the_vectors_are_bulk_arrays_on_disk_by_path_and_load_back(pooled, tmp_p
 def shaped(pooled):
     conn, tmp_path, pool = pooled
     sh = _shape()
-    return conn, tmp_path, sh.trace_shapes(conn, sh.pool_frame(sh.pool_windowset(pool)))
+    return conn, tmp_path, _grid_shapes(sh, conn, sh.pool_frame(sh.pool_windowset(pool)))
 
 
 def test_only_training_windows_are_clustered_from_a_seeded_sample_stratified_by_recording_and_scale(shaped):
