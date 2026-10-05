@@ -297,3 +297,238 @@ re-walk logs, `pytest-summary.txt`.
 
 **Commits:** `3d56946` (red, seam i) · `c435bee` (seam i) · `4322d61` (red, seam ii) · `ffd21c1` (seam ii) · the report
 commit.
+
+---
+
+# Part 2 — 2026-10-05 (evening): lining the windows up, measured
+
+The researcher answered §7: (1) **centre each window on its largest swing**, with a straight-line **detrend measured
+beside it** — and a worry, in their words: this is *"risky as noise with large swing now gets directly compared to
+events. Should be ok for at min 1 minute windows though."*; (2) **a floor per dataset**, set by the researcher in
+Settings › Datasets after reading Trace shape's histogram; (3) settle the alignment, re-run, **look at the piles, and
+only then** seam (iii). Seam (iii) is still not built. Commits: `494348d` (red tests), `4f37188` (the build), `278aeb6` (the measurement
+and its pictures), `d742874` (a layout fix found on the gate), and the report commit.
+
+## In plain words first
+
+Two switches are now on the Trace shape block. **Align**: *grid* keeps each photograph as the grid cut it; *centre*
+re-cuts it, the same length, so its biggest swing is in the middle. **Detrend**: *linear* takes away the window's
+straight-line slope before comparing shapes, so a window that simply drifts up is no longer "a shape". I ran all four
+combinations on the same 60,000 windows and looked at the piles.
+
+- With **centre + detrend**, every one of eight piles is an event shape — a hump, a peak, a V, a drop with a slow
+  recovery, a slow rise and a sharp drop (the sharkfin), a sharp drop in the middle. With the grid as it was, about half
+  of the piles were just "goes up" or "goes down".
+- **Your worry is right, and the other way round.** The noise problem is at **1 minute**, not at 10 or 30: with the
+  0.1 mV floor, a third of the 1-minute windows look like pure noise (their whole swing is under 8 times the
+  recording's sample-to-sample noise), against 1 in 20 at 10 minutes and 1 in 100 at 30. Those noise windows do **not**
+  gather in a pile of their own: they sit in every pile, 4–23 % of each.
+- **Raising the floor to 0.3 mV** removes most of them (1-minute noise-like 34 % → 14 %; every pile ≤ 14 %) and keeps
+  the three scales roughly balanced. At **1 mV** the noise is gone, but so is almost half the pool, most of it the
+  1-minute windows (1-minute training windows: 9,957 → 2,064).
+- My recommendation: **centre + detrend** (now the default) with **a 0.3 mV floor** on both M2 datasets, then look.
+
+## 1. What was built
+
+- **`align`** on Trace shape — `grid` | `centre` — and **`detrend`** — `off` | `linear`. Defaults **centre, linear**
+  (`shape.DEFAULT_ALIGN`, `DEFAULT_DETREND`); grid and no detrend stay available. The page states which are on, the
+  rule for each, and the re-cut counts.
+- **The largest swing** (`shape.SWING_RULE`): the window's least-squares straight line is removed, a running median of
+  k samples is taken (k odd, at least 5, about a sixtieth of the window: 5 at 1 min, 11 at 10 min, 31 at 30 min), and
+  the swing is the sample where that departs furthest from its own median. A one- or two-sample glitch cannot be it
+  (pinned: a glitch eight times the event's depth is ignored), and nor can the drift (the line is removed first). The
+  first report's definition (the largest departure from the median, no smoothing) pointed at a window edge in most
+  windows because of the drift.
+- **The fence** for a re-cut window: wholly inside its own role's stretch on its own channel (the pool's plan now
+  rides on every window as stretch bounds), inside the recording, clear of every artifact span (human labels and
+  Settings exclusions). Where the centre is out of reach the window is **shifted as far as allowed** — never left out
+  for it — and counted as *clamped*. `check_recut` raises `LeakageRefused` if any re-cut window leaves its bounds
+  (pinned, with a deliberately moved window).
+- **Near-duplicates:** two windows that centre onto one event — a re-cut overlapping a kept window of the same scale on
+  the same channel by more than half — keep the first; the rest are dropped and counted. A smaller overlap is kept and
+  counted.
+- **The floor per dataset**: read from Settings › Datasets when set, 0.1 mV otherwise; the page says which was used
+  for which recording, and now draws **one raw-range histogram per recording × scale on shared log bins, each with its
+  recording's floor line** — the picture to choose a floor from.
+- **The cut proposal is cached** beside its tree (`propose.json`; 38 s saved on every re-run with the same tree).
+
+## 2. The four combinations, one pool, one seed
+
+Pool `712f477b262b2fd8` (60,000; `AF`'s), floor 0.1 mV, Ward on 20,000 training windows, seed 0
+(`scripts/ag_alignment_report.py`; `measure2/alignment.json`, `printout.txt`). Pictures: `align_sheet_<combo>_k8.png`
+— per pile its medoid (brown) and 11 seeded members.
+
+| | grid · off | grid · linear | **centre · off** | **centre · linear** |
+|---|---|---|---|---|
+| silhouette k = 2 / 4 / 8 / 12 | 0.459 / 0.284 / **0.165** / 0.119 | 0.161 / 0.100 / 0.029 / −0.000 | 0.432 / 0.346 / 0.079 / 0.063 | 0.192 / 0.107 / 0.033 / 0.037 |
+| proposal (the baseline's rule) | k 2 | k 2 | k 2 | k 2 |
+| pile sizes at k = 8 | 3,218 · 2,037 · 1,596 · 6,317 · 1,846 · 1,965 · 8,915 · 5,084 | 4,729 · 2,803 · 3,390 · 3,679 · 4,484 · 2,915 · 3,838 · 5,140 | 1,967 · 2,801 · 3,914 · 4,717 · 2,275 · 2,111 · 5,354 · 6,231 | 2,815 · 5,747 · 2,905 · 4,291 · 2,008 · 2,704 · 2,915 · 5,985 |
+| scale mix (NMI pile × scale; 0 = even) | 0.008 | 0.029 | 0.009 | 0.021 |
+| shifted copies, a slide ≤ ¼ window (of 28 pairs) | 5 | 8 | **1** | 7 |
+| … a slide ≤ ½ window (the first report's count) | 19 | 17 | 15 | 16 |
+| what the piles are, by eye | drift: rising, falling, bowls, a step | humps, bowls, Vs — still off-centre, noisy | **4 drift piles** (two falling, two rising) + 4 event piles (peak, drop-and-recover ×2, drop in the middle) | **8 event piles**: hump, peak, V, drop-and-recover, sawtooth (sharkfin), sharp drop in the middle; noise in several |
+| training windows (floor, near-duplicates out) | 30,978 | 30,978 | 29,370 | 29,370 |
+
+Centring moved 53,931 windows; **86 clamped** (1 at 1 min, 20 at 10, 65 at 30), **0 pinned** by an artifact span,
+**3,245 near-duplicates dropped** (66 at 1 min, 807 at 10, 2,372 at 30 — the 30-minute grid is sampled densely, so
+neighbours centre onto one event) and 4,464 smaller within-scale overlaps kept and counted.
+
+**A correction to Part 1, §2.** The "19 of 28 pairs are shifted copies" there allowed a slide of up to half a window;
+at that slide half of any two smooth curves correlate well, so the count is loose. With the stricter slide (≤ a
+quarter, three quarters of each curve still overlapping) grid · off has **5 of 28**, not 19. The conclusion that the
+grid piles are drift shapes stands (the contact sheets show it); the claim that *most* piles are shifted copies of one
+another does not. RQ1's line is struck through and corrected.
+
+**Silhouette falls with detrending**, as expected: the up / down drift is the most separable thing in these windows,
+and removing it leaves shapes that overlap more. Silhouette measures separation, not whether a pile is an event; it
+is lowest for the combination whose piles look most like events. The proposal by the baseline's rule is k = 2 in every
+combination and says little here — **choose the cut on the dendrogram by eye.**
+
+## 3. The researcher's worry, measured
+
+*Noise-like* = a window whose raw range is under **8 ×** its dataset's median sample-to-sample noise (σ from the
+median absolute first difference). Also shown: raw range under 1 mV.
+
+**After centring + detrend, floor 0.1 mV (the default):**
+
+| | 1 min | 10 min | 30 min |
+|---|---|---|---|
+| noise-like | **34.4 %** | 4.9 % | 1.0 % |
+| raw range < 1 mV | 79.3 % | 23.3 % | 5.2 % |
+
+Per pile at k = 8 (noise-like, all scales · among the pile's 1-minute members): 7 % · 19 % | 18 % · 37 % | 7 % · 23 % |
+7 % · 24 % | 9 % · 30 % | 4 % · 17 % | 20 % · 41 % | 23 % · 43 %. **No pile is mostly noise** (none ≥ 50 %): the noise
+windows spread through every pile, most into the piles of drops in the middle (7, 8) and peaks (2). Grid · off is no
+better (10–28 % per pile). Centring does not create the noise problem — it is there on the grid too — but it does
+put a noise window's biggest wiggle in the middle, where an event's would be.
+
+**Raising the floor** (centre + detrend, set in Settings › Datasets for both recordings):
+
+| floor | left out | training windows (1 / 10 / 30 min) | noise-like, 1 min · 10 · 30 | worst pile | silhouette k 8 | shifted (¼) |
+|---|---|---|---|---|---|---|
+| 0.1 mV | 2,474 | 29,370 (9,957 / 10,057 / 9,356) | 34.4 % · 4.9 % · 1.0 % | 23 % | 0.033 | 7 |
+| **0.3 mV** | 12,961 | 24,843 (5,690 / 9,807 / 9,346) | **13.7 % · 4.6 % · 1.2 %** | 14 % | 0.081 | 7 |
+| 1 mV | 26,589 | 18,668 (2,064 / 7,725 / 8,879) | 0.1 % · 0 · 0 | 0 % | 0.095 | 6 |
+
+At 0.3 mV the remaining noise begins to gather (piles 2 and 7 hold most of it, `align_sheet_centre-linear-floor0.3_k8.png`)
+and pile 8 is a clean sawtooth / sharkfin pile across all three scales. At 1 mV the piles are clean but the 1-minute
+scale is a fifth of its share: the scale balance the pool was built for is gone.
+
+**Do the centred piles still mix scales evenly?** Yes, broadly: NMI pile × scale 0.021 (centre + detrend), 0.009
+(centre, no detrend), against 0.008 on the grid. Some piles lean: at 0.1 mV two piles hold 2,408 and 2,913 one-minute
+windows against ~1,400–1,500 at 30 min — those are the noise-heavy piles.
+
+## 4. What I would use, and what the piles look like
+
+**Centre + linear detrend, with a 0.3 mV floor on M2_aug and M2**, and the cut chosen on the dendrogram by eye
+(k ≈ 8–10 to start). The piles are then event shapes — humps, peaks, Vs, drops with a slow recovery, a sawtooth
+(sharkfin) pile, a sharp-drop-in-the-middle pile — each holding all three scales, with noise in two piles rather than
+spread through all. **I set the default to centre + linear**; the floor stays the researcher's (Settings ›
+Datasets) as decided, and the block reads it with no rebuild.
+
+## 5. Items left
+
+- Seam (iii) — *Train model*, arm B.2, the freeze, the forest — **not built, as instructed**; it waits for the
+  researcher to look at the piles.
+- The noise rule is in mV; most noise windows are 1-minute (question below).
+- Near-duplicates are judged per recording row and scale; an fs1 and an fs2 file of one recording are not compared
+  (the M2 pools here use fs1 files only).
+- Two windows of one scale overlapping by less than half are kept (4,464 here, counted): within-scale overlap after
+  centring is no longer zero, unlike the grid pool.
+- The first report's position measurement (`ag_shape_pool_report.py`) still uses the old swing definition; Part 2's
+  numbers come from `ag_alignment_report.py`.
+
+## 6. A question for the researcher
+
+**Should the noise floor depend on the window's own noise rather than one number in mV?** *In plain words:* a floor in
+millivolts treats a 1-minute and a 30-minute photograph alike, but almost all the noise-only windows are the short
+ones — over a minute the signal has had little time to move, over thirty minutes it nearly always has. A floor of
+0.3 mV cleans most of them out; a floor of 1 mV cleans all of them but also throws away four in five 1-minute windows.
+
+- **(a)** keep the per-dataset mV floor you chose, at about 0.3 mV — built, works today;
+- **(b)** add a second, scale-aware rule: leave out a window whose swing is under N times its own sample-to-sample
+  noise (measured here with N = 8) — one more switch on Trace shape;
+- **(c)** a higher floor for 1-minute windows only.
+
+*My recommendation:* **(a) at 0.3 mV now**, look at the piles, and ask for **(b)** only if the 1-minute members of the
+event piles still look like noise — it is the rule that matches what the measurement found, but it is one more number
+to choose.
+
+## 7. The gate
+
+1. **`npx tsc -b` clean; the build green**, into private directories from `git archive HEAD` (the main checkout held
+   another session's uncommitted client edits — Discovery's seed page — so the gate's client is this branch's alone).
+2. **`pytest -n 4` (conda, 22 m): 2,353 passed, 28 skipped, 0 failed** — failure set empty.
+3. **Route tests (`webui/.venv`, every `tests/test_webui_*.py`, `-n 4`, 13 m): 424 passed, 3 xpassed, 7 failed** — the
+   standing `test_the_scoreboard_cells_are_the_tables_own_numbers`, and **six in `tests/test_webui_seed_page_repairs.py`,
+   an untracked file of the other session's work in progress** (its routes are in its uncommitted `discovery.py` /
+   `library.py`). None of mine; my route tests pass.
+4. **Smoke, two full walks on fresh `--sandbox` bridges** (port 8775, private build of HEAD). **All 4 of my states pass
+   in both**, and again after the layout fix below (`--only zzzzz`: AF's 3 + my 4, 7 screenshots, 0 failures, 0
+   console errors, 0 tracebacks; `smoke-part2/smoke-ag-states-after-fix.log`).
+   - **First walk (22:44–23:21): 652 screenshots, 25 failures**, including the `database is locked` 500 on `AD`'s
+     `POST /api/library/family/F-130/suspected-artifacts` again (2 walk checks + `AD`'s two states).
+   - **Second walk on a quiet machine (23:23–23:58), the gate: 654 screenshots, 22 failures.** A process sampler
+     (`smoke-part2/sampler.txt`) shows only my bridge and my walk running, CPU 1–26 %. **The `database is locked` 500
+     did not recur** (0 unexpected tracebacks). The 22 (`smoke-part2/smoke-full-quiet.log`):
+     - **the 8 of the baseline** — `discovery.runs--default`, the four Settings registration Check states, and the
+       three Interrogation cold-start states (`--fixup-d-sequence-rose`, `.slope--fixup-k-marks-are-the-payloads`,
+       `--fixup-k-marks-on-a-trough-family`);
+     - **3 in the core Analyse flow** (all rows completed · every row painted · *Pass N to Review* enabled): the example
+       chain's matrix profile was still running when checked. The bridge log puts *stumpy JIT warm* at 23:24:31, 73 s
+       after start — the walk began 1.5 min after the bridge and the run collided with the warm-up. (My first walk of the
+       day, which passed these, started 20 minutes after its bridge.)
+     - **11 other states**, none on a page this ticket touched; re-walked warm against the same bridge
+       (`smoke-part2/rewalk3_*.log`): **Explore 0 and Interrogation 0 failures** (so `explore.cross-channel--as-recorded`,
+       `analyse.interrogation--default`, `.slope--default`, `.slope--fixup-k-all-marks-names-what-is-not-drawn` are
+       cold-start); **still failing warm:** `discovery.runs--modal-slurm` (1 console error), `discovery.seed--default` —
+       and on the re-walk also `discovery.compare--default`, `discovery.stages--default` — *the Discovery pages the other
+       session's uncommitted `webui/server/discovery.py` changes, which this bridge ran, served to this branch's client*;
+       `library.grouping--frequency-content` (the Edit grouping modal still a skeleton at 2.5 s; its editor read answers
+       in 38 ms warm — it failed on the afternoon walk too, then passed warm); `review.inspector--3-queue-rail (click
+       toggle)` and `--queue-picker popover lists the live queues` (the queue list depends on what the store holds);
+       `settings.datasets--held-out-locked` and `settings.storage-backups--default` (the storage read walks the real
+       `DATA/` trees, 0.4–0.6 s warm; the Settings-only re-walk also timed out `settings.shell--save-writes-the-settings-
+       table`, `settings.datasets--review-item-carries-its-source-file`, `settings.nulls--unsaved`).
+     - 1 walk check: 1 browser console error (`discovery.runs--modal-slurm`'s).
+   **Said plainly:** on a quiet machine the walk is **not** at the 8-failure baseline, and load does not explain it. I
+   can tie 3 to the stumpy warm-up and 4 to cold start; I cannot clear the Discovery, Library-grouping, Review-queue and
+   Settings states without a walk of HEAD alone, which this checkout could not give while another session's
+   uncommitted server edits sat in it (`webui/server/discovery.py`, `webui/server/library.py`). No state that failed
+   touches a file this ticket changed, except through shared code: `serialize.py` (my branch is taken only by a pool
+   WindowSet or a Grouping with a tree), `chain.py` (the step-01 rule), `runtime.py` (three more redirected paths) and the
+   grouping-method discovery fix — I found nothing in those that reaches the failing pages, but that is a reading, not a
+   walk.
+   - **The `database is locked` 500 on `AD`'s suspected-artifacts route** (its own item): it occurred on the afternoon
+     walk and on tonight's first walk, both while other walks or jobs were running, and not on the quiet walk. Every
+     route opens its connection through `init_db`, which runs the migrations — the log prints ~300 *legacy detections:
+     refusing run …* lines on each open — so two requests at once may contend for the write lock. A hypothesis, not
+     checked; `AD`'s route and `init_db` are not this ticket's.
+5. **Found and fixed on the gate:** the Trace shape page's re-cut tiles ran under the parameters panel, and the small
+   histograms' tick labels collided (`d742874`; screenshot `09_trace_shape_options_and_histograms.png`).
+
+## 8. To see the piles yourself — PROJECT mode on the real database
+
+Your bridge writes to the real database in this mode (a backup is written first): the six window sets, the pool, a
+run, and the shape vectors and tree under `DATA/derived/`.
+
+1. Start the bridge: `webui\start.ps1` (PROJECT mode on http://127.0.0.1:8765), or
+   `webui\.venv\Scripts\python.exe webui\run_server.py --project`. The banner says *MODE = PROJECT*.
+2. **Library › Window sets › New window set** → recording **M2_aug_concat_fs1** → all 16 channels (default) → **1, 10,
+   30 min** ticked (default) → stride one window → artifact exclusion on → no sample → **Build 3 sets**. About 4 s.
+3. The same for **M2_concat_fs1**. About 4 s. Six rows appear (690,837 / 69,021 / 22,947 and 271,184 / 27,104 / 9,024
+   windows).
+4. **Settings › Datasets** → *noise floor* for M2_aug_concat_fs1 and M2_concat_fs1: **0.3** (mV). (Leave it empty for
+   0.1 mV; you can change it later and re-run from step 02.)
+5. **Analyse › Chain** → the source chip ▾ → **⌗ Start from a Window pool (saved window sets, in place of a span)**. The
+   chain becomes *Window pool → Trace shape → Shape clustering* (your previous chain is kept in Undo).
+6. **Open the Window pool** (01): every unlabelled set is ticked (the baseline's window set 1 is listed but not
+   ticked), pack D held out, 20,000 per scale, seed 0. Nothing to change.
+7. **▶ Run chain.** About **3 minutes** the first time (pool ~15 s, Trace shape ~1 min centred + detrended, Ward on
+   20,000 ~1 min, the proposal ~40 s); the same chain again re-uses the pool and the tree (~1.5 min).
+8. **02 Trace shape**: the options in force (*align centre · detrend linear*), the re-cut counts, how many windows the
+   floor left out per recording × scale, and the raw-range histograms per recording × scale with the floor drawn. If
+   you change the floor in Settings, **↻ Re-run from 02** (~2.5 min: a new floor is a new tree).
+9. **03 Shape clustering**: drag the cut (try k = 8–10; the proposal, k = 2, says little here), click each pile — its
+   medoid, a dozen members with their raw traces in mV, the scale mix and the raw range; *open in Explore* on a member.
+   The mapping table can be filled, but **Train model is not built yet**.

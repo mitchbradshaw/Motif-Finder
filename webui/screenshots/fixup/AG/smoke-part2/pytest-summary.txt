@@ -1,0 +1,9 @@
+2353 passed, 28 skipped, 18700 warnings in 1319.91s (0:21:59)
+FAILED tests/test_webui_discovery.py::test_the_scoreboard_cells_are_the_tables_own_numbers
+FAILED tests/test_webui_seed_page_repairs.py::test_the_library_lists_it_as_a_seed_search
+FAILED tests/test_webui_seed_page_repairs.py::test_discovery_offers_it_as_a_seed_template
+FAILED tests/test_webui_seed_page_repairs.py::test_a_run_whose_job_died_with_the_server_reads_failed
+FAILED tests/test_webui_seed_page_repairs.py::test_a_lost_run_is_not_handed_back_as_the_same_run
+FAILED tests/test_webui_seed_page_repairs.py::test_save_as_template_writes_a_templates_row
+FAILED tests/test_webui_seed_page_repairs.py::test_a_taken_template_name_is_refused
+7 failed, 424 passed, 3 xpassed, 479 warnings in 779.74s (0:12:59)

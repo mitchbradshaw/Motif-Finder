@@ -102,12 +102,33 @@ which one does better on the exam.
   1-minute windows of M2_aug / M2, almost none at 10 and 30 min); 30,978 training windows, 20,000 clustered + 10,978
   assigned; Ward 57 s, peak 3.1 GB; proposal k = 2 (silhouette 0.46), k = 8 silhouette 0.165. **Every pile mixes the
   three scales** (NMI cluster × scale ≤ 0.012). **But the piles are drift shapes, not events:** the first split is
-  rising vs falling windows, the largest swing sits at a window edge in most windows, and from k ≈ 8 most piles are
-  one shape at two positions (19 of 28 pairs of pile averages are shifted copies). Position alone does not predict
+  rising vs falling windows, the largest swing sits at a window edge in most windows, ~~and from k ≈ 8 most piles are
+  one shape at two positions (19 of 28 pairs of pile averages are shifted copies)~~ *(withdrawn 2026-10-05, `AG` report
+  Part 2: that count allowed a slide of half a window, which inflates it; with a slide of at most a quarter it is 5 of
+  28)*. Position alone does not predict
   the pile (0.31 vs chance 0.28 at k = 8). Re-cut **centred on its largest swing**, the piles become event shapes
   (drops with recovery, spikes, V-shapes) across all three scales (ARI vs grid 0.33).
+- **Lining windows up, measured** (`AG` report Part 2, 2026-10-05): Trace shape now has `align` (grid | centre on the
+  largest swing — the trend removed, a running median so a glitch cannot be it) and `detrend` (off | linear); the
+  default is **centre + linear**. Centring keeps every re-cut window inside its own role's stretch, the recording and
+  clear of artifacts (86 clamped, 3,245 near-duplicates dropped on the 60,000 pool). On one pool and seed, at k = 8:
+  grid piles are drift (rising, falling, bowls); centre without detrend gives 4 drift + 4 event piles; **centre +
+  detrend gives 8 event piles** (hump, peak, V, drop-and-recover, sawtooth / sharkfin, sharp drop in the middle) at a
+  lower silhouette (0.033 vs 0.165 on the grid — the drift was the most separable thing). Piles still mix scales (NMI
+  0.021). **Noise:** with the 0.1 mV floor 34 % of the 1-minute windows are noise-like (swing < 8 × the recording's
+  sample-to-sample noise), 5 % at 10 min, 1 % at 30; noise forms no pile of its own and sits in every pile (4–23 %).
+  A 0.3 mV floor cuts 1-minute noise to 14 % (every pile ≤ 14 %) and keeps the scales balanced; 1 mV removes it all and
+  four in five 1-minute windows. The proposal by the baseline's rule is k = 2 in every combination: the cut is chosen
+  by eye.
 
 ## Decisions already made (`docs/prompts/fixup/QUESTIONS.md`)
+
+- **Lining windows up (the researcher, 2026-10-05, `AG` report §7):** (1) centre each window on its largest swing, with
+  a straight-line detrend measured beside it — the researcher's worry recorded: centring is *"risky as noise with large
+  swing now gets directly compared to events. Should be ok for at min 1 minute windows though"* (measured in `AG`
+  Part 2 §3: the noise is at 1 minute, not above); (2) the noise floor per dataset, set by the researcher in Settings ›
+  Datasets after reading Trace shape's histogram; (3) settle the alignment, re-run, look at the piles, and only then
+  build *Train model* / arm B.2 / the forest.
 
 - **Q41 (2026-10-03):**
   - **Classes:** binary, `interesting` (with `seed`) vs `not_interesting`. `artifact` is excluded and counted.
@@ -340,12 +361,16 @@ Follow `RESEARCH_RUNBOOK.md` Q1:
 
 Q-W1, Q-W2 and Q-W4 were answered 2026-10-03.
 
-- **How a grid window is lined up before its shape is compared** (`AG` report §7 q1): centre on its largest swing
-  (measured: event shapes appear), remove its straight-line trend (not measured), cluster detected events, or as is.
-  Recommended: centre, with detrend measured beside it.
-- **The noise floor per dataset** (`AG` §7 q2): 0.1 mV leaves many noise-like 1-minute windows; set M2_aug's and M2's
-  floors in Settings › Datasets. Recommended: read the raw-range histogram on Trace shape's page and set it there.
-- **The forest now or after the alignment decision** (`AG` §7 q3). Recommended: after.
+- ~~**How a grid window is lined up before its shape is compared**~~ — decided 2026-10-05: centre, detrend measured
+  beside it (built; default centre + linear).
+- ~~**The noise floor per dataset**~~ — decided 2026-10-05: per dataset, set by the researcher in Settings › Datasets.
+  `AG` Part 2 recommends about 0.3 mV for M2_aug and M2.
+- ~~**The forest now or after the alignment decision**~~ — decided 2026-10-05: after the researcher has looked.
+- **The researcher looks at the piles** (centre + linear, a 0.3 mV floor, the cut by eye) — the clicks are in `AG`
+  report Part 2 §8 — before seam (iii) is built.
+- **A noise rule relative to the window's own noise** (`AG` Part 2 §6): the mV floor treats 1- and 30-minute windows
+  alike, but the noise-only windows are almost all 1-minute. Keep the mV floor at ~0.3 mV (recommended now), add a
+  "swing under N × own noise" rule, or a higher floor for 1-minute windows only.
 
 - ~~**The pool's mix of scales**~~ — decided 2026-10-05, equal (see Log) (`AF` report §7, 2026-10-05): equal 20,000 per scale (recommended; what `AF`'s pool used), all
   10- and 30-minute windows plus a 1-minute sample, or equal hours per scale. One parameter with a seed; no set needs
@@ -387,3 +412,9 @@ Q-W1, Q-W2 and Q-W4 were answered 2026-10-03.
   Library's Ward on 20,000 training windows, tree kept) and the dendrogram page with the mapping; on the sandbox pool the
   piles mix scales but sort by drift and split shifted copies; centring on the largest swing gives event shapes. Seam
   (iii) (Train model, arm B.2, the forest) not built; three questions open (`AG` report §7).
+- 2026-10-05 · researcher · `AG`'s three answered: centre on the largest swing with detrend measured beside it; the
+  floor per dataset in Settings › Datasets; look at the piles before seam (iii).
+- 2026-10-05 · fixup-ag · Part 2: Trace shape `align` (grid | centre) and `detrend` (off | linear), default centre +
+  linear; the fence kept by every re-cut window; the four combinations measured (centre + linear: 8 event piles,
+  scales still mixed, silhouette lower); noise is a 1-minute problem (34 % noise-like at 0.1 mV, 14 % at 0.3 mV);
+  Part 1's "19 of 28 shifted copies" withdrawn (5 of 28 at a quarter-window slide).
