@@ -183,6 +183,33 @@ console/page errors, 0 unexpected server tracebacks**. The tracked set in `webui
   run, never in a scratch directory, cause not found. `smoke.py` retries the write; point `SMOKE_SHOTS` at the
   scratchpad if it comes back.
 
+**Re-baselined 2026-10-05 (`fixup-smoke`), after the researcher's own work moved the sandbox's data.** The walk
+had assumed the state of the database it copies; `AF`'s walk read 64 failures. Reproduced (66: the same 64 plus
+two more data-driven seed-picker states and one Channels & events timing miss), and none was a product bug:
+37 Library states named families of grouping g-05/g-06 while the Library opens on the newest (g-09, g-08); 14
+Discovery compare/stages states named the seed run `smoke_seed`, which is now keyed
+`smoke_seed_2_ch_80.0_84.0_h` because the researcher had searched the same seed; 6 states assumed an empty
+store (window sets, paired runs, Explore spans) and 1 that no exemplar had been promoted in Review; the 2
+"path length" failures were a `/` in the state name (`padding +/-30 s`), now swapped out of file names. The
+walk now pins a grouping (`"grouping"`), names its own runs (`{run:a}`/`{run:b}`), and branches on the store
+(`"branch_on"`, both arms assert something); see `c858fc3`. **Clean gate run, fresh `--sandbox` bridge alone on the machine: 651 screenshots over 620 page
+states, 8 failures, 0 browser console/page errors, 0 unexpected server tracebacks.** The 8:
+
+- the **five standing** above (`discovery.runs--default`, the four Settings registration states);
+- **three cold-start misses in Interrogation** — `analyse.interrogation--fixup-d-sequence-rose` (the flake
+  named above) and, new to the list, `analyse.interrogation.slope--fixup-k-marks-are-the-payloads` and
+  `--fixup-k-marks-on-a-trough-family` ("loading the events…" at the state's 500 ms). All 58 Interrogation
+  states pass on a re-walk against the same bridge once warm. Three is the pattern the paragraph above
+  predicted; the first-touch allowance across the walk is still unlooked-at.
+
+Route tests the same day, `webui/.venv`, every `tests/test_webui_*.py` (`-n 4`): 415 passed, 3 xpassed, 1 failed
+— the standing `test_the_scoreboard_cells_are_the_tables_own_numbers`. `AF`'s second failure (the Recurrence
+cell's key list, which missed `fixup-ad`'s `confirmedMembers`) is fixed in `5391893`.
+
+Known since: the Library client ignores `?grouping=` in its URL (only the in-memory pick chooses a grouping),
+although the bridge writes `library/family/{id}?grouping=g-NN` as the route of a suspected-artifact queue — so
+that link opens the newest grouping, not the one the queue was made from.
+
 ## The open decisions
 
 `QUESTIONS.md` is the live list, with the answers recorded beside each question as they are given.
