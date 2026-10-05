@@ -1226,6 +1226,12 @@ class Smoke:
                 if e.get("grouping"):
                     branch_msg = f" [grouping {', '.join(e['grouping'].values())}]" + branch_msg
                 page.goto(f"{self.url}/#/{e['hash'].lstrip('#/')}", wait_until="networkidle")
+                # fixup-grouping-url: a state flagged `cold` opens its hash the way a pasted or audit-trail link
+                # does: in a document that has just loaded, with an empty in-memory store. A hash `goto` in the
+                # walk's shared tab is a same-document navigation, so every grouping an earlier state picked is
+                # still in the store, and a state about what the URL ALONE decides would pass on that leftover.
+                if e.get("cold"):
+                    page.reload(wait_until="networkidle")
                 page.wait_for_timeout(e.get("settle_ms", 500))
                 for a in e.get("actions", []):
                     if "click" in a: page.locator(a["click"]).first.click(); page.wait_for_timeout(250)
@@ -1241,10 +1247,16 @@ class Smoke:
                     elif "wait_for" in a: page.wait_for_selector(a["wait_for"][0], timeout=int(a["wait_for"][1]))
                     # an in-app walk: the hash changes and the page does NOT reload, so in-memory state survives
                     elif "hash" in a: page.evaluate("h => { location.hash = h }", a["hash"]); page.wait_for_timeout(400)
+                    # fixup-grouping-url: reload the document where it stands: what the URL carries survives, the in-memory store does not
+                    elif "reload" in a: page.reload(wait_until="networkidle"); page.wait_for_timeout(400)
                 main_txt = page.locator(".main").inner_text() if page.locator(".main").count() else ""
                 ok = page.locator('[data-testid="header"]').count() == 1 and len(main_txt.strip()) > 40
                 missing = [s for s in e.get("expect", []) if page.locator(s).count() == 0]
                 present = [s for s in e.get("expect_absent", []) if page.locator(s).count() > 0]
+                # fixup-grouping-url: a state may also assert what the address bar says (`expect_hash`: substrings of
+                # the location hash), for the states where the URL keeping step with the page IS the behaviour
+                at = page.evaluate("() => location.hash")
+                missing += [f"hash containing {h!r} (it is {at!r})" for h in e.get("expect_hash", []) if h not in at]
                 err_card = page.locator('[data-testid="render-error"]').count()
                 # fixup-c: a state flagged `traces_in_box` also asserts that no trace leaves its plot box
                 in_box, box_msg = self.traces_in_box(page, name) if e.get("traces_in_box") else (True, "")
