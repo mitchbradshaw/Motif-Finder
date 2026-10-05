@@ -44,7 +44,16 @@ def _now():
 # ── window sets ─────────────────────────────────────────────────────────────
 
 def save_window_set(conn, pooled, root, name, notes=None):
-    """Write the pooled set's files and its `window_sets` + `window_set_members` rows."""
+    """Write the pooled set's files and its `window_sets` + `window_set_members` rows.
+
+    fixup-af: an unlabelled set (`pool.UnlabelledSet`) and a pool (`pool.Pool`) are
+    saved through here too — one `window_sets` row each, their channels in
+    `window_set_channels` (no role), a pool's members in `window_pool_members`."""
+    from Working.training import pool as tpool
+    if isinstance(pooled, tpool.UnlabelledSet):
+        return tpool.save_unlabelled_set(conn, pooled, root, name, notes=notes)
+    if isinstance(pooled, tpool.Pool):
+        return tpool.save_pool(conn, pooled, root, name, notes=notes)
     top = conn.execute("SELECT MAX(version) FROM window_sets WHERE name = ?", (str(name),)).fetchone()[0]
     version = int(top or 0) + 1
     d = os.path.join(str(root), f"{name}_v{version}")

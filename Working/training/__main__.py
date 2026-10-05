@@ -7,6 +7,19 @@ python -m Working.training — the paired training job from the command line
     run       train both arms, score the exams, record the run
     show      print a recorded run
 
+fixup-af — RQ1 version 2, unlabelled window sets and the pool that combines them:
+
+    build-set   one unlabelled set: one recording, one scale, its channels, artifact spans left out
+    build-sets  the same at 1, 10 and 30 minutes (one set per scale)
+    combine     saved sets in order + a region-first plan (blocked by time, a gap, exam channels or a
+                whole pack held out) + a rule → a pool; printed, and saved with --name
+    show-pool   load a saved pool: the same windows, the same key
+
+    python -m Working.training build-sets --db sandbox.sqlite --root runs/training --source M2_aug_concat_fs1.mat
+    python -m Working.training combine --db sandbox.sqlite --root runs/training \\
+        --sets ws_M2_aug_concat_fs1_1min,ws_M2_aug_concat_fs1_10min,... --hold-out-pack D \\
+        --sample 1=20000 --seed 0 --name pool_packD
+
 Example (on a COPY of the database — this writes rows and files):
 
     python -m Working.training save-set --db sandbox.sqlite --root runs/training \\
@@ -147,6 +160,47 @@ def main(argv=None):
     common(p)
     p.add_argument("--run", type=int, required=True)
 
+    # fixup-af: unlabelled window sets at several scales, and the pool that combines them
+    def build_args(p):
+        p.add_argument("--source", required=True)
+        p.add_argument("--channels", default="", help="channels, e.g. 0-15 (default: all)")
+        p.add_argument("--grid", type=int, help="stride in samples (default: the window, so no two windows overlap)")
+        p.add_argument("--offset", type=int, default=0)
+        p.add_argument("--no-artifact-exclusion", action="store_true")
+        p.add_argument("--sample", type=int, help="keep a seeded uniform sample of this many windows")
+        p.add_argument("--seed", type=int, default=0)
+        p.add_argument("--notes")
+
+    p = sub.add_parser("build-set", help="one unlabelled window set: one recording, one scale")
+    common(p)
+    build_args(p)
+    p.add_argument("--scale", type=float, required=True, help="window length in minutes")
+    p.add_argument("--name")
+
+    p = sub.add_parser("build-sets", help="one unlabelled window set per scale (default 1, 10, 30 minutes)")
+    common(p)
+    build_args(p)
+    p.add_argument("--scales", default="1,10,30")
+
+    p = sub.add_parser("combine", help="combine saved window sets into a pool under a region-first plan")
+    common(p)
+    p.add_argument("--sets", required=True, help="saved window sets in order (names or ids, comma-separated)")
+    p.add_argument("--hold-out-pack", default="", help="A, B, C or D: the whole pack is the exam on every recording")
+    p.add_argument("--exam-channels", default="", help="exam channels (zero-based), e.g. 12-15")
+    p.add_argument("--n-blocks", type=int, default=10)
+    p.add_argument("--test-frac", type=float, default=0.2)
+    p.add_argument("--validation-frac", type=float, default=0.1)
+    p.add_argument("--gap-min", type=float, default=30.0, help="gap between roles, minutes (≥ the longest window)")
+    p.add_argument("--rule", default="within_scale", choices=["within_scale", "no_overlap"])
+    p.add_argument("--sample", default="", help="per-scale sample, e.g. 1=20000,10=20000")
+    p.add_argument("--seed", type=int, default=0)
+    p.add_argument("--name", help="save the pool under this name (else print only)")
+    p.add_argument("--notes")
+
+    p = sub.add_parser("show-pool", help="load a saved pool and print it")
+    common(p)
+    p.add_argument("--pool", required=True, help="name (latest version) or id")
+
     a = ap.parse_args(argv)
     from Working.training import paired as tp
     from Working.training import store as ts
@@ -154,6 +208,65 @@ def main(argv=None):
 
     conn = _conn(a.db)
     try:
+        if a.cmd in ("build-set", "build-sets"):
+            from Working.training import pool as tpool
+            scales = [a.scale] if a.cmd == "build-set" else [float(s) for s in a.scales.split(",") if s.strip()]
+            stem = os.path.splitext(os.path.basename(a.source))[0]
+            for sc in scales:
+                t0 = time.time()
+                u = tpool.build_unlabelled_set(conn, a.source, _ints(a.channels) or None, sc, grid=a.grid,
+                                               offset=a.offset, exclude_artifacts=not a.no_artifact_exclusion,
+                                               sample=a.sample, seed=a.seed)
+                name = (a.name if a.cmd == "build-set" and a.name else f"ws_{stem}_{sc:g}min")
+                ws_id = ts.save_window_set(conn, u, os.path.join(a.root, "window_sets"), name, notes=a.notes)
+                row = ts.window_set_row(conn, {"id": ws_id})
+                print(f"saved (id {ws_id}, {time.time() - t0:.1f} s): " + tpool.set_summary(u, name, row["version"]))
+            return 0
+
+        if a.cmd == "combine":
+            from Working.training import pool as tpool
+            refs = [s.strip() for s in a.sets.split(",") if s.strip()]
+            known = {str(r["id"]): r for r in tpool.list_sets(conn)}
+            by_name = {}
+            for r in sorted(known.values(), key=lambda r: r["version"]):
+                by_name[r["name"]] = r
+            chosen = []
+            for ref in refs:
+                r = known.get(ref) if ref.isdigit() else by_name.get(ref)
+                if r is None:
+                    raise SystemExit(f"no saved window set {ref!r}")
+                chosen.append(r)
+            files = sorted({sf for r in chosen for sf in r["source_files"]})
+            plan = tpool.plan_for(conn, files, n_blocks=a.n_blocks, test_frac=a.test_frac,
+                                  validation_frac=a.validation_frac, gap_s=a.gap_min * 60.0,
+                                  hold_out_pack=a.hold_out_pack or None, exam_channels=_ints(a.exam_channels) or None)
+            sample = {}
+            for part in a.sample.split(","):
+                if part.strip():
+                    k, v = part.split("=", 1)
+                    sample[float(k)] = int(v)
+            t0 = time.time()
+            pool = tpool.combine(conn, [r["id"] for r in chosen], plan, rule=a.rule, sample=sample or None,
+                                 seed=a.seed, progress=_progress)
+            took = time.time() - t0
+            if a.name:
+                ws_id = ts.save_window_set(conn, pool, os.path.join(a.root, "window_sets"), a.name, notes=a.notes)
+                row = ts.window_set_row(conn, {"id": ws_id})
+                print(f"saved pool {a.name} v{row['version']} (id {ws_id}) in {took:.1f} s")
+                print(tpool.pool_summary(pool, a.name, row["version"]))
+            else:
+                print(f"combined in {took:.1f} s (not saved: give --name to save it)")
+                print(tpool.pool_summary(pool))
+            return 0
+
+        if a.cmd == "show-pool":
+            from Working.training import pool as tpool
+            row, pool = tpool.load_pool(conn, a.pool)
+            print(f"loaded from {row['path']} · the key in the row is {row['recipe_hash']}, recomputed from the files "
+                  f"{pool.key}" + (" — the same" if row["recipe_hash"] == pool.key else " — DIFFERENT"))
+            print(tpool.pool_summary(pool, row["name"], row["version"]))
+            return 0
+
         if a.cmd == "save-set":
             t0 = time.time()
             split = {"rule": "blocked_by_time", "n_blocks": a.n_blocks, "test_frac": a.test_frac,

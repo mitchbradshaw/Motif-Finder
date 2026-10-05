@@ -1019,6 +1019,37 @@ CREATE TABLE IF NOT EXISTS window_set_members (
     UNIQUE (window_set_id, recording_id)
 );
 CREATE INDEX IF NOT EXISTS idx_window_set_members_set ON window_set_members(window_set_id);
+
+-- fixup-af: the channels an UNLABELLED window set (or a pool) draws from, one
+-- row each, WITHOUT a role — the train / test fence of RQ1 version 2 belongs to
+-- the pool that combines sets, not to a set. Kept apart from
+-- `window_set_members` on purpose: that table's `role` is train | exam and
+-- Models › Launch reads every set with members as a paired-job set.
+CREATE TABLE IF NOT EXISTS window_set_channels (
+    id             INTEGER PRIMARY KEY AUTOINCREMENT,
+    window_set_id  INTEGER NOT NULL REFERENCES window_sets(id),
+    recording_id   INTEGER NOT NULL REFERENCES recordings(id),
+    channel        INTEGER,
+    n_windows      INTEGER NOT NULL,
+    counts_json    TEXT,
+    UNIQUE (window_set_id, recording_id)
+);
+CREATE INDEX IF NOT EXISTS idx_window_set_channels_set ON window_set_channels(window_set_id);
+
+-- fixup-af: a POOL is itself a `window_sets` row; these are the saved sets it
+-- combined, in order (the first listed wins a duplicate or an overlap), with
+-- how many of each set's windows were offered and kept.
+CREATE TABLE IF NOT EXISTS window_pool_members (
+    id             INTEGER PRIMARY KEY AUTOINCREMENT,
+    pool_id        INTEGER NOT NULL REFERENCES window_sets(id),
+    member_set_id  INTEGER NOT NULL REFERENCES window_sets(id),
+    position       INTEGER NOT NULL,
+    n_offered      INTEGER NOT NULL,
+    n_kept         INTEGER NOT NULL,
+    counts_json    TEXT,
+    UNIQUE (pool_id, position)
+);
+CREATE INDEX IF NOT EXISTS idx_window_pool_members_pool ON window_pool_members(pool_id);
 """
 
 

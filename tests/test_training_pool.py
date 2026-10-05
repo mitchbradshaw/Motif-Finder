@@ -412,14 +412,22 @@ def test_the_fs1_fs2_pair_shares_its_stretches_and_never_sits_on_opposite_sides(
     b = ts.save_window_set(conn, tpool.build_unlabelled_set(conn, AUG2, scale_min=10, channels=[0]), root, "f2")
     plan = tpool.plan_for(conn, [AUG, AUG2])
     assert list(plan["recordings"]) == [tpool.recording_identity(AUG)], "one recording at two rates is one plan entry"
-    pool = tpool.combine(conn, [a, b], plan)
+    # the fs2 copy of a 10-minute window IS the fs1 window (one recording's time): an overlap within a scale
+    same = tpool.combine(conn, [a, b], plan)
+    assert set(same.table["source_file"]) == {AUG}
+    assert same.meta["counts"]["dropped"]["overlap_within_scale"] > 0
+    # at another scale the fs2 file's windows stay, and sit in the SAME role as the fs1 windows they overlap
+    c = ts.save_window_set(conn, tpool.build_unlabelled_set(conn, AUG2, scale_min=30, channels=[0]), root, "f2_30")
+    pool = tpool.combine(conn, [a, c], plan)
     t = pool.table
     m1, m2 = (t["source_file"] == AUG).to_numpy(), (t["source_file"] == AUG2).to_numpy()
-    f1 = pd.Series(t.loc[m1, "role"].to_numpy(), index=t.loc[m1, "start"].to_numpy() / 1.0)
-    f2 = pd.Series(t.loc[m2, "role"].to_numpy(), index=t.loc[m2, "start"].to_numpy() / 2.0)
-    common = f1.index.intersection(f2.index)
-    assert len(common) > 0 and (f1.loc[common] == f2.loc[common]).all()
-    assert tpool.check_pool(pool)["overlaps across roles"] == 0
+    assert m1.any() and m2.any()
+    for _, w in t[m2].iterrows():
+        a_s, b_s = w["start"] / 2.0, (w["start"] + w["length"]) / 2.0
+        inside = t[m1 & (t["start"].to_numpy() >= a_s) & (t["start"].to_numpy() + t["length"].to_numpy() <= b_s)]
+        assert len(inside) == 3 and set(inside["role"]) == {w["role"]}
+    checks = tpool.check_pool(pool)
+    assert checks["overlaps across roles"] == 0 and checks["overlaps across scales (allowed)"] > 0
     # a pool whose rows were tampered so the pair disagrees at one time is refused
     bad = pool.table.copy()
     i = bad.index[(bad["source_file"] == AUG2) & (bad["role"] == "train")][0]

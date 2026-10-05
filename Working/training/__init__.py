@@ -12,5 +12,7 @@ anywhere under this package (CLAUDE.md rule 1).
     metrics.py    macro F1, block bootstrap, McNemar, agreement, calibration
     store.py      window_sets + members rows, runs/configs/artifacts rows, the frozen cut
     reference.py  the existing MODELS/ scored as a reference line ("trained differently")
-    __main__.py   the command line: save-set · propose · run · show
+    pool.py       RQ1 v2 (fixup-af): unlabelled window sets per recording and scale, the region-first
+                  plan, and `combine` — saved sets into a pool with roles, duplicates and overlaps removed
+    __main__.py   the command line: save-set · propose · run · show · build-set(s) · combine · show-pool
 """
