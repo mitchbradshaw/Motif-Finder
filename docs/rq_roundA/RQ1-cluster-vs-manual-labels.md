@@ -356,3 +356,5 @@ Q-W1, Q-W2 and Q-W4 were answered 2026-10-03.
   M2 271,184 / 27,104 / 9,024 at 1 / 10 / 30 min; 1,643 artifact windows left out) and `pool.combine` with a
   region-first plan; one pool with pack D held out, 20,000 per scale: 60,000 (train 31,460 · validation 4,380 · test
   9,050 · exam 15,110). Open: the mix of scales (report §7).
+- 2026-10-05 · researcher · the pool takes an equal number of windows per scale (20,000 each, 60,000 in all; one seeded
+  setting) — option (a) of `AF`'s question. The smoke walk is re-pointed before `AG` starts.
