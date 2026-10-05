@@ -31,6 +31,12 @@ export function ClusterPage() {
         search="Search spans, runs, families"
         subtitle={chooseK ? 'selection criterion · agreement with manual labels · stability' : 'windows grouped by feature similarity'} />
       <Page testid={chooseK ? 'training-cluster-choose-k' : 'training-cluster'}>
+        {/* fixup-ag: the live dendrogram is the Shape clustering block's own page; this fixture page stays for its history */}
+        <div className="callout small" data-testid="training-cluster-live-link" style={{ marginBottom: 10 }}>
+          The live dendrogram — a real tree over a window pool, a cut you move, each cluster's medoid and members, the
+          interesting / not mapping — is the <b>Shape clustering</b> block's page: Analyse › Chain › Source › <i>Start from a Window pool</i>.{' '}
+          <button className="btn sm" onClick={() => { window.location.hash = '#/analyse/chain' }}>Open Analyse › Chain</button>
+        </div>
         {block.error ? <LoadFailed what="the grouping" error={block.error} onRetry={block.reload} />
           : !block.data ? <Loading what="the grouping" /> : <Body data={block.data} chooseK={chooseK} />}
       </Page>

@@ -174,9 +174,22 @@ export function ChainPage() {
   const useExample = () => { setSource(EXAMPLE_SOURCE); resetRun(); clearStale(); setChain(c => ({ ...c, lastRunJobId: null })); setPop(null) }
   /* fixup-ag: start the chain from saved window sets — the source is the Window pool block, put at 01 if absent */
   const pooled = isPoolSource(source)
+  const POOL_CHAIN = ['preprocessing.window_pool', 'preprocessing.trace_shape', 'catalogue.shape_cluster']
   const usePool = async () => {
-    setSource(POOL_SOURCE); resetRun(); clearStale(); setChain(c => ({ ...c, lastRunJobId: null })); setPop(null)
-    if (!(steps[0] && stepName(steps[0]) === 'preprocessing.window_pool')) await insertByName(0, 'preprocessing.window_pool')
+    setSource(POOL_SOURCE); resetRun(); clearStale(); setPop(null)
+    if (steps[0] && stepName(steps[0]) === 'preprocessing.window_pool') { setChain(c => ({ ...c, lastRunJobId: null })); return }
+    // a span chain does not run on a pool: start RQ1's chain (pool → shape → cluster), the old one kept in Undo
+    try {
+      const fresh: Step[] = []
+      for (const name of POOL_CHAIN) {
+        const ad = adapters.byName.get(name); if (!ad) throw new Error(`block ${name} is not in the registry`)
+        const { params } = await validateParams({ stage: ad.stage, algorithm: ad.algorithm, params: {} })
+        fresh.push({ stage: ad.stage, algorithm: ad.algorithm, params })
+      }
+      if (steps.length) pushUndo({ steps, staleIndex: 0, label: `the ${chain.name} chain` })
+      setChain({ name: 'shape_clusters', saved: false, steps: fresh, lastRunJobId: null })
+      toast.push({ text: 'Window pool → Trace shape → Shape clustering · tick the window sets on 01' })
+    } catch (e) { toast.push({ kind: 'error', text: errText(e) }) }
   }
 
   /* ---- toolbar derivations ---- */
@@ -329,7 +342,7 @@ export function ChainPage() {
       <ChainRow key={`step-${i}`} testIndex={i + 1} rowClass={r.status === 'failed' || r.status === 'invalid' ? r.status : ''} num={pad2(i + 1)} title={title} badge={r.status} badgeText={badgeText} badgeTitle={badgeTitle} timingText={timing} resetKey={`${job?.job_id ?? 'none'}-${i}`}
         signature={sig} caption={caption} t0={t0} t1={t1} plot={plot} overlay={overlay} replace={replace}
         onSettings={() => navigate(`analyse/block/${i}`)} onDelete={running ? undefined : () => deleteStep(i)}
-        actions={ad?.output_kind === 'windowset' ? <SaveWindowSetButton small jobId={job?.status === 'completed' ? job.job_id : null} step={i}
+        actions={ad?.output_kind === 'windowset' && !pooled ? <SaveWindowSetButton small jobId={job?.status === 'completed' ? job.job_id : null} step={i}
           defaultName={`ws_${(chain.name || 'chain').replace(/[^A-Za-z0-9_.-]+/g, '_')}_${pad2(i + 1)}`.slice(0, 64)}
           disabledReason={r.status === 'stale' ? 'this step is stale · re-run before saving its windows' : r.status !== 'cached' ? 'this step has no result in the last run' : null}
           testid={`save-window-set-${i + 1}`} /> : undefined} />

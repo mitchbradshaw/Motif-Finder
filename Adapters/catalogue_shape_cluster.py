@@ -49,22 +49,38 @@ CLASSES = ("interesting", "not_interesting")
 
 
 def parse_mapping(text):
-    """`{"<cluster>": {"name": str, "class": "interesting" | "not_interesting" | None}}` from the param."""
+    """The researcher's mapping, from the param: `{"k": <the cut it was made at>, "clusters": {"<cluster>":
+    {"name": str, "class": "interesting" | "not_interesting" | None}}}`. A bare `{"<cluster>": {...}}` is read
+    as made at no particular cut. Empty -> no mapping yet."""
     text = str(text or "").strip()
     if not text:
-        return {}
+        return {"k": None, "clusters": {}}
     try:
         raw = json.loads(text)
     except ValueError as e:
         raise ValueError(f"the mapping is not JSON ({e}); it maps each cluster to a name and interesting / not")
+    raw = raw or {}
+    k = raw.get("k") if isinstance(raw, dict) and "clusters" in raw else None
+    body = raw.get("clusters") if isinstance(raw, dict) and "clusters" in raw else raw
     out = {}
-    for k, v in (raw or {}).items():
+    for key, v in (body or {}).items():
         v = v if isinstance(v, dict) else {"class": v}
         cls = v.get("class") or None
         if cls is not None and cls not in CLASSES:
-            raise ValueError(f"cluster {k}: {cls!r} is not one of {', '.join(CLASSES)}")
-        out[str(int(k))] = {"name": str(v.get("name") or ""), "class": cls}
-    return out
+            raise ValueError(f"cluster {key}: {cls!r} is not one of {', '.join(CLASSES)}")
+        out[str(int(key))] = {"name": str(v.get("name") or ""), "class": cls}
+    return {"k": None if k is None else int(k), "clusters": out}
+
+
+def mapping_state(mapping, k):
+    """Whether the mapping covers the cut: `complete` (every cluster at k is interesting / not, made at k),
+    `stale` (made at another cut), `partial` or `none`."""
+    if not mapping["clusters"]:
+        return "none"
+    if mapping["k"] is not None and int(mapping["k"]) != int(k):
+        return "stale"
+    have = {c for c, v in mapping["clusters"].items() if v.get("class")}
+    return "complete" if have >= {str(c) for c in range(1, int(k) + 1)} else "partial"
 
 
 def _load_shapes(value):
@@ -86,8 +102,16 @@ def tree_for(shapes, sample, seed, tree_path=""):
     """`(tree, dir, reused, loaded_from)` — load a tree made elsewhere, re-use the kept one, or build it."""
     from Working.training import shape as tshape
     if str(tree_path or "").strip():
-        d = str(tree_path).strip()
-        return tshape.load_tree_for(d, shapes), d, True, d
+        src = str(tree_path).strip()
+        tree = tshape.load_tree_for(src, shapes)
+        # kept beside the local trees under its own key, so the dendrogram page and any later cut read it by key
+        import hashlib
+        key = "ext_" + hashlib.sha256(f"{os.path.abspath(src)}|{shapes.key}".encode("utf-8")).hexdigest()[:12]
+        d = os.path.join(RESULTS_DIR, key)
+        if not os.path.isfile(os.path.join(d, "tree.npz")):
+            tree.meta = {**tree.meta, "loaded_from": os.path.abspath(src)}
+            tree.save(d)
+        return tree, d, True, src
     key = tshape.tree_key(shapes, None if int(sample) <= 0 else int(sample), int(seed))
     d = os.path.join(RESULTS_DIR, key)
     if os.path.isfile(os.path.join(d, "tree.npz")):
@@ -124,7 +148,8 @@ def _run(x, t, fs, sample=20000, seed=0, k=0, tree_path="", mapping="", value=No
             "peak_rss_mb": tree.meta.get("peak_rss_mb"), "method_text": tree.meta.get("method_text"),
             "library_method": tree.meta.get("library_method"), "resample_length": tree.meta.get("resample_length"),
             "dendrogram": tshape.dendrogram(tree), "propose": prop, "clusters": summ["clusters"],
-            "small_below": summ["small_below"], "mapping": mp, "seconds": round(time.time() - t0, 2),
+            "small_below": summ["small_below"], "mapping": mp, "mapping_state": mapping_state(mp, lab.k),
+            "seconds": round(time.time() - t0, 2),
             "rule": ("Ward (the Library's method) on a seeded sample of training windows, stratified by recording × "
                      "scale; every other training window assigned to the nearest cluster centre; validation, test "
                      "and exam windows are not clustered (-1) — the trained model assigns them"),
@@ -163,8 +188,9 @@ SPEC = register(AdapterSpec(
                   "silhouette among cuts with at least two non-speck clusters).", min=0),
         ParamSpec("tree_path", str, "", "A tree made elsewhere (a directory holding tree.npz + manifest.json, e.g. "
                   "an HPC Ward over every training window), loaded in place of the local one."),
-        ParamSpec("mapping", str, "", "Each cluster's name and interesting / not, as JSON — set in the mapping "
-                  "table on this block's page."),
+        ParamSpec("mapping", str, "", "Each cluster's name and interesting / not at a cut, as JSON "
+                  '({"k": 6, "clusters": {"1": {"name": "...", "class": "interesting"}}}) — set in the mapping table '
+                  "on this block's page."),
     ],
     run=_run,
     input_kind="windowset",

@@ -33,7 +33,8 @@ import { SignalLayers, SignalLayersNote, SignalNote, SignalView } from './Signal
 import { DurationHistogram, SpanSetView, SpanSlideshow } from './SpanSetView'
 import { WindowSetKey, WindowSetView } from './WindowSetView'
 import { isPoolPayload, isTreePayload } from '../../api/shape'
-import { Guard, PoolPicker, PoolThumb, PoolView, ShapeView, TreeSummary, TreeThumb } from './ShapeViews'
+import { Guard, PoolPicker, PoolThumb, PoolView, ShapeView, TreeThumb } from './ShapeViews'
+import { TreePage } from './TreePage'
 import { Empty, StaleVeil, Strip, Surface, finiteRange, fmtN, loadWindow, type ProcessProps, type ViewCtx } from './common'
 
 type View = (props: { payload: Payload; ctx: ViewCtx }) => ReactNode
@@ -491,7 +492,7 @@ function GroupingProcess(q: ProcessProps) {
   const p = as<GroupingPayload>(q.payload, 'grouping')
   if (!p) return <NoResult />
   // fixup-ag: a Grouping that kept its tree draws the tree (a payload convention, like a Signal's `layers`)
-  if (isTreePayload(p)) return <Guard label="the cluster tree"><TreeSummary p={p} /></Guard>
+  if (isTreePayload(p)) return <Guard label="the cluster tree"><TreePage q={q} p={p} /></Guard>
   return (
     <>
       <Full q={q} height={Math.min(300, 70 + 30 * Math.max(1, p.clusters.length))}>{ctx => <GroupingView p={p} ctx={ctx} />}</Full>

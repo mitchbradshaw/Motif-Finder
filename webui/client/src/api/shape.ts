@@ -64,9 +64,26 @@ export interface TreeInfo {
   method_text: string; library_method: string; resample_length: number
   dendrogram: Dendrogram
   propose: { by_k: ProposeRow[]; suggested_k: number | null; small_below: number; n_train: number; suggestion_rule: string; note: string }
-  clusters: ClusterLine[]; small_below: number; mapping: Record<string, MappingEntry>; seconds: number; rule: string
+  clusters: ClusterLine[]; small_below: number; mapping: { k: number | null; clusters: Record<string, MappingEntry> }
+  mapping_state: 'none' | 'partial' | 'complete' | 'stale'; seconds: number; rule: string
 }
 export type TreePayload = GroupingPayload & { tree?: TreeInfo }
 
 export const isPoolPayload = (p: unknown): p is PoolPayload => !!p && typeof p === 'object' && (p as PoolPayload).type === 'windowset' && !!(p as PoolPayload).pool_windows
 export const isTreePayload = (p: unknown): p is TreePayload => !!p && typeof p === 'object' && (p as TreePayload).type === 'grouping' && !!(p as TreePayload).tree
+
+/* ---------------- seam (ii): the dendrogram page reads the kept tree by its key ---------------- */
+export interface CutAt { key: string; k: number; cut_height: number; clusters: ClusterLine[]; small_below: number; n_clustered: number; n_assigned: number; n_train: number }
+export interface DetailWindow {
+  row: number; recording_id: number; source_file: string; channel: number; start: number; length: number; fs: number
+  scale_min: number; role: string; raw_range_mv: number | null; peak_frac: number | null; shape: number[]; raw_mv: number[] | null; unit: string | null
+}
+export interface ClusterDetail {
+  key: string; cluster: number; k: number; n: number; n_in_sample: number; n_assigned: number
+  medoid: DetailWindow & { rule: string }; members: DetailWindow[]; members_seed: number; mean: number[]; sd: number[]
+  scales: { scale_min: number; n: number }[]; recordings: { recording: string; n: number }[]; channels: { recording: string; channel: number; n: number }[]
+  amplitude_mv: { min: number | null; q25: number | null; median: number | null; q75: number | null; max: number | null; n_measured: number }
+  peak_position_hist: number[]
+}
+export const getTreeCut = (key: string, k: number) => rq<CutAt>(`/api/shape/trees/${encodeURIComponent(key)}/cut?k=${k}`)
+export const getClusterDetail = (key: string, k: number, c: number, seed = 0) => rq<ClusterDetail>(`/api/shape/trees/${encodeURIComponent(key)}/cluster?k=${k}&c=${c}&seed=${seed}`)
