@@ -383,7 +383,8 @@ def test_every_shipped_adapter_registers_without_modification():
     specs = _shipped_adapter_specs()
     # 33 + fixup-d's three (interrogation.event_shape, interrogation.intervals, preprocessing.invert)
     # + fixup-aa's catalogue.manual_labels + fixup-ac's preprocessing.wavelet_bands
-    assert len(specs) == 38, f"expected the thirty-eight shipped adapters, got {sorted(specs)}"
+    # + fixup-ag's preprocessing.window_pool, preprocessing.trace_shape, catalogue.shape_cluster
+    assert len(specs) == 41, f"expected the forty-one shipped adapters, got {sorted(specs)}"
     # Ticket 08 remaps detection_matrix_profile (encoding -> scores) and
     # preprocessing_window_matrix (encoding -> windowset) to their correct
     # types, and adds detection_threshold, a typed (input_kind='scores')

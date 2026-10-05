@@ -172,9 +172,11 @@ def test_there_are_seven_type_views_one_per_interchange_type():
     assert set(_views().VIEWS) == SEVEN
 
 
-def test_there_are_twelve_modifiers_and_each_names_two_interchange_types():
+def test_there_are_thirteen_modifiers_and_each_names_two_interchange_types():
+    # fixup-ag: the thirteenth is `windowset->windowset` (Trace shape: the windows before and after - what was
+    # kept, what was left out and why, and the measure each window now carries)
     mods = _views().MODIFIERS
-    assert len(mods) == 12, sorted(mods)
+    assert len(mods) == 13, sorted(mods)
     for key in mods:
         a, b = key.split("->")
         assert a in SEVEN and b in SEVEN, key
@@ -191,7 +193,7 @@ def test_every_adapter_resolves_to_a_type_view_and_a_modifier(spec):
         f"add one to webui/server/views.py and to analyse/views/registry.tsx")
 
 
-def test_the_twelve_modifiers_are_exactly_the_registered_conversions():
+def test_the_modifiers_are_exactly_the_registered_conversions():
     """No block without a modifier, and no modifier nobody uses."""
     have = {f"{s.input_kind}->{s.output_kind}" for s in list_adapters()}
     assert set(_views().MODIFIERS) == have

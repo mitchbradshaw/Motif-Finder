@@ -71,8 +71,9 @@ def test_discover_adapters_registers_the_expected_count():
     )
     # 33 + fixup-d's interrogation_event_shape, interrogation_intervals, preprocessing_invert
     # + fixup-aa's catalogue_manual_labels + fixup-ac's preprocessing_wavelet_bands
-    assert len(module_names) == 38, (
-        f"expected 38 shipped adapter modules, got {len(module_names)}"
+    # + fixup-ag's preprocessing_window_pool, preprocessing_trace_shape, catalogue_shape_cluster
+    assert len(module_names) == 41, (
+        f"expected 41 shipped adapter modules, got {len(module_names)}"
     )
 
     discover_adapters()
