@@ -136,6 +136,25 @@ which one does better on the exam.
   0.97 on labelled 10-minute windows, an upper bound). **Sandbox walk with PLACEHOLDER labels only** (run 399, k = 8,
   AG's placeholder mapping, 100 windows + 10 repeats): the machinery works end to end, 0 console errors; no figure from
   it is a finding — the real labelling is the researcher's.
+- **The CNN arm of B.2, and the cluster scripts** (`AI`, 2026-10-06, `docs/prompts/fixup/reports/AI-cnn-arm-slurm.md`):
+  Models › Launch, arm B.2, model **CNN** (fusion first; GASF, GADF, recurrence selectable) — the forest's recipe with
+  only the model changed (same pool, tree, cut, mapping, diagnostic hold-back, exams); images from the RAW samples at
+  the re-cut bounds, the n × n image resized as an image to 224 (never the signal resampled); EfficientNet-B0 (the
+  manual-label CNNs' network), 12 epochs, balanced class weights, refitted on every training window. *Create SLURM
+  script* writes a job directory the cluster runs without the database and a resumable GPU script (20-minute jobs
+  chained by a status exit code, a checkpoint per epoch); the page lists what to copy (sandbox pool: 0.45 MB job + 32
+  channel arrays, 441 MB) and an estimate labelled as one (**~1 h: encode 31 min on 8 CPUs measured from this
+  machine, train 26 min at an ASSUMED 400 images / s on an A100**; image cache 8.2 GB). The label-shuffle null is an
+  array job of 5 full trainings, off by default (~1.1 GPU-h). *Run the local smoke* does the round trip here: 480
+  windows, 1 epoch, CPU, **349 s** (encode 140 s — 74 / 80 / 695 ms per 1 / 10 / 30-min window — train 62 s, 7.2
+  images / s); the run (401, sandbox) is listed in Results beside the forest and AH's blind queue and scores read it
+  unchanged (pinned). **One import function**, `Working.training.hpc_import.import_results` (CLI `python -m
+  Working.training import-results <dir>`; what Jobs › Manifest inbox will call) validates the recipe hash, the windows,
+  the pool and the freeze and records the run. **Ward over every training window**: a CPU script from the cluster
+  page (`largecpu`, `--mem` = two copies of the condensed distances: 10 GB for 29,370 windows), the same tree artifact,
+  imported where the block reads a full-pool tree; refused once the pool is scored. **Fusion**: the training code is
+  sound (the GASF code with three channels); `fusion_cnn.pth`'s single class comes from its training folder. Nothing
+  has run on the cluster yet.
 - **Lining windows up, measured** (`AG` report Part 2, 2026-10-05): Trace shape now has `align` (grid | centre on the
   largest swing — the trend removed, a running median so a glitch cannot be it) and `detrend` (off | linear); the
   default is **centre + linear**. Centring keeps every re-cut window inside its own role's stretch, the recording and
@@ -203,7 +222,9 @@ which one does better on the exam.
 | ~~Models › Launch / Results / Compare reading real jobs~~ | done, `AB` |
 | ~~SLURM script without baked Windows paths~~ (repo-relative, CPU profile for a CPU job) | done, `AB` |
 | ~~**The researcher's cut** for arm B (k and translation) on the real database~~ | done 2026-10-05, run 79 (k = 4, frozen on window set 1) |
-| CNN arm on the cluster; Jobs › Manifest inbox bringing HPC results back | later (Jobs prompt) |
+| ~~CNN arm on the cluster~~ — built, `AI` (2026-10-06): the site writes the SLURM script, the local smoke runs here, `import-results` brings results back; Jobs › Manifest inbox calls the same function | done, `AI`; the page `AJ` |
+| **The CNN run on the cluster** (`AI` report §7, step by step) and its import | researcher |
+| **Ward over every training window** on the cluster (optional; the script is written from the cluster page) | researcher |
 | Exam (iii), once, after the freeze (Settings › Datasets unlock; the job has a locked slot for it) | researcher, after freeze |
 | Blind labelling mode in Review with the cluster vocabulary as buttons (yardstick B) | Review-behaviour prompt, later |
 | ~~Non-overlapping training window set; labels on spans longer than a window~~ | done, `AA` |
@@ -410,6 +431,11 @@ Q-W1, Q-W2 and Q-W4 were answered 2026-10-03.
 - **Full-depth trees** (`AG` Part 3 §7): the B.2 forest grows every tree fully (141 MB per run compressed). Keep, as
   the baseline (recommended), a minimum leaf of 5 for B.2, or decide after `AH`'s first scores.
 
+- **The CNN's first run** (`AI` report §12 Q1): the full run at 12 epochs (recommended) / a 3-epoch trial first /
+  fewer windows.
+- **Score the CNN on the forest's blind labels** (`AI` §12 Q2): one blind sample for both models (recommended; a small
+  addition to AH's score) or a separate sample per run (as built).
+- **`fusion_cnn.pth`** (`AI` §12 Q3): leave it, refused (recommended), or move it out of `MODELS/`.
 - **The blind sample's size** (`AH` report §7 Q1): 1,000 (recommended) / 600 / 2,000.
 - **Which fusion checkpoint is "the" fusion model** (`AH` §7 Q2): both two-class checkpoints are scored for now.
 - **An artifact answer in the blind queue** (`AH` §7 Q3): left out and counted (recommended) or counted as not
@@ -470,3 +496,4 @@ Q-W1, Q-W2 and Q-W4 were answered 2026-10-03.
   predicted cluster, 10 % twice, nothing that could tip the answer), labels in `annotations`, the first label freezes the
   cut; Results › against a blind human per exam with self-agreement, the null and the manual-label CNNs one row per
   scale (fusion_cnn refused, fusion_cnn_2 / _3 scored); sandbox walk with placeholder labels only.
+- 2026-10-06 · fixup-ai · the CNN arm of B.2 (fusion; the forest's recipe with the model changed; raw-sample images), *Create SLURM script* on Launch (resumable GPU job, what to copy, an estimate labelled as one, the null as an off-by-default array job), the local smoke (480 windows, 349 s, run listed in Results and read by AH's blind view unchanged), the full-pool Ward script from the cluster page, one import function `hpc_import.import_results` / `import-results`; fusion training code found sound
