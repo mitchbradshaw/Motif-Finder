@@ -482,3 +482,98 @@ def test_blind_imports_no_ui_library():
         elif isinstance(node, ast.ImportFrom) and node.module:
             names.add(node.module.split(".")[0])
     assert not names & {"panel", "holoviews", "bokeh", "fastapi", "uvicorn", "matplotlib"}
+
+
+# ── fixup-smoke2 (AI's question 2, option (a)): one blind sample per pool ───
+#
+# The researcher's blind labels for the forest's run also score a later run on the
+# same pool (a CNN): the sample is drawn ONCE per pool from the test / exam windows,
+# a later run's scores use the labels already written, its per-cluster rows use ITS
+# OWN predicted clusters, and the sampling weights are unchanged.
+
+def _later_run(conn, run, tmp):
+    """A second B.2 run on the same pool, as the CNN arm's would be: the same windows, its own calls (every
+    window's cluster moved on by one, its class through the same frozen mapping)."""
+    from Working.database import runs as R
+    from Working.training import shape_forest as sf
+    _p, res = sf._results_of(conn, run["run_id"])
+    recipe = {**run["recipe"], "kind": "shape_cluster_cnn", "model": {"name": "cnn", "image": "fusion"}}
+    config_id, _h = R.get_or_create_config(conn, recipe)
+    rec = conn.execute("SELECT recording_id, span_start, span_end FROM runs WHERE id = ?", (run["run_id"],)).fetchone()
+    rid = R.insert_run(conn, config_id, rec[0], rec[1], rec[2], status="completed", name="B.2 CNN (later)")
+    d = os.path.join(str(tmp), "later_run")
+    os.makedirs(d, exist_ok=True)
+    preds = pd.read_parquet(res["predictions_path"])
+    preds["cluster"] = (preds["cluster"].astype(int) % K) + 1
+    preds["class"] = [_mapping()["clusters"][str(int(c))]["class"] for c in preds["cluster"]]
+    preds["p_interesting"] = (preds["class"] == "interesting").astype(float)
+    pred_path = os.path.join(d, "predictions.parquet")
+    preds.to_parquet(pred_path, index=False)
+    res2 = {**res, "predictions_path": pred_path,
+            "exams": {ek: {**v, "status": sf.PREDICTED} for ek, v in res["exams"].items()}}
+    with open(os.path.join(d, "results.json"), "w", encoding="utf-8") as fh:
+        json.dump(res2, fh)
+    R.insert_artifact(conn, rid, "other", os.path.join(d, "results.json"))
+    conn.commit()
+    return rid, preds
+
+
+def test_a_later_run_on_the_same_pool_is_served_the_pools_one_blind_sample(env, tmp_path):
+    conn, run, _res = env
+    bl = _bl()
+    made = _queue(conn, run["run_id"])
+    later, _preds = _later_run(conn, run, tmp_path)
+    again = _queue(conn, later)
+    assert again["queue_id"] == made["queue_id"] and again["created"] is False
+    assert again["sample_path"] == made["sample_path"] and again["shared_with"] == run["run_id"]
+    assert bl.queue_for_run(conn, later)["id"] == made["queue_id"]
+    # drawn once per pool: no second queue, no second sample beside the later run
+    assert conn.execute("SELECT COUNT(*) FROM review_queues WHERE source_kind = 'blind-test'").fetchone()[0] == 1
+    assert not os.path.exists(os.path.join(str(tmp_path), "later_run", bl.SAMPLE_FILE))
+    # still fixed: the later run cannot ask the pool for a different sample
+    with pytest.raises(bl.SampleFixed):
+        _queue(conn, later, n=80)
+
+
+def test_a_later_runs_scores_use_the_labels_already_written_and_its_own_clusters(env, tmp_path):
+    conn, run, _res = env
+    bl = _bl()
+    from Working.training import metrics as tm
+    made = _queue(conn, run["run_id"], n=80, repeat_frac=0.1)
+    s = pd.read_parquet(made["sample_path"])
+    # the human agrees with the FIRST run everywhere
+    _label_all(conn, made["queue_id"], s, lambda r: str(r["class"]))
+    n_labels = conn.execute("SELECT COUNT(*) FROM annotations WHERE source = 'blind_test_review'").fetchone()[0]
+    later, preds = _later_run(conn, run, tmp_path)
+
+    first = bl.score(conn, run["run_id"], n_boot=50, n_null=50, seed=0)
+    sc = bl.score(conn, later, n_boot=50, n_null=50, seed=0)
+    # no new label was asked for or written: the later run reads the same answers
+    assert conn.execute("SELECT COUNT(*) FROM annotations WHERE source = 'blind_test_review'").fetchone()[0] == n_labels
+    assert sc["queue_id"] == made["queue_id"] and sc["shared"]["owner_run_id"] == run["run_id"]
+    key = ["recording_id", "start", "length"]
+    own = s.drop(columns=["cluster", "class", "p_interesting"]).merge(preds[key + ["cluster", "class"]], on=key, how="left")
+    for ek, role in (("i_later_block", "test"), ("ii_unseen_channels", "exam")):
+        ex, ex1 = sc["exams"][ek], first["exams"][ek]
+        assert ex["n_labelled"] == ex1["n_labelled"] and ex["n_scored"] == ex1["n_scored"]
+        assert ex1["macro_f1"] == pytest.approx(1.0)                   # the human agreed with the first run
+        f = own[(~own["repeat"]) & (own["role"] == role)]
+        human = s.set_index("showing").loc[f["showing"], "class"].to_numpy(dtype=object)   # what was answered
+        want = tm.classification_scores(human, f["class"].to_numpy(dtype=object), ("interesting", "not_interesting"))
+        assert ex["confusion"] == want["confusion"]                    # the human against the LATER run's calls
+        assert ex["macro_f1"] == pytest.approx(want["macro_f1"])
+        # per cluster: the later run's own predicted clusters
+        pc = {r["cluster"]: r for r in ex["per_cluster"]}
+        for c, g in f.groupby("cluster"):
+            assert pc[int(c)]["n_sample"] == len(g)
+            assert pc[int(c)]["population"] == int(((preds["role"] == role) & (preds["cluster"] == c)).sum())
+        # the weights are the sample's own, unchanged
+        assert ex["reweighted"]["accuracy"] is not None
+    # the first run's figures are untouched by the later one
+    assert bl.score(conn, run["run_id"], n_boot=50, n_null=50, seed=0)["exams"]["i_later_block"]["confusion"] == \
+        first["exams"]["i_later_block"]["confusion"]
+    # and the disagreements are the later run's calls against the same answers
+    for d in bl.disagreements(conn, later, "i_later_block", "model_yes_human_no"):
+        row = own[own["showing"] == d["showing"]].iloc[0]
+        assert d["model_class"] == row["class"] == "interesting" and d["human"] == "not_interesting"
+        assert d["cluster"] == int(row["cluster"])
