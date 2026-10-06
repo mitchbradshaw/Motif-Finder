@@ -1,0 +1,69 @@
+{
+ "steps": [
+  {
+   "msg": "screenshot",
+   "file": "02-jobs-forest-finished.png",
+   "t": "01:16:56"
+  }
+ ],
+ "forest_job": {
+  "job_id": 64,
+  "kind": "training",
+  "status": "completed",
+  "meta": {
+   "stage": "B.2 forest",
+   "pool": {
+    "id": 8,
+    "name": "pool_712f477b",
+    "version": 1,
+    "key": "712f477b262b2fd8"
+   },
+   "k": 8,
+   "template": "shape_clusters_ah_walk",
+   "where": "local"
+  },
+  "progress": {
+   "done": 5,
+   "total": 6,
+   "message": "the results"
+  },
+  "error": null,
+  "result": {
+   "run_id": 402,
+   "results_path": "C:\\Users\\mmebr\\Documents\\CNN\\webui\\runtime\\20261007-004156\\training\\shape_forest_5c6301b7_run402\\results.json",
+   "diagnostic": {
+    "kind": "diagnostic",
+    "n_held_back": 5874,
+    "n_fit": 23496,
+    "accuracy": 0.6576438542730677,
+    "macro_f1": 0.6480991090675446,
+    "chance_largest_cluster": 0.203779366700715,
+    "note": "how well the forest reproduces the clustering on training windows it did not fit (a seeded 20 %) \u2014 a forest imitating its own answer key: a diagnostic, not a result"
+   },
+   "exams": {
+    "i_later_block": {
+     "status": "predicted \u00b7 not yet labelled",
+     "n": 8063,
+     "by_class": {
+      "interesting": 2611,
+      "not_interesting": 5452
+     }
+    },
+    "ii_unseen_channels": {
+     "status": "predicted \u00b7 not yet labelled",
+     "n": 13015,
+     "by_class": {
+      "interesting": 4090,
+      "not_interesting": 8925
+     }
+    }
+   }
+  },
+  "started_at": 1791297801.4372022,
+  "finished_at": 1791299802.1240573,
+  "elapsed_s": 2000.6868550777435,
+  "cancelled": false,
+  "db_run_id": null
+ },
+ "errors": []
+}

@@ -1,0 +1,136 @@
+{
+ "steps": [
+  {
+   "msg": "screenshot",
+   "file": "03-launch-cnn-slurm-written.png",
+   "t": "01:19:48"
+  },
+  {
+   "msg": "ward script",
+   "job_dir": "C:\\Users\\mmebr\\Documents\\CNN\\webui\\runtime\\20261007-004156\\hpc\\training\\ward_full_f1657187417edfad_s0",
+   "recipe": "ee39ae58",
+   "n": 29370,
+   "t": "01:19:50"
+  },
+  {
+   "msg": "screenshot",
+   "file": "04-jobs-cnn-script-written-what-to-copy.png",
+   "t": "01:19:52"
+  },
+  {
+   "msg": "screenshot",
+   "file": "05-jobs-results-copied-back.png",
+   "t": "01:20:01"
+  },
+  {
+   "msg": "screenshot",
+   "file": "06-inbox-folder-chosen.png",
+   "t": "01:20:02"
+  },
+  {
+   "msg": "inbox import",
+   "outcome": "imported",
+   "message": "imported as run 403 \u00b7 B.2 CNN fusion \u00b7 pool_712f477b v1 \u00b7 k=8 \u00b7 smoke",
+   "t": "01:20:03"
+  },
+  {
+   "msg": "screenshot",
+   "file": "07-inbox-results-imported.png",
+   "t": "01:20:04"
+  },
+  {
+   "msg": "screenshot",
+   "file": "08-models-results-the-imported-run.png",
+   "t": "01:20:04"
+  },
+  {
+   "msg": "screenshot",
+   "file": "09-jobs-row-results-imported.png",
+   "t": "01:20:05"
+  },
+  {
+   "msg": "refused",
+   "reason": "out/done.json was made from recipe b6489eeb (status complete), not this job's recipe c83b02ad: these are not this job's results",
+   "t": "01:20:17"
+  },
+  {
+   "msg": "screenshot",
+   "file": "10-jobs-wrong-recipe-refused.png",
+   "t": "01:20:17"
+  },
+  {
+   "msg": "screenshot",
+   "file": "11-inbox-attempts.png",
+   "t": "01:20:18"
+  }
+ ],
+ "full_cnn": {
+  "name": "b2cnn_fusion_244ee127",
+  "recipe_hash": "c83b02ad",
+  "state": "written",
+  "total_bytes": 462863095,
+  "sbatch_command": "sbatch webui/runtime/20261007-004156/hpc/training/b2cnn_fusion_244ee127/b2cnn_fusion_c83b02ad.sh",
+  "n_copy": 33
+ },
+ "opened": "#/models/results/b2/403",
+ "refused_reason": "out/done.json was made from recipe b6489eeb (status complete), not this job's recipe c83b02ad: these are not this job's results",
+ "attempts": [
+  {
+   "job_id": 67,
+   "job_dir": "C:\\Users\\mmebr\\Documents\\CNN\\webui\\runtime\\20261007-004156\\hpc\\training\\b2cnn_fusion_244ee127",
+   "recipe_hash": "c83b02ad",
+   "outcome": "refused",
+   "status": "failed",
+   "message": "out/done.json was made from recipe b6489eeb (status complete), not this job's recipe c83b02ad: these are not this job's results",
+   "error_type": "ImportRefused",
+   "traceback": null,
+   "started_at": 1791300015.491444,
+   "finished_at": 1791300015.9347908
+  },
+  {
+   "job_id": 66,
+   "job_dir": "C:\\Users\\mmebr\\Documents\\CNN\\webui\\runtime\\20261007-004156\\hpc\\training\\b2cnn_fusion_smoke_0b352d34",
+   "recipe_hash": "b6489eeb",
+   "outcome": "imported",
+   "status": "completed",
+   "message": "imported as run 403 \u00b7 B.2 CNN fusion \u00b7 pool_712f477b v1 \u00b7 k=8 \u00b7 smoke",
+   "error_type": null,
+   "traceback": null,
+   "started_at": 1791300002.5139024,
+   "finished_at": 1791300003.0373883
+  }
+ ],
+ "exported": [
+  {
+   "name": "ward_full_f1657187417edfad_s0",
+   "kind": "shape_tree_full",
+   "recipe_hash": "ee39ae58",
+   "state": "written",
+   "reason": null,
+   "total_bytes": 52706967,
+   "imported": null
+  },
+  {
+   "name": "b2cnn_fusion_244ee127",
+   "kind": "shape_cluster_cnn",
+   "recipe_hash": "c83b02ad",
+   "state": "refused",
+   "reason": "out/done.json was made from recipe b6489eeb (status complete), not this job's recipe c83b02ad: these are not this job's results",
+   "total_bytes": 462863095,
+   "imported": null
+  },
+  {
+   "name": "b2cnn_fusion_smoke_0b352d34",
+   "kind": "shape_cluster_cnn",
+   "recipe_hash": "b6489eeb",
+   "state": "imported",
+   "reason": null,
+   "total_bytes": 462432868,
+   "imported": {
+    "run_id": 403,
+    "name": "B.2 CNN fusion \u00b7 pool_712f477b v1 \u00b7 k=8 \u00b7 smoke"
+   }
+  }
+ ],
+ "errors": []
+}

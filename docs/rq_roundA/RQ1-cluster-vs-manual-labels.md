@@ -155,6 +155,16 @@ which one does better on the exam.
   imported where the block reads a full-pool tree; refused once the pool is scored. **Fusion**: the training code is
   sound (the GASF code with three channels); `fusion_cnn.pth`'s single class comes from its training folder. Nothing
   has run on the cluster yet.
+- **Jobs carries the cluster round trip** (`AJ`, 2026-10-07, `docs/prompts/fixup/reports/AJ-jobs-usable-for-rq1.md`):
+  Jobs lists this bridge's real jobs (a forest trained from Launch seen running, then finished, with its error and
+  traceback if it fails) and every job folder the site wrote for the cluster — the CNN and the full-pool Ward — with
+  its recipe hash, when it was written, what to copy and how big (the sandbox CNN job: 441 MB, 33 files) and its state:
+  *written · results copied back · results imported (opens the run) · import refused (why)*. The **Manifest inbox**
+  imports a returned folder through `hpc_import.import_results` itself (the CLI's function, not a copy). Sandbox walk:
+  AI's smoke folder handed back → run 403 → Models › Results; the full CNN folder holding another recipe's `out/` →
+  refused, *"out/done.json was made from recipe b6489eeb … not this job's recipe c83b02ad"*, nothing recorded. The
+  page's paused-run and hand-marked cluster-job parts stay demo. RQ1 can now go to the cluster and back without a
+  command line.
 - **Lining windows up, measured** (`AG` report Part 2, 2026-10-05): Trace shape now has `align` (grid | centre on the
   largest swing — the trend removed, a running median so a glitch cannot be it) and `detrend` (off | linear); the
   default is **centre + linear**. Centring keeps every re-cut window inside its own role's stretch, the recording and
@@ -223,7 +233,8 @@ which one does better on the exam.
 | ~~SLURM script without baked Windows paths~~ (repo-relative, CPU profile for a CPU job) | done, `AB` |
 | ~~**The researcher's cut** for arm B (k and translation) on the real database~~ | done 2026-10-05, run 79 (k = 4, frozen on window set 1) |
 | ~~CNN arm on the cluster~~ — built, `AI` (2026-10-06): the site writes the SLURM script, the local smoke runs here, `import-results` brings results back; Jobs › Manifest inbox calls the same function | done, `AI`; the page `AJ` |
-| **The CNN run on the cluster** (`AI` report §7, step by step) and its import | researcher |
+| ~~Jobs usable for RQ1: the scripts listed with what to copy, the returned results imported from the page~~ | done, `AJ` (2026-10-07) |
+| **The CNN run on the cluster** (`AI` report §7, step by step) and its import (Jobs › the script's row › *Import results*, or the Manifest inbox) | researcher |
 | **Ward over every training window** on the cluster (optional; the script is written from the cluster page) | researcher |
 | Exam (iii), once, after the freeze (Settings › Datasets unlock; the job has a locked slot for it) | researcher, after freeze |
 | Blind labelling mode in Review with the cluster vocabulary as buttons (yardstick B) | Review-behaviour prompt, later |
@@ -500,3 +511,4 @@ Q-W1, Q-W2 and Q-W4 were answered 2026-10-03.
   cut; Results › against a blind human per exam with self-agreement, the null and the manual-label CNNs one row per
   scale (fusion_cnn refused, fusion_cnn_2 / _3 scored); sandbox walk with placeholder labels only.
 - 2026-10-06 · fixup-ai · the CNN arm of B.2 (fusion; the forest's recipe with the model changed; raw-sample images), *Create SLURM script* on Launch (resumable GPU job, what to copy, an estimate labelled as one, the null as an off-by-default array job), the local smoke (480 windows, 349 s, run listed in Results and read by AH's blind view unchanged), the full-pool Ward script from the cluster page, one import function `hpc_import.import_results` / `import-results`; fusion training code found sound
+- 2026-10-07 · fixup-aj · Jobs: the bridge's real jobs (state, stage, progress, started, duration, error + traceback), every SLURM job folder the site wrote with its recipe hash, written-at, what to copy and its state (written / copied back / imported / refused with the reason), and the Manifest inbox importing through `hpc_import.import_results`; the rest of Jobs stays demo.
