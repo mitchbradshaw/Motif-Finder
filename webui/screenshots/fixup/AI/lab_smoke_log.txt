@@ -1,0 +1,349 @@
+smoke recipe: {"arm": {"name": "B.2", "label": "B.2 cluster labels \u00b7 trace shape", "k": 8, "mapping": {"k": 8, "clusters": {"1": {"name": "", "class": "interesting"}, "2": {"name": "", "class": "interesting"}, "3": {"name": "", "class": "not_interesting"}, "4": {"name": "", "class": "not_interesting"}, "5": {"name": "", "class": "not_interesting"}, "6": {"name": "", "class": "not_interesting"}, "7": {"name": "", "class": "not_interesting"}, "8": {"name": "", "class": "not_interesting"}}}, "linkage": "ward"}, "cnn": {"backbone": "efficientnet_b0", "pretrained": true, "img_size": 224, "epochs": 1, "batch
+  [0/3] the pool, its windows and their re-cut bounds
+  [2/3] writing the job directory (480 windows)
+  [128/480] encoded 128 of 480 windows (fusion, 224 px)
+  [256/480] encoded 256 of 480 windows (fusion, 224 px)
+  [384/480] encoded 384 of 480 windows (fusion, 224 px)
+  [480/480] encoded 480 of 480 windows (fusion, 224 px)
+  [0/3] the diagnostic: the network against its own answer key
+  [1/1] diagnostic: epoch 1/1 · loss 2.0826 · hold-back accuracy 0.104 · 7 img/s
+  [1/1] final: epoch 1/1 · loss 2.0351 · 8 img/s
+  [2/3] predicting the validation, test and exam windows
+{
+ "run_id": 401,
+ "created": true,
+ "config_hash": "b6489eeb",
+ "results_path": "C:\\Users\\mmebr\\AppData\\Local\\Temp\\claude\\C--Users-mmebr-Documents-CNN\\220a90bf-6eee-4be4-bd02-3587cfed6902\\scratchpad\\lab\\training\\shape_cnn_b6489eeb_run401\\results.json",
+ "job_dir": "C:\\Users\\mmebr\\AppData\\Local\\Temp\\claude\\C--Users-mmebr-Documents-CNN\\220a90bf-6eee-4be4-bd02-3587cfed6902\\scratchpad\\labrun\\jobs\\b2cnn_fusion_smoke_0b352d34",
+ "export_s": 137.23,
+ "timings": {
+  "encode": 140.35,
+  "diagnostic": 29.73,
+  "final": 31.85,
+  "predict": 8.15,
+  "total": 210.08
+ },
+ "measured": {
+  "encode_s_by_scale": {
+   "1": 10.5094,
+   "10": 13.6067,
+   "30": 115.9897
+  },
+  "encode_n_by_scale": {
+   "1": 142,
+   "10": 171,
+   "30": 167
+  },
+  "encode_ms_by_scale": {
+   "1": 74.01,
+   "10": 79.57,
+   "30": 694.55
+  },
+  "train_img_per_s": 7.21,
+  "predict_img_per_s": 29.43,
+  "device": "cpu",
+  "workers": 0
+ },
+ "total_s": 348.83,
+ "n_windows": 480
+}
+{
+ "model": "CNN \u00b7 fusion \u00b7 EfficientNet-B0 \u00b7 1 epoch \u00b7 smoke",
+ "diagnostic": {
+  "kind": "diagnostic",
+  "n_held_back": 48,
+  "n_fit": 192,
+  "accuracy": 0.10416666666666667,
+  "macro_f1": 0.09629281537176274,
+  "chance_largest_cluster": 0.1875,
+  "epochs": 1,
+  "note": "how well the CNN reproduces the clustering on training windows it did not fit (the forest's seeded 20 %, after the last epoch) \u2014 a network imitating its own answer key: a diagnostic, not a result"
+ },
+ "exams": {
+  "i_later_block": {
+   "status": "predicted \u00b7 not yet labelled",
+   "role": "test",
+   "n": 120,
+   "by_cluster": {
+    "1": 73,
+    "2": 6,
+    "3": 2,
+    "4": 5,
+    "5": 4,
+    "6": 7,
+    "7": 9,
+    "8": 14
+   },
+   "by_class": {
+    "interesting": 79,
+    "not_interesting": 41
+   },
+   "by_scale": {
+    "1": 24,
+    "10": 39,
+    "30": 57
+   },
+   "note": "assigned by the trained CNN only; scored when AH's blind queue has labelled a sample of these windows"
+  },
+  "ii_unseen_channels": {
+   "status": "predicted \u00b7 not yet labelled",
+   "role": "exam",
+   "n": 120,
+   "by_cluster": {
+    "1": 52,
+    "2": 6,
+    "3": 4,
+    "4": 6,
+    "5": 8,
+    "6": 17,
+    "7": 13,
+    "8": 14
+   },
+   "by_class": {
+    "interesting": 58,
+    "not_interesting": 62
+   },
+   "by_scale": {
+    "1": 36,
+    "10": 37,
+    "30": 47
+   },
+   "note": "assigned by the trained CNN only; scored when AH's blind queue has labelled a sample of these windows"
+  }
+ },
+ "training": {
+  "n_train": 240,
+  "cluster_sizes": {
+   "1": 19,
+   "2": 57,
+   "3": 26,
+   "4": 40,
+   "5": 17,
+   "6": 17,
+   "7": 22,
+   "8": 42
+  },
+  "model_path": "C:\\Users\\mmebr\\AppData\\Local\\Temp\\claude\\C--Users-mmebr-Documents-CNN\\220a90bf-6eee-4be4-bd02-3587cfed6902\\scratchpad\\lab\\training\\shape_cnn_b6489eeb_run401\\model.pt",
+  "cnn": {
+   "backbone": "efficientnet_b0",
+   "pretrained": true,
+   "img_size": 224,
+   "epochs": 1,
+   "batch_size": 16,
+   "lr": 0.001,
+   "weight_decay": 0.0,
+   "schedule": "cosine",
+   "class_weight": "balanced",
+   "augmentation": "none",
+   "random_state": 42,
+   "refit": true
+  },
+  "training_rule": "cross-entropy with balanced class weights over the k clusters, Adam, cosine schedule, a fixed number of epochs (no early stopping: the hold-back stays a diagnostic); no augmentation: a flip of one axis of a Gramian or recurrence image is not the image of any signal (only flipping both axes is time reversal), and colour jitter would move the fusion's three encodings apart; the final model is refitted on every training window, as the forest's is",
+  "classes_interesting": [
+   1,
+   2
+  ],
+  "n_fit_diagnostic": 192,
+  "n_fit_final": 240,
+  "history_path": "C:\\Users\\mmebr\\AppData\\Local\\Temp\\claude\\C--Users-mmebr-Documents-CNN\\220a90bf-6eee-4be4-bd02-3587cfed6902\\scratchpad\\lab\\training\\shape_cnn_b6489eeb_run401\\history.json"
+ },
+ "where": "local smoke",
+ "smoke": {
+  "n_train": 240,
+  "n_predict": 120,
+  "epochs": 1,
+  "batch_size"
+  [0/3] the pool, its windows and their re-cut bounds
+  [2/3] writing the job directory (54,281 windows)
+{
+ "full": {
+  "recipe_hash": "c83b02ad",
+  "n_windows": 54281,
+  "n_train": 29370,
+  "n_predict": 24911,
+  "by_scale": {
+   "1": 17464,
+   "10": 19189,
+   "30": 17628
+  },
+  "total_bytes": 462860045,
+  "copy": [
+   {
+    "what": "job directory",
+    "path": "C:/Users/mmebr/AppData/Local/Temp/claude/C--Users-mmebr-Documents-CNN/220a90bf-6eee-4be4-bd02-3587cfed6902/scratchpad/labrun/jobs/b2cnn_fusion_full",
+    "bytes": 449293,
+    "note": "recipe.json, job.json, windows.npz (the windows, their raw bounds and their cluster at the cut) and the script(s)"
+   },
+   {
+    "what": "channel array",
+    "path": "DATA/derived/channels/M2_aug_concat_fs1/CH0.npy",
+    "bytes": 20764928,
+    "note": "M2_aug_concat_fs1.mat channel 0 (2,595,600 samples)"
+   },
+   {
+    "what": "channel array",
+    "path": "DATA/derived/channels/M2_aug_concat_fs1/CH1.npy",
+    "bytes": 20764928,
+    "note": "M2_aug_concat_fs1.mat channel 1 (2,595,600 samples)"
+   },
+   {
+    "what": "channel array",
+    "path": "DATA/derived/channels/M2_aug_concat_fs1/CH2.npy",
+    "bytes": 20764928,
+    "note": "M2_aug_concat_fs1.mat channel 2 (2,595,600 samples)"
+   },
+   {
+    "what": "channel array",
+    "path": "DATA/derived/channels/M2_aug_concat_fs1/CH3.npy",
+    "bytes": 20764928,
+    "note": "M2_aug_concat_fs1.mat channel 3 (2,595,600 samples)"
+   },
+   {
+    "what": "channel array",
+    "path": "DATA/derived/channels/M2_aug_concat_fs1/CH4.npy",
+    "bytes": 20764928,
+    "note": "M2_aug_concat_fs1.mat channel 4 (2,595,600 samples)"
+   },
+   {
+    "what": "channel array",
+    "path": "DATA/derived/channels/M2_aug_concat_fs1/CH5.npy",
+    "bytes": 20764928,
+    "note": "M2_aug_concat_fs1.mat channel 5 (2,595,600 samples)"
+   },
+   {
+    "what": "channel array",
+    "path": "DATA/derived/channels/M2_aug_concat_fs1/CH6.npy",
+    "bytes": 20764928,
+    "note": "M2_aug_concat_fs1.mat channel 6 (2,595,600 samples)"
+   },
+   {
+    "what": "channel array",
+    "path": "DATA/derived/channels/M2_aug_concat_fs1/CH7.npy",
+    "bytes": 20764928,
+    "note": "M2_aug_concat_fs1.mat channel 7 (2,595,600 samples)"
+   },
+   {
+    "what": "channel array",
+    "path": "DATA/derived/channels/M2_aug_concat_fs1/CH8.npy",
+    "bytes": 20764928,
+    "note": "M2_aug_concat_fs1.mat channel 8 (2,595,600 samples)"
+   },
+   {
+    "what": "channel array",
+    "path": "DATA/derived/channels/M2_aug_concat_fs1/CH9.npy",
+    "bytes": 20764928,
+    "note": "M2_aug_concat_fs1.mat channel 9 (2,595,600 samples)"
+   },
+   {
+    "what": "channel array",
+    "path": "DATA/derived/channels/M2_aug_concat_fs1/CH10.npy",
+    "bytes": 20764928,
+    "note": "M2_aug_concat_fs1.mat channel 10 (2,595,600 samples)"
+   },
+   {
+    "what": "channel array",
+    "path": "DATA/derived/channels/M2_aug_concat_fs1/CH11.npy",
+    "bytes": 20764928,
+    "note": "M2_aug_concat_fs1.mat channel 11 (2,595,600 samples)"
+   },
+   {
+    "what": "channel array",
+    "path": "DATA/derived/channels/M2_aug_concat_fs1/CH12.npy",
+    "bytes": 20764928,
+    "note": "M2_aug_concat_fs1.mat channel 12 (2,595,600 samples)"
+   },
+   {
+    "what": "channel array",
+    "path": "DATA/derived/channels/M2_aug_concat_fs1/CH13.npy",
+    "bytes": 20764928,
+    "note": "M2_aug_concat_fs1.mat channel 13 (2,595,600 samples)"
+   },
+   {
+    "what": "channel array",
+    "path": "DATA/derived/channels/M2_aug_concat_fs1/CH14.npy",
+    "bytes": 20764928,
+    "note": "M2_aug_concat_fs1.mat channel 14 (2,595,600 samples)"
+   },
+   {
+    "what": "channel array",
+    "path": "DATA/derived/channels/M2_aug_concat_fs1/CH15.npy",
+    "bytes": 20764928,
+    "note": "M2_aug_concat_fs1.mat channel 15 (2,595,600 samples)"
+   },
+   {
+    "what": "channel array",
+    "path": "DATA/derived/channels/M2_concat_fs1/CH0.npy",
+    "bytes": 8135744,
+    "note": "M2_concat_fs1.mat channel 0 (1,016,952 samples)"
+   },
+   {
+    "what": "channel array",
+    "path": "DATA/derived/channels/M2_concat_fs1/CH1.npy",
+    "bytes": 8135744,
+    "note": "M2_concat_fs1.mat channel 1 (1,016,952 samples)"
+   },
+   {
+    "what": "channel array",
+    "path": "DATA/derived/channels/M2_concat_fs1/CH2.npy",
+    "bytes": 8135744,
+    "note": "M2_concat_fs1.mat channel 2 (1,016,952 samples)"
+   },
+   {
+    "what": "channel array",
+    "path": "DATA/derived/channels/M2_concat_fs1/CH3.npy",
+    "bytes": 8135744,
+    "note": "M2_concat_fs1.mat channel 3 (1,016,952 samples)"
+   },
+   {
+    "what": "channel array",
+    "path": "DATA/derived/channels/M2_concat_fs1/CH4.npy",
+    "bytes": 8135744,
+    "note": "M2_concat_fs1.mat channel 4 (1,016,952 samples)"
+   },
+   {
+    "what": "channel array",
+    "path": "DATA/derived/channels/M2_concat_fs1/CH5.npy",
+    "bytes": 8135744,
+    "note": "M2_concat_fs1.mat channel 5 (1,016,952 samples)"
+   },
+   {
+    "what": "channel array",
+    "path": "DATA/derived/channels/M2_concat_fs1/CH6.npy",
+    "bytes": 8135744,
+    "note": "M2_concat_fs1.mat channel 6 (1,016,952 samples)"
+   },
+   {
+    "what": "channel array",
+    "path": "DATA/derived/channels/M2_concat_fs1/CH7.npy",
+    "bytes": 8135744,
+    "note": "M2_concat_fs1.mat channel 7 (1,016,952 samples)"
+   },
+   {
+    "what": "channel array",
+    "path": "DATA/derived/channels/M2_concat_fs1/CH8.npy",
+    "bytes": 8135744,
+    "note": "M2_concat_fs1.mat channel 8 (1,016,952 samples)"
+   },
+   {
+    "what": "channel array",
+    "path": "DATA/derived/channels/M2_concat_fs1/CH9.npy",
+    "bytes": 8135744,
+    "note": "M2_concat_fs1.mat channel 9 (1,016,952 samples)"
+   },
+   {
+    "what": "channel array",
+    "path": "DATA/derived/channels/M2_concat_fs1/CH10.npy",
+    "bytes": 8135744,
+    "note": "M2_concat_fs1.mat channel 10 (1,016,952 samples)"
+   },
+   {
+    "what": "channel array",
+    "path": "DATA/derived/channels/M2_concat_fs1/CH11.npy",
+    "bytes": 8135744,
+    "note": "M2_concat_fs1.mat channel 11 (1,016,952 samples)"
+   },
+   {
+    "what": "channel array",
+    "path": "DATA/derived/channels/M2_concat_fs1/CH12.npy",
+    "bytes": 8135744,
+    "note": "M2_concat_fs1.mat chan

@@ -728,6 +728,12 @@ conda activate {conda_env}
 
 {env_check}
 {run_command}
+RUN=$?
+if [ "$RUN" -ne 0 ]; then
+    # a crash is not "work remains": resubmitting would crash again -- stop and read the .err log
+    echo ">>> The run failed (exit $RUN) -- stopping the chain; see logs/{base_name}_$SLURM_JOB_ID.err"
+    exit "$RUN"
+fi
 
 {status_command}
 STATUS=$?

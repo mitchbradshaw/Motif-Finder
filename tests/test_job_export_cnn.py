@@ -70,6 +70,8 @@ def test_the_cnn_script_asks_for_a_gpu_and_is_resumable(job_dir):
     assert dl and float(dl.group(1)) < int(m.group(1)) * 60 + int(m.group(2))
     assert "STATUS=$?" in s and "MAX_CHAIN=" in s and f"sbatch {rel}/b2cnn_fusion_abcd1234.sh" in s
     assert "grep" not in s
+    # a crash stops the chain (resubmitting a crash would crash again); only "work remains" resubmits
+    assert "RUN=$?" in s and s.index("RUN=$?") < s.index("STATUS=$?")
     # the environment is checked before an hour is spent
     assert "import torch" in s and "torchvision" in s and "skimage" in s
     # the estimate is said to be one
