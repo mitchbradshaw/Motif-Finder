@@ -283,10 +283,16 @@ def b2_setup(request: Request, template: int, pool: int):
                 "frozen": sf.frozen_for(c, p.key), "checks": _b2_checks(c, None, p.key, k, mapping),
                 "defaults": {"n_estimators": 300, "class_weight": "balanced", "random_state": 42},
                 "runs": [r for r in sf.list_runs(c) if (r.get("pool") or {}).get("key") == p.key],
-                "slurm": ("not offered for B.2: the forest trains locally in minutes; the HPC scripts (a full-pool "
-                          "Ward, the CNN arm) are AI's")}
+                "slurm": ("not offered for the forest: it trains locally in minutes. Choose the CNN to write its "
+                          "SLURM script (fixup-ai)"),
+                "cnn": _cnn_setup(c, p.key)}
     finally:
         c.close()
+
+
+def _cnn_setup(c, pool_key):
+    from .cnn_routes import cnn_setup      # fixup-ai: the CNN arm's Launch block
+    return cnn_setup(c, pool_key)
 
 
 class B2TrainBody(BaseModel):

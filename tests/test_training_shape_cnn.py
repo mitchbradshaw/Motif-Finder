@@ -381,7 +381,8 @@ def test_a_cnn_run_is_read_by_the_blind_queue_and_scores_unchanged_and_freezes_t
     sc = blind.score(conn, rid, n_boot=50, n_null=50, seed=0)
     assert set(sc["exams"]) == {"i_later_block", "ii_unseen_channels"}
     scored = [e for e in sc["exams"].values() if e.get("n_scored")]
-    assert scored and all(e["macro_f1"] == pytest.approx(1.0) for e in scored if e.get("macro_f1") is not None)
+    # the human answered the model's own class everywhere: agreement is total (macro F1 is 0.5 when one class only)
+    assert scored and all(e["accuracy"] == pytest.approx(1.0) for e in scored)
     # a blind label on the CNN run is a score: the pool's cut and mapping are frozen for the forest too
     fz = sf.frozen_for(conn, world["pool_key"])
     assert fz and fz["run_id"] == rid

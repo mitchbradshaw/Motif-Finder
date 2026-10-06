@@ -659,3 +659,235 @@ def export_wm_job(conn, recording_id, window_min, span=None, *, step_frac=1.0,
         artifact_repo_path=artifact_path.replace(os.sep, "/"),
         timeout_s=timeout_s,
     )
+
+
+
+# ===========================================================================
+# fixup-ai: RQ1 version 2 (B.2) -- the CNN arm and Ward over every window
+# ===========================================================================
+#
+# Both read a JOB DIRECTORY the core wrote (`Working.training.shape_cnn.export_job`,
+# `Working.training.full_ward.export_job`): everything the cluster needs except
+# the code (the repository, synced as usual) and the channel arrays (listed, with
+# their sizes, by the export). No database on the cluster. The results come back
+# by copying `<job>/out/` into the same job directory here and running
+# `python -m Working.training import-results <job>` (one function,
+# `Working.training.hpc_import.import_results`, which Jobs > Manifest inbox calls).
+#
+# The CNN job is RESUMABLE and chains itself as the window-matrix job does: this
+# account's QOS ends a job at `HPC_MAX_WALLTIME_MINUTES`; the run stops a few
+# minutes before that between chunks / epochs (`--deadline-min`), checkpointed,
+# and `cnn-status`'s EXIT CODE (0 complete, 1 work remains, >= 3 unreadable)
+# decides the resubmit -- never a text match -- with a cap on the chain.
+
+#: the margin between `--deadline-min` and the wall clock: the last epoch's checkpoint and the status check
+CNN_DEADLINE_MARGIN_MIN = 3
+#: CPUs for the encode workers (the images are made on the GPU node's CPUs, then cached)
+CNN_CPUS = 8
+#: a CPU tier with more memory than `cpu` (`HPC/README.md`'s `sinfo` table: `largecpu`, 4-5 nodes, no GRES).
+#: UNVERIFIED for this account: `--mem` was refused on `cpu` twice (2026-08-31); the script says what to do if
+#: `sbatch` answers "Memory specification can not be satisfied".
+WARD_PARTITION = "largecpu"
+
+_ENV_CHECK = (
+    "# the environment, checked before an hour is spent: a missing package is named here\n"
+    "python -c \"import {mods}; print('environment ok')\" || {{ echo \">>> conda env {env} lacks a package (above): "
+    "conda install -n {env} <package>\"; exit 4; }}\n"
+)
+
+_CNN_TEMPLATE = """#!/bin/bash
+#SBATCH --job-name={job_name}
+#SBATCH --chdir={remote_root}
+#SBATCH --output={remote_root}/logs/{base_name}_%j.out
+#SBATCH --error={remote_root}/logs/{base_name}_%j.err
+#SBATCH --time={slurm_time}
+#SBATCH --cpus-per-task={cpus}
+#SBATCH --gres=gpu:a100
+#SBATCH --partition={partition}
+{array_line}
+# fixup-ai: arm B.2 (cluster labels, trace shape) with a CNN -- {model}
+# job directory: {job_repo}  (recipe {recipe_hash})
+# {estimate_line}
+# Resumable: the run stops {margin} min before the wall clock, checkpointed; the status
+# check's exit code resubmits this script until the job is complete (at most {max_chain} jobs).
+CHAIN_INDEX="${{1:-1}}"
+MAX_CHAIN={max_chain}
+
+echo "========================================"
+echo "Job ID       : $SLURM_JOB_ID{array_echo}"
+echo "Node         : $SLURMD_NODENAME"
+echo "Chain        : $CHAIN_INDEX / $MAX_CHAIN"
+echo "Started      : $(date)"
+echo "Working dir  : $(pwd)"
+echo "========================================"
+
+mkdir -p logs
+module load cuda/12.2
+source ~/miniconda3/etc/profile.d/conda.sh
+conda activate {conda_env}
+
+{env_check}
+{run_command}
+
+{status_command}
+STATUS=$?
+
+if [ "$STATUS" -eq 0 ]; then
+    echo ">>> Complete. Copy {job_repo}/out/ back into the same place on your machine, then run:"
+    echo ">>>     python -m Working.training import-results {job_repo}"
+elif [ "$STATUS" -ge 3 ]; then
+    echo ">>> The job could not be read (exit $STATUS) -- stopping the chain."
+    exit "$STATUS"
+elif [ "$CHAIN_INDEX" -ge "$MAX_CHAIN" ]; then
+    echo ">>> Work remains but the chain cap ($MAX_CHAIN) is reached -- stopping."
+    echo ">>> Resubmit by hand to continue from the last checkpoint: {manual_resubmit}"
+else
+    NEXT=$((CHAIN_INDEX + 1))
+    echo ">>> Work remains -- submitting job $NEXT of $MAX_CHAIN ..."
+    {resubmit}
+fi
+echo "Finished     : $(date)"
+"""
+
+_WARD_TEMPLATE = """#!/bin/bash
+#SBATCH --job-name={job_name}
+#SBATCH --chdir={remote_root}
+#SBATCH --output={remote_root}/logs/{base_name}_%j.out
+#SBATCH --error={remote_root}/logs/{base_name}_%j.err
+#SBATCH --time={slurm_time}
+#SBATCH --cpus-per-task=4
+#SBATCH --partition={partition}
+#SBATCH --mem={mem_gb}G
+
+# fixup-ai: Ward over EVERY training window of the pool ({n:,} windows) -- the same Ward as the
+# Shape clustering block (the Library's method), the same tree artifact.
+# job directory: {job_repo}  (recipe {recipe_hash})
+# memory: {mem_rule}
+# time: {time_rule}
+# If sbatch answers "Memory specification can not be satisfied": run  sinfo -o "%P %m %c"  and
+# pick a partition whose memory per node (MB) exceeds {mem_gb} GB; this account refused --mem on
+# `cpu` before (HPC/README.md).
+
+echo "Job ID : $SLURM_JOB_ID   Node : $SLURMD_NODENAME   Started : $(date)"
+mkdir -p logs
+source ~/miniconda3/etc/profile.d/conda.sh
+conda activate {conda_env}
+
+{env_check}
+python -m Working.training ward-run --job {job_repo}
+python -m Working.training ward-status --job {job_repo}
+STATUS=$?
+if [ "$STATUS" -eq 0 ]; then
+    echo ">>> Complete. Copy {job_repo}/out/ back into the same place on your machine, then run:"
+    echo ">>>     python -m Working.training import-results {job_repo}"
+fi
+echo "Finished : $(date)"
+exit "$STATUS"
+"""
+
+
+def _minutes(slurm_time):
+    h, m, _s = (int(p) for p in slurm_time.split(":"))
+    return h * 60 + m
+
+
+def export_cnn_job(job_dir, *, base_name, est_seconds=None, null_shuffles=0, train_seconds=None, cpus=CNN_CPUS,
+                   max_chain=None, model="CNN"):
+    """The B.2 CNN's `sbatch` script, written into its job directory (and, when `null_shuffles` > 0, the
+    label-shuffle null's array script beside it). Returns the scripts, the paths, the chain length and notes."""
+    os.makedirs(job_dir, exist_ok=True)
+    meta_path = os.path.join(job_dir, "job.json")
+    meta = {}
+    if os.path.isfile(meta_path):
+        with open(meta_path, encoding="utf-8") as f:
+            meta = json.load(f)
+    slurm_time = _slurm_time_from_estimate(est_seconds)
+    wall = _minutes(slurm_time)
+    deadline = max(1, wall - CNN_DEADLINE_MARGIN_MIN)
+    need = None if est_seconds is None else int(math.ceil(float(est_seconds) / 60.0 / deadline))
+    if max_chain is None:
+        max_chain = max(6, 2 * (need or 1) + 2)     # twice the estimate's job count: the estimate is an estimate
+    job_repo = repo_relative(os.path.abspath(job_dir))
+    script_path = os.path.join(job_dir, f"{base_name}.sh")
+    script_repo = repo_relative(script_path)
+    env_check = _ENV_CHECK.format(mods="torch, torchvision, numpy, scipy, skimage, PIL, matplotlib",
+                                  env=HPC_CONDA_ENV_GPU)
+    est_line = ("estimate: not measured yet (run the local smoke first); --time is the account's ceiling"
+                if est_seconds is None else
+                f"estimate: about {float(est_seconds) / 3600:.1f} h of work in all, so about {need} chained "
+                f"job(s) of {wall} min -- an estimate, not a measurement")
+    script = _CNN_TEMPLATE.format(
+        job_name=f"b2cnn_{meta.get('encoding', 'cnn')}"[:40], remote_root=HPC_REMOTE_REPO_ROOT, base_name=base_name,
+        slurm_time=slurm_time, cpus=int(cpus), partition=HPC_GPU_PARTITION, array_line="", array_echo="",
+        model=meta.get("model", model), job_repo=job_repo, recipe_hash=meta.get("recipe_hash", "?"),
+        estimate_line=est_line, margin=CNN_DEADLINE_MARGIN_MIN, max_chain=int(max_chain), conda_env=HPC_CONDA_ENV_GPU,
+        env_check=env_check,
+        run_command=(f"python -m Working.training cnn-run --job {job_repo} --workers \"$SLURM_CPUS_PER_TASK\" "
+                     f"--deadline-min {deadline}"),
+        status_command=f"python -m Working.training cnn-status --job {job_repo}",
+        manual_resubmit=f"sbatch {script_repo} 1", resubmit=f"sbatch {script_repo} \"$NEXT\"")
+    with open(script_path, "w", newline="\n", encoding="utf-8") as f:
+        f.write(script)
+    null_path, null_script = None, None
+    null = {"n": 0, "on": False, "note": "off: the label-shuffle null is 5 full trainings (an array job)"}
+    if int(null_shuffles) > 0:
+        n = int(null_shuffles)
+        null_path = os.path.join(job_dir, f"{base_name}_null.sh")
+        null_repo = repo_relative(null_path)
+        null_script = _CNN_TEMPLATE.format(
+            job_name="b2cnn_null", remote_root=HPC_REMOTE_REPO_ROOT, base_name=f"{base_name}_null_%a",
+            slurm_time=slurm_time, cpus=int(cpus), partition=HPC_GPU_PARTITION,
+            array_line=f"#SBATCH --array=0-{n - 1}", array_echo="  task $SLURM_ARRAY_TASK_ID",
+            model=f"label-shuffle null: {n} full trainings on permuted cluster labels, one per array task",
+            job_repo=job_repo, recipe_hash=meta.get("recipe_hash", "?"),
+            estimate_line=("each task: one full training"
+                           + ("" if train_seconds is None else f", about {float(train_seconds) / 3600:.2f} GPU-h")),
+            margin=CNN_DEADLINE_MARGIN_MIN, max_chain=int(max_chain), conda_env=HPC_CONDA_ENV_GPU,
+            env_check=env_check,
+            run_command=(f"python -m Working.training cnn-null --job {job_repo} --shuffle $SLURM_ARRAY_TASK_ID "
+                         f"--workers \"$SLURM_CPUS_PER_TASK\" --deadline-min {deadline}"),
+            status_command=(f"python -m Working.training cnn-null-status --job {job_repo} "
+                            "--shuffle $SLURM_ARRAY_TASK_ID"),
+            manual_resubmit=f"sbatch --array=$SLURM_ARRAY_TASK_ID {null_repo} 1",
+            resubmit=f"sbatch --array=$SLURM_ARRAY_TASK_ID {null_repo} \"$NEXT\"")
+        with open(null_path, "w", newline="\n", encoding="utf-8") as f:
+            f.write(null_script)
+        null = {"n": n, "on": True, "gpu_hours": (None if train_seconds is None else n * float(train_seconds) / 3600),
+                "sbatch_command": f"sbatch --dependency=afterok:<the main job's id> {null_repo}",
+                "note": (f"{n} full trainings on permuted cluster labels (one full training each), an array job of {n} "
+                         "tasks; submit it AFTER the main job has encoded (it re-uses the image cache)")}
+    return {"script_path": script_path, "script": script, "sbatch_command": f"sbatch {script_repo}",
+            "null_script_path": null_path, "null_script": null_script, "null": null,
+            "slurm_time": slurm_time, "deadline_min": deadline, "chain_jobs": int(max_chain), "jobs_needed": need,
+            "estimate_note": est_line, "profile": "gpu", "warnings": _location_warnings(job_dir)}
+
+
+def export_ward_job(job_dir, *, base_name, n, est_seconds=None, memory=None):
+    """The full-pool Ward's `sbatch` script: a CPU job on a high-memory partition, `--mem` sized from n."""
+    from Working.training.full_ward import memory_estimate
+    mem = memory or memory_estimate(n)
+    slurm_time = _slurm_time_from_estimate(est_seconds)
+    job_repo = repo_relative(os.path.abspath(job_dir))
+    script_path = os.path.join(job_dir, f"{base_name}.sh")
+    time_rule = ("not estimated" if est_seconds is None else
+                 f"about {float(est_seconds) / 60:.1f} min (AG's 57 s at 20,000 scaled by n squared -- an estimate), "
+                 f"x 3 for another machine, clamped to the account's {HPC_MAX_WALLTIME_MINUTES} min")
+    script = _WARD_TEMPLATE.format(
+        job_name="ward_full_pool", remote_root=HPC_REMOTE_REPO_ROOT, base_name=base_name, slurm_time=slurm_time,
+        partition=WARD_PARTITION, mem_gb=int(mem["request_gb"]), n=int(n), job_repo=job_repo,
+        recipe_hash=_job_hash(job_dir), mem_rule=mem["rule"], time_rule=time_rule, conda_env=HPC_CONDA_ENV_CPU,
+        env_check=_ENV_CHECK.format(mods="numpy, scipy, pandas", env=HPC_CONDA_ENV_CPU))
+    os.makedirs(job_dir, exist_ok=True)
+    with open(script_path, "w", newline="\n", encoding="utf-8") as f:
+        f.write(script)
+    return {"script_path": script_path, "script": script, "sbatch_command": f"sbatch {repo_relative(script_path)}",
+            "slurm_time": slurm_time, "memory": mem, "partition": WARD_PARTITION, "profile": "cpu-highmem",
+            "warnings": _location_warnings(job_dir)}
+
+
+def _job_hash(job_dir):
+    p = os.path.join(job_dir, "job.json")
+    if not os.path.isfile(p):
+        return "?"
+    with open(p, encoding="utf-8") as f:
+        return json.load(f).get("recipe_hash", "?")

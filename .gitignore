@@ -241,3 +241,9 @@ DATA/fixture/
 # ── OS cruft ────────────────────────────────────────────────────────────────
 .DS_Store
 Thumbs.db
+
+# fixup-ai: a B.2 CNN / full-pool Ward job directory's image cache and returned results (GBs of
+# bulk arrays, rule 4) -- the import copies what it keeps into DATA/derived/training
+HPC/Training/generated/*/cache/
+HPC/Training/generated/*/out/
+HPC/Training/generated/smoke/

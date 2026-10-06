@@ -57,6 +57,8 @@ import pandas as pd
 from Working.training.store import CutFrozen
 
 RECIPE_KIND = "shape_cluster_forest"
+#: fixup-ai: the kinds of B.2 run — the forest and the CNN (`shape_cnn.RECIPE_KIND`) — read alike
+B2_KINDS = (RECIPE_KIND, "shape_cluster_cnn")
 ARM_LABEL = "B.2 cluster labels · trace shape"
 DEFAULT_STAGES = ("catch22", "fast_entropy")
 EXAM_I, EXAM_II = "i_later_block", "ii_unseen_channels"
@@ -288,9 +290,10 @@ def run_forest(conn, recipe, *, tree_root, out_dir, progress=None, cancel=None):
 # ── recording, listing, the freeze ──────────────────────────────────────────
 
 def _runs(conn, status=None):
+    # fixup-ai: a B.2 run is a forest or a CNN (`shape_cnn`): one list, one freeze, one reader
     sql = ("SELECT r.*, c.config_hash, c.config_json FROM runs r JOIN configs c ON c.id = r.config_id "
-           "WHERE json_extract(c.config_json, '$.kind') = ?")
-    args = [RECIPE_KIND]
+           "WHERE json_extract(c.config_json, '$.kind') IN (?, ?)")
+    args = list(B2_KINDS)
     if status:
         sql += " AND r.status = ?"
         args.append(status)
@@ -377,6 +380,15 @@ def run_and_record(conn, recipe, root, *, tree_root, progress=None, cancel=None)
     return {"run_id": run_id, "results": results, "results_path": path, "config_hash": h}
 
 
+def model_label(rec):
+    """What trained a B.2 run, in a few words (the forest, or `shape_cnn`'s CNN)."""
+    if rec.get("kind") == "shape_cluster_cnn":
+        from Working.training.shape_cnn import model_label as cnn_label
+        return cnn_label(rec)
+    fo = rec.get("forest") or {}
+    return f"random forest · {fo.get('n_estimators', '?')} trees"
+
+
 def list_runs(conn):
     out = []
     for r in _runs(conn):
@@ -386,6 +398,7 @@ def list_runs(conn):
                     "finished_at": r["finished_at"], "duration_s": r["duration_s"], "config_hash": r["config_hash"],
                     "pool": rec.get("pool"), "template": {k2: (rec.get("template") or {}).get(k2) for k2 in ("id", "name")},
                     "k": int(rec["arm"]["k"]), "mapping": rec["arm"]["mapping"], "shape": rec.get("shape"),
+                    "kind": rec.get("kind"), "model": model_label(rec), "smoke": bool(rec.get("smoke")),
                     "scored": _scored(res), "diagnostic": (res or {}).get("diagnostic"),
                     "exams": {k2: {kk: v.get(kk) for kk in ("status", "n", "by_class")} for k2, v in ((res or {}).get("exams") or {}).items()},
                     "results_path": path,

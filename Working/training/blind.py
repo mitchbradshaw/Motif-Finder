@@ -253,7 +253,7 @@ def _run_results(conn, run_id):
     from Working.training import shape_forest as sf
     row = conn.execute("SELECT r.id, c.config_json FROM runs r JOIN configs c ON c.id = r.config_id WHERE r.id = ?",
                        (int(run_id),)).fetchone()
-    if row is None or json.loads(row["config_json"]).get("kind") != sf.RECIPE_KIND:
+    if row is None or json.loads(row["config_json"]).get("kind") not in sf.B2_KINDS:      # forest or CNN (fixup-ai)
         raise LookupError(f"no B.2 run {run_id}")
     path, res = sf._results_of(conn, int(run_id))
     if res is None:

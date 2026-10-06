@@ -15,6 +15,13 @@ fixup-af — RQ1 version 2, unlabelled window sets and the pool that combines th
                 whole pack held out) + a rule → a pool; printed, and saved with --name
     show-pool   load a saved pool: the same windows, the same key
 
+fixup-ai — the B.2 CNN and the full-pool Ward on the cluster, and their results back:
+
+    cnn-run / cnn-status / cnn-null / cnn-null-status   (cluster) a job directory the site wrote; no database
+    ward-run / ward-status                              (cluster) Ward over every training window of a pool
+    import-results <job dir>    validate the returned results against the recipe hash and record the run
+                                (Working.training.hpc_import.import_results — what Jobs › Manifest inbox calls)
+
     python -m Working.training build-sets --db sandbox.sqlite --root runs/training --source M2_aug_concat_fs1.mat
     python -m Working.training combine --db sandbox.sqlite --root runs/training \\
         --sets ws_M2_aug_concat_fs1_1min,ws_M2_aug_concat_fs1_10min,... --hold-out-pack D \\
@@ -119,6 +126,35 @@ def summary(res):
     return "\n".join(lines)
 
 
+def _cluster(a):
+    """The cluster-side commands: no database, the job directory only."""
+    deadline = None if getattr(a, "deadline_min", None) is None else float(a.deadline_min) * 60.0
+    if a.cmd in ("ward-run", "ward-status"):
+        from Working.training import full_ward as fw
+        if a.cmd == "ward-status":
+            code, text = fw.job_status(a.job)
+            print(text)
+            return code
+        out = fw.run_job(a.job, progress=_progress)
+        print(f"ward: {out}")
+        return 0
+    from Working.training import cnn_job as cj
+    if a.cmd == "cnn-status":
+        code, text = cj.job_status(a.job)
+        print(text)
+        return code
+    if a.cmd == "cnn-null-status":
+        code, text = cj.null_status(a.job, a.shuffle)
+        print(text)
+        return code
+    if a.cmd == "cnn-null":
+        out = cj.run_null(a.job, a.shuffle, device=a.device, workers=a.workers, deadline_s=deadline, progress=_progress)
+    else:
+        out = cj.run_job(a.job, device=a.device, workers=a.workers, deadline_s=deadline, progress=_progress)
+    print(f"{a.cmd}: {out.get('status')} · {out.get('text') or out.get('phase') or ''}")
+    return 0
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser(prog="python -m Working.training", description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -201,7 +237,55 @@ def main(argv=None):
     common(p)
     p.add_argument("--pool", required=True, help="name (latest version) or id")
 
+    # fixup-ai: the B.2 CNN and the full-pool Ward on the cluster (no database there), and bringing results back
+    def job_arg(p):
+        p.add_argument("--job", required=True, help="the job directory the site wrote (repo-relative on the cluster)")
+
+    p = sub.add_parser("cnn-run", help="(cluster) run or resume a B.2 CNN job: encode, train, predict")
+    job_arg(p)
+    p.add_argument("--device", default="auto", help="auto | cuda | cpu")
+    p.add_argument("--workers", type=int, default=0, help="processes that encode the images (the job's CPUs)")
+    p.add_argument("--deadline-min", type=float, help="stop cleanly after this many minutes (before the wall clock)")
+    p = sub.add_parser("cnn-status", help="(cluster) exit 0 complete · 1 work remains · 3 unreadable")
+    job_arg(p)
+    p = sub.add_parser("cnn-null", help="(cluster) one label-shuffle null training (an array task)")
+    job_arg(p)
+    p.add_argument("--shuffle", type=int, required=True)
+    p.add_argument("--device", default="auto")
+    p.add_argument("--workers", type=int, default=0)
+    p.add_argument("--deadline-min", type=float)
+    p = sub.add_parser("cnn-null-status", help="(cluster) exit 0 when that shuffle is complete, 1 otherwise")
+    job_arg(p)
+    p.add_argument("--shuffle", type=int, required=True)
+    p = sub.add_parser("ward-run", help="(cluster) Ward over every training window of a pool")
+    job_arg(p)
+    p = sub.add_parser("ward-status", help="(cluster) exit 0 complete · 1 not yet · 3 unreadable")
+    job_arg(p)
+    p = sub.add_parser("import-results", help="validate a returned job directory against its recipe hash and record it")
+    p.add_argument("job_dir")
+    p.add_argument("--db", default=os.path.join("DATA", "db", "annotations.sqlite"))
+    p.add_argument("--root", default=os.path.join("DATA", "derived", "training"),
+                   help="where the run's files are written (the site's training root)")
+    p.add_argument("--tree-root", default=os.path.join("DATA", "derived", "shape_trees"),
+                   help="where the Shape clustering block keeps its trees")
+
     a = ap.parse_args(argv)
+    if a.cmd in ("cnn-run", "cnn-status", "cnn-null", "cnn-null-status", "ward-run", "ward-status"):
+        return _cluster(a)
+    if a.cmd == "import-results":
+        from Working.training.hpc_import import ImportRefused, import_results
+        conn = _conn(a.db)
+        try:
+            got = import_results(conn, a.job_dir, root=a.root, tree_root=a.tree_root)
+        except ValueError as e:          # ImportRefused, CutFrozen
+            print(f"refused: {e}", file=sys.stderr)
+            return 2 if isinstance(e, ImportRefused) else 3
+        finally:
+            conn.close()
+        print(("imported: " if got["created"] else "already imported: ") + got["message"])
+        print(f"  run {got['run_id']} · recipe {got['config_hash']} · "
+              + (f"results {got['results_path']}" if got.get("results_path") else f"tree {got.get('tree_dir')}"))
+        return 0
     from Working.training import paired as tp
     from Working.training import store as ts
     from Working.training import windows as tw
