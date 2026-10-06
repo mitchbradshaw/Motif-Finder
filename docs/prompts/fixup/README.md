@@ -210,6 +210,53 @@ Known since: the Library client ignores `?grouping=` in its URL (only the in-mem
 although the bridge writes `library/family/{id}?grouping=g-NN` as the route of a suspected-artifact queue — so
 that link opens the newest grouping, not the one the queue was made from.
 
+**Re-baselined 2026-10-07 (`fixup-smoke2`, `fixup-dblock`).** Walks since 10-05 read 22 / 5 / 5 / 23. What was found:
+
+- **The `database is locked` 500 on `AD`'s *Send suspected artifacts*** (three walks) was a product bug, now fixed
+  (`80a161c` red → `9af7415`). AD's first state clicks *Classify across channels* on a family the copied database has
+  already classified, so its flag line is already drawn and the walk moves on while the job runs; the classifier wrote
+  as it went, so the first DELETE of a channel held SQLite's one write lock across every pair's chance test until that
+  channel's COMMIT, and the queue's INSERT gave up at the default 5 s busy timeout. Now: a channel's writes are applied
+  together after it is judged; `init_db` takes no write lock on an up-to-date database (two backfills wrote
+  unconditionally — and `RunManager` / `JobManager` open through `init_db` on every call); `schema.BUSY_TIMEOUT_S`
+  = 30 s for `get_connection` and the bridge's `corpus.connect`. Pinned: `tests/test_db_write_lock.py`,
+  `tests/test_webui_db_lock.py` (the walk's sequence at the route). A PROJECT-mode bridge started before `9af7415`
+  has the bug: restart it.
+- **The other drifting states were the walk, not the product** — one stale assumption (the seed page's precomputed
+  result was keyed without the researcher's 3-length scale bank: `Smoke.seed_page_query` now sends the page's own),
+  one count the walk itself changes (`library.templates--page-2` → `--last-page`, read against a new walk-time
+  `"baseline"` facility), AJ's deliberate Jobs change (`jobs.all--local`), and fixed allowances against reads that
+  have grown with the store (a load wait, then the same assertions; a wait over a second is printed in the state's
+  line). Each is named, with its measured times, in `15bc371`, `b6d1837` and `78fa970`.
+- **A real product defect, left red: `discovery.compare--unpick-b`.** The run list's remove button (`remove-<key>`,
+  `fixup-rq2` `0152df5`) sits over the pick button (pick x 340–360, remove x 346–364 at 1440 px) and intercepts the
+  click: B cannot be unpicked there, and a click on the B badge lands on *remove from this session*.
+- **Still open: Interrogation's cold start.** Five states (`--default`, `--fixup-d-sequence-rose`, the three
+  `.slope--fixup-k-…`) miss on a full walk and `--default` / `--members-overlaid-window` / `--source-picker` on a
+  pages-only walk that starts there; on a probe once warm they paint at 3.1–3.2 s against 3 s. Not raised (the
+  allowance measures first paint, as above); the pattern is now five-plus, so it is the next thing to decide.
+- **Re-walk only, by design of the walk:** `settings.shell--save-writes-the-settings-table` and
+  `settings.nulls--unsaved` fail on a second walk against the same bridge (the first walk saved the very values the
+  states then try to change); a fresh bridge per walk is the gate.
+
+**The clean gate run, 2026-10-07 04:21, a fresh `--sandbox` bridge (port 8793, private build of HEAD, client at
+`f185a26`), started after *stumpy JIT warm* and 4 min after the bridge; a per-minute sampler saw no other walk or
+pytest, CPU 2–51 %: 670 screenshots, 12 failures, 0 browser console/page errors, 0 unexpected server tracebacks, no
+`database is locked`.** All seven of AD's states pass. The 12:
+
+- the **five standing** (`discovery.runs--default`, the four Settings registration Check states);
+- **`discovery.compare--unpick-b`** — the product defect above;
+- **five Interrogation cold-start** — `analyse.interrogation--default`, `--fixup-d-sequence-rose`,
+  `.slope--fixup-k-marks-are-the-payloads`, `.slope--fixup-k-marks-on-a-trough-family`,
+  `.slope--fixup-k-all-marks-names-what-is-not-drawn`;
+- **`models.launch--live-default`** — the first Models state, its sources card not yet drawn at the check; passes on a
+  warm re-walk of Models (23 / 0). Cold start, first seen here.
+
+The run before it (port 8792, same build, 16 failures) also missed `explore.cross-channel--as-recorded` (cold; Explore
+re-walked warm 54 / 0) and four timing states fixed since (`78fa970`, `48f89ef`; warm re-walks 35 / 0 and 54 / 0).
+Route tests (`webui/.venv`, `-n 4`): 460 passed, 3 xpassed, 1 failed — the standing scoreboard test. `pytest -n 4`
+(conda): 2,407 passed, 35 skipped, 0 failed.
+
 ## The open decisions
 
 `QUESTIONS.md` is the live list, with the answers recorded beside each question as they are given.
