@@ -897,3 +897,97 @@ def _job_hash(job_dir):
         return "?"
     with open(p, encoding="utf-8") as f:
         return json.load(f).get("recipe_hash", "?")
+
+
+# ── fixup-aj: the job directories the site wrote, as Jobs lists them ────────
+#: the recipe kinds a written job directory holds (fixup-AI's two RQ1 jobs), and how Jobs names them
+EXPORTED_KINDS = {"shape_cluster_cnn": "B.2 CNN · trained on the cluster categories",
+                  "shape_tree_full": "Ward over every training window"}
+#: never copied to the cluster: the image cache is built there, out/ is what comes back
+_NOT_COPIED = ("cache", "out")
+
+
+def _tree_bytes(d, skip=()):
+    total = 0
+    for name in os.listdir(d):
+        p = os.path.join(d, name)
+        if os.path.isdir(p):
+            if name not in skip:
+                total += _tree_bytes(p)
+        elif os.path.isfile(p):
+            total += os.path.getsize(p)
+    return total
+
+
+def _read_json(path):
+    with open(path, encoding="utf-8") as fh:
+        return json.load(fh)
+
+
+def _imported_run(conn, recipe_hash):
+    """The completed run a recipe hash was imported as -- the identity `hpc_import.import_results` uses."""
+    if conn is None or not recipe_hash:
+        return None
+    row = conn.execute("SELECT r.id, r.name FROM runs r JOIN configs c ON c.id = r.config_id WHERE c.config_hash = ? "
+                       "AND r.status = 'completed' ORDER BY r.id LIMIT 1", (str(recipe_hash),)).fetchone()
+    return None if row is None else {"run_id": int(row[0]), "name": row[1]}
+
+
+def describe_job_dir(job_dir, conn=None):
+    """One written job directory as Jobs lists it. Its `job.json` is the record the site keeps of what it wrote:
+    the recipe hash, when, the channel arrays (CNN). Never raises: an unreadable job is a row with `error`."""
+    from Working.recipes import short_hash
+    job_dir = os.path.abspath(str(job_dir))
+    name = os.path.basename(job_dir.rstrip("/\\"))
+    row = {"name": name, "job_dir": job_dir, "job_repo": repo_relative(job_dir), "kind": None, "kind_label": None,
+           "recipe_hash": None, "recipe_ok": None, "written_at": None, "smoke": False, "model": None, "pool_key": None,
+           "scripts": [], "sbatch_command": None, "copy": [], "total_bytes": 0, "returned": None, "imported": None,
+           "error": None}
+    try:
+        meta = _read_json(os.path.join(job_dir, "job.json"))
+        recipe = _read_json(os.path.join(job_dir, "recipe.json"))
+    except Exception as e:                                    # loud: the row says what is wrong with it
+        row["error"] = f"{type(e).__name__}: {e}"
+        return row
+    kind = meta.get("kind") or recipe.get("kind")
+    h = meta.get("recipe_hash")
+    row.update({"kind": kind, "kind_label": EXPORTED_KINDS.get(kind, kind), "recipe_hash": h,
+                "recipe_ok": short_hash(recipe) == h, "written_at": meta.get("created_at"),
+                "smoke": bool(meta.get("smoke") or recipe.get("smoke")), "model": meta.get("model"),
+                "pool_key": (recipe.get("pool") or {}).get("key") or recipe.get("pool_key") or meta.get("pool_key"),
+                "n": meta.get("n") or meta.get("n_windows")})
+    scripts = sorted(f for f in os.listdir(job_dir) if f.endswith(".sh"))
+    row["scripts"] = [{"name": f, "path": os.path.join(job_dir, f), "repo": repo_relative(os.path.join(job_dir, f))}
+                      for f in scripts]
+    main = [s for s in row["scripts"] if not s["name"].endswith("_null.sh")]
+    row["sbatch_command"] = f"sbatch {main[0]['repo']}" if main else None
+    copy = [{"what": "job directory", "path": row["job_repo"], "bytes": int(_tree_bytes(job_dir, _NOT_COPIED)),
+             "note": "everything in it but cache/ and out/"}]
+    copy += [{"what": "channel array", "path": c.get("path"), "bytes": int(c.get("bytes") or 0),
+              "note": f"{c.get('source_file')} channel {c.get('channel')}"} for c in meta.get("channels") or []]
+    row["copy"] = copy
+    row["total_bytes"] = int(sum(c["bytes"] for c in copy))
+    done = os.path.join(job_dir, "out", "done.json")
+    if os.path.isfile(done):
+        try:
+            d = _read_json(done)
+            row["returned"] = {"status": d.get("status"), "recipe_hash": d.get("recipe_hash"),
+                               "finished_at": d.get("finished_at")}
+        except Exception as e:
+            row["returned"] = {"status": f"unreadable: {e}", "recipe_hash": None, "finished_at": None}
+    row["imported"] = _imported_run(conn, h)
+    return row
+
+
+def list_exported_jobs(roots, conn=None):
+    """Every job directory under `roots` (each root's immediate sub-folders holding a `job.json`), newest first."""
+    rows = []
+    for root in roots:
+        if not root or not os.path.isdir(root):
+            continue
+        for name in sorted(os.listdir(root)):
+            d = os.path.join(root, name)
+            if os.path.isdir(d) and os.path.isfile(os.path.join(d, "job.json")):
+                rows.append(describe_job_dir(d, conn))
+    rows.sort(key=lambda r: (r["written_at"] or ""), reverse=True)
+    return rows
