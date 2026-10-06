@@ -10,6 +10,15 @@
    "[data-testid=\"inspector\"]",
    "[data-testid=\"verdict-card\"]",
    "[data-testid=\"queue-rail-collapsed\"]"
+  ],
+  "_timing": "fixup-smoke2: the root redirects to a queue, then reads the queue twice and the item (a waterfall); the verdict card painted at 1.25 s against a fixed 1.2 s, warm and alone. Wait for the inspector, then assert the root, the verdict card and the collapsed rail",
+  "actions": [
+   {
+    "wait_for": [
+     "[data-testid=\"inspector\"]",
+     15000
+    ]
+   }
   ]
  },
  {
