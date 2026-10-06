@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import os
 import re
 import sys
@@ -1064,9 +1065,12 @@ class Smoke:
             # rather than to a hash that changes with the seed
             call("/api/discovery/seed/draft", {"label": SMOKE_SEED_RUN}, "PUT")
             seed_label = SMOKE_SEED_RUN
+            # fixup-smoke2: and with the page's own scale bank and exclusion zone, read off the draft the way
+            # SeedPage.tsx reads them — the draft is the researcher's, and theirs searches a 3-length bank, so a
+            # native-length result was a cache miss and `discovery.seed--default` met a 3-minute search at 900 ms
             started = call("/api/discovery/seed/results",
                            {"seedId": seed_id, "channels": channels, "t0": t0, "t1": t1,
-                            "k": SMOKE_SEED_K, "maxDistance": 0.0}, "POST")
+                            "k": SMOKE_SEED_K, "maxDistance": 0.0, **self.seed_page_query(setup)}, "POST")
             self._wait_job(call, started.get("job_id"))
             run = call("/api/discovery/seed/run", {"seedId": seed_id, "channels": channels,
                                                    "t0": t0, "t1": t1, "k": SMOKE_SEED_K,
@@ -1079,6 +1083,22 @@ class Smoke:
         self.evidence["discovery_scope"] = {"recording": rec["key"], "channels": channels,
                                             "section_h": [t0, t1], "runs": [a_key, b_key]}
         return {"a": a_key, "b": b_key or "human", "channels": channels, "t0": t0, "t1": t1}
+
+    @staticmethod
+    def seed_page_query(setup: dict) -> dict:
+        """fixup-smoke2: the scale bank, overlap and exclusion zone the seed page sends with its preview
+        (`SeedPage.tsx`: `bankQ`, `exclusionQ`), from the same setup read — so the walk's precomputed result is
+        under the key the page asks for, whatever the draft in the store holds."""
+        params = ((setup.get("draft") or {}).get("params")) or {}
+        bank = (setup.get("recommended") or {}).get("bank")
+        out = {}
+        if bank and bank.get("scales") and params.get("scaleBank") == "bank":
+            out["scales"] = bank["scales"]
+            out["overlap"] = params["overlap"] if params.get("overlap") in ("first", "all") else "lowest"
+        window_s, excl_s = params.get("windowS") or 0, params.get("exclusionS")
+        if window_s > 0 and excl_s is not None and params.get("exclusionSettable") is not False:
+            out["exclusion"] = math.floor(excl_s / window_s * 1000 + 0.5) / 1000     # JS Math.round
+        return out
 
     @staticmethod
     def _wait_job(call, job_id, timeout_s=1800):
@@ -1173,6 +1193,35 @@ class Smoke:
              "expect_absent": list(e.get("expect_absent", [])) + list(arm.get("expect_absent", []))}
         return e, f" [{b['api']}{' ' + str(where) if where else ''}: {len(rows)} rows, so the {side} state]"
 
+    def baseline_on_store(self, e: dict):
+        """fixup-smoke2: a state about a COUNT the walk itself changes (the templates it saves: AH's *Train model*,
+        the Analyse flows) cannot pin the number in its manifest — a warm re-walk, or a store the researcher added
+        to, meets a different one. `baseline`: {"api": route, "items": dotted key of the list ("" = the answer is
+        the list), "where": {field: value}, "per_page": n} reads the store at walk time, just before the state, and
+        writes `{baseline:n}` (the rows) and, with `per_page`, `{baseline:last_page}` into the state. The page must
+        then show THAT number — the assertion is the page against the bridge's own list, read the same moment."""
+        b = e.get("baseline")
+        if not b:
+            return e, ""
+        data = self._api(b["api"])
+        if isinstance(data, dict) and data.get("__error__"):
+            raise RuntimeError(f"baseline: {b['api']} answered {data['__error__']}: {data.get('body')}")
+        items = data
+        for k in filter(None, (b.get("items") or "").split(".")):
+            items = items[k]
+        where = b.get("where") or {}
+        n = sum(1 for x in items if all(x.get(k) == v for k, v in where.items()))
+        vals = {"n": n}
+        if b.get("per_page"):
+            vals["last_page"] = max(1, math.ceil(n / int(b["per_page"])))
+        txt = json.dumps({k: v for k, v in e.items() if k != "baseline"})
+        for k, v in vals.items():
+            txt = txt.replace("{baseline:%s}" % k, str(v))
+        if "{baseline:" in txt:
+            raise ValueError(f"the state names a baseline value the walk does not read ({sorted(vals)})")
+        return json.loads(txt), f" [baseline {b['api']}: {n} rows" + (
+            f", last page {vals['last_page']}" if "last_page" in vals else "") + "]"
+
     # ----------------------------------------------------- every page state --
     def routes(self, page):
         """Every route and state named in webui/smoke_pages/<workspace>.json renders: the page mounts,
@@ -1223,10 +1272,14 @@ class Smoke:
                     self.pin_grouping(page, e["grouping"])
                 # fixup-smoke: an empty-store state asserts whichever of empty / populated the store really is
                 e, branch_msg = self.branch_on_store(e)
+                # fixup-smoke2: a count the walk itself changes is read off the store just before the state
+                e, base_msg = self.baseline_on_store(e)
+                branch_msg += base_msg
                 if e.get("grouping"):
                     branch_msg = f" [grouping {', '.join(e['grouping'].values())}]" + branch_msg
                 page.goto(f"{self.url}/#/{e['hash'].lstrip('#/')}", wait_until="networkidle")
                 page.wait_for_timeout(e.get("settle_ms", 500))
+                waited = []
                 for a in e.get("actions", []):
                     if "click" in a: page.locator(a["click"]).first.click(); page.wait_for_timeout(250)
                     # an optional click: the control is only on the page in some states (the example-span button once a source is set)
@@ -1240,7 +1293,12 @@ class Smoke:
                     elif "wait" in a: page.wait_for_timeout(int(a["wait"]))
                     # fixup-ab: wait for a selector, up to a timeout (ms) — a live job (a window set measured, a
                     # paired model trained) takes as long as it takes; a fixed wait is either flaky or slow
-                    elif "wait_for" in a: page.wait_for_selector(a["wait_for"][0], timeout=int(a["wait_for"][1]))
+                    elif "wait_for" in a:
+                        t_wait = time.time()
+                        page.wait_for_selector(a["wait_for"][0], timeout=int(a["wait_for"][1]))
+                        # fixup-smoke2: say how long a wait took when it was long, so a slow page is visible in the log
+                        if time.time() - t_wait > 1.0:
+                            waited.append(f"{a['wait_for'][0][:60]} after {time.time() - t_wait:.1f} s")
                     # an in-app walk: the hash changes and the page does NOT reload, so in-memory state survives
                     elif "hash" in a: page.evaluate("h => { location.hash = h }", a["hash"]); page.wait_for_timeout(400)
                 main_txt = page.locator(".main").inner_text() if page.locator(".main").count() else ""
@@ -1273,7 +1331,8 @@ class Smoke:
                     kept = [x for x in self.errors[before:] if not any(a in x for a in allowed)]
                     self.errors = self.errors[:before] + kept
                 self.check(ok and in_box and not missing and not present and (err_card == 0 or e.get("allow_error_card")) and len(self.errors) == before,
-                           f"{unit}: {name} renders" + branch_msg + (" · every trace inside its plot box" if e.get("traces_in_box") and in_box else "") + box_msg
+                           f"{unit}: {name} renders" + branch_msg + (f" [waited: {'; '.join(waited)}]" if waited else "")
+                           + (" · every trace inside its plot box" if e.get("traces_in_box") and in_box else "") + box_msg
                            + (f" — missing {missing}" if missing else "") + (f" — unexpected {present}" if present else "")
                            + (" — render-error card" if err_card and not e.get("allow_error_card") else "") + ("" if ok else " — blank or no header")
                            + (f" — {len(self.errors) - before} console errors" if len(self.errors) > before else ""))

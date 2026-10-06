@@ -175,13 +175,17 @@
     "click": "[data-testid=\"queue-rail-toggle\"]"
    },
    {
-    "wait": 600
+    "wait_for": [
+     "[data-testid=\"queue-list\"], [data-testid=\"queues-error\"]",
+     30000
+    ]
    }
   ],
   "expect": [
    "[data-testid=\"queue-rail\"]",
    "[data-testid=\"queue-list\"]"
-  ]
+  ],
+  "_timing": "fixup-smoke2: the rail mounts on the toggle and then reads every queue in full (one read per queue: 9 queues, 1.4 s serial once the walk has made its own), against a fixed 600 ms. Wait until the list (or its error) is drawn, then assert it"
  },
  {
   "page": "review.inspector",
@@ -239,6 +243,15 @@
    "[data-testid=\"queue-picker\"]",
    "[data-testid=\"queue-row-1\"]",
    "[data-testid=\"queue-row-2\"]"
+  ],
+  "_timing": "fixup-smoke2: the picker reads every queue in full, as the rail does; wait until the list (or its error) is drawn in the popover, then assert queues 1 and 2 are listed",
+  "actions": [
+   {
+    "wait_for": [
+     "[data-testid=\"queue-picker\"] [data-testid=\"queue-list\"], [data-testid=\"queues-error\"]",
+     30000
+    ]
+   }
   ]
  },
  {

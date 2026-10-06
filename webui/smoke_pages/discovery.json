@@ -15,12 +15,16 @@
   "page": "discovery.runs",
   "state": "modal-add-template",
   "hash": "discovery/runs",
+  "_timing": "fixup-smoke2: the modal's template read grows with every template saved (1.2-1.7 s warm, with the walk's own); a fixed 400 ms missed it on a warm re-walk. Wait for the list's first row, then assert mp_threshold is offered with its preview",
   "actions": [
    {
     "click": "[data-testid=\"apply-template\"]"
    },
    {
-    "wait": 400
+    "wait_for": [
+     "[data-testid=\"add-template-modal\"] [data-testid^=\"template-row-\"]",
+     30000
+    ]
    }
   ],
   "expect": [
@@ -180,13 +184,21 @@
   "page": "discovery.seed",
   "state": "default",
   "hash": "discovery/seed",
-  "actions": [],
+  "actions": [
+   {
+    "wait_for": [
+     "[data-testid=\"match-grid\"]",
+     30000
+    ]
+   }
+  ],
   "expect": [
    "[data-testid=\"seed-card\"]",
    "[data-testid=\"cut-histogram\"]",
    "[data-testid=\"match-grid\"]"
   ],
-  "settle_ms": 900
+  "settle_ms": 900,
+  "_timing": "fixup-smoke2: the page reads in a waterfall (setup 1.6 s, then the seed's result 1.1 s, warm and alone; 3 s to the match grid) against a fixed 900 ms; the walk's precomputed result is now under the page's own key (Smoke.seed_page_query). Wait for the match grid, then assert the card and the cut histogram beside it"
  },
  {
   "page": "discovery.seed",
@@ -355,13 +367,21 @@
   "page": "discovery.compare",
   "state": "default",
   "hash": "discovery/compare?a={run:a}&b={run:b}&only=a&i=7",
-  "actions": [],
+  "actions": [
+   {
+    "wait_for": [
+     "[data-testid=\"what-differs\"]",
+     30000
+    ]
+   }
+  ],
   "expect": [
    "[data-testid=\"what-differs\"]",
    "[data-testid=\"where-fire\"]",
    "[data-testid=\"disagreements\"]"
   ],
-  "settle_ms": 900
+  "settle_ms": 900,
+  "_timing": "fixup-smoke2: the compare read answers in 0.5 s alone and took 5 s behind the scoreboard reads on a loaded walk, against a fixed 900 ms. Wait for what-differs (the read is in), then assert the fire strip and the disagreements"
  },
  {
   "page": "discovery.compare",
@@ -507,13 +527,21 @@
   "page": "discovery.stages",
   "state": "default",
   "hash": "discovery/compare/stages?a={run:a}&b={run:b}&only=a&i=1",
-  "actions": [],
+  "actions": [
+   {
+    "wait_for": [
+     "[data-testid=\"stage-columns\"]",
+     30000
+    ]
+   }
+  ],
   "expect": [
    "[data-testid=\"step-bar\"]",
    "[data-testid=\"stage-columns\"]",
    "[data-testid=\"decided-table\"]"
   ],
-  "settle_ms": 900
+  "settle_ms": 900,
+  "_timing": "fixup-smoke2: the window is pushed through both chains only after the compare read lands (2-3 s warm), against a fixed 900 ms. Wait for the stage columns, then assert the step bar and the decided table"
  },
  {
   "page": "discovery.stages",
