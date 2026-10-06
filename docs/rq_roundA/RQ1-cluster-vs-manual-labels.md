@@ -433,8 +433,11 @@ Q-W1, Q-W2 and Q-W4 were answered 2026-10-03.
 
 - **The CNN's first run** (`AI` report §12 Q1): the full run at 12 epochs (recommended) / a 3-epoch trial first /
   fewer windows.
-- **Score the CNN on the forest's blind labels** (`AI` §12 Q2): one blind sample for both models (recommended; a small
-  addition to AH's score) or a separate sample per run (as built).
+- ~~**Score the CNN on the forest's blind labels** (`AI` §12 Q2)~~ — built as option (a), 2026-10-07 (`fixup-smoke2`,
+  `970bc80`): **one blind sample per pool**. A later B.2 run on the same pool (the CNN) is served the queue and sample
+  the first run drew; its *against a blind human* reads the labels already written, with its own calls and its own
+  predicted clusters; the weights are the sample's; a sampled window it did not predict is left out and counted.
+  Results says whose sample it is. A run that already drew its own sample keeps it.
 - **`fusion_cnn.pth`** (`AI` §12 Q3): leave it, refused (recommended), or move it out of `MODELS/`.
 - **The blind sample's size** (`AH` report §7 Q1): 1,000 (recommended) / 600 / 2,000.
 - **Which fusion checkpoint is "the" fusion model** (`AH` §7 Q2): both two-class checkpoints are scored for now.
