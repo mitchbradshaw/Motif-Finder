@@ -17,7 +17,7 @@ import { scaleLinear } from 'd3'
 import { ApiError } from '../api'
 import { getBlindQueue, getBlindShowing, type BlindQueuePage, type BlindShowing, type BlindVerdict } from '../api/blind'
 import { postUndo, postVerdict, type Verdict } from '../api/review'
-import { EnvelopePath, TimeAxis } from '../charts/primitives'
+import { EnvelopePath } from '../charts/primitives'
 import { useSize } from '../charts/useSize'
 import { Button, InfoTip, ProgressBar } from '../kit'
 import { Header } from '../shell/Header'
@@ -134,7 +134,7 @@ export function BlindTestPage({ queueId, showingPart }: { queueId: string; showi
                 </div>
               ) : (
                 <ErrorBoundary label={`showing ${cur + 1}`}>
-                  <BlindCard queueId={queueId} showing={cur} n={n} own={page.showings[cur]?.verdict ?? null} busy={busy} onAnswer={answer} onUndo={undo}
+                  <BlindCard key={cur} queueId={queueId} showing={cur} n={n} own={page.showings[cur]?.verdict ?? null} busy={busy} onAnswer={answer} onUndo={undo}
                     onPrev={cur > 0 ? () => go(cur - 1) : undefined} onNext={cur + 1 < n ? () => go(cur + 1) : undefined} />
                 </ErrorBoundary>
               )}
@@ -225,7 +225,27 @@ export function BlindTracePlot({ w, width, testid = 'blind-plot' }: { w: BlindSh
       ))}
       <text x={4} y={14} style={{ fontSize: 10 }}>{w.unit ?? ''}</text>
       <EnvelopePath t={t} v={w.trace.v} x={x} y={y} stroke="var(--text, #111)" width={1.3} testid="blind-trace" />
-      <TimeAxis x={x} y={H - PAD_B} t0={w.trace.t0_s - t0} t1={w.trace.t1_s - t0} n={7} />
+      <RelAxis x={x} y={H - PAD_B} t0={w.trace.t0_s - t0} t1={w.trace.t1_s - t0} />
     </svg>
+  )
+}
+
+/** Time from the window's start, in seconds for a short view and minutes for a long one (the place in the recording
+ *  is deliberately not shown). */
+function RelAxis({ x, y, t0, t1 }: { x: ReturnType<typeof scaleLinear<number, number>>; y: number; t0: number; t1: number }) {
+  const mins = t1 - t0 > 240
+  const k = mins ? 60 : 1
+  const s = scaleLinear().domain([t0 / k, t1 / k])
+  const [r0, r1] = x.range()
+  return (
+    <g className="time-axis" data-testid="blind-time-axis">
+      <line x1={r0} x2={r1} y1={y} y2={y} stroke="var(--border)" />
+      {s.ticks(8).map(v => (
+        <g key={v}>
+          <line x1={x(v * k)} x2={x(v * k)} y1={y} y2={y + 4} stroke="var(--border)" />
+          <text x={x(v * k)} y={y + 15} textAnchor="middle" style={{ fontSize: 10 }}>{v > 0 ? '+' : v < 0 ? '−' : ''}{Math.abs(v)} {mins ? 'min' : 's'}</text>
+        </g>
+      ))}
+    </g>
   )
 }

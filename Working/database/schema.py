@@ -1558,7 +1558,8 @@ def _migrate_review_queues_kinds(conn, db_path=None):
     finally:
         conn.execute("PRAGMA foreign_keys = {}".format("ON" if fk_was_on else "OFF"))
         conn.isolation_level = prior_isolation
-    logging.getLogger(__name__).info("review_queues rebuilt for the suspected-artifact kind (backup: %s)", backup_path)
+    logging.getLogger(__name__).info("review_queues rebuilt so its CHECK names every kind up to %s (backup: %s)",
+                                      _REVIEW_QUEUES_NEW_KIND, backup_path)
     return backup_path
 
 

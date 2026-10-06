@@ -1,0 +1,724 @@
+[
+ {
+  "page": "analyse.block",
+  "state": "fixup-ah-a-small-b2-run-for-the-blind-check",
+  "hash": "analyse/chain",
+  "settle_ms": 2500,
+  "_why": "fixup-ah: the blind check needs a B.2 run of its own (the sandbox copies a database with none): a Window pool of the walk's unlabelled sets at 300 windows per scale -> Trace shape -> Shape clustering, the cut at k = 2 and a PLACEHOLDER mapping (cluster 1 interesting, 2 not), re-run, Train model -> Launch prefilled -> Train locally; the run's row links to Results' blind view",
+  "actions": [
+   {
+    "click": "[data-testid=\"source-chip\"]"
+   },
+   {
+    "wait_for": [
+     "[data-testid=\"use-pool\"]",
+     10000
+    ]
+   },
+   {
+    "click": "[data-testid=\"use-pool\"]"
+   },
+   {
+    "wait_for": [
+     "[data-testid=\"open-pool-block\"]",
+     15000
+    ]
+   },
+   {
+    "wait": 800
+   },
+   {
+    "hash": "#/analyse/block/0"
+   },
+   {
+    "wait_for": [
+     "[data-testid=\"pool-library-table\"]",
+     30000
+    ]
+   },
+   {
+    "click": "[data-testid=\"pool-tick-unlabelled\"]"
+   },
+   {
+    "wait": 600
+   },
+   {
+    "fill": [
+     "[data-testid=\"param-per_scale\"]",
+     "300"
+    ]
+   },
+   {
+    "wait": 800
+   },
+   {
+    "hash": "#/analyse/block/2"
+   },
+   {
+    "wait_for": [
+     "[data-testid=\"run-button\"]:not([disabled])",
+     30000
+    ]
+   },
+   {
+    "click": "[data-testid=\"run-button\"]"
+   },
+   {
+    "wait_for": [
+     "[data-testid=\"tree-page\"]",
+     600000
+    ]
+   },
+   {
+    "wait_for": [
+     "[data-testid=\"mapping-table\"]",
+     60000
+    ]
+   },
+   {
+    "click_if": "[data-testid=\"tree-k-down\"]:not([disabled])"
+   },
+   {
+    "click_if": "[data-testid=\"tree-k-down\"]:not([disabled])"
+   },
+   {
+    "click_if": "[data-testid=\"tree-k-down\"]:not([disabled])"
+   },
+   {
+    "click_if": "[data-testid=\"tree-k-down\"]:not([disabled])"
+   },
+   {
+    "click_if": "[data-testid=\"tree-k-down\"]:not([disabled])"
+   },
+   {
+    "click_if": "[data-testid=\"tree-k-down\"]:not([disabled])"
+   },
+   {
+    "click_if": "[data-testid=\"tree-k-down\"]:not([disabled])"
+   },
+   {
+    "click_if": "[data-testid=\"tree-k-down\"]:not([disabled])"
+   },
+   {
+    "click_if": "[data-testid=\"tree-k-down\"]:not([disabled])"
+   },
+   {
+    "click_if": "[data-testid=\"tree-k-down\"]:not([disabled])"
+   },
+   {
+    "wait_for": [
+     "[data-testid=\"mapping-table\"][data-k=\"2\"]",
+     30000
+    ]
+   },
+   {
+    "select": [
+     "[data-testid=\"mapping-class-1\"]",
+     "interesting"
+    ]
+   },
+   {
+    "select": [
+     "[data-testid=\"mapping-class-2\"]",
+     "not_interesting"
+    ]
+   },
+   {
+    "wait": 1000
+   },
+   {
+    "wait_for": [
+     "[data-testid=\"run-button\"]:not([disabled])",
+     30000
+    ]
+   },
+   {
+    "click": "[data-testid=\"run-button\"]"
+   },
+   {
+    "wait": 2000
+   },
+   {
+    "hash": "#/analyse/chain"
+   },
+   {
+    "wait_for": [
+     "[data-testid=\"train-model\"]:not([disabled])",
+     600000
+    ]
+   },
+   {
+    "click": "[data-testid=\"train-model\"]"
+   },
+   {
+    "wait_for": [
+     "[data-testid=\"b2-train-locally\"]:not([disabled])",
+     60000
+    ]
+   },
+   {
+    "click": "[data-testid=\"b2-train-locally\"]"
+   },
+   {
+    "wait_for": [
+     "[data-testid^=\"b2-blind-link-\"]",
+     900000
+    ]
+   }
+  ],
+  "expect": [
+   "[data-testid=\"b2-runs\"]",
+   "[data-testid^=\"b2-blind-link-\"]"
+  ],
+  "expect_absent": [
+   "[data-testid=\"b2-error\"]"
+  ]
+ },
+ {
+  "page": "models.results",
+  "state": "fixup-ah-label-test-windows-blind-opens-a-card-with-no-hint",
+  "hash": "models/results",
+  "settle_ms": 2500,
+  "_why": "fixup-ah: Models › Results lists the B.2 run; *Label test windows blind* (24 windows, 25 % shown twice) makes the queue and opens Review on its first card — the raw trace in mV, the window shaded, its length said plainly — and the card's DOM and payload carry no prediction, cluster, class, score, weight, exam or earlier label, and no queue rail or model pill is drawn",
+  "actions": [
+   {
+    "wait_for": [
+     "[data-testid^=\"open-b2-blind-\"]",
+     60000
+    ]
+   },
+   {
+    "click": "[data-testid^=\"open-b2-blind-\"]"
+   },
+   {
+    "wait_for": [
+     "[data-testid=\"blind-make\"]",
+     60000
+    ]
+   },
+   {
+    "fill": [
+     "[data-testid=\"blind-n\"]",
+     "24"
+    ]
+   },
+   {
+    "fill": [
+     "[data-testid=\"blind-repeat\"]",
+     "25"
+    ]
+   },
+   {
+    "click": "[data-testid=\"label-blind\"]"
+   },
+   {
+    "wait_for": [
+     "[data-testid=\"blind-card\"][data-showing=\"0\"] [data-testid=\"blind-trace\"]",
+     30000
+    ]
+   }
+  ],
+  "expect": [
+   "[data-testid=\"blind-page\"]",
+   "[data-testid=\"blind-card\"][data-showing=\"0\"]",
+   "[data-testid=\"blind-duration\"]",
+   "[data-testid=\"blind-trace\"]",
+   "[data-testid=\"blind-window-band\"]",
+   "[data-testid=\"blind-interesting\"]",
+   "[data-testid=\"blind-not_interesting\"]",
+   "[data-testid=\"blind-progress\"][data-total=\"30\"]"
+  ],
+  "expect_absent": [
+   "[data-testid=\"blind-card\"][data-keys*=\"cluster\"]",
+   "[data-testid=\"blind-card\"][data-keys*=\"class\"]",
+   "[data-testid=\"blind-card\"][data-keys*=\"p_interesting\"]",
+   "[data-testid=\"blind-card\"][data-keys*=\"score\"]",
+   "[data-testid=\"blind-card\"][data-keys*=\"weight\"]",
+   "[data-testid=\"blind-card\"][data-keys*=\"exam\"]",
+   "[data-testid=\"blind-card\"][data-keys*=\"role\"]",
+   "[data-testid=\"blind-card\"][data-keys*=\"model\"]",
+   "[data-testid=\"blind-card\"] :text(\"cluster\")",
+   "[data-testid=\"blind-card\"] :text(\"predict\")",
+   "[data-testid=\"blind-card\"] :text(\"P(interesting\")",
+   "[data-testid=\"pill-model\"]",
+   "[data-testid=\"reveal-card\"]",
+   "[data-testid=\"nearest-families-masked\"]",
+   "[data-testid=\"evidence-rail\"]",
+   "[data-testid=\"blind-error\"]",
+   "[data-testid=\"blind-card-error\"]"
+  ]
+ },
+ {
+  "page": "review.blind",
+  "state": "fixup-ah-label-close-reopen-it-resumes-and-finishes",
+  "hash": "models/results",
+  "settle_ms": 2500,
+  "_why": "fixup-ah: keyboard-first — I / N answer and advance; 10 answered, the page left, reopened from Results: it resumes at the first unlabelled window (10 judged); the rest answered to the end (PLACEHOLDER answers, alternating keys — the real labelling is the researcher's)",
+  "actions": [
+   {
+    "wait_for": [
+     "[data-testid^=\"open-b2-blind-\"]",
+     60000
+    ]
+   },
+   {
+    "click": "[data-testid^=\"open-b2-blind-\"]"
+   },
+   {
+    "wait_for": [
+     "[data-testid=\"blind-make\"]",
+     60000
+    ]
+   },
+   {
+    "wait_for": [
+     "[data-testid=\"open-blind-queue\"]",
+     60000
+    ]
+   },
+   {
+    "click": "[data-testid=\"open-blind-queue\"]"
+   },
+   {
+    "wait_for": [
+     "[data-testid=\"blind-card\"][data-showing=\"0\"] [data-testid=\"blind-trace\"]",
+     30000
+    ]
+   },
+   {
+    "press": "n"
+   },
+   {
+    "wait_for": [
+     "[data-testid=\"blind-card\"][data-showing=\"1\"] [data-testid=\"blind-trace\"]",
+     30000
+    ]
+   },
+   {
+    "press": "i"
+   },
+   {
+    "wait_for": [
+     "[data-testid=\"blind-card\"][data-showing=\"2\"] [data-testid=\"blind-trace\"]",
+     30000
+    ]
+   },
+   {
+    "press": "i"
+   },
+   {
+    "wait_for": [
+     "[data-testid=\"blind-card\"][data-showing=\"3\"] [data-testid=\"blind-trace\"]",
+     30000
+    ]
+   },
+   {
+    "press": "n"
+   },
+   {
+    "wait_for": [
+     "[data-testid=\"blind-card\"][data-showing=\"4\"] [data-testid=\"blind-trace\"]",
+     30000
+    ]
+   },
+   {
+    "press": "i"
+   },
+   {
+    "wait_for": [
+     "[data-testid=\"blind-card\"][data-showing=\"5\"] [data-testid=\"blind-trace\"]",
+     30000
+    ]
+   },
+   {
+    "press": "i"
+   },
+   {
+    "wait_for": [
+     "[data-testid=\"blind-card\"][data-showing=\"6\"] [data-testid=\"blind-trace\"]",
+     30000
+    ]
+   },
+   {
+    "press": "n"
+   },
+   {
+    "wait_for": [
+     "[data-testid=\"blind-card\"][data-showing=\"7\"] [data-testid=\"blind-trace\"]",
+     30000
+    ]
+   },
+   {
+    "press": "i"
+   },
+   {
+    "wait_for": [
+     "[data-testid=\"blind-card\"][data-showing=\"8\"] [data-testid=\"blind-trace\"]",
+     30000
+    ]
+   },
+   {
+    "press": "i"
+   },
+   {
+    "wait_for": [
+     "[data-testid=\"blind-card\"][data-showing=\"9\"] [data-testid=\"blind-trace\"]",
+     30000
+    ]
+   },
+   {
+    "press": "n"
+   },
+   {
+    "wait_for": [
+     "[data-testid=\"blind-card\"][data-showing=\"10\"] [data-testid=\"blind-trace\"]",
+     30000
+    ]
+   },
+   {
+    "hash": "#/models/results"
+   },
+   {
+    "wait_for": [
+     "[data-testid^=\"open-b2-blind-\"]",
+     60000
+    ]
+   },
+   {
+    "click": "[data-testid^=\"open-b2-blind-\"]"
+   },
+   {
+    "wait_for": [
+     "[data-testid=\"blind-make\"]",
+     60000
+    ]
+   },
+   {
+    "wait_for": [
+     "[data-testid=\"open-blind-queue\"]",
+     60000
+    ]
+   },
+   {
+    "click": "[data-testid=\"open-blind-queue\"]"
+   },
+   {
+    "wait_for": [
+     "[data-testid=\"blind-progress\"][data-judged=\"10\"]",
+     30000
+    ]
+   },
+   {
+    "wait_for": [
+     "[data-testid=\"blind-card\"][data-showing=\"10\"] [data-testid=\"blind-trace\"]",
+     30000
+    ]
+   },
+   {
+    "press": "n"
+   },
+   {
+    "wait_for": [
+     "[data-testid=\"blind-card\"][data-showing=\"11\"] [data-testid=\"blind-trace\"]",
+     30000
+    ]
+   },
+   {
+    "press": "n"
+   },
+   {
+    "wait_for": [
+     "[data-testid=\"blind-card\"][data-showing=\"12\"] [data-testid=\"blind-trace\"]",
+     30000
+    ]
+   },
+   {
+    "press": "i"
+   },
+   {
+    "wait_for": [
+     "[data-testid=\"blind-card\"][data-showing=\"13\"] [data-testid=\"blind-trace\"]",
+     30000
+    ]
+   },
+   {
+    "press": "n"
+   },
+   {
+    "wait_for": [
+     "[data-testid=\"blind-card\"][data-showing=\"14\"] [data-testid=\"blind-trace\"]",
+     30000
+    ]
+   },
+   {
+    "press": "n"
+   },
+   {
+    "wait_for": [
+     "[data-testid=\"blind-card\"][data-showing=\"15\"] [data-testid=\"blind-trace\"]",
+     30000
+    ]
+   },
+   {
+    "press": "n"
+   },
+   {
+    "wait_for": [
+     "[data-testid=\"blind-card\"][data-showing=\"16\"] [data-testid=\"blind-trace\"]",
+     30000
+    ]
+   },
+   {
+    "press": "i"
+   },
+   {
+    "wait_for": [
+     "[data-testid=\"blind-card\"][data-showing=\"17\"] [data-testid=\"blind-trace\"]",
+     30000
+    ]
+   },
+   {
+    "press": "n"
+   },
+   {
+    "wait_for": [
+     "[data-testid=\"blind-card\"][data-showing=\"18\"] [data-testid=\"blind-trace\"]",
+     30000
+    ]
+   },
+   {
+    "press": "n"
+   },
+   {
+    "wait_for": [
+     "[data-testid=\"blind-card\"][data-showing=\"19\"] [data-testid=\"blind-trace\"]",
+     30000
+    ]
+   },
+   {
+    "press": "n"
+   },
+   {
+    "wait_for": [
+     "[data-testid=\"blind-card\"][data-showing=\"20\"] [data-testid=\"blind-trace\"]",
+     30000
+    ]
+   },
+   {
+    "press": "i"
+   },
+   {
+    "wait_for": [
+     "[data-testid=\"blind-card\"][data-showing=\"21\"] [data-testid=\"blind-trace\"]",
+     30000
+    ]
+   },
+   {
+    "press": "n"
+   },
+   {
+    "wait_for": [
+     "[data-testid=\"blind-card\"][data-showing=\"22\"] [data-testid=\"blind-trace\"]",
+     30000
+    ]
+   },
+   {
+    "press": "n"
+   },
+   {
+    "wait_for": [
+     "[data-testid=\"blind-card\"][data-showing=\"23\"] [data-testid=\"blind-trace\"]",
+     30000
+    ]
+   },
+   {
+    "press": "n"
+   },
+   {
+    "wait_for": [
+     "[data-testid=\"blind-card\"][data-showing=\"24\"] [data-testid=\"blind-trace\"]",
+     30000
+    ]
+   },
+   {
+    "press": "i"
+   },
+   {
+    "wait_for": [
+     "[data-testid=\"blind-card\"][data-showing=\"25\"] [data-testid=\"blind-trace\"]",
+     30000
+    ]
+   },
+   {
+    "press": "n"
+   },
+   {
+    "wait_for": [
+     "[data-testid=\"blind-card\"][data-showing=\"26\"] [data-testid=\"blind-trace\"]",
+     30000
+    ]
+   },
+   {
+    "press": "n"
+   },
+   {
+    "wait_for": [
+     "[data-testid=\"blind-card\"][data-showing=\"27\"] [data-testid=\"blind-trace\"]",
+     30000
+    ]
+   },
+   {
+    "press": "n"
+   },
+   {
+    "wait_for": [
+     "[data-testid=\"blind-card\"][data-showing=\"28\"] [data-testid=\"blind-trace\"]",
+     30000
+    ]
+   },
+   {
+    "press": "i"
+   },
+   {
+    "wait_for": [
+     "[data-testid=\"blind-card\"][data-showing=\"29\"] [data-testid=\"blind-trace\"]",
+     30000
+    ]
+   },
+   {
+    "press": "n"
+   },
+   {
+    "wait_for": [
+     "[data-testid=\"blind-done\"]",
+     30000
+    ]
+   }
+  ],
+  "expect": [
+   "[data-testid=\"blind-done\"]",
+   "[data-testid=\"blind-progress\"][data-judged=\"30\"]"
+  ],
+  "expect_absent": [
+   "[data-testid=\"blind-write-refused\"]",
+   "[data-testid=\"blind-error\"]"
+  ]
+ },
+ {
+  "page": "models.results",
+  "state": "fixup-ah-against-a-blind-human-and-the-comparison-line",
+  "hash": "models/results",
+  "settle_ms": 2500,
+  "_why": "fixup-ah: Results › against a blind human, per exam: macro F1 with CI, the model's interesting P / R, kappa, self-agreement beside them, the null, per cluster / scale / recording, the sample's make-up; *Score the comparison line* runs the manual-label models on the sample at every scale — one row per model per scale, the 1- and 30-minute rows marked outside the training scale, contamination stated",
+  "actions": [
+   {
+    "wait_for": [
+     "[data-testid^=\"open-b2-blind-\"]",
+     60000
+    ]
+   },
+   {
+    "click": "[data-testid^=\"open-b2-blind-\"]"
+   },
+   {
+    "wait_for": [
+     "[data-testid=\"blind-make\"]",
+     60000
+    ]
+   },
+   {
+    "wait_for": [
+     "[data-testid=\"against-blind\"]",
+     60000
+    ]
+   },
+   {
+    "click": "[data-testid=\"score-reference\"]"
+   },
+   {
+    "wait_for": [
+     "[data-testid=\"blind-reference-table\"]",
+     900000
+    ]
+   }
+  ],
+  "expect": [
+   "[data-testid=\"blind-sample-strata\"]",
+   "[data-testid=\"against-blind\"]",
+   "[data-testid=\"blind-macro-f1\"]",
+   "[data-testid=\"blind-kappa\"]",
+   "[data-testid=\"blind-self-agreement\"]",
+   "[data-testid=\"blind-null\"]",
+   "[data-testid=\"blind-per-cluster\"]",
+   "[data-testid=\"blind-per-scale\"]",
+   "[data-testid=\"blind-per-recording\"]",
+   "[data-testid=\"blind-contamination\"]",
+   "[data-testid=\"blind-reference-table\"]",
+   "[data-testid=\"outside-training-scale\"]",
+   "[data-testid^=\"ref-GASF_cnn-\"]",
+   "[data-testid=\"blind-disagreements\"]"
+  ],
+  "expect_absent": [
+   "[data-testid=\"models-load-failed\"]"
+  ]
+ },
+ {
+  "page": "analyse.block",
+  "state": "fixup-ah-the-first-blind-label-freezes-the-cut-in-analyse",
+  "hash": "analyse/block/2",
+  "settle_ms": 2500,
+  "_why": "fixup-ah: the first blind label is a score — the Shape clustering page of the pool the run was trained on now says the cut and the mapping are frozen, names the run, and locks the classes",
+  "actions": [
+   {
+    "wait_for": [
+     "[data-testid=\"tree-page\"]",
+     120000
+    ]
+   },
+   {
+    "wait_for": [
+     "[data-testid=\"tree-frozen\"]",
+     30000
+    ]
+   }
+  ],
+  "expect": [
+   "[data-testid=\"tree-frozen\"]",
+   "[data-testid=\"mapping-frozen\"]"
+  ],
+  "expect_absent": [
+   "[data-testid=\"tree-cut-error\"]"
+  ]
+ },
+ {
+  "page": "models.launch",
+  "state": "fixup-ah-launch-shows-the-freeze",
+  "hash": "analyse/chain",
+  "settle_ms": 2500,
+  "_why": "fixup-ah: Train model → Launch prefilled: the frozen card names the scored run; a template with another cut on this pool is refused there (409, pinned in tests/test_webui_blind.py)",
+  "actions": [
+   {
+    "wait_for": [
+     "[data-testid=\"train-model\"]:not([disabled])",
+     120000
+    ]
+   },
+   {
+    "click": "[data-testid=\"train-model\"]"
+   },
+   {
+    "wait_for": [
+     "[data-testid=\"b2-frozen\"]",
+     60000
+    ]
+   }
+  ],
+  "expect": [
+   "[data-testid=\"b2-frozen\"]",
+   "[data-testid=\"b2-checks\"]"
+  ],
+  "expect_absent": [
+   "[data-testid=\"b2-error\"]"
+  ]
+ }
+]
