@@ -1,0 +1,84 @@
+[
+ {
+  "page": "jobs.all",
+  "state": "fixup-aj-running-here-is-the-bridges-own-job-table",
+  "hash": "jobs",
+  "settle_ms": 1500,
+  "_why": "fixup-aj: the top of Jobs is the bridge's own job table (GET /api/jobs) - kind, stage, state and progress, started, duration - and a row opens to its error and traceback; the rest of the page (paused runs, hand-marked cluster jobs, review queues) keeps the demo data chip. Runs after AI's states (this file sorts after zzzzzzzz_ai_*), so in a full walk the forest, the CNN script and the local smoke are rows here",
+  "actions": [
+   {"wait_for": ["[data-testid=\"live-local-table\"], [data-testid=\"live-local-empty\"]", 60000]},
+   {"click_if": "[data-testid^=\"live-job-row-\"]"},
+   {"wait": 400}
+  ],
+  "branch_on": {"api": "/api/jobs?limit=60", "items": "",
+                "empty": {"expect": ["[data-testid=\"live-local-empty\"]"]},
+                "populated": {"expect": ["[data-testid^=\"live-job-row-\"]", "[data-testid^=\"live-job-detail-\"]"]}},
+  "expect": ["[data-testid=\"live-local-jobs\"]", "[data-testid=\"live-chip-local\"]", "[data-testid=\"exported-jobs\"]",
+             "[data-testid=\"jobs-demo-chip\"]", "[data-testid=\"jobs-table\"]"],
+  "expect_absent": ["[data-testid=\"jobs-load-failed\"]"]
+ },
+ {
+  "page": "jobs.all",
+  "state": "fixup-aj-the-cnn-script-ai-wrote-is-listed-with-what-to-copy",
+  "hash": "jobs",
+  "settle_ms": 1500,
+  "_why": "fixup-aj: every job folder the site wrote for the cluster is a row (GET /api/hpc/exported, read from its job.json): the B.2 CNN script AI's state wrote shows its recipe hash, when it was written, the size of what to copy and, opened, every file with its size and the sbatch line; its state is 'written' until out/ is copied back",
+  "actions": [
+   {"wait_for": ["[data-testid=\"exported-table\"], [data-testid=\"exported-empty\"]", 60000]},
+   {"click_if": "[data-testid^=\"exported-row-b2cnn_\"][data-kind=\"shape_cluster_cnn\"]:not([data-testid*=\"_smoke_\"])"},
+   {"wait": 400}
+  ],
+  "branch_on": {"api": "/api/hpc/exported", "items": "jobs", "where": {"kind": "shape_cluster_cnn", "smoke": false},
+                "empty": {"expect": ["[data-testid=\"exported-jobs\"]"], "expect_absent": ["[data-testid^=\"exported-detail-\"]"]},
+                "populated": {"expect": ["[data-testid^=\"exported-copy-b2cnn_\"]", "[data-testid^=\"exported-sbatch-b2cnn_\"]",
+                                         "[data-testid^=\"exported-state-b2cnn_\"]"]}},
+  "expect": ["[data-testid=\"exported-jobs\"]"],
+  "expect_absent": ["[data-testid=\"jobs-load-failed\"]"]
+ },
+ {
+  "page": "jobs.all",
+  "state": "fixup-aj-the-local-smokes-folder-reads-results-imported-and-opens-the-run",
+  "hash": "jobs",
+  "settle_ms": 1500,
+  "_why": "fixup-aj: AI's local smoke imported its own folder through hpc_import.import_results, so that folder's row says 'results imported - run N' and its link opens the run in Models > Results (the recipe hash is the run's identity)",
+  "actions": [
+   {"wait_for": ["[data-testid=\"exported-table\"], [data-testid=\"exported-empty\"]", 60000]}
+  ],
+  "branch_on": {"api": "/api/hpc/exported", "items": "jobs", "where": {"smoke": true, "state": "imported"},
+                "empty": {"expect": ["[data-testid=\"exported-jobs\"]"]},
+                "populated": {"expect": ["[data-testid^=\"exported-row-b2cnn_\"][data-state=\"imported\"]",
+                                         "[data-testid^=\"exported-open-b2cnn_\"]"]}},
+  "expect": ["[data-testid=\"exported-jobs\"]"],
+  "expect_absent": ["[data-testid=\"jobs-load-failed\"]"]
+ },
+ {
+  "page": "jobs.all",
+  "state": "fixup-aj-the-manifest-inbox-refuses-a-folder-with-the-reason",
+  "hash": "jobs?drawer=inbox",
+  "settle_ms": 1200,
+  "_why": "fixup-aj: the Manifest inbox imports a returned job folder through the CLI's import_results, as a local import job; a folder that is not a job is refused with the reason, nothing is recorded, and the attempt is listed",
+  "actions": [
+   {"wait_for": ["[data-testid=\"inbox-live\"]", 30000]},
+   {"fill": ["[data-testid=\"inbox-path\"]", "webui/runtime/no-such-job-folder"]},
+   {"click": "[data-testid=\"inbox-import\"]"},
+   {"wait_for": ["[data-testid=\"inbox-outcome\"][data-outcome=\"refused\"]", 60000]},
+   {"wait_for": ["[data-testid=\"inbox-attempts\"]", 30000]}
+  ],
+  "expect": ["[data-testid=\"inbox-outcome-message\"]", "[data-testid^=\"inbox-attempt-\"][data-outcome=\"refused\"]",
+             "[data-testid=\"inbox-demo-chip\"]"],
+  "expect_absent": ["[data-testid=\"inbox-open\"]"]
+ },
+ {
+  "page": "models.results",
+  "state": "fixup-aj-the-jobs-link-names-what-is-real",
+  "hash": "models/launch",
+  "settle_ms": 1500,
+  "_why": "fixup-aj: Models' link to Jobs no longer says 'Jobs (demo page)'; it names what Jobs now does for real and opens the live half",
+  "actions": [
+   {"wait_for": ["[data-testid=\"open-training-jobs\"]", 30000]},
+   {"click": "[data-testid=\"open-training-jobs\"]"},
+   {"wait_for": ["[data-testid=\"jobs-live\"]", 30000]}
+  ],
+  "expect": ["[data-testid=\"live-local-jobs\"]", "[data-testid=\"exported-jobs\"]"]
+ }
+]

@@ -63,7 +63,7 @@ const STATUS_BADGE: Record<LiveJob['status'], 'running' | 'queued' | 'finished' 
 }
 
 export function LocalJobsCard({ onCount }: { onCount?: (running: number) => void }) {
-  const [limit, setLimit] = useState(60)
+  const [limit, setLimit] = useState(25)
   const q = useSourced(() => getLocalJobs(limit), [limit])
   const data = useSticky(q.data)
   const anyRunning = !!data?.some(j => j.status === 'running' || j.status === 'queued')
@@ -90,7 +90,7 @@ export function LocalJobsCard({ onCount }: { onCount?: (running: number) => void
         caption="training a model, building a window set or a tree, labelling work and imports are listed here as they run" />}
       {data && !!shown.length && (
         <table className="jb-table jb-live" data-testid="live-local-table">
-          <colgroup><col style={{ width: 56 }} /><col /><col style={{ width: 210 }} /><col style={{ width: 128 }} /><col style={{ width: 86 }} /><col style={{ width: 132 }} /></colgroup>
+          <colgroup><col style={{ width: 56 }} /><col /><col style={{ width: 210 }} /><col style={{ width: 150 }} /><col style={{ width: 96 }} /><col style={{ width: 132 }} /></colgroup>
           <thead><tr><th>id</th><th>job · stage</th><th>state · progress</th><th>started</th><th>took</th><th /></tr></thead>
           <tbody>
             {shown.map(j => (
@@ -236,7 +236,7 @@ export function ExportedJobsCard({ imp, reloadKey }: { imp: ReturnType<typeof us
         action={<Button size="sm" icon="external" onClick={() => navigate('models/launch')}>Models › Launch</Button>} />}
       {!!rows.length && (
         <table className="jb-table jb-live" data-testid="exported-table">
-          <colgroup><col /><col style={{ width: 92 }} /><col style={{ width: 128 }} /><col style={{ width: 150 }} /><col style={{ width: 210 }} /><col style={{ width: 150 }} /></colgroup>
+          <colgroup><col /><col style={{ width: 92 }} /><col style={{ width: 150 }} /><col style={{ width: 150 }} /><col style={{ width: 210 }} /><col style={{ width: 150 }} /></colgroup>
           <thead><tr><th>job</th><th>recipe</th><th>written</th><th>to copy</th><th>state</th><th /></tr></thead>
           <tbody>
             {rows.map(r => (
