@@ -278,7 +278,7 @@ function ExportedRow({ r, open, onToggle, importing, onImport }: { r: ExportedJo
         </td>
         <td className="jb-act" onClick={e => e.stopPropagation()}>
           {r.open
-            ? <Button size="sm" variant="link" icon="external" testid={`exported-open-${r.name}`} onClick={() => navigate(r.open!.route)}>{r.open.label.replace(/^Open /, 'Open ')}</Button>
+            ? <Button size="sm" variant="link" icon="external" testid={`exported-open-${r.name}`} title={r.open.label} onClick={() => navigate(r.open!.route)}>{r.kind === 'shape_tree_full' ? 'Open in Analyse' : 'Open in Results'}</Button>
             : <Button size="sm" variant={canImport ? 'primary' : 'default'} icon="download" loading={importing} disabled={!canImport} disabledReason={why}
                 testid={`exported-import-${r.name}`} onClick={onImport}>Import results</Button>}
         </td>
