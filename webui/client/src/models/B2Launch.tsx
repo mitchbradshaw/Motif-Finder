@@ -116,10 +116,10 @@ function B2Runs({ runs }: { runs: B2Run[] }) {
             <td className="mono">#{r.run_id}</td><td>{r.status}{r.error ? ` · ${r.error}` : ''}</td><td className="r">{r.k}</td>
             <td title={r.diagnostic?.note}>{r.diagnostic ? `diagnostic · accuracy ${r.diagnostic.accuracy.toFixed(2)} · macro F1 ${r.diagnostic.macro_f1.toFixed(2)} (largest cluster ${r.diagnostic.chance_largest_cluster.toFixed(2)})` : '—'}</td>
             {['i_later_block', 'ii_unseen_channels'].map(e => { const x = r.exams[e]; return <td key={e} className="small">{x ? `${x.n.toLocaleString()} windows · interesting ${x.by_class.interesting?.toLocaleString() ?? 0} · ${x.status}` : '—'}</td> })}
-            <td className="small">{r.scored ? 'scored' : 'not yet labelled (AH)'}</td>
+            <td className="small">{r.scored ? 'labelling / scored' : 'not yet labelled'}{r.status === 'completed' && <> · <Button variant="link" size="sm" testid={`b2-blind-link-${r.run_id}`} onClick={() => navigate(`models/results/b2/${r.run_id}`)}>against a blind human</Button></>}</td>
           </tr>))}</tbody>
       </table>
-      <div className="muted small">the diagnostic is how well the forest imitates its own answer key on training windows it did not fit — not evidence; the result is the blind human check (AH)</div>
+      <div className="muted small">the diagnostic is how well the forest imitates its own answer key on training windows it did not fit — not evidence; the result is the blind human check (Models › Results › against a blind human)</div>
     </SectionCard>
   )
 }

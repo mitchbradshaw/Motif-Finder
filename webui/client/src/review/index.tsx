@@ -13,6 +13,7 @@ import { clusterQueue, getQueue, getQueues } from '../api/review'
 import { navigate } from '../state'
 import { Inspector } from './Inspector'
 import { ClusterPage } from './ClusterView'
+import { BlindTestPage } from './BlindTest'
 import { Loading, QueueEndView } from './common'
 import { currentUnit, replaceHash, unitHash } from './queue'
 import { useRecords, useReviewVersion } from './store'
@@ -47,6 +48,9 @@ export function ReviewPage() {
   if (queues.error) return <><Header workspace="Review" page="Inspector" /><div className="rv-root"><div className="error-card" data-testid="queues-error"><h3>The review queues failed to load</h3><p className="mono">{queues.error.message}</p></div></div></>
   if (!queueId && !queues.loading && live && live.length === 0) return <Unknown text="There are no review queues yet" caption="A queue is made from a Discovery run, a seeded search, an Explore selection, a window set, or Library's extract-events flag." live={live} />
   if (!queueId) return <><Header workspace="Review" page="Inspector" subtitle="opening the queue…" /><div className="rv-root"><Loading /></div></>
+  // fixup-ah: a BLIND test queue has its own page — no queue rail, no evidence rail, nothing that could tip the answer
+  if (!live && queues.loading) return <><Header workspace="Review" page="Inspector" subtitle={`queue ${queueId}`} /><div className="rv-root"><Loading /></div></>
+  if ((live?.find(q => q.id === queueId)?.source as string | undefined) === 'blind-test') return <BlindTestPage queueId={queueId} showingPart={p[2]} />
   return <QueueRoute queueId={queueId} rest={p.slice(2)} />
 }
 

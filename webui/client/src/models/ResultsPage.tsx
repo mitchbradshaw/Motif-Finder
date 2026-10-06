@@ -12,6 +12,7 @@ import {
   type ArmScore, type ExamKey, type PairedArm, type PairedResults, type PairedRunRow,
 } from '../api/models'
 import { ArmBadge, Loading, LoadFailed, ModelsTabs, JobsPageLink } from './chrome'
+import { B2BlindResults, B2RunsStrip } from './B2Blind'
 
 const EXAMS: ExamKey[] = ['i_later_block', 'ii_unseen_channels', 'iii_held_out']
 const ci = (c: [number | null, number | null] | undefined) => (!c || c[0] == null || c[1] == null ? '—' : `${c[0].toFixed(3)} – ${c[1].toFixed(3)}`)
@@ -21,6 +22,13 @@ export function ResultsPage() {
   const { route } = useApp()
   const runs = useSourced(getPairedRuns, [])
   const idPart = route.parts[1]
+  // fixup-ah: a B.2 run is read "against a blind human" (Results' paired views read paired runs only)
+  if (idPart === 'b2' && route.parts[2]) return (
+    <>
+      <Header workspace="Models" page="Results" subtitle="B.2 · against a blind human, per exam, never pooled" />
+      <Page testid="models-results-b2"><B2BlindResults runId={Number(route.parts[2])} /></Page>
+    </>
+  )
   const list: PairedRunRow[] = runs.data?.runs ?? []
   const runId = idPart ? Number(idPart) : list.find(r => r.status === 'completed')?.run_id ?? null
   return (
@@ -35,8 +43,9 @@ export function ResultsPage() {
                 <EmptyState icon="bar-chart" bordered testid="results-empty" title="No paired run yet"
                   caption="Train one on Models › Launch: a window set across channels, arm B's cut, Train locally."
                   action={<Button variant="primary" icon="rocket" onClick={() => navigate('models/launch')}>Open Launch</Button>} />
+                <B2RunsStrip />
               </>
-            ) : <RunResults runId={runId} runs={list} />}
+            ) : <><RunResults runId={runId} runs={list} /><B2RunsStrip /></>}
       </Page>
     </>
   )
