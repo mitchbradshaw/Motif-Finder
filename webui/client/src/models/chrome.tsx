@@ -35,13 +35,14 @@ export function TrainingJobsLink({ base }: { base: number }) {
   )
 }
 
-/** fixup-ab: the live pages' link to Jobs. Jobs is still a fixture page (its own prompt); a training job is
- * followed on Launch and listed on Results — the link says so instead of counting fixture jobs. */
+/** fixup-ab: the live pages' link to Jobs. fixup-aj: Jobs now lists this bridge's jobs (a training job running, then
+ * finished), the SLURM scripts the site wrote with what to copy, and imports returned results; its paused-run and
+ * hand-marked cluster-job parts are still demo — the link names only what is real. */
 export function JobsPageLink() {
   return (
     <button type="button" className="m-jobs-link" onClick={() => navigate('jobs')} data-testid="open-training-jobs"
-      title="Jobs is still a fixture page (its own prompt); training jobs are followed here on Launch and Results">
-      <Icon name="checklist" size={14} />Jobs (demo page) · open<Icon name="external" size={13} />
+      title="Jobs: this bridge's jobs, the SLURM scripts written for the cluster and their state, the results inbox (its paused-run and hand-marked cluster-job parts are still demo data)">
+      <Icon name="checklist" size={14} />Jobs · running here, SLURM scripts, results inbox<Icon name="external" size={13} />
     </button>
   )
 }

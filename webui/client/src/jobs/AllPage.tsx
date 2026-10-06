@@ -1,7 +1,9 @@
-/* jobs.all — `#/jobs` (frame jobs-1, spec §7c.1, P24): every job across workspaces in one place,
- * sorted by what needs you first. Needs-you cards, one grouped table, a rail for the selected job,
- * the manifest-inbox drawer and the New-script / Cancel-run modals. */
-import { Fragment, useMemo, type ReactNode } from 'react'
+/* jobs.all — `#/jobs` (frame jobs-1, spec §7c.1, P24): every job across workspaces in one place.
+ * fixup-aj: the top of the page is real (LiveJobs.tsx) — this bridge's jobs, the SLURM scripts the site wrote and
+ * their state, and the Manifest inbox's import. Below it, the rest of the specification (paused runs waiting on stage
+ * results, hand-marked cluster jobs, review queues, finished today) is still fixture data and wears its chip:
+ * needs-you cards, one grouped table, a rail for the selected job and the New-script / Cancel-run modals. */
+import { Fragment, useCallback, useMemo, useState, type ReactNode } from 'react'
 import {
   Badge, Button, Chip, Drawer, Dropdown, EmptyState, Icon, InfoTip, Menu, PageTitle, ProgressBar, Seg,
   fmtInt, useQueryFlag, useQueryState, type IconName,
@@ -13,6 +15,7 @@ import { navigate } from '../state'
 import { Header } from '../shell/Header'
 import { DEMO_JOBS_ACTIVE } from '../fixtures/canon'
 import { CancelRunModal, ClusterBadge, Loading, LoadFailed, LockedPath, ManifestInbox, NewScriptModal, StagePill, WsTag, wsIcon } from './chrome'
+import { ExportedJobsCard, InboxLive, LocalJobsCard, useImport } from './LiveJobs'
 import {
   cancelLocal, cancelRun, continueRun, isOverdue, markCluster, overrunLabel, useInboxPending, useMergedJobs, type MergedJobs, type RunView,
 } from './store'
@@ -22,7 +25,7 @@ type Grp = 'paused' | 'cluster' | 'local' | 'queues' | 'finished'
 
 const FILTERS: { value: Filter; label: string }[] = [
   { value: 'all', label: 'all' }, { value: 'needs-you', label: 'needs you' }, { value: 'paused', label: 'paused' },
-  { value: 'cluster', label: 'cluster' }, { value: 'local', label: 'local' }, { value: 'queues', label: 'review queues' },
+  { value: 'cluster', label: 'cluster' }, { value: 'queues', label: 'review queues' },
   { value: 'finished', label: 'finished' },
 ]
 const GROUP_TITLE: Record<Grp, string> = {
@@ -52,6 +55,11 @@ export function AllPage() {
   const [modal, setModal] = useQueryState('modal', '')
   const [modalJob, setModalJob] = useQueryState('job', '')
   const [finishedOpen, setFinishedOpen] = useQueryFlag('finished')
+  // fixup-aj: the live half — one import follower shared by the scripts' rows and the inbox
+  const [reloadKey, setReloadKey] = useState(0)
+  const bump = useCallback(() => setReloadKey(k => k + 1), [])
+  const imp = useImport(bump)
+  const [liveRunning, setLiveRunning] = useState(0)
 
   const rows = useMemo(() => (merged ? buildRows(merged) : []), [merged])
   const wsOptions = useMemo(() => ['all', ...Array.from(new Set(rows.map(r => r.ws)))], [rows])
@@ -63,15 +71,15 @@ export function AllPage() {
           : r.grp === filter))
 
   const needYou = rows.filter(r => r.needsYou)
-  const localCount = merged?.local.filter(l => !l.cancelledAt).length ?? 0
   const clusterRunning = merged?.cluster.filter(c => c.status === 'running').length ?? 0
   const queueCount = merged?.queues.length ?? 0
   const idleQueues = merged?.queues.filter(q => q.idle).length ?? 0
   const inboxWaiting = pending === 'arrived' ? 1 : 0
   const importedCount = (inbox.data?.manifests.filter(m => m.imported).length ?? 0) + (pending === 'imported' ? 1 : 0)
+  const toLive = () => document.getElementById('jobs-live-local')?.scrollIntoView({ block: 'start', behavior: 'smooth' })
 
   const selRow = rows.find(r => r.id === sel) ?? null
-  const subtitle = `${needYou.length || DEMO_JOBS_ACTIVE} need you · ${localCount} local · ${clusterRunning} on hpc-1 · ${queueCount} queues`
+  const subtitle = `${liveRunning} running here · scripts for the cluster · results inbox — demo: ${needYou.length || DEMO_JOBS_ACTIVE} need you · ${clusterRunning} on hpc-1 · ${queueCount} queues`
 
   return (
     <>
@@ -82,12 +90,25 @@ export function AllPage() {
         {merged && (
           <>
             <PageTitle title="Jobs"
-              actions={<Button icon="inbox" testid="open-inbox" onClick={() => setDrawer('inbox')}>Manifest inbox · {importedCount + inboxWaiting}</Button>}>
+              actions={<Button icon="inbox" testid="open-inbox" onClick={() => setDrawer('inbox')}>Manifest inbox · import results</Button>}>
+              <Chip tone="blue" testid="chip-local" onClick={toLive} title="this bridge's jobs, live">{liveRunning} running here</Chip>
+            </PageTitle>
+
+            <div className="jb-live-stack" data-testid="jobs-live">
+              <LocalJobsCard onCount={setLiveRunning} />
+              <ExportedJobsCard imp={imp} reloadKey={reloadKey} />
+            </div>
+
+            <div className="jb-demo-head" data-testid="jobs-demo-section">
+              <h2>The rest of the Jobs page</h2>
+              <span className="chip demo" data-testid="jobs-demo-chip" title="fixture data from the spec's placeholder canon, not your database; marks and imports here stay in this browser tab">demo data</span>
+              <span className="jb-small jb-muted">paused runs waiting on a stage's cluster result, hand-marked cluster jobs, review queues and today's finished list are not wired yet (Jobs' own prompt)</span>
+            </div>
+            <div className="jb-row wrap">
               <Chip tone="amber" dot="var(--amber)" testid="chip-need-you" onClick={() => setFilter('needs-you')} title="filter to the jobs that need you">{needYou.length} need you</Chip>
-              <Chip tone="blue" testid="chip-local" onClick={() => setFilter('local')}>{localCount} running locally</Chip>
               <Chip tone="purple" testid="chip-cluster" onClick={() => setFilter('cluster')}>{clusterRunning} on hpc-1</Chip>
               <Chip tone="grey" testid="chip-queues" onClick={() => setFilter('queues')}>{queueCount} review queues · {idleQueues} idle</Chip>
-            </PageTitle>
+            </div>
 
             <div className="jb-filter-row" data-testid="jobs-filters">
               <Seg options={FILTERS} value={filter} onChange={v => setFilter(v === 'all' ? null : v)} testid="jobs-filter" ariaLabel="filter jobs" />
@@ -117,8 +138,14 @@ export function AllPage() {
               <JobRail row={selRow} merged={merged} onModal={(m, j) => { setModal(m); setModalJob(j) }} />
             </div>
 
-            <Drawer open={drawer === 'inbox'} onClose={() => setDrawer(null)} title="Manifest inbox" side="right" width={480} testid="inbox-drawer"
-              subtitle={inbox.data ? `${importedCount} imported · watching ${inbox.data.watching}` : undefined}>
+            <Drawer open={drawer === 'inbox'} onClose={() => setDrawer(null)} title="Manifest inbox" side="right" width={520} testid="inbox-drawer"
+              subtitle="hand it a job folder the cluster's results were copied back into">
+              <InboxLive imp={imp} reloadKey={reloadKey} />
+              <div className="jb-demo-head sm">
+                <span className="jb-label">stage results for paused runs</span>
+                <span className="chip demo" data-testid="inbox-demo-chip">demo data</span>
+                {inbox.data && <span className="jb-small jb-muted">{importedCount} imported · watching {inbox.data.watching}</span>}
+              </div>
               {inbox.error && <LoadFailed what="the manifest inbox" error={inbox.error} onRetry={inbox.reload} />}
               {inbox.loading && <Loading height={160} testid="inbox-loading" />}
               {inbox.data && <ManifestInbox data={inbox.data} testid="inbox-drawer-body" runs={merged.runs.map(r => ({ id: r.run.id, stage: r.run.pausedAt, label: r.result !== 'arrived' ? 'not in its root yet' : r.run.clusterJob ? `result arrived ${r.run.result.foundAt}` : 'result in place' }))} />}
@@ -188,16 +215,7 @@ function buildRows(m: MergedJobs): Row[] {
     })
   }
 
-  for (const l of m.local) {
-    out.push({
-      id: l.id, grp: l.cancelledAt ? 'finished' : 'local', ws: l.workspace, title: l.title, sub: l.sub, where: 'this machine',
-      status: l.cancelledAt ? <Badge status="cancelled" /> : <span className="jb-prog"><ProgressBar value={l.progress} width={110} size="sm" labelPosition="none" /><span className="jb-muted">{Math.round(l.progress * 100)} %</span></span>,
-      time: l.cancelledAt ?? l.left,
-      action: l.cancelledAt
-        ? <Button size="sm" variant="link" onClick={e => { e.stopPropagation(); navigate(l.route) }}>Open</Button>
-        : <Button size="sm" variant="link" testid={`cancel-${l.id}`} onClick={e => { e.stopPropagation(); cancelLocal(l.id) }}>Cancel</Button>,
-    })
-  }
+  // fixup-aj: no fixture local jobs — the bridge's own jobs are listed live above the demo table (LocalJobsCard)
 
   for (const q of m.queues) {
     const done = (q.total - q.left) / q.total
