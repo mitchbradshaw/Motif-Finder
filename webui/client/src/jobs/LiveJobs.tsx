@@ -285,6 +285,8 @@ function ExportedRow({ r, open, onToggle, importing, onImport }: { r: ExportedJo
       </tr>
       {open && (
         <tr className="jb-live-detail"><td colSpan={6} data-testid={`exported-detail-${r.name}`}>
+          {r.reason && <div className="jb-inbox-outcome red" data-testid={`exported-reason-full-${r.name}`}><div className="t">{r.state === 'refused' ? 'Import refused — nothing was recorded' : 'The import failed'}</div><div className="jb-small">{r.reason}</div></div>}
+          {r.open && r.imported && <div className="jb-small" data-testid={`exported-imported-${r.name}`}>imported as run <b>{r.imported.run_id}</b>{r.imported.name ? ` · ${r.imported.name}` : ''}</div>}
           <div className="jb-small jb-mono">folder <b>{r.job_repo}</b>{r.job_repo !== r.job_dir && <> · on this machine {r.job_dir}</>}</div>
           {r.sbatch_command
             ? <div className="jb-small jb-mono" data-testid={`exported-sbatch-${r.name}`}>on the cluster, from the repository root: <b>{r.sbatch_command}</b>{r.scripts.length > 1 && <> · also {r.scripts.filter(s => !r.sbatch_command!.endsWith(s.repo)).map(s => s.name).join(', ')}</>}</div>

@@ -95,8 +95,8 @@ export function AllPage() {
             </PageTitle>
 
             <div className="jb-live-stack" data-testid="jobs-live">
-              <LocalJobsCard onCount={setLiveRunning} />
               <ExportedJobsCard imp={imp} reloadKey={reloadKey} />
+              <LocalJobsCard onCount={setLiveRunning} />
             </div>
 
             <div className="jb-demo-head" data-testid="jobs-demo-section">
