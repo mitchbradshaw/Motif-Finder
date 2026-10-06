@@ -97,10 +97,11 @@ def test_the_sample_is_even_per_predicted_cluster_within_each_exam_and_keeps_its
         g = firsts[firsts["role"] == role]
         assert len(g) == 150                                      # the two exams share N equally
         counts = g["cluster"].value_counts().to_dict()
-        # the speck (8 / 5 windows) is taken whole; the rest is split evenly between the larger clusters
-        small = 8 if role == "test" else 5
-        assert counts[3] == small
-        assert abs(counts[1] - counts[2]) <= 1 and counts[1] + counts[2] == 150 - small
+        # a cluster smaller than its share is taken whole; the rest is split evenly between the larger clusters
+        if role == "test":                      # sizes 400 / 60 / 8: 8 and 60 whole, cluster 1 the rest
+            assert counts == {1: 82, 2: 60, 3: 8}
+        else:                                   # sizes 300 / 200 / 5: 5 whole, clusters 1 and 2 share 145
+            assert counts[3] == 5 and abs(counts[1] - counts[2]) <= 1 and counts[1] + counts[2] == 145
     # weight = population of the stratum / windows drawn from it
     for (role, c), g in firsts.groupby(["role", "cluster"]):
         pop = int(((p["role"] == role) & (p["cluster"] == c)).sum())
@@ -452,8 +453,9 @@ def test_the_reference_line_is_one_row_per_model_per_scale_never_pooled_with_con
         for ek in ("i_later_block", "ii_unseen_channels"):
             e = r["exams"][ek]
             assert set(e) >= {"all", "no_earlier_label"}
-            if e["all"]["n"]:
-                assert e["all"]["macro_f1"] is not None
+            if e["all"]["n"]:      # a slice holding one class says so rather than printing half a score
+                assert e["all"]["macro_f1"] is not None or e["all"]["one_class"]
+                assert e["all"]["agreement"] is not None
     fus = [r for r in rows if r["model"] == "fusion_cnn"]
     assert fus and all(r["status"] == "not scored" and "constant" in r["reason"] for r in fus)
     rec_rows = bl.score_reference(lab, pd.DataFrame({"recurrence_cnn": good}),

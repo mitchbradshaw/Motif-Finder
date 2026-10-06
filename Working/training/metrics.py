@@ -78,6 +78,22 @@ def classification_scores(y_true, y_pred, classes, names=None):
     }
 
 
+def cohen_kappa(a, b, classes):
+    """Cohen's kappa between two raters over `classes` (fixup-ah: the model against a blind human, and a human
+    against themself on the repeated windows): (observed agreement − chance agreement) / (1 − chance agreement),
+    chance from the two raters' own marginals. 1.0 when both raters put every window in one class (nothing to
+    disagree about is perfect agreement, not 0 / 0)."""
+    m = confusion(a, b, classes).astype(float)
+    n = m.sum()
+    if not n:
+        return None
+    po = np.trace(m) / n
+    pe = float((m.sum(axis=1) / n) @ (m.sum(axis=0) / n))
+    if pe >= 1.0 - 1e-12:
+        return 1.0 if po >= 1.0 - 1e-12 else 0.0
+    return float((po - pe) / (1.0 - pe))
+
+
 def units_for(channel, start, fs, block_hours):
     """The bootstrap unit of each window: (channel, which `block_hours` stretch)."""
     span = max(1, int(round(float(block_hours) * 3600.0 * float(fs))))

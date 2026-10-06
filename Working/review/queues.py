@@ -78,6 +78,10 @@ SOURCE_KINDS = (
     # fixup-AD: family members the cross-channel classifier flagged; a verdict
     # lands in `annotations` over the member's span (`artifact_queue`)
     "suspected-artifact",
+    # fixup-AH: a seeded sample of a B.2 run's test and exam windows, labelled
+    # interesting / not BLIND; a verdict lands in `annotations` over the
+    # window's span (`Working.training.blind`)
+    "blind-test",
 )
 
 _DEFAULTS = {
@@ -88,6 +92,7 @@ _DEFAULTS = {
     "model-verification": ("window", "window_verdicts", 1),
     "extract-events":     ("sequence", "annotations", 0),
     "suspected-artifact": ("member", "annotations", 0),
+    "blind-test":         ("test window", "annotations", 1),
 }
 
 _DETECTION_KINDS = ("discovery-run", "seed-search")
@@ -395,6 +400,9 @@ def _resolve(conn, q):
         items = _resolve_sequences(conn, q)
     elif kind == "suspected-artifact":
         from Working.review.artifact_queue import resolve_items
+        items = resolve_items(conn, q)
+    elif kind == "blind-test":
+        from Working.training.blind import resolve_items
         items = resolve_items(conn, q)
     else:                                   # pragma: no cover - CHECKed above
         raise ValueError("unresolvable source_kind: {!r}".format(kind))

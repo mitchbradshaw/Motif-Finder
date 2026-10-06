@@ -349,7 +349,9 @@ def _entry_payload(conn, item: dict, queue: dict, index: dict, *, px: int = THUM
         row["baseVerdict"] = item["verdict"]
     # the thumbnail stays a bare value list: it is a sparkline with nothing
     # drawn beside it, so there is no second coordinate system to disagree with
-    row["thumb"] = [] if (rec or {}).get("held_out") else _trace_env(_row_for(conn, rec), start, end, px)["v"]
+    # fixup-ah: a blind test queue's rows carry no thumbnail — a sparkline list would let the eye find the window
+    # shown twice (and its first answer) before the card is read
+    row["thumb"] = [] if ((rec or {}).get("held_out") or row["unit"] == "test window")         else _trace_env(_row_for(conn, rec), start, end, px)["v"]
     row["family"] = str(item.get("family") or "")
     # The run that wrote this detection, and where the item sits in the queue.
     # Without them the inspector subtitle read "run undefined - rank undefined"

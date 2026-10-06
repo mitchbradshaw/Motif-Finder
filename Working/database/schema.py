@@ -738,14 +738,15 @@ CREATE TABLE IF NOT EXISTS review_queues (
     source_kind   TEXT    NOT NULL CHECK (source_kind IN (
                       'discovery-run', 'seed-search', 'explore-spans',
                       'training-windows', 'model-verification',
-                      'extract-events', 'suspected-artifact')),
+                      'extract-events', 'suspected-artifact', 'blind-test')),
     -- What the source kind points at: a run_group_id, a session/search id, a
     -- window-set id, or empty for a whole-corpus sweep. TEXT because the five
     -- kinds key on different things and a typed column per kind would be five
     -- mostly-null columns.
     source_ref    TEXT,
     -- The unit a verdict lands on, and therefore which table it writes.
-    unit          TEXT    NOT NULL CHECK (unit IN ('detection', 'human span', 'window', 'sequence', 'member')),
+    unit          TEXT    NOT NULL CHECK (unit IN ('detection', 'human span', 'window', 'sequence', 'member',
+                                                   'test window')),
     writes_to     TEXT    NOT NULL CHECK (writes_to IN ('adjudications', 'annotations', 'window_verdicts')),
     blind         INTEGER NOT NULL DEFAULT 0,
     -- NULL = no cap. A cap is a promise about how long the queue is, so the
@@ -800,6 +801,21 @@ CREATE TABLE IF NOT EXISTS review_audit (
 );
 CREATE INDEX IF NOT EXISTS idx_review_audit_queue
     ON review_audit(queue_id, id);
+
+-- fixup-AH: which human row answers which SHOWING of a blind test queue
+-- (`Working/training/blind.py`). The label itself is an ordinary `annotations`
+-- row over the window's exact span (rule 5: a human verdict, in the human
+-- store); a window shown twice for self-agreement has two showings and so two
+-- rows over one span, and this link is how each showing finds its own answer
+-- without reading the other. A link, not a verdict store: it holds no verdict.
+CREATE TABLE IF NOT EXISTS blind_test_labels (
+    id             INTEGER PRIMARY KEY AUTOINCREMENT,
+    queue_id       INTEGER NOT NULL REFERENCES review_queues(id),
+    showing        INTEGER NOT NULL,
+    annotation_id  INTEGER NOT NULL REFERENCES annotations(id),
+    created_at     TEXT    NOT NULL,
+    UNIQUE (queue_id, showing)
+);
 """
 
 
@@ -1483,7 +1499,9 @@ def _migrate_legacy_detections(conn):
 # `window_verdicts`) verified before COMMIT, the indexes put back. The new
 # table's text is `_REVIEW_SCHEMA`'s own, so the two cannot drift. Idempotent:
 # once the live table names the kind this is one `sqlite_master` read.
-_REVIEW_QUEUES_NEW_KIND = "'suspected-artifact'"
+#: fixup-AH: the newest kind the CHECK must name (`blind-test`, unit `test window`); a table made before it is
+#: rebuilt by the same function, once
+_REVIEW_QUEUES_NEW_KIND = "'blind-test'"
 
 
 def _review_queues_rebuild_sql():

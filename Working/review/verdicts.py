@@ -84,6 +84,9 @@ _UNIT_STORE = {
     # fixup-AD: a family member flagged as a suspected artifact; the verdict is
     # a human row over the member's span (`artifact_queue`)
     "member": "annotations",
+    # fixup-AH: one showing of a window in a blind test queue; the verdict is
+    # an ordinary human row over the window's span (`Working.training.blind`)
+    "test window": "annotations",
 }
 
 #: The table a unit's ids are ids OF. A `sequence` target is a `sequences` row
@@ -187,6 +190,13 @@ def _resolve_target(conn, queue, target_id):
         _check_window_target(conn, queue, target_id)
         idx = _window_index_of(target_id, None)
         return idx, idx
+
+    if unit == "test window":
+        # the target is a SHOWING of the queue's fixed sample (an index, like a
+        # window queue's); its verdict lands on that showing's own annotation,
+        # or on a new one — decided when it is written
+        from Working.training.blind import showing_target
+        return showing_target(conn, queue, target_id)
 
     rid = _target_int(target_id)
     source = _UNIT_SOURCE[unit]
@@ -523,6 +533,10 @@ def _apply(conn, queue, target_id, row_id, verdict, note, tags, window_index):
     if writes_to == "annotations" and queue["unit"] == "member":
         from Working.review.artifact_queue import write_member_verdict
         prior, row_id = write_member_verdict(conn, queue, target_id, verdict, note, tags)
+        return prior, None, row_id
+    if writes_to == "annotations" and queue["unit"] == "test window":
+        from Working.training.blind import write_showing_verdict
+        prior, row_id = write_showing_verdict(conn, queue, target_id, verdict, note, tags)
         return prior, None, row_id
     if writes_to == "annotations":
         return _write_annotation(conn, row_id, verdict, note, tags), None, row_id
