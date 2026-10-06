@@ -34,6 +34,7 @@ import json
 import os
 import re
 import threading
+import time
 
 import numpy as np
 from fastapi import APIRouter, HTTPException, Request
@@ -428,12 +429,20 @@ def _human_run(conn, chans, span):
             "status": "reference", "reviewedH": round(h, 3)}
 
 
-def _run_payload(conn, row, index, span):
+def _run_payload(conn, row, index, span, jobs=None):
     params = json.loads(row["params_json"] or "{}")
     group_id = row["run_group_id"]
     ids = _run_ids(conn, row)
     status, progress, done_at, error, n_found = row["status"], None, None, None, None
-    channels_done = None
+    channels_done, progress_text = None, None
+    live = (jobs or {}).get(int(row["job_id"])) if row["job_id"] is not None else None
+    if not ids and live is not None and status == "running":
+        # the run's rows are recorded when the sweep ends, so while it runs the
+        # job is the only thing that knows how far it is (it read 0 % throughout)
+        prog = live.progress_state or {}
+        if prog.get("total"):
+            progress = min(1.0, float(prog.get("done") or 0) / float(prog["total"]))
+        progress_text = prog.get("message") or None
     if ids:
         st = fanout.group_status(conn, run_ids=ids)
         channels_done = f"{st['done']} / {st['total']}"
@@ -490,6 +499,8 @@ def _run_payload(conn, row, index, span):
         out["scales"] = params.get("scales")
     if progress is not None and status == "running":
         out["progress"] = round(progress, 3)
+    if progress_text:
+        out["progressText"] = progress_text
     if done_at:
         out["doneAt"] = done_at[11:16]
     if error:
@@ -504,7 +515,8 @@ def get_runs(request: Request):
         s, rec, chans, span = _session_scope(c)
         _fail_lost_runs(request, c, s["id"])
         rows = _discovery_runs(c, s["id"])
-        return [_human_run(c, chans, span)] + [_run_payload(c, r, i, span) for i, r in enumerate(rows)]
+        jobs = dict(request.app.state.manager.jobs)
+        return [_human_run(c, chans, span)] + [_run_payload(c, r, i, span, jobs=jobs) for i, r in enumerate(rows)]
     finally:
         c.close()
 
@@ -1520,6 +1532,81 @@ def _seed_key(seed_id, channels, t0, t1, k, max_distance, null, source_file="", 
                     + [f"excl {_exclusion(exclusion):g}"])
 
 
+#: Sample·draws per second, measured in the sandbox on 2026-10-05 (a 1,313-sample
+#: seed, 4 h × 3 channels, 200 draws): the preview did 8.7 M in 259 s, the run
+#: (`fanout` with paired surrogate runs) 8.7 M in about 130 s. MASS is O(n log n)
+#: per draw whatever the seed length, so the rate is about the seed-independent
+#: figure a researcher needs before pressing the button. A measured rate replaces
+#: these the first time a search finishes on this machine.
+DEFAULT_SEED_RATES = {"preview": 33_000.0, "run": 65_000.0}
+
+
+def _preview_draws(n_samples, want):
+    """The draws the preview will actually make over `n_samples` (the budget cap)."""
+    if want <= 0:
+        return 0
+    return min(int(want), max(NULL_MIN_DRAWS, NULL_SAMPLE_BUDGET // max(1, int(n_samples))))
+
+
+def _seed_work(n_samples, n_channels, draws):
+    """Channels × samples × (the search + every draw): what a seed search costs."""
+    return int(n_channels) * int(n_samples) * (1 + int(draws))
+
+
+def _seed_rates(conn, session_id):
+    row = conn.execute("SELECT state_json FROM discovery_sessions WHERE id = ?", (int(session_id),)).fetchone()
+    state = json.loads((row["state_json"] if row else "{}") or "{}")
+    return state.get("seed_rates") or {}
+
+
+def _record_seed_rate(conn, session_id, kind, work, elapsed_s):
+    """The rate a finished search ran at, kept on the session row so the next
+    estimate is measured rather than assumed."""
+    if work <= 0 or elapsed_s <= 0:
+        return
+    row = conn.execute("SELECT state_json FROM discovery_sessions WHERE id = ?", (int(session_id),)).fetchone()
+    state = json.loads((row["state_json"] if row else "{}") or "{}")
+    rates = state.setdefault("seed_rates", {})
+    rates[kind] = {"rate": float(work) / float(elapsed_s), "work": int(work), "elapsedS": round(float(elapsed_s), 1),
+                   "measuredAt": _now()}
+    conn.execute("UPDATE discovery_sessions SET state_json = ?, updated_at = ? WHERE id = ?",
+                 (json.dumps(state), _now(), int(session_id)))
+    conn.commit()
+
+
+def _seed_estimate(conn, s, n_samples, n_channels, want):
+    """Before the button: how long the preview and the run will take on this
+    scope, each as work over a rate, and whether the rate was measured here."""
+    rates = _seed_rates(conn, s["id"])
+    out = {"channels": int(n_channels), "samples": int(n_samples)}
+    for kind, draws in (("preview", _preview_draws(n_samples, want)), ("run", int(want))):
+        measured = rates.get(kind)
+        rate = float(measured["rate"]) if measured else DEFAULT_SEED_RATES[kind]
+        work = _seed_work(n_samples, n_channels, draws)
+        out[kind] = {"draws": draws, "work": work, "rate": rate, "seconds": work / rate,
+                     "measured": bool(measured), "measuredAt": (measured or {}).get("measuredAt")}
+    return out
+
+
+@router.get("/api/discovery/seed/estimate")
+def get_seed_estimate(request: Request, channels: str = "", t0: float = 0.0, t1: float = 0.0):
+    c = _conn(request)
+    try:
+        s, rec, _, span = _session_scope(c)
+        fs = rec["fs"]
+        names = _split(channels) or json.loads(s["channels_json"])
+        chans = _ids_for(c, _stem(s["source_file"]), names)
+        if t1 > t0:
+            span = (int(round(t0 * 3600 * fs)), int(round(t1 * 3600 * fs)))
+        null = _seed_null(c, s)
+        want = int(null.get("n") or 0) if null.get("supported", True) and null.get("method") else 0
+        out = _seed_estimate(c, s, max(0, span[1] - span[0]), len(chans), want)
+        out["sectionH"] = [span[0] / fs / 3600.0, span[1] / fs / 3600.0]
+        return out
+    finally:
+        c.close()
+
+
 def _seed_search(conn, seed, chans, span, *, k, max_distance, null, job=None, scales=None, overlap=None,
                  exclusion=None):
     """Candidates and the null, per channel.
@@ -1534,9 +1621,15 @@ def _seed_search(conn, seed, chans, span, *, k, max_distance, null, job=None, sc
     by_scale = {}
     n = len(chans)
     rule = rule_from_settings(conn)
+    # progress is in units of work — the search plus every draw, per channel —
+    # not in channels: 0 of 3 for the whole of a channel's 200 draws told the
+    # researcher nothing
+    null_on = bool(null.get("supported", True) and null.get("method") and int(null.get("n") or 0) > 0)
+    per = 1 + (_preview_draws(span[1] - span[0], int(null["n"])) if null_on else 0)
+    total = n * per
     for i, ch in enumerate(chans):
         if job is not None:
-            job.progress(i, n, f"{ch['name']} · matching")
+            job.progress(i * per, total, f"{ch['name']} · matching")
         # the core matches stored samples against a stored-unit exemplar
         x = np.asarray(corpus.load_native(ch["npy_path"])[span[0]:span[1]], dtype=float)
         fs = float(ch["fs"])
@@ -1572,20 +1665,20 @@ def _seed_search(conn, seed, chans, span, *, k, max_distance, null, job=None, sc
 
         draws = 0
         channel_null = {"distances": [], "draws": 0}
-        if null.get("supported", True) and null.get("method") and int(null.get("n") or 0) > 0:
+        if null_on:
             want = int(null["n"])
-            afford = max(NULL_MIN_DRAWS, NULL_SAMPLE_BUDGET // max(1, len(x)))
-            asked = min(want, afford)
+            asked = _preview_draws(len(x), want)
             if asked < want:
                 capped.append(f"{ch['name']}: {want} draws asked, {asked} drawn "
                               f"({len(x):,} samples x {want} is over the budget)")
             if job is not None:
-                job.progress(i, n, f"{ch['name']} · null, {asked} draws")
+                job.progress(i * per + 1, total, f"{ch['name']} · null, {asked} draws")
             nulls = seeded_search.null_distances(
                 x, exemplar, draws=asked, seed=0, method=null["method"], k=k,
                 max_distance=(max_distance if max_distance > 0 else None), fs=fs,
                 block_s=null.get("blockS"),
-                on_progress=((lambda d, t, ch=ch, i=i: job.progress(i, n, f"{ch['name']} · null {d}/{t}"))
+                on_progress=((lambda d, t, ch=ch, i=i: job.progress(i * per + 1 + d, total,
+                                                                   f"{ch['name']} · null {d}/{t}"))
                              if job is not None else None),
                 should_cancel=(job.cancel_event.is_set if job is not None else None),
                 scales=scales, overlap=overlap or "lowest", exclusion=_exclusion(exclusion))
@@ -1600,6 +1693,8 @@ def _seed_search(conn, seed, chans, span, *, k, max_distance, null, job=None, sc
         per_channel.append({"channel": ch["name"], "n": len(found), "nullDraws": draws})
         for_cut.append({"distances": [c_["distance"] for c_ in found], "null": channel_null})
 
+    if job is not None:
+        job.progress(total, total, "scoring the cut")
     candidates.sort(key=lambda c_: (c_["d"], c_["index"]))
     # `draws` is the count PER CHANNEL, because `kept` is one realisation over
     # every channel: dividing a pooled hit count by the pooled draw-channels
@@ -1711,10 +1806,15 @@ def start_seed_results(request: Request, body: SeedBody):
             try:
                 seed2 = _seed_by_id(conn2, body.seedId)
                 chans2 = _ids_for(conn2, _stem(source_file), names)
+                t_start = time.time()
                 result = _seed_search(conn2, seed2, chans2, span, k=body.k,
                                       max_distance=body.maxDistance, null=null, job=job,
                                       scales=bank, overlap=body.overlap, exclusion=body.exclusion)
                 _store_result(conn2, session_id, key, result)
+                # what this search cost, so the next estimate is measured
+                _record_seed_rate(conn2, session_id, "preview",
+                                  _seed_work(span[1] - span[0], len(chans2), result["null"]["draws"]),
+                                  time.time() - t_start)
                 return {"key": key, "n_candidates": len(result["candidates"]),
                         "null_draws": result["null"]["draws"]}
             finally:
@@ -1753,7 +1853,13 @@ def get_seed_results(request: Request, seedId: str, channels: str = "", t0: floa
                 err = j.get("error") or {}
                 raise HTTPException(500, {"message": f"the seeded search failed: {err.get('message')}",
                                           "traceback": err.get("traceback")})
-            return {"ready": False, "job_id": j["job_id"], "progress": j.get("progress"), "key": key}
+            prog = j.get("progress") or {}
+            elapsed = j.get("elapsed_s")
+            done, total = prog.get("done") or 0, prog.get("total") or 0
+            eta = (elapsed * (total - done) / done) if elapsed and done > 0 and total >= done else None
+            return {"ready": False, "job_id": j["job_id"], "progress": prog, "key": key,
+                    "elapsedS": (round(float(elapsed), 1) if elapsed is not None else None),
+                    "etaS": (round(float(eta), 1) if eta is not None else None)}
         return {"ready": False, "job_id": None, "key": key,
                 "note": "no result for this query yet — POST the same query to start the search"}
     finally:
@@ -2108,23 +2214,33 @@ def _start_sweep(request, *, session_id, run_key, plan, label, surrogate=True,
         conn2 = corpus.connect(db_path)
         try:
             state = {"group": None}
+            # progress is in units of work — the real sweep plus every paired
+            # draw, per channel — so a channel's 200 draws are not one step
+            per = 1 + (int(plan.get("null_draws") or 0) if surrogate else 0)
 
             def on_progress(i, n, label_):
-                job.progress(i, n, f"{label_} ({i + 1} of {n})")
+                job.progress(i * per, n * per, f"{label_} ({i + 1} of {n})")
 
             def on_target_done(i, n, row):
                 if state["group"] is None:
                     return
-                job.progress(i + 1, n, f"{row['channel_name']} · {row['detections_written']} spans")
+                job.progress((i + 1) * per, n * per, f"{row['channel_name']} · {row['detections_written']} spans")
 
             def on_draw(i, n, j, m):
                 # N draws is N more sweeps: say which one is running
-                job.progress(i, n, f"{plan['targets'][i]['channel_name']} · null {j + 1} of {m}")
+                job.progress(i * per + 1 + j, n * per, f"{plan['targets'][i]['channel_name']} · null {j + 1} of {m}")
 
+            t_start = time.time()
             out = fanout.start(plan, db_path=db_path, on_progress=on_progress,
                                on_target_done=on_target_done, should_cancel=job.cancel_event.is_set,
                                surrogate=surrogate, surrogate_params=surrogate_params,
                                surrogate_draws=(plan.get("null_draws") or None), on_draw=on_draw)
+            if plan.get("seedId") and plan.get("span") and not out["cancelled"]:
+                # a finished seed run is the measured rate the next estimate reads
+                _record_seed_rate(conn2, session_id, "run",
+                                  _seed_work(int(plan["span"][1]) - int(plan["span"][0]), len(plan["channels"]),
+                                             (plan.get("null_draws") or 0) if surrogate else 0),
+                                  time.time() - t_start)
             cur = conn2.execute("SELECT params_json FROM discovery_runs WHERE session_id = ? AND run_key = ?",
                                 (int(session_id), run_key)).fetchone()
             params = json.loads((cur["params_json"] if cur else "{}") or "{}")

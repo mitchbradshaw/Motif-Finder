@@ -12,10 +12,10 @@ import { Header } from '../shell/Header'
 import { useToast } from '../shell/Toast'
 import { navigate } from '../state'
 import { useSourced } from '../api/seam'
-import { ApiError, runDiscoverySeedSearchOnce, saveDiscoverySeedTemplate, type CutRule } from '../api'
+import { ApiError, cancelJob, putDiscoverySeedDraft, runDiscoverySeedSearchOnce, saveDiscoverySeedTemplate, type CutRule, type DiscSeedEstimate } from '../api'
 import { useSize } from '../charts/useSize'
 import {
-  getSeedPage, getSeedProfile, getSeedResults, getSeedSetup, getTemplates, saveSeedDraft, type DiscoveryRun, type SeedDraft, type SeedInfo, type SeedMatch, type SeedParams, type SeedResults, type SeedSource,
+  fmtSeconds, getSeedEstimate, getSeedPage, getSeedProfile, getSeedResults, getSeedSetup, getTemplates, saveSeedDraft, type SeedProgress, type DiscoveryRun, type SeedDraft, type SeedInfo, type SeedMatch, type SeedParams, type SeedResults, type SeedSource,
 } from '../api/discovery'
 import { CostChip, DiscoveryToolbar, HistoryButton, LoadFailed, Loading, NullChip, Refreshing, RunsCard, ScopeCard } from './chrome'
 import { RunGlyph } from './glyphs'
@@ -78,7 +78,11 @@ export function SeedPage() {
    * holds seconds, the search takes the fraction, and the result's key and the run's recipe carry it */
   const exclusionQ = draft && (draft.params.windowS ?? 0) > 0 && draft.params.exclusionSettable !== false
     ? Math.round((draft.params.exclusionS / (draft.params.windowS ?? 1)) * 1000) / 1000 : null
-  const results = useSourced(() => seed ? getSeedResults(seed.id, channels, bankQ, exclusionQ, dx.scope?.section) : Promise.resolve({ data: noResults, source: 'demo' as const }), [seed?.id, channels.join(','), dx.scope?.section.join(','), bankQ?.scales.join(','), bankQ?.overlap, exclusionQ])
+  // the preview's own progress while it runs (the job's done/total, elapsed and remaining), null once it is in
+  const [progress, setProgress] = useState<SeedProgress | null>(null)
+  const results = useSourced(() => { setProgress(null); return seed ? getSeedResults(seed.id, channels, bankQ, exclusionQ, dx.scope?.section, setProgress) : Promise.resolve({ data: noResults, source: 'demo' as const }) }, [seed?.id, channels.join(','), dx.scope?.section.join(','), bankQ?.scales.join(','), bankQ?.overlap, exclusionQ])
+  // before the button: what the preview and the run will cost on this scope
+  const estimate = useSourced(() => dx.scope ? getSeedEstimate(channels, dx.scope.section) : Promise.resolve({ data: null, source: 'demo' as const }), [channels.join(','), dx.scope?.section.join(',')])
 
   // deep links ?state=running|done|failed put the simulated search straight into that state
   useEffect(() => {
@@ -128,6 +132,23 @@ export function SeedPage() {
    * templates row has. When the sweep lands, re-read the runs list and mark the
    * draft's parameters applied. */
   const [lastRun, setLastRun] = useState<{ key: string; label: string } | null>(null)
+  const [startedAt, setStartedAt] = useState<number | null>(null)
+  /* The run started from this page is the server's row (the session re-reads the runs list every 2 s while one
+   * runs), so its progress bar is the sweep's own and not a simulated strip. When it lands, the draft's parameters
+   * are applied and the toast says so. */
+  const live = lastRun ? dx.runs.find(r => r.key === lastRun.key) ?? null : null
+  const wasRunning = useRef(false)
+  useEffect(() => {
+    const running = !!live && (live.status === 'running' || live.status === 'queued')
+    if (wasRunning.current && !running && live && draft) {
+      dx.reload()
+      setDraftStore({ ...draft, applied: { ...draft.params } })
+      if (live.status === 'done') toast.push({ text: `${live.label} finished · ${live.found ?? 0} found`, action: { label: 'Open in Runs', onClick: () => navigate(`discovery/runs?run=${encodeURIComponent(live.key)}`) } })
+      else if (live.status === 'failed') toast.push({ text: `${live.label} failed · ${live.error ?? 'see Runs'}` })
+    }
+    wasRunning.current = running
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [live?.status])
   /* Only a search that finishes while the page is open says so: the simulated strip stays `done` across
    * navigation, and remounting the page toasted "seed c61395 finished · 0 matches" for a run long done,
    * before its matches had been read (fixup-y). */
@@ -157,7 +178,9 @@ export function SeedPage() {
             && <Refreshing on={dx.refreshing || setup.loading} label="re-reading the search" />}
           {dx.scope && draft && (
             <>
-              <DiscoveryToolbar dx={dx} right={<><NullChip dx={dx} /><CostChip dx={dx} label={<><b>≈ {Math.max(1, channels.length)} s</b> <span className="muted">local · {channels.length} channels</span></>} /><HistoryButton dx={dx} /></>} />
+              <DiscoveryToolbar dx={dx} right={<><NullChip dx={dx} /><CostChip dx={dx} label={estimate.data
+                ? <><b>≈ {fmtSeconds(estimate.data.run.seconds)}</b> <span className="muted">a run · {channels.length} ch × {(dx.scope.section[1] - dx.scope.section[0]).toFixed(1)} h × {estimate.data.run.draws} draws{estimate.data.run.measured ? '' : ' · assumed rate'}</span></>
+                : <><b>≈ ?</b> <span className="muted">estimating</span></>} /><HistoryButton dx={dx} /></>} />
               <ScopeCard dx={dx} />
               {!dx.recording?.heldOut && (
                 <div className="dsc-cols">
@@ -170,7 +193,7 @@ export function SeedPage() {
                     </div>
                     {/* while a new seed's search runs, the previous seed's (or the empty) result is still in
                         hand — reading "No matches" off it said the search found nothing before it had run */}
-                    {!seed ? null : results.error ? <LoadFailed what="seed matches" error={results.error} onRetry={results.reload} /> : !results.data || results.loading ? <Loading height={220} label="searching for the seed" /> : (
+                    {!seed ? null : results.error ? <LoadFailed what="seed matches" error={results.error} onRetry={results.reload} /> : !results.data || results.loading ? <SearchProgress progress={progress} estimate={estimate.data} /> : (
                       <>
                         {results.data.candidates.length === 0
                           ? <section className="k-card" data-testid="no-cut"><EmptyState size="sm" icon="bar-chart" title="No matches"
@@ -187,7 +210,8 @@ export function SeedPage() {
                       </>
                     )}
                     <ApplyBar dx={dx} draft={draft} kept={threshold == null ? null : kept.length} cut={threshold} finished={finished} seed={seed} sim={sim} bank={bankQ}
-                      onStarted={r => setLastRun(r)} onSave={() => setModal('save-template')} />
+                      estimate={estimate.data} live={live} startedAt={startedAt}
+                      onStarted={r => { setLastRun(r); setStartedAt(Date.now()) }} onSave={() => setModal('save-template')} />
                   </div>
                 </div>
               )}
@@ -195,7 +219,8 @@ export function SeedPage() {
           )}
         </div>
       </div>
-      {draft && <SaveTemplateModal open={modal === 'save-template'} onClose={() => setModal(null)} draft={draft} seed={seed} cut={threshold} bank={bankQ} exclusion={exclusionQ} />}
+      {draft && <SaveTemplateModal open={modal === 'save-template'} onClose={() => setModal(null)} draft={draft} seed={seed} cut={threshold} bank={bankQ} exclusion={exclusionQ}
+        onSaved={name => { setDraft({ label: name }); putDiscoverySeedDraft({ seedId: draft.seedId, label: name }).catch(e => console.error('the draft could not be renamed', e)) }} />}
     </>
   )
 }
@@ -385,6 +410,11 @@ function ParamsCard({ draft, recommended, seed, setParams, results, kept, nullKe
   cut: number | null; cutIsRecommended: boolean
 }) {
   const p = draft.params
+  /* the slider and the field reach the data: z-normalised MASS distances on this data run to 70-odd, and a
+   * ceiling of 8 could not express any cut the histogram showed. `closest` is the cut that keeps the
+   * single closest match — a start when the null gives none (the researcher can still ask). */
+  const dMax = Math.max(8, Math.ceil(Math.max(0, ...(results?.candidates ?? []).map(c => c.d), ...(results?.nullDistances ?? [])) * 1.05))
+  const closest = +(Math.ceil(Math.min(Infinity, ...(results?.candidates ?? []).map(c => c.d)) * 10) / 10).toFixed(1)
   const m = seed?.samples ?? 21
   const half = Math.round(m / 2 - 0.01)
   const bank = recommended.bank ?? null
@@ -428,16 +458,20 @@ function ParamsCard({ draft, recommended, seed, setParams, results, kept, nullKe
         {/* the cut is computed from the null distribution, so there is none until a search has drawn one */}
         <ParamField label="match threshold" info="Keep matches with distance d at or below this. The green tick is the recommended cut: where the null starts to keep matches." aside={
           p.threshold != null
-            ? <NumberField value={p.threshold} min={0.1} max={8} step={0.1} width={78} onValid={v => { setParams({ threshold: +v.toFixed(1) }); setThrRaw(null) }} onChange={(_, r) => setThrRaw(r ?? null)} testid="param-threshold-number" ariaLabel="match threshold d" />
+            ? <NumberField value={p.threshold} min={0.1} max={dMax} step={0.1} width={78} onValid={v => { setParams({ threshold: +v.toFixed(1) }); setThrRaw(null) }} onChange={(_, r) => setThrRaw(r ?? null)} testid="param-threshold-number" ariaLabel="match threshold d" />
             : <span className="muted small mono">no cut</span>}>
           {p.threshold != null ? (
             <>
-              <Slider value={cut ?? 0} onChange={v => setParams({ threshold: +v.toFixed(1) })} min={0} max={8} step={0.1} showValue={false} marks={cut != null ? [{ value: cut, label: '' }] : []} testid="param-threshold" ariaLabel="match threshold" />
+              <Slider value={cut ?? 0} onChange={v => setParams({ threshold: +v.toFixed(1) })} min={0} max={dMax} step={0.1} showValue={false} marks={cut != null ? [{ value: cut, label: '' }] : []} testid="param-threshold" ariaLabel="match threshold" />
               <span className="small mono green">{thrRaw ? <span className="dsc-err">{thrRaw}</span> : cut != null ? <><span data-testid="param-cut-line">{cutIsRecommended ? 'recommended' : 'chosen'} {cut} · {kept} kept · the null gives {fmtNull(nullKept)} per draw</span></> : 'no recommended cut yet — it is read off the null distribution'}</span>
               {/* a statistic whose rule is unstated cannot be falsified (fixup-a item 12) */}
               {results?.cutRule && <span className="small mono muted" data-testid="cut-rule">{results.cutRule.text}</span>}
             </>
-          ) : <span className="small mono muted" data-testid="threshold-none">no cut chosen · the recommended cut is read off the null distribution, so there is none until the search has drawn one</span>}
+          ) : <span className="small mono muted row" style={{ gap: 8, alignItems: 'center' }} data-testid="threshold-none">
+            {results && results.candidates.length
+              ? <><span>no cut: nothing here beats the null</span><Button size="sm" onClick={() => setParams({ threshold: closest })} testid="choose-cut">choose a cut anyway · d ≤ {closest}</Button></>
+              : 'no cut chosen · the recommended cut is read off the null distribution, so there is none until the search has drawn one'}
+          </span>}
         </ParamField>
         <ParamField label="on overlap" info="When two kept matches overlap, which one survives.">
           <Dropdown value={p.overlap} onChange={v => setParams({ overlap: v })} block testid="param-overlap"
@@ -679,6 +713,25 @@ export function ViewPopover({ open, onClose, anchorRef, view, section, minW, max
   )
 }
 
+/* ------------------------------------------------------------------ the preview's progress */
+/** The search's own progress — the job's done/total in units of work (the search plus every draw, per channel), elapsed
+ *  and remaining — in place of an indeterminate strip. Before the first poll lands, the estimate stands in. */
+function SearchProgress({ progress, estimate }: { progress: SeedProgress | null; estimate: DiscSeedEstimate | null }) {
+  const frac = progress && progress.total > 0 ? progress.done / progress.total : 0
+  const eta = progress?.etaS ?? (progress ? null : estimate?.preview.seconds ?? null)
+  return (
+    <section className="k-card dsc-loading" style={{ height: 220, flexDirection: 'column', gap: 10 }} data-testid="seed-search-progress" aria-label="Searching for the seed">
+      <ProgressBar value={frac} indeterminate={!progress} size="md" width={360} labelPosition="none" />
+      <b>searching for the seed{progress ? ` · ${Math.round(frac * 100)} %` : ''}</b>
+      <span className="mono small muted">{progress?.message || (estimate ? `${estimate.channels} channels × ${estimate.preview.draws} null draws` : 'starting')}</span>
+      <span className="mono small muted" data-testid="seed-search-eta">
+        {progress?.elapsedS != null ? `${fmtSeconds(progress.elapsedS)} so far` : ''}
+        {eta != null ? `${progress?.elapsedS != null ? ' · ' : ''}about ${fmtSeconds(eta)} ${progress ? 'left' : 'expected'}${!progress && estimate && !estimate.preview.measured ? ' (assumed rate)' : ''}` : ''}
+      </span>
+    </section>
+  )
+}
+
 /* ------------------------------------------------------------------ matches */
 function MatchesCard({ seed, matches, channels, note = null }: { seed: SeedInfo; matches: SeedMatch[]; channels: number; note?: string | null }) {
   const [pageQ, setPageQ] = useQueryState('mpage', '1')
@@ -696,6 +749,8 @@ function MatchesCard({ seed, matches, channels, note = null }: { seed: SeedInfo;
   const seedC = useMemo(() => centred(seed.trace), [seed])
   const shownC = useMemo(() => shown.map(m => ({ ...m, trace: centred(m.trace) })), [shown])
   const yDomain = useMemo<[number, number]>(() => padDomain([...seedC, ...shownC.flatMap(m => m.trace)]), [seedC, shownC])
+  // the picked card, drawn large below the grid (it may be on another page of cards)
+  const selected = useMemo(() => { const m = matches.find(x => x.id === selQ); return m ? { ...m, trace: centred(m.trace) } : null }, [matches, selQ])
   return (
     <section className="k-card dsc-matches" data-testid="matches-card" aria-label="Matches">
       <div className="dsc-card-head">
@@ -722,16 +777,37 @@ function MatchesCard({ seed, matches, channels, note = null }: { seed: SeedInfo;
           ))}
         </div>
       )}
+      {selected && <SelectedMatch seed={seedC} match={selected} yDomain={yDomain} />}
     </section>
+  )
+}
+/** The picked match, large: the match (black) over the seed (purple), each centred on its own mean, in mV; the
+ *  cards above are 130 px wide, which is a thumbnail, not something a shape can be read off. */
+function SelectedMatch({ seed, match, yDomain }: { seed: number[]; match: SeedMatch & { trace: number[] }; yDomain: [number, number] }) {
+  const [ref, size] = useSize<HTMLDivElement>()
+  const W = Math.max(0, size.width)
+  return (
+    <div className="dsc-selected-match" ref={ref} style={{ marginTop: 10 }} data-testid="selected-match">
+      <div className="row between mono small" style={{ marginBottom: 4 }}>
+        <b>{match.id}</b>
+        <span className="muted">d {match.d.toFixed(2)} · {match.channel} · {match.atH.toFixed(2)} h · {match.length ?? match.trace.length} samples{match.judged ? ` · already judged${match.verdict ? ` (${match.verdict})` : ''}` : ''}</span>
+      </div>
+      {W > 0 && <SeedThumb values={seed} overlay={match.trace} yDomain={yDomain} width={W} height={180} unit="mV" />}
+    </div>
   )
 }
 
 /* ------------------------------------------------------------------ apply bar */
-function ApplyBar({ dx, draft, kept, cut, finished, seed, sim, onStarted, onSave, bank = null }: {
+function ApplyBar({ dx, draft, kept, cut, finished, seed, sim, onStarted, onSave, bank = null, estimate = null, live = null, startedAt = null }: {
   dx: Discovery; draft: SeedDraft; kept: number | null; cut: number | null; finished: DiscoveryRun | null; seed: SeedInfo | null
   sim: ReturnType<typeof useSim>; onStarted: (r: { key: string; label: string }) => void; onSave: () => void
   bank?: { scales: number[]; overlap: string } | null
+  /** the run's cost on this scope, before the button; the run this page started, while it runs; when it was pressed */
+  estimate?: DiscSeedEstimate | null; live?: DiscoveryRun | null; startedAt?: number | null
 }) {
+  const [now, setNow] = useState(Date.now())
+  const running = !!live && (live.status === 'running' || live.status === 'queued')
+  useEffect(() => { if (!running) return; const t = setInterval(() => setNow(Date.now()), 1000); return () => clearInterval(t) }, [running])
   // §7.6's apply bar diffs the parameters against the ones the last search ran with. `applied` is null
   // until the search has run once: then every parameter is unapplied, which is not "no changes".
   const label: Record<keyof SeedParams, string> = {
@@ -764,7 +840,6 @@ function ApplyBar({ dx, draft, kept, cut, finished, seed, sim, onStarted, onSave
    * subscription yet (reported in 04-discovery.md, "Left"). */
   const run = () => {
     if (!seed || !dx.scope) return
-    sim.start({ steps: stepsFor(channels), stepMs: 800 })
     runDiscoverySeedSearchOnce({
       seedId: seed.id, channels, t0: dx.scope.section[0], t1: dx.scope.section[1],
       k: SEED_K, cut: cut ?? undefined, label: draft.label,
@@ -772,11 +847,33 @@ function ApplyBar({ dx, draft, kept, cut, finished, seed, sim, onStarted, onSave
       // fixup-AD: the zone the slider holds, as the fraction of m the block takes; the run's recipe records it
       ...((draft.params.windowS ?? 0) > 0 && draft.params.exclusionSettable !== false ? { exclusion: Math.round((draft.params.exclusionS / (draft.params.windowS ?? 1)) * 1000) / 1000 } : {}),
     }).then(r => { onStarted({ key: r.run_key, label: r.label }); dx.reload() })
-      .catch(e => { sim.reset?.(); console.error('the seed search could not start', e) })
+      .catch(e => { console.error('the seed search could not start', e) })
   }
+  /* the run's own progress: the server's fraction over the sweep (channels and their draws), the time since the
+   * button was pressed, and what is left at that pace — the simulated strip said "MASS CH2 (2 of 4)" about
+   * nothing */
+  const frac = live?.progress ?? 0
+  const elapsedS = startedAt ? (now - startedAt) / 1000 : null
+  const leftS = elapsedS != null && frac > 0.02 ? elapsedS * (1 - frac) / frac : (estimate ? estimate.run.seconds : null)
+  const cancel = () => {
+    const id = live?.job ? parseInt(live.job.replace(/^j-/, ''), 10) : NaN
+    if (!Number.isFinite(id)) return
+    cancelJob(id).then(() => dx.reload()).catch(e => console.error('the run could not be cancelled', e))
+  }
+  const costLine = estimate
+    ? `about ${fmtSeconds(estimate.run.seconds)} · ${estimate.channels} ch × ${(estimate.sectionH[1] - estimate.sectionH[0]).toFixed(1)} h × ${estimate.run.draws} null draws${estimate.run.measured ? '' : ' · assumed rate until one run has finished here'}`
+    : null
   return (
     <section className="k-card dsc-apply" data-testid="apply-bar" aria-label="Apply">
-      {sim.busy ? (
+      {running ? (
+        <>
+          <ProgressBar value={frac} width={180} labelPosition="none" testid="seed-progress" />
+          <b data-testid="seed-running">{live!.status === 'queued' ? 'queued · local' : `running · ${Math.round(frac * 100)} %`}{live!.progressText ? ` · ${live!.progressText}` : live!.channelsDone ? ` · ${live!.channelsDone} channels` : ''}</b>
+          <span className="muted small mono">{elapsedS != null ? `${fmtSeconds(elapsedS)} so far` : ''}{leftS != null ? ` · about ${fmtSeconds(leftS)} left` : ''}</span>
+          <span className="k-spacer" />
+          <Button onClick={cancel} disabled={!live?.job} disabledReason="no job to cancel" testid="seed-cancel">Cancel</Button>
+        </>
+      ) : sim.busy ? (
         <>
           <ProgressBar value={sim.fraction} width={180} labelPosition="none" testid="seed-progress" />
           <b>{sim.status === 'queued' ? 'queued · local' : `running · ${sim.steps[sim.step]} (${sim.step + 1} of ${sim.steps.length})`}</b>
@@ -803,6 +900,7 @@ function ApplyBar({ dx, draft, kept, cut, finished, seed, sim, onStarted, onSave
               : <><b data-testid="apply-state">draft · {!applied ? 'not run with this cut yet' : changes.length === 0 ? 'no unapplied changes' : `${changes.length} unapplied change${changes.length === 1 ? '' : 's'}`}</b><span className="muted small mono">{diff ? `${diff} · ` : ''}preview counts update live</span></>}
           {sim.status === 'cancelled' && <span className="muted small">last search cancelled · nothing written</span>}
           <span className="k-spacer" />
+          {costLine && !finished && <span className="muted small mono" data-testid="run-estimate">{costLine}</span>}
           <Button icon="save" onClick={onSave} testid="save-as-template">Save as template</Button>
           <Button variant="primary" icon="play" onClick={run} disabled={!!noSeedReason || !!finished} disabledReason={noSeedReason ?? `already run with this seed and cut — ${finished?.label}`} testid="run-seed-search">Run seed search</Button>
         </>
@@ -816,8 +914,8 @@ const TPL_RE = /^[a-z0-9_]{3,40}$/
 /** The save is a write: `POST /api/discovery/seed/template` stores the one step this search runs, with the cut in
  *  force, the bank and the exclusion zone. It used to go to the in-memory store only — the name read "exists"
  *  after one press and Library › Templates never held the template. */
-function SaveTemplateModal({ open, onClose, draft, seed, cut, bank, exclusion }: {
-  open: boolean; onClose: () => void; draft: SeedDraft; seed: SeedInfo | null
+function SaveTemplateModal({ open, onClose, draft, seed, cut, bank, exclusion, onSaved }: {
+  open: boolean; onClose: () => void; draft: SeedDraft; seed: SeedInfo | null; onSaved?: (name: string) => void
   cut: number | null; bank: { scales: number[]; overlap: string } | null; exclusion: number | null
 }) {
   const tpls = useSourced(getTemplates, [open])
@@ -835,7 +933,8 @@ function SaveTemplateModal({ open, onClose, draft, seed, cut, bank, exclusion }:
       seedId: seed.id, name, k: SEED_K, bind: draft.bind, ...(cut != null ? { cut } : {}),
       ...(bank ? { scales: bank.scales, overlap: bank.overlap } : {}), ...(exclusion != null ? { exclusion } : {}),
     }).then(() => {
-      toast.push({ text: `Saved ${name} · Library › Templates`, action: { label: 'Open', onClick: () => navigate('library/templates') } })
+      toast.push({ text: `Saved ${name} · Library › Templates · the next run is called ${name}`, action: { label: 'Open', onClick: () => navigate('library/templates') } })
+      onSaved?.(name)
       onClose()
     }).catch(e => {
       // a taken name is the form's own error (409); anything else is a failure and is logged as one

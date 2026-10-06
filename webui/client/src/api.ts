@@ -532,7 +532,13 @@ export interface DiscSeedResults {
   m: number; seedId: string; span: [number, number]
   counts?: Record<string, number> | null; exclusionNote: string; computedAt?: string; restored?: boolean
 }
-export interface DiscSeedPending { ready: false; job_id: number | null; key: string; progress?: unknown; note?: string }
+export interface DiscSeedProgress { done?: number; total?: number; message?: string }
+export interface DiscSeedPending { ready: false; job_id: number | null; key: string; progress?: DiscSeedProgress; note?: string; elapsedS?: number | null; etaS?: number | null }
+/** Before the button: the preview's and the run's cost on a scope, each as work over a rate (measured here once a search has finished). */
+export interface DiscSeedEstimateSide { draws: number; work: number; rate: number; seconds: number; measured: boolean; measuredAt?: string | null }
+export interface DiscSeedEstimate { channels: number; samples: number; sectionH: [number, number]; preview: DiscSeedEstimateSide; run: DiscSeedEstimateSide }
+export const getDiscoverySeedEstimate = (channels: string[], t0: number, t1: number) =>
+  req<DiscSeedEstimate>(`/api/discovery/seed/estimate${dq({ channels: channels.join(','), t0, t1 })}`)
 export const startDiscoverySeedResults = (q: DiscSeedQuery) =>
   post<DiscSeedResults | DiscSeedPending>('/api/discovery/seed/results', q)
 export const pollDiscoverySeedResults = (q: DiscSeedQuery) =>
@@ -880,7 +886,7 @@ export interface SeedMember { dataset?: string; dataset_file?: string; channel_n
  * run row carries its seed and cut, which is how the Seed page finds its own run; a span taken in Explore
  * comes back with the Explore spans queue it is in. */
 export interface DiscSeedInfo { entryId?: number | null; sourceKind?: string | null; annotationId?: number | null; recordingLabel?: string; recordingFile?: string }
-export interface DiscRun { seedId?: string | null; cut?: number | null; entryId?: number | null }
+export interface DiscRun { seedId?: string | null; cut?: number | null; entryId?: number | null; progressText?: string | null }
 export interface DiscSeedPageQuery { source: 'library' | 'explore' | 'medoid'; kind?: string; family?: string; recording?: string; channel?: string; offset?: number; limit?: number }
 export interface DiscSeedPage {
   seeds: DiscSeedInfo[]; total: number; offset: number; limit: number

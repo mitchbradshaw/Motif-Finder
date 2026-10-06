@@ -8,6 +8,7 @@ import {
   RangeSlider, TextField, Tooltip, cx, recordDemoWrite, useNotWired, useQueryState, useSim,
 } from '../kit'
 import { getHistory, getOverview, heldOutReason, fmtMin, DISCOVERY_LIMIT_MIN, type DiscoveryRun } from '../api/discovery'
+import { applyDiscoveryTemplates, runDiscoverySeedSearchOnce } from '../api'
 import { useSourced } from '../api/seam'
 import { navigate } from '../state'
 import { useToast } from '../shell/Toast'
@@ -497,7 +498,19 @@ function RunRow({ dx, run, selected, onSelect, mode }: { dx: Discovery; run: Dis
         </span>
       </button>
       {status === 'paused' && run.id && <Button variant="link" size="sm" icon="external" className="dsc-run-jobs-link" onClick={() => navigate(`jobs/run/${run.id}`)} testid={`open-in-jobs-${run.key}`}>Open in Jobs</Button>}
-      {status === 'failed' && <Button size="sm" icon="refresh" className="dsc-run-retry" onClick={() => { dx.patchRun(run.key, { status: 'new', error: undefined }); recordDemoWrite('discovery', 'retry-run', { run: run.key }) }} testid={`retry-${run.key}`}>Retry</Button>}
+      {/* a real retry: a seed run is started again from its seed and cut, a template run from its template, over the
+          scope. It used to mark the row `new` in the page's memory, which the Seed page then took for a pending run of
+          this search and greyed *Run seed search* out. */}
+      {status === 'failed' && <Button size="sm" icon="refresh" className="dsc-run-retry" onClick={() => {
+        const s = dx.scope
+        if (!s) return
+        const again = run.kind === 'seed' && run.seedId
+          ? runDiscoverySeedSearchOnce({ seedId: run.seedId, channels: s.channels, t0: s.section[0], t1: s.section[1], k: 200, label: run.label,
+            ...(run.cut != null ? { cut: run.cut } : {}), ...(run.scales?.length ? { scales: run.scales } : {}) })
+          : run.template ? applyDiscoveryTemplates([run.template], s.channels, s.section[0], s.section[1]) : null
+        if (!again) return
+        again.then(() => dx.reload()).catch(e => console.error('the run could not be retried', e))
+      }} testid={`retry-${run.key}`}>Retry</Button>}
       {status !== 'paused' && status !== 'superseded' && mode !== 'seed' && (
         pickIdx >= 0
           ? <button type="button" className={cx('dsc-pick', pickIdx === 0 ? 'a' : 'b')} onClick={() => dx.togglePick(run.key)} aria-label={`unpick ${run.label} (${pickIdx === 0 ? 'A' : 'B'})`} data-testid={`pick-${run.key}`}>{pickIdx === 0 ? 'A' : 'B'}</button>

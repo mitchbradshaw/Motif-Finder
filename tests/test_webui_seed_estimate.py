@@ -78,11 +78,11 @@ def test_a_finished_preview_records_its_rate(client):
 
 
 def test_progress_counts_draws_not_channels(client):
-    body = {"seedId": _seed_id(client), "channels": [CH[0], CH[1]], "t0": 0.0, "t1": N / 3600.0, "k": 20}
+    # k=21: the result cache is process-wide and keyed by the query, and the test above ran k=20
+    body = {"seedId": _seed_id(client), "channels": [CH[0], CH[1]], "t0": 0.0, "t1": N / 3600.0, "k": 21}
     r = client.post("/api/discovery/seed/results", json=body)
     assert r.status_code == 200, r.text
-    if r.json()["ready"]:
-        pytest.skip("served from cache; nothing ran")
+    assert r.json()["ready"] is False, "nothing ran, so there is no progress to read"
     snap = _wait_job(client, r.json()["job_id"])
     assert snap["status"] == "completed", snap.get("error")
     # 2 channels × (1 matching step + 2 draws) = 6 units of work

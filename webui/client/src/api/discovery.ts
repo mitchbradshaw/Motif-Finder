@@ -15,7 +15,7 @@
 import {
   ApiError, getDiscoveryCompare, getDiscoveryCompareStages, getDiscoveryCompareWindow, getDiscoveryDetectionWindow, getDiscoveryDetections,
   getDiscoveryBands, getDiscoveryFires, getDiscoveryHistory, getDiscoveryOverview, getDiscoveryRuns, getDiscoveryScoreboard, getDiscoverySeedProfile,
-  getDiscoverySeedPage, getDiscoverySeedSetupFor, getDiscoverySeeds, getDiscoverySession, putDiscoverySession, putDiscoverySeedDraft, getDiscoverySignal, getDiscoveryTemplates, pollDiscoverySeedResults,
+  getDiscoverySeedEstimate, getDiscoverySeedPage, getDiscoverySeedSetupFor, type DiscSeedEstimate, getDiscoverySeeds, getDiscoverySession, putDiscoverySession, putDiscoverySeedDraft, getDiscoverySignal, getDiscoveryTemplates, pollDiscoverySeedResults,
   postDiscoveryPlan, postDiscoveryPreview, startDiscoverySeedResults,
   type CutRule, type DivBreakdown, type PrecisionFigures, type DiscBand, type DiscBandsPayload, type DiscLikeForLike, type DiscPerBand, type DiscSetMember, type DiscVerdictSplit, type DiscSeedPageQuery, type DiscPlan, type DiscPlanBody, type DiscPreview, type DiscRecordingOption, type DiscSeedParams, type DiscSeedQuery, type DiscSeedResults,
 } from '../api'
@@ -53,6 +53,8 @@ export interface DiscoveryRun {
   detail: string
   version?: number; stageCount?: number; template?: string
   status: RunStatus; progress?: number; doneAt?: string
+  /** what the sweep is doing now ("CH2_A1 · null 54 of 200"), from its job while it runs */
+  progressText?: string
   reviewedH?: number
   perChannelMin?: number
   job?: string; pausedAt?: { stage: number; of: number }
@@ -133,7 +135,7 @@ export const getRuns = (): Promise<Sourced<DiscoveryRun[]>> => live(getDiscovery
   key: r.key, id: opt(r.id), label: r.label, kind: r.kind as DiscoveryRun['kind'], colour: r.colour,
   glyph: r.glyph as GlyphKind, detail: r.detail, status: r.status as RunStatus,
   template: opt(r.template), stageCount: opt(r.stageCount), version: opt(r.version),
-  perChannelMin: opt(r.perChannelMin), job: opt(r.job), progress: r.progress, doneAt: r.doneAt, error: r.error,
+  perChannelMin: opt(r.perChannelMin), job: opt(r.job), progress: r.progress, progressText: opt(r.progressText), doneAt: r.doneAt, error: r.error,
   reviewedH: r.reviewedH, runGroupId: opt(r.runGroupId), channelsDone: opt(r.channelsDone), found: opt(r.found),
   seedId: opt(r.seedId), cut: r.cut ?? null, entryId: r.entryId ?? null, scales: r.scales ?? null,
   band: r.band ?? null, bandSet: r.bandSet ?? null, bandIndex: r.bandIndex ?? null,
@@ -284,33 +286,40 @@ export const saveSeedDraft = (seedId: string, params: SeedParams) =>
   putDiscoverySeedDraft({ seedId, params: { ...params, exclusion_note: params.exclusionNote } as Record<string, unknown> })
 
 const POLL_MS = 1500
+/** With no job to wait for, four minutes; with a running job, as long as it runs (a 500 h search is hours). */
 const GIVE_UP_MS = 4 * 60 * 1000
+const GIVE_UP_RUNNING_MS = 12 * 60 * 60 * 1000
+export interface SeedProgress { done: number; total: number; message: string; elapsedS: number | null; etaS: number | null; jobId: number | null }
 const sleep = (ms: number) => new Promise(r => window.setTimeout(r, ms))
 
 /** A seeded search over a section is a job (§7.6): POST starts it, the GET form of the same query
  *  answers once it is done. The polling lives here so the page still awaits one promise. A 500 on
  *  either call throws ApiError with the server's message and traceback — never an empty result. */
-async function seedResults(q: DiscSeedQuery): Promise<DiscSeedResults> {
+async function seedResults(q: DiscSeedQuery, onProgress?: (p: SeedProgress) => void): Promise<DiscSeedResults> {
   const first = await startDiscoverySeedResults(q)
   if (first.ready) return first
-  const giveUpAt = Date.now() + GIVE_UP_MS
+  const startedAt = Date.now()
   for (;;) {
     await sleep(POLL_MS)
     const r = await (q.scales?.length ? pollDiscoverySeedResultsBanked(q) : pollDiscoverySeedResults(q))
     if (r.ready) return r
+    // the job's own progress, in units of work (the search plus every draw, per channel)
+    onProgress?.({ done: r.progress?.done ?? 0, total: r.progress?.total ?? 0, message: r.progress?.message ?? '',
+      elapsedS: r.elapsedS ?? null, etaS: r.etaS ?? null, jobId: r.job_id })
+    const giveUpAt = startedAt + (r.job_id ? GIVE_UP_RUNNING_MS : GIVE_UP_MS)
     if (Date.now() > giveUpAt) {
       throw new ApiError(504, r.note ?? `the seeded search for ${q.seedId} is still running after ${GIVE_UP_MS / 60000} minutes`, r)
     }
   }
 }
 
-export async function getSeedResults(seedId: string, channels: string[], bank?: { scales: number[]; overlap?: string } | null, exclusion?: number | null, section?: [number, number] | null): Promise<Sourced<SeedResults>> {
+export async function getSeedResults(seedId: string, channels: string[], bank?: { scales: number[]; overlap?: string } | null, exclusion?: number | null, section?: [number, number] | null, onProgress?: (p: SeedProgress) => void): Promise<Sourced<SeedResults>> {
   const s = await scope()
   // the section on screen, which is the one *Run seed search* sends: the preview and the run are one search
   const sec = section ?? s.section
   const r = await seedResults({ seedId, channels: channels.length ? channels : s.channels, t0: sec[0], t1: sec[1],
     ...(bank?.scales.length ? { scales: bank.scales, overlap: bank.overlap ?? 'lowest' } : {}),
-    ...(exclusion != null ? { exclusion } : {}) })
+    ...(exclusion != null ? { exclusion } : {}) }, onProgress)
   return {
     source: 'live',
     data: {
@@ -324,6 +333,13 @@ export async function getSeedResults(seedId: string, channels: string[], bank?: 
     },
   }
 }
+
+/** The cost of a seed search on a scope before it is run: the preview and the run, in seconds, with whether the rate was measured here. */
+export const getSeedEstimate = (channels: string[], section: [number, number]): Promise<Sourced<DiscSeedEstimate>> =>
+  live(getDiscoverySeedEstimate(channels, section[0], section[1]))
+
+/** Seconds as a person reads them. */
+export const fmtSeconds = (s: number) => s < 1 ? '< 1 s' : s < 90 ? `${Math.round(s)} s` : s < 90 * 60 ? `${Math.round(s / 60)} min` : s < 48 * 3600 ? `${(s / 3600).toFixed(1)} h` : `${(s / 86400).toFixed(1)} d`
 
 export function getSeedProfile(seedId: string, channel: string, view: [number, number], _candidates: SeedMatch[]): Promise<Sourced<{ t0H: number; stepS: number; signal: number[]; distance: number[] }>> {
   return live(getDiscoverySeedProfile(seedId, channel, view[0], view[1]).then(p => ({
