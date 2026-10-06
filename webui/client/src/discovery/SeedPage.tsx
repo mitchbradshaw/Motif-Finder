@@ -12,7 +12,7 @@ import { Header } from '../shell/Header'
 import { useToast } from '../shell/Toast'
 import { navigate } from '../state'
 import { useSourced } from '../api/seam'
-import { runDiscoverySeedSearchOnce, type CutRule } from '../api'
+import { ApiError, runDiscoverySeedSearchOnce, saveDiscoverySeedTemplate, type CutRule } from '../api'
 import { useSize } from '../charts/useSize'
 import {
   getSeedPage, getSeedProfile, getSeedResults, getSeedSetup, getTemplates, saveSeedDraft, type DiscoveryRun, type SeedDraft, type SeedInfo, type SeedMatch, type SeedParams, type SeedResults, type SeedSource,
@@ -78,7 +78,7 @@ export function SeedPage() {
    * holds seconds, the search takes the fraction, and the result's key and the run's recipe carry it */
   const exclusionQ = draft && (draft.params.windowS ?? 0) > 0 && draft.params.exclusionSettable !== false
     ? Math.round((draft.params.exclusionS / (draft.params.windowS ?? 1)) * 1000) / 1000 : null
-  const results = useSourced(() => seed ? getSeedResults(seed.id, channels, bankQ, exclusionQ) : Promise.resolve({ data: noResults, source: 'demo' as const }), [seed?.id, channels.join(','), bankQ?.scales.join(','), bankQ?.overlap, exclusionQ])
+  const results = useSourced(() => seed ? getSeedResults(seed.id, channels, bankQ, exclusionQ, dx.scope?.section) : Promise.resolve({ data: noResults, source: 'demo' as const }), [seed?.id, channels.join(','), dx.scope?.section.join(','), bankQ?.scales.join(','), bankQ?.overlap, exclusionQ])
 
   // deep links ?state=running|done|failed put the simulated search straight into that state
   useEffect(() => {
@@ -118,7 +118,10 @@ export function SeedPage() {
    * (fixup-y) — never by the label, which three runs of one seed all shared. */
   const sameCut = (a: number | null | undefined, b: number | null) => (a ?? null) == null ? b == null : b != null && Math.abs((a as number) - b) < 1e-9
   const sameBank = (a: number[] | null | undefined) => (a ?? []).join(',') === (bankQ?.scales ?? []).join(',')
-  const finished = seed ? dx.runs.find(r => r.kind === 'seed' && r.seedId === seed.id && sameCut(r.cut, threshold) && sameBank(r.scales)) ?? null : null
+  /* A run that failed, was cancelled or was discarded is not "this search, already run": the server starts a
+   * new one for it, so the button must not refuse. Two runs lost in a server restart held it shut for a day. */
+  const dead = (r: DiscoveryRun) => r.status === 'failed' || r.status === 'cancelled' || r.status === 'superseded'
+  const finished = seed ? dx.runs.find(r => r.kind === 'seed' && !dead(r) && r.seedId === seed.id && sameCut(r.cut, threshold) && sameBank(r.scales)) ?? null : null
 
   /* The run row is the server's: the old version invented one client-side,
    * keyed by the draft and carrying `template: 'seed_F03_native_2'`, a name no
@@ -192,7 +195,7 @@ export function SeedPage() {
           )}
         </div>
       </div>
-      {draft && <SaveTemplateModal open={modal === 'save-template'} onClose={() => setModal(null)} draft={draft} seed={seed} />}
+      {draft && <SaveTemplateModal open={modal === 'save-template'} onClose={() => setModal(null)} draft={draft} seed={seed} cut={threshold} bank={bankQ} exclusion={exclusionQ} />}
     </>
   )
 }
@@ -810,18 +813,35 @@ function ApplyBar({ dx, draft, kept, cut, finished, seed, sim, onStarted, onSave
 
 /* ------------------------------------------------------------------ save as template */
 const TPL_RE = /^[a-z0-9_]{3,40}$/
-function SaveTemplateModal({ open, onClose, draft, seed }: { open: boolean; onClose: () => void; draft: SeedDraft; seed: SeedInfo | null }) {
-  const tpls = useSourced(getTemplates, [])
-  const [saved, setSaved] = useDemoState<string[]>('discovery.saved-templates', () => [])
-  const [name, setName] = useState(draft.label)
+/** The save is a write: `POST /api/discovery/seed/template` stores the one step this search runs, with the cut in
+ *  force, the bank and the exclusion zone. It used to go to the in-memory store only — the name read "exists"
+ *  after one press and Library › Templates never held the template. */
+function SaveTemplateModal({ open, onClose, draft, seed, cut, bank, exclusion }: {
+  open: boolean; onClose: () => void; draft: SeedDraft; seed: SeedInfo | null
+  cut: number | null; bank: { scales: number[]; overlap: string } | null; exclusion: number | null
+}) {
+  const tpls = useSourced(getTemplates, [open])
+  // a label is 'seed 8576e5'; a template name has no space
+  const [name, setName] = useState(draft.label.toLowerCase().replace(/[^a-z0-9_]+/g, '_'))
+  const [failed, setFailed] = useState<string | null>(null)
+  const [saving, setSaving] = useState(false)
   const toast = useToast()
-  const taken = (tpls.data ?? []).some(t => t.name === name) || saved.includes(name)
-  const err = !name ? 'a template needs a name' : !TPL_RE.test(name) ? 'lower-case letters, digits and _ only (3–40)' : taken ? `a template called ${name} exists` : null
+  const taken = (tpls.data ?? []).some(t => t.name === name)
+  const err = !seed ? 'pick a seed first' : !name ? 'a template needs a name' : !TPL_RE.test(name) ? 'lower-case letters, digits and _ only (3–40)' : taken ? `a template called ${name} exists` : saving ? 'saving…' : null
   const save = () => {
-    setSaved([...saved, name])
-    recordDemoWrite('library', 'save-template', { name, from: `Discovery seed search ${draft.key}`, bind: draft.bind, seed: seed?.id })
-    toast.push({ text: `Saved ${name} · Library › Templates`, action: { label: 'Open', onClick: () => navigate('library/templates') } })
-    onClose()
+    if (!seed) return
+    setSaving(true); setFailed(null)
+    saveDiscoverySeedTemplate({
+      seedId: seed.id, name, k: SEED_K, bind: draft.bind, ...(cut != null ? { cut } : {}),
+      ...(bank ? { scales: bank.scales, overlap: bank.overlap } : {}), ...(exclusion != null ? { exclusion } : {}),
+    }).then(() => {
+      toast.push({ text: `Saved ${name} · Library › Templates`, action: { label: 'Open', onClick: () => navigate('library/templates') } })
+      onClose()
+    }).catch(e => {
+      // a taken name is the form's own error (409); anything else is a failure and is logged as one
+      if (!(e instanceof ApiError && e.status === 409)) console.error('the template could not be saved', e)
+      setFailed(e instanceof Error ? e.message : String(e)); tpls.reload()
+    }).finally(() => setSaving(false))
   }
   return (
     <Modal open={open} onClose={onClose} title="Save as template" subtitle="a seed search saved is a template with badge seed" size="md" testid="save-template-modal"
@@ -829,7 +849,7 @@ function SaveTemplateModal({ open, onClose, draft, seed }: { open: boolean; onCl
       <div className="dsc-save-form">
         <label className="small muted" htmlFor="tpl-name">name</label>
         <TextField id="tpl-name" value={name} onChange={setName} invalid={!!err} block onEnter={() => { if (!err) save() }} testid="save-template-name" />
-        {err && <span className="dsc-err" data-testid="save-template-error">{err}</span>}
+        {(err || failed) && <span className="dsc-err" data-testid="save-template-error">{err ?? failed}</span>}
         <div className="dsc-save-summary mono small">
           <span><span className="muted">seed</span> {seed ? seed.title : 'Explore selection'}{seed && ` · hash ${seed.hash}`}</span>
           <span><span className="muted">bind</span> {draft.bind === 'carry' ? 'carry · this exemplar travels with the template' : 'rebind · asks for an exemplar when applied'}</span>

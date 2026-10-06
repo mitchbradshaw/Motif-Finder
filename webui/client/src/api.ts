@@ -891,6 +891,9 @@ export const getDiscoverySeedSetupFor = (o: { seed?: string; entry?: number }) =
 export interface DiscSeedRunAck { run_key: string; job_id: number | null; route: string; started: boolean; reused: boolean; label: string; note?: string }
 export const runDiscoverySeedSearchOnce = (body: DiscSeedQuery & { label?: string; cut?: number }) =>
   post<DiscSeedRunAck>('/api/discovery/seed/run', body)
+/** §7.6's *Save as template*: the seed search as a `templates` row (409 when the name is taken). */
+export const saveDiscoverySeedTemplate = (body: { seedId: string; name: string; k?: number; cut?: number; scales?: number[]; overlap?: string; exclusion?: number; bind?: 'carry' | 'rebind' }) =>
+  post<{ id: number; name: string; kind: string; bind: string }>('/api/discovery/seed/template', body)
 export interface TakenSpan { id: number; recording_id: number; start_s: number; end_s: number; verdict: 'seed'; source: string; note: string | null; queue_id: number; seed_id: string }
 export const takeSpanForReviewInQueue = (recording_id: number, start_idx: number, end_idx: number, note?: string, scale_viewed?: string) =>
   post<TakenSpan>('/api/annotations/seed', { recording_id, start_idx, end_idx, note, scale_viewed })

@@ -385,6 +385,32 @@ def _run_ids(conn, dr_row):
     return []
 
 
+LOST_RUN = ("the server restarted while this run was running, so it never finished — "
+            "run it again (the channels it had completed are reused)")
+
+
+def _fail_lost_runs(request, conn, session_id):
+    """A run whose sweep job died with the server is failed, not running.
+
+    The job writes the row's final status itself; a job the server lost in a
+    restart never does, and the row read *running* for ever — the Seed page
+    then refused *Run seed search* as "already run", and `/seed/run` would
+    hand the dead run back as the same run. A job this process does not hold
+    cannot be running, so the row says what happened."""
+    live = request.app.state.manager.jobs
+    for row in conn.execute("SELECT id, job_id, params_json FROM discovery_runs WHERE session_id = ? "
+                            "AND status = 'running' AND job_id IS NOT NULL", (int(session_id),)).fetchall():
+        if int(row["job_id"]) in live:
+            continue
+        params = json.loads(row["params_json"] or "{}")
+        if params.get("run_ids"):
+            continue                      # it finished; `_run_payload` reads its runs
+        params["error"] = LOST_RUN
+        conn.execute("UPDATE discovery_runs SET status = 'failed', params_json = ?, updated_at = ? WHERE id = ?",
+                     (json.dumps(params), _now(), int(row["id"])))
+    conn.commit()
+
+
 def _reviewed_h(conn, chans, span):
     total = 0
     for ch in chans:
@@ -427,6 +453,8 @@ def _run_payload(conn, row, index, span):
             status = "superseded"
     elif row["superseded_at"]:
         status = "superseded"
+    elif status == "failed":
+        error = params.get("error")
     out = {
         "key": row["run_key"],
         "id": f"g-{group_id}" if group_id else None,
@@ -474,6 +502,7 @@ def get_runs(request: Request):
     c = _conn(request)
     try:
         s, rec, chans, span = _session_scope(c)
+        _fail_lost_runs(request, c, s["id"])
         rows = _discovery_runs(c, s["id"])
         return [_human_run(c, chans, span)] + [_run_payload(c, r, i, span) for i, r in enumerate(rows)]
     finally:
@@ -2321,6 +2350,7 @@ def run_seed_search(request: Request, body: SeedBody):
         if not plan["runnable"]:
             raise HTTPException(422, {"message": plan["reason"], "refused": plan["refused"]})
         ident = _seed_identity(body, seed["id"], chans, span)
+        _fail_lost_runs(request, c, s["id"])
         same_seed = []
         for row in _discovery_runs(c, s["id"]):
             if row["kind"] != "seed" or row["superseded_at"]:
@@ -2360,6 +2390,50 @@ def run_seed_search(request: Request, body: SeedBody):
             c.commit()
         return {"run_key": key, "job_id": job_id, "route": plan["route"], "started": job_id is not None,
                 "reused": False, "label": label}
+    finally:
+        c.close()
+
+
+class SeedTemplateBody(BaseModel):
+    seedId: str
+    name: str
+    k: int = 200
+    cut: float | None = None
+    scales: list[float] | None = None
+    overlap: str | None = None
+    exclusion: float | None = None
+    #: `carry`: this exemplar travels with the template; `rebind`: an exemplar
+    #: is asked for when it is applied (Working/templates.py)
+    bind: str = "carry"
+
+
+@router.post("/api/discovery/seed/template")
+def save_seed_template(request: Request, body: SeedTemplateBody):
+    """§7.6's *Save as template*: the seed search as a `templates` row — the one
+    step a seed run runs, with its cut, bank and exclusion zone. The button
+    wrote to the client's memory only, so the name was "taken" after one press
+    and Library › Templates never held it."""
+    from Working import templates as core_templates
+    from . import templates as T
+    name = (body.name or "").strip()
+    if not re.fullmatch(r"[a-z0-9_]{3,40}", name):
+        raise HTTPException(422, {"message": "a template name is lower-case letters, digits and _ (3–40)"})
+    if body.bind not in core_templates.TEMPLATE_MODES:
+        raise HTTPException(422, {"message": f"bind must be one of {core_templates.TEMPLATE_MODES}, got {body.bind!r}"})
+    c = _conn(request)
+    try:
+        if any(t["name"] == name for t in T.list_all(c)):
+            raise HTTPException(409, {"message": f"a template called {name} exists"})
+        seed = _seed_by_id(c, body.seedId)
+        steps = seeded_search.seed_steps(seed, k=body.k, max_distance=body.cut, scales=_bank(body.scales),
+                                         overlap=body.overlap, exclusion=_exclusion(body.exclusion))
+        if body.bind == core_templates.REBIND:
+            steps[0]["side_inputs"]["exemplar"] = {"source_kind": "library_exemplar", "mode": core_templates.REBIND}
+        described = (f"seed search · {seed['samples']} samples · "
+                     + ("this exemplar travels with the template" if body.bind == core_templates.CARRY
+                        else "asks for an exemplar when applied"))
+        tid = T.save(c, name, steps, description=described)
+        return {"id": tid, "name": name, "kind": "seed", "bind": body.bind}
     finally:
         c.close()
 

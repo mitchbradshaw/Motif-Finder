@@ -15,7 +15,7 @@
 import {
   ApiError, getDiscoveryCompare, getDiscoveryCompareStages, getDiscoveryCompareWindow, getDiscoveryDetectionWindow, getDiscoveryDetections,
   getDiscoveryBands, getDiscoveryFires, getDiscoveryHistory, getDiscoveryOverview, getDiscoveryRuns, getDiscoveryScoreboard, getDiscoverySeedProfile,
-  getDiscoverySeedPage, getDiscoverySeedSetupFor, getDiscoverySeeds, getDiscoverySession, putDiscoverySeedDraft, getDiscoverySignal, getDiscoveryTemplates, pollDiscoverySeedResults,
+  getDiscoverySeedPage, getDiscoverySeedSetupFor, getDiscoverySeeds, getDiscoverySession, putDiscoverySession, putDiscoverySeedDraft, getDiscoverySignal, getDiscoveryTemplates, pollDiscoverySeedResults,
   postDiscoveryPlan, postDiscoveryPreview, startDiscoverySeedResults,
   type CutRule, type DivBreakdown, type PrecisionFigures, type DiscBand, type DiscBandsPayload, type DiscLikeForLike, type DiscPerBand, type DiscSetMember, type DiscVerdictSplit, type DiscSeedPageQuery, type DiscPlan, type DiscPlanBody, type DiscPreview, type DiscRecordingOption, type DiscSeedParams, type DiscSeedQuery, type DiscSeedResults,
 } from '../api'
@@ -111,6 +111,14 @@ export async function getSession(): Promise<Sourced<SessionData>> {
     return { session: p.session, recordings }
   }))
 }
+
+/** A changed scope is written to the session row; every later read resolves against it. */
+export const putScope = (body: { recording: string; channels: string[]; section: [number, number] }) =>
+  putDiscoverySession(body).then(p => {
+    RECORDINGS = p.recordings.map(toRecording)
+    SCOPE = { channels: p.session.channels, section: p.session.section }
+    return p
+  })
 
 /** The session's channels and section, for a read whose fixture signature does not carry them. */
 async function scope(): Promise<{ channels: string[]; section: [number, number] }> {
@@ -296,9 +304,11 @@ async function seedResults(q: DiscSeedQuery): Promise<DiscSeedResults> {
   }
 }
 
-export async function getSeedResults(seedId: string, channels: string[], bank?: { scales: number[]; overlap?: string } | null, exclusion?: number | null): Promise<Sourced<SeedResults>> {
+export async function getSeedResults(seedId: string, channels: string[], bank?: { scales: number[]; overlap?: string } | null, exclusion?: number | null, section?: [number, number] | null): Promise<Sourced<SeedResults>> {
   const s = await scope()
-  const r = await seedResults({ seedId, channels: channels.length ? channels : s.channels, t0: s.section[0], t1: s.section[1],
+  // the section on screen, which is the one *Run seed search* sends: the preview and the run are one search
+  const sec = section ?? s.section
+  const r = await seedResults({ seedId, channels: channels.length ? channels : s.channels, t0: sec[0], t1: sec[1],
     ...(bank?.scales.length ? { scales: bank.scales, overlap: bank.overlap ?? 'lowest' } : {}),
     ...(exclusion != null ? { exclusion } : {}) })
   return {

@@ -2122,12 +2122,16 @@ def get_templates(request: Request):
             run_count = int(conn.execute(
                 "SELECT COUNT(*) FROM runs r JOIN configs c ON c.id = r.config_id "
                 "WHERE c.config_json LIKE ?", (f'%"{row["name"]}"%',)).fetchone()[0])
+            # the stored kind is the chain's terminal type; a seed search is a
+            # detection whose block is the seeded one, and the page's own filter
+            # offers it as its own kind
+            is_seed = any(s.get("algorithm") == "seed_matches" for s in steps)
             out.append({
                 "name": row["name"], "version": int(row.get("version") or 1),
-                "kind": row.get("kind") or "detection",
+                "kind": "seed search" if is_seed else (row.get("kind") or "detection"),
                 "signature": " → ".join(s["name"] for s in stages) or "—",
                 "badges": ([{"label": "built-in", "tone": "purple"}] if row.get("builtin") else []) +
-                          [{"label": row.get("kind") or "detection", "tone": "blue"}],
+                          [{"label": "seed search" if is_seed else (row.get("kind") or "detection"), "tone": "blue"}],
                 "stages": stages,
                 "recipe": row.get("description") or "",
                 "nullModel": "—",

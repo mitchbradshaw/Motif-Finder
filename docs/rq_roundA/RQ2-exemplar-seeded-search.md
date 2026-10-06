@@ -64,6 +64,20 @@ things you also agree with, and whether it finds more than it would by chance.
   records it (a sandbox run at 32 s of a 126-sample seed stored `exclusion: 0.254`). Every seed recipe's hash changed;
   the real database held 0 seed runs, so nothing stored was orphaned.
 
+- **Repaired 2026-10-05, after the researcher's first real attempt** (seed runs `seed_7606fd`, `seed_8576e5`):
+  - **A changed recording, channel list or section is written to the session.** It lived in the page's memory only,
+    so after a change of recording every read asked the old recording for the new one's channels (*"no channel(s)
+    ['CH3', 'CH1', 'CH4'] on M2_aug_concat_fs1"*), and the Seed page previewed the section the server still held
+    (452–456 h) while *Run seed search* ran the one on screen (8–557 h).
+  - **A run whose job died with the server reads *failed*, with the reason, and can be run again.** Both runs read
+    *running* for a day after a restart, which held *Run seed search* shut ("already run with this seed and cut").
+  - ***Save as template* writes a template** (`POST /api/discovery/seed/template`); Library › Templates lists it
+    under *seed search*. It wrote nothing before. A *rebind* template is stored; applying one is not exercised.
+  - **Cost, measured in the sandbox:** medoid seed (1,313 samples), 4 h × 3 channels, 200 paired draws: about
+    2 minutes, 47 found, *Send 47 unjudged to Review* offered. The same search over 549 h is about 140 times that,
+    and does not survive a server restart: keep the section to hours, not the recording.
+  - *Send N unjudged to Review* is on Discovery › Runs (*Open in Runs*), not on the Seed page.
+
 ## Decisions already made
 
 - **Q35:** a seed search draws **200** surrogates (Settings key). Every surface prints the count actually drawn.
@@ -113,3 +127,4 @@ Follow `RESEARCH_RUNBOOK.md` Q2:
   Settings' α and correction per channel; surrogate spans are refused by Review, promotion and Explore.
 - 2026-10-04 · post-fixup summary · `X` made the scoreboard count Review verdicts first (this file had not been updated by `X`); recall still §4.6.
 - 2026-10-05 · fixup-ad · the seed search's exclusion zone is `detection.seed_matches`' own parameter, default m/2, settable on the Seed page and recorded in the run's recipe; seed recipe hashes changed (0 seed runs in the real database).
+- 2026-10-05 · researcher's bug report · scope changes reach the session; a run lost in a restart reads failed and can be re-run; *Save as template* writes a row the Library lists as *seed search*; a 4 h × 3 ch run walked to *Send 47 unjudged to Review* in the sandbox.

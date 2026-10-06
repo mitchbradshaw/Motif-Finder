@@ -274,7 +274,7 @@ export function ScopeCard({ dx, previewable = true }: { dx: Discovery; previewab
         </div>
       )}
       {refused ? (
-        <Callout tone="red" icon="lock" title="Held out" testid="scope-refused" action={<Button size="sm" onClick={() => { dx.setScope({ recording: 'M2_aug_fs1', channels: ['CH2_A1', 'CH4_A2', 'CH7_B2'], section: [112, 286] }); navigate('discovery/runs') }}>Back to M2_aug fs1</Button>}>{refused}</Callout>
+        <Callout tone="red" icon="lock" title="Held out" testid="scope-refused" action={<Button size="sm" onClick={() => { dx.resetScope(); navigate('discovery/runs') }}>Back to the session's recording</Button>}>{refused}</Callout>
       ) : (
         <div className="dsc-strips-wrap">
           <Strips channels={dx.visibleChannels} traces={traces} hours={hours} section={s.section} onSection={sec => dx.setScope({ section: sec })} />
@@ -524,7 +524,11 @@ export function SlurmModal({ open, onClose, dx, runs, onCreated }: { open: boole
   useEffect(() => {
     if (!open || !first || !dx.scope || made[first.key]) return
     setBusy(true); setErr(null)
-    postDiscoverySlurm({ template: first.template ?? first.key, channels: dx.scope.channels, t0: dx.scope.section[0], t1: dx.scope.section[1], band: first.band ?? undefined })
+    // a seed run has no template: it is scripted by its seed and its cut. Naming its run key as a template was a
+    // 404 the moment a pending list held one (a failed seed run is pending: it can be run again)
+    postDiscoverySlurm({ ...(first.kind === 'seed' && first.seedId
+      ? { seedId: first.seedId, k: 200, ...(first.cut != null ? { maxDistance: first.cut } : {}) }
+      : { template: first.template ?? first.key }), channels: dx.scope.channels, t0: dx.scope.section[0], t1: dx.scope.section[1], band: first.band ?? undefined })
       .then(r => setMade(m => ({ ...m, [first.key]: r })))
       .catch(e => setErr(e instanceof Error ? e : new Error(String(e))))
       .finally(() => setBusy(false))

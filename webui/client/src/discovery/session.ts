@@ -2,10 +2,11 @@
  * Reads come through api/discovery.ts; writes (scope edits, added runs, picks, discards, status changes) live in
  * the in-memory demo store, so they survive moving between Runs · Seed search · Compare but not a reload. */
 import { useEffect, useMemo } from 'react'
-import { getRuns, getScoreboard, getSession, runEstimateMin, DISCOVERY_LIMIT_MIN, type DiscoveryRun, type RecordingOption, type ScoreRun } from '../api/discovery'
+import { getRuns, getScoreboard, getSession, isHeldOut, putScope, runEstimateMin, DISCOVERY_LIMIT_MIN, type DiscoveryRun, type RecordingOption, type ScoreRun } from '../api/discovery'
 import { useSourced } from '../api/seam'
 import { useDemoState, useQueryState } from '../kit'
 import { applyDiscoveryTemplates } from '../api'
+import { useToast } from '../shell/Toast'
 
 /** The template `?state=running` applies. `mp_threshold` is the cheapest of the
  *  nine canonical detection templates on a short span. */
@@ -35,6 +36,7 @@ export interface Discovery {
   error: Error | null; reload: () => void; demo: boolean
   scope: ScopeState | null; recordings: RecordingOption[]; recording: RecordingOption | null
   setScope: (patch: Partial<ScopeState>) => void
+  resetScope: () => void
   runs: DiscoveryRun[]; patchRun: (key: string, patch: Partial<DiscoveryRun>) => void
   picks: string[]; setPicks: (p: string[]) => void; togglePick: (key: string) => void
   stale: boolean; setStale: (v: boolean) => void
@@ -67,6 +69,7 @@ export function useDiscovery(): Discovery {
   const [channelsQ, setChannelsQ] = useQueryState('channels', '')
   const [recordingQ] = useQueryState('recording', '')
   const [stateQ] = useQueryState('state', '')
+  const toast = useToast()
 
   const fixtureScope: ScopeState | null = sess.data ? { name: sess.data.session.name, saved: true, recording: sess.data.session.recording, channels: sess.data.session.channels, section: sess.data.session.section, nullMethod: sess.data.session.null.method, nullN: sess.data.session.null.n, nullRequested: sess.data.session.null.requested ?? null, nullReason: sess.data.session.null.reason ?? null, nullTemplateN: sess.data.session.nulls?.template.n ?? sess.data.session.null.n, nullTemplateMethod: sess.data.session.nulls?.template.method ?? sess.data.session.null.method, nullExplicit: !!sess.data.session.null.explicit } : null
   const scope0 = scopeStore ?? fixtureScope
@@ -79,11 +82,27 @@ export function useDiscovery(): Discovery {
   } : scope0
   const recording = recordings.find(r => r.key === scope?.recording) ?? null
 
+  /* The scope is the SERVER's (P17: one session, one scope). A changed recording, channel list or section is
+   * written to the session row first and shown once the bridge has taken it. It used to live in this store
+   * alone, so every read after a change of recording asked the old recording for the new one's channels —
+   * "no channel(s) ['CH3', 'CH1', 'CH4'] on M2_aug_concat_fs1" — and the Seed page searched the section the
+   * server still held while its run was started over the one on screen. A held-out recording is never
+   * written: the scope card refuses it from the client's copy, as before. */
   const setScope = (patch: Partial<ScopeState>) => {
     if (!scope) return
-    setScopeStore({ ...scope, ...patch })
-    if (channelsQ && (patch.channels || patch.recording)) setChannelsQ(null)
+    const next = { ...scope, ...patch }
+    const clearLink = () => { if (channelsQ && (patch.channels || patch.recording)) setChannelsQ(null) }
+    const moves = patch.recording !== undefined || patch.channels !== undefined || patch.section !== undefined
+    if (!moves || isHeldOut(next.recording)) { setScopeStore(next); clearLink(); return }
+    putScope({ recording: next.recording, channels: next.channels, section: next.section })
+      .then(() => { setScopeStore(next); clearLink(); sess.reload(); base.reload() })
+      .catch(e => {
+        console.error('the scope could not be changed', e)
+        toast.push({ text: `the scope was not changed · ${e instanceof Error ? e.message : String(e)}` })
+      })
   }
+  /** Back to the scope the server holds (out of a held-out recording the card refused). */
+  const resetScope = () => { setScopeStore(null); sess.reload(); base.reload() }
 
   let runs: DiscoveryRun[] = (base.data ?? []).map(r => patches[r.key] ? { ...r, ...patches[r.key] } : r)
   if (stateQ === 'empty') runs = runs.filter(r => r.kind === 'reference')
@@ -152,7 +171,7 @@ export function useDiscovery(): Discovery {
     loading, firstLoad, refreshing: loading && !firstLoad,
     error: sess.error ?? base.error ?? scoreRead.error, reload: () => { sess.reload(); base.reload(); scoreRead.reload() },
     demo: sess.source === 'demo' || base.source === 'demo',
-    scope, recordings, recording, setScope,
+    scope, recordings, recording, setScope, resetScope,
     runs, patchRun, picks, setPicks, togglePick, stale, setStale,
     pending, estimateMin, overLimit: estimateMin > DISCOVERY_LIMIT_MIN,
     chPage, setChPage: p => setChPageQ(String(p)), pageCount, visibleChannels,
