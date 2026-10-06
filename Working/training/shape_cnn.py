@@ -108,7 +108,7 @@ def make_recipe(pool_ref, template, *, encoding=DEFAULT_ENCODING, cnn=None, smok
     cfg = {k: (bool(v) if isinstance(CNN_DEFAULTS[k], bool) else int(v) if isinstance(CNN_DEFAULTS[k], int)
                else float(v) if isinstance(CNN_DEFAULTS[k], float) else v) for k, v in cfg.items()}
     sm = None
-    if smoke:
+    if smoke is not None:          # {} = the smoke at its defaults
         sm = {**SMOKE_DEFAULTS, **smoke}
         sm = {k: int(v) for k, v in sm.items()}
         cfg["epochs"] = sm["epochs"]

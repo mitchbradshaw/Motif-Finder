@@ -157,6 +157,14 @@ def test_the_cnn_recipe_is_the_forests_recipe_with_only_the_model_changed(world)
         cnn.make_recipe(world["pool_ref"], world["template"], encoding="spectrogram")
 
 
+def test_an_empty_smoke_is_the_smoke_at_its_defaults(world):
+    """The page sends `smoke: {}` for "the defaults": that is a smoke (one epoch, a few hundred windows), not none."""
+    cnn = _cnn()
+    r = cnn.make_recipe(world["pool_ref"], world["template"], smoke={})
+    assert r["smoke"] == {k: int(v) for k, v in cnn.SMOKE_DEFAULTS.items()}
+    assert r["cnn"]["epochs"] == cnn.SMOKE_DEFAULTS["epochs"] == 1
+
+
 def test_an_unmapped_cut_is_refused_as_the_forest_refuses_it(world):
     cnn = _cnn()
     bad = {**world["template"], "steps": _steps(world["pool_id"], mapping={"k": K, "clusters": {"1": {"class": "interesting"}}})}

@@ -109,6 +109,8 @@ export interface B2Run {
   mapping: { k: number | null; clusters: Record<string, MappingEntry> }; scored: boolean
   diagnostic: { kind: string; accuracy: number; macro_f1: number; chance_largest_cluster: number; n_held_back: number; note: string } | null
   exams: Record<string, { status: string; n: number; by_class: Record<string, number> }>; results_path: string | null; error: string | null
+  /** fixup-ai: a B.2 run is a forest or a CNN */
+  kind?: string; model?: string; smoke?: boolean
 }
 export interface B2Setup {
   template: { id: number; name: string; steps: { stage: string; algorithm: string; params: Record<string, unknown> }[] }
@@ -121,6 +123,8 @@ export interface B2Setup {
   inputs: { features: string; stages: string[]; rule: string }
   frozen: Frozen | null; checks: B2Check[]; defaults: { n_estimators: number; class_weight: string; random_state: number }
   runs: B2Run[]; slurm: string
+  /** fixup-ai: the CNN arm (encodings, defaults, the image rule, the null, how results return) */
+  cnn?: import('./cnn').CnnSetup
 }
 export const getB2Setup = (template: number, pool: number) => rq<B2Setup>(`/api/models/b2/setup?template=${template}&pool=${pool}`)
 export const trainB2 = (body: { template: number; pool: number; n_estimators?: number }) =>

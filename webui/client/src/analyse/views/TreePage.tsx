@@ -18,6 +18,8 @@ import { ApiError } from '../../api'
 import { getClusterCards, getClusterDetail, getFrozen, getTreeCut, type Cards, type ClusterCard, type ClusterDetail, type CutAt, type DetailWindow, type Frozen, type MappingEntry, type TreeInfo, type TreePayload } from '../../api/shape'
 import { useSize } from '../../charts/useSize'
 import { navigate } from '../../state'
+import { createWardSlurm, type WardSlurm } from '../../api/cnn'
+import { CopyList, ScriptBlock, Steps } from '../../models/HpcScript'
 import { Guard } from './ShapeViews'
 import { fmtN, type ProcessProps } from './common'
 
@@ -83,6 +85,34 @@ export function TreePage({ q, p }: { q: ProcessProps; p: TreePayload }) {
       {cut && <Guard label="the clusters at the cut"><ClusterTable cut={cut} sel={sel} onSel={setSel} /></Guard>}
       {sel !== null && <Guard label={`cluster ${sel}`}><ClusterPanel tkey={t.key} k={k} c={sel} /></Guard>}
       <Guard label="the mapping table"><MappingTable q={q} t={t} cut={cut} frozen={frozen} /></Guard>
+      <Guard label="Ward over every training window"><WardSlurmCard tkey={t.key} nTrain={t.n_clustered + t.n_assigned} sampled={t.n_assigned > 0} /></Guard>
+    </div>
+  )
+}
+
+/* fixup-ai: the local tree is Ward on a sample; the cluster has the memory for every training window. This writes the
+ * job (the pool's shape vectors + the same Ward) and its high-memory CPU script; the tree comes back by
+ * `python -m Working.training import-results <job>` and is kept where this block finds a tree with sample = 0. */
+function WardSlurmCard({ tkey, nTrain, sampled }: { tkey: string; nTrain: number; sampled: boolean }) {
+  const [out, setOut] = useState<WardSlurm | null>(null)
+  const [busy, setBusy] = useState(false)
+  const [err, setErr] = useState<string | null>(null)
+  const make = () => { setBusy(true); setErr(null); createWardSlurm(tkey).then(setOut, e => { console.error('ward script failed', e); setErr(errText(e)) }).finally(() => setBusy(false)) }
+  return (
+    <div className="stack" style={{ gap: 6 }} data-testid="ward-slurm">
+      <div className="row" style={{ gap: 8, alignItems: 'center' }}>
+        <button className="btn sm" onClick={make} disabled={busy} data-testid="ward-slurm-create">{busy ? 'writing…' : 'Create SLURM script · Ward over every training window'}</button>
+        <span className="muted small">{sampled ? `this tree is Ward on a sample; the cluster can build it on all ${nTrain.toLocaleString()} training windows (a CPU job with the memory for it)` : 'this tree already covers every training window'}</span>
+      </div>
+      {err && <div className="error-card" data-testid="ward-slurm-error"><h3>the Ward script was not written</h3><div className="mono small">{err}</div></div>}
+      {out && <div data-testid="ward-slurm-out">
+        <div className="small"><b>{out.n.toLocaleString()} training windows</b> · memory asked: <b data-testid="ward-slurm-mem">{out.memory.request_gb} GB</b> on <span className="mono">{out.partition}</span> · --time {out.slurm_time} (Ward ≈ {Math.round(out.seconds_estimate)} s, an estimate) · recipe <span className="mono">{out.recipe_hash}</span></div>
+        <div className="muted small">how the memory was sized: {out.memory.rule}</div>
+        {out.frozen_note && <div className="small" style={{ color: 'var(--red)' }} data-testid="ward-slurm-frozen">{out.frozen_note}</div>}
+        <Steps steps={out.steps} testid="ward-slurm-steps" />
+        <CopyList rows={out.copy} total={out.total_bytes} testid="ward-slurm-copy" />
+        <ScriptBlock script={out.script} path={out.script_path} testid="ward-slurm-script" />
+      </div>}
     </div>
   )
 }

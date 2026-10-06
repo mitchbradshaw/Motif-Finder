@@ -40,12 +40,14 @@ export function B2RunsStrip() {
       subtitle="a B.2 run has no human labels to be scored against until you label its test windows blind">
       {!list.length ? <div className="m-foot-line" data-testid="b2-results-none">no B.2 run yet — train one from Analyse (Shape clustering › Train model)</div> : (
         <table className="m-table">
-          <thead><tr><th>run</th><th>pool</th><th>k</th><th>status</th><th>blind check</th><th /></tr></thead>
+          <thead><tr><th>run</th><th>model</th><th>pool</th><th>k</th><th>status</th><th>blind check</th><th /></tr></thead>
           <tbody>{list.map(r => (
-            <tr key={r.run_id} data-testid={`b2-results-run-${r.run_id}`}>
-              <td className="mono">#{r.run_id}</td><td>{r.pool?.name} v{r.pool?.version}</td><td>{r.k}</td><td>{r.status}</td>
+            <tr key={r.run_id} data-testid={`b2-results-run-${r.run_id}`} data-model={r.kind === 'shape_cluster_cnn' ? 'cnn' : 'forest'}>
+              <td className="mono">#{r.run_id}</td><td className="small">{r.model ?? 'random forest'}</td><td>{r.pool?.name} v{r.pool?.version}</td><td>{r.k}</td><td>{r.status}</td>
               <td>{r.scored ? 'labelling / scored' : 'not yet labelled'}</td>
-              <td>{r.status === 'completed' && <Button size="sm" icon="eye" testid={`open-b2-blind-${r.run_id}`} onClick={() => navigate(`models/results/b2/${r.run_id}`)}>against a blind human</Button>}</td>
+              <td>{r.status === 'completed' && <Button size="sm" icon="eye" testid={`open-b2-blind-${r.run_id}`} onClick={() => navigate(`models/results/b2/${r.run_id}`)}>against a blind human</Button>}
+                {/* fixup-ai: the same template and pool on Launch, the CNN chosen — same windows, same cut, another model */}
+                {r.template?.id != null && r.pool?.id != null && <Button size="sm" variant="link" testid={`b2-launch-cnn-${r.run_id}`} onClick={() => navigate(`models/launch?arm=b2&template=${r.template.id}&pool=${r.pool.id}&model=cnn`)}>train a CNN on this</Button>}</td>
             </tr>))}</tbody>
         </table>
       )}

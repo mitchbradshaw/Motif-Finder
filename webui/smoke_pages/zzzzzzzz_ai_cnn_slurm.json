@@ -1,0 +1,57 @@
+[
+ {
+  "page": "analyse.block",
+  "state": "fixup-ai-ward-over-every-training-window-writes-a-high-memory-cpu-script",
+  "hash": "analyse/block/2",
+  "settle_ms": 2500,
+  "_why": "fixup-ai: the Shape clustering page of the pool AH's first state built (this file runs after zzzzzzz_ah_*; walk both with --only zzzzzzz): Create SLURM script - Ward over every training window writes the job (the pool's shape vectors + the same Ward) and a CPU script with --mem sized from the window count; the memory, the steps, what to copy and the script are on the page",
+  "actions": [
+   {"wait_for": ["[data-testid=\"tree-page\"]", 120000]},
+   {"wait_for": ["[data-testid=\"ward-slurm-create\"]", 30000]},
+   {"click": "[data-testid=\"ward-slurm-create\"]"},
+   {"wait_for": ["[data-testid=\"ward-slurm-out\"]", 120000]}
+  ],
+  "expect": ["[data-testid=\"ward-slurm-mem\"]", "[data-testid=\"ward-slurm-script\"]", "[data-testid=\"ward-slurm-copy\"]",
+             "[data-testid=\"ward-slurm-steps\"]"],
+  "expect_absent": ["[data-testid=\"ward-slurm-error\"]"]
+ },
+ {
+  "page": "models.launch",
+  "state": "fixup-ai-results-train-a-cnn-on-this-create-slurm-script",
+  "hash": "models/results",
+  "settle_ms": 2500,
+  "_why": "fixup-ai: Models > Results lists AH's B.2 forest run; *train a CNN on this* opens Launch on the same template and pool with the CNN chosen (fusion first); Create SLURM script writes the job directory and the GPU script: the estimate labelled as one, the steps on the cluster, what to copy (the job directory and every channel array, sized), the script as written, how results return",
+  "actions": [
+   {"wait_for": ["[data-testid^=\"b2-launch-cnn-\"]", 60000]},
+   {"click": "[data-testid^=\"b2-launch-cnn-\"]"},
+   {"wait_for": ["[data-testid=\"b2-cnn-settings\"]", 60000]},
+   {"wait_for": ["[data-testid=\"b2-slurm\"]:not([disabled])", 30000]},
+   {"click": "[data-testid=\"b2-slurm\"]"},
+   {"wait_for": ["[data-testid=\"b2-slurm-out\"]", 300000]}
+  ],
+  "expect": ["[data-testid=\"b2-slurm-script\"]", "[data-testid=\"b2-slurm-copy\"]", "[data-testid=\"copy-row-channel-array\"]",
+             "[data-testid=\"b2-slurm-estimate\"]", "[data-testid=\"b2-slurm-steps\"]", "[data-testid=\"b2-slurm-returns\"]",
+             "[data-testid=\"b2-cnn-images-rule\"]"],
+  "expect_absent": ["[data-testid=\"b2-error\"]"]
+ },
+ {
+  "page": "models.launch",
+  "state": "fixup-ai-the-local-smoke-runs-here-and-reads-in-results-and-the-blind-view",
+  "hash": "models/results",
+  "settle_ms": 2500,
+  "_why": "fixup-ai: the same recipe's local smoke (a few hundred windows, one epoch, this CPU) is exported, run and imported through the function the cluster's results return by; the CNN run is then a row of Results' B.2 list (model column says CNN) and opens AH's blind view unchanged",
+  "actions": [
+   {"wait_for": ["[data-testid^=\"b2-launch-cnn-\"]", 60000]},
+   {"click": "[data-testid^=\"b2-launch-cnn-\"]"},
+   {"wait_for": ["[data-testid=\"b2-cnn-smoke\"]:not([disabled])", 60000]},
+   {"click": "[data-testid=\"b2-cnn-smoke\"]"},
+   {"wait_for": ["[data-testid=\"b2-cnn-smoke-done\"]", 1200000]},
+   {"hash": "#/models/results"},
+   {"wait_for": ["[data-testid^=\"b2-results-run-\"][data-model=\"cnn\"]", 60000]},
+   {"click": "[data-testid^=\"b2-results-run-\"][data-model=\"cnn\"] [data-testid^=\"open-b2-blind-\"]"},
+   {"wait_for": ["[data-testid=\"b2-blind-line\"]", 60000]}
+  ],
+  "expect": ["[data-testid=\"b2-blind-line\"]", "[data-testid=\"blind-make\"]"],
+  "expect_absent": ["[data-testid=\"b2-error\"]"]
+ }
+]
