@@ -48,7 +48,10 @@ export function AllPage() {
 
   const [kindAlias] = useQueryState('kind', '')            // Models links in as ?kind=cluster
   const [filterQ, setFilter] = useQueryState<Filter>('filter', 'all')
-  const filter: Filter = filterQ !== 'all' ? filterQ : (kindAlias === 'cluster' ? 'cluster' : 'all')
+  // fixup-aj: a filter the demo table no longer has (`?filter=local` — the bridge's own jobs are the live list above)
+  // reads as `all`, never as a crash on its missing label
+  const known = FILTERS.some(f => f.value === filterQ)
+  const filter: Filter = known && filterQ !== 'all' ? filterQ : (kindAlias === 'cluster' ? 'cluster' : 'all')
   const [ws, setWs] = useQueryState('ws', 'all')
   const [sel, setSel] = useQueryState('sel', 'r-0431')
   const [drawer, setDrawer] = useQueryState('drawer', '')
