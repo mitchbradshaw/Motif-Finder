@@ -27,6 +27,7 @@ the rest of `Working/`.
 """
 
 import datetime as _dt
+from functools import partial
 import json
 import os
 
@@ -405,6 +406,11 @@ def _write_pair(conn, a_id, b_id, lag, r, b, info, rule):
     return out
 
 
+def _write_pair_into(pair, conn, a_id, b_id, lag, r, b, info, rule):
+    """`_write_pair`, with the edge ids it wrote kept on the classifier's `pair` row."""
+    pair["edge_ids"] = _write_pair(conn, a_id, b_id, lag, r, b, info, rule)
+
+
 def _window(load, rec, w0, w1):
     n = int(rec["n_samples"] or w1)
     return np.asarray(load(rec)[max(0, int(w0)):min(n, int(w1))], dtype=float)
@@ -593,11 +599,17 @@ def classify_family_across_channels(conn, member_ids, rule=None, progress=None, 
                                f"{'s' if len(ms) != 1 else ''} against {len(others)} sibling channel"
                                f"{'s' if len(others) != 1 else ''}")
         floor = floors.get(here["source_file"]) or {"floor_mv": 0.1, "from": "default 0.1 mV"}
+        # fixup-dblock: this channel's writes, applied together once every pair on it is judged. A write
+        # opens a transaction that holds SQLite's one write lock until COMMIT; writing as we went held it
+        # across every chance test (`_judge`), and a request that wrote meanwhile — Send suspected
+        # artifacts to Review — waited past its busy timeout and failed with `database is locked`.
+        writes = []
         for m in ms:
             fs = float(m["fs"] or 1.0)
             if int(m["id"]) in short:
                 # too short to tell: never binned — whatever an earlier rule stored goes
-                conn.execute("DELETE FROM motif_member_cooccurrence WHERE member_id = ?", (m["id"],))
+                writes.append(partial(conn.execute, "DELETE FROM motif_member_cooccurrence WHERE member_id = ?",
+                                      (m["id"],)))
             for s in others:
                 if not s["npy_path"] or not os.path.isfile(s["npy_path"]):
                     skipped.append({"member_id": m["id"], "recording_id": s["id"],
@@ -610,8 +622,9 @@ def classify_family_across_channels(conn, member_ids, rule=None, progress=None, 
                 partners = [p for p in by_rec.get(int(s["id"]), []) if _gap_s(m, p) <= rule.propagation_max_lag_s]
                 if partners:
                     # a member there now: whatever was counted without one is superseded
-                    conn.execute("DELETE FROM motif_member_cooccurrence WHERE member_id = ? AND recording_id = ?",
-                                 (m["id"], s["id"]))
+                    writes.append(partial(conn.execute,
+                                          "DELETE FROM motif_member_cooccurrence WHERE member_id = ? AND recording_id = ?",
+                                          (m["id"], s["id"])))
                     for p in partners:
                         key = frozenset((int(m["id"]), int(p["id"])))
                         if key in done_pairs:
@@ -619,7 +632,7 @@ def classify_family_across_channels(conn, member_ids, rule=None, progress=None, 
                         done_pairs.add(key)
                         a, b = (m, p) if int(m["id"]) < int(p["id"]) else (p, m)
                         if int(a["id"]) in short or int(b["id"]) in short:
-                            _clear_pair(conn, int(a["id"]), int(b["id"]), too_short_info)
+                            writes.append(partial(_clear_pair, conn, int(a["id"]), int(b["id"]), too_short_info))
                             continue
                         w0, w1 = min(a["start_idx"], b["start_idx"]), max(a["end_idx"], b["end_idx"])
                         x, y = _window(load, a, w0, w1), _window(load, b, w0, w1)
@@ -636,12 +649,15 @@ def classify_family_across_channels(conn, member_ids, rule=None, progress=None, 
                                 "recording_ids": [int(a["recording_id"]), int(b["recording_id"])],
                                 "lag_s": lag / fs, "rule": rule.as_dict(), "simultaneous": True, "at": now,
                                 "chance": chance, "floor": fl, "amplitude_ratio": _amplitude_ratio(fl)}
-                        eids = _write_pair(conn, int(a["id"]), int(b["id"]), lag, r, cls, info, rule)
-                        pairs.append({"member_a_id": int(a["id"]), "member_b_id": int(b["id"]), "lag": lag,
-                                      "lag_s": lag / fs, "waveform_correlation": r,
-                                      "classification_bin": cls, "window": (int(w0), int(w1)),
-                                      "edge_ids": eids, "simultaneous": True, "chance": chance, "floor": fl,
-                                      "amplitude_ratio": _amplitude_ratio(fl)})
+                        pair = {"member_a_id": int(a["id"]), "member_b_id": int(b["id"]), "lag": lag,
+                                "lag_s": lag / fs, "waveform_correlation": r,
+                                "classification_bin": cls, "window": (int(w0), int(w1)),
+                                "edge_ids": None, "simultaneous": True, "chance": chance, "floor": fl,
+                                "amplitude_ratio": _amplitude_ratio(fl)}
+                        # `edge_ids` is filled when the channel's writes are applied
+                        writes.append(partial(_write_pair_into, pair, conn, int(a["id"]), int(b["id"]),
+                                              lag, r, cls, info, rule))
+                        pairs.append(pair)
                     continue
                 if int(m["id"]) in short:
                     continue
@@ -658,7 +674,8 @@ def classify_family_across_channels(conn, member_ids, rule=None, progress=None, 
                         "window": [int(m["start_idx"]), int(m["end_idx"])], "fs": fs, "rule": rule.as_dict(),
                         "lag_s": lag / fs, "at": now, "chance": chance, "floor": fl,
                         "amplitude_ratio": _amplitude_ratio(fl)}
-                conn.execute(
+                writes.append(partial(
+                    conn.execute,
                     """INSERT INTO motif_member_cooccurrence
                            (member_id, recording_id, lag, waveform_correlation, classification_bin,
                             classification_json, created_at)
@@ -667,12 +684,15 @@ def classify_family_across_channels(conn, member_ids, rule=None, progress=None, 
                            lag = excluded.lag, waveform_correlation = excluded.waveform_correlation,
                            classification_bin = excluded.classification_bin,
                            classification_json = excluded.classification_json, created_at = excluded.created_at""",
-                    (m["id"], s["id"], lag, r, cls, json.dumps(info, sort_keys=True), now))
+                    (m["id"], s["id"], lag, r, cls, json.dumps(info, sort_keys=True), now)))
                 if cls in (xc.ARTIFACT, xc.PROPAGATION):
                     without.append({"member_id": int(m["id"]), "recording_id": int(s["id"]), "lag": lag,
                                     "lag_s": lag / fs, "waveform_correlation": r, "classification_bin": cls,
                                     "chance": chance, "floor": fl, "amplitude_ratio": _amplitude_ratio(fl)})
-        conn.commit()
+        # one short transaction per channel, in the order the writes were made: every channel or none of it
+        with conn:
+            for write in writes:
+                write()
 
     # an existing edge between members on sibling channels too far apart to be simultaneous
     by_id = {int(m["id"]): m for m in members}

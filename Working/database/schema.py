@@ -58,6 +58,14 @@ import sqlite3
 
 DB_PATH = os.path.join("DATA", "db", "annotations.sqlite")
 
+#: fixup-dblock: how long a connection waits for another writer before
+#: `database is locked`. SQLite allows one writer at a time; the bridge runs
+#: background jobs that write beside the page's own requests, and SQLite's
+#: (and Python's) default of 5 s turned a slow moment into a 500. Writers keep
+#: their transactions short (`Working.library.matching` judges outside one);
+#: this is the margin for the rest.
+BUSY_TIMEOUT_S = 30.0
+
 # The controlled terms a human verdict may take, defined once. `queries.VERDICTS`
 # re-exports this same object and the adjudication path reads it too: two
 # literals that happen to agree today are how the annotation and adjudication
@@ -1107,7 +1115,13 @@ def _migrate_recordings_units(conn):
     registration supplied) from ever being overwritten by the table."""
     from Working.units import RECORDING_UNITS_EVIDENCE
     _migrate_columns(conn, "recordings", _RECORDINGS_UNITS_COLUMNS)
+    # fixup-dblock: an UPDATE takes the write lock even when it matches nothing,
+    # and init_db runs on every bridge job start — so look first, write only
+    # what is there to write.
     for source_file, (units, note) in RECORDING_UNITS_EVIDENCE.items():
+        if conn.execute("SELECT 1 FROM recordings WHERE source_file = ? AND units IS NULL AND units_note IS NULL "
+                        "LIMIT 1", (source_file,)).fetchone() is None:
+            continue
         conn.execute("UPDATE recordings SET units = ?, units_note = ? "
                      "WHERE source_file = ? AND units IS NULL AND units_note IS NULL",
                      (units, note, source_file))
@@ -1135,7 +1149,37 @@ def _backfill_motif_entries(conn):
 
     A motif's detection pointer is retained as `motif_entry.detection_id`;
     the entry's own identity is the span it was found at.
+
+    fixup-dblock: an INSERT takes the write lock even when every row is
+    ignored, and init_db runs on every bridge job start — so each statement
+    runs only when a read says it has something to add.
     """
+    missing_entry = conn.execute(
+        """
+        SELECT 1 FROM motifs m
+        JOIN detections d ON d.id = m.detection_id
+        JOIN runs r ON r.id = d.run_id
+        WHERE NOT EXISTS (SELECT 1 FROM motif_entry e WHERE e.recording_id = r.recording_id
+                          AND e.start_idx = d.start_idx AND e.end_idx = d.end_idx)
+        LIMIT 1
+        """
+    ).fetchone()
+    missing_tag = conn.execute(
+        """
+        SELECT 1 FROM motif_tags mt
+        JOIN motifs m ON m.id = mt.motif_id
+        JOIN detections d ON d.id = m.detection_id
+        JOIN runs r ON r.id = d.run_id
+        JOIN motif_entry e
+          ON e.recording_id = r.recording_id
+         AND e.start_idx = d.start_idx
+         AND e.end_idx = d.end_idx
+        WHERE NOT EXISTS (SELECT 1 FROM motif_entry_tags et WHERE et.entry_id = e.id AND et.tag_id = mt.tag_id)
+        LIMIT 1
+        """
+    ).fetchone()
+    if missing_entry is None and missing_tag is None:
+        return
     conn.execute(
         """
         INSERT OR IGNORE INTO motif_entry
@@ -1337,7 +1381,7 @@ def get_connection(db_path=None):
     db_path = DB_PATH if db_path is None else db_path
     if db_path != ":memory:":
         os.makedirs(os.path.dirname(db_path), exist_ok=True)
-    conn = sqlite3.connect(db_path)
+    conn = sqlite3.connect(db_path, timeout=BUSY_TIMEOUT_S)
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA foreign_keys = ON")
     return conn

@@ -17,7 +17,7 @@ from Working.database import datasets as _datasets
 from Working.database import queries as q
 from Working.database import runs as r
 from Working.database.runs import list_runs, load_recipe
-from Working.database.schema import VERDICTS
+from Working.database.schema import BUSY_TIMEOUT_S, VERDICTS
 from Working.units import to_mv_factor
 
 from .decimate import envelope
@@ -34,7 +34,9 @@ from Working.discovery.channels import M2_STYLE_NAMES, channel_name as _core_cha
 
 
 def connect(db_path: str) -> sqlite3.Connection:
-    conn = sqlite3.connect(db_path, check_same_thread=False)
+    # fixup-dblock: wait for a background job's write as long as the core does
+    # (`schema.BUSY_TIMEOUT_S`), not SQLite's default 5 s
+    conn = sqlite3.connect(db_path, check_same_thread=False, timeout=BUSY_TIMEOUT_S)
     conn.row_factory = sqlite3.Row
     return conn
 
