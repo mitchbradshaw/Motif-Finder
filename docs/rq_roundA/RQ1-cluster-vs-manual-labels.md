@@ -119,6 +119,23 @@ which one does better on the exam.
   back — accuracy 0.66, macro F1 0.65 (largest pile 0.20), *not a result*; exam (i) 8,063 windows, exam (ii) 13,015;
   395 s (354 s measuring the raw windows). The cluster page now shows one card per pile at the current cut, and the
   mapping table follows the cut. Library › Window sets sends a set to the live chain; a set can be renamed.
+- **The blind check, yardstick (B)** (`AH`, 2026-10-06, `docs/prompts/fixup/reports/AH-blind-test-labelling.md`):
+  Models › Results lists B.2 runs; *Label test windows blind* draws a seeded sample of the run's test and exam windows
+  (default 1,000, max 2,000; split equally between the exams, then evenly per predicted cluster; weights kept; 10 %
+  shown twice at least a quarter of the queue apart), fixed on disk with the run before the first label, and opens a
+  `blind-test` Review queue whose card shows the raw trace in mV with context and its length — no prediction, cluster,
+  score, exam, recording, channel, place in the recording or earlier label. Keyboard I / N / U (can't tell) / A,
+  resumes. Answers are ordinary `annotations` rows (`source = 'blind_test_review'`, a note naming the queue). **The
+  first label freezes the pool's cut and mapping** (Analyse banner, Launch 409 — seen live). *Against a blind human*,
+  per exam: confusion, macro F1 + block-bootstrap CI, the model's interesting P / R / F1, kappa + CI, per cluster (the
+  check on the mapping), per scale, per recording, the label-shuffle null, reweighted figures, **self-agreement**
+  beside them; the disagreements stepped through. **The comparison line**: GASF, GADF, recurrence, two fusion
+  checkpoints and `catch22_rf_prelabeled` fed the raw window as it is (n × n image → 224), one row per scale, 1 / 30 min
+  marked *outside its training scale*, scored on all answered windows and on those with no earlier label;
+  `fusion_cnn.pth` refused (one output class); `fusion_cnn_2` / `_3` are two-class with class 0 = interesting (AUC 0.98 /
+  0.97 on labelled 10-minute windows, an upper bound). **Sandbox walk with PLACEHOLDER labels only** (run 399, k = 8,
+  AG's placeholder mapping, 100 windows + 10 repeats): the machinery works end to end, 0 console errors; no figure from
+  it is a finding — the real labelling is the researcher's.
 - **Lining windows up, measured** (`AG` report Part 2, 2026-10-05): Trace shape now has `align` (grid | centre on the
   largest swing — the trend removed, a running median so a glitch cannot be it) and `detrend` (off | linear); the
   default is **centre + linear**. Centring keeps every re-cut window inside its own role's stretch, the recording and
@@ -196,10 +213,11 @@ which one does better on the exam.
 | ~~**New scope:** a pooled set that also holds **unlabelled** windows (> 10,000 across all M2_aug channels, test regions and artifact regions left out) for arm B to cluster~~ — six unlabelled sets (M2_aug, M2 × 1 / 10 / 30 min) and the region-first combine | done, `AF` (2026-10-05) |
 | ~~The *Window pool* chain block over `pool.combine`, the shape clustering, the noise floor, the dendrogram~~ | done, `AG` seams (i)–(ii) (2026-10-05) |
 | ~~*Train model* → Models › Launch prefilled with arm **B.2 cluster labels · trace shape**, *Open in Analyse*, the freeze, the forest on the cluster categories~~ | done, `AG` seam (iii) (2026-10-06, report Part 3) |
-| The blind score of B.2's test and exam predictions (which also freezes the cut) | `AH` |
+| ~~The blind score of B.2's test and exam predictions (which also freezes the cut)~~ — built, `AH` (2026-10-06) | done |
+| **The researcher's blind labelling** of a real B.2 run (project mode, `AH` report §8) — the main result of RQ1 v2 | researcher |
 | **Open (the researcher, `AG` report §7):** how a grid window is lined up before its shape is compared (centre on its largest swing / remove its trend / cluster detected events / as is); the noise floor per dataset; the forest now or after | researcher |
 | ~~**Open (the researcher):** the pool's mix of scales~~ — decided 2026-10-05: equal, 20,000 per scale | researcher |
-| **New scope:** blind labelling in Review with the cluster names as buttons, plus "can't tell" (this is yardstick (B), now the main yardstick) | to build |
+| ~~**New scope:** blind labelling in Review with the cluster names as buttons, plus "can't tell"~~ — built as interesting / not + can't tell (`AH`; the cluster-name mode set aside 2026-10-05) | done |
 | **New scope:** the researcher's codebook — one page, each category defined with 2–3 example windows, written before labelling | researcher |
 
 ## New scope (2026-10-05): cluster the unlabelled pool, validate blind
@@ -392,6 +410,11 @@ Q-W1, Q-W2 and Q-W4 were answered 2026-10-03.
 - **Full-depth trees** (`AG` Part 3 §7): the B.2 forest grows every tree fully (141 MB per run compressed). Keep, as
   the baseline (recommended), a minimum leaf of 5 for B.2, or decide after `AH`'s first scores.
 
+- **The blind sample's size** (`AH` report §7 Q1): 1,000 (recommended) / 600 / 2,000.
+- **Which fusion checkpoint is "the" fusion model** (`AH` §7 Q2): both two-class checkpoints are scored for now.
+- **An artifact answer in the blind queue** (`AH` §7 Q3): left out and counted (recommended) or counted as not
+  interesting.
+
 - ~~**The pool's mix of scales**~~ — decided 2026-10-05, equal (see Log) (`AF` report §7, 2026-10-05): equal 20,000 per scale (recommended; what `AF`'s pool used), all
   10- and 30-minute windows plus a 1-minute sample, or equal hours per scale. One parameter with a seed; no set needs
   rebuilding whichever is chosen.
@@ -443,3 +466,7 @@ Q-W1, Q-W2 and Q-W4 were answered 2026-10-03.
 - 2026-10-06 · fixup-ag · Part 3: arm B.2 (the forest on the cluster categories, raw-sample features, diagnostic
   labelled, AH's results shape, the freeze), *Train model* → Launch prefilled → *Open in Analyse*; cluster cards and the
   mapping table follow the cut; Library sends a set to the live chain; rename a window set.
+- 2026-10-06 · fixup-ah · the blind interesting / not queue over a B.2 run's test and exam windows (seeded, even per
+  predicted cluster, 10 % twice, nothing that could tip the answer), labels in `annotations`, the first label freezes the
+  cut; Results › against a blind human per exam with self-agreement, the null and the manual-label CNNs one row per
+  scale (fusion_cnn refused, fusion_cnn_2 / _3 scored); sandbox walk with placeholder labels only.

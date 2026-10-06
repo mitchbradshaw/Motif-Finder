@@ -1,0 +1,14 @@
+fixup-ah · which fusion checkpoint is usable (scratchpad fusion_check.py; the real database read-only, mode=ro)
+120 human-labelled 10-minute M2_aug windows (60 interesting, 60 not_interesting, seed 0), each fed AS IT IS.
+These windows are very likely among the models' training windows: an upper bound, not an exam.
+
+classifier heads (backbone.classifier.1.weight): fusion_cnn 1 class (refused) · fusion_cnn_2 2 · fusion_cnn_3 2
+· fusion_prediction_cnn 14 (a different question) · GASF / GADF / recurrence 2
+
+GASF_cnn: AUC of P(class 0) for interesting = 0.987 · mean P(class 0) interesting 0.830 · not 0.038
+fusion_cnn_2: AUC of P(class 0) for interesting = 0.979 · mean P(class 0) interesting 0.884 · not 0.060
+fusion_cnn_3: AUC of P(class 0) for interesting = 0.970 · mean P(class 0) interesting 0.778 · not 0.058
+recurrence_cnn: AUC of P(class 0) for interesting = 0.984 · mean P(class 0) interesting 0.818 · not 0.042
+
+So class 0 is "interesting" for both two-class fusion checkpoints (as for GASF / recurrence), and both separate the
+classes. Which of the two is "the" fusion model is not recorded anywhere; both are scored, one row each.

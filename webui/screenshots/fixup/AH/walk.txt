@@ -1,0 +1,33 @@
+fixup-ah walk · 2026-10-06 17:35 · http://127.0.0.1:8781 · B.2 run 399 · pool 8 · template 14
+PLACEHOLDER labels: interesting when the shaded window swings >= 1 mV peak to peak, else not interesting
+1 · Models › Results lists the B.2 run; open it against a blind human
+  screenshot 01_results_lists_b2_runs
+  screenshot 02_label_test_windows_blind
+2 · Label test windows blind: N = 100, 10 % shown twice, seed 0 → Review
+  queue 3 · the card's payload keys: capped decimated duration_s fs fs judged length n_points n_showings n_source pad_windows px reason scale_text showing source t t0_s t1_s trace unit unit v verdict window
+  words on the card that could tip the answer: none
+  rail drawn: 0 · model pill: 0
+  screenshot 03_blind_card
+  showings 110
+3 · label 40 (keyboard), close, reopen: it resumes
+  40 labelled · machine round trip per window (keypress → next card painted): median 0.11 s
+  screenshot 04_after_40
+  reopened: progress says 40 judged; the card opens showing 41 — the first unlabelled is 41
+  screenshot 05_resumed
+4 · finish the queue
+  screenshot 06_queue_done
+  every showing answered · 110 keypresses · median round trip 0.11 s
+5 · Results › against a blind human
+  screenshot 07_against_blind_exam_ii
+  screenshot 08_against_blind_exam_i
+6 · the comparison line (a job)
+  scored in 93 s
+  screenshot 09_comparison_line
+  screenshot 10_disagreements
+7 · the freeze: Analyse (the chain re-run on that pool shows the banner) and Launch
+  Analyse: The cut and the mapping are frozen run 399 (B.2 · pool_712f477b v1 · k=8) has a test score on this pool at k = 8: a different cut or interesting / not mapping is refused here and on Models › Launch. Browsing other cuts is fine.
+  screenshot 11_analyse_frozen
+  screenshot 12_launch_frozen
+  Launch › Train with k = 9 on the frozen pool: HTTP 409 — run 399 already has a test score on this pool at k = 8: the cut is frozen once a test score exists — choosing it after seeing test scores is tuning on the test windows. Keep k, or make a new pool.
+  screenshot 13_launch_k9_refused
+browser console / page errors: 0
