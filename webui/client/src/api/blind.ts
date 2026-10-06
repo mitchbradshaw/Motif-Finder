@@ -73,6 +73,8 @@ export interface BlindScores {
     summary: { n: number; n_showings: number; n_repeats: number; min_gap: number | null; strata: Stratum[]; by_scale: { exam: ExamKey; scale_min: number; drawn: number }[]; by_exam: Record<ExamKey, number>; rule: string } } | null
   exams: Partial<Record<ExamKey, BlindExam>>
   self_agreement?: SelfAgreement
+  /** fixup-smoke2: one blind sample per pool — set when the sample and its labels are an earlier run's on this pool */
+  shared?: { owner_run_id: number; not_predicted: number; note: string } | null
   reference: { status: 'not computed' | 'computed'; rows: RefRow[]; computed_at?: string; n_labelled?: number; n_overlapping_earlier_label?: number; contamination?: string; note?: string
     models?: { model: string; file: string; image: string | null; how_fed: string }[] }
 }

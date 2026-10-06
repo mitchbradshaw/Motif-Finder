@@ -131,6 +131,12 @@ function MakeQueue({ data, runId, onMade }: { data: BlindScores; runId: number; 
           {data.verdicts && <span className="mono small">{Object.entries(data.verdicts).filter(([, v]) => v).map(([k, v]) => `${k.replace('_', ' ')} ${v}`).join(' · ')}</span>}
         </div>
       )}
+      {data.shared && (
+        <Callout tone="blue" icon="info" testid="blind-shared">
+          the sample and its labels are B.2 run {data.shared.owner_run_id}'s — one blind sample per pool: this run is scored on the answers already given, with its own calls and its own clusters{data.shared.not_predicted ? ` · ${fmtInt(data.shared.not_predicted)} sampled windows this run did not predict are left out` : ''}
+          <InfoTip title="One sample per pool">{data.shared.note}</InfoTip>
+        </Callout>
+      )}
       {s && (
         <div style={{ marginTop: 10 }} data-testid="blind-sample">
           <div className="m-foot-line">sample: {fmtInt(s.n)} windows, {fmtInt(s.n_repeats)} shown twice (closest pair {s.min_gap ?? '—'} showings apart) · {fmtInt(s.n_showings)} showings · seed {data.sample?.params.seed} · drawn {data.sample?.drawn_at}

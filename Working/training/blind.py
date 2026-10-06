@@ -29,6 +29,11 @@ The sample (decided, the researcher, 2026-10-05)
 * FIXED and stored with the run (``blind_sample.parquet`` beside its results, an
   ``artifacts`` row) before the first label; asking for a different sample is
   refused (``SampleFixed``): the same sample for every model.
+* ONE sample per POOL (fixup-smoke2; AI's question 2, option (a), 2026-10-07): a
+  later B.2 run on the same pool (the CNN arm after the forest) is served the
+  queue and sample the first run drew; its scores use the labels already written,
+  its own calls on the same windows and its own predicted clusters; the weights
+  are the sample's (``queue_for_run``, ``labels_for_run``).
 
 The queue and the labels
 ------------------------
@@ -261,15 +266,72 @@ def _run_results(conn, run_id):
     return path, res
 
 
-def queue_for_run(conn, run_id):
-    """The open blind queue of this run, as a dict with its filters, or None."""
-    row = conn.execute("SELECT * FROM review_queues WHERE source_kind = ? AND source_ref = ? AND closed_at IS NULL "
-                       "ORDER BY id LIMIT 1", (SOURCE_KIND, str(int(run_id)))).fetchone()
-    if row is None:
-        return None
+def _queue_dict(row):
     q = {k: row[k] for k in row.keys()}
     q["filters"] = json.loads(q["filters_json"] or "{}")
     return q
+
+
+def _pool_key(res):
+    return ((res or {}).get("pool") or {}).get("key")
+
+
+def queue_for_run(conn, run_id):
+    """The open blind queue that serves this run, as a dict with its filters, or None: the run's own, or — one
+    sample per pool (fixup-smoke2, AI's question 2 (a)) — the one drawn for an earlier B.2 run on the same pool, so
+    the labels the researcher gave for the forest also score a later CNN on the same windows. The queue's
+    `filters.run_id` names the run whose sample it is."""
+    row = conn.execute("SELECT * FROM review_queues WHERE source_kind = ? AND source_ref = ? AND closed_at IS NULL "
+                       "ORDER BY id LIMIT 1", (SOURCE_KIND, str(int(run_id)))).fetchone()
+    if row is not None:
+        return _queue_dict(row)
+    try:
+        _path, res = _run_results(conn, run_id)
+    except LookupError:
+        return None
+    key = _pool_key(res)
+    if not key:
+        return None
+    for row in conn.execute("SELECT * FROM review_queues WHERE source_kind = ? AND closed_at IS NULL ORDER BY id",
+                            (SOURCE_KIND,)).fetchall():
+        q = _queue_dict(row)
+        owner = q["filters"].get("run_id")
+        if owner is None or int(owner) == int(run_id):
+            continue
+        try:
+            _p, other = _run_results(conn, int(owner))
+        except LookupError:
+            continue
+        if _pool_key(other) == key:
+            return q
+    return None
+
+
+def labels_for_run(conn, queue, run_id):
+    """`labels` with the MODEL's columns (`cluster`, `class`, `p_interesting`) taken from `run_id`'s own
+    predictions, and what was shared: `(lab, None)` for the run whose sample it is; for a later run on the same pool,
+    its calls on the same windows (by recording, start and length) and `{"owner_run_id", "not_predicted", "note"}` —
+    a window it did not predict is left out of its scores and counted. The human's answers and the sampling weights
+    are the sample's own, unchanged."""
+    lab = labels(conn, int(queue["id"]))
+    owner = int(_filters(queue)["run_id"])
+    if owner == int(run_id):
+        return lab, None
+    _path, res = _run_results(conn, run_id)
+    key = ["recording_id", "start", "length"]
+    preds = pd.read_parquet(res["predictions_path"], columns=key + ["cluster", "class", "p_interesting"])
+    preds = preds.drop_duplicates(key)
+    lab = lab.drop(columns=["cluster", "class", "p_interesting"]).merge(preds, on=key, how="left")
+    missing = lab["cluster"].isna().to_numpy()
+    n_missing = int(((~lab["repeat"].to_numpy(dtype=bool)) & missing).sum())
+    lab = lab[~missing].reset_index(drop=True)
+    lab["cluster"] = lab["cluster"].astype(np.int64)
+    return lab, {"owner_run_id": owner, "not_predicted": n_missing,
+                 "note": (f"one blind sample per pool: the sample and its labels are B.2 run {owner}'s, drawn once from "
+                          f"this pool's test and exam windows; this run's scores use the labels already written, its "
+                          f"own calls on the same windows and its own predicted clusters; the weights are the "
+                          f"sample's" + (f"; {n_missing} sampled windows this run did not predict are left out"
+                                         if n_missing else ""))}
 
 
 def make_queue(conn, run_id, *, n=DEFAULT_N, repeat_frac=DEFAULT_REPEAT_FRAC, seed=0):
@@ -283,10 +345,23 @@ def make_queue(conn, run_id, *, n=DEFAULT_N, repeat_frac=DEFAULT_REPEAT_FRAC, se
     if n > MAX_N or n < 1:
         raise ValueError(f"a blind sample is 1 to {MAX_N:,} windows (asked for {n:,})")
     path, res = _run_results(conn, run_id)
+    want = {"n": n, "repeat_frac": repeat_frac, "seed": seed}
+    shared = queue_for_run(conn, run_id)
+    if shared is not None and int(shared["filters"]["run_id"]) != int(run_id):
+        # one sample per pool: an earlier run on this pool drew it; this run is scored on it, never a second one
+        f = shared["filters"]
+        have = {k: f.get(k) for k in want}
+        if have != want:
+            raise SampleFixed(f"this pool's blind sample is fixed (drawn for B.2 run {f['run_id']}): N = {have['n']:,}, "
+                              f"{have['repeat_frac']:.0%} shown twice, seed {have['seed']} — the same sample for every "
+                              f"model on the pool; asked for N = {n:,}, {repeat_frac:.0%}, seed {seed}")
+        with open(os.path.join(os.path.dirname(f["sample_path"]), SAMPLE_META), encoding="utf-8") as fh:
+            meta = json.load(fh)
+        return {"queue_id": int(shared["id"]), "created": False, "sample_path": f["sample_path"],
+                "summary": meta["summary"], "shared_with": int(f["run_id"])}
     run_dir = os.path.dirname(path)
     sample_path = os.path.join(run_dir, SAMPLE_FILE)
     meta_path = os.path.join(run_dir, SAMPLE_META)
-    want = {"n": n, "repeat_frac": repeat_frac, "seed": seed}
     if os.path.isfile(meta_path):
         with open(meta_path, encoding="utf-8") as fh:
             meta = json.load(fh)
@@ -524,7 +599,7 @@ def self_agreement(lab, role=None):
                      "than the human agrees with themself")}
 
 
-def _exam_scores(f, lab, role, mapping, n_boot, n_null, seed):
+def _exam_scores(f, lab, role, mapping, n_boot, n_null, seed, pop=None):
     from Working.training import metrics as tm
     clusters = (mapping or {}).get("clusters") or {}
     k = int((mapping or {}).get("k") or (max(int(c) for c in clusters) if clusters else 0))
@@ -549,7 +624,8 @@ def _exam_scores(f, lab, role, mapping, n_boot, n_null, seed):
                             "n_sample": int(len(g)), "n": int(len(gs)), "human_interesting": hi,
                             "share_interesting": (hi / len(gs)) if len(gs) else None,
                             "agrees_with_mapping": (float((gs["human"] == cls).mean()) if len(gs) else None),
-                            "population": int(g["stratum_size"].iloc[0]) if len(g) else 0})
+                            "population": (pop.get((role, c), 0) if pop is not None
+                                           else int(g["stratum_size"].iloc[0]) if len(g) else 0)})
     out["per_cluster"] = per_cluster
     empty_null = {"n": int(n_null), "mean": None, "q95": None, "p": None, "draws": [],
                   "rule": "the human's answers permuted against the model's fixed calls"}
@@ -630,23 +706,29 @@ def score(conn, run_id, *, n_boot=1000, n_null=1000, seed=0):
     if q is None:
         return {**base, "queue_id": None, "status": "no blind queue yet", "exams": {}, "sample": None,
                 "reference": {"status": "not computed", "rows": []}}
-    lab = labels(conn, int(q["id"]))
+    lab, shared = labels_for_run(conn, q, run_id)
     counts = Q.queue_counts(conn, int(q["id"]))
-    run_dir = os.path.dirname(path)
-    meta_path = os.path.join(run_dir, SAMPLE_META)
+    # the sample's own directory: the run's, or (one sample per pool) the run that drew it
+    sample_dir = os.path.dirname(_filters(q)["sample_path"])
+    meta_path = os.path.join(sample_dir, SAMPLE_META)
     sample_meta = None
     if os.path.isfile(meta_path):
         with open(meta_path, encoding="utf-8") as fh:
             sample_meta = json.load(fh)
+    pop = None
+    if shared is not None:
+        # a cluster's population is this run's own count of it, not the drawing run's stratum
+        pr = pd.read_parquet(res["predictions_path"], columns=["role", "cluster"])
+        pop = {(str(r), int(c)): int(n) for (r, c), n in pr.groupby(["role", "cluster"]).size().items()}
     firsts = lab[~lab["repeat"]]
     exams = {ek: {"title": EXAM_TITLES[ek], **_exam_scores(firsts[firsts["role"] == role], lab, role, res.get("mapping"),
-                                                          n_boot, n_null, seed)}
+                                                          n_boot, n_null, seed, pop=pop)}
              for ek, role in EXAMS}
     verdicts = {v: int((lab["human"] == v).sum()) for v in VERDICT_OPTIONS}
     return {**base, "queue_id": int(q["id"]), "status": "labelling" if counts["remaining"] else "labelled",
             "progress": {**counts, "pace_s": Q.queue_pace_s(conn, int(q["id"]))},
             "verdicts": verdicts, "sample": sample_meta, "exams": exams, "self_agreement": self_agreement(lab),
-            "reference": reference_section(conn, run_dir, lab)}
+            "shared": shared, "reference": reference_section(conn, sample_dir, lab)}
 
 
 def disagreements(conn, run_id, exam, kind):
@@ -662,7 +744,7 @@ def disagreements(conn, run_id, exam, kind):
     q = queue_for_run(conn, run_id)
     if q is None:
         return []
-    lab = labels(conn, int(q["id"]))
+    lab, _shared = labels_for_run(conn, q, run_id)
     f = lab[(~lab["repeat"]) & (lab["role"] == role) & (lab["class"] == want[0]) & (lab["human"] == want[1])]
     return [{"showing": int(r["showing"]), "window": int(r["window"]), "recording_id": int(r["recording_id"]),
              "source_file": str(r["source_file"]), "channel": int(r["channel"]), "start": int(r["start"]),
@@ -799,7 +881,8 @@ def run_reference(conn, run_id, models_dir, progress=None, cancel=None):
     firsts = s[~s["repeat"]].reset_index(drop=True)
     probs, meta = reference_probabilities(conn, firsts, models_dir, progress=progress, cancel=cancel)
     probs.insert(0, "window", firsts["window"].to_numpy())
-    run_dir = os.path.dirname(path)
+    # beside the sample (one per pool): the comparison line is about the sample's windows, whichever run asks
+    run_dir = os.path.dirname(_filters(q)["sample_path"])
     probs.to_parquet(os.path.join(run_dir, REFERENCE_FILE), index=False)
     _atomic_json(os.path.join(run_dir, REFERENCE_META), {"computed_at": _now(), "models_dir": models_dir,
                                                           "n_windows": int(len(firsts)), "models": meta})
