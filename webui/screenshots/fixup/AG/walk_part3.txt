@@ -1,0 +1,19 @@
+ticked from the Library: 1
+shot 10_library_use_as_source_one_set_ticked
+first run 115.3 s: last run · 2 clusters · clustered 20,000 · assigned 9,370 · not clustered 24,911
+shot 11_cards_follow_the_cut_k8
+cards at the larger cut: 20
+re-run 49.2 s: last run · 8 clusters · clustered 20,000 · assigned 9,370 · not clustered 24,911 · tree re-used
+shot 14_chain_train_model_enabled
+launch url: http://127.0.0.1:8776/#/models/launch?arm=b2&template=14&pool=8
+shot 15_launch_prefilled_b2
+forest 395.5 s: B.2 runs on this pool
+run	status	k	diagnostic · reproduces its own clusters	exam (i) later block	exam (ii) unseen channels	blind check
+#400	completed	8	diagnostic · accuracy 0.66 · macro F1 0.65 (largest cluster 0.20)	8,063 windows · interesting 2,611 · predicted · not yet labelled	13,015 windows · interesting 4,090 · predicted · not yet labelled	not yet labelled (AH)
+the diagnostic is how well the forest imitates its own answer key on training windows it did not fit — not evidence; the result is the blind human check (AH)
+shot 16_launch_b2_run_with_diagnostic
+shot 17_open_in_analyse_the_chain_on_that_pool
+chain name: shape_clusters
+saved
+shot 18_library_renamed
+console/page errors: []

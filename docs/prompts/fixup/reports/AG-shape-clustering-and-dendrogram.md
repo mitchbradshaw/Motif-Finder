@@ -532,3 +532,217 @@ run, and the shape vectors and tree under `DATA/derived/`.
 9. **03 Shape clustering**: drag the cut (try k = 8–10; the proposal, k = 2, says little here), click each pile — its
    medoid, a dozen members with their raw traces in mV, the scale mix and the raw range; *open in Explore* on a member.
    The mapping table can be filled, but **Train model is not built yet**.
+
+---
+
+# Part 3 — 2026-10-06: seam (iii), the forest on the clusters, and the researcher's three additions
+
+The researcher's decisions (2026-10-06): **(1)** one noise floor per dataset in mV, no scale-aware rule for now;
+**(2)** keep centre + linear detrend as the default; **(3)** *"windows should be fed into the model-trainer as their
+original raw signal, not a detrended version."* Then build seam (iii). Three additions came in during the run: rename
+a window set from the Library; make Library › Window sets send a set to the live chain, not the fixture page; and on
+the cluster page, one card per cluster at the current cut, redrawn when the cut moves. Commits: `220d62a` (red tests),
+`e03ae88` (the build), `6201a19` (the forest written compressed), and the report commit.
+
+## In plain words first
+
+The chain now ends in a button. When every pile at your cut has been called interesting or not, **Train model** saves
+the chain as a template and opens Models › Launch with everything filled in: the template, the pool (which recording,
+which channel trains and which is the exam), and the label arm **B.2 cluster labels · trace shape** with your cut and
+your interesting / not choices shown but not editable there. **Train locally** then teaches a random forest to tell the
+piles apart. The forest learns from the **raw recorded signal** of each window, not from the straightened,
+normalised version used to sort the piles. Afterwards it sorts the test and exam windows, which never went into the
+piles. Nothing is scored yet: the score comes when you label a blind sample (`AH`). The page also shows how often the
+forest gets its own piles right on windows it was not shown. That is a **diagnostic**, labelled as one: it is the
+forest repeating its own answer key, not evidence.
+
+On the cluster page, moving the cut now redraws **one card per pile**, all of them: 20 piles, 20 cards. The mapping
+table follows the cut too, so you can map a new cut without re-running first.
+
+## 1. What was built
+
+- **`Working/training/shape_forest.py`** (new):
+  - `make_recipe` reads the cut and the mapping from the template, and refuses unless every cluster at the cut has a
+    class. `INPUTS_RULE` sits in the recipe, so the CNN arm (`AI`) inherits it.
+  - `raw_features` measures catch22 + fast entropy (the baseline's 26 columns) on the RAW samples at each window's
+    re-cut bounds.
+  - `run_forest` and `run_and_record` write to the paired job's tables: `configs`, `runs` and `artifacts` (the results
+    JSON, the model, and the predictions as parquet on disk).
+  - `list_runs`, `frozen_for` and `check_frozen` handle the freeze (`store.CutFrozen`).
+- **The raw-input pin** (`test_training_features_are_measured_on_the_raw_samples_at_the_recut_bounds_and_ignore_detrend`):
+  - Centred with detrend off and centred with detrend linear give the same re-cut bounds and identical features.
+  - Those features equal `features_at` on the raw channel at the re-cut start.
+  - Centring decides which samples a window covers. Detrend and normalise only reach the clustering.
+- **The results JSON keeps the shape `AH` reads:**
+  - arm B.2 with its k, the mapping, the tree.
+  - The diagnostic (`kind: "diagnostic"`, *"not a result"*).
+  - Exams **(i) later block** (role test) and **(ii) unseen channels** (role exam), each *"predicted · not yet
+    labelled"*, with counts by cluster, class and scale.
+  - The predictions file: per window — recording, channel, re-cut start, original start, length, scale, role,
+    cluster, class and P(interesting).
+  - *yardstick_B: not yet labelled*; *yardstick_A: no arm A* (the pool is unlabelled).
+- **The freeze:** once any B.2 run on a pool has an exam with status `scored` (which `AH` will write), a different k,
+  or different interesting / not classes, is refused. Names may still change.
+  - **Launch:** the before-launch check reports it and *Train* answers 409.
+  - **Analyse:** the Shape clustering block refuses the run with the run named, and its page shows a *frozen* banner
+    and disables *Apply this cut* and the class selects. The pool's key now rides on every window (`pool_key`), so
+    Analyse knows which pool it is.
+  - Pinned in the core (`check_frozen`, and `run_and_record` refusing) with a run whose exam was marked scored. The
+    Analyse banner and the block's refusal call the same function but were not exercised in a browser: no scored run
+    exists yet.
+- **Bridge** (`shape_routes.py`):
+  - `GET /api/models/b2/setup`, `POST /api/models/b2/train` (a `training` job), `GET /api/models/b2/runs`,
+    `GET /api/models/b2/frozen`.
+  - `GET /api/shape/trees/{key}/cards`.
+  - `PATCH /api/windowsets/{id}/name`.
+- **Client:**
+  - **Train model** in the chain footer. It is disabled with its reason until the chain is a completed, non-stale
+    pool chain whose mapping covers the cut. It saves the template; the pool is already saved by its block. Then it
+    opens `models/launch?arm=b2&template=…&pool=…`.
+  - **`models/B2Launch.tsx`:**
+    1. Template.
+    2. Sources: the pool's recordings, every channel as *train* or *exam*.
+    3. Label arms: B.2 with the cut and the mapping read-only.
+    4. The model: inputs and rule, number of trees.
+    - Then the checks, **Train locally**, and the runs with the diagnostic labelled as one.
+    - *Create SLURM script* is greyed out with its reason (the B.2 forest trains locally in minutes; the HPC scripts
+      are `AI`'s).
+  - **Open in Analyse** goes to `analyse/chain?template=…&poolId=…`: that template, its Window pool re-opening that
+    saved pool.
+
+## 2. One forest run on the sandbox pool (run 400)
+
+- **Inputs:**
+  - `AF`'s six sets (sandbox copy), pack D held out, 20,000 per scale, key `712f477b262b2fd8`.
+  - Centre + linear, floor 0.1 mV (the default; Settings › Datasets is empty in the copy).
+  - Ward on 20,000 training windows, seed 0.
+- **Cut k = 8.** The mapping is **a placeholder of mine** (clusters 1 and 2 interesting, 3–8 not), made only to
+  exercise the path. The researcher's mapping is theirs to make.
+- **Chain:** the first run took 115 s (proposal k = 2). After mapping at k = 8, the re-run took 49 s (tree and proposal
+  re-used).
+- Evidence: `walk_part3.txt`, `part3/results_run400.json`, screenshots `10`–`18`. 0 browser console errors.
+
+| | |
+|---|---|
+| training windows (clustered + assigned) | **29,370** (20,000 + 9,370) |
+| cluster sizes at k = 8 | 2,815 · 5,747 · 2,905 · 4,291 · 2,008 · 2,704 · 2,915 · 5,985 |
+| forest | 300 trees, balanced class weights, seed 42; 26 raw-sample features |
+| **diagnostic** (20 % of training windows held back: 5,874) | accuracy **0.66**, macro F1 **0.65**; the largest cluster alone would be 0.20 — *a forest imitating its own answer key, not evidence* |
+| exam (i) later block | **8,063** windows predicted: interesting 2,611 · not 5,452; by cluster 861 · 1,750 · 825 · 1,197 · 405 · 488 · 621 · 1,916; by scale 1 min 2,571 · 10 min 2,885 · 30 min 2,607 |
+| exam (ii) unseen channels (pack D) | **13,015** windows predicted: interesting 4,090 · not 8,925; by cluster 867 · 3,223 · 1,294 · 2,301 · 658 · 545 · 985 · 3,142 |
+| yardstick (B) | not yet labelled (`AH`) |
+| time | 395 s: shapes and tree 32 s (re-used), **measuring the raw windows 354 s**, diagnostic 3 s, forest 5 s |
+| model on disk | 611 MB uncompressed; now written compressed, **141 MB** (`6201a19`) |
+
+The diagnostic says the forest reproduces its own piles about two times in three from 26 summary numbers of the raw
+signal. The piles were made from the normalised shape, so this is not surprising, and it says nothing about whether
+the piles mean anything.
+
+## 3. The cluster cards follow the cut (the researcher's request)
+
+- `GET /api/shape/trees/{key}/cards?k=` returns **every cluster at k**. Each card is its medoid (among at most 300
+  seeded members) and 4 members, with size and scale mix. It reads the kept tree and the shape vectors; nothing is
+  re-run.
+- The page draws a horizontally scrolling strip, one card per pile, redrawn when the cut moves. A card that cannot be
+  drawn is a red card.
+- Pinned: k = 2, 5, 9 give 2, 5, 9 cards covering every training window. A smoke state moves the cut from 8 to 12 and
+  asserts 12 cards. The walk drew 20 cards at k = 20 (`12_cards_k20.png`).
+- **The mapping table follows the cut as well.** Its rows are the clusters at the previewed k. An edit writes both k
+  and the mapping into the block.
+- **What still needs a re-run:**
+  - Nothing for browsing a cut: the cut route assigns the un-sampled training windows to the nearest centre on the
+    fly.
+  - A re-run is needed for the block's **recorded** Grouping and the run row: the payload's tiles, the thumbnail and
+    the run's k.
+  - *Train model* waits for that re-run (the chain is stale until then). With the tree and proposal re-used it took
+    49 s here.
+  - This is about cards and the mapping on the live page. The fixture page *Analyse › Training › 03 Cluster* the
+    researcher was looking at still shows its six fixture cards; it links to the live page.
+
+## 4. Library › Window sets → the live chain (the researcher's report)
+
+- **Use as source in Analyse** → `analyse/chain?poolSets=<id>`: the chain is *Window pool → Trace shape → Shape
+  clustering*, the source is the Window pool, and **that set alone is ticked**.
+- **New from Analyse** → `analyse/chain?poolSets=`: the same chain with nothing ticked.
+- **Re-split in Analyse** (both places) → the same with `&open=0`, which opens the Window pool block, where the region
+  plan lives now.
+- The chain accepts `poolSets`, `poolId`, `template` and `open` in its URL. They are consumed once and cleared; the old
+  chain goes to Undo.
+- A Library row is keyed by name and version, so the id is looked up in the library of sets.
+- Smoke state: *Use as source* on a saved set → the live chain, `data-ticked="1"`, no `demo data` chip. The walk
+  printed *ticked from the Library: 1* (`10_library_use_as_source_one_set_ticked.png`).
+- **Not changed, as asked:** the fixture page `analyse/training` itself, and the rail's **Train in Models**, which still
+  opens the paired Launch with `?windowSet=` and stays greyed out for an unlabelled set. The fixture training page's
+  own *Train in Models* still exists and is still a fixture.
+
+## 5. Rename a window set (the researcher's request)
+
+- `PATCH /api/windowsets/{id}/name`: the name changes; the key, the version, the files and the pools that use the set
+  (by id) do not.
+- An `audit_log` row says *"Window set renamed: old vN → new vN"*.
+- A name taken at the same version is refused (409); a bad name 422; an unknown id 404.
+- The rail has **Rename** (a prompt), and the row is re-read after. Walk screenshot `18_library_renamed.png`.
+
+## 6. Items left
+
+- **Scoring:** `AH` writes `status: "scored"` into an exam, which is also what freezes the cut.
+- **Results / Compare** read paired runs only. A B.2 run is listed on Launch, not on Results.
+- **SLURM for B.2** is not offered (greyed out with its reason). The full-pool Ward and the CNN scripts are `AI`'s.
+- **Measuring time:** measuring 54,000 raw windows takes ~6 min, most of the run. Caching the features per pool key
+  and re-cut bounds would make a second forest seconds.
+- **Model size:** 141 MB compressed per run, fully grown trees. Limiting leaf size would shrink it, but it would change
+  the model, so that is for the researcher.
+- **Mapping placement:** the interesting / not mapping lives in the template's parameter, so two templates with
+  different mappings on one pool are two recipes. The freeze compares classes against the scored run.
+
+## 7. A question for the researcher
+
+**Should the forest keep growing every tree to full depth?** *In plain words:* each of the 300 decision trees keeps
+splitting until every training window sits alone in its own leaf. That makes the saved model large (141 MB per run)
+and lets it memorise its training piles. Stopping a tree once a leaf holds, say, 5 windows makes it smaller and usually
+steadier, but it is a change to the model.
+
+- **(a)** Keep full depth, as the baseline did — comparable with run 79's forest.
+- **(b)** A minimum leaf size of 5 for B.2 only.
+- **(c)** Decide after `AH`'s first scores.
+
+*My recommendation:* **(a) for now**, because comparability with the baseline matters more than disk while there is
+one pool. Revisit after the blind scores.
+
+## 8. The gate
+
+1. **`npx tsc -b` clean; the build green.** It was built into private directories from `git archive HEAD`; the
+   shared `client/dist` was not rebuilt.
+2. **`pytest -n 4` (conda, 17 m): 2,361 passed, 30 skipped, 0 failed.** The failure set is empty.
+3. **Route tests (`webui/.venv`, every `tests/test_webui_*.py`, `-n 4`, 10 m): 439 passed, 3 xpassed, 1 failed** — the
+   standing `test_the_scoreboard_cells_are_the_tables_own_numbers`. My 5 B.2, rename and cards route tests pass.
+4. **Smoke, one full walk on a fresh `--sandbox` bridge, quiet machine:**
+   - Port 8775, private build of HEAD, started after the bridge's *stumpy JIT warm* line.
+   - The process sampler (`smoke-part3/sampler.txt`) saw no other smoke, pytest or bridge; CPU was mostly 0–1 %.
+   - The working tree held no other session's edits this time; the server code was HEAD's.
+   - **657 screenshots, 5 failures — exactly the five standing:** `discovery.runs--default` and the four Settings
+     registration Check states.
+   - 0 unexpected server tracebacks, 0 browser console or page errors. **No `database is locked` 500.**
+   - **All 6 of my states pass:**
+     - *Use as source* → the live chain with that set ticked, no demo chip;
+     - the Window pool is the source;
+     - ▶ Run → the dendrogram, a moved cut and a clicked cluster;
+     - **the cards follow the cut, 8 → 12 cards**;
+     - Trace shape's floor count;
+     - the pool's recording × scale × role.
+   - Even the three Interrogation cold-start states passed. Part 2's extra failures — run beside another session's
+     uncommitted `discovery.py` / `library.py` and with the stumpy warm-up colliding — did not recur.
+   - Evidence: `smoke-part3/`.
+5. **The acceptance walk** (`walk_part3.txt`, 0 console errors), on a sandbox of the six sets:
+   1. *Use as source* (1 set ticked);
+   2. tick every unlabelled set, then ▶ Run (115 s);
+   3. cut 8, then 20 cards at k = 20;
+   4. map at k = 8 and re-run (49 s);
+   5. *Train model*, which opens Launch prefilled;
+   6. *Train locally* (395 s, run 400);
+   7. *Open in Analyse*;
+   8. rename a set.
+
+**Files outside the expected area in Part 3:** none beyond Parts 1–2's list. `webui/client/src/models/LaunchPage.tsx`
+gained an `arm=b2` branch that hands the page to the new `B2Launch.tsx`; the paired Launch body is unchanged.
+`webui/client/src/library/WindowSetsPage.tsx` (AF's page) had its links re-pointed and Rename added, as asked.

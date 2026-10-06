@@ -108,6 +108,17 @@ which one does better on the exam.
   28)*. Position alone does not predict
   the pile (0.31 vs chance 0.28 at k = 8). Re-cut **centred on its largest swing**, the piles become event shapes
   (drops with recovery, spikes, V-shapes) across all three scales (ARI vs grid 0.33).
+- **Arm B.2, the forest on the cluster categories** (`AG` report Part 3, 2026-10-06): the chain's *Train model* saves
+  the template and opens Models › Launch prefilled (template, the pool's recordings / channels / roles, arm **B.2
+  cluster labels · trace shape** with the cut and the mapping read-only); *Train locally* trains a random forest on the
+  clusters of every training window, its features catch22 + fast entropy of the **raw** samples at the re-cut bounds
+  (pinned: unchanged by the detrend option); test and exam windows are assigned by the model only, predictions on disk;
+  results keep exams (i) and (ii) "predicted · not yet labelled", yardstick (B) "not yet labelled", no arm A. The cut
+  and the mapping freeze once a run on the pool has a scored exam (Launch and Analyse). One sandbox run (k = 8, a
+  **placeholder** mapping): 29,370 training windows; the diagnostic — the forest reproducing its own piles on 20 % held
+  back — accuracy 0.66, macro F1 0.65 (largest pile 0.20), *not a result*; exam (i) 8,063 windows, exam (ii) 13,015;
+  395 s (354 s measuring the raw windows). The cluster page now shows one card per pile at the current cut, and the
+  mapping table follows the cut. Library › Window sets sends a set to the live chain; a set can be renamed.
 - **Lining windows up, measured** (`AG` report Part 2, 2026-10-05): Trace shape now has `align` (grid | centre on the
   largest swing — the trend removed, a running median so a glitch cannot be it) and `detrend` (off | linear); the
   default is **centre + linear**. Centring keeps every re-cut window inside its own role's stretch, the recording and
@@ -122,6 +133,12 @@ which one does better on the exam.
   by eye.
 
 ## Decisions already made (`docs/prompts/fixup/QUESTIONS.md`)
+
+- **Seam (iii) and the model's inputs (the researcher, 2026-10-06, `AG` report Part 3):** (1) the noise floor is one
+  number per dataset in mV (Settings › Datasets), no scale-aware rule for now; (2) centre + linear detrend stays the
+  default for the piles; (3) *"windows should be fed into the model-trainer as their original raw signal, not a
+  detrended version"* — the forest's features (and later the CNN's images) are made from the RAW samples at each
+  window's re-cut bounds; detrend and normalise are for clustering only.
 
 - **Lining windows up (the researcher, 2026-10-05, `AG` report §7):** (1) centre each window on its largest swing, with
   a straight-line detrend measured beside it — the researcher's worry recorded: centring is *"risky as noise with large
@@ -178,7 +195,8 @@ which one does better on the exam.
 
 | ~~**New scope:** a pooled set that also holds **unlabelled** windows (> 10,000 across all M2_aug channels, test regions and artifact regions left out) for arm B to cluster~~ — six unlabelled sets (M2_aug, M2 × 1 / 10 / 30 min) and the region-first combine | done, `AF` (2026-10-05) |
 | ~~The *Window pool* chain block over `pool.combine`, the shape clustering, the noise floor, the dendrogram~~ | done, `AG` seams (i)–(ii) (2026-10-05) |
-| *Train model* → Models › Launch prefilled with arm **B.2 cluster labels · trace shape**, *Open in Analyse*, the freeze, the forest on the cluster categories | `AG` seam (iii), not built — waits on the alignment question below |
+| ~~*Train model* → Models › Launch prefilled with arm **B.2 cluster labels · trace shape**, *Open in Analyse*, the freeze, the forest on the cluster categories~~ | done, `AG` seam (iii) (2026-10-06, report Part 3) |
+| The blind score of B.2's test and exam predictions (which also freezes the cut) | `AH` |
 | **Open (the researcher, `AG` report §7):** how a grid window is lined up before its shape is compared (centre on its largest swing / remove its trend / cluster detected events / as is); the noise floor per dataset; the forest now or after | researcher |
 | ~~**Open (the researcher):** the pool's mix of scales~~ — decided 2026-10-05: equal, 20,000 per scale | researcher |
 | **New scope:** blind labelling in Review with the cluster names as buttons, plus "can't tell" (this is yardstick (B), now the main yardstick) | to build |
@@ -366,11 +384,13 @@ Q-W1, Q-W2 and Q-W4 were answered 2026-10-03.
 - ~~**The noise floor per dataset**~~ — decided 2026-10-05: per dataset, set by the researcher in Settings › Datasets.
   `AG` Part 2 recommends about 0.3 mV for M2_aug and M2.
 - ~~**The forest now or after the alignment decision**~~ — decided 2026-10-05: after the researcher has looked.
-- **The researcher looks at the piles** (centre + linear, a 0.3 mV floor, the cut by eye) — the clicks are in `AG`
-  report Part 2 §8 — before seam (iii) is built.
-- **A noise rule relative to the window's own noise** (`AG` Part 2 §6): the mV floor treats 1- and 30-minute windows
-  alike, but the noise-only windows are almost all 1-minute. Keep the mV floor at ~0.3 mV (recommended now), add a
-  "swing under N × own noise" rule, or a higher floor for 1-minute windows only.
+- ~~**The researcher looks at the piles** before seam (iii)~~ — the researcher answered 2026-10-06; seam (iii) built.
+  The researcher's own cut and mapping on the real database are still to be made (the clicks: `AG` Part 2 §8, then
+  *Train model*).
+- ~~**A noise rule relative to the window's own noise**~~ — decided 2026-10-06: one mV floor per dataset, no
+  scale-aware rule for now.
+- **Full-depth trees** (`AG` Part 3 §7): the B.2 forest grows every tree fully (141 MB per run compressed). Keep, as
+  the baseline (recommended), a minimum leaf of 5 for B.2, or decide after `AH`'s first scores.
 
 - ~~**The pool's mix of scales**~~ — decided 2026-10-05, equal (see Log) (`AF` report §7, 2026-10-05): equal 20,000 per scale (recommended; what `AF`'s pool used), all
   10- and 30-minute windows plus a 1-minute sample, or equal hours per scale. One parameter with a seed; no set needs
@@ -418,3 +438,8 @@ Q-W1, Q-W2 and Q-W4 were answered 2026-10-03.
   linear; the fence kept by every re-cut window; the four combinations measured (centre + linear: 8 event piles,
   scales still mixed, silhouette lower); noise is a 1-minute problem (34 % noise-like at 0.1 mV, 14 % at 0.3 mV);
   Part 1's "19 of 28 shifted copies" withdrawn (5 of 28 at a quarter-window slide).
+- 2026-10-06 · researcher · one mV floor per dataset; centre + linear stays; the model is trained on the raw signal of
+  each window, never the detrended or normalised vector; build seam (iii).
+- 2026-10-06 · fixup-ag · Part 3: arm B.2 (the forest on the cluster categories, raw-sample features, diagnostic
+  labelled, AH's results shape, the freeze), *Train model* → Launch prefilled → *Open in Analyse*; cluster cards and the
+  mapping table follow the cut; Library sends a set to the live chain; rename a window set.

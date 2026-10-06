@@ -1,0 +1,3 @@
+2361 passed, 30 skipped, 18700 warnings in 1038.00s (0:17:17)
+FAILED tests/test_webui_discovery.py::test_the_scoreboard_cells_are_the_tables_own_numbers
+1 failed, 439 passed, 3 xpassed, 471 warnings in 611.10s (0:10:11)
