@@ -19,7 +19,7 @@ import {
   postDiscoveryPlan, postDiscoveryPreview, startDiscoverySeedResults,
   type CutRule, type DivBreakdown, type PrecisionFigures, type DiscBand, type DiscBandsPayload, type DiscLikeForLike, type DiscPerBand, type DiscSetMember, type DiscVerdictSplit, type DiscSeedPageQuery, type DiscPlan, type DiscPlanBody, type DiscPreview, type DiscRecordingOption, type DiscSeedParams, type DiscSeedQuery, type DiscSeedResults,
 } from '../api'
-import { pollDiscoverySeedResultsBanked, type DiscSeedBank } from '../api'
+import { pollDiscoverySeedResultsBanked, type DiscSeedBank, type DiscSeedHpc } from '../api'
 import { live, type Sourced } from './seam'
 import type { GlyphKind, Role } from '../fixtures/discovery'
 
@@ -55,6 +55,10 @@ export interface DiscoveryRun {
   status: RunStatus; progress?: number; doneAt?: string
   /** what the sweep is doing now ("CH2_A1 · null 54 of 200"), from its job while it runs */
   progressText?: string
+  /** a seed run that is a SLURM job: its spec, script and the result file expected back */
+  hpc?: DiscSeedHpc
+  /** the run's null came from an imported cluster result, not paired surrogate runs here */
+  nullImported?: boolean
   reviewedH?: number
   perChannelMin?: number
   job?: string; pausedAt?: { stage: number; of: number }
@@ -135,7 +139,7 @@ export const getRuns = (): Promise<Sourced<DiscoveryRun[]>> => live(getDiscovery
   key: r.key, id: opt(r.id), label: r.label, kind: r.kind as DiscoveryRun['kind'], colour: r.colour,
   glyph: r.glyph as GlyphKind, detail: r.detail, status: r.status as RunStatus,
   template: opt(r.template), stageCount: opt(r.stageCount), version: opt(r.version),
-  perChannelMin: opt(r.perChannelMin), job: opt(r.job), progress: r.progress, progressText: opt(r.progressText), doneAt: r.doneAt, error: r.error,
+  perChannelMin: opt(r.perChannelMin), job: opt(r.job), progress: r.progress, progressText: opt(r.progressText), hpc: opt(r.hpc), nullImported: r.nullImported || undefined, doneAt: r.doneAt, error: r.error,
   reviewedH: r.reviewedH, runGroupId: opt(r.runGroupId), channelsDone: opt(r.channelsDone), found: opt(r.found),
   seedId: opt(r.seedId), cut: r.cut ?? null, entryId: r.entryId ?? null, scales: r.scales ?? null,
   band: r.band ?? null, bandSet: r.bandSet ?? null, bandIndex: r.bandIndex ?? null,
@@ -301,8 +305,15 @@ async function seedResults(q: DiscSeedQuery, onProgress?: (p: SeedProgress) => v
   const startedAt = Date.now()
   for (;;) {
     await sleep(POLL_MS)
-    const r = await (q.scales?.length ? pollDiscoverySeedResultsBanked(q) : pollDiscoverySeedResults(q))
+    let r = await (q.scales?.length ? pollDiscoverySeedResultsBanked(q) : pollDiscoverySeedResults(q))
     if (r.ready) return r
+    if (r.job_id == null) {
+      /* no job behind this query any more — the server restarted under it. Ask for it again: the POST starts
+       * the search, or joins one already running (it never adds a second copy). Polling the GET for four
+       * minutes, as before, just waited on nothing. */
+      r = await startDiscoverySeedResults(q)
+      if (r.ready) return r
+    }
     // the job's own progress, in units of work (the search plus every draw, per channel)
     onProgress?.({ done: r.progress?.done ?? 0, total: r.progress?.total ?? 0, message: r.progress?.message ?? '',
       elapsedS: r.elapsedS ?? null, etaS: r.etaS ?? null, jobId: r.job_id })

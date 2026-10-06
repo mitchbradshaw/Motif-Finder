@@ -5,14 +5,14 @@ import { axisUnit } from '../charts/units'
 import { DatasetName } from '../naming'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import {
-  Button, Callout, Checkbox, DisabledReason, Dropdown, EmptyState, Icon, InfoTip, Modal, NumberField, Pager, Popover, ProgressBar, RadioCards, RangeSlider,
+  Button, Callout, Checkbox, CodeBlock, DisabledReason, Dropdown, EmptyState, Icon, InfoTip, Modal, NumberField, Pager, Popover, ProgressBar, RadioCards, RangeSlider,
   Seg, SelectField, Slider, TextField, cx, forceSim, recordDemoWrite, useDemoState, useQueryState, useSim,
 } from '../kit'
 import { Header } from '../shell/Header'
 import { useToast } from '../shell/Toast'
 import { navigate } from '../state'
 import { useSourced } from '../api/seam'
-import { ApiError, cancelJob, putDiscoverySeedDraft, runDiscoverySeedSearchOnce, saveDiscoverySeedTemplate, type CutRule, type DiscSeedEstimate } from '../api'
+import { ApiError, cancelJob, postDiscoverySeedImport, postDiscoverySeedSlurm, putDiscoverySeedDraft, runDiscoverySeedSearchOnce, saveDiscoverySeedTemplate, type CutRule, type DiscSeedEstimate, type DiscSeedSlurm } from '../api'
 import { useSize } from '../charts/useSize'
 import {
   fmtSeconds, getSeedEstimate, getSeedPage, getSeedProfile, getSeedResults, getSeedSetup, getTemplates, saveSeedDraft, type SeedProgress, type DiscoveryRun, type SeedDraft, type SeedInfo, type SeedMatch, type SeedParams, type SeedResults, type SeedSource,
@@ -210,8 +210,9 @@ export function SeedPage() {
                       </>
                     )}
                     <ApplyBar dx={dx} draft={draft} kept={threshold == null ? null : kept.length} cut={threshold} finished={finished} seed={seed} sim={sim} bank={bankQ}
-                      estimate={estimate.data} live={live} startedAt={startedAt}
-                      onStarted={r => { setLastRun(r); setStartedAt(Date.now()) }} onSave={() => setModal('save-template')} />
+                      estimate={estimate.data} live={live} startedAt={startedAt} exclusion={exclusionQ}
+                      onStarted={r => { setLastRun(r); setStartedAt(Date.now()) }} onSave={() => setModal('save-template')}
+                      onSlurm={() => setModal('slurm')} onImported={() => { results.reload(); dx.reload() }} />
                   </div>
                 </div>
               )}
@@ -219,6 +220,8 @@ export function SeedPage() {
           )}
         </div>
       </div>
+      {draft && seed && dx.scope && <SeedSlurmModal open={modal === 'slurm'} onClose={() => setModal(null)} dx={dx} draft={draft} seed={seed} cut={threshold} bank={bankQ} exclusion={exclusionQ}
+        estimate={estimate.data} onImported={r => { setLastRun({ key: r.run_key, label: r.label }); setStartedAt(Date.now()); results.reload(); dx.reload() }} />}
       {draft && <SaveTemplateModal open={modal === 'save-template'} onClose={() => setModal(null)} draft={draft} seed={seed} cut={threshold} bank={bankQ} exclusion={exclusionQ}
         onSaved={name => { setDraft({ label: name }); putDiscoverySeedDraft({ seedId: draft.seedId, label: name }).catch(e => console.error('the draft could not be renamed', e)) }} />}
     </>
@@ -798,14 +801,25 @@ function SelectedMatch({ seed, match, yDomain }: { seed: number[]; match: SeedMa
 }
 
 /* ------------------------------------------------------------------ apply bar */
-function ApplyBar({ dx, draft, kept, cut, finished, seed, sim, onStarted, onSave, bank = null, estimate = null, live = null, startedAt = null }: {
+function ApplyBar({ dx, draft, kept, cut, finished, seed, sim, onStarted, onSave, bank = null, estimate = null, live = null, startedAt = null, exclusion = null, onSlurm, onImported }: {
   dx: Discovery; draft: SeedDraft; kept: number | null; cut: number | null; finished: DiscoveryRun | null; seed: SeedInfo | null
   sim: ReturnType<typeof useSim>; onStarted: (r: { key: string; label: string }) => void; onSave: () => void
   bank?: { scales: number[]; overlap: string } | null
   /** the run's cost on this scope, before the button; the run this page started, while it runs; when it was pressed */
   estimate?: DiscSeedEstimate | null; live?: DiscoveryRun | null; startedAt?: number | null
+  exclusion?: number | null
+  /** over the ceiling: *Create SLURM script* is the primary action; a result file brought back is imported here */
+  onSlurm?: () => void; onImported?: () => void
 }) {
+  const toast = useToast()
   const [now, setNow] = useState(Date.now())
+  const onCluster = !!finished && finished.status === 'on cluster'
+  const overCeiling = !!estimate && estimate.route === 'cluster'
+  const importResult = (file: File) => {
+    file.text().then(text => postDiscoverySeedImport(JSON.parse(text)))
+      .then(r => { onStarted({ key: r.run_key, label: r.label }); onImported?.(); toast.push({ text: `${r.label} · ${r.nullDraws} null draws imported · ${r.candidates} candidates · the real search is running here` }) })
+      .catch(e => { console.error('the result could not be imported', e); toast.push({ text: `not imported · ${e instanceof ApiError ? e.message : e instanceof Error ? e.message : String(e)}` }) })
+  }
   const running = !!live && (live.status === 'running' || live.status === 'queued')
   useEffect(() => { if (!running) return; const t = setInterval(() => setNow(Date.now()), 1000); return () => clearInterval(t) }, [running])
   // §7.6's apply bar diffs the parameters against the ones the last search ran with. `applied` is null
@@ -900,12 +914,76 @@ function ApplyBar({ dx, draft, kept, cut, finished, seed, sim, onStarted, onSave
               : <><b data-testid="apply-state">draft · {!applied ? 'not run with this cut yet' : changes.length === 0 ? 'no unapplied changes' : `${changes.length} unapplied change${changes.length === 1 ? '' : 's'}`}</b><span className="muted small mono">{diff ? `${diff} · ` : ''}preview counts update live</span></>}
           {sim.status === 'cancelled' && <span className="muted small">last search cancelled · nothing written</span>}
           <span className="k-spacer" />
-          {costLine && !finished && <span className="muted small mono" data-testid="run-estimate">{costLine}</span>}
+          {costLine && !finished && <span className="muted small mono" data-testid="run-estimate">{costLine}{overCeiling ? ` · over the ${fmtSeconds(estimate!.ceilingS)} local limit` : ''}</span>}
+          {onCluster && <span className="muted small mono" data-testid="on-cluster">on the cluster · import {finished!.hpc?.resultPath.split('/').pop() ?? 'the result'} when it is back</span>}
+          <ImportResultButton onFile={importResult} />
           <Button icon="save" onClick={onSave} testid="save-as-template">Save as template</Button>
-          <Button variant="primary" icon="play" onClick={run} disabled={!!noSeedReason || !!finished} disabledReason={noSeedReason ?? `already run with this seed and cut — ${finished?.label}`} testid="run-seed-search">Run seed search</Button>
+          {overCeiling || onCluster
+            ? <Button variant="cluster" icon="file" onClick={onSlurm} disabled={!!noSeedReason} disabledReason={noSeedReason ?? undefined} testid="seed-slurm">{onCluster ? 'SLURM script' : 'Create SLURM script'}</Button>
+            : null}
+          <Button variant={overCeiling ? undefined : 'primary'} icon="play" onClick={run} disabled={!!noSeedReason || !!finished || overCeiling}
+            disabledReason={noSeedReason ?? (overCeiling ? `about ${fmtSeconds(estimate!.run.seconds)} — over the ${fmtSeconds(estimate!.ceilingS)} local limit; run it on the HPC` : `already run with this seed and cut — ${finished?.label}`)} testid="run-seed-search">Run seed search</Button>
         </>
       )}
     </section>
+  )
+}
+
+/* ------------------------------------------------------------------ the HPC route */
+/** A file picker as a button: the result file `seed_job` wrote on the cluster, brought back by hand. */
+function ImportResultButton({ onFile, testid = 'import-result' }: { onFile: (f: File) => void; testid?: string }) {
+  const ref = useRef<HTMLInputElement>(null)
+  return (
+    <>
+      <input ref={ref} type="file" accept=".json,application/json" style={{ display: 'none' }} data-testid={`${testid}-file`}
+        onChange={e => { const f = e.target.files?.[0]; if (f) onFile(f); e.target.value = '' }} />
+      <Button icon="upload" onClick={() => ref.current?.click()} title="import a seed_job result file computed on the HPC" testid={testid}>Import HPC result</Button>
+    </>
+  )
+}
+
+/** Over the ceiling the search is a SLURM job (the researcher, 2026-10-06): `POST /api/discovery/seed/slurm` writes the spec
+ *  (the exemplar's samples, the channels, the span, the parameters, the session's null) and the script around
+ *  `python -m Working.discovery.seed_job`; the run row stands *on cluster*; the result file comes back through the import. */
+function SeedSlurmModal({ open, onClose, dx, draft, seed, cut, bank, exclusion, estimate, onImported }: {
+  open: boolean; onClose: () => void; dx: Discovery; draft: SeedDraft; seed: SeedInfo; cut: number | null
+  bank: { scales: number[]; overlap: string } | null; exclusion: number | null; estimate: DiscSeedEstimate | null
+  onImported: (r: { run_key: string; label: string }) => void
+}) {
+  const toast = useToast()
+  const [made, setMade] = useState<DiscSeedSlurm | null>(null)
+  const [err, setErr] = useState<Error | null>(null)
+  const [busy, setBusy] = useState(false)
+  useEffect(() => {
+    if (!open || made || !dx.scope) return
+    setBusy(true); setErr(null)
+    postDiscoverySeedSlurm({ seedId: seed.id, channels: dx.scope.channels, t0: dx.scope.section[0], t1: dx.scope.section[1], k: SEED_K, label: draft.label,
+      ...(cut != null ? { cut } : {}), ...(bank ? { scales: bank.scales, overlap: bank.overlap } : {}), ...(exclusion != null ? { exclusion } : {}) })
+      .then(r => { setMade(r); dx.reload() })
+      .catch(e => setErr(e instanceof Error ? e : new Error(String(e))))
+      .finally(() => setBusy(false))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open])
+  const importResult = (file: File) => {
+    file.text().then(text => postDiscoverySeedImport(JSON.parse(text)))
+      .then(r => { onImported(r); toast.push({ text: `${r.label} · ${r.nullDraws} null draws imported · the real search is running here` }); onClose() })
+      .catch(e => { console.error('the result could not be imported', e); toast.push({ text: `not imported · ${e instanceof Error ? e.message : String(e)}` }) })
+  }
+  const cost = estimate ? `about ${fmtSeconds(estimate.run.seconds)} here · ${estimate.channels} ch × ${(estimate.sectionH[1] - estimate.sectionH[0]).toFixed(1)} h × ${estimate.run.draws} null draws · over the ${fmtSeconds(estimate.ceilingS)} limit` : ''
+  return (
+    <Modal open={open} onClose={onClose} title="Seed search on the HPC" subtitle={cost} testid="seed-slurm-modal"
+      footerNote={made ? `sync the spec and the script to the cluster · ${made.sbatch_command} · bring ${made.result_path.split('/').pop()} back and import it` : 'the spec carries the exemplar’s own samples, the channels, the section and the null, so the cluster runs exactly this search'}
+      footer={<><ImportResultButton onFile={importResult} testid="modal-import-result" /><Button variant="primary" onClick={onClose}>Done</Button></>}>
+      {err ? <LoadFailed what="the SLURM script" error={err} onRetry={() => { setMade(null); setErr(null) }} />
+        : busy || !made ? <Loading height={260} label="writing the spec and the script through Working.discovery.seed_job" />
+          : <>
+            <div className="mono small muted" style={{ marginBottom: 8 }} data-testid="seed-slurm-paths">
+              spec {made.spec_path}<br />script {made.script_path}<br />result expected at {made.result_path}
+              {made.warnings?.length ? <><br /><span className="amber">{made.warnings.join(' · ')}</span></> : null}
+            </div>
+            <CodeBlock title={made.script_path} code={made.script} filename={made.script_path.split(/[\\/]/).pop() ?? 'seed.sh'} lineNumbers testid="seed-slurm-script" />
+          </>}
+    </Modal>
   )
 }
 

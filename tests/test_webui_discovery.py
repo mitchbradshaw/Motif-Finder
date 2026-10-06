@@ -247,16 +247,23 @@ def test_a_held_out_seed_id_is_refused_rather_than_resolved(client):
 
 # ── the plan is honest about what it cannot cost ────────────────────────────
 
-def test_an_uncosted_chain_routes_unknown_and_names_the_steps(client):
+def test_a_seed_plan_is_costed_by_the_measured_rate_not_left_unknown(client):
+    """`detection.seed_matches` declares no estimator, so this plan used to route
+    "unknown" — and an unknown route ran locally however large the scope (a
+    549 h search, hours). Since fixup-rq2 (2026-10-06) a seed plan is costed
+    by the session's measured rate (the assumed one until a run has finished)
+    and routed against a ten-minute ceiling by default, so a long search is a
+    SLURM job. The adapter is still named as uncosted: the number is the
+    rate's, not the block's."""
     seed = client.get("/api/discovery/seeds").json()["seeds"][0]
     r = client.post("/api/discovery/plan", json={"seedId": seed["id"], "channels": [CH[0], CH[1]],
                                                  "t0": 0.0, "t1": N / 3600.0})
     assert r.status_code == 200, r.text
     plan = r.json()
-    assert plan["route"] == "unknown", "detection.seed_matches declares no estimator"
-    assert plan["estimate_s"] is None
-    assert plan["uncosted"] == [0]
-    assert plan["ceiling_s"] == 1200
+    assert plan["uncosted"] == [0], "the block still declares no estimator"
+    assert plan["estimate_s"] is not None and plan["estimate_s"] > 0
+    assert plan["route"] == "local"
+    assert plan["ceiling_s"] == 600
     assert plan["n_channels"] == 2
 
 

@@ -8,7 +8,7 @@ import {
   RangeSlider, TextField, Tooltip, cx, recordDemoWrite, useNotWired, useQueryState, useSim,
 } from '../kit'
 import { getHistory, getOverview, heldOutReason, fmtMin, DISCOVERY_LIMIT_MIN, type DiscoveryRun } from '../api/discovery'
-import { applyDiscoveryTemplates, runDiscoverySeedSearchOnce } from '../api'
+import { applyDiscoveryTemplates, removeDiscoveryRun, runDiscoverySeedSearchOnce } from '../api'
 import { useSourced } from '../api/seam'
 import { navigate } from '../state'
 import { useToast } from '../shell/Toast'
@@ -460,6 +460,14 @@ function BandSetRow({ dx, set }: { dx: Discovery; set: BandSet }) {
 }
 
 function RunRow({ dx, run, selected, onSelect, mode }: { dx: Discovery; run: DiscoveryRun; selected: boolean; onSelect?: (k: string) => void; mode: RunsMode }) {
+  const toast = useToast()
+  /* the × (the researcher, 2026-10-06): the run leaves this session. The row is marked, not deleted — its runs
+   * and detections stay, nothing human is written, and History lists it as removed and can put it back. */
+  const remove = () => {
+    removeDiscoveryRun(run.key)
+      .then(r => { dx.reload(); toast.push({ text: `${run.label} removed from this session${r.cancelled ? ' · its job was cancelled' : ''} · the runs are kept — History brings it back` }) })
+      .catch(e => { console.error('the run could not be removed', e); toast.push({ text: `${run.label} was not removed · ${e instanceof Error ? e.message : String(e)}` }) })
+  }
   /* The row used to read a client-side simulator keyed on the run: `add()`
    * started it, it ticked for a fixed number of steps and declared the run
    * done. Now that *Add and run* is a real POST, nothing starts that timer, so
@@ -478,9 +486,11 @@ function RunRow({ dx, run, selected, onSelect, mode }: { dx: Discovery; run: Dis
   const kindBadge = run.kind === 'reference' ? <span className="k-badge t-grey">reference</span> : run.kind === 'seed' ? <span className="k-badge t-purple">seed</span> : run.kind === 'draft' ? <span className="k-badge t-amber">draft</span> : <span className="k-badge t-blue">template</span>
   let line: ReactNode = null
   switch (status) {
-    case 'done': line = <span>{found ?? '…'} found · {ranOn} ch · done {run.doneAt ?? '—'}{dx.stale && <span className="amber"> · stale</span>}</span>; break
-    case 'on cluster': line = <span className="dsc-run-progress"><ProgressBar value={run.progress ?? 0} size="sm" labelPosition="none" width={96} /><span className="blue">cluster {Math.round((run.progress ?? 0) * 100)} %</span></span>; break
-    case 'running': case 'queued': line = <span className="dsc-run-progress"><ProgressBar value={run.progress ?? 0} size="sm" labelPosition="none" width={96} /><span className="blue">{status === 'queued' ? 'queued' : `running · ${run.channelsDone ?? '…'} channels`}</span></span>; break
+    case 'done': line = <span>{found ?? '…'} found · {ranOn} ch · done {run.doneAt ?? '—'}{run.nullImported && <span className="muted"> · null from the cluster</span>}{dx.stale && <span className="amber"> · stale</span>}</span>; break
+    case 'on cluster': line = run.hpc
+      ? <span className="blue">on the cluster · import {run.hpc.resultPath.split('/').pop()} on the Seed page when it is back</span>
+      : <span className="dsc-run-progress"><ProgressBar value={run.progress ?? 0} size="sm" labelPosition="none" width={96} /><span className="blue">cluster {Math.round((run.progress ?? 0) * 100)} %</span></span>; break
+    case 'running': case 'queued': line = <span className="dsc-run-progress"><ProgressBar value={run.progress ?? 0} size="sm" labelPosition="none" width={96} /><span className="blue">{status === 'queued' ? 'queued' : `running · ${run.progressText ?? (run.channelsDone ? `${run.channelsDone} channels` : '…')}`}</span></span>; break
     case 'new': line = <span>new · local</span>; break
     case 'paused': line = <span className="dsc-run-progress"><ProgressBar value={run.progress ?? 0} size="sm" tone="amber" labelPosition="none" width={56} /><span className="amber">paused {run.pausedAt?.stage}/{run.pausedAt?.of}</span></span>; break
     case 'superseded': line = <span className="muted">superseded · no verdicts written</span>; break
@@ -489,6 +499,7 @@ function RunRow({ dx, run, selected, onSelect, mode }: { dx: Discovery; run: Dis
   }
   return (
     <div className={cx('dsc-run', selected && 'selected', status === 'paused' && 'paused', status === 'superseded' && 'superseded', status === 'failed' && 'failed')} style={{ ['--run' as string]: run.colour }} data-testid={`run-row-${run.key}`} data-status={status}>
+      {run.kind !== 'reference' && <button type="button" className="dsc-run-remove" onClick={remove} aria-label={`remove ${run.label} from this session`} title="remove from this session · the runs are kept; History brings it back" data-testid={`remove-${run.key}`}>×</button>}
       <button type="button" className="dsc-run-body" onClick={() => onSelect ? onSelect(run.key) : navigate(`discovery/runs?run=${encodeURIComponent(run.key)}`)} aria-pressed={selected} title={mode === 'runs' ? `browse ${run.label}` : `open ${run.label} in Runs`}>
         <RunGlyph kind={run.glyph} width={40} height={28} />
         <span className="dsc-run-text">

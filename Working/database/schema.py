@@ -703,9 +703,16 @@ CREATE INDEX IF NOT EXISTS idx_discovery_runs_group ON discovery_runs(run_group_
 """
 
 
+#: fixup-rq2 (2026-10-06): a run taken off its session by the researcher. The
+#: row stays — History lists it and can bring it back — so the column, not a
+#: DELETE, is what "remove from this session" means. Additive, nullable.
+_DISCOVERY_RUNS_NEW_COLUMNS = [("removed_at", "TEXT")]
+
+
 def _migrate_discovery_tables(conn):
     conn.executescript(_DISCOVERY_SCHEMA)
     conn.commit()
+    _migrate_columns(conn, "discovery_runs", _DISCOVERY_RUNS_NEW_COLUMNS)
 
 
 # Stage-3 prompt 05 (spec S10.1, P20/P21): the Review workspace's own tables.

@@ -80,6 +80,11 @@
 .dsc-run-progress { display: inline-flex; align-items: center; gap: 8px; }
 .dsc-run-jobs { margin-left: auto; }
 .dsc-run-retry { align-self: flex-end; flex: none; white-space: nowrap; }
+/* the × in the corner of a run card: the run leaves the session (the row is kept; History brings it back) */
+.dsc-run { position: relative; }
+.dsc-run-remove { position: absolute; top: 4px; right: 4px; width: 18px; height: 18px; border: 0; border-radius: 4px; background: transparent; color: var(--muted); font-size: 14px; line-height: 18px; padding: 0; cursor: pointer; opacity: 0; }
+.dsc-run:hover .dsc-run-remove, .dsc-run-remove:focus-visible { opacity: 1; }
+.dsc-run-remove:hover { background: var(--surface-2, #f3f4f6); color: var(--text); }
 .dsc-run.failed .dsc-run-line { white-space: normal; }
 .dsc-pick { width: 20px; height: 20px; border-radius: 5px; border: 1.5px solid var(--border-strong); background: var(--card); flex: none; cursor: pointer; font-family: var(--font-mono); font-size: 11px; font-weight: 600; color: #fff; display: inline-flex; align-items: center; justify-content: center; }
 .dsc-pick:disabled { opacity: 0.45; cursor: not-allowed; }

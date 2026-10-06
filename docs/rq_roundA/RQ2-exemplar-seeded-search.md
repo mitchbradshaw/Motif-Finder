@@ -78,6 +78,29 @@ things you also agree with, and whether it finds more than it would by chance.
     and does not survive a server restart: keep the section to hours, not the recording.
   - *Send N unjudged to Review* is on Discovery › Runs (*Open in Runs*), not on the Seed page.
 
+- **Repaired 2026-10-06, after the researcher's third report ("5 hours for 4 h × 3 channels")** — the cost above was
+  wrong, and so was the estimate built on it:
+  - **The preview piled up.** The live server held twenty copies of the same 4 h × 3-channel preview, started
+    seconds apart, each sharing one CPU with the others — so each read "6 h left". One copy alone takes **43 s**
+    in the bridge, **11 s** headless. A POST for a query already running now joins that job (`_live_seed_jobs`),
+    and the page re-asks after a server restart instead of polling nothing for four minutes. The 2026-10-05 rates
+    were measured under the pile-up; the honest ones are about 100,000 (preview) and 50,000 (run) sample·draws/s.
+  - **A seed search over the ceiling is a SLURM job.** `detection.seed_matches` declares no estimator, so a seed
+    plan routed *unknown* and ran locally however large the scope. It is now costed by the measured rate against
+    a **ten-minute** ceiling (Settings › Compute & HPC `limit.Discovery` overrides); over it, *Run seed search*
+    is replaced by *Create SLURM script*. The script is `Working.discovery.seed_job`'s: the spec carries the
+    exemplar's own samples, the channels by file and index, the section, the parameters and the session's null,
+    and the job computes the candidates **and the 200 draws** (the chain exporter's script ran the real chain with
+    no null — the whole cost). *Import HPC result* takes the result file back: the page's histogram and cut come
+    from it, and the run row is finished locally with the real search alone (seconds), marked *null from the
+    cluster*. The round trip (spec → headless compute → import → row done, 600 found) was walked in the sandbox.
+  - **A run can be removed from the session** (the × on its card). The row is marked, not deleted; History lists
+    it as *removed* and *open* puts it back; its runs and detections are untouched.
+  - What the HPC route does **not** do: move files. The spec and script are written under
+    `HPC/Detection/generated/` (sandbox: `webui/runtime/<stamp>/hpc/`); syncing them to rangpur, `sbatch`, and
+    bringing `<name>.result.json` back are by hand, as for every other generated job. The cluster needs the repo and
+    a database whose `recordings` rows name the same source file and channel indices.
+
 ## Decisions already made
 
 - **Q35:** a seed search draws **200** surrogates (Settings key). Every surface prints the count actually drawn.
@@ -100,6 +123,7 @@ things you also agree with, and whether it finds more than it would by chance.
 | ~~The null count printed is the count drawn; surrogate detections are never detections~~ | `T`, done 2026-10-03 |
 | ~~Precision means what it says~~ (two figures, each with its rule) | `X`, done 2026-10-04 |
 | Recall under the same containment rule (still §4.6, 0 by construction) | unowned, small (`X` report, *Left*) |
+| A seed search over the whole recording, on the HPC, brought back and judged — the first real RQ2 answer at scale | the researcher, with the SLURM route of 2026-10-06 |
 | ~~The exclusion zone is m/4 (stumpy's default), not §7.6's m/2~~ — a parameter, default m/2, settable (Round 11) | `AD`, done 2026-10-05 |
 
 ## How it gets answered
@@ -108,7 +132,8 @@ Follow `RESEARCH_RUNBOOK.md` Q2:
 
 1. Promote an exemplar in Review (`S`); the toast names entry N.
 2. *Seed search in Discovery →*, or Seed search › *change seed* › filter *review*.
-3. Choose a cut against the null, and *Run seed search*.
+3. Choose a cut against the null, and *Run seed search* — or, over ten minutes, *Create SLURM script*, run it on
+   the cluster, and *Import HPC result*.
 4. *Open in Runs* → *Send N unjudged to Review* → judge every one.
 5. Read the seed run's scoreboard row — precision (both figures) and × null — with its null.
 
@@ -129,3 +154,4 @@ Follow `RESEARCH_RUNBOOK.md` Q2:
 - 2026-10-05 · fixup-ad · the seed search's exclusion zone is `detection.seed_matches`' own parameter, default m/2, settable on the Seed page and recorded in the run's recipe; seed recipe hashes changed (0 seed runs in the real database).
 - 2026-10-05 · researcher's bug report · scope changes reach the session; a run lost in a restart reads failed and can be re-run; *Save as template* writes a row the Library lists as *seed search*; a 4 h × 3 ch run walked to *Send 47 unjudged to Review* in the sandbox.
 - 2026-10-06 · researcher's second report · the Seed page says what a search will cost before the button (work over a rate, measured once a search has finished here) and shows the job's own progress with time left; a cut can be chosen when the null gives none; a saved template's name becomes the next run's; Retry on a failed run is a real retry; a picked match is drawn large under the cards.
+- 2026-10-06 · researcher's third report · the "5 hours" was twenty copies of one preview sharing the CPU (a POST now joins the running job; 43 s alone); a seed search is costed by the measured rate and, over ten minutes, is a SLURM job (`Working.discovery.seed_job`: spec with the exemplar's samples and the null, headless compute, result imported — histogram from the cluster, run row finished here); a run can be removed from a session (×) and brought back from History.

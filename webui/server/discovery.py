@@ -37,7 +37,7 @@ import threading
 import time
 
 import numpy as np
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, Body, HTTPException, Request
 from pydantic import BaseModel, Field
 
 from Working import run_groups as RG
@@ -45,7 +45,7 @@ from Working.database import queries as q
 from Working.database import runs as R
 from Working.discovery import compare as D
 from Working.discovery import divergence as DIV
-from Working.discovery import fanout, seeded_search
+from Working.discovery import fanout, seed_job, seeded_search
 from Working.discovery import scoreboard as SB
 from Working.discovery.matching import match_span_sets, rule_from_settings
 from Working.discovery.spans import absolute_bounds, clip, merged, total_length
@@ -356,12 +356,14 @@ def put_session(request: Request, body: SessionBody):
 # ── the runs list ───────────────────────────────────────────────────────────
 
 def _discovery_runs(conn, session_id):
-    return conn.execute("SELECT * FROM discovery_runs WHERE session_id = ? ORDER BY id",
+    # a run the researcher removed from the session stays in the table (History
+    # can bring it back) but is not the session's
+    return conn.execute("SELECT * FROM discovery_runs WHERE session_id = ? AND removed_at IS NULL ORDER BY id",
                         (int(session_id),)).fetchall()
 
 
 def _dr_by_key(conn, session_id, run_key):
-    row = conn.execute("SELECT * FROM discovery_runs WHERE session_id = ? AND run_key = ?",
+    row = conn.execute("SELECT * FROM discovery_runs WHERE session_id = ? AND run_key = ? AND removed_at IS NULL",
                        (int(session_id), run_key)).fetchone()
     if row is None:
         raise HTTPException(404, {"message": f"no Discovery run {run_key!r} in this session"})
@@ -497,6 +499,11 @@ def _run_payload(conn, row, index, span, jobs=None):
         out["entryId"] = params.get("entryId")
         # fixup-v: the scale bank the run searched (None: the native length only)
         out["scales"] = params.get("scales")
+        if params.get("hpc"):
+            # the SLURM job this run is, and where its result is expected
+            out["hpc"] = params["hpc"]
+        if (params.get("null") or {}).get("imported"):
+            out["nullImported"] = True
     if progress is not None and status == "running":
         out["progress"] = round(progress, 3)
     if progress_text:
@@ -648,9 +655,10 @@ def get_history(request: Request):
                 "id": f"g-{r['run_group_id']}" if r["run_group_id"] else f"d-{r['id']}",
                 "label": r["label"],
                 "when": (r["updated_at"] or r["created_at"] or "")[:16].replace("T", " "),
-                "status": "superseded" if r["superseded_at"] else (st["status"] if st else r["status"]),
+                "status": ("removed" if r["removed_at"] else "superseded" if r["superseded_at"]
+                           else (st["status"] if st else r["status"])),
                 "runKey": r["run_key"],
-                "inSession": int(r["session_id"]) == int(s["id"]),
+                "inSession": int(r["session_id"]) == int(s["id"]) and not r["removed_at"],
                 "detail": f"{n} detections · {st['total']} ch" if st else r["kind"],
             })
         return out
@@ -1532,13 +1540,16 @@ def _seed_key(seed_id, channels, t0, t1, k, max_distance, null, source_file="", 
                     + [f"excl {_exclusion(exclusion):g}"])
 
 
-#: Sample·draws per second, measured in the sandbox on 2026-10-05 (a 1,313-sample
-#: seed, 4 h × 3 channels, 200 draws): the preview did 8.7 M in 259 s, the run
-#: (`fanout` with paired surrogate runs) 8.7 M in about 130 s. MASS is O(n log n)
-#: per draw whatever the seed length, so the rate is about the seed-independent
-#: figure a researcher needs before pressing the button. A measured rate replaces
-#: these the first time a search finishes on this machine.
-DEFAULT_SEED_RATES = {"preview": 33_000.0, "run": 65_000.0}
+#: Sample·draws per second, measured in the sandbox on 2026-10-06 (a 60-sample
+#: seed, 4 h × 3 channels, 200 draws, 8.7 M units each): the preview took 43 s
+#: alone and 91 s beside a running sweep; the run (`fanout` with paired surrogate
+#: runs, every draw a chain run with its rows) 168 s. The 2026-10-05 figures
+#: (259 s, 130 s) were measured while twenty copies of the preview shared the CPU
+#: (the pile-up `_live_seed_jobs` now prevents) and were four times too slow. MASS
+#: is O(n log n) per draw whatever the seed length, so the rate is about the
+#: seed-independent figure a researcher needs before pressing the button. A
+#: measured rate replaces these the first time a search finishes on this machine.
+DEFAULT_SEED_RATES = {"preview": 100_000.0, "run": 50_000.0}
 
 
 def _preview_draws(n_samples, want):
@@ -1602,6 +1613,9 @@ def get_seed_estimate(request: Request, channels: str = "", t0: float = 0.0, t1:
         want = int(null.get("n") or 0) if null.get("supported", True) and null.get("method") else 0
         out = _seed_estimate(c, s, max(0, span[1] - span[0]), len(chans), want)
         out["sectionH"] = [span[0] / fs / 3600.0, span[1] / fs / 3600.0]
+        # over the ceiling the run is a SLURM job, not a local one
+        out["ceilingS"] = _seed_ceiling_s(c)
+        out["route"] = "cluster" if out["run"]["seconds"] > out["ceilingS"] else "local"
         return out
     finally:
         c.close()
@@ -1616,11 +1630,8 @@ def _seed_search(conn, seed, chans, span, *, k, max_distance, null, job=None, sc
     two distributions are comparable by construction rather than by assertion.
     """
     exemplar = np.asarray(seeded_search.exemplar_signal(conn, seed).x, dtype=float)
-    per_channel, pooled_null, candidates, capped = [], [], [], []
-    for_cut, block_s = [], None
-    by_scale = {}
+    computed, capped = [], []
     n = len(chans)
-    rule = rule_from_settings(conn)
     # progress is in units of work — the search plus every draw, per channel —
     # not in channels: 0 of 3 for the whole of a channel's 200 draws told the
     # researcher nothing
@@ -1637,6 +1648,46 @@ def _seed_search(conn, seed, chans, span, *, k, max_distance, null, job=None, sc
                                          max_distance=(max_distance if max_distance > 0 else None),
                                          scales=scales, overlap=overlap or "lowest",
                                          exclusion=_exclusion(exclusion))
+        channel_null = {"distances": [], "draws": 0}
+        if null_on:
+            want = int(null["n"])
+            asked = _preview_draws(len(x), want)
+            if asked < want:
+                capped.append(f"{ch['name']}: {want} draws asked, {asked} drawn "
+                              f"({len(x):,} samples x {want} is over the budget)")
+            if job is not None:
+                job.progress(i * per + 1, total, f"{ch['name']} · null, {asked} draws")
+            nulls = seeded_search.null_distances(
+                x, exemplar, draws=asked, seed=0, method=null["method"], k=k,
+                max_distance=(max_distance if max_distance > 0 else None), fs=fs,
+                block_s=null.get("blockS"),
+                on_progress=((lambda d, t, ch=ch, i=i: job.progress(i * per + 1 + d, total,
+                                                                   f"{ch['name']} · null {d}/{t}"))
+                             if job is not None else None),
+                should_cancel=(job.cancel_event.is_set if job is not None else None),
+                scales=scales, overlap=overlap or "lowest", exclusion=_exclusion(exclusion))
+            channel_null = {"distances": nulls["distances"], "draws": nulls["draws"],
+                            "byScale": nulls.get("by_scale"), "blockS": nulls["block_s"]}
+        computed.append({"ch": ch, "found": found, "null": channel_null})
+
+    if job is not None:
+        job.progress(total, total, "scoring the cut")
+    return _assemble_seed_result(conn, seed, chans, span, computed, null, scales=scales, capped=capped)
+
+
+def _assemble_seed_result(conn, seed, chans, span, computed, null, *, scales=None, capped=(), imported=None):
+    """The page's result from what was computed — here or on the cluster: the
+    match cards' own samples and verdicts, the pooled null, the recommended cut
+    under Settings › Nulls' rule. ``computed`` is ``[{ch, found: [{index
+    (relative to the span), distance, scale?, length?}], null: {distances,
+    draws, byScale?, blockS?}}]`` per channel."""
+    per_channel, pooled_null, candidates = [], [], []
+    for_cut, block_s = [], None
+    by_scale = {}
+    rule = rule_from_settings(conn)
+    for item in computed:
+        ch, found = item["ch"], item["found"]
+        fs = float(ch["fs"])
         first = len(candidates)
         # the match's own samples, in the unit the seed card draws, so a match
         # card overlays the MATCH on the seed (§7.6) — every candidate used to
@@ -1663,38 +1714,20 @@ def _seed_search(conn, seed, chans, span, *, k, max_distance, null, job=None, sc
             candidates[first + p["candidate"]]["judged"] = True
             candidates[first + p["candidate"]]["verdict"] = humans[p["reference"]]["verdict"]
 
-        draws = 0
-        channel_null = {"distances": [], "draws": 0}
-        if null_on:
-            want = int(null["n"])
-            asked = _preview_draws(len(x), want)
-            if asked < want:
-                capped.append(f"{ch['name']}: {want} draws asked, {asked} drawn "
-                              f"({len(x):,} samples x {want} is over the budget)")
-            if job is not None:
-                job.progress(i * per + 1, total, f"{ch['name']} · null, {asked} draws")
-            nulls = seeded_search.null_distances(
-                x, exemplar, draws=asked, seed=0, method=null["method"], k=k,
-                max_distance=(max_distance if max_distance > 0 else None), fs=fs,
-                block_s=null.get("blockS"),
-                on_progress=((lambda d, t, ch=ch, i=i: job.progress(i * per + 1 + d, total,
-                                                                   f"{ch['name']} · null {d}/{t}"))
-                             if job is not None else None),
-                should_cancel=(job.cancel_event.is_set if job is not None else None),
-                scales=scales, overlap=overlap or "lowest", exclusion=_exclusion(exclusion))
-            pooled_null.extend(nulls["distances"])
-            for v, part in (nulls.get("by_scale") or {}).items():
-                slot = by_scale.setdefault(v, {"distances": [], "draws": 0})
-                slot["distances"].extend(part["distances"])
-                slot["draws"] = max(slot["draws"], part["draws"])
-            draws = nulls["draws"]
-            block_s = nulls["block_s"]
-            channel_null = {"distances": nulls["distances"], "draws": draws}
+        cn = item["null"]
+        draws = int(cn.get("draws") or 0)
+        pooled_null.extend(cn.get("distances") or [])
+        for v, part in (cn.get("byScale") or {}).items():
+            # keys are floats from the core and strings from a result file
+            slot = by_scale.setdefault(float(v), {"distances": [], "draws": 0})
+            slot["distances"].extend(part["distances"])
+            slot["draws"] = max(slot["draws"], int(part["draws"]))
+        if cn.get("blockS") is not None:
+            block_s = cn["blockS"]
         per_channel.append({"channel": ch["name"], "n": len(found), "nullDraws": draws})
-        for_cut.append({"distances": [c_["distance"] for c_ in found], "null": channel_null})
+        for_cut.append({"distances": [c_["distance"] for c_ in found],
+                        "null": {"distances": cn.get("distances") or [], "draws": draws}})
 
-    if job is not None:
-        job.progress(total, total, "scoring the cut")
     candidates.sort(key=lambda c_: (c_["d"], c_["index"]))
     # `draws` is the count PER CHANNEL, because `kept` is one realisation over
     # every channel: dividing a pooled hit count by the pooled draw-channels
@@ -1711,6 +1744,7 @@ def _seed_search(conn, seed, chans, span, *, k, max_distance, null, job=None, sc
         "reason": null.get("reason"), "requested": null.get("requested"),
         "asked": int(null.get("n") or 0),
         "capped": (" · ".join(capped) or None),
+        "imported": bool(imported),
         # the block a block shuffle dealt (None for a method with no block)
         "blockS": block_s,
     }
@@ -1744,6 +1778,8 @@ def _seed_search(conn, seed, chans, span, *, k, max_distance, null, job=None, sc
         "exclusionNote": seeded_search.recommended_params(seed)["exclusion_note"],
         "scales": ([float(v) for v in scales] if scales else None),
         "computedAt": _now(),
+        # computed on the cluster and imported (the result file's provenance), or None
+        "imported": (True if imported else None), "importedFrom": imported,
     }
 
 
@@ -1760,6 +1796,7 @@ def _store_result(conn, session_id, key, result):
         "cutRule": result["cutRule"], "m": result["m"],
         "seedId": result["seedId"], "span": result["span"], "perChannel": result["perChannel"],
         "exclusionNote": result["exclusionNote"], "scales": result.get("scales"),
+        "imported": result.get("imported"), "importedFrom": result.get("importedFrom"),
     }
     conn.execute("UPDATE discovery_sessions SET state_json = ?, updated_at = ? WHERE id = ?",
                  (json.dumps(state), _now(), int(session_id)))
@@ -1776,6 +1813,21 @@ def _cached_result(conn, session_id, key):
     if stored and stored.get("key") == key:
         return dict(stored, nullDistances=stored["null"]["distances"], counts=None, restored=True)
     return None
+
+
+def _live_seed_jobs(request, key, finished=False):
+    """The preview jobs for one result key, newest first — the ones still
+    running (or, with ``finished``, any the manager remembers). Read off the
+    manager's own jobs, not a 25-row listing a busy Jobs page pushes them out of."""
+    out = []
+    for j in list(request.app.state.manager.jobs.values()):
+        if getattr(j, "kind", None) != "sweep" or (getattr(j, "meta", None) or {}).get("key") != key:
+            continue
+        if not finished and j.status not in ("running", "queued"):
+            continue
+        out.append(j.snapshot())
+    out.sort(key=lambda j: -int(j["job_id"]))
+    return out
 
 
 @router.post("/api/discovery/seed/results")
@@ -1795,6 +1847,13 @@ def start_seed_results(request: Request, body: SeedBody):
         cached = _cached_result(c, s["id"], key)
         if cached is not None:
             return {"ready": True, "key": key, **cached}
+        # the same query already running is THAT job, not a second one: the live
+        # server held twenty copies of one 4 h preview started seconds apart,
+        # each at a twentieth of the speed — "6 h left" for a minute's work
+        live = _live_seed_jobs(request, key)
+        if live:
+            return {"ready": False, "job_id": live[0]["job_id"], "key": key, "joined": True,
+                    "progress": live[0].get("progress")}
         span = (int(round(body.t0 * 3600 * fs)), int(round(body.t1 * 3600 * fs)))
         if span[1] <= span[0]:
             span = (int(s["span_start"]), int(s["span_end"]))
@@ -1845,8 +1904,7 @@ def get_seed_results(request: Request, seedId: str, channels: str = "", t0: floa
         cached = _cached_result(c, s["id"], key)
         if cached is not None:
             return {"ready": True, "key": key, **cached}
-        live = [j for j in request.app.state.manager.list_jobs(limit=25)
-                if j.get("kind") == "sweep" and (j.get("meta") or {}).get("key") == key]
+        live = _live_seed_jobs(request, key, finished=True)
         if live:
             j = live[0]
             if j["status"] == "failed":
@@ -2048,9 +2106,37 @@ def _scope(conn, body: PlanBody):
     return s, rec, chans, span
 
 
+#: A seed search's local ceiling when Settings › Compute & HPC names none: ten
+#: minutes (the researcher, 2026-10-06) — above it the search is a SLURM job.
+SEED_CEILING_S = 600
+
+
+def _seed_ceiling_s(conn):
+    from Working.registration.settings import get_settings
+
+    if get_settings(conn, fanout.CEILING_PAGE).get(fanout.CEILING_KEY) is None:
+        return SEED_CEILING_S
+    return fanout.ceiling_s(conn)
+
+
+def _seed_per_channel_s(conn, session_id, span):
+    """What one channel of a seed run costs here, from the measured rate (or
+    the assumed one until a run has finished): `detection.seed_matches` has no
+    estimator, so without this the plan read "unknown" and every seed search,
+    however long, was routed local."""
+    measured = _seed_rates(conn, session_id).get("run")
+    rate = float(measured["rate"]) if measured else DEFAULT_SEED_RATES["run"]
+    return max(0, int(span[1]) - int(span[0])) / rate
+
+
 def _plan(conn, body: PlanBody):
     steps, template, seed = _steps_for(conn, body)
     s, rec, chans, span = _scope(conn, body)
+    measured_s, ceiling = body.measuredPerChannelS, None
+    if seed is not None:
+        ceiling = _seed_ceiling_s(conn)
+        if measured_s is None:
+            measured_s = _seed_per_channel_s(conn, s["id"], span)
     m = seed["samples"] if seed else None
     band = None
     if body.band is not None:
@@ -2082,7 +2168,7 @@ def _plan(conn, body: PlanBody):
     on, sp, why, draws = _surrogate_for(
         conn, seeded_search.NULL_KIND if seed else seeded_search.DETECTION_KIND, s)
     plan = fanout.plan(conn, steps=steps, recording_ids=[ch["id"] for ch in chans], span=span,
-                       measured_per_channel_s=body.measuredPerChannelS, reuse_lookup=reuse,
+                       ceiling_s=ceiling, measured_per_channel_s=measured_s, reuse_lookup=reuse,
                        null_draws=(draws if on else 0))
     plan["null"] = {"paired": on, "params": sp, "reason": why, "draws": (draws if on else 0)}
     plan["template"] = template["name"] if template else None
@@ -2235,8 +2321,9 @@ def _start_sweep(request, *, session_id, run_key, plan, label, surrogate=True,
                                on_target_done=on_target_done, should_cancel=job.cancel_event.is_set,
                                surrogate=surrogate, surrogate_params=surrogate_params,
                                surrogate_draws=(plan.get("null_draws") or None), on_draw=on_draw)
-            if plan.get("seedId") and plan.get("span") and not out["cancelled"]:
-                # a finished seed run is the measured rate the next estimate reads
+            if plan.get("seedId") and plan.get("span") and surrogate and not out["cancelled"]:
+                # a finished seed run is the measured rate the next estimate reads — a paired one:
+                # the cost is the draws, and a real-only sweep (an import's) runs slower per unit
                 _record_seed_rate(conn2, session_id, "run",
                                   _seed_work(int(plan["span"][1]) - int(plan["span"][0]), len(plan["channels"]),
                                              (plan.get("null_draws") or 0) if surrogate else 0),
@@ -2449,6 +2536,53 @@ def _seed_differs(first, this, fs):
     return bits
 
 
+def _seed_row_for(request, conn, s, body, plan, seed, chans, span):
+    """The seed run row for this identity — the one already made (done, running,
+    or on the cluster waiting for its result), else a new row. Returns
+    ``(run_key, label, row, reused)``."""
+    ident = _seed_identity(body, seed["id"], chans, span)
+    _fail_lost_runs(request, conn, s["id"])
+    same_seed = []
+    for row in _discovery_runs(conn, s["id"]):
+        if row["kind"] != "seed" or row["superseded_at"]:
+            continue
+        p = json.loads(row["params_json"] or "{}")
+        if p.get("seedId") != seed["id"]:
+            continue
+        same_seed.append((row, p))
+        if p.get("identity") == ident and row["status"] not in ("failed", "cancelled"):
+            return row["run_key"], row["label"], row, True
+    base = body.label or f"seed {seed['hash'][:6]}"
+    first = next((p.get("identity") for _, p in same_seed if p.get("identity")), None)
+    bits = _seed_differs(first, ident, float(chans[0]["fs"])) if first else []
+    label = " · ".join([base] + bits)
+    key = _next_key(conn, s["id"], _slug(label))
+    params = {"stage_count": 1, "glyph": "seed", "seedId": seed["id"], "cut": body.cut,
+              "entryId": (int(seed.get("entry_id") or 0) or None), "identity": ident,
+              "null": dict(plan["null"]),
+              "k": body.k, "detail": f"{seed['samples']} samples · MASS · exclusion {ident['exclusion']:g}·m",
+              "exclusion": ident["exclusion"],
+              "route": plan["route"], "exclusion_note": seeded_search.recommended_params(seed)["exclusion_note"]}
+    if ident.get("scales"):
+        # fixup-v: the lengths this run searched, on the row and in the detail line
+        params["scales"] = ident["scales"]
+        params["overlap"] = ident["overlap"]
+        params["detail"] += " · " + seeded_search.scale_bank_label(ident["scales"])
+    row = _insert_run(conn, s["id"], run_key=key, kind="seed", label=label, params=params)
+    return key, label, row, False
+
+
+def _seed_plan_body(body: SeedBody):
+    return PlanBody(seedId=body.seedId, channels=body.channels, t0=body.t0, t1=body.t1,
+                    k=body.k, maxDistance=(body.cut if body.cut is not None else body.maxDistance),
+                    scales=body.scales, overlap=body.overlap, exclusion=body.exclusion)
+
+
+def _hpc_out_dir(request):
+    return (os.path.join(request.app.state.rt.dir, "hpc") if request.app.state.rt.mode == "sandbox"
+            else os.path.join(REPO_ROOT, "HPC", "Detection", "generated"))
+
+
 @router.post("/api/discovery/seed/run")
 def run_seed_search(request: Request, body: SeedBody):
     """§7.6's apply bar: "A run seed search becomes a normal run row".
@@ -2459,43 +2593,17 @@ def run_seed_search(request: Request, body: SeedBody):
     a new run, and its label says how it differs from the first."""
     c = _conn(request)
     try:
-        pb = PlanBody(seedId=body.seedId, channels=body.channels, t0=body.t0, t1=body.t1,
-                      k=body.k, maxDistance=(body.cut if body.cut is not None else body.maxDistance),
-                      scales=body.scales, overlap=body.overlap, exclusion=body.exclusion)
+        pb = _seed_plan_body(body)
         plan, steps, _t, seed, span, chans, s = _plan(c, pb)
         if not plan["runnable"]:
             raise HTTPException(422, {"message": plan["reason"], "refused": plan["refused"]})
-        ident = _seed_identity(body, seed["id"], chans, span)
-        _fail_lost_runs(request, c, s["id"])
-        same_seed = []
-        for row in _discovery_runs(c, s["id"]):
-            if row["kind"] != "seed" or row["superseded_at"]:
-                continue
-            p = json.loads(row["params_json"] or "{}")
-            if p.get("seedId") != seed["id"]:
-                continue
-            same_seed.append((row, p))
-            if p.get("identity") == ident and row["status"] not in ("failed", "cancelled"):
-                return {"run_key": row["run_key"], "job_id": row["job_id"], "route": plan["route"],
-                        "started": False, "reused": True, "label": row["label"],
-                        "note": "this search has already run with these settings; it is the same run"}
-        base = body.label or f"seed {seed['hash'][:6]}"
-        first = next((p.get("identity") for _, p in same_seed if p.get("identity")), None)
-        bits = _seed_differs(first, ident, float(chans[0]["fs"])) if first else []
-        label = " · ".join([base] + bits)
-        key = _next_key(c, s["id"], _slug(label))
-        params = {"stage_count": 1, "glyph": "seed", "seedId": seed["id"], "cut": body.cut,
-                  "entryId": (int(seed.get("entry_id") or 0) or None), "identity": ident,
-                  "null": dict(plan["null"]),
-                  "k": body.k, "detail": f"{seed['samples']} samples · MASS · exclusion {ident['exclusion']:g}·m",
-                  "exclusion": ident["exclusion"],
-                  "route": plan["route"], "exclusion_note": seeded_search.recommended_params(seed)["exclusion_note"]}
-        if ident.get("scales"):
-            # fixup-v: the lengths this run searched, on the row and in the detail line
-            params["scales"] = ident["scales"]
-            params["overlap"] = ident["overlap"]
-            params["detail"] += " · " + seeded_search.scale_bank_label(ident["scales"])
-        _insert_run(c, s["id"], run_key=key, kind="seed", label=label, params=params)
+        key, label, row, reused = _seed_row_for(request, c, s, body, plan, seed, chans, span)
+        if reused:
+            return {"run_key": key, "job_id": row["job_id"], "route": plan["route"],
+                    "started": False, "reused": True, "label": label,
+                    "note": ("this search is on the cluster; import its result when it is back"
+                             if row["status"] == "on cluster" else
+                             "this search has already run with these settings; it is the same run")}
         job_id = None
         if plan["route"] != "cluster":
             job = _start_sweep(request, session_id=int(s["id"]), run_key=key, plan=plan, label=label,
@@ -2505,7 +2613,147 @@ def run_seed_search(request: Request, body: SeedBody):
                       "WHERE session_id = ? AND run_key = ?", (job_id, _now(), int(s["id"]), key))
             c.commit()
         return {"run_key": key, "job_id": job_id, "route": plan["route"], "started": job_id is not None,
-                "reused": False, "label": label}
+                "reused": False, "label": label,
+                "note": (None if job_id is not None else
+                         f"about {plan['estimate_s'] / 60:.0f} min, over the {plan['ceiling_s'] / 60:.0f} min local "
+                         f"ceiling — create the SLURM script")}
+    finally:
+        c.close()
+
+
+@router.post("/api/discovery/seed/slurm")
+def post_seed_slurm(request: Request, body: SeedBody):
+    """RQ2 on the HPC (the researcher, 2026-10-06): over the ceiling, *Run seed
+    search* is *Create SLURM script*. The script is `Working.discovery.seed_job`'s
+    — the exemplar's own samples, the channels by file and index, the span, the
+    parameters and the session's null travel in the spec, and the job computes
+    the candidates AND the null draws (the chain exporter's script ran the real
+    chain only, with no null, which was the whole cost). The run row stands
+    *on cluster* until the result file is imported."""
+    c = _conn(request)
+    try:
+        plan, steps, _t, seed, span, chans, s = _plan(c, _seed_plan_body(body))
+        if not plan["runnable"]:
+            raise HTTPException(422, {"message": plan["reason"], "refused": plan["refused"]})
+        on, sp, why, draws = _surrogate_for(c, seeded_search.NULL_KIND, s)
+        if not on or draws <= 0:
+            raise HTTPException(422, {"message": (
+                f"the session's null is off ({why or 'no draws'}): without null draws a seed search is the "
+                f"real search alone, which takes seconds here — run it locally")})
+        key, label, row, reused = _seed_row_for(request, c, s, body, plan, seed, chans, span)
+        if reused and row["status"] in ("running", "queued", "done"):
+            raise HTTPException(409, {"message": f"{label} has already run with these settings ({row['status']})"})
+        exemplar = np.asarray(seeded_search.exemplar_signal(c, seed).x, dtype=float)
+        spec = seed_job.build_spec(
+            seed_id=seed["id"], exemplar=exemplar, label=label,
+            channels=[{"source_file": ch["source_file"], "channel": ch["channel"], "name": ch["name"],
+                       "fs": ch["fs"]} for ch in chans],
+            # uncut, like the page's preview (which re-thresholds what it fetched); the cut rides along for the run
+            span=span, k=body.k, max_distance=None, cut=body.cut,
+            null={"method": sp["method"], "draws": draws, "seed": sp.get("seed", 0), "block_s": sp.get("block_s")},
+            exclusion=_exclusion(body.exclusion), scales=_bank(body.scales), overlap=body.overlap or "lowest")
+        base = f"{_slug(label)}_{len(chans)}ch_{int(span[0])}-{int(span[1])}"
+        made = seed_job.write_job(spec, out_dir=_hpc_out_dir(request), base_name=base,
+                                  est_seconds=plan["estimate_s"])
+        params = json.loads(row["params_json"] or "{}")
+        params["hpc"] = {"specPath": made["spec_path"], "scriptPath": made["script_path"],
+                         "resultPath": made["result_path"], "specHash": seed_job.spec_hash(spec),
+                         "sbatch": made["sbatch_command"], "createdAt": _now(),
+                         "draws": draws, "estimateS": plan["estimate_s"]}
+        params["route"] = "cluster"
+        c.execute("UPDATE discovery_runs SET params_json = ?, status = 'on cluster', updated_at = ? WHERE id = ?",
+                  (json.dumps(params), _now(), int(row["id"])))
+        c.commit()
+        return {**made, "run_key": key, "label": label, "route": "cluster",
+                "estimate_s": plan["estimate_s"], "ceiling_s": plan["ceiling_s"], "draws": draws,
+                "channels": plan["channels"], "specHash": seed_job.spec_hash(spec),
+                "note": request.app.state.rt.banner() + (
+                    f" · sync the spec and the script to the cluster, `{made['sbatch_command']}`, and when "
+                    f"{made['result_path']} is back, import it on the Seed page")}
+    finally:
+        c.close()
+
+
+@router.post("/api/discovery/seed/import")
+def import_seed_result(request: Request, result: dict = Body(...)):
+    """The result file `Working.discovery.seed_job` wrote on the cluster, brought
+    back. Two things happen: the page's own result for that query (candidates,
+    null, recommended cut) is stored as if the preview had computed it, marked
+    imported; and the run row is finished HERE with the real search alone
+    (seconds — the draws were the cost), carrying the imported null on its
+    params, so the row has real detections for Review and Compare. A result for
+    another recording is refused by name."""
+    c = _conn(request)
+    try:
+        s, rec, _, _ = _session_scope(c)
+        fs = rec["fs"]
+        if int(result.get("version") or 0) != seed_job.SPEC_VERSION:
+            raise HTTPException(422, {"message": f"this is not a seed job result (version {result.get('version')!r})"})
+        src = result.get("sourceFile")
+        if src != s["source_file"]:
+            raise HTTPException(422, {"message": (
+                f"this result was computed over {src}; the session's scope is {s['source_file']} — "
+                f"change the scope to that recording to import it")})
+        seed = _seed_by_id(c, result["seedId"])
+        per = result.get("perChannel") or []
+        if not per:
+            raise HTTPException(422, {"message": "the result has no channels in it"})
+        names = [p["name"] for p in per]
+        chans = _ids_for(c, _stem(s["source_file"]), names)
+        span = (int(result["span"][0]), int(result["span"][1]))
+        rnull = result.get("null") or {}
+        draws = max((int((p.get("null") or {}).get("draws") or 0) for p in per), default=0)
+        null = _seed_null(c, s)
+        res_null = dict(null, method=rnull.get("method") or null.get("method"), n=(draws or null.get("n")),
+                        supported=True, reason=None, requested=rnull.get("draws"), blockS=rnull.get("blockS"))
+        computed = []
+        for ch, p in zip(chans, per):
+            found = []
+            for cnd in p.get("candidates") or []:
+                row_ = {"index": int(cnd["index"]) - span[0], "distance": float(cnd["distance"])}
+                if cnd.get("scale") is not None:
+                    row_["scale"], row_["length"] = float(cnd["scale"]), int(cnd["length"])
+                found.append(row_)
+            pn = p.get("null") or {}
+            computed.append({"ch": ch, "found": found,
+                             "null": {"distances": pn.get("distances") or [], "draws": int(pn.get("draws") or 0),
+                                      "byScale": pn.get("byScale"), "blockS": rnull.get("blockS")}})
+        provenance = {"specHash": result.get("specHash"), "finishedAt": result.get("finishedAt"),
+                      "elapsedS": result.get("elapsedS"), "importedAt": _now(), "draws": draws}
+        assembled = _assemble_seed_result(c, seed, chans, span, computed, res_null, scales=result.get("scales"),
+                                          imported=provenance)
+        t0, t1 = span[0] / fs / 3600.0, span[1] / fs / 3600.0
+        # the page's own key: the preview is fetched uncut and re-thresholded, so the stored result is the uncut one
+        cut = result.get("cut")
+        bank = _bank(result.get("scales"))
+        key = _seed_key(seed["id"], names, t0, t1, int(result["k"]), float(result.get("maxDistance") or 0.0), null,
+                        source_file=s["source_file"], rule=rule_from_settings(c), scales=bank,
+                        overlap=result.get("overlap"), exclusion=result.get("exclusion"))
+        _store_result(c, s["id"], key, assembled)
+        # the run row: the one the script was made for, else a new one; the real search runs here
+        body = SeedBody(seedId=seed["id"], channels=names, t0=t0, t1=t1, k=int(result["k"]), cut=cut,
+                        scales=result.get("scales"), overlap=result.get("overlap"), exclusion=result.get("exclusion"))
+        plan, steps, _t, seed, span, chans, s = _plan(c, _seed_plan_body(body))
+        if not plan["runnable"]:
+            raise HTTPException(422, {"message": plan["reason"], "refused": plan["refused"]})
+        run_key, label, row, reused = _seed_row_for(request, c, s, body, plan, seed, chans, span)
+        if reused and row["status"] in ("running", "queued"):
+            raise HTTPException(409, {"message": f"{label} is running here right now; let it finish"})
+        params = json.loads(row["params_json"] or "{}")
+        params["null"] = {"paired": False, "imported": True, "draws": draws, "drawn": draws,
+                          "method": res_null["method"], "source": "hpc", "specHash": result.get("specHash")}
+        params["hpc"] = dict(params.get("hpc") or {}, importedAt=_now(), specHash=result.get("specHash"))
+        c.execute("UPDATE discovery_runs SET params_json = ?, updated_at = ? WHERE id = ?",
+                  (json.dumps(params), _now(), int(row["id"])))
+        c.commit()
+        job = _start_sweep(request, session_id=int(s["id"]), run_key=run_key, plan=plan, label=label,
+                           surrogate=False)
+        c.execute("UPDATE discovery_runs SET job_id = ?, status = 'running', updated_at = ? WHERE id = ?",
+                  (job.id, _now(), int(row["id"])))
+        c.commit()
+        return {"run_key": run_key, "job_id": job.id, "key": key, "label": label, "nullDraws": draws,
+                "candidates": len(assembled["candidates"]), "recommendedCut": assembled["recommendedCut"],
+                "note": "the null came from the cluster; the real search ran here and the run row has its detections"}
     finally:
         c.close()
 
@@ -2620,6 +2868,12 @@ def open_history_run(request: Request, hid: str):
         if src is None:
             raise HTTPException(404, {"message": f"no Discovery run behind history id '{hid}'."})
         if int(src["session_id"]) == int(s["id"]):
+            if src["removed_at"]:
+                # removed from this session by the researcher: put the same row back
+                c.execute("UPDATE discovery_runs SET removed_at = NULL, updated_at = ? WHERE id = ?",
+                          (_now(), int(src["id"])))
+                c.commit()
+                return {"run_key": src["run_key"], "adopted": True, "note": "back in this session"}
             return {"run_key": src["run_key"], "adopted": False, "note": "already in this session"}
         existing = c.execute("SELECT run_key FROM discovery_runs WHERE session_id = ? AND run_key = ?",
                              (int(s["id"]), src["run_key"])).fetchone()
@@ -2658,6 +2912,34 @@ def discard_run(request: Request, run_key: str):
         return {"run_key": run_key, "status": "superseded", "superseded": n,
                 "adjudications_written": 0, "annotations_written": 0,
                 "note": "the detections are kept; the run stays reproducible from its own recipe"}
+    finally:
+        c.close()
+
+
+@router.delete("/api/discovery/runs/{run_key}")
+def remove_run(request: Request, run_key: str):
+    """Take a run off this session (the researcher, 2026-10-06: an × on each run
+    card). The row is marked, not deleted, and nothing under it is touched: the
+    runs and their detections stay, no verdict is written, and History lists
+    the run as removed and can put it back. A running run's job is cancelled."""
+    c = _conn(request)
+    try:
+        s = _session(c)
+        if run_key == "human":
+            raise HTTPException(422, {"message": "the human annotations are the fixed reference, not a run: "
+                                      "they cannot be removed from a session"})
+        row = _dr_by_key(c, s["id"], run_key)
+        cancelled = False
+        if row["job_id"] is not None and row["status"] in ("running", "queued"):
+            job = request.app.state.manager.jobs.get(int(row["job_id"]))
+            if job is not None and job.status in ("running", "queued"):
+                request.app.state.manager.cancel(job)
+                cancelled = True
+        c.execute("UPDATE discovery_runs SET removed_at = ?, updated_at = ? WHERE id = ?",
+                  (_now(), _now(), int(row["id"])))
+        c.commit()
+        return {"removed": run_key, "cancelled": cancelled,
+                "note": "the runs and their detections are kept; History brings it back into a session"}
     finally:
         c.close()
 

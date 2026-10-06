@@ -44,6 +44,19 @@ from test_webui_seed_page_repairs import _seed_run  # noqa: E402,F401
 from test_webui_seed_sources import CH, M, N, _q, _review_entry, _wait_job, client  # noqa: E402,F401
 
 
+@pytest.fixture(autouse=True)
+def _fresh_result_cache():
+    """The bridge keeps finished previews in a process-wide dict keyed by the
+    query; a result this file stores (the import test) would otherwise be served
+    to another file's test as "already computed"."""
+    from server import discovery
+    with discovery._results_lock:
+        discovery._results.clear()
+    yield
+    with discovery._results_lock:
+        discovery._results.clear()
+
+
 def _seed_id(client):
     review = _review_entry(client)
     return f"library:{review['recording_id']}:{review['start_idx']}:{review['end_idx']}"
@@ -97,14 +110,18 @@ def test_remove_takes_the_run_off_the_session_and_keeps_its_runs(client):
     assert r.status_code == 200, r.text
     assert r.json()["removed"] == key
     assert key not in [x["key"] for x in _runs(client)]
-    assert not _q(client, "SELECT 1 FROM discovery_runs WHERE run_key = ?", (key,))
+    # the row is marked, not deleted: History still lists it and can bring it back
+    marked = _q(client, "SELECT removed_at FROM discovery_runs WHERE run_key = ?", (key,))
+    assert len(marked) == 1 and marked[0]["removed_at"]
     kept = _q(client, f"SELECT id, superseded_at FROM runs WHERE id IN ({','.join('?' * len(run_ids))})", run_ids)
     assert len(kept) == len(run_ids) and all(k["superseded_at"] is None for k in kept), \
         "removing a run from the session neither deletes nor supersedes its runs"
-    # History still lists it, so it can be brought back
     hist = client.get("/api/discovery/history").json()
-    rows = hist if isinstance(hist, list) else hist.get("runs") or hist.get("history") or []
-    assert any(h.get("run_key") == key or h.get("key") == key or h.get("label") == "to_remove" for h in rows)
+    h = next(x for x in hist if x["runKey"] == key)
+    assert h["inSession"] is False and h["status"] == "removed"
+    back = client.post(f"/api/discovery/history/{h['id']}/open")
+    assert back.status_code == 200, back.text
+    assert key in [x["key"] for x in _runs(client)], "opening it from History puts it back"
 
 
 def test_the_human_reference_cannot_be_removed(client):

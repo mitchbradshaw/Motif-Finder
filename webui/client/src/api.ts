@@ -531,12 +531,15 @@ export interface DiscSeedResults {
   recommendedCut: number | null; cutRule?: CutRule | null; perChannel: { channel: string; n: number; nullDraws: number }[]
   m: number; seedId: string; span: [number, number]
   counts?: Record<string, number> | null; exclusionNote: string; computedAt?: string; restored?: boolean
+  /** computed on the cluster and imported (`importedFrom` is the result file's provenance) */
+  imported?: boolean | null; importedFrom?: { specHash?: string; finishedAt?: string; elapsedS?: number; importedAt?: string; draws?: number } | null
 }
 export interface DiscSeedProgress { done?: number; total?: number; message?: string }
-export interface DiscSeedPending { ready: false; job_id: number | null; key: string; progress?: DiscSeedProgress; note?: string; elapsedS?: number | null; etaS?: number | null }
+export interface DiscSeedPending { ready: false; job_id: number | null; key: string; progress?: DiscSeedProgress; note?: string; elapsedS?: number | null; etaS?: number | null; joined?: boolean }
 /** Before the button: the preview's and the run's cost on a scope, each as work over a rate (measured here once a search has finished). */
 export interface DiscSeedEstimateSide { draws: number; work: number; rate: number; seconds: number; measured: boolean; measuredAt?: string | null }
-export interface DiscSeedEstimate { channels: number; samples: number; sectionH: [number, number]; preview: DiscSeedEstimateSide; run: DiscSeedEstimateSide }
+/** `ceilingS`: the local limit (Settings › Compute & HPC, 10 min for a seed search by default); over it the run is a SLURM job (`route: 'cluster'`). */
+export interface DiscSeedEstimate { channels: number; samples: number; sectionH: [number, number]; preview: DiscSeedEstimateSide; run: DiscSeedEstimateSide; ceilingS: number; route: 'local' | 'cluster' }
 export const getDiscoverySeedEstimate = (channels: string[], t0: number, t1: number) =>
   req<DiscSeedEstimate>(`/api/discovery/seed/estimate${dq({ channels: channels.join(','), t0, t1 })}`)
 export const startDiscoverySeedResults = (q: DiscSeedQuery) =>
@@ -886,7 +889,22 @@ export interface SeedMember { dataset?: string; dataset_file?: string; channel_n
  * run row carries its seed and cut, which is how the Seed page finds its own run; a span taken in Explore
  * comes back with the Explore spans queue it is in. */
 export interface DiscSeedInfo { entryId?: number | null; sourceKind?: string | null; annotationId?: number | null; recordingLabel?: string; recordingFile?: string }
-export interface DiscRun { seedId?: string | null; cut?: number | null; entryId?: number | null; progressText?: string | null }
+export interface DiscRun { seedId?: string | null; cut?: number | null; entryId?: number | null; progressText?: string | null; hpc?: DiscSeedHpc | null; nullImported?: boolean }
+/** A seed run that is a SLURM job: where its spec and script were written and where its result is expected back. */
+export interface DiscSeedHpc { specPath: string; scriptPath: string; resultPath: string; specHash: string; sbatch: string; createdAt: string; draws: number; estimateS: number | null; importedAt?: string }
+export interface DiscSeedSlurm {
+  script: string; script_path: string; spec_path: string; result_path: string; sbatch_command: string; slurm_time: string
+  run_key: string; label: string; route: string; estimate_s: number | null; ceiling_s: number; draws: number; channels: string[]; specHash: string; note: string; warnings?: string[]
+}
+/** Over the ceiling: the seed search as a SLURM job — the spec (exemplar samples, channels, null) and the script. */
+export const postDiscoverySeedSlurm = (body: DiscSeedQuery & { label?: string; cut?: number }) =>
+  post<DiscSeedSlurm>('/api/discovery/seed/slurm', body)
+/** The result file the cluster wrote, brought back: fills the page's result and finishes the run row here. */
+export const postDiscoverySeedImport = (result: unknown) =>
+  post<{ run_key: string; job_id: number; key: string; label: string; nullDraws: number; candidates: number; recommendedCut: number | null; note: string }>('/api/discovery/seed/import', result)
+/** Take a run off this session (the row is kept; History brings it back). */
+export const removeDiscoveryRun = (runKey: string) =>
+  req<{ removed: string; cancelled: boolean; note: string }>(`/api/discovery/runs/${encodeURIComponent(runKey)}`, { method: 'DELETE' })
 export interface DiscSeedPageQuery { source: 'library' | 'explore' | 'medoid'; kind?: string; family?: string; recording?: string; channel?: string; offset?: number; limit?: number }
 export interface DiscSeedPage {
   seeds: DiscSeedInfo[]; total: number; offset: number; limit: number
