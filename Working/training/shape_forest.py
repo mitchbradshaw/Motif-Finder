@@ -232,7 +232,8 @@ def run_forest(conn, recipe, *, tree_root, out_dir, progress=None, cancel=None):
     os.makedirs(out_dir, exist_ok=True)
     model_path = os.path.join(out_dir, "forest_b2.joblib")
     joblib.dump({"model": model, "columns": list(X.columns), "medians": medians.to_dict(), "k": k,
-                 "mapping": arm["mapping"], "inputs": recipe["inputs"]}, model_path)
+                 "mapping": arm["mapping"], "inputs": recipe["inputs"]}, model_path, compress=3)
+    # (uncompressed, 300 fully grown trees on ~30,000 windows and 8 clusters were 611 MB on the sandbox pool)
 
     say(4, 6, "assigning the validation, test and exam windows")
     other = np.flatnonzero(roles != "train")
