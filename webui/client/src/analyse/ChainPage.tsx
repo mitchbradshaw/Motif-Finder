@@ -4,7 +4,7 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { DatasetName } from '../naming'
 import {
-  ApiError, compatibleAt, exportRun, saveTemplate, validateParams, TYPE_LABEL,
+  ApiError, compatibleAt, exportRun, getTemplate, saveTemplate, validateParams, TYPE_LABEL,
   type Compatible, type EnvelopeSeries, type SignalPayload, type SpansetPayload, type Step, type Template,
 } from '../api'
 import { CrosshairProvider, TimeAxis } from '../charts/primitives'
@@ -12,7 +12,7 @@ import { makeX, type XScale } from '../charts/scale'
 import { useSize } from '../charts/useSize'
 import { Header } from '../shell/Header'
 import { useToast } from '../shell/Toast'
-import { fmtDuration, navigate, useApp } from '../state'
+import { fmtDuration, navigate, setQuery, useApp } from '../state'
 import { paramCaption } from './captions'
 import { ChainRow, PLOT_H } from './ChainRow'
 import { SaveWindowSetButton } from './SaveWindowSet'
@@ -175,22 +175,60 @@ export function ChainPage() {
   /* fixup-ag: start the chain from saved window sets — the source is the Window pool block, put at 01 if absent */
   const pooled = isPoolSource(source)
   const POOL_CHAIN = ['preprocessing.window_pool', 'preprocessing.trace_shape', 'catalogue.shape_cluster']
+  const buildPoolChain = async (): Promise<Step[]> => {
+    const fresh: Step[] = []
+    for (const name of POOL_CHAIN) {
+      const ad = adapters.byName.get(name); if (!ad) throw new Error(`block ${name} is not in the registry`)
+      const { params } = await validateParams({ stage: ad.stage, algorithm: ad.algorithm, params: {} })
+      fresh.push({ stage: ad.stage, algorithm: ad.algorithm, params })
+    }
+    return fresh
+  }
   const usePool = async () => {
     setSource(POOL_SOURCE); resetRun(); clearStale(); setPop(null)
     if (steps[0] && stepName(steps[0]) === 'preprocessing.window_pool') { setChain(c => ({ ...c, lastRunJobId: null })); return }
     // a span chain does not run on a pool: start RQ1's chain (pool → shape → cluster), the old one kept in Undo
     try {
-      const fresh: Step[] = []
-      for (const name of POOL_CHAIN) {
-        const ad = adapters.byName.get(name); if (!ad) throw new Error(`block ${name} is not in the registry`)
-        const { params } = await validateParams({ stage: ad.stage, algorithm: ad.algorithm, params: {} })
-        fresh.push({ stage: ad.stage, algorithm: ad.algorithm, params })
-      }
+      const fresh = await buildPoolChain()
       if (steps.length) pushUndo({ steps, staleIndex: 0, label: `the ${chain.name} chain` })
       setChain({ name: 'shape_clusters', saved: false, steps: fresh, lastRunJobId: null })
       toast.push({ text: 'Window pool → Trace shape → Shape clustering · tick the window sets on 01' })
     } catch (e) { toast.push({ kind: 'error', text: errText(e) }) }
   }
+  /* fixup-ag seam (iii): the chain opened FROM elsewhere — Library › Window sets (`poolSets`: the ids to tick, empty
+   * for none), Models › Launch's *Open in Analyse* (`template` + `poolId`: that template on that saved pool); `open`
+   * goes on to a block page. The parameters are consumed once and cleared from the URL. */
+  const qp = route.params
+  const wantChain = qp.poolSets !== undefined || qp.poolId !== undefined || qp.template !== undefined
+  useEffect(() => {
+    if (!wantChain || !adapters.byName.size) return
+    let alive = true
+    ;(async () => {
+      try {
+        let next: Step[]
+        let name = 'shape_clusters'
+        if (qp.template) {
+          const t = await getTemplate(Number(qp.template))
+          next = t.steps.map(st => ({ ...st, params: { ...st.params } }))
+          name = t.name
+        } else next = await buildPoolChain()
+        const i0 = next.findIndex(st => stepName(st) === 'preprocessing.window_pool')
+        if (i0 < 0) throw new Error('that template does not start from a Window pool')
+        if (qp.poolId) next[i0] = { ...next[i0], params: { ...next[i0].params, pool: String(qp.poolId) } }
+        if (qp.poolSets !== undefined) next[i0] = { ...next[i0], params: { ...next[i0].params, window_sets: qp.poolSets, pool: '' } }
+        if (!alive) return
+        if (steps.length && !(steps[0] && stepName(steps[0]) === 'preprocessing.window_pool')) pushUndo({ steps, staleIndex: 0, label: `the ${chain.name} chain` })
+        setSource(POOL_SOURCE); resetRun(); clearStale()
+        setChain({ name, saved: !!qp.template, steps: next, lastRunJobId: null })
+        const open = qp.open
+        setQuery({ poolSets: null, poolId: null, template: null, open: null }, true)
+        toast.push({ text: qp.template ? `${name} on saved pool ${qp.poolId ?? ''}` : qp.poolSets ? `Window pool · set ${qp.poolSets} ticked` : 'Window pool · tick the window sets on 01' })
+        if (open !== undefined) navigate(`analyse/block/${open}`)
+      } catch (e) { toast.push({ kind: 'error', text: errText(e) }) }
+    })()
+    return () => { alive = false }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [wantChain, qp.poolSets, qp.poolId, qp.template, adapters.byName.size])
 
   /* ---- toolbar derivations ---- */
   const n = steps.length
@@ -253,6 +291,26 @@ export function ChainPage() {
     const core = job.step_timings ? Object.values(job.step_timings).reduce((a, b) => a + b, 0) : null
     sub = `job ${job.job_id} · db run #${job.db_run_id ?? '—'} · ${job.detections_written ?? 0} written to detections · ${core !== null ? fmtTiming(core) + ' core' : ''} · ${fmtDuration(job.elapsed_s)} wall · ${nullText(job.null)}${stale !== null ? ` · ${pad2(stale + 1)} → ${pad2(n)} stale` : ''}`
   } else { headline = 'No result yet'; sub = source ? 'run the chain to see every intermediate' : 'send a span from Explore or use the example span' }
+
+  /* ---- Train model (fixup-ag seam iii): the template saved, the pool already saved by its block, Launch prefilled ---- */
+  const [training, setTraining] = useState(false)
+  const lastTree = terminalPayload && terminalPayload.type === 'grouping' ? (terminalPayload as { tree?: { mapping_state: string; k: number } }).tree : undefined
+  const poolPayload = rows[0]?.payload as { pool?: { window_set_id: number } } | null | undefined
+  const trainReason: string | null = !pooled ? 'a Window pool chain only'
+    : job?.status !== 'completed' ? 'run the chain first'
+    : stale !== null ? `${pad2(stale + 1)} → ${pad2(n)} are stale · re-run so the template and the run agree`
+    : !lastTree ? 'the chain must end in Shape clustering'
+    : lastTree.mapping_state !== 'complete' ? `map every cluster at k = ${lastTree.k} (interesting / not) on the Shape clustering page first`
+    : !poolPayload?.pool ? 'the pool was not saved by this run' : null
+  const trainModel = async () => {
+    if (trainReason || !poolPayload?.pool) return
+    setTraining(true)
+    try {
+      const r = await saveTemplate(chain.name || 'shape_clusters', steps)
+      setChain(c => ({ ...c, saved: true }))
+      navigate(`models/launch?arm=b2&template=${r.id}&pool=${poolPayload.pool.window_set_id}`)
+    } catch (e) { toast.push({ kind: 'error', text: errText(e) }) } finally { setTraining(false) }
+  }
 
   /* ---- rows ---- */
   const sourceEnvelope: EnvelopeSeries | null = env?.envelope ?? null
@@ -486,6 +544,7 @@ export function ChainPage() {
             <div className="sub" data-testid="footer-sub">{sub}</div>
           </div>
           <div className="acts">
+            {pooled && <button className="btn primary" onClick={trainModel} disabled={!!trainReason || training} title={trainReason ?? 'save the template (the pool is saved) and open Models › Launch with arm B.2 filled in'} data-testid="train-model">{training ? 'Saving…' : '⚙ Train model'}</button>}
             <button className="btn" onClick={doExport} disabled={job?.status !== 'completed'} data-testid="export-run" title={job?.status === 'completed' ? 'write a JSON report of this run' : 'needs a completed run'}>⤒ Export run</button>
             <button className="btn" disabled aria-disabled="true" title="sends the terminal SpanSet into a new chain · out of slice scope">→ Analyse events</button>
             <button className="btn primary" onClick={pass.send} disabled={!!passReason || pass.busy} aria-disabled={!!passReason || pass.busy} data-testid="pass-to-review"

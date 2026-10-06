@@ -48,7 +48,7 @@ export function PoolPicker({ q }: { q: ProcessProps }) {
   const toggle = (id: number) => set(ticked.includes(id) ? ticked.filter(i => i !== id) : [...ticked, id])
   const reopen = String(q.step.params.pool ?? '').trim()
   return (
-    <div className="sh-card" data-testid="pool-library">
+    <div className="sh-card" data-testid="pool-library" data-ticked={ticked.length}>
       <div className="bp-card-title"><h3 style={{ fontSize: 13 }}>The library of saved window sets</h3>
         <span className="sg">{lib.sets.length} saved · {ticked.length} ticked · {parsed === 'all' ? 'every unlabelled set (the default)' : 'in the order ticked — the first listed wins a duplicate or an overlap'}</span></div>
       {reopen && <div className="callout small" data-testid="pool-reopen-note">re-opening saved pool <b>{reopen}</b> as the source · the ticks and the plan below are ignored until the <code>pool</code> parameter is cleared</div>}

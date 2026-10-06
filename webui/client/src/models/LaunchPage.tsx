@@ -19,11 +19,30 @@ import {
   type ChecksResult, type ModelsSetup, type PooledSetRow, type Proposal, type RecipeBody, type SlurmResult,
 } from '../api/models'
 import { ArmBadge, Loading, LoadFailed, ModelsTabs, JobsPageLink } from './chrome'
+import { B2Launch } from './B2Launch'
+import { ErrorBoundary } from '../shell/ErrorBoundary'
 
 const NAME_RE = /^[A-Za-z0-9][A-Za-z0-9_.-]{0,63}$/
 type Role = 'train' | 'exam' | 'off'
 
 export function LaunchPage() {
+  // fixup-ag seam (iii): Analyse's *Train model* opens Launch with arm B.2 prefilled
+  const [arm] = useQueryState('arm', '')
+  const [tpl] = useQueryState('template', '')
+  const [poolQ] = useQueryState('pool', '')
+  if (arm === 'b2') return (
+    <>
+      <Header workspace="Models" page="Launch" subtitle="arm B.2 · cluster labels · trace shape · prefilled from Analyse" />
+      <Page testid="models-launch-b2"><ModelsTabs current="launch" jobsLink={<JobsPageLink />} />
+        {tpl && poolQ ? <ErrorBoundary label="arm B.2"><B2Launch template={Number(tpl)} pool={Number(poolQ)} /></ErrorBoundary>
+          : <Callout tone="amber" title="arm B.2 needs a template and a pool">Open it from Analyse › Chain › <i>Train model</i> on a Window pool chain.</Callout>}
+      </Page>
+    </>
+  )
+  return <PairedLaunchPage />
+}
+
+function PairedLaunchPage() {
   const setup = useSourced(getModelsSetup, [])
   return (
     <>

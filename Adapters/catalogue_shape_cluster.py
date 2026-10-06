@@ -124,7 +124,7 @@ def tree_for(shapes, sample, seed, tree_path=""):
     return tree, d, False, None
 
 
-def _run(x, t, fs, sample=20000, seed=0, k=0, tree_path="", mapping="", value=None):
+def _run(x, t, fs, sample=20000, seed=0, k=0, tree_path="", mapping="", value=None, conn=None, recording=None):
     from Working.training import shape as tshape
     t0 = time.time()
     shapes, shape_file = _load_shapes(value)
@@ -133,6 +133,13 @@ def _run(x, t, fs, sample=20000, seed=0, k=0, tree_path="", mapping="", value=No
     k_used = int(k) if int(k) > 0 else int(prop["suggested_k"] or 2)
     lab = tshape.labels_at(tree, shapes, k_used)
     mp = parse_mapping(mapping)
+    # seam (iii): once a run on this pool has a test score, its cut and mapping are frozen — here as in Launch
+    pool_key = str(shapes.frame["pool_key"].iloc[0]) if "pool_key" in shapes.frame.columns and len(shapes.frame) else None
+    frozen = None
+    if conn is not None and pool_key:
+        from Working.training import shape_forest
+        shape_forest.check_frozen(conn, pool_key, lab.k, mp if mapping_state(mp, lab.k) == "complete" else None)
+        frozen = shape_forest.frozen_for(conn, pool_key)
     roles = shapes.frame["role"].to_numpy()
     not_clustered = {r: int((roles == r).sum()) for r in ("validation", "test", "exam")}
     summ = tshape.clusters_summary(tree, shapes, lab)
@@ -141,7 +148,7 @@ def _run(x, t, fs, sample=20000, seed=0, k=0, tree_path="", mapping="", value=No
         "tree": {
             "key": os.path.basename(d.rstrip("/\\")), "dir": os.path.abspath(d), "reused": bool(reused),
             "loaded_from": loaded_from, "shape_file": shape_file, "shape_key": shapes.key,
-            "propose_cached": bool(prop_cached), "align": shapes.meta.get("align", "grid"),
+            "propose_cached": bool(prop_cached), "pool_key": pool_key, "frozen": frozen, "align": shapes.meta.get("align", "grid"),
             "detrend": shapes.meta.get("detrend", "off"),
             "k": int(lab.k), "k_param": int(k), "suggested_k": prop["suggested_k"], "cut_height": tshape.cut_height(tree, lab.k),
             "n_train": int(len(tree.train_rows)), "n_clustered": int(lab.n_clustered), "n_assigned": int(lab.n_assigned),

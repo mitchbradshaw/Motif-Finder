@@ -15,7 +15,7 @@
  * Every piece that fails to draw is a red card (ErrorBoundary) and a console error — never a blank. */
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { ApiError } from '../../api'
-import { getClusterDetail, getTreeCut, type ClusterDetail, type CutAt, type DetailWindow, type MappingEntry, type TreeInfo, type TreePayload } from '../../api/shape'
+import { getClusterCards, getClusterDetail, getFrozen, getTreeCut, type Cards, type ClusterCard, type ClusterDetail, type CutAt, type DetailWindow, type Frozen, type MappingEntry, type TreeInfo, type TreePayload } from '../../api/shape'
 import { useSize } from '../../charts/useSize'
 import { navigate } from '../../state'
 import { Guard } from './ShapeViews'
@@ -40,7 +40,14 @@ export function TreePage({ q, p }: { q: ProcessProps; p: TreePayload }) {
   const [cut, setCut] = useState<CutAt | null>(null)
   const [cutErr, setCutErr] = useState<string | null>(null)
   const [sel, setSel] = useState<number | null>(null)
+  const [frozen, setFrozen] = useState<Frozen | null>(t.frozen ?? null)
   useEffect(() => { setK(t.k); setSel(null) }, [t.key, t.k])
+  /* seam (iii): once a run on this pool has a test score, the cut and the mapping are fixed — here as in Launch */
+  useEffect(() => {
+    let alive = true
+    if (t.pool_key) getFrozen(t.pool_key).then(r => { if (alive) setFrozen(r.frozen) }).catch(e => console.error('freeze read failed', e))
+    return () => { alive = false }
+  }, [t.pool_key])
   useEffect(() => {
     let alive = true
     setCutErr(null)
@@ -57,6 +64,7 @@ export function TreePage({ q, p }: { q: ProcessProps; p: TreePayload }) {
         <div className="bp-tile"><div className="k">cut applied to the block</div><div className="v" data-testid="tree-applied-k">k = {applied}{t.k_param === 0 ? ' (proposed)' : ''}</div></div>
       </div>
       <div className="muted small" data-testid="tree-rule">{t.rule} · shapes: align {t.align ?? 'grid'} · detrend {t.detrend ?? 'off'}{t.propose_cached ? ' · proposal read from beside the tree' : ''} · {t.method_text} · {t.stratified_by} · seed {t.seed} · tree {t.reused ? 're-used' : 'built'}{t.ward_seconds !== null ? ` · Ward ${t.ward_seconds} s` : ''}{t.peak_rss_mb ? ` · peak memory ${Math.round(t.peak_rss_mb).toLocaleString()} MB` : ''}{t.loaded_from ? ` · loaded from ${t.loaded_from}` : ''}</div>
+      {frozen && <div className="error-card" data-testid="tree-frozen" style={{ padding: '6px 10px' }}><h3>The cut and the mapping are frozen</h3><div className="small">run {frozen.run_id} ({frozen.name}) has a test score on this pool at k = {frozen.k}: a different cut or interesting / not mapping is refused here and on Models › Launch. Browsing other cuts is fine.</div></div>}
       <Guard label="the dendrogram">
         <Dendrogram t={t} k={k} onK={kk => { setK(kk); setSel(null) }} />
       </Guard>
@@ -66,14 +74,15 @@ export function TreePage({ q, p }: { q: ProcessProps; p: TreePayload }) {
         <button className="btn sm" onClick={() => setK(x => Math.min(t.dendrogram.heights.length, x + 1))} data-testid="tree-k-up">+ k</button>
         {t.propose.suggested_k && <button className="btn sm" onClick={() => setK(t.propose.suggested_k!)} data-testid="tree-k-proposed">the proposal (k = {t.propose.suggested_k})</button>}
         <span style={{ flex: 1 }} />
-        <button className="btn primary sm" onClick={() => q.setParam('k', k)} disabled={k === applied && t.k_param !== 0} data-testid="tree-apply-cut"
-          title="writes k into this block; the run after re-uses the kept tree">{k === applied ? `k = ${k} is applied` : `Apply this cut (k = ${k})`}</button>
+        <button className="btn primary sm" onClick={() => q.setParam('k', k)} disabled={(k === applied && t.k_param !== 0) || (!!frozen && k !== frozen.k)} data-testid="tree-apply-cut"
+          title={frozen && k !== frozen.k ? `frozen at k = ${frozen.k} by run ${frozen.run_id}` : 'writes k into this block; the run after re-uses the kept tree'}>{k === applied ? `k = ${k} is applied` : `Apply this cut (k = ${k})`}</button>
       </div>
       <Guard label="the proposal per k"><ProposeTable t={t} k={k} onK={setK} /></Guard>
       {cutErr && <div className="error-card" data-testid="tree-cut-error"><h3>the clusters at k = {k} did not load</h3><div className="mono small">{cutErr}</div></div>}
+      <CardStrip tkey={t.key} k={k} sel={sel} onSel={setSel} />
       {cut && <Guard label="the clusters at the cut"><ClusterTable cut={cut} sel={sel} onSel={setSel} /></Guard>}
       {sel !== null && <Guard label={`cluster ${sel}`}><ClusterPanel tkey={t.key} k={k} c={sel} /></Guard>}
-      <Guard label="the mapping table"><MappingTable q={q} t={t} /></Guard>
+      <Guard label="the mapping table"><MappingTable q={q} t={t} cut={cut} frozen={frozen} /></Guard>
     </div>
   )
 }
@@ -163,6 +172,41 @@ function ClusterTable({ cut, sel, onSel }: { cut: CutAt; sel: number | null; onS
   )
 }
 
+/* ---------------- one card per cluster at the cut (the researcher, 2026-10-06) ----------------
+ * EVERY cluster at the current cut gets a card — 24 at k = 24 — redrawn when the cut moves, read from the kept tree
+ * (`/api/shape/trees/{key}/cards`); nothing is re-run. A card that cannot be drawn is a red card. */
+function CardStrip({ tkey, k, sel, onSel }: { tkey: string; k: number; sel: number | null; onSel: (c: number) => void }) {
+  const [cards, setCards] = useState<Cards | null>(null)
+  const [err, setErr] = useState<string | null>(null)
+  useEffect(() => {
+    let alive = true
+    setErr(null)
+    getClusterCards(tkey, k).then(c => { if (alive) setCards(c) }).catch(e => { if (alive) { setCards(null); setErr(errText(e)) } })
+    return () => { alive = false }
+  }, [tkey, k])
+  if (err) return <div className="error-card" data-testid="tree-cards-error"><h3>the clusters at k = {k} could not be drawn</h3><div className="mono small">{err}</div></div>
+  if (!cards || cards.k !== k) return <div className="muted mono small" data-testid="tree-cards-loading">drawing the {k} clusters at this cut…</div>
+  return (
+    <div>
+      <div className="bp-card-title"><h3 style={{ fontSize: 13 }}>What each cluster looks like at k = {cards.k}</h3><span className="sg">{cards.cards.length} cards · the medoid (brown) and {cards.n_members} members each · click a card for the cluster · {cards.note}</span></div>
+      <div className="sh-cards" data-testid="tree-cards" data-k={cards.k} data-n={cards.cards.length}>
+        {cards.cards.map(c => <Guard key={c.cluster} label={`the card of cluster ${c.cluster}`}><Card c={c} on={sel === c.cluster} onSel={onSel} /></Guard>)}
+      </div>
+    </div>
+  )
+}
+
+function Card({ c, on, onSel }: { c: ClusterCard; on: boolean; onSel: (c: number) => void }) {
+  if (c.error || !c.medoid) return <div className="error-card sh-card-one" data-testid={`tree-card-${c.cluster}`}><h3>cluster {c.cluster}</h3><div className="mono small">{c.error ?? 'no medoid'}</div></div>
+  return (
+    <button type="button" className={`sh-card-one${on ? ' on' : ''}`} onClick={() => onSel(c.cluster)} data-testid={`tree-card-${c.cluster}`} title={`cluster ${c.cluster} · ${c.n.toLocaleString()} windows`}>
+      <div className="cap"><b>{c.cluster}</b> · {c.n.toLocaleString()} · {Object.entries(c.scales ?? {}).map(([s, n]) => `${s}m ${n}`).join(' ')}</div>
+      <Spark v={c.medoid.shape} w={150} h={46} colour="#b35900" />
+      <div className="mini-row">{(c.members ?? []).map(m => <Spark key={m.row} v={m.shape} w={36} h={22} colour="var(--text)" />)}</div>
+    </button>
+  )
+}
+
 /* ---------------- one cluster ---------------- */
 function Spark({ v, w = 140, h = 44, band, colour = 'var(--text)', testid }: { v: number[]; w?: number; h?: number; band?: { lo: number[]; hi: number[] }; colour?: string; testid?: string }) {
   const all = band ? [...band.lo, ...band.hi, ...v] : v
@@ -230,30 +274,41 @@ function ClusterPanel({ tkey, k, c }: { tkey: string; k: number; c: number }) {
   )
 }
 
-/* ---------------- the mapping table ---------------- */
-function MappingTable({ q, t }: { q: ProcessProps; t: TreeInfo }) {
+/* ---------------- the mapping table ----------------
+ * It follows the cut on the page (the researcher, 2026-10-06): its rows are the clusters at the PREVIEWED k, and an
+ * edit writes both the block's k and its mapping at that k — so mapping a new cut needs no re-run first. The run after
+ * re-uses the kept tree and records the Grouping at that k. Frozen once a run on the pool has a test score. */
+function MappingTable({ q, t, cut, frozen }: { q: ProcessProps; t: TreeInfo; cut: CutAt | null; frozen: Frozen | null }) {
   const m = t.mapping
-  const [draft, setDraft] = useState<Record<string, MappingEntry>>(() => (m.k === t.k ? m.clusters : {}))
-  useEffect(() => { setDraft(m.k === t.k || m.k === null ? m.clusters : {}) }, [t.key, t.k, JSON.stringify(m)])   // eslint-disable-line react-hooks/exhaustive-deps
-  const write = (next: Record<string, MappingEntry>) => { setDraft(next); q.setParam('mapping', JSON.stringify({ k: t.k, clusters: next })) }
+  const k = cut?.k ?? t.k
+  const rows = cut ? cut.clusters : t.clusters
+  const [draft, setDraft] = useState<Record<string, MappingEntry>>(() => (m.k === k || m.k === null ? m.clusters : {}))
+  useEffect(() => { setDraft(m.k === k || m.k === null ? m.clusters : {}) }, [t.key, k, JSON.stringify(m)])   // eslint-disable-line react-hooks/exhaustive-deps
+  const locked = !!frozen
+  const write = (next: Record<string, MappingEntry>) => {
+    setDraft(next)
+    if (k !== t.k_param) q.setParam('k', k)
+    q.setParam('mapping', JSON.stringify({ k, clusters: next }))
+  }
   const set = (c: number, patch: Partial<MappingEntry>) => write({ ...draft, [String(c)]: { name: draft[String(c)]?.name ?? '', class: draft[String(c)]?.class ?? null, ...patch } })
-  const done = t.clusters.filter(c => draft[String(c.cluster)]?.class).length
-  const stateWords: Record<string, string> = { none: 'no mapping yet', partial: 'partly mapped', complete: 'every cluster mapped', stale: `made at k = ${m.k}; the cut is now k = ${t.k} — map again` }
+  const done = rows.filter(c => draft[String(c.cluster)]?.class).length
+  const stateWords: Record<string, string> = { none: 'no mapping yet', partial: 'partly mapped', complete: 'every cluster mapped', stale: `made at k = ${m.k}; the run's cut is k = ${t.k}` }
   return (
-    <div className="sh-mapping" data-testid="mapping-table">
-      <div className="bp-card-title"><h3 style={{ fontSize: 13 }}>Mapping · each cluster at k = {t.k} → interesting / not</h3>
-        <span className="sg" data-testid="mapping-state">{done} of {t.clusters.length} mapped · run: {stateWords[t.mapping_state] ?? t.mapping_state}</span></div>
+    <div className="sh-mapping" data-testid="mapping-table" data-k={k}>
+      <div className="bp-card-title"><h3 style={{ fontSize: 13 }}>Mapping · each cluster at k = {k} → interesting / not</h3>
+        <span className="sg" data-testid="mapping-state">{done} of {rows.length} mapped at this cut · the last run: {stateWords[t.mapping_state] ?? t.mapping_state}{k !== t.k ? ` · editing writes k = ${k} into the block (re-run to record it)` : ''}</span></div>
+      {locked && <div className="muted small" data-testid="mapping-frozen">frozen by run {frozen!.run_id}: names can change, classes and the cut cannot</div>}
       <table className="sh-table">
         <thead><tr><th>cluster</th><th className="r">windows</th><th>name (optional)</th><th>class</th></tr></thead>
-        <tbody>{t.clusters.map(c => {
+        <tbody>{rows.map(c => {
           const e = draft[String(c.cluster)]
           return (
             <tr key={c.cluster} data-testid={`mapping-row-${c.cluster}`}>
               <td><b>{c.cluster}</b>{c.speck ? <span className="chip grey" style={{ marginLeft: 4, height: 16, fontSize: 9 }}>speck</span> : null}</td>
               <td className="r">{c.n.toLocaleString()}</td>
               <td><input value={e?.name ?? ''} placeholder="e.g. sharkfin" onChange={ev => setDraft({ ...draft, [String(c.cluster)]: { name: ev.target.value, class: e?.class ?? null } })}
-                onBlur={ev => set(c.cluster, { name: ev.target.value })} data-testid={`mapping-name-${c.cluster}`} /></td>
-              <td><select value={e?.class ?? ''} onChange={ev => set(c.cluster, { class: (ev.target.value || null) as MappingEntry['class'] })} data-testid={`mapping-class-${c.cluster}`}>
+                onBlur={ev => set(c.cluster, { name: ev.target.value })} data-testid={`mapping-name-${c.cluster}`} disabled={locked && k !== frozen!.k} /></td>
+              <td><select value={e?.class ?? ''} onChange={ev => set(c.cluster, { class: (ev.target.value || null) as MappingEntry['class'] })} data-testid={`mapping-class-${c.cluster}`} disabled={locked}>
                 <option value="">—</option><option value="interesting">{CLASS_WORDS.interesting}</option><option value="not_interesting">{CLASS_WORDS.not_interesting}</option>
               </select></td>
             </tr>

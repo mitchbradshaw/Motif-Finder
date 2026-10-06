@@ -1,27 +1,253 @@
 [
- {"page": "analyse.block", "state": "fixup-ag-window-pool-is-the-source", "hash": "analyse/chain", "settle_ms": 2500,
+ {
+  "page": "library.window-sets",
+  "state": "fixup-ag-use-as-source-opens-the-live-chain-with-that-set-ticked",
+  "hash": "library/window-sets?set=ws_M2_concat_fs1_10min",
+  "settle_ms": 2500,
+  "_why": "fixup-ag (the researcher): Library › Window sets › Use as source in Analyse opens the LIVE chain — the Window pool as the source, THAT set ticked and nothing else — not the fixture training page (no demo-data chip)",
+  "actions": [
+   {
+    "wait_for": [
+     "[data-testid=\"use-in-analyse\"]",
+     30000
+    ]
+   },
+   {
+    "click": "[data-testid=\"use-in-analyse\"]"
+   },
+   {
+    "wait_for": [
+     "[data-testid=\"open-pool-block\"]",
+     30000
+    ]
+   },
+   {
+    "wait": 800
+   },
+   {
+    "hash": "#/analyse/block/0"
+   },
+   {
+    "wait_for": [
+     "[data-testid=\"pool-library-table\"]",
+     30000
+    ]
+   }
+  ],
+  "expect": [
+   "[data-testid=\"pool-library\"][data-ticked=\"1\"]",
+   "[data-testid=\"block-page\"]"
+  ],
+  "expect_absent": [
+   "[data-testid=\"demo-chip\"]",
+   "[data-testid=\"pool-library-error\"]"
+  ]
+ },
+ {
+  "page": "analyse.block",
+  "state": "fixup-ag-window-pool-is-the-source",
+  "hash": "analyse/chain",
+  "settle_ms": 2500,
   "_why": "fixup-ag: a chain starts from saved window sets in place of a span — Source › Start from a Window pool puts Window pool → Trace shape → Shape clustering in the chain; the Window pool page lists every saved window set with a tick (after fixup-af's states, M2's three unlabelled sets are in the store)",
-  "actions": [{"click": "[data-testid=\"source-chip\"]"}, {"wait_for": ["[data-testid=\"use-pool\"]", 10000]}, {"click": "[data-testid=\"use-pool\"]"},
-              {"wait_for": ["[data-testid=\"open-pool-block\"]", 15000]}, {"wait": 800}, {"hash": "#/analyse/block/0"},
-              {"wait_for": ["[data-testid=\"pool-library-table\"]", 30000]}, {"click": "[data-testid=\"pool-tick-unlabelled\"]"}, {"wait": 600}],
-  "expect": ["[data-testid=\"pool-library\"]", "[data-testid=\"pool-library-table\"]", "[data-testid=\"block-process\"]", "[data-testid=\"params-panel\"]"],
-  "expect_absent": ["[data-testid=\"pool-library-error\"]"]},
- {"page": "analyse.block", "state": "fixup-ag-run-to-the-dendrogram-and-click-a-cluster", "hash": "analyse/block/2", "settle_ms": 2500,
+  "actions": [
+   {
+    "click": "[data-testid=\"source-chip\"]"
+   },
+   {
+    "wait_for": [
+     "[data-testid=\"use-pool\"]",
+     10000
+    ]
+   },
+   {
+    "click": "[data-testid=\"use-pool\"]"
+   },
+   {
+    "wait_for": [
+     "[data-testid=\"open-pool-block\"]",
+     15000
+    ]
+   },
+   {
+    "wait": 800
+   },
+   {
+    "hash": "#/analyse/block/0"
+   },
+   {
+    "wait_for": [
+     "[data-testid=\"pool-library-table\"]",
+     30000
+    ]
+   },
+   {
+    "click": "[data-testid=\"pool-tick-unlabelled\"]"
+   },
+   {
+    "wait": 600
+   }
+  ],
+  "expect": [
+   "[data-testid=\"pool-library\"]",
+   "[data-testid=\"pool-library-table\"]",
+   "[data-testid=\"block-process\"]",
+   "[data-testid=\"params-panel\"]"
+  ],
+  "expect_absent": [
+   "[data-testid=\"pool-library-error\"]"
+  ]
+ },
+ {
+  "page": "analyse.block",
+  "state": "fixup-ag-run-to-the-dendrogram-and-click-a-cluster",
+  "hash": "analyse/block/2",
+  "settle_ms": 2500,
   "_why": "fixup-ag: ▶ Run (the pool combines through AF's combine, the shapes are the Library's, Ward on a 20,000-window sample of training windows, the rest assigned) → the cluster block's page is the dendrogram: move the cut (k follows), click a cluster — its medoid, a dozen members, the scale mix and the raw range — and the mapping table",
-  "actions": [{"wait_for": ["[data-testid=\"run-button\"]:not([disabled])", 30000]}, {"click": "[data-testid=\"run-button\"]"},
-              {"wait_for": ["[data-testid=\"tree-page\"]", 900000]}, {"wait_for": ["[data-testid=\"tree-clusters\"]", 60000]},
-              {"click": "[data-testid=\"tree-k-up\"]"}, {"wait": 1500}, {"wait_for": ["[data-testid=\"tree-cluster-1\"]", 60000]},
-              {"click": "[data-testid=\"tree-cluster-1\"]"}, {"wait_for": ["[data-testid=\"cluster-members\"], [data-testid=\"cluster-error\"]", 60000]}],
-  "expect": ["[data-testid=\"dendrogram\"]", "[data-testid=\"dendrogram-cut\"]", "[data-testid=\"tree-clustered\"]", "[data-testid=\"tree-assigned\"]",
-             "[data-testid=\"tree-clusters\"]", "[data-testid=\"cluster-medoid\"]", "[data-testid=\"cluster-members\"]", "[data-testid=\"cluster-scales\"]",
-             "[data-testid=\"cluster-amplitude\"]", "[data-testid=\"mapping-table\"]"],
-  "expect_absent": ["[data-testid=\"cluster-error\"]", "[data-testid=\"tree-cut-error\"]"]},
- {"page": "analyse.block", "state": "fixup-ag-trace-shape-counts-the-noise-floor", "hash": "analyse/block/1", "settle_ms": 3000,
+  "actions": [
+   {
+    "wait_for": [
+     "[data-testid=\"run-button\"]:not([disabled])",
+     30000
+    ]
+   },
+   {
+    "click": "[data-testid=\"run-button\"]"
+   },
+   {
+    "wait_for": [
+     "[data-testid=\"tree-page\"]",
+     900000
+    ]
+   },
+   {
+    "wait_for": [
+     "[data-testid=\"tree-clusters\"]",
+     60000
+    ]
+   },
+   {
+    "click": "[data-testid=\"tree-k-up\"]"
+   },
+   {
+    "wait": 1500
+   },
+   {
+    "wait_for": [
+     "[data-testid=\"tree-cluster-1\"]",
+     60000
+    ]
+   },
+   {
+    "click": "[data-testid=\"tree-cluster-1\"]"
+   },
+   {
+    "wait_for": [
+     "[data-testid=\"cluster-members\"], [data-testid=\"cluster-error\"]",
+     60000
+    ]
+   }
+  ],
+  "expect": [
+   "[data-testid=\"dendrogram\"]",
+   "[data-testid=\"dendrogram-cut\"]",
+   "[data-testid=\"tree-clustered\"]",
+   "[data-testid=\"tree-assigned\"]",
+   "[data-testid=\"tree-clusters\"]",
+   "[data-testid=\"cluster-medoid\"]",
+   "[data-testid=\"cluster-members\"]",
+   "[data-testid=\"cluster-scales\"]",
+   "[data-testid=\"cluster-amplitude\"]",
+   "[data-testid=\"mapping-table\"]"
+  ],
+  "expect_absent": [
+   "[data-testid=\"cluster-error\"]",
+   "[data-testid=\"tree-cut-error\"]"
+  ]
+ },
+ {
+  "page": "analyse.block",
+  "state": "fixup-ag-the-cluster-cards-follow-the-cut",
+  "hash": "analyse/block/2",
+  "settle_ms": 3000,
+  "_why": "fixup-ag (the researcher, 2026-10-06): one card per cluster at the CURRENT cut, every cluster — move the cut from 8 to 12 and there are 12 cards, read from the kept tree with no re-run",
+  "actions": [
+   {
+    "wait_for": [
+     "[data-testid=\"tree-propose\"]",
+     60000
+    ]
+   },
+   {
+    "click": "[data-testid=\"tree-propose\"] summary"
+   },
+   {
+    "click": "[data-testid=\"tree-propose-8\"]"
+   },
+   {
+    "wait_for": [
+     "[data-testid=\"tree-cards\"][data-k=\"8\"]",
+     60000
+    ]
+   },
+   {
+    "click": "[data-testid=\"tree-propose-12\"]"
+   },
+   {
+    "wait_for": [
+     "[data-testid=\"tree-cards\"][data-k=\"12\"]",
+     60000
+    ]
+   }
+  ],
+  "expect": [
+   "[data-testid=\"tree-cards\"][data-k=\"12\"][data-n=\"12\"]",
+   "[data-testid=\"tree-card-12\"]",
+   "[data-testid=\"mapping-table\"][data-k=\"12\"]"
+  ],
+  "expect_absent": [
+   "[data-testid=\"tree-cards-error\"]"
+  ]
+ },
+ {
+  "page": "analyse.block",
+  "state": "fixup-ag-trace-shape-counts-the-noise-floor",
+  "hash": "analyse/block/1",
+  "settle_ms": 3000,
   "_why": "fixup-ag: Trace shape — windows under the dataset's noise floor are left out by default and counted per recording and scale; every window keeps its raw range",
-  "actions": [{"wait_for": ["[data-testid=\"shape-view\"]", 60000]}],
-  "expect": ["[data-testid=\"shape-under-floor\"]", "[data-testid=\"shape-range-hist\"]", "[data-testid=\"shape-options\"]", "[data-testid=\"shape-range-by\"]"]},
- {"page": "analyse.block", "state": "fixup-ag-the-pool-page-shows-recording-by-scale-by-role", "hash": "analyse/block/0", "settle_ms": 3000,
+  "actions": [
+   {
+    "wait_for": [
+     "[data-testid=\"shape-view\"]",
+     60000
+    ]
+   }
+  ],
+  "expect": [
+   "[data-testid=\"shape-under-floor\"]",
+   "[data-testid=\"shape-range-hist\"]",
+   "[data-testid=\"shape-options\"]",
+   "[data-testid=\"shape-range-by\"]"
+  ]
+ },
+ {
+  "page": "analyse.block",
+  "state": "fixup-ag-the-pool-page-shows-recording-by-scale-by-role",
+  "hash": "analyse/block/0",
+  "settle_ms": 3000,
   "_why": "fixup-ag: the pool the run combined — windows per recording × scale × role, what was removed and why, the members in order",
-  "actions": [{"wait_for": ["[data-testid=\"pool-counts\"]", 60000]}],
-  "expect": ["[data-testid=\"pool-view\"]", "[data-testid=\"pool-counts\"]", "[data-testid=\"pool-dropped\"]", "[data-testid=\"pool-members\"]"]}
+  "actions": [
+   {
+    "wait_for": [
+     "[data-testid=\"pool-counts\"]",
+     60000
+    ]
+   }
+  ],
+  "expect": [
+   "[data-testid=\"pool-view\"]",
+   "[data-testid=\"pool-counts\"]",
+   "[data-testid=\"pool-dropped\"]",
+   "[data-testid=\"pool-members\"]"
+  ]
+ }
 ]

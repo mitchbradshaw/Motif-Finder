@@ -15,7 +15,7 @@
  *     (§8.8's "delete is blocked while anything uses the set" has no data behind it yet). The delete path says
  *     so instead of presenting an unchecked delete as a check that passed.
  */
-import { useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   BandStrip, Button, Callout, Checkbox, Checklist, EmptyState, Icon, InfoTip, KeyValue, Modal, Page, Popover, Seg, SelectField, Table, TextField, fmtInt, recordDemoWrite, useDemoState, useQueryState,
   type Column, type SortState,
@@ -27,6 +27,22 @@ import { useSourced } from '../api/seam'
 import { CLASS_COLOURS, HELD_OUT_KEY, REVIEW_QUEUE_CAP, getWindowSets, type SetCheck, type WindowSetRow } from '../api/library'
 import { LoadFailed, Loading, SectionBar, useExternalNavKey, useQueueToast } from './chrome'
 import { NewWindowSetModal } from './NewWindowSet'
+import { getWindowSetLibrary, renameWindowSet } from '../api/shape'
+
+/* fixup-ag: the Library sends a set to the LIVE chain — Analyse › Chain with the Window pool as its source and that
+ * set ticked (`analyse/chain?poolSets=<id>`), not the illustrative fixture training page. A Library row is keyed by
+ * name and version; the pool block ticks database ids, so the id is read from the library of window sets. */
+async function setDbId(name: string, version: number): Promise<number> {
+  const lib = await getWindowSetLibrary()
+  const hit = lib.sets.find(x => x.name === name && x.version === version) ?? lib.sets.filter(x => x.name === name).sort((a, b) => b.version - a.version)[0]
+  if (!hit) throw new Error(`window set ${name} v${version} is not in the library`)
+  return hit.id
+}
+async function openSetInChain(name: string, version: number, push: (t: { kind?: 'error'; text: string }) => void, open?: number) {
+  try { const id = await setDbId(name, version); navigate(`analyse/chain?poolSets=${id}${open !== undefined ? `&open=${open}` : ''}`) }
+  catch (e) { push({ kind: 'error', text: String(e instanceof Error ? e.message : e) }) }
+}
+const RELOAD_EVENT = 'windowsets:reload'
 
 const SPLIT_COLOUR = { train: '#9cc3f7', validation: '#ff9f0a', test: '#34c759', gap: '#e9ebef' }
 const CHECK_TONE: Record<SetCheck, string> = { 'train-safe': 't-green', 'fs inferred': 't-amber', 'test sample': 't-blue', 'not train-safe': 't-red', 'gap < window': 't-red', 'roles at pool': 't-blue' }
@@ -65,6 +81,11 @@ export function WindowSetsPage() {
   const rows = useMemo(() => (setsQ === 'empty' ? [] : (sets.data ?? []).filter(s => !deleted.includes(s.id))), [sets.data, deleted, setsQ])
   const { push } = useToast()
   const [modal, setModal] = useQueryState('modal', '')
+  useEffect(() => {
+    const on = () => sets.reload()
+    window.addEventListener(RELOAD_EVENT, on)
+    return () => window.removeEventListener(RELOAD_EVENT, on)
+  }, [sets])
   return (
     <>
       <Header workspace="Library" page="Window sets" subtitle={`${sets.data ? rows.length : '…'} saved`} search="Search spans, runs, families" demo={sets.source === 'demo'} />
@@ -73,14 +94,14 @@ export function WindowSetsPage() {
           actions={<span className="row lib-ui-btn" style={{ gap: 8 }}>
             {/* fixup-af: an unlabelled set per recording and scale, cut here (RQ1 version 2) */}
             <Button variant="primary" icon="plus" testid="new-window-set" onClick={() => setModal('new')}>New window set</Button>
-            <Button icon="link" testid="new-from-analyse" onClick={() => navigate('analyse/training')}>New from Analyse</Button>
+            <Button icon="link" testid="new-from-analyse" onClick={() => navigate('analyse/chain?poolSets=')}>New from Analyse</Button>
             <Button icon="download" testid="window-set-import" onClick={() => setModal('import')}>Import</Button>
           </span>} />
         {sets.error && <LoadFailed what="the window sets" error={sets.error} onRetry={sets.reload} />}
         {sets.loading && <Loading height={620} testid="window-sets-loading" />}
         {sets.data && (rows.length === 0
           ? <div className="k-card" style={{ padding: 30 }}><EmptyState icon="grid" testid="window-sets-none" title="No saved window sets yet" caption="Save one from any block whose output is a WindowSet (e.g. sliding windows in a training chain)"
-            action={<Button variant="primary" icon="link" onClick={() => navigate('analyse/training')}>New from Analyse</Button>} /></div>
+            action={<Button variant="primary" icon="link" onClick={() => navigate('analyse/chain?poolSets=')}>New from Analyse</Button>} /></div>
           : <WindowSets key={navKey} rows={rows} onDelete={id => { setDeleted(d => [...d, id]); recordDemoWrite('library', 'window-set.delete', { id }); push({ text: `Hidden ${id} in this session · not wired yet: DELETE /api/window-sets/${id}`, action: { label: 'Undo', onClick: () => setDeleted(d => d.filter(x => x !== id)) } }) }} />)}
         {/* The import modal lives HERE, beside the page, not inside `WindowSets` — `WindowSets` only mounts
             when `rows.length > 0`, so on an empty library (which is the state every installation starts in,
@@ -95,6 +116,7 @@ export function WindowSetsPage() {
 }
 
 function WindowSets({ rows, onDelete }: { rows: WindowSetRow[]; onDelete: (id: string) => void }) {
+  const { push: pushResplit } = useToast()
   const [safeQ, setSafeQ] = useQueryState<'all' | 'train-safe' | 'not-train-safe'>('safe', 'all')
   const [recQ, setRecQ] = useQueryState('rec', '')
   const [labelledQ, setLabelledQ] = useQueryState<'any' | 'none' | 'some' | 'full'>('labelled', 'any')
@@ -172,7 +194,7 @@ function WindowSets({ rows, onDelete }: { rows: WindowSetRow[]; onDelete: (id: s
             <div className="row" style={{ marginBottom: 8 }}><Icon name="alert-circle" size={16} style={{ color: 'var(--red)' }} /><b style={{ fontSize: 13.5 }}>Why {fmtInt(notSafe.length)} set{notSafe.length === 1 ? ' is' : 's are'} not train-safe</b></div>
             <div className="stack" style={{ gap: 6, paddingLeft: 24 }}>
               {notSafe.map(r => <span key={r.id} className="mono small" style={{ color: 'var(--text-2)' }}><button type="button" className="lib-plain mono small b" onClick={() => setSetQ(r.id)}>{r.id}</button> — {r.checkReason}.</span>)}
-              <span><Button variant="link" icon="link" iconRight="arrow-right" testid="resplit-in-analyse" onClick={() => navigate(`analyse/training/block/1?source=windowset:${notSafe[notSafe.length - 1].id}`)}>Re-split in Analyse</Button></span>
+              <span><Button variant="link" icon="link" iconRight="arrow-right" testid="resplit-in-analyse" onClick={() => { const r = notSafe[notSafe.length - 1]; void openSetInChain(r.id, r.version, pushResplit, 0) }}>Re-split in Analyse</Button></span>
             </div>
           </div>
         )}
@@ -258,6 +280,17 @@ function WindowSetRail({ ws, onDelete }: { ws: WindowSetRow; onDelete: () => voi
      `recording_id` to; when it resolved nothing, the advice says "this set's recording" rather than naming
      one at random. */
   const recKey = ws.recordingKeys[0] ?? ''
+  /* the researcher (2026-10-06): rename a set — the name changes; its key, version, files and the pools that use it do not */
+  const rename = async () => {
+    const name = window.prompt(`Rename ${ws.id} v${ws.version} (letters, digits, _ . -; the key and the version stay)`, ws.id)
+    if (!name || name.trim() === ws.id) return
+    try {
+      const r = await renameWindowSet(await setDbId(ws.id, ws.version), name.trim())
+      push({ text: `${r.was ?? ws.id} v${r.version} renamed ${r.name} · key ${r.key ?? '—'} unchanged · written to the audit log` })
+      window.dispatchEvent(new Event(RELOAD_EVENT))
+      navigate(`library/window-sets?set=${encodeURIComponent(r.name)}`)
+    } catch (e) { push({ kind: 'error', text: `rename refused · ${e instanceof Error ? e.message : String(e)}` }) }
+  }
   const recName = recKey || (ws.recording !== '—' ? ws.recording : "this set's recording")
   const trainReason = ws.setKind === 'unlabelled' ? 'an unlabelled set is combined into a pool first (Analyse › Window pool); Models › Launch trains on labelled sets'
     : ws.setKind === 'pool' ? 'a pool is trained on from the Window pool block in Analyse (its chain ends in Train model); Models › Launch reads labelled sets'
@@ -279,7 +312,7 @@ function WindowSetRail({ ws, onDelete }: { ws: WindowSetRow; onDelete: () => voi
       ]} testid="window-set-kv" />
       {(ws.setKind === 'unlabelled' || ws.setKind === 'pool') && <PoolFacts ws={ws} />}
       {ws.check !== 'train-safe' && <Callout tone={NOT_SAFE.includes(ws.check) ? 'red' : ws.check === 'test sample' || ws.check === 'roles at pool' ? 'blue' : 'amber'} testid="window-set-reason" stacked
-        action={NOT_SAFE.includes(ws.check) ? <Button variant="link" size="sm" iconRight="arrow-right" onClick={() => navigate(`analyse/training/block/1?source=windowset:${ws.id}`)}>Re-split in Analyse</Button>
+        action={NOT_SAFE.includes(ws.check) ? <Button variant="link" size="sm" iconRight="arrow-right" onClick={() => void openSetInChain(ws.id, ws.version, push, 0)}>Re-split in Analyse</Button>
           : ws.check === 'fs inferred' ? <Button variant="link" size="sm" onClick={() => navigate(recKey ? `settings/datasets?recording=${encodeURIComponent(recKey)}` : 'settings/datasets')}>Settings › Datasets</Button> : undefined}>{ws.checkReason}</Callout>}
       <span className="lib-cap" style={{ fontSize: 11 }}>split plan · {ws.split ? (ws.splitLabel === 'test only' ? 'test block only' : 'blocked by time') : 'none'}</span>
       {channels.length ? <>
@@ -308,7 +341,8 @@ function WindowSetRail({ ws, onDelete }: { ws: WindowSetRow; onDelete: () => voi
       {ws.usedBy.length ? ws.usedBy.map(u => <button key={u.label} type="button" className="lib-plain mono small" style={{ color: 'var(--blue)', textAlign: 'left' }} data-testid="used-by-link" onClick={() => navigate(u.to)}><Icon name="external" size={11} style={{ verticalAlign: -1, marginRight: 4 }} />{u.label}</button>)
         : <span className="lib-cap" data-testid="used-by-none">— not recorded: nothing in this installation writes down which run or model consumed a window set, so this reads empty for every set</span>}
       <div className="lib-rail-actions">
-        <Button variant="primary" icon="link" iconRight="arrow-right" testid="use-in-analyse" onClick={() => navigate(`analyse/training?source=windowset:${ws.id}`)}>Use as source in Analyse</Button>
+        <Button variant="primary" icon="link" iconRight="arrow-right" testid="use-in-analyse" onClick={() => void openSetInChain(ws.id, ws.version, push)}>Use as source in Analyse</Button>
+        <Button icon="tag" testid="rename-window-set" onClick={() => void rename()}>Rename</Button>
         <Button icon="rocket" iconRight="arrow-right" testid="train-in-models" disabled={!!trainReason} disabledReason={trainReason ?? undefined} onClick={() => navigate(`models/launch?windowSet=${ws.id}`)}>Train in Models</Button>
         <Button icon="checklist" testid="send-unlabelled" disabled={unlabelled <= 0 || unlabelled > REVIEW_QUEUE_CAP} disabledReason={unlabelled <= 0 ? 'every window is labelled' : `queue cap ${fmtInt(REVIEW_QUEUE_CAP)} windows`} onClick={() => queue(`Library · ${ws.id} unlabelled`, unlabelled)}>Send {fmtInt(Math.max(0, unlabelled))} unlabelled to Review</Button>
         <span className="row" style={{ width: '100%' }}>

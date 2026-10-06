@@ -79,7 +79,9 @@ POOL_META = {"recording_id": "pool_recording_id", "source_file": "pool_source_fi
              "start": "pool_start", "length": "pool_length", "fs": "pool_fs", "scale_min": "pool_scale_min",
              "role": "pool_role", "set_id": "pool_set_id"}
 #: the bounds (samples) of the role stretch each window lies in, from the pool's plan — what a re-cut must stay inside
-POOL_STRETCH = {"stretch_a": "pool_stretch_a", "stretch_b": "pool_stretch_b"}
+POOL_STRETCH = {"stretch_a": "pool_stretch_a", "stretch_b": "pool_stretch_b",
+                # seam (iii): the pool's content key, so a later step (the freeze in Analyse) knows which pool it is
+                "pool_key": "pool_key"}
 #: what the shape step adds to each window
 SHAPE_META = {"raw_range_mv": "shape_raw_range_mv", "peak_frac": "shape_peak_frac", "shape_row": "shape_row",
               "shape_file": "shape_file", "orig_start": "shape_orig_start", "noise_mv": "shape_noise_mv",
@@ -147,6 +149,8 @@ def pool_windowset(pool):
         a, b = stretch_bounds(plan, t)
         feats[POOL_STRETCH["stretch_a"]] = a
         feats[POOL_STRETCH["stretch_b"]] = b
+    if len(t):
+        feats[POOL_STRETCH["pool_key"]] = str(pool.key)
     return WindowSet(starts=t["start"].to_numpy().astype(np.int64),
                      length=int(t["length"].max()) if len(t) else 0,
                      fs=float(t["fs"].min()) if len(t) else 1.0, features=feats)
@@ -229,7 +233,7 @@ class ShapeSet:
         cols = [*POOL_META, "raw_range_mv", "peak_frac", "shape_row",
                 *[c for c in (*POOL_STRETCH, *SHAPE_EXTRA) if c in f.columns]]
         np.savez_compressed(path, vectors=np.asarray(self.vectors, dtype=np.float32),
-                            **{c: (f[c].to_numpy().astype(str) if c in ("source_file", "role") else
+                            **{c: (f[c].to_numpy().astype(str) if c in ("source_file", "role", "pool_key") else
                                    f[c].to_numpy().astype(np.float64) if c in ("fs", "scale_min", "raw_range_mv",
                                                                               "peak_frac", "noise_mv") else
                                    f[c].to_numpy().astype(np.int64))
@@ -247,6 +251,8 @@ class ShapeSet:
                                                     *POOL_STRETCH, *SHAPE_EXTRA) if c in z.files})
         frame["source_file"] = frame["source_file"].astype(str)
         frame["role"] = frame["role"].astype(str)
+        if "pool_key" in frame.columns:
+            frame["pool_key"] = frame["pool_key"].astype(str)
         meta = {}
         mp = os.path.join(d, "manifest.json")
         if os.path.isfile(mp):
@@ -792,3 +798,34 @@ def clusters_summary(tree, shapes, lab):
                     "median_range_mv": float(np.median(fin)) if len(fin) else None,
                     "peak_frac_median": float(np.median(sub["peak_frac"])) if "peak_frac" in sub.columns and len(sub) else None})
     return {"clusters": out, "small_below": small_below}
+
+
+CARD_MEMBERS = 4
+CARD_MEDOID_CAP = 300
+
+
+def cluster_cards(tree, shapes, lab, *, n_members=CARD_MEMBERS, medoid_cap=CARD_MEDOID_CAP, seed=0):
+    """One card per cluster at this cut — EVERY cluster, so a cut of 24 shows 24 (the researcher, 2026-10-06): its
+    medoid (among at most `medoid_cap` seeded members), `n_members` seeded members, its size and scale mix. Read from
+    the kept tree and the shape vectors alone; nothing is re-run."""
+    f = shapes.frame
+    out = []
+    for c in range(1, lab.k + 1):
+        idx = np.flatnonzero(lab.labels == c)
+        if not len(idx):
+            out.append({"cluster": c, "n": 0, "error": f"cluster {c} has no members at k = {lab.k}"})
+            continue
+        rng = np.random.default_rng(int(seed) + c)
+        pool_for_medoid = idx if len(idx) <= medoid_cap else np.sort(rng.choice(idx, medoid_cap, replace=False))
+        V = np.asarray(shapes.vectors[pool_for_medoid], dtype=np.float64)
+        sq = (V ** 2).sum(axis=1)
+        D = np.sqrt(np.maximum(sq[:, None] + sq[None, :] - 2.0 * V @ V.T, 0.0))
+        medoid = int(pool_for_medoid[int(np.argmin(D.sum(axis=1)))])
+        rest = idx[idx != medoid]
+        picks = np.sort(rng.choice(rest, size=min(int(n_members), len(rest)), replace=False)) if len(rest) else np.zeros(0, int)
+        sub = f.iloc[idx]
+        out.append({"cluster": c, "n": int(len(idx)),
+                    "scales": {f"{_scale_label(s)}": int(n) for s, n in sub["scale_min"].value_counts().sort_index().items()},
+                    "medoid": _window(f, shapes.vectors, medoid),
+                    "members": [_window(f, shapes.vectors, r) for r in (picks if len(picks) else [medoid])]})
+    return out

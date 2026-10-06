@@ -19,3 +19,8 @@
 .sh-mini.medoid { border-color: var(--amber); box-shadow: 0 0 0 1px var(--amber) inset; }
 .sh-mapping select, .sh-mapping input { font-size: 11.5px; padding: 2px 4px; }
 .sh-diag { border: 1px dashed var(--border); border-radius: 6px; padding: 8px 10px; background: var(--bg); }
+.sh-cards { display: grid; grid-auto-flow: column; grid-auto-columns: 170px; gap: 8px; overflow-x: auto; padding-bottom: 6px; }
+.sh-card-one { text-align: left; border: 1px solid var(--border); border-radius: 6px; padding: 4px 6px; background: var(--surface, #fff); cursor: pointer; font: inherit; }
+.sh-card-one.on { border-color: var(--amber); box-shadow: 0 0 0 1px var(--amber) inset; }
+.sh-card-one .cap { font-size: 10px; color: var(--muted); font-family: var(--font-mono); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sh-card-one .mini-row { display: flex; gap: 2px; }

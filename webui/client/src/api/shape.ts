@@ -65,6 +65,7 @@ export interface TreeInfo {
   key: string; dir: string; reused: boolean; loaded_from: string | null; shape_file: string; shape_key: string
   k: number; k_param: number; suggested_k: number | null; cut_height: number
   align?: string; detrend?: string; propose_cached?: boolean
+  pool_key?: string | null; frozen?: Frozen | null
   n_train: number; n_clustered: number; n_assigned: number; not_clustered: Record<string, number>
   sample: number | null; seed: number; stratified_by: string; ward_seconds: number | null; peak_rss_mb: number | null
   method_text: string; library_method: string; resample_length: number
@@ -93,3 +94,40 @@ export interface ClusterDetail {
 }
 export const getTreeCut = (key: string, k: number) => rq<CutAt>(`/api/shape/trees/${encodeURIComponent(key)}/cut?k=${k}`)
 export const getClusterDetail = (key: string, k: number, c: number, seed = 0) => rq<ClusterDetail>(`/api/shape/trees/${encodeURIComponent(key)}/cluster?k=${k}&c=${c}&seed=${seed}`)
+
+/* ---------------- one card per cluster at the cut (the researcher, 2026-10-06) ---------------- */
+export interface ClusterCard { cluster: number; n: number; scales?: Record<string, number>; medoid?: DetailWindow; members?: DetailWindow[]; error?: string }
+export interface Cards { key: string; k: number; n_members: number; cut_height: number; cards: ClusterCard[]; note: string }
+export const getClusterCards = (key: string, k: number) => rq<Cards>(`/api/shape/trees/${encodeURIComponent(key)}/cards?k=${k}`)
+
+/* ---------------- seam (iii): arm B.2 on Models › Launch ---------------- */
+export interface Frozen { run_id: number; k: number; mapping: { k: number | null; clusters: Record<string, MappingEntry> }; name: string }
+export interface B2Check { name: string; level: 'pass' | 'warn' | 'error'; detail: string }
+export interface B2Run {
+  run_id: number; status: string; name: string; started_at: string; finished_at: string | null; duration_s: number | null
+  pool: { id: number; name: string; version: number; key: string }; template: { id: number; name: string }; k: number
+  mapping: { k: number | null; clusters: Record<string, MappingEntry> }; scored: boolean
+  diagnostic: { kind: string; accuracy: number; macro_f1: number; chance_largest_cluster: number; n_held_back: number; note: string } | null
+  exams: Record<string, { status: string; n: number; by_class: Record<string, number> }>; results_path: string | null; error: string | null
+}
+export interface B2Setup {
+  template: { id: number; name: string; steps: { stage: string; algorithm: string; params: Record<string, unknown> }[] }
+  pool: { id: number; name: string; version: number; key: string; n_windows: number; by: CountRow[]; by_role: Record<string, number>
+    recordings: { source_file: string; name: string; channels: { channel: number; name: string; role: 'train' | 'exam'; n: number }[] }[]
+    plan: { n_blocks: number; test_frac: number; validation_frac: number; gap_s: number; hold_out_pack: string | null }; rule: string }
+  arm: { name: string; label: string; k: number; mapping: { k: number | null; clusters: Record<string, MappingEntry> }; read_only: boolean; mapping_state: string; where: string }
+  shape: { align: string; detrend: string; resample_length: number; noise_floor: boolean }
+  cluster: { sample: number; seed: number }
+  inputs: { features: string; stages: string[]; rule: string }
+  frozen: Frozen | null; checks: B2Check[]; defaults: { n_estimators: number; class_weight: string; random_state: number }
+  runs: B2Run[]; slurm: string
+}
+export const getB2Setup = (template: number, pool: number) => rq<B2Setup>(`/api/models/b2/setup?template=${template}&pool=${pool}`)
+export const trainB2 = (body: { template: number; pool: number; n_estimators?: number }) =>
+  rq<{ job_id: number; status: string }>('/api/models/b2/train', { method: 'POST', body: JSON.stringify(body) })
+export const getB2Runs = () => rq<{ runs: B2Run[] }>('/api/models/b2/runs')
+export const getFrozen = (poolKey: string) => rq<{ frozen: Frozen | null }>(`/api/models/b2/frozen?pool_key=${encodeURIComponent(poolKey)}`)
+
+/* ---------------- Library › Window sets: rename ---------------- */
+export const renameWindowSet = (id: number, name: string) =>
+  rq<{ id: number; name: string; version: number; key: string | null; changed: boolean; was?: string }>(`/api/windowsets/${id}/name`, { method: 'PATCH', body: JSON.stringify({ name }) })
