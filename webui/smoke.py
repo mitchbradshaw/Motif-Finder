@@ -1234,6 +1234,8 @@ class Smoke:
                         if page.locator(a["click_if"]).count(): page.locator(a["click_if"]).first.click(); page.wait_for_timeout(250)
                     elif "press" in a: page.keyboard.press(a["press"]); page.wait_for_timeout(200)
                     elif "fill" in a: page.locator(a["fill"][0]).first.fill(a["fill"][1]); page.wait_for_timeout(200)
+                    # fixup-ah: choose an option of a <select> (a click opens the native list, which a walk cannot pick from)
+                    elif "select" in a: page.locator(a["select"][0]).first.select_option(a["select"][1]); page.wait_for_timeout(250)
                     elif "hover" in a: page.locator(a["hover"]).first.hover(); page.wait_for_timeout(200)
                     elif "wait" in a: page.wait_for_timeout(int(a["wait"]))
                     # fixup-ab: wait for a selector, up to a timeout (ms) — a live job (a window set measured, a
