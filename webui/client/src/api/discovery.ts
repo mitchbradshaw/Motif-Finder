@@ -299,12 +299,15 @@ const sleep = (ms: number) => new Promise(r => window.setTimeout(r, ms))
 /** A seeded search over a section is a job (§7.6): POST starts it, the GET form of the same query
  *  answers once it is done. The polling lives here so the page still awaits one promise. A 500 on
  *  either call throws ApiError with the server's message and traceback — never an empty result. */
-async function seedResults(q: DiscSeedQuery, onProgress?: (p: SeedProgress) => void): Promise<DiscSeedResults> {
+async function seedResults(q: DiscSeedQuery, onProgress?: (p: SeedProgress) => void, alive?: () => boolean): Promise<DiscSeedResults> {
   const first = await startDiscoverySeedResults(q)
   if (first.ready) return first
   const startedAt = Date.now()
   for (;;) {
     await sleep(POLL_MS)
+    /* the page moved on (another seed, scope or zone): this loop's query is nobody's now. It used to keep
+     * polling and reporting its own job's progress beside the new loader's — the bar read 27 %, 32 %, 22 % */
+    if (alive && !alive()) throw new ApiError(499, 'superseded by a newer search on the page', { key: first.key })
     let r = await (q.scales?.length ? pollDiscoverySeedResultsBanked(q) : pollDiscoverySeedResults(q))
     if (r.ready) return r
     if (r.job_id == null) {
@@ -324,13 +327,13 @@ async function seedResults(q: DiscSeedQuery, onProgress?: (p: SeedProgress) => v
   }
 }
 
-export async function getSeedResults(seedId: string, channels: string[], bank?: { scales: number[]; overlap?: string } | null, exclusion?: number | null, section?: [number, number] | null, onProgress?: (p: SeedProgress) => void): Promise<Sourced<SeedResults>> {
+export async function getSeedResults(seedId: string, channels: string[], bank?: { scales: number[]; overlap?: string } | null, exclusion?: number | null, section?: [number, number] | null, onProgress?: (p: SeedProgress) => void, alive?: () => boolean): Promise<Sourced<SeedResults>> {
   const s = await scope()
   // the section on screen, which is the one *Run seed search* sends: the preview and the run are one search
   const sec = section ?? s.section
   const r = await seedResults({ seedId, channels: channels.length ? channels : s.channels, t0: sec[0], t1: sec[1],
     ...(bank?.scales.length ? { scales: bank.scales, overlap: bank.overlap ?? 'lowest' } : {}),
-    ...(exclusion != null ? { exclusion } : {}) }, onProgress)
+    ...(exclusion != null ? { exclusion } : {}) }, onProgress, alive)
   return {
     source: 'live',
     data: {

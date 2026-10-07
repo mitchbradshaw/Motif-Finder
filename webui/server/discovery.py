@@ -449,6 +449,12 @@ def _run_payload(conn, row, index, span, jobs=None):
         st = fanout.group_status(conn, run_ids=ids)
         channels_done = f"{st['done']} / {st['total']}"
         progress = st["progress"]
+        if live is not None and live.status in ("running", "queued") and (live.progress_state or {}).get("total"):
+            # the job's own fraction is monotonic; the group's moves backwards as
+            # draw runs join its denominator ("27 % → 32 % → 22 %")
+            prog = live.progress_state
+            progress = min(1.0, float(prog.get("done") or 0) / float(prog["total"]))
+            progress_text = prog.get("message") or None
         n_found = sum(c["detections"] for c in st["channels"])
         if row["superseded_at"]:
             status = "superseded"
@@ -2550,8 +2556,18 @@ def _seed_row_for(request, conn, s, body, plan, seed, chans, span):
         if p.get("seedId") != seed["id"]:
             continue
         same_seed.append((row, p))
-        if p.get("identity") == ident and row["status"] not in ("failed", "cancelled"):
-            return row["run_key"], row["label"], row, True
+        if p.get("identity") == ident:
+            if row["status"] not in ("failed", "cancelled"):
+                return row["run_key"], row["label"], row, True
+            # the same search, failed or cancelled: run it again ON THIS ROW. Each Retry used to
+            # add a card (the identity check skipped failed rows), so a run lost in two restarts
+            # stood three times in the list.
+            p.pop("error", None)
+            conn.execute("UPDATE discovery_runs SET status = 'new', job_id = NULL, params_json = ?, "
+                         "updated_at = ? WHERE id = ?", (json.dumps(p), _now(), int(row["id"])))
+            conn.commit()
+            row = conn.execute("SELECT * FROM discovery_runs WHERE id = ?", (int(row["id"]),)).fetchone()
+            return row["run_key"], row["label"], row, False
     base = body.label or f"seed {seed['hash'][:6]}"
     first = next((p.get("identity") for _, p in same_seed if p.get("identity")), None)
     bits = _seed_differs(first, ident, float(chans[0]["fs"])) if first else []
@@ -2647,7 +2663,7 @@ def post_seed_slurm(request: Request, body: SeedBody):
         spec = seed_job.build_spec(
             seed_id=seed["id"], exemplar=exemplar, label=label,
             channels=[{"source_file": ch["source_file"], "channel": ch["channel"], "name": ch["name"],
-                       "fs": ch["fs"]} for ch in chans],
+                       "fs": ch["fs"], "npy_path": ch["npy_path"]} for ch in chans],
             # uncut, like the page's preview (which re-thresholds what it fetched); the cut rides along for the run
             span=span, k=body.k, max_distance=None, cut=body.cut,
             null={"method": sp["method"], "draws": draws, "seed": sp.get("seed", 0), "block_s": sp.get("block_s")},
@@ -2657,6 +2673,7 @@ def post_seed_slurm(request: Request, body: SeedBody):
                                   est_seconds=plan["estimate_s"])
         params = json.loads(row["params_json"] or "{}")
         params["hpc"] = {"specPath": made["spec_path"], "scriptPath": made["script_path"],
+                         "dependencies": made["dependencies"],
                          "resultPath": made["result_path"], "specHash": seed_job.spec_hash(spec),
                          "sbatch": made["sbatch_command"], "createdAt": _now(),
                          "draws": draws, "estimateS": plan["estimate_s"]}
@@ -2824,8 +2841,13 @@ def post_slurm(request: Request, body: PlanBody):
         # (1 + draws) figure that routed the run here, and the response says the null is
         # not in the script rather than letting the page imply it is (fixup-T; left open).
         real_s = plan.get("estimate_real_s") if plan.get("estimate_real_s") is not None else plan["estimate_s"]
+        data_files = ["DATA/db/annotations.sqlite"]
+        for t in plan["targets"]:
+            rec_row = q.get_recording_by_id(c, int(t["recording_id"]))
+            if rec_row is not None and rec_row["npy_path"]:
+                data_files.append(rec_row["npy_path"])
         res = export_job(plan["recipe"], out_dir=out_dir, base_name=base, job_name=base,
-                         est_seconds=real_s)
+                         est_seconds=real_s, data_files=data_files)
         draws = (plan.get("null") or {}).get("draws") or 0
         null_note = (f"this script runs the real chain only — the {draws} paired null draws per channel that "
                      f"routed the run past the local ceiling are not in it" if draws else None)

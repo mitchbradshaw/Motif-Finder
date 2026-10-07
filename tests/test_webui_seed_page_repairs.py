@@ -63,12 +63,16 @@ def test_a_run_whose_job_died_with_the_server_reads_failed(client):
     assert "restart" in row["error"]
 
 
-def test_a_lost_run_is_not_handed_back_as_the_same_run(client):
+def test_a_lost_run_is_run_again_on_its_own_row(client):
+    """A lost run is not handed back as "already run" — and (2026-10-07) it is
+    not a second card either: the same search, run again, is the same row. The
+    first version of this test asked for a new key; three cards for one search
+    lost in two restarts was the researcher's "duplicate seed runs"."""
     a = _seed_run(client, cut=5.0, label="seed x")
     _orphan(client, a["run_key"])
     b = _seed_run(client, cut=5.0, label="seed x")
-    assert b["reused"] is False
-    assert b["run_key"] != a["run_key"]
+    assert b["reused"] is False and b["started"] is True
+    assert b["run_key"] == a["run_key"]
     assert _run_row(client, b["run_key"])["status"] == "done"
 
 

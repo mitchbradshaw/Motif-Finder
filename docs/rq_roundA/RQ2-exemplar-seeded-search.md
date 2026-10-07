@@ -96,6 +96,13 @@ things you also agree with, and whether it finds more than it would by chance.
     cluster*. The round trip (spec → headless compute → import → row done, 600 found) was walked in the sandbox.
   - **A run can be removed from the session** (the × on its card). The row is marked, not deleted; History lists
     it as *removed* and *open* puts it back; its runs and detections are untouched.
+  - **2026-10-07, after the first real submission** (a drop exemplar over all of `M2_aug`): the job now writes
+    its result after every channel and every ten draws and **resubmits itself** while it reads incomplete
+    (a 20-minute wall would otherwise have killed a ~3.5 h search with nothing on disk); every generated
+    SLURM script lists in its comments the code, the input files and the output it needs on the cluster; the
+    spec names each channel's `DATA/derived/channels/<stem>/CHn.npy`, so the job needs no database there.
+    The preview's bar jumped (27 → 32 → 22 %) because an older loader kept polling beside the new one; a
+    failed run is retried on its own row instead of adding a card; *Save .sh* downloads the script.
   - What the HPC route does **not** do: move files. The spec and script are written under
     `HPC/Detection/generated/` (sandbox: `webui/runtime/<stamp>/hpc/`); syncing them to rangpur, `sbatch`, and
     bringing `<name>.result.json` back are by hand, as for every other generated job. The cluster needs the repo and
@@ -155,3 +162,4 @@ Follow `RESEARCH_RUNBOOK.md` Q2:
 - 2026-10-05 · researcher's bug report · scope changes reach the session; a run lost in a restart reads failed and can be re-run; *Save as template* writes a row the Library lists as *seed search*; a 4 h × 3 ch run walked to *Send 47 unjudged to Review* in the sandbox.
 - 2026-10-06 · researcher's second report · the Seed page says what a search will cost before the button (work over a rate, measured once a search has finished here) and shows the job's own progress with time left; a cut can be chosen when the null gives none; a saved template's name becomes the next run's; Retry on a failed run is a real retry; a picked match is drawn large under the cards.
 - 2026-10-06 · researcher's third report · the "5 hours" was twenty copies of one preview sharing the CPU (a POST now joins the running job; 43 s alone); a seed search is costed by the measured rate and, over ten minutes, is a SLURM job (`Working.discovery.seed_job`: spec with the exemplar's samples and the null, headless compute, result imported — histogram from the cluster, run row finished here); a run can be removed from a session (×) and brought back from History.
+- 2026-10-07 · researcher's fourth report · the seed job checkpoints and resubmits itself; every SLURM script lists what it needs on the cluster; a failed run is retried on its own row; the preview's bar no longer jumps between two loaders; *Save .sh* and *Select all* channels.

@@ -80,7 +80,14 @@ export function SeedPage() {
     ? Math.round((draft.params.exclusionS / (draft.params.windowS ?? 1)) * 1000) / 1000 : null
   // the preview's own progress while it runs (the job's done/total, elapsed and remaining), null once it is in
   const [progress, setProgress] = useState<SeedProgress | null>(null)
-  const results = useSourced(() => { setProgress(null); return seed ? getSeedResults(seed.id, channels, bankQ, exclusionQ, dx.scope?.section, setProgress) : Promise.resolve({ data: noResults, source: 'demo' as const }) }, [seed?.id, channels.join(','), dx.scope?.section.join(','), bankQ?.scales.join(','), bankQ?.overlap, exclusionQ])
+  // only the newest loader reports progress: an older one (another zone, scope or seed) is told to stop
+  const loaderToken = useRef(0)
+  const results = useSourced(() => {
+    const mine = ++loaderToken.current
+    setProgress(null)
+    return seed ? getSeedResults(seed.id, channels, bankQ, exclusionQ, dx.scope?.section, p => { if (loaderToken.current === mine) setProgress(p) }, () => loaderToken.current === mine)
+      : Promise.resolve({ data: noResults, source: 'demo' as const })
+  }, [seed?.id, channels.join(','), dx.scope?.section.join(','), bankQ?.scales.join(','), bankQ?.overlap, exclusionQ])
   // before the button: what the preview and the run will cost on this scope
   const estimate = useSourced(() => dx.scope ? getSeedEstimate(channels, dx.scope.section) : Promise.resolve({ data: null, source: 'demo' as const }), [channels.join(','), dx.scope?.section.join(',')])
 

@@ -250,6 +250,10 @@ export function ScopeCard({ dx, previewable = true }: { dx: Discovery; previewab
             <div className="dsc-ch-grid">
               {rec.channels.map(ch => <Checkbox key={ch} checked={addSel.includes(ch)} label={ch} testid={`add-channel-${ch}`} onChange={v => setAddSel(v ? [...addSel, ch] : addSel.filter(c => c !== ch))} />)}
             </div>
+            <div className="row" style={{ gap: 6, marginTop: 8 }}>
+              <Button size="sm" onClick={() => setAddSel([...rec.channels])} disabled={addSel.length === rec.channels.length} disabledReason="every channel is selected" testid="add-channel-all">Select all</Button>
+              <Button size="sm" onClick={() => setAddSel([])} disabled={addSel.length === 0} disabledReason="nothing is selected" testid="add-channel-none">None</Button>
+            </div>
             <div className="row between" style={{ marginTop: 10 }}>
               <span className="muted small">{addSel.length} selected · {addSel.length > PAGE_SIZE ? 'strips page three at a time' : 'fits on one page'}</span>
               <Button size="sm" variant="primary" disabled={addSel.length === 0} disabledReason="scope needs at least one channel" testid="add-channel-apply"

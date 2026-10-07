@@ -219,9 +219,19 @@ function colourLine(line: string): ReactNode {
   return parts.map((p, i) => (i % 2 ? <span key={i} className="st">{p}</span> : p))
 }
 /** Dark code block with Copy (clipboard + toast) and Save (not wired → toast, unless `onSave`). `highlight` is 1-based line numbers. */
+/** Save a text file through the browser: a Blob and a click on a download link. A `.sh` keeps LF line endings
+ *  (sbatch refuses CRLF), which the text already has: the server wrote it that way. */
+export function saveText(text: string, filename: string) {
+  const blob = new Blob([text], { type: 'text/plain;charset=utf-8' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url; a.download = filename
+  document.body.appendChild(a); a.click(); a.remove()
+  window.setTimeout(() => URL.revokeObjectURL(url), 1000)
+}
+
 export function CodeBlock({ code, title, filename = 'script.sh', lineNumbers, highlight = [], copy = true, save = true, onSave, maxHeight, style, ...t }: CodeBlockProps) {
   const { push } = useToast()
-  const notWired = useNotWired()
   const lines = code.replace(/\n$/, '').split('\n')
   const ext = filename.includes('.') ? filename.slice(filename.lastIndexOf('.')) : ''
   const doCopy = async () => {
@@ -242,7 +252,7 @@ export function CodeBlock({ code, title, filename = 'script.sh', lineNumbers, hi
       {(copy || save) && (
         <div className="k-code-acts">
           {copy && <Button icon="copy" onClick={doCopy} testid={tid(t) ? `${tid(t)}-copy` : undefined}>Copy</Button>}
-          {save && <Button icon="download" onClick={() => (onSave ? onSave() : notWired(`save ${filename} to disk`))} testid={tid(t) ? `${tid(t)}-save` : undefined}>Save {ext || filename}</Button>}
+          {save && <Button icon="download" onClick={() => (onSave ? onSave() : saveText(code, filename))} testid={tid(t) ? `${tid(t)}-save` : undefined}>Save {ext || filename}</Button>}
         </div>
       )}
     </div>

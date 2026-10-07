@@ -218,6 +218,123 @@ def route_recipe(recipe, n_samples, fs, ceiling_s=CLUSTER_ROUTING_CEILING_S):
     return "cluster" if total > ceiling_s else "local"
 
 
+
+# ── what a job needs on the cluster (the researcher, 2026-10-07) ─────────────
+# Every generated script lists, in its own comments, the code modules the job
+# imports, the input files and the output it writes — so the WinSCP transfer
+# can be read off the script instead of guessed.
+
+#: The repo's own packages: an import of anything else is the conda env's.
+REPO_PACKAGES = ("Working", "Adapters", "Pipelines")
+
+
+def _module_file(name):
+    """`Working.discovery.seed_job` → `Working/discovery/seed_job.py` (or the
+    package's `__init__.py`), repo-relative; None when it is not a repo file."""
+    parts = name.split(".")
+    if parts[0] not in REPO_PACKAGES:
+        return None
+    base = os.path.join(REPO_ROOT, *parts)
+    # exact case: on Windows `isfile("Encoding.py")` is true of `encoding.py`, and a
+    # class imported from a package would be listed as a file the cluster lacks
+    siblings = set(os.listdir(os.path.dirname(base))) if os.path.isdir(os.path.dirname(base)) else set()
+    if parts[-1] + ".py" in siblings and os.path.isfile(base + ".py"):
+        return "/".join(parts) + ".py"
+    if parts[-1] in siblings and os.path.isfile(os.path.join(base, "__init__.py")):
+        return "/".join(parts) + "/__init__.py"
+    return None
+
+
+def _imports_of(path):
+    """Every module name a file imports, at any depth (a lazy import inside a
+    function is still needed on the cluster)."""
+    import ast
+
+    with open(os.path.join(REPO_ROOT, path), encoding="utf-8") as f:
+        try:
+            tree = ast.parse(f.read())
+        except SyntaxError:
+            return []
+    names = []
+    pkg = path.rsplit("/", 1)[0].replace("/", ".") if "/" in path else ""
+    if path.endswith("__init__.py"):
+        pkg = path[:-len("/__init__.py")].replace("/", ".")
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            names.extend(a.name for a in node.names)
+        elif isinstance(node, ast.ImportFrom):
+            if node.level:
+                base = ".".join(pkg.split(".")[: len(pkg.split(".")) - node.level + 1]) if pkg else ""
+                mod = f"{base}.{node.module}" if node.module and base else (node.module or base)
+            else:
+                mod = node.module or ""
+            if mod:
+                names.append(mod)
+                # `from X import y` where y is a submodule
+                names.extend(f"{mod}.{a.name}" for a in node.names)
+    return names
+
+
+def repo_module_closure(*entries):
+    """The repo files a job needs: the entry modules and everything they import
+    through `REPO_PACKAGES`, transitively — a sorted list of repo-relative paths
+    with forward slashes. The adapter registry imports every `Adapters/*.py`
+    at discovery, so a closure that reaches it carries them all; a package's
+    `__init__.py` rides with its modules."""
+    seen, todo = set(), []
+    for e in entries:
+        f = _module_file(e)
+        if f:
+            todo.append(f)
+    while todo:
+        path = todo.pop()
+        if path in seen:
+            continue
+        seen.add(path)
+        # the package __init__ files on the way down
+        parts = path.split("/")[:-1]
+        for i in range(1, len(parts) + 1):
+            init = "/".join(parts[:i]) + "/__init__.py"
+            if init not in seen and os.path.isfile(os.path.join(REPO_ROOT, init)):
+                todo.append(init)
+        if path == "Adapters/registry.py":
+            for name in sorted(os.listdir(os.path.join(REPO_ROOT, "Adapters"))):
+                if name.endswith(".py") and f"Adapters/{name}" not in seen:
+                    todo.append(f"Adapters/{name}")
+        for name in _imports_of(path):
+            f = _module_file(name)
+            if f and f not in seen:
+                todo.append(f)
+    return sorted(seen)
+
+
+def dependency_block(*, code, inputs, outputs, env):
+    """The comment block under the `#SBATCH` lines: code, inputs, outputs."""
+    lines = ["# ---- what this job needs on the cluster (paths relative to --chdir; transfer with WinSCP) ----",
+             f"# environment : conda env `{env}` (numpy, scipy, stumpy, aeon as the repo's requirements say)",
+             "# code        : the repo's own modules this job imports (git sync, or copy these files):"]
+    lines += [f"#     {c}" for c in code]
+    lines.append("# inputs      : files the job reads:")
+    lines += [f"#     {i}" for i in inputs]
+    lines.append("# outputs     : files the job writes (bring back):")
+    lines += [f"#     {o}" for o in outputs]
+    lines.append("# ---------------------------------------------------------------------------------------------")
+    return "\n".join(lines) + "\n"
+
+
+def _adapter_modules(recipe):
+    return [f"Adapters.{st['stage']}_{st['algorithm']}" for st in recipe.get("steps") or []]
+
+
+def recipe_dependencies(recipe, recipe_repo_path, data_files=None, outputs=None):
+    """What a `run_recipe.py` job needs: the runner, the adapters the steps name
+    (and what they import), the recipe file, and the data files the caller
+    knows (the database, the recordings' `.npy`)."""
+    code = repo_module_closure("Pipelines.run_recipe.run_recipe", "Working.execution", *_adapter_modules(recipe))
+    inputs = [recipe_repo_path] + [repo_relative(d) for d in (data_files or [])]
+    return {"code": code, "inputs": inputs, "outputs": [repo_relative(o) for o in (outputs or [])]}
+
+
 _SCRIPT_TEMPLATE = """#!/bin/bash
 #SBATCH --job-name={job_name}
 #SBATCH --chdir={remote_root}
@@ -227,6 +344,7 @@ _SCRIPT_TEMPLATE = """#!/bin/bash
 {gpu_line}
 #SBATCH --cpus-per-task={cpus}
 {array_line}
+{deps_block}
 
 echo "========================================"
 echo "Job ID       : $SLURM_JOB_ID"
@@ -274,7 +392,7 @@ def _materialize_snippet(recipe_repo_path, per_target_repo_path):
 
 def export_job(recipe, *, out_dir, base_name, job_name, est_seconds=None,
                slurm_time=None, resumable=False, max_chain=12, uses_gpu=None,
-               artifact_repo_path=None, timeout_s=None):
+               artifact_repo_path=None, timeout_s=None, data_files=None):
     """Write a recipe JSON + `sbatch` script for an arbitrary recipe.
 
     This is the single generic exporter both `export_mp_job` and
@@ -286,8 +404,11 @@ def export_job(recipe, *, out_dir, base_name, job_name, est_seconds=None,
     incomplete build) and requires `artifact_repo_path`; `uses_gpu` toggles
     the GPU directive/module for that template.
 
+    `data_files` are the data the caller knows the job reads (the database,
+    the recordings' `.npy`); they are named in the script's dependency block.
+
     Returns `{"script_path", "recipe_path", "artifact_path", "sbatch_command",
-    "job_name", "slurm_time", "timeout_s"}`.
+    "job_name", "slurm_time", "timeout_s", "dependencies"}`.
     """
     if slurm_time is None:
         slurm_time = _slurm_time_from_estimate(est_seconds)
@@ -317,6 +438,9 @@ def export_job(recipe, *, out_dir, base_name, job_name, est_seconds=None,
     per_target_repo_path = repo_relative(os.path.join(
         out_dir, f"{base_name}_task$SLURM_ARRAY_TASK_ID.json",
     ))
+    deps = recipe_dependencies(recipe, recipe_repo_path, data_files=data_files,
+                               outputs=([artifact_repo_path] if artifact_repo_path else []))
+    deps_block = dependency_block(env=(HPC_CONDA_ENV_GPU if uses_gpu else HPC_CONDA_ENV_CPU), **deps)
 
     if resumable:
         materialize = _materialize_snippet(recipe_repo_path, per_target_repo_path) if fan else ""
@@ -359,7 +483,7 @@ def export_job(recipe, *, out_dir, base_name, job_name, est_seconds=None,
             # catch22/entropy stack a stat-only build actually needs.
             conda_env=(HPC_CONDA_ENV_GPU if uses_gpu else HPC_CONDA_ENV_CPU),
             artifact_repo_path=artifact_repo_path,
-            array_line=array_line,
+            array_line=array_line, deps_block=deps_block,
             run_command=run_command,
             resubmit_line=resubmit_line,
             manual_resubmit_line=manual_resubmit_line,
@@ -373,7 +497,7 @@ def export_job(recipe, *, out_dir, base_name, job_name, est_seconds=None,
         )
         script = _SCRIPT_TEMPLATE.format(
             job_name=job_name, remote_root=HPC_REMOTE_REPO_ROOT, base_name=base_name,
-            slurm_time=slurm_time, array_line=array_line, run_command=run_command,
+            slurm_time=slurm_time, array_line=array_line, run_command=run_command, deps_block=deps_block,
             **_profile(uses_gpu),
         )
     # newline="\n": these scripts run on a Linux cluster via `sbatch`, which
@@ -390,7 +514,7 @@ def export_job(recipe, *, out_dir, base_name, job_name, est_seconds=None,
         "artifact_path": artifact_repo_path,
         "sbatch_command": f"sbatch {script_repo_path}",
         "job_name": job_name, "slurm_time": slurm_time, "timeout_s": timeout_s,
-        "uses_gpu": bool(uses_gpu), "warnings": _location_warnings(out_dir),
+        "uses_gpu": bool(uses_gpu), "warnings": _location_warnings(out_dir), "dependencies": deps,
     }
 
 
@@ -421,8 +545,11 @@ def export_training_job(recipe, *, out_dir, base_name, est_seconds=None, slurm_t
     script_path = os.path.join(out_dir, f"{base_name}.sh")
     run_command = (f"python -m Working.training run --db {repo_relative(db_repo_path)} "
                    f"--root {repo_relative(root_repo_path)} --recipe {repo_relative(recipe_path)}")
+    deps = {"code": repo_module_closure("Working.training"), "inputs": [repo_relative(recipe_path), db_repo_path],
+            "outputs": [root_repo_path]}
     script = _SCRIPT_TEMPLATE.format(job_name=base_name, remote_root=HPC_REMOTE_REPO_ROOT, base_name=base_name,
                                      slurm_time=slurm_time, array_line="", run_command=run_command,
+                                     deps_block=dependency_block(env=HPC_CONDA_ENV_CPU, **deps),
                                      **_profile(False, cpus=16))
     with open(script_path, "w", newline="\n") as f:
         f.write(script)
@@ -514,6 +641,7 @@ _WM_SCRIPT_TEMPLATE = """#!/bin/bash
 #SBATCH --cpus-per-task=4
 {gpu_line}
 {array_line}
+{deps_block}
 # Chain position, incremented on each resubmit. Capped at {max_chain} so a
 # bug that always reports "incomplete" terminates instead of burning the
 # allocation -- the failure mode the hand-written wm_job.sh has today.
