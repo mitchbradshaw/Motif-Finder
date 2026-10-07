@@ -40,3 +40,12 @@ what is known, decisions, what is needed, how it gets answered, open decisions, 
 ## Log
 
 - 2026-10-03 · grilling · folder created with parked capabilities and seed ideas.
+- **A CNN trained on the Library motifs (the researcher, 2026-10-07).** A model that sifts a whole dataset and flags
+  sharkfins, troughs, sequences etc. with a confidence. Discussed the same day: it needs an explicit *background* class
+  (noise and plain drift, sampled from stretches holding no member, several times the motif count, with near-misses
+  included) — a softmax network trained on motif classes alone forces noise into a motif class with high confidence;
+  classes must be the researcher's **verified** named families, not raw Ward families; roughly 100–200 verified
+  members per class to start, 500+ to be comfortable, classes under ~50 merged or dropped; positives jittered in
+  position and taken at the three scales; a held-out pack and a blind check as in RQ1; confidences calibrated on
+  validation. Today (g-05): 3,239 members in 149 families, the largest 79, thirty families with 30 or more, and
+  one human verdict on a member — so the first job is a vocabulary of 5–8 named classes and verifying members.
