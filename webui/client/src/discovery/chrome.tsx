@@ -455,6 +455,8 @@ function BandSetRow({ dx, set }: { dx: Discovery; set: BandSet }) {
         : <DisabledReason disabled={!set.done} reason="every band run needs results before the set can be compared">
           <button type="button" className="dsc-pick" disabled={!set.done} onClick={() => dx.togglePick(set.key)} aria-label={`pick ${set.label} to compare`} data-testid={`pick-${set.key}`} />
         </DisabledReason>}
+      {/* a band set is not removed as one row; the ghost keeps its badge in the same column as the runs' */}
+      <span className="dsc-run-remove ghost" aria-hidden />
     </div>
   )
 }
@@ -499,7 +501,6 @@ function RunRow({ dx, run, selected, onSelect, mode }: { dx: Discovery; run: Dis
   }
   return (
     <div className={cx('dsc-run', selected && 'selected', status === 'paused' && 'paused', status === 'superseded' && 'superseded', status === 'failed' && 'failed')} style={{ ['--run' as string]: run.colour }} data-testid={`run-row-${run.key}`} data-status={status}>
-      {run.kind !== 'reference' && <button type="button" className="dsc-run-remove" onClick={remove} aria-label={`remove ${run.label} from this session`} title="remove from this session · the runs are kept; History brings it back" data-testid={`remove-${run.key}`}>×</button>}
       <button type="button" className="dsc-run-body" onClick={() => onSelect ? onSelect(run.key) : navigate(`discovery/runs?run=${encodeURIComponent(run.key)}`)} aria-pressed={selected} title={mode === 'runs' ? `browse ${run.label}` : `open ${run.label} in Runs`}>
         <RunGlyph kind={run.glyph} width={40} height={28} />
         <span className="dsc-run-text">
@@ -530,6 +531,12 @@ function RunRow({ dx, run, selected, onSelect, mode }: { dx: Discovery; run: Dis
           </DisabledReason>
       )}
       {mode === 'seed' && status !== 'paused' && status !== 'superseded' && <span className="dsc-pick ghost" aria-hidden />}
+      {/* fixup-unpick: the x is the last item in the row, AFTER the badge — it used to be an absolute overlay on
+          the same corner, so it intercepted the click meant for the badge. A reference run has no x; its ghost
+          keeps the badges in one column. */}
+      {run.kind !== 'reference'
+        ? <button type="button" className="dsc-run-remove" onClick={remove} aria-label={`remove ${run.label} from this session`} title="remove from this session · the runs are kept; History brings it back" data-testid={`remove-${run.key}`}>×</button>
+        : <span className="dsc-run-remove ghost" aria-hidden />}
     </div>
   )
 }
