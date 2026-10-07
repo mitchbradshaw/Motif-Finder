@@ -251,6 +251,7 @@ which one does better on the exam.
 | ~~**Open (the researcher):** the pool's mix of scales~~ — decided 2026-10-05: equal, 20,000 per scale | researcher |
 | ~~**New scope:** blind labelling in Review with the cluster names as buttons, plus "can't tell"~~ — built as interesting / not + can't tell (`AH`; the cluster-name mode set aside 2026-10-05) | done |
 | **New scope:** the researcher's codebook — one page, each category defined with 2–3 example windows, written before labelling | researcher |
+| **Blind labels as a saved window set** (the researcher, 2026-10-07, after the labelling): *Save as window set* from the blind view — the sample's windows at their re-cut bounds and scales with the human's label (a repeat that agrees is one labelled window; one that disagrees is conflicting and counted; can't-tell and artifact are unlabelled / excluded and counted), carrying the pool key and each window's role so a later model on the same pool cannot train on its own test windows; listed in Library › Window sets as a labelled set beside window set 1 | to build, small |
 
 ## New scope (2026-10-05): cluster the unlabelled pool, validate blind
 
@@ -512,3 +513,4 @@ Q-W1, Q-W2 and Q-W4 were answered 2026-10-03.
   scale (fusion_cnn refused, fusion_cnn_2 / _3 scored); sandbox walk with placeholder labels only.
 - 2026-10-06 · fixup-ai · the CNN arm of B.2 (fusion; the forest's recipe with the model changed; raw-sample images), *Create SLURM script* on Launch (resumable GPU job, what to copy, an estimate labelled as one, the null as an off-by-default array job), the local smoke (480 windows, 349 s, run listed in Results and read by AH's blind view unchanged), the full-pool Ward script from the cluster page, one import function `hpc_import.import_results` / `import-results`; fusion training code found sound
 - 2026-10-07 · fixup-aj · Jobs: the bridge's real jobs (state, stage, progress, started, duration, error + traceback), every SLURM job folder the site wrote with its recipe hash, written-at, what to copy and its state (written / copied back / imported / refused with the reason), and the Manifest inbox importing through `hpc_import.import_results`; the rest of Jobs stays demo.
+- 2026-10-07 · researcher · the forest is trained on the real database and blind labelling has begun; asked for the blind labels to become a saved labelled window set afterwards (row added to *What is still needed*). The labels themselves already persist as `annotations` rows (`source = blind_test_review`).
