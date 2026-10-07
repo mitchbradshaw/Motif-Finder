@@ -207,3 +207,21 @@ def test_a_result_for_another_scope_is_refused(client):
     r = client.post("/api/discovery/seed/import", json=result)
     assert r.status_code == 422, r.text
     assert "other.mat" in r.text
+
+
+# ── a failed run is retried on its own row ─────────────────────────────────
+
+def test_retrying_a_failed_seed_run_reuses_its_row(client):
+    from test_webui_seed_page_repairs import _orphan
+    out = _seed_run(client, label="again")
+    _orphan(client, out["run_key"])                      # lost in a restart → reads failed
+    before = [r["key"] for r in _runs(client) if r["kind"] == "seed"]
+    body = {"seedId": _seed_id(client), "channels": [CH[0]], "t0": 0.0, "t1": N / 3600.0, "k": 20, "label": "again"}
+    r = client.post("/api/discovery/seed/run", json=body)
+    assert r.status_code == 200, r.text
+    assert r.json()["run_key"] == out["run_key"], "the same search, run again, is the same row — not a second card"
+    assert r.json()["started"] is True
+    assert _wait_job(client, r.json()["job_id"])["status"] == "completed"
+    after = [r_["key"] for r_ in _runs(client) if r_["kind"] == "seed"]
+    assert after == before
+    assert next(x for x in _runs(client) if x["key"] == out["run_key"])["status"] == "done"
