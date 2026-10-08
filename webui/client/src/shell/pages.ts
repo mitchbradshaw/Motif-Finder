@@ -49,10 +49,7 @@ export const PAGES: PageDef[] = [
   P('library.import', 'Library', 'Import', 'empty library and the motif import (dry run)', 'library/import', ['library/library-5-empty-import'], ['empty state', 'import dry run']),
   P('library.window-sets', 'Library', 'Window sets', 'saved, reusable, with split and train-safety', 'library/window-sets', ['library/library-6-window-sets'], ['set list', 'set detail']),
   P('library.templates', 'Library', 'Templates', 'every saved chain, its versions and scores', 'library/templates', ['library/library-7-templates'], ['template list', 'versions', 'scores']),
-  P('jobs.all', 'Jobs', 'All jobs', 'every job across workspaces', 'jobs', ['jobs/jobs-1-all'], ['needs you', 'jobs table']),
-  P('jobs.paused', 'Jobs', 'Paused run', 'where it stopped; its result arrived in place', 'jobs/run/a-0098', ['jobs/jobs-2-paused-run'], ['run stages', 'result check', 'continue']),
-  P('jobs.upload', 'Jobs', 'Upload and continue', 'checked before placing', 'jobs/run/r-0431/upload', ['jobs/jobs-3-upload-and-continue'], ['upload', 'checks', 'continue']),
-  P('jobs.cluster', 'Jobs', 'Cluster job', 'hand-marked status, reminder, script, manifest inbox', 'jobs/cluster/j-0217', ['jobs/jobs-4-cluster-job-inbox'], ['job', 'status', 'script', 'manifest inbox']),
+  P('jobs.all', 'Jobs', 'All jobs', 'in progress here · waiting on the cluster · waiting in review', 'jobs', ['jobs/jobs-1-all'], ['in progress', 'cluster', 'review queues', 'manifest inbox']),
   ...([
     ['datasets', 'Datasets', 'settings-01-datasets'], ['channels-events', 'Channels & events', 'settings-02-channels-events'], ['vocabulary', 'Vocabulary', 'settings-03-vocabulary'],
     ['nulls', 'Nulls', 'settings-04-nulls'], ['analysis-defaults', 'Analysis defaults', 'settings-05-analysis-defaults'], ['compute-hpc', 'Compute & HPC', 'settings-06-compute-hpc'],

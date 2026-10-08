@@ -35,21 +35,20 @@ export function TrainingJobsLink({ base }: { base: number }) {
   )
 }
 
-/** fixup-ab: the live pages' link to Jobs. fixup-aj: Jobs now lists this bridge's jobs (a training job running, then
- * finished), the SLURM scripts the site wrote with what to copy, and imports returned results; its paused-run and
- * hand-marked cluster-job parts are still demo — the link names only what is real. */
+/** fixup-ab: the live pages' link to Jobs. fixup-jobs: Jobs is one real board — what is in progress here, every
+ * script the site wrote for the cluster with its state and import, and the open review queues. */
 export function JobsPageLink() {
   return (
     <button type="button" className="m-jobs-link" onClick={() => navigate('jobs')} data-testid="open-training-jobs"
-      title="Jobs: this bridge's jobs, the SLURM scripts written for the cluster and their state, the results inbox (its paused-run and hand-marked cluster-job parts are still demo data)">
-      <Icon name="checklist" size={14} />Jobs · running here, SLURM scripts, results inbox<Icon name="external" size={13} />
+      title="Jobs: what is in progress here, every script written for the cluster with its state and import, the open review queues">
+      <Icon name="checklist" size={14} />Jobs · in progress here, waiting on the cluster, in review<Icon name="external" size={13} />
     </button>
   )
 }
 
 export function JobLink({ id, status }: { id: string; status: string }) {
   return (
-    <button type="button" className="m-jobs-link" onClick={() => navigate(`jobs/cluster/${id}`)} data-testid="open-job" title={`opens ${id} in Jobs`}>
+    <button type="button" className="m-jobs-link" onClick={() => navigate('jobs?section=cluster')} data-testid="open-job" title={`opens ${id} in Jobs`}>
       <Icon name="checklist" size={14} />{id} · {status} · open in Jobs<Icon name="external" size={13} />
     </button>
   )

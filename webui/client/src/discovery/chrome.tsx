@@ -512,7 +512,7 @@ function RunRow({ dx, run, selected, onSelect, mode }: { dx: Discovery; run: Dis
           {line && <span className="dsc-run-line small">{line}</span>}
         </span>
       </button>
-      {status === 'paused' && run.id && <Button variant="link" size="sm" icon="external" className="dsc-run-jobs-link" onClick={() => navigate(`jobs/run/${run.id}`)} testid={`open-in-jobs-${run.key}`}>Open in Jobs</Button>}
+      {status === 'paused' && run.id && <Button variant="link" size="sm" icon="external" className="dsc-run-jobs-link" onClick={() => navigate('jobs')} testid={`open-in-jobs-${run.key}`}>Open in Jobs</Button>}
       {/* a real retry: a seed run is started again from its seed and cut, a template run from its template, over the
           scope. It used to mark the row `new` in the page's memory, which the Seed page then took for a pending run of
           this search and greyed *Run seed search* out. */}

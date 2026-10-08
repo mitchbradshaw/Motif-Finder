@@ -44,7 +44,7 @@ export function Header({ workspace, page, subtitle, search = 'Search spans, runs
           <span>{search}</span><kbd>{searchHint}</kbd>
         </button>
         {bridgeDown && <span className="chip red" title="the FastAPI bridge did not answer the last poll; retrying every 5 s">bridge unreachable</span>}
-        <button className={`chip ${total ? 'blue' : 'grey'}`} data-testid="need-you" onClick={() => navigate('jobs')}
+        <button className={`chip ${total ? 'blue' : 'grey'}`} data-testid="need-you" onClick={() => navigate('jobs?section=review')}
           title={`${review} unjudged across the open review queues · ${needYou} live: runs started from this tab that failed — opens Jobs`}>● {total} need you</button>
         <button className={`chip ${heldOut.on ? 'grey' : 'amber'}`} data-testid="held-out-chip" onClick={() => navigate('settings/datasets')}
           title={heldOut.on

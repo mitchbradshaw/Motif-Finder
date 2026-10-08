@@ -1,5 +1,4 @@
 /* 64 px nav rail (frame shell-nav-rail): logo tile, six workspaces, then Jobs and Settings at the foot. */
-import { DEMO_JOBS_ACTIVE } from '../fixtures/canon'
 import { navigate, useApp } from '../state'
 
 const I = {
@@ -40,7 +39,7 @@ export function NavRail() {
       </div>
       <div className="rail-group">{TOP.map(t => <Item key={t.key} k={t.key} label={t.label} icon={t.icon} to={t.to} />)}</div>
       <div className="rail-foot">
-        <Item k="jobs" label={`Jobs · ${liveJobs + DEMO_JOBS_ACTIVE}`} icon="jobs" to="jobs" />
+        <Item k="jobs" label={`Jobs · ${liveJobs}`} icon="jobs" to="jobs" />
         <div className="rail-sep" />
         <Item k="settings" label="Settings" icon="settings" to="settings/datasets" />
       </div>

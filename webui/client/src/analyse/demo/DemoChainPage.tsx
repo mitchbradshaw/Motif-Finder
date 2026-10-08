@@ -217,7 +217,7 @@ export function DemoChainPage({ template }: { template: string }) {
               <div><div className="t">{sc.paused?.found ?? 'Result found in place'}</div><div className="s">{sc.paused?.checks}</div></div>
             </div>
             <div className="row" style={{ gap: 8 }}>
-              <Button icon="external" onClick={() => navigate(`jobs/run/${sc.paused?.runId ?? 'a-0098'}`)} testid="open-in-jobs">Open in Jobs</Button>
+              <Button icon="external" onClick={() => navigate('jobs')} testid="open-in-jobs">Open in Jobs</Button>
               <Button variant="primary" icon="play" onClick={() => continueFrom(r)} testid="continue-button">Continue from {pad2(i + 2)}</Button>
             </div>
           </div>
@@ -367,7 +367,7 @@ export function DemoChainPage({ template }: { template: string }) {
               <div><Icon name="refresh" size={12} /> {pad2(pausedRow.index + 1)} turns cached · {pad2(pausedRow.index + 2)} → {pad2(n)} run here</div>
               <div><Icon name="link" size={12} /> a file made with other parameters is refused</div>
               <div className="row" style={{ gap: 8, marginTop: 'auto', justifyContent: 'flex-end' }}>
-                <Button icon="external" onClick={() => navigate(`jobs/run/${sc.paused!.runId}`)}>Open in Jobs</Button>
+                <Button icon="external" onClick={() => navigate('jobs')}>Open in Jobs</Button>
                 <Button variant="primary" icon="play" onClick={() => continueFrom(pausedRow)} testid="continue-bottom">Continue from {pad2(pausedRow.index + 2)}</Button>
               </div>
             </div>

@@ -273,7 +273,7 @@ function Scoreboard({ dx }: { dx: Discovery }) {
             {others.map(r => (
               <tr key={r.key} className="parent other" data-testid={`score-row-${r.key}`}>
                 <td><span className="dsc-expand static"><Icon name="chevron-right" size={12} /><span className="dot" style={{ background: r.colour }} /><b>{r.label.replace(/ · r-\d+$/, '')}</b></span></td>
-                <td colSpan={8} className="muted">{otherLine(r)}{r.status === 'paused' && r.id && <Button variant="link" size="sm" icon="external" onClick={() => navigate(`jobs/run/${r.id}`)}>Open in Jobs</Button>}</td>
+                <td colSpan={8} className="muted">{otherLine(r)}{r.status === 'paused' && r.id && <Button variant="link" size="sm" icon="external" onClick={() => navigate('jobs')}>Open in Jobs</Button>}</td>
               </tr>
             ))}
           </tbody>

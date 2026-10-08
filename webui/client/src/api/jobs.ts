@@ -1,56 +1,35 @@
-/* Jobs reads (frames jobs-1 … jobs-4, spec §7c). The fixture reads below resolve through the seam and say
- * `source: 'demo'`; their writes (marks, continue, cancel, place, import) stay in the in-memory store — see
- * jobs/store.ts. fixup-aj: the live reads at the end of this file (the bridge's jobs, the job directories written
- * for the cluster, the Manifest inbox's import) say `source: 'live'`. */
-import { demo, live, type Sourced } from './seam'
+/* Jobs reads — all live (fixup-jobs; the fixture reads that fed the page's demo half are gone with it).
+ *
+ *  · the bridge's own job table (`GET /api/jobs`): what is in progress here, what finished, what failed;
+ *  · every job the site wrote for the cluster (`GET /api/hpc/cluster`, `webui/server/jobs_routes.py`): the job
+ *    directories (CNN, Ward), Discovery's seed searches on the cluster, the flat recipe scripts — one list, each
+ *    row with its state and how its results come back;
+ *  · the Manifest inbox (`POST /api/hpc/inbox/import`, `GET /api/hpc/inbox`) and the seed-result import by path
+ *    (`POST /api/hpc/seed/import`), both through the core's own import functions.
+ *  The review queues come from `api/review.ts` (`getQueues`). */
+import { live, type Sourced } from './seam'
 import { listJobs, type JobRow, type JobStep } from '../api'
-import {
-  CLUSTER_JOBS, FINISHED_TODAY, INBOX, LOCAL_JOBS, PAUSED_RUNS, PROFILES, QUEUE_JOBS, UPLOAD_FILES, UPLOAD_NULL_NOTE, WORKSPACE_ICON,
-  type ClusterJob, type FinishedJob, type LocalJob, type Manifest, type PausedRun, type QueueJob, type UploadFile, type UploadFileKey,
-} from '../fixtures/jobs'
 
-export type { ClusterJob, ClusterStatus, CheckState, FinishedJob, LocalJob, Manifest, PausedRun, QueueJob, ResultCheck, ResultState, RunStage, StageState, UploadFile, UploadFileKey, Workspace } from '../fixtures/jobs'
-export { WORKSPACE_ICON }
+export type Workspace = 'Analyse' | 'Discovery' | 'Models' | 'Library' | 'Review' | 'Explore'
+export const WORKSPACE_ICON: Record<Workspace, 'branch' | 'target' | 'layers' | 'library' | 'checklist' | 'wave'> = {
+  Analyse: 'branch', Discovery: 'target', Models: 'layers', Library: 'library', Review: 'checklist', Explore: 'wave',
+}
 
-export interface JobsOverview { paused: PausedRun[]; cluster: ClusterJob[]; local: LocalJob[]; queues: QueueJob[]; finished: FinishedJob[] }
-/** Everything the All jobs page lists (§7c.1). */
-export const getJobsOverview = (): Promise<Sourced<JobsOverview>> =>
-  demo({ paused: PAUSED_RUNS, cluster: CLUSTER_JOBS, local: LOCAL_JOBS, queues: QUEUE_JOBS, finished: FINISHED_TODAY })
-
-/** One paused run (§7c.2); `null` when the id is not a paused run. */
-export const getPausedRun = (id: string): Promise<Sourced<PausedRun | null>> => demo(PAUSED_RUNS.find(r => r.id === id) ?? null)
-
-/** One cluster job (§7c.4); `null` when the id is not a canon cluster job (added jobs come from the demo store). */
-export const getClusterJob = (id: string): Promise<Sourced<ClusterJob | null>> => demo(CLUSTER_JOBS.find(j => j.id === id) ?? null)
-
-export interface InboxData { watching: string; every: string; lastLooked: string; manifests: Manifest[]; pending: Manifest }
-/** The manifest inbox (watched folder, arrived manifests, stage results for paused runs). */
-export const getManifestInbox = (): Promise<Sourced<InboxData>> => demo(INBOX)
-
-/** Cluster profiles from Settings › Compute & HPC. */
-export const getProfiles = (): Promise<Sourced<string[]>> => demo(PROFILES)
-
-export interface UploadData { files: UploadFile[]; nullNote: { title: string; body: string } }
-/** The files a hand upload can pick from in the demo, with the checks each one produces (§7c.3). */
-export const getUploadFiles = (): Promise<Sourced<UploadData>> => demo({ files: UPLOAD_FILES, nullNote: UPLOAD_NULL_NOTE })
-export const UPLOAD_FILE_KEYS: UploadFileKey[] = ['mismatch', 'ok-no-nulls', 'ok', 'held-out']
-
-/* ------------------------------------------------------------------ fixup-aj: what is live
- * The bridge's own job table (`GET /api/jobs`), the job directories the site wrote for the cluster
- * (`GET /api/hpc/exported`, `webui/server/jobs_routes.py`) and the Manifest inbox (`POST /api/hpc/inbox/import`,
- * which calls `Working.training.hpc_import.import_results` — the CLI's function). Everything above stays demo. */
-
-async function hpcReq<T>(path: string, init?: RequestInit): Promise<T> {
+async function req<T>(path: string, init?: RequestInit): Promise<T> {
   const r = await fetch(path, { headers: { 'content-type': 'application/json' }, ...init })
   if (!r.ok) {
     let body: unknown = null
     try { body = await r.json() } catch { /* not json */ }
     const detail = (body as { detail?: unknown } | null)?.detail
-    throw new Error(`${r.status} ${typeof detail === 'string' ? detail : r.statusText}`)
+    const msg = typeof detail === 'string' ? detail
+      : detail && typeof detail === 'object' && typeof (detail as { message?: unknown }).message === 'string' ? (detail as { message: string }).message
+        : r.statusText
+    throw new Error(`${r.status} ${msg}`)
   }
   return r.json() as Promise<T>
 }
 
+/* ------------------------------------------------------------------ the bridge's own jobs */
 export type LiveStatus = 'queued' | 'running' | 'completed' | 'failed' | 'cancelled'
 export interface LiveJob {
   id: number; kind: string; kindLabel: string; status: LiveStatus; stage: string; where: string
@@ -112,29 +91,54 @@ export function toLiveJob(j: JobRow): LiveJob {
   }
 }
 
+export const isActive = (j: LiveJob) => j.status === 'running' || j.status === 'queued'
+
 /** The bridge's real local jobs, newest first. */
 export const getLocalJobs = (limit = 60): Promise<Sourced<LiveJob[]>> => live(listJobs(limit).then(rows => rows.map(toLiveJob)))
 
+/* ------------------------------------------------------------------ the cluster */
 export interface CopyItem { what: string; path: string; bytes: number; note?: string }
-export type ExportedState = 'written' | 'returned' | 'importing' | 'imported' | 'refused' | 'failed' | 'unreadable'
+export type ClusterState = 'written' | 'partial' | 'returned' | 'importing' | 'imported' | 'refused' | 'failed' | 'unreadable'
+export type ClusterSource = 'job_dir' | 'seed' | 'script'
+export type ImportHow = 'inbox' | 'seed' | null
 export interface ImportAttempt {
   job_id: number; job_dir: string | null; recipe_hash: string | null; outcome: 'imported' | 'refused' | 'failed' | 'importing' | string
   status: string; message: string; error_type: string | null; traceback: string | null; started_at: number | string | null; finished_at: number | string | null
 }
-export interface ExportedJob {
-  name: string; job_dir: string; job_repo: string; kind: string | null; kind_label: string | null; recipe_hash: string | null
-  recipe_ok: boolean | null; written_at: string | null; smoke: boolean; model: string | null; pool_key: string | null; n?: number | null
+/** One job the site wrote for the cluster, whatever wrote it (`GET /api/hpc/cluster`). */
+export interface ClusterJob {
+  source: ClusterSource; name: string; kind: string | null; kind_label: string | null; workspace: Workspace
+  /** seed rows: the run row's label, key and session */
+  label: string | null; run_key: string | null; session: string | null; run_status: string | null
+  job_dir: string | null; job_repo: string | null; recipe_hash: string | null; recipe_ok: boolean | null
+  written_at: string | null; smoke: boolean; model: string | null; pool_key: string | null; n?: number | null
   scripts: { name: string; path: string; repo: string }[]; sbatch_command: string | null; copy: CopyItem[]; total_bytes: number
   returned: { status: string; recipe_hash: string | null; finished_at: string | null } | null
-  imported: { run_id: number; name: string | null } | null; error: string | null
-  state: ExportedState; reason: string | null; last_attempt: ImportAttempt | null
+  imported: { run_id: number | null; name: string | null; at?: string } | null; error: string | null
+  state: ClusterState; reason: string | null; last_attempt: ImportAttempt | null
   open: { label: string; route: string; note?: string } | null
+  /** how its results come back: the Manifest inbox (a job directory), the seed import (a result file), or not through the site */
+  import_how: ImportHow; import_path: string | null; import_note: string | null; result_path: string | null
+  progress: { channels_done: number; channels: number | null } | null; estimate_s: number | null; draws: number | null
 }
-export interface ExportedList { jobs: ExportedJob[]; roots: string[]; mode: string; note: string }
-/** Every job directory the site wrote for the cluster, with what to copy and its state. */
-export const getExportedJobs = (): Promise<Sourced<ExportedList>> => live(hpcReq<ExportedList>('/api/hpc/exported'))
+export interface ClusterCounts { written: number; partial: number; returned: number; importing: number; imported: number; refused: number; failed: number; unreadable: number; to_import: number; waiting: number; total: number }
+export interface ClusterList { jobs: ClusterJob[]; roots: string[]; mode: string; counts: ClusterCounts; note: string }
+/** Every job the site wrote for the cluster, newest first, with counts by state. */
+export const getClusterJobs = (): Promise<Sourced<ClusterList>> => live(req<ClusterList>('/api/hpc/cluster'))
+
+/** The job directories alone (`GET /api/hpc/exported`); the page reads the unified list, this stays for callers that want only those. */
+export interface ExportedList { jobs: ClusterJob[]; roots: string[]; mode: string; note: string }
+export const getExportedJobs = (): Promise<Sourced<ExportedList>> => live(req<ExportedList>('/api/hpc/exported'))
+
 /** The Manifest inbox's import attempts, newest first. */
-export const getInboxAttempts = (): Promise<Sourced<{ attempts: ImportAttempt[]; roots: string[] }>> => live(hpcReq('/api/hpc/inbox'))
-/** Hand the inbox a returned job directory: a local `import` job (the CLI's import function) — follow it with `subscribeJob`. */
+export const getInboxAttempts = (): Promise<Sourced<{ attempts: ImportAttempt[]; roots: string[] }>> => live(req('/api/hpc/inbox'))
+/** Hand the inbox a returned job directory: a local `import` job (the CLI's import function) — follow it with `getJob`. */
 export const importReturnedJob = (path: string) =>
-  hpcReq<{ job_id: number; status: string }>('/api/hpc/inbox/import', { method: 'POST', body: JSON.stringify({ path }) })
+  req<{ job_id: number; status: string }>('/api/hpc/inbox/import', { method: 'POST', body: JSON.stringify({ path }) })
+
+export interface SeedImportAck { run_key: string; job_id: number | null; label: string; candidates?: number; nullDraws?: number; note?: string }
+/** Import a seed job's result file by path, through the Seed page's own import; a refusal is the thrown error's message. */
+export const importSeedResult = (path: string) =>
+  req<SeedImportAck>('/api/hpc/seed/import', { method: 'POST', body: JSON.stringify({ path }) })
+
+export const wsOf = (w: string | null | undefined): Workspace => (w && w in WORKSPACE_ICON ? (w as Workspace) : 'Analyse')

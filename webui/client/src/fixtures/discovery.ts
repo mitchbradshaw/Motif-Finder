@@ -355,5 +355,5 @@ export interface Disagreement { kind: 'only A' | 'only B'; channel: string; atH:
 
 /* ------------------------------------------------------------------ everything else Discovery reads */
 export const ANALYSE_ROUTE = 'analyse/chain'
-export const JOBS_ROUTE = (id: string) => `jobs/run/${id}`
+export const JOBS_ROUTE = (_id: string) => 'jobs'   // fixup-jobs: Jobs is one board; the paused-run page is gone
 export const REVIEW_ROUTE = (q: string) => `review/queue/${q}`

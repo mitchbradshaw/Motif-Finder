@@ -123,8 +123,6 @@ export const STATUS_BADGES = ['cached', 'stale', 'new', 'running', 'paused', 'fa
  * (`api/needYou.ts`); the constant is gone rather than left unused, because a
  * dead fixture beside a live number is how this defect came back a second time
  * after being reported fixed. `tests/test_webui_header_counts.py` is the pin. */
-/** Nav-rail "Jobs · N" count contributed by demo fixtures (the canon frames show 3). */
-export const DEMO_JOBS_ACTIVE = 3
 
 /* ---- time helpers (spec §0: hours since recording start, e.g. "192.40 h"; event durations in s) ---- */
 export const fmtH = (h: number, digits = 2) => `${h.toFixed(digits)} h`

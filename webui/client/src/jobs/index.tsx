@@ -1,28 +1,26 @@
-/* Jobs workspace entry — owned by the Jobs builder (spec §7c, P24).
- * Routes: `#/jobs` · `#/jobs/run/<id>` · `#/jobs/run/<id>/upload` · `#/jobs/cluster/<id>`. */
+/* Jobs workspace entry — one page (fixup-jobs). Route: `#/jobs` (`?section=local|cluster|review`, `?drawer=inbox`).
+ * The fixture sub-pages (`jobs/run/<id>`, `jobs/run/<id>/upload`, `jobs/cluster/<id>`) are gone with the demo half;
+ * an old link to one lands on the board, told why. */
 import './jobs.css'
 import { Button, EmptyState, Page } from '../kit'
 import { navigate, useApp } from '../state'
 import { Header } from '../shell/Header'
 import { AllPage } from './AllPage'
-import { RunPage } from './RunPage'
-import { ClusterPage } from './ClusterPage'
-import { BackToAll } from './chrome'
 
 export function JobsPage() {
   const { route } = useApp()
   const p = route.parts
-  if (p[0] === 'run' && p[1]) return <RunPage runId={p[1]} upload={p[2] === 'upload'} />
-  if (p[0] === 'cluster' && p[1]) return <ClusterPage jobId={p[1]} />
   if (!p.length) return <AllPage />
+  const old = p[0] === 'run' || p[0] === 'cluster'
   return (
     <>
-      <Header workspace="Jobs" page="Not found" subtitle={`#/jobs/${p.join('/')}`} search="Search jobs, runs, queues" />
+      <Header workspace="Jobs" page="Not found" subtitle={`#/jobs/${p.join('/')}`} search="Search jobs, scripts, queues" />
       <Page maxWidth={1420}>
-        <BackToAll />
-        <EmptyState bordered icon="alert-triangle" testid="jobs-unknown-route" title={`No Jobs page at “/${p.join('/')}”`}
-          caption="Jobs has four: all jobs, a paused run, its upload modal and a cluster job."
-          action={<Button variant="primary" onClick={() => navigate('jobs')}>All jobs</Button>} />
+        <EmptyState bordered icon="alert-triangle" testid="jobs-unknown-route" title={old ? 'Jobs is one page now' : `No Jobs page at “/${p.join('/')}”`}
+          caption={old
+            ? 'the paused-run and cluster-job pages were fixture shells; every job the site wrote for the cluster is a row under “Waiting on the cluster” on the board'
+            : 'Jobs has one page: what is in progress here, what waits on the cluster, what waits in review'}
+          action={<Button variant="primary" onClick={() => navigate(old && p[0] === 'cluster' ? 'jobs?section=cluster' : 'jobs')}>Open the board</Button>} />
       </Page>
     </>
   )

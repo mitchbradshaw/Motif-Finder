@@ -437,7 +437,7 @@ export const WINDOW_SETS: WindowSetRow[] = [
   {
     id: WINDOW_SET.id, version: WINDOW_SET.version, saved: '12 Sep', savedBy: ACTOR, source: 'M2_aug fs1 · 3 ch', recording: 'M2_aug fs1', recordingKeys: ['M2_aug_fs1'], channels: WINDOW_SET.channels,
     spacing: '600 · 300 · 600 s', windowS: 600, gapS: 600, windows: WINDOW_SET.windows, split: { train: 0.62, validation: 0.1, test: 0.28 }, splitLabel: 'blocked',
-    labelledPct: 14, labelledWindows: WINDOW_SET.labelled_every_arm, usedBy: [{ label: 'Models · job j-0212 (paired arms)', to: 'jobs/cluster/j-0212', kind: 'Models' }, { label: 'Models · candidate cnn_windows_v3 · manual', to: 'models/registry?candidate=cnn_windows_v3_manual', kind: 'Models' }],
+    labelledPct: 14, labelledWindows: WINDOW_SET.labelled_every_arm, usedBy: [{ label: 'Models · job j-0212 (paired arms)', to: 'jobs?section=cluster', kind: 'Models' }, { label: 'Models · candidate cnn_windows_v3 · manual', to: 'models/registry?candidate=cnn_windows_v3_manual', kind: 'Models' }],
     usedLabel: '2 · Models', check: 'train-safe', checkReason: 'blocked split, gap 600 s ≥ 600 s window on every boundary', madeBy: 'cnn_windows_v3 · sliding windows', recipeHash: '5c1e…a07b', lastUsed: '13 Sep 21:40',
     splitPlan: Object.fromEntries(WINDOW_SET.channels.map(c => [c, withWindows(plan(721, [0.56, 0.08, 0.2, 0.16], 8), 5.43)])), planHours: 721, dropped: 18,
     spacingChecks: [{ label: 'gap ≥ window on every boundary', ok: true }, { label: 'no test window within 600 s of training', ok: true }, { label: 'test windows unseen by any job', ok: true }],

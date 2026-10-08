@@ -2700,6 +2700,13 @@ def import_seed_result(request: Request, result: dict = Body(...)):
     (seconds — the draws were the cost), carrying the imported null on its
     params, so the row has real detections for Review and Compare. A result for
     another recording is refused by name."""
+    return import_seed_result_dict(request, result)
+
+
+def import_seed_result_dict(request: Request, result: dict):
+    """The import behind `/api/discovery/seed/import`, callable with a parsed
+    result: Jobs imports a seed job's result file by path through this one
+    function (fixup-jobs) -- one implementation, two callers."""
     c = _conn(request)
     try:
         s, rec, _, _ = _session_scope(c)

@@ -4,7 +4,7 @@
   "state": "fixup-aj-running-here-is-the-bridges-own-job-table",
   "hash": "jobs",
   "settle_ms": 1500,
-  "_why": "fixup-aj: the top of Jobs is the bridge's own job table (GET /api/jobs) - kind, stage, state and progress, started, duration - and a row opens to its error and traceback; the rest of the page (paused runs, hand-marked cluster jobs, review queues) keeps the demo data chip. Runs after AI's states (this file sorts after zzzzzzzz_ai_*), so in a full walk the forest, the CNN script and the local smoke are rows here",
+  "_why": "fixup-aj: the top of Jobs is the bridge's own job table (GET /api/jobs) - kind, stage, state and progress, started, duration - and a row opens to its error and traceback; fixup-jobs: the rest of the board (the cluster list, the review queues) is live too, so the demo chip and the fixture table are asserted absent. Runs after AI's states (this file sorts after zzzzzzzz_ai_*), so in a full walk the forest, the CNN script and the local smoke are rows here",
   "actions": [
    {"wait_for": ["[data-testid=\"live-local-table\"], [data-testid=\"live-local-empty\"]", 60000]},
    {"click_if": "[data-testid^=\"live-job-row-\"]"},
@@ -14,8 +14,8 @@
                 "empty": {"expect": ["[data-testid=\"live-local-empty\"]"]},
                 "populated": {"expect": ["[data-testid^=\"live-job-row-\"]", "[data-testid^=\"live-job-detail-\"]"]}},
   "expect": ["[data-testid=\"live-local-jobs\"]", "[data-testid=\"live-chip-local\"]", "[data-testid=\"exported-jobs\"]",
-             "[data-testid=\"jobs-demo-chip\"]", "[data-testid=\"jobs-table\"]"],
-  "expect_absent": ["[data-testid=\"jobs-load-failed\"]"]
+             "[data-testid=\"review-queues\"]"],
+  "expect_absent": ["[data-testid=\"jobs-load-failed\"]", "[data-testid=\"jobs-demo-chip\"]", "[data-testid=\"jobs-table\"]", "[data-testid=\"demo-chip\"]"]
  },
  {
   "page": "jobs.all",
@@ -64,8 +64,7 @@
    {"wait_for": ["[data-testid=\"inbox-outcome\"][data-outcome=\"refused\"]", 60000]},
    {"wait_for": ["[data-testid=\"inbox-attempts\"]", 30000]}
   ],
-  "expect": ["[data-testid=\"inbox-outcome-message\"]", "[data-testid^=\"inbox-attempt-\"][data-outcome=\"refused\"]",
-             "[data-testid=\"inbox-demo-chip\"]"],
+  "expect": ["[data-testid=\"inbox-outcome-message\"]", "[data-testid^=\"inbox-attempt-\"][data-outcome=\"refused\"]"],
   "expect_absent": ["[data-testid=\"inbox-open\"]"]
  },
  {
@@ -73,7 +72,7 @@
   "state": "fixup-aj-the-jobs-link-names-what-is-real",
   "hash": "models/launch",
   "settle_ms": 1500,
-  "_why": "fixup-aj: Models' link to Jobs no longer says 'Jobs (demo page)'; it names what Jobs now does for real and opens the live half",
+  "_why": "fixup-aj: Models' link to Jobs no longer says 'Jobs (demo page)'; it names what Jobs does for real and opens the board",
   "actions": [
    {"wait_for": ["[data-testid=\"open-training-jobs\"]", 30000]},
    {"click": "[data-testid=\"open-training-jobs\"]"},

@@ -1,8 +1,8 @@
 # Fixup 09 — Jobs: All jobs, Paused run, Upload and continue, Cluster job
 
-**Status: skeleton.** Symptoms only. The prompt body is written after `QUESTIONS.md` Q-J1…Q-J2.
+**Status: overtaken (2026-10-09, `fixup-jobs`).** Jobs is one real board — *In progress here* (the bridge's job table), *Waiting on the cluster* (every script the site wrote, from the job folders, Discovery's seed run rows and the flat recipe scripts; `GET /api/hpc/cluster`), *Waiting in review* (the open queues) and the Manifest inbox — and the three fixture sub-pages (paused run, upload-and-continue, hand-marked cluster job) are gone with their store and fixtures. Of the symptoms below, J1, J2, J4 and J5's listing are closed; **J3 (a paused run continued from a placed stage result) and J6 (a between-target cancel) remain open** — the core has no paused run to continue, and a cluster job's status is read from its folder, its result file and the database, never marked by hand.
 
-**No wiring prompt was ever written for this workspace**, like Models. All four pages are fixture shells.
+*Symptoms as written on 2026-10-05, kept for the record:*
 
 ## Symptoms
 
