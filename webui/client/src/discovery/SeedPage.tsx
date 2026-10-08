@@ -210,7 +210,7 @@ export function SeedPage() {
                             {/* with no cut nothing is KEPT, but the closest matches are still what
                                 the researcher is looking at — hiding them makes "nothing beats the
                                 null" look like "the search did not run" */}
-                            <MatchesCard seed={seed} matches={threshold == null ? results.data.candidates.slice(0, 12) : kept}
+                            <MatchesCard seed={seed} matches={threshold == null ? results.data.candidates.slice(0, 12) : kept} nullDraws={results.data.nullDraws} hours={dx.scope ? dx.scope.section[1] - dx.scope.section[0] : null}
                               channels={channels.length}
                               note={threshold == null ? `no cut: none of the ${results.data.candidates.length} matches is closer than the null gives — these are the closest` : null} />
                           </>}
@@ -743,7 +743,7 @@ function SearchProgress({ progress, estimate }: { progress: SeedProgress | null;
 }
 
 /* ------------------------------------------------------------------ matches */
-function MatchesCard({ seed, matches, channels, note = null }: { seed: SeedInfo; matches: SeedMatch[]; channels: number; note?: string | null }) {
+function MatchesCard({ seed, matches, channels, note = null, nullDraws = null, hours = null }: { seed: SeedInfo; matches: SeedMatch[]; channels: number; note?: string | null; nullDraws?: number | null; hours?: number | null }) {
   const [pageQ, setPageQ] = useQueryState('mpage', '1')
   const [selQ, setSelQ] = useQueryState('match', '')
   const [, setChQ] = useQueryState('pch', 'CH4_A2')
@@ -768,8 +768,8 @@ function MatchesCard({ seed, matches, channels, note = null }: { seed: SeedInfo;
         {/* the note explains a truncation; it was passed in and never rendered,
             which left "12 closest" over a search that returned 132 */}
         {note && <span className="muted small" data-testid="matches-note">{note}</span>}
-        <InfoTip title="Matches">Sorted by distance, eight at a time. Each card overlays the match (black) on the seed (purple), each centred on its own mean, in mV on one shared scale. A green dot marks a match that already has a verdict — it will not be put to you twice.</InfoTip>
-        <span className="muted small">{channels} channel{channels === 1 ? '' : 's'} · sorted by distance</span>
+        <InfoTip title="Matches">These are the full search's matches — every position in every channel of the scope was scored against the seed, and these are the ones under the cut (or, with no cut, the closest). Not a sample. The preview's null is capped at a few draws per channel over a long scope; the run draws the full 200. To put matches to Review, run the search: the run row on Discovery › Runs has *Send N unjudged to Review*. Each card overlays the match (black) on the seed (purple), centred on its own mean, in mV on one shared scale; a green dot marks a match that already has a verdict.</InfoTip>
+        <span className="muted small" data-testid="matches-scope">the full search · {channels} channel{channels === 1 ? '' : 's'}{hours != null ? ` × ${hours.toFixed(1)} h` : ''}{nullDraws != null ? ` · null ${nullDraws} draw${nullDraws === 1 ? '' : 's'} per channel here, 200 in the run` : ''} · sorted by distance · to review them, run it</span>
         <span className="k-spacer" />
         <Pager page={page} pageCount={pages} onPage={p => setPageQ(String(p))} format="range" total={matches.length} pageSize={per} label="page of matches" testid="matches-pager" />
         <span className="dsc-legend-row small mono"><span><i className="sw" style={{ background: SEED_COLOUR }} />seed</span><span><i className="sw line" style={{ background: 'var(--trace)' }} />match</span></span>

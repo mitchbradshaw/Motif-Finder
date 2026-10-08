@@ -85,6 +85,8 @@
 .dsc-run-remove { position: absolute; top: 4px; right: 4px; width: 18px; height: 18px; border: 0; border-radius: 4px; background: transparent; color: var(--muted); font-size: 14px; line-height: 18px; padding: 0; cursor: pointer; opacity: 0.55; }
 .dsc-run:hover .dsc-run-remove, .dsc-run-remove:focus-visible { opacity: 1; }
 .dsc-run-remove:hover { background: var(--surface-2, #f3f4f6); color: var(--text); }
+/* the A / B pick box sits under the ×, not beneath it */
+.dsc-run > .dsc-pick { margin-top: 24px; }
 .dsc-run.failed .dsc-run-line { white-space: normal; }
 .dsc-pick { width: 20px; height: 20px; border-radius: 5px; border: 1.5px solid var(--border-strong); background: var(--card); flex: none; cursor: pointer; font-family: var(--font-mono); font-size: 11px; font-weight: 600; color: #fff; display: inline-flex; align-items: center; justify-content: center; }
 .dsc-pick:disabled { opacity: 0.45; cursor: not-allowed; }

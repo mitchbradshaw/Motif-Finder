@@ -350,7 +350,10 @@ function Browser({ dx, run }: { dx: Discovery; run: DiscoveryRun | null }) {
             </div>
             <div className="dsc-det-plot">
               {win.data ? <Trace values={win.data.values} fs={1} t0={win.data.t0H * 3600} height={150} testid="browser-trace"
-                bands={[{ start_s: det.atH * 3600 - det.durationS / 2, end_s: det.atH * 3600 + det.durationS / 2, kind: 'detected' }]} /> : <Loading height={150} />}
+                /* the detection's own span, as the server sends it (`spanS`, seconds from the window's start). The band was
+                 * centred on `atH`, which is the detection's START, so it sat half a window early — ending where a dip began
+                 * (the researcher, 2026-10-09) */
+                bands={[{ start_s: win.data.t0H * 3600 + win.data.spanS[0], end_s: win.data.t0H * 3600 + win.data.spanS[1], kind: 'detected' }]} /> : <Loading height={150} />}
             </div>
           </div>
         )}
