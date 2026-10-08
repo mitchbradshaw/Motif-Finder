@@ -418,8 +418,8 @@ export function RunsCard({ dx, mode, selected, onSelect, draft, compareActive, o
         <span className="muted small">{inSession} in this session</span>
       </div>
       <div className="dsc-runs-add">
-        <Button icon="layers" onClick={onAddTemplate} testid="apply-template" aria-pressed={mode === 'runs'}>Apply template</Button>
-        <Button icon="target" onClick={() => navigate('discovery/seed')} testid="seed-search" aria-pressed={mode === 'seed'}>Seed search</Button>
+        <Button icon="layers" variant={mode === 'runs' ? 'primary' : 'default'} onClick={onAddTemplate} testid="apply-template" aria-pressed={mode === 'runs'}>Apply template</Button>
+        <Button icon="target" variant={mode === 'seed' ? 'primary' : 'default'} onClick={() => navigate('discovery/seed')} testid="seed-search" aria-pressed={mode === 'seed'}>Seed search</Button>
       </div>
       <div className="dsc-runs-list" data-testid="runs-list">
         {listed.length === 0 && <EmptyState size="sm" icon="inbox" title="No runs" caption="add a template or a seed search" />}

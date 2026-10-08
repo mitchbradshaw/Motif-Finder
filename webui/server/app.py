@@ -457,7 +457,9 @@ def create_app(rt: Runtime) -> FastAPI:
             candidate = os.path.join(dist, full_path)
             if full_path and os.path.isfile(candidate):
                 return FileResponse(candidate)
-            return FileResponse(os.path.join(dist, "index.html"))
+            # index.html is unhashed, so a browser that cached it keeps loading the
+            # OLD hashed bundle after a rebuild -- make it revalidate on every load.
+            return FileResponse(os.path.join(dist, "index.html"), headers={"Cache-Control": "no-cache"})
     else:
         @app.get("/")
         def no_client():
