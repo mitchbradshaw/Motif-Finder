@@ -372,15 +372,33 @@ mkdir -p logs
 conda activate {prof['conda_env']}
 
 python -m Working.discovery.seed_job --spec {spec_repo_path} --out {result_repo_path} --max-channels 1 --budget-s {budget}
+RC=$?
 
 echo "========================================"
 echo "Run finished : $(date)"
+
+if [ "$RC" -ne 0 ]; then
+    # A failed compute step must not chain: the next job would fail the same way,
+    # MAX_CHAIN times over. Exit code 2 is argparse refusing a flag, which means
+    # the cluster's Working/discovery/seed_job.py is older than this script.
+    echo ">>> The compute step failed (exit $RC) -- NOT resubmitting."
+    if [ "$RC" -eq 2 ]; then
+        echo ">>> Exit 2 is 'unrecognized arguments': the cluster's copy of Working/discovery/seed_job.py is older than this script."
+        echo ">>> Pull the repo on the cluster (git pull) or copy the current Working/discovery/seed_job.py across, then: sbatch {script_repo_path} $CHAIN_INDEX"
+    else
+        echo ">>> See the .err log above; when fixed, resume with: sbatch {script_repo_path} $CHAIN_INDEX"
+    fi
+    exit $RC
+fi
 
 python -m Working.discovery.seed_job --status {result_repo_path}
 STATUS=$?
 
 if [ "$STATUS" -eq 0 ]; then
     echo ">>> Result complete: {result_repo_path} -- bring it back and import it on the Seed page."
+elif [ "$STATUS" -ne 1 ]; then
+    echo ">>> The status check failed (exit $STATUS) -- NOT resubmitting. Resume with: sbatch {script_repo_path} $CHAIN_INDEX"
+    exit $STATUS
 elif [ "$CHAIN_INDEX" -ge "$MAX_CHAIN" ]; then
     echo ">>> Work remains but the chain cap ($MAX_CHAIN) is reached -- stopping."
     echo ">>> Resubmit manually if this is expected: sbatch {script_repo_path} 1"
