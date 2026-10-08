@@ -241,3 +241,20 @@ def test_the_job_script_runs_one_channel_per_job_and_chains(tmp_path):
     assert "--budget-s" in script, "and a budget under the wall, so a long channel still checkpoints and exits"
     assert "sbatch" in script and "--status" in script
     assert out["max_chain"] >= len(spec["channels"]) + 2
+
+def test_the_job_script_does_not_resubmit_when_the_compute_step_fails(tmp_path):
+    """The researcher's cluster held an older seed_job.py: every submission died
+    on `unrecognized arguments: --max-channels`, read as incomplete, and
+    resubmitted itself -- thirty jobs of the same error. A failed compute step
+    stops the chain and says what to do."""
+    spec = seed_job.build_spec(seed_id="library:1:600:660", exemplar=_planted(0)[:M], channels=_channels_with_paths(),
+                               span=(0, N), k=20, max_distance=None, null={"method": "phase_randomize", "draws": 2})
+    out = seed_job.write_job(spec, out_dir=str(tmp_path / "hpc"), base_name="seed_chain", est_seconds=120.0)
+    script = out["script"]
+    run_line = next(i for i, l in enumerate(script.splitlines()) if "--max-channels 1" in l)
+    after = script.splitlines()[run_line + 1:]
+    assert after and after[0].strip().startswith("RC=$?"), "the compute step's exit code is captured"
+    guard = "\n".join(after)
+    assert 'if [ "$RC" -ne 0 ]' in guard and "exit $RC" in guard, "and a failure exits before any resubmit"
+    assert guard.index('"$RC" -ne 0') < guard.index("sbatch "), "the guard comes before the chain"
+    assert "older" in guard and "seed_job.py" in guard, "and the message names the stale-copy cause"
