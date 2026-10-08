@@ -206,7 +206,8 @@ def _merge_null(into, nulls):
             slot["draws"] += int(part["draws"])
 
 
-def run_spec(spec, *, loader, on_progress=None, should_cancel=None, checkpoint=None):
+def run_spec(spec, *, loader, on_progress=None, should_cancel=None, checkpoint=None, budget_s=None,
+             max_channels=None):
     """Compute the search the spec describes.
 
     ``loader(channel) -> array`` hands over each channel's stored samples.
@@ -214,6 +215,10 @@ def run_spec(spec, *, loader, on_progress=None, should_cancel=None, checkpoint=N
     through ``on_progress(done, total, message)``. With ``checkpoint`` (a file
     path) the result so far is written after every channel and every
     `CHECKPOINT_DRAWS` draws, and an existing file for this spec is continued.
+    ``max_channels`` finishes that many channels and returns (incomplete) — one
+    per submission under a 20-minute wall, the script resubmitting for the
+    next; ``budget_s`` returns at the next checkpoint once that much time has
+    passed, so a channel longer than the wall still makes progress.
 
     Returns ``{version, specHash, seedId, sourceFile, span, k, maxDistance,
     cut, exclusion, scales, overlap, null, perChannel: [{name, source_file,
@@ -243,8 +248,15 @@ def run_spec(spec, *, loader, on_progress=None, should_cancel=None, checkpoint=N
         if on_progress is not None:
             on_progress(done, total, msg)
 
+    done_here = 0
+
     def cancelled():
         return should_cancel is not None and should_cancel()
+
+    def over_budget():
+        # checked after a checkpoint is written, never before the first: a spent
+        # budget stops at the NEXT checkpoint, so every submission makes progress
+        return budget_s is not None and (time.time() - t0) > float(budget_s)
 
     def save(complete=False):
         _write_checkpoint(checkpoint, _result_shell(spec, out, complete, t0))
@@ -303,15 +315,28 @@ def run_spec(spec, *, loader, on_progress=None, should_cancel=None, checkpoint=N
                 return _result_shell(spec, out, False, t0)
             row["partial"] = row["null"]["draws"] < draws
             save(False)
+            if row["partial"] and over_budget():
+                return _result_shell(spec, out, False, t0)
         row.pop("partial", None)
         save(False)
+        done_here += 1
+        more = i + 1 < len(spec["channels"])
+        if more and ((max_channels is not None and done_here >= int(max_channels)) or over_budget()):
+            return _result_shell(spec, out, False, t0)
     say(total, "done")
     result = _result_shell(spec, out, True, t0)
     _write_checkpoint(checkpoint, result)
     return result
 
 
-def _seed_script(*, base_name, spec_repo_path, result_repo_path, slurm_time, deps_block, script_repo_path):
+def _wall_seconds(slurm_time):
+    h, m, sec = (int(v) for v in str(slurm_time).split(":"))
+    return h * 3600 + m * 60 + sec
+
+
+def _seed_script(*, base_name, spec_repo_path, result_repo_path, slurm_time, deps_block, script_repo_path,
+                 max_chain=MAX_CHAIN, budget_s=None):
+    budget = int(budget_s if budget_s is not None else _wall_seconds(slurm_time) * 0.85)
     from Working.config import HPC_REMOTE_REPO_ROOT
     from Working.hpc.job_export import _profile
     prof = _profile(False)
@@ -324,11 +349,13 @@ def _seed_script(*, base_name, spec_repo_path, result_repo_path, slurm_time, dep
 {prof['gpu_line']}
 #SBATCH --cpus-per-task={prof['cpus']}
 {deps_block}
-# Chain position, incremented on each resubmit: the job writes its result after
-# every channel and every {CHECKPOINT_DRAWS} draws, and continues it from where the
-# wall cut it. Capped at {MAX_CHAIN} so a bug that always reads incomplete stops.
+# One channel per submission (the account's wall is 20 minutes), the result written
+# after every channel and every {CHECKPOINT_DRAWS} draws, and a budget of {budget} s so a
+# channel longer than the wall still exits at a checkpoint. While the result reads
+# incomplete the script resubmits itself for the next channel; capped at {max_chain}
+# so a bug that always reads incomplete stops.
 CHAIN_INDEX="${{1:-1}}"
-MAX_CHAIN={MAX_CHAIN}
+MAX_CHAIN={max_chain}
 
 echo "========================================"
 echo "Job ID       : $SLURM_JOB_ID"
@@ -344,7 +371,7 @@ mkdir -p logs
 {prof['module_line']}source ~/miniconda3/etc/profile.d/conda.sh
 conda activate {prof['conda_env']}
 
-python -m Working.discovery.seed_job --spec {spec_repo_path} --out {result_repo_path}
+python -m Working.discovery.seed_job --spec {spec_repo_path} --out {result_repo_path} --max-channels 1 --budget-s {budget}
 
 echo "========================================"
 echo "Run finished : $(date)"
@@ -391,20 +418,22 @@ def write_job(spec, *, out_dir, base_name, est_seconds=None, slurm_time=None):
     result_path = repo_relative(os.path.join(out_dir, f"{base_name}{RESULT_SUFFIX}"))
     if slurm_time is None:
         slurm_time = _slurm_time_from_estimate(est_seconds)
+    max_chain = max(MAX_CHAIN, 2 * len(spec["channels"]) + 2)
     deps = {
         "code": repo_module_closure("Working.discovery.seed_job"),
         "inputs": [spec_repo_path] + [c["npy"] for c in spec["channels"] if c.get("npy")],
         "outputs": [result_path],
     }
     script = _seed_script(base_name=base_name, spec_repo_path=spec_repo_path, result_repo_path=result_path,
-                          slurm_time=slurm_time, script_repo_path=script_repo_path,
+                          slurm_time=slurm_time, script_repo_path=script_repo_path, max_chain=max_chain,
                           deps_block=dependency_block(env=HPC_CONDA_ENV_CPU, **deps))
     # LF only: sbatch rejects a script with DOS line breaks (see job_export)
     with open(script_path, "w", newline="\n", encoding="utf-8") as f:
         f.write(script)
     return {"script_path": script_path, "spec_path": spec_path, "result_path": result_path, "script": script,
             "sbatch_command": f"sbatch {script_repo_path}", "job_name": base_name,
-            "slurm_time": slurm_time, "warnings": _location_warnings(out_dir), "dependencies": deps}
+            "slurm_time": slurm_time, "warnings": _location_warnings(out_dir), "dependencies": deps,
+            "max_chain": max_chain}
 
 
 def main(argv=None):
@@ -418,6 +447,8 @@ def main(argv=None):
     ap.add_argument("--db", default=None,
                     help="database to find channels in when the spec names no file (default: DATA/db/annotations.sqlite if present)")
     ap.add_argument("--status", default=None, help="a result file: exit 0 if complete, 1 if not")
+    ap.add_argument("--max-channels", type=int, default=None, help="finish this many channels, then exit (the script resubmits)")
+    ap.add_argument("--budget-s", type=float, default=None, help="exit at the next checkpoint after this many seconds")
     args = ap.parse_args(argv)
     if args.status:
         if not os.path.isfile(args.status):
@@ -437,7 +468,8 @@ def main(argv=None):
     def progress(done, total, msg):
         print(f"[seed_job] {done}/{total} {msg}", flush=True)
 
-    result = run_spec(spec, loader=file_loader(db), on_progress=progress, checkpoint=args.out)
+    result = run_spec(spec, loader=file_loader(db), on_progress=progress, checkpoint=args.out,
+                      budget_s=args.budget_s, max_channels=args.max_channels)
     print(f"[seed_job] {'wrote' if result['complete'] else 'checkpointed'} {args.out} · "
           f"{sum(len(c['candidates']) for c in result['perChannel'])} candidates · {result['elapsedS']} s", flush=True)
     return 0

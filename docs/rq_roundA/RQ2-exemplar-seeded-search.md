@@ -114,6 +114,11 @@ things you also agree with, and whether it finds more than it would by chance.
     about a minute. *Save as template* on a taken name updates that template. The Runs card in seed mode lists
     seed searches only, with *Seed search* pressed; the browsed detection's band was drawn half a window early
     (centred on the start) and now is the span the server sends.
+  - **2026-10-09, the 20-minute wall is real.** The script's own resubmit lines never ran when SLURM killed the
+    job mid-channel. Each submission now does **one channel** (`--max-channels 1`, about 13 min over 721 h)
+    and exits with a time budget of 85 % of the wall behind it, so a channel longer than the wall still exits
+    at a ten-draw checkpoint; the script checks `--status` and `sbatch`es itself for the next channel until
+    the result reads complete (chain cap 2 × channels + 2, at least 30). Sixteen channels are sixteen jobs.
   - What the HPC route does **not** do: move files. The spec and script are written under
     `HPC/Detection/generated/` (sandbox: `webui/runtime/<stamp>/hpc/`); syncing them to rangpur, `sbatch`, and
     bringing `<name>.result.json` back are by hand, as for every other generated job. The cluster needs the repo and
@@ -176,3 +181,4 @@ Follow `RESEARCH_RUNBOOK.md` Q2:
 - 2026-10-07 · researcher's fourth report · the seed job checkpoints and resubmits itself; every SLURM script lists what it needs on the cluster; a failed run is retried on its own row; the preview's bar no longer jumps between two loaders; *Save .sh* and *Select all* channels.
 - 2026-10-09 · fixup-jobs · a seed search sent to the cluster is a row on the Jobs board (*Waiting on the cluster*): *written* until its result file is back, *running on the cluster · checkpoint back* while the file reads incomplete (channels done of total), *results back · not imported* once complete, *results imported* after the import. Its result can be imported from that row by path (`POST /api/hpc/seed/import`, the Seed page's own import function), as well as from the Seed page's file picker.
 - 2026-10-09 · researcher's fifth report · the run's null is a choice (preview / rigorous / off) and a preview-null run is seconds; the scoreboard scores an imported or preview null; Save as template updates; the Runs card follows the mode; the browse band is the detection's own span; × beside the pick box.
+- 2026-10-09 · the 20-minute wall · one channel per submission with a time budget, the script chaining itself per channel.
