@@ -12,7 +12,7 @@ import { Header } from '../shell/Header'
 import { useToast } from '../shell/Toast'
 import { navigate } from '../state'
 import { useSourced } from '../api/seam'
-import { ApiError, cancelJob, postDiscoverySeedImport, postDiscoverySeedSlurm, putDiscoverySeedDraft, runDiscoverySeedSearchOnce, saveDiscoverySeedTemplate, type CutRule, type DiscSeedEstimate, type DiscSeedSlurm } from '../api'
+import { ApiError, cancelJob, postDiscoverySeedImport, postDiscoverySeedSlurm, putDiscoverySeedDraft, runDiscoverySeedSearchOnce, saveDiscoverySeedTemplate, type CutRule, type DiscNullMode, type DiscSeedEstimate, type DiscSeedSlurm } from '../api'
 import { useSize } from '../charts/useSize'
 import {
   fmtSeconds, getSeedEstimate, getSeedPage, getSeedProfile, getSeedResults, getSeedSetup, getTemplates, saveSeedDraft, type SeedProgress, type DiscoveryRun, type SeedDraft, type SeedInfo, type SeedMatch, type SeedParams, type SeedResults, type SeedSource,
@@ -89,7 +89,14 @@ export function SeedPage() {
       : Promise.resolve({ data: noResults, source: 'demo' as const })
   }, [seed?.id, channels.join(','), dx.scope?.section.join(','), bankQ?.scales.join(','), bankQ?.overlap, exclusionQ])
   // before the button: what the preview and the run will cost on this scope
-  const estimate = useSourced(() => dx.scope ? getSeedEstimate(channels, dx.scope.section) : Promise.resolve({ data: null, source: 'demo' as const }), [channels.join(','), dx.scope?.section.join(',')])
+  /* the run's null (the researcher, 2026-10-09): the preview's draws — whatever it made — by default, so the run is
+   * the matches alone; `paired` is the rigorous 200 chain runs per channel; `off` draws none. All three are real
+   * run rows whose matches go to Review. */
+  const [nullQ, setNullQ] = useQueryState<DiscNullMode | ''>('null', '')
+  const nullMode: DiscNullMode = nullQ || 'preview'
+  // the seed's own query goes with it: with the preview's null behind that query, the run is seconds
+  const estimate = useSourced(() => dx.scope ? getSeedEstimate(channels, dx.scope.section, { seedId: seed?.id, k: SEED_K, scales: bankQ?.scales, overlap: bankQ?.overlap, exclusion: exclusionQ, nullMode }) : Promise.resolve({ data: null, source: 'demo' as const }),
+    [channels.join(','), dx.scope?.section.join(','), seed?.id, bankQ?.scales.join(','), bankQ?.overlap, exclusionQ, nullMode, results.data?.nullDraws, results.data?.candidates.length])
 
   // deep links ?state=running|done|failed put the simulated search straight into that state
   useEffect(() => {
@@ -217,7 +224,7 @@ export function SeedPage() {
                       </>
                     )}
                     <ApplyBar dx={dx} draft={draft} kept={threshold == null ? null : kept.length} cut={threshold} finished={finished} seed={seed} sim={sim} bank={bankQ}
-                      estimate={estimate.data} live={live} startedAt={startedAt} exclusion={exclusionQ}
+                      estimate={estimate.data} live={live} startedAt={startedAt} exclusion={exclusionQ} nullMode={nullMode} onNullMode={m => setNullQ(m)} previewDraws={results.loading || progress ? null : results.data?.nullDraws ?? null}
                       onStarted={r => { setLastRun(r); setStartedAt(Date.now()) }} onSave={() => setModal('save-template')}
                       onSlurm={() => setModal('slurm')} onImported={() => { results.reload(); dx.reload() }} />
                   </div>
@@ -808,7 +815,7 @@ function SelectedMatch({ seed, match, yDomain }: { seed: number[]; match: SeedMa
 }
 
 /* ------------------------------------------------------------------ apply bar */
-function ApplyBar({ dx, draft, kept, cut, finished, seed, sim, onStarted, onSave, bank = null, estimate = null, live = null, startedAt = null, exclusion = null, onSlurm, onImported }: {
+function ApplyBar({ dx, draft, kept, cut, finished, seed, sim, onStarted, onSave, bank = null, estimate = null, live = null, startedAt = null, exclusion = null, onSlurm, onImported, nullMode = 'preview', onNullMode, previewDraws = null }: {
   dx: Discovery; draft: SeedDraft; kept: number | null; cut: number | null; finished: DiscoveryRun | null; seed: SeedInfo | null
   sim: ReturnType<typeof useSim>; onStarted: (r: { key: string; label: string }) => void; onSave: () => void
   bank?: { scales: number[]; overlap: string } | null
@@ -817,6 +824,8 @@ function ApplyBar({ dx, draft, kept, cut, finished, seed, sim, onStarted, onSave
   exclusion?: number | null
   /** over the ceiling: *Create SLURM script* is the primary action; a result file brought back is imported here */
   onSlurm?: () => void; onImported?: () => void
+  /** the run's null: the preview's draws, 200 paired chain runs, or none */
+  nullMode?: DiscNullMode; onNullMode?: (m: DiscNullMode) => void; previewDraws?: number | null
 }) {
   const toast = useToast()
   const [now, setNow] = useState(Date.now())
@@ -863,12 +872,12 @@ function ApplyBar({ dx, draft, kept, cut, finished, seed, sim, onStarted, onSave
     if (!seed || !dx.scope) return
     runDiscoverySeedSearchOnce({
       seedId: seed.id, channels, t0: dx.scope.section[0], t1: dx.scope.section[1],
-      k: SEED_K, cut: cut ?? undefined, label: draft.label,
+      k: SEED_K, cut: cut ?? undefined, label: draft.label, nullMode,
       ...(bank ? { scales: bank.scales, overlap: bank.overlap } : {}),
       // fixup-AD: the zone the slider holds, as the fraction of m the block takes; the run's recipe records it
       ...((draft.params.windowS ?? 0) > 0 && draft.params.exclusionSettable !== false ? { exclusion: Math.round((draft.params.exclusionS / (draft.params.windowS ?? 1)) * 1000) / 1000 } : {}),
     }).then(r => { onStarted({ key: r.run_key, label: r.label }); dx.reload() })
-      .catch(e => { console.error('the seed search could not start', e) })
+      .catch(e => { console.error('the seed search could not start', e); toast.push({ text: `the run did not start · ${e instanceof Error ? e.message : String(e)}` }) })
   }
   /* the run's own progress: the server's fraction over the sweep (channels and their draws), the time since the
    * button was pressed, and what is left at that pace — the simulated strip said "MASS CH2 (2 of 4)" about
@@ -882,8 +891,24 @@ function ApplyBar({ dx, draft, kept, cut, finished, seed, sim, onStarted, onSave
     cancelJob(id).then(() => dx.reload()).catch(e => console.error('the run could not be cancelled', e))
   }
   const costLine = estimate
-    ? `about ${fmtSeconds(estimate.run.seconds)} · ${estimate.channels} ch × ${(estimate.sectionH[1] - estimate.sectionH[0]).toFixed(1)} h × ${estimate.run.draws} null draws${estimate.run.measured ? '' : ' · assumed rate until one run has finished here'}`
+    ? estimate.run.reusesPreview
+      ? `about ${fmtSeconds(estimate.run.seconds)} · writes the matches above as a run · the ${estimate.run.previewDraws}-draw null above is reused, nothing is searched twice`
+      : nullMode === 'off'
+        ? `about ${fmtSeconds(estimate.run.seconds)} · writes the matches above as a run · no null`
+        : nullMode === 'preview'
+          ? `about ${fmtSeconds(estimate.run.seconds)} · draws the ${estimate.run.previewDraws ?? ''}-draw null first (the preview above is not in yet), then writes the matches`
+          : `about ${fmtSeconds(estimate.run.seconds)} · ${estimate.channels} ch × ${(estimate.sectionH[1] - estimate.sectionH[0]).toFixed(1)} h × ${estimate.run.draws} paired null runs${estimate.run.measured ? '' : ' · assumed rate until one run has finished here'}`
     : null
+  const nullSeg = onNullMode && !finished && (
+    <span className="row" style={{ gap: 6 }} data-testid="null-mode">
+      <span className="muted small">null</span>
+      <Seg size="sm" value={nullMode} onChange={onNullMode} ariaLabel="the run's null" testid="null-mode-seg" options={[
+        { value: 'preview', label: previewDraws != null ? `from the preview · ${previewDraws} draws` : 'from the preview' },
+        { value: 'paired', label: 'rigorous · 200 paired runs' },
+        { value: 'off', label: 'off' },
+      ]} />
+    </span>
+  )
   return (
     <section className="k-card dsc-apply" data-testid="apply-bar" aria-label="Apply">
       {running ? (
@@ -920,6 +945,7 @@ function ApplyBar({ dx, draft, kept, cut, finished, seed, sim, onStarted, onSave
                 <Button variant="link" size="sm" icon="external" onClick={() => navigate('discovery/runs')} testid="seed-open-runs">Open in Runs</Button></>
               : <><b data-testid="apply-state">draft · {!applied ? 'not run with this cut yet' : changes.length === 0 ? 'no unapplied changes' : `${changes.length} unapplied change${changes.length === 1 ? '' : 's'}`}</b><span className="muted small mono">{diff ? `${diff} · ` : ''}preview counts update live</span></>}
           {sim.status === 'cancelled' && <span className="muted small">last search cancelled · nothing written</span>}
+          {nullSeg}
           <span className="k-spacer" />
           {costLine && !finished && <span className="muted small mono" data-testid="run-estimate">{costLine}{overCeiling ? ` · over the ${fmtSeconds(estimate!.ceilingS)} local limit` : ''}</span>}
           {onCluster && <span className="muted small mono" data-testid="on-cluster">on the cluster · import {finished!.hpc?.resultPath.split('/').pop() ?? 'the result'} when it is back</span>}
@@ -1009,16 +1035,17 @@ function SaveTemplateModal({ open, onClose, draft, seed, cut, bank, exclusion, o
   const [failed, setFailed] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
   const toast = useToast()
+  // a taken name is not an error: Save updates that template in place (the researcher, 2026-10-09)
   const taken = (tpls.data ?? []).some(t => t.name === name)
-  const err = !seed ? 'pick a seed first' : !name ? 'a template needs a name' : !TPL_RE.test(name) ? 'lower-case letters, digits and _ only (3–40)' : taken ? `a template called ${name} exists` : saving ? 'saving…' : null
+  const err = !seed ? 'pick a seed first' : !name ? 'a template needs a name' : !TPL_RE.test(name) ? 'lower-case letters, digits and _ only (3–40)' : saving ? 'saving…' : null
   const save = () => {
     if (!seed) return
     setSaving(true); setFailed(null)
     saveDiscoverySeedTemplate({
-      seedId: seed.id, name, k: SEED_K, bind: draft.bind, ...(cut != null ? { cut } : {}),
+      seedId: seed.id, name, k: SEED_K, bind: draft.bind, replace: taken, ...(cut != null ? { cut } : {}),
       ...(bank ? { scales: bank.scales, overlap: bank.overlap } : {}), ...(exclusion != null ? { exclusion } : {}),
-    }).then(() => {
-      toast.push({ text: `Saved ${name} · Library › Templates · the next run is called ${name}`, action: { label: 'Open', onClick: () => navigate('library/templates') } })
+    }).then(r => {
+      toast.push({ text: `${r.updated ? 'Updated' : 'Saved'} ${name} · Library › Templates · the next run is called ${name}`, action: { label: 'Open', onClick: () => navigate('library/templates') } })
       onSaved?.(name)
       onClose()
     }).catch(e => {
@@ -1029,11 +1056,12 @@ function SaveTemplateModal({ open, onClose, draft, seed, cut, bank, exclusion, o
   }
   return (
     <Modal open={open} onClose={onClose} title="Save as template" subtitle="a seed search saved is a template with badge seed" size="md" testid="save-template-modal"
-      footer={<><Button onClick={onClose}>Cancel</Button><Button variant="primary" icon="save" onClick={save} disabled={!!err} disabledReason={err ?? undefined} testid="save-template-confirm">Save template</Button></>}>
+      footer={<><Button onClick={onClose}>Cancel</Button><Button variant="primary" icon="save" onClick={save} disabled={!!err} disabledReason={err ?? undefined} testid="save-template-confirm">{taken ? 'Update template' : 'Save template'}</Button></>}>
       <div className="dsc-save-form">
         <label className="small muted" htmlFor="tpl-name">name</label>
         <TextField id="tpl-name" value={name} onChange={setName} invalid={!!err} block onEnter={() => { if (!err) save() }} testid="save-template-name" />
         {(err || failed) && <span className="dsc-err" data-testid="save-template-error">{err ?? failed}</span>}
+        {taken && !err && <span className="muted small" data-testid="save-template-exists">a template called {name} exists · Save updates it with these parameters</span>}
         <div className="dsc-save-summary mono small">
           <span><span className="muted">seed</span> {seed ? seed.title : 'Explore selection'}{seed && ` · hash ${seed.hash}`}</span>
           <span><span className="muted">bind</span> {draft.bind === 'carry' ? 'carry · this exemplar travels with the template' : 'rebind · asks for an exemplar when applied'}</span>

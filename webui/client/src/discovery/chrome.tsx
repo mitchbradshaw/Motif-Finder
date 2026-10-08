@@ -404,8 +404,12 @@ export function RunsCard({ dx, mode, selected, onSelect, draft, compareActive, o
   const runs = dx.runs
   const pickedLabel = dx.picks.length === 2 ? '2 picked' : `${dx.picks.length} of 2 picked`
   const canCompare = dx.picks.length === 2
-  const listed = runs.filter(r => r.status !== 'draft')
-  const inSession = listed.filter(r => r.kind !== 'reference').length + (draft ? 1 : 0)
+  const all = runs.filter(r => r.status !== 'draft')
+  /* in seed mode the card is the seed searches' (the researcher, 2026-10-09): template runs are on Runs, and
+   * the button for the mode you are in reads pressed */
+  const listed = mode === 'seed' ? all.filter(r => r.kind === 'seed' || r.kind === 'draft') : all
+  const hidden = all.length - listed.length
+  const inSession = all.filter(r => r.kind !== 'reference').length + (draft ? 1 : 0)
   return (
     <section className="k-card dsc-runs" data-testid="runs-card" aria-label="Runs">
       <div className="dsc-runs-head">
@@ -414,7 +418,7 @@ export function RunsCard({ dx, mode, selected, onSelect, draft, compareActive, o
         <span className="muted small">{inSession} in this session</span>
       </div>
       <div className="dsc-runs-add">
-        <Button icon="layers" onClick={onAddTemplate} testid="apply-template">Apply template</Button>
+        <Button icon="layers" onClick={onAddTemplate} testid="apply-template" aria-pressed={mode === 'runs'}>Apply template</Button>
         <Button icon="target" onClick={() => navigate('discovery/seed')} testid="seed-search" aria-pressed={mode === 'seed'}>Seed search</Button>
       </div>
       <div className="dsc-runs-list" data-testid="runs-list">
@@ -423,6 +427,7 @@ export function RunsCard({ dx, mode, selected, onSelect, draft, compareActive, o
         {draft}
         {listed.slice(4).map(r => <RunRow key={r.key} dx={dx} run={r} selected={selected === r.key} onSelect={onSelect} mode={mode} />)}
         {mode !== 'seed' && bandSets(listed).map(set => <BandSetRow key={set.key} dx={dx} set={set} />)}
+        {mode === 'seed' && hidden > 0 && <button type="button" className="dsc-inline-link muted small" onClick={() => navigate('discovery/runs')} data-testid="runs-hidden">{hidden} other run{hidden === 1 ? '' : 's'} (templates, the reference) on Runs →</button>}
         {listed.length === 1 && listed[0].kind === 'reference' && <EmptyState size="sm" icon="layers" title="Only the human reference" caption="Apply template or Seed search adds the first run" testid="runs-empty" />}
       </div>
       <div className="dsc-runs-foot" data-testid="runs-foot">
@@ -490,7 +495,7 @@ function RunRow({ dx, run, selected, onSelect, mode }: { dx: Discovery; run: Dis
   const kindBadge = run.kind === 'reference' ? <span className="k-badge t-grey">reference</span> : run.kind === 'seed' ? <span className="k-badge t-purple">seed</span> : run.kind === 'draft' ? <span className="k-badge t-amber">draft</span> : <span className="k-badge t-blue">template</span>
   let line: ReactNode = null
   switch (status) {
-    case 'done': line = <span>{found ?? '…'} found · {ranOn} ch · done {run.doneAt ?? '—'}{run.nullImported && <span className="muted"> · null from the cluster</span>}{dx.stale && <span className="amber"> · stale</span>}</span>; break
+    case 'done': line = <span>{found ?? '…'} found · {ranOn} ch · done {run.doneAt ?? '—'}{run.nullSource === 'preview' ? <span className="muted"> · null from the preview</span> : run.nullSource === 'hpc' ? <span className="muted"> · null from the cluster</span> : run.nullSource === 'off' ? <span className="muted"> · no null</span> : null}{dx.stale && <span className="amber"> · stale</span>}</span>; break
     case 'on cluster': line = run.hpc
       ? <span className="blue">on the cluster · import {run.hpc.resultPath.split('/').pop()} on the Seed page when it is back</span>
       : <span className="dsc-run-progress"><ProgressBar value={run.progress ?? 0} size="sm" labelPosition="none" width={96} /><span className="blue">cluster {Math.round((run.progress ?? 0) * 100)} %</span></span>; break

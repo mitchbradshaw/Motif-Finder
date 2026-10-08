@@ -103,6 +103,17 @@ things you also agree with, and whether it finds more than it would by chance.
     spec names each channel's `DATA/derived/channels/<stem>/CHn.npy`, so the job needs no database there.
     The preview's bar jumped (27 → 32 → 22 %) because an older loader kept polling beside the new one; a
     failed run is retried on its own row instead of adding a card; *Save .sh* downloads the script.
+  - **2026-10-09, the researcher's question "the page has already scored all the matches — why does the run take
+    longer?"** It found the same matches; the time was the null, drawn again as 200 chain runs per channel.
+    Now the run's null is the researcher's choice on the apply bar: **from the preview** (default — the draws
+    the preview made, 5 over a long scope or 200 over a short one; drawn first inside the job if the page has
+    none yet; the run then writes the matches alone, seconds), **rigorous** (200 paired chain runs, the old
+    behaviour, hours), or **off**. All three are real run rows: *Send N unjudged to Review* and Compare work,
+    and the scoreboard's *null expects* reads the preview's or the cluster's null at the cut (it read "no null
+    run" for an imported one). Verified in the sandbox: 3 ch × 4 h, no cut — 600 found, null expects 598.9,
+    about a minute. *Save as template* on a taken name updates that template. The Runs card in seed mode lists
+    seed searches only, with *Seed search* pressed; the browsed detection's band was drawn half a window early
+    (centred on the start) and now is the span the server sends.
   - What the HPC route does **not** do: move files. The spec and script are written under
     `HPC/Detection/generated/` (sandbox: `webui/runtime/<stamp>/hpc/`); syncing them to rangpur, `sbatch`, and
     bringing `<name>.result.json` back are by hand, as for every other generated job. The cluster needs the repo and
@@ -164,3 +175,4 @@ Follow `RESEARCH_RUNBOOK.md` Q2:
 - 2026-10-06 · researcher's third report · the "5 hours" was twenty copies of one preview sharing the CPU (a POST now joins the running job; 43 s alone); a seed search is costed by the measured rate and, over ten minutes, is a SLURM job (`Working.discovery.seed_job`: spec with the exemplar's samples and the null, headless compute, result imported — histogram from the cluster, run row finished here); a run can be removed from a session (×) and brought back from History.
 - 2026-10-07 · researcher's fourth report · the seed job checkpoints and resubmits itself; every SLURM script lists what it needs on the cluster; a failed run is retried on its own row; the preview's bar no longer jumps between two loaders; *Save .sh* and *Select all* channels.
 - 2026-10-09 · fixup-jobs · a seed search sent to the cluster is a row on the Jobs board (*Waiting on the cluster*): *written* until its result file is back, *running on the cluster · checkpoint back* while the file reads incomplete (channels done of total), *results back · not imported* once complete, *results imported* after the import. Its result can be imported from that row by path (`POST /api/hpc/seed/import`, the Seed page's own import function), as well as from the Seed page's file picker.
+- 2026-10-09 · researcher's fifth report · the run's null is a choice (preview / rigorous / off) and a preview-null run is seconds; the scoreboard scores an imported or preview null; Save as template updates; the Runs card follows the mode; the browse band is the detection's own span; × beside the pick box.

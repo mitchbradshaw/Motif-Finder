@@ -537,11 +537,11 @@ export interface DiscSeedResults {
 export interface DiscSeedProgress { done?: number; total?: number; message?: string }
 export interface DiscSeedPending { ready: false; job_id: number | null; key: string; progress?: DiscSeedProgress; note?: string; elapsedS?: number | null; etaS?: number | null; joined?: boolean }
 /** Before the button: the preview's and the run's cost on a scope, each as work over a rate (measured here once a search has finished). */
-export interface DiscSeedEstimateSide { draws: number; work: number; rate: number; seconds: number; measured: boolean; measuredAt?: string | null }
+export interface DiscSeedEstimateSide { draws: number; work: number; rate: number; seconds: number; measured: boolean; measuredAt?: string | null; reusesPreview?: boolean; previewDraws?: number | null; nullMode?: string; drawsPreviewFirst?: boolean }
 /** `ceilingS`: the local limit (Settings › Compute & HPC, 10 min for a seed search by default); over it the run is a SLURM job (`route: 'cluster'`). */
 export interface DiscSeedEstimate { channels: number; samples: number; sectionH: [number, number]; preview: DiscSeedEstimateSide; run: DiscSeedEstimateSide; ceilingS: number; route: 'local' | 'cluster' }
-export const getDiscoverySeedEstimate = (channels: string[], t0: number, t1: number) =>
-  req<DiscSeedEstimate>(`/api/discovery/seed/estimate${dq({ channels: channels.join(','), t0, t1 })}`)
+export const getDiscoverySeedEstimate = (channels: string[], t0: number, t1: number, q?: { seedId?: string; k?: number; scales?: number[]; overlap?: string; exclusion?: number | null; nullMode?: string }) =>
+  req<DiscSeedEstimate>(`/api/discovery/seed/estimate${dq({ channels: channels.join(','), t0, t1, seedId: q?.seedId, k: q?.k, scales: q?.scales?.length ? q.scales.join(',') : undefined, overlap: q?.overlap, exclusion: q?.exclusion ?? undefined, nullMode: q?.nullMode })}`)
 export const startDiscoverySeedResults = (q: DiscSeedQuery) =>
   post<DiscSeedResults | DiscSeedPending>('/api/discovery/seed/results', q)
 export const pollDiscoverySeedResults = (q: DiscSeedQuery) =>
@@ -889,7 +889,7 @@ export interface SeedMember { dataset?: string; dataset_file?: string; channel_n
  * run row carries its seed and cut, which is how the Seed page finds its own run; a span taken in Explore
  * comes back with the Explore spans queue it is in. */
 export interface DiscSeedInfo { entryId?: number | null; sourceKind?: string | null; annotationId?: number | null; recordingLabel?: string; recordingFile?: string }
-export interface DiscRun { seedId?: string | null; cut?: number | null; entryId?: number | null; progressText?: string | null; hpc?: DiscSeedHpc | null; nullImported?: boolean }
+export interface DiscRun { seedId?: string | null; cut?: number | null; entryId?: number | null; progressText?: string | null; hpc?: DiscSeedHpc | null; nullImported?: boolean; nullSource?: 'preview' | 'hpc' | 'off' | null }
 /** A seed run that is a SLURM job: where its spec and script were written and where its result is expected back. */
 export interface DiscSeedHpc { specPath: string; scriptPath: string; resultPath: string; specHash: string; sbatch: string; createdAt: string; draws: number; estimateS: number | null; importedAt?: string }
 export interface DiscSeedSlurm {
@@ -912,12 +912,13 @@ export interface DiscSeedPage {
 }
 export const getDiscoverySeedPage = (q: DiscSeedPageQuery) => req<DiscSeedPage>(`/api/discovery/seeds${dq({ ...q })}`)
 export const getDiscoverySeedSetupFor = (o: { seed?: string; entry?: number }) => req<DiscSeedSetup>(`/api/discovery/seed/setup${dq(o)}`)
-export interface DiscSeedRunAck { run_key: string; job_id: number | null; route: string; started: boolean; reused: boolean; label: string; note?: string }
-export const runDiscoverySeedSearchOnce = (body: DiscSeedQuery & { label?: string; cut?: number }) =>
+export interface DiscSeedRunAck { run_key: string; job_id: number | null; route: string; started: boolean; reused: boolean; label: string; note?: string; nullFrom?: 'preview' | 'paired runs' }
+export type DiscNullMode = 'preview' | 'paired' | 'off'
+export const runDiscoverySeedSearchOnce = (body: DiscSeedQuery & { label?: string; cut?: number; nullMode?: DiscNullMode }) =>
   post<DiscSeedRunAck>('/api/discovery/seed/run', body)
 /** §7.6's *Save as template*: the seed search as a `templates` row (409 when the name is taken). */
-export const saveDiscoverySeedTemplate = (body: { seedId: string; name: string; k?: number; cut?: number; scales?: number[]; overlap?: string; exclusion?: number; bind?: 'carry' | 'rebind' }) =>
-  post<{ id: number; name: string; kind: string; bind: string }>('/api/discovery/seed/template', body)
+export const saveDiscoverySeedTemplate = (body: { seedId: string; name: string; k?: number; cut?: number; scales?: number[]; overlap?: string; exclusion?: number; bind?: 'carry' | 'rebind'; replace?: boolean }) =>
+  post<{ id: number; name: string; kind: string; bind: string; updated: boolean }>('/api/discovery/seed/template', body)
 export interface TakenSpan { id: number; recording_id: number; start_s: number; end_s: number; verdict: 'seed'; source: string; note: string | null; queue_id: number; seed_id: string }
 export const takeSpanForReviewInQueue = (recording_id: number, start_idx: number, end_idx: number, note?: string, scale_viewed?: string) =>
   post<TakenSpan>('/api/annotations/seed', { recording_id, start_idx, end_idx, note, scale_viewed })

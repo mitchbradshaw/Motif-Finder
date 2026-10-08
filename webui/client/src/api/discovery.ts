@@ -59,6 +59,8 @@ export interface DiscoveryRun {
   hpc?: DiscSeedHpc
   /** the run's null came from an imported cluster result, not paired surrogate runs here */
   nullImported?: boolean
+  /** where the run's null came from when it was not paired runs: the preview, the cluster, or none */
+  nullSource?: 'preview' | 'hpc' | 'off'
   reviewedH?: number
   perChannelMin?: number
   job?: string; pausedAt?: { stage: number; of: number }
@@ -139,7 +141,7 @@ export const getRuns = (): Promise<Sourced<DiscoveryRun[]>> => live(getDiscovery
   key: r.key, id: opt(r.id), label: r.label, kind: r.kind as DiscoveryRun['kind'], colour: r.colour,
   glyph: r.glyph as GlyphKind, detail: r.detail, status: r.status as RunStatus,
   template: opt(r.template), stageCount: opt(r.stageCount), version: opt(r.version),
-  perChannelMin: opt(r.perChannelMin), job: opt(r.job), progress: r.progress, progressText: opt(r.progressText), hpc: opt(r.hpc), nullImported: r.nullImported || undefined, doneAt: r.doneAt, error: r.error,
+  perChannelMin: opt(r.perChannelMin), job: opt(r.job), progress: r.progress, progressText: opt(r.progressText), hpc: opt(r.hpc), nullImported: r.nullImported || undefined, nullSource: opt(r.nullSource) ?? undefined, doneAt: r.doneAt, error: r.error,
   reviewedH: r.reviewedH, runGroupId: opt(r.runGroupId), channelsDone: opt(r.channelsDone), found: opt(r.found),
   seedId: opt(r.seedId), cut: r.cut ?? null, entryId: r.entryId ?? null, scales: r.scales ?? null,
   band: r.band ?? null, bandSet: r.bandSet ?? null, bandIndex: r.bandIndex ?? null,
@@ -349,8 +351,8 @@ export async function getSeedResults(seedId: string, channels: string[], bank?: 
 }
 
 /** The cost of a seed search on a scope before it is run: the preview and the run, in seconds, with whether the rate was measured here. */
-export const getSeedEstimate = (channels: string[], section: [number, number]): Promise<Sourced<DiscSeedEstimate>> =>
-  live(getDiscoverySeedEstimate(channels, section[0], section[1]))
+export const getSeedEstimate = (channels: string[], section: [number, number], q?: { seedId?: string; k?: number; scales?: number[]; overlap?: string; exclusion?: number | null; nullMode?: string }): Promise<Sourced<DiscSeedEstimate>> =>
+  live(getDiscoverySeedEstimate(channels, section[0], section[1], q))
 
 /** Seconds as a person reads them. */
 export const fmtSeconds = (s: number) => s < 1 ? '< 1 s' : s < 90 ? `${Math.round(s)} s` : s < 90 * 60 ? `${Math.round(s / 60)} min` : s < 48 * 3600 ? `${(s / 3600).toFixed(1)} h` : `${(s / 86400).toFixed(1)} d`

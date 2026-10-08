@@ -253,19 +253,23 @@ def test_the_estimate_says_a_full_preview_null_makes_the_run_seconds(client):
     e = client.get("/api/discovery/seed/estimate", params={"channels": ",".join(body["channels"]), "t0": 0.0,
                                                            "t1": N / 3600.0, "seedId": body["seedId"], "k": 24}).json()
     assert e["run"]["reusesPreview"] is True
-    assert e["run"]["draws"] == 0 and e["run"]["seconds"] < e["preview"]["seconds"]
-    # a query with no preview behind it is costed as before
+    assert e["run"]["draws"] == 0 and e["run"]["work"] == 2 * N, "the matches alone: channels x samples, no draws"
+    # a query with no preview behind it, asked for the preview's null, draws that null first (costed with it)
     e2 = client.get("/api/discovery/seed/estimate", params={"channels": ",".join(body["channels"]), "t0": 0.0,
                                                             "t1": N / 3600.0, "seedId": body["seedId"], "k": 25}).json()
-    assert e2["run"]["reusesPreview"] is False and e2["route"] == "cluster"
+    assert e2["run"]["reusesPreview"] is False and e2["run"]["drawsPreviewFirst"] is True
+    assert e2["run"]["previewDraws"] == 2
+    # the rigorous run is costed with its paired draws, and is over this ceiling
+    e3 = client.get("/api/discovery/seed/estimate", params={"channels": ",".join(body["channels"]), "t0": 0.0,
+                                                            "t1": N / 3600.0, "seedId": body["seedId"], "k": 25, "nullMode": "paired"}).json()
+    assert e3["run"]["reusesPreview"] is False and e3["run"]["draws"] == 2 and e3["route"] == "cluster"
 
 
 def test_run_seed_search_reuses_the_previews_null_and_scores_it(client):
     body, got = _preview(client, k=26)
     cut = max(c["d"] for c in got["candidates"])            # keeps every candidate
-    # half a second: over it for a paired run (2 ch × 6000 × 3 draws at the assumed rate ≈ 0.7 s),
-    # under it for the matches alone (≈ 0.24 s)
-    _ceiling(client, 0.008)
+    # one second (the ceiling is whole seconds): the matches alone are about 0.24 s at the assumed rate
+    _ceiling(client, 0.02)
     r = client.post("/api/discovery/seed/run", json={**body, "cut": cut, "label": "reuse"})
     assert r.status_code == 200, r.text
     out = r.json()
@@ -305,7 +309,7 @@ def test_save_as_template_can_update_the_existing_one(client):
 def test_a_run_with_the_null_off_is_a_real_run_that_review_can_take(client):
     body = {"seedId": _seed_id(client), "channels": [CH[0]], "t0": 0.0, "t1": N / 3600.0, "k": 20,
             "label": "nulloff", "nullMode": "off"}
-    _tiny_ceiling(client)                                  # a paired run would be over it; this one has no draws
+    _ceiling(client, 0.02)                                 # one second: a paired run is over it; this one has no draws
     r = client.post("/api/discovery/seed/run", json=body)
     assert r.status_code == 200, r.text
     out = r.json()
