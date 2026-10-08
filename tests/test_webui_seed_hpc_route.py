@@ -225,3 +225,69 @@ def test_retrying_a_failed_seed_run_reuses_its_row(client):
     after = [r_["key"] for r_ in _runs(client) if r_["kind"] == "seed"]
     assert after == before
     assert next(x for x in _runs(client) if x["key"] == out["run_key"])["status"] == "done"
+
+
+# ── 2026-10-09: the run reuses a full preview null; a saved template updates ──
+
+def _preview(client, k=20, channels=(CH[0], CH[1])):
+    body = {"seedId": _seed_id(client), "channels": list(channels), "t0": 0.0, "t1": N / 3600.0, "k": k}
+    r = client.post("/api/discovery/seed/results", json=body)
+    assert r.status_code == 200, r.text
+    if not r.json()["ready"]:
+        assert _wait_job(client, r.json()["job_id"])["status"] == "completed"
+    got = client.get("/api/discovery/seed/results", params={"seedId": body["seedId"], "channels": ",".join(channels),
+                                                           "t0": 0.0, "t1": N / 3600.0, "k": k}).json()
+    assert got["ready"] is True
+    return body, got
+
+
+def test_the_estimate_says_a_full_preview_null_makes_the_run_seconds(client):
+    body, got = _preview(client, k=24)
+    assert got["null"]["draws"] == 2, "the fixture's null is 2 draws, and the preview drew them all"
+    _tiny_ceiling(client)
+    e = client.get("/api/discovery/seed/estimate", params={"channels": ",".join(body["channels"]), "t0": 0.0,
+                                                           "t1": N / 3600.0, "seedId": body["seedId"], "k": 24}).json()
+    assert e["run"]["reusesPreview"] is True
+    assert e["run"]["draws"] == 0 and e["run"]["seconds"] < e["preview"]["seconds"]
+    # a query with no preview behind it is costed as before
+    e2 = client.get("/api/discovery/seed/estimate", params={"channels": ",".join(body["channels"]), "t0": 0.0,
+                                                            "t1": N / 3600.0, "seedId": body["seedId"], "k": 25}).json()
+    assert e2["run"]["reusesPreview"] is False and e2["route"] == "cluster"
+
+
+def test_run_seed_search_reuses_the_previews_null_and_scores_it(client):
+    body, got = _preview(client, k=26)
+    cut = max(c["d"] for c in got["candidates"])            # keeps every candidate
+    _tiny_ceiling(client)                                     # over the ceiling for a paired run — not for this one
+    r = client.post("/api/discovery/seed/run", json={**body, "cut": cut, "label": "reuse"})
+    assert r.status_code == 200, r.text
+    out = r.json()
+    assert out["started"] is True and out["route"] == "local", out
+    assert out["nullFrom"] == "preview"
+    assert _wait_job(client, out["job_id"])["status"] == "completed"
+    row = _q(client, "SELECT params_json FROM discovery_runs WHERE run_key = ?", (out["run_key"],))[0]
+    params = json.loads(row["params_json"])
+    assert params["null"]["imported"] is True and params["null"]["source"] == "preview" and params["null"]["draws"] == 2
+    ids = params["run_ids"]
+    paired = _q(client, f"SELECT COUNT(*) AS n FROM runs WHERE surrogate_of_run_id IN ({','.join('?' * len(ids))})", ids)[0]["n"]
+    assert paired == 0, "no surrogate chain runs: the null came from the preview"
+    sb = client.get("/api/discovery/scoreboard", params={"runs": out["run_key"], "channels": ",".join(body["channels"]),
+                                                         "t0": 0.0, "t1": N / 3600.0}).json()
+    total = sb[0]["total"]
+    assert total["nullRun"] is True and total["nullDraws"] == 2
+    assert isinstance(total["nullExpects"], (int, float))
+    assert all(ch["nullRun"] for ch in sb[0]["channels"])
+
+
+def test_save_as_template_can_update_the_existing_one(client):
+    body = {"seedId": _seed_id(client), "name": "seed_tpl_update", "k": 20, "cut": 2.0}
+    assert client.post("/api/discovery/seed/template", json=body).status_code == 200
+    again = client.post("/api/discovery/seed/template", json={**body, "cut": 3.5})
+    assert again.status_code == 409, "without asking, a taken name is still refused"
+    r = client.post("/api/discovery/seed/template", json={**body, "cut": 3.5, "replace": True})
+    assert r.status_code == 200, r.text
+    assert r.json()["updated"] is True
+    rows = _q(client, "SELECT steps_json FROM templates WHERE name = ?", ("seed_tpl_update",))
+    assert len(rows) == 1
+    step = json.loads(rows[0]["steps_json"])[0]
+    assert step["params"]["max_distance"] == 3.5
