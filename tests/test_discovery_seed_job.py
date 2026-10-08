@@ -200,3 +200,44 @@ def test_the_job_script_says_what_it_needs_and_resubmits_itself(tmp_path):
     # killed at the wall, it continues from its own result file on the next submission
     assert "MAX_CHAIN" in script and "sbatch" in script
     assert out["dependencies"]["code"] and out["dependencies"]["inputs"] and out["dependencies"]["outputs"]
+
+
+# ── 2026-10-09: a 20-minute wall — one channel per submission, a time budget, the chain ──
+
+def test_main_does_one_channel_per_submission_when_asked(db, tmp_path):
+    spec_path = tmp_path / "spec.json"
+    spec_path.write_text(json.dumps(_spec()), encoding="utf-8")
+    out = tmp_path / "result.json"
+    args = ["--spec", str(spec_path), "--out", str(out), "--db", db, "--max-channels", "1"]
+    assert seed_job.main(args) == 0
+    first = json.loads(out.read_text(encoding="utf-8"))
+    assert first["complete"] is False and [c["name"] for c in first["perChannel"]] == ["CH1"]
+    assert seed_job.main(["--status", str(out)]) == 1, "incomplete: the script resubmits"
+    assert seed_job.main(args) == 0
+    second = json.loads(out.read_text(encoding="utf-8"))
+    assert second["complete"] is True and [c["name"] for c in second["perChannel"]] == ["CH1", "CH2"]
+    assert seed_job.main(["--status", str(out)]) == 0
+    assert seed_job.main(args) == 0 and json.loads(out.read_text(encoding="utf-8")) == second
+
+
+def test_run_spec_stops_at_its_time_budget_and_resumes_to_the_same_answer(db, tmp_path):
+    spec = _spec()
+    loader = seed_job.db_loader(db)
+    straight = seed_job.run_spec(spec, loader=loader)
+    ck = tmp_path / "budget.json"
+    partial = seed_job.run_spec(spec, loader=loader, checkpoint=str(ck), budget_s=0.0)
+    assert partial["complete"] is False, "a spent budget stops at the first checkpoint"
+    assert len(partial["perChannel"]) >= 1
+    resumed = seed_job.run_spec(spec, loader=loader, checkpoint=str(ck))
+    assert resumed["complete"] is True and resumed["perChannel"] == straight["perChannel"]
+
+
+def test_the_job_script_runs_one_channel_per_job_and_chains(tmp_path):
+    spec = seed_job.build_spec(seed_id="library:1:600:660", exemplar=_planted(0)[:M], channels=_channels_with_paths(),
+                               span=(0, N), k=20, max_distance=None, null={"method": "phase_randomize", "draws": 2})
+    out = seed_job.write_job(spec, out_dir=str(tmp_path / "hpc"), base_name="seed_chain", est_seconds=120.0)
+    script = out["script"]
+    assert "--max-channels 1" in script, "one channel per submission, well inside a 20-minute wall"
+    assert "--budget-s" in script, "and a budget under the wall, so a long channel still checkpoints and exits"
+    assert "sbatch" in script and "--status" in script
+    assert out["max_chain"] >= len(spec["channels"]) + 2
