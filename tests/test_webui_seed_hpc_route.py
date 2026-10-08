@@ -68,6 +68,11 @@ def _runs(client):
     return r.json()
 
 
+def _ceiling(client, minutes):
+    r = client.put(f"/api/settings/{fanout.CEILING_PAGE}", json={"values": {fanout.CEILING_KEY: minutes}})
+    assert r.status_code == 200, r.text
+
+
 def _tiny_ceiling(client):
     """A ceiling no search fits under: a tenth of a second."""
     r = client.put(f"/api/settings/{fanout.CEILING_PAGE}", json={"values": {fanout.CEILING_KEY: 0.001}})
@@ -258,7 +263,9 @@ def test_the_estimate_says_a_full_preview_null_makes_the_run_seconds(client):
 def test_run_seed_search_reuses_the_previews_null_and_scores_it(client):
     body, got = _preview(client, k=26)
     cut = max(c["d"] for c in got["candidates"])            # keeps every candidate
-    _tiny_ceiling(client)                                     # over the ceiling for a paired run — not for this one
+    # half a second: over it for a paired run (2 ch × 6000 × 3 draws at the assumed rate ≈ 0.7 s),
+    # under it for the matches alone (≈ 0.24 s)
+    _ceiling(client, 0.008)
     r = client.post("/api/discovery/seed/run", json={**body, "cut": cut, "label": "reuse"})
     assert r.status_code == 200, r.text
     out = r.json()
@@ -291,3 +298,48 @@ def test_save_as_template_can_update_the_existing_one(client):
     assert len(rows) == 1
     step = json.loads(rows[0]["steps_json"])[0]
     assert step["params"]["max_distance"] == 3.5
+
+
+# ── 2026-10-09: the null is the researcher's choice on the run ─────────────
+
+def test_a_run_with_the_null_off_is_a_real_run_that_review_can_take(client):
+    body = {"seedId": _seed_id(client), "channels": [CH[0]], "t0": 0.0, "t1": N / 3600.0, "k": 20,
+            "label": "nulloff", "nullMode": "off"}
+    _tiny_ceiling(client)                                  # a paired run would be over it; this one has no draws
+    r = client.post("/api/discovery/seed/run", json=body)
+    assert r.status_code == 200, r.text
+    out = r.json()
+    assert out["started"] is True and out["nullFrom"] == "off", out
+    assert _wait_job(client, out["job_id"])["status"] == "completed"
+    params = json.loads(_q(client, "SELECT params_json FROM discovery_runs WHERE run_key = ?", (out["run_key"],))[0]["params_json"])
+    assert params["null"]["paired"] is False and params["null"].get("draws", 0) == 0 and params["null"]["source"] == "off"
+    ids = params["run_ids"]
+    assert _q(client, f"SELECT COUNT(*) AS n FROM runs WHERE surrogate_of_run_id IN ({','.join('?' * len(ids))})", ids)[0]["n"] == 0
+    sb = client.get("/api/discovery/scoreboard", params={"runs": out["run_key"], "channels": CH[0], "t0": 0.0, "t1": N / 3600.0}).json()
+    assert sb[0]["total"]["nullRun"] is False
+    sent = client.post(f"/api/discovery/runs/{out['run_key']}/review", json={})
+    assert sent.status_code == 200, sent.text
+    assert sent.json()["total"] >= 1, "the run has detections Review can take"
+
+
+def test_a_capped_preview_null_is_reused_when_the_run_asks_for_it(client, monkeypatch):
+    from server import discovery
+    # a 10-draw null over a budget of 1,000 samples: the preview draws the floor of 5
+    r = client.put("/api/discovery/session", json={"null": {"method": "phase randomisation", "n": 10}})
+    assert r.status_code == 200, r.text
+    monkeypatch.setattr(discovery, "NULL_SAMPLE_BUDGET", 1000)
+    body, got = _preview(client, k=27)
+    assert got["null"]["draws"] == discovery.NULL_MIN_DRAWS < 10
+    e = client.get("/api/discovery/seed/estimate", params={"channels": ",".join(body["channels"]), "t0": 0.0, "t1": N / 3600.0,
+                                                           "seedId": body["seedId"], "k": 27, "nullMode": "preview"}).json()
+    assert e["run"]["reusesPreview"] is True and e["run"]["previewDraws"] == discovery.NULL_MIN_DRAWS
+    e2 = client.get("/api/discovery/seed/estimate", params={"channels": ",".join(body["channels"]), "t0": 0.0, "t1": N / 3600.0,
+                                                            "seedId": body["seedId"], "k": 27, "nullMode": "paired"}).json()
+    assert e2["run"]["reusesPreview"] is False and e2["run"]["draws"] == 10
+    r = client.post("/api/discovery/seed/run", json={**body, "label": "capped", "nullMode": "preview"})
+    assert r.status_code == 200, r.text
+    out = r.json()
+    assert out["nullFrom"] == "preview" and out["started"] is True
+    assert _wait_job(client, out["job_id"])["status"] == "completed"
+    params = json.loads(_q(client, "SELECT params_json FROM discovery_runs WHERE run_key = ?", (out["run_key"],))[0]["params_json"])
+    assert params["null"]["draws"] == discovery.NULL_MIN_DRAWS and params["null"]["source"] == "preview"
