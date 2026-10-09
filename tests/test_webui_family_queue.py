@@ -106,7 +106,7 @@ def test_the_item_is_an_ordinary_member_item_not_a_suspected_artifact_card(clien
     d = r.json()
     assert "suspectedArtifact" not in d
     assert d["entry"]["id"] == "3" and d["queue"]["source_kind"] == "library-family"
-    assert d["shape"]["points"] or d["context"]["points"]
+    assert d["shape"]["v"] or d["context"]["v"]
 
 
 def test_every_member_judged_is_a_409_not_a_second_queue(client):
