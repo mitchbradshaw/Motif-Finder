@@ -753,7 +753,8 @@ CREATE TABLE IF NOT EXISTS review_queues (
     source_kind   TEXT    NOT NULL CHECK (source_kind IN (
                       'discovery-run', 'seed-search', 'explore-spans',
                       'training-windows', 'model-verification',
-                      'extract-events', 'suspected-artifact', 'blind-test')),
+                      'extract-events', 'suspected-artifact', 'blind-test',
+                      'library-family')),
     -- What the source kind points at: a run_group_id, a session/search id, a
     -- window-set id, or empty for a whole-corpus sweep. TEXT because the five
     -- kinds key on different things and a typed column per kind would be five
@@ -1550,9 +1551,9 @@ def _migrate_legacy_detections(conn):
 # `window_verdicts`) verified before COMMIT, the indexes put back. The new
 # table's text is `_REVIEW_SCHEMA`'s own, so the two cannot drift. Idempotent:
 # once the live table names the kind this is one `sqlite_master` read.
-#: fixup-AH: the newest kind the CHECK must name (`blind-test`, unit `test window`); a table made before it is
-#: rebuilt by the same function, once
-_REVIEW_QUEUES_NEW_KIND = "'blind-test'"
+#: The newest kind the CHECK must name; a table made before it is rebuilt by the same function, once.
+#: fixup-AH added `blind-test` (unit `test window`); fixup-FQ adds `library-family` (unit `member`).
+_REVIEW_QUEUES_NEW_KIND = "'library-family'"
 
 
 def _review_queues_rebuild_sql():

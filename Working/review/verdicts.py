@@ -250,8 +250,12 @@ def _resolve_target(conn, queue, target_id):
 
     if unit == "member":
         # the verdict lands on this queue's own annotation over the member's
-        # span, or on a new one: which is decided when it is written
-        from Working.review.artifact_queue import review_annotation_id
+        # span, or on a new one: which is decided when it is written. Two
+        # kinds share the unit and differ in the source they write
+        if queue["source_kind"] == "library-family":
+            from Working.review.family_queue import review_annotation_id
+        else:
+            from Working.review.artifact_queue import review_annotation_id
         return rid, review_annotation_id(conn, rid)
 
     return rid, rid
@@ -531,7 +535,10 @@ def _apply(conn, queue, target_id, row_id, verdict, note, tags, window_index):
     if writes_to == "adjudications":
         return _write_adjudication(conn, row_id, verdict, note, tags), None, row_id
     if writes_to == "annotations" and queue["unit"] == "member":
-        from Working.review.artifact_queue import write_member_verdict
+        if queue["source_kind"] == "library-family":
+            from Working.review.family_queue import write_member_verdict
+        else:
+            from Working.review.artifact_queue import write_member_verdict
         prior, row_id = write_member_verdict(conn, queue, target_id, verdict, note, tags)
         return prior, None, row_id
     if writes_to == "annotations" and queue["unit"] == "test window":

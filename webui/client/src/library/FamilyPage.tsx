@@ -43,20 +43,20 @@ import {
   CLASS_OPTIONS, TAG_RULE, TAG_VOCABULARY, getFamily, getMotifFamilies,
   type FamilyDetail, type FamilyRead, type Member, type MotifFamily, type RemovedMember, type SequenceFamily, type Verdict,
 } from '../api/library'
-import { GroupingBar, LoadFailed, Loading, MotifPlot, SectionBar, ViewFilterBar, centreTrace, fmtMv, tracePeak, useAllGroupings, useEmptyLibrary, useLibraryView, useMotifGroupingId, useQueueToast, useRememberMotifsRoute, useSequenceGroupingId } from './chrome'
+import { GroupingBar, LoadFailed, Loading, MotifPlot, SectionBar, ViewFilterBar, centreTrace, fmtMv, tracePeak, useAllGroupings, useEmptyLibrary, useLibraryView, useMotifGroupingId, useRememberMotifsRoute, useSequenceGroupingId } from './chrome'
 import { baselinePeak, referenceScale, type ReferenceScale } from '../charts/domain'
 import { ReferenceBar, referenceWords } from '../charts/ReferenceBar'
 import { familyName } from './AtlasPage'
 import { EmptyMotifsPage } from './EmptyLibrary'
 import { EdgeList, MatchedMembers, ScaleReadout, memberEdges, type EdgeDetailExtras, type EdgeFamilyExtras } from './Edges'
 import { CrossChannelCard } from './CrossChannel'
-import { deleteLibraryHandEdit, postLibraryHandEdit, type LibCrossChannel, type LibFamilyView, type LibHandEditBody, type LibMember, type LibViewReport } from '../api'
+import { deleteLibraryHandEdit, postLibraryHandEdit, sendFamilyUnjudged, type LibCrossChannel, type LibFamilyView, type LibHandEditBody, type LibMember, type LibUnjudgedQueue, type LibViewReport } from '../api'
 
 /** fixup-ae: a member as the bridge sends it now — its hand edits (with their ids, so one can be undone), the rule
  *  that judged it, and the view's measures. */
 type HandEditRef = { id: number; kind: string; value: string | null; familyLabel: string | null }
 type LiveMember = Member & LibMember & { handEdits?: HandEditRef[] }
-type LiveDetail = FamilyDetail & { view?: LibViewReport & { family?: LibFamilyView; hiddenByView?: boolean }; judgedRule?: string }
+type LiveDetail = FamilyDetail & { view?: LibViewReport & { family?: LibFamilyView; hiddenByView?: boolean }; judgedRule?: string; unjudgedQueue?: LibUnjudgedQueue | null }
 /** The class select waits for the classes the Review-behaviour prompt defines (Q16, Q42): a class written now would
  *  name a vocabulary nobody has settled. */
 const CLASS_WAITS = 'waits for the Review-behaviour prompt: its classes (1/2/3/4/9) are not settled, so nothing is written yet'
@@ -77,7 +77,7 @@ interface RemovedEntry {
   /** the removed member's own waveform, from the read or carried over from the member removed this session */
   trace?: number[]
 }
-interface FamilyEdits { removed: RemovedEntry[]; undone: string[]; exemplar: string; tags: Record<string, string[]>; cls: Record<string, string>; notes: Record<string, string>; queued: boolean; staleEdges: boolean; log: string[] }
+interface FamilyEdits { removed: RemovedEntry[]; undone: string[]; exemplar: string; tags: Record<string, string[]>; cls: Record<string, string>; notes: Record<string, string>; staleEdges: boolean; log: string[] }
 type SortKey = 'distance' | 'time' | 'amplitude' | 'unjudged'
 const VERDICT_COLOUR: Record<string, string> = { seed: 'var(--green)', interesting: 'var(--green)', 'not interesting': 'var(--muted-2)', not_interesting: 'var(--muted-2)', artifact: 'var(--red)', unjudged: 'var(--amber)' }
 
@@ -165,15 +165,47 @@ const memberWave = (m: { trace?: number[] }) => centreTrace(m.trace ?? [])
 /** Descending, members with no mV amplitude (unit undeclared) last. */
 const byAmplitude = (a: Member, b: Member) => (b.amplitudeMv ?? -Infinity) === (a.amplitudeMv ?? -Infinity) ? 0 : (b.amplitudeMv ?? -Infinity) > (a.amplitudeMv ?? -Infinity) ? 1 : -1
 
+/** fixup-FQ: *Send N to Review as a queue* — the family's queue over the unjudged members the page shows, made once
+ *  (POST /unjudged-queue, the view with it); then *Open in Review · j of n judged*. A second send widens the open
+ *  queue to any member not yet in it (added by hand since), never opens a second one. */
+function SendUnjudged({ familyId, grouping, unjudged, queue, onSent }: { familyId: string; grouping?: string; unjudged: number; queue: LibUnjudgedQueue | null; onSent: () => void }) {
+  const { push } = useToast()
+  const [view] = useLibraryView()      // the page's view: the queue is over the members it shows
+  const [busy, setBusy] = useState(false)
+  const [err, setErr] = useState<string | null>(null)
+  const send = async () => {
+    setBusy(true); setErr(null)
+    try {
+      const r = await sendFamilyUnjudged(familyId, grouping, view)
+      recordDemoWrite('library', 'queue', { name: r.name, items: r.sent })
+      push({ text: `${r.name} · ${fmtInt(r.remaining)} of ${fmtInt(r.total)} to judge`, action: { label: 'Open Review', onClick: () => navigate(`review/queue/${r.queueId}`) } })
+      onSent()
+      navigate(`review/queue/${r.queueId}`)
+    } catch (e) { setErr((e as Error).message) } finally { setBusy(false) }
+  }
+  return (
+    <span className="row" style={{ gap: 6, alignItems: 'center' }}>
+      {err && <span className="lib-cap" style={{ color: 'var(--red)' }} data-testid="send-unjudged-error">{err}</span>}
+      {queue ? <>
+        <Button className="lib-amber-btn" icon="external" testid="open-unjudged-queue" data-queue={queue.id} onClick={() => navigate(`review/queue/${queue.id}`)}>
+          Open in Review · {fmtInt(queue.judged)} of {fmtInt(queue.total)} judged</Button>
+        <Button size="sm" variant="link" icon="checklist" testid="send-unjudged-queue" disabled={busy} disabledReason="sending" title="widens the open queue to any member not yet in it" onClick={() => { void send() }}>Send again</Button>
+      </> : (
+        <Button className="lib-amber-btn" icon="checklist" iconRight="arrow-right" testid="send-unjudged-queue" disabled={busy} disabledReason="sending" onClick={() => { void send() }}>Send {fmtInt(unjudged)} to Review as a queue</Button>
+      )}
+    </span>
+  )
+}
+
 function MotifFamilyView({ detail, grouping, onReload }: { detail: FamilyDetail; grouping?: string; onReload: () => void }) {
   const f = detail.family
   const { push } = useToast()
-  const queue = useQueueToast()
   // fixup-ae: what is in `hand_edits` comes from the read, never from a copy kept here — the removals, the
-  // exemplar and the tags are the bridge's. Only page conveniences stay local (notes, the queued chip).
+  // exemplar and the tags are the bridge's. Only page conveniences stay local (notes). fixup-FQ: the Review
+  // queue is the bridge's too (`unjudgedQueue` on the read), not a chip kept here.
   const [edits, setEdits] = useDemoState<FamilyEdits>(`library.family.${f.id}.edits`, () => ({
     removed: [], undone: [], exemplar: f.exemplar, tags: {}, cls: {},
-    notes: Object.fromEntries(detail.members.filter(m => m.note).map(m => [m.id, m.note!])), queued: false, staleEdges: false, log: [],
+    notes: Object.fromEntries(detail.members.filter(m => m.note).map(m => [m.id, m.note!])), staleEdges: false, log: [],
   }))
   // exactly what the bridge returned for each removal — no invented onset, duration, amplitude, verdict, run or
   // revision list (a removal is a hand edit, and a hand edit has none of those)
@@ -183,6 +215,20 @@ function MotifFamilyView({ detail, grouping, onReload }: { detail: FamilyDetail;
   }), [detail.removed])
   const [busy, setBusy] = useState(false)
   const gidBody = grouping ?? (f as typeof f & { grouping?: string }).grouping ?? null
+  const [view] = useLibraryView()
+  /** fixup-FQ: the batch bar's *Send to Review* — the unjudged among the selection join the family's one queue. */
+  const sendSelection = async (selectedIds: string[]) => {
+    const selected = members.filter(m => selectedIds.includes(m.id))
+    setBusy(true)
+    try {
+      const r = await sendFamilyUnjudged(f.id, gidBody ?? undefined, view, selected.map(m => m.seed))
+      recordDemoWrite('library', 'queue', { name: r.name, items: r.sent })
+      push({ text: `${r.name} · ${fmtInt(r.sent)} of the ${fmtInt(selected.length)} selected sent · ${fmtInt(r.remaining)} of ${fmtInt(r.total)} to judge`, action: { label: 'Open Review', onClick: () => navigate(`review/queue/${r.queueId}`) } })
+      onReload()
+    } catch (e) {
+      push({ text: `Not sent: ${(e as Error).message}` })
+    } finally { setBusy(false) }
+  }
   /** Write hand edits, then read the family again. A failure is loud (a toast with the server's message) and the
    *  page keeps showing the read, which is still the truth. */
   const writeEdits = async (bodies: LibHandEditBody[]): Promise<number[]> => {
@@ -323,10 +369,10 @@ function MotifFamilyView({ detail, grouping, onReload }: { detail: FamilyDetail;
             <b style={{ fontSize: 13 }}>{unjudged} of {members.length} members have never been judged</b>
             <span className="lib-cap" style={{ color: '#b56b00', fontSize: 11 }}>a family of unjudged members is a proposal, not a finding</span>
             <span style={{ marginLeft: 'auto' }} />
-            {edits.queued && <Chip tone="amber" size="sm" icon="check">queued as Library · {f.id} unjudged</Chip>}
-            <Button className="lib-amber-btn" icon="checklist" iconRight="arrow-right" testid="send-unjudged-queue" onClick={() => { queue(`Library · ${f.id} unjudged`, unjudged); setEdits(e => ({ ...e, queued: true })) }}>Send {unjudged} to Review as a queue</Button>
+            <SendUnjudged familyId={f.id} grouping={gidBody ?? undefined} unjudged={unjudged} queue={(detail as LiveDetail).unjudgedQueue ?? null} onSent={onReload} />
           </div>
-        ) : <div className="lib-cap" data-testid="all-judged" style={{ padding: '4px 2px' }}><Icon name="check-circle" size={12} style={{ color: 'var(--green)', verticalAlign: -2 }} /> every member of {f.id} is judged</div>}
+        ) : <div className="lib-cap row" data-testid="all-judged" style={{ padding: '4px 2px', gap: 8, alignItems: 'center' }}><span><Icon name="check-circle" size={12} style={{ color: 'var(--green)', verticalAlign: -2 }} /> every member of {f.id} is judged</span>
+          {(detail as LiveDetail).unjudgedQueue && <Button size="sm" variant="link" icon="external" testid="open-unjudged-queue" data-queue={(detail as LiveDetail).unjudgedQueue!.id} onClick={() => navigate(`review/queue/${(detail as LiveDetail).unjudgedQueue!.id}`)}>Open its queue in Review</Button>}</div>}
 
         <div className="k-card" style={{ padding: 12, display: 'grid', gridTemplateColumns: '300px minmax(0, 1fr) 222px', gap: 14, alignItems: 'start' }} data-testid="family-summary">
           <div>
@@ -450,7 +496,7 @@ function MotifFamilyView({ detail, grouping, onReload }: { detail: FamilyDetail;
             <InfoTip title="keyboard">← → move the rail member · Space ticks it · Esc clears the selection</InfoTip>
             <span style={{ marginLeft: 'auto' }} />
             <span className="row lib-ui-btn" style={{ gap: 8 }}>
-              <Button icon="checklist" testid="batch-send" onClick={() => queue(`Library · ${f.id} selection`, selInList.length)}>Send to Review</Button>
+              <Button icon="checklist" testid="batch-send" disabled={busy} disabledReason="sending…" onClick={() => { void sendSelection(selInList) }}>Send to Review</Button>
               <Button ref={batchTagRef} icon="tag" testid="batch-tag" onClick={() => setPopover(popover === 'tag' ? null : 'tag')}>Add tag</Button>
               <Button ref={batchClassRef} icon="layers" testid="batch-class" disabled disabledReason={CLASS_WAITS} onClick={() => setPopover(popover === 'class' ? null : 'class')}>Assign class</Button>
               <Button icon="minus" testid="batch-remove" disabled={busy} disabledReason="writing…" onClick={() => setModal('remove')}>Remove from family</Button>

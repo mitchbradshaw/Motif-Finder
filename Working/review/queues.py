@@ -82,6 +82,10 @@ SOURCE_KINDS = (
     # interesting / not BLIND; a verdict lands in `annotations` over the
     # window's span (`Working.training.blind`)
     "blind-test",
+    # fixup-FQ: a Library family's unjudged members, sent from the Family page;
+    # a verdict lands in `annotations` over the member's span, which is what
+    # the Family page's resolver counts as judged (`family_queue`)
+    "library-family",
 )
 
 _DEFAULTS = {
@@ -93,6 +97,7 @@ _DEFAULTS = {
     "extract-events":     ("sequence", "annotations", 0),
     "suspected-artifact": ("member", "annotations", 0),
     "blind-test":         ("test window", "annotations", 1),
+    "library-family":     ("member", "annotations", 0),
 }
 
 _DETECTION_KINDS = ("discovery-run", "seed-search")
@@ -403,6 +408,9 @@ def _resolve(conn, q):
         items = resolve_items(conn, q)
     elif kind == "blind-test":
         from Working.training.blind import resolve_items
+        items = resolve_items(conn, q)
+    elif kind == "library-family":
+        from Working.review.family_queue import resolve_items
         items = resolve_items(conn, q)
     else:                                   # pragma: no cover - CHECKed above
         raise ValueError("unresolvable source_kind: {!r}".format(kind))

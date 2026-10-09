@@ -1181,6 +1181,18 @@ export interface LibSuspectedAck { queueId: number; name: string; flagged: numbe
 export const sendSuspectedArtifacts = (familyId: string, grouping?: string, view?: LibView | null) =>
   post<LibSuspectedAck>(`/api/library/family/${encodeURIComponent(familyId)}/suspected-artifacts`, {
     grouping, ...Object.fromEntries(Object.entries(libViewQuery(view)).filter(([, v]) => v !== undefined).map(([k, v]) => [k, String(v)])) })
+/* ---------------- fixup-FQ: Library › Family *Send N to Review as a queue*, wired ----------------
+   POST /api/library/family/{id}/unjudged-queue makes (once) a `library-family` Review queue over the unjudged
+   members the page shows; a verdict there lands in `annotations` over the member's span, which is what the family
+   read's resolver counts as judged. The family read carries the open queue as `unjudgedQueue`. */
+export interface LibUnjudgedQueue { id: number; total: number; judged: number; remaining: number }
+export interface LibUnjudgedAck extends LibUnjudgedQueue { queueId: number; name: string; sent: number }
+export interface LibFamily { unjudgedQueue?: LibUnjudgedQueue | null }
+/** The view goes with it: the queue is over the unjudged members the page shows — or, with `memberIds` (the batch
+ *  bar's selection), the unjudged ones among those. Either way the family has one queue; a send widens it. */
+export const sendFamilyUnjudged = (familyId: string, grouping?: string, view?: LibView | null, memberIds?: number[]) =>
+  post<LibUnjudgedAck>(`/api/library/family/${encodeURIComponent(familyId)}/unjudged-queue`, {
+    grouping, memberIds, ...Object.fromEntries(Object.entries(libViewQuery(view)).filter(([, v]) => v !== undefined).map(([k, v]) => [k, String(v)])) })
 /** fixup-AD: the seed search's exclusion zone, a fraction of m (the block's `exclusion`; m/2 by default). It is part
  *  of the result's key and of the run's identity, so the poll and the run must name it. */
 export interface DiscSeedQuery { exclusion?: number }

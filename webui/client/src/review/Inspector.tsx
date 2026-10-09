@@ -115,6 +115,8 @@ function InspectorItem({ data, row }: { data: QueueData; row: QueueRow }) {
     if (binary && (v === 'seed' || v === 'artifact' || v === 'unsure')) return say('this queue takes binary verdicts and classes')
     // fixup-AD: a suspected-artifact queue asks "artifact, or what is it really?" — the four words its queue names
     if ((queue.source as string) === 'suspected-artifact' && v === 'seed') return say('this queue takes artifact, interesting, not interesting or unsure — promote a seed from Explore or a detection queue')
+    // fixup-FQ: a Library family queue's member is already in the Library — the question is what it is, not whether to add it
+    if ((queue.source as string) === 'library-family' && v === 'seed') return say('this member is already in the Library — judge it interesting, not interesting, artifact or unsure')
     const next = await write(v, rec?.className, v === 'seed' ? 'promotion' : 'verdict', { advance: true })
     if (!next) return
     if (v === 'seed') {

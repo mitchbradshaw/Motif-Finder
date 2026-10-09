@@ -426,8 +426,10 @@ def _detail(conn, queue: dict, item: dict, index: dict, *, rank: int | None = No
         "artifact": _artifact(item),
         "evidence": _evidence(item, qp),
         "thumb": entry["thumb"],
+        # keyed on the KIND, not the unit: a Library family queue's items are members too, and
+        # carry no flags to draw (fixup-FQ)
         **({"suspectedArtifact": _suspected_artifact(conn, item, rec, index, px, pad_s)}
-           if queue.get("unit") == "member" else {}),
+           if queue.get("source_kind") == "suspected-artifact" else {}),
     }
 
 

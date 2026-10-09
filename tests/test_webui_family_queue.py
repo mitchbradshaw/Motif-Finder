@@ -109,6 +109,20 @@ def test_the_item_is_an_ordinary_member_item_not_a_suspected_artifact_card(clien
     assert d["shape"]["v"] or d["context"]["v"]
 
 
+def test_a_selection_sends_only_its_unjudged_members_and_widens_the_one_queue(client):
+    """The batch bar's *Send to Review*: the unjudged among the selection join
+    the family's one queue; a later whole-family send widens it."""
+    r = client.post(ROUTE, json={"grouping": "g-01", "floor": "0", "memberIds": [1, 2]})
+    assert r.status_code == 200, r.text
+    out = r.json()
+    assert out["sent"] == 2 and out["total"] == 2 and out["remaining"] == 2
+    again = _send(client)
+    assert again["queueId"] == out["queueId"] and again["total"] == 4
+    assert len(client.get("/api/review/queues").json()) == 1
+    r = client.post(ROUTE, json={"grouping": "g-01", "floor": "0", "memberIds": [99]})
+    assert r.status_code == 404, r.text
+
+
 def test_every_member_judged_is_a_409_not_a_second_queue(client):
     qid = _send(client)["queueId"]
     for t in ("1", "2", "3", "4"):

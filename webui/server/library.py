@@ -1374,6 +1374,8 @@ def _family_detail(conn, index, fam, grouping_row, state=None, hidden_by_view=Fa
         # each with its rule, the Q40c co-occurrences without a member, the
         # recurrence counts with the bins out, and the surrogate count beside them
         "crossChannel": _cross_channel_payload(conn, sorted(in_family)),
+        # fixup-FQ: the open *Send N to Review as a queue* queue over this family, with its counts
+        "unjudgedQueue": _open_family_queue(conn, fam["id"], gid_str(grouping_row["id"])),
         "family": fam, "cut": _f(grouping_row["cut"]),
         "members": members, "removed": removed,
         "channels": len({m["channel"] for m in members}),
@@ -2793,18 +2795,7 @@ def send_suspected_artifacts(request: Request, family_id: str, body: SuspectedBo
     from Working.review import queues as rq
     conn = _conn(request)
     try:
-        g = _resolve_grouping(conn, body.grouping, "single_motifs")
-        if g is not None and str(g["unit"]) != "single_motifs":
-            g = _default_grouping(conn, "single_motifs")
-        if g is None:
-            raise HTTPException(404, f"no motif grouping to find {family_id} in")
-        view = vf_mod.ViewFilter.from_query(body.floor, body.fallMin, body.fallMax, body.pure)
-        state = _view_state(conn, _recordings_index(conn), g, view)
-        ids = sorted({int(r["member_id"]) for r in state["rows"]
-                      if r["family_label"] == family_id and r["member_id"] is not None})
-        if not ids:
-            raise HTTPException(404, f"{family_id} has no members shown in grouping {gid_str(g['id'])} "
-                                     f"({view.describe()})")
+        g, state, ids = _shown_family_members(conn, family_id, body)
         rec = matching_mod.family_recurrence(conn, ids)
         if not rec["flagged"]:
             raise HTTPException(409, f"{family_id} has no member flagged as a suspected artifact"
@@ -2814,6 +2805,75 @@ def send_suspected_artifacts(request: Request, family_id: str, body: SuspectedBo
         return {"queueId": int(qid), "name": aq.queue_name(family_id), "flagged": rec["flagged"], **counts}
     finally:
         conn.close()
+
+
+def _shown_family_members(conn, family_id, body):
+    """The motif grouping that holds `family_id`, the view state the page is
+    showing (`body`'s floor / fall / purity), and the ids of the family's
+    members that view shows — so a queue sent from the page is over exactly
+    the members the page counted. 404 when nothing is shown."""
+    g = _resolve_grouping(conn, body.grouping, "single_motifs")
+    if g is not None and str(g["unit"]) != "single_motifs":
+        g = _default_grouping(conn, "single_motifs")
+    if g is None:
+        raise HTTPException(404, f"no motif grouping to find {family_id} in")
+    view = vf_mod.ViewFilter.from_query(body.floor, body.fallMin, body.fallMax, body.pure)
+    state = _view_state(conn, _recordings_index(conn), g, view)
+    ids = sorted({int(r["member_id"]) for r in state["rows"]
+                  if r["family_label"] == family_id and r["member_id"] is not None})
+    if not ids:
+        raise HTTPException(404, f"{family_id} has no members shown in grouping {gid_str(g['id'])} "
+                                 f"({view.describe()})")
+    return g, state, ids
+
+
+class UnjudgedBody(SuspectedBody):
+    #: the batch bar's selection (`m-N` → N): only the unjudged among these, else every unjudged member shown
+    memberIds: list[int] | None = None
+
+
+@router.post("/family/{family_id}/unjudged-queue")
+def send_family_unjudged(request: Request, family_id: str, body: UnjudgedBody):
+    """Library › Family *Send N to Review as a queue* (fixup-FQ): the family's
+    *Library · F-xxx unjudged* queue over the unjudged members the page shows
+    (or the unjudged among the selection it names), made once through
+    `create_queue` (`Working.review.family_queue`); a second press returns the
+    same queue, widened to any member it did not yet hold. A verdict given in
+    Review lands in `annotations` over the member's span — which is what the
+    family read's resolver counts as judged, so the page's number and the
+    queue's are one number. 409 when every member asked for is already judged."""
+    from Working.review import family_queue as fq
+    from Working.review import queues as rq
+    conn = _conn(request)
+    try:
+        g, state, ids = _shown_family_members(conn, family_id, body)
+        if body.memberIds:
+            want = {int(m) for m in body.memberIds}
+            ids = [m for m in ids if m in want]
+            if not ids:
+                raise HTTPException(404, f"none of the {len(want)} selected members is a member of {family_id} "
+                                         f"shown in grouping {gid_str(g['id'])}")
+        resolved = state["resolved"]
+        unjudged = [m for m in ids if not (resolved.get(m) or {}).get("judged")]
+        if not unjudged:
+            raise HTTPException(409, f"every member of {family_id} {'selected' if body.memberIds else 'shown'} "
+                                     f"is already judged ({len(ids)} of {len(ids)}) — nothing to send")
+        qid = fq.create_family_queue(conn, family=family_id, member_ids=unjudged, grouping=gid_str(g["id"]))
+        counts = rq.queue_counts(conn, qid)
+        return {"queueId": int(qid), "name": fq.queue_name(family_id), "sent": len(unjudged), **counts}
+    finally:
+        conn.close()
+
+
+def _open_family_queue(conn, family_id, grouping=None):
+    """The open *Library · F-xxx unjudged* queue, with its counts, so the
+    Family page can say *Open in Review · j of n judged* — or None."""
+    from Working.review import family_queue as fq
+    from Working.review import queues as rq
+    qid = fq.open_family_queue(conn, family_id, grouping)
+    if qid is None:
+        return None
+    return {"id": int(qid), **rq.queue_counts(conn, qid)}
 
 
 class AddMatchesBody(BaseModel):

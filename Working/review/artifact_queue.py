@@ -64,9 +64,10 @@ def _members(conn, member_ids):
     return out
 
 
-def _review_rows(conn, members):
+def _review_rows(conn, members, source=REVIEW_SOURCE):
     """`{(recording_id, start, end): (annotation_id, verdict)}` — the latest
-    live verdict this queue's source holds over each member span."""
+    live verdict the given source (this queue's, by default; a family queue's
+    through `family_queue`) holds over each member span."""
     recs = sorted({m["recording_id"] for m in members.values()})
     out = {}
     for i in range(0, len(recs), _CHUNK):
@@ -75,16 +76,16 @@ def _review_rows(conn, members):
         for r in conn.execute(
                 f"SELECT id, recording_id, start_idx, end_idx, verdict FROM annotations "
                 f"WHERE source = ? AND deleted_at IS NULL AND recording_id IN ({marks}) ORDER BY id",
-                (REVIEW_SOURCE, *part)):
+                (source, *part)):
             out[(int(r["recording_id"]), int(r["start_idx"]), int(r["end_idx"]))] = (int(r["id"]), r["verdict"])
     return out
 
 
-def member_verdicts(conn, member_ids):
+def member_verdicts(conn, member_ids, source=REVIEW_SOURCE):
     """`{member_id: verdict}` for every member a human has answered in this
     queue (any queue of this kind: the verdict belongs to the span)."""
     members = _members(conn, member_ids)
-    rows = _review_rows(conn, members)
+    rows = _review_rows(conn, members, source)
     out = {}
     for mid, m in members.items():
         hit = rows.get((int(m["recording_id"]), int(m["start_idx"]), int(m["end_idx"])))
@@ -93,13 +94,13 @@ def member_verdicts(conn, member_ids):
     return out
 
 
-def review_annotation_id(conn, member_id):
+def review_annotation_id(conn, member_id, source=REVIEW_SOURCE):
     """The annotation a verdict on this member lands on, or None (a new one)."""
     members = _members(conn, [member_id])
     m = members.get(int(member_id))
     if m is None:
         return None
-    hit = _review_rows(conn, members).get((int(m["recording_id"]), int(m["start_idx"]), int(m["end_idx"])))
+    hit = _review_rows(conn, members, source).get((int(m["recording_id"]), int(m["start_idx"]), int(m["end_idx"])))
     return hit[0] if hit else None
 
 
