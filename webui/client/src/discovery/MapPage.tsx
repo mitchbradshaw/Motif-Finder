@@ -32,7 +32,7 @@ const STATE_WORDS: Record<DiscMapState, string> = {
   covered: 'covered', not_run: 'not run here', running: 'still running here', failed: 'failed here', discarded: 'discarded (superseded) here', not_reviewed: 'not reviewed',
 }
 
-const fmtH = (h: number) => h >= 100 ? `${Math.round(h)} h` : h >= 10 ? `${h.toFixed(1)} h` : `${h.toFixed(2)} h`
+const fmtH = (h: number) => h === 0 ? '0 h' : h >= 100 ? `${Math.round(h)} h` : h >= 10 ? `${h.toFixed(1)} h` : `${h.toFixed(2)} h`
 const rateOf = (c: DiscMapCell) => c.hours > 0 ? c.count / c.hours : null
 
 /** The ramp: one hue for machine rows, the reference green for the human row; a covered cell that found nothing stays white. */

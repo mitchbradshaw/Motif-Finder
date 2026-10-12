@@ -738,6 +738,7 @@ class Smoke:
 
         self.send_to_review_walk(page, scope)
         self.band_scope_walk(page, scope)
+        self.map_walk(page, scope)
 
         self.goto(page, "discovery/seed", 2000)
         page.wait_for_timeout(1500)
@@ -750,6 +751,69 @@ class Smoke:
         self.check(page.locator('[data-testid="what-differs"]').count() >= 1,
                    "compare opens with what differs")
         self.shot(page, "discovery-3-compare-live")
+
+    def map_walk(self, page, scope):
+        """Discovery › Map (2026-10-12): the detection map's three levels paint real cells.
+
+        A cell that is PRESENT is not a cell that PAINTED (the Panel-era lesson): a covered
+        cell with detections must have a size and a fill, the never-run channels of the
+        session's dataset must read not-run rather than zero, and level 1 must draw bins.
+        The walk clicks down through the session's dataset and first channel and never
+        writes — the map has no write to click.
+        """
+        print("[discovery · map]")
+        self.goto(page, "discovery/map", 1500)
+        page.wait_for_selector('[data-testid="map-card"]', timeout=20000)
+        page.wait_for_selector('[data-testid="map-cell"][data-state="covered"]', timeout=60000)
+        page.wait_for_timeout(600)
+        covered = page.locator('[data-testid="map-cell"][data-state="covered"]').count()
+        not_run = page.locator('[data-testid="map-cell"][data-state="not_run"]').count()
+        self.evidence["map_cells"] = {"covered": covered, "not_run": not_run}
+        self.check(covered > 0, f"level 3 painted {covered} covered cells")
+        self.check(not_run > 0, f"the channels no run reached read not-run ({not_run}), not zero")
+        painted = page.evaluate("""() => Array.from(document.querySelectorAll('[data-testid="map-cell"][data-state="covered"]'))
+            .filter(el => parseInt(el.dataset.count || '0', 10) > 0)
+            .map(el => { const r = el.getBoundingClientRect(); return [Math.round(r.width), Math.round(r.height), getComputedStyle(el).backgroundColor] })""")
+        self.evidence["map_painted"] = painted[:4]
+        self.check(len(painted) > 0 and all(w > 4 and h > 4 and bg not in ("rgba(0, 0, 0, 0)", "rgb(255, 255, 255)") for w, h, bg in painted),
+                   f"covered cells with detections have a size and a fill ({painted[:2]})")
+        foot = page.locator('[data-testid="map-foot"]').inner_text() if page.locator('[data-testid="map-foot"]').count() else ""
+        self.check("finished Discovery run" in foot, f"the foot says which datasets have runs ({foot[:90]!r})")
+        self.check(page.locator('[data-testid="map-legend"]').count() == 1, "the legend is drawn")
+        self.shot(page, "discovery-14-map-datasets")
+
+        ds = page.locator(f'[data-testid="map-dataset-{scope["recording"]}"]')
+        self.check(ds.count() == 1, f"the session's dataset {scope['recording']} heads a column group")
+        if not ds.count():
+            return
+        ds.first.click()
+        page.wait_for_selector('[data-testid="map-card"][data-level="2"] [data-testid="map-cell"]', timeout=60000)
+        page.wait_for_timeout(600)
+        heads = page.locator('[data-testid^="map-channel-"]').count()
+        self.check(heads == scope["n_channels"], f"level 2 has one channel head per channel ({heads} of {scope['n_channels']})")
+        self.check("dataset=" in page.evaluate("() => location.hash"), "level 2 is in the URL")
+        self.shot(page, "discovery-15-map-dataset")
+
+        page.locator(f'[data-testid="map-channel-{scope["channels"][0]}"]').first.click()
+        page.wait_for_selector('[data-testid="map-timeline"]', timeout=60000)
+        page.wait_for_timeout(600)
+        rows = page.locator('[data-testid="map-timeline-row"]').count()
+        bins = page.locator('[data-testid="map-bin"]').count()
+        gaps = page.locator('[data-testid="map-gap"]').count()
+        self.evidence["map_timeline"] = {"rows": rows, "bins": bins, "gaps": gaps}
+        self.check(rows >= 2, f"level 1 has the human row and the runs ({rows} rows)")
+        self.check(bins > 0, f"level 1 drew {bins} bins with detections")
+        self.check(gaps > 0, f"the hours outside the smoke section are hatched not-run ({gaps} stretches)")
+        drawn = page.evaluate("""() => Array.from(document.querySelectorAll('[data-testid="map-bin"]')).slice(0, 50)
+            .map(r => r.getBoundingClientRect().width).reduce((a, b) => a + b, 0)""")
+        self.check(drawn > 0, f"the bins have width on screen ({drawn:.1f} px over the first 50)")
+        self.check(bool(page.locator('[data-testid="map-readout"]').inner_text().strip()), "the readout line is present")
+        # the crumb goes back up without a reload
+        page.locator('[data-testid="map-crumbs"] button').first.click()
+        page.wait_for_selector('[data-testid="map-card"][data-level="3"]', timeout=20000)
+        self.check(page.locator('[data-testid="map-card"][data-level="3"]').count() == 1, "the first crumb returns to all datasets")
+        self.shot(page, "discovery-16-map-channel")
+
 
     def _api(self, path, body=None, method="GET"):
         import urllib.error
@@ -1082,7 +1146,8 @@ class Smoke:
                 self._wait_job(call, run.get("job_id"))
         self.evidence["discovery_scope"] = {"recording": rec["key"], "channels": channels,
                                             "section_h": [t0, t1], "runs": [a_key, b_key]}
-        return {"a": a_key, "b": b_key or "human", "channels": channels, "t0": t0, "t1": t1}
+        return {"a": a_key, "b": b_key or "human", "channels": channels, "t0": t0, "t1": t1,
+                "recording": rec["key"], "n_channels": len(rec["channels"])}
 
     @staticmethod
     def seed_page_query(setup: dict) -> dict:

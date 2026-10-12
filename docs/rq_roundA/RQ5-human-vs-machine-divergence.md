@@ -92,3 +92,4 @@ existing window labels.
   "machine found it" on M2_aug removed).
 - 2026-10-04 · fixup-x · the divergence module, Explore's two cells, Q-D2's two precision figures, Compare's breakdown;
   containment mode made a setting (centre default) on the researcher's answer.
+- 2026-10-13 · map · Discovery › Map: where each algorithm fires against the human row, per channel and per dataset (detections per covered hour, with not-run / not-reviewed told apart from zero), zooming to one channel's timeline. A view of WHERE divergence sits, not a new measurement; the divergence numbers stay with `Working.discovery.divergence`.

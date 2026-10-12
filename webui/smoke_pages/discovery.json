@@ -82,6 +82,68 @@
   "settle_ms": 900
  },
  {
+  "page": "discovery.map",
+  "state": "datasets",
+  "_why": "the detection map (2026-10-12), before the discard states so every smoke run is still live; a covered cell must be PAINTED, so the wait is on its state",
+  "hash": "discovery/map",
+  "actions": [
+   {
+    "wait_for": [
+     "[data-testid=\"map-cell\"][data-state=\"covered\"]",
+     60000
+    ]
+   }
+  ],
+  "expect": [
+   "[data-testid=\"map-card\"][data-level=\"3\"]",
+   "[data-testid=\"map-cell\"][data-state=\"covered\"]",
+   "[data-testid=\"map-cell\"][data-state=\"not_run\"]",
+   "[data-testid=\"map-legend\"]",
+   "[data-testid=\"map-foot\"]"
+  ],
+  "settle_ms": 900
+  },
+ {
+  "page": "discovery.map",
+  "state": "dataset-chunks",
+  "hash": "discovery/map?dataset=M2_aug_concat_fs1&chunks=4&norm=map",
+  "actions": [
+   {
+    "wait_for": [
+     "[data-testid=\"map-card\"][data-level=\"2\"] [data-testid=\"map-cell\"][data-state=\"covered\"]",
+     60000
+    ]
+   }
+  ],
+  "expect": [
+   "[data-testid=\"map-channel-CH1_A1\"]",
+   "[data-testid=\"map-chunks\"]",
+   "[data-testid=\"map-cell\"][data-state=\"covered\"]"
+  ],
+  "settle_ms": 900
+  },
+ {
+  "page": "discovery.map",
+  "state": "channel-day-bins",
+  "hash": "discovery/map?dataset=M2_aug_concat_fs1&channel=CH1_A1&bin=24",
+  "actions": [
+   {
+    "wait_for": [
+     "[data-testid=\"map-timeline\"] [data-testid=\"map-bin\"]",
+     60000
+    ]
+   }
+  ],
+  "expect": [
+   "[data-testid=\"map-card\"][data-level=\"1\"]",
+   "[data-testid=\"map-timeline-row\"]",
+   "[data-testid=\"map-gap\"]",
+   "[data-testid=\"map-readout\"]",
+   "[data-testid=\"map-bin\"]"
+  ],
+  "settle_ms": 900
+  },
+ {
   "page": "discovery.runs",
   "state": "discarded",
   "hash": "discovery/runs",
