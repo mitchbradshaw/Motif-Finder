@@ -122,6 +122,8 @@ function WhereFires({ dx }: { dx: Discovery }) {
         <span className="muted small">{paged ? `channels ${(dx.chPage - 1) * 3 + 1}–${Math.min(s.channels.length, dx.chPage * 3)} of ${s.channels.length} · follows the scope pager` : (mode === 'spans' ? 'every span in view · grouped by channel' : 'detections per 3 h · grouped by channel')}</span>
         <span className="k-spacer" />
         <Seg size="sm" value={mode} onChange={v => setMode(v)} options={[{ value: 'density', label: 'density' }, { value: 'spans', label: 'spans' }]} testid="fires-mode" />
+        {/* the detection map (2026-10-12): the same rows as columns of channels and datasets, every session — where overall, not when */}
+        <Button size="sm" variant="link" icon="grid" onClick={() => navigate(`discovery/map?dataset=${encodeURIComponent(s.recording)}`)} testid="open-map">Open the map</Button>
         {/* the legend is about the mode that is drawn: a density ramp over a
             spans view explains a shading the view does not use */}
         <span className="dsc-ramp small" aria-label="legend">

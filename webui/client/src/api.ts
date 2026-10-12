@@ -455,6 +455,49 @@ export interface DiscFires { binH: number; firstBin: number; nBins: number; chan
 export const getDiscoveryFires = (channels: string[], t0: number, t1: number, runs: string[]) =>
   req<DiscFires>(`/api/discovery/fires${dq({ channels: channels.join(','), t0, t1, runs: runs.join(',') })}`)
 
+/* Discovery › Map (2026-10-12): the detection map's three reads (webui/server/discovery_map.py). Rows are
+ * algorithms keyed by the steps they executed, read across EVERY session; a cell carries a `state` because
+ * "not run here" and "ran and found nothing" are different facts and never share a shade. */
+export type DiscMapState = 'covered' | 'not_run' | 'running' | 'failed' | 'discarded' | 'not_reviewed'
+export interface DiscMapCell {
+  count: number; hours: number; state: DiscMapState
+  /** the human row only: the verdicts behind `count`, and how much of `hours` is reviewed-span coverage */
+  interesting?: number; seed?: number; reviewedH?: number
+}
+export interface DiscMapRow {
+  key: string; kind: 'human' | 'template' | 'seed'; label: string; colour: string; detail: string | null
+  template: string | null; version: number | null; seedId: string | null; cut: number | null; k: number | null
+  exclusion: number | null; scales: number[] | null; band: string | null
+  /** every session the row's runs came from, and the one its newest run is in — only that one's Runs page can show a cell */
+  sessions: number[]; sessionNames: string[]; latestSession: number | null; latestRunKey: string | null; latestRunId: number | null
+  runs: number
+}
+export interface DiscMapChannel { name: string; recordingId: number; hours: number }
+export interface DiscMapSession { id: number; name: string; recording: string }
+export interface DiscMapDataset {
+  file: string; key: string; name: string; hours: number; fs: number; channels: DiscMapChannel[]
+  cells: Record<string, Record<string, DiscMapCell>>
+}
+export interface DiscMap {
+  rows: DiscMapRow[]; datasets: DiscMapDataset[]
+  withoutRuns: { file: string; key: string; name: string; hours: number }[]; heldOutOmitted: string[]
+  session: DiscMapSession
+}
+export interface DiscMapDatasetLevel {
+  rows: DiscMapRow[]; file: string; key: string; name: string; hours: number; fs: number; chunks: number
+  channels: DiscMapChannel[]; cells: Record<string, Record<string, DiscMapCell[]>>; session: DiscMapSession
+}
+export interface DiscMapTimeline {
+  rows: DiscMapRow[]; file: string; key: string; name: string; hours: number; fs: number; channel: string; recordingId: number
+  binH: number; nBins: number; channels: DiscMapChannel[]
+  cells: Record<string, { counts: number[]; covered: number[]; state: DiscMapState }>; session: DiscMapSession
+}
+export const getDiscoveryMap = () => req<DiscMap>('/api/discovery/map')
+export const getDiscoveryMapDataset = (recording: string, chunks: number) =>
+  req<DiscMapDatasetLevel>(`/api/discovery/map/dataset${dq({ recording, chunks })}`)
+export const getDiscoveryMapChannel = (recording: string, channel: string, binH: number) =>
+  req<DiscMapTimeline>(`/api/discovery/map/channel${dq({ recording, channel, binH })}`)
+
 /** §7.3's three branches. Exactly one variant's keys are present; the client branches on key presence. */
 export type DiscRecall = { value: number; overH: number; none?: undefined } | { none: true; note: string | null }
 export interface DiscScoreRow {

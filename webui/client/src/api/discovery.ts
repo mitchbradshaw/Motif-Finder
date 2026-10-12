@@ -14,10 +14,10 @@
  * M4_aug (held out, D6) is refused by the bridge on every route that names it. */
 import {
   ApiError, getDiscoveryCompare, getDiscoveryCompareStages, getDiscoveryCompareWindow, getDiscoveryDetectionWindow, getDiscoveryDetections,
-  getDiscoveryBands, getDiscoveryFires, getDiscoveryHistory, getDiscoveryOverview, getDiscoveryRuns, getDiscoveryScoreboard, getDiscoverySeedProfile,
+  getDiscoveryBands, getDiscoveryFires, getDiscoveryHistory, getDiscoveryMap, getDiscoveryMapChannel, getDiscoveryMapDataset, getDiscoveryOverview, getDiscoveryRuns, getDiscoveryScoreboard, getDiscoverySeedProfile,
   getDiscoverySeedEstimate, getDiscoverySeedPage, getDiscoverySeedSetupFor, type DiscSeedEstimate, getDiscoverySeeds, getDiscoverySession, putDiscoverySession, putDiscoverySeedDraft, getDiscoverySignal, getDiscoveryTemplates, pollDiscoverySeedResults,
   postDiscoveryPlan, postDiscoveryPreview, startDiscoverySeedResults,
-  type CutRule, type DivBreakdown, type PrecisionFigures, type DiscBand, type DiscBandsPayload, type DiscLikeForLike, type DiscPerBand, type DiscSetMember, type DiscVerdictSplit, type DiscSeedPageQuery, type DiscPlan, type DiscPlanBody, type DiscPreview, type DiscRecordingOption, type DiscSeedParams, type DiscSeedQuery, type DiscSeedResults,
+  type CutRule, type DiscMap, type DiscMapDatasetLevel, type DiscMapTimeline, type DivBreakdown, type PrecisionFigures, type DiscBand, type DiscBandsPayload, type DiscLikeForLike, type DiscPerBand, type DiscSetMember, type DiscVerdictSplit, type DiscSeedPageQuery, type DiscPlan, type DiscPlanBody, type DiscPreview, type DiscRecordingOption, type DiscSeedParams, type DiscSeedQuery, type DiscSeedResults,
 } from '../api'
 import { pollDiscoverySeedResultsBanked, type DiscSeedBank, type DiscSeedHpc } from '../api'
 import { live, type Sourced } from './seam'
@@ -188,6 +188,16 @@ export interface FiresData { binH: number; firstBin: number; nBins: number; chan
 export function getFires(channels: string[], section: [number, number], runs: DiscoveryRun[]): Promise<Sourced<FiresData>> {
   return live(getDiscoveryFires(channels, section[0], section[1], runs.map(r => r.key)))
 }
+
+/* ------------------------------------------------------------------ the detection map (Discovery › Map) */
+/** Level 3: every dataset with a live Discovery run, all its channels, one cell per row and channel. */
+export const getMap = (): Promise<Sourced<DiscMap>> => live(getDiscoveryMap())
+/** Level 2: one dataset's channels in 1 · 2 · 4 · 8 equal time slices. */
+export const getMapDataset = (recording: string, chunks: number): Promise<Sourced<DiscMapDatasetLevel>> =>
+  live(getDiscoveryMapDataset(recording, chunks))
+/** Level 1: one channel over the WHOLE recording in `binH`-hour bins, with each bin's covered fraction. */
+export const getMapChannel = (recording: string, channel: string, binH: number): Promise<Sourced<DiscMapTimeline>> =>
+  live(getDiscoveryMapChannel(recording, channel, binH))
 
 /* ------------------------------------------------------------------ scoreboard */
 /** §7.3: a recall value carries the hours it was computed over, or the server's own words for having

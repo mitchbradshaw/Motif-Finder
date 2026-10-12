@@ -29,6 +29,7 @@ from .jobs import JobManager
 from .runtime import HELD_OUT_FILE, Runtime
 from .analyse_routes import router as analyse_router
 from .discovery import router as discovery_router
+from .discovery_map import router as discovery_map_router
 from .explore_routes import router as explore_router
 from .interrogation_routes import router as interrogation_router
 from .library import router as library_router
@@ -414,6 +415,8 @@ def create_app(rt: Runtime) -> FastAPI:
     # order, so a router included after it is unreachable and every call comes
     # back as the JSON 404, which reads like a typo rather than a wiring bug.
     app.include_router(discovery_router)
+    # Discovery › Map (2026-10-12): the detection map's three reads, same ordering rule
+    app.include_router(discovery_map_router)
 
     # stage-3 prompt 03: Library — counts, groupings, recurrence, the atlas,
     # family detail, the grouping editor, import, hand edits and export

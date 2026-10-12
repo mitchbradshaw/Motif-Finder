@@ -371,21 +371,9 @@ def _dr_by_key(conn, session_id, run_key):
 
 
 def _run_ids(conn, dr_row):
-    """The `runs` rows a Discovery run is made of.
-
-    Recorded on the row itself, because `execute_recipe` is idempotent: a
-    second Discovery run over the same recipe, recording and span is made of
-    the runs the first one produced, and those keep the group they joined
-    first. Falling back to the group covers rows written before this was
-    recorded."""
-    params = json.loads(dr_row["params_json"] or "{}")
-    ids = params.get("run_ids")
-    if ids:
-        return [int(i) for i in ids]
-    if dr_row["run_group_id"]:
-        return [int(r["id"]) for r in R.list_run_group_runs(conn, int(dr_row["run_group_id"]))
-                if r["surrogate_of_run_id"] is None]
-    return []
+    """The `runs` rows a Discovery run is made of — `fanout.discovery_run_ids`,
+    moved into the core so the detection map reads the same rule (fixup-map)."""
+    return fanout.discovery_run_ids(conn, dr_row)
 
 
 LOST_RUN = ("the server restarted while this run was running, so it never finished — "
@@ -735,8 +723,11 @@ def _run_detections(conn, run_ids, recording_id, span):
 
 
 def _human_spans(conn, recording_id, span, verdicts=("interesting", "seed")):
+    # fixup-map: a soft-deleted verdict is not a verdict — the scoreboard already
+    # left them out; the fires card counted them
     rows = conn.execute(
-        "SELECT id, start_idx, end_idx, verdict FROM annotations WHERE recording_id = ? ORDER BY start_idx",
+        "SELECT id, start_idx, end_idx, verdict FROM annotations WHERE recording_id = ? AND deleted_at IS NULL "
+        "ORDER BY start_idx",
         (int(recording_id),)).fetchall()
     out = []
     for r in rows:

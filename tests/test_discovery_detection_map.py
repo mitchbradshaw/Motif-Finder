@@ -279,7 +279,8 @@ def test_the_human_row_counts_live_verdicts_over_where_a_person_looked(db):
         human = _row(m, key="human")
         alpha = _dataset(m, ALPHA)
         ch1 = alpha["cells"][human["key"]]["CH1"]
-        assert _cell(ch1) == (2, 1.0, "covered"), "interesting, not deleted, over the reviewed hour"
+        # the reviewed hour plus the ten samples of the verdict at 4000, which a person looked at too
+        assert _cell(ch1) == (2, round((ALPHA_N // 2 + 10) / 3600.0, 3), "covered"), "interesting, not deleted, over where a person looked"
         assert ch1["interesting"] == 2 and ch1["seed"] == 0 and ch1["reviewedH"] == 1.0
         ch2 = alpha["cells"][human["key"]]["CH2"]
         assert ch2["state"] == "covered" and ch2["count"] == 1 and 0 < ch2["hours"] < 0.1, \
@@ -347,10 +348,13 @@ def test_the_timeline_spans_the_whole_recording_and_marks_coverage(db):
         assert cell["covered"] == [1.0, 1.0, 0.0, 0.0], "the run stopped at the hour: the last two bins are not-run, not empty"
         assert cell["state"] == "covered"
         human = t["cells"]["human"]
-        assert human["counts"] == [0, 1, 0, 0] and human["covered"][0] == 0.0 and human["covered"][1] > 0.0
+        # a not_interesting verdict at 1000 and an interesting one at 2000: both bins were looked at, one counts
+        assert human["counts"] == [0, 1, 0, 0] and human["covered"][:2] > [0.0, 0.0] and human["covered"][2:] == [0.0, 0.0]
         t1 = dm.timeline_map(conn, ALPHA, "CH1", bin_h=1.0)
         assert t1["nBins"] == 2 and t1["cells"][tpl["key"]]["counts"] == [2, 2]
-        assert t1["cells"]["human"]["counts"] == [2, 0] and t1["cells"]["human"]["covered"] == [1.0, 0.0]
+        # the verdicts at 100 and 4000 fall one in each hour; the second hour was looked at only where the verdict is
+        h = t1["cells"]["human"]
+        assert h["counts"] == [1, 1] and h["covered"][0] == 1.0 and 0.0 < h["covered"][1] < 0.01
         t3 = dm.timeline_map(conn, ALPHA, "CH3", bin_h=1.0)
         assert t3["cells"][tpl["key"]] == {"counts": [0, 0], "covered": [0.0, 0.0], "state": "discarded"}
     finally:

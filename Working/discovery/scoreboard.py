@@ -99,6 +99,13 @@ def _detections(conn, run_id, span_start):
     return out
 
 
+def annotations(conn, recording_id):
+    """Every LIVE annotation of one recording (a soft-deleted verdict is not a
+    verdict), as plain dicts. The scoreboard, the detection map and the bridge
+    read verdicts through here."""
+    return _annotations(conn, recording_id)
+
+
 def _annotations(conn, recording_id):
     has_deleted = any(c["name"] == "deleted_at" for c in conn.execute("PRAGMA table_info(annotations)"))
     sql = ("SELECT id, start_idx, end_idx, verdict, created_at FROM annotations WHERE recording_id = ?"

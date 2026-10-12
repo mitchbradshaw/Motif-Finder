@@ -47,6 +47,7 @@ No UI imports; the bridge is the only caller that knows a browser exists.
 """
 
 import datetime as _dt
+import json
 
 from Working.config import HELD_OUT_RECORDING_FILE, HELD_OUT_UNLOCK
 from Working.database import queries as _q
@@ -314,6 +315,25 @@ def start(plan_dict, *, db_path=None, on_progress=None, on_target_done=None, sho
                 "reused": [r["run_id"] for r in out if r["reused"]]}
     finally:
         conn.close()
+
+
+def discovery_run_ids(conn, dr_row):
+    """The `runs` rows a Discovery run is made of.
+
+    Recorded on the row itself (`params_json.run_ids`), because `execute_recipe`
+    is idempotent: a second Discovery run over the same recipe, recording and
+    span is made of the runs the first one produced, and those keep the group
+    they joined first. Falling back to the group covers rows written before
+    this was recorded. The bridge's `_run_ids` and the detection map both read
+    through here, so there is one statement of it (CODING_STANDARDS 6.4)."""
+    params = json.loads(dr_row["params_json"] or "{}")
+    ids = params.get("run_ids")
+    if ids:
+        return [int(i) for i in ids]
+    if dr_row["run_group_id"]:
+        return [int(r["id"]) for r in _runs.list_run_group_runs(conn, int(dr_row["run_group_id"]))
+                if r["surrogate_of_run_id"] is None]
+    return []
 
 
 def group_status(conn, run_group_id=None, *, run_ids=None):

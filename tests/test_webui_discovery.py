@@ -1141,7 +1141,7 @@ def test_the_map_lists_the_applied_run_as_one_row_over_every_channel_of_the_data
     assert m["session"]["recording"] == "syn" and m["session"]["id"] >= 1, \
         "the client needs the open session to know which cells the Runs browser can open"
     assert [d["file"] for d in m["datasets"]] == ["syn.mat"], "the held-out file is never a column group"
-    assert m["heldOutOmitted"] == [] and m["withoutRuns"] == [], "nothing else is registered on this database"
+    assert m["heldOutOmitted"] == [HELD_OUT_FILE] and m["withoutRuns"] == [], "the held-out file is named as omitted; nothing else is registered"
     syn = m["datasets"][0]
     assert syn["key"] == "syn" and [c["name"] for c in syn["channels"]] == CH, "every channel is a column, run or not"
     assert m["rows"][0]["key"] == "human"
@@ -1173,7 +1173,8 @@ def test_the_dataset_map_chunks_sum_to_the_whole(client):
         cells = halves["cells"][tpl["key"]][ch]
         assert len(cells) == 2 and all(c["state"] == "covered" for c in cells)
         assert sum(c["count"] for c in cells) == whole["cells"][tpl["key"]][ch][0]["count"]
-        assert sum(c["hours"] for c in cells) == pytest.approx(whole["cells"][tpl["key"]][ch][0]["hours"], abs=1e-3)
+        # each cell's hours is rounded to a thousandth, so two of them may sit a thousandth off the whole
+        assert sum(c["hours"] for c in cells) == pytest.approx(whole["cells"][tpl["key"]][ch][0]["hours"], abs=2e-3)
     assert [c["state"] for c in halves["cells"][tpl["key"]][CH[2]]] == ["not_run", "not_run"]
 
 
