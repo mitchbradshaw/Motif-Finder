@@ -1118,3 +1118,88 @@ def test_a_wavelet_band_plan_costs_the_wavelet_chain(client):
         "template": "mp_threshold", "channels": [CH[0], CH[1]], "t0": 0.0, "t1": N / 3600.0,
         "band": {"kind": "wavelet", "level": 4}}).json()
     assert plan["band"]["kind"] == "wavelet" and plan["band"]["label"] == "db4 level 4 · 0.031–0.062 Hz"
+
+
+# ── the detection map (Discovery › Map, 2026-10-12) ─────────────────────────
+#
+# Three reads over EVERY session's finished Discovery runs: datasets × channels,
+# one dataset's channels (optionally in time chunks), one channel over the whole
+# recording in time bins. The core half is pinned in test_discovery_detection_map.py;
+# here the routes are checked against a real fan-out on the synthetic recording.
+
+def _map_row(payload, **where):
+    hits = [r for r in payload["rows"] if all(r.get(k) == v for k, v in where.items())]
+    assert len(hits) == 1, f"{where} matched {len(hits)} rows: {[r['key'] for r in payload['rows']]}"
+    return hits[0]
+
+
+def test_the_map_lists_the_applied_run_as_one_row_over_every_channel_of_the_dataset(client):
+    out = _apply(client)                                   # mp_threshold on CH1 and CH2, the whole recording
+    r = client.get("/api/discovery/map")
+    assert r.status_code == 200, r.text
+    m = r.json()
+    assert m["session"]["recording"] == "syn" and m["session"]["id"] >= 1, \
+        "the client needs the open session to know which cells the Runs browser can open"
+    assert [d["file"] for d in m["datasets"]] == ["syn.mat"], "the held-out file is never a column group"
+    assert m["heldOutOmitted"] == [] and m["withoutRuns"] == [], "nothing else is registered on this database"
+    syn = m["datasets"][0]
+    assert syn["key"] == "syn" and [c["name"] for c in syn["channels"]] == CH, "every channel is a column, run or not"
+    assert m["rows"][0]["key"] == "human"
+    tpl = _map_row(m, kind="template", template="mp_threshold")
+    assert tpl["latestSession"] == m["session"]["id"], "the row's newest run is in the open session"
+    hours = round(N / FS / 3600.0, 3)
+    sb = client.get("/api/discovery/scoreboard", params={
+        "runs": out["run_key"], "channels": ",".join(CH[:2]), "t0": 0.0, "t1": N / FS / 3600.0}).json()[0]
+    found = {c["channel"]: c["found"] for c in sb["channels"]}
+    for ch in CH[:2]:
+        cell = syn["cells"][tpl["key"]][ch]
+        assert cell["state"] == "covered" and cell["hours"] == hours, f"{ch} was run over the whole recording"
+        assert cell["count"] == found[ch], f"{ch}: the map's count is the scoreboard's found"
+    for ch in CH[2:]:
+        cell = syn["cells"][tpl["key"]][ch]
+        assert cell["state"] == "not_run" and cell["hours"] == 0.0, f"{ch} was never run: not-run, not a zero count"
+    human = syn["cells"]["human"]
+    assert human[CH[0]]["state"] == "covered" and human[CH[0]]["count"] == 2, "two interesting verdicts on CH1"
+    assert human[CH[2]]["state"] == "not_reviewed"
+
+
+def test_the_dataset_map_chunks_sum_to_the_whole(client):
+    _apply(client)
+    whole = client.get("/api/discovery/map/dataset", params={"recording": "syn", "chunks": 1}).json()
+    halves = client.get("/api/discovery/map/dataset", params={"recording": "syn", "chunks": 2}).json()
+    tpl = _map_row(halves, kind="template", template="mp_threshold")
+    assert halves["chunks"] == 2 and [c["name"] for c in halves["channels"]] == CH
+    for ch in CH[:2]:
+        cells = halves["cells"][tpl["key"]][ch]
+        assert len(cells) == 2 and all(c["state"] == "covered" for c in cells)
+        assert sum(c["count"] for c in cells) == whole["cells"][tpl["key"]][ch][0]["count"]
+        assert sum(c["hours"] for c in cells) == pytest.approx(whole["cells"][tpl["key"]][ch][0]["hours"], abs=1e-3)
+    assert [c["state"] for c in halves["cells"][tpl["key"]][CH[2]]] == ["not_run", "not_run"]
+
+
+def test_the_channel_timeline_covers_the_whole_recording_in_bins(client):
+    _apply(client)
+    r = client.get("/api/discovery/map/channel", params={"recording": "syn", "channel": CH[0], "binH": 1.0})
+    assert r.status_code == 200, r.text
+    t = r.json()
+    hours = N / FS / 3600.0
+    assert t["channel"] == CH[0] and t["binH"] == 1.0
+    assert t["hours"] == pytest.approx(hours, abs=1e-3)
+    assert t["nBins"] == 2, "6000 s is one full hour and part of a second"
+    tpl = _map_row(t, kind="template", template="mp_threshold")
+    cell = t["cells"][tpl["key"]]
+    assert len(cell["counts"]) == 2 and len(cell["covered"]) == 2 and cell["state"] == "covered"
+    assert cell["covered"][0] == 1.0 and 0.0 < cell["covered"][1] <= 1.0, "the run covered the whole recording"
+    whole = client.get("/api/discovery/map/dataset", params={"recording": "syn", "chunks": 1}).json()
+    assert sum(cell["counts"]) == whole["cells"][tpl["key"]][CH[0]][0]["count"]
+    human = t["cells"]["human"]
+    assert len(human["covered"]) == 2 and human["covered"][0] > 0 and sum(human["counts"]) == 2, "CH1 is reviewed over its first 3000 s"
+
+
+def test_the_map_refuses_the_held_out_recording_and_bad_arguments(client):
+    held = HELD_OUT_FILE.rsplit(".", 1)[0]
+    assert client.get("/api/discovery/map/dataset", params={"recording": held, "chunks": 1}).status_code == 423
+    assert client.get("/api/discovery/map/channel", params={"recording": held, "channel": "CH1", "binH": 3}).status_code == 423
+    assert client.get("/api/discovery/map/channel", params={"recording": "syn", "channel": "CH9", "binH": 3}).status_code == 404
+    assert client.get("/api/discovery/map/dataset", params={"recording": "syn", "chunks": 3}).status_code == 422, "chunks is 1, 2, 4 or 8"
+    assert client.get("/api/discovery/map/channel", params={"recording": "syn", "channel": "CH1", "binH": 0}).status_code == 422
