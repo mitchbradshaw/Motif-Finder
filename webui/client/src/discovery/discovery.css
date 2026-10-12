@@ -328,7 +328,7 @@
 .dsc-map-table th.ch.link:hover > span { color: var(--blue-600); }
 .dsc-map-table th.gap, .dsc-map-table td.gap { width: 10px; padding: 0; }
 .dsc-map-table td { padding: 0; }
-.dsc-map-rowlabel { text-align: left; white-space: nowrap; max-width: 240px; overflow: hidden; text-overflow: ellipsis; padding: 0 8px 0 0 !important; color: var(--text) !important; font-weight: 400; }
+.dsc-map-table th.dsc-map-rowlabel, .dsc-map-rowlabel { text-align: left; white-space: nowrap; max-width: 240px; overflow: hidden; text-overflow: ellipsis; padding: 0 8px 0 0 !important; color: var(--text) !important; font-weight: 400; }
 .dsc-map-rowlabel .sw, .dsc-map-tlabel .sw { width: 7px; height: 7px; display: inline-block; border-radius: 1.5px; margin-right: 5px; vertical-align: 0; }
 .dsc-map-cell { position: relative; display: block; width: 24px; height: 22px; border: 1px solid var(--border); border-radius: 3px; background: #fff; padding: 0; cursor: pointer; overflow: hidden; }
 .dsc-map-cell.wide { width: 46px; }
@@ -338,7 +338,8 @@
 .dsc-map-cell.failed, .dsc-map-legend .sw.failed { background: var(--red-100); border-color: #ef4444; }
 .dsc-map-cell.discarded, .dsc-map-legend .sw.discarded { background: var(--grey-200); color: var(--muted); }
 .dsc-map-cell .glyph { font-size: 11px; line-height: 20px; color: var(--muted); }
-.dsc-map-cell .cover { position: absolute; left: 0; bottom: 0; height: 3px; background: var(--text); opacity: .55; pointer-events: none; }
+.dsc-map-cell .cover-track { position: absolute; left: 0; right: 0; bottom: 0; height: 4px; background: #fff; border-top: 1px solid var(--border); pointer-events: none; }
+.dsc-map-cell .cover { position: absolute; left: 0; top: 1px; bottom: 0; min-width: 3px; background: var(--text); opacity: .7; pointer-events: none; }
 .dsc-map-legend .sw.bar { position: relative; }
 .dsc-map-legend .sw.bar::after { content: ''; position: absolute; left: 0; bottom: 0; width: 60%; height: 3px; background: var(--text); opacity: .55; }
 .dsc-map-legend { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding: 10px 14px 0; font-family: var(--font-mono); font-size: 10.5px; color: var(--muted); }

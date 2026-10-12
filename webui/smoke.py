@@ -808,11 +808,11 @@ class Smoke:
             .map(r => r.getBoundingClientRect().width).reduce((a, b) => a + b, 0)""")
         self.check(drawn > 0, f"the bins have width on screen ({drawn:.1f} px over the first 50)")
         self.check(bool(page.locator('[data-testid="map-readout"]').inner_text().strip()), "the readout line is present")
+        self.shot(page, "discovery-16-map-channel")
         # the crumb goes back up without a reload
         page.locator('[data-testid="map-crumbs"] button').first.click()
         page.wait_for_selector('[data-testid="map-card"][data-level="3"]', timeout=20000)
         self.check(page.locator('[data-testid="map-card"][data-level="3"]').count() == 1, "the first crumb returns to all datasets")
-        self.shot(page, "discovery-16-map-channel")
 
 
     def _api(self, path, body=None, method="GET"):

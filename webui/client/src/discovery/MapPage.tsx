@@ -160,7 +160,9 @@ function Cell({ row, cell, where, shade, share, onClick, wide }: { row: DiscMapR
   return (
     <button type="button" className={cx('dsc-map-cell', cell.state, wide && 'wide')} style={{ background: fill(row, cell, shade) }} title={cellTitle(row, where, cell)}
       data-testid="map-cell" data-state={cell.state} data-count={cell.count} data-hours={cell.hours} data-row={row.key} onClick={onClick} aria-label={cellTitle(row, where, cell)}>
-      {cell.state === 'covered' && share < 0.999 && <i className="cover" style={{ width: `${Math.max(4, share * 100)}%` }} />}
+      {/* partial coverage is a white track along the foot with a dark fill for the covered share — a 4 h run on a
+          721 h channel is half a percent, so the fill keeps a minimum width and the track makes the gap visible */}
+      {cell.state === 'covered' && share < 0.999 && <i className="cover-track"><i className="cover" style={{ width: `${Math.min(100, share * 100)}%` }} /></i>}
       {cell.state === 'discarded' && <span className="glyph">×</span>}
     </button>
   )
