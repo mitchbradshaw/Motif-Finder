@@ -412,5 +412,30 @@ def test_layers_lost_to_a_cached_step_say_so_rather_than_vanish():
     assert p["layers"] == [] and "not in this step's record" in p["layers_note"]
 
 
+# ── signal-threshold follow-up (2026-10-13): the factor between the stored unit and the drawn one ──
+# A Signal payload is drawn in mV (fixup-b) while a block's parameter is in the signal's STORED unit, so a
+# cut drawn on the trace needs the factor between the two — or a dragged line writes a millivolt number
+# into a volt parameter and the block finds nothing (CH2_A1 wavelet band, cut 2.098 "above", 0 spans).
+
+def test_a_signal_payload_carries_the_factor_from_its_stored_unit_to_the_drawn_one():
+    from Working.types import Signal
+    x = np.linspace(-0.01, 0.01, 50)
+    p = to_payload("signal", Signal(x=x, fs=1.0), {}, {"fs": 1.0, "span_start": 0, "px": 100, "units": "V"})
+    assert p["unit"] == "mV"
+    assert p["unit_factor"] == 1000.0, "stored volts are drawn ×1000 as millivolts"
+    assert p["stored_unit"] == "V"
+    assert max(p["envelope"]["v"]) == pytest.approx(10.0), "the envelope itself is in the drawn unit"
+
+
+def test_an_undeclared_unit_has_no_factor_and_is_drawn_as_stored():
+    from Working.types import Signal
+    x = np.linspace(-1.0, 1.0, 50)
+    p = to_payload("signal", Signal(x=x, fs=1.0), {}, {"fs": 1.0, "span_start": 0, "px": 100, "units": None})
+    assert p["unit"] is None
+    assert p["unit_factor"] is None
+    assert p["stored_unit"] is None
+    assert max(p["envelope"]["v"]) == pytest.approx(1.0)
+
+
 if __name__ == "__main__":
     sys.exit(pytest.main([__file__, "-q"]))
