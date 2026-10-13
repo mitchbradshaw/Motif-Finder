@@ -355,7 +355,7 @@ def test_kshape_and_hdbscan_are_registered_for_shape_distance_only():
         for pname, pspec in spec["params"].items():
             assert set(("type", "default", "label", "help")) <= set(pspec), (name, pname)
     assert available["kshape"]["params"]["n_init"]["default"] == 10
-    assert available["kshape"]["params"]["omit_d"]["default"] == 0.5
+    assert available["kshape"]["params"]["omit_d"]["default"] == 0       # 0 = automatic (fix round 1)
     assert available["hdbscan"]["params"]["min_cluster_size"]["default"] == 10
     assert available["hdbscan"]["params"]["sample"]["default"] == 5000
 
@@ -492,24 +492,8 @@ def test_hdbscan_finds_the_three_families_and_leaves_the_noise_out(kind):
     assert adjusted_rand_score(truth[events], families[events]) >= 0.9
     omitted_noise = [fit.omit_reasons.get(i) for i in np.flatnonzero(noise)]
     assert omitted_noise.count("not_in_a_dense_family") >= 0.8 * noise.sum(), omitted_noise
-    assert fit.payload["unstable_families"] == []
-    assert all(s["separation"] >= 3.0 for s in fit.payload["family_stability"].values())
-
-
-@pytest.mark.parametrize("kind", ("white", "ar1_095", "ar1_099", "random_walk", "drift"))
-@pytest.mark.parametrize("seed", (0, 1, 2))
-def test_hdbscan_on_pure_noise_finds_no_confident_family(kind, seed):
-    """Pure noise: no family, or the families found are flagged unstable —
-    never three confident ones. Coloured noise windows DO crowd (a window
-    of AR(1) at phi 0.99 mostly drifts up or down), so HDBSCAN can return
-    two; the separation check is what says they are not families."""
-    hdbscan = method_registry.get("hdbscan")
-    fit = hdbscan.fit(pure_noise(150, seed, kind), params={})
-    families = _families_of(hdbscan.assign(fit))
-    found = sorted(set(families) - {-1})
-    confident = [f"F-{f:02d}" for f in found if f"F-{f:02d}" not in fit.payload["unstable_families"]]
-    assert confident == [], (kind, seed, fit.payload["family_stability"])
-    assert len(found) < 3
+    flags = fit.payload["family_flags"]
+    assert len(flags) == 3 and not any(f["noise_like"] for f in flags.values()), flags
 
 
 def test_hdbscan_assigns_the_rows_not_fitted_through_the_nearest_dense_member():
@@ -596,6 +580,115 @@ def test_neither_new_method_serves_sequence_similarity():
         with pytest.raises(ValueError):
             run_grouping([{"member_ref": 1, "values": [1.0, 2.0]}], unit="sequences",
                          basis="sequence-similarity", method=name)
+
+
+# ---- fix round 1: the surrogate null and the flags that carry it ---------
+#
+# A family must beat what the members' own noise produces. Both methods fit the
+# same way on phase-randomised surrogates of the vectors (each row's amplitude
+# spectrum kept, so the colour is kept): HDBSCAN calls a family confident only
+# if its separation AND its size beat every surrogate family; k-Shape's
+# automatic `omit_d` is, per family, the 5th percentile of the surrogates'
+# distance to that family's centroid. The verdict travels on each `Family` as
+# `flags` and the null on `GroupingResult.fit_summary`, so the editor and the
+# Library see it (critic finding 1: it used to stay on the fit).
+
+import json  # noqa: E402
+
+NULL_METHODS = [("hdbscan", {}), ("kshape", {"k": 3})]
+
+
+def _items(waves):
+    return [{"member_ref": i, "content_hash": f"h{i}", "values": w} for i, w in enumerate(waves)]
+
+
+def _run(name, params, waves):
+    from Working.library.grouping.engine import run_grouping
+    return run_grouping(_items(waves), unit="single_motifs", basis="shape-distance",
+                        method=name, params=params)
+
+
+def test_phase_randomised_rows_keep_each_rows_amplitude_spectrum():
+    from Working.library.grouping.methods.kshape import phase_randomised_rows
+    rng = np.random.default_rng(0)
+    X = rng.normal(size=(6, 64)).cumsum(axis=1)
+    S = phase_randomised_rows(X, np.random.default_rng(1))
+    assert S.shape == X.shape
+    assert np.allclose(np.abs(np.fft.rfft(S, axis=1)), np.abs(np.fft.rfft(X, axis=1)), atol=1e-9)
+    assert not np.allclose(S, X)
+    again = phase_randomised_rows(X, np.random.default_rng(1))
+    assert np.array_equal(S, again), "seeded"
+
+
+@pytest.mark.parametrize("name,params", NULL_METHODS)
+@pytest.mark.parametrize("kind", BACKGROUNDS)
+@pytest.mark.parametrize("seed", (0, 1))
+def test_pure_coloured_noise_is_flagged_noise_like_through_run_grouping(name, params, kind, seed):
+    result = _run(name, params, pure_noise(300, seed, kind))
+    report = [(f.label, f.size, f.flags) for f in result.families]
+    assert all(f.flags["noise_like"] for f in result.families), report
+    assert all(f.flags["tested"] and f.flags["why"] for f in result.families), report
+    null = result.fit_summary["null"]
+    assert null["draws"] == 3 and null["kind"] == "phase-randomised"
+    json.dumps(result.fit_summary)                    # it is saved as JSON
+
+
+@pytest.mark.parametrize("name,params", NULL_METHODS)
+@pytest.mark.parametrize("kind", BACKGROUNDS)
+def test_three_shifted_families_are_confident_through_run_grouping(name, params, kind):
+    waves, truth = three_families(per=30, seed=1, kind=kind, noise=0.1)
+    result = _run(name, params, waves)
+    report = [(f.label, f.size, f.flags) for f in result.families]
+    assert result.n_families == 3, report
+    assert not any(f.flags["noise_like"] for f in result.families), report
+    assert all(f.flags["tested"] for f in result.families)
+    assert result.n_assigned >= 0.9 * len(waves), result.omitted_by_reason
+
+
+def test_kshape_automatic_omit_d_is_the_default_and_omits_noise_members():
+    spec = method_registry.available()["kshape"]["params"]["omit_d"]
+    assert spec["default"] == 0
+    assert "0.5" in spec["help"], "the help says a fixed 0.5 almost never fires on the SBD scale"
+    waves, truth = three_families(per=30, seed=2, n_noise=20, kind="ar1_099")
+    result = _run("kshape", {"k": 3}, waves)
+    omitted = np.array([a.family_id is None for a in result.assignments])
+    assert omitted[truth < 0].mean() >= 0.5, "most noise windows are past their family's null"
+    assert omitted[truth >= 0].mean() <= 0.1
+    per_family = result.fit_summary["null"]["omit_d_by_family"]
+    assert set(per_family) == {f.label for f in result.families}
+    assert all(0.0 < v < 0.5 for v in per_family.values())
+    fixed = _run("kshape", {"k": 3, "omit_d": 0.5}, waves)
+    assert fixed.n_omitted == 0, "a fixed 0.5 keeps everything — which is why it is not the default"
+
+
+def test_the_fit_summary_reaches_the_result_with_the_k_rule():
+    waves, _ = three_families(per=15, seed=4)
+    result = _run("kshape", {"k": 0}, waves)
+    fs = result.fit_summary
+    assert fs["fitted"] == len(waves) and fs["assigned"] == 0
+    assert "silhouette" in fs["k_rule"] and len(fs["k_scores"]) == 11
+    json.dumps(fs)
+
+
+def test_a_method_without_a_null_says_its_families_were_not_tested():
+    waves, _ = three_families(per=15, seed=4)
+    result = _run("ward", {"cut": 0.6}, waves)
+    assert result.families
+    for f in result.families:
+        assert f.flags["tested"] is False and f.flags["noise_like"] is False
+        assert "no null" in f.flags["why"]
+    assert isinstance(result.fit_summary, dict)
+
+
+def test_hdbscan_has_no_fixed_separation_floor_and_reports_separation():
+    from Working.library.grouping.methods import hdbscan as hdbscan_mod
+    assert not hasattr(hdbscan_mod, "UNSTABLE_SEPARATION")
+    waves, _ = three_families(per=30, seed=3, n_noise=20)
+    result = _run("hdbscan", {}, waves)
+    null = result.fit_summary["null"]
+    assert {"max_separation", "max_size", "families_per_draw"} <= set(null)
+    for f in result.families:
+        assert "separation" in f.flags and f.flags["separation"] > null["max_separation"]
 
 
 if __name__ == "__main__":

@@ -110,7 +110,7 @@ def test_init_db_creates_every_new_library_table(tmp_path):
             "groupings",
             {"id", "name", "unit", "basis", "method", "params_json", "cut",
              "filters_json", "n_families", "n_assigned", "n_omitted", "recipe_hash",
-             "created_at", "actor"},
+             "created_at", "actor", "fit_summary_json"},
         ),
         (
             "grouping_assignments",
@@ -137,6 +137,31 @@ def test_new_table_carries_every_column_the_standard_names(tmp_path, table, expe
         assert set(_columns(conn, table)) == expected
     finally:
         conn.close()
+
+
+def test_groupings_gains_fit_summary_json_on_an_old_database_idempotently(tmp_path):
+    """w2-b fix round 1: the method's fit summary (the surrogate null, the k
+    rule, which rows were fitted) is saved with the grouping. Additive: an old
+    `groupings` table gains the nullable column, existing rows keep NULL, and a
+    second `init_db` changes nothing."""
+    import sqlite3
+    path = str(tmp_path / "old.sqlite")
+    old = sqlite3.connect(path)
+    old.execute("CREATE TABLE groupings (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, "
+                "unit TEXT NOT NULL, basis TEXT NOT NULL, method TEXT NOT NULL, params_json TEXT NOT NULL, "
+                "cut REAL, filters_json TEXT, n_families INTEGER, n_assigned INTEGER, n_omitted INTEGER, "
+                "recipe_hash TEXT, created_at TEXT NOT NULL, actor TEXT)")
+    old.execute("INSERT INTO groupings (name, unit, basis, method, params_json, created_at) "
+                "VALUES ('old', 'single_motifs', 'shape-distance', 'ward', '{}', '2026-01-01')")
+    old.commit()
+    old.close()
+    for _ in range(2):
+        conn = schema.init_db(path)
+        try:
+            assert "fit_summary_json" in _columns(conn, "groupings")
+            assert conn.execute("SELECT fit_summary_json FROM groupings").fetchone()[0] is None
+        finally:
+            conn.close()
 
 
 def test_motif_entry_and_member_gain_the_identity_columns(tmp_path):

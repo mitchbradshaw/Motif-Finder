@@ -1064,3 +1064,45 @@ def test_a_coherence_failure_is_an_error_card_not_a_blank(bridge, monkeypatch):
     assert detail["coherence"]["rule"]
     assert detail["members"], "the rest of the family still renders"
     lib._COHERENCE_CACHE.clear()
+
+
+# ── w2-b fix round 1: the null's verdict reaches the editor and is saved ────
+
+def _run_job(client, body):
+    job_id = _ok(client.post("/api/library/groupings/run", json=body))["job_id"]
+    for _ in range(1200):
+        snap = _ok(client.get(f"/api/jobs/{job_id}"))
+        if snap["status"] in ("completed", "failed", "cancelled"):
+            break
+        time.sleep(0.05)
+    assert snap["status"] == "completed", snap.get("error") or snap
+    return snap["result"]
+
+
+def test_a_regroup_result_carries_the_fit_summary_and_each_familys_flags(bridge):
+    client, _ = bridge
+    result = _run_job(client, {"unit": "motifs", "basis": "shape-distance", "method": "ward",
+                               "params": {"cut": 0.6, "min_group": 2}})
+    assert isinstance(result["fitSummary"], dict)
+    assert result["families"], "the job lists its families"
+    for fam in result["families"]:
+        assert {"label", "size", "flags"} <= set(fam)
+        assert {"noise_like", "unstable", "why", "tested"} <= set(fam["flags"])
+
+
+def test_a_saved_grouping_round_trips_its_fit_summary(bridge):
+    client, ctx = bridge
+    summary = {"null": {"kind": "phase-randomised", "draws": 3}, "family_flags": {
+        "F-01": {"noise_like": True, "unstable": True, "why": "no better than noise", "tested": True}}}
+    saved = _ok(client.post("/api/library/groupings", json={
+        "unit": "motifs", "basis": "shape-distance", "method": "hdbscan", "params": {},
+        "name": "with a null", "fit_summary": summary,
+        "assignments": [{"ref": ctx["members"][0], "contentHash": "hash0", "familyId": 1,
+                         "familyLabel": "F-01", "distance": 0.1, "isMedoid": True}]}))
+    assert saved["fitSummary"] == summary
+    again = next(g for g in _ok(client.get("/api/library/groupings")) if g["id"] == saved["id"])
+    assert again["fitSummary"] == summary
+    plain = _ok(client.post("/api/library/groupings", json={
+        "unit": "motifs", "basis": "amplitude", "method": "feature_bins", "params": {},
+        "assignments": []}))
+    assert plain["fitSummary"] is None, "a grouping saved without one says so, not {}"
