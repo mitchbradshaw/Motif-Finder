@@ -96,6 +96,39 @@ def test_fewer_than_two_gaps_is_null_with_the_reason_never_zero():
     assert IV.local_variation([4.0]) is None and IV.local_cv2([]) is None
 
 
+def test_pairs_of_two_zero_gaps_are_left_out_counted_and_said():
+    # gaps 30, 0, 0, 30: pairs (30,0) (0,0) (0,30); the middle one is 0/0.
+    st = IV.interval_statistics([30.0, 0.0, 0.0, 30.0])
+    assert st["n_local_pairs"] == 2
+    assert st["lv"] == pytest.approx(3.0)          # 3 * mean(1, 1) over the 2 KEPT pairs
+    assert st["cv2"] == pytest.approx(2.0)
+    assert "1 of 3" in st["local_note"] and "left out" in st["local_note"]
+    assert IV.local_variation([30.0, 0.0, 0.0, 30.0]) == pytest.approx(3.0)
+
+
+def test_every_pair_zero_is_null_with_the_count():
+    st = IV.interval_statistics([0.0, 0.0, 0.0])
+    assert st["lv"] is None and st["cv2"] is None and st["n_local_pairs"] == 0
+    assert "2" in st["local_note"] and "undefined" in st["local_note"]
+
+
+def test_n_local_pairs_is_gaps_minus_one_when_nothing_is_dropped():
+    st = IV.interval_statistics([1.0, 3.0, 2.0, 2.0])
+    assert st["n_local_pairs"] == 3 and st["local_note"] is None
+    assert IV.interval_statistics([4.0])["n_local_pairs"] == 0
+
+
+def test_the_rules_say_how_zero_pairs_are_handled_and_the_few_gap_caveat():
+    rules = {r["name"]: r["rule"] for r in IV.RULES}
+    for name in ("lv", "cv2"):
+        assert "0-s gaps" in rules[name] and "kept pairs" in rules[name]
+        assert "indicative only" in rules[name]
+    assert "duplicate onsets" in rules["lv"]
+    doc = IV.__doc__
+    assert "0/0" in doc and "duplicate onsets" in doc.lower() and "indicative only" in doc
+    assert "1 Hz" in doc
+
+
 def test_the_existing_statistics_are_unchanged():
     iv = np.array([10.0, 15.0, 5.0])
     st = IV.interval_statistics(iv)

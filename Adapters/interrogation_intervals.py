@@ -9,7 +9,10 @@ regularity gate, the tested thinking about when a run of events IS a train),
 and the local measures LV (Shinomoto et al. 2003) and CV2 (Holt et al. 1996),
 which compare each gap only with the next so a slow change of rate does not
 read as irregularity (W1-G). A group with fewer than three events gets null LV
-and CV2 with its reason, and meta counts such groups.
+and CV2 with its reason, and meta counts such groups. Pairs of two 0-s gaps
+(coincident onsets, 0/0) are left out of both; each group reports the kept
+pairs as `n_local_pairs` and its `local_note` counts the dropped ones (the
+caveats - duplicates, few gaps, sampling grid - are in the core module).
 
 Intervals are measured per group and never pooled (store11's rule, carried
 over): the group is an upstream `group` column when the SpanSet has one (a
