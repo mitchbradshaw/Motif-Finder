@@ -27,12 +27,16 @@ if PROJECT_ROOT not in sys.path:
 
 from Adapters.registry import discover_adapters, get_adapter  # noqa: E402
 from Working.types import Scores  # noqa: E402
-from tests._fluss_synthetic import BOUNDARY, FS, drift_ramp, two_regimes  # noqa: E402
+from tests._fluss_synthetic import (  # noqa: E402
+    BOUNDARY, FS, NOISE, drift_ramp, one_regime_jittered, two_regimes,
+)
 
 discover_adapters()
 
-#: the cut `fluss_regimes` uses (tests/test_template_fluss_regimes.py)
-CUT = 0.38
+#: the window and the cut `fluss_regimes` uses (tests/test_template_fluss_regimes.py);
+#: the cut is calibrated for that window only
+WINDOW_S = 300.0
+CUT = 0.46
 
 
 @pytest.fixture(scope="module")
@@ -47,7 +51,7 @@ def _run(spec, x, **params):
 
 @pytest.fixture(scope="module")
 def two_result(spec):
-    return _run(spec, two_regimes())
+    return _run(spec, two_regimes(), window_s=WINDOW_S)
 
 
 # ── the spec ──────────────────────────────────────────────────────────────────
@@ -91,6 +95,13 @@ def test_description_tells_a_newcomer_to_detrend_first(spec):
     assert "detrend" in d and "window_s" in d
 
 
+def test_description_ties_the_window_to_one_event_period_and_the_cut_to_the_window(spec):
+    d = spec.description.lower()
+    assert "period" in d
+    assert "cut" in d and "depends on the window" in d
+    assert "nan" in d                                     # check the recording's gaps
+
+
 # ── on the synthetic recording ───────────────────────────────────────────────
 
 def test_the_output_is_one_score_per_sample(two_result):
@@ -103,7 +114,7 @@ def test_the_output_is_one_score_per_sample(two_result):
 
 def test_the_score_peaks_within_two_windows_of_the_boundary(two_result):
     m = two_result.meta["m"]
-    assert m == 60
+    assert m == int(WINDOW_S * FS)
     assert abs(int(np.nanargmax(two_result.value.values)) - BOUNDARY) <= 2 * m
     assert np.nanmax(two_result.value.values) > CUT
     assert abs(two_result.meta["regime_locs"][0] - BOUNDARY) <= 2 * m
@@ -112,23 +123,46 @@ def test_the_score_peaks_within_two_windows_of_the_boundary(two_result):
 def test_meta_carries_the_readout_and_the_rules(two_result):
     meta = two_result.meta
     for key in ("m", "window_s", "iac", "excl_factor", "cac_min", "cac_min_idx", "regime_locs",
-                "regime_cac", "n_blanked_each_end", "n_no_neighbour", "backend", "rules"):
+                "regime_cac", "n_regimes_found", "n_blanked_each_end", "n_no_neighbour", "backend",
+                "rules"):
         assert key in meta, key
-    assert len(meta["regime_locs"]) == 2                  # n_regimes_readout=3 -> two changes
+    assert len(meta["regime_locs"]) <= 2                  # n_regimes_readout=3 -> at most two changes
+    assert meta["n_regimes_found"] == len(meta["regime_locs"]) + 1
+    assert all(c < 1.0 for c in meta["regime_cac"])
     names = {r["name"] for r in meta["rules"]}
     assert {"regime-change score", "blanked edges"} <= names
 
 
 def test_beta_iac_also_runs_and_agrees_on_the_boundary(spec):
-    r = _run(spec, two_regimes(), iac="beta")
+    r = _run(spec, two_regimes(), iac="beta", window_s=WINDOW_S)
     assert r.meta["iac"] == "beta"
     assert abs(int(np.nanargmax(r.value.values)) - BOUNDARY) <= 2 * r.meta["m"]
 
 
 def test_a_drift_ramp_fails_safe(spec):
     """z-normalised ramp windows match anywhere: arcs cross everywhere, CAC stays near 1."""
-    r = _run(spec, drift_ramp())
+    r = _run(spec, drift_ramp(), window_s=WINDOW_S)
     assert np.nanmax(r.value.values) < CUT
+
+
+def test_a_long_nan_gap_in_one_regime_is_no_change(spec):
+    """Windows touching NaN have no neighbour: they are not scored, and the
+    expected arc count is corrected for them, so the valid stretch beside a
+    4000-sample gap does not look like the end of a regime (it scored 0.90
+    before the correction -- a false span)."""
+    x = one_regime_jittered(0, NOISE)
+    x = x - np.linspace(0.0, 3.0, len(x))                 # the drift, removed exactly
+    x[10000:14000] = np.nan
+    r = _run(spec, x, window_s=WINDOW_S)
+    m = r.meta["m"]
+    assert np.isnan(r.value.values[10000 - m + 1:14000]).all()
+    assert r.meta["n_no_neighbour"] == 4000 + m - 1
+    assert np.nanmax(r.value.values) < CUT
+    th = get_adapter("detection.threshold")
+    spans = th.run(x, np.arange(len(x), dtype=float), FS, value=r.value,
+                   **th.validate_params({"threshold": CUT, "merge_gap_s": 1500.0,
+                                         "min_duration_s": 60.0})).value
+    assert len(spans.starts) == 0
 
 
 # ── refusals ──────────────────────────────────────────────────────────────────
@@ -141,6 +175,16 @@ def test_a_window_shorter_than_stumpy_allows_is_refused(spec):
 def test_a_span_too_short_for_the_window_is_refused(spec):
     with pytest.raises(ValueError, match="too short"):
         _run(spec, two_regimes()[:500])
+
+
+def test_the_adapter_and_the_core_agree_on_the_shortest_span(spec):
+    """A 60-sample window with excl_factor 5 blanks 300 window starts at each
+    end; 2·300 + 60 = 660 samples leave one scored window, 659 none."""
+    x = two_regimes()
+    r = _run(spec, x[:660])
+    assert r.meta["n_scored"] == 1
+    with pytest.raises(ValueError, match="too short"):
+        _run(spec, x[:659])
 
 
 if __name__ == "__main__":

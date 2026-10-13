@@ -59,3 +59,90 @@ def drift_ramp(seed=0):
     rng = np.random.default_rng(seed)
     n = 2 * HALF
     return np.linspace(0.0, 10.0, n) + NOISE * rng.standard_normal(n)
+
+
+# ── jittered (realistic) recordings ──────────────────────────────────────────
+#
+# The clockwork regimes above put every event on a fixed grid with a fixed
+# shape, which flatters any window. A real recording jitters: here every gap is
+# log-normal around the regime's period (sd 0.4 in log space, mean preserved),
+# every amplitude log-normal (sd 0.3), every drop's recovery time constant and
+# every bump's width log-normal (sd 0.3 / 0.2). `NOISE_HIGH` is white noise at
+# 0.3 — of the order of a single event's height.
+
+NOISE_HIGH = 0.3
+SPACING_SD = 0.4
+AMP_SD = 0.3
+
+
+def _lognormal(rng, sd):
+    """A multiplicative factor with median exp(-sd²/2) and mean 1."""
+    return float(np.exp(sd * rng.standard_normal() - 0.5 * sd * sd))
+
+
+def _jittered_a(n, rng):
+    t = np.arange(n, dtype=float)
+    x = np.zeros(n)
+    s = 100.0 * _lognormal(rng, SPACING_SD)
+    while s < n:
+        i = int(s)
+        tau = 300.0 * _lognormal(rng, 0.3)
+        x[i:] += -1.0 * _lognormal(rng, AMP_SD) * np.exp(-(t[i:] - i) / tau)
+        s += 900.0 * _lognormal(rng, SPACING_SD)
+    return x - x.mean()
+
+
+def _jittered_b(n, rng):
+    t = np.arange(n, dtype=float)
+    x = np.zeros(n)
+    c = 150.0 * _lognormal(rng, SPACING_SD)
+    while c < n:
+        sigma = 50.0 * _lognormal(rng, 0.2)
+        x += 0.8 * _lognormal(rng, AMP_SD) * np.exp(-0.5 * ((t - c) / sigma) ** 2)
+        c += 300.0 * _lognormal(rng, SPACING_SD)
+    return x - x.mean()
+
+
+def two_regimes_jittered(seed=0, noise=NOISE):
+    """Jittered regime A (2 h) then jittered regime B (2 h), white noise at
+    `noise`, the same slow linear drift. Boundary at `BOUNDARY`."""
+    rng = np.random.default_rng(seed)
+    n = 2 * HALF
+    return (np.concatenate([_jittered_a(HALF, rng), _jittered_b(HALF, rng)])
+            + noise * rng.standard_normal(n) + np.linspace(0.0, 3.0, n))
+
+
+def one_regime_jittered(seed=0, noise=NOISE):
+    """4 h of jittered regime A: no change."""
+    rng = np.random.default_rng(seed)
+    n = 2 * HALF
+    return _jittered_a(n, rng) + noise * rng.standard_normal(n) + np.linspace(0.0, 3.0, n)
+
+
+# ── nulls without events ──────────────────────────────────────────────────────
+
+def pink_noise(seed=0):
+    """4 h of 1/f noise (white noise shaped in the frequency domain), unit sd."""
+    rng = np.random.default_rng(seed)
+    n = 2 * HALF
+    spec = np.fft.rfft(rng.standard_normal(n))
+    f = np.fft.rfftfreq(n, d=1.0 / FS)
+    f[0] = f[1]
+    x = np.fft.irfft(spec / np.sqrt(f), n)
+    return (x - x.mean()) / x.std()
+
+
+def random_walk(seed=0):
+    """4 h of a Gaussian random walk (step sd 0.05) — Brownian drift."""
+    rng = np.random.default_rng(seed)
+    return np.cumsum(0.05 * rng.standard_normal(2 * HALF))
+
+
+def sinusoidal_drift(seed=0):
+    """4 h of a slow sinusoid (period 100 min, amplitude 2, random phase) plus
+    white noise at `NOISE`: a drift that is not a ramp."""
+    rng = np.random.default_rng(seed)
+    n = 2 * HALF
+    t = np.arange(n, dtype=float) / FS
+    return (2.0 * np.sin(2 * np.pi * t / 6000.0 + rng.uniform(0, 2 * np.pi))
+            + NOISE * rng.standard_normal(n))

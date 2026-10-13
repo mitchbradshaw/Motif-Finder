@@ -129,6 +129,68 @@ def test_the_input_index_is_not_modified():
     np.testing.assert_array_equal(i, before)
 
 
+# ── missing neighbours (NaN windows) ─────────────────────────────────────────
+
+def _one_regime_with_gap(k, gap, seed=0):
+    """One regime, neighbours anywhere among the valid windows; windows in
+    `gap` have no neighbour (-1, stumpy's mark for a window touching NaN)."""
+    rng = np.random.default_rng(seed)
+    valid = np.ones(k, dtype=bool)
+    valid[gap] = False
+    pool = np.flatnonzero(valid)
+    i = np.full(k, -1, dtype=np.int64)
+    i[valid] = rng.choice(pool, size=valid.sum())
+    return i
+
+
+def test_windows_with_no_neighbour_are_not_scored():
+    m, k = 10, 14400
+    gap = slice(10000, 14000)
+    out = regime_change_score(_one_regime_with_gap(k, gap), m=m, n_regimes=2)
+    assert np.isnan(out["score"][gap]).all()
+
+
+def test_a_long_nan_gap_in_one_regime_is_not_a_change():
+    """The IAC is corrected for the missing arcs: the valid windows either side
+    of a gap are one regime, so no change appears at (or beside) the gap. Before
+    the correction the tail beside a 4000-window gap scored about 0.9."""
+    m, k = 10, 14400
+    out = regime_change_score(_one_regime_with_gap(k, slice(10000, 14000)), m=m, n_regimes=2)
+    assert np.nanmax(out["score"]) < 0.2
+
+
+def test_a_gap_does_not_hide_a_real_change():
+    m, k = 10, 8000
+    i = _two_halves_index(k)
+    i[1000:1500] = -1
+    i[(i >= 1000) & (i < 1500)] = 200            # nobody's neighbour lies in the gap
+    out = regime_change_score(i, m=m, n_regimes=2)
+    assert abs(int(np.nanargmax(out["score"])) - k // 2) <= 2 * m
+    assert np.nanmax(out["score"]) > 0.8
+    assert abs(out["regime_locs"][0] - k // 2) <= 2 * m
+
+
+def test_too_few_valid_windows_is_refused_and_says_why():
+    i = _random_index(4000)
+    i[50:3900] = -1
+    with pytest.raises(ValueError, match="NaN"):
+        regime_change_score(i, m=10)
+
+
+# ── the readout ───────────────────────────────────────────────────────────────
+
+def test_the_readout_drops_padding_once_the_exclusion_zones_exhaust_the_span():
+    """stumpy's extraction always returns n_regimes - 1 locations; once every
+    sample is excluded it pads with argmin of an all-ones curve (location 0,
+    CAC 1.0). Those are not changes: they are dropped and the count reported."""
+    m, k = 10, 4000
+    out = regime_change_score(_two_halves_index(k), m=m, excl_factor=5, n_regimes=50)
+    assert out["regime_cac"] and all(c < 1.0 for c in out["regime_cac"])
+    assert out["n_regimes_found"] == len(out["regime_locs"]) + 1
+    assert len(out["regime_locs"]) < 49
+    assert 0 not in out["regime_locs"]
+
+
 # ── refusals ──────────────────────────────────────────────────────────────────
 
 def test_distances_instead_of_the_index_are_refused():
