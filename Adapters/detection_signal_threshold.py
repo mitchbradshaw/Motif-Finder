@@ -22,10 +22,19 @@ every side and never belongs to a span. No crossing is an empty SpanSet, not
 an error. `Working.execution.execute_recipe` writes the spans to
 `detections`, span offset added, like any other spanset.
 
-The run-finding is `detection.threshold`'s own helper (`spans_from_mask`),
-so the two blocks are one rule applied to two types — `tests/
-test_adapter_signal_threshold.py` checks they agree span for span when fed
-the same values.
+Two optional tidying parameters, both off at their 0.0 default so a recipe
+that names neither runs exactly as before: `merge_gap_s` joins spans separated
+by less than that many seconds into one (scoring the max of its parts), then
+`min_duration_s` drops any span shorter than that. Merge first, then drop, so
+a drop fragmented by one sample's recovery is one event long enough to keep;
+either one turns a one-sample graze of the cut (a 1 s span at 1 Hz, seen right
+before a real drop on CH1_A1 336–338 h) into nothing or into part of the
+drop. Seconds convert to samples at the recording's fs.
+
+The run-finding and the tidying are `detection.threshold`'s own helpers
+(`spans_from_mask`, `tidy_spans`), so the two blocks are one rule applied to
+two types — `tests/test_adapter_signal_threshold.py` checks they agree span
+for span when fed the same values.
 
 Drawn by the standard (`docs/BLOCK_INTEGRATION.md` §2): the SpanSet view
 through the `signal->spanset` modifier; because the cut is one `float`
@@ -36,7 +45,7 @@ the researcher drag it.
 import numpy as np
 
 from Adapters.base import AdapterResult, AdapterSpec, ParamSpec
-from Adapters.detection_threshold import spans_from_mask
+from Adapters.detection_threshold import spans_from_mask, tidy_param_specs, tidy_spans
 from Adapters.registry import register
 from Working.types import SpanSet
 
@@ -56,26 +65,26 @@ def _mask_and_excursion(x, threshold, direction):
     raise ValueError(f"detection.signal_threshold: direction must be one of {DIRECTIONS}, got {direction!r}")
 
 
-def _run(x, t, fs, threshold=0.0, direction="above"):
+def _run(x, t, fs, threshold=0.0, direction="above", min_duration_s=0.0, merge_gap_s=0.0):
     xs = np.asarray(x, dtype=float).ravel()
     threshold = float(threshold)
     with np.errstate(invalid="ignore"):          # a NaN sample compares False: never in a span
         mask, excursion = _mask_and_excursion(xs, threshold, direction)
     starts, ends = spans_from_mask(mask)
     scores = tuple(excursion(xs[s:e]) for s, e in zip(starts, ends))
+    starts, ends, scores = tidy_spans(starts, ends, scores, fs,
+                                      min_duration_s=min_duration_s, merge_gap_s=merge_gap_s)
     return AdapterResult(
         output_kind="spanset",
-        value=SpanSet(
-            starts=tuple(int(s) for s in starts),
-            ends=tuple(int(e) for e in ends),
-            scores=scores,
-        ),
+        value=SpanSet(starts=starts, ends=ends, scores=scores),
         meta={
             "n_spans": int(len(starts)),
             "n_samples": int(len(xs)),
             "n_nan": int(np.isnan(xs).sum()),
             "threshold": threshold,
             "direction": direction,
+            "min_duration_s": float(min_duration_s),
+            "merge_gap_s": float(merge_gap_s),
         },
     )
 
@@ -94,6 +103,7 @@ SPEC = register(AdapterSpec(
                   "Which side of the cut counts: `above` keeps x > threshold, `below` keeps "
                   "x < threshold (a drop after baseline removal), `either` keeps |x| > |threshold|",
                   choices=list(DIRECTIONS)),
+        *tidy_param_specs(),
     ],
     run=_run,
     input_kind="signal",
@@ -103,6 +113,7 @@ SPEC = register(AdapterSpec(
         "Generic block: cuts the chain's current signal at an absolute level in its own "
         "units and keeps the contiguous runs above it, below it, or past it on either side "
         "of zero, written to `detections`. Put baseline removal before it; a span scores by "
-        "how far past the cut it reaches."
+        "how far past the cut it reaches. Optionally join spans closer than `merge_gap_s` and "
+        "drop those shorter than `min_duration_s` (both off at 0)."
     ),
 ))
