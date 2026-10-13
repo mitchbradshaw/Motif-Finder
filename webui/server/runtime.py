@@ -125,6 +125,10 @@ class Runtime:
             "tsh.RESULTS_DIR": _tsh.RESULTS_DIR,
             "csc.RESULTS_DIR": _csc.RESULTS_DIR,
         }
+        # the matrix-profile cost calibration: a run's route (local or SLURM) is decided from it, and the bridge
+        # writes it on first need (chain.route_local) — in a sandbox, into the runtime, never into the real DATA/db
+        import Working.Detection.matrix_profiling.cost as _mpc
+        self._originals["mpc.CALIBRATION_PATH"] = _mpc.CALIBRATION_PATH
 
         if self.mode == "sandbox":
             self._setup_sandbox(cfg, _mp, _wm, _cc)
@@ -156,6 +160,11 @@ class Runtime:
         _wp.POOL_ROOT = self.window_sets_root
         _tsh.RESULTS_DIR = os.path.join(self.results_dir, "trace_shapes")
         _csc.RESULTS_DIR = os.path.join(self.results_dir, "shape_trees")
+        import Working.Detection.matrix_profiling.cost as _mpc
+        real_calibration = self._originals["mpc.CALIBRATION_PATH"]
+        _mpc.CALIBRATION_PATH = os.path.join(self.dir, "mp_calibration.json")
+        if os.path.isfile(real_calibration):
+            shutil.copyfile(real_calibration, _mpc.CALIBRATION_PATH)   # this machine's timing, read-only from here
         # Critique r1 P0: an adapter executed outside these redirects writes into the real DATA
         # tree. Assert every writable path the adapters read at call time is inside this runtime.
         for label, p in self._core_paths(cfg, _mp, _wm, _cc):
@@ -206,7 +215,9 @@ class Runtime:
         import Adapters.preprocessing_window_pool as _wp
         import Adapters.preprocessing_trace_shape as _tsh
         import Adapters.catalogue_shape_cluster as _csc
+        import Working.Detection.matrix_profiling.cost as _mpc
         return (("STEP_CACHE_ROOT", cfg.STEP_CACHE_ROOT),
+                ("mp_cost.CALIBRATION_PATH", _mpc.CALIBRATION_PATH),
                 ("matrix_profile.RESULTS_DIR", _mp.RESULTS_DIR),
                 ("window_matrix.RESULTS_DIR", _wm.RESULTS_DIR),
                 ("classifier.MODEL_ROOT", _cc.MODEL_ROOT),
@@ -240,6 +251,9 @@ class Runtime:
         if "rr.DB_PATH" in o:
             import Working.library.rose_reference as _rr
             _rr.DB_PATH = o["rr.DB_PATH"]
+        if "mpc.CALIBRATION_PATH" in o:
+            import Working.Detection.matrix_profiling.cost as _mpc
+            _mpc.CALIBRATION_PATH = o["mpc.CALIBRATION_PATH"]
         self._originals = None
 
     # --------------------------------------------------------- describe --

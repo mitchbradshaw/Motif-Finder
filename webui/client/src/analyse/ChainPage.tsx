@@ -5,7 +5,7 @@ import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { DatasetName } from '../naming'
 import {
   ApiError, compatibleAt, exportRun, getTemplate, saveTemplate, validateParams, TYPE_LABEL,
-  type Compatible, type EnvelopeSeries, type SignalPayload, type SpansetPayload, type Step, type Template,
+  type Compatible, type EnvelopeSeries, type SignalPayload, type SlurmWritten, type SpansetPayload, type Step, type Template,
 } from '../api'
 import { CrosshairProvider, TimeAxis } from '../charts/primitives'
 import { makeX, type XScale } from '../charts/scale'
@@ -42,7 +42,7 @@ export function ChainPage() {
   const { env, error: envError, status: envStatus } = useSourceEnvelope(source)
   const locked = envStatus === 423 || isHeldOut(source)
   // the bridge refused POST /api/runs (422: invalid chain, a stage over its local ceiling, a recipe that cannot build)
-  const [refused, setRefused] = useState<{ message: string; over: { index: number; name: string; max_span_samples: number | null }[] } | null>(null)
+  const [refused, setRefused] = useState<{ message: string; over: { index: number; name: string; max_span_samples: number | null }[]; slurm?: SlurmWritten } | null>(null)
   const [modalPos, setModalPos] = useState<number | null>(route.params.insert !== undefined ? Number(route.params.insert) : null)
   const [pop, setPop] = useState<'history' | 'import' | 'source' | null>(null)
   const [logOpen, setLogOpen] = useState(false)
@@ -110,8 +110,9 @@ export function ChainPage() {
       setChain(c => ({ ...c, lastRunJobId: snap.job_id }))
     } catch (e) {
       // a 422 carries {message, over_ceiling:[{index,name,max_span_samples}]}: shown as a card, not just a toast
-      const d = e instanceof ApiError ? (e.detail as { over_ceiling?: { index: number; name: string; max_span_samples: number | null }[] } | null) : null
-      setRefused({ message: e instanceof ApiError ? e.message : String(e), over: d?.over_ceiling ?? [] })
+      // over the Analyse limit the bridge also wrote a SLURM job: {slurm: {script_path, sbatch_command, script, …}}
+      const d = e instanceof ApiError ? (e.detail as { over_ceiling?: { index: number; name: string; max_span_samples: number | null }[]; slurm?: SlurmWritten } | null) : null
+      setRefused({ message: e instanceof ApiError ? e.message : String(e), over: d?.over_ceiling ?? [], slurm: d?.slurm })
       toast.push({ kind: 'error', text: `run refused · ${e instanceof ApiError ? e.message : String(e)}` })
     } finally { setBusy(false) }
   }
@@ -262,7 +263,12 @@ export function ChainPage() {
   // spec §9.6 / P4: a stage over its local ceiling is never run locally — the button is gated, the row explains
   const overTitle = overFirst !== null ? `stage ${pad2(overFirst + 1)} exceeds its local ceiling (${overAd?.max_span_samples?.toLocaleString() ?? '?'} samples) · shorten the span or use HPC (out of slice scope)` : null
   const canRun = !!source && !invalid && n > 0 && !busy && !locked && !over.length
-  const runTitle = !source ? 'no source' : locked ? 'the held-out recording cannot be run' : invalid ? 'fix the red junction first' : !n ? 'add a stage' : overTitle ?? undefined
+  const routed = val.v?.route
+  const slurmTitle = routed?.route === 'cluster' && !running
+    ? `about ${fmtDuration(routed.estimate_s)} on this machine${routed.slowest ? ` (stage ${pad2(routed.slowest.index + 1)} is the slow one)` : ''} · over the Analyse local limit of ${fmtDuration(routed.ceiling_s)} · Run will write a SLURM job instead of running here`
+    : null
+  if (slurmTitle) est = { ...est, text: `${est.text} · over the local limit → SLURM`, kind: 'red' }
+  const runTitle = !source ? 'no source' : locked ? 'the held-out recording cannot be run' : invalid ? 'fix the red junction first' : !n ? 'add a stage' : overTitle ?? slurmTitle ?? undefined
 
   /* ---- footer ---- */
   const term = val.v ? terminalWording(val.v.terminal_kind, val.v.terminal_label, val.v.template_kind) : { chip: val.error ? 'terminal — validation refused' : 'terminal — validating…', kind: 'grey' as const }
@@ -446,6 +452,18 @@ export function ChainPage() {
             <h3>run refused by the bridge (422)</h3>
             <div className="mono small">{refused.message}</div>
             {refused.over.length > 0 && <div className="mono small" style={{ marginTop: 4, color: 'var(--muted)' }}>{refused.over.map(o => `${pad2(o.index + 1)} ${adapters.byName.get(o.name)?.page_name ?? o.name} · ceiling ${o.max_span_samples?.toLocaleString() ?? '?'} samples`).join(' · ')}</div>}
+            {refused.slurm && (
+              <div style={{ marginTop: 6 }} data-testid="run-refused-slurm">
+                <div className="mono small">SLURM job written · <b>{refused.slurm.sbatch_command}</b> · wall time {refused.slurm.slurm_time}</div>
+                <div className="mono small" style={{ color: 'var(--muted)' }}>{refused.slurm.script_path} · recipe {refused.slurm.recipe_path}</div>
+                {refused.slurm.null_note && <div className="mono small" style={{ color: 'var(--muted)' }}>{refused.slurm.null_note}</div>}
+                {(refused.slurm.warnings ?? []).map((w, i) => <div key={i} className="mono small" style={{ color: 'var(--muted)' }}>{w}</div>)}
+                <div style={{ display: 'flex', gap: 6, marginTop: 4 }}>
+                  <button className="btn sm" onClick={() => { navigator.clipboard?.writeText(refused.slurm?.script ?? '').then(() => toast.push({ text: 'SLURM script copied' }), err => toast.push({ kind: 'error', text: `copy failed · ${String(err)}` })) }}>Copy script</button>
+                </div>
+                <details style={{ marginTop: 4 }}><summary className="mono small">the script</summary><pre className="mono small" style={{ maxHeight: 220, overflow: 'auto' }}>{refused.slurm.script}</pre></details>
+              </div>
+            )}
           </div>
         )}
 

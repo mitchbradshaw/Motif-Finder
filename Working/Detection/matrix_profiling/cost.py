@@ -145,6 +145,16 @@ def calibrate(backend="stump", force=False, n0=CALIBRATION_N0, seed=0):
     x = rng.standard_normal(n0).astype(np.float64)
     m = max(4, n0 // 200)
 
+    # Warm-up first: the first stumpy call in a process JIT-compiles its numba kernels, which takes far longer
+    # than the 20k-sample profile itself. Timed cold, that compile was folded into `k` and made every estimate
+    # ~300x too large (a whole-channel FLUSS read as 33 days, 2026-10-14) — so compile on a tiny series, then time.
+    warm = rng.standard_normal(1_000).astype(np.float64)
+    if backend == "gpu_stump":
+        import numba.cuda
+        stumpy.gpu_stump(warm, m=16, device_id=[d.id for d in numba.cuda.list_devices()])
+    else:
+        stumpy.stump(warm, m=16)
+
     t0 = time.time()
     if backend == "gpu_stump":
         import numba.cuda

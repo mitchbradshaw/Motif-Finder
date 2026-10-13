@@ -200,6 +200,96 @@ def estimate(recipe: dict, n_samples: int, fs: float) -> dict:
             "route": "unknown" if unknown else "local"}
 
 
+ANALYSE_LIMIT_KEY = "limit.Analyse"     # Settings › Compute & HPC, minutes
+
+
+def analyse_ceiling_s(conn=None) -> int:
+    """The Analyse local limit in seconds: Settings › Compute & HPC ``limit.Analyse`` (minutes) when saved, else
+    ``Working.config.CLUSTER_ROUTING_CEILING_S`` — the core's one routing ceiling (PRD "Cluster routing")."""
+    from Working.config import CLUSTER_ROUTING_CEILING_S
+    from Working.discovery.fanout import CEILING_PAGE
+    if conn is not None:
+        from Working.registration.settings import get_settings
+        saved = get_settings(conn, CEILING_PAGE).get(ANALYSE_LIMIT_KEY)
+        if saved is not None:
+            minutes = float(saved)
+            if minutes <= 0:
+                raise ValueError(f"Settings › Compute & HPC {ANALYSE_LIMIT_KEY!r} must be positive, got {minutes}")
+            return int(round(minutes * 60))
+    return int(CLUSTER_ROUTING_CEILING_S)
+
+
+def _calibrate_matrix_profile() -> dict:
+    """Time this machine's matrix profile once (a few seconds, `cost.calibrate`): the FLUSS and matrix-profile
+    blocks estimate from it, and without it they answer None — which used to let a days-long FLUSS run start."""
+    import time
+    from Working.Detection.matrix_profiling import cost
+    t0 = time.time()
+    entry = cost.calibrate("stump")
+    return {"calibrated": True, "seconds": round(time.time() - t0, 1), "k": entry["k"],
+            "path": os.path.abspath(cost.CALIBRATION_PATH)}
+
+
+def _uses_mp_cost(step: dict) -> bool:
+    """Does this step's adapter estimate with the matrix-profile cost model (FLUSS, matrix profile)? Read off
+    the adapter module importing from `Working.Detection.matrix_profiling.cost` — so calibrating that model can
+    answer it. Another uncalibrated estimator (its own cost model) is left as ``unknown``, not calibrated here."""
+    import sys
+    from Working.Detection.matrix_profiling import cost
+    spec = get_adapter(f"{step['stage']}.{step['algorithm']}")
+    mod = sys.modules.get(getattr(spec.estimate, "__module__", ""), None)
+    return mod is not None and any(getattr(v, "__module__", None) == cost.__name__ for v in vars(mod).values())
+
+
+def route_local(recipe: dict, n_samples: int, fs: float, *, ceiling_s: float, draws: int = 0) -> dict:
+    """Can this run finish locally? ``estimate`` per step; when a step's estimator is uncalibrated, the
+    matrix-profile cost model is calibrated once and the estimate taken again. The run's cost is the real chain
+    plus ``draws`` paired null draws (each runs the whole chain again). ``route`` is ``cluster`` over the
+    ceiling, ``local`` under it, ``unknown`` when a step still cannot be estimated (it then runs, as before)."""
+    est = estimate(recipe, n_samples, fs)
+    calibration = None
+    if any(_uses_mp_cost(recipe["steps"][i]) for i in est["unknown"]):
+        calibration = _calibrate_matrix_profile()
+        est = estimate(recipe, n_samples, fs)
+    real = est["total_s"]
+    total = real * (1 + max(0, int(draws)))
+    route = "cluster" if total > ceiling_s else ("unknown" if est["unknown"] else "local")
+    slowest = None
+    known = [(v, i) for i, v in enumerate(est["per_step_s"]) if v is not None]
+    if known:
+        v, i = max(known)
+        step = recipe["steps"][i]
+        slowest = {"index": i, "name": f"{step['stage']}.{step['algorithm']}", "seconds": v}
+    return {"route": route, "estimate_s": total, "estimate_real_s": real, "draws": int(draws),
+            "ceiling_s": float(ceiling_s), "per_step_s": est["per_step_s"], "unknown": est["unknown"],
+            "slowest": slowest, "calibration": calibration}
+
+
+def max_local_samples(recipe: dict, fs: float, *, ceiling_s: float, draws: int = 0, upper: int) -> int:
+    """The longest span (samples, ≤ ``upper``) whose estimate, times 1 + ``draws``, stays under the ceiling —
+    found by bisection on the per-step estimators, so it holds for any cost shape. 0 if even the shortest
+    span is over; calibrate first (``route_local``) or an uncalibrated step counts as free here."""
+    def fits(n):
+        return estimate(recipe, n, fs)["total_s"] * (1 + max(0, int(draws))) <= ceiling_s
+    lo, hi = 0, int(upper)
+    if fits(hi):
+        return hi
+    while hi - lo > max(1, int(fs)):
+        mid = (lo + hi) // 2
+        lo, hi = (mid, hi) if fits(mid) else (lo, mid)
+    return lo
+
+
+def fmt_seconds(s: float) -> str:
+    if s < 90:
+        return f"{s:.0f} s"
+    if s < 5400:
+        return f"{s / 60:.0f} min"
+    if s < 172800:
+        return f"{s / 3600:.1f} h"
+    return f"{s / 86400:.1f} days"
+
+
 def cache_status(recipe: dict, conn) -> list[dict]:
     """Per step: does the core's step cache already hold this prefix?
     Uses the very same key (``_recipe_prefix_hash``) and existence test

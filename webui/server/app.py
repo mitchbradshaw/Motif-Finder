@@ -224,13 +224,16 @@ def create_app(rt: Runtime) -> FastAPI:
                 out["recipe_error"] = str(e)
                 return out
             n = (span[1] - span[0]) if span else rec["n_samples"]
-            out["estimate"] = chain_mod.estimate(recipe, n, rec["fs"])
             out["hashes"] = chain_mod.hashes(recipe)
             c = conn()
             try:
                 out["cache"] = chain_mod.cache_status(recipe, c)
+                # the real chain's route, before any null: over the limit, Run writes a SLURM job instead
+                routed = chain_mod.route_local(recipe, n, rec["fs"], ceiling_s=chain_mod.analyse_ceiling_s(c))
             finally:
                 c.close()
+            out["estimate"] = chain_mod.estimate(recipe, n, rec["fs"])
+            out["route"] = {k: routed[k] for k in ("route", "estimate_s", "ceiling_s", "slowest")}
             out["over_ceiling"] = [i for i, s in enumerate(recipe["steps"])
                                    if (lambda spec: spec.max_span_samples is not None and n > spec.max_span_samples)(chain_mod.get_adapter(f"{s['stage']}.{s['algorithm']}"))]
         return out
@@ -287,8 +290,70 @@ def create_app(rt: Runtime) -> FastAPI:
                 params["block_s"] = resolved["block_s"]
             null = {"params": params, "draws": int(resolved["draws"])}
             recipe["surrogate"] = True     # the run records that it carried a null, as a Discovery run does
+        # A run that cannot finish here is refused BEFORE it starts — a job in progress cannot be stopped inside a
+        # step (cancel is checked between steps), so a days-long FLUSS once left the bridge to be killed by hand
+        # (2026-10-14). Over the Analyse limit the chain is written as a SLURM job instead.
+        c = conn()
+        try:
+            routed = chain_mod.route_local(recipe, n, rec["fs"], ceiling_s=chain_mod.analyse_ceiling_s(c),
+                                           draws=(null or {}).get("draws", 0))
+        finally:
+            c.close()
+        if routed["route"] == "cluster":
+            raise HTTPException(422, _slurm_refusal(recipe, rec, routed))
         job = manager.start(recipe, rec, px=body.px, null=null)
         return job.snapshot()
+
+    def _slurm_refusal(recipe: dict, rec, routed: dict) -> dict:
+        """The 422 body for a run over the local limit, after writing its SLURM job (`Working.hpc.job_export`,
+        the exporter Discovery's *Create SLURM script* uses). The script runs the real chain only: a paired null
+        has no task in the generic job, so the wall time is the real chain's and the body says the null is not
+        in it rather than implying it is."""
+        from Working.hpc.job_export import export_job
+        from Working.config import HPC_MAX_WALLTIME_MINUTES
+        from .runtime import REPO_ROOT
+        out_dir = (os.path.join(rt.dir, "hpc") if rt.mode == "sandbox"
+                   else os.path.join(REPO_ROOT, "HPC", "Detection", "generated"))
+        os.makedirs(out_dir, exist_ok=True)
+        slow = routed["slowest"] or {"name": "the chain", "index": 0}
+        span = recipe.get("span") or [0, rec["n_samples"]]
+        base = f"analyse_{slow['name'].split('.')[-1]}_rec{rec['id']}_{int(span[0])}-{int(span[1])}"
+        data_files = ["DATA/db/annotations.sqlite"] + ([rec["npy_path"]] if rec["npy_path"] else [])
+        res = export_job(recipe, out_dir=out_dir, base_name=base, job_name=base,
+                         est_seconds=routed["estimate_real_s"], data_files=data_files)
+        script = ""
+        if os.path.isfile(res["script_path"]):
+            with open(res["script_path"], encoding="utf-8") as f:
+                script = f.read()
+        fmt = chain_mod.fmt_seconds
+        draws = routed["draws"]
+        null_note = (f"the script runs the real chain only — the {draws} null draws that pushed this run over the "
+                     f"limit are not in it" if draws else None)
+        # the cluster's QOS caps a job's wall time (Working.config); a non-resumable chain longer than that is
+        # submittable but will be killed, so say so rather than let the script imply it will finish
+        over_walltime = routed["estimate_real_s"] > HPC_MAX_WALLTIME_MINUTES * 60
+        n_span = int(span[1]) - int(span[0])
+        n_local = chain_mod.max_local_samples(recipe, rec["fs"], ceiling_s=routed["ceiling_s"], draws=draws,
+                                              upper=n_span)
+        n_cluster = chain_mod.max_local_samples(recipe, rec["fs"], ceiling_s=HPC_MAX_WALLTIME_MINUTES * 60,
+                                                upper=n_span)
+        msg = (f"not run: this chain needs about {fmt(routed['estimate_s'])} on this machine"
+               + (f" ({draws} null draws included)" if draws else "")
+               + f" — stage {slow['index'] + 1:02d} ({slow['name']}) is the slow one — over the Analyse local limit "
+                 f"of {fmt(routed['ceiling_s'])}. The longest span that runs here is about "
+                 f"{fmt(n_local / rec['fs'])}. A SLURM job was written instead: {res['sbatch_command']} "
+                 f"(script {res['script_path']}).")
+        if over_walltime:
+            msg += (f" But the cluster stops a job after {HPC_MAX_WALLTIME_MINUTES} min, and the real chain alone "
+                    f"needs about {fmt(routed['estimate_real_s'])} at this machine's speed, so this job will most "
+                    f"likely be killed before it finishes: a span of about {fmt(n_cluster / rec['fs'])} or less fits.")
+        return {"message": msg, "route": "cluster", "estimate_s": routed["estimate_s"],
+                "estimate_real_s": routed["estimate_real_s"], "ceiling_s": routed["ceiling_s"],
+                "slowest": routed["slowest"], "calibration": routed["calibration"],
+                "max_local_samples": n_local, "max_cluster_samples": n_cluster,
+                "slurm": {**{k: res[k] for k in ("script_path", "recipe_path", "sbatch_command", "slurm_time",
+                                                   "job_name", "warnings")},
+                          "script": script, "null_note": null_note, "over_walltime": over_walltime}}
 
     @app.get("/api/runs")
     def get_runs(recording_id: int | None = None, limit: int = 30):

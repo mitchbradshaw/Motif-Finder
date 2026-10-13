@@ -4,6 +4,12 @@
 
 import type { DisplayUnit } from './charts/units'
 
+/** A SLURM job the bridge wrote for a run over the Analyse local limit (POST /api/runs 422 detail.slurm). */
+export interface SlurmWritten {
+  script_path: string; recipe_path: string; sbatch_command: string; slurm_time: string; job_name: string
+  warnings?: string[]; script: string; null_note: string | null; over_walltime: boolean
+}
+
 export class ApiError extends Error {
   status: number
   detail: unknown
@@ -87,6 +93,8 @@ export interface Validation {
   ok: boolean; junctions: Junction[]; terminal_kind: TypeKind | null; terminal_label: string | null
   estimate?: { total_s: number; per_step_s: (number | null)[]; unknown?: number[]; route?: 'local' | 'unknown' }; hashes?: { config_hash: string; recipe_hash: string }
   cache?: { index: number; prefix_hash: string; cached: boolean; path: string | null }[]; over_ceiling?: number[]; recipe_error?: string
+  // the real chain's route (bridge chain.route_local): over the Analyse limit, Run writes a SLURM job instead
+  route?: { route: 'local' | 'cluster' | 'unknown'; estimate_s: number; ceiling_s: number; slowest: { index: number; name: string; seconds: number } | null }
 }
 export interface Compatible {
   position: number; producing: TypeKind; producing_label: string; next_requires: TypeKind | null; next_requires_label: string | null; next_name: string | null
