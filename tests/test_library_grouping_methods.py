@@ -693,5 +693,63 @@ def test_hdbscan_has_no_fixed_separation_floor_and_reports_separation():
         assert "separation" in f.flags and f.flags["separation"] > null["max_separation"]
 
 
+# ---- fix round 1, item 3: the cost is known before the run ----------------
+
+def test_every_registered_method_estimates_its_own_cost():
+    from Working.library.grouping import engine
+    for name in method_registry.available():
+        method = method_registry.get(name)
+        seconds = method.estimate(1000, dict(method_registry.defaults_for(name)))
+        assert seconds > 0, name
+    ward = method_registry.get("ward")
+    n = 3603
+    assert ward.estimate(n, {}) == pytest.approx(
+        n * (n - 1) / 2 * engine.SECONDS_PER_PAIR + n * engine.SECONDS_PER_ITEM)
+
+
+def test_recompute_cost_is_the_methods_estimate_not_one_formula_for_all():
+    from Working.library.grouping.engine import _recompute_cost
+    n = 3603
+    ward = _recompute_cost(n, "shape-distance", "ward", {})
+    kshape_auto = _recompute_cost(n, "shape-distance", "kshape", {"k": 0})
+    kshape_fixed = _recompute_cost(n, "shape-distance", "kshape", {"k": 6})
+    hdb = _recompute_cost(n, "shape-distance", "hdbscan", {})
+    hdb_no_null = _recompute_cost(n, "shape-distance", "hdbscan", {"null_draws": 0})
+    assert kshape_auto["seconds"] > kshape_fixed["seconds"] > ward["seconds"]
+    assert hdb["seconds"] > 2.5 * hdb_no_null["seconds"], "the three null draws are priced"
+    assert kshape_auto["where"] == "local" and kshape_auto["seconds"] < 900, \
+        "auto k with one start per candidate stays local at the Library's size"
+    huge = _recompute_cost(n, "shape-distance", "kshape", {"k": 0, "n_init": 500})
+    assert huge["where"] == "cluster"
+    # a basis/method pair with no estimate keeps the old formula
+    assert _recompute_cost(n, "amplitude", "feature_bins", {})["seconds"] > 0
+
+
+def test_cheaper_settings_name_what_would_fit_locally():
+    from Working.library.grouping.engine import LOCAL_LIMIT_SECONDS, cheaper_settings
+    options = cheaper_settings(3603, "shape-distance", "kshape", {"k": 0, "n_init": 500})
+    assert options, "something cheaper is offered"
+    for opt in options:
+        assert opt["seconds"] <= LOCAL_LIMIT_SECONDS and opt["params"] and opt["change"]
+
+
+def test_auto_k_sweeps_one_start_per_k_and_refits_the_chosen_k_with_n_init():
+    kshape = method_registry.get("kshape")
+    waves, _ = three_families(per=20, seed=2)
+    fit = kshape.fit(waves, params={"k": 0, "n_init": 4})
+    assert all(s["starts"] == 1 for s in fit.payload["k_scores"])
+    assert fit.payload["final_starts"] == 4
+    assert "one start" in fit.payload["k_rule"]
+
+
+@pytest.mark.parametrize("name,params", [("kshape", {"k": 3}), ("kshape", {"k": 0}), ("hdbscan", {})])
+def test_a_cancel_is_honoured_between_starts_and_draws(name, params):
+    from Working.library.grouping.engine import GroupingCancelled, run_grouping
+    waves, _ = three_families(per=15, seed=2)
+    with pytest.raises(GroupingCancelled):
+        run_grouping(_items(waves), unit="single_motifs", basis="shape-distance",
+                     method=name, params=params, should_cancel=lambda: True)
+
+
 if __name__ == "__main__":
     sys.exit(pytest.main([__file__, "-q"]))

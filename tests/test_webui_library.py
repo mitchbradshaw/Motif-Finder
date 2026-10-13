@@ -1106,3 +1106,21 @@ def test_a_saved_grouping_round_trips_its_fit_summary(bridge):
         "unit": "motifs", "basis": "amplitude", "method": "feature_bins", "params": {},
         "assignments": []}))
     assert plain["fitSummary"] is None, "a grouping saved without one says so, not {}"
+
+
+def test_a_grouping_too_costly_to_run_here_is_refused_before_it_starts(bridge):
+    """The estimate comes BEFORE the job (critic finding 3): over the local
+    limit the route answers 422 with the estimate and cheaper settings, and
+    no job is started. There is no cluster script for groupings."""
+    client, _ = bridge
+    before = _ok(client.get("/api/jobs"))
+    r = client.post("/api/library/groupings/run", json={
+        "unit": "motifs", "basis": "shape-distance", "method": "kshape",
+        "params": {"k": 0, "n_init": 10_000_000}})
+    assert r.status_code == 422, r.text[:300]
+    detail = r.json()["detail"]
+    assert detail["estimateSeconds"] > detail["localLimitSeconds"]
+    assert "no cluster script" in detail["message"]
+    assert detail["cheaper"], "the refusal names settings that would fit"
+    after = _ok(client.get("/api/jobs"))
+    assert len(after) == len(before), "no job was started"
