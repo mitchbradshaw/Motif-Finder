@@ -317,8 +317,10 @@ def test_rolling_does_not_spread_a_flat_stretch_into_its_noisy_neighbours():
     x[40_000:50_000] = 0.25                      # a stuck logger: σ = 0 there
     centre, sigma = rolling_noise(x, 2000)
     assert (sigma[41_000:49_000] == 0).all(), "a flat window's own samples are unjudged, not interpolated"
-    assert sigma[:39_000].min() > 0.8 and sigma[51_000:].min() > 0.8, \
+    assert sigma[:38_000].min() > 0.8 and sigma[52_000:].min() > 0.8, \
         "a σ = 0 window never drags a noisy neighbour's σ_n towards zero"
+    assert (sigma[39_000:51_000] == 0).all(), \
+        "a sample whose window reaches into the flat stretch has a deflated MAD: it is unjudged too"
 
     whole = run(x)
     rolling = run(x, noise_from="rolling", noise_window_s=2000.0)

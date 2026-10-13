@@ -18,7 +18,10 @@ The algorithm as implemented
 2. z = (x − centre) / σ_n, the trace in noise units.
 3. `direction`, with `detection.signal_threshold`'s choices and semantics,
    applied to z by that block's own `_mask_and_excursion`: `above` keeps
-   z > k, `below` keeps z < −k, `either` keeps |z| > k.
+   z > k, `below` keeps z < −k, `either` keeps |z| > k. **The default here is
+   `either`**, where `signal_threshold` defaults to `above`: a cut around the
+   median in noise units has no natural side, and a researcher who has not yet
+   said which side matters should see both.
 4. Contiguous runs → spans (`detection.threshold.spans_from_mask`); a span
    scores its peak excursion past the cut **in σ_n units** (z_max − k,
    −k − z_min, |z|_max − k).
@@ -35,14 +38,31 @@ Adaptations, each forced by our data
   this is exactly the paper's rule.
 * **`noise_from='rolling'`** (not in the paper, whose recordings are 60 s):
   our recordings run for days and a channel's noise can change; a rolling
-  MAD over `noise_window_s` judges each stretch against its own noise.
+  MAD over `noise_window_s` judges each stretch against its own noise. The
+  window is at least `MIN_ROLLING_WINDOW` (300) **samples**: shorter, the MAD
+  is too noisy an estimate and the cut fires on noise (white noise, k = 4:
+  ~1300× the whole-span false positives at 3 samples, ~1.8× at 300). The
+  minimum is in samples, so no seconds bound on the parameter can express it
+  for every sampling rate; a shorter `noise_window_s` is therefore **clamped**
+  up to it with a warning, not refused — refusing would make the same chain
+  run on one recording and fail on a slower-sampled one. `meta` carries the
+  window actually used (`noise_window_samples`). A window whose MAD is 0 (a
+  flat stretch) is not judged and is not blended into its neighbours.
 * **No band-pass inside the block.** At 1 Hz the paper's 300–6000 Hz band does
   not exist; the template puts baseline removal in front instead, and any
   other Signal -> Signal block can stand there.
 * **The paper's own assumption is checked, not taken on trust.** When more than
   20 % of the judged samples lie past the cut, the events are not "a small
   fraction of all samples" and σ_n is inflated by them; `meta["warnings"]` says
-  so. A trace whose MAD is 0 (flat, or quantised with more than half its samples
+  so. **That check has a blind spot:** events common enough can inflate σ_n so
+  far that they no longer cross the cut — 40 % of samples in 5 σ or 8 σ drops
+  give σ_n ≈ 2.8 σ, no span and no warning. So `meta["sigma_ratio_diff"]`
+  compares σ_n with the noise read off the sample-to-sample differences,
+  robust_sigma(diff(x)) / √2, which events lasting many samples barely touch:
+  ≈ 1 for white noise, ≈ 2.75 at 40 % 5 σ drops. Coloured (slow, correlated)
+  noise also raises it, so it is a number to read, not a warning. A rolling
+  window does not cure dominance — the events dominate each window too. A trace
+  whose MAD is 0 (flat, or quantised with more than half its samples
   on one value) has no noise level: its samples are not judged, they are
   counted in `n_unjudged`, and a warning says why — never a division by zero
   and never a silent blank.
@@ -65,7 +85,8 @@ from Adapters.base import AdapterResult, AdapterSpec, ParamSpec
 from Adapters.detection_signal_threshold import DIRECTIONS, _mask_and_excursion
 from Adapters.detection_threshold import spans_from_mask, tidy_param_specs, tidy_spans
 from Adapters.registry import register
-from Working.Detection.analysis.noise_level import noise_level, rolling_noise
+from Working.Detection.analysis.noise_level import MIN_ROLLING_WINDOW, noise_level, rolling_noise
+from Working.Detection.drop_motifs.detect import robust_sigma
 from Working.types import SpanSet
 
 NOISE_FROM = ["whole_span", "rolling"]
@@ -83,7 +104,19 @@ RULES = [
     {"name": "score",
      "rule": "a span's peak excursion past the cut in σ_n units: max(z) − k, −k − min(z) or max|z| − k, "
              "z = (x − median) / σ_n"},
+    {"name": "sigma_ratio_diff",
+     "rule": "σ_n / (robust_sigma(diff(x)) / √2): ≈ 1 for white noise; well above 1 when long events (or slow, "
+             "coloured noise) fill the trace and inflate σ_n — the case the > 20 % warning cannot see"},
+    {"name": "noise_window",
+     "rule": f"rolling: the window is round(noise_window_s · fs) samples, at least {MIN_ROLLING_WINDOW}; "
+             "a window whose MAD is 0 is not judged and not interpolated into its neighbours"},
 ]
+
+
+def _window_samples(fs, noise_window_s):
+    """(samples asked for, samples used): the rolling window clamped up to the minimum."""
+    asked = int(round(float(noise_window_s) * float(fs)))
+    return asked, max(MIN_ROLLING_WINDOW, asked)
 
 
 def _noise(xs, fs, noise_from, noise_window_s):
@@ -92,8 +125,7 @@ def _noise(xs, fs, noise_from, noise_window_s):
         c, s = noise_level(xs)
         return np.full(xs.size, c), np.full(xs.size, s)
     if noise_from == "rolling":
-        window = max(3, int(round(float(noise_window_s) * float(fs))))
-        return rolling_noise(xs, window)
+        return rolling_noise(xs, _window_samples(fs, noise_window_s)[1])
     raise ValueError(f"detection.noise_threshold: noise_from must be one of {NOISE_FROM}, got {noise_from!r}")
 
 
@@ -108,7 +140,12 @@ def _summary(xs, fs, k_sigma, noise_from, noise_window_s):
     else:
         c_med = float(np.nanmedian(centre)) if np.isfinite(centre).any() else float("nan")
         s_med = s_min = s_max = (0.0 if np.isfinite(sigma).any() else float("nan"))
+    d = np.diff(xs)
+    d = d[np.isfinite(d)]
+    s_diff = float(robust_sigma(d)) / np.sqrt(2.0) if d.size else float("nan")
+    ratio = s_med / s_diff if (np.isfinite(s_med) and np.isfinite(s_diff) and s_diff > 0) else float("nan")
     return centre, sigma, usable, {
+        "sigma_ratio_diff": float(ratio),
         "centre": c_med,
         "sigma": s_med,
         "sigma_min": s_min,
@@ -149,13 +186,24 @@ def _run(x, t, fs, k_sigma=4.0, direction="either", noise_from="whole_span", noi
         warnings.append(
             f"{n_unjudged} of {int(finite.sum())} finite samples were not judged: the noise level there is 0 "
             "(more than half the samples sit on one value — a flat or coarsely quantised trace), "
-            "so no multiple of it is a meaningful cut.")
+            "so no multiple of it is a meaningful cut."
+            + (" With a rolling window this includes the samples within half a window of a flat stretch, whose "
+               "windows reach into it." if noise_from == "rolling" else ""))
     if fraction > EVENT_FRACTION_WARN:
         warnings.append(
             f"{fraction:.0%} of the samples lie past the cut: events are not a small fraction of the trace, "
             "the assumption behind the median noise estimate, so σ_n is inflated by the events and the cut "
-            "sits higher than the noise alone would put it. Shorten the span, remove the baseline first, "
-            "or use noise_from='rolling'.")
+            "sits higher than the noise alone would put it. Shorten the span or remove the baseline first. "
+            "This check is blind when events are common enough to hide under the σ_n they inflate; "
+            f"sigma_ratio_diff ({summary['sigma_ratio_diff']:.2f}, about 1 for white noise) reads that case.")
+    window_used = None
+    if noise_from == "rolling":
+        asked, window_used = _window_samples(fs, noise_window_s)
+        if asked < window_used and xs.size > asked:
+            warnings.append(
+                f"The rolling noise window was {asked} samples ({float(noise_window_s):g} s at {float(fs):g} Hz); "
+                f"it was raised to the minimum of {MIN_ROLLING_WINDOW} samples, because a noise level from fewer "
+                "samples is itself so noisy that the cut fires on plain noise.")
 
     return AdapterResult(
         output_kind="spanset",
@@ -169,6 +217,7 @@ def _run(x, t, fs, k_sigma=4.0, direction="either", noise_from="whole_span", noi
             "direction": direction,
             "noise_from": noise_from,
             "noise_window_s": float(noise_window_s),
+            "noise_window_samples": window_used,
             "cut_varies": noise_from == "rolling",
             **summary,
             "plain_sd": float(np.std(xs[finite])) if finite.any() else float("nan"),
@@ -226,7 +275,9 @@ SPEC = register(AdapterSpec(
                   choices=list(NOISE_FROM)),
         ParamSpec("noise_window_s", float, 3600.0,
                   "Seconds in the rolling noise window (used only when noise_from is `rolling`); make it many "
-                  "times longer than an event so the events stay a small fraction of each window",
+                  "times longer than an event so the events stay a small fraction of each window. At least "
+                  f"{MIN_ROLLING_WINDOW} samples are used whatever the sampling rate; a shorter window is "
+                  "raised to that, with a warning",
                   min=3.0),
         *tidy_param_specs(),
     ],

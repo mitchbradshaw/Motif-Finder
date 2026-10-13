@@ -39,6 +39,13 @@ from Working.Detection.drop_motifs.detect import _MAD_TO_SIGMA, robust_sigma
 #: rows of the strided rolling evaluation handled per numpy call (memory bound)
 _CHUNK_ELEMENTS = 4_000_000
 
+#: the shortest rolling window, in SAMPLES. A MAD from fewer samples is itself
+#: noisy (relative SE ~ 1.17/sqrt(window)), and a cut at k·σ_n turns every low
+#: draw into false spans: on white noise at k = 4 a 3-sample window gave ~1300×
+#: the whole-span false positives, 60 samples ~7×, 300 samples ~1.8× (measured
+#: on 5 × 200k samples). 300 is where that cost stops mattering.
+MIN_ROLLING_WINDOW = 300
+
 
 def noise_sigma(x):
     """σ_n of the finite samples of `x`: 1.4826 × median|x − median(x)|.
@@ -67,14 +74,28 @@ def rolling_noise(x, window):
     and linearly interpolated between those centres (held flat beyond the
     first and last), so the cost is about 4·n·log(window) rather than
     n·window. A window with fewer than half its samples finite gives no
-    estimate and is interpolated across. A `window` at least as long as the
-    trace is the whole-trace estimate, constant. Both arrays are NaN when no
-    window could be judged."""
+    estimate and is interpolated across. A window whose MAD is 0 (flat, or
+    more than half its samples on one value) has no noise level: it is never
+    an interpolation anchor — blending a 0 into its neighbours would hand the
+    noisy samples beside a flat stretch a tiny σ_n and fire on them. Every
+    sample within half a window (plus one hop) of such a window gets sigma 0,
+    i.e. "not judged": its own window reaches into the flat stretch, so its
+    MAD is deflated even where it is not 0, and the windows touching that zone
+    are not anchors either. A flat stretch shorter than half a window never
+    makes a σ = 0 window and is not caught here; it deflates its windows'
+    MAD in proportion, as it would the whole-span estimate. A `window` at least
+    as long as the trace is the whole-trace estimate, constant. Both arrays
+    are NaN when no window could be judged.
+
+    `window` below `MIN_ROLLING_WINDOW` samples is refused: a library call does
+    not silently change its argument (the adapter clamps and says so)."""
     v = np.asarray(x, dtype=float).ravel()
     n = v.size
     window = int(window)
-    if window < 3:
-        raise ValueError(f"rolling_noise: the window must be at least 3 samples, got {window}")
+    if window < MIN_ROLLING_WINDOW:
+        raise ValueError(
+            f"rolling_noise: the window must be at least {MIN_ROLLING_WINDOW} samples, got {window} — a MAD "
+            "from fewer samples is too noisy an estimate of σ_n, and a cut at k·σ_n then fires on noise")
     if n == 0:
         return np.empty(0), np.empty(0)
     if window >= n:
@@ -97,9 +118,24 @@ def rolling_noise(x, window):
         ok = finite >= (window + 1) // 2
         centres[a:a + rows] = np.where(ok, med, np.nan)
         sigmas[a:a + rows] = np.where(ok, _MAD_TO_SIGMA * mad, np.nan)
-    good = np.isfinite(sigmas)
-    if not good.any():
-        return np.full(n, np.nan), np.full(n, np.nan)
     idx = np.arange(n)
-    return (np.interp(idx, anchors[good], centres[good]),
-            np.interp(idx, anchors[good], sigmas[good]))
+    zero = np.isfinite(sigmas) & (sigmas == 0)
+    # Samples whose window reaches into a flat stretch: within half a window (plus
+    # one hop, the anchor spacing) of a σ = 0 window's centre. Their windows are
+    # partly flat, so their MAD is deflated even where it is not 0.
+    flat_zone = np.zeros(n, dtype=bool)
+    if zero.any():
+        hits = np.zeros(n + 1)
+        hits[anchors[zero]] = 1.0
+        reach = window // 2 + hop
+        c = np.concatenate([[0.0], np.cumsum(hits[:n])])
+        flat_zone = (c[np.minimum(idx + reach + 1, n)] - c[np.maximum(idx - reach, 0)]) > 0
+    good = np.isfinite(sigmas) & (sigmas > 0) & ~flat_zone[anchors]
+    if not good.any():
+        if zero.any():                          # every judged window flat or touching flat: σ_n 0
+            return np.interp(idx, anchors[zero], centres[zero]), np.zeros(n)
+        return np.full(n, np.nan), np.full(n, np.nan)
+    centre = np.interp(idx, anchors[good | zero], centres[good | zero])
+    sigma = np.interp(idx, anchors[good], sigmas[good])
+    sigma[flat_zone] = 0.0                     # not judged — never a neighbour's σ, never a deflated one
+    return centre, sigma
