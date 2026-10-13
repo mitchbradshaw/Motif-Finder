@@ -766,17 +766,19 @@ class Smoke:
         page.wait_for_selector('[data-testid="map-card"]', timeout=20000)
         page.wait_for_selector('[data-testid="map-cell"][data-state="covered"]', timeout=60000)
         page.wait_for_timeout(600)
-        covered = page.locator('[data-testid="map-cell"][data-state="covered"]').count()
+        # machine rows only: the human row is always painted (the review walk wrote verdicts) and would mask
+        # a payload whose algorithm cells never reach the page
+        covered = page.locator('[data-testid="map-cell"][data-state="covered"]:not([data-row="human"])').count()
         not_run = page.locator('[data-testid="map-cell"][data-state="not_run"]').count()
-        self.evidence["map_cells"] = {"covered": covered, "not_run": not_run}
-        self.check(covered > 0, f"level 3 painted {covered} covered cells")
+        self.evidence["map_cells"] = {"covered_machine": covered, "not_run": not_run}
+        self.check(covered > 0, f"level 3 painted {covered} covered machine cells")
         self.check(not_run > 0, f"the channels no run reached read not-run ({not_run}), not zero")
         painted = page.evaluate("""() => Array.from(document.querySelectorAll('[data-testid="map-cell"][data-state="covered"]'))
-            .filter(el => parseInt(el.dataset.count || '0', 10) > 0)
+            .filter(el => el.dataset.row !== 'human' && parseInt(el.dataset.count || '0', 10) > 0)
             .map(el => { const r = el.getBoundingClientRect(); return [Math.round(r.width), Math.round(r.height), getComputedStyle(el).backgroundColor] })""")
         self.evidence["map_painted"] = painted[:4]
         self.check(len(painted) > 0 and all(w > 4 and h > 4 and bg not in ("rgba(0, 0, 0, 0)", "rgb(255, 255, 255)") for w, h, bg in painted),
-                   f"covered cells with detections have a size and a fill ({painted[:2]})")
+                   f"covered machine cells with detections have a size and a fill ({painted[:2]})")
         foot = page.locator('[data-testid="map-foot"]').inner_text() if page.locator('[data-testid="map-foot"]').count() else ""
         self.check("finished Discovery run" in foot, f"the foot says which datasets have runs ({foot[:90]!r})")
         self.check(page.locator('[data-testid="map-legend"]').count() == 1, "the legend is drawn")
@@ -798,13 +800,14 @@ class Smoke:
         page.wait_for_selector('[data-testid="map-timeline"]', timeout=60000)
         page.wait_for_timeout(600)
         rows = page.locator('[data-testid="map-timeline-row"]').count()
-        bins = page.locator('[data-testid="map-bin"]').count()
-        gaps = page.locator('[data-testid="map-gap"]').count()
+        # scoped to the timeline: the bin-size picker is a different control with its own testid
+        bins = page.locator('[data-testid="map-timeline"] [data-testid="map-bin"]').count()
+        gaps = page.locator('[data-testid="map-timeline"] [data-testid="map-gap"]').count()
         self.evidence["map_timeline"] = {"rows": rows, "bins": bins, "gaps": gaps}
         self.check(rows >= 2, f"level 1 has the human row and the runs ({rows} rows)")
         self.check(bins > 0, f"level 1 drew {bins} bins with detections")
         self.check(gaps > 0, f"the hours outside the smoke section are hatched not-run ({gaps} stretches)")
-        drawn = page.evaluate("""() => Array.from(document.querySelectorAll('[data-testid="map-bin"]')).slice(0, 50)
+        drawn = page.evaluate("""() => Array.from(document.querySelectorAll('[data-testid="map-timeline"] [data-testid="map-bin"]')).slice(0, 50)
             .map(r => r.getBoundingClientRect().width).reduce((a, b) => a + b, 0)""")
         self.check(drawn > 0, f"the bins have width on screen ({drawn:.1f} px over the first 50)")
         self.check(bool(page.locator('[data-testid="map-readout"]').inner_text().strip()), "the readout line is present")

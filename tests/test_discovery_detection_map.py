@@ -14,16 +14,21 @@ algorithm fires, as rows of algorithms against datasets, channels and time.
   cuts of one seed are two rows; that is how parameter sweeps will appear.
 * **"Not run here" and "ran and found nothing" are different facts.** A cell
   carries a `state`: `covered` (hours > 0, a count that may be 0), `not_run`,
-  `running`, `failed`, `discarded`; `not_reviewed` for the human row. A map
-  that merged them would lie about every empty channel.
-* **What does not count.** Discovery runs that were removed or superseded,
-  `runs` rows a discard marked superseded (they are shared between Discovery
-  runs, so a sibling in another session still holds them), surrogate
-  (paired-null) runs, deleted annotations, the held-out file.
+  `running`, `failed`, `discarded`; `not_reviewed` for the human row. The
+  state is decided from the same rounded hours the page receives, so a cell
+  is never `covered` with `hours == 0` and no count. A map that merged them
+  would lie about every empty channel.
+* **What does not count.** Discovery runs that were removed, `runs` rows a
+  discard marked superseded (they are shared between Discovery runs, so a
+  sibling in another session still holds them), surrogate (paired-null)
+  runs, deleted annotations, the held-out file. A discarded run still shows
+  as `discarded` where nothing else ran, and a row `execute_recipe` handed
+  back to a re-application made AFTER the discard is live again.
 * **Piecewise newest-wins.** When one row ran twice on one channel, coverage
   is the union of the live runs' spans and each sample range is counted from
   the newest run that covers it — so a newer 1 h run neither doubles the
-  count nor blanks the older whole-channel run.
+  count nor blanks the older whole-channel run, and a newer run strictly
+  inside an older one leaves both ends to the older.
 * **Human coverage is where a person looked**: the reviewed spans PLUS the
   span of every live annotation of any verdict. Nothing in the app writes
   `reviewed_spans` any more, so a Review verdict would otherwise read
@@ -31,8 +36,8 @@ algorithm fires, as rows of algorithms against datasets, channels and time.
 
 Headless: a temp sqlite built from `init_db()` and hand-written rows. No
 signal is loaded — the map is a count of rows the executor already wrote.
-The module is imported inside each test so each fails on its own
-until the module exists (red first), rather than the file failing to collect.
+The module is imported inside each test so each fails on its own until the
+module exists (red first), rather than the file failing to collect.
 """
 
 import json
@@ -57,15 +62,18 @@ from Working.database import runs as R  # noqa: E402
 from Working.database.schema import init_db  # noqa: E402
 
 NOW = "2026-10-12T00:00:00+00:00"
+LATER = "2026-10-13T00:00:00+00:00"          # after NOW: a re-application made after a discard
 OLD = "2026-10-01T00:00:00+00:00"
-ALPHA, BETA, GAMMA, DELTA = "alpha.mat", "beta.mat", "gamma.mat", "delta.mat"
+ALPHA, BETA, GAMMA, DELTA, EPSILON = "alpha.mat", "beta.mat", "gamma.mat", "delta.mat", "epsilon.mat"
 ALPHA_N, BETA_N = 7200, 3600         # 2 h and 1 h at 1 Hz
+EPS_FS, EPS_N = 10.0, 7201           # 0.2 h at 10 Hz, not divisible by any chunk count
 
-#: Four distinct recipes: a template, the same seed at two cuts, another template.
+#: Distinct recipes: a template, the same seed at two cuts, two other templates.
 DROP = {"steps": [{"stage": "detection", "algorithm": "drop_detection", "params": {"slope_sigma": 4.0}}]}
 SEED25 = {"steps": [{"stage": "detection", "algorithm": "seed_matches", "params": {"seed": "E0102", "cut": 2.5, "k": 50}}]}
 SEED30 = {"steps": [{"stage": "detection", "algorithm": "seed_matches", "params": {"seed": "E0102", "cut": 3.0, "k": 50}}]}
 OTHER = {"steps": [{"stage": "detection", "algorithm": "dehshibi_spikes", "params": {}}]}
+SPIKES2 = {"steps": [{"stage": "detection", "algorithm": "spikes2", "params": {"w": 3}}]}
 
 
 def _session(conn, name, source_file):
@@ -75,13 +83,14 @@ def _session(conn, name, source_file):
     return cur.lastrowid
 
 
-def _drun(conn, session_id, key, kind, run_ids, *, template=None, params=None, superseded=False, removed=False, status="done"):
+def _drun(conn, session_id, key, kind, run_ids, *, template=None, params=None, superseded=False, removed=False,
+          status="done", created=NOW):
     params = dict(params or {})
     params["run_ids"] = list(run_ids)
     cur = conn.execute(
         "INSERT INTO discovery_runs (session_id, run_key, kind, label, colour, template_name, params_json, status, "
         "created_at, updated_at, superseded_at, removed_at) VALUES (?, ?, ?, ?, '#0a84ff', ?, ?, ?, ?, ?, ?, ?)",
-        (session_id, key, kind, params.get("label") or key, template, json.dumps(params), status, NOW, NOW,
+        (session_id, key, kind, params.get("label") or key, template, json.dumps(params), status, created, created,
          NOW if superseded else None, NOW if removed else None))
     return cur.lastrowid
 
@@ -110,14 +119,15 @@ def db():
     tmpdir = tempfile.mkdtemp(prefix="detection_map_")
     path = os.path.join(tmpdir, "test.sqlite")
     conn = init_db(path)
-    a = [q.insert_recording(conn, ALPHA, ch, 1.0, ALPHA_N, 0, os.path.join(tmpdir, f"a{ch}.npy")) for ch in range(3)]
+    a = [q.insert_recording(conn, ALPHA, ch, 1.0, ALPHA_N, 0, os.path.join(tmpdir, f"a{ch}.npy")) for ch in range(4)]
     b = [q.insert_recording(conn, BETA, ch, 1.0, BETA_N, 0, os.path.join(tmpdir, f"b{ch}.npy")) for ch in range(2)]
-    g = q.insert_recording(conn, GAMMA, 0, 1.0, BETA_N, 0, os.path.join(tmpdir, "g0.npy"))
+    g = [q.insert_recording(conn, GAMMA, ch, 1.0, BETA_N, 0, os.path.join(tmpdir, f"g{ch}.npy")) for ch in range(4)]
     q.insert_recording(conn, DELTA, 0, 1.0, BETA_N, 0, os.path.join(tmpdir, "d0.npy"))
+    e = q.insert_recording(conn, EPSILON, 0, EPS_FS, EPS_N, 0, os.path.join(tmpdir, "e0.npy"))
     held = q.insert_recording(conn, HELD_OUT_RECORDING_FILE, 0, 1.0, BETA_N, 0, os.path.join(tmpdir, "h0.npy"))
 
     s1, s2 = _session(conn, "alpha screen", ALPHA), _session(conn, "beta screen", BETA)
-    s3, s4 = _session(conn, "held", HELD_OUT_RECORDING_FILE), _session(conn, "gamma", GAMMA)
+    s3, s4, s5 = _session(conn, "held", HELD_OUT_RECORDING_FILE), _session(conn, "gamma", GAMMA), _session(conn, "epsilon", EPSILON)
 
     # drop_detection in session 1: the whole of alpha CH1, the first half of CH2, nothing on CH3
     r1 = _run(conn, DROP, a[0], (0, ALPHA_N), [100, 4000, 7000])
@@ -147,18 +157,37 @@ def db():
     _drun(conn, s1, "seed_E0102_c30", "seed", [_run(conn, SEED30, a[0], (0, ALPHA_N), [10, 20, 30, 40])],
           params={"seedId": "E0102", "cut": 3.0, "label": "seed E0102 · cut 3.0"})
 
-    # a discarded run on alpha CH3: the Discovery row AND its runs row are superseded (what Discard does) —
-    # and a live Discovery run in session 2 that reuses that same runs row still may not count it
+    # alpha CH3: a discarded run — the Discovery row AND its runs row are superseded (what Discard does) —
+    # and a live Discovery run in session 2, made BEFORE the discard, that still holds that same runs row
     r_disc = _run(conn, DROP, a[2], (0, ALPHA_N), [50, 60, 70, 80, 90, 100, 110, 120, 130], superseded=True)
     _drun(conn, s1, "drop_detection_old", "template", [r_disc], template="drop_detection", params={"version": 1}, superseded=True)
     _drun(conn, s2, "drop_detection_shared", "template", [r_disc], template="drop_detection", params={"version": 1})
+    # alpha CH4: discarded, then the template applied AGAIN later — execute_recipe hands the superseded row back
+    r_again = _run(conn, DROP, a[3], (0, ALPHA_N), [11, 22, 33], superseded=True)
+    _drun(conn, s1, "drop_detection_ch4_old", "template", [r_again], template="drop_detection", params={"version": 1}, superseded=True)
+    _drun(conn, s1, "drop_detection_ch4_again", "template", [r_again], template="drop_detection", params={"version": 1}, created=LATER)
     # a removed template run: not a row at all
     _drun(conn, s1, "dehshibi_spikes", "template", [_run(conn, OTHER, a[2], (0, ALPHA_N), [55])],
           template="dehshibi_spikes", params={"version": 1}, removed=True)
 
-    # gamma: a Discovery run whose only runs row is still running — listed, with a `running` cell
-    _drun(conn, s4, "drop_detection", "template", [_run(conn, DROP, g, (0, BETA_N), [], status="running")],
+    # gamma: CH1 still running; CH2 discarded with no sibling at all; CH3 a run left at `running` by a
+    # Discovery run that has failed (lost in a restart); CH4 a plain failed run
+    _drun(conn, s4, "drop_detection", "template", [_run(conn, DROP, g[0], (0, BETA_N), [], status="running")],
           template="drop_detection", params={"version": 1}, status="running")
+    _drun(conn, s4, "drop_detection_disc", "template", [_run(conn, DROP, g[1], (0, BETA_N), [7, 8], superseded=True)],
+          template="drop_detection", params={"version": 1}, superseded=True)
+    _drun(conn, s4, "drop_detection_lost", "template", [_run(conn, DROP, g[2], (0, BETA_N), [], status="running")],
+          template="drop_detection", params={"version": 1}, status="failed")
+    _drun(conn, s4, "drop_detection_failed", "template", [_run(conn, DROP, g[3], (0, BETA_N), [], status="failed")],
+          template="drop_detection", params={"version": 1}, status="failed")
+
+    # epsilon, 10 Hz and 7201 samples: an older whole run and a newer run strictly INSIDE it, and a second
+    # template whose run starts at 3600 and holds one legacy span-relative detection (400 → 4000) and one absolute
+    e_old = _run(conn, DROP, e, (0, EPS_N), [10, 5000, 7000])
+    e_in = _run(conn, DROP, e, (2000, 3000), [2500])
+    _drun(conn, s5, "drop_detection", "template", [e_old, e_in], template="drop_detection", params={"version": 1})
+    _drun(conn, s5, "spikes2", "template", [_run(conn, SPIKES2, e, (3600, EPS_N), [400, 6000])],
+          template="spikes2", params={"version": 1})
 
     # a run on the held-out file: left out of the map entirely
     _drun(conn, s3, "drop_detection", "template", [_run(conn, DROP, held, (0, BETA_N), [1, 2, 3])],
@@ -166,6 +195,7 @@ def db():
 
     # the human reference. alpha CH1: reviewed over the first hour; two interesting, one not, one deleted.
     # alpha CH2: NO reviewed span, but two live verdicts — a person looked there, so it is not "not reviewed".
+    # alpha CH4: one verdict straddling the hour by one sample — the second half's coverage rounds to nothing.
     q.insert_reviewed_span(conn, a[0], 0, ALPHA_N // 2, "test")
     for s, v in ((100, "interesting"), (4000, "interesting"), (2000, "not_interesting")):
         q.insert_annotation(conn, a[0], s, s + 10, v, "test")
@@ -173,6 +203,7 @@ def db():
                  "VALUES (?, 300, 310, 'interesting', 'test', ?, ?)", (a[0], OLD, NOW))
     q.insert_annotation(conn, a[1], 1000, 1010, "not_interesting", "test")
     q.insert_annotation(conn, a[1], 2000, 2010, "interesting", "test")
+    q.insert_annotation(conn, a[3], ALPHA_N // 2 - 1, ALPHA_N // 2 + 1, "not_interesting", "test")
     conn.commit()
     conn.close()
     yield path
@@ -209,11 +240,11 @@ def test_rows_merge_by_executed_steps_across_sessions_and_recordings(db):
     try:
         m = dm.dataset_map(conn, exclude_files=[HELD_OUT_RECORDING_FILE])
         assert m["rows"][0]["key"] == "human", "the human reference is the first row"
-        assert [r["kind"] for r in m["rows"]].count("template") == 1, "drop_detection from three sessions is ONE row"
+        assert [r["kind"] for r in m["rows"]].count("template") == 2, "drop_detection from four sessions is ONE row, spikes2 another"
         assert not any(r.get("template") == "dehshibi_spikes" for r in m["rows"]), "a removed run is not a row"
         tpl = _row(m, kind="template", template="drop_detection")
         assert tpl["version"] == 1 and tpl["label"].startswith("drop_detection")
-        assert sorted(tpl["sessions"]) == [1, 2, 4], "the row says which sessions it came from"
+        assert sorted(tpl["sessions"]) == [1, 2, 4, 5], "the row says which sessions it came from — never the held-out one"
         alpha, beta = _dataset(m, ALPHA), _dataset(m, BETA)
         # alpha CH1: the newer 1 h run counts its hour (2), the older whole run the rest (4000, 7000)
         assert _cell(alpha["cells"][tpl["key"]]["CH1"]) == (4, 2.0, "covered")
@@ -248,14 +279,14 @@ def test_a_channel_the_run_never_covered_is_not_run_not_a_zero_count(db):
         tpl = _row(m, kind="template", template="drop_detection")
         alpha = _dataset(m, ALPHA)
         assert _cell(alpha["cells"][tpl["key"]]["CH2"]) == (1, 1.0, "covered"), "half-covered: an hour of coverage, one detection"
-        assert [c["name"] for c in alpha["channels"]] == ["CH1", "CH2", "CH3"], "every channel of the dataset is a column, run or not"
+        assert [c["name"] for c in alpha["channels"]] == ["CH1", "CH2", "CH3", "CH4"], "every channel of the dataset is a column, run or not"
         c25 = _row(m, kind="seed", seedId="E0102", cut=2.5)
         assert _cell(alpha["cells"][c25["key"]]["CH2"]) == (0, 0.0, "not_run")
     finally:
         conn.close()
 
 
-def test_discarded_running_and_surrogate_runs_read_as_what_they_are(db):
+def test_discarded_rerun_running_lost_failed_and_surrogate_runs_read_as_what_they_are(db):
     dm = _dm()
     conn = _open(db)
     try:
@@ -264,9 +295,14 @@ def test_discarded_running_and_surrogate_runs_read_as_what_they_are(db):
         alpha, beta, gamma = _dataset(m, ALPHA), _dataset(m, BETA), _dataset(m, GAMMA)
         assert alpha["cells"][tpl["key"]]["CH1"]["count"] == 4, "the paired null's six detections are not the run's"
         assert _cell(alpha["cells"][tpl["key"]]["CH3"]) == (0, 0.0, "discarded"), \
-            "a discard supersedes the shared runs row: the live sibling in session 2 may not resurrect it"
+            "a discard supersedes the shared runs row: the live sibling made before it may not resurrect it"
+        assert _cell(alpha["cells"][tpl["key"]]["CH4"]) == (3, 2.0, "covered"), \
+            "the template applied again AFTER the discard is live, although execute_recipe handed the same row back"
         assert _cell(beta["cells"][tpl["key"]]["CH2"]) == (1, 1.0, "covered"), "a newer run still running does not blank the older completed one"
         assert _cell(gamma["cells"][tpl["key"]]["CH1"]) == (0, 0.0, "running")
+        assert _cell(gamma["cells"][tpl["key"]]["CH2"]) == (0, 0.0, "discarded"), "a discarded run with no sibling is still discarded, not never-run"
+        assert _cell(gamma["cells"][tpl["key"]]["CH3"]) == (0, 0.0, "failed"), "a row left at `running` by a failed Discovery run is a lost run"
+        assert _cell(gamma["cells"][tpl["key"]]["CH4"]) == (0, 0.0, "failed")
     finally:
         conn.close()
 
@@ -290,12 +326,37 @@ def test_the_human_row_counts_live_verdicts_over_where_a_person_looked(db):
         conn.close()
 
 
+def test_a_cell_is_never_covered_with_no_hours_and_no_count(db):
+    """The state is decided from the rounded hours the page receives: a slice a
+    verdict reaches by one sample rounds to 0.0 h and reads not-reviewed; the
+    page would otherwise divide by zero in its hover text."""
+    dm = _dm()
+    conn = _open(db)
+    try:
+        # the two-sample verdict at 3599–3601 leaves ONE sample in each half: each rounds to 0.000 h and reads
+        # not-reviewed, while the whole channel's two samples round to 0.001 h and read covered
+        halves = dm.channel_map(conn, ALPHA, chunks=2)
+        ch4 = halves["cells"]["human"]["CH4"]
+        assert [_cell(c) for c in ch4] == [(0, 0.0, "not_reviewed"), (0, 0.0, "not_reviewed")]
+        whole = dm.dataset_map(conn, exclude_files=[HELD_OUT_RECORDING_FILE])
+        assert _cell(_dataset(whole, ALPHA)["cells"]["human"]["CH4"]) == (0, 0.001, "covered")
+        for chunks in (1, 2, 4, 8):
+            for file in (ALPHA, BETA, GAMMA, EPSILON):
+                cm = dm.channel_map(conn, file, chunks=chunks)
+                for key, per in cm["cells"].items():
+                    for ch, cells in per.items():
+                        for c in cells:
+                            assert not (c["state"] == "covered" and c["hours"] == 0.0 and c["count"] == 0), (file, key, ch, chunks, c)
+    finally:
+        conn.close()
+
+
 def test_the_payload_says_what_is_missing(db):
     dm = _dm()
     conn = _open(db)
     try:
         m = dm.dataset_map(conn, exclude_files=[HELD_OUT_RECORDING_FILE])
-        assert [d["file"] for d in m["datasets"]] == [ALPHA, BETA, GAMMA]
+        assert [d["file"] for d in m["datasets"]] == [ALPHA, BETA, EPSILON, GAMMA]
         assert m["datasets"][0]["hours"] == 2.0 and m["datasets"][1]["hours"] == 1.0
         assert [d["file"] for d in m["withoutRuns"]] == [DELTA], "a dataset with no Discovery run is named, not a blank group"
         assert m["heldOutOmitted"] == [HELD_OUT_RECORDING_FILE]
@@ -318,8 +379,27 @@ def test_chunks_split_a_channel_into_equal_slices_that_sum_to_the_whole(db):
         assert sum(c["count"] for c in ch1) == whole["cells"][tpl["key"]]["CH1"][0]["count"] == 4
         ch2 = halves["cells"][tpl["key"]]["CH2"]
         assert [_cell(c) for c in ch2] == [(1, 1.0, "covered"), (0, 0.0, "not_run")], "the second half of CH2 was never run"
-        assert [c["name"] for c in halves["channels"]] == ["CH1", "CH2", "CH3"]
+        assert [c["name"] for c in halves["channels"]] == ["CH1", "CH2", "CH3", "CH4"]
         assert halves["file"] == ALPHA and halves["hours"] == 2.0
+    finally:
+        conn.close()
+
+
+def test_a_newer_run_inside_an_older_one_a_nonzero_span_start_and_ten_hertz(db):
+    dm = _dm()
+    conn = _open(db)
+    try:
+        whole = dm.channel_map(conn, EPSILON, chunks=1)
+        halves = dm.channel_map(conn, EPSILON, chunks=2)
+        tpl = _row(whole, kind="template", template="drop_detection")
+        # the inner run owns 2000–3000 (its one detection); the older run keeps both ends (10, 5000, 7000)
+        assert _cell(whole["cells"][tpl["key"]]["CH1"][0]) == (4, 0.2, "covered")
+        assert [_cell(c) for c in halves["cells"][tpl["key"]]["CH1"]] == [(2, 0.1, "covered"), (2, 0.1, "covered")]
+        sp = _row(whole, kind="template", template="spikes2")
+        # the run started at 3600: its legacy span-relative detection (400) is at 4000, the absolute one at 6000
+        assert _cell(whole["cells"][sp["key"]]["CH1"][0]) == (2, 0.1, "covered")
+        assert [_cell(c) for c in halves["cells"][sp["key"]]["CH1"]] == [(0, 0.0, "not_run"), (2, 0.1, "covered")]
+        assert whole["hours"] == 0.2 and whole["fs"] == EPS_FS
     finally:
         conn.close()
 
@@ -346,17 +426,38 @@ def test_the_timeline_spans_the_whole_recording_and_marks_coverage(db):
         cell = t["cells"][tpl["key"]]
         assert cell["counts"] == [1, 0, 0, 0]
         assert cell["covered"] == [1.0, 1.0, 0.0, 0.0], "the run stopped at the hour: the last two bins are not-run, not empty"
-        assert cell["state"] == "covered"
+        assert cell["state"] == "covered" and cell["states"] == ["covered", "covered", "not_run", "not_run"]
         human = t["cells"]["human"]
         # a not_interesting verdict at 1000 and an interesting one at 2000: both bins were looked at, one counts
         assert human["counts"] == [0, 1, 0, 0] and human["covered"][:2] > [0.0, 0.0] and human["covered"][2:] == [0.0, 0.0]
+        assert human["states"] == ["covered", "covered", "not_reviewed", "not_reviewed"] and human["owners"] == [None] * 4
         t1 = dm.timeline_map(conn, ALPHA, "CH1", bin_h=1.0)
         assert t1["nBins"] == 2 and t1["cells"][tpl["key"]]["counts"] == [2, 2]
         # the verdicts at 100 and 4000 fall one in each hour; the second hour was looked at only where the verdict is
         h = t1["cells"]["human"]
         assert h["counts"] == [1, 1] and h["covered"][0] == 1.0 and 0.0 < h["covered"][1] < 0.01
         t3 = dm.timeline_map(conn, ALPHA, "CH3", bin_h=1.0)
-        assert t3["cells"][tpl["key"]] == {"counts": [0, 0], "covered": [0.0, 0.0], "state": "discarded"}
+        assert t3["cells"][tpl["key"]] == {"counts": [0, 0], "covered": [0.0, 0.0], "states": ["discarded", "discarded"],
+                                           "owners": [None, None], "state": "discarded"}
+    finally:
+        conn.close()
+
+
+def test_each_timeline_bin_names_the_discovery_run_that_owns_it(db):
+    """What a click can open: the newer 1 h run owns alpha CH1's first hour,
+    the older whole run its second — not the row's newest run everywhere."""
+    dm = _dm()
+    conn = _open(db)
+    try:
+        t1 = dm.timeline_map(conn, ALPHA, "CH1", bin_h=1.0)
+        tpl = _row(t1, kind="template", template="drop_detection")
+        owners = t1["cells"][tpl["key"]]["owners"]
+        assert owners == [{"runKey": "drop_detection_2", "sessionId": 1}, {"runKey": "drop_detection", "sessionId": 1}]
+        t4 = dm.timeline_map(conn, ALPHA, "CH4", bin_h=1.0)
+        assert t4["cells"][tpl["key"]]["owners"] == [{"runKey": "drop_detection_ch4_again", "sessionId": 1}] * 2, \
+            "the re-application after the discard owns the channel, not the discarded run"
+        tg = dm.timeline_map(conn, GAMMA, "CH3", bin_h=1.0)
+        assert tg["cells"][tpl["key"]]["states"] == ["failed"] and tg["cells"][tpl["key"]]["owners"] == [None]
     finally:
         conn.close()
 

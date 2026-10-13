@@ -16,6 +16,8 @@ which cells the Runs browser can show. Nothing numerical is computed here.
 """
 from __future__ import annotations
 
+import json
+
 from fastapi import APIRouter, HTTPException, Request
 
 from Working.discovery import detection_map as DM
@@ -28,8 +30,14 @@ router = APIRouter()
 
 
 def _session_bit(conn):
+    """The open session and its scope: the client opens the Runs browser from a
+    level-1 bin only inside it, because the browser reads nothing outside it."""
     s = _session(conn)
-    return {"id": int(s["id"]), "name": s["name"], "recording": _stem(s["source_file"])}
+    rec = _file_for_key(conn, _stem(s["source_file"]))
+    fs = float(rec["fs"])
+    return {"id": int(s["id"]), "name": s["name"], "recording": _stem(s["source_file"]),
+            "channels": json.loads(s["channels_json"] or "[]"),
+            "section": [int(s["span_start"] or 0) / fs / 3600.0, int(s["span_end"] or 0) / fs / 3600.0]}
 
 
 def _keyed(conn, payload):

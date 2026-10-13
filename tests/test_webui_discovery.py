@@ -1140,6 +1140,8 @@ def test_the_map_lists_the_applied_run_as_one_row_over_every_channel_of_the_data
     m = r.json()
     assert m["session"]["recording"] == "syn" and m["session"]["id"] >= 1, \
         "the client needs the open session to know which cells the Runs browser can open"
+    assert m["session"]["channels"] == list(CH[:2]) and m["session"]["section"] == [0.0, pytest.approx(N / FS / 3600.0)], \
+        "and its scope: the browser reads nothing outside the session's channels and section"
     assert [d["file"] for d in m["datasets"]] == ["syn.mat"], "the held-out file is never a column group"
     assert m["heldOutOmitted"] == [HELD_OUT_FILE] and m["withoutRuns"] == [], "the held-out file is named as omitted; nothing else is registered"
     syn = m["datasets"][0]
@@ -1179,7 +1181,7 @@ def test_the_dataset_map_chunks_sum_to_the_whole(client):
 
 
 def test_the_channel_timeline_covers_the_whole_recording_in_bins(client):
-    _apply(client)
+    out = _apply(client)
     r = client.get("/api/discovery/map/channel", params={"recording": "syn", "channel": CH[0], "binH": 1.0})
     assert r.status_code == 200, r.text
     t = r.json()
@@ -1190,6 +1192,10 @@ def test_the_channel_timeline_covers_the_whole_recording_in_bins(client):
     tpl = _map_row(t, kind="template", template="mp_threshold")
     cell = t["cells"][tpl["key"]]
     assert len(cell["counts"]) == 2 and len(cell["covered"]) == 2 and cell["state"] == "covered"
+    assert cell["states"] == ["covered", "covered"]
+    assert cell["owners"] == [{"runKey": out["run_key"], "sessionId": t["session"]["id"]}] * 2, \
+        "each bin names the Discovery run that owns it — what a click opens"
+    assert t["cells"]["human"]["owners"] == [None, None]
     assert cell["covered"][0] == 1.0 and 0.0 < cell["covered"][1] <= 1.0, "the run covered the whole recording"
     whole = client.get("/api/discovery/map/dataset", params={"recording": "syn", "chunks": 1}).json()
     assert sum(cell["counts"]) == whole["cells"][tpl["key"]][CH[0]][0]["count"]

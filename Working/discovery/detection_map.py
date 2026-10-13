@@ -5,7 +5,7 @@ and their channels (level 3), one dataset's channels in time chunks (level 2),
 or one channel in time bins over the whole recording (level 1). The page
 shades a cell by detections per covered hour; this module only counts.
 
-Four rules, each pinned in tests/test_discovery_detection_map.py:
+Five rules, each pinned in tests/test_discovery_detection_map.py:
 
 * **A row is an algorithm, not a run.** A `configs` row is per recording and
   span, so the row key is the sha1 of the *steps the runs executed* with
@@ -15,20 +15,29 @@ Four rules, each pinned in tests/test_discovery_detection_map.py:
 * **A cell says what it is.** `state` is `covered` (hours > 0; the count may
   be 0), `not_run`, `running`, `failed` or `discarded`; the human row reads
   `not_reviewed` where nobody looked. "Did not look" and "looked and found
-  nothing" are different facts and never share a shade.
+  nothing" are different facts and never share a shade. The state is decided
+  from the same rounded hours the page receives, so a cell is never `covered`
+  with `hours == 0` unless it has a count.
 * **Piecewise newest-wins.** Coverage on one channel is the union of every
   live completed run's span; each sample range is counted from the newest
   run that covers it, so a re-application neither doubles a count nor blanks
   what an older whole-recording run measured.
+* **A discard is a discard — once.** Discard supersedes the shared `runs`
+  rows, so a sibling Discovery run that still holds them may not resurrect
+  them; but `execute_recipe` hands a superseded row back to a re-application
+  made AFTER the discard, and that run is live: a row held by a Discovery run
+  created after the discard counts. A discarded run with no sibling still
+  shows as `discarded`, not `not_run`; a `running` row whose Discovery run has
+  since failed or finished is a lost run and reads `failed`.
 * **The human row's coverage is where a person looked**: the reviewed spans
   plus the span of every live verdict of any kind. Nothing in the app writes
   `reviewed_spans` any more, so a Review verdict would otherwise read as
   "not reviewed". Deleted verdicts and paired-null (surrogate) runs never
-  count; a discard supersedes the shared `runs` rows, and a sibling Discovery
-  run in another session that still holds them may not resurrect them.
+  count.
 """
 from __future__ import annotations
 
+import datetime as _dt
 import hashlib
 import json
 import math
@@ -49,6 +58,12 @@ HUMAN_VERDICTS = ("interesting", "seed")
 CHUNK_OPTIONS = (1, 2, 4, 8)
 RUNNING_STATUSES = ("running", "queued", "pending", "started")
 FAILED_STATUSES = ("failed", "cancelled")
+#: a Discovery run in one of these states has no run still going, whatever its `runs` rows say
+#: (a server restart leaves a row at `running` for ever; the Runs page already calls that lost run failed)
+SETTLED_DISCOVERY_STATUSES = ("failed", "cancelled", "done", "completed", "superseded")
+#: hours travel rounded to a thousandth; the state is decided from the same number
+HOURS_PLACES = 3
+STATE_RANK = ("covered", "running", "failed", "discarded", "not_run", "not_reviewed")
 
 
 # ── rows ────────────────────────────────────────────────────────────────────
@@ -62,15 +77,16 @@ def steps_key(config_json: str) -> str:
     return f"steps:{digest[:12]}"
 
 
-def _live_discovery_runs(conn):
-    """Every Discovery run the researcher has not removed or discarded, newest
-    first, with its session's name."""
+def _discovery_runs(conn):
+    """Every Discovery run the researcher has not removed, newest first, with
+    its session's name. Discarded (superseded) ones are kept: their rows say
+    `discarded` on the map, they just name no row of their own."""
     cols = {c["name"] for c in conn.execute("PRAGMA table_info(discovery_runs)")}
-    removed = " AND d.removed_at IS NULL" if "removed_at" in cols else ""
+    removed = " WHERE d.removed_at IS NULL" if "removed_at" in cols else ""
     return conn.execute(
         "SELECT d.*, s.name AS session_name FROM discovery_runs d "
         "JOIN discovery_sessions s ON s.id = d.session_id "
-        f"WHERE d.superseded_at IS NULL{removed} ORDER BY d.id DESC").fetchall()
+        f"{removed} ORDER BY d.id DESC").fetchall()
 
 
 def _runs_by_id(conn, ids):
@@ -91,16 +107,27 @@ def _steps_keys(conn, config_ids):
             for r in conn.execute("SELECT id, config_json FROM configs WHERE id IN (" + marks + ")")}
 
 
+def _when(stamp):
+    """An ISO timestamp as a datetime, or None — the rows mix second and
+    microsecond precision and the comparison must not care."""
+    if not stamp:
+        return None
+    try:
+        return _dt.datetime.fromisoformat(str(stamp).replace("Z", "+00:00"))
+    except ValueError:
+        return None
+
+
 def _row_meta(dr, params):
     """What a row is called and what it is, from the Discovery run it came
-    from — the newest one of its key names it."""
+    from — the newest live one of its key names it."""
     kind = dr["kind"] if dr["kind"] in ("template", "seed") else "template"
     label = dr["label"]
+    band = params.get("band") or {}
     if kind == "template":
         label = dr["template_name"] or dr["label"]
         if params.get("version") is not None:
             label = f"{label} v{params['version']}"
-        band = params.get("band") or {}
         if band.get("label"):
             label = f"{label} · {band['label']}"
     return {
@@ -112,13 +139,31 @@ def _row_meta(dr, params):
     }
 
 
+def _held_copy(dr, r):
+    """One Discovery run's view of one `runs` row. A row the discard
+    superseded is live again for a Discovery run created after the discard
+    (`execute_recipe` handed it back to that re-application); it stays
+    superseded for the siblings that held it before. The holder's own status
+    says whether a `running` row is really still going."""
+    held = dict(r)
+    sup, made = _when(r["superseded_at"]), _when(dr["created_at"])
+    if sup is not None and made is not None and made > sup and not dr["superseded_at"]:
+        held["superseded_at"] = None
+    held["drStatus"] = dr["status"]
+    held["drRunKey"] = dr["run_key"]
+    held["drSession"] = int(dr["session_id"])
+    held["drId"] = int(dr["id"])
+    return held
+
+
 def _gather(conn, exclude_files=()):
     """Every live machine row with its `runs` rows grouped by recording:
     ``rows`` (ordered, the human row first) and ``by_row[row_key][recording_id]
-    -> [runs row, ...]`` (de-duplicated by `runs.id`). A run on an excluded
-    file (the held-out one) is as if it were not there: it names no row and
-    no session."""
-    drs = _live_discovery_runs(conn)
+    -> {run_id: held row}``. A run on an excluded file (the held-out one) is as
+    if it were not there: it names no row and no session. A discarded
+    Discovery run names no row, but its rows reach the rows that live runs
+    name, so a channel it alone touched reads `discarded`."""
+    drs = _discovery_runs(conn)
     ids_of = {int(dr["id"]): discovery_run_ids(conn, dr) for dr in drs}
     runs = _runs_by_id(conn, [i for ids in ids_of.values() for i in ids])
     if exclude_files:
@@ -127,11 +172,22 @@ def _gather(conn, exclude_files=()):
     keys = _steps_keys(conn, [r["config_id"] for r in runs.values()])
     rows_meta: dict[str, dict] = {}
     by_row: dict[str, dict[int, dict[int, dict]]] = {}
-    for dr in drs:                                 # newest first: the first Discovery run to name a key labels it
+
+    def attach(dr, r):
+        key = keys[int(r["config_id"])]
+        slot = by_row.setdefault(key, {}).setdefault(int(r["recording_id"]), {})
+        held = _held_copy(dr, r)
+        prev = slot.get(int(r["id"]))
+        # several Discovery runs may hold one row: the live view wins over the superseded one
+        if prev is None or (prev["superseded_at"] and not held["superseded_at"]):
+            slot[int(r["id"])] = held
+
+    live = [dr for dr in drs if not dr["superseded_at"]]
+    for dr in live:                                # newest first: the first Discovery run to name a key labels it
         params = json.loads(dr["params_json"] or "{}")
         for rid in ids_of[int(dr["id"])]:
             r = runs.get(rid)
-            if r is None:                          # a surrogate, or a run row that no longer exists
+            if r is None:                          # a surrogate, a hidden file, or a run row that no longer exists
                 continue
             key = keys[int(r["config_id"])]
             meta = rows_meta.get(key)
@@ -142,7 +198,14 @@ def _gather(conn, exclude_files=()):
             if int(dr["session_id"]) not in meta["sessions"]:
                 meta["sessions"].append(int(dr["session_id"]))
                 meta["sessionNames"][int(dr["session_id"])] = dr["session_name"]
-            by_row.setdefault(key, {}).setdefault(int(r["recording_id"]), {})[rid] = r
+            attach(dr, r)
+    for dr in drs:                                 # the discarded ones, for the rows that exist
+        if not dr["superseded_at"]:
+            continue
+        for rid in ids_of[int(dr["id"])]:
+            r = runs.get(rid)
+            if r is not None and keys[int(r["config_id"])] in rows_meta:
+                attach(dr, r)
     for key, meta in rows_meta.items():
         meta["runs"] = sum(len(v) for v in by_row.get(key, {}).values())
         meta["sessions"] = sorted(meta["sessions"])
@@ -197,14 +260,28 @@ def _resolve(run_rows):
     return claimed
 
 
+def _is_running(r):
+    return r["status"] in RUNNING_STATUSES and not r["superseded_at"] \
+        and r.get("drStatus") not in SETTLED_DISCOVERY_STATUSES
+
+
+def _is_failed(r):
+    if r["superseded_at"]:
+        return False
+    if r["status"] in FAILED_STATUSES:
+        return True
+    # a row left at `running` by a Discovery run that has since failed or finished: lost, so failed
+    return r["status"] in RUNNING_STATUSES and r.get("drStatus") in SETTLED_DISCOVERY_STATUSES
+
+
 def _uncovered_state(run_rows, lo, hi):
     """What a slice with no coverage is: the runs whose span reaches it say
     whether something is still running there, failed there, or was discarded
     — else nothing ever ran there."""
     here = [r for r in run_rows if int(r["span_start"]) < hi and int(r["span_end"]) > lo]
-    if any(r["status"] in RUNNING_STATUSES and not r["superseded_at"] for r in here):
+    if any(_is_running(r) for r in here):
         return "running"
-    if any(r["status"] in FAILED_STATUSES and not r["superseded_at"] for r in here):
+    if any(_is_failed(r) for r in here):
         return "failed"
     if any(r["superseded_at"] for r in here):
         return "discarded"
@@ -229,18 +306,30 @@ def _starts(conn, claimed, run_rows):
     return np.array(out, dtype=float)
 
 
+def _hours(samples, fs):
+    return round(samples / fs / 3600.0, HOURS_PLACES)
+
+
 def _machine_cells(conn, run_rows, edges, fs):
     """One row on one recording, cut at ``edges`` (sample indices): a cell per
-    slice with its count, covered hours and state."""
+    slice with its count, covered hours (rounded, and the state decided from
+    the rounded number), covered sample count, state and the Discovery run
+    that owns the slice's first covered sample."""
     claimed = _resolve(run_rows)
     cover = [(lo, hi) for lo, hi, _ in claimed]
+    holder = {int(r["id"]): r for r in run_rows}
     starts = _starts(conn, claimed, run_rows)
     counts = np.histogram(starts, bins=np.asarray(edges, dtype=float))[0] if len(starts) else np.zeros(len(edges) - 1, dtype=int)
     out = []
     for i in range(len(edges) - 1):
-        h = total_length(clip(cover, edges[i], edges[i + 1])) / fs / 3600.0
-        out.append({"count": int(counts[i]), "hours": round(h, 3),
-                    "state": "covered" if h > 0 else _uncovered_state(run_rows, edges[i], edges[i + 1])})
+        lo, hi = edges[i], edges[i + 1]
+        samples = total_length(clip(cover, lo, hi))
+        h = _hours(samples, fs)
+        count = int(counts[i])
+        owner = next((holder.get(rid) for a, b, rid in claimed if a < hi and b > lo), None)
+        out.append({"count": count, "hours": h, "samples": int(samples),
+                    "state": "covered" if (h > 0 or count > 0) else _uncovered_state(run_rows, lo, hi),
+                    "owner": ({"runKey": owner["drRunKey"], "sessionId": owner["drSession"]} if owner else None)})
     return out
 
 
@@ -258,13 +347,22 @@ def _human_cells(conn, recording_id, edges, fs):
     out = []
     for i in range(len(edges) - 1):
         lo, hi = edges[i], edges[i + 1]
-        h = total_length(clip(looked, lo, hi)) / fs / 3600.0
+        samples = total_length(clip(looked, lo, hi))
+        h = _hours(samples, fs)
+        count = int(counts[i])
         inside = [a for a in marks if lo <= a["start"] < hi]
-        out.append({"count": int(counts[i]), "hours": round(h, 3), "state": "covered" if h > 0 else "not_reviewed",
+        out.append({"count": count, "hours": h, "samples": int(samples),
+                    "state": "covered" if (h > 0 or count > 0) else "not_reviewed",
                     "interesting": sum(1 for a in inside if a["verdict"] == "interesting"),
                     "seed": sum(1 for a in inside if a["verdict"] == "seed"),
-                    "reviewedH": round(total_length(clip(reviewed, lo, hi)) / fs / 3600.0, 3)})
+                    "reviewedH": _hours(total_length(clip(reviewed, lo, hi)), fs), "owner": None})
     return out
+
+
+def _public(cell):
+    """The cell as it travels: the sample count and the owner are the
+    timeline's business."""
+    return {k: v for k, v in cell.items() if k not in ("samples", "owner")}
 
 
 # ── datasets ────────────────────────────────────────────────────────────────
@@ -285,13 +383,13 @@ def _files(conn):
 def _dataset(source_file, chans, names):
     fs = float(chans[0]["fs"])
     return {"file": source_file, "name": names.get(source_file) or source_file,
-            "hours": round(max(int(c["n_samples"]) for c in chans) / fs / 3600.0, 3), "fs": fs,
+            "hours": _hours(max(int(c["n_samples"]) for c in chans), fs), "fs": fs,
             "channels": [{"name": channel_name(source_file, c["channel"], len(chans)), "recordingId": int(c["id"]),
-                          "hours": round(int(c["n_samples"]) / float(c["fs"]) / 3600.0, 3)} for c in chans]}
+                          "hours": _hours(int(c["n_samples"]), float(c["fs"]))} for c in chans]}
 
 
 def dataset_map(conn, *, exclude_files=()):
-    """Level 3: every dataset that has a live Discovery run, each with all its
+    """Level 3: every dataset that has a Discovery run, each with all its
     channels; one cell per row and channel. ``withoutRuns`` names the
     registered datasets no Discovery run touched and ``heldOutOmitted`` the
     excluded files that exist, so a one-dataset map explains itself."""
@@ -314,11 +412,12 @@ def dataset_map(conn, *, exclude_files=()):
             per = {}
             for c in chans:
                 edges = [0, int(c["n_samples"])]
+                name = channel_name(sf, c["channel"], len(chans))
                 if row["key"] == HUMAN_KEY:
-                    per[channel_name(sf, c["channel"], len(chans))] = _human_cells(conn, int(c["id"]), edges, fs)[0]
+                    per[name] = _public(_human_cells(conn, int(c["id"]), edges, fs)[0])
                 else:
                     run_rows = list(by_row.get(row["key"], {}).get(int(c["id"]), {}).values())
-                    per[channel_name(sf, c["channel"], len(chans))] = _machine_cells(conn, run_rows, edges, fs)[0]
+                    per[name] = _public(_machine_cells(conn, run_rows, edges, fs)[0])
             cells[row["key"]] = per
         ds["cells"] = cells
         datasets.append(ds)
@@ -350,18 +449,19 @@ def channel_map(conn, source_file, *, chunks=1, exclude_files=()):
             edges = [int(round(n * i / chunks)) for i in range(chunks + 1)]
             name = channel_name(source_file, c["channel"], len(chans))
             if row["key"] == HUMAN_KEY:
-                per[name] = _human_cells(conn, int(c["id"]), edges, fs)
+                per[name] = [_public(x) for x in _human_cells(conn, int(c["id"]), edges, fs)]
             else:
                 run_rows = list(by_row.get(row["key"], {}).get(int(c["id"]), {}).values())
-                per[name] = _machine_cells(conn, run_rows, edges, fs)
+                per[name] = [_public(x) for x in _machine_cells(conn, run_rows, edges, fs)]
         cells[row["key"]] = per
     return {**ds, "rows": rows, "chunks": chunks, "cells": cells}
 
 
 def timeline_map(conn, source_file, channel, *, bin_h=3.0, exclude_files=()):
     """Level 1: one channel over the WHOLE recording in ``bin_h``-hour bins —
-    counts per bin and the covered fraction of each bin, so a bin the run never
-    reached is not-run rather than empty."""
+    counts per bin, the covered fraction of each bin (from sample counts, so a
+    bin with a count is never drawn uncovered), each bin's state, and the
+    Discovery run that owns each covered bin (what a click can open)."""
     bin_h = float(bin_h)
     if not bin_h > 0:
         raise ValueError(f"binH must be positive, not {bin_h}")
@@ -384,12 +484,13 @@ def timeline_map(conn, source_file, channel, *, bin_h=3.0, exclude_files=()):
             per = _human_cells(conn, int(c["id"]), edges, fs)
         else:
             per = _machine_cells(conn, list(by_row.get(row["key"], {}).get(int(c["id"]), {}).values()), edges, fs)
-        states = {p["state"] for p in per}
-        rank = ("covered", "running", "failed", "discarded", "not_run", "not_reviewed")
+        states = [p["state"] for p in per]
         cells[row["key"]] = {
             "counts": [p["count"] for p in per],
-            "covered": [round(min(1.0, p["hours"] * 3600.0 * fs / widths[i]), 4) for i, p in enumerate(per)],
-            "state": next(st for st in rank if st in states),
+            "covered": [round(min(1.0, p["samples"] / widths[i]), 4) for i, p in enumerate(per)],
+            "states": states,
+            "owners": [p["owner"] for p in per],
+            "state": next(st for st in STATE_RANK if st in states),
         }
-    return {**ds, "rows": rows, "channel": channel, "recordingId": int(c["id"]), "hours": round(hours, 3),
+    return {**ds, "rows": rows, "channel": channel, "recordingId": int(c["id"]), "hours": _hours(n, fs),
             "binH": bin_h, "nBins": n_bins, "cells": cells}

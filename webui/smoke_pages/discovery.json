@@ -96,13 +96,13 @@
   ],
   "expect": [
    "[data-testid=\"map-card\"][data-level=\"3\"]",
-   "[data-testid=\"map-cell\"][data-state=\"covered\"]",
+   "[data-testid=\"map-cell\"][data-state=\"covered\"]:not([data-row=\"human\"])",
    "[data-testid=\"map-cell\"][data-state=\"not_run\"]",
    "[data-testid=\"map-legend\"]",
    "[data-testid=\"map-foot\"]"
   ],
   "settle_ms": 900
-  },
+ },
  {
   "page": "discovery.map",
   "state": "dataset-chunks",
@@ -118,10 +118,11 @@
   "expect": [
    "[data-testid=\"map-channel-CH1_A1\"]",
    "[data-testid=\"map-chunks\"]",
-   "[data-testid=\"map-cell\"][data-state=\"covered\"]"
+   "[data-testid=\"map-cell\"][data-state=\"covered\"]:not([data-row=\"human\"])"
   ],
-  "settle_ms": 900
-  },
+  "settle_ms": 900,
+  "_why": "level 2 with four slices, shaded over the whole map; M2_aug_concat_fs1 / CH1_A1 are the smoke scope's own picks (discovery_scope), as the compare states assume too"
+ },
  {
   "page": "discovery.map",
   "state": "channel-day-bins",
@@ -137,12 +138,14 @@
   "expect": [
    "[data-testid=\"map-card\"][data-level=\"1\"]",
    "[data-testid=\"map-timeline-row\"]",
-   "[data-testid=\"map-gap\"]",
+   "[data-testid=\"map-timeline\"] [data-testid=\"map-gap\"]",
    "[data-testid=\"map-readout\"]",
-   "[data-testid=\"map-bin\"]"
+   "[data-testid=\"map-timeline\"] [data-testid=\"map-bin\"]",
+   "[data-testid=\"map-binsize\"]"
   ],
-  "settle_ms": 900
-  },
+  "settle_ms": 900,
+  "_why": "level 1 in day bins; the bins and gaps are the timeline's (the bin-size picker has its own testid); M2_aug_concat_fs1 / CH1_A1 as above"
+ },
  {
   "page": "discovery.runs",
   "state": "discarded",

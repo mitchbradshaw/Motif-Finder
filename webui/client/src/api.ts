@@ -473,7 +473,9 @@ export interface DiscMapRow {
   runs: number
 }
 export interface DiscMapChannel { name: string; recordingId: number; hours: number }
-export interface DiscMapSession { id: number; name: string; recording: string }
+/** the open session: a level-1 bin opens the Runs browser only when its owning run is in this session, on this recording,
+ *  on one of these channels and inside this section (hours) — the browser reads only that scope */
+export interface DiscMapSession { id: number; name: string; recording: string; channels: string[]; section: [number, number] }
 export interface DiscMapDataset {
   file: string; key: string; name: string; hours: number; fs: number; channels: DiscMapChannel[]
   cells: Record<string, Record<string, DiscMapCell>>
@@ -490,7 +492,9 @@ export interface DiscMapDatasetLevel {
 export interface DiscMapTimeline {
   rows: DiscMapRow[]; file: string; key: string; name: string; hours: number; fs: number; channel: string; recordingId: number
   binH: number; nBins: number; channels: DiscMapChannel[]
-  cells: Record<string, { counts: number[]; covered: number[]; state: DiscMapState }>; session: DiscMapSession
+  /** per bin: count, covered fraction, state, and the Discovery run that owns the bin's first covered sample (null when none) */
+  cells: Record<string, { counts: number[]; covered: number[]; states: DiscMapState[]; owners: ({ runKey: string; sessionId: number } | null)[]; state: DiscMapState }>
+  session: DiscMapSession
 }
 export const getDiscoveryMap = () => req<DiscMap>('/api/discovery/map')
 export const getDiscoveryMapDataset = (recording: string, chunks: number) =>
