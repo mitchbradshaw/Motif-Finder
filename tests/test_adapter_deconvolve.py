@@ -128,10 +128,19 @@ def test_sharkfin_misfit_is_measured_not_hidden():
         x[k * period:(k + 1) * period] += fin
     x += 1e-4 * np.random.default_rng(0).standard_normal(n)
     trough, _, _ = troughs_12h(seed=0)
-    shark = _run(x, recovery_half_s=0.0)
-    clean = _run(trough, recovery_half_s=0.0)
+    # in the first-difference unit the residual measures the misfit
+    shark = _run(x, recovery_half_s=0.0, noise_scale="diff")
+    clean = _run(trough, recovery_half_s=0.0, noise_scale="diff")
     assert clean.meta["residual_sd_sigma"] < 1.5        # the right kernel leaves noise
     assert shark.meta["residual_sd_sigma"] > clean.meta["residual_sd_sigma"]
+    # in the level unit (the default) these back-to-back fins leave no quiet background, so
+    # sigma_level measures the fins themselves; that is flagged, not hidden (w1-b follow-up)
+    shark_l = _run(x, recovery_half_s=0.0)
+    clean_l = _run(trough, recovery_half_s=0.0)
+    assert shark_l.meta["level_spread"] < 0.75 < clean_l.meta["level_spread"]
+    assert any("fill a band evenly" in w for w in shark_l.meta["warnings"])
+    assert "noise_scale = diff" in shark_l.meta["summary"]
+    assert not any("fill a band evenly" in w for w in clean_l.meta["warnings"])
 
 
 
@@ -168,11 +177,11 @@ def test_sharkfin_residual_above_1_5_is_flagged_in_the_summary():
     for k in range(1, n // period - 1):
         x[k * period:(k + 1) * period] += fin
     x += 1e-4 * np.random.default_rng(0).standard_normal(n)
-    r = _run(x, recovery_half_s=HALF_S)
+    r = _run(x, recovery_half_s=HALF_S, noise_scale="diff")    # level: see the sharkfin test above
     assert r.meta["residual_sd_sigma"] > 1.5
     assert any("residual SD" in w for w in r.meta["warnings"])
     assert "residual SD" in r.meta["summary"] and "not a trough count" in r.meta["summary"]
-    clean = _run(troughs_12h(seed=0)[0], recovery_half_s=HALF_S)
+    clean = _run(troughs_12h(seed=0)[0], recovery_half_s=HALF_S, noise_scale="diff")
     assert not any("residual SD" in w for w in clean.meta["warnings"])
 
 
