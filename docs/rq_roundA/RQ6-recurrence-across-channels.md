@@ -92,6 +92,15 @@ The question is: after you remove the first two, is there still recurrence left?
     flagged of 11; a sandbox walk confirmed 2 and rejected 1, and *excluding artifacts* went 11 → 9.
   - **No propagation survives on these families**: every 1–50 s pair either failed the chance test or fell under 0.5.
 
+- **Four external recordings derived 2026-10-13, not yet registered** (`scripts/derive_adamatzky_four_species.py`):
+  Adamatzky's four-species dataset (Zenodo 10.5281/zenodo.5790768; the paper is RSOS 9:211926) as
+  `DATA/derived/channels/Cordyceps_militaris_fs1`, `Flammulina_velutipes_fs1`, `Omphalotus_nidiformis_fs1`,
+  `Schizophyllum_commune_fs1` — seven differential pairs each, 1 Hz (documented, corroborated against the paper's
+  figure 3 axes), millivolts as exported, 22.0 / 12.5 / 38.0 / 3.05 days. Once registered (Settings › Datasets) they are
+  the first recordings of *other species* the question's "across recordings" arm can be put to; the per-dataset noise
+  floor needs setting for each (the ghost fungus sits at 0.007 mV average spike amplitude per the paper, far under the
+  0.1 mV default).
+
 ## Decisions already made
 
 - **Q40a (2026-10-03): lag is measured on the same absolute window on both channels, always.** Motifs on sibling
@@ -161,3 +170,5 @@ defect, not as a result.
 - 2026-10-04 · fixup-ae · the noise floor as a Library view filter (on by default); recurrence counted over above-floor
   members only; a Recurrence cell opens its members in place; F-130 / F-119 / F-39 measured above the floor (11 / 7 / 26).
 - 2026-10-05 · fixup-ad · every bin beats a per-pair random-time null; artifact r ≥ 0.98; noise floor on both swings; < 30 samples too short to tell; the machine flags, a human confirms in a Suspected artifact Review queue (annotations, five words + a note); recurrence excludes only confirmed artifacts. M2_aug flags 673 → 64; F-130 54 → 10 (0 on Fig2A).
+- 2026-10-13 · data · four Adamatzky species recordings derived into `DATA/derived/channels/*_fs1` (1 Hz, mV, gaps filled and listed in each manifest); registration and noise floors still to do.
+- 2026-10-13 · data · four mfs2 logger CSVs (the researcher's own device, four single-ended ADC channels) derived as `DATA/derived/channels/Dwij_A..D_fs0p8` by `scripts/derive_dwij_mfs2.py`: timestamps resampled onto a uniform 1.25 s grid (0.8 Hz), mV as written by the device; 16 min / 17.4 h / 8.3 h / 29.3 h; registration still to do.
