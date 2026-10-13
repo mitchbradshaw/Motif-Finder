@@ -38,6 +38,8 @@ from Working.types import SpanSet, WindowSet
 NAME = "catalogue.event_windows"
 #: more than this share of the windows ending before their event recovered -> a warning naming length_s
 RECOVERY_WARN_FRAC = 0.25
+#: meta lists at most this many left-out rows per reason (the counts in `omitted` are always complete)
+OMITTED_ROWS_MAX = 4096
 
 
 def _require(value):
@@ -98,9 +100,15 @@ def _run(x, t, fs, anchor="onset", length_s=0.0, pre_frac=EW.DEFAULT_PRE_FRAC, m
             f"{n_rec_out} of {len(ew.starts)} windows end before their event has recovered (its recovery point "
             f"lies outside the window): the window ({ew.length_s:g} s) cuts the recovery off. Raise length_s "
             f"if the waveform after the trough matters (window images, MiniRocket, families).")
+    cut = {r: len(v) - OMITTED_ROWS_MAX for r, v in ew.omitted_rows.items() if len(v) > OMITTED_ROWS_MAX}
+    notes = list(ew.notes)
+    if cut:
+        notes.append(f"omitted_rows lists at most {OMITTED_ROWS_MAX} rows per reason; not listed: "
+                     + ", ".join(f"{r} {c}" for r, c in cut.items()) + " (the counts in omitted are complete).")
     meta = {
         "n_events": n_events, "n_windows": int(len(ew.starts)), "omitted": dict(ew.omitted),
-        "omitted_rows": {r: [int(i) for i in v[:4096]] for r, v in ew.omitted_rows.items()},
+        "omitted_rows": {r: [int(i) for i in v[:OMITTED_ROWS_MAX]] for r, v in ew.omitted_rows.items()},
+        "omitted_rows_cut": cut,
         "n_overlapping": int(feats["overlaps_next"].sum()), "n_split_leaks": _split_leaks(ew.starts, ew.length, labels),
         "length_s": ew.length_s, "length": ew.length, "length_basis": ew.length_basis,
         "anchor": anchor, "anchor_used": ew.anchor_used, "anchor_offset": ew.anchor_offset,
@@ -109,7 +117,7 @@ def _run(x, t, fs, anchor="onset", length_s=0.0, pre_frac=EW.DEFAULT_PRE_FRAC, m
         "split_counts": {name: int((labels == i).sum()) for i, name in enumerate(SPLIT_NAMES)},
         "n_recovery_outside_window": n_rec_out, "n_duration_unmeasured": ew.n_duration_unmeasured,
         "warnings": warnings,
-        "notes": list(ew.notes), "summary": _summary(n_events, ew),
+        "notes": notes, "summary": _summary(n_events, ew),
         "rules": EW.rules(anchor=anchor, pre_frac=pre_frac, max_nan_frac=max_nan_frac, length_s=length_s,
                           length_basis=ew.length_basis),
         "carried": [c for c in feats.columns if c not in EW.NOT_FEATURES],
