@@ -14,11 +14,16 @@ NOT changed (a `model` parameter would change the recipe hash of every saved
 classifier run): the paper pairs MiniRocket with a ridge classifier, the site's
 classifier is a random forest.
 
-Cost: O(windows × length × features). `estimate` scales the calibrated seconds per
-span sample (`Working.block_cost`, timed at the default 10,000 features on 600-sample
-windows tiling the calibration signal) by the feature count asked for. A pool's
-windows do not come from the span, so its estimate is the span's, not the pool's —
-see the module report.
+Cost: O(windows × length × features), and nearly all of it is the transform and building the
+table. The calibration (`Working.block_cost`) first runs an untimed warm-up — the aeon import
+(14-45 s in a fresh process) and numba's kernel load, once per process — then times
+`CAL_WINDOWS_PER_LENGTH` = 120 windows of 600 samples per 600 samples of the calibration signal
+(stride 5: 3,881 windows of the 20,000-sample signal, a second or two of real work) at the
+default 10,000 features. The stored `k` is therefore 120 × the seconds per window-sample.
+`estimate` only sees the span's length, not the window set, so it assumes the densest grid the
+shipped templates make — the labels' 600/200 grid, every sample in `GRID_OVERLAP` = 3 windows —
+and scales by the feature count asked for. A window set that tiles the span costs a third of the
+estimate; a pool's windows do not come from the span at all, so its estimate is only the span's.
 """
 
 import numpy as np
@@ -30,6 +35,10 @@ from Working.block_cost import estimate_seconds, register_cost_model
 NAME = "catalogue.minirocket"
 COST_MODEL = NAME
 _CAL_WINDOW = 600
+#: calibration windows per window length of the calibration signal (stride 600 / 120 = 5 samples)
+CAL_WINDOWS_PER_LENGTH = 120
+#: windows per span sample the estimate assumes: the labels' 600/200 grid
+GRID_OVERLAP = 3
 
 
 def _mr():
@@ -37,23 +46,33 @@ def _mr():
     return MR
 
 
+def _warm_up():
+    """Untimed, before the calibration: import aeon and run one tiny transform (numba loads its kernels)."""
+    _mr().fingerprint_matrix(np.random.default_rng(0).standard_normal((4, 64)), n_features=84)
+
+
 def _time_once(x, fs):
-    """The calibration run: 600-sample windows tiling the calibration signal, the default 10,000 features."""
+    """The calibration run: `CAL_WINDOWS_PER_LENGTH` windows of 600 samples per 600 samples of the calibration
+    signal (stride 5), the default 10,000 features, fitted on the first 80 %."""
     import pandas as pd
     from Working.types import WindowSet
+    MR = _mr()
     n = len(x)
-    starts = np.arange(0, n - _CAL_WINDOW + 1, _CAL_WINDOW, dtype=np.int64)
+    stride = max(1, _CAL_WINDOW // CAL_WINDOWS_PER_LENGTH)
+    starts = np.arange(0, n - _CAL_WINDOW + 1, stride, dtype=np.int64)
     split = (np.arange(len(starts)) >= int(0.8 * len(starts))).astype(np.int64) * 2
     ws = WindowSet(starts=starts, length=_CAL_WINDOW, fs=fs, features=pd.DataFrame({"split": split}))
-    _mr().fingerprint(ws, x, np.arange(n) / fs, fs)
+    MR.fingerprint(ws, x, np.arange(n) / fs, fs, n_features=MR.DEFAULT_N_FEATURES)
 
 
-register_cost_model(COST_MODEL, 1.0, _time_once)
+register_cost_model(COST_MODEL, 1.0, _time_once, warm_up=_warm_up)
 
 
 def _estimate(x, t, fs, n_features=10_000, **params):
-    """Seconds for this span at `n_features`; None until `Working.block_cost.calibrate()` has timed it."""
-    base = estimate_seconds(COST_MODEL, len(x) if x is not None else 0)
+    """Seconds for this span at `n_features` on the labels' 600/200 grid (`GRID_OVERLAP` windows per sample);
+    None until `Working.block_cost.calibrate()` has timed it."""
+    n = len(x) if x is not None else 0
+    base = estimate_seconds(COST_MODEL, n * GRID_OVERLAP / CAL_WINDOWS_PER_LENGTH)
     if base is None:
         return None
     MR = _mr()
