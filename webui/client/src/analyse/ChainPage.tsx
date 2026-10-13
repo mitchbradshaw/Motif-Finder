@@ -478,7 +478,7 @@ export function ChainPage() {
           <button className="btn" onClick={saveAsTemplate} data-testid="save-template" disabled={!n}>▢ Save template</button>
           {running ? <button className="btn danger" onClick={cancel} data-testid="cancel-button" disabled={cancelling}
               title={cancelling ? 'cancel accepted · the run stops when the current stage ends, because cancel is checked between steps and never mid-step' : 'stop the run after the current stage'}>{cancelling ? '■ Cancelling…' : '■ Cancel'}</button>
-            : <button className="btn primary" onClick={run} disabled={!canRun} data-testid="run-button" title={runTitle}>{runLabel}</button>}
+            : <button className="btn next" onClick={run} disabled={!canRun} data-testid="run-button" title={runTitle}>{runLabel}</button>}
         </div>
 
         <CrosshairProvider value={{ t: cross, setT: setCross }}>

@@ -23,7 +23,9 @@ keyboard reachable, and shows a focus ring.
 - **P9:** explanations live behind `InfoTip` (ⓘ), not in paragraphs on the page.
 - **Colour semantics (spec §3):** blue active/machine · green human/cached · amber attention/stale · red failed/artifact ·
   purple cluster/second algorithm · grey inactive. `Badge status=` already maps these (`STATUS_TONE`). Cluster actions use
-  `Button variant="cluster"` (purple); the one primary action per area uses `variant="primary"`.
+  `Button variant="cluster"` (purple). Since 2026-10-13 a page's ONE typical next step on the Explore → Analyse → Review
+  path uses `variant="next"` (green, the path strip's green); any other viable action `variant="primary"` (a quieter
+  blue — never grey, which reads as "do not click").
 - **mV and time:** traces are mV, never normalised. Thumbnails that belong together share one `yDomain`. Time axes print hours
   since recording start (`192.40 h`, `timeUnit="h"`), event durations in seconds (`fmtS`). `fmtMv(-0.34)` → `−0.34 mV`,
   `fmtInt(1284)` → `1,284`, `fmtPct(0.27)` → `27 %`.

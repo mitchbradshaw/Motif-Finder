@@ -100,8 +100,11 @@
 .k-btn:hover:not(:disabled) { background: #f9fafb; }
 .k-btn:active:not(:disabled) { transform: translateY(0.5px); }
 .k-btn:disabled { opacity: 1; color: var(--muted-2); background: var(--k-fill); border-color: var(--border); cursor: not-allowed; }
-.k-btn.primary { background: var(--blue); border-color: var(--blue); color: #fff; }
-.k-btn.primary:hover:not(:disabled) { background: var(--blue-600); border-color: var(--blue-600); }
+/* primary is a quieter blue since 2026-10-13: a viable action, not THE next step; `next` (green) is the one typical next step */
+.k-btn.primary { background: var(--blue-muted); border-color: var(--blue-muted); color: #fff; }
+.k-btn.primary:hover:not(:disabled) { background: var(--blue-muted-600); border-color: var(--blue-muted-600); }
+.k-btn.next { background: var(--green); border-color: var(--green); color: #fff; }
+.k-btn.next:hover:not(:disabled) { background: var(--green-600); border-color: var(--green-600); }
 .k-btn.cluster { background: var(--purple); border-color: var(--purple); color: #fff; }
 .k-btn.cluster:hover:not(:disabled) { background: #7a45ea; }
 .k-btn.success { background: var(--green); border-color: var(--green); color: #fff; }
@@ -115,7 +118,7 @@
 .k-btn.link { border-color: transparent; background: transparent; color: var(--blue); padding: 0 4px; height: auto; min-height: 22px; }
 .k-btn.link:hover:not(:disabled) { background: transparent; text-decoration: underline; }
 .k-btn.link:disabled { background: transparent; }
-.k-btn.primary:disabled, .k-btn.cluster:disabled, .k-btn.success:disabled, .k-btn.danger-solid:disabled, .k-btn.danger:disabled { background: var(--k-fill); border-color: var(--border); color: var(--muted-2); }
+.k-btn.primary:disabled, .k-btn.next:disabled, .k-btn.cluster:disabled, .k-btn.success:disabled, .k-btn.danger-solid:disabled, .k-btn.danger:disabled { background: var(--k-fill); border-color: var(--border); color: var(--muted-2); }
 .k-btn.sm { height: 24px; padding: 0 8px; font-size: 11px; border-radius: 6px; gap: 4px; }
 .k-btn.lg { height: 36px; padding: 0 16px; font-size: 13px; }
 .k-btn.block { width: 100%; }

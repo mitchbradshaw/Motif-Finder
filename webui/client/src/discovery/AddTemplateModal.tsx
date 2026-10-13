@@ -8,7 +8,7 @@ import {
 import { useSourced } from '../api/seam'
 import { navigate } from '../state'
 import { useToast } from '../shell/Toast'
-import { REBIND_EXEMPLARS, getBands, getBandsFor, getTemplates, previewRun, fmtMin, DISCOVERY_LIMIT_MIN, type DiscoveryTemplate, type MeasuredPreview } from '../api/discovery'
+import { getRebindExemplars, getBands, getBandsFor, getTemplates, previewRun, fmtMin, DISCOVERY_LIMIT_MIN, type DiscoveryTemplate, type MeasuredPreview } from '../api/discovery'
 import { applyDiscoveryTemplates, applyDiscoveryTemplatesWithBands, type DiscBand } from '../api'
 import { RunGlyph } from './glyphs'
 import { LoadFailed, Loading } from './chrome'
@@ -30,6 +30,8 @@ export function AddTemplateModal({ open, onClose, dx, onSlurm }: { open: boolean
   const [kind, setKind] = useState('all')
   const [sort, setSort] = useState('last')
   const [exemplar, setExemplar] = useState<Record<string, string>>({})
+  // 2026-10-13: the bridge's seed list, not the three-entry fixture the dropdown used to be fed from
+  const exemplarsRead = useSourced(getRebindExemplars, [])
   const toast = useToast()
   const notWired = useNotWired()
   const s = dx.scope!
@@ -115,8 +117,8 @@ export function AddTemplateModal({ open, onClose, dx, onSlurm }: { open: boolean
   const blockReason = chosen.length === 0 ? 'select at least one template' : needsExemplar ? `${needsExemplar.name} needs an exemplar`
     : bandMode === 'bands' && nBands === 0 ? 'choose at least one band, or set the band scope to none' : null
   const apply = (run: boolean) => nBands
-    ? applyDiscoveryTemplatesWithBands(chosen.map(t => t.name), s.channels, s.section[0], s.section[1], run, chosenBands)
-    : applyDiscoveryTemplates(chosen.map(t => t.name), s.channels, s.section[0], s.section[1], run)
+    ? applyDiscoveryTemplatesWithBands(chosen.map(t => t.name), s.channels, s.section[0], s.section[1], run, chosenBands, exemplar)
+    : applyDiscoveryTemplates(chosen.map(t => t.name), s.channels, s.section[0], s.section[1], run, exemplar)
 
   /* §7.5's *Add runs* / *Add and run*. This is a real POST: it used to add a
    * row to React state and drive a timer, which meant the row's "running", its
@@ -240,7 +242,8 @@ export function AddTemplateModal({ open, onClose, dx, onSlurm }: { open: boolean
                 {focus.bind === 'rebind' && (
                   <div className="dsc-rebind" data-testid="rebind-exemplar">
                     <span className="small"><b>exemplar</b> <span className="muted">required · rebind asks for one when applied</span></span>
-                    <Dropdown value={exemplar[focus.name] ?? ''} placeholder="choose an exemplar" onChange={v => setExemplar({ ...exemplar, [focus.name]: v })} options={REBIND_EXEMPLARS} testid="rebind-select" block />
+                    <Dropdown value={exemplar[focus.name] ?? ''} placeholder="choose an exemplar" onChange={v => setExemplar({ ...exemplar, [focus.name]: v })} options={exemplarsRead.data ?? []} testid="rebind-select" block
+                      disabled={!exemplarsRead.data} disabledReason={exemplarsRead.error ? 'the seed list did not load' : 'loading the seed list…'} />
                     {sel.includes(focus.name) && !exemplar[focus.name] && <span className="dsc-err">{focus.name} needs an exemplar</span>}
                   </div>
                 )}

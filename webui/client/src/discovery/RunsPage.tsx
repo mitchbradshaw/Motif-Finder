@@ -51,7 +51,7 @@ export function RunsPage() {
     ? <DisabledReason reason="nothing to run — every run in this session has results or is on the cluster"><Button icon="play" disabled disabledReason="nothing to run — every run in this session has results or is on the cluster" testid="toolbar-run">Run</Button></DisabledReason>
     : dx.overLimit
       ? <Button variant="cluster" icon="file" onClick={() => { setSlurmKeys(null); setModal('slurm') }} testid="toolbar-slurm">Create SLURM script for {dx.pending.length}</Button>
-      : <Button variant="primary" icon="play" onClick={runLocal} testid="toolbar-run">Run {dx.pending.length}</Button>
+      : <Button variant="next" icon="play" onClick={runLocal} testid="toolbar-run">Run {dx.pending.length}</Button>
 
   return (
     <>
@@ -423,7 +423,7 @@ function RunActs({ dx, run }: { dx: Discovery; run: DiscoveryRun | null }) {
       <Button icon="branch" onClick={() => { recordDemoWrite('analyse', 'import-spanset', { run: run.key }); notWired(`send SpanSet of ${run.label} to Analyse`); navigate('analyse/chain') }} disabled={!!reason} disabledReason={reason ?? undefined} testid="analyse-events">Analyse events</Button>
       {sent[run.key] != null
         ? <Button icon="check" onClick={() => navigate(`review/queue/${sent[run.key].queueId}`)} testid="send-to-review" data-queue={sent[run.key].queueId}>Sent {sent[run.key].n} · open in Review · then refresh</Button>
-        : <Button variant="primary" icon="arrow-right" onClick={send} disabled={!!reason || unjudged === 0} disabledReason={reason ?? 'nothing unjudged'} testid="send-to-review">Send {unjudged} unjudged to Review</Button>}
+        : <Button variant="next" icon="arrow-right" onClick={send} disabled={!!reason || unjudged === 0} disabledReason={reason ?? 'nothing unjudged'} testid="send-to-review">Send {unjudged} unjudged to Review</Button>}
       {/* fixup-v: a seed run's accepted matches become members of the entry it searched for, with their edges */}
       {run.kind === 'seed' && results && <AddMatchesButton run={run} />}
       <Modal open={confirm === 'discard' && !reason} onClose={() => setConfirm(null)} title={`Discard ${run.label}?`} size="sm" testid="discard-modal"

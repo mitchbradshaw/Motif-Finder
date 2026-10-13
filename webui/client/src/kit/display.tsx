@@ -47,14 +47,16 @@ export function DisabledReason({ reason, children, disabled = true, block, place
 }
 
 /* ================= Button ================= */
-export type ButtonVariant = 'default' | 'primary' | 'cluster' | 'success' | 'danger' | 'danger-solid' | 'ghost' | 'subtle' | 'link'
+export type ButtonVariant = 'default' | 'primary' | 'next' | 'cluster' | 'success' | 'danger' | 'danger-solid' | 'ghost' | 'subtle' | 'link'
 export interface ButtonProps extends Omit<ButtonHTMLAttributes<HTMLButtonElement>, 'children'>, TestIdProps {
   variant?: ButtonVariant; size?: 'sm' | 'md' | 'lg'; icon?: IconName; iconRight?: IconName; loading?: boolean
   /** Required whenever `disabled` is true: shown as tooltip + title. */
   disabledReason?: string; block?: boolean; children?: ReactNode; ref?: Ref<HTMLButtonElement>
 }
 const warnedNoReason = new Set<string>()
-/** The kit button (mono label, 30 px). `variant="cluster"` is the purple "Create SLURM script" button. */
+/** The kit button (mono label, 30 px). `variant="next"` (green) is a page's ONE typical next step on the
+ *  Explore → Analyse → Review path; `variant="primary"` (a quieter blue) any other viable action — never grey, which
+ *  reads as "do not click" (the researcher, 2026-10-13). `variant="cluster"` is the purple "Create SLURM script" button. */
 export function Button({ variant = 'default', size = 'md', icon, iconRight, loading, disabledReason, block, children, className, disabled, type = 'button', ref, ...rest }: ButtonProps) {
   const isDisabled = !!disabled || !!loading
   const iconOnly = !children && !!icon

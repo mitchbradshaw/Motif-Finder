@@ -6,6 +6,7 @@ import { useReviewNeedYou } from '../api/needYou'
 import { navigate, useApp } from '../state'
 import { useNotWired } from '../kit/notWired'
 import { useDemoState } from '../kit/store'
+import { PathStrip } from './PathStrip'
 
 export interface HeaderSpec {
   workspace: string; page: string; subtitle?: string; search?: string; demo?: boolean; extra?: ReactNode
@@ -36,6 +37,7 @@ export function Header({ workspace, page, subtitle, search = 'Search spans, runs
         {subtitle && <span className="hdr-sub mono">{subtitle}</span>}
         {demo && <span className="chip demo" data-testid="demo-chip" title="parts of this page show fixture data from the spec §0 placeholder canon, not your database; writes stay in this browser tab until reload (live pages keep their live regions live)">demo data</span>}
       </div>
+      <PathStrip />
       <div className="hdr-right">
         {extra}
         <button className="hdr-search mono" data-testid="header-search" title={onSearch ? search : 'global search is not wired yet'}
@@ -56,7 +58,7 @@ export function Header({ workspace, page, subtitle, search = 'Search spans, runs
       </div>
       <style>{`
         .hdr { height: var(--header-h); display: flex; align-items: center; justify-content: space-between; padding: 0 20px; background: var(--bg); border-bottom: 1px solid var(--border); flex: none; }
-        .hdr-left { display: flex; align-items: center; gap: 12px; min-width: 0; }
+        .hdr-left { display: flex; align-items: center; gap: 12px; min-width: 0; flex: 1 1 auto; }
         .hdr-ws { font-weight: 700; font-size: 15px; }
         .hdr-page { font-size: 13.5px; color: var(--text-2); }
         .hdr-sub { font-size: 11px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }

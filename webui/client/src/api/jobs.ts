@@ -36,6 +36,8 @@ export interface LiveJob {
   /** 0…1, or null when the job does not count its work */
   fraction: number | null; message: string
   started: Date | null; finished: Date | null; durationS: number | null
+  /** the recipe's time estimate over its span, for a chain run; null when no step can say */
+  estimateS: number | null
   error: { message: string; type: string; traceback?: string } | null
   restored: boolean; route: string | null; routeLabel: string | null; jobDir: string | null
 }
@@ -88,6 +90,7 @@ export function toLiveJob(j: JobRow): LiveJob {
     fraction, message, started, finished, durationS: Number.isFinite(durationS as number) ? durationS : (elapsed ?? null),
     error: j.error ? { message: j.error.message, type: j.error.type, traceback: j.error.traceback } : null,
     restored: !!j.restored, route, routeLabel, jobDir: typeof meta.job_dir === 'string' ? meta.job_dir : null,
+    estimateS: typeof j.estimate_s === 'number' ? j.estimate_s : null,
   }
 }
 

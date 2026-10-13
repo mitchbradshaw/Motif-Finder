@@ -317,6 +317,8 @@ export interface JobRow {
   started_at: number | string; finished_at: number | string | null; db_run_id: number | null; restored?: boolean
   progress?: { done: number; total: number | null; message: string } | Record<string, unknown>; meta?: Record<string, unknown>; result?: unknown
   steps?: JobStep[]; recipe?: JobSnapshot['recipe']; n_steps?: number; current_step?: number | null
+  /** a chain run's time estimate over its span, known when it starts; null when no step can say (2026-10-13) */
+  estimate_s?: number | null
 }
 export const listJobs = (limit = 50) => req<JobRow[]>(`/api/jobs?limit=${limit}`)
 export const getJob = (id: number) => req<JobRow>(`/api/jobs/${id}`)
@@ -618,8 +620,10 @@ export interface DiscPreview { estimate_s: number; route: 'local' | 'cluster'; c
 export const postDiscoveryPreview = (body: DiscPlanBody) => post<DiscPreview>('/api/discovery/preview', body)
 
 export interface DiscApplyResult { run_key: string; job_id: number | null; route: string; ceiling_s: number; estimate_s: number | null; started: boolean; note: string | null }
-export const applyDiscoveryTemplates = (templates: string[], channels: string[], t0: number, t1: number, run = true) =>
-  post<DiscApplyResult[]>('/api/discovery/templates/apply', { templates, channels, t0, t1, run })
+/** `exemplars` (2026-10-13): template name -> seed id, the exemplar each `rebind` template is applied with.
+ *  It used to stay in the browser, so a rebind template went out with an empty binding and the core refused it. */
+export const applyDiscoveryTemplates = (templates: string[], channels: string[], t0: number, t1: number, run = true, exemplars?: Record<string, string>) =>
+  post<DiscApplyResult[]>('/api/discovery/templates/apply', { templates, channels, t0, t1, run, exemplars })
 export const runDiscoverySeedSearch = (body: DiscSeedQuery & { label?: string; cut?: number }) =>
   post<{ run_key: string; job_id: number | null; route: string; started: boolean }>('/api/discovery/seed/run', body)
 export const postDiscoverySlurm = (body: DiscPlanBody) =>
@@ -1004,8 +1008,8 @@ export interface DiscRun { band?: DiscBand; bandSet?: string | null; bandIndex?:
 export interface DiscPlanBody { band?: DiscBand; bands?: DiscBand[] }
 export interface DiscPlan { nBands?: number; bands?: (DiscBand & { estimate_s: number | null; route: string })[]; band?: DiscBand | null }
 export interface DiscApplyResult { band?: DiscBand; bandSet?: string; applicationEstimate_s?: number | null }
-export const applyDiscoveryTemplatesWithBands = (templates: string[], channels: string[], t0: number, t1: number, run: boolean, bands: DiscBand[]) =>
-  post<DiscApplyResult[]>('/api/discovery/templates/apply', { templates, channels, t0, t1, run, bands })
+export const applyDiscoveryTemplatesWithBands = (templates: string[], channels: string[], t0: number, t1: number, run: boolean, bands: DiscBand[], exemplars?: Record<string, string>) =>
+  post<DiscApplyResult[]>('/api/discovery/templates/apply', { templates, channels, t0, t1, run, bands, exemplars })
 export interface DiscVerdictSplit { n: number; judged: number; accepted: number; rejected: number; other: number; unjudged: number }
 export interface DiscSetMember { run: string; label: string; band: DiscBand; found: number; status: string; colour: string }
 export interface DiscSide { isSet?: boolean; members?: DiscSetMember[]; template?: string; cellsNote?: string; precisionNote?: string }

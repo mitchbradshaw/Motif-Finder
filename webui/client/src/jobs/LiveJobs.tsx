@@ -96,7 +96,9 @@ export function LocalJobsCard({ q, limit, onMore }: { q: LiveRead<LiveJob[]>; li
   const shown = useMemo(() => (data ?? [])
     .filter(j => kind === 'all' ? true : kind === 'other' ? !['training', 'chain_run', 'import'].includes(j.kind) : j.kind === kind)
     .filter(j => status === 'all' ? true : status === 'active' ? isActive(j) : status === 'failed' ? j.status === 'failed' : j.status === 'completed')
-    .sort((a, b) => Number(isActive(b)) - Number(isActive(a)) || b.id - a.id), [data, kind, status])
+    .sort((a, b) => Number(isActive(b)) - Number(isActive(a)) || b.id - a.id)
+    // the bridge lists its in-memory jobs on top of the limit it was asked for; the cap holds here too (2026-10-13)
+    .slice(0, limit), [data, kind, status, limit])
   return (
     <section className="jb-live-card" data-testid="live-local-jobs" id="jobs-live-local">
       <div className="head">
@@ -115,8 +117,8 @@ export function LocalJobsCard({ q, limit, onMore }: { q: LiveRead<LiveJob[]>; li
         caption="training a model, building a window set or a tree, labelling work, sweeps and imports are listed here as they run" />}
       {data && !!shown.length && (
         <table className="jb-table jb-live" data-testid="live-local-table">
-          <colgroup><col style={{ width: 56 }} /><col /><col style={{ width: 210 }} /><col style={{ width: 150 }} /><col style={{ width: 96 }} /><col style={{ width: 132 }} /></colgroup>
-          <thead><tr><th>id</th><th>job · stage</th><th>state · progress</th><th>started</th><th>took</th><th /></tr></thead>
+          <colgroup><col style={{ width: 56 }} /><col /><col style={{ width: 210 }} /><col style={{ width: 150 }} /><col style={{ width: 90 }} /><col style={{ width: 90 }} /><col style={{ width: 132 }} /></colgroup>
+          <thead><tr><th>id</th><th>job · stage</th><th>state · progress</th><th>started</th><th>estimate</th><th>took</th><th /></tr></thead>
           <tbody>
             {shown.map(j => (
               <LocalRow key={j.id} j={j} open={open === j.id} onToggle={() => setOpen(open === j.id ? null : j.id)} onCancelled={q.reload} />
@@ -124,7 +126,7 @@ export function LocalJobsCard({ q, limit, onMore }: { q: LiveRead<LiveJob[]>; li
           </tbody>
         </table>
       )}
-      {data && data.length >= limit && <Button size="sm" variant="link" testid="live-local-more" onClick={onMore}>show older jobs</Button>}
+      {data && data.length >= limit && <Button size="sm" variant="link" testid="live-local-more" onClick={onMore}>show older jobs{data.length > limit ? ` · ${data.length - limit} more listed` : ''}</Button>}
     </section>
   )
 }
@@ -156,6 +158,8 @@ function LocalRow({ j, open, onToggle, onCancelled }: { j: LiveJob; open: boolea
           {j.status === 'failed' && j.error && <div className="jb-live-msg jb-red" title={j.error.message}>{j.error.message}</div>}
         </td>
         <td><span className="jb-time">{fmtWhen(j.started)}</span></td>
+        <td><span className="jb-time" data-testid={`live-job-estimate-${j.id}`} title={j.estimateS != null ? 'the recipe\'s estimate over its span, from each block\'s own estimator' : 'no estimate for this job: a step has no estimator calibrated here, or the job is not a chain run'}>
+          {j.estimateS != null ? `~${fmtDur(j.estimateS)}` : <span className="jb-muted">—</span>}</span></td>
         <td><span className="jb-time">{fmtDur(j.durationS)}</span></td>
         <td className="jb-act" onClick={e => e.stopPropagation()}>
           {active && j.kind !== 'chain_run' && <Button size="sm" variant="link" testid={`live-job-cancel-${j.id}`} onClick={() => { void cancelJob(j.id).then(onCancelled, onCancelled) }}>Cancel</Button>}
@@ -163,7 +167,7 @@ function LocalRow({ j, open, onToggle, onCancelled }: { j: LiveJob; open: boolea
         </td>
       </tr>
       {open && (
-        <tr className="jb-live-detail"><td colSpan={6} data-testid={`live-job-detail-${j.id}`}>
+        <tr className="jb-live-detail"><td colSpan={7} data-testid={`live-job-detail-${j.id}`}>
           <div className="jb-row wrap jb-small jb-mono">
             <span>job {j.id} · {j.kindLabel} · {j.status}</span><span>started {fmtWhen(j.started)}</span>
             <span>{j.finished ? `finished ${fmtWhen(j.finished)}` : 'not finished'}</span><span>took {fmtDur(j.durationS)}</span>
@@ -262,6 +266,9 @@ export function ClusterJobsCard({ q, imp, seedImp }: { q: LiveRead<ClusterList>;
   const [open, setOpen] = useState<string | null>(null)
   const [filter, setFilter] = useState<ClusterFilter>('all')
   const rows = useMemo(() => (data?.jobs ?? []).filter(r => inFilter(r, filter)), [data, filter])
+  // six rows by default, so the three boards fit one screen (2026-10-13); "show all" lists the rest
+  const [showAll, setShowAll] = useState(false)
+  const visible = showAll ? rows : rows.slice(0, CLUSTER_ROWS)
   const c = data?.counts
   return (
     <section className="jb-live-card" data-testid="exported-jobs" id="jobs-cluster">
@@ -296,7 +303,7 @@ export function ClusterJobsCard({ q, imp, seedImp }: { q: LiveRead<ClusterList>;
           <colgroup><col /><col style={{ width: 92 }} /><col style={{ width: 150 }} /><col style={{ width: 120 }} /><col style={{ width: 230 }} /><col style={{ width: 150 }} /></colgroup>
           <thead><tr><th>job</th><th>recipe</th><th>written</th><th>to copy</th><th>state</th><th /></tr></thead>
           <tbody>
-            {rows.map(r => (
+            {visible.map(r => (
               <ClusterRow key={`${r.source}:${r.name}`} r={r} open={open === r.name} onToggle={() => setOpen(open === r.name ? null : r.name)}
                 importing={(imp.cur?.path === r.import_path && (imp.cur.status === 'starting' || imp.cur.status === 'running'))
                   || (seedImp.cur?.path === r.import_path && seedImp.cur.status === 'running')}
@@ -306,9 +313,16 @@ export function ClusterJobsCard({ q, imp, seedImp }: { q: LiveRead<ClusterList>;
           </tbody>
         </table>
       )}
+      {rows.length > CLUSTER_ROWS && (
+        <Button size="sm" variant="link" testid="exported-more" onClick={() => setShowAll(v => !v)}>
+          {showAll ? `show the first ${CLUSTER_ROWS}` : `show all ${rows.length}`}
+        </Button>
+      )}
     </section>
   )
 }
+
+const CLUSTER_ROWS = 6
 
 function ClusterRow({ r, open, onToggle, importing, seedOutcome, onImport }: {
   r: ClusterJob; open: boolean; onToggle: () => void; importing: boolean; seedOutcome: SeedImportFollow | null; onImport: () => void
@@ -352,6 +366,8 @@ function ClusterRow({ r, open, onToggle, importing, seedOutcome, onImport }: {
             ? <Button size="sm" variant="link" icon="external" testid={`exported-open-${r.name}`} title={r.open.label} onClick={() => navigate(r.open!.route)}>{openLabel}</Button>
             : <Button size="sm" variant={canImport ? 'primary' : 'default'} icon="download" loading={importing} disabled={!canImport} disabledReason={why}
                 testid={r.import_how === 'seed' ? `seed-import-${r.name}` : `exported-import-${r.name}`} onClick={onImport}>{r.import_how === 'seed' ? 'Import result' : 'Import results'}</Button>}
+          {/* the reason used to live only in the hover: a grey button with no words read as broken (2026-10-13) */}
+          {!r.open && !canImport && why && <div className="jb-live-msg" data-testid={`import-why-${r.name}`} title={why}>{why}</div>}
         </td>
       </tr>
       {open && (

@@ -18,7 +18,10 @@
   --blue-600: #0066d6;
   --blue-100: #e6f1ff;
   --blue-200: #bfdcff;
-  --green: #22a06b;
+  --blue-muted: #4f7dbd;      /* a viable action (buttons): quieter than --blue, never grey */
+  --blue-muted-600: #3f69a3;
+  --green: #22a06b;           /* the one typical next step (buttons, the path strip) */
+  --green-600: #1a8a5a;
   --green-100: #e6f6ee;
   --amber: #e8900c;
   --amber-100: #fff3e0;
@@ -107,8 +110,10 @@ svg text { font-family: var(--font-mono); font-size: 10px; fill: var(--muted); }
        background: var(--card); color: var(--text); font-family: var(--font-mono); font-size: 12px; white-space: nowrap; flex: none; }
 .btn:hover { background: #f9fafb; }
 .btn:disabled { opacity: 0.45; cursor: not-allowed; }
-.btn.primary { background: var(--blue); border-color: var(--blue); color: #fff; }
-.btn.primary:hover { background: var(--blue-600); }
+.btn.primary { background: var(--blue-muted); border-color: var(--blue-muted); color: #fff; }
+.btn.primary:hover { background: var(--blue-muted-600); }
+.btn.next { background: var(--green); border-color: var(--green); color: #fff; }
+.btn.next:hover { background: var(--green-600); }
 .btn.danger { border-color: var(--red); color: var(--red); background: #fff; }
 .btn.sm { height: 24px; padding: 0 8px; font-size: 11px; border-radius: 6px; }
 .btn.ghost { border-color: transparent; background: transparent; color: var(--blue); }

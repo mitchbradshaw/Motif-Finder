@@ -15,6 +15,7 @@ import { getDatasets, metaKey, type ExcerptOf, type MetaField } from '../api/set
 import { DatasetName, datasetOf, useDatasetNames } from '../naming'
 import { useToast } from '../shell/Toast'
 import { GridField, LoadFailed, Loading, LockedField, Row, SettingsShell } from './chrome'
+import { SpeciesField } from './SpeciesField'
 import { useSettingsPage } from './store'
 
 export function DatasetsPage() {
@@ -217,13 +218,8 @@ function Body({ data, reload }: { data: Data; reload: () => void }) {
                 ? <div className="small" style={{ color: 'var(--red)' }} data-testid="display-name-error">{nameError}</div>
                 : <div className="small muted" data-testid="display-name-hint">{meta('display_name').trim() ? `the file stays ${current.file}` : 'empty · called by its file'}</div>}
             </GridField>
-            <GridField label="species" info="Free text. The species already used on other datasets are offered below — click one to use it — but nothing is locked: type a new one." {...mark('species')} testid="f-species">
-              <TextField {...ro('species')} block placeholder="not set" testid="species" />
-              {!locked && data.speciesValues.filter(v => v !== meta('species')).length > 0 && (
-                <div className="s-suggest" data-testid="species-suggestions">
-                  {data.speciesValues.filter(v => v !== meta('species')).map(v => <button key={v} type="button" onClick={() => setMeta('species', v)}>{v}</button>)}
-                </div>
-              )}
+            <GridField label="species" info="A list: the common name with the Latin name in brackets, plus every species already used on another dataset. Choose other… to type one the list lacks. Nothing is locked: what is stored is text." {...mark('species')} testid="f-species">
+              <SpeciesField {...ro('species')} known={data.speciesValues} />
             </GridField>
             <GridField label="organism id" info="Identifies the individual organism across recordings. Give two datasets the same organism id and they are the same mushroom — three weeks apart, or resampled, or an excerpt of one another." {...mark('organism_id')} testid="f-organism">
               <TextField {...ro('organism_id')} block placeholder="not set" testid="organism-id" />

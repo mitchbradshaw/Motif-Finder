@@ -25,7 +25,8 @@ export function AllPage() {
   const section: Section | null = sectionQ === 'local' || sectionQ === 'cluster' || sectionQ === 'review' ? sectionQ
     : kindAlias === 'cluster' ? 'cluster' : filterAlias === 'queues' ? 'review' : filterAlias === 'local' ? 'local' : null
 
-  const [limit, setLimit] = useState(25)
+  // six rows, so the three boards fit one screen (the researcher, 2026-10-13); "show older jobs" pages further
+  const [limit, setLimit] = useState(6)
   const [reloadKey, setReloadKey] = useState(0)
   const bump = useCallback(() => setReloadKey(k => k + 1), [])
   const local = useLiveRead(() => getLocalJobs(limit), [limit, reloadKey], d => (d?.some(isActive) ? 2000 : 8000))

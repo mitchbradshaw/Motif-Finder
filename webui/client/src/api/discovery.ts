@@ -24,7 +24,7 @@ import { live, type Sourced } from './seam'
 import type { GlyphKind, Role } from '../fixtures/discovery'
 
 export type { GlyphKind, Role, RunKind, SeedSource } from '../fixtures/discovery'
-export { ROLES, EXTRA_RUN_COLOURS, REBIND_EXEMPLARS } from '../fixtures/discovery'
+export { ROLES, EXTRA_RUN_COLOURS } from '../fixtures/discovery'
 
 /** The bridge sends `null` for a sample that is not finite. NaN is exactly that; substituting a number
  *  would invent data the recording does not carry. */

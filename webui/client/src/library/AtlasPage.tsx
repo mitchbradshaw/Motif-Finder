@@ -262,7 +262,7 @@ function MotifRail({ f, inScope, scoped, refScale, grouping, traces }: { f: Moti
         { k: 'edges', v: f.edges },
       ]} testid="rail-stats" />
       <div className="lib-rail-actions">
-        <Button variant="primary" iconRight="arrow-right" testid="open-family" onClick={() => navigate(`library/family/${f.id}`)}>Open all {f.members} members</Button>
+        <Button variant="next" iconRight="arrow-right" testid="open-family" onClick={() => navigate(`library/family/${f.id}`)}>Open all {f.members} members</Button>
         {/* fixup-v: the seed is the exemplar's Library entry; `?seed=m-718` named a member id, which no seed id is */}
         <Button icon="target" iconRight="arrow-right" testid="seed-search" disabled={(f as typeof f & { exemplarEntryId?: number | null }).exemplarEntryId == null} disabledReason="the exemplar is not a Library entry"
           onClick={() => navigate(`discovery/seed?entry=${(f as typeof f & { exemplarEntryId?: number | null }).exemplarEntryId}`)}>Seed search in Discovery</Button>
@@ -411,7 +411,7 @@ function SequenceRail({ f, refScale, grouping, motifFamilies, traces }: { f: Seq
         and no waveform for the rest.
       </div>
       <div className="lib-rail-actions">
-        <Button variant="primary" iconRight="arrow-right" testid="open-family" onClick={() => navigate(`library/family/${f.id}?unit=sequences`)}>Open all {f.sequences} sequences</Button>
+        <Button variant="next" iconRight="arrow-right" testid="open-family" onClick={() => navigate(`library/family/${f.id}?unit=sequences`)}>Open all {f.sequences} sequences</Button>
         <span className="row" style={{ gap: 6, flexWrap: 'nowrap' }}>
           <Button icon="target" disabled disabledReason="needs multi-seed — no seed-search algorithm takes several seeds yet (§7.6)" testid="seed-search">Seed search in Discovery</Button>
           <InfoTip title="needs multi-seed">A sequence family has several events; no seed-search algorithm takes several seeds yet (§7.6), so Discovery cannot search for it.</InfoTip><span className="lib-cap" style={{ whiteSpace: 'nowrap' }}>needs multi-seed</span>

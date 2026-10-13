@@ -83,7 +83,7 @@ export function SpanActions({ channelKey, channelName, recordingId, fs, initial,
       <div>
         <div className="row" style={{ justifyContent: 'flex-end' }}>
           <Button onClick={save} testid="save-span">Save span</Button>
-          <Button iconRight="arrow-right" onClick={onSend} testid="send-span">Send span to Analyse</Button>
+          <Button variant="next" iconRight="arrow-right" onClick={onSend} testid="send-span">Send span to Analyse</Button>
           <Button variant="primary" iconRight="arrow-right" onClick={take} disabled={taking} disabledReason="writing the span…" testid="take-span">Take span for Review</Button>
         </div>
         <div className="caption" style={{ textAlign: 'right' }}>saving stores tags and note only · taking writes the span for Review · verdicts are given in Review</div>
