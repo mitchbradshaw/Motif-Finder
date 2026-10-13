@@ -51,7 +51,7 @@ def test_parameters_defaults_and_bounds():
     spec = get_adapter(NAME)
     p = spec.validate_params({})
     assert p == {"polarity": "drop", "recovery_half_s": 0.0, "rise_s": 0.0, "min_jump_sigma": 3.0,
-                 "baseline_window_s": 0.0}
+                 "baseline_window_s": 0.0, "noise_scale": "level"}
     with pytest.raises(ValueError):
         spec.validate_params({"polarity": "sideways"})
     with pytest.raises(ValueError):
@@ -76,7 +76,8 @@ def test_one_score_per_sample_in_noise_sds_and_meta():
     assert m["sigma"] == pytest.approx(1e-4, rel=0.25)          # stored units (volts)
     assert m["recovery_half_s_used"] == pytest.approx(HALF_S)
     assert m["recovery_estimated"] is False
-    assert m["s_min"] == pytest.approx(3.0 * m["sigma"])
+    assert m["noise_scale"] == "level" and m["scale"] == pytest.approx(m["sigma_level"])
+    assert m["s_min"] == pytest.approx(3.0 * m["scale"])
     assert {"name", "rule"} <= set(m["rules"][0])
     big = np.flatnonzero(r.value.values > 4.0)
     for o in onsets:

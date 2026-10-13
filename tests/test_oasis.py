@@ -154,7 +154,9 @@ def test_deconvolve_noise_free_troughs_finds_the_drops_in_noise_sd_units():
     onsets, depths = [300, 900, 960, 2000], [3e-3, 4e-3, 2e-3, 5e-3]
     rng = np.random.default_rng(0)
     x = 0.01 - kernel_sum(n, onsets, depths, g) + 1e-5 * rng.standard_normal(n)
-    out = O.deconvolve(x, FS, polarity="drop", recovery_half_s=HALF_S, min_jump_sigma=3.0)
+    # noise_scale="diff" pins the first-difference unit; the default level unit is pinned in
+    # test_deconvolve_noise_scale.py (on this short, trough-filled trace it reads ~2x the white noise)
+    out = O.deconvolve(x, FS, polarity="drop", recovery_half_s=HALF_S, min_jump_sigma=3.0, noise_scale="diff")
     big = np.flatnonzero(out.scores > 50)
     assert list(big) == onsets
     # scores are jumps in noise SDs: s / sigma, sigma in stored units
