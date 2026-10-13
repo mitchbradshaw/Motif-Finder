@@ -71,8 +71,13 @@ What this block adds around it, and why
   table of more than `max_cells` (windows x features) cells, naming
   `n_features` as the knob (10,000 features for 20,000 windows is 800 MB).
 * **numpy's global random state**: aeon calls `np.random.seed` inside `fit`;
-  this module saves and restores the global state around it, so a block run
-  never reseeds anything else in the process.
+  this module saves and restores the global state around it, under a module
+  lock so two MiniRocket runs never interleave. The state is restored within
+  the calling thread; another thread drawing from numpy's global RNG during a
+  fit is disturbed (its draws are reseeded, and the restore can roll its state
+  back). The fingerprint itself does not depend on it — aeon picks the bias
+  windows with numba's own per-thread generator — so concurrent runs give the
+  same result as one run alone.
 
 Why not reuse a sibling: `Working/Catalogue/aeon_classification/classification.py`
 loads windows from labelled directories and returns reports, not a feature
@@ -84,6 +89,7 @@ the adapter registry stays cheap.
 """
 
 import os
+import threading
 import time
 from dataclasses import dataclass, field
 
@@ -98,6 +104,10 @@ DEFAULT_N_FEATURES = 10_000    # the paper's
 DEFAULT_MAX_DILATIONS = 32     # the paper's
 DEFAULT_MAX_CELLS = 50_000_000
 TRANSFORM_CHUNK = 4_096        # windows per transform call, to bound aeon's temporary copies
+
+#: one aeon fit/transform at a time in this process (the bridge runs jobs on threads): aeon reseeds numpy's
+#: global generator inside `fit`, and this module saves and restores it around the call
+_AEON_LOCK = threading.Lock()
 
 LEFT_OUT_GAPS = "gaps_over_5pct"
 SPLIT_COLUMN = "split"
@@ -275,10 +285,13 @@ def _check_shape(n_windows, length, n_features, max_cells):
     real = real_feature_count(n_features)
     cells = int(n_windows) * real
     if max_cells is not None and cells > int(max_cells):
-        raise ValueError(
-            f"{n_windows:,} windows x {real:,} features = {cells:,} cells ({cells * 4 / 1e6:,.0f} MB) is over "
-            f"max_cells = {int(max_cells):,}: lower n_features (e.g. {max(KERNELS, real_feature_count(int(max_cells) // max(n_windows, 1))):,}), "
-            "use fewer windows, or raise max_cells")
+        head = (f"{n_windows:,} windows x {real:,} features = {cells:,} cells ({cells * 4 / 1e6:,.0f} MB) is over "
+                f"max_cells = {int(max_cells):,}: ")
+        fits = (int(max_cells) // max(n_windows, 1)) // KERNELS * KERNELS
+        if fits >= KERNELS:
+            raise ValueError(head + f"lower n_features (e.g. {fits:,}), use fewer windows, or raise max_cells")
+        raise ValueError(head + f"even the fewest features ({KERNELS}) are over it for {n_windows:,} windows — use "
+                                "fewer windows (a shorter span or a longer step), or raise max_cells")
     return real
 
 
@@ -292,18 +305,19 @@ def fingerprint_matrix(M, fit_mask=None, *, n_features=DEFAULT_N_FEATURES, max_d
         M, _ = znormalise(M)
     fit_rows = M if fit_mask is None else M[np.asarray(fit_mask, dtype=bool)]
     X3 = M.astype(np.float32)[:, None, :]
-    state = np.random.get_state()
-    try:
-        t0 = time.perf_counter()
-        mr = MiniRocket(n_kernels=int(n_features), max_dilations_per_kernel=int(max_dilations), n_jobs=-1,
-                        random_state=int(seed))
-        mr.fit(fit_rows.astype(np.float32)[:, None, :])
-        t1 = time.perf_counter()
-        parts = [np.asarray(mr.transform(X3[i:i + TRANSFORM_CHUNK]), dtype=np.float32)
-                 for i in range(0, len(X3), TRANSFORM_CHUNK)]
-        t2 = time.perf_counter()
-    finally:
-        np.random.set_state(state)
+    with _AEON_LOCK:
+        state = np.random.get_state()
+        try:
+            t0 = time.perf_counter()
+            mr = MiniRocket(n_kernels=int(n_features), max_dilations_per_kernel=int(max_dilations), n_jobs=-1,
+                            random_state=int(seed))
+            mr.fit(fit_rows.astype(np.float32)[:, None, :])
+            t1 = time.perf_counter()
+            parts = [np.asarray(mr.transform(X3[i:i + TRANSFORM_CHUNK]), dtype=np.float32)
+                     for i in range(0, len(X3), TRANSFORM_CHUNK)]
+            t2 = time.perf_counter()
+        finally:
+            np.random.set_state(state)
     if timings is not None:
         timings.update({"fit": round(t1 - t0, 3), "transform": round(t2 - t1, 3)})
     return np.concatenate(parts, axis=0)
