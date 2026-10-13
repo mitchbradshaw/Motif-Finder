@@ -198,3 +198,15 @@ def test_a_null_recording_gives_no_span(seed, name):
 
 if __name__ == "__main__":
     sys.exit(pytest.main([__file__, "-q"]))
+
+
+def test_the_shipped_template_is_the_one_tested_here():
+    """The manager moved TEMPLATE into webui/server/templates.py::CANONICAL; the two must not drift apart."""
+    import os as _os
+    import sys as _sys
+    _root = _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__)))
+    for _p in (_root, _os.path.join(_root, "webui")):
+        if _p not in _sys.path:
+            _sys.path.insert(0, _p)
+    from server.templates import canonical
+    assert canonical("fluss_regimes") == TEMPLATE

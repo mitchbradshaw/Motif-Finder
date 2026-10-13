@@ -49,6 +49,8 @@ COSTED = (
     "preprocessing.wavelet_transform", "catalogue.window_images", "catalogue.cnn_score", "detection.rupture",
     # fixup-d: the feature blocks and the inversion, each with a calibrated model
     "interrogation.event_shape", "interrogation.intervals", "preprocessing.invert",
+    # wave 1 of the blocks from the literature (docs/prompts/blocks/)
+    "preprocessing.beads", "detection.deconvolve", "detection.fluss", "interrogation.trains",
 )
 
 

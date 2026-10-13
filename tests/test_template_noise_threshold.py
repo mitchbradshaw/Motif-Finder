@@ -48,7 +48,8 @@ TEMPLATE = {
                    "multiples of the channel's own noise, so the same template runs on a trace stored in V or mV.",
     "steps": [
         _step("preprocessing", "detrend", {"mode": "rolling_mean", "window_s": 600.0}),
-        _step("detection", "noise_threshold", {"k_sigma": 4.0, "direction": "below"}),
+        _step("detection", "noise_threshold", {"k_sigma": 4.0, "direction": "below",
+                                               "min_duration_s": 30.0, "merge_gap_s": 60.0}),
     ],
 }
 
@@ -100,7 +101,7 @@ def test_template_is_a_two_block_detection_chain_with_no_absolute_level():
     assert [f"{s['stage']}.{s['algorithm']}" for s in TEMPLATE["steps"]] == [
         "preprocessing.detrend", "detection.noise_threshold"]
     cut = TEMPLATE["steps"][1]["params"]
-    assert cut == {"k_sigma": 4.0, "direction": "below"}
+    assert cut == {"k_sigma": 4.0, "direction": "below", "min_duration_s": 30.0, "merge_gap_s": 60.0}
     from Adapters.registry import discover_adapters, get_adapter
     discover_adapters()
     for s in TEMPLATE["steps"]:
@@ -141,3 +142,15 @@ def test_the_same_template_finds_the_same_spans_in_millivolts(tmpdir_cache):
 
 if __name__ == "__main__":
     sys.exit(pytest.main([__file__, "-q"]))
+
+
+def test_the_shipped_template_is_the_one_tested_here():
+    """The manager moved TEMPLATE into webui/server/templates.py::CANONICAL; the two must not drift apart."""
+    import os as _os
+    import sys as _sys
+    _root = _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__)))
+    for _p in (_root, _os.path.join(_root, "webui")):
+        if _p not in _sys.path:
+            _sys.path.insert(0, _p)
+    from server.templates import canonical
+    assert canonical("noise_threshold") == TEMPLATE

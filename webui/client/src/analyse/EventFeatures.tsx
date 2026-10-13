@@ -72,11 +72,11 @@ function FragmentRule({ r }: { r: MeasureRule }) {
 }
 
 export function IntervalStatsTable({ stats, testid = 'interval-stats' }: { stats: Record<string, IntervalStats>; testid?: string }) {
-  const cols: [keyof IntervalStats, string][] = [['n_events', 'events'], ['n_intervals', 'intervals'], ['median_s', 'median s'], ['mean_s', 'mean s'], ['min_s', 'min s'], ['max_s', 'max s'], ['cv', 'CV (ddof=1)'], ['r2_trend', 'R² trend'], ['drift_ratio', 'drift (last/first third)']]
+  const cols: [keyof IntervalStats, string][] = [['n_events', 'events'], ['n_intervals', 'intervals'], ['median_s', 'median s'], ['mean_s', 'mean s'], ['min_s', 'min s'], ['max_s', 'max s'], ['cv', 'CV (ddof=1)'], ['r2_trend', 'R² trend'], ['drift_ratio', 'drift (last/first third)'], ['lv', 'LV'], ['cv2', 'CV2']]
   return (
     <table className="mono" data-testid={testid} style={{ borderCollapse: 'collapse', fontSize: 11.5 }}>
       <thead><tr><th style={th}>group</th>{cols.map(([, l]) => <th key={l} style={th}>{l}</th>)}</tr></thead>
-      <tbody>{Object.entries(stats).map(([g, s]) => <tr key={g}><td style={td}>{g}</td>{cols.map(([k]) => <td key={k} style={{ ...td, textAlign: 'right' }}>{fmtNum(s[k] as number | null)}</td>)}</tr>)}</tbody>
+      <tbody>{Object.entries(stats).map(([g, s]) => <tr key={g}><td style={td}>{g}</td>{cols.map(([k]) => <td key={k} style={{ ...td, textAlign: 'right' }} title={(k === 'lv' || k === 'cv2') && s.local_note ? s.local_note : undefined}>{fmtNum(s[k] as number | null)}</td>)}</tr>)}</tbody>
     </table>
   )
 }

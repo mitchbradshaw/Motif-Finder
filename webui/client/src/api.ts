@@ -183,7 +183,9 @@ export interface RosePayload {
   slopes_mv_s?: number[]; groups: Record<string, RoseGroup>; scale: string; field: string; caption: string
   mean_deg: number | null; resultant_length: number | null; circular_sd_deg: number | null; uniformity_p: number | null; note?: string
 }
-export interface IntervalStats { n_events: number; n_intervals: number; median_s: number | null; mean_s: number | null; min_s: number | null; max_s: number | null; cv: number | null; r2_trend: number | null; drift_ratio: number | null }
+export interface IntervalStats { n_events: number; n_intervals: number; median_s: number | null; mean_s: number | null; min_s: number | null; max_s: number | null; cv: number | null; r2_trend: number | null; drift_ratio: number | null
+  /** w1-g: local regularity (Shinomoto LV, Holt CV2) — about 0 clockwork, 1 Poisson; null under 3 events, with the reason */
+  lv?: number | null; cv2?: number | null; n_local_pairs?: number | null; local_note?: string | null }
 export interface SpansetPayload {
   type: 'spanset'; fs: number; n: number; capped: boolean; start_s: number[]; end_s: number[]; labels: (string | null)[] | null; scores: (number | null)[] | null; summary: string
   /** fixup-d: one row of measures per span, and the feature blocks' rules / rose / interval statistics */

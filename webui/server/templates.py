@@ -182,6 +182,68 @@ CANONICAL += [
 ]
 
 
+# Wave 1 of the blocks from the literature (docs/research/analysis-blocks-from-literature.md,
+# docs/prompts/blocks/). Each is the TEMPLATE its own tests/test_template_<name>.py runs end to end;
+# those tests assert this copy equals theirs. Whether each beats its surrogate null on real
+# recordings is recorded in docs/prompts/blocks/reports/W1-evaluation.md.
+CANONICAL += [
+    {
+        "name": "noise_threshold", "kind": "detection", "version": 1,
+        "description": "Baseline → noise threshold: every stretch of the detrended trace more than 4 σ_n below its "
+                       "median, σ_n = median|x − median(x)| / 0.6745 (Quian Quiroga et al. 2004). The cut is in "
+                       "multiples of the channel's own noise, so the same template runs on a trace stored in V or mV.",
+        "steps": [_step("preprocessing", "detrend", {"mode": "rolling_mean", "window_s": 600.0}),
+                  _step("detection", "noise_threshold", {"k_sigma": 4.0, "direction": "below",
+                                                         "min_duration_s": 30.0, "merge_gap_s": 60.0})],
+    },
+    {
+        "name": "deconvolved_troughs", "kind": "detection", "version": 1,
+        "description": "Troughs as deconvolved jumps (Friedrich, Zhou & Paninski 2017, OASIS). The recovery "
+                       "half-time is the first knob to set: read it off a few of this recording's own troughs (the "
+                       "time one takes to climb half-way back) and put it in Deconvolve's recovery_half_s (120 s "
+                       "here); a wrong one splits every trough into many events, and estimating it (0) is a fallback "
+                       "the readout warns about when it cannot be trusted. Events that are not a sudden drop followed "
+                       "by an exponential recovery (a sharkfin's plateau and slow climb) are split into many small "
+                       "events: above a residual SD of ~1.5 the event count is not a trough count. The chain: a "
+                       "long baseline removal (1 h rolling mean, far longer than a recovery) → Deconvolve (OASIS): the size of the "
+                       "sudden drop at every sample, in noise SDs, each followed by the same exponential recovery, "
+                       "over a baseline that follows what drift the rolling mean left (30 min windows) → "
+                       "Impulse events: one event per drop, running to the next drop, so a trough that starts before "
+                       "the last one recovered is its own event → Event shape → Intervals.",
+        "steps": [_step("preprocessing", "detrend", {"mode": "rolling_mean", "window_s": 3600.0}),
+                  _step("detection", "deconvolve", {"recovery_half_s": 120.0, "baseline_window_s": 1800.0}),
+                  _step("detection", "impulse_events", {}),
+                  _step("interrogation", "event_shape", {}),
+                  _step("interrogation", "intervals", {})],
+    },
+    {
+        "name": "fluss_regimes", "kind": "detection", "version": 1,
+        "description": "Where does the recording change behaviour? Baseline removal → FLUSS regime-change score "
+                       "(Gharghabi et al. 2017: few nearest-neighbour arcs cross a change of behaviour; 300 s window, "
+                       "about one event period of slow regimes) → threshold to one span per change. The cut 0.46 is "
+                       "calibrated for this window, on 4 h recordings; on a shorter one a single regime can cross it. "
+                       "Each span is a candidate boundary to check in Review; check the recording's NaN gaps first — "
+                       "the rolling-mean detrend spreads a gap by about one detrend window, and a long gap can still "
+                       "read as a change.",
+        "steps": [_step("preprocessing", "detrend", {"mode": "rolling_mean", "window_s": 600.0}),
+                  _step("detection", "fluss", {"window_s": 300.0, "n_regimes_readout": 3, "iac": "parabola",
+                                               "excl_factor": 5}),
+                  _step("detection", "threshold", {"threshold": 0.46, "merge_gap_s": 1500.0, "min_duration_s": 60.0})],
+    },
+    {
+        "name": "event_trains", "kind": "interrogation", "version": 1,
+        "description": "The drop detector (drop_detection_v1's three blocks) → Event shape (each event's onset) → "
+                       "Trains (logISI: the valley of the log-gap histogram is the cut; one hump → no trains, said so) "
+                       "→ Intervals, grouped by train, so the regularity numbers are WITHIN trains. Every rule is "
+                       "printed beside its numbers.",
+        "steps": [*[json.loads(json.dumps(s)) for s in _DROP_STEPS],
+                  _step("interrogation", "event_shape", {}),
+                  _step("interrogation", "trains", {"rule": "logisi", "write_group": True}),
+                  _step("interrogation", "intervals", {})],
+    },
+]
+
+
 def canonical(name: str) -> dict:
     """A deep copy of one canonical template by name (KeyError if unknown)."""
     for t in CANONICAL:
