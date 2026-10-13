@@ -56,7 +56,7 @@ TEMPLATE = {
 }
 
 FS = 1.0
-DEPTHS = [0.004, 0.012, 0.03]  # three kinds of drop: 4, 12 and 30 mV, on a -0.44 V (M2 volts) baseline
+DEPTHS = [0.008, 0.02, 0.045]  # three kinds of drop: 8, 20 and 45 mV, on a -0.44 V (M2 volts) baseline
 N_EVENTS = 15
 
 

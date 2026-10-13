@@ -94,9 +94,11 @@ def _feature_matrix(window_set, grouping):
         )
 
     features = window_set.features
-    if features is not None and "split" in features.columns:
-        # P12: the split assignment is metadata (see preprocessing.sliding_windows), not a feature.
-        features = features.drop(columns=["split"])
+    if features is not None:
+        # P12: the split assignment is metadata (see preprocessing.sliding_windows), not a feature;
+        # so is catalogue.event_windows' bookkeeping (w2-a: event_index is a time order).
+        from Working.Catalogue.event_windows import NOT_FEATURES
+        features = features.drop(columns=[c for c in NOT_FEATURES if c in features.columns])
     if features is None or features.shape[0] == 0 or features.shape[1] == 0:
         raise ValueError(
             "catalogue.classifier requires a WindowSet with an attached feature "

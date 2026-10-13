@@ -39,11 +39,14 @@ def _cluster_window_set(window_set, linkage, k):
             "(input_kind='windowset')."
         )
     features = window_set.features
-    if features is not None and "split" in features.columns:
+    if features is not None:
         # The train/validation/test assignment `preprocessing.sliding_windows`
         # rides on the window set (P12) is metadata, never a feature: a
-        # clustering that saw it would recover the split as a cluster.
-        features = features.drop(columns=["split"])
+        # clustering that saw it would recover the split as a cluster. The same
+        # holds for `catalogue.event_windows`' bookkeeping (w2-a): `event_index`
+        # is a time order, `anchor_offset` / `overlaps_next` are geometry.
+        from Working.Catalogue.event_windows import NOT_FEATURES
+        features = features.drop(columns=[c for c in NOT_FEATURES if c in features.columns])
     if features is None or features.shape[0] == 0 or features.shape[1] == 0:
         raise ValueError(
             "catalogue.cluster requires a WindowSet with an attached feature "

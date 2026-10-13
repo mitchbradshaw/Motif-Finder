@@ -86,7 +86,7 @@ def test_a_spanset_without_the_column_says_so_once_naming_event_shape():
 def test_auto_length_is_twice_the_median_duration_rounded_up_to_ten_seconds_and_clamped():
     spans = SpanSet(starts=(0, 1000, 2000), ends=(100, 1133, 2140))  # durations 100, 133, 140 s
     assert EW.auto_length_s(spans, FS)[0] == 270.0  # 2 * 133 = 266 -> 270
-    short = SpanSet(starts=(0, 100), ends=(5, 12))
+    short = SpanSet(starts=(0, 100), ends=(5, 112))
     assert EW.auto_length_s(short, FS)[0] == 60.0  # clamped up
     long = SpanSet(starts=(0,), ends=(10_000,))
     assert EW.auto_length_s(long, FS)[0] == 7200.0  # clamped down
