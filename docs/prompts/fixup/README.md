@@ -311,3 +311,20 @@ Not prompts yet, in rough order of how much friction each removes:
 | **U13** global search; **U12** the phantom Ctrl-C | U13 needs a design; U12 needs reproduction, not a guess |
 
 Reports go in `reports/`, cross-agent requests in `requests/`, same convention as the wiring stage.
+
+## 2026-10-13 — the researcher's list, triaged
+
+Seven prompts written from the researcher's 2026-10-13 list (and a non-technical user's feedback), none run yet.
+The small items from the same list (template bind reporting, the exemplar on apply, the live exemplar list, eight-row
+job boards, the estimate column, species from a list, grouped template picker, the green `next` button and the
+header's path strip) were done directly the same day (commits prefixed `ux-1013:`).
+
+| Prompt | What | Size |
+|---|---|---|
+| `AJ-cross-channel-finish.md` | Explore › Cross-channel: rows plot at a true gain, the window picker picks, lags explained | M |
+| `AK-spike-detection-block.md` | Spike detection emits spikes not gaps, sees both polarities, δ in mV, vectorised; page explains | M |
+| `AL-send-one-detection-to-review.md` | one detection from Discovery's browser into a per-session picked queue | S |
+| `AM-peak-aligned-windows.md` | `peak` / `trough` alignment and an anchor fraction — opens with a question for the researcher | S–M |
+| `AN-library-dendrogram.md` | persist the Ward tree, preview a cut instantly, apply from the tree; reuses `TreePage.tsx` | L |
+| `AO-decompose-block.md` | baseline / noise / signal as layers with `pass_on`, on the wavelet-bands pattern | M |
+| `AP-grey-text-sweep.md` | one caption per card, the rest behind ⓘ — page by page, one commit each | M (long) |
