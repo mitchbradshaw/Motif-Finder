@@ -150,3 +150,12 @@ def test_calibration_warms_up_untimed_then_times_thousands_of_windows(spec, monk
     assert length == 600 and n_features == MR.DEFAULT_N_FEATURES
     # 120 windows per 600 samples of the 20,000-sample calibration signal (stride 5): 3,881 windows
     assert n_windows == (bc.CALIBRATION_N - 600) // 5 + 1 >= 3_000
+
+
+def test_keep_upstream_features_is_a_parameter_defaulting_to_true(spec):
+    assert spec.validate_params({})["keep_upstream_features"] is True
+
+
+def test_the_n_features_help_says_a_no_at_1000_is_not_a_no(spec):
+    help_ = {ps.name: ps for ps in spec.params}["n_features"].description
+    assert "is not a 'no'" in help_ and "shorter span" in help_

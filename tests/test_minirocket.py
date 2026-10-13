@@ -429,3 +429,23 @@ def test_the_rules_say_what_the_block_did():
     for k in ("n_features", "n_fit_windows", "fit_on", "n_left_out", "seed", "seconds", "rules", "n_windows_in",
               "n_kept", "max_dilations", "normalise", "source", "summary"):
         assert k in out.meta, k
+
+
+# ── fix round 1: keep_upstream_features (critic finding 3) ─────────────────
+
+def test_keep_upstream_features_false_keeps_only_the_fingerprint_and_the_bookkeeping():
+    """So RQ1's two arms differ only in features: Window matrix's Catch22 must not ride through to the classifier."""
+    x, _ = syn.recording(n_per_class=3, seed=12)
+    extra = {"catch22_DN_HistogramMode_5": np.arange(9.0), "fast_entropy_shannon": np.ones(9),
+             "pool_role": np.array(["train"] * 9), "pool_channel": np.zeros(9, dtype=np.int64),
+             "shape_raw_range_mv": np.ones(9)}
+    ws = tiling(9, split=blocked_split(9), extra=extra)
+    kept = run(x, ws).windows.features.columns
+    assert "catch22_DN_HistogramMode_5" in kept, "the default is today's behaviour"
+    out = run(x, ws, keep_upstream_features=False)
+    cols = list(out.windows.features.columns)
+    assert "catch22_DN_HistogramMode_5" not in cols and "fast_entropy_shannon" not in cols
+    assert "shape_raw_range_mv" not in cols, "a measure, not bookkeeping"
+    assert {"split", "pool_role", "pool_channel"} <= set(cols)
+    assert out.meta["upstream_dropped"] == 3
+    assert any(r["name"] == "upstream features" for r in out.meta["rules"])
