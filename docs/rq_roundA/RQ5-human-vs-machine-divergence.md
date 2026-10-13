@@ -48,6 +48,8 @@ scattered randomly? If they bunch up, that tells you something about either the 
     says there is no test of structure and no null.
   - **Adjudications count:** judging five detections in Review moved the cells by exactly five (sandbox walk).
 
+- **More detectors to compare against the human row (2026-10-13, wave 1, `docs/prompts/blocks/`):** templates `noise_threshold` (a cut in multiples of each channel's robust noise — no volts/mV level to type), `deconvolved_troughs` (OASIS: overlapping troughs separated) and `cwt_events` (troughs at every duration) each beat their surrogate null on real recordings (`docs/prompts/blocks/reports/W1-evaluation.md`); `detection.fluss` and `interrogation.trains` ship as experimental blocks. Divergence per detector is not yet measured.
+
 ## Decisions already made
 
 - **Q-D2:** precision is reported as two numbers, each with its own rule. Containment over the window labels; extent
@@ -93,3 +95,4 @@ existing window labels.
 - 2026-10-04 · fixup-x · the divergence module, Explore's two cells, Q-D2's two precision figures, Compare's breakdown;
   containment mode made a setting (centre default) on the researcher's answer.
 - 2026-10-13 · map · Discovery › Map: where each algorithm fires against the human row, per channel and per dataset (detections per covered hour, with not-run / not-reviewed told apart from zero), zooming to one channel's timeline. A view of WHERE divergence sits, not a new measurement; the divergence numbers stay with `Working.discovery.divergence`.
+- 2026-10-13 · blocks-w1 · three new detection templates that beat their null; FLUSS and trains experimental.

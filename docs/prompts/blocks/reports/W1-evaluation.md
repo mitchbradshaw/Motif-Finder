@@ -50,7 +50,7 @@ strongly coloured, so the first-difference noise σ is 4–46× smaller than the
 | `deconvolved_troughs` (v2, `noise_scale: level`) | **Ships** — beats the null on all three 24 h spans (155 / 551 / 117 vs ~3); see the caveat below |
 | `fluss_regimes` | **Not shipped** (moved to `templates.EXPERIMENTAL`) — no change found on real or null data at 300 s / 0.46; the block ships, its description marked experimental |
 | `event_trains` | **Not shipped** (moved to `templates.EXPERIMENTAL`) — no trains on real or null data; the block ships, its description marked experimental |
-| `cwt_events` | pending the critic's fixes |
+| `cwt_events` (drops, after the critic's fixes) | **Ships** — beats the null on all three 24 h spans (24 / 38 / 6 vs 0.2–0.3); on 4 h spans it found 0–2, too few to tell |
 
 ## Deconvolution after the noise-scale fix (`w1b-noise-scale`, merged as `e9f4690`)
 
@@ -66,5 +66,13 @@ and rec 3 runs at 28 jumps/h with residual 2.0 — the troughs on these recordin
 120 s half-time, so each is split into a jump plus follow-ons. The events are real (they beat the null by 40–178×), but
 **the count is inflated until `recovery_half_s` is set from the recording's own troughs** — exactly what the template
 description names as the first knob. On rec 385 the residual-shape warning (4.5 SD) fires: sharkfin-like events.
+
+## CWT ridges after the critic's fixes (merged as `2fc274f`)
+
+Noise is now measured at each event's own scale (A15) and the template looks for drops in both blocks.
+
+| Span | rec 385 4 h | rec 1 4 h | rec 601 6 h | rec 1 24 h | rec 3 24 h | rec 601 24 h |
+|---|---|---|---|---|---|---|
+| events, real vs null mean | 0 vs 0.1 | 2 vs 0.2 (p 0.095) | 0 vs 0.3 | **24 vs 0.2** (120×) | **38 vs 0.3** (127×) | **6 vs 0.3** (20×) |
 
 Raw results: `w1_null_results.json` and `w1_null_results_24h.json` in the session scratchpad (not committed).

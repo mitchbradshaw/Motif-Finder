@@ -58,6 +58,8 @@ motifs after stretching them all to the same length. If that assumption is wrong
   provenance only — it is a within-span octave (band 1 is 174 s in one span and 4 s in another), never a filter.
   Clicking a family shows its members' real waveforms in place, so a scale question can be looked at member by member.
 
+- **Each event's own scale (2026-10-13, wave 1, `docs/prompts/blocks/reports/W1-C-cwt-ridges.md`):** `detection.cwt_ridges` reports `best_scale_s` and `cwt_duration_s` per event from a Mexican-hat transform over 10 s – 2 h, so an event's duration is measured rather than set by a chosen window. Template `cwt_events` (drops) beats its surrogate null on three 24 h spans (`W1-evaluation.md`). It does not by itself compare shapes across durations; it supplies the scale each member has.
+
 ## Decisions already made
 
 - **Q39:** only accepted matches become members, on an explicit act.
@@ -107,3 +109,4 @@ in `future/N-event-extent.md`.
   read-out built and walked; status → answerable, not yet answered.
 - 2026-10-04 · fixup-ae · families filterable above the noise floor, by fall duration and by purity; scale band shown
   as provenance only; members viewable in place from the Atlas.
+- 2026-10-13 · blocks-w1 · `detection.cwt_ridges` + template `cwt_events`: each event's own scale; beats its null on 24 h spans.

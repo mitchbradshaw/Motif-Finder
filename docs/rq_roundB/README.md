@@ -49,3 +49,4 @@ what is known, decisions, what is needed, how it gets answered, open decisions, 
   position and taken at the three scales; a held-out pack and a blind check as in RQ1; confidences calibrated on
   validation. Today (g-05): 3,239 members in 149 families, the largest 79, thirty families with 30 or more, and
   one human verdict on a member — so the first job is a vocabulary of 5–8 named classes and verifying members.
+- 2026-10-13 · blocks-w1 · tools for three seed ideas now exist: *motif trains* → `interrogation.trains` (logISI / MaxInterval / Adamatzky words; experimental: no trains found beyond the null on the spans tried); *the sharkfin plateau* → `detection.deconvolve`'s residual and follow-on warnings measure how far an event departs from a jump + exponential recovery; *spikes as well as drops* → `detection.noise_threshold` and `detection.cwt_ridges` take a polarity. Interval regularity now includes LV and CV2. See `docs/prompts/blocks/reports/`.
