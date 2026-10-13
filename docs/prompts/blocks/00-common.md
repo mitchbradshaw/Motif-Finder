@@ -1,4 +1,4 @@
-# 00 — Common rules for every wave-1 block prompt
+# 00 — Common rules for every block prompt (all waves)
 
 You are building one analysis block (or one small change) for the Underground Brains web app. A managing session
 wrote this prompt and will critique, merge and evaluate your work. **You run alone and nobody can answer questions
@@ -63,12 +63,34 @@ where it contradicts the plan, it wins).
 
 `webui/server/templates.py`, anything under `webui/client/`, `webui/smoke_pages/`, `webui/server/views.py`,
 `webui/server/serialize.py`, `tests/test_block_standard.py`, `docs/BLOCK_INTEGRATION.md`, `docs/rq_roundA/`,
-`docs/prompts/`, `docs/research/`. If your block needs a change there, describe it in your report instead.
+`docs/prompts/`, `docs/research/`. If your block needs a change there, describe it in your report instead. **The one
+exception:** a prompt that names one of these files in its own "Deliver" list hands you that file, and only the part
+it names.
 
 Your **template** (if your prompt names one) is tested end to end in your own test file: define its steps as a
 module-level constant in the test (e.g. `TEMPLATE = {"name": ..., "kind": ..., "version": 1, "description": ...,
 "steps": [...]}`) and run them through `Working.execution.execute_recipe` on a synthetic recording in a temporary
 database, as `tests/test_template_dehshibi.py` does. The manager moves the constant into `CANONICAL`.
+
+## Lessons from wave 1 (read before you design your tests)
+
+Every wave-1 block needed a fix round after its critic, and most of the blockers had one cause: **a yardstick that
+assumes white noise.** Fungal recordings at 1 Hz are strongly *coloured* — slow wander, drift, random-walk-like
+stretches — so the sample-to-sample (first-difference) noise is 3–46× smaller than the level's own spread, and a
+"k × noise" cut measured that way fires on every wiggle. Concretely:
+
+- **Test on coloured backgrounds, not only white noise.** Every synthetic test set includes at least a random walk
+  (cumulative sum of white noise, then detrended), an AR(1) background with φ ≈ 0.95–0.99, and a slow sine/drift
+  under the events. A block that only ever saw white noise has not been tested.
+- **Measure noise at the scale you judge at** (a robust MAD of the quantity being thresholded, at its own scale) and
+  never let the events themselves raise the yardstick (median-based, not percentile-based).
+- **Real events come in dense stretches.** A chain of drops every 20–60 min for 30–100 h is common (the researcher's
+  known examples: M2_aug rec 3 500–530 h, rec 6 380–460 h; L_LM_Jul_26_J 380–480 h). Test the "mostly events" case.
+- **Defaults are claims.** Every default is either from the paper, from a measurement you state, or labelled a
+  placeholder in its help text. A default that only works on your synthetic set is a bug the manager will find on real
+  data.
+- **The manager can run things on real recordings; you cannot.** Say in your report exactly what you would want
+  checked on real data and why — the manager runs it.
 
 ## Your report — your final message (do NOT write a report file)
 

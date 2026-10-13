@@ -1,4 +1,4 @@
-# Critic brief — reviewing one wave-1 block before it is merged
+# Critic brief — reviewing one block (any wave) before it is merged
 
 You review one implementer's branch. You **do not edit** their worktree or any file in the repo: read, run their tests,
 and run your own experiments in a scratch directory outside the repo (your session's temp/scratch directory). Python:
@@ -21,7 +21,11 @@ You are told the worktree path, the branch and the prompt file. Start with
 3. **Correct on our data.** Try it yourself on synthetic traces that look like fungal recordings (1 Hz, events of
    tens of seconds to an hour, drops with slow recovery, drift, noise) and on the edge cases: empty / very short
    span, constant signal, NaN samples, a span with no events, a span that is mostly events, very long input (time a
-   1–2.6 M-sample run if the prompt claims a figure). Check index conventions (SpanSet starts/ends and `*_idx`
+   1–2.6 M-sample run if the prompt claims a figure). **Always include coloured backgrounds** — a detrended random
+   walk and an AR(1) with φ ≈ 0.95–0.99 — because wave 1's blockers were almost all yardsticks that assume white noise
+   (`00-common.md`, "Lessons from wave 1"). For a clustering or categorising block, also run it on inputs with **no
+   structure** (windows of phase-randomised noise, shuffled labels) and say what it reports there: a block that finds
+   confident families, or a high accuracy, in pure noise is a blocker. Check index conventions (SpanSet starts/ends and `*_idx`
    columns span-relative; Scores one value per sample), unit handling (unit-free or stored units, as the prompt
    says; ×1000 scaling), and the drawing conventions of `BLOCK_INTEGRATION.md` §2 (a float param named `threshold`
    only where a draggable absolute cut is meant; `meta["events"]` with `onset_idx`/`trough_idx`; `meta["rules"]`).

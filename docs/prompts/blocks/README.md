@@ -23,3 +23,22 @@ whose description says "experimental". The managing session runs that evaluation
 (their worktrees hold no real data).
 
 Reports are returned by each sub-agent as text and filed by the manager under `reports/`.
+
+## Wave 2 — families and categories (prompts written 2026-10-14, not yet run)
+
+Run by a managing session from [`W2-manager.md`](W2-manager.md), the same way wave 1 was run. `00-common.md` and
+`critic.md` now apply to every wave and carry wave 1's lessons (test on coloured backgrounds; a clustering block must
+be shown to find nothing in pure noise).
+
+| Round | Prompt | Block(s) | Types | Paper |
+|---|---|---|---|---|
+| 1 | `W2-A-event-windows.md` | `catalogue.event_windows` (+ the `spanset->windowset` view row) | SpanSet → WindowSet | — (the bridge) |
+| 1 | `W2-B-library-methods.md` | Library methods `kshape`, `hdbscan`; `sbd`; `svd_entropy` on the Family page data | (Library) | Paparrizos & Gravano 2015; Campello et al. 2013; Colominas & Wu 2023 |
+| 1 | `W2-C-minirocket.md` | `catalogue.minirocket` | WindowSet → WindowSet | Dempster, Schmidt & Webb 2021 |
+| 1 | `W2-D-snippets.md` | `catalogue.snippets` | WindowSet → Grouping | Imani et al. 2018 |
+| 2 | `W2-E-families.md` | `catalogue.shape_families`, `interrogation.event_families` | WindowSet → Grouping, SpanSet → SpanSet | as W2-B |
+| 2 | `W2-F-ui.md` | the drawings, block-named exemplars, the Library's method choice, coherence, glyphs, smoke states | (UI) | — |
+
+Templates proposed: `event_clusters` (W2-A), `minirocket_manual_labels` (W2-C), `recording_snippets` (W2-D),
+`event_families` (W2-E). Each ships only if it beats its own null on real recordings; the nulls per template are in
+`W2-manager.md`.
