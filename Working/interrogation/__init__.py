@@ -4,7 +4,8 @@ Working.interrogation
 Per-event measures of the events a detector found, and the cross-event views
 over them (fixup-d). UI-free core: `event_shape` (the shape of each event),
 `intervals` (the time between them, and when a run of them is a train), and
-`sequences` (the same measures read off a stored sequence, with the rose).
+`sequences` (the same measures read off a stored sequence, with the rose), and
+`trains` (which events form trains: logISI, MaxInterval, Adamatzky's words; w1-e).
 
 Vocabulary, fixed on purpose (QUESTIONS.md Q12): a *motif train* is a sequence
 of motifs of either polarity; drops and spikes are different events measured
