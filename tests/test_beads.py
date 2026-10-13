@@ -202,9 +202,11 @@ def test_meta_reports_the_solve(drop_run):
     assert m["converged"] and m["iterations"] <= 30
     assert m["sigma"] == pytest.approx(SIGMA, rel=0.1), "robust σ is the noise, not the drift or the drops"
     assert -5.5 < m["baseline_min"] < -4.5 and 4.5 < m["baseline_max"] < 5.5
-    # the drops occupy ~12 % of the trace; the event layer holds them and little else
-    assert 0.05 < m["event_fraction_3sigma"] < 0.2
+    # the drops occupy ~12 % of the trace; the event layer holds their deep
+    # part and nothing else (measured 2026-10-13 after review F1: 0.052)
+    assert 0.02 < m["event_fraction_3sigma"] < 0.2
     assert m["n_nan"] == 0
+    assert m["warnings"] == [] and m["longest_gap_s"] == 0.0
 
 
 def test_the_span_ends_carry_no_edge_artefact(trace, drop_run):
@@ -214,6 +216,92 @@ def test_the_span_ends_carry_no_edge_artefact(trace, drop_run):
     # measured 2026-10-13: 0.047 and 0.051
     assert np.abs(residual[:600]).max() < 0.1 * DEPTH
     assert np.abs(residual[-600:]).max() < 0.1 * DEPTH
+
+
+# ── drift far larger than the noise (review F1) ─────────────────────────────
+
+def _sine_drift(sigma, period_h, amplitude, hours=48, seed=0):
+    n = hours * 3600
+    t = np.arange(n, dtype=float)
+    drift = amplitude * np.sin(2 * np.pi * t / (period_h * 3600.0))
+    return drift + np.random.default_rng(seed).normal(0.0, sigma, n), drift
+
+
+@pytest.mark.parametrize("sigma, period_h, amplitude, rms_limit", [
+    # drift at 2× the 2 h period: the order-2 filter itself lets ~6 % of it
+    # through (|H|² = 1/17 at fc/2), so 6 % RMS is the floor any λ can reach
+    (0.05, 4, 20.0, 0.06),
+    (0.01, 4, 5.0, 0.06),
+    (0.002, 4, 20.0, 0.06),        # A/σ = 10 000
+    (0.002, 6, 20.0, 0.015),
+    # 1.5× the period: the filter's own leak is ~12 %
+    (0.05, 3, 5.0, 0.15),
+])
+def test_a_drift_huge_against_the_noise_stays_in_the_baseline(sigma, period_h, amplitude, rms_limit):
+    """Pure drift + white noise, no events. Before the review the λ were in
+    units of a grid noise level σ/√q so small that the fidelity term won and
+    the whole drift went into the event layer (measured: 56–97 % baseline error,
+    event fraction 0.99, converged=True)."""
+    y, drift = _sine_drift(sigma, period_h, amplitude)
+    out = remove_baseline(y, 1.0)
+    err = out["baseline"] - drift
+    rms = float(np.sqrt(np.mean(err ** 2)))
+    assert rms < rms_limit * amplitude, f"baseline RMS error {rms / amplitude:.1%} of the drift"
+    assert out["meta"]["event_fraction_3sigma"] < 0.3
+    assert out["meta"]["warnings"] == []
+
+
+def _ar(phi, sigma, n, seed):
+    from scipy.signal import lfilter
+    return lfilter([1.0], [1.0, -phi], np.random.default_rng(seed).normal(0.0, sigma, n))
+
+
+def test_ar_noise_with_drift_and_troughs_is_no_worse_than_a_rolling_mean():
+    """AR(0.95) noise reads as 0.22× its true level to a first-difference MAD;
+    measured on the grid the scale is the real one."""
+    n = N_HOURS * 3600
+    t = np.arange(n, dtype=float)
+    noise = _ar(0.95, SIGMA, n, seed=7)
+    drift = 5.0 * np.sin(2 * np.pi * t / (6 * 3600.0))
+    _, _, events, onsets = acceptance_trace()
+    y = drift + events + noise
+    away = np.ones(n, bool)
+    for o in onsets:
+        away[max(0, o - 300):o + 1500] = False
+    bd = remove_baseline(y, 1.0)
+    rm = make_detrend_filter(1.0, mode="rolling_mean", window_s=600.0)(y)
+
+    def err(c):
+        e = c - events - noise
+        return float(np.sqrt(np.mean((e - np.median(e)) ** 2)))
+
+    # measured 2026-10-13: BEADS 0.047, rolling mean 0.081
+    assert err(bd["corrected"]) <= err(rm)
+    over_rm, _ = event_distortion(rm, events + noise, onsets, away)
+    over_bd, _ = event_distortion(bd["corrected"], events + noise, onsets, away)
+    assert np.median(over_bd) <= np.median(over_rm)
+    assert bd["meta"]["event_fraction_3sigma"] < 0.3, "the noise is not events"
+
+
+def test_a_random_walk_without_events_is_not_all_events():
+    y = np.cumsum(np.random.default_rng(11).normal(0.0, SIGMA, N_HOURS * 3600))
+    out = remove_baseline(y, 1.0)
+    # before the review: 0.98
+    assert out["meta"]["event_fraction_3sigma"] < 0.3
+    assert out["meta"]["converged"]
+
+
+def test_an_event_layer_covering_most_of_the_span_is_a_loud_warning():
+    """If x holds most of the span on a drop/spike run, it is drift, not events."""
+    y, _ = _sine_drift(0.05, 3, 5.0)
+    out = remove_baseline(y, 1.0, sparsity=0.05)
+    m = out["meta"]
+    assert m["event_fraction_3sigma"] > 0.8, m["event_fraction_3sigma"]
+    assert any("event" in w and "drift" in w for w in m["warnings"]), m["warnings"]
+
+
+def test_the_acceptance_run_carries_no_warnings(drop_run):
+    assert drop_run["meta"]["warnings"] == []
 
 
 # ── units and polarity ──────────────────────────────────────────────────────
@@ -245,9 +333,12 @@ def test_polarity_drop_keeps_drops_truer_than_spike(trace, drop_run):
     # measured 2026-10-13: drop ≈ 0.0457, spike ≈ 0.0484 — these drops are
     # fast against the 2 h period, so the filter alone separates most of them
     assert rms_drop < rms_spike
-    # with the wrong polarity the event layer fills with drift, not drops
-    # (measured: drop 0.12 ≈ the drops' share of the trace, spike 0.46)
-    assert spike_run["meta"]["event_fraction_3sigma"] > 2 * drop_run["meta"]["event_fraction_3sigma"]
+    # only `drop` puts the drops in the event layer. (Before review F1 the
+    # wrong polarity filled the layer with drift — spike 0.46 against drop
+    # 0.12 — and this test pinned that as the polarity signal; with the scale
+    # measured on the grid neither run takes drift: drop 0.052, spike 0.030.)
+    assert drop_run["meta"]["event_fraction_3sigma"] > spike_run["meta"]["event_fraction_3sigma"]
+    assert spike_run["meta"]["event_fraction_3sigma"] < 0.3
     assert spike_run["meta"]["r"] == 6.0
     both = remove_baseline(trace["y"][:24 * 3600], 1.0, polarity="both")
     assert both["meta"]["r"] == 1.0
@@ -314,6 +405,35 @@ def test_nan_samples_stay_nan_and_are_counted():
     finite[1000:1100] = False
     assert np.isfinite(out["corrected"][finite]).all()
     assert out["meta"]["n_nan"] == 100
+
+
+def test_a_trailing_gap_does_not_bend_the_baseline_before_it(trace):
+    """Review F3: a trailing hour of NaN used to be held flat at the last value,
+    then solved as if it were data (max error 0.48 against 0.075 without the gap)."""
+    n = 24 * 3600
+    y = trace["y"][:n].copy()
+    away = trace["away"][:n]
+    clean = remove_baseline(y, 1.0)["baseline"] - trace["drift"][:n]
+    y[-3600:] = np.nan
+    gapped = remove_baseline(y, 1.0)
+    err = gapped["baseline"] - trace["drift"][:n]
+    assert np.isnan(err[-3600:]).all()
+    keep = away & np.isfinite(err)
+    assert np.abs(err[keep]).max() < 1.5 * np.abs(clean[away]).max() + 0.02
+    assert gapped["meta"]["warnings"] == [], "an end gap is trimmed, not bridged"
+
+
+def test_a_long_interior_gap_is_named_in_the_warnings():
+    y, *_ = acceptance_trace(seed=2)
+    y = y[:24 * 3600].copy()
+    y[40000:41800] = np.nan                      # 30 min > period / 10 = 12 min
+    m = remove_baseline(y, 1.0)["meta"]
+    assert m["longest_gap_s"] == pytest.approx(1800.0)
+    assert any("gap" in w for w in m["warnings"]), m["warnings"]
+    y2, *_ = acceptance_trace(seed=2)
+    y2 = y2[:24 * 3600].copy()
+    y2[40000:40100] = np.nan                     # 100 s: harmless
+    assert remove_baseline(y2, 1.0)["meta"]["warnings"] == []
 
 
 def test_a_span_too_short_is_refused_with_a_reason():

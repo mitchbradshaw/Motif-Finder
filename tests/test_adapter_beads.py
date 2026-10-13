@@ -66,7 +66,9 @@ def test_parameters_defaults_and_bounds():
     }
     by = {p.name: p for p in spec.params}
     assert by["polarity"].choices == ["drop", "spike", "both"]
-    assert by["filter_order"].choices == [1, 2]
+    # review F2: order 1 leaves 0.36 units of a 6 h drift on the acceptance
+    # trace (3.6× the bar) and 15 % of a drift at 2× the period — withdrawn
+    assert by["filter_order"].choices == [2]
     assert by["baseline_period_s"].min is not None and by["baseline_period_s"].max is not None
     assert by["sparsity"].min > 0 and by["sparsity"].max is not None
     with pytest.raises(ValueError):
@@ -104,6 +106,21 @@ def test_meta_carries_the_solve_and_its_rules():
     names = {r["name"] for r in m["rules"]}
     assert {"sigma", "event_fraction_3sigma", "grid"} <= names
     assert all(isinstance(r["rule"], str) and r["rule"] for r in m["rules"])
+
+
+def test_a_drift_absorbed_into_the_event_layer_is_a_warning_rule():
+    """Review F1(c): an event layer covering > 80 % of a drop/spike run is drift
+    the λ could not hold back; the block says so in `warnings` and in a rule."""
+    n = 24 * 3600
+    t = np.arange(n, dtype=float)
+    y = 5.0 * np.sin(2 * np.pi * t / 10800.0) + np.random.default_rng(0).normal(0, 0.05, n)
+    m = run(y, sparsity=0.05).meta
+    assert m["warnings"], m["event_fraction_3sigma"]
+    rule = next(r for r in m["rules"] if r["name"] == "warnings")
+    assert "event" in rule["rule"] and "drift" in rule["rule"]
+    quiet = run(span(), baseline_period_s=3600.0).meta
+    assert quiet["warnings"] == []
+    assert "warnings" not in {r["name"] for r in quiet["rules"]}
 
 
 def test_a_span_too_short_is_refused_with_a_reason():
