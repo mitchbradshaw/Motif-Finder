@@ -343,14 +343,25 @@ def test_a_second_hump_below_the_prominence_floor_is_named_as_such():
     assert "one hump" not in r["no_trains_reason"]
 
 
-def test_twenty_thousand_events_take_well_under_a_second():
+def test_twenty_thousand_events_take_well_under_a_second(monkeypatch):
+    # the block's own per-train work, not the imported LZ76 routine (itself ~1 s over 3500 symbols)
     import time
+    monkeypatch.setattr(TR, "lempel_ziv", lambda sizes: None)
     times, _ = clear_trains(0, n_trains=3500)
     assert times.size > 18000
     for rule in TR.RULE_NAMES:
         t0 = time.perf_counter()
-        TR.find_trains(times, rule=rule)
+        r = TR.find_trains(times, rule=rule)
         assert time.perf_counter() - t0 < 1.0, rule
+        assert r["n_trains"] == 3500, rule
+
+
+@pytest.mark.parametrize("n_trains", [100, 500])
+def test_logisi_finds_every_clear_train_with_many_events(n_trains):
+    # a flat-topped within-train hump (uniform 20-40 s gaps) under a narrow bandwidth: its top can sit above
+    # the median gap, which a median-bounded peak search missed
+    times, truth = clear_trains(1, n_trains=n_trains)
+    assert list(TR.find_trains(times, rule="logisi")["train_id"]) == list(truth)
 
 
 if __name__ == "__main__":

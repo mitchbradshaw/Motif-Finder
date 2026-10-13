@@ -38,21 +38,39 @@ Adaptations, each forced by our data (named here as 00-common.md asks)
    to hundreds of events, not the tens of thousands of spikes the 2010 binning
    was tuned on; the bins-per-decade and smoothing of the original are
    themselves unverified. The density is a Gaussian KDE on log10(gap) with
-   Scott's bandwidth (sigma * n^-1/5, scipy's default), evaluated on 512
-   points; the bandwidth is printed.
-2. **The 100 ms ceiling becomes `max_core_gap_s`**, in seconds; 0 = auto =
-   the median gap. A neuronal ceiling is physiology; nobody knows a fungal
-   one, and the median is the quantity that sits between the intra- and the
-   inter-train gaps whenever most gaps are within trains.
-3. **In auto mode the peak search allows one bandwidth of slack** (a peak at
-   most one KDE bandwidth, in log10 units, above the median still counts as
-   "at or below" it): a KDE peak is located only to within its bandwidth, and
-   a clear intra-train peak can sit a hair above the median it defines.
+   Silverman's robust bandwidth, 0.9 * min(sd, IQR/1.349) * n^-1/5 (sd when
+   the IQR is 0), evaluated on 512 points; the bandwidth is printed. Not
+   Scott's (sd * n^-1/5): the sd of a two-humped sample is inflated by the
+   very bimodality being looked for, so Scott's rule smoothed real valleys
+   away (irregular trains at a between/within ratio of 100: 85 % of train
+   events found at n=300, 19 % at n=60, against 99 % and 87 % with
+   Silverman's). Not narrower either: 0.6x the robust rule called trains in
+   11-18 % of drifting-rate Poisson series; at 0.9x the false-train rate is
+   about 2 % or less on Poisson and on 100x rate ramps at n=30-300.
+   **What it can resolve.** When the timing inside a train is irregular
+   (exponential gaps), the gaps between trains must be roughly 30-100x those
+   inside before a valley deep enough (void > 0.7) can exist at all - even the
+   true mixture density's void is only 0.51 at a ratio of 10 and 0.72 at 30.
+   Below that, "no trains" means "not resolvable", not "absent".
+2. **The 100 ms ceiling becomes `max_core_gap_s`**, in seconds, and is
+   optional. A neuronal ceiling is physiology; nobody knows a fungal one.
+   Given one (> 0), the rule runs as written: the intra-train peak is the
+   largest prominent peak at or below it.
+3. **Without one (0 = auto) the prominent peaks are tried left to right.**
+   Each peak, shortest gap first, is paired with every prominent peak after
+   it; the first valley whose void exceeds 0.7 is the cut. The leftmost hump
+   is the within-train one - what the 100 ms ceiling encoded for neurons -
+   and trying the next pair when a valley is too shallow lets a ripple on
+   the left of the density not hide a real valley further right. An earlier
+   version bounded the search by the median gap; that failed twice: when
+   fewer than half the gaps are within trains the median lands in the
+   inter-train hump and the inter-train peak was taken for the intra-train
+   one ("one hump" over plain trains), and on a flat-topped within-train
+   hump with many events the density's top can sit above its own median.
 4. **In auto mode there is no core-and-extend step.** The 2010 cores exist
-   because 100 ms is a physiological upper bound on a within-burst gap; the
-   median is a search bound, not a ceiling, and cores cut at the median would
-   drop a real train whose gaps all happen to sit just above it. With an
-   explicit `max_core_gap_s` the step is applied as written.
+   because 100 ms is a physiological upper bound on a within-burst gap;
+   without one there is nothing to cut cores at. With an explicit
+   `max_core_gap_s` the step is applied as written.
 5. **No valley -> no trains.** Pasquale's method falls back to the 100 ms
    threshold when no cut is found; here the absence is the result, said in
    words (the prompt and the research plan both ask for it).
@@ -122,26 +140,41 @@ def _labels_from_runs(n, runs, min_events):
 
 # ── logISI ──────────────────────────────────────────────────────────────────
 
+def silverman_bandwidth(lg):
+    """Silverman's robust rule of thumb, 0.9 * min(sd, IQR/1.349) * n^-1/5,
+    on `lg` (log10 gaps); the sd alone when the IQR is 0 (most gaps equal)."""
+    lg = np.asarray(lg, dtype=float)
+    sd = float(lg.std(ddof=1))
+    q75, q25 = np.percentile(lg, [75, 25])
+    spread = min(sd, (q75 - q25) / 1.349) if q75 > q25 else sd
+    return 0.9 * spread * lg.size ** -0.2
+
+
 def log_gap_density(gaps):
-    """`(grid_log10, density, bandwidth_log10)` - a Gaussian KDE (Scott's rule)
-    of log10 of the positive gaps, on `DENSITY_POINTS` points spanning the
-    data +- 3 bandwidths. Gaps <= 0 (simultaneous events) have no logarithm
-    and are left out of the density (they still count as within any cut)."""
+    """`(grid_log10, density, bandwidth_log10)` - a Gaussian KDE (Silverman's
+    robust bandwidth, `silverman_bandwidth`) of log10 of the positive gaps, on
+    `DENSITY_POINTS` points spanning the data +- 3 bandwidths. Gaps <= 0
+    (simultaneous events) have no logarithm and are left out of the density
+    (they still count as within any cut)."""
     from scipy.stats import gaussian_kde
 
     lg = np.log10(np.asarray(gaps, dtype=float)[np.asarray(gaps) > 0])
     if lg.size < 2 or np.ptp(lg) == 0:
         return None, None, None
-    kde = gaussian_kde(lg)  # bw_method='scott'
+    # a scalar bw_method is the factor on the sample sd
+    kde = gaussian_kde(lg, bw_method=silverman_bandwidth(lg) / float(lg.std(ddof=1)))
     bw = float(np.sqrt(kde.covariance[0, 0]))
     grid = np.linspace(lg.min() - 3 * bw, lg.max() + 3 * bw, DENSITY_POINTS)
     return grid, kde(grid), bw
 
 
-def _peaks(g):
+def _peaks(g, prominent=True):
+    """Indices of the density's peaks: those whose prominence is at least
+    `PEAK_PROMINENCE_FRAC` of the maximum when `prominent`, else every local
+    maximum."""
     from scipy.signal import find_peaks
 
-    idx, _ = find_peaks(g, prominence=PEAK_PROMINENCE_FRAC * float(g.max()))
+    idx, _ = find_peaks(g, prominence=PEAK_PROMINENCE_FRAC * float(g.max()) if prominent else None)
     return [int(i) for i in idx]
 
 
@@ -149,14 +182,14 @@ def logisi_cut(gaps, max_core_gap_s=0.0, void_threshold=VOID_THRESHOLD):
     """The logISI cut for one group's gaps (seconds).
 
     Returns a dict: `cut_s` (None when there is no valley), `void`, the
-    intra-train peak `intra_peak_s`, the ceiling used `max_core_gap_s` and
-    whether it was `auto`, the density (`log10_gap_s`, `density`,
-    `bandwidth_log10`) and `reason` (why there is no cut, in words) - never an
-    invented split.
+    intra-train peak `intra_peak_s`, the ceiling used `max_core_gap_s` (None
+    in auto mode) and whether it was `auto`, the density (`log10_gap_s`,
+    `density`, `bandwidth_log10`) and `reason` (why there is no cut, in
+    words) - never an invented split.
     """
     gaps = np.asarray(gaps, dtype=float)
     auto = not (max_core_gap_s and max_core_gap_s > 0)
-    ceiling = float(np.median(gaps)) if auto else float(max_core_gap_s)
+    ceiling = None if auto else float(max_core_gap_s)
     out = {"cut_s": None, "void": None, "intra_peak_s": None, "max_core_gap_s": ceiling, "auto": auto,
            "log10_gap_s": None, "density": None, "bandwidth_log10": None, "reason": None, "n_peaks": 0}
     grid, g, bw = log_gap_density(gaps)
@@ -167,31 +200,38 @@ def logisi_cut(gaps, max_core_gap_s=0.0, void_threshold=VOID_THRESHOLD):
                bandwidth_log10=bw)  # 5 figures: a drawing, not a re-analysis
     peaks = _peaks(g)
     out["n_peaks"] = len(peaks)
-    if ceiling <= 0:
-        out["reason"] = "the ceiling on a within-train gap is 0 s (most gaps are zero), so no intra-train peak"
-        return out
-    limit = np.log10(ceiling) + (bw if auto else 0.0)
-    below = [p for p in peaks if grid[p] <= limit]
-    if not below:
-        out["reason"] = ("no peak of the log-gap density at or below the within-train ceiling "
-                         f"({ceiling:.4g} s{', the median gap' if auto else ''}): one kind of gap, no trains")
-        return out
-    p1 = max(below, key=lambda p: g[p])
-    out["intra_peak_s"] = float(10 ** grid[p1])
-    later = [p for p in peaks if p > p1]
-    if not later:
-        out["reason"] = ("one hump: the log-gap density has no peak after the intra-train peak at "
-                         f"{out['intra_peak_s']:.4g} s, so no valley to cut at - no trains")
-        return out
-    best_void = None
-    for p2 in later:
-        m = p1 + int(np.argmin(g[p1:p2 + 1]))
-        void = 1.0 - g[m] / np.sqrt(g[p1] * g[p2])
-        best_void = void if best_void is None else max(best_void, void)
-        if void > void_threshold:
-            out["cut_s"] = float(10 ** grid[m])
-            out["void"] = float(void)
+    if auto:
+        candidates = sorted(peaks)   # left to right: the shortest-gap hump first
+    else:
+        below = [p for p in peaks if grid[p] <= np.log10(ceiling)]
+        if not below:
+            out["reason"] = (f"no peak of the log-gap density at or below the within-train ceiling ({ceiling:.4g} s): "
+                             "one kind of gap, no trains")
             return out
+        candidates = [max(below, key=lambda p: g[p])]   # as written: the largest peak at or below the ceiling
+    if not candidates:   # no interior peak at all (cannot happen on a +- 3 bandwidth grid; said, not crashed)
+        out["reason"] = "the log-gap density has no peak, so no valley to cut at - no trains"
+        return out
+    out["intra_peak_s"] = float(10 ** grid[candidates[0]])
+    best_void = None
+    for p1 in candidates:
+        for p2 in (p for p in peaks if p > p1):
+            m = p1 + int(np.argmin(g[p1:p2 + 1]))
+            void = 1.0 - g[m] / np.sqrt(g[p1] * g[p2])
+            best_void = void if best_void is None else max(best_void, void)
+            if void > void_threshold:
+                out.update(cut_s=float(10 ** grid[m]), void=float(void), intra_peak_s=float(10 ** grid[p1]))
+                return out
+    if best_void is None:   # no candidate has a prominent peak after it
+        first = min(candidates)
+        if any(p > first for p in _peaks(g, prominent=False)):
+            out["reason"] = (f"no second peak prominent enough (>= {PEAK_PROMINENCE_FRAC * 100:g} % of the "
+                             f"maximum): after the peak at {10 ** grid[first]:.4g} s the log-gap density has only "
+                             "a minor bump, so no valley worth cutting at - no trains")
+        else:
+            out["reason"] = ("one hump: the log-gap density has no peak after the intra-train peak at "
+                             f"{10 ** grid[first]:.4g} s, so no valley to cut at - no trains")
+        return out
     out["void"] = float(best_void)
     out["reason"] = (f"the valleys after the intra-train peak are too shallow: the deepest has void "
                      f"{best_void:.3f}, which does not exceed {void_threshold:g} - no trains")
@@ -323,6 +363,9 @@ def lempel_ziv(sizes):
     not rewritten. None for fewer than two trains."""
     if len(sizes) < 2:
         return None
+    # The private routine, not the public `compute_lempel_ziv_complexity`: that one takes spike regions and a
+    # signal length and builds a BINARY string from them; a sequence of train sizes is a string over many
+    # symbols, which only the underlying LZ76 routine accepts.
     from Working.Detection.analysis.dehshibi_detection_analysis import _lz76_complexity
 
     return float(_lz76_complexity("".join(chr(0x100 + int(s)) for s in sizes)))
@@ -385,16 +428,16 @@ def find_trains(times_s, rule="logisi", *, min_events=3, max_core_gap_s=0.0, voi
     else:
         word_sorted, labels, info = adamatzky_words(gaps, theta_mult=theta_mult, min_events=min_events)
 
+    # trains are contiguous runs of the sorted events, numbered 0.. in time order: one pass, no scan per train
     size_s = np.zeros(n, dtype=int)
     pos_s = np.full(n, -1, dtype=int)
-    sizes = []
-    within = []
-    for k in range(int(labels.max()) + 1 if n and labels.max() >= 0 else 0):
-        members = np.flatnonzero(labels == k)
-        size_s[members] = members.size
-        pos_s[members] = np.arange(members.size)
-        sizes.append(int(members.size))
-        within.extend(np.diff(ts[members]).tolist())
+    member = labels >= 0
+    counts = np.bincount(labels[member]) if member.any() else np.zeros(0, dtype=int)
+    sizes = [int(c) for c in counts]
+    first_of = np.concatenate([[0], np.cumsum(counts)[:-1]]).astype(int)
+    size_s[member] = counts[labels[member]]
+    pos_s[member] = np.arange(int(member.sum())) - first_of[labels[member]]
+    within = gaps[member[1:] & (labels[1:] == labels[:-1])].tolist() if n > 1 else []
 
     def unsort(a):
         out = np.empty_like(a)
@@ -414,7 +457,7 @@ def find_trains(times_s, rule="logisi", *, min_events=3, max_core_gap_s=0.0, voi
         "n_trains": len(sizes), "n_in_trains": n_in, "fraction_in_trains": (n_in / n) if n else None,
         "train_size_distribution": size_distribution(sizes),
         "train_sizes": sizes,
-        "lz_complexity": lempel_ziv(sizes),
+        "lz_complexity": lempel_ziv(sizes) if rule != "adamatzky" else None,   # adamatzky: per word, below
         "median_within_gap_s": float(np.median(within)) if within else None,
         "refused": refused, "no_trains_reason": None if sizes else (info.get("reason") or "no run reached "
                                                                      f"{min_events} events"),
@@ -455,15 +498,18 @@ def rules(rule, **p):
         ceiling = p.get("max_core_gap_s") or 0
         specific = [{"name": "cut (logISI)", "rule": (
             "Pasquale et al. 2010 as restated by Cotterill et al. 2016: a Gaussian kernel density of log10(gap) "
-            "(Scott's bandwidth, printed); the intra-train peak is the largest prominent peak (prominence >= "
-            f"{PEAK_PROMINENCE_FRAC:g} of the maximum) at or below "
-            + ("the median gap (auto; one bandwidth of slack)" if not ceiling else f"{ceiling:g} s")
+            "(Silverman's robust bandwidth 0.9 min(sd, IQR/1.349) n^-1/5, printed); only peaks whose prominence is "
+            f">= {PEAK_PROMINENCE_FRAC:g} of the maximum count; the intra-train peak is "
+            + ("each peak in turn from the left (auto: no ceiling), paired with every peak after it"
+               if not ceiling else f"the largest peak at or below {ceiling:g} s")
             + f"; the first minimum after it whose void 1 - g(min)/sqrt(g(p1) g(p2)) exceeds "
             f"{p.get('void_threshold', VOID_THRESHOLD):g} is the cut; a train is >= {p.get('min_events', 3)} events "
             "with gaps below the cut"
             + ("" if not ceiling else "; if the cut exceeds the ceiling, cores are found with the ceiling and "
                                       "extended with the cut")
-            + f". No valley -> no trains. Fewer than {MIN_GAPS_FOR_HISTOGRAM} gaps -> refused")}]
+            + f". No valley -> no trains. Fewer than {MIN_GAPS_FOR_HISTOGRAM} gaps -> refused. When the timing "
+            "inside a train is irregular, a valley needs the gaps between trains to be ~30-100x those inside, so "
+            "'no trains' can mean 'not resolvable'")}]
     elif rule == "maxinterval":
         specific = [{"name": "trains (MaxInterval)", "rule": (
             f"begin at a gap <= {p.get('mi_begin_gap_s'):g} s, continue while gaps <= {p.get('mi_end_gap_s'):g} s; "

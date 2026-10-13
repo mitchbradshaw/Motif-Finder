@@ -87,8 +87,13 @@ def _run(x, t, fs, rule="logisi", min_events=3, max_core_gap_s=0.0, theta_mult=1
     groups, offset, word_offset = {}, 0, 0
     all_sizes, refusals, warnings, reasons = [], [], [], []
     n_unanchored = int((~np.isfinite(anchor_idx)).sum()) if n else 0
-    for key in dict.fromkeys(keys):
-        idx = np.array([i for i in range(n) if keys[i] == key and np.isfinite(anchor_idx[i])], dtype=int)
+    grouped = []   # (key, its anchored events in input order), groups in first-seen order: one sort, not a scan each
+    if n:
+        uniq, first_seen, inverse = np.unique(np.asarray(keys), return_index=True, return_inverse=True)
+        by_group = np.split(np.argsort(inverse, kind="stable"), np.cumsum(np.bincount(inverse))[:-1])
+        finite = np.isfinite(anchor_idx)
+        grouped = [(str(uniq[gi]), by_group[gi][finite[by_group[gi]]]) for gi in np.argsort(first_seen)]
+    for key, idx in grouped:
         res = TR.find_trains(anchor_idx[idx] / float(fs), rule=rule, **params)
         lab = res["train_id"]
         member = lab >= 0
@@ -193,7 +198,8 @@ SPEC = register(AdapterSpec(
         ParamSpec("min_events", int, 3, "Fewest events a train may hold (Pasquale and Cotterill: 3)", min=2, max=1000),
         ParamSpec("max_core_gap_s", float, 0.0,
                   "logisi: the largest gap that can be typical inside a train, in seconds (the neuronal 100 ms); "
-                  "0 = auto = the median gap. A value > 0 also makes the cut grow cores found with it",
+                  "0 = auto = no ceiling (the peaks are tried from the shortest gap up). A value > 0 also makes the cut "
+                  "grow cores found with it",
                   min=0.0, max=1e6),
         ParamSpec("theta_mult", float, 1.0, "adamatzky: theta = this x the mean gap (the paper used 1 and 2)",
                   min=0.01, max=100.0),
@@ -219,8 +225,10 @@ SPEC = register(AdapterSpec(
         "Groups events into trains. If events come in trains, the gaps between them are of two kinds - short "
         "inside a train, long between - and a log-scale histogram of the gaps has two humps; the default rule "
         "(logISI) cuts at the valley between them, and when there is only one hump it says 'no trains' instead of "
-        "inventing some. Adds train_id (-1 = none), train_size, position_in_train and gap_before_s; the spans and "
-        "their columns pass through. Tune max_core_gap_s first (0 = the median gap) if the valley lands in the "
+        "inventing some. It uses Silverman's robust bandwidth; when timing inside a train is irregular it needs the "
+        "gaps between trains to be ~30-100x those inside, so 'no trains' can mean 'not resolvable'. Adds train_id "
+        "(-1 = none), train_size, position_in_train and gap_before_s; the spans and "
+        "their columns pass through. Tune max_core_gap_s first (0 = no ceiling) if the valley lands in the "
         "wrong place; rule=adamatzky or maxinterval give comparable cuts. Put it after Event shape, and before "
         "Intervals with write_group on to time events within trains."
     ),

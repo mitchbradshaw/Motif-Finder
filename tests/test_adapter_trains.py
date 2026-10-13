@@ -199,8 +199,12 @@ def test_an_empty_spanset_passes_through():
     assert r.meta["n_trains"] == 0
 
 
-def test_many_groups_and_many_events_run_in_linear_time():
+def test_many_groups_and_many_events_run_in_linear_time(monkeypatch):
+    # this block's own grouping, not interrogation.intervals' measure (imported for gap_before_s; it scans
+    # per group too, ~1.3 s here, and belongs to that block)
     import time
+    import Adapters.interrogation_trains as AT
+    monkeypatch.setattr(AT, "interval_measure", lambda starts, fs, **kw: (np.full(len(starts), np.nan), None, None))
     rng = np.random.default_rng(0)
     n, n_groups = 20000, 1000
     starts = np.cumsum(rng.integers(1, 60, n))
@@ -208,7 +212,7 @@ def test_many_groups_and_many_events_run_in_linear_time():
     ss = SpanSet(starts=tuple(int(s) for s in starts), ends=tuple(int(s) + 1 for s in starts), features=up)
     t0 = time.perf_counter()
     r = _run(ss, n=int(starts[-1]) + 10, rule="adamatzky")
-    assert time.perf_counter() - t0 < 3.0
+    assert time.perf_counter() - t0 < 1.5
     assert r.meta["n_groups"] == n_groups
 
 
