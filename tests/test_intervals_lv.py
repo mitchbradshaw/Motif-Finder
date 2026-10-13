@@ -129,7 +129,8 @@ def test_pooling_would_have_given_a_different_answer():
     r = _run(SpanSet(starts=tuple(int(s) for s in starts), ends=tuple(int(s) + 2 for s in starts),
                      features=feats), n=1100)
     st = r.meta["interval_stats"]
-    assert st["a"]["lv"] == 0.0 and st["b"]["lv"] == 0.0
+    # (sample index / fs leaves ~1e-32 of float residue, hence approx)
+    assert st["a"]["lv"] == pytest.approx(0.0, abs=1e-12) and st["b"]["lv"] == pytest.approx(0.0, abs=1e-12)
     assert IV.local_variation(IV.inter_event_intervals(starts)) > 0.1
 
 
