@@ -387,7 +387,8 @@ def test_every_shipped_adapter_registers_without_modification():
     # + detection.signal_threshold (2026-10-13: the Signal -> SpanSet sibling of detection.threshold)
     # + detection.noise_threshold (w1-d: a cut in multiples of the channel's robust noise level)
     # + w1-e's interrogation.trains
-    assert len(specs) == 44, f"expected the forty-four shipped adapters, got {sorted(specs)}"
+    # + W1-B's detection.deconvolve and detection.impulse_events
+    assert len(specs) == 46, f"expected the forty-six shipped adapters, got {sorted(specs)}"
     # Ticket 08 remaps detection_matrix_profile (encoding -> scores) and
     # preprocessing_window_matrix (encoding -> windowset) to their correct
     # types, and adds detection_threshold, a typed (input_kind='scores')
