@@ -449,3 +449,61 @@ def test_keep_upstream_features_false_keeps_only_the_fingerprint_and_the_bookkee
     assert {"split", "pool_role", "pool_channel"} <= set(cols)
     assert out.meta["upstream_dropped"] == 3
     assert any(r["name"] == "upstream features" for r in out.meta["rules"])
+
+
+# ── fix round 1: thread safety, the max_cells wording, temporal leakage (critic 5-7) ─
+
+def test_the_aeon_fit_and_transform_run_under_a_module_lock():
+    """Two bridge jobs must not interleave aeon's global np.random.seed with this module's save/restore."""
+    import threading
+    assert isinstance(MR._AEON_LOCK, type(threading.Lock()))
+    M = np.random.default_rng(0).standard_normal((6, 64))
+    done = threading.Event()
+
+    def work():
+        MR.fingerprint_matrix(M, n_features=84)
+        done.set()
+
+    MR._AEON_LOCK.acquire()
+    try:
+        th = threading.Thread(target=work)
+        th.start()
+        assert not done.wait(2.0), "the fit ran while another holder had the lock"
+    finally:
+        MR._AEON_LOCK.release()
+    th.join(120)
+    assert done.is_set()
+
+
+def test_over_max_cells_even_at_84_features_says_use_fewer_windows():
+    x, _ = syn.recording(n_per_class=4, seed=9)
+    with pytest.raises(ValueError) as e:
+        run(x, tiling(12, split=blocked_split(12)), n_features=10_000, max_cells=500)
+    msg = str(e.value)
+    assert "fewer windows" in msg and "e.g." not in msg, msg
+
+
+def test_persistent_labels_with_no_shape_difference_score_at_chance_on_the_blocked_split():
+    """Critic finding 4/7: labels that persist for ~2 h runs, no shape difference, a background whose texture
+    drifts slowly — a fingerprint that learned *time* would score above chance here. Scored on the blocked split
+    (train on the first 75 %, test on the last), balanced accuracy must be at chance."""
+    from sklearn.metrics import balanced_accuracy_score
+    from sklearn.ensemble import RandomForestClassifier
+    rng = np.random.default_rng(41)
+    n = 240
+    phis = np.linspace(0.90, 0.995, n)
+    W = np.asarray([syn.ar1(L, phi, rng) for phi in phis])
+    W += 0.3 * np.sin(2 * np.pi * np.arange(n * L).reshape(n, L) / rng.uniform(150, 300))
+    y = (np.arange(n) // 12) % 2                              # runs of 12 ten-minute windows: 2 h
+    x = W.ravel()
+    split = blocked_split(n)
+    out = MR.fingerprint(tiling(n, split=split), x, span_t(x), FS, n_features=SMALL)
+    F = out.windows.features[mr_columns(out.windows.features)].to_numpy()
+    tr, te = split == 0, split == 2
+    accs = []
+    for s in range(3):
+        clf = RandomForestClassifier(300, class_weight="balanced", random_state=s, n_jobs=-1).fit(F[tr], y[tr])
+        accs.append(balanced_accuracy_score(y[te], clf.predict(F[te])))
+    sd = np.sqrt(0.25 / int(te.sum()))
+    print(f"\npersistent labels, blocked split: balanced accuracy {np.round(accs, 3).tolist()} (sd {sd:.3f})")
+    assert np.mean(accs) < 0.5 + 3 * sd
