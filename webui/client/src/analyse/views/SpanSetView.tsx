@@ -6,14 +6,17 @@
  *  - overlapping windows are shared context, not double-counting, so overlapping bands are drawn as they are and
  *    never deduplicated — where the detector names its falls, the fall is drawn darker inside its window;
  *  - too many spans to draw one by one are bucketed into a density ribbon (the Explore overview's answer), and
- *    the plot says that is what it did. */
+ *    the plot says that is what it did.
+ *  A Signal → SpanSet block whose cut is one float `threshold` (the standard's convention) hands it in as `cut`;
+ *  the view draws it on the input trace, draggable — the evidence that modifier can add. */
 import { useMemo, type ReactNode } from 'react'
 import type { SpansetPayload } from '../../api'
 import { EnvelopePath } from '../../charts/primitives'
 import { makeY } from '../../charts/scale'
 import { EventSlideshow, Histogram, type SlideEvent, type SlideSort, type SlideTrace } from '../../kit'
 import { fmtDuration, fmtHours } from '../../state'
-import { Empty, finiteRange, fmtN, type ViewCtx } from './common'
+import { CutLineH, Empty, finiteRange, fmtN, type ViewCtx } from './common'
+import type { ScoreCut } from './ScoresView'
 
 /** spans closer together than this many pixels on average are drawn as a density ribbon */
 const DENSE_PX = 3
@@ -26,7 +29,7 @@ function chipOf(label: string | null | undefined): string | null {
   return text && text.length <= 18 ? text : null
 }
 
-export function SpanSetView({ p, ctx, selected, onSelect }: { p: SpansetPayload; ctx: ViewCtx; selected?: number | null; onSelect?: (i: number) => void }) {
+export function SpanSetView({ p, ctx, selected, onSelect, cut }: { p: SpansetPayload; ctx: ViewCtx; selected?: number | null; onSelect?: (i: number) => void; cut?: ScoreCut | null }) {
   const n = p.start_s.length
   const dense = n > ctx.width / DENSE_PX
   const gr = ctx.ghost && ctx.ghost.t.length ? finiteRange(ctx.ghost.v) : null
@@ -67,6 +70,7 @@ export function SpanSetView({ p, ctx, selected, onSelect }: { p: SpansetPayload;
         {ctx.ghost && yG && <g data-trace><EnvelopePath t={ctx.ghost.t} v={ctx.ghost.v} x={ctx.x} y={yG} stroke="var(--trace-ghost)" testid="ghost" /></g>}
         {!dense && <g className="span-bands" data-testid="span-bands">{p.start_s.map((_, i) => band(i))}</g>}
         {dense && selected != null && band(selected)}
+        {cut && yG && <CutLineH y={yG} value={cut.value} onChange={cut.onChange} width={ctx.width} label={cut.label} testid="threshold-line" />}
         {selX !== null && <path d={`M${selX - 5} ${ctx.height} L${selX + 5} ${ctx.height} L${selX} ${ctx.height - 7} Z`} fill="var(--amber)" data-testid="span-selected-caret" />}
         <text x={ctx.width - 6} y={ctx.height - 5} textAnchor="end" fill="var(--muted-2)" style={{ paintOrder: 'stroke', stroke: '#fff', strokeWidth: 3 }}>
           {p.n} span{p.n === 1 ? '' : 's'}{p.capped ? ` · the first ${n.toLocaleString()} drawn` : ''}{dense ? ` · density, up to ${density!.max} per 3 px` : ''}

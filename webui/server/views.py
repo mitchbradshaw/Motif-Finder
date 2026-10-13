@@ -42,7 +42,8 @@ MODIFIERS: dict[str, str] = {
     "encoding->scores": "the image above, the curve below, same x, the summed band marked on the image",
     "scores->spanset": "the cut drawn on the score curve, draggable",
     "encoding->spanset": "which cells/symbols fired, marked on the encoding itself",
-    "signal->spanset": "spans on the trace - no intermediate exists to show",
+    "signal->spanset": "spans on the trace - no intermediate exists to show; a block with a float `threshold` "
+                       "draws its cut on the trace, draggable",
     "spanset->spanset": "the features, not the spans: a histogram per measure, plus the rose",
     "signal->encoding": "three sampled images and which chunk of signal each came from",
     "windowset->encoding": "three sampled images and which window each is",

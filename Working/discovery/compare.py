@@ -81,6 +81,7 @@ ALGORITHM_GLYPH = {
     "detection.drop_detection": "drop",
     "detection.threshold": "threshold",
     "detection.summation_threshold": "threshold",
+    "detection.signal_threshold": "threshold",
     "catalogue.classifier": "model",
     "catalogue.cnn_score": "model",
     "catalogue.cluster": "model",

@@ -167,11 +167,16 @@ function SpanSetProcess({ q, lead, featuresFirst }: { q: ProcessProps; lead?: Re
   if (!p) return <>{lead}<NoResult /></>
   const funnel = funnelOf(p)
   const impure = (p.window_counts ?? []).filter(c => c > 1).length
+  // the standard's convention for a Signal -> SpanSet block: one float `threshold` in the signal's units is a cut on
+  // the input trace itself, so it is drawn there and draggable (there is no intermediate to draw it on)
+  const thr = q.card?.modifier === 'signal->spanset' ? thresholdOf(q.step, q.card) : null
+  const cut: ScoreCut | null = thr === null ? null : { value: thr, label: `cut ${fmtN(thr)} · ${String(q.step.params.direction ?? 'above')}`, onChange: v => q.setParam('threshold', v) }
   const spans = (
     <>
-      <Full q={q} height={featuresFirst ? 110 : 190}>{ctx => <SpanSetView p={p} ctx={ctx} selected={selected} onSelect={setSelected} />}</Full>
+      <Full q={q} height={featuresFirst ? 110 : 190}>{ctx => <SpanSetView p={p} ctx={ctx} selected={selected} onSelect={setSelected} cut={cut} />}</Full>
       <div className="bp-legend" style={{ paddingLeft: 0 }}>
         <span><i style={{ background: 'var(--band-detected)', border: '1px solid var(--blue)' }} />span</span>
+        {cut && <span><i style={{ background: 'var(--amber-100)', border: '1px solid var(--amber)' }} />the cut, in the signal's units · drag the line</span>}
         {p.marks && <span><i style={{ background: 'var(--blue)', opacity: 0.45 }} />the fall inside its window (onset → extremum)</span>}
         {impure > 0 && <span><i style={{ background: 'var(--band-artifact)', border: '1px solid var(--red)' }} />window holding more than one {p.window_count_of === 'falls' ? 'fall' : 'span'}</span>}
         <span><i style={{ background: 'var(--amber)' }} />selected · click a span or a card</span>

@@ -14,6 +14,10 @@ export function paramCaption(step: Step, adapter: AdapterCard | undefined): stri
       return `m = ${fmtNum(p.window_min ?? 10)} min · z-normalised · ${String(p.backend ?? 'auto')}`
     case 'detection.threshold':
       return `spans where score > ${fmtNum(p.threshold ?? 0)}`
+    case 'detection.signal_threshold':
+      return p.direction === 'below' ? `spans where signal < ${fmtNum(p.threshold ?? 0)}`
+        : p.direction === 'either' ? `spans where |signal| > ${fmtNum(Math.abs(Number(p.threshold ?? 0)))}`
+        : `spans where signal > ${fmtNum(p.threshold ?? 0)}`
     case 'detection.sax_dsax':
       return `${segCaption(p)} → dSAX letters · alphabet ${fmtNum(p.alphabet_size ?? 3)} · cutlines ${String(p.threshold_mode ?? 'learned')}`
     case 'detection.sax_csax':

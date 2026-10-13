@@ -92,7 +92,7 @@ def test_below_keeps_the_runs_under_a_negative_cut():
     assert spans(r) == [(10, 16)]
     assert r.value.scores == pytest.approx((0.015,)), "score = threshold - min(x) in the span"
     # the default direction is `above`: the same level then keeps the baseline, not the drop
-    assert spans(run(x, threshold=-0.005)) == [(0, 10), (16, 30), (32, 40)]
+    assert spans(run(x, threshold=-0.005)) == [(0, 10), (16, 40)]   # -0.004 is above -0.005 too
     assert spans(run(x, threshold=0.0, direction="below")) == [(10, 16), (30, 32)]
 
 

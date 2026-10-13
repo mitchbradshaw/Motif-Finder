@@ -85,6 +85,7 @@ that find things the plain, un-split signal hides? You check the extra finds by 
   - `detection.sax_csax` had the same defect in its Mean-Shift (6 strings from 8 runs on CH1_A1 80–84 h) and now uses
     the same fixed seed (fixup-csax-seed, `docs/prompts/fixup/reports/csax-seed-meanshift.md`). Its **alphabet size is
     seed-sensitive** there: 3–6 letters over 32 seeds, 4 in 24. Seed-sweep any finding that leans on it.
+- **A plain amplitude threshold is now a raw-signal arm** (2026-10-13, `detection.signal_threshold`; template `signal_threshold` = baseline removal → the cut, shipped at −5 mV `below`). It is the simplest comparator step 1 can use beside the drop detector and `mp_threshold`: no window, no model, one level in the signal's own units, the cut draggable on the block page. Tests: `tests/test_adapter_signal_threshold.py`, `tests/test_template_signal_threshold.py`.
 
 ## Decisions already made
 
@@ -138,3 +139,4 @@ None.
 - 2026-10-03 · fixup-csax-seed · cSAX's Mean-Shift seeded by the same constant: one recipe, one string; its alphabet size is seed-sensitive (3–6 over 32 seeds)
 - 2026-10-03 · fixup-t · band runs draw 20 paired surrogates per channel and print the count; the 297 is not yet re-measured.
 - 2026-10-04 · fixup-AC · `preprocessing.wavelet_bands` (stationary wavelet transform, every layer drawn and aligned); a wavelet level is a band in the band scope; sandbox: 2 levels + 1 band = 3 runs, union 123 vs raw only-A 3, null out-finds every layer
+- 2026-10-13 · signal-threshold · `detection.signal_threshold` (Signal → SpanSet at a level in the signal's units) and the `signal_threshold` template: a plain amplitude-threshold raw-signal arm for step 1

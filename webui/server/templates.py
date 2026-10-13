@@ -73,6 +73,15 @@ CANONICAL: list[dict] = [
         ],
     },
     {
+        "name": "signal_threshold", "kind": "detection", "version": 1,
+        "description": "Baseline → signal threshold to spans: every stretch of the detrended trace under a level "
+                       "(-5 mV as shipped; the cut is in the signal's own units, and M2 is stored in volts).",
+        "steps": [
+            _step("preprocessing", "detrend", {"mode": "rolling_mean", "window_s": 600.0}),
+            _step("detection", "signal_threshold", {"threshold": -0.005, "direction": "below"}),
+        ],
+    },
+    {
         "name": "mp_motifs", "kind": "detection", "version": 1,
         "description": "Baseline → matrix profile → motif groups (seed + nearest neighbours, labelled by group).",
         "steps": [

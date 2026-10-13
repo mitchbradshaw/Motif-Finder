@@ -24,10 +24,11 @@ from Adapters.registry import register
 from Working.types import SpanSet
 
 
-def _spans_from_mask(mask):
+def spans_from_mask(mask):
     """Contiguous runs of True in `mask` as (starts, ends) index arrays,
     half-open [start, end) -- SpanSet's convention, so no +/-1 adjustment
-    is needed at either edge."""
+    is needed at either edge. Shared with `detection.signal_threshold`, the
+    Signal -> SpanSet sibling of this block (one rule, two types)."""
     padded = np.concatenate(([False], mask, [False]))
     diff = np.diff(padded.astype(np.int8))
     starts = np.flatnonzero(diff == 1)
@@ -44,7 +45,7 @@ def _run(x, t, fs, threshold=0.0, value=None):
 
     scores = value.values
     mask = scores > threshold  # NaN > threshold is False -- a NaN-padded tail is excluded
-    starts, ends = _spans_from_mask(mask)
+    starts, ends = spans_from_mask(mask)
     span_scores = tuple(float(np.max(scores[s:e])) for s, e in zip(starts, ends))
 
     return AdapterResult(

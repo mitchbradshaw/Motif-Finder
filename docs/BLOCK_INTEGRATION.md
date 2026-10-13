@@ -126,7 +126,7 @@ that*: the shape plus the evidence).
 | `encoding->scores` | 2 | the image above, the curve below, same x, **the summed band marked on the image** |
 | `scores->spanset` | 3 | **the cut drawn on the upstream score curve, draggable** |
 | `encoding->spanset` | 2 | which cells / symbols fired, outlined on the encoding itself |
-| `signal->spanset` | 4 | spans on the trace — no intermediate exists to show |
+| `signal->spanset` | 5 | spans on the trace — no intermediate exists to show; a block with a float `threshold` draws its cut on the trace, draggable |
 | `spanset->spanset` | 2 | **the features, not the spans**: a histogram per measure, the rose, the table folded away |
 | `signal->encoding` | 11 | 3 sampled images and which chunk of signal each came from |
 | `windowset->encoding` | 1 | 3 sampled images and which window each is |
@@ -145,6 +145,7 @@ lights up; ignore them and the block still draws):
 | If the block … | … the view … |
 |---|---|
 | is `scores->spanset` and has a `float` parameter named **`threshold`** (an absolute level in the scores' units) | draws the cut on the upstream curve and makes it draggable |
+| is `signal->spanset` and has a `float` parameter named **`threshold`** (an absolute level in the signal's units) | draws the cut on the input trace itself and makes it draggable (`detection.signal_threshold`) |
 | is `encoding->scores` and has **`row_from` / `row_to`** (fractions of the image height) | marks the summed band on the upstream image |
 | emits a SpanSet and puts **`meta["events"]`** = one dict per span with `onset_idx` / `trough_idx` (span-relative) | marks each fall inside its window and counts **falls** per window |
 | is a feature block whose table carries **`onset_idx` / `extremum_idx`** | the same, from the table |
