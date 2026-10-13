@@ -92,6 +92,31 @@ def test_a_random_split_is_refused_unless_accepted(spec):
         _run(spec, x, None, spans_for(onsets), split_rule="random")
 
 
+def test_auto_length_coverage_is_reported_and_warned_when_recovery_falls_outside(spec):
+    # fix round 1: windows whose recovery point lies outside them are counted; more than a quarter -> a warning
+    x, onsets = chain("ar1", n_events=8)
+    rec = [float(o + 100) for o in onsets]
+    for i in (0, 1, 2):
+        rec[i] = float(onsets[i] + 2000)  # 3 of 8 > a quarter
+    spans = spans_for(onsets, extra={"recovery_idx": rec})
+    res = _run(spec, x, None, spans, length_s=600.0)
+    assert res.meta["n_recovery_outside_window"] == 3
+    assert res.meta["n_duration_unmeasured"] == 0
+    assert res.meta["warnings"] and "length_s" in res.meta["warnings"][0]
+    rec = [float(o + 100) for o in onsets]
+    rec[0] = float(onsets[0] + 2000)  # 1 of 8: counted, no warning
+    res = _run(spec, x, None, spans_for(onsets, extra={"recovery_idx": rec}), length_s=600.0)
+    assert res.meta["n_recovery_outside_window"] == 1 and res.meta["warnings"] == []
+    # no recovery_idx column: not measured (None), never a reassuring 0
+    res = _run(spec, x, None, spans_for(onsets), length_s=600.0)
+    assert res.meta["n_recovery_outside_window"] is None
+
+
+def test_the_length_help_text_says_what_auto_covers(spec):
+    help_ = next(p for p in spec.params if p.name == "length_s").description
+    assert "half" in help_ and "recovery" in help_ and "placeholder" in help_
+
+
 def test_the_meta_a_page_reads(spec):
     x, onsets = chain("ar1", n_events=3, first=100, spacing_s=1000, n=2400)
     res = _run(spec, x, None, spans_for(onsets, pre=10, post=200), length_s=600.0)

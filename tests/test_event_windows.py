@@ -96,7 +96,42 @@ def test_auto_length_prefers_event_shapes_duration_when_it_ran():
     f = pd.DataFrame({"duration_s": [300.0, np.nan, 320.0, 310.0]})
     spans = SpanSet(starts=(0, 1000, 2000, 3000), ends=(50, 1050, 2050, 3050), features=f)
     length_s, basis = EW.auto_length_s(spans, FS)
-    assert length_s == 620.0 and "duration_s" in basis  # 2 * 310 (finite rows only)
+    # fix round 1: a NaN duration (never reached half recovery) is LONGER than every finite one, not absent:
+    # sorted [300, 310, 320, inf] -> median 315 -> 630 s (it was 620 s with the NaN silently dropped)
+    assert length_s == 630.0 and "duration_s" in basis
+    assert "1 unmeasured" in basis
+
+
+def test_unmeasured_durations_are_counted_and_a_majority_of_them_hits_the_ceiling():
+    f = pd.DataFrame({"duration_s": [300.0, np.nan, np.nan, np.nan]})
+    spans = SpanSet(starts=(0, 1000, 2000, 3000), ends=(50, 1050, 2050, 3050), features=f)
+    assert EW.auto_length_s(spans, FS)[0] == EW.AUTO_MAX_S  # the median is "longer than measurable"
+    ew = EW.event_windows(np.zeros(20_000), FS, spans, anchor="start", length_s=0.0)
+    assert ew.n_duration_unmeasured == 3
+    # every duration unmeasured: no finite median to take; the span lengths stand in, the count still says so
+    f = pd.DataFrame({"duration_s": [np.nan, np.nan]})
+    spans = SpanSet(starts=(0, 1000), ends=(100, 1100), features=f)
+    ew = EW.event_windows(np.zeros(5000), FS, spans, anchor="start", length_s=0.0)
+    assert ew.length_s == 200.0 and ew.n_duration_unmeasured == 2
+
+
+def test_recovery_outside_the_window_is_counted():
+    x, onsets = chain("ar1", n_events=4)
+    rec = [float(o + 100) for o in onsets]
+    rec[1] = float(onsets[1] + 900)   # past a 600 s window
+    rec[2] = np.nan                   # never recovered
+    spans = spans_for(onsets, extra={"recovery_idx": rec})
+    ew = EW.event_windows(x, FS, spans, anchor="onset", length_s=600.0)
+    assert EW.recovery_outside(spans, ew) == 2
+    assert EW.recovery_outside(spans_for(onsets), ew) is None  # no recovery_idx column: not measured, not 0
+
+
+def test_the_length_rule_says_what_it_covers():
+    text = " ".join(r["rule"] for r in EW.rules(length_s=0.0))
+    assert "half" in text and "recovery" in text and "placeholder" in text
+    assert "half recovery" in EW.__doc__ and "placeholder" in EW.__doc__
+    # the old, false rationale (the window holds the return to baseline) is gone
+    assert "must hold the whole event" not in " ".join(EW.__doc__.split())
 
 
 def test_auto_length_at_a_non_unit_sample_rate():
