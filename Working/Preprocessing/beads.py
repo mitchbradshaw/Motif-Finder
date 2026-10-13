@@ -59,16 +59,38 @@ fungal recordings, and every change is here:
    multiplier on all three λ; **λ₁ and λ₂ are derived from it** in a fixed
    ratio (``LAMBDA_RATIOS``) and not exposed, because small changes of λ₁ are
    known to destabilise BEADS (pybeads, MIT, reports it).
-2. **Unit-free.** The trace is divided by a robust noise level — the MAD of the
-   first difference / (0.6745·√2) — before solving and multiplied back after,
-   so the same ``sparsity`` means the same thing in volts and millivolts, and
-   multiplying the input by k multiplies every output by k. The scale of the
-   λ (``LAMBDA_RATIOS``) is set for that normalised trace — the paper's ratio
-   0.5 : 5 : 4, times 3 — the value that, on the acceptance trace of
-   ``tests/test_beads.py``, puts into x the samples that are events and
-   (almost) none that are drift. ``ε₀ = ε₁ = 1e-4`` noise units (``beads.m``:
-   1e-6 raw units): 1e-4 σ is far below anything the data resolve, and it
-   makes the banded solves ~10× better conditioned (measured).
+2. **Unit-free, at the scale the solve sees.** The grid (adaptation 3) is
+   divided by a robust scale before solving and multiplied back after, so the
+   same ``sparsity`` means the same thing in volts and millivolts, and
+   multiplying the input by k multiplies every output by k. The scale is the
+   robust level (MAD ÷ 0.6745) of the *high-passed grid* ``H(grid)`` — exactly
+   what the fidelity term ½‖H(y − x)‖² weighs — floored at the white-noise
+   level σ/√q (σ: MAD of the first difference ÷ (0.6745·√2), reported as
+   ``sigma``). Why not σ/√q alone, as first built: the fidelity term is
+   quadratic in amplitude and the λ terms linear, so with λ in units of a
+   noise level thousands of times smaller than the drift, whatever slow drift
+   the filter's gentle slope lets through (6 % of a drift at twice the period)
+   was cheaper to put in x than to leave — the whole drift went into the event
+   layer (review 2026-10-13: 56–97 % baseline error, event fraction 0.99,
+   converged=True). Measured on ``H(grid)``, that leak *is* the scale, so x
+   only takes what stands out from it; and correlated noise (AR(0.95): a
+   first-difference MAD reads it at 0.22× its level) is measured as it
+   averages onto the grid. A first difference of the grid was tried and
+   rejected: on a random walk it still left 40–55 % of the span in x. The λ
+   scale (``LAMBDA_RATIOS``) is the paper's ratio 0.5 : 5 : 4 times 0.3 —
+   chosen (0.1 – 3 tried) as the value that, on the acceptance trace of
+   ``tests/test_beads.py``, still puts the drops' deep part into x (event
+   fraction 0.047) while pure drift and noise put nothing there. Above 0.5 the
+   event layer goes quiet on the drops too and the slow-drop polarity
+   advantage fades. ``ε₀ = ε₁ = 1e-4`` scale units (``beads.m``: 1e-6 raw
+   units): far below anything the data resolve, and it makes the banded solves
+   ~10× better conditioned (measured).
+   The floor of this method on pure drift is therefore the filter, not the λ:
+   a drift at 2× ``baseline_period_s`` leaves ~4 % RMS (6 % peak) of its
+   amplitude in the corrected trace, one at 3× ~0.9 % (1.3 % peak), one at
+   1.5× ~12 %. A
+   600 s rolling mean tracks a fast, large drift more closely than that; what
+   it cannot do is leave a drop alone.
 3. **A coarse grid for the solve.** Our cut-offs are tiny — a 2-hour period at
    1 Hz is fc = 1.4e-4 cycles/sample, against the paper's ~1e-2 — and the
    filter matrix A then has a condition number ~1/(π·fc)^(2d): above 1e15 for
@@ -78,7 +100,8 @@ fungal recordings, and every change is here:
    (0.02) cycles per grid sample — 144 s blocks for the default 2 h at 1 Hz —
    and its baseline is interpolated back to every sample (linearly; the
    baseline has nothing faster than the period in it, so the interpolation
-   error is ~1e-4 of its amplitude). The noise level on the grid is σ/√q. The
+   error is ~1e-4 of its amplitude). The scale is measured on this grid
+   (adaptation 2). The
    corrected signal ``y − baseline`` keeps every sample's own detail. The event
    layer x is reported at the grid's resolution only. As a bonus a
    2.6 M-sample channel is solved on ~18 k grid points.
@@ -89,24 +112,48 @@ fungal recordings, and every change is here:
    regions is removed and added back to the baseline — the role pybaselines'
    ``fit_parabola`` and pybeads' sigmoid padding play. Measured: without the
    padding a drift that is steep at a span's edge left a 1.3-unit error there.
-5. **Filter order 2 by default** (the plan said 1). The cut-off is a gentle
-   slope, not a wall: a first-order filter still lets ~10 % of a drift three
-   times slower than ``baseline_period_s`` through as "signal", which on the
-   acceptance trace (6 h drift, 2 h period) leaves residual drift of ~0.37
-   units — four times the 0.1 the block must meet. Order 2 lets ~1 % through.
-   Order 1 stays selectable.
+   The weak spot: an *event* in the last quarter period is reflected with the
+   end value it bends, and the baseline there follows it (measured: a span cut
+   1040 s after a drop onset, 0.63 of the drop's depth; cut clear of the
+   drops, 0.075). Anchoring the reflection on an end median or a robust end
+   line was tried and helped one case while hurting others, so instead an
+   event layer above 3 scale units within that quarter period at either end
+   is named in ``meta["warnings"]``.
+5. **Filter order 2, and only 2, in the block** (the plan said 1, default).
+   The cut-off is a gentle slope, not a wall: a first-order filter lets ~10 %
+   of a drift three times slower than ``baseline_period_s`` through as
+   "signal". Measured 2026-10-13 with the grid scale of adaptation 2: on the
+   acceptance trace (6 h drift, 2 h period) order 1 leaves residual drift of
+   0.36 units RMS — 3.6 times the 0.1 the block must meet — and 15 % RMS of a
+   drift at twice the period (order 2: 0.045 units and 4 %). (Before that
+   scale it was worse: 3.8 units, the whole drift in x.) Order 1 cannot be
+   made safe by λ — the leak is the filter's — so the block offers only 2;
+   ``remove_baseline`` still accepts 1 for comparison.
 6. **Long spans.** Every matrix is kept as its diagonals (``_Bands``) and the
    system is solved by banded Cholesky (``scipy.linalg.solveh_banded``, banded
    LU if rounding costs it its definiteness — the order MATLAB's backslash
    tries them in), so memory and time stay linear; the iterations are capped
    (``max_iter``) with a tolerance on the relative change of the cost, and
    whether it converged is reported, never hidden.
-7. **Missing samples.** NaNs are bridged by linear interpolation for the solve
-   and put back as NaN in every output; how many there were is reported.
+7. **Missing samples.** NaN runs at either end are trimmed from the solve
+   (the result equals the result on the span without them; holding the last
+   value flat through a trailing hour, as first built, bent the baseline to
+   0.48 against 0.075). Interior NaNs are bridged by a straight line for the
+   solve; every NaN is put back as NaN in every output, and the count, the
+   longest interior gap (``longest_gap_s``) and the trimmed samples are
+   reported. Across a bridged gap the baseline follows the line: near a gap
+   longer than ~period/10 it is interpolated, not estimated, and
+   ``meta["warnings"]`` says so.
 
-The honest limit: no baseline method can split an event from drift with the
+The honest limits: no baseline method can split an event from drift with the
 same time-scale. ``baseline_period_s`` must sit above the slowest event you
-care about; an event as slow as the period is part of the baseline.
+care about; an event as slow as the period is part of the baseline. And on a
+span made mostly of events (a plateau occupying most of each interval) the
+"baseline" settles partway into them — the scale and the sparse prior both
+assume events are the minority — so absolute levels after BEADS are not
+reliable on event-dominated spans; event shapes and relative depths are.
+When the event layer covers more than 80 % of a drop/spike run the drift has
+gone into x, and ``meta["warnings"]`` says so.
 
 Why not reuse: ``Working.Preprocessing.detrend`` subtracts a rolling mean or a
 line — the very filter this block replaces (it is dragged down by every big
@@ -117,10 +164,17 @@ penalised systems.
 import numpy as np
 from scipy.linalg import LinAlgError, solve_banded, solveh_banded
 
-#: (λ₀, λ₁, λ₂) at ``sparsity = 1``, in units of the trace's noise level. The
-#: paper's worked example uses λ₀ : λ₁ : λ₂ = 0.5 : 5 : 4 (times an amplitude);
-#: the ratio is kept, the scale (×3) is set for a noise-normalised trace.
-LAMBDA_RATIOS = (1.5, 15.0, 12.0)
+#: (λ₀, λ₁, λ₂) at ``sparsity = 1``, in units of the grid scale (adaptation 2).
+#: The paper's worked example uses λ₀ : λ₁ : λ₂ = 0.5 : 5 : 4 (times an
+#: amplitude); the ratio is kept, the scale (×0.3) is set for a trace divided by
+#: the robust level of its own high-passed grid.
+LAMBDA_RATIOS = (0.15, 1.5, 1.2)
+#: Above this fraction of the span the event layer is drift, not events, on a
+#: one-sided (drop / spike) run — reported in ``meta["warnings"]``.
+EVENT_FRACTION_WARN = 0.8
+#: An interior NaN gap longer than this fraction of the baseline period is
+#: bridged by a straight line the baseline then follows — reported.
+GAP_WARN_PERIODS = 0.1
 #: Asymmetry ratio for one-sided events (the paper's and pybaselines' 6).
 ASYMMETRY = 6.0
 POLARITIES = ("drop", "spike", "both")
@@ -403,6 +457,25 @@ def _to_samples(n, centres, values):
     return out
 
 
+def grid_scale(z, d, fc, inner):
+    """The scale the fidelity term actually sees: the robust level (MAD ÷ 0.6745)
+    of the high-passed grid ``H z`` — the noise *as averaged onto the grid*
+    (correlated noise does not average down by √q) plus whatever slow drift the
+    filter's gentle slope lets through — measured on ``inner`` (the grid without
+    its end padding)."""
+    A, B = _filter_matrices(d, fc, len(z))
+    h = (B @ A.solve(z))[inner]
+    return float(np.median(np.abs(h - np.median(h))) / 0.6745)
+
+
+def _longest_run(mask):
+    """Length of the longest run of True in ``mask``."""
+    if not mask.any():
+        return 0
+    edges = np.diff(np.concatenate([[0], mask.astype(np.int8), [0]]))
+    return int(np.max(np.flatnonzero(edges == -1) - np.flatnonzero(edges == 1)))
+
+
 def grid_factor(n, fc, fc_grid=FC_GRID):
     """How many samples BEADS averages into one grid point: enough to lift the
     cut-off to ``fc_grid`` cycles/sample, never so many that fewer than
@@ -449,17 +522,24 @@ def remove_baseline(y, fs, *, baseline_period_s=7200.0, polarity="drop", sparsit
         raise ValueError(
             f"BEADS baseline removal needs at least {MIN_SAMPLES} finite samples; "
             f"this span has {n_finite} of {n}.")
-    work = y.copy()
-    if n_nan:
-        idx = np.arange(n)
-        work[~finite] = np.interp(idx[~finite], idx[finite], y[finite])
+    # NaN at either end is trimmed from the solve (holding the last value flat
+    # through it would be solved as data); interior gaps are bridged linearly
+    fin_idx = np.flatnonzero(finite)
+    lo, hi = int(fin_idx[0]), int(fin_idx[-1]) + 1
+    m = hi - lo
+    work = y[lo:hi].copy()
+    inside_nan = ~finite[lo:hi]
+    if inside_nan.any():
+        idx = np.arange(m)
+        work[inside_nan] = np.interp(idx[inside_nan], idx[~inside_nan], work[~inside_nan])
+    longest_gap = _longest_run(inside_nan)
 
     sigma, sigma_source = robust_sigma(y[finite])
     sign = -1.0 if polarity == "drop" else 1.0
     r = 1.0 if polarity == "both" else ASYMMETRY
     lam0, lam1, lam2 = (float(sparsity) * c for c in LAMBDA_RATIOS)
 
-    q = grid_factor(n, fc, fc_grid)
+    q = grid_factor(m, fc, fc_grid)
     grid, centres = _block_means(work, q)
     ng = len(grid)
     period_grid = period_samples / q
@@ -467,27 +547,49 @@ def remove_baseline(y, fs, *, baseline_period_s=7200.0, polarity="drop", sparsit
     if pad:
         grid = np.concatenate([2 * grid[0] - grid[pad:0:-1], grid, 2 * grid[-1] - grid[-2:-pad - 2:-1]])
     line, end_samples = _end_line(grid, period_grid)
-    sigma_grid = sigma / np.sqrt(q)
+    inner = slice(pad, pad + ng)
+    sigma_white = sigma / np.sqrt(q)
     if sigma > 0:
+        sigma_grid = max(grid_scale(grid - line, int(filter_order), fc * q, inner), sigma_white)
         z = sign * (grid - line) / sigma_grid
         xs, fs_, info = beads(z, fc=fc * q, d=int(filter_order), r=r, lam0=lam0, lam1=lam1, lam2=lam2,
                               max_iter=max_iter, tol=tol, eps0=eps, eps1=eps)
-        f_grid = (sign * fs_ * sigma_grid + line)[pad:pad + ng]
-        x_grid = (sign * xs * sigma_grid)[pad:pad + ng]
-        xs = xs[pad:pad + ng]
+        f_grid = (sign * fs_ * sigma_grid + line)[inner]
+        x_grid = (sign * xs * sigma_grid)[inner]
+        xs = xs[inner]
     else:
         # a straight line has no noise to measure events against: all baseline
-        f_grid, x_grid, xs = grid[pad:pad + ng].copy(), np.zeros(ng), np.zeros(ng)
+        sigma_grid = 0.0
+        f_grid, x_grid, xs = grid[inner].copy(), np.zeros(ng), np.zeros(ng)
         info = {"iterations": 0, "converged": True, "cost": []}
+    baseline = np.full(n, np.nan)
+    events = np.full(n, np.nan)
     if q == 1:
-        baseline, events = f_grid, x_grid
+        baseline[lo:hi], events[lo:hi] = f_grid, x_grid
     else:
-        baseline, events = _to_samples(n, centres, f_grid), _to_samples(n, centres, x_grid)
+        baseline[lo:hi], events[lo:hi] = _to_samples(m, centres, f_grid), _to_samples(m, centres, x_grid)
+    events[~finite] = np.nan
+    baseline[~finite] = np.nan
     corrected = y - baseline
-    if n_nan:
-        events[~finite] = np.nan
-        baseline[~finite] = np.nan
-        corrected[~finite] = np.nan
+
+    event_fraction = float(np.mean(np.abs(xs) > 3.0))
+    warnings = []
+    if polarity != "both" and event_fraction > EVENT_FRACTION_WARN:
+        warnings.append(
+            f"The event layer covers {event_fraction:.0%} of the span: that is drift, not events, and the "
+            "baseline is not trustworthy. Raise `sparsity` or `baseline_period_s`.")
+    edge = int(max(1, min(ng // 4, round(period_grid / 4))))
+    edge_events = [side for side, part in (("start", xs[:edge]), ("end", xs[-edge:]))
+                   if np.any(np.abs(part) > 3.0)]
+    if edge_events:
+        warnings.append(
+            f"An event sits within {edge * q / float(fs):g} s of the span's {' and '.join(edge_events)}: the "
+            "end padding reflects it, and the baseline over the last half period there can be off by a "
+            "large fraction of the event's depth. Widen the span past the event if you can.")
+    if longest_gap > GAP_WARN_PERIODS * period_samples:
+        warnings.append(
+            f"A gap of {longest_gap / float(fs):g} s (longer than a tenth of the {baseline_period_s:g} s "
+            "period) was bridged by a straight line: the baseline near it is interpolated, not estimated.")
 
     meta = {
         "fc_cycles_per_sample": fc,
@@ -506,6 +608,7 @@ def remove_baseline(y, fs, *, baseline_period_s=7200.0, polarity="drop", sparsit
         "final_cost": float(info["cost"][-1]) if info["cost"] else None,
         "sigma": sigma,
         "sigma_grid": float(sigma_grid),
+        "sigma_grid_white": float(sigma_white),
         "sigma_source": sigma_source,
         "baseline_min": float(np.nanmin(baseline)),
         "baseline_max": float(np.nanmax(baseline)),
@@ -513,8 +616,11 @@ def remove_baseline(y, fs, *, baseline_period_s=7200.0, polarity="drop", sparsit
         "end_pad_grid_points": int(pad),
         "end_region_grid_points": int(end_samples),
         "n_nan": int(n_nan),
-        "event_fraction_3sigma": float(np.mean(np.abs(xs) > 3.0)),
+        "longest_gap_s": longest_gap / float(fs),
+        "trimmed_end_samples": int(n - m),
+        "event_fraction_3sigma": event_fraction,
         "span_shorter_than_period": bool(n < period_samples),
+        "warnings": warnings,
     }
     return {"corrected": corrected, "baseline": baseline, "events": events, "meta": meta}
 

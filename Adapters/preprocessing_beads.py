@@ -53,11 +53,14 @@ def _estimate(x, t, fs, baseline_period_s=7200.0, **params):
 
 
 def _rules(meta):
-    return [
+    rules = [{"name": "warnings", "rule": " ".join(meta["warnings"])}] if meta["warnings"] else []
+    return rules + [
         {"name": "sigma",
-         "rule": "Noise level σ: the median absolute deviation of the first difference ÷ (0.6745·√2) — "
-                 "blind to slow drift and to sparse events. The trace is divided by σ before solving, so "
-                 "`sparsity` means the same in volts and millivolts."},
+         "rule": "Scale: the robust level (median absolute deviation ÷ 0.6745) of the high-passed grid — "
+                 "the noise as it averages onto the grid plus whatever slow drift the filter lets through — "
+                 "never below the white-noise level σ/√samples-per-point (σ: MAD of the first difference "
+                 "÷ (0.6745·√2)). The grid is divided by it before solving, so `sparsity` means the same in "
+                 "volts and millivolts, and drift far larger than the noise is not mistaken for events."},
         {"name": "grid",
          "rule": f"BEADS is solved on means of {meta['grid_factor']} samples "
                  f"({meta['grid_step_s']:g} s), so the cut-off sits at {meta['fc_grid_cycles_per_sample']:.3g} "
@@ -68,8 +71,9 @@ def _rules(meta):
                  "sparse event layer does not explain. An event as slow as that period is baseline — raise "
                  "`baseline_period_s` above the slowest event you care about."},
         {"name": "event_fraction_3sigma",
-         "rule": "Fraction of grid points where the sparse event layer x exceeds 3 × the grid's noise level "
-                 "(σ / √samples-per-point): how much of the span BEADS treated as events."},
+         "rule": "Fraction of grid points where the sparse event layer x exceeds 3 × the scale: how much of "
+                 "the span BEADS treated as events. Above 0.8 on a drop or spike run it is drift, not "
+                 "events, and a warning says so."},
         {"name": "converged",
          "rule": f"Converged: the cost changed by less than 0.1 % between iterations before the cap of "
                  f"{meta['max_iter']}. If false, the baseline is the last iterate."},
@@ -103,9 +107,9 @@ SPEC = register(AdapterSpec(
                   "and the noise; lower: more of the trace counted as events.",
                   min=0.05, max=50.0),
         ParamSpec("filter_order", int, 2,
-                  "Sharpness of the drift / event split. 2 (default) is sharp; 1 is gentler and lets more slow "
-                  "drift through.",
-                  choices=[1, 2]),
+                  "Sharpness of the drift / event split. Only 2 is offered: order 1 let 7 % of a drift three "
+                  "times slower than the period through as signal, and 15 % of one twice as slow.",
+                  choices=[2]),
     ],
     run=_run,
     estimate=_estimate,
@@ -116,6 +120,7 @@ SPEC = register(AdapterSpec(
         "a sparse layer of events and noise, and passes on the trace minus the baseline — so big drops are "
         "not dragged into the baseline and leave no overshoot beside them. Tune `baseline_period_s` first: "
         "drift slower than it is removed, events faster than it are kept. Set `polarity` to the way your "
-        "events point."
+        "events point. On a span made mostly of events the baseline settles partway into them: event shapes "
+        "and depths are kept, absolute levels are not reliable there."
     ),
 ))

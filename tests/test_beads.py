@@ -203,7 +203,7 @@ def test_meta_reports_the_solve(drop_run):
     assert m["sigma"] == pytest.approx(SIGMA, rel=0.1), "robust σ is the noise, not the drift or the drops"
     assert -5.5 < m["baseline_min"] < -4.5 and 4.5 < m["baseline_max"] < 5.5
     # the drops occupy ~12 % of the trace; the event layer holds their deep
-    # part and nothing else (measured 2026-10-13 after review F1: 0.052)
+    # part and nothing else (measured 2026-10-13 after review F1: 0.047)
     assert 0.02 < m["event_fraction_3sigma"] < 0.2
     assert m["n_nan"] == 0
     assert m["warnings"] == [] and m["longest_gap_s"] == 0.0
@@ -213,7 +213,7 @@ def test_the_span_ends_carry_no_edge_artefact(trace, drop_run):
     """The drift is steepest exactly at the span's ends (sin at 0 and 16π):
     the padding and the linear continuation of the grid keep the edges true."""
     residual = drop_run["baseline"] - trace["drift"]
-    # measured 2026-10-13: 0.047 and 0.051
+    # measured 2026-10-13: 0.047 and 0.051 (after review F1: 0.024 and 0.045)
     assert np.abs(residual[:600]).max() < 0.1 * DEPTH
     assert np.abs(residual[-600:]).max() < 0.1 * DEPTH
 
@@ -338,7 +338,7 @@ def test_polarity_drop_keeps_drops_truer_than_spike(trace, drop_run):
     # only `drop` puts the drops in the event layer. (Before review F1 the
     # wrong polarity filled the layer with drift — spike 0.46 against drop
     # 0.12 — and this test pinned that as the polarity signal; with the scale
-    # measured on the grid neither run takes drift: drop 0.052, spike 0.030.)
+    # measured on the grid neither run takes drift: drop 0.047, spike 0.019.)
     assert drop_run["meta"]["event_fraction_3sigma"] > spike_run["meta"]["event_fraction_3sigma"]
     assert spike_run["meta"]["event_fraction_3sigma"] < 0.3
     assert spike_run["meta"]["r"] == 6.0
