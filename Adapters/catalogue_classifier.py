@@ -298,12 +298,20 @@ def _run(x, t, fs, n_estimators=300, class_weight="balanced", holdout_frac=0.25,
             "holdout_class_counts": holdout_class_counts,
             # why there is no number, when there is none (fixup-a item 10)
             "holdout_reason": holdout_reason,
+            # w2-c: whether the feature clean-up's correlation filter ran (it is
+            # skipped on tables wider than 2,000 columns, e.g. MiniRocket's)
+            "correlation_filter": _correlation_filter_note(preprocessed),
             # NESTED, not spread: `serialize.py`'s `keep` tuple whitelists
             # `"params"`, so the flat spread dropped every one of these from
             # the model card
             "params": params,
         },
     )
+
+
+def _correlation_filter_note(preprocessed):
+    from Working.Catalogue.dendrogram.dendrogram_cluster import correlation_filter_note
+    return correlation_filter_note(preprocessed)
 
 
 def _derive(x, t, fs, params, value=None, windows=None):

@@ -61,10 +61,14 @@ def _cluster_window_set(window_set, linkage, k):
     )
 
     preprocessed = preprocess_window_matrix(features)
-    return cluster_window_matrix(preprocessed, method=linkage, n_clusters=k)
+    cluster = cluster_window_matrix(preprocessed, method=linkage, n_clusters=k)
+    # w2-c: carried on the result so `_run` can say whether the correlation filter ran
+    cluster.correlation_filter_skipped = preprocessed.correlation_filter_skipped
+    return cluster
 
 
 def _run(x, t, fs, linkage="ward", k=3, value=None):
+    from Working.Catalogue.dendrogram.dendrogram_cluster import correlation_filter_note
     cluster = _cluster_window_set(value, linkage, k)
     return AdapterResult(
         output_kind="grouping",
@@ -75,6 +79,7 @@ def _run(x, t, fs, linkage="ward", k=3, value=None):
             "cluster_counts": cluster.cluster_counts,
             "n_windows": cluster.n_windows,
             "n_features": cluster.n_features,
+            "correlation_filter": correlation_filter_note(cluster),
         },
     )
 
