@@ -27,7 +27,8 @@ RULES = [
                                 "are one event."},
     {"name": "onset", "rule": "the last sample before the event's first impulse — the level the event departs from."},
     {"name": "extent", "rule": "from pre_s before the onset to the next event's onset or max_extent_s after the "
-                               "onset, whichever comes first, clipped to the span."},
+                               "onset, whichever comes first, clipped to the span. Consecutive spans therefore overlap by pre_s: the "
+                               "next span starts pre_s before the next onset, inside this one."},
     {"name": "trough", "rule": "the sample of largest |x - x[onset]| from the onset to the end of the extent."},
     {"name": "score", "rule": "the sum of the scores from the event's first impulse to its last (the whole jump, "
                               "in the score's units)."},
@@ -77,7 +78,7 @@ SPEC = register(AdapterSpec(
     params=[
         ParamSpec("threshold", float, 4.0,
                   "The cut, in the score's units (for Deconvolve: the jump size in noise SDs); an impulse is a "
-                  "sample above it"),
+                  "sample above it", min=0.0),
         ParamSpec("merge_within_s", float, 2.0,
                   "Impulses closer than this many seconds are one event (a fall spread over a few samples)",
                   min=0.0),

@@ -13,7 +13,9 @@ only — never a parameter the researcher must keep equal in two blocks.
                  the event departs from (the jump happens between it and the next)
     extent       from `pre_s` before the onset to the next event's onset or
                  `max_extent_s` after the onset, whichever is first, clipped to
-                 the span; `right_capped` says the cap set the end
+                 the span; `right_capped` says the cap set the end. Consecutive
+                 spans overlap by `pre_s` (the next one starts `pre_s` before
+                 the next onset, which is where this one ends)
     trough_idx   the sample of largest |x - x[onset]| from the onset to the end
                  of the extent (the deepest point of a drop, the top of a spike)
     size         the sum of the scores from the first to the last impulse of the

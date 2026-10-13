@@ -151,7 +151,7 @@ def test_a_quiet_ramp_with_estimation_on_returns_zero_scores_not_an_error():
     """F2: a slow ramp (rising, the way a drop-polarity fit cannot explain as jumps) on noise
     is drift, not recovery; with nothing to explain it is still a quiet channel."""
     n = 20_000
-    x = 0.01 + 2e-3 * np.arange(n) / n + 1e-4 * np.random.default_rng(4).standard_normal(n)
+    x = 0.01 + 2e-3 * np.arange(n) / n + 1e-4 * np.random.default_rng(0).standard_normal(n)
     r = _run(x, recovery_half_s=0.0, baseline_window_s=1800.0)
     assert r.meta["recovery_estimated"] is False
     assert r.meta["n_jumps"] == 0

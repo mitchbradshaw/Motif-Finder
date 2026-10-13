@@ -44,8 +44,14 @@ from tests._deconv_synthetic import FS, troughs_12h  # noqa: E402
 
 TEMPLATE = {
     "name": "deconvolved_troughs", "kind": "detection", "version": 1,
-    "description": "Troughs as deconvolved jumps (Friedrich, Zhou & Paninski 2017, OASIS): a long baseline "
-                   "removal (1 h rolling mean, far longer than a recovery) → Deconvolve (OASIS): the size of the "
+    "description": "Troughs as deconvolved jumps (Friedrich, Zhou & Paninski 2017, OASIS). The recovery "
+                   "half-time is the first knob to set: read it off a few of this recording's own troughs (the "
+                   "time one takes to climb half-way back) and put it in Deconvolve's recovery_half_s (120 s "
+                   "here); a wrong one splits every trough into many events, and estimating it (0) is a fallback "
+                   "the readout warns about when it cannot be trusted. Events that are not a sudden drop followed "
+                   "by an exponential recovery (a sharkfin's plateau and slow climb) are split into many small "
+                   "events: above a residual SD of ~1.5 the event count is not a trough count. The chain: a "
+                   "long baseline removal (1 h rolling mean, far longer than a recovery) → Deconvolve (OASIS): the size of the "
                    "sudden drop at every sample, in noise SDs, each followed by the same exponential recovery, "
                    "over a baseline that follows what drift the rolling mean left (30 min windows) → "
                    "Impulse events: one event per drop, running to the next drop, so a trough that starts before "
