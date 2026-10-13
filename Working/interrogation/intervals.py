@@ -15,6 +15,24 @@ species' intervals differ by two orders of magnitude, so nothing about timing
 may be pooled before it has been measured per group. Every function here takes
 one group's onsets; a caller with several groups calls it once per group.
 
+The local measures LV (Shinomoto, Shima & Tanji 2003) and CV2 (Holt et al.
+1996) compare each gap only with the next, so a slow change of rate does not
+read as irregularity the way CV does (W1-G). Four things a reader should know:
+
+- **Coincident onsets.** A neighbouring pair of two 0-s gaps (three events at
+  the same instant) has a 0/0 ratio. Such pairs are left out, and n-1 in
+  Shinomoto's 3/(n-1) is then the number of KEPT pairs; each group reports
+  `n_local_pairs` and its `local_note` says how many pairs were dropped.
+- **Duplicate onsets.** One duplicated onset in an otherwise regular train
+  (gaps 30, 30, 0, 30, 30, 30) gives LV 1.20 and CV2 0.80 - it reads as random.
+  A surprising LV or CV2 is worth checking for duplicate onsets upstream.
+- **Few gaps.** Both are very noisy on short runs (Poisson sd of LV: 0.89 at 2
+  gaps, 0.59 at 4, 0.37 at 9; Shinomoto used fragments of >= 100 gaps). With
+  fewer than ~10 gaps, read them as indicative only, beside `n_intervals`.
+- **Sampling quantisation.** Onsets on a 1 Hz grid jitter short gaps: a strictly
+  periodic 2.5 s train rounded to whole seconds reads CV2 0.20 (0.016 at a
+  30.5 s period). For gaps of a few samples, a small LV/CV2 is grid noise.
+
 No plotting library - CLAUDE.md rule 1.
 """
 
@@ -71,6 +89,75 @@ def drift_ratio(intervals):
     return tail / head if head > 0 else float("nan")
 
 
+#: LV and CV2 compare neighbouring gaps, so they need at least this many gaps
+#: (three events). Fewer is "not measured", never 0.
+MIN_LOCAL_INTERVALS = 2
+
+
+def _local_ratios(intervals):
+    """`(ratios, n_dropped)`: `|I_i - I_{i+1}| / (I_i + I_{i+1})` for every
+    neighbouring pair whose sum is positive, and how many pairs were left out
+    because both gaps were 0 s (0/0). `ratios` is None when fewer than
+    `MIN_LOCAL_INTERVALS` gaps, or when every pair was dropped.
+    """
+    iv = np.asarray(intervals, dtype=float).ravel()
+    iv = iv[np.isfinite(iv)]
+    if iv.size < MIN_LOCAL_INTERVALS:
+        return None, 0
+    a, b = iv[:-1], iv[1:]
+    sm = a + b
+    keep = sm > 0
+    n_dropped = int((~keep).sum())
+    if not keep.any():
+        return None, n_dropped
+    return np.abs(a[keep] - b[keep]) / sm[keep], n_dropped
+
+
+def local_variation(intervals):
+    """LV (Shinomoto, Shima & Tanji 2003; Shinomoto et al. 2009 eq. 2):
+    3/(n-1) * sum_{i=1}^{n-1} ((I_i - I_{i+1}) / (I_i + I_{i+1}))^2, n gaps,
+    where n-1 is the number of KEPT pairs (pairs of two 0-s gaps are left out;
+    see the module docstring).
+
+    0 for clockwork, 1 for a Poisson train, and - because each gap is compared
+    only with the next - blind to a slow change of rate that inflates CV.
+    None below two gaps. LvR (the 2009 refractory-corrected form) is not
+    offered: its constant R = 5 ms was fitted to cortical neurons.
+    """
+    r, _ = _local_ratios(intervals)
+    return None if r is None else float(3.0 * np.mean(r * r))
+
+
+def local_cv2(intervals):
+    """CV2 (Holt, Softky, Koch & Douglas 1996, J. Neurophysiol. 75:1806):
+    mean over the kept pairs of 2|I_{i+1} - I_i| / (I_{i+1} + I_i). 0 for
+    clockwork, 1 for Poisson; local in the same sense as LV. None below two
+    gaps."""
+    r, _ = _local_ratios(intervals)
+    return None if r is None else float(2.0 * np.mean(r))
+
+
+def _local_summary(iv, n_events):
+    """`{lv, cv2, n_local_pairs, local_note}` for one group's finite gaps."""
+    r, n_dropped = _local_ratios(iv)
+    n_kept = 0 if r is None else int(r.size)
+    if iv.size < MIN_LOCAL_INTERVALS:
+        note = "{} events · LV and CV2 need at least {} events ({} gaps), not measured".format(
+            n_events, MIN_LOCAL_INTERVALS + 1, MIN_LOCAL_INTERVALS)
+    elif r is None:
+        note = ("{} events · all {} neighbouring pairs of gaps are two 0-s gaps (coincident onsets), "
+                "LV and CV2 undefined".format(n_events, n_dropped))
+    elif n_dropped:
+        note = ("{} of {} neighbouring pairs left out: both gaps 0 s (coincident onsets); LV and CV2 are over "
+                "the {} kept pairs".format(n_dropped, n_dropped + n_kept, n_kept))
+    else:
+        note = None
+    if r is None:
+        return {"lv": None, "cv2": None, "n_local_pairs": n_kept, "local_note": note}
+    return {"lv": float(3.0 * np.mean(r * r)), "cv2": float(2.0 * np.mean(r)), "n_local_pairs": n_kept,
+            "local_note": note}
+
+
 def _num(v):
     v = float(v)
     return v if np.isfinite(v) else None
@@ -78,17 +165,22 @@ def _num(v):
 
 def interval_statistics(intervals, n_events=None):
     """One group's interval summary as plain JSON: counts, median / mean / range,
-    and the regularity gate. Undefined values are None, never inf or NaN."""
+    the regularity gate, and the local measures LV and CV2 with the number of
+    neighbouring pairs they used (`n_local_pairs`; `local_note` says why they
+    are None, or how many pairs were left out). Undefined values are None, never inf or
+    NaN."""
     iv = np.asarray(intervals, dtype=float).ravel()
     iv = iv[np.isfinite(iv)]
     n_events = int(iv.size + 1 if n_events is None else n_events)
     if iv.size == 0:
         return {"n_events": n_events, "n_intervals": 0, "median_s": None, "mean_s": None, "min_s": None,
-                "max_s": None, "cv": None, "r2_trend": None, "drift_ratio": None}
+                "max_s": None, "cv": None, "r2_trend": None, "drift_ratio": None,
+                **_local_summary(iv, n_events)}
     cv, r2 = regularity(iv)
     return {"n_events": n_events, "n_intervals": int(iv.size), "median_s": _num(np.median(iv)),
             "mean_s": _num(iv.mean()), "min_s": _num(iv.min()), "max_s": _num(iv.max()),
-            "cv": _num(cv), "r2_trend": _num(r2) if iv.size >= 2 else None, "drift_ratio": _num(drift_ratio(iv))}
+            "cv": _num(cv), "r2_trend": _num(r2) if iv.size >= 2 else None, "drift_ratio": _num(drift_ratio(iv)),
+            **_local_summary(iv, n_events)}
 
 
 RULES = [
@@ -101,6 +193,19 @@ RULES = [
     {"name": "cv", "rule": "sample standard deviation (ddof=1) / mean of the group's intervals (sequences11)"},
     {"name": "r2_trend", "rule": "R² of interval against event index; 0 for a perfectly constant gap (sequences11)"},
     {"name": "drift_ratio", "rule": "mean of the last third of intervals / mean of the first third; 1 = no drift (sequences11)"},
+    {"name": "lv", "rule": "local variation, 3/(n-1) · Σ ((I_i - I_i+1)/(I_i + I_i+1))² over the n gaps (Shinomoto, "
+                           "Shima & Tanji 2003): each gap compared only with the next, so a slow change of rate does "
+                           "not read as irregular the way CV does; 0 = clockwork, 1 = random (Poisson); needs 3 events, "
+                           "else not measured (never 0); pairs of two 0-s gaps (coincident onsets) are left out and "
+                           "n-1 is then the number of kept pairs (n_local_pairs; local_note counts the dropped); "
+                           "with fewer than ~10 gaps read it as indicative only (Poisson sd 0.6 at 4 gaps); a "
+                           "surprising value is worth checking for duplicate onsets upstream; the refractory-corrected LvR is not used (its constant was "
+                           "fitted to cortex)"},
+    {"name": "cv2", "rule": "local CV2, the mean of 2|I_i+1 - I_i|/(I_i+1 + I_i) over neighbouring gaps (Holt, "
+                            "Softky, Koch & Douglas 1996); local like LV; 0 = clockwork, 1 = random (Poisson); needs "
+                            "3 events, else not measured (never 0); pairs of two 0-s gaps are left out and the mean is "
+                            "over the kept pairs; with fewer than ~10 gaps read it as indicative only; gaps of a few "
+                            "samples are inflated by the sampling grid (a 2.5 s period on 1 Hz onsets reads 0.20)"},
 ]
 
 

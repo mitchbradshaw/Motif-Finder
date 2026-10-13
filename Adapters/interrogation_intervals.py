@@ -5,7 +5,14 @@ interrogation_intervals.py
 interval before and after every event, as two feature columns, and each
 group's interval statistics in meta (median, CV with ddof=1, R² of interval
 against index, drift of the last third over the first — `sequences11`'s
-regularity gate, the tested thinking about when a run of events IS a train).
+regularity gate, the tested thinking about when a run of events IS a train),
+and the local measures LV (Shinomoto et al. 2003) and CV2 (Holt et al. 1996),
+which compare each gap only with the next so a slow change of rate does not
+read as irregularity (W1-G). A group with fewer than three events gets null LV
+and CV2 with its reason, and meta counts such groups. Pairs of two 0-s gaps
+(coincident onsets, 0/0) are left out of both; each group reports the kept
+pairs as `n_local_pairs` and its `local_note` counts the dropped ones (the
+caveats - duplicates, few gaps, sampling grid - are in the core module).
 
 Intervals are measured per group and never pooled (store11's rule, carried
 over): the group is an upstream `group` column when the SpanSet has one (a
@@ -85,7 +92,8 @@ def _run(x, t, fs, anchor="onset", value=None):
         value=SpanSet(starts=tuple(spans.starts), ends=tuple(spans.ends), labels=spans.labels, scores=spans.scores,
                       features=feats),
         meta={"interval_stats": stats, "rules": list(IV.RULES), "anchor_used": "onset_idx" if use_onset else "span_start",
-              "n_events": len(spans.starts), "n_groups": len(stats)},
+              "n_events": len(spans.starts), "n_groups": len(stats),
+              "n_groups_local_unmeasured": sum(1 for s in stats.values() if s["lv"] is None)},
     )
 
 
@@ -119,6 +127,8 @@ SPEC = register(AdapterSpec(
     description=(
         "The interval before and after every event, per group and never pooled across groups, with each group's "
         "median, CV (ddof=1), R² trend and drift ratio — the regularity gate that says when a run of events is a "
-        "motif train. Put it after Event shape to time events from their onsets."
+        "motif train — plus LV and CV2, which compare each gap only with the next, so a slow speed-up over the day "
+        "does not read as irregular (about 0 = clockwork, 1 = random). Put it after Event shape to time events "
+        "from their onsets."
     ),
 ))
