@@ -204,3 +204,65 @@ def test_the_output_round_trips_through_the_step_cache(spec, tmp_path):
     back = WindowSet.from_path(str(tmp_path))
     assert back == ws
     assert back.features["overlaps_next"].dtype == bool
+
+
+# ---- fix round 1 (critic findings 3 and 4): the bookkeeping list is the WindowSet contract's
+
+BOOK = {"split", "event_index", "anchor_offset", "overlaps_next", "train_id", "word_id", "span_score"}
+
+
+def test_the_bookkeeping_columns_live_beside_windowset():
+    from Working.types.windowset import BOOKKEEPING_COLUMNS
+    from Working.Catalogue import event_windows as EW
+    assert set(BOOKKEEPING_COLUMNS) == BOOK
+    assert EW.NOT_FEATURES is BOOKKEEPING_COLUMNS  # an alias, so W2-E can import either
+    for mod in ("catalogue_cluster", "catalogue_classifier"):
+        src = open(os.path.join(ROOT, "Adapters", f"{mod}.py"), encoding="utf-8").read()
+        assert "Working.types.windowset import BOOKKEEPING_COLUMNS" in src, mod
+        assert "event_windows import NOT_FEATURES" not in src, mod
+
+
+def _book_window_set(n=24, seed=0):
+    rng = np.random.default_rng(seed)
+    f = pd.DataFrame({
+        "event_amplitude_mv": np.where(np.arange(n) % 2 == 0, 10.0, 30.0) + rng.normal(0, 0.1, n),
+        "interval_before_s": rng.uniform(600, 3000, n),  # a measurement: stays a feature
+        "span_score": rng.uniform(4, 9, n),              # the detector's own decision
+        "train_id": np.arange(n) // 4, "word_id": np.arange(n) // 2,  # time-ordered identifiers
+        "event_index": np.arange(n), "split": np.zeros(n, dtype=int),
+    })
+    return WindowSet(starts=np.arange(n) * 1000, length=600, fs=FS, features=f)
+
+
+def test_cluster_and_classifier_skip_the_bookkeeping_and_keep_measurements():
+    discover_adapters()
+    ws = _book_window_set()
+    cl = get_adapter("catalogue.cluster")
+    meta = cl.run(None, None, FS, **cl.validate_params({"k": 2}), value=ws).meta
+    assert sorted(meta["feature_names"]) == ["event_amplitude_mv", "interval_before_s"]
+    import Adapters.catalogue_classifier as C
+    labels = np.arange(ws.n_windows) % 2
+    pre, *_ = C._feature_matrix(ws, Grouping(labels=labels))
+    assert sorted(pre.feature_names) == ["event_amplitude_mv", "interval_before_s"]
+
+
+def test_span_score_and_upstream_identifiers_still_ride_on_the_windows(spec):
+    x, onsets = chain("ar1", n_events=4)
+    base = spans_for(onsets, extra={"train_id": [0, 0, 1, 1], "word_id": [0, 1, 2, 3]})
+    spans = SpanSet(starts=base.starts, ends=base.ends, scores=(5.0, 6.0, 7.0, 8.0), features=base.features)
+    f = _run(spec, x, None, spans, length_s=600.0).value.features
+    assert list(f["span_score"]) == [5.0, 6.0, 7.0, 8.0]
+    assert list(f["train_id"]) == [0, 0, 1, 1] and list(f["word_id"]) == [0, 1, 2, 3]
+
+
+def test_a_table_of_bookkeeping_only_is_refused_naming_the_set():
+    discover_adapters()
+    n = 6
+    f = pd.DataFrame({"split": np.zeros(n, int), "event_index": np.arange(n), "span_score": np.ones(n)})
+    ws = WindowSet(starts=np.arange(n) * 100, length=50, fs=FS, features=f)
+    cl = get_adapter("catalogue.cluster")
+    with pytest.raises(ValueError) as e:
+        cl.run(None, None, FS, **cl.validate_params({"k": 2}), value=ws)
+    msg = str(e.value)
+    assert "a `split` column alone" not in msg
+    assert "event_index" in msg and "span_score" in msg and "train_id" in msg
