@@ -107,14 +107,15 @@ def test_the_template_runs_end_to_end_and_measures_every_event_once(db):
     ss = out["result"].value
     f = ss.features
     assert out["result"].output_kind == "spanset"
-    for col in ("best_scale_s", "duration_s", "snr", "ridge_polarity", "edge_flag",       # CWT ridges
+    for col in ("best_scale_s", "cwt_duration_s", "snr", "ridge_polarity", "edge_flag",   # CWT ridges
                 "event_amplitude_mv", "fwhm_s", "onset_idx", "extremum_idx",           # Event shape
                 "interval_before_s", "interval_after_s"):                              # Intervals
         assert col in f.columns, col
     for c, w, p in EVENTS:
-        rows = f[(np.abs(f["peak_idx"] - c) <= max(0.5 * w, 30)) & (f["ridge_polarity"] == ("spike" if p > 0 else "drop"))]
+        rows = f[(np.abs(f["peak_idx"] - c) <= max(0.5 * w, 30))
+                 & (f["ridge_polarity"] == ("spike" if p > 0 else "drop"))]
         assert len(rows) == 1, f"the {w} s {'spike' if p > 0 else 'drop'} at {c} s: {len(rows)} rows"
-        assert 1 / 1.5 <= rows["duration_s"].iloc[0] / w <= 1.5
+        assert 1 / 1.5 <= rows["cwt_duration_s"].iloc[0] / w <= 1.5, "the scale's duration survives Event shape"
         assert rows["event_amplitude_mv"].iloc[0] == pytest.approx(1.0, rel=0.35), "Event shape measured it"
     unmarked = f[~(f["edge_flag"] | f["step_pair"])]
     assert len(unmarked) == len(EVENTS), "nothing extra goes unmarked"

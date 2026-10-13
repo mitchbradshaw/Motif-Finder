@@ -84,7 +84,8 @@ def test_one_span_per_event_centred_scored_by_snr_with_its_features():
     assert isinstance(ss, SpanSet)
     f = ss.features
     assert len(ss.starts) == len(f) == 2
-    for col in ("peak_idx", "best_scale_s", "duration_s", "ridge_scales", "snr", "polarity", "ridge_polarity",
+    for col in ("peak_idx", "best_scale_s", "duration_s", "cwt_duration_s", "ridge_scales", "snr", "polarity",
+                "ridge_polarity",
                 "edge_flag", "step_pair", "nan_in_support"):
         assert col in f.columns, col
     spike, drop = f.iloc[0], f.iloc[1]

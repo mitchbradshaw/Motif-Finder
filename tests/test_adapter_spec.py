@@ -385,7 +385,8 @@ def test_every_shipped_adapter_registers_without_modification():
     # + fixup-aa's catalogue.manual_labels + fixup-ac's preprocessing.wavelet_bands
     # + fixup-ag's preprocessing.window_pool, preprocessing.trace_shape, catalogue.shape_cluster
     # + detection.signal_threshold (2026-10-13: the Signal -> SpanSet sibling of detection.threshold)
-    assert len(specs) == 42, f"expected the forty-two shipped adapters, got {sorted(specs)}"
+    # + detection.cwt_ridges (W1-C: CWT ridge-line peaks and troughs, Du, Kibbe & Lin 2006)
+    assert len(specs) == 43, f"expected the forty-three shipped adapters, got {sorted(specs)}"
     # Ticket 08 remaps detection_matrix_profile (encoding -> scores) and
     # preprocessing_window_matrix (encoding -> windowset) to their correct
     # types, and adds detection_threshold, a typed (input_kind='scores')

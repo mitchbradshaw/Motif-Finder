@@ -208,6 +208,8 @@ def rules():
                                          "parabola in log-scale through the top three ridge points"},
         {"name": "duration_s", "rule": "FWHM of a Gaussian bump whose Ricker response peaks at best_scale_s: "
                                        "duration_s = 2*sqrt(ln 2) * best_scale_s = 1.665 * best_scale_s"},
+        {"name": "cwt_duration_s", "rule": "the same as duration_s, under a name Event shape does not overwrite "
+                                           "(its own duration_s is onset to recovery)"},
         {"name": "span", "rule": "peak_idx +/- duration_s (twice the FWHM), clipped to the span"},
         {"name": "snr", "rule": "the largest coefficient on the ridge (within the event's scale band) / the 95th "
                                 "percentile of |coefficients| at the smallest scale in a noise_window_s window "
@@ -586,7 +588,7 @@ def detect(x, fs, *, min_scale_s=10.0, max_scale_s=7200.0, n_scales=40, polarity
         lo, hi = max(0, loc - sup), min(n, loc + sup + 1)
         ev = {
             "peak_idx": int(loc), "start": int(max(0, loc - d)), "end": int(min(n, loc + d + 1)),
-            "best_scale_s": best_s, "duration_s": dur_s, "ridge_scales": cd["ridge_scales"],
+            "best_scale_s": best_s, "duration_s": dur_s, "cwt_duration_s": dur_s, "ridge_scales": cd["ridge_scales"],
             "snr": float(cd["snr"]), "peak_coef": float(cd["peak_coef"]), "noise": float(cd["noise"]),
             "polarity": int(cd["sign"]), "ridge_polarity": "spike" if cd["sign"] > 0 else "drop",
             "edge_flag": bool(loc - sup < 0 or loc + sup >= n),
