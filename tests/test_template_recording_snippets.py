@@ -54,9 +54,14 @@ TEMPLATE = {
                    "mean) → 1-hour pieces → snippets (Imani et al. 2018, matrix profile XIII): the few most "
                    "typical pieces, and every hour coloured by the one it most resembles. k is chosen by the "
                    "paper's knee; k = 1 means no evidence of more than one kind of behaviour. Read the regime "
-                   "run lengths beside the labels: a label that flickers hour to hour is not a regime. Costs "
-                   "O(n²) — about 25 s for 24 h at 1 Hz; refused above 7 days. Check NaN gaps first: the "
-                   "rolling-mean baseline removal spreads a NaN, and windows more than half NaN are left "
+                   "run lengths beside the labels: a label that flickers hour to hour is not a regime. Run it "
+                   "on 24 h or more: on shorter spans the automatic k has too few pieces to judge by. Shapes "
+                   "are compared after z-normalisation, so stretches that differ only in amplitude — a quiet "
+                   "period of pure noise beside an active one — are not separated. Costs O(n²) — about 25 s "
+                   "for 24 h at 1 Hz; refused above 7 days. Gaps: one missing sample blanks the whole "
+                   "detrended trace (the rolling-mean baseline removal is a cumulative sum), and the block "
+                   "then refuses an all-NaN span; no recording stored today has a gap (all 145 scanned "
+                   "2026-10-14). Snippets itself fills short gaps and leaves windows more than half NaN "
                    "unlabelled (−1).",
     "steps": [
         {"stage": "preprocessing", "algorithm": "detrend",

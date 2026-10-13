@@ -69,13 +69,36 @@ The algorithm, as implemented
    are left out of every sum.
 5. **How many (the knee).** `change_k = Area_{k-1} / Area_k - 1` for k = 2 …
    `k_max + 1` (the paper's measure: how much the k-th snippet lowered the area,
-   relative). The paper takes k "at the knee" of this curve without a formula;
-   the rule here: the knee is the k in 2 … `k_max` with the largest drop
-   `change_k - change_{k+1}` (the last snippet that still helped a lot, followed
-   by one that did not), **accepted only if `change_k >= KNEE_MIN_CHANGE`**;
-   otherwise k = 1 (no snippet after the first lowered the area by that much —
-   no evidence of more than one kind of behaviour). `KNEE_MIN_CHANGE` = 0.25,
-   measured (see `KNEE_MIN_CHANGE`).
+   relative). **The paper's rule** (§III.B): a small change_k means "adding the
+   kth did not add much explanatory power; thus, we should use a value of k
+   corresponding to a peak" — k = argmax change_k, and no k = 1 outcome (its
+   change_1 is undefined). **Two adaptations, both this block's:**
+   a. *Selection: the largest drop.* The knee is the k in 2 … `k_max` with the
+      largest `change_k - change_{k+1}` (the last snippet that still helped a
+      lot, followed by one that did not). Measured: on the three-regime set
+      (seeds 0-3) the paper's peak rule gives k = 2 every time (change_2
+      0.42-0.45 just above change_3 0.40-0.44 — two equally strong extra
+      regimes), the largest drop gives the true 3.
+   b. *Acceptance, relative to the curve's own tail, and k = 1.* The knee is
+      kept only if `change_k >= c * median(change_{k+1} … change_{k_max+1})`,
+      `c = max(KNEE_TAIL_RATIO, KNEE_TAIL_PER_SQRT_PIECE * sqrt(W))` for W
+      pieces; otherwise k = 1 (no snippet after the first stood out from the
+      ones that followed — no evidence of more than one kind of behaviour). It
+      replaced an absolute floor (change_k >= 0.25), because on noise change_k
+      shrinks with W (each added snippet removes about 1/W of the area): the
+      floor called 12 h of detrended random walk two kinds of behaviour in
+      half the runs and missed an 8 h regime in 120 h (change_2 0.14). The
+      ratio of a noise curve's knee to its tail still grows with W, about as
+      sqrt(W) — largest over 20-30 seeds of a detrended random walk: 1.7 at 12
+      pieces, 2.3 at 24, 3.9 at 48, 4.4 at 72, 5.8 at 120 (AR(1) phi 0.999 and
+      pink noise lower) — so c = 3 alone (the manager's placeholder, from the
+      critic's sweep) let 6 of 30 random walks through at 48 h; the sqrt(W)
+      term (0.65 * sqrt(W): 4.5 at 48, 5.5 at 72, 7.1 at 120) keeps them out,
+      while the regimes measured 6.8-7.4 (three regimes, 48 pieces), 8.9-15
+      (8-12 h in 72 h) and 8.1-14 (8-12 h in 120 h). Both constants are
+      placeholders for the surrogate check on real recordings; the margin at
+      120 pieces is thin (an 8 h regime at 8.1 against a cut of 7.1).
+   An all-zero area (a constant signal) is k = 1, said so.
 6. **Regimes.** Each position is owned by the selected snippet with the lowest
    profile there (ties to the earlier snippet — stumpy's rule); a snippet's
    fraction is the share of scored positions it owns (stumpy divides by all
@@ -99,8 +122,11 @@ splits that piece's vote. Detrend first: MPdist tolerates a trend *within* a
 sub-piece, not a wandering level that changes what the sub-pieces look like.
 
 Cost: the profiles are O(n²) in work (each of n/m pieces against every one of
-n positions, `2j` values each) and O(n²/m) in memory (the profiles, `n/m x n`
-floats).
+n positions, `2j` values each) and O(n²/m) in memory. The peak
+(`memory_peak`) is about twice the profiles (`n/m x n` floats, plus the
+first-row dot products of the same size while the kernel runs) plus the
+kernel's blocks (at most KERNEL_MEMORY_BUDGET): ~1.8 GB at 72 h with 1-hour
+pieces at 1 Hz, ~3.0 GB at 7 days (critic measured 1.95 GB at 72 h). A run above MEMORY_LIMIT is refused.
 
 No UI imports; numpy, numba and stumpy only.
 """
@@ -113,14 +139,11 @@ import numpy as np
 from numba import njit, prange
 from stumpy import core as _stumpy_core
 
-#: the smallest `change_k` the knee accepts as "this snippet still helped" (step 5).
-#: Measured on the synthetic sets of tests/test_snippets.py (1-hour pieces, 48 h,
-#: seeds 0-3/0-5): with three real regimes change_2 and change_3 were 0.40-0.55
-#: and change_4 at most 0.13; on recordings with no regimes (AR(1) with 60 s and
-#: 10 min correlation times, a detrended random walk, pink noise, raw and
-#: detrended) the largest change_k was 0.18 (a random walk), most below 0.10.
-#: 0.25 sits between. A placeholder for real recordings until the surrogate check.
-KNEE_MIN_CHANGE = 0.25
+#: the knee's acceptance (step 5b): change_k must reach c times the median of the
+#: changes after it, c = max(KNEE_TAIL_RATIO, KNEE_TAIL_PER_SQRT_PIECE * sqrt(W)).
+#: Placeholders, measured on synthetic sets only (see step 5b).
+KNEE_TAIL_RATIO = 3.0
+KNEE_TAIL_PER_SQRT_PIECE = 0.65
 
 #: a window more than this NaN is not a candidate and is labelled -1 (step 1)
 MAX_NAN_FRACTION = 0.5
@@ -128,8 +151,8 @@ MAX_NAN_FRACTION = 0.5
 #: memory the parallel kernel may hold at once (bytes), across threads
 KERNEL_MEMORY_BUDGET = 1_500_000_000
 
-#: the profiles (n/m x n floats) are refused above this (bytes)
-PROFILE_MEMORY = 2_000_000_000
+#: a run whose memory peak (`memory_peak`) would pass this is refused (bytes)
+MEMORY_LIMIT = 4_000_000_000
 
 
 # ── the kernel ─────────────────────────────────────────────────────────────────
@@ -352,55 +375,106 @@ def greedy_snippets(D, n_select, candidates=None, scored=None):
     `candidates` (bool per row) limits which rows may be picked; `scored`
     (bool per column) limits which positions count in the areas. Returns
     `(chosen rows, areas)` where `areas[k-1]` is the area with k snippets.
+    Works row by row on `D` itself (no copy, no rows x positions temporary):
+    an unscored position starts with Q = 0, so it adds nothing to any area.
     """
     D = np.asarray(D, dtype=np.float64)
     W, P = D.shape
     cand = np.ones(W, dtype=bool) if candidates is None else np.asarray(candidates, dtype=bool)
-    cols = np.ones(P, dtype=bool) if scored is None else np.asarray(scored, dtype=bool)
-    Dc = D[:, cols]
-    Q = np.full(Dc.shape[1], np.inf)
+    Q = np.full(P, np.inf)
+    if scored is not None:
+        Q[~np.asarray(scored, dtype=bool)] = 0.0
+    tmp = np.empty(P)
     chosen, areas = [], []
     for _ in range(int(n_select)):
-        a = np.sum(np.minimum(Dc, Q), axis=1)
-        a[~cand] = np.inf
-        if chosen:
-            a[chosen] = np.inf
+        a = np.full(W, np.inf)
+        for i in range(W):
+            if cand[i] and i not in chosen:
+                np.minimum(D[i], Q, out=tmp)
+                a[i] = tmp.sum()
         idx = int(np.argmin(a))
         if not np.isfinite(a[idx]):
             break
         chosen.append(idx)
         areas.append(float(a[idx]))
-        Q = np.minimum(Q, Dc[idx])
+        np.minimum(Q, D[idx], out=Q)
     return chosen, areas
 
 
 def change_curve(areas):
     """`change_k = Area_{k-1} / Area_k - 1` for k = 2 .. len(areas) (paper).
-    Returned as `{k: change_k}`; an area of 0 gives inf."""
+    Returned as `{k: change_k}`; an area of 0 gives inf (nan if both are 0)."""
     out = {}
     for k in range(2, len(areas) + 1):
         prev, cur = areas[k - 2], areas[k - 1]
-        out[k] = float(prev / cur - 1.0) if cur > 0 else float("inf")
+        if cur > 0:
+            out[k] = float(prev / cur - 1.0)
+        else:
+            out[k] = float("nan") if prev <= 0 else float("inf")
     return out
 
 
-def knee(changes, k_max, min_change=KNEE_MIN_CHANGE):
-    """The knee rule (module docstring step 5). Returns `(k, reason)`."""
+def knee_threshold(n_pieces=None):
+    """The acceptance factor c of step 5b for `n_pieces` pieces."""
+    if not n_pieces:
+        return KNEE_TAIL_RATIO
+    return float(max(KNEE_TAIL_RATIO, KNEE_TAIL_PER_SQRT_PIECE * math.sqrt(n_pieces)))
+
+
+def knee_detail(changes, k_max, n_pieces=None, areas=None):
+    """The knee rule (module docstring step 5). Returns a dict: `k`,
+    `reason`, `candidate` (the largest-drop k), `ratio` (change_candidate /
+    median of the changes after it) and `threshold` (c)."""
+    c = knee_threshold(n_pieces)
+    out = {"k": 1, "candidate": None, "ratio": None, "threshold": c}
+    if areas is not None and len(areas) and areas[0] <= 0:
+        out["reason"] = "constant signal: every distance is 0, so no snippet can explain more than another"
+        return out
     best_k, best_drop = None, -np.inf
     for k in range(2, int(k_max) + 1):
         if k not in changes or (k + 1) not in changes:
             continue
         drop = changes[k] - changes[k + 1]
-        if drop > best_drop:
+        if np.isfinite(drop) and drop > best_drop:
             best_k, best_drop = k, drop
     if best_k is None:
-        return 1, "too few snippets to read a knee"
-    if changes[best_k] < min_change:
-        return 1, (f"no knee: the largest drop in change_k is at k={best_k}, but change_{best_k} = "
-                   f"{changes[best_k]:.3f} < {min_change:g} — no snippet after the first lowered the "
-                   "area by that much")
-    return best_k, (f"knee at k={best_k}: change_{best_k} = {changes[best_k]:.3f}, "
-                    f"change_{best_k + 1} = {changes[best_k + 1]:.3f} (largest drop)")
+        out["reason"] = "too few snippets to read a knee"
+        return out
+    tail = [changes[j] for j in range(best_k + 1, int(k_max) + 2) if j in changes]
+    med = float(np.median(tail))
+    ratio = float(changes[best_k] / med) if med > 0 else float("inf")
+    out.update(candidate=best_k, ratio=ratio)
+    if ratio < c:
+        out["reason"] = (f"no knee: the largest drop in change_k is at k={best_k}, but change_{best_k} = "
+                         f"{changes[best_k]:.3f} is only {ratio:.1f}x the median {med:.3f} of the changes "
+                         f"after it (needs {c:.1f}x) — no snippet after the first stood out")
+        return out
+    out["k"] = best_k
+    out["reason"] = (f"knee at k={best_k}: change_{best_k} = {changes[best_k]:.3f}, "
+                     f"change_{best_k + 1} = {changes[best_k + 1]:.3f} (largest drop); {ratio:.1f}x the "
+                     f"median {med:.3f} of the changes after it (needs {c:.1f}x)")
+    return out
+
+
+def knee(changes, k_max, n_pieces=None):
+    """`(k, reason)` of `knee_detail`."""
+    d = knee_detail(changes, k_max, n_pieces)
+    return d["k"], d["reason"]
+
+
+def memory_peak(n, m, s, n_pieces=None):
+    """Bytes a run holds at its peak: while the kernel runs, the profiles
+    (`n/m x (n - m + 1)` floats), the first-row dot products (the same size)
+    and the kernel's blocks (three `j x j` per thread, threads capped by
+    KERNEL_MEMORY_BUDGET); the greedy afterwards holds the profiles alone."""
+    n, m, s = int(n), int(m), int(s)
+    W = int(n // m) if n_pieces is None else int(n_pieces)
+    j = m - s + 1
+    profiles = 8 * W * (n - m + 1)
+    qt = 8 * W * (n - s + 1 + j)
+    per_thread = 8 * (3 * j * j + (n - s + 1) + 3 * j)
+    threads = max(1, min(numba.get_num_threads(), KERNEL_MEMORY_BUDGET // max(per_thread, 1), max(W, 1)))
+    return int(profiles + qt + threads * per_thread)
 
 
 def regime_owner(D_sel, scored=None):
@@ -487,8 +561,7 @@ def fill_nan(x):
     return out, bad
 
 
-def find_snippets(x, rel_starts, length, k=0, k_max=6, subseq_frac=0.35, mpdist_percentage=0.05,
-                  min_change=KNEE_MIN_CHANGE):
+def find_snippets(x, rel_starts, length, k=0, k_max=6, subseq_frac=0.35, mpdist_percentage=0.05):
     """Snippets of `x` with pieces of `length` samples, labelling the windows
     starting at `rel_starts` (span-relative).
 
@@ -534,12 +607,13 @@ def find_snippets(x, rel_starts, length, k=0, k_max=6, subseq_frac=0.35, mpdist_
             f"{2 * k_max}. Lower k_max, shorten the windows or analyse a longer span.")
     if k > k_max:
         raise ValueError(f"k={k} is above k_max={k_max}")
-    need = 8 * n_pieces * (n - m + 1)
-    if need > PROFILE_MEMORY:
+    need = memory_peak(n, m, s, n_pieces)
+    if need > MEMORY_LIMIT:
         raise ValueError(
-            f"the span is too long for {m}-sample pieces: the profiles alone would take "
-            f"{need / 1e9:.1f} GB ({n_pieces} pieces x {n - m + 1} positions; the limit is "
-            f"{PROFILE_MEMORY / 1e9:.0f} GB). Use longer pieces or a shorter span.")
+            f"the span is too long for {m}-sample pieces: the run's memory peak would be "
+            f"{need / 1e9:.1f} GB (the profiles, {n_pieces} pieces x {n - m + 1} positions, twice over "
+            f"while the kernel runs, plus its blocks; the limit is {MEMORY_LIMIT / 1e9:.0f} GB). "
+            "Use longer pieces or a shorter span.")
 
     D = mpdist_profiles(filled, m, s, mpdist_percentage, piece_starts=piece_starts)
     P = D.shape[1]
@@ -549,9 +623,11 @@ def find_snippets(x, rel_starts, length, k=0, k_max=6, subseq_frac=0.35, mpdist_
     chosen, areas = greedy_snippets(D, k_max + 1, candidates=cand, scored=scored)
     changes = change_curve(areas)
     if k == 0:
-        k_used, reason = knee(changes, k_max, min_change)
+        kd = knee_detail(changes, k_max, n_pieces=int(cand.sum()), areas=areas)
+        k_used, reason = kd["k"], kd["reason"]
         chosen_by = "knee"
     else:
+        kd = knee_detail(changes, k_max, n_pieces=int(cand.sum()), areas=areas)
         k_used, reason, chosen_by = k, f"k={k} set by hand", "parameter"
     sel = chosen[:k_used]
     owner = regime_owner(D[sel], scored)
@@ -600,7 +676,8 @@ def find_snippets(x, rel_starts, length, k=0, k_max=6, subseq_frac=0.35, mpdist_
     return {
         "labels": labels,
         "k": int(k_used), "k_chosen_by": chosen_by, "k_reason": reason,
-        "k_max": k_max, "min_change": float(min_change),
+        "k_max": k_max, "knee_candidate": kd["candidate"], "knee_ratio": kd["ratio"],
+        "knee_threshold": kd["threshold"],
         "areas": [float(a) for a in areas], "change_k": {str(kk): v for kk, v in changes.items()},
         "snippet_pieces": [int(r) for r in sel],
         "snippet_starts": [int(piece_starts[r]) + lo for r in sel],   # span-relative samples

@@ -34,7 +34,8 @@ from Adapters.base import AdapterResult, AdapterSpec, ParamSpec
 from Adapters.registry import register
 from Working.block_cost import estimate_seconds, register_cost_model
 from Working.Detection.matrix_profiling.snippets import (
-    KNEE_MIN_CHANGE,
+    KNEE_TAIL_PER_SQRT_PIECE,
+    KNEE_TAIL_RATIO,
     MAX_NAN_FRACTION,
     find_snippets,
 )
@@ -44,7 +45,8 @@ NAME = "catalogue.snippets"
 
 #: 7 days at 1 Hz. Above it the profiles alone (n/m x n floats) pass ~0.8 GB at
 #: 1-hour pieces, and the run would take ~20 min here (O(n²): 24 h took 24 s, 72 h 228 s);
-#: the core also refuses any span whose profiles would exceed PROFILE_MEMORY.
+#: the core also refuses any run whose memory peak would exceed MEMORY_LIMIT (4 GB;
+#: ~3 GB at 7 days with 1-hour pieces).
 MAX_SPAN_SAMPLES = 7 * 24 * 3600
 
 EXEMPLAR_RULE = ("the snippet itself: the piece whose MPdist profile, together with the snippets chosen "
@@ -64,8 +66,11 @@ RULES = [
              "minimum of the chosen profiles; Area_k is that area."},
     {"name": "k (knee)",
      "rule": "change_k = Area_(k−1) / Area_k − 1. The knee is the k (2..k_max) with the largest drop "
-             f"change_k − change_(k+1), kept only if change_k ≥ {KNEE_MIN_CHANGE:g}; otherwise k = 1 (no "
-             "evidence of a second kind of behaviour). k > 0 sets it by hand."},
+             "change_k − change_(k+1), kept only if change_k ≥ c × the median of change_(k+1) … "
+             f"change_(k_max+1), c = max({KNEE_TAIL_RATIO:g}, {KNEE_TAIL_PER_SQRT_PIECE:g} × √pieces); "
+             "otherwise k = 1 (no evidence of a second kind of behaviour). Both are this block's "
+             "adaptations: the paper takes the peak of change_k and has no k = 1. Measured on synthetic noise "
+             "from 12 to 120 pieces; trust it from 24 pieces on. k > 0 sets it by hand."},
     {"name": "fraction",
      "rule": "The share of the recording's positions whose nearest snippet (lowest profile) is this one; "
              "positions centred in a mostly-NaN window are left out."},
@@ -76,7 +81,10 @@ RULES = [
     {"name": "regime run length",
      "rule": "A run is a stretch of consecutive windows with one label (−1 ends a run). Mean and median "
              "run length; 'vs shuffled' divides the mean by the mean expected if the same labels were "
-             "shuffled (n / (1 + (n − 1)(1 − Σ p²))) — 1 means no more persistent than chance."},
+             "shuffled (n / (1 + (n − 1)(1 − Σ p²))) — 1 means no more persistent than chance. "
+             "runs_by_k (the run lengths at every fixed k) labels the windows without the exemplar "
+             "override, so at the chosen k it can differ from the headline run length when windows were "
+             "relabelled; compare recordings with runs_by_k."},
     {"name": "NaN",
      "rule": "NaN is filled by a straight line between its finite neighbours before the distances are "
              f"computed (counted); a piece more than {MAX_NAN_FRACTION:.0%} NaN is never a snippet."},
@@ -108,8 +116,11 @@ def _run(x, t, fs, k=0, k_max=6, subseq_frac=0.35, mpdist_percentage=0.05, value
                 if out["n_windows_nan"] else "")
     run_part = (f" · regime runs mean {runs['mean']:.1f} windows ({runs['ratio']:.1f}× shuffled)"
                 if out["k"] > 1 and runs["mean"] is not None else "")
+    nr = out["n_exemplar_relabelled"]
+    relabel_part = (f" · {nr} exemplar window{'s' if nr != 1 else ''} relabelled to its own snippet"
+                    if nr else "")
     summary = (f"k = {out['k']} snippet{'s' if out['k'] != 1 else ''} ({out['k_chosen_by']}) · covering "
-               f"{fr}{run_part}{nan_part}")
+               f"{fr}{run_part}{nan_part}{relabel_part}")
     meta = dict(out)
     meta.update({
         "snippet_starts_s": starts_s,
@@ -190,7 +201,7 @@ SPEC = register(AdapterSpec(
         "many; k = 1 means no evidence of more than one kind. Shapes are compared after z-normalisation, so "
         "a quiet stretch of pure noise has no shape of its own and is absorbed by whichever snippet it "
         "happens to resemble — read the run lengths: a label that flickers window to window is not a regime. "
-        "Windows more than half NaN are −1. Costs O(n²): about 25 s for 24 h at 1 Hz here; refused above "
+        "Trust the automatic k from 24 pieces (24 h of 1-hour pieces) on. Windows more than half NaN are −1. Costs O(n²): about 25 s for 24 h at 1 Hz here; refused above "
         "7 days."
     ),
 ))

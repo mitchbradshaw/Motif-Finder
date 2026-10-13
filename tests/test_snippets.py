@@ -152,7 +152,7 @@ def test_no_structure_gives_k1_and_short_runs(name, seed):
     out = _run(NULLS[name](seed))
     assert out["k"] == 1, (out["change_k"], out["k_reason"])
     assert "no knee" in out["k_reason"]
-    assert out["knee_ratio"] < sn.KNEE_TAIL_RATIO
+    assert out["knee_ratio"] < out["knee_threshold"] == sn.knee_threshold(48)
     # at a fixed k the labels flicker: no more persistent than shuffled labels
     at3 = out["runs_by_k"]["3"]
     assert at3["ratio"] < 1.6 and at3["mean"] < 2.5, at3
@@ -247,6 +247,16 @@ def test_short_nulls_give_k1_at_the_templates_scale(name, hours):
         x = _detrended(SHORT_NULLS[name](seed, hours=hours))
         out = _run(x)
         assert out["k"] == 1, (seed, out["change_k"], out["k_reason"])
+
+
+@pytest.mark.parametrize("seed", [101, 104])
+def test_long_noise_needs_the_cut_to_grow_with_the_pieces(seed):
+    """On noise the knee-to-tail ratio grows with the number of pieces (about
+    as sqrt(W)): these two 48 h detrended random walks reach 3.45 and 3.08,
+    past c = 3 alone, and stay below max(3, 0.65 sqrt(48)) = 4.5."""
+    out = _run(_detrended(syn.random_walk_null(seed, hours=48)))
+    assert out["knee_ratio"] > sn.KNEE_TAIL_RATIO
+    assert out["k"] == 1, (out["change_k"], out["k_reason"])
 
 
 @pytest.mark.parametrize("span,minor", [(72, 8), (120, 12)])
