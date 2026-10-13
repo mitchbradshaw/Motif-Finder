@@ -125,7 +125,8 @@ class JobManager(RunManager):
                                                                      "steps": [{k: v for k, v in s.items() if k != "summary"} | {"summary": s.get("summary")} for s in snap.get("steps", [])],
                                                                      "step_timings": snap.get("step_timings"), "detections_written": snap.get("detections_written"),
                                                                      "null": snap.get("null"),
-                                                                     "config_hash": snap.get("config_hash")}
+                                                                     "config_hash": snap.get("config_hash"),
+                                                                     "estimate_s": snap.get("estimate_s")}
         row = (job.id, kind, job.status, _now(), _dt.datetime.fromtimestamp(job.started_at).isoformat(timespec="seconds"),
                (_dt.datetime.fromtimestamp(job.finished_at).isoformat(timespec="seconds") if job.finished_at else None),
                1 if job.status == "cancelled" else 0, json.dumps(_clean(meta)), json.dumps(_clean(progress)),
@@ -248,7 +249,7 @@ class JobManager(RunManager):
                          "steps": progress.get("steps") or [], "n_steps": progress.get("n_steps"),
                          "current_step": progress.get("current_step"), "step_timings": progress.get("step_timings"),
                          "detections_written": progress.get("detections_written"), "null": progress.get("null"),
-                         "config_hash": progress.get("config_hash")})
+                         "config_hash": progress.get("config_hash"), "estimate_s": progress.get("estimate_s")})
             # a run the server lost mid-flight (restart) is reported as failed, never as running forever
             if snap["status"] in ("running", "queued"):
                 snap["status"] = "failed"

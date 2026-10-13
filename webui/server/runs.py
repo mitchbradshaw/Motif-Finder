@@ -56,6 +56,22 @@ def prune_frame_sources(jobs: dict, keep: int = FRAME_JOBS_HELD) -> None:
         jobs[old].frame_sources = {}
 
 
+def _estimate_s(recipe: dict, recording: dict) -> float | None:
+    """`server.chain.estimate` over the recipe's span (the whole recording
+    without one), as one number for a jobs column — or None when a step is
+    uncalibrated here or no step has an estimator: a blank, never "0 s" for a
+    run that will take an hour. An estimator that raises never stops a run."""
+    try:
+        span = recipe.get("span")
+        n = (int(span[1]) - int(span[0])) if span else int(recording["n_samples"])
+        est = chain_mod.estimate(recipe, n, float(recording["fs"]))
+    except Exception:
+        return None
+    if est.get("unknown") or not any(v for v in est.get("per_step_s", []) if v):
+        return None
+    return float(est["total_s"])
+
+
 class Job:
     _ids = itertools.count(1)
 
@@ -87,6 +103,9 @@ class Job:
         self._windowset = None          # last WindowSet seen, for Grouping strips
         self.frame_sources: dict[int, tuple] = {}   # step -> (Encoding, ctx) while the run is recent (fixup-h)
         self.log_lines: list[str] = []
+        # the recipe's time estimate over its span, known before the first step runs
+        # (Jobs' "estimate" column, 2026-10-13); None when no step can say
+        self.estimate_s: float | None = _estimate_s(recipe, recording)
 
     def snapshot(self) -> dict:
         return {
@@ -98,6 +117,7 @@ class Job:
             "started_at": self.started_at, "finished_at": self.finished_at,
             "recipe": self.recipe, "recording_id": self.recording["id"],
             "elapsed_s": (self.finished_at or time.time()) - self.started_at,
+            "estimate_s": self.estimate_s,
         }
 
 

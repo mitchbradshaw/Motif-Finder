@@ -30,6 +30,7 @@ and it is written with its own plain SQL.
 from __future__ import annotations
 
 import datetime as _dt
+import copy
 import json
 import os
 import re
@@ -41,6 +42,7 @@ from fastapi import APIRouter, Body, HTTPException, Request
 from pydantic import BaseModel, Field
 
 from Working import run_groups as RG
+from Working import templates as core_templates
 from Working.database import queries as q
 from Working.database import runs as R
 from Working.discovery import compare as D
@@ -543,6 +545,21 @@ def _signature(steps):
     return " → ".join(dedup), (kinds[-1] if kinds else None)
 
 
+def _seed_step(steps):
+    """The seeded-search step of a template, or None."""
+    return next((st for st in steps if st["algorithm"] == "seed_matches"), None)
+
+
+def _seed_bind(steps) -> str:
+    """`carry` or `rebind`, read from the seed step's own side input — the
+    mode `POST /seed/template` wrote. Every seed template used to be listed
+    as `rebind` whatever it was saved as, so Add runs demanded an exemplar for
+    one that carries its own (the researcher, 2026-10-13)."""
+    st = _seed_step(steps)
+    binding = ((st or {}).get("side_inputs") or {}).get("exemplar") or {}
+    return core_templates.REBIND if binding.get("mode") == core_templates.REBIND else core_templates.CARRY
+
+
 def _template_payload(conn, row, in_session: set, rank: int):
     steps = row["steps"]
     signature, terminal = _signature(steps)
@@ -561,7 +578,7 @@ def _template_payload(conn, row, in_session: set, rank: int):
         "stages": stages, "perChannelMin": None, "complexity": _complexity(steps), "diskGB": None,
         "preview": None,
         "previewNote": "not previewed — run Preview on a sample to get a measured number",
-        "bind": ("rebind" if is_seed else None),
+        "bind": (_seed_bind(steps) if is_seed else None),
         "inSession": (f"already in this session" if row["name"] in in_session else None),
         "hasModel": any(st["algorithm"] in ("cnn_score", "classifier") for st in steps),
         "version": row.get("version"), "builtin": bool(row.get("builtin")),
@@ -2081,6 +2098,9 @@ class PlanBody(BaseModel):
     overlap: str | None = None
     #: fixup-AD: a seed search's exclusion zone, a fraction of m (None = m/2)
     exclusion: float | None = None
+    #: the seed to bind a `rebind` template's exemplar to when it is applied
+    #: (a seed id as the Seed page's list names them); a carry template ignores it
+    exemplar: str | None = None
 
 
 # ── the band scope (fixup-Z, Q43) ───────────────────────────────────────────
@@ -2180,7 +2200,7 @@ def _steps_for(conn, body: PlanBody):
         row = next((t for t in T.list_all(conn) if t["name"] == body.template), None)
         if row is None:
             raise HTTPException(404, {"message": f"no template {body.template!r}"})
-        return row["steps"], row, None
+        return _bound_steps(conn, row, body.exemplar), row, None
     if body.seedId:
         seed = _seed_by_id(conn, body.seedId)
         return (seeded_search.seed_steps(seed, k=body.k,
@@ -2189,6 +2209,25 @@ def _steps_for(conn, body: PlanBody):
                                          exclusion=_exclusion(body.exclusion)),
                 None, seed)
     raise HTTPException(422, {"message": "name a template or a seedId"})
+
+
+def _bound_steps(conn, row, exemplar_id):
+    """A template's steps, with a `rebind` seed step bound to the exemplar the
+    plan names. A carry template's steps are returned as stored. A rebind
+    template planned without an exemplar is refused here, in words, rather
+    than by the core's ValueError once the sweep starts."""
+    steps = row["steps"]
+    st = _seed_step(steps)
+    binding = ((st or {}).get("side_inputs") or {}).get("exemplar") or {}
+    if st is None or binding.get("mode") != core_templates.REBIND:
+        return steps
+    if not exemplar_id:
+        raise HTTPException(422, {"message": f"{row['name']} asks for an exemplar when applied — choose one",
+                                  "template": row["name"], "needs": "exemplar"})
+    seed = _seed_by_id(conn, exemplar_id)
+    bound = copy.deepcopy(steps)
+    _seed_step(bound)["side_inputs"]["exemplar"] = dict(seed["binding"])
+    return bound
 
 
 def _scope(conn, body: PlanBody):
@@ -2485,6 +2524,10 @@ class ApplyBody(BaseModel):
     #: template. Each band becomes one Discovery run across the channels in
     #: scope: the template's chain with that band's step prepended.
     bands: list[dict] | None = None
+    #: template name -> seed id: the exemplar each `rebind` template is applied
+    #: with. It used to stay in the browser; the template went out with an
+    #: empty binding and the core refused it (the researcher, 2026-10-13).
+    exemplars: dict[str, str] | None = None
 
 
 def _band_set_key(conn, session_id, template_name):
@@ -2507,7 +2550,8 @@ def _apply_bands(request, c, body: ApplyBody, name: str, bands: list[dict]):
     """One template × N bands → N Discovery runs, one band set. The cost is the
     whole application (`_band_plans`): over the ceiling every band run is added
     and none started, and the page's primary action is *Create SLURM script*."""
-    pb = PlanBody(template=name, channels=body.channels, t0=body.t0, t1=body.t1)
+    pb = PlanBody(template=name, channels=body.channels, t0=body.t0, t1=body.t1,
+                  exemplar=(body.exemplars or {}).get(name))
     plans, total, route, ceiling = _band_plans(c, pb, bands)
     for plan, *_ in plans:
         if not plan["runnable"]:
@@ -2568,7 +2612,8 @@ def apply_templates(request: Request, body: ApplyBody):
             if bands:
                 out.extend(_apply_bands(request, c, body, name, bands))
                 continue
-            pb = PlanBody(template=name, channels=body.channels, t0=body.t0, t1=body.t1)
+            pb = PlanBody(template=name, channels=body.channels, t0=body.t0, t1=body.t1,
+                          exemplar=(body.exemplars or {}).get(name))
             plan, steps, template, _seed, span, chans, s = _plan(c, pb)
             if not plan["runnable"]:
                 raise HTTPException(422, {"message": plan["reason"], "refused": plan["refused"],
