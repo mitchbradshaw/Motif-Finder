@@ -125,6 +125,28 @@ def test_mostly_nan_windows_are_minus_one_and_on_the_face(spec):
     assert "1 of 48 windows mostly NaN" in res.meta["summary"]
 
 
+def test_an_exemplar_override_is_on_the_face(spec, monkeypatch):
+    import Adapters.catalogue_snippets as mod
+    real = mod.find_snippets
+
+    def fake(*a, **kw):
+        out = real(*a, **kw)
+        out["n_exemplar_relabelled"] = 1
+        return out
+
+    monkeypatch.setattr(mod, "find_snippets", fake)
+    x, _ = syn.three_regimes(0)
+    res, _ = _run(spec, x)
+    assert "1 exemplar window relabelled" in res.meta["summary"]
+
+
+def test_the_run_length_rule_says_runs_by_k_skips_the_override(spec):
+    x, _ = syn.three_regimes(0)
+    res, _ = _run(spec, x)
+    rule = next(r["rule"] for r in res.meta["rules"] if r["name"] == "regime run length")
+    assert "runs_by_k" in rule and "override" in rule
+
+
 def test_requires_a_windowset(spec):
     x = np.zeros(1000)
     t = np.arange(1000.0)

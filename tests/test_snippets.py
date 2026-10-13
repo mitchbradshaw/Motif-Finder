@@ -117,6 +117,8 @@ def test_three_regimes_under_drift_are_found(seed):
     assert all(0.2 < f < 0.45 for f in out["fractions"]), out["fractions"]
     # the regimes persist: long runs, far beyond shuffled labels
     assert out["runs"]["mean"] >= 6 and out["runs"]["ratio"] > 3
+    # the exemplar override was not needed: every snippet's own window voted for it
+    assert out["n_exemplar_relabelled"] == 0
 
 
 def test_whole_piece_distance_does_measurably_worse():
@@ -150,7 +152,7 @@ def test_no_structure_gives_k1_and_short_runs(name, seed):
     out = _run(NULLS[name](seed))
     assert out["k"] == 1, (out["change_k"], out["k_reason"])
     assert "no knee" in out["k_reason"]
-    assert max(out["change_k"].values()) < sn.KNEE_MIN_CHANGE
+    assert out["knee_ratio"] < sn.KNEE_TAIL_RATIO
     # at a fixed k the labels flicker: no more persistent than shuffled labels
     at3 = out["runs_by_k"]["3"]
     assert at3["ratio"] < 1.6 and at3["mean"] < 2.5, at3
@@ -200,6 +202,75 @@ def test_change_curve_and_knee_rule():
     flat = sn.change_curve([100.0, 92.0, 86.0, 81.0, 77.0])
     k, why = sn.knee(flat, k_max=4)
     assert k == 1 and "no knee" in why
+
+
+def test_the_knee_is_judged_against_the_curves_own_tail():
+    """Not an absolute floor: change_k must be at least KNEE_TAIL_RATIO times
+    the median of change_(k+1) .. change_(k_max+1). The same change_2 = 0.15
+    is a knee over a tail of 0.02 and is not over a tail of 0.10."""
+    assert sn.KNEE_TAIL_RATIO == 3.0
+    low_tail = {2: 0.15, 3: 0.02, 4: 0.02, 5: 0.02}
+    k, why = sn.knee(low_tail, k_max=4)
+    assert k == 2 and "7.5" in why
+    high_tail = {2: 0.15, 3: 0.10, 4: 0.09, 5: 0.08}
+    k, why = sn.knee(high_tail, k_max=4)
+    assert k == 1 and "no knee" in why and "median" in why
+
+
+def test_a_constant_signal_says_so():
+    out = sn.find_snippets(np.ones(20 * M), np.arange(20) * M, M, k_max=3)
+    assert out["k"] == 1
+    assert "constant signal: every distance is 0" in out["k_reason"]
+
+
+# ── the knee at the template's scale (6 h rolling-mean detrend, 1-hour pieces) ──
+
+def _detrended(x):
+    from Working.Preprocessing.detrend import make_detrend_filter
+    return make_detrend_filter(syn.FS, mode="rolling_mean", window_s=21600.0)(x)
+
+
+SHORT_NULLS = {
+    "random_walk": syn.random_walk_null,
+    "ar1_phi0.999": lambda seed, hours: syn.ar1_null(seed, hours=hours, tau_s=1000.0),
+    "pink": syn.pink_null,
+}
+
+
+@pytest.mark.parametrize("hours", [12, 24])
+@pytest.mark.parametrize("name", sorted(SHORT_NULLS))
+def test_short_nulls_give_k1_at_the_templates_scale(name, hours):
+    """12 and 24 h of noise (AR(1) with a 1000 s correlation time is φ = 0.999
+    at 1 Hz): the absolute floor this replaced called 12 h of random walk two
+    kinds of behaviour in half the runs."""
+    for seed in range(4):
+        x = _detrended(SHORT_NULLS[name](seed, hours=hours))
+        out = _run(x)
+        assert out["k"] == 1, (seed, out["change_k"], out["k_reason"])
+
+
+@pytest.mark.parametrize("span,minor", [(72, 8), (120, 12)])
+def test_a_brief_minority_regime_in_a_long_span_is_found(span, minor):
+    """8-12 h of a slow oscillation inside 72-120 h of drops: the absolute
+    floor missed it (change_2 0.14-0.24)."""
+    rng = np.random.default_rng(span + minor)
+    a = (span - minor) // 2
+    x = np.concatenate([syn.drops(rng, a), syn.wave(rng, minor), syn.drops(rng, span - minor - a)])
+    x = _detrended(x + syn.drift(len(x)))
+    truth = np.repeat([0, 2, 0], [a, minor, span - minor - a])
+    out = _run(x)
+    assert out["k"] == 2, (out["change_k"], out["k_reason"])
+    assert syn.agreement(out["labels"], truth) >= 0.9
+
+
+def test_expected_limitation_a_regime_that_differs_only_in_amplitude():
+    """Quiet AR(1) noise between the drops and the waves: z-normalised MPdist
+    has no amplitude, so a stretch that differs from the others only in how
+    big it is has no shape of its own and is not separated — it is absorbed by
+    the other labels. Pinned so that a change here is noticed."""
+    x, _ = syn.three_regimes(0, order=syn.ORDER_QUIET)
+    out = _run(x)
+    assert out["k"] <= 2
 
 
 def test_run_lengths_and_the_shuffled_expectation():
@@ -254,6 +325,20 @@ def test_refuses_an_all_nan_span():
     x = np.full(20 * M, np.nan)
     with pytest.raises(ValueError, match="all NaN"):
         _run(x, k_max=3)
+
+
+def test_the_memory_refusal_counts_the_true_peak(monkeypatch):
+    """The peak is the profiles twice over (the profiles plus the first-row dot
+    products, the same size, while the kernel runs) plus the kernel's own
+    blocks — not the profiles alone."""
+    x, _ = syn.three_regimes(0)
+    W, P = 48, len(x) - M + 1
+    profiles = 8 * W * P
+    peak = sn.memory_peak(len(x), M, sn.sub_length(M, 0.35))
+    assert peak >= 2 * profiles
+    monkeypatch.setattr(sn, "MEMORY_LIMIT", peak - 1)
+    with pytest.raises(ValueError, match="peak"):
+        _run(x)
 
 
 def test_refuses_k_above_k_max():

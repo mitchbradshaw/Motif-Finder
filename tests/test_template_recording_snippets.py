@@ -105,6 +105,16 @@ def test_template_is_a_three_step_training_chain():
     assert TEMPLATE["kind"] == "training"
 
 
+def test_the_description_says_what_it_cannot_do():
+    d = TEMPLATE["description"]
+    # the rolling-mean detrend is a cumulative sum: one NaN blanks the whole trace
+    assert "one missing sample" in d and "whole" in d
+    assert "no recording stored today has a gap" in d
+    # z-normalised shapes: amplitude-only differences are not separated
+    assert "amplitude" in d
+    assert "24 h" in d
+
+
 def test_three_regimes_end_to_end(run_on):
     x, truth = syn.three_regimes(0, with_drift=True)
     out = run_on(x)
