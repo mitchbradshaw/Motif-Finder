@@ -25,6 +25,7 @@ import numpy as np
 
 from Adapters.base import AdapterResult, AdapterSpec, ParamSpec
 from Adapters.registry import register
+from Working.types.windowset import BOOKKEEPING_COLUMNS
 from Working.types import Grouping
 
 # Where `persist` writes a run's labels. Module-level so the bridge's sandbox
@@ -53,14 +54,15 @@ def _cluster_window_set(window_set, linkage, k):
         # The train/validation/test assignment `preprocessing.sliding_windows`
         # rides on the window set (P12) is metadata, never a feature: a
         # clustering that saw it would recover the split as a cluster. The same
-        # holds for `catalogue.event_windows`' bookkeeping (w2-a): `event_index`
-        # is a time order, `anchor_offset` / `overlaps_next` are geometry.
-        from Working.Catalogue.event_windows import NOT_FEATURES
-        features = features.drop(columns=[c for c in NOT_FEATURES if c in features.columns])
+        # holds for the rest of the WindowSet contract's bookkeeping list
+        # (`Working.types.windowset.BOOKKEEPING_COLUMNS`: time orders, geometry,
+        # identifiers, the detector's own score).
+        features = features.drop(columns=[c for c in BOOKKEEPING_COLUMNS if c in features.columns])
     if features is None or features.shape[0] == 0 or features.shape[1] == 0:
         raise ValueError(
             "catalogue.cluster requires a WindowSet with an attached feature "
-            "matrix, one row per window (a `split` column alone is not a feature)."
+            "matrix, one row per window; the bookkeeping columns "
+            f"({', '.join(BOOKKEEPING_COLUMNS)}) are not features."
         )
     if k > len(features):
         raise ValueError(

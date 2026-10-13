@@ -18,7 +18,8 @@ waveforms for a SpanSet without going through a WindowSet. The stable surface:
   split is the adapter's, from `preprocessing.sliding_windows.assign_split`);
 * `auto_length_s(spans, fs)`, `duration_unmeasured(spans)`, `recovery_outside(spans, ew)`,
   `overlaps_next(starts, length)`, `rules(...)`;
-* `NOT_FEATURES` - the bookkeeping columns a feature consumer must drop.
+* `NOT_FEATURES` - the bookkeeping columns a feature consumer must drop (an alias of
+  `Working.types.windowset.BOOKKEEPING_COLUMNS`).
 
 Index frames. Everything here is in the frame of `x`, i.e. **span-relative**, like a
 SpanSet's `starts` and its `*_idx` columns (`docs/BLOCK_INTEGRATION.md` §1). The
@@ -92,15 +93,21 @@ from typing import NamedTuple, Optional
 import numpy as np
 import pandas as pd
 
+from Working.types.windowset import BOOKKEEPING_COLUMNS
+
 ANCHORS = ("onset", "extremum", "start")
 ANCHOR_COLUMN = {"onset": "onset_idx", "extremum": "extremum_idx", "start": None}
 OMIT_REASONS = ("past_start", "past_end", "too_much_nan")
 
-#: Columns that describe where a window sits, never what the event looks like. A
-#: consumer that treats a window set's table as features (`catalogue.cluster`,
-#: `catalogue.classifier`) drops them: `event_index` is a time order and `split` the
-#: train/test role, so a clustering that saw either would recover time or the split.
-NOT_FEATURES = ("split", "event_index", "anchor_offset", "overlaps_next")
+#: The bookkeeping columns a feature consumer must drop. The list belongs to the
+#: WindowSet contract (`Working.types.windowset.BOOKKEEPING_COLUMNS`, fix round 1);
+#: this alias stays so a caller can import either.
+NOT_FEATURES = BOOKKEEPING_COLUMNS
+
+#: The columns THIS block writes; an upstream column of the same name is replaced. The
+#: rest of the bookkeeping list (train_id, word_id, span_score) rides on the windows -
+#: it is kept, just not clustered on.
+OWN_COLUMNS = ("split", "event_index", "anchor_offset", "overlaps_next")
 
 AUTO_MULT = 2.0
 AUTO_ROUND_S = 10.0
@@ -329,7 +336,7 @@ def window_features(spans, ew: EventWindows, extra: Optional[dict] = None):
                                      dtype=float)
     if spans.labels is not None:
         out["span_label"] = [spans.labels[k] for k in kept]
-    out = out.drop(columns=[c for c in NOT_FEATURES if c in out.columns])
+    out = out.drop(columns=[c for c in OWN_COLUMNS if c in out.columns])
     out["event_index"] = kept
     out["anchor_offset"] = np.full(len(kept), int(ew.anchor_offset), dtype=np.int64)
     out["overlaps_next"] = overlaps_next(starts, ew.length)

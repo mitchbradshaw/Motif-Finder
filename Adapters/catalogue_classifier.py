@@ -57,6 +57,7 @@ import os
 from Adapters.base import AdapterResult, AdapterSpec, ParamSpec, SideInputSpec
 from Adapters.registry import register
 from Working.recipes import recipe_hash
+from Working.types.windowset import BOOKKEEPING_COLUMNS
 from Working.types import Model
 
 # Trained models live beside the other derived artefacts, referenced by
@@ -96,13 +97,13 @@ def _feature_matrix(window_set, grouping):
     features = window_set.features
     if features is not None:
         # P12: the split assignment is metadata (see preprocessing.sliding_windows), not a feature;
-        # so is catalogue.event_windows' bookkeeping (w2-a: event_index is a time order).
-        from Working.Catalogue.event_windows import NOT_FEATURES
-        features = features.drop(columns=[c for c in NOT_FEATURES if c in features.columns])
+        # so is the rest of the WindowSet contract's bookkeeping list (Working.types.windowset).
+        features = features.drop(columns=[c for c in BOOKKEEPING_COLUMNS if c in features.columns])
     if features is None or features.shape[0] == 0 or features.shape[1] == 0:
         raise ValueError(
             "catalogue.classifier requires a WindowSet with an attached feature "
-            "matrix, one row per window — there is nothing to train on without one."
+            "matrix, one row per window — there is nothing to train on without one "
+            f"(the bookkeeping columns {', '.join(BOOKKEEPING_COLUMNS)} are not features)."
         )
 
     labels = grouping.labels
