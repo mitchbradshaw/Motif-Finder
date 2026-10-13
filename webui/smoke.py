@@ -195,6 +195,33 @@ class Smoke:
                         f" — padding is one-sided: {m['padLeft']:.0f} px left, {m['padRight']:.0f} px right")
         return bool(ok), "".join(msgs)
 
+    #: fixup-unpick: two controls a state names must not sit on top of each other. The run list's remove button
+    #: (`remove-<key>`, fixup-rq2) was positioned over the A/B pick button, so B could not be unpicked and a
+    #: click on the badge removed the run instead. Measured as bounding-box intersection in the browser; a
+    #: selector that matches nothing is a failure, so an absent control cannot pass the pair vacuously.
+    _NO_OVERLAP_JS = """pairs => pairs.map(([a, b]) => {
+      const ea = document.querySelector(a), eb = document.querySelector(b);
+      if (!ea || !eb) return { a, b, error: (ea ? b : a) + ' matched nothing' };
+      const ra = ea.getBoundingClientRect(), rb = eb.getBoundingClientRect();
+      if (!ra.width || !ra.height || !rb.width || !rb.height) return { a, b, error: (ra.width && ra.height ? b : a) + ' has no size' };
+      const w = Math.min(ra.right, rb.right) - Math.max(ra.left, rb.left), h = Math.min(ra.bottom, rb.bottom) - Math.max(ra.top, rb.top);
+      const box = r => Math.round(r.left) + '-' + Math.round(r.right) + '/' + Math.round(r.top) + '-' + Math.round(r.bottom);
+      return { a, b, overlap: w > 0 && h > 0 ? Math.round(w) + 'x' + Math.round(h) : null, ra: box(ra), rb: box(rb) };
+    })"""
+
+    def no_overlap(self, page, e: dict, where: str):
+        """`no_overlap`: [[selectorA, selectorB], ...] — no pair's boxes intersect (fixup-unpick)."""
+        pairs = e.get("no_overlap") or []
+        if not pairs:
+            return True, ""
+        m = page.evaluate(self._NO_OVERLAP_JS, pairs)
+        self.evidence.setdefault("no_overlap", {})[where] = m
+        bad = [r for r in m if r.get("error") or r.get("overlap")]
+        if not bad:
+            return True, f" · {len(m)} control pair{'s' if len(m) > 1 else ''} apart"
+        return False, " — " + "; ".join(
+            r["error"] if r.get("error") else f"{r['a']} ({r['ra']}) overlaps {r['b']} ({r['rb']}) by {r['overlap']} px" for r in bad)
+
     def traces_in_box(self, page, where: str):
         """No trace's rendered path leaves its plot box (fixup-c)."""
         m = page.evaluate(self._TRACES_IN_BOX_JS)
@@ -1404,6 +1431,10 @@ class Smoke:
                 if e.get("rule9"):
                     r9_ok, r9_msg = self.rule9(page, name)
                     in_box, box_msg = in_box and r9_ok, box_msg + r9_msg
+                # fixup-unpick: a state may also assert that two controls it names do not sit on top of each other
+                if e.get("no_overlap"):
+                    no_ok, no_msg = self.no_overlap(page, e, name)
+                    in_box, box_msg = in_box and no_ok, box_msg + no_msg
                 # A state may declare console errors it provokes on purpose (a read that rejects renders a
                 # loud error card — the brief's failure state). Declared ones are dropped from the run's
                 # error list so they neither fail this state nor the whole run; anything else still fails.

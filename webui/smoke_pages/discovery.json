@@ -460,6 +460,27 @@
  },
  {
   "page": "discovery.compare",
+  "state": "remove-and-pick-apart",
+  "hash": "discovery/compare?a={run:a}&b={run:b}",
+  "actions": [],
+  "expect": [
+   "[data-testid=\"remove-{run:b}\"]",
+   "[data-testid=\"pick-{run:b}\"]"
+  ],
+  "no_overlap": [
+   [
+    "[data-testid=\"remove-{run:b}\"]",
+    "[data-testid=\"pick-{run:b}\"]"
+   ],
+   [
+    "[data-testid=\"remove-{run:a}\"]",
+    "[data-testid=\"pick-{run:a}\"]"
+   ]
+  ],
+  "settle_ms": 900
+ },
+ {
+  "page": "discovery.compare",
   "state": "unpick-b",
   "hash": "discovery/compare?a={run:a}&b={run:b}",
   "actions": [
