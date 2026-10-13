@@ -50,7 +50,8 @@ def test_spec_types_category_and_page_name():
 def test_parameters_defaults_and_bounds():
     spec = get_adapter(NAME)
     p = spec.validate_params({})
-    assert p == {"polarity": "drop", "recovery_half_s": 0.0, "rise_s": 0.0, "min_jump_sigma": 3.0}
+    assert p == {"polarity": "drop", "recovery_half_s": 0.0, "rise_s": 0.0, "min_jump_sigma": 3.0,
+                 "baseline_window_s": 0.0}
     with pytest.raises(ValueError):
         spec.validate_params({"polarity": "sideways"})
     with pytest.raises(ValueError):
@@ -59,6 +60,8 @@ def test_parameters_defaults_and_bounds():
         spec.validate_params({"rise_s": -1.0})
     with pytest.raises(ValueError):
         spec.validate_params({"min_jump_sigma": -0.5})
+    with pytest.raises(ValueError):
+        spec.validate_params({"baseline_window_s": -1.0})
 
 
 def test_one_score_per_sample_in_noise_sds_and_meta():
@@ -101,6 +104,16 @@ def test_ar2_rise_is_reported():
     assert r.meta["model"] == "AR(2)"
     assert r.meta["rise_s"] == pytest.approx(3.0)
     assert len(r.meta["ar_coefficients"]) == 2
+
+
+def test_running_baseline_is_reported_and_constant_by_default():
+    x, _, _ = troughs_12h(seed=0)
+    const = _run(x, recovery_half_s=HALF_S)
+    assert const.meta["baseline_mode"] == "constant" and const.meta["baseline_range"] is None
+    run = _run(x, recovery_half_s=HALF_S, baseline_window_s=1800.0)
+    assert run.meta["baseline_mode"] == "running" and run.meta["baseline_window_s"] == 1800.0
+    lo, hi = run.meta["baseline_range"]
+    assert lo <= hi and abs(run.meta["baseline"] - 0.010) < 3e-4      # signal orientation, volts
 
 
 def test_sharkfin_misfit_is_measured_not_hidden():

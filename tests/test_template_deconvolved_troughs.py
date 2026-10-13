@@ -12,7 +12,10 @@ The constant `TEMPLATE` below is what the manager moves into
 `webui/server/templates.py::CANONICAL`. The synthetic is the 12-hour trough
 train with a slow drift added, which is why the detrend comes first (OASIS's
 baseline is one constant per span; the paper says drifting baselines are not
-handled).
+handled), and why Deconvolve's own running baseline (`baseline_window_s`) is
+on: a rolling MEAN is dragged down by every trough that enters its window, and
+the 1-2 noise-SD steps it leaves read as hundreds of small jumps against a
+constant baseline (823 events for 30 troughs before the running baseline).
 
 Runnable standalone:  python tests/test_template_deconvolved_troughs.py
 """
@@ -43,12 +46,13 @@ TEMPLATE = {
     "name": "deconvolved_troughs", "kind": "detection", "version": 1,
     "description": "Troughs as deconvolved jumps (Friedrich, Zhou & Paninski 2017, OASIS): a long baseline "
                    "removal (1 h rolling mean, far longer than a recovery) → Deconvolve (OASIS): the size of the "
-                   "sudden drop at every sample, in noise SDs, each followed by the same exponential recovery → "
+                   "sudden drop at every sample, in noise SDs, each followed by the same exponential recovery, "
+                   "over a baseline that follows what drift the rolling mean left (30 min windows) → "
                    "Impulse events: one event per drop, running to the next drop, so a trough that starts before "
                    "the last one recovered is its own event → Event shape → Intervals.",
     "steps": [
         {"stage": "preprocessing", "algorithm": "detrend", "params": {"mode": "rolling_mean", "window_s": 3600.0}},
-        {"stage": "detection", "algorithm": "deconvolve", "params": {}},
+        {"stage": "detection", "algorithm": "deconvolve", "params": {"baseline_window_s": 1800.0}},
         {"stage": "detection", "algorithm": "impulse_events", "params": {}},
         {"stage": "interrogation", "algorithm": "event_shape", "params": {}},
         {"stage": "interrogation", "algorithm": "intervals", "params": {}},
@@ -82,6 +86,7 @@ def test_template_shape():
         "preprocessing.detrend", "detection.deconvolve", "detection.impulse_events",
         "interrogation.event_shape", "interrogation.intervals"]
     assert TEMPLATE["steps"][0]["params"]["window_s"] >= 10 * 120.0   # far longer than the recovery
+    assert TEMPLATE["steps"][1]["params"]["baseline_window_s"] >= 10 * 120.0
 
 
 def test_template_runs_end_to_end_and_writes_its_spans_to_detections(db_and_signal):

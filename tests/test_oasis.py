@@ -193,6 +193,32 @@ def test_nan_samples_split_the_trace_and_stay_nan():
             assert any(abs(o - f) <= 2 for f in found), f"onset {o} lost next to the NaN gap"
 
 
+def test_running_floor_follows_a_sloping_drift_without_the_slope_bias():
+    """One pass of a running 15th percentile sits 0.35 x slope x window below a ramp; the second
+    pass cancels it up to a constant (the noise quantile)."""
+    n, w = 20_000, 1000
+    rng = np.random.default_rng(0)
+    line = 1e-3 * np.arange(n)                      # slope x window = 1.0 = 10 noise SDs
+    y = line + 0.1 * rng.standard_normal(n)
+    err = O.running_floor(y, w) - line
+    core = err[w:-w]                                # away from the edges
+    assert np.ptp(core) < 0.15                      # flat to ~1.5 noise SD
+    one = O._running_percentile(y, w, 15.0) - line
+    assert np.median(one[w:-w]) < np.median(core) - 0.2   # the single pass is biased low
+
+
+def test_running_baseline_handles_drift_a_constant_one_cannot():
+    x, onsets, _ = troughs_12h(seed=0, drift=1e-3)
+    const = O.deconvolve(x, FS, recovery_half_s=HALF_S)
+    run = O.deconvolve(x, FS, recovery_half_s=HALF_S, baseline_window_s=1800.0)
+    assert run.residual_sd_sigma < 1.3 < const.residual_sd_sigma
+    big = np.flatnonzero(np.nan_to_num(run.scores) > 4.0)
+    groups = np.split(big, np.flatnonzero(np.diff(big) > 2) + 1)
+    assert len(groups) == 30
+    assert run.floor is not None and run.floor.shape == x.shape and run.baseline_window_s == 1800.0
+    assert const.floor is None
+
+
 def test_unknown_polarity_is_refused():
     with pytest.raises(ValueError, match="polarity"):
         O.deconvolve(np.zeros(100), FS, polarity="sideways", recovery_half_s=60.0)
