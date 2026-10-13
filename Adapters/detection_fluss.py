@@ -153,6 +153,7 @@ SPEC = register(AdapterSpec(
     max_span_samples=max_span_samples_for_background(),
     plot=None,
     description=(
+        "EXPERIMENTAL: on real recordings it found nothing beyond its surrogate null (docs/prompts/blocks/reports/W1-evaluation.md). "
         "Where does the recording change behaviour? For every window the matrix profile finds its most "
         "similar window elsewhere; inside one regime those look-alikes stay inside it, so at a change few "
         "of the links cross. The score is high where few cross (1 − CAC; 0 = no change). Detrend first: a "

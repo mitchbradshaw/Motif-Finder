@@ -220,6 +220,13 @@ CANONICAL += [
                   _step("interrogation", "event_shape", {}),
                   _step("interrogation", "intervals", {})],
     },
+]
+
+
+# Wave-1 chains that did NOT beat their surrogate null on real recordings (researcher's bar, Q4;
+# docs/prompts/blocks/reports/W1-evaluation.md): kept as code so they can be applied and re-tested, but
+# never seeded into the templates table. `experimental(name)` returns a copy.
+EXPERIMENTAL: list[dict] = [
     {
         "name": "fluss_regimes", "kind": "detection", "version": 1,
         "description": "Where does the recording change behaviour? Baseline removal → FLUSS regime-change score "
@@ -246,6 +253,14 @@ CANONICAL += [
                   _step("interrogation", "intervals", {})],
     },
 ]
+
+
+def experimental(name: str) -> dict:
+    """A deep copy of one experimental (not seeded) template by name."""
+    for t in EXPERIMENTAL:
+        if t["name"] == name:
+            return json.loads(json.dumps(t))
+    raise KeyError(f"no experimental template named {name!r}")
 
 
 def canonical(name: str) -> dict:

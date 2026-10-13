@@ -222,6 +222,7 @@ SPEC = register(AdapterSpec(
     input_kind="spanset",
     output_kind="spanset",
     description=(
+        "EXPERIMENTAL: on real recordings it found nothing beyond its surrogate null (docs/prompts/blocks/reports/W1-evaluation.md). "
         "Groups events into trains. If events come in trains, the gaps between them are of two kinds - short "
         "inside a train, long between - and a log-scale histogram of the gaps has two humps; the default rule "
         "(logISI) cuts at the valley between them, and when there is only one hump it says 'no trains' instead of "
