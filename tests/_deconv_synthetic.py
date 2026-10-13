@@ -63,3 +63,23 @@ def troughs_12h(seed=0, noise=NOISE_V, half_s=HALF_S, drift=0.0):
         tt = np.arange(N_12H, dtype=float)
         x = x + drift * np.sin(2 * np.pi * tt / (6 * 3600.0))
     return x, onsets, pairs
+
+
+def ar1_noise(n, phi, sd, seed=0):
+    """AR(1) noise x_t = phi x_{t-1} + e_t with a stationary SD of `sd`: slow, coloured
+    background, each sample close to the last (phi 0.99 at 1 Hz: a ~70 s half-life)."""
+    from scipy.signal import lfilter
+    rng = np.random.default_rng(seed)
+    e = rng.standard_normal(n) * sd * np.sqrt(1.0 - phi * phi)
+    return lfilter([1.0], [1.0, -phi], e)
+
+
+def pink_noise(n, sd, seed=0):
+    """1/f noise (power ~ 1/f, random phases) scaled to an SD of `sd`."""
+    rng = np.random.default_rng(seed)
+    f = np.fft.rfftfreq(n)
+    spec = rng.standard_normal(f.size) + 1j * rng.standard_normal(f.size)
+    spec[1:] /= np.sqrt(f[1:])
+    spec[0] = 0.0
+    x = np.fft.irfft(spec, n)
+    return x / np.std(x) * sd

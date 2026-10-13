@@ -62,21 +62,43 @@ Adaptations our data force (each named, with its reason)
    0 estimates d from the data (below). `rise_s` > 0 is the rise TIME CONSTANT in
    seconds, r = exp(-1/(rise_s fs)), and makes the model AR(2); 0 is AR(1).
    The γ actually used and its half-time are reported.
-3. **Unit-free output.** The score is s_t / sigma — the jump size in NOISE SDs —
-   and s_min = min_jump_sigma * sigma, so scaling the recording by 1000 (volts ↔
-   millivolts) changes nothing. sigma (stored units) is reported.
-4. **sigma** is a robust MAD estimate on first differences (1.4826 MAD / sqrt 2)
-   rather than the paper's high-frequency PSD: at 1 Hz the drops themselves put
-   power in every band, while in the differences they are a handful of outliers
-   the median ignores. A quantised trace whose differences are mostly zero falls
-   back to their SD. **Blind spot: coloured noise.** Differencing assumes white
-   noise; slow, correlated noise (each sample close to the last) has small
-   differences, so sigma reads low -- for AR(1) noise with phi = 0.95 about 0.22
-   of the true SD -- and s_min with it, so its wander passes as jumps (16.5 per
-   hour on event-free AR(1) noise with the half-time given). `sigma_level`, the
-   robust SD (1.4826 MAD) of y about its baseline, is reported beside sigma: on
-   a quiet stretch it is the noise's true SD, so sigma_level >> sigma there
-   says the noise is coloured (on an eventful span the events inflate it too).
+3. **Unit-free output.** The score is s_t / scale -- the jump size in NOISE SDs --
+   and s_min = min_jump_sigma * scale, so scaling the recording by 1000 (volts <->
+   millivolts) changes nothing. Both noise SDs (stored units) are reported, and
+   `noise_scale` names the one that is `scale`.
+4. **The noise SD: the background's level, not its steps** (`noise_scale`).
+   The paper reads the noise from the high-frequency PSD, i.e. assumes it WHITE.
+   Smooth 1 Hz fungal recordings are not: each sample sits close to the last,
+   so on three real channels behind the template's detrend the SD of the
+   first differences / sqrt 2 (`sigma`) was 1/46, 1/38 and 1/3.4 of the
+   background's own spread, and "3 sigma" jumps were noise wiggles (1,716
+   jumps in 4 h on one; residual 164 sigma). So the default (`level`) is
+   `sigma_level`: the samples minus a running floor (the running baseline's
+   own floor, or -- one constant baseline -- a 15th percentile over 15
+   recovery half-times, so drift slower than that stays a misfit of the
+   constant, which the residual SD reports), then the median and 1.4826 MAD,
+   recomputed on the samples within 3 SDs until the SD settles (sigma
+   clipping: the troughs are cut away; their small tails inflate it ~1.2x on
+   white noise). On AR(1) noise (phi 0.95, 0.99) and 1/f noise it reads the
+   true SD within ~20 %, where `sigma` reads 0.1-0.4 of it. `diff` keeps the
+   paper's reading -- 1.4826 MAD of the first differences / sqrt 2, which a
+   jump barely moves; a quantised trace whose differences are mostly zero falls
+   back to their SD. **Blind spot of `level`:** it needs quiet background
+   between events. When events fill the trace (back-to-back sharkfins) it
+   measures the events, and the threshold rises toward them (on the
+   back-to-back sharkfin test: sigma_level 23x sigma, no jump at all). Such a
+   trace's samples fill a band evenly instead of scattering like noise about
+   a floor, so `level_spread` = (P97.5 - P2.5) / (3.92 sigma_level) -- about 1
+   for Gaussian noise of any colour (0.95-1.01 on AR(1) and 1/f), larger with
+   troughs (4.6-8.5) -- falls to ~0.6 there; below 0.75 it is a warning that
+   names noise_scale = diff. The summary also prints sigma_level / sigma.
+   **Only the unit changes, not the model.** The fit is least squares, which
+   no noise SD enters; the SD sets s_min, the scores, the baseline's tolerance,
+   the residual SD's unit and the recovery refinement's jump price (RSS /
+   scale^2 + 2 ln T per jump: with `level` the RSS of a right fit on coloured
+   noise is ~T scale^2, as the criterion assumes; with `diff` it is 10-100x
+   that, and every wiggle was worth a jump). Modelling the colour itself (an
+   AR noise term in the solver) would leave OASIS's O(T) pool algorithm.
 5. **gamma estimate** (`recovery_half_s = 0`), the paper's two steps. First the
    autocovariance (lag 0 excluded: white noise only sits there): for c = h * s
    with WHITE s it decays as d^k, so log C(k) is fitted over lags 1 .. 2 k_half
@@ -121,11 +143,14 @@ Adaptations our data force (each named, with its reason)
    passes while the jumps had stopped changing after one or two. Not converged
    in 10 passes (a window short of ~15 half-times) is said in the summary.
 7. **Thresholded form with a fixed s_min.** The paper raises s_min until the RSS
-   reaches sigma^2 T; here s_min is min_jump_sigma * sigma, one readable knob.
-   The residual SD (RMS of y - b - c in sigma) is reported, and flagged above
+   reaches sigma^2 T; here s_min is min_jump_sigma * scale, one readable knob.
+   The residual SD (RMS of y - b - c in scale) is reported, and flagged above
    1.5: events that are not a sudden jump followed by this fade (a sharkfin's
    plateau and slow climb) are split into many small jumps, and the count is
-   then not an event count.
+   then not an event count. A kernel that recovers faster than the troughs
+   splits each into a jump and smaller follow-ons that land on its fade: more
+   than 35 % of the jumps being follow-ons is flagged (with the level noise SD
+   a too-short kernel no longer makes enough jumps to trip the per-hour flag).
 8. **The first sample is the initial level, not a jump.** A span that starts mid
    recovery has c_0 > 0; that "jump" is everything before the span. It is fitted
    (c_0 >= 0, never thresholded) but scored 0 and reported in `initial_levels`.
@@ -153,6 +178,13 @@ except Exception:                      # pragma: no cover - only without numba
         return fn
 
 POLARITIES = ("drop", "spike")
+NOISE_SCALES = ("level", "diff")       # the unit of the score and of min_jump_sigma (adaptation 4)
+LEVEL_CLIP_K = 3.0                     # level_sigma: samples beyond k robust SDs are events, not background
+LEVEL_CLIP_MAX_ITER = 30
+LEVEL_SPREAD_FLAG = 0.75               # (P97.5 - P2.5) / (3.92 sigma_level): ~1 for noise about a floor,
+                                       # ~0.6 when events fill the trace evenly (back-to-back sharkfins)
+LEVEL_WINDOW_HALF_TIMES = 15.0         # constant baseline: sigma_level is measured about a floor this many
+                                       # recovery half-times wide (the running baseline's own advice)
 _MAD_TO_SIGMA = 1.4826
 BASELINE_PERCENTILE = 15.0
 BASELINE_TOL_SIGMA = 1e-3              # the constant baseline: a thousandth of a noise SD
@@ -165,6 +197,9 @@ REFINE_MAX_SHIFTS = 3                  # times the search is recentred when its 
 FALLBACK_HALF_S = 120.0                # the half-time tried when no recovery can be estimated (F2)
 PLAUSIBLE_JUMPS_PER_HOUR = 30.0        # more than this reads as fragmentation, not troughs
 MAX_JUMP_OCCUPANCY = 0.5               # jumps x half-time / duration: jumps closer than two half-times
+FOLLOW_ON_FLAG = 0.35                  # share of jumps smaller than the fade they land on: a split trough
+FOLLOW_ON_MIN_JUMPS = 10               # (the 12 h synthetic: 0.03-0.28 with the right half-time, 0.44-0.48
+                                       #  with 120 s on 300-600 s troughs)
 RESIDUAL_SD_FLAG = 1.5                 # above it the event count is not a trough count
 
 
@@ -349,6 +384,46 @@ def noise_sigma(segments):
     return float(sigma)
 
 
+def level_sigma(segments, k=LEVEL_CLIP_K, max_iter=LEVEL_CLIP_MAX_ITER):
+    """Robust SD of the BACKGROUND about its baseline (pass y minus the floor): the median and
+    1.4826 MAD of the samples, recomputed on those within k of these SDs of the median until the SD
+    stops moving (iterative sigma clipping). Every sample counts, not just its step from the last,
+    so slow coloured noise is measured at its full size; the troughs (one-sided, and far beyond k SDs
+    near their onsets) are clipped away, leaving only their small tails to inflate it (x1.2 on the
+    white-noise 12 h synthetic). A trace whose MAD is zero (quantised) falls back to its SD."""
+    z = np.concatenate([np.asarray(sg, float) for sg in segments] or [np.zeros(0)])
+    z = z[np.isfinite(z)]
+    if z.size == 0:
+        return 0.0
+    m = float(np.median(z))
+    sd = _MAD_TO_SIGMA * float(np.median(np.abs(z - m)))
+    if sd <= 0:
+        return float(np.std(z))
+    for _ in range(int(max_iter)):
+        keep = z[np.abs(z - m) <= k * sd]
+        m_new = float(np.median(keep))
+        sd_new = _MAD_TO_SIGMA * float(np.median(np.abs(keep - m_new)))
+        if sd_new <= 0:
+            break
+        done = abs(sd_new - sd) <= 1e-4 * sd
+        m, sd = m_new, sd_new
+        if done:
+            break
+    return float(sd)
+
+
+def level_spread(segments, sd):
+    """(P97.5 - P2.5) of the samples / (3.92 sd): about 1 when the bulk of the samples scatters like
+    Gaussian noise about the floor (troughs only widen it), well below 1 when they fill a band evenly
+    -- events back to back with no quiet stretch, which level_sigma then measures instead of noise."""
+    z = np.concatenate([np.asarray(sg, float) for sg in segments] or [np.zeros(0)])
+    z = z[np.isfinite(z)]
+    if z.size == 0 or sd <= 0:
+        return float("nan")
+    lo, hi = np.percentile(z, [2.5, 97.5])
+    return float((hi - lo) / (3.92 * sd))
+
+
 def autocovariance(segments, max_lag):
     """C(k), k = 0..max_lag, pooled over finite segments (mean removed once, over all of them)."""
     mean = float(np.mean(np.concatenate(segments)))
@@ -462,7 +537,11 @@ class Deconvolution:
     initial_levels: List[float] = field(default_factory=list)   # c at each segment's first sample, in sigma
     floor: object = None          # the running baseline (y orientation, NaN at NaN), None for one constant
     baseline_window_s: float = 0.0
-    sigma_level: float = 0.0      # robust SD of y about its baseline, stored units (F4: sigma's blind spot)
+    sigma_level: float = 0.0      # robust SD of the background about its baseline (level_sigma), stored units
+    noise_scale: str = "level"    # which of sigma / sigma_level is the score's unit and s_min's
+    scale: float = 0.0            # that one, stored units: scores = s / scale, s_min = min_jump_sigma * scale
+    follow_on_share: float = 0.0  # share of jumps smaller than the fade they land on (a split-trough flag)
+    level_spread: float = float("nan")   # (P97.5 - P2.5) / (3.92 sigma_level): < LEVEL_SPREAD_FLAG, no quiet background
     n_jumps: int = 0
     n_runs_starting_above_min_jump: int = 0
     estimate_note: object = None  # why the recovery could not be estimated (None when it was, or was given)
@@ -597,8 +676,9 @@ def refine_decay(segments, decay0, rise, s_min, sigma, fs, floors=None, window=N
     return decay_from_half_time(float(np.exp(log_h)), fs), {"on_edge": on_edge, "shifts": shifts}
 
 
-def _warnings(n_jumps, half_s, duration_s, residual_sd, converged, n_iter, n_low, min_jump_sigma, on_edge):
-    """The plain-language flags that ride in meta and the summary (F1, F3, F5, F7)."""
+def _warnings(n_jumps, half_s, duration_s, residual_sd, converged, n_iter, n_low, min_jump_sigma, on_edge,
+              follow_on=0.0, flat_level=None):
+    """The plain-language flags that ride in meta and the summary (F1, F3, F5, F7, and the follow-on share)."""
     out = []
     hours = duration_s / 3600.0
     rate = n_jumps / hours if hours > 0 else 0.0
@@ -607,6 +687,15 @@ def _warnings(n_jumps, half_s, duration_s, residual_sd, converged, n_iter, n_low
         out.append(f"{n_jumps:,} jumps in {hours:.1f} h ({rate:.0f}/h) with a {half_s:.0f} s recovery half-time: "
                    f"the jumps come faster than they recover, so the fit is explaining slow structure as a rash of "
                    f"small jumps; set recovery_half_s from the recording's own troughs")
+    elif n_jumps >= FOLLOW_ON_MIN_JUMPS and follow_on > FOLLOW_ON_FLAG:
+        out.append(f"{follow_on:.0%} of the {n_jumps:,} jumps are follow-ons, smaller than the fade they land on: "
+                   f"the troughs recover slower than the {half_s:.0f} s recovery half-time, so each is split into a "
+                   f"jump and its follow-ons; set recovery_half_s from the recording's own troughs")
+    if flat_level is not None:
+        out.append(f"the samples fill a band evenly instead of scattering like noise about a floor (spread "
+                   f"{flat_level:.2f} < {LEVEL_SPREAD_FLAG:g}): events fill the trace with no quiet stretch between "
+                   f"them, so sigma_level measures the events and the jump threshold rises toward them; try "
+                   f"noise_scale = diff and read its residual SD")
     if on_edge:
         out.append(f"the estimated recovery half-time ({half_s:.0f} s) sits on the edge of the search even after "
                    f"widening it, so the estimate is not trustworthy; set recovery_half_s")
@@ -641,12 +730,15 @@ def _fallback_or_raise(err, segments, bounds, y, finite, fs, rise, s_min, sigma,
 
 
 def deconvolve(x, fs, polarity="drop", recovery_half_s=0.0, rise_s=0.0, min_jump_sigma=3.0,
-               baseline_window_s=0.0):
+               baseline_window_s=0.0, noise_scale="level"):
     """Thresholded OASIS on a whole span, with the adaptations named in the module docstring.
     `baseline_window_s` > 0 makes the baseline a slowly varying curve (adaptation 6b); 0 is the
-    paper's one constant per span."""
+    paper's one constant per span. `noise_scale` picks the unit of the score and of min_jump_sigma:
+    'level' (sigma_level, the background's own SD) or 'diff' (sigma, from first differences)."""
     if polarity not in POLARITIES:
         raise ValueError(f"detection.deconvolve: polarity must be one of {POLARITIES}, got {polarity!r}")
+    if noise_scale not in NOISE_SCALES:
+        raise ValueError(f"detection.deconvolve: noise_scale must be one of {NOISE_SCALES}, got {noise_scale!r}")
     fs = float(fs)
     x = np.asarray(x, dtype=float).ravel()
     sign = -1.0 if polarity == "drop" else 1.0
@@ -664,30 +756,49 @@ def deconvolve(x, fs, polarity="drop", recovery_half_s=0.0, rise_s=0.0, min_jump
         floor0 = running_floor(y, window)
         z_segments = [(y - floor0)[a:b] for a, b in bounds]       # for sigma and the recovery estimate
 
-    sigma = noise_sigma(z_segments)
-    if sigma <= 0:
-        raise ValueError("detection.deconvolve: the span is flat (no noise level, no jumps to measure).")
-    s_min = float(min_jump_sigma) * sigma
     rise = rise_root(rise_s, fs)
-    half_autocov, note, on_edge = None, None, False
-    if recovery_half_s and recovery_half_s > 0:
-        decay, estimated = decay_from_half_time(recovery_half_s, fs), False
+    half_autocov, note, on_edge, est_err = None, None, False, None
+    given = bool(recovery_half_s and recovery_half_s > 0)
+    if given:
+        half_guess = float(recovery_half_s)
     else:
         try:
             decay0, _ = estimate_decay(z_segments, fs)
         except ValueError as err:
-            decay, note = _fallback_or_raise(err, segments, bounds, y, finite, fs, rise, s_min, sigma, window,
-                                             floor0)
-            estimated = False
+            est_err, half_guess = err, FALLBACK_HALF_S
         else:
-            half_autocov = half_time_from_decay(decay0, fs)
-            if window is None:
-                decay, info = refine_decay(z_segments, decay0, rise, s_min, sigma, fs)
-            else:
-                decay, info = refine_decay(segments, decay0, rise, s_min, sigma, fs,
-                                           floors=[floor0[a:e] for a, e in bounds], window=window)
-            on_edge = info["on_edge"]
-            estimated = True
+            half_autocov = half_guess = half_time_from_decay(decay0, fs)
+
+    sigma_diff = noise_sigma(z_segments)
+    # sigma_level: the background's robust SD about a running floor -- the baseline's own when it runs,
+    # otherwise one LEVEL_WINDOW_HALF_TIMES recoveries long, so drift slower than that is not counted as
+    # noise (it stays a misfit of the constant baseline, which the residual SD reports)
+    if window is not None:
+        level_segments = z_segments
+    else:
+        lw = max(3, int(round(LEVEL_WINDOW_HALF_TIMES * half_guess * fs)))
+        lf = running_floor(y, lw)
+        level_segments = [(y - lf)[a:b] for a, b in bounds]
+    sigma_level = level_sigma(level_segments)
+    spread = level_spread(level_segments, sigma_level)
+    sigma = sigma_level if noise_scale == "level" else sigma_diff   # the unit everything below is in
+    if sigma <= 0:
+        raise ValueError("detection.deconvolve: the span is flat (no noise level, no jumps to measure).")
+    s_min = float(min_jump_sigma) * sigma
+    if given:
+        decay, estimated = decay_from_half_time(recovery_half_s, fs), False
+    elif est_err is not None:
+        decay, note = _fallback_or_raise(est_err, segments, bounds, y, finite, fs, rise, s_min, sigma, window,
+                                         floor0)
+        estimated = False
+    else:
+        if window is None:
+            decay, info = refine_decay(z_segments, decay0, rise, s_min, sigma, fs)
+        else:
+            decay, info = refine_decay(segments, decay0, rise, s_min, sigma, fs,
+                                       floors=[floor0[a:e] for a, e in bounds], window=window)
+        on_edge = info["on_edge"]
+        estimated = True
     if rise >= decay:
         raise ValueError(f"detection.deconvolve: rise_s={rise_s:g} s is not shorter than the recovery "
                          f"(half-time {half_time_from_decay(decay, fs):g} s); a rise must be faster than the fade.")
@@ -714,22 +825,27 @@ def deconvolve(x, fs, polarity="drop", recovery_half_s=0.0, rise_s=0.0, min_jump
     for a, _ in bounds:
         scores[a] = 0.0
     n_fin = int(finite.sum())
-    level = y[finite] - (floor[finite] if floor is not None else b)
-    sigma_level = float(_MAD_TO_SIGMA * np.median(np.abs(level - np.median(level))))
     n_jumps = int(np.count_nonzero(scores[np.isfinite(scores)] > 0))
     # F7: a run that begins after a NaN gap (not the span's own first sample, whose level is everything
     # before the span) at a jump-sized level hides a drop absorbed into that run's initial level
     n_low = int(sum(1 for (a, _), v in zip(bounds, initial) if a > 0 and v > float(min_jump_sigma)))
     half_s = half_time_from_decay(decay, fs)
     residual = float(np.sqrt(rss / n_fin) / sigma)
+    # follow-ons: jumps smaller than the fitted fade just before them. A trough that recovers slower than
+    # the kernel leaves the fit short, and the fit tops itself up with small jumps on the fade's tail;
+    # true overlapping troughs do this too, but rarely for most of the jumps
+    at = np.flatnonzero(np.nan_to_num(scores) > 0)
+    follow_on = float(np.mean(c[at - 1] > s[at])) if at.size else 0.0
     warns = _warnings(n_jumps, half_s, n_fin / fs, residual, converged, n_iter, n_low, float(min_jump_sigma),
-                      on_edge)
+                      on_edge, follow_on,
+                      spread if noise_scale == "level" and spread < LEVEL_SPREAD_FLAG else None)
     return Deconvolution(
-        scores=scores, c=c, s=s, sign=sign, baseline=b, sigma=sigma, decay=decay, rise=rise,
+        scores=scores, c=c, s=s, sign=sign, baseline=b, sigma=sigma_diff, decay=decay, rise=rise,
         half_s=half_s, estimated=estimated, half_s_autocov=half_autocov, s_min=s_min,
         n_nan=int((~finite).sum()), n_segments=len(bounds), n_baseline_iter=n_iter,
         baseline_converged=converged, residual_sd_sigma=residual,
         initial_levels=initial, floor=floor, baseline_window_s=float(baseline_window_s or 0.0),
-        sigma_level=sigma_level, n_jumps=n_jumps, n_runs_starting_above_min_jump=n_low,
+        sigma_level=sigma_level, noise_scale=noise_scale, scale=sigma, follow_on_share=follow_on, level_spread=spread,
+        n_jumps=n_jumps, n_runs_starting_above_min_jump=n_low,
         estimate_note=note, estimate_on_edge=on_edge, warnings=warns,
     )

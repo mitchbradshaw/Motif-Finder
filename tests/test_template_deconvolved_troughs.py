@@ -43,7 +43,7 @@ from Working.templates import apply_template  # noqa: E402
 from tests._deconv_synthetic import FS, troughs_12h  # noqa: E402
 
 TEMPLATE = {
-    "name": "deconvolved_troughs", "kind": "detection", "version": 1,
+    "name": "deconvolved_troughs", "kind": "detection", "version": 2,
     "description": "Troughs as deconvolved jumps (Friedrich, Zhou & Paninski 2017, OASIS). The recovery "
                    "half-time is the first knob to set: read it off a few of this recording's own troughs (the "
                    "time one takes to climb half-way back) and put it in Deconvolve's recovery_half_s (120 s "
@@ -52,14 +52,17 @@ TEMPLATE = {
                    "by an exponential recovery (a sharkfin's plateau and slow climb) are split into many small "
                    "events: above a residual SD of ~1.5 the event count is not a trough count. The chain: a "
                    "long baseline removal (1 h rolling mean, far longer than a recovery) → Deconvolve (OASIS): the size of the "
-                   "sudden drop at every sample, in noise SDs, each followed by the same exponential recovery, "
+                   "sudden drop at every sample, each followed by the same exponential recovery, in SDs of the "
+                   "background's own spread about its baseline (noise_scale level: slow, coloured noise, where "
+                   "each sample sits close to the last, is measured at its full size, not read from "
+                   "sample-to-sample steps that make its wander look like jumps), "
                    "over a baseline that follows what drift the rolling mean left (30 min windows) → "
                    "Impulse events: one event per drop, running to the next drop, so a trough that starts before "
                    "the last one recovered is its own event → Event shape → Intervals.",
     "steps": [
         {"stage": "preprocessing", "algorithm": "detrend", "params": {"mode": "rolling_mean", "window_s": 3600.0}},
         {"stage": "detection", "algorithm": "deconvolve",
-         "params": {"recovery_half_s": 120.0, "baseline_window_s": 1800.0}},
+         "params": {"recovery_half_s": 120.0, "baseline_window_s": 1800.0, "noise_scale": "level"}},
         {"stage": "detection", "algorithm": "impulse_events", "params": {}},
         {"stage": "interrogation", "algorithm": "event_shape", "params": {}},
         {"stage": "interrogation", "algorithm": "intervals", "params": {}},
@@ -88,7 +91,8 @@ def db_and_signal():
 
 
 def test_template_shape():
-    assert TEMPLATE["name"] == "deconvolved_troughs" and TEMPLATE["version"] == 1
+    assert TEMPLATE["name"] == "deconvolved_troughs" and TEMPLATE["version"] == 2
+    assert TEMPLATE["steps"][1]["params"]["noise_scale"] == "level"     # coloured backgrounds (w1-b follow-up)
     assert [f"{s['stage']}.{s['algorithm']}" for s in TEMPLATE["steps"]] == [
         "preprocessing.detrend", "detection.deconvolve", "detection.impulse_events",
         "interrogation.event_shape", "interrogation.intervals"]
@@ -160,11 +164,13 @@ def test_an_estimated_recovery_is_right_or_loudly_wrong_never_silently_fragmente
 
 
 def test_a_wrong_given_recovery_that_fragments_is_flagged():
-    """Half 120 given on a 300 s recording: the jumps come faster than a recovery; say so."""
+    """Half 120 given on a 300 s recording: each trough is split; say so. With the level noise SD
+    (w1-b follow-up) the split is ~2 events per trough rather than ~6 -- too few for the
+    jumps-per-hour flag -- and the follow-on share names it instead."""
     x, _, _ = troughs_12h(seed=0, drift=4e-3, half_s=300.0)
     meta, n = _chain(x)
-    assert n > 60
-    assert any("faster than" in w for w in meta["warnings"])
+    assert n > 45
+    assert any("faster than" in w or "follow-on" in w for w in meta["warnings"])
 
 
 if __name__ == "__main__":

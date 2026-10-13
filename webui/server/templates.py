@@ -197,7 +197,7 @@ CANONICAL += [
                                                          "min_duration_s": 30.0, "merge_gap_s": 60.0})],
     },
     {
-        "name": "deconvolved_troughs", "kind": "detection", "version": 1,
+        "name": "deconvolved_troughs", "kind": "detection", "version": 2,
         "description": "Troughs as deconvolved jumps (Friedrich, Zhou & Paninski 2017, OASIS). The recovery "
                        "half-time is the first knob to set: read it off a few of this recording's own troughs (the "
                        "time one takes to climb half-way back) and put it in Deconvolve's recovery_half_s (120 s "
@@ -206,12 +206,16 @@ CANONICAL += [
                        "by an exponential recovery (a sharkfin's plateau and slow climb) are split into many small "
                        "events: above a residual SD of ~1.5 the event count is not a trough count. The chain: a "
                        "long baseline removal (1 h rolling mean, far longer than a recovery) → Deconvolve (OASIS): the size of the "
-                       "sudden drop at every sample, in noise SDs, each followed by the same exponential recovery, "
+                       "sudden drop at every sample, each followed by the same exponential recovery, in SDs of the "
+                       "background's own spread about its baseline (noise_scale level: slow, coloured noise, where "
+                       "each sample sits close to the last, is measured at its full size, not read from "
+                       "sample-to-sample steps that make its wander look like jumps), "
                        "over a baseline that follows what drift the rolling mean left (30 min windows) → "
                        "Impulse events: one event per drop, running to the next drop, so a trough that starts before "
                        "the last one recovered is its own event → Event shape → Intervals.",
         "steps": [_step("preprocessing", "detrend", {"mode": "rolling_mean", "window_s": 3600.0}),
-                  _step("detection", "deconvolve", {"recovery_half_s": 120.0, "baseline_window_s": 1800.0}),
+                  _step("detection", "deconvolve", {"recovery_half_s": 120.0, "baseline_window_s": 1800.0,
+                                                       "noise_scale": "level"}),
                   _step("detection", "impulse_events", {}),
                   _step("interrogation", "event_shape", {}),
                   _step("interrogation", "intervals", {})],
