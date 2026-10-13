@@ -100,8 +100,13 @@ def test_the_readout_says_how_big_the_table_will_be_and_flags_the_ceiling(spec):
 
 
 def test_it_declares_a_cost_model_and_estimates_none_until_calibrated(spec, monkeypatch):
+    """The calibration times `CAL_WINDOWS_PER_LENGTH` windows per window length of the calibration signal, so
+    k is that many times the seconds per window-sample; the estimate assumes the densest shipped grid (the labels'
+    600/200 grid: every sample in `GRID_OVERLAP` windows)."""
+    import Adapters.catalogue_minirocket as A
     import Working.block_cost as bc
     assert NAME in bc.MODELS and bc.MODELS[NAME][0] == 1.0
+    assert A.CAL_WINDOWS_PER_LENGTH == 120 and A.GRID_OVERLAP == 3
     tmp = tempfile.mkdtemp(prefix="w2c_cost_")
     try:
         monkeypatch.setattr(bc, "CALIBRATION_PATH", os.path.join(tmp, "cal.json"))
@@ -111,7 +116,37 @@ def test_it_declares_a_cost_model_and_estimates_none_until_calibrated(spec, monk
             json.dump({bc._key(NAME): {"k": 1e-4, "exponent": 1.0}}, f)
         full = spec.estimate(x, None, 1.0, **spec.validate_params({}))
         tenth = spec.estimate(x, None, 1.0, **spec.validate_params({"n_features": 1_000}))
-        assert full == pytest.approx(3.6)
-        assert tenth == pytest.approx(3.6 * 924 / 9_996)
+        assert full == pytest.approx(1e-4 * 36_000 * 3 / 120)          # 0.09 s
+        assert tenth == pytest.approx(0.09 * 924 / 9_996)
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
+
+
+def test_calibration_warms_up_untimed_then_times_thousands_of_windows(spec, monkeypatch):
+    """Critic finding 1: the timed call must not pay the aeon import, and must do enough work to dominate."""
+    import Working.block_cost as bc
+    from Working.Catalogue import minirocket as MR
+    assert NAME in bc.WARM_UPS, "catalogue.minirocket registers an untimed warm-up"
+    calls = []
+    real_warm = bc.WARM_UPS[NAME]
+
+    def warm():
+        calls.append("warm")
+        real_warm()                                    # really imports aeon and runs a tiny transform
+
+    def timed(ws, x, t, fs, **kw):
+        calls.append(("timed", int(ws.n_windows), int(ws.length), kw.get("n_features", MR.DEFAULT_N_FEATURES)))
+
+    monkeypatch.setitem(bc.WARM_UPS, NAME, warm)
+    monkeypatch.setattr(MR, "fingerprint", timed)
+    tmp = tempfile.mkdtemp(prefix="w2c_cal_")
+    try:
+        monkeypatch.setattr(bc, "CALIBRATION_PATH", os.path.join(tmp, "cal.json"))
+        bc.calibrate([NAME], force=True)
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    assert calls[0] == "warm" and calls[1][0] == "timed"
+    _, n_windows, length, n_features = calls[1]
+    assert length == 600 and n_features == MR.DEFAULT_N_FEATURES
+    # 120 windows per 600 samples of the 20,000-sample calibration signal (stride 5): 3,881 windows
+    assert n_windows == (bc.CALIBRATION_N - 600) // 5 + 1 >= 3_000
