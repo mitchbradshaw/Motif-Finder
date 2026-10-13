@@ -13,7 +13,8 @@ Pinned: the chain runs with its default parameters on a 1 Hz recording; every
 injected event comes out once, with the CWT block's scale and polarity AND
 Event shape's measures AND Intervals' timing on the same row; the detector's
 spans are written to `detections` once (a feature block does not re-detect);
-the ridge's own polarity survives Event shape (which re-measures `polarity`).
+the ridge's own polarity survives Event shape (which re-measures `polarity`);
+both blocks are set to drops, so they agree on every event (critic F3).
 
 Runnable standalone:  python tests/test_template_cwt_events.py
 """
@@ -42,13 +43,15 @@ from Working.templates import apply_template  # noqa: E402
 
 TEMPLATE = {
     "name": "cwt_events", "kind": "interrogation", "version": 1,
-    "description": "CWT ridges (Du, Kibbe & Lin 2006: spikes and troughs at every scale at once, each with its own "
-                   "duration; no detrend window) -> Event shape (amplitude, width, FWHM, recovery, slopes; polarity "
-                   "read per event from its fastest edge) -> Intervals (per-event interval, CV, trend, drift). "
+    "description": "Drops (troughs) at every duration: CWT ridges (Du, Kibbe & Lin 2006: troughs at every scale "
+                   "at once, each with its own duration; no detrend window) -> Event shape (amplitude, width, "
+                   "FWHM, recovery, slopes, measured as drops like the ridge) -> Intervals (per-event interval, "
+                   "CV, trend, drift). Both blocks are set to drops so the two agree on every event (Event "
+                   "shape's auto polarity let the drift's slope decide); a spike variant can come later. "
                    "Tune min_snr first; keep max_scale_s below the usual spacing of events.",
     "steps": [
-        {"stage": "detection", "algorithm": "cwt_ridges", "params": {}},
-        {"stage": "interrogation", "algorithm": "event_shape", "params": {"polarity": "auto"}},
+        {"stage": "detection", "algorithm": "cwt_ridges", "params": {"polarity": "drop"}},
+        {"stage": "interrogation", "algorithm": "event_shape", "params": {"polarity": "drop"}},
         {"stage": "interrogation", "algorithm": "intervals", "params": {}},
     ],
 }
@@ -111,14 +114,16 @@ def test_the_template_runs_end_to_end_and_measures_every_event_once(db):
                 "event_amplitude_mv", "fwhm_s", "onset_idx", "extremum_idx",           # Event shape
                 "interval_before_s", "interval_after_s"):                              # Intervals
         assert col in f.columns, col
-    for c, w, p in EVENTS:
-        rows = f[(np.abs(f["peak_idx"] - c) <= max(0.5 * w, 30))
-                 & (f["ridge_polarity"] == ("spike" if p > 0 else "drop"))]
-        assert len(rows) == 1, f"the {w} s {'spike' if p > 0 else 'drop'} at {c} s: {len(rows)} rows"
+    assert set(f["ridge_polarity"]) == {"drop"}, "the template is the drop variant"
+    drops = [(c, w) for c, w, p in EVENTS if p < 0]
+    for c, w in drops:
+        rows = f[np.abs(f["peak_idx"] - c) <= max(0.5 * w, 30)]
+        assert len(rows) == 1, f"the {w} s drop at {c} s: {len(rows)} rows"
         assert 1 / 1.5 <= rows["cwt_duration_s"].iloc[0] / w <= 1.5, "the scale's duration survives Event shape"
         assert rows["event_amplitude_mv"].iloc[0] == pytest.approx(1.0, rel=0.35), "Event shape measured it"
+        assert rows["polarity"].iloc[0] == -1, "Event shape measured it as a drop, as the ridge did"
     unmarked = f[~(f["edge_flag"] | f["step_pair"])]
-    assert len(unmarked) == len(EVENTS), "nothing extra goes unmarked"
+    assert len(unmarked) == len(drops), "nothing extra goes unmarked"
     conn = init_db(path)
     try:
         rows = list_detections(conn, out["run_id"])

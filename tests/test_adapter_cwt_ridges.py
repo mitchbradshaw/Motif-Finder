@@ -124,7 +124,9 @@ def test_meta_carries_counts_scales_rules_ridges_and_a_coarse_scalogram():
     assert len(pt) == 2
     sc = m["scalogram"]
     assert len(sc["rows"]) == len(m["scales_s"])
-    assert all(row.dtype == np.float32 and len(row) <= 4096 for row in sc["rows"])
+    assert all(len(row) <= 1024 for row in sc["rows"]), "at most 1024 columns (critic F4: meta size)"
+    assert all(isinstance(v, float) and v == float(f"{v:.4g}") for row in sc["rows"] for v in row), \
+        "plain floats at 4 significant figures (a float32 serialises with ~17 digits)"
     assert sc["samples_per_column"] * len(sc["rows"][0]) >= len(four_hours())
     assert "rejected" in m and m["rejected"]["side_lobes"] >= 1
 
@@ -158,6 +160,28 @@ def test_polarity_parameter_reports_one_side():
 def test_a_span_too_short_for_the_smallest_scales_is_refused_loudly():
     with pytest.raises(ValueError, match="too short"):
         run(np.zeros(30))
+
+
+
+def test_a_days_meta_stays_under_half_a_megabyte():
+    """Critic F4: the full-precision 40 x 4096 scalogram made meta ~3.5 MB a run."""
+    import json
+    from server.serialize import _clean
+    n = 86400
+    rng = np.random.default_rng(7)
+    x = 1e-4 * rng.standard_normal(n) + np.cumsum(5e-6 * rng.standard_normal(n))
+    for c in range(600, n - 600, 900):
+        x += gauss(n, c, 24, -1e-3)
+    m = run(x).meta
+    assert m["n_events"] >= 50
+    size = len(json.dumps(_clean(m)))
+    assert size <= 500_000, f"meta is {size / 1e6:.2f} MB"
+
+
+def test_the_small_scale_noise_rides_as_a_diagnostic_column():
+    f = run(four_hours()).value.features
+    assert "noise_min_scale" in f.columns
+    assert (f["snr"] == f["peak_coef"] / f["noise"]).all()
 
 
 if __name__ == "__main__":

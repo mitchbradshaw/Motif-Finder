@@ -313,10 +313,105 @@ def test_the_result_carries_ridges_a_coarse_scalogram_and_the_rules():
     assert len(rd["cols"]) == len(rd["scales_s"]) >= 6
     vals = r.scalogram["values"]
     assert vals.dtype == np.float32 and vals.shape == (len(r.scales_s), r.scalogram["n_columns"])
-    assert vals.shape[1] <= 4096
+    assert vals.shape[1] <= 1024, "a coarse picture: at most 1024 columns (the meta stays small)"
     names = {d["name"] for d in CR.rules()}
     assert {"duration_s", "snr", "best_scale_s", "peak_idx", "edge_flag", "side lobe", "nested", "step_pair",
             "coefficient baseline"} <= names
+
+
+# ── A15: SNR is detectability at the event's own scale (critic F1, F2) ──────
+# The noise an event is judged against is the robust spread (1.96 x 1.4826 x MAD)
+# of the coefficients at the event's OWN best scale around it, not the 95th
+# percentile of the smallest scale's. Wander (random-walk-like, as fungal traces
+# tend to be) is large at large scales and small at small ones; measured at the
+# smallest scale it let slow wander through as events (125 a day at min_snr 3)
+# while coloured noise hid amplitude-1 events, and the events of a train raised
+# their own p95 "noise" until none passed.
+
+def wander(seed, white=0.15, step=0.01):
+    rng = np.random.default_rng(seed)
+    return white * rng.standard_normal(DAY) + np.cumsum(step * rng.standard_normal(DAY))
+
+
+def ar1(seed, phi=0.95, sd=0.3):
+    from scipy.signal import lfilter
+    rng = np.random.default_rng(seed)
+    return lfilter([1.0], [1.0, -phi], sd * np.sqrt(1.0 - phi ** 2) * rng.standard_normal(DAY))
+
+
+@pytest.mark.parametrize("white", [0.0, 0.15])
+def test_wander_alone_gives_at_most_two_unflagged_events_a_day(white):
+    """A pure random walk (step 0.01 a second) and the same walk under white noise
+    0.15: before A15, 125 / 46 / 21 / 7 events a day at min_snr 3 / 5 / 8 / 12 on
+    the walk, 25 on walk + white. A walk has no events, but its excursions are
+    bumps at every scale, so a rare large one may still pass; the bound is 2 a
+    day per seed (a 24 s-event family alone gives tens a day on the catalogue's
+    channels, so 2 is a few per cent of a real day's count), over 3 seeds."""
+    for seed in range(3):
+        r = CR.detect(wander(100 + seed, white=white), FS)
+        unflagged = [e for e in r.events if not e["edge_flag"]]
+        assert len(unflagged) <= 2, (seed, [(e["peak_idx"], round(e["best_scale_s"]), round(e["snr"], 1))
+                                            for e in unflagged])
+
+
+@pytest.mark.parametrize("seed", [0, 1, 2])
+def test_coloured_noise_does_not_hide_amplitude_one_events(seed):
+    """AR(1), phi 0.95, standard deviation 0.3 (strong at the 24 s family's own
+    scale): before A15 0.3 of the seven amplitude-1 events were found."""
+    x = ar1(200 + seed)
+    for c, w, p, a in EVENTS:
+        x += gauss(DAY, c, w, p * a)
+    r = CR.detect(x, FS)
+    missed = [(c, w, p) for c, w, p, _ in EVENTS if match(r.events, c, w, p) is None]
+    assert missed == [], missed
+
+
+def test_a_train_of_24_s_drops_every_300_s_is_fully_recalled():
+    """Amplitude 1 on white 0.15 (an isolated one has SNR ~7.6): before A15 the
+    train's own drops raised the p95 noise and 0 of 286 were found."""
+    rng = np.random.default_rng(300)
+    x = 0.15 * rng.standard_normal(DAY)
+    centres = np.arange(300, DAY - 300, 300)
+    for c in centres:
+        x += gauss(DAY, c, 24, -1.0)
+    r = CR.detect(x, FS)
+    missed = [int(c) for c in centres if match(r.events, c, 24, -1) is None]
+    assert missed == [], f"{len(missed)} of {len(centres)} missed"
+
+
+def test_the_noise_is_measured_at_the_events_own_scale_and_the_small_scale_p95_is_kept_as_a_diagnostic():
+    x, truth = day_trace(0)
+    r = CR.detect(x, FS)
+    slow = match(r.events, *truth[4])               # the 43 min spike
+    fast = match(r.events, *truth[0])               # a 24 s spike
+    assert "noise_min_scale" in slow and slow["noise_min_scale"] > 0
+    assert slow["snr"] == pytest.approx(slow["peak_coef"] / slow["noise"])
+    # white noise shrinks with scale (a^-1/2): the slow event's own-scale noise is far below the 10 s row's
+    assert slow["noise"] < 0.5 * slow["noise_min_scale"]
+    assert slow["noise"] < fast["noise"]
+    assert {"snr", "noise_min_scale"} <= {d["name"] for d in CR.rules()}
+
+
+# ── edges and NaN (critic F6, F7) ───────────────────────────────────────────
+
+def test_the_odd_reflection_hinges_on_a_robust_edge_level_not_one_sample():
+    """An outlier in the first or last sample used to be the hinge: the reflected
+    trace jumped to twice it, a step the hat read as a slow edge event."""
+    n = 6 * 3600
+    rng = np.random.default_rng(4)
+    x = 0.15 * rng.standard_normal(n)
+    x[0], x[-1] = 5.0, -5.0
+    r = CR.detect(x, FS)
+    assert [e for e in r.events if e["best_scale_s"] > 30] == [], [
+        (e["peak_idx"], round(e["best_scale_s"]), e["ridge_polarity"]) for e in r.events]
+
+
+def test_a_span_more_than_half_nan_is_refused_in_words():
+    n = 4 * 3600
+    x = 0.15 * np.random.default_rng(6).standard_normal(n) + gauss(n, 2000, 480, 2.0)
+    x[n // 3:] = np.nan
+    with pytest.raises(ValueError, match="more than half"):
+        CR.detect(x, FS)
 
 
 if __name__ == "__main__":
