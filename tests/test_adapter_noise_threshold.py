@@ -277,5 +277,83 @@ def test_filed_as_a_threshold_detector_for_discovery_compare():
     assert dc.glyph_for(NAME) == "threshold"
 
 
+# ── review fixes: short rolling windows, flat stretches, dominance blind spot ──
+
+def test_rolling_noise_refuses_a_window_under_the_minimum_in_samples():
+    from Working.Detection.analysis.noise_level import MIN_ROLLING_WINDOW, rolling_noise
+    assert MIN_ROLLING_WINDOW == 300
+    with pytest.raises(ValueError, match="300"):
+        rolling_noise(white(5000, seed=20), MIN_ROLLING_WINDOW - 1)
+    centre, sigma = rolling_noise(white(5000, seed=20), MIN_ROLLING_WINDOW)
+    assert np.isfinite(sigma).all()
+
+
+def test_a_short_rolling_window_is_clamped_to_the_minimum_with_a_warning():
+    x = white(20_000, seed=21)
+    short = run(x, noise_from="rolling", noise_window_s=3.0)
+    at_min = run(x, noise_from="rolling", noise_window_s=300.0)
+    assert short.meta["noise_window_samples"] == 300
+    assert spans(short) == spans(at_min)
+    assert any("300 samples" in w for w in short.meta["warnings"]), short.meta["warnings"]
+    assert not any("300 samples" in w for w in at_min.meta["warnings"]), at_min.meta["warnings"]
+
+
+def test_white_noise_false_positives_at_the_minimum_window_stay_near_whole_span():
+    """A 300-sample MAD is a noisier σ_n than the whole span's; the minimum is set
+    so that this costs at most ~3× the whole-span false positives (measured ~1.8×
+    on samples; a 3 s window at 1 Hz gave >1000×)."""
+    rolled = whole = 0
+    for seed in range(5):
+        x = white(200_000, seed=100 + seed)
+        rolled += run(x, noise_from="rolling", noise_window_s=300.0).meta["n_spans"]
+        whole += run(x).meta["n_spans"]
+    assert whole > 0
+    assert rolled <= 3 * whole, (rolled, whole)
+
+
+def test_rolling_does_not_spread_a_flat_stretch_into_its_noisy_neighbours():
+    from Working.Detection.analysis.noise_level import rolling_noise
+    x = white(100_000, seed=22)
+    x[40_000:50_000] = 0.25                      # a stuck logger: σ = 0 there
+    centre, sigma = rolling_noise(x, 2000)
+    assert (sigma[41_000:49_000] == 0).all(), "a flat window's own samples are unjudged, not interpolated"
+    assert sigma[:39_000].min() > 0.8 and sigma[51_000:].min() > 0.8, \
+        "a σ = 0 window never drags a noisy neighbour's σ_n towards zero"
+
+    whole = run(x)
+    rolling = run(x, noise_from="rolling", noise_window_s=2000.0)
+
+    def near_edges(r):
+        return [sp for sp in spans(r) if 39_000 <= sp[0] < 41_000 or 49_000 <= sp[0] < 51_000]
+    assert not [sp for sp in spans(rolling) if 40_000 <= sp[0] < 50_000]
+    assert len(near_edges(rolling)) <= 3 * len(near_edges(whole)) + 3, (near_edges(rolling), near_edges(whole))
+    assert rolling.meta["n_unjudged"] >= 8_000
+    assert rolling.meta["sigma_min"] > 0.5
+
+
+def test_sigma_ratio_diff_flags_events_that_hide_under_an_inflated_sigma():
+    white_r = run(white(20_000, seed=23))
+    assert white_r.meta["sigma_ratio_diff"] == pytest.approx(1.0, abs=0.1)
+
+    busy = white(20_000, seed=24)
+    busy[(np.arange(busy.size) % 100) < 40] -= 5.0   # 40 % of samples in 5 σ drops
+    r = run(busy, direction="below")
+    assert r.meta["sigma"] > 2.0, "σ_n is inflated by the events themselves"
+    assert r.meta["n_spans"] == 0
+    assert not any("small fraction" in w for w in r.meta["warnings"]), \
+        "the > 20 % warning is blind here — which is why the diff ratio exists"
+    assert r.meta["sigma_ratio_diff"] > 2.0
+    assert any(rule["name"] == "sigma_ratio_diff" for rule in r.meta["rules"])
+
+
+def test_the_twenty_percent_warning_does_not_offer_rolling_as_the_cure():
+    busy = white(10_000, seed=10)
+    busy[np.arange(len(busy)) % 10 < 4] += 30.0
+    r = run(busy, direction="either")
+    msg = next(w for w in r.meta["warnings"] if "small fraction" in w)
+    assert "rolling" not in msg
+    assert "sigma_ratio_diff" in msg
+
+
 if __name__ == "__main__":
     sys.exit(pytest.main([__file__, "-q"]))
