@@ -92,7 +92,7 @@ def test_the_tidying_is_detection_thresholds_own_not_a_copy():
     assert mod._mask_and_excursion is sig._mask_and_excursion
     ours = {p.name: p for p in get_adapter(NAME).params}
     for p in thr.tidy_param_specs():
-        assert ours[p.name].default == p.default and ours[p.name].help == p.help
+        assert ours[p.name].default == p.default and ours[p.name].description == p.description
 
 
 # ── the noise estimator ─────────────────────────────────────────────────────
@@ -160,9 +160,9 @@ def test_volts_and_millivolts_give_the_same_spans():
 def test_direction_matches_signal_threshold_at_the_equivalent_cut(direction):
     rng = np.random.default_rng(7)
     x = rng.standard_normal(4000)
-    x -= np.median(x)
     for a, amp in ((300, 9.0), (900, -9.0), (2000, 12.0), (3100, -7.0)):
         x[a:a + 6] = amp
+    x -= np.median(x)                            # zero median: signal_threshold's `either` is |x| about zero
     r = run(x, direction=direction)
     sigma, k = r.meta["sigma"], r.meta["k_sigma"]
     assert r.meta["centre"] == pytest.approx(0.0, abs=1e-12)
@@ -269,6 +269,12 @@ def test_derive_prints_sigma_and_the_cut():
     assert any("σ" in lab or "noise" in lab.lower() for lab in labels)
     assert any("cut" in lab.lower() for lab in labels)
     assert all(len(r) == 3 for r in rows)
+
+
+def test_filed_as_a_threshold_detector_for_discovery_compare():
+    from Working.discovery import compare as dc
+    assert dc.role_of(get_adapter(NAME)) == "Detect"
+    assert dc.glyph_for(NAME) == "threshold"
 
 
 if __name__ == "__main__":

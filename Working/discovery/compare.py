@@ -82,6 +82,7 @@ ALGORITHM_GLYPH = {
     "detection.threshold": "threshold",
     "detection.summation_threshold": "threshold",
     "detection.signal_threshold": "threshold",
+    "detection.noise_threshold": "threshold",
     "catalogue.classifier": "model",
     "catalogue.cnn_score": "model",
     "catalogue.cluster": "model",
