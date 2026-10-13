@@ -76,8 +76,9 @@ TEMPLATE = {
                    "(Gharghabi et al. 2017: few nearest-neighbour arcs cross a change of behaviour; 300 s window, "
                    "about one event period of slow regimes) → threshold to one span per change. The cut 0.46 "
                    "is calibrated for this window, on 4 h recordings; on a shorter one a single regime can cross it. Each span is a candidate boundary to check in Review; "
-                   "check the recording's NaN gaps first — the rolling-mean detrend spreads a gap by about "
-                   "one detrend window, and a long gap can still read as a change.",
+                   "check the recording's NaN gaps first — the detrend keeps a gap to its own length, but FLUSS "
+                   "leaves every window touching it unscored and reads its two sides as adjacent, so a change "
+                   "near a long gap can come out as a span on each side of it.",
     "steps": [
         {"stage": "preprocessing", "algorithm": "detrend",
          "params": {"mode": "rolling_mean", "window_s": 600.0}},

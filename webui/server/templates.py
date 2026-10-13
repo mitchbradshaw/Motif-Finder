@@ -246,8 +246,9 @@ EXPERIMENTAL: list[dict] = [
                        "about one event period of slow regimes) → threshold to one span per change. The cut 0.46 is "
                        "calibrated for this window, on 4 h recordings; on a shorter one a single regime can cross it. "
                        "Each span is a candidate boundary to check in Review; check the recording's NaN gaps first — "
-                       "the rolling-mean detrend spreads a gap by about one detrend window, and a long gap can still "
-                       "read as a change.",
+                       "the detrend keeps a gap to its own length, but FLUSS leaves every window touching it unscored "
+                       "and reads its two sides as adjacent, so a change near a long gap can come out as a span on "
+                       "each side of it.",
         "steps": [_step("preprocessing", "detrend", {"mode": "rolling_mean", "window_s": 600.0}),
                   _step("detection", "fluss", {"window_s": 300.0, "n_regimes_readout": 3, "iac": "parabola",
                                                "excl_factor": 5}),

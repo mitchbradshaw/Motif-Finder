@@ -32,9 +32,10 @@ alike (on the synthetic set the change peaked at 0.35-0.40 at 60 s, 0.65-0.82
 at 300 s, the nulls at <= 0.23 and <= 0.44).
 
 NaN: a window touching NaN has no neighbour; it is not scored, and the IAC is
-corrected for it (see the core). But `preprocessing.detrend`'s rolling mean
-spreads one NaN sample over about a detrend window, so a recording's NaN gaps
-grow before they get here — check them.
+corrected for it (see the core). `preprocessing.detrend`'s rolling mean keeps
+a gap to its own length (it averages the finite samples in each window; until
+2026-10-14 one NaN blanked everything after it), so a recording's NaN gaps
+reach here as they are.
 """
 
 import numpy as np
@@ -161,8 +162,8 @@ SPEC = register(AdapterSpec(
         "`window_s` to about one event period (the paper's rule) and tune it first. Follow with Threshold "
         "to get one span per change; the cut depends on the window — a longer window raises the peaks — so "
         "recalibrate the cut whenever you change `window_s` (the fluss_regimes template's 0.46 is for "
-        "300 s). Windows touching NaN are not scored, but detrending spreads a NaN gap by about one detrend "
-        "window, so check the recording's NaN gaps before trusting a span beside one. Costs a full matrix "
+        "300 s). Windows touching NaN are not scored (the rolling-mean detrend keeps a gap to its own length), "
+        "so check the recording's NaN gaps before trusting a span beside one. Costs a full matrix "
         "profile (O(n²))."
     ),
 ))
