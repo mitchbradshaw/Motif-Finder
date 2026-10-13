@@ -76,3 +76,16 @@ Noise is now measured at each event's own scale (A15) and the template looks for
 | events, real vs null mean | 0 vs 0.1 | 2 vs 0.2 (p 0.095) | 0 vs 0.3 | **24 vs 0.2** (120×) | **38 vs 0.3** (127×) | **6 vs 0.3** (20×) |
 
 Raw results: `w1_null_results.json` and `w1_null_results_24h.json` in the session scratchpad (not committed).
+
+## The gate after all merges (2026-10-14)
+
+- **pytest** (`-n 4`, main checkout): **2904 passed, 37 skipped, 0 failed**. The pre-wave baseline had one failure
+  (`test_end_to_end::test_discover_adapters_registers_the_expected_count`, stale since `detection.signal_threshold`
+  landed); it now counts 49 modules and passes.
+- **Client:** `npx tsc -b` and `npm run build` clean.
+- **Smoke** (sandbox bridge, port 8791): the three new states (`w1-noise-threshold`, `w1-deconvolved-troughs`,
+  `w1-cwt-events`) pass with rule 9. The run's other failures are on pages wave 1 does not touch (wave 1 changed only
+  `templates.py`, `glyphs.tsx`, `api.ts` and the Intervals table under `webui/`): Review inspector (3), Settings (5–6
+  click timeouts), Discovery runs/compare (3–5), the divergence compare state, and `explore.cross-channel--max-lag-10`
+  (known data drift). They repeat when rerun in isolation, so they are not load flakes; whether they predate wave 1
+  could not be shown by a pre-wave smoke run (a worktree has no data). **Worth a separate look.**
