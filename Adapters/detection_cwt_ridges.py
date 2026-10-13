@@ -10,16 +10,24 @@ the chain onto it.
 One span per accepted ridge maximum, centred on the event, `peak +/- duration_s`
 wide, scored by its SNR, labelled `spike` / `drop`. The feature table carries
 `peak_idx` (span-relative, like `starts`), `best_scale_s`, `duration_s`,
-`ridge_scales`, `snr`, `peak_coef`, `noise`, `polarity` (+1 / -1, Event shape's
+`ridge_scales`, `snr`, `peak_coef`, `noise` (at the event's own scale, the
+module's A15), `noise_min_scale` (the paper's 10 s p95, a diagnostic), `polarity` (+1 / -1, Event shape's
 encoding), `edge_flag`, `step_pair` and `nan_in_support`. Event shape measures
 a `polarity` and a `duration_s` of its own (onset to recovery) and replaces
 its namesakes, so the two this block defines also ride as `ridge_polarity`
 (in words) and `cwt_duration_s`, which survive the template's later blocks.
 `meta` holds the counts (by polarity, flagged, rejected and why), the scales
 used, the rules, the strongest events' ridges as `(time_s, scale_s)` points in
-the recording's time, and a coarse scalogram (one float32 row of at most 4096
-columns per scale — rows, not one array, because the bridge's JSON cleaner
-omits any array over 4096 elements).
+the recording's time, and a coarse scalogram: one row of at most 1024
+integers per scale, coefficient = integer x `unit`, where `unit` is the
+largest |coefficient| / 9999 — four significant figures of the strongest
+coefficient. Rows, not one array, because the bridge's JSON cleaner omits any
+array over 4096 elements; integers, because at full float precision the
+scalogram alone made meta ~3.5 MB a run (4-significant-figure floats still
+~0.47 MB). A day's meta is about 0.1-0.3 MB.
+
+Runtime: about 19-23 s for 2.6 M samples at the defaults on the development
+machine run alone, about 48 s under load (the cost model calibrates per machine).
 
 **One block, not two** (`docs/research/analysis-blocks-from-literature.md` §2):
 an Encoding carries no axis and a block cannot read the previous block's
@@ -45,8 +53,9 @@ from Working.Detection import cwt_ridges as CR
 from Working.types import SpanSet
 
 NAME = "detection.cwt_ridges"
+SCALOGRAM_LEVELS = 9999        # the scalogram travels as integers in [-9999, 9999] x unit
 FEATURES = ("peak_idx", "best_scale_s", "duration_s", "cwt_duration_s", "ridge_scales", "snr", "peak_coef", "noise",
-            "polarity", "ridge_polarity", "edge_flag", "step_pair", "nan_in_support")
+            "noise_min_scale", "polarity", "ridge_polarity", "edge_flag", "step_pair", "nan_in_support")
 
 
 def _run(x, t, fs, min_scale_s=10.0, max_scale_s=7200.0, n_scales=40, polarity="both", min_snr=3.0,
@@ -72,9 +81,11 @@ def _run(x, t, fs, min_scale_s=10.0, max_scale_s=7200.0, n_scales=40, polarity="
                     features=features)
 
     t0 = float(t[0]) if len(t) else 0.0
-    ridges = [{"peak_s": t0 + rd["peak_idx"] / fs, "polarity": rd["polarity"],
-               "points": [[t0 + c / fs, s] for c, s in zip(rd["cols"], rd["scales_s"])]}
+    ridges = [{"peak_s": round(t0 + rd["peak_idx"] / fs, 3), "polarity": rd["polarity"],
+               "points": [[round(t0 + c / fs, 3), _sig4(s)] for c, s in zip(rd["cols"], rd["scales_s"])]}
               for rd in r.ridges]
+    sv = r.scalogram["values"]
+    unit = float(np.abs(sv).max()) / SCALOGRAM_LEVELS if sv.size and np.abs(sv).max() > 0 else 1.0
     by_pol = {"spike": sum(e["ridge_polarity"] == "spike" for e in ev),
               "drop": sum(e["ridge_polarity"] == "drop" for e in ev)}
     meta = {
@@ -93,10 +104,12 @@ def _run(x, t, fs, min_scale_s=10.0, max_scale_s=7200.0, n_scales=40, polarity="
         "ridges_note": (f"ridges of the {len(ridges)} strongest events (by SNR), capped at "
                         f"{CR.MAX_RIDGES_IN_META}; each point is (time_s in the recording's time, scale_s)"),
         "scalogram": {
-            "rows": [row for row in r.scalogram["values"]],
+            "rows": [[int(v) for v in np.rint(row / unit)] for row in r.scalogram["values"]],
+            "unit": unit,
             "scales_s": [float(s) for s in r.scales_s],
             "samples_per_column": int(r.scalogram["samples_per_column"]),
             "t0_s": t0, "dt_s": r.scalogram["samples_per_column"] / fs,
+            "encoding": "coefficient = row value x unit (unit = the largest |coefficient| / 9999)",
             "reduction": "signed value of the largest |coefficient| in each column's samples (never a stride); "
                          "coefficients after the per-scale baseline (rule: coefficient baseline)",
         },
@@ -108,6 +121,11 @@ def _run(x, t, fs, min_scale_s=10.0, max_scale_s=7200.0, n_scales=40, polarity="
                            f"scale (noise) and {meta['rejected']['max_at_largest_scale']} at the largest "
                            f"(wider than {max_scale_s:g} s).")
     return AdapterResult(output_kind="spanset", value=spans, meta=meta)
+
+
+def _sig4(v):
+    """A plain float at 4 significant figures (meta size; a float32 serialises with ~17 digits)."""
+    return float(f"{float(v):.4g}")
 
 
 def _time_once(x, fs):
@@ -155,8 +173,8 @@ SPEC = register(AdapterSpec(
                   choices=["both", "spike", "drop"]),
         ParamSpec("min_snr", float, 3.0,
                   "Tune this first. Keep an event whose ridge's largest coefficient is at least this many times "
-                  "the local noise (95th percentile of the smallest scale's |coefficients| around it); about the "
-                  "event's height over the noise's",
+                  "the noise at the event's own scale around it (1.96 x the robust spread of that scale's "
+                  "coefficients): how far it stands out from what competes with it at its own duration",
                   min=0.0, max=1000.0),
         ParamSpec("min_ridge_scales", int, 6, "A ridge must have a maximum on at least this many scales",
                   min=2, max=200),

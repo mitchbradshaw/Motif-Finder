@@ -51,6 +51,11 @@ def four_hours(seed=0):
     return x
 
 
+def unflagged_labels(r):
+    f = r.value.features
+    return [lab for lab, edge in zip(r.value.labels, f["edge_flag"]) if not edge]
+
+
 def run(x, t0=0.0, **params):
     spec = get_adapter(NAME)
     x = np.asarray(x, dtype=float)
@@ -83,18 +88,22 @@ def test_one_span_per_event_centred_scored_by_snr_with_its_features():
     ss = r.value
     assert isinstance(ss, SpanSet)
     f = ss.features
-    assert len(ss.starts) == len(f) == 2
+    assert len(ss.starts) == len(f)
+    # A15 judges an edge ridge at its own scale, where the reflected trace can stand out: the
+    # 4 h span may carry an edge-flagged extra; the two events are the unflagged rows
+    inner = f[~f["edge_flag"]]
+    assert len(inner) == 2
     for col in ("peak_idx", "best_scale_s", "duration_s", "cwt_duration_s", "ridge_scales", "snr", "polarity",
                 "ridge_polarity",
                 "edge_flag", "step_pair", "nan_in_support"):
         assert col in f.columns, col
-    spike, drop = f.iloc[0], f.iloc[1]
+    spike, drop = inner.iloc[0], inner.iloc[1]
     assert abs(spike["peak_idx"] - 3600) <= 30 and spike["ridge_polarity"] == "spike" and spike["polarity"] == 1
     assert abs(drop["peak_idx"] - 3 * 3600) <= 5 and drop["ridge_polarity"] == "drop" and drop["polarity"] == -1
     assert spike["duration_s"] == pytest.approx(480, rel=0.25)
     assert drop["duration_s"] == pytest.approx(24, rel=0.4)
     assert list(ss.scores) == pytest.approx(list(f["snr"]))
-    assert list(ss.labels) == ["spike", "drop"]
+    assert unflagged_labels(r) == ["spike", "drop"]
     for s, e, pk in zip(ss.starts, ss.ends, f["peak_idx"]):
         assert s < pk < e
 
@@ -112,21 +121,23 @@ def test_indices_are_span_relative_whatever_the_spans_offset():
 def test_meta_carries_counts_scales_rules_ridges_and_a_coarse_scalogram():
     r = run(four_hours())
     m = r.meta
-    assert m["n_events"] == 2
-    assert m["counts_by_polarity"] == {"spike": 1, "drop": 1}
-    assert m["n_edge_flagged"] == 0
+    assert m["n_events"] - m["n_edge_flagged"] == 2, "two events, and any extra is edge-flagged"
+    assert sum(m["counts_by_polarity"].values()) == m["n_events"]
+    assert m["counts_by_polarity"]["spike"] >= 1 and m["counts_by_polarity"]["drop"] >= 1
     assert len(m["scales_s"]) + m["scales_dropped"] == 40
     assert m["scales_dropped"] > 0, "7200 s is too large for a 4 h span and is said to be"
     names = {d["name"] for d in m["rules"]}
     assert {"duration_s", "snr", "best_scale_s", "peak_idx", "polarity", "edge_flag", "step_pair"} <= names
-    assert len(m["ridges"]) == 2 and "capped" in m["ridges_note"]
+    assert len(m["ridges"]) == m["n_events"] and "capped" in m["ridges_note"]
     pt = m["ridges"][0]["points"][0]
     assert len(pt) == 2
     sc = m["scalogram"]
     assert len(sc["rows"]) == len(m["scales_s"])
     assert all(len(row) <= 1024 for row in sc["rows"]), "at most 1024 columns (critic F4: meta size)"
-    assert all(isinstance(v, float) and v == float(f"{v:.4g}") for row in sc["rows"] for v in row), \
-        "plain floats at 4 significant figures (a float32 serialises with ~17 digits)"
+    assert all(isinstance(v, int) and abs(v) <= 9999 for row in sc["rows"] for v in row), \
+        "integers x unit: four significant figures of the strongest coefficient (a float32 prints ~17 digits)"
+    assert max(abs(v) for row in sc["rows"] for v in row) == 9999
+    assert sc["unit"] > 0 and "unit" in sc["encoding"]
     assert sc["samples_per_column"] * len(sc["rows"][0]) >= len(four_hours())
     assert "rejected" in m and m["rejected"]["side_lobes"] >= 1
 
@@ -153,8 +164,10 @@ def test_an_absence_is_said_with_its_reasons():
 
 def test_polarity_parameter_reports_one_side():
     x = four_hours()
-    assert list(run(x, polarity="spike").value.labels) == ["spike"]
-    assert list(run(x, polarity="drop").value.labels) == ["drop"]
+    for side in ("spike", "drop"):
+        r = run(x, polarity=side)
+        assert set(r.value.labels) == {side}
+        assert unflagged_labels(r) == [side]
 
 
 def test_a_span_too_short_for_the_smallest_scales_is_refused_loudly():

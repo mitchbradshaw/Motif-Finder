@@ -31,9 +31,10 @@ The paper's steps, as implemented
    the scale of the ridge maximum strictly inside the ridge's scale range
    (a maximum at the smallest scale is noise; at the largest, an event wider
    than the range — both are counted, not reported), (c) SNR >= `min_snr`,
-   where signal = **the maximum coefficient on the ridge** and noise = **the
-   95th percentile of |coefficients| at the smallest scale** in a local window
-   of `noise_window_s` around the peak, floored (see `NOISE_FLOOR_FRAC`).
+   where signal = **the maximum coefficient on the ridge**. The paper's noise
+   is the 95th percentile of |coefficients| at the smallest scale; ours is
+   measured **at the event's own best scale** (A15), and the paper's is kept
+   per event as the diagnostic `noise_min_scale`.
 5. **Location** from the ridge at its small-scale end; **width from the scale
    of the ridge maximum**.
 
@@ -75,13 +76,16 @@ A3. **Long spans**: processed in **overlapping chunks** (`chunk_samples`,
     scalogram are kept, so memory is O(chunk), never O(n x n_scales). Each
     chunk is extended on both sides by `overlap = 5a_max` (exact
     coefficients) `+ 4a_max` (the farthest a ridge can wander sideways from
-    the largest scale to the smallest) `+ noise_window/2`, and reports only
+    the largest scale to the smallest) `+ 30a_max + noise_window/2` (A12's
+    baseline and A15's noise windows), and reports only
     the events located in its own core, so chunked and unchunked processing
     agree (tested).
 A4. **Span edges**: the span is extended by odd (point) reflection, which
     continues a straight drift instead of folding it into a kink (an even
     reflection turns a slope into a V, which the hat reads as an event at
-    the edge). An event whose wavelet support at its best scale (`+/- 5a`)
+    the edge). The hinge is a robust edge level — the median of the first
+    (last) `a_min` samples — not the single end sample, so an outlier there
+    does not become a step of twice its height past the edge. An event whose wavelet support at its best scale (`+/- 5a`)
     crosses a span edge is kept and flagged (`edge_flag`).
 A5. **Asymmetric events** (a sharkfin) put the ridge's centre toward the slow
     side; the block reports the scale and an approximate extent and leaves
@@ -127,7 +131,9 @@ A14. **Step pairs.** An abrupt edge (a fall over less than a minute, the
     `step_pair`.
 A11. **NaN samples** are filled by linear interpolation for the transform
     only, and an event whose support overlaps a filled sample is flagged
-    (`nan_in_support`); the count is in the result.
+    (`nan_in_support`); the count is in the result. A span more than half NaN
+    is refused with a ValueError that says so: what is left is mostly
+    interpolated lines, and neither its noise nor its events would be real.
 A12. **A per-scale coefficient baseline.** The hat has zero mean and zero
     first moment but not zero second moment, so a curved drift (quadratic,
     or any slow bend) adds an offset of about `-4.3 c a^2` (for `c t^2`)
@@ -144,6 +150,52 @@ A13. **Composites.** At scales comparable to the spacing of events, the hat
     Such a ridge is reported like any other; most reach a span edge and are
     flagged. Keep `max_scale_s` below the typical spacing to avoid them.
 
+A15. **SNR = detectability at its own scale.** Signal is the ridge's
+    maximum coefficient (the paper's); noise is the robust spread of the
+    coefficients **at the event's best scale**, around it: `1.96 x 1.4826 x
+    MAD` of that scale's baseline-subtracted row (A12) in a window of
+    `max(noise_window_s, +/- 30 a)`, less a guard band of `+/- 4 a` around
+    the event (its own response and lobes, as in a CFAR detector), centred
+    within 1/16 of the window of the peak. Two passes: pass 1 finds the
+    events at a fixed SNR of 3 (`KNOWN_SNR`, so an event's SNR never depends
+    on the `min_snr` asked for); pass 2 measures again with the stretches
+    those events cover at this scale (`+/- 4 a` around each event whose best
+    scale is within 8x of it) also left out, and judges at `min_snr`. Where
+    less than a quarter of the window is left, everything there is events and
+    the floor is the noise. The floor: the span's own smallest-scale noise
+    (the same robust spread, over the whole span) scaled to the scale as
+    white noise would scale (`x sqrt(a_min / a)`) — the white part of the
+    noise is present at every scale, and at large scales a window holds few
+    independent stretches and A12 flattens the row, so a bare MAD under-reads
+    there.
+    Why (critic, 24 h synthetic days at 1 Hz, default parameters): the
+    paper's noise — the 95th percentile of |coefficients| at the smallest
+    scale — failed three ways. (i) On random-walk-like wander, large at large
+    scales and small at small ones, slow excursions were compared with the
+    small-scale noise and passed: 125 / 46 / 21 / 7 false events a day at
+    min_snr 3 / 5 / 8 / 12, whatever the walk's size (under A0, SNR was a pure
+    amplitude cut). (ii) On coloured noise strong at 10 s, slow events were
+    compared with it and failed: AR(1) phi 0.95 sd 0.3, 0.3 of 7 amplitude-1
+    events found. (iii) A train's own events raised the p95 until none
+    passed: 24 s drops every 300 s, 0 of 286. Measured at its own scale, an
+    event is judged against what competes with it there. 1.96 x the robust
+    standard deviation is the p95 of |Gaussian|, so `min_snr` keeps its
+    meaning on white noise.
+    After A15 (same backgrounds, 3 seeds, unflagged false events a day at
+    min_snr 3 / 5 / 8 / 12): random walk 0 / 0 / 0 / 0, walk + white 0.33 /
+    0 / 0 / 0, white, AR(1) 0.3 and 0.95 all 0. Recall of the seven
+    amplitude-1 events at min_snr 3: white 7, AR(1) phi 0.95 4.3 (every
+    8 min and 43 min event; the 24 s ones sit at SNR ~1.8, as tall as the AR
+    noise's own bumps at their scale, and are rightly not called), random
+    walk 4.7 and walk + white 5 (a walk of step 0.01 wanders about 0.5 over a
+    43 min event: the slow ones are at SNR ~2 at their scale, and are lost
+    for the same reason). Trains of 24 s drops: every 300 s 286 / 286 and
+    285 / 286, every 600 s 142 / 142 and 141 / 142; every 120 s still only
+    9-13 / 718 — events covering more than half of every window at their own
+    scale are the noise there. The drifting white-noise day (20 seeds): every
+    event found, worst duration 1.18x, as before; extras are flagged in 16 of
+    20 days, and in 4 one composite (A13) goes unflagged.
+
 Duration rule (calibrated in `tests/test_cwt_ridges.py`): for a Gaussian bump
 of standard deviation s, the 1/a-normalised Ricker response at its centre is
 `A s a^2 / (a^2 + s^2)^1.5` (times a constant), maximal at `a* = sqrt(2) s`;
@@ -151,6 +203,15 @@ its FWHM is `2 sqrt(2 ln 2) s`. So **duration_s = FWHM = 2 sqrt(ln 2) a* =
 1.665 x best_scale_s**. The reported span is
 `peak +/- duration_s` (twice the FWHM: the bump with its shoulders, about
 +/- 2.1 standard deviations, so Event shape downstream can find an onset).
+In a dense train the hat at an event's own scale overlaps its neighbours,
+whose opposite-signed lobes pull the best scale down: durations shrink (480 s
+events every 600 s read about 181 s).
+
+Runtime: about 19-23 s for 2.6 M samples at the defaults on the development
+machine run alone (two chunks of 2^21 samples, 40 scales; 19 s measured after
+A15 on a month of walk + white, 12-13 s for the same trace before it — A15's
+medians and wider chunk overlap cost ~7 s; the critic measured 20-23 s), and
+about 48 s under load; linear in n at a fixed scale range (the block's cost model, exponent 1).
 
 No UI imports; numpy and scipy only.
 """
@@ -167,9 +228,20 @@ SUPPORT_MULT = 5.0           # wavelet truncated to [-5a, 5a] (the paper's suppo
 LOCAL_MAX_MULT = 1.0         # local-maximum window: +/- 1.0 a
 LINK_MULT = 0.5              # ridge linking tolerance: 0.5 a of the larger scale
 RIDGE_REACH_MULT = 4.0       # lateral wander of a ridge from top to bottom, in a_max
-NOISE_PERCENTILE = 95.0
-NOISE_FLOOR_FRAC = 0.05      # local noise floored at 5 % of the span's own smallest-scale p95 ...
+NOISE_PERCENTILE = 95.0      # the diagnostic `noise_min_scale`: p95 of the smallest scale's |coefficients|
+NOISE_Z = 1.96               # A15: noise = 1.96 x a robust standard deviation (the p95 of |Gaussian|) ...
+MAD_SIGMA = 1.4826           # ... the robust standard deviation being 1.4826 x the MAD
+NOISE_WINDOW_SCALES = 30.0   # A15: the noise window is at least +/- 30 a (enough independent stretches) ...
+NOISE_GUARD_SCALES = 4.0     # A15: ... less +/- 4 a around the event (its own response and lobes)
+NOISE_DECIM = 0.25           # A15: a scale's row is kept every a/4 samples for its noise (it is smooth over a) ...
+NOISE_MAX_POINTS = 512       # ... and at most ~512 points per noise window
+NOISE_MIN_KEEP = 0.25        # A15 pass 2: under a quarter of the window left between events -> the floor
+KNOWN_SNR = 3.0              # A15 pass 1: the events whose stretches pass 2 leaves out pass this SNR (fixed)
+EXCLUDE_SCALE_RATIO = 8.0    # A15 pass 2: an event within 8x of a scale covers +/- 4 a of that scale's row
+NOISE_FLOOR_FRAC = 1.0       # A15: noise floored at the span's smallest-scale noise, scaled to a as white noise ...
 ROUNDOFF_FLOOR = 1e-9        # ... and above FFT round-off on a flat trace (relative to max |x|)
+P95_FLOOR_FRAC = 0.05        # the diagnostic p95 floored at 5 % of the span's own (as before A15)
+MAX_NAN_FRAC = 0.5           # a span more than half NaN is refused
 SIDELOBE_RATIO = 0.6         # a side lobe is <= 0.45 of its parent; 0.6 leaves a margin
 SIDELOBE_REACH = 2.5         # a side lobe sits within ~1.9 a* of its parent
 DUP_DISTANCE = 0.5           # duplicates: closer than 0.5 scale ...
@@ -180,7 +252,7 @@ PROMINENCE_SNR = 1.0         # A6: a profile maximum must stand >= 1 x the local
 HALF_PEAK = 0.5              # A9: location at the smallest scale still >= half the peak
 FWHM_PER_SCALE = 2.0 * np.sqrt(np.log(2.0))       # 1.6651: FWHM of a Gaussian / its best 1/a scale
 DEFAULT_CHUNK = 2 ** 21
-SCALOGRAM_COLUMNS = 4096
+SCALOGRAM_COLUMNS = 1024
 MAX_RIDGES_IN_META = 500
 
 DEFAULTS = dict(min_scale_s=10.0, max_scale_s=7200.0, n_scales=40, polarity="both", min_snr=3.0,
@@ -211,10 +283,14 @@ def rules():
         {"name": "cwt_duration_s", "rule": "the same as duration_s, under a name Event shape does not overwrite "
                                            "(its own duration_s is onset to recovery)"},
         {"name": "span", "rule": "peak_idx +/- duration_s (twice the FWHM), clipped to the span"},
-        {"name": "snr", "rule": "the largest coefficient on the ridge (within the event's scale band) / the 95th "
-                                "percentile of |coefficients| at the smallest scale in a noise_window_s window "
-                                "centred within noise_window_s/32 of the peak, floored at 5 % of that percentile "
-                                "over the whole span"},
+        {"name": "snr", "rule": "detectability at the event's own scale: the largest coefficient on the ridge "
+                                "(within the event's scale band) / noise, where noise = 1.96 x 1.4826 x MAD of the "
+                                "coefficients at the event's best scale in a window of max(noise_window_s, +/- 30 "
+                                "scales) around the peak less +/- 4 scales around it, floored at the span's "
+                                "smallest-scale noise scaled to that scale as white noise (x sqrt(a_min / a))"},
+        {"name": "noise_min_scale", "rule": "diagnostic only (the paper's noise): the 95th percentile of "
+                                            "|coefficients| at the smallest scale in a noise_window_s window around "
+                                            "the peak; not used to accept events"},
         {"name": "coefficient baseline", "rule": "each scale's coefficients minus their running median over "
                                                  "+/- 10 scales, so a curved drift (which the hat does not cancel) "
                                                  "goes and an event stays"},
@@ -372,8 +448,9 @@ def _profile_prominence(v, p):
 
 
 def _candidates(rid, rj, rc, rv, scales_samp, min_ridge, min_snr, noise_at, in_core, counts):
-    """Events from one polarity's ridges. `noise_at(col)` is the local noise at an
-    ext-frame column; `in_core(col)` says whether a column is this chunk's to count.
+    """Events from one polarity's ridges. `noise_at(col, j)` is the local noise at an
+    ext-frame column at scale index j (A15); `in_core(col)` says whether a column is
+    this chunk's to count.
     Each candidate is a dict with its ext-frame location and its ridge's points."""
     if rid.size == 0:
         return []
@@ -411,7 +488,7 @@ def _candidates(rid, rj, rc, rv, scales_samp, min_ridge, min_snr, noise_at, in_c
             strong = band[v[band] >= HALF_PEAK * v[p]]
             q = int(strong[0]) if strong.size else int(p)
             loc = int(cs[q])
-            noise = noise_at(loc)
+            noise = noise_at(loc, int(js[p]))
             if v[p] < min_snr * noise or prom < PROMINENCE_SNR * noise:
                 if in_core(loc):
                     counts["below_snr" if v[p] < min_snr * noise else "shallow_maximum"] += 1
@@ -454,6 +531,15 @@ def _suppress(cands, counts, c0, c1):
     return kept
 
 
+def _robust_noise(v):
+    """A15: 1.96 x the robust standard deviation of `v` (1.4826 x its MAD)."""
+    if v.size == 0:
+        return 0.0
+    m = np.partition(v, v.size // 2)[v.size // 2]
+    d = np.abs(v - m)
+    return NOISE_Z * MAD_SIGMA * float(np.partition(d, d.size // 2)[d.size // 2])
+
+
 def _block_extreme(vals, blocks):
     """Signed value of the largest |v| per run of equal block ids (ids non-decreasing)."""
     starts = np.concatenate([[0], np.flatnonzero(np.diff(blocks)) + 1])
@@ -477,6 +563,11 @@ def detect(x, fs, *, min_scale_s=10.0, max_scale_s=7200.0, n_scales=40, polarity
         raise ValueError(f"detection.cwt_ridges: min_scale_s={min_scale_s:g} s is below one sample at {fs:g} Hz")
     x = np.asarray(x, dtype=float).ravel()
     n = len(x)
+    n_bad = int((~np.isfinite(x)).sum())
+    if n and n_bad > MAX_NAN_FRAC * n:
+        raise ValueError(f"detection.cwt_ridges: more than half of the span is NaN ({n_bad} of {n} samples): what "
+                         f"is left would be mostly interpolated lines, with neither real noise nor real events. Trim "
+                         f"the span to the recorded part.")
     all_scales = scales_seconds(min_scale_s, max_scale_s, n_scales)
     fit = all_scales * fs <= n / 4.0
     scales_s = all_scales[fit]
@@ -492,18 +583,33 @@ def detect(x, fs, *, min_scale_s=10.0, max_scale_s=7200.0, n_scales=40, polarity
     a = scales_s * fs                                   # scales in samples
     halves = [max(1, int(np.ceil(SUPPORT_MULT * aj))) for aj in a]
     P = halves[-1]
-    xp = np.pad(xf, P, mode="reflect", reflect_type="odd") if n > 1 else np.pad(xf, P, mode="edge")
+    if n > 1:
+        # A4: odd reflection hinged on a robust edge level, not on the single end sample
+        k = int(min(n, max(1, np.ceil(a[0]))))
+        xh = xf.copy()
+        xh[0], xh[-1] = float(np.median(xf[:k])), float(np.median(xf[-k:]))
+        xp = np.pad(xh, P, mode="reflect", reflect_type="odd")
+        xp[P], xp[P + n - 1] = xf[0], xf[-1]
+    else:
+        xp = np.pad(xf, P, mode="edge")
     W = max(1, int(round(noise_window_s * fs)))
     noise_step = max(1, W // 16)
-    Q = P + int(np.ceil((RIDGE_REACH_MULT + BASELINE_MULT) * a[-1])) + W // 2 + 2
+    Q = P + int(np.ceil((RIDGE_REACH_MULT + max(BASELINE_MULT, NOISE_WINDOW_SCALES)) * a[-1])) + W // 2 + 2
     chunk = max(int(chunk_samples), 1)
 
-    # global smallest-scale |coefficient| percentile, for the noise floor: needs row 0 everywhere,
-    # which is cheap (the smallest wavelet) — computed once over the whole padded span
+    # the span's smallest-scale noise, for the floors: needs row 0 everywhere, which is cheap (the
+    # smallest wavelet) — computed once over the whole padded span
     w0 = ricker(a[0])
-    row0_all = np.abs(_conv_same(xp, w0)[P:P + n])
-    floor = max(NOISE_FLOOR_FRAC * float(np.percentile(row0_all, NOISE_PERCENTILE)),
-                ROUNDOFF_FLOOR * float(np.max(np.abs(xf))) * np.sqrt(a[-1]), 1e-300)
+    row0_all = _conv_same(xp, w0)[P:P + n]
+    roundoff = max(ROUNDOFF_FLOOR * float(np.max(np.abs(xf))) * np.sqrt(a[-1]), 1e-300)
+    floor_p95 = max(P95_FLOOR_FRAC * float(np.percentile(np.abs(row0_all), NOISE_PERCENTILE)), roundoff)
+    noise0 = _robust_noise(row0_all)
+    floors = np.maximum(NOISE_FLOOR_FRAC * noise0 * np.sqrt(a[0] / a), roundoff)     # A15: as white, per scale
+    # A15: each scale's noise window (half-width, samples), its grid of window centres and its decimation
+    n_half = [max(W // 2, int(np.ceil(NOISE_WINDOW_SCALES * aj))) for aj in a]
+    n_grid = [max(1, (2 * hj) // 16) for hj in n_half]
+    n_guard = [int(np.ceil(NOISE_GUARD_SCALES * aj)) + gs for aj, gs in zip(a, n_grid)]
+    n_dec = [max(1, int(NOISE_DECIM * aj), (2 * hj) // NOISE_MAX_POINTS) for aj, hj in zip(a, n_half)]
 
     n_cols = min(SCALOGRAM_COLUMNS, n)
     per_col = int(np.ceil(n / n_cols))
@@ -523,6 +629,7 @@ def detect(x, fs, *, min_scale_s=10.0, max_scale_s=7200.0, n_scales=40, polarity
         nfft = sfft.next_fast_len(L + 2 * P + 1, real=True)
         X = sfft.rfft(seg, nfft)
         max_pos, max_neg = [], []
+        dec_rows = []                       # A15: (span columns, values) of each scale's row, decimated
         core = slice(c0 - e0, c1 - e0)
         for j in range(S):
             w = ricker(a[j])
@@ -534,6 +641,9 @@ def detect(x, fs, *, min_scale_s=10.0, max_scale_s=7200.0, n_scales=40, polarity
             cn = _local_maxima(-row, half)
             max_pos.append((cp, row[cp]))
             max_neg.append((cn, -row[cn]))
+            st = n_dec[j]
+            dc = np.arange(max(0, -(-e0 // st) * st), min(n, e0 + L), st)
+            dec_rows.append((dc, row[dc - e0]))
             # coarse scalogram over this chunk's core
             g = np.arange(c0, c1)
             ids, ext = _block_extreme(row[core], g // per_col)
@@ -542,37 +652,92 @@ def detect(x, fs, *, min_scale_s=10.0, max_scale_s=7200.0, n_scales=40, polarity
             scal_abs[j, ids[better]] = np.abs(ext[better])
             if j == 0:
                 row0 = np.abs(row)
-        cands = []
+        p95_cache = {}
 
-        noise_cache = {}
+        def make_noise_at(known, base=None, e0=e0, rows=dec_rows):
+            """A15: the robust spread of scale j's row in its window, less the guard band around the
+            event. The window is centred on the grid point (every 1/16 of the window, aligned to the
+            span) nearest the peak, so one estimate serves every candidate near it and a chunk agrees
+            with the span. `known` (pass 2): the pass-1 events, as (span locations, scales in samples);
+            the stretches their responses cover at this scale are left out too, and where they cover
+            nearly all of it the floor is the noise. Where none is near, `base` (pass 1's) answers."""
+            cache = {}
 
-        def noise_at(col, row0=row0, e0=e0, cache=noise_cache):
-            # the window is centred on the grid point (every W/16 samples, aligned to the span) nearest
-            # the peak, so one percentile serves every candidate near it and a chunk agrees with the span
+            def noise_at(col, j):
+                gs, hj, gd = n_grid[j], n_half[j], n_guard[j]
+                g = int(round((col + e0) / gs)) * gs
+                if (j, g) in cache:
+                    return cache[(j, g)]
+                ex = None
+                if known is not None:
+                    kl, ks = known                                   # sorted by location
+                    zone = int(np.ceil(NOISE_GUARD_SCALES * a[j]))
+                    i0, i1 = np.searchsorted(kl, g - hj - zone), np.searchsorted(kl, g + hj + zone, "right")
+                    kk, ss = kl[i0:i1], ks[i0:i1]
+                    ex = kk[(np.abs(np.log(ss / a[j])) <= np.log(EXCLUDE_SCALE_RATIO)) & (np.abs(kk - g) > gd)]
+                    if ex.size == 0:
+                        cache[(j, g)] = base(col, j)
+                        return cache[(j, g)]
+                dc, dv = rows[j]
+                lo, hi = np.searchsorted(dc, max(0, g - hj)), np.searchsorted(dc, min(n, g + hj + 1))
+                wc, wv = dc[lo:hi], dv[lo:hi]
+                keep = np.abs(wc - g) > gd
+                total = int(keep.sum())
+                if total == 0:                                   # a span barely longer than the guard
+                    val = _robust_noise(dv)
+                else:
+                    if ex is not None:
+                        for k in ex:
+                            keep &= np.abs(wc - k) > zone
+                    val = _robust_noise(wv[keep]) if keep.sum() >= NOISE_MIN_KEEP * total else 0.0
+                cache[(j, g)] = max(val, float(floors[j]))
+                return cache[(j, g)]
+            return noise_at
+
+        def p95_at(col, row0=row0, e0=e0, cache=p95_cache):
+            # the paper's noise (diagnostic): p95 of the smallest scale's |coefficients| in noise_window_s
             g = int(round((col + e0) / noise_step)) * noise_step
             if g not in cache:
                 lo = max(0, g - W // 2, e0) - e0
                 hi = min(n, g + W // 2 + 1, e0 + len(row0)) - e0
-                cache[g] = max(float(np.percentile(row0[lo:max(hi, lo + 1)], NOISE_PERCENTILE)), floor)
+                cache[g] = max(float(np.percentile(row0[lo:max(hi, lo + 1)], NOISE_PERCENTILE)), floor_p95)
             return cache[g]
 
         def in_core(col, e0=e0, c0=c0, c1=c1):
             return c0 <= col + e0 < c1
 
-        for sign, maxima in ((1, max_pos), (-1, max_neg)):
-            rid, rj, rc, rv = _trace_ridges(maxima, a, int(max_gap_scales))
-            for cd in _candidates(rid, rj, rc, rv, a, int(min_ridge_scales), float(min_snr), noise_at, in_core,
-                                  counts):
-                cd["sign"] = sign
-                ratio = _opposite_ratio(cd, max_neg if sign > 0 else max_pos, a)
-                if ratio * SIDELOBE_RATIO >= 1.0:          # the opposite side is >= 1/0.6 as strong
-                    counts["side_lobes"] += int(in_core(cd["loc"]))
-                    continue
-                cd["step_pair"] = ratio >= SIDELOBE_RATIO     # comparable on both sides: an edge's corner
-                cd["loc"] += e0                                  # ext frame -> span-relative
-                cd["ridge_c"] = cd["ridge_c"] + e0
-                if 0 <= cd["loc"] < n:
-                    cands.append(cd)
+        traced = [(1, max_pos, max_neg, _trace_ridges(max_pos, a, int(max_gap_scales))),
+                  (-1, max_neg, max_pos, _trace_ridges(max_neg, a, int(max_gap_scales)))]
+
+        def one_pass(noise_at, snr_cut, tally):
+            found = []
+            for sign, _own, opposite, (rid, rj, rc, rv) in traced:
+                for cd in _candidates(rid, rj, rc, rv, a, int(min_ridge_scales), snr_cut, noise_at,
+                                      in_core, tally):
+                    cd["sign"] = sign
+                    ratio = _opposite_ratio(cd, opposite, a)
+                    if ratio * SIDELOBE_RATIO >= 1.0:          # the opposite side is >= 1/0.6 as strong
+                        tally["side_lobes"] += int(in_core(cd["loc"]))
+                        continue
+                    cd["step_pair"] = ratio >= SIDELOBE_RATIO     # comparable on both sides: an edge's corner
+                    found.append(cd)
+            return found
+
+        # A15, two passes: pass 1 judges every candidate against its own scale's spread at a fixed
+        # KNOWN_SNR (so an event's SNR never depends on the min_snr asked for); pass 2 again, at
+        # min_snr, with the stretches covered by pass 1's events (within EXCLUDE_SCALE_RATIO of the
+        # scale) left out of the noise, so other events are not counted as the noise an event must beat
+        noise_1 = make_noise_at(None)
+        first = sorted(one_pass(noise_1, KNOWN_SNR, {k: 0 for k in counts}), key=lambda c: c["loc"])
+        known = (np.array([c["loc"] + e0 for c in first], dtype=np.int64),
+                 np.array([c["best_scale"] for c in first], dtype=float))
+        cands = []
+        for cd in one_pass(make_noise_at(known, noise_1), float(min_snr), counts):
+            cd["noise_min_scale"] = p95_at(cd["loc"])
+            cd["loc"] += e0                                  # ext frame -> span-relative
+            cd["ridge_c"] = cd["ridge_c"] + e0
+            if 0 <= cd["loc"] < n:
+                cands.append(cd)
         for cd in _suppress(cands, counts, c0, c1):
             if c0 <= cd["loc"] < c1:
                 events.append(cd)
@@ -590,6 +755,7 @@ def detect(x, fs, *, min_scale_s=10.0, max_scale_s=7200.0, n_scales=40, polarity
             "peak_idx": int(loc), "start": int(max(0, loc - d)), "end": int(min(n, loc + d + 1)),
             "best_scale_s": best_s, "duration_s": dur_s, "cwt_duration_s": dur_s, "ridge_scales": cd["ridge_scales"],
             "snr": float(cd["snr"]), "peak_coef": float(cd["peak_coef"]), "noise": float(cd["noise"]),
+            "noise_min_scale": float(cd["noise_min_scale"]),
             "polarity": int(cd["sign"]), "ridge_polarity": "spike" if cd["sign"] > 0 else "drop",
             "edge_flag": bool(loc - sup < 0 or loc + sup >= n),
             "nan_in_support": bool(bad[lo:hi].any()), "step_pair": bool(cd["step_pair"]),
