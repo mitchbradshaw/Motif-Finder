@@ -60,6 +60,12 @@ What this block adds around it, and why
   nearest finite value — `np.interp`'s own behaviour) and counted; a window with
   more is LEFT OUT and counted by reason (`gaps_over_5pct`). Every upstream
   column is kept on the windows that remain, as Trace shape does.
+* **`keep_upstream_features`** (default on, fix round 1): off keeps only the
+  fingerprint and the bookkeeping columns (`split`, `pool_*`, `shape_file`,
+  `shape_row`, `shape_orig_start`, `shape_clamped`) and drops measured features
+  (Catch22, entropies), counted — so a MiniRocket arm built on Window matrix's
+  windows (the labels' 600/200 grid, where Window matrix must compute at least one
+  family) trains its classifier on the fingerprint alone.
 * **Refusals in words, never a blank:** an empty set; every window left out;
   windows shorter than 9 samples (aeon's own floor — said first, in words); a
   table of more than `max_cells` (windows x features) cells, naming
@@ -119,7 +125,20 @@ RULES = [
     {"name": "feature count",
      "rule": "aeon rounds the number asked for down to a multiple of 84 (84 at least); the count shown is the "
              "number of columns the table really has"},
+    {"name": "upstream features",
+     "rule": "keep_upstream_features on: every column the window set carried rides along. Off: only the "
+             "fingerprint and the bookkeeping columns (split, pool_*, shape_file, shape_row, shape_orig_start, "
+             "shape_clamped) are kept, and measured features (Catch22, entropies, ...) are dropped and counted, so a "
+             "classifier downstream learns from the fingerprint alone"},
 ]
+
+#: the columns `keep_upstream_features = False` keeps: identifiers and bookkeeping, never a measure
+BOOKKEEPING_COLUMNS = (SPLIT_COLUMN, SHAPE_FILE_COLUMN, SHAPE_ROW_COLUMN, "shape_orig_start", "shape_clamped")
+BOOKKEEPING_PREFIXES = ("pool_",)
+
+
+def is_bookkeeping(column):
+    return column in BOOKKEEPING_COLUMNS or column.startswith(BOOKKEEPING_PREFIXES)
 
 
 @dataclass
@@ -291,9 +310,11 @@ def fingerprint_matrix(M, fit_mask=None, *, n_features=DEFAULT_N_FEATURES, max_d
 
 
 def fingerprint(ws, x=None, t=None, fs=1.0, *, n_features=DEFAULT_N_FEATURES, max_dilations=DEFAULT_MAX_DILATIONS,
-                seed=0, normalise=True, max_cells=DEFAULT_MAX_CELLS):
-    """The windows of `ws` that could be fingerprinted, with `mr_0000 ...` added to their feature table."""
+                seed=0, normalise=True, max_cells=DEFAULT_MAX_CELLS, keep_upstream_features=True):
+    """The windows of `ws` that could be fingerprinted, with `mr_0000 ...` added to their feature table (and,
+    with `keep_upstream_features=False`, only the bookkeeping columns of the upstream table kept)."""
     from Working.types import WindowSet
+    upstream_dropped = 0
     t_start = time.perf_counter()
     n_in = int(ws.n_windows)
     length = int(ws.length)
@@ -343,6 +364,10 @@ def fingerprint(ws, x=None, t=None, fs=1.0, *, n_features=DEFAULT_N_FEATURES, ma
             upstream = upstream.drop(columns=old)
             warnings.append(f"the window set already carried {len(old):,} {FEATURE_PREFIX}* columns (an earlier "
                             "MiniRocket step); they were replaced by this step's")
+        if not keep_upstream_features:
+            measured = [c for c in upstream.columns if not is_bookkeeping(str(c))]
+            upstream = upstream.drop(columns=measured)
+            upstream_dropped = len(measured)
         table = pd.concat([upstream, pd.DataFrame(F, columns=names)], axis=1)
     else:
         table = pd.DataFrame(F, columns=names)
@@ -369,6 +394,7 @@ def fingerprint(ws, x=None, t=None, fs=1.0, *, n_features=DEFAULT_N_FEATURES, ma
         "normalise": bool(normalise), "source": source, "vector_length": int(M.shape[1]),
         "max_cells": int(max_cells) if max_cells is not None else None,
         "table_mb": round(n_kept * F.shape[1] * 4 / 1e6, 1),
+        "keep_upstream_features": bool(keep_upstream_features), "upstream_dropped": int(upstream_dropped),
         "seconds": timings, "warnings": warnings, "rules": [dict(r) for r in RULES], "summary": summary,
     }
     return Fingerprint(windows=out, meta=meta)

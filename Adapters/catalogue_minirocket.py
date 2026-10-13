@@ -79,12 +79,14 @@ def _estimate(x, t, fs, n_features=10_000, **params):
     return float(base * MR.real_feature_count(n_features) / MR.real_feature_count(MR.DEFAULT_N_FEATURES))
 
 
-def _run(x, t, fs, n_features=10_000, max_dilations=32, seed=0, normalise=True, max_cells=50_000_000, value=None):
+def _run(x, t, fs, n_features=10_000, max_dilations=32, seed=0, normalise=True, max_cells=50_000_000,
+         keep_upstream_features=True, value=None):
     if value is None:
         raise ValueError("MiniRocket needs a WindowSet from a prior step (input_kind='windowset'): put Sliding "
                          "windows, Window matrix or Trace shape before it")
     out = _mr().fingerprint(value, x, t, fs, n_features=n_features, max_dilations=max_dilations, seed=seed,
-                            normalise=normalise, max_cells=max_cells)
+                            normalise=normalise, max_cells=max_cells,
+                            keep_upstream_features=bool(keep_upstream_features))
     return AdapterResult(output_kind="windowset", value=out.windows, meta=out.meta)
 
 
@@ -118,8 +120,9 @@ SPEC = register(AdapterSpec(
         ParamSpec("n_features", int, 10_000,
                   "How many fingerprint numbers per window (the paper's 10,000; aeon rounds down to a multiple of "
                   "84, and the real count is shown). Tune this first: fewer is faster and smaller — the table is "
-                  "windows × features × 4 bytes, and the Classifier's feature clean-up slows with the square of it "
-                  "(about 13 min at 10,000, 40 s at 2,500, 5 s at 1,000 measured on 60 windows).",
+                  "windows × features × 4 bytes, so a whole channel on the 10-minute labels' grid (~13,000 "
+                  "windows) needs about 1,000 to stay under max_cells. But fewer features lose real accuracy on "
+                  "weak shapes: a 'no' at 1,000 is not a 'no' — the decisive run is 10,000 on a shorter span.",
                   min=84, max=50_000),
         ParamSpec("max_dilations", int, 32,
                   "Most spacings per pattern detector (the paper's 32): how far apart the 9 taps of a detector may "
@@ -133,6 +136,10 @@ SPEC = register(AdapterSpec(
         ParamSpec("max_cells", int, 50_000_000,
                   "Refuse a table of more than this many numbers (windows × features; 50 M = 200 MB): a memory "
                   "guard. Lower n_features before raising it.", min=1),
+        ParamSpec("keep_upstream_features", bool, True,
+                  "Keep the measures the windows already carried (Catch22, entropies) beside the fingerprint. Off: "
+                  "only the fingerprint and bookkeeping (split, pool and shape-file columns) go on, so a classifier "
+                  "learns from the shape fingerprint alone — what an arm compared against Catch22 needs."),
     ],
     run=_run,
     estimate=_estimate,
@@ -144,6 +151,8 @@ SPEC = register(AdapterSpec(
         "fraction of the window where it fires (MiniRocket, Dempster, Schmidt & Webb 2021). A classifier can learn "
         "from it in seconds — it answers 'can this label be learned from the raw shape at all?', but the numbers "
         "mean nothing one by one. Fitted on the training windows only (the split column), never on labels; each "
-        "window z-normalised first. Tune n_features first: it sets the table's size and the time."
+        "window z-normalised first. Without a split (Window matrix on the labels' 600/200 grid) it fits on every "
+        "window and says so: acceptable there, because the fit only reads cut-offs from window shapes and never "
+        "sees a label. Tune n_features first: it sets the table's size and the time."
     ),
 ))
