@@ -1028,3 +1028,39 @@ def test_a_named_dataset_is_called_by_its_name_and_keyed_as_before(bridge):
     member = _ok(client.get("/api/library/family/F-01"))["detail"]["members"][0]
     assert member["recording"] == "M2 August"
     assert member["recordingKey"] == "M2_aug_fs1" and member["recordingFile"] == "M2_aug_concat_fs1.mat"
+
+
+# ── w2-b: the family's SVD-entropy coherence ───────────────────────────────
+
+def test_family_detail_carries_its_svd_entropy_coherence(bridge):
+    """`_family_detail` gains `coherence` from `Working.library.coherence.svd_entropy`,
+    computed over the family's members read off their own spans."""
+    import server.library as lib
+    lib._COHERENCE_CACHE.clear()
+    client, _ = bridge
+    detail = _ok(client.get("/api/library/family/F-01"))["detail"]
+    coh = detail["coherence"]
+    assert "error" not in coh, coh
+    assert coh["n_members"] == len(detail["members"]) == 2
+    assert coh["n_used"] == 2 and coh["aligned"] is True
+    assert coh["svd_entropy"] is not None and 0.0 <= coh["svd_entropy_norm"] <= 1.0
+    assert coh["rule"] and "SVD entropy" in coh["rule"]
+    assert coh["notOnDisk"] == 0
+    # cached: a second read is the same dict without recomputing
+    assert _ok(client.get("/api/library/family/F-01"))["detail"]["coherence"] == coh
+
+
+def test_a_coherence_failure_is_an_error_card_not_a_blank(bridge, monkeypatch):
+    import server.library as lib
+    from Working.library import coherence
+    lib._COHERENCE_CACHE.clear()
+
+    def boom(*a, **k):
+        raise RuntimeError("synthetic failure")
+    monkeypatch.setattr(coherence, "svd_entropy", boom)
+    client, _ = bridge
+    detail = _ok(client.get("/api/library/family/F-01"))["detail"]
+    assert detail["coherence"]["error"] == "RuntimeError: synthetic failure"
+    assert detail["coherence"]["rule"]
+    assert detail["members"], "the rest of the family still renders"
+    lib._COHERENCE_CACHE.clear()

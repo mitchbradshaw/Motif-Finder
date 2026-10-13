@@ -313,5 +313,290 @@ def test_labels_applies_to_tag_and_provenance():
     assert "provenance" in spec["applies_to"]
 
 
+# --------------------------------------------------------------------------
+# w2-b: kshape and hdbscan (LIBRARY_STORAGE.md 6.2)
+#
+# The families are three shapes — a drop with a slow recovery, a sharkfin, a
+# square pulse — each member cut from its own window with the event up to 20 %
+# of the window off-centre and at a random amplitude, on coloured backgrounds
+# (`tests/_shape_families.py`). That shift is what point-by-point Ward cannot
+# see past and the shape-based distance can.
+# --------------------------------------------------------------------------
+
+import warnings  # noqa: E402
+
+from scipy.cluster.hierarchy import fcluster  # noqa: E402
+from sklearn.metrics import adjusted_rand_score  # noqa: E402
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from _shape_families import pure_noise, three_families  # noqa: E402
+
+BACKGROUNDS = ("ar1_095", "ar1_099", "random_walk", "drift")
+
+
+def _families_of(assigned):
+    return np.array([-1 if f is None else f for f in assigned])
+
+
+def _ward_ari(waves, truth, k=3):
+    from Working.library.grouping.methods import ward as ward_mod
+    vectors = ward_mod.shape_vectors(waves)
+    tree = ward_mod.ward_linkage(ward_mod.condensed_distances(vectors))
+    return adjusted_rand_score(truth, fcluster(tree, k, criterion="maxclust"))
+
+
+def test_kshape_and_hdbscan_are_registered_for_shape_distance_only():
+    available = method_registry.available()
+    for name in ("kshape", "hdbscan"):
+        assert name in available
+        spec = available[name]
+        assert spec["applies_to"] == ("shape-distance",)
+        assert spec["label"] and spec["description"]
+        for pname, pspec in spec["params"].items():
+            assert set(("type", "default", "label", "help")) <= set(pspec), (name, pname)
+    assert available["kshape"]["params"]["n_init"]["default"] == 10
+    assert available["kshape"]["params"]["omit_d"]["default"] == 0.5
+    assert available["hdbscan"]["params"]["min_cluster_size"]["default"] == 10
+    assert available["hdbscan"]["params"]["sample"]["default"] == 5000
+
+
+def test_the_new_omission_reasons_are_the_engines():
+    from Working.library.grouping import engine
+    assert engine.OMIT_NOT_IN_A_DENSE_FAMILY == "not_in_a_dense_family"
+    assert engine.OMIT_INFINITE_VALUES == "infinite_values"
+    assert engine.OMIT_MISSING_VALUES == "missing_values"
+    for reason in ("not_in_a_dense_family", "infinite_values", "missing_values"):
+        assert reason in engine.__doc__, f"{reason} has its one-line meaning in the engine's list"
+
+
+# ---- kshape --------------------------------------------------------------
+
+def test_kshape_reproduces_aeons_kshape_start_for_start():
+    """The implementation is aeon 1.4's `KShape` with the per-pair work
+    batched; from the same random_state it must give the same labels, the
+    same centres and the same summed distance."""
+    from aeon.clustering import KShape
+    from Working.library.grouping.methods.kshape import kshape_fit
+    rng = np.random.default_rng(3)
+    X = rng.normal(size=(40, 64)).cumsum(axis=1)
+    for seed, k in ((0, 4), (2, 7)):
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            ref = KShape(n_clusters=k, n_init=3, random_state=seed).fit(X[:, None, :])
+        ours = kshape_fit(X, k, n_init=3, seed=seed)
+        assert (ref.labels_ == ours["labels"]).all(), (seed, k)
+        assert np.allclose(ref.cluster_centres_[:, 0, :], ours["centroids"], atol=1e-9)
+        assert ours["inertia"] == pytest.approx(ref.inertia_, abs=1e-9)
+        assert ours["n_iter"] == ref.n_iter_
+
+
+@pytest.mark.parametrize("kind", BACKGROUNDS)
+def test_kshape_recovers_shifted_families_where_ward_does_not(kind):
+    kshape = method_registry.get("kshape")
+    waves, truth = three_families(per=30, seed=1, kind=kind, noise=0.1)
+    fit = kshape.fit(waves, params={"k": 3})
+    families = _families_of(kshape.assign(fit))
+    ari_k = adjusted_rand_score(truth, families)
+    ari_w = _ward_ari(waves, truth)
+    assert ari_k >= 0.9, f"{kind}: k-Shape ARI {ari_k:.3f} (Ward {ari_w:.3f})"
+    assert ari_w <= ari_k - 0.3, f"{kind}: Ward ARI {ari_w:.3f} is not measurably worse than {ari_k:.3f}"
+
+
+def test_kshape_chooses_k_by_silhouette_and_records_every_k():
+    kshape = method_registry.get("kshape")
+    waves, truth = three_families(per=20, seed=2)
+    fit = kshape.fit(waves, params={"k": 0, "n_init": 2})
+    scores = fit.payload["k_scores"]
+    assert [s["k"] for s in scores] == list(range(2, 13))
+    assert all(s["silhouette"] is not None for s in scores)
+    qualifying = [s for s in scores if s["qualifies"]]
+    best = max(qualifying, key=lambda s: s["silhouette"])
+    assert fit.payload["k"] == best["k"]
+    assert "silhouette" in fit.payload["k_rule"]
+    # the silhouette merges the two positive shapes or keeps them apart; it never shatters three families
+    assert fit.payload["k"] in (2, 3)
+
+
+def test_kshape_omit_d_omits_what_is_far_from_its_centre_as_past_cut():
+    kshape = method_registry.get("kshape")
+    waves, truth = three_families(per=20, seed=2, n_noise=10)
+    fit = kshape.fit(waves, params={"k": 3})
+    dist = fit.payload["dist"]
+    assert dist[truth >= 0].max() < dist[truth < 0].min(), "noise sits further from every centre"
+    cut = float((dist[truth >= 0].max() + dist[truth < 0].min()) / 2)
+    families = kshape.assign(fit, omit_d=cut)
+    assert all(families[i] is None and fit.omit_reasons[i] == "past_cut"
+               for i in np.flatnonzero(truth < 0))
+    assert all(families[i] is not None for i in np.flatnonzero(truth >= 0))
+    assert kshape.assign(fit, omit_d=None).count(None) == 0
+
+
+def test_kshape_medoid_is_the_member_nearest_its_centroid_and_there_is_no_tree():
+    from Working.distances import sbd
+    kshape = method_registry.get("kshape")
+    waves, _ = three_families(per=15, seed=5)
+    fit = kshape.fit(waves, params={"k": 3})
+    families = kshape.assign(fit)
+    members = [i for i, f in enumerate(families) if f == families[0]]
+    row, mean_d = kshape.medoid(fit, members)
+    centroid = fit.payload["centroids"][fit.payload["cluster"][row]]
+    vectors = fit.payload["vectors"]
+    by_centroid = {i: sbd(vectors[i], centroid) for i in members}
+    assert row == min(by_centroid, key=by_centroid.get)
+    expected = np.mean([sbd(vectors[row], vectors[i]) / 2 for i in members if i != row])
+    assert mean_d == pytest.approx(expected, abs=1e-5)
+    assert kshape.merge_heights(fit) == []
+    assert fit.payload["distance_scale"] == 2.0
+
+
+def test_kshape_fits_a_sample_and_assigns_the_rest_by_nearest_centroid():
+    kshape = method_registry.get("kshape")
+    waves, truth = three_families(per=30, seed=6)
+    fit = kshape.fit(waves, params={"k": 3, "sample": 45, "seed": 3})
+    p = fit.payload
+    assert len(p["fitted_rows"]) == 45 and len(p["assigned_rows"]) == 45
+    assert sorted(p["fitted_rows"] + p["assigned_rows"]) == list(range(90))
+    assert p["fit_summary"]["fitted"] == 45 and p["fit_summary"]["assigned"] == 45
+    assert adjusted_rand_score(truth, _families_of(kshape.assign(fit))) >= 0.9
+    again = kshape.fit(waves, params={"k": 3, "sample": 45, "seed": 3})
+    assert again.payload["fitted_rows"] == p["fitted_rows"], "the sample is seeded"
+
+
+@pytest.mark.parametrize("name", ["kshape", "hdbscan"])
+def test_a_waveform_with_nan_or_inf_is_omitted_with_its_own_reason(name):
+    method = method_registry.get(name)
+    waves, _ = three_families(per=12, seed=7)
+    bad_nan = waves[0].copy()
+    bad_nan[5] = np.nan
+    bad_inf = waves[1].copy()
+    bad_inf[9] = np.inf
+    waves = waves + [bad_nan, bad_inf, np.array([])]
+    n = len(waves)
+    fit = method.fit(waves, params={"k": 3} if name == "kshape" else {"min_cluster_size": 5})
+    families = method.assign(fit)
+    assert families[n - 3] is None and fit.omit_reasons[n - 3] == "missing_values"
+    assert families[n - 2] is None and fit.omit_reasons[n - 2] == "infinite_values"
+    assert families[n - 1] is None and fit.omit_reasons[n - 1] == "missing_values"
+
+
+# ---- hdbscan -------------------------------------------------------------
+
+@pytest.mark.parametrize("kind", BACKGROUNDS)
+def test_hdbscan_finds_the_three_families_and_leaves_the_noise_out(kind):
+    hdbscan = method_registry.get("hdbscan")
+    waves, truth = three_families(per=30, seed=3, kind=kind, n_noise=39)   # 30 % noise
+    fit = hdbscan.fit(waves, params={})
+    families = _families_of(hdbscan.assign(fit))
+    events, noise = truth >= 0, truth < 0
+    assert len(set(families[events]) - {-1}) == 3
+    assert adjusted_rand_score(truth[events], families[events]) >= 0.9
+    omitted_noise = [fit.omit_reasons.get(i) for i in np.flatnonzero(noise)]
+    assert omitted_noise.count("not_in_a_dense_family") >= 0.8 * noise.sum(), omitted_noise
+    assert fit.payload["unstable_families"] == []
+    assert all(s["separation"] >= 3.0 for s in fit.payload["family_stability"].values())
+
+
+@pytest.mark.parametrize("kind", ("white", "ar1_095", "ar1_099", "random_walk", "drift"))
+@pytest.mark.parametrize("seed", (0, 1, 2))
+def test_hdbscan_on_pure_noise_finds_no_confident_family(kind, seed):
+    """Pure noise: no family, or the families found are flagged unstable —
+    never three confident ones. Coloured noise windows DO crowd (a window
+    of AR(1) at phi 0.99 mostly drifts up or down), so HDBSCAN can return
+    two; the separation check is what says they are not families."""
+    hdbscan = method_registry.get("hdbscan")
+    fit = hdbscan.fit(pure_noise(150, seed, kind), params={})
+    families = _families_of(hdbscan.assign(fit))
+    found = sorted(set(families) - {-1})
+    confident = [f"F-{f:02d}" for f in found if f"F-{f:02d}" not in fit.payload["unstable_families"]]
+    assert confident == [], (kind, seed, fit.payload["family_stability"])
+    assert len(found) < 3
+
+
+def test_hdbscan_assigns_the_rows_not_fitted_through_the_nearest_dense_member():
+    hdbscan = method_registry.get("hdbscan")
+    waves, truth = three_families(per=40, seed=8, n_noise=50)
+    fit = hdbscan.fit(waves, params={"sample": 100, "seed": 1})
+    p = fit.payload
+    assert len(p["fitted_rows"]) == 100 and len(p["assigned_rows"]) == len(waves) - 100
+    families = _families_of(hdbscan.assign(fit))
+    assigned = np.array(p["assigned_rows"])
+    events = assigned[truth[assigned] >= 0]
+    noise = assigned[truth[assigned] < 0]
+    assert adjusted_rand_score(truth[events], families[events]) >= 0.9
+    assert np.mean(families[noise] == -1) >= 0.8
+    assert all(fit.omit_reasons[i] == "not_in_a_dense_family" for i in noise if families[i] == -1)
+
+
+def test_hdbscan_cut_selection_and_distance_are_honoured():
+    hdbscan = method_registry.get("hdbscan")
+    waves, truth = three_families(per=30, seed=9, n_noise=20)
+    fit = hdbscan.fit(waves, params={})
+    base = len(set(hdbscan.assign(fit)) - {None})
+    # a large epsilon merges what sits closer than it: never more families
+    merged = len(set(hdbscan.assign(fit, cut=0.4)) - {None})
+    assert fit.payload["cut"] == 0.4 and merged <= base
+    leaf = hdbscan.fit(waves, params={"cluster_selection_method": "leaf"})
+    assert len(set(hdbscan.assign(leaf)) - {None}) >= base
+    euclid = hdbscan.fit(waves, params={"distance": "euclidean"})
+    assert euclid.payload["distance"] == "euclidean"
+    hdbscan.assign(euclid)
+    with pytest.raises(ValueError):
+        hdbscan.fit(waves, params={"distance": "dtw"})
+    assert hdbscan.merge_heights(fit) == []
+
+
+def test_hdbscan_medoid_is_a_fitted_member_nearest_the_rest():
+    hdbscan = method_registry.get("hdbscan")
+    waves, _ = three_families(per=20, seed=10)
+    fit = hdbscan.fit(waves, params={"min_cluster_size": 5})
+    families = hdbscan.assign(fit)
+    members = [i for i, f in enumerate(families) if f == 1]
+    row, _ = hdbscan.medoid(fit, members)
+    D = fit.payload["D_fit"]
+    pos = {r: k for k, r in enumerate(fit.payload["fitted_rows"])}
+    sums = {i: D[pos[i], [pos[j] for j in members]].sum() for i in members}
+    assert row == min(sums, key=sums.get)
+
+
+# ---- both, through the engine (6.2 items 6 and 8) ------------------------
+
+@pytest.mark.parametrize("name,params,changed", [
+    ("kshape", {"k": 3, "min_group": 5}, {"k": 4}),
+    ("hdbscan", {"min_group": 5}, {"min_cluster_size": 6}),
+])
+def test_both_run_through_run_grouping_with_reasons_and_a_moving_hash(name, params, changed):
+    from Working.library.grouping.engine import run_grouping
+    waves, truth = three_families(per=30, seed=11, n_noise=18)
+    waves = waves + [np.full(50, np.nan)]
+    items = [{"member_ref": f"m{i}", "content_hash": f"h{i}", "values": w}
+             for i, w in enumerate(waves)]
+    result = run_grouping(items, unit="single_motifs", basis="shape-distance",
+                          method=name, params=params)
+    assert len(result.assignments) == len(items)
+    assert [a.ref for a in result.assignments] == [it["member_ref"] for it in items]
+    assert result.n_families >= 3
+    reasons = result.omitted_by_reason
+    assert reasons.get("missing_values") == 1
+    if name == "hdbscan":
+        assert reasons.get("not_in_a_dense_family", 0) >= 6
+    for fam in result.families:
+        medoid = next(a for a in result.assignments if a.ref == fam.medoid)
+        assert medoid.is_medoid and medoid.distance == pytest.approx(0.0, abs=1e-6)
+        assert all(0.0 <= a.distance <= 1.0 for a in result.assignments
+                   if a.family_id == fam.id)
+    assert result.merge_heights == []
+    other = run_grouping(items, unit="single_motifs", basis="shape-distance",
+                         method=name, params={**params, **changed})
+    assert other.recipe_hash != result.recipe_hash
+
+
+def test_neither_new_method_serves_sequence_similarity():
+    from Working.library.grouping.engine import run_grouping
+    for name in ("kshape", "hdbscan"):
+        with pytest.raises(ValueError):
+            run_grouping([{"member_ref": 1, "values": [1.0, 2.0]}], unit="sequences",
+                         basis="sequence-similarity", method=name)
+
+
 if __name__ == "__main__":
     sys.exit(pytest.main([__file__, "-q"]))
