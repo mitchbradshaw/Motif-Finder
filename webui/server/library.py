@@ -1276,6 +1276,56 @@ def get_family(request: Request, family_id: str, grouping: str | None = Query(de
         conn.close()
 
 
+#: w2-b: the family's SVD-entropy coherence, per (member spans, medoid). A member's span never changes
+#: under its id, so the key is the spans themselves; bounded like the other caches here.
+_COHERENCE_CACHE: dict = {}
+_COHERENCE_CACHE_MAX = 512
+
+
+def _family_coherence(index, rows) -> dict:
+    """`coherence.svd_entropy` over the family's shown members, read off each
+    member's own span in the STORED unit (the score z-normalises every row, so
+    the unit cannot enter; an undeclared unit therefore does not withhold it).
+    Rule 4 holds: bounded slices in, one dict of numbers out. A member whose
+    channel is not on disk is left out and counted in `notOnDisk`.
+
+    An exception is not swallowed into a blank: it comes back as
+    `{"error": ...}` beside the rule, which the Family page draws as a red
+    card, and the rest of the page still renders."""
+    from Working.library.coherence import RULE, svd_entropy
+    spans = []
+    for r in rows:
+        meta = index["by_id"].get(int(r["recording_id"] or 0))
+        if meta is None or meta.get("held_out"):
+            continue
+        spans.append((int(r["recording_id"]), int(r["start_idx"] or 0), int(r["end_idx"] or 0),
+                      bool(r.get("is_medoid"))))
+    key = tuple(spans)
+    hit = _COHERENCE_CACHE.get(key)
+    if hit is not None:
+        return hit
+    try:
+        waves, medoid, missing = [], None, 0
+        for rid, a, b, is_medoid in spans:
+            path = index["by_id"][rid].get("npy_path")
+            if not path or not os.path.isfile(path):
+                missing += 1
+                continue
+            if is_medoid and medoid is None:
+                medoid = len(waves)
+            waves.append(np.asarray(corpus.load_native(path)[a:b], dtype=float))
+        out = svd_entropy(waves, align=True, medoid=medoid)
+        out["notOnDisk"] = missing
+    except Exception as exc:          # loud, not blank: the page draws this as a red card
+        import logging
+        logging.getLogger(__name__).exception("family coherence failed")
+        return {"error": f"{type(exc).__name__}: {exc}", "rule": RULE}
+    if len(_COHERENCE_CACHE) >= _COHERENCE_CACHE_MAX:
+        _COHERENCE_CACHE.pop(next(iter(_COHERENCE_CACHE)))
+    _COHERENCE_CACHE[key] = out
+    return out
+
+
 def _family_detail(conn, index, fam, grouping_row, state=None, hidden_by_view=False) -> dict:
     # fixup-ae: the members the view shows, hand edits applied (`_view_state`), each verdict the resolver's
     state = state if state is not None else _view_state(conn, index, grouping_row, None)
@@ -1388,6 +1438,8 @@ def _family_detail(conn, index, fam, grouping_row, state=None, hidden_by_view=Fa
         # fixup-ae: what the view hid of this family, the rule it hid it by, and the rule *judged* is counted by
         "view": {**_view_report_payload(state), "family": fam.get("view"), "hiddenByView": bool(hidden_by_view)},
         "judgedRule": verdicts_mod.rule_text(conn),
+        # w2-b: how much the members are copies of one shape (SVD entropy, computed on demand, cached)
+        "coherence": _family_coherence(index, rows),
     }
 
 

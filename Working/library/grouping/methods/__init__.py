@@ -140,9 +140,14 @@ _DISCOVERED = False
 def discover_methods():
     """Import every method module in this package so it self-registers.
     Safe to call more than once. Unlike `Adapters.discover_adapters`, an
-    import failure is NOT swallowed: these three modules depend only on
-    numpy and scipy, so a failure here is a bug in the tree and not an
-    optional dependency missing."""
+    import failure is NOT swallowed: the built-ins depend only on numpy,
+    scipy and (w2-b's `kshape` and `hdbscan`) scikit-learn, all part of the
+    environment, so a failure here is a bug in the tree and not an optional
+    dependency missing.
+
+    The built-ins: `ward`, `feature_bins`, `labels`, and (w2-b) `kshape` —
+    k-Shape under the shape-based distance — and `hdbscan` — density families
+    with stragglers omitted as `not_in_a_dense_family`."""
     global _DISCOVERED
     for _, modname, _ in pkgutil.iter_modules(__path__):
         importlib.import_module(f"{__name__}.{modname}")

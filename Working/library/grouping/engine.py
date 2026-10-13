@@ -26,16 +26,25 @@ chosen basis needs:
 
 What does not fit (spec 8.2)
 ----------------------------
-Five reasons, and **every one of them flags, never deletes** — an omitted
+Eight reasons, and **every one of them flags, never deletes** — an omitted
 item comes back in `assignments` with `family_id = None` and its reason, and
 again in `omitted`, because the Library lists them in a strip under the atlas
 with *Show omitted* and *Send omitted to Review as a queue*.
 
-    outside_bins        outside every bin of a feature-bin basis
-    past_cut            nearest family further than `omit_d` (spec 9.10: 0.50)
-    group_too_small     in a group under `min_group` (spec 9.10: 10)
-    not_in_a_sequence   a single motif, when the unit is `sequences`
-    no_label            no label, on a label basis
+    outside_bins           outside every bin of a feature-bin basis
+    past_cut               nearest family further than `omit_d` (spec 9.10: 0.50)
+    group_too_small        in a group under `min_group` (spec 9.10: 10)
+    not_in_a_sequence      a single motif, when the unit is `sequences`
+    no_label               no label, on a label basis
+    not_in_a_dense_family  HDBSCAN found no crowd of shapes this one belongs to
+                           (its noise label, -1): a straggler, not a family member
+    infinite_values        the waveform holds a +-inf, so it has no shape to compare
+                           (HDBSCAN's -2; k-Shape screens it out the same way)
+    missing_values         the waveform holds a NaN or no samples at all
+                           (HDBSCAN's -3; k-Shape screens it out the same way)
+
+The first five are spec 8.2's; the last three came with the density and
+shape-based methods (w2-b).
 
 `min_group` is applied here rather than inside each method, so the rule is
 stated once and every method obeys the same one. `omit_d` belongs to the
@@ -53,13 +62,17 @@ from Working.recipes import recipe_hash
 DEFAULT_MIN_GROUP = 10
 DEFAULT_OMIT_D = 0.50
 
-# The five omission reasons of spec 8.2, as `grouping_assignments.omit_reason`
-# spells them (LIBRARY_STORAGE.md 3.3).
+# The omission reasons, as `grouping_assignments.omit_reason` spells them
+# (LIBRARY_STORAGE.md 3.3): spec 8.2's five, then w2-b's three.
 OMIT_OUTSIDE_BINS = "outside_bins"
 OMIT_PAST_CUT = "past_cut"
 OMIT_GROUP_TOO_SMALL = "group_too_small"
 OMIT_NOT_IN_A_SEQUENCE = "not_in_a_sequence"
 OMIT_NO_LABEL = "no_label"
+# w2-b: the density method's noise, and the two rows no shape method can read.
+OMIT_NOT_IN_A_DENSE_FAMILY = "not_in_a_dense_family"
+OMIT_INFINITE_VALUES = "infinite_values"
+OMIT_MISSING_VALUES = "missing_values"
 
 # Recompute-cost constants. The spec gives no formula and the prototype's
 # minute counts are fixtures, so these are measured-order-of-magnitude
