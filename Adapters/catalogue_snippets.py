@@ -140,7 +140,7 @@ def _run_once(x, fs):
     find_snippets(x, np.arange(len(x) // m) * m, m)
 
 
-register_cost_model(NAME, exponent=2.0, run_once=_run_once)
+register_cost_model(NAME, exponent=2.0, run_once=_run_once, warm_up=_warm_up)
 
 
 def _estimate(x, t, fs, **params):
