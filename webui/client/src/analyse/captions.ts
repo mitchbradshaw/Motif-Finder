@@ -13,11 +13,11 @@ export function paramCaption(step: Step, adapter: AdapterCard | undefined): stri
     case 'detection.matrix_profile':
       return `m = ${fmtNum(p.window_min ?? 10)} min · z-normalised · ${String(p.backend ?? 'auto')}`
     case 'detection.threshold':
-      return `spans where score > ${fmtNum(p.threshold ?? 0)}`
+      return `spans where score > ${fmtNum(p.threshold ?? 0)}${tidyCaption(p)}`
     case 'detection.signal_threshold':
-      return p.direction === 'below' ? `spans where signal < ${fmtNum(p.threshold ?? 0)}`
+      return (p.direction === 'below' ? `spans where signal < ${fmtNum(p.threshold ?? 0)}`
         : p.direction === 'either' ? `spans where |signal| > ${fmtNum(Math.abs(Number(p.threshold ?? 0)))}`
-        : `spans where signal > ${fmtNum(p.threshold ?? 0)}`
+        : `spans where signal > ${fmtNum(p.threshold ?? 0)}`) + tidyCaption(p)
     case 'detection.sax_dsax':
       return `${segCaption(p)} → dSAX letters · alphabet ${fmtNum(p.alphabet_size ?? 3)} · cutlines ${String(p.threshold_mode ?? 'learned')}`
     case 'detection.sax_csax':
@@ -48,6 +48,14 @@ export function paramCaption(step: Step, adapter: AdapterCard | undefined): stri
       return entries.length ? entries.join(' · ') : (adapter?.description?.split('.')[0] ?? 'defaults')
     }
   }
+}
+
+/** The two optional span-tidying parameters the threshold blocks share, in the order the core applies them
+ *  (merge first, then the duration floor); silent at their 0 defaults, when the block runs as it always did. */
+function tidyCaption(p: Record<string, unknown>): string {
+  const gap = Number(p.merge_gap_s ?? 0)
+  const floor = Number(p.min_duration_s ?? 0)
+  return `${gap > 0 ? ` · gaps < ${fmtNum(gap)} s merged` : ''}${floor > 0 ? ` · ≥ ${fmtNum(floor)} s` : ''}`
 }
 
 function segCaption(p: Record<string, unknown>): string {
