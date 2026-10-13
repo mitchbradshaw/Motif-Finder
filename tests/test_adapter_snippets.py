@@ -145,3 +145,22 @@ def test_a_window_outside_the_span_is_refused(spec):
     ws = WindowSet(starts=np.arange(20) * syn.PIECE + 10 ** 6, length=syn.PIECE, fs=FS)
     with pytest.raises(ValueError, match="do not lie inside the span"):
         spec.run(x, np.arange(len(x)) / FS, FS, value=ws, **spec.validate_params({"k_max": 3}))
+
+
+def test_calibration_warms_the_kernel_before_timing_it(tmp_path, monkeypatch):
+    """The numba kernel costs ~6 s to load once per process; timed, that made
+    the 20 000-sample calibration predict 24 h at 1 Hz seven times too slow."""
+    from Working import block_cost
+
+    discover_adapters()
+    assert "catalogue.snippets" in block_cost.WARM_UPS
+    calls = []
+    monkeypatch.setattr(block_cost, "CALIBRATION_PATH", str(tmp_path / "cal.json"))
+    block_cost.register_cost_model("test.warm_probe", 1.0, lambda x, fs: calls.append("run"),
+                                   warm_up=lambda: calls.append("warm"))
+    try:
+        block_cost.calibrate(["test.warm_probe"], force=True, n=100)
+    finally:
+        block_cost.MODELS.pop("test.warm_probe", None)
+        block_cost.WARM_UPS.pop("test.warm_probe", None)
+    assert calls == ["warm", "run"]
