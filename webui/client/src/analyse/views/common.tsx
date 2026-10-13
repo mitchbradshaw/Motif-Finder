@@ -17,6 +17,11 @@ export interface ViewCtx {
   /** the nearest upstream Signal, drawn grey beneath */
   ghost?: EnvelopeSeries | null
   ghostUnit?: DisplayUnit
+  /** stored unit -> drawn unit, for placing a stored-unit parameter (a threshold) on the ghost: 1000 for volts drawn
+   *  as mV; null or undefined = the trace is drawn as stored */
+  ghostFactor?: number | null
+  /** the ghost's stored unit by name ('V'), when the recording declares one */
+  ghostStoredUnit?: string | null
   /** chain thumbnail: off. Block settings page: on (hover, click, drag, and the evidence beside the shape). */
   interactive?: boolean
   hideKey?: boolean

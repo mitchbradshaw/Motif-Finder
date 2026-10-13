@@ -397,7 +397,10 @@ def window(conn, rec: dict, t0_s: float, t1_s: float, px: int) -> dict:
     env = envelope(x, fs, i0, i1, px)
     ms = (time.perf_counter() - tt) * 1e3
     return {"recording_id": rec["id"], "fs": fs, "n_samples": int(len(x)), "t0_s": i0 / fs, "t1_s": i1 / fs,
-            "envelope": env, "decimate_ms": ms, "unit": x.unit}
+            "envelope": env, "decimate_ms": ms, "unit": x.unit,
+            # the same two fields a chain Signal payload carries (serialize.py::_signal), for the block whose
+            # input is the source window itself: stored-unit parameter -> drawn trace, and a drag back
+            "unit_factor": x.factor if x.unit is not None else None, "stored_unit": x.declared}
 
 
 @functools.lru_cache(maxsize=64)

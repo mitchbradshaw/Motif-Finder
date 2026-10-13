@@ -119,6 +119,9 @@ def _signal(value, meta, ctx):
     out = {
         "type": "signal", "fs": fs, "n": n, "t0_s": ss / fs, "t1_s": (ss + n) / fs,
         "y_range": yr, "envelope": env, "unit": unit,
+        # the factor between the stored unit and the drawn one (None when undeclared: drawn as stored), so a
+        # view can place a stored-unit parameter such as a threshold on this trace and write a drag back
+        "unit_factor": factor, "stored_unit": ctx.get("units"),
         "summary": f"{n:,} samples · {'%.3f' % yr[0] if yr else '–'} … {'%.3f' % yr[1] if yr else '–'} {unit or '(unit undeclared)'}",
     }
     if meta and "wavelet" in meta and "levels" in meta:

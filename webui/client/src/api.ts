@@ -1248,3 +1248,9 @@ export const sendFamilyUnjudged = (familyId: string, grouping?: string, view?: L
  *  of the result's key and of the run's identity, so the poll and the run must name it. */
 export interface DiscSeedQuery { exclusion?: number }
 export interface DiscSeedParams { exclusion?: number }
+/** signal-threshold follow-up (2026-10-13): the factor between a trace's STORED unit and the one it is drawn in
+ *  (1000 for volts drawn as mV; null when the unit is undeclared and the trace is drawn as stored), and the stored
+ *  unit's name. A block's parameter is in the stored unit, so a cut drawn on the trace multiplies by this and a
+ *  dragged line divides by it (serialize.py::_signal, corpus.py::window). */
+export interface SignalPayload { unit_factor?: number | null; stored_unit?: string | null }
+export interface WindowData { unit_factor?: number | null; stored_unit?: string | null }

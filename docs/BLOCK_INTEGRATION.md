@@ -145,7 +145,7 @@ lights up; ignore them and the block still draws):
 | If the block … | … the view … |
 |---|---|
 | is `scores->spanset` and has a `float` parameter named **`threshold`** (an absolute level in the scores' units) | draws the cut on the upstream curve and makes it draggable |
-| is `signal->spanset` and has a `float` parameter named **`threshold`** (an absolute level in the signal's units) | draws the cut on the input trace itself and makes it draggable (`detection.signal_threshold`) |
+| is `signal->spanset` and has a `float` parameter named **`threshold`** (an absolute level in the signal's STORED units) | draws the cut on the input trace itself and makes it draggable (`detection.signal_threshold`). The trace is drawn in mV, so the view places the line at threshold × the payload's `unit_factor` and writes a drag back ÷ it — a cut typed in the parameter is in volts for M2, the line is labelled in mV |
 | is `encoding->scores` and has **`row_from` / `row_to`** (fractions of the image height) | marks the summed band on the upstream image |
 | emits a SpanSet and puts **`meta["events"]`** = one dict per span with `onset_idx` / `trough_idx` (span-relative) | marks each fall inside its window and counts **falls** per window |
 | is a feature block whose table carries **`onset_idx` / `extremum_idx`** | the same, from the table |

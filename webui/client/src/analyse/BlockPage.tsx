@@ -109,6 +109,16 @@ export function BlockPage({ index }: { index: number }) {
     for (let j = index - 1; j >= 0; j--) { const p = rows[j]?.payload; if (p?.type === 'signal') return (p as SignalPayload).unit }
     return env?.unit
   })()
+  // the factor between that signal's stored unit and the drawn one, and the stored unit's name — a stored-unit
+  // parameter drawn on the trace (a threshold) multiplies by the one and is labelled with the other
+  const upstreamFactor: number | null = (() => {
+    for (let j = index - 1; j >= 0; j--) { const p = rows[j]?.payload; if (p?.type === 'signal') return (p as SignalPayload).unit_factor ?? null }
+    return env?.unit_factor ?? null
+  })()
+  const upstreamStoredUnit: string | null = (() => {
+    for (let j = index - 1; j >= 0; j--) { const p = rows[j]?.payload; if (p?.type === 'signal') return (p as SignalPayload).stored_unit ?? null }
+    return env?.stored_unit ?? null
+  })()
   const perStep = val.v?.estimate?.per_step_s ?? null
   const staleFrom = job ? st.staleFrom : null      // nothing is stale relative to another source's job
   const rerunFrom = staleFrom !== null ? staleFrom : index
@@ -175,7 +185,7 @@ export function BlockPage({ index }: { index: number }) {
                 {/* the drawing standard (fixup-h): the view is the block's output type, the modifier its conversion —
                     read off the catalog card, never off the block's name */}
                 <BlockProcess payload={row.payload && !isErrorPayload(row.payload) ? row.payload : null} step={step} card={ad} index={index}
-                  ctx={{ x: makeX(t0, t1, 10), width: 10, height: 10, t0, t1, ghost: upstreamSignal, ghostUnit: upstreamUnit, interactive: true }}
+                  ctx={{ x: makeX(t0, t1, 10), width: 10, height: 10, t0, t1, ghost: upstreamSignal, ghostUnit: upstreamUnit, ghostFactor: upstreamFactor, ghostStoredUnit: upstreamStoredUnit, interactive: true }}
                   upstream={upstream && !isErrorPayload(upstream) ? upstream : null} next={steps[index + 1] ?? null} nextCard={steps[index + 1] ? adapters.byName.get(stepName(steps[index + 1])) : undefined}
                   source={source} sourceUnit={env?.unit === null ? '' : 'mV'} stale={stale} setParam={setParam} jobId={job?.job_id ?? null}
                   dbRunId={job?.status === 'completed' ? job.db_run_id ?? null : null} chainName={chain.name} />
