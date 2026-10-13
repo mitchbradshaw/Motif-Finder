@@ -118,3 +118,34 @@ def test_grouping_round_trips_to_disk_and_back(tmp_path):
     grouping.to_path(str(tmp_path))
     restored = Grouping.from_path(str(tmp_path))
     assert restored == grouping
+
+
+# ---- w2-a fix round 1 (critic finding 2): a quality figure and the columns actually clustered on
+
+def test_meta_carries_silhouette_cophenetic_r_and_the_feature_names():
+    """Noise cut into k clusters must not read like structure: the meta carries the
+    silhouette and the cophenetic correlation `ClusterResult` already computes, and the
+    names of the preprocessed columns the clustering actually used."""
+    spec = get_adapter(CLUSTER_NAME)
+    window_set, _ = _synthetic_window_set()
+    feats = window_set.features.assign(const=1.0)  # dropped by preprocessing: not in feature_names
+    window_set = WindowSet(starts=window_set.starts, length=128, fs=1.0, features=feats)
+    meta = spec.run(None, None, 1.0, **spec.validate_params({"k": 3}), value=window_set).meta
+    assert meta["feature_names"] == ["x", "y"]
+    assert isinstance(meta["silhouette"], float) and meta["silhouette"] > 0.8  # three far-apart blobs
+    assert isinstance(meta["cophenetic_r"], float) and 0.0 < meta["cophenetic_r"] <= 1.0
+    # noise: a much lower silhouette, reported the same way
+    rng = np.random.RandomState(1)
+    noise = WindowSet(starts=np.arange(40), length=128, fs=1.0,
+                      features=pd.DataFrame(rng.normal(size=(40, 2)), columns=["x", "y"]))
+    low = spec.run(None, None, 1.0, **spec.validate_params({"k": 3}), value=noise).meta["silhouette"]
+    assert low < 0.6 < meta["silhouette"]
+
+
+def test_a_window_set_with_no_windows_gets_its_own_refusal():
+    import pytest
+    spec = get_adapter(CLUSTER_NAME)
+    empty = WindowSet(starts=np.zeros(0, dtype=np.int64), length=128, fs=1.0,
+                      features=pd.DataFrame({"x": [], "split": []}))
+    with pytest.raises(ValueError, match="no windows to cluster: the step before produced none"):
+        spec.run(None, None, 1.0, **spec.validate_params({}), value=empty)
