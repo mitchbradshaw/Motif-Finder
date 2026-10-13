@@ -292,9 +292,11 @@ def test_a_random_walk_without_events_is_not_all_events():
 
 
 def test_an_event_layer_covering_most_of_the_span_is_a_loud_warning():
-    """If x holds most of the span on a drop/spike run, it is drift, not events."""
-    y, _ = _sine_drift(0.05, 3, 5.0)
-    out = remove_baseline(y, 1.0, sparsity=0.05)
+    """If x holds most of the span on a drop/spike run, it is drift, not events.
+    The defaults no longer get there; a sparsity far below 1 still does
+    (measured 2026-10-13: 0.91 at sparsity 0.01 on a 6 h drift)."""
+    y, _ = _sine_drift(0.05, 6, 5.0, hours=24)
+    out = remove_baseline(y, 1.0, sparsity=0.01)
     m = out["meta"]
     assert m["event_fraction_3sigma"] > 0.8, m["event_fraction_3sigma"]
     assert any("event" in w and "drift" in w for w in m["warnings"]), m["warnings"]
@@ -409,18 +411,32 @@ def test_nan_samples_stay_nan_and_are_counted():
 
 def test_a_trailing_gap_does_not_bend_the_baseline_before_it(trace):
     """Review F3: a trailing hour of NaN used to be held flat at the last value,
-    then solved as if it were data (max error 0.48 against 0.075 without the gap)."""
-    n = 24 * 3600
+    then solved as if it were data. Now NaN at either end is trimmed from the
+    solve: the result is the result on the span without it."""
+    n = 26 * 3600
     y = trace["y"][:n].copy()
     away = trace["away"][:n]
-    clean = remove_baseline(y, 1.0)["baseline"] - trace["drift"][:n]
-    y[-3600:] = np.nan
+    y[24 * 3600:] = np.nan
+    y[:600] = np.nan
     gapped = remove_baseline(y, 1.0)
+    trimmed = remove_baseline(y[600:24 * 3600], 1.0)
+    assert np.isnan(gapped["baseline"][24 * 3600:]).all() and np.isnan(gapped["baseline"][:600]).all()
+    assert np.array_equal(gapped["baseline"][600:24 * 3600], trimmed["baseline"])
     err = gapped["baseline"] - trace["drift"][:n]
-    assert np.isnan(err[-3600:]).all()
     keep = away & np.isfinite(err)
-    assert np.abs(err[keep]).max() < 1.5 * np.abs(clean[away]).max() + 0.02
+    # measured 2026-10-13: 0.075 (before: the 2 h held flat, 0.6 at the end)
+    assert np.abs(err[keep]).max() < 0.1 * DEPTH
     assert gapped["meta"]["warnings"] == [], "an end gap is trimmed, not bridged"
+    assert gapped["meta"]["trimmed_end_samples"] == 600 + 2 * 3600
+
+
+def test_an_event_at_the_span_edge_is_named_in_the_warnings(trace):
+    """The end padding point-reflects the trace about its last value; a drop in
+    the last quarter period is reflected with it and bends the baseline there
+    (measured 2026-10-13: a span cut 1040 s after a drop onset — max baseline
+    error 0.63 of the depth, against 0.075 for a cut clear of the drops)."""
+    out = remove_baseline(trace["y"][:23 * 3600], 1.0)
+    assert any("edge" in w or "span's end" in w for w in out["meta"]["warnings"]), out["meta"]["warnings"]
 
 
 def test_a_long_interior_gap_is_named_in_the_warnings():

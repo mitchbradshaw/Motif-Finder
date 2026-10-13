@@ -108,16 +108,16 @@ def test_meta_carries_the_solve_and_its_rules():
     assert all(isinstance(r["rule"], str) and r["rule"] for r in m["rules"])
 
 
-def test_a_drift_absorbed_into_the_event_layer_is_a_warning_rule():
-    """Review F1(c): an event layer covering > 80 % of a drop/spike run is drift
-    the λ could not hold back; the block says so in `warnings` and in a rule."""
-    n = 24 * 3600
-    t = np.arange(n, dtype=float)
-    y = 5.0 * np.sin(2 * np.pi * t / 10800.0) + np.random.default_rng(0).normal(0, 0.05, n)
-    m = run(y, sparsity=0.05).meta
-    assert m["warnings"], m["event_fraction_3sigma"]
-    rule = next(r for r in m["rules"] if r["name"] == "warnings")
-    assert "event" in rule["rule"] and "drift" in rule["rule"]
+def test_a_warning_from_the_solve_is_a_rule():
+    """Review F1(c)/F3: what the core puts in `meta["warnings"]` (an event layer
+    that is mostly drift, a long bridged gap, an event at the span's edge) is
+    also shown as the first rule. Here: a span cut 300 s after a drop."""
+    y = span()
+    y = y[:int(0.8 * len(y)) + 300]
+    m = run(y, baseline_period_s=3600.0).meta
+    assert m["warnings"]
+    rule = m["rules"][0]
+    assert rule["name"] == "warnings" and "event" in rule["rule"]
     quiet = run(span(), baseline_period_s=3600.0).meta
     assert quiet["warnings"] == []
     assert "warnings" not in {r["name"] for r in quiet["rules"]}
