@@ -555,6 +555,10 @@ def _grouping_payload(conn, row) -> dict:
         "handEditsKept": _hand_edits_kept(conn, row["id"]),
         "name": row["name"], "method": row["method"], "cut": row["cut"],
         "recipeHash": row["recipe_hash"], "actor": row["actor"],
+        # w2-b fix round 1: the saved fit summary (null, k rule, family flags); None when the
+        # grouping was saved without one — the page says "not tested", never a blank verdict
+        "fitSummary": (json.loads(row["fit_summary_json"])
+                       if "fit_summary_json" in row.keys() and row["fit_summary_json"] else None),
     }
 
 
@@ -2265,6 +2269,9 @@ class GroupingSaveBody(BaseModel):
     name: str | None = None
     actor: str = "this installation"
     assignments: list = Field(default_factory=list)
+    # w2-b fix round 1: the regroup job's `fitSummary`, sent back unchanged;
+    # stored as `groupings.fit_summary_json` (NULL when absent)
+    fit_summary: dict | None = None
 
 
 def _grouping_items(conn, index, unit_db, limit=None):
@@ -2352,6 +2359,13 @@ def run_grouping_job(request: Request, body: GroupingRunBody):
                 },
                 "mergeHeights": [ _f(h) for h in (result.merge_heights or []) ],
                 "assignments": assignments,
+                # w2-b fix round 1: the method's account of the fit (the surrogate null,
+                # the k rule, fitted vs assigned) and each family's verdict against it.
+                # The client sends `fitSummary` back as `fit_summary` on save.
+                "fitSummary": result.fit_summary,
+                "families": [{"id": fam.id, "label": fam.label, "size": fam.size,
+                              "medoid": fam.medoid, "flags": fam.flags}
+                             for fam in result.families],
             }
         finally:
             conn.close()
@@ -2384,6 +2398,8 @@ def save_grouping(request: Request, body: GroupingSaveBody):
             "recipe_hash": engine_mod.recipe_hash({
                 "unit": unit_db, "basis": body.basis, "method": body.method, "params": body.params or {}}),
             "created_at": now, "actor": body.actor,
+            "fit_summary_json": (json.dumps(engine_mod.json_safe(body.fit_summary), sort_keys=True)
+                                 if body.fit_summary is not None else None),
         })
         for a in body.assignments:
             writes.write_human(conn, "grouping_assignments", {

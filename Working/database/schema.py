@@ -1095,9 +1095,17 @@ CREATE INDEX IF NOT EXISTS idx_motif_member_content_hash ON motif_member(content
 """
 
 
+# w2-b fix round 1: the grouping method's fit summary (the surrogate null and
+# its per-family verdicts, the k rule, which rows were fitted and which
+# assigned), saved beside the params as JSON. Nullable: groupings saved before
+# it, or by a method that reports none, keep NULL.
+_GROUPINGS_NEW_COLUMNS = [("fit_summary_json", "TEXT")]
+
+
 def _migrate_library_tables(conn):
     conn.executescript(_LIBRARY_SCHEMA)
     conn.commit()
+    _migrate_columns(conn, "groupings", _GROUPINGS_NEW_COLUMNS)
 
 
 def _migrate_library_indexes(conn):

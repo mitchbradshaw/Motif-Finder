@@ -84,6 +84,29 @@ qualifies. Every k's score, family sizes and summed distance are recorded in
 `payload["k_scores"]`. Calinski-Harabasz (the WSF paper's rule) was not chosen:
 it is defined on Euclidean centroids, which SBD's shifted centres are not.
 
+The surrogate null (w2-b fix round 1)
+-------------------------------------
+k-Shape always returns k families and, on the SBD scale, a fixed `omit_d`
+cannot tell noise from members: two unrelated white-noise windows sit at a
+median 0.42 (so Ward's 0.50 never fires), and coloured noise sits *closer* to
+a centroid than noisy real members do. So the yardstick is the data's own
+colour: every fitted row (at most `NULL_ROWS`, seeded) is phase-randomised
+`null_draws` times (`phase_randomised_rows`: amplitude spectrum kept, shape
+destroyed) and each surrogate is measured against the fitted centroids. A
+surrogate counts toward the family whose centre it lands nearest — the same
+"nearest of k" selection a real member went through — or, when fewer than
+`NULL_MIN_PER_FAMILY` land, every surrogate's distance to that centre is used.
+Per family:
+
+* `omit_d = 0` (the default, the site's "0 = auto"): a member further from its
+  centre than the null's 5th percentile is omitted `past_cut`;
+* the family is `noise_like` when its members' median distance is not below
+  that 5th percentile, and `unstable` when it is not below the null's median.
+
+Families are flagged, never dissolved; the flags and the null travel on the
+`GroupingResult` (`Family.flags`, `fit_summary["null"]`). A fixed `omit_d`
+> 0 still works.
+
 No tree
 -------
 k-Shape builds no hierarchy, so `merge_heights` is `[]` (LIBRARY_STORAGE.md 6.2
@@ -106,8 +129,16 @@ DEFAULT_K = 0                 # 0 = choose k by silhouette over K_RANGE
 K_RANGE = (2, 12)             # the prompt's range for the automatic choice
 DEFAULT_N_INIT = 10
 DEFAULT_SEED = 0
-DEFAULT_OMIT_D = 0.50         # spec 9.10's "nearest family past d > 0.50", as Ward's
+# 0 = automatic: per family, the 5th percentile of the surrogate null's distance
+# to that family's centroid (module docstring, "The surrogate null"). A fixed
+# value > 0 still works — but Ward's 0.50 almost never fires on the SBD scale
+# (two white-noise windows sit at a median 0.42; coloured noise nearer).
+DEFAULT_OMIT_D = 0
 DEFAULT_MIN_GROUP = 10        # spec 9.10's ten-member floor; the engine applies it
+NULL_DRAWS = 3                # phase-randomised surrogate sets (the manager's R = 3)
+NULL_ROWS = 2000              # fitted rows each draw is made from, at most (seeded)
+NULL_PERCENTILE = 5.0         # a member must sit closer than 95 % of the null to stay
+NULL_MIN_PER_FAMILY = 20      # surrogates landing in a family below which all are used
 DEFAULT_SAMPLE = 5000         # rows fitted at most; the rest are assigned
 SILHOUETTE_SAMPLE = 2000      # fitted rows the silhouette is measured on at most
 MAX_ITER = 100                # Alg. 3
@@ -140,6 +171,31 @@ def screen_rows(waveforms):
         else:
             ok.append(i)
     return ok, reasons
+
+
+def phase_randomised_rows(X, rng):
+    """A Fourier surrogate of every row: each row's amplitude spectrum kept
+    (so its colour — the AR(1) wander, the random-walk drift — is kept) and
+    its phases drawn uniformly, which destroys any shape that is not just
+    that colour. The DC bin and, for an even length, the Nyquist bin keep
+    phase 0 so the inverse is real. The same transform as
+    `Adapters/preprocessing_surrogate._phase_randomise`, batched over rows;
+    not imported from there because the core does not import the adapter
+    layer."""
+    X = np.asarray(X, dtype=float)
+    n = X.shape[1]
+    F = np.fft.rfft(X, axis=1)
+    angles = rng.uniform(0.0, 2.0 * np.pi, size=F.shape)
+    angles[:, 0] = 0.0
+    if n % 2 == 0:
+        angles[:, -1] = 0.0
+    return np.fft.irfft(F * np.exp(1j * angles), n=n, axis=1)
+
+
+def null_rng(seed, salt):
+    """The seeded generator a method's null draws use — separate from the
+    sample's and the starts' so adding a null changes neither."""
+    return np.random.default_rng([int(seed), int(salt)])
 
 
 def sample_positions(n, sample, seed):
@@ -390,6 +446,11 @@ def choose_k(X, *, k_range=K_RANGE, n_init=DEFAULT_N_INIT, seed=DEFAULT_SEED,
 # The grouping method
 # --------------------------------------------------------------------------
 
+class GroupingCancelled(Exception):
+    """Raised between starts or null draws when the caller's `should_cancel()`
+    says the job was cancelled; the regroup job turns it into a cancel."""
+
+
 class KShapeMethod:
     """k-Shape on Ward's shape vectors, under the shape-based distance."""
 
@@ -419,9 +480,17 @@ class KShapeMethod:
         },
         "omit_d": {
             "type": "float", "default": DEFAULT_OMIT_D, "label": "further from its centre than",
-            "help": "a member whose shape-based distance to its family's centre (0 = a shifted "
-                    "copy, 0.5 = unrelated) is above this fits no family: omitted and flagged as "
-                    "past_cut (spec 9.10's 0.50).",
+            "help": "0 (the default) = automatic: a member is omitted as past_cut when it sits "
+                    "further from its family's centre than 95 % of phase-randomised noise of the "
+                    "same colour does. A number > 0 is a fixed shape-based distance instead (0 = a "
+                    "shifted copy); note that Ward's 0.5 almost never fires on this scale - two "
+                    "unrelated noise windows already sit near 0.42.",
+        },
+        "null_draws": {
+            "type": "int", "default": NULL_DRAWS, "label": "noise draws",
+            "help": "how many phase-randomised surrogate sets (each window's colour kept, its "
+                    "shape destroyed) the families are measured against. 0 = no null: families "
+                    "are reported untested and the automatic omit_d omits nothing.",
         },
         "min_group": {
             "type": "int", "default": DEFAULT_MIN_GROUP, "label": "minimum group",
@@ -443,7 +512,7 @@ class KShapeMethod:
 
     # ---------------------------------------------------------------- fit
 
-    def fit(self, waveforms, *, params=None):
+    def fit(self, waveforms, *, params=None, should_cancel=None):
         params = params or {}
         L = int(params.get("resample_length", RESAMPLE_LENGTH))
         k_param = int(params.get("k", DEFAULT_K))
@@ -515,24 +584,90 @@ class KShapeMethod:
         payload["dist"][ok] = dist / SBD_SCALE
         payload.update(k=int(k), centroids=result["centroids"], inertia=result["inertia"],
                        n_iter=result["n_iter"], family_of_cluster=family_of_cluster)
+        draws = int(params.get("null_draws", NULL_DRAWS))
+        self._null(payload, V_fit, labels, dist / SBD_SCALE, k, seed, draws, should_cancel)
         payload["fit_summary"] = self._summary(payload, n, n_ok, k)
         return fit
+
+    @staticmethod
+    def _null(payload, V_fit, labels, dist, k, seed, draws, should_cancel=None):
+        """The surrogate null (module docstring): per cluster, the distances of
+        phase-randomised surrogates to its centroid, their 5th percentile (the
+        automatic `omit_d`) and median, and each family's flags. `labels` and
+        `dist` are over every screened-in row (fitted and assigned)."""
+        family_of = payload["family_of_cluster"]
+        payload["null_p05"], payload["family_flags"] = {}, {}
+        if draws <= 0:
+            payload["null"] = {"kind": "none", "draws": 0,
+                               "rule": "no null drawn (null_draws = 0): families untested, "
+                                       "the automatic omit_d omits nothing"}
+            return
+        rng = null_rng(seed, 11)
+        sub, _ = sample_positions(V_fit.shape[0], NULL_ROWS, seed)
+        Vs = V_fit[sub]
+        landed = {c: [] for c in range(k)}
+        every = {c: [] for c in range(k)}
+        for _ in range(draws):
+            if should_cancel is not None and should_cancel():
+                raise GroupingCancelled("cancelled while drawing the k-Shape null")
+            S = _z_rows(phase_randomised_rows(Vs, rng))
+            D = sbd_matrix(payload["centroids"], S, z_normalise=False, dtype=FIT_DTYPE) / SBD_SCALE
+            near = D.argmin(axis=0)
+            for c in range(k):
+                landed[c].extend(D[c, near == c].tolist())
+                every[c].extend(D[c].tolist())
+        p05, p50, source = {}, {}, {}
+        for c in range(k):
+            use_landed = len(landed[c]) >= NULL_MIN_PER_FAMILY
+            values = landed[c] if use_landed else every[c]
+            source[c] = "landed" if use_landed else "all"
+            p05[c] = float(np.percentile(values, NULL_PERCENTILE))
+            p50[c] = float(np.median(values))
+        payload["null_p05"] = p05
+        for c, fam in family_of.items():
+            med = float(np.median(dist[labels == c]))
+            noise_like = med >= p05[c]
+            unstable = med >= p50[c]
+            why = (f"members' median distance to the centre {med:.3f} is "
+                   + ("not below" if noise_like else "below")
+                   + f" the noise's 5th percentile {p05[c]:.3f} ({draws} phase-randomised draws "
+                   + f"of {len(sub)} rows; the noise's median is {p50[c]:.3f})")
+            payload["family_flags"][fam] = {
+                "noise_like": bool(noise_like), "unstable": bool(unstable), "tested": True,
+                "why": ("no better than noise of the same colour: " + why) if noise_like else why,
+                "median_distance": med, "null_p05": p05[c], "null_median": p50[c]}
+        label = {c: f"F-{f:02d}" for c, f in family_of.items()}
+        payload["null"] = {
+            "kind": "phase-randomised", "draws": draws, "rows_per_draw": int(len(sub)),
+            "percentile": NULL_PERCENTILE,
+            "omit_d_by_family": {label[c]: p05[c] for c in family_of},
+            "median_by_family": {label[c]: p50[c] for c in family_of},
+            "from": {label[c]: source[c] for c in family_of},
+            "rule": (f"each fitted row phase-randomised (amplitude spectrum kept) {draws} times; a "
+                     f"surrogate counts toward the family whose centre it lands nearest (all "
+                     f"surrogates when fewer than {NULL_MIN_PER_FAMILY} land); automatic omit_d = "
+                     f"their {NULL_PERCENTILE:g}th percentile; a family is noise-like when its "
+                     f"members' median distance is not below that, unstable when not below the "
+                     f"noise's median")}
 
     @staticmethod
     def _summary(payload, n, n_ok, k):
         return {"rows": n, "screened_out": n - n_ok,
                 "fitted": len(payload["fitted_rows"]), "assigned": len(payload["assigned_rows"]),
                 "sample": payload["sample"], "seed": payload["seed"], "k": k,
-                "k_rule": payload["k_rule"],
+                "k_rule": payload["k_rule"], "k_scores": payload.get("k_scores", []),
+                "null": payload.get("null"),
                 "assigned_by": "nearest family centroid by shape-based distance (k-Shape's predict)"}
 
     # ------------------------------------------------------------- assign
 
     def assign(self, fit, *, cut=None, omit_d=None):
         """A family id per row, `None` where the row fits no family. `cut` is
-        accepted for the engine's sake and ignored (no tree); `omit_d` is this
-        method's cut, and None — no omission — when a direct caller leaves it
-        out, exactly as Ward's `assign` does."""
+        accepted for the engine's sake and ignored (no tree). `omit_d` is this
+        method's cut: None - no omission - when a direct caller leaves it out,
+        exactly as Ward's `assign` does; 0 = automatic, each family's own null
+        5th percentile (the engine passes the param's default, 0); a number
+        > 0 is a fixed distance."""
         fit.omit_reasons.clear()
         fit.omit_reasons.update(fit.payload.get("screened_out", {}))
         if fit.n == 0:
@@ -540,12 +675,18 @@ class KShapeMethod:
         cluster = fit.payload["cluster"]
         dist = fit.payload["dist"]
         family_of = fit.payload["family_of_cluster"]
+        p05 = fit.payload.get("null_p05") or {}
+        automatic = omit_d is not None and float(omit_d) <= 0
         out = []
         for i in range(fit.n):
             if i in fit.omit_reasons:
                 out.append(None)
                 continue
-            if omit_d is not None and dist[i] > float(omit_d):
+            if automatic:
+                limit = p05.get(int(cluster[i]))
+            else:
+                limit = None if omit_d is None else float(omit_d)
+            if limit is not None and dist[i] > limit:
                 fit.omit_reasons[i] = OMIT_PAST_CUT
                 out.append(None)
                 continue

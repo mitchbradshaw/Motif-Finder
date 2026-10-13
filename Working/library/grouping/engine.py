@@ -94,6 +94,10 @@ class Family:
     members: list
     medoid: object = None
     medoid_distance: float = 0.0
+    # w2-b fix round 1: did this family beat the method's surrogate null?
+    # `{"noise_like", "unstable", "why", "tested"}` (+ the method's numbers);
+    # a method with no null says so (`tested: False`) rather than staying silent.
+    flags: dict = field(default_factory=dict)
 
     @property
     def size(self):
@@ -126,6 +130,11 @@ class GroupingResult:
     assignments: list = field(default_factory=list)
     merge_heights: list = field(default_factory=list)
     recipe_hash: str = ""
+    # w2-b fix round 1: the method's own account of the fit — which rows were
+    # fitted and which assigned, the k rule and scores, the surrogate null —
+    # plus `family_flags` by label. JSON-safe: it is saved as
+    # `groupings.fit_summary_json`.
+    fit_summary: dict = field(default_factory=dict)
 
     @property
     def omitted(self):
@@ -282,7 +291,10 @@ def run_grouping(items, *, unit, basis, method, params=None):
                          params=params)
         assign_kwargs = {"cut": params.get("cut")}
         if "omit_d" in method.params:
-            assign_kwargs["omit_d"] = params.get("omit_d", DEFAULT_OMIT_D)
+            # the method's own default: Ward's is spec 9.10's 0.50, k-Shape's is
+            # 0 = automatic (its surrogate null), which a 0.50 here would overrule
+            assign_kwargs["omit_d"] = params.get(
+                "omit_d", method.params["omit_d"].get("default", DEFAULT_OMIT_D))
         families = method.assign(fit, **assign_kwargs)
 
         for row, index in enumerate(taking_part):
@@ -297,6 +309,7 @@ def run_grouping(items, *, unit, basis, method, params=None):
 
         result.merge_heights = list(method.merge_heights(fit))
         _build_families(result, assignments, taking_part, fit, method, params)
+        _attach_flags(result, fit, method_name)
 
     result.assignments = assignments
     return result
@@ -342,6 +355,45 @@ def _build_families(result, assignments, taking_part, fit, method, params):
         else:
             family.medoid = family.members[0]
         result.families.append(family)
+
+
+def untested_flags(method_name):
+    """The flags of a family whose method draws no null: not noise-like, but
+    explicitly not tested, so no page reads the absence as a pass."""
+    return {"noise_like": False, "unstable": False, "tested": False,
+            "why": f"not tested: the {method_name} method has no null to compare a family with"}
+
+
+def json_safe(value):
+    """numpy scalars and arrays -> plain Python, recursively; dict keys -> str;
+    a NaN or an infinity -> None (JSON has neither)."""
+    import numpy as np
+    if isinstance(value, dict):
+        return {str(k): json_safe(v) for k, v in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [json_safe(v) for v in value]
+    if isinstance(value, np.ndarray):
+        return json_safe(value.tolist())
+    if isinstance(value, np.bool_):
+        return bool(value)
+    if isinstance(value, np.integer):
+        return int(value)
+    if isinstance(value, (float, np.floating)):
+        v = float(value)
+        return v if np.isfinite(v) else None
+    return value
+
+
+def _attach_flags(result, fit, method_name):
+    """Each family's flags from the method's `payload["family_flags"]` (keyed
+    by family id), and the method's `payload["fit_summary"]` on the result,
+    with the surviving families' flags by label beside it."""
+    by_id = fit.payload.get("family_flags") or {}
+    for family in result.families:
+        family.flags = json_safe(by_id.get(family.id) or untested_flags(method_name))
+    summary = json_safe(fit.payload.get("fit_summary") or {})
+    summary["family_flags"] = {f.label: f.flags for f in result.families}
+    result.fit_summary = summary
 
 
 def _sort_key(family_id):

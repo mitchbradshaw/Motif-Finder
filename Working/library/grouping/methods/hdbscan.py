@@ -42,20 +42,26 @@ counting itself — and is otherwise `not_in_a_dense_family`. That is the
 because a density family has no centre. `payload` lists the fitted and the
 assigned rows.
 
-Is a family real? (stability)
------------------------------
-HDBSCAN always answers, and on pure noise it can still find a "crowd" of two
-by chance. sklearn exposes no cluster stability (its condensed tree is
-private), so each family carries a plain, public check in
-`payload["family_stability"]`: its members' median membership strength
-(`probabilities_`) and its **separation** — the median distance from a member
-to the fitted rows outside the family over the median distance between its own
-members. On the synthetic tests a family of shifted copies separates at 3.3 or
-more and a chance crowd in coloured noise at 2.8 or less. A family below
-`UNSTABLE_SEPARATION` is flagged
-`unstable: true` and `payload["unstable_families"]` names them — the families
-are still returned (the method does not overrule HDBSCAN), but they are never
-presented as confident.
+Is a family real? (the surrogate null)
+--------------------------------------
+HDBSCAN always answers, and on coloured noise it reliably finds a "crowd" or
+two: windows of AR(1) or random-walk background mostly drift up or drift
+down, and those crowd. sklearn exposes no cluster stability, and the critic
+showed that no fixed floor on a separation ratio splits real families from
+such crowds (real families down to 2.5, noise crowds up to 3.1). So the fit is
+repeated on `null_draws` (default 3) seeded **phase-randomised surrogates** of
+the fitted vectors — each row's amplitude spectrum kept, so its colour is kept,
+its shape destroyed (`kshape.phase_randomised_rows`) — with the same distance
+and the same settings. A family is **confident only if its separation AND its
+fitted size exceed the largest separation and the largest size of any family
+HDBSCAN found in any draw**; otherwise its flags say `noise_like: true` and
+why (`unstable: true` when it is the separation that fails). Families are
+flagged, never dissolved. The null — draws, families per draw, the two maxima
+— is recorded in `payload["null"]` and the fit summary.
+
+The separation is still reported per family: the median distance from a
+member to the fitted rows outside the family over the median distance between
+its own members. It is a number to read, no longer a decider.
 
 No merge heights
 ----------------
@@ -74,8 +80,9 @@ from Working.distances import sbd_matrix
 from Working.library.grouping.engine import (OMIT_INFINITE_VALUES, OMIT_MISSING_VALUES,
                                              OMIT_NOT_IN_A_DENSE_FAMILY)
 from Working.library.grouping.methods import FitResult, register
-from Working.library.grouping.methods.kshape import (SBD_SCALE, NormalisedSBD, sample_positions,
-                                                     screen_rows)
+from Working.library.grouping.methods.kshape import (SBD_SCALE, GroupingCancelled, NormalisedSBD,
+                                                     _z_rows, null_rng, phase_randomised_rows,
+                                                     sample_positions, screen_rows)
 from Working.library.grouping.methods.ward import (RESAMPLE_LENGTH, condensed_distances,
                                                    shape_vectors)
 from Working.library.grouping.methods.ward import distance_scale as ward_distance_scale
@@ -91,15 +98,7 @@ DEFAULT_MIN_GROUP = 10
 SELECTIONS = ("eom", "leaf")
 DISTANCES = ("sbd", "euclidean")
 
-# A family whose members sit barely closer to each other than to everything
-# else is a chance crowd. 3.0 is a PLACEHOLDER read off the synthetic tests,
-# not a measurement on recordings: three shifted shape families on AR(1),
-# random-walk and drift backgrounds separate at 3.3-13.5; the "families"
-# HDBSCAN finds in pure coloured noise (AR(1) at phi 0.95-0.99, random walk,
-# drift — windows that mostly drift up or drift down) at 1.6-2.8; white noise
-# gives none. The margin (2.8 vs 3.3) is thin; measure it on real families
-# and on surrogate recordings before trusting the flag.
-UNSTABLE_SEPARATION = 3.0
+NULL_DRAWS = 3                    # the manager's R = 3 phase-randomised draws
 
 # rows of the not-fitted set compared against the fitted members at once
 _ASSIGN_BLOCK = 2000
@@ -143,8 +142,7 @@ def _stability(D, labels, probabilities):
         separation = (between / within) if within > 0 else float("inf")
         out[int(c)] = {"size_fitted": int(inside.size),
                        "median_probability": float(np.median(probabilities[inside])),
-                       "within": within, "between": between, "separation": separation,
-                       "unstable": bool(np.isfinite(separation) and separation < UNSTABLE_SEPARATION)}
+                       "within": within, "between": between, "separation": separation}
     return out
 
 
@@ -204,11 +202,18 @@ class HDBSCANMethod:
             "type": "int", "default": RESAMPLE_LENGTH, "label": "resample length",
             "help": "samples every span is resampled to before z-normalising — Ward's 256.",
         },
+        "null_draws": {
+            "type": "int", "default": NULL_DRAWS, "label": "noise draws",
+            "help": "how many phase-randomised surrogate sets (each window's colour kept, its "
+                    "shape destroyed) are clustered the same way; a family counts as confident "
+                    "only if it is more separated and larger than anything found in them. 0 = no "
+                    "null: families are reported untested. Each draw costs about one fit.",
+        },
     }
 
     # ---------------------------------------------------------------- fit
 
-    def fit(self, waveforms, *, params=None):
+    def fit(self, waveforms, *, params=None, should_cancel=None):
         params = params or {}
         L = int(params.get("resample_length", RESAMPLE_LENGTH))
         distance = str(params.get("distance", DEFAULT_DISTANCE))
@@ -246,8 +251,16 @@ class HDBSCANMethod:
         fit.omit_reasons.update(bad)
         on_demand = NormalisedSBD if distance == "sbd" else _EuclideanOnDemand
         fit.distances = on_demand(vectors, positions, n)
+        payload["D_null"] = []
+        payload["null_draws"] = int(params.get("null_draws", NULL_DRAWS))
         if fitted_pos.size:
             payload["D_fit"] = _distance_matrix(vectors[fitted_pos], distance)
+            rng = null_rng(seed, 13)
+            for _ in range(payload["null_draws"] if fitted_pos.size > 1 else 0):
+                if should_cancel is not None and should_cancel():
+                    raise GroupingCancelled("cancelled while drawing the HDBSCAN null")
+                S = _z_rows(phase_randomised_rows(vectors[fitted_pos], rng))
+                payload["D_null"].append(_distance_matrix(S, distance))
         self._cluster(fit, cut)
         return fit
 
@@ -259,7 +272,7 @@ class HDBSCANMethod:
         n = fit.n
         ok_rows = np.flatnonzero(p["positions"] >= 0)
         labels_ok = np.full(ok_rows.size, -1, dtype=np.int64)
-        p.update(cut=cut, family_stability={}, unstable_families=[], family_of_label={})
+        p.update(cut=cut, family_stability={}, family_of_label={}, family_flags={}, null=None)
         p["label"] = np.full(n, -1, dtype=np.int64)
         p["placed_by"] = {}
         fitted_pos, assigned_pos = p["fitted_pos"], p["assigned_pos"]
@@ -301,10 +314,57 @@ class HDBSCANMethod:
         order = sorted(sizes, key=lambda c: (-sizes[c], c))
         p["family_of_label"] = {c: rank + 1 for rank, c in enumerate(order)}
         p["label"][ok_rows] = labels_ok
-        p["unstable_families"] = [f"F-{p['family_of_label'][c]:02d}"
-                                  for c, st in p["family_stability"].items()
-                                  if st["unstable"] and c in p["family_of_label"]]
+        self._null(p, cut)
         p["fit_summary"] = self._summary(p, n, ok_rows.size)
+
+    @staticmethod
+    def _null(p, cut):
+        """Cluster each stored surrogate matrix with the same settings and
+        flag every family against the largest separation and size seen."""
+        draws = p.get("D_null") or []
+        if not draws:
+            p["null"] = {"kind": "none", "draws": 0,
+                         "rule": "no null drawn (null_draws = 0 or one fitted row): families untested"}
+            return
+        s = p["settings"]
+        per_draw, seps, sizes = [], [0.0], [0]
+        for D_s in draws:
+            lab, prob, _ = _hdbscan(D_s, min_cluster_size=s["min_cluster_size"],
+                                    min_samples=s["min_samples"],
+                                    selection=s["cluster_selection_method"], cut=cut)
+            st = _stability(D_s, lab, prob)
+            per_draw.append([{"size_fitted": v["size_fitted"], "separation": v["separation"]}
+                             for v in st.values()])
+            seps.extend(v["separation"] for v in st.values() if np.isfinite(v["separation"]))
+            sizes.extend(v["size_fitted"] for v in st.values())
+        max_sep, max_size = float(max(seps)), int(max(sizes))
+        p["null"] = {
+            "kind": "phase-randomised", "draws": len(draws),
+            "families_per_draw": [len(d) for d in per_draw], "draw_families": per_draw,
+            "max_separation": max_sep, "max_size": max_size,
+            "rule": (f"the fitted vectors phase-randomised (amplitude spectrum kept) {len(draws)} "
+                     f"times and clustered with the same settings; a family is confident only if "
+                     f"its separation exceeds {max_sep:.2f} and its fitted size exceeds {max_size}, "
+                     f"the largest seen in any draw")}
+        for c, fam in p["family_of_label"].items():
+            st = p["family_stability"].get(c)
+            if st is None:
+                continue
+            sep, size = st["separation"], st["size_fitted"]
+            sep_ok = bool(sep > max_sep)
+            size_ok = bool(size > max_size)
+            parts = []
+            parts.append(f"separation {sep:.2f} {'beats' if sep_ok else 'does not beat'} the noise's "
+                         f"largest {max_sep:.2f}")
+            parts.append(f"{size} fitted members {'beat' if size_ok else 'do not beat'} the noise's "
+                         f"largest family of {max_size}")
+            why = "; ".join(parts) + f" ({len(draws)} phase-randomised draws)"
+            noise_like = not (sep_ok and size_ok)
+            p["family_flags"][fam] = {
+                "noise_like": noise_like, "unstable": not sep_ok, "tested": True,
+                "why": ("no better than noise of the same colour: " + why) if noise_like else why,
+                "separation": float(sep), "size_fitted": int(size),
+                "null_max_separation": max_sep, "null_max_size": max_size}
 
     @staticmethod
     def _summary(p, n, n_ok):
@@ -312,7 +372,7 @@ class HDBSCANMethod:
                 "assigned": len(p["assigned_rows"]), "sample": p["sample"], "seed": p["seed"],
                 "distance": p["distance"], "cut": p.get("cut"),
                 "families": len(p.get("family_of_label", {})),
-                "unstable_families": list(p.get("unstable_families", [])),
+                "null": p.get("null"),
                 "assigned_by": ("the family of the nearest fitted member, when within that "
                                 "family's largest core distance; else not_in_a_dense_family")}
 
