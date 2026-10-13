@@ -74,9 +74,9 @@ def test_discover_adapters_registers_the_expected_count():
     # + fixup-ag's preprocessing_window_pool, preprocessing_trace_shape, catalogue_shape_cluster
     # + detection_signal_threshold (2026-10-13; this count was not bumped when it landed)
     # + wave 1 (docs/prompts/blocks/): preprocessing_beads, detection_deconvolve, detection_impulse_events,
-    #   detection_noise_threshold, interrogation_trains, detection_fluss
-    assert len(module_names) == 48, (
-        f"expected 48 shipped adapter modules, got {len(module_names)}"
+    #   detection_noise_threshold, interrogation_trains, detection_fluss, detection_cwt_ridges
+    assert len(module_names) == 49, (
+        f"expected 49 shipped adapter modules, got {len(module_names)}"
     )
 
     discover_adapters()

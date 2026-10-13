@@ -220,6 +220,18 @@ CANONICAL += [
                   _step("interrogation", "event_shape", {}),
                   _step("interrogation", "intervals", {})],
     },
+    {
+        "name": "cwt_events", "kind": "interrogation", "version": 1,
+        "description": "Drops (troughs) at every duration: CWT ridges (Du, Kibbe & Lin 2006: troughs at every scale at "
+                       "once, each with its own duration; no detrend window) -> Event shape (amplitude, width, FWHM, "
+                       "recovery, slopes, measured as drops like the ridge) -> Intervals (per-event interval, CV, trend, "
+                       "drift). Both blocks are set to drops so the two agree on every event (Event shape's auto polarity "
+                       "let the drift's slope decide); a spike variant can come later. Tune min_snr first; keep "
+                       "max_scale_s below the usual spacing of events.",
+        "steps": [_step("detection", "cwt_ridges", {"polarity": "drop"}),
+                  _step("interrogation", "event_shape", {"polarity": "drop"}),
+                  _step("interrogation", "intervals", {})],
+    },
 ]
 
 

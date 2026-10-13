@@ -390,7 +390,8 @@ def test_every_shipped_adapter_registers_without_modification():
     # + W1-B's detection.deconvolve and detection.impulse_events
     # + preprocessing.beads (w1-a: baseline removal by BEADS)
     # + w1-f's detection.fluss (2026-10-13: the FLUSS regime-change score)
-    assert len(specs) == 48, f"expected the forty-eight shipped adapters, got {sorted(specs)}"
+    # + detection.cwt_ridges (W1-C: CWT ridge-line peaks and troughs, Du, Kibbe & Lin 2006)
+    assert len(specs) == 49, f"expected the forty-nine shipped adapters, got {sorted(specs)}"
     # Ticket 08 remaps detection_matrix_profile (encoding -> scores) and
     # preprocessing_window_matrix (encoding -> windowset) to their correct
     # types, and adds detection_threshold, a typed (input_kind='scores')
