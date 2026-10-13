@@ -121,3 +121,32 @@ def test_discovery_offers_it_as_a_seed_template(client):
     assert _save(client).status_code == 200
     rows = client.get("/api/discovery/templates").json()
     assert next(t for t in rows if t["name"] == "my_seed_search")["kind"] == "seed"
+
+
+# ── 4. carry is carry: the list reports the saved bind, apply binds the exemplar it is given
+
+def test_the_template_list_reports_the_saved_bind(client):
+    """Every seed template was listed as `rebind` whatever it was saved as, so
+    Add runs demanded an exemplar for a template that carries its own (the
+    researcher, 2026-10-13: "carry exemplar doesn't seem to work")."""
+    assert _save(client, name="carried", bind="carry").status_code == 200
+    assert _save(client, name="rebound", bind="rebind").status_code == 200
+    rows = {t["name"]: t for t in client.get("/api/discovery/templates").json()}
+    assert rows["carried"]["bind"] == "carry"
+    assert rows["rebound"]["bind"] == "rebind"
+    assert rows["mp_threshold"]["bind"] is None
+
+
+def test_applying_a_rebind_template_binds_the_exemplar_it_is_given(client):
+    """The modal's chosen exemplar never reached the server — `apply` carried
+    no exemplar field — so a rebind template went out with an empty binding.
+    Without one the server says so; with one it binds that seed."""
+    assert _save(client, name="rebound", bind="rebind").status_code == 200
+    scope = {"templates": ["rebound"], "t0": 0.0, "t1": 0.0, "run": False}
+    refused = client.post("/api/discovery/templates/apply", json=scope)
+    assert refused.status_code == 422, refused.text
+    assert "exemplar" in json.dumps(refused.json()).lower()
+    bound = client.post("/api/discovery/templates/apply",
+                        json={**scope, "exemplars": {"rebound": _seed_id(client)}})
+    assert bound.status_code == 200, bound.text
+    assert bound.json()[0]["run_key"]
