@@ -102,7 +102,12 @@ export function FamilyPage({ familyId }: { familyId?: string } = {}) {
   // instead; the families read is skipped entirely when the route names one.
   const [view] = useLibraryView()
   const viewKey = `${view.floor}|${view.fallMin}|${view.fallMax}|${view.pure}`
-  const firstFamily = useSourced(() => (named ? live(Promise.resolve<MotifFamily[]>([])) : getMotifFamilies(gid || undefined, view)), [named, gid, viewKey])
+  // fixup-grouping-url: held until the grouping id has resolved, as the atlas and the recurrence matrix hold
+  // theirs. The id is `''` while a `?grouping=` link waits for the groupings read, and a read sent with no id is
+  // answered with the NEWEST grouping — the family of a grouping the link did not name, drawn first.
+  const ready = (u: 'motifs' | 'sequences', id: string) => !groupings.loading && !groupings.error && (!!id || !groupings.all.some(g => g.unit === u))
+  const motifsReady = ready('motifs', gid)
+  const firstFamily = useSourced(() => (named || !motifsReady ? live(Promise.resolve<MotifFamily[]>([])) : getMotifFamilies(gid || undefined, view)), [named, motifsReady, gid, viewKey])
   const id = named || firstFamily.data?.[0]?.id || ''
   // Which catalogue the label is looked up in. The Atlas links a sequence family as `?unit=sequences`,
   // and it has to: 19 of the 26 sequence labels also name a motif family, so asking without a unit
@@ -111,9 +116,10 @@ export function FamilyPage({ familyId }: { familyId?: string } = {}) {
   const [unitQ] = useQueryState<'motifs' | 'sequences'>('unit', 'motifs')
   const unit = unitQ === 'sequences' ? 'sequences' : 'motifs'
   const unitGid = unit === 'sequences' ? seqGid : gid
+  const unitReady = ready(unit, unitGid)
   const fam = useSourced(
-    () => (id ? getFamily(id, unitGid || undefined, unit, unit === 'motifs' ? view : null) : live(Promise.resolve<FamilyRead | null>(null))),
-    [id, unitGid, unit, viewKey])
+    () => (id && unitReady ? getFamily(id, unitGid || undefined, unit, unit === 'motifs' ? view : null) : live(Promise.resolve<FamilyRead | null>(null))),
+    [id, unitReady, unitGid, unit, viewKey])
   if (empty) return <EmptyMotifsPage />
   const grouping = groupings.all.find(g => g.id === gid) ?? null
   const d = fam.data
@@ -122,7 +128,7 @@ export function FamilyPage({ familyId }: { familyId?: string } = {}) {
   const titleOf = (fid: string, nm: string) => `${fid}${familyName(fid, nm) ? ` ${nm}` : ''}`
   const title = d?.kind === 'motif' ? titleOf(d.detail.family.id, d.detail.family.name) : d?.kind === 'sequence' ? titleOf(d.family.id, d.family.name) : (id || 'Family')
   const shownGid = (d?.kind === 'sequence' ? seqGid : gid) || 'none'
-  const noFamilies = !named && !firstFamily.loading && !firstFamily.error && !(firstFamily.data ?? []).length
+  const noFamilies = !named && motifsReady && !firstFamily.loading && !firstFamily.error && !(firstFamily.data ?? []).length
   return (
     <>
       <Header workspace="Library" page="Motifs" subtitle={`${title} · grouping ${shownGid}`} search="Search spans, runs, families" demo={fam.source === 'demo'} />
@@ -131,10 +137,11 @@ export function FamilyPage({ familyId }: { familyId?: string } = {}) {
           actions={<ExportEntryBtn id={id} />} />
         <GroupingBar unit={d?.kind === 'sequence' ? 'sequences' : 'motifs'} grouping={d?.kind === 'sequence' ? groupings.all.find(g => g.id === seqGid) ?? null : grouping} from={`family/${id}`} />
         {d?.kind !== 'sequence' && <ViewFilterBar report={d?.kind === 'motif' ? (d.detail as LiveDetail).view ?? null : null} />}
+        {groupings.error && <LoadFailed what="the saved groupings" error={groupings.error} onRetry={groupings.reload} />}
         {firstFamily.error && <LoadFailed what="the families of this grouping" error={firstFamily.error} onRetry={firstFamily.reload} />}
         {noFamilies && <EmptyState icon="grid" title={gid ? `Grouping ${gid} has no families` : 'No grouping has been computed yet'} caption="open Edit grouping to compute one" action={<Button onClick={() => navigate('library/grouping?from=atlas')}>Edit grouping…</Button>} bordered testid="family-no-families" />}
         {fam.error && <LoadFailed what={`family ${id}`} error={fam.error} onRetry={fam.reload} />}
-        {(fam.loading || (!named && firstFamily.loading)) && <Loading height={640} testid="family-loading" />}
+        {!groupings.error && (fam.loading || !unitReady || (!named && firstFamily.loading)) && <Loading height={640} testid="family-loading" />}
         {d?.kind === 'missing' && <EmptyState icon="alert-triangle" title={`No family ${id} in grouping ${gid || 'the current grouping'}`} caption="the id is not in this grouping" action={<Button onClick={() => navigate('library/atlas')}>‹ back to atlas</Button>} bordered testid="family-missing" />}
         {d?.kind === 'sequence' && <SequenceFamilyPlaceholder f={d.family} />}
         {d?.kind === 'motif' && <MotifFamilyView key={d.detail.family.id} detail={d.detail} grouping={unitGid || undefined} onReload={fam.reload} />}

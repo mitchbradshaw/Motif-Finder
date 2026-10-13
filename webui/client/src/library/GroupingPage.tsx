@@ -415,7 +415,8 @@ function GroupingEditor({ from }: { from: string }) {
       if (g.unit === 'sequences') setSeqGid(g.id)
       setSel([])
       push({ text: `Grouping ${g.id} applied · ${g.families} families · ${fmtInt(g.omitted)} omitted · scope cleared${current ? ` · ${current.id} stays saved` : ''}` })
-      navigate(g.unit === 'sequences' ? 'library/atlas?unit=sequences' : 'library/atlas')
+      // the applied grouping is named in the address (fixup-grouping-url), so the atlas that opens is its atlas
+      navigate(`library/atlas?${g.unit === 'sequences' ? 'unit=sequences&' : ''}grouping=${encodeURIComponent(g.id)}`)
     })
   }
   const onApply = () => { const r = pv ? job.view.result! : null; if (r) applyResult(r); else runPreview(applyResult) }

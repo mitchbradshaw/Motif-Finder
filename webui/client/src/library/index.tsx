@@ -11,15 +11,17 @@ import { GroupingPage } from './GroupingPage'
 import { ImportPage } from './ImportPage'
 import { WindowSetsPage } from './WindowSetsPage'
 import { TemplatesPage } from './TemplatesPage'
+import { GroupingGate } from './chrome'
 
 export function LibraryPage() {
   const { route } = useApp()
   const page = route.parts[0] || 'recurrence'
   switch (page) {
-    case 'atlas': return <AtlasPage />
-    case 'family': return <FamilyPage />
-    case 'recurrence': return <RecurrencePage />
-    case 'grouping': return <GroupingPage />
+    // the four pages that read "the current grouping" sit behind the gate that answers for `?grouping=`
+    case 'atlas': return <GroupingGate><AtlasPage /></GroupingGate>
+    case 'family': return <GroupingGate><FamilyPage /></GroupingGate>
+    case 'recurrence': return <GroupingGate><RecurrencePage /></GroupingGate>
+    case 'grouping': return <GroupingGate editor><GroupingPage /></GroupingGate>
     case 'import': return <ImportPage />
     case 'window-sets': return <WindowSetsPage />
     case 'templates': return <TemplatesPage />
