@@ -236,5 +236,122 @@ def test_every_rule_prints_its_rules():
         assert rows and all(set(r) == {"name", "rule"} for r in rows)
 
 
+# ── review findings (critic, w1-e) ──────────────────────────────────────────
+
+def sparse_trains(seed=0, n_trains=15):
+    """Trains of 3 events (gaps 20-40 s) every 4th unit, isolated events between
+    them, 2000-4000 s between units: only ~34 % of the gaps are within trains, so
+    the median gap lands in the inter-train hump."""
+    rng = np.random.default_rng(seed)
+    times, truth, t0 = [], [], 0.0
+    for u in range(4 * n_trains):
+        if u % 4 == 0:
+            tt = t0 + np.concatenate([[0.0], np.cumsum(rng.uniform(20, 40, 2))])
+            truth += [u // 4] * 3
+        else:
+            tt = np.array([t0])
+            truth += [-1]
+        times += list(tt)
+        t0 = tt[-1] + rng.uniform(2000, 4000)
+    return np.array(times), np.array(truth)
+
+
+@pytest.mark.parametrize("seed", range(5))
+def test_logisi_finds_trains_when_fewer_than_half_the_gaps_are_within_trains(seed):
+    times, truth = sparse_trains(seed)
+    gaps = np.diff(times)
+    assert (gaps < 100).mean() < 0.5
+    r = TR.find_trains(times, rule="logisi")
+    assert r["n_trains"] == 15, r["no_trains_reason"]
+    assert list(r["train_id"]) == list(truth)
+
+
+def exp_trains(seed, n, ratio=100.0, within=60.0):
+    """Trains of 3-9 events with EXPONENTIAL gaps inside (mean `within`) and
+    exponential gaps between (mean `ratio` x `within`)."""
+    rng = np.random.default_rng(seed)
+    times, truth, t0, k = [], [], 0.0, 0
+    while len(times) < n:
+        m = min(int(rng.integers(3, 10)), n - len(times))
+        tt = t0 + np.concatenate([[0.0], np.cumsum(rng.exponential(within, m - 1))])
+        times += list(tt)
+        truth += [k if m >= 3 else -1] * m
+        k += 1
+        t0 = tt[-1] + rng.exponential(ratio * within)
+    return np.array(times), np.array(truth)
+
+
+def _event_recall(n, seeds):
+    rec = []
+    for s in seeds:
+        times, truth = exp_trains(s, n)
+        r = TR.find_trains(times, rule="logisi")
+        rec.append(float(np.mean(r["train_id"][truth >= 0] >= 0)))
+    return float(np.mean(rec))
+
+
+def test_logisi_recalls_irregular_trains_at_a_between_to_within_ratio_of_100():
+    # Scott's bandwidth (inflated by the bimodality itself) smoothed the valley away: 0.85 / 0.19
+    assert _event_recall(300, range(30)) >= 0.93
+    assert _event_recall(60, range(50)) >= 0.75
+
+
+def _poisson_n(seed, n):
+    return poisson_times(seed, n=n)
+
+
+def _ramp_down(seed, n):
+    """Mean gap falls 100x across the recording (rate rises 100x)."""
+    rng = np.random.default_rng(seed)
+    return np.cumsum(rng.exponential(100.0 * 100.0 ** (-np.arange(n) / (n - 1))))
+
+
+def _ramp_up(seed, n):
+    rng = np.random.default_rng(seed)
+    return np.cumsum(rng.exponential(100.0 ** (np.arange(n) / (n - 1))))
+
+
+@pytest.mark.parametrize("gen", [_poisson_n, _ramp_down, _ramp_up], ids=["poisson", "ramp_down", "ramp_up"])
+@pytest.mark.parametrize("n", [30, 60])
+def test_logisi_false_train_rate_stays_at_or_below_five_percent(gen, n):
+    seeds = range(100)
+    false = sum(TR.find_trains(gen(s, n), rule="logisi")["n_trains"] > 0 for s in seeds)
+    assert false / len(seeds) <= 0.05, f"{false} of {len(seeds)} trainless series got trains"
+
+
+def test_logisi_bandwidth_is_silvermans_robust_rule_on_log10_gaps():
+    times, _ = exp_trains(1, 300)
+    lg = np.log10(np.diff(times))
+    q75, q25 = np.percentile(lg, [75, 25])
+    expected = 0.9 * min(lg.std(ddof=1), (q75 - q25) / 1.349) * lg.size ** -0.2
+    r = TR.find_trains(times, rule="logisi")
+    assert r["density"]["bandwidth_log10"] == pytest.approx(expected, rel=1e-6)
+    text = " ".join(x["rule"] for x in TR.rules("logisi", min_events=3, max_core_gap_s=0.0))
+    assert "Silverman" in text and "Scott" not in text
+    assert "30" in text and "100" in text, "the rules must say how far apart the two kinds of gap must be"
+    assert "Silverman" in TR.__doc__ and "30" in TR.__doc__
+
+
+def test_a_second_hump_below_the_prominence_floor_is_named_as_such():
+    # 300 gaps near 30 s and 3 near 3000 s: a second bump exists but is under 5 % of the maximum
+    rng = np.random.default_rng(0)
+    gaps = np.concatenate([10 ** rng.normal(np.log10(30.0), 0.08, 300), [2900.0, 3000.0, 3100.0]])
+    rng.shuffle(gaps)
+    r = TR.find_trains(np.concatenate([[0.0], np.cumsum(gaps)]), rule="logisi")
+    assert r["n_trains"] == 0
+    assert "prominent enough" in r["no_trains_reason"] and "5 %" in r["no_trains_reason"]
+    assert "one hump" not in r["no_trains_reason"]
+
+
+def test_twenty_thousand_events_take_well_under_a_second():
+    import time
+    times, _ = clear_trains(0, n_trains=3500)
+    assert times.size > 18000
+    for rule in TR.RULE_NAMES:
+        t0 = time.perf_counter()
+        TR.find_trains(times, rule=rule)
+        assert time.perf_counter() - t0 < 1.0, rule
+
+
 if __name__ == "__main__":
     sys.exit(pytest.main([__file__, "-q"]))

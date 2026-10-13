@@ -199,5 +199,23 @@ def test_an_empty_spanset_passes_through():
     assert r.meta["n_trains"] == 0
 
 
+def test_many_groups_and_many_events_run_in_linear_time():
+    import time
+    rng = np.random.default_rng(0)
+    n, n_groups = 20000, 1000
+    starts = np.cumsum(rng.integers(1, 60, n))
+    up = pd.DataFrame({"group": [f"g{i % n_groups}" for i in range(n)]})
+    ss = SpanSet(starts=tuple(int(s) for s in starts), ends=tuple(int(s) + 1 for s in starts), features=up)
+    t0 = time.perf_counter()
+    r = _run(ss, n=int(starts[-1]) + 10, rule="adamatzky")
+    assert time.perf_counter() - t0 < 3.0
+    assert r.meta["n_groups"] == n_groups
+
+
+def test_the_description_says_how_far_apart_the_two_kinds_of_gap_must_be():
+    d = get_adapter(NAME).description
+    assert "30" in d and "100" in d and "Silverman" in d
+
+
 if __name__ == "__main__":
     sys.exit(pytest.main([__file__, "-q"]))
