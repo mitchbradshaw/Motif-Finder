@@ -16,7 +16,8 @@ waveforms for a SpanSet without going through a WindowSet. The stable surface:
 * `cut(x, starts, length)` -> the `(n_windows, length)` waveforms;
 * `window_features(spans, ew)` -> the per-window table (`split` is NOT in it: the
   split is the adapter's, from `preprocessing.sliding_windows.assign_split`);
-* `auto_length_s(spans, fs)`, `overlaps_next(starts, length)`, `rules(...)`;
+* `auto_length_s(spans, fs)`, `duration_unmeasured(spans)`, `recovery_outside(spans, ew)`,
+  `overlaps_next(starts, length)`, `rules(...)`;
 * `NOT_FEATURES` - the bookkeeping columns a feature consumer must drop.
 
 Index frames. Everything here is in the frame of `x`, i.e. **span-relative**, like a
@@ -35,12 +36,27 @@ The rules (all printed by `rules()` into the block's meta):
    A fractional index (Event shape's are floats) is rounded to the nearest sample.
 2. **Length.** `length_s > 0` is taken as given. `length_s = 0` (auto) is twice the
    median event duration, rounded UP to a whole 10 s, clamped to [60 s, 7200 s]. The
-   duration is Event shape's `duration_s` (onset -> recovery) when that column holds
-   at least one finite value (the finite ones only), else the span length
-   `(end - start) / fs`. With no events there is no median: the floor, 60 s.
-   Why twice: the window must hold the whole event with room for what precedes it
-   (`pre_frac`) and the return to baseline; one duration would clip the recovery of
-   every event longer than the median.
+   duration is Event shape's `duration_s` when that column holds at least one finite
+   value, else the span length `(end - start) / fs`. With no events there is no
+   median: the floor, 60 s.
+   **What it covers.** Event shape's `duration_s` runs onset -> *half recovery*
+   (`recovery_frac = 0.5`), so with `pre_frac = 0.2` the default window holds the
+   onset, the trough and about the first half of the recovery - **not** the return
+   to baseline. The multiplier 2 is a **placeholder** until it is checked against
+   real recoveries (the critic measured 35-90 % of the depth still missing at the
+   window's end for recovery constants of 50-1200 s on synthetic drops). Set
+   `length_s` when the whole recovery matters (a waveform consumer: window images,
+   MiniRocket, families). Clustering on the carried measures is unaffected: Event
+   shape measured those on the span, not on the window.
+   **Unmeasured durations.** A NaN `duration_s` is an event that never reached half
+   recovery inside its measuring window - longer than measurable, not absent. It is
+   counted (`n_duration_unmeasured`) and enters the median as longer than every
+   finite duration; when more than half are NaN the median is "longer than
+   measurable" and the length is the ceiling. Only when none is finite do the span
+   lengths stand in.
+   **Coverage reported.** `recovery_outside(spans, ew)` counts the kept windows whose
+   recovery point (`recovery_idx`) lies outside them (or was never found); the
+   adapter warns when that is more than a quarter of the windows.
 3. **Placement.** `anchor_offset = round(pre_frac * length)` samples precede the
    anchor; the window is `[anchor - anchor_offset, anchor - anchor_offset + length)`.
    The offset is the same for every window, so the anchor sits at one column of the
@@ -109,6 +125,7 @@ class EventWindows(NamedTuple):
     omitted_rows : dict reason -> list of input rows left out for it
     length_basis : str, what the length came from, in words
     notes : tuple of str, whole-set statements (an empty set, a missing anchor column)
+    n_duration_unmeasured : int, events whose Event-shape duration_s is NaN (fix round 1)
     """
     starts: np.ndarray
     kept: np.ndarray
@@ -121,6 +138,7 @@ class EventWindows(NamedTuple):
     omitted_rows: dict
     length_basis: str
     notes: tuple
+    n_duration_unmeasured: int = 0
 
 
 def _features(spans):
@@ -128,27 +146,58 @@ def _features(spans):
     return None if f is None else f.reset_index(drop=True)
 
 
+def duration_unmeasured(spans):
+    """Events whose Event-shape `duration_s` is NaN (never reached half recovery);
+    0 when the column is absent (nothing was measured, so nothing went unmeasured)."""
+    f = _features(spans)
+    if f is None or "duration_s" not in f.columns:
+        return 0
+    return int((~np.isfinite(pd.to_numeric(f["duration_s"], errors="coerce").to_numpy(dtype=float))).sum())
+
+
 def auto_length_s(spans, fs):
-    """`(length_s, basis)` by the auto rule (module docstring, rule 2)."""
+    """`(length_s, basis)` by the auto rule (module docstring, rule 2). A NaN
+    `duration_s` enters the median as longer than every finite one."""
     f = _features(spans)
     durations = None
     basis = None
     if f is not None and "duration_s" in f.columns:
         d = pd.to_numeric(f["duration_s"], errors="coerce").to_numpy(dtype=float)
-        d = d[np.isfinite(d)]
-        if d.size:
-            durations, basis = d, f"Event shape's duration_s (median of {d.size} finite)"
+        n_nan = int((~np.isfinite(d)).sum())
+        if n_nan < d.size:
+            durations = np.where(np.isfinite(d), d, np.inf)
+            basis = (f"Event shape's duration_s, onset -> half recovery (median of {d.size}, {n_nan} unmeasured "
+                     f"counted as longer than every measured one)")
     if durations is None:
         d = (np.asarray(spans.ends, dtype=float) - np.asarray(spans.starts, dtype=float)) / float(fs)
         if d.size:
             durations, basis = d, f"the span length, end - start (median of {d.size})"
+            if f is not None and "duration_s" in f.columns:
+                basis += f"; Event shape's duration_s was unmeasured for all {d.size}"
     if durations is None:
         return AUTO_MIN_S, "no events, so no median: the floor"
     med = float(np.median(durations))
+    if not np.isfinite(med):
+        return AUTO_MAX_S, (f"{basis}: the median is longer than measurable (most events never reached half "
+                            f"recovery) -> the ceiling, {AUTO_MAX_S:g} s")
     raw = AUTO_MULT * med
     length = float(np.ceil(raw / AUTO_ROUND_S - 1e-9) * AUTO_ROUND_S)
     length = float(min(AUTO_MAX_S, max(AUTO_MIN_S, length)))
-    return length, f"{basis}: {med:.4g} s; x {AUTO_MULT:g} = {raw:.4g} s -> {length:g} s"
+    return length, f"{basis}: {med:.4g} s; x {AUTO_MULT:g} (a placeholder) = {raw:.4g} s -> {length:g} s"
+
+
+def recovery_outside(spans, ew):
+    """Kept windows whose recovery point (`recovery_idx`, span-relative) lies outside
+    the window or was never found; None when the SpanSet carries no `recovery_idx`
+    (not measured is not the same statement as none outside)."""
+    f = _features(spans)
+    if f is None or "recovery_idx" not in f.columns:
+        return None
+    kept = np.asarray(ew.kept, dtype=np.int64)
+    rec = pd.to_numeric(f["recovery_idx"], errors="coerce").to_numpy(dtype=float)[kept]
+    rel = rec - np.asarray(ew.starts, dtype=float)
+    inside = np.isfinite(rel) & (rel >= 0) & (rel < ew.length)
+    return int((~inside).sum())
 
 
 def overlaps_next(starts, length):
@@ -249,7 +298,8 @@ def event_windows(x, fs, spans, *, anchor="onset", length_s=0.0, pre_frac=DEFAUL
     return EventWindows(
         starts=win_starts[kept].astype(np.int64), kept=kept, omitted={r: len(v) for r, v in rows.items()},
         length=length, anchor_offset=offset, length_s=float(length_s), anchor_used=anchor_used,
-        n_fallback=int(n_fallback), omitted_rows=rows, length_basis=basis, notes=tuple(notes))
+        n_fallback=int(n_fallback), omitted_rows=rows, length_basis=basis, notes=tuple(notes),
+        n_duration_unmeasured=duration_unmeasured(spans))
 
 
 def cut(x, starts, length):
@@ -293,9 +343,12 @@ def rules(*, anchor="onset", pre_frac=DEFAULT_PRE_FRAC, max_nan_frac=DEFAULT_MAX
     """The rule behind every number this block puts on a window, as printed in meta."""
     col = ANCHOR_COLUMN[anchor] or "the span start"
     length_rule = (f"{float(length_s):g} s, as set" if length_s else
-                   f"auto: twice the median event duration (Event shape's duration_s when it ran, finite values "
-                   f"only, else the span length end - start), rounded up to a whole {AUTO_ROUND_S:g} s, clamped "
-                   f"to [{AUTO_MIN_S:g} s, {AUTO_MAX_S:g} s]")
+                   f"auto: twice the median event duration (Event shape's duration_s when it ran - onset to half "
+                   f"recovery, an unmeasured one counted as longer than every measured one - else the span length "
+                   f"end - start), rounded up to a whole {AUTO_ROUND_S:g} s, clamped to [{AUTO_MIN_S:g} s, "
+                   f"{AUTO_MAX_S:g} s]. It covers the onset, the trough and about the first half of the recovery, "
+                   f"not the return to baseline; the multiplier {AUTO_MULT:g} is a placeholder until checked on real "
+                   f"recordings - set length_s when the whole recovery matters")
     if length_basis:
         length_rule += f" ({length_basis})"
     return [

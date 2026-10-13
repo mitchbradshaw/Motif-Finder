@@ -36,6 +36,8 @@ from Working.Catalogue import event_windows as EW
 from Working.types import SpanSet, WindowSet
 
 NAME = "catalogue.event_windows"
+#: more than this share of the windows ending before their event recovered -> a warning naming length_s
+RECOVERY_WARN_FRAC = 0.25
 
 
 def _require(value):
@@ -89,6 +91,13 @@ def _run(x, t, fs, anchor="onset", length_s=0.0, pre_frac=EW.DEFAULT_PRE_FRAC, m
     span_start = int(round(float(t[0]) * fs)) if t is not None and len(t) else 0
     ws = WindowSet(starts=ew.starts + span_start, length=ew.length, fs=float(fs), features=feats)
     n_events = len(spans.starts)
+    n_rec_out = EW.recovery_outside(spans, ew)
+    warnings = []
+    if n_rec_out is not None and len(ew.starts) and n_rec_out > RECOVERY_WARN_FRAC * len(ew.starts):
+        warnings.append(
+            f"{n_rec_out} of {len(ew.starts)} windows end before their event has recovered (its recovery point "
+            f"lies outside the window): the window ({ew.length_s:g} s) cuts the recovery off. Raise length_s "
+            f"if the waveform after the trough matters (window images, MiniRocket, families).")
     meta = {
         "n_events": n_events, "n_windows": int(len(ew.starts)), "omitted": dict(ew.omitted),
         "omitted_rows": {r: [int(i) for i in v[:4096]] for r, v in ew.omitted_rows.items()},
@@ -98,6 +107,8 @@ def _run(x, t, fs, anchor="onset", length_s=0.0, pre_frac=EW.DEFAULT_PRE_FRAC, m
         "anchor_fallback": ew.n_fallback, "pre_frac": float(pre_frac), "span_start": span_start,
         "split_rule": split_rule, "blocks": blocks, "seed": int(seed),
         "split_counts": {name: int((labels == i).sum()) for i, name in enumerate(SPLIT_NAMES)},
+        "n_recovery_outside_window": n_rec_out, "n_duration_unmeasured": ew.n_duration_unmeasured,
+        "warnings": warnings,
         "notes": list(ew.notes), "summary": _summary(n_events, ew),
         "rules": EW.rules(anchor=anchor, pre_frac=pre_frac, max_nan_frac=max_nan_frac, length_s=length_s,
                           length_basis=ew.length_basis),
@@ -140,8 +151,10 @@ SPEC = register(AdapterSpec(
                   "(extremum_idx), or its span start. An event without the column falls back to its span start, "
                   "counted", choices=list(EW.ANCHORS)),
         ParamSpec("length_s", float, 0.0,
-                  "Window length in seconds. 0 = auto: twice the median event duration, rounded up to 10 s, "
-                  "clamped to 60-7200 s", min=0.0, max=86400.0),
+                  "Window length in seconds. 0 = auto: twice the median event duration (Event shape's onset to "
+                  "half recovery), rounded up to 10 s, clamped to 60-7200 s - it holds the onset, the trough and "
+                  "about half the recovery, not the return to baseline (the 2x is a placeholder). Set it when "
+                  "the whole recovery matters", min=0.0, max=86400.0),
         ParamSpec("pre_frac", float, EW.DEFAULT_PRE_FRAC, "Share of the window before the anchor (0.2: a fifth "
                   "before, four fifths after)", min=0.0, max=0.95),
         ParamSpec("max_nan_frac", float, EW.DEFAULT_MAX_NAN_FRAC,
