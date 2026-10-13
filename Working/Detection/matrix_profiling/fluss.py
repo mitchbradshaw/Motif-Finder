@@ -23,19 +23,29 @@ The algorithm, as implemented
    distances. stumpy's own `fluss` docstring examples pass `mp[:, 0]` / `mp.P_`
    (distances) — wrong; a float array is refused here with that explanation.
 2. AC, CAC and the regime extraction are stumpy 1.14.1's `stumpy.fluss`
-   (BSD-3-Clause, Copyright 2019 TD Ameritrade) — called, not copied. Its arc
-   count treats a negative index (stumpy's "no neighbour", e.g. a window with a
-   NaN) as no arc; we count those in `n_no_neighbour`.
+   (BSD-3-Clause, Copyright 2019 TD Ameritrade) — called, not copied.
+   **Missing neighbours (adaptation).** A window touching a NaN has no
+   neighbour (stumpy marks it -1) and draws no arc, but the IAC assumes every
+   window draws one, so beside a long NaN gap the arc count falls short of the
+   IAC and the valid stretch looks like the end of a regime (a 4000-sample
+   gap in one regime scored 0.93). So FLUSS runs on the *compressed* index:
+   the valid windows only, renumbered 0..k_valid-1 (a neighbour is always a
+   valid window), with the IAC for k_valid windows; the CAC is mapped back to
+   the valid windows' positions and the windows with no neighbour are not
+   scored (NaN). Across a gap the compressed index sees the two sides as
+   adjacent, which is what they are to the matrix profile. Counted in
+   `n_no_neighbour`.
 3. The IAC (parameter `iac`):
    - `"parabola"` (default) — the paper's 2i(n-i)/n, height n/2 (fig. 4, "a
      special case of beta(2,2)"), passed to stumpy as `custom_iac`.
    - `"beta"` — stumpy's default: a beta distribution fitted (1000 fits of
      1000 samples, seed 0) to the arc curve of a uniformly random index, then
      scaled by least squares. On a random index it is the parabola to within
-     about 1 % in the middle and 1-2 % near the ends; it costs about two
-     seconds more on a four-hour span at 1 Hz.
+     about 1 % in the middle and 1-2 % near the ends. Its cost grows with the
+     span (it draws random indices of the span's length): about 1.4 s at 4 h
+     and 4.9 s at 24 h at 1 Hz, on top of the matrix profile.
 4. Edges — **stumpy's convention is kept**: CAC is set to 1 over the first and
-   last `excl_factor * L` subsequences (stumpy `floss.py:178-179`), where the
+   last `excl_factor * L` (valid) subsequences (stumpy `floss.py:178-179`), where the
    paper sets only the first and last `L` (Table I line 17). With L = the
    window m and excl_factor 5, that is five windows at each end. The reason to
    keep it: the IAC is near zero at the ends, so AC/IAC there is a ratio of two
@@ -49,10 +59,14 @@ The algorithm, as implemented
    NaN as "below the cut", so neither NaN stretch can become a span.
 6. Readout: the paper's regime extraction (Table II, `stumpy.fluss`'s `_rea`):
    the `n_regimes - 1` lowest CAC minima, each excluding `excl_factor * L`
-   either side, with the CAC at each. It always returns that many locations,
-   even on a recording with no change — the CAC at each (near 1 = "no
-   evidence") is reported beside it so a reader can tell (paper §7: a high CAC
-   minimum means only "no evidence of a change").
+   either side, with the CAC at each. stumpy always returns that many; once
+   the exclusion zones cover the whole span it pads with the argmin of an
+   all-ones curve (location 0, CAC 1.0). **Adaptation:** locations whose CAC
+   is 1.0 are dropped (they are not evidence of anything) and
+   `n_regimes_found` = kept locations + 1 is reported. A kept location can
+   still have a CAC near 1 on a recording with no change — read the CAC
+   beside it (paper §7: a high CAC minimum means only "no evidence of a
+   change").
 
 Where it breaks: a drift ramp, z-normalised, looks the same everywhere, so its
 nearest neighbours are anywhere, arcs cross everywhere and the CAC stays near
@@ -120,10 +134,12 @@ def regime_change_score(mpi, m, iac="parabola", excl_factor=5, n_regimes=3):
     -------
     dict with
         score : float array of length k + m - 1 (= n), NaN where not scored
-        cac : the raw CAC (length k, edges set to 1 as stumpy does)
+        cac : the raw CAC (length k, edges set to 1 as stumpy does, NaN at
+            windows with no neighbour)
         cac_min, cac_min_idx : the lowest CAC inside the scored region, and
             where (span-relative sample index)
-        regime_locs, regime_cac : the readout (lists)
+        regime_locs, regime_cac : the readout (lists; CAC-1.0 padding dropped)
+        n_regimes_found : len(regime_locs) + 1
         n_blanked_each_end, n_no_neighbour, iac, excl_factor, m
     """
     if iac not in IAC_KINDS:
@@ -147,28 +163,46 @@ def regime_change_score(mpi, m, iac="parabola", excl_factor=5, n_regimes=3):
             f"(excl_factor {excl_factor} x window {m}); the span needs more than "
             f"{2 * blank + m - 1} samples. Shorten the window or lengthen the span."
         )
-    n_no_neighbour = int(np.count_nonzero(index < 0))
+    valid = index >= 0
+    pos = np.flatnonzero(valid)                      # compressed position -> window start
+    kv = len(pos)
+    n_no_neighbour = k - kv
+    if kv <= 2 * blank:
+        raise ValueError(
+            f"too few scorable windows for FLUSS: {n_no_neighbour} of {k} windows touch NaN and "
+            f"have no neighbour, leaving {kv}, but {blank} are blanked at each end. Fill or cut "
+            "the NaN gaps, or shorten the window."
+        )
+    rank = np.full(k, -1, dtype=np.int64)
+    rank[pos] = np.arange(kv)
+    cindex = rank[index[valid]]
+    dangling = cindex < 0                            # a neighbour with no neighbour of its own:
+    cindex[dangling] = np.flatnonzero(dangling)      # never in a real profile; drawn as no arc
 
-    custom = parabola_iac(k) if iac == "parabola" else None
-    cac, locs = stumpy.fluss(index, L=m, n_regimes=n_regimes, excl_factor=excl_factor,
-                             custom_iac=custom)
-    cac = np.asarray(cac, dtype=np.float64)
+    custom = parabola_iac(kv) if iac == "parabola" else None
+    ccac, clocs = stumpy.fluss(cindex, L=m, n_regimes=n_regimes, excl_factor=excl_factor,
+                               custom_iac=custom)
+    ccac = np.asarray(ccac, dtype=np.float64)
 
+    cac = np.full(k, np.nan)                         # NaN = no neighbour, never scored
+    cac[pos] = ccac
     score = np.full(k + m - 1, np.nan)
-    score[blank:k - blank] = 1.0 - cac[blank:k - blank]
-    inner = cac[blank:k - blank]
+    inner_pos = pos[blank:kv - blank]
+    score[inner_pos] = 1.0 - ccac[blank:kv - blank]
+    inner = ccac[blank:kv - blank]
     j = int(np.argmin(inner))
 
-    locs = [int(v) for v in np.asarray(locs).ravel()]
+    kept = [int(v) for v in np.asarray(clocs).ravel() if ccac[int(v)] < 1.0]
     return {
         "score": score,
         "cac": cac,
         "cac_min": float(inner[j]),
-        "cac_min_idx": blank + j,
-        "regime_locs": locs,
-        "regime_cac": [float(cac[v]) for v in locs],
+        "cac_min_idx": int(inner_pos[j]),
+        "regime_locs": [int(pos[v]) for v in kept],
+        "regime_cac": [float(ccac[v]) for v in kept],
+        "n_regimes_found": len(kept) + 1,
         "n_blanked_each_end": blank,
-        "n_no_neighbour": n_no_neighbour,
+        "n_no_neighbour": int(n_no_neighbour),
         "iac": iac,
         "excl_factor": excl_factor,
         "m": m,

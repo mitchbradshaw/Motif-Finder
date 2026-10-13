@@ -20,8 +20,21 @@ Why not reuse `detection.rupture`: PELT finds changes in mean / variance;
 FLUSS finds changes in the repertoire of shapes, which a mean/variance model
 cannot see.
 
-Adaptations: the window is in seconds (`window_s`, default 60 s — the
-1-minute scale that served spikes on rec 385), converted at the span's fs.
+Adaptations: the window is in seconds (`window_s`), converted at the span's
+fs. The paper sets the window to about one period of the behaviour. The block
+default stays 60 s — the 1-minute scale that served spikes on rec 385, the
+only real-data evidence for a scale; the synthetic regimes the template is
+calibrated on have 5- and 15-minute periods, so the `fluss_regimes` template
+sets 300 s, and at 60 s their jittered versions were missed. A threshold cut
+on this score holds for the window it was calibrated at only: a longer window
+gives fewer, more distinctive windows and higher peaks on changes and nulls
+alike (on the synthetic set the change peaked at 0.35-0.40 at 60 s, 0.65-0.82
+at 300 s, the nulls at <= 0.23 and <= 0.44).
+
+NaN: a window touching NaN has no neighbour; it is not scored, and the IAC is
+corrected for it (see the core). But `preprocessing.detrend`'s rolling mean
+spreads one NaN sample over about a detrend window, so a recording's NaN gaps
+grow before they get here — check them.
 """
 
 import numpy as np
@@ -46,8 +59,13 @@ RULES = [
              "one window."},
     {"name": "regime locations",
      "rule": "The paper's extraction (Table II): the n_regimes_readout − 1 lowest CAC minima, each "
-             "excluding excl_factor × window either side. Always that many, change or not — read the CAC "
-             "beside each (near 1 = no evidence)."},
+             "excluding excl_factor × window either side. A location with CAC 1.0 (stumpy's padding once the "
+             "exclusion zones cover the span) is dropped; n_regimes_found counts the rest + 1. A kept "
+             "location is not yet a change — read the CAC beside it (near 1 = no evidence)."},
+    {"name": "missing neighbours",
+     "rule": "A window touching NaN has no neighbour: it is not scored (NaN), and the arcs are counted over "
+             "the valid windows only, with the expected curve for that many, so a long gap is not read as "
+             "the end of a regime."},
 ]
 
 
@@ -65,7 +83,7 @@ def _run(x, t, fs, window_s=60.0, n_regimes_readout=3, iac="parabola", excl_fact
             f"window_s={window_s:g} at fs={fs:g} gives a {m}-sample window; "
             f"stumpy requires at least {MP_MIN_WINDOW_SAMPLES} samples."
         )
-    needed = 2 * int(excl_factor) * m + m
+    needed = 2 * int(excl_factor) * m + m - 1      # the core's own limit: one scored window
     if len(x) <= needed:
         raise ValueError(
             f"span too short for FLUSS: {len(x)} samples, but a {m}-sample window with "
@@ -89,6 +107,7 @@ def _run(x, t, fs, window_s=60.0, n_regimes_readout=3, iac="parabola", excl_fact
             "score_max": 1.0 - out["cac_min"],
             "regime_locs": out["regime_locs"], "regime_cac": out["regime_cac"],
             "n_regimes_readout": int(n_regimes_readout),
+            "n_regimes_found": out["n_regimes_found"],
             "n_blanked_each_end": out["n_blanked_each_end"],
             "n_scored": int(np.count_nonzero(np.isfinite(score))),
             "n_no_neighbour": out["n_no_neighbour"],
@@ -101,8 +120,8 @@ def _run(x, t, fs, window_s=60.0, n_regimes_readout=3, iac="parabola", excl_fact
 def _estimate(x, t, fs, window_s=60.0, n_regimes_readout=3, iac="parabola", excl_factor=5):
     """Seconds for this span from the matrix-profile cost model (the O(n²)
     profile dominates; the arc count is O(n)), or None while uncalibrated —
-    never a guessed number. `iac="beta"` adds about two seconds of fitting,
-    not modelled."""
+    never a guessed number. `iac="beta"` adds its fitting, not modelled: it
+    grows with the span, about 1.4 s at 4 h and 4.9 s at 24 h at 1 Hz."""
     from Working.Detection.matrix_profiling.cost import estimate_seconds
     return estimate_seconds(len(x), "stump")
 
@@ -115,14 +134,15 @@ SPEC = register(AdapterSpec(
     page_name="FLUSS regime change",
     params=[
         ParamSpec("window_s", float, 60.0,
-                  "Window in seconds — roughly one event or one period of the behaviour. Tune this first; "
-                  "the paper finds results robust over a 4x range", min=0.001),
+                  "Window in seconds — about one event period of the behaviour (the paper's L). Tune this "
+                  "first; a threshold cut on the score holds only for the window it was calibrated at",
+                  min=0.001),
         ParamSpec("n_regimes_readout", int, 3,
                   "Readout only: report this many regimes (this minus one changes) in the block's numbers; "
                   "does not change the score", min=2, max=50),
         ParamSpec("iac", str, "parabola",
                   "Idealised arc curve: 'parabola' is the paper's 2i(n−i)/n; 'beta' is stumpy's fitted curve "
-                  "(nearly identical, about 2 s slower)", choices=list(IAC_KINDS)),
+                  "(nearly identical; its fit costs ~1.4 s at 4 h, ~4.9 s at 24 h)", choices=list(IAC_KINDS)),
         ParamSpec("excl_factor", int, 5,
                   "Windows left unscored at each end, and kept apart between reported changes", min=1, max=50),
     ],
@@ -136,8 +156,12 @@ SPEC = register(AdapterSpec(
         "Where does the recording change behaviour? For every window the matrix profile finds its most "
         "similar window elsewhere; inside one regime those look-alikes stay inside it, so at a change few "
         "of the links cross. The score is high where few cross (1 − CAC; 0 = no change). Detrend first: a "
-        "drifting baseline makes every window look alike and the score goes flat (no change found). Tune "
-        "`window_s` first (≈ one event). Follow with Threshold to get one span per change. Costs a full "
-        "matrix profile (O(n²))."
+        "drifting baseline makes every window look alike and the score goes flat (no change found). Set "
+        "`window_s` to about one event period (the paper's rule) and tune it first. Follow with Threshold "
+        "to get one span per change; the cut depends on the window — a longer window raises the peaks — so "
+        "recalibrate the cut whenever you change `window_s` (the fluss_regimes template's 0.46 is for "
+        "300 s). Windows touching NaN are not scored, but detrending spreads a NaN gap by about one detrend "
+        "window, so check the recording's NaN gaps before trusting a span beside one. Costs a full matrix "
+        "profile (O(n²))."
     ),
 ))

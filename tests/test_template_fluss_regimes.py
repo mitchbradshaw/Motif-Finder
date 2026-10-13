@@ -35,6 +35,11 @@ excl_factor x window: a window this long makes a broad, ragged dip, and with
 the old 600 s gap one change came out as 2-3 spans; FLUSS cannot place two
 changes closer than that anyway. `min_duration_s` 60 drops a one-window graze.
 
+The calibration is for 4 h spans. A shorter span holds fewer events, so a run
+of unusually spaced ones in a single regime weighs more: one 2.8 h jittered
+single regime (seed 1, the first 10000 samples) peaked at 0.53-0.59, above the
+cut. Treat a span on a short recording with suspicion.
+
 Runnable standalone:  python tests/test_template_fluss_regimes.py
 """
 
@@ -70,7 +75,7 @@ TEMPLATE = {
     "description": "Where does the recording change behaviour? Baseline removal → FLUSS regime-change score "
                    "(Gharghabi et al. 2017: few nearest-neighbour arcs cross a change of behaviour; 300 s window, "
                    "about one event period of slow regimes) → threshold to one span per change. The cut 0.46 "
-                   "is calibrated for this window only. Each span is a candidate boundary to check in Review; "
+                   "is calibrated for this window, on 4 h recordings; on a shorter one a single regime can cross it. Each span is a candidate boundary to check in Review; "
                    "check the recording's NaN gaps first — the rolling-mean detrend spreads a gap by about "
                    "one detrend window, and a long gap can still read as a change.",
     "steps": [

@@ -172,7 +172,7 @@ def test_a_gap_does_not_hide_a_real_change():
 
 def test_too_few_valid_windows_is_refused_and_says_why():
     i = _random_index(4000)
-    i[50:3900] = -1
+    i[50:3950] = -1                               # 100 valid windows, 50 blanked at each end
     with pytest.raises(ValueError, match="NaN"):
         regime_change_score(i, m=10)
 
@@ -184,10 +184,10 @@ def test_the_readout_drops_padding_once_the_exclusion_zones_exhaust_the_span():
     sample is excluded it pads with argmin of an all-ones curve (location 0,
     CAC 1.0). Those are not changes: they are dropped and the count reported."""
     m, k = 10, 4000
-    out = regime_change_score(_two_halves_index(k), m=m, excl_factor=5, n_regimes=50)
+    out = regime_change_score(_two_halves_index(k), m=m, excl_factor=5, n_regimes=200)
     assert out["regime_cac"] and all(c < 1.0 for c in out["regime_cac"])
     assert out["n_regimes_found"] == len(out["regime_locs"]) + 1
-    assert len(out["regime_locs"]) < 49
+    assert len(out["regime_locs"]) < 199
     assert 0 not in out["regime_locs"]
 
 

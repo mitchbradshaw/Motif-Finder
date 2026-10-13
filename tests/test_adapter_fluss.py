@@ -158,6 +158,9 @@ def test_a_long_nan_gap_in_one_regime_is_no_change(spec):
     assert np.isnan(r.value.values[10000 - m + 1:14000]).all()
     assert r.meta["n_no_neighbour"] == 4000 + m - 1
     assert np.nanmax(r.value.values) < CUT
+    # the gap reads as the recording ending there, no more: the same as cutting it off
+    cut_off = _run(spec, x[:10000], window_s=WINDOW_S)
+    assert np.nanmax(r.value.values) == pytest.approx(np.nanmax(cut_off.value.values), abs=0.02)
     th = get_adapter("detection.threshold")
     spans = th.run(x, np.arange(len(x), dtype=float), FS, value=r.value,
                    **th.validate_params({"threshold": CUT, "merge_gap_s": 1500.0,
