@@ -64,7 +64,7 @@ def test_spec_types_category_page_name_and_the_draggable_threshold():
     assert thr and thr[0].type is float          # BLOCK_INTEGRATION §2: draggable on the upstream curve
     assert spec.validate_params({}) == {"threshold": 4.0, "merge_within_s": 2.0, "pre_s": 10.0,
                                         "max_extent_s": 600.0}
-    for bad in ({"merge_within_s": -1.0}, {"pre_s": -1.0}, {"max_extent_s": 0.0}):
+    for bad in ({"merge_within_s": -1.0}, {"pre_s": -1.0}, {"max_extent_s": 0.0}, {"threshold": -1.0}):
         with pytest.raises(ValueError):
             spec.validate_params(bad)
 
@@ -185,6 +185,14 @@ def test_scaling_the_input_leaves_the_spans_unchanged():
     b = _chain(x * 1000.0, recovery_half_s=0.0)
     assert a.value.starts == b.value.starts and a.value.ends == b.value.ends
     np.testing.assert_allclose(a.value.scores, b.value.scores, rtol=1e-6)
+
+
+
+def test_the_extent_rule_says_consecutive_spans_overlap_by_pre_s():
+    """F8: the next span starts pre_s before the next onset, which is before this one's end."""
+    from Adapters.detection_impulse_events import RULES
+    extent = [r["rule"] for r in RULES if r["name"] == "extent"][0]
+    assert "overlap" in extent and "pre_s" in extent
 
 
 if __name__ == "__main__":

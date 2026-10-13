@@ -52,7 +52,8 @@ TEMPLATE = {
                    "the last one recovered is its own event → Event shape → Intervals.",
     "steps": [
         {"stage": "preprocessing", "algorithm": "detrend", "params": {"mode": "rolling_mean", "window_s": 3600.0}},
-        {"stage": "detection", "algorithm": "deconvolve", "params": {"baseline_window_s": 1800.0}},
+        {"stage": "detection", "algorithm": "deconvolve",
+         "params": {"recovery_half_s": 120.0, "baseline_window_s": 1800.0}},
         {"stage": "detection", "algorithm": "impulse_events", "params": {}},
         {"stage": "interrogation", "algorithm": "event_shape", "params": {}},
         {"stage": "interrogation", "algorithm": "intervals", "params": {}},
@@ -87,6 +88,9 @@ def test_template_shape():
         "interrogation.event_shape", "interrogation.intervals"]
     assert TEMPLATE["steps"][0]["params"]["window_s"] >= 10 * 120.0   # far longer than the recovery
     assert TEMPLATE["steps"][1]["params"]["baseline_window_s"] >= 10 * 120.0
+    # F1: the recovery is given, never estimated by default, and the description says to set it first
+    assert TEMPLATE["steps"][1]["params"]["recovery_half_s"] == 120.0
+    assert "recovery half-time is the first knob" in TEMPLATE["description"]
 
 
 def test_template_runs_end_to_end_and_writes_its_spans_to_detections(db_and_signal):
@@ -109,6 +113,52 @@ def test_template_runs_end_to_end_and_writes_its_spans_to_detections(db_and_sign
         conn.close()
     assert out["detections_written"] == len(ss.starts) == len(rows)
     assert sorted(r["start_idx"] for r in rows) == sorted(int(s) for s in ss.starts)
+
+
+
+# -- F1: the recovery estimate through the chain -----------------------------------
+
+def _chain(x, **deconv):
+    """The template's first three blocks, run adapter by adapter (the recipe's own path)."""
+    from Adapters.registry import discover_adapters, get_adapter
+    discover_adapters()
+    t = np.arange(len(x), dtype=float) / FS
+    det, dec, imp = (get_adapter(n) for n in ("preprocessing.detrend", "detection.deconvolve",
+                                               "detection.impulse_events"))
+    xd = det.run(x, t, FS, **det.validate_params(TEMPLATE["steps"][0]["params"])).value
+    xd = np.asarray(getattr(xd, "x", xd), dtype=float)
+    params = dict(TEMPLATE["steps"][1]["params"], **deconv)
+    sc = dec.run(xd, t, FS, **dec.validate_params(params))
+    ev = imp.run(xd, t, FS, value=sc.value, **imp.validate_params({}))
+    return sc.meta, len(ev.value.starts)
+
+
+@pytest.mark.parametrize("half", [300.0, 600.0])
+def test_a_given_recovery_finds_every_trough_at_longer_half_times(half):
+    x, _, _ = troughs_12h(seed=0, drift=4e-3, half_s=half)
+    meta, n = _chain(x, recovery_half_s=half)
+    assert 27 <= n <= 33, n
+
+
+@pytest.mark.parametrize("half", [300.0, 600.0])
+def test_an_estimated_recovery_is_right_or_loudly_wrong_never_silently_fragmented(half):
+    """The critic's case: true half 300 s / 600 s through the template's own detrend + running
+    baseline, estimation on. Either the estimate is within 30 % and the count is near 30, or the
+    meta and the summary carry a warning — never 700 events in silence."""
+    x, _, _ = troughs_12h(seed=0, drift=4e-3, half_s=half)
+    meta, n = _chain(x, recovery_half_s=0.0)
+    right = abs(meta["recovery_half_s_used"] / half - 1.0) <= 0.30 and n <= 40
+    if not right:
+        assert meta["warnings"], (meta["recovery_half_s_used"], n)
+        assert "WARNING" in meta["summary"]
+
+
+def test_a_wrong_given_recovery_that_fragments_is_flagged():
+    """Half 120 given on a 300 s recording: the jumps come faster than a recovery; say so."""
+    x, _, _ = troughs_12h(seed=0, drift=4e-3, half_s=300.0)
+    meta, n = _chain(x)
+    assert n > 60
+    assert any("faster than" in w for w in meta["warnings"])
 
 
 if __name__ == "__main__":
