@@ -117,6 +117,19 @@ def test_the_length_help_text_says_what_auto_covers(spec):
     assert "half" in help_ and "recovery" in help_ and "placeholder" in help_
 
 
+def test_a_cut_omitted_rows_list_says_so(spec):
+    # fix round 1 (critic finding 5): meta lists at most 4096 left-out rows per reason, and says when it cut
+    n = 5000
+    spans = SpanSet(starts=tuple([9990] * n), ends=tuple([9995] * n))
+    m = _run(spec, np.zeros(10_000), None, spans, anchor="start", length_s=60.0).meta
+    assert m["omitted"]["past_end"] == n
+    assert len(m["omitted_rows"]["past_end"]) == 4096
+    assert m["omitted_rows_cut"] == {"past_end": n - 4096}
+    assert any("4096" in s for s in m["notes"])
+    m = _run(spec, np.zeros(10_000), None, SpanSet(starts=(9990,), ends=(9995,)), anchor="start", length_s=60.0).meta
+    assert m["omitted_rows_cut"] == {}
+
+
 def test_the_meta_a_page_reads(spec):
     x, onsets = chain("ar1", n_events=3, first=100, spacing_s=1000, n=2400)
     res = _run(spec, x, None, spans_for(onsets, pre=10, post=200), length_s=600.0)
