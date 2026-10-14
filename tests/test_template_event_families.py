@@ -142,5 +142,18 @@ def test_intervals_reports_each_familys_own_rhythm_within_ten_percent(ran):
         assert med == pytest.approx(rhythm, rel=0.10), (shape, key, med, rhythm)
 
 
+
+def test_the_shipped_template_is_the_one_tested_here():
+    """The manager keeps TEMPLATE in webui/server/templates.py::EXPERIMENTAL (it did not beat its null, W2-evaluation.md); the two must not drift apart."""
+    import os as _os
+    import sys as _sys
+    _root = _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__)))
+    for _p in (_root, _os.path.join(_root, "webui")):
+        if _p not in _sys.path:
+            _sys.path.insert(0, _p)
+    from server.templates import experimental
+    assert experimental("event_families") == TEMPLATE
+
+
 if __name__ == "__main__":
     sys.exit(pytest.main([__file__, "-q"]))

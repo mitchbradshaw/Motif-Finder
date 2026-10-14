@@ -282,6 +282,26 @@ def test_a_set_length_carries_no_auto_warning(spec):
     m = spec.run(x, np.arange(n, dtype=float), 1.0, **spec.validate_params({}), value=spans).meta
     assert m["window"]["length_s"] == 600.0
     assert not any("ceiling" in w or "floor" in w for w in m["warnings"])
+    assert not any("overlap" in w for w in m["warnings"])        # 3000 s apart: no window reaches the next
+
+
+# Re-critique should-fix 1: windows that overlap the next are warned whatever the length, the 600 s default too
+# (events 240 s apart: every window holds about 2.5 events); the floor / ceiling / recovery checks stay auto-only
+def test_dense_events_warn_that_their_windows_overlap_at_the_default_length(spec):
+    n = 1000 + 30 * 240 + 2000
+    x = np.random.default_rng(0).standard_normal(n)
+    m = spec.run(x, np.arange(n, dtype=float), 1.0, **spec.validate_params({}),
+                 value=_auto_spans(30, 240, 100.0)).meta
+    assert m["window"]["length_s"] == 600.0
+    assert any("overlap the next" in w for w in m["warnings"]), m["warnings"]
+    assert "overlap" in m["summary"]
+    assert not any("ceiling" in w or "floor" in w or "recover" in w for w in m["warnings"])
+
+
+def test_the_description_says_experimental_and_points_at_the_evaluation(spec):
+    # the event_families template did not beat its null on real recordings (W2-evaluation.md): EXPERIMENTAL
+    assert spec.description.startswith("EXPERIMENTAL:")
+    assert "W2-evaluation.md" in spec.description
 
 
 # F3: the coherence verdict is read off svd_entropy (its margin), never re-derived
@@ -297,11 +317,18 @@ def test_the_coherence_verdict_and_rule_are_svd_entropys(spec):
     assert f"{coherence.NULL_MARGIN} x null_p05" in rule and coherence.SMOOTH_CAVEAT in rule
 
 
-# F7 + F8: Ward's estimate refuses past its cap; tight bounds
-def test_wards_estimate_refuses_past_its_cap(spec):
+# F7, revised on main after the re-critique (W2-E-families.critic2.md): the estimate sees only an ASSUMED count
+# (one event per 300 s), so refusing there was a false alarm past ~417 h, and its words never reached the page
+# (the bridge reads a raising estimate as "uncalibrated"). The estimate returns its number; the run, which sees the
+# real count, refuses Ward past WARD_MAX_ITEMS in words that name hdbscan. F8: tight bounds.
+def test_wards_estimate_is_a_number_past_its_cap_and_the_run_refuses_in_words(spec, monkeypatch):
     n = 722 * 3600
+    sec = spec.estimate(np.zeros(n), np.arange(n, dtype=float), 1.0, **spec.validate_params({"method": "ward"}))
+    assert sec is not None and np.isfinite(sec) and sec > 0
+    monkeypatch.setattr(SF, "WARD_MAX_ITEMS", 10)
+    x, spans, _ = _recording()
     with pytest.raises(ValueError, match="hdbscan"):
-        spec.estimate(np.zeros(n), np.arange(n, dtype=float), 1.0, **spec.validate_params({"method": "ward"}))
+        _run(spec, x, spans, method="ward")
 
 
 def test_the_param_bounds_are_tight(spec):
