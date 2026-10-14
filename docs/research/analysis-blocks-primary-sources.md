@@ -131,6 +131,14 @@ rights are reserved by default: implement from the paper, do not port the code.
 says k-means. The plan should mention the choice of ℓ. Isolated 1 Hz fungal spikes violating the slowly-varying
 oscillation assumption is an inference, not a paper claim.
 
+*Added 2026-10-15 by the wave-3 manager, from the W3-B critic (`docs/prompts/blocks/reports/W3-B-cycle-shapes.critic.md`
+B2):* `interrogation.cycle_shapes` adapts the paper's K choice with **SigClust** (Liu, Hayes, Nobel & Marron 2008,
+*JASA* 103:1281–1293), which this file does not cover. SigClust's background-noise floor σ_N² = (MAD/0.6745)² assumes
+**sparse HDLSS data, most coordinates pure noise**. On z-normalised smooth cycles every coordinate carries the curve,
+so flooring the eigenvalues up to σ_N² inflated the null's variance 1.4–2.1× and rejected a true one-cluster AR-Toeplitz
+Gaussian 12/12 at n ≥ 200 (0/12 without the floor). The block now reports SigClust unfloored and gates K on 2-means
+calibrated against its background-null draws instead.
+
 ---
 
 ## 3. √t-warped wave transform (Knowles 2025) and the dataset
@@ -156,6 +164,13 @@ days. The companion arXiv 2112.09907 also says one sample per second.
 fs≈1 Hz; §3.4a/§4.2 *Cordyceps* "→ 5 Hz", *Pleurotus* 2 Hz), its Nyquist margins are numerically off (≈250×, not
 "3–20×"), and it lists *Pleurotus djamor* and 11 *S. commune* files that are not in the four-file Zenodo record
 (provenance unverified).
+
+*Tested 2026-10-15 by the wave-3 manager (`docs/prompts/blocks/reports/W3-evaluation.md`, "The √t check"):* on our copy
+of the same *S. commune* data (seven channels, one 72 h window each), multiscale entropy with r from the SD and **no
+detrend** gives mean entropies of **0.014–0.49** per channel (mean 0.14) over scales 1–174 s — low, a partial collapse,
+but not the preprint's "mean MSE 0.0028"; with a 2 h detrend and r from the MAD, 0.58–1.18. Drift-inflated r (the
+plan's suspicion, §4 A1) explains a low value, not that number. One channel's collapse (CH6, 0.014) comes from a single
+−71 mV spike inflating the SD, not from drift.
 
 ---
 
@@ -457,6 +472,14 @@ its docstring as an adaptation.)*
 p=2.0, mpdist_T_subseq_isconstant=None)` → `(snippets, indices, profiles, fractions, areas, regimes)`
 (`USP/stumpy/snippets.py:153`, :332–339). m ≤ len(T)//2. Padding is **NaN** (:109). `s=min(ceil(percentage*m), m)`
 (:101): **with the default, s = m and MPdist degenerates to z-normalised ED** — set `percentage` < 1.
+
+*Added 2026-10-15 by the wave-3 manager, from the W3-D critic (`docs/prompts/blocks/reports/W3-D-mpdist.critic.md` F5):*
+**MPdist** (Gharghabi et al. 2018, matrix profile XII; `stumpy.mpdist`) is the k-th smallest value of the joined
+profile P_ABBA with **k = ⌈percentage × (|A| + |B|)⌉ — a share of the two series' sample counts, not of the pool**.
+At a sub-length of half the shorter member, the default 5 % reads about the 9–11 % order statistic of the pool.
+`Working/distances.py::mpdist_distance` (the Library's fourth distance) uses 25 % — about the pool's median — as a
+named adaptation for members cut tight; its value equals `stumpy.mpdist` / √(2 × sub-length) to 7e-15 when no piece
+is left out.
 
 ### 13d. Chains
 
