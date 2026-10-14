@@ -1306,8 +1306,9 @@ def scale_readout(conn, entry_id, run_ids):
             edges_by_det.setdefault(int(e["detection_id"]), []).append(e)
 
     marks = ",".join("?" * len(ids)) or "NULL"
-    nulls = conn.execute(f"SELECT id, surrogate_of_run_id FROM runs WHERE surrogate_of_run_id IN ({marks})",
-                         tuple(ids)).fetchall()
+    # completed draws only (`queries.completed_null_draw`, W3-F fix round 2): a stopped draw is not a draw of the null
+    nulls = conn.execute(f"SELECT r.id, r.surrogate_of_run_id FROM runs r WHERE r.surrogate_of_run_id IN ({marks}) "
+                         f"AND {q.completed_null_draw('r')}", tuple(ids)).fetchall()
     draws_by_run = {}
     for n in nulls:
         draws_by_run[int(n["surrogate_of_run_id"])] = draws_by_run.get(int(n["surrogate_of_run_id"]), 0) + 1

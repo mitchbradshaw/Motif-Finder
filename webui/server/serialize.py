@@ -714,7 +714,10 @@ def _row_axis(meta, n_rows, ctx):
             "verdict": _clean(meta.get("verdict")), "suggested_window_s": _clean(meta.get("suggested_window_s")),
             "suggested_row": _clean(meta.get("suggested_row")), "cleared_s": _clean(meta.get("cleared_s") or []),
             "suggestion_rule": _clean(meta.get("suggestion_rule")), "reasons": _clean(meta.get("reasons") or {}),
-            "caveat": SUGGESTION_CAVEAT,
+            # the block's own words when it sends them (its "suggested window" rule), else the copy
+            "caveat": next((str(r.get("rule")) for r in (meta.get("rules") or [])
+                            if isinstance(r, dict) and r.get("name") == "suggested window" and r.get("rule")),
+                           SUGGESTION_CAVEAT),
             "rows": [{k: _clean(r.get(k)) for k in ("row", "length_s", "judged", "clears", "cut", "gap", "reason",
                                                      "reason_code", "n_windows_nan")} for r in per]}
     if out and meta.get("summary"):

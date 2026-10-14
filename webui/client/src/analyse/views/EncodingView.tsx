@@ -260,14 +260,15 @@ export function RowVerdictTable({ axis, verdict }: { axis: RowAxis; verdict: Row
   const td = { padding: '2px 8px', verticalAlign: 'top' as const }
   const sug = verdict.suggested_window_s
   const band = verdict.cleared_s ?? []
-  // the BAND of lengths that clear is the answer (W3-C); the suggestion is one length of it, never the event's length
+  // the BAND of lengths that clear is the answer (W3-C); the strongest is one length of it, never an event's length —
+  // said on the same line as the number (re-critique 3: the view names it "strongest", never as a length to use)
   const bandText = band.length === 0 ? `no ${axis.label} stands out`
     : band.length === 1 ? `clears at ${fmtRow(band[0], axis.unit)}`
       : `clears from ${fmtRow(band[0], axis.unit)} to ${fmtRow(band[band.length - 1], axis.unit)}`
   return (
     <div style={{ marginTop: 10 }} data-testid="row-verdict">
       <div className="bp-card-title"><h3 style={{ fontSize: 13 }}>Which {axis.label}s repeat beyond noise</h3>
-        <span className="sg" data-testid="row-verdict-headline"><b data-testid="row-verdict-band">{bandText}</b>{sug != null ? ` · suggested ${fmtRow(sug, axis.unit)}${verdict.suggestion_rule ? ` (${verdict.suggestion_rule} of the band)` : ''}` : ''}</span>
+        <span className="sg" data-testid="row-verdict-headline"><b data-testid="row-verdict-band">{bandText}</b>{sug != null ? <> · strongest at {fmtRow(sug, axis.unit)} — <b>not an event length</b></> : ''}</span>
       </div>
       <div className="mono small" style={{ color: 'var(--text-2)', marginBottom: 4 }} data-testid="row-verdict-rule">{verdict.verdict ?? ''}</div>
       {sug != null && <div className="mono small" style={{ color: 'var(--amber-700, #b76a00)', marginBottom: 4 }} data-testid="row-verdict-caveat">caveat: {verdict.caveat}</div>}
@@ -276,7 +277,7 @@ export function RowVerdictTable({ axis, verdict }: { axis: RowAxis; verdict: Row
         <tbody>{verdict.rows.map((r, i) => (
           <tr key={i} data-testid={`row-verdict-${i}`} style={verdict.suggested_row === i ? { background: 'var(--amber-100)' } : undefined}>
             <td style={td}>{i}</td>
-            <td style={td}>{fmtRow(axis.values[i] ?? r.length_s ?? NaN, axis.unit)}{verdict.suggested_row === i ? ' · suggested' : ''}</td>
+            <td style={td}>{fmtRow(axis.values[i] ?? r.length_s ?? NaN, axis.unit)}{verdict.suggested_row === i ? ' · strongest' : ''}</td>
             <td style={td}>{r.judged ? 'yes' : <span style={{ color: 'var(--muted)' }}>no</span>}</td>
             <td style={td}>{r.clears ? <span style={{ color: 'var(--green-700, #157a3a)' }}>clears</span> : r.judged ? 'no' : '—'}</td>
             <td style={td}>{r.gap == null ? '—' : r.gap.toFixed(1)}{r.cut != null ? ` · ${r.cut.toFixed(1)}` : ''}</td>

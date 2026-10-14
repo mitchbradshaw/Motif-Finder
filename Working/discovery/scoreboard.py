@@ -141,8 +141,10 @@ def _null_runs(conn, run_id):
     detection chain), and a run made before fixup-T has one. *null expects* is
     their mean, and the row states `null_draws` beside it so a single draw is
     never read as an expectation."""
+    # completed draws only (W3-F fix round 2): a draw stopped part-way is linked but is not a draw of the null
     return [int(r["id"]) for r in conn.execute(
-        "SELECT id FROM runs WHERE surrogate_of_run_id = ? ORDER BY id", (int(run_id),)).fetchall()]
+        "SELECT r.id FROM runs r WHERE r.surrogate_of_run_id = ? AND " + _q.completed_null_draw("r") + " ORDER BY r.id",
+        (int(run_id),)).fetchall()]
 
 
 def _ratio(num, den):
