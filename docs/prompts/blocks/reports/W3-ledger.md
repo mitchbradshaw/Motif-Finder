@@ -14,6 +14,9 @@ fixers in `isolation: worktree`; critics read the implementer's worktree and nev
 
 | # | Role | Block | Agent id | Worktree | Branch | Base | Status |
 |---|---|---|---|---|---|---|---|
+| 1 | implementer | W3-A `catalogue.multiscale_entropy` | `a67442d9e04015d6a` | `.claude/worktrees/agent-a67442d9e04015d6a` | `worktree-agent-a67442d9e04015d6a` | `01cb8c3` | launched 21:26 (worktree at `01cb8c3`, clean, 21:26) |
+| 2 | implementer | W3-B `interrogation.cycle_shapes` + `Working/background_null.py` | `a7834e530174e1643` | `.claude/worktrees/agent-a7834e530174e1643` | `worktree-agent-a7834e530174e1643` | `01cb8c3` | launched 21:26 (worktree at `01cb8c3`, clean, 21:26) |
+| 3 | implementer | W3-C `detection.pan_matrix_profile` | `aeeb2080e0967a2d2` | `.claude/worktrees/agent-aeeb2080e0967a2d2` | `worktree-agent-aeeb2080e0967a2d2` | `01cb8c3` | launched 21:26 (worktree at `01cb8c3`, clean, 21:26) |
 
 ## Preflight (2026-10-14 21:2x)
 
@@ -63,11 +66,55 @@ fixers in `isolation: worktree`; critics read the implementer's worktree and nev
    system-required execution state (`SetThreadExecutionState`, scratchpad `keep_awake.ps1`, 16 h, changes no
    setting, released when stopped).
 
+## The evaluation's statistics, declared before any data are seen (21:4x)
+
+The brief's table fixes each template's statistic. Where it leaves a detail open, it is fixed here, now, before any
+real recording has been run through a wave-3 block (wave 2's decision 22: a statistic chosen after seeing it pass is
+how a test fools itself). A different reading that looks better later is reported **beside** the verdict, never
+instead of it.
+
+- **`complexity_fingerprint` (W3-A).** Per run (the real one and 20 phase-randomised draws, seeds 0–19, the app's own
+  `preprocessing.surrogate` prepend), the **window-median curve** is the per-scale median of `mse_<scale>s` over the
+  run's windows that are not left out; a scale counts for a run only if every such window is defined there (the
+  block's own `mse_ci` rule). The comparison uses the scales defined in **all 21** runs. Distance = Euclidean (root of
+  the summed squared differences, in nats) over those scales. d_real = ‖real − mean(20 draws)‖; d_j = ‖draw j − mean
+  (the other 19)‖. **Beats** when d_real > every d_j (p = (1 + #{d_j ≥ d_real}) / 21). Fewer than 2 common scales →
+  "too few scales", no verdict for that recording (expected on rec 385). Ships on ≥ 2 of the 3 recordings that can
+  be judged (rec 1 and rec 3 440–464 h, rec 600 0–73 h). If the template yields no window on a span, that recording
+  is "no window", not a pass.
+- **`chain_cycles` (W3-B).** As the brief: the aligned stack's SVD entropy, σ² **and** eq. 17, each below every one
+  of 20 background-null draws (the block's own draws if it makes 20, else computed beside it through the identical
+  pipeline, seeds 0–19). A span that yields fewer cycles than the block's `min_cycles` has no verdict (expected
+  possibly on rec 2). Ships on ≥ 2 of the 3 long chains (rec 3 490–540 h, rec 6 370–470 h, rec 542 370–490 h).
+- **`motif_lengths` (W3-C).** The length is the **real run's** `suggested_window_s`; every draw is scored at that same
+  length (its median normalised nearest-neighbour distance there), never at its own suggestion. **Beats** when the
+  real median is below every draw's. When the real run suggests no length ("no length stands out"), that recording
+  **does not beat** (no statistic), and the per-length medians are reported for information. Ships on ≥ 2 of the 3
+  chains (rec 2 296–304 h, rec 6 400–408 h, rec 3 512–520 h); rec 385 (4 h) is reported as the supervisor's check
+  (does it suggest ≈ 1 min, and does that length beat all 20 draws?).
+- **Species table (W3-A, not a ship verdict).** Features = the per-scale entropies of each window over the scales
+  defined in every window of the comparison, each z-scored across all windows; label = dataset (S. commune,
+  C. militaris, F. velutipes, O. nidiformis, M2_aug; 2–3 channels each). Statistic = the silhouette of the dataset
+  labels (Euclidean). Null = the same windows' phase-randomised copies (each channel's span phase-randomised as the
+  app's surrogate does, then the identical chain), silhouette of the same labels; as many draws as the cost allows,
+  p's floor stated. Both silhouettes are reported: a surrogate that separates the species nearly as well says the
+  difference is mostly the noise colour (the spectrum), not structure beyond it.
+- **The √t check (W3-A).** S. commune channels through the template **without the detrend step and with
+  `r_scale="sd"`**: the mean entropy over the defined scales, per channel and overall, against "0.0028"; plus the
+  collapse guard's counts. Two plain answers: **the collapse reproduces** when that mean is below 0.01 (entropy
+  near zero, where an uncollapsed curve of these signals sits at tenths to units); **the number reproduces** when it
+  also lies within a factor of 3 of 0.0028 (0.001–0.008). The same numbers with the template's own settings beside
+  them, and whether the guard fired on every collapsed scale.
+
 ## Events (chronological)
 
 - 2026-10-14 21:2x — manager session started; read the brief, `00-common.md`, `critic.md`, `README.md`, W3-A/B/C/D/F/G,
   W1/W2 evaluations, the W2 ledger and critics, the plan's §4 A1–A2, §5 row 11, §6, §7, §8 and primary sources §1, §2,
   §4, §13b. Preflight above.
+- 21:25 — committed this ledger as `01cb8c3` (round 1's base). 21:26 — **round 1 launched** (rows 1–3), each told to
+  fast-forward to `01cb8c3`; all three worktrees were at `01cb8c3` with a clean tree at 21:26 (this time the tool cut
+  them at the base). Launch notes: decision 1 (`RecipeCancelled`) to W3-A and W3-C, the shared `COSTED` lines; to W3-B
+  the σ² headline (Q4) and decision 2, the re-test result, and the sampler's reuse by W3-G.
 
 ## Decisions taken on the researcher's behalf
 
