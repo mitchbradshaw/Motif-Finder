@@ -14,9 +14,11 @@ fixers in `isolation: worktree`; critics read the implementer's worktree and nev
 
 | # | Role | Block | Agent id | Worktree | Branch | Base | Status |
 |---|---|---|---|---|---|---|---|
-| 1 | implementer | W3-A `catalogue.multiscale_entropy` | `a67442d9e04015d6a` | `.claude/worktrees/agent-a67442d9e04015d6a` | `worktree-agent-a67442d9e04015d6a` | `01cb8c3` | launched 21:26 (worktree at `01cb8c3`, clean, 21:26) |
+| 1 | implementer | W3-A `catalogue.multiscale_entropy` | `a67442d9e04015d6a` | `.claude/worktrees/agent-a67442d9e04015d6a` | `worktree-agent-a67442d9e04015d6a` | `01cb8c3` | launched 21:26; reported 22:00 (`99b043f`, 33 min) → `W3-A-multiscale-entropy.md` |
+| 5 | critic | W3-A | `a03f242747d328696` | (reads row 1's worktree) | — | `01cb8c3` | launched 22:01, seven manager questions |
 | 2 | implementer | W3-B `interrogation.cycle_shapes` + `Working/background_null.py` | `a7834e530174e1643` | `.claude/worktrees/agent-a7834e530174e1643` | `worktree-agent-a7834e530174e1643` | `01cb8c3` | launched 21:26 (worktree at `01cb8c3`, clean, 21:26) |
 | 3 | implementer | W3-C `detection.pan_matrix_profile` | `aeeb2080e0967a2d2` | `.claude/worktrees/agent-aeeb2080e0967a2d2` | `worktree-agent-aeeb2080e0967a2d2` | `01cb8c3` | launched 21:26 (worktree at `01cb8c3`, clean, 21:26) |
+| 4 | implementer | W3-D `mpdist` (fourth Library distance) | `a5a78efe8b36c0a92` | `.claude/worktrees/agent-a5a78efe8b36c0a92` | `worktree-agent-a5a78efe8b36c0a92` | `64db0da` | launched 21:30, early (decision 4); the tool cut it at `3cc2f62` (origin/main), told to fast-forward |
 
 ## Preflight (2026-10-14 21:2x)
 
@@ -115,6 +117,41 @@ instead of it.
   fast-forward to `01cb8c3`; all three worktrees were at `01cb8c3` with a clean tree at 21:26 (this time the tool cut
   them at the base). Launch notes: decision 1 (`RecipeCancelled`) to W3-A and W3-C, the shared `COSTED` lines; to W3-B
   the σ² headline (Q4) and decision 2, the re-test result, and the sampler's reuse by W3-G.
+- 21:29 — the evaluation's statistics declared and committed (`64db0da`) before any data. The species registration
+  tried in a throwaway sandbox (`eval3/try_register.py`): C. militaris, F. velutipes, O. nidiformis register through
+  `scan` → `check` → `register` with the rule-5 writer and the sandbox's sidecar root (sandbox ids 615–621, 622–628,
+  629–635; 1 warning each — the inferred 1 Hz); no sidecar reached the real `DATA/` tree (asserted).
+- 21:30 — W3-D launched early (row 4, decision 4); its worktree was cut at `3cc2f62` and fast-forwarded to `64db0da`
+  within seconds (checked 21:31, clean).
+- 21:42 — the block-readout session asked for a targeted smoke on its own sandbox bridge (8797, private dist,
+  `--only zzzzzzzzzz_ak` then the analyse states): agreed — nothing of mine runs in the main checkout; merges of
+  round-1 code into `main` do not touch its bridge (it imports its worktree's code).
+- 21:5x — the readout session's targeted smoke passed (its 3 states; 41/42 analyse states, the miss needs the full
+  walk's Discovery session). It asked to merge `claude/peaceful-tesla-abc225` into `main` (readout.py, analyse_routes.py,
+  `api.ts`, BlockPage.tsx, Readout.tsx, useReadout.ts, analyse.css, its smoke page, BLOCK_INTEGRATION.md, RQ4) and then
+  run a **full smoke from the main checkout** (private dist, 8797, ~25–30 min). Agreed; **hold: no merge into `main`,
+  no `pytest -n`, no smoke, no dist rebuild until its "done"** (a merge mid-walk could make its bridge import a
+  half-new `Adapters/` tree). W3-F will start from a `main` that holds the readout work (its `api.ts` overlap).
+- 22:00 — the readout session merged its branch into `main` (`61fd50d`) and is running its full smoke (8797).
+  **W3-A reported** (2 commits on `01cb8c3`; 355 tests green; 33 min) → `W3-A-multiscale-entropy.md`. Points to
+  judge: the template cuts **72 h windows**, so a 24 h span (the brief's evaluation spans) or a 4 h recording gets
+  **no window**, refused in words; the collapse guard (ρ = r ÷ the coarse series' step MAD > 4, a measured
+  placeholder) flags the 1 s scale of a detrended random walk, so it will likely fire on every real channel's
+  smallest scales; `mse_r` is in stored units (V for M2_aug, mV for the species) and is not in
+  `BOOKKEEPING_COLUMNS`; the estimate assumes 72 h windows (3× under with 6 h windows); the cap samples 10 template
+  stretches, and RCMSE pools one offset on long series. Out of its list: the slicer moved to
+  `Working/types/windowset.py::span_relative_starts` (MiniRocket now calls it) and `mse_n_scales` /
+  `mse_n_collapsed` added to `BOOKKEEPING_COLUMNS` (W3-B adds two names to the same list: a merge conflict to
+  expect). 22:01 — critic launched (row 5) with seven questions: the window length, the guard on realistic
+  backgrounds, unit-bearing columns as features, the estimate's assumption, the cap's bias, the size and power of
+  the declared statistic, the scope.
+- 22:01 — **the declared evaluation spans for `complexity_fingerprint`, fixed now, before any data** (W3-A's 72 h
+  window came after the brief named 24 h spans): rec 1 and rec 3 are judged on a span that **starts at 440 h (wave
+  1's 24 h spans' start) and runs for one window of the template as it ships** — 440–512 h at 72 h; the 24 h spans
+  as named only if the shipped window is ≤ 24 h. rec 600 stays 0–73 h; rec 385 (4 h) is reported as "no window"
+  (refused in words), and the block is also run on it with one 4 h window, for information, as the brief's "too few
+  scales" check. Reason: a template that refuses a span cannot be judged on it; the rule depends on the template's
+  parameters, not on any result.
 
 ## Decisions taken on the researcher's behalf
 
@@ -127,6 +164,11 @@ instead of it.
    background null stays on eq. 17**, σ²'s own result against the same null reported beside it, and W3-B reports where
    the two disagree on its synthetic sets — the re-measure on σ² the researcher's decision waits for. (The template's
    evaluation statistic, fixed by the brief, requires both.)
+4. **W3-D (MPdist) starts now, beside round 1, not after it.** It depends on none of round 1's code and touches none
+   of its files (`Working/distances.py`, `tests/test_distances.py`, matching, one `DISTANCE_LABELS` line), so the
+   brief's round-2 placement buys nothing but delay; started early, its critic and fix round overlap round 1's, and
+   W3-F can then wire its Family-page read-out (item 10) instead of leaving it for a follow-up. Machine at 21:30: CPU
+   ~36 %, 16 logical cores, 13.7 GB RAM with ~1.7 GB free — four implementers, as wave 2's round 1 ran.
 3. **The Library side of decision 4 is folded into round 2**: W3-G puts σ² first in `shape_families`' summary lines and
    the coherence payload it returns, and measures both variants' verdicts against the quiet-stretch null (the verdict
    stays on eq. 17 unless the researcher moves it); W3-F puts σ² first on the Family page and the families table.
