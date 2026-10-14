@@ -24,7 +24,8 @@ fixers in `isolation: worktree`; critics read the implementer's worktree and nev
 | 2b | fixer (row 2 resumed) | W3-B fix round 2 (the last) | `a7834e530174e1643` | row 2's | row 2's | `01cb8c3` | sent 02:48; reported 03:28 (`bc2c0b1`) → `W3-B-cycle-shapes.fix2.md`; **merged as `4ab274d`** |
 | 3 | implementer | W3-C `detection.pan_matrix_profile` | `aeeb2080e0967a2d2` | `.claude/worktrees/agent-aeeb2080e0967a2d2` | `worktree-agent-aeeb2080e0967a2d2` | `01cb8c3` | launched 21:26; reported 23:04 (`925056a`, 99 min) → `W3-C-pan-matrix-profile.md` |
 | 8 | critic | W3-C | `ad8d8aad71e6d533b` | (reads row 3's worktree) | — | `01cb8c3` | launched 23:06; stopped ~00:3x (API limit), resumed 02:01; reported 03:5x: **merge after fixes** (3 blockers, 3 should-fix, 2 nits) → `W3-C-pan-matrix-profile.critic.md` |
-| 3a | fixer (row 3 resumed) | W3-C fix round 1 (merge main first) | `aeeb2080e0967a2d2` | row 3's | row 3's | `01cb8c3` → main | sent 03:53 (decisions 21–24) |
+| 3a | fixer (row 3 resumed) | W3-C fix round 1 (merge main first) | `aeeb2080e0967a2d2` | row 3's | row 3's | `01cb8c3` → main | sent 03:53; reported 04:40 (`617edc2`; merged main as `56a23f4`) → `W3-C-pan-matrix-profile.fix1.md` |
+| 8a | re-critic (row 8 resumed) | W3-C fix round 1, changed parts only | `ad8d8aad71e6d533b` | row 3's | — | — | launched 04:41 (the blockers were behavioural; asked to keep it to ~30–40 min) |
 | 4 | implementer | W3-D `mpdist` (fourth Library distance) | `a5a78efe8b36c0a92` | `.claude/worktrees/agent-a5a78efe8b36c0a92` | `worktree-agent-a5a78efe8b36c0a92` | `64db0da` | launched 21:30, early (decision 4; cut at `3cc2f62`, at `64db0da` by 21:31); reported 22:39 (`c88a236`, 68 min) → `W3-D-mpdist.md` |
 | 6 | critic | W3-D | `a380d497100469282` | (reads row 4's worktree) | — | `64db0da` | launched 22:42; reported 23:02: **merge after fixes** (4 should-fix, 4 nits; arithmetic exact) → `W3-D-mpdist.critic.md` |
 | 4a | fixer (row 4 resumed) | W3-D fix round 1 | `a5a78efe8b36c0a92` | row 4's | row 4's | `64db0da` | sent 23:06; reported 23:29 (`48710ae`) → `W3-D-mpdist.fix1.md`; **merged as `fe8e495`** |
@@ -484,6 +485,14 @@ instead of it.
   smoke states (the pan two need W3-C); the event-loop warning fixed; the CWT scalogram skipped. Out of its list:
   `store.ts`, `useValidation.ts`, `InsertStageModal.tsx`, `runtime.py`, `Working/block_cost.py`,
   `Adapters/preprocessing_window_matrix.py`. 04:39 — critic launched (row 12), seven questions.
+- 04:40 — **W3-C fix round 1 reported** (merged main `56a23f4`: adapter count 57, all `COSTED` lines kept, end_to_end
+  57; red `85951ea` → green `617edc2`; 44 + 257 tests) → `W3-C-pan-matrix-profile.fix1.md`: AAFT null by default
+  (exp(AR) 0/10 suggestions); 3 null draws and a cut rising from 6 (≥ 24 windows) to 8.5 (14 windows) — 0 of 150
+  no-structure spans suggest, planted 5/6 within a rung (`MIN_WINDOWS` 20 would have cost the 20 min motif);
+  `cleared_s` band, with the strongest gap kept as the suggestion — of three rules it lands within a rung of the
+  planted scale most often (20/38 vs 16 and 15; "shortest cleared" gave 30 s on every 90 s-motif span) — and its bias
+  stated on the face; stalls → long gaps; scrump removed; no null draws on unjudgeable lengths; `reason_code` per
+  length. 04:41 — focused re-critique sent (row 8a).
 - 03:5x — **W3-C critic: merge after fixes, three blockers.** F1: plain phase surrogates are biased here too
   (exp(AR) noise got a suggestion 10/10; AAFT 1/10 → 0/10 at 20 draws, keeping planted-motif power) → the 03:55
   correction; F2: one null draw gives 1.2–5.8 % false suggestions at 1 Hz, three gave 0 in 544 spans, the false
