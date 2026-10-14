@@ -309,8 +309,11 @@ def fingerprint_matrix(M, fit_mask=None, *, n_features=DEFAULT_N_FEATURES, max_d
         state = np.random.get_state()
         try:
             t0 = time.perf_counter()
-            mr = MiniRocket(n_kernels=int(n_features), max_dilations_per_kernel=int(max_dilations), n_jobs=-1,
-                            random_state=int(seed))
+            # n_jobs = numba's own thread cap, not -1: aeon turns -1 into every CPU and numba refuses more threads
+            # than NUMBA_NUM_THREADS allows (a node capped at one thread failed outright, 2026-10-14)
+            import numba
+            mr = MiniRocket(n_kernels=int(n_features), max_dilations_per_kernel=int(max_dilations),
+                            n_jobs=int(numba.config.NUMBA_NUM_THREADS), random_state=int(seed))
             mr.fit(fit_rows.astype(np.float32)[:, None, :])
             t1 = time.perf_counter()
             parts = [np.asarray(mr.transform(X3[i:i + TRANSFORM_CHUNK]), dtype=np.float32)
