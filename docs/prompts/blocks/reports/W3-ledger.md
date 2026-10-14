@@ -290,6 +290,17 @@ instead of it.
   surrogates at every scale, increasingly with scale (rec 3: −0.11 nats at 1 s → −0.93 at 174 s: more regular than
   noise with its values and spectrum); S. commune sits **above** at 1–7 s (+0.49 to +0.61) and below past ~48 s.
   **3 of 3 → ships.** Now running: rec 385, the √t check, the species table (20 AAFT + 5 phase draws).
+- 00:0x — **integrated `complexity_fingerprint` into CANONICAL** test-first (red `d521852` → `46480ce`; 13 + 8 venv
+  passed). rec 385: the template **refuses in words** ("no window fits: the span has 14401 samples and one window is
+  259200 … shorten window_s or widen the span"); with one 4 h window (information) 5 scales are defined and it beats
+  all 20 AAFT draws (d 1.79). **The √t check** (S. commune CH0–CH6, raw, `r_scale="sd"`): mean entropy over the 9
+  defined scales 0.197 / 0.053 / 0.052 / 0.021 / 0.161 / 0.494 / **0.014** (mean 0.14), against 0.58–1.18 through the
+  template — **a partial collapse, not the preprint's 0.0028**: none below 0.01, so by the declared answers neither the
+  collapse (< 0.01) nor the number (0.001–0.008) reproduces. **The guard fired on every defined scale of CH0–CH5 but
+  not on CH6, the most collapsed:** CH6 holds a −71 mV spike (range −71.2…1.8 mV, p99.99 |x − median| 23.9), which
+  inflates the SD before **and** after the 2 h detrend, so the inflation ratio stays near 1 — outlier-driven r
+  inflation is a second route to collapse the inflation rule cannot see. Only `r_scale="sd"` is exposed (the
+  template's MAD r is immune); a follow-up: flag SD ÷ (1.4826 × MAD) when `r_scale="sd"`.
 
 ## Decisions taken on the researcher's behalf
 
