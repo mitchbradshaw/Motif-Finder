@@ -81,6 +81,35 @@ motifs after stretching them all to the same length. If that assumption is wrong
        channels were re-derived after the 2026-09-21 data loss, so the waveforms or the item set have changed since
        g-05 was saved. Re-check g-05's families before reading a scale claim off them.
 
+- **A fourth distance, MPdist** (2026-10-15, wave 3, `docs/prompts/blocks/reports/W3-D-mpdist*.md`,
+  `W3-evaluation.md` "MPdist").
+  - **What it asks:** do two members share their short sub-shapes, each at its own speed? So extra baseline or a
+    tighter cut does not count against them. *Add N matches* now writes it as a fourth edge per accepted pair.
+  - **What it is not:** a scale test. On synthetic data a 0.8× squeezed smooth drop scored as close as an unsqueezed
+    copy, while a squeezed ringing shape scored far. The scale question is still the scale-invariant distance against
+    the native-length control.
+  - **Read it beside its noise:** smooth noise pairs score about 0.35–0.7, a shared shape about 0.1–0.3. Its noise
+    figure (trend-kept surrogates) is context only, not a verdict: it is biased on coloured noise.
+  - **On five real g-05 families** (members against their medoid; one footing for all three distances):
+    - where members and medoid share a duration, MPdist agrees with the scale-invariant distance and both sit far
+      below noise, while the native-length control reads large;
+    - in F-130, whose members are ~30× shorter than its medoid, MPdist reads at noise level (0.68) while the
+      scale-invariant distance calls them close (0.13). **That family holds together only after stretching** — the
+      per-family signal RQ3 is about.
+    - MPdist refuses members under 16 samples (21 % of the Library), in words.
+- **Families judged against the recording's own quiet stretches** (2026-10-15, wave 3, `W3-G-quiet-stretch-null*.md`,
+  `W3-evaluation.md` "The fairer noise test"). A family now passes if it beats **either** the trend-kept null or
+  windows cut from its members' own recordings where no Library member lies (selection-matched). On today's Library:
+
+  | Method | Families | Placed | Noise-like now (wave 2) | Coherence beyond noise |
+  |---|---|---|---|---|
+  | HDBSCAN | 19 | 687 | 1 (3) | 19 of 19 |
+  | HDBSCAN leaf | 23 | 582 | 0 (2) | 23 of 23 |
+  | k-Shape, k = 20 | 20 | 2,701 | 11 (8 under its old plain-phase null) | 19 of 20 |
+  | Ward (cut 0.6) | 151 | 3,296 | not tested | 116 of 151 |
+
+  Smooth families (broad humps, slow ramps) no longer read noise-like for their smoothness alone.
+
 ## Decisions already made
 
 - **Q39:** only accepted matches become members, on an explicit act.
@@ -97,6 +126,8 @@ motifs after stretching them all to the same length. If that assumption is wrong
 | The researcher's verdicts on a handful of trough exemplars' banked searches | the researcher (`RESEARCH_RUNBOOK.md` Q3) |
 | A Settings control for `seed.scale_bank` (today: `PUT /api/settings/analysis-defaults`) | unowned, small |
 | Sharkfin extent settled (re-hashes Library rows) | `future/N-event-extent.md` |
+| The Family page's MPdist column and refusal line | W3-F (wave 3 UI) |
+| A per-pair MPdist verdict from an empirical null (the member's own quiet stretches, W3-G's sampler) | follow-up, unowned |
 
 ## How it gets answered
 
@@ -136,3 +167,4 @@ in `future/N-event-extent.md`.
   as provenance only; members viewable in place from the Atlas.
 - 2026-10-13 · blocks-w1 · `detection.cwt_ridges` + template `cwt_events`: each event's own scale; beats its null on 24 h spans.
 - 2026-10-14 · blocks-w2 · the Library's k-Shape and HDBSCAN, with a noise verdict and coherence beside its null per family; today's Ward ≠ the stored g-05 (ARI 0.57) — re-check g-05 before reading scale off it; open decision added.
+- 2026-10-15 · blocks-w3 · MPdist as a fourth edge distance (w3-d; on five real families it flags one held together only after stretching); families judged against their recordings' own quiet stretches or the trend-kept null, either (w3-g; HDBSCAN noise-like 3 → 1, k-Shape offered in Analyse again).
