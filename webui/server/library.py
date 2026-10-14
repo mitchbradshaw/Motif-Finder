@@ -555,6 +555,10 @@ def _grouping_payload(conn, row) -> dict:
         "handEditsKept": _hand_edits_kept(conn, row["id"]),
         "name": row["name"], "method": row["method"], "cut": row["cut"],
         "recipeHash": row["recipe_hash"], "actor": row["actor"],
+        # w2-b fix round 1: the saved fit summary (null, k rule, family flags); None when the
+        # grouping was saved without one — the page says "not tested", never a blank verdict
+        "fitSummary": (json.loads(row["fit_summary_json"])
+                       if "fit_summary_json" in row.keys() and row["fit_summary_json"] else None),
     }
 
 
@@ -1276,6 +1280,70 @@ def get_family(request: Request, family_id: str, grouping: str | None = Query(de
         conn.close()
 
 
+#: w2-b: the family's SVD-entropy coherence, per (member spans, medoid). A member's span never changes
+#: under its id, so the key is the spans themselves; bounded like the other caches here.
+_COHERENCE_CACHE: dict = {}
+_COHERENCE_CACHE_MAX = 512
+
+
+def _family_coherence(index, rows) -> dict:
+    """`coherence.svd_entropy` over the family's shown members, read off each
+    member's own span in the STORED unit (the score z-normalises every row, so
+    the unit cannot enter; an undeclared unit therefore does not withhold it).
+    Rule 4 holds: bounded slices in, one dict of numbers out. A member whose
+    channel is not on disk (or whose recording is unknown) is left out and
+    counted in `notOnDisk`; one on a held-out recording in `heldOut`. The
+    alignment anchor is the medoid row, else the exemplar, else the row of
+    least stored distance. The cache key holds each file's mtime.
+
+    An exception is not swallowed into a blank: it comes back as
+    `{"error": ...}` beside the rule, which the Family page draws as a red
+    card, and the rest of the page still renders."""
+    from Working.library import coherence as coherence_mod
+    spans, held, missing = [], 0, 0
+    for r in rows:
+        meta = index["by_id"].get(int(r["recording_id"] or 0))
+        if meta is None:
+            missing += 1
+            continue
+        if meta.get("held_out"):
+            held += 1                  # fix round 1: counted, not dropped in silence
+            continue
+        path = meta.get("npy_path")
+        if not path or not os.path.isfile(path):
+            missing += 1
+            continue
+        # the file's mtime is in the key: a re-derived channel is a new waveform
+        spans.append((int(r["recording_id"]), int(r["start_idx"] or 0), int(r["end_idx"] or 0),
+                      bool(r.get("is_medoid")), bool(r.get("is_exemplar")), _f(r.get("distance"), 1e9),
+                      path, os.stat(path).st_mtime_ns))
+    key = (tuple(spans), held, missing)
+    hit = _COHERENCE_CACHE.get(key)
+    if hit is not None:
+        return hit
+    try:
+        waves = [np.asarray(corpus.load_native(path)[a:b], dtype=float)
+                 for _rid, a, b, _m, _e, _d, path, _t in spans]
+        # the alignment anchor: the medoid, else the exemplar, else the least stored distance —
+        # never svd_entropy's own P^2 medoid search inside a GET (10 s at 2,000 members)
+        medoid = next((i for i, s in enumerate(spans) if s[3]), None)
+        if medoid is None:
+            medoid = next((i for i, s in enumerate(spans) if s[4]), None)
+        if medoid is None and spans:
+            medoid = min(range(len(spans)), key=lambda i: spans[i][5])
+        out = coherence_mod.svd_entropy(waves, align=True, medoid=medoid)
+        out["notOnDisk"] = missing
+        out["heldOut"] = held
+    except Exception as exc:          # loud, not blank: the page draws this as a red card
+        import logging
+        logging.getLogger(__name__).exception("family coherence failed")
+        return {"error": f"{type(exc).__name__}: {exc}", "rule": coherence_mod.RULE}
+    if len(_COHERENCE_CACHE) >= _COHERENCE_CACHE_MAX:
+        _COHERENCE_CACHE.pop(next(iter(_COHERENCE_CACHE)))
+    _COHERENCE_CACHE[key] = out
+    return out
+
+
 def _family_detail(conn, index, fam, grouping_row, state=None, hidden_by_view=False) -> dict:
     # fixup-ae: the members the view shows, hand edits applied (`_view_state`), each verdict the resolver's
     state = state if state is not None else _view_state(conn, index, grouping_row, None)
@@ -1388,6 +1456,8 @@ def _family_detail(conn, index, fam, grouping_row, state=None, hidden_by_view=Fa
         # fixup-ae: what the view hid of this family, the rule it hid it by, and the rule *judged* is counted by
         "view": {**_view_report_payload(state), "family": fam.get("view"), "hiddenByView": bool(hidden_by_view)},
         "judgedRule": verdicts_mod.rule_text(conn),
+        # w2-b: how much the members are copies of one shape (SVD entropy, computed on demand, cached)
+        "coherence": _family_coherence(index, rows),
     }
 
 
@@ -2213,6 +2283,22 @@ class GroupingSaveBody(BaseModel):
     name: str | None = None
     actor: str = "this installation"
     assignments: list = Field(default_factory=list)
+    # w2-b fix round 1: the regroup job's `fitSummary`, sent back unchanged;
+    # stored as `groupings.fit_summary_json` (NULL when absent)
+    fit_summary: dict | None = None
+
+
+def _grouping_item_count(conn, unit_db, limit=None) -> int:
+    """How many rows `_grouping_items` would read, without reading a waveform —
+    what the cost estimate is made on before a regroup job starts."""
+    if unit_db == "sequences":
+        n = int(conn.execute("SELECT COUNT(*) FROM sequences").fetchone()[0])
+    else:
+        scale = "train" if unit_db == "spike_trains" else "event"
+        n = int(conn.execute(
+            "SELECT COUNT(*) FROM motif_member mm JOIN motif_entry me ON me.id = mm.entry_id "
+            "WHERE me.scale = ? OR (me.scale IS NULL AND ? = 'event')", (scale, scale)).fetchone()[0])
+    return min(n, int(limit)) if limit else n
 
 
 def _grouping_items(conn, index, unit_db, limit=None):
@@ -2262,6 +2348,29 @@ def run_grouping_job(request: Request, body: GroupingRunBody):
     if unit_db not in ("single_motifs", "sequences", "spike_trains"):
         raise HTTPException(status_code=400, detail=f"unknown grouping unit {body.unit!r}")
 
+    # w2-b fix round 1: the cost is estimated BEFORE any job starts, from the method's own
+    # `estimate`, on the member count (an upper bound: held-out or off-disk members drop out
+    # later). Over the local limit the request is refused with the estimate and cheaper settings.
+    conn = _conn(request)
+    try:
+        n_items = _grouping_item_count(conn, unit_db, body.limit)
+    finally:
+        conn.close()
+    try:
+        cost = engine_mod._recompute_cost(n_items, body.basis, body.method, body.params)
+    except KeyError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    if cost["seconds"] > engine_mod.LOCAL_LIMIT_SECONDS:
+        raise HTTPException(status_code=422, detail={
+            "message": (f"{body.method} on {n_items} members is estimated at "
+                        f"{cost['minutes']:.0f} min, over the {engine_mod.LOCAL_LIMIT_SECONDS // 60} min "
+                        f"limit for running here; there is no cluster script for groupings, so "
+                        f"choose cheaper settings"),
+            "estimateSeconds": cost["seconds"], "localLimitSeconds": engine_mod.LOCAL_LIMIT_SECONDS,
+            "members": n_items,
+            "cheaper": engine_mod.cheaper_settings(n_items, body.basis, body.method, body.params),
+        })
+
     def _work(job):
         conn = corpus.connect(rt.db_path)
         try:
@@ -2278,8 +2387,12 @@ def run_grouping_job(request: Request, body: GroupingRunBody):
             # database's row type, which is what lets it be tested without one.
             edits = [dict(e) for e in hand_edits_mod.active_edits(conn, None)]
             job.progress(2, 4, "grouping")
-            preview = engine_mod.preview(items, unit=unit_db, basis=body.basis,
-                                         method=body.method, params=body.params, hand_edits=edits)
+            try:
+                preview = engine_mod.preview(items, unit=unit_db, basis=body.basis,
+                                             method=body.method, params=body.params, hand_edits=edits,
+                                             should_cancel=job.cancel_event.is_set)
+            except engine_mod.GroupingCancelled:
+                return None
             job.progress(3, 4, "measuring")
             result = preview.result
             assignments = [
@@ -2300,6 +2413,13 @@ def run_grouping_job(request: Request, body: GroupingRunBody):
                 },
                 "mergeHeights": [ _f(h) for h in (result.merge_heights or []) ],
                 "assignments": assignments,
+                # w2-b fix round 1: the method's account of the fit (the surrogate null,
+                # the k rule, fitted vs assigned) and each family's verdict against it.
+                # The client sends `fitSummary` back as `fit_summary` on save.
+                "fitSummary": result.fit_summary,
+                "families": [{"id": fam.id, "label": fam.label, "size": fam.size,
+                              "medoid": fam.medoid, "flags": fam.flags}
+                             for fam in result.families],
             }
         finally:
             conn.close()
@@ -2332,6 +2452,8 @@ def save_grouping(request: Request, body: GroupingSaveBody):
             "recipe_hash": engine_mod.recipe_hash({
                 "unit": unit_db, "basis": body.basis, "method": body.method, "params": body.params or {}}),
             "created_at": now, "actor": body.actor,
+            "fit_summary_json": (json.dumps(engine_mod.json_safe(body.fit_summary), sort_keys=True)
+                                 if body.fit_summary is not None else None),
         })
         for a in body.assignments:
             writes.write_human(conn, "grouping_assignments", {

@@ -1,0 +1,499 @@
+"""
+hdbscan.py
+============
+HDBSCAN (Campello, Moulavi & Sander 2013, PAKDD) as a Library grouping method
+for the `shape-distance` basis — `sklearn.cluster.HDBSCAN` (1.7.2) on a
+precomputed matrix of normalised shape-based distances.
+
+In plain words: instead of "split everything into k piles", HDBSCAN looks for
+the places where shapes crowd together and leaves the stragglers out as "no
+family" — there is no number of families to choose. A straggler is omitted
+with the reason `not_in_a_dense_family`, which is the clustering version of
+the background class the round-B discussion asked for: forcing noise into a
+motif family is the failure this method exists to avoid.
+
+What is computed
+----------------
+1. Ward's shape vectors (`ward.shape_vectors`: resampled to 256 samples,
+   z-normalised). A waveform holding a NaN or an inf has no shape; it is
+   screened out before any distance with `missing_values` / `infinite_values`,
+   the reasons sklearn's -3 / -2 labels stand for (and, should sklearn itself
+   emit -2 or -3, they map to the same two reasons).
+2. A square distance matrix over the fitted rows: by default SBD / 2
+   (`Working.distances.sbd_matrix`, computed in single precision — ~1e-6 on a
+   [0, 1] scale, half the time), or, with `distance = euclidean`, Ward's own
+   normalised scale-invariant distance (`ward.condensed_distances`). Both sit
+   on the editor's [0, 1] scale.
+3. `HDBSCAN(metric="precomputed", min_cluster_size, min_samples,
+   cluster_selection_method, cluster_selection_epsilon = epsilon,
+   allow_single_cluster=False, copy=True)`. `min_samples = 0` means sklearn's
+   default (None), which equals `min_cluster_size`.
+4. Families are numbered by size, largest first.
+
+Scale
+-----
+The square matrix is n^2: the fit runs on at most `sample` rows (default
+5,000, seeded, recorded). Every other row joins the family of its nearest
+fitted *member* (never a noise row) if that distance is within the family's
+largest core distance — the core distance of a fitted row being, as in
+sklearn's brute-force path, its distance to its `min_samples`-th nearest row
+counting itself — and is otherwise `not_in_a_dense_family`. That is the
+"would it have been inside the crowd" test, not a nearest-centroid one,
+because a density family has no centre. `payload` lists the fitted and the
+assigned rows.
+
+Is a family real? (the surrogate null)
+--------------------------------------
+HDBSCAN always answers, and on coloured noise it reliably finds a "crowd" or
+two: windows of AR(1) or random-walk background mostly drift up or drift
+down, and those crowd. sklearn exposes no cluster stability, and the critic
+showed that no fixed floor on a separation ratio splits real families from
+such crowds (real families down to 2.5, noise crowds up to 3.1). So the fit is
+repeated on `null_draws` (default 3) seeded **phase-randomised surrogates** of
+the fitted vectors — each row's amplitude spectrum kept, so its colour is kept,
+its shape destroyed (`kshape.phase_randomised_rows`) — with the same distance
+and the same settings. A family is **confident only if its separation AND its
+fitted size exceed the largest separation and the largest size of any family
+HDBSCAN found in any draw**; otherwise its flags say `noise_like: true` and
+why (`unstable: true` when it is the separation that fails). Families are
+flagged, never dissolved. The null — draws, families per draw, the two maxima
+— is recorded in `payload["null"]` and the fit summary.
+
+The separation is still reported per family: the median distance from a
+member to the fitted rows outside the family over the median distance between
+its own members. It is a number to read, no longer a decider.
+
+No merge heights
+----------------
+`merge_heights` is `[]`. HDBSCAN does build a tree, but the values it selects
+clusters on are the condensed tree's lambda = 1 / distance stabilities, read
+off sklearn's private `_condense_tree`; drawing them under the editor's
+distance-scale cut slider would be a different quantity on a misleading axis,
+so none are given (LIBRARY_STORAGE.md 6.2 item 5).
+
+`epsilon` is `cluster_selection_epsilon`: families closer than this are not
+split. It was called `cut` in round 1, which invited wiring the editor's tree
+cut (default 0.42) into it and silently merging families (critic finding 6);
+`assign(cut=...)` now ignores the tree cut — HDBSCAN has no tree to cut — and
+`assign(epsilon=...)` re-selects on the stored distances.
+"""
+
+import numpy as np
+from scipy.spatial.distance import squareform
+
+from Working.distances import sbd_matrix
+from Working.library.grouping.engine import (OMIT_INFINITE_VALUES, OMIT_MISSING_VALUES,
+                                             OMIT_NOT_IN_A_DENSE_FAMILY)
+from Working.library.grouping.methods import FitResult, register
+from Working.library.grouping.engine import GroupingCancelled
+from Working.library.grouping.methods.kshape import (SBD_SCALE, NormalisedSBD,
+                                                     _z_rows, null_rng, phase_randomised_rows,
+                                                     sample_positions, screen_rows)
+from Working.library.grouping.methods.ward import (RESAMPLE_LENGTH, condensed_distances,
+                                                   shape_vectors)
+from Working.library.grouping.methods.ward import distance_scale as ward_distance_scale
+
+DEFAULT_MIN_CLUSTER_SIZE = 10     # the Library's ten-member floor (spec 9.10)
+DEFAULT_MIN_SAMPLES = 0           # 0 = None = sklearn's default, min_cluster_size
+DEFAULT_SELECTION = "eom"
+DEFAULT_EPSILON = 0.0             # cluster_selection_epsilon; sklearn's default
+DEFAULT_DISTANCE = "sbd"
+DEFAULT_SAMPLE = 5000
+DEFAULT_SEED = 0
+DEFAULT_MIN_GROUP = 10
+SELECTIONS = ("eom", "leaf")
+DISTANCES = ("sbd", "euclidean")
+
+NULL_DRAWS = 3                    # the manager's R = 3 phase-randomised draws
+
+# Cost (fix round 1, item 3), measured on this machine (2026-10-14, loaded by
+# other jobs; the earlier unloaded runs were ~2x faster): the square SBD matrix
+# 3.2e-6 s per ordered pair at 2,000 rows (12.8 s; 4.9 s unloaded), sklearn's
+# HDBSCAN on it 1.4e-6 s per pair (5.5 s); the rows assigned after the fit
+# 2.3e-6 s per (row, fitted member) — the 20,000-item run's 15,000 x 5,000
+# pairs. Mid-range values are used: a refusal on a loaded machine is cheaper
+# than a 20-minute run that was promised as 8.
+C_SQUARE = 2.0e-6
+C_CLUSTER = 1.0e-6
+C_CROSS = 2.5e-6
+
+# rows of the not-fitted set compared against the fitted members at once
+_ASSIGN_BLOCK = 2000
+
+
+def _distance_matrix(V, distance):
+    if distance == "sbd":
+        return sbd_matrix(V, z_normalise=False, dtype=np.float32) / SBD_SCALE
+    return squareform(condensed_distances(V))
+
+
+def _cross_distances(A, B, distance):
+    if distance == "sbd":
+        return sbd_matrix(A, B, z_normalise=False, dtype=np.float32) / SBD_SCALE
+    from scipy.spatial.distance import cdist
+    return cdist(A, B) / ward_distance_scale(A.shape[1])
+
+
+def _hdbscan(D, *, min_cluster_size, min_samples, selection, epsilon):
+    from sklearn.cluster import HDBSCAN
+    n = D.shape[0]
+    mcs = max(2, min(int(min_cluster_size), n))
+    ms = None if not min_samples else max(1, min(int(min_samples), n))
+    model = HDBSCAN(min_cluster_size=mcs, min_samples=ms, metric="precomputed",
+                    cluster_selection_method=selection, cluster_selection_epsilon=float(epsilon),
+                    allow_single_cluster=False, copy=True)
+    model.fit(D)
+    return model.labels_.astype(np.int64), model.probabilities_.astype(float), (ms or mcs)
+
+
+def _stability(D, labels, probabilities):
+    """Per cluster label: median membership strength and separation (module
+    docstring), on the fitted rows."""
+    out = {}
+    for c in sorted(set(labels.tolist()) - {-1, -2, -3}):
+        inside = np.flatnonzero(labels == c)
+        outside = np.flatnonzero(labels != c)
+        block = D[np.ix_(inside, inside)]
+        within = float(np.median(block[np.triu_indices(inside.size, 1)])) if inside.size > 1 else 0.0
+        between = float(np.median(D[np.ix_(inside, outside)])) if outside.size else float("nan")
+        separation = (between / within) if within > 0 else float("inf")
+        out[int(c)] = {"size_fitted": int(inside.size),
+                       "median_probability": float(np.median(probabilities[inside])),
+                       "within": within, "between": between, "separation": separation}
+    return out
+
+
+class HDBSCANMethod:
+    """HDBSCAN on a precomputed shape-distance matrix; stragglers omitted."""
+
+    name = "hdbscan"
+    label = "HDBSCAN (density)"
+    description = ("HDBSCAN (Campello et al. 2013): families are the places where shapes crowd "
+                   "together; stragglers are left out as 'no family' and no number of families "
+                   "is chosen. Tune the minimum family size first.")
+    applies_to = ("shape-distance",)
+
+    params = {
+        "min_cluster_size": {
+            "type": "int", "default": DEFAULT_MIN_CLUSTER_SIZE, "label": "minimum family size",
+            "help": "the smallest crowd of shapes that counts as a family — the Library's "
+                    "ten-member floor. Larger finds fewer, bigger families.",
+        },
+        "min_samples": {
+            "type": "int", "default": DEFAULT_MIN_SAMPLES, "label": "neighbours for a core shape",
+            "help": "how many close neighbours a shape needs to sit inside a crowd; 0 uses the "
+                    "minimum family size (sklearn's default). Larger leaves more out as noise.",
+        },
+        "cluster_selection_method": {
+            "type": "str", "default": DEFAULT_SELECTION, "label": "selection",
+            "help": "eom keeps the most persistent crowds (fewer, larger families); leaf keeps "
+                    "the finest ones (more, smaller, more homogeneous families).",
+        },
+        "epsilon": {
+            "type": "float", "default": DEFAULT_EPSILON, "label": "merge closer than (epsilon)",
+            "help": "HDBSCAN's cluster_selection_epsilon on the 0-1 distance scale: families "
+                    "closer than this are not split apart. 0 = HDBSCAN's own choice. Not the "
+                    "tree cut — HDBSCAN has no tree to cut; even 0.1 merges similar shapes.",
+        },
+        "distance": {
+            "type": "str", "default": DEFAULT_DISTANCE, "label": "distance",
+            "help": "sbd compares shapes after sliding one along the other to the best match "
+                    "(k-Shape's distance); euclidean compares them point by point (Ward's "
+                    "scale-invariant distance).",
+        },
+        "min_group": {
+            "type": "int", "default": DEFAULT_MIN_GROUP, "label": "minimum group",
+            "help": "families under this many members are omitted and flagged (spec 9.10); "
+                    "applied by the engine after the rows not fitted are assigned.",
+        },
+        "sample": {
+            "type": "int", "default": DEFAULT_SAMPLE, "label": "fit on at most",
+            "help": "members the density fit is computed on (its distance matrix is n x n); "
+                    "above this many a seeded sample is fitted and the rest join the family of "
+                    "their nearest fitted member if they sit within its crowd.",
+        },
+        "seed": {
+            "type": "int", "default": DEFAULT_SEED, "label": "seed",
+            "help": "the random seed for the sample; HDBSCAN itself is deterministic.",
+        },
+        "resample_length": {
+            "type": "int", "default": RESAMPLE_LENGTH, "label": "resample length",
+            "help": "samples every span is resampled to before z-normalising — Ward's 256.",
+        },
+        "null_draws": {
+            "type": "int", "default": NULL_DRAWS, "label": "noise draws",
+            "help": "how many phase-randomised surrogate sets (each window's colour kept, its "
+                    "shape destroyed) are clustered the same way; a family counts as confident "
+                    "only if it is more separated and larger than anything found in them. 0 = no "
+                    "null: families are reported untested. Each draw costs about one fit.",
+        },
+    }
+
+    # ---------------------------------------------------------------- fit
+
+    def fit(self, waveforms, *, params=None, should_cancel=None):
+        params = params or {}
+        L = int(params.get("resample_length", RESAMPLE_LENGTH))
+        distance = str(params.get("distance", DEFAULT_DISTANCE))
+        selection = str(params.get("cluster_selection_method", DEFAULT_SELECTION))
+        if distance not in DISTANCES:
+            raise ValueError(f"hdbscan distance must be one of {DISTANCES}; got {distance!r}.")
+        if selection not in SELECTIONS:
+            raise ValueError(f"hdbscan cluster_selection_method must be one of {SELECTIONS}; "
+                             f"got {selection!r}.")
+        epsilon = params.get("epsilon", DEFAULT_EPSILON)
+        epsilon = DEFAULT_EPSILON if epsilon is None else float(epsilon)
+        sample = int(params.get("sample", DEFAULT_SAMPLE))
+        seed = int(params.get("seed", DEFAULT_SEED))
+        waveforms = list(waveforms)
+        n = len(waveforms)
+
+        ok, bad = screen_rows(waveforms)
+        positions = np.full(n, -1, dtype=np.int64)
+        positions[ok] = np.arange(len(ok))
+        vectors = shape_vectors([waveforms[i] for i in ok], L) if ok else np.zeros((0, L))
+        fitted_pos, assigned_pos = sample_positions(len(ok), sample, seed)
+        payload = {
+            "resample_length": L,
+            "distance_scale": SBD_SCALE if distance == "sbd" else float(ward_distance_scale(L)),
+            "distance": distance, "vectors": vectors, "positions": positions,
+            "screened_out": dict(bad), "sample": sample, "seed": seed,
+            "settings": {"min_cluster_size": int(params.get("min_cluster_size", DEFAULT_MIN_CLUSTER_SIZE)),
+                         "min_samples": int(params.get("min_samples", DEFAULT_MIN_SAMPLES) or 0),
+                         "cluster_selection_method": selection},
+            "fitted_rows": [int(ok[p]) for p in fitted_pos],
+            "assigned_rows": [int(ok[p]) for p in assigned_pos],
+            "fitted_pos": fitted_pos, "assigned_pos": assigned_pos,
+        }
+        fit = FitResult(method=self.name, n=n, payload=payload)
+        fit.omit_reasons.update(bad)
+        on_demand = NormalisedSBD if distance == "sbd" else _EuclideanOnDemand
+        fit.distances = on_demand(vectors, positions, n)
+        payload["D_null"] = []
+        payload["null_draws"] = int(params.get("null_draws", NULL_DRAWS))
+        if fitted_pos.size:
+            payload["D_fit"] = _distance_matrix(vectors[fitted_pos], distance)
+            rng = null_rng(seed, 13)
+            for _ in range(payload["null_draws"] if fitted_pos.size > 1 else 0):
+                if should_cancel is not None and should_cancel():
+                    raise GroupingCancelled("cancelled while drawing the HDBSCAN null")
+                S = _z_rows(phase_randomised_rows(vectors[fitted_pos], rng))
+                payload["D_null"].append(_distance_matrix(S, distance))
+        self._cluster(fit, epsilon)
+        return fit
+
+    def _cluster(self, fit, epsilon):
+        """Run the density step on the stored fitted matrix at `epsilon`, then
+        place the rows not fitted. Kept apart from `fit` so `assign` at a new
+        epsilon re-selects clusters without recomputing a single distance."""
+        p = fit.payload
+        n = fit.n
+        ok_rows = np.flatnonzero(p["positions"] >= 0)
+        labels_ok = np.full(ok_rows.size, -1, dtype=np.int64)
+        p.update(epsilon=epsilon, family_stability={}, family_of_label={}, family_flags={}, null=None)
+        p["label"] = np.full(n, -1, dtype=np.int64)
+        p["placed_by"] = {}
+        fitted_pos, assigned_pos = p["fitted_pos"], p["assigned_pos"]
+        if fitted_pos.size == 0:
+            p["fit_summary"] = self._summary(p, n, 0)
+            return
+        D = p["D_fit"]
+        s = p["settings"]
+        if fitted_pos.size == 1:
+            labels, probs, ms = np.zeros(1, dtype=np.int64), np.ones(1), 1
+        else:
+            labels, probs, ms = _hdbscan(D, min_cluster_size=s["min_cluster_size"],
+                                         min_samples=s["min_samples"],
+                                         selection=s["cluster_selection_method"], epsilon=epsilon)
+        labels_ok[fitted_pos] = labels
+        p["probabilities"] = probs
+        p["family_stability"] = _stability(D, labels, probs) if fitted_pos.size > 1 else {}
+
+        if assigned_pos.size:
+            k = min(ms, fitted_pos.size)
+            core = np.partition(D, k - 1, axis=1)[:, k - 1]
+            member = np.flatnonzero(labels >= 0)
+            if member.size:
+                reach = {int(c): float(core[labels == c].max()) for c in set(labels[member].tolist())}
+                V_members = p["vectors"][fitted_pos[member]]
+                for b0 in range(0, assigned_pos.size, _ASSIGN_BLOCK):
+                    block = assigned_pos[b0:b0 + _ASSIGN_BLOCK]
+                    Dr = _cross_distances(p["vectors"][block], V_members, p["distance"])
+                    nearest = Dr.argmin(axis=1)
+                    near_d = Dr[np.arange(block.size), nearest]
+                    near_label = labels[member][nearest]
+                    inside = near_d <= np.array([reach[int(c)] for c in near_label])
+                    labels_ok[block[inside]] = near_label[inside]
+
+        sizes = {}
+        for c in labels_ok.tolist():
+            if c >= 0:
+                sizes[c] = sizes.get(c, 0) + 1
+        order = sorted(sizes, key=lambda c: (-sizes[c], c))
+        p["family_of_label"] = {c: rank + 1 for rank, c in enumerate(order)}
+        p["label"][ok_rows] = labels_ok
+        self._null(p, epsilon)
+        p["fit_summary"] = self._summary(p, n, ok_rows.size)
+
+    @staticmethod
+    def _null(p, epsilon):
+        """Cluster each stored surrogate matrix with the same settings and
+        flag every family against the largest separation and size seen."""
+        draws = p.get("D_null") or []
+        if not draws:
+            p["null"] = {"kind": "none", "draws": 0,
+                         "rule": "no null drawn (null_draws = 0 or one fitted row): families untested"}
+            return
+        s = p["settings"]
+        per_draw, seps, sizes = [], [0.0], [0]
+        for D_s in draws:
+            lab, prob, _ = _hdbscan(D_s, min_cluster_size=s["min_cluster_size"],
+                                    min_samples=s["min_samples"],
+                                    selection=s["cluster_selection_method"], epsilon=epsilon)
+            st = _stability(D_s, lab, prob)
+            per_draw.append([{"size_fitted": v["size_fitted"], "separation": v["separation"]}
+                             for v in st.values()])
+            seps.extend(v["separation"] for v in st.values() if np.isfinite(v["separation"]))
+            sizes.extend(v["size_fitted"] for v in st.values())
+        max_sep, max_size = float(max(seps)), int(max(sizes))
+        p["null"] = {
+            "kind": "phase-randomised", "draws": len(draws),
+            "families_per_draw": [len(d) for d in per_draw], "draw_families": per_draw,
+            "max_separation": max_sep, "max_size": max_size,
+            "rule": (f"the fitted vectors phase-randomised (amplitude spectrum kept) {len(draws)} "
+                     f"times and clustered with the same settings; a family is confident only if "
+                     f"its separation exceeds {max_sep:.2f} and its fitted size exceeds {max_size}, "
+                     f"the largest seen in any draw")}
+        for c, fam in p["family_of_label"].items():
+            st = p["family_stability"].get(c)
+            if st is None:
+                continue
+            sep, size = st["separation"], st["size_fitted"]
+            sep_ok = bool(sep > max_sep)
+            size_ok = bool(size > max_size)
+            parts = []
+            parts.append(f"separation {sep:.2f} {'beats' if sep_ok else 'does not beat'} the noise's "
+                         f"largest {max_sep:.2f}")
+            parts.append(f"{size} fitted members {'beat' if size_ok else 'do not beat'} the noise's "
+                         f"largest family of {max_size}")
+            why = "; ".join(parts) + f" ({len(draws)} phase-randomised draws)"
+            noise_like = not (sep_ok and size_ok)
+            p["family_flags"][fam] = {
+                "noise_like": noise_like, "unstable": not sep_ok, "tested": True,
+                "why": ("no better than noise of the same colour: " + why) if noise_like else why,
+                "separation": float(sep), "size_fitted": int(size),
+                "null_max_separation": max_sep, "null_max_size": max_size}
+
+    @staticmethod
+    def _summary(p, n, n_ok):
+        return {"rows": n, "screened_out": n - n_ok, "fitted": len(p["fitted_rows"]),
+                "assigned": len(p["assigned_rows"]), "sample": p["sample"], "seed": p["seed"],
+                "distance": p["distance"], "epsilon": p.get("epsilon"),
+                "families": len(p.get("family_of_label", {})),
+                "null": p.get("null"),
+                "assigned_by": ("the family of the nearest fitted member, when within that "
+                                "family's largest core distance; else not_in_a_dense_family")}
+
+    # ----------------------------------------------------------- estimate
+
+    def estimate(self, n, params, basis=None):
+        """Seconds: the fitted matrix and its clustering, once for the data and
+        once per null draw, plus the rows assigned after the fit."""
+        n = int(n)
+        n_fit = min(n, int(params.get("sample", DEFAULT_SAMPLE)) or n)
+        draws = max(0, int(params.get("null_draws", NULL_DRAWS)))
+        square = n_fit * n_fit * (C_SQUARE + C_CLUSTER)
+        return float((1 + draws) * square + (n - n_fit) * n_fit * C_CROSS)
+
+    def cheaper(self, n, params):
+        out = []
+        if int(params.get("null_draws", NULL_DRAWS)) > 1:
+            out.append(("1 noise draw instead of 3 (a weaker null)", {"null_draws": 1}))
+        if int(params.get("sample", DEFAULT_SAMPLE)) > 2000:
+            out.append(("fit on 2,000 members, assign the rest", {"sample": 2000}))
+        out.append(("fit on 2,000 members and 1 noise draw", {"sample": 2000, "null_draws": 1}))
+        return out
+
+    # ------------------------------------------------------------- assign
+
+    def assign(self, fit, *, cut=None, epsilon=None):
+        """A family id per row; `None` for noise (`not_in_a_dense_family`) and
+        for a screened-out row. `cut` — the editor's tree cut, which the
+        engine always passes — is ignored: HDBSCAN has no tree. An `epsilon`
+        other than the fitted one re-selects the clusters on the stored
+        distances (no distance is recomputed)."""
+        fit.omit_reasons.clear()
+        fit.omit_reasons.update(fit.payload.get("screened_out", {}))
+        if fit.n == 0:
+            return []
+        if epsilon is not None and float(epsilon) != fit.payload.get("epsilon"):
+            self._cluster(fit, float(epsilon))
+        label = fit.payload["label"]
+        family_of = fit.payload["family_of_label"]
+        out = []
+        for i in range(fit.n):
+            if i in fit.omit_reasons:
+                out.append(None)
+                continue
+            c = int(label[i])
+            if c >= 0:
+                out.append(family_of[c])
+                continue
+            fit.omit_reasons[i] = {-2: OMIT_INFINITE_VALUES,
+                                   -3: OMIT_MISSING_VALUES}.get(c, OMIT_NOT_IN_A_DENSE_FAMILY)
+            out.append(None)
+        fit.family_labels = {f: f"F-{f:02d}" for f in sorted(family_of.values())}
+        return out
+
+    # ------------------------------------------------------------- medoid
+
+    def medoid(self, fit, indices):
+        """`(row, mean distance to the rest)`: the member with the least summed
+        distance to the family's other FITTED members (a density family has no
+        centroid; the rows assigned after the fit are not in the matrix, and
+        a family always holds fitted members, because the assigned rows only
+        join through one). The drawing standard draws a member, never an
+        average."""
+        indices = list(indices)
+        if not indices:
+            raise ValueError("A family with no members has no medoid.")
+        if len(indices) == 1:
+            return indices[0], 0.0
+        p = fit.payload
+        fitted = set(p["fitted_rows"])
+        pool = [i for i in indices if i in fitted] or indices
+        pos_in_fit = {row: k for k, row in enumerate(p["fitted_rows"])}
+        if all(i in pos_in_fit for i in pool):
+            idx = [pos_in_fit[i] for i in pool]
+            sums = p["D_fit"][np.ix_(idx, idx)].sum(axis=1)
+            best = pool[int(np.argmin(sums))]
+        else:
+            best = min(pool, key=lambda i: float(np.nansum(fit.distances.column(i)[pool])))
+        column = fit.distances.column(best)
+        others = [i for i in indices if i != best]
+        return best, float(np.nanmean(column[others]))
+
+    # ------------------------------------------------------ merge_heights
+
+    def merge_heights(self, fit):
+        """`[]` — see the module docstring for why the tree's lambdas are not given."""
+        return []
+
+
+class _EuclideanOnDemand(NormalisedSBD):
+    """`fit.distances` under `distance = euclidean`: Ward's normalised
+    distance, one column at a time."""
+
+    def column(self, j):
+        j = int(j)
+        if j not in self._columns:
+            pos = int(self.positions[j])
+            out = np.full(self.shape[0], np.nan)
+            if pos >= 0:
+                d = _cross_distances(self.vectors, self.vectors[pos:pos + 1], "euclidean")[:, 0]
+                out[self.positions >= 0] = d[self.positions[self.positions >= 0]]
+            self._columns[j] = out
+        return self._columns[j]
+
+
+register(HDBSCANMethod())

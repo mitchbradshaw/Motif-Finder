@@ -74,6 +74,11 @@ class LabelsMethod:
                 out.append(ids[lab])
         return out
 
+    def estimate(self, n, params, basis=None):
+        """Linear in the member count (the engine's `SECONDS_PER_ITEM`)."""
+        from Working.library.grouping.engine import SECONDS_PER_ITEM
+        return n * SECONDS_PER_ITEM
+
     def merge_heights(self, fit):
         """Labels build no tree."""
         return []

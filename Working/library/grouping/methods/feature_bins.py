@@ -95,6 +95,11 @@ class FeatureBinsMethod:
                 out.append(index + 1)
         return out
 
+    def estimate(self, n, params, basis=None):
+        """Linear in the member count (the engine's `SECONDS_PER_ITEM`)."""
+        from Working.library.grouping.engine import SECONDS_PER_ITEM
+        return n * SECONDS_PER_ITEM
+
     def merge_heights(self, fit):
         """No tree, so nothing to draw a cut on. The editor draws the
         feature's own distribution (`bases.distribution`) instead."""
