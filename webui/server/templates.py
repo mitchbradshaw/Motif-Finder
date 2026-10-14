@@ -306,6 +306,28 @@ CANONICAL += [
                         side_inputs={"waveform": {"source_kind": "root_signal"}}),
                   _step("interrogation", "intervals", {})],
     },
+    {
+        "name": "motif_lengths", "kind": "encoding", "version": 1,
+        "description": "At which window lengths does anything repeat? Baseline removal (2 h rolling mean, longer "
+                       "than the longest window so an hour's shape survives) → the pan matrix profile (Madrid et al. "
+                       "2019): the matrix profile at 12 lengths from 30 s to 1 h, one image row per length (longest "
+                       "at the top), bright where the window starting there has a close look-alike. Each length is "
+                       "compared with three amplitude-adjusted copies of the span (its own values reshuffled: the "
+                       "same colour of noise, no shapes); the answer is the band of lengths that repeat beyond them "
+                       "('clears from A to B s; strongest gap at C s'). The strongest gap is not the event's length: "
+                       "it leans long when an event dominates long windows and toward edges on chains — read the "
+                       "band and the picture. Tune max_window_s first: a length is judged only when the span is 14 "
+                       "windows long (4 h: up to 17 min; 8 h: up to 34 min, so a drop chain's ~30 min unit needs a "
+                       "span of 24 h or more). 'No length stands out' means nothing repeats more than coloured noise "
+                       "does at any tested length — not that nothing happens. On the chains and the spiking "
+                       "recording it was evaluated on, every judged length cleared: there the band says only that "
+                       "the span repeats beyond noise, and where is in the picture. Two occurrences must have the "
+                       "same length to match, and loudness is ignored (each window is z-normalised).",
+        "steps": [_step("preprocessing", "detrend", {"mode": "rolling_mean", "window_s": 7200.0}),
+                  _step("detection", "pan_matrix_profile", {"min_window_s": 30.0, "max_window_s": 3600.0,
+                                                            "n_lengths": 12, "null_draws": 3, "null": "aaft",
+                                                            "seed": 0, "max_fill_s": 5.0, "stall_s": 60.0})],
+    },
 ]
 
 
