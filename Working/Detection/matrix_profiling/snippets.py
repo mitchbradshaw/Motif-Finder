@@ -440,7 +440,9 @@ def knee_detail(changes, k_max, n_pieces=None, areas=None):
     if best_k is None:
         out["reason"] = "too few snippets to read a knee"
         return out
-    tail = [changes[j] for j in range(best_k + 1, int(k_max) + 2) if j in changes]
+    # Only the finite later changes: once the later snippets leave no area at all (a mostly constant span),
+    # change_k past that point is inf or NaN. change_{best_k + 1} is finite (the drop was), so this is never empty.
+    tail = [changes[j] for j in range(best_k + 1, int(k_max) + 2) if j in changes and np.isfinite(changes[j])]
     med = float(np.median(tail))
     ratio = float(changes[best_k] / med) if med > 0 else float("inf")
     out.update(candidate=best_k, ratio=ratio)
