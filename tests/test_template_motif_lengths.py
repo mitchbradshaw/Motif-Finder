@@ -46,13 +46,16 @@ TEMPLATE = {
     "description": "At which window lengths does anything repeat? Baseline removal (2 h rolling mean, longer "
                    "than the longest window so an hour's shape survives) → the pan matrix profile (Madrid et al. "
                    "2019): the matrix profile at 12 lengths from 30 s to 1 h, one image row per length (longest "
-                   "at the top), bright where a window has a close look-alike. Each length is compared with a "
-                   "phase-randomised copy of the span (same spectrum, so the same colour of noise), and the block "
-                   "suggests the length that repeats most clearly beyond it. Tune max_window_s first: a length is "
-                   "judged only when the span is 14 windows long (a 4 h span judges up to 17 min). 'No length "
-                   "stands out' means nothing repeats more than coloured noise does at any tested length — not "
-                   "that nothing happens; more null draws make the verdict steadier. Two occurrences must have "
-                   "the same length to match, and loudness is ignored (each window is z-normalised).",
+                   "at the top), bright where the window starting there has a close look-alike. Each length is "
+                   "compared with three amplitude-adjusted copies of the span (its own values reshuffled: the same "
+                   "colour of noise, no shapes); the answer is the band of lengths that repeat beyond them "
+                   "('clears from A to B s, strongest at C'). The strongest length is not the event's length: it "
+                   "leans long when an event dominates long windows and toward edges on chains — read the band "
+                   "and the picture. Tune max_window_s first: a length is judged only when the span is 14 windows "
+                   "long (4 h: up to 17 min; 8 h: up to 34 min, so a drop chain's ~30 min unit needs a span of "
+                   "24 h or more). 'No length stands out' means nothing repeats more than coloured noise does at "
+                   "any tested length — not that nothing happens. Two occurrences must have the same length to "
+                   "match, and loudness is ignored (each window is z-normalised).",
     "steps": [
         {"stage": "preprocessing", "algorithm": "detrend",
          "params": {"mode": "rolling_mean", "window_s": 7200.0}},

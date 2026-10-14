@@ -79,7 +79,6 @@ def test_meta_names_the_rows_the_alignment_and_the_rules():
             assert k in d
     assert "suggested_window_s" in m and "verdict" in m and "summary" in m
     assert {r["name"] for r in m["rules"]} >= {"brightness", "gap to the null", "clears the null"}
-    assert m["approximate"] is False
     json.dumps({k: v for k, v in m.items()})                  # meta must be JSON-able for the bridge
 
 

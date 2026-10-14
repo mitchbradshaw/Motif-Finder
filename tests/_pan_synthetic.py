@@ -132,3 +132,21 @@ def no_structure(kind, n, seed=0):
 
 
 NO_STRUCTURE = ("ar95", "ar99", "random_walk", "pink", "drift_sine")
+
+
+def spike_train(n, seed, amp_sd=3.0, width=60):
+    """10-20 copies of a 60 s spike (a sharp peak and a slower undershoot) at
+    irregular positions on a random walk; `amp_sd` x the spread the 2 h
+    rolling-mean detrend leaves of the walk (the W3-C fix-round sweep's
+    `rw_spikes_<amp>` case, same seeds)."""
+    bg = np.cumsum(np.random.default_rng(seed).standard_normal(n))
+    sd = np.std(rolling_mean_removed(bg, 7200))
+    rng = np.random.default_rng(10_000 + seed)
+    count = int(rng.integers(10, 21))
+    t = np.arange(width, dtype=float)
+    shape = np.exp(-0.5 * ((t - 12) / 3.0) ** 2) - 0.4 * np.exp(-0.5 * ((t - 30) / 8.0) ** 2)
+    shape /= np.abs(shape).max()
+    x = bg.copy()
+    for p in np.sort(rng.choice(np.arange(200, n - 200, 300), size=count, replace=False)):
+        x[p:p + width] += amp_sd * sd * shape
+    return x
