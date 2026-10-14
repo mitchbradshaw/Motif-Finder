@@ -219,15 +219,22 @@ def _through_the_template_detrend(x):
 def test_a_raw_flatline_is_caught_after_the_templates_detrend(stall_s):
     """The critic's case (fix round 2): a held value in the RAW trace, then the template's 2 h rolling-mean
     detrend, which turns it into a gentle near-linear curve (no two samples equal) — before round 2 it was not
-    caught (n_stalled 0) and gave a confident suggestion. Now counted as stalled, and nothing is suggested."""
+    caught (n_stalled 0) and gave a confident suggestion. Now counted as stalled, and the stall behaves like a
+    gap: the band of cleared lengths equals that of the same span with the stretch blanked before the block.
+    (Not "no suggestion": on this seed the blanked twin itself cleared 976 s at gap 10.5 before lengths were
+    judged on usable samples — the walk's own repeat, not the stall's.)"""
     raw = np.cumsum(np.random.default_rng(11).standard_normal(4 * 3600))
+    clean = _through_the_template_detrend(raw)
     raw[6000:6000 + stall_s] = raw[6000]
     x = _through_the_template_detrend(raw)
     assert len(np.unique(x[6000:6000 + stall_s])) == stall_s       # no exact repeats left
     out = P.pan_matrix_profile(x, FS)
     assert out["n_stalled"] >= 0.95 * stall_s, out["n_stalled"]
     assert out["n_stalled"] <= stall_s + 4
-    assert out["suggested_window_s"] is None, out["verdict"]
+    twin = clean.copy()
+    twin[6000:6000 + stall_s] = np.nan
+    ref = P.pan_matrix_profile(twin, FS)
+    assert out["cleared_s"] == ref["cleared_s"], (out["verdict"], ref["verdict"])
 
 
 def test_a_quantised_logger_is_not_a_stall_but_a_real_stall_on_it_is():

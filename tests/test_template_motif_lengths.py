@@ -49,7 +49,7 @@ TEMPLATE = {
                    "at the top), bright where the window starting there has a close look-alike. Each length is "
                    "compared with three amplitude-adjusted copies of the span (its own values reshuffled: the same "
                    "colour of noise, no shapes); the answer is the band of lengths that repeat beyond them "
-                   "('clears from A to B s, strongest at C'). The strongest length is not the event's length: it "
+                   "('clears from A to B s; strongest gap at C s'). The strongest gap is not the event's length: it "
                    "leans long when an event dominates long windows and toward edges on chains — read the band "
                    "and the picture. Tune max_window_s first: a length is judged only when the span is 14 windows "
                    "long (4 h: up to 17 min; 8 h: up to 34 min, so a drop chain's ~30 min unit needs a span of "

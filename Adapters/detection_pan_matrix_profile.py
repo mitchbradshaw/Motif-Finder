@@ -65,8 +65,10 @@ RULES = [
     {"name": "layout",
      "rule": "Rows are window lengths, longest first (lengths_s names them); one column per sample, "
              "start-aligned: column i holds the window STARTING at sample i, so each row's last m − 1 columns are "
-             "empty. A window touching a NaN gap, or a stall (one value repeated), longer than max_fill_s is "
-             "empty too; both are counted (n_long_gap, n_stalled, n_windows_nan per length)."},
+             "empty. A window touching a NaN gap longer than max_fill_s, or a stall (a held value, or a held "
+             "value the detrend bent into a near-straight line: every second difference within 1 % of the "
+             "span's typical one) lasting stall_s or more, is empty too; both are counted (n_long_gap, "
+             "n_stalled, n_windows_nan per length)."},
     {"name": "distinct windows",
      "rule": "Per length, the windows sorted by distance and kept only if none already kept starts within m "
              "samples — no two overlap. N = how many; the best K = 3 are averaged (r_K), so one lucky pair "
@@ -85,7 +87,7 @@ RULES = [
              "beyond its typical window — as ratios, since a distance cannot go below 0 — times N^(1/3) because "
              "with fewer windows the best few vary more by chance (the exponent is measured on synthetic noise)."},
     {"name": "clears the null",
-     "rule": f"A length is judged only if the span is at least {P.MIN_WINDOWS} windows long (else 'too long to "
+     "rule": f"A length is judged only if the span's usable samples (long gaps and stalls do not count) make at least {P.MIN_WINDOWS} windows (else 'too long to "
              "judge on this span'; 4 h judges up to 17 min, 8 h up to 34 min, 24 h up to 1 h 43 min). It clears "
              f"when the gap reaches the cut — {P.GAP_MIN:g} once the span holds {P.CUT_FULL_WINDOWS} windows, rising "
              f"to {P.gap_cut(P.MIN_WINDOWS, 1):.1f} at {P.MIN_WINDOWS} (false alarms gather at the longest judged "
@@ -97,20 +99,22 @@ RULES = [
     {"name": "suggested window",
      "rule": "The answer is the BAND of cleared lengths (cleared_s): a repeated event clears a band, because "
              "windows shorter than it repeat too (pieces of it), and so do longer windows that hold it when it "
-             "dominates them. suggested_window_s is the cleared length with the largest gap — the rule that "
+             "dominates them. suggested_window_s (the field keeps its name; the summary says 'strongest gap "
+             "at') is the cleared length with the largest gap — the rule that "
              "landed within one rung of the planted scale most often (20 of 38 suggesting spans, against 16 "
              "and 15 for the shortest-length rules) — and it is not the event's length: it leans toward the "
              "longest judged window when an event dominates long windows (a 90 s spike: 30-976 s), and toward "
-             "an edge on chains (the 30-72 s fall of a drop). Do not hand it to another block as the event "
-             "length; read the band and the picture."},
+             "an edge on chains (the 30-72 s fall of a drop); in a later check it fell near either planted "
+             "motif in 2 of 10 seeds. It is not the event's length and not a window to hand another block "
+             "(FLUSS, a seed search); read the band and the picture."},
 ]
 
 
 def _run(x, t, fs, min_window_s=30.0, max_window_s=3600.0, n_lengths=12, null_draws=3, null="aaft",
-         seed=0, max_fill_s=5.0, on_progress=None, should_cancel=None):
+         seed=0, max_fill_s=5.0, stall_s=60.0, on_progress=None, should_cancel=None):
     out = P.pan_matrix_profile(
         x, fs, min_window_s=min_window_s, max_window_s=max_window_s, n_lengths=n_lengths,
-        null_draws=null_draws, null=null, seed=seed, max_fill_s=max_fill_s,
+        null_draws=null_draws, null=null, seed=seed, max_fill_s=max_fill_s, stall_s=stall_s,
         on_progress=on_progress, should_cancel=should_cancel)
     img = out.pop("image")
     if img.shape[1] != len(x):  # the image contract wavelet_summation and the Encoding view rely on
@@ -119,7 +123,7 @@ def _run(x, t, fs, min_window_s=30.0, max_window_s=3600.0, n_lengths=12, null_dr
     if out["suggested_window_s"] is not None:
         strongest = max((d for d in out["per_length"] if d["clears"]), key=lambda d: d["gap"])
         band = f"clears from {cs[0]:g} to {cs[-1]:g} s" if len(cs) > 1 else f"clears at {cs[0]:g} s"
-        head = f"{band}, strongest at {strongest['length_s']:g} s · suggested {out['suggested_window_s']:g} s"
+        head = f"{band}; strongest gap at {strongest['length_s']:g} s (not an event length)"
     elif out["verdict"].startswith("no spread"):
         head = "no spread to measure (a constant span)"
     else:
@@ -201,9 +205,13 @@ SPEC = register(AdapterSpec(
                   "bell-shaped and is kept only for comparison", choices=list(P.NULLS)),
         ParamSpec("seed", int, 0, "Seed of the null copies", min=0),
         ParamSpec("max_fill_s", float, 5.0,
-                  "NaN gaps up to this long are bridged by a straight line; longer gaps, and runs of one repeated "
-                  "value longer than this (a stalled logger), stay empty and every window touching one is left "
-                  "out (placeholder: dropouts of a few samples)", min=0.0),
+                  "NaN gaps up to this long are bridged by a straight line; longer gaps stay empty and every "
+                  "window touching one is left out (placeholder: dropouts of a few samples)", min=0.0),
+        ParamSpec("stall_s", float, 60.0,
+                  "A held value (a stalled logger, a clipped stretch) lasting this long or longer is left out "
+                  "and counted — found by its second differences staying near zero, so a held value the "
+                  "detrend has bent into a near-straight line is caught too (placeholder: a quantised 1 Hz "
+                  "logger never holds still this long by chance)", min=3.0),
     ],
     run=_run,
     input_kind="signal",
@@ -222,12 +230,12 @@ SPEC = register(AdapterSpec(
         "colour of noise, no shapes). The answer is the band of lengths that repeat beyond those copies "
         "('clears from A to B s, strongest at C'), or 'no length stands out' — nothing repeats more than this "
         "kind of noise at any tested length, not that nothing happens. The suggested length is the strongest of "
-        "the band, NOT the event's length: it leans long when an event dominates long windows and toward the "
-        "edges on chains. Tune `max_window_s` first: a length is judged only if the span is 14 windows long — "
+        "the band, NOT the event's length and not a window to hand another block: it leans long when an event "
+        "dominates long windows and toward the edges on chains. Tune `max_window_s` first: a length is judged only if the span is 14 windows long — "
         "4 h judges up to 17 min, 8 h up to 34 min, so a drop chain's ~30 min unit is out of reach on an 8 h "
         "span (expect 'no length' or the 30-72 s fall edge); judge chains on 24 h or more, or read the picture. "
-        "Detrend first. Two occurrences must have the same length to match. Runs of one held value longer than "
-        "`max_fill_s` (a stalled logger) are left out. Followed by Wavelet summation, the summed band reads "
+        "Detrend first. Two occurrences must have the same length to match. A held value lasting `stall_s` "
+        "or longer (a stalled logger; found after the detrend too) is left out and counted. Followed by Wavelet summation, the summed band reads "
         "'how strongly the windows starting here repeat across these lengths' (row_from 0 = the longest); it is "
         "NaN over the last m − 1 samples of the band's longest row (an hour at the 3600 s default). Costs one "
         "full matrix profile per length plus null_draws per judged length."

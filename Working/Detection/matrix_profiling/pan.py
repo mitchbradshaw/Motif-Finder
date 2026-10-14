@@ -57,12 +57,17 @@ The algorithm, as implemented
    NaN. NaN runs of at most `max_fill_s` are filled by a straight line
    (`Working.Detection.matrix_profiling.snippets.fill_nan`, imported); longer
    runs stay NaN, so every window touching one is NaN in the picture, left
-   out of every statistic, and counted per length (`n_windows_nan`). A run
-   of one repeated value longer than `max_fill_s` (a stalled logger or a
-   clipped stretch) is made a long gap too and counted (`n_stalled`): a
-   held value, detrended, is a ramp that matches itself exactly, and before
-   this rule a 3-20 min flatline gave a confident suggestion (gaps 6-125,
-   the critic). A constant span is reported as "no spread to measure". The
+   out of every statistic, and counted per length (`n_windows_nan`). A
+   stall — at least `stall_s` (default 60 s, a placeholder) of a held value
+   (a stalled logger, a clipped stretch) — is made a long gap too and counted
+   (`n_stalled`): a held value, detrended, is a ramp that matches itself
+   exactly, and a 3-20 min flatline gave a confident suggestion (gaps 6-125,
+   the critic). The block sees what the template's detrend hands it, where a
+   held value is no longer constant but a near-straight line, so a stall is
+   found by its second differences staying near zero (`stall_mask`,
+   `STALL_TOL`), not by equal values (fix round 2: equality never fired
+   through the template). It has its own threshold: with `max_fill_s` (5 s)
+   a quantised logger lost up to a quarter of its samples. A constant span is reported as "no spread to measure". The
    null copies are built from the filled series and get the same long gaps
    back, so real and null lose the same windows.
 6. **Which length repeats — the rule (this module's, not the paper's).**
@@ -93,7 +98,8 @@ The algorithm, as implemented
    samples, and z-normalising 15 samples is itself noisy) — with sqrt(N), 30 s
    at 0.5 Hz gave false suggestions on pink noise. A length is **judged** only
    when the span is at least `MIN_WINDOWS` windows long (fewer and it is "too
-   long to judge on this span": a 4 h span judges up to 17 min, 8 h up to
+   long to judge on this span"; only usable samples count — long gaps and
+   stalls are not span: a gap-free 4 h span judges up to 17 min, 8 h up to
    34 min, 24 h up to 1 h 43 min); it **clears the null** when the gap
    reaches `gap_cut(n, m)` — `GAP_MIN` once the span holds `CUT_FULL_WINDOWS`
    windows, rising linearly to 1.42 x `GAP_MIN` at the minimum, because the
@@ -107,9 +113,12 @@ The algorithm, as implemented
    lengths (`cleared_s`; "clears from A to B s, strongest at C"). A repeated
    event clears a band, not one rung: windows SHORTER than the event repeat
    too (pieces of it), and so do LONGER windows that hold it when it dominates
-   them. `suggested_window_s` is the cleared length with the largest gap — the
-   rule that landed within one rung of the planted scale most often (beside
-   `SUGGESTION_RULE`) — and it is NOT the event's length: it leans toward the
+   them. `suggested_window_s` (named so for compatibility; the summary and the
+   page say "strongest gap at") is the cleared length with the largest gap —
+   the rule that landed within one rung of the planted scale most often
+   (beside `SUGGESTION_RULE`) — and it is NOT the event's length, nor a
+   window to hand another block (the re-critique: near either planted motif
+   in 2 of 10 new seeds): it leans toward the
    longest judged window when an event dominates long windows, and toward an
    edge (the 30-72 s fall of a drop) on chains. An 8 h span judges only up to
    34 min, so a drop chain's ~30 min unit is out of reach there: expect "no
@@ -241,11 +250,48 @@ def _runs(mask):
     return list(zip(np.flatnonzero(d == 1), np.flatnonzero(d == -1)))
 
 
-def prepare_gaps(x, max_fill):
+#: a stall (rule step 5) is a run of at least `stall_s` where every second
+#: difference |x[i+2] - 2 x[i+1] + x[i]| is at most this fraction of the span's
+#: 75th percentile of them: a held value is exactly 0, and the template's 2 h
+#: rolling-mean detrend turns a held value into a near-straight line. Measured
+#: (fix round 2, 4 h at 1 Hz, a 20 min hold in the raw trace, then the
+#: template's detrend; random walk, AR(1) 0.97 and 0.99, pink, 3 seeds each):
+#: inside the hold the largest ratio was 3.7e-4 - 5.1e-4; in the same spans the
+#: flattest 60 s of real signal never went below 1.14 (its largest ratio). The
+#: cut 0.01 sits 20x above the first and 100x below the second. A quantised
+#: 1 Hz logger (AR(1) 0.97, ADC step 1, 1/2 or 1/5 of its SD) had no 60 s
+#: window with every second difference 0 (at most 1 in 10,000 at a step of 1 SD).
+STALL_TOL = 0.01
+
+
+def stall_mask(x, stall):
+    """Samples inside runs of at least `stall` samples whose second differences
+    all stay within STALL_TOL of the span's typical one (a held value, or a held
+    value after a rolling-mean detrend). NaN never counts as stalled."""
+    x = np.asarray(x, dtype=np.float64)
+    out = np.zeros(len(x), dtype=bool)
+    if len(x) < 3 or int(stall) < 3:
+        return out
+    with np.errstate(invalid="ignore"):
+        d2 = np.abs(np.diff(x, 2))
+    finite = np.isfinite(d2)
+    if not finite.any():
+        return out
+    typical = float(np.percentile(d2[finite], 75))
+    flat = finite & (d2 <= STALL_TOL * typical)
+    for a, b in _runs(flat):
+        # second differences a..b-1 involve samples a..b+1
+        if (b + 2) - a >= int(stall):
+            out[a:b + 2] = True
+    return out
+
+
+def prepare_gaps(x, max_fill, stall):
     """Fill NaN runs of at most `max_fill` samples by a straight line; keep
-    longer runs NaN. A run of more than `max_fill` identical consecutive
-    values (a stalled logger: every window inside it is constant and matches
-    every other exactly) is made a long gap too.
+    longer runs NaN. A stall — at least `stall` samples of a held value, or of
+    a held value that a rolling-mean detrend has turned into a near-straight
+    line (`stall_mask`) — is made a long gap too: every window inside it is
+    (nearly) a line and matches every other line exactly.
 
     Returns `(series, n_filled, n_long_gap, n_stalled, long_mask)`; `n_long_gap`
     counts every sample left out, stalls included."""
@@ -258,15 +304,9 @@ def prepare_gaps(x, max_fill):
     for a, b in _runs(bad):
         if b - a > max_fill:
             long_mask[a:b] = True
-    # stalls: runs of a repeated finite value; the first sample of the run is the value itself
-    same = np.zeros(len(x), dtype=bool)
-    same[1:] = (x[1:] == x[:-1]) & ~bad[1:]
-    n_stalled = 0
-    for a, b in _runs(same):
-        a0 = a - 1                                   # the run of equal values starts one sample earlier
-        if b - a0 > max_fill:
-            long_mask[a0:b] = True
-            n_stalled += int(b - a0)
+    stalled = stall_mask(x, stall) & ~bad
+    n_stalled = int(stalled.sum())
+    long_mask |= stalled
     out = x.copy()
     if bad.any() and not (bad & ~long_mask).sum() == 0:
         filled, _ = fill_nan(np.where(long_mask, np.nan, x))
@@ -420,7 +460,7 @@ def suggest(per_length, rule=None):
 
 
 def pan_matrix_profile(x, fs, min_window_s=30.0, max_window_s=3600.0, n_lengths=12, null_draws=3, null="aaft",
-                       seed=0, max_fill_s=5.0, on_progress=None, should_cancel=None):
+                       seed=0, max_fill_s=5.0, stall_s=60.0, on_progress=None, should_cancel=None):
     """The pan matrix profile of `x` and the per-length verdict against
     amplitude-adjusted (or phase-randomised) copies. See the module docstring
     for every rule.
@@ -473,13 +513,16 @@ def pan_matrix_profile(x, fs, min_window_s=30.0, max_window_s=3600.0, n_lengths=
                 "verdict": "no spread to measure: the span holds one value throughout, nothing can be judged",
                 "reasons": {"no_spread": len(ms)}, "n_filled": 0, "n_long_gap": 0, "n_stalled": int(n)}
 
-    series, n_filled, n_long, n_stalled, long_mask = prepare_gaps(x, int(round(float(max_fill_s) * fs)))
+    series, n_filled, n_long, n_stalled, long_mask = prepare_gaps(x, int(round(float(max_fill_s) * fs)),
+                                                                int(round(float(stall_s) * fs)))
     finite = np.isfinite(series)
     if finite.sum() < 2 * ms[0]:
         raise ValueError(f"only {int(finite.sum())} usable samples after the long gaps and stalls; "
                          "nothing to profile")
 
-    judged_ms = [m for m in rows_long_first if judgeable(n, m)]
+    # a length is judged on the samples it can use: long gaps and stalls do not count as span
+    n_usable = int(finite.sum())
+    judged_ms = [m for m in rows_long_first if judgeable(n_usable, m)]
     draws_for = {m: (null_draws if m in judged_ms else 0) for m in rows_long_first}
     base = fill_nan(series)[0] if (null_draws and judged_ms) else None   # the line across long gaps, for the FFT
     image = np.full((len(ms), n), np.nan, dtype=np.float32)
@@ -509,7 +552,7 @@ def pan_matrix_profile(x, fs, min_window_s=30.0, max_window_s=3600.0, n_lengths=
             null_d.append(distinct_values(zp, m))
             _step(f"length {m / fs:g} s, null draw {d + 1}")
         ok = np.isfinite(prof)
-        verdict = length_verdict(distinct_values(prof, m), null_d, n, m)
+        verdict = length_verdict(distinct_values(prof, m), null_d, n_usable, m)
         per_length.append({
             "row": row, "m": int(m), "length_s": m / fs,
             "best": float(np.nanmin(prof)) if ok.any() else None,
@@ -531,9 +574,9 @@ def pan_matrix_profile(x, fs, min_window_s=30.0, max_window_s=3600.0, n_lengths=
         strongest = max(cleared, key=lambda d: d["gap"])
         band = (f"clears from {cleared_s[0]:g} to {cleared_s[-1]:g} s" if len(cleared_s) > 1
                 else f"clears at {cleared_s[0]:g} s")
-        verdict = (f"{band}, strongest at {strongest['length_s']:g} s (gap {strongest['gap']:.1f}); "
-                   f"suggested {pick['length_s']:g} s — {len(cleared)} of {len(per_length)} lengths repeat "
-                   f"beyond {noun} noise of the same colour")
+        verdict = (f"{band}; strongest gap at {strongest['length_s']:g} s (gap {strongest['gap']:.1f}; not an "
+                   f"event length) — {len(cleared)} of {len(per_length)} lengths repeat beyond {noun} noise of "
+                   f"the same colour")
         suggested_s, suggested_row = pick["length_s"], pick["row"]
     else:
         suggested_s = suggested_row = None
