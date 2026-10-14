@@ -124,7 +124,8 @@ def cache_root():
 def test_the_template_is_a_training_chain_and_names_its_first_knob():
     assert kind_for_steps(TEMPLATE["steps"]) == TEMPLATE["kind"] == "training"
     d = TEMPLATE["description"]
-    assert "scale_max_s" in d and "phase-randomised" in d and "cannot show events" in d
+    assert "scale_max_s" in d and "amplitude-adjusted" in d and "cannot show events" in d
+    assert "longest whole multiple of 24 h" in d and "50 s" in d and "no window" in d
 
 
 def test_the_template_runs_end_to_end_on_a_73_hour_recording(cache_root):

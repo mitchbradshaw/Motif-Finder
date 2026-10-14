@@ -190,6 +190,14 @@ def test_a_settings_null_method_the_block_implements_resolves():
     assert ss.resolve_null(None)["method"] == "phase_randomize"
 
 
+def test_aaft_resolves_and_carries_its_label_and_note():
+    """w3-a fix round 1: the block's third method, offered by Settings with its own words."""
+    assert ss.resolve_null("aaft")["method"] == "aaft"
+    assert ss.resolve_null("amplitude-adjusted phase randomisation")["method"] == "aaft"
+    m = next(o for o in ss.offered_methods() if o["id"] == "aaft")
+    assert "amplitude" in m["label"] and "value" in m["note"] and m["default"] is False
+
+
 def test_circular_shift_is_refused_and_the_reason_names_the_block():
     r = ss.resolve_null("circular shift of the channel")
     assert r["supported"] is False

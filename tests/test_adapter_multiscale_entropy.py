@@ -51,7 +51,7 @@ def test_spec_types_tab_and_page(spec):
     assert spec.stage == "catalogue"
     assert spec.estimate is not None
     d = spec.description.lower()
-    assert "scale_max_s" in d and "phase-randomised" in d
+    assert "scale_max_s" in d and "amplitude-adjusted" in d and "aaft" in d
 
 
 def test_parameters_are_bounded_and_runtime_hooks_are_not_parameters(spec):
@@ -120,3 +120,22 @@ def test_cancel_through_the_adapter_raises_the_executors_cancellation(spec):
     with pytest.raises(RecipeCancelled):
         spec.run(x, t, 1.0, **spec.validate_params({"scale_max_s": 2.0, "n_scales": 2}), value=ws,
                  should_cancel=lambda: True)
+
+
+@pytest.mark.parametrize("fs", [1.0, 10.0])
+def test_the_estimate_assumes_the_costliest_tiling(spec, fs):
+    """Fix round 1 (critic Q4, manager decision 3): in template pairs, no tiling of a 721 h span by
+    1 h, 6 h, 24 h or 72 h windows costs more than the estimate assumes."""
+    import Adapters.catalogue_multiscale_entropy as A
+    ME = A._me()
+    p = spec.validate_params({})
+    n = int(721 * 3600 * fs)
+    taus, _ = ME.scale_taus(fs, p["scale_min_s"], p["scale_max_s"], p["n_scales"])
+    worst = A.estimate_pairs(n, fs, **p)
+    tilings = {}
+    for hours in (1, 2, 6, 24, 72):
+        W = int(hours * 3600 * fs)
+        tilings[hours] = (n // W) * ME.predicted_pairs(W, taus, p["method"], p["m"], p["min_coarse_len"],
+                                                      p["max_points"])
+        assert tilings[hours] <= worst, (hours, tilings[hours], worst)
+    assert worst <= 1.05 * max(tilings.values()) * 2   # costliest, not absurd

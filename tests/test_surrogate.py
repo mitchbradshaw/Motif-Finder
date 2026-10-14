@@ -38,8 +38,9 @@ discover_adapters()
 
 SURROGATE_NAME = "preprocessing.surrogate"
 
-# The two surrogate methods the block must offer as a choice.
-SURROGATE_METHODS = ("phase_randomize", "block_shuffle")
+# The surrogate methods the block must offer as a choice. w3-a fix round 1 added "aaft" (Theiler 1992's
+# amplitude-adjusted Fourier transform, moved here from Pipelines/drop_motifs/nulls1.py) deliberately.
+SURROGATE_METHODS = ("phase_randomize", "block_shuffle", "aaft")
 
 
 def _signal(fs=100.0, n=512):
@@ -98,3 +99,57 @@ def test_phase_randomise_preserves_power_spectrum():
     mag_original = np.abs(np.fft.rfft(x))
     mag_surrogate = np.abs(np.fft.rfft(result.value.x))
     assert np.allclose(mag_original, mag_surrogate, rtol=1e-6, atol=1e-8)
+
+
+# ── AAFT (w3-a fix round 1, manager decision 8) ─────────────────────────────
+
+def _skewed(n=4000, seed=3):
+    """Coloured noise under one-sided excursions: a non-Gaussian marginal, as the real channels have."""
+    rng = np.random.default_rng(seed)
+    noise = np.cumsum(rng.normal(0, 1, n))
+    noise = noise - np.convolve(noise, np.ones(101) / 101, mode="same")
+    spikes = np.zeros(n)
+    for onset in rng.choice(n - 40, 60, replace=False):
+        spikes[onset:onset + 8] -= np.linspace(0, 3.0, 8)
+    return noise * 0.2 + spikes
+
+
+def _aaft_as_it_was(x, rng):
+    """`Pipelines/drop_motifs/nulls1.py::aaft_surrogate` before the move, verbatim."""
+    from Adapters.preprocessing_surrogate import _phase_randomise
+    x = np.asarray(x, dtype=float).ravel()
+    ranks = np.argsort(np.argsort(x))
+    gaussian = np.sort(rng.standard_normal(len(x)))[ranks]
+    randomised = _phase_randomise(gaussian, rng)
+    return np.sort(x)[np.argsort(np.argsort(randomised))]
+
+
+def test_the_default_method_is_unchanged():
+    spec = get_adapter(SURROGATE_NAME)
+    method = next(p for p in spec.params if p.name == "method")
+    assert method.default == "phase_randomize"
+    assert method.choices == ["phase_randomize", "block_shuffle", "aaft"]
+
+
+def test_aaft_is_a_permutation_of_the_input_with_about_its_spectrum():
+    spec = get_adapter(SURROGATE_NAME)
+    x = _skewed()
+    t = np.arange(len(x)) / 10.0
+    y = spec.run(x, t, 10.0, **spec.validate_params({"method": "aaft", "seed": 4})).value.x
+    assert np.array_equal(np.sort(y), np.sort(x))
+    assert not np.array_equal(y, x)
+    px, py = np.abs(np.fft.rfft(x)) ** 2, np.abs(np.fft.rfft(y)) ** 2
+    bands = np.array_split(np.arange(1, len(px)), 20)
+    ratio = np.array([py[b].sum() / px[b].sum() for b in bands])
+    assert np.all((ratio > 0.5) & (ratio < 2.0)), ratio
+
+
+def test_the_moved_aaft_is_bit_identical_to_nulls1s_own():
+    from Adapters.preprocessing_surrogate import aaft_surrogate
+    from Pipelines.drop_motifs import nulls1
+    x = _skewed()
+    want = _aaft_as_it_was(x, np.random.default_rng(20260902))
+    assert np.array_equal(nulls1.aaft_surrogate(x, np.random.default_rng(20260902)), want)
+    assert np.array_equal(aaft_surrogate(x, np.random.default_rng(20260902)), want)
+    assert nulls1.aaft_surrogate is aaft_surrogate
+    assert np.array_equal(nulls1.make_surrogate(x, 10.0, "aaft", 20260902), want)

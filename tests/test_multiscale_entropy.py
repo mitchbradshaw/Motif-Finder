@@ -185,42 +185,85 @@ def test_the_same_process_at_1_hz_and_10_hz_gives_the_same_curve(method):
 
 
 # ── the collapse guard on coloured backgrounds ──────────────────────────────
+#
+# Fix round 1 (critic F2/Q2, manager decision 9): the guard judges INFLATION — the r rule's own spread
+# of the window as it arrives over the same spread after a 2 h rolling mean is taken out — and flags
+# EVERY scale of an inflated window. Several seeds per case: a single seed encoded a coin toss.
 
 DETREND = make_detrend_filter(1.0, "rolling_mean", 7200.0)
+SEEDS = (1, 2, 3)
 
 
-@pytest.mark.parametrize("phi,kind", [(0.95, "ramp"), (0.99, "sine")])
-def test_collapse_guard_fires_with_sd_on_a_drifting_window_not_with_mad_detrended(phi, kind):
+def _guard_run(x, r_scale="mad"):
+    return ME.multiscale_entropy(one_window(x), x, np.arange(len(x), dtype=float), 1.0, r_scale=r_scale)
+
+
+def _sqrt_t_case(kind, seed, n=DAY):
+    if kind == "raw random walk":
+        return np.cumsum(np.random.default_rng(seed).standard_normal(n))
+    bg = ar1(0.97, n, seed=seed)
+    tt = np.arange(n) / n
+    return bg + 30 * np.std(bg) * (0.6 * tt + 0.4 * np.sin(2 * np.pi * tt / 0.8))   # a smooth drift
+
+
+@pytest.mark.parametrize("seed", SEEDS)
+@pytest.mark.parametrize("kind", ["raw random walk", "raw AR(1) 0.97 + smooth drift"])
+def test_the_sqrt_t_cases_flag_every_collapsed_scale(kind, seed):
+    out = _guard_run(_sqrt_t_case(kind, seed), r_scale="sd")
+    meta = out.meta
+    defined = np.array(meta["defined_per_scale"]) > 0
+    assert defined.sum() >= 6
+    assert (np.array(meta["collapse"])[defined] == 1).all(), meta["collapse"]
+    assert meta["inflation_max"] > ME.DEFAULT_INFLATION_LIMIT
+    F = out.windows.features
+    assert F["mse_n_collapsed"].iloc[0] == defined.sum()
+    assert F["mse_inflation"].iloc[0] > ME.DEFAULT_INFLATION_LIMIT
+    w = [s for s in meta["warnings"] if "collapse" in s]
+    assert w and "r_scale" not in w[0]                      # MAD does not help (0.043 against 0.044)
+    assert "collapse" in meta["summary"]
+
+
+def _not_collapsed_case(kind, seed, n=DAY):
+    if kind == "detrended random walk":
+        return DETREND(np.cumsum(np.random.default_rng(seed).standard_normal(n)))
+    if kind == "AR(1) 0.95":
+        return ar1(0.95, n, seed=seed)
+    if kind == "AR(1) 0.99":
+        return ar1(0.99, n, seed=seed)
+    return pink(n, seed)
+
+
+@pytest.mark.parametrize("seed", SEEDS)
+@pytest.mark.parametrize("kind", ["detrended random walk", "AR(1) 0.95", "AR(1) 0.99", "raw pink"])
+def test_stationary_and_template_detrended_backgrounds_do_not_flag(kind, seed):
+    out = _guard_run(_not_collapsed_case(kind, seed))
+    assert sum(out.meta["collapse"]) == 0, (out.meta["inflation_max"], out.meta["collapse"])
+    assert not any("collapse" in w for w in out.meta["warnings"])
+    assert out.windows.features["mse_inflation"].iloc[0] <= ME.DEFAULT_INFLATION_LIMIT
+
+
+def test_rho_stays_in_meta_as_information_not_a_warning():
+    x = DETREND(np.cumsum(np.random.default_rng(5).standard_normal(DAY)))
+    out = _guard_run(x)
+    assert out.meta["rho_median"][0] > 3                 # smooth at 1 s: the step is small against r
+    assert sum(out.meta["collapse"]) == 0
+    assert any(r["name"] == "smooth" for r in out.meta["rules"])
+
+
+def test_the_drift_share_still_says_why():
     n = DAY
-    bg = ar1(phi, n, seed=int(phi * 100))
-    tt = np.arange(n)
-    drift = 50 * np.std(bg) * (tt / n if kind == "ramp" else np.sin(2 * np.pi * tt / (n / 1.5)))
-    x = bg + drift
-    raw = ME.multiscale_entropy(one_window(x), x, np.arange(n, dtype=float), 1.0, r_scale="sd")
-    assert raw.meta["collapse"][0] == 1, raw.meta["collapse"]
-    assert any("collapse" in w for w in raw.meta["warnings"])
-    assert raw.windows.features["mse_n_collapsed"].iloc[0] >= 1
-    d = DETREND(x)
-    det = ME.multiscale_entropy(one_window(d), d, np.arange(n, dtype=float), 1.0, r_scale="mad")
-    assert sum(det.meta["collapse"]) == 0, det.meta["collapse"]
-    assert not any("collapse" in w for w in det.meta["warnings"])
-    # the drift share says why: the raw window is mostly drift, the detrended one is not
-    if kind == "ramp":
-        assert raw.windows.features["mse_drift_share"].iloc[0] > 0.9
+    bg = ar1(0.95, n, seed=4)
+    x = bg + 50 * np.std(bg) * np.arange(n) / n
+    raw = _guard_run(x, r_scale="sd")
+    det = _guard_run(DETREND(x))
+    assert raw.windows.features["mse_drift_share"].iloc[0] > 0.9
     assert det.windows.features["mse_drift_share"].iloc[0] < 0.05
 
 
-def test_a_detrended_random_walk_collapses_only_at_the_smallest_scales():
-    """Named departure from the acceptance list: a random walk detrended over 2 h still wanders by
-    many times its step, so r (from its spread) is about 4 steps wide and the 1 s scale collapses.
-    The guard says so; from 13 s up it is quiet."""
-    n = DAY
-    d = DETREND(np.cumsum(np.random.default_rng(5).standard_normal(n)))
-    out = ME.multiscale_entropy(one_window(d), d, np.arange(n, dtype=float), 1.0)
-    scales = np.array(out.meta["scales_s"])
-    coll = np.array(out.meta["collapse"])
-    assert coll[scales <= 1].all()
-    assert not coll[scales >= 13].any()
+def test_unit_bearing_and_guard_columns_are_bookkeeping():
+    from Working.types.windowset import BOOKKEEPING_COLUMNS
+    for c in ("mse_r", "mse_drift_share", "mse_inflation", "mse_n_scales", "mse_n_collapsed"):
+        assert c in BOOKKEEPING_COLUMNS, c
 
 
 # ── structure against its own phase-randomised null ─────────────────────────
@@ -308,6 +351,56 @@ def test_gappy_and_flat_windows():
     assert out.meta["left_out"] == {"gap_over_max": 1, "flat": 1}
     assert out.meta["n_interpolated"] == 1 and out.meta["n_kept"] == 2
     assert any("left out" in w and "gap over max" in w for w in out.meta["warnings"])
+
+
+def test_a_window_more_than_5pct_filled_is_left_out_and_fills_reach_the_face():
+    L = 3000
+    x = ar1(0.9, 3 * L, seed=3)
+    x[np.arange(0, L, 10)] = np.nan                     # window 0: 10 % filled, every gap 1 sample
+    x[L + np.arange(0, L, 50)] = np.nan                 # window 1: 2 % filled: kept, counted
+    ws = WindowSet(starts=np.arange(3) * L, length=L, fs=1.0)
+    out = ME.multiscale_entropy(ws, x, np.arange(3 * L, dtype=float), 1.0, scale_max_s=2)
+    F = out.windows.features
+    assert F["mse_1s"].isna().tolist() == [True, False, False]
+    assert out.meta["left_out"] == {"filled_over_5pct": 1}
+    assert out.meta["n_interpolated"] == 1
+    assert any("filled" in w and "1 of 3" in w for w in out.meta["warnings"]), out.meta["warnings"]
+    assert "filled" in out.meta["summary"]
+    assert any("5 %" in r["rule"] and "placeholder" in r["rule"] for r in out.meta["rules"] if r["name"] == "gaps")
+
+
+def test_mad_zero_is_its_own_reason():
+    L = 3000
+    x = np.zeros(2 * L)
+    x[:L] = ar1(0.9, L, seed=1)
+    x[L + np.arange(0, L, 300)] = 5.0                   # mostly constant with rare steps: MAD 0, SD > 0
+    ws = WindowSet(starts=np.arange(2) * L, length=L, fs=1.0)
+    out = ME.multiscale_entropy(ws, x, np.arange(2 * L, dtype=float), 1.0, scale_max_s=2)
+    assert out.meta["left_out"] == {"mad_zero": 1}
+    assert any("MAD = 0" in w for w in out.meta["warnings"]), out.meta["warnings"]
+
+
+def test_the_scales_where_rcmse_is_mse_are_named():
+    x = ar1(0.95, DAY, seed=2)
+    out = ME.multiscale_entropy(one_window(x), x, np.arange(DAY, dtype=float), 1.0)
+    one = [s for s, k in zip(out.meta["scales_s"], out.meta["n_offsets"]) if k == 1]
+    assert one and out.meta["rcmse_equals_mse_scales_s"] == one
+    rule = next(r for r in out.meta["rules"] if r["name"] == "rcmse = mse")
+    assert f"{one[-1]:g} s" in rule["rule"]
+    assert "= MSE" in out.meta["summary"]
+
+
+def test_window_lengths_are_printed_readably():
+    assert ME.readable_seconds(600) == "10 min"
+    assert ME.readable_seconds(20_000) == "5.6 h"
+    assert ME.readable_seconds(45) == "45 s"
+    assert ME.readable_seconds(72 * 3600) == "72 h"
+    L = 600
+    x = ar1(0.9, 2 * L, seed=1)
+    ws = WindowSet(starts=np.arange(2) * L, length=L, fs=1.0)
+    out = ME.multiscale_entropy(ws, x, np.arange(2 * L, dtype=float), 1.0, scale_max_s=4, min_coarse_len=300)
+    w = [s for s in out.meta["warnings"] if "blank" in s]
+    assert w and "10 min window" in w[0], w
 
 
 def test_refusals_are_in_words():
