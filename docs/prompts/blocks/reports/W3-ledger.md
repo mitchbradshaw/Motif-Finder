@@ -417,6 +417,25 @@ instead of it.
   shapes' `cycle_stack`, `t<train>:<g>` exemplar keys and `chain.py`'s `required`; MSE's curves and the windowset
   summary/warnings; cluster's −1; decision 1's cancellation; calibration measurements; the readout session's `api.ts`
   on its base; the scratch-copy build pattern (a junction only to `node_modules`, removed with `cmd /c rmdir` first).
+- 03:47 — **MPdist read-out** (`eval3/eval_mpdist.py`; `motif_edge` is empty, so the brief's fallback: the five
+  largest families of the stored Ward g-05 whose medoid MPdist can compare, members against their medoid; all
+  distances on one footing, √(1 − r); nulls: AR(1) φ 0.99 and random-walk pairs at the same lengths, and
+  `mpdist_null`'s trend-kept context):
+
+  | Family (members; medoid / member length median) | MPdist median [p10–p90] | Scale-invariant | Native length | Noise pairs (AR / RW median) | Below noise p10 | Refused |
+  |---|---|---|---|---|---|---|
+  | F-30 (79; 364 / 552) | 0.064 [0.014–0.22] | 0.064 | 0.63 | 0.53 / 0.50 | 100 % | 0 |
+  | F-130 (55; 1,014 / 31) | **0.68** [0.18–0.73] | **0.13** | 0.70 | 0.51 / 0.51 | 27 % | 10 too short |
+  | F-141 (51; 2,154 / 32) | 0.22 [0.13–0.28] | 0.15 | 0.27 | 0.49 / 0.44 | 100 % | 4 too short |
+  | F-01 (49; 1,312 / 1,317) | 0.19 [0.11–0.42] | 0.14 | 0.58 | 0.65 / 0.54 | 91 % | 1 too short |
+  | F-88 (43; 24 / 34) | 0.22 [0.12–0.36] | 0.20 | 0.77 | 0.53 / 0.51 | 90 % | 0 |
+
+  Plainly: where a family's members share their duration with the medoid, MPdist agrees with the scale-invariant
+  distance and both sit far below noise, while the native-length control (sample for sample from the start) reads
+  large — MPdist does not count a shifted start or extra baseline. Where the members are ~30× shorter than the
+  medoid (F-130), MPdist reads at noise level while the scale-invariant distance calls them close: the family is
+  held together **only after stretching** — RQ3's own question, now visible per family. Refusals at real lengths:
+  15 of 271 pairs (members under 16 samples).
 
 ## Decisions taken on the researcher's behalf
 
