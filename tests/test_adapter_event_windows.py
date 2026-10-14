@@ -225,7 +225,9 @@ BOOK = {"split", "event_index", "anchor_offset", "overlaps_next", "train_id", "w
         # w2-e: interrogation.event_families' answer columns and the group a feature block replaced
         "family", "family_omit_reason", "family_distance", "family_noise_like", "group_upstream",
         # w3-a: catalogue.multiscale_entropy's quality counts, units and drift measures (not complexity)
-        "mse_n_scales", "mse_n_collapsed", "mse_r", "mse_drift_share", "mse_inflation"}
+        "mse_n_scales", "mse_n_collapsed", "mse_r", "mse_drift_share", "mse_inflation",
+        # w3-b: interrogation.cycle_shapes' position and answer columns
+        "cycle_index", "cycle_group", "cycle_change", "cycle_omit_reason", "cycle_corr", "cycle_shift_s"}
 
 
 def test_the_bookkeeping_columns_live_beside_windowset():

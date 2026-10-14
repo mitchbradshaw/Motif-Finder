@@ -370,5 +370,26 @@ def _run_all():
         raise SystemExit(1)
 
 
+def test_an_optional_side_input_left_unbound_is_skipped():
+    """w3-b (N3): `SideInputSpec(required=False)` unbound -> no value under its name, no error."""
+    spec = _spec([SideInputSpec(name="waveform", type_kind="signal", sources=["root_signal"], required=False)])
+    root = Signal(x=np.zeros(5), fs=1.0)
+    assert resolve_side_inputs(None, spec, {}, root_signal=root, step_results={}) == {}
+    bound = resolve_side_inputs(None, spec, {"waveform": {"source_kind": "root_signal"}}, root_signal=root,
+                                step_results={})
+    assert bound["waveform"] is root
+
+
+def test_a_required_side_input_left_unbound_still_raises():
+    spec = _spec([SideInputSpec(name="waveform", type_kind="signal", sources=["root_signal"])])
+    assert spec.side_inputs[0].required is True
+    try:
+        resolve_side_inputs(None, spec, {}, root_signal=Signal(x=np.zeros(5), fs=1.0), step_results={})
+    except SideInputResolutionError as e:
+        assert "waveform" in str(e)
+    else:
+        raise AssertionError("an unbound required side input must raise")
+
+
 if __name__ == "__main__":
     _run_all()

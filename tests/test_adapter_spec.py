@@ -396,7 +396,8 @@ def test_every_shipped_adapter_registers_without_modification():
     # + catalogue.snippets (w2-d: the typical pieces of a recording, Imani et al. 2018)
     # + w2-e's catalogue.shape_families and interrogation.event_families (the Library's clustering in a chain)
     # + w3-a's catalogue.multiscale_entropy (a multiscale-entropy curve per window, Costa et al. 2005)
-    assert len(specs) == 55, f"expected the fifty-five shipped adapters, got {sorted(specs)}"
+    # + w3-b's interrogation.cycle_shapes (the cycles of a chain, Colominas & Wu 2023's back half)
+    assert len(specs) == 56, f"expected the fifty-six shipped adapters, got {sorted(specs)}"
     # Ticket 08 remaps detection_matrix_profile (encoding -> scores) and
     # preprocessing_window_matrix (encoding -> windowset) to their correct
     # types, and adds detection_threshold, a typed (input_kind='scores')
