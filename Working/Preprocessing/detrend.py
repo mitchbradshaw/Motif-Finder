@@ -15,6 +15,21 @@ wraps its own scipy call.
 import numpy as np
 
 
+def _finite_window_mean(v, lo, hi):
+    """The mean of the finite samples of each window `v[lo[i]:hi[i]]`, from
+    cumulative sums of the finite values and of their count, so a NaN or inf
+    reaches no window but its own; NaN where a window holds no finite sample.
+    Shared by `_rolling_mean` and the drop detector's filter
+    (`Working.Detection.drop_motifs.detect.detrend`)."""
+    finite = np.isfinite(v)
+    csum = np.concatenate([[0.0], np.cumsum(np.where(finite, v, 0.0), dtype=np.float64)])
+    cfinite = np.concatenate([[0], np.cumsum(finite, dtype=np.int64)])
+    n_finite = cfinite[hi] - cfinite[lo]
+    out = np.full(len(lo), np.nan)
+    np.divide(csum[hi] - csum[lo], n_finite, out=out, where=n_finite > 0)
+    return out
+
+
 def _rolling_mean(w, window_samples):
     """Centred rolling mean via a cumulative-sum trick — O(n), edges use
     whatever window actually fits (no NaN padding, no shrinking the
@@ -29,16 +44,10 @@ def _rolling_mean(w, window_samples):
     w = np.asarray(w, dtype=np.float64)
     n = len(w)
     half = max(1, window_samples // 2)
-    finite = np.isfinite(w)
-    csum = np.concatenate([[0.0], np.cumsum(np.where(finite, w, 0.0), dtype=np.float64)])
-    cfinite = np.concatenate([[0], np.cumsum(finite, dtype=np.int64)])
     idx = np.arange(n)
     lo = np.clip(idx - half, 0, n)
     hi = np.clip(idx + half + 1, 0, n)
-    n_finite = cfinite[hi] - cfinite[lo]
-    out = np.full(n, np.nan)
-    np.divide(csum[hi] - csum[lo], n_finite, out=out, where=n_finite > 0)
-    return out
+    return _finite_window_mean(w, lo, hi)
 
 
 def make_detrend_filter(fs, mode="rolling_mean", window_s=600.0):
@@ -55,12 +64,10 @@ def make_detrend_filter(fs, mode="rolling_mean", window_s=600.0):
                         whole span — ignores `window_s`).
     window_s  : float  Rolling-window width in seconds (ignored for "linear").
 
-    Missing samples: in "rolling_mean" and "rolling_z" a NaN (or inf) sample
-    stays as it is and the samples beside it are detrended against the finite
-    samples in their window, so a gap keeps its own length.
-    "rolling_mean_nearest" is the drop detector's filter, left exactly as it
-    is: one NaN there still blanks everything after it. "linear" raises on
-    NaN (np.polyfit).
+    Missing samples: in the three rolling modes a NaN (or inf) sample stays as
+    it is and the samples beside it are detrended against the finite samples
+    in their window, so a gap keeps its own length. "linear" raises on NaN
+    (np.polyfit).
     """
     if mode not in ("rolling_mean", "rolling_mean_nearest", "rolling_z", "linear"):
         raise ValueError(f"Unknown detrend mode {mode!r} — must be 'rolling_mean', 'rolling_mean_nearest', 'rolling_z', or 'linear'")
@@ -79,7 +86,8 @@ def make_detrend_filter(fs, mode="rolling_mean", window_s=600.0):
             # numerically different at the edges from the cumulative-sum
             # rolling mean above, and the drop_detection_v1 template must
             # reproduce the seed events exactly, so it is imported rather than
-            # re-implemented (one filter, two entry points).
+            # re-implemented (one filter, two entry points; NaN-aware the same
+            # way, finite input untouched).
             from Working.Detection.drop_motifs.detect import detrend as _drop_detrend
             return _drop_detrend(w, window_samples)
         trend = _rolling_mean(w, window_samples)

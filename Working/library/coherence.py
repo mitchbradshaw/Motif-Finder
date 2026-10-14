@@ -35,9 +35,14 @@ paper's score no longer separates a pure family from a mixture, and the number
 is not comparable between families of different noise levels. Two things
 therefore travel beside it (w2-b fix round 1):
 
-* **its own null** — the same score on `NULL_DRAWS` (5) phase-randomised
-  surrogates of the members (each row's amplitude spectrum kept, its shape
-  destroyed; `kshape.phase_randomised_rows`), aligned the same way:
+* **its own null** — the same score on `NULL_DRAWS` (5) trend-kept
+  phase-randomised surrogates of the members (a cubic trend kept per row, the
+  rest phase-randomised so its colour is kept and its shape destroyed;
+  `kshape.trend_kept_surrogates`, the surrogate HDBSCAN's test uses), aligned
+  the same way. Round 1's plain phase surrogates scored 100 pure AR(1) phi 0.99
+  windows 0.813 against a null p05 of 0.821 — "more coherent than noise" by a
+  hair — because they turn a coloured window's trend into a wiggle (a line kept
+  still left it at 0.801 / 0.817; the cubic gives 0.801 / 0.794):
   `null_median`, `null_p05`. Read the score against it: "noise like these
   members' scores X". A score at or above `null_p05` is no more coherent than
   noise of the same colour.
@@ -62,7 +67,8 @@ The two adaptations
   raised 40 shifted exact copies from ~0 to 0.40). Cutting every row to the
   common span (round 1's rule) let one or two stragglers decide the window for
   the whole family: three noise members in 63 moved the score 0.36 -> 0.57.
-  Members whose best shift exceeds a quarter of the length are counted in
+  Members whose best shift exceeds `MISALIGNED_FRACTION` (0.4) of the length —
+  more than a clean family with edges 20 % off ever needs — are counted in
   `n_misaligned`. The medoid is the member with the least summed SBD to the
   others, unless the caller names it (`medoid=`) — a caller in a request path
   should, because that search is P^2.
@@ -77,19 +83,36 @@ measure: the values are None and `reason` says why in words.
 import numpy as np
 
 from Working.distances import sbd_matrix
-from Working.library.grouping.methods.kshape import null_rng, phase_randomised_rows
+from Working.library.grouping.methods.kshape import null_rng, trend_kept_surrogates
 from Working.library.grouping.methods.ward import RESAMPLE_LENGTH, shape_vectors
 
 MAX_MEMBERS = 2000
 NULL_DRAWS = 5                 # the manager's R = 5 surrogates of the members
-MISALIGNED_FRACTION = 0.25     # a best shift beyond this share of the length is counted
+# A best shift beyond this share of the length is counted in `n_misaligned`.
+# Set from clean families (fix round 2): 1,800 members of drop / sharkfin /
+# square families, each event edge off by up to 20 % of its window, needed at
+# most 0.30 of the length (p99 0.20-0.30); two members each 20 % off can sit
+# 0.4 apart, so 0.4 is the most a clean family can need. Round 1's 0.25 counted
+# 33 of 100 clean drops.
+MISALIGNED_FRACTION = 0.4
+# `beyond_noise` = score < NULL_MARGIN x null_p05 — the same placeholder margin HDBSCAN's per-family test uses.
+# Without it pure coloured noise read as "more coherent than noise" by a hair (W2-B verification on main,
+# 2026-10-14: 100 AR(1) phi 0.99 windows 0.805 vs p05 0.806; a random walk 0.807 vs 0.810).
+NULL_MARGIN = 0.9
+# The trend-kept surrogate keeps a cubic per row, so a shape that IS a smooth curve across the window (a broad
+# hump, a slow ramp) keeps that curve in its own fake noise (the same verification: a ramp's null 0.585 against the
+# family's 0.571 at 30 % noise). Said in the rule and in `beyond_noise_note`.
+SMOOTH_CAVEAT = ("smooth shapes that fill the window (broad humps, slow ramps) keep their curve in their own "
+                 "trend-kept noise and can read as no more coherent than noise: such a reading is not evidence "
+                 "that the family is noise")
 
 RULE = ("SVD entropy (Colominas & Wu 2023, eq. 17): rows = members resampled to {L} samples and "
         "z-normalised{aligned}; p_i = sigma_i / sum(sigma) over the singular values (not squared); "
         "H = -sum p_i ln p_i; normalised H / ln min(P, L). Near 0 = copies of one shape; higher = "
         "a mixture of shapes. Amplitude does not enter. Not comparable between families of "
         "different noise levels: read it against null_median / null_p05, the same score on "
-        "phase-randomised surrogates of these members.")
+        "trend-kept phase-randomised surrogates of these members; beyond_noise = score < "
+        + f"{NULL_MARGIN} x null_p05 (a placeholder margin). Caveat: {SMOOTH_CAVEAT}.")
 ALIGNED = (", each shifted to its best SBD match against the medoid, padded with its own edge "
            "value where the shift vacated samples, and re-z-normalised")
 TOP_SHARE_IS = "sigma^2 share of the main component (the fraction of variance one shape carries)"
@@ -158,10 +181,11 @@ def svd_entropy(member_matrix, align=True, *, medoid=None, resample_length=RESAM
             if np.asarray(r, dtype=float).size > 0 and np.isfinite(np.asarray(r, dtype=float)).all()]
     out = {"svd_entropy": None, "svd_entropy_norm": None, "svd_entropy_squared_norm": None,
            "null_median": None, "null_p05": None, "null_squared_median": None,
-           "null_draws": 0, "n_members": n_members, "n_used": 0,
+           "null_draws": 0, "null_kind": "trend-kept phase-randomised", "n_members": n_members, "n_used": 0,
            "n_dropped": n_members - len(keep), "n_misaligned": 0, "sampled": False,
            "aligned": False, "padding": None, "medoid_index": None,
            "top_share": None, "top_share_is": TOP_SHARE_IS,
+           "beyond_noise": None, "null_margin": NULL_MARGIN,
            "rule": RULE.format(L=L, aligned=ALIGNED if align else "")
                    + (" SQUARED VARIANT as the headline: p_i = sigma_i^2 / sum(sigma^2) — not "
                       "eq. 17." if squared else ""),
@@ -207,7 +231,7 @@ def svd_entropy(member_matrix, align=True, *, medoid=None, resample_length=RESAM
     rng = null_rng(seed, 17)
     null, null_sq = [], []
     for _ in range(max(0, int(null_draws))):
-        S = _z_rows(phase_randomised_rows(V0, rng))
+        S = _z_rows(trend_kept_surrogates(V0, rng))
         if align:
             S, _ = _align_to(S, m)
         s = _entropies(S)
@@ -218,4 +242,6 @@ def svd_entropy(member_matrix, align=True, *, medoid=None, resample_length=RESAM
         out.update(null_draws=len(null), null_median=float(np.median(null)),
                    null_p05=float(np.percentile(null, 5)),
                    null_squared_median=float(np.median(null_sq)))
+        # the verdict, with the margin (module constants): None when there is no score or no null
+        out["beyond_noise"] = bool(out["svd_entropy_norm"] < NULL_MARGIN * out["null_p05"])
     return out

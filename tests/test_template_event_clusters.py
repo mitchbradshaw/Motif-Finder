@@ -144,3 +144,15 @@ def test_on_a_span_that_does_not_start_at_zero_the_windows_are_channel_absolute(
 
 if __name__ == "__main__":
     sys.exit(pytest.main([__file__, "-q"]))
+
+
+def test_the_shipped_template_is_the_one_tested_here():
+    """The manager keeps TEMPLATE in webui/server/templates.py::EXPERIMENTAL (it did not beat its null, W2-evaluation.md); the two must not drift apart."""
+    import os as _os
+    import sys as _sys
+    _root = _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__)))
+    for _p in (_root, _os.path.join(_root, "webui")):
+        if _p not in _sys.path:
+            _sys.path.insert(0, _p)
+    from server.templates import experimental
+    assert experimental("event_clusters") == TEMPLATE

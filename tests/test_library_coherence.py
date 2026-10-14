@@ -92,12 +92,31 @@ def test_a_few_stragglers_do_not_decide_the_alignment_for_the_family():
     assert with_strays - base < 0.08, (base, with_strays)
 
 
-def test_a_member_shifted_more_than_a_quarter_of_the_length_is_counted_misaligned():
-    rng = np.random.default_rng(10)
+def test_clean_shifted_copies_are_not_counted_misaligned_and_a_far_one_is():
+    """Fix round 2: the threshold is set from the shift distribution of clean
+    families — 1,800 members of drop/sharkfin/square families, each edge off by
+    up to 20 % of its window, needed at most 0.30 of the length — and the rule
+    is 0.4 of the length (two members each 20 % off can sit 0.4 apart)."""
+    from _shape_families import drop, member
+    from Working.library import coherence
+    assert coherence.MISALIGNED_FRACTION == 0.4
+    rng = np.random.default_rng(12)
+    clean = [member(drop, rng, noise=0.05, kind="ar1_095", max_shift=0.2) for _ in range(100)]
+    assert svd_entropy(clean)["n_misaligned"] == 0
     rows = _members(_bump, 20, rng, noise=0.01)
-    rows.append(_bump(0.12) + 0.01 * rng.normal(size=T.size))      # 0.38 of the length off
-    out = svd_entropy(rows, medoid=0)
-    assert out["n_misaligned"] == 1
+    rows.append(_bump(0.04) + 0.01 * rng.normal(size=T.size))      # 0.46 of the length off
+    assert svd_entropy(rows, medoid=0)["n_misaligned"] == 1
+
+
+def test_pure_coloured_noise_is_not_more_coherent_than_its_own_null():
+    """Re-critique finding 2: 100 pure AR(1) phi 0.99 windows scored 0.813
+    against a phase-randomised null p05 of 0.821 — "more coherent than noise".
+    The null is now trend-kept, the same surrogate HDBSCAN uses."""
+    rng = np.random.default_rng(13)
+    noise = [background(150, "ar1_099", rng) for _ in range(100)]
+    out = svd_entropy(noise)
+    assert out["null_kind"] == "trend-kept phase-randomised"
+    assert out["svd_entropy_norm"] >= out["null_p05"], out
 
 
 def test_the_score_comes_with_its_own_noise_null_and_the_squared_variant():
@@ -192,3 +211,23 @@ def test_a_named_medoid_is_the_alignment_anchor():
 
 if __name__ == "__main__":
     sys.exit(pytest.main([__file__, "-q"]))
+
+
+def test_beyond_noise_carries_a_margin_and_the_smooth_shape_caveat():
+    """W2-B verification on main (manager, 2026-10-14): pure coloured noise sits a hair BELOW its own trend-kept null
+    (AR(1) phi 0.99: 0.805 vs p05 0.806), so "below null_p05 = coherent" would call noise coherent. The verdict
+    `beyond_noise` carries the same 0.9 margin HDBSCAN's test uses (score < 0.9 x null_p05). And a smooth shape that
+    fills the window (a broad hump, a ramp) keeps its curve in its own trend-kept noise, so the rule text says a
+    "no more coherent than noise" reading is not evidence there."""
+    from Working.library import coherence
+    rng = np.random.default_rng(21)
+    noise = [background(150, "ar1_099", rng) for _ in range(100)]
+    n = svd_entropy(noise)
+    assert n["null_margin"] == coherence.NULL_MARGIN == 0.9
+    assert n["beyond_noise"] is False, n
+    copies = _members(_bump, 40, rng, noise=0.01, kind="ar1_095")
+    c = svd_entropy(copies)
+    assert c["beyond_noise"] is True, c
+    assert "smooth" in n["rule"] and "not evidence" in n["rule"]
+    few = svd_entropy(noise[:1])
+    assert few["beyond_noise"] is None, "no score, no verdict"

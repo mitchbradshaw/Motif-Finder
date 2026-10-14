@@ -504,14 +504,40 @@ reports `tested: false`, so no page reads an absent test as a pass. Both are JSO
 returns them (`fitSummary`, `families[].flags`) and a saved grouping keeps the summary in
 `groupings.fit_summary_json`.
 
-**The surrogate null** (`kshape`, `hdbscan`). Coloured noise crowds: windows of AR(1) or random-walk
-background mostly drift up or drift down, so a clustering method finds "families" in pure noise, and no
-fixed threshold separates them from real ones. Both methods therefore fit the same way on seeded
-phase-randomised surrogates of the vectors — each row's amplitude spectrum kept (its colour), its shape
-destroyed. HDBSCAN calls a family confident only if its separation and its fitted size beat the largest
-seen in any of 3 draws; k-Shape's automatic `omit_d` (the default, 0) is per family the 5th percentile of
-the surrogates' distance to its centroid, and a family whose members' median distance is not below it is
-`noise_like`. Families are flagged, never dissolved.
+**The surrogate null** (`kshape`, `hdbscan`, and the coherence score). Coloured noise crowds: a window of
+AR(1) or random-walk background is mostly a slow curve, so a clustering method finds "families" in pure
+noise, and no fixed threshold separates them from real ones. Each family is therefore measured against
+seeded surrogates of its own members — noise of the same colour with the shape destroyed:
+
+- **HDBSCAN** (fix round 2): per family, d_F = the members' median normalised SBD to the family's medoid;
+  p05 = the 5th percentile of the same distance for 3 draws of **trend-kept** surrogates of the family's own
+  members (`kshape.trend_kept_surrogates`: a cubic trend kept per row, the residual phase-randomised); the
+  family is confident iff d_F < 0.9 × p05 (`NULL_MARGIN`, a placeholder). The flags report
+  `median_distance`, `null_p05`, `ratio`, `margin`; separation and fitted size are reported, not deciders.
+  Round 1's rule (re-cluster the surrogates, beat their largest separation and size) failed both ways,
+  because plain phase randomisation turns a trend into a wiggle and the fake noise crowds less than real
+  noise.
+- **k-Shape**: the automatic `omit_d` (the default, 0) is per family the 5th percentile of plain
+  phase-randomised surrogates' distance to its centroid; members beyond it are `past_cut`, and a family
+  whose members' median distance is not below it is `noise_like`. It keeps plain phase surrogates — it
+  passed every critic case, and switching would move every omission threshold.
+- **Coherence** (`Working/library/coherence.py`): `null_median` / `null_p05` are the score on trend-kept
+  surrogates of the members; `beyond_noise` = score < 0.9 × `null_p05` (`NULL_MARGIN`, the same placeholder
+  margin as HDBSCAN's), because pure coloured noise sits a hair below its own null (AR(1) φ 0.99: 0.805
+  against 0.806). Read "more coherent than noise" off `beyond_noise`, never off the bare comparison.
+
+The trend is a cubic rather than a line because a line, measured, left one pure-noise HDBSCAN family
+confident (ratio 0.85) and pure AR(1) noise "more coherent than noise" (0.801 against a null p05 of
+0.817); the measurement is in the code beside `TREND_DEGREE`. Families are flagged, never dissolved.
+
+**The blind spot, said on the face** (the W2-B verification on main, 2026-10-14). The cubic that keeps a
+coloured window's trend also keeps a *real* shape that is itself a smooth curve across the window — a broad
+hump, a slow ramp — so such a family's fake noise looks like the family, and it reads `noise_like` (ramps
+1.55–2.97 and broad humps 1.02–1.37 against the 0.9 cut, even at 10 % noise; a slow drop is not affected,
+its fall is not smooth). No trend degree fixes both sides: a line lets random-walk noise through. HDBSCAN's
+`why`, its null's rule and the coherence rule therefore say that for a smooth, window-filling shape the
+noise verdict is not evidence that the family is noise. The follow-up is a null from the recording's own
+background — random windows of the same lengths at times holding no catalogued event.
 
 ### 6.1 The three basis kinds, and the methods
 

@@ -468,9 +468,10 @@ def cheaper_settings(n, basis, method, params=None):
     """Settings for the same method that the estimate says would run within
     `LOCAL_LIMIT_SECONDS` — what a refusal offers instead. Each is
     `{"change": words, "params": the full params, "seconds": estimate}`,
-    cheapest change first. A method lists its candidates in `cheaper(n,
-    params)`; one that lists none gets only a smaller-`sample` offer when it
-    takes a sample."""
+    slowest first — the offer that gives up the least of what was asked for
+    comes first. A method lists its candidates in `cheaper(n, params)`; one
+    that lists none gets only a smaller-`sample` offer when it takes a
+    sample."""
     params = dict(params or {})
     m = method_registry.get(method) if isinstance(method, str) else method
     candidates = list(m.cheaper(n, params)) if hasattr(m, "cheaper") else []
