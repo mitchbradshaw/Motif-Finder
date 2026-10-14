@@ -54,6 +54,8 @@ COSTED = (
     "detection.cwt_ridges",
     # wave 2
     "catalogue.snippets", "catalogue.minirocket", "catalogue.shape_families", "interrogation.event_families",
+    # wave 3
+    "detection.pan_matrix_profile",
 )
 
 
