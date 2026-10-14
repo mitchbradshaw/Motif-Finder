@@ -18,7 +18,8 @@ fixers in `isolation: worktree`; critics read the implementer's worktree and nev
 | 5 | critic | W3-A | `a03f242747d328696` | (reads row 1's worktree) | — | `01cb8c3` | launched 22:01; reported 22:59: **merge after fixes** (1 template blocker, 4 should-fix, 4 nits; the declared statistic's null flawed) → `W3-A-multiscale-entropy.critic.md` |
 | 1a | fixer (row 1 resumed) | W3-A fix round 1 | `a67442d9e04015d6a` | row 1's | row 1's | `01cb8c3` | sent 23:04 (decisions 6–9) |
 | 2 | implementer | W3-B `interrogation.cycle_shapes` + `Working/background_null.py` | `a7834e530174e1643` | `.claude/worktrees/agent-a7834e530174e1643` | `worktree-agent-a7834e530174e1643` | `01cb8c3` | launched 21:26; reported 22:49 (`b94881b`, 83 min) → `W3-B-cycle-shapes.md` |
-| 7 | critic | W3-B | `a5f632b4352ec10f8` | (reads row 2's worktree) | — | `01cb8c3` | launched 22:52, eight manager questions |
+| 7 | critic | W3-B | `a5f632b4352ec10f8` | (reads row 2's worktree) | — | `01cb8c3` | launched 22:52; reported 23:15: **merge after fixes** (3 blockers, 6 should-fix, 3 nits) → `W3-B-cycle-shapes.critic.md` |
+| 2a | fixer (row 2 resumed) | W3-B fix round 1 | `a7834e530174e1643` | row 2's | row 2's | `01cb8c3` | sent 23:17 (decision 13); re-critique to follow (behavioural blockers) |
 | 3 | implementer | W3-C `detection.pan_matrix_profile` | `aeeb2080e0967a2d2` | `.claude/worktrees/agent-aeeb2080e0967a2d2` | `worktree-agent-aeeb2080e0967a2d2` | `01cb8c3` | launched 21:26; reported 23:04 (`925056a`, 99 min) → `W3-C-pan-matrix-profile.md` |
 | 8 | critic | W3-C | `ad8d8aad71e6d533b` | (reads row 3's worktree) | — | `01cb8c3` | launched 23:06, seven manager questions |
 | 4 | implementer | W3-D `mpdist` (fourth Library distance) | `a5a78efe8b36c0a92` | `.claude/worktrees/agent-a5a78efe8b36c0a92` | `worktree-agent-a5a78efe8b36c0a92` | `64db0da` | launched 21:30, early (decision 4; cut at `3cc2f62`, at `64db0da` by 21:31); reported 22:39 (`c88a236`, 68 min) → `W3-D-mpdist.md` |
@@ -224,6 +225,25 @@ instead of it.
   7 → 8 after seed 7 gave a false suggestion; the 1 h rows are never judged on a 4 h span; scrump barely pays; the
   compile term in the estimate. 23:06 — critic launched (row 8), seven questions, including whether plain phase
   surrogates are biased for this template too (if so, the evaluation's null switches to AAFT before any data).
+- 23:15 — **W3-B critic: merge after fixes, three blockers.** B1: on a random-walk background with chain-like timing
+  the block reports K = 2 in 4–5 of 10 no-structure chains (z-normalised noise cycles are sign-bimodal, ±PC1; neither
+  gate can see it); B2: SigClust's MAD floor (Liu et al.'s sparse-HDLSS estimate) makes it reject a true one-cluster
+  Gaussian 12/12 at n ≥ 200 — an implementation issue, not the data; B3: on a span the chain fills, every pseudo-cycle
+  falls back to a random-phase cut of the chain (fallback 1.00 for sharkfins), and eq. 17 then cannot clear it even
+  for a perfect chain — with 10 h quiet margins the pseudo-cycles come from the margins and eq. 17 clears at z 24–68.
+  Should-fix: the per-draw null values are not in meta (S1, needed by my evaluation); the per-group null favours the
+  group (S2, σ² 9/36 false passes); **eq. 17 is the weak half of the declared statistic (S3: an 83-cycle trough chain
+  σ² 0.37 vs 0.59 but eq. 17 0.87 vs 0.88)**; the gap rule loses 5.5–17.5 % of true cycles at interval jitter CV
+  0.3–0.5 (S4); 12–19 cycles can never split (S5); an unbound waveform silently cuts from x (S6). The side-input
+  contract change leaves every existing block, the recipe hash and the bridge unchanged (98 webui tests pass).
+  23:17 — fix round 1 sent (row 2a), decision 13.
+- 23:17 — **two refinements of the `chain_cycles` statistic, before any data:** (1) a span whose background null
+  falls back for more than half its pseudo-cycles is **"untested"** (no verdict; the fallback share reported), the
+  block's own rule after its fix; (2) the statistic stays as the brief fixed it — σ² **and** eq. 17 below every draw —
+  although the critic measured eq. 17 as the weak half (S3): the brief fixed both knowingly, and the researcher's
+  decision keeps the verdict on eq. 17 until re-measured; σ² alone is reported **beside** the verdict and the choice
+  goes to the researcher. The brief's spans all have quiet margins (rec 3: drops 500–530 h in 490–540 h; rec 6: chain
+  ~376–445 h in 370–470 h; rec 542: trains 398–474 h in 370–490 h; rec 2: 298.2–302.8 h in 294–304 h).
 
 ## Decisions taken on the researcher's behalf
 
@@ -272,6 +292,11 @@ instead of it.
 12. **`mpdist_null` gives context, not a verdict** (`beyond_noise` removed). Reason: the trend-kept null is biased on
     coloured noise and blind to troughs (critic F3); the follow-up is an empirical null from the member's own
     recording, which W3-G's sampler makes possible.
+13. **Cycle shapes' K gate is calibrated on nulls that reproduce noise's sign-bimodality**: the same 2-means on each
+    background draw (per-cycle phase-randomised copies when the background falls back), K > 1 only below every draw,
+    plus the mode test; SigClust is kept as a reported number without its floor, not as a gate. Reason: the critic's
+    known-answer checks (B1, B2) — no gate against a Gaussian or a uniform can tell z-normalised noise's ±PC1 split
+    from two shapes; its prototype passed 0/18 noise stacks and every two-shape case to 30 % noise.
 3. **The Library side of decision 4 is folded into round 2**: W3-G puts σ² first in `shape_families`' summary lines and
    the coherence payload it returns, and measures both variants' verdicts against the quiet-stretch null (the verdict
    stays on eq. 17 unless the researcher moves it); W3-F puts σ² first on the Family page and the families table.
