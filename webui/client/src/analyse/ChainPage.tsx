@@ -54,7 +54,7 @@ export function ChainPage() {
   const t0 = source ? t0Of(source) : 0
   const t1 = source ? t1Of(source) : 1
   const running = job?.status === 'running' || job?.status === 'queued'
-  // cancel is checked between steps, so there is a whole step of interval in
+  // cancel is checked between steps (and, W3-F, inside a block that checks it), so there can be a whole step of interval in
   // which the click has landed and nothing visible has happened (fixup-a 11)
   const cancelling = cancelPending(st.run)
   const rows = useMemo(() => deriveRows(steps, job, payloads, st.staleFrom, val.v), [steps, job, payloads, st.staleFrom, val.v])
@@ -248,7 +248,8 @@ export function ChainPage() {
   let est: { text: string; kind: 'amber' | 'blue' | 'red' | 'green' }
   if (running && job) {
     const cur = job.current_step ?? 0
-    est = { text: `${pad2(cur + 1)} running · ${stepElapsed(cur).toFixed(1)} s`, kind: 'blue' }
+    const pr = job.steps[cur]?.progress
+    est = { text: `${pad2(cur + 1)} running · ${stepElapsed(cur).toFixed(1)} s${pr && pr.fraction !== null ? ` · ${Math.round(pr.fraction * 100)} %` : ''}`, kind: 'blue' }
   } else if (invalid) est = { text: `${invalid} invalid junction${invalid > 1 ? 's' : ''}`, kind: 'red' }
   else if (failedStep !== null && st.staleFrom === null) est = { text: `failed at ${pad2(failedStep + 1)} · ${failedStep > 1 ? `01–${pad2(failedStep)} cached` : failedStep === 1 ? '01 cached' : 'nothing cached'}`, kind: 'red' }
   else if (!source) est = { text: 'no source · nothing to estimate', kind: 'amber' }
@@ -256,19 +257,27 @@ export function ChainPage() {
   else if (job?.status === 'completed') { const tv = Object.values(job.step_timings ?? {}); const fromCache = tv.filter(v => v === 0).length; est = { text: fromCache === tv.length ? '≈ <0.1 s · all from the step cache' : `${tv.length - fromCache} computed · ${fromCache} from the step cache`, kind: 'green' } }
   else if (allCachedFrom(0)) est = { text: '≈ <0.1 s · all in the step cache', kind: 'green' }
   else est = { text: `${fmtEst(estFrom(0))} · 01 → ${pad2(n)}`, kind: 'amber' }
-  if (unknownSteps.length && !running && (est.kind === 'amber')) est = { ...est, text: `${est.text} · ${unknownSteps.map(i => pad2(i + 1)).join(', ')} uncalibrated` }
+  // W3-F: why a step has no estimate, in the estimator's own words (W2-ledger decision 24) — "calibrating" while its
+  // cost model is being timed on this machine, the estimator's (or the calibration's) error, else uncalibrated
+  const calibrating = val.v?.estimate?.calibrating ?? []
+  const estErrors = val.v?.estimate?.errors ?? {}
+  const whyUnknown = (i: number) => calibrating.includes(i) ? `${pad2(i + 1)} calibrating` : estErrors[String(i)] ? `${pad2(i + 1)}: ${estErrors[String(i)]}` : `${pad2(i + 1)} uncalibrated`
+  if (unknownSteps.length && !running && (est.kind === 'amber')) est = { ...est, text: `${est.text} · ${unknownSteps.map(whyUnknown).join(' · ')}` }
   if (over.length && !running) est = { ...est, text: `${est.text} · ${over.length} over the local ceiling`, kind: 'red' }
 
   const runLabel = failedStep !== null && (st.staleFrom === null || !job) ? `↻ Retry from ${pad2(failedStep + 1)}` : stale !== null ? `↻ Re-run from ${pad2(stale + 1)}` : '▶ Run chain'
   // spec §9.6 / P4: a stage over its local ceiling is never run locally — the button is gated, the row explains
   const overTitle = overFirst !== null ? `stage ${pad2(overFirst + 1)} exceeds its local ceiling (${overAd?.max_span_samples?.toLocaleString() ?? '?'} samples) · shorten the span or use HPC (out of slice scope)` : null
-  const canRun = !!source && !invalid && n > 0 && !busy && !locked && !over.length
+  // W3-F: a step whose cost model is still being timed would route "unknown" and start blind — Run waits for it
+  // (validation re-asks every few seconds until the calibration lands)
+  const calibratingTitle = calibrating.length && !running ? `the cost model of ${calibrating.map(i => pad2(i + 1)).join(', ')} is being timed on this machine (calibrating) · Run waits until the estimate lands, so a run over the local limit is written as a SLURM job instead of starting here` : null
+  const canRun = !!source && !invalid && n > 0 && !busy && !locked && !over.length && !calibratingTitle
   const routed = val.v?.route
   const slurmTitle = routed?.route === 'cluster' && !running
     ? `about ${fmtDuration(routed.estimate_s)} on this machine${routed.slowest ? ` (stage ${pad2(routed.slowest.index + 1)} is the slow one)` : ''} · over the Analyse local limit of ${fmtDuration(routed.ceiling_s)} · Run will write a SLURM job instead of running here`
     : null
   if (slurmTitle) est = { ...est, text: `${est.text} · over the local limit → SLURM`, kind: 'red' }
-  const runTitle = !source ? 'no source' : locked ? 'the held-out recording cannot be run' : invalid ? 'fix the red junction first' : !n ? 'add a stage' : overTitle ?? slurmTitle ?? undefined
+  const runTitle = !source ? 'no source' : locked ? 'the held-out recording cannot be run' : invalid ? 'fix the red junction first' : !n ? 'add a stage' : overTitle ?? calibratingTitle ?? slurmTitle ?? undefined
 
   /* ---- footer ---- */
   const term = val.v ? terminalWording(val.v.terminal_kind, val.v.terminal_label, val.v.template_kind) : { chip: val.error ? 'terminal — validation refused' : 'terminal — validating…', kind: 'grey' as const }
@@ -281,17 +290,25 @@ export function ChainPage() {
   let headline: string, sub: string
   if (running && job && st.nullProgress) {
     // every stage has landed; the paired null is N more runs of the whole chain on a surrogate
-    headline = `Drawing the null · draw ${st.nullProgress.draw} of ${st.nullProgress.draws}`
-    sub = 'every stage is done · each draw is the whole chain again on a surrogate of the span · draws already made for this recipe are reused'
+    const np = st.nullProgress
+    headline = `Drawing the null · draw ${np.draw} of ${np.draws}${np.fraction != null ? ` · ${Math.round(np.fraction * 100)} % of this draw${np.stage ? ` (${np.stage})` : ''}` : ''}`
+    sub = 'every stage is done · each draw is the whole chain again on a surrogate of the span · draws already made for this recipe are reused · cancel stops the draw in hand'
   } else if (running && job) {
-    headline = cancelling ? `Cancelling · stage ${pad2((job.current_step ?? 0) + 1)} of ${pad2(job.n_steps)} is still running` : `Running ${pad2((job.current_step ?? 0) + 1)} of ${pad2(job.n_steps)}`
+    const cur = job.current_step ?? 0
+    const pr = job.steps[cur]?.progress
+    headline = cancelling ? `Cancelling · stage ${pad2(cur + 1)} of ${pad2(job.n_steps)} is still running` : `Running ${pad2(cur + 1)} of ${pad2(job.n_steps)}${pr && pr.fraction !== null ? ` · ${pr.done.toLocaleString()} of ${pr.total.toLocaleString()}${pr.stage ? ` ${pr.stage}` : ''}` : ''}`
+    // W3-F: a block that checks cancel inside its own loop (it reports its progress; window matrix, multiscale
+    // entropy, the pan matrix profile; cycle shapes checks without reporting) stops within one of its iterations;
+    // any other stops when its stage ends
     sub = cancelling
-      ? 'cancel accepted · the run stops when this stage ends, because cancel is checked between steps and never mid-step · the stages already done are kept'
-      : 'stages land as they finish · cancel checks between steps, never mid-step'
+      ? (pr ? 'cancel accepted · this stage checks it as it goes and stops at its next iteration · the stages already done are kept'
+        : 'cancel accepted · the run stops inside this stage if its block checks for it, else when the stage ends · the stages already done are kept')
+      : pr ? 'stages land as they finish · this stage reports its own progress, and a cancel stops it at its next iteration'
+        : 'stages land as they finish · a cancel stops a stage inside it when its block checks for it, else at the next stage'
   }
   else if (invalid) { headline = 'Chain is invalid'; sub = 'fix the red junction · validation runs on every edit' }
   else if (job?.status === 'failed') { headline = 'No result'; sub = `run ${job.db_run_id ? `#${job.db_run_id}` : `job ${job.job_id}`} failed at ${pad2((job.error?.step ?? 0) + 1)} · nothing was written to detections` }
-  else if (job?.status === 'cancelled') { const at = job.steps.findIndex(s => s.status === 'cancelled'); headline = 'Cancelled'; sub = `run ${job.db_run_id ? `#${job.db_run_id}` : `job ${job.job_id}`} stopped before ${pad2((at >= 0 ? at : (job.error?.step ?? 0)) + 1)} · ${job.steps.filter(s => s.status === 'done').length} of ${job.n_steps} stages kept · cancel is checked between steps` }
+  else if (job?.status === 'cancelled') { const at = job.steps.findIndex(s => s.status === 'cancelled'); const inside = at >= 0 && job.steps[at].progress; headline = 'Cancelled'; sub = `run ${job.db_run_id ? `#${job.db_run_id}` : `job ${job.job_id}`} stopped ${inside ? `inside ${pad2(at + 1)} (at ${job.steps[at].progress!.done.toLocaleString()} of ${job.steps[at].progress!.total.toLocaleString()}) · nothing of it was cached` : `before ${pad2((at >= 0 ? at : (job.error?.step ?? 0)) + 1)}`} · ${job.steps.filter(s => s.status === 'done').length} of ${job.n_steps} stages kept` }
   else if (job?.status === 'completed') {
     headline = `last run · ${terminalPayload?.summary ?? job.steps[job.n_steps - 1]?.summary ?? 'done'}`
     const core = job.step_timings ? Object.values(job.step_timings).reduce((a, b) => a + b, 0) : null
@@ -344,7 +361,19 @@ export function ChainPage() {
     let plot = (x: XScale, w: number, h: number): ReactNode => r.payload ? renderByType(r.payload, { x, width: w, height: h, ghost, t0, t1 }) : null
     switch (r.status) {
       case 'running':
-        overlay = <>{r.payload && <div className="an-plot-veil" />}<div className="an-progress" data-testid={`progress-${i + 1}`}><div className="bar" /><div className="txt">{title} · computing · {elapsed.toFixed(1)} s{jstep?.cached_predicted ? ' · predicted cache hit' : ''}</div><div className="note">per-step progress — the core reports no within-step fraction · cancel takes effect before the next step</div></div></>
+        {
+          // W3-F: the block's own fraction when it reports one (real progress, never a simulated bar); otherwise the
+          // indeterminate bar and the elapsed time, and the note says this block reports no fraction
+          const pr = jstep?.progress
+          const frac = pr && pr.fraction !== null ? Math.max(0, Math.min(1, pr.fraction)) : null
+          overlay = <>{r.payload && <div className="an-plot-veil" />}<div className="an-progress" data-testid={`progress-${i + 1}`}>
+            {frac !== null
+              ? <div style={{ width: '40%', height: 5, borderRadius: 999, background: 'var(--grey-200)', overflow: 'hidden' }}><div data-testid={`step-fraction-${i + 1}`} data-fraction={frac.toFixed(3)} style={{ width: `${(frac * 100).toFixed(1)}%`, height: '100%', background: 'var(--blue)', borderRadius: 999 }} /></div>
+              : <div className="bar" />}
+            <div className="txt">{title} · computing · {elapsed.toFixed(1)} s{frac !== null && pr ? ` · ${pr.done.toLocaleString()} of ${pr.total.toLocaleString()}${pr.stage ? ` ${pr.stage}` : ''} (${Math.round(frac * 100)} %)` : ''}{jstep?.cached_predicted ? ' · predicted cache hit' : ''}</div>
+            <div className="note">{frac !== null ? 'the block\'s own progress, from inside the stage · cancel stops it at its next iteration' : 'this block reports no fraction of its own · a cancel stops it inside the stage if it checks for one, else before the next stage'}</div>
+          </div></>
+        }
         break
       case 'waiting':
         plot = () => null
@@ -495,7 +524,7 @@ export function ChainPage() {
           </Popwrap>
           <button className="btn" onClick={saveAsTemplate} data-testid="save-template" disabled={!n}>▢ Save template</button>
           {running ? <button className="btn danger" onClick={cancel} data-testid="cancel-button" disabled={cancelling}
-              title={cancelling ? 'cancel accepted · the run stops when the current stage ends, because cancel is checked between steps and never mid-step' : 'stop the run after the current stage'}>{cancelling ? '■ Cancelling…' : '■ Cancel'}</button>
+              title={cancelling ? 'cancel accepted · the run stops inside the current stage if its block checks for a cancel, else when the stage ends' : 'stop the run — inside the current stage when its block checks for a cancel, else after it'}>{cancelling ? '■ Cancelling…' : '■ Cancel'}</button>
             : <button className="btn next" onClick={run} disabled={!canRun} data-testid="run-button" title={runTitle}>{runLabel}</button>}
         </div>
 

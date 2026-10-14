@@ -129,6 +129,10 @@ class Runtime:
         # writes it on first need (chain.route_local) — in a sandbox, into the runtime, never into the real DATA/db
         import Working.Detection.matrix_profiling.cost as _mpc
         self._originals["mpc.CALIBRATION_PATH"] = _mpc.CALIBRATION_PATH
+        # W3-F: the generic block cost models too (`Working.block_cost`, calibrated on first need in the
+        # background) — its path is relative to the checkout, so unredirected a sandbox would write the real file
+        import Working.block_cost as _bc
+        self._originals["bc.CALIBRATION_PATH"] = _bc.CALIBRATION_PATH
 
         if self.mode == "sandbox":
             self._setup_sandbox(cfg, _mp, _wm, _cc)
@@ -165,6 +169,11 @@ class Runtime:
         _mpc.CALIBRATION_PATH = os.path.join(self.dir, "mp_calibration.json")
         if os.path.isfile(real_calibration):
             shutil.copyfile(real_calibration, _mpc.CALIBRATION_PATH)   # this machine's timing, read-only from here
+        import Working.block_cost as _bc
+        real_bc = os.path.abspath(self._originals["bc.CALIBRATION_PATH"])
+        _bc.CALIBRATION_PATH = os.path.join(self.dir, "block_calibration.json")
+        if os.path.isfile(real_bc):
+            shutil.copyfile(real_bc, _bc.CALIBRATION_PATH)
         # Critique r1 P0: an adapter executed outside these redirects writes into the real DATA
         # tree. Assert every writable path the adapters read at call time is inside this runtime.
         for label, p in self._core_paths(cfg, _mp, _wm, _cc):
@@ -216,8 +225,10 @@ class Runtime:
         import Adapters.preprocessing_trace_shape as _tsh
         import Adapters.catalogue_shape_cluster as _csc
         import Working.Detection.matrix_profiling.cost as _mpc
+        import Working.block_cost as _bc
         return (("STEP_CACHE_ROOT", cfg.STEP_CACHE_ROOT),
                 ("mp_cost.CALIBRATION_PATH", _mpc.CALIBRATION_PATH),
+                ("block_cost.CALIBRATION_PATH", _bc.CALIBRATION_PATH),
                 ("matrix_profile.RESULTS_DIR", _mp.RESULTS_DIR),
                 ("window_matrix.RESULTS_DIR", _wm.RESULTS_DIR),
                 ("classifier.MODEL_ROOT", _cc.MODEL_ROOT),
@@ -254,6 +265,9 @@ class Runtime:
         if "mpc.CALIBRATION_PATH" in o:
             import Working.Detection.matrix_profiling.cost as _mpc
             _mpc.CALIBRATION_PATH = o["mpc.CALIBRATION_PATH"]
+        if "bc.CALIBRATION_PATH" in o:
+            import Working.block_cost as _bc
+            _bc.CALIBRATION_PATH = o["bc.CALIBRATION_PATH"]
         self._originals = None
 
     # --------------------------------------------------------- describe --

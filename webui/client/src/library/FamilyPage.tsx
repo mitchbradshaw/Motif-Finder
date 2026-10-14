@@ -211,6 +211,9 @@ function SendUnjudged({ familyId, grouping, unjudged, queue, onSent }: { familyI
  *  failure is a red card (the rest of the page still renders); a family too small to score says why in words. */
 const COHERENCE_TIP = 'How much the members are copies of one shape: 0 = all the same shape, 1 = no shared shape. Ignores amplitude.'
 const f2 = (v: number | null | undefined) => (v === null || v === undefined || !Number.isFinite(v) ? '—' : v.toFixed(2))
+/** W3-G decision 15: which null(s) a family passed — the quiet stretches, the trend-kept surrogates, or both. */
+export const passedByWords = (passed: string[]) => passed.length > 1 ? 'both'
+  : /quiet/.test(passed[0] ?? '') ? 'quiet stretches' : /trend/.test(passed[0] ?? '') ? 'trend-kept' : (passed[0] ?? '')
 export function FamilyCoherence({ c }: { c: LibFamilyCoherence | undefined }) {
   if (!c) return null
   if (c.error) return <div className="error-card" role="alert" data-testid="coherence-error"><h3>Coherence could not be computed</h3><div className="mono small">{c.error}</div><div className="mono small muted">{c.rule}</div></div>
@@ -227,10 +230,34 @@ export function FamilyCoherence({ c }: { c: LibFamilyCoherence | undefined }) {
   const noisy = c.beyond_noise === false
   const noNull = c.beyond_noise === null || c.beyond_noise === undefined
   const margin = c.null_margin ?? 0.9
+  // decision 3 (W3-G / W3-F): σ² leads as a NUMBER (variants[0]: its score, its ratio to its own null's 5th
+  // percentile, the note) — no badge; eq. 17 beside it carries the verdict
+  const sq = (c.variants ?? []).find(x => x.name === 'squared') ?? null
+  const passed = c.passed_by ?? []
+  const bg = c.background ?? null
+  // the fallback on the badge itself: a family judged on the trend-kept null alone because the quiet stretches
+  // could not be used says so, with the reason
+  const fellBack = !!bg?.reason && !(c.null_kind ?? '').startsWith('quiet')
+  const ctxBits = bg ? [
+    bg.background_s != null ? `${Math.round(bg.background_s).toLocaleString()} s of quiet background` : '',
+    bg.n_borrowed ? `${bg.n_borrowed} borrowed windows` : '',
+    bg.detection_overlap_share != null ? `${Math.round(bg.detection_overlap_share * 100)} % of the quiet windows overlap a machine detection (not avoided)` : '',
+    bg.family_scored_on ? `the family ${bg.family_scored_on}` : '',
+  ].filter(Boolean) : []
   return (
     <div className="stack" style={{ gap: 2 }} data-testid="family-coherence" data-noise-like={noisy ? '1' : '0'}>
+      {sq && (
+        <div className="row" style={{ gap: 8, alignItems: 'baseline', flexWrap: 'wrap' }} data-testid="coherence-squared">
+          <span className="lib-cap" style={{ fontSize: 10.5 }}>coherence σ²</span>
+          <b className="mono">{f2(sq.score)}</b>
+          <span className="mono small" style={{ color: 'var(--text-2)' }} title={sq.note ?? ''}>
+            {sq.null_median != null ? `noise ${f2(sq.null_median)} (5th percentile ${f2(sq.null_p05)})` : 'no noise null'}
+            {sq.squared_vs_null_ratio != null ? ` · ${sq.squared_vs_null_ratio.toFixed(2)}× its 5th percentile` : ''} · reported, not judged
+          </span>
+        </div>
+      )}
       <div className="row" style={{ gap: 8, alignItems: 'baseline', flexWrap: 'wrap' }}>
-        <span className="lib-cap" style={{ fontSize: 10.5 }}>coherence</span>
+        <span className="lib-cap" style={{ fontSize: 10.5 }}>{sq ? 'eq. 17 (the verdict)' : 'coherence'}</span>
         <b className="mono" data-testid="coherence-value">{f2(v)}</b>
         <InfoTip title="Coherence (SVD entropy)" testid="coherence-tip">{COHERENCE_TIP}</InfoTip>
         {c.aligned && <span className="k-chip sm" title="members slid onto the medoid before scoring (the anchor), so a shift is not counted as a different shape">aligned</span>}
@@ -240,9 +267,11 @@ export function FamilyCoherence({ c }: { c: LibFamilyCoherence | undefined }) {
             : 'no noise null was computed for this family'}
         </span>
         {noisy && <span className="k-badge t-amber" data-testid="coherence-noise-like" title={`the score ${f2(v)} is not below ${margin} × the 5th percentile of noise of the same colour (${f2(c.null_p05)}, so the cut is ${f2(margin * (c.null_p05 ?? NaN))}); ${margin} is a placeholder margin`}>no more coherent than noise</span>}
-        {!noisy && !noNull && <span className="k-badge t-green" data-testid="coherence-beyond-noise" title={`the score ${f2(v)} is below ${margin} × the noise's 5th percentile (${f2(c.null_p05)}); ${margin} is a placeholder margin`}>beyond noise</span>}
+        {!noisy && !noNull && <span className="k-badge t-green" data-testid="coherence-beyond-noise" title={c.why ?? `the score ${f2(v)} is below ${margin} × the noise's 5th percentile (${f2(c.null_p05)}); ${margin} is a placeholder margin`}>beyond noise{passed.length ? <span data-testid="coherence-passed-by"> ({passedByWords(passed)})</span> : null}</span>}
         {noNull && <span className="k-badge t-grey" data-testid="coherence-no-null" title="no surrogate null was drawn for this family, so there is no verdict">no null</span>}
+        {!noNull && fellBack && <span className="k-badge t-grey" data-testid="coherence-fallback" title={c.why ?? ''}>judged on trend-kept noise only: {bg?.reason}</span>}
       </div>
+      {ctxBits.length > 0 && <div className="lib-cap" style={{ fontSize: 10 }} data-testid="coherence-context">{ctxBits.join(' · ')}</div>}
       {!noNull && c.smooth_caveat && <div className="lib-cap" style={{ fontSize: 10, color: noisy ? 'var(--amber-700, #b76a00)' : undefined }} data-testid="coherence-caveat">caveat: {c.smooth_caveat}</div>}
       <div className="lib-cap" style={{ fontSize: 10 }} data-testid="coherence-extra">
         σ²-weighted {f2(c.svd_entropy_squared_norm)}{c.null_squared_median !== null && c.null_squared_median !== undefined ? ` (noise ${f2(c.null_squared_median)})` : ''}
@@ -447,6 +476,17 @@ function MotifFamilyView({ detail, grouping, onReload, flags, noiseMethod }: { d
               <span><i style={{ display: 'inline-block', width: 12, height: 2, background: f.colour, verticalAlign: 'middle', marginRight: 4 }} />medoid {f.medoid}</span>
               <span className="k-chip green sm">d {f.exemplarMedoidD.toFixed(2)}</span>
               <NoiseBadge flags={flags} method={noiseMethod} testid="family-noise-badge" />
+              {/* W3-F: a tested family the method's nulls let through says which null passed it, and what it was judged on */}
+              {flags?.tested && !flags.noise_like && (flags.passed_by?.length
+                ? <span className="k-badge t-green" data-testid="family-passed-by" title={flags.why}>beyond noise ({passedByWords(flags.passed_by)}){flags.background?.reason && !(flags.null_kind ?? '').startsWith('quiet') ? ` · judged on trend-kept noise only: ${flags.background.reason}` : ''}</span>
+                : null)}
+              {flags?.tested && (flags.background_s != null || flags.background?.n_borrowed || flags.background?.detection_overlap_share != null) && (
+                <span className="lib-cap" data-testid="family-null-context" title={flags.why}>{[
+                  flags.background_s != null ? `${Math.round(flags.background_s).toLocaleString()} s quiet background` : '',
+                  flags.background?.n_borrowed ? `${flags.background.n_borrowed} borrowed` : '',
+                  flags.background?.detection_overlap_share != null ? `${Math.round(flags.background.detection_overlap_share * 100)} % overlap a detection` : '',
+                ].filter(Boolean).join(' · ')}</span>
+              )}
               {edits.staleEdges && <Badge status="stale" title="the exemplar changed; distances are partially stale until the family is recomputed (§4.2)">edges partially stale</Badge>}
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 18 }}>

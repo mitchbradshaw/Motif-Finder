@@ -398,6 +398,18 @@ def not_surrogate(alias="r"):
     return f"{alias}.surrogate_of_run_id IS NULL"
 
 
+def completed_null_draw(alias="r"):
+    """The ONE statement of "this run is a completed draw of some run's paired null", as a SQL predicate over a
+    `runs` row aliased `alias` — the counterpart of `not_surrogate`, for the readers that count null draws (the
+    Analyse toolbar's `run_groups.null_summary`, the Discovery scoreboard, the Library's scale read-out and family
+    null, the export's surrogate control).
+
+    A draw stopped part-way (a cancel inside a step, or a block that failed on the surrogate data) is linked to its
+    run — so `not_surrogate()` never reads its spans as real — but it ran part of the chain, so it is not a draw of
+    the null: counting it would average a half-filled draw into "null expects" (W3-F fix round 2)."""
+    return f"{alias}.surrogate_of_run_id IS NOT NULL AND {alias}.status = 'completed'"
+
+
 def is_surrogate_run(conn, run_id):
     """True when `run_id` is some run's paired null."""
     row = conn.execute("SELECT surrogate_of_run_id FROM runs WHERE id = ?", (int(run_id),)).fetchone()

@@ -40,6 +40,7 @@ No UI imports — cluster-safe, headless-test-safe, same as `Working.execution`.
 """
 
 from Working.database import runs as R
+from Working.database.queries import completed_null_draw
 from Working.recipes import BAND_KINDS, make_recipe, normalize_band  # noqa: F401  (re-exported)
 
 #: Where the project's band list lives (Q43): Settings › Analysis defaults.
@@ -315,7 +316,7 @@ def draw_paired_null(recipe, original_run_id, db_path=None, params=None, draws=N
     null could be drawn at all.
     """
     from Working.database.schema import init_db
-    from Working.execution import RecipeCancelled, execute_recipe
+    from Working.execution import RecipeCancelled, RecipeExecutionError, execute_recipe
 
     n_draws = 1 if draws is None else int(draws)
     if n_draws < 1:
@@ -341,8 +342,20 @@ def draw_paired_null(recipe, original_run_id, db_path=None, params=None, draws=N
                     db_path=db_path, force=force,
                     should_cancel=should_cancel, run_kwargs=run_kwargs,
                 )
-            except RecipeCancelled:
+            except RecipeCancelled as e:
+                # W3-F fix 1 (the critic's blocker): a draw cancelled part-way has a runs row, and its detector
+                # steps may already have written spans. Linked here, before letting go, it stays the null it is —
+                # unlinked, `not_surrogate()` read it as a real run and its spans as real detections. It is not
+                # counted among the draws (it did not finish).
+                if getattr(e, "run_id", None) is not None:
+                    R.update_run(conn, e.run_id, surrogate_of_run_id=original_run_id)
                 break
+            except RecipeExecutionError as e:
+                # W3-F fix round 2: a draw that FAILS part-way (a block refusing surrogate data) is linked the same
+                # way before the failure goes on — the job still reads failed, in the block's own words
+                if getattr(e, "run_id", None) is not None:
+                    R.update_run(conn, e.run_id, surrogate_of_run_id=original_run_id)
+                raise
             R.update_run(conn, draw["run_id"], surrogate_of_run_id=original_run_id)
             out["run_ids"].append(draw["run_id"])
             out["results"].append(draw)
@@ -363,7 +376,10 @@ def null_summary(conn, run_id):
     found = conn.execute("SELECT COUNT(*) FROM detections WHERE run_id = ?", (int(run_id),)).fetchone()[0]
     nulls = conn.execute(
         "SELECT r.id, c.config_json, (SELECT COUNT(*) FROM detections d WHERE d.run_id = r.id) AS n "
-        "FROM runs r JOIN configs c ON c.id = r.config_id WHERE r.surrogate_of_run_id = ? ORDER BY r.id",
+        # completed draws only (`queries.completed_null_draw`, the one rule every null reader uses): a draw stopped
+        # part-way is linked, so its spans never read as real, but it is not a draw — it covers part of the chain
+        "FROM runs r JOIN configs c ON c.id = r.config_id WHERE r.surrogate_of_run_id = ? AND "
+        + completed_null_draw("r") + " ORDER BY r.id",
         (int(run_id),)).fetchall()
     out = {"run_id": int(run_id), "found": int(found), "null_draws": len(nulls),
            "null_run_ids": [int(r["id"]) for r in nulls], "null_expects": None, "x_null": None,

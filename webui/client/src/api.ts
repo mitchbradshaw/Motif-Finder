@@ -82,7 +82,7 @@ export interface AdapterCard {
   /** fixup-h, the drawing standard (server/views.py): the type view is the output kind; the modifier is the conversion, null when it has no row */
   view: TypeKind; modifier: string | null
   has_estimate: boolean; max_span_samples: number | null; has_recommend: boolean
-  side_inputs: { name: string; type_kind: TypeKind; sources: string[] }[]; known_broken: string | null; params: ParamSpec[]
+  side_inputs: { name: string; type_kind: TypeKind; sources: string[]; required?: boolean }[]; known_broken: string | null; params: ParamSpec[]
 }
 export type TypeKind = 'signal' | 'spanset' | 'windowset' | 'encoding' | 'grouping' | 'model' | 'scores'
 export const TYPE_LABEL: Record<TypeKind, string> = { signal: 'Signal', spanset: 'SpanSet', windowset: 'WindowSet', encoding: 'Encoding', grouping: 'Grouping', model: 'Model', scores: 'Scores' }
@@ -91,7 +91,9 @@ export interface Step { stage: string; algorithm: string; params: Record<string,
 export interface Junction { index: number; ok: boolean; producing: TypeKind; expected: TypeKind | null; reason: string; core_reason?: string }
 export interface Validation {
   ok: boolean; junctions: Junction[]; terminal_kind: TypeKind | null; terminal_label: string | null
-  estimate?: { total_s: number; per_step_s: (number | null)[]; unknown?: number[]; route?: 'local' | 'unknown' }; hashes?: { config_hash: string; recipe_hash: string }
+  /** W3-F: `calibrating` = steps whose cost model is being timed on this machine right now (the page re-validates
+   *  until it lands); `errors` = an estimator's (or its calibration's) own words, keyed by step index */
+  estimate?: { total_s: number; per_step_s: (number | null)[]; unknown?: number[]; calibrating?: number[]; errors?: Record<string, string>; route?: 'local' | 'unknown' }; hashes?: { config_hash: string; recipe_hash: string }
   cache?: { index: number; prefix_hash: string; cached: boolean; path: string | null }[]; over_ceiling?: number[]; recipe_error?: string
   // the real chain's route (bridge chain.route_local): over the Analyse limit, Run writes a SLURM job instead
   route?: { route: 'local' | 'cluster' | 'unknown'; estimate_s: number; ceiling_s: number; slowest: { index: number; name: string; seconds: number } | null }
@@ -128,7 +130,10 @@ export type StepStatus = 'pending' | 'running' | 'done' | 'failed' | 'cancelled'
 export interface JobStep {
   index: number; stage: string; algorithm: string; status: StepStatus; started_at: number | null; elapsed_s: number | null
   cached_predicted: boolean; cached: boolean | null; core_elapsed_s?: number; kind: TypeKind | null; summary: string | null; has_payload: boolean
+  /** W3-F: the block's own in-step fraction (`on_progress(done, total, stage)`), when it reports one; null otherwise */
+  progress?: StepProgress | null
 }
+export interface StepProgress { done: number; total: number; stage: string | null; fraction: number | null }
 export interface JobError { step: number | null; message: string; type: string; traceback?: string; adapter?: string | null }
 export interface JobSnapshot {
   job_id: number; status: 'queued' | 'running' | 'completed' | 'failed' | 'cancelled'; n_steps: number; current_step: number | null
@@ -143,8 +148,10 @@ export interface JobSnapshot {
 export interface RunNull {
   found: number; null_draws: number; null_expects: number | null; x_null: number | null
   method: string | null; block_s: number | null; asked?: number; skipped?: string | null
+  /** W3-F: the real run finished but a cancel cut its null short */
+  cancelled?: boolean
 }
-export interface RunEvent { event: 'hello' | 'step_start' | 'step_done' | 'run_end' | 'cancel_requested' | 'null_progress'; job_id: number; ts: number; [k: string]: unknown }
+export interface RunEvent { event: 'hello' | 'step_start' | 'step_progress' | 'step_done' | 'run_end' | 'cancel_requested' | 'null_progress'; job_id: number; ts: number; [k: string]: unknown }
 export interface DbRun {
   id: number; config_id: number; recording_id: number; span_start: number; span_end: number; started_at: string; status: string
   finished_at: string | null; duration_s: number | null; error_text: string | null; current_step: number | null; name: string | null
@@ -182,7 +189,8 @@ export function subscribeRun(jobId: number, onEvent: (e: RunEvent) => void, onEr
       onError?.(`run stream unreadable (${err instanceof Error ? err.message : String(err)})`)
     }
   }
-  for (const name of ['hello', 'step_start', 'step_done', 'run_end', 'cancel_requested']) es.addEventListener(name, handler as EventListener)
+  // W3-F: 'step_progress' (a block's in-step fraction) is new; 'null_progress' was emitted but never listened for
+  for (const name of ['hello', 'step_start', 'step_progress', 'step_done', 'run_end', 'cancel_requested', 'null_progress']) es.addEventListener(name, handler as EventListener)
   es.onerror = () => { onError?.(es.readyState === EventSource.CLOSED ? 'run stream closed' : 'run stream interrupted') }
   return { close: () => es.close(), isOpen: () => es.readyState === EventSource.OPEN }
 }
@@ -1163,13 +1171,18 @@ export interface LibRunMatches {
 export interface LibRunMatchesAck {
   membersNew: number; membersResolved: number; edgesNew: number; edgesKept: number
   edgesByFunction: Record<string, number>; threshold: number; entryId: number; entryLabel: string; summary: LibRunMatches
+  /** W3-D fix 1: the pairs a distance refused (MPdist), and one sentence for the page — null when none was */
+  edgesRefused?: LibEdgeRefusal[]; refusalSummary?: string | null
 }
+/** One refused pair; `detection_id` null is the exemplar refusing every pair (`pairs` of them). */
+export interface LibEdgeRefusal { detection_id: number | null; member_id: number; function: string; reason: string; pairs?: number }
 export const getLibraryRunMatches = (runKey: string, includeUnjudged = false) =>
   req<LibRunMatches>(`/api/library/runs/${encodeURIComponent(runKey)}/matches${dq({ includeUnjudged })}`)
 export const postLibraryRunMatches = (runKey: string, includeUnjudged = false) =>
   post<LibRunMatchesAck>(`/api/library/runs/${encodeURIComponent(runKey)}/matches`, { includeUnjudged })
 export interface LibEdge {
-  id: number; function: string; functionLabel: string; value: number; threshold: number | null; within: boolean
+  /** `within` null: the distance is not on the seed cut's footing (MPdist, symbolic) — `footing` says why */
+  id: number; function: string; functionLabel: string; value: number; threshold: number | null; within: boolean | null; footing?: string
   scale: number | null; recipeHash: string; recipe: Record<string, unknown> | null; run: string; runKey: string | null
   detectionId: number | null; other: string; classification: string | null; createdAt: string | null
 }
@@ -1177,10 +1190,14 @@ export interface LibMatchedMember {
   id: string; entry: string; recording: string; recordingKey: string; channel: string; onsetH: number; durationS: number
   trace: (number | null)[]; verdict: string; scale: number | null; scales: number[]; foundBy: string; edges: LibEdge[]
 }
-export interface LibSpread { n: number; median: number | null; min: number | null; max: number | null; within: number; threshold: number | null }
+export interface LibSpread {
+  n: number; median: number | null; min: number | null; max: number | null; within: number | null; threshold: number | null
+  /** W3-D: off the cut's footing (`within` null); MPdist's members with no edge, by kind */
+  footing?: string; missing?: number; refused?: number; not_computed?: number; missing_rule?: string
+}
 export interface LibReadoutRow {
   scale: number; found: number; judged: number; accepted: number; members: number; nullCount: number; nullPerDraw: number | null
-  scale_invariant: LibSpread; symbolic_sax: LibSpread; native_length: LibSpread
+  scale_invariant: LibSpread; symbolic_sax: LibSpread; native_length: LibSpread; mpdist?: LibSpread
 }
 export interface LibReadoutRun {
   entryId: number; runIds: number[]; scales: number[]; rows: LibReadoutRow[]; nullDraws: number; distances: string[]; note: string
@@ -1361,3 +1378,76 @@ export interface SpansetPayload {
   family?: number[] | null; family_omit_reason?: string[] | null; family_noise_like?: boolean[] | null; group?: string[] | null
   exemplar_events?: { family: number; event: number; start_s: number; end_s: number; rule: string }[]
 }
+
+/* ------------------------------------------------------------------ W3-F: wave 3's payloads (declaration merging)
+ * Each is a payload convention read by the page, never a block's name (docs/BLOCK_INTEGRATION.md §2). */
+
+/** One sampled window's curve over a shared x (multiscale entropy: entropy per scale); null = undefined there. */
+export interface CurveWindow { index: number; start_s: number; values: (number | null)[]; collapsed?: boolean[]; inflation?: number | null }
+export interface CurvesPayload { scales_s: number[]; n_windows: number; sampled: boolean; seed?: number; windows: CurveWindow[]; median: (number | null)[]; form?: string }
+export interface WindowsetPayload {
+  /** W3-F: one curve per sampled window (`meta["curves"]`); `curve_flags` = the block's per-scale flags */
+  curves?: CurvesPayload | null
+  curve_flags?: { collapse?: number[] | null; blank_scales_s?: number[] | null; inflation_limit?: number | null; inflation_median?: number | null; inflation_max?: number | null; defined_per_scale?: number[] | null; method?: string | null; r_rule?: string | null }
+  warnings?: string[]
+}
+
+/** A verdict exactly as `interrogation.cycle_shapes` gave it (read, never re-derived). */
+export interface CycleVerdict {
+  tested: boolean; reason: string | null; beyond_noise: boolean | null; beyond_noise_squared?: boolean | null
+  below_every_draw?: boolean | null; z?: number | null; z_squared?: number | null; background_colour_mismatch?: boolean | null
+  beyond_phase_cycles_squared?: boolean | null
+}
+export interface CycleScores { squared: number | null; eq17: number | null }
+export interface CycleGroup {
+  group: number; key: string; size: number; medoid_event: number | null; floor_frac_median: number | null
+  half_recovery_frac_median: number | null; length_s_median: number | null; verdict: CycleVerdict | null; scores: CycleScores
+}
+export interface CycleSequence {
+  key: string | number; n_cycles: number | null; n_used: number | null; k: number | null; k_note: string | null
+  k_null: { source: string | null; draws: number | null; reason: string | null } | null; omitted: Record<string, number> | null
+  background_colour_mismatch: boolean | null; change_points_s: number[]
+  order_test: { runs: number; p: number | null; n_perm: number; note?: string; expected_runs?: number } | null
+  whole_verdict: CycleVerdict | null; whole_scores: CycleScores; groups: CycleGroup[]
+}
+export interface CycleStackRow { event: number; sequence: string | number; group: number; start_s: number; length_s: number; before: number[]; after: number[] }
+export interface CycleStack { n_points: number; n_rows: number; n_cycles: number; sampled: boolean; seed?: number; time_unit?: string; span_start_s: number; rows: CycleStackRow[] }
+export interface CycleExemplar { key: string; group_key: string; sequence: string | null; group: number | null; event: number; start_s: number; end_s: number; rule: string }
+export interface SpansetPayload {
+  cycle_stack?: CycleStack; cycle_sequences?: CycleSequence[]; cycle_exemplars?: CycleExemplar[]
+  cycle_omitted?: Record<string, number>; warnings?: string[]
+}
+
+/** An image whose rows are not pixels (one value per row, row 0 = the top row drawn) — the pan matrix profile's
+ *  window lengths, the wavelet transform's frequencies. `row_verdict`: a block that judged each row, as it judged it. */
+export interface RowAxis { values: number[]; unit: 's' | 'Hz' | string; label: string; source: string }
+export interface RowVerdictRow { row: number | null; length_s: number | null; judged: boolean | null; clears: boolean | null; cut?: number | null; gap: number | null; reason: string | null; reason_code?: string | null; n_windows_nan?: number | null }
+/** W3-C's final form: the band `cleared_s` is the answer; `suggested_window_s` (by `suggestion_rule`) is NOT the
+ *  event's length — `caveat` says so on the face */
+export interface RowVerdict {
+  verdict: string | null; suggested_window_s: number | null; suggested_row: number | null; cleared_s: number[]
+  suggestion_rule: string | null; reasons: Record<string, number>; caveat: string; rows: RowVerdictRow[]
+}
+export interface EncodingImagePayload { row_axis?: RowAxis; row_verdict?: RowVerdict; rules?: MeasureRule[] }
+
+/** W3-G / decision 3: σ² leads (`variants[0]`, a number only), eq. 17 beside it carries the verdict. */
+export interface CoherenceVariant {
+  name: 'squared' | 'eq17' | string; label: string; score: number | null; null_median: number | null; null_p05: number | null
+  beyond_noise: boolean | null; squared_vs_null_ratio?: number | null; note?: string; is_verdict: boolean
+}
+/** The quiet-stretch null's own report (`Working.background_null.MemberBackground`). */
+export interface QuietBackground {
+  usable?: boolean; reason?: string | null; background_s?: number | null; background_samples?: number | null
+  n_borrowed?: number | null; detection_overlap_share?: number | null; family_scored_on?: string | null
+  n_recordings?: number | null; pool?: number | null; nearest?: number | null
+}
+export interface FamilyRow {
+  svd_entropy_squared_null_p05?: number | null; svd_entropy_variants?: CoherenceVariant[] | null
+  passed_by?: string[] | null; svd_entropy_passed_by?: string[] | null; null_kind?: string | null; svd_entropy_null_kind?: string | null
+  background_s?: number | null; background?: QuietBackground | null; svd_entropy_background?: QuietBackground | null; svd_entropy_why?: string | null
+}
+export interface LibFamilyCoherence {
+  variants?: CoherenceVariant[]; passed_by?: string[]; background?: QuietBackground | null; why?: string | null
+  null_squared_p05?: number | null
+}
+export interface LibFamilyFlags { passed_by?: string[]; null_kind?: string; background_s?: number | null; background?: QuietBackground | null }

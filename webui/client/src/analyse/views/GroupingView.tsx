@@ -17,7 +17,9 @@ import { Empty, loadWindow, type ViewCtx } from './common'
 export const clusterColour = (p: GroupingPayload, id: number) => p.class_names
   ? (id < 0 ? '#b9bec7' : CAT9[id % 9])          // a labelled Grouping: excluded is grey, the classes keep their colour
   : p.families ? familyColour(id)                 // w2-f: a families Grouping: -1 (in no family) is grey, F keeps its colour
-    : CAT9[(((id - p.label_base) % 9) + 9) % 9]
+    // W3-F: -1 is "no label" (catalogue.cluster's left-out windows, snippets' unlabelled) — grey, never a cluster's
+    // colour; `label_base` is the lowest REAL label (serialize.py), so a -1 does not shift every cluster's colour
+    : id < 0 ? '#b9bec7' : CAT9[(((id - p.label_base) % 9) + 9) % 9]
 /** One colour per family, shared by Shape families' strip and Event families' events; -1 (in no family) grey. */
 export const familyColour = (f: number) => (f < 0 ? '#b9bec7' : CAT9[(((f - 1) % 9) + 9) % 9])
 /** What a group is called: a labelled Grouping's class name (fixup-aa: `catalogue.manual_labels`), else `cluster N`. */
@@ -136,28 +138,66 @@ export function ClusterExemplars({ p, recordingId, unit }: { p: GroupingPayload;
 /* ---------------- w2-f: the families' table (Shape families, Event families) ---------------- */
 const f2 = (v: number | null | undefined) => (v === null || v === undefined || !Number.isFinite(v) ? '—' : v.toFixed(2))
 
+/** W3-G decision 15: which null(s) passed a family — the quiet stretches, the trend-kept surrogates, or both. */
+const passedWords = (passed: string[]) => passed.length > 1 ? 'both'
+  : /quiet/.test(passed[0] ?? '') ? 'quiet stretches' : /trend/.test(passed[0] ?? '') ? 'trend-kept' : (passed[0] ?? '')
+
 /** A family's verdict against its method's null, as the block made it: amber "no better than noise", grey
- *  "untested" (Ward draws no null), grey "null not trusted" (the method's null is not trusted, `null_caveat` says
- *  why — k-Shape), green "beyond noise" only when `confident` is true. Never derived here. */
+ *  "untested" (Ward draws no null), green "beyond noise" only when `confident` is true — with WHICH null passed it
+ *  (`passed_by`) and, when the quiet stretches could not be used, the fallback on the badge itself. Never derived
+ *  here. The grey "null not trusted" branch is DORMANT (W3-F): it fired for k-Shape, whose `null_caveat` is None
+ *  since W3-G gave it a trend-kept null; it is kept for a method that sets `confident` None with a caveat again. */
 export function FamilyBadge({ f }: { f: FamilyRow }) {
   if (f.noise_like) return <span className="k-badge t-amber" data-testid={`family-badge-${f.family}`} data-verdict="noise-like" title={f.why ?? ''}>no better than noise</span>
   if (!f.tested) return <span className="k-badge t-grey" data-testid={`family-badge-${f.family}`} data-verdict="untested" title={f.why ?? 'this method draws no noise null'}>untested</span>
   if (f.confident === null) return <span className="k-badge t-grey" data-testid={`family-badge-${f.family}`} data-verdict="null-not-trusted" title={f.null_caveat ?? f.why ?? ''}><span data-testid="family-null-not-trusted">null not trusted</span></span>
-  return <span className="k-badge t-green" data-testid={`family-badge-${f.family}`} data-verdict="confident" title={f.why ?? ''}>beyond noise</span>
+  const passed = f.passed_by ?? []
+  const fellBack = !!f.background?.reason && !(f.null_kind ?? '').startsWith('quiet')
+  return (
+    <span className="k-badge t-green" data-testid={`family-badge-${f.family}`} data-verdict="confident" title={f.why ?? ''}>
+      beyond noise{passed.length ? <span data-testid={`family-passed-by-${f.family}`}> ({passedWords(passed)})</span> : null}
+      {fellBack && <span data-testid={`family-fallback-${f.family}`}> · judged on trend-kept noise only: {f.background?.reason}</span>}
+    </span>
+  )
 }
 
-/** Coherence beside its null; the verdict is the block's `svd_entropy_beyond_noise` (svd_entropy's own margin). */
+/** σ² first, as a NUMBER with its ratio to its own null (decision 3: no badge — eq. 17 carries the verdict). */
+function FamilySquaredCell({ f }: { f: FamilyRow }) {
+  const sq = (f.svd_entropy_variants ?? []).find(x => x.name === 'squared') ?? null
+  const ratio = sq?.squared_vs_null_ratio
+  return (
+    <span data-testid={`family-squared-${f.family}`} title={sq?.note ?? 'σ²-weighted SVD entropy (share of variance): reported, not judged'}>
+      <b className="mono">{f2(sq ? sq.score : f.svd_entropy_squared_norm)}</b>
+      <span className="muted"> · noise {f2(sq ? sq.null_median : f.svd_entropy_squared_null_median)}{ratio != null ? ` · ${ratio.toFixed(2)}× p05` : ''}</span>
+      {f.top_share !== null ? <span className="muted"> · main shape {Math.round(f.top_share * 100)} %</span> : null}
+    </span>
+  )
+}
+
+/** eq. 17 beside its null; the verdict is the block's `svd_entropy_beyond_noise` (svd_entropy's own margin). */
 function FamilyCoherenceCell({ f }: { f: FamilyRow }) {
   const v = f.svd_entropy_beyond_noise
   return (
-    <span data-testid={`family-coherence-${f.family}`} data-verdict={v === true ? 'beyond' : v === false ? 'noise' : 'none'} title={f.svd_entropy_rule ?? ''}>
+    <span data-testid={`family-coherence-${f.family}`} data-verdict={v === true ? 'beyond' : v === false ? 'noise' : 'none'} title={f.svd_entropy_why ?? f.svd_entropy_rule ?? ''}>
       <b className="mono">{f2(f.svd_entropy_norm)}</b>
       <span className="muted"> · noise {f2(f.svd_entropy_null_median)} (p05 {f2(f.svd_entropy_null_p05)})</span>
       {v === false && <span className="k-badge t-amber" style={{ marginLeft: 4 }} title={`not below ${f.svd_entropy_null_margin ?? 0.9} × the noise's p05 (a placeholder margin)`}>no more coherent than noise</span>}
-      {v === true && <span className="muted"> · beyond noise</span>}
+      {v === true && <span className="muted"> · beyond noise{f.svd_entropy_passed_by?.length ? ` (${passedWords(f.svd_entropy_passed_by)})` : ''}</span>}
       {(v === null || v === undefined) && <span className="muted"> · {f.coherence_reason ?? 'no null'}</span>}
     </span>
   )
+}
+
+/** The quiet-stretch null's context, in one line: how much background, borrowed windows, overlap with detections. */
+function FamilyNullContext({ f }: { f: FamilyRow }) {
+  const bg = f.background ?? f.svd_entropy_background ?? null
+  const bits = [
+    f.background_s != null ? `${Math.round(f.background_s).toLocaleString()} s quiet` : bg?.background_s != null ? `${Math.round(bg.background_s).toLocaleString()} s quiet` : '',
+    bg?.n_borrowed ? `${bg.n_borrowed} borrowed` : '',
+    bg?.detection_overlap_share != null ? `${Math.round(bg.detection_overlap_share * 100)} % overlap a detection` : '',
+    f.svd_entropy_background?.family_scored_on ? `scored on ${f.svd_entropy_background.family_scored_on}` : '',
+  ].filter(Boolean)
+  return bits.length ? <span className="muted" data-testid={`family-null-context-${f.family}`}>{bits.join(' · ')}</span> : <span className="muted">—</span>
 }
 
 /** Every family the block made, one row each, with every number on the face; the block's warnings and notes under it. */
@@ -169,19 +209,20 @@ export function FamilyTable({ families, summary, unit = 'members' }: { families:
     <div data-testid="family-table" style={{ marginTop: 10 }}>
       <div className="bp-card-title"><h3 style={{ fontSize: 13 }}>Families against noise</h3>
         <span className="sg">{summary?.method ?? ''}{summary ? ` · placed ${frac(summary.fraction_placed)} · confident ${frac(summary.fraction_confident)}${summary.n_noise_like ? ` · ${summary.n_noise_like} no better than noise` : ''}` : ''}</span>
-        <InfoTip title="What the badge says">Each family is tested against phase-randomised noise of the same colour (the method's null). Coherence: 0 = all members the same shape, 1 = no shared shape; its verdict needs the score clearly below the noise's.</InfoTip>
+        <InfoTip title="What the badge says">Each family is tested against noise: the recording's own quiet stretches (windows of the members' length cut where no event lies) and trend-kept phase-randomised surrogates; a family passes on either, and the badge says which. Coherence: 0 = all members the same shape, 1 = no shared shape. σ² (share of variance) leads, as a number against its own null; eq. 17 beside it carries the verdict, which needs the score clearly below the noise's.</InfoTip>
       </div>
       {families.length === 0
         ? <div className="mono small muted" data-testid="family-table-empty">no family was made{summary?.omitted && Object.keys(summary.omitted).length ? ` · left out: ${Object.entries(summary.omitted).map(([k, n]) => `${n} ${k.replace(/_/g, ' ')}`).join(' · ')}` : ''}</div>
         : <table className="mono" style={{ borderCollapse: 'collapse', fontSize: 11.5 }}>
-          <thead><tr><th style={th}>family</th><th style={th}>{unit}</th><th style={th}>verdict</th><th style={th}>coherence beside its null</th><th style={th}>σ²-weighted · main shape</th></tr></thead>
+          <thead><tr><th style={th}>family</th><th style={th}>{unit}</th><th style={th}>verdict · which null passed</th><th style={th}>σ² · its noise · main shape</th><th style={th}>eq. 17 beside its null (the verdict)</th><th style={th}>the null's background</th></tr></thead>
           <tbody>{families.map(f => (
             <tr key={f.family} data-testid={`family-row-${f.family}`}>
               <td style={td}><i style={{ display: 'inline-block', width: 9, height: 9, borderRadius: 2, background: familyColour(f.family), marginRight: 5 }} />F{f.family}{f.library_label ? ` (${f.library_label})` : ''}</td>
               <td style={{ ...td, textAlign: 'right' }}>{f.size.toLocaleString()}</td>
               <td style={td}><FamilyBadge f={f} /></td>
+              <td style={td}><FamilySquaredCell f={f} /></td>
               <td style={td}><FamilyCoherenceCell f={f} /></td>
-              <td style={td}>{f2(f.svd_entropy_squared_norm)}{f.top_share !== null ? ` · ${Math.round(f.top_share * 100)} %` : ''}</td>
+              <td style={td}><FamilyNullContext f={f} /></td>
             </tr>
           ))}</tbody>
         </table>}

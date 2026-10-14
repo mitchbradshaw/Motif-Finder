@@ -301,6 +301,13 @@ def create_app(rt: Runtime) -> FastAPI:
             c.close()
         if routed["route"] == "cluster":
             raise HTTPException(422, _slurm_refusal(recipe, rec, routed))
+        if routed.get("calibrating"):
+            # W3-F fix 1: a step whose cost model is still being timed on this machine would start blind (route
+            # "unknown"); every entry point (chain page, block page, a script) is held here until it lands
+            steps_c = ", ".join(f"{i + 1:02d}" for i in routed["calibrating"])
+            raise HTTPException(409, f"calibrating: the cost model of stage {steps_c} is being timed on this machine "
+                                     f"— try again in a few seconds (a run over the local limit is then written "
+                                     f"as a SLURM job instead of starting here)")
         job = manager.start(recipe, rec, px=body.px, null=null)
         return job.snapshot()
 

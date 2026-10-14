@@ -15,6 +15,9 @@ way ``UI/workspaces/analyse/builder.py`` does it.
 from __future__ import annotations
 
 import os
+import sys
+import threading
+import time
 from typing import Any
 
 from Adapters.registry import discover_adapters, get_adapter, list_adapters
@@ -53,7 +56,9 @@ def adapter_card(spec) -> dict:
         "has_derive": spec.derive is not None,
         "max_span_samples": spec.max_span_samples,
         "has_recommend": spec.recommend is not None,
-        "side_inputs": [{"name": s.name, "type_kind": s.type_kind, "sources": list(s.sources)} for s in spec.side_inputs],
+        # W3-B: an optional side input (cycle shapes' waveform) is not shown as one the block needs
+        "side_inputs": [{"name": s.name, "type_kind": s.type_kind, "sources": list(s.sources),
+                         "required": bool(getattr(s, "required", True))} for s in spec.side_inputs],
         "known_broken": spec.known_broken,
         # fixup-ag: a source block (Window pool) starts a chain in place of a span and can only be step 01
         "source": bool(getattr(spec, "source", False)),
@@ -178,7 +183,7 @@ def estimate(recipe: dict, n_samples: int, fs: float) -> dict:
     0.0 (docs/BLOCK_INTEGRATION.md §3: the honest answer routes to "unknown", not to a
     spinner). ``total_s`` sums the known steps; a block with no estimator is free."""
     from Working.hpc.job_export import _Span
-    per_step, unknown, errors = [], [], {}
+    per_step, unknown, errors, calibrating = [], [], {}, []
     for i, step in enumerate(recipe["steps"]):
         spec = get_adapter(f"{step['stage']}.{step['algorithm']}")
         if spec.estimate is None:
@@ -191,13 +196,21 @@ def estimate(recipe: dict, n_samples: int, fs: float) -> dict:
             errors[i] = f"{type(e).__name__}: {e}"
         if v is None:
             per_step.append(None); unknown.append(i)
+            # why it is unknown, in words the page prints (W2-ledger decision 24): a cost model still being
+            # timed on this machine, or one whose timing failed
+            for name in _block_cost_models(step):
+                st = block_calibration_state(name)
+                if st["state"] == "calibrating" and i not in calibrating:
+                    calibrating.append(i)
+                elif st["state"] == "failed" and i not in errors:
+                    errors[i] = f"calibrating {name} failed: {st['error']}"
         else:
             per_step.append(float(v))
     fan = recipe.get("fan_out")
     width = len(fan["targets"]) if fan else 1
     total = sum(v for v in per_step if v is not None) * width
     return {"total_s": total, "per_step_s": per_step, "unknown": unknown, "errors": errors,
-            "route": "unknown" if unknown else "local"}
+            "calibrating": calibrating, "route": "unknown" if unknown else "local"}
 
 
 ANALYSE_LIMIT_KEY = "limit.Analyse"     # Settings › Compute & HPC, minutes
@@ -241,15 +254,128 @@ def _uses_mp_cost(step: dict) -> bool:
     return mod is not None and any(getattr(v, "__module__", None) == cost.__name__ for v in vars(mod).values())
 
 
+# ── the generic block cost models (`Working.block_cost`), calibrated on first need (W3-F item 2) ──────────────
+# Measured 2026-10-15 on this machine (fresh process after the registry import; `calibrate([name], force=True)`,
+# warm-ups included): rupture 447 s (Pelt on the calibration's random walk), snippets 19.8 s (numba compile),
+# MiniRocket 7.5 s (61.5 s when aeon is not yet imported), cycle shapes 4.6 s, deconvolve 2.9 s, MSE 2.1 s, the
+# rest under 1.5 s; warm, every one but rupture under 3 s. Holding POST /api/chain/validate for 20 s — let alone
+# 7 min — is not acceptable, so a model is calibrated in a background thread the first time a chain needs it, and
+# `route_local` waits up to CALIBRATION_WAIT_S for it: most land inside the request, the slow ones read
+# "calibrating" (the page re-validates until they land). Lazily, not at bridge start: before `Runtime.setup()`
+# the calibration file still points at the checkout's DATA/db, and most models are never needed in a session.
+
+#: How long one request waits for a background calibration before answering "calibrating".
+CALIBRATION_WAIT_S = 10.0
+#: A failed calibration (a block that cannot run here: no model checkpoint) is retried after this long.
+CALIBRATION_RETRY_S = 60.0
+
+_BC_LOCK = threading.Lock()          # guards the state table
+# W3-F fix 1: no lock across models. One model is timed by one thread at a time (the state table says
+# "calibrating"), different models time side by side, and `block_cost.calibrate` holds its own lock only around the
+# file's read-merge-write — so rupture's 7-minute timing never holds MSE or snippets. Side by side (or beside a run
+# in the same process) a timing is inflated by CPU contention; that errs toward refusing a run, never toward
+# starting one too long for the machine.
+_BC_STATE: dict[str, dict] = {}
+_BC_THREADS: dict[str, threading.Thread] = {}
+
+
+def reset_block_calibration() -> None:
+    """Forget every background calibration's state (tests; a bridge restart does the same). A calibration still
+    running keeps its own file (resolved when it started) and its result is dropped, so it cannot write into what
+    comes after the reset."""
+    with _BC_LOCK:
+        _BC_STATE.clear()
+        _BC_THREADS.clear()
+
+
+def block_calibration_state(name: str) -> dict:
+    """`{state: 'calibrated' | 'calibrating' | 'failed' | 'uncalibrated', seconds, error}` for one model."""
+    from Working import block_cost
+    with _BC_LOCK:
+        st = dict(_BC_STATE.get(name) or {})
+    if st.get("state") in ("calibrating", "failed"):
+        return {"state": st["state"], "seconds": st.get("seconds"), "error": st.get("error")}
+    if name in block_cost.MODELS and block_cost.calibration_status(name)["calibrated"]:
+        return {"state": "calibrated", "seconds": st.get("seconds"), "error": None}
+    return {"state": "uncalibrated", "seconds": None, "error": None}
+
+
+def _block_cost_models(step: dict) -> list[str]:
+    """The `Working.block_cost` models this step's adapter registered — read off the adapter's module (the
+    model's timing callable is defined there, or the module names the model in a constant), so a block that
+    registers a model is found without a table here."""
+    from Working import block_cost
+    try:
+        spec = get_adapter(f"{step['stage']}.{step['algorithm']}")
+    except KeyError:
+        return []
+    modname = getattr(spec.estimate, "__module__", None) or getattr(spec.run, "__module__", None)
+    mod = sys.modules.get(modname or "")
+    if mod is None:
+        return []
+    named = {v for v in vars(mod).values() if isinstance(v, str)}
+    return [name for name, (_, run_once) in block_cost.MODELS.items()
+            if getattr(run_once, "__module__", None) == modname or name in named]
+
+
+def _calibrate_block_cost(name: str, path: str, generation: dict) -> None:
+    """Time one model and store it in `path` — the calibration file resolved when the request started it (a
+    sandbox's runtime copy), never whatever the module points at by the time a minutes-long timing ends (a
+    restored runtime would otherwise send it to the checkout's DATA/db)."""
+    from Working import block_cost
+    t0 = time.time()
+    try:
+        block_cost.calibrate([name], path=path)
+        st = {"state": "calibrated", "seconds": round(time.time() - t0, 1), "error": None}
+    except Exception as e:          # a block that cannot run here: say why, never "free"
+        st = {"state": "failed", "seconds": round(time.time() - t0, 1), "error": f"{type(e).__name__}: {e}",
+              "failed_at": time.time()}
+    with _BC_LOCK:
+        if _BC_STATE.get(name) is generation:     # not reset (or restarted) while it ran
+            _BC_STATE[name] = st
+
+
+def _ensure_block_calibration(name: str) -> threading.Thread | None:
+    """Start `name`'s calibration in the background unless it is calibrated or already running; the thread."""
+    if block_calibration_state(name)["state"] == "calibrated":
+        return None
+    with _BC_LOCK:
+        st = _BC_STATE.get(name) or {}
+        if st.get("state") == "calibrating":
+            return _BC_THREADS.get(name)
+        if st.get("state") == "failed" and time.time() - st.get("failed_at", 0) < CALIBRATION_RETRY_S:
+            return None
+        from Working import block_cost
+        generation = {"state": "calibrating", "seconds": None, "error": None}
+        _BC_STATE[name] = generation
+        t = threading.Thread(target=_calibrate_block_cost,
+                             args=(name, os.path.abspath(block_cost.CALIBRATION_PATH), generation),
+                             name=f"calibrate-{name}", daemon=True)
+        _BC_THREADS[name] = t
+    t.start()
+    return t
+
+
 def route_local(recipe: dict, n_samples: int, fs: float, *, ceiling_s: float, draws: int = 0) -> dict:
-    """Can this run finish locally? ``estimate`` per step; when a step's estimator is uncalibrated, the
-    matrix-profile cost model is calibrated once and the estimate taken again. The run's cost is the real chain
-    plus ``draws`` paired null draws (each runs the whole chain again). ``route`` is ``cluster`` over the
-    ceiling, ``local`` under it, ``unknown`` when a step still cannot be estimated (it then runs, as before)."""
+    """Can this run finish locally? ``estimate`` per step; when a step's estimator is uncalibrated, its cost
+    model is calibrated — the matrix-profile model synchronously (a few seconds), a `Working.block_cost` model in
+    the background, waited for up to ``CALIBRATION_WAIT_S`` — and the estimate taken again. The run's cost is
+    the real chain plus ``draws`` paired null draws (each runs the whole chain again). ``route`` is ``cluster``
+    over the ceiling, ``local`` under it, ``unknown`` when a step still cannot be estimated: ``calibrating``
+    lists the steps whose model is still being timed, ``errors`` the estimator's (or calibration's) own words."""
     est = estimate(recipe, n_samples, fs)
-    calibration = None
+    calibration: dict | None = None
     if any(_uses_mp_cost(recipe["steps"][i]) for i in est["unknown"]):
         calibration = _calibrate_matrix_profile()
+        est = estimate(recipe, n_samples, fs)
+    models = sorted({name for i in est["unknown"] for name in _block_cost_models(recipe["steps"][i])})
+    if models:
+        threads = [t for t in (_ensure_block_calibration(m) for m in models) if t is not None]
+        deadline = time.time() + float(CALIBRATION_WAIT_S)
+        for t in threads:
+            t.join(max(0.0, deadline - time.time()))
+        calibration = dict(calibration or {})
+        calibration["block_cost"] = {m: block_calibration_state(m) for m in models}
         est = estimate(recipe, n_samples, fs)
     real = est["total_s"]
     total = real * (1 + max(0, int(draws)))
@@ -262,6 +388,7 @@ def route_local(recipe: dict, n_samples: int, fs: float, *, ceiling_s: float, dr
         slowest = {"index": i, "name": f"{step['stage']}.{step['algorithm']}", "seconds": v}
     return {"route": route, "estimate_s": total, "estimate_real_s": real, "draws": int(draws),
             "ceiling_s": float(ceiling_s), "per_step_s": est["per_step_s"], "unknown": est["unknown"],
+            "calibrating": est["calibrating"], "errors": est["errors"],
             "slowest": slowest, "calibration": calibration}
 
 

@@ -12,7 +12,7 @@
  * by share), never one symbol standing in for the rest: a majority vote would erase exactly the rare symbol —
  * a fall — the encoding exists to find. */
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
-import { ApiError, getStepFrame, type EncodingFrame, type EncodingImagePayload, type EncodingSymbolicPayload, type EnvelopeSeries } from '../../api'
+import { ApiError, getStepFrame, type EncodingFrame, type EncodingImagePayload, type EncodingSymbolicPayload, type EnvelopeSeries, type RowAxis, type RowVerdict } from '../../api'
 import { EnvelopePath } from '../../charts/primitives'
 import { makeX, makeY, polylinePath, type XScale } from '../../charts/scale'
 import { useSize } from '../../charts/useSize'
@@ -216,7 +216,75 @@ export function ImageView({ p, ctx, extraFrame }: { p: EncodingImagePayload; ctx
         })}
       </div>
       <svg width={ctx.width} height={LOC + 2} style={{ position: 'absolute', left: 0, bottom: 0 }}><FrameLocator frames={frames} ctx={ctx} y={2} h={LOC} /></svg>
+      {ctx.interactive && p.row_axis && <RowAxisLabels axis={p.row_axis} verdict={p.row_verdict ?? null} top={CAP} height={imgH} />}
       {!ctx.interactive && <span className="mono" style={{ position: 'absolute', right: 6, top: 2, fontSize: 10, color: 'var(--muted)', background: 'rgba(255,255,255,0.85)', padding: '0 4px', borderRadius: 3 }}>{fr.shown.length} of {fr.n.toLocaleString()} {fr.axis === 'stack' ? 'images' : fr.axis === 'time' ? 'chunks' : 'image'} · the bar below marks where each is</span>}
+    </div>
+  )
+}
+
+/* ---- W3-F: an image whose rows are not pixels (`row_axis`, one value per row, row 0 the top row drawn) ----
+ * One convention for every such block (docs/BLOCK_INTEGRATION.md §2): the pan matrix profile's window lengths
+ * (`meta["lengths_s"]`, long first) and the wavelet transform's frequencies (`meta["freqs_hz"]`, low first). */
+export const fmtRow = (v: number, unit: string) => unit === 's'
+  ? (v >= 3600 ? `${+(v / 3600).toPrecision(3)} h` : v >= 60 ? `${+(v / 60).toPrecision(3)} min` : `${+v.toPrecision(3)} s`)
+  : `${+v.toPrecision(3)} ${unit}`
+
+function RowAxisLabels({ axis, verdict, top, height }: { axis: RowAxis; verdict: RowVerdict | null; top: number; height: number }) {
+  const n = axis.values.length
+  if (!n) return null
+  const every = Math.max(1, Math.ceil(n / Math.max(1, Math.floor(height / 13))))
+  return (
+    <svg width={140} height={top + height} style={{ position: 'absolute', left: 0, top: 0, pointerEvents: 'none' }} data-testid="row-axis" data-rows={n} data-unit={axis.unit}>
+      {axis.values.map((v, i) => {
+        const y = top + ((i + 0.5) / n) * height
+        const r = verdict?.rows[i]
+        const sug = verdict?.suggested_row === i
+        if (i % every !== 0 && !sug && !r?.clears) return null
+        return (
+          <g key={i} data-testid={`row-label-${i}`}>
+            {sug && <rect x={0} y={top + (i / n) * height} width={4} height={Math.max(2, height / n)} fill="var(--amber)" data-testid="row-suggested" />}
+            <text x={6} y={y + 3.5} style={{ fontSize: 10, fill: '#fff', paintOrder: 'stroke', stroke: 'rgba(0,0,0,0.65)', strokeWidth: 3, fontWeight: sug ? 700 : 400 }}>
+              {fmtRow(v, axis.unit)}{r ? (r.clears ? ' ✓' : r.judged === false ? ' ·' : '') : ''}
+            </text>
+          </g>
+        )
+      })}
+    </svg>
+  )
+}
+
+/** The rows' own verdict, as the block gave it (the pan matrix profile: which window lengths repeat beyond
+ *  phase-randomised noise of the same colour) — read off `row_verdict`, never re-derived from a gap and its draws. */
+export function RowVerdictTable({ axis, verdict }: { axis: RowAxis; verdict: RowVerdict }) {
+  const th = { textAlign: 'left' as const, padding: '2px 8px', fontWeight: 500, color: 'var(--text-2)' }
+  const td = { padding: '2px 8px', verticalAlign: 'top' as const }
+  const sug = verdict.suggested_window_s
+  const band = verdict.cleared_s ?? []
+  // the BAND of lengths that clear is the answer (W3-C); the strongest is one length of it, never an event's length —
+  // said on the same line as the number (re-critique 3: the view names it "strongest", never as a length to use)
+  const bandText = band.length === 0 ? `no ${axis.label} stands out`
+    : band.length === 1 ? `clears at ${fmtRow(band[0], axis.unit)}`
+      : `clears from ${fmtRow(band[0], axis.unit)} to ${fmtRow(band[band.length - 1], axis.unit)}`
+  return (
+    <div style={{ marginTop: 10 }} data-testid="row-verdict">
+      <div className="bp-card-title"><h3 style={{ fontSize: 13 }}>Which {axis.label}s repeat beyond noise</h3>
+        <span className="sg" data-testid="row-verdict-headline"><b data-testid="row-verdict-band">{bandText}</b>{sug != null ? <> · strongest at {fmtRow(sug, axis.unit)} — <b>not an event length</b></> : ''}</span>
+      </div>
+      <div className="mono small" style={{ color: 'var(--text-2)', marginBottom: 4 }} data-testid="row-verdict-rule">{verdict.verdict ?? ''}</div>
+      {sug != null && <div className="mono small" style={{ color: 'var(--amber-700, #b76a00)', marginBottom: 4 }} data-testid="row-verdict-caveat">caveat: {verdict.caveat}</div>}
+      <table className="mono" style={{ borderCollapse: 'collapse', fontSize: 11.5 }}>
+        <thead><tr><th style={th}>row</th><th style={th}>{axis.label}</th><th style={th}>judged</th><th style={th}>clears the null</th><th style={th}>gap · cut</th><th style={th}>why</th></tr></thead>
+        <tbody>{verdict.rows.map((r, i) => (
+          <tr key={i} data-testid={`row-verdict-${i}`} style={verdict.suggested_row === i ? { background: 'var(--amber-100)' } : undefined}>
+            <td style={td}>{i}</td>
+            <td style={td}>{fmtRow(axis.values[i] ?? r.length_s ?? NaN, axis.unit)}{verdict.suggested_row === i ? ' · strongest' : ''}</td>
+            <td style={td}>{r.judged ? 'yes' : <span style={{ color: 'var(--muted)' }}>no</span>}</td>
+            <td style={td}>{r.clears ? <span style={{ color: 'var(--green-700, #157a3a)' }}>clears</span> : r.judged ? 'no' : '—'}</td>
+            <td style={td}>{r.gap == null ? '—' : r.gap.toFixed(1)}{r.cut != null ? ` · ${r.cut.toFixed(1)}` : ''}</td>
+            <td style={{ ...td, color: 'var(--text-2)' }}>{r.reason ?? ''}</td>
+          </tr>
+        ))}</tbody>
+      </table>
     </div>
   )
 }

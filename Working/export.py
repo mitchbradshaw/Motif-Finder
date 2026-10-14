@@ -63,14 +63,30 @@ def _surrogate_block(conn, run):
     manifest, so a missing control is visible in the export rather than
     silently absent (PRD "Surrogates"). The surrogate run is found through
     the `runs.surrogate_of_run_id` pointer: a surrogate run S of an original
-    run A carries `S.surrogate_of_run_id = A.id`."""
+    run A carries `S.surrogate_of_run_id = A.id`.
+
+    Only a COMPLETED draw is the control (`queries.completed_null_draw`, W3-F
+    fix round 2): a draw stopped part-way is linked to its run so its spans
+    never read as real, but it ran part of the chain. When only stopped
+    draws exist, the block says so (`completed: False`, their ids and a
+    note) instead of naming one of them the surrogate control."""
     row = conn.execute(
-        "SELECT * FROM runs WHERE surrogate_of_run_id = ? ORDER BY id LIMIT 1",
+        "SELECT * FROM runs r WHERE r.surrogate_of_run_id = ? AND " + q.completed_null_draw("r")
+        + " ORDER BY r.id LIMIT 1",
         (run["id"],),
     ).fetchone()
     if row is None:
-        return None
+        stopped = [int(r["id"]) for r in conn.execute(
+            "SELECT id FROM runs WHERE surrogate_of_run_id = ? ORDER BY id", (run["id"],)).fetchall()]
+        if not stopped:
+            return None
+        return {"run_id": None, "completed": False, "stopped_run_ids": stopped, "status": None,
+                "detection_count": None,
+                "note": (f"no completed surrogate draw: the paired null was stopped part-way "
+                         f"({len(stopped)} partial run{'s' if len(stopped) != 1 else ''}), so there is no "
+                         f"surrogate control for this run")}
     return {
+        "completed": True,
         "run_id": row["id"],
         "status": row["status"],
         "detection_count": len(R.list_detections(conn, row["id"])),

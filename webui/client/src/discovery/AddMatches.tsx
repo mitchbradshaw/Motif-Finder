@@ -8,12 +8,29 @@ import { Button, Checkbox, InfoTip } from '../kit'
 import { useToast } from '../shell/Toast'
 import { navigate } from '../state'
 import { live, useSourced } from '../api/seam'
-import { getLibraryRunMatches, postLibraryRunMatches } from '../api'
+import { getLibraryRunMatches, postLibraryRunMatches, type LibEdgeRefusal } from '../api'
 import type { DiscoveryRun } from '../api/discovery'
+
+/** W3-D / W3-F: the pairs a distance could not compare (MPdist refuses a member shorter than its sub-window, or one
+ *  holding NaN or a flat stretch), as a NEUTRAL line under the button — a measurement that could not be taken, not
+ *  an error and not a verdict. One row per refused pair; an entry with no detection is the exemplar refusing every
+ *  pair, shown once with its pair count. */
+function MatchRefusals({ summary, rows }: { summary: string; rows: LibEdgeRefusal[] }) {
+  const exemplar = rows.find(r => r.detection_id == null)
+  const pairs = rows.filter(r => r.detection_id != null)
+  return (
+    <details className="mono small" style={{ color: 'var(--text-2)' }} data-testid="matches-refused">
+      <summary style={{ cursor: 'pointer' }}>{summary}</summary>
+      {exemplar && <div data-testid="matches-refused-exemplar">the exemplar · {exemplar.function} · {exemplar.reason}{exemplar.pairs != null ? ` · ${exemplar.pairs} pairs` : ''}</div>}
+      {pairs.map((r, i) => <div key={i} data-testid="matches-refused-row">m-{r.member_id} · detection {r.detection_id} · {r.function} · {r.reason}</div>)}
+    </details>
+  )
+}
 
 export function AddMatchesButton({ run }: { run: DiscoveryRun }) {
   const [includeUnjudged, setIncludeUnjudged] = useState(false)
   const [busy, setBusy] = useState(false)
+  const [refused, setRefused] = useState<{ summary: string; rows: LibEdgeRefusal[] } | null>(null)
   const toast = useToast()
   const summary = useSourced(() => live(getLibraryRunMatches(run.key, includeUnjudged)), [run.key, run.status, run.found, includeUnjudged])
   if (run.kind !== 'seed') return null
@@ -28,6 +45,7 @@ export function AddMatchesButton({ run }: { run: DiscoveryRun }) {
     postLibraryRunMatches(run.key, includeUnjudged)
       .then(r => {
         summary.reload()
+        setRefused(r.refusalSummary ? { summary: r.refusalSummary, rows: r.edgesRefused ?? [] } : null)
         const fam = r.summary.family
         toast.push({
           text: `${r.membersNew + r.membersResolved} matches added to ${r.entryLabel} · ${r.membersNew} new member${r.membersNew === 1 ? '' : 's'}`
@@ -52,6 +70,7 @@ export function AddMatchesButton({ run }: { run: DiscoveryRun }) {
         match keeps its distance on its detection row.
       </InfoTip>
       <Checkbox label="include unjudged" checked={includeUnjudged} onChange={setIncludeUnjudged} testid="add-matches-unjudged" />
+      {refused && <MatchRefusals summary={refused.summary} rows={refused.rows} />}
     </span>
   )
 }

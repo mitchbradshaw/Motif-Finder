@@ -1706,8 +1706,9 @@ def _family_null(conn, member_ids) -> dict:
                            "no null was drawn for them, and no count here can be read against chance")}
     run_list = sorted(runs)
     marks = ",".join("?" * len(run_list))
-    nulls = conn.execute(f"SELECT id, surrogate_of_run_id FROM runs WHERE surrogate_of_run_id IN ({marks})",
-                         tuple(run_list)).fetchall()
+    # completed draws only (`queries.completed_null_draw`, W3-F fix round 2): a stopped draw is not a draw of the null
+    nulls = conn.execute(f"SELECT r.id, r.surrogate_of_run_id FROM runs r WHERE r.surrogate_of_run_id IN ({marks}) "
+                         f"AND {dbq.completed_null_draw('r')}", tuple(run_list)).fetchall()
     per_run = {}
     for n in nulls:
         per_run[int(n["surrogate_of_run_id"])] = per_run.get(int(n["surrogate_of_run_id"]), 0) + 1
