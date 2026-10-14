@@ -25,7 +25,7 @@ import { fmtHours } from '../../state'
 import { DetectorFunnel, funnelOf } from '../DetectorFunnel'
 import { useSendRunToReview } from '../sendToReview'
 import { FeatureTable, IntervalStatsTable, RulesList, labelOf, unitOf } from '../EventFeatures'
-import { AlignedImage, ImageEvidence, ImageView, PaaSteps, SYM3, SymbolChunks, SymbolicView, secondsPerSymbol, symbolColour } from './EncodingView'
+import { AlignedImage, ImageEvidence, ImageView, MISSING_GREY, PaaSteps, SYM3, SymbolChunks, SymbolicView, secondsPerSymbol, symbolColour } from './EncodingView'
 import { ClusterExemplars, ClusterSizes, FamilyTable, GroupingView } from './GroupingView'
 import { ModelView } from './ModelView'
 import { ScoreHistogram, ScoresView, scoreWords, scoreY, type ScoreCut } from './ScoresView'
@@ -446,7 +446,9 @@ function EncodingProcess(q: ProcessProps) {
   const sps = secondsPerSymbol(s, q.ctx)
   const paa = s.paa
   const cuts = s.cutlines ?? []
-  const deltas = paa ? paa.slice(1).map((v, i) => v - paa[i]) : null
+  // a segment a gap touches has no PAA (null): no step is drawn into or out of it
+  const deltas = paa ? paa.slice(1).map((v, i) => (v === null || paa[i] === null ? null : v - (paa[i] as number))) : null
+  const gaps = s.symbols.some(v => v < 0)
   const ghost = q.ctx.ghost
   const gr = ghost ? finiteRange(ghost.v) : null
   return (
@@ -461,13 +463,13 @@ function EncodingProcess(q: ProcessProps) {
           {deltas && (
             <Strip label="Δ per segment" sub={cuts.length ? 'and cutlines' : undefined} height={84} t0={q.ctx.t0} t1={q.ctx.t1} testid="symbolic-cutlines">
               {(x, w, h) => {
-                const ext = Math.max(...deltas.map(Math.abs), ...cuts.map(Math.abs), 1e-9)
+                const ext = Math.max(...deltas.map(d => (d === null ? 0 : Math.abs(d))), ...cuts.map(Math.abs), 1e-9)
                 const y = makeY(-ext, ext, h, 6, 6)
                 const cw = Math.max(1, x(q.ctx.t0 + sps) - x(q.ctx.t0) - 0.5)
                 return (
                   <>
                     <line x1={0} x2={w} y1={y(0)} y2={y(0)} stroke="var(--border)" />
-                    {deltas.map((d, i) => <rect key={i} x={x(s.t0_s + (i + 1) * sps)} y={Math.min(y(0), y(d))} width={cw} height={Math.abs(y(d) - y(0))} fill={s.alphabet_size === 3 ? SYM3[s.symbols[i + 1] ?? 1] : symbolColour(s, s.symbols[i + 1] ?? 0)} opacity={0.8} />)}
+                    {deltas.map((d, i) => d === null ? null : <rect key={i} x={x(s.t0_s + (i + 1) * sps)} y={Math.min(y(0), y(d))} width={cw} height={Math.abs(y(d) - y(0))} fill={s.alphabet_size === 3 ? SYM3[s.symbols[i + 1] ?? 1] : symbolColour(s, s.symbols[i + 1] ?? 0)} opacity={0.8} />)}
                     {cuts.map((c, i) => <g key={i} data-testid="symbolic-cutline"><line x1={0} x2={w} y1={y(c)} y2={y(c)} stroke="var(--red)" strokeDasharray="4 3" /><text x={c >= 0 ? w - 4 : 4} y={c >= 0 ? y(c) - 3 : y(c) + 10} textAnchor={c >= 0 ? 'end' : 'start'} fill="var(--red)" style={{ paintOrder: 'stroke', stroke: '#fff', strokeWidth: 3 }}>{c > 0 ? '+' : ''}{c.toExponential(2)} · learned · not a parameter</text></g>)}
                   </>
                 )
@@ -479,6 +481,7 @@ function EncodingProcess(q: ProcessProps) {
           </Strip>
           <div className="bp-legend">
             {s.alphabet_size === 3 ? <><span><i style={{ background: SYM3[0] }} />down</span><span><i style={{ background: SYM3[1] }} />same</span><span><i style={{ background: SYM3[2] }} />up</span></> : <span>alphabet {s.alphabet_size}{s.alphabet ? ` · ${s.alphabet}` : ''} · one colour per symbol</span>}
+            {gaps && <span data-testid="symbolic-missing-key"><i style={{ background: MISSING_GREY }} />- no recording (a gap): no letter</span>}
             {paa && <span><i style={{ background: 'var(--blue-600)' }} />PAA mean · own scale</span>}
             {cuts.length > 0 && <span><i style={{ background: 'var(--red)' }} />cutlines · learned</span>}
             {!paa && <span>this encoder ships no PAA or cutlines for this result</span>}

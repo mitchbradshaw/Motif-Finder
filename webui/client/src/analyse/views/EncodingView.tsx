@@ -25,7 +25,9 @@ export const CAT9 = ['#0a84ff', '#22a06b', '#e8900c', '#8e5cf7', '#e5484d', '#08
 export const SYM3 = ['#e8900c', '#c7cbd1', '#0a84ff']
 const FRAME_TINT = ['#0a84ff', '#8e5cf7', '#22a06b', '#e8900c']
 
-export const symbolColour = (p: EncodingSymbolicPayload, s: number) => (p.alphabet_size === 3 ? SYM3[s] ?? '#999' : CAT9[((s % CAT9.length) + CAT9.length) % CAT9.length])
+/** no data: a segment a gap touches is symbol -1 (dsax.MISSING_SYMBOL, letter '-'), grey in every alphabet, never a category */
+export const MISSING_GREY = '#999'
+export const symbolColour = (p: EncodingSymbolicPayload, s: number) => (s < 0 ? MISSING_GREY : p.alphabet_size === 3 ? SYM3[s] ?? MISSING_GREY : CAT9[s % CAT9.length])
 export const secondsPerSymbol = (p: EncodingSymbolicPayload, ctx: { t0: number; t1: number }) => p.seconds_per_symbol ?? (ctx.t1 - ctx.t0) / Math.max(1, p.n_symbols)
 
 /* ============================== symbolic ============================== */
@@ -40,11 +42,13 @@ export function SymbolicView({ p, ctx, brackets }: { p: EncodingSymbolicPayload;
     if (cell >= 1 || !n) return null
     const cols = Math.max(1, Math.round(r1 - r0))
     const k = Math.max(1, p.alphabet_size)
-    const counts = Array.from({ length: cols }, () => new Array(k).fill(0))
+    // one more share per column, the last: the missing segments (-1), drawn grey
+    const counts = Array.from({ length: cols }, () => new Array(k + 1).fill(0))
     const ta = ctx.x.invert(r0), tb = ctx.x.invert(r1)
     for (let i = 0; i < n; i++) {
       const c = Math.floor((((p.t0_s + (i + 0.5) * sps) - ta) / (tb - ta)) * cols)
-      if (c >= 0 && c < cols && p.symbols[i] >= 0 && p.symbols[i] < k) counts[c][p.symbols[i]]++
+      const s = p.symbols[i]
+      if (c >= 0 && c < cols && s < k) counts[c][s >= 0 ? s : k]++
     }
     return counts
   }, [cell, n, r0, r1, p.symbols, p.alphabet_size, p.t0_s, sps, ctx.x])
@@ -55,7 +59,7 @@ export function SymbolicView({ p, ctx, brackets }: { p: EncodingSymbolicPayload;
         const total = col.reduce((a, b) => a + b, 0)
         if (!total) return null
         let acc = 0
-        return <g key={c}>{col.map((cnt, s) => { if (!cnt) return null; const y0 = top + (acc / total) * h; acc += cnt; return <rect key={s} x={r0 + c} y={y0} width={1.05} height={(cnt / total) * h} fill={symbolColour(p, s)} /> })}</g>
+        return <g key={c}>{col.map((cnt, s) => { if (!cnt) return null; const y0 = top + (acc / total) * h; acc += cnt; return <rect key={s} x={r0 + c} y={y0} width={1.05} height={(cnt / total) * h} fill={symbolColour(p, s === col.length - 1 ? -1 : s)} /> })}</g>
       }) : p.symbols.map((s, i) => {
         const x0 = ctx.x(p.t0_s + i * sps)
         if (x0 > ctx.width || x0 + cell < 0) return null
@@ -73,7 +77,7 @@ export function SymbolicView({ p, ctx, brackets }: { p: EncodingSymbolicPayload;
         </g>
       ))}
       {!ctx.hideKey && <text x={ctx.width - 6} y={ctx.height - 5} textAnchor="end" fill="var(--muted)" style={{ paintOrder: 'stroke', stroke: '#fff', strokeWidth: 3 }}>
-        {p.alphabet_size === 3 ? 'amber down · grey same · blue up' : `alphabet ${p.alphabet_size} · categorical`}{mix ? ` · ${(1 / cell).toFixed(1)} symbols per px, each column the mix under it` : ''}{p.capped ? ' · capped' : ''}
+        {p.alphabet_size === 3 ? 'amber down · grey same · blue up' : `alphabet ${p.alphabet_size} · categorical`}{p.symbols.some(s => s < 0) ? ' · dark grey (-) no recording' : ''}{mix ? ` · ${(1 / cell).toFixed(1)} symbols per px, each column the mix under it` : ''}{p.capped ? ' · capped' : ''}
       </text>}
     </svg>
   )
@@ -148,10 +152,10 @@ export function SymbolChunks({ p, ctx, children }: { p: EncodingSymbolicPayload;
 }
 
 /* ---- PAA and cutlines: drawn whenever the payload carries them (they used to be a dSAX-only view, by name) ---- */
-export function PaaSteps({ paa, t0, sps, x, h }: { paa: number[]; t0: number; sps: number; x: XScale; h: number }) {
+export function PaaSteps({ paa, t0, sps, x, h }: { paa: (number | null)[]; t0: number; sps: number; x: XScale; h: number }) {
   const r = finiteRange(paa) ?? [0, 1]
   const y = makeY(r[0], r[1], h)
-  const t: number[] = []; const v: number[] = []
+  const t: number[] = []; const v: (number | null)[] = []   // a null (a gap's segment) breaks the line
   paa.forEach((q, i) => { t.push(t0 + i * sps, t0 + (i + 1) * sps); v.push(q, q) })
   return <path d={polylinePath(t, v, x, y)} fill="none" stroke="var(--blue-600)" strokeWidth={1.4} />
 }
