@@ -312,3 +312,43 @@ Smaller follow-ups, no decision needed:
   cost models on a quiet one.
 - The detrend session found that `drop_detection_v1` silently returns no events on a span holding a NaN. Its
   NaN-safe fix is under way in a separate session.
+
+## Decided by the researcher (2026-10-14, evening)
+
+The researcher took every recommendation above ("q1. rec, q2. rec, q3. … rec is fine, q4. rec, q5. rec, q6. rec"):
+
+1. **`event_families`: (b).** The statistic below is declared *before* the re-test. It is run on the researcher's
+   known chains that this evaluation has not used.
+2. **Snippets' chooser: (a) now, (b) later.** For now, set k by hand; the block's description already says so. The
+   re-tune itself is **not in wave 3**: when wave 3 was planned the same day, the researcher chose only follow-up 5
+   for it (`docs/prompts/blocks/README.md`). So it waits for a later wave unless the researcher moves it in.
+3. **g-05: (a), then (b).** First find why today's Ward differs from the stored g-05. Then save a fresh Ward grouping
+   from today's items, keeping g-05 for the record. The researcher "doesn't have a huge attachment to g-05".
+4. **Coherence headline: (b).** σ² leads wherever a family's coherence is shown; eq. 17 sits beside it. The
+   beyond-noise verdict stays on eq. 17 until it is re-measured on σ².
+5. **A fairer noise test: (a).** This is wave 3's `W3-G` (a quiet-stretch null, and a trend-kept null for k-Shape).
+6. **MiniRocket in Models › Launch: (a), as a small ticket.** It is added as a feature choice, with Catch22 staying
+   the default.
+
+### `event_families` re-test — declared before the run
+
+**Statistic.** The template as shipped (anchor at the span start, 600 s windows, HDBSCAN at its defaults) gives two
+numbers on each span:
+- the **fraction of event windows in families that pass their own noise test**, `fraction_confident` of the grouping;
+- the **median SVD entropy (eq. 17) of those same families**.
+
+**Null.** The same shape null as above: each event's cut window is replaced by a phase-randomised copy of itself, and
+the copies are grouped by the same code. 20 draws, seeds 0–19.
+
+**A span beats the null when all three hold:**
+- the real fraction is above every draw's;
+- at least one real family passes its noise test;
+- the real median entropy is below every draw's. A draw with no passing family counts as beaten on this half.
+
+**Spans.** Only two of the researcher's named chains have not been used here:
+- L_LM_Jul_26_J **rec 543, 370–490 h** (10 Hz, 176 `noise_threshold` events);
+- M2_aug **rec 2, 294–304 h** (13 events).
+
+**Ship rule.** The template ships only if it beats on **both**. With two fresh spans, the brief's 2 of 3 cannot be
+met, so 2 of 2 is the strict reading. The earlier spans are reported under the new statistic for information only:
+they were seen before it was chosen.
