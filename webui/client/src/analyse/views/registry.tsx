@@ -563,6 +563,7 @@ export const MODIFIERS: Record<string, Process> = {
   'signal->encoding': EncodingProcess,
   'windowset->encoding': EncodingProcess,
   'signal->windowset': WindowSetProcess,
+  'spanset->windowset': WindowSetProcess,
   'windowset->windowset': WindowsToWindows,
   'windowset->grouping': GroupingProcess,
   'grouping->model': ModelProcess,

@@ -23,6 +23,23 @@ import pandas as pd
 _GEOMETRY_FILENAME = "windowset.npz"
 _FEATURES_FILENAME = "features.parquet"
 
+#: Columns of a WindowSet's feature table that say where a window sits or who decided it
+#: was there - never what the signal in it looks like. Every consumer that treats the
+#: table as features (`catalogue.cluster`, `catalogue.classifier`) drops them first; a
+#: clustering or a model that saw one would recover time, the split or the detector's
+#: own decision instead of the signal's shape:
+#:   split            - train / validation / test role (`preprocessing.sliding_windows`, P12)
+#:   event_index      - the event's row in the SpanSet: a time order (`catalogue.event_windows`)
+#:   anchor_offset    - window geometry, the same for every window
+#:   overlaps_next    - window geometry
+#:   train_id, word_id - time-ordered identifiers (`interrogation.trains`)
+#:   span_score       - the detector's own score for the span (e.g. noise_threshold's
+#:                      excursion in units of the local noise): its decision, not the shape
+#: Measurements (intervals, Event-shape measures) are NOT here: they stay features, and
+#: `catalogue.cluster`'s meta names the columns it actually used (`feature_names`).
+BOOKKEEPING_COLUMNS = ("split", "event_index", "anchor_offset", "overlaps_next", "train_id", "word_id",
+                       "span_score")
+
 
 @dataclass(frozen=True, eq=False)
 class WindowSet:

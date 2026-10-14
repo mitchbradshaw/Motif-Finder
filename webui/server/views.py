@@ -50,6 +50,8 @@ MODIFIERS: dict[str, str] = {
     "signal->windowset": "a feature matrix draws as a heatmap; a set with no features draws its windows by train / validation / test",
     # fixup-ag: Trace shape, the first WindowSet -> WindowSet block
     "windowset->windowset": "the windows before and after: what was kept, what was left out and why, and the measure each window now carries",
+    # w2-a: Event windows, the first SpanSet -> WindowSet block
+    "spanset->windowset": "each window on the trace around its event, the anchor marked inside it",
     "windowset->grouping": "clusters over time and one exemplar per cluster",
     "grouping->model": "accuracy per class",
 }

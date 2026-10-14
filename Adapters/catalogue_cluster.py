@@ -21,8 +21,11 @@ backend into every `discover_adapters()` call.
 
 import os
 
+import numpy as np
+
 from Adapters.base import AdapterResult, AdapterSpec, ParamSpec
 from Adapters.registry import register
+from Working.types.windowset import BOOKKEEPING_COLUMNS
 from Working.types import Grouping
 
 # Where `persist` writes a run's labels. Module-level so the bridge's sandbox
@@ -32,22 +35,34 @@ RESULTS_DIR = os.path.join("DATA", "derived", "groupings")
 
 
 def _cluster_window_set(window_set, linkage, k):
-    """Run the two dendrogram stages and return the `ClusterResult`."""
+    """Run the two dendrogram stages and return `(ClusterResult, PreprocessResult)` —
+    the second so the meta can name the columns actually clustered on."""
     if window_set is None:
         raise ValueError(
             "catalogue.cluster requires a WindowSet input from a prior step "
             "(input_kind='windowset')."
         )
+    if window_set.n_windows == 0:
+        # w2-a: an empty set is the step before's finding (e.g. Event windows found no
+        # events), not a missing feature matrix — say so, and send the reader there
+        raise ValueError(
+            "catalogue.cluster: no windows to cluster: the step before produced none — "
+            "see its meta for why."
+        )
     features = window_set.features
-    if features is not None and "split" in features.columns:
+    if features is not None:
         # The train/validation/test assignment `preprocessing.sliding_windows`
         # rides on the window set (P12) is metadata, never a feature: a
-        # clustering that saw it would recover the split as a cluster.
-        features = features.drop(columns=["split"])
+        # clustering that saw it would recover the split as a cluster. The same
+        # holds for the rest of the WindowSet contract's bookkeeping list
+        # (`Working.types.windowset.BOOKKEEPING_COLUMNS`: time orders, geometry,
+        # identifiers, the detector's own score).
+        features = features.drop(columns=[c for c in BOOKKEEPING_COLUMNS if c in features.columns])
     if features is None or features.shape[0] == 0 or features.shape[1] == 0:
         raise ValueError(
             "catalogue.cluster requires a WindowSet with an attached feature "
-            "matrix, one row per window (a `split` column alone is not a feature)."
+            "matrix, one row per window; the bookkeeping columns "
+            f"({', '.join(BOOKKEEPING_COLUMNS)}) are not features."
         )
     if k > len(features):
         raise ValueError(
@@ -61,11 +76,15 @@ def _cluster_window_set(window_set, linkage, k):
     )
 
     preprocessed = preprocess_window_matrix(features)
-    return cluster_window_matrix(preprocessed, method=linkage, n_clusters=k)
+    return cluster_window_matrix(preprocessed, method=linkage, n_clusters=k), preprocessed
+
+
+def _opt_float(v):
+    return None if v is None or not np.isfinite(v) else float(v)
 
 
 def _run(x, t, fs, linkage="ward", k=3, value=None):
-    cluster = _cluster_window_set(value, linkage, k)
+    cluster, preprocessed = _cluster_window_set(value, linkage, k)
     return AdapterResult(
         output_kind="grouping",
         value=Grouping(labels=cluster.labels),
@@ -75,6 +94,11 @@ def _run(x, t, fs, linkage="ward", k=3, value=None):
             "cluster_counts": cluster.cluster_counts,
             "n_windows": cluster.n_windows,
             "n_features": cluster.n_features,
+            # w2-a fix round 1: k clusters are always cut, so noise and structure read alike
+            # without a quality figure. Outputs, not params: no recipe hash moves.
+            "silhouette": _opt_float(cluster.silhouette),
+            "cophenetic_r": _opt_float(cluster.cophenetic_r),
+            "feature_names": [str(c) for c in preprocessed.feature_names],
         },
     )
 
@@ -92,7 +116,7 @@ def _derive(x, t, fs, params, value=None):
     if value is None:
         return [("Cluster sizes", "run the window-matrix step first", "warn")]
 
-    cluster = _cluster_window_set(value, params["linkage"], params["k"])
+    cluster, _ = _cluster_window_set(value, params["linkage"], params["k"])
     sizes = ", ".join(
         str(cluster.cluster_counts[label])
         for label in sorted(cluster.cluster_counts)
