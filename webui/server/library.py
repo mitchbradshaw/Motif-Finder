@@ -1291,39 +1291,53 @@ def _family_coherence(index, rows) -> dict:
     member's own span in the STORED unit (the score z-normalises every row, so
     the unit cannot enter; an undeclared unit therefore does not withhold it).
     Rule 4 holds: bounded slices in, one dict of numbers out. A member whose
-    channel is not on disk is left out and counted in `notOnDisk`.
+    channel is not on disk (or whose recording is unknown) is left out and
+    counted in `notOnDisk`; one on a held-out recording in `heldOut`. The
+    alignment anchor is the medoid row, else the exemplar, else the row of
+    least stored distance. The cache key holds each file's mtime.
 
     An exception is not swallowed into a blank: it comes back as
     `{"error": ...}` beside the rule, which the Family page draws as a red
     card, and the rest of the page still renders."""
-    from Working.library.coherence import RULE, svd_entropy
-    spans = []
+    from Working.library import coherence as coherence_mod
+    spans, held, missing = [], 0, 0
     for r in rows:
         meta = index["by_id"].get(int(r["recording_id"] or 0))
-        if meta is None or meta.get("held_out"):
+        if meta is None:
+            missing += 1
             continue
+        if meta.get("held_out"):
+            held += 1                  # fix round 1: counted, not dropped in silence
+            continue
+        path = meta.get("npy_path")
+        if not path or not os.path.isfile(path):
+            missing += 1
+            continue
+        # the file's mtime is in the key: a re-derived channel is a new waveform
         spans.append((int(r["recording_id"]), int(r["start_idx"] or 0), int(r["end_idx"] or 0),
-                      bool(r.get("is_medoid"))))
-    key = tuple(spans)
+                      bool(r.get("is_medoid")), bool(r.get("is_exemplar")), _f(r.get("distance"), 1e9),
+                      path, os.stat(path).st_mtime_ns))
+    key = (tuple(spans), held, missing)
     hit = _COHERENCE_CACHE.get(key)
     if hit is not None:
         return hit
     try:
-        waves, medoid, missing = [], None, 0
-        for rid, a, b, is_medoid in spans:
-            path = index["by_id"][rid].get("npy_path")
-            if not path or not os.path.isfile(path):
-                missing += 1
-                continue
-            if is_medoid and medoid is None:
-                medoid = len(waves)
-            waves.append(np.asarray(corpus.load_native(path)[a:b], dtype=float))
-        out = svd_entropy(waves, align=True, medoid=medoid)
+        waves = [np.asarray(corpus.load_native(path)[a:b], dtype=float)
+                 for _rid, a, b, _m, _e, _d, path, _t in spans]
+        # the alignment anchor: the medoid, else the exemplar, else the least stored distance —
+        # never svd_entropy's own P^2 medoid search inside a GET (10 s at 2,000 members)
+        medoid = next((i for i, s in enumerate(spans) if s[3]), None)
+        if medoid is None:
+            medoid = next((i for i, s in enumerate(spans) if s[4]), None)
+        if medoid is None and spans:
+            medoid = min(range(len(spans)), key=lambda i: spans[i][5])
+        out = coherence_mod.svd_entropy(waves, align=True, medoid=medoid)
         out["notOnDisk"] = missing
+        out["heldOut"] = held
     except Exception as exc:          # loud, not blank: the page draws this as a red card
         import logging
         logging.getLogger(__name__).exception("family coherence failed")
-        return {"error": f"{type(exc).__name__}: {exc}", "rule": RULE}
+        return {"error": f"{type(exc).__name__}: {exc}", "rule": coherence_mod.RULE}
     if len(_COHERENCE_CACHE) >= _COHERENCE_CACHE_MAX:
         _COHERENCE_CACHE.pop(next(iter(_COHERENCE_CACHE)))
     _COHERENCE_CACHE[key] = out
