@@ -45,7 +45,8 @@ if PROJECT_ROOT not in sys.path:
 import stumpy  # noqa: E402
 
 from Working.distances import (  # noqa: E402
-    DISTANCE_MPDIST, DISTANCE_REGISTRY, MPDIST_MIN_SUB_LENGTH, MPDIST_SUB_FRAC, MPDIST_TOOLTIP,
+    DISTANCE_MPDIST, DISTANCE_REGISTRY, MPDIST_MIN_SUB_LENGTH, MPDIST_PERCENTAGE, MPDIST_RULE, MPDIST_SUB_FRAC,
+    MPDIST_TOOLTIP,
     MPdistRefused, mpdist_detail, mpdist_distance, mpdist_null, resample_to_length,
     scale_invariant_distance,
 )
@@ -108,7 +109,7 @@ def test_extra_baseline_is_near_zero_where_the_scale_invariant_distance_is_far()
     b = _noisy(np.concatenate([np.zeros(int(0.3 * n)), _drop(n)]), rng)
     mp = mpdist_distance(a, b)
     si = _unit(scale_invariant_distance(a, b), max(len(a), len(b)))
-    assert mp < 0.25, mp
+    assert mp < 0.3, mp
     assert si > 0.6, si
     assert si > 3 * mp, (mp, si)
 
@@ -155,7 +156,7 @@ def test_the_footing_is_stumpys_mpdist_over_root_two_sub_lengths():
     b = rng.standard_normal(150).cumsum()
     s = int(math.ceil(MPDIST_SUB_FRAC * 150))
     ours = mpdist_distance(a, b)
-    theirs = stumpy.mpdist(a, b, s, percentage=0.05) / math.sqrt(2 * s)
+    theirs = stumpy.mpdist(a, b, s, percentage=MPDIST_PERCENTAGE) / math.sqrt(2 * s)
     assert ours == pytest.approx(theirs, rel=1e-6, abs=1e-9)
     d = mpdist_detail(a, b)
     assert d["sub_length"] == s
@@ -282,26 +283,92 @@ def test_a_short_gap_is_left_out_not_filled():
 
 # ── 5. the null the read-out prints beside the value ───────────────────────
 
-def test_coloured_noise_sits_with_its_null_and_a_shared_shape_below_it():
+def test_the_null_is_context_only_never_a_verdict():
+    """Fix round 1 (F3, decision 12): the trend-kept surrogate null is biased
+    (coloured noise sits below its own null median in 65-70 % of pairs; a
+    trough sits at its null), so it returns a median and a 5th percentile to
+    print beside the value and NO verdict field."""
     rng = np.random.default_rng(10)
     n = 300
-    noise_hits = 0
-    pairs = 0
-    for _ in range(4):
-        for a, b in ((_ar1(rng, n), _ar1(rng, n)), (_walk(rng, n), _walk(rng, n))):
-            out = mpdist_null(a, b, seed=0)
-            assert out["draws"] == 5
-            assert 0.2 < out["null_median"] < 1.0, out
-            noise_hits += bool(out["beyond_noise"])
-            pairs += 1
-    assert noise_hits <= 2, f"{noise_hits} of {pairs} pure-noise pairs called beyond noise"
-
-    for _ in range(4):
-        a, b = _noisy(_drop(n), rng), _noisy(np.concatenate([np.zeros(90), _drop(n)]), rng)
+    for a, b in ((_ar1(rng, n), _ar1(rng, n)), (_walk(rng, n), _walk(rng, n)),
+                 (_noisy(_drop(n), rng), _noisy(np.concatenate([np.zeros(90), _drop(n)]), rng))):
         out = mpdist_null(a, b, seed=0)
-        assert out["beyond_noise"] is True, out
-        assert out["value"] < 0.5 * out["null_p05"], out
-    assert "surrogate" in out["rule"] and "not a scale" in out["rule"].lower()
+        assert out["draws"] == 5
+        assert 0.2 < out["null_median"] < 1.2, out
+        assert out["null_p05"] <= out["null_median"]
+        assert "beyond_noise" not in out and "margin" not in out, sorted(out)
+        note = out["note"].lower()
+        assert "context" in note and "not a verdict" in note and "65" in note, note
+    for text in (out["rule"], MPDIST_RULE):
+        low = text.lower()
+        assert "beyond_noise" not in low and "across a family" not in low, text
+        assert "surrogate" in low and "not a scale" in low
+
+
+def test_the_null_names_its_follow_up():
+    assert "background_null" in (mpdist_null.__doc__ or "")
+
+
+# ── 5b. fix round 1: the default order statistic and realistic noise ────────
+
+def test_the_default_order_statistic_is_a_quarter_of_the_samples_about_half_the_pool():
+    """F4 / F5: percentage defaults to 0.25 (an adaptation, decision 11), and
+    k is a share of the SAMPLE count |A| + |B| (the paper's), which at the
+    default sub-length is about half of the pool of closest-piece distances."""
+    assert MPDIST_PERCENTAGE == 0.25
+    rng = np.random.default_rng(13)
+    for n_a, n_b in ((300, 300), (150, 190), (454, 400)):
+        d = mpdist_detail(_noisy(_drop(n_a), rng), _noisy(_drop(n_b), rng))
+        assert 0.40 <= d["pool_share"] <= 0.56, d["pool_share"]
+        assert d["pool_share"] == pytest.approx(d["k"] / d["pool"])
+    assert "5 % of the pool" not in MPDIST_RULE
+    assert "|a| + |b|" in MPDIST_RULE.lower() and "half" in MPDIST_RULE.lower()
+
+
+def _coloured(rng, kind, n, sd):
+    x = _ar1(rng, n, 0.97) if kind == "ar1" else _walk(rng, n)
+    return sd * (x - x.mean()) / x.std()
+
+
+@pytest.mark.parametrize("kind", ["ar1", "walk"])
+def test_at_realistic_coloured_noise_mpdist_barely_tells_a_drop_from_a_square(kind):
+    """What MPdist really does on coloured backgrounds (wave 1's lesson):
+    at noise sd 0.1 of the event's depth a square dip still sits above the
+    same-shape pairs; at sd 0.2 the two overlap. The page must not say it
+    tells shapes apart."""
+    rng = np.random.default_rng(14 if kind == "ar1" else 15)
+    n = 300
+
+    def run(sd):
+        same, square = [], []
+        for _ in range(10):
+            a = _drop(n) + _coloured(rng, kind, n, sd)
+            same.append(mpdist_distance(a, _drop(n) + _coloured(rng, kind, n, sd)))
+            square.append(mpdist_distance(a, _square(n) + _coloured(rng, kind, n, sd)))
+        return np.median(square) / np.median(same), np.mean(np.array(square) <= np.percentile(same, 75))
+
+    ratio_low, _ = run(0.1)
+    ratio_high, confused_high = run(0.2)
+    assert ratio_low > 1.2, ratio_low
+    assert ratio_high < 1.35, ratio_high
+    assert confused_high >= 0.1, confused_high
+    tip = MPDIST_TOOLTIP.lower()
+    assert "noise" in tip and "tell" in tip
+
+
+@pytest.mark.parametrize("kind", ["ar1", "walk"])
+def test_at_realistic_coloured_noise_extra_baseline_still_reads_as_the_same_shape(kind):
+    rng = np.random.default_rng(16 if kind == "ar1" else 17)
+    n = 300
+    for sd in (0.1, 0.2):
+        same, ext = [], []
+        for _ in range(10):
+            a = _drop(n) + _coloured(rng, kind, n, sd)
+            same.append(mpdist_distance(a, _drop(n) + _coloured(rng, kind, n, sd)))
+            b = np.concatenate([np.zeros(90), _drop(n)])
+            ext.append(mpdist_distance(a, b + _coloured(rng, kind, len(b), sd)))
+        ratio = np.median(ext) / np.median(same)
+        assert 0.8 < ratio < 1.25, (sd, ratio)
 
 
 def test_the_null_is_seeded():
@@ -368,7 +435,7 @@ def test_adding_matches_writes_a_fourth_edge_per_pair_and_refuses_one_it_cannot_
     for r in rows:
         assert 0.0 <= r["distance_value"] < 0.5, r["distance_value"]
         recipe = json.loads(r["recipe_json"])
-        assert recipe["distance_params"] == {"sub_frac": MPDIST_SUB_FRAC, "percentage": 0.05}
+        assert recipe["distance_params"] == {"sub_frac": MPDIST_SUB_FRAC, "percentage": 0.25}
 
     assert out["edges_by_function"][DISTANCE_MPDIST] == 2
     refused = out["edges_refused"]
@@ -389,3 +456,42 @@ def test_adding_matches_writes_a_fourth_edge_per_pair_and_refuses_one_it_cannot_
     assert sum(c["n"] for c in cells) == 2
     assert sum(c["missing"] for c in cells) == 1, "the pair MPdist could not compare is counted, not dropped"
     assert all(c["within"] is None for c in cells), "MPdist is not on the cut's footing"
+    # F6: a missing edge says which kind it is — refused, or never computed
+    assert sum(c["refused"] for c in cells) == 1
+    assert sum(c["not_computed"] for c in cells) == 0
+    assert out["refusal_summary"] and "1 of 3" in out["refusal_summary"]
+
+    # pairs added before MPdist existed: their MPdist edges are simply not there yet
+    conn.execute("DELETE FROM motif_edge WHERE distance_function = ?", (DISTANCE_MPDIST,))
+    conn.commit()
+    cells = [r[DISTANCE_MPDIST] for r in matching.scale_readout(conn, entry, [run])["rows"]]
+    assert sum(c["not_computed"] for c in cells) == 2 and sum(c["refused"] for c in cells) == 1
+    assert "add n matches" in cells[0]["missing_rule"].lower()
+
+
+def test_an_exemplar_too_short_for_mpdist_is_said_once_not_per_pair(scratch):
+    """F2: an exemplar under 16 samples refuses every pair; the result says so
+    in one entry and one sentence."""
+    from Working.database import runs as R
+    from Working.library import matching
+
+    conn, run, det = scratch["conn"], scratch["run"], scratch["det"]
+    rec = conn.execute("SELECT recording_id FROM motif_entry WHERE id = ?", (scratch["entry"],)).fetchone()[0]
+    tiny_entry = R.insert_motif_entry(conn, rec, 2200, 2212)
+    out = matching.resolve_run_matches(conn, tiny_entry, [run], cut=4.0)
+    assert out["edges_by_function"][DISTANCE_MPDIST] == 0
+    assert len(out["edges_refused"]) == 1, out["edges_refused"]
+    only = out["edges_refused"][0]
+    assert only["detection_id"] is None and only["pairs"] >= 2
+    assert "exemplar" in only["reason"].lower()
+    assert "exemplar" in out["refusal_summary"].lower()
+    assert out["edges_by_function"][matching.DISTANCE_SCALE_INVARIANT] >= 2, "the other distances still ran"
+
+
+def test_symbolic_and_mpdist_are_off_the_cuts_footing():
+    """F1: neither the symbolic distance (SAX MINDIST without the sqrt(n/w)
+    factor) nor MPdist is on the seed cut's footing."""
+    from Working.library import matching
+
+    assert set(matching.OFF_CUT_FOOTING) == {DISTANCE_MPDIST, matching.DISTANCE_SYMBOLIC}
+    assert all(isinstance(v, str) and v for v in matching.OFF_CUT_FOOTING.values())
