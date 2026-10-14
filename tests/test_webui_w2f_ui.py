@@ -70,6 +70,8 @@ def test_the_grouping_editor_offers_the_registered_methods_not_a_hard_coded_ward
     src = _src("library", "GroupingPage.tsx")
     assert "value=\"ward\" onChange={() => undefined}" not in src, "the linkage select is still a fixed Ward"
     assert "methods" in src and "testid=\"param-method\"" in src
+    # the read seam maps the editor payload field by field: a field it does not map never reaches the page
+    assert "methods: e.methods" in _src("api", "library.ts"), "getGroupingEditor drops the methods list"
     assert "no-tree-line" in src, "a method with no tree says why there is no histogram"
     assert "fit_summary" in src, "the job's fitSummary goes back on save"
     assert "cheaper" in src and "regroup-refused" in src, "the 422 offers its cheaper settings"

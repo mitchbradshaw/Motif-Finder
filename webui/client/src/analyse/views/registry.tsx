@@ -31,7 +31,7 @@ import { ModelView } from './ModelView'
 import { ScoreHistogram, ScoresView, scoreWords, scoreY, type ScoreCut } from './ScoresView'
 import { SignalLayers, SignalLayersNote, SignalNote, SignalView } from './SignalView'
 import { DurationHistogram, SpanSetView, SpanSlideshow } from './SpanSetView'
-import { WindowSetKey, WindowSetView } from './WindowSetView'
+import { EventWindowsKey, EventWindowsView, WindowSetKey, WindowSetView } from './WindowSetView'
 import { isPoolPayload, isTreePayload } from '../../api/shape'
 import { Guard, PoolPicker, PoolThumb, PoolView, ShapeView, TreeThumb } from './ShapeViews'
 import { TreePage } from './TreePage'
@@ -499,6 +499,27 @@ function WindowSetProcess(q: ProcessProps) {
   )
 }
 
+/** spanset → windowset (w2-f, Event windows): the windows drawn on the trace around the events they were cut from,
+ *  the anchor marked inside each and every event left out drawn with its reason; then the measures each window
+ *  carries, as the heatmap. A window set that names no anchor draws as any other. */
+function EventWindowsProcess(q: ProcessProps) {
+  const p = as<WindowsetPayload>(q.payload, 'windowset')
+  if (!p || !p.anchor) return <WindowSetProcess {...q} />
+  const up = as<SpansetPayload>(q.upstream, 'spanset')
+  return (
+    <>
+      <Full q={q} height={150}>{ctx => <EventWindowsView p={p} events={up ? { start_s: up.start_s, end_s: up.end_s } : null} ctx={ctx} />}</Full>
+      <EventWindowsKey p={p} />
+      {p.rules && p.rules.length > 0 && <RulesList rules={p.rules} testid="event-window-rules" />}
+      {p.features?.matrix && <>
+        <div className="bp-card-title" style={{ marginTop: 10 }}><h3 style={{ fontSize: 13 }}>What each window carries</h3><span className="sg">{p.features.n_columns} measures of its event · bookkeeping columns left out</span></div>
+        <Full q={q} height={Math.min(420, 60 + 12 * p.features.n_columns)} testid="event-window-features">{ctx => <WindowSetView p={p} ctx={ctx} />}</Full>
+        <WindowSetKey p={p} />
+      </>}
+    </>
+  )
+}
+
 function GroupingProcess(q: ProcessProps) {
   const p = as<GroupingPayload>(q.payload, 'grouping')
   if (!p) return <NoResult />
@@ -563,7 +584,7 @@ export const MODIFIERS: Record<string, Process> = {
   'signal->encoding': EncodingProcess,
   'windowset->encoding': EncodingProcess,
   'signal->windowset': WindowSetProcess,
-  'spanset->windowset': WindowSetProcess,
+  'spanset->windowset': EventWindowsProcess,
   'windowset->windowset': WindowsToWindows,
   'windowset->grouping': GroupingProcess,
   'grouping->model': ModelProcess,

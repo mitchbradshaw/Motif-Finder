@@ -119,6 +119,8 @@ export function ClusterExemplars({ p, recordingId, unit }: { p: GroupingPayload;
         <span className="sg">a member window, never an average · each on its own y, sizes on the scale bars</span>
         <InfoTip title="Which window">{ex[0].rule}. The trace is the source channel over that window, as recorded.</InfoTip>
       </div>
+      {/* w2-f: the block named these members itself (the snippet, a family's medoid) — its rule is the caption */}
+      {ex[0].by === 'block' && <div className="mono small" data-testid="exemplar-rule" style={{ color: 'var(--text-2)', marginBottom: 4 }}>chosen by the block: {ex[0].rule}</div>}
       <div style={{ display: 'grid', gridTemplateColumns: `repeat(${Math.min(5, ex.length)}, minmax(0, 1fr))`, gap: 8 }}>
         {ex.map(e => <Exemplar key={e.cluster} p={p} ex={e} recordingId={recordingId} unit={unit} />)}
       </div>

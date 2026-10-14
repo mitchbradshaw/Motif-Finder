@@ -207,6 +207,18 @@ export interface WindowsetPayload {
   features: { n_columns: number; columns: string[]; matrix: (number | null)[][] | null; col_range?: [number | null, number | null][] } | null; summary: string
   /** fixup-h: the train / validation / test assignment, shipped apart from the features (it is not a measure) */
   split?: { labels: number[]; names: Record<string, string>; counts: Record<string, number> } | null
+  /** w2-f: a window set cut around events (`catalogue.event_windows`): where the anchor sits in each window */
+  anchor?: { offset: number; offset_s: number; used: string | null; requested: string | null; pre_frac: number | null; fallback: number | null }
+  /** w2-f: which input event each window was cut around (input row of the SpanSet), in window order */
+  event_index?: number[] | null
+  /** w2-f: what happened to every input event — the omissions by reason and by row, overlaps, split leaks */
+  events?: {
+    n_events: number | null; omitted: Record<string, number> | null; omitted_rows: Record<string, number[]> | null
+    omitted_rows_cut: Record<string, number> | null; n_overlapping: number | null; n_split_leaks: number | null
+    n_recovery_outside_window: number | null; n_duration_unmeasured: number | null; length_basis: string | null
+    warnings: string[] | null; notes: string[] | null
+  }
+  rules?: { name: string; rule: string }[]
 }
 export interface EncodingSymbolicPayload {
   type: 'encoding'; kind: 'symbolic'; n_symbols: number; alphabet_size: number; symbols: number[]; letters: string; capped: boolean; alphabet?: string | null
@@ -235,7 +247,9 @@ export interface GroupingPayload {
   capped: boolean; n_shown?: number
   strip: { starts_s: number[]; length_s: number } | null; summary: string
   /** fixup-h: one member window per cluster, to be drawn — never an average */
-  exemplars?: { cluster: number; window: number; start_s: number; length_s: number; n: number; rule: string }[]
+  exemplars?: { cluster: number; window: number; start_s: number; length_s: number; n: number; rule: string
+    /** w2-f: who chose the member — the block itself (snippets, families), the feature centroid, or the first window */
+    by?: 'block' | 'centroid' | 'first' }[]
 }
 export interface ModelPayload { type: 'model'; path: string; exists: boolean; size_bytes: number | null; card: Record<string, unknown>; summary: string }
 export interface ErrorPayload { type: string; error: string; traceback?: string; summary: string }
@@ -726,6 +740,20 @@ export interface LibGrouping {
   chip: [string, string]; computed: string
   motifs: number; families: number; omitted: number; handEditsKept: number
   name?: string | null; method?: string | null; cut?: number | null; recipeHash?: string | null; actor?: string | null; note?: string
+  /** w2-b: the saved fit summary (the surrogate null, the k rule, each family's flags); null when saved without one */
+  fitSummary?: LibFitSummary | null
+}
+/** w2-b: one family's verdict against the method's colour-preserving null. `tested: false` = the method has no
+ *  null (Ward), and `why` says so — the page shows "not tested", never a blank verdict. */
+export interface LibFamilyFlags {
+  noise_like: boolean; unstable: boolean; tested: boolean; why: string
+  median_distance?: number; null_p05?: number; null_median?: number
+  separation?: number; size_fitted?: number; null_max_separation?: number; null_max_size?: number
+}
+export interface LibFitSummary {
+  rows?: number; fitted?: number; assigned?: number; k?: number | null; k_rule?: string | null
+  null?: Record<string, unknown> | null; family_flags?: Record<string, LibFamilyFlags>
+  [key: string]: unknown
 }
 export const getLibraryGroupings = () => req<LibGrouping[]>('/api/library/groupings')
 
@@ -814,6 +842,13 @@ export interface LibGroupingEditor {
   distributions: Record<string, LibFeatureBin[]>
   clusterings: { value: string; label: string; scope: string }[]
   distributionsSampledFrom: number; elapsedMs: number
+  /** w2-f: the registered methods per basis (Ward first where it serves), read off the methods registry */
+  methods?: Record<string, LibGroupingMethod[]>
+}
+/** One registered grouping method as the editor renders it. `tree`: the fit has merge heights for the cut slider. */
+export interface LibGroupingMethod {
+  name: string; label: string; description: string; tree: boolean
+  params: Record<string, { type: string; default: unknown; label: string; help: string }>
 }
 export const getLibraryGroupingEditor = (unit = 'motifs') =>
   req<LibGroupingEditor>(`/api/library/grouping-editor${dq({ unit })}`)
@@ -868,6 +903,22 @@ export interface LibGroupingAssignment {
 export interface LibGroupingSaveBody {
   unit?: string; basis?: string; method?: string; params?: Record<string, unknown>
   cut?: number | null; name?: string; actor?: string; assignments: LibGroupingAssignment[]
+  /** w2-b: the regroup job's `fitSummary`, sent back unchanged so the saved grouping keeps its null's verdict */
+  fit_summary?: LibFitSummary | null
+}
+/** w2-b: POST /groupings/run over the local limit answers 422 with this detail. There is no cluster script for a
+ *  grouping: the page offers `cheaper` (each a full param set) instead. */
+export interface LibGroupingRefusal {
+  message: string; estimateSeconds: number; localLimitSeconds: number; members: number
+  cheaper: { change: string; params: Record<string, unknown>; seconds: number }[]
+}
+/** w2-b: a family's SVD-entropy coherence on the Family page (`detail.coherence`); `error` when it failed. */
+export interface LibFamilyCoherence {
+  svd_entropy?: number | null; svd_entropy_norm?: number | null; svd_entropy_squared_norm?: number | null
+  null_median?: number | null; null_p05?: number | null; null_squared_median?: number | null; null_draws?: number
+  n_members?: number; n_used?: number; n_dropped?: number; n_misaligned?: number; sampled?: boolean; aligned?: boolean
+  top_share?: number | null; top_share_is?: string; padding?: string | null; rule: string; reason?: string | null
+  notOnDisk?: number; heldOut?: number; error?: string
 }
 export const saveLibraryGrouping = (body: LibGroupingSaveBody) => post<LibGrouping>('/api/library/groupings', body)
 

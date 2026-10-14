@@ -33,13 +33,14 @@ import { navigate, setQuery } from '../state'
 import { useSourced } from '../api/seam'
 import { live } from '../api/seam'
 import { AMP_DOMAIN, FAMILY_COLOURS, UNIT_LABEL, getMotifFamilies, getOmitted, getRecordingGroups, getSequenceFamilies, getViewReport, type Grouping, type MotifFamily, type RecGroup, type SequenceFamily, type Unit } from '../api/library'
-import type { LibFamilyView, LibViewReport } from '../api'
+import type { LibFamilyView, LibFitSummary, LibViewReport } from '../api'
 import { FamilyMembersInPlace } from './MemberSlideshow'
 import { useToast } from '../shell/Toast'
 import {
   GroupingBar, LoadFailed, Loading, MotifPlot, MotifsActions, OMITTED_SKETCH_NOTE, OmittedDrawer, OmittedThumb, SectionBar, centreTrace, fmtMv,
   omittedReasonSummary, tracePeak, useAllGroupings, useEmptyLibrary, useFilters, useLibraryView, ViewFilterBar,
   useMotifGroupingId, useQueueToast, useRememberMotifsRoute, useSelection, useSequenceGroupingId,
+  NoiseBadge, familyFlagsOf,
 } from './chrome'
 import { EmptyMotifsPage } from './EmptyLibrary'
 import { referenceScale, type ReferenceScale } from '../charts/domain'
@@ -194,6 +195,8 @@ function MotifAtlas({ families, grouping, labels }: { families: MotifFamily[]; g
               <div className="lib-badges">
                 <span className={`k-badge ${f.recordings > 1 ? 't-blue' : 't-grey'}`} title={`spans ${f.recordings} recording${f.recordings === 1 ? '' : 's'}`}>{f.recordings} rec</span>
                 {f.hand > 0 && <button type="button" className="k-badge t-purple lib-badge-btn" data-testid={`hand-badge-${f.id}`} title="open the family's hand edits" onClick={e => { e.stopPropagation(); navigate(`library/family/${f.id}?hand=1`) }}>{f.hand} hand</button>}
+                {/* w2-b: the method's surrogate null on the face of the tile ("not tested" for Ward) */}
+                <NoiseBadge flags={familyFlagsOf(grouping as Grouping & { fitSummary?: LibFitSummary | null }, f.id)} testid={`noise-badge-${f.id}`} />
                 {f.artifact > 0 && <span className="k-badge t-red" title={`${f.artifact} channels where ${f.id} is a cross-channel artifact (flagged, kept visible)`}>artifact {f.artifact}</span>}
                 {!!f.unitNote && <span className="k-badge t-amber" data-testid={`unit-badge-${f.id}`} title={f.unitNote}>{f.unit === null ? 'unit?' : `${f.undeclaredMembers ?? ''} unit?`}</span>}
                 {!!familyViewOf(f)?.hidden && <span className="k-badge t-grey" data-testid={`hidden-badge-${f.id}`} title={`${familyViewOf(f)!.hidden} of ${familyViewOf(f)!.total} members hidden by the view (${familyViewOf(f)!.subFloor} under the noise floor) — not deleted`}>−{familyViewOf(f)!.hidden} hidden</span>}

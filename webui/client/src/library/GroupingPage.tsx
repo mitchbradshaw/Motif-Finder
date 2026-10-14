@@ -44,9 +44,9 @@ import { useSourced } from '../api/seam'
 import { UNIT_LABEL, getGroupingEditor, type BasisKind, type BasisOption, type FeatureBin, type Grouping, type Unit } from '../api/library'
 /* The grouping job and the grouping write have no fixture-shaped wrapper in `api/library.ts` (that module is
  * the READ seam), so they are taken from the typed bridge client directly. */
-import { ApiError, cancelJob, getJob, runLibraryGrouping, saveLibraryGrouping, subscribeJob, type LibGrouping, type LibGroupingAssignment } from '../api'
+import { ApiError, cancelJob, getJob, runLibraryGrouping, saveLibraryGrouping, subscribeJob, type LibFamilyFlags, type LibFitSummary, type LibGrouping, type LibGroupingAssignment, type LibGroupingMethod, type LibGroupingRefusal } from '../api'
 /* the five omission reasons live in `chrome` so the drawer and this panel cannot word them differently */
-import { OMIT_REASON_LABEL, useExternalNavKey, useAllGroupings, useMotifGroupingId, useSavedGroupings, useSelection, useSequenceGroupingId } from './chrome'
+import { NoiseBadge, OMIT_REASON_LABEL, useExternalNavKey, useAllGroupings, useMotifGroupingId, useSavedGroupings, useSelection, useSequenceGroupingId } from './chrome'
 import { AtlasPage } from './AtlasPage'
 import { FamilyPage } from './FamilyPage'
 import { RecurrencePage } from './RecurrencePage'
@@ -59,12 +59,15 @@ interface Draft {
   cut: number; nearest: number
   tagMode: 'first' | 'each'; provBy: 'recording' | 'run' | 'spike_train'; clustering: string
   omitSmall: boolean; minMembers: number
+  /** w2-f: the registered method for a distance basis (`ward`, `kshape`, `hdbscan`), and each non-Ward method's
+   *  own parameter values, keyed by method — so switching away and back keeps what was typed */
+  method: string; mparams: Record<string, Record<string, unknown>>
 }
 /** Spec 9.10's two defaults, and the two the core's own methods declare (`ward.DEFAULT_CUT`, `DEFAULT_OMIT_D`). */
 const BASE: Omit<Draft, 'unit' | 'basis'> = {
   bins: 'quantiles', nBins: 6, range: null, edges: '',
   cut: 0.42, nearest: 0.5, tagMode: 'first', provBy: 'recording', clustering: '',
-  omitSmall: true, minMembers: 10,
+  omitSmall: true, minMembers: 10, method: 'ward', mparams: {},
 }
 
 /** Which registered method serves which basis (`Working/library/grouping/methods/*.applies_to`). */
@@ -76,6 +79,17 @@ const METHOD_FOR: Record<BasisKind, string> = {
 /** The three bin methods, spelled the way `bases.BIN_METHODS` spells them. */
 const BIN_METHOD: Record<BinMode, string> = { quantiles: 'quantiles', log: 'log-spaced', fixed: 'fixed edges' }
 const DISTANCE_BASES: BasisKind[] = ['shape-distance', 'sequence-similarity']
+/** The method a draft runs: the picked one on a distance basis, the basis's only method elsewhere. */
+export const methodOf = (d: Pick<Draft, 'basis' | 'method'>): string => (DISTANCE_BASES.includes(d.basis) ? d.method || 'ward' : METHOD_FOR[d.basis])
+/** The params the section-4 controls own (one rule for every method), so the method's own panel does not repeat them. */
+const SHARED_PARAMS = new Set(['min_group'])
+/** Choices for a method's `str` params, as the method's own help text names them (the registry carries no list). */
+const STR_CHOICES: Record<string, string[]> = { cluster_selection_method: ['eom', 'leaf'], distance: ['sbd', 'euclidean'] }
+/** Why a method with no tree has no merge-height histogram — said in place of the histogram, never a blank. */
+const NO_TREE_WHY: Record<string, string> = {
+  kshape: 'k-Shape builds no tree: it fits k centres and each shape joins the nearest one after sliding into place, so there is no merge height to cut. Set k instead (0 chooses it).',
+  hdbscan: 'HDBSCAN builds no tree to cut here: families are the places where shapes crowd together, so the number of families is not chosen, and stragglers are left out as “in no dense family”. Its own threshold is epsilon, a separate input — never the tree cut.',
+}
 
 /** `params_json` as the bridge renders it for the chip: `"cut 0.6 · min_group 10 · omit_d 0.5"`. That string is
  *  the only carrier the grouping payload has for `min_group`/`omit_d`, so the editor reads it back. A token it
@@ -98,6 +112,13 @@ export function seedFromGrouping(g: Grouping | undefined): Partial<Draft> {
   const p = parseParamsText(g.params)
   const cut = typeof (g as Grouping & { cut?: number | null }).cut === 'number' ? (g as Grouping & { cut?: number | null }).cut as number : p.cut
   const seed: Partial<Draft> = { basis: g.basis }
+  const method = (g as Grouping & { method?: string | null }).method
+  if (method && method !== 'ward' && DISTANCE_BASES.includes(g.basis)) {
+    seed.method = method
+    const own: Record<string, unknown> = {}
+    for (const [k, v] of Object.entries(p)) if (k !== 'min_group') own[k] = v
+    seed.mparams = { [method]: own }
+  }
   if (Number.isFinite(cut) && (cut as number) > 0) seed.cut = cut as number
   if (Number.isFinite(p.omit_d) && p.omit_d > 0) seed.nearest = p.omit_d
   if (Number.isFinite(p.min_group) && p.min_group >= 1) { seed.minMembers = p.min_group; seed.omitSmall = true }
@@ -148,17 +169,26 @@ export function validate(d: Draft, extent: [number, number] | null): { field: st
       }
     }
   }
-  if (DISTANCE_BASES.includes(d.basis) && !(d.cut > 0)) return { field: 'cut', message: 'the cut must be above 0' }
+  if (DISTANCE_BASES.includes(d.basis) && methodOf(d) === 'ward' && !(d.cut > 0)) return { field: 'cut', message: 'the cut must be above 0' }
   if (d.omitSmall && (!Number.isInteger(d.minMembers) || d.minMembers < 1 || d.minMembers > 1000)) return { field: 'minimum members', message: 'whole number from 1 to 1000' }
   return null
 }
 
 /** The draft as the engine's `params` dict. Only keys a registered method actually declares are sent — an
  *  invented key would still land in the recipe hash and make two identical groupings look different. */
-export function paramsFor(d: Draft, extent: [number, number] | null): Record<string, unknown> {
+export function paramsFor(d: Draft, extent: [number, number] | null, spec?: LibGroupingMethod): Record<string, unknown> {
   const shared: Record<string, unknown> = { min_group: d.minMembers, omit_small: d.omitSmall }
-  const method = METHOD_FOR[d.basis]
+  const method = methodOf(d)
   if (method === 'ward') return { ...shared, cut: d.cut, omit_d: d.nearest }
+  if (DISTANCE_BASES.includes(d.basis)) {
+    // w2-f: a registered non-Ward method — its declared params at the value typed, else its own default. HDBSCAN's
+    // `epsilon` is one of them: the tree cut (`d.cut`) is Ward's and never reaches another method.
+    const own = d.mparams[method] ?? {}
+    const out: Record<string, unknown> = { ...shared }
+    for (const [k, ps] of Object.entries(spec?.params ?? {})) if (!SHARED_PARAMS.has(k)) out[k] = k in own ? own[k] : ps.default
+    if (!spec) Object.assign(out, own)
+    return out
+  }
   if (method === 'feature_bins') {
     const range = d.bins === 'fixed' ? parseEdges(d.edges).edges : (d.range ?? extent ?? null)
     return { ...shared, feature: d.basis, bin_method: BIN_METHOD[d.bins], count: d.nBins, range }
@@ -176,12 +206,17 @@ interface RunPreview {
 interface RunResult {
   unit: string; basis: string; method: string; params: Record<string, unknown>; recipeHash: string
   preview: RunPreview; mergeHeights: number[]; assignments: LibGroupingAssignment[]
+  /** w2-b: the method's account of the fit (its null, the k rule), sent back unchanged on save */
+  fitSummary?: LibFitSummary | null
+  families?: { id: number; label: string; size: number; medoid: unknown; flags: LibFamilyFlags }[]
 }
 type Phase = 'idle' | 'running' | 'done' | 'failed' | 'cancelled'
 interface JobView {
   phase: Phase; jobId: number | null; sig: string
   progress: { done: number; total: number | null; message: string }
   result: RunResult | null; error: string | null; forced?: boolean
+  /** w2-b: the bridge refused the run before starting it (422 over the local limit) — its estimate and cheaper settings */
+  refusal?: LibGroupingRefusal | null
 }
 const IDLE: JobView = { phase: 'idle', jobId: null, sig: '', progress: { done: 0, total: null, message: '' }, result: null, error: null }
 
@@ -254,7 +289,14 @@ function useGroupingJob() {
       if (!alive.current) return
       setView(v => ({ ...v, jobId: j.job_id }))
       watch(j.job_id)
-    }).catch(err => { then.current = null; if (alive.current) setView(v => ({ ...v, phase: 'failed', error: err instanceof ApiError ? err.message : String(err) })) })
+    }).catch(err => {
+      then.current = null
+      if (!alive.current) return
+      // a 422 with `cheaper` is the cost refusal: nothing started, and there is no cluster script for a grouping
+      const d = err instanceof ApiError && err.status === 422 ? err.detail as LibGroupingRefusal | null : null
+      if (d && typeof d === 'object' && Array.isArray(d.cheaper)) { setView(v => ({ ...v, phase: 'idle', refusal: d, error: null })); return }
+      setView(v => ({ ...v, phase: 'failed', error: err instanceof ApiError ? err.message : String(err) }))
+    })
   }
 
   const cancel = () => {
@@ -312,6 +354,10 @@ function GroupingEditor({ from }: { from: string }) {
   const dist = editor.data?.distributions[d.basis]
   const extent = useMemo(() => extentOf(dist), [dist])
   const invalid = validate(d, extent)
+  // w2-f: the registered methods this basis can use (the editor read), and the one the draft runs
+  const methods: LibGroupingMethod[] = editor.data?.methods?.[d.basis] ?? []
+  const method = methodOf(d)
+  const methodSpec = methods.find(m => m.name === method)
 
   // a feature range starts as the measured extent of that feature, and returns to it when the basis changes
   useEffect(() => {
@@ -324,7 +370,7 @@ function GroupingEditor({ from }: { from: string }) {
     if (first && !d.clustering) setD(x => (x.clustering ? x : { ...x, clustering: first }))
   }, [editor.data, d.clustering])
 
-  const sig = JSON.stringify({ unit: d.unit, basis: d.basis, params: paramsFor(d, extent) })
+  const sig = JSON.stringify({ unit: d.unit, basis: d.basis, method, params: paramsFor(d, extent, methodSpec) })
   const pv = job.view.result && job.view.sig === sig ? job.view.result.preview : null
   const stale = !!job.view.result && job.view.sig !== sig
   const overLimit = pv?.recompute.where === 'cluster'
@@ -370,13 +416,27 @@ function GroupingEditor({ from }: { from: string }) {
     if (nextBasis !== d.basis) setBasisQ(nextBasis)
   }
   const pickBasis = (b: BasisKind) => {
-    set({ basis: b, range: null, cut: b === 'sequence-similarity' ? 0.5 : b === 'shape-distance' ? 0.42 : d.cut })
+    const served = (editor.data?.methods?.[b] ?? []).map(m => m.name)
+    const keep = !served.length || served.includes(d.method) ? d.method : 'ward'
+    set({ basis: b, range: null, cut: b === 'sequence-similarity' ? 0.5 : b === 'shape-distance' ? 0.42 : d.cut, method: keep })
     setBasisQ(b)
   }
 
   const runPreview = (after?: (r: RunResult) => void) => {
     setWriteError(null); setSavedId(null)
-    job.start(sig, { unit: d.unit, basis: d.basis, method: METHOD_FOR[d.basis], params: paramsFor(d, extent) }, after)
+    job.start(sig, { unit: d.unit, basis: d.basis, method, params: paramsFor(d, extent, methodSpec) }, after)
+  }
+  /** w2-b: one click on a refusal's cheaper setting — its params become the draft's, and the preview runs on them */
+  const runCheaper = (c: LibGroupingRefusal['cheaper'][number]) => {
+    const own: Record<string, unknown> = {}
+    for (const [k, v] of Object.entries(c.params)) if (!SHARED_PARAMS.has(k) && k !== 'omit_small') own[k] = v
+    const minMembers = typeof c.params.min_group === 'number' ? c.params.min_group : d.minMembers
+    const next: Draft = method === 'ward'
+      ? { ...d, minMembers, cut: typeof c.params.cut === 'number' ? c.params.cut : d.cut, nearest: typeof c.params.omit_d === 'number' ? c.params.omit_d : d.nearest }
+      : { ...d, minMembers, mparams: { ...d.mparams, [method]: { ...(d.mparams[method] ?? {}), ...own } } }
+    touched.current = true; setD(next); setWriteError(null); setSavedId(null)
+    const nsig = JSON.stringify({ unit: next.unit, basis: next.basis, method, params: paramsFor(next, extent, methodSpec) })
+    job.start(nsig, { unit: next.unit, basis: next.basis, method, params: paramsFor(next, extent, methodSpec) })
   }
 
   /** Write the grouping the job computed. The server assigns the id, the family counts and the `computed`
@@ -388,6 +448,8 @@ function GroupingEditor({ from }: { from: string }) {
         unit: r.unit, basis: r.basis, method: r.method, params: r.params,
         cut: typeof r.params.cut === 'number' ? (r.params.cut as number) : null,
         assignments: r.assignments,
+        // w2-b: the job's fit summary, unchanged — the saved grouping keeps its null's verdict on every family
+        fit_summary: r.fitSummary ?? null,
       })
       setSaved(s => [...s.filter(x => x.id !== saved.id), saved as unknown as Grouping])
       setSavedId(saved.id)
@@ -490,7 +552,7 @@ function GroupingEditor({ from }: { from: string }) {
 
         <section className="lib-ge-sec" data-testid="ge-params">
           <h4>3&nbsp; {basis.title[0].toUpperCase() + basis.title.slice(1)}</h4>
-          <Params d={d} set={set} basis={d.basis} dist={dist} extent={extent} clusterings={editor.data.clusterings} invalid={invalid} />
+          <Params d={d} set={set} basis={d.basis} dist={dist} extent={extent} clusterings={editor.data.clusterings} invalid={invalid} methods={methods} />
         </section>
 
         <section className="lib-ge-sec" data-testid="ge-misfits">
@@ -499,7 +561,7 @@ function GroupingEditor({ from }: { from: string }) {
             <span className="row" style={{ gap: 6 }} data-testid="omit-outside">
               <Icon name="flag" size={12} style={{ color: '#c27400' }} />
               <span className="mono small">
-                {DISTANCE_BASES.includes(d.basis) ? 'members past the nearest-family distance' : METHOD_FOR[d.basis] === 'labels' ? 'members carrying no label' : 'members outside every bin'} are omitted and flagged
+                {method === 'hdbscan' ? `members ${OMIT_REASON_LABEL.not_in_a_dense_family}` : method === 'kshape' ? 'members further from their family’s centre than noise of the same colour sits (or past a fixed omit_d)' : DISTANCE_BASES.includes(d.basis) ? 'members past the nearest-family distance' : METHOD_FOR[d.basis] === 'labels' ? 'members carrying no label' : 'members outside every bin'} are omitted and flagged
                 <InfoTip title="always flagged, never dropped">§8.2: what does not fit is flagged and listed, never deleted — so this is not a switch</InfoTip>
               </span>
             </span>
@@ -535,6 +597,14 @@ function GroupingEditor({ from }: { from: string }) {
             </span>
           )}
 
+          {pv && job.view.result?.families && job.view.result.families.length > 0 && (
+            <span className="row mono small" style={{ gap: 6, flexWrap: 'wrap' }} data-testid="preview-families">
+              {job.view.result.families.map(f => (
+                <span key={f.label} className="row" style={{ gap: 3 }} data-testid={`preview-family-${f.label}`}>{f.label} · {fmtInt(f.size)}<NoiseBadge flags={f.flags} testid={`noise-badge-${f.label}`} /></span>
+              ))}
+            </span>
+          )}
+
           {pv && (
             <span className="mono small" style={{ color: 'var(--k-purple-text, #6b3fd4)' }} data-testid="preview-hand-edits">
               <Icon name="user" size={11} style={{ verticalAlign: -1 }} /> {fmtInt(pv.handEdits.total)} hand edit{pv.handEdits.total === 1 ? '' : 's'}: {fmtInt(pv.handEdits.applies)} apply
@@ -551,11 +621,23 @@ function GroupingEditor({ from }: { from: string }) {
         </div>
 
         {failed && <Callout tone="red" title="Regroup failed · nothing was written" testid="regroup-failed">{job.view.error}</Callout>}
+        {job.view.refusal && job.view.phase !== 'running' && (
+          <Callout tone="amber" title={`Not run · about ${fmtSeconds(job.view.refusal.estimateSeconds)} here, over the ${fmtSeconds(job.view.refusal.localLimitSeconds)} limit`} testid="regroup-refused">
+            <div className="mono small">{job.view.refusal.message}</div>
+            {job.view.refusal.cheaper.length
+              ? <div className="row" style={{ gap: 6, flexWrap: 'wrap', marginTop: 6 }}>{job.view.refusal.cheaper.map((c, i) => (
+                <Button key={i} size="sm" icon="play" testid={`cheaper-${i}`} disabled={busy} disabledReason="already running" onClick={() => runCheaper(c)}>{c.change} · ~{fmtSeconds(c.seconds)}</Button>
+              ))}</div>
+              : <div className="mono small muted">the method names no cheaper setting that fits; reduce the members grouped</div>}
+          </Callout>
+        )}
         {writeError && <Callout tone="red" title="Could not write the grouping" testid="grouping-write-failed">{writeError}</Callout>}
       </>}
     </Modal>
   )
 }
+
+const fmtSeconds = (s: number): string => (s < 90 ? `${Math.max(1, Math.round(s))} s` : s < 5400 ? `${Math.round(s / 60)} min` : `${(s / 3600).toFixed(1)} h`)
 
 /** The core's own recompute estimate (`engine._recompute_cost`), rendered. Nothing is recomputed here. */
 function recomputeLabel(r: RunRecompute): string {
@@ -564,9 +646,10 @@ function recomputeLabel(r: RunRecompute): string {
 }
 
 /* ================================================================ parameters ================================================================ */
-function Params({ d, set, basis, dist, extent, clusterings, invalid }: {
+function Params({ d, set, basis, dist, extent, clusterings, invalid, methods }: {
   d: Draft; set: (p: Partial<Draft>) => void; basis: BasisKind; dist?: FeatureBin[]; extent: [number, number] | null
   clusterings: { value: string; label: string; scope: string }[]; invalid: { field: string; message: string } | null
+  methods: LibGroupingMethod[]
 }) {
   const axis = FEATURE_AXIS[basis]
   const err = (field: string) => invalid?.field === field ? <span className="k-field-error" role="alert" data-testid="param-error"><Icon name="alert-circle" size={11} />{invalid.message}</span> : null
@@ -604,10 +687,31 @@ function Params({ d, set, basis, dist, extent, clusterings, invalid }: {
   }
 
   if (DISTANCE_BASES.includes(basis)) {
+    const method = methodOf(d)
+    const spec = methods.find(m => m.name === method)
+    // w2-f: the registered methods for this basis, from the editor read (one option, Ward, when the read lists none)
+    const options = (methods.length ? methods : [{ name: 'ward', label: 'Ward linkage' } as LibGroupingMethod]).map(m => ({ value: m.name, label: m.label }))
+    const methodRow = <div className="lib-param-row"><span>method</span><SelectField size="sm" value={method} onChange={v => set({ method: v })} options={options} width={170} testid="param-method" ariaLabel="grouping method" /></div>
+    if (method !== 'ward') {
+      return (
+        <div className="lib-params">
+          <div className="stack" style={{ gap: 6 }}>
+            {methodRow}
+            {spec?.description && <span className="lib-cap" data-testid="method-description">{spec.description}</span>}
+            {spec ? <MethodParams spec={spec} values={d.mparams[method] ?? {}} onChange={(k, v) => set({ mparams: { ...d.mparams, [method]: { ...(d.mparams[method] ?? {}), [k]: v } } })} />
+              : <span className="lib-cap">the editor read carries no parameters for {method}</span>}
+            <span className="lib-cap">how many families this gives, and whether each beats noise of the same colour, is measured by the preview</span>
+          </div>
+          <div className="k-card grey" style={{ padding: 10 }} data-testid="no-tree-line" data-method={method}>
+            <span className="lib-cap">{spec?.tree ? 'this method builds a tree, but its merge heights are not sampled for the editor yet' : (NO_TREE_WHY[method] ?? `${spec?.label ?? method} builds no tree, so there is no merge-height histogram to cut`)}</span>
+          </div>
+        </div>
+      )
+    }
     return (
       <div className="lib-params">
         <div className="stack" style={{ gap: 6 }}>
-          <div className="lib-param-row"><span>linkage</span><SelectField size="sm" value="ward" onChange={() => undefined} options={[{ value: 'ward', label: 'Ward' }]} width={120} /></div>
+          {methodRow}
           <div className="lib-param-row"><span>cut</span><Slider value={d.cut} min={0.1} max={1} step={0.01} onChange={v => set({ cut: +v.toFixed(2) })} format={v => v.toFixed(2)} width={190} testid="param-cut" ariaLabel="cut" /></div>
           <div className="lib-param-row"><span>nearest family past</span><NumberField size="sm" width={64} value={d.nearest} min={0.1} max={1} step={0.01} testid="param-nearest" ariaLabel="nearest family distance" onValid={n => set({ nearest: n })} /></div>
           {err('cut')}
@@ -643,6 +747,30 @@ function Params({ d, set, basis, dist, extent, clusterings, invalid }: {
         <NoDistribution what={basis} />
       </div>
     </div>
+  )
+}
+
+/** w2-f: a registered method's own parameters, rendered from its spec (type, default, label, help). Numbers are
+ *  number fields, a known string choice is a segmented control, anything else a text field. */
+function MethodParams({ spec, values, onChange }: { spec: LibGroupingMethod; values: Record<string, unknown>; onChange: (k: string, v: unknown) => void }) {
+  return (
+    <>
+      {Object.entries(spec.params).filter(([k]) => !SHARED_PARAMS.has(k)).map(([k, ps]) => {
+        const v = k in values ? values[k] : ps.default
+        const tip = <InfoTip title={ps.label}>{ps.help}</InfoTip>
+        if (ps.type === 'int' || ps.type === 'float') {
+          return <div key={k} className="lib-param-row"><span>{ps.label} {tip}</span>
+            <NumberField size="sm" width={78} value={typeof v === 'number' ? v : Number(v ?? 0)} integer={ps.type === 'int'} min={0} step={ps.type === 'int' ? 1 : 0.01} showError={false}
+              testid={`param-${k}`} ariaLabel={ps.label} onValid={n => onChange(k, n)} /></div>
+        }
+        const choices = STR_CHOICES[k]
+        if (choices) {
+          return <div key={k} className="lib-param-row"><span>{ps.label} {tip}</span>
+            <Seg size="sm" value={String(v)} onChange={x => onChange(k, x)} testid={`param-${k}`} ariaLabel={ps.label} options={choices.map(c => ({ value: c, label: c }))} /></div>
+        }
+        return <div key={k} className="lib-param-row"><span>{ps.label} {tip}</span><TextField size="sm" value={String(v ?? '')} onChange={x => onChange(k, x)} testid={`param-${k}`} width={120} /></div>
+      })}
+    </>
   )
 }
 
