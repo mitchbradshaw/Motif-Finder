@@ -694,14 +694,63 @@ def test_a_method_without_a_null_says_its_families_were_not_tested():
 
 
 def test_hdbscan_has_no_fixed_separation_floor_and_reports_separation():
+    """Fix round 2: separation is a reported number only; the decider is the
+    per-family trend-kept null (d_F < 0.9 x p05), reported in the flags."""
     from Working.library.grouping.methods import hdbscan as hdbscan_mod
     assert not hasattr(hdbscan_mod, "UNSTABLE_SEPARATION")
     waves, _ = three_families(per=30, seed=3, n_noise=20)
     result = _run("hdbscan", {}, waves)
     null = result.fit_summary["null"]
-    assert {"max_separation", "max_size", "families_per_draw"} <= set(null)
+    assert null["kind"] == "trend-kept phase-randomised" and null["margin"] == 0.9
+    assert "placeholder" in null["rule"]
     for f in result.families:
-        assert "separation" in f.flags and f.flags["separation"] > null["max_separation"]
+        fl = f.flags
+        assert {"separation", "median_distance", "null_p05", "ratio"} <= set(fl)
+        assert fl["ratio"] == pytest.approx(fl["median_distance"] / fl["null_p05"])
+        assert fl["ratio"] < 0.9 and not fl["noise_like"]
+        assert "placeholder" in fl["why"]
+
+
+def test_hdbscan_stores_no_null_matrices_and_fits_once():
+    hdbscan = method_registry.get("hdbscan")
+    waves, _ = three_families(per=20, seed=3, n_noise=10)
+    fit = hdbscan.fit(waves, params={})
+    assert "D_null" not in fit.payload, "no n^2 surrogate matrices kept (600 MB at sample 5,000)"
+    assert hdbscan.estimate(3603, method_registry.defaults_for("hdbscan")) < 60
+
+
+def test_trend_kept_surrogates_keep_each_rows_line_and_residual_spectrum():
+    """The shared surrogate (fix round 2): a line fitted per row is kept, the
+    residual is phase-randomised. Plain phase randomisation turns a coloured
+    window's trend into a periodic wiggle, so its null crowds less than real
+    coloured noise (the re-critique's finding)."""
+    from Working.library.grouping.methods.kshape import linear_trends, trend_kept_surrogates
+    rng = np.random.default_rng(0)
+    X = rng.normal(size=(6, 64)).cumsum(axis=1) + np.linspace(0, 20, 64)
+    S = trend_kept_surrogates(X, np.random.default_rng(1))
+    T = linear_trends(X)
+    assert S.shape == X.shape and not np.allclose(S, X)
+    assert np.allclose(np.abs(np.fft.rfft(S - T, axis=1)), np.abs(np.fft.rfft(X - T, axis=1)), atol=1e-8)
+    assert np.array_equal(S, trend_kept_surrogates(X, np.random.default_rng(1))), "seeded"
+
+
+@pytest.mark.parametrize("kind,n", [("ar1_099", 1500), ("random_walk", 1500), ("ar1_099", 3603)])
+def test_hdbscan_flags_every_family_in_pure_coloured_noise_at_scale(kind, n):
+    """The round-1 null called a 158-member AR(1) phi 0.99 crowd confident at
+    n = 1,500 (its test only used n = 300)."""
+    result = _run("hdbscan", {}, pure_noise(n, 0, kind))
+    report = [(f.label, f.size, f.flags.get("ratio")) for f in result.families]
+    assert all(f.flags["noise_like"] for f in result.families), report
+
+
+def test_hdbscan_calls_library_size_real_families_confident():
+    """The round-1 null flagged both families of a Library-size set (3,603
+    members: three shapes at 15 % AR(1) noise plus 20 % pure noise)."""
+    per = int(3603 * 0.8) // 3
+    waves, _ = three_families(per=per, seed=1, kind="ar1_095", noise=0.15, n_noise=3603 - 3 * per)
+    result = _run("hdbscan", {}, waves)
+    report = [(f.label, f.size, f.flags.get("ratio")) for f in result.families]
+    assert result.families and not any(f.flags["noise_like"] for f in result.families), report
 
 
 # ---- fix round 1, item 3: the cost is known before the run ----------------
@@ -742,6 +791,10 @@ def test_cheaper_settings_name_what_would_fit_locally():
     assert options, "something cheaper is offered"
     for opt in options:
         assert opt["seconds"] <= LOCAL_LIMIT_SECONDS and opt["params"] and opt["change"]
+    # fix round 2: the docstring and the order agree — slowest (least degrading) first
+    seconds = [o["seconds"] for o in options]
+    assert seconds == sorted(seconds, reverse=True)
+    assert "slowest first" in cheaper_settings.__doc__
 
 
 def test_auto_k_sweeps_one_start_per_k_and_refits_the_chosen_k_with_n_init():
