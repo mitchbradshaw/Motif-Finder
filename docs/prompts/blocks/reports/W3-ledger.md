@@ -25,7 +25,8 @@ fixers in `isolation: worktree`; critics read the implementer's worktree and nev
 | 3 | implementer | W3-C `detection.pan_matrix_profile` | `aeeb2080e0967a2d2` | `.claude/worktrees/agent-aeeb2080e0967a2d2` | `worktree-agent-aeeb2080e0967a2d2` | `01cb8c3` | launched 21:26; reported 23:04 (`925056a`, 99 min) → `W3-C-pan-matrix-profile.md` |
 | 8 | critic | W3-C | `ad8d8aad71e6d533b` | (reads row 3's worktree) | — | `01cb8c3` | launched 23:06; stopped ~00:3x (API limit), resumed 02:01; reported 03:5x: **merge after fixes** (3 blockers, 3 should-fix, 2 nits) → `W3-C-pan-matrix-profile.critic.md` |
 | 3a | fixer (row 3 resumed) | W3-C fix round 1 (merge main first) | `aeeb2080e0967a2d2` | row 3's | row 3's | `01cb8c3` → main | sent 03:53; reported 04:40 (`617edc2`; merged main as `56a23f4`) → `W3-C-pan-matrix-profile.fix1.md` |
-| 8a | re-critic (row 8 resumed) | W3-C fix round 1, changed parts only | `ad8d8aad71e6d533b` | row 3's | — | — | launched 04:41 (the blockers were behavioural; asked to keep it to ~30–40 min) |
+| 8a | re-critic (row 8 resumed) | W3-C fix round 1, changed parts only | `ad8d8aad71e6d533b` | row 3's | — | — | launched 04:41 (the blockers were behavioural; asked to keep it to ~30–40 min); reported 05:1x: **merge after fixes** (3 should-fix, no blocker) → `W3-C-pan-matrix-profile.critic2.md` |
+| 3b | fixer (row 3 resumed) | W3-C fix round 2 (the last) | `aeeb2080e0967a2d2` | row 3's | row 3's | main | sent 05:1x: stalls detected on what the template hands the block, `stall_s` (60 s) apart from `max_fill_s`, no "suggested" on the summary line |
 | 4 | implementer | W3-D `mpdist` (fourth Library distance) | `a5a78efe8b36c0a92` | `.claude/worktrees/agent-a5a78efe8b36c0a92` | `worktree-agent-a5a78efe8b36c0a92` | `64db0da` | launched 21:30, early (decision 4; cut at `3cc2f62`, at `64db0da` by 21:31); reported 22:39 (`c88a236`, 68 min) → `W3-D-mpdist.md` |
 | 6 | critic | W3-D | `a380d497100469282` | (reads row 4's worktree) | — | `64db0da` | launched 22:42; reported 23:02: **merge after fixes** (4 should-fix, 4 nits; arithmetic exact) → `W3-D-mpdist.critic.md` |
 | 4a | fixer (row 4 resumed) | W3-D fix round 1 | `a5a78efe8b36c0a92` | row 4's | row 4's | `64db0da` | sent 23:06; reported 23:29 (`48710ae`) → `W3-D-mpdist.fix1.md`; **merged as `fe8e495`** |
@@ -505,6 +506,18 @@ instead of it.
   (the stored text does not start with "Cancelled"); one slow calibration holds every other; a run from the block
   page is not held while calibrating. 05:01 — fix round 1 sent (row 11a), decision 25, with W3-C's `617edc2` to merge
   for the pan view.
+- 05:1x — **W3-C re-critique: merge after fixes, no blocker** → `W3-C-pan-matrix-profile.critic2.md`. The AAFT null
+  holds (exp(AR) 0/10); false suggestions at the defaults ~0.9 % (2 of 236 spans at 2, 4 and 8 h, against 1.2–5.8 %
+  before); the rising cut costs no power at the 976 s rung (10/10, gaps 9.4–17.0 against a cut of 8.31 — three
+  within ~1.3). Should-fix: (1) the stall rule never fires through the template — the 2 h detrend turns a held value
+  into a gentle curve, so a raw 3–20 min flatline still gives a confident suggestion (`n_stalled` 0 in all four
+  cases); (2) stalls share `max_fill_s` (5 s) and blank real slow signal fed straight in (24.7 % at an ADC step of
+  ~1/5 SD); (3) the summary line still says "suggested", and on new seeds the suggestion lands within a rung of either
+  planted motif in 2/10, while the cleared band covers every judged rung in 8/10 — only the picture localises. On
+  FLUSS: feed it nothing from this block at 8 h (a chain's ~30 min unit is beyond the 34 min judged reach there or at
+  its edge); re-run on ≥ 24 h at the band's top beside 300 s, declared first, or record "pan gave no event-scale
+  window". Fix round 2 (the last) sent (row 3b) on all three; the FLUSS piece declared now (decision 26), before any
+  pan or FLUSS data.
 - 03:5x — **W3-C critic: merge after fixes, three blockers.** F1: plain phase surrogates are biased here too
   (exp(AR) noise got a suggestion 10/10; AAFT 1/10 → 0/10 at 20 draws, keeping planted-motif power) → the 03:55
   correction; F2: one null draw gives 1.2–5.8 % false suggestions at 1 Hz, three gave 0 in 544 spans, the false
@@ -611,6 +624,18 @@ instead of it.
     `Working/execution.py`'s cancellation record) and `webui/server/app.py`'s run route (refuse 409 while calibrating),
     beyond its Deliver list. Reason: the leak and the History status are core / route behaviour that only appeared
     because W3-F made null draws cancellable mid-step; fixing them where they live covers every entry point.
+26. **The FLUSS re-run reads pan's cleared band, never `suggested_window_s`, and runs on a span long enough to judge a
+    chain's unit** — fixed at 05:2x, before any pan or FLUSS output on real data. Pan (the `motif_lengths` template as
+    merged, its defaults) runs once on rec 6 **400–424 h** (24 h inside the chain's 383–445 h edges; every ladder
+    length up to an hour judged). If any length clears, the experimental `fluss_regimes` runs on rec 6 **370–470 h**
+    (the span wave 2's 300 s run used) at the **longest cleared length** and at 300 s, side by side, its other
+    settings unchanged; reported: each run's strongest changes and their distance (h) to 383 h and 445 h.
+    `estimate_seconds` first, and the whole piece capped at about an hour of compute (cut the 300 s twin first if the
+    estimate overruns; it is wave 2's known answer). If nothing clears, FLUSS is not run and the evaluation records
+    "pan gave no event-scale window on rec 6". Report only — FLUSS's status changes only by the Q4 bar. Reason: W3-C's
+    re-critique (F3) — the suggestion leans to the longest judged rung or a chain's fall edge, so it is not an event
+    length; the band's top is the only reading that tracked a chain unit (1508 s on random-walk drops at SNR 5), and an
+    8 h span judges only up to 34 min.
 3. **The Library side of decision 4 is folded into round 2**: W3-G puts σ² first in `shape_families`' summary lines and
    the coherence payload it returns, and measures both variants' verdicts against the quiet-stretch null (the verdict
    stays on eq. 17 unless the researcher moves it); W3-F puts σ² first on the Family page and the families table.
