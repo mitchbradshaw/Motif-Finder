@@ -29,7 +29,7 @@ fixers in `isolation: worktree`; critics read the implementer's worktree and nev
 | 4a | fixer (row 4 resumed) | W3-D fix round 1 | `a5a78efe8b36c0a92` | row 4's | row 4's | `64db0da` | sent 23:06; reported 23:29 (`48710ae`) → `W3-D-mpdist.fix1.md`; **merged as `fe8e495`** |
 | 9 | implementer | W3-G the quiet-stretch null for families; a trend-kept k-Shape null | `a17192b65fcf2dd72` | `.claude/worktrees/agent-a17192b65fcf2dd72` | `worktree-agent-a17192b65fcf2dd72` | `6bd3e40` (`wave3-round2-base`) | launched 23:33 (decision 14); stopped ~00:3x (API limit), resumed 02:01; reported 02:03 (`2a4ca0e`) → `W3-G-quiet-stretch-null.md` |
 | 10 | critic | W3-G | `a8f15e6dcd6951107` | (reads row 9's worktree) | — | `6bd3e40` | launched 02:04; reported 02:3x: **merge after fixes** (5 should-fix, 3 nits) → `W3-G-quiet-stretch-null.critic.md` |
-| 9a | fixer (row 9 resumed) | W3-G fix round 1 | `a17192b65fcf2dd72` | row 9's | row 9's | `6bd3e40` | sent 02:35 (decisions 15–16) |
+| 9a | fixer (row 9 resumed) | W3-G fix round 1 | `a17192b65fcf2dd72` | row 9's | row 9's | `6bd3e40` | sent 02:35; reported 03:14 (`84e8326`) → `W3-G-quiet-stretch-null.fix1.md`; merges after W3-B's final branch |
 
 ## Preflight (2026-10-14 21:2x)
 
@@ -346,6 +346,16 @@ instead of it.
   stationary false pass in 76 passed on eq. 17 but not σ², leaving an unmarked key. Power given up for size: random
   walk at 30 % noise with an 80/20 or 90/10 mix now K = 1. 02:48 — fix round 2 (the last) sent (row 2b), decisions
   17–18; test-cost cuts as the critic proposed.
+- 03:14 — **W3-G fix round 1 reported** (red `a4a2a6f`: 26 + 3 failed → green `84e8326`; 541 conda; webui 87 + 3
+  xpassed before two deliberate assertion updates, the subset 8/8 after) → `W3-G-quiet-stretch-null.fix1.md`: either
+  null passes (`passed_by` names it; a drop family on a recording with 448 uncatalogued drops: noise-like → confident
+  via trend-kept 0.06; the hump in the same recording via quiet 0.02; pure noise with 150 uncatalogued drops: none
+  confident); margin 0.6 with the small-family worst case pinned; coherence like-for-like (pool = n_set up to 4,000,
+  `take` ≥ 10); the Family page's n_set is the grouping's item count, unmoved by view filters; σ²'s verdict-shaped
+  field removed (`squared_vs_null_ratio`); free-stretch and span caches; `why` names borrowed windows and the
+  detection-overlap share. A 2,000-member Family page: 23–40 s cold (32 s without the background: the members' own
+  coherence dominates), ~0.95 s cached. Reviewed by the manager; no blocker was raised, so no re-critique. Merges after
+  W3-B's final branch (its base holds W3-B at `b94881b`).
 
 ## Decisions taken on the researcher's behalf
 
