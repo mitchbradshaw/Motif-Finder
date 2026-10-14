@@ -18,7 +18,8 @@ fixers in `isolation: worktree`; critics read the implementer's worktree and nev
 | 5 | critic | W3-A | `a03f242747d328696` | (reads row 1's worktree) | — | `01cb8c3` | launched 22:01, seven manager questions |
 | 2 | implementer | W3-B `interrogation.cycle_shapes` + `Working/background_null.py` | `a7834e530174e1643` | `.claude/worktrees/agent-a7834e530174e1643` | `worktree-agent-a7834e530174e1643` | `01cb8c3` | launched 21:26 (worktree at `01cb8c3`, clean, 21:26) |
 | 3 | implementer | W3-C `detection.pan_matrix_profile` | `aeeb2080e0967a2d2` | `.claude/worktrees/agent-aeeb2080e0967a2d2` | `worktree-agent-aeeb2080e0967a2d2` | `01cb8c3` | launched 21:26 (worktree at `01cb8c3`, clean, 21:26) |
-| 4 | implementer | W3-D `mpdist` (fourth Library distance) | `a5a78efe8b36c0a92` | `.claude/worktrees/agent-a5a78efe8b36c0a92` | `worktree-agent-a5a78efe8b36c0a92` | `64db0da` | launched 21:30, early (decision 4); the tool cut it at `3cc2f62` (origin/main), told to fast-forward |
+| 4 | implementer | W3-D `mpdist` (fourth Library distance) | `a5a78efe8b36c0a92` | `.claude/worktrees/agent-a5a78efe8b36c0a92` | `worktree-agent-a5a78efe8b36c0a92` | `64db0da` | launched 21:30, early (decision 4; cut at `3cc2f62`, at `64db0da` by 21:31); reported 22:39 (`c88a236`, 68 min) → `W3-D-mpdist.md` |
+| 6 | critic | W3-D | `a380d497100469282` | (reads row 4's worktree) | — | `64db0da` | launched 22:42, seven manager questions |
 
 ## Preflight (2026-10-14 21:2x)
 
@@ -152,6 +153,17 @@ instead of it.
   (refused in words), and the block is also run on it with one 4 h window, for information, as the brief's "too few
   scales" check. Reason: a template that refuses a span cannot be judged on it; the rule depends on the template's
   parameters, not on any result.
+- 22:39 — **W3-D reported** (3 commits on `64db0da`; 339 + 11 (venv) tests green; 68 min) → `W3-D-mpdist.md`. Points to
+  judge: its own MPdist (dense numpy engine up to j_A·j_B·s ≤ 1e8, `stumpy.stump` above, which compiles 40–106 s on
+  first use); flat / gap pieces left out (an adaptation; plain stumpy reads a hump and its mirror on flat baselines as
+  identical); `sub_frac` 0.5 (snippets uses 0.35, measured); footing raw/√(2s); a per-pair trend-kept null (5 draws,
+  0.9 × p05) with 10–20 % false positives on pure noise; `_edge_payload`'s `within = value <= threshold` will read
+  every MPdist edge "within" (a wrong verdict on the face until fixed). The manager's read-only query of the real
+  Library: 3,616 members, median 38 samples, **760 (21 %) shorter than 16 samples — MPdist refuses them**, 231 longer
+  than 900, max 324,000; `motif_edge` is **empty** (no accepted RQ3 pairs yet), so the MPdist read-out will use five
+  families' members against their medoids (the brief's fallback). 22:42 — critic launched (row 6): fidelity, the
+  per-pair null, `within` on the face, latency of the stumpy compile in the bridge, refusals at real proportions,
+  the 5 % percentage, scope.
 
 ## Decisions taken on the researcher's behalf
 
