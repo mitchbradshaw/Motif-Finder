@@ -88,16 +88,19 @@ from dataclasses import asdict, dataclass, field, replace
 
 import numpy as np
 
-from Working.Detection.sax.dsax_python.dsax import dsax, dsax_letters
+from Working.Detection.sax.dsax_python.dsax import MISSING_LETTER, dsax, dsax_letters
 
 from .detect import (
     NOISE_SECOND_DIFFERENCE,
     THRESHOLD_MODE,
     TREND_ESTIMATOR,
+    clip_to_recorded,
     detrend,
     dim_ratio_for_segments,
     find_trough,
     merge_up_runs,
+    nan_for_missing,
+    next_missing,
     slope_noise_sigma,
 )
 
@@ -296,6 +299,10 @@ def stage_letters(x, fs, params):
     `details` carries `segment_slopes` in raw units per SECOND and the
     `sigma_slope` the split used, so the claim "`d` means steeper than N
     sigmas" is checkable from the return value rather than on trust.
+
+    A segment that touches a missing sample (NaN, inf) is `MISSING_LETTER`
+    ('-'): no stage, never part of a rise or a fall run. Its slope is NaN,
+    and the cutlines and the noise floor are the recorded part's.
     """
     x = np.asarray(x, dtype=float).ravel()
     fs = float(fs)
@@ -308,6 +315,7 @@ def stage_letters(x, fs, params):
     else:
         detrend_samples = max(3, int(round(params.detrend_window_s * fs)))
         x_detrended = detrend(x, detrend_samples)
+    x_detrended, _ = nan_for_missing(x_detrended)
 
     segment_samples = max(1, int(round(params.segment_seconds * fs)))
     dim_ratio = dim_ratio_for_segments(len(x_detrended), segment_samples)
@@ -451,13 +459,19 @@ def morphology_from_letters(letters, x_detrended, sps, params):
         return MORPHOLOGY_SHARKFIN
 
     rises = up_runs(letters)
-    x_detrended = np.asarray(x_detrended, dtype=float).ravel()
+    x_detrended, _ = nan_for_missing(x_detrended)
     last = len(x_detrended) - 1
 
     preceded = 0
+    unmeasured = 0
     for start_seg, end_seg in falls:
         start = min(start_seg * sps, last)
         depth = float(x_detrended[start] - x_detrended[min(end_seg * sps, last)])
+        if depth != depth:
+            # The fall ends at a gap: its depth is not measured, so it does not
+            # vote (and a rise that ends at one climbs NaN, which never counts).
+            unmeasured += 1
+            continue
         if depth <= 0:
             continue
         # One segment of slack absorbs the case where the peak sample lands
@@ -471,7 +485,7 @@ def morphology_from_letters(letters, x_detrended, sps, params):
                 preceded += 1
                 break
 
-    return (MORPHOLOGY_SHARKFIN if preceded * 2 >= len(falls)
+    return (MORPHOLOGY_SHARKFIN if preceded * 2 >= len(falls) - unmeasured
             else MORPHOLOGY_TROUGH)
 
 
@@ -505,7 +519,7 @@ def significant_rises(rises, x_detrended, segment_samples, min_climb):
 
 
 def window_bounds(onset, trough, rises, segment_samples, morphology, params,
-                  x_detrended, depth, falls=None):
+                  x_detrended, depth, falls=None, missing=None):
     """The stored extent for one event. See the table in the module docstring.
 
     `rises` is `up_runs`' output in SEGMENT indices; everything returned is
@@ -543,6 +557,10 @@ def window_bounds(onset, trough, rises, segment_samples, morphology, params,
     `falls` is `fall_runs`' output in SEGMENT indices, like `rises`. Runs
     overlapping this event's own `[onset, trough]` are excluded, so an
     event is never bounded by itself.
+
+    A GAP IS A BOUNDARY TOO, the hardest one: `missing` (the sorted indices
+    of the missing samples, or None) cuts the window back to the recorded
+    stretch that holds `[onset, trough]`, whatever the rules above chose.
     """
     n_samples = len(x_detrended)
     fall = max(trough - onset, segment_samples)
@@ -585,6 +603,9 @@ def window_bounds(onset, trough, rises, segment_samples, morphology, params,
         if after:
             end = min(end, min(after))
 
+    if missing is not None and len(missing):
+        start, end = clip_to_recorded(missing, onset, trough, start, end)
+
     return max(0, int(start)), min(int(n_samples), int(end))
 
 
@@ -603,14 +624,20 @@ def detect_drops5(x, fs, params):
         candidates=0, rejected_no_fall=0, rejected_no_rise=0,
         rejected_not_dominant=0, rejected_shallow=0, rejected_duplicate=0,
         fall_trigger_suppressed=0, drops_confirmed=0,
+        rejected_at_gap=0, missing_segments=0,
     )
 
-    if x.size < 8 or float(np.ptp(x)) == 0.0:
+    # With missing samples the question is asked of the recorded ones; an
+    # unrecorded span stays missing in `x_detrended`, never zero.
+    recorded = np.isfinite(x)
+    values = x if recorded.all() else x[recorded]
+    if values.size < 8 or float(np.ptp(values)) == 0.0:
         return Detect5Result(counts=counts, params=params,
                              morphology=params.morphology
                              if params.morphology in MORPHOLOGIES
                              else MORPHOLOGY_SHARKFIN,
-                             x_detrended=np.zeros_like(x))
+                             x_detrended=(np.zeros_like(x) if values is x
+                                          else np.where(recorded, 0.0, np.nan)))
 
     letters, details = stage_letters(x, fs, params)
     x_detrended = details["x_detrended"]
@@ -634,9 +661,17 @@ def detect_from_letters(x_detrended, fs, letters, sps, sigma_slope, morphology, 
     `sigma_slope` recomputed from the same signal with the same estimator.
     Splitting it this way is what lets the chain run as drawn (D1) without
     two copies of the gates and windows.
+
+    Missing samples (NaN, inf) in `x_detrended`, `MISSING_LETTER` in
+    `letters`: no event is drawn across a gap. No onset scan runs past one,
+    so a rise and a fall on its two sides are never one event; a fall that
+    runs into a gap before its knee, or whose shoulder lies in one, is left
+    out and counted in `rejected_at_gap` (its depth is not measured); and a
+    window that would reach a gap ends at it. Finite input takes none of
+    these branches.
     """
     started = time.time() if started is None else started
-    x_detrended = np.asarray(x_detrended, dtype=float).ravel()
+    x_detrended, gaps = nan_for_missing(x_detrended)
     fs = float(fs)
     if counts is None:
         counts = dict(
@@ -644,17 +679,26 @@ def detect_from_letters(x_detrended, fs, letters, sps, sigma_slope, morphology, 
             candidates=0, rejected_no_fall=0, rejected_no_rise=0,
             rejected_not_dominant=0, rejected_shallow=0, rejected_duplicate=0,
             fall_trigger_suppressed=0, drops_confirmed=0,
+            rejected_at_gap=0, missing_segments=0,
         )
+    counts.setdefault("rejected_at_gap", 0)
     sps = int(sps)
     slope_threshold = -params.slope_sigma * sigma_slope
 
     counts["segments"] = len(letters)
+    counts["missing_segments"] = letters.count(MISSING_LETTER)
     rises = up_runs(letters)
     falls = fall_runs(letters)
     counts["up_runs"] = len(rises)
     counts["fall_runs"] = len(falls)
 
     derivative = np.gradient(x_detrended) * fs
+
+    # Where a gap stops a scan (the samples whose slope is missing: the gap
+    # and the sample either side of it) and ends a window (the missing
+    # samples). None on finite input.
+    no_slope = np.flatnonzero(~np.isfinite(derivative)) if gaps else None
+    missing = np.flatnonzero(np.isnan(x_detrended)) if gaps else None
 
     # -- candidates -------------------------------------------------------
     #
@@ -667,7 +711,7 @@ def detect_from_letters(x_detrended, fs, letters, sps, sigma_slope, morphology, 
         rise_start = start_seg * sps
         rise_end = min(end_seg * sps, len(x_detrended) - 1)
         lookahead = max(sps, int(params.lookahead_mult * (rise_end - rise_start)))
-        onset = _first_crossing(derivative, rise_end, slope_threshold, lookahead)
+        onset = _crossing_before_gap(derivative, rise_end, slope_threshold, lookahead, no_slope)
         if onset is None:
             counts["rejected_no_fall"] += 1
             continue
@@ -679,8 +723,8 @@ def detect_from_letters(x_detrended, fs, letters, sps, sigma_slope, morphology, 
         # One candidate per RUN, scanned across the whole run: the first
         # segment of a fall can be its shoulder, so the qualifying sample
         # need not be inside it.
-        onset = _first_crossing(derivative, at, slope_threshold,
-                                (end_seg - start_seg + 1) * sps)
+        onset = _crossing_before_gap(derivative, at, slope_threshold,
+                                     (end_seg - start_seg + 1) * sps, no_slope)
         if onset is None or onset in fall_candidates:
             continue
         fall_candidates[onset] = dict(onset=onset, trigger=TRIGGER_FALL,
@@ -721,16 +765,22 @@ def detect_from_letters(x_detrended, fs, letters, sps, sigma_slope, morphology, 
     previous_trough = 0
     for candidate in proposals:
         onset = candidate["onset"]
-        trough = find_trough(derivative, onset,
-                             _fall_limit(onset, rises, sps, len(derivative),
-                                         falls=(falls if
-                                                params.bracket_on_fall_runs
-                                                else None),
-                                         min_separation_samples=(
-                                             params.min_separation_s * fs),
-                                         rise_separation=(
-                                             params.bracket_rise_on_separation)),
-                             knee_frac=params.trough_knee_frac)
+        limit = _fall_limit(onset, rises, sps, len(derivative),
+                            falls=(falls if params.bracket_on_fall_runs else None),
+                            min_separation_samples=params.min_separation_s * fs,
+                            rise_separation=params.bracket_rise_on_separation)
+        stop = next_missing(no_slope, onset, len(derivative)) if gaps else limit
+        if stop < limit:
+            # A gap inside the trough search: the knee must come before it,
+            # or the fall's depth is not measured and the event is left out.
+            trough = find_trough(derivative, onset, stop,
+                                 knee_frac=params.trough_knee_frac)
+            if trough <= onset or trough >= stop - 1:
+                counts["rejected_at_gap"] += 1
+                continue
+        else:
+            trough = find_trough(derivative, onset, limit,
+                                 knee_frac=params.trough_knee_frac)
         if trough <= onset:
             continue
 
@@ -749,6 +799,11 @@ def detect_from_letters(x_detrended, fs, letters, sps, sigma_slope, morphology, 
                 backstop=max(previous_trough,
                              onset - int(round(params.window_cap_mult
                                                * max(trough - onset, sps)))))
+        if gaps and onset > 0 and np.isnan(x_detrended[onset - 1]):
+            # The walk stopped at a gap, not at a shoulder: the fall may start
+            # inside it, so its depth is not measured.
+            counts["rejected_at_gap"] += 1
+            continue
         candidate["onset"] = onset
         if trough <= onset:
             continue
@@ -802,12 +857,14 @@ def detect_from_letters(x_detrended, fs, letters, sps, sigma_slope, morphology, 
                 morphology, params, x_detrended, candidate["depth"],
                 derivative, slope_threshold,
                 fall_runs_segments=(falls if params.bracket_on_fall_runs
-                                    else None))
+                                    else None),
+                missing=missing)
         else:
             start, end = window_bounds(
                 candidate["onset"], candidate["trough"], rises, sps,
                 morphology, params, x_detrended, candidate["depth"],
-                falls=(falls if params.bracket_on_fall_runs else None))
+                falls=(falls if params.bracket_on_fall_runs else None),
+                missing=missing)
             rise_frac_used = params.min_rise_frac
 
         window = x_detrended[start:end]
@@ -1041,6 +1098,20 @@ def _first_crossing(derivative, from_idx, slope_threshold, lookahead):
     return from_idx + int(hits[0])
 
 
+def _crossing_before_gap(derivative, from_idx, slope_threshold, lookahead, no_slope):
+    """`_first_crossing`, stopped at the first sample at or past `from_idx`
+    whose slope is missing (`no_slope`, sorted; None when nothing is): a
+    fall is never found on the far side of a gap from the rise or the run
+    that started the scan."""
+    if no_slope is None:
+        return _first_crossing(derivative, from_idx, slope_threshold, lookahead)
+    from_idx = max(0, int(from_idx))
+    stop = next_missing(no_slope, from_idx, len(derivative))
+    if stop <= from_idx:
+        return None
+    return _first_crossing(derivative, from_idx, slope_threshold, min(int(lookahead), stop - from_idx))
+
+
 # ===========================================================================
 # the grade
 # ===========================================================================
@@ -1064,7 +1135,7 @@ def count_falls(derivative, start, end, slope_threshold, gap):
 
 def tighten_window(onset, trough, rises, sps, morphology, params,
                    x_detrended, depth, derivative, slope_threshold,
-                   steps=TIGHTEN_STEPS, fall_runs_segments=None):
+                   steps=TIGHTEN_STEPS, fall_runs_segments=None, missing=None):
     """Shrink a window until it holds one fall, by admitting smaller rises.
 
     The operator's suggestion, and it maps onto a parameter that already
@@ -1089,7 +1160,7 @@ def tighten_window(onset, trough, rises, sps, morphology, params,
         trial = replace(params, min_rise_frac=params.min_rise_frac * factor)
         start, end = window_bounds(onset, trough, rises, sps, morphology,
                                    trial, x_detrended, depth,
-                                   falls=fall_runs_segments)
+                                   falls=fall_runs_segments, missing=missing)
         falls = count_falls(derivative, start, end, slope_threshold,
                             max(1, sps))
         if best is None:
