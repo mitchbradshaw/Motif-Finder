@@ -229,7 +229,7 @@ def symbolic_distance(x1, x2, word_length, alphabet_size=10):
 # pairwise form does NOT hold the j x n matrix per piece W2-D measured (that is
 # `_mpdist_vect`, the snippets path) — an AB-join is O(n_A n_B) time and O(n)
 # memory — but `stumpy.stump` is numba-compiled without a cache: its first call
-# in a fresh process took 40-56 s here (measured twice, machine under load),
+# in a fresh process took 40-106 s here (measured three times, machine under load),
 # and every later call has a ~6 ms parallel-launch floor (12 ms a pair). The
 # dense engine is plain numpy: no compile, ~3-4 ms a pair at 60-300 samples. So
 # the first *Add N matches* in a bridge process pays no compile unless a pair
