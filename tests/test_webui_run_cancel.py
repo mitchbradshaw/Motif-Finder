@@ -339,3 +339,42 @@ def test_the_run_manager_cancelling_a_draw_leaks_no_detection(fake_detector_chai
     assert _wait(lambda: job.status != "running", timeout=40)
     assert job.status == "completed"
     assert _real_detections(db) == N_SPANS
+
+
+# ── W3-F fix round 2 (re-critique finding 2): a draw that FAILS mid-chain must not leak either ───────────────────
+
+BREAKS = "interrogation.w3f_fake_breaks_on_draws"
+
+
+def _breaks_on_draws(x, t, fs, value=None):
+    call = PROBE.begin()
+    if call >= 1:                       # the real run is call 0; every surrogate draw after it refuses its data
+        raise ValueError("this block refuses surrogate data")
+    return AdapterResult(output_kind="spanset", value=value, meta={})
+
+
+def test_a_draw_that_fails_mid_chain_is_linked_and_the_failure_still_reads_failed(fake_detector_chain, bridge_db,
+                                                                                    monkeypatch):
+    from Working import run_groups
+    from Working.database.schema import init_db
+    from Working.execution import RecipeExecutionError, execute_recipe
+    from server import chain as chain_mod
+    monkeypatch.setitem(registry._REGISTRY, BREAKS, AdapterSpec(
+        name=BREAKS, display_name="breaks", stage="interrogation", params=[], run=_breaks_on_draws,
+        output_kind="spanset", input_kind="spanset", category="detect", description="fails on the draws"))
+    db, rec = bridge_db
+    recipe = chain_mod.build_recipe(rec["id"], (0, 2000), [
+        {"stage": "detection", "algorithm": "w3f_fake_spans", "params": {}},
+        {"stage": "interrogation", "algorithm": "w3f_fake_breaks_on_draws", "params": {}}])
+    real = execute_recipe(recipe, db_path=db, force=True)
+    with pytest.raises(RecipeExecutionError) as err:
+        run_groups.draw_paired_null(recipe, real["run_id"], db_path=db, draws=2)
+    assert getattr(err.value, "run_id", None) is not None, "RecipeExecutionError does not name its run row"
+    assert "refuses surrogate data" in str(err.value.__cause__), "the block's own words are kept"
+    assert _real_detections(db) == N_SPANS, "the failed draw's spans were counted as real detections"
+    conn = init_db(db)
+    try:
+        rows = conn.execute("SELECT status, surrogate_of_run_id FROM runs WHERE id != ?", (real["run_id"],)).fetchall()
+    finally:
+        conn.close()
+    assert len(rows) == 1 and rows[0]["surrogate_of_run_id"] == real["run_id"] and rows[0]["status"] == "failed"

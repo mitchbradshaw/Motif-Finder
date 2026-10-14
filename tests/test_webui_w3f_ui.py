@@ -175,3 +175,18 @@ def test_the_runtime_checks_the_block_cost_calibration_path_at_start():
     core = src[src.index("def _core_paths"):]
     core = core[:core.index("\n    def ", 10)]
     assert "block_cost.CALIBRATION_PATH" in core
+
+
+def test_the_pan_view_never_sells_the_suggestion():
+    """Re-critique finding 3: "· suggested C (strongest of the band)" and a "suggested" cell still sold one length.
+    The view says "strongest at C s — not an event length", on the same line as the number, and nowhere "suggested"
+    or "use this window"."""
+    enc = _src("analyse", "views", "EncodingView.tsx")
+    view = enc[enc.index("function RowAxisLabels"):enc.index("/** The settings-tier evidence")]
+    words = re.sub(r"suggested_(window_s|row)|row-suggested|const sug\b", "", view)
+    assert "suggested" not in words.lower(), "the pan view still says 'suggested'"
+    assert "strongest at" in view and "not an event length" in view
+    line = view[view.index('data-testid="row-verdict-headline"'):]
+    line = line[:line.index("</span>")]
+    assert "not an event length" in line, "the warning is not on the same line as the number"
+    assert "use this window" not in enc.lower()

@@ -237,3 +237,18 @@ def test_cluster_left_out_windows_are_named_no_label():
     c = {x["id"]: x for x in p["clusters"]}
     assert c[-1]["name"].startswith("no label")
     assert "2 left out" in p["summary"]
+
+
+def test_the_pan_caveat_is_the_blocks_own_when_it_sends_one():
+    """Re-critique nit 4: the caveat was a copy of W3-C's and would drift; it is read from the block's own
+    "suggested window" rule, the copy only a fallback."""
+    from server.serialize import SUGGESTION_CAVEAT
+    img = np.zeros((3, 2000), dtype=np.float32)
+    meta = _pan_meta()
+    meta["rules"] = [{"name": "gap", "rule": "…"},
+                     {"name": "suggested window", "rule": "The answer is the BAND of cleared lengths; the block's words."}]
+    p = to_payload("encoding", Encoding(values=img, kind="image"), meta, {"fs": 1.0, "n_samples": 2000})
+    assert p["row_verdict"]["caveat"] == "The answer is the BAND of cleared lengths; the block's words."
+    meta["rules"] = [{"name": "gap", "rule": "…"}]
+    q = to_payload("encoding", Encoding(values=img, kind="image"), meta, {"fs": 1.0, "n_samples": 2000})
+    assert q["row_verdict"]["caveat"] == SUGGESTION_CAVEAT
