@@ -181,7 +181,7 @@ def test_humps_and_ramps_beat_the_quiet_null_where_the_trend_kept_null_calls_the
     for f in big:
         fl = f.flags
         q, t = fl["nulls"]["quiet_stretch"], fl["nulls"]["trend_kept"]
-        assert fl["null_kind"] == K.QUIET_KIND
+        assert fl["null_kind"] == K.EITHER_KIND and K.QUIET_KIND in fl["passed_by"]
         assert q["ratio"] < K.QUIET_MARGIN and not q["noise_like"], (f.size, q, t)
         assert t["noise_like"], ("the trend-kept null's blind spot is real here", t)
         assert not fl["noise_like"], "the verdict is the quiet-stretch one"
@@ -194,7 +194,8 @@ def test_hump_coherence_beats_the_quiet_null_where_the_trend_kept_null_does_not(
     W = [x[s:s + L] for s in starts]
     c = svd_entropy([W[r] for r in hump_rows], medoid=0, background=mb.subset(hump_rows), n_set=len(W))
     q, t = c["nulls"]["quiet_stretch"], c["nulls"]["trend_kept"]
-    assert c["null_kind"] == K.QUIET_KIND and c["beyond_noise"] is True, (c["svd_entropy_norm"], q["null_p05"])
+    assert c["null_kind"] == K.EITHER_KIND and c["beyond_noise"] is True, (c["svd_entropy_norm"], q["null_p05"])
+    assert c["passed_by"] == [K.QUIET_KIND]
     assert q["beyond_noise"] and not t["beyond_noise"], (c["svd_entropy_norm"], q["null_p05"], t["null_p05"])
     assert c["null_p05"] == q["null_p05"] and c["null_median"] == q["null_median"], "the verdict's null on top"
     json.dumps(c)
@@ -209,7 +210,8 @@ def test_windows_cut_from_quiet_noise_never_beat_the_quiet_null_hdbscan(kind, n)
     res, W, bg = _group(x, starts, "hdbscan")
     report = [(f.size, f.flags["null_kind"], (f.flags["nulls"]["quiet_stretch"] or {}).get("ratio"))
               for f in res.families]
-    assert all(f.flags["null_kind"] == K.QUIET_KIND for f in res.families), report
+    assert all(f.flags["null_kind"] == K.EITHER_KIND for f in res.families), report
+    assert all(f.flags["passed_by"] == [] for f in res.families), report
     assert all(f.flags["noise_like"] for f in res.families), report
     for f in res.families:
         rows = sorted(f.members)
@@ -237,7 +239,7 @@ def test_event_families_on_quiet_noise_leaves_no_unmarked_intervals_key(method, 
     unmarked = [k for k in keys if k != "-1" and "~" not in k]
     assert unmarked == [], (keys, [(f.size, f.flags.get("null_kind"), f.flags.get("why")) for f in ev.families.families])
     used = {f.flags.get("null_kind") for f in ev.families.families}
-    assert used <= {K.QUIET_KIND}, "the span has quiet stretches: the quiet-stretch null judges"
+    assert used <= {K.EITHER_KIND}, "the span has quiet stretches: both nulls judge (either passes)"
 
 
 def test_kshape_is_offered_to_event_families_again_and_untrusted_no_more():
@@ -296,7 +298,7 @@ def test_every_verdict_text_names_its_null_and_its_background_seconds():
             assert "trend-kept" in why, "the trend-kept result stays beside it"
             assert f.flags["background_s"] > 0
         json.dumps(res.fit_summary)
-        assert res.fit_summary["null"]["kind"] == K.QUIET_KIND
+        assert res.fit_summary["null"]["kind"] == K.EITHER_KIND
     rows = sorted(res.families[0].members)
     c = svd_entropy([W[r] for r in rows], medoid=0, background=bg.subset(rows), n_set=len(W))
     assert "quiet-stretch null" in c["why"] and "s of event-free background" in c["why"]
@@ -337,7 +339,11 @@ def test_sigma_squared_leads_the_coherence_payload_and_eq17_keeps_the_verdict():
     assert c["variants"][0]["score"] == c["svd_entropy_squared_norm"] and not c["variants"][0]["is_verdict"]
     assert c["variants"][1]["is_verdict"] and c["variants"][1]["beyond_noise"] == c["beyond_noise"]
     assert c["headline_variant"] == "squared" and c["verdict_variant"] == "eq17"
-    assert c["beyond_noise_squared"] == (c["svd_entropy_squared_norm"] < c["null_margin"] * c["null_squared_p05"])
+    # fix round 1, F4: no verdict-shaped field on sigma^2 — the number only
+    assert "beyond_noise_squared" not in c and c["variants"][0]["beyond_noise"] is None
+    assert c["variants"][0]["squared_vs_null_ratio"] == pytest.approx(
+        c["svd_entropy_squared_norm"] / c["nulls"]["quiet_stretch"]["null_squared_p05"])
+    assert "not judged" in c["variants"][0]["note"]
 
 
 def test_the_summary_line_puts_sigma_squared_first_and_names_the_null():
@@ -347,7 +353,8 @@ def test_the_summary_line_puts_sigma_squared_first_and_names_the_null():
     assert line.index("sigma^2") < line.index("eq. 17"), line
     assert "quiet stretches" in line, line
     s = SF.family_summary(fam.families[0])
-    assert s["null_kind"] == K.QUIET_KIND and s["background_s"] > 0
+    assert s["null_kind"] == K.EITHER_KIND and s["background_s"] > 0
+    assert "svd_entropy_squared_beyond_noise" not in s
     assert s["svd_entropy_variants"][0]["name"] == "squared"
 
 
@@ -362,12 +369,12 @@ def test_the_two_family_blocks_judge_against_the_chains_quiet_stretches():
     ws = WindowSet(starts=starts, length=L, fs=1.0, features=pd.DataFrame({"split": [0] * len(starts)}))
     res = sf.run(x, np.arange(len(x), dtype=float), 1.0, **sf.validate_params({}), value=ws)
     fams = res.meta["families"]
-    assert fams and all(f["null_kind"] == K.QUIET_KIND for f in fams), [f["null_kind"] for f in fams]
+    assert fams and all(f["null_kind"] == K.EITHER_KIND for f in fams), [f["null_kind"] for f in fams]
     assert sum(1 for f in fams if not f["noise_like"]) >= 2, [(f["size"], f["noise_like"]) for f in fams]
     json.dumps(res.meta)
     ef = get_adapter("interrogation.event_families")
     res2 = ef.run(x, np.arange(len(x), dtype=float), 1.0, **ef.validate_params({}), value=_spans(starts + int(0.2 * L)))
-    assert all(f["null_kind"] == K.QUIET_KIND for f in res2.meta["families"])
+    assert all(f["null_kind"] == K.EITHER_KIND for f in res2.meta["families"])
     assert "quiet stretches" in res2.meta["summary"]
 
 
@@ -379,3 +386,170 @@ def test_the_estimates_price_the_quiet_windows():
         m = registry.get(name)
         base = dict(registry.defaults_for(name))
         assert m.estimate(3616, base) > m.estimate(3616, {**base, "null_draws": 0}), name
+
+
+
+# ── fix round 1 (W3-G critic) ────────────────────────────────────────────────
+
+def contaminate(x, starts, n, rng, *, amp, shape="drop"):
+    """Add `n` UNCATALOGUED events (a drop, or a broad hump) in the quiet stretches,
+    never on a member's window: what a real recording holds besides its Library members."""
+    from _shape_families import drop
+    t = np.arange(L) / L
+    w = amp * (drop((t - 0.3) / 0.4) if shape == "drop" else np.sin(np.pi * t))
+    taken = np.zeros(len(x), bool)
+    for s in starts:
+        taken[s:s + L] = True
+    placed, tries = 0, 0
+    while placed < n and tries < 100000:
+        tries += 1
+        s = int(rng.integers(0, len(x) - L))
+        if not taken[s:s + L].any():
+            x[s:s + L] += w
+            taken[s:s + L] = True
+            placed += 1
+    return placed
+
+
+def test_the_quiet_margin_is_0_6():
+    """Decision 16: 0.6, a placeholder — the critic's worst case, 10-member densest noise
+    families, reached 0.714 clean and 0.643 with uncatalogued events."""
+    assert K.QUIET_MARGIN == 0.6
+
+
+def test_either_null_passes_a_family_sharp_via_trend_kept_smooth_via_quiet():
+    """Decision 15. The quiet stretches hold 448 uncatalogued drops: the drop family fails
+    the quiet null (its own shape is in the 'quiet' windows) but passes the trend-kept one;
+    the hump family fails the trend-kept null (smooth) but passes the quiet one. Both are
+    confident, and each says which null passed with both ratios."""
+    rng = np.random.default_rng(1)
+    x, starts = quiet_recording("random_walk", 300, seed=0, frac=0.3)
+    from _shape_families import drop
+    t = np.arange(L) / L
+    for i, s in enumerate(starts[:200]):
+        x[s:s + L] += 1.5 * (drop((t - 0.3) / 0.4) if i % 2 == 0 else np.sin(np.pi * t))
+    assert contaminate(x, starts, 500, rng, amp=1.5) > 400
+    res, _, _ = _group(x, starts[:200], "hdbscan")
+    by_kind = {}
+    for f in res.families:
+        rows = np.array(f.members)
+        kind = "drop" if (rows % 2 == 0).all() else "hump" if (rows % 2 == 1).all() else "mixed"
+        by_kind[kind] = f
+    assert {"drop", "hump"} <= set(by_kind), [(f.size, f.flags["passed_by"]) for f in res.families]
+    d, h = by_kind["drop"].flags, by_kind["hump"].flags
+    assert d["nulls"]["quiet_stretch"]["noise_like"] and not d["nulls"]["trend_kept"]["noise_like"], d["why"]
+    assert not d["noise_like"] and d["passed_by"] == [K.TREND_KIND]
+    assert h["nulls"]["trend_kept"]["noise_like"] and not h["nulls"]["quiet_stretch"]["noise_like"], h["why"]
+    assert not h["noise_like"] and h["passed_by"] == [K.QUIET_KIND]
+    for fl in (d, h):
+        assert f"{fl['nulls']['quiet_stretch']['ratio']:.2f}" in fl["why"]
+        assert f"{fl['nulls']['trend_kept']['ratio']:.2f}" in fl["why"]
+    # the coherence follows the same either rule
+    W = [x[s:s + L] for s in starts[:200]]
+    bg = _background(x, starts[:200])
+    rows = sorted(by_kind["drop"].members)
+    c = svd_entropy([W[r] for r in rows], medoid=rows.index(by_kind["drop"].medoid), background=bg.subset(rows),
+                    n_set=200)
+    q, tk = c["nulls"]["quiet_stretch"], c["nulls"]["trend_kept"]
+    assert c["beyond_noise"] == (q["beyond_noise"] or tk["beyond_noise"])
+    assert c["passed_by"] == [k for k, v in ((K.QUIET_KIND, q), (K.TREND_KIND, tk)) if v["beyond_noise"]]
+
+
+@pytest.mark.parametrize("kind", ["random_walk", "ar1_099"])
+def test_pure_noise_with_other_shape_contamination_is_not_confident(kind):
+    """F3: uncatalogued drops in the quiet stretches loosen the quiet null for pure-noise
+    members (the critic: 1.16 -> 0.84). Under the either rule no noise family passes."""
+    rng = np.random.default_rng(2)
+    x, starts = quiet_recording(kind, 300, seed=0)
+    contaminate(x, starts, 150, rng, amp=3.0)
+    res, W, bg = _group(x, starts, "hdbscan")
+    report = [(f.size, f.flags["passed_by"], f.flags["nulls"]["quiet_stretch"]["ratio"]) for f in res.families]
+    assert all(f.flags["noise_like"] for f in res.families), report
+    for f in res.families:
+        rows = sorted(f.members)
+        c = svd_entropy([W[r] for r in rows], medoid=rows.index(f.medoid), background=bg.subset(rows), n_set=len(W))
+        assert c["beyond_noise"] is False, (f.size, c["why"])
+
+
+@pytest.mark.parametrize("kind", ["random_walk", "ar1_099"])
+def test_small_densest_noise_families_fail_both_nulls(kind):
+    """F5's worst case: among n = 3,600 quiet noise windows, the densest centres' 10 and 20
+    nearest windows (the tightest crowds any method could select). Neither null may pass them."""
+    from Working.distances import sbd_matrix
+    n, m_sizes = 3600, (10, 20)
+    x, starts = quiet_recording(kind, n, seed=11, length=200, frac=0.4)
+    W = [x[s:s + 200] for s in starts]
+    V = K.batched_shape_vectors(W, 128)
+    D = sbd_matrix(V, z_normalise=False, dtype=np.float32) / K.SBD_SCALE
+    bg = MemberBackground([("x", int(s), int(s) + 200) for s in starts], lambda _r: x)
+    for m in m_sizes:
+        knn = np.sort(D, axis=1)[:, :m]
+        for c in np.argsort(knn.mean(axis=1))[:3]:              # the three densest centres
+            rows = np.argsort(D[c])[:m]
+            d_F = float(np.median(D[c, rows]))
+            d_bg, q, rep = K.quiet_distances(bg, rows.tolist(), V[c], 128,
+                                             lambda A, B: sbd_matrix(A, B, z_normalise=False) / K.SBD_SCALE,
+                                             n_set=n, salt=int(c))
+            _thr, ratio, q_noise, _ = K.quiet_verdict(d_F, d_bg, q, K.QUIET_MARGIN)
+            S = K._z_rows(K.trend_kept_surrogates(V[np.repeat(rows, 3)], K.null_rng(0, int(c))))
+            p05 = float(np.percentile(sbd_matrix(S, V[c][None], z_normalise=False)[:, 0] / K.SBD_SCALE, 5))
+            t_pass = d_F < 0.9 * p05
+            assert q_noise and not t_pass, (kind, m, int(c), round(ratio, 3), round(d_F / p05, 3))
+
+
+def test_quiet_windows_report_their_share_overlapping_machine_detections():
+    """F3: detections are not avoided (they cover most of a recording), but the share of
+    quiet windows that overlap one is reported."""
+    rng = np.random.default_rng(5)
+    x = rng.normal(size=60000)
+    members = [("x", s, s + 300) for s in range(0, 60000, 6000)]
+    dets = [(s, s + 1000) for s in range(3000, 60000, 6000)]          # one detection in every gap
+    with_marks = MemberBackground(members, lambda _r: x, mark_of=lambda _r: dets)
+    rep = with_marks.draw(range(len(members)), draws=20).report
+    assert 0.0 < rep["detection_overlap_share"] < 1.0
+    assert "detections" in rep["rule"] and "not avoided" in rep["rule"]
+    assert MemberBackground(members, lambda _r: x).draw([0], 2).report["detection_overlap_share"] is None
+
+
+def test_coherence_null_scores_as_many_rows_as_the_family():
+    """F1: pool = n_set up to 4,000, so the null's family has the real family's row count;
+    above it the family is scored on random subsets of the null's row count, said in the rule."""
+    from Working.library.coherence import QUIET_MAX_POOL
+    assert QUIET_MAX_POOL == 4000
+    x, starts = quiet_recording("random_walk", 300, seed=0, shapes=100)
+    rows = list(range(0, 200, 2))
+    W = [x[s:s + L] for s in starts]
+    bg = _background(x, starts).subset(rows)
+    c = svd_entropy([W[r] for r in rows], medoid=0, background=bg, n_set=3600)
+    rep = c["background"]
+    assert rep["pool"] == 3600 and rep["nearest"] == len(rows) and rep["family_rows_scored"] == len(rows)
+    big = svd_entropy([W[r] for r in rows], medoid=0, background=bg, n_set=36000)
+    rb = big["background"]
+    assert rb["pool"] == 4000 and rb["nearest"] == 11 and rb["family_rows_scored"] == 11
+    assert "random subsets" in big["rule"] or "random subsets" in big["why"]
+    small = svd_entropy([W[r] for r in rows[:30]], medoid=0, background=_background(x, starts).subset(rows[:30]),
+                        n_set=36000)
+    assert small["background"]["nearest"] == 10, "take is floored at 10"
+
+
+def test_coherence_quiet_null_draws_three_times():
+    """F6: three draws of the quiet pool (the cost is the pool, linear in n_set)."""
+    x, starts = quiet_recording("random_walk", 300, seed=0, shapes=100)
+    rows = list(range(0, 200, 2))
+    W = [x[s:s + L] for s in starts]
+    c = svd_entropy([W[r] for r in rows], medoid=0, background=_background(x, starts).subset(rows), n_set=300)
+    assert c["nulls"]["quiet_stretch"]["draws"] == 3 and c["nulls"]["trend_kept"]["draws"] == 5
+
+
+def test_why_names_borrowed_windows():
+    """F8: a usable null that borrowed windows says how many."""
+    x, starts = quiet_recording("random_walk", 300, seed=0, shapes=100)
+    W = [x[s:s + L].copy() for s in starts[:200]]
+    members = [("x" if i % 5 else "gone", int(s), int(s) + L) for i, s in enumerate(starts[:200])]
+    bg = MemberBackground(members, {"x": x}.get, fs_of=lambda _r: 1.0)
+    res = run_grouping([{"member_ref": i, "values": w} for i, w in enumerate(W)], unit="single_motifs",
+                       basis="shape-distance", method="hdbscan", background=bg)
+    assert res.families
+    for f in res.families:
+        n_b = f.flags["background"]["n_borrowed"]
+        assert n_b > 0 and f"{n_b} borrowed" in f.flags["why"], f.flags["why"]
