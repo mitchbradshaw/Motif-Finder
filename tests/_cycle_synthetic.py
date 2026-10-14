@@ -141,3 +141,29 @@ def regular_events(n_cycles, bg, seed=1, noise=0.15, mean_gap_s=1800.0, cv=0.3, 
         nxt = np.r_[starts[1:], n]
         ends = starts + np.maximum(2, (span_frac * (nxt - starts)).astype(np.int64))
     return x, starts, ends
+
+
+def mixed_colour_chain(n_cycles, seed=1, noise=0.15, margin_s=10 * 3600.0, shapes=None, cv=0.3,
+                       margin_bg="ar095", chain_bg="rw"):
+    """The W3-B re-critique's S-A case: quiet margins of one colour (AR(1) phi 0.95) either side of a chain
+    region whose background is another (a random walk). `shapes` None = no events' shape at all (chain-timed
+    noise); else one shape callable per cycle, added on the chain-region background."""
+    rng = np.random.default_rng(seed + 300)
+    sig = np.sqrt(np.log(1 + cv ** 2))
+    gaps = 1800.0 * np.exp(rng.normal(-0.5 * sig ** 2, sig, n_cycles))
+    lead = int(margin_s)
+    starts = np.round(lead + np.r_[0.0, np.cumsum(gaps)]).astype(np.int64)
+    n = int(starts[-1] + margin_s)
+    brng = np.random.default_rng(seed)
+    if margin_bg == "ar095":
+        m = lfilter([1.0], [1.0, -0.95], brng.standard_normal(n))
+        x = m / m.std() * noise
+    else:
+        x = background(n, margin_bg, brng, noise)
+    a, b = int(starts[0]), int(starts[-1])
+    x[a:b] = background(b - a, chain_bg, brng, noise)
+    if shapes is not None:
+        for k, f in enumerate(shapes):
+            L = int(starts[k + 1] - starts[k])
+            x[starts[k]:starts[k + 1]] += f(np.arange(L) / L)
+    return x, starts, np.minimum(starts + 30, n)

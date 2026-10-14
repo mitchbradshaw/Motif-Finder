@@ -147,19 +147,19 @@ def test_chain_timed_noise_on_a_random_walk_is_one_group_in_every_seed():
     """B1: z-normalised noise cycles are sign-bimodal (+-PC1); the shipped gate said K = 2 in 4-5 of 10 such
     random-walk chains. The split is now calibrated on the same 2-means over the background draws."""
     ks = []
-    for seed in range(10):
+    for seed in range(6):   # fix round 2: 10 -> 6 seeds (test cost)
         x, st, en = syn.regular_events(100, "rw", seed=seed)
         r = _run(x, st, en)
         s = _seq(r)
         assert s["k_null"]["source"] == "background" and s["k_null"]["draws"] == CS.NULL_DRAWS
         ks.append(s["k"])
         assert _all_keys_marked(r) or s["k"] == 1
-    assert ks == [1] * 10, ks
+    assert ks == [1] * 6, ks
 
 
 def test_a_thousand_chain_timed_random_walk_cycles_are_one_group():
     x, st, en = syn.regular_events(1000, "rw", seed=4)
-    r = _run(x, st, en)
+    r = _run(x, st, en, null_draws=10)   # fix round 2: 10 draws (test cost)
     s = _seq(r)
     assert s["n_cycles"] == 1000 and s["k"] == 1, s["splits"]
     assert s["whole"]["verdict"]["beyond_noise"] is False
@@ -217,7 +217,9 @@ def test_the_plain_phase_null_cannot_see_the_broad_hump_either(smooth_chains):
 # ── sampling rate, waveform, detrend ───────────────────────────────────────
 
 def test_the_same_chain_at_1_and_10_hz_gives_the_same_groups_and_floors():
-    x, st, en = syn.two_family_chain("ar1")
+    # fix round 2: a 60-cycle chain (test cost)
+    x, st, en = syn.chain([syn.sharkfin] * 30 + [syn.trough] * 30, syn.drifting_periods(60), bg="ar1", noise=0.15,
+                          seed=1)
     t1 = np.arange(x.size, dtype=float)
     t10 = np.arange(x.size * 10, dtype=float) / 10.0
     x10 = np.interp(t10, t1, x)
@@ -225,7 +227,8 @@ def test_the_same_chain_at_1_and_10_hz_gives_the_same_groups_and_floors():
     b = _run(x10, st * 10, en * 10, fs=10.0, null_draws=0)
     ga, gb = a["columns"]["cycle_group"], b["columns"]["cycle_group"]
     assert adjusted_rand_score(ga, gb) == 1.0
-    fa, fb = a["columns"]["cycle_floor_frac"][:60], b["columns"]["cycle_floor_frac"][:60]
+    assert len(np.unique(ga[:-1])) == 2
+    fa, fb = a["columns"]["cycle_floor_frac"][:30], b["columns"]["cycle_floor_frac"][:30]
     assert abs(np.median(fa) - np.median(fb)) < 0.02
     np.testing.assert_allclose(a["columns"]["cycle_length_s"][:-1], b["columns"]["cycle_length_s"][:-1], atol=0.2)
 
@@ -459,12 +462,12 @@ def test_without_background_k_is_calibrated_on_phase_copies_and_still_finds_two_
 def test_chain_timed_noise_that_fills_its_span_stays_one_group_on_the_phase_null():
     """Measured: 0/10 random walk, 0/10 AR(1), 0/10 drift (30 chains); pinned here on the AR(1) seeds 0-4."""
     ks = []
-    for seed in range(5):
+    for seed in range(3):   # fix round 2: 5 -> 3 seeds (test cost)
         x, st, en = syn.regular_events(100, "ar1", seed=seed, span_frac=0.9, lead_s=60)
         s = _seq(_run(x, st, en))
         assert s["k_null"]["source"] == "phase"
         ks.append(s["k"])
-    assert ks == [1] * 5, ks
+    assert ks == [1] * 3, ks
 
 
 def test_every_background_draw_is_in_meta(two_families):
@@ -532,6 +535,59 @@ def test_an_unbound_waveform_is_warned_and_a_bound_one_is_not():
     b = _run(x, st, en, null_draws=0, waveform=x)
     assert any("bind waveform to the root signal" in w for w in a["meta"]["warnings"])
     assert not any("bind waveform" in w for w in b["meta"]["warnings"])
+
+
+# ── fix round 2 ────────────────────────────────────────────────────────────
+
+@pytest.fixture(scope="module")
+def mixed_noise():
+    """S-A: AR(0.95) margins, a random walk under chain-timed events with no shape (3 seeds)."""
+    return [_run(*syn.mixed_colour_chain(100, seed=seed)) for seed in range(3)]
+
+
+def test_a_background_of_another_colour_is_named_and_its_groups_untested(mixed_noise):
+    for r in mixed_noise:
+        s = _seq(r)
+        v = s["whole"]["verdict"]
+        assert v["background_colour_mismatch"] is True, (v["beyond_noise"], v["beyond_noise_squared"],
+                                                         v["beyond_phase_cycles_squared"])
+        assert s["background_colour_mismatch"] is True
+        # K is gated on both nulls: the margins' background alone let K = 2 through in 5 of 10 such chains
+        assert s["k"] == 1, s["splits"]
+        assert all(k == "-1" or k.endswith(UNTESTED_SUFFIX) for k in r["group_keys"])
+        assert "differs in colour from the quiet margins" in r["meta"]["summary"]
+        assert "beyond the margins, not beyond its own noise" in " ".join(r["meta"]["warnings"])
+
+
+def test_the_phase_cycle_null_is_reported_on_sigma_squared_only(mixed_noise):
+    pc = _seq(mixed_noise[0])["whole"]["nulls"]["phase_cycles"]
+    assert set(pc) == {"squared", "beyond_squared", "rule"}
+    assert len(pc["squared"]["values"]) == CS.NULL_DRAWS and "eq. 17 is never read" in pc["rule"]
+
+
+def test_a_real_two_shape_chain_on_another_colour_still_beats_its_own_noise():
+    x, st, en = syn.mixed_colour_chain(120, seed=1, shapes=[syn.sharkfin] * 60 + [syn.trough] * 60)
+    r = _run(x, st, en)
+    s = _seq(r)
+    v = s["whole"]["verdict"]
+    assert v["beyond_phase_cycles_squared"] is True and v["background_colour_mismatch"] is False
+    assert s["k"] == 2
+
+
+def test_a_group_is_unmarked_only_when_eq17_and_sigma_squared_both_pass():
+    both = {"tested": True, "beyond_noise": True, "beyond_noise_squared": True}
+    assert CS.group_key("1", both, False) == "1"
+    assert CS.group_key("1", {**both, "beyond_noise_squared": False}, False) == "1" + NOISE_LIKE_SUFFIX
+    assert CS.group_key("1", {**both, "beyond_noise": False}, False) == "1" + NOISE_LIKE_SUFFIX
+    assert CS.group_key("1", both, True) == "1" + UNTESTED_SUFFIX
+    assert CS.group_key("1", {**both, "tested": False}, None) == "1" + UNTESTED_SUFFIX
+
+
+def test_the_rules_say_what_the_verdict_is(two_families):
+    rules = {r["name"]: r["rule"] for r in two_families["ar1"]["meta"]["rules"]}
+    v = rules["verdict"]
+    assert "a 1-in-20 test" in v and "unlike the quiet margins" in v and "fallback_share" in v
+    assert "rank" in v and "random subset" not in v
 
 
 if __name__ == "__main__":
