@@ -221,7 +221,9 @@ def test_the_output_round_trips_through_the_step_cache(spec, tmp_path):
 
 # ---- fix round 1 (critic findings 3 and 4): the bookkeeping list is the WindowSet contract's
 
-BOOK = {"split", "event_index", "anchor_offset", "overlaps_next", "train_id", "word_id", "span_score"}
+BOOK = {"split", "event_index", "anchor_offset", "overlaps_next", "train_id", "word_id", "span_score",
+        # w2-e: interrogation.event_families' answer columns and the group a feature block replaced
+        "family", "family_omit_reason", "family_distance", "family_noise_like", "group_upstream"}
 
 
 def test_the_bookkeeping_columns_live_beside_windowset():

@@ -394,7 +394,8 @@ def test_every_shipped_adapter_registers_without_modification():
     # + w2-a's catalogue.event_windows (SpanSet -> WindowSet: a window around every detected event)
     # + w2-c's catalogue.minirocket (a MiniRocket shape fingerprint per window, Dempster, Schmidt & Webb 2021)
     # + catalogue.snippets (w2-d: the typical pieces of a recording, Imani et al. 2018)
-    assert len(specs) == 52, f"expected the fifty-two shipped adapters, got {sorted(specs)}"
+    # + w2-e's catalogue.shape_families and interrogation.event_families (the Library's clustering in a chain)
+    assert len(specs) == 54, f"expected the fifty-four shipped adapters, got {sorted(specs)}"
     # Ticket 08 remaps detection_matrix_profile (encoding -> scores) and
     # preprocessing_window_matrix (encoding -> windowset) to their correct
     # types, and adds detection_threshold, a typed (input_kind='scores')
