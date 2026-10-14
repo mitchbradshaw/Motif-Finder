@@ -33,7 +33,9 @@ The contract
   the windows themselves (copies, one 1-D array each), and `report`:
   `n_wanted`, `n_cut`, `n_fallback`, `fell_back`, `n_too_long`,
   `background_samples` (free samples: neither avoided nor NaN),
-  `background_s` (when `fs` is given), `trace_samples`, `rule`.
+  `background_s` (when `fs` is given), `trace_samples`, `rule`, and
+  `longest_free_samples` / `longest_free_s` (the longest free stretch: fragmented
+  background versus too little; added in w3-b's fix round, the earlier keys unchanged).
 
 **The fallback.** A window whose length fits in no free stretch is cut instead
 at a uniformly random place in the whole trace (it may overlap events and
@@ -113,5 +115,10 @@ def sample_background(trace, avoid, lengths, count, seed, *, fs=None):
     report = {"n_wanted": count, "n_cut": len(starts), "n_fallback": n_fallback, "fell_back": bool(n_fallback),
               "n_too_long": n_too_long, "background_samples": free_samples,
               "background_s": (free_samples / float(fs)) if fs else None, "trace_samples": int(n), "rule": RULE}
+    # w3-b fix 1 (compatible extension): the longest free stretch, so a caller can tell "too little
+    # background" from "plenty, but in pieces shorter than the windows"
+    longest = int(run_len.max()) if run_len.size else 0
+    report["longest_free_samples"] = longest
+    report["longest_free_s"] = (longest / float(fs)) if fs else None
     return BackgroundSample(starts=np.asarray(starts, dtype=np.int64), lengths=np.asarray(got, dtype=np.int64),
                             windows=windows, report=report)

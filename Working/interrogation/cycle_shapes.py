@@ -35,9 +35,16 @@ The algorithm as implemented (each adaptation named, with its reason)
    sequence's: on a chain whose period drifts 20 -> 60 min, 3 x the sequence's
    median (40 min) is 120 min, which keeps a missed detection (two cycles read as
    one, ~2 x the local length) anywhere in the chain; 1.6 x the local median
-   leaves it out and keeps natural jitter up to 60 % (2.4 SD at a CV of 0.25).
-   The rule depends on event times only, not on the noise; it was swept across
-   chain lengths in the tests.
+   leaves most of them out. The price, measured by the W3-B critic (300 chains
+   per cell; 30, 100 and 300 cycles alike; drift makes no difference) — true
+   cycles lost at a jitter CV of 0.2 / 0.3 / 0.4 / 0.5: 1 / 5.5 / 11 / 17.5 %
+   (CV 0.5 with 30 cycles: 90th percentile 27 %; correlated log-intervals, AR
+   0.8: 0.5 % at CV 0.3, 4.9 % at 0.5). The factor's trade-off at CV 0.3 / 0.5:
+   1.6 catches 80 / 69 % of missed detections and loses 4.8 / 13.6 % of true
+   cycles; 1.8 -> 62 / 58 % and 2.2 / 9.3 %; 2.0 -> 44 / 46 % and 0.8 / 6.1 %.
+   The cycles lost are the LONGEST — a bias against long plateaus — so when
+   more than `GAP_WARN_SHARE` (10 %) of a sequence's cycles are gaps, a warning
+   and the summary say so. The rule depends on event times only.
 3. **The waveform.** Cycles are cut from the `waveform` (a side input; else from
    the chain's own signal), because a detector usually runs on a short-detrended
    trace that flattens a 30-45 min climb (measured: from a 600 s rolling-mean
@@ -86,38 +93,59 @@ The algorithm as implemented (each adaptation named, with its reason)
      other's features, and the shifted and unshifted members then form groups
      of their own (troughs split 44/16 and 47/13 at 10 % noise); the anchors are
      already the phase, so the clustering reads the cycles as cut;
-   * **K = 1 exists.** The paper always splits; here K > 1 is claimed only when
-     the best two-way split (2-means, `KMEANS_REPLICATES` (50) replicates, the
-     paper's k-means) passes two tests:
-     - **SigClust** (Liu, Hayes, Nobel & Marron 2008, *JASA* 103:1281-1293): the
-       split's cluster index (within / total sum of squares) against
-       `sigclust_draws` draws from a Gaussian whose eigenvalues are the stack's,
-       each floored at the background-noise variance sigma_N^2 the paper
-       estimates robustly (sigma_N = MAD of the centred entries / 0.6745; its
-       "hard thresholding"); the null has the stack's rank, min(n - 1, d), not d
-       (with fewer cycles than points a d-dimensional null carries variance the
-       real stack cannot have). p = (1 + #null <= observed) / (1 + draws).
-     - **one mode or two along the split** (this block's addition): the cycles
-       projected onto the line through the two 2-means centroids; the best
-       two-way split of those values against the same on uniform samples of the
-       same size — the uniform is the least favourable unimodal shape (a flat
-       top splits best), as in the calibration of Hartigan's dip test.
-     **Why the second test:** SigClust asks "not one Gaussian", and our cycles
-     are never one Gaussian. It rejected (p 0.01-0.03) on EVERY synthetic set:
-     two shapes, but also one sharkfin whose plateau drifts 0.3 -> 0.7 (the
-     prompt's "one family that varies") and Poisson events on coloured noise
-     (z-normalised noise cycles are not Gaussian). The mode test kept the drift
-     and the noise as one group (p 0.08-0.99) and passed every two-shape chain
-     (p 0.005).
+   * **K = 1 exists, and a split must beat the block's own null** (fix round 1,
+     W3-B critic B1). z-normalised noise cycles are sign-bimodal: a cycle that
+     is mostly one smooth component becomes roughly +-that component, so
+     2-means on pure noise splits on the sign of PC1, and no test against a
+     Gaussian or a uniform can see that its two modes are noise (the shipped
+     gate said K = 2 in 4-5 of 10 chain-timed random-walk chains). So the best
+     two-way split (2-means, `KMEANS_REPLICATES` (50) starts) is claimed only
+     when ALL of:
+     - its cluster index (within / total sum of squares) is below that of the
+       same 2-means on EVERY stack of the K null and more than
+       `VERDICT_SPREADS` robust SDs below their median (the verdict's rule).
+       The K null is the background draws (they are cut, warped and refined like
+       the real cycles, so they are sign-bimodal too); when the background fell
+       back (step 10) it is per-cycle phase-randomised copies of the real cycles
+       made before the chord (`phase_cycle_stacks`); `meta.k_null.source` and
+       the summary say which;
+     - it is two modes along its own direction: the cycles projected onto the
+       line through the two centroids split better than uniform samples of the
+       same size (the uniform is the least favourable one-mode shape, as in the
+       calibration of Hartigan's dip test). This is what keeps one family that
+       varies together: a steadily lengthening plateau beats the background's
+       split, but is one mode (p 0.84-0.99);
+     - each half holds at least `min_cycles` (so a sequence of fewer than
+       2 x `min_cycles` cycles is K = 1 by construction, said in `k_note`).
+     Measured with the gate (default settings, 15 % noise): chain-timed noise
+     (~100 cycles, CV 0.3) K = 2 in 0/10 random walk, 0/10 AR(1), 0/10 drift;
+     1,000 random-walk cycles K = 1; the same noise filling its span (phase
+     null) 0/10, 0/10, 0/10; two shapes 120/120 cycles K = 2 on all three
+     backgrounds (ARI 0.90-1.00), with or without the background (9/9 on the
+     phase null); one drifting plateau K = 1 in 9/9 and 9/9 without it. The
+     2-means runs on the top `SPLIT_COMPONENTS` (32) principal components, for
+     the real stack and every null stack alike (with full-space fits the AR(1)
+     span-filling noise read K = 2 in 1 of 10).
+   * **SigClust is reported, not used** (Liu, Hayes, Nobel & Marron 2008): the
+     split's cluster index against a Gaussian with the stack's own sample
+     eigenvalues (rank min(n - 1, d)). The paper's background-noise floor
+     (sigma_N = MAD of the entries / 0.6745) is NOT applied: it is the estimate
+     for sparse high-dimensional data, and on z-normalised smooth cycles, where
+     every coordinate carries the curve, it inflated the null's variance
+     1.4-2.1x and rejected a true one-cluster Gaussian 12/12 (critic B2). The
+     first round's reading "our cycles are never one Gaussian" was that floor's
+     artefact, not a property of the cycles; unfloored, SigClust's p on noise
+     stacks was mostly 0.06-0.83, though it still rejects some (part of the
+     non-Gaussianity is real), which is why it does not decide.
    * **K by bisection, not Calinski-Harabasz.** Past the gate, each group is
-     split again only while its own split passes both tests at alpha x
-     (n_node - 1) / (n - 1) (the sequential family-wise rule of Kimes, Liu,
-     Neill Hayes & Marron 2017, *Biometrics* 73:811, for SigClust on a
-     hierarchy), and only when both halves hold at least `min_cycles`; at most
-     `k_max` groups, settled by one Lloyd pass from the leaves' centroids. The
-     paper's CH choice is in meta (`k_ch`, `ch_curve`) but does not decide: on a
-     two-shape chain over a random walk it chose 3 (adjusted Rand 0.71) where
-     the bisection kept 2. Groups are numbered 1..K by size.
+     split again only while its own split passes the same three tests at alpha x
+     (n_node - 1) / (n - 1) (Kimes, Liu, Neill Hayes & Marron 2017, *Biometrics*
+     73:811, the sequential family-wise rule for a hierarchy), the K null cut to
+     the node's size; at most `k_max` groups, settled by one Lloyd pass from the
+     leaves' centroids. The paper's CH choice is in meta (`k_ch`, `ch_curve`) but
+     does not decide: on a two-shape chain over a random walk it chose 3
+     (adjusted Rand 0.71) where the bisection kept 2. Groups are numbered 1..K
+     by size.
    The k-means is a plain numpy Lloyd with k-means++ seeds (sklearn's KMeans
    gives the same answer but costs ~7 ms a run in thread start-up on stacks
    this small, and SigClust needs thousands of runs).
@@ -169,9 +197,22 @@ The algorithm as implemented (each adaptation named, with its reason)
     scale (wave 2's lesson). sigma^2's reading against the same null travels
     beside it (`beyond_noise_squared`). A group that fails is keyed
     `~noise_like`, one never tested `~untested` (the families' suffixes).
-    Selection caveat: a group was chosen by the clustering, a random subset of
-    background was not, so a group's own verdict favours the group; the whole
-    stack's verdict has no selection.
+    **A chain that fills its span** (fix round 1, critic B3): when more than
+    `FALLBACK_LIMIT` (half) of the pseudo-cycles fitted no free stretch, the
+    pseudo-cycles are random-phase cuts of the chain itself — shifted copies of
+    the same shape — and a perfect chain read "no better than noise" on eq. 17.
+    Then every verdict is `tested: False` with the reason, the groups are keyed
+    `~untested` (not `~noise_like`), and the warning says "no free stretch as
+    long as a cycle (longest free stretch N s, cycles M s)" — the sampler's
+    `longest_free_s` tells fragmented background from too little.
+    **A group's null matches its selection** (critic S2): on every background
+    draw the same K-means (the real K) is run, each null group lined up on its
+    own, and the real groups are judged against the null groups of their own
+    rank (the lowest-entropy real group against the lowest-entropy null group;
+    ranked separately for eq. 17 and sigma^2). The random-subset null of the
+    first round passed sigma^2 in 9 of 36 groups forced out of noise. Every
+    draw's value is in meta (`values`), with `draws_dropped` (draws with fewer
+    than two preparable windows). The whole stack's verdict has no selection.
 """
 
 import time
@@ -193,9 +234,14 @@ MAX_ITER = 8
 K_MAX = 6
 MIN_CYCLES = 10
 KMEANS_REPLICATES = 50
-SIGCLUST_DRAWS = 100
+SIGCLUST_DRAWS = 20
+SPLIT_COMPONENTS = 32
+NULL_KMEANS_REPLICATES = 10
+K_NULL_DRAWS = 20
+FALLBACK_LIMIT = 0.5
+GAP_WARN_SHARE = 0.1
 SIGCLUST_REPLICATES = 3
-CH_REPLICATES = 10
+CH_REPLICATES = 3
 SIGCLUST_ALPHA = 0.05
 BIMODAL_DRAWS = 200
 NULL_DRAWS = 20
@@ -503,10 +549,16 @@ _kmeans = kmeans
 
 
 def sigclust(A, draws=SIGCLUST_DRAWS, seed=0, replicates=KMEANS_REPLICATES):
-    """SigClust (Liu, Hayes, Nobel & Marron 2008) on the rows of A: is the best
-    two-way split better than a single Gaussian with A's own covariance?
-    Returns a dict: `p`, `ci` (the real 2-means cluster index), `null_ci_median`,
-    `null_ci_p05`, `draws`, `sigma_noise`, `rank`, `labels2` (the real 2-means)."""
+    """SigClust (Liu, Hayes, Nobel & Marron 2008) on the rows of A, REPORTED
+    ONLY (it decides nothing here): the best two-way split's cluster index
+    against draws from a Gaussian whose eigenvalues are the stack's own sample
+    eigenvalues (rank min(n - 1, d)). No background-noise floor: the paper's
+    sigma_N (MAD of all entries / 0.6745) assumes sparse high-dimensional data
+    where most coordinates are noise; on z-normalised smooth cycles every
+    coordinate carries the curve, and flooring every eigenvalue at it inflated
+    the null's variance 1.4-2.1x and rejected a true one-cluster Gaussian 12/12
+    (W3-B critic, B2). Returns `p`, `ci`, `null_ci_median`, `null_ci_p05`,
+    `draws`, `rank`, `labels2` (the real 2-means, `replicates` starts)."""
     A = np.asarray(A, dtype=float)
     n = len(A)
     Xc = A - A.mean(axis=0)
@@ -517,12 +569,10 @@ def sigclust(A, draws=SIGCLUST_DRAWS, seed=0, replicates=KMEANS_REPLICATES):
     labels2, inertia = _kmeans(scores, 2, replicates, seed)
     ci = inertia / total if total > 0 else 1.0
     lam = S[:r] ** 2 / max(1, n - 1)
-    sigma_n = float(np.median(np.abs(Xc - np.median(Xc))) / 0.6745)
-    lam_t = np.maximum(lam, sigma_n ** 2)
     rng = null_rng(seed, 53)
     null = []
     for b in range(int(draws)):
-        G = rng.standard_normal((n, r)) * np.sqrt(lam_t)[None, :]
+        G = rng.standard_normal((n, r)) * np.sqrt(lam)[None, :]
         Gc = G - G.mean(axis=0)
         _, inn = _kmeans(Gc, 2, SIGCLUST_REPLICATES, seed + 1 + b)
         null.append(inn / float((Gc ** 2).sum()))
@@ -530,7 +580,7 @@ def sigclust(A, draws=SIGCLUST_DRAWS, seed=0, replicates=KMEANS_REPLICATES):
     p = float((1 + np.sum(null <= ci)) / (1 + len(null))) if len(null) else None
     return {"p": p, "ci": float(ci), "null_ci_median": float(np.median(null)) if len(null) else None,
             "null_ci_p05": float(np.percentile(null, 5)) if len(null) else None, "draws": int(len(null)),
-            "sigma_noise": sigma_n, "rank": r, "alpha": SIGCLUST_ALPHA, "labels2": labels2}
+            "rank": r, "alpha": SIGCLUST_ALPHA, "decides": False, "labels2": labels2}
 
 
 def ci_1d(y):
@@ -577,10 +627,6 @@ def _split_modes(A, lab, seed):
     return bimodality_test(A @ d, BIMODAL_DRAWS, seed)
 
 
-def _passes(p_sig, p_sil, alpha):
-    return bool(p_sig is not None and p_sil is not None and p_sig < alpha and p_sil < alpha)
-
-
 def _ch(A, lab):
     """Calinski-Harabasz (between / within dispersion, each over its degrees of
     freedom) — sklearn's `calinski_harabasz_score`, without the import."""
@@ -598,27 +644,86 @@ def _ch(A, lab):
     return float(b * (n - k) / (w * (k - 1))) if w > 0 else float("inf")
 
 
-def choose_groups(A, k_max=K_MAX, sigclust_draws=SIGCLUST_DRAWS, seed=0, min_size=MIN_CYCLES):
+def two_means_ci(X, n_init, seed, n_components=SPLIT_COMPONENTS):
+    """`(labels, ci)`: 2-means on the rows of X and its cluster index (within
+    over total sum of squares, in the full space). The 2-means runs on the
+    rows' top `n_components` principal components (a split of z-normalised
+    cycles lies along the first few; it costs 1/8 of the full-space fit on a
+    1,000-cycle stack), the same for the real stack and every null stack."""
+    X = np.asarray(X, dtype=float)
+    Xc = X - X.mean(axis=0)
+    tot = float((Xc ** 2).sum())
+    if tot <= 0 or len(X) < 2:
+        return np.zeros(len(X), dtype=int), 1.0
+    q = int(min(n_components, X.shape[1], len(X) - 1))
+    w, V = np.linalg.eigh(Xc.T @ Xc)
+    P = Xc @ V[:, ::-1][:, :q]
+    lab, _ = kmeans(P, 2, n_init, seed)
+    within = 0.0
+    for c in np.unique(lab):
+        R = Xc[lab == c]
+        within += float(((R - R.mean(axis=0)) ** 2).sum())
+    return lab, within / tot
+
+
+def _null_cis(null_stacks, size, seed):
+    """2-means cluster indices of the K null's stacks, each cut to `size` rows
+    (a seeded subset) so a node of a bisection meets a null of its own size."""
+    out = []
+    for b, N in enumerate(null_stacks):
+        N = np.asarray(N, dtype=float)
+        if len(N) > size:
+            N = N[np.sort(null_rng(seed, 300 + b).choice(len(N), size, replace=False))]
+        if len(N) < 4:
+            continue
+        out.append(two_means_ci(N, NULL_KMEANS_REPLICATES, seed + 7 * b)[1])
+    return out
+
+
+def _gate(X, lab, ci, null_stacks, alpha, min_size, seed):
+    """One split's test (module docstring, step 7): below every null draw's
+    cluster index, two modes along its own direction, both halves >= min_size."""
+    nulls = _null_cis(null_stacks, len(X), seed)
+    mode = _split_modes(X, lab, seed)
+    sizes = sorted(int(np.sum(lab == c)) for c in (0, 1))
+    # the verdict's own rule (`_beats`): below every draw AND more than VERDICT_SPREADS robust SDs below
+    # their median - "below every one of 20" alone lets about one noise stack in 20 through
+    below = bool(nulls) and bool(_beats(ci, _null_summary(nulls)))
+    ok = bool(below and mode["p"] is not None and mode["p"] < alpha and sizes[0] >= int(min_size))
+    return ok, {"size": int(len(X)), "children": sizes, "ci": float(ci),
+                "null_ci_min": float(min(nulls)) if nulls else None,
+                "null_ci_median": float(np.median(nulls)) if nulls else None, "null_draws": len(nulls),
+                "null_ci_values": [float(v) for v in nulls], "below_every_null": below, "bimodal_p": mode["p"],
+                "alpha": float(alpha), "split": ok}
+
+
+def choose_groups(A, null_stacks=(), k_max=K_MAX, sigclust_draws=SIGCLUST_DRAWS, seed=0, min_size=MIN_CYCLES,
+                  null_source=None):
     """`(labels 1..K by size, K, sigclust dict, extra)` (module docstring, step 7).
 
-    The gate: SigClust on the whole stack. Past it, K is the number of leaves of
-    a top-down 2-means bisection in which every split must pass SigClust itself
-    at alpha x (n_node - 1) / (n - 1) (the sequential family-wise rule of Kimes,
-    Liu, Neill Hayes & Marron 2017, *Biometrics* 73:811, for SigClust on a
-    hierarchy), a node under `2 x min_size` cycles is not split, and at most
-    `k_max` leaves; the leaves' centroids then seed one Lloyd pass. The paper's
-    Calinski-Harabasz choice is computed beside it (`k_ch`, `ch_curve`) but
-    does not decide: on a two-shape chain over a random walk it chose 3
-    (adjusted Rand 0.71) where the bisection kept 2."""
+    The gate: the real stack's 2-means split must have a cluster index below
+    every one of the K null's stacks' (`null_stacks`: the background draws, or
+    phase-randomised copies of the cycles when the background fell back) — the
+    null reproduces what z-normalising noise cycles does (they are sign-
+    bimodal along their first component) — AND be two modes along its own
+    direction (the uniform-calibrated mode test, which keeps one family that
+    varies together), AND leave at least `min_size` cycles on each side. Past
+    it, each group is split again under the same three tests at alpha x
+    (n_node - 1) / (n - 1) (Kimes et al. 2017's sequential rule), the null cut
+    to the node's size; at most `k_max` groups, settled by one Lloyd pass.
+    SigClust and the paper's Calinski-Harabasz choice are reported, not used.
+    No null stack -> K = 1 (`extra["k_reason"]` says why)."""
     A = np.asarray(A, dtype=float)
     n = len(A)
-    sc = sigclust(A, sigclust_draws, seed)
-    labels2 = sc.pop("labels2")
+    null_stacks = list(null_stacks or [])
+    sc = sigclust(A, sigclust_draws, seed, replicates=SIGCLUST_REPLICATES)
+    sc.pop("labels2")
+    labels2, ci2 = two_means_ci(A, KMEANS_REPLICATES, seed)
     ch, fits = {}, {}
     for kk in range(2, int(k_max) + 1):
         if kk >= n:
             break
-        lab = labels2 if kk == 2 else kmeans(A, kk, CH_REPLICATES, seed)[0]
+        lab = labels2 if kk == 2 else kmeans(A, kk, CH_REPLICATES, seed)[0]   # reported only
         if len(np.unique(lab)) < 2:
             continue
         fits[kk] = lab
@@ -626,12 +731,15 @@ def choose_groups(A, k_max=K_MAX, sigclust_draws=SIGCLUST_DRAWS, seed=0, min_siz
     k_ch = max(ch, key=ch.get) if ch else None
     labels = np.zeros(n, dtype=int)
     splits = []
-    sv = _split_modes(A, labels2, seed)
-    sc["bimodality"] = sv
-    sizes = sorted(int(np.sum(labels2 == c)) for c in (0, 1))
-    splits.append({"size": n, "children": sizes, "p": sc["p"], "bimodal_p": sv["p"], "alpha": SIGCLUST_ALPHA,
-                   "split": _passes(sc["p"], sv["p"], SIGCLUST_ALPHA) and sizes[0] >= int(min_size)})
-    if splits[0]["split"]:
+    reason = None
+    if not null_stacks:
+        reason = "no null to calibrate a split against (no background draw and no phase copy): K = 1, not tested"
+        ok = False
+    else:
+        ok, rec = _gate(A, labels2, ci2, null_stacks, SIGCLUST_ALPHA, min_size, seed)
+        splits.append(rec)
+    sc["bimodality"] = {"p": splits[0]["bimodal_p"]} if splits else None
+    if ok:
         leaves = [np.flatnonzero(labels2 == 0), np.flatnonzero(labels2 == 1)]
         queue = list(leaves)
         while queue and len(leaves) < int(k_max):
@@ -639,14 +747,11 @@ def choose_groups(A, k_max=K_MAX, sigclust_draws=SIGCLUST_DRAWS, seed=0, min_siz
             if len(node) < 2 * int(min_size):
                 continue
             alpha = SIGCLUST_ALPHA * (len(node) - 1) / float(n - 1)
-            sub = sigclust(A[node], sigclust_draws, seed + len(splits))
-            svs = _split_modes(A[node], sub["labels2"], seed + len(splits))
-            kid_sizes = sorted(int(np.sum(sub["labels2"] == c)) for c in (0, 1))
-            ok = _passes(sub["p"], svs["p"], alpha) and kid_sizes[0] >= int(min_size)
-            splits.append({"size": int(len(node)), "children": kid_sizes, "p": sub["p"], "bimodal_p": svs["p"],
-                           "alpha": alpha, "split": bool(ok)})
-            if ok:
-                kids = [node[sub["labels2"] == 0], node[sub["labels2"] == 1]]
+            lab, ci = two_means_ci(A[node], NULL_KMEANS_REPLICATES, seed + len(splits))
+            ok_n, rec = _gate(A[node], lab, ci, null_stacks, alpha, min_size, seed + len(splits))
+            splits.append(rec)
+            if ok_n:
+                kids = [node[lab == 0], node[lab == 1]]
                 leaves = [lf for lf in leaves if lf is not node] + kids
                 queue += kids
         for c, lf in enumerate(leaves):
@@ -661,7 +766,10 @@ def choose_groups(A, k_max=K_MAX, sigclust_draws=SIGCLUST_DRAWS, seed=0, min_siz
     uniq = list(dict.fromkeys(labels.tolist()))
     order = sorted(uniq, key=lambda u: (-int(np.sum(labels == u)), uniq.index(u)))
     remap = {u: i + 1 for i, u in enumerate(order)}
-    extra = {"ch_curve": {str(k): v for k, v in ch.items()}, "k_ch": k_ch, "splits": splits}
+    extra = {"ch_curve": {str(k): v for k, v in ch.items()}, "k_ch": k_ch, "splits": splits,
+             "k_null": {"source": null_source if null_stacks else None, "draws": len(null_stacks),
+                        "values": (splits[0]["null_ci_values"] if splits else []),
+                        "ci": float(ci2), "reason": reason}}
     return np.array([remap[v] for v in labels], dtype=int), len(order), sc, extra
 
 
@@ -736,13 +844,15 @@ def _rules(floor_band, max_shift_frac, max_cycle_s, min_cycle_s):
         {"name": "cycle_amplitude", "rule": "peak to peak of the chord-detrended cycle, in the waveform's stored unit "
                                             "(the size the warp removes)"},
         {"name": "cycle_group", "rule": "1..K by size within its sequence, from k-means on the warped cycles. K > 1 only "
-                                        "when the best two-way split is BOTH not one Gaussian with the stack's own "
-                                        "covariance (SigClust) AND two modes along its own direction (against uniform "
-                                        "samples, the flattest one-mode shape), each half holding at least min_cycles; "
-                                        "groups are split again under the same two tests at a stricter alpha (Kimes et "
-                                        "al. 2017), at most k_max. A shape that drifts steadily stays one group. -1 = no "
-                                        "group (left out, opens no cycle, or the sequence had too few cycles); "
-                                        "bookkeeping"},
+                                        "when the best two-way split splits better than the same 2-means on every "
+                                        "draw of the K null (the background draws; per-cycle phase copies when the "
+                                        "background fell back - meta k_null.source says which) by more than 3 robust "
+                                        "SDs, AND is two modes along its own direction (against uniform samples, the "
+                                        "flattest one-mode shape), AND leaves at least min_cycles on each side; groups "
+                                        "are split again under the same tests at a stricter alpha (Kimes et al. 2017), "
+                                        "at most k_max. A shape that drifts steadily stays one group. SigClust is "
+                                        "reported, not used. -1 = no group (left out, opens no cycle, or the sequence "
+                                        "had too few cycles); bookkeeping"},
         {"name": "cycle_change", "rule": "the cycle's group differs from the previous used cycle's in its sequence; "
                                          "bookkeeping"},
         {"name": "cycle_shift_s", "rule": f"seconds the cycle's content moved later to line up: the anchor refinement "
@@ -775,7 +885,10 @@ def _rules(floor_band, max_shift_frac, max_cycle_s, min_cycle_s):
                                     "comparison only - at cycle entropies of 0.86-0.96 that margin is a fixed yardstick "
                                     "at the wrong scale); beyond_noise_squared = "
                                     "the same on sigma^2, shown beside it (the verdict stays on eq. 17 until it is "
-                                    "re-measured on sigma^2). A group failing it is keyed ~noise_like, one never tested "
+                                    "re-measured on sigma^2). A group's null went through the same K-means as the "
+                                    "group (groups matched by entropy rank). When more than half the pseudo-cycles "
+                                    "fitted no free stretch the verdicts are untested (the pseudo-cycles would be "
+                                    "random-phase cuts of the chain). A group failing it is keyed ~noise_like, one never tested "
                                     "~untested. The trend-kept null is shown with its caveat: " + SMOOTH_CAVEAT
                                     + "; the plain phase null destroys a smooth curve's shape. A group was chosen by "
                                       "the clustering and its background is a random subset, so a group's own verdict "
@@ -819,13 +932,14 @@ def _beats(h, s):
     return bool(h < s["min"] and (s["median"] - h) > VERDICT_SPREADS * floor)
 
 
-def _verdict(h17, hsq, bg17, bgsq):
+def _verdict(h17, hsq, bg17, bgsq, reason=None):
     s17, ssq = _null_summary(bg17), _null_summary(bgsq)
-    if s17["draws"] == 0 or h17 is None or not np.isfinite(h17):
+    if reason is not None or s17["draws"] == 0 or h17 is None or not np.isfinite(h17):
         return {"tested": False, "beyond_noise": None, "beyond_noise_squared": None, "below_every_draw": None,
                 "below_every_draw_squared": None, "beyond_noise_margin": None, "null_margin": NULL_MARGIN,
-                "spreads": VERDICT_SPREADS}
-    return {"tested": True, "beyond_noise": _beats(h17, s17), "beyond_noise_squared": _beats(hsq, ssq),
+                "spreads": VERDICT_SPREADS,
+                "reason": reason or ("no background draw" if s17["draws"] == 0 else "no entropy to test")}
+    return {"tested": True, "reason": None, "beyond_noise": _beats(h17, s17), "beyond_noise_squared": _beats(hsq, ssq),
             "below_every_draw": bool(h17 < s17["min"]),
             "below_every_draw_squared": bool(hsq < ssq["min"]) if ssq["draws"] else None,
             "z": (float((s17["median"] - h17) / s17["spread"]) if s17["spread"] else None),
@@ -862,6 +976,96 @@ def run_lengths(g):
         else:
             out.append([v, 1])
     return [{"group": int(a), "cycles": int(b)} for a, b in out]
+
+
+def _nan_last(v):
+    return v if v is not None and np.isfinite(v) else np.inf
+
+
+def group_nulls(null_stacks, K, max_shift, seed):
+    """For each background draw: the same K-means (K groups) on the draw, each
+    null group aligned on its own, and its `(eq17s, squareds)` sorted ascending
+    — so a real group is judged against the null group of its own rank (the
+    lowest-entropy real group against the lowest-entropy null group): a null
+    that went through the same selection (W3-B critic, S2)."""
+    out = []
+    for b, N in enumerate(null_stacks):
+        lab, _ = kmeans(N, K, NULL_KMEANS_REPLICATES, seed + 11 * b)
+        e17, esq = [], []
+        for c in range(K):
+            rows = N[lab == c]
+            if len(rows) < 2:
+                e17.append(float("nan"))
+                esq.append(float("nan"))
+                continue
+            e = entropy_pair(align_stack(rows, max_shift, seed)[0])
+            e17.append(e[0])
+            esq.append(e[1])
+        out.append((sorted(e17, key=_nan_last), sorted(esq, key=_nan_last)))
+    return out
+
+
+def _bg_block(v17, vsq, dropped, matched=None):
+    """The background null as meta: each statistic's summary plus every draw's
+    value (NaN -> None in json_safe), and the draws dropped for holding fewer
+    than two preparable windows."""
+    e, q = _null_summary(v17), _null_summary(vsq)
+    e["values"] = [float(v) for v in v17]
+    q["values"] = [float(v) for v in vsq]
+    out = {"eq17": e, "squared": q, "draws_dropped": int(dropped)}
+    if matched is not None:
+        out["matched"] = matched
+    return out
+
+
+def phase_cycle_stacks(trace, starts, ends, n_points, detrend, max_nan_frac, draws, seed):
+    """The K null when the background fell back: per-cycle phase-randomised
+    copies of the real cycles, made BEFORE the chord. Each cycle's raw cut is
+    phase-randomised (its spectrum kept: `kshape.phase_randomised_rows`), then
+    chord-detrended exactly as a real cycle (the copy spans the `END_FRAC` before
+    the anchor too, so its start level is read where the real one is), warped and
+    z-normalised like a real cycle. Randomising after the chord does NOT work:
+    a chord-detrended noise cycle is bridge-like, its first component a
+    half-sine that z-normalising maps to +-1 (sign-bimodal), while a Fourier
+    phase surrogate of it turns that component into a ring of phases — real
+    noise then splits better than every copy (K = 2 in 3 of 10 AR(1) chains
+    that filled their span, measured). Copied before the chord, the copy is
+    bridge-like again and splits like the real noise."""
+    rng = null_rng(seed, 211)
+    n_tr = len(trace)
+    segs = []
+    for a, b in zip(starts, ends):
+        a, b = int(a), int(b)
+        L = b - a
+        k = max(2, int(round(END_FRAC * L)))
+        lead = min(k, a)                       # the real chord's start level: the k samples BEFORE the anchor
+        pad0 = min(L // 2, a - lead)           # half a cycle either side, so the copy's ends are not neighbours
+        pad1 = min(L // 2, n_tr - b)           # on the FFT's circle (a circular copy has matching ends, a flat
+        seg = np.asarray(trace[a - lead - pad0:b + pad1], dtype=float)   # chord and too weak a first component)
+        bad = ~np.isfinite(seg)
+        if bad.any():
+            i = np.arange(seg.size)
+            seg = seg.copy()
+            seg[bad] = np.interp(i[bad], i[~bad], seg[~bad])
+        q = max(1, L // (4 * int(n_points)))   # long cycles (10 Hz) are block-averaged by q first: the copy only
+        if q > 1:                              # needs the resolution the warp keeps (and an FFT of ~6 x n_points)
+            m = seg.size // q
+            seg = seg[:m * q].reshape(m, q).mean(axis=1)
+            pad0, lead, L, k = pad0 // q, max(1, lead // q) if lead else 0, max(2, L // q), max(1, k // q)
+        segs.append((seg, pad0, lead, L, k))
+    out = []
+    for _ in range(int(draws)):
+        rows = []
+        for seg, pad0, lead, L, k in segs:
+            sur = phase_randomised_rows(seg[None, :], rng)[0]
+            cyc = sur[pad0 + lead:pad0 + lead + L]
+            if detrend == "chord":
+                a0 = _median(sur[pad0:pad0 + lead]) if lead else _median(cyc[:k])
+                b0 = _median(cyc[-k:])
+                cyc = cyc - (a0 + (b0 - a0) * np.linspace(0.0, 1.0, cyc.size))
+            rows.append(resample_to_length(cyc, int(n_points)))
+        out.append(_z_rows(np.asarray(rows)))
+    return out
 
 
 # ── the main entry ──────────────────────────────────────────────────────────
@@ -953,6 +1157,10 @@ def cycle_shapes(x, fs, starts, ends, features=None, *, waveform=None, anchor="o
             if reasons[j]:
                 omit[opener[j]] = reasons[j]
                 sm["omitted"][reasons[j]] = sm["omitted"].get(reasons[j], 0) + 1
+        n_long = sm["omitted"].get(OMIT_LONG, 0)
+        if m and n_long > GAP_WARN_SHARE * m:
+            warnings.append(f"sequence {sm['key']}: {n_long} of {m} cycles ({n_long / m:.0%}) left out as gaps - "
+                            "the longest cycles are the ones lost (long plateaus); set max_cycle_s if they are real")
         u = np.flatnonzero(used)
         sm["n_used"] = int(u.size)
         if u.size == 0:
@@ -989,9 +1197,6 @@ def cycle_shapes(x, fs, starts, ends, features=None, *, waveform=None, anchor="o
         Z = _z_rows(W)
         A, gshift, gmed = align_stack(Z, ms, seed)
         _check(should_cancel)
-        labels, K, sc, extra = choose_groups(Z, k_max=k_max, sigclust_draws=sigclust_draws, seed=seed,
-                                             min_size=min_cycles)
-        sm.update(k=int(K), sigclust=sc, **extra)
 
         # fixed-length cuts from each anchor: the plain baseline
         Lfix = int(np.median(cend[u] - cstart[u]))
@@ -999,9 +1204,8 @@ def cycle_shapes(x, fs, starts, ends, features=None, *, waveform=None, anchor="o
                                     cycle_detrend, max_nan_frac)
         fixed_ok = np.array([r is None for r in rf])
 
-        # the background null: whole-stack draws
-        _check(should_cancel)
-        bg17, bgsq, bg_W, bg_report = [], [], [], None
+        # the background null: whole-stack draws (drawn first: K is calibrated on them)
+        bg17, bgsq, bg_W, bg_report, dropped = [], [], [], None, 0
         lens_u = (re_ - rs).astype(np.int64)
         for b in range(int(null_draws)):
             _check(should_cancel)
@@ -1017,6 +1221,7 @@ def cycle_shapes(x, fs, starts, ends, features=None, *, waveform=None, anchor="o
                 if r is None:
                     keep_b.append(q)
             if len(keep_b) < 2:
+                dropped += 1
                 continue
             bs, be = smp.starts[keep_b], smp.starts[keep_b] + smp.lengths[keep_b]
             Wb, _, _, _, _, _ = refine(trace, bs, be, np.full(len(keep_b), -1), n_points=n_points,
@@ -1028,61 +1233,100 @@ def cycle_shapes(x, fs, starts, ends, features=None, *, waveform=None, anchor="o
             bg17.append(e17)
             bgsq.append(esq)
             bg_W.append(Zb)
+        untested_reason = None
         if bg_report is not None:
             bg_report["draws"] = int(len(bg17))
+            bg_report["draws_dropped"] = int(dropped)
             bg_report["fell_back_any"] = bool(bg_report["n_fallback_total"])
             bg_report["fallback_share"] = (bg_report["n_fallback_total"] / float(max(1, int(null_draws) * len(u))))
-            if bg_report["fell_back_any"]:
-                warnings.append(f"sequence {sm['key']}: the waveform held too little event-free signal for every "
-                                f"background pseudo-cycle ({bg_report['background_s']:.0f} s free); "
-                                f"{bg_report['fallback_share']:.0%} were cut at random places in the whole span")
+            cyc_s = float(np.median(lens_u)) / fs
+            if bg_report["fallback_share"] > FALLBACK_LIMIT:
+                lf = bg_report.get("longest_free_s") or 0.0
+                untested_reason = (f"no free stretch as long as a cycle (longest free stretch {lf:.0f} s, cycles "
+                                   f"{cyc_s:.0f} s); pseudo-cycles would be random-phase cuts of the chain")
+                warnings.append(f"sequence {sm['key']}: {untested_reason} - "
+                                f"{bg_report['fallback_share']:.0%} fell back; the verdicts are untested")
+            elif bg_report["fell_back_any"]:
+                warnings.append(f"sequence {sm['key']}: {bg_report['fallback_share']:.0%} of the background "
+                                f"pseudo-cycles fitted no free stretch (longest {bg_report.get('longest_free_s') or 0:.0f} s, "
+                                f"cycles {cyc_s:.0f} s) and were cut at random places in the whole span")
+        elif int(null_draws) == 0:
+            untested_reason = "null_draws = 0: no background null drawn"
         sm["background"] = bg_report
+        bg_ok = bool(bg17) and untested_reason is None
+
+        # the K null: the background draws, else per-cycle phase copies (each cycle's spectrum kept)
+        if bg_ok:
+            k_stacks, k_source = bg_W, "background"
+        else:
+            k_stacks = phase_cycle_stacks(trace, rs, re_, n_points, cycle_detrend, max_nan_frac,
+                                          int(null_draws) or K_NULL_DRAWS, seed)
+            k_source = "phase"
+        _check(should_cancel)
+        labels, K, sc, extra = choose_groups(Z, k_stacks, k_max=k_max, sigclust_draws=sigclust_draws, seed=seed,
+                                             min_size=min_cycles, null_source=k_source)
+        sm.update(k=int(K), sigclust=sc, **extra)
+        if u.size < 2 * int(min_cycles):
+            sm["k_note"] = (f"{u.size} usable cycles: a split needs >= 2 x min_cycles ({2 * int(min_cycles)}), so "
+                            "K = 1 by construction")
 
         whole = {"before_warp": _coherence(fixed[fixed_ok], n_points) if fixed_ok.sum() >= 2 else None,
                  "after_warp": _coherence(Z, n_points), "after_align": _coherence(A, n_points, TREND_NULL_DRAWS, seed)}
         ph, phs = _phase_null(A, n_points, PHASE_NULL_DRAWS, seed)
-        whole["nulls"] = {"background": {"eq17": _null_summary(bg17), "squared": _null_summary(bgsq)},
+        bgv = (bg17, bgsq) if bg_ok else ([], [])
+        whole["nulls"] = {"background": _bg_block(bg17, bgsq, dropped),
                           "trend_kept": {"eq17_median": whole["after_align"]["null_median"],
                                          "eq17_p05": whole["after_align"]["null_p05"],
                                          "squared_median": whole["after_align"]["null_squared_median"],
                                          "caveat": SMOOTH_CAVEAT},
                           "phase": {"eq17": _null_summary(ph), "squared": _null_summary(phs)}}
         whole["verdict"] = _verdict(whole["after_align"]["svd_entropy_norm"],
-                                    whole["after_align"]["svd_entropy_squared_norm"], bg17, bgsq)
+                                    whole["after_align"]["svd_entropy_squared_norm"], *bgv,
+                                    reason=untested_reason)
         sm["whole"] = whole
 
-        # per group
+        # per group: the group's null matches its selection (the same K-means on every background draw)
         prefix = f"t{sm['key']}:" if prefix_train else ""
         groups = []
         Ffinal = A.copy()
         fshift = gshift.copy()
+        aligned = {}
         for g in range(1, K + 1):
             gi = np.flatnonzero(labels == g)
             if K > 1:
-                Ag, sh_g, mg = align_stack(Z[gi], ms, seed)
+                aligned[g] = align_stack(Z[gi], ms, seed)
             else:
-                Ag, sh_g, mg = A, gshift, gmed
+                aligned[g] = (A, gshift, gmed)
+        matched = group_nulls(bg_W, K, ms, seed) if (bg_ok and K > 1) else None
+        real_g = {g: entropy_pair(aligned[g][0]) for g in range(1, K + 1)}
+        rank17 = {g: r for r, g in enumerate(sorted(real_g, key=lambda q: _nan_last(real_g[q][0])))}
+        ranksq = {g: r for r, g in enumerate(sorted(real_g, key=lambda q: _nan_last(real_g[q][1])))}
+        for g in range(1, K + 1):
+            gi = np.flatnonzero(labels == g)
+            Ag, sh_g, mg = aligned[g]
             Ffinal[gi] = Ag
             fshift[gi] = sh_g
             corr = (Ag @ Ag[mg]) / float(n_points)
             cols["cycle_corr"][ev_u[gi]] = corr
-            g17, gsq = [], []
-            for b, Zb in enumerate(bg_W):
-                if len(Zb) < len(gi) or len(gi) < 2:
-                    continue
-                pick = null_rng(seed, 1000 * g + b).choice(len(Zb), len(gi), replace=False)
-                Ab, _, _ = align_stack(Zb[pick], ms, seed)
-                e = entropy_pair(Ab)
-                g17.append(e[0])
-                gsq.append(e[1])
+            if not bg_ok:
+                g17, gsq = [], []
+            elif K == 1:
+                g17, gsq = bg17, bgsq
+            else:
+                g17 = [d[0][rank17[g]] for d in matched]
+                gsq = [d[1][ranksq[g]] for d in matched]
             coh = {"before_warp": (_coherence(fixed[gi][fixed_ok[gi]], n_points)
                                    if fixed_ok[gi].sum() >= 2 else None),
                    "after_warp": _coherence(Z[gi], n_points) if len(gi) >= 2 else None,
                    "after_align": _coherence(Ag, n_points, TREND_NULL_DRAWS, seed) if len(gi) >= 2 else None}
             ph, phs = _phase_null(Ag, n_points, PHASE_NULL_DRAWS, seed + g) if len(gi) >= 2 else ([], [])
             aa = coh["after_align"] or {}
-            verdict = _verdict(aa.get("svd_entropy_norm"), aa.get("svd_entropy_squared_norm"), g17, gsq)
-            coh["nulls"] = {"background": {"eq17": _null_summary(g17), "squared": _null_summary(gsq)},
+            verdict = _verdict(aa.get("svd_entropy_norm"), aa.get("svd_entropy_squared_norm"), g17, gsq,
+                               reason=untested_reason)
+            coh["nulls"] = {"background": _bg_block(g17, gsq, dropped if bg_ok else 0,
+                                                    matched="K-means with the real K on every background draw, "
+                                                            "groups matched by rank of entropy (lowest to lowest)"
+                                                    if (bg_ok and K > 1) else ("the whole stack's" if bg_ok else None)),
                             "trend_kept": {"eq17_median": aa.get("null_median"), "eq17_p05": aa.get("null_p05"),
                                            "squared_median": aa.get("null_squared_median"),
                                            "caveat": SMOOTH_CAVEAT},
@@ -1136,6 +1380,9 @@ def cycle_shapes(x, fs, starts, ends, features=None, *, waveform=None, anchor="o
                   "after": np.round(resample_to_length(stack_rows[i][6], STACK_POINTS), 3).tolist()}
                  for i in pick]}
 
+    if waveform is None and n_ev:
+        warnings.insert(0, "cycles cut from the chain's own signal; if the detector ran on a short-detrended trace, "
+                           "bind waveform to the root signal")
     omitted = {}
     for r in omit:
         if r:
@@ -1193,10 +1440,14 @@ def summary_line(meta):
         aa = w["after_align"]
         bgn = w["nulls"]["background"]
         v = w["verdict"]
-        line = (f"sequence {s['key']}: K = {s['k']} (SigClust p {_f(s['sigclust']['p'], '{:.3f}')}) · coherence "
+        kn = s.get("k_null") or {}
+        line = (f"sequence {s['key']}: K = {s['k']} (split tested against the {kn.get('source') or 'no'} null"
+                + (f"; {s['k_note']}" if s.get("k_note") else "") + ") · coherence "
                 f"σ² {_f(aa['svd_entropy_squared_norm'])} (background {_f(bgn['squared']['median'])}) · eq. 17 "
                 f"{_f(aa['svd_entropy_norm'])} (background {_f(bgn['eq17']['median'])}) · "
-                + ("untested" if not v["tested"] else ("beyond noise" if v["beyond_noise"] else "no better than noise")))
+                + (f"untested ({v.get('reason')})" if not v["tested"]
+                   else ("beyond noise" if v["beyond_noise"] else "no better than noise") + " on eq. 17, σ² "
+                   + ("beyond" if v["beyond_noise_squared"] else "not beyond")))
         if s["k"] > 1:
             line += (f" · {len(s['change_points'])} change point(s) · order p "
                      f"{_f(s['order_test']['p'], '{:.3f}')}")
@@ -1206,5 +1457,5 @@ def summary_line(meta):
         parts.append(line)
     if len([s for s in seqs if s.get("k") is not None]) > 3:
         parts = parts[:3] + [f"… {len(seqs)} sequences in meta"]
-    parts += meta["warnings"][:2]
+    parts += meta["warnings"][:3]
     return "; ".join(parts)

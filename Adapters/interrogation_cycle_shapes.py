@@ -178,11 +178,12 @@ SPEC = register(AdapterSpec(
                   "Fewest usable cycles a sequence needs before it is grouped (and the smallest group a split may "
                   "make)", min=4, max=100000),
         ParamSpec("sigclust_draws", int, CS.SIGCLUST_DRAWS,
-                  "Gaussian draws of SigClust's null (one shape that varies, with the stack's own covariance); "
-                  "100 resolve p = 0.01", min=0, max=5000),
+                  "Gaussian draws of SigClust's null (the stack's own covariance). Reported only: it does not "
+                  "decide K", min=0, max=5000),
         ParamSpec("null_draws", int, CS.NULL_DRAWS,
-                  "Background-null draws: pseudo-cycles cut where no event lies, through the same pipeline; the "
-                  "groups' verdict. 0 = untested (every key ~untested)", min=0, max=1000),
+                  "Background-null draws: pseudo-cycles cut where no event lies, through the same pipeline; they "
+                  "calibrate the split (K) and the groups' verdict. 0 = untested (every key ~untested; K is then "
+                  "calibrated on 20 phase copies of the cycles)", min=0, max=1000),
         ParamSpec("n_perm", int, CS.N_PERM, "Shuffles of the cycle order for the order test", min=0, max=100000),
         ParamSpec("floor_band", float, CS.FLOOR_BAND,
                   "The floor is the lowest this fraction of a cycle's range (a placeholder: 0.25)", min=0.01,
@@ -206,8 +207,10 @@ SPEC = register(AdapterSpec(
         "For a chain of drops: every cycle (one drop to the next) is stretched to one length, lined up, and "
         "sorted into shapes (Colominas & Wu 2023, the back half), so you can see whether all cycles share one "
         "shape or a few kinds, and where in the chain the kind changes. More than one kind is claimed only when "
-        "the best split is both not one Gaussian (SigClust) and two modes along its own direction - a shape that "
-        "drifts steadily (a plateau that lengthens) stays one family, visible in the per-cycle measures. Per "
+        "the best split beats the same split on pseudo-cycles cut from the recording's quiet stretches and is two "
+        "modes along its own direction - a shape that drifts steadily (a plateau that lengthens) stays one "
+        "family, visible in the per-cycle measures. A chain that fills its span has no quiet stretch: its "
+        "verdicts are then untested and said so. Per "
         "cycle: length, size, the share of the cycle on its floor (a sharkfin sits there for 1/2-2/3) and where "
         "it is half back. Coherence is SVD entropy, sigma^2 first and the paper's eq. 17 beside it, each against "
         "pseudo-cycles cut from the recording's own quiet stretches; a group no better than those is marked "
