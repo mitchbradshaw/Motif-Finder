@@ -825,3 +825,15 @@ def test_a_cancel_is_honoured_between_starts_and_draws(name, params):
 
 if __name__ == "__main__":
     sys.exit(pytest.main([__file__, "-q"]))
+
+
+def test_hdbscan_says_its_noise_verdict_is_not_evidence_for_smooth_window_filling_shapes():
+    """W2-B verification on main (manager, 2026-10-14): the trend-kept surrogate keeps a cubic per row, so a family
+    whose shape IS a smooth curve across the window (a broad hump, a slow ramp) keeps that curve in its own fake noise
+    and can read noise-like even at low noise. The verdict must say so on its face — the flag's `why` and the null's
+    rule — so a badge on such a family is not read as evidence that it is noise."""
+    result = _run("hdbscan", {}, pure_noise(300, 0, "ar1_099"))
+    assert result.families, "pure AR(1) noise gives HDBSCAN at least one crowd to judge"
+    for f in result.families:
+        assert "smooth" in f.flags["why"], f.flags["why"]
+    assert "smooth" in result.fit_summary["null"]["rule"]

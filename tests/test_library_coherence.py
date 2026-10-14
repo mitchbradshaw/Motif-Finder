@@ -211,3 +211,23 @@ def test_a_named_medoid_is_the_alignment_anchor():
 
 if __name__ == "__main__":
     sys.exit(pytest.main([__file__, "-q"]))
+
+
+def test_beyond_noise_carries_a_margin_and_the_smooth_shape_caveat():
+    """W2-B verification on main (manager, 2026-10-14): pure coloured noise sits a hair BELOW its own trend-kept null
+    (AR(1) phi 0.99: 0.805 vs p05 0.806), so "below null_p05 = coherent" would call noise coherent. The verdict
+    `beyond_noise` carries the same 0.9 margin HDBSCAN's test uses (score < 0.9 x null_p05). And a smooth shape that
+    fills the window (a broad hump, a ramp) keeps its curve in its own trend-kept noise, so the rule text says a
+    "no more coherent than noise" reading is not evidence there."""
+    from Working.library import coherence
+    rng = np.random.default_rng(21)
+    noise = [background(150, "ar1_099", rng) for _ in range(100)]
+    n = svd_entropy(noise)
+    assert n["null_margin"] == coherence.NULL_MARGIN == 0.9
+    assert n["beyond_noise"] is False, n
+    copies = _members(_bump, 40, rng, noise=0.01, kind="ar1_095")
+    c = svd_entropy(copies)
+    assert c["beyond_noise"] is True, c
+    assert "smooth" in n["rule"] and "not evidence" in n["rule"]
+    few = svd_entropy(noise[:1])
+    assert few["beyond_noise"] is None, "no score, no verdict"
