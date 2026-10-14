@@ -35,7 +35,8 @@ fixers in `isolation: worktree`; critics read the implementer's worktree and nev
 | 11 | implementer | W3-F the wave-3 UI | `a9bcefee16fc666b3` | `.claude/worktrees/agent-a9bcefee16fc666b3` | `worktree-agent-a9bcefee16fc666b3` | `a5baf8b` (main) | launched 03:45 (decision 20); reported 04:35 (`d1dc46c`, 50 min) → `W3-F-ui.md` |
 | 12 | critic | W3-F | `ad9069dfbd66c843e` | (reads row 11's worktree) | — | `a5baf8b` | launched 04:39; reported 05:00: **merge after fixes** (1 blocker, 4 should-fix, 3 nits) → `W3-F-ui.critic.md` |
 | 11a | fixer (row 11 resumed) | W3-F fix round 1 + the W3-C follow-up (merge `617edc2`) | `a9bcefee16fc666b3` | row 11's | row 11's | `a5baf8b` | sent 05:01 (decision 25); reported 05:2x (merge `f42dd35`, red `ff5bc21` → green `ea59ee6`) → `W3-F-ui.fix1.md` |
-| 12a | re-critic (row 12 resumed) | W3-F fix round 1, changed parts only (`f42dd35..ea59ee6`) | `ad9069dfbd66c843e` | row 11's | — | — | launched 05:28 (the blocker was behavioural), with the three null readers the fixer left |
+| 12a | re-critic (row 12 resumed) | W3-F fix round 1, changed parts only (`f42dd35..ea59ee6`) | `ad9069dfbd66c843e` | row 11's | — | — | launched 05:28 (the blocker was behavioural), with the three null readers the fixer left; stopped ~05:4x (API limit), resumed 07:02; reported 07:04: **merge after fixes** (3 should-fix, 1 nit; the blocker holds) → `W3-F-ui.critic2.md` |
+| 11b | fixer (row 11 resumed) | W3-F fix round 2 (the last) | `a9bcefee16fc666b3` | row 11's | row 11's | `a5baf8b` | sent 07:05 (decision 27) |
 | 9a | fixer (row 9 resumed) | W3-G fix round 1 | `a17192b65fcf2dd72` | row 9's | row 9's | `6bd3e40` | sent 02:35; reported 03:14 (`84e8326`) → `W3-G-quiet-stretch-null.fix1.md`; merges after W3-B's final branch |
 
 ## Preflight (2026-10-14 21:2x)
@@ -535,6 +536,17 @@ instead of it.
   The fixer was told to settle that failure by comparing against the same span with the hold blanked: if the blanked
   twin clears too, the clearance is the background's and the test pins "a stall behaves like a gap"; otherwise the
   detrend's reach around a hold becomes part of the stall.
+- 07:04 — **W3-F re-critique: merge after fixes; the blocker holds** → `W3-F-ui.critic2.md`. Through `RunManager`,
+  a cancel during draw 3 left real detections at exactly the real run's 82 (95 in round 0); the half-finished draw is
+  `failed`, linked, "Cancelled: …". Cancel text, 409 while calibrating (no job, run row or lock left half-made),
+  per-model calibration (a fast model waited 0.02 s behind a slow one; 15 of 15 keys kept when 12 finished at once;
+  one timing for 5 concurrent asks) and the cancel smoke state (about 15 s on screen, from the code) all hold.
+  Should-fix: (1) three readers count the half-finished draw — on the same run Analyse says 2 draws / null expects
+  34.5 and the Discovery scoreboard 3 / 30.33 (the null is understated, so "beats noise" is overstated), and
+  `export.py::_surrogate_block` can name the half-finished draw as "the surrogate control"; (2) a draw that *fails*
+  mid-chain (a `RecipeExecutionError`) still leaves its row unlinked, its detections counted as real — older than
+  W3-F, the blocker's twin; (3) the pan view still says "suggested" in its headline and table. Nit: the caveat is a
+  copy of W3-C's. 07:05 — fix round 2 (the last) sent (row 11b), decision 27.
 - 03:5x — **W3-C critic: merge after fixes, three blockers.** F1: plain phase surrogates are biased here too
   (exp(AR) noise got a suggestion 10/10; AAFT 1/10 → 0/10 at 20 draws, keeping planted-motif power) → the 03:55
   correction; F2: one null draw gives 1.2–5.8 % false suggestions at 1 Hz, three gave 0 in 544 spans, the false
@@ -655,6 +667,13 @@ instead of it.
     re-critique (F3) — the suggestion leans to the longest judged rung or a chain's fall edge, so it is not an event
     length; the band's top is the only reading that tracked a chain unit (1508 s on random-walk drops at SNR 5), and an
     8 h span judges only up to 34 min.
+27. **W3-F's last fix round gets every reader of null draws**: one shared rule for "a completed null draw" in
+    `Working/database/queries.py` (beside `not_surrogate`), used by `scoreboard._null_runs`, `matching.py`'s null
+    counts, `library.py::_family_null`, `run_groups.null_summary` and `export.py::_surrogate_block`; and a draw that
+    fails mid-chain is linked before the failure is re-raised. Reason: the re-critique measured Analyse and the
+    Discovery scoreboard disagreeing on the same run once a draw is cancelled, which W3-F made possible mid-step; one
+    rule in one place keeps every page on the same null. No wave-3 branch in flight touches these files (W3-D's and
+    W3-G's edits to `library.py` are merged).
 3. **The Library side of decision 4 is folded into round 2**: W3-G puts σ² first in `shape_families`' summary lines and
    the coherence payload it returns, and measures both variants' verdicts against the quiet-stretch null (the verdict
    stays on eq. 17 unless the researcher moves it); W3-F puts σ² first on the Family page and the families table.
