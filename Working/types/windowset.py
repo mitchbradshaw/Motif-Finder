@@ -41,11 +41,19 @@ _FEATURES_FILENAME = "features.parquet"
 #:                      second clustering or a classifier that saw one would learn the first's answer
 #:   group_upstream   - the group a feature block replaced (`interrogation.trains`,
 #:                      `interrogation.event_families`): a label
-#: Measurements (intervals, Event-shape measures) are NOT here: they stay features, and
+#:   cycle_index      - the cycle's position in its sequence (`interrogation.cycle_shapes`): a time order
+#:   cycle_group      - the cycle-shape group that block decided: its answer, not the shape
+#:   cycle_change, cycle_omit_reason, cycle_corr, cycle_shift_s
+#:                    - the same block's decisions about the cycle: whether its group changed, why it
+#:                      was left out, its correlation with its group's medoid (as family_distance), and
+#:                      how far it was shifted to line up (geometry, as anchor_offset)
+#: Measurements (intervals, Event-shape measures, cycle_length_s / cycle_amplitude /
+#: cycle_floor_frac / cycle_half_recovery_frac) are NOT here: they stay features, and
 #: `catalogue.cluster`'s meta names the columns it actually used (`feature_names`).
 BOOKKEEPING_COLUMNS = ("split", "event_index", "anchor_offset", "overlaps_next", "train_id", "word_id",
                        "span_score", "family", "family_omit_reason", "family_distance", "family_noise_like",
-                       "group_upstream")
+                       "group_upstream", "cycle_index", "cycle_group", "cycle_change", "cycle_omit_reason",
+                       "cycle_corr", "cycle_shift_s")
 
 
 @dataclass(frozen=True, eq=False)

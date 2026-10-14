@@ -89,7 +89,8 @@ def resolve_side_inputs(conn, spec, side_inputs, *, root_signal, step_results):
 
     Returns
     -------
-    dict : {side_input_name: resolved value}, one entry per `spec.side_inputs`.
+    dict : {side_input_name: resolved value}, one entry per `spec.side_inputs`
+        (an optional side input, `required=False`, left unbound has none).
 
     Raises
     ------
@@ -103,6 +104,8 @@ def resolve_side_inputs(conn, spec, side_inputs, *, root_signal, step_results):
     for side_input_spec in spec.side_inputs:
         name = side_input_spec.name
         binding = side_inputs.get(name)
+        if binding is None and not getattr(side_input_spec, "required", True):
+            continue   # an optional side input left unbound: `run` gets nothing under this name
         if binding is None:
             raise SideInputResolutionError(
                 f"Side-input '{name}': '{spec.name}' declares this side input "

@@ -140,6 +140,12 @@ def test_meta_carries_summary_rules_exemplars_and_the_stack(chain_run):
     assert m["write_group"] is True and m["waveform"] == "the chain's signal (x)"
 
 
+def test_meta_is_plain_json_with_no_nan(chain_run):
+    import json
+    _, _, r = chain_run
+    json.dumps(r.meta, allow_nan=False)
+
+
 def test_the_waveform_side_input_is_used_and_checked(spec):
     x, st, en = syn.chain([syn.sharkfin] * 12, syn.drifting_periods(12), bg="ar1", noise=0.1, seed=1)
     spans = _spans(st, en)
