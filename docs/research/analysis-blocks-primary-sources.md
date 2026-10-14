@@ -445,8 +445,13 @@ it is binarised** (:355). `percentage=0.01` → approximate scrump rows.
 
 **Verified.** Non-overlapping length-m subsequences (zero-padded); an MPdist profile of each against T — MPdist
 (sub-length S) is robust to "spikes, warping, linear trends, dropouts, wandering baseline"; greedily add the profile that
-minimises the area under min(profile, Q); a snippet's fraction = points where it is the overall minimum / (n−m+1); k at
-the knee of change_k = Area_{k−1}/Area_k − 1; O(n²(n−m)/m); their example m = 200 with MPdist sub-length 70.
+minimises the area under min(profile, Q); a snippet's fraction = points where it is the overall minimum / (n−m+1);
+change_k = Area_{k−1}/Area_k − 1, and **k is the peak of change_k** (§III.B: a small change_k means "adding the kth did
+not add much explanatory power; thus, we should use a value of k corresponding to a peak"; Fig. 13 marks change_1
+"undefined", so the paper has no k = 1 outcome); O(n²(n−m)/m); their example m = 200 with MPdist sub-length 70.
+*(Corrected 2026-10-14 by the wave-2 manager from the W2-D critic's reading of the authors' 10-page PDF; this entry
+first said only "k at the knee". `catalogue.snippets` uses its own largest-drop rule with a k = 1 outcome — named in
+its docstring as an adaptation.)*
 
 **Installed.** `stumpy.snippets(T, m, k, percentage=1.0, s=None, mpdist_percentage=0.05, mpdist_k=None, normalize=True,
 p=2.0, mpdist_T_subseq_isconstant=None)` → `(snippets, indices, profiles, fractions, areas, regimes)`
