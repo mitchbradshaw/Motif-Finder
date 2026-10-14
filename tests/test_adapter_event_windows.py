@@ -223,7 +223,9 @@ def test_the_output_round_trips_through_the_step_cache(spec, tmp_path):
 
 BOOK = {"split", "event_index", "anchor_offset", "overlaps_next", "train_id", "word_id", "span_score",
         # w2-e: interrogation.event_families' answer columns and the group a feature block replaced
-        "family", "family_omit_reason", "family_distance", "family_noise_like", "group_upstream"}
+        "family", "family_omit_reason", "family_distance", "family_noise_like", "group_upstream",
+        # w3-b: interrogation.cycle_shapes' position and answer columns
+        "cycle_index", "cycle_group", "cycle_change", "cycle_omit_reason", "cycle_corr", "cycle_shift_s"}
 
 
 def test_the_bookkeeping_columns_live_beside_windowset():
