@@ -12,9 +12,10 @@ In plain words: give it a stack of waveforms (one per event); it sorts them into
 families of similar shape with Ward, k-Shape or HDBSCAN — whichever the Library's
 registry offers for its `shape-distance` basis — leaves out what fits no family (and
 says why), and for every family reports two things that say whether the family is
-real: the method's own **noise flag** (did the family beat phase-randomised copies of
-its members?) and the family's **SVD entropy** (how far its members are copies of one
-shape) beside what noise of the same colour scores.
+real: the method's own **noise flag** (did the family beat noise of its members' own
+recordings — windows cut where no event lies, w3-g — or, where too little quiet signal
+is left, trend-kept phase-randomised copies of its members?) and the family's **SVD
+entropy** (how far its members are copies of one shape) beside what that noise scores.
 
 **The public function for a null.** `shape_families(waveforms, ...)` takes the cut
 waveform matrix (n x L, or a list of 1-D waveforms) and returns `ShapeFamilies`:
@@ -49,10 +50,18 @@ What is computed
    family's medoid on the method's [0, 1] scale (normalised SBD for k-Shape and
    HDBSCAN, Ward's normalised scale-invariant distance for Ward); NaN off a family.
 5. **Coherence.** Per family, W2-B's `Working.library.coherence.svd_entropy` on the
-   members' (gap-filled) waveforms, aligned to the family's medoid, with its
-   phase-randomised null (`null_median`, `null_p05`), the sigma^2 variant and
-   `top_share`. Eq. 17 (unsquared) is the headline, as in W2-B; the squared variant
-   travels beside it until the researcher decides.
+   members' (gap-filled) waveforms, aligned to the family's medoid, with its null
+   (`null_median`, `null_p05`: the quiet-stretch one where usable, else trend-kept),
+   the sigma^2 variant and `top_share`. The sigma^2 variant leads the summary line
+   (the researcher, 2026-10-14); eq. 17 keeps the verdict.
+7. **The noise (w3-g).** `shape_families(..., background=)` takes a
+   `Working.background_null.MemberBackground` over the waveforms: the method's
+   per-family test and the coherence judge against windows of the recording's own
+   quiet stretches wherever at least half a family's members got one, and fall back
+   to trend-kept noise, said per family (`null_kind`, `why`, a warning).
+   `event_families` and `catalogue.shape_families` build it from the chain's own
+   trace (`span_background`): windows of the event-window length, cut where no
+   event span and no window of the set lies.
 6. **Exemplar.** Each family's exemplar is its medoid — a member, never an average
    (`docs/BLOCK_INTEGRATION.md` §2) — at distance 0.
 
@@ -83,9 +92,10 @@ from Working.Catalogue import event_windows as EW
 from Working.library.coherence import ALIGNED as COHERENCE_ALIGNED
 from Working.library.coherence import NULL_DRAWS as COHERENCE_NULL_DRAWS
 from Working.library.coherence import RULE as COHERENCE_RULE
-from Working.library.coherence import svd_entropy
+from Working.library.coherence import QUIET_MAX_POOL, QUIET_SECONDS_PER_WINDOW, svd_entropy
 from Working.library.grouping import engine
 from Working.library.grouping import methods as registry
+from Working.library.grouping.methods.kshape import QUIET_KIND, TREND_KIND
 from Working.library.grouping.methods.ward import RESAMPLE_LENGTH, shape_vectors
 
 BASIS = "shape-distance"
@@ -103,17 +113,18 @@ NOISE_LIKE_SUFFIX = "~noise_like"
 #: ... and an untested one (a method that draws no null, Ward) — never an unmarked key for a family nobody tested
 UNTESTED_SUFFIX = "~untested"
 
-#: methods whose noise null is not trusted as a confidence, with the measurement (W2-E critic, fix round 1):
-#: their families are never called confident (`confident` None, `fraction_confident` None, the reason in notes)
-UNTRUSTED_NULLS = {
-    "kshape": ("k-Shape's null is W2-B's plain phase-randomised one (no trend kept): on cut events of pure "
-               "random-walk noise it left families unflagged (132 + 108 members at n = 1,000; 30 + 29 at n = 200; "
-               "the W2-E critic's no-structure runs), so a k-Shape family that is not flagged noise-like is not "
-               "thereby confident. Follow-up: a trend-kept k-Shape null in the Library methods (W2-B)"),
-}
+#: methods whose noise null is not trusted as a confidence, with the measurement: their families are never called
+#: confident (`confident` None, `fraction_confident` None, the reason in notes). EMPTY since w3-g. k-Shape was here
+#: (the W2-E critic: its plain phase-randomised null left families unflagged on cut events of pure random-walk noise,
+#: 132 + 108 members at n = 1,000). W3-G replaced that null with the trend-kept one and added the quiet-stretch one,
+#: and re-ran the no-structure test at the defaults (k chosen, 10 starts) through `event_families`: cut events of
+#: pure random walk and AR(1) phi 0.95 / 0.97 / 0.99, n = 200 and 1,000, both with events dense enough that the
+#: trend-kept null judges (W2-E's `noise_events`) and spread so the quiet-stretch null judges — every family flagged
+#: noise-like, no Intervals key unmarked (`tests/test_library_background_null.py`, `tests/test_adapter_event_families.py`).
+UNTRUSTED_NULLS = {}
 #: methods `event_families` does not offer, and why: its families become Intervals keys, where an unflagged
-#: noise crowd reads as a real rhythm
-EVENT_FAMILIES_EXCLUDED = {"kshape": UNTRUSTED_NULLS["kshape"]}
+#: noise crowd reads as a real rhythm. EMPTY since w3-g (k-Shape's measurement above).
+EVENT_FAMILIES_EXCLUDED = {}
 
 #: the window length `event_families` defaults to — a PLACEHOLDER, measured (W2-E critic's 432-run sweep through
 #: the real chain: two shapes x three backgrounds x two seeds x SNR 10 and 40): anchored on the span start, 600 s
@@ -127,6 +138,9 @@ AUTO_WARN_FRAC = 0.25
 #: coherence cost, measured 2026-10-14 on this machine: svd_entropy with 5 null draws ~ 1.5 ms per member
 #: (aligned SBD to the medoid + six SVDs of P x 256), so a whole set costs ~ n x this
 COHERENCE_SECONDS_PER_ITEM = 2.0e-3
+#: families an estimate assumes for the coherence's quiet-stretch pools (w3-g; a placeholder: the families block's
+#: real runs found 0-3 families on real spans, W2-evaluation.md)
+COHERENCE_ESTIMATE_FAMILIES = 5
 
 EXEMPLAR_RULE = ("each family's medoid — the member with the least summed distance to the other members "
                  "(HDBSCAN, Ward) or the member nearest its centroid (k-Shape), as the Library's engine names it: "
@@ -294,12 +308,15 @@ def _screen(waves, max_nan_frac):
 
 
 def coherence_of(waveforms, rows, medoid_row, *, resample_length=RESAMPLE_LENGTH, seed=0,
-                 null_draws=COHERENCE_NULL_DRAWS):
-    """W2-B's `svd_entropy` on `waveforms[rows]`, aligned to `medoid_row`."""
+                 null_draws=COHERENCE_NULL_DRAWS, background=None, n_set=None):
+    """W2-B's `svd_entropy` on `waveforms[rows]`, aligned to `medoid_row`;
+    with `background` (a `MemberBackground` over the same row numbers as
+    `waveforms`) its quiet-stretch null is the verdict (w3-g)."""
     rows = [int(r) for r in rows]
     medoid = rows.index(int(medoid_row)) if int(medoid_row) in rows else None
     return svd_entropy([waveforms[r] for r in rows], medoid=medoid, resample_length=int(resample_length),
-                       seed=int(seed), null_draws=int(null_draws))
+                       seed=int(seed), null_draws=int(null_draws),
+                       background=None if background is None else background.subset(rows), n_set=n_set)
 
 
 def _counts(reasons):
@@ -311,7 +328,8 @@ def _counts(reasons):
 
 
 def shape_families(waveforms, *, method=DEFAULT_METHOD, params=None, max_nan_frac=EW.DEFAULT_MAX_NAN_FRAC, seed=0,
-                   coherence_null_draws=COHERENCE_NULL_DRAWS, should_cancel=None):
+                   coherence_null_draws=COHERENCE_NULL_DRAWS, should_cancel=None, background=None,
+                   background_note=None):
     """Families of the waveforms by the Library's engine (module docstring).
 
     waveforms : (n, L) array or a list of 1-D waveforms (any lengths)
@@ -320,6 +338,9 @@ def shape_families(waveforms, *, method=DEFAULT_METHOD, params=None, max_nan_fra
     max_nan_frac : a waveform with at most this fraction of NaN is gap-filled, above it is `missing_values`
     seed : the coherence null's seed (the method's own seed is in `params`)
     coherence_null_draws : surrogate draws for each family's SVD-entropy null (W2-B's default 5)
+    background : a `Working.background_null.MemberBackground` over the same rows as `waveforms` (w3-g): the
+        quiet-stretch null of the method's per-family test and of the coherence; None = the trend-kept nulls
+    background_note : why there is no background, in words, for the notes (when `background` is None)
     """
     names = shape_methods()
     if method not in names:
@@ -348,7 +369,12 @@ def shape_families(waveforms, *, method=DEFAULT_METHOD, params=None, max_nan_fra
 
     items = [{"member_ref": i, "values": w} for i, w in clean.items()]
     res = engine.run_grouping(items, unit=UNIT, basis=BASIS, method=method, params=params,
-                              should_cancel=should_cancel)
+                              should_cancel=should_cancel,
+                              background=None if background is None else background.subset(list(clean)))
+    if background is None:
+        notes.append("no quiet-stretch null: " + (background_note or "no recording was given to cut quiet windows "
+                                                                     "from") + "; every family is judged against "
+                     "its trend-kept null, which a smooth window-filling shape can fail without being noise")
     for a in res.assignments:
         if a.family_id is None:
             omit[a.ref] = a.omit_reason
@@ -362,7 +388,7 @@ def shape_families(waveforms, *, method=DEFAULT_METHOD, params=None, max_nan_fra
         rows = np.array(sorted(int(r) for r in f.members), dtype=np.int64)
         labels[rows] = rank
         coh = coherence_of(clean, rows, f.medoid, resample_length=resample_length, seed=seed,
-                           null_draws=coherence_null_draws)
+                           null_draws=coherence_null_draws, background=background, n_set=len(clean))
         families.append(FamilyInfo(family=rank, library_label=f.label, size=int(f.size), rows=rows,
                                    medoid_row=int(f.medoid), medoid_distance=float(f.medoid_distance),
                                    flags=dict(f.flags), coherence=coh, null_trusted=method not in UNTRUSTED_NULLS,
@@ -399,8 +425,12 @@ def event_families(x, fs, spans, *, anchor="start", length_s=DEFAULT_EVENT_LENGT
     ew = EW.event_windows(x, fs, spans, anchor=anchor, length_s=length_s, pre_frac=pre_frac,
                           max_nan_frac=max_nan_frac)
     W = EW.cut(x, ew.starts, ew.length)
+    avoid = (list(zip(np.asarray(spans.starts, dtype=np.int64).tolist(), np.asarray(spans.ends, dtype=np.int64).tolist()))
+             + [(int(s), int(s) + int(ew.length)) for s in ew.starts])
+    bg = span_background(x, fs, ew.starts, ew.length, avoid, seed=seed,
+                         avoid_words="every event span and every cut window")
     fam = shape_families(W, method=method, params=params, max_nan_frac=max_nan_frac, seed=seed,
-                         coherence_null_draws=coherence_null_draws, should_cancel=should_cancel)
+                         coherence_null_draws=coherence_null_draws, should_cancel=should_cancel, background=bg)
     n_ev = len(spans.starts)
     family = np.full(n_ev, -1, dtype=np.int64)
     reason = [OMIT_NO_WINDOW] * n_ev
@@ -427,6 +457,19 @@ def event_families(x, fs, spans, *, anchor="start", length_s=DEFAULT_EVENT_LENGT
         fraction_confident=None if (n_conf is None or not n_ev) else n_conf / n_ev)
 
 
+def span_background(x, fs, starts, length, avoid, *, seed=0, avoid_words="every window"):
+    """The quiet-stretch background of a chain's own trace (w3-g): one member per
+    window (`starts`, `length`, in the frame of `x`), every window cut where none of
+    `avoid` (half-open `(start, end)` in the frame of `x`) and no NaN lies
+    (`Working.background_null.MemberBackground` on one recording, the span)."""
+    from Working.background_null import MemberBackground
+    x = np.asarray(x, dtype=float)
+    avoid = [(int(a), int(b)) for a, b in avoid]
+    return MemberBackground([("span", int(s), int(s) + int(length)) for s in starts], lambda _rec: x,
+                            avoid_of=lambda _rec: avoid, fs_of=lambda _rec: float(fs) if fs else None,
+                            seed=seed, avoid_words=avoid_words)
+
+
 # ── what the blocks print ───────────────────────────────────────────────────
 
 def estimate_seconds(n, method, params):
@@ -437,7 +480,11 @@ def estimate_seconds(n, method, params):
     a refusal here would be a guess — and the bridge shows a raising estimate as
     "uncalibrated", not in words (W2-E re-critique)."""
     full = {**registry.defaults_for(method), **dict(params or {})}
-    return float(engine.estimate_seconds(int(n), BASIS, method, full) + int(n) * COHERENCE_SECONDS_PER_ITEM)
+    # w3-g: each family's coherence draws a quiet-stretch pool of min(n, QUIET_MAX_POOL) windows per null draw;
+    # COHERENCE_ESTIMATE_FAMILIES families assumed (the estimate runs before any family exists)
+    quiet = (COHERENCE_ESTIMATE_FAMILIES * min(int(n), QUIET_MAX_POOL) * COHERENCE_NULL_DRAWS
+             * QUIET_SECONDS_PER_WINDOW)
+    return float(engine.estimate_seconds(int(n), BASIS, method, full) + int(n) * COHERENCE_SECONDS_PER_ITEM + quiet)
 
 
 def family_summary(fam: FamilyInfo):
@@ -450,6 +497,16 @@ def family_summary(fam: FamilyInfo):
         "noise_like": bool(fam.flags.get("noise_like", False)), "unstable": bool(fam.flags.get("unstable", False)),
         "tested": bool(fam.flags.get("tested", False)), "why": fam.flags.get("why"),
         "flags": engine.json_safe(fam.flags),
+        # w3-g: which null judged the family, and how much quiet background it had
+        "null_kind": fam.flags.get("null_kind"), "background_s": fam.flags.get("background_s"),
+        "background": engine.json_safe(fam.flags.get("background")),
+        # the researcher's headline (2026-10-14): sigma^2 first; eq. 17 keeps the verdict
+        "svd_entropy_squared_first": True,
+        "svd_entropy_squared_null_p05": c.get("null_squared_p05"),
+        "svd_entropy_squared_beyond_noise": c.get("beyond_noise_squared"),
+        "svd_entropy_null_kind": c.get("null_kind"), "svd_entropy_why": c.get("why"),
+        "svd_entropy_background": engine.json_safe(c.get("background")),
+        "svd_entropy_variants": engine.json_safe(c.get("variants") or []),
         "svd_entropy": c.get("svd_entropy"), "svd_entropy_norm": norm,
         "svd_entropy_null_median": c.get("null_median"), "svd_entropy_null_p05": p05,
         "svd_entropy_squared_norm": c.get("svd_entropy_squared_norm"),
@@ -481,20 +538,24 @@ def rules(method, params):
         {"name": "family_distance", "rule": "the engine's distance from the member to its family's medoid on the "
                                             "method's 0-1 scale: normalised SBD (shape-based distance / 2) for kshape "
                                             "and hdbscan, Ward's normalised scale-invariant distance for ward"},
-        {"name": "noise_like", "rule": "the method's own verdict (W2-B), never re-derived here: hdbscan and kshape "
-                                       "compare each family with phase-randomised surrogates of its members (each "
-                                       "window's colour kept, its shape destroyed; hdbscan also keeps a cubic trend, "
-                                       "so a smooth window-filling hump or ramp can read noise-like) and flag a family "
-                                       "no better than them - the exact rule is fit_summary.null.rule; ward draws no "
-                                       "null and reports its families untested"},
+        {"name": "noise_like", "rule": "the method's own verdict, never re-derived here: hdbscan and kshape compare "
+                                       "each family with the chain's own quiet stretches (windows of the members' "
+                                       "length cut where no event and no window of the set lies, selection-matched: "
+                                       "the members' median distance to their centre must beat 0.7 x the "
+                                       "min(5 %, m/2n)-quantile of the quiet windows' distances) wherever at least "
+                                       "half the members got such a window; otherwise with trend-kept phase-"
+                                       "randomised surrogates of the members (a cubic trend kept, so a smooth "
+                                       "window-filling hump or ramp can read noise-like), and each family's "
+                                       "null_kind and why say which - the exact rule is fit_summary.null.rule; ward "
+                                       "draws no null and reports its families untested"},
         {"name": "svd_entropy", "rule": "per family, W2-B's svd_entropy, its verdict (svd_entropy_beyond_noise) read "
                                         "off, not re-derived: "
                                         + COHERENCE_RULE.format(L=int(dict(params or {}).get("resample_length",
                                                                                               RESAMPLE_LENGTH)),
                                                                 aligned=COHERENCE_ALIGNED)},
         {"name": "confident", "rule": "a family is confident only when its method tested it against noise and it "
-                                      "passed: Ward draws no null (untested, key '<n>~untested'); "
-                                      + "; ".join(f"{m}: {r}" for m, r in UNTRUSTED_NULLS.items())},
+                                      "passed: Ward draws no null (untested, key '<n>~untested')"
+                                      + "".join(f"; {m}: {r}" for m, r in UNTRUSTED_NULLS.items())},
         {"name": "exemplar", "rule": EXEMPLAR_RULE},
     ]
 
@@ -521,21 +582,37 @@ def summary_line(fam: ShapeFamilies, unit_word="event"):
         parts.append("not tested against noise (untested)")
     if fam.method in UNTRUSTED_NULLS and fam.families:
         parts.append(f"{fam.method}'s noise null is not trusted: no family is called confident")
-    ents = []
+    tested = [f for f in fam.families if f.flags.get("tested")]
+    fell = [f.family for f in tested if f.flags.get("null_kind") and f.flags.get("null_kind") != QUIET_KIND]
+    if tested and any(f.flags.get("null_kind") == QUIET_KIND for f in tested):
+        parts.append("judged against the recording's own quiet stretches"
+                     + (f" (trend-kept fallback for family " + ", ".join(str(x) for x in fell) + ")" if fell else ""))
+    elif tested:
+        parts.append("judged against trend-kept noise (no quiet-stretch null)")
+    # the researcher's headline (2026-10-14): sigma^2 first, eq. 17 beside it (eq. 17 keeps the verdict)
+    sq, ents = [], []
     for f in fam.families:
         c = f.coherence or {}
         if c.get("svd_entropy_norm") is None:
+            sq.append("n/a")
             ents.append("n/a")
-        else:
-            ents.append(f"{c['svd_entropy_norm']:.2f}" + (f" (noise {c['null_p05']:.2f})" if c.get("null_p05") is not None
-                                                           else ""))
-    parts.append("SVD entropy " + ", ".join(ents))
+            continue
+        sq.append(f"{c['svd_entropy_squared_norm']:.2f}" + (f" (noise {c['null_squared_p05']:.2f})"
+                                                             if c.get("null_squared_p05") is not None else ""))
+        ents.append(f"{c['svd_entropy_norm']:.2f}" + (f" (noise {c['null_p05']:.2f})" if c.get("null_p05") is not None
+                                                       else ""))
+    parts.append("SVD entropy sigma^2 " + ", ".join(sq) + "; eq. 17 (the verdict) " + ", ".join(ents))
     return "; ".join(parts)
 
 
 def warnings_for(fam: ShapeFamilies):
     out = []
     for f in fam.families:
+        bg = f.flags.get("background") or {}
+        if f.flags.get("tested") and f.flags.get("null_kind") == TREND_KIND and bg.get("reason"):
+            out.append(f"family {f.family}: the quiet-stretch null could not be used ({bg['reason']}); it is judged "
+                       f"against trend-kept noise instead, which a smooth window-filling shape can fail without being "
+                       f"noise")
         if f.flags.get("noise_like"):
             why = str(f.flags.get("why") or "").replace("no better than noise of the same colour: ", "")
             out.append(f"family {f.family} ({f.size} members) is no better than noise of the same colour: {why}")

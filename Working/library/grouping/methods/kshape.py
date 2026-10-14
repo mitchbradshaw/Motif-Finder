@@ -84,28 +84,47 @@ qualifies. Every k's score, family sizes and summed distance are recorded in
 `payload["k_scores"]`. Calinski-Harabasz (the WSF paper's rule) was not chosen:
 it is defined on Euclidean centroids, which SBD's shifted centres are not.
 
-The surrogate null (w2-b fix round 1)
--------------------------------------
+The nulls (w2-b fix round 1; w3-g)
+----------------------------------
 k-Shape always returns k families and, on the SBD scale, a fixed `omit_d`
 cannot tell noise from members: two unrelated white-noise windows sit at a
 median 0.42 (so Ward's 0.50 never fires), and coloured noise sits *closer* to
-a centroid than noisy real members do. So the yardstick is the data's own
-colour: every fitted row (at most `NULL_ROWS`, seeded) is phase-randomised
-`null_draws` times (`phase_randomised_rows`: amplitude spectrum kept, shape
-destroyed) and each surrogate is measured against the fitted centroids. A
-surrogate counts toward the family whose centre it lands nearest — the same
-"nearest of k" selection a real member went through — or, when fewer than
-`NULL_MIN_PER_FAMILY` land, every surrogate's distance to that centre is used.
-Per family:
+a centroid than noisy real members do. So the yardstick is noise of the data's
+own colour, two kinds of it:
 
-* `omit_d = 0` (the default, the site's "0 = auto"): a member further from its
-  centre than the null's 5th percentile is omitted `past_cut`;
-* the family is `noise_like` when its members' median distance is not below
-  that 5th percentile, and `unstable` when it is not below the null's median.
+* **the quiet-stretch null** (w3-g; the verdict wherever it is usable): when
+  the engine hands `fit` a `background` (`Working.background_null.
+  MemberBackground` — the caller's loader of each member's own recording),
+  each family's members get windows of their own length cut from their own
+  recordings where no event lies (`quiet_distances`), measured against the
+  family's centroid; the family is `noise_like` unless its members' median
+  distance is below `QUIET_MARGIN` x the min(5 %, m / 2n)-quantile of those
+  distances (the selection a family of m among n went through — the comment
+  above `QUIET_KIND` has the measurement), `unstable` when not below their
+  median, and the automatic `omit_d` is their 5th percentile. Used when at
+  least half the family's members got a window from their own recording.
+* **the trend-kept null** (beside it, and the verdict otherwise): every fitted
+  row (at most `NULL_ROWS`, seeded) gets `null_draws` trend-kept surrogates
+  (`trend_kept_surrogates`: a cubic trend kept, the rest phase-randomised),
+  each measured against the fitted centroids. A surrogate counts toward the
+  family whose centre it lands nearest — the same "nearest of k" selection a
+  real member went through — or, when fewer than `NULL_MIN_PER_FAMILY` land,
+  every surrogate's distance to that centre is used. Per family: `omit_d = 0`
+  (the default) omits a member further from its centre than the null's 5th
+  percentile; the family is `noise_like` when its members' median distance is
+  not below that 5th percentile, `unstable` when not below the null's median.
+  w3-g replaced the plain phase surrogate here: it turns a coloured window's
+  trend into a periodic wiggle, so its fake crowds were too loose, and on cut
+  events of pure random-walk noise it left families unflagged (the W2-E
+  critic: 132 + 108 members at n = 1,000). The trend-kept one keeps a smooth
+  window-filling shape's curve in its own fake noise (`SMOOTH_CAVEAT_KSHAPE`),
+  which is why the quiet-stretch null leads where it can.
 
-Families are flagged, never dissolved; the flags and the null travel on the
-`GroupingResult` (`Family.flags`, `fit_summary["null"]`). A fixed `omit_d`
-> 0 still works.
+Each family's flags say which null judged it (`null_kind`), carry both
+(`nulls`), the sampler's report (`background`, `background_s`) and the
+verdict in words (`why`). Families are flagged, never dissolved; the flags and
+the null travel on the `GroupingResult` (`Family.flags`, `fit_summary["null"]`).
+A fixed `omit_d` > 0 still works.
 
 No tree
 -------
@@ -244,10 +263,151 @@ def trend_kept_surrogates(X, rng, degree=TREND_DEGREE):
     randomisation turns each curve into a periodic wiggle, so its null crowds
     less than real noise does and a test against it calls noise confident (the
     re-critique: null crowds of 11-141 against real-noise crowds of 73-553).
-    Used by HDBSCAN's per-family test and by the coherence null; k-Shape keeps
-    plain phase surrogates (see `KShapeMethod._null`)."""
+    Used by HDBSCAN's per-family test, k-Shape's (since w3-g) and the coherence
+    null, beside the quiet-stretch null and as its fallback."""
     T = polynomial_trends(X, degree)
     return phase_randomised_rows(np.asarray(X, dtype=float) - T, rng) + T
+
+
+# --------------------------------------------------------------------------
+# The quiet-stretch null (w3-g), shared with `hdbscan.py`
+# --------------------------------------------------------------------------
+#
+# The trend-kept surrogate keeps a cubic per row, so a smooth shape that fills its window keeps its curve in its own
+# fake noise and reads noise-like (`coherence.SMOOTH_CAVEAT`). The quiet-stretch null replaces the surrogate with
+# windows of the members' own recordings where no event lies (`Working.background_null.MemberBackground`): the
+# recording's colour, drift and artefacts, none of the shapes.
+#
+# A quiet window does NOT inherit its member's selection, as a trend-kept surrogate does (it keeps the member's own
+# trend, so it sits about as near the medoid as the member). A family is a selected crowd: on pure noise its members
+# sit nearer their medoid than unselected windows of the same noise. So the rule matches the selection by a
+# quantile: the members' median distance d_F must beat the q-quantile of the quiet windows' distances to the same
+# centre, q = min(5 %, m / (2 n)) for a family of m found among n — the median of the m nearest of n background
+# windows, capped at today's 5th percentile. Measured (w3-g, HDBSCAN at its defaults on cut events of pure noise,
+# 600 s windows over 40-50 % of the span, 200 and 1,000 events, 8 seeds each): the nearest-m rule alone, min over 20
+# draws, let pure random-walk crowds reach 0.85 x (0.68 x with 3 draws) — below the 0.9 margin; the capped quantile
+# put every pure random-walk family at 1.4 x and above, AR(1) phi 0.98-0.99 families at 0.80 x and above (124
+# families), while broad humps and slow ramps on the same backgrounds scored 0.01-0.54 x (the trend-kept null:
+# 1.15-3.0 x, noise-like). The margin is therefore 0.7, not 0.9 (`QUIET_MARGIN`). Enough windows are drawn for the quantile:
+# `QUIET_POINTS` pooled windows per q, at least `QUIET_MIN_DRAWS` draws per member, at most `QUIET_MAX_WINDOWS`.
+QUIET_KIND = "quiet-stretch"
+TREND_KIND = "trend-kept phase-randomised"
+QUIET_PERCENTILE_CAP = 5.0          # q never above today's 5th percentile
+QUIET_POINTS = 40                   # pooled windows per unit of q: the quantile rests on ~40 windows below it
+QUIET_MIN_DRAWS = 10
+QUIET_MAX_WINDOWS = 20000           # windows cut per family at most (cost)
+# PLACEHOLDER, measured: confident iff d_F < 0.7 x the quiet q-quantile. Under a selection-matched null a pure-noise
+# family sits at about 1 x, so the margin is all the protection: 124 pure-noise HDBSCAN families (AR(1) phi 0.98 and
+# 0.99, 200 / 400 / 1,000 cut events, 20-30 seeds) reached 0.80 x (14 of 124 below 0.9, none below 0.8); broad humps
+# and slow ramps scored 0.01-0.54 x. 0.9 would call one pure-noise family in nine confident.
+QUIET_MARGIN = 0.7
+SMOOTH_CAVEAT_KSHAPE = ("a smooth shape that fills the window (a broad hump, a slow ramp) keeps its curve in its own "
+                        "trend-kept noise and can read noise-like, so for such a family this flag is not evidence "
+                        "that it is noise")
+
+
+# Cost (w3-g), measured 2026-10-14 on this machine under load: one quiet window cut off a memmapped recording,
+# decimated to the Library's 64-px envelope, resampled to 256 and measured against a centre costs ~5.3e-4 s (the
+# resample was half of it until `batched_shape_vectors`: 3.6e-4 s after; a raw slice instead of the envelope, 2e-4 s).
+C_QUIET_WINDOW = 4.0e-4
+#: what an estimate assumes, before the families exist: this many families sharing the set equally
+QUIET_ESTIMATE_FAMILIES = 20
+
+
+def quiet_windows_estimate(n):
+    """Quiet windows a run on `n` members is expected to cut: `QUIET_ESTIMATE_FAMILIES` families of
+    n / (2 x that) members each (half the set placed), each drawn as `quiet_distances` would."""
+    n = max(1, int(n))
+    m = max(10, n // (2 * QUIET_ESTIMATE_FAMILIES))
+    q = quiet_quantile(m, n)
+    return QUIET_ESTIMATE_FAMILIES * m * quiet_draws(m, q)
+
+
+def quiet_quantile(m, n_set):
+    """q for a family of `m` found among `n_set` (module comment above)."""
+    m, n_set = max(1, int(m)), max(1, int(n_set))
+    return min(QUIET_PERCENTILE_CAP / 100.0, m / (2.0 * n_set))
+
+
+def quiet_draws(m, q):
+    """Draws per member so the pooled windows rest the q-quantile on ~`QUIET_POINTS` windows."""
+    m = max(1, int(m))
+    want = int(np.ceil(QUIET_POINTS / max(q, 1e-9) / m))
+    return int(max(1, min(max(QUIET_MIN_DRAWS, want), QUIET_MAX_WINDOWS // m)))
+
+
+def batched_shape_vectors(waveforms, n_samples=RESAMPLE_LENGTH):
+    """`ward.shape_vectors`, batched over waveforms of one length (the quiet
+    windows come in a few lengths, tens of thousands of them): the same linear
+    resample onto `n_samples` points spanning the window and the same
+    z-normalisation (`distances.z_normalize`: a flat row is all zeros), to
+    ~1e-12 — the per-row loop cost ~0.25 ms a window, most of the null's time."""
+    waveforms = list(waveforms)
+    n_samples = int(n_samples)
+    out = np.zeros((len(waveforms), n_samples))
+    by_len = {}
+    for i, w in enumerate(waveforms):
+        by_len.setdefault(len(w), []).append(i)
+    new = np.linspace(0.0, 1.0, n_samples)
+    for n0, idx in by_len.items():
+        X = np.asarray([np.asarray(waveforms[i], dtype=float).ravel() for i in idx])
+        if n0 == n_samples:
+            Y = X.copy()
+        elif n0 == 1:
+            Y = np.repeat(X, n_samples, axis=1)
+        else:
+            old = np.linspace(0.0, 1.0, n0)
+            j = np.clip(np.searchsorted(old, new, side="right") - 1, 0, n0 - 2)
+            frac = (new - old[j]) / (old[j + 1] - old[j])
+            Y = X[:, j] * (1.0 - frac) + X[:, j + 1] * frac
+        flat = np.ptp(Y, axis=1) == 0
+        sd = Y.std(axis=1)
+        Z = np.zeros_like(Y)
+        ok = ~flat & (sd > 0)
+        Z[ok] = (Y[ok] - Y[ok].mean(axis=1, keepdims=True)) / sd[ok, None]
+        out[idx] = Z
+    return out
+
+
+def quiet_distances(background, rows, centre, resample_length, distance_fn, *, n_set, salt=0):
+    """The quiet-stretch windows of `rows` (indices into `background`, a
+    `MemberBackground`), prepared as the members were (`ward.shape_vectors`) and
+    measured against `centre` (one vector) by `distance_fn(A, centre[None])`.
+    Returns `(distances or None, q, report)`; `distances` is None when the draw
+    is not usable (the report says why)."""
+    rows = list(rows)
+    q = quiet_quantile(len(rows), n_set)
+    draws = quiet_draws(len(rows), q)
+    dr = background.draw(rows, draws, salt=salt)
+    report = dict(dr.report)
+    report.update(quantile=q, n_set=int(n_set))
+    if not dr.usable:
+        return None, q, report
+    waves = [w for d in dr.windows for w in d if w is not None]
+    if len(waves) < 2:
+        report.update(usable=False, reason="fewer than two quiet windows could be cut")
+        return None, q, report
+    B = batched_shape_vectors(waves, int(resample_length))
+    d = np.asarray(distance_fn(B, np.asarray(centre, dtype=float)[None, :]))[:, 0]
+    report["n_windows"] = int(d.size)
+    return d, q, report
+
+
+def quiet_verdict(d_F, d_bg, q, margin):
+    """`(threshold, ratio, noise_like, unstable)`: the q-quantile of the quiet
+    distances, d_F over it, d_F not below margin x it, d_F not below the quiet
+    windows' median."""
+    thr = float(np.quantile(d_bg, q))
+    ratio = d_F / thr if thr > 0 else float("inf")
+    return thr, float(ratio), bool(not (d_F < margin * thr)), bool(not (d_F < float(np.median(d_bg))))
+
+
+def background_words(report):
+    """`"<s> s of background on <k> recording(s)"` (or samples, without a rate), for a verdict's text."""
+    s = report.get("background_s")
+    k = report.get("n_recordings", 0)
+    amount = (f"{s:,.0f} s" if s is not None else f"{report.get('background_samples', 0):,} samples")
+    return f"{amount} of event-free background on {k} recording(s)"
 
 
 def null_rng(seed, salt):
@@ -538,16 +698,19 @@ class KShapeMethod:
         "omit_d": {
             "type": "float", "default": DEFAULT_OMIT_D, "label": "further from its centre than",
             "help": "0 (the default) = automatic: a member is omitted as past_cut when it sits "
-                    "further from its family's centre than 95 % of phase-randomised noise of the "
-                    "same colour does. A number > 0 is a fixed shape-based distance instead (0 = a "
+                    "further from its family's centre than 95 % of noise does — windows of the "
+                    "members' own recordings where no event lies, else trend-kept noise of the "
+                    "same colour. A number > 0 is a fixed shape-based distance instead (0 = a "
                     "shifted copy); note that Ward's 0.5 almost never fires on this scale - two "
                     "unrelated noise windows already sit near 0.42.",
         },
         "null_draws": {
             "type": "int", "default": NULL_DRAWS, "label": "noise draws",
-            "help": "how many phase-randomised surrogate sets (each window's colour kept, its "
-                    "shape destroyed) the families are measured against. 0 = no null: families "
-                    "are reported untested and the automatic omit_d omits nothing.",
+            "help": "how many trend-kept surrogate sets (each window's slow trend kept, the rest "
+                    "phase-randomised: noise of its own colour) the families are measured against, "
+                    "beside the recording's own quiet stretches (which judge wherever the members' "
+                    "recordings leave enough of them). 0 = no null: families are reported untested "
+                    "and the automatic omit_d omits nothing.",
         },
         "min_group": {
             "type": "int", "default": DEFAULT_MIN_GROUP, "label": "minimum group",
@@ -569,7 +732,10 @@ class KShapeMethod:
 
     # ---------------------------------------------------------------- fit
 
-    def fit(self, waveforms, *, params=None, should_cancel=None):
+    def fit(self, waveforms, *, params=None, should_cancel=None, background=None):
+        """`background`, optional: a `Working.background_null.MemberBackground`
+        over the same rows as `waveforms` (the engine passes it), for the
+        quiet-stretch null; without it the trend-kept null is the verdict."""
         params = params or {}
         L = int(params.get("resample_length", RESAMPLE_LENGTH))
         k_param = int(params.get("k", DEFAULT_K))
@@ -650,16 +816,20 @@ class KShapeMethod:
                        n_iter=result["n_iter"], family_of_cluster=family_of_cluster,
                        final_starts=int(n_init) if not (k_param <= 0 and k == 1) else 1)
         draws = int(params.get("null_draws", NULL_DRAWS))
-        self._null(payload, V_fit, labels, dist / SBD_SCALE, k, seed, draws, should_cancel)
+        payload["ok_rows"] = np.asarray(ok, dtype=np.int64)
+        self._null(payload, V_fit, labels, dist / SBD_SCALE, k, seed, draws, should_cancel, background)
         payload["fit_summary"] = self._summary(payload, n, n_ok, k)
         return fit
 
     @staticmethod
-    def _null(payload, V_fit, labels, dist, k, seed, draws, should_cancel=None):
-        """The surrogate null (module docstring): per cluster, the distances of
-        phase-randomised surrogates to its centroid, their 5th percentile (the
-        automatic `omit_d`) and median, and each family's flags. `labels` and
-        `dist` are over every screened-in row (fitted and assigned)."""
+    def _null(payload, V_fit, labels, dist, k, seed, draws, should_cancel=None, background=None):
+        """The two nulls (module docstring): the trend-kept one per cluster (the
+        distances of trend-kept surrogates that land nearest its centroid, their
+        5th percentile and median), and, when a `background` is given, the
+        quiet-stretch one per family (`quiet_distances`). The verdict and the
+        automatic `omit_d` read the quiet-stretch null where it is usable, else
+        the trend-kept one, and say which. `labels` and `dist` are over every
+        screened-in row (fitted and assigned)."""
         family_of = payload["family_of_cluster"]
         payload["null_p05"], payload["family_flags"] = {}, {}
         if draws <= 0:
@@ -667,9 +837,9 @@ class KShapeMethod:
                                "rule": "no null drawn (null_draws = 0): families untested, "
                                        "the automatic omit_d omits nothing"}
             return
-        # plain phase surrogates, not `trend_kept_surrogates`: this test passed every
-        # case in both critiques (pure noise at 1,500: every family noise-like), and
-        # switching the surrogate would move every k-Shape omission threshold
+        # w3-g: trend-kept surrogates replace the plain phase ones. The plain surrogate turns a coloured window's
+        # trend into a periodic wiggle, so its fake crowds are too loose: on cut events of pure random-walk noise it
+        # left k-Shape families unflagged (the W2-E critic: 132 + 108 members at n = 1,000).
         rng = null_rng(seed, 11)
         sub, _ = sample_positions(V_fit.shape[0], NULL_ROWS, seed)
         Vs = V_fit[sub]
@@ -678,7 +848,7 @@ class KShapeMethod:
         for _ in range(draws):
             if should_cancel is not None and should_cancel():
                 raise GroupingCancelled("cancelled while drawing the k-Shape null")
-            S = _z_rows(phase_randomised_rows(Vs, rng))
+            S = _z_rows(trend_kept_surrogates(Vs, rng))
             D = sbd_matrix(payload["centroids"], S, z_normalise=False, dtype=FIT_DTYPE) / SBD_SCALE
             near = D.argmin(axis=0)
             for c in range(k):
@@ -691,32 +861,87 @@ class KShapeMethod:
             source[c] = "landed" if use_landed else "all"
             p05[c] = float(np.percentile(values, NULL_PERCENTILE))
             p50[c] = float(np.median(values))
-        payload["null_p05"] = p05
+
+        ok_rows = payload.get("ok_rows")
+        n_ok = int(labels.size)
+        L = int(payload["resample_length"])
+        kinds, backgrounds = {}, {}
         for c, fam in family_of.items():
-            med = float(np.median(dist[labels == c]))
-            noise_like = med >= p05[c]
-            unstable = med >= p50[c]
-            why = (f"members' median distance to the centre {med:.3f} is "
-                   + ("not below" if noise_like else "below")
-                   + f" the noise's 5th percentile {p05[c]:.3f} ({draws} phase-randomised draws "
-                   + f"of {len(sub)} rows; the noise's median is {p50[c]:.3f})")
+            if should_cancel is not None and should_cancel():
+                raise GroupingCancelled("cancelled while drawing the k-Shape null")
+            members = np.flatnonzero(labels == c)
+            med = float(np.median(dist[members]))
+            t_noise, t_unstable = med >= p05[c], med >= p50[c]
+            trend = {"kind": TREND_KIND, "null_p05": p05[c], "null_median": p50[c],
+                     "ratio": (med / p05[c]) if p05[c] > 0 else float("inf"),
+                     "noise_like": bool(t_noise), "unstable": bool(t_unstable), "caveat": SMOOTH_CAVEAT_KSHAPE}
+            trend_why = (f"members' median distance to the centre {med:.3f} is "
+                         + ("not below" if t_noise else "below")
+                         + f" the 5th percentile {p05[c]:.3f} of trend-kept noise of their own colour ({draws} "
+                         + f"draws of {len(sub)} rows; its median {p50[c]:.3f}); {SMOOTH_CAVEAT_KSHAPE}")
+            quiet, report = None, None
+            if background is not None and ok_rows is not None:
+                pick, _ = sample_positions(members.size, NULL_ROWS, seed)
+                d_bg, q, report = quiet_distances(
+                    background, ok_rows[members[pick]].tolist(), payload["centroids"][c], L,
+                    lambda A, B: sbd_matrix(A, B, z_normalise=False, dtype=FIT_DTYPE) / SBD_SCALE,
+                    n_set=n_ok, salt=1000 + int(c))
+                if d_bg is not None:
+                    thr, ratio, q_noise, q_unstable = quiet_verdict(med, d_bg, q, QUIET_MARGIN)
+                    quiet = {"kind": QUIET_KIND, "threshold": thr, "quantile": q, "ratio": ratio,
+                             "noise_like": q_noise, "unstable": q_unstable, "margin": QUIET_MARGIN,
+                             "omit_d": float(np.percentile(d_bg, NULL_PERCENTILE)),
+                             "null_median": float(np.median(d_bg))}
+            if quiet is not None:
+                noise_like, unstable = quiet["noise_like"], quiet["unstable"]
+                kinds[c] = QUIET_KIND
+                p05_used, p50_used = quiet["omit_d"], quiet["null_median"]
+                why = (f"against the quiet-stretch null ({background_words(report)}): members' median distance "
+                       f"to the centre {med:.3f} is {quiet['ratio']:.2f} x the {q:.2%} quantile {quiet['threshold']:.3f} "
+                       f"of {report['n_windows']} windows cut where no event lies on the members' own recordings; "
+                       f"confident below {QUIET_MARGIN} x (a placeholder margin). Beside it, " + trend_why)
+            else:
+                noise_like, unstable = t_noise, t_unstable
+                kinds[c] = TREND_KIND
+                p05_used, p50_used = p05[c], p50[c]
+                fallback = (("quiet-stretch null not used: " + str(report.get("reason")) + "; ")
+                            if report is not None else
+                            ("quiet-stretch null not available (no recording was given); " if background is None
+                             else ""))
+                why = f"against the trend-kept null: {fallback}" + trend_why
+            payload["null_p05"][c] = p05_used
+            backgrounds[c] = report
             payload["family_flags"][fam] = {
                 "noise_like": bool(noise_like), "unstable": bool(unstable), "tested": True,
                 "why": ("no better than noise of the same colour: " + why) if noise_like else why,
-                "median_distance": med, "null_p05": p05[c], "null_median": p50[c]}
+                "median_distance": med, "null_p05": p05_used, "null_median": p50_used,
+                "null_kind": kinds[c], "background": report,
+                "background_s": (report or {}).get("background_s"),
+                "nulls": {"quiet_stretch": quiet, "trend_kept": trend}}
+        # clusters with no family (empty) keep the trend-kept p05 for the automatic omit_d
+        for c in range(k):
+            payload["null_p05"].setdefault(c, p05[c])
         label = {c: f"F-{f:02d}" for c, f in family_of.items()}
+        used = set(kinds.values())
         payload["null"] = {
-            "kind": "phase-randomised", "draws": draws, "rows_per_draw": int(len(sub)),
-            "percentile": NULL_PERCENTILE,
-            "omit_d_by_family": {label[c]: p05[c] for c in family_of},
-            "median_by_family": {label[c]: p50[c] for c in family_of},
+            "kind": (QUIET_KIND if used == {QUIET_KIND} else
+                     f"{QUIET_KIND}, {TREND_KIND} fallback" if QUIET_KIND in used else TREND_KIND),
+            "draws": draws, "rows_per_draw": int(len(sub)),
+            "percentile": NULL_PERCENTILE, "margin": QUIET_MARGIN,
+            "omit_d_by_family": {label[c]: payload["null_p05"][c] for c in family_of},
+            "median_by_family": {label[c]: payload["family_flags"][f]["null_median"] for c, f in family_of.items()},
             "from": {label[c]: source[c] for c in family_of},
-            "rule": (f"each fitted row phase-randomised (amplitude spectrum kept) {draws} times; a "
-                     f"surrogate counts toward the family whose centre it lands nearest (all "
-                     f"surrogates when fewer than {NULL_MIN_PER_FAMILY} land); automatic omit_d = "
-                     f"their {NULL_PERCENTILE:g}th percentile; a family is noise-like when its "
-                     f"members' median distance is not below that, unstable when not below the "
-                     f"noise's median")}
+            "kind_by_family": {label[c]: kinds[c] for c in family_of},
+            "rule": (f"per family, the quiet-stretch null where at least half its members got a window from their "
+                     f"own recording: members' median distance to the centre must be below {QUIET_MARGIN} x the "
+                     f"q-quantile of quiet windows' distances to it, q = min(5 %, m / 2n) for a family of m among "
+                     f"n (a placeholder margin); automatic omit_d = the quiet windows' {NULL_PERCENTILE:g}th "
+                     f"percentile. Otherwise (and beside it) the trend-kept null: each fitted row's cubic trend "
+                     f"kept and the rest phase-randomised, {draws} times; a surrogate counts toward the family "
+                     f"whose centre it lands nearest (all surrogates when fewer than {NULL_MIN_PER_FAMILY} land); "
+                     f"automatic omit_d = their {NULL_PERCENTILE:g}th percentile; noise-like when the members' "
+                     f"median distance is not below that, unstable when not below the noise's median. "
+                     f"Caveat of the trend-kept null: {SMOOTH_CAVEAT_KSHAPE}")}
 
     @staticmethod
     def _summary(payload, n, n_ok, k):
@@ -734,7 +959,9 @@ class KShapeMethod:
         sweep (one start per k = 2..12 on at most 2,000 rows, plus their
         square SBD for the silhouette), `n_init` starts of the final k on
         the fitted rows — priced at k = 12 when k is chosen, an upper bound —
-        the rows assigned after the fit, and the null draws."""
+        the rows assigned after the fit, the null draws, and the quiet-stretch
+        null's windows (`quiet_windows_estimate`: priced whenever a null is drawn,
+        since the estimate cannot know whether a background will be handed in)."""
         n = int(n)
         k = int(params.get("k", DEFAULT_K))
         n_init = max(1, int(params.get("n_init", DEFAULT_N_INIT)))
@@ -749,6 +976,9 @@ class KShapeMethod:
         seconds += n_init * final_k * n_fit * C_START
         seconds += (n - n_fit) * final_k * C_PREDICT
         seconds += draws * min(n_fit, NULL_ROWS) * final_k * C_PREDICT
+        # w3-g: the quiet-stretch null's windows (when the caller hands the engine a background)
+        if draws:
+            seconds += quiet_windows_estimate(n) * C_QUIET_WINDOW
         return float(seconds)
 
     def cheaper(self, n, params):

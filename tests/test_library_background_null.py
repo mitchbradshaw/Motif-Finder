@@ -145,6 +145,9 @@ def test_off_disk_and_no_room_members_borrow_are_counted_and_the_share_decides()
     assert not dr.usable and rep["own_share"] < QUIET_MIN_SHARE
     assert "mostly events" in rep["reason"] and "not on disk" in rep["reason"]
     assert all(w is not None and len(w) == 250 for w in dr.windows[0][1:11])
+    # a set that is mostly on a quiet recording is usable
+    ok = mb.draw([0, 0, 0, 1], draws=2)
+    assert ok.usable and ok.report["own_share"] == 0.75
 
 
 def test_a_recording_whose_only_quiet_stretch_is_one_short_gap_has_no_room():
@@ -156,9 +159,6 @@ def test_a_recording_whose_only_quiet_stretch_is_one_short_gap_has_no_room():
     dr = MemberBackground(members, lambda _r: x).draw(range(len(members)), draws=3)
     assert dr.report["n_no_room"] == len(members) and not dr.usable
     assert f"fewer than {QUIET_MIN_DISJOINT} non-overlapping" in dr.report["reason"]
-    # a set that is mostly on a quiet recording is usable
-    ok = mb.draw([0, 0, 0, 1], draws=2)
-    assert ok.usable and ok.report["own_share"] == 0.75
 
 
 def test_sample_background_keeps_its_contract():
@@ -271,8 +271,8 @@ def test_a_recording_mostly_events_falls_back_per_family_and_says_so():
 def test_members_not_on_disk_are_counted_and_the_family_falls_back():
     x, starts = quiet_recording("random_walk", 300, seed=0, shapes=100)
     W = [x[s:s + L].copy() for s in starts[:200]]
-    # three in four members' recordings are gone
-    members = [("x" if i % 4 == 0 else "gone", int(s), int(s) + L) for i, s in enumerate(starts[:200])]
+    # most members' recordings are gone (a quarter of the humps, none of the ramps, are on disk)
+    members = [("x" if i % 8 == 0 else "gone", int(s), int(s) + L) for i, s in enumerate(starts[:200])]
     bg = MemberBackground(members, {"x": x}.get, fs_of=lambda _r: 1.0)
     res = run_grouping([{"member_ref": i, "values": w} for i, w in enumerate(W)], unit="single_motifs",
                        basis="shape-distance", method="hdbscan", background=bg)

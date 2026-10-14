@@ -1244,3 +1244,39 @@ def test_a_one_member_family_says_why_in_words_and_carries_the_null(tmp_path):
     many = lib._family_coherence(index, _rows([(1, 100), (1, 290), (1, 480), (1, 670)], medoid=0))
     assert many["null_median"] is not None and many["svd_entropy_squared_norm"] is not None
     lib._COHERENCE_CACHE.clear()
+
+
+# ── w3-g: the quiet-stretch null on the Family page and in a regroup ─────────
+
+def test_family_coherence_judges_against_the_recordings_quiet_stretches(tmp_path):
+    """`_family_coherence` hands `svd_entropy` the bridge's loader (`_library_background`):
+    windows of the members' own lengths cut from their own recording where no member
+    lies, selected as a family of its size among `n_set`. Its verdict names the null
+    and the background seconds; the trend-kept null travels beside it."""
+    import server.library as lib
+    lib._COHERENCE_CACHE.clear()
+    rng = np.random.default_rng(0)
+    path = tmp_path / "quiet.npy"
+    x = np.cumsum(rng.normal(size=40000)).astype(np.float32)
+    t = np.arange(90) / 90.0
+    starts = list(range(1000, 31000, 1500))
+    for s in starts:
+        x[s:s + 90] += 40.0 * np.sin(np.pi * t)            # a broad hump filling each member's window
+    np.save(path, x)
+    index = {"by_id": {1: {"npy_path": str(path), "held_out": False, "fs": 2.0}}}
+    rows = _rows([(1, s) for s in starts], medoid=0)
+    out = lib._family_coherence(index, rows, n_set=200)
+    assert out["null_kind"] == "quiet-stretch", out.get("why")
+    assert out["background"]["usable"] and out["background"]["background_s"] > 0
+    assert "quiet-stretch null" in out["why"] and "s of event-free background" in out["why"]
+    assert out["nulls"]["trend_kept"] is not None, "the trend-kept null travels beside it"
+    assert [v["name"] for v in out["variants"]] == ["squared", "eq17"], "sigma^2 leads"
+    lib._COHERENCE_CACHE.clear()
+
+
+def test_grouping_items_carry_each_members_span_for_the_quiet_null():
+    import inspect
+    import server.library as lib
+    src = inspect.getsource(lib._grouping_items)
+    assert '"start_idx"' in src and '"end_idx"' in src
+    assert "background=" in inspect.getsource(lib.run_grouping_job), "the regroup job hands the engine its loader"
