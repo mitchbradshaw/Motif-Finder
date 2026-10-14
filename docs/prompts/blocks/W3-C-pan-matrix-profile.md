@@ -47,11 +47,13 @@ Core `Working/Detection/matrix_profiling/pan.py` (beside `fluss.py`); adapter `A
    in units of the null's spread (state the rule). `suggested_window_s` = the length with the largest gap, **only if it
    clears the null** (state that rule too); otherwise `meta` and the summary say "no length stands out". Never default
    to the shortest length: shorter windows find chance matches more easily (RQ3 measured about twice as many matches per
-   null draw at 0.8× as at 1×), and coloured noise repeats at every length — wave 2's lesson is that no fixed floor
-   survives our backgrounds.
-5. **Gaps.** stumpy pads with NaN internally; fill short gaps before the call (reuse snippets' gap handling if W2-D
-   exported it — grep `Working/Detection/matrix_profiling/`), mark long ones, and leave every subsequence that touches a
-   long gap NaN, counted.
+   null draw at 0.8× as at 1×). And at long lengths coloured noise repeats too: a z-normalised hour of a random walk is
+   a smooth ramp or hump, and smooth curves match one another well — wave 2's "smooth shapes" blind spot again. Only
+   the gap to the null, never the raw profile, may decide.
+5. **Gaps.** stumpy pads with NaN internally; fill short gaps before the call with snippets' own gap handling
+   (`Working/Detection/matrix_profiling/snippets.py::fill_nan` — import it), mark long ones, and leave every subsequence
+   that touches a long gap NaN, counted. The rolling-mean detrend upstream is NaN-aware on `main` (`e4a5373`), so a gap
+   arrives as a gap.
 6. **Cost and stopping.** Use the matrix-profile cost model (`Working/Detection/matrix_profiling/cost.py::
    estimate_seconds`; k ≈ 3.5 × 10⁻⁹ s × n² on this machine: ~0.7 s per length for 4 h at 1 Hz, ~26 s for 24 h, ~6.5 h for
    a whole 721 h channel) summed over lengths, × (1 + `null_draws`), × your measured factor for `percentage` < 1. Using

@@ -22,9 +22,11 @@ read-out must never imply otherwise.
 1. **`Working/distances.py::mpdist_distance(x1, x2, …)`**: the MPdist sub-length as a fraction of the **shorter**
    member (`sub_frac`; propose the default and justify it — W2-D's snippets uses 0.35 of a piece, the paper's example
    70 of 200), stumpy's `percentage` (0.05, its default: which order statistic of the joined profile is read — say what
-   it does). Use `stumpy.mpdist` (installed), or W2-D's numba MPdist kernel in
-   `Working/Detection/matrix_profiling/snippets.py` if it exposes a pairwise form — say which and why (W2-D measured
-   that stumpy's form holds a j × n matrix per piece: harmless for members of minutes, fatal for hours).
+   it does). W2-D's numba kernel (`Working/Detection/matrix_profiling/snippets.py::mpdist_profiles`, with
+   `sub_length`) computes the MPdist profile of pieces against a whole series, not the distance between two members;
+   `stumpy.mpdist(T_A, T_B, m)` (installed) is the pairwise form. Use it, or derive the pair from the kernel if that is
+   cleaner — say which and why (W2-D measured that stumpy's form holds a j × n matrix per piece: harmless for members of
+   minutes, fatal for hours). Reuse `sub_length` so "the sub-length" means one thing in both blocks.
 2. **One footing.** RQ3's read-out puts every distance on the native length's footing (`d·√(m/L)`). Put MPdist on a
    stated footing — e.g. ÷ √(2 × sub-length), so it lies in [0, 1] like a normalised distance — and pin it in a test.
 3. **Register it.** `DISTANCE_MPDIST = "mpdist"` in `DISTANCE_REGISTRY`. `tests/test_distances.py` pins the registry to

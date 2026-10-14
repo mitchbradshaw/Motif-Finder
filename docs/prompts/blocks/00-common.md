@@ -145,6 +145,30 @@ The critic reports in `docs/prompts/blocks/reports/W2-*.critic.md` hold the meas
   without a lock. A first call's cost (aeon's import, a numba compile) lands on the first run in each bridge process:
   measure it and say how long.
 
+Wave 2's second round (families, UI) and its evaluation on real recordings (`reports/W2-evaluation.md`) added:
+
+- **Test at the defaults, at realistic sizes, and through the next block.** The families block's no-structure test used
+  non-default settings on 80 events and passed; at the defaults, 46–62 % of random-walk events landed in "families"
+  (each flagged, but the test could not have told). Run the no-structure case at the defaults, on hundreds to a
+  thousand items, and assert on what the next block will read (e.g. that no Intervals key is unmarked).
+- **Automatic lengths are selection rules too.** The families block's automatic window (2 × the median duration)
+  swung between its 60 s floor and its 7,200 s ceiling on the same clean drops, depending only on the noise level; a
+  fixed 600 s worked in every case of the critic's 432-run sweep. Sweep an automatic value the way you sweep a knee.
+- **Choose the null for your shapes, and say what it cannot see.** The Library's shared noise surrogate keeps a cubic
+  trend per member (`Working/library/grouping/methods/kshape.py::trend_kept_surrogates`), so a broad hump or a slow
+  ramp that fills its window keeps its curve in its own fake noise and reads "no more coherent than noise"
+  (`Working/library/coherence.py::SMOOTH_CAVEAT`). And HDBSCAN gathered phase-randomised copies of real cut events into
+  crowds in 17 of 20 draws on one chain. No single surrogate fits every shape: pick the one whose blind spot is not
+  your block's subject, and write the blind spot into the rule.
+- **Mark what failed its own test wherever it travels.** A family that fails its noise test reaches Intervals keyed
+  `~noise_like` (`~untested` when no test ran) so its per-family timing cannot be read as confident
+  (`Working/Catalogue/shape_families.py`: `NOISE_LIKE_SUFFIX`, `UNTESTED_SUFFIX`). Use the same suffixes.
+- **Never re-derive a verdict the core returns.** The Family page compared the score with `null_p05` itself, missed
+  the core's 0.9 margin, and called pure noise coherent. A page reads the core's verdict field (`beyond_noise`).
+- **Producer and consumer agree the payload's exact form.** The families block wrote its exemplars as a list of dicts
+  while the serializer expected `{label: index}`, so every families row failed to draw. State the form in `meta`'s rule
+  or your report; the consumer fails loudly, naming the form it expects.
+
 ## Your report — your final message (do NOT write a report file)
 
 Return, as your final message, in this order:

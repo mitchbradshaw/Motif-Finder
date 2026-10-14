@@ -32,7 +32,12 @@ You are told the worktree path, the branch and the prompt file. Start with
    warning or flag reaches `meta` and the summary line, not only an internal payload (wave 2's "unstable family" flag
    never reached the page). Time the block's `estimate` against the actual run on a realistic span, in a fresh process
    and a warm one: an import or a JIT compile timed as work makes the bridge refuse an 8-second run. The bridge runs
-   jobs on threads: flag process-wide state (numpy's global RNG, numba's thread count) changed without a lock. Check index conventions (SpanSet starts/ends and `*_idx`
+   jobs on threads: flag process-wide state (numpy's global RNG, numba's thread count) changed without a lock. Run
+   the no-structure case **at the block's defaults, on hundreds to a thousand items, and through the next block** —
+   wave 2's families test passed at non-default settings on 80 events while the defaults placed half of all
+   random-walk events in "families". Ask what the block's null cannot see (a trend-kept surrogate keeps a smooth
+   shape's curve; phase-randomised copies of cut events crowd under HDBSCAN) and whether that blind spot is the
+   block's own subject. Check index conventions (SpanSet starts/ends and `*_idx`
    columns span-relative; Scores one value per sample), unit handling (unit-free or stored units, as the prompt
    says; ×1000 scaling), and the drawing conventions of `BLOCK_INTEGRATION.md` §2 (a float param named `threshold`
    only where a draggable absolute cut is meant; `meta["events"]` with `onset_idx`/`trough_idx`; `meta["rules"]`).

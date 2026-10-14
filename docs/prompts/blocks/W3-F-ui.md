@@ -33,7 +33,9 @@ and the pan matrix profile's rows are **window lengths** that need labels. This 
    calibration time first (MiniRocket's took 61.5 s with its warm-up): if any would hold a `POST /api/chain/validate` for
    more than ~10 s, calibrate in the background at bridge start instead, and let the estimate say "calibrating" until it
    lands — your call, stated with the numbers. Extend `tests/test_webui_run_routing.py` (its fake-calibration fixture
-   shows the pattern). **Skip this item if the manager's preflight found it done**, and say so.
+   shows the pattern). While there, fix wave 2's follow-up: Analyse shows "uncalibrated" for **any** estimate that
+   raises, because `route_local` drops the estimate's own words (`errors`; W2-ledger decision 24) — show the estimator's
+   words instead. **Skip what the manager's preflight found done**, and say so.
 3. **MSE curves.** On the Multiscale entropy block page: entropy against scale (log x) from `meta["curves"]`, one line
    per sampled window, the median bold, undefined scales left as gaps (never joined across — drawing rule 1), scales
    the collapse guard flagged marked. Wire it the way `DetectorFunnel` is wired in `analyse/views/registry.tsx`
@@ -43,7 +45,10 @@ and the pan matrix profile's rows are **window lengths** that need labels. This 
 4. **The cycle stack.** On the Cycle shapes block page: `meta["cycle_stack"]` as two heat-maps, before and after
    alignment, one row per cycle in time order, a group-colour strip beside them and the change points marked; under
    them each group's medoid cycle (`exemplar_events`) as a member, in small multiples with per-panel domains and scale
-   bars (drawing rule 4).
+   bars (drawing rule 4). Each group's verdict against its nulls is shown as the block gave it — read the block's
+   verdict fields, never re-derive one from a score and a null (wave 2's Family page did, missed the core's margin and
+   called pure noise coherent). Where the cycle groups can ride wave 2's Event families drawing (W2-F: the family on
+   the trace, `~noise_like` keys), reuse it; the stack is the only new picture.
 5. **Pan matrix profile rows.** The Encoding view labels the rows from `meta["lengths_s"]`. First check what the view
    does with the wavelet transform's `meta["freqs_hz"]`; use **one** convention for both (if it is new, add its row to
    `docs/BLOCK_INTEGRATION.md` §2's conventions table — that one row is handed to you). Show `suggested_window_s` with
@@ -54,12 +59,20 @@ and the pan matrix profile's rows are **window lengths** that need labels. This 
    hash moves — and draw them on its block page. Skip it if time is short, and say so.
 7. **Glyphs** in `analyse/glyphs.tsx` `BY_NAME` for every wave-3 block, from the reports' sketches.
 8. **Smoke states** in `webui/smoke_pages/zz_analyse_run.json`, one per wave-3 template that runs in seconds on the
-   sandbox (short spans; read the w1/w2 states). The first MSE or pan run in a bridge process pays a numba compile —
-   measure it from W3-A/C's reports and set the state's timeout to fit. One state that starts a long pan run, cancels it
-   mid-step and expects the job to read *cancelled*.
-9. **MPdist** (only if W3-D merged): whatever its report says the Family page's per-distance read-out still needs
+   sandbox (short spans; read the w1/w2 states). Wave 2's traps (`reports/W2-F-ui.critic.md` finding 8, and finding 2):
+   - **A template is clickable only once it is seeded.** Wave 3's templates are seeded only if they pass the manager's
+     evaluation, after your branch is written. So build each state's chain by inserting its blocks, as wave 2's
+     event-windows state does, rather than clicking `template-<name>`.
+   - **A second state on an identical hash is a no-op navigation.** Order the states or set `"cold": true`.
+   - **An uncalibrated step routes "unknown" and runs**, and the first MSE or pan run in a bridge process pays a numba
+     compile. Measure both from W3-A/C's reports and size the span and the state's timeout to fit.
+   - **Cancel:** add one state that starts a long pan run, cancels it mid-step, and expects the job to read
+     *cancelled*.
+9. **(Small) the run manager's "event loop closed" warning** after the test loop shuts (`webui/server/runs.py::_emit`;
+   a wave-2 follow-up): you are in that file for item 1 — fix it if it is a one-liner, else say what it needs.
+10. **MPdist** (only if W3-D merged): whatever its report says the Family page's per-distance read-out still needs
    beyond the label it added.
-10. `webui/client/src/api.ts` types for anything new the server sends.
+11. `webui/client/src/api.ts` types for anything new the server sends.
 
 ## Gate (yours)
 
@@ -77,7 +90,7 @@ exactly what each should show; the manager runs smoke on a sandbox bridge after 
 `webui/client/src/analyse/views/registry.tsx` and new components beside `DetectorFunnel.tsx` for items 3–4, the Encoding
 view's component (item 5), `webui/client/src/analyse/glyphs.tsx`, the run panel's progress line (item 1),
 `webui/client/src/api.ts`, `webui/smoke_pages/zz_analyse_run.json`, one row of `docs/BLOCK_INTEGRATION.md` §2 (item 5,
-only if new), `Adapters/detection_cwt_ridges.py` (meta only, item 6), the Family page component (item 9, only if
+only if new), `Adapters/detection_cwt_ridges.py` (meta only, item 6), the Family page component (item 10, only if
 needed), and their tests. Nothing else under `webui/`.
 
 ## Acceptance

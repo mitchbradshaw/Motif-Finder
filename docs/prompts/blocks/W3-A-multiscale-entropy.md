@@ -67,9 +67,9 @@ and recipe hashes — write that paragraph in your docstring.
    the lower and upper halves of the defined scales — Costa Fig. 8's two slopes, restated in seconds), `mse_r` (stored
    units), `mse_n_scales`. Upstream features pass through.
 7. **Gaps.** Interpolate NaN runs up to `max_gap_s` (default a placeholder, e.g. 30 s, labelled); a window with a
-   longer gap is left out (a NaN row), counted, with its reason. Check `git log -- Working/Preprocessing/detrend.py`:
-   if the NaN-aware rolling mean has landed (branch `claude/magical-euler-829723`, 2026-10-14), a gap no longer blanks
-   the whole detrended trace upstream; say in the description which is true on your base.
+   longer gap is left out (a NaN row), counted, with its reason. Upstream, the rolling-mean detrend is NaN-aware on
+   `main` since 2026-10-14 (`e4a5373`: it averages the finite samples, so one gap no longer blanks the whole trace),
+   and the drop detector skips gaps (`1019cf6`) — so a gap reaches your block as a gap, and your block decides.
 8. **Speed.** numba SampEn with the sorted-template trick (sort on the first template coordinate, compare only
    neighbours within r) — **exact counts**, pinned against a naive O(N²) loop. Declare `should_cancel` and
    `on_progress` keyword arguments on `_run` (checked and fired between windows) the way

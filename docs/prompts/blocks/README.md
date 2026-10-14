@@ -56,6 +56,7 @@ Run by a managing session from [`W3-manager.md`](W3-manager.md), the same way as
 | 2 | `W3-D-mpdist.md` | `mpdist`, a fourth Library distance | (Library) | Gharghabi et al. 2018 |
 | not run | `W3-E-wavelet-features.md` | `catalogue.wavelet_features` | WindowSet → WindowSet | Quian Quiroga et al. 2004 (the sorter's features) |
 | 2 | `W3-F-ui.md` | cancel and progress inside a step; every costed block calibrated before routing; MSE curves, the cycle stack, pan-MP row labels, an optional scalogram with ridges; glyphs; smoke states | (UI) | — |
+| 2 | `W3-G-quiet-stretch-null.md` | the Library's families judged against the recording's own quiet stretches; a trend-kept null for k-Shape | (Library, families) | — (wave 2's follow-up) |
 
 Templates proposed: `complexity_fingerprint` (W3-A), `chain_cycles` (W3-B), `motif_lengths` (W3-C). The nulls per
 template are in `W3-manager.md`.
@@ -82,14 +83,37 @@ blocks — and its prompt stays on file for a later wave (re-check it against `m
 - **Process:** worktrees are cut from `origin/main` and must be fast-forwarded to the named base (wave 2's first launch);
   FastAPI tests skip under conda and must be run with `webui/.venv`.
 
-**Before launch — to check and adjust once both rounds of wave 2 have finished:**
+**Adjusted after wave 2 finished** (checked against `main` at `1019cf6`, 2026-10-14, after wave 2's gate and
+`W2-evaluation.md`):
 
-1. W2-B's final `svd_entropy` signature (null, squared variant, alignment rule) and whether it exported a
-   phase-randomised member helper — W3-B imports both.
-2. W2-E's category and shared clustering entry point — W3-B matches the category.
-3. Which wave-2 templates shipped, and with which detector — W3-B's template starts from `noise_threshold`.
-4. Whether W2-D exported gap handling or a pairwise MPdist kernel — W3-C and W3-D reuse them.
-5. Whether `route_local` and `runs.py` were changed by anyone (W3-F items 1–2), and whether the detrend NaN fix merged
-   (W3-A's gap handling).
-6. Wave 2's gate: the pytest and smoke failure sets that become wave 3's baseline; any new lessons from round 2's
-   critics, for `00-common.md`.
+1. **W3-B (cycle shapes) changed its nulls.** Wave 2 measured that the Library's trend-kept noise null keeps a smooth
+   window-filling shape's curve, and that HDBSCAN crowds phase-randomised copies of real events. A cycle is exactly such
+   a shape. So W3-B's verdict null is now a **background null**: pseudo-cycles from the recording's own event-free
+   stretches, which was wave 2's recommendation for smooth shapes. And K > 1 is now gated by a **matched-covariance
+   Gaussian (SigClust)**, which asks "one family that varies, or several?" rather than "noise or not". W3-B also names
+   wave 2's merged helpers exactly: `svd_entropy` with its σ² variant, null and `beyond_noise`; the surrogates in
+   `kshape.py`; `write_group_columns`; the `~noise_like` / `~untested` key suffixes; the `exemplar_events` form.
+2. **What shipped:** only `minirocket_manual_labels`; `event_clusters`, `recording_snippets` and `event_families` are
+   experimental. `noise_threshold` stays W3-B's detector. Wave 2's families on the same chains (rec 6, rec 542) are
+   put beside W3-B's findings.
+3. **Still open, so they stay in W3-F:** cost calibration before routing, in-step cancel and progress, and two wave-2
+   bridge follow-ups (the "uncalibrated" wording, and the event-loop warning). W3-F's smoke states avoid wave 2's traps:
+   templates not yet seeded, and identical-hash navigation.
+4. **Merged upstream:** the NaN-aware detrend and the gap-skipping drop detector. W3-A and W3-C now import snippets'
+   `fill_nan`, and W3-D reuses snippets' `sub_length`.
+5. **The manager brief:**
+   - the preflight is narrowed to what can still move;
+   - the statistics are fixed before any data are seen (wave 2's decision 22);
+   - the bridge starts on `webui/.venv` (conda has no FastAPI);
+   - the machine is kept awake;
+   - a round-2 base branch is allowed when one block's fix round lags.
+6. `00-common.md` and `critic.md` gained round 2's lessons: test at the defaults, at realistic sizes and through the next
+   block; automatic lengths are selection rules; choose the null for your shapes; mark what failed its own test; never
+   re-derive a verdict; agree payload forms.
+
+**Wave 2's follow-ups for wave 3** (`W2-evaluation.md`, "What the researcher should decide"). The researcher chose one
+on 2026-10-14: the **fairer noise test**, i.e. a null from the recording's own quiet stretches and a trend-kept null
+for k-Shape. That is `W3-G`, in round 2, reusing W3-B's sampler. Not chosen for wave 3:
+- re-tuning snippets' chooser;
+- re-testing `event_families` on fresh spans;
+- MiniRocket in Models › Launch.
