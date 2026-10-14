@@ -81,8 +81,9 @@ def test_discover_adapters_registers_the_expected_count():
     # + w2-e's catalogue_shape_families and interrogation_event_families
     # + w3-a's catalogue_multiscale_entropy
     # + w3-b's interrogation_cycle_shapes
-    assert len(module_names) == 56, (
-        f"expected 56 shipped adapter modules, got {len(module_names)}"
+    # + w3-c's detection_pan_matrix_profile
+    assert len(module_names) == 57, (
+        f"expected 57 shipped adapter modules, got {len(module_names)}"
     )
 
     discover_adapters()
