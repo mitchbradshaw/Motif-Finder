@@ -280,6 +280,32 @@ CANONICAL += [
                   _step("preprocessing", "sliding_windows", {"window_s": 259200.0, "gap_s": 0.0}),
                   _step("catalogue", "multiscale_entropy", {})],
     },
+    {
+        "name": "chain_cycles", "kind": "interrogation", "version": 1,
+        "description": "The shape of every cycle of a chain of drops, and where it changes: baseline removal → noise "
+                       "threshold (every stretch more than 4 σ_n below the detrended trace's median, as the "
+                       "noise_threshold template) → Event shape (drops) → Trains (MaxInterval at chain-scale gaps: a "
+                       "train begins at a gap ≤ 1.5 h, continues while gaps ≤ 3 h, trains < 3 h apart merge) → Cycle "
+                       "shapes (each drop-to-drop cycle cut from the raw recording, its drift removed by the chord "
+                       "between its two pre-drop levels, stretched to one length, lined up and sorted into shapes; "
+                       "more than one shape only when the split is two modes, not one shape that varies; each shape "
+                       "becomes its group, marked ~noise_like when no more coherent than pseudo-cycles cut from the "
+                       "recording's quiet stretches) → Intervals (the rhythm of each cycle shape). Read each group's "
+                       "mark before its rhythm: a group is unmarked only when both coherence scores (σ² and eq. 17) "
+                       "beat the quiet stretches, and ~untested when the chain fills its span (no quiet stretch as "
+                       "long as a cycle) or its quiet margins differ in colour from its own noise. Tune Cycle "
+                       "shapes' max_cycle_s first if many cycles are left out as gaps.",
+        "steps": [_step("preprocessing", "detrend", {"mode": "rolling_mean", "window_s": 600.0}),
+                  _step("detection", "noise_threshold", {"k_sigma": 4.0, "direction": "below",
+                                                         "min_duration_s": 30.0, "merge_gap_s": 60.0}),
+                  _step("interrogation", "event_shape", {"polarity": "drop"}),
+                  _step("interrogation", "trains", {"rule": "maxinterval", "mi_begin_gap_s": 5400.0,
+                                                    "mi_end_gap_s": 10800.0, "mi_min_ibi_s": 10800.0,
+                                                    "mi_min_duration_s": 0.0}),
+                  _step("interrogation", "cycle_shapes", {"write_group": True},
+                        side_inputs={"waveform": {"source_kind": "root_signal"}}),
+                  _step("interrogation", "intervals", {})],
+    },
 ]
 
 
