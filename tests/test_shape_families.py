@@ -231,7 +231,7 @@ def test_the_same_seed_gives_the_same_families():
 def test_flags_and_fit_summary_reach_the_result():
     waves, _ = two_shapes(per=40, seed=0)
     res = SF.shape_families(waves, method="hdbscan")
-    assert "null" in res.fit_summary and res.fit_summary["null"]["kind"] == "phase-randomised"
+    assert "null" in res.fit_summary and "phase-randomised" in res.fit_summary["null"]["kind"]
     for fam in res.families:
         assert {"noise_like", "unstable", "tested", "why"} <= set(fam.flags)
     ward = SF.shape_families(waves, method="ward", params={"min_group": 5})

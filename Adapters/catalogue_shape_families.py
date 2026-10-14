@@ -161,9 +161,11 @@ def _run(x, t, fs, method=SF.DEFAULT_METHOD, seed=0, value=None, **flat):
     if (~inside).any():
         meta["omitted"] = {**meta["omitted"], SF.OMIT_OUTSIDE_SPAN: int((~inside).sum())}
     starts = np.asarray(ws.starts, dtype=np.int64)
-    meta["exemplar_windows"] = [
+    # the serializer's format ({"<label>": window index} + exemplar_rule); the richer list under `exemplars`
+    meta["exemplars"] = [
         {"family": f.family, "window": int(win_of[f.medoid_row]), "start": int(starts[win_of[f.medoid_row]]),
          "start_s": float(starts[win_of[f.medoid_row]] / float(fs))} for f in fam.families]
+    meta["exemplar_windows"] = {str(e["family"]): e["window"] for e in meta["exemplars"]}
     meta.update(n_windows=n, vectors_from=vectors_from, span_start=span_start, seconds=round(time.time() - t0, 3))
     if n == 0:
         meta["summary"] = "no windows to group: the step before produced none — see its meta for why"

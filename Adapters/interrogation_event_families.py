@@ -103,9 +103,11 @@ def _run(x, t, fs, anchor=DEFAULT_ANCHOR, length_s=0.0, pre_frac=EW.DEFAULT_PRE_
     meta.update(n_events=n_ev, n_windows=int(len(ew.starts)), fraction_placed=ev.fraction_placed,
                 fraction_confident=ev.fraction_confident, write_group=bool(write_group))
     kept = np.asarray(ew.kept, dtype=np.int64)
-    meta["exemplar_events"] = [
+    # the serializer's format ({"<family>": event index} + exemplar_rule); the richer list under `exemplars`
+    meta["exemplars"] = [
         {"family": f.family, "event": int(kept[f.medoid_row]), "start": int(spans.starts[kept[f.medoid_row]]),
          "start_s": float(spans.starts[kept[f.medoid_row]] / float(fs))} for f in fam.families]
+    meta["exemplar_events"] = {str(e["family"]): e["event"] for e in meta["exemplars"]}
     meta["window"] = {"length_s": ew.length_s, "length": int(ew.length), "anchor": anchor,
                       "anchor_used": ew.anchor_used, "anchor_offset": int(ew.anchor_offset),
                       "anchor_fallback": int(ew.n_fallback), "pre_frac": float(pre_frac),

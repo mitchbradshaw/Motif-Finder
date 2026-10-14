@@ -411,9 +411,11 @@ def rules(method, params):
                                             "method's 0-1 scale: normalised SBD (shape-based distance / 2) for kshape "
                                             "and hdbscan, Ward's normalised scale-invariant distance for ward"},
         {"name": "noise_like", "rule": "the method's own verdict (W2-B), never re-derived here: hdbscan and kshape "
-                                       "refit on phase-randomised surrogates of the members (each window's colour "
-                                       "kept, its shape destroyed) and flag a family no better than them; ward draws "
-                                       "no null and reports its families untested"},
+                                       "compare each family with phase-randomised surrogates of its members (each "
+                                       "window's colour kept, its shape destroyed; hdbscan also keeps a cubic trend, "
+                                       "so a smooth window-filling hump or ramp can read noise-like) and flag a family "
+                                       "no better than them - the exact rule is fit_summary.null.rule; ward draws no "
+                                       "null and reports its families untested"},
         {"name": "svd_entropy", "rule": "per family, Colominas & Wu 2023 eq. 17 (W2-B's svd_entropy): the members' "
                                         "normalised singular-value entropy after aligning each to the medoid, 0 = "
                                         "copies of one shape; beside it the same score on 5 phase-randomised "
