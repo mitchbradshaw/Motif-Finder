@@ -18,8 +18,16 @@ What is pinned:
 * the image holds distances, not stumpy's binarised `PAN_`;
 * rows long first, start alignment, the NaN tail of each row;
 * gaps: short ones bridged, long ones left out and counted;
-* approximate (scrump) runs: never brighter than exact, reproducible, and the
-  global numpy RNG left as it was;
+* the null is amplitude-adjusted: a lopsided recording with no structure
+  (exp of an AR(1)) gets at most 1 suggestion in 10 (W3-C critic F1);
+* no structure at the defaults: at most 2 suggestions in 90 two-hour spans
+  ({random walk, AR(1) 0.99, pink} x 30 seeds) and none in a 4 h set (F2);
+* a stalled logger (a run of one repeated value) is a long gap, not a
+  confident repeat (F4); null profiles only for judged lengths (F6); a
+  constant span says "no spread to measure" without a warning (F7);
+* the band of cleared lengths is reported, and on a dominant 90 s spike the
+  suggestion is within one rung of 90 s (F3); there is no approximate mode
+  (F5);
 * cancel between lengths raises the executor's `RecipeCancelled`, and
   `on_progress` fires per profile.
 
@@ -146,29 +154,135 @@ def test_the_short_motif_does_not_light_the_long_rows_away_from_the_long_motif(p
 
 # ── no structure: no length stands out ──────────────────────────────────────
 
-#: seed 7 was the first choice; AR(1) 0.99 on it at 2 h gives a false suggestion (409 s, gap 6.9) - one of the
-#: ~3 % of no-structure spans the calibration beside `pan.GAP_MIN` counts. The test pins a seed that is quiet on
-#: every kind and span; the rate itself is in the calibration, not here.
-NO_STRUCTURE_SEED = 8
-
-SPANS = {
-    "2h_1Hz": (2 * 3600, 1, 1.0),       # n = 7200: the fewest distinct windows per length
-    "8h_0.5Hz": (8 * 3600, 2, 0.5),     # n = 14400: the manager's 8 h chain spans, decimated
-}
+def _detrended(x):
+    return syn.rolling_mean_removed(x, 7200)          # what the motif_lengths template's detrend leaves
 
 
-@pytest.mark.parametrize("span", sorted(SPANS))
-@pytest.mark.parametrize("kind", ["random_walk", "ar95", "ar99", "pink"])
-def test_no_structure_means_no_length_stands_out(kind, span):
-    n1, dec, fs = SPANS[span]
-    x = syn.no_structure(kind, n1, seed=NO_STRUCTURE_SEED)
-    if dec > 1:
-        x = _decimate(x, dec)
-    out = P.pan_matrix_profile(x, fs)
-    assert out["suggested_window_s"] is None, [(d["length_s"], d["gap"]) for d in out["per_length"]]
-    assert out["verdict"].startswith("no length stands out"), out["verdict"]
-    # judged lengths really were compared (the verdict is not "nothing could be judged")
-    assert sum(d["judged"] for d in out["per_length"]) >= 6
+def _suggests(x, fs=FS):
+    return P.pan_matrix_profile(_detrended(x), fs)["suggested_window_s"] is not None
+
+
+def test_no_structure_at_the_defaults_rarely_suggests_a_length_2h():
+    """The false-suggestion rate at the defaults, not one chosen seed: {random walk, AR(1) 0.99, pink} x 30
+    seeds at 2 h, 1 Hz. At most 2 in 90; at one null draw the rate was 1-7 % (critic F2) and would fail this."""
+    hits = [(kind, s) for kind in ("random_walk", "ar99", "pink") for s in range(30)
+            if _suggests(syn.no_structure(kind, 2 * 3600, seed=500 + s))]
+    assert len(hits) <= 2, hits
+
+
+def test_no_structure_at_the_defaults_4h():
+    hits = [(kind, s) for kind in ("random_walk", "ar99", "pink") for s in range(3)
+            if _suggests(syn.no_structure(kind, 4 * 3600, seed=700 + s))]
+    assert len(hits) <= 1, hits
+
+
+def test_a_lopsided_recording_with_no_structure_is_not_a_repeat():
+    """exp of an AR(1): skewed values, no structure. Plain phase surrogates Gaussianise the values, so this
+    suggested a length 10 times in 10 at 1 and at 20 draws; the amplitude-adjusted null keeps the values."""
+    hits = 0
+    for s in range(10):
+        a = syn.ar1(4 * 3600, 0.97, seed=900 + s)
+        hits += _suggests(np.exp((a - a.mean()) / a.std()))
+    assert hits <= 1, hits
+
+
+def test_the_null_is_amplitude_adjusted_by_default_and_phase_is_on_offer():
+    x = _small()
+    out = P.pan_matrix_profile(x, FS, min_window_s=20, max_window_s=60, n_lengths=2)
+    assert out["null"] == "aaft" and out["null_draws"] == 3
+    P.pan_matrix_profile(x, FS, min_window_s=20, max_window_s=60, n_lengths=2, null="phase")
+    with pytest.raises(ValueError, match="null"):
+        P.pan_matrix_profile(x, FS, min_window_s=20, max_window_s=60, n_lengths=2, null="shuffle")
+    # an AAFT copy is a permutation of the recording's own values; a phase copy is not
+    z = P.null_copy(x, np.zeros(len(x), bool), 0, 0, "aaft")
+    np.testing.assert_array_equal(np.sort(z), np.sort(x))
+    zp = P.null_copy(x, np.zeros(len(x), bool), 0, 0, "phase")
+    assert not np.array_equal(np.sort(zp), np.sort(x))
+
+
+def test_there_is_no_approximate_mode():
+    import inspect
+    assert "percentage" not in inspect.signature(P.pan_matrix_profile).parameters
+    assert not hasattr(P, "scrump_cost_factor")
+
+
+def test_a_stalled_logger_is_a_long_gap_not_a_repeat():
+    x = syn.no_structure("random_walk", 2 * 3600, seed=3)
+    x = _detrended(x)
+    x[3000:4200] = x[3000]                                    # 20 min of one held value
+    out = P.pan_matrix_profile(x, FS)
+    assert out["n_stalled"] == 1200 and out["n_long_gap"] >= 1200
+    assert out["suggested_window_s"] is None, out["verdict"]
+    for d in out["per_length"]:
+        m = d["m"]
+        assert np.all(np.isnan(out["image"][d["row"], max(0, 3000 - m + 1):4200]))
+    # a few repeated samples (a quantised quiet stretch) are not a stall
+    y = _small().copy()
+    y[100:104] = y[100]
+    assert P.pan_matrix_profile(y, FS, min_window_s=20, max_window_s=40, n_lengths=2, null_draws=0)["n_stalled"] == 0
+
+
+def test_a_constant_span_says_there_is_no_spread_without_a_warning():
+    import warnings
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        out = P.pan_matrix_profile(np.full(4 * 3600, 2.5), FS)
+    assert out["suggested_window_s"] is None
+    assert out["verdict"].startswith("no spread to measure")
+    assert out["reasons"] == {"no_spread": len(out["per_length"])}
+    assert all(d["reason_code"] == "no_spread" for d in out["per_length"])
+
+
+def test_reasons_are_counted_separately():
+    out = P.pan_matrix_profile(syn.no_structure("ar97", 4 * 3600, seed=5), FS)
+    assert sum(out["reasons"].values()) == len(out["per_length"])
+    assert out["reasons"].get("too_long", 0) == sum(1 for d in out["per_length"] if not P.judgeable(4 * 3600, d["m"]))
+    assert set(out["reasons"]) <= set(P.REASONS)
+
+
+def test_null_profiles_are_drawn_only_for_lengths_that_can_be_judged():
+    n = 4 * 3600
+    seen = []
+    out = P.pan_matrix_profile(syn.no_structure("ar97", n, seed=1), FS, null_draws=2,
+                               on_progress=lambda d, t, s: seen.append((d, t, s)))
+    judged = sum(1 for m in out["lengths_samples"] if P.judgeable(n, m))
+    assert judged < len(out["lengths_samples"])
+    assert seen[-1][:2] == (len(out["lengths_samples"]) + 2 * judged,) * 2
+    assert not any("null" in s for _, _, s in seen if s.startswith("length 3600 s"))
+    assert P.profile_units(n, FS, null_draws=2) == len(out["lengths_samples"]) + 2 * judged
+
+
+# ── what the suggestion means ───────────────────────────────────────────────
+
+LADDER = [m for m in P.window_lengths(4 * 3600, 1.0, 30, 3600, 12)[0]]
+
+
+def _rung(seconds):
+    return int(np.argmin(np.abs(np.log(np.asarray(LADDER) / seconds))))
+
+
+def test_the_band_of_cleared_lengths_is_reported(planted):
+    _, _, _, out = planted
+    cs = out["cleared_s"]
+    assert cs == sorted(cs) and cs == sorted(d["length_s"] for d in out["per_length"] if d["clears"])
+    assert out["suggested_window_s"] in cs
+    assert out["verdict"].startswith("clears from" if len(cs) > 1 else "clears at")
+    assert "strongest at" in out["verdict"]
+
+
+@pytest.mark.parametrize("seed", range(3))
+def test_on_a_dominant_spike_the_suggestion_is_within_one_rung_of_its_length(seed):
+    """12 copies of a 90 s spike on AR(1) 0.97 (4 h): a spike that dominates a z-normalised window makes every
+    LONGER window holding it repeat too, so the strongest gap leaned to 16 min (critic F3); the suggestion
+    must name the spike's own scale, within one rung of 90 s."""
+    rng = np.random.default_rng(10_000 + seed)
+    x = syn.ar1(4 * 3600, 0.97, seed)
+    for p in np.sort(rng.choice(np.arange(300, 4 * 3600 - 300, 400), size=12, replace=False)):
+        x[p:p + syn.SHORT_M] += syn.short_motif()
+    out = P.pan_matrix_profile(_detrended(x), FS)
+    s = out["suggested_window_s"]
+    assert s is not None, out["verdict"]
+    assert abs(_rung(s) - _rung(90)) <= 1, (s, out["cleared_s"])
 
 
 def test_the_shortest_length_is_never_a_fallback():
@@ -282,28 +396,6 @@ def test_an_all_nan_span_is_refused_in_words():
 
 # ── approximate ─────────────────────────────────────────────────────────────
 
-def test_approximate_is_never_brighter_than_exact_and_is_reproducible():
-    x = _small()
-    kw = dict(min_window_s=30, max_window_s=60, n_lengths=2, null_draws=0)
-    exact = P.pan_matrix_profile(x, FS, **kw)["image"]
-    before = np.random.get_state()
-    a = P.pan_matrix_profile(x, FS, percentage=0.2, seed=4, **kw)["image"]
-    after = np.random.get_state()
-    b = P.pan_matrix_profile(x, FS, percentage=0.2, seed=4, **kw)["image"]
-    ok = np.isfinite(exact)
-    assert np.all(a[ok] <= exact[ok] + 1e-5)
-    np.testing.assert_array_equal(a, b)
-    assert before[0] == after[0] and np.array_equal(before[1], after[1]) and before[2] == after[2]
-
-
-def test_scrump_cost_factor():
-    assert P.scrump_cost_factor(1.0, 60) == 1.0
-    # prescrump's share falls with the window: approximate is dearer than exact on short windows, cheaper on long
-    assert P.scrump_cost_factor(0.1, 30) > 1.0
-    assert P.scrump_cost_factor(0.1, 600) < 1.0
-    assert P.scrump_cost_factor(0.1, 600) < P.scrump_cost_factor(0.5, 600)
-
-
 # ── stopping and progress ───────────────────────────────────────────────────
 
 def test_progress_fires_per_profile_and_cancel_stops_between_lengths():
@@ -316,7 +408,8 @@ def test_progress_fires_per_profile_and_cancel_stops_between_lengths():
     seen = []
     P.pan_matrix_profile(x, FS, min_window_s=20, max_window_s=200, n_lengths=4, null_draws=2,
                          on_progress=lambda d, t, s: seen.append((d, t, s)))
-    assert len(seen) == 12 and seen[-1][:2] == (12, 12)
+    judged = sum(1 for m in out["lengths_samples"] if P.judgeable(len(x), m))
+    assert len(seen) == 4 + 2 * judged and seen[-1][:2] == (4 + 2 * judged,) * 2
 
     calls = []
     with pytest.raises(RecipeCancelled, match="cancelled"):

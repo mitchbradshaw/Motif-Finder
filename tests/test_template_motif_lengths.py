@@ -57,8 +57,8 @@ TEMPLATE = {
         {"stage": "preprocessing", "algorithm": "detrend",
          "params": {"mode": "rolling_mean", "window_s": 7200.0}},
         {"stage": "detection", "algorithm": "pan_matrix_profile",
-         "params": {"min_window_s": 30.0, "max_window_s": 3600.0, "n_lengths": 12, "percentage": 1.0,
-                    "null_draws": 1, "seed": 0, "max_fill_s": 5.0}},
+         "params": {"min_window_s": 30.0, "max_window_s": 3600.0, "n_lengths": 12, "null_draws": 3,
+                    "null": "aaft", "seed": 0, "max_fill_s": 5.0}},
     ],
 }
 
@@ -96,6 +96,8 @@ def test_template_is_a_two_step_encoding_chain():
     detrend_s = TEMPLATE["steps"][0]["params"]["window_s"]
     assert detrend_s > TEMPLATE["steps"][1]["params"]["max_window_s"]
     assert "max_window_s" in TEMPLATE["description"] and "No length stands out" in TEMPLATE["description"]
+    assert "amplitude-adjusted" in TEMPLATE["description"]
+    assert "chain" in TEMPLATE["description"]                     # what an 8 h span cannot judge
 
 
 def test_the_template_finds_the_planted_lengths_end_to_end(run_on):

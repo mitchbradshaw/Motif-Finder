@@ -53,8 +53,14 @@ def test_spec_is_a_signal_to_image_encoding_block():
     assert spec.estimate is not None and spec.max_span_samples is not None
     assert spec.recommend is not None and spec.derive is not None
     defaults = spec.validate_params({})
-    assert defaults == {"min_window_s": 30.0, "max_window_s": 3600.0, "n_lengths": 12, "percentage": 1.0,
-                        "null_draws": 1, "seed": 0, "max_fill_s": 5.0}
+    assert defaults == {"min_window_s": 30.0, "max_window_s": 3600.0, "n_lengths": 12, "null_draws": 3,
+                        "null": "aaft", "seed": 0, "max_fill_s": 5.0}
+    with pytest.raises(ValueError):
+        spec.validate_params({"percentage": 0.5})                 # no approximate mode (F5)
+    d = spec.description
+    assert "amplitude-adjusted" in d
+    assert "m − 1" in d and "starting at" in d                    # the summed band's NaN tail; column i (F8)
+    assert "8 h" in d and "chain" in d                            # what an 8 h span cannot judge (F3)
     assert "max_window_s" in spec.description and "no length stands out" in spec.description
 
 
@@ -84,10 +90,15 @@ def test_no_structure_says_so_in_meta_and_the_summary():
     assert "no length stands out" in res.meta["summary"]
 
 
-def test_approximate_is_said_on_the_face():
-    res = _run(_small(), min_window_s=30, max_window_s=60, n_lengths=2, percentage=0.3, null_draws=0)
-    assert res.meta["approximate"] is True
-    assert "APPROXIMATE" in res.meta["summary"] and "upper bound" in res.meta["approximate_note"]
+def test_the_band_and_the_suggestion_caveat_are_on_the_face():
+    x, _, _ = syn.planted(4 * 3600, seed=0)
+    res = _run(x)
+    m = res.meta
+    assert m["cleared_s"] and m["suggested_window_s"] in m["cleared_s"]
+    assert "clears" in m["summary"] and "strongest at" in m["summary"]
+    rules = {r["name"]: r["rule"] for r in m["rules"]}
+    assert "suggested window" in rules and "not the event" in rules["suggested window"]
+    assert m["null"] == "aaft" and "reasons" in m and "n_stalled" in m
 
 
 def test_estimate_is_the_matrix_profile_model_times_the_profiles(monkeypatch):
@@ -105,11 +116,12 @@ def test_estimate_is_the_matrix_profile_model_times_the_profiles(monkeypatch):
         json.dump({cost._calibration_key("stump"): {"k": k, "n0": 1}}, f)
     one = k * len(x) ** 2
     est = spec.estimate(x, t, FS, **spec.validate_params({}))
-    assert est == pytest.approx(one * 12 * 2)                                 # 12 lengths x (1 + 1 draw)
+    from Working.Detection.matrix_profiling import pan as PP
+    judged = sum(1 for m in PP.window_lengths(len(x), FS, 30, 3600, 12)[0] if PP.judgeable(len(x), m))
+    assert judged < 12
+    assert est == pytest.approx(one * (12 + 3 * judged))     # every length once; 3 null draws per judged length
     est0 = spec.estimate(x, t, FS, **spec.validate_params({"null_draws": 0, "n_lengths": 6}))
     assert est0 == pytest.approx(one * 6)
-    approx = spec.estimate(x, t, FS, **spec.validate_params({"percentage": 0.1}))
-    assert approx < est
 
 
 def test_the_first_call_in_a_process_adds_stumpys_compile_time():
