@@ -2274,6 +2274,19 @@ class GroupingSaveBody(BaseModel):
     fit_summary: dict | None = None
 
 
+def _grouping_item_count(conn, unit_db, limit=None) -> int:
+    """How many rows `_grouping_items` would read, without reading a waveform —
+    what the cost estimate is made on before a regroup job starts."""
+    if unit_db == "sequences":
+        n = int(conn.execute("SELECT COUNT(*) FROM sequences").fetchone()[0])
+    else:
+        scale = "train" if unit_db == "spike_trains" else "event"
+        n = int(conn.execute(
+            "SELECT COUNT(*) FROM motif_member mm JOIN motif_entry me ON me.id = mm.entry_id "
+            "WHERE me.scale = ? OR (me.scale IS NULL AND ? = 'event')", (scale, scale)).fetchone()[0])
+    return min(n, int(limit)) if limit else n
+
+
 def _grouping_items(conn, index, unit_db, limit=None):
     """The items the engine groups, with their waveforms read off disk."""
     if unit_db == "sequences":
@@ -2321,6 +2334,29 @@ def run_grouping_job(request: Request, body: GroupingRunBody):
     if unit_db not in ("single_motifs", "sequences", "spike_trains"):
         raise HTTPException(status_code=400, detail=f"unknown grouping unit {body.unit!r}")
 
+    # w2-b fix round 1: the cost is estimated BEFORE any job starts, from the method's own
+    # `estimate`, on the member count (an upper bound: held-out or off-disk members drop out
+    # later). Over the local limit the request is refused with the estimate and cheaper settings.
+    conn = _conn(request)
+    try:
+        n_items = _grouping_item_count(conn, unit_db, body.limit)
+    finally:
+        conn.close()
+    try:
+        cost = engine_mod._recompute_cost(n_items, body.basis, body.method, body.params)
+    except KeyError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    if cost["seconds"] > engine_mod.LOCAL_LIMIT_SECONDS:
+        raise HTTPException(status_code=422, detail={
+            "message": (f"{body.method} on {n_items} members is estimated at "
+                        f"{cost['minutes']:.0f} min, over the {engine_mod.LOCAL_LIMIT_SECONDS // 60} min "
+                        f"limit for running here; there is no cluster script for groupings, so "
+                        f"choose cheaper settings"),
+            "estimateSeconds": cost["seconds"], "localLimitSeconds": engine_mod.LOCAL_LIMIT_SECONDS,
+            "members": n_items,
+            "cheaper": engine_mod.cheaper_settings(n_items, body.basis, body.method, body.params),
+        })
+
     def _work(job):
         conn = corpus.connect(rt.db_path)
         try:
@@ -2337,8 +2373,12 @@ def run_grouping_job(request: Request, body: GroupingRunBody):
             # database's row type, which is what lets it be tested without one.
             edits = [dict(e) for e in hand_edits_mod.active_edits(conn, None)]
             job.progress(2, 4, "grouping")
-            preview = engine_mod.preview(items, unit=unit_db, basis=body.basis,
-                                         method=body.method, params=body.params, hand_edits=edits)
+            try:
+                preview = engine_mod.preview(items, unit=unit_db, basis=body.basis,
+                                             method=body.method, params=body.params, hand_edits=edits,
+                                             should_cancel=job.cancel_event.is_set)
+            except engine_mod.GroupingCancelled:
+                return None
             job.progress(3, 4, "measuring")
             result = preview.result
             assignments = [

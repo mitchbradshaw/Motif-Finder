@@ -118,7 +118,7 @@ import numpy as np
 
 from Working.distances import sbd_matrix
 from Working.library.grouping.engine import (OMIT_INFINITE_VALUES, OMIT_MISSING_VALUES,
-                                             OMIT_PAST_CUT)
+                                             OMIT_PAST_CUT, GroupingCancelled)
 from Working.library.grouping.methods import FitResult, register
 from Working.library.grouping.methods.ward import RESAMPLE_LENGTH, shape_vectors
 
@@ -146,6 +146,16 @@ MAX_ITER = 100                # Alg. 3
 # `dtype`): half the time on the Library's sizes, ~1e-6 on a [0, 1] scale.
 FIT_DTYPE = np.float32
 TOL = 1e-6                    # aeon's default stopping tolerance on the summed distance
+
+# Cost (fix round 1, item 3), measured on this machine with FIT_DTYPE under load
+# from other jobs (2026-10-14): one k-Shape start costs about C_START seconds per
+# row x centre — 2,000 rows: 3.7 s at k = 3, 6.9 s at k = 6, 13.6 s at k = 12;
+# 3,600 rows: 17.8 s at k = 6, 29.8 s at k = 12 (5.7e-4 to 8.3e-4). Measuring
+# rows against centroids (predict, the null) costs C_PREDICT per row x centre.
+# The square SBD the silhouette needs costs C_PAIR per ordered pair.
+C_START = 8.0e-4
+C_PREDICT = 2.0e-5
+C_PAIR = 3.2e-6
 
 # aeon's `z_normalise_series`: a row whose standard deviation is at or below
 # this is centred but not scaled.
@@ -341,7 +351,7 @@ def _one_start(X, k, rng, max_iter, tol, dtype):
 
 
 def kshape_fit(X, k, *, n_init=DEFAULT_N_INIT, seed=DEFAULT_SEED, max_iter=MAX_ITER, tol=TOL,
-               dtype=np.float64):
+               dtype=np.float64, should_cancel=None):
     """k-Shape on the rows of `X` (n x L, equal lengths). Returns a dict:
     `labels` (n,) in 0..k-1, `centroids` (k x L, z-normalised), `inertia`
     (summed SBD to the own centroid, on SBD's [0, 2] scale), `n_iter`,
@@ -362,6 +372,8 @@ def kshape_fit(X, k, *, n_init=DEFAULT_N_INIT, seed=DEFAULT_SEED, max_iter=MAX_I
     master = check_random_state(seed)
     best = None
     for _ in range(max(1, int(n_init))):
+        if should_cancel is not None and should_cancel():
+            raise GroupingCancelled("cancelled between k-Shape starts")
         rng = check_random_state(master.randint(0, np.iinfo(np.int32).max))
         run = _one_start(X, k, rng, int(max_iter), float(tol), dtype)
         if best is None or run[2] < best[2]:
@@ -391,8 +403,9 @@ def _silhouette(D, labels):
     return float(silhouette_score(D, labels, metric="precomputed"))
 
 
-def choose_k(X, *, k_range=K_RANGE, n_init=DEFAULT_N_INIT, seed=DEFAULT_SEED,
-             min_group=DEFAULT_MIN_GROUP, silhouette_sample=SILHOUETTE_SAMPLE, dtype=np.float64):
+def choose_k(X, *, k_range=K_RANGE, n_init=1, seed=DEFAULT_SEED,
+             min_group=DEFAULT_MIN_GROUP, silhouette_sample=SILHOUETTE_SAMPLE, dtype=np.float64,
+             should_cancel=None):
     """Fit k-Shape at every k in `k_range` and pick one by the rule in the
     module docstring. Each k is fitted AND scored on the same seeded
     subsample of at most `silhouette_sample` rows (all rows when there are
@@ -414,7 +427,7 @@ def choose_k(X, *, k_range=K_RANGE, n_init=DEFAULT_N_INIT, seed=DEFAULT_SEED,
 
     fits, scores = {}, []
     for k in range(lo, hi + 1):
-        fit = kshape_fit(Xs, k, n_init=n_init, seed=seed, dtype=dtype)
+        fit = kshape_fit(Xs, k, n_init=n_init, seed=seed, dtype=dtype, should_cancel=should_cancel)
         fits[k] = fit
         sizes = sorted(np.bincount(fit["labels"], minlength=k).tolist(), reverse=True)
         scores.append({
@@ -423,6 +436,7 @@ def choose_k(X, *, k_range=K_RANGE, n_init=DEFAULT_N_INIT, seed=DEFAULT_SEED,
             "sizes": sizes,
             "inertia": fit["inertia"],
             "qualifies": sum(1 for size in sizes if size >= floor) >= 2,
+            "starts": int(n_init),
         })
 
     scored = [sc for sc in scores if sc["silhouette"] is not None]
@@ -445,11 +459,6 @@ def choose_k(X, *, k_range=K_RANGE, n_init=DEFAULT_N_INIT, seed=DEFAULT_SEED,
 # --------------------------------------------------------------------------
 # The grouping method
 # --------------------------------------------------------------------------
-
-class GroupingCancelled(Exception):
-    """Raised between starts or null draws when the caller's `should_cancel()`
-    says the job was cancelled; the regroup job turns it into a cancel."""
-
 
 class KShapeMethod:
     """k-Shape on Ward's shape vectors, under the shape-based distance."""
@@ -551,19 +560,26 @@ class KShapeMethod:
             k, result = 1, kshape_fit(V_fit, 1, n_init=1, seed=seed)
             payload["k_rule"] = f"k = 1: {n_fit} fitted row(s) are too few to choose k"
         elif k_param <= 0:
-            k, fits, scores, rule, sweep_rows = choose_k(V_fit, n_init=n_init, seed=seed,
-                                                         min_group=min_group, dtype=FIT_DTYPE)
-            payload["k_scores"], payload["k_rule"] = scores, rule
+            # fix round 1: ONE start per candidate k on the subsample (a named
+            # adaptation — ten starts x eleven k took 19 min at 3,603), then the
+            # chosen k alone gets `n_init` starts on every fitted row
+            k, fits, scores, rule, sweep_rows = choose_k(V_fit, n_init=1, seed=seed,
+                                                         min_group=min_group, dtype=FIT_DTYPE,
+                                                         should_cancel=should_cancel)
+            payload["k_scores"] = scores
+            payload["k_rule"] = rule + f"; one start per candidate k, then {n_init} for the chosen k"
             if k is None:
                 k, result = 1, kshape_fit(V_fit, 1, n_init=1, seed=seed)
-                payload["k_rule"] = rule + "; k = 1"
-            elif len(sweep_rows) == n_fit:
+                payload["k_rule"] += "; k = 1"
+            elif len(sweep_rows) == n_fit and n_init <= 1:
                 result = fits[k]
             else:
-                result = kshape_fit(V_fit, k, n_init=n_init, seed=seed, dtype=FIT_DTYPE)
+                result = kshape_fit(V_fit, k, n_init=n_init, seed=seed, dtype=FIT_DTYPE,
+                                    should_cancel=should_cancel)
         else:
             k = min(k_param, n_fit)
-            result = kshape_fit(V_fit, k, n_init=n_init, seed=seed, dtype=FIT_DTYPE)
+            result = kshape_fit(V_fit, k, n_init=n_init, seed=seed, dtype=FIT_DTYPE,
+                                should_cancel=should_cancel)
             payload["k_rule"] = (f"k = {k} as set" if k == k_param
                                  else f"k = {k}: {k_param} asked for, only {n_fit} rows fitted")
 
@@ -583,7 +599,8 @@ class KShapeMethod:
         payload["cluster"][ok] = labels
         payload["dist"][ok] = dist / SBD_SCALE
         payload.update(k=int(k), centroids=result["centroids"], inertia=result["inertia"],
-                       n_iter=result["n_iter"], family_of_cluster=family_of_cluster)
+                       n_iter=result["n_iter"], family_of_cluster=family_of_cluster,
+                       final_starts=int(n_init) if not (k_param <= 0 and k == 1) else 1)
         draws = int(params.get("null_draws", NULL_DRAWS))
         self._null(payload, V_fit, labels, dist / SBD_SCALE, k, seed, draws, should_cancel)
         payload["fit_summary"] = self._summary(payload, n, n_ok, k)
@@ -658,6 +675,42 @@ class KShapeMethod:
                 "k_rule": payload["k_rule"], "k_scores": payload.get("k_scores", []),
                 "null": payload.get("null"),
                 "assigned_by": "nearest family centroid by shape-based distance (k-Shape's predict)"}
+
+    # ----------------------------------------------------------- estimate
+
+    def estimate(self, n, params, basis=None):
+        """Seconds to fit n items (coefficients above `C_START`): the auto-k
+        sweep (one start per k = 2..12 on at most 2,000 rows, plus their
+        square SBD for the silhouette), `n_init` starts of the final k on
+        the fitted rows — priced at k = 12 when k is chosen, an upper bound —
+        the rows assigned after the fit, and the null draws."""
+        n = int(n)
+        k = int(params.get("k", DEFAULT_K))
+        n_init = max(1, int(params.get("n_init", DEFAULT_N_INIT)))
+        n_fit = min(n, int(params.get("sample", DEFAULT_SAMPLE)) or n)
+        draws = max(0, int(params.get("null_draws", NULL_DRAWS)))
+        final_k = k if k > 0 else K_RANGE[1]
+        seconds = 0.0
+        if k <= 0:
+            n_sweep = min(n_fit, SILHOUETTE_SAMPLE)
+            seconds += sum(range(K_RANGE[0], K_RANGE[1] + 1)) * n_sweep * C_START
+            seconds += n_sweep * n_sweep * C_PAIR
+        seconds += n_init * final_k * n_fit * C_START
+        seconds += (n - n_fit) * final_k * C_PREDICT
+        seconds += draws * min(n_fit, NULL_ROWS) * final_k * C_PREDICT
+        return float(seconds)
+
+    def cheaper(self, n, params):
+        """What a refusal can offer instead, cheapest change first."""
+        out = []
+        if int(params.get("k", DEFAULT_K)) <= 0:
+            out.append(("set k (6) instead of choosing it", {"k": 6}))
+        if int(params.get("n_init", DEFAULT_N_INIT)) > 3:
+            out.append(("3 random starts", {"n_init": 3}))
+        if int(params.get("sample", DEFAULT_SAMPLE)) > 2000:
+            out.append(("fit on 2,000 members, assign the rest", {"sample": 2000}))
+        out.append(("k = 6, 3 starts, fit on 2,000", {"k": 6, "n_init": 3, "sample": 2000}))
+        return out
 
     # ------------------------------------------------------------- assign
 

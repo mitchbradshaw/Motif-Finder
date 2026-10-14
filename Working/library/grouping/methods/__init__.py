@@ -39,8 +39,16 @@ and implementing:
         the tree's merge heights for the editor's histogram, `[]` when the
         method builds no tree.
 
+    estimate(n, params, basis=None) -> seconds
+        what fitting n items with these params costs on this machine, from
+        measured coefficients stated in the method's module. The bridge asks
+        BEFORE starting a regroup job and refuses one over the local limit.
+
 A distance method additionally offers `medoid(fit, indices)`; the engine uses
-it when it is there and falls back to the first member when it is not.
+it when it is there and falls back to the first member when it is not. A
+method may offer `cheaper(n, params)` -> [(words, param update)] for the
+refusal to suggest, and `fit(..., should_cancel=callable)` to stop between
+its expensive steps (raising `engine.GroupingCancelled`).
 """
 
 import importlib

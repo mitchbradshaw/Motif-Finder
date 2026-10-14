@@ -80,7 +80,8 @@ from Working.distances import sbd_matrix
 from Working.library.grouping.engine import (OMIT_INFINITE_VALUES, OMIT_MISSING_VALUES,
                                              OMIT_NOT_IN_A_DENSE_FAMILY)
 from Working.library.grouping.methods import FitResult, register
-from Working.library.grouping.methods.kshape import (SBD_SCALE, GroupingCancelled, NormalisedSBD,
+from Working.library.grouping.engine import GroupingCancelled
+from Working.library.grouping.methods.kshape import (SBD_SCALE, NormalisedSBD,
                                                      _z_rows, null_rng, phase_randomised_rows,
                                                      sample_positions, screen_rows)
 from Working.library.grouping.methods.ward import (RESAMPLE_LENGTH, condensed_distances,
@@ -99,6 +100,17 @@ SELECTIONS = ("eom", "leaf")
 DISTANCES = ("sbd", "euclidean")
 
 NULL_DRAWS = 3                    # the manager's R = 3 phase-randomised draws
+
+# Cost (fix round 1, item 3), measured on this machine (2026-10-14, loaded by
+# other jobs; the earlier unloaded runs were ~2x faster): the square SBD matrix
+# 3.2e-6 s per ordered pair at 2,000 rows (12.8 s; 4.9 s unloaded), sklearn's
+# HDBSCAN on it 1.4e-6 s per pair (5.5 s); the rows assigned after the fit
+# 2.3e-6 s per (row, fitted member) — the 20,000-item run's 15,000 x 5,000
+# pairs. Mid-range values are used: a refusal on a loaded machine is cheaper
+# than a 20-minute run that was promised as 8.
+C_SQUARE = 2.0e-6
+C_CLUSTER = 1.0e-6
+C_CROSS = 2.5e-6
 
 # rows of the not-fitted set compared against the fitted members at once
 _ASSIGN_BLOCK = 2000
@@ -375,6 +387,26 @@ class HDBSCANMethod:
                 "null": p.get("null"),
                 "assigned_by": ("the family of the nearest fitted member, when within that "
                                 "family's largest core distance; else not_in_a_dense_family")}
+
+    # ----------------------------------------------------------- estimate
+
+    def estimate(self, n, params, basis=None):
+        """Seconds: the fitted matrix and its clustering, once for the data and
+        once per null draw, plus the rows assigned after the fit."""
+        n = int(n)
+        n_fit = min(n, int(params.get("sample", DEFAULT_SAMPLE)) or n)
+        draws = max(0, int(params.get("null_draws", NULL_DRAWS)))
+        square = n_fit * n_fit * (C_SQUARE + C_CLUSTER)
+        return float((1 + draws) * square + (n - n_fit) * n_fit * C_CROSS)
+
+    def cheaper(self, n, params):
+        out = []
+        if int(params.get("null_draws", NULL_DRAWS)) > 1:
+            out.append(("1 noise draw instead of 3 (a weaker null)", {"null_draws": 1}))
+        if int(params.get("sample", DEFAULT_SAMPLE)) > 2000:
+            out.append(("fit on 2,000 members, assign the rest", {"sample": 2000}))
+        out.append(("fit on 2,000 members and 1 noise draw", {"sample": 2000, "null_draws": 1}))
+        return out
 
     # ------------------------------------------------------------- assign
 

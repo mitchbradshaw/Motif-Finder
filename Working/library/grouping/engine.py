@@ -253,8 +253,25 @@ def _validate(unit, basis, method_name):
     return method
 
 
-def run_grouping(items, *, unit, basis, method, params=None):
+class GroupingCancelled(Exception):
+    """Raised by a method between its starts or null draws when the caller's
+    `should_cancel()` returns true; the regroup job turns it into a cancel."""
+
+
+def _accepts_cancel(method):
+    import inspect
+    try:
+        return "should_cancel" in inspect.signature(method.fit).parameters
+    except (TypeError, ValueError):
+        return False
+
+
+def run_grouping(items, *, unit, basis, method, params=None, should_cancel=None):
     """Group `items` and return a `GroupingResult`.
+
+    `should_cancel`, a no-argument callable, is handed to a method whose `fit`
+    accepts it (k-Shape checks it between starts and candidate k, HDBSCAN
+    between null draws); it raises `GroupingCancelled`.
 
     `items` are plain dicts (see the module docstring for the keys). The
     result carries one `Assignment` per input item in input order — including
@@ -287,8 +304,10 @@ def run_grouping(items, *, unit, basis, method, params=None):
         assignments[index].omit_reason = reason
 
     if taking_part:
-        fit = method.fit(_extract([items[i] for i in taking_part], basis, params),
-                         params=params)
+        fit_kwargs = {"params": params}
+        if should_cancel is not None and _accepts_cancel(method):
+            fit_kwargs["should_cancel"] = should_cancel
+        fit = method.fit(_extract([items[i] for i in taking_part], basis, params), **fit_kwargs)
         assign_kwargs = {"cut": params.get("cut")}
         if "omit_d" in method.params:
             # the method's own default: Ward's is spec 9.10's 0.50, k-Shape's is
@@ -408,23 +427,62 @@ def _sort_key(family_id):
 # preview
 # --------------------------------------------------------------------------
 
-def _recompute_cost(n, basis):
-    """An estimate of what applying this grouping costs, for the preview's
-    `recompute` line and for the editor's decision to offer a cluster script
-    instead of running it locally. Deliberately crude and deliberately
-    visible: the spec gives no cost model, so this one is stated here rather
-    than hidden behind a fixture."""
-    kind = bases.BASES[basis][0]
+def _formula_seconds(n, basis):
+    """The original, method-blind formula: a distance basis is quadratic in
+    the member count, a bin or a label linear. Ward's `estimate` is this, and
+    it is the fallback for a method that carries no `estimate`."""
+    kind = bases.BASES[basis][0] if basis in bases.BASES else "distance"
     if kind == "distance":
         per_pair = (SECONDS_PER_PAIR_SEQUENCE if basis == "sequence-similarity"
                     else SECONDS_PER_PAIR)
-        seconds = n * (n - 1) / 2.0 * per_pair + n * SECONDS_PER_ITEM
-    else:
-        seconds = n * SECONDS_PER_ITEM
-    seconds = max(seconds, 1.0e-3)
+        return n * (n - 1) / 2.0 * per_pair + n * SECONDS_PER_ITEM
+    return n * SECONDS_PER_ITEM
+
+
+def estimate_seconds(n, basis, method=None, params=None):
+    """Seconds this grouping would take on this machine, from the method's own
+    `estimate(n, params, basis=...)` when it has one (fix round 1: k-Shape and
+    HDBSCAN cost nothing like n^2 x 2 us), else from the formula."""
+    params = dict(params or {})
+    if method is not None:
+        m = method_registry.get(method) if isinstance(method, str) else method
+        if hasattr(m, "estimate"):
+            full = {**{k: spec["default"] for k, spec in m.params.items()}, **params}
+            return float(m.estimate(int(n), full, basis=basis))
+    return float(_formula_seconds(int(n), basis))
+
+
+def _recompute_cost(n, basis, method=None, params=None):
+    """An estimate of what applying this grouping costs, for the preview's
+    `recompute` line and for the bridge's decision to run it here at all.
+    `method` and `params` make it the method's own estimate; without them it
+    is the original formula. Deliberately visible: the coefficients are stated
+    in each method module, measured on this machine."""
+    seconds = max(estimate_seconds(n, basis, method, params), 1.0e-3)
     return {"seconds": float(seconds),
             "minutes": float(seconds / 60.0),
             "where": "local" if seconds <= LOCAL_LIMIT_SECONDS else "cluster"}
+
+
+def cheaper_settings(n, basis, method, params=None):
+    """Settings for the same method that the estimate says would run within
+    `LOCAL_LIMIT_SECONDS` — what a refusal offers instead. Each is
+    `{"change": words, "params": the full params, "seconds": estimate}`,
+    cheapest change first. A method lists its candidates in `cheaper(n,
+    params)`; one that lists none gets only a smaller-`sample` offer when it
+    takes a sample."""
+    params = dict(params or {})
+    m = method_registry.get(method) if isinstance(method, str) else method
+    candidates = list(m.cheaper(n, params)) if hasattr(m, "cheaper") else []
+    if not candidates and "sample" in m.params:
+        candidates = [("fit on 2,000 members, assign the rest", {"sample": 2000})]
+    out = []
+    for change, update in candidates:
+        trial = {**params, **update}
+        seconds = estimate_seconds(n, basis, m, trial)
+        if seconds <= LOCAL_LIMIT_SECONDS:
+            out.append({"change": change, "params": trial, "seconds": float(seconds)})
+    return sorted(out, key=lambda o: -o["seconds"])
 
 
 def _hand_edit_outcome(hand_edits, result):
@@ -449,19 +507,19 @@ def _hand_edit_outcome(hand_edits, result):
     }
 
 
-def preview(items, *, unit, basis, method, params=None, hand_edits=None):
+def preview(items, *, unit, basis, method, params=None, hand_edits=None, should_cancel=None):
     """Run the grouping without writing anything, and report what spec 8.2's
     preview panel shows: groups, members, omitted, recompute cost, and what
     happens to hand edits. The `GroupingResult` travels on the preview so the
     caller that decides to apply does not have to recompute it."""
     result = run_grouping(items, unit=unit, basis=basis, method=method,
-                          params=params)
+                          params=params, should_cancel=should_cancel)
     return GroupingPreview(
         n_groups=result.n_families,
         n_members=result.n_assigned,
         n_omitted=result.n_omitted,
         omitted_by_reason=result.omitted_by_reason,
-        recompute=_recompute_cost(len(result.assignments), basis),
+        recompute=_recompute_cost(len(result.assignments), basis, method, params),
         hand_edits=_hand_edit_outcome(hand_edits, result),
         recipe_hash=result.recipe_hash,
         result=result,
