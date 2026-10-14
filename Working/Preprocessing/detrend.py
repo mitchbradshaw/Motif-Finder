@@ -18,15 +18,26 @@ import numpy as np
 def _rolling_mean(w, window_samples):
     """Centred rolling mean via a cumulative-sum trick — O(n), edges use
     whatever window actually fits (no NaN padding, no shrinking the
-    output length)."""
+    output length).
+
+    Each value is the mean of the finite samples in its window, so a gap is
+    treated like the span's ends, and the output is NaN only where a window
+    holds no finite sample. A plain cumulative sum carried one NaN into every
+    later window (one NaN at sample 100 of 1000 blanked 930 outputs,
+    2026-10-14). Finite input gives the same numbers as before
+    (tests/test_detrend_nan.py)."""
+    w = np.asarray(w, dtype=np.float64)
     n = len(w)
     half = max(1, window_samples // 2)
-    csum = np.concatenate([[0.0], np.cumsum(w, dtype=np.float64)])
-    out = np.empty(n, dtype=np.float64)
+    finite = np.isfinite(w)
+    csum = np.concatenate([[0.0], np.cumsum(np.where(finite, w, 0.0), dtype=np.float64)])
+    cfinite = np.concatenate([[0], np.cumsum(finite, dtype=np.int64)])
     idx = np.arange(n)
     lo = np.clip(idx - half, 0, n)
     hi = np.clip(idx + half + 1, 0, n)
-    out = (csum[hi] - csum[lo]) / (hi - lo)
+    n_finite = cfinite[hi] - cfinite[lo]
+    out = np.full(n, np.nan)
+    np.divide(csum[hi] - csum[lo], n_finite, out=out, where=n_finite > 0)
     return out
 
 
@@ -43,6 +54,13 @@ def make_detrend_filter(fs, mode="rolling_mean", window_s=600.0):
                         (subtract a single least-squares line over the
                         whole span — ignores `window_s`).
     window_s  : float  Rolling-window width in seconds (ignored for "linear").
+
+    Missing samples: in "rolling_mean" and "rolling_z" a NaN (or inf) sample
+    stays as it is and the samples beside it are detrended against the finite
+    samples in their window, so a gap keeps its own length.
+    "rolling_mean_nearest" is the drop detector's filter, left exactly as it
+    is: one NaN there still blanks everything after it. "linear" raises on
+    NaN (np.polyfit).
     """
     if mode not in ("rolling_mean", "rolling_mean_nearest", "rolling_z", "linear"):
         raise ValueError(f"Unknown detrend mode {mode!r} — must be 'rolling_mean', 'rolling_mean_nearest', 'rolling_z', or 'linear'")
@@ -69,7 +87,10 @@ def make_detrend_filter(fs, mode="rolling_mean", window_s=600.0):
         if mode == "rolling_z":
             rolling_var = _rolling_mean((w - trend) ** 2, window_samples)
             rolling_std = np.sqrt(np.maximum(rolling_var, 0.0))
-            out = np.divide(out, rolling_std, out=np.zeros_like(out), where=rolling_std > 1e-12)
+            z = np.divide(out, rolling_std, out=np.zeros_like(out), where=rolling_std > 1e-12)
+            # The divide leaves 0 wherever it does not divide (a flat window, as
+            # before, but also a gap): a missing sample stays missing, not 0.
+            out = np.where(np.isfinite(out), z, out)
         return out
 
     return _detrend
