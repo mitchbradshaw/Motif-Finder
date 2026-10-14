@@ -259,6 +259,30 @@ CANONICAL += [
 ]
 
 
+# Wave 3 of the blocks from the literature (docs/prompts/blocks/W3-*.md): the chains that beat their null on real
+# recordings (docs/prompts/blocks/reports/W3-evaluation.md). Each is the TEMPLATE its own
+# tests/test_template_<name>.py runs end to end; those tests assert this copy equals theirs.
+CANONICAL += [
+    {
+        "name": "complexity_fingerprint", "kind": "training", "version": 1,
+        "description": "A complexity fingerprint per recording: the slow drift is removed (a 2 h rolling mean), the "
+                       "recording is cut into 72 h windows, and each window gets a multiscale-entropy curve — how "
+                       "surprising the next value is after blurring the signal over 1 s, 2 s, ... minutes. Tune the "
+                       "coarsest blur first (scale_max_s): a 72 h window reaches about 4 minutes, scales beyond are "
+                       "blank and say so. A curve shows how irregular the signal is at each time-scale and can tell "
+                       "recordings, species and conditions apart; it cannot show events, and coloured noise has a "
+                       "curve of its own — judge a curve against amplitude-adjusted (aaft) copies of the same "
+                       "recording (Surrogate generator, method aaft), not plain phase-randomised ones, which change "
+                       "the value distribution this measure reads. A recording shorter than 72 h gets no window and "
+                       "the run stops at Sliding windows: set its window_s to the longest whole multiple of 24 h the "
+                       "recording allows (a 24 h window reaches about 50 s).",
+        "steps": [_step("preprocessing", "detrend", {"mode": "rolling_mean", "window_s": 7200.0}),
+                  _step("preprocessing", "sliding_windows", {"window_s": 259200.0, "gap_s": 0.0}),
+                  _step("catalogue", "multiscale_entropy", {})],
+    },
+]
+
+
 # Wave-1 chains that did NOT beat their surrogate null on real recordings (researcher's bar, Q4;
 # docs/prompts/blocks/reports/W1-evaluation.md): kept as code so they can be applied and re-tested, but
 # never seeded into the templates table. `experimental(name)` returns a copy.

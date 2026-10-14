@@ -280,7 +280,16 @@ instead of it.
   22:01 span rule, not by code. Its one venv failure, `test_webui_discovery::test_the_scoreboard_cells_are_the_tables_own_numbers`,
   **fails on main (`fe8e495`) too** — pre-existing, not wave 3's (a task chip was filed for it).
 - 23:41 — dry run clean; **merged W3-A as `5d6bb01`**. `tests/test_end_to_end.py`'s module count 54 → 55 (W3-A
-  bumped `test_adapter_spec` but not end_to_end) — an integration edit on main; post-merge tests running.
+  bumped `test_adapter_spec` but not end_to_end) — an integration edit on main; post-merge: **466 passed**
+  (committed `a608cc4`).
+- 23:48 → 23:57 — **`complexity_fingerprint` evaluated** (sandbox, `eval3/eval_mse.py --part spans`, the declared
+  statistic, 20 AAFT draws + 20 plain phase draws beside): rec 1 440–512 h **beats** (d 0.84 vs AAFT draws' max 0.18;
+  phase 1.10 vs 0.14); rec 3 440–512 h **beats** (1.86 vs 0.35; phase 2.39 vs 0.09); rec 600 whole 73 h **beats**
+  (1.05 vs 0.83 — the narrowest; phase 1.23 vs 0.18). 9 common scales (1–174 s) each, one 72 h window, no collapse
+  flag, nothing left out; the only warning the 3 blank scales (> 4.3 min). Direction: M2_aug sits **below** its
+  surrogates at every scale, increasingly with scale (rec 3: −0.11 nats at 1 s → −0.93 at 174 s: more regular than
+  noise with its values and spectrum); S. commune sits **above** at 1–7 s (+0.49 to +0.61) and below past ~48 s.
+  **3 of 3 → ships.** Now running: rec 385, the √t check, the species table (20 AAFT + 5 phase draws).
 
 ## Decisions taken on the researcher's behalf
 
