@@ -23,7 +23,8 @@ fixers in `isolation: worktree`; critics read the implementer's worktree and nev
 | 7a | re-critic (row 7 resumed) | W3-B fix round 1, changed parts only (`b94881b..af4a8cf`) | `a5f632b4352ec10f8` | row 2's | — | — | launched 02:37; reported 02:48: **merge after fixes** (B1–B3 hold; S-A, S-B should-fix) → `W3-B-cycle-shapes.critic2.md` |
 | 2b | fixer (row 2 resumed) | W3-B fix round 2 (the last) | `a7834e530174e1643` | row 2's | row 2's | `01cb8c3` | sent 02:48; reported 03:28 (`bc2c0b1`) → `W3-B-cycle-shapes.fix2.md`; **merged as `4ab274d`** |
 | 3 | implementer | W3-C `detection.pan_matrix_profile` | `aeeb2080e0967a2d2` | `.claude/worktrees/agent-aeeb2080e0967a2d2` | `worktree-agent-aeeb2080e0967a2d2` | `01cb8c3` | launched 21:26; reported 23:04 (`925056a`, 99 min) → `W3-C-pan-matrix-profile.md` |
-| 8 | critic | W3-C | `ad8d8aad71e6d533b` | (reads row 3's worktree) | — | `01cb8c3` | launched 23:06, seven manager questions |
+| 8 | critic | W3-C | `ad8d8aad71e6d533b` | (reads row 3's worktree) | — | `01cb8c3` | launched 23:06; stopped ~00:3x (API limit), resumed 02:01; reported 03:5x: **merge after fixes** (3 blockers, 3 should-fix, 2 nits) → `W3-C-pan-matrix-profile.critic.md` |
+| 3a | fixer (row 3 resumed) | W3-C fix round 1 (merge main first) | `aeeb2080e0967a2d2` | row 3's | row 3's | `01cb8c3` → main | sent 03:53 (decisions 21–24) |
 | 4 | implementer | W3-D `mpdist` (fourth Library distance) | `a5a78efe8b36c0a92` | `.claude/worktrees/agent-a5a78efe8b36c0a92` | `worktree-agent-a5a78efe8b36c0a92` | `64db0da` | launched 21:30, early (decision 4; cut at `3cc2f62`, at `64db0da` by 21:31); reported 22:39 (`c88a236`, 68 min) → `W3-D-mpdist.md` |
 | 6 | critic | W3-D | `a380d497100469282` | (reads row 4's worktree) | — | `64db0da` | launched 22:42; reported 23:02: **merge after fixes** (4 should-fix, 4 nits; arithmetic exact) → `W3-D-mpdist.critic.md` |
 | 4a | fixer (row 4 resumed) | W3-D fix round 1 | `a5a78efe8b36c0a92` | row 4's | row 4's | `64db0da` | sent 23:06; reported 23:29 (`48710ae`) → `W3-D-mpdist.fix1.md`; **merged as `fe8e495`** |
@@ -131,6 +132,13 @@ instead of it.
   (AR(1) → exp) "beat" its plain-phase surrogates 20 / 20 at 24 h and 72 h (0.62 nats, ~60× the draws' spread),
   while with AAFT it beat 2 / 12 and real drop structure still beat 12 / 12; these channels are strongly non-Gaussian
   (`nulls1.py`'s own docstring). The statistic itself (the window-median curve's distance) is unchanged.
+
+- **Correction, 03:55, still before any real data (decision 21): the `motif_lengths` null is AAFT too** — the 20
+  draws are `preprocessing.surrogate` method `aaft`, seeds 0–19, scored at the real run's suggested length; the plain
+  phase draws are reported beside. Reason (W3-C critic F1, measured): a linear Gaussian process through a static
+  non-Gaussian transform (AR(1) → exp) got a suggestion 10/10 and beat all 20 plain-phase draws under this statistic
+  10/10, and 0/10 with AAFT; AAFT kept the planted-motif power (10/10). The statistic stays conditional on the real
+  run's suggestion (no suggestion → does not beat), which the critic found is what keeps it sound under AAFT.
 
 ## Events (chronological)
 
@@ -436,6 +444,22 @@ instead of it.
   medoid (F-130), MPdist reads at noise level while the scale-invariant distance calls them close: the family is
   held together **only after stretching** — RQ3's own question, now visible per family. Refusals at real lengths:
   15 of 271 pairs (members under 16 samples).
+- 03:4x — **`event_families` per-family verdicts under the new null** (`eval3/eval_families3.py`, the experimental
+  template as shipped): **rec 6** — 2 families (53, 13), both confident, passed by both nulls (quiet-stretch ratios
+  0.03× and 0.01×), coherence beyond noise (σ² 0.02 vs 0.30 / 0.32; eq. 17 0.30 vs 0.73, 0.35 vs 0.74) — unchanged
+  from wave 2; **rec 542** — 2 families (131, 11), both confident **by the trend-kept null only** (quiet-stretch
+  0.79× and 1.20×: the chain's own quiet stretches crowd as tightly as the families), and the 131-member family's
+  coherence is still not beyond noise (eq. 17 0.82 vs 0.81) — **unchanged from wave 2: the quiet null does not rescue
+  rec 542's large family**; its "smooth-shape blind spot" was not the trend-kept null's alone; **rec 543** — no
+  family (175 windows, none in a dense crowd), so nothing to judge. No family changed verdict.
+- 03:5x — **W3-C critic: merge after fixes, three blockers.** F1: plain phase surrogates are biased here too
+  (exp(AR) noise got a suggestion 10/10; AAFT 1/10 → 0/10 at 20 draws, keeping planted-motif power) → the 03:55
+  correction; F2: one null draw gives 1.2–5.8 % false suggestions at 1 Hz, three gave 0 in 544 spans, the false
+  alarms gathering at the longest judged rung; F3: `suggested_window_s` is not the event's scale — a 90 s motif got
+  264–976 s (never within a rung), 60 s spikes 30–976 s, drop chains their 30–72 s fall edge; should-fix: a flatline
+  gives a confident false suggestion (F4), scrump's global-RNG lock races (F5), null profiles for unjudgeable lengths
+  (F6). Cost within 2× everywhere (8 h × 20 draws ≈ 7–8 min at 4 threads). 03:53 — fix round 1 sent (row 3a),
+  decisions 21–24, after merging main.
 
 ## Decisions taken on the researcher's behalf
 
@@ -517,6 +541,19 @@ instead of it.
 20. **W3-F starts from main without W3-C**, and W3-C's final branch is merged into it as a follow-up (as wave 2's
     W2-F took W2-E's families). Reason: W3-C's critic has run 3 h (an API-limit stop included); W3-F's other ten
     items need only what is merged, and the pan rows (item 5) read a payload whose form is in W3-C's report.
+21. **Pan matrix profile's null is AAFT** (a `null` parameter, `aaft` default, `phase` kept for comparison), and the
+    evaluation's draws are AAFT (the 03:55 correction). Reason: the critic's exp(AR) case — the same flaw W3-A's
+    critic found.
+22. **`null_draws` defaults to 3**, with the longest-rung false alarms handled by a larger `MIN_WINDOWS` or a cut
+    that grows near it (the fixer's measurement decides). Reason: 1 draw gave 1–7 % false suggestions; 3 gave 0 in
+    544 spans at 1 Hz for twice the cost.
+23. **`suggested_window_s` is chosen by measurement on the critic's power cases** (strongest gap vs shortest cleared
+    within a fraction of the best vs shortest cleared), and the cleared band is reported beside it. Reason: the
+    strongest gap leaned to the longest judged window (a 90 s motif → 264–976 s); the brief's FLUSS re-run needs a
+    length that means the event's scale.
+24. **Pan matrix profile drops `percentage` < 1 (scrump).** Reason: its global-RNG save/restore races with other
+    threads (20/20 runs differed beside another `np.random` user) and it saved only ~20 %. MiniRocket's own
+    global-RNG use is older and left as a follow-up.
 3. **The Library side of decision 4 is folded into round 2**: W3-G puts σ² first in `shape_families`' summary lines and
    the coherence payload it returns, and measures both variants' verdicts against the quiet-stretch null (the verdict
    stays on eq. 17 unless the researcher moves it); W3-F puts σ² first on the Family page and the families table.
