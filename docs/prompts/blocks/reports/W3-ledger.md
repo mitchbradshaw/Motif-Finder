@@ -247,6 +247,9 @@ instead of it.
   (3, 23:2x) When a span holds several sequences (trains), **its verdict is its largest sequence's** (most cycles
   used); the others are reported. The app's phase-randomised null is run through the template on 5 draws as the
   further floor (events and cycles found).
+- 23:2x — the readout session: all its smoke checks done, bridges 8797/8798 stopped; re-run alone, Interrogation,
+  Explore, Library and Models pass; Settings, Review and Seed sources fail identically on the pre-change code
+  (`64db0da`) — load or walk-order artifacts. My agents stay at ≤ 4 workers each (four agents share 16 cores).
 
 ## Decisions taken on the researcher's behalf
 
