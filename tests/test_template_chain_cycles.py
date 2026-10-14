@@ -58,8 +58,10 @@ TEMPLATE = {
                    "more than one shape only when the split is two modes, not one shape that varies; each shape "
                    "becomes its group, marked ~noise_like when no more coherent than pseudo-cycles cut from the "
                    "recording's quiet stretches) → Intervals (the rhythm of each cycle shape). Read each group's "
-                   "mark before its rhythm. Tune Cycle shapes' max_cycle_s first if many cycles are left out as "
-                   "gaps.",
+                   "mark before its rhythm: a group is unmarked only when both coherence scores (σ² and eq. 17) "
+                   "beat the quiet stretches, and ~untested when the chain fills its span (no quiet stretch as "
+                   "long as a cycle) or its quiet margins differ in colour from its own noise. Tune Cycle "
+                   "shapes' max_cycle_s first if many cycles are left out as gaps.",
     "steps": [_step("preprocessing", "detrend", {"mode": "rolling_mean", "window_s": 600.0}),
               _step("detection", "noise_threshold", {"k_sigma": 4.0, "direction": "below",
                                                      "min_duration_s": 30.0, "merge_gap_s": 60.0}),
@@ -149,3 +151,10 @@ def test_the_template_runs_with_the_waveform_unbound(recording):
 
 if __name__ == "__main__":
     sys.exit(pytest.main([__file__, "-q"]))
+
+
+def test_the_shipped_template_is_the_one_tested_here():
+    """The manager moved TEMPLATE into webui/server/templates.py::CANONICAL (it beat its background null, σ² and
+    eq. 17, on all three long chains, docs/prompts/blocks/reports/W3-evaluation.md); the two must not drift apart."""
+    from server.templates import canonical
+    assert canonical("chain_cycles") == TEMPLATE
