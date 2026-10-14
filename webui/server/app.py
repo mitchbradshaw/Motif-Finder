@@ -306,8 +306,9 @@ def create_app(rt: Runtime) -> FastAPI:
             # "unknown"); every entry point (chain page, block page, a script) is held here until it lands
             steps_c = ", ".join(f"{i + 1:02d}" for i in routed["calibrating"])
             raise HTTPException(409, f"calibrating: the cost model of stage {steps_c} is being timed on this machine "
-                                     f"— try again in a few seconds (a run over the local limit is then written "
-                                     f"as a SLURM job instead of starting here)")
+                                     f"(once per machine; most take seconds, rupture about 7 minutes) — run again "
+                                     f"when the chain page shows its estimate (a run over the local limit is then "
+                                     f"written as a SLURM job instead of starting here)")
         job = manager.start(recipe, rec, px=body.px, null=null)
         return job.snapshot()
 
