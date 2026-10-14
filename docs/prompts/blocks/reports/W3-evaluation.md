@@ -2,8 +2,8 @@
 
 Run by the manager, 2026-10-14/15, in **sandbox copies** of the database (`webui/server/runtime.py`, mode `sandbox`,
 runtime roots in the session scratchpad — nothing written to the real `DATA/`). Scripts: `eval3/` in the session
-scratchpad (`w3common.py`, `eval_mse.py`, `eval_cycles.py`, `cycles_floor.py`, `eval_pan.py`, `eval_mpdist.py`,
-`eval_library3.py`, `eval_families3.py`); raw results `w3_*.json` beside them (not committed). Every statistic below
+scratchpad (`w3common.py`, `eval_mse.py`, `eval_cycles.py`, `cycles_floor.py`, `eval_pan.py`, `eval_fluss.py`,
+`eval_mpdist.py`, `eval_library3.py`, `eval_families3.py`); raw results `w3_*.json` beside them (not committed). Every statistic below
 was fixed in `W3-ledger.md` ("The evaluation's statistics, declared before any data are seen", `64db0da`) before any
 real recording went through a wave-3 block; the two corrections to it (the AAFT null for the complexity and
 motif-length templates) were also made before any data, for measured flaws in the null, not for a result.
@@ -25,7 +25,7 @@ least two of three searches.
 | **Pan matrix profile** (`detection.pan_matrix_profile`) | At which window lengths anything repeats, as a picture with lengths up the side | `motif_lengths` **ships**: on two of three chains the windows repeat far more than noise with the same values and spectrum — but on every recording every length "repeats", so the answer does not pick a window; the picture does |
 | **MPdist** (a fourth Library distance) | Do two members share their short sub-shapes, each at its own speed? | no template; on five real families it singles out one held together only by stretching |
 | **A fairer noise test for families** | Fake families cut from the recording's own quiet stretches, beside the old scrambled ones; a family passes on either | no template; two smooth HDBSCAN families are no longer called noise; Analyse offers k-Shape again |
-| **The UI** | *(pending)* | — |
+| **The UI** | Long steps can be stopped mid-step and show real progress; every cost estimate is measured on first use; the new blocks' pictures (complexity curves, the cycle stack, pan rows, σ² first, MPdist on the Family page) | no template; one rule now decides which noise runs count, on every page |
 
 ## `complexity_fingerprint` — 2 h detrend → 72 h windows → a multiscale-entropy curve per window
 
@@ -179,6 +179,32 @@ did on these recordings. No stalls (`n_stalled` 0) and no long gaps on any span;
   ~0.145). On a span whose power sits in a few events, the typical window is the quiet one; the declared statistic was
   fixed before the data and stands.
 
+### The FLUSS window (report only)
+
+The brief's item 3, as declared before any data (`W3-ledger.md` decision 26): never the strongest-gap length (W3-C's
+re-critique: it is not an event length), but the **top of the cleared band**, read on a span long enough to judge a
+chain's unit — `motif_lengths` on rec 6 400–424 h — then the experimental `fluss_regimes` on rec 6 370–470 h at that
+length (its detrend kept at the template's 2 : 1) and at 300 s (the template exactly), side by side. The paper's
+readout (`regime_locs`, the two lowest arc-curve minima) is compared with the chain's edges at 383 h and 445 h.
+
+| Run | Result | Seconds |
+|---|---|---|
+| `motif_lengths`, rec 6 400–424 h | clears 30–2330 s (11 of 12; 3600 s just below its cut, gap 5.5 vs 6.0); strongest gap at 30 s | 516 |
+| `fluss_regimes` at **2330 s** (detrend 4660 s) | changes at **424.9 h and 421.7 h** (arc-curve 0.29, 0.31) — mid-chain, **20–23 h** from either edge | 144 |
+| `fluss_regimes` at 300 s (the template) | changes at 469.5 h and 469.1 h (arc-curve 0.53, 0.54) — at the span's end, about 30 min inside the scored part, 24 h past the chain's end | 129 |
+
+`estimate_seconds` gave no number (the matrix-profile cost model is uncalibrated in a fresh sandbox, and the block
+never guesses); the whole piece took under 15 minutes, far inside the hour's cap.
+
+**Plainly:** handing FLUSS pan's longest repeating length does not make it find rec 6's chain. With a 39-minute window
+it calls the middle of the chain the strongest change; with 5 minutes, the end of the span. FLUSS stays experimental
+(its status moves only by the Q4 bar). The 300 s answer is an edge effect, and a repeatable one: the 2026-10-14
+retest used the same readout on a different span, 372–456 h, and got 455.5 h and 372.5 h — each about half an hour
+inside that span's ends, as 469.5 h is here. At 300 s FLUSS's strongest changes follow the span's ends, not the
+chain's; at 2330 s they move inside the chain (≈ 422–425 h), which nothing else here marks as a boundary. One aside,
+from one span only: the band's top, 2330 s (39 min), is the ladder's first rung above rec 6's median cycle (37 min,
+cycle shapes) — worth checking on other chains before reading anything into it.
+
 ## MPdist (W3-D) on real Library members
 
 No accepted RQ3 pair exists yet (`motif_edge` is empty), so, as the brief says, five families' members against their
@@ -230,6 +256,26 @@ stay confident, but **by the trend-kept null only** — the chain's own quiet st
 (0.79×, 1.20×) — and the 131-member family's coherence is still not beyond noise (eq. 17 0.82 vs 0.81). So the quiet
 null does **not** rescue rec 542's large family: its smoothness was not the trend-kept null's blind spot alone. rec
 543 (dense) gives no family at all.
+
+## The UI (W3-F)
+
+No template, so no ship-or-not verdict; two critiques and two fix rounds (`W3-F-ui*.md`). What reaches the researcher:
+- **Stop a long step and see it move.** Multiscale entropy, cycle shapes and the window matrix report progress per
+  window and stop inside the step; a stopped run reads *cancelled* in History (not *failed*), keeps its earlier
+  steps' cache, and leaves no half-run step cached as whole. A noise draw stopped part-way is kept as a noise run and
+  never counted as a real detection — checked through the real bridge path (real detections stayed at the real run's
+  82; before the fix 95).
+- **One rule for which noise runs count.** Only finished draws count, on every page that shows a null: Analyse, the
+  Discovery scoreboard, the Library's scale read-out, the family null and the export. Before, the same run read
+  "2 draws, null expects 34.5" in Analyse and "3 draws, 30.33" in Discovery. A draw that fails part-way is linked as
+  noise too.
+- **Estimates are measured, not "uncalibrated".** Each block's cost model is timed in the background on first need;
+  a run asked for while its model is still being timed gets "calibrating … try again in a few seconds" (409) instead of
+  starting blind. One caveat stays: rupture's calibration takes 447 s, about 7½ minutes (a separate task chip).
+- **The new pictures:** each window's complexity curve; the cycle stack (every cycle, lined up, by group); pan rows
+  labelled by length with each length's verdict, leading with the band and never offering a length "to use"; σ² first
+  wherever coherence is shown; MPdist beside the other distances on the Family page; the wavelet transform's rows in
+  Hz.
 
 ## The gate
 
@@ -289,4 +335,18 @@ behalf") so the wave could finish.
    along its own direction (the paper's test alone split pure noise every time), and a verdict must be beyond every
    draw *and* 3 spreads below the draws' typical value (the Library's 0.9 margin failed clean chains). *Options:*
    accept or veto each. *Recommendation:* accept both; they are what stopped the block inventing shapes in noise.
-9. **The pan picture's band.** *(pending its evaluation.)*
+9. **What to read off the pan matrix profile.** *Plainly:* the block asks "at which window lengths does the
+   recording repeat itself more than noise would?". On every real recording tried, the answer was "at all of them" —
+   every length from 30 s to the longest it could judge — and the length it marks as strongest was always the longest
+   or the shortest rung, never an event's own length (on rec 385 it said 30 s, not the 1 minute the spiking-families
+   report uses). It is like asking which zoom level shows the pattern and being told "every one"; the picture still
+   shows *where* the repeats sit at each zoom. *Options:* (a) use it as shipped — the band says "this span repeats
+   beyond noise", the picture is read by eye; (b) a sharper rule that names one length (three were measured on
+   planted data and none landed reliably); (c) narrow the question — e.g. which lengths repeat *more than their
+   neighbours* — as a later block. *Recommendation:* (a) for now; keep choosing the spiking-families scale by its own
+   evidence (1 min beat 3 and 10 min there), with the pan picture as a look, not a vote.
+10. **FLUSS's window.** *Plainly:* FLUSS looks for the moment a recording changes behaviour. At 5 minutes its
+    strongest "changes" sit at the very ends of whatever span it is given (twice now, on two spans of rec 6); at
+    39 minutes — the longest length pan found repeating — it points mid-chain. Neither finds the chain's start or end.
+    *Options:* leave FLUSS experimental; try its readout with the ends excluded more widely; drop it. *Recommendation:*
+    leave it experimental and spend no more on it until a question needs regime changes.

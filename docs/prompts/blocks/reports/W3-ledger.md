@@ -590,6 +590,27 @@ instead of it.
   bridge with `--dist`: `npx tsc -b` exit 0, the build exit 0. The UI tests with the venv python started beside the
   FLUSS run; the conda `pytest -n 4` waits for FLUSS to finish (the timing tests fail under load), the smoke for
   pytest.
+- 07:49 — **the FLUSS piece (decision 26), report only.** `motif_lengths` on rec 6 400–424 h cleared 30–2330 s (11 of
+  12; 3600 s gap 5.5 vs cut 6.0), strongest gap 30 s; so FLUSS ran on 370–470 h at **2330 s** (detrend 4660 s) and at
+  300 s. 2330 s: changes at 424.9 h and 421.7 h (arc-curve 0.29, 0.31), mid-chain, 20–23 h from the 383/445 h edges;
+  300 s: 469.5 h and 469.1 h (0.53, 0.54), at the span's end. Neither finds the chain. `estimate_seconds` was None
+  (uncalibrated in a fresh sandbox); actual 516 + 144 + 129 s. Aside, one span only: the band's top (39 min) is the
+  first rung above rec 6's median cycle (37 min).
+  **Correction, 07:5x (read from the retest's own script and output, `fluss_known.py` / `fluss_known_w300.json` in
+  the "Agent manager setup" session's scratchpad):** the 2026-10-14 retest ran rec 6 on **372–456 h**, not 370–470 h
+  as decision 26 says, with the same readout (`regime_locs`); its 455.5 h and 372.5 h are each ~0.5 h inside that
+  span's ends, as 469.5 h is inside this one's. So at 300 s FLUSS's strongest changes follow the span's ends — an edge
+  effect seen twice — and the piece ran on 370–470 h as declared.
+- 08:03 — **the UI tests with the venv python on `8186e97`: 617 passed, 3 xpassed, 3 failed** (26 min at `-n 3`
+  beside the FLUSS piece): the known Discovery scoreboard string (fails on main before wave 3; task chip) and two
+  route tests, `test_detections_of_a_spanned_run_are_channel_absolute` and `test_runs_methods_and_coverage_filters`
+  (`KeyError: 'job_id'`) — W3-F's 409 holding a rupture run while its ~447 s calibration runs in the fresh sandbox
+  (the fixer's own venv run had not included `test_webui_routes`). Decision 29: the fixture seeds rupture's entry in
+  its sandbox (`637b3d5`; both pass; nothing reached `DATA/db`), and the 409 says how long (`caa2ad0`;
+  `test_webui_run_routing` 22 passed). 08:06 — a peer session ("Fix drop detector mV/s on mV-stored recordings",
+  branch `claude/awesome-cori-5e53bd`) asked to run its gate; told to wait for mine (pytest, then the smoke walk,
+  ~09:30) and to merge main first — its files overlap W3-F's (`execution.py`, `chain.py`, `runs.py`,
+  `serialize.py`). 08:07 — **the gate's `pytest -n 4` started on `caa2ad0`** (conda).
 - 03:5x — **W3-C critic: merge after fixes, three blockers.** F1: plain phase surrogates are biased here too
   (exp(AR) noise got a suggestion 10/10; AAFT 1/10 → 0/10 at 20 draws, keeping planted-motif power) → the 03:55
   correction; F2: one null draw gives 1.2–5.8 % false suggestions at 1 Hz, three gave 0 in 544 spans, the false
@@ -723,6 +744,15 @@ instead of it.
     failed draw linked, real detections at the real run's count); the one behaviour added — only finished draws count
     — can only make a null larger, never a real count. The gate (full pytest, the client build, the smoke walk on my
     sandbox bridge) checks the merged whole.
+29. **The 409 while a cost model is being timed stays; its words say how long, and the route tests start from a
+    calibrated rupture.** The gate's UI run found two route tests failing on `8186e97` (`KeyError: 'job_id'`): in a
+    fresh sandbox a rupture run is refused until rupture's model is timed, and that takes ~447 s (Pelt on the
+    calibration's 20,000-sample walk). Starting such a run blind instead would undo why runs are routed before they
+    start — a rupture step cannot be stopped inside the step, and a days-long FLUSS had to be killed by hand on
+    2026-10-14 — so the hold stays: the message now says "once per machine; most take seconds, rupture about 7
+    minutes" instead of "a few seconds" (`caa2ad0`), and the route tests seed rupture's entry in their own sandbox's
+    calibration file (`637b3d5`), as a machine calibrated once has it. The root fix is the rupture-calibration task
+    chip (time it in seconds, not minutes). Neither smoke walk nor any smoke state runs rupture.
 3. **The Library side of decision 4 is folded into round 2**: W3-G puts σ² first in `shape_families`' summary lines and
    the coherence payload it returns, and measures both variants' verdicts against the quiet-stretch null (the verdict
    stays on eq. 17 unless the researcher moves it); W3-F puts σ² first on the Family page and the families table.

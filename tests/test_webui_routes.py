@@ -73,6 +73,15 @@ def client(tmp_path):
     db = _db(tmp_path)
     rt = Runtime(mode="sandbox", stamp="20260921-routes", db_source=str(db), runtime_root=str(tmp_path / "runtime"), client_dist=str(_dist(tmp_path)))
     rt.setup()
+    # These tests are about routes, not calibration. Since W3-F a run is held (409) while a step's cost model is
+    # being timed, and rupture's takes ~7 min on this machine (Pelt on the calibration's 20,000-sample walk), so the
+    # sandbox's own calibration file (redirected by setup) is seeded with a rupture entry, as a machine that has
+    # calibrated once would have it. The holding itself is pinned in test_webui_run_routing.
+    from Working import block_cost
+    seeded = block_cost._load()
+    seeded[block_cost._key("detection.rupture")] = {"k": 1e-6, "exponent": 1.5, "n": 20000, "elapsed_s": 0.0,
+                                                    "calibrated_at": "seeded by tests/test_webui_routes.py"}
+    block_cost._save(seeded)
     try:
         with TestClient(create_app(rt)) as c:
             yield c
