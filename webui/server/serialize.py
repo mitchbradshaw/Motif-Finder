@@ -220,6 +220,8 @@ def _spanset(value, meta, ctx):
             out[key] = _clean(meta[key])
     if "funnel" in (meta or {}):
         out["funnel"] = _funnel(meta["funnel"], fs, ss)
+    if isinstance((meta or {}).get("families"), list):
+        out.update(_event_families(value, meta, ctx, fs, ss))
     if feats is not None and "units" in ctx:
         # the core measured in mV on the assumption the samples are volts (detect5's
         # convention); say so where the recording's declared unit does not back it (fixup-b)
@@ -700,6 +702,15 @@ def _grouping(value, meta, ctx):
                     c["name"] = f"unlabelled · {int(meta['n_windows_nan'] or 0)} of {c['count']} mostly NaN"
                 else:
                     c["name"] = str(meta.get("unlabelled_name") or "unlabelled")
+    if isinstance(meta.get("families"), list):
+        # w2-f: a Grouping made by the Library's methods (`catalogue.shape_families`): every family's summary as
+        # the block made it — flags, `confident`, `null_caveat`, coherence beside its null with the block's own
+        # verdict — read off, never re-derived; -1 is "in no family"
+        out["families"] = [_family_row(f) for f in meta["families"]]
+        out["family_summary"] = _family_summary(meta)
+        for c in out["clusters"]:
+            if c["id"] == -1:
+                c["name"] = "in no family"
     if meta.get("tree"):
         # fixup-ag: a Grouping that KEPT its tree (Shape clustering) ships it: the truncated dendrogram, the
         # proposal per k, a line per cluster at the cut and the mapping. -1 = not clustered (validation, test and
@@ -761,6 +772,66 @@ def _exemplars(labels, ids, ws):
 
 
 EXEMPLAR_FORM = '{"<label>": <window index>}'
+EVENT_EXEMPLAR_FORM = '{"<family>": <event index>}'
+
+#: what the page reads off each family of the W2-E blocks (`Working.Catalogue.shape_families.family_summary`)
+FAMILY_KEYS = ("family", "library_label", "size", "medoid_distance", "noise_like", "unstable", "tested", "why",
+               "confident", "null_caveat", "svd_entropy", "svd_entropy_norm", "svd_entropy_null_median",
+               "svd_entropy_null_p05", "svd_entropy_squared_norm", "svd_entropy_squared_null_median", "top_share",
+               "coherence_reason", "svd_entropy_beyond_noise", "svd_entropy_null_margin", "svd_entropy_rule")
+
+
+def _family_row(f):
+    return {k: _clean(f.get(k)) for k in FAMILY_KEYS}
+
+
+def _family_summary(meta):
+    keep = ("method", "k", "n_placed", "n_confident", "fraction_placed", "fraction_confident", "n_noise_like",
+            "omitted", "warnings", "notes", "n_events", "n_windows", "window", "write_group", "exemplar_rule")
+    return {k: _clean(meta.get(k)) for k in keep}
+
+
+def _event_families(value, meta, ctx, fs, ss):
+    """w2-f: an `interrogation.event_families` SpanSet. Each event's family, reason (incl. `no_window:<reason>`)
+    and noise mark (capped as the spans are), every family's summary, and the exemplar EVENTS the block named —
+    each checked to be an event of the family it is named for, against the `family` column, loudly."""
+    f = getattr(value, "features", None)
+    n = int(len(value.starts))
+    col = (lambda name, conv: [conv(v) for v in f[name].tolist()[:SPAN_CAP]]
+           if f is not None and name in f.columns else None)
+    out = {"families": [_family_row(x) for x in meta["families"]], "family_summary": _family_summary(meta),
+           "family": col("family", int), "family_omit_reason": col("family_omit_reason", lambda v: "" if v is None else str(v)),
+           "family_noise_like": col("family_noise_like", bool), "group": col("group", str),
+           "exemplar_events": []}
+    out["family_summary"]["n_events"] = n
+    named = meta.get("exemplar_events")
+    if named is not None:
+        if not isinstance(named, dict):
+            raise ValueError(f"{(ctx or {}).get('block') or 'this block'}: meta['exemplar_events'] must be "
+                             f"{EVENT_EXEMPLAR_FORM} (family -> event index into the SpanSet), got "
+                             f"{type(named).__name__}: {str(named)[:80]}")
+        fam = (np.asarray(pd.to_numeric(f["family"], errors="coerce").fillna(-1), dtype=np.int64)
+               if f is not None and "family" in f.columns else None)
+        rule = str(meta.get("exemplar_rule") or "the event the block itself named as this family's exemplar")
+        for k, w in sorted(named.items(), key=lambda kv: int(kv[0])):
+            try:
+                whole = not isinstance(w, bool) and float(w) == int(w)
+            except (TypeError, ValueError):
+                whole = False
+            if not whole:
+                raise ValueError(f"exemplar event {w!r} named for family {k} is not a whole event index")
+            i = int(w)
+            if not 0 <= i < n:
+                raise ValueError(f"exemplar event {i} named for family {k} is outside the events (0..{n - 1})")
+            if fam is not None and int(fam[i]) != int(k):
+                raise ValueError(f"exemplar event {i} named for family {k} is not of family {k} "
+                                 f"(its own family is {int(fam[i])})")
+            out["exemplar_events"].append({
+                "family": int(k), "event": i, "start_s": (int(value.starts[i]) + ss) / fs,
+                "end_s": (int(value.ends[i]) + ss) / fs, "rule": rule})
+    if meta.get("summary"):
+        out["summary"] = str(meta["summary"])
+    return out
 
 
 def _exemplar_form(named, ctx):

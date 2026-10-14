@@ -1321,3 +1321,29 @@ export interface DiscSeedParams { exclusion?: number }
  *  dragged line divides by it (serialize.py::_signal, corpus.py::window). */
 export interface SignalPayload { unit_factor?: number | null; stored_unit?: string | null }
 export interface WindowData { unit_factor?: number | null; stored_unit?: string | null }
+
+/* ---------------- w2-f: the families (W2-E `catalogue.shape_families`, `interrogation.event_families`) ----------------
+ * One row per family as the block made it (`Working.Catalogue.shape_families.family_summary`): the method's flags,
+ * `confident` (true = passed a trusted null, false = noise-like, null = untested or the null is not trusted, with
+ * `null_caveat` saying why), and the SVD-entropy coherence beside its null with the block's own verdict. */
+export interface FamilyRow {
+  family: number; library_label: string | null; size: number; medoid_distance: number | null
+  noise_like: boolean; unstable: boolean; tested: boolean; why: string | null
+  confident: boolean | null; null_caveat: string | null
+  svd_entropy: number | null; svd_entropy_norm: number | null; svd_entropy_null_median: number | null; svd_entropy_null_p05: number | null
+  svd_entropy_squared_norm: number | null; svd_entropy_squared_null_median: number | null; top_share: number | null
+  coherence_reason: string | null; svd_entropy_beyond_noise: boolean | null; svd_entropy_null_margin: number | null; svd_entropy_rule: string | null
+}
+export interface FamilySummary {
+  method: string | null; k: number | null; n_placed: number | null; n_confident: number | null
+  fraction_placed: number | null; fraction_confident: number | null; n_noise_like: number | null
+  omitted: Record<string, number> | null; warnings: string[] | null; notes: string[] | null
+  n_events?: number | null; n_windows?: number | null; window?: Record<string, unknown> | null; exemplar_rule?: string | null
+}
+export interface GroupingPayload { families?: FamilyRow[]; family_summary?: FamilySummary }
+export interface SpansetPayload {
+  families?: FamilyRow[]; family_summary?: FamilySummary
+  /** per event (capped as the spans are): its family (-1 = none), why not placed, the noise mark, the group key */
+  family?: number[] | null; family_omit_reason?: string[] | null; family_noise_like?: boolean[] | null; group?: string[] | null
+  exemplar_events?: { family: number; event: number; start_s: number; end_s: number; rule: string }[]
+}
