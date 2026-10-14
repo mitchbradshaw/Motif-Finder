@@ -234,3 +234,18 @@ def kendall_trend(times, values):
         return {"tau": None, "p": None, "n": n, "note": "n {} · the measure does not vary, no rank to correlate".format(n)}
     tau, p = kendalltau(t, v)
     return {"tau": _num(tau), "p": _num(p), "n": n, "note": None}
+
+
+def write_group_columns(upstream, keys):
+    """The `group` column a feature block writes so Intervals downstream times events
+    within its new keys (trains, families), without losing an upstream group: with an
+    upstream `group` the new key is `<upstream>/<key>` and the original is kept as
+    `group_upstream` (an interval is only meaningful inside one group, so the upstream
+    split must survive). `upstream` is the SpanSet's feature table (or None); `keys` one
+    per event. Returns the columns to add: `{"group": [...]}` (+ `"group_upstream"`).
+    Shared by `interrogation.trains` and `interrogation.event_families`."""
+    keys = [str(k) for k in keys]
+    if upstream is None or "group" not in upstream.columns:
+        return {"group": keys}
+    up = upstream["group"]
+    return {"group": [f"{g}/{k}" for g, k in zip(up.astype(str), keys)], "group_upstream": up.to_numpy()}

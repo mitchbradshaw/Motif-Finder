@@ -35,10 +35,17 @@ _FEATURES_FILENAME = "features.parquet"
 #:   train_id, word_id - time-ordered identifiers (`interrogation.trains`)
 #:   span_score       - the detector's own score for the span (e.g. noise_threshold's
 #:                      excursion in units of the local noise): its decision, not the shape
+#:   family, family_omit_reason, family_distance, family_noise_like
+#:                    - a clustering's own answer about the event (`interrogation.event_families`):
+#:                      a label, its reason, the distance to its medoid and the noise flag - a
+#:                      second clustering or a classifier that saw one would learn the first's answer
+#:   group_upstream   - the group a feature block replaced (`interrogation.trains`,
+#:                      `interrogation.event_families`): a label
 #: Measurements (intervals, Event-shape measures) are NOT here: they stay features, and
 #: `catalogue.cluster`'s meta names the columns it actually used (`feature_names`).
 BOOKKEEPING_COLUMNS = ("split", "event_index", "anchor_offset", "overlaps_next", "train_id", "word_id",
-                       "span_score")
+                       "span_score", "family", "family_omit_reason", "family_distance", "family_noise_like",
+                       "group_upstream")
 
 
 @dataclass(frozen=True, eq=False)
