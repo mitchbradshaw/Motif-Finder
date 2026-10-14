@@ -30,7 +30,8 @@ fixers in `isolation: worktree`; critics read the implementer's worktree and nev
 | 4a | fixer (row 4 resumed) | W3-D fix round 1 | `a5a78efe8b36c0a92` | row 4's | row 4's | `64db0da` | sent 23:06; reported 23:29 (`48710ae`) → `W3-D-mpdist.fix1.md`; **merged as `fe8e495`** |
 | 9 | implementer | W3-G the quiet-stretch null for families; a trend-kept k-Shape null | `a17192b65fcf2dd72` | `.claude/worktrees/agent-a17192b65fcf2dd72` | `worktree-agent-a17192b65fcf2dd72` | `6bd3e40` (`wave3-round2-base`) | launched 23:33 (decision 14); stopped ~00:3x (API limit), resumed 02:01; reported 02:03 (`2a4ca0e`) → `W3-G-quiet-stretch-null.md` |
 | 10 | critic | W3-G | `a8f15e6dcd6951107` | (reads row 9's worktree) | — | `6bd3e40` | launched 02:04; reported 02:3x: **merge after fixes** (5 should-fix, 3 nits) → `W3-G-quiet-stretch-null.critic.md` |
-| 11 | implementer | W3-F the wave-3 UI | `a9bcefee16fc666b3` | `.claude/worktrees/agent-a9bcefee16fc666b3` | `worktree-agent-a9bcefee16fc666b3` | `a5baf8b` (main) | launched 03:45 (decision 20) |
+| 11 | implementer | W3-F the wave-3 UI | `a9bcefee16fc666b3` | `.claude/worktrees/agent-a9bcefee16fc666b3` | `worktree-agent-a9bcefee16fc666b3` | `a5baf8b` (main) | launched 03:45 (decision 20); reported 04:35 (`d1dc46c`, 50 min) → `W3-F-ui.md` |
+| 12 | critic | W3-F | `ad9069dfbd66c843e` | (reads row 11's worktree) | — | `a5baf8b` | launched 04:39, seven manager questions |
 | 9a | fixer (row 9 resumed) | W3-G fix round 1 | `a17192b65fcf2dd72` | row 9's | row 9's | `6bd3e40` | sent 02:35; reported 03:14 (`84e8326`) → `W3-G-quiet-stretch-null.fix1.md`; merges after W3-B's final branch |
 
 ## Preflight (2026-10-14 21:2x)
@@ -469,6 +470,20 @@ instead of it.
   quiet stretches rescue 6). The coherence verdict moved for **no** family: every family beyond noise by the quiet
   null was also beyond by the trend-kept one. **Analyse offers k-Shape again** in `interrogation.event_families`
   (`EVENT_FAMILIES_EXCLUDED` emptied; no unmarked Intervals key in the critic's 37 no-structure runs).
+- 04:00 — the species run finished its plain-phase draws: 0.350–0.363 (5 draws, p's floor 1/6), all below the real
+  0.428. The peer sessions are gone from `ListAgents` (no one left to coordinate the gate with; checked again before
+  it). RQ3 updated and committed (`9e1502e`); `W3-evaluation.md` drafted (`ef701ea`).
+- 04:35 — **W3-F reported** (red `027561d` → green `d1dc46c`; 298 conda + 258 / 615 venv; `tsc -b` / `npm run build`
+  clean in a scratch copy) → `W3-F-ui.md`: in-step cancel and progress through `run_kwargs` (window matrix now raises
+  `RecipeCancelled` instead of returning a partial table the executor cached as whole); every `block_cost` model
+  calibrated in a background thread on first need (≤ 10 s wait, then "calibrating"; rupture's calibration takes
+  **447 s** — filed as a separate task chip), the estimator's own words instead of "uncalibrated"; the sandbox now
+  redirects block_cost's calibration file into its runtime (it would have written the checkout's
+  `DATA/db/block_calibration.json`); MSE curves, the cycle stack, pan row labels + per-length verdicts (built on
+  W3-C's `925056a` form), the wavelet transform's rows labelled in Hz; σ²-first and MPdist on the Library pages; 9
+  smoke states (the pan two need W3-C); the event-loop warning fixed; the CWT scalogram skipped. Out of its list:
+  `store.ts`, `useValidation.ts`, `InsertStageModal.tsx`, `runtime.py`, `Working/block_cost.py`,
+  `Adapters/preprocessing_window_matrix.py`. 04:39 — critic launched (row 12), seven questions.
 - 03:5x — **W3-C critic: merge after fixes, three blockers.** F1: plain phase surrogates are biased here too
   (exp(AR) noise got a suggestion 10/10; AAFT 1/10 → 0/10 at 20 draws, keeping planted-motif power) → the 03:55
   correction; F2: one null draw gives 1.2–5.8 % false suggestions at 1 Hz, three gave 0 in 544 spans, the false
