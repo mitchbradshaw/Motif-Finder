@@ -165,8 +165,14 @@ def test_meta_carries_flags_coherence_and_member_exemplars(spec):
     assert m["method"] == "hdbscan" and m["k"] == 2
     for f in m["families"]:
         assert {"noise_like", "tested", "why", "svd_entropy_norm", "svd_entropy_null_p05"} <= set(f)
-    for ex in m["exemplar_events"]:
-        assert fam[ex["event"]] == ex["family"]
+    ex_map = m["exemplar_events"]          # {"<family>": <event index>}, the serializer's format
+    assert isinstance(ex_map, dict) and set(ex_map) == {"1", "2"}
+    for label, ev in ex_map.items():
+        assert isinstance(label, str) and isinstance(ev, int)
+        assert fam[ev] == int(label)
+    assert isinstance(m["exemplar_rule"], str) and "medoid" in m["exemplar_rule"]
+    for ex in m["exemplars"]:
+        assert ex_map[str(ex["family"])] == ex["event"]
         assert ex["start"] == spans.starts[ex["event"]]
     assert m["write_group"] is True and "window" in m and m["window"]["length_s"] == float(L)
     names = [r["name"] for r in m["rules"]]

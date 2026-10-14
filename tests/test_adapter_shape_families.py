@@ -129,10 +129,17 @@ def test_meta_carries_flags_coherence_with_its_null_and_member_exemplars(spec):
             assert key in fam, key
         assert fam["noise_like"] is False and fam["coherent_beyond_noise"] is True
     labels = np.asarray(_run(spec, x, np.arange(len(x), dtype=float), ws).value.labels)
-    for ex in m["exemplar_windows"]:
-        assert labels[ex["window"]] == ex["family"], "an exemplar is a member of its family"
+    # the serializer's format (W2-F, W2-D's snippets): {"<label>": <window index>} + a rule string
+    ex_map = m["exemplar_windows"]
+    assert isinstance(ex_map, dict) and set(ex_map) == {"1", "2"}
+    for label, w in ex_map.items():
+        assert isinstance(label, str) and isinstance(w, int)
+        assert labels[w] == int(label), "an exemplar is a member of its family"
+    assert isinstance(m["exemplar_rule"], str) and "medoid" in m["exemplar_rule"]
+    # the richer list rides under its own key
+    for ex in m["exemplars"]:
+        assert ex_map[str(ex["family"])] == ex["window"]
         assert ex["start"] == int(starts[ex["window"]])
-    assert m["exemplar_rule"] and "medoid" in m["exemplar_rule"]
     assert m["fraction_placed"] == pytest.approx(1.0) and m["fraction_confident"] == pytest.approx(1.0)
     names = [r["name"] for r in m["rules"]]
     assert "svd_entropy" in names and "noise_like" in names
