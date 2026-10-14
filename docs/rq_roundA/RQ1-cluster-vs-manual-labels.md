@@ -178,6 +178,44 @@ which one does better on the exam.
   four in five 1-minute windows. The proposal by the baseline's rule is k = 2 in every combination: the cut is chosen
   by eye.
 
+- **A second fingerprint for the manual-label arm, measured on real verdicts** (2026-10-14, wave 2,
+  `docs/prompts/blocks/reports/W2-evaluation.md`, `W2-C-minirocket*.md`).
+  - **The chain.** The template `minirocket_manual_labels` runs Window matrix on the labels' 600/200 grid →
+    MiniRocket (1,000 features) → manual labels → forest.
+  - **It beats its label-permutation null** (20 forests on shuffled training labels) on all three M2_aug channels
+    tried, on the classifier's random holdout and on a blocked-by-time holdout (the last fifth held out):
+
+    | Channel | Accuracy (null max) | Blocked holdout: balanced accuracy (null max) |
+    |---|---|---|
+    | CH2 | 0.868 (0.654) | 0.856 (0.632) |
+    | CH15 | 0.774 (0.696) | 0.675 (0.529) |
+    | CH3 | 0.836 (0.686) | 0.847 (0.607) |
+
+  - **Against the Catch22 arm.** `manual_labels_model`, on the same windows, beats its null too. MiniRocket's balanced
+    accuracy is at least as high everywhere, as random / blocked:
+
+    | Channel | MiniRocket | Catch22 |
+    |---|---|---|
+    | CH2 | 0.868 / 0.856 | 0.869 / 0.848 |
+    | CH15 | 0.677 / 0.675 | 0.658 / 0.627 |
+    | CH3 | 0.776 / 0.847 | 0.762 / 0.691 |
+
+    It is clearly higher only on CH3's blocked holdout. On CH15 both sit only a little above the majority baseline
+    (0.69).
+  - **The classifier now reports `balanced_accuracy` and `majority_baseline` beside accuracy.** Plain accuracy on
+    imbalanced verdicts read 0.66 when nothing had been learned.
+  - **It is an Analyse chain.** Models › Launch's paired job (arms A and B.2) does not offer MiniRocket features yet.
+- **A clusterer that leaves stragglers out, with a noise verdict per family** (2026-10-14, wave 2,
+  `W2-B-library-methods*.md`, `W2-E-families*.md`).
+  - **The methods.** The Library's grouping engine now offers k-Shape and HDBSCAN beside Ward. `catalogue.shape_families`
+    runs any of them on a chain's WindowSet. After a Trace shape step it clusters Trace shape's own vectors.
+  - **The noise verdict.** HDBSCAN tests each family against trend-kept surrogates of its own members.
+    - On synthetic coloured noise every noise crowd was flagged.
+    - Smooth window-filling shapes (broad humps, ramps) can read noise-like; the block says so on its face.
+  - **It is not arm B.2's clusterer.** `catalogue.shape_cluster` stays the split-aware, tree-keeping, freezable one
+    that *Train model* reads; HDBSCAN has no tree to cut.
+  - Running it after Window pool → Trace shape on the 60,000-window pool is untested.
+
 ## Decisions already made (`docs/prompts/fixup/QUESTIONS.md`)
 
 - **Seam (iii) and the model's inputs (the researcher, 2026-10-06, `AG` report Part 3):** (1) the noise floor is one
@@ -252,6 +290,8 @@ which one does better on the exam.
 | ~~**New scope:** blind labelling in Review with the cluster names as buttons, plus "can't tell"~~ — built as interesting / not + can't tell (`AH`; the cluster-name mode set aside 2026-10-05) | done |
 | **New scope:** the researcher's codebook — one page, each category defined with 2–3 example windows, written before labelling | researcher |
 | **Blind labels as a saved window set** (the researcher, 2026-10-07, after the labelling): *Save as window set* from the blind view — the sample's windows at their re-cut bounds and scales with the human's label (a repeat that agrees is one labelled window; one that disagrees is conflicting and counted; can't-tell and artifact are unlabelled / excluded and counted), carrying the pool key and each window's role so a later model on the same pool cannot train on its own test windows; listed in Library › Window sets as a labelled set beside window set 1 | to build, small |
+| MiniRocket fingerprints as a feature choice in Models › Launch's paired job (arm A, and B.2's forest), if wanted. The Analyse template is built and beats its null (2026-10-14) | unowned; the researcher decides |
+| HDBSCAN (`catalogue.shape_families`) on the 60,000-window pool: does it run, and what fraction does it place? Measure before choosing it over Ward | unowned |
 
 ## New scope (2026-10-05): cluster the unlabelled pool, validate blind
 
@@ -515,3 +555,4 @@ Q-W1, Q-W2 and Q-W4 were answered 2026-10-03.
 - 2026-10-07 · fixup-aj · Jobs: the bridge's real jobs (state, stage, progress, started, duration, error + traceback), every SLURM job folder the site wrote with its recipe hash, written-at, what to copy and its state (written / copied back / imported / refused with the reason), and the Manifest inbox importing through `hpc_import.import_results`; the rest of Jobs stays demo.
 - 2026-10-07 · researcher · the forest is trained on the real database and blind labelling has begun; asked for the blind labels to become a saved labelled window set afterwards (row added to *What is still needed*). The labels themselves already persist as `annotations` rows (`source = blind_test_review`).
 - 2026-10-09 · fixup-jobs · Jobs is one real board, its fixture half retired: *In progress here* (the job table, finished and failed behind a filter), *Waiting on the cluster* (every script the site wrote — the CNN and Ward job folders, Discovery's seed searches, the paired-training and Discovery-chain scripts — in one list with its state and how its results come back; `GET /api/hpc/cluster`) and *Waiting in review* (the open queues, what is left to judge, the pace). The CNN round trip is unchanged: the script's row › *Import results*, or the Manifest inbox.
+- 2026-10-14 · blocks-w2 · template `minirocket_manual_labels` ships (beats its label-permutation null on 3 of 3 M2_aug channels, random and blocked holdouts; balanced accuracy ≥ the Catch22 arm everywhere); the classifier reports `balanced_accuracy` / `majority_baseline`; the Library's k-Shape and HDBSCAN, and `catalogue.shape_families` with a noise verdict per family, are available for the unlabelled pool but not wired into arm B.2.

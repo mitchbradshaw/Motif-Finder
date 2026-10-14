@@ -60,6 +60,27 @@ motifs after stretching them all to the same length. If that assumption is wrong
 
 - **Each event's own scale (2026-10-13, wave 1, `docs/prompts/blocks/reports/W1-C-cwt-ridges.md`):** `detection.cwt_ridges` reports `best_scale_s` and `cwt_duration_s` per event from a Mexican-hat transform over 10 s – 2 h, so an event's duration is measured rather than set by a chosen window. Template `cwt_events` (drops) beats its surrogate null on three 24 h spans (`W1-evaluation.md`). It does not by itself compare shapes across durations; it supplies the scale each member has.
 
+- **Other ways to group the Library, each family judged against its own noise** (2026-10-14, wave 2,
+  `docs/prompts/blocks/reports/W2-evaluation.md` "Library methods", `W2-B-library-methods*.md`).
+  - **The methods.** Beside Ward, the grouping editor offers:
+    - **k-Shape:** shape-based distance, so each pair is compared at its best time shift;
+    - **HDBSCAN:** dense crowds of similar shapes, stragglers left out.
+  - **The verdicts.** Each family carries a noise verdict and its coherence (SVD entropy, eq. 17) beside the same
+    score on trend-kept surrogates of its own members.
+  - **On today's Library (3,616 events):**
+
+    | Method | Families | Placed | Median coherence (0 = copies of one shape) | Coherence beyond noise | Flagged noise-like |
+    |---|---|---|---|---|---|
+    | Ward, re-run | 151 | 91 % | 0.57 | 113 of 151 | — (Ward draws no null) |
+    | HDBSCAN | 19 | 19 % | 0.35 | 19 of 19 | 3 (by its grouping null) |
+    | k-Shape, k = 20 | 20 | 55 % | 0.48 | 20 of 20 | 8 |
+
+  - **Two consequences for RQ3:**
+    1. A family no more coherent than its own noise is not a motif identity to test under scale.
+    2. **Today's Ward does not reproduce the stored g-05:** adjusted Rand 0.57 on the 3,119 events both place. The
+       channels were re-derived after the 2026-09-21 data loss, so the waveforms or the item set have changed since
+       g-05 was saved. Re-check g-05's families before reading a scale claim off them.
+
 ## Decisions already made
 
 - **Q39:** only accepted matches become members, on an explicit act.
@@ -98,8 +119,12 @@ how many pairs sit within the cut under each function.
 
 ## Open decisions
 
-None. **Q26d was decided 2026-10-03:** the slow rise is the *previous* event's recovery, built after the fixups
+None until wave 2 (one added 2026-10-14, below). **Q26d was decided 2026-10-03:** the slow rise is the *previous* event's recovery, built after the fixups
 in `future/N-event-extent.md`.
+
+- **Which grouping RQ3 reads** (2026-10-14, wave 2): g-05 as stored, Ward re-run on today's events (they agree only at
+  adjusted Rand 0.57), or HDBSCAN's tight cores (19 families, a fifth of the events). Put to the researcher in the
+  wave-2 report.
 
 ## Log
 
@@ -110,3 +135,4 @@ in `future/N-event-extent.md`.
 - 2026-10-04 · fixup-ae · families filterable above the noise floor, by fall duration and by purity; scale band shown
   as provenance only; members viewable in place from the Atlas.
 - 2026-10-13 · blocks-w1 · `detection.cwt_ridges` + template `cwt_events`: each event's own scale; beats its null on 24 h spans.
+- 2026-10-14 · blocks-w2 · the Library's k-Shape and HDBSCAN, with a noise verdict and coherence beside its null per family; today's Ward ≠ the stored g-05 (ARI 0.57) — re-check g-05 before reading scale off it; open decision added.

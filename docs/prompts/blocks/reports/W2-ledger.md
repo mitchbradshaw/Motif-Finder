@@ -27,16 +27,16 @@ fixers in `isolation: worktree`; critics read the implementer's worktree and nev
 | 7 | critic | W2-C | `a69d2ce5bd86b27c0` | (reads row 3's worktree) | — | `04948e3` | launched ~08:42; reported 09:06: **merge after fixes** (3 should-fix, 1 finding, 3 nits) → `W2-C-minirocket.critic.md` |
 | 3a | fixer (row 3 resumed) | W2-C fix round 1 | `aa6497544feed7c56` | row 3's | row 3's | `04948e3` | launched 09:08; reported 09:39 (`88613a1`) → `W2-C-minirocket.fix1.md`; **merged as `9a942a1`** |
 | 4 | implementer | W2-D `catalogue.snippets` | `acd4686fda90646ab` | `.claude/worktrees/agent-acd4686fda90646ab` | `worktree-agent-acd4686fda90646ab` | `04948e3` | reported ~08:36 (`8075b8d`, 73 min) → `W2-D-snippets.md` |
-| 9 | implementer | W2-E `catalogue.shape_families`, `interrogation.event_families` | `a5a91c3213452c835` | `.claude/worktrees/agent-a5a91c3213452c835` | `worktree-agent-a5a91c3213452c835` | `c2e6e05` (`wave2-round2-base`) | launched 13:15 |
-| 10 | implementer | W2-F UI | `adc5c4378118b320a` | `.claude/worktrees/agent-adc5c4378118b320a` | `worktree-agent-adc5c4378118b320a` | `c2e6e05` (`wave2-round2-base`) | reported 14:16 (`35b1528`, 59 min; families left for a follow-up) → `W2-F-ui.md` |
+| 9 | implementer | W2-E `catalogue.shape_families`, `interrogation.event_families` | `a5a91c3213452c835` | `.claude/worktrees/agent-a5a91c3213452c835` | `worktree-agent-a5a91c3213452c835` | `c2e6e05` (`wave2-round2-base`) | launched 13:15; reported 14:29 → `W2-E-families.md`; **merged as `b40b000`** (after rows 9a, 12, 9b, 12a) |
+| 10 | implementer | W2-F UI | `adc5c4378118b320a` | `.claude/worktrees/agent-adc5c4378118b320a` | `worktree-agent-adc5c4378118b320a` | `c2e6e05` (`wave2-round2-base`) | reported 14:16 (`35b1528`, 59 min; families left for a follow-up) → `W2-F-ui.md`; **merged as `3d8bfbf`** (after rows 11b, 10a, 10b) |
 | 11 | critic | W2-F | `a2f719e6738de2b64` | (reads row 10's worktree) | — | `c2e6e05` | launched 14:17; **failed ~14:38** on an API error (`oauth_org_not_allowed`, HTTP 403: "Your organization has disabled Claude subscription access for Claude Code") — no report |
 | 9a | implementer (row 9 resumed) | W2-E follow-up: merge main, exemplar format, re-measure under W2-B's final rule | `a5a91c3213452c835` | row 9's | row 9's | `c2e6e05` | sent 14:41 (it started: the 403 was transient) |
 | 11b | critic (relaunch) | W2-F | `abb17c18c4c6812d1` | (reads row 10's worktree) | — | `c2e6e05` | launched 14:49; reported 15:12: **merge after fixes** (8 should-fix incl. 2 near-blockers, 4 nits) → `W2-F-ui.critic.md` |
 | 10a | fixer (row 10 resumed) | W2-F fix round 1 (merge main first; families deferred) | `adc5c4378118b320a` | row 10's | row 10's | `c2e6e05` | launched 15:13; reported 15:30 (`574fd9d`) → `W2-F-ui.fix1.md` |
-| 10b | implementer (row 10 resumed) | W2-F families follow-up (merge W2-E's branch + main; two views, glyphs, block-level states) | `adc5c4378118b320a` | row 10's | row 10's | W2-E `1301a0f` + main `3940aa7` | launched 15:38 |
+| 10b | implementer (row 10 resumed) | W2-F families follow-up (merge W2-E's branch + main; two views, glyphs, block-level states) | `adc5c4378118b320a` | row 10's | row 10's | W2-E `1301a0f` + main `3940aa7` | launched 15:38; reported ~16:50 (`d01bd62`) → `W2-F-ui.followup.md` |
 | 12 | critic | W2-E | `a313e63b52f0fea0e` | (reads row 9's worktree) | — | `2fd26b8` (merged in) | launched 14:50; reported 15:16: **merge after fixes** (2 blockers, 3 should-fix, 3 nits) → `W2-E-families.critic.md` |
 | 9b | fixer (row 9 resumed) | W2-E fix round 1 (merge main first) | `a5a91c3213452c835` | row 9's | row 9's | — | launched 15:17; reported 15:33 (`1301a0f`) → `W2-E-families.fix1.md` |
-| 12a | re-critic (row 12 resumed) | W2-E fix round 1, changed parts only (`4a192a9..1301a0f`) | `a313e63b52f0fea0e` | row 9's | — | — | launched 15:36 (the blockers were behavioural) |
+| 12a | re-critic (row 12 resumed) | W2-E fix round 1, changed parts only (`4a192a9..1301a0f`) | `a313e63b52f0fea0e` | row 9's | — | — | launched 15:36 (the blockers were behavioural); reported 15:40: **merge** (2 should-fix follow-ups, 1 nit) → `W2-E-families.critic2.md` |
 | 6 | critic | W2-D | `a5c440b67361d69dd` | (reads row 4's worktree) | — | `04948e3` | launched ~08:37; reported 09:19: **merge after fixes** (1 blocker, 1 template blocker out of scope, 3 should-fix, 4 nits) → `W2-D-snippets.critic.md` |
 | 4a | fixer (row 4 resumed) | W2-D fix round 1 | `acd4686fda90646ab` | row 4's | row 4's | `04948e3` | launched 09:21; reported 09:42 (`a2c1bee`) → `W2-D-snippets.fix1.md` |
 | 6a | re-critic (row 6 resumed) | W2-D fix round 1, changed parts only | `a5c440b67361d69dd` | row 4's | — | — | launched 09:43 (the blocker was behavioural); reported 10:49: **merge** (1 nit) → `W2-D-snippets.critic2.md`; **W2-D merged as `dd69db0`** |
@@ -382,6 +382,52 @@ fixers in `isolation: worktree`; critics read the implementer's worktree and nev
   on W2-E's medoids); block-level smoke states (Sliding windows → Shape families; noise_threshold chain → Event shape →
   Event families, asserting what is drawn either way).
 
+- 15:40 — W2-E re-critique: **merge**. Re-measured through the block at its new defaults: 18 of 18 synthetic chains kept
+  both shapes in distinct unmarked families (medians within 0.7 %); 24 no-structure runs (n = 200 and 1,000; AR(1)
+  0.97 / 0.99 / random walk; hdbscan and ward) left **not one unmarked Intervals key**; `confident` semantics, the
+  coherence rule text and the `no_window` bookkeeping checked. Two should-fix follow-ups: the overlap warning ran only
+  for the auto length (events 240 s apart at 600 s shared windows silently), and Ward's estimate raise reached the
+  page as "uncalibrated", not in words (the bridge's `route_local` drops the estimate's errors). → `W2-E-families.critic2.md`.
+- 15:4x — **merged W2-E as `b40b000`** (no conflict); W2-E's four test files + event windows ×2 + intervals ×2 + trains
+  ×3 + end_to_end + library coherence / methods + the standard four, serial: **583 passed**. 16:4x — the integration on
+  main, test-first: red `13a15fa` (4 failed: the shipped-template test, the EXPERIMENTAL description, the overlap
+  warning at the default length, Ward's estimate as a number — the last a deliberate change of W2-E's F7 test, said
+  in the commit) → green `63cb033`: `event_families` into `EXPERIMENTAL`, `interrogation.event_families`' description
+  "EXPERIMENTAL: …", the overlap check at any length, Ward's estimate returns its number (the run refuses with the real
+  count, in words); COSTED gains both family blocks. 319 passed.
+- ~16:50 — W2-F families follow-up reported (merged W2-E's branch `9f30161` and main `ddf323e`; red `bc6b54a` → green
+  `d01bd62`; 343 passed + 3 xpassed with the venv python; `tsc -b` / `vite build` clean) → `W2-F-ui.followup.md`: the
+  family table with its verdict badges (beyond noise / no better than noise / untested / null not trusted), Event
+  families on the trace with the marked keys and the reason for events in no family, `exemplar_events` checked as
+  loudly as `exemplar_windows` (W2-E's medoids pass the label check), two glyphs, four block-level smoke states (each
+  accepts the families or the "none" line). Reviewed by the manager; no formal blocker → no re-critique.
+- 16:5x — **merged W2-F as `3d8bfbf`** (no conflict; 10 Analyse + 2 Library smoke states — the merge message's "8
+  Analyse" is a miscount). Peers told before the gate (the detrend session confirmed it holds; `9c02982` is in main).
+  The gate's `pytest -n 4` started on `3d8bfbf`.
+
+- 17:37 — **the gate's pytest on `3d8bfbf`: 3353 passed, 38 skipped, 0 failed** (44 min at `-n 4`; the CPU at ~85 %
+  from the researcher's controller software, `HDJSeriesCPL`). The failure set is empty against W1's last gate (2904 / 0).
+  `npx tsc -b` and `npm run build` clean. 17:38 — my sandbox bridge up on 8791 (`webui/.venv` python — conda has no
+  FastAPI; database copy `webui/runtime/20261014-173845/`); the full smoke walk started.
+
+- 18:16 — **the full smoke walk: 663 screenshots, 0 browser console / page errors, 25 failures; every wave-2 state
+  passes** (2 Library + 10 Analyse) and wave 1's three. The failure set against the committed baseline (3, all still
+  failing) and W1's known pages:
+  - 12 Discovery: runs ×3, the seed save-template state, compare ×5, the divergence compare state, and the two flow
+    checks — send-to-Review offered 0, and compare opening on what differs;
+  - Review inspector ×3;
+  - Settings click timeouts ×5;
+  - explore corpus (a load flake) and max-lag-10 (data drift);
+  - `analyse.interrogation--fixup-d-sequence-rose` and `discovery.seed--fixup-y-picker-filters-by-kind` — both
+    **pass re-run alone** (the sequence route took 24.5 s under load, against a 4 s settle);
+  - one traceback: `jobs.py::_persist` "database is locked" in the sandbox copy under load (not a wave-2 file).
+  None of those pages runs code wave 2 changed. `git checkout -- webui/screenshots`; the 47 untracked screenshots
+  this walk wrote were deleted (all newer than the gate's start); bridge stopped. The UI tests with the venv python
+  on main: **345 passed, 3 xpassed**.
+- 18:22 — W2-evaluation.md complete (plain words, the families section, the gate, the researcher's six questions);
+  RQ1 and RQ3 updated (README rule); memory `literature-blocks-plan` and its MEMORY.md line updated. Committed on main;
+  "gate done" sent to the three peers (the drop-NaN session merges its own branch after it, decision 25).
+
 ## Decisions taken on the researcher's behalf
 
 1. **W2-A auto length stays the prompt's rule** (2 × median Event-shape duration), described honestly as "onset to
@@ -443,6 +489,17 @@ fixers in `isolation: worktree`; critics read the implementer's worktree and nev
     not only those in families that pass their own noise test). Reason: the statistic was fixed before the data
     were seen; switching to the confident fraction after seeing that it would pass rec 6 is a choice made by the
     result. The alternative reading is reported beside it and put to the researcher.
+23. **`catalogue.shape_families` is not marked experimental** although `event_families` is. Reason: it is not that
+    template's block (the template uses `interrogation.event_families`), it is the Library's own methods inside a chain,
+    and its claims (the noise verdict, k-Shape never "confident", the exemplar labels) were re-measured by its critic.
+24. **Ward's estimate returns its number; the run refuses** (the re-critique's first option), rather than surfacing the
+    estimate's error words in the Analyse chip. Reason: the estimate sees only an assumed count (one event per 300 s),
+    so its refusal was a guess; the run counts the real events and refuses in words. The chip's wording for any
+    raising estimate ("uncalibrated") is a bridge follow-up (`webui/server/chain.py::route_local` drops `errors`).
+25. **The drop-detector NaN branch (`claude/quizzical-shaw-f34a6b`) is not merged by the manager.** Its session
+    asked to join wave 2's merge and smoke round. Reason: wave 2's gate must describe wave 2 alone, and the branch
+    is the researcher's own task, not on the brief. Its session merges it after "gate done" and runs its own gate
+    on main.
 19. **`catalogue.event_windows` is not marked experimental** although its template (`event_clusters`) is. Reason:
     the brief marks a failing template's block, but the failure here is the clustering step after the bridge
     (`catalogue.cluster`, a shipped block), and the bridge's own claims (geometry, offsets, omissions, its recovery
