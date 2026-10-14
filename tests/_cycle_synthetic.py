@@ -122,3 +122,22 @@ def poisson_events(n_cycles, bg, seed=1, noise=0.15, mean_gap_s=1800.0, fs=1.0):
     n = int(starts[-1] + 3600 * fs)
     x = background(n, bg, np.random.default_rng(seed), noise, fs)
     return x, starts, np.minimum(starts + int(30 * fs), n)
+
+
+def regular_events(n_cycles, bg, seed=1, noise=0.15, mean_gap_s=1800.0, cv=0.3, fs=1.0, lead_s=3600.0,
+                   span_frac=None):
+    """No structure with chain-like timing (the W3-B critic's B1 case): event gaps lognormal with this CV
+    around `mean_gap_s`, on coloured noise only. `span_frac` (e.g. 0.9) makes each event's span cover that
+    share of its cycle, so no free stretch holds a cycle and the background null falls back."""
+    rng = np.random.default_rng(seed + 200)
+    sig = np.sqrt(np.log(1 + cv ** 2))
+    gaps = mean_gap_s * np.exp(rng.normal(-0.5 * sig ** 2, sig, n_cycles + 1))
+    starts = np.round((lead_s + np.r_[0.0, np.cumsum(gaps[:-1])]) * fs).astype(np.int64)
+    n = int(starts[-1] + lead_s * fs)
+    x = background(n, bg, np.random.default_rng(seed), noise, fs)
+    if span_frac is None:
+        ends = np.minimum(starts + int(30 * fs), n)
+    else:
+        nxt = np.r_[starts[1:], n]
+        ends = starts + np.maximum(2, (span_frac * (nxt - starts)).astype(np.int64))
+    return x, starts, ends

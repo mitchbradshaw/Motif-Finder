@@ -124,14 +124,15 @@ def test_the_summary_leads_with_sigma_squared(two_families):
 
 @pytest.mark.parametrize("bg", syn.BACKGROUNDS)
 def test_a_plateau_that_lengthens_is_one_family_with_its_drift_in_the_floor_fraction(bg):
+    # fix round 1 (B2): this test used to pin "SigClust p < 0.05" - the floored SigClust's defect. SigClust is
+    # now a reported number; the split is refused because it is one mode along its own direction.
     x, st, en = syn.plateau_drift_chain(bg)
     r = _run(x, st, en, null_draws=0)
     s = _seq(r)
     assert s["k"] == 1, s["splits"]
     assert (r["columns"]["cycle_group"][:-1] == 1).all()
-    # SigClust alone would have split it: the split is not one Gaussian, but it is one mode
-    assert s["sigclust"]["p"] < CS.SIGCLUST_ALPHA
-    assert s["sigclust"]["bimodality"]["p"] >= CS.SIGCLUST_ALPHA
+    assert s["sigclust"]["decides"] is False
+    assert s["splits"][0]["bimodal_p"] >= CS.SIGCLUST_ALPHA
     tr = s["floor_trend"]
     assert tr["tau"] > 0.4 and tr["p"] < 1e-6
 
@@ -142,23 +143,34 @@ def _all_keys_marked(r):
     return all(k == "-1" or k.endswith((NOISE_LIKE_SUFFIX, UNTESTED_SUFFIX)) for k in r["group_keys"])
 
 
-@pytest.mark.parametrize("bg", syn.BACKGROUNDS)
-def test_poisson_events_on_coloured_noise_are_one_noise_like_group_at_the_defaults(bg):
-    x, st, en = syn.poisson_events(400, bg)
+def test_chain_timed_noise_on_a_random_walk_is_one_group_in_every_seed():
+    """B1: z-normalised noise cycles are sign-bimodal (+-PC1); the shipped gate said K = 2 in 4-5 of 10 such
+    random-walk chains. The split is now calibrated on the same 2-means over the background draws."""
+    ks = []
+    for seed in range(10):
+        x, st, en = syn.regular_events(100, "rw", seed=seed)
+        r = _run(x, st, en)
+        s = _seq(r)
+        assert s["k_null"]["source"] == "background" and s["k_null"]["draws"] == CS.NULL_DRAWS
+        ks.append(s["k"])
+        assert _all_keys_marked(r) or s["k"] == 1
+    assert ks == [1] * 10, ks
+
+
+def test_a_thousand_chain_timed_random_walk_cycles_are_one_group():
+    x, st, en = syn.regular_events(1000, "rw", seed=4)
     r = _run(x, st, en)
     s = _seq(r)
-    assert s["n_cycles"] == 400 and s["n_used"] >= 150
-    assert s["k"] == 1
+    assert s["n_cycles"] == 1000 and s["k"] == 1, s["splits"]
     assert s["whole"]["verdict"]["beyond_noise"] is False
     assert _all_keys_marked(r)
-    assert r["meta"]["omitted"].get(CS.OMIT_LONG, 0) + r["meta"]["omitted"].get(CS.OMIT_SHORT, 0) > 0
 
 
-def test_a_thousand_poisson_cycles_are_one_noise_like_group_at_the_defaults():
-    x, st, en = syn.poisson_events(1000, "rw", seed=4)
+def test_poisson_events_on_coloured_noise_are_one_noise_like_group_at_the_defaults():
+    x, st, en = syn.poisson_events(400, "drift")
     r = _run(x, st, en)
     s = _seq(r)
-    assert s["n_cycles"] == 1000 and s["k"] == 1
+    assert s["n_cycles"] == 400 and s["k"] == 1
     assert s["whole"]["verdict"]["beyond_noise"] is False
     assert _all_keys_marked(r)
 
@@ -383,6 +395,141 @@ def test_a_cancel_raises_the_executors_cancellation():
     x, st, en = syn.two_family_chain("ar1")
     with pytest.raises(RecipeCancelled):
         _run(x, st, en, should_cancel=lambda: True)
+
+
+# ── fix round 1 ────────────────────────────────────────────────────────────
+
+def test_sigclust_without_the_floor_does_not_reject_a_true_gaussian():
+    """B2: the MAD floor rejected a one-cluster Gaussian with smooth covariance 12/12 at n = 200."""
+    d = 256
+    lag = np.abs(np.subtract.outer(np.arange(d), np.arange(d)))
+    C = 0.97 ** lag
+    Lc = np.linalg.cholesky(C + 1e-9 * np.eye(d))
+    ps = []
+    for seed in range(3):
+        X = np.random.default_rng(seed).standard_normal((200, d)) @ Lc.T
+        ps.append(CS.sigclust(X, draws=50, seed=seed)["p"])
+    assert min(ps) >= 0.05, ps
+
+
+def _dense(shapes, bg="ar1", seed=1, noise=0.15):
+    """A chain that fills its span: no margins, each event's span reaching the next anchor."""
+    x, st, en = syn.chain(shapes, syn.drifting_periods(len(shapes)), bg=bg, noise=noise, seed=seed,
+                          lead_s=60, tail_s=60)
+    return x, st, np.r_[st[1:] - 5, en[-1]]
+
+
+@pytest.fixture(scope="module")
+def dense_sharkfins():
+    return _run(*_dense([syn.sharkfin] * 120))
+
+
+def test_a_chain_that_fills_its_span_is_untested_not_noise_like(dense_sharkfins):
+    r = dense_sharkfins
+    s = _seq(r)
+    bg = s["background"]
+    assert bg["fallback_share"] > 0.5
+    for v in [s["whole"]["verdict"]] + [g["coherence"]["verdict"] for g in s["groups"]]:
+        assert v["tested"] is False and "no free stretch as long as a cycle" in v["reason"]
+    assert all(g["key"].endswith(UNTESTED_SUFFIX) for g in s["groups"])
+    assert all(k == "-1" or k.endswith(UNTESTED_SUFFIX) for k in r["group_keys"])
+    w = " ".join(r["meta"]["warnings"])
+    assert "no free stretch as long as a cycle (longest free stretch" in w
+    assert "pseudo-cycles would be random-phase cuts of the chain" in w
+    assert "untested" in r["meta"]["summary"]
+
+
+def test_the_sampler_reports_its_longest_free_stretch(dense_sharkfins):
+    bg = _seq(dense_sharkfins)["background"]
+    assert bg["longest_free_samples"] > 0 and bg["longest_free_s"] == pytest.approx(bg["longest_free_samples"])
+    assert bg["longest_free_s"] < np.median(dense_sharkfins["columns"]["cycle_length_s"][:-1])
+
+
+def test_without_background_k_is_calibrated_on_phase_copies_and_still_finds_two_shapes(dense_sharkfins):
+    s = _seq(dense_sharkfins)
+    assert s["k"] == 1 and s["k_null"]["source"] == "phase"
+    x, st, en = _dense([syn.sharkfin] * 60 + [syn.trough] * 60)
+    r = _run(x, st, en)
+    s2 = _seq(r)
+    assert s2["k_null"]["source"] == "phase" and s2["k"] == 2
+    assert adjusted_rand_score(TRUTH, r["columns"]["cycle_group"][:-1]) >= 0.9
+    assert "phase null" in r["meta"]["summary"]
+
+
+def test_chain_timed_noise_that_fills_its_span_stays_one_group_on_the_phase_null():
+    """Measured: 0/10 random walk, 1/10 AR(1), 0/10 drift (30 chains); pinned here on the AR(1) seeds 0-4."""
+    ks = []
+    for seed in range(5):
+        x, st, en = syn.regular_events(100, "ar1", seed=seed, span_frac=0.9, lead_s=60)
+        s = _seq(_run(x, st, en))
+        assert s["k_null"]["source"] == "phase"
+        ks.append(s["k"])
+    assert sum(k > 1 for k in ks) <= 1, ks
+
+
+def test_every_background_draw_is_in_meta(two_families):
+    s = _seq(two_families["ar1"])
+    b = s["whole"]["nulls"]["background"]
+    assert len(b["eq17"]["values"]) == CS.NULL_DRAWS and len(b["squared"]["values"]) == CS.NULL_DRAWS
+    assert b["draws_dropped"] == 0
+    assert min(b["eq17"]["values"]) == pytest.approx(b["eq17"]["min"])
+    for g in s["groups"]:
+        gb = g["coherence"]["nulls"]["background"]
+        assert len(gb["eq17"]["values"]) == CS.NULL_DRAWS and len(gb["squared"]["values"]) == CS.NULL_DRAWS
+        assert "matched" in gb
+    assert len(s["k_null"]["values"]) == CS.NULL_DRAWS
+
+
+def test_the_per_group_null_matches_the_selection_on_noise():
+    """S2: groups forced out of noise cycles must not read beyond noise against a null that went through the
+    same K-means (the random-subset null passed sigma^2 in 9 of 36 such groups)."""
+    passed = []
+    for seed in range(3):
+        x, st, _ = syn.regular_events(120, "rw", seed=seed)
+        Z = CS._z_rows(CS._prepare_all(x, st[:-1], st[1:], 256, "chord", 0.1)[0])
+        lab, _ = CS.kmeans(Z, 2, 10, seed)
+        real = [CS.entropy_pair(CS.align_stack(Z[lab == c], 26, seed)[0]) for c in (0, 1)]
+        nulls = []
+        for b in range(10):
+            xb, sb, _ = syn.regular_events(120, "rw", seed=500 + 10 * seed + b)
+            nulls.append(CS._z_rows(CS._prepare_all(xb, sb[:-1], sb[1:], 256, "chord", 0.1)[0]))
+        matched = CS.group_nulls(nulls, 2, 26, seed)
+        r17 = sorted(range(2), key=lambda c: real[c][0])
+        rsq = sorted(range(2), key=lambda c: real[c][1])
+        for rank in range(2):
+            v = CS._verdict(real[r17[rank]][0], real[rsq[rank]][1], [m[0][rank] for m in matched],
+                            [m[1][rank] for m in matched])
+            passed.append(bool(v["beyond_noise"]) or bool(v["beyond_noise_squared"]))
+    assert not any(passed), passed
+
+
+def test_many_gaps_warn_that_the_longest_cycles_are_lost():
+    rng = np.random.default_rng(3)
+    sig = np.sqrt(np.log(1 + 0.5 ** 2))
+    periods = 1800.0 * np.exp(rng.normal(-0.5 * sig ** 2, sig, 120))
+    x, st, en = syn.chain([syn.sharkfin] * 120, periods, bg="ar1", noise=0.1, seed=3)
+    r = _run(x, st, en, null_draws=0)
+    n_long = r["meta"]["omitted"].get(CS.OMIT_LONG, 0)
+    assert n_long > 12
+    w = " ".join(r["meta"]["warnings"])
+    assert "the longest cycles are the ones lost" in w and "the longest cycles are the ones lost" in r["meta"]["summary"]
+
+
+def test_a_short_sequence_says_a_split_needs_twice_min_cycles():
+    x, st, en = syn.chain([syn.sharkfin] * 8 + [syn.trough] * 7, syn.drifting_periods(15), bg="ar1", noise=0.1,
+                          seed=5)
+    r = _run(x, st, en, null_draws=0)
+    s = _seq(r)
+    assert s["k"] == 1 and "a split needs >= 2 x min_cycles" in s["k_note"]
+    assert "a split needs >= 2 x min_cycles" in r["meta"]["summary"]
+
+
+def test_an_unbound_waveform_is_warned_and_a_bound_one_is_not():
+    x, st, en = syn.chain([syn.sharkfin] * 12, syn.drifting_periods(12), bg="ar1", noise=0.1, seed=1)
+    a = _run(x, st, en, null_draws=0)
+    b = _run(x, st, en, null_draws=0, waveform=x)
+    assert any("bind waveform to the root signal" in w for w in a["meta"]["warnings"])
+    assert not any("bind waveform" in w for w in b["meta"]["warnings"])
 
 
 if __name__ == "__main__":

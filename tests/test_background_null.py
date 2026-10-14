@@ -90,5 +90,20 @@ def test_the_report_names_its_rule_and_the_trace():
     assert "fallback" in out.report["rule"] and out.report["background_s"] is None
 
 
+def test_the_report_names_the_longest_free_stretch():
+    """w3-b fix round 1 (compatible extension): fragmented background versus too little."""
+    x = np.zeros(10_000)
+    avoid = [(s, s + 10) for s in range(0, 10_000, 500)]          # free stretches of 490 samples
+    out = sample_background(x, avoid, [1000], 3, seed=0, fs=2.0)
+    assert out.report["longest_free_samples"] == 490 and out.report["longest_free_s"] == pytest.approx(245.0)
+    assert out.report["background_samples"] == 10_000 - 200          # plenty of background, all in pieces
+    assert out.report["n_fallback"] == 3
+    # the earlier keys are all still there
+    for k in ("n_wanted", "n_cut", "n_fallback", "fell_back", "n_too_long", "background_samples", "background_s",
+              "trace_samples", "rule"):
+        assert k in out.report
+    assert sample_background(np.zeros(100), [], [10], 1, seed=0).report["longest_free_s"] is None
+
+
 if __name__ == "__main__":
     sys.exit(pytest.main([__file__, "-q"]))
