@@ -428,6 +428,29 @@ fixers in `isolation: worktree`; critics read the implementer's worktree and nev
   RQ1 and RQ3 updated (README rule); memory `literature-blocks-plan` and its MEMORY.md line updated. Committed on main;
   "gate done" sent to the three peers (the drop-NaN session merges its own branch after it, decision 25).
 
+- 21:1x — **the researcher's answers to the six questions: every recommendation taken** ("q1. rec, q2. rec, q3. i dont
+  have a huge attachment to g05, rec is fine, q4. rec, q5. rec, q6. rec"). Recorded in `W2-evaluation.md`,
+  "Decided by the researcher". Decision 2 (b), the snippets chooser in wave 3, conflicts with the wave-3 plan
+  committed the same evening (`0a6dab8`: "Not chosen for wave 3: re-tuning snippets' chooser …"). Recorded as a
+  later wave, and flagged to the researcher.
+- 21:1x — **the `event_families` re-test declared before it ran** (`8324d3d`). Statistic: events in families that pass
+  their own noise test, plus those families' median SVD entropy, against 20 shape-null draws. Spans: the two named
+  known chains not yet used. Ship rule: both must beat. **Result (`ffecacf`):** rec 543 370–490 h (176 events) and
+  rec 2 294–304 h (13) form **no family**; rec 543's scrambled copies formed passing families in 5 of 20 draws →
+  **stays EXPERIMENTAL**. For information: rec 6 and rec 542 pass the new statistic, rec 3 does not.
+- 21:2x — **g-05 against today's Ward (decision 3 a)** (`a5bdeea`):
+  - all 3,603 g-05 items are present; Ward on exactly those gives 149 families but ARI 0.57;
+  - the distances to g-05's own medoids moved a median 3 % (correlation 0.90), so the waveforms changed, consistent
+    with the channels re-derived after 2026-09-21;
+  - Ward at cut 0.6 is fragile: a 1 % wobble of each waveform gives ARI 0.78–0.80, 2 % gives 0.68–0.74, dropping 5 %
+    of the events 0.72–0.75.
+  The fresh grouping (b) is not written while wave 3 runs.
+- 21:2x — the researcher: "wave 3 is already running". The wave-3 manager asked for the protocol; answered: wave 2
+  closed, docs-only commits to wave-2 files, no pytest -n / smoke / builds, port 8791 if ever. Decisions 3 (b), 4 and 6
+  and the RQ1 / RQ3 lines are deferred until wave 3 merges: 4 touches W3-F / W3-G's files, the RQ Log sections would
+  collide, and the real DB is being copied by wave 3's bridges. Decision 4 was offered to the wave-3 manager to fold
+  in.
+
 ## Decisions taken on the researcher's behalf
 
 1. **W2-A auto length stays the prompt's rule** (2 × median Event-shape duration), described honestly as "onset to
