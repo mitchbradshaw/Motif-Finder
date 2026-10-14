@@ -112,6 +112,125 @@ def test_the_analyse_limit_reads_settings(tmp_path):
     conn.close()
 
 
+# ── W3-F item 2: every costed block is calibrated before it is routed ───────────
+# `Working.block_cost` models (MSE, snippets, MiniRocket, cycle shapes, deconvolve, …) used to route "unknown" and
+# run whatever their size: only the matrix-profile model was calibrated on first need. Calibration times measured
+# 2026-10-15 range from 0.5 s to minutes (snippets ~20 s), so a model is calibrated in a background thread on first
+# need and `route_local` waits up to `CALIBRATION_WAIT_S` for it; past that the step reads "calibrating".
+
+DECONV = [{"stage": "detection", "algorithm": "deconvolve", "params": {}}]
+
+
+@pytest.fixture
+def fake_block_cost(tmp_path, monkeypatch):
+    """block_cost's calibration file in tmp, and a `calibrate` that writes a known k (1e-3 s per sample) after an
+    optional delay instead of timing a block: deterministic, and never the real DATA/db."""
+    from Working import block_cost
+    from server import chain
+    monkeypatch.setattr(block_cost, "CALIBRATION_PATH", str(tmp_path / "block_calibration.json"))
+    chain.reset_block_calibration()
+    state = {"calls": [], "delay": 0.0, "fail": None}
+
+    def _calibrate(names=None, force=False, **kw):
+        import time as _t
+        names = list(names or [])
+        state["calls"].extend(names)
+        if state["delay"]:
+            _t.sleep(state["delay"])
+        if state["fail"]:
+            raise RuntimeError(state["fail"])
+        data = block_cost._load()
+        for name in names:
+            data[block_cost._key(name)] = {"k": 1e-3, "exponent": block_cost.MODELS[name][0], "n": 20000,
+                                           "elapsed_s": 0.4, "calibrated_at": "test"}
+        block_cost._save(data)
+        return {name: 1e-3 for name in names}
+
+    monkeypatch.setattr(block_cost, "calibrate", _calibrate)
+    yield state
+    chain.reset_block_calibration()
+
+
+def _wait_for(pred, timeout=10.0):
+    import time as _t
+    t0 = _t.time()
+    while _t.time() - t0 < timeout:
+        if pred():
+            return True
+        _t.sleep(0.02)
+    return False
+
+
+def test_an_uncalibrated_block_cost_step_is_calibrated_then_routed(fake_block_cost):
+    from server import chain
+    from Working import block_cost
+    assert block_cost.estimate_seconds("detection.deconvolve", 1000) is None     # routed "unknown" and ran, before
+    small = chain.route_local(_recipe(20_000, DECONV), 20_000, 1.0, ceiling_s=900)
+    assert fake_block_cost["calls"] == ["detection.deconvolve"]
+    assert small["route"] == "local" and small["estimate_real_s"] == pytest.approx(1e-3 * 20_000)
+    cal = small["calibration"]
+    assert cal and cal["block_cost"]["detection.deconvolve"]["state"] == "calibrated"
+    again = chain.route_local(_recipe(20_000, DECONV), 20_000, 1.0, ceiling_s=900)
+    assert fake_block_cost["calls"] == ["detection.deconvolve"], "calibrated once, not per request"
+    assert again["route"] == "local"
+
+
+def test_an_over_limit_chain_with_a_block_cost_step_is_routed_to_the_cluster(fake_block_cost):
+    from server import chain
+    whole = chain.route_local(_recipe(2_595_600, DECONV), 2_595_600, 1.0, ceiling_s=900)
+    assert whole["route"] == "cluster" and whole["slowest"]["name"] == "detection.deconvolve"
+
+
+def test_a_slow_calibration_reads_calibrating_then_lands(fake_block_cost, monkeypatch):
+    from server import chain
+    monkeypatch.setattr(chain, "CALIBRATION_WAIT_S", 0.05)
+    fake_block_cost["delay"] = 0.6
+    first = chain.route_local(_recipe(20_000, DECONV), 20_000, 1.0, ceiling_s=900)
+    assert first["route"] == "unknown" and first["calibrating"] == [0], first
+    assert first["per_step_s"][0] is None
+    est = chain.estimate(_recipe(20_000, DECONV), 20_000, 1.0)
+    assert est["calibrating"] == [0], "the validate payload's estimate says which steps are calibrating"
+    assert _wait_for(lambda: chain.block_calibration_state("detection.deconvolve")["state"] == "calibrated")
+    later = chain.route_local(_recipe(20_000, DECONV), 20_000, 1.0, ceiling_s=900)
+    assert later["route"] == "local" and later["calibrating"] == []
+    assert fake_block_cost["calls"] == ["detection.deconvolve"], "one background calibration, not one per request"
+
+
+def test_a_calibration_that_fails_says_so_in_words(fake_block_cost):
+    from server import chain
+    fake_block_cost["fail"] = "model_path 'MODELS/x.pth' does not exist"
+    out = chain.route_local(_recipe(20_000, DECONV), 20_000, 1.0, ceiling_s=900)
+    assert out["route"] == "unknown"
+    assert "does not exist" in out["errors"][0] and "calibrat" in out["errors"][0]
+
+
+def test_an_estimator_that_raises_reports_its_own_words(fake_block_cost, monkeypatch):
+    """W2-ledger decision 24: Analyse printed "uncalibrated" for any estimate that raised; the words reach it now."""
+    from server import chain
+    spec = chain.get_adapter("detection.deconvolve")
+
+    def boom(*a, **k):
+        raise ValueError("needs a registered model checkpoint")
+    monkeypatch.setattr(spec, "estimate", boom)
+    out = chain.route_local(_recipe(20_000, DECONV), 20_000, 1.0, ceiling_s=900)
+    assert out["route"] == "unknown"
+    assert out["errors"] == {0: "ValueError: needs a registered model checkpoint"}
+
+
+def test_a_chain_without_costed_steps_starts_no_calibration(fake_block_cost):
+    from server import chain
+    steps = [{"stage": "preprocessing", "algorithm": "detrend", "params": {"mode": "rolling_mean", "window_s": 600.0}}]
+    chain.route_local(_recipe(100_000, steps), 100_000, 1.0, ceiling_s=900)
+    assert fake_block_cost["calls"] == []
+
+
+def test_the_catalog_card_says_whether_a_side_input_is_required():
+    """W3-B: cycle shapes' waveform is optional; the insert modal showed "needs waveform" as mandatory."""
+    from server import chain
+    card = chain.adapter_card(chain.get_adapter("interrogation.cycle_shapes"))
+    assert card["side_inputs"] and card["side_inputs"][0]["required"] is False
+
+
 # ── the routes ──────────────────────────────────────────────────────────────
 
 fastapi = pytest.importorskip("fastapi", reason="FastAPI is only in webui/.venv; run this file with that interpreter")
@@ -152,6 +271,23 @@ def bridge(tmp_path, fake_calibration):
 def test_the_sandbox_keeps_its_calibration_inside_the_runtime(bridge):
     client, rt, rid, n = bridge
     assert os.path.abspath(cost.CALIBRATION_PATH).lower().startswith(os.path.abspath(rt.dir).lower())
+
+
+def test_the_sandbox_keeps_the_block_cost_calibration_inside_the_runtime(bridge):
+    """block_cost's file is relative (DATA/db/block_calibration.json): calibrated from a sandbox bridge it would land
+    in the real DATA/db of the checkout the bridge chdir'd to."""
+    from Working import block_cost
+    client, rt, rid, n = bridge
+    assert os.path.abspath(block_cost.CALIBRATION_PATH).lower().startswith(os.path.abspath(rt.dir).lower())
+
+
+def test_a_block_cost_run_over_the_limit_is_refused_with_a_slurm_job(bridge, fake_block_cost):
+    client, rt, rid, n = bridge
+    r = client.post("/api/runs", json={"recording_id": rid, "span": [0, n], "steps": DECONV})
+    assert r.status_code == 422, r.text
+    detail = r.json()["detail"]
+    assert detail["route"] == "cluster" and "detection.deconvolve" in detail["message"]
+    assert os.path.isfile(detail["slurm"]["script_path"])
 
 
 def test_a_run_over_the_limit_is_refused_with_a_slurm_job_and_no_job_starts(bridge):
