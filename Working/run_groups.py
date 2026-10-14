@@ -341,7 +341,13 @@ def draw_paired_null(recipe, original_run_id, db_path=None, params=None, draws=N
                     db_path=db_path, force=force,
                     should_cancel=should_cancel, run_kwargs=run_kwargs,
                 )
-            except RecipeCancelled:
+            except RecipeCancelled as e:
+                # W3-F fix 1 (the critic's blocker): a draw cancelled part-way has a runs row, and its detector
+                # steps may already have written spans. Linked here, before letting go, it stays the null it is —
+                # unlinked, `not_surrogate()` read it as a real run and its spans as real detections. It is not
+                # counted among the draws (it did not finish).
+                if getattr(e, "run_id", None) is not None:
+                    R.update_run(conn, e.run_id, surrogate_of_run_id=original_run_id)
                 break
             R.update_run(conn, draw["run_id"], surrogate_of_run_id=original_run_id)
             out["run_ids"].append(draw["run_id"])
@@ -363,7 +369,10 @@ def null_summary(conn, run_id):
     found = conn.execute("SELECT COUNT(*) FROM detections WHERE run_id = ?", (int(run_id),)).fetchone()[0]
     nulls = conn.execute(
         "SELECT r.id, c.config_json, (SELECT COUNT(*) FROM detections d WHERE d.run_id = r.id) AS n "
-        "FROM runs r JOIN configs c ON c.id = r.config_id WHERE r.surrogate_of_run_id = ? ORDER BY r.id",
+        # completed draws only: a draw cancelled part-way is linked (so its spans never read as real) but it is not a
+        # draw — its count covers part of the chain (W3-F fix 1)
+        "FROM runs r JOIN configs c ON c.id = r.config_id WHERE r.surrogate_of_run_id = ? AND r.status = 'completed' "
+        "ORDER BY r.id",
         (int(run_id),)).fetchall()
     out = {"run_id": int(run_id), "found": int(found), "null_draws": len(nulls),
            "null_run_ids": [int(r["id"]) for r in nulls], "null_expects": None, "x_null": None,

@@ -270,20 +270,22 @@ CALIBRATION_WAIT_S = 10.0
 CALIBRATION_RETRY_S = 60.0
 
 _BC_LOCK = threading.Lock()          # guards the state table
-_BC_RUN_LOCK = threading.Lock()      # one calibration at a time: block_cost rewrites one JSON file per call
+# W3-F fix 1: no lock across models. One model is timed by one thread at a time (the state table says
+# "calibrating"), different models time side by side, and `block_cost.calibrate` holds its own lock only around the
+# file's read-merge-write — so rupture's 7-minute timing never holds MSE or snippets. Side by side (or beside a run
+# in the same process) a timing is inflated by CPU contention; that errs toward refusing a run, never toward
+# starting one too long for the machine.
 _BC_STATE: dict[str, dict] = {}
 _BC_THREADS: dict[str, threading.Thread] = {}
 
 
 def reset_block_calibration() -> None:
     """Forget every background calibration's state (tests; a bridge restart does the same). A calibration still
-    running keeps its own lock and its own file (it resolved both when it started), so it cannot hold up or write
-    into what comes after the reset."""
-    global _BC_RUN_LOCK
+    running keeps its own file (resolved when it started) and its result is dropped, so it cannot write into what
+    comes after the reset."""
     with _BC_LOCK:
         _BC_STATE.clear()
         _BC_THREADS.clear()
-        _BC_RUN_LOCK = threading.Lock()
 
 
 def block_calibration_state(name: str) -> dict:
@@ -316,15 +318,14 @@ def _block_cost_models(step: dict) -> list[str]:
             if getattr(run_once, "__module__", None) == modname or name in named]
 
 
-def _calibrate_block_cost(name: str, path: str, run_lock: threading.Lock, generation: dict) -> None:
+def _calibrate_block_cost(name: str, path: str, generation: dict) -> None:
     """Time one model and store it in `path` — the calibration file resolved when the request started it (a
     sandbox's runtime copy), never whatever the module points at by the time a minutes-long timing ends (a
     restored runtime would otherwise send it to the checkout's DATA/db)."""
     from Working import block_cost
     t0 = time.time()
     try:
-        with run_lock:
-            block_cost.calibrate([name], path=path)
+        block_cost.calibrate([name], path=path)
         st = {"state": "calibrated", "seconds": round(time.time() - t0, 1), "error": None}
     except Exception as e:          # a block that cannot run here: say why, never "free"
         st = {"state": "failed", "seconds": round(time.time() - t0, 1), "error": f"{type(e).__name__}: {e}",
@@ -348,7 +349,7 @@ def _ensure_block_calibration(name: str) -> threading.Thread | None:
         generation = {"state": "calibrating", "seconds": None, "error": None}
         _BC_STATE[name] = generation
         t = threading.Thread(target=_calibrate_block_cost,
-                             args=(name, os.path.abspath(block_cost.CALIBRATION_PATH), _BC_RUN_LOCK, generation),
+                             args=(name, os.path.abspath(block_cost.CALIBRATION_PATH), generation),
                              name=f"calibrate-{name}", daemon=True)
         _BC_THREADS[name] = t
     t.start()

@@ -225,8 +225,10 @@ class Runtime:
         import Adapters.preprocessing_trace_shape as _tsh
         import Adapters.catalogue_shape_cluster as _csc
         import Working.Detection.matrix_profiling.cost as _mpc
+        import Working.block_cost as _bc
         return (("STEP_CACHE_ROOT", cfg.STEP_CACHE_ROOT),
                 ("mp_cost.CALIBRATION_PATH", _mpc.CALIBRATION_PATH),
+                ("block_cost.CALIBRATION_PATH", _bc.CALIBRATION_PATH),
                 ("matrix_profile.RESULTS_DIR", _mp.RESULTS_DIR),
                 ("window_matrix.RESULTS_DIR", _wm.RESULTS_DIR),
                 ("classifier.MODEL_ROOT", _cc.MODEL_ROOT),

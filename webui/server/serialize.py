@@ -686,6 +686,12 @@ def frame_payload(value, meta, ctx, index: int) -> dict:
 ROW_AXIS_KEYS = (("lengths_s", "s", "window length"), ("freqs_hz", "Hz", "frequency"))
 
 
+#: The pan matrix profile's own caveat (W3-C), said on the face beside its suggestion.
+SUGGESTION_CAVEAT = ("the answer is the band of lengths that clear; the suggested length is the strongest of the "
+                     "band and not the event's length — it leans long when an event dominates long windows and "
+                     "toward an edge on chains. Read the band and the picture before handing a length on")
+
+
 def _row_axis(meta, n_rows, ctx):
     """`row_axis` (and, for a block that judged its rows, `row_verdict`) of a 2-D image, or {}."""
     out: dict = {}
@@ -702,12 +708,15 @@ def _row_axis(meta, n_rows, ctx):
     per = meta.get("per_length")
     if isinstance(per, list) and "row_axis" in out:
         # the pan matrix profile's per-length verdict, as the block gave it — never re-derived from gap and draws
+        # (W3-C's final form, 617edc2: the band `cleared_s`, the rule that picked the suggestion, per-length `cut`
+        # and `reason_code`; scrump and its `approximate_note` are gone)
         out["row_verdict"] = {
             "verdict": _clean(meta.get("verdict")), "suggested_window_s": _clean(meta.get("suggested_window_s")),
-            "suggested_row": _clean(meta.get("suggested_row")),
-            "approximate_note": _clean(meta.get("approximate_note")) or None,
-            "rows": [{k: _clean(r.get(k)) for k in ("row", "length_s", "judged", "clears", "gap", "reason",
-                                                     "n_windows_nan")} for r in per]}
+            "suggested_row": _clean(meta.get("suggested_row")), "cleared_s": _clean(meta.get("cleared_s") or []),
+            "suggestion_rule": _clean(meta.get("suggestion_rule")), "reasons": _clean(meta.get("reasons") or {}),
+            "caveat": SUGGESTION_CAVEAT,
+            "rows": [{k: _clean(r.get(k)) for k in ("row", "length_s", "judged", "clears", "cut", "gap", "reason",
+                                                     "reason_code", "n_windows_nan")} for r in per]}
     if out and meta.get("summary"):
         out["_summary"] = str(meta["summary"])
     if out and meta.get("rules"):

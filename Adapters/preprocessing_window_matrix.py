@@ -123,8 +123,9 @@ def _run(x, t, fs, window_min=10.0, step_frac=1.0, catch22=True,
     )
     if built.get("cancelled"):
         # W3 decision 1: one cancellation exception. A partial table handed back here was cached by the executor
-        # as if it were whole; RecipeCancelled is re-raised as a cancellation and leaves no step-cache entry. A
-        # resumable build (`resume_path`) has already saved what it computed, so a later run resumes from it.
+        # as if it were whole; RecipeCancelled is re-raised as a cancellation and leaves no step-cache entry. The
+        # cancelled run's computed cells are discarded (nothing is persisted: `_persist` never runs); an existing
+        # resume file (`resume_path`) is left untouched, so a later run resumes from where that file stood.
         from Working.execution import RecipeCancelled
         done = int(np.asarray(built["computed"]).any(axis=1).sum()) if np.size(built["computed"]) else 0
         raise RecipeCancelled(f"window matrix cancelled with {done} of {int(built['n_windows'])} windows computed")

@@ -150,12 +150,13 @@ def test_the_smoke_manifest_has_a_state_per_wave3_drawing_and_a_cancel_state():
 # ── W3-F fix round 1 ────────────────────────────────────────────────────────────
 
 def test_the_cancel_state_runs_a_long_finely_grained_step():
-    """Critic finding 2: 2 windows of 6 h made the step 1.35 s long and the cancel a race. Hour windows over a span
-    zoomed out far enough to hold well over a hundred of them keep `step-fraction-*` alive for many seconds."""
+    """Critic finding 2: 2 windows of 6 h made the step 1.35 s long and the cancel a race. 3 h windows over a span
+    zoomed out to ~389 h (~130 windows, measured 14.9 s, a fraction every ~0.1 s) keep `step-fraction-*` alive.
+    (Hour windows, the first try, measured 3.3 s for 259 windows: too short.)"""
     st = _states()
     cancel = next(s for k, s in st.items() if "w3-cancel" in k)
     flat = json.dumps(cancel)
-    assert '"21600"' not in flat and '"3600"' in flat
+    assert '"21600"' not in flat and '"10800"' in flat
     zooms = sum(1 for a in cancel["actions"] if a.get("click") == "[data-testid=\"zoom-out\"]")
     assert zooms >= 10, f"only {zooms} zoom-outs: 2 h x 1.5^{zooms} is too short a span"
 

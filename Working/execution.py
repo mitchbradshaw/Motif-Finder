@@ -61,8 +61,12 @@ class RecipeExecutionError(RuntimeError):
 
 
 class RecipeCancelled(RuntimeError):
-    """Cancelled via `should_cancel` between steps. The run row is marked
-    status='failed' with a note, not left half-written."""
+    """Cancelled via `should_cancel` — between steps, or inside a step whose
+    block checks it (W3 decision 1: the one cancellation exception). The run
+    row is marked status='failed' with an error text starting "Cancelled",
+    not left half-written; the re-raised exception carries that row's
+    `run_id` (None when raised before a row existed)."""
+    run_id = None
 
 
 class HeldOutRecordingLocked(RuntimeError):
@@ -509,7 +513,14 @@ def _execute_recipe_with_conn(conn, recipe, force, on_progress, should_cancel, r
         }
 
     except RecipeCancelled as e:
-        update_run(conn, run_id, status="failed", finished_at=_now(), error_text=str(e))
+        # W3-F fix 1: a block that stops inside its own loop words its message itself ("Multiscale entropy cancelled
+        # after 3 of 55 windows"); the stored text always STARTS with "Cancelled" so every reader (the run history)
+        # can tell a cancel from a failure, and the exception names the run row it stopped, so a caller that owns
+        # the row's meaning (a paired-null draw) can mark it before it lets go
+        text = str(e)
+        update_run(conn, run_id, status="failed", finished_at=_now(),
+                   error_text=text if text.startswith("Cancelled") else f"Cancelled: {text}")
+        e.run_id = run_id
         raise
     except Exception as e:
         tb = traceback.format_exc()

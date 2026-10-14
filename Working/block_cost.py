@@ -28,6 +28,7 @@ import multiprocessing
 import os
 import platform
 import tempfile
+import threading
 import time
 
 import numpy as np
@@ -61,6 +62,10 @@ def _key(name):
         "cpu_count": multiprocessing.cpu_count(),
         "python": platform.python_version(),
     }, sort_keys=True)
+
+
+#: Guards the calibration file's read-merge-write within one process (two threads timing two models at once).
+_FILE_LOCK = threading.Lock()
 
 
 def _load(path=None):
@@ -114,10 +119,13 @@ def calibrate(names=None, force=False, n=CALIBRATION_N, fs=1.0, path=None):
         data[key] = {"k": k, "exponent": exponent, "n": int(n), "elapsed_s": elapsed,
                      "calibrated_at": time.strftime("%Y-%m-%dT%H:%M:%S")}
         out[name] = k
-    # re-read before writing: another process may have stored a model while this one was timing
-    merged = _load(path)
-    merged.update({_key(name): data[_key(name)] for name in names if _key(name) in data})
-    _save(merged, path)
+    # re-read before writing: another process — or another thread timing another model (the web bridge times
+    # models side by side) — may have stored a model while this one was timing. The lock covers only this
+    # read-merge-write, never the timing.
+    with _FILE_LOCK:
+        merged = _load(path)
+        merged.update({_key(name): data[_key(name)] for name in names if _key(name) in data})
+        _save(merged, path)
     return out
 
 

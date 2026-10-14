@@ -1421,8 +1421,13 @@ export interface SpansetPayload {
 /** An image whose rows are not pixels (one value per row, row 0 = the top row drawn) — the pan matrix profile's
  *  window lengths, the wavelet transform's frequencies. `row_verdict`: a block that judged each row, as it judged it. */
 export interface RowAxis { values: number[]; unit: 's' | 'Hz' | string; label: string; source: string }
-export interface RowVerdictRow { row: number | null; length_s: number | null; judged: boolean | null; clears: boolean | null; gap: number | null; reason: string | null; n_windows_nan?: number | null }
-export interface RowVerdict { verdict: string | null; suggested_window_s: number | null; suggested_row: number | null; approximate_note: string | null; rows: RowVerdictRow[] }
+export interface RowVerdictRow { row: number | null; length_s: number | null; judged: boolean | null; clears: boolean | null; cut?: number | null; gap: number | null; reason: string | null; reason_code?: string | null; n_windows_nan?: number | null }
+/** W3-C's final form: the band `cleared_s` is the answer; `suggested_window_s` (by `suggestion_rule`) is NOT the
+ *  event's length — `caveat` says so on the face */
+export interface RowVerdict {
+  verdict: string | null; suggested_window_s: number | null; suggested_row: number | null; cleared_s: number[]
+  suggestion_rule: string | null; reasons: Record<string, number>; caveat: string; rows: RowVerdictRow[]
+}
 export interface EncodingImagePayload { row_axis?: RowAxis; row_verdict?: RowVerdict; rules?: MeasureRule[] }
 
 /** W3-G / decision 3: σ² leads (`variants[0]`, a number only), eq. 17 beside it carries the verdict. */
