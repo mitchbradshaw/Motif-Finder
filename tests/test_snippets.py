@@ -355,3 +355,14 @@ def test_refuses_k_above_k_max():
     x, _ = syn.three_regimes(0)
     with pytest.raises(ValueError, match="k_max"):
         _run(x, k=7, k_max=6)
+
+
+def test_knee_reason_ignores_a_tail_that_reached_zero_area():
+    """W2-D re-critique nit (manager, 2026-10-14): when the later snippets leave no area at all (a mostly constant
+    span), change_k past that point is inf or NaN; the knee is judged against the FINITE later changes, and the
+    reason never prints 'nan' or 'inf'."""
+    nan, inf = float("nan"), float("inf")
+    d = sn.knee_detail({2: 0.5, 3: 0.05, 4: nan, 5: inf, 6: nan, 7: nan}, 6, n_pieces=24)
+    assert d["k"] == 2
+    assert np.isfinite(d["ratio"])
+    assert "nan" not in d["reason"] and "inf" not in d["reason"], d["reason"]
