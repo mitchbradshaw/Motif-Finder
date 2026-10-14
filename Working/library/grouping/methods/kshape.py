@@ -202,6 +202,54 @@ def phase_randomised_rows(X, rng):
     return np.fft.irfft(F * np.exp(1j * angles), n=n, axis=1)
 
 
+# The trend a surrogate keeps: a cubic per row. The manager asked for a line; it
+# was measured and found one degree short (fix round 2, both uses):
+#   HDBSCAN's per-family test, 10 pure-noise sets (AR(1) phi 0.95/0.99, random
+#   walk, drift; 300 and 1,500 rows) and 8 real sets (three shifted shapes at
+#   10/20 % noise on four backgrounds): with a line kept, one pure-noise family
+#   (random walk, 300 rows) scored a ratio of 0.85 — confident at the 0.9 margin;
+#   quadratic, one at 0.78; cubic, none — smallest noise ratio 1.05, largest real
+#   ratio 0.66.
+#   The coherence null, 100 pure-noise windows: with a line kept, AR(1) phi 0.99
+#   scored 0.801 against a null p05 of 0.817 (random walk 0.813 / 0.837) — still
+#   "more coherent than noise"; cubic, 0.801 / 0.794 and 0.813 / 0.807, while
+#   real drop families stay far below (0.466-0.735 / 0.871).
+# A window of coloured noise is mostly a slow curve, not only a slope; keeping
+# the curve's first three polynomial moments is what makes the surrogate crowd
+# like the real thing. The degree is a measured choice on synthetic data —
+# check it on the Library's surrogates.
+TREND_DEGREE = 3
+
+
+def polynomial_trends(X, degree=TREND_DEGREE):
+    """The least-squares polynomial of `degree` through each row, evaluated on
+    the row's samples (on t in [-1, 1], for conditioning)."""
+    X = np.asarray(X, dtype=float)
+    t = np.linspace(-1.0, 1.0, X.shape[1])
+    A = np.vander(t, int(degree) + 1)                          # (L, degree + 1)
+    coef, *_ = np.linalg.lstsq(A, X.T, rcond=None)
+    return (A @ coef).T
+
+
+def trend_kept_surrogates(X, rng, degree=TREND_DEGREE):
+    """The Library's shared noise surrogate (w2-b fix round 2): per row, fit a
+    polynomial trend (`TREND_DEGREE`, a cubic — see the measurement above),
+    phase-randomise what is left (`phase_randomised_rows`: its amplitude
+    spectrum, so its colour, kept), add the trend back. NOT z-normalised — the
+    caller does that, as for real rows.
+
+    Why the trend is kept: a window of strongly coloured noise (AR(1) at phi
+    0.99, a drifting background) is mostly a slow curve, and crowds of such
+    curves are exactly what a clustering method finds in noise. Plain phase
+    randomisation turns each curve into a periodic wiggle, so its null crowds
+    less than real noise does and a test against it calls noise confident (the
+    re-critique: null crowds of 11-141 against real-noise crowds of 73-553).
+    Used by HDBSCAN's per-family test and by the coherence null; k-Shape keeps
+    plain phase surrogates (see `KShapeMethod._null`)."""
+    T = polynomial_trends(X, degree)
+    return phase_randomised_rows(np.asarray(X, dtype=float) - T, rng) + T
+
+
 def null_rng(seed, salt):
     """The seeded generator a method's null draws use — separate from the
     sample's and the starts' so adding a null changes neither."""
@@ -619,6 +667,9 @@ class KShapeMethod:
                                "rule": "no null drawn (null_draws = 0): families untested, "
                                        "the automatic omit_d omits nothing"}
             return
+        # plain phase surrogates, not `trend_kept_surrogates`: this test passed every
+        # case in both critiques (pure noise at 1,500: every family noise-like), and
+        # switching the surrogate would move every k-Shape omission threshold
         rng = null_rng(seed, 11)
         sub, _ = sample_positions(V_fit.shape[0], NULL_ROWS, seed)
         Vs = V_fit[sub]

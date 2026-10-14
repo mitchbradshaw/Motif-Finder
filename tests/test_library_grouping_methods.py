@@ -640,7 +640,9 @@ def test_pure_coloured_noise_is_flagged_noise_like_through_run_grouping(name, pa
     assert all(f.flags["noise_like"] for f in result.families), report
     assert all(f.flags["tested"] and f.flags["why"] for f in result.families), report
     null = result.fit_summary["null"]
-    assert null["draws"] == 3 and null["kind"] == "phase-randomised"
+    # fix round 2: HDBSCAN's null is per family and trend-kept; k-Shape's stays phase
+    want = "trend-kept phase-randomised" if name == "hdbscan" else "phase-randomised"
+    assert null["draws"] == 3 and null["kind"] == want
     json.dumps(result.fit_summary)                    # it is saved as JSON
 
 
@@ -719,16 +721,20 @@ def test_hdbscan_stores_no_null_matrices_and_fits_once():
     assert hdbscan.estimate(3603, method_registry.defaults_for("hdbscan")) < 60
 
 
-def test_trend_kept_surrogates_keep_each_rows_line_and_residual_spectrum():
-    """The shared surrogate (fix round 2): a line fitted per row is kept, the
+def test_trend_kept_surrogates_keep_each_rows_trend_and_residual_spectrum():
+    """The shared surrogate (fix round 2): a trend fitted per row is kept, the
     residual is phase-randomised. Plain phase randomisation turns a coloured
     window's trend into a periodic wiggle, so its null crowds less than real
-    coloured noise (the re-critique's finding)."""
-    from Working.library.grouping.methods.kshape import linear_trends, trend_kept_surrogates
+    coloured noise (the re-critique's finding). The trend is a cubic, not the
+    line first asked for: a line left a pure-noise family confident (measured
+    beside `kshape.TREND_DEGREE`)."""
+    from Working.library.grouping.methods.kshape import (TREND_DEGREE, polynomial_trends,
+                                                         trend_kept_surrogates)
+    assert TREND_DEGREE == 3
     rng = np.random.default_rng(0)
     X = rng.normal(size=(6, 64)).cumsum(axis=1) + np.linspace(0, 20, 64)
     S = trend_kept_surrogates(X, np.random.default_rng(1))
-    T = linear_trends(X)
+    T = polynomial_trends(X)
     assert S.shape == X.shape and not np.allclose(S, X)
     assert np.allclose(np.abs(np.fft.rfft(S - T, axis=1)), np.abs(np.fft.rfft(X - T, axis=1)), atol=1e-8)
     assert np.array_equal(S, trend_kept_surrogates(X, np.random.default_rng(1))), "seeded"
@@ -776,7 +782,9 @@ def test_recompute_cost_is_the_methods_estimate_not_one_formula_for_all():
     hdb = _recompute_cost(n, "shape-distance", "hdbscan", {})
     hdb_no_null = _recompute_cost(n, "shape-distance", "hdbscan", {"null_draws": 0})
     assert kshape_auto["seconds"] > kshape_fixed["seconds"] > ward["seconds"]
-    assert hdb["seconds"] > 2.5 * hdb_no_null["seconds"], "the three null draws are priced"
+    # fix round 2: the per-family null is cheap (no extra fits), but it is priced
+    assert hdb["seconds"] > hdb_no_null["seconds"], "the null is priced"
+    assert hdb["seconds"] < 60, "one HDBSCAN fit at the Library's size"
     assert kshape_auto["where"] == "local" and kshape_auto["seconds"] < 900, \
         "auto k with one start per candidate stays local at the Library's size"
     huge = _recompute_cost(n, "shape-distance", "kshape", {"k": 0, "n_init": 500})
