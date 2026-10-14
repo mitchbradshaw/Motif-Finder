@@ -193,9 +193,10 @@ SPEC = register(AdapterSpec(
     estimate=_estimate,
     max_span_samples=MAX_SPAN_SAMPLES,
     description=(
-        "EXPERIMENTAL: on real recordings its regimes were no more persistent than on phase-randomised surrogates "
-        "(M2_aug 24 h spans and a known drop chain, the knee said one kind of behaviour; "
-        "docs/prompts/blocks/reports/W2-evaluation.md). "
+        "EXPERIMENTAL: on two M2_aug 24 h spans and one known drop chain its regimes were no more persistent "
+        "than on phase-randomised surrogates; on a second chain (72 h) its k = 3 regimes were three times as "
+        "persistent and beat every surrogate, but its knee chose k = 1 — so set k by hand and read the run "
+        "lengths (docs/prompts/blocks/reports/W2-evaluation.md). "
         "What kinds of behaviour does this recording hold, and where? Picks the two to six most typical "
         "pieces (snippets) and colours every window by the snippet it most resembles — like the few "
         "thumbnail frames that best represent a film, with a bar showing which frame each scene is closest "
