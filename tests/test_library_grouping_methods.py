@@ -511,14 +511,25 @@ def test_hdbscan_assigns_the_rows_not_fitted_through_the_nearest_dense_member():
     assert all(fit.omit_reasons[i] == "not_in_a_dense_family" for i in noise if families[i] == -1)
 
 
-def test_hdbscan_cut_selection_and_distance_are_honoured():
+def test_hdbscan_epsilon_selection_and_distance_are_honoured():
+    """Fix round 1, item 6: the parameter is `epsilon`
+    (cluster_selection_epsilon), not `cut` — the editor's tree cut (default
+    0.42) wired into it merged families silently. `assign(cut=...)` ignores
+    the tree cut; `assign(epsilon=...)` re-selects, and a large one strictly
+    merges here."""
+    spec = method_registry.available()["hdbscan"]["params"]
+    assert "epsilon" in spec and "cut" not in spec
     hdbscan = method_registry.get("hdbscan")
     waves, truth = three_families(per=30, seed=9, n_noise=20)
     fit = hdbscan.fit(waves, params={})
     base = len(set(hdbscan.assign(fit)) - {None})
-    # a large epsilon merges what sits closer than it: never more families
-    merged = len(set(hdbscan.assign(fit, cut=0.4)) - {None})
-    assert fit.payload["cut"] == 0.4 and merged <= base
+    assert base == 3
+    assert len(set(hdbscan.assign(fit, cut=0.42)) - {None}) == base, "the tree cut is ignored"
+    assert fit.payload["epsilon"] == 0.0
+    merged = len(set(hdbscan.assign(fit, epsilon=0.4)) - {None})
+    assert fit.payload["epsilon"] == 0.4 and merged < base
+    via_params = hdbscan.fit(waves, params={"epsilon": 0.4})
+    assert len(set(hdbscan.assign(via_params)) - {None}) == merged
     leaf = hdbscan.fit(waves, params={"cluster_selection_method": "leaf"})
     assert len(set(hdbscan.assign(leaf)) - {None}) >= base
     euclid = hdbscan.fit(waves, params={"distance": "euclidean"})
