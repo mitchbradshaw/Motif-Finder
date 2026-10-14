@@ -29,6 +29,7 @@ fixers in `isolation: worktree`; critics read the implementer's worktree and nev
 | 4a | fixer (row 4 resumed) | W3-D fix round 1 | `a5a78efe8b36c0a92` | row 4's | row 4's | `64db0da` | sent 23:06; reported 23:29 (`48710ae`) → `W3-D-mpdist.fix1.md`; **merged as `fe8e495`** |
 | 9 | implementer | W3-G the quiet-stretch null for families; a trend-kept k-Shape null | `a17192b65fcf2dd72` | `.claude/worktrees/agent-a17192b65fcf2dd72` | `worktree-agent-a17192b65fcf2dd72` | `6bd3e40` (`wave3-round2-base`) | launched 23:33 (decision 14); stopped ~00:3x (API limit), resumed 02:01; reported 02:03 (`2a4ca0e`) → `W3-G-quiet-stretch-null.md` |
 | 10 | critic | W3-G | `a8f15e6dcd6951107` | (reads row 9's worktree) | — | `6bd3e40` | launched 02:04; reported 02:3x: **merge after fixes** (5 should-fix, 3 nits) → `W3-G-quiet-stretch-null.critic.md` |
+| 11 | implementer | W3-F the wave-3 UI | `a9bcefee16fc666b3` | `.claude/worktrees/agent-a9bcefee16fc666b3` | `worktree-agent-a9bcefee16fc666b3` | `a5baf8b` (main) | launched 03:45 (decision 20) |
 | 9a | fixer (row 9 resumed) | W3-G fix round 1 | `a17192b65fcf2dd72` | row 9's | row 9's | `6bd3e40` | sent 02:35; reported 03:14 (`84e8326`) → `W3-G-quiet-stretch-null.fix1.md`; merges after W3-B's final branch |
 
 ## Preflight (2026-10-14 21:2x)
@@ -409,6 +410,32 @@ instead of it.
   run (`SideInputSpec(required=…)`): W3-B's merge at 03:29 put `interrogation_cycle_shapes.py` on disk while the
   process held the old `Adapters/base.py`; `discover_adapters` skipped that one module and the run continued — no MSE
   result is affected (lesson: no merge into main while an evaluation that discovers adapters runs).
+- 03:44 — W3-G's post-merge venv Library tests: **89 passed, 3 xpassed**.
+- 03:45 — **W3-F launched** (row 11, decision 20) from main `a5baf8b` (W3-A, B, D, G merged; W3-C's critic still
+  running). Launch notes: the reports' "for W3-F" sections; σ² first on the Family page and families table (decision 3)
+  with W3-G's `passed_by` / fallback / context line; MPdist's `within: null`, read-out column and refusal line; cycle
+  shapes' `cycle_stack`, `t<train>:<g>` exemplar keys and `chain.py`'s `required`; MSE's curves and the windowset
+  summary/warnings; cluster's −1; decision 1's cancellation; calibration measurements; the readout session's `api.ts`
+  on its base; the scratch-copy build pattern (a junction only to `node_modules`, removed with `cmd /c rmdir` first).
+- 03:47 — **MPdist read-out** (`eval3/eval_mpdist.py`; `motif_edge` is empty, so the brief's fallback: the five
+  largest families of the stored Ward g-05 whose medoid MPdist can compare, members against their medoid; all
+  distances on one footing, √(1 − r); nulls: AR(1) φ 0.99 and random-walk pairs at the same lengths, and
+  `mpdist_null`'s trend-kept context):
+
+  | Family (members; medoid / member length median) | MPdist median [p10–p90] | Scale-invariant | Native length | Noise pairs (AR / RW median) | Below noise p10 | Refused |
+  |---|---|---|---|---|---|---|
+  | F-30 (79; 364 / 552) | 0.064 [0.014–0.22] | 0.064 | 0.63 | 0.53 / 0.50 | 100 % | 0 |
+  | F-130 (55; 1,014 / 31) | **0.68** [0.18–0.73] | **0.13** | 0.70 | 0.51 / 0.51 | 27 % | 10 too short |
+  | F-141 (51; 2,154 / 32) | 0.22 [0.13–0.28] | 0.15 | 0.27 | 0.49 / 0.44 | 100 % | 4 too short |
+  | F-01 (49; 1,312 / 1,317) | 0.19 [0.11–0.42] | 0.14 | 0.58 | 0.65 / 0.54 | 91 % | 1 too short |
+  | F-88 (43; 24 / 34) | 0.22 [0.12–0.36] | 0.20 | 0.77 | 0.53 / 0.51 | 90 % | 0 |
+
+  Plainly: where a family's members share their duration with the medoid, MPdist agrees with the scale-invariant
+  distance and both sit far below noise, while the native-length control (sample for sample from the start) reads
+  large — MPdist does not count a shifted start or extra baseline. Where the members are ~30× shorter than the
+  medoid (F-130), MPdist reads at noise level while the scale-invariant distance calls them close: the family is
+  held together **only after stretching** — RQ3's own question, now visible per family. Refusals at real lengths:
+  15 of 271 pairs (members under 16 samples).
 
 ## Decisions taken on the researcher's behalf
 
@@ -487,6 +514,9 @@ instead of it.
     measurements; the one new behaviour (a conservative `~untested` on a slow-drift background at 30 % noise) can
     only withhold a verdict, never give a false one. The real-recording evaluation reads the block's own `tested`,
     `fallback_share` and `background_colour_mismatch` before any number.
+20. **W3-F starts from main without W3-C**, and W3-C's final branch is merged into it as a follow-up (as wave 2's
+    W2-F took W2-E's families). Reason: W3-C's critic has run 3 h (an API-limit stop included); W3-F's other ten
+    items need only what is merged, and the pan rows (item 5) read a payload whose form is in W3-C's report.
 3. **The Library side of decision 4 is folded into round 2**: W3-G puts σ² first in `shape_families`' summary lines and
    the coherence payload it returns, and measures both variants' verdicts against the quiet-stretch null (the verdict
    stays on eq. 17 unless the researcher moves it); W3-F puts σ² first on the Family page and the families table.
