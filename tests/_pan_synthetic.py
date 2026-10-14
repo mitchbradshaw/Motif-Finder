@@ -70,37 +70,46 @@ def drift_sine(n, seed=0):
 def short_motif():
     """90 s: a sharp spike up and a slower undershoot — a shape, not a bump."""
     t = np.arange(SHORT_M, dtype=float)
-    return 60.0 * np.exp(-0.5 * ((t - 25) / 4.0) ** 2) - 30.0 * np.exp(-0.5 * ((t - 50) / 12.0) ** 2)
+    return 30.0 * np.exp(-0.5 * ((t - 25) / 4.0) ** 2) - 15.0 * np.exp(-0.5 * ((t - 50) / 12.0) ** 2)
 
 
 def long_motif():
     """20 min: a sudden fall, an exponential recovery and a ripple on it."""
     t = np.arange(LONG_M, dtype=float)
     fall = -60.0 * np.exp(-t / 300.0) * (t > 60)
-    ripple = 15.0 * np.sin(2 * np.pi * t / 240.0) * np.exp(-t / 600.0)
+    ripple = 30.0 * np.sin(2 * np.pi * t / 120.0) * np.exp(-t / 900.0)
     return fall + ripple
 
 
-def planted(n=4 * 3600, seed=0):
-    """Returns (x, short_starts, long_starts)."""
+#: where the short motifs sit after the last long motif, in seconds from its
+#: end — irregular, so a long window holding two of them does not repeat as a
+#: periodic train would
+_FREE_OFFSETS = (150, 800, 1650, 2050, 2900, 3500)
+
+
+def planted(n=4 * 3600, seed=0, short_amp=1.0):
+    """Returns (x, short_starts, long_starts).
+
+    Layout: the six long motifs from 3 % of the span, 200 s apart; one short
+    motif before them, five centred in the gaps between them, six more at irregular offsets
+    after the last one; the last half hour or so of a 4 h span holds neither,
+    so a window of 20 min or more can be found that holds a short motif and
+    no long one, and one that holds no motif at all. A span too short for the
+    whole layout keeps what fits."""
     x = ar1(n, 0.97, seed)
-    long_starts = [600 + k * (n - 1800) // N_LONG for k in range(N_LONG)]
+    gap = 200
+    first = int(0.03 * n)
+    long_starts = [first + k * (LONG_M + gap) for k in range(N_LONG)]
+    long_starts = [s for s in long_starts if s + LONG_M <= n]
     lm = long_motif()
     for s in long_starts:
         x[s:s + LONG_M] += lm
-    # short motifs sit in the gaps between long ones (none inside a long motif)
-    taken = np.zeros(n, dtype=bool)
-    for s in long_starts:
-        taken[max(0, s - SHORT_M):s + LONG_M + SHORT_M] = True
-    free = [s for s in range(200, n - SHORT_M - 200, 37) if not taken[s:s + SHORT_M].any()]
-    pick = np.linspace(0, len(free) - 1, N_SHORT).astype(int)
-    short_starts = []
-    for j in pick:
-        s = free[j]
-        if short_starts and s - short_starts[-1] < 2 * SHORT_M:
-            continue
-        short_starts.append(s)
-    sm = short_motif()
+    before = [max(0, first - SHORT_M - 150)]
+    between = [s + LONG_M + (gap - SHORT_M) // 2 for s in long_starts[:-1]]
+    after = long_starts[-1] + LONG_M
+    free = [after + o for o in _FREE_OFFSETS]
+    short_starts = [s for s in before + between + free if s + SHORT_M <= n][:N_SHORT]
+    sm = short_amp * short_motif()
     for s in short_starts:
         x[s:s + SHORT_M] += sm
     return x, short_starts, long_starts

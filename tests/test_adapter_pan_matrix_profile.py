@@ -97,6 +97,8 @@ def test_estimate_is_the_matrix_profile_model_times_the_profiles(monkeypatch):
     t = np.arange(len(x)) / FS
     tmp = tempfile.mkdtemp(prefix="pan_cost_")
     monkeypatch.setattr(cost, "CALIBRATION_PATH", os.path.join(tmp, "mp_calibration.json"))
+    from Working.Detection.matrix_profiling import pan as P
+    monkeypatch.setattr(P, "first_call_seconds", lambda: 0.0)           # pinned separately below
     assert spec.estimate(x, t, FS, **spec.validate_params({})) is None        # uncalibrated: never a guess
     k = 3.5e-9
     with open(cost.CALIBRATION_PATH, "w") as f:
@@ -108,6 +110,18 @@ def test_estimate_is_the_matrix_profile_model_times_the_profiles(monkeypatch):
     assert est0 == pytest.approx(one * 6)
     approx = spec.estimate(x, t, FS, **spec.validate_params({"percentage": 0.1}))
     assert approx < est
+
+
+def test_the_first_call_in_a_process_adds_stumpys_compile_time():
+    """The cost model times warm calls; a fresh process pays numba's compile of `stump` once (35-46 s here)."""
+    import stumpy
+    from Working.Detection.matrix_profiling import pan as P
+    stumpy.stump(np.random.default_rng(0).standard_normal(200), 16)    # compiled now, in this process
+    assert P.first_call_seconds() == 0.0
+    import sys
+    disp = sys.modules["stumpy.stump"]._stump
+    assert len(disp.signatures) >= 1                                    # what first_call_seconds reads
+    assert P.FIRST_CALL_S > 0
 
 
 def test_the_bridge_sees_the_matrix_profile_cost_model():
@@ -127,7 +141,7 @@ def test_memory_guard_is_a_constant_not_the_calibration():
 def test_recommend_caps_the_longest_length_at_what_the_span_can_judge():
     spec = _spec()
     x = np.zeros(4 * 3600)
-    assert spec.recommend(x, np.arange(len(x)), 1.0) == {"max_window_s": 1800.0}
+    assert spec.recommend(x, np.arange(len(x)), 1.0) == {"max_window_s": 1028.0}
     x = np.zeros(48 * 3600)
     assert spec.recommend(x, np.arange(len(x)), 1.0) == {"max_window_s": 3600.0}
     assert spec.recommend(np.zeros(100), np.arange(100), 1.0) == {}
@@ -139,7 +153,7 @@ def test_derive_lists_the_lengths_and_how_many_are_judged():
     rows = spec.derive(x, np.arange(len(x)), 1.0, spec.validate_params({}))
     labels = {r[0]: r for r in rows}
     assert "Lengths (s)" in labels and "Judged against the null" in labels
-    assert labels["Judged against the null"][1].startswith("10 of 12")
+    assert labels["Judged against the null"][1].startswith("9 of 12")
     assert labels["Judged against the null"][2] == "warn"
 
 
