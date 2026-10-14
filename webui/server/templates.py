@@ -326,6 +326,25 @@ EXPERIMENTAL += [
                   _step("catalogue", "snippets", {"k": 0, "k_max": 6, "subseq_frac": 0.35,
                                                   "mpdist_percentage": 0.05})],
     },
+    {
+        "name": "event_families", "kind": "interrogation", "version": 1,
+        "description": "Families of detected events, each timed on its own — 'do family A events come every 40 "
+                       "minutes and family B every 3 hours?' in one chain: baseline removal → noise threshold (every "
+                       "stretch more than 4 σ_n below the detrended trace's median, as the noise_threshold template) → "
+                       "Event shape → Event families (a 600 s window around each event from its span start - a placeholder "
+                       "length, measured on synthetic shapes - grouped by shape with the Library's "
+                       "HDBSCAN; events in no dense family are left out, and a family no better than phase-randomised "
+                       "noise of the same colour is flagged; each event's family becomes its group) → Intervals (the "
+                       "gaps between events of the SAME family: one rhythm per family). Tune Event families' minimum "
+                       "family size first; read each family's noise flag and SVD entropy beside its null before its "
+                       "rhythm.",
+        "steps": [_step("preprocessing", "detrend", {"mode": "rolling_mean", "window_s": 600.0}),
+                  _step("detection", "noise_threshold", {"k_sigma": 4.0, "direction": "below",
+                                                         "min_duration_s": 30.0, "merge_gap_s": 60.0}),
+                  _step("interrogation", "event_shape", {}),
+                  _step("interrogation", "event_families", {"method": "hdbscan", "length_s": 600.0}),
+                  _step("interrogation", "intervals", {})],
+    },
 ]
 
 

@@ -158,6 +158,7 @@ def _run(x, t, fs, anchor=DEFAULT_ANCHOR, length_s=SF.DEFAULT_EVENT_LENGTH_S, pr
 
 def _estimate(x, t, fs, method=SF.DEFAULT_METHOD, **params):
     # one window per event; the estimate cannot see the events, so it assumes one per ASSUMED_SECONDS_PER_ITEM
+    # (Ward past WARD_MAX_ITEMS is refused by the run, which counts the real events)
     flat = {k: v for k, v in params.items()
             if k not in ("anchor", "length_s", "pre_frac", "max_nan_frac", "write_group", "seed")}
     return estimate_for(x, fs, method, flat)
@@ -192,6 +193,11 @@ SPEC = register(AdapterSpec(
     input_kind="spanset",
     output_kind="spanset",
     description=(
+        "EXPERIMENTAL: its template beat the shape null on 1 of the 5 real spans that held events (rec 542's known "
+        "chain). On rec 6's chain its two families passed their own noise tests and were far more coherent than "
+        "noise, but phase-randomised copies of the same events were placed in families as often; on 24 h M2_aug "
+        "spans it found no family at all (docs/prompts/blocks/reports/W2-evaluation.md). Read each family's noise "
+        "flag and coherence before its rhythm. "
         "Sorts the events into families of similar shape with the Library's own methods (a window around each "
         "event, resampled and z-normalised, so amplitude does not enter) and writes each event's family onto it — "
         "and, by default, as its group, so Intervals after this block gives each family its own rhythm. Each "

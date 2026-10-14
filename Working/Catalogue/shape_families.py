@@ -432,10 +432,10 @@ def event_families(x, fs, spans, *, anchor="start", length_s=DEFAULT_EVENT_LENGT
 def estimate_seconds(n, method, params):
     """Seconds to group `n` waveforms: the method's own measured estimate (W2-B's
     coefficients, through the engine) plus the coherence (`COHERENCE_SECONDS_PER_ITEM`).
-    Ward past `WARD_MAX_ITEMS` raises, as its run does."""
-    if method == "ward" and int(n) > WARD_MAX_ITEMS:
-        raise ValueError(f"ward builds a square distance matrix over every event; about {int(n)} expected here is "
-                         f"past its {WARD_MAX_ITEMS} cap. Use hdbscan, which fits a seeded sample and assigns the rest.")
+    Ward past `WARD_MAX_ITEMS` is refused by its run, which sees the real count; the
+    blocks' estimates only assume one (the adapters' `ASSUMED_SECONDS_PER_ITEM`), so
+    a refusal here would be a guess — and the bridge shows a raising estimate as
+    "uncalibrated", not in words (W2-E re-critique)."""
     full = {**registry.defaults_for(method), **dict(params or {})}
     return float(engine.estimate_seconds(int(n), BASIS, method, full) + int(n) * COHERENCE_SECONDS_PER_ITEM)
 
@@ -549,19 +549,22 @@ def warnings_for(fam: ShapeFamilies):
 
 
 def auto_length_warnings(spans, ew, length_s):
-    """W2-A's coverage checks, for a caller that asked for the auto length (`length_s`
-    0): the length clamped to the floor or the ceiling, more than `AUTO_WARN_FRAC` of the
-    windows overlapping the next, more than `AUTO_WARN_FRAC` ending before their event
-    recovered. `(warnings, short phrases for the summary)`; empty for a set length."""
-    if float(length_s) != 0.0 or not len(ew.starts):
+    """W2-A's coverage checks. Whatever the length: more than `AUTO_WARN_FRAC` of the
+    windows overlapping the next (at the 600 s default, events closer than the window
+    share it — the W2-E re-critique). For a caller that asked for the auto length
+    (`length_s` 0) also: the length clamped to the floor or the ceiling, and more than
+    `AUTO_WARN_FRAC` ending before their event recovered. `(warnings, short phrases for
+    the summary)`."""
+    if not len(ew.starts):
         return [], []
     warn, short = [], []
     n = len(ew.starts)
-    if ew.length_s <= EW.AUTO_MIN_S:
+    auto = float(length_s) == 0.0
+    if auto and ew.length_s <= EW.AUTO_MIN_S:
         warn.append(f"the auto window length is at its {EW.AUTO_MIN_S:g} s floor (twice the median event duration "
                     f"was shorter): a window may hold only the onset. Set length_s (600 s is this block's default).")
         short.append(f"auto window at the {EW.AUTO_MIN_S:g} s floor")
-    elif ew.length_s >= EW.AUTO_MAX_S:
+    elif auto and ew.length_s >= EW.AUTO_MAX_S:
         warn.append(f"the auto window length is at its {EW.AUTO_MAX_S:g} s ceiling (most event durations are "
                     f"unmeasured or very long): a window may hold several events. Set length_s (600 s is this "
                     f"block's default).")
@@ -571,7 +574,7 @@ def auto_length_warnings(spans, ew, length_s):
         warn.append(f"{n_ov} of {n} windows overlap the next ({ew.length_s:g} s windows): neighbouring events share "
                     f"samples and can make one shape of two. Set length_s shorter.")
         short.append(f"{n_ov} of {n} windows overlap the next")
-    n_rec = EW.recovery_outside(spans, ew)
+    n_rec = EW.recovery_outside(spans, ew) if auto else None
     if n_rec is not None and n_rec > AUTO_WARN_FRAC * n:
         warn.append(f"{n_rec} of {n} windows end before their event has recovered (its recovery point lies outside "
                     f"the {ew.length_s:g} s window). Raise length_s if the recovery belongs to the shape.")
