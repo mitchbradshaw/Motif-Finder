@@ -19,9 +19,10 @@ brief; make the defensible call, write it in the ledger and in the final report.
 - `CLAUDE.md` — the non-negotiable rules, "Talking to the researcher" (plain language first, then options, then a
   recommendation), the UI gate, and **never point pytest, a bridge or an adapter at a junction to the real `DATA/`;
   unlink any junction before removing a worktree**.
-- `docs/prompts/blocks/README.md`, `00-common.md` (both "Lessons" sections), `critic.md`, and the six wave-3 prompts
-  `W3-A … W3-F`.
-- `docs/research/analysis-blocks-from-literature.md` §4 A1–A2, §5 rows 4 and 11, §6 (MPdist), §7, §8 (the researcher's
+- `docs/prompts/blocks/README.md`, `00-common.md` (both "Lessons" sections), `critic.md`, and the five wave-3 prompts
+  you run: `W3-A`, `W3-B`, `W3-C`, `W3-D`, `W3-F`. **`W3-E` (wavelet features) is not run in this wave** — of the
+  plan's two optional blocks the researcher chose MPdist only (2026-10-14); its prompt stays on file for later.
+- `docs/research/analysis-blocks-from-literature.md` §4 A1–A2, §5 row 11, §6 (MPdist), §7, §8 (the researcher's
   decisions — above all Q4: **a template ships only if it beats its random-data null** on real recordings; it need not
   beat the drop detector), and `analysis-blocks-primary-sources.md` §1, §2, §4, §13b.
 - `docs/prompts/blocks/reports/W1-retest-known-spans.md` if present (W3-B's prompt carries its numbers either way).
@@ -76,10 +77,9 @@ alive, else relaunched **in its existing worktree** (told to read `git log` ther
 ## The sequence
 
 **Round 1 (parallel):** W3-A multiscale entropy · W3-B cycle shapes (if preflight 1 allows) · W3-C pan matrix profile.
-**Round 2 (after round 1 is merged):** W3-F UI, and the optional W3-D MPdist and W3-E wavelet features — run D and E
-unless the researcher's launch message says to skip them; if round 1 has overrun badly, drop them, write why in the
-ledger, and leave their prompts for later. W3-F can start once A–C are merged; tell it to leave D/E's glyph or label for
-a short follow-up if they land after it.
+**Round 2 (after round 1 is merged):** W3-F UI and W3-D MPdist, in parallel (the researcher chose MPdist, 2026-10-14;
+W3-E is not run). W3-F can start once A–C are merged; tell it to leave anything MPdist needs on the Family page for a
+short follow-up if D lands after it.
 
 Expect, from wave 2: implementers 40–110 min, critics 15–25 min, fix rounds 15–30 min; every block so far needed a fix
 round, and timings measured while other agents run read slow (judge ratios, not absolute seconds).
@@ -131,7 +131,6 @@ said it was splitting events.
 | `complexity_fingerprint` (W3-A) | distance of the window-median MSE curve from the mean of the 20 surrogate curves, over scales defined in every run, against each draw's distance from the mean of the other 19 | the 20 surrogate draws | M2_aug rec 1 and rec 3, 440–464 h (wave 1's 24 h spans); *S. commune* rec 600 (all 73 h); rec 385 (4 h — expect "too few scales", which is itself a check) |
 | `chain_cycles` (W3-B) | aligned SVD entropy of the stacked cycles (eq. 17 **and** squared) | **shape null:** the same real event times, cycles cut from phase-randomised copies — 20 draws (the block's own `null_draws`, or computed beside it); the surrogate run is a floor (≈ 0 events expected) | the known chains: M2_aug rec 3 490–540 h, rec 6 370–470 h, L_LM_Jul_26_J rec 542 or 543 370–490 h; rec 2 294–304 h (13 events — a "few cycles" case) |
 | `motif_lengths` (W3-C) | at the suggested length, the real median normalised nearest-neighbour distance below every draw's | the 20 surrogate draws | rec 385 (4 h): does it suggest ~1 min, the supervisor's finding? M2_aug rec 2 296–304 h, rec 6 400–408 h, rec 3 512–520 h |
-| `wavelet_sorted_events` (W3-E, if run) | silhouette of `catalogue.cluster` | the shape null, as `event_clusters`; and `event_clusters` itself on the same events | as `event_clusters` in `W2-evaluation.md` |
 
 For `chain_cycles` the shape null is a floor real chains should clear easily; **the findings are K, the change points,
 the order test and the floor fraction** (sharkfins on rec 2 against sharp drops on rec 3) — report them as findings,
@@ -152,9 +151,9 @@ Three more pieces the researcher will want more than any synthetic number:
    with it on that chain (rec 6: at 300 s its strongest changes sat 10 h outside the chain's 383–445 h edges). Report
    only — FLUSS's status changes only by the Q4 bar — and cap it at about an hour of compute (`estimate_seconds` first).
 
-If W3-D ran: MPdist against the scale-invariant distance and the native-length control on accepted RQ3 pairs if the
-sandbox holds any (`motif_edge`), else on five families' members against their medoids, with coloured-noise pairs as the
-null.
+**MPdist (W3-D)** has no template, so no ship-or-not verdict: put it beside the scale-invariant distance and the
+native-length control on accepted RQ3 pairs if the sandbox holds any (`motif_edge`), else on five families' members
+against their medoids, with coloured-noise pairs as the null — and say in plain words what it adds to RQ3's read-out.
 
 Write `docs/prompts/blocks/reports/W3-evaluation.md` in the wave-1/2 format: plain words first, a results table per
 template, verdicts, the warnings you read, and what the researcher should decide.

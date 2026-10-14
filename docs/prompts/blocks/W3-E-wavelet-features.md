@@ -1,4 +1,9 @@
-# W3-E (optional) — `catalogue.wavelet_features`: the Wave_clus sorter's features, ten wavelet coefficients that split the events (Quian Quiroga, Nadasdy & Ben-Shaul 2004)
+# W3-E (not run in wave 3) — `catalogue.wavelet_features`: the Wave_clus sorter's features, ten wavelet coefficients that split the events (Quian Quiroga, Nadasdy & Ben-Shaul 2004)
+
+> **Not run in wave 3.** Of the plan's two optional wave-3 blocks the researcher chose MPdist only (2026-10-14): these
+> features overlap what MiniRocket and Event shape already give the clustering blocks. The prompt is kept for a later
+> wave. Before using it, re-check every file and function it names against `main` — it was written against wave 2 as it
+> stood on 2026-10-14.
 
 Read [`00-common.md`](00-common.md) first, including **both** "Lessons" sections. Commit prefix **`w3-e:`**. Plan:
 `docs/research/analysis-blocks-from-literature.md` §5 row 4 ("accept the detector, adapt the sorter") and §7.1 (wave 3,

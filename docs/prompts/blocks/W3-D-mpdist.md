@@ -1,10 +1,10 @@
-# W3-D (optional) — `mpdist`: a fourth Library distance, shared sub-shapes at native speed (Gharghabi et al. 2018, matrix profile XII)
+# W3-D — `mpdist`: a fourth Library distance, shared sub-shapes at native speed (Gharghabi et al. 2018, matrix profile XII)
 
 Read [`00-common.md`](00-common.md) first, including **both** "Lessons" sections. Commit prefix **`w3-d:`**. Plan:
 `docs/research/analysis-blocks-from-literature.md` §6 ("MPdist as a fourth Library distance … a small, direct addition
 to RQ3's three distances") and §7.1 (wave 3, optional). Read `docs/rq_roundA/RQ3-identity-under-scale.md` — the question
 this serves — and `Working/library/matching.py` (how an accepted match becomes members and one `motif_edge` per
-distance function). **Round 2 of wave 3, optional:** the manager runs it unless the researcher said not to.
+distance function). **Round 2 of wave 3.** Optional in the plan; the researcher chose to build it (2026-10-14).
 
 ## In plain words
 

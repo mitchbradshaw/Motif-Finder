@@ -53,12 +53,16 @@ Run by a managing session from [`W3-manager.md`](W3-manager.md), the same way as
 | 1 | `W3-A-multiscale-entropy.md` | `catalogue.multiscale_entropy` | WindowSet → WindowSet | Costa, Goldberger & Peng 2005; Wu et al. 2014 |
 | 1 | `W3-B-cycle-shapes.md` | `interrogation.cycle_shapes` | SpanSet → SpanSet | Colominas & Wu 2023 (the back half) |
 | 1 | `W3-C-pan-matrix-profile.md` | `detection.pan_matrix_profile` | Signal → Encoding | Madrid et al. 2019 |
-| 2, optional | `W3-D-mpdist.md` | `mpdist`, a fourth Library distance | (Library) | Gharghabi et al. 2018 |
-| 2, optional | `W3-E-wavelet-features.md` | `catalogue.wavelet_features` | WindowSet → WindowSet | Quian Quiroga et al. 2004 (the sorter's features) |
+| 2 | `W3-D-mpdist.md` | `mpdist`, a fourth Library distance | (Library) | Gharghabi et al. 2018 |
+| not run | `W3-E-wavelet-features.md` | `catalogue.wavelet_features` | WindowSet → WindowSet | Quian Quiroga et al. 2004 (the sorter's features) |
 | 2 | `W3-F-ui.md` | cancel and progress inside a step; every costed block calibrated before routing; MSE curves, the cycle stack, pan-MP row labels, an optional scalogram with ridges; glyphs; smoke states | (UI) | — |
 
-Templates proposed: `complexity_fingerprint` (W3-A), `chain_cycles` (W3-B), `motif_lengths` (W3-C),
-`wavelet_sorted_events` (W3-E). The nulls per template are in `W3-manager.md`.
+Templates proposed: `complexity_fingerprint` (W3-A), `chain_cycles` (W3-B), `motif_lengths` (W3-C). The nulls per
+template are in `W3-manager.md`.
+
+**The researcher's choice of the plan's two optional blocks (2026-10-14): MPdist only.** W3-D runs in round 2; W3-E
+(wavelet features) is not run — its features overlap what MiniRocket and Event shape already give the clustering
+blocks — and its prompt stays on file for a later wave (re-check it against `main` before using it).
 
 **What the results so far changed in these prompts** (against plan §7.1):
 
@@ -82,9 +86,8 @@ Templates proposed: `complexity_fingerprint` (W3-A), `chain_cycles` (W3-B), `mot
 
 1. W2-B's final `svd_entropy` signature (null, squared variant, alignment rule) and whether it exported a
    phase-randomised member helper — W3-B imports both.
-2. W2-E's category and shared clustering entry point — W3-B matches the category; W3-E's template may prefer
-   `shape_families` to `catalogue.cluster`.
-3. Which wave-2 templates shipped, and with which detector — W3-B's and W3-E's templates start from `noise_threshold`.
+2. W2-E's category and shared clustering entry point — W3-B matches the category.
+3. Which wave-2 templates shipped, and with which detector — W3-B's template starts from `noise_threshold`.
 4. Whether W2-D exported gap handling or a pairwise MPdist kernel — W3-C and W3-D reuse them.
 5. Whether `route_local` and `runs.py` were changed by anyone (W3-F items 1–2), and whether the detrend NaN fix merged
    (W3-A's gap handling).

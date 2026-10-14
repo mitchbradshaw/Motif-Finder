@@ -2,7 +2,7 @@
 
 Read [`00-common.md`](00-common.md) first — **this prompt hands you the files its "Deliver" list names** (the exception in
 `00-common.md`'s "Do NOT touch"). Commit prefix **`w3-f:`**. **Round 2 of wave 3:** you start from a `main` holding
-W3-A, W3-B and W3-C (and W3-D / W3-E if they merged first — check `git log`). Read their reports in
+W3-A, W3-B and W3-C (and W3-D, MPdist, if it merged first — check `git log`; W3-E is not run). Read their reports in
 `docs/prompts/blocks/reports/W3-*.md`: each one's "Integration snippets" are your input. Read `CLAUDE.md`'s "Web UI"
 section and `docs/BLOCK_INTEGRATION.md` §2 (the drawing standard: payload-driven, never name-driven) and §3 (cost).
 
