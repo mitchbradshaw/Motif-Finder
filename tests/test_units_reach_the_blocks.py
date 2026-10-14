@@ -174,7 +174,7 @@ def test_detect5_with_no_factor_named_is_the_volts_path_bit_for_bit():
     a, b, ref = detect_drops5(V, FS, P5), detect_drops5(V, FS, P5, to_mv=1000.0), today.detect_drops5(V, FS, P5)
     assert a.events == b.events and a.counts == b.counts and a.letters == b.letters
     assert [dataclasses.asdict(e) for e in a.events] == [dataclasses.asdict(e) for e in ref.events]
-    assert a.counts == ref.counts and a.letters == ref.letters
+    assert {k: a.counts[k] for k in ref.counts} == ref.counts and a.letters == ref.letters   # + the gap counters
     for other in (b, ref):
         assert {k: v for k, v in a.diagnostics.items() if k not in drop} == \
                {k: v for k, v in other.diagnostics.items() if k not in drop}
@@ -434,11 +434,28 @@ def test_the_feature_note_no_longer_calls_a_millivolt_recordings_measures_1000x_
 
 
 def test_the_feature_note_holds_on_a_cache_hit_whose_meta_was_not_restored():
-    """The core's step cache restores the value only; with no sidecar the meta is {}. The note is then read off
-    the block itself — a block that is told the unit converted by it."""
+    """The core's step cache restores the value only; with no sidecar the meta is {}. The note still follows the
+    recording's unit."""
     assert _features_payload("mV", meta={}).get("features_unit_note") is None
     said = _features_payload(None, meta={}).get("features_unit_note")
     assert said and "undeclared" in said
+
+
+def test_a_block_after_event_shape_carries_its_columns_without_the_old_1000x_note():
+    """drop_event_features ends Event shape -> Intervals: the Intervals stage's table carries Event shape's mV
+    columns through, and Intervals itself is never told the unit."""
+    from server.serialize import to_payload
+    shaped = _shape(_drop_event(), units="mV").value
+    intervals = get_adapter("interrogation.intervals")
+    out = intervals.run(_drop_event(), np.arange(300) / 10.0, 10.0, value=shaped, **intervals.validate_params({}))
+    assert "event_amplitude_mv" in out.value.features.columns
+    for units, said in (("mV", False), (None, True)):
+        ctx = {"fs": 10.0, "span_start": 0, "n_samples": 300, "units": units, "block": "interrogation.intervals"}
+        note = to_payload("spanset", out.value, out.meta, ctx).get("features_unit_note")
+        assert bool(note) is said and "1000x off" not in str(note), (units, note)
+    no_mv = SpanSet(starts=(0,), ends=(300,), features=out.value.features[["interval_before_s", "interval_after_s"]])
+    ctx = {"fs": 10.0, "span_start": 0, "n_samples": 300, "units": None, "block": "interrogation.intervals"}
+    assert to_payload("spanset", no_mv, {}, ctx).get("features_unit_note") is None, "no mV column, nothing to say"
 
 
 def test_the_bridge_keeps_a_steps_meta_under_the_unit_aware_cache_key(store, tmp_path, monkeypatch):

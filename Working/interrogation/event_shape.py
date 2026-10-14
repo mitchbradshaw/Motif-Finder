@@ -88,12 +88,14 @@ is the electrophysiological measure beside it.
 With depth = 0 (a window with no fall in it) every anatomy measure is NaN and
 the event is counted, never guessed.
 
-Units. `x` is taken to be in the core's native unit, volts (`detect5.py:81`):
-`to_mv` (default 1000) turns amplitudes into mV and slopes into mV/s, with the
-sample rate applied once (`np.gradient * fs`), never twice. A recording stored
-in mV (`L_LM_Jul_26_J`) is 1000x large through this, exactly as it is through
-detect5 — that is QUESTIONS.md Q-X2.8, open, and the printed `units` rule says
-so rather than hiding it.
+Units. `to_mv` (default 1000: `x` read as volts, the core's convention) turns
+amplitudes into mV and slopes into mV/s, with the sample rate applied once
+(`np.gradient * fs`), never twice. The block (`interrogation.event_shape`) is
+told the recording's declared unit and passes its factor
+(`Working.units.read_as_mv`: 1 for a recording stored in mV), and `rules`
+prints which unit the numbers were read from (2026-10-15). Before, a
+recording stored in mV (`L_LM_Jul_26_J`) read 1000x large here, as it did
+through detect5 (QUESTIONS.md Q-X2.8).
 
 No plotting library - CLAUDE.md rule 1.
 """
@@ -106,6 +108,7 @@ from Working.Detection.drop_motifs.detect5 import refine_onset, walk_back_to_sho
 from Working.Detection.drop_motifs.gradients import (
     DEFAULT_SLOPE_REF_MV_S, SLOPE_SCALES, fall_gradients, rose_data, rose_histogram,
 )
+from Working.units import read_as_mv
 
 POLARITIES = ("auto", "drop", "spike")
 DROP, SPIKE = -1, 1
@@ -115,6 +118,7 @@ RECOVERY_FRAC = 0.5
 RECOVERY_MAX_MULT = 10.0
 RISE_TIME_FRAC = 0.1      # the 10-90 % rise time
 TO_MV_FROM_VOLTS = 1000.0
+UNSTATED = object()       # `rules(units=...)`: the caller states a factor only, not the recording's unit
 
 # Index columns are in the SpanSet's own frame (span-relative, like `starts`).
 COLUMNS = ("polarity", "onset_idx", "extremum_idx", "recovery_idx", "event_amplitude_mv",
@@ -128,15 +132,27 @@ MEASURES = tuple(c for c in COLUMNS if not c.endswith("_idx"))
 UNLIT = {c: float("nan") for c in COLUMNS}
 
 
+def _units_rule(to_mv, units):
+    """The printed `units` rule. A block states the recording's unit; a caller that states only a factor (the
+    store routes hand over snippets already in mV, `to_mv = 1`) gets the factor."""
+    if units is not UNSTATED:
+        _, note = read_as_mv(units)
+        head = (note if note else f"the recording declares its samples in {units} (Settings › Datasets)")
+        return (f"{head}: amplitudes x{to_mv:g} -> mV, slopes are np.gradient(x) * fs x{to_mv:g} -> mV/s "
+                "(fs applied once)")
+    if to_mv == TO_MV_FROM_VOLTS:
+        return ("x is read as volts, the core's convention: amplitudes x1000 -> mV, slopes are np.gradient(x) * fs "
+                "x1000 -> mV/s (fs applied once). The block is told the recording's declared unit and reads by it")
+    return f"x is multiplied by {to_mv:g} to give mV; slopes in mV/s, fs applied once"
+
+
 def rules(*, knee_frac=KNEE_FRAC, recovery_frac=RECOVERY_FRAC, recovery_max_mult=RECOVERY_MAX_MULT,
           rise_time_frac=RISE_TIME_FRAC, walk_onset_back=True, to_mv=TO_MV_FROM_VOLTS, upstream_inverted=False,
-          polarity="drop", anchors_used=None):
+          polarity="drop", anchors_used=None, units=UNSTATED):
     """The rule behind every measure, as printed beside the numbers — a measure
-    whose rule is unstated cannot be argued with."""
-    unit = ("x is in volts, the core's convention (detect5.py:81): amplitudes x1000 -> mV, "
-            "slopes are np.gradient(x) * fs x1000 -> mV/s (fs applied once). A recording stored "
-            "in mV reads 1000x large here, as it does through detect5 (QUESTIONS.md Q-X2.8)"
-            if to_mv == TO_MV_FROM_VOLTS else f"x is multiplied by {to_mv:g} to give mV; slopes in mV/s, fs applied once")
+    whose rule is unstated cannot be argued with. `units`: the recording's
+    declared unit (None = undeclared, read as volts), when the caller knows it."""
+    unit = _units_rule(to_mv, units)
     return [
         {"name": "polarity", "rule": f"{polarity}: " + {
             "drop": "every event is a drop (-1) — the default, because every detector in the registry is a drop detector",

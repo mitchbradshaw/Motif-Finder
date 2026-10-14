@@ -157,7 +157,11 @@ class AdapterSpec:
         whether the underlying function needs all three — the adapter
         decides what to actually forward. This is the "map (x, t, params)
         onto the underlying function" the brief asks for; that mapping
-        lives entirely inside `run`, nowhere else.
+        lives entirely inside `run`, nowhere else. `x` is in the
+        recording's STORED unit; a `run` (or `derive`) that declares
+        `units` is handed the recording's declared `recordings.units`
+        (None: undeclared) and converts by `Working.units.read_as_mv`
+        (2026-10-15; `docs/BLOCK_INTEGRATION.md` §1).
     output_kind : str
         One of the seven `TYPE_KINDS` (the contents of `OUTPUT_KINDS`). The
         legacy `intervals` output vocabulary is gone; `signal` and

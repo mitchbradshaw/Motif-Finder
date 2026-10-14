@@ -13,10 +13,18 @@ key), and this module is its vocabulary:
 
     parse_units(text)  -> 'V' | 'mV' | 'uV' | None     what a manifest's text means
     to_mv_factor(unit) -> 1000.0 | 1.0 | 0.001 | None  None: undeclared, never assumed
+    read_as_mv(unit)   -> (factor, note)               how a BLOCK reads its samples as mV
 
-The core does not convert: detection code (`detect5`, `store`) expects volts
-and multiplies by 1000 itself. The factor is for drawing, at the bridge's one
-display seam (`webui/server/corpus.py::display_channel`).
+The core does not convert the samples: every block is handed them as stored.
+The factor is for drawing, at the bridge's one display seam
+(`webui/server/corpus.py::display_channel`), and for the blocks that print
+millivolts (the drop detector's two blocks and `interrogation.event_shape`):
+a run TELLS such a block the recording's unit (`execute_recipe`, the block
+page's readout and the window chain pass ``units``) and it converts by
+`read_as_mv` (2026-10-15, the researcher's choice over converting every mV
+recording to volts on load, QUESTIONS.md Q20). Before, `detect5` multiplied by
+1000 whatever the file held, and every mV recording read 1000x too large.
+Pipelines and scripts that call `detect5` without a unit still get volts.
 
 `RECORDING_UNITS_EVIDENCE` is what was measured for each registered source
 file on 2026-09-23. `init_db()` backfills it onto rows that carry no unit and
@@ -67,6 +75,27 @@ def to_mv_factor(units: str | None) -> float | None:
 def describe(units: str | None) -> str:
     """How a page names the unit it draws in."""
     return "mV" if to_mv_factor(units) is not None else "unit undeclared"
+
+
+#: The core's convention: a sample nobody declared a unit for is read as volts.
+VOLTS = "V"
+
+
+def read_as_mv(units: str | None) -> tuple[float, str | None]:
+    """How a block that prints millivolts reads the samples it is handed:
+    ``(factor, note)``.
+
+    A declared unit converts by its own factor (V x1000, mV x1, uV x0.001) and
+    ``note`` is None. An undeclared one — None, or text with no factor — is read
+    as volts, the core's convention (x1000), and ``note`` says so, for the block
+    to print beside every millivolt: the researcher's choice for an undeclared
+    recording (2026-10-15), so a number is never silently a guess.
+    """
+    factor = to_mv_factor(units)
+    if factor is not None:
+        return factor, None
+    what = "unit undeclared" if units is None else f"unit {units!r} has no factor to mV"
+    return UNITS_TO_MV[VOLTS], f"{what}: read as volts (×1000 to mV) — declare it in Settings › Datasets"
 
 
 # The measurements behind each registered source file's unit, 2026-09-23. The

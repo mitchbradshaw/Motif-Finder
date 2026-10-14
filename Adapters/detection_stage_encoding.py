@@ -28,6 +28,14 @@ stage — symbol -1, letter '-' (`dsax.MISSING_SYMBOL` / `MISSING_LETTER`) —
 and the cutlines and the noise floor are the recorded part's. Before, one
 NaN made every segment 'U' and the floor NaN. The block page says how much
 is missing before a run.
+
+Units (2026-10-15): the readout prints σ and the cut in mV/s by the unit the
+recording declares — a run hands `derive` the recording's ``units`` and it
+converts by `Working.units.read_as_mv` (V ×1000, mV ×1). Before, it
+multiplied by 1000 whatever the file held: on L_LM σ read 605.6 "mV/s" for
+0.6056. An undeclared unit is read as volts and every mV row says so; naming
+no unit at all (a script, a test) is volts, as it always was. The letters
+themselves are unit-free.
 """
 
 import numpy as np
@@ -41,6 +49,7 @@ from Working.Detection.drop_motifs.detect import (
 from Working.Detection.drop_motifs.detect5 import STAGE_LETTERS, Detect5Params, stage_letters
 from Working.Detection.sax.dsax_python.dsax import MISSING_LETTER, MISSING_SYMBOL
 from Working.types import Encoding
+from Working.units import VOLTS, read_as_mv
 
 STAGE_INDEX = {letter: i for i, letter in enumerate(STAGE_LETTERS)}
 STAGE_INDEX[MISSING_LETTER] = MISSING_SYMBOL          # a segment a gap touches: no stage
@@ -59,6 +68,21 @@ def missing_samples_row(x, t, fs, consequence):
     k = len(starts)
     return ("Missing samples", f"{int(gone.sum()):,} in {k} gap{'s' if k != 1 else ''} · first at {clock} · "
             f"{consequence}", "warn")
+
+
+def units_row(units):
+    """The block page's readout of the unit its millivolts are read from: ``("Unit", "mV · ×1 to mV", "")``,
+    or the `read_as_mv` note, flagged, for an undeclared unit. Shared with `detection.drop_detection` and
+    `interrogation.event_shape`."""
+    factor, note = read_as_mv(units)
+    return ("Unit", note, "warn") if note else ("Unit", f"{units} · ×{factor:g} to mV", "")
+
+
+def mv_per_s_row(label, value, units):
+    """A slope readout row: `value` (stored unit per second) in mV/s by the recording's unit; read as volts and
+    flagged where the unit is undeclared."""
+    factor, note = read_as_mv(units)
+    return (label, f"{value * factor:.4f} mV/s" + (" · read as volts" if note else ""), "warn" if note else "")
 
 
 def params_for(fs, segment_seconds, same_fraction, slope_sigma, noise_estimator, merge_gap_segments,
@@ -101,15 +125,16 @@ def _run(x, t, fs, segment_seconds=60.0, same_fraction=0.6, slope_sigma=8.0,
     )
 
 
-def _derive(x, t, fs, params):
+def _derive(x, t, fs, params, units=VOLTS):
     x = np.asarray(x, dtype=float).ravel()
     sigma = slope_noise_sigma(x, fs, params["noise_estimator"]) if x.size >= 3 else 0.0
     sps = max(1, int(round(params["segment_seconds"] * fs)))
     n_seg = max(1, len(x) // sps)
     cut = params["slope_sigma"] * sigma
     rows = [
-        ("Slope-noise σ (MAD)", f"{sigma * 1000:.4f} mV/s", ""),
-        ("Fast cut (±slope_sigma·σ)", f"{cut * 1000:.4f} mV/s", ""),
+        units_row(units),
+        mv_per_s_row("Slope-noise σ (MAD)", sigma, units),
+        mv_per_s_row("Fast cut (±slope_sigma·σ)", cut, units),
         ("Segments", f"{n_seg} × {sps} samples", "warn" if n_seg < 8 else ""),
     ]
     gap = missing_samples_row(x, t, fs, "a segment that touches a gap gets no letter (-); σ and the cutlines "

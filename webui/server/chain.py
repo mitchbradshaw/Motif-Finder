@@ -22,9 +22,10 @@ from typing import Any
 
 from Adapters.registry import discover_adapters, get_adapter, list_adapters
 from Working.chain_validation import ROOT_SIGNAL_KIND, check_source_position, check_step_compatibility
-from Working.execution import _recipe_prefix_hash, invalidated_step_indices
+from Working.execution import _recipe_prefix_hash, invalidated_step_indices, recording_units
 from Working.hpc.job_export import estimate_recipe_seconds
 from Working.recipes import make_recipe, recipe_hash, short_hash
+from Working.database.queries import get_recording_by_id
 from Working.database.runs import get_step_artifact
 
 from . import views as views_mod
@@ -419,11 +420,13 @@ def fmt_seconds(s: float) -> str:
 
 def cache_status(recipe: dict, conn) -> list[dict]:
     """Per step: does the core's step cache already hold this prefix?
-    Uses the very same key (``_recipe_prefix_hash``) and existence test
-    (``step_artifacts`` row + directory) that ``execute_recipe`` uses."""
+    Uses the very same key (``_recipe_prefix_hash``, with the recording's unit)
+    and existence test (``step_artifacts`` row + directory) that
+    ``execute_recipe`` uses."""
+    units = recording_units(get_recording_by_id(conn, recipe["recording_id"]))
     out = []
     for i in range(len(recipe["steps"])):
-        h = _recipe_prefix_hash(recipe, i)
+        h = _recipe_prefix_hash(recipe, i, units)
         row = get_step_artifact(conn, h, i)
         cached = bool(row is not None and os.path.isdir(row["path"]))
         out.append({"index": i, "prefix_hash": h, "cached": cached, "path": row["path"] if row else None})

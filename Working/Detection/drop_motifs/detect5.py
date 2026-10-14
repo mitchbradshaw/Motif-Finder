@@ -78,8 +78,14 @@ The three things this module changes
    inside one span is what makes an overlay incoherent - and an overlay of
    incoherent windows is the second defect this was written for.
 
-Units: `x` is in the recording's native units (volts); amplitudes on the
-returned events are in mV, matching `detect.py`.
+Units: `x` is in the recording's stored unit and `to_mv` turns it into mV on
+the returned events and diagnostics. The default, 1000, reads `x` as volts,
+matching `detect.py` - the convention every shipped store was made under. A
+block is told the recording's declared unit and passes its factor
+(`Working.units.read_as_mv`: 1 for a recording stored in mV), because the
+1000 was applied whatever the file held and every mV recording read 1000x
+too large (2026-10-15). Every rule the detector applies is relative, so the
+factor changes the millivolts it reports, never which events it finds.
 """
 
 import re
@@ -118,6 +124,10 @@ MORPHOLOGIES = (MORPHOLOGY_SHARKFIN, MORPHOLOGY_TROUGH)
 
 TRIGGER_RISE = "rise"
 TRIGGER_FALL = "fall"
+
+# Stored sample -> mV for a recording in volts: the default `to_mv`. See the
+# module docstring's "Units".
+TO_MV_FROM_VOLTS = 1000.0
 
 # Successive relaxations of `min_rise_frac`, applied to ONE event at a
 # time when its window holds more than one fall. Geometric so each step is
@@ -269,6 +279,7 @@ class Detect5Result:
     morphology: str = None
     x_detrended: np.ndarray = None
     params: Detect5Params = None
+    to_mv: float = TO_MV_FROM_VOLTS     # what the *_mv fields were multiplied by
 
     @property
     def empty(self):
@@ -613,8 +624,8 @@ def window_bounds(onset, trough, rises, segment_samples, morphology, params,
 # the detector
 # ===========================================================================
 
-def detect_drops5(x, fs, params):
-    """Every spike-drop in `x`, five-stage."""
+def detect_drops5(x, fs, params, to_mv=TO_MV_FROM_VOLTS):
+    """Every spike-drop in `x`, five-stage. `to_mv`: see the module's "Units"."""
     started = time.time()
     x = np.asarray(x, dtype=float).ravel()
     fs = float(fs)
@@ -637,7 +648,8 @@ def detect_drops5(x, fs, params):
                              if params.morphology in MORPHOLOGIES
                              else MORPHOLOGY_SHARKFIN,
                              x_detrended=(np.zeros_like(x) if values is x
-                                          else np.where(recorded, 0.0, np.nan)))
+                                          else np.where(recorded, 0.0, np.nan)),
+                             to_mv=float(to_mv))
 
     letters, details = stage_letters(x, fs, params)
     x_detrended = details["x_detrended"]
@@ -646,11 +658,12 @@ def detect_drops5(x, fs, params):
     return detect_from_letters(
         x_detrended, fs, letters, sps, details["sigma_slope"], morphology, params,
         counts=counts, started=started,
-        same_fraction_observed=float(details["same_fraction_observed"]))
+        same_fraction_observed=float(details["same_fraction_observed"]), to_mv=to_mv)
 
 
 def detect_from_letters(x_detrended, fs, letters, sps, sigma_slope, morphology, params,
-                        counts=None, started=None, same_fraction_observed=float("nan")):
+                        counts=None, started=None, same_fraction_observed=float("nan"),
+                        to_mv=TO_MV_FROM_VOLTS):
     """The detector proper, from an encoding already in hand.
 
     `detect_drops5` is `stage_letters` + `morphology_from_letters` + this;
@@ -669,6 +682,9 @@ def detect_from_letters(x_detrended, fs, letters, sps, sigma_slope, morphology, 
     out and counted in `rejected_at_gap` (its depth is not measured); and a
     window that would reach a gap ends at it. Finite input takes none of
     these branches.
+
+    `to_mv` multiplies the stored unit into the events' `*_mv` fields and the
+    diagnostics' `*_mv_per_s`; nothing else reads it (the module's "Units").
     """
     started = time.time() if started is None else started
     x_detrended, gaps = nan_for_missing(x_detrended)
@@ -887,10 +903,10 @@ def detect_from_letters(x_detrended, fs, letters, sps, sigma_slope, morphology, 
             morphology=morphology,
             onset_slope_raw=float(derivative[onset]),
             max_slope_raw=float(derivative[onset:trough + 1].min()),
-            drop_depth_mv=candidate["depth"] * 1000.0,
-            rise_height_mv=candidate["rise_height"] * 1000.0,
+            drop_depth_mv=candidate["depth"] * to_mv,
+            rise_height_mv=candidate["rise_height"] * to_mv,
             fall_duration_s=(trough - onset) / fs,
-            peak_to_peak_mv=peak_to_peak * 1000.0,
+            peak_to_peak_mv=peak_to_peak * to_mv,
             fall_dominance=float(dominance),
             rise_frac_used=float(rise_frac_used),
             detrend_window_s=params.detrend_window_s,
@@ -908,11 +924,12 @@ def detect_from_letters(x_detrended, fs, letters, sps, sigma_slope, morphology, 
         morphology=morphology,
         x_detrended=x_detrended,
         params=params,
+        to_mv=float(to_mv),
         diagnostics=dict(
             samples_per_symbol=sps,
             n_segments=len(letters),
-            sigma_slope_mv_per_s=float(sigma_slope) * 1000.0,
-            slope_threshold_mv_per_s=float(slope_threshold) * 1000.0,
+            sigma_slope_mv_per_s=float(sigma_slope) * to_mv,
+            slope_threshold_mv_per_s=float(slope_threshold) * to_mv,
             same_fraction_observed=same_fraction_observed,
             stage_histogram={c: letters.count(c) for c in STAGE_LETTERS},
             elapsed_s=round(time.time() - started, 3),
@@ -1187,7 +1204,7 @@ def window_purity(x, fs, result):
         return []
 
     derivative = np.gradient(result.x_detrended) * fs
-    sigma = result.diagnostics.get("sigma_slope_mv_per_s", 0.0) / 1000.0
+    sigma = result.diagnostics.get("sigma_slope_mv_per_s", 0.0) / result.to_mv
     threshold = -result.params.slope_sigma * sigma
     gap = max(1, int(round(result.params.segment_seconds * fs)))
 

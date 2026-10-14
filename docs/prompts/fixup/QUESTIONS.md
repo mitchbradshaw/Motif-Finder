@@ -481,6 +481,18 @@ distinguishable from a rise of no height.
 recording is not permanently special. This changes the core's input for `L_LM_Jul_26_J` and the
 meaning of any L_LM step-cache entries — the prompt that does it must say so and invalidate them.
 
+> **2026-10-15 — re-asked, answered narrower: tell the block, do not convert on load.** The prompt Q20 called
+> for was never written, and by 2026-10-14 four registered files were stored in mV (L_LM, Schizophyllum commune,
+> the two Dwij mfs2 loggers); the block page's new readout showed the drop detector printing them 1000× too large (L_LM
+> σ 605.6 "mV/s" for 0.6056). Put the choice again — tell the block / convert on load / report in the stored unit —
+> the researcher chose **tell the block**: every path that runs a block (`execute_recipe`, the readout, the window
+> chain) hands a block that prints millivolts the recording's declared `units`, and it converts by
+> `Working.units.read_as_mv`. **An undeclared unit is read as volts and says so** beside every millivolt (M1, M100,
+> M101_t, MJu26a, M4). **`interrogation.event_shape` was fixed in the same change.** The samples the core receives
+> are unchanged (`_load_signal` untouched); a step-cache key whose prefix holds such a block carries a unit that is
+> not volts, so L_LM's old entries are not served. Converting on load (Q20 as answered) is still possible later and
+> composes with this: a run would then tell the block `V`. `tests/test_units_reach_the_blocks.py`.
+
 **Q21 — where the per-dataset noise floor applies.** **A: a VIEW filter only.** The Library hides
 sub-floor motifs; the rows stay. A run-time gate would silently change what lands in the database and
 leave no way to tell later whether a detector found nothing or was gagged.

@@ -46,18 +46,28 @@ Why not reuse, measure by measure (BLOCK_INTEGRATION.md §8):
 
 Index convention: `onset_idx`, `extremum_idx`, `recovery_idx` are in the
 SpanSet's own frame (span-relative, like `starts`).
+
+Units (2026-10-15): a run hands the block the recording's declared ``units``
+and every mV / mV/s measure (and the rose's slopes) is read by it
+(`Working.units.read_as_mv` → `measure_events(to_mv=...)`); `meta` carries
+`units`, `to_mv` and `units_note`, and the printed `units` rule names the
+unit. Before, the factor was 1000 whatever the file held (QUESTIONS.md
+Q-X2.8). An undeclared unit is read as volts and says so; naming no unit is
+volts.
 """
 
 import numpy as np
 import pandas as pd
 
 from Adapters.base import AdapterResult, AdapterSpec, ParamSpec
+from Adapters.detection_stage_encoding import units_row
 from Adapters.registry import register
 from Working.block_cost import estimate_seconds, register_cost_model
 from Working.Detection.drop_motifs.gradients import SLOPE_SCALES
 from Working.library import rose_reference as RR
 from Working.interrogation import event_shape as ES
 from Working.types import SpanSet
+from Working.units import VOLTS, read_as_mv
 
 NAME = "interrogation.event_shape"
 
@@ -81,9 +91,10 @@ def _merge(upstream, measured):
 
 def _run(x, t, fs, polarity="drop", upstream_inverted=False, knee_frac=ES.KNEE_FRAC,
          recovery_frac=ES.RECOVERY_FRAC, recovery_max_mult=ES.RECOVERY_MAX_MULT, rise_time_frac=ES.RISE_TIME_FRAC,
-         walk_onset_back=True, rose_scale="raw", rose_reference_mv_s=RR.USE_STORED, value=None):
+         walk_onset_back=True, rose_scale="raw", rose_reference_mv_s=RR.USE_STORED, value=None, units=VOLTS):
     spans = _require(value)
     up = spans.features
+    to_mv, units_note = read_as_mv(units)
     # an upstream block that already located each event (its own onset_idx / extremum_idx
     # columns) defines the event; the anatomy rules are for spans nobody anatomised
     anchored = up is not None and {"onset_idx", "extremum_idx"} <= set(up.columns)
@@ -91,7 +102,7 @@ def _run(x, t, fs, polarity="drop", upstream_inverted=False, knee_frac=ES.KNEE_F
     feats, detail = ES.measure_events(
         x, spans.starts, spans.ends, fs, polarity=polarity, upstream_inverted=bool(upstream_inverted),
         knee_frac=knee_frac, recovery_frac=recovery_frac, recovery_max_mult=recovery_max_mult,
-        rise_time_frac=rise_time_frac, walk_onset_back=bool(walk_onset_back), anchors=anchors)
+        rise_time_frac=rise_time_frac, walk_onset_back=bool(walk_onset_back), to_mv=to_mv, anchors=anchors)
     groups = (up["group"].astype(str).tolist() if up is not None and "group" in up.columns
               else ["all"] * len(spans.starts))
     # fixup-ae: 45° on the raw scale is the Library's rose reference (Settings › Analysis defaults) unless a
@@ -115,10 +126,11 @@ def _run(x, t, fs, polarity="drop", upstream_inverted=False, knee_frac=ES.KNEE_F
                                 walk_onset_back=bool(walk_onset_back),
                                 upstream_inverted=bool(upstream_inverted), polarity=polarity,
                                 anchors_used=("the upstream onset_idx / extremum_idx columns: the event was already located"
-                                              if anchored else None)),
+                                              if anchored else None), to_mv=to_mv, units=units),
               "rose": rose, "n_events": len(spans.starts), "n_no_fall": detail["n_no_fall"],
               "n_not_recovered": detail["n_not_recovered"], "n_no_fwhm": detail["n_no_fwhm"],
-              "n_no_rise": detail["n_no_rise"], "measures": list(ES.COLUMNS)},
+              "n_no_rise": detail["n_no_rise"], "measures": list(ES.COLUMNS),
+              "units": units, "to_mv": float(to_mv), "units_note": units_note},
     )
 
 
@@ -135,11 +147,13 @@ def _estimate(x, t, fs, **params):
     return estimate_seconds(NAME, len(x))
 
 
-def _derive(x, t, fs, params, value=None):
+def _derive(x, t, fs, params, value=None, units=VOLTS):
     if value is None:
-        return [("Events", "run a detector first — this block measures the spans it is given", "warn")]
+        return [("Events", "run a detector first — this block measures the spans it is given", "warn"),
+                units_row(units)]
     return [("Events", f"{len(value.starts)} spans to measure", ""),
-            ("Recovery level", f"{params['recovery_frac']:g} of the amplitude back from the extremum", "")]
+            ("Recovery level", f"{params['recovery_frac']:g} of the amplitude back from the extremum", ""),
+            units_row(units)]
 
 
 SPEC = register(AdapterSpec(

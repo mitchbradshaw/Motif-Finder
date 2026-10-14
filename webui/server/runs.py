@@ -290,12 +290,14 @@ class RunManager:
                    "block": f"{job.recipe['steps'][i]['stage']}.{job.recipe['steps'][i]['algorithm']}"}
             # The core's step cache restores the typed value only; AdapterResult.meta (SAX cutlines,
             # MP window m, the model card) is lost on a hit. The bridge keeps a JSON sidecar per
-            # prefix hash at first compute and reads it back on a hit (critique r1 P1).
+            # prefix hash at first compute and reads it back on a hit (critique r1 P1) — under the
+            # cache's own key, which carries the recording's unit where a block is told it.
             meta = result.meta or {}
             meta_from_sidecar = False
             if self.meta_dir:
                 try:
-                    side = os.path.join(self.meta_dir, _recipe_prefix_hash(job.recipe, i), f"{i}.json")
+                    key = _recipe_prefix_hash(job.recipe, i, job.recording.get("units"))
+                    side = os.path.join(self.meta_dir, key, f"{i}.json")
                     if meta:
                         os.makedirs(os.path.dirname(side), exist_ok=True)
                         with open(side, "w", encoding="utf-8") as f:

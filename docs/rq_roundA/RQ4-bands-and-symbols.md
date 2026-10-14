@@ -99,6 +99,27 @@ that find things the plain, un-split signal hides? You check the extra finds by 
   (amber) before a run. They are computed on what the block is handed in a run — the stages before it re-run in
   memory or read from the step cache, nothing written. (On the raw span instead, the noise-threshold block after
   baseline removal would have shown a σ_n 8–20× too large.) Nothing measured moves.
+- **The drop detector reads millivolts by the recording's declared unit** (2026-10-15, units,
+  `tests/test_units_reach_the_blocks.py`). It used to multiply by 1000 whatever the file held, so on the recordings
+  stored in mV every depth (the score each event is written with), slope floor and onset threshold it printed was
+  1000× too large; `interrogation.event_shape` had the same factor. A run now tells both blocks the unit
+  (Settings › Datasets). Measured on channel 0's first 10 h through the block readout, drop_detection_v1's
+  parameters — slope-noise σ before → after:
+
+  | Recording (unit) | σ before | σ after |
+  |---|---|---|
+  | M2_aug (V) | 0.0206 mV/s | 0.0206 mV/s — unchanged |
+  | L_LM_Jul_26_J (mV) | 605.6 "mV/s" | 0.6056 mV/s |
+  | Schizophyllum commune (mV) | 4.71 | 0.0047 |
+  | mfs2 14-31-11 / 15-22-51 (mV) | 24.8 / 13.3 | 0.0248 / 0.0133 |
+
+  **Which events the detector finds does not change** (every rule it applies is relative) — only the millivolts.
+  On Schizophyllum's first 10 h the chain finds 3 drops with a median depth of 0.12 mV (it would have printed
+  ~120). Volts recordings are bit for bit what they were (the id001 seed events reproduce); no stored detection
+  moves (the four L_LM drop runs on the real database found no drops). An undeclared unit (M1, M100, M101_t,
+  MJu26a, M4) is read as volts and the readout says so in amber. **For this question:** a raw-signal arm on L_LM,
+  Schizophyllum or the Dwij loggers now reads on the same millivolt scale as M2, so a depth or a cut can be
+  compared across recordings.
 
 ## Decisions already made
 
@@ -115,6 +136,9 @@ that find things the plain, un-split signal hides? You check the extra finds by 
   - A wavelet level is a band in the band scope.
 - **Q35 / Q36:** a template run draws 20 phase-randomised surrogates (Settings key), and the count drawn is printed.
 - **Q37:** multiple-comparison correction is wired from Settings, default `none`.
+- **Q20, re-asked 2026-10-15:** a block that prints millivolts is **told** the recording's declared unit (not: every
+  mV recording converted to volts on load); an undeclared unit is read as volts and says so; event shape fixed in
+  the same change.
 
 ## What is still needed
 
@@ -155,3 +179,4 @@ None.
 - 2026-10-13 · signal-threshold · `detection.signal_threshold` (Signal → SpanSet at a level in the signal's units) and the `signal_threshold` template: a plain amplitude-threshold raw-signal arm for step 1
 - 2026-10-14 · drop-nan · the drop detector, dSAX and symbol search skip a gap (letter `-`, statistics over the recorded part) instead of returning nothing; gap-free input unchanged bit for bit
 - 2026-10-14 · readout · each block's derive readout shown on its block page, computed on the block's real input (stages before it re-run in memory or read from the step cache); the drop detector's σ, cut, letters and the Missing samples warning visible before a run; nothing measured moves
+- 2026-10-15 · units · the drop detector, its two readouts and event shape read mV by the recording's declared unit (Q20 re-asked: tell the block); on the mV recordings every depth, slope and threshold was 1000× too large (L_LM σ 605.6 → 0.6056 mV/s); events found and volts recordings unchanged

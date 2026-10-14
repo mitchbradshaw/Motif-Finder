@@ -29,9 +29,10 @@ import numpy as np
 from Adapters.registry import discover_adapters, get_adapter
 from Working.side_inputs import resolve_side_inputs, typed_step_value
 from Working.types import Signal
+from Working.units import VOLTS
 
 
-def run_window(conn, recipe, x, fs, *, span_start=0, stop_on_error=True):
+def run_window(conn, recipe, x, fs, *, span_start=0, stop_on_error=True, units=VOLTS):
     """Run every step of `recipe` over the window `x`, recording each step.
 
     Parameters
@@ -59,6 +60,11 @@ def run_window(conn, recipe, x, fs, *, span_start=0, stop_on_error=True):
         they are still reported, carrying `error='skipped: step N failed'`.
         When False each later step is attempted on whatever the chain last
         produced.
+    units : str or None
+        The unit `x` is stored in — the recording's declared `units` (None:
+        undeclared) — handed to a step whose `run` declares `units`, as
+        `execute_recipe` hands it (the drop detector and event shape print
+        millivolts by it; 2026-10-15). Volts when the caller names none.
 
     Returns
     -------
@@ -134,6 +140,9 @@ def run_window(conn, recipe, x, fs, *, span_start=0, stop_on_error=True):
             # without going back via (x, t). Copied from execution.py.
             if spec.input_kind is not None and "value" in accepted:
                 extra["value"] = current_value
+            # The recording's unit, to a block that is told it. Copied from execution.py.
+            if "units" in accepted:
+                extra["units"] = units
 
             # execution.py also forwards a `run_kwargs` dict filtered by
             # inspect.signature here. A window preview has no long-running

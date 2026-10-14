@@ -52,6 +52,7 @@ from Working.database.runs import (
 from Working.recipes import recipe_hash
 from Working.side_inputs import resolve_side_inputs, typed_step_value
 from Working.types import Signal
+from Working.units import VOLTS, read_as_mv
 import Working.types as interchange_types
 
 
@@ -111,16 +112,58 @@ _TYPED_VALUE_CLASSES = {name.lower(): getattr(interchange_types, name)
                         for name in interchange_types.__all__}
 
 
-def _recipe_prefix_hash(recipe, up_to_index):
+def _recipe_prefix_hash(recipe, up_to_index, units=None):
     """The step-cache key: hash of the recipe prefix through `up_to_index`.
 
     The prefix is a full recipe whose `steps` are truncated after the step,
     so every field that affects the step — recording, span, params, and any
     side-input bindings on the prefix steps — enters the hash.
+
+    `units` is the unit the run tells its blocks (the recording's declared
+    `units`, `recording_units`). It enters the key only where it changes a
+    result: a step in the prefix is told it (`reads_units`) and it is not
+    read as volts. So a volts or undeclared recording keeps every key it had,
+    and a result computed under one unit is never served to a recording
+    since declared in another (2026-10-15). Every caller that looks a key up
+    — the executor, the bridge's readout, sidecar and cache status — passes
+    the recording's unit.
     """
     prefix = dict(recipe)
     prefix["steps"] = recipe["steps"][:up_to_index + 1]
+    if read_as_mv(units)[0] != read_as_mv(VOLTS)[0] and reads_units(prefix["steps"]):
+        prefix["units"] = units
     return recipe_hash(prefix)
+
+
+def recording_units(recording):
+    """The unit a run tells its blocks: the recording's declared `units` (a row or a dict); None when undeclared."""
+    if recording is None:
+        return None
+    keys = recording.keys()
+    return recording["units"] if "units" in keys else None
+
+
+def _spec_of(step):
+    """The step's adapter, discovering the registry once if it is not loaded yet; None for an unknown block."""
+    name = f"{step['stage']}.{step['algorithm']}"
+    try:
+        return get_adapter(name)
+    except KeyError:
+        discover_adapters()
+        try:
+            return get_adapter(name)
+        except KeyError:
+            return None
+
+
+def reads_units(steps):
+    """True when a step's `run` declares `units`: the run tells it the recording's unit and its output depends on
+    it (the drop detector and event shape print millivolts by it; `Working.units.read_as_mv`)."""
+    for step in steps:
+        spec = _spec_of(step)
+        if spec is not None and "units" in inspect.signature(spec.run).parameters:
+            return True
+    return False
 
 
 def _first_store_reading_step(steps):
@@ -182,16 +225,17 @@ def _load_cached_result(spec, cached_path):
 
 
 def _cache_step_result(conn, recipe, step_index, result, elapsed_s, fs, cache_root,
-                       threshold_s):
+                       threshold_s, units=None):
     """Persist a step's typed output to `step_artifacts` when it was slow
     enough to be worth the disk. No eviction — missing/corrupt cached
-    directories are simply overwritten on the next recomputation."""
+    directories are simply overwritten on the next recomputation. `units`:
+    the recording's, for the key (`_recipe_prefix_hash`)."""
     if elapsed_s <= threshold_s:
         return
     value = typed_step_value(result)
     if value is None or not isinstance(value, tuple(_TYPED_VALUE_CLASSES.values())):
         return
-    prefix_hash = _recipe_prefix_hash(recipe, step_index)
+    prefix_hash = _recipe_prefix_hash(recipe, step_index, units)
     cache_dir = os.path.join(cache_root, prefix_hash, str(step_index))
     value.to_path(cache_dir)
     insert_step_artifact(conn, prefix_hash, step_index, cache_dir)
@@ -337,6 +381,11 @@ def _execute_recipe_with_conn(conn, recipe, force, on_progress, should_cancel, r
 
     run_id = insert_run(conn, config_id, recipe["recording_id"], span_start, span_end, status="running")
 
+    # The samples are handed over as stored; a block that prints millivolts is
+    # TOLD their unit instead (its `run` declares `units`; Working.units.read_as_mv).
+    # The researcher's choice, 2026-10-15, over converting on load (QUESTIONS.md Q20).
+    units = recording_units(recording)
+
     try:
         x, t = _load_signal(recording, span)
         fs = recording["fs"]
@@ -381,7 +430,7 @@ def _execute_recipe_with_conn(conn, recipe, force, on_progress, should_cancel, r
             # step. A hit restores the step's typed output from disk and
             # skips `spec.run`; a miss computes it and (if slow enough)
             # writes the next cache entry.
-            prefix_hash = _recipe_prefix_hash(recipe, i)
+            prefix_hash = _recipe_prefix_hash(recipe, i, units)
             reads_store = store_from is not None and i >= store_from
             cached = None if reads_store else get_step_artifact(conn, prefix_hash, i)
             result = _load_cached_result(spec, cached["path"]) if cached is not None else None
@@ -408,6 +457,8 @@ def _execute_recipe_with_conn(conn, recipe, force, on_progress, should_cancel, r
                 if "conn" in accepted:
                     extra["conn"] = conn
                     extra["recording"] = dict(recording)
+                if "units" in accepted:
+                    extra["units"] = units
 
                 t0 = time.time()
                 result = spec.run(x, t, fs, **params, **extra)
@@ -415,7 +466,7 @@ def _execute_recipe_with_conn(conn, recipe, force, on_progress, should_cancel, r
                 if not reads_store:
                     _cache_step_result(
                         conn, recipe, i, result, step_timings[i], fs,
-                        STEP_CACHE_ROOT, STEP_CACHE_WRITE_THRESHOLD_S,
+                        STEP_CACHE_ROOT, STEP_CACHE_WRITE_THRESHOLD_S, units=units,
                     )
 
             if i in referenced_steps:

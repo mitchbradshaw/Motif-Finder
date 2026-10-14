@@ -33,7 +33,7 @@ import pandas as pd
 
 from Working.Detection.sax.dsax_python.dsax import MISSING_LETTER, MISSING_SYMBOL
 from Working.types.windowset import BOOKKEEPING_COLUMNS
-from Working.units import to_mv_factor
+from Working.units import read_as_mv, to_mv_factor
 
 from .decimate import envelope
 
@@ -228,14 +228,23 @@ def _spanset(value, meta, ctx):
     if isinstance((meta or {}).get("cycle_stack"), dict):
         out.update(_cycle_shapes(value, meta, ctx, fs, ss))
     if feats is not None and "units" in ctx:
-        # the core measured in mV on the assumption the samples are volts (detect5's
-        # convention); say so where the recording's declared unit does not back it (fixup-b)
-        u = ctx.get("units")
-        out["features_unit_note"] = (None if u == "V" else
-                                     "unit undeclared: amplitudes and slopes assume the samples are volts" if u is None else
-                                     f"recording stored in {u}: amplitudes and slopes assume volts and read "
-                                     f"{1000.0 / (to_mv_factor(u) or 1000.0):g}x off (QUESTIONS.md Q-X2.8)")
+        out["features_unit_note"] = _features_unit_note(feats, ctx)
     return out
+
+
+#: A feature column the page reads as millivolts (event shape's amplitudes and slopes).
+MV_COLUMN_SUFFIXES = ("_mv", "_mv_s")
+
+
+def _features_unit_note(feats: dict, ctx: dict) -> str | None:
+    """What the page says beside a feature table's millivolt columns (fixup-b). Every block that measures mV is
+    told the recording's declared unit and reads by it (2026-10-15: `interrogation.event_shape`; a SpanSet ->
+    SpanSet block after it, such as Intervals, carries its columns through), so the note is the recording's:
+    nothing for a declared unit, "read as volts" for an undeclared one, and nothing for a table with no mV
+    column. Before, it said "1000x off" for every recording stored in mV (QUESTIONS.md Q-X2.8)."""
+    if not any(str(c).endswith(MV_COLUMN_SUFFIXES) for c in feats.get("columns") or []):
+        return None
+    return read_as_mv(ctx.get("units"))[1]
 
 
 _SPANSET_META_VIEWS = ("rules", "rose", "interval_stats")

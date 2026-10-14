@@ -28,6 +28,14 @@ Missing samples (2026-10-14): a segment the encoder marked -1 ('-', a gap)
 is read as a gap, and no event is drawn across one — see
 `detect_from_letters`; `counts` carries `missing_segments` and
 `rejected_at_gap`.
+
+Units (2026-10-15): a run hands the block the recording's declared ``units``
+and the depths (the span scores), rise heights, peak-to-peaks and the slope
+floor are millivolts by it (`Working.units.read_as_mv` → detect5's `to_mv`).
+Before, detect5 multiplied by 1000 whatever the file held and every mV
+recording read 1000x too large. An undeclared unit is read as volts, and
+`meta["units_note"]` and the readout say so; naming no unit is volts. Which
+events are found does not depend on it.
 """
 
 import dataclasses
@@ -35,7 +43,7 @@ import dataclasses
 import numpy as np
 
 from Adapters.base import AdapterResult, AdapterSpec, ParamSpec
-from Adapters.detection_stage_encoding import missing_samples_row
+from Adapters.detection_stage_encoding import missing_samples_row, mv_per_s_row, units_row
 from Adapters.registry import register
 from Working.Detection.drop_motifs.detect import NOISE_ESTIMATORS, NOISE_SECOND_DIFFERENCE, slope_noise_sigma
 from Working.Detection.drop_motifs.detect5 import (
@@ -43,6 +51,7 @@ from Working.Detection.drop_motifs.detect5 import (
 )
 from Working.Detection.sax.dsax_python.dsax import MISSING_LETTER, MISSING_SYMBOL
 from Working.types import SpanSet
+from Working.units import VOLTS, read_as_mv
 
 
 def letters_from_encoding(value):
@@ -64,8 +73,9 @@ def _run(x, t, fs, slope_sigma=8.0, noise_estimator=NOISE_SECOND_DIFFERENCE, min
          min_fall_dominance=0.5, min_depth_frac=0.10, min_separation_s=0.0, lookahead_mult=3.0,
          trough_knee_frac=0.05, morphology="auto", tighten_windows=True, walk_onset_back=True,
          bracket_on_up_runs=True, bracket_on_fall_runs=True, window_cap_mult=6.0, window_pad_frac=0.25,
-         bracket_rise_on_separation=False, value=None):
+         bracket_rise_on_separation=False, value=None, units=VOLTS):
     letters = letters_from_encoding(value)
+    to_mv, units_note = read_as_mv(units)
     x = np.asarray(x, dtype=float).ravel()
     n_symbols = len(letters)
     if n_symbols == 0:
@@ -84,7 +94,7 @@ def _run(x, t, fs, slope_sigma=8.0, noise_estimator=NOISE_SECOND_DIFFERENCE, min
         tighten_windows=bool(tighten_windows), morphology=str(morphology), walk_onset_back=bool(walk_onset_back),
     )
     morph = morphology_from_letters(letters, x, sps, params)
-    result = detect_from_letters(x, fs, letters, sps, sigma, morph, params)
+    result = detect_from_letters(x, fs, letters, sps, sigma, morph, params, to_mv=to_mv)
     events = result.events
     starts = tuple(int(e.window_start_idx) for e in events)
     ends = tuple(int(e.window_end_idx) for e in events)
@@ -100,14 +110,16 @@ def _run(x, t, fs, slope_sigma=8.0, noise_estimator=NOISE_SECOND_DIFFERENCE, min
         value=SpanSet(starts=starts, ends=ends, labels=labels, scores=scores),
         meta={"events": rows, "counts": dict(result.counts), "diagnostics": dict(result.diagnostics),
               "morphology": morph, "samples_per_symbol": sps, "sigma_slope": float(sigma),
-              "slope_threshold": float(-slope_sigma * sigma), "n_events": len(events)},
+              "slope_threshold": float(-slope_sigma * sigma), "n_events": len(events),
+              # the unit the *_mv numbers were read from: sigma_slope / slope_threshold above stay in the stored unit
+              "units": units, "to_mv": float(to_mv), "units_note": units_note},
     )
 
 
-def _derive(x, t, fs, params, value=None):
+def _derive(x, t, fs, params, value=None, units=VOLTS):
     x = np.asarray(x, dtype=float).ravel()
     sigma = slope_noise_sigma(x, fs, params["noise_estimator"]) if x.size >= 3 else 0.0
-    rows = [("Onset slope threshold", f"{-params['slope_sigma'] * sigma * 1000:.4f} mV/s", "")]
+    rows = [units_row(units), mv_per_s_row("Onset slope threshold", -params['slope_sigma'] * sigma, units)]
     if value is None:
         rows.append(("Letters", "run the five-stage encoding first", "warn"))
     else:

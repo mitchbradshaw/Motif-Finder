@@ -101,6 +101,18 @@ The question is: after you remove the first two, is there still recurrence left?
   floor needs setting for each (the ghost fungus sits at 0.007 mV average spike amplitude per the paper, far under the
   0.1 mV default).
 
+- **A run's drop depths and event amplitudes are true millivolts on every declared recording** (2026-10-15, units,
+  `tests/test_units_reach_the_blocks.py`; `QUESTIONS.md` Q20 re-asked). The drop detector and event shape used to
+  multiply by 1000 whatever the file held: on the recordings stored in mV — Schizophyllum commune and the two Dwij
+  mfs2 files (registered by 2026-10-15) and L_LM — every depth a run scored its detections with, and every event-shape
+  amplitude and slope, was 1000× too large. A run now tells both blocks the recording's declared unit. Schizophyllum
+  CH0, first 10 h: 3 drops, median depth 0.12 mV (it would have printed ~120). **What this question already uses was
+  not affected:** the Library's noise floor reads the stores' depths and the cross-channel test reads the samples,
+  both converted by `recordings.units` since `AE` / `AD`; a member promoted from a run carries no stored depth and is
+  *unmeasured* there, as before. So for the "across recordings" arm the change is in reading a run on another
+  species: its detections' depths and its event-shape page are now on M2's millivolt scale. M2_aug and the other
+  volts recordings are unchanged; an undeclared unit (M1, M100, M101_t, MJu26a) is read as volts and said so.
+
 ## Decisions already made
 
 - **Q40a (2026-10-03): lag is measured on the same absolute window on both channels, always.** Motifs on sibling
@@ -125,6 +137,8 @@ The question is: after you remove the first two, is there still recurrence left?
   machine flags, a human confirms; in a member–member pair a human confirmed, both go (Q40d-2).
 - **2026-10-05 (the researcher, during `AD`):** the verdict vocabulary stays at five words; a "not an artifact" answer is
   whichever of the five is true (interesting / not_interesting), with a note that the span was flagged.
+- **Q20, re-asked 2026-10-15:** a block that prints millivolts is told the recording's declared unit (the samples are
+  not converted on load); an undeclared unit is read as volts and says so.
 
 ## What is still needed
 
@@ -173,3 +187,4 @@ defect, not as a result.
 - 2026-10-13 · data · four Adamatzky species recordings derived into `DATA/derived/channels/*_fs1` (1 Hz, mV, gaps filled and listed in each manifest); registration and noise floors still to do.
 - 2026-10-13 · data · four mfs2 logger CSVs (the researcher's own device, four single-ended ADC channels) derived as `DATA/derived/channels/Dwij_A..D_fs0p8` by `scripts/derive_dwij_mfs2.py`: timestamps resampled onto a uniform 1.25 s grid (0.8 Hz), mV as written by the device; 16 min / 17.4 h / 8.3 h / 29.3 h; registration still to do.
 - 2026-10-14 · drop-nan · the drop detector and dSAX run on a span with gaps (a segment a gap touches is `-`, no event across one), so a recording could keep its gaps instead of filling them; nothing measured moves
+- 2026-10-15 · units · a run's drop depths and event-shape amplitudes are millivolts by the recording's declared unit (they were 1000× too large on Schizophyllum, the Dwij loggers and L_LM); the Library floor and the cross-channel test already converted and are unchanged; volts recordings unchanged

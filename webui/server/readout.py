@@ -24,6 +24,11 @@ keep a readout a readout:
 
 A stage before the block that refuses its parameters or the span raises `ReadoutRefused` naming the stage —
 the run would refuse there too. The block's own `derive` is called as it is: its rows are its own say.
+
+A run tells a block that prints millivolts the recording's declared unit (2026-10-15); so does the readout —
+to a stage it re-runs and to the block's `derive`, whichever declares `units` — and it looks the cache up under
+the unit-aware key the run wrote (`_recipe_prefix_hash(..., units)`). Before, the drop blocks' readouts printed
+a millivolt recording's slopes 1000x too large (L_LM's σ 605.6 "mV/s" for 0.6056).
 """
 from __future__ import annotations
 
@@ -33,7 +38,9 @@ import time
 from Adapters.registry import get_adapter
 from Working.chain_validation import validate_recipe_steps
 from Working.database.runs import get_step_artifact
-from Working.execution import _first_store_reading_step, _load_cached_result, _load_signal, _recipe_prefix_hash
+from Working.execution import (
+    _first_store_reading_step, _load_cached_result, _load_signal, _recipe_prefix_hash, recording_units,
+)
 from Working.side_inputs import SideInputResolutionError, resolve_side_inputs, typed_step_value
 from Working.types import Signal
 
@@ -109,6 +116,7 @@ def block_readout(conn, rec: dict, span, steps: list[dict], index: int, *, budge
         raise ReadoutRefused(str(e)) from e
     fs = float(rec["fs"])
     n = (int(span[1]) - int(span[0])) if span else int(rec["n_samples"])
+    units = recording_units(rec)        # what a run tells a block that declares `units`
 
     # the plan: which stages before the block the cache holds (never a store-reading stage or one after it,
     # as in a run) — read now, so an entry that will not load counts as not held before the budget is
@@ -118,7 +126,7 @@ def block_readout(conn, rec: dict, span, steps: list[dict], index: int, *, budge
     for i in range(index):
         if store_from is not None and i >= store_from:
             break
-        row = get_step_artifact(conn, _recipe_prefix_hash(recipe, i), i)
+        row = get_step_artifact(conn, _recipe_prefix_hash(recipe, i, units), i)
         result = _load_cached_result(specs[i], row["path"]) if row is not None else None
         if result is not None:
             cached[i] = result
@@ -155,6 +163,8 @@ def block_readout(conn, rec: dict, span, steps: list[dict], index: int, *, budge
             if "conn" in accepted:
                 extra["conn"] = conn
                 extra["recording"] = dict(rec)
+            if "units" in accepted:
+                extra["units"] = units
             try:
                 result = sp.run(x, t, fs, **params[i], **extra)
             except ValueError as e:
@@ -173,5 +183,7 @@ def block_readout(conn, rec: dict, span, steps: list[dict], index: int, *, budge
              if _accepts(spec.derive, k)}
     if spec.input_kind is not None and _accepts(spec.derive, "value"):
         typed["value"] = current_value
+    if _accepts(spec.derive, "units"):
+        typed["units"] = units
     rows = spec.derive(x, t, fs, params[index], **typed)
     return done(rows=[{"label": r[0], "value": str(r[1]), "severity": r[2] if len(r) > 2 else ""} for r in rows])

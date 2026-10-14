@@ -3734,7 +3734,7 @@ def _window_scores(conn, session_id, run_key, ch, lo, hi, fs):
     if recipe is None:
         return [], "this run has not run yet"
     from Working.discovery import window_chain
-    steps = window_chain.run_window(conn, recipe, x, fs, span_start=lo)
+    steps = window_chain.run_window(conn, recipe, x, fs, span_start=lo, units=ch.get("units"))
     scores = [st for st in steps if st["ok"] and st["kind"] == "scores"]
     if not scores:
         failed = next((st for st in steps if not st["ok"] and not str(st.get("error", "")).startswith("skipped")), None)
@@ -3921,8 +3921,8 @@ def get_compare_stages(request: Request, a: str, b: str, channel: str, atH: floa
 
         side_a, recipe_a = _side(c, s["id"], a, [ch], (lo, hi), ch["name"])
         side_b, recipe_b = _side(c, s["id"], b, [ch], (lo, hi), ch["name"])
-        out_a = window_chain.run_window(c, recipe_a, seg, fs, span_start=lo) if recipe_a else []
-        out_b = window_chain.run_window(c, recipe_b, seg, fs, span_start=lo) if recipe_b else []
+        out_a = window_chain.run_window(c, recipe_a, seg, fs, span_start=lo, units=ch.get("units")) if recipe_a else []
+        out_b = window_chain.run_window(c, recipe_b, seg, fs, span_start=lo, units=ch.get("units")) if recipe_b else []
         cells_a = _stage_cells(c, side_a, recipe_a, out_a, side_b["cells"], x, fs, lo,
                                side_a["threshold"], side_a["isSeed"], side_label="A", factor=disp.factor)
         cells_b = _stage_cells(c, side_b, recipe_b, out_b, side_a["cells"], x, fs, lo,
