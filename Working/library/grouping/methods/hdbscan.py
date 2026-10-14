@@ -120,6 +120,12 @@ DISTANCES = ("sbd", "euclidean")
 
 NULL_DRAWS = 3                    # trend-kept surrogate draws per family member
 NULL_MARGIN = 0.9                 # PLACEHOLDER: confident iff d_F < 0.9 x the null's p05
+# The trend-kept surrogate keeps a cubic per row, so a smooth window-filling shape keeps its curve in its own fake
+# noise and reads noise-like (W2-B verification on main, 2026-10-14: ramps 1.55-2.97, broad humps 1.02-1.37
+# against the 0.9 cut, even at 10 % noise; a line instead lets random-walk noise through). Said on the face:
+SMOOTH_CAVEAT = ("a smooth shape that fills the window (a broad hump, a slow ramp) keeps its curve in its own "
+                 "trend-kept noise and can read noise-like, so for such a family this flag is not evidence "
+                 "that it is noise")
 NULL_PERCENTILE = 5.0
 NULL_MEMBERS = 2000               # members of one family the null is drawn from, at most
 
@@ -357,7 +363,7 @@ class HDBSCANMethod:
                 f"p05 = the {NULL_PERCENTILE:g}th percentile of the distances of {draws} draws of "
                 f"trend-kept phase-randomised surrogates of the family's own members (a cubic trend "
                 f"kept per row, the rest phase-randomised, z-normalised) to the same medoid; confident "
-                f"iff d_F < {NULL_MARGIN} x p05 ({NULL_MARGIN} is a placeholder margin)")
+                f"iff d_F < {NULL_MARGIN} x p05 ({NULL_MARGIN} is a placeholder margin). Caveat: {SMOOTH_CAVEAT}")
         if draws <= 0 or not p.get("family_of_label"):
             p["null"] = {"kind": "none" if draws <= 0 else "trend-kept phase-randomised",
                          "draws": max(draws, 0), "margin": NULL_MARGIN, "by_family": {},
@@ -390,7 +396,7 @@ class HDBSCANMethod:
             st = p["family_stability"].get(c, {})
             why = (f"members' median distance to the medoid {d_F:.3f} is {ratio:.2f} x the 5th "
                    f"percentile {p05:.3f} of trend-kept noise of their own colour ({draws} draws); "
-                   f"confident below {NULL_MARGIN} x (a placeholder margin)")
+                   f"confident below {NULL_MARGIN} x (a placeholder margin); {SMOOTH_CAVEAT}")
             p["family_flags"][fam] = {
                 "noise_like": bool(noise_like), "unstable": bool(not (d_F < p05)), "tested": True,
                 "why": ("no better than noise of the same colour: " + why) if noise_like else why,
