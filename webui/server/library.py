@@ -1895,11 +1895,39 @@ def get_grouping_editor(request: Request, unit: str = Query(default="motifs")):
         return {
             "units": units, "bases": bases, "distributions": distributions,
             "clusterings": clusterings,
+            # w2-f: the registered methods each basis can use, read off the registry
+            "methods": _editor_methods([b["kind"] for b in bases]),
             "distributionsSampledFrom": sampled,
             "elapsedMs": round((time.perf_counter() - t0) * 1000, 1),
         }
     finally:
         conn.close()
+
+
+#: The methods whose fit is a tree the editor's cut slider reads (its merge-height histogram). A method may
+#: declare `builds_tree` itself; the registry's protocol has no such field yet, and `merge_heights` cannot be
+#: probed without a fit (Ward's is `[]` on an empty one too), so Ward is the one tree method by name.
+TREE_METHODS = ("ward",)
+
+
+def _editor_methods(basis_kinds) -> dict:
+    """w2-f: `{basis: [{name, label, description, params, tree}]}` — every registered method that can
+    serve the basis (`methods.methods_for`), with the spec the editor renders its controls from
+    (`methods.available`). Ward first where it serves (the default and the one with a cut), the rest by name.
+    `tree` says whether the method's fit has merge heights: k-Shape and HDBSCAN build none, and the editor
+    says so instead of drawing Ward's histogram under them."""
+    from Working.library.grouping import methods as method_registry
+    specs = method_registry.available()
+    out = {}
+    for kind in basis_kinds:
+        names = [m.name for m in method_registry.methods_for(kind)]
+        names.sort(key=lambda nm: (nm != "ward", nm))
+        out[kind] = [{
+            "name": nm, "label": specs[nm]["label"], "description": specs[nm]["description"],
+            "params": specs[nm]["params"],
+            "tree": bool(getattr(method_registry.get(nm), "builds_tree", nm in TREE_METHODS)),
+        } for nm in names]
+    return out
 
 
 #: The editor's five histograms, against a fingerprint of the catalogue they

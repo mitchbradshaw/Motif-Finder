@@ -31,6 +31,7 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
+from Working.types.windowset import BOOKKEEPING_COLUMNS
 from Working.units import to_mv_factor
 
 from .decimate import envelope
@@ -401,6 +402,17 @@ def _windowset(value, meta, ctx):
     # The split is metadata riding on the feature table (`preprocessing.sliding_windows`), not a
     # measure: it is shipped apart, and a table that held nothing else is no feature matrix (fixup-h).
     feats, split = value.features, None
+    meta = meta or {}
+    # w2-f: a window set cut around events (`catalogue.event_windows`) names its anchor in meta. Its
+    # bookkeeping columns (which event, where the anchor sits, overlap) are geometry, not measures: they leave
+    # the heatmap and ship apart, so the page can draw each window around its event with the anchor inside it.
+    anchored = "anchor_offset" in meta
+    event_index = None
+    if anchored and feats is not None:
+        if "event_index" in feats.columns:
+            event_index = pd.to_numeric(feats["event_index"], errors="coerce").fillna(-1).astype(int).to_numpy()
+        drop = [c for c in BOOKKEEPING_COLUMNS if c in feats.columns and c != SPLIT_COLUMN]
+        feats = feats.drop(columns=drop)
     if feats is not None and SPLIT_COLUMN in feats.columns:
         labels = pd.to_numeric(feats[SPLIT_COLUMN], errors="coerce").fillna(-1).astype(int).to_numpy()
         names = {str(k): SPLIT_NAMES.get(int(k), f"split {int(k)}") for k in np.unique(labels)}
@@ -417,6 +429,18 @@ def _windowset(value, meta, ctx):
     out["summary"] = (f"{n} windows · {out['length_s']:g} s each"
                       + (f" · {out['features']['n_columns']} features" if out["features"] else " · no features")
                       + (" · " + " / ".join(f"{c} {k}" for k, c in split["counts"].items()) if split else ""))
+    if anchored:
+        offset = int(meta["anchor_offset"])
+        out["anchor"] = {"offset": offset, "offset_s": offset / fs, "used": meta.get("anchor_used"),
+                         "requested": meta.get("anchor"), "pre_frac": _clean(meta.get("pre_frac")),
+                         "fallback": _clean(meta.get("anchor_fallback"))}
+        out["event_index"] = event_index[:SPAN_CAP].tolist() if event_index is not None else None
+        out["events"] = {k: _clean(meta.get(k)) for k in (
+            "n_events", "omitted", "omitted_rows", "omitted_rows_cut", "n_overlapping", "n_split_leaks",
+            "n_recovery_outside_window", "n_duration_unmeasured", "length_basis", "warnings", "notes")}
+        out["rules"] = _clean(meta.get("rules") or [])
+        if meta.get("summary"):
+            out["summary"] = f"{meta['summary']} · {out['summary']}"
     return out
 
 
@@ -647,11 +671,25 @@ def _grouping(value, meta, ctx):
     if ws is not None and len(ws.starts) == n and not meta.get("tree"):
         out["strip"] = {"starts_s": (np.asarray(ws.starts) / float(ws.fs))[:SPAN_CAP].tolist(),
                         "length_s": int(ws.length) / float(ws.fs)}
-        out["exemplars"] = _exemplars(labels, ids, ws)
+        named = meta.get("exemplar_windows")
+        out["exemplars"] = (_named_exemplars(labels, ids, ws, named, meta.get("exemplar_rule"))
+                            if named is not None else _exemplars(labels, ids, ws))
     out["summary"] = (f"{len(ids)} clusters · sizes " + ", ".join(str(int(c)) for c in counts)
                       # the strip is capped; saying so is the difference between
                       # a short strip and a wrong one (fixup-a item 10)
                       + (f" · strip shows the first {shown:,} of {n:,} windows" if out["capped"] else ""))
+    if meta.get("exemplar_windows") is not None:
+        # w2-f: a block that names its own exemplars (snippets, families) writes its own summary and rules;
+        # they are the result (k and how it was chosen, the coverage, the run lengths), not commentary
+        if meta.get("summary"):
+            out["summary"] = str(meta["summary"]) + (
+                f" · strip shows the first {shown:,} of {n:,} windows" if out["capped"] else "")
+        if meta.get("rules"):
+            out["rules"] = _clean(meta["rules"])
+        for c in out["clusters"]:
+            if c["id"] == -1 and "-1" not in {str(k) for k in meta["exemplar_windows"]}:
+                c["name"] = ("unlabelled · mostly NaN" if "n_windows_nan" in meta
+                             else str(meta.get("unlabelled_name") or "unlabelled"))
     if meta.get("tree"):
         # fixup-ag: a Grouping that KEPT its tree (Shape clustering) ships it: the truncated dendrogram, the
         # proposal per k, a line per cluster at the cut and the mapping. -1 = not clustered (validation, test and
@@ -707,7 +745,34 @@ def _exemplars(labels, ids, ws):
         else:
             pick, rule = int(members[0]), "the cluster's first window (the window set carries no features)"
         out.append({"cluster": int(cid), "window": pick, "start_s": float(ws.starts[pick]) / fs,
-                    "length_s": length / fs, "n": int(len(members)), "rule": rule})
+                    "length_s": length / fs, "n": int(len(members)), "rule": rule,
+                    "by": "centroid" if z is not None else "first"})
+    return out
+
+
+def _named_exemplars(labels, ids, ws, named, rule):
+    """w2-f: the exemplars the BLOCK chose (`meta["exemplar_windows"]`, label -> window index): the snippet
+    itself, a family's medoid. Still a member, never an average — so a named window outside the window set, or
+    one whose own label is not the label it is named for, is a loud error rather than a silent fallback to the
+    centroid rule (the page would then draw a window the block never picked). A label the block names no
+    exemplar for (snippets' -1, the windows too NaN to label) gets none."""
+    fs, length, n = float(ws.fs), int(ws.length), len(labels)
+    rule = str(rule or "the window the block itself named as this label's exemplar")
+    by_label = {str(k): v for k, v in dict(named).items()}
+    out = []
+    for cid in ids:
+        if str(int(cid)) not in by_label:
+            continue
+        w = by_label[str(int(cid))]
+        pick = int(w)
+        if not 0 <= pick < n:
+            raise ValueError(f"exemplar window {w!r} named for label {int(cid)} is outside the window set "
+                             f"(0..{n - 1}): the block's exemplar_windows does not match its windows")
+        if int(labels[pick]) != int(cid):
+            raise ValueError(f"exemplar window {pick} named for label {int(cid)} is not a member of it "
+                             f"(its own label is {int(labels[pick])})")
+        out.append({"cluster": int(cid), "window": pick, "start_s": float(ws.starts[pick]) / fs,
+                    "length_s": length / fs, "n": int((labels == cid).sum()), "rule": rule, "by": "block"})
     return out
 
 
