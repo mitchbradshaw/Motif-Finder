@@ -125,9 +125,10 @@ def test_meta_carries_flags_coherence_with_its_null_and_member_exemplars(spec):
     for fam in m["families"]:
         for key in ("family", "size", "noise_like", "unstable", "tested", "why", "svd_entropy",
                     "svd_entropy_norm", "svd_entropy_null_median", "svd_entropy_null_p05",
-                    "svd_entropy_squared_norm", "coherent_beyond_noise", "top_share"):
+                    "svd_entropy_squared_norm", "svd_entropy_beyond_noise", "svd_entropy_rule", "top_share",
+                    "confident"):
             assert key in fam, key
-        assert fam["noise_like"] is False and fam["coherent_beyond_noise"] is True
+        assert fam["noise_like"] is False and fam["svd_entropy_beyond_noise"] is True and fam["confident"] is True
     labels = np.asarray(_run(spec, x, np.arange(len(x), dtype=float), ws).value.labels)
     # the serializer's format (W2-F, W2-D's snippets): {"<label>": <window index>} + a rule string
     ex_map = m["exemplar_windows"]

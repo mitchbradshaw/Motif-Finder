@@ -30,6 +30,7 @@ for p in (PROJECT_ROOT, os.path.join(PROJECT_ROOT, "webui"), os.path.join(PROJEC
 
 from _event_families_synthetic import (SHARK_GAP_S, SQUARE_GAP_S, truth_of,  # noqa: E402
                                        two_rhythms)
+from Working.Catalogue import shape_families as SF  # noqa: E402
 from Working.database import queries as q  # noqa: E402
 from Working.database.schema import init_db  # noqa: E402
 from Working.execution import execute_recipe  # noqa: E402
@@ -45,7 +46,8 @@ TEMPLATE = {
     "description": "Families of detected events, each timed on its own — 'do family A events come every 40 "
                    "minutes and family B every 3 hours?' in one chain: baseline removal → noise threshold (every "
                    "stretch more than 4 σ_n below the detrended trace's median, as the noise_threshold template) → "
-                   "Event shape → Event families (a window around each event, grouped by shape with the Library's "
+                   "Event shape → Event families (a 600 s window around each event from its span start - a placeholder "
+                   "length, measured on synthetic shapes - grouped by shape with the Library's "
                    "HDBSCAN; events in no dense family are left out, and a family no better than phase-randomised "
                    "noise of the same colour is flagged; each event's family becomes its group) → Intervals (the "
                    "gaps between events of the SAME family: one rhythm per family). Tune Event families' minimum "
@@ -56,7 +58,7 @@ TEMPLATE = {
         _step("detection", "noise_threshold", {"k_sigma": 4.0, "direction": "below",
                                                "min_duration_s": 30.0, "merge_gap_s": 60.0}),
         _step("interrogation", "event_shape", {}),
-        _step("interrogation", "event_families", {"method": "hdbscan"}),
+        _step("interrogation", "event_families", {"method": "hdbscan", "length_s": 600.0}),
         _step("interrogation", "intervals", {}),
     ],
 }
@@ -133,6 +135,9 @@ def test_intervals_reports_each_familys_own_rhythm_within_ten_percent(ran):
         groups = f["group"][truth == shape]
         key = groups.mode().iloc[0]
         assert key != "-1"
+        # F4: a real family is never marked noise-like or untested
+        assert SF.NOISE_LIKE_SUFFIX not in key and SF.UNTESTED_SUFFIX not in key, key
+        assert not f["family_noise_like"][truth == shape].any()
         med = stats[key]["median_s"]
         assert med == pytest.approx(rhythm, rel=0.10), (shape, key, med, rhythm)
 

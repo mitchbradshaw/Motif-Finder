@@ -79,6 +79,8 @@ def truth_of(starts, sharks, squares):
 def _background(kind, n, rng):
     if kind == "ar1":
         return ar1(n, 0.97, rng)
+    if kind == "ar1_095":
+        return ar1(n, 0.95, rng)
     if kind == "ar1_099":
         return ar1(n, 0.99, rng)
     if kind == "random_walk":

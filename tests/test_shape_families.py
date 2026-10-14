@@ -112,7 +112,17 @@ def test_two_clear_cut_shapes_give_two_confident_families(kind, method, params):
         # the family is more coherent than phase-randomised copies of its own members
         assert c["svd_entropy_norm"] < c["null_p05"], c
         assert c["svd_entropy_squared_norm"] < c["null_squared_median"], c
-    assert res.fraction_placed >= 0.9 and res.fraction_confident >= 0.9
+        assert c["beyond_noise"] is True, c
+    assert res.fraction_placed >= 0.9
+    if method == "kshape":
+        # F2: k-Shape's plain-phase null missed random-walk crowds of cut events, so its "not noise-like" is not
+        # taken as confidence: no confident fraction, every family `confident` None, the reason in the notes
+        assert res.fraction_confident is None and res.n_confident is None
+        assert all(SF.family_summary(f)["confident"] is None for f in res.families)
+        assert any("k-Shape" in n and "random-walk" in n for n in res.notes), res.notes
+    else:
+        assert res.fraction_confident >= 0.9
+        assert all(SF.family_summary(f)["confident"] is True for f in res.families)
 
 
 def test_families_are_numbered_by_size_largest_first():
@@ -271,14 +281,14 @@ def test_event_families_cuts_with_w2a_and_labels_every_event():
                     features=pd.DataFrame({"polarity": [-1] * len(starts_all)}))
     ev = SF.event_families(x, 1.0, spans, anchor="start", length_s=150, pre_frac=0.0, method="hdbscan")
     assert len(ev.family) == len(starts_all)
-    assert ev.family[-1] == -1 and ev.omit_reason[-1] == "no_window"
+    assert ev.family[-1] == -1 and ev.omit_reason[-1] == "no_window:past_end"
     assert adjusted_rand_score(truth, ev.family[:-1]) >= 0.9
     # the exact code path: the core on the cutter's windows
     ew = EW.event_windows(x, 1.0, spans, anchor="start", length_s=150, pre_frac=0.0)
     direct = SF.shape_families(EW.cut(x, ew.starts, ew.length), method="hdbscan")
     assert (ev.families.labels == direct.labels).all()
     assert (ev.family[ew.kept] == direct.labels).all()
-    assert ev.families.omitted.get("no_window") is None and ev.omitted["no_window"] == 1
+    assert ev.families.omitted.get("no_window") is None and ev.omitted["no_window:past_end"] == 1
 
 
 def test_the_core_imports_no_adapter_and_no_ui():
