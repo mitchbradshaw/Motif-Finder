@@ -88,7 +88,10 @@ MEMBER_RULE = ("quiet-stretch windows: for each member, a window of its own leng
                "{avoid} — and no NaN); a member whose recording is not on disk, or holds no free stretch that long, "
                "borrows a window cut the same way from another member's recording (counted); never a random cut "
                "through events. The null is used only when at least {share:.0%} of the members got a window from "
-               "their own recording")
+               "their own recording. Machine detections are not avoided ({marks}); a quiet window can therefore "
+               "hold an uncatalogued event, which loosens the null for members of another shape and tightens it "
+               "for members of that event's own shape — which is why a family passes on either this null or the "
+               "trend-kept one")
 
 RULE = ("background windows: each length drawn with replacement from the wanted lengths; each start uniform over "
         "every place the whole window fits in a free stretch (no avoided sample, no NaN); a window that fits in no "
@@ -177,10 +180,20 @@ class MemberDraws:
 
 class _Recording:
     """One recording's free stretches, cached: the trace (a memmap is fine), its
-    free runs and, per window length, the cumulative count of placements."""
+    free runs and, per window length, the cumulative count of placements; and,
+    when `marks` (machine detections) are given, their cumulative mask, so a
+    window's overlap with any of them is one subtraction."""
 
-    def __init__(self, trace, avoid):
+    def __init__(self, trace, avoid, marks=None):
         self.trace = trace
+        self.marked = None
+        if marks is not None:
+            m = np.zeros(int(len(trace)) + 1, dtype=np.int32)
+            for a, b in marks:
+                a, b = max(0, int(a)), min(int(len(trace)), int(b))
+                if b > a:
+                    m[a + 1:b + 1] = 1
+            self.marked = np.cumsum(m, dtype=np.int64)
         n = int(len(trace))
         arr = np.asarray(trace)
         nan = np.isnan(arr) if arr.dtype.kind == "f" else None
@@ -202,6 +215,12 @@ class _Recording:
             return 0
         cs = self.placements(L)
         return int(cs[-1]) if cs.size else 0
+
+    def overlaps_mark(self, s, L):
+        """True / False: the window [s, s + L) holds a marked sample; None without marks."""
+        if self.marked is None:
+            return None
+        return bool(self.marked[int(s) + int(L)] - self.marked[int(s)] > 0)
 
     def start(self, L, rng):
         cs = self.placements(L)
@@ -231,8 +250,12 @@ class MemberBackground:
     avoid_words : what `avoid_of` avoids, in words, for the rule
     """
 
-    def __init__(self, members, trace_of, *, avoid_of=None, prepare=None, fs_of=None, seed=0, avoid_words=None):
+    def __init__(self, members, trace_of, *, avoid_of=None, prepare=None, fs_of=None, seed=0, avoid_words=None,
+                 mark_of=None, cache=None, cache_key_of=None):
         self.members = list(members)
+        self._mark_of = mark_of
+        self._cache = cache                  # a dict shared across instances (the bridge: across GETs), or None
+        self._cache_key_of = cache_key_of
         self._trace_of = trace_of
         self._avoid_of = avoid_of
         self._prepare = prepare or _raw_slice
@@ -258,10 +281,18 @@ class MemberBackground:
         return self.members[int(self._rows[j]) if self._rows is not None else int(j)]
 
     def rule(self):
-        return MEMBER_RULE.format(avoid=self.avoid_words, share=QUIET_MIN_SHARE)
+        marks = ("the share of quiet windows that overlap one is reported, detection_overlap_share"
+                 if self._mark_of is not None else "none were given to count")
+        return MEMBER_RULE.format(avoid=self.avoid_words, share=QUIET_MIN_SHARE, marks=marks)
 
     def _recording(self, rec):
         if rec not in self._recordings:
+            key = None
+            if self._cache is not None and self._cache_key_of is not None:
+                key = self._cache_key_of(rec)
+                if key is not None and key in self._cache:
+                    self._recordings[rec] = self._cache[key]
+                    return self._recordings[rec]
             trace = self._trace_of(rec)
             if trace is None:
                 self._recordings[rec] = None
@@ -270,7 +301,10 @@ class MemberBackground:
                     avoid = list(self._avoid_of(rec))
                 else:
                     avoid = [(int(m[1]), int(m[2])) for m in self.members if m is not None and m[0] == rec]
-                self._recordings[rec] = _Recording(trace, avoid)
+                marks = list(self._mark_of(rec)) if self._mark_of is not None else None
+                self._recordings[rec] = _Recording(trace, avoid, marks)
+                if key is not None:
+                    self._cache[key] = self._recordings[rec]
         return self._recordings[rec]
 
     def draw(self, rows, draws, salt=0):
@@ -283,6 +317,7 @@ class MemberBackground:
         source = [None] * len(rows)
         n_unknown = n_not_on_disk = n_no_room = n_borrowed = n_lost = 0
         lengths, own_recs, need = [], [], []
+        marked = [0, 0]                     # quiet windows overlapping a machine detection, windows checked
         for j, r in enumerate(rows):
             m = self._member(r)
             if m is None:
@@ -307,6 +342,10 @@ class MemberBackground:
             for d in range(draws):
                 s = R.start(L, rng)
                 windows[d][j] = self._prepare(R.trace, s, s + L)
+                ov = R.overlaps_mark(s, L)
+                if ov is not None:
+                    marked[0] += int(ov)
+                    marked[1] += 1
         fallback_L = int(np.median(lengths)) if lengths else None
         for j, L in need:
             L = L if L is not None else fallback_L
@@ -320,6 +359,10 @@ class MemberBackground:
                 R = self._recordings[ok[int(rng.integers(len(ok)))]]
                 s = R.start(L, rng)
                 windows[d][j] = self._prepare(R.trace, s, s + L)
+                ov = R.overlaps_mark(s, L)
+                if ov is not None:
+                    marked[0] += int(ov)
+                    marked[1] += 1
         n = len(rows)
         n_own = sum(1 for s in source if s == "own")
         free_samples, free_s = 0, (0.0 if self._fs_of is not None else None)
@@ -346,5 +389,6 @@ class MemberBackground:
         report = {"n_members": n, "n_own": n_own, "n_borrowed": n_borrowed, "n_not_on_disk": n_not_on_disk,
                   "n_no_room": n_no_room, "n_unknown": n_unknown, "n_lost": n_lost, "own_share": float(own_share),
                   "usable": usable, "draws": draws, "background_samples": int(free_samples),
-                  "background_s": free_s, "n_recordings": len(own_recs), "reason": reason, "rule": self.rule()}
+                  "background_s": free_s, "n_recordings": len(own_recs), "reason": reason, "rule": self.rule(),
+                  "detection_overlap_share": (marked[0] / marked[1]) if marked[1] else None}
         return MemberDraws(windows=windows, source=source, report=report)

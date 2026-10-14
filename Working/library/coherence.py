@@ -60,8 +60,17 @@ therefore travel beside it (w2-b fix round 1):
   HDBSCAN families, AR(1) phi 0.95-0.99 and random walk, 200 and 1,000 cut
   windows): eq. 17 at 0.98 x the quiet null's p05 and above (none beyond noise
   at the 0.9 margin); the sigma^2 variant at 0.89 x and above (one of 52 beyond
-  noise) — so the sigma^2 verdict, reported as `beyond_noise_squared`, is not
-  the verdict until it is re-measured.
+  noise) — so sigma^2 carries no verdict-shaped field at all (fix round 1,
+  F4): `variants[0]` gives its `squared_vs_null_ratio` and `beyond_noise` None.
+  **Either null** (fix round 1, the manager's decision 15): `beyond_noise` is
+  True when eq. 17 is below 0.9 x the 5th percentile of the quiet-stretch null
+  OR of the trend-kept null (`passed_by` lists which). The two have opposite
+  blind spots: the trend-kept null cannot see smooth window-filling shapes, and
+  the quiet null fails sharp families whose own shape sits uncatalogued in the
+  quiet stretches (machine detections are not avoided: they cover most of a
+  recording). The pool is n_set up to `QUIET_MAX_POOL` (4,000) so the null
+  scores as many rows as the family; above it the family is scored on random
+  subsets of the null's row count (`background.family_scored_on` says so).
 * **the sigma^2-weighted variant** — `svd_entropy_squared_norm` (p_i =
   sigma_i^2 / sum sigma^2, the share of variance), which a noise floor barely
   moves, with its own null median — and `top_share`, the sigma^2 share of the
@@ -101,8 +110,8 @@ measure: the values are None and `reason` says why in words.
 import numpy as np
 
 from Working.distances import sbd_matrix
-from Working.library.grouping.methods.kshape import (QUIET_KIND, TREND_KIND, batched_shape_vectors, null_rng,
-                                                     trend_kept_surrogates)
+from Working.library.grouping.methods.kshape import (EITHER_KIND, QUIET_KIND, TREND_KIND, batched_shape_vectors,
+                                                     null_rng, trend_kept_surrogates)
 from Working.library.grouping.methods.ward import RESAMPLE_LENGTH, shape_vectors
 
 MAX_MEMBERS = 2000
@@ -142,7 +151,14 @@ ALIGNED = (", each shifted to its best SBD match against the medoid, padded with
 #: the same share of the pool is taken). 2,000 keeps a Family-page GET at a few seconds cold whatever the family's
 #: size (measured 2026-10-14, loaded machine: ~0.3 ms a window cut, resampled and measured; 5 draws).
 QUIET_POOL_FACTOR = 10
-QUIET_MAX_POOL = 2000
+#: fix round 1 (F1): the pool is n_set up to this, so the null scores as many rows as the family (like for like);
+#: the cost is linear and small. Above it the family is scored on `QUIET_SUBSETS` random subsets of the null's
+#: row count (the median), `take` floored at `QUIET_MIN_TAKE` (an SVD entropy of two rows means little)
+QUIET_MAX_POOL = 4000
+QUIET_MIN_TAKE = 10
+QUIET_SUBSETS = 5
+#: quiet draws for the coherence (F6: the pool is the cost; the trend-kept null keeps `NULL_DRAWS`)
+QUIET_NULL_DRAWS = 3
 #: seconds per quiet window (cut, resampled to 256, z-normalised, one SBD), measured as above
 QUIET_SECONDS_PER_WINDOW = 3.0e-4
 TOP_SHARE_IS ="sigma^2 share of the main component (the fraction of variance one shape carries)"
@@ -209,9 +225,9 @@ def svd_entropy(member_matrix, align=True, *, medoid=None, resample_length=RESAM
     over the rows of `member_matrix` (same order), and `n_set`, the size of the
     set the family was found in (default ten times the family): the
     quiet-stretch null (module docstring) becomes the verdict wherever it is
-    usable, the trend-kept one stays beside it under `nulls`. Also returned:
-    `null_kind`, `null_squared_p05`, `beyond_noise_squared` (the sigma^2
-    variant against its own null — reported, NOT the verdict), `background`
+    usable (a family passes on either null; `passed_by` says which), the
+    trend-kept one beside it under `nulls`. Also returned: `null_kind`,
+    `null_squared_p05`, `passed_by`, `background`
     (the sampler's report, or None), `why` (the verdict in words, naming its
     null and its background seconds) and `variants` (sigma^2 first, then
     eq. 17: the researcher's headline order, 2026-10-14).
@@ -228,7 +244,7 @@ def svd_entropy(member_matrix, align=True, *, medoid=None, resample_length=RESAM
            "aligned": False, "padding": None, "medoid_index": None,
            "top_share": None, "top_share_is": TOP_SHARE_IS,
            "beyond_noise": None, "null_margin": NULL_MARGIN,
-           "null_squared_p05": None, "beyond_noise_squared": None, "background": None, "why": None,
+           "null_squared_p05": None, "passed_by": [], "background": None, "why": None,
            "nulls": {"quiet_stretch": None, "trend_kept": None}, "variants": [],
            "headline_variant": "squared", "verdict_variant": "eq17",
            "rule": RULE.format(L=L, aligned=ALIGNED if align else "")
@@ -283,7 +299,7 @@ def svd_entropy(member_matrix, align=True, *, medoid=None, resample_length=RESAM
         if s is not None:
             null.append(s[2] if squared else s[1])
             null_sq.append(s[2])
-    trend = _null_summary(out, null, null_sq, TREND_KIND)
+    trend = _null_summary(null, null_sq, TREND_KIND, out["svd_entropy_norm"], out["svd_entropy_squared_norm"])
     if trend is not None:
         trend["caveat"] = SMOOTH_CAVEAT
     out["nulls"]["trend_kept"] = trend
@@ -291,57 +307,79 @@ def svd_entropy(member_matrix, align=True, *, medoid=None, resample_length=RESAM
     quiet = None
     if background is not None and int(null_draws) > 0:
         centre = V0[m] if m is not None else V0[0]
-        quiet, report = _quiet_null(out, background, keep, centre, L, int(null_draws), align, squared,
-                                    n_set=n_set)
+        quiet, report = _quiet_null(V, background, keep, centre, L, align, squared, n_set=n_set, seed=seed)
         out["background"] = report
         out["nulls"]["quiet_stretch"] = quiet
-    used = quiet if quiet is not None else trend
-    if used is not None:
-        out.update(null_kind=used["kind"], null_draws=used["draws"], null_median=used["null_median"],
-                   null_p05=used["null_p05"], null_squared_median=used["null_squared_median"],
-                   null_squared_p05=used["null_squared_p05"], beyond_noise=used["beyond_noise"],
-                   beyond_noise_squared=used["beyond_noise_squared"])
+
+    # decision 15: beyond noise when EITHER null calls it so (the quiet one only where usable)
+    passed = [k for k, v in ((QUIET_KIND, quiet), (TREND_KIND, trend)) if v is not None and v["beyond_noise"]]
+    shown = (quiet if (quiet is not None and (QUIET_KIND in passed or TREND_KIND not in passed)) else trend)
+    if shown is not None:
+        out.update(null_kind=EITHER_KIND if quiet is not None else TREND_KIND, null_draws=shown["draws"],
+                   null_median=shown["null_median"], null_p05=shown["null_p05"],
+                   null_squared_median=shown["null_squared_median"], null_squared_p05=shown["null_squared_p05"],
+                   beyond_noise=bool(passed), passed_by=passed)
     out["why"] = _why(out, quiet, trend)
     out["variants"] = _variants(out)
     return out
 
 
-def _null_summary(out, null, null_sq, kind):
-    """The null's numbers and its two verdicts (eq. 17 / the headline, and the sigma^2 variant beside it)."""
+def _null_summary(null, null_sq, kind, head, sq):
+    """The null's numbers, its eq. 17 (headline) verdict, and the sigma^2 score against its own null as a number
+    (`squared_vs_null_ratio`) — not a verdict (fix round 1, F4)."""
     if not null:
         return None
     p05 = float(np.percentile(null, 5))
     sq_p05 = float(np.percentile(null_sq, 5))
-    head, sq = out["svd_entropy_norm"], out["svd_entropy_squared_norm"]
     return {"kind": kind, "draws": len(null), "null_median": float(np.median(null)), "null_p05": p05,
             "null_squared_median": float(np.median(null_sq)), "null_squared_p05": sq_p05,
             "values": [float(v) for v in null], "squared_values": [float(v) for v in null_sq],
             "beyond_noise": bool(head < NULL_MARGIN * p05),
-            "beyond_noise_squared": bool(sq < NULL_MARGIN * sq_p05)}
+            "squared_vs_null_ratio": (float(sq / sq_p05) if sq_p05 > 0 else None)}
 
 
-def _quiet_null(out, background, keep, centre, L, draws, align, squared, *, n_set=None):
-    """The quiet-stretch null of the coherence (module docstring): per draw, a
-    pool of quiet windows (each member's own recording, its own length — the
-    members cycled to the pool's size), the ones nearest the family's medoid by
-    SBD (the selection a family of m found among n went through: the pool is n
-    windows, or capped at `QUIET_MAX_POOL` with m scaled with it), aligned to
-    the medoid as the members were, and the same score on them.
+def _quiet_null(V, background, keep, centre, L, align, squared, *, n_set=None, seed=0):
+    """The quiet-stretch null of the coherence (module docstring): per draw
+    (`QUIET_NULL_DRAWS`), a pool of quiet windows of the members' own lengths
+    from their own recordings (the members cycled to the pool's size), the
+    `take` nearest the family's medoid by SBD — the selection a family of m
+    found among `n_set` went through — aligned to the medoid as the members
+    were, and the same score on them. Like for like (fix round 1, F1): the pool
+    is `n_set` up to `QUIET_MAX_POOL`, so `take` = m and the null scores as many
+    rows as the family; above the cap `take` = m x pool / n_set (floored at
+    `QUIET_MIN_TAKE`), and the family is scored on random subsets of `take` of
+    its (aligned) rows, the median of `QUIET_SUBSETS`, for this comparison only.
     `(summary or None, report)`."""
     m = len(keep)
-    n_set = int(n_set) if n_set else QUIET_POOL_FACTOR * m
-    n_set = max(n_set, m)
+    n_set = max(int(n_set) if n_set else QUIET_POOL_FACTOR * m, m)
     pool = min(n_set, QUIET_MAX_POOL)
-    take = max(2, int(round(m * pool / float(n_set))))
+    take = m if pool == n_set else max(min(QUIET_MIN_TAKE, m), int(round(m * pool / float(n_set))))
+    take = min(take, m, pool)
     rows = [keep[i % m] for i in range(pool)]
-    dr = background.draw(rows, draws, salt=17)
+    dr = background.draw(rows, QUIET_NULL_DRAWS, salt=17)
     report = dict(dr.report)
-    report.update(pool=pool, n_set=n_set, nearest=take)
+    report.update(pool=pool, n_set=n_set, nearest=take, family_rows_scored=take)
     if not dr.usable:
         return None, report
+    head = out_head = None
+    if take < m:
+        rng = np.random.default_rng([int(seed), 23])
+        sc, sq_sc = [], []
+        for _ in range(QUIET_SUBSETS):
+            e = _entropies(V[np.sort(rng.choice(m, size=take, replace=False))])
+            if e is not None:
+                sc.append(e[2] if squared else e[1])
+                sq_sc.append(e[2])
+        if sc:
+            head, out_head = float(np.median(sc)), float(np.median(sq_sc))
+        report["family_scored_on"] = (f"the median of {QUIET_SUBSETS} random subsets of {take} of its {m} rows "
+                                      f"(the null's row count: the pool is capped at {QUIET_MAX_POOL})")
+    else:
+        e = _entropies(V)
+        head, out_head = (e[2] if squared else e[1]), e[2]
     null, null_sq = [], []
     c = np.asarray(centre, dtype=float)[None, :]
-    for d in range(draws):
+    for d in range(QUIET_NULL_DRAWS):
         waves = [w for w in dr.windows[d] if w is not None and np.isfinite(np.asarray(w, dtype=float)).all()]
         if len(waves) < 2:
             continue
@@ -355,46 +393,65 @@ def _quiet_null(out, background, keep, centre, L, draws, align, squared, *, n_se
         if s is not None:
             null.append(s[2] if squared else s[1])
             null_sq.append(s[2])
-    summary = _null_summary(out, null, null_sq, QUIET_KIND)
+    summary = _null_summary(null, null_sq, QUIET_KIND, head, out_head) if head is not None else None
     if summary is None:
         report.update(usable=False, reason="no draw gave two quiet windows to score")
+    else:
+        summary.update(family_score=head, family_squared_score=out_head, family_rows_scored=take)
     return summary, report
 
 
 def _why(out, quiet, trend):
-    """The verdict in words: which null, how much background, the numbers."""
+    """The verdict in words: which null(s) passed, both numbers, how much background."""
     if out["svd_entropy_norm"] is None:
         return out.get("reason")
-    used = quiet if quiet is not None else trend
-    if used is None:
+    if quiet is None and trend is None:
         return "no null drawn: the coherence is not tested against noise"
-    verdict = "more coherent than" if used["beyond_noise"] else "no more coherent than"
-    head = (f"the eq. 17 score {out['svd_entropy_norm']:.3f} is {verdict} noise ({NULL_MARGIN} x the null's 5th "
-            f"percentile {used['null_p05']:.3f})")
+    verdict = "more coherent than noise" if out["beyond_noise"] else "no more coherent than noise"
     rep = out.get("background")
     if quiet is not None:
         s = rep.get("background_s")
         amount = f"{s:,.0f} s" if s is not None else f"{rep.get('background_samples', 0):,} samples"
-        return (f"{head}, against the quiet-stretch null ({amount} of event-free background on "
-                f"{rep.get('n_recordings', 0)} recording(s); the {rep['nearest']} of {rep['pool']} quiet windows "
-                f"nearest the medoid, {used['draws']} draws). Beside it, the trend-kept null: "
-                + (f"5th percentile {trend['null_p05']:.3f}, {'beyond' if trend['beyond_noise'] else 'not beyond'} "
-                   f"noise ({SMOOTH_CAVEAT})" if trend is not None else "not drawn"))
+        extra = ""
+        if rep.get("n_borrowed"):
+            extra += f"; {rep['n_borrowed']} borrowed windows"
+        if rep.get("detection_overlap_share") is not None:
+            extra += (f"; {rep['detection_overlap_share']:.0%} of the quiet windows overlap a machine detection "
+                      f"(not avoided)")
+        passed = out.get("passed_by") or []
+        return (f"the eq. 17 score is {verdict} — passed by {' and '.join(passed) if passed else 'neither null'} "
+                f"(either suffices; {NULL_MARGIN} x a null's 5th percentile); the quiet-stretch null: "
+                f"{quiet['family_score']:.3f} against a 5th percentile of {quiet['null_p05']:.3f} ({amount} of "
+                f"event-free background on {rep.get('n_recordings', 0)} recording(s); the {rep['nearest']} of "
+                f"{rep['pool']} quiet windows nearest the medoid, {quiet['draws']} draws"
+                + (f"; the family {rep['family_scored_on']}" if rep.get("family_scored_on") else "") + extra
+                + "). Trend-kept null: "
+                + (f"{out['svd_entropy_norm']:.3f} against {trend['null_p05']:.3f}" if trend is not None
+                   else "not drawn") + ".")
+    head = (f"the eq. 17 score {out['svd_entropy_norm']:.3f} is {verdict} ({NULL_MARGIN} x the null's 5th "
+            f"percentile {trend['null_p05']:.3f})")
     fallback = (("quiet-stretch null not used: " + str(rep.get("reason")))
                 if rep is not None else "quiet-stretch null not available (no recording was given)")
     return f"{head}, against the trend-kept null ({fallback}). Caveat: {SMOOTH_CAVEAT}"
 
 
+SQUARED_NOTE = ("sigma^2 is reported, not judged: against these nulls it needs a margin of about 0.7 to be safe on "
+                "pure noise (W3-G critic), so its ratio to the null's 5th percentile is a number to read; eq. 17 "
+                "carries the verdict (the researcher's rule)")
+
+
 def _variants(out):
     """The two scores as the pages lead with them: sigma^2 first (the researcher's headline, 2026-10-14), eq. 17
-    beside it, which still carries the verdict."""
+    beside it, which carries the verdict. sigma^2 has NO verdict-shaped field (fix round 1, F4)."""
     if out["svd_entropy_squared_norm"] is None:
         return []
     eq17 = not out["squared"]
+    sq_p05 = out["null_squared_p05"]
     return [
         {"name": "squared", "label": "sigma^2-weighted (share of variance)", "score": out["svd_entropy_squared_norm"],
-         "null_median": out["null_squared_median"], "null_p05": out["null_squared_p05"],
-         "beyond_noise": out["beyond_noise_squared"], "is_verdict": False},
+         "null_median": out["null_squared_median"], "null_p05": sq_p05, "beyond_noise": None,
+         "squared_vs_null_ratio": (out["svd_entropy_squared_norm"] / sq_p05) if sq_p05 else None,
+         "note": SQUARED_NOTE, "is_verdict": False},
         {"name": "eq17", "label": "eq. 17 (Colominas & Wu 2023)",
          "score": out["svd_entropy_norm"] if eq17 else None,
          "null_median": out["null_median"] if eq17 else None, "null_p05": out["null_p05"] if eq17 else None,

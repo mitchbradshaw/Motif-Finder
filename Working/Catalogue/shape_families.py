@@ -95,7 +95,7 @@ from Working.library.coherence import RULE as COHERENCE_RULE
 from Working.library.coherence import QUIET_MAX_POOL, QUIET_SECONDS_PER_WINDOW, svd_entropy
 from Working.library.grouping import engine
 from Working.library.grouping import methods as registry
-from Working.library.grouping.methods.kshape import QUIET_KIND, TREND_KIND
+from Working.library.grouping.methods.kshape import EITHER_KIND, TREND_KIND
 from Working.library.grouping.methods.ward import RESAMPLE_LENGTH, shape_vectors
 
 BASIS = "shape-distance"
@@ -503,7 +503,7 @@ def family_summary(fam: FamilyInfo):
         # the researcher's headline (2026-10-14): sigma^2 first; eq. 17 keeps the verdict
         "svd_entropy_squared_first": True,
         "svd_entropy_squared_null_p05": c.get("null_squared_p05"),
-        "svd_entropy_squared_beyond_noise": c.get("beyond_noise_squared"),
+        "svd_entropy_passed_by": c.get("passed_by"), "passed_by": fam.flags.get("passed_by"),
         "svd_entropy_null_kind": c.get("null_kind"), "svd_entropy_why": c.get("why"),
         "svd_entropy_background": engine.json_safe(c.get("background")),
         "svd_entropy_variants": engine.json_safe(c.get("variants") or []),
@@ -541,12 +541,14 @@ def rules(method, params):
         {"name": "noise_like", "rule": "the method's own verdict, never re-derived here: hdbscan and kshape compare "
                                        "each family with the chain's own quiet stretches (windows of the members' "
                                        "length cut where no event and no window of the set lies, selection-matched: "
-                                       "the members' median distance to their centre must beat 0.7 x the "
-                                       "min(5 %, m/2n)-quantile of the quiet windows' distances) wherever at least "
-                                       "half the members got such a window; otherwise with trend-kept phase-"
-                                       "randomised surrogates of the members (a cubic trend kept, so a smooth "
-                                       "window-filling hump or ramp can read noise-like), and each family's "
-                                       "null_kind and why say which - the exact rule is fit_summary.null.rule; ward "
+                                       "the members' median distance to their centre must beat 0.6 x the "
+                                       "min(5 %, m/2n)-quantile of the quiet windows' distances) AND with trend-"
+                                       "kept phase-randomised surrogates of the members (a cubic trend kept, so a "
+                                       "smooth window-filling hump or ramp can read noise-like); a family passes on "
+                                       "EITHER null (the quiet one only where at least half the members got a "
+                                       "window; it cannot see an uncatalogued event of the family's own shape in "
+                                       "the quiet stretches). Each family's null_kind, passed_by and why say which "
+                                       "- the exact rule is fit_summary.null.rule; ward "
                                        "draws no null and reports its families untested"},
         {"name": "svd_entropy", "rule": "per family, W2-B's svd_entropy, its verdict (svd_entropy_beyond_noise) read "
                                         "off, not re-derived: "
@@ -583,9 +585,9 @@ def summary_line(fam: ShapeFamilies, unit_word="event"):
     if fam.method in UNTRUSTED_NULLS and fam.families:
         parts.append(f"{fam.method}'s noise null is not trusted: no family is called confident")
     tested = [f for f in fam.families if f.flags.get("tested")]
-    fell = [f.family for f in tested if f.flags.get("null_kind") and f.flags.get("null_kind") != QUIET_KIND]
-    if tested and any(f.flags.get("null_kind") == QUIET_KIND for f in tested):
-        parts.append("judged against the recording's own quiet stretches"
+    fell = [f.family for f in tested if f.flags.get("null_kind") and f.flags.get("null_kind") != EITHER_KIND]
+    if tested and any(f.flags.get("null_kind") == EITHER_KIND for f in tested):
+        parts.append("judged against the recording's own quiet stretches or trend-kept noise (either passes)"
                      + (f" (trend-kept fallback for family " + ", ".join(str(x) for x in fell) + ")" if fell else ""))
     elif tested:
         parts.append("judged against trend-kept noise (no quiet-stretch null)")

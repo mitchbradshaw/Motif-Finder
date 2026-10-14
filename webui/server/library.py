@@ -1346,7 +1346,9 @@ def _family_coherence(index, rows, conn=None, n_set=None) -> dict:
         out["notOnDisk"] = missing
         out["heldOut"] = held
         # w2-f fix 1: the caveat beside the verdict and the misalignment fraction, from the core's own constants
-        out["smooth_caveat"] = coherence_mod.SMOOTH_CAVEAT
+        # F7: the smooth-shape caveat belongs to the trend-kept null alone (the quiet one sees smooth shapes)
+        if out.get("null_kind") != coherence_mod.EITHER_KIND:
+            out["smooth_caveat"] = coherence_mod.SMOOTH_CAVEAT
         out["misaligned_fraction"] = coherence_mod.MISALIGNED_FRACTION
     except Exception as exc:          # loud, not blank: the page draws this as a red card
         import logging
@@ -1362,16 +1364,49 @@ def _family_coherence(index, rows, conn=None, n_set=None) -> dict:
 LIBRARY_AVOID_WORDS = "every Library member (any entry, any scale) and every sequence on that recording"
 
 
-def _library_spans(conn, recording_ids) -> dict:
+#: fix round 1 (F6): caches that outlive one request — the Library-member spans per recording set, and each
+#: recording's free stretches (`background_null._Recording`), keyed on the file (path, mtime) and on a fingerprint
+#: of the Library's members, sequences and detections, so a new member or detection is a new key. Bounded.
+_SPANS_CACHE: dict = {}
+_FREE_STRETCH_CACHE: dict = {}
+_BG_CACHE_MAX = 64
+
+
+def _bounded_put(cache, key, value):
+    if len(cache) >= _BG_CACHE_MAX:
+        cache.pop(next(iter(cache)))
+    cache[key] = value
+
+
+def _library_fingerprint(conn) -> tuple:
+    """What a quiet window's avoidance and its detection count depend on: counts and newest ids of the Library's
+    members, sequences and machine detections."""
+    out = []
+    for table in ("motif_member", "sequences", "detections"):
+        r = conn.execute(f"SELECT COUNT(*), MAX(id) FROM {table}").fetchone()
+        out.append((int(r[0] or 0), int(r[1] or 0)))
+    return tuple(out)
+
+
+def _library_spans(conn, recording_ids, fingerprint=None) -> dict:
     """`recording_id -> [(start, end)]`: every Library member of every entry and
     scale, and every sequence, on those recordings — what a quiet window avoids.
+
     Machine detections are NOT avoided (w3-g): detection runs at many settings
     (sliding windows among them) cover most of a recording, so avoiding them
-    would leave no quiet stretch; a window that holds an uncatalogued event
-    makes the null more coherent, so the verdict errs towards "noise-like"."""
+    would leave no quiet stretch. That has a cost both ways (the W3-G critic):
+    a quiet window can hold an uncatalogued event, which LOOSENS the null for a
+    family of another shape (pure noise reads better than it is) and TIGHTENS it
+    for a family of that event's own shape (a real sharp family can fail it).
+    Hence a family passes on either the quiet-stretch null or the trend-kept one
+    (decision 15), and the share of quiet windows that overlap a detection is
+    reported (`_library_detections`, `background.detection_overlap_share`)."""
     out = {int(r): [] for r in recording_ids}
     if conn is None or not out:
         return out
+    key = (tuple(sorted(out)), fingerprint) if fingerprint is not None else None
+    if key is not None and key in _SPANS_CACHE:
+        return _SPANS_CACHE[key]
     marks = ",".join("?" * len(out))
     ids = tuple(out)
     for sql in (f"SELECT recording_id, start_idx, end_idx FROM motif_member WHERE recording_id IN ({marks})",
@@ -1379,7 +1414,18 @@ def _library_spans(conn, recording_ids) -> dict:
         for r in conn.execute(sql, ids):
             if r[1] is not None and r[2] is not None:
                 out[int(r[0])].append((int(r[1]), int(r[2])))
+    if key is not None:
+        _bounded_put(_SPANS_CACHE, key, out)
     return out
+
+
+def _library_detections(conn, recording_id) -> list:
+    """Every machine detection on one recording (any run), `[(start, end)]` in the
+    recording's frame: counted against the quiet windows, never avoided."""
+    from Working.discovery.spans import absolute_bounds
+    return [absolute_bounds(r[0], r[1], r[2]) for r in conn.execute(
+        "SELECT d.start_idx, d.end_idx, u.span_start FROM detections d JOIN runs u ON u.id = d.run_id "
+        "WHERE u.recording_id = ?", (int(recording_id),))]
 
 
 def _library_background(conn, index, members, *, prepare="envelope", px=64):
@@ -1388,44 +1434,70 @@ def _library_background(conn, index, members, *, prepare="envelope", px=64):
     `members` (`(recording_id, start_idx, end_idx)`, or None), each recording
     memory-mapped once (`corpus.load_native`, the stored unit), its quiet
     stretches outside every Library member and sequence on it (`_library_spans`;
-    with no `conn`, outside the given members only). A held-out recording, an
+    with no `conn`, outside the given members only), the machine detections on
+    it counted, not avoided (`_library_detections`). With a `conn`, each
+    recording's free stretches are cached across requests (`_FREE_STRETCH_CACHE`,
+    keyed on path, mtime and `_library_fingerprint`). A held-out recording, an
     unknown one or one not on disk gives no trace, so its members borrow and are
     counted. `prepare` is how the members were handed in: "envelope" — the
     decimated envelope `_native_waveform` hands the engine — or "raw", the stored
     slice `_family_coherence` scores."""
     from Working.background_null import MemberBackground
     rec_ids = sorted({int(m[0]) for m in members if m is not None and m[0] is not None})
-    spans = _library_spans(conn, rec_ids) if conn is not None else None
+    fingerprint = _library_fingerprint(conn) if conn is not None else None
+    spans = _library_spans(conn, rec_ids, fingerprint) if conn is not None else None
 
     def meta_of(rid):
         return index["by_id"].get(int(rid or 0))
 
-    def trace_of(rid):
+    def path_of(rid):
         meta = meta_of(rid)
         if meta is None or meta.get("held_out"):
             return None
         path = meta.get("npy_path")
-        if not path or not os.path.isfile(path):
-            return None
-        return corpus.load_native(path)
+        return path if path and os.path.isfile(path) else None
+
+    def trace_of(rid):
+        path = path_of(rid)
+        return corpus.load_native(path) if path else None
 
     def fs_of(rid):
         meta = meta_of(rid)
         return float(meta["fs"]) if meta and meta.get("fs") else None
 
+    def cache_key_of(rid):
+        path = path_of(rid)
+        return None if path is None else (int(rid), path, os.stat(path).st_mtime_ns, fingerprint)
+
     def envelope(trace, start, end):
-        meta_fs = 1.0
-        env = decimate.envelope(trace, meta_fs, int(start), int(end), int(px))
+        env = decimate.envelope(trace, 1.0, int(start), int(end), int(px))
         return [0.0 if v is None else round(_f(v), 5) for v in env["v"]]
 
     def raw(trace, start, end):
         return np.asarray(trace[int(start):int(end)], dtype=float)
 
-    avoid_of = (lambda rid: spans.get(int(rid), [])) if spans is not None else None
+    with_db = spans is not None
     return MemberBackground([None if m is None else (int(m[0]), int(m[1] or 0), int(m[2] or 0)) for m in members],
-                            trace_of, avoid_of=avoid_of, prepare=envelope if prepare == "envelope" else raw,
-                            fs_of=fs_of,
-                            avoid_words=LIBRARY_AVOID_WORDS if spans is not None else "the shown members' spans")
+                            trace_of, avoid_of=(lambda rid: spans.get(int(rid), [])) if with_db else None,
+                            prepare=envelope if prepare == "envelope" else raw, fs_of=fs_of,
+                            avoid_words=LIBRARY_AVOID_WORDS if with_db else "the shown members' spans",
+                            mark_of=(lambda rid: _library_detections(conn, rid)) if with_db else None,
+                            cache=_FREE_STRETCH_CACHE if with_db else None,
+                            cache_key_of=cache_key_of if with_db else None)
+
+
+def _grouping_n_set(conn, grouping_row):
+    """F2: the number of items that took part in the grouping — every assignment
+    row, omitted ones included, minus those that could not take part (no shape:
+    `missing_values`, `infinite_values`; `not_in_a_sequence`). The set a family
+    was selected from, whatever a view filter shows."""
+    if grouping_row is None:
+        return None
+    r = conn.execute(
+        "SELECT COUNT(*) FROM grouping_assignments WHERE grouping_id = ? AND (omit_reason IS NULL OR "
+        "omit_reason NOT IN ('missing_values', 'infinite_values', 'not_in_a_sequence'))",
+        (int(grouping_row["id"]),)).fetchone()
+    return int(r[0]) or None
 
 
 def _family_detail(conn, index, fam, grouping_row, state=None, hidden_by_view=False) -> dict:
@@ -1541,7 +1613,7 @@ def _family_detail(conn, index, fam, grouping_row, state=None, hidden_by_view=Fa
         "view": {**_view_report_payload(state), "family": fam.get("view"), "hiddenByView": bool(hidden_by_view)},
         "judgedRule": verdicts_mod.rule_text(conn),
         # w2-b: how much the members are copies of one shape (SVD entropy, computed on demand, cached)
-        "coherence": _family_coherence(index, rows, conn=conn, n_set=len(state["rows"])),
+        "coherence": _family_coherence(index, rows, conn=conn, n_set=_grouping_n_set(conn, grouping_row)),
     }
 
 

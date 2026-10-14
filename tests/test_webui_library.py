@@ -1082,7 +1082,11 @@ def test_family_coherence_carries_its_caveat_and_misaligned_fraction(bridge):
     lib._COHERENCE_CACHE.clear()
     client, _ = bridge
     coh = _ok(client.get("/api/library/family/F-01"))["detail"]["coherence"]
-    assert coh["smooth_caveat"] == coherence.SMOOTH_CAVEAT
+    # w3-g fix round 1 (F7, deliberate): the caveat travels only when the trend-kept null judged alone
+    if coh.get("null_kind") == coherence.EITHER_KIND:
+        assert "smooth_caveat" not in coh
+    else:
+        assert coh["smooth_caveat"] == coherence.SMOOTH_CAVEAT
     assert coh["misaligned_fraction"] == coherence.MISALIGNED_FRACTION
     assert "beyond_noise" in coh and coh["null_margin"] == coherence.NULL_MARGIN
 
@@ -1266,7 +1270,9 @@ def test_family_coherence_judges_against_the_recordings_quiet_stretches(tmp_path
     index = {"by_id": {1: {"npy_path": str(path), "held_out": False, "fs": 2.0}}}
     rows = _rows([(1, s) for s in starts], medoid=0)
     out = lib._family_coherence(index, rows, n_set=200)
-    assert out["null_kind"] == "quiet-stretch", out.get("why")
+    # fix round 1 (decision 15): both nulls judge, either passes; here the quiet one does (a smooth hump)
+    assert out["null_kind"] == "quiet-stretch or trend-kept phase-randomised", out.get("why")
+    assert "quiet-stretch" in out["passed_by"]
     assert out["background"]["usable"] and out["background"]["background_s"] > 0
     assert "quiet-stretch null" in out["why"] and "s of event-free background" in out["why"]
     assert out["nulls"]["trend_kept"] is not None, "the trend-kept null travels beside it"
@@ -1294,9 +1300,21 @@ def test_free_stretches_and_library_spans_are_cached_across_requests(tmp_path, m
     np.save(path, np.cumsum(np.random.default_rng(0).normal(size=40000)).astype(np.float32))
     index = {"by_id": {1: {"npy_path": str(path), "held_out": False, "fs": 1.0}}}
     starts = list(range(1000, 31000, 1500))
-    lib._family_coherence(index, _rows([(1, s) for s in starts[:10]], medoid=0), n_set=100)
-    lib._family_coherence(index, _rows([(1, s) for s in starts[10:]], medoid=0), n_set=100)
+    # the avoidance comes from the database (every Library member on the recording), so it is one per recording
+    import sqlite3
+    conn = sqlite3.connect(":memory:")
+    conn.executescript("CREATE TABLE motif_member (id INTEGER PRIMARY KEY, recording_id INT, start_idx INT, end_idx INT);"
+                       "CREATE TABLE sequences (id INTEGER PRIMARY KEY, recording_id INT, start_idx INT, end_idx INT);"
+                       "CREATE TABLE runs (id INTEGER PRIMARY KEY, recording_id INT, span_start INT);"
+                       "CREATE TABLE detections (id INTEGER PRIMARY KEY, run_id INT, start_idx INT, end_idx INT);"
+                       "INSERT INTO runs VALUES (1, 1, 0); INSERT INTO detections VALUES (1, 1, 33000, 34000);")
+    conn.executemany("INSERT INTO motif_member (recording_id, start_idx, end_idx) VALUES (1, ?, ?)",
+                     [(s, s + 90) for s in starts])
+    a = lib._family_coherence(index, _rows([(1, s) for s in starts[:10]], medoid=0), conn=conn, n_set=100)
+    lib._family_coherence(index, _rows([(1, s) for s in starts[10:]], medoid=0), conn=conn, n_set=100)
     assert len(built) == 1, "the second family reused the recording's free stretches"
+    assert a["background"]["detection_overlap_share"] is not None, "detections are counted against quiet windows"
+    conn.close()
     lib._COHERENCE_CACHE.clear()
     lib._FREE_STRETCH_CACHE.clear()
 

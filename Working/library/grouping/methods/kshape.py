@@ -296,11 +296,19 @@ QUIET_PERCENTILE_CAP = 5.0          # q never above today's 5th percentile
 QUIET_POINTS = 40                   # pooled windows per unit of q: the quantile rests on ~40 windows below it
 QUIET_MIN_DRAWS = 10
 QUIET_MAX_WINDOWS = 20000           # windows cut per family at most (cost)
-# PLACEHOLDER, measured: confident iff d_F < 0.7 x the quiet q-quantile. Under a selection-matched null a pure-noise
-# family sits at about 1 x, so the margin is all the protection: 124 pure-noise HDBSCAN families (AR(1) phi 0.98 and
-# 0.99, 200 / 400 / 1,000 cut events, 20-30 seeds) reached 0.80 x (14 of 124 below 0.9, none below 0.8); broad humps
-# and slow ramps scored 0.01-0.54 x. 0.9 would call one pure-noise family in nine confident.
-QUIET_MARGIN = 0.7
+# PLACEHOLDER, measured: confident iff d_F < 0.6 x the quiet q-quantile (the manager's decision 16, fix round 1).
+# Under a selection-matched null a pure-noise family sits at about 1 x, so the margin is all the protection:
+# 124 pure-noise HDBSCAN families (AR(1) phi 0.98 and 0.99, 200 / 400 / 1,000 cut events, 20-30 seeds) reached
+# 0.80 x; the W3-G critic's worst case — the 10 nearest windows around the densest centres among 3,600 — reached
+# 0.714 clean and 0.643 with uncatalogued events in the quiet stretches. Real shape families at 10 % noise scored
+# 0.13-0.39 (the critic) and broad humps / slow ramps 0.01-0.54 (w3-g), so 0.6 costs them nothing measured.
+QUIET_MARGIN = 0.6
+# The verdict is EITHER null (the manager's decision 15): a family is confident when it passes the quiet-stretch
+# null OR the trend-kept one. Their blind spots are opposite, both measured: the trend-kept null cannot see smooth
+# window-filling shapes (humps and ramps 1.15-3.0 x), and the quiet null fails sharp families when the quiet
+# stretches hold uncatalogued events of their own shape (drops / sharkfins 1.29-1.31 x where the trend-kept null gave
+# 0.20-0.37 x, the critic). Each null's size on pure noise is small, so their union stays small.
+EITHER_KIND = "quiet-stretch or trend-kept phase-randomised"
 SMOOTH_CAVEAT_KSHAPE = ("a smooth shape that fills the window (a broad hump, a slow ramp) keeps its curve in its own "
                         "trend-kept noise and can read noise-like, so for such a family this flag is not evidence "
                         "that it is noise")
@@ -402,12 +410,30 @@ def quiet_verdict(d_F, d_bg, q, margin):
     return thr, float(ratio), bool(not (d_F < margin * thr)), bool(not (d_F < float(np.median(d_bg))))
 
 
+def either_verdict(quiet, trend):
+    """`(noise_like, unstable, passed_by, null_kind)` under decision 15: with a
+    usable quiet-stretch result, the family passes if either null passes it
+    (`passed_by` lists which, quiet first) and is unstable only when both call it
+    so; without one, the trend-kept verdict alone (`null_kind` says which)."""
+    if quiet is None:
+        return (bool(trend["noise_like"]), bool(trend["unstable"]),
+                [] if trend["noise_like"] else [TREND_KIND], TREND_KIND)
+    passed = [k for k, v in ((QUIET_KIND, quiet), (TREND_KIND, trend)) if not v["noise_like"]]
+    return (not passed, bool(quiet["unstable"] and trend["unstable"]), passed, EITHER_KIND)
+
+
 def background_words(report):
     """`"<s> s of background on <k> recording(s)"` (or samples, without a rate), for a verdict's text."""
     s = report.get("background_s")
     k = report.get("n_recordings", 0)
     amount = (f"{s:,.0f} s" if s is not None else f"{report.get('background_samples', 0):,} samples")
-    return f"{amount} of event-free background on {k} recording(s)"
+    out = f"{amount} of event-free background on {k} recording(s)"
+    if report.get("n_borrowed"):
+        out += f"; {report['n_borrowed']} borrowed windows (members whose own recording had no room or was not on disk)"
+    share = report.get("detection_overlap_share")
+    if share is not None:
+        out += f"; {share:.0%} of the quiet windows overlap a machine detection (detections are not avoided)"
+    return out
 
 
 def null_rng(seed, salt):
@@ -892,17 +918,17 @@ class KShapeMethod:
                              "noise_like": q_noise, "unstable": q_unstable, "margin": QUIET_MARGIN,
                              "omit_d": float(np.percentile(d_bg, NULL_PERCENTILE)),
                              "null_median": float(np.median(d_bg))}
+            noise_like, unstable, passed_by, kinds[c] = either_verdict(quiet, trend)
             if quiet is not None:
-                noise_like, unstable = quiet["noise_like"], quiet["unstable"]
-                kinds[c] = QUIET_KIND
-                p05_used, p50_used = quiet["omit_d"], quiet["null_median"]
-                why = (f"against the quiet-stretch null ({background_words(report)}): members' median distance "
+                use_quiet = QUIET_KIND in passed_by or TREND_KIND not in passed_by
+                p05_used, p50_used = ((quiet["omit_d"], quiet["null_median"]) if use_quiet else (p05[c], p50[c]))
+                why = (f"passed by {' and '.join(passed_by) if passed_by else 'neither null'} (a family passes on "
+                       f"either); the quiet-stretch null ({background_words(report)}): members' median distance "
                        f"to the centre {med:.3f} is {quiet['ratio']:.2f} x the {q:.2%} quantile {quiet['threshold']:.3f} "
                        f"of {report['n_windows']} windows cut where no event lies on the members' own recordings; "
-                       f"confident below {QUIET_MARGIN} x (a placeholder margin). Beside it, " + trend_why)
+                       f"passes below {QUIET_MARGIN} x (a placeholder margin). Trend-kept null: {trend['ratio']:.2f} x; "
+                       + trend_why)
             else:
-                noise_like, unstable = t_noise, t_unstable
-                kinds[c] = TREND_KIND
                 p05_used, p50_used = p05[c], p50[c]
                 fallback = (("quiet-stretch null not used: " + str(report.get("reason")) + "; ")
                             if report is not None else
@@ -915,7 +941,7 @@ class KShapeMethod:
                 "noise_like": bool(noise_like), "unstable": bool(unstable), "tested": True,
                 "why": ("no better than noise of the same colour: " + why) if noise_like else why,
                 "median_distance": med, "null_p05": p05_used, "null_median": p50_used,
-                "null_kind": kinds[c], "background": report,
+                "null_kind": kinds[c], "passed_by": passed_by, "background": report,
                 "background_s": (report or {}).get("background_s"),
                 "nulls": {"quiet_stretch": quiet, "trend_kept": trend}}
         # clusters with no family (empty) keep the trend-kept p05 for the automatic omit_d
@@ -924,19 +950,22 @@ class KShapeMethod:
         label = {c: f"F-{f:02d}" for c, f in family_of.items()}
         used = set(kinds.values())
         payload["null"] = {
-            "kind": (QUIET_KIND if used == {QUIET_KIND} else
-                     f"{QUIET_KIND}, {TREND_KIND} fallback" if QUIET_KIND in used else TREND_KIND),
+            "kind": (EITHER_KIND if used == {EITHER_KIND} else
+                     f"{EITHER_KIND}, {TREND_KIND} fallback" if EITHER_KIND in used else TREND_KIND),
             "draws": draws, "rows_per_draw": int(len(sub)),
             "percentile": NULL_PERCENTILE, "margin": QUIET_MARGIN,
             "omit_d_by_family": {label[c]: payload["null_p05"][c] for c in family_of},
             "median_by_family": {label[c]: payload["family_flags"][f]["null_median"] for c, f in family_of.items()},
             "from": {label[c]: source[c] for c in family_of},
             "kind_by_family": {label[c]: kinds[c] for c in family_of},
-            "rule": (f"per family, the quiet-stretch null where at least half its members got a window from their "
-                     f"own recording: members' median distance to the centre must be below {QUIET_MARGIN} x the "
-                     f"q-quantile of quiet windows' distances to it, q = min(5 %, m / 2n) for a family of m among "
-                     f"n (a placeholder margin); automatic omit_d = the quiet windows' {NULL_PERCENTILE:g}th "
-                     f"percentile. Otherwise (and beside it) the trend-kept null: each fitted row's cubic trend "
+            "rule": (f"per family, a family passes on EITHER null. The quiet-stretch null, where at least half its "
+                     f"members got a window from their own recording: members' median distance to the centre must "
+                     f"be below {QUIET_MARGIN} x the q-quantile of quiet windows' distances to it, q = min(5 %, "
+                     f"m / 2n) for a family of m among n (a placeholder margin); machine detections are not avoided, "
+                     f"so a quiet window can hold an uncatalogued event (loosening the null for other shapes, "
+                     f"tightening it for its own). Automatic omit_d = the 5th percentile of the null that passed "
+                     f"(the quiet one when both or neither did). The trend-kept null (alone when the quiet one is not "
+                     f"usable): each fitted row's cubic trend "
                      f"kept and the rest phase-randomised, {draws} times; a surrogate counts toward the family "
                      f"whose centre it lands nearest (all surrogates when fewer than {NULL_MIN_PER_FAMILY} land); "
                      f"automatic omit_d = their {NULL_PERCENTILE:g}th percentile; noise-like when the members' "
