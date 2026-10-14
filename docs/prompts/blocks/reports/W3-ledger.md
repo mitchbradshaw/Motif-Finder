@@ -529,6 +529,12 @@ instead of it.
   `reason_code`. Left open, by its own account: three readers still count every linked null run, finished or not
   (`scoreboard._null_runs`, `matching.py` ~1309, `library.py` ~1709). 05:28 — re-critique sent (row 12a), those
   three readers in its scope; they go to the fixer's second (last) round with its findings.
+- ~05:4x — **the API session limit stopped the W3-C fixer (row 3b) and the W3-F re-critic (row 12a)** mid-task. W3-C
+  had its red tests committed (`87f4ffc`) and the code uncommitted, with one test still failing: a raw 20 min hold
+  through the template's detrend is now counted as stalled, but 976 s still cleared (gap 11.1). 07:02 — both resumed.
+  The fixer was told to settle that failure by comparing against the same span with the hold blanked: if the blanked
+  twin clears too, the clearance is the background's and the test pins "a stall behaves like a gap"; otherwise the
+  detrend's reach around a hold becomes part of the stall.
 - 03:5x — **W3-C critic: merge after fixes, three blockers.** F1: plain phase surrogates are biased here too
   (exp(AR) noise got a suggestion 10/10; AAFT 1/10 → 0/10 at 20 draws, keeping planted-motif power) → the 03:55
   correction; F2: one null draw gives 1.2–5.8 % false suggestions at 1 Hz, three gave 0 in 544 spans, the false
