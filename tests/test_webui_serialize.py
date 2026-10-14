@@ -437,5 +437,85 @@ def test_an_undeclared_unit_has_no_factor_and_is_drawn_as_stored():
     assert max(p["envelope"]["v"]) == pytest.approx(1.0)
 
 
+# ── w2-f: a block that names its own exemplars, and event windows' anchor ───
+
+def _snippet_like():
+    """Four windows, two labels; the features would make the CENTROID rule pick
+    window 1 for label 1 and window 2 for label 2 — the block names 0 and 3."""
+    import pandas as pd
+    from Working.types import Grouping, WindowSet
+    feats = pd.DataFrame({"a": [0.0, 1.0, 10.0, 99.0], "split": [0, 0, 0, 0]})
+    ws = WindowSet(starts=np.arange(4) * 60, length=60, fs=1.0, features=feats)
+    return Grouping(labels=np.array([1, 1, 2, 2])), ws
+
+
+def test_a_grouping_draws_the_member_the_block_named_with_the_blocks_rule():
+    g, ws = _snippet_like()
+    meta = {"exemplar_windows": {"1": 0, "2": 3}, "exemplar_rule": "the snippet itself: a real window"}
+    p = to_payload("grouping", g, meta, {"fs": 1.0, "windowset": ws})
+    ex = {e["cluster"]: e for e in p["exemplars"]}
+    assert ex[1]["window"] == 0 and ex[2]["window"] == 3, "the block's own members, not the centroid pick"
+    assert ex[2]["start_s"] == 180.0 and ex[2]["length_s"] == 60.0
+    assert {e["rule"] for e in p["exemplars"]} == {"the snippet itself: a real window"}
+    assert {e["by"] for e in p["exemplars"]} == {"block"}
+    plain = to_payload("grouping", g, {}, {"fs": 1.0, "windowset": ws})
+    assert {e["by"] for e in plain["exemplars"]} == {"centroid"}
+    assert [e["window"] for e in plain["exemplars"]] != [0, 3], "the centroid rule picks other windows here"
+
+
+def test_a_named_exemplar_outside_the_window_set_is_a_loud_error():
+    g, ws = _snippet_like()
+    with pytest.raises(ValueError, match="outside"):
+        to_payload("grouping", g, {"exemplar_windows": {"1": 0, "2": 9}, "exemplar_rule": "r"},
+                   {"fs": 1.0, "windowset": ws})
+
+
+def test_a_named_exemplar_that_is_not_a_member_of_its_label_is_a_loud_error():
+    g, ws = _snippet_like()
+    with pytest.raises(ValueError, match="not a member"):
+        to_payload("grouping", g, {"exemplar_windows": {"1": 2, "2": 3}, "exemplar_rule": "r"},
+                   {"fs": 1.0, "windowset": ws})
+
+
+def test_snippets_unlabelled_windows_are_named_and_carry_no_exemplar():
+    import pandas as pd
+    from Working.types import Grouping, WindowSet
+    ws = WindowSet(starts=np.arange(5) * 60, length=60, fs=1.0, features=pd.DataFrame({"split": [0] * 5}))
+    g = Grouping(labels=np.array([1, 1, -1, 2, 2]))
+    meta = {"exemplar_windows": {"1": 1, "2": 4}, "exemplar_rule": "the snippet", "n_windows_nan": 1,
+            "summary": "k = 2 snippets (knee) · covering 50%, 50%", "rules": [{"name": "k", "rule": "the knee"}]}
+    p = to_payload("grouping", g, meta, {"fs": 1.0, "windowset": ws})
+    names = {c["id"]: c.get("name") for c in p["clusters"]}
+    assert "NaN" in (names[-1] or ""), "label -1 is named, not left as a bare number"
+    assert {e["cluster"] for e in p["exemplars"]} == {1, 2}, "no exemplar is invented for the unlabelled"
+    assert p["summary"].startswith("k = 2 snippets"), "the block's own summary line is the face"
+    assert p["rules"] == [{"name": "k", "rule": "the knee"}]
+
+
+def test_event_windows_ship_their_anchor_and_keep_bookkeeping_off_the_heatmap():
+    import pandas as pd
+    from Working.types import WindowSet
+    feats = pd.DataFrame({"amplitude": [1.0, 2.0, 3.0], "split": [0, 0, 2], "event_index": [0, 2, 3],
+                          "anchor_offset": [12, 12, 12], "overlaps_next": [False, True, False]})
+    ws = WindowSet(starts=np.array([100, 160, 400]), length=60, fs=2.0, features=feats)
+    meta = {"anchor": "onset", "anchor_used": "onset", "anchor_offset": 12, "pre_frac": 0.2,
+            "n_events": 5, "omitted": {"too_close_to_edge": 1, "mostly_nan": 1},
+            "omitted_rows": {"too_close_to_edge": [1], "mostly_nan": [4]},
+            "n_overlapping": 1, "n_split_leaks": 0, "warnings": ["w"], "notes": [],
+            "summary": "3 of 5 event(s) windowed, 30 s each; 2 left out",
+            "rules": [{"name": "anchor_offset", "rule": "r"}]}
+    p = to_payload("windowset", ws, meta, {"fs": 2.0})
+    a = p["anchor"]
+    assert a["offset"] == 12 and a["offset_s"] == 6.0 and a["used"] == "onset"
+    assert p["event_index"] == [0, 2, 3]
+    assert p["events"]["omitted_rows"] == {"too_close_to_edge": [1], "mostly_nan": [4]}
+    assert p["events"]["n_events"] == 5 and p["events"]["n_overlapping"] == 1
+    assert p["summary"].startswith("3 of 5 event(s) windowed")
+    assert p["features"]["columns"] == ["amplitude"], "bookkeeping is not a measure: off the heatmap"
+    assert p["split"]["counts"] == {"train": 2, "test": 1}, "the split still ships apart"
+    plain = to_payload("windowset", ws, {}, {"fs": 2.0})
+    assert "anchor" not in plain, "a window set with no anchor in its meta draws as before"
+
+
 if __name__ == "__main__":
     sys.exit(pytest.main([__file__, "-q"]))

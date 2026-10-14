@@ -447,6 +447,30 @@ def test_grouping_editor_lists_nine_bases_with_a_reason_on_each_that_cannot_appl
     assert amp and all(set(b) == {"lo", "hi", "n"} for b in amp), "distributions are real FeatureBins"
 
 
+def test_grouping_editor_lists_the_registered_methods_per_basis(bridge):
+    """w2-f: the editor read names every registered method a basis can use, with
+    its label, description, params and whether it builds a tree — read off the
+    methods registry, so the page never hard-codes `ward` again."""
+    from Working.library.grouping import methods as registry
+    client, _ = bridge
+    body = _ok(client.get("/api/library/grouping-editor"))
+    methods = body["methods"]
+    shape = {m["name"]: m for m in methods["shape-distance"]}
+    assert {"ward", "kshape", "hdbscan"} <= set(shape)
+    assert methods["shape-distance"][0]["name"] == "ward", "Ward stays the default, listed first"
+    for name, m in shape.items():
+        spec = registry.available()[name]
+        assert m["label"] == spec["label"] and m["description"] == spec["description"]
+        assert set(m["params"]) == set(spec["params"])
+        assert all({"type", "default", "label", "help"} <= set(p) for p in m["params"].values())
+    assert shape["ward"]["tree"] is True
+    assert shape["kshape"]["tree"] is False and shape["hdbscan"]["tree"] is False
+    assert "epsilon" in shape["hdbscan"]["params"]
+    assert [m["name"] for m in methods["sequence-similarity"]] == ["ward"]
+    assert [m["name"] for m in methods["amplitude"]] == ["feature_bins"]
+    assert set(methods) == {b["kind"] for b in body["bases"]}
+
+
 def test_window_sets_and_templates_return_their_rows(bridge):
     client, _ = bridge
     sets = _ok(client.get("/api/library/windowsets"))
