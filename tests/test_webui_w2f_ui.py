@@ -141,3 +141,33 @@ def test_fix1_badges_seeds_and_the_refusal_card():
     assert "event-windows-note" in view and "event-windowless" in view
     gv = _src("analyse", "views", "GroupingView.tsx")
     assert "exemplar_note" in gv
+
+
+def test_families_have_glyphs_and_views_of_their_own():
+    """w2-f families: both W2-E blocks are drawn — the family table (badge per family, coherence beside its null,
+    the block's own verdict), and Event families' events coloured by family with the unplaced ones' reasons."""
+    glyphs = _src("analyse", "glyphs.tsx")
+    by_name = glyphs[glyphs.index("const BY_NAME"):glyphs.index("const BY_SIG")]
+    for name in ("catalogue.shape_families", "interrogation.event_families"):
+        assert f"'{name}'" in by_name, f"{name} has no glyph"
+    reg = _src("analyse", "views", "registry.tsx")
+    assert "FamilyTable" in reg and "EventFamiliesView" in reg
+    gv = _src("analyse", "views", "GroupingView.tsx")
+    for tid in ("family-table", "family-badge-", "family-null-not-trusted", "family-coherence-"):
+        assert tid in gv, tid
+    assert "svd_entropy_beyond_noise" in gv and "null_caveat" in gv
+    assert "svd_entropy_norm >=" not in gv and "svd_entropy_norm <" not in gv, "the verdict is the block's"
+    sv = _src("analyse", "views", "SpanSetView.tsx")
+    for tid in ("event-families", "event-family-none", "event-family-exemplar", "event-families-none"):
+        assert tid in sv, tid
+    assert "~noise_like" in sv and "~untested" in sv, "the marked group keys read as marked"
+
+
+def test_family_smoke_states_are_block_level_chains():
+    states = _smoke("zz_analyse_run.json")
+    text = json.dumps(states)
+    assert "template-event_families" not in text, "event_families is experimental: not seeded"
+    assert "modal-card-catalogue.shape_families" in text and "modal-card-interrogation.event_families" in text
+    block = [s for s in states if s["page"] == "analyse.block" and s["state"].startswith("w2-")]
+    assert any("family-table" in json.dumps(s["expect"]) for s in block)
+    assert any("event-families" in json.dumps(s["expect"]) for s in block)
