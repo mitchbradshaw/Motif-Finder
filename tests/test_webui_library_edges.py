@@ -260,10 +260,10 @@ def test_adding_writes_members_and_an_edge_per_distance_function_once(client):
     assert r.status_code == 200, r.text
     body = r.json()
     assert body["membersNew"] == 3
-    assert body["edgesNew"] == 9
+    assert body["edgesNew"] == 12, "three pairs x four distance functions (w3-d added MPdist)"
     assert len(_q(client, "SELECT id FROM motif_member")) == m0 + 3
     fns = _q(client, "SELECT detection_id, COUNT(DISTINCT distance_function) AS n FROM motif_edge GROUP BY detection_id")
-    assert {f["n"] for f in fns} == {3}
+    assert {f["n"] for f in fns} == {4}
     assert {f["detection_id"] for f in fns} == {d["id"] for d in accepted}
     again = client.post(f"/api/library/runs/{out['run_key']}/matches", json={}).json()
     assert again["membersNew"] == 0 and again["edgesNew"] == 0
@@ -296,12 +296,12 @@ def test_the_family_lists_the_new_members_with_their_edges_and_the_readout(clien
     matched = d["matched"]
     assert len(matched) == 3
     for m in matched:
-        assert len(m["edges"]) == 3
+        assert len(m["edges"]) == 4
         for e in m["edges"]:
             assert {"function", "value", "threshold", "scale", "recipeHash", "recipe", "run"} <= set(e)
     assert {round(m["edges"][0]["scale"], 2) for m in matched} == {0.8, 1.25}
     ex = next(m for m in d["members"] if m["id"] == "m-1")
-    assert len(ex["edges"]) == 9, "the exemplar's own edges, to every member it found"
+    assert len(ex["edges"]) == 12, "the exemplar's own edges, to every member it found"
     ro = d["scaleReadout"]
     assert ro["entryId"] == 1
     runs = ro["runs"]
