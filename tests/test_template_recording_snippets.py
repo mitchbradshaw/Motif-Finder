@@ -58,11 +58,9 @@ TEMPLATE = {
                    "on 24 h or more: on shorter spans the automatic k has too few pieces to judge by. Shapes "
                    "are compared after z-normalisation, so stretches that differ only in amplitude — a quiet "
                    "period of pure noise beside an active one — are not separated. Costs O(n²) — about 25 s "
-                   "for 24 h at 1 Hz; refused above 7 days. Gaps: one missing sample blanks the whole "
-                   "detrended trace (the rolling-mean baseline removal is a cumulative sum), and the block "
-                   "then refuses an all-NaN span; no recording stored today has a gap (all 145 scanned "
-                   "2026-10-14). Snippets itself fills short gaps and leaves windows more than half NaN "
-                   "unlabelled (−1).",
+                   "for 24 h at 1 Hz; refused above 7 days. Gaps: the baseline removal averages only the "
+                   "samples present, so a gap stays a gap; snippets fills short gaps and leaves windows "
+                   "more than half NaN unlabelled (−1).",
     "steps": [
         {"stage": "preprocessing", "algorithm": "detrend",
          "params": {"mode": "rolling_mean", "window_s": 21600.0}},
@@ -112,9 +110,8 @@ def test_template_is_a_three_step_training_chain():
 
 def test_the_description_says_what_it_cannot_do():
     d = TEMPLATE["description"]
-    # the rolling-mean detrend is a cumulative sum: one NaN blanks the whole trace
-    assert "one missing sample" in d and "whole" in d
-    assert "no recording stored today has a gap" in d
+    # gaps: since the detrend-NaN fix (b7d6e99) the baseline removal averages the samples present
+    assert "a gap stays a gap" in d and "more than half NaN" in d
     # z-normalised shapes: amplitude-only differences are not separated
     assert "amplitude" in d
     assert "24 h" in d
@@ -161,3 +158,15 @@ def test_the_template_chain_recovers_the_regimes(seed):
 
 if __name__ == "__main__":
     sys.exit(pytest.main([__file__, "-q"]))
+
+
+def test_the_shipped_template_is_the_one_tested_here():
+    """The manager keeps TEMPLATE in webui/server/templates.py::EXPERIMENTAL (it did not beat its null, W2-evaluation.md); the two must not drift apart."""
+    import os as _os
+    import sys as _sys
+    _root = _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__)))
+    for _p in (_root, _os.path.join(_root, "webui")):
+        if _p not in _sys.path:
+            _sys.path.insert(0, _p)
+    from server.templates import experimental
+    assert experimental("recording_snippets") == TEMPLATE

@@ -181,3 +181,15 @@ def test_the_grid_keeps_more_labelled_windows_than_sliding_windows(store):
     assert grid["labelled"] == len(spans), "on the grid every labelled span is wholly inside a kept window"
     assert sliding["labelled"] < 0.5 * len(spans), sliding["labelled"]
     assert grid["labelled"] > sliding["labelled"]
+
+
+def test_the_shipped_template_is_the_one_tested_here():
+    """The manager moved TEMPLATE into webui/server/templates.py::CANONICAL (it beat its label-permutation null on all three M2_aug recordings, W2-evaluation.md); the two must not drift apart."""
+    import os as _os
+    import sys as _sys
+    _root = _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__)))
+    for _p in (_root, _os.path.join(_root, "webui")):
+        if _p not in _sys.path:
+            _sys.path.insert(0, _p)
+    from server.templates import canonical
+    assert canonical("minirocket_manual_labels") == TEMPLATE
