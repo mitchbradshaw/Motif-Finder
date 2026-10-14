@@ -30,8 +30,9 @@ PROJECT_ROOT = os.path.dirname(os.path.abspath(__file__))
 while not os.path.isdir(os.path.join(PROJECT_ROOT, "Working")) \
         and os.path.dirname(PROJECT_ROOT) != PROJECT_ROOT:
     PROJECT_ROOT = os.path.dirname(PROJECT_ROOT)
-if PROJECT_ROOT not in sys.path:
-    sys.path.insert(0, PROJECT_ROOT)
+for p in (PROJECT_ROOT, os.path.join(PROJECT_ROOT, "webui")):
+    if p not in sys.path:
+        sys.path.insert(0, p)
 
 from Working.database import queries as q  # noqa: E402
 from Working.database.schema import init_db  # noqa: E402
@@ -54,7 +55,9 @@ TEMPLATE = {
                    "and the picture. Tune max_window_s first: a length is judged only when the span is 14 windows "
                    "long (4 h: up to 17 min; 8 h: up to 34 min, so a drop chain's ~30 min unit needs a span of "
                    "24 h or more). 'No length stands out' means nothing repeats more than coloured noise does at "
-                   "any tested length — not that nothing happens. Two occurrences must have the same length to "
+                   "any tested length — not that nothing happens. On the chains and the spiking recording it was "
+                   "evaluated on, every judged length cleared: there the band says only that the span repeats "
+                   "beyond noise, and where is in the picture. Two occurrences must have the same length to "
                    "match, and loudness is ignored (each window is z-normalised).",
     "steps": [
         {"stage": "preprocessing", "algorithm": "detrend",
@@ -129,6 +132,14 @@ def test_the_template_on_a_random_walk_says_no_length_stands_out(run_on):
     meta = out["result"].meta
     assert meta["suggested_window_s"] is None, [(d["length_s"], d["gap"]) for d in meta["per_length"]]
     assert "no length stands out" in meta["summary"]
+
+
+def test_the_shipped_template_is_the_one_tested_here():
+    """The manager moved TEMPLATE into webui/server/templates.py::CANONICAL (at the real run's strongest-gap length it
+    beat all 20 AAFT draws on 2 of the 3 declared chains, rec 6 and rec 3; docs/prompts/blocks/reports/
+    W3-evaluation.md); the two must not drift apart."""
+    from server.templates import canonical
+    assert canonical("motif_lengths") == TEMPLATE
 
 
 if __name__ == "__main__":
