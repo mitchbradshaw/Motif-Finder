@@ -223,7 +223,9 @@ def test_the_output_round_trips_through_the_step_cache(spec, tmp_path):
 
 BOOK = {"split", "event_index", "anchor_offset", "overlaps_next", "train_id", "word_id", "span_score",
         # w2-e: interrogation.event_families' answer columns and the group a feature block replaced
-        "family", "family_omit_reason", "family_distance", "family_noise_like", "group_upstream"}
+        "family", "family_omit_reason", "family_distance", "family_noise_like", "group_upstream",
+        # w3-a: catalogue.multiscale_entropy's quality counts, units and drift measures (not complexity)
+        "mse_n_scales", "mse_n_collapsed", "mse_r", "mse_drift_share", "mse_inflation"}
 
 
 def test_the_bookkeeping_columns_live_beside_windowset():

@@ -100,7 +100,9 @@ from scipy.cluster.hierarchy import cophenet, fcluster, linkage
 from scipy.spatial.distance import pdist
 from scipy.stats import linregress, spearmanr
 
-from Adapters.preprocessing_surrogate import _block_shuffle, _phase_randomise
+# `aaft_surrogate` moved to the surrogate block in w3-a fix round 1 (it is now the app's method
+# `aaft`); imported back so this pipeline's nulls are bit-identical
+from Adapters.preprocessing_surrogate import _block_shuffle, _phase_randomise, aaft_surrogate  # noqa: F401
 from Pipelines.drop_motifs import passes9, refine9
 from Working.Detection.drop_motifs import cluster as dc
 from Working.Detection.drop_motifs import motifs5
@@ -310,38 +312,6 @@ def load_channel(entry):
 # ---------------------------------------------------------------------------
 # 1. the surrogates
 # ---------------------------------------------------------------------------
-
-def aaft_surrogate(x, rng):
-    """Amplitude-adjusted Fourier transform surrogate (Theiler 1992).
-
-    Three steps, and the middle one is the adapter's:
-
-      1. rank-map `x` onto Gaussian deviates, so the phase step operates
-         on something whose spectrum is meaningful under a Gaussian
-         assumption rather than on a heavily skewed marginal;
-      2. `_phase_randomise` that Gaussian version - the PRD's own
-         surrogate block, not a second copy of it;
-      3. rank-map the result back onto `x`'s own sorted values.
-
-    Step 3 is what makes this AAFT rather than plain phase randomisation,
-    and it is the step that matters here: these channels are strongly
-    non-Gaussian (long one-sided excursions), and a surrogate that
-    Gaussianised them would be nulling the marginal distribution instead
-    of the phase structure. The output is a permutation of the input's
-    exact sample values.
-
-    The cost, stated because it is real: step 3 distorts the spectrum
-    slightly, so AAFT preserves the periodogram approximately rather than
-    exactly. IAAFT iterates to fix that; it is not used here because the
-    statistic under test is a detection count, which is far more sensitive
-    to the marginal than to a few percent of spectral leakage.
-    """
-    x = np.asarray(x, dtype=float).ravel()
-    ranks = np.argsort(np.argsort(x))
-    gaussian = np.sort(rng.standard_normal(len(x)))[ranks]
-    randomised = _phase_randomise(gaussian, rng)
-    return np.sort(x)[np.argsort(np.argsort(randomised))]
-
 
 def block_shuffle_surrogate(x, rng, block_s, fs):
     """Contiguous blocks of `block_s` seconds, reordered.

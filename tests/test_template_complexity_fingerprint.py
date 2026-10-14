@@ -67,8 +67,11 @@ TEMPLATE = {
                    "coarsest blur first (scale_max_s): a 72 h window reaches about 4 minutes, scales beyond are "
                    "blank and say so. A curve shows how irregular the signal is at each time-scale and can tell "
                    "recordings, species and conditions apart; it cannot show events, and coloured noise has a "
-                   "curve of its own — compare a curve with phase-randomised copies of the same recording before "
-                   "reading anything into it. A recording shorter than 72 h gets no window: shorten window_s.",
+                   "curve of its own — judge a curve against amplitude-adjusted (aaft) copies of the same "
+                   "recording (Surrogate generator, method aaft), not plain phase-randomised ones, which change "
+                   "the value distribution this measure reads. A recording shorter than 72 h gets no window and "
+                   "the run stops at Sliding windows: set its window_s to the longest whole multiple of 24 h the "
+                   "recording allows (a 24 h window reaches about 50 s).",
     "steps": [
         _step("preprocessing", "detrend", {"mode": "rolling_mean", "window_s": 7200.0}),
         _step("preprocessing", "sliding_windows", {"window_s": 72.0 * HOUR, "gap_s": 0.0}),

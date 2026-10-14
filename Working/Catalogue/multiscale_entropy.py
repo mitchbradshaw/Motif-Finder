@@ -26,7 +26,9 @@ The algorithm as implemented
 2. **Gaps.** Runs of non-finite samples of at most `max_gap_s` are filled by straight lines
    (an end gap holds the nearest value — `np.interp`) and the window is counted as
    interpolated; a window with a longer run is LEFT OUT (a NaN row), counted with its reason
-   (`gap_over_max`). A window with zero spread is left out too (`flat`: r would be 0).
+   (`gap_over_max`), and so is a window more than `MAX_FILL_FRAC` (5 %, a placeholder) filled
+   (`filled_over_5pct`). A window with zero spread is left out too (`flat`; `mad_zero` when the
+   MAD is 0 but the SD is not — a mostly constant channel with rare steps: r would be 0).
 3. **Tolerance** r = `r_frac` x a spread of the window as it arrives (after the gap fill),
    computed ONCE and held fixed across scales, as the authors' `mse.c` does: `r_scale="mad"`
    (default, 1.4826 x the median absolute deviation) or `"sd"` (Costa's standard deviation).
@@ -60,22 +62,22 @@ The algorithm as implemented
 9. **Undefined is NaN, never extrapolated**: a scale whose coarse series is shorter than
    `min_coarse_len` (default 1,000, Costa section VI) is NaN (`too_short`); a scale with no
    m-match or no (m+1)-match is NaN (`no_m_match` / `no_m1_match`). Each counted per scale.
-10. **Collapse guard.** When r is many times larger than the step a coarse value typically
-   takes, nearly every template match extends to the next point and the entropy collapses
-   towards 0 for a reason that is not surprise — drift or a few outliers inflated the spread
-   r was taken from (Costa App. B; the probable cause of the sqrt(t) preprint's "mean MSE
-   0.0028"). Rule: rho = r / (1.4826 x the median absolute deviation of the coarse series'
-   first differences); rho > `collapse_ratio` flags that window at that scale. The step is
-   measured at the scale judged (wave-1 lesson), robustly, so the events cannot raise it. The
-   value is kept and flagged, never blanked; `meta["collapse"]` counts per scale. The default 4
-   is a measurement, not the paper's: on synthetic AR(1) (phi 0.95, 0.99), random walks and
-   drifting versions of them, every scale with rho near 4 had entropy 0.10-0.14 nats and every
-   scale beyond it less — the curve's floor, whatever the signal — while detrended AR(1) sat at
-   rho 0.2-1.1. A random walk detrended over 2 h still wanders by several steps and flags its
-   1 s scale (rho 4.2; 6.5 under a 6 h detrend): that is the guard working (r there is the
-   wander's, not the noise's).
-   The guard does not use the global match fraction B / pairs: under drift that stays small
-   (templates far apart in time sit at different levels) while A / B -> 1.
+10. **Collapse guard (fix round 1: the inflation rule, manager decision 9).** Per window,
+   inflation = the r rule's own spread of the window as it arrives / the same spread of the
+   window minus a centred 2 h rolling mean (NaN-aware, `Working.Preprocessing.detrend`; the
+   block never changes the data it measures). Inflation > `inflation_limit` (1.5) means slow
+   content — drift, a wander, a few outliers — inflated r, so nearly every template match
+   extends and the entropy collapses towards 0 for a reason that is not the signal's (Costa
+   App. B; the probable cause of the sqrt(t) preprint's "mean MSE 0.0028"): EVERY defined scale
+   of that window is flagged. Both numbers are placeholders, from the critic's measurements:
+   every stationary or template-detrended background (AR(1), detrended random walk, 24 h and
+   72 h, 3 seeds) scored 0.95-1.10 and raw pink noise 1.11-1.22, while the collapsed sqrt(t)
+   cases scored 2.8-13.0 (raw random walk 4.0-8.4, raw AR(1) + drift 11.5-13.0). The value is
+   kept and flagged, never blanked; `meta["collapse"]` counts per scale.
+   The first rule (rho = r over the step a coarse value typically takes, flag above 4) missed 6
+   of 9 collapsed scales under a smooth drift and sat at a coin toss on detrended random walks;
+   rho stays in `meta["rho_median"]` as information — "smooth at this scale" — never a warning.
+   Switching r_scale to mad does not undo a drift (0.043 against 0.044 nats): detrending does.
 11. **Drift share** per window (`mse_drift_share`): the variance share of a least-squares
    straight line, 1 - var(residual) / var(window). Near 1: the window is mostly a ramp and
    an SD-based r is mostly the ramp's.
@@ -87,7 +89,10 @@ when there is none); `mse_slope_small` / `mse_slope_large` (least-squares slope 
 against log10 of the scale in seconds over the lower floor(n/2) and the upper remaining
 scales of those same common scales — Costa Fig. 8's two slopes, per tenfold of seconds; NaN
 with fewer than 2 points in a half); `mse_r` (the tolerance, in the signal's stored units);
-`mse_n_scales` (defined scales in this window); `mse_drift_share`; `mse_n_collapsed`.
+`mse_n_scales` (defined scales in this window); `mse_drift_share`; `mse_inflation`;
+`mse_n_collapsed`. `mse_r`, `mse_drift_share`, `mse_inflation`, `mse_n_scales` and
+`mse_n_collapsed` are BOOKKEEPING (`Working.types.windowset`): units, drift and the estimate's
+quality, not complexity, so a clustering never separates recordings by storage unit or drift.
 Upstream features pass through; earlier `mse_*` columns are replaced and said so.
 
 Why not extend `preprocessing.window_matrix`: its entropy families are single-scale
@@ -125,7 +130,9 @@ DEFAULT_N_SCALES = 12
 DEFAULT_MIN_COARSE_LEN = 1000    # Costa section VI: 2 x 10^4 points kept 10^3 at scale 20
 DEFAULT_MAX_POINTS = 20_000      # Costa's N
 DEFAULT_MAX_GAP_S = 30.0         # placeholder
-DEFAULT_COLLAPSE_RATIO = 4.0
+DEFAULT_INFLATION_LIMIT = 1.5     # placeholder (critic's measurements, see the docstring)
+INFLATION_DETREND_S = 7200.0      # placeholder: the template's 2 h rolling mean
+MAX_FILL_FRAC = 0.05              # placeholder: a window more than 5 % filled is left out
 N_STRETCHES = 10
 MAX_CURVES = 64
 MAD_K = 1.4826
@@ -134,12 +141,29 @@ PREFIX = "mse_"
 
 LEFT_OUT_GAP = "gap_over_max"
 LEFT_OUT_FLAT = "flat"
+LEFT_OUT_MAD0 = "mad_zero"
+LEFT_OUT_FILLED = "filled_over_5pct"
+LEFT_OUT_WORDS = {LEFT_OUT_GAP: "gap over max", LEFT_OUT_FILLED: "more than 5 % filled", LEFT_OUT_FLAT: "flat",
+                  LEFT_OUT_MAD0: "MAD = 0 (mostly constant: a MAD-based r would be 0)"}
 UNDEF_SHORT = "too_short"
 UNDEF_NO_M = "no_m_match"
 UNDEF_NO_M1 = "no_m1_match"
 
 
-def _rules(m, r_frac, r_scale, min_coarse_len, max_points, collapse_ratio, max_gap_s, method):
+def readable_seconds(sec):
+    """45 -> '45 s', 600 -> '10 min', 20000 -> '5.6 h', 259200 -> '72 h'."""
+    sec = float(sec)
+
+    def trim(v):
+        return f"{v:.1f}".rstrip("0").rstrip(".")
+    if sec < 120:
+        return f"{sec:.3g} s"
+    if sec < 7200:
+        return f"{trim(sec / 60)} min"
+    return f"{trim(sec / 3600)} h"
+
+
+def _rules(m, r_frac, r_scale, min_coarse_len, max_points, inflation_limit, max_gap_s, method, same_as_mse):
     spread = ("1.4826 x the median absolute deviation (robust to outliers and to the events)" if r_scale == "mad"
               else "the standard deviation (Costa's)")
     how = ("refined composite (RCMSE): the template-match counts of the coarse series at every offset are pooled "
@@ -161,11 +185,18 @@ def _rules(m, r_frac, r_scale, min_coarse_len, max_points, collapse_ratio, max_g
                                      f"from {N_STRETCHES} stretches spread across the window; RCMSE pools only as "
                                      f"many offsets as keep the work near {max_points:,}^2 pairs (all of them when "
                                      "the averaged series are short)"},
-        {"name": "collapse", "rule": f"flagged when r is more than {collapse_ratio:g} x the step an averaged value "
-                                    "typically takes (1.4826 x the median absolute deviation of its first "
-                                    "differences): nearly every match then extends, and the entropy falls towards 0 "
-                                    "because drift or outliers inflated r, not because the signal is regular. The "
-                                    "value is kept, flagged"},
+        {"name": "collapse", "rule": f"a window's spread as it arrives over its spread after a "
+                                    f"{readable_seconds(INFLATION_DETREND_S)} rolling mean is taken out (the r rule's "
+                                    f"own spread, both times): above {inflation_limit:g}, slow content (drift, a "
+                                    "wander, outliers) inflated r, nearly every match extends, and the entropy falls "
+                                    "towards 0 for a reason that is not the signal's — every scale of that window is "
+                                    f"flagged, values kept. {inflation_limit:g} and "
+                                    f"{readable_seconds(INFLATION_DETREND_S)} are placeholders: stationary and "
+                                    "detrended synthetic backgrounds scored 0.95-1.22, collapsed ones 2.8-13. "
+                                    "Detrending upstream fixes it; r_scale = mad does not"},
+        {"name": "smooth", "rule": "rho (shown, not a warning) = r over the step an averaged value typically takes "
+                                  "(1.4826 x the median absolute deviation of its first differences): large rho "
+                                  "means the signal is smooth at that scale, so most matches extend"},
         {"name": "complexity index", "rule": "the sum of the entropies over the scales defined in every kept window "
                                              "of the set (the count is shown)"},
         {"name": "slopes", "rule": "least-squares slope of entropy against log10(scale in seconds), over the lower "
@@ -174,8 +205,12 @@ def _rules(m, r_frac, r_scale, min_coarse_len, max_points, collapse_ratio, max_g
         {"name": "drift share", "rule": "the share of the window's variance a straight line explains, 1 - "
                                         "var(residual) / var(window): near 1 the window is mostly a ramp"},
         {"name": "gaps", "rule": f"missing samples in runs of at most {max_gap_s:g} s are bridged by straight lines; "
-                                 "a window with a longer run is left out (a blank row), counted"},
-    ]
+                                 "a window with a longer run, or more than 5 % of it filled, is left out (a blank "
+                                 f"row), counted. {max_gap_s:g} s and 5 % are placeholders"},
+    ] + ([{"name": "rcmse = mse", "rule": "where the averaged series are long enough that the cost cap pools one "
+                                          "offset, RCMSE is exactly MSE: here at "
+                                          + ", ".join(f"{v:g} s" for v in same_as_mse)}]
+         if same_as_mse else [])
 
 
 # ── the counting kernel ─────────────────────────────────────────────────────
@@ -305,9 +340,9 @@ def scale_label(scale_s):
 
 
 def entropy_at_scale(x, tau, m, r, method=DEFAULT_METHOD, min_coarse_len=DEFAULT_MIN_COARSE_LEN,
-                     max_points=DEFAULT_MAX_POINTS, collapse_ratio=DEFAULT_COLLAPSE_RATIO):
+                     max_points=DEFAULT_MAX_POINTS):
     """One scale of one window: a dict with `value` (NaN when undefined), `reason`, `A`, `B`,
-    `n_offsets`, `n_templates`, `rho` and `collapsed`."""
+    `n_offsets`, `n_templates`, `rho` (information) and `collapsed` (set by `window_curve`)."""
     if method not in METHODS:
         raise ValueError(f"method must be one of {METHODS}, not {method!r}")
     N = len(x)
@@ -332,8 +367,7 @@ def entropy_at_scale(x, tau, m, r, method=DEFAULT_METHOD, min_coarse_len=DEFAULT
         n_t += len(st)
     step = step_scale(series[0])
     rho = float("inf") if step == 0 else float(r) / step
-    out.update(A=int(A), B=int(B), n_offsets=len(offsets), n_templates=int(n_t), rho=rho,
-               collapsed=bool(rho > float(collapse_ratio)))
+    out.update(A=int(A), B=int(B), n_offsets=len(offsets), n_templates=int(n_t), rho=rho)
     if B == 0:
         out["reason"] = UNDEF_NO_M
     elif A == 0:
@@ -365,15 +399,29 @@ def fill_gaps(w, max_gap):
     return out, n_bad, longest
 
 
+def inflation(w, fs, r_scale):
+    """The r rule's spread of `w` as it arrives over the same spread of `w` minus a centred
+    `INFLATION_DETREND_S` rolling mean (inf when the detrended window has no spread)."""
+    from Working.Preprocessing.detrend import make_detrend_filter
+    w = np.asarray(w, dtype=float)
+    d = make_detrend_filter(float(fs), "rolling_mean", INFLATION_DETREND_S)(w)
+    num, den = spread(w, r_scale), spread(d[np.isfinite(d)], r_scale)
+    return float("inf") if den <= 0 else float(num / den)
+
+
 def window_curve(w, fs, taus, m=DEFAULT_M, r_frac=DEFAULT_R_FRAC, r_scale=DEFAULT_R_SCALE,
                  method=DEFAULT_METHOD, min_coarse_len=DEFAULT_MIN_COARSE_LEN, max_points=DEFAULT_MAX_POINTS,
-                 collapse_ratio=DEFAULT_COLLAPSE_RATIO):
-    """The curve of one gap-free window: `{"r", "drift_share", "scales": [entropy_at_scale dicts]}`."""
+                 inflation_limit=DEFAULT_INFLATION_LIMIT):
+    """The curve of one gap-free window: `{"r", "drift_share", "inflation", "inflated", "scales":
+    [entropy_at_scale dicts]}`; every defined scale of an inflated window is `collapsed`."""
     w = np.asarray(w, dtype=float)
     r = float(r_frac) * spread(w, r_scale)
-    scales = [entropy_at_scale(w, int(tau), m, r, method, min_coarse_len, max_points, collapse_ratio)
-              for tau in taus]
-    return {"r": r, "drift_share": drift_share(w), "scales": scales}
+    infl = inflation(w, fs, r_scale)
+    inflated = bool(infl > float(inflation_limit))
+    scales = [entropy_at_scale(w, int(tau), m, r, method, min_coarse_len, max_points) for tau in taus]
+    for sc in scales:
+        sc["collapsed"] = inflated and bool(np.isfinite(sc["value"]))
+    return {"r": r, "drift_share": drift_share(w), "inflation": infl, "inflated": inflated, "scales": scales}
 
 
 def mse_curve(x, fs=1.0, scale_min_s=DEFAULT_SCALE_MIN_S, scale_max_s=DEFAULT_SCALE_MAX_S,
@@ -398,6 +446,29 @@ def predicted_pairs(window_samples, taus, method=DEFAULT_METHOD, m=DEFAULT_M, mi
         n_off = 1 if method == "mse" else n_offsets_for(int(tau), min(L, max_points) if max_points else L, max_points)
         total += n_off * T * T / 2.0
     return total
+
+
+def costliest_pairs(n_samples, taus, method=DEFAULT_METHOD, m=DEFAULT_M, min_coarse_len=DEFAULT_MIN_COARSE_LEN,
+                    max_points=DEFAULT_MAX_POINTS):
+    """Template pairs for a span of `n_samples` under the COSTLIEST tiling: n_samples x the largest
+    pairs(W) / W over window lengths W (fix round 1, critic Q4). Per scale the pair count is
+    piecewise W^2 / tau or tau x (W / tau)^2 rising, then flat (the cap), so pairs(W) / W peaks at a
+    breakpoint; the candidates are every breakpoint (+-1 sample) and a dense geometric grid. It never
+    under-estimates a tiling; it over-estimates a 72 h tiling at 1 Hz by about 3x."""
+    n = int(n_samples)
+    taus = [int(t) for t in taus]
+    lo = max(int(min_coarse_len), int(m) + 2) * min(taus)
+    if n <= lo:
+        return predicted_pairs(n, taus, method, m, min_coarse_len, max_points)
+    cands = set(np.unique(np.geomspace(lo, n, 600).astype(np.int64)).tolist()) | {n}
+    P = float(max_points) if max_points else float(n)
+    for tau in taus:
+        for w in (max(int(min_coarse_len), int(m) + 2) * tau, P * math.sqrt(tau), P * tau, (P + m) * tau):
+            for d in (-1, 0, 1):
+                v = int(w) + d
+                if lo <= v <= n:
+                    cands.add(v)
+    return max(n * predicted_pairs(W, taus, method, m, min_coarse_len, max_points) / W for W in cands)
 
 
 # ── the block ───────────────────────────────────────────────────────────────
@@ -438,7 +509,7 @@ def multiscale_entropy(ws, x, t, fs, m=DEFAULT_M, r_frac=DEFAULT_R_FRAC, r_scale
                        method=DEFAULT_METHOD, scale_min_s=DEFAULT_SCALE_MIN_S, scale_max_s=DEFAULT_SCALE_MAX_S,
                        n_scales=DEFAULT_N_SCALES, min_coarse_len=DEFAULT_MIN_COARSE_LEN,
                        max_points=DEFAULT_MAX_POINTS, max_gap_s=DEFAULT_MAX_GAP_S,
-                       collapse_ratio=DEFAULT_COLLAPSE_RATIO, seed=0, should_cancel=None, on_progress=None):
+                       inflation_limit=DEFAULT_INFLATION_LIMIT, seed=0, should_cancel=None, on_progress=None):
     """The block: every window of `ws` gets its multiscale-entropy curve and summaries. Returns a
     `Fingerprint(windows, meta)`; the windows are the same (left-out ones as NaN rows)."""
     t_start = time.perf_counter()
@@ -467,12 +538,13 @@ def multiscale_entropy(ws, x, t, fs, m=DEFAULT_M, r_frac=DEFAULT_R_FRAC, r_scale
     E = np.full((n_in, n_sc), np.nan)
     R = np.full(n_in, np.nan)
     D = np.full(n_in, np.nan)
+    INF = np.full(n_in, np.nan)
     collapsed = np.zeros((n_in, n_sc), dtype=bool)
     reasons = {UNDEF_SHORT: np.zeros(n_sc, int), UNDEF_NO_M: np.zeros(n_sc, int), UNDEF_NO_M1: np.zeros(n_sc, int)}
     rho = np.full((n_in, n_sc), np.nan)
     n_offsets = np.zeros(n_sc, dtype=int)
     n_templates = np.zeros(n_sc, dtype=int)
-    left = {LEFT_OUT_GAP: 0, LEFT_OUT_FLAT: 0}
+    left = {LEFT_OUT_GAP: 0, LEFT_OUT_FILLED: 0, LEFT_OUT_FLAT: 0, LEFT_OUT_MAD0: 0}
     kept = np.zeros(n_in, dtype=bool)
     n_interp = 0
     longest_gap = 0
@@ -485,14 +557,19 @@ def multiscale_entropy(ws, x, t, fs, m=DEFAULT_M, r_frac=DEFAULT_R_FRAC, r_scale
         longest_gap = max(longest_gap, longest)
         if w is None:
             left[LEFT_OUT_GAP] += 1
-        elif spread(w, r_scale) <= 0:
+        elif n_bad > MAX_FILL_FRAC * L:
+            left[LEFT_OUT_FILLED] += 1
+        elif spread(w, "sd") <= 0:
             left[LEFT_OUT_FLAT] += 1
+        elif spread(w, r_scale) <= 0:
+            left[LEFT_OUT_MAD0] += 1
         else:
             n_interp += int(n_bad > 0)
-            c = window_curve(w, fs, taus, m, r_frac, r_scale, method, min_coarse_len, max_points, collapse_ratio)
+            c = window_curve(w, fs, taus, m, r_frac, r_scale, method, min_coarse_len, max_points, inflation_limit)
             kept[i] = True
             R[i] = c["r"]
             D[i] = c["drift_share"]
+            INF[i] = c["inflation"]
             for j, s in enumerate(c["scales"]):
                 E[i, j] = s["value"]
                 rho[i, j] = s["rho"]
@@ -526,7 +603,7 @@ def multiscale_entropy(ws, x, t, fs, m=DEFAULT_M, r_frac=DEFAULT_R_FRAC, r_scale
     n_coll_col = np.where(kept, collapsed.sum(axis=1), np.nan)
     cols.update({f"{PREFIX}ci": ci, f"{PREFIX}slope_small": s_small, f"{PREFIX}slope_large": s_large,
                  f"{PREFIX}r": R, f"{PREFIX}n_scales": n_scales_col, f"{PREFIX}drift_share": D,
-                 f"{PREFIX}n_collapsed": n_coll_col})
+                 f"{PREFIX}inflation": INF, f"{PREFIX}n_collapsed": n_coll_col})
     table = pd.DataFrame(cols)
     warnings = []
     if ws.features is not None:
@@ -544,9 +621,12 @@ def multiscale_entropy(ws, x, t, fs, m=DEFAULT_M, r_frac=DEFAULT_R_FRAC, r_scale
     n_def = defined[kept].sum(axis=0) if n_kept else np.zeros(n_sc, int)
     coll = collapsed[kept].sum(axis=0) if n_kept else np.zeros(n_sc, int)
     never = [float(scales_s[j]) for j in range(n_sc) if n_def[j] == 0]
+    same_as_mse = ([float(scales_s[j]) for j in range(n_sc) if n_offsets[j] == 1]
+                   if method == "rcmse" and n_kept else [])
+    win_txt = readable_seconds(L / fs)
+    left_txt = ", ".join(f"{v:,} {LEFT_OUT_WORDS[k]}" for k, v in left.items() if v)
     if n_kept == 0:
-        warnings.append(f"every window was left out ({left[LEFT_OUT_GAP]:,} with a gap over {max_gap_s:g} s, "
-                        f"{left[LEFT_OUT_FLAT]:,} flat): there is no curve")
+        warnings.append(f"every window was left out ({left_txt}): there is no curve")
     elif n_common == 0:
         warnings.append("no scale is defined in every window, so there is no complexity index and no slope: "
                         "lengthen the windows, lower scale_max_s, or raise scale_min_s")
@@ -555,17 +635,21 @@ def multiscale_entropy(ws, x, t, fs, m=DEFAULT_M, r_frac=DEFAULT_R_FRAC, r_scale
                         "fit both slopes")
     if reasons[UNDEF_SHORT].any():
         reach = L / fs / max(int(min_coarse_len), 1)
-        warnings.append(f"{int((reasons[UNDEF_SHORT] > 0).sum())} of {n_sc} scales are blank: a {L / fs / 3600:g} h "
-                        f"window keeps {min_coarse_len:,} averaged points only up to about {reach:g} s")
-    n_coll_any = int(collapsed[kept].any(axis=1).sum()) if n_kept else 0
+        warnings.append(f"{int((reasons[UNDEF_SHORT] > 0).sum())} of {n_sc} scales are blank: a {win_txt} "
+                        f"window keeps {min_coarse_len:,} averaged points only up to about {readable_seconds(reach)}")
+    n_coll_any = int((kept & (INF > float(inflation_limit))).sum()) if n_kept else 0
     if n_coll_any:
-        warnings.append(f"collapse: {n_coll_any:,} of {n_kept:,} windows have a scale where r is over "
-                        f"{collapse_ratio:g}x the averaged series' own step — their entropy there is low because r "
-                        "was inflated (drift or outliers), not because the signal is regular. Detrend upstream or "
-                        "use r_scale = mad")
+        worst = float(np.nanmax(INF[kept]))
+        warnings.append(f"collapse: in {n_coll_any:,} of {n_kept:,} windows slow content (drift, a wander or "
+                        f"outliers) inflated r up to {worst:.3g}x the spread left after a "
+                        f"{readable_seconds(INFLATION_DETREND_S)} rolling mean (limit {inflation_limit:g}), so every "
+                        "scale there is flagged: its entropy is low because r was inflated, not because the signal is "
+                        "regular. Detrend upstream (the template's 2 h rolling mean)")
+    if n_interp:
+        warnings.append(f"{n_interp:,} of {n_in:,} windows had missing samples filled by straight lines (at most "
+                        f"{max_gap_s:g} s per gap and 5 % per window); their entropy partly measures the fill")
     if n_left:
-        warnings.append(f"{n_left:,} of {n_in:,} windows left out: "
-                        + ", ".join(f"{v:,} {k.replace('_', ' ')}" for k, v in left.items() if v))
+        warnings.append(f"{n_left:,} of {n_in:,} windows left out: {left_txt}")
 
     # ── the drawing payload: at most MAX_CURVES windows (a seeded sample beyond) plus the median ──
     kept_idx = np.flatnonzero(kept)
@@ -576,14 +660,19 @@ def multiscale_entropy(ws, x, t, fs, m=DEFAULT_M, r_frac=DEFAULT_R_FRAC, r_scale
     curves = {
         "scales_s": [float(s) for s in scales_s], "n_windows": n_kept, "sampled": bool(sampled), "seed": int(seed),
         "windows": [{"index": int(i), "start_s": float(ws.starts[i]) / float(ws.fs), "values": _json_list(E[i]),
-                     "collapsed": [bool(v) for v in collapsed[i]]} for i in show],
+                     "collapsed": [bool(v) for v in collapsed[i]], "inflation": _json_list([INF[i]])[0]}
+                    for i in show],
         "median": _json_list(median),
         "form": "values[j] is the entropy at scales_s[j]; null where undefined",
     }
-    summary = (f"{n_kept:,} of {n_in:,} windows · {n_sc} scales {scales_s[0]:g}–{scales_s[-1]:g} s · "
+    summary = (f"{n_kept:,} of {n_in:,} windows of {win_txt} · {n_sc} scales {scales_s[0]:g}–{scales_s[-1]:g} s · "
                f"{n_common} defined in every window · {method.upper()} m={m} r={r_frac:g}×{r_scale.upper()}")
+    if same_as_mse:
+        summary += f" (= MSE up to {same_as_mse[-1]:g} s)"
     if n_coll_any:
-        summary += f" · collapse in {n_coll_any:,}"
+        summary += f" · collapse in {n_coll_any:,} (r inflated by drift)"
+    if n_interp:
+        summary += f" · {n_interp:,} filled"
     if n_left:
         summary += f" · {n_left:,} left out"
 
@@ -599,7 +688,11 @@ def multiscale_entropy(ws, x, t, fs, m=DEFAULT_M, r_frac=DEFAULT_R_FRAC, r_scale
         "defined_per_scale": [int(v) for v in n_def],
         "undefined_per_scale": {k: [int(v) for v in arr] for k, arr in reasons.items()},
         "blank_scales_s": never,
-        "collapse": [int(v) for v in coll], "collapse_ratio": float(collapse_ratio),
+        "collapse": [int(v) for v in coll], "inflation_limit": float(inflation_limit),
+        "inflation_detrend_s": float(INFLATION_DETREND_S),
+        "inflation_median": float(np.nanmedian(INF[kept])) if n_kept else None,
+        "inflation_max": float(np.nanmax(INF[kept])) if n_kept else None,
+        "rcmse_equals_mse_scales_s": same_as_mse,
         "rho_median": _json_list(_nanmedian_cols(rho[kept], n_sc)),
         "n_offsets": [int(v) for v in n_offsets], "n_templates": [int(v) for v in n_templates],
         "ci_scales_s": [float(scales_s[j]) for j in common], "n_ci_scales": int(n_common),
@@ -607,6 +700,7 @@ def multiscale_entropy(ws, x, t, fs, m=DEFAULT_M, r_frac=DEFAULT_R_FRAC, r_scale
         "drift_share_median": float(np.nanmedian(D)) if n_kept else None,
         "seconds": round(time.perf_counter() - t_start, 3),
         "warnings": warnings, "summary": summary, "curves": curves,
-        "rules": _rules(m, r_frac, r_scale, min_coarse_len, max_points, collapse_ratio, max_gap_s, method),
+        "rules": _rules(m, r_frac, r_scale, min_coarse_len, max_points, inflation_limit, max_gap_s, method,
+                        same_as_mse),
     }
     return Fingerprint(windows=out, meta=meta)

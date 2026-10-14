@@ -47,9 +47,16 @@ _FEATURES_FILENAME = "features.parquet"
 #:                    - how many scales a multiscale-entropy curve has defined, and how many its
 #:                      collapse guard flagged (`catalogue.multiscale_entropy`): the estimate's
 #:                      quality, not the signal's shape
+#:   mse_r            - the tolerance in the signal's STORED units: a clustering that saw it separated
+#:                      a V-stored from an mV-stored copy of one process (w3-a critic, silhouette
+#:                      0.177 against 0.079 without it), and loud from quiet, which MSE ignores
+#:   mse_drift_share, mse_inflation
+#:                    - how much of the window is a ramp, and how much slow content inflated r
+#:                      (the collapse guard's measure): drift, not complexity
 BOOKKEEPING_COLUMNS = ("split", "event_index", "anchor_offset", "overlaps_next", "train_id", "word_id",
                        "span_score", "family", "family_omit_reason", "family_distance", "family_noise_like",
-                       "group_upstream", "mse_n_scales", "mse_n_collapsed")
+                       "group_upstream", "mse_n_scales", "mse_n_collapsed", "mse_r", "mse_drift_share",
+                       "mse_inflation")
 
 
 def span_relative_starts(ws, n_samples, t, fs, block="this block"):

@@ -15,16 +15,13 @@ Cost: every scale of a window costs about `max_points`^2 / 2 template pairs (the
 times the share the sorted-template trick actually compares (data-dependent). The calibration
 (`Working.block_cost`) first runs an untimed warm-up — numba compiling (about 1.5 s) or loading
 from its cache the counting kernel, once per process — then times one 24 h window at 1 Hz of a
-detrended AR(1) (phi 0.99) background at the defaults (about 1.6 s). `estimate` sees the span and
-the parameters, not the window set: it ASSUMES windows of `ASSUMED_WINDOW_S` = 72 h (the
-template's) tile the span (one window of the whole span when the span is shorter), and counts the
-pairs that implies (`predicted_pairs`). Measured (2026-10-14, this machine, warm): 24 h at 1 Hz
-estimate 1.6 s / actual 1.3 s; 73 h at 1 Hz 2.4 / 2.0 s; 24 h at 10 Hz 1.8 / 2.1 s; an
-undetrended random walk (the collapse case) 1.6 / 1.0 s and 2.4 / 1.9 s. Windows of another
-length cost differently: once a window is longer than `max_points` samples its work is about
-(defined scales) x `max_points`^2 / 2 whatever its length, so shorter tiling windows cost more per
-hour of span — 6 h windows over 73 h: estimate 2.4 s, actual 7.1 s (3x). The first run in a
-process pays about 1.3 s more (1.5 s more again if numba's cache is absent).
+detrended AR(1) (phi 0.99) background at the defaults (about 1.6 s). `estimate` sees the span and the parameters, not the window set, so since fix round 1 (critic Q4)
+it ASSUMES THE COSTLIEST TILING: n_samples x the largest pairs(W) / W over every window length W
+(`costliest_pairs`). It never under-estimates; it over-estimates a 72 h tiling by up to ~3x at
+1 Hz. First-round measurements (2026-10-14, this machine, warm), under the old 72 h assumption:
+24 h at 1 Hz 1.6 s estimated / 1.3 s actual; 73 h at 1 Hz 2.4 / 2.0 s; 24 h at 10 Hz 1.8 / 2.1 s;
+6 h windows over 73 h 2.4 / 7.1 s — the under-run this rule removes. The first run in a process
+pays about 1.3 s more (1.5 s more again if numba's cache is absent).
 
 `should_cancel` / `on_progress` are execution-time keyword arguments on `_run` (never recipe
 parameters), forwarded by `Working.execution.execute_recipe(run_kwargs=...)` as
@@ -40,8 +37,6 @@ from Working.block_cost import CALIBRATION_N, estimate_seconds, register_cost_mo
 
 NAME = "catalogue.multiscale_entropy"
 COST_MODEL = NAME
-#: the window length `estimate` assumes tiles the span: the template's 72 h
-ASSUMED_WINDOW_S = 72 * 3600.0
 _CAL_FS = 1.0
 _CAL_N = 24 * 3600
 
@@ -81,22 +76,24 @@ def _time_once(x, fs):
 register_cost_model(COST_MODEL, 1.0, _time_once, warm_up=_warm_up)
 
 
-def _estimate(x, t, fs, method="rcmse", m=2, scale_min_s=1.0, scale_max_s=1200.0, n_scales=12,
-              min_coarse_len=1000, max_points=20_000, **params):
-    """Seconds for this span, assuming 72 h windows tile it; None until calibrated."""
+def estimate_pairs(n_samples, fs, method="rcmse", m=2, scale_min_s=1.0, scale_max_s=1200.0, n_scales=12,
+                   min_coarse_len=1000, max_points=20_000, **params):
+    """Template pairs for a span of `n_samples` under the costliest tiling (the estimate's unit)."""
     ME = _me()
+    taus, _ = ME.scale_taus(float(fs), scale_min_s, scale_max_s, n_scales)
+    return ME.costliest_pairs(int(n_samples), taus, method, m, min_coarse_len, max_points)
+
+
+def _estimate(x, t, fs, **params):
+    """Seconds for this span under the costliest tiling of it; None until calibrated."""
     n = len(x) if x is not None else 0
     if n == 0:
         return 0.0
-    win = int(min(n, round(ASSUMED_WINDOW_S * float(fs))))
-    n_win = max(1, n // win)
-    taus, _ = ME.scale_taus(float(fs), scale_min_s, scale_max_s, n_scales)
-    pairs = n_win * ME.predicted_pairs(win, taus, method, m, min_coarse_len, max_points)
-    return estimate_seconds(COST_MODEL, CALIBRATION_N * pairs / _cal_pairs())
+    return estimate_seconds(COST_MODEL, CALIBRATION_N * estimate_pairs(n, fs, **params) / _cal_pairs())
 
 
 def _run(x, t, fs, method="rcmse", m=2, r_frac=0.15, r_scale="mad", scale_min_s=1.0, scale_max_s=1200.0,
-         n_scales=12, min_coarse_len=1000, max_points=20_000, max_gap_s=30.0, collapse_ratio=4.0, seed=0,
+         n_scales=12, min_coarse_len=1000, max_points=20_000, max_gap_s=30.0, inflation_limit=1.5, seed=0,
          value=None, should_cancel=None, on_progress=None):
     if value is None:
         raise ValueError("Multiscale entropy needs a WindowSet from a prior step (input_kind='windowset'): put "
@@ -104,7 +101,7 @@ def _run(x, t, fs, method="rcmse", m=2, r_frac=0.15, r_scale="mad", scale_min_s=
     out = _me().multiscale_entropy(
         value, x, t, fs, m=m, r_frac=r_frac, r_scale=r_scale, method=method, scale_min_s=scale_min_s,
         scale_max_s=scale_max_s, n_scales=n_scales, min_coarse_len=min_coarse_len, max_points=max_points,
-        max_gap_s=max_gap_s, collapse_ratio=collapse_ratio, seed=seed, should_cancel=should_cancel,
+        max_gap_s=max_gap_s, inflation_limit=inflation_limit, seed=seed, should_cancel=should_cancel,
         on_progress=on_progress)
     return AdapterResult(output_kind="windowset", value=out.windows, meta=out.meta)
 
@@ -165,12 +162,14 @@ SPEC = register(AdapterSpec(
                   max=200_000),
         ParamSpec("max_gap_s", float, 30.0,
                   "Missing-sample runs up to this long are bridged by straight lines; a window with a longer run "
-                  "is left out (a blank row), counted. A placeholder, not measured.", min=0.0, max=86_400.0),
-        ParamSpec("collapse_ratio", float, 4.0,
-                  "The collapse guard: flag a scale where r exceeds this many times the step an averaged value "
-                  "typically takes. Measured on synthetic coloured backgrounds: beyond 4 the entropy was at most "
-                  "~0.14 nats whatever the signal — low because r was inflated, not because the signal is "
-                  "regular.", min=1.0, max=100.0),
+                  "is left out (a blank row), counted, as is a window more than 5 % filled. Both are "
+                  "placeholders, not measured.", min=0.0, max=86_400.0),
+        ParamSpec("inflation_limit", float, 1.5,
+                  "The collapse guard: a window's spread as it arrives over its spread after a 2 h rolling mean is "
+                  "taken out. Above this, drift or outliers inflated r and every scale of the window is flagged "
+                  "(its entropy is low for a reason that is not the signal's). A placeholder from synthetic "
+                  "measurements: stationary and detrended backgrounds scored 0.95-1.22, collapsed ones 2.8-13.",
+                  min=1.0, max=100.0),
         ParamSpec("seed", int, 0, "Which windows the page draws when there are more than 64 (the values never "
                   "depend on it).", min=0),
     ],
@@ -185,8 +184,10 @@ SPEC = register(AdapterSpec(
         "Goldberger & Peng 2005, refined composite form). White noise loses its surprise as it is blurred; a "
         "signal with structure at many time-scales keeps it — the curve's shape is the fingerprint. It needs "
         "hours per curve, so it describes recordings, species and conditions, not events. Coloured noise has a "
-        "curve of its own, so read a curve against phase-randomised copies of the same recording. Tune "
-        "scale_max_s first (the coarsest blur; long windows reach further); r_scale = sd on an undetrended "
-        "recording collapses the curve towards 0, and the block flags it."
+        "curve of its own, so judge a curve against amplitude-adjusted (aaft) copies of the same recording "
+        "(Surrogate generator, method aaft) — not plain phase-randomised ones, which also change the value "
+        "distribution this measure reads, so a non-Gaussian recording would beat them on its distribution "
+        "alone. Tune scale_max_s first (the coarsest blur; long windows reach further). An undetrended "
+        "recording collapses the curve towards 0 (drift inflates r); the block flags it — detrend upstream."
     ),
 ))
