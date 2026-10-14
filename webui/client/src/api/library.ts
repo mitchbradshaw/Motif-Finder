@@ -29,7 +29,7 @@ import {
   getLibraryTemplates as apiTemplates, getLibraryImportBundles as apiImportBundles, dryRunLibraryImport as apiDryRun,
   getLibraryRecurrenceIn as apiRecurrenceIn, getLibraryFamiliesIn as apiFamiliesIn, getLibraryFamilyIn as apiFamilyIn,
   getLibraryViewReport as apiViewReport,
-  type LibBundleRef, type LibFamily, type LibSequenceFamily, type LibView, type LibViewReport, type LibWindowSet,
+  type LibBundleRef, type LibFamily, type LibGroupingMethod, type LibSequenceFamily, type LibView, type LibViewReport, type LibWindowSet,
 } from '../api'
 import { CUSTOM_CLUSTERINGS } from '../fixtures/library'
 import type {
@@ -169,13 +169,17 @@ export const getFamily = (id: string, groupingId?: string,
   return { kind: 'missing', id: r.id } as FamilyRead
 })())
 
-export interface GroupingEditorData { units: UnitOption[]; bases: BasisOption[]; distributions: Record<string, FeatureBin[]>; clusterings: typeof CUSTOM_CLUSTERINGS }
+export interface GroupingEditorData {
+  units: UnitOption[]; bases: BasisOption[]; distributions: Record<string, FeatureBin[]>; clusterings: typeof CUSTOM_CLUSTERINGS
+  /** w2-f: the registered methods per basis (Ward first where it serves); `{}` from a bridge that lists none */
+  methods: Record<string, LibGroupingMethod[]>
+}
 /** The grouping editor's options and its five distributions. The distributions are computed over a capped
  *  sample of the catalogue (the cap travels on the payload as `distributionsSampledFrom`); `unit` selects
  *  which bases apply — one that does not carries the core's own reason. */
 export const getGroupingEditor = (unit = 'motifs'): Promise<Sourced<GroupingEditorData>> => live((async () => {
   const e = await apiGroupingEditor(unit)
-  return { units: e.units as UnitOption[], bases: e.bases as BasisOption[], distributions: e.distributions, clusterings: e.clusterings }
+  return { units: e.units as UnitOption[], bases: e.bases as BasisOption[], distributions: e.distributions, clusterings: e.clusterings, methods: e.methods ?? {} }
 })())
 
 /** @deprecated The importable bundles are a read now (`getImportBundles`), because the registry is what says

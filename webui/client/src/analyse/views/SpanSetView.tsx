@@ -17,6 +17,7 @@ import { EventSlideshow, Histogram, type SlideEvent, type SlideSort, type SlideT
 import { fmtDuration, fmtHours } from '../../state'
 import { CutLineH, Empty, finiteRange, fmtN, type ViewCtx } from './common'
 import type { ScoreCut } from './ScoresView'
+import { familyColour } from './GroupingView'
 
 /** spans closer together than this many pixels on average are drawn as a density ribbon */
 const DENSE_PX = 3
@@ -138,5 +139,58 @@ export function SpanSlideshow({ p, t0, t1, load, selected, onSelect, action, uni
       title={`Each of the ${p.capped ? `first ${events.length.toLocaleString()}` : events.length.toLocaleString()} spans`}
       selected={selected === null ? null : String(selected)} onSelect={id => onSelect(Number(id))} action={action}
       frameNote={p.marks ? 'the span as the block emitted it — its own window around the event; the onset is the blue mark and the extremum the red' : `the span (tinted) with half its own length of the source channel either side, and never fewer than ${MIN_CONTEXT_SAMPLES} samples`} />
+  )
+}
+
+/* ---------------- w2-f: Event families (spanset -> spanset with a family per event) ---------------- */
+
+/** The group key an event of family `f` is written under, as `interrogation.event_families` writes it: the number,
+ *  `-1`, or the number marked `~noise_like` / `~untested` — so the legend reads the marks as Intervals will. */
+export const familyKey = (f: number, noiseLike: boolean, tested: boolean) => (f < 0 ? '-1' : noiseLike ? `${f}~noise_like` : !tested ? `${f}~untested` : String(f))
+
+/** Every event on the trace, coloured by its family; an event in no family is grey with a red dashed outline and
+ *  its reason (incl. `no_window:<reason>`); each family's exemplar event is marked. Zero events says so. */
+export function EventFamiliesView({ p, ctx }: { p: SpansetPayload; ctx: ViewCtx }) {
+  const [r0, r1] = ctx.x.range()
+  const h = ctx.height
+  const gr = ctx.ghost && ctx.ghost.t.length ? finiteRange(ctx.ghost.v) : null
+  const fam = p.family ?? []
+  const ex = new Set((p.exemplar_events ?? []).map(e => e.event))
+  if (p.n === 0) return <div className="mono small" data-testid="event-families-none" style={{ padding: '18px 0', color: 'var(--amber-700, #b76a00)' }}>no events to sort into families: the step before found none on this span</div>
+  return (
+    <svg width={ctx.width} height={h} data-render="spanset" data-testid="event-families" data-plot-box data-rule9="ghost" data-events={p.n}>
+      <rect x={r0} y={0} width={r1 - r0} height={h} fill="#f3f4f6" fillOpacity={0.5} />
+      {p.start_s.map((s, i) => {
+        const f = fam[i] ?? -1
+        const x0 = ctx.x(s), w = Math.max(1.5, ctx.x(p.end_s[i]) - x0)
+        const why = p.family_omit_reason?.[i]
+        return f < 0
+          ? <rect key={i} x={x0} y={1} width={w} height={h - 2} fill={familyColour(-1)} fillOpacity={0.35} stroke="var(--red)" strokeDasharray="3 2" data-testid="event-family-none"><title>{`event ${i + 1} · in no family${why ? `: ${why.replace(/_/g, ' ')}` : ''}`}</title></rect>
+          : <rect key={i} x={x0} y={0} width={w} height={h} fill={familyColour(f)} fillOpacity={p.family_noise_like?.[i] ? 0.3 : 0.55} data-family={f}><title>{`event ${i + 1} · family ${p.group?.[i] ?? f}`}</title></rect>
+      })}
+      {ctx.ghost && gr && <g data-trace><EnvelopePath t={ctx.ghost.t} v={ctx.ghost.v} x={ctx.x} y={makeY(gr[0], gr[1], h)} stroke="var(--trace)" opacity={0.85} /></g>}
+      {(p.exemplar_events ?? []).map(e => {
+        const xm = ctx.x((e.start_s + e.end_s) / 2)
+        return <path key={e.family} d={`M${xm - 5} 0 L${xm + 5} 0 L${xm} 8 Z`} fill="#8e5cf7" data-testid="event-family-exemplar"><title>{`family ${e.family}'s exemplar: event ${e.event + 1} · ${e.rule}`}</title></path>
+      })}
+      <text x={ctx.width - 6} y={11} textAnchor="end" fill="var(--text-2)" style={{ paintOrder: 'stroke', stroke: '#fff', strokeWidth: 3 }}>
+        {p.n.toLocaleString()} events · {(p.families ?? []).length} families · {fam.filter(f => f < 0).length} in no family{ex.size ? ' · ▼ exemplar' : ''}{p.capped ? ' · capped' : ''}
+      </text>
+    </svg>
+  )
+}
+
+/** The legend: one entry per family with its group key as written (marks read as marks), and the -1 count. */
+export function EventFamiliesKey({ p }: { p: SpansetPayload }) {
+  const fams = p.families ?? []
+  const none = (p.family ?? []).filter(f => f < 0).length
+  const reasons: Record<string, number> = {}
+  ;(p.family ?? []).forEach((f, i) => { if (f < 0) { const r = p.family_omit_reason?.[i] || 'in no family'; reasons[r] = (reasons[r] ?? 0) + 1 } })
+  return (
+    <div className="bp-legend" style={{ paddingLeft: 0 }} data-testid="event-families-key">
+      {fams.map(f => <span key={f.family} data-key={familyKey(f.family, f.noise_like, f.tested)}><i style={{ background: familyColour(f.family) }} />group {familyKey(f.family, f.noise_like, f.tested)} · {f.size}</span>)}
+      <span><i style={{ background: familyColour(-1), border: '1px dashed var(--red)' }} />-1 · in no family · {none}{none ? ` (${Object.entries(reasons).map(([r, n]) => `${n} ${r.replace(/_/g, ' ')}`).join(', ')})` : ''}</span>
+      <span>an unmarked key passed its null · ~noise_like = no better than noise · ~untested = no null drawn</span>
+    </div>
   )
 }

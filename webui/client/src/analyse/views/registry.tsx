@@ -26,12 +26,12 @@ import { DetectorFunnel, funnelOf } from '../DetectorFunnel'
 import { useSendRunToReview } from '../sendToReview'
 import { FeatureTable, IntervalStatsTable, RulesList, labelOf, unitOf } from '../EventFeatures'
 import { AlignedImage, ImageEvidence, ImageView, PaaSteps, SYM3, SymbolChunks, SymbolicView, secondsPerSymbol, symbolColour } from './EncodingView'
-import { ClusterExemplars, ClusterSizes, GroupingView } from './GroupingView'
+import { ClusterExemplars, ClusterSizes, FamilyTable, GroupingView } from './GroupingView'
 import { ModelView } from './ModelView'
 import { ScoreHistogram, ScoresView, scoreWords, scoreY, type ScoreCut } from './ScoresView'
 import { SignalLayers, SignalLayersNote, SignalNote, SignalView } from './SignalView'
-import { DurationHistogram, SpanSetView, SpanSlideshow } from './SpanSetView'
-import { WindowSetKey, WindowSetView } from './WindowSetView'
+import { DurationHistogram, EventFamiliesKey, EventFamiliesView, SpanSetView, SpanSlideshow } from './SpanSetView'
+import { EventWindowsKey, EventWindowsView, WindowSetKey, WindowSetView } from './WindowSetView'
 import { isPoolPayload, isTreePayload } from '../../api/shape'
 import { Guard, PoolPicker, PoolThumb, PoolView, ShapeView, TreeThumb } from './ShapeViews'
 import { TreePage } from './TreePage'
@@ -383,6 +383,15 @@ function FeatureHistograms({ p }: { p: SpansetPayload }) {
 function SpansToSpans(q: ProcessProps) {
   const p = as<SpansetPayload>(q.payload, 'spanset')
   if (!p) return <NoResult />
+  // w2-f: Event families (a payload convention, like a Grouping's `tree`): the events coloured by family first
+  const families = p.families ? (
+    <div className="stack" style={{ gap: 4, marginBottom: 14 }} data-testid="event-families-lead">
+      <div className="bp-card-title"><h3 style={{ fontSize: 13 }}>Each event's family</h3><span className="sg">{p.summary}</span></div>
+      {p.n === 0 ? <EventFamiliesView p={p} ctx={q.ctx} /> : <Full q={q} height={150} testid="event-families-plot">{ctx => <EventFamiliesView p={p} ctx={ctx} />}</Full>}
+      {p.n > 0 && <EventFamiliesKey p={p} />}
+      <FamilyTable families={p.families} summary={p.family_summary} unit="events" />
+    </div>
+  ) : null
   const lead = !p.features ? <div className="muted mono small" style={{ marginBottom: 8 }}>this block returned its spans with no measures attached</div> : (
     <div className="stack" style={{ gap: 12, marginBottom: 14 }} data-testid="event-features">
       {p.features_unit_note && <div className="callout warn small" data-testid="features-unit-note" style={{ padding: '6px 10px', background: '#fff7e6', borderRadius: 6 }}>{p.features_unit_note}</div>}
@@ -400,7 +409,7 @@ function SpansToSpans(q: ProcessProps) {
       <div className="bp-card-title" style={{ marginTop: 2 }}><h3 style={{ fontSize: 13 }}>The spans that were measured</h3><span className="sg">passed through unchanged from the stage before</span></div>
     </div>
   )
-  return <SpanSetProcess q={q} lead={lead} featuresFirst />
+  return <SpanSetProcess q={q} lead={<>{families}{lead}</>} featuresFirst />
 }
 
 /* ---------------- Encoding ---------------- */
@@ -499,6 +508,27 @@ function WindowSetProcess(q: ProcessProps) {
   )
 }
 
+/** spanset → windowset (w2-f, Event windows): the windows drawn on the trace around the events they were cut from,
+ *  the anchor marked inside each and every event left out drawn with its reason; then the measures each window
+ *  carries, as the heatmap. A window set that names no anchor draws as any other. */
+function EventWindowsProcess(q: ProcessProps) {
+  const p = as<WindowsetPayload>(q.payload, 'windowset')
+  if (!p || !p.anchor) return <WindowSetProcess {...q} />
+  const up = as<SpansetPayload>(q.upstream, 'spanset')
+  return (
+    <>
+      <Full q={q} height={150}>{ctx => <EventWindowsView p={p} events={up ? { start_s: up.start_s, end_s: up.end_s } : null} ctx={ctx} />}</Full>
+      <EventWindowsKey p={p} />
+      {p.rules && p.rules.length > 0 && <RulesList rules={p.rules} testid="event-window-rules" />}
+      {p.features?.matrix && <>
+        <div className="bp-card-title" style={{ marginTop: 10 }}><h3 style={{ fontSize: 13 }}>What each window carries</h3><span className="sg">{p.features.n_columns} measures of its event · bookkeeping columns left out</span></div>
+        <Full q={q} height={Math.min(420, 60 + 12 * p.features.n_columns)} testid="event-window-features">{ctx => <WindowSetView p={p} ctx={ctx} />}</Full>
+        <WindowSetKey p={p} />
+      </>}
+    </>
+  )
+}
+
 function GroupingProcess(q: ProcessProps) {
   const p = as<GroupingPayload>(q.payload, 'grouping')
   if (!p) return <NoResult />
@@ -509,6 +539,7 @@ function GroupingProcess(q: ProcessProps) {
       <Full q={q} height={Math.min(300, 70 + 30 * Math.max(1, p.clusters.length))}>{ctx => <GroupingView p={p} ctx={ctx} />}</Full>
       <div className="muted mono small" style={{ marginTop: 2 }}>{p.class_names ? 'top: the label of every window, in time (grey = excluded) · below: where each label falls' : 'top: the cluster of every window, in time · below: when each cluster is active'}</div>
       {p.coverage && <LabelCoverageLine c={p.coverage} />}
+      {p.families && <FamilyTable families={p.families} summary={p.family_summary} unit="windows" />}
       {p.rules && <RulesList rules={p.rules} testid="label-rules" />}
       <div className="row" style={{ alignItems: 'flex-start', gap: 12 }}>
         <div style={{ width: 300 }}>
@@ -563,7 +594,7 @@ export const MODIFIERS: Record<string, Process> = {
   'signal->encoding': EncodingProcess,
   'windowset->encoding': EncodingProcess,
   'signal->windowset': WindowSetProcess,
-  'spanset->windowset': WindowSetProcess,
+  'spanset->windowset': EventWindowsProcess,
   'windowset->windowset': WindowsToWindows,
   'windowset->grouping': GroupingProcess,
   'grouping->model': ModelProcess,

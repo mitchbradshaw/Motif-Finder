@@ -116,6 +116,84 @@ export function WindowSetView({ p, ctx }: { p: WindowsetPayload; ctx: ViewCtx })
   )
 }
 
+/** w2-f: a window set cut AROUND EVENTS (`catalogue.event_windows`, spanset → windowset), drawn on the trace: each
+ *  input event as a faint band, each window as a blue outline around its event, the anchor (`anchor.offset_s` into
+ *  the window, the same for every window) as an amber tick inside it, and every event that got no window outlined
+ *  red with its reason — an absence is drawn, never hidden. Separate from `WindowSetView` because only this
+ *  producer has events and an anchor; the generic view would need an `if` on every path. */
+export function EventWindowsView({ p, events, ctx }: { p: WindowsetPayload; events: { start_s: number[]; end_s: number[] } | null; ctx: ViewCtx }) {
+  const anchor = p.anchor!
+  const [r0, r1] = ctx.x.range()
+  const h = ctx.height
+  const gr = ctx.ghost && ctx.ghost.t.length ? finiteRange(ctx.ghost.v) : null
+  const reasonOf = useMemo(() => {
+    const m = new Map<number, string>()
+    for (const [reason, rows] of Object.entries(p.events?.omitted_rows ?? {})) for (const r of rows ?? []) m.set(r, reason)
+    return m
+  }, [p.events])
+  const nOmitted = Object.values(p.events?.omitted ?? {}).reduce((a, b) => a + (b ?? 0), 0)
+  // fix 1 (critic 11): an event with no window is outlined even when `omitted_rows` was capped and does not list
+  // it — by set difference against the events the windows were cut around
+  const windowed = useMemo(() => new Set(p.event_index ?? []), [p.event_index])
+  const narrow = p.starts_s.length > 0 && ctx.x(p.starts_s[0] + p.length_s) - ctx.x(p.starts_s[0]) < 3
+  return (
+    <svg width={ctx.width} height={h} data-render="windowset" data-mode="event-windows" data-testid="event-windows" data-windows={p.n_windows} data-omitted={nOmitted} data-plot-box data-rule9="ghost">
+      <rect x={r0} y={0} width={r1 - r0} height={h} fill={NO_DATA_CSS} fillOpacity={0.12} />
+      {events && events.start_s.map((s, i) => {
+        const why = reasonOf.get(i) ?? (p.event_index && !windowed.has(i) ? 'not listed (omitted_rows is capped — see the notes)' : undefined)
+        const x0 = ctx.x(s), w = Math.max(1, ctx.x(events.end_s[i]) - x0)
+        return why
+          ? <rect key={`e${i}`} x={x0} y={1} width={w} height={h - 2} fill="var(--band-artifact)" stroke="var(--red)" strokeDasharray="3 2" data-testid={reasonOf.has(i) ? 'event-omitted' : 'event-windowless'}><title>{`event ${i + 1} · no window: ${why.replace(/_/g, ' ')}`}</title></rect>
+          : <rect key={`e${i}`} x={x0} y={0} width={w} height={h} fill="var(--band-detected)" opacity={0.55}><title>{`event ${i + 1}`}</title></rect>
+      })}
+      {ctx.ghost && gr && <g data-trace><EnvelopePath t={ctx.ghost.t} v={ctx.ghost.v} x={ctx.x} y={makeY(gr[0], gr[1], h)} stroke="var(--trace)" opacity={0.8} /></g>}
+      {p.starts_s.map((s, i) => {
+        const x0 = ctx.x(s), w = Math.max(1, ctx.x(s + p.length_s) - x0), xa = ctx.x(s + anchor.offset_s)
+        const ev = p.event_index?.[i]
+        return (
+          <g key={i} data-window={i}>
+            <rect x={x0} y={3} width={w} height={h - 6} fill="none" stroke="var(--blue)" strokeWidth={narrow ? 0.8 : 1.3} strokeOpacity={0.9}>
+              <title>{`window ${i + 1}${ev !== undefined && ev >= 0 ? ` · around event ${ev + 1}` : ''} · ${p.length_s} s · anchor (${anchor.used ?? 'onset'}) ${anchor.offset_s} s in`}</title>
+            </rect>
+            <line x1={xa} x2={xa} y1={3} y2={h - 3} stroke="var(--amber)" strokeWidth={1.4} data-testid="window-anchor" />
+          </g>
+        )
+      })}
+      <text x={ctx.width - 6} y={11} textAnchor="end" fill="var(--text-2)" style={{ paintOrder: 'stroke', stroke: '#fff', strokeWidth: 3 }}>
+        {p.n_windows.toLocaleString()} of {(p.events?.n_events ?? p.n_windows).toLocaleString()} events windowed · {p.length_s} s each · anchor {anchor.offset_s} s in{nOmitted ? ` · ${nOmitted} left out` : ''}{p.capped ? ' · capped' : ''}
+      </text>
+    </svg>
+  )
+}
+
+/** w2-f: what happened to every event, under the event-windows plot: the omissions by reason, overlaps, split leaks,
+ *  the block's warnings. Every number the block counted is on the face. */
+export function EventWindowsKey({ p }: { p: WindowsetPayload }) {
+  const ev = p.events
+  const a = p.anchor!
+  const omitted = Object.entries(ev?.omitted ?? {}).filter(([, n]) => (n ?? 0) > 0)
+  return (
+    <div data-testid="event-windows-key" style={{ marginTop: 4 }}>
+      <div className="bp-legend" style={{ paddingLeft: 0 }}>
+        <span><i style={{ background: 'var(--band-detected)' }} />input event</span>
+        <span><i style={{ background: 'transparent', border: '1.5px solid var(--blue)' }} />its window ({p.length_s} s{ev?.length_basis ? ` · ${ev.length_basis}` : ''})</span>
+        <span><i style={{ background: 'var(--amber)', width: 3 }} />anchor · {a.used ?? a.requested ?? 'onset'} · {a.offset_s} s into the window{a.pre_frac != null ? ` (${Math.round(a.pre_frac * 100)} %)` : ''}{a.fallback ? ` · ${a.fallback} fell back` : ''}</span>
+        <span><i style={{ background: 'var(--band-artifact)', border: '1px dashed var(--red)' }} />event with no window</span>
+      </div>
+      <div className="mono small" data-testid="event-windows-fates" style={{ color: 'var(--text-2)' }}>
+        {omitted.length ? `left out: ${omitted.map(([r, n]) => `${n} ${r.replace(/_/g, ' ')}`).join(' · ')}` : 'every event got a window'}
+        {ev?.n_overlapping ? ` · ${ev.n_overlapping} window${ev.n_overlapping === 1 ? '' : 's'} overlap the next` : ''}
+        {ev?.n_split_leaks ? ` · ${ev.n_split_leaks} share samples with a window of another split role` : ''}
+        {ev?.n_duration_unmeasured ? ` · ${ev.n_duration_unmeasured} event${ev.n_duration_unmeasured === 1 ? '' : 's'} too slow to measure (counted, not dropped)` : ''}
+        {ev?.n_recovery_outside_window ? ` · ${ev.n_recovery_outside_window} recover after their window ends` : ''}
+      </div>
+      {(ev?.warnings ?? []).map((w, i) => <div key={i} className="mono small" style={{ color: 'var(--amber-700, #b76a00)' }} data-testid="event-windows-warning">{w}</div>)}
+      {(ev?.notes ?? []).map((w, i) => <div key={`n${i}`} className="mono small muted" data-testid="event-windows-note">{w}</div>)}
+      {p.n_windows === 0 && <div className="mono small" data-testid="event-windows-none" style={{ color: 'var(--amber-700, #b76a00)' }}>no window: {(ev?.n_events ?? 0) === 0 ? 'the detector upstream found no events on this span' : 'every event was left out (reasons above)'}</div>}
+    </div>
+  )
+}
+
 /** The key under the settings-tier plot. */
 export function WindowSetKey({ p }: { p: WindowsetPayload }) {
   if (p.features?.matrix) {

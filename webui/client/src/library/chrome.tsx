@@ -13,7 +13,7 @@ import { useToast } from '../shell/Toast'
 import { navigate, setQuery, useApp } from '../state'
 import { GROUPING_G09, UNIT_LABEL, getGroupings, getLibraryCounts, getOmitted, motifShape, type Grouping, type OmittedEntry, type Unit } from '../api/library'
 import { useSourced, type SourcedState } from '../api/seam'
-import { LIB_VIEW_DEFAULT, type LibView, type LibViewReport } from '../api'
+import { LIB_VIEW_DEFAULT, type LibFamilyFlags, type LibFitSummary, type LibView, type LibViewReport } from '../api'
 
 /* ================================================================ store ================================================================ */
 /** Empty library is a data condition of the Motifs section, reached with `?library=empty` (inventory decision). It is
@@ -386,6 +386,35 @@ export { centreTrace, tracePeak } from '../charts/domain'
 export const OMIT_REASON_LABEL: Record<string, string> = {
   outside_bins: 'outside every bin', past_cut: 'past the nearest-family distance',
   group_too_small: 'in a group under the minimum', not_in_a_sequence: 'in no sequence', no_label: 'carry no label',
+  // w2-b: HDBSCAN's stragglers, and waveforms with no shape to compare
+  not_in_a_dense_family: 'in no dense family', infinite_values: 'hold an infinite value', missing_values: 'hold missing values',
+}
+
+/** w2-b: a saved grouping's verdict on one family against its method's colour-preserving null
+ *  (`fitSummary.family_flags[label]`), or null when the grouping was saved without a fit summary. */
+export function familyFlagsOf(grouping: { fitSummary?: LibFitSummary | null } | null | undefined, label: string): LibFamilyFlags | null {
+  return grouping?.fitSummary?.family_flags?.[label] ?? null
+}
+
+/** The registered methods that draw a surrogate null for every family (W2-B): a grouping of theirs saved without
+ *  flags has LOST a verdict, which is not the same as never having had one (Ward, feature bins, labels). */
+export const METHODS_WITH_NULL = new Set(['kshape', 'hdbscan'])
+
+/** w2-b/w2-f: ONE badge for the atlas tile, the Family page and the editor's preview. A family whose method's
+ *  surrogate null says it is no more separated (or no tighter) than noise of the same colour says so on its face;
+ *  a method with no null (Ward) says "not tested" rather than nothing. `why` is the method's own sentence. With no
+ *  flags, a method that draws a null (`method`) gets a grey "verdict not saved" — a grouping saved without its fit
+ *  summary, or a family the summary does not list (a hand group) — so silence is never read as confidence; for any
+ *  other method nothing is claimed either way. */
+export function NoiseBadge({ flags, method, testid }: { flags: LibFamilyFlags | null | undefined; method?: string | null; testid?: string }) {
+  if (!flags) {
+    return method && METHODS_WITH_NULL.has(method)
+      ? <span className="k-badge t-grey" data-testid={testid ?? 'noise-badge'} data-verdict="not-saved" title={`${method} tests every family against noise of the same colour, but this grouping holds no verdict for this family (saved without its fit summary, or a family the summary does not list)`}>verdict not saved</span>
+      : null
+  }
+  if (!flags.tested) return <span className="k-badge t-grey" data-testid={testid ?? 'noise-badge'} data-verdict="untested" title={flags.why || 'this method has no noise null'}>not tested</span>
+  if (flags.noise_like) return <span className="k-badge t-amber" data-testid={testid ?? 'noise-badge'} data-verdict="noise-like" title={flags.why}>no better than noise</span>
+  return null
 }
 export const omitReasonOf = (e: OmittedEntry): string | null => (e as unknown as { omitReason?: string | null }).omitReason ?? null
 const shapeLabelOf = (e: OmittedEntry): string => (e as unknown as { shapeLabel?: string }).shapeLabel ?? 'shape not recorded'

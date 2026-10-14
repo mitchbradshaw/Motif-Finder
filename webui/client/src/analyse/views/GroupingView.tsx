@@ -7,7 +7,7 @@
  * An exemplar is a member window — the one nearest its cluster's centroid — and never an average: a mean of
  * windows is a waveform the recording does not contain. Each is drawn on its own measured y with a scale bar. */
 import { useEffect, useMemo, useState } from 'react'
-import type { GroupingPayload } from '../../api'
+import type { FamilyRow, FamilySummary, GroupingPayload } from '../../api'
 import { measuredDomain } from '../../charts/domain'
 import { Bars, EventTrace, InfoTip, ScaleBar, type SlideTrace } from '../../kit'
 import { fmtDuration, fmtHours } from '../../state'
@@ -16,7 +16,10 @@ import { Empty, loadWindow, type ViewCtx } from './common'
 
 export const clusterColour = (p: GroupingPayload, id: number) => p.class_names
   ? (id < 0 ? '#b9bec7' : CAT9[id % 9])          // a labelled Grouping: excluded is grey, the classes keep their colour
-  : CAT9[(((id - p.label_base) % 9) + 9) % 9]
+  : p.families ? familyColour(id)                 // w2-f: a families Grouping: -1 (in no family) is grey, F keeps its colour
+    : CAT9[(((id - p.label_base) % 9) + 9) % 9]
+/** One colour per family, shared by Shape families' strip and Event families' events; -1 (in no family) grey. */
+export const familyColour = (f: number) => (f < 0 ? '#b9bec7' : CAT9[(((f - 1) % 9) + 9) % 9])
 /** What a group is called: a labelled Grouping's class name (fixup-aa: `catalogue.manual_labels`), else `cluster N`. */
 export const groupName = (p: GroupingPayload, id: number) => p.class_names?.[String(id)] ?? `cluster ${id}`
 const BUCKET_PX = 10
@@ -119,9 +122,71 @@ export function ClusterExemplars({ p, recordingId, unit }: { p: GroupingPayload;
         <span className="sg">a member window, never an average · each on its own y, sizes on the scale bars</span>
         <InfoTip title="Which window">{ex[0].rule}. The trace is the source channel over that window, as recorded.</InfoTip>
       </div>
+      {/* w2-f: the block named these members itself (the snippet, a family's medoid) — its rule is the caption */}
+      {ex[0].by === 'block' && <div className="mono small" data-testid="exemplar-rule" style={{ color: 'var(--text-2)', marginBottom: 4 }}>chosen by the block: {ex[0].rule}</div>}
+      {/* fix 1 (critic 4): a label the block named no exemplar for is said, per cluster — not a silent gap */}
+      {p.clusters.filter(c => (c as { exemplar_note?: string }).exemplar_note).map(c => <div key={c.id} className="mono small muted" data-testid="exemplar-none">cluster {c.id}: {(c as { exemplar_note?: string }).exemplar_note}</div>)}
       <div style={{ display: 'grid', gridTemplateColumns: `repeat(${Math.min(5, ex.length)}, minmax(0, 1fr))`, gap: 8 }}>
         {ex.map(e => <Exemplar key={e.cluster} p={p} ex={e} recordingId={recordingId} unit={unit} />)}
       </div>
+    </div>
+  )
+}
+
+/* ---------------- w2-f: the families' table (Shape families, Event families) ---------------- */
+const f2 = (v: number | null | undefined) => (v === null || v === undefined || !Number.isFinite(v) ? '—' : v.toFixed(2))
+
+/** A family's verdict against its method's null, as the block made it: amber "no better than noise", grey
+ *  "untested" (Ward draws no null), grey "null not trusted" (the method's null is not trusted, `null_caveat` says
+ *  why — k-Shape), green "beyond noise" only when `confident` is true. Never derived here. */
+export function FamilyBadge({ f }: { f: FamilyRow }) {
+  if (f.noise_like) return <span className="k-badge t-amber" data-testid={`family-badge-${f.family}`} data-verdict="noise-like" title={f.why ?? ''}>no better than noise</span>
+  if (!f.tested) return <span className="k-badge t-grey" data-testid={`family-badge-${f.family}`} data-verdict="untested" title={f.why ?? 'this method draws no noise null'}>untested</span>
+  if (f.confident === null) return <span className="k-badge t-grey" data-testid={`family-badge-${f.family}`} data-verdict="null-not-trusted" title={f.null_caveat ?? f.why ?? ''}><span data-testid="family-null-not-trusted">null not trusted</span></span>
+  return <span className="k-badge t-green" data-testid={`family-badge-${f.family}`} data-verdict="confident" title={f.why ?? ''}>beyond noise</span>
+}
+
+/** Coherence beside its null; the verdict is the block's `svd_entropy_beyond_noise` (svd_entropy's own margin). */
+function FamilyCoherenceCell({ f }: { f: FamilyRow }) {
+  const v = f.svd_entropy_beyond_noise
+  return (
+    <span data-testid={`family-coherence-${f.family}`} data-verdict={v === true ? 'beyond' : v === false ? 'noise' : 'none'} title={f.svd_entropy_rule ?? ''}>
+      <b className="mono">{f2(f.svd_entropy_norm)}</b>
+      <span className="muted"> · noise {f2(f.svd_entropy_null_median)} (p05 {f2(f.svd_entropy_null_p05)})</span>
+      {v === false && <span className="k-badge t-amber" style={{ marginLeft: 4 }} title={`not below ${f.svd_entropy_null_margin ?? 0.9} × the noise's p05 (a placeholder margin)`}>no more coherent than noise</span>}
+      {v === true && <span className="muted"> · beyond noise</span>}
+      {(v === null || v === undefined) && <span className="muted"> · {f.coherence_reason ?? 'no null'}</span>}
+    </span>
+  )
+}
+
+/** Every family the block made, one row each, with every number on the face; the block's warnings and notes under it. */
+export function FamilyTable({ families, summary, unit = 'members' }: { families: FamilyRow[]; summary?: FamilySummary; unit?: string }) {
+  const th = { textAlign: 'left' as const, padding: '2px 8px', fontWeight: 500, color: 'var(--text-2)' }
+  const td = { padding: '2px 8px', verticalAlign: 'top' as const }
+  const frac = (v: number | null | undefined) => (v === null || v === undefined ? 'n/a' : `${Math.round(v * 100)} %`)
+  return (
+    <div data-testid="family-table" style={{ marginTop: 10 }}>
+      <div className="bp-card-title"><h3 style={{ fontSize: 13 }}>Families against noise</h3>
+        <span className="sg">{summary?.method ?? ''}{summary ? ` · placed ${frac(summary.fraction_placed)} · confident ${frac(summary.fraction_confident)}${summary.n_noise_like ? ` · ${summary.n_noise_like} no better than noise` : ''}` : ''}</span>
+        <InfoTip title="What the badge says">Each family is tested against phase-randomised noise of the same colour (the method's null). Coherence: 0 = all members the same shape, 1 = no shared shape; its verdict needs the score clearly below the noise's.</InfoTip>
+      </div>
+      {families.length === 0
+        ? <div className="mono small muted" data-testid="family-table-empty">no family was made{summary?.omitted && Object.keys(summary.omitted).length ? ` · left out: ${Object.entries(summary.omitted).map(([k, n]) => `${n} ${k.replace(/_/g, ' ')}`).join(' · ')}` : ''}</div>
+        : <table className="mono" style={{ borderCollapse: 'collapse', fontSize: 11.5 }}>
+          <thead><tr><th style={th}>family</th><th style={th}>{unit}</th><th style={th}>verdict</th><th style={th}>coherence beside its null</th><th style={th}>σ²-weighted · main shape</th></tr></thead>
+          <tbody>{families.map(f => (
+            <tr key={f.family} data-testid={`family-row-${f.family}`}>
+              <td style={td}><i style={{ display: 'inline-block', width: 9, height: 9, borderRadius: 2, background: familyColour(f.family), marginRight: 5 }} />F{f.family}{f.library_label ? ` (${f.library_label})` : ''}</td>
+              <td style={{ ...td, textAlign: 'right' }}>{f.size.toLocaleString()}</td>
+              <td style={td}><FamilyBadge f={f} /></td>
+              <td style={td}><FamilyCoherenceCell f={f} /></td>
+              <td style={td}>{f2(f.svd_entropy_squared_norm)}{f.top_share !== null ? ` · ${Math.round(f.top_share * 100)} %` : ''}</td>
+            </tr>
+          ))}</tbody>
+        </table>}
+      {(summary?.warnings ?? []).map((w, i) => <div key={i} className="mono small" style={{ color: 'var(--amber-700, #b76a00)' }} data-testid="family-warning">{w}</div>)}
+      {(summary?.notes ?? []).map((w, i) => <div key={`n${i}`} className="mono small muted" data-testid="family-note">{w}</div>)}
     </div>
   )
 }

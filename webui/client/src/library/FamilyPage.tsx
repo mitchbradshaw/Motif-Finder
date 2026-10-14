@@ -43,14 +43,14 @@ import {
   CLASS_OPTIONS, TAG_RULE, TAG_VOCABULARY, getFamily, getMotifFamilies,
   type FamilyDetail, type FamilyRead, type Member, type MotifFamily, type RemovedMember, type SequenceFamily, type Verdict,
 } from '../api/library'
-import { GroupingBar, LoadFailed, Loading, MotifPlot, SectionBar, ViewFilterBar, centreTrace, fmtMv, tracePeak, useAllGroupings, useEmptyLibrary, useLibraryView, useMotifGroupingId, useRememberMotifsRoute, useSequenceGroupingId } from './chrome'
+import { GroupingBar, LoadFailed, Loading, MotifPlot, NoiseBadge, SectionBar, ViewFilterBar, centreTrace, familyFlagsOf, fmtMv, tracePeak, useAllGroupings, useEmptyLibrary, useLibraryView, useMotifGroupingId, useRememberMotifsRoute, useSequenceGroupingId } from './chrome'
 import { baselinePeak, referenceScale, type ReferenceScale } from '../charts/domain'
 import { ReferenceBar, referenceWords } from '../charts/ReferenceBar'
 import { familyName } from './AtlasPage'
 import { EmptyMotifsPage } from './EmptyLibrary'
 import { EdgeList, MatchedMembers, ScaleReadout, memberEdges, type EdgeDetailExtras, type EdgeFamilyExtras } from './Edges'
 import { CrossChannelCard } from './CrossChannel'
-import { deleteLibraryHandEdit, postLibraryHandEdit, sendFamilyUnjudged, type LibCrossChannel, type LibFamilyView, type LibHandEditBody, type LibMember, type LibUnjudgedQueue, type LibViewReport } from '../api'
+import { deleteLibraryHandEdit, postLibraryHandEdit, sendFamilyUnjudged, type LibCrossChannel, type LibFamilyCoherence, type LibFamilyFlags, type LibFamilyView, type LibFitSummary, type LibHandEditBody, type LibMember, type LibUnjudgedQueue, type LibViewReport } from '../api'
 
 /** fixup-ae: a member as the bridge sends it now — its hand edits (with their ids, so one can be undone), the rule
  *  that judged it, and the view's measures. */
@@ -144,7 +144,9 @@ export function FamilyPage({ familyId }: { familyId?: string } = {}) {
         {!groupings.error && (fam.loading || !unitReady || (!named && firstFamily.loading)) && <Loading height={640} testid="family-loading" />}
         {d?.kind === 'missing' && <EmptyState icon="alert-triangle" title={`No family ${id} in grouping ${gid || 'the current grouping'}`} caption="the id is not in this grouping" action={<Button onClick={() => navigate('library/atlas')}>‹ back to atlas</Button>} bordered testid="family-missing" />}
         {d?.kind === 'sequence' && <SequenceFamilyPlaceholder f={d.family} />}
-        {d?.kind === 'motif' && <MotifFamilyView key={d.detail.family.id} detail={d.detail} grouping={unitGid || undefined} onReload={fam.reload} />}
+        {d?.kind === 'motif' && <MotifFamilyView key={d.detail.family.id} detail={d.detail} grouping={unitGid || undefined} onReload={fam.reload}
+          flags={familyFlagsOf(grouping as (typeof grouping & { fitSummary?: LibFitSummary | null }), d.detail.family.id)}
+          noiseMethod={(grouping as (typeof grouping & { method?: string | null }))?.method ?? null} />}
       </Page>
     </>
   )
@@ -204,7 +206,55 @@ function SendUnjudged({ familyId, grouping, unjudged, queue, onSent }: { familyI
   )
 }
 
-function MotifFamilyView({ detail, grouping, onReload }: { detail: FamilyDetail; grouping?: string; onReload: () => void }) {
+/** w2-b/w2-f: how far the members are copies of one shape (SVD entropy, Colominas & Wu 2023 eq. 17), beside what
+ *  phase-randomised noise of these members' own colour scores — a number without its null is not a result. A
+ *  failure is a red card (the rest of the page still renders); a family too small to score says why in words. */
+const COHERENCE_TIP = 'How much the members are copies of one shape: 0 = all the same shape, 1 = no shared shape. Ignores amplitude.'
+const f2 = (v: number | null | undefined) => (v === null || v === undefined || !Number.isFinite(v) ? '—' : v.toFixed(2))
+export function FamilyCoherence({ c }: { c: LibFamilyCoherence | undefined }) {
+  if (!c) return null
+  if (c.error) return <div className="error-card" role="alert" data-testid="coherence-error"><h3>Coherence could not be computed</h3><div className="mono small">{c.error}</div><div className="mono small muted">{c.rule}</div></div>
+  const counts = [`${c.n_used ?? 0} of ${c.n_members ?? 0} members scored`,
+    c.n_dropped ? `${c.n_dropped} held NaN or inf` : '', c.heldOut ? `${c.heldOut} on the held-out recording, left out` : '',
+    c.notOnDisk ? `${c.notOnDisk} not on disk, left out` : '', c.n_misaligned ? `${c.n_misaligned} shifted more than ${c.misaligned_fraction ?? '?'} of the length to align` : '',
+    c.sampled ? 'a seeded sample of the members' : ''].filter(Boolean).join(' · ')
+  if (c.reason || c.svd_entropy_norm === null || c.svd_entropy_norm === undefined) {
+    return <div className="lib-cap" data-testid="family-coherence" data-state="reason" style={{ fontSize: 10.5 }}>coherence · not scored: <span data-testid="coherence-reason">{c.reason ?? 'no score was returned'}</span>{counts ? ` · ${counts}` : ''}</div>
+  }
+  const v = c.svd_entropy_norm
+  // the core's verdict (main 4db3684): beyond_noise = score < null_margin x null_p05. A bare `v >= p05` called pure
+  // noise sitting a hair under its p05 coherent (AR(1) 0.805 against 0.806); null = no score or no null
+  const noisy = c.beyond_noise === false
+  const noNull = c.beyond_noise === null || c.beyond_noise === undefined
+  const margin = c.null_margin ?? 0.9
+  return (
+    <div className="stack" style={{ gap: 2 }} data-testid="family-coherence" data-noise-like={noisy ? '1' : '0'}>
+      <div className="row" style={{ gap: 8, alignItems: 'baseline', flexWrap: 'wrap' }}>
+        <span className="lib-cap" style={{ fontSize: 10.5 }}>coherence</span>
+        <b className="mono" data-testid="coherence-value">{f2(v)}</b>
+        <InfoTip title="Coherence (SVD entropy)" testid="coherence-tip">{COHERENCE_TIP}</InfoTip>
+        {c.aligned && <span className="k-chip sm" title="members slid onto the medoid before scoring (the anchor), so a shift is not counted as a different shape">aligned</span>}
+        <span className="mono small" data-testid="coherence-null" style={{ color: 'var(--text-2)' }}>
+          {c.null_median !== null && c.null_median !== undefined
+            ? `noise like these members' scores ${f2(c.null_median)} (5th percentile ${f2(c.null_p05)}, ${c.null_draws ?? 0} draws${c.null_kind ? ` of ${c.null_kind} surrogates` : ''})`
+            : 'no noise null was computed for this family'}
+        </span>
+        {noisy && <span className="k-badge t-amber" data-testid="coherence-noise-like" title={`the score ${f2(v)} is not below ${margin} × the 5th percentile of noise of the same colour (${f2(c.null_p05)}, so the cut is ${f2(margin * (c.null_p05 ?? NaN))}); ${margin} is a placeholder margin`}>no more coherent than noise</span>}
+        {!noisy && !noNull && <span className="k-badge t-green" data-testid="coherence-beyond-noise" title={`the score ${f2(v)} is below ${margin} × the noise's 5th percentile (${f2(c.null_p05)}); ${margin} is a placeholder margin`}>beyond noise</span>}
+        {noNull && <span className="k-badge t-grey" data-testid="coherence-no-null" title="no surrogate null was drawn for this family, so there is no verdict">no null</span>}
+      </div>
+      {!noNull && c.smooth_caveat && <div className="lib-cap" style={{ fontSize: 10, color: noisy ? 'var(--amber-700, #b76a00)' : undefined }} data-testid="coherence-caveat">caveat: {c.smooth_caveat}</div>}
+      <div className="lib-cap" style={{ fontSize: 10 }} data-testid="coherence-extra">
+        σ²-weighted {f2(c.svd_entropy_squared_norm)}{c.null_squared_median !== null && c.null_squared_median !== undefined ? ` (noise ${f2(c.null_squared_median)})` : ''}
+        {c.top_share !== null && c.top_share !== undefined ? ` · main shape ${Math.round(c.top_share * 100)} %${c.top_share_is ? ` of ${c.top_share_is}` : ''}` : ''}
+        {counts ? ` · ${counts}` : ''}
+      </div>
+      <details className="lib-cap" style={{ fontSize: 10 }}><summary style={{ cursor: 'pointer' }}>the rule</summary>{c.rule}</details>
+    </div>
+  )
+}
+
+function MotifFamilyView({ detail, grouping, onReload, flags, noiseMethod }: { detail: FamilyDetail; grouping?: string; onReload: () => void; flags?: LibFamilyFlags | null; noiseMethod?: string | null }) {
   const f = detail.family
   const { push } = useToast()
   // fixup-ae: what is in `hand_edits` comes from the read, never from a copy kept here — the removals, the
@@ -396,6 +446,7 @@ function MotifFamilyView({ detail, grouping, onReload }: { detail: FamilyDetail;
               <span><i style={{ display: 'inline-block', width: 12, height: 2, background: '#1f2937', verticalAlign: 'middle', marginRight: 4 }} />exemplar {f.exemplar}{handExemplar ? ` · ${edits.exemplar} chosen by hand, drawn after the next recompute` : ''}</span>
               <span><i style={{ display: 'inline-block', width: 12, height: 2, background: f.colour, verticalAlign: 'middle', marginRight: 4 }} />medoid {f.medoid}</span>
               <span className="k-chip green sm">d {f.exemplarMedoidD.toFixed(2)}</span>
+              <NoiseBadge flags={flags} method={noiseMethod} testid="family-noise-badge" />
               {edits.staleEdges && <Badge status="stale" title="the exemplar changed; distances are partially stale until the family is recomputed (§4.2)">edges partially stale</Badge>}
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 18 }}>
@@ -413,6 +464,7 @@ function MotifFamilyView({ detail, grouping, onReload }: { detail: FamilyDetail;
                 { k: 'cross-channel', v: <span className="mono" data-testid="family-cross-channel-line">{(detail as FamilyDetail & { crossChannel?: LibCrossChannel }).crossChannel?.classified === false ? 'not classified' : `artifact ${f.artifactChannels} · propagation ${f.propChannels} · independent ${f.indChannels}`}</span> },
               ]} testid="summary-kv-2" />
             </div>
+            <FamilyCoherence c={(detail as FamilyDetail & { coherence?: LibFamilyCoherence }).coherence} />
             {/* fixup-ae (L7): the judged figure's rule, beside it — the one resolver, and which rule judged how many */}
             <div className="lib-cap" style={{ fontSize: 10.5 }} data-testid="judged-rule">judged {judged} of {members.length} by the divergence resolver{Object.keys((detail.family as typeof detail.family & { view?: LibFamilyView }).view?.judgedBy ?? {}).length ? ` — ${Object.entries((detail.family as typeof detail.family & { view?: LibFamilyView }).view!.judgedBy).map(([k, n]) => `${k} ${n}`).join(' · ')}` : ''}: a Review verdict, else the event row it matches, else the reviewed windows it falls in · not exact span equality</div>
             {/* fixup-v: §8.5's *Seed search in Discovery →* — the family's exemplar, by its Library entry */}
