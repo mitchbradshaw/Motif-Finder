@@ -16,17 +16,18 @@ fixers in `isolation: worktree`; critics read the implementer's worktree and nev
 |---|---|---|---|---|---|---|---|
 | 1 | implementer | W2-A `catalogue.event_windows` | `a976297f07092286e` | `.claude/worktrees/agent-a976297f07092286e` | `worktree-agent-a976297f07092286e` | `04948e3` | reported 08:04 (`24459c7`, 41 min) → `W2-A-event-windows.md` |
 | 5 | critic | W2-A | `ad171620a734fc43f` | (reads row 1's worktree) | — | `04948e3` | reported ~08:22: **merge after fixes** (3 should-fix, 2 nits) → `W2-A-event-windows.critic.md` |
-| 1a | fixer (row 1 resumed) | W2-A fix round 1 | `a976297f07092286e` | row 1's | row 1's | `04948e3` | launched ~08:24; reported ~08:38 (`af9dbd7`) → `W2-A-event-windows.fix1.md`; **ready to merge** |
+| 1a | fixer (row 1 resumed) | W2-A fix round 1 | `a976297f07092286e` | row 1's | row 1's | `04948e3` | launched ~08:24; reported ~08:38 (`af9dbd7`) → `W2-A-event-windows.fix1.md`; **merged as `2efec8b`** |
 | 2 | implementer | W2-B Library `kshape` / `hdbscan` / `sbd` / `svd_entropy` | `ab19ca872abbd930c` | `.claude/worktrees/agent-ab19ca872abbd930c` | `worktree-agent-ab19ca872abbd930c` | `04948e3` | reported 09:14 (`ad160b4`, 111 min) → `W2-B-library-methods.md` |
 | 8 | critic | W2-B | `a4e5da8e050cafbf5` | (reads row 2's worktree) | — | `04948e3` | launched 09:15; reported 09:29: **merge after fixes** (2 blockers, 4 should-fix, 2 nits) → `W2-B-library-methods.critic.md` |
-| 2a | fixer (row 2 resumed) | W2-B fix round 1 | `ab19ca872abbd930c` | row 2's | row 2's | `04948e3` | launched 09:31 |
+| 2a | fixer (row 2 resumed) | W2-B fix round 1 | `ab19ca872abbd930c` | row 2's | row 2's | `04948e3` | launched 09:31; reported 11:07 (`d68f84d`) → `W2-B-library-methods.fix1.md` |
+| 8a | re-critic (row 8 resumed) | W2-B fix round 1, changed parts + the HDBSCAN size question | `a4e5da8e050cafbf5` | row 2's | — | — | launched 11:08 (the blockers were behavioural) |
 | 3 | implementer | W2-C `catalogue.minirocket` | `aa6497544feed7c56` | `.claude/worktrees/agent-aa6497544feed7c56` | `worktree-agent-aa6497544feed7c56` | `04948e3` | reported ~08:39 (`d497ca0`, 76 min) → `W2-C-minirocket.md` |
 | 7 | critic | W2-C | `a69d2ce5bd86b27c0` | (reads row 3's worktree) | — | `04948e3` | launched ~08:42; reported 09:06: **merge after fixes** (3 should-fix, 1 finding, 3 nits) → `W2-C-minirocket.critic.md` |
-| 3a | fixer (row 3 resumed) | W2-C fix round 1 | `aa6497544feed7c56` | row 3's | row 3's | `04948e3` | launched 09:08; reported 09:39 (`88613a1`) → `W2-C-minirocket.fix1.md`; **ready to merge** |
+| 3a | fixer (row 3 resumed) | W2-C fix round 1 | `aa6497544feed7c56` | row 3's | row 3's | `04948e3` | launched 09:08; reported 09:39 (`88613a1`) → `W2-C-minirocket.fix1.md`; **merged as `9a942a1`** |
 | 4 | implementer | W2-D `catalogue.snippets` | `acd4686fda90646ab` | `.claude/worktrees/agent-acd4686fda90646ab` | `worktree-agent-acd4686fda90646ab` | `04948e3` | reported ~08:36 (`8075b8d`, 73 min) → `W2-D-snippets.md` |
 | 6 | critic | W2-D | `a5c440b67361d69dd` | (reads row 4's worktree) | — | `04948e3` | launched ~08:37; reported 09:19: **merge after fixes** (1 blocker, 1 template blocker out of scope, 3 should-fix, 4 nits) → `W2-D-snippets.critic.md` |
 | 4a | fixer (row 4 resumed) | W2-D fix round 1 | `acd4686fda90646ab` | row 4's | row 4's | `04948e3` | launched 09:21; reported 09:42 (`a2c1bee`) → `W2-D-snippets.fix1.md` |
-| 6a | re-critic (row 6 resumed) | W2-D fix round 1, changed parts only | `a5c440b67361d69dd` | row 4's | — | — | launched 09:43 (the blocker was behavioural) |
+| 6a | re-critic (row 6 resumed) | W2-D fix round 1, changed parts only | `a5c440b67361d69dd` | row 4's | — | — | launched 09:43 (the blocker was behavioural); reported 10:49: **merge** (1 nit) → `W2-D-snippets.critic2.md`; **W2-D merged as `dd69db0`** |
 
 ## Events (chronological)
 
@@ -152,6 +153,58 @@ fixers in `isolation: worktree`; critics read the implementer's worktree and nev
   random walks at 48 h); real regimes clear it (6.8–15) but the margin at 120 pieces is thin (8.1 vs 7.1). Memory peak
   counted honestly (4 GB refusal; greedy step row by row). Template description now says ≥ 24 h, the amplitude-only
   limit, and the NaN behaviour exactly. 09:43 — re-critique of the changed parts sent to the W2-D critic (row 6a).
+- 10:0x — the peer sent **"gate done"** (its gate at `8ee3cd4`: pytest -n 4 2903 passed, 1 wall-clock failure
+  `test_adapter_trains::test_many_groups_and_many_events_run_in_linear_time` 1.84 s vs 1.5 s under load, passes 3/3
+  alone; full smoke 39 failures, all on Discovery / Settings / Review inspector / Library atlas / explore max-lag-10,
+  every Analyse group 0/0 on a re-run alone). The detrend session then started its own `pytest -n 4` (~25 min):
+  **hold my `pytest -n` and smoke until it sends "done"**; merges and serial targeted runs are fine.
+- 10:10 — committed the round-1 reports and ledger as `3fec87d`. **Merged W2-A as `2efec8b`** (no conflict); its
+  tests + block_standard / adapter_spec / import_boundaries / templates / end_to_end + grouping_adapter: 282 passed
+  (6.5 min, loaded machine).
+- 10:3x — **merged W2-C as `9a942a1`**: conflicts in `Adapters/catalogue_cluster.py` (W2-A's tuple return kept,
+  W2-C's `correlation_filter_note(preprocessed)` added to the meta) and the adapter counts (true count from
+  `discover_adapters()`: 51; both comment lines kept). 10:37 — its tests + W2-A's + grouping/model/manual-labels
+  adapters + the standard five: **380 passed** (13 min, loaded machine).
+- 10:49 — W2-D re-critique: **merge**. ~1,100 noise runs (12–120 h, 0.1 Hz proxy and 1 Hz) gave no false k > 1 under
+  the new cut (headroom 13–31 % on the worst null, the detrended random walk); planted minorities found except an 8 h
+  regime in 120 h (4/6, documented); one nit (a NaN in the knee's tail leaks into the reason text — `np.nanmedian`),
+  left for the integration commit. 10:50 — **merged W2-D as `dd69db0`** (conflicts: the adapter counts → 52).
+  `catalogue.minirocket` added to `COSTED` beside `catalogue.snippets` (integration, uncommitted yet).
+- 10:51 — found `docs/prompts/blocks/00-common.md`, `critic.md`, `README.md` modified (uncommitted) in the main
+  checkout: the peer is writing wave-3 prompts (with wave-2 lessons). Not mine — not staged. Asked the peer whether
+  they apply to wave 2 (round 2 reads 00-common / critic) and to commit them before round 2 if so.
+- 10:5x — the peer committed them as `cdd817a` ("blocks-w3: prompts for wave 3 …; wave 2's lessons in 00-common and
+  critic"), meant for round 2 too; round 2 is cut after it. The W2-D re-critique nit fixed on main test-first
+  (`cefd0d0` red → `6134c35`); `COSTED` gains `catalogue.minirocket` (`fb195d5`). W2-D post-merge tests: 301 passed.
+- 10:57 — the detrend-NaN session's gate in its worktree: 2909 passed, 3 failed, all environmental (an absent Plots
+  file in a worktree; two Trains wall-clock budgets under 100 % CPU). **Merged its branch as `b7d6e99`** with its
+  agreement (decision 15); `test_detrend_nan`, `test_template_fluss_regimes`, `test_templates`: 78 passed.
+- 10:58 — evaluations started in the sandbox: `eval_event_clusters.py --extra` and `eval_minirocket.py` (scratch
+  `eval/`), in parallel.
+- 11:03 — **`event_clusters` does not beat its null**: rec 385 (4 h) has no events at 4 σ (the template refuses at
+  the cluster step, in words); rec 1 24 h silhouette 0.41 vs shape-null 0.34–0.59 (p 0.71); rec 3 24 h 0.37 vs
+  0.35–0.73 (p 0.95). The surrogate draws found no events at all, so the shape null was used (as the brief says).
+  The MiniRocket run's own chain numbers came in (rec 3: balanced 0.87 vs majority 0.51; rec 16: balanced 0.68 vs
+  majority 0.69) but my evaluation script crashed in the blocked-split step (`assign_split` returns a pair) — fixed
+  and rerun from the start.
+- 11:07 — `event_clusters` finished: it also fails on both known chains (rec 3 500–530 h 0.48 vs 0.30–0.55, p 0.33;
+  rec 6 380–460 h 0.36 vs 0.32–0.60, p 0.90) → **EXPERIMENTAL**. MiniRocket rec 3 **beats** its label-permutation
+  null on the classifier's random holdout (0.868 vs null max 0.654, p 0.048) and on a blocked-by-time holdout
+  (balanced 0.856 vs 0.632, p 0.048) — no sign of leakage.
+- 11:07 — W2-B fix round 1 reported (11 commits; 516 passed + 3 xpassed with the venv python): surrogate null for
+  both methods, flags to the editor and Library (`groupings.fit_summary_json`), cost before the job (422 + cheaper
+  settings), one-start k sweep (auto k 1,115 s → 181 s at 3,603), cancel, edge-padded alignment, coherence null and
+  σ² variant, `epsilon`. **Its warning:** at Library size and 15 % noise the HDBSCAN rule flags REAL (merged) families
+  noise_like — their separation loses to small tight surrogate crowds though their size wins. Dry-run merge into
+  main: clean. 11:08 — re-critique of the changed parts sent (row 8a), with the size-matched rule as a question;
+  fix round 2 follows its report.
+- 11:12 → 12:37 — the machine slept (one snippets surrogate draw took 5,081 s against ~30 s for its neighbours; the
+  MiniRocket rec-4 chain 5,302 s); everything resumed on its own. The researcher wrote "carry on".
+- 12:39 — **`minirocket_manual_labels` beats its label-permutation null on all three recordings, on both holdouts**:
+  rec 3 0.868 vs null max 0.654 (blocked: balanced 0.856 vs 0.632); rec 16 0.774 vs 0.696 (blocked 0.675 vs 0.529);
+  rec 4 0.836 vs 0.686 (blocked 0.847 vs 0.607); all p = 0.048 → **ships**. The Catch22 arm (`manual_labels_model`)
+  is running on the same recordings for the comparison. The peer made one more docs-only commit on main (`8fc6e62`,
+  wave-3 scope: MPdist only) — no wave-2 file touched.
 
 ## Decisions taken on the researcher's behalf
 
@@ -202,3 +255,7 @@ fixers in `isolation: worktree`; critics read the implementer's worktree and nev
     start per candidate k (the chosen k gets `n_init`): a named adaptation that cuts its cost about tenfold.
 14. **Coherence (eq. 17) stays the headline but is shown beside its own null** ("noise like these members' scores
     X") with the σ² variant and `top_share` returned too; squared vs unsquared goes to the researcher as a question.
+15. **The researcher's detrend-NaN branch is merged by the manager** (`b7d6e99`), with that session's agreement.
+    Reason: the session merges nothing itself and left the merge to the manager or the researcher; the fix is
+    bit-identical on finite input (every stored recording), and it removes the W2-D critic's "template blocker", so
+    `recording_snippets` can ship without a NaN warning.
