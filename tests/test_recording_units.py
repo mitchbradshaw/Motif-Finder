@@ -281,8 +281,10 @@ def test_materialize_arbitrary_file_writes_the_units_key_and_the_row(tmp_path, m
 # ------------------------------------------------ the core is not moved --
 
 def test_the_core_still_receives_the_stored_samples(tmp_path):
-    """detect5/store multiply by 1000 themselves: a converted array reaching them
-    would yield amplitudes 1000x too large. The executor's loader is untouched."""
+    """The executor's loader is untouched: the core is handed the stored samples
+    whatever their unit. A block that reports mV is TOLD the recording's unit and
+    converts by it (2026-10-15, the researcher's choice over converting on load,
+    QUESTIONS.md Q20); a converted array reaching it would read 1000x too small."""
     from Working.execution import _load_signal
     x = np.array([-0.45839212, -0.45842311, -0.45842109, -0.44], dtype=np.float64)
     p = str(tmp_path / "CH0.npy"); np.save(p, x)
@@ -294,8 +296,11 @@ def test_the_core_still_receives_the_stored_samples(tmp_path):
 
 def test_the_step_cache_key_does_not_see_the_unit(tmp_path):
     """The cache key is the recipe-prefix hash. Declaring a unit does not change
-    the core's input, so it must not change the key either — and a cached step
-    keeps its meaning (see the report, 'the step cache')."""
+    the core's input, so for a prefix with no block that is TOLD the unit (here a
+    baseline removal) it must not change the key either — and a cached step keeps
+    its meaning (see the report, 'the step cache'). A prefix that holds such a
+    block keys on a unit that is not volts: 2026-10-15,
+    tests/test_units_reach_the_blocks.py."""
     from Working.execution import _recipe_prefix_hash
     recipe = {"recording_id": 7, "span": [0, 100], "steps": [{"stage": "preprocessing", "algorithm": "detrend", "params": {}}]}
     before = _recipe_prefix_hash(recipe, 0)
