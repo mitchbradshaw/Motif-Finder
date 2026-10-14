@@ -52,6 +52,8 @@ COSTED = (
     # wave 1 of the blocks from the literature (docs/prompts/blocks/)
     "preprocessing.beads", "detection.deconvolve", "detection.fluss", "interrogation.trains",
     "detection.cwt_ridges",
+    # wave 2
+    "catalogue.snippets",
 )
 
 
