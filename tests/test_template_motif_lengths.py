@@ -61,7 +61,7 @@ TEMPLATE = {
          "params": {"mode": "rolling_mean", "window_s": 7200.0}},
         {"stage": "detection", "algorithm": "pan_matrix_profile",
          "params": {"min_window_s": 30.0, "max_window_s": 3600.0, "n_lengths": 12, "null_draws": 3,
-                    "null": "aaft", "seed": 0, "max_fill_s": 5.0}},
+                    "null": "aaft", "seed": 0, "max_fill_s": 5.0, "stall_s": 60.0}},
     ],
 }
 

@@ -206,6 +206,56 @@ def test_there_is_no_approximate_mode():
     assert not hasattr(P, "scrump_cost_factor")
 
 
+def _through_the_template_detrend(x):
+    """The motif_lengths template's first step, run as the template runs it."""
+    from Adapters.registry import discover_adapters, get_adapter
+    discover_adapters()
+    spec = get_adapter("preprocessing.detrend")
+    kw = spec.validate_params({"mode": "rolling_mean", "window_s": 7200.0})
+    return np.asarray(spec.run(x, np.arange(len(x)) / FS, FS, **kw).value.x, dtype=float)
+
+
+@pytest.mark.parametrize("stall_s", [180, 1200])
+def test_a_raw_flatline_is_caught_after_the_templates_detrend(stall_s):
+    """The critic's case (fix round 2): a held value in the RAW trace, then the template's 2 h rolling-mean
+    detrend, which turns it into a gentle near-linear curve (no two samples equal) — before round 2 it was not
+    caught (n_stalled 0) and gave a confident suggestion. Now counted as stalled, and nothing is suggested."""
+    raw = np.cumsum(np.random.default_rng(11).standard_normal(4 * 3600))
+    raw[6000:6000 + stall_s] = raw[6000]
+    x = _through_the_template_detrend(raw)
+    assert len(np.unique(x[6000:6000 + stall_s])) == stall_s       # no exact repeats left
+    out = P.pan_matrix_profile(x, FS)
+    assert out["n_stalled"] >= 0.95 * stall_s, out["n_stalled"]
+    assert out["n_stalled"] <= stall_s + 4
+    assert out["suggested_window_s"] is None, out["verdict"]
+
+
+def test_a_quantised_logger_is_not_a_stall_but_a_real_stall_on_it_is():
+    """A 1 Hz logger whose ADC step is 1/5 of the signal's spread, fed straight to the block: with the 5 s
+    max_fill_s as the stall threshold it lost 24.7 % of its samples (the re-critique); with stall_s (60 s) it
+    must lose < 1 %. A 20 min held stretch on the same logger is still caught."""
+    a = syn.ar1(4 * 3600, 0.97, seed=21)
+    q = a.std() / 5.0
+    x = np.round(a / q) * q
+    out = P.pan_matrix_profile(x, FS, null_draws=0)
+    assert out["n_stalled"] < 0.01 * len(x), out["n_stalled"]
+    y = x.copy()
+    y[5000:6200] = y[5000]
+    out = P.pan_matrix_profile(y, FS, null_draws=0)
+    assert out["n_stalled"] >= 1200
+
+
+def test_stalls_have_their_own_threshold():
+    import inspect
+    assert inspect.signature(P.pan_matrix_profile).parameters["stall_s"].default == 60.0
+    x = syn.no_structure("random_walk", 2 * 3600, seed=4)
+    x[1000:1030] = x[1000]                                    # 30 s held: under stall_s, kept
+    assert P.pan_matrix_profile(x, FS, min_window_s=20, max_window_s=40, n_lengths=2,
+                                null_draws=0)["n_stalled"] == 0
+    assert P.pan_matrix_profile(x, FS, min_window_s=20, max_window_s=40, n_lengths=2, null_draws=0,
+                                stall_s=20)["n_stalled"] >= 30
+
+
 def test_a_stalled_logger_is_a_long_gap_not_a_repeat():
     x = syn.no_structure("random_walk", 2 * 3600, seed=3)
     x = _detrended(x)
@@ -267,7 +317,8 @@ def test_the_band_of_cleared_lengths_is_reported(planted):
     assert cs == sorted(cs) and cs == sorted(d["length_s"] for d in out["per_length"] if d["clears"])
     assert out["suggested_window_s"] in cs
     assert out["verdict"].startswith("clears from" if len(cs) > 1 else "clears at")
-    assert "strongest at" in out["verdict"]
+    assert "strongest gap at" in out["verdict"] and "not an event length" in out["verdict"]
+    assert "suggested" not in out["verdict"]
 
 
 def _near(seconds, target):

@@ -54,7 +54,7 @@ def test_spec_is_a_signal_to_image_encoding_block():
     assert spec.recommend is not None and spec.derive is not None
     defaults = spec.validate_params({})
     assert defaults == {"min_window_s": 30.0, "max_window_s": 3600.0, "n_lengths": 12, "null_draws": 3,
-                        "null": "aaft", "seed": 0, "max_fill_s": 5.0}
+                        "null": "aaft", "seed": 0, "max_fill_s": 5.0, "stall_s": 60.0}
     with pytest.raises(ValueError):
         spec.validate_params({"percentage": 0.5})                 # no approximate mode (F5)
     d = spec.description
@@ -94,7 +94,10 @@ def test_the_band_and_the_suggestion_caveat_are_on_the_face():
     res = _run(x)
     m = res.meta
     assert m["cleared_s"] and m["suggested_window_s"] in m["cleared_s"]
-    assert "clears" in m["summary"] and "strongest at" in m["summary"]
+    assert "clears" in m["summary"] and "strongest gap at" in m["summary"]
+    assert "not an event length" in m["summary"]
+    assert "suggested" not in m["summary"]                     # a page user reads only this line
+    assert "not a window to hand" in _spec().description
     rules = {r["name"]: r["rule"] for r in m["rules"]}
     assert "suggested window" in rules and "not the event" in rules["suggested window"]
     assert m["null"] == "aaft" and "reasons" in m and "n_stalled" in m
