@@ -14,7 +14,10 @@ batched matrix (`sbd_matrix`) and the zero-padded shift (`zero_pad_shift`).
 What these tests pin:
   * a shape against its own shifted copy (zero-padded, not wrapped) scores ~0
     and reports the shift that undoes it;
-  * a shape against its negative scores ~2 (~1 on the methods' /2 scale);
+  * a shape against its negative is -1 correlated at zero shift, but SBD
+    takes the best shift: a one-signed pulse's negative scores 1 (0.5 on the
+    methods' /2 scale, "unrelated"), a z-normalised shape's lower still,
+    because some shift lines up a lobe of -x with a lobe of x;
   * the FFT form matches a direct O(m^2) loop over every lag to 1e-10, for the
     pair and for the matrix, so the speed-up is not an approximation;
   * the shifts are not cyclic: a pattern that only matches when wrapped round

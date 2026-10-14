@@ -1124,3 +1124,86 @@ def test_a_grouping_too_costly_to_run_here_is_refused_before_it_starts(bridge):
     assert detail["cheaper"], "the refusal names settings that would fit"
     after = _ok(client.get("/api/jobs"))
     assert len(after) == len(before), "no job was started"
+
+
+# ── w2-b fix round 1, item 7: `_family_coherence` ─────────────────────────
+
+def _coherence_index(tmp_path, held=False):
+    t = np.arange(2000.0)
+    path = tmp_path / "coh.npy"
+    np.save(path, (np.sin(t / 30.0) + 0.01 * np.cos(t / 3.0)).astype(np.float32))
+    index = {"by_id": {1: {"npy_path": str(path), "held_out": False},
+                       2: {"npy_path": str(path), "held_out": True}}}
+    return index, path
+
+
+def _rows(spans, medoid=None, exemplar=None):
+    return [{"recording_id": rid, "start_idx": a, "end_idx": a + 90, "member_id": i + 1,
+             "is_medoid": i == medoid, "is_exemplar": i == exemplar, "distance": 0.1 * (i + 1)}
+            for i, (rid, a) in enumerate(spans)]
+
+
+def _counting(monkeypatch):
+    from Working.library import coherence
+    calls = []
+    real = coherence.svd_entropy
+
+    def spy(*a, **k):
+        calls.append(k)
+        return real(*a, **k)
+    monkeypatch.setattr(coherence, "svd_entropy", spy)
+    return calls
+
+
+def test_the_coherence_cache_is_real_and_keyed_on_the_files_mtime(tmp_path, monkeypatch):
+    import server.library as lib
+    lib._COHERENCE_CACHE.clear()
+    calls = _counting(monkeypatch)
+    index, path = _coherence_index(tmp_path)
+    rows = _rows([(1, 100), (1, 290), (1, 480)], medoid=0)
+    first = lib._family_coherence(index, rows)
+    second = lib._family_coherence(index, rows)
+    assert len(calls) == 1 and second is first, "the second read is the cache"
+    # the channel is re-derived (a new mtime; on Windows the memmapped file cannot be
+    # rewritten under the open map, so the test moves only the mtime) -> recomputed
+    os.utime(path, ns=(time.time_ns(), time.time_ns() + 10 ** 9))
+    third = lib._family_coherence(index, rows)
+    assert len(calls) == 2 and third is not first
+    lib._COHERENCE_CACHE.clear()
+
+
+def test_held_out_members_are_counted_not_dropped_in_silence(tmp_path, monkeypatch):
+    import server.library as lib
+    lib._COHERENCE_CACHE.clear()
+    index, _ = _coherence_index(tmp_path)
+    out = lib._family_coherence(index, _rows([(1, 100), (1, 290), (2, 480)], medoid=0))
+    assert out["heldOut"] == 1 and out["n_members"] == 2 and out["notOnDisk"] == 0
+    lib._COHERENCE_CACHE.clear()
+
+
+def test_no_medoid_search_runs_inside_the_request(tmp_path, monkeypatch):
+    """A P^2 medoid search was 10 s at 2,000 members inside a GET: with no
+    medoid among the shown rows the exemplar anchors, else the row of least
+    stored distance."""
+    import server.library as lib
+    lib._COHERENCE_CACHE.clear()
+    calls = _counting(monkeypatch)
+    index, _ = _coherence_index(tmp_path)
+    lib._family_coherence(index, _rows([(1, 100), (1, 290), (1, 480)], exemplar=2))
+    assert calls[-1]["medoid"] == 2
+    lib._COHERENCE_CACHE.clear()
+    lib._family_coherence(index, _rows([(1, 100), (1, 290), (1, 480)]))
+    assert calls[-1]["medoid"] == 0, "least stored distance"
+    lib._COHERENCE_CACHE.clear()
+
+
+def test_a_one_member_family_says_why_in_words_and_carries_the_null(tmp_path):
+    import server.library as lib
+    lib._COHERENCE_CACHE.clear()
+    index, _ = _coherence_index(tmp_path)
+    one = lib._family_coherence(index, _rows([(1, 100)], medoid=0))
+    assert one["svd_entropy"] is None and isinstance(one["reason"], str) and one["reason"]
+    lib._COHERENCE_CACHE.clear()
+    many = lib._family_coherence(index, _rows([(1, 100), (1, 290), (1, 480), (1, 670)], medoid=0))
+    assert many["null_median"] is not None and many["svd_entropy_squared_norm"] is not None
+    lib._COHERENCE_CACHE.clear()
