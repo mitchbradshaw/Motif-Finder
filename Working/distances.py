@@ -213,10 +213,29 @@ def symbolic_distance(x1, x2, word_length, alphabet_size=10):
 # 5. k = min(ceil(percentage x n_eff), pool size - 1), where n_eff is the two
 #    lengths less the pieces left out; the value is the k-th smallest of the
 #    pool (0-based) — stumpy's rule, which it reduces to exactly when nothing
-#    is left out. `percentage` = 0.05 (the paper's 5 %, stumpy's default) reads
-#    the distance below which about one in twenty of the pooled closest-piece
-#    distances fall: two members are close when about 5 % of their pieces have
-#    a close partner. NOT stumpy.snippets' `percentage` (that one sets s).
+#    is left out. NOT stumpy.snippets' `percentage` (that one sets s).
+#    k is a share of the SAMPLE count |A| + |B| (the paper's definition), not
+#    of the pool: the pool holds only |A| + |B| - 2(s - 1) entries, so at the
+#    default sub-length (half the shorter member) k sits about twice as deep
+#    in the pool as `percentage` says. `mpdist_detail` returns the real share
+#    as `pool_share` = k / pool.
+#    **Adaptation (fix round 1, decision 11): `percentage` = 0.25, not the
+#    paper's and stumpy's 0.05.** At 0.25 the value read is about the MEDIAN
+#    of the pooled closest-piece distances (pool_share 0.45-0.50; at 0.05 it
+#    was 0.09-0.11). The paper's 5 % suits long series that share a few
+#    patterns; Library members are cut tight around one event, so its
+#    permissiveness bought nothing and cost discrimination. The critic's
+#    measurement (W3-D critic F4; coloured noise AR(1) phi 0.97 and a detrended
+#    random walk at sd 0.2 of the event's depth, 150-454 samples, 30 pairs a
+#    cell): drop and square dip confused in 3-33 % of pairs at 0.25 against
+#    20-63 % at 0.05; drop and spike 3-30 % against 10-40 %; the 30 %-extra-
+#    baseline case unchanged (0.83-1.13x of same-shape at both). At 38 samples
+#    and at sd 0.4 neither value tells shapes apart. Mine (300 samples, 12
+#    pairs, `tests/test_mpdist_distance.py` pins it): at sd 0.1 the square sits
+#    1.4x above same-shape pairs; at sd 0.2, 1.05x (AR(1)) and 1.2x (walk).
+#    **So at realistic noise MPdist does not reliably tell shapes apart**; what
+#    it keeps is that extra baseline or a tighter cut does not count against a
+#    shared shape.
 # 6. **The footing**: value = raw / sqrt(2 s). For z-normalised pieces
 #    raw = sqrt(2 s (1 - r)), so the value is sqrt(1 - r) of the piece pair it
 #    reads: 0 for an identical sub-shape, 1 for an uncorrelated one, sqrt(2)
@@ -231,15 +250,21 @@ def symbolic_distance(x1, x2, word_length, alphabet_size=10):
 # memory — but `stumpy.stump` is numba-compiled without a cache: its first call
 # in a fresh process took 40-106 s here (measured three times, machine under load),
 # and every later call has a ~6 ms parallel-launch floor (12 ms a pair). The
-# dense engine is plain numpy: no compile, ~3-4 ms a pair at 60-300 samples. So
-# the first *Add N matches* in a bridge process pays no compile unless a pair
-# is past the dense budget (members longer than ~15 min at 1 Hz). `snippets.mpdist_profiles` computes a piece
+# bridge already pays that compile at start: `webui/server/app.py` warms
+# `stumpy.stump` once, which covers this AB-join (the critic measured the first
+# stumpy-engine call after that warm-up at ~0 s), so no extra warm-up is added;
+# the only exposure is a request in the first ~40 s after the bridge starts,
+# and the route runs in FastAPI's threadpool, so the event loop is not blocked.
+# The dense engine is plain numpy: no compile, ~3-4 ms a pair at 60-300 samples,
+# for pairs within the dense budget (members up to ~15 min at 1 Hz).
+# `snippets.mpdist_profiles` computes a piece
 # against every position of a whole series (a profile), not one number
 # between two members; deriving the pair from it would mean pretending one
 # member is "the series".
 #
 # The default sub-length, `sub_frac` = 0.5 of the shorter member, not
-# snippets' 0.35 (the paper's 70 of 200 example): measured on synthetic pairs
+# snippets' 0.35 (the paper's 70 of 200 example): measured (at percentage
+# 0.05, before fix round 1, white noise only) on synthetic pairs
 # (300 samples, white noise sd 0.05 on a unit drop), 0.5 gave same-shape 0.16,
 # 30 %-extra-baseline 0.16, drop vs square 0.39-0.40 (2.5x), and separated a
 # 0.8x-squeezed ringing shape (0.39 vs 0.11); 0.35 left the square at
@@ -250,21 +275,25 @@ def symbolic_distance(x1, x2, word_length, alphabet_size=10):
 # (20-sample members) the separation still held — same 0.15, square 0.35,
 # AR(1) phi 0.99 null median 0.49.
 #
-# Where coloured noise sits on the footing (measured, 300 samples, sub_frac
-# 0.5): AR(1) phi 0.99 pairs median 0.48-0.57 (5th percentile 0.29-0.36), a
-# detrended random walk 0.48-0.53 (0.31-0.37), white noise 0.85-0.92; a shared
-# shape at white-noise sd 0.05: 0.13-0.17; at sd 0.10: 0.28-0.31. A
-# z-normalised, amplitude-blind distance gives smooth noise plenty of shared
-# sub-shapes, so every value must be read beside its own null
-# (`mpdist_null`). A quiet member against an active one is invisible to it.
+# Where coloured noise sits on the footing (measured at percentage 0.05, 300
+# samples, sub_frac 0.5): AR(1) phi 0.99 pairs median 0.48-0.57 (5th
+# percentile 0.29-0.36), a detrended random walk 0.48-0.53 (0.31-0.37), white
+# noise 0.85-0.92; a shared shape at white-noise sd 0.05: 0.13-0.17. At the
+# default 0.25 every value reads a deeper order statistic and sits higher: a
+# shared drop on AR(1) phi 0.97 noise of sd 0.1 / 0.2 of its depth reads
+# 0.33 / 0.54, a drop against a square dip 0.45 / 0.57. A z-normalised,
+# amplitude-blind distance gives smooth noise plenty of shared sub-shapes, so
+# a value is read beside its null (`mpdist_null`) as context, never as a
+# verdict. A quiet member against an active one is invisible to it.
 
 DISTANCE_MPDIST = "mpdist"
 
 #: The sub-length as a fraction of the SHORTER member (measured, see above).
 MPDIST_SUB_FRAC = 0.5
-#: Which order statistic of the pooled closest-piece distances is read — the
-#: paper's 5 % and stumpy's default.
-MPDIST_PERCENTAGE = 0.05
+#: Which order statistic of the pooled closest-piece distances is read, as a
+#: share of the two members' sample count |A| + |B| — 0.25, an adaptation of
+#: the paper's 0.05 (decision 11, step 5 above); about half the pool.
+MPDIST_PERCENTAGE = 0.25
 #: The shortest sub-length compared (a placeholder floor, see above); the
 #: shorter member must hold two such pieces.
 MPDIST_MIN_SUB_LENGTH = 8
@@ -277,34 +306,51 @@ MPDIST_MIN_SUB_LENGTH = 8
 MPDIST_DENSE_MAX_WORK = 100_000_000
 #: A member more than this share NaN is refused (`catalogue.snippets`' rule).
 MPDIST_MAX_NAN_FRACTION = 0.5
-#: The null: the Library's shared trend-kept surrogates, NULL_DRAWS (5) draws
-#: as `Working.library.coherence` does, and its placeholder 0.9 margin.
+#: The null's draws: the Library's shared trend-kept surrogates, NULL_DRAWS (5)
+#: as `Working.library.coherence` does. Context only — it carries no verdict.
 MPDIST_NULL_DRAWS = 5
-MPDIST_NULL_MARGIN = 0.9
 
 MPDIST_FOOTING = ("MPdist divided by sqrt(2 x sub-length): sqrt(1 - r) of the sub-piece pair it reads — 0 an "
                   "identical sub-shape, 1 an uncorrelated one, sqrt(2) a mirror. Not on any length's footing: "
                   "compare it only with other MPdist values and with its null, never with a seed run's cut.")
 
+#: What `mpdist_null`'s numbers are, and why they carry no verdict (W3-D critic F3).
+MPDIST_NULL_NOTE = (
+    "Context, not a verdict: the same distance between trend-kept phase-randomised surrogates of the two "
+    "members (each member's colour and cubic trend kept, its shape destroyed). The surrogate is biased: on "
+    "coloured noise the real value sits below its own null median in 65-70 % of pairs, and a trough — a "
+    "smooth shape that fills its window — keeps its curve in its surrogate and sits at its null (the "
+    "cubic-trend blind spot). A value below the null is therefore not evidence of a shared shape, and a "
+    "value at the null is not evidence against one.")
+
+#: Who reads what: "missing" in the scale read-out (W3-D critic F6).
+MPDIST_MISSING_RULE = (
+    "missing = accepted members with no MPdist edge: refused (too short, flat or mostly gap: MPdist cannot "
+    "compare them, said in words) or not_computed (added before MPdist existed — run Add N matches again, "
+    "which adds only the missing MPdist edges).")
+
 MPDIST_RULE = (
     "MPdist (Gharghabi et al. 2018): slide a piece half the shorter member long along both members, find each "
-    "piece's closest piece in the other (z-normalised: shape only), pool both directions and read the value "
-    "below which 5 % of the pool falls; flat pieces and pieces touching a gap are left out. " + MPDIST_FOOTING
-    + " Null: the same distance between trend-kept phase-randomised surrogates of the two members (each "
-    f"member's colour and cubic trend kept), {MPDIST_NULL_DRAWS} seeded draws; beyond_noise = value < "
-    f"{MPDIST_NULL_MARGIN} x null_p05 (a placeholder margin). Measured on pure coloured-noise pairs (AR(1) "
-    "phi 0.99, random walk), 10-20 % of single pairs are called beyond noise, so read it across a family's "
-    "pairs, not pair by pair. Not a scale verdict: a squeezed copy of a smooth shape shares its sub-shapes "
-    "with the original. Amplitude-blind: a quiet member and an active one are not told apart.")
+    "piece's closest piece in the other (z-normalised: shape only), pool both directions and read the k-th "
+    "smallest, k = 25 % of the two members' sample count |A| + |B| (the paper's form, with 25 % in place of its "
+    "5 %) — about half of the pool, i.e. roughly the median closest-piece distance; flat pieces and pieces "
+    "touching a gap are left out. " + MPDIST_FOOTING + " At realistic coloured noise (sd 0.2 of an event's "
+    "depth) it does not reliably tell different shapes apart (a drop against a square dip reads 1.05-1.2x a "
+    "shared drop); what it keeps is that extra baseline or a tighter cut does not count against a shared "
+    "shape. Not a scale verdict: a squeezed copy of a smooth shape shares its sub-shapes with the original. "
+    "Amplitude-blind: a quiet member and an active one are not told apart. Null (context only): "
+    + MPDIST_NULL_NOTE)
 
-#: The read-out's tooltip, worded so it cannot be read as a scale verdict.
+#: The read-out's tooltip, worded so it cannot be read as a scale verdict or a
+#: shape discriminator.
 MPDIST_TOOLTIP = (
     "Shared sub-shapes (MPdist): how closely short pieces of one member find matching pieces anywhere in the "
-    "other, each at its own speed. Small means they share sub-shapes — extra baseline or a tighter cut does "
-    "not count against them. It is NOT a scale verdict: a time-squeezed copy of a smooth shape still shares "
-    "its sub-shapes with the original, so a small value does not say the motif survives rescaling — read the "
-    "scale-invariant distance against the native-length control for that. 0 = identical sub-shapes, 1 = no "
-    "more alike than unrelated pieces; read it beside its noise null.")
+    "other, each at its own speed. Extra baseline or a tighter cut does not count against them. It is NOT a "
+    "scale verdict: a time-squeezed copy of a smooth shape still shares its sub-shapes with the original, so "
+    "a small value does not say the motif survives rescaling — read the scale-invariant distance against the "
+    "native-length control for that. Nor can it tell different shapes apart once noise is realistic: a drop "
+    "and a square dip score nearly alike. 0 = identical sub-shapes, 1 = no more alike than unrelated pieces; "
+    "the noise figure beside it is context, not a test.")
 
 
 class MPdistRefused(ValueError):
@@ -453,7 +499,7 @@ def mpdist_detail(x1, x2, sub_frac=MPDIST_SUB_FRAC, percentage=MPDIST_PERCENTAGE
     return {"value": raw / math.sqrt(2.0 * s), "raw": raw, "sub_length": int(s), "k": k, "pool": int(len(pool)),
             "excluded_flat": int(flat_a.sum() + flat_b.sum()), "excluded_gap": int(gap_a.sum() + gap_b.sum()),
             "sub_frac": sub_frac, "percentage": percentage, "footing": MPDIST_FOOTING,
-            "engine": "dense" if dense else "stumpy"}
+            "engine": "dense" if dense else "stumpy", "pool_share": k / float(len(pool))}
 
 
 def mpdist_distance(x1, x2, sub_frac=MPDIST_SUB_FRAC, percentage=MPDIST_PERCENTAGE):
@@ -465,17 +511,30 @@ def mpdist_distance(x1, x2, sub_frac=MPDIST_SUB_FRAC, percentage=MPDIST_PERCENTA
 
 def mpdist_null(x1, x2, draws=MPDIST_NULL_DRAWS, seed=0, sub_frac=MPDIST_SUB_FRAC,
                 percentage=MPDIST_PERCENTAGE):
-    """The value beside its noise: MPdist between trend-kept phase-randomised
-    surrogates of the two members (`Working.library.grouping.methods.kshape.
-    trend_kept_surrogates`, the Library's shared surrogate — each member's
-    colour and cubic trend kept, its shape destroyed), `draws` seeded draws.
+    """The value beside its noise, as CONTEXT ONLY: MPdist between trend-kept
+    phase-randomised surrogates of the two members (`Working.library.grouping.
+    methods.kshape.trend_kept_surrogates`, the Library's shared surrogate —
+    each member's colour and cubic trend kept, its shape destroyed), `draws`
+    seeded draws.
 
-    Returns `{value, null_median, null_p05, draws, beyond_noise, margin,
-    rule}`; `beyond_noise` = value < MPDIST_NULL_MARGIN x null_p05. A
-    member's gaps are filled by straight lines for the surrogate only and put
-    back as NaN, so the surrogate leaves out the same pieces. Blind spot (the
-    surrogate's, `coherence.SMOOTH_CAVEAT`): a smooth member that is one slow
-    curve keeps that curve in its own surrogate."""
+    Returns `{value, null_median, null_p05, draws, note, rule}` and no verdict
+    (fix round 1, W3-D critic F3, decision 12). Measured by the critic over
+    1,746 noise pairs and 1,500 shared-shape pairs: the surrogate is biased —
+    coloured noise sits below its own null median in 65-70 % of pairs, so any
+    "below the null" rule calls pure noise a shared shape (11 % of single pairs
+    at 0.9 x p05, 14-100 % of pure-noise families by their median); and a
+    trough keeps its curve in its own surrogate and sits at its null (6 %
+    power at sd 0.2: the cubic-trend blind spot, `coherence.SMOOTH_CAVEAT`).
+    `note` (`MPDIST_NULL_NOTE`) says so in words for the page.
+
+    Follow-up, if a verdict is wanted: an EMPIRICAL null — the same distance
+    from the exemplar to windows of the member's own recording at the
+    member's length, sampled from quiet stretches — which keeps the real
+    colour without the cubic-trend blind spot. That is the quiet-stretch
+    sampler W3-G is building (`Working/background_null.py`).
+
+    A member's gaps are filled by straight lines for the surrogate only and
+    put back as NaN, so the surrogate leaves out the same pieces."""
     from Working.Detection.matrix_profiling.snippets import fill_nan
     from Working.library.grouping.methods.kshape import null_rng, trend_kept_surrogates
 
@@ -490,10 +549,27 @@ def mpdist_null(x1, x2, draws=MPDIST_NULL_DRAWS, seed=0, sub_frac=MPDIST_SUB_FRA
             y[bad] = np.nan
             sur.append(y)
         null.append(mpdist_distance(sur[0], sur[1], sub_frac=sub_frac, percentage=percentage))
-    p05 = float(np.percentile(null, 5))
-    return {"value": float(value), "null_median": float(np.median(null)), "null_p05": p05,
-            "draws": int(draws), "beyond_noise": bool(value < MPDIST_NULL_MARGIN * p05),
-            "margin": MPDIST_NULL_MARGIN, "rule": MPDIST_RULE}
+    return {"value": float(value), "null_median": float(np.median(null)),
+            "null_p05": float(np.percentile(null, 5)), "draws": int(draws),
+            "note": MPDIST_NULL_NOTE, "rule": MPDIST_RULE}
+
+
+def mpdist_member_refusal(x):
+    """Why MPdist would refuse this member against ANY other, in words, or
+    None: more than half NaN, flat, or shorter than 2 x MPDIST_MIN_SUB_LENGTH
+    samples (at the default `sub_frac`, a member that long always has a
+    sub-length of at least the floor). A pair can still be refused for a
+    reason of the pair (no shaped piece at the pair's sub-length) — rare, and
+    `mpdist_detail` says so when it happens."""
+    x = np.asarray(x, dtype=float).ravel()
+    need = 2 * MPDIST_MIN_SUB_LENGTH
+    if len(x) < need:
+        return f"too short: {len(x)} samples; MPdist needs at least {need} (two sub-pieces of {MPDIST_MIN_SUB_LENGTH})"
+    try:
+        _mpdist_member(x, "")
+    except MPdistRefused as err:
+        return str(err).replace("member  ", "member ")
+    return None
 
 
 DISTANCE_REGISTRY = {
@@ -519,9 +595,10 @@ DISTANCE_REGISTRY = {
 # divided by 2 so it sits on the grouping editor's [0, 1] cut scale beside
 # Ward's normalised distance (`Working.library.grouping.methods.ward`).
 #
-# It is NOT in `DISTANCE_REGISTRY`: that registry names the three distances an
-# imported `motif_edge` may record (`Pipelines/import_drop_motifs`), and SBD is
-# a clustering distance, not an edge distance anyone records yet.
+# It is NOT in `DISTANCE_REGISTRY`: that registry names the distances a
+# `motif_edge` may record (the three of T35 and MPdist, w3-d; the drop-motif
+# importer takes only the three), and SBD is a clustering distance, not an
+# edge distance anyone records yet.
 #
 # Why not reuse `Working.cross_channel.cross_correlate`: it is one pair at a
 # time through `scipy.signal.correlate`, it resamples the two inputs to a

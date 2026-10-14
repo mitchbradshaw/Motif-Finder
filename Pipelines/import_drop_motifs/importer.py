@@ -46,7 +46,11 @@ from Working.Detection.drop_motifs import cluster, store
 from Working.database import queries as q
 from Working.database import runs as R
 from Working.database.schema import ENTRY_SCALE_EVENT, ENTRY_SCALE_TRAIN, init_db
-from Working.distances import DISTANCE_REGISTRY, DISTANCE_SCALE_INVARIANT
+from Working.distances import DISTANCE_MPDIST, DISTANCE_REGISTRY, DISTANCE_SCALE_INVARIANT
+
+#: The distances the importer records on an edge: the registry's, less MPdist
+#: (w3-d), whose per-pair refusals this loop is not built to report.
+IMPORT_DISTANCES = tuple(d for d in DISTANCE_REGISTRY if d != DISTANCE_MPDIST)
 
 _REPO_ROOT = os.path.dirname(
     os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -213,7 +217,7 @@ def import_drop_motifs(conn, bundle_dir, *, n_clusters=None, height=None,
         cut). The two ways to cut a dendrogram: a fixed number of families,
         or a fixed linkage height.
     distance_function : str
-        One of `Working.distances.DISTANCE_REGISTRY`, recorded on each edge.
+        One of `IMPORT_DISTANCES` (the registry less MPdist), recorded on each edge.
     threshold : float, optional
         The threshold recorded on every edge. Defaults to the linkage height
         that produced the cut.
@@ -230,10 +234,11 @@ def import_drop_motifs(conn, bundle_dir, *, n_clusters=None, height=None,
     """
     if n_clusters is not None and height is not None:
         raise ValueError("pass exactly one of n_clusters or height")
-    if distance_function not in DISTANCE_REGISTRY:
+    if distance_function not in IMPORT_DISTANCES:
         raise ValueError(
-            f"Unknown distance_function {distance_function!r}; must be one "
-            f"of {sorted(DISTANCE_REGISTRY)}"
+            f"distance_function {distance_function!r} is not one the importer takes; must be one "
+            f"of {sorted(IMPORT_DISTANCES)} (MPdist refuses short or flat members pair by pair, which "
+            f"this family loop does not report, so it is not offered here)"
         )
 
     # A bare `threshold` is the clustering cut: re-clustering at a new
