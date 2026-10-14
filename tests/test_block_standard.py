@@ -53,7 +53,7 @@ COSTED = (
     "preprocessing.beads", "detection.deconvolve", "detection.fluss", "interrogation.trains",
     "detection.cwt_ridges",
     # wave 2
-    "catalogue.snippets",
+    "catalogue.snippets", "catalogue.minirocket",
 )
 
 
