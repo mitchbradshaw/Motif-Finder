@@ -26,7 +26,7 @@ import pytest
 from sklearn.metrics import adjusted_rand_score
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-for p in (ROOT, os.path.join(ROOT, "tests")):
+for p in (ROOT, os.path.join(ROOT, "tests"), os.path.join(ROOT, "webui")):
     if p not in sys.path:
         sys.path.insert(0, p)
 
