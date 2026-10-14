@@ -369,7 +369,46 @@ instead of it.
   should-fixes, and both are done, so it merges (decision 19).
 - 03:29 — **merged W3-B as `4ab274d`**: conflicts in `BOOKKEEPING_COLUMNS`, the `BOOK` pin and the adapter count,
   each resolved by keeping both sides (count 56). Integration: `COSTED` gains `interrogation.cycle_shapes`;
-  `test_end_to_end`'s module count 56. Post-merge tests running.
+  `test_end_to_end`'s module count 56. Post-merge: **454 passed** (committed `880c5ee`).
+- 03:35 — **merged W3-G as `b81fa9c`** (no conflict: `background_null.py` auto-merged — W3-B's
+  `longest_free_*` keys and W3-G's `MemberBackground` side by side). Post-merge conda: **618 passed**; the venv
+  Library tests running.
+- 03:35 → 03:38 — **`chain_cycles` evaluated** (`eval3/eval_cycles.py`, the declared statistic: the block's own 20
+  background draws, σ² and eq. 17 both below every draw; the largest sequence; untested on fallback > 0.5 or a colour
+  mismatch):
+
+  | Chain | Cycles used | σ² real (draws' min) | eq. 17 real (draws' min) | Fallback / colour | K | Verdict |
+  |---|---|---|---|---|---|---|
+  | rec 3 490–540 h | 77 of 115 | 0.169 (0.445) | 0.652 (0.839) | 0 / no | 1 | **beats** |
+  | rec 6 370–470 h | 104 of 113 | 0.097 (0.298) | 0.457 (0.648) | 0 / no | 1 | **beats** |
+  | rec 542 370–490 h (10 Hz) | 120 of 155 (sequence 1) | 0.460 (0.795) | 0.918 (0.944) | 0 / no | 1 | **beats** |
+  | rec 2 294–304 h | 9 of 12 | — | — | — | — | no verdict: 9 usable cycles < 10 |
+
+  **3 of 3 long chains → ships** (`chain_cycles` moved into CANONICAL test-first, red `f84d335` → `6f07cff`, 18
+  passed; its description gained one sentence on reading the marks). Surrogate floor: the app's phase draws found 0
+  events on 19 of 20 draws (one draw: 1 event). Findings: **K = 1 on every chain** (SigClust p 0.10 / 0.10 / 0.90,
+  reported only; mode test p 0.23 / 0.79 / 0.70) — one cycle shape per chain, no change points, so no order test;
+  wave 2's `event_families` found two families on rec 6 (53, 13) and rec 542 (131, 11) from 600 s windows — the
+  whole-cycle view sees one shape (an 80/20 mixture at 30 % noise is where the K gate gave up power, so this does not
+  rule out a minority shape). Gaps: rec 3 lost 21 % of cycles as `gap_long` (the warning fired: the longest cycles).
+  **Floor fractions** (per cycle, median [p25–p75]): rec 3 0.109 [0.06–0.17], half recovery 0.25 — a trough, "mostly
+  back by the quarter point"; rec 6 0.205, half recovery 0.16; rec 542 0.016, half recovery 0.023; **rec 2's
+  labelled sharkfins (298.2–299.2 h, cycles 0–4) 0.02–0.03, half recovery 0.04–0.06**. The raw trace explains it:
+  each is a 50–78 mV drop that recovers half its depth within ~40 s, then sits 2–15 % of the depth below its starting
+  level until the next drop (10 bins: −0.43, −0.07, −0.03 … +0.01 of the depth). The block's floor band (the lowest
+  25 % of the cycle's range) cannot see a plateau that shallow — either these events are not sharkfins at the cycle
+  scale, or "the floor" should be measured against the pre-drop level. A question for the researcher.
+- 03:4x — **the species table** (`eval_mse.py --part species`; S. commune 600–602, C. militaris / F. velutipes /
+  O. nidiformis CH0–CH2 registered in the sandbox only, M2_aug rec 1–3; 72 h windows: 3 / 21 / 12 / 36 / 30): the
+  dataset-label silhouette on the 9 common scales is **0.428**, against **20 AAFT draws 0.22–0.37 (mean 0.29) — beats,
+  p = 1/21 (the floor)**; the plain-phase draws run on. Per-dataset median curves: the four Adamatzky species fall with
+  scale (S. commune 1.38 → 0.79, C. militaris 1.78 → 0.68, F. velutipes 1.68 → 0.55, O. nidiformis 1.36 → 0.07, the
+  steepest), M2_aug rises (0.03 → 0.73). Most of the separation is already in the surrogates (same values and
+  spectrum); the rest is structure beyond them. Caveat: M2_aug comes from another setup (stored in V, smoother at 1 s),
+  so "M2_aug vs the species" mixes organism and instrument. The species run logged one `TypeError` per later chain
+  run (`SideInputSpec(required=…)`): W3-B's merge at 03:29 put `interrogation_cycle_shapes.py` on disk while the
+  process held the old `Adapters/base.py`; `discover_adapters` skipped that one module and the run continued — no MSE
+  result is affected (lesson: no merge into main while an evaluation that discovers adapters runs).
 
 ## Decisions taken on the researcher's behalf
 
