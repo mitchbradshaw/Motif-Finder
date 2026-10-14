@@ -235,6 +235,30 @@ CANONICAL += [
 ]
 
 
+# Wave 2 of the blocks from the literature (docs/prompts/blocks/W2-*.md): the chains that beat their null on real
+# recordings (docs/prompts/blocks/reports/W2-evaluation.md). Each is the TEMPLATE its own
+# tests/test_template_<name>.py runs end to end; those tests assert this copy equals theirs.
+CANONICAL += [
+    {
+        "name": "minirocket_manual_labels", "kind": "training", "version": 1,
+        "description": "RQ1's manual-label arm on a shape fingerprint: 10-minute windows on the labels' 600/200 grid "
+                       "(the same windows as manual_labels_model) → MiniRocket (1,000 features, only the fingerprint "
+                       "kept) → manual labels → classifier. Can this label be learned from the raw shape at all? A "
+                       "'no' at 1,000 features is not a 'no': fewer features lose real accuracy on weak shapes, and a "
+                       "whole channel at 10,000 is over MiniRocket's memory guard — the decisive run is 10,000 "
+                       "features on a shorter span. MiniRocket fits on every window here (Window matrix carries no "
+                       "split): its fit never sees a label, so that cannot leak a label into the score. Read balanced "
+                       "accuracy against the majority baseline, not plain accuracy.",
+        "steps": [_step("preprocessing", "window_matrix", {"window_min": 10.0, "step_frac": 0.334,
+                                                           "slow_entropy": False, "fast_entropy": False}),
+                  _step("catalogue", "minirocket", {"n_features": 1000, "keep_upstream_features": False}),
+                  _step("catalogue", "manual_labels", {"non_overlapping": True}),
+                  _step("catalogue", "classifier", {"n_estimators": 100},
+                        side_inputs={"windows": {"source_kind": "earlier_step", "step_index": 1}})],
+    },
+]
+
+
 # Wave-1 chains that did NOT beat their surrogate null on real recordings (researcher's bar, Q4;
 # docs/prompts/blocks/reports/W1-evaluation.md): kept as code so they can be applied and re-tested, but
 # never seeded into the templates table. `experimental(name)` returns a copy.
@@ -264,6 +288,43 @@ EXPERIMENTAL: list[dict] = [
                   _step("interrogation", "event_shape", {}),
                   _step("interrogation", "trains", {"rule": "logisi", "write_group": True}),
                   _step("interrogation", "intervals", {})],
+    },
+]
+
+# Wave-2 chains that did NOT beat their null on real recordings (docs/prompts/blocks/reports/W2-evaluation.md).
+EXPERIMENTAL += [
+    {
+        "name": "event_clusters", "kind": "training", "version": 1,
+        "description": "Detected events grouped by their shape measures: baseline removal → noise threshold (every "
+                       "stretch more than 4 σ_n below the detrended trace's median, as the noise_threshold template) → "
+                       "Event shape (amplitude, width, duration, FWHM, recovery, slopes per event) → Event windows (one "
+                       "window around each event, its onset 20 % of the way in; length twice the median event "
+                       "duration; a blocked-by-time split) → Hierarchical cluster (Ward, k = 3) on the measures each "
+                       "window carries. Set k first: it is how many kinds of event you expect.",
+        "steps": [_step("preprocessing", "detrend", {"mode": "rolling_mean", "window_s": 600.0}),
+                  _step("detection", "noise_threshold", {"k_sigma": 4.0, "direction": "below",
+                                                         "min_duration_s": 30.0, "merge_gap_s": 60.0}),
+                  _step("interrogation", "event_shape", {}),
+                  _step("catalogue", "event_windows", {}),
+                  _step("catalogue", "cluster", {})],
+    },
+    {
+        "name": "recording_snippets", "kind": "training", "version": 1,
+        "description": "What kinds of behaviour does this recording hold, and where? Baseline removal (6 h rolling "
+                       "mean) → 1-hour pieces → snippets (Imani et al. 2018, matrix profile XIII): the few most "
+                       "typical pieces, and every hour coloured by the one it most resembles. k is chosen by the "
+                       "paper's knee; k = 1 means no evidence of more than one kind of behaviour. Read the regime "
+                       "run lengths beside the labels: a label that flickers hour to hour is not a regime. Run it "
+                       "on 24 h or more: on shorter spans the automatic k has too few pieces to judge by. Shapes "
+                       "are compared after z-normalisation, so stretches that differ only in amplitude — a quiet "
+                       "period of pure noise beside an active one — are not separated. Costs O(n²) — about 25 s "
+                       "for 24 h at 1 Hz; refused above 7 days. Gaps: the baseline removal averages only the "
+                       "samples present, so a gap stays a gap; snippets fills short gaps and leaves windows "
+                       "more than half NaN unlabelled (−1).",
+        "steps": [_step("preprocessing", "detrend", {"mode": "rolling_mean", "window_s": 21600.0}),
+                  _step("preprocessing", "sliding_windows", {"window_s": 3600.0, "gap_s": 0.0}),
+                  _step("catalogue", "snippets", {"k": 0, "k_max": 6, "subseq_frac": 0.35,
+                                                  "mpdist_percentage": 0.05})],
     },
 ]
 
