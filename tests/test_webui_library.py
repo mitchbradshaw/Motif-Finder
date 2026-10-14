@@ -1074,6 +1074,19 @@ def test_family_detail_carries_its_svd_entropy_coherence(bridge):
     assert _ok(client.get("/api/library/family/F-01"))["detail"]["coherence"] == coh
 
 
+def test_family_coherence_carries_its_caveat_and_misaligned_fraction(bridge):
+    """w2-f fix 1: the page states the smooth-shape caveat beside the verdict and the misalignment fraction
+    from the core's own constants, never a copy that goes stale (it said "a quarter" after fix 2 made it 0.4)."""
+    import server.library as lib
+    from Working.library import coherence
+    lib._COHERENCE_CACHE.clear()
+    client, _ = bridge
+    coh = _ok(client.get("/api/library/family/F-01"))["detail"]["coherence"]
+    assert coh["smooth_caveat"] == coherence.SMOOTH_CAVEAT
+    assert coh["misaligned_fraction"] == coherence.MISALIGNED_FRACTION
+    assert "beyond_noise" in coh and coh["null_margin"] == coherence.NULL_MARGIN
+
+
 def test_a_coherence_failure_is_an_error_card_not_a_blank(bridge, monkeypatch):
     import server.library as lib
     from Working.library import coherence

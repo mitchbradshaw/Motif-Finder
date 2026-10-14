@@ -93,13 +93,51 @@ def test_the_family_page_draws_coherence_beside_its_null():
     assert "NoiseBadge" in src
 
 
-def test_smoke_carries_a_state_per_wave2_template_and_the_hdbscan_editor():
+def test_smoke_carries_a_state_per_wave2_block_and_the_hdbscan_editor():
+    """fix 1 (critic 8): only SEEDED templates are imported by name. minirocket_manual_labels is seeded;
+    recording_snippets and event_clusters are experimental, so their blocks get hand-built chains."""
     states = _smoke("zz_analyse_run.json")
     text = json.dumps(states)
-    for template in ("minirocket_manual_labels", "recording_snippets"):
-        assert f"template-{template}" in text, f"no smoke state runs {template}"
+    assert "template-minirocket_manual_labels" in text
+    for unseeded in ("recording_snippets", "event_clusters"):
+        assert f"template-{unseeded}" not in text, f"{unseeded} is not seeded: a state cannot import it"
     assert "modal-card-catalogue.event_windows" in text, "Event windows has a block-level state"
+    assert "modal-card-catalogue.snippets" in text, "Snippets has a block-level state"
     ew = [s for s in states if "event-windows" in json.dumps(s.get("expect", []))]
     assert any(s["page"] == "analyse.block" for s in ew), "the Event windows block page is asserted"
-    lib = json.dumps(_smoke("library.json"))
-    assert "hdbscan" in lib and "no-tree-line" in lib
+    sn = next(s for s in states if s["state"].startswith("w2-snippets") and s["page"] == "analyse.chain")
+    zooms = sum(1 for a in sn["actions"] if a.get("click") == '[data-testid="zoom-out"]')
+    assert zooms == 5, "five zoom-outs: about 15 h, at least 12 one-hour pieces, seconds of work"
+    lib = _smoke("library.json")
+    assert "hdbscan" in json.dumps(lib) and "no-tree-line" in json.dumps(lib)
+    ward = next(s for s in lib if s["state"] == "w2-method-ward-unchanged")
+    assert {"select": ['[data-testid="param-method"]', "ward"]} in ward["actions"], (
+        "the Ward state follows the HDBSCAN one on the same hash: it must select Ward back")
+
+
+def test_fix1_coherence_reads_the_cores_verdict_with_its_margin_and_caveat():
+    src = _src("library", "FamilyPage.tsx")
+    assert "v >= c.null_p05" not in src, "the verdict is the core's beyond_noise, not a bare comparison"
+    assert "beyond_noise === false" in src and "no null" in src
+    assert "null_margin" in src and "coherence-caveat" in src and "smooth_caveat" in src
+    assert "quarter of the length" not in src and "misaligned_fraction" in src
+    api = _src("api.ts")
+    coh = api[api.index("export interface LibFamilyCoherence"):]
+    coh = coh[:coh.index("}")]
+    for k in ("beyond_noise", "null_margin", "null_kind", "smooth_caveat", "misaligned_fraction"):
+        assert k in coh, k
+    flags = api[api.index("export interface LibFamilyFlags"):]
+    flags = flags[:flags.index("}")]
+    assert "ratio" in flags and "margin" in flags and "null_max_separation" not in flags
+
+
+def test_fix1_badges_seeds_and_the_refusal_card():
+    chrome = _src("library", "chrome.tsx")
+    assert "verdict not saved" in chrome, "a method with a null but no saved flags says so"
+    gp = _src("library", "GroupingPage.tsx")
+    assert "parseParamsText(g.params, " in gp, "string params are parsed against the method's declared str params"
+    assert "clearRefusal" in gp, "the refusal card goes when the settings change"
+    view = _src("analyse", "views", "WindowSetView.tsx")
+    assert "event-windows-note" in view and "event-windowless" in view
+    gv = _src("analyse", "views", "GroupingView.tsx")
+    assert "exemplar_note" in gv

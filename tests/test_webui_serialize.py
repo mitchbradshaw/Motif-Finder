@@ -492,6 +492,52 @@ def test_snippets_unlabelled_windows_are_named_and_carry_no_exemplar():
     assert p["rules"] == [{"name": "k", "rule": "the knee"}]
 
 
+def test_an_exemplar_list_or_any_other_shape_is_an_error_naming_the_form_and_the_block():
+    """w2-f fix 1 (critic 3): the one format is {"<label>": window}; anything else says so, and names the block."""
+    g, ws = _snippet_like()
+    ctx = {"fs": 1.0, "windowset": ws, "block": "catalogue.shape_families"}
+    for bad in ([{"family": 1, "window": 0}], "1:0", 3):
+        with pytest.raises(ValueError, match=r"catalogue\.shape_families.*\{\"<label>\": <window index>\}"):
+            to_payload("grouping", g, {"exemplar_windows": bad, "exemplar_rule": "r"}, ctx)
+
+
+def test_a_label_the_block_named_no_exemplar_for_says_so_per_cluster():
+    """critic 4: a gap is a note on its cluster, not a silent absence (only -1, the unlabelled, is exempt)."""
+    import pandas as pd
+    from Working.types import Grouping, WindowSet
+    ws = WindowSet(starts=np.arange(6) * 60, length=60, fs=1.0, features=pd.DataFrame({"split": [0] * 6}))
+    g = Grouping(labels=np.array([1, 1, 2, 2, 3, 3]))
+    p = to_payload("grouping", g, {"exemplar_windows": {"1": 0, "2": 3}, "exemplar_rule": "r"},
+                   {"fs": 1.0, "windowset": ws})
+    notes = {c["id"]: c.get("exemplar_note") for c in p["clusters"]}
+    assert notes[3] == "the block named no exemplar for this label"
+    assert notes[1] is None and notes[2] is None
+    assert {e["cluster"] for e in p["exemplars"]} == {1, 2}
+
+
+def test_a_named_label_not_in_the_grouping_or_a_fractional_index_is_an_error():
+    g, ws = _snippet_like()
+    ctx = {"fs": 1.0, "windowset": ws}
+    with pytest.raises(ValueError, match="not in the grouping"):
+        to_payload("grouping", g, {"exemplar_windows": {"1": 0, "2": 3, "7": 1}, "exemplar_rule": "r"}, ctx)
+    with pytest.raises(ValueError, match="whole window index"):
+        to_payload("grouping", g, {"exemplar_windows": {"1": 0, "2": 3.7}, "exemplar_rule": "r"}, ctx)
+    ok = to_payload("grouping", g, {"exemplar_windows": {"1": 0, "2": 3.0}, "exemplar_rule": "r"}, ctx)
+    assert [e["window"] for e in ok["exemplars"]] == [0, 3], "an integral float is a whole index"
+
+
+def test_snippets_unlabelled_are_named_by_count_not_all_called_nan():
+    """critic 10: snippets' -1 holds the mostly-NaN windows AND the no-vote ones; the name counts both."""
+    import pandas as pd
+    from Working.types import Grouping, WindowSet
+    ws = WindowSet(starts=np.arange(6) * 60, length=60, fs=1.0, features=pd.DataFrame({"split": [0] * 6}))
+    g = Grouping(labels=np.array([1, 1, -1, -1, 2, 2]))
+    p = to_payload("grouping", g, {"exemplar_windows": {"1": 0, "2": 5}, "exemplar_rule": "r", "n_windows_nan": 1},
+                   {"fs": 1.0, "windowset": ws})
+    name = next(c["name"] for c in p["clusters"] if c["id"] == -1)
+    assert "1 of 2 mostly NaN" in name, name
+
+
 def test_event_windows_ship_their_anchor_and_keep_bookkeeping_off_the_heatmap():
     import pandas as pd
     from Working.types import WindowSet
