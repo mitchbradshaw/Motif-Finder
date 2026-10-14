@@ -225,6 +225,8 @@ def _spanset(value, meta, ctx):
         out["funnel"] = _funnel(meta["funnel"], fs, ss)
     if isinstance((meta or {}).get("families"), list):
         out.update(_event_families(value, meta, ctx, fs, ss))
+    if isinstance((meta or {}).get("cycle_stack"), dict):
+        out.update(_cycle_shapes(value, meta, ctx, fs, ss))
     if feats is not None and "units" in ctx:
         # the core measured in mV on the assumption the samples are volts (detect5's
         # convention); say so where the recording's declared unit does not back it (fixup-b)
@@ -237,6 +239,91 @@ def _spanset(value, meta, ctx):
 
 
 _SPANSET_META_VIEWS = ("rules", "rose", "interval_stats")
+
+CYCLE_EXEMPLAR_FORM = '{"<group key without suffix>": <event index into the SpanSet>}'
+
+
+def _scores_of(coh):
+    """σ² first, eq. 17 beside it (the researcher's headline, decision 3), as the block scored them."""
+    aa = (coh or {}).get("after_align") or {}
+    return {"squared": _clean(aa.get("svd_entropy_squared_norm")), "eq17": _clean(aa.get("svd_entropy_norm"))}
+
+
+def _cycle_shapes(value, meta, ctx, fs, ss):
+    """W3-F: an `interrogation.cycle_shapes` SpanSet (read off `meta["cycle_stack"]`, a payload convention).
+
+    * `cycle_stack` — the block's rows as it wrote them (before / after alignment, one per cycle in time order);
+    * `cycle_sequences` — per sequence, the verdicts EXACTLY as the block gave them (`whole.verdict`, each group's
+      `key` with its `~noise_like` / `~untested` suffix and `coherence.verdict`), σ² and eq. 17 beside them, the
+      change points and the order test; nothing here compares a score with a null;
+    * `cycle_exemplars` — each group's medoid cycle as a member: the event the block named
+      (`meta["exemplar_events"]`, keyed `"<g>"` or `"t<train>:<g>"` — not the families' int keys), its whole
+      cycle (anchor → anchor + `cycle_length_s`), and its group's marked key. An exemplar naming no event is
+      refused loudly, naming the form."""
+    block = (ctx or {}).get("block") or "this block"
+    n = int(len(value.starts))
+    f = getattr(value, "features", None)
+    out: dict = {"cycle_stack": _clean(meta["cycle_stack"]), "cycle_sequences": [], "cycle_exemplars": []}
+    # the rows' start_s are seconds from the span start (the block's `time_unit`); the page's axis is absolute
+    out["cycle_stack"]["span_start_s"] = ss / fs
+    marked: dict[str, str] = {}
+    for s in meta.get("sequences") or []:
+        whole = s.get("whole") or {}
+        groups = []
+        for g in s.get("groups") or []:
+            coh = g.get("coherence") or {}
+            key = str(g.get("key"))
+            base = key.split("~", 1)[0]
+            marked[base] = key
+            groups.append({"group": _clean(g.get("group")), "key": key, "size": _clean(g.get("size")),
+                           "medoid_event": _clean(g.get("medoid_event")),
+                           "floor_frac_median": _clean(g.get("floor_frac_median")),
+                           "half_recovery_frac_median": _clean(g.get("half_recovery_frac_median")),
+                           "length_s_median": _clean(g.get("length_s_median")),
+                           "verdict": _clean(coh.get("verdict")), "scores": _scores_of(coh)})
+        out["cycle_sequences"].append({
+            "key": _clean(s.get("key")), "n_cycles": _clean(s.get("n_cycles")), "n_used": _clean(s.get("n_used")),
+            "k": _clean(s.get("k")), "k_note": _clean(s.get("k_note")),
+            "k_null": _clean({k: (s.get("k_null") or {}).get(k) for k in ("source", "draws", "reason")}),
+            "omitted": _clean(s.get("omitted")),
+            "background_colour_mismatch": _clean(s.get("background_colour_mismatch")),
+            "change_points_s": [(float(c) + ss / fs) for c in (s.get("change_points_s") or [])],
+            "order_test": _clean(s.get("order_test")),
+            "whole_verdict": _clean(whole.get("verdict")), "whole_scores": _scores_of(whole),
+            "groups": groups})
+    named = meta.get("exemplar_events")
+    if named is not None:
+        if not isinstance(named, dict):
+            raise ValueError(f"{block}: meta['exemplar_events'] must be {CYCLE_EXEMPLAR_FORM}, got "
+                             f"{type(named).__name__}: {str(named)[:80]}")
+        col = lambda name: (np.asarray(pd.to_numeric(f[name], errors="coerce"), dtype=float)
+                            if f is not None and name in f.columns else None)
+        length_s, onset = col("cycle_length_s"), col("onset_idx")
+        for key, w in named.items():
+            try:
+                whole_i = not isinstance(w, bool) and float(w) == int(w)
+            except (TypeError, ValueError):
+                whole_i = False
+            if not whole_i or not 0 <= int(w) < n:
+                raise ValueError(f"{block}: exemplar event {w!r} named for cycle group {key!r} is not an event of "
+                                 f"this SpanSet (0..{n - 1}); meta['exemplar_events'] must be {CYCLE_EXEMPLAR_FORM}")
+            i = int(w)
+            a = onset[i] if onset is not None and np.isfinite(onset[i]) else float(value.starts[i])
+            start_s = (a + ss) / fs
+            span_len = (int(value.ends[i]) - int(value.starts[i])) / fs
+            L = float(length_s[i]) if length_s is not None and np.isfinite(length_s[i]) else span_len
+            seq, _, g = str(key).rpartition(":")
+            out["cycle_exemplars"].append({
+                "key": str(key), "group_key": marked.get(str(key), str(key)), "sequence": seq[1:] if seq else None,
+                "group": int(g) if g.lstrip("-").isdigit() else None, "event": i,
+                "start_s": start_s, "end_s": start_s + L,
+                "rule": str(meta.get("exemplar_rule") or "the group's medoid cycle")})
+    if meta.get("summary"):
+        out["summary"] = str(meta["summary"])
+    if meta.get("warnings"):
+        out["warnings"] = [str(w) for w in meta["warnings"]]
+    out["cycle_omitted"] = _clean(meta.get("omitted") or {})
+    return out
 
 
 def _span_anatomy(value, meta, starts, ends, fs, ss, sl):
@@ -418,6 +505,11 @@ def _windowset(value, meta, ctx):
             event_index = pd.to_numeric(feats["event_index"], errors="coerce").fillna(-1).astype(int).to_numpy()
         drop = [c for c in BOOKKEEPING_COLUMNS if c in feats.columns and c != SPLIT_COLUMN]
         feats = feats.drop(columns=drop)
+    elif isinstance(meta.get("curves"), dict) and feats is not None:
+        # W3-F: multiscale entropy's bookkeeping (mse_r in stored units, drift share, inflation, counts) is not a
+        # measure to colour beside the entropies; the curves and the block's warnings carry it
+        drop = [c for c in BOOKKEEPING_COLUMNS if c in feats.columns and c != SPLIT_COLUMN]
+        feats = feats.drop(columns=drop) if drop else feats
     if feats is not None and SPLIT_COLUMN in feats.columns:
         labels = pd.to_numeric(feats[SPLIT_COLUMN], errors="coerce").fillna(-1).astype(int).to_numpy()
         names = {str(k): SPLIT_NAMES.get(int(k), f"split {int(k)}") for k in np.unique(labels)}
@@ -446,6 +538,28 @@ def _windowset(value, meta, ctx):
         out["rules"] = _clean(meta.get("rules") or [])
         if meta.get("summary"):
             out["summary"] = f"{meta['summary']} · {out['summary']}"
+    else:
+        # W3-F: a block's own summary and warnings reach the face of ANY window set (multiscale entropy's blank
+        # scales, collapse flags and left-out windows used to stay in meta: only an anchored set showed them)
+        if meta.get("summary"):
+            out["summary"] = f"{meta['summary']} · {out['summary']}"
+        if meta.get("warnings"):
+            out["warnings"] = [str(w) for w in meta["warnings"]]
+        if meta.get("rules"):
+            out["rules"] = _clean(meta["rules"])
+    if isinstance(meta.get("curves"), dict):
+        # W3-F (a payload convention, like a Signal's `layers`): one curve per sampled window over a shared x
+        # (`scales_s`), `null` where a scale is undefined — shipped as the block wrote it; the page breaks the
+        # line at a null, never joins across it
+        c = meta["curves"]
+        for key in ("scales_s", "windows", "median"):
+            if key not in c:
+                raise ValueError(f"{ctx.get('block') or 'this block'}: meta['curves'] needs {key!r} "
+                                 f"(form: {{scales_s, windows: [{{index, start_s, values, collapsed}}], median}})")
+        out["curves"] = _clean(c)
+        out["curve_flags"] = {k: _clean(meta.get(k)) for k in (
+            "collapse", "blank_scales_s", "inflation_limit", "inflation_median", "inflation_max",
+            "defined_per_scale", "method", "r_rule")}
     return out
 
 
@@ -567,6 +681,40 @@ def frame_payload(value, meta, ctx, index: int) -> dict:
     return _one_frame(vals, axis, int(index), _value_range(vals), ctx or {})
 
 
+#: W3-F: an image whose rows are not pixels names them in meta — ONE convention for every such block
+#: (docs/BLOCK_INTEGRATION.md §2): `meta[key]` lists one value per image row, row 0 first (the top row drawn).
+ROW_AXIS_KEYS = (("lengths_s", "s", "window length"), ("freqs_hz", "Hz", "frequency"))
+
+
+def _row_axis(meta, n_rows, ctx):
+    """`row_axis` (and, for a block that judged its rows, `row_verdict`) of a 2-D image, or {}."""
+    out: dict = {}
+    for key, unit, label in ROW_AXIS_KEYS:
+        vals = meta.get(key)
+        if vals is None:
+            continue
+        vals = [float(v) for v in vals]
+        if len(vals) != n_rows:
+            raise ValueError(f"{(ctx or {}).get('block') or 'this block'}: meta[{key!r}] names {len(vals)} rows "
+                             f"but the image has {n_rows} rows (one value per row, row 0 first)")
+        out["row_axis"] = {"values": vals, "unit": unit, "label": label, "source": key}
+        break
+    per = meta.get("per_length")
+    if isinstance(per, list) and "row_axis" in out:
+        # the pan matrix profile's per-length verdict, as the block gave it — never re-derived from gap and draws
+        out["row_verdict"] = {
+            "verdict": _clean(meta.get("verdict")), "suggested_window_s": _clean(meta.get("suggested_window_s")),
+            "suggested_row": _clean(meta.get("suggested_row")),
+            "approximate_note": _clean(meta.get("approximate_note")) or None,
+            "rows": [{k: _clean(r.get(k)) for k in ("row", "length_s", "judged", "clears", "gap", "reason",
+                                                     "n_windows_nan")} for r in per]}
+    if out and meta.get("summary"):
+        out["_summary"] = str(meta["summary"])
+    if out and meta.get("rules"):
+        out["rules"] = _clean(meta["rules"])
+    return out
+
+
 def _encoding(value, meta, ctx):
     meta = meta or {}
     vals = np.asarray(value.values)
@@ -652,12 +800,19 @@ def _encoding(value, meta, ctx):
             summary += " · no finite values: every cell of this image is NaN, so there is nothing to paint"
         elif n_blank:
             summary += f" · {n_blank:,} of {n_cells:,} cells have no data"
-        return {"type": "encoding", "kind": "image", "ndim": (4 if n_images else int(vals.ndim)), "shape": shape_out, "n_images": n_images,
-                "display_shape": [int(u8.shape[0]), int(u8.shape[1])], "channels": chans,
-                "value_range": rng, "pixels_b64": base64.b64encode(np.ascontiguousarray(u8).tobytes()).decode("ascii"),
-                "all_nan": rng is None, "nan_cells": n_blank, "n_cells": n_cells,
-                "nan_b64": (base64.b64encode(np.ascontiguousarray(blank, dtype=np.uint8).tobytes()).decode("ascii") if n_blank else None),
-                "frames": frames, "summary": summary}
+        out = {"type": "encoding", "kind": "image", "ndim": (4 if n_images else int(vals.ndim)), "shape": shape_out, "n_images": n_images,
+               "display_shape": [int(u8.shape[0]), int(u8.shape[1])], "channels": chans,
+               "value_range": rng, "pixels_b64": base64.b64encode(np.ascontiguousarray(u8).tobytes()).decode("ascii"),
+               "all_nan": rng is None, "nan_cells": n_blank, "n_cells": n_cells,
+               "nan_b64": (base64.b64encode(np.ascontiguousarray(blank, dtype=np.uint8).tobytes()).decode("ascii") if n_blank else None),
+               "frames": frames, "summary": summary}
+        if not n_images:
+            ra = _row_axis(meta, int(h), ctx)
+            block_summary = ra.pop("_summary", None)
+            out.update(ra)
+            if block_summary:      # the block's own line leads; the image's no-data count stays beside it
+                out["summary"] = f"{block_summary} · {summary}"
+        return out
     return {"type": "encoding", "kind": value.kind, "shape": list(vals.shape), "summary": f"{value.kind} {vals.shape}"}
 
 
@@ -668,7 +823,10 @@ def _grouping(value, meta, ctx):
     ids, counts = np.unique(labels, return_counts=True) if n else (np.array([]), np.array([]))
     clusters = [{"id": int(i), "count": int(c)} for i, c in zip(ids, counts)]
     shown = min(n, SPAN_CAP)
-    out = {"type": "grouping", "n": n, "k": int(len(ids)), "label_base": int(ids.min()) if n else 1,
+    # the lowest REAL label (-1 is "no label", drawn grey): a left-out window must not shift every cluster's colour
+    real = ids[ids >= 0] if n else ids
+    out = {"type": "grouping", "n": n, "k": int(len(ids)),
+           "label_base": int(real.min()) if len(real) else (int(ids.min()) if n else 1),
            "linkage": meta.get("linkage"), "clusters": clusters, "labels": labels[:SPAN_CAP].tolist(),
            "capped": n > SPAN_CAP, "n_shown": int(shown), "strip": None, "exemplars": []}
     ws = ctx.get("windowset")
@@ -705,6 +863,16 @@ def _grouping(value, meta, ctx):
                     c["name"] = f"unlabelled · {int(meta['n_windows_nan'] or 0)} of {c['count']} mostly NaN"
                 else:
                     c["name"] = str(meta.get("unlabelled_name") or "unlabelled")
+    if meta.get("n_left_out") is not None and not meta.get("class_names") and not meta.get("tree"):
+        # W3-A / decision 7: `catalogue.cluster` leaves out (and labels -1) a window whose features are all NaN —
+        # drawn as "no label" (grey), never as a cluster; its summary says how many
+        for c in out["clusters"]:
+            if c["id"] == -1 and "name" not in c:
+                why = meta.get("left_out_reason")
+                c["name"] = "no label · left out" + (f" ({why})" if why else "")
+        if meta.get("summary") and meta.get("exemplar_windows") is None:
+            out["summary"] = str(meta["summary"]) + (
+                f" · strip shows the first {shown:,} of {n:,} windows" if out["capped"] else "")
     if isinstance(meta.get("families"), list):
         # w2-f: a Grouping made by the Library's methods (`catalogue.shape_families`): every family's summary as
         # the block made it — flags, `confident`, `null_caveat`, coherence beside its null with the block's own
@@ -781,7 +949,11 @@ EVENT_EXEMPLAR_FORM = '{"<family>": <event index>}'
 FAMILY_KEYS = ("family", "library_label", "size", "medoid_distance", "noise_like", "unstable", "tested", "why",
                "confident", "null_caveat", "svd_entropy", "svd_entropy_norm", "svd_entropy_null_median",
                "svd_entropy_null_p05", "svd_entropy_squared_norm", "svd_entropy_squared_null_median", "top_share",
-               "coherence_reason", "svd_entropy_beyond_noise", "svd_entropy_null_margin", "svd_entropy_rule")
+               "coherence_reason", "svd_entropy_beyond_noise", "svd_entropy_null_margin", "svd_entropy_rule",
+               # W3-G / W3-F (decision 3): σ² leads, eq. 17 beside it; which null passed, and how much background
+               "svd_entropy_squared_null_p05", "svd_entropy_variants", "passed_by", "svd_entropy_passed_by",
+               "null_kind", "svd_entropy_null_kind", "background_s", "background", "svd_entropy_background",
+               "svd_entropy_why")
 
 
 def _family_row(f):

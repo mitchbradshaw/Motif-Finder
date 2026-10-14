@@ -63,32 +63,40 @@ def _key(name):
     }, sort_keys=True)
 
 
-def _load():
-    if not os.path.isfile(CALIBRATION_PATH):
+def _load(path=None):
+    path = path or CALIBRATION_PATH
+    if not os.path.isfile(path):
         return {}
-    with open(CALIBRATION_PATH, "r", encoding="utf-8") as f:
+    with open(path, "r", encoding="utf-8") as f:
         return json.load(f)
 
 
-def _save(data):
-    directory = os.path.dirname(CALIBRATION_PATH) or "."
+def _save(data, path=None):
+    path = path or CALIBRATION_PATH
+    directory = os.path.dirname(path) or "."
     os.makedirs(directory, exist_ok=True)
-    fd, tmp = tempfile.mkstemp(prefix=os.path.basename(CALIBRATION_PATH) + ".", dir=directory)
+    fd, tmp = tempfile.mkstemp(prefix=os.path.basename(path) + ".", dir=directory)
     try:
         with os.fdopen(fd, "w", encoding="utf-8") as f:
             json.dump(data, f, indent=2, sort_keys=True)
-        os.replace(tmp, CALIBRATION_PATH)
+        os.replace(tmp, path)
     except Exception:
         if os.path.exists(tmp):
             os.remove(tmp)
         raise
 
 
-def calibrate(names=None, force=False, n=CALIBRATION_N, fs=1.0):
+def calibrate(names=None, force=False, n=CALIBRATION_N, fs=1.0, path=None):
     """Time every registered cost model (or the `names` given) once on a
-    synthetic signal and store `k`. Returns {name: k}."""
+    synthetic signal and store `k`. Returns {name: k}.
+
+    `path` (default `CALIBRATION_PATH`, read at call time) is fixed for the
+    whole call: a caller that times a model in a background thread (the web
+    bridge, W3-F) passes the path it resolved when it started, so a redirect
+    restored while the timing runs cannot send the result to another file."""
+    path = path or CALIBRATION_PATH
     names = list(MODELS) if names is None else list(names)
-    data = _load()
+    data = _load(path)
     out = {}
     for name in names:
         exponent, run_once = MODELS[name]
@@ -106,7 +114,10 @@ def calibrate(names=None, force=False, n=CALIBRATION_N, fs=1.0):
         data[key] = {"k": k, "exponent": exponent, "n": int(n), "elapsed_s": elapsed,
                      "calibrated_at": time.strftime("%Y-%m-%dT%H:%M:%S")}
         out[name] = k
-    _save(data)
+    # re-read before writing: another process may have stored a model while this one was timing
+    merged = _load(path)
+    merged.update({_key(name): data[_key(name)] for name in names if _key(name) in data})
+    _save(merged, path)
     return out
 
 

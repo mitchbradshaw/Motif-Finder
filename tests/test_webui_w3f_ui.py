@@ -66,8 +66,9 @@ def test_undefined_mse_scales_are_gaps_never_joined():
 def test_the_cycle_stack_draws_before_and_after_with_the_groups_and_the_change_points():
     cs = _src("analyse", "CycleStack.tsx")
     for tid in ("cycle-stack-before", "cycle-stack-after", "cycle-group-strip", "cycle-change-point",
-                "cycle-exemplars", "cycle-verdicts", "scale-bar"):
-        assert f'data-testid="{tid}"' in cs or f"data-testid={{`{tid}" in cs, f"{tid} missing"
+                "cycle-exemplars", "cycle-verdicts"):
+        assert f"'{tid}'" in cs or f'"{tid}"' in cs, f"{tid} missing"
+    assert "<ScaleBar" in cs, "each medoid cycle on its own y, with a scale bar (drawing rule 4)"
     assert "beyond_noise" in cs and "whole_verdict" in cs, "the verdict is read off the payload"
     assert "null_p05" not in cs and "< 0.9" not in cs, "no verdict re-derived from a score and a null"
 

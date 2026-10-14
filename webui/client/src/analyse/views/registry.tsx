@@ -23,9 +23,11 @@ import { axisUnit } from '../../charts/units'
 import { Button, Histogram, InfoTip, Rose } from '../../kit'
 import { fmtHours } from '../../state'
 import { DetectorFunnel, funnelOf } from '../DetectorFunnel'
+import { MseCurves, curvesOf } from '../MseCurves'
+import { CycleStack, cycleStackOf } from '../CycleStack'
 import { useSendRunToReview } from '../sendToReview'
 import { FeatureTable, IntervalStatsTable, RulesList, labelOf, unitOf } from '../EventFeatures'
-import { AlignedImage, ImageEvidence, ImageView, MISSING_GREY, PaaSteps, SYM3, SymbolChunks, SymbolicView, secondsPerSymbol, symbolColour } from './EncodingView'
+import { AlignedImage, ImageEvidence, ImageView, MISSING_GREY, PaaSteps, RowVerdictTable, SYM3, SymbolChunks, SymbolicView, fmtRow, secondsPerSymbol, symbolColour } from './EncodingView'
 import { ClusterExemplars, ClusterSizes, FamilyTable, GroupingView } from './GroupingView'
 import { ModelView } from './ModelView'
 import { ScoreHistogram, ScoresView, scoreWords, scoreY, type ScoreCut } from './ScoresView'
@@ -383,6 +385,13 @@ function FeatureHistograms({ p }: { p: SpansetPayload }) {
 function SpansToSpans(q: ProcessProps) {
   const p = as<SpansetPayload>(q.payload, 'spanset')
   if (!p) return <NoResult />
+  // W3-F: a stack of cycles (a payload convention): the stack, the verdicts as the block gave them, the medoid cycles
+  const cycles = cycleStackOf(p) ? (
+    <>
+      <BlockWarnings warnings={p.warnings} />
+      <CycleStack p={p} recordingId={q.source.recording_id} unit={q.sourceUnit || 'as stored'} />
+    </>
+  ) : null
   // w2-f: Event families (a payload convention, like a Grouping's `tree`): the events coloured by family first
   const families = p.families ? (
     <div className="stack" style={{ gap: 4, marginBottom: 14 }} data-testid="event-families-lead">
@@ -409,7 +418,7 @@ function SpansToSpans(q: ProcessProps) {
       <div className="bp-card-title" style={{ marginTop: 2 }}><h3 style={{ fontSize: 13 }}>The spans that were measured</h3><span className="sg">passed through unchanged from the stage before</span></div>
     </div>
   )
-  return <SpanSetProcess q={q} lead={<>{families}{lead}</>} featuresFirst />
+  return <SpanSetProcess q={q} lead={<>{cycles}{families}{lead}</>} featuresFirst />
 }
 
 /* ---------------- Encoding ---------------- */
@@ -439,6 +448,11 @@ function EncodingProcess(q: ProcessProps) {
         </Strip>}
         <div className="muted mono small" style={{ paddingLeft: 76 }}>{what} · numbered as the images above</div>
         <ImageEvidence p={img} jobId={q.jobId} index={q.index} onFrame={setExtra} />
+        {/* W3-F: rows that are not pixels (`row_axis`, a payload convention): labelled on the image, and the block's
+            own verdict per row when it judged them (`row_verdict`) */}
+        {img.row_axis && <div className="muted mono small" style={{ marginTop: 4 }} data-testid="row-axis-caption">rows are {img.row_axis.label}s: {fmtRow(img.row_axis.values[0], img.row_axis.unit)} at the top … {fmtRow(img.row_axis.values[img.row_axis.values.length - 1], img.row_axis.unit)} at the bottom · labelled on the left of the image</div>}
+        {img.row_axis && img.row_verdict && <RowVerdictTable axis={img.row_axis} verdict={img.row_verdict} />}
+        {img.rules && img.rules.length > 0 && <RulesList rules={img.rules} testid="encoding-rules" />}
       </>
     )
   }
@@ -503,11 +517,27 @@ function WindowSetProcess(q: ProcessProps) {
   // a pool's windows sit on many channels and scales: no one time axis, so the pool draws as its counts
   if (p && isPoolPayload(p)) return <>{picker}<Guard label="the pool"><PoolView p={p} /></Guard></>
   if (!p) return <>{picker}<NoResult /></>
+  // W3-F: a window set that carries a curve per window (a payload convention, read off the payload) draws it
+  const curves = curvesOf(p)
   return (
     <>
+      <BlockWarnings warnings={p.warnings} />
+      {curves && <MseCurves p={p} />}
       <Full q={q} height={p.features?.matrix ? Math.min(420, 60 + 12 * p.features.n_columns) : 150}>{ctx => <WindowSetView p={p} ctx={ctx} />}</Full>
       <WindowSetKey p={p} />
+      {curves && p.rules && p.rules.length > 0 && <RulesList rules={p.rules} testid="curve-rules" />}
     </>
+  )
+}
+
+/** W3-F: a block's own warnings on the face (blank scales, collapse flags, left-out windows, a fallen-back null) —
+ *  a warning nobody sees does not exist. */
+function BlockWarnings({ warnings }: { warnings?: string[] | null }) {
+  if (!warnings || !warnings.length) return null
+  return (
+    <div className="stack" style={{ gap: 2, marginBottom: 8 }} data-testid="block-warnings">
+      {warnings.map((w, i) => <div key={i} className="mono small" style={{ color: 'var(--amber-700, #b76a00)' }}>⚠ {w}</div>)}
+    </div>
   )
 }
 

@@ -9,7 +9,17 @@ browser.
   the job's history so a late subscriber (a page reloaded mid-run) replays
   it and catches up.
 * Cancel is a ``threading.Event`` read by ``should_cancel``; the core polls
-  it **once, before each step** (cooperative, never mid-step).
+  it before each step, and (W3-F) a block that declares ``should_cancel`` on
+  its ``_run`` receives it through ``run_kwargs`` and polls it INSIDE the step
+  (window matrix, multiscale entropy, the pan matrix profile, cycle shapes).
+  Such a block raises ``Working.execution.RecipeCancelled`` — the one
+  cancellation exception (W3 decision 1): the job reads *cancelled*, and no
+  step-cache entry is written for the step it stopped. A block that declares
+  no ``should_cancel`` still stops only between steps.
+* A block that declares ``on_progress(done, total, stage)`` reports its own
+  in-step fraction the same way: it lands on ``steps[i]["progress"]`` and as
+  a ``step_progress`` event (throttled to ``PROGRESS_EVERY_S``; the last one
+  is always sent). Real progress, never a simulated bar.
 * A client disconnect does **not** cancel: the run finishes and its
   snapshot (``GET /api/runs/{job}``) survives the reload.
 * ``force=True`` is always passed so the step loop actually runs; a step
@@ -41,6 +51,9 @@ log = logging.getLogger("proto.runs")
 
 #: How many runs keep their image Encodings in memory for the block page's frame scan.
 FRAME_JOBS_HELD = 3
+
+#: The fastest a step's in-step fraction is streamed (s); the job's snapshot always holds the latest.
+PROGRESS_EVERY_S = 0.25
 
 
 def prune_frame_sources(jobs: dict, keep: int = FRAME_JOBS_HELD) -> None:
@@ -86,7 +99,7 @@ class Job:
         self.steps: list[dict] = [
             {"index": i, "stage": s["stage"], "algorithm": s["algorithm"], "status": "pending",
              "started_at": None, "elapsed_s": None, "cached_predicted": False, "cached": None,
-             "kind": None, "summary": None, "has_payload": False}
+             "kind": None, "summary": None, "has_payload": False, "progress": None}
             for i, s in enumerate(recipe["steps"])
         ]
         self.payloads: dict[int, dict] = {}
@@ -140,10 +153,15 @@ class RunManager:
             q.put_nowait(event)
 
     def _emit(self, job: Job, event: dict):
-        if self.loop is None:
+        # a loop that has closed (a test client shut down, the bridge stopping) has no subscriber left to hand
+        # the event to: it is still appended to the job's history, never raised into the worker thread
+        if self.loop is None or self.loop.is_closed():
             self._publish(job, event)
-        else:
+            return
+        try:
             self.loop.call_soon_threadsafe(self._publish, job, event)
+        except RuntimeError:            # closed between the check and the call
+            self._publish(job, event)
 
     def subscribe(self, job: Job) -> asyncio.Queue:
         q: asyncio.Queue = asyncio.Queue()
@@ -192,18 +210,37 @@ class RunManager:
         req = job.null_request
         n = int(req.get("draws") or 1)
 
+        state = {"draw": 0, "draws": n, "last": 0.0}
+
         def on_draw(i, total):
+            state.update(draw=i + 1, draws=total)
             self._emit(job, {"event": "null_progress", "draw": i + 1, "draws": total})
 
+        def in_draw(done, total, stage=None):
+            # a draw's own block reporting its fraction: the null line shows it beside the draw count
+            now = time.perf_counter()
+            if done < total and now - state["last"] < PROGRESS_EVERY_S:
+                return
+            state["last"] = now
+            self._emit(job, {"event": "null_progress", "draw": state["draw"], "draws": state["draws"],
+                             "done": int(done), "total": int(total), "stage": stage,
+                             "fraction": (float(done) / float(total)) if total else None})
+
+        # should_cancel reaches the draws' steps too (inside a step, through run_kwargs), not only the gaps
+        # between draws: a cancel during a long draw stops it within one iteration of its block
         drawn = run_groups.draw_paired_null(
             job.recipe, job.db_run_id, db_path=self.db_path, params=req.get("params"), draws=n,
-            should_cancel_draws=should_cancel, on_draw=on_draw)
+            should_cancel=should_cancel, should_cancel_draws=should_cancel, on_draw=on_draw,
+            run_kwargs={"should_cancel": should_cancel, "on_progress": in_draw})
         conn = init_db(self.db_path)
         try:
             summary = run_groups.null_summary(conn, job.db_run_id)
         finally:
             conn.close()
         summary.update({"asked": n, "skipped": drawn["skipped"]})
+        if job.cancel_event.is_set():
+            # the real run had finished; its null was cut short by the cancel, and says so
+            summary["cancelled"] = True
         return summary
 
     def cancel(self, job: Job) -> bool:
@@ -299,11 +336,29 @@ class RunManager:
         def should_cancel():
             return job.cancel_event.is_set()
 
+        last_sent = {"t": 0.0}
+
+        def in_step(done, total, stage=None):
+            """A block's own `on_progress(done, total, stage)`, from inside the step it is running."""
+            i = job.current_step
+            if i is None:
+                return
+            frac = (float(done) / float(total)) if total else None
+            job.steps[i]["progress"] = {"done": int(done), "total": int(total), "stage": stage, "fraction": frac}
+            now = time.perf_counter()
+            if done < total and now - last_sent["t"] < PROGRESS_EVERY_S:
+                return
+            last_sent["t"] = now
+            self._emit(job, {"event": "step_progress", "step": i, "done": int(done), "total": int(total),
+                             "stage": stage, "fraction": frac})
+
         t0 = time.perf_counter()
         try:
+            # run_kwargs reach only a block whose `_run` declares them (execute_recipe reads the signature)
             out = execute_recipe(job.recipe, db_path=self.db_path, force=True,
                                  on_progress=on_progress, should_cancel=should_cancel,
-                                 on_step_result=on_step_result)
+                                 on_step_result=on_step_result,
+                                 run_kwargs={"should_cancel": should_cancel, "on_progress": in_step})
             job.step_timings = {int(k): float(v) for k, v in (out.get("step_timings") or {}).items()}
             for i, s in enumerate(job.steps):
                 if i in job.step_timings:

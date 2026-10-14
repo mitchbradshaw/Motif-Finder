@@ -38,8 +38,9 @@ export interface AnalyseState {
   tick: number               // bumps every 250 ms while a run is live so elapsed labels re-render
   /** the toolbar's surrogate toggle (Q38): OFF by default in Analyse; kept for the tab's session */
   nullOn: boolean
-  /** which draw of the paired null is running, while one is */
-  nullProgress: { draw: number; draws: number } | null
+  /** which draw of the paired null is running, while one is — and (W3-F) the draw's own in-step fraction when its
+   *  block reports one */
+  nullProgress: { draw: number; draws: number; done?: number; total?: number; stage?: string | null; fraction?: number | null } | null
 }
 
 const SS_KEY = 'ub-proto-a:analyse:staleFrom'
@@ -296,9 +297,16 @@ function onEvent(jobId: number, e: RunEvent) {
       fetchPayload(jobId, i)
       break
     }
+    case 'step_progress': {
+      // W3-F: the running block's own fraction, from inside the step (`on_progress(done, total, stage)`)
+      const i = e.step as number
+      patchStep(i, { progress: { done: e.done as number, total: e.total as number, stage: (e.stage as string | null) ?? null, fraction: (e.fraction as number | null) ?? null } })
+      break
+    }
     case 'null_progress':
-      // every stage is done; the paired null is being drawn, one whole-chain draw at a time
-      set({ nullProgress: { draw: e.draw as number, draws: e.draws as number } })
+      // every stage is done; the paired null is being drawn, one whole-chain draw at a time (with the draw's own
+      // in-step fraction when its block reports one)
+      set({ nullProgress: { draw: e.draw as number, draws: e.draws as number, done: e.done as number | undefined, total: e.total as number | undefined, stage: (e.stage as string | null | undefined) ?? null, fraction: (e.fraction as number | null | undefined) ?? null } })
       break
     case 'cancel_requested':
       // a cancel accepted anywhere (this tab, another tab, the Jobs page)

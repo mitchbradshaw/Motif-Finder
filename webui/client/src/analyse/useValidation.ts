@@ -17,7 +17,16 @@ export function useValidation(steps: Step[], source: SourceSpan | null, delayMs 
   // the held-out recording is never sent to the bridge (D6): its chain is validated as a structure only,
   // without a recording or span, so no estimate / cache / ceiling is claimed for it (critique r1)
   const src = isHeldOut(source) ? null : source
-  const key = JSON.stringify({ steps, r: src?.recording_id, s: spanOf(src) })
+  // W3-F: while a step's cost model is being timed in the background ("calibrating"), ask again every few seconds
+  // until the estimate lands — the Run button waits on it
+  const [again, setAgain] = useState(0)
+  const calibrating = (st.v?.estimate?.calibrating ?? []).length > 0
+  useEffect(() => {
+    if (!calibrating) return
+    const id = window.setTimeout(() => setAgain(a => a + 1), 3000)
+    return () => window.clearTimeout(id)
+  }, [calibrating, st.v])
+  const key = JSON.stringify({ steps, r: src?.recording_id, s: spanOf(src), again })
   useEffect(() => {
     const my = ++seq.current
     setSt(s => ({ ...s, pending: true }))

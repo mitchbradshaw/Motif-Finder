@@ -24,6 +24,14 @@ export type EdgeDetailExtras = { matched?: LibMatchedMember[]; scaleReadout?: Li
 const fmt = (v: number | null | undefined, d = 2) => v == null ? '—' : v.toFixed(d)
 const fmtScale = (s: number | null) => s == null ? '—' : `${s}×`
 
+/** `Working.distances.MPDIST_TOOLTIP`, verbatim (W3-D): worded so it cannot be read as a scale verdict. */
+const MPDIST_TOOLTIP = 'Shared sub-shapes (MPdist): how closely short pieces of one member find matching pieces anywhere in the other, each at its own speed. Extra baseline or a tighter cut does not count against them. It is NOT a scale verdict: a time-squeezed copy of a smooth shape still shares its sub-shapes with the original, so a small value does not say the motif survives rescaling — read the scale-invariant distance against the native-length control for that. Nor can it tell different shapes apart once noise is realistic: a drop and a square dip score nearly alike. 0 = identical sub-shapes, 1 = no more alike than unrelated pieces; the noise figure beside it is context, not a test.'
+
+/** W3-D / W3-F: a distance off the seed cut's footing (MPdist, symbolic) has no "within": `within === null`. Its
+ *  value is printed in a NEUTRAL colour (never the purple "beyond the cut"), its cut cell is "—" with the footing as
+ *  the tooltip. Only `within === false` is beyond the cut. */
+const valueColour = (e: LibEdge) => e.within === false ? 'var(--purple)' : undefined
+
 export function EdgeList({ edges, testid = 'edge-list', limit, family }: { edges: LibEdge[]; testid?: string; limit?: number; family?: { id: string; grouping?: string } }) {
   const [all, setAll] = useState(false)
   if (!edges.length) return <span className="lib-cap" data-testid={`${testid}-none`}>no edges · nothing has measured this span against another yet</span>
@@ -36,8 +44,10 @@ export function EdgeList({ edges, testid = 'edge-list', limit, family }: { edges
           {shown.map(e => (
             <tr key={e.id} data-testid={`edge-${e.id}`} data-function={e.function}>
               <td>{e.functionLabel}</td>
-              <td className="mono" style={{ color: e.within ? undefined : 'var(--purple)' }}>{fmt(e.value, 3)}</td>
-              <td className="mono" title={String((e.recipe?.threshold_is as string | undefined) ?? '')}>{e.threshold == null ? '—' : `${e.within ? '≤' : '>'} ${fmt(e.threshold)}`}</td>
+              <td className="mono" style={{ color: valueColour(e) }} title={e.function === 'mpdist' ? MPDIST_TOOLTIP : undefined} data-within={e.within === null ? 'none' : String(e.within)}>{fmt(e.value, 3)}</td>
+              {e.within === null
+                ? <td className="mono muted" title={e.footing ?? 'this distance is not on the seed cut\'s footing: no cut applies'} data-testid={`edge-off-footing-${e.id}`}>—</td>
+                : <td className="mono" title={String((e.recipe?.threshold_is as string | undefined) ?? '')}>{e.threshold == null ? '—' : `${e.within ? '≤' : '>'} ${fmt(e.threshold)}`}</td>}
               <td className="mono">{fmtScale(e.scale)}</td>
               <td className="mono">{e.other}</td>
               <td className="mono small" data-testid={`edge-xc-${e.id}`}><CrossChannelCell e={e} family={family} /></td>
@@ -120,8 +130,23 @@ export function MatchedMembers({ matched, entryLabel }: { matched: LibMatchedMem
   )
 }
 
-const spreadCell = (s: LibSpread | undefined) => !s || !s.n ? <span className="muted">—</span>
-  : <span title={`n ${s.n} · range ${fmt(s.min)}–${fmt(s.max)} · ${s.within} of ${s.n} at or under the run's cut ${fmt(s.threshold)}`}>{fmt(s.median)} <span className="muted">({s.within}/{s.n} ≤ cut)</span></span>
+/* W3-D's wording, k the count: "k could not be compared" · "k added before MPdist — run Add N matches again". */
+/** A cell of the read-out. A distance off the cut's footing (`within === null`: MPdist, symbolic) prints its median
+ *  and range only, the footing as the tooltip; MPdist's members with no edge say which kind of absence it is. */
+const spreadCell = (s: LibSpread | undefined, tip?: string) => {
+  const absent = s && (s.refused || s.not_computed) ? (
+    <span className="small" style={{ display: 'block', color: 'var(--text-2)' }}>
+      {s.refused ? <span data-testid="readout-refused">{s.refused} could not be compared</span> : null}
+      {s.refused && s.not_computed ? ' · ' : ''}
+      {s.not_computed ? <span title={s.missing_rule ?? ''} data-testid="readout-not-computed">{s.not_computed} added before MPdist — run Add N matches again</span> : null}
+    </span>
+  ) : null
+  if (!s || !s.n) return <><span className="muted">—</span>{absent}</>
+  if (s.within === null) {
+    return <><span title={`${tip ? `${tip}\n\n` : ''}n ${s.n} · range ${fmt(s.min)}–${fmt(s.max)}${s.footing ? ` · ${s.footing}` : ''}`}>{fmt(s.median)} <span className="muted">(n {s.n} · no cut on this footing)</span></span>{absent}</>
+  }
+  return <><span title={`n ${s.n} · range ${fmt(s.min)}–${fmt(s.max)} · ${s.within} of ${s.n} at or under the run's cut ${fmt(s.threshold)}`}>{fmt(s.median)} <span className="muted">({s.within}/{s.n} ≤ cut)</span></span>{absent}</>
+}
 
 function ReadoutTable({ run }: { run: LibReadoutRun }) {
   return (
@@ -131,6 +156,7 @@ function ReadoutTable({ run }: { run: LibReadoutRun }) {
         <th>scale-invariant d <InfoTip title="scale-invariant">Both spans resampled to one length, z-normalised, Euclidean — shape independent of duration. Median over the accepted pairs, and how many sit at or under the run's cut.</InfoTip></th>
         <th>native-length d <InfoTip title="native-length control">z-normalised Euclidean at native length, no resampling: a pair identical in shape but differing in duration is far apart under it. The control.</InfoTip></th>
         <th>symbolic d</th>
+        <th>MPdist <InfoTip title="MPdist">{MPDIST_TOOLTIP}</InfoTip></th>
         <th>null per draw <InfoTip title="the null per length">The paired null runs' spans at this length, per draw ({run.nullDraws} draws per channel). Beside the counts, not tested against them.</InfoTip></th>
       </tr></thead>
       <tbody>
@@ -140,6 +166,7 @@ function ReadoutTable({ run }: { run: LibReadoutRun }) {
             <td className="mono">{spreadCell(r.scale_invariant)}</td>
             <td className="mono">{spreadCell(r.native_length)}</td>
             <td className="mono">{spreadCell(r.symbolic_sax)}</td>
+            <td className="mono" data-testid={`readout-mpdist-${r.scale}`}>{spreadCell(r.mpdist, MPDIST_TOOLTIP)}</td>
             <td className="mono">{r.nullPerDraw == null ? 'no null drawn' : r.nullPerDraw.toFixed(2)}</td>
           </tr>
         ))}

@@ -196,6 +196,47 @@ def test_a_slow_calibration_reads_calibrating_then_lands(fake_block_cost, monkey
     assert fake_block_cost["calls"] == ["detection.deconvolve"], "one background calibration, not one per request"
 
 
+def test_a_background_calibration_writes_the_file_it_started_with(fake_block_cost, tmp_path, monkeypatch):
+    """A runtime restored while a minutes-long timing runs must not send its result to the checkout's DATA/db:
+    the thread is handed the path resolved when it started (block_cost.calibrate(path=...))."""
+    import json
+    import time as _t
+    from server import chain
+    from Working import block_cost
+    started = block_cost.CALIBRATION_PATH
+    seen = {}
+
+    def slow(names=None, force=False, path=None, **kw):
+        _t.sleep(0.4)
+        seen["path"] = path
+        data = block_cost._load(path)
+        for name in names:
+            data[block_cost._key(name)] = {"k": 1e-3, "exponent": 1.0, "n": 1, "elapsed_s": 0.1, "calibrated_at": "t"}
+        block_cost._save(data, path)
+    monkeypatch.setattr(block_cost, "calibrate", slow)
+    monkeypatch.setattr(chain, "CALIBRATION_WAIT_S", 0.01)
+    chain.route_local(_recipe(20_000, DECONV), 20_000, 1.0, ceiling_s=900)
+    elsewhere = tmp_path / "restored" / "block_calibration.json"
+    monkeypatch.setattr(block_cost, "CALIBRATION_PATH", str(elsewhere))    # a runtime restored mid-timing
+    assert _wait_for(lambda: "path" in seen)
+    _t.sleep(0.2)
+    assert os.path.abspath(seen["path"]) == os.path.abspath(started)
+    assert not elsewhere.exists()
+    with open(started, encoding="utf-8") as f:
+        assert block_cost._key("detection.deconvolve") in json.load(f)
+
+
+def test_block_cost_calibrate_honours_a_path(tmp_path, monkeypatch):
+    import json
+    from Working import block_cost
+    monkeypatch.setitem(block_cost.MODELS, "w3f.fake", (1.0, lambda x, fs: None))
+    p = tmp_path / "c.json"
+    block_cost.calibrate(["w3f.fake"], n=100, path=str(p))
+    with open(p, encoding="utf-8") as f:
+        assert block_cost._key("w3f.fake") in json.load(f)
+    assert not os.path.exists(block_cost.CALIBRATION_PATH) or block_cost._key("w3f.fake") not in block_cost._load()
+
+
 def test_a_calibration_that_fails_says_so_in_words(fake_block_cost):
     from server import chain
     fake_block_cost["fail"] = "model_path 'MODELS/x.pth' does not exist"
