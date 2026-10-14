@@ -1471,6 +1471,7 @@ DISTANCE_LABELS = {DISTANCE_SCALE_INVARIANT: "scale-invariant", DISTANCE_SYMBOLI
                    DISTANCE_NATIVE_LENGTH: "native-length control"}
 #: fixup-W: the edge *Classify across channels* writes when two co-occurring members had none
 DISTANCE_LABELS[matching_mod.CROSS_CHANNEL_DISTANCE] = "cross-correlation (1 − |r|)"
+DISTANCE_LABELS[matching_mod.DISTANCE_MPDIST] = "shared sub-shapes (MPdist)"
 
 
 def _cross_channel_payload(conn, member_ids) -> dict:
@@ -1593,11 +1594,14 @@ def _edge_payload(e, runs, other_member_id) -> dict:
     run = runs.get(int(recipe["run_id"])) if recipe and recipe.get("run_id") is not None else None
     threshold = _f(e["threshold"], None) if e["threshold"] is not None else None
     value = float(e["distance_value"])
+    # w3-d fix round 1 (F1): a distance off the seed cut's footing (MPdist, symbolic) has no cut and no "within"
+    off = e["distance_function"] in matching_mod.OFF_CUT_FOOTING
     return {
         "id": int(e["id"]), "function": e["distance_function"],
         "functionLabel": DISTANCE_LABELS.get(e["distance_function"], e["distance_function"]),
-        "value": round(value, 4), "threshold": threshold,
-        "within": (threshold is not None and value <= threshold),
+        "value": round(value, 4), "threshold": None if off else threshold,
+        "within": None if off else (threshold is not None and value <= threshold),
+        **({"footing": matching_mod.OFF_CUT_FOOTING[e["distance_function"]]} if off else {}),
         "scale": (float(e["scale_factor"]) if e["scale_factor"] is not None else None),
         "recipeHash": e["recipe_hash"], "recipe": recipe,
         "run": (run["label"] if run else (f"run {recipe['run_id']}" if recipe and recipe.get("run_id") else
@@ -3125,11 +3129,14 @@ def post_run_matches(request: Request, run_key: str, body: AddMatchesBody):
                          f"Added {out['members_new'] + out['members_resolved']} matches of {row['label']} to "
                          f"{summary['entryLabel']}: {out['members_new']} new members, {out['edges_new']} edges",
                          "Discovery › Runs", route=f"discovery/runs?run={run_key}",
-                         detail={k: out[k] for k in ("members_new", "members_resolved", "edges_new",
-                                                     "edges_by_function", "threshold", "include_unjudged")})
+                         detail={**{k: out[k] for k in ("members_new", "members_resolved", "edges_new",
+                                                        "edges_by_function", "threshold", "include_unjudged")},
+                                 "edges_refused": len(out["edges_refused"])})
         return {"membersNew": out["members_new"], "membersResolved": out["members_resolved"],
                 "edgesNew": out["edges_new"], "edgesKept": out["edges_kept"],
                 "edgesByFunction": out["edges_by_function"], "threshold": out["threshold"],
+                # w3-d fix round 1 (F2): the pairs a distance refused, and one sentence for the page
+                "edgesRefused": out["edges_refused"], "refusalSummary": out["refusal_summary"],
                 "entryId": summary["entryId"], "entryLabel": summary["entryLabel"],
                 "summary": _matches_summary(conn, row, params, body.includeUnjudged)}
     finally:

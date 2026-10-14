@@ -18,8 +18,9 @@ What it pins (headless; the routes are `test_webui_library_edges.py`):
 * **Q39.** A match becomes a Library member only with an accepting verdict
   (`interesting` / `seed`); *include unjudged* is a flag that is off; a
   rejected match keeps its distance on the detection row and nothing else.
-* **An edge per distance function.** Each accepted pair carries up to three
-  `motif_edge` rows — scale-invariant, symbolic, native-length — each with
+* **An edge per distance function.** Each accepted pair carries up to four
+  `motif_edge` rows — scale-invariant, symbolic, native-length and (w3-d)
+  MPdist — each with
   the scale factor, the detection it came from and the recipe that produced it.
 * **§4.2.** A match that re-finds an existing member resolves onto it rather
   than making a second one; the seed finding itself is not an edge.
@@ -48,7 +49,7 @@ from Working.database import runs as R  # noqa: E402
 from Working.database.schema import init_db  # noqa: E402
 from Working.discovery import seeded_search  # noqa: E402
 from Working.distances import (  # noqa: E402
-    DISTANCE_NATIVE_LENGTH, DISTANCE_SCALE_INVARIANT, DISTANCE_SYMBOLIC, resample_to_length,
+    DISTANCE_MPDIST, DISTANCE_NATIVE_LENGTH, DISTANCE_SCALE_INVARIANT, DISTANCE_SYMBOLIC, resample_to_length,
 )
 from Working.library import matching  # noqa: E402
 from Working.registration.settings import put_settings  # noqa: E402
@@ -299,10 +300,11 @@ def test_each_accepted_pair_carries_an_edge_per_distance_function(lib):
     by_det = {}
     for e in edges:
         by_det.setdefault(e["detection_id"], set()).add(e["distance_function"])
-    expected = {DISTANCE_SCALE_INVARIANT, DISTANCE_SYMBOLIC, DISTANCE_NATIVE_LENGTH}
+    # w3-d: four distance functions now (MPdist added), so three pairs make 12 edges, not 9
+    expected = {DISTANCE_SCALE_INVARIANT, DISTANCE_SYMBOLIC, DISTANCE_NATIVE_LENGTH, DISTANCE_MPDIST}
     for key in ("short", "long", "refind"):
         assert by_det[lib.det[key]] == expected, key
-    assert len(edges) == 9
+    assert len(edges) == 12
     for e in edges:
         assert e["member_a_id"] == lib.exemplar_member
         assert e["threshold"] == pytest.approx(4.0), "the cut the search applied"
@@ -370,7 +372,7 @@ def test_a_new_member_carries_its_hash_channel_and_a_machine_revision(lib):
 def test_edges_for_entry_lists_every_edge_with_both_members(lib):
     lib.resolve()
     rows = matching.edges_for_entry(lib.conn, lib.entry)
-    assert len(rows) == 9
+    assert len(rows) == 12, "three pairs x four distance functions (w3-d added MPdist)"
     assert {r["member_b_id"] for r in rows} >= {lib.other_member}
     assert all({"distance_function", "distance_value", "threshold", "scale_factor", "recipe_json",
                 "b_recording_id", "b_start_idx", "b_end_idx"} <= set(r.keys()) for r in rows)
