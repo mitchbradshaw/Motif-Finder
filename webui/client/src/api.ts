@@ -223,7 +223,8 @@ export interface WindowsetPayload {
 export interface EncodingSymbolicPayload {
   type: 'encoding'; kind: 'symbolic'; n_symbols: number; alphabet_size: number; symbols: number[]; letters: string; capped: boolean; alphabet?: string | null
   samples_per_symbol: number | null; seconds_per_symbol: number | null; t0_s: number; fs: number; cutlines: number[] | null; cutline_domain: string | null
-  representatives: number[] | null; paa: number[] | null; n_trimmed: number | null; summary: string
+  /** `symbols` may hold -1 (dSAX's MISSING_SYMBOL: a segment a gap touches, letter '-'); its `paa` entry is null */
+  representatives: number[] | null; paa: (number | null)[] | null; n_trimmed: number | null; summary: string
 }
 /** One image of an Encoding (fixup-h): a stack's k-th image, a chunk of a time-aligned image's columns at its own
  *  resolution, or the whole of any other image — with the seconds of signal it came from when that is known. */

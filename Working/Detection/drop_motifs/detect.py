@@ -248,8 +248,16 @@ def robust_sigma(values):
     is therefore set by the very thing it is meant to be a floor beneath.
     Measured on 5000 Gaussian samples with 1% replaced by a huge constant,
     the sd triples and this moves by under 5%.
+
+    Missing values (NaN, inf) are left out: this is the scale of what was
+    recorded. Before 2026-10-14 one NaN made it NaN, and with it the drop
+    detector's noise floor, so a span with one missing sample returned no
+    events and said nothing.
     """
     values = np.asarray(values, dtype=float).ravel()
+    finite = np.isfinite(values)
+    if not finite.all():
+        values = values[finite]
     if values.size == 0:
         return 0.0
     mad = float(np.median(np.abs(values - np.median(values))))
@@ -297,6 +305,11 @@ def slope_noise_sigma(x, fs, estimator=NOISE_SECOND_DIFFERENCE):
         sigma_amplitude / sqrt(2), not sigma_amplitude.
     Dropping either would leave `slope_sigma` meaning some other number
     of sigmas than the one written on it.
+
+    Missing samples: the differences that touch one are left out, so the
+    floor is the noise of what was recorded (inf counts as missing and is
+    made NaN first, so no difference meets inf - inf). An unrecorded span
+    has a floor of 0.
     """
     x = np.asarray(x, dtype=float).ravel()
     if x.size < 3:
@@ -305,6 +318,7 @@ def slope_noise_sigma(x, fs, estimator=NOISE_SECOND_DIFFERENCE):
         raise ValueError(
             f"unknown noise estimator {estimator!r} - must be one of "
             f"{NOISE_ESTIMATORS}")
+    x, _ = nan_for_missing(x)
 
     fs = float(fs)
     gradient_sigma = robust_sigma(np.gradient(x)) * fs
@@ -338,13 +352,57 @@ def _floor_noise(sigma, x, fs):
     of the signal's own amplitude range per sample, which is not a noise
     estimate and does not pretend to be: it is a guard that keeps the
     comparison well-defined on a signal that has no noise to measure.
+    The range is the recorded samples'.
     """
     if sigma > 0.0:
         return float(sigma)
-    span = float(np.ptp(x))
+    finite = np.isfinite(x)
+    if not finite.all():
+        x = x[finite]
+    span = float(np.ptp(x)) if x.size else 0.0
     if span <= 0.0:
-        return 0.0          # genuinely constant; the caller short-circuits
+        return 0.0          # genuinely constant (or unrecorded); the caller short-circuits
     return float(span * _NOISELESS_FLOOR_FRAC * fs)
+
+
+# -- missing samples ---------------------------------------------------------
+#
+# A gap (NaN or inf samples, 2026-10-14) is skipped, never bridged: dSAX gives
+# every segment that touches one `MISSING_LETTER`, no scan for an onset or a
+# trough runs past one, and no stored window reaches across one. A candidate
+# whose fall runs into a gap, or whose shoulder lies in one, is left out and
+# counted (`rejected_at_gap`): its depth is not measured.
+
+def nan_for_missing(x):
+    """`(x, gaps)`: `x` as floats with every missing sample (NaN, inf) NaN,
+    and whether there were any. A comparison with NaN is False and NaN
+    arithmetic does not warn, so a missing sample can never pass a slope
+    gate or a walk; inf could (-inf is below any threshold). Finite input
+    comes back as the same array."""
+    x = np.asarray(x, dtype=float).ravel()
+    recorded = np.isfinite(x)
+    if recorded.all():
+        return x, False
+    return np.where(recorded, x, np.nan), True
+
+
+def next_missing(missing, i, n):
+    """The first index in sorted `missing` at or after `i`, or `n` if none."""
+    k = int(np.searchsorted(missing, i, side="left"))
+    return int(missing[k]) if k < len(missing) else int(n)
+
+
+def clip_to_recorded(missing, onset, trough, start, end):
+    """`[start, end)` cut back to the recorded stretch that holds
+    `[onset, trough]`: a window never reaches across a missing sample.
+    `missing` is the sorted indices of the missing samples."""
+    k = int(np.searchsorted(missing, onset, side="left"))
+    if k > 0:
+        start = max(start, int(missing[k - 1]) + 1)
+    k = int(np.searchsorted(missing, trough, side="right"))
+    if k < len(missing):
+        end = min(end, int(missing[k]))
+    return start, end
 
 
 def detrend(x, window_samples):
@@ -521,18 +579,26 @@ def detect_drops(x, fs, params):
         "rejected_no_slope": 0,
         "rejected_shallow": 0,
         "rejected_duplicate": 0,
+        "rejected_at_gap": 0,
+        "missing_segments": 0,
     }
 
     x_detrended = detrend(x, params.detrend_window_s * fs)
+    x_detrended, gaps = nan_for_missing(x_detrended)
 
     # A span with no variation at all has no trend to encode. dSAX handles
     # it (its `_all_same_cutlines` path) but the quantile cutlines collapse
     # onto each other and the result is meaningless rather than merely
-    # empty, so it is short-circuited here and reported as such.
-    if len(x_detrended) < 4 or float(np.ptp(x_detrended)) == 0.0:
+    # empty, so it is short-circuited here and reported as such. With gaps
+    # the question is asked of the recorded samples.
+    values = x_detrended[np.isfinite(x_detrended)] if gaps else x_detrended
+    if len(values) < 4 or float(np.ptp(values)) == 0.0:
         counts["degenerate_span"] = True
+        reason = ("span is constant" if not gaps else
+                  "span has fewer than 4 recorded samples" if len(values) < 4 else
+                  "span is constant where recorded")
         return DetectionResult(events=[], counts=counts,
-                               diagnostics={"reason": "span is constant",
+                               diagnostics={"reason": reason,
                                             "elapsed_s": time.time() - started},
                                x_detrended=x_detrended, params=params)
 
@@ -555,6 +621,7 @@ def detect_drops(x, fs, params):
     segment_starts = np.asarray(details["segment_starts"], dtype=int)
     segment_ends = np.asarray(details["segment_ends"], dtype=int)
     counts["segments"] = int(details["n_symbols"])
+    counts["missing_segments"] = int(details["n_missing_segments"])
 
     # The derivative is taken on the DETRENDED signal so the drift the
     # detrend removed cannot leak back in through the slope. It is kept in
@@ -564,6 +631,11 @@ def detect_drops(x, fs, params):
     sigma_slope = slope_noise_sigma(x_detrended, 1.0,
                                     estimator=params.noise_estimator)
     slope_threshold = -float(params.slope_sigma) * sigma_slope
+
+    # Where a gap stops a scan (the samples whose slope is missing) and ends
+    # a window (the missing samples). None on finite input.
+    no_slope = np.flatnonzero(~np.isfinite(derivative)) if gaps else None
+    missing = np.flatnonzero(np.isnan(x_detrended)) if gaps else None
 
     regions = up_regions(letters)
     counts["up_regions"] = len(regions)
@@ -575,7 +647,13 @@ def detect_drops(x, fs, params):
         up_duration = max(up_end - up_start, sps)
         lookahead = int(round(params.lookahead_mult * up_duration))
 
-        onset = find_drop_onset(derivative, up_end, slope_threshold, lookahead)
+        if gaps:
+            # the fall must follow the rise on the near side of any gap
+            stop = next_missing(no_slope, up_end, len(derivative))
+            onset = (find_drop_onset(derivative, up_end, slope_threshold, min(lookahead, stop - up_end))
+                     if stop > up_end else None)
+        else:
+            onset = find_drop_onset(derivative, up_end, slope_threshold, lookahead)
         if onset is None:
             counts["rejected_no_slope"] += 1
             continue
@@ -585,8 +663,18 @@ def detect_drops(x, fs, params):
             counts["rejected_no_slope"] += 1
             continue
 
-        trough = find_trough(derivative, onset, tail,
-                             knee_frac=params.trough_knee_frac)
+        stop = next_missing(no_slope, onset, len(derivative)) if gaps else tail
+        if stop < tail:
+            # A gap inside the trough search: the trough must be found before
+            # it, by its knee, or the fall's depth is not measured.
+            trough = find_trough(derivative, onset, stop,
+                                 knee_frac=params.trough_knee_frac)
+            if trough <= onset or trough >= stop - 1:
+                counts["rejected_at_gap"] += 1
+                continue
+        else:
+            trough = find_trough(derivative, onset, tail,
+                                 knee_frac=params.trough_knee_frac)
         depth = float(x_detrended[onset] - x_detrended[trough])
         candidates.append({
             "up_start": up_start, "up_end": up_end, "onset": onset,
@@ -623,7 +711,7 @@ def detect_drops(x, fs, params):
         kept = survivors
     kept.sort(key=lambda c: c["onset"])
 
-    events = [_build_event(c, x, x_detrended, fs, params, sps) for c in kept]
+    events = [_build_event(c, x, x_detrended, fs, params, sps, missing=missing) for c in kept]
     counts["drops_confirmed"] = len(events)
     counts["slope_threshold_raw"] = slope_threshold
 
@@ -633,12 +721,14 @@ def detect_drops(x, fs, params):
                            x_detrended=x_detrended, params=params)
 
 
-def _build_event(candidate, x, x_detrended, fs, params, sps):
+def _build_event(candidate, x, x_detrended, fs, params, sps, missing=None):
     onset, trough = candidate["onset"], candidate["trough"]
     fall = max(trough - onset, sps)
 
     start = max(0, onset - int(round(params.pre_context_mult * fall)))
     end = min(len(x), trough + int(round(params.post_context_mult * fall)))
+    if missing is not None and len(missing):
+        start, end = clip_to_recorded(missing, onset, trough, start, end)
 
     window = x[start:end]
     peak_to_peak = float(np.ptp(window)) * 1000.0 if window.size else 0.0

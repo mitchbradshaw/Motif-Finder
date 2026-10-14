@@ -22,19 +22,43 @@ Output: an `Encoding` of kind `symbolic`, one integer per segment
 segment length in samples is `len(x) // n_symbols` (dSAX trims the span to
 a whole number of segments), so the next block recovers it from the shapes
 alone — no side channel.
+
+Missing samples (NaN, inf; 2026-10-14): a segment that touches one has no
+stage — symbol -1, letter '-' (`dsax.MISSING_SYMBOL` / `MISSING_LETTER`) —
+and the cutlines and the noise floor are the recorded part's. Before, one
+NaN made every segment 'U' and the floor NaN. The block page says how much
+is missing before a run.
 """
 
 import numpy as np
 
 from Adapters.base import AdapterResult, AdapterSpec, ParamSpec
+from Adapters.detection_threshold import spans_from_mask
 from Adapters.registry import register
 from Working.Detection.drop_motifs.detect import (
     NOISE_ESTIMATORS, NOISE_SECOND_DIFFERENCE, THRESHOLD_MODE, TREND_ESTIMATOR, slope_noise_sigma,
 )
 from Working.Detection.drop_motifs.detect5 import STAGE_LETTERS, Detect5Params, stage_letters
+from Working.Detection.sax.dsax_python.dsax import MISSING_LETTER, MISSING_SYMBOL
 from Working.types import Encoding
 
 STAGE_INDEX = {letter: i for i, letter in enumerate(STAGE_LETTERS)}
+STAGE_INDEX[MISSING_LETTER] = MISSING_SYMBOL          # a segment a gap touches: no stage
+
+
+def missing_samples_row(x, t, fs, consequence):
+    """The block page's readout of a span's gaps, or None when nothing is
+    missing: `("Missing samples", "<n> in <k> gaps · first at h:mm:ss · <consequence>", "warn")`.
+    Shared with `detection.drop_detection`."""
+    gone = ~np.isfinite(np.asarray(x, dtype=float).ravel())
+    if not gone.any():
+        return None
+    starts, _ = spans_from_mask(gone)
+    first = float(t[int(starts[0])]) if t is not None and len(t) > int(starts[0]) else int(starts[0]) / float(fs)
+    clock = f"{int(first // 3600)}:{int(first % 3600 // 60):02d}:{int(first % 60):02d}"
+    k = len(starts)
+    return ("Missing samples", f"{int(gone.sum()):,} in {k} gap{'s' if k != 1 else ''} · first at {clock} · "
+            f"{consequence}", "warn")
 
 
 def params_for(fs, segment_seconds, same_fraction, slope_sigma, noise_estimator, merge_gap_segments,
@@ -72,6 +96,7 @@ def _run(x, t, fs, segment_seconds=60.0, same_fraction=0.6, slope_sigma=8.0,
             "fast_cut_raw": float(details["fast_cut_raw"]),
             "same_fraction_observed": float(details.get("same_fraction_observed", float("nan"))),
             "stage_histogram": hist, "n_segments": len(letters),
+            "missing_segments": letters.count(MISSING_LETTER),
         },
     )
 
@@ -82,11 +107,14 @@ def _derive(x, t, fs, params):
     sps = max(1, int(round(params["segment_seconds"] * fs)))
     n_seg = max(1, len(x) // sps)
     cut = params["slope_sigma"] * sigma
-    return [
+    rows = [
         ("Slope-noise σ (MAD)", f"{sigma * 1000:.4f} mV/s", ""),
         ("Fast cut (±slope_sigma·σ)", f"{cut * 1000:.4f} mV/s", ""),
         ("Segments", f"{n_seg} × {sps} samples", "warn" if n_seg < 8 else ""),
     ]
+    gap = missing_samples_row(x, t, fs, "a segment that touches a gap gets no letter (-); σ and the cutlines "
+                                        "are the recorded part's")
+    return rows + [gap] if gap else rows
 
 
 SPEC = register(AdapterSpec(

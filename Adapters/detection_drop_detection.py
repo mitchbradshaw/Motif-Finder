@@ -23,6 +23,11 @@ Output: one span per confirmed drop, `[window_start, window_end)`, label
 `onset=<i>;trough=<j>;<morphology>`, score = drop depth (mV). The full
 `Drop5Event` rows, the counts and the diagnostics ride in `meta`, which is
 what the block page's event cards and "removed" breakdown draw.
+
+Missing samples (2026-10-14): a segment the encoder marked -1 ('-', a gap)
+is read as a gap, and no event is drawn across one — see
+`detect_from_letters`; `counts` carries `missing_segments` and
+`rejected_at_gap`.
 """
 
 import dataclasses
@@ -30,11 +35,13 @@ import dataclasses
 import numpy as np
 
 from Adapters.base import AdapterResult, AdapterSpec, ParamSpec
+from Adapters.detection_stage_encoding import missing_samples_row
 from Adapters.registry import register
 from Working.Detection.drop_motifs.detect import NOISE_ESTIMATORS, NOISE_SECOND_DIFFERENCE, slope_noise_sigma
 from Working.Detection.drop_motifs.detect5 import (
     MORPHOLOGIES, STAGE_LETTERS, Detect5Params, detect_from_letters, morphology_from_letters,
 )
+from Working.Detection.sax.dsax_python.dsax import MISSING_LETTER, MISSING_SYMBOL
 from Working.types import SpanSet
 
 
@@ -44,11 +51,13 @@ def letters_from_encoding(value):
     if getattr(value, "kind", None) != "symbolic":
         raise ValueError(f"detection.drop_detection reads five-stage letters (a symbolic Encoding); got kind {value.kind!r}.")
     syms = np.asarray(value.values).ravel()
-    if syms.size and (syms.min() < 0 or syms.max() >= len(STAGE_LETTERS)):
+    known = ((syms >= 0) & (syms < len(STAGE_LETTERS))) | (syms == MISSING_SYMBOL)
+    if syms.size and not known.all():
         raise ValueError(
-            f"detection.drop_detection expects symbols 0..{len(STAGE_LETTERS) - 1} (d D S U u); got "
-            f"{int(syms.min())}..{int(syms.max())}. Put Five-stage encoding before it, not a plain SAX block.")
-    return "".join(STAGE_LETTERS[int(s)] for s in syms)
+            f"detection.drop_detection expects symbols 0..{len(STAGE_LETTERS) - 1} (d D S U u), or "
+            f"{MISSING_SYMBOL} for a segment a gap touches; got {int(syms.min())}..{int(syms.max())}. "
+            "Put Five-stage encoding before it, not a plain SAX block.")
+    return "".join(MISSING_LETTER if int(s) == MISSING_SYMBOL else STAGE_LETTERS[int(s)] for s in syms)
 
 
 def _run(x, t, fs, slope_sigma=8.0, noise_estimator=NOISE_SECOND_DIFFERENCE, min_rise_frac=0.5,
@@ -107,7 +116,8 @@ def _derive(x, t, fs, params, value=None):
             rows.append(("Letters", f"{len(letters)} segments · {letters.count('d')} fast falls", ""))
         except ValueError as e:
             rows.append(("Letters", str(e), "error"))
-    return rows
+    gap = missing_samples_row(x, t, fs, "no rise, fall or window is drawn across a gap")
+    return rows + [gap] if gap else rows
 
 
 SPEC = register(AdapterSpec(

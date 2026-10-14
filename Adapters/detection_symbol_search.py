@@ -13,6 +13,11 @@ fast fall). Each regex match becomes one span covering the matched
 segments; its label is the matched text, its score the match length in
 segments. The segment length is `len(x) // n_symbols`, the same rule every
 symbolic consumer uses.
+
+A segment a gap touches (symbol -1, from dSAX or the five-stage encoding)
+is spelled '-' in every alphabet, so no pattern written in letters matches
+it. Until 2026-10-14 it read as the alphabet's LAST letter (-1 indexes from
+the end): 'u', a fast rise, in the five-stage alphabet.
 """
 
 import re
@@ -21,6 +26,7 @@ import numpy as np
 
 from Adapters.base import AdapterResult, AdapterSpec, ParamSpec
 from Adapters.registry import register
+from Working.Detection.sax.dsax_python.dsax import MISSING_LETTER, MISSING_SYMBOL
 from Working.types import SpanSet
 
 _LETTERS = "abcdefghijklmnopqrstuvwxyz"
@@ -28,6 +34,10 @@ _LETTERS = "abcdefghijklmnopqrstuvwxyz"
 
 def letter(i, alphabet=""):
     i = int(i)
+    if i == MISSING_SYMBOL:
+        return MISSING_LETTER
+    if i < 0:
+        raise ValueError(f"symbol {i} is not a symbol (the only negative one is {MISSING_SYMBOL}, a gap)")
     if alphabet:
         if i >= len(alphabet):
             raise ValueError(f"symbol {i} is outside the {len(alphabet)}-letter alphabet {alphabet!r}")

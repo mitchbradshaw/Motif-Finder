@@ -31,6 +31,7 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
+from Working.Detection.sax.dsax_python.dsax import MISSING_LETTER, MISSING_SYMBOL
 from Working.types.windowset import BOOKKEEPING_COLUMNS
 from Working.units import to_mv_factor
 
@@ -48,6 +49,8 @@ _LETTERS = "abcdefghijklmnopqrstuvwxyz"
 
 def _letter(i: int) -> str:
     i = int(i)
+    if i == MISSING_SYMBOL:
+        return MISSING_LETTER       # a segment a gap touches (dSAX); -1 used to index 'z'
     if i < 26:
         return _LETTERS[i]
     return _LETTERS[i // 26 - 1] + _LETTERS[i % 26]

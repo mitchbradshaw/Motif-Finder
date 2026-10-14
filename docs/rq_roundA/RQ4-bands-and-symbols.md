@@ -86,6 +86,13 @@ that find things the plain, un-split signal hides? You check the extra finds by 
     the same fixed seed (fixup-csax-seed, `docs/prompts/fixup/reports/csax-seed-meanshift.md`). Its **alphabet size is
     seed-sensitive** there: 3–6 letters over 32 seeds, 4 in 24. Seed-sweep any finding that leans on it.
 - **A plain amplitude threshold is now a raw-signal arm** (2026-10-13, `detection.signal_threshold`; template `signal_threshold` = baseline removal → the cut, shipped at −5 mV `below`). It is the simplest comparator step 1 can use beside the drop detector and `mp_threshold`: no window, no model, one level in the signal's own units, the cut draggable on the block page. Tests: `tests/test_adapter_signal_threshold.py`, `tests/test_template_signal_threshold.py`.
+- **Both arms skip a gap instead of returning nothing** (2026-10-14, drop-nan, `tests/test_drop_detection_nan.py`).
+  One missing sample (NaN) used to make `drop_detection_v1` return zero events and dSAX call every segment a rise
+  (in its learned mode, crash), with nothing said. Now the noise floor, dSAX's normalisation and its boundaries are
+  measured over the recorded samples; a segment a gap touches gets the letter `-` (symbol -1), which
+  `symbol_search` and the UI spell `-`, never a letter; no drop is drawn across a gap. Gap-free spans give the same
+  results bit for bit (the seed events reproduce). No recording held a NaN on 2026-10-14, so no number above moves;
+  it matters once a recording keeps its gaps instead of filling them.
 
 ## Decisions already made
 
@@ -140,3 +147,4 @@ None.
 - 2026-10-03 · fixup-t · band runs draw 20 paired surrogates per channel and print the count; the 297 is not yet re-measured.
 - 2026-10-04 · fixup-AC · `preprocessing.wavelet_bands` (stationary wavelet transform, every layer drawn and aligned); a wavelet level is a band in the band scope; sandbox: 2 levels + 1 band = 3 runs, union 123 vs raw only-A 3, null out-finds every layer
 - 2026-10-13 · signal-threshold · `detection.signal_threshold` (Signal → SpanSet at a level in the signal's units) and the `signal_threshold` template: a plain amplitude-threshold raw-signal arm for step 1
+- 2026-10-14 · drop-nan · the drop detector, dSAX and symbol search skip a gap (letter `-`, statistics over the recorded part) instead of returning nothing; gap-free input unchanged bit for bit

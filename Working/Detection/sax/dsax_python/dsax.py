@@ -135,6 +135,15 @@ SYMBOL_LETTERS = {
     5: ("d", "D", "S", "U", "u"),
 }
 
+# A segment that touches a missing sample (NaN, inf) has no trend to quantise:
+# its symbol is -1 and its letter '-', outside every alphabet, so no reader
+# can take it for a rise, a fall or "no change" (2026-10-14; before, one NaN
+# made the normalisation, every delta and every cutline NaN, and every segment
+# the top symbol). The normalisation, the cutlines and every statistic in
+# `details` are then taken over the recorded segments.
+MISSING_SYMBOL = -1
+MISSING_LETTER = "-"
+
 # Relative tolerance below which the delta distribution counts as constant
 # (a flat signal, or one whose only variation is float noise). Chosen at
 # 1e-9 of the signal's amplitude scale: comfortably above float64 round-off
@@ -181,12 +190,16 @@ def dsax_letters(symbols, alphabet_size=3):
     convention (`_letter`) rather than inventing one per alphabet size —
     a regex written against `D2`/`D1` two-character symbols would not be a
     character-class regex at all, which defeats the purpose.
+
+    `MISSING_SYMBOL` (a segment a gap touches) is `MISSING_LETTER` at every
+    alphabet size.
     """
     symbols = np.asarray(symbols, dtype=int).ravel()
     table = SYMBOL_LETTERS.get(int(alphabet_size))
     if table is not None:
-        return "".join(table[s] if 0 <= s < len(table) else "?" for s in symbols)
-    return "".join(_letter(s) for s in symbols)
+        return "".join(table[s] if 0 <= s < len(table) else MISSING_LETTER if s == MISSING_SYMBOL else "?"
+                       for s in symbols)
+    return "".join(MISSING_LETTER if s == MISSING_SYMBOL else _letter(s) for s in symbols)
 
 
 # ── cutline construction ─────────────────────────────────────────────────
@@ -484,7 +497,9 @@ def dsax(data, training_len, dim_ratio, alphabet_size=3,
     Returns
     -------
     str_out : np.ndarray, shape (data_nseg,) — 0-based symbol indices,
-        ascending in trend: 0 is the steepest fall, k-1 the steepest rise.
+        ascending in trend: 0 is the steepest fall, k-1 the steepest rise;
+        `MISSING_SYMBOL` (-1) for a segment that touches a missing sample
+        (NaN, inf), whose delta, slope and PAA in `details` are NaN.
     details : dict, only when return_details=True — see the module
         docstring for the delta-vs-level raw-conversion rule, and §3.6 of
         `DSAX_IMPLEMENTATION_PROMPT.md` for the full key list.
@@ -561,11 +576,22 @@ def dsax(data, training_len, dim_ratio, alphabet_size=3,
     training_nseg = max(int(np.floor(dim_ratio * training_len)), 1)
     training_len = training_len - (training_len % training_nseg)
 
+    # ── Missing samples (NaN, inf). A segment that touches one has no delta
+    # and no symbol (`MISSING_SYMBOL`), and everything below is measured over
+    # the recorded samples and segments. inf is NaN from here on, so nothing
+    # below meets inf - inf. Finite input takes none of these branches.
+    recorded = np.isfinite(data)
+    gaps = not recorded.all()
+    if gaps:
+        data = np.where(recorded, data, np.nan)
+        missing = ~recorded.reshape(data_nseg, sps).all(axis=1)
+
     # ── Normalisation. ONE step, unlike psax/csax (see module docstring).
     mu1, sigma1 = 0.0, 1.0
     if normalize:
-        mu1 = float(data.mean())
-        sd = float(data.std())
+        values = data[recorded] if gaps else data
+        mu1 = float(values.mean()) if values.size else 0.0
+        sd = float(values.std()) if values.size else 0.0
         if sd < _NORM_THRESH:
             # Degenerate-variance guard, matching psax: mean-subtract only,
             # so delta_scale stays exactly 1.0 and no division by ~0 blows
@@ -575,10 +601,16 @@ def dsax(data, training_len, dim_ratio, alphabet_size=3,
             sigma1 = sd
             data = (data - mu1) / sigma1
 
-    # ── Deltas over every segment.
+    # ── Deltas over every segment. A segment a gap touches is measured on a
+    # zero-filled copy, so every estimator runs unchanged and nothing warns,
+    # and its delta and slope are then NaN.
     deltas, seg_slope, theil_sen_subsampled = compute_deltas(
-        data, data_nseg, sps, trend_estimator=trend_estimator, endpoint_k=endpoint_k
+        np.where(recorded, data, 0.0) if gaps else data, data_nseg, sps,
+        trend_estimator=trend_estimator, endpoint_k=endpoint_k
     )
+    if gaps:
+        deltas = np.where(missing, np.nan, deltas)
+        seg_slope = np.where(missing, np.nan, seg_slope)
 
     # The training deltas are exactly the leading `n_train_seg` entries of
     # `deltas`, because segment i of `data[:n*sps]` IS segment i of `data`.
@@ -593,14 +625,20 @@ def dsax(data, training_len, dim_ratio, alphabet_size=3,
     # from `sps`, which is invisible for PAA and a systematic bias here.
     n_train_seg = int(np.clip(training_len // sps, 2, data_nseg))
     training_deltas = deltas[:n_train_seg]
+    # The recorded segments' deltas: what every statistic below is taken over.
+    present = deltas
+    if gaps:
+        present = deltas[~missing]
+        training_deltas = training_deltas[np.isfinite(training_deltas)]
 
     # ── Cutlines, in the working (possibly normalised) delta domain.
     delta_scale = sigma1 if normalize else None
-    degenerate_tol = _DEGENERATE_REL * max(float(np.max(np.abs(data))) if data.size else 0.0, 1.0)
-    deltas_are_flat = float(np.ptp(deltas)) <= degenerate_tol
+    values = data[recorded] if gaps else data
+    degenerate_tol = _DEGENERATE_REL * max(float(np.max(np.abs(values))) if values.size else 0.0, 1.0)
+    deltas_are_flat = (float(np.ptp(present)) if present.size else 0.0) <= degenerate_tol
 
     deltas_are_zero = deltas_are_flat and (
-        (float(np.max(np.abs(deltas))) if deltas.size else 0.0) <= degenerate_tol
+        (float(np.max(np.abs(present))) if present.size else 0.0) <= degenerate_tol
     )
     # `absolute` mode is fully specified by the caller: its cutlines came
     # from a stated physical threshold, not from the data, so a degenerate
@@ -615,9 +653,19 @@ def dsax(data, training_len, dim_ratio, alphabet_size=3,
         # signal's units, which would place cutlines at O(1) around a
         # distribution of exact zeros — all-SAME by luck rather than by
         # construction, and unflagged. Handle it explicitly instead.
-        cutlines = _all_same_cutlines(deltas, alphabet_size, degenerate_tol)
+        # (An unrecorded span lands here too: no delta at all.)
+        cutlines = _all_same_cutlines(present, alphabet_size, degenerate_tol)
     elif deltas_are_flat and learning_mode:
-        cutlines = _flat_nonzero_cutlines(deltas, alphabet_size)
+        cutlines = _flat_nonzero_cutlines(present, alphabet_size)
+    elif learning_mode and training_deltas.size < 2:
+        # Only with gaps, and only when the training span is shorter than the
+        # data: the recorded segments have a spread, the training part does
+        # not hold two of them.
+        raise ValueError(
+            f"dSAX: the training span (the first {training_len} samples) holds {training_deltas.size} "
+            "recorded segment(s); the cutlines need at least 2. Use a training span that reaches the "
+            "recorded part of the data."
+        )
     elif threshold_mode == "learned":
         codewords, cutlines = _learned_cutlines(
             training_deltas, alphabet_size, npoints=min(training_len, 1000),
@@ -644,7 +692,7 @@ def dsax(data, training_len, dim_ratio, alphabet_size=3,
     cutlines, min_same_applied = _apply_min_same_halfwidth(
         cutlines, min_same_halfwidth, alphabet_size
     )
-    cutlines, nudged = _enforce_ascending(cutlines, deltas)
+    cutlines, nudged = _enforce_ascending(cutlines, present if present.size else np.zeros(1))
     # The flag means "these cutlines are not a real quantisation of this
     # data" and is true in exactly three situations:
     #   - two cutlines had to be forced apart by an epsilon;
@@ -662,6 +710,8 @@ def dsax(data, training_len, dim_ratio, alphabet_size=3,
 
     # ── Quantise. One line — this IS the algorithm.
     str_out = np.searchsorted(cutlines, deltas, side="right")
+    if gaps:
+        str_out[missing] = MISSING_SYMBOL
 
     if not return_details:
         return str_out
@@ -685,12 +735,15 @@ def dsax(data, training_len, dim_ratio, alphabet_size=3,
     if codewords is not None:
         representatives = np.asarray(codewords, dtype=float)
     else:
-        representatives = _bin_representatives(deltas, cutlines, alphabet_size)
+        representatives = _bin_representatives(present, cutlines, alphabet_size)
     representatives_raw = (representatives if delta_scale is None
                            else representatives * delta_scale)
 
     zero_symbol = int(np.searchsorted(cutlines, 0.0, side="right"))
-    same_fraction_observed = float(np.mean(str_out == zero_symbol)) if len(str_out) else 0.0
+    # The SAME share of the RECORDED segments: a gap is not "no change".
+    kept = str_out[~missing] if gaps else str_out
+    same_fraction_observed = float(np.mean(kept == zero_symbol)) if len(kept) else 0.0
+    present_raw = deltas_raw[~missing] if gaps else deltas_raw
 
     segment_starts = np.arange(data_nseg, dtype=int) * sps
     segment_ends = segment_starts + sps
@@ -727,8 +780,8 @@ def dsax(data, training_len, dim_ratio, alphabet_size=3,
         "deltas": deltas,
         "deltas_raw": deltas_raw,
         "delta_scale": delta_scale,
-        "delta_mean": float(np.mean(deltas)) if deltas.size else 0.0,
-        "delta_mean_raw": (float(np.mean(deltas_raw)) if deltas_raw.size else 0.0),
+        "delta_mean": float(np.mean(present)) if present.size else 0.0,
+        "delta_mean_raw": (float(np.mean(present_raw)) if present_raw.size else 0.0),
         "seg_slope": seg_slope,
         "seg_slope_raw": seg_slope_raw,
         "segment_starts": segment_starts,
@@ -741,6 +794,8 @@ def dsax(data, training_len, dim_ratio, alphabet_size=3,
         "cutlines_degenerate": cutlines_degenerate,
         "theil_sen_subsampled": bool(theil_sen_subsampled),
         "min_same_halfwidth_applied": bool(min_same_applied),
+        # Segments a gap touches (`MISSING_SYMBOL`); 0 on finite input.
+        "n_missing_segments": int(missing.sum()) if gaps else 0,
     }
     return str_out, details
 
