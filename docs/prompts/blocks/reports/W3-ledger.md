@@ -15,12 +15,15 @@ fixers in `isolation: worktree`; critics read the implementer's worktree and nev
 | # | Role | Block | Agent id | Worktree | Branch | Base | Status |
 |---|---|---|---|---|---|---|---|
 | 1 | implementer | W3-A `catalogue.multiscale_entropy` | `a67442d9e04015d6a` | `.claude/worktrees/agent-a67442d9e04015d6a` | `worktree-agent-a67442d9e04015d6a` | `01cb8c3` | launched 21:26; reported 22:00 (`99b043f`, 33 min) → `W3-A-multiscale-entropy.md` |
-| 5 | critic | W3-A | `a03f242747d328696` | (reads row 1's worktree) | — | `01cb8c3` | launched 22:01, seven manager questions |
+| 5 | critic | W3-A | `a03f242747d328696` | (reads row 1's worktree) | — | `01cb8c3` | launched 22:01; reported 22:59: **merge after fixes** (1 template blocker, 4 should-fix, 4 nits; the declared statistic's null flawed) → `W3-A-multiscale-entropy.critic.md` |
+| 1a | fixer (row 1 resumed) | W3-A fix round 1 | `a67442d9e04015d6a` | row 1's | row 1's | `01cb8c3` | sent 23:04 (decisions 6–9) |
 | 2 | implementer | W3-B `interrogation.cycle_shapes` + `Working/background_null.py` | `a7834e530174e1643` | `.claude/worktrees/agent-a7834e530174e1643` | `worktree-agent-a7834e530174e1643` | `01cb8c3` | launched 21:26; reported 22:49 (`b94881b`, 83 min) → `W3-B-cycle-shapes.md` |
 | 7 | critic | W3-B | `a5f632b4352ec10f8` | (reads row 2's worktree) | — | `01cb8c3` | launched 22:52, eight manager questions |
-| 3 | implementer | W3-C `detection.pan_matrix_profile` | `aeeb2080e0967a2d2` | `.claude/worktrees/agent-aeeb2080e0967a2d2` | `worktree-agent-aeeb2080e0967a2d2` | `01cb8c3` | launched 21:26 (worktree at `01cb8c3`, clean, 21:26) |
+| 3 | implementer | W3-C `detection.pan_matrix_profile` | `aeeb2080e0967a2d2` | `.claude/worktrees/agent-aeeb2080e0967a2d2` | `worktree-agent-aeeb2080e0967a2d2` | `01cb8c3` | launched 21:26; reported 23:04 (`925056a`, 99 min) → `W3-C-pan-matrix-profile.md` |
+| 8 | critic | W3-C | `ad8d8aad71e6d533b` | (reads row 3's worktree) | — | `01cb8c3` | launched 23:06, seven manager questions |
 | 4 | implementer | W3-D `mpdist` (fourth Library distance) | `a5a78efe8b36c0a92` | `.claude/worktrees/agent-a5a78efe8b36c0a92` | `worktree-agent-a5a78efe8b36c0a92` | `64db0da` | launched 21:30, early (decision 4; cut at `3cc2f62`, at `64db0da` by 21:31); reported 22:39 (`c88a236`, 68 min) → `W3-D-mpdist.md` |
-| 6 | critic | W3-D | `a380d497100469282` | (reads row 4's worktree) | — | `64db0da` | launched 22:42, seven manager questions |
+| 6 | critic | W3-D | `a380d497100469282` | (reads row 4's worktree) | — | `64db0da` | launched 22:42; reported 23:02: **merge after fixes** (4 should-fix, 4 nits; arithmetic exact) → `W3-D-mpdist.critic.md` |
+| 4a | fixer (row 4 resumed) | W3-D fix round 1 | `a5a78efe8b36c0a92` | row 4's | row 4's | `64db0da` | sent 23:06 (decisions 10–12) |
 
 ## Preflight (2026-10-14 21:2x)
 
@@ -110,6 +113,18 @@ instead of it.
   also lies within a factor of 3 of 0.0028 (0.001–0.008). The same numbers with the template's own settings beside
   them, and whether the guard fired on every collapsed scale.
 
+- **Correction, 23:03, still before any real data (decision 5): the null for `complexity_fingerprint` and for the
+  species table is AAFT surrogates** (amplitude-adjusted phase randomisation, Theiler 1992: the recording's own sample
+  values, rank-mapped onto a phase-randomised Gaussian version — same spectrum, approximately, and **the same value
+  distribution**), 20 draws, seeds 0–19 — `preprocessing.surrogate` with method `aaft` once W3-A's fix adds it, else
+  `Pipelines/drop_motifs/nulls1.py::aaft_surrogate` with the identical chain by direct adapter calls. The plain
+  phase-randomised result (the app's default null) is reported **beside** it, not instead. Reason (W3-A critic Q6,
+  measured, not a result on real data): plain phase randomisation Gaussianises the values, and sample entropy with a
+  MAD-based r reads the value distribution, so a linear Gaussian process seen through a static non-Gaussian transform
+  (AR(1) → exp) "beat" its plain-phase surrogates 20 / 20 at 24 h and 72 h (0.62 nats, ~60× the draws' spread),
+  while with AAFT it beat 2 / 12 and real drop structure still beat 12 / 12; these channels are strongly non-Gaussian
+  (`nulls1.py`'s own docstring). The statistic itself (the window-median curve's distance) is unchanged.
+
 ## Events (chronological)
 
 - 2026-10-14 21:2x — manager session started; read the brief, `00-common.md`, `critic.md`, `README.md`, W3-A/B/C/D/F/G,
@@ -179,6 +194,36 @@ instead of it.
   selection, SigClust on noise, the verdict rule and the per-draw values the evaluation needs, the background null on
   dense chains, the side-input contract, the gap/split rule under real jitter, the template at realistic size, scope
   and test cost.
+- 22:55 — the readout session sent **"done"**: merged as `61fd50d`; its full smoke from main: 650 states, 56 failures,
+  all timeouts outside its files with the CPU at 100 %, the heaviest process a `cal2.py` with multiprocessing workers
+  (one of my critics' experiment scripts). **The hold on merges into `main` is lifted.** It now re-checks the failing
+  units for ~20 min on its own worktree's code (port 8797). CPU at 22:54: 99 %. Asked my three critics and the W3-C
+  implementer to cap themselves at 4 workers / 4 numba threads until ~23:20, so the polish session's re-checks get
+  headroom (the researcher's priority until 21 October is the UI; wave 3 must not slow it).
+- 22:59 — **W3-A critic: merge after fixes.** F1 (template blocker): 72 h windows give no window on 24 h spans —
+  already met by the 22:01 span rule. F2: the collapse guard (ρ) misses 6 of 9 collapsed scales under a smooth drift
+  and its advice ("or use r_scale = mad") is wrong; the critic's **inflation** rule separates them cleanly. F3:
+  `mse_r` (stored units) and `mse_drift_share` reach clustering as features (unit-label silhouette 0.177 vs 0.079),
+  and a left-out window's all-NaN row is median-imputed and clustered as a typical window. F4: the estimate
+  under-runs by 2.1–2.7× with 6 h / 1 h windows. F5: interpolated samples never reach the face. **Q6, about my own
+  declared statistic:** its size on Gaussian coloured noise is 7.5 % (nominal 4.8 %), its power 39/40 on 5 × SD drops
+  — but a static non-Gaussian transform of a linear process "beats" plain phase surrogates 20/20 (the null tests the
+  value distribution); AAFT fixes it. → the 23:03 correction (decision 5). 23:04 — fix round 1 sent to the
+  implementer (row 1a), decisions 6–9.
+- 23:02 — **W3-D critic: merge after fixes.** The MPdist arithmetic equals `stumpy.mpdist` and a brute-force P_ABBA to
+  7e-15; the flat-piece exclusion changed 0 of 200 ordinary pairs. But: every MPdist edge reads "within the seed cut"
+  through the route (F1; the symbolic distance too); *Add N matches* drops `edges_refused` (F2); the trend-kept null's
+  `beyond_noise` is unusable as a verdict, per pair or per family (11 % false positives per pair, 50 % on random-walk
+  pairs at 1,800 samples; troughs at their own null — the cubic-trend blind spot) (F3); at realistic noise MPdist
+  barely tells drop from square (F4; percentage 0.25 helps); the "5 %" text is wrong by ~2× (F5). Latency is fine:
+  the bridge already pre-warms `stumpy.stump` and the route runs in the threadpool. 23:06 — fix round 1 sent (row 4a),
+  decisions 10–12.
+- 23:04 — **W3-C reported** (2 commits on `01cb8c3`; 38 + 246 tests green; 99 min) → `W3-C-pan-matrix-profile.md`.
+  Points to judge: its own verdict rule (gap = N^(1/3)·ln(z_K/r_K)/ln(z_med/z_K) ≥ 6 and r_K below every draw; a
+  length judged only on spans ≥ 14 windows) with ~4 % false suggestions at one draw; a no-structure test seed changed
+  7 → 8 after seed 7 gave a false suggestion; the 1 h rows are never judged on a 4 h span; scrump barely pays; the
+  compile term in the estimate. 23:06 — critic launched (row 8), seven questions, including whether plain phase
+  surrogates are biased for this template too (if so, the evaluation's null switches to AAFT before any data).
 
 ## Decisions taken on the researcher's behalf
 
@@ -196,6 +241,37 @@ instead of it.
    brief's round-2 placement buys nothing but delay; started early, its critic and fix round overlap round 1's, and
    W3-F can then wire its Family-page read-out (item 10) instead of leaving it for a follow-up. Machine at 21:30: CPU
    ~36 %, 16 logical cores, 13.7 GB RAM with ~1.7 GB free — four implementers, as wave 2's round 1 ran.
+5. **The complexity evaluation's null is AAFT, not plain phase randomisation** (the declared-statistics correction
+   above, 23:03, before any real data). Reason: a measured flaw in the null (it tests the value distribution), not a
+   result.
+6. **`complexity_fingerprint` keeps its 72 h window** (the W3-A critic recommended 24 h by default). Reasons: at 72 h
+   the declared statistic has 4× the power on weak structure (drops at 2 × SD: 8/20 against 2/20) and reaches 174 s
+   instead of 48 s; nearly every stored recording is ≥ 72 h (M2_aug 721 h, L_LM 636 h, the species 73–911 h); the
+   evaluation spans follow the template by the rule fixed at 22:01 (440–512 h). The description tells a user with a
+   shorter recording to set `window_s` to the longest whole multiple of 24 h it allows (24 h reaches ~50 s).
+7. **Left-out windows never reach a fit:** `catalogue.cluster` and `catalogue.classifier` leave out (and count) a row
+   whose features are all NaN instead of median-imputing it into a typical window; `mse_r` (stored units) and
+   `mse_drift_share` join `BOOKKEEPING_COLUMNS`. Done by the W3-A fixer, out of its list, test-first; it changes
+   shipped blocks only for all-NaN rows, which carry no information. Reason: honesty on the face (00-common, rule 7).
+8. **`preprocessing.surrogate` gains method `aaft`** (moved from `Pipelines/drop_motifs/nulls1.py`, imported back
+   there bit-identically), so the app's paired null can be fair for MSE; Settings › Nulls reads the block's own
+   choices (`seeded_search.offered_methods`), so no page work is needed. Default unchanged, so no recipe hash moves.
+9. **The collapse guard becomes the critic's inflation rule** (per window: the r rule's spread of the window as it
+   arrives ÷ the same spread after a 2 h rolling mean is removed; > 1.5 flags every scale of that window), ρ kept in
+   meta as information. Reason: ρ missed 6 of 9 collapsed scales under a smooth drift and sat inside the random-walk
+   range at 1 s (a coin toss); inflation measured 0.95–1.10 on every stationary or template-detrended background and
+   2.8–13 on the raw drifting ones.
+10. **The MPdist fixer gets `webui/server/library.py::_edge_payload` and `post_run_matches`** (beyond its one handed
+    line) and `Pipelines/import_drop_motifs/importer.py`: an off-footing distance shows no "within" (`threshold` and
+    `within` None, its footing instead), the symbolic distance too if its value is not on the seed cut's footing, and
+    the refusals reach the response. Reason: a wrong verdict must not reach the Family page between W3-D's merge and
+    W3-F's; W3-G edits other functions of the same file.
+11. **MPdist's `percentage` defaults to 0.25, not the paper's 0.05**, named as an adaptation. Reason: Library members
+    are cut tight, and at realistic noise 0.25 cut drop/square confusion from 20–63 % to 3–33 % without hurting the
+    extra-baseline case (critic F4). A question for the researcher in the final report.
+12. **`mpdist_null` gives context, not a verdict** (`beyond_noise` removed). Reason: the trend-kept null is biased on
+    coloured noise and blind to troughs (critic F3); the follow-up is an empirical null from the member's own
+    recording, which W3-G's sampler makes possible.
 3. **The Library side of decision 4 is folded into round 2**: W3-G puts σ² first in `shape_families`' summary lines and
    the coherence payload it returns, and measures both variants' verdicts against the quiet-stretch null (the verdict
    stays on eq. 17 unless the researcher moves it); W3-F puts σ² first on the Family page and the families table.
