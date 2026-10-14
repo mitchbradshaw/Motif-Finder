@@ -640,9 +640,10 @@ def test_pure_coloured_noise_is_flagged_noise_like_through_run_grouping(name, pa
     assert all(f.flags["noise_like"] for f in result.families), report
     assert all(f.flags["tested"] and f.flags["why"] for f in result.families), report
     null = result.fit_summary["null"]
-    # fix round 2: HDBSCAN's null is per family and trend-kept; k-Shape's stays phase
-    want = "trend-kept phase-randomised" if name == "hdbscan" else "phase-randomised"
-    assert null["draws"] == 3 and null["kind"] == want
+    # fix round 2: HDBSCAN's null is per family and trend-kept. w3-g: k-Shape's plain phase null is replaced by the
+    # trend-kept one too (deliberate: the plain one missed random-walk crowds of cut events, the W2-E critic); with
+    # no recording handed in (no `background`), the trend-kept null is the verdict for both
+    assert null["draws"] == 3 and null["kind"] == "trend-kept phase-randomised"
     json.dumps(result.fit_summary)                    # it is saved as JSON
 
 
@@ -718,7 +719,8 @@ def test_hdbscan_stores_no_null_matrices_and_fits_once():
     waves, _ = three_families(per=20, seed=3, n_noise=10)
     fit = hdbscan.fit(waves, params={})
     assert "D_null" not in fit.payload, "no n^2 surrogate matrices kept (600 MB at sample 5,000)"
-    assert hdbscan.estimate(3603, method_registry.defaults_for("hdbscan")) < 60
+    # w3-g: the quiet-stretch windows are priced (~26 s at this size), so the bound moved from 60 deliberately
+    assert hdbscan.estimate(3603, method_registry.defaults_for("hdbscan")) < 120
 
 
 def test_trend_kept_surrogates_keep_each_rows_trend_and_residual_spectrum():
@@ -784,7 +786,7 @@ def test_recompute_cost_is_the_methods_estimate_not_one_formula_for_all():
     assert kshape_auto["seconds"] > kshape_fixed["seconds"] > ward["seconds"]
     # fix round 2: the per-family null is cheap (no extra fits), but it is priced
     assert hdb["seconds"] > hdb_no_null["seconds"], "the null is priced"
-    assert hdb["seconds"] < 60, "one HDBSCAN fit at the Library's size"
+    assert hdb["seconds"] < 120, "one HDBSCAN fit at the Library's size, and (w3-g) its quiet-stretch windows"
     assert kshape_auto["where"] == "local" and kshape_auto["seconds"] < 900, \
         "auto k with one start per candidate stays local at the Library's size"
     huge = _recompute_cost(n, "shape-distance", "kshape", {"k": 0, "n_init": 500})

@@ -114,15 +114,11 @@ def test_two_clear_cut_shapes_give_two_confident_families(kind, method, params):
         assert c["svd_entropy_squared_norm"] < c["null_squared_median"], c
         assert c["beyond_noise"] is True, c
     assert res.fraction_placed >= 0.9
-    if method == "kshape":
-        # F2: k-Shape's plain-phase null missed random-walk crowds of cut events, so its "not noise-like" is not
-        # taken as confidence: no confident fraction, every family `confident` None, the reason in the notes
-        assert res.fraction_confident is None and res.n_confident is None
-        assert all(SF.family_summary(f)["confident"] is None for f in res.families)
-        assert any("k-Shape" in n and "random-walk" in n for n in res.notes), res.notes
-    else:
-        assert res.fraction_confident >= 0.9
-        assert all(SF.family_summary(f)["confident"] is True for f in res.families)
+    # w3-g (deliberate): k-Shape's null is trend-kept now and passed the no-structure runs, so it is trusted like
+    # HDBSCAN's — its families that pass are confident (it was `confident` None under the W2-E critic's F2)
+    assert res.fraction_confident >= 0.9
+    assert all(SF.family_summary(f)["confident"] is True for f in res.families)
+    assert not any("random-walk" in n for n in res.notes), res.notes
 
 
 def test_families_are_numbered_by_size_largest_first():
