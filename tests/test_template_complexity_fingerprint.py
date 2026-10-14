@@ -187,3 +187,10 @@ def test_a_2h_detrend_keeps_the_curve_and_removes_the_drift():
     assert np.max(np.abs(restored[ok] - base[ok])) < 0.06 and not any(coll)
     raw, raw_coll = curve(drifting, r_scale="sd")
     assert np.all(raw[ok] < base[ok] - 0.5) and raw_coll[0]
+
+
+def test_the_shipped_template_is_the_one_tested_here():
+    """The manager moved TEMPLATE into webui/server/templates.py::CANONICAL (it beat its AAFT null on all three
+    declared recordings, docs/prompts/blocks/reports/W3-evaluation.md); the two must not drift apart."""
+    from server.templates import canonical
+    assert canonical("complexity_fingerprint") == TEMPLATE
