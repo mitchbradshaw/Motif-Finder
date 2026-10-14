@@ -244,6 +244,9 @@ instead of it.
   decision keeps the verdict on eq. 17 until re-measured; σ² alone is reported **beside** the verdict and the choice
   goes to the researcher. The brief's spans all have quiet margins (rec 3: drops 500–530 h in 490–540 h; rec 6: chain
   ~376–445 h in 370–470 h; rec 542: trains 398–474 h in 370–490 h; rec 2: 298.2–302.8 h in 294–304 h).
+  (3, 23:2x) When a span holds several sequences (trains), **its verdict is its largest sequence's** (most cycles
+  used); the others are reported. The app's phase-randomised null is run through the template on 5 draws as the
+  further floor (events and cycles found).
 
 ## Decisions taken on the researcher's behalf
 
