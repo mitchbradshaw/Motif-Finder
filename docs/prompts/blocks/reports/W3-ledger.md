@@ -20,7 +20,8 @@ fixers in `isolation: worktree`; critics read the implementer's worktree and nev
 | 2 | implementer | W3-B `interrogation.cycle_shapes` + `Working/background_null.py` | `a7834e530174e1643` | `.claude/worktrees/agent-a7834e530174e1643` | `worktree-agent-a7834e530174e1643` | `01cb8c3` | launched 21:26; reported 22:49 (`b94881b`, 83 min) → `W3-B-cycle-shapes.md` |
 | 7 | critic | W3-B | `a5f632b4352ec10f8` | (reads row 2's worktree) | — | `01cb8c3` | launched 22:52; reported 23:15: **merge after fixes** (3 blockers, 6 should-fix, 3 nits) → `W3-B-cycle-shapes.critic.md` |
 | 2a | fixer (row 2 resumed) | W3-B fix round 1 | `a7834e530174e1643` | row 2's | row 2's | `01cb8c3` | sent 23:17 (decision 13); stopped ~00:3x (API limit), resumed 02:01; reported 02:3x (`af4a8cf`) → `W3-B-cycle-shapes.fix1.md` |
-| 7a | re-critic (row 7 resumed) | W3-B fix round 1, changed parts only (`b94881b..af4a8cf`) | `a5f632b4352ec10f8` | row 2's | — | — | launched 02:37 (the blockers were behavioural) |
+| 7a | re-critic (row 7 resumed) | W3-B fix round 1, changed parts only (`b94881b..af4a8cf`) | `a5f632b4352ec10f8` | row 2's | — | — | launched 02:37; reported 02:48: **merge after fixes** (B1–B3 hold; S-A, S-B should-fix) → `W3-B-cycle-shapes.critic2.md` |
+| 2b | fixer (row 2 resumed) | W3-B fix round 2 (the last) | `a7834e530174e1643` | row 2's | row 2's | `01cb8c3` | sent 02:48 (decisions 17–18) |
 | 3 | implementer | W3-C `detection.pan_matrix_profile` | `aeeb2080e0967a2d2` | `.claude/worktrees/agent-aeeb2080e0967a2d2` | `worktree-agent-aeeb2080e0967a2d2` | `01cb8c3` | launched 21:26; reported 23:04 (`925056a`, 99 min) → `W3-C-pan-matrix-profile.md` |
 | 8 | critic | W3-C | `ad8d8aad71e6d533b` | (reads row 3's worktree) | — | `01cb8c3` | launched 23:06, seven manager questions |
 | 4 | implementer | W3-D `mpdist` (fourth Library distance) | `a5a78efe8b36c0a92` | `.claude/worktrees/agent-a5a78efe8b36c0a92` | `worktree-agent-a5a78efe8b36c0a92` | `64db0da` | launched 21:30, early (decision 4; cut at `3cc2f62`, at `64db0da` by 21:31); reported 22:39 (`c88a236`, 68 min) → `W3-D-mpdist.md` |
@@ -337,6 +338,14 @@ instead of it.
   the 20 per-draw values in meta; the per-group null matched to the selection (1 of 24 noise groups passed, was σ²
   9/36); one whole-stack eq. 17 false positive in 30 random-walk runs (z 3.16). The block's tests take 481 s.
   02:37 — re-critique of the changed parts sent to the W3-B critic (row 7a): the blockers were behavioural.
+- 02:48 — **W3-B re-critique: merge after fixes.** B1–B3 hold at the defaults on the critic's own cases (K > 1 in
+  0/66 stationary noise runs; two shapes found at 15–30 % noise; 10 Hz fine); the 32-PC projection is sound; the
+  rank-matched group null is fair; S1 has every value the evaluation needs. New: **S-A** — when the quiet margins
+  differ in colour from the noise under the chain, chain-timed noise reads "beyond noise" 10/10 (z 14–24) and K = 2–3
+  in 2/10; a per-cycle phase null on σ² separates it (noise inside 5/5, real chains beat it 9/9). **S-B** — one
+  stationary false pass in 76 passed on eq. 17 but not σ², leaving an unmarked key. Power given up for size: random
+  walk at 30 % noise with an 80/20 or 90/10 mix now K = 1. 02:48 — fix round 2 (the last) sent (row 2b), decisions
+  17–18; test-cost cuts as the critic proposed.
 
 ## Decisions taken on the researcher's behalf
 
@@ -403,6 +412,13 @@ instead of it.
 16. **The quiet-stretch margin is 0.6, not 0.7** (W3-G critic F5: densest 10-member noise families reached 0.714
     clean and 0.643 with uncatalogued events; real families at 10 % noise scored 0.13–0.39, so 0.6 costs no power
     measured).
+17. **Cycle shapes checks the background's colour against a per-cycle phase null on σ²**: when the stack beats the
+    background but not that null, `background_colour_mismatch` is set, said in the summary, and the groups are keyed
+    `~untested`. eq. 17 never judges against the phase null (real chains fail it 4 of 9). Reason: the re-critique's
+    S-A — quiet margins of another colour made chain-timed noise read "beyond noise" every time.
+18. **A cycle group's key is unmarked only when eq. 17 AND σ² both beat the background null** (refines decision 2:
+    eq. 17 stays in the verdict and σ² is added, so it is never looser). Reason: the one stationary false pass in 76
+    passed eq. 17 but not σ²; it is also the evaluation's own rule.
 3. **The Library side of decision 4 is folded into round 2**: W3-G puts σ² first in `shape_families`' summary lines and
    the coherence payload it returns, and measures both variants' verdicts against the quiet-stretch null (the verdict
    stays on eq. 17 unless the researcher moves it); W3-F puts σ² first on the Family page and the families table.
