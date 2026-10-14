@@ -451,6 +451,11 @@ fixers in `isolation: worktree`; critics read the implementer's worktree and nev
   collide, and the real DB is being copied by wave 3's bridges. Decision 4 was offered to the wave-3 manager to fold
   in.
 
+- 21:3x — the wave-3 manager folds decision 4 into its round 2 (its decision 3): W3-G puts σ² first in the
+  `shape_families` summary lines and the coherence payload, W3-F on the Family page and the families table, and W3-B
+  already does. It sends "wave 3 merged" before the fresh Ward save, and tells me when its RQ edits are in. Wave 2's
+  deferred list is now decision 3 (b), decision 6 and the RQ1 / RQ3 lines.
+
 ## Decisions taken on the researcher's behalf
 
 1. **W2-A auto length stays the prompt's rule** (2 × median Event-shape duration), described honestly as "onset to
