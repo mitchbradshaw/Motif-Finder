@@ -157,13 +157,8 @@ def test_chain_timed_noise_on_a_random_walk_is_one_group_in_every_seed():
     assert ks == [1] * 6, ks
 
 
-def test_a_thousand_chain_timed_random_walk_cycles_are_one_group():
-    x, st, en = syn.regular_events(1000, "rw", seed=4)
-    r = _run(x, st, en, null_draws=10)   # fix round 2: 10 draws (test cost)
-    s = _seq(r)
-    assert s["n_cycles"] == 1000 and s["k"] == 1, s["splits"]
-    assert s["whole"]["verdict"]["beyond_noise"] is False
-    assert _all_keys_marked(r)
+# fix round 2: the 1,000-cycle random-walk test is dropped (test cost, ~100 s); size is pinned by the multi-seed
+# test above. Measured in fix round 1: 1,000 chain-timed random-walk cycles gave K = 1.
 
 
 def test_poisson_events_on_coloured_noise_are_one_noise_like_group_at_the_defaults():

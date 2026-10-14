@@ -126,6 +126,17 @@ The algorithm as implemented (each adaptation named, with its reason)
      2-means runs on the top `SPLIT_COMPONENTS` (32) principal components, for
      the real stack and every null stack alike (with full-space fits the AR(1)
      span-filling noise read K = 2 in 1 of 10).
+     **Both nulls when there is a background** (fix round 2, decision 17): the
+     split must also beat the per-cycle phase copies (`K_GATE_BOTH`). With quiet
+     margins of one colour (AR(0.95)) and a random walk under chain-timed noise,
+     the background half passed 10/10 and only the mode test held (K = 2 in 5/10
+     here); with both nulls K = 1 in 10/10. Real-like two-shape chains kept
+     K = 2 in 24/24 (random walk, AR(1), drift; 15 and 30 % noise; with margins
+     and filling the span) and in 6/6 on mixed-colour backgrounds.
+     **The power given up for size** (the W3-B re-critique's measurements): a
+     random walk at 30 % noise with 80/20 or 90/10 shape proportions now reads
+     K = 1, and AR(0.98) at 90/10 with margins reads K = 1; 50/50 at 30 % keeps
+     K = 2 (ARI 0.58-1.0 here).
    * **SigClust is reported, not used** (Liu, Hayes, Nobel & Marron 2008): the
      split's cluster index against a Gaussian with the stack's own sample
      eigenvalues (rank min(n - 1, d)). The paper's background-noise floor
@@ -197,6 +208,25 @@ The algorithm as implemented (each adaptation named, with its reason)
     scale (wave 2's lesson). sigma^2's reading against the same null travels
     beside it (`beyond_noise_squared`). A group that fails is keyed
     `~noise_like`, one never tested `~untested` (the families' suffixes).
+    **"Beyond the background" means unlike the quiet margins**, not
+    necessarily unlike the chain's own noise. When the chain's background has
+    another colour than the margins (a random walk under the chain, AR(0.95)
+    around it), noise cycles beat the margins at z 17-50 on eq. 17 (10/10). So
+    the whole stack's sigma^2 is also read against `null_draws` per-cycle
+    phase copies of its own cycles (`phase_cycle_stacks`: each cycle's own
+    spectrum, its local colour; reported as `whole.nulls.phase_cycles`, sigma^2
+    ONLY — eq. 17 failed real-like chains against it 4 of 9 and is never read
+    against it). Beating the background but not these copies sets
+    `background_colour_mismatch`, warns "the chain's background differs in colour
+    from the quiet margins: beyond the margins, not beyond its own noise", and
+    keys every group `~untested`. Measured: mixed-colour noise flagged 10/10;
+    real-like two-shape chains beat the copies (z 7-51) on random walk, AR(1)
+    and mixed colour; but on the drifting background at 30 % noise a real two-
+    shape chain did NOT (z 0.2-1.2, 2/2): the sine under each cycle stays in its
+    copies, so the check raises a false alarm there (untested, never a false
+    pass).
+    **A group's key is unmarked only when eq. 17 AND sigma^2 both beat the
+    background** (decision 18; stricter than eq. 17 alone, never looser).
     **A chain that fills its span** (fix round 1, critic B3): when more than
     `FALLBACK_LIMIT` (half) of the pseudo-cycles fitted no free stretch, the
     pseudo-cycles are random-phase cuts of the chain itself — shifted copies of
@@ -239,6 +269,7 @@ SPLIT_COMPONENTS = 32
 NULL_KMEANS_REPLICATES = 10
 K_NULL_DRAWS = 20
 FALLBACK_LIMIT = 0.5
+K_GATE_BOTH = True
 GAP_WARN_SHARE = 0.1
 SIGCLUST_REPLICATES = 3
 CH_REPLICATES = 3
@@ -698,7 +729,7 @@ def _gate(X, lab, ci, null_stacks, alpha, min_size, seed):
 
 
 def choose_groups(A, null_stacks=(), k_max=K_MAX, sigclust_draws=SIGCLUST_DRAWS, seed=0, min_size=MIN_CYCLES,
-                  null_source=None):
+                  null_source=None, also_stacks=None):
     """`(labels 1..K by size, K, sigclust dict, extra)` (module docstring, step 7).
 
     The gate: the real stack's 2-means split must have a cluster index below
@@ -737,6 +768,11 @@ def choose_groups(A, null_stacks=(), k_max=K_MAX, sigclust_draws=SIGCLUST_DRAWS,
         ok = False
     else:
         ok, rec = _gate(A, labels2, ci2, null_stacks, SIGCLUST_ALPHA, min_size, seed)
+        if also_stacks:
+            ok2, rec2 = _gate(A, labels2, ci2, also_stacks, SIGCLUST_ALPHA, min_size, seed)
+            rec["also"] = {k: rec2[k] for k in ("null_ci_min", "null_ci_median", "null_draws", "below_every_null")}
+            ok = ok and ok2
+            rec["split"] = ok
         splits.append(rec)
     sc["bimodality"] = {"p": splits[0]["bimodal_p"]} if splits else None
     if ok:
@@ -749,6 +785,9 @@ def choose_groups(A, null_stacks=(), k_max=K_MAX, sigclust_draws=SIGCLUST_DRAWS,
             alpha = SIGCLUST_ALPHA * (len(node) - 1) / float(n - 1)
             lab, ci = two_means_ci(A[node], NULL_KMEANS_REPLICATES, seed + len(splits))
             ok_n, rec = _gate(A[node], lab, ci, null_stacks, alpha, min_size, seed + len(splits))
+            if also_stacks and ok_n:
+                ok_n = _gate(A[node], lab, ci, also_stacks, alpha, min_size, seed + len(splits))[0]
+                rec["split"] = ok_n
             splits.append(rec)
             if ok_n:
                 kids = [node[lab == 0], node[lab == 1]]
@@ -878,21 +917,25 @@ def _rules(floor_band, max_shift_frac, max_cycle_s, min_cycle_s):
                                       "from each anchor, after warping, after alignment. The stack is aligned here, "
                                       "so svd_entropy runs with align=False"},
         {"name": "verdict", "rule": f"beyond_noise = eq. 17 below every draw of the background null AND below the "
-                                    f"draws' median by more than {VERDICT_SPREADS:g} robust SDs of the draws (the "
+                                    f"draws' median by more than {VERDICT_SPREADS:g} robust SDs of the draws - a "
+                                    "1-in-20 test (20 draws: about one noise stack in 20 lies below all of them). The "
                                     "background null: pseudo-cycles cut where no event lies, lengths drawn from the "
-                                    "real cycles', through the same chord, warp, refinement and alignment; "
-                                    f"beyond_noise_margin is the Library's eq. 17 < {NULL_MARGIN} x null p05, for "
-                                    "comparison only - at cycle entropies of 0.86-0.96 that margin is a fixed yardstick "
-                                    "at the wrong scale); beyond_noise_squared = "
-                                    "the same on sigma^2, shown beside it (the verdict stays on eq. 17 until it is "
-                                    "re-measured on sigma^2). A group's null went through the same K-means as the "
-                                    "group (groups matched by entropy rank). When more than half the pseudo-cycles "
-                                    "fitted no free stretch the verdicts are untested (the pseudo-cycles would be "
-                                    "random-phase cuts of the chain). A group failing it is keyed ~noise_like, one never tested "
-                                    "~untested. The trend-kept null is shown with its caveat: " + SMOOTH_CAVEAT
-                                    + "; the plain phase null destroys a smooth curve's shape. A group was chosen by "
-                                      "the clustering and its background is a random subset, so a group's own verdict "
-                                      "favours the group; the whole stack's has no selection"},
+                                    "real cycles', through the same chord, warp, refinement and alignment - so "
+                                    "'beyond the background' means unlike the quiet margins, not necessarily unlike "
+                                    "the chain's own noise. beyond_noise_squared = the same on sigma^2. A group's key "
+                                    "is unmarked only when BOTH pass; else ~noise_like. A group's null went through "
+                                    "the same K-means as the group on every background draw, groups matched by "
+                                    "entropy rank (the lowest-entropy real group against the lowest-entropy null "
+                                    "group). The colour check: sigma^2 of the stack against per-cycle phase copies of "
+                                    "its own cycles (their local colour; sigma^2 only, eq. 17 is never read against "
+                                    "them); beating the background but not these copies sets "
+                                    "background_colour_mismatch and keys the groups ~untested. When more than half "
+                                    "the pseudo-cycles fitted no free stretch the verdicts are untested (they would "
+                                    "be random-phase cuts of the chain); below that they are tested, and "
+                                    "background.fallback_share says how many pseudo-cycles were such random-phase "
+                                    f"cuts. beyond_noise_margin is the Library's eq. 17 < {NULL_MARGIN} x null p05, "
+                                    "for comparison only. The trend-kept null is shown with its caveat: "
+                                    + SMOOTH_CAVEAT + "; the plain phase null destroys a smooth curve's shape"},
         {"name": "order", "rule": "runs of equal groups in time order against shuffles of the cycle order within the "
                                   "sequence; p = (1 + shuffles with as few runs) / (1 + shuffles). Tests order, not "
                                   "shape: a slow drift of shape also makes runs"},
@@ -976,6 +1019,18 @@ def run_lengths(g):
         else:
             out.append([v, 1])
     return [{"group": int(a), "cycles": int(b)} for a, b in out]
+
+
+def group_key(base, verdict, colour_mismatch):
+    """The Intervals key of a group: unmarked only when eq. 17 AND sigma^2 both beat the background null
+    (decision 18 - eq. 17 stays in the verdict, sigma^2 is added, so stricter, never looser) and the
+    background is of the chain's own colour (decision 17); `~untested` when no verdict could be drawn or
+    the colours differ; `~noise_like` otherwise."""
+    if not verdict.get("tested") or colour_mismatch:
+        return base + UNTESTED_SUFFIX
+    if not (verdict.get("beyond_noise") and verdict.get("beyond_noise_squared")):
+        return base + NOISE_LIKE_SUFFIX
+    return base
 
 
 def _nan_last(v):
@@ -1256,15 +1311,18 @@ def cycle_shapes(x, fs, starts, ends, features=None, *, waveform=None, anchor="o
         bg_ok = bool(bg17) and untested_reason is None
 
         # the K null: the background draws, else per-cycle phase copies (each cycle's spectrum kept)
+        # the per-cycle phase copies (local colour): the K null when the background fell back, and the
+        # colour check of the background verdict (fix round 2, S-A) when it did not
+        pc_stacks = phase_cycle_stacks(trace, rs, re_, n_points, cycle_detrend, max_nan_frac,
+                                       int(null_draws) or K_NULL_DRAWS, seed)
         if bg_ok:
             k_stacks, k_source = bg_W, "background"
+            k_also = pc_stacks if K_GATE_BOTH else None
         else:
-            k_stacks = phase_cycle_stacks(trace, rs, re_, n_points, cycle_detrend, max_nan_frac,
-                                          int(null_draws) or K_NULL_DRAWS, seed)
-            k_source = "phase"
+            k_stacks, k_source, k_also = pc_stacks, "phase", None
         _check(should_cancel)
         labels, K, sc, extra = choose_groups(Z, k_stacks, k_max=k_max, sigclust_draws=sigclust_draws, seed=seed,
-                                             min_size=min_cycles, null_source=k_source)
+                                             min_size=min_cycles, null_source=k_source, also_stacks=k_also)
         sm.update(k=int(K), sigclust=sc, **extra)
         if u.size < 2 * int(min_cycles):
             sm["k_note"] = (f"{u.size} usable cycles: a split needs >= 2 x min_cycles ({2 * int(min_cycles)}), so "
@@ -1283,6 +1341,23 @@ def cycle_shapes(x, fs, starts, ends, features=None, *, waveform=None, anchor="o
         whole["verdict"] = _verdict(whole["after_align"]["svd_entropy_norm"],
                                     whole["after_align"]["svd_entropy_squared_norm"], *bgv,
                                     reason=untested_reason)
+        # the colour check (S-A): sigma^2 of the aligned stack against the per-cycle phase copies, which keep
+        # each cycle's OWN spectrum. sigma^2 only - eq. 17 is never read against this null.
+        pc_sq = [entropy_pair(align_stack(P, ms, seed)[0])[1] for P in pc_stacks]
+        pcs = _null_summary(pc_sq)
+        pcs["values"] = [float(v) for v in pc_sq]
+        beats_pc = _beats(whole["after_align"]["svd_entropy_squared_norm"], pcs)
+        whole["nulls"]["phase_cycles"] = {"squared": pcs, "beyond_squared": beats_pc,
+                                          "rule": "sigma^2 only: per-cycle phase copies keep each cycle's own "
+                                                  "spectrum (its local colour); eq. 17 is never read against them"}
+        v = whole["verdict"]
+        mismatch = bool(v["tested"] and (v["beyond_noise"] or v["beyond_noise_squared"]) and not beats_pc)
+        v["beyond_phase_cycles_squared"] = beats_pc
+        v["background_colour_mismatch"] = mismatch if v["tested"] else None
+        sm["background_colour_mismatch"] = v["background_colour_mismatch"]
+        if mismatch:
+            warnings.append(f"sequence {sm['key']}: the chain's background differs in colour from the quiet margins: "
+                            "beyond the margins, not beyond its own noise (groups keyed ~untested)")
         sm["whole"] = whole
 
         # per group: the group's null matches its selection (the same K-means on every background draw)
@@ -1331,14 +1406,10 @@ def cycle_shapes(x, fs, starts, ends, features=None, *, waveform=None, anchor="o
                                            "squared_median": aa.get("null_squared_median"),
                                            "caveat": SMOOTH_CAVEAT},
                             "phase": {"eq17": _null_summary(ph), "squared": _null_summary(phs)}}
+            verdict["background_colour_mismatch"] = whole["verdict"]["background_colour_mismatch"]
             coh["verdict"] = verdict
             base = f"{prefix}{g}"
-            if not verdict["tested"]:
-                key = base + UNTESTED_SUFFIX
-            elif not verdict["beyond_noise"]:
-                key = base + NOISE_LIKE_SUFFIX
-            else:
-                key = base
+            key = group_key(base, verdict, whole["verdict"]["background_colour_mismatch"])
             med_event = int(ev_u[gi[mg]])
             exemplars[base] = med_event
             for e in ev_u[gi]:
