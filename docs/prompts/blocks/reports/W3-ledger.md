@@ -32,7 +32,8 @@ fixers in `isolation: worktree`; critics read the implementer's worktree and nev
 | 9 | implementer | W3-G the quiet-stretch null for families; a trend-kept k-Shape null | `a17192b65fcf2dd72` | `.claude/worktrees/agent-a17192b65fcf2dd72` | `worktree-agent-a17192b65fcf2dd72` | `6bd3e40` (`wave3-round2-base`) | launched 23:33 (decision 14); stopped ~00:3x (API limit), resumed 02:01; reported 02:03 (`2a4ca0e`) → `W3-G-quiet-stretch-null.md` |
 | 10 | critic | W3-G | `a8f15e6dcd6951107` | (reads row 9's worktree) | — | `6bd3e40` | launched 02:04; reported 02:3x: **merge after fixes** (5 should-fix, 3 nits) → `W3-G-quiet-stretch-null.critic.md` |
 | 11 | implementer | W3-F the wave-3 UI | `a9bcefee16fc666b3` | `.claude/worktrees/agent-a9bcefee16fc666b3` | `worktree-agent-a9bcefee16fc666b3` | `a5baf8b` (main) | launched 03:45 (decision 20); reported 04:35 (`d1dc46c`, 50 min) → `W3-F-ui.md` |
-| 12 | critic | W3-F | `ad9069dfbd66c843e` | (reads row 11's worktree) | — | `a5baf8b` | launched 04:39, seven manager questions |
+| 12 | critic | W3-F | `ad9069dfbd66c843e` | (reads row 11's worktree) | — | `a5baf8b` | launched 04:39; reported 05:00: **merge after fixes** (1 blocker, 4 should-fix, 3 nits) → `W3-F-ui.critic.md` |
+| 11a | fixer (row 11 resumed) | W3-F fix round 1 + the W3-C follow-up (merge `617edc2`) | `a9bcefee16fc666b3` | row 11's | row 11's | `a5baf8b` | sent 05:01 (decision 25); re-critique to follow (the blocker is behavioural) |
 | 9a | fixer (row 9 resumed) | W3-G fix round 1 | `a17192b65fcf2dd72` | row 9's | row 9's | `6bd3e40` | sent 02:35; reported 03:14 (`84e8326`) → `W3-G-quiet-stretch-null.fix1.md`; merges after W3-B's final branch |
 
 ## Preflight (2026-10-14 21:2x)
@@ -493,6 +494,17 @@ instead of it.
   planted scale most often (20/38 vs 16 and 15; "shortest cleared" gave 30 s on every 90 s-motif span) — and its bias
   stated on the face; stalls → long gaps; scrump removed; no null draws on unjudgeable lengths; `reason_code` per
   length. 04:41 — focused re-critique sent (row 8a).
+- 04:4x — primary sources: dated notes on SigClust's sparse-HDLSS premise (W3-B critic), the √t number re-tested, and
+  MPdist's k (W3-D critic) (`e3df8f9`).
+- 05:00 — **W3-F critic: merge after fixes.** In-step cancel works through the real bridge path for MSE, cycle shapes
+  and window matrix (job *cancelled*, no cache for the stopped step, earlier steps kept); background calibration is
+  single-threaded per ask and a sandbox never writes the checkout's calibration file; the drawings read every verdict
+  as given. **Blocker:** a cancel during a null draw leaves the half-finished draw unlinked
+  (`surrogate_of_run_id` NULL), so its detections count as real (95 "real" detections where the run found 82).
+  Should-fix: the cancel smoke state races (the MSE step lasts 1.35 s); an in-step cancel reads "failed" in History
+  (the stored text does not start with "Cancelled"); one slow calibration holds every other; a run from the block
+  page is not held while calibrating. 05:01 — fix round 1 sent (row 11a), decision 25, with W3-C's `617edc2` to merge
+  for the pan view.
 - 03:5x — **W3-C critic: merge after fixes, three blockers.** F1: plain phase surrogates are biased here too
   (exp(AR) noise got a suggestion 10/10; AAFT 1/10 → 0/10 at 20 draws, keeping planted-motif power) → the 03:55
   correction; F2: one null draw gives 1.2–5.8 % false suggestions at 1 Hz, three gave 0 in 544 spans, the false
@@ -595,6 +607,10 @@ instead of it.
 24. **Pan matrix profile drops `percentage` < 1 (scrump).** Reason: its global-RNG save/restore races with other
     threads (20/20 runs differed beside another `np.random` user) and it saved only ~20 %. MiniRocket's own
     global-RNG use is older and left as a follow-up.
+25. **W3-F's fixer gets the core files its blocker lives in** (`Working/run_groups.py::draw_paired_null`,
+    `Working/execution.py`'s cancellation record) and `webui/server/app.py`'s run route (refuse 409 while calibrating),
+    beyond its Deliver list. Reason: the leak and the History status are core / route behaviour that only appeared
+    because W3-F made null draws cancellable mid-step; fixing them where they live covers every entry point.
 3. **The Library side of decision 4 is folded into round 2**: W3-G puts σ² first in `shape_families`' summary lines and
    the coherence payload it returns, and measures both variants' verdicts against the quiet-stretch null (the verdict
    stays on eq. 17 unless the researcher moves it); W3-F puts σ² first on the Family page and the families table.
