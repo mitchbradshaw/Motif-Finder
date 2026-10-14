@@ -36,7 +36,7 @@ fixers in `isolation: worktree`; critics read the implementer's worktree and nev
 | 12 | critic | W3-F | `ad9069dfbd66c843e` | (reads row 11's worktree) | — | `a5baf8b` | launched 04:39; reported 05:00: **merge after fixes** (1 blocker, 4 should-fix, 3 nits) → `W3-F-ui.critic.md` |
 | 11a | fixer (row 11 resumed) | W3-F fix round 1 + the W3-C follow-up (merge `617edc2`) | `a9bcefee16fc666b3` | row 11's | row 11's | `a5baf8b` | sent 05:01 (decision 25); reported 05:2x (merge `f42dd35`, red `ff5bc21` → green `ea59ee6`) → `W3-F-ui.fix1.md` |
 | 12a | re-critic (row 12 resumed) | W3-F fix round 1, changed parts only (`f42dd35..ea59ee6`) | `ad9069dfbd66c843e` | row 11's | — | — | launched 05:28 (the blocker was behavioural), with the three null readers the fixer left; stopped ~05:4x (API limit), resumed 07:02; reported 07:04: **merge after fixes** (3 should-fix, 1 nit; the blocker holds) → `W3-F-ui.critic2.md` |
-| 11b | fixer (row 11 resumed) | W3-F fix round 2 (the last) | `a9bcefee16fc666b3` | row 11's | row 11's | `a5baf8b` | sent 07:05 (decision 27) |
+| 11b | fixer (row 11 resumed) | W3-F fix round 2 (the last) | `a9bcefee16fc666b3` | row 11's | row 11's | `a5baf8b` | sent 07:05 (decision 27); reported 07:25 (red `f102dee` → green `0de9e6e`) → `W3-F-ui.fix2.md`; merges without a third critique (decision 28) |
 | 9a | fixer (row 9 resumed) | W3-G fix round 1 | `a17192b65fcf2dd72` | row 9's | row 9's | `6bd3e40` | sent 02:35; reported 03:14 (`84e8326`) → `W3-G-quiet-stretch-null.fix1.md`; merges after W3-B's final branch |
 
 ## Preflight (2026-10-14 21:2x)
@@ -562,7 +562,15 @@ instead of it.
   exactly; each draw is scored on the **image row** at the real run's strongest-gap length, which does not depend on
   the block's own null draws, so the draws run with `null_draws` 0 (picture only) — the script checks on every real run
   that the picture-only rows equal the full run's before it relies on that, else it runs the full template. No merge
-  into main until the evaluation and the FLUSS piece finish.
+  into main until the evaluation finishes; the FLUSS piece runs after W3-F's merge, on the merged main.
+- 07:25 — **W3-F fix round 2 reported** (red `f102dee` → green `0de9e6e`; conda 213 + 277 passed, venv 206 passed,
+  3 xpassed, 1 failed — the known Discovery scoreboard string on main; `tsc -b` / `npm run build` clean) →
+  `W3-F-ui.fix2.md`. `queries.completed_null_draw(alias)` is the one rule, used by `null_summary`, the scoreboard,
+  the Library scale read-out, the family null and the export (which now never names a stopped draw as the control);
+  a draw that fails part-way is linked before the error is re-raised; the pan view reads "clears from A to B s ·
+  strongest at C s — not an event length" and takes its caveat from the block's own rule text. The doubled
+  "Cancelled: Cycle shapes cancelled." is left (no one-line fix keeps History's check). Decision 28: merges without a
+  third critique.
 - 03:5x — **W3-C critic: merge after fixes, three blockers.** F1: plain phase surrogates are biased here too
   (exp(AR) noise got a suggestion 10/10; AAFT 1/10 → 0/10 at 20 draws, keeping planted-motif power) → the 03:55
   correction; F2: one null draw gives 1.2–5.8 % false suggestions at 1 Hz, three gave 0 in 544 spans, the false
@@ -690,6 +698,12 @@ instead of it.
     Discovery scoreboard disagreeing on the same run once a draw is cancelled, which W3-F made possible mid-step; one
     rule in one place keeps every page on the same null. No wave-3 branch in flight touches these files (W3-D's and
     W3-G's edits to `library.py` are merged).
+28. **W3-F merges after its second (last) fix round without a third critique** (as W3-B, decision 19). Reason: the
+    re-critique found the blocker fixed on every path and left three should-fixes and a nit, no blocker; each is done
+    test-first with before → after numbers on the critic's own case (Analyse and the scoreboard both 2 draws / 34.5; a
+    failed draw linked, real detections at the real run's count); the one behaviour added — only finished draws count
+    — can only make a null larger, never a real count. The gate (full pytest, the client build, the smoke walk on my
+    sandbox bridge) checks the merged whole.
 3. **The Library side of decision 4 is folded into round 2**: W3-G puts σ² first in `shape_families`' summary lines and
    the coherence payload it returns, and measures both variants' verdicts against the quiet-stretch null (the verdict
    stays on eq. 17 unless the researcher moves it); W3-F puts σ² first on the Family page and the families table.
