@@ -25,7 +25,7 @@ What is computed
    normalised scale-invariant distance (`ward.condensed_distances`). Both sit
    on the editor's [0, 1] scale.
 3. `HDBSCAN(metric="precomputed", min_cluster_size, min_samples,
-   cluster_selection_method, cluster_selection_epsilon = cut,
+   cluster_selection_method, cluster_selection_epsilon = epsilon,
    allow_single_cluster=False, copy=True)`. `min_samples = 0` means sklearn's
    default (None), which equals `min_cluster_size`.
 4. Families are numbered by size, largest first.
@@ -69,8 +69,13 @@ No merge heights
 clusters on are the condensed tree's lambda = 1 / distance stabilities, read
 off sklearn's private `_condense_tree`; drawing them under the editor's
 distance-scale cut slider would be a different quantity on a misleading axis,
-so none are given (LIBRARY_STORAGE.md 6.2 item 5). The `cut` here is
-`cluster_selection_epsilon`: families closer than this are not split.
+so none are given (LIBRARY_STORAGE.md 6.2 item 5).
+
+`epsilon` is `cluster_selection_epsilon`: families closer than this are not
+split. It was called `cut` in round 1, which invited wiring the editor's tree
+cut (default 0.42) into it and silently merging families (critic finding 6);
+`assign(cut=...)` now ignores the tree cut — HDBSCAN has no tree to cut — and
+`assign(epsilon=...)` re-selects on the stored distances.
 """
 
 import numpy as np
@@ -91,7 +96,7 @@ from Working.library.grouping.methods.ward import distance_scale as ward_distanc
 DEFAULT_MIN_CLUSTER_SIZE = 10     # the Library's ten-member floor (spec 9.10)
 DEFAULT_MIN_SAMPLES = 0           # 0 = None = sklearn's default, min_cluster_size
 DEFAULT_SELECTION = "eom"
-DEFAULT_CUT = 0.0                 # cluster_selection_epsilon; sklearn's default
+DEFAULT_EPSILON = 0.0             # cluster_selection_epsilon; sklearn's default
 DEFAULT_DISTANCE = "sbd"
 DEFAULT_SAMPLE = 5000
 DEFAULT_SEED = 0
@@ -129,13 +134,13 @@ def _cross_distances(A, B, distance):
     return cdist(A, B) / ward_distance_scale(A.shape[1])
 
 
-def _hdbscan(D, *, min_cluster_size, min_samples, selection, cut):
+def _hdbscan(D, *, min_cluster_size, min_samples, selection, epsilon):
     from sklearn.cluster import HDBSCAN
     n = D.shape[0]
     mcs = max(2, min(int(min_cluster_size), n))
     ms = None if not min_samples else max(1, min(int(min_samples), n))
     model = HDBSCAN(min_cluster_size=mcs, min_samples=ms, metric="precomputed",
-                    cluster_selection_method=selection, cluster_selection_epsilon=float(cut),
+                    cluster_selection_method=selection, cluster_selection_epsilon=float(epsilon),
                     allow_single_cluster=False, copy=True)
     model.fit(D)
     return model.labels_.astype(np.int64), model.probabilities_.astype(float), (ms or mcs)
@@ -184,10 +189,11 @@ class HDBSCANMethod:
             "help": "eom keeps the most persistent crowds (fewer, larger families); leaf keeps "
                     "the finest ones (more, smaller, more homogeneous families).",
         },
-        "cut": {
-            "type": "float", "default": DEFAULT_CUT, "label": "merge closer than",
+        "epsilon": {
+            "type": "float", "default": DEFAULT_EPSILON, "label": "merge closer than (epsilon)",
             "help": "HDBSCAN's cluster_selection_epsilon on the 0-1 distance scale: families "
-                    "closer than this are not split apart. 0 = HDBSCAN's own choice.",
+                    "closer than this are not split apart. 0 = HDBSCAN's own choice. Not the "
+                    "tree cut — HDBSCAN has no tree to cut; even 0.1 merges similar shapes.",
         },
         "distance": {
             "type": "str", "default": DEFAULT_DISTANCE, "label": "distance",
@@ -235,8 +241,8 @@ class HDBSCANMethod:
         if selection not in SELECTIONS:
             raise ValueError(f"hdbscan cluster_selection_method must be one of {SELECTIONS}; "
                              f"got {selection!r}.")
-        cut = params.get("cut", DEFAULT_CUT)
-        cut = DEFAULT_CUT if cut is None else float(cut)
+        epsilon = params.get("epsilon", DEFAULT_EPSILON)
+        epsilon = DEFAULT_EPSILON if epsilon is None else float(epsilon)
         sample = int(params.get("sample", DEFAULT_SAMPLE))
         seed = int(params.get("seed", DEFAULT_SEED))
         waveforms = list(waveforms)
@@ -273,18 +279,18 @@ class HDBSCANMethod:
                     raise GroupingCancelled("cancelled while drawing the HDBSCAN null")
                 S = _z_rows(phase_randomised_rows(vectors[fitted_pos], rng))
                 payload["D_null"].append(_distance_matrix(S, distance))
-        self._cluster(fit, cut)
+        self._cluster(fit, epsilon)
         return fit
 
-    def _cluster(self, fit, cut):
-        """Run the density step on the stored fitted matrix at `cut`, then
+    def _cluster(self, fit, epsilon):
+        """Run the density step on the stored fitted matrix at `epsilon`, then
         place the rows not fitted. Kept apart from `fit` so `assign` at a new
-        cut re-selects clusters without recomputing a single distance."""
+        epsilon re-selects clusters without recomputing a single distance."""
         p = fit.payload
         n = fit.n
         ok_rows = np.flatnonzero(p["positions"] >= 0)
         labels_ok = np.full(ok_rows.size, -1, dtype=np.int64)
-        p.update(cut=cut, family_stability={}, family_of_label={}, family_flags={}, null=None)
+        p.update(epsilon=epsilon, family_stability={}, family_of_label={}, family_flags={}, null=None)
         p["label"] = np.full(n, -1, dtype=np.int64)
         p["placed_by"] = {}
         fitted_pos, assigned_pos = p["fitted_pos"], p["assigned_pos"]
@@ -298,7 +304,7 @@ class HDBSCANMethod:
         else:
             labels, probs, ms = _hdbscan(D, min_cluster_size=s["min_cluster_size"],
                                          min_samples=s["min_samples"],
-                                         selection=s["cluster_selection_method"], cut=cut)
+                                         selection=s["cluster_selection_method"], epsilon=epsilon)
         labels_ok[fitted_pos] = labels
         p["probabilities"] = probs
         p["family_stability"] = _stability(D, labels, probs) if fitted_pos.size > 1 else {}
@@ -326,11 +332,11 @@ class HDBSCANMethod:
         order = sorted(sizes, key=lambda c: (-sizes[c], c))
         p["family_of_label"] = {c: rank + 1 for rank, c in enumerate(order)}
         p["label"][ok_rows] = labels_ok
-        self._null(p, cut)
+        self._null(p, epsilon)
         p["fit_summary"] = self._summary(p, n, ok_rows.size)
 
     @staticmethod
-    def _null(p, cut):
+    def _null(p, epsilon):
         """Cluster each stored surrogate matrix with the same settings and
         flag every family against the largest separation and size seen."""
         draws = p.get("D_null") or []
@@ -343,7 +349,7 @@ class HDBSCANMethod:
         for D_s in draws:
             lab, prob, _ = _hdbscan(D_s, min_cluster_size=s["min_cluster_size"],
                                     min_samples=s["min_samples"],
-                                    selection=s["cluster_selection_method"], cut=cut)
+                                    selection=s["cluster_selection_method"], epsilon=epsilon)
             st = _stability(D_s, lab, prob)
             per_draw.append([{"size_fitted": v["size_fitted"], "separation": v["separation"]}
                              for v in st.values()])
@@ -382,7 +388,7 @@ class HDBSCANMethod:
     def _summary(p, n, n_ok):
         return {"rows": n, "screened_out": n - n_ok, "fitted": len(p["fitted_rows"]),
                 "assigned": len(p["assigned_rows"]), "sample": p["sample"], "seed": p["seed"],
-                "distance": p["distance"], "cut": p.get("cut"),
+                "distance": p["distance"], "epsilon": p.get("epsilon"),
                 "families": len(p.get("family_of_label", {})),
                 "null": p.get("null"),
                 "assigned_by": ("the family of the nearest fitted member, when within that "
@@ -410,16 +416,18 @@ class HDBSCANMethod:
 
     # ------------------------------------------------------------- assign
 
-    def assign(self, fit, *, cut=None):
+    def assign(self, fit, *, cut=None, epsilon=None):
         """A family id per row; `None` for noise (`not_in_a_dense_family`) and
-        for a screened-out row. A `cut` other than the fitted one re-selects
-        the clusters on the stored distances (no distance is recomputed)."""
+        for a screened-out row. `cut` — the editor's tree cut, which the
+        engine always passes — is ignored: HDBSCAN has no tree. An `epsilon`
+        other than the fitted one re-selects the clusters on the stored
+        distances (no distance is recomputed)."""
         fit.omit_reasons.clear()
         fit.omit_reasons.update(fit.payload.get("screened_out", {}))
         if fit.n == 0:
             return []
-        if cut is not None and float(cut) != fit.payload.get("cut"):
-            self._cluster(fit, float(cut))
+        if epsilon is not None and float(epsilon) != fit.payload.get("epsilon"):
+            self._cluster(fit, float(epsilon))
         label = fit.payload["label"]
         family_of = fit.payload["family_of_label"]
         out = []
