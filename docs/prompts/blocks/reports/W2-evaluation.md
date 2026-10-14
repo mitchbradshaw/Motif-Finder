@@ -375,3 +375,50 @@ Run on main (`8324d3d`) in a sandbox copy, with the shipped template from `webui
 The new statistic does what it was chosen to do on the earlier spans, where the noise crowds stop counting. But on
 fresh chains the template mostly finds nothing to count. What it finds is specific to a recording, not a property
 of drop chains in general. The block's description stands.
+
+### g-05 against today's Ward — the comparison (decision 3, part a)
+
+Run in a sandbox copy (`eval_g05.py`, `eval_g05_stability.py`, session scratchpad).
+
+- **The items are not the cause.**
+  - All 3,603 of g-05's items are still in the Library. The 13 new ones (ids 3604–3616, on recs 1, 2, 4, 6, 16 and 385)
+    arrived after g-05 was saved.
+  - Ward re-run with g-05's own settings (cut 0.6, min_group 10, omit 0.5) on **exactly g-05's 3,603 items** makes
+    the same number of families (149), but agrees with g-05 only at adjusted Rand **0.57** on the 3,119 events both
+    place.
+- **The waveforms the engine is handed have moved a little.** g-05 stored each member's distance to the medoid of its
+  family. Recomputed with today's waveforms, those distances still track g-05's (correlation 0.90), but differ by a
+  median 0.004 on a median of 0.12, about 3 %. Only 22 % agree to within 0.001. This fits the channels re-derived
+  after the 2026-09-21 data loss: g-05 was saved that day, from the channels as they were.
+  - The content hash cannot settle it. The importer hashed the event store's *detrended* snippet, which is not the
+    signal the engine reads.
+- **Ward at this cut is fragile, so a small change moves many memberships.** Re-running today's Ward on today's items,
+  with each waveform given a tiny random wobble:
+
+  | Wobble (share of each waveform's spread) | Agreement with the unwobbled run (adjusted Rand) |
+  |---|---|
+  | 0.5 % | 0.84–0.87 |
+  | 1 % | 0.78–0.80 |
+  | 2 % | 0.68–0.74 |
+  | 5 % of the events dropped instead | 0.72–0.75 |
+
+  A 3 % shift of the waveforms predicts the 0.57 seen against g-05.
+
+**What it means.** g-05 was not computed wrongly. Ward's families at cut 0.6 are not stable identities: a few per cent
+of change in the waveforms re-sorts about half the memberships. Any RQ3 claim read off a Ward family should be checked
+for stability first (re-run with a wobble), whichever grouping it comes from.
+
+**Part (b), the fresh grouping, is pending.** Wave 3 started this evening, and its bridges copy the real database, so
+the manager writes nothing into it while wave 3 runs. Saving Ward (cut 0.6, min 10, omit 0.5) from today's items
+under a new name, with g-05 kept, is one click in Library › grouping editor. Otherwise the manager does it after
+wave 3 merges.
+
+### Deferred until wave 3 has merged (wave 3 is running; these touch its files)
+
+- **Decision 4 (σ² leads coherence)** touches the Family page, the families table and the blocks' summary lines, which
+  W3-F and W3-G also edit. Wave 3's own blocks already report σ² and eq. 17 side by side (`docs/prompts/blocks/README.md`).
+- **Decision 6 (MiniRocket in Models › Launch)** is a small ticket for after wave 3: a feature choice in the paired
+  job, with Catch22 the default.
+- **Decision 2 (b) (snippets' chooser)** waits for a later wave (see decision 2 above).
+- **RQ1 and RQ3** get these decisions' lines after wave 3 merges, so its own RQ edits do not collide with them in the
+  same Log sections.
