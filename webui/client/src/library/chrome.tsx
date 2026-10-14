@@ -396,13 +396,22 @@ export function familyFlagsOf(grouping: { fitSummary?: LibFitSummary | null } | 
   return grouping?.fitSummary?.family_flags?.[label] ?? null
 }
 
+/** The registered methods that draw a surrogate null for every family (W2-B): a grouping of theirs saved without
+ *  flags has LOST a verdict, which is not the same as never having had one (Ward, feature bins, labels). */
+export const METHODS_WITH_NULL = new Set(['kshape', 'hdbscan'])
+
 /** w2-b/w2-f: ONE badge for the atlas tile, the Family page and the editor's preview. A family whose method's
  *  surrogate null says it is no more separated (or no tighter) than noise of the same colour says so on its face;
  *  a method with no null (Ward) says "not tested" rather than nothing. `why` is the method's own sentence. With no
- *  flags at all (a grouping saved before fit summaries) nothing is claimed either way, and that is said in the
- *  tooltip of the grouping, not here. */
-export function NoiseBadge({ flags, testid }: { flags: LibFamilyFlags | null | undefined; testid?: string }) {
-  if (!flags) return null
+ *  flags, a method that draws a null (`method`) gets a grey "verdict not saved" — a grouping saved without its fit
+ *  summary, or a family the summary does not list (a hand group) — so silence is never read as confidence; for any
+ *  other method nothing is claimed either way. */
+export function NoiseBadge({ flags, method, testid }: { flags: LibFamilyFlags | null | undefined; method?: string | null; testid?: string }) {
+  if (!flags) {
+    return method && METHODS_WITH_NULL.has(method)
+      ? <span className="k-badge t-grey" data-testid={testid ?? 'noise-badge'} data-verdict="not-saved" title={`${method} tests every family against noise of the same colour, but this grouping holds no verdict for this family (saved without its fit summary, or a family the summary does not list)`}>verdict not saved</span>
+      : null
+  }
   if (!flags.tested) return <span className="k-badge t-grey" data-testid={testid ?? 'noise-badge'} data-verdict="untested" title={flags.why || 'this method has no noise null'}>not tested</span>
   if (flags.noise_like) return <span className="k-badge t-amber" data-testid={testid ?? 'noise-badge'} data-verdict="noise-like" title={flags.why}>no better than noise</span>
   return null

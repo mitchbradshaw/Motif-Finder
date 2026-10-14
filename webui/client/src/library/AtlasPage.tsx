@@ -196,7 +196,7 @@ function MotifAtlas({ families, grouping, labels }: { families: MotifFamily[]; g
                 <span className={`k-badge ${f.recordings > 1 ? 't-blue' : 't-grey'}`} title={`spans ${f.recordings} recording${f.recordings === 1 ? '' : 's'}`}>{f.recordings} rec</span>
                 {f.hand > 0 && <button type="button" className="k-badge t-purple lib-badge-btn" data-testid={`hand-badge-${f.id}`} title="open the family's hand edits" onClick={e => { e.stopPropagation(); navigate(`library/family/${f.id}?hand=1`) }}>{f.hand} hand</button>}
                 {/* w2-b: the method's surrogate null on the face of the tile ("not tested" for Ward) */}
-                <NoiseBadge flags={familyFlagsOf(grouping as Grouping & { fitSummary?: LibFitSummary | null }, f.id)} testid={`noise-badge-${f.id}`} />
+                <NoiseBadge flags={familyFlagsOf(grouping as Grouping & { fitSummary?: LibFitSummary | null }, f.id)} method={(grouping as Grouping & { method?: string | null }).method} testid={`noise-badge-${f.id}`} />
                 {f.artifact > 0 && <span className="k-badge t-red" title={`${f.artifact} channels where ${f.id} is a cross-channel artifact (flagged, kept visible)`}>artifact {f.artifact}</span>}
                 {!!f.unitNote && <span className="k-badge t-amber" data-testid={`unit-badge-${f.id}`} title={f.unitNote}>{f.unit === null ? 'unit?' : `${f.undeclaredMembers ?? ''} unit?`}</span>}
                 {!!familyViewOf(f)?.hidden && <span className="k-badge t-grey" data-testid={`hidden-badge-${f.id}`} title={`${familyViewOf(f)!.hidden} of ${familyViewOf(f)!.total} members hidden by the view (${familyViewOf(f)!.subFloor} under the noise floor) — not deleted`}>−{familyViewOf(f)!.hidden} hidden</span>}

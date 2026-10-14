@@ -121,6 +121,8 @@ export function ClusterExemplars({ p, recordingId, unit }: { p: GroupingPayload;
       </div>
       {/* w2-f: the block named these members itself (the snippet, a family's medoid) — its rule is the caption */}
       {ex[0].by === 'block' && <div className="mono small" data-testid="exemplar-rule" style={{ color: 'var(--text-2)', marginBottom: 4 }}>chosen by the block: {ex[0].rule}</div>}
+      {/* fix 1 (critic 4): a label the block named no exemplar for is said, per cluster — not a silent gap */}
+      {p.clusters.filter(c => (c as { exemplar_note?: string }).exemplar_note).map(c => <div key={c.id} className="mono small muted" data-testid="exemplar-none">cluster {c.id}: {(c as { exemplar_note?: string }).exemplar_note}</div>)}
       <div style={{ display: 'grid', gridTemplateColumns: `repeat(${Math.min(5, ex.length)}, minmax(0, 1fr))`, gap: 8 }}>
         {ex.map(e => <Exemplar key={e.cluster} p={p} ex={e} recordingId={recordingId} unit={unit} />)}
       </div>

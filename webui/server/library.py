@@ -1334,6 +1334,9 @@ def _family_coherence(index, rows) -> dict:
         out = coherence_mod.svd_entropy(waves, align=True, medoid=medoid)
         out["notOnDisk"] = missing
         out["heldOut"] = held
+        # w2-f fix 1: the caveat beside the verdict and the misalignment fraction, from the core's own constants
+        out["smooth_caveat"] = coherence_mod.SMOOTH_CAVEAT
+        out["misaligned_fraction"] = coherence_mod.MISALIGNED_FRACTION
     except Exception as exc:          # loud, not blank: the page draws this as a red card
         import logging
         logging.getLogger(__name__).exception("family coherence failed")

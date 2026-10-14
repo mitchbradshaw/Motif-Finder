@@ -747,8 +747,10 @@ export interface LibGrouping {
  *  null (Ward), and `why` says so — the page shows "not tested", never a blank verdict. */
 export interface LibFamilyFlags {
   noise_like: boolean; unstable: boolean; tested: boolean; why: string
-  median_distance?: number; null_p05?: number; null_median?: number
-  separation?: number; size_fitted?: number; null_max_separation?: number; null_max_size?: number
+  /** k-Shape and (W2-B fix 2) HDBSCAN: d_F, the null's p05 and median, d_F / p05, and the placeholder margin */
+  median_distance?: number; null_p05?: number; null_median?: number; ratio?: number; margin?: number
+  /** HDBSCAN: still reported, no longer deciding */
+  separation?: number; size_fitted?: number
 }
 export interface LibFitSummary {
   rows?: number; fitted?: number; assigned?: number; k?: number | null; k_rule?: string | null
@@ -919,6 +921,10 @@ export interface LibFamilyCoherence {
   n_members?: number; n_used?: number; n_dropped?: number; n_misaligned?: number; sampled?: boolean; aligned?: boolean
   top_share?: number | null; top_share_is?: string; padding?: string | null; rule: string; reason?: string | null
   notOnDisk?: number; heldOut?: number; error?: string
+  /** main 4db3684: the core's verdict, score < null_margin x null_p05; null = no score or no null */
+  beyond_noise?: boolean | null; null_margin?: number; null_kind?: string
+  /** w2-f fix 1: the core's caveat (smooth shapes keep their curve in their own noise) and misalignment fraction */
+  smooth_caveat?: string; misaligned_fraction?: number
 }
 export const saveLibraryGrouping = (body: LibGroupingSaveBody) => post<LibGrouping>('/api/library/groupings', body)
 

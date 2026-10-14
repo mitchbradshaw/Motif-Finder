@@ -94,12 +94,18 @@ const NO_TREE_WHY: Record<string, string> = {
 /** `params_json` as the bridge renders it for the chip: `"cut 0.6 · min_group 10 · omit_d 0.5"`. That string is
  *  the only carrier the grouping payload has for `min_group`/`omit_d`, so the editor reads it back. A token it
  *  cannot parse is skipped rather than defaulted. */
-export function parseParamsText(text: string | null | undefined): Record<string, number> {
-  const out: Record<string, number> = {}
+export function parseParamsText(text: string | null | undefined, strKeys: readonly string[] = []): Record<string, number> & { str?: Record<string, string> } {
+  const out: Record<string, number> & { str?: Record<string, string> } = {}
+  const str: Record<string, string> = {}
   for (const part of String(text ?? '').split('·')) {
     const m = /^\s*([A-Za-z_][A-Za-z0-9_]*)\s+(-?[0-9.]+(?:e-?[0-9]+)?)\s*$/.exec(part)
-    if (m && Number.isFinite(Number(m[2]))) out[m[1]] = Number(m[2])
+    if (m && Number.isFinite(Number(m[2]))) { out[m[1]] = Number(m[2]); continue }
+    // fix 1 (critic 7): a method's declared `str` params (HDBSCAN's selection and distance) are read too — they
+    // used to reseed silently at their defaults, "from g-NN" opening on somebody else's settings
+    const t = /^\s*([A-Za-z_][A-Za-z0-9_]*)\s+(\S+)\s*$/.exec(part)
+    if (t && strKeys.includes(t[1])) str[t[1]] = t[2]
   }
+  if (Object.keys(str).length) out.str = str
   return out
 }
 /** The draft the Edit-grouping modal should open on when it announces "from g-NN": g-NN's OWN parameters.
@@ -107,16 +113,20 @@ export function parseParamsText(text: string | null | undefined): Record<string,
  *  pressing Compute and apply without touching the slider regrouped the whole catalogue at somebody else's
  *  settings while the researcher believed they had re-run the current one. A parameter the grouping does not
  *  record keeps its `BASE` default. */
-export function seedFromGrouping(g: Grouping | undefined): Partial<Draft> {
+export function seedFromGrouping(g: Grouping | undefined, methods: Record<string, LibGroupingMethod[]> = {}): Partial<Draft> {
   if (!g) return {}
-  const p = parseParamsText(g.params)
+  const gm = (g as Grouping & { method?: string | null }).method
+  const spec = (methods[g.basis] ?? []).find(m => m.name === gm)
+  const strKeys = Object.entries(spec?.params ?? {}).filter(([, ps]) => ps.type === 'str' || ps.type === 'choice').map(([k]) => k)
+  const p = parseParamsText(g.params, strKeys)
   const cut = typeof (g as Grouping & { cut?: number | null }).cut === 'number' ? (g as Grouping & { cut?: number | null }).cut as number : p.cut
   const seed: Partial<Draft> = { basis: g.basis }
   const method = (g as Grouping & { method?: string | null }).method
   if (method && method !== 'ward' && DISTANCE_BASES.includes(g.basis)) {
     seed.method = method
     const own: Record<string, unknown> = {}
-    for (const [k, v] of Object.entries(p)) if (k !== 'min_group') own[k] = v
+    for (const [k, v] of Object.entries(p)) if (k !== 'min_group' && k !== 'str') own[k] = v
+    Object.assign(own, p.str ?? {})
     seed.mparams = { [method]: own }
   }
   if (Number.isFinite(cut) && (cut as number) > 0) seed.cut = cut as number
@@ -216,7 +226,7 @@ interface JobView {
   progress: { done: number; total: number | null; message: string }
   result: RunResult | null; error: string | null; forced?: boolean
   /** w2-b: the bridge refused the run before starting it (422 over the local limit) — its estimate and cheaper settings */
-  refusal?: LibGroupingRefusal | null
+  refusal?: LibGroupingRefusal | null; refusalSig?: string
 }
 const IDLE: JobView = { phase: 'idle', jobId: null, sig: '', progress: { done: 0, total: null, message: '' }, result: null, error: null }
 
@@ -294,7 +304,7 @@ function useGroupingJob() {
       if (!alive.current) return
       // a 422 with `cheaper` is the cost refusal: nothing started, and there is no cluster script for a grouping
       const d = err instanceof ApiError && err.status === 422 ? err.detail as LibGroupingRefusal | null : null
-      if (d && typeof d === 'object' && Array.isArray(d.cheaper)) { setView(v => ({ ...v, phase: 'idle', refusal: d, error: null })); return }
+      if (d && typeof d === 'object' && Array.isArray(d.cheaper)) { setView(v => ({ ...v, phase: 'idle', refusal: d, refusalSig: sig, error: null })); return }
       setView(v => ({ ...v, phase: 'failed', error: err instanceof ApiError ? err.message : String(err) }))
     })
   }
@@ -307,9 +317,10 @@ function useGroupingJob() {
     if (id != null) void cancelJob(id).catch(() => undefined)
   }
   const reset = () => { then.current = null; stop(); setView(IDLE) }
+  const clearRefusal = () => setView(v => ({ ...v, refusal: null, refusalSig: undefined }))
   /** the two `?state=` deep links: a display state for the screenshot pass, never a result */
   const force = (v: Partial<JobView>) => setView(x => ({ ...x, ...v, forced: true }))
-  return { view, start, cancel, reset, force }
+  return { view, start, cancel, reset, force, clearRefusal }
 }
 
 /* ================================================================ page ================================================================ */
@@ -388,13 +399,15 @@ function GroupingEditor({ from }: { from: string }) {
   const [seededFrom, setSeededFrom] = useState<string | null>(null)
   const touched = useRef(false)
   useEffect(() => {
-    if (!current || current.unit !== d.unit) return
+    if (!current || current.unit !== d.unit || !editor.data) return
     if (seededFrom === current.id) return
     if (touched.current && seededFrom !== null) return
     setSeededFrom(current.id)
-    const seed = seedFromGrouping(current)
+    const seed = seedFromGrouping(current, editor.data.methods)
     setD(x => ({ ...x, ...seed, basis: basisQ ? x.basis : (seed.basis ?? x.basis), range: null }))
-  }, [current, d.unit, basisQ, seededFrom])
+  }, [current, d.unit, basisQ, seededFrom, editor.data])
+  // fix 1 (critic 12): a refusal describes the settings it refused; once they change it is stale, so it goes
+  useEffect(() => { if (job.view.refusal && job.view.refusalSig !== sig) job.clearRefusal() }, [sig, job.view.refusal, job.view.refusalSig]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const close = () => { if (job.view.phase === 'running') job.cancel(); job.reset(); navigate(`library/${from}`) }
 

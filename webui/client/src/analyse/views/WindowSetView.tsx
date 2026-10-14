@@ -132,15 +132,18 @@ export function EventWindowsView({ p, events, ctx }: { p: WindowsetPayload; even
     return m
   }, [p.events])
   const nOmitted = Object.values(p.events?.omitted ?? {}).reduce((a, b) => a + (b ?? 0), 0)
+  // fix 1 (critic 11): an event with no window is outlined even when `omitted_rows` was capped and does not list
+  // it — by set difference against the events the windows were cut around
+  const windowed = useMemo(() => new Set(p.event_index ?? []), [p.event_index])
   const narrow = p.starts_s.length > 0 && ctx.x(p.starts_s[0] + p.length_s) - ctx.x(p.starts_s[0]) < 3
   return (
     <svg width={ctx.width} height={h} data-render="windowset" data-mode="event-windows" data-testid="event-windows" data-windows={p.n_windows} data-omitted={nOmitted} data-plot-box data-rule9="ghost">
       <rect x={r0} y={0} width={r1 - r0} height={h} fill={NO_DATA_CSS} fillOpacity={0.12} />
       {events && events.start_s.map((s, i) => {
-        const why = reasonOf.get(i)
+        const why = reasonOf.get(i) ?? (p.event_index && !windowed.has(i) ? 'not listed (omitted_rows is capped — see the notes)' : undefined)
         const x0 = ctx.x(s), w = Math.max(1, ctx.x(events.end_s[i]) - x0)
         return why
-          ? <rect key={`e${i}`} x={x0} y={1} width={w} height={h - 2} fill="var(--band-artifact)" stroke="var(--red)" strokeDasharray="3 2" data-testid="event-omitted"><title>{`event ${i + 1} · no window: ${why.replace(/_/g, ' ')}`}</title></rect>
+          ? <rect key={`e${i}`} x={x0} y={1} width={w} height={h - 2} fill="var(--band-artifact)" stroke="var(--red)" strokeDasharray="3 2" data-testid={reasonOf.has(i) ? 'event-omitted' : 'event-windowless'}><title>{`event ${i + 1} · no window: ${why.replace(/_/g, ' ')}`}</title></rect>
           : <rect key={`e${i}`} x={x0} y={0} width={w} height={h} fill="var(--band-detected)" opacity={0.55}><title>{`event ${i + 1}`}</title></rect>
       })}
       {ctx.ghost && gr && <g data-trace><EnvelopePath t={ctx.ghost.t} v={ctx.ghost.v} x={ctx.x} y={makeY(gr[0], gr[1], h)} stroke="var(--trace)" opacity={0.8} /></g>}
@@ -185,6 +188,8 @@ export function EventWindowsKey({ p }: { p: WindowsetPayload }) {
         {ev?.n_recovery_outside_window ? ` · ${ev.n_recovery_outside_window} recover after their window ends` : ''}
       </div>
       {(ev?.warnings ?? []).map((w, i) => <div key={i} className="mono small" style={{ color: 'var(--amber-700, #b76a00)' }} data-testid="event-windows-warning">{w}</div>)}
+      {(ev?.notes ?? []).map((w, i) => <div key={`n${i}`} className="mono small muted" data-testid="event-windows-note">{w}</div>)}
+      {p.n_windows === 0 && <div className="mono small" data-testid="event-windows-none" style={{ color: 'var(--amber-700, #b76a00)' }}>no window: {(ev?.n_events ?? 0) === 0 ? 'the detector upstream found no events on this span' : 'every event was left out (reasons above)'}</div>}
     </div>
   )
 }

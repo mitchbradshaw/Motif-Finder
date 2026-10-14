@@ -672,13 +672,19 @@ def _grouping(value, meta, ctx):
         out["strip"] = {"starts_s": (np.asarray(ws.starts) / float(ws.fs))[:SPAN_CAP].tolist(),
                         "length_s": int(ws.length) / float(ws.fs)}
         named = meta.get("exemplar_windows")
-        out["exemplars"] = (_named_exemplars(labels, ids, ws, named, meta.get("exemplar_rule"))
+        out["exemplars"] = (_named_exemplars(labels, ids, ws, _exemplar_form(named, ctx), meta.get("exemplar_rule"))
                             if named is not None else _exemplars(labels, ids, ws))
     out["summary"] = (f"{len(ids)} clusters · sizes " + ", ".join(str(int(c)) for c in counts)
                       # the strip is capped; saying so is the difference between
                       # a short strip and a wrong one (fixup-a item 10)
                       + (f" · strip shows the first {shown:,} of {n:,} windows" if out["capped"] else ""))
     if meta.get("exemplar_windows") is not None:
+        named = _exemplar_form(meta["exemplar_windows"], ctx)
+        # fix 1 (critic 4): a label >= 0 the block named no exemplar for says so on its cluster — a gap is a note
+        if ws is not None:
+            for c in out["clusters"]:
+                if c["id"] >= 0 and str(c["id"]) not in named:
+                    c["exemplar_note"] = "the block named no exemplar for this label"
         # w2-f: a block that names its own exemplars (snippets, families) writes its own summary and rules;
         # they are the result (k and how it was chosen, the coverage, the run lengths), not commentary
         if meta.get("summary"):
@@ -687,9 +693,13 @@ def _grouping(value, meta, ctx):
         if meta.get("rules"):
             out["rules"] = _clean(meta["rules"])
         for c in out["clusters"]:
-            if c["id"] == -1 and "-1" not in {str(k) for k in meta["exemplar_windows"]}:
-                c["name"] = ("unlabelled · mostly NaN" if "n_windows_nan" in meta
-                             else str(meta.get("unlabelled_name") or "unlabelled"))
+            if c["id"] == -1 and "-1" not in named:
+                # fix 1 (critic 10): snippets' -1 holds the mostly-NaN windows AND the ones no position voted for;
+                # the name counts the NaN ones rather than calling them all NaN
+                if "n_windows_nan" in meta:
+                    c["name"] = f"unlabelled · {int(meta['n_windows_nan'] or 0)} of {c['count']} mostly NaN"
+                else:
+                    c["name"] = str(meta.get("unlabelled_name") or "unlabelled")
     if meta.get("tree"):
         # fixup-ag: a Grouping that KEPT its tree (Shape clustering) ships it: the truncated dendrogram, the
         # proposal per k, a line per cluster at the cut and the mapping. -1 = not clustered (validation, test and
@@ -750,6 +760,20 @@ def _exemplars(labels, ids, ws):
     return out
 
 
+EXEMPLAR_FORM = '{"<label>": <window index>}'
+
+
+def _exemplar_form(named, ctx):
+    """`meta["exemplar_windows"]` as `{str(label): index}`, or a ValueError naming the one form and the block.
+    Snippets and families both write that dict (W2-E 2c016e3); a list, a string or a number is a block bug, said
+    as one rather than as Python's own `dict()` complaint."""
+    if not isinstance(named, dict):
+        block = (ctx or {}).get("block") or "this block"
+        raise ValueError(f"{block}: meta['exemplar_windows'] must be {EXEMPLAR_FORM} (label -> window index into "
+                         f"the window set), got {type(named).__name__}: {str(named)[:80]}")
+    return {str(k): v for k, v in named.items()}
+
+
 def _named_exemplars(labels, ids, ws, named, rule):
     """w2-f: the exemplars the BLOCK chose (`meta["exemplar_windows"]`, label -> window index): the snippet
     itself, a family's medoid. Still a member, never an average — so a named window outside the window set, or
@@ -758,12 +782,23 @@ def _named_exemplars(labels, ids, ws, named, rule):
     exemplar for (snippets' -1, the windows too NaN to label) gets none."""
     fs, length, n = float(ws.fs), int(ws.length), len(labels)
     rule = str(rule or "the window the block itself named as this label's exemplar")
-    by_label = {str(k): v for k, v in dict(named).items()}
+    by_label = dict(named)
+    present = {str(int(c)) for c in ids}
+    ghosts = sorted(set(by_label) - present)
+    if ghosts:
+        raise ValueError(f"exemplar_windows names label(s) {', '.join(ghosts)}, which are not in the grouping "
+                         f"(its labels: {', '.join(sorted(present))})")
     out = []
     for cid in ids:
         if str(int(cid)) not in by_label:
             continue
         w = by_label[str(int(cid))]
+        try:
+            whole = not isinstance(w, bool) and float(w) == int(w)
+        except (TypeError, ValueError):
+            whole = False
+        if not whole:
+            raise ValueError(f"exemplar window {w!r} named for label {int(cid)} is not a whole window index")
         pick = int(w)
         if not 0 <= pick < n:
             raise ValueError(f"exemplar window {w!r} named for label {int(cid)} is outside the window set "

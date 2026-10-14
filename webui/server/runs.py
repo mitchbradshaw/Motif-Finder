@@ -248,7 +248,9 @@ class RunManager:
             wall = time.perf_counter() - step_wall.get(i, time.perf_counter())
             kind = result.output_kind
             ctx = {"fs": fs, "span_start": span_start, "px": job.px, "n_samples": n_span, "units": job.recording.get("units"),
-                   "windowset": job._windowset, "params": job.recipe["steps"][i].get("params") or {}}
+                   "windowset": job._windowset, "params": job.recipe["steps"][i].get("params") or {},
+                   # w2-f: the block, so a payload error can name it
+                   "block": f"{job.recipe['steps'][i]['stage']}.{job.recipe['steps'][i]['algorithm']}"}
             # The core's step cache restores the typed value only; AdapterResult.meta (SAX cutlines,
             # MP window m, the model card) is lost on a hit. The bridge keeps a JSON sidecar per
             # prefix hash at first compute and reads it back on a hit (critique r1 P1).
