@@ -163,6 +163,27 @@ def test_the_footing_is_stumpys_mpdist_over_root_two_sub_lengths():
     assert d["raw"] == pytest.approx(ours * math.sqrt(2 * s))
 
 
+def test_the_dense_engine_and_stumpys_join_agree():
+    """Two engines, one number: the dense correlation matrix (no numba
+    compile) and stumpy's AB-join, on plain pairs, a pair with a gap and a
+    pair with flat stretches (where stumpy's flat partner is re-measured)."""
+    rng = np.random.default_rng(12)
+    a = _noisy(_drop(240), rng, 0.1)
+    b = _noisy(_square(180), rng, 0.1)
+    b_gap = b.copy()
+    b_gap[100:110] = np.nan
+    t = np.linspace(-3.0, 3.0, 120)
+    flat_a = np.concatenate([np.zeros(150), np.exp(-t ** 2)])
+    flat_b = np.concatenate([np.zeros(150), -np.exp(-t ** 2)])
+    for x, y in ((a, b), (b, a), (a, b_gap), (flat_a, flat_b), (_walk(rng, 400), _ar1(rng, 333))):
+        dense = mpdist_detail(x, y, engine="dense")
+        joined = mpdist_detail(x, y, engine="stumpy")
+        assert dense["engine"] == "dense" and joined["engine"] == "stumpy"
+        assert dense["value"] == pytest.approx(joined["value"], rel=1e-6, abs=1e-6)
+        assert dense["k"] == joined["k"] and dense["pool"] == joined["pool"]
+    assert mpdist_detail(a, b)["engine"] == "dense", "members of minutes take the dense engine"
+
+
 def test_the_footing_runs_from_zero_for_a_copy_to_root_two_for_its_mirror():
     ramp = np.arange(120, dtype=float)
     assert mpdist_distance(ramp, 3.0 * ramp + 5.0) == pytest.approx(0.0, abs=1e-6)
@@ -229,15 +250,20 @@ def test_bad_parameters_are_refused():
 
 
 def test_flat_stretches_shared_by_both_members_are_not_read_as_identical():
-    """stumpy scores two constant sub-pieces 0 apart. Two different shapes on
-    long noise-free flat baselines would then read as identical; the flat
-    sub-pieces are left out instead."""
-    a = np.concatenate([np.zeros(200), _drop(200)])
-    b = np.concatenate([np.zeros(200), _square(200)])
-    s = int(math.ceil(MPDIST_SUB_FRAC * 400))
+    """stumpy scores two constant sub-pieces 0 apart. A hump and its mirror
+    image on long noise-free flat baselines would then read as identical; the
+    flat sub-pieces are left out instead (neither read nor a partner), and
+    what is left — a rise against a fall-then-recovery — is no more alike than
+    unrelated pieces (0.88 measured; 0.71 if a flat piece could still be a
+    partner at stumpy's sqrt(s))."""
+    t = np.linspace(-3.0, 3.0, 200)
+    hump = np.exp(-t ** 2)
+    a = np.concatenate([np.zeros(400), hump])
+    b = np.concatenate([np.zeros(400), -hump])
+    s = int(math.ceil(MPDIST_SUB_FRAC * 600))
     assert stumpy.mpdist(a, b, s) == pytest.approx(0.0, abs=1e-9), "stumpy alone reads them as identical"
     d = mpdist_detail(a, b)
-    assert d["value"] > 0.2, d
+    assert d["value"] > 0.8, d
     assert d["excluded_flat"] > 0
 
 

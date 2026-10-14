@@ -37,7 +37,8 @@ from Working.database import queries as q
 from Working.database import runs as R
 from Working.recipes import recipe_hash
 from Working.distances import (
-    DISTANCE_NATIVE_LENGTH, DISTANCE_REGISTRY, DISTANCE_SCALE_INVARIANT, DISTANCE_SYMBOLIC,
+    DISTANCE_MPDIST, DISTANCE_NATIVE_LENGTH, DISTANCE_REGISTRY, DISTANCE_SCALE_INVARIANT, DISTANCE_SYMBOLIC,
+    MPDIST_FOOTING, MPDIST_PERCENTAGE, MPDIST_SUB_FRAC, MPdistRefused,
 )
 
 
@@ -907,8 +908,16 @@ def recurrence_count(conn, entry_id, mode="excluding_artifacts"):
 ACCEPTING_VERDICTS = ("interesting", "seed")
 
 #: The three distances of PIPELINE_PRD.md "Distances", in the order the Family
-#: page prints them: the primary, the symbolic arm, the native-length control.
-EDGE_DISTANCES = (DISTANCE_SCALE_INVARIANT, DISTANCE_SYMBOLIC, DISTANCE_NATIVE_LENGTH)
+#: page prints them: the primary, the symbolic arm, the native-length control —
+#: and (w3-d) MPdist, shared sub-shapes at native speed, last. MPdist is on its
+#: own footing (`Working.distances.MPDIST_FOOTING`), not the seed cut's, and it
+#: refuses a pair it cannot compare (`MPdistRefused`): that pair gets no MPdist
+#: edge, and `resolve_run_matches` / `scale_readout` say so.
+EDGE_DISTANCES = (DISTANCE_SCALE_INVARIANT, DISTANCE_SYMBOLIC, DISTANCE_NATIVE_LENGTH, DISTANCE_MPDIST)
+
+#: The distances whose value is NOT on the seed cut's footing, so "within the
+#: cut" is not a reading the scale read-out makes for them.
+OFF_CUT_FOOTING = {DISTANCE_MPDIST: MPDIST_FOOTING}
 
 #: The symbolic distance's fixed word length and alphabet. A span shorter than
 #: the word gets a word as long as the span; whichever ran is on the edge.
@@ -930,6 +939,8 @@ def _distance_params(function, n_a, n_b):
     if function == DISTANCE_SYMBOLIC:
         return {"word_length": int(max(1, min(SYMBOLIC_WORD_LENGTH, n_a, n_b))),
                 "alphabet_size": SYMBOLIC_ALPHABET}
+    if function == DISTANCE_MPDIST:
+        return {"sub_frac": MPDIST_SUB_FRAC, "percentage": MPDIST_PERCENTAGE}
     return {}
 
 
@@ -1090,6 +1101,12 @@ def resolve_run_matches(conn, entry_id, run_ids, *, cut=None, include_unjudged=F
       - **unjudged** → the same, only when `include_unjudged` (off);
       - **rejected** → nothing. Its distance stays on its detection row.
 
+    A distance that refuses a pair (w3-d: MPdist, for a member too short,
+    flat or mostly gap — `MPdistRefused`) writes no edge for that function;
+    the pair is listed in `edges_refused` with the reason in words, on every
+    call (a refusal is never stored as a value), and its other distances are
+    written as usual.
+
     The seed finding itself (the exemplar's own span) is not a match and makes
     no edge. Idempotent: a second call writes nothing.
 
@@ -1108,6 +1125,7 @@ def resolve_run_matches(conn, entry_id, run_ids, *, cut=None, include_unjudged=F
     counts = {"accepted": 0, "unjudged": 0, "rejected": 0, "exemplar": 0}
     members_new = members_resolved = edges_new = edges_kept = 0
     by_function = {fn: 0 for fn in distances}
+    refused = []
     pairs = []
     for row in rows:
         if row["is_exemplar"]:
@@ -1140,9 +1158,14 @@ def resolve_run_matches(conn, entry_id, run_ids, *, cut=None, include_unjudged=F
             if existing is not None:
                 edges_kept += 1
                 continue
-            res = match_span_to_entry(conn, entry_id, None, None, None, threshold=threshold, recipe_hash=rh,
-                                      distance_function=fn, candidate_member_id=member_id,
-                                      gate_on_threshold=False, **params)
+            try:
+                res = match_span_to_entry(conn, entry_id, None, None, None, threshold=threshold, recipe_hash=rh,
+                                          distance_function=fn, candidate_member_id=member_id,
+                                          gate_on_threshold=False, **params)
+            except MPdistRefused as err:
+                refused.append({"detection_id": row["detection_id"], "member_id": member_id, "function": fn,
+                                "reason": str(err)})
+                continue
             conn.execute("UPDATE motif_edge SET scale_factor = ?, detection_id = ?, recipe_json = ?, "
                          "created_at = ? WHERE id = ?",
                          (row["scale"], row["detection_id"], json.dumps(recipe, sort_keys=True), _now(),
@@ -1154,6 +1177,7 @@ def resolve_run_matches(conn, entry_id, run_ids, *, cut=None, include_unjudged=F
     conn.commit()
     return dict(counts, members_new=members_new, members_resolved=members_resolved,
                 edges_new=edges_new, edges_kept=edges_kept, edges_by_function=by_function,
+                edges_refused=refused,
                 threshold=threshold, include_unjudged=bool(include_unjudged), pairs=pairs,
                 exemplar_member_id=exemplar_member)
 
@@ -1238,6 +1262,10 @@ def scale_readout(conn, entry_id, run_ids):
         for fn in EDGE_DISTANCES:
             fe = [e for e in es if e["distance_function"] == fn]
             row[fn] = _spread([e["distance_value"] for e in fe], (fe[0]["threshold"] if fe else None))
+            # w3-d: an accepted member this function wrote no edge for (MPdist refused it) is counted
+            row[fn]["missing"] = row["members"] - len({e["member_b_id"] for e in fe})
+            if fn in OFF_CUT_FOOTING:
+                row[fn].update(within=None, threshold=None, footing=OFF_CUT_FOOTING[fn])
         out_rows.append(row)
     return {"entryId": int(entry_id), "runIds": ids, "scales": scales, "rows": out_rows,
             "nullDraws": draws, "distances": list(EDGE_DISTANCES),

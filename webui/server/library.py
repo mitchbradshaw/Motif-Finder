@@ -1471,6 +1471,7 @@ DISTANCE_LABELS = {DISTANCE_SCALE_INVARIANT: "scale-invariant", DISTANCE_SYMBOLI
                    DISTANCE_NATIVE_LENGTH: "native-length control"}
 #: fixup-W: the edge *Classify across channels* writes when two co-occurring members had none
 DISTANCE_LABELS[matching_mod.CROSS_CHANNEL_DISTANCE] = "cross-correlation (1 − |r|)"
+DISTANCE_LABELS[matching_mod.DISTANCE_MPDIST] = "shared sub-shapes (MPdist)"
 
 
 def _cross_channel_payload(conn, member_ids) -> dict:
