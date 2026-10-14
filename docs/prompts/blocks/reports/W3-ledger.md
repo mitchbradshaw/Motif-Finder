@@ -452,6 +452,23 @@ instead of it.
   coherence is still not beyond noise (eq. 17 0.82 vs 0.81) — **unchanged from wave 2: the quiet null does not rescue
   rec 542's large family**; its "smooth-shape blind spot" was not the trend-kept null's alone; **rec 543** — no
   family (175 windows, none in a dense crowd), so nothing to judge. No family changed verdict.
+- 03:56 — **the Library table under the new null** (`eval3/eval_library3.py`, the grouping job's own items and loader
+  — `_grouping_items`, `_library_background`, `run_grouping(..., background=)` — and the Family page's
+  `_family_coherence(conn, n_set=3,616)` per family):
+
+  | Method | Families | Placed | Noise-like, either null (trend-kept alone) | Passed by: both / quiet only / trend only / none | Coherence beyond noise, either (trend alone) | eq. 17 median |
+  |---|---|---|---|---|---|---|
+  | Ward (cut 0.6, min 10, omit 0.5) | 151 | 3,296 | not tested | — | 116 of 151 (116) | 0.568 |
+  | HDBSCAN eom | 19 | 687 | **1 (3)** | 14 / 2 / 2 / 1 | 19 of 19 (19) | 0.337 |
+  | HDBSCAN leaf | 23 | 582 | **0 (2)** | 17 / 2 / 4 / 0 | 23 of 23 (23) | 0.317 |
+  | k-Shape k = 20 | 20 | **2,701** (915 past cut) | **11 (17)** | 3 / 6 / 0 / 11 | 19 of 20 (19) | 0.492 |
+
+  Against wave 2's table: HDBSCAN flagged 3 of 19 noise-like then (trend-kept) and 1 now — two families rescued by the
+  quiet stretches; leaf 2 → 0; k-Shape placed 1,996 then (plain-phase `omit_d`) and 2,701 now (the quiet windows' p05
+  as its cut), with 11 of 20 noise-like (8 under the plain phase null; 17 if the trend-kept null judged alone — the
+  quiet stretches rescue 6). The coherence verdict moved for **no** family: every family beyond noise by the quiet
+  null was also beyond by the trend-kept one. **Analyse offers k-Shape again** in `interrogation.event_families`
+  (`EVENT_FAMILIES_EXCLUDED` emptied; no unmarked Intervals key in the critic's 37 no-structure runs).
 - 03:5x — **W3-C critic: merge after fixes, three blockers.** F1: plain phase surrogates are biased here too
   (exp(AR) noise got a suggestion 10/10; AAFT 1/10 → 0/10 at 20 draws, keeping planted-motif power) → the 03:55
   correction; F2: one null draw gives 1.2–5.8 % false suggestions at 1 Hz, three gave 0 in 544 spans, the false
