@@ -590,6 +590,17 @@ instead of it.
   bridge with `--dist`: `npx tsc -b` exit 0, the build exit 0. The UI tests with the venv python started beside the
   FLUSS run; the conda `pytest -n 4` waits for FLUSS to finish (the timing tests fail under load), the smoke for
   pytest.
+- 07:49 — **the FLUSS piece (decision 26), report only.** `motif_lengths` on rec 6 400–424 h cleared 30–2330 s (11 of
+  12; 3600 s gap 5.5 vs cut 6.0), strongest gap 30 s; so FLUSS ran on 370–470 h at **2330 s** (detrend 4660 s) and at
+  300 s. 2330 s: changes at 424.9 h and 421.7 h (arc-curve 0.29, 0.31), mid-chain, 20–23 h from the 383/445 h edges;
+  300 s: 469.5 h and 469.1 h (0.53, 0.54), at the span's end. Neither finds the chain. `estimate_seconds` was None
+  (uncalibrated in a fresh sandbox); actual 516 + 144 + 129 s. Aside, one span only: the band's top (39 min) is the
+  first rung above rec 6's median cycle (37 min).
+  **Correction, 07:5x (read from the retest's own script and output, `fluss_known.py` / `fluss_known_w300.json` in
+  the "Agent manager setup" session's scratchpad):** the 2026-10-14 retest ran rec 6 on **372–456 h**, not 370–470 h
+  as decision 26 says, with the same readout (`regime_locs`); its 455.5 h and 372.5 h are each ~0.5 h inside that
+  span's ends, as 469.5 h is inside this one's. So at 300 s FLUSS's strongest changes follow the span's ends — an edge
+  effect seen twice — and the piece ran on 370–470 h as declared.
 - 03:5x — **W3-C critic: merge after fixes, three blockers.** F1: plain phase surrogates are biased here too
   (exp(AR) noise got a suggestion 10/10; AAFT 1/10 → 0/10 at 20 draws, keeping planted-motif power) → the 03:55
   correction; F2: one null draw gives 1.2–5.8 % false suggestions at 1 Hz, three gave 0 in 544 spans, the false

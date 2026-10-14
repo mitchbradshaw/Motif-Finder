@@ -179,6 +179,32 @@ did on these recordings. No stalls (`n_stalled` 0) and no long gaps on any span;
   ~0.145). On a span whose power sits in a few events, the typical window is the quiet one; the declared statistic was
   fixed before the data and stands.
 
+### The FLUSS window (report only)
+
+The brief's item 3, as declared before any data (`W3-ledger.md` decision 26): never the strongest-gap length (W3-C's
+re-critique: it is not an event length), but the **top of the cleared band**, read on a span long enough to judge a
+chain's unit — `motif_lengths` on rec 6 400–424 h — then the experimental `fluss_regimes` on rec 6 370–470 h at that
+length (its detrend kept at the template's 2 : 1) and at 300 s (the template exactly), side by side. The paper's
+readout (`regime_locs`, the two lowest arc-curve minima) is compared with the chain's edges at 383 h and 445 h.
+
+| Run | Result | Seconds |
+|---|---|---|
+| `motif_lengths`, rec 6 400–424 h | clears 30–2330 s (11 of 12; 3600 s just below its cut, gap 5.5 vs 6.0); strongest gap at 30 s | 516 |
+| `fluss_regimes` at **2330 s** (detrend 4660 s) | changes at **424.9 h and 421.7 h** (arc-curve 0.29, 0.31) — mid-chain, **20–23 h** from either edge | 144 |
+| `fluss_regimes` at 300 s (the template) | changes at 469.5 h and 469.1 h (arc-curve 0.53, 0.54) — at the span's end, about 30 min inside the scored part, 24 h past the chain's end | 129 |
+
+`estimate_seconds` gave no number (the matrix-profile cost model is uncalibrated in a fresh sandbox, and the block
+never guesses); the whole piece took under 15 minutes, far inside the hour's cap.
+
+**Plainly:** handing FLUSS pan's longest repeating length does not make it find rec 6's chain. With a 39-minute window
+it calls the middle of the chain the strongest change; with 5 minutes, the end of the span. FLUSS stays experimental
+(its status moves only by the Q4 bar). The 300 s answer is an edge effect, and a repeatable one: the 2026-10-14
+retest used the same readout on a different span, 372–456 h, and got 455.5 h and 372.5 h — each about half an hour
+inside that span's ends, as 469.5 h is here. At 300 s FLUSS's strongest changes follow the span's ends, not the
+chain's; at 2330 s they move inside the chain (≈ 422–425 h), which nothing else here marks as a boundary. One aside,
+from one span only: the band's top, 2330 s (39 min), is the ladder's first rung above rec 6's median cycle (37 min,
+cycle shapes) — worth checking on other chains before reading anything into it.
+
 ## MPdist (W3-D) on real Library members
 
 No accepted RQ3 pair exists yet (`motif_edge` is empty), so, as the brief says, five families' members against their
