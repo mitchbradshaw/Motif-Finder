@@ -76,7 +76,8 @@ def test_the_spec(spec):
     for want in ("anchor", "length_s", "pre_frac", "max_nan_frac", "method", "write_group"):
         assert want in names
     for f in SF.flat_param_specs():
-        assert f["flat"] in names
+        # the methods this block offers have their params; the excluded one (k-Shape) has none here
+        assert (f["flat"] in names) == (f["method"] not in SF.EVENT_FAMILIES_EXCLUDED), f["flat"]
     for p in spec.params:
         if p.type in (int, float):
             assert p.min is not None and p.max is not None, f"{p.name} has no bounds"

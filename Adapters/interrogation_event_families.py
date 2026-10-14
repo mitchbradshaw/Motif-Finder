@@ -23,17 +23,35 @@ classifier never learns this one's answer):
 `write_group` (default ON — timing per family is this block's reason to exist) writes
 `group` with `Working.interrogation.intervals.write_group_columns`, the helper
 `interrogation.trains` uses: the family's key (`group_key`: the number, `-1` for none,
-`<n>~noise_like` for a family flagged noise-like, so Intervals' table says it), and
-with an upstream `group` the key `<upstream>/<family>`, the original kept in
+`<n>~noise_like` for a family flagged noise-like, `<n>~untested` for one no null was
+drawn for (Ward), so Intervals' table says it — an unmarked key is a family that was
+tested and passed), and with an upstream `group` the key `<upstream>/<family>`, the original kept in
 `group_upstream`.
 
-**Anchor default: the span start, not the onset** (an adaptation of W2-A's default).
-Shapes are compared by where the same point of every event sits in its window; on
-the template's synthetic recording Event shape's `onset_idx` landed anywhere from 0 to
-230 s after a square dip's start (its knee rule meets a flat bottom), which pushed
-whole events out of a 140 s window: adjusted Rand 0.13-0.27 with `onset`, 1.00 with
-`start` (both HDBSCAN and k-Shape, measured). The span start is where the detector's
-own cut crossed, the same point for every event of one shape. `anchor` stays a param.
+**Defaults: the span start and a 600 s window** (adaptations of W2-A's onset and
+auto length), both placeholders until checked on real recordings, both measured.
+* Anchor. Shapes are compared by where the same point of every event sits in its
+  window. On the template's synthetic recording Event shape's `onset_idx` landed 0 to
+  230 s after a square dip's start (its knee rule meets a flat bottom): adjusted Rand
+  0.13-0.27 with `onset` against 1.00 with `start`. The critic's 432-run sweep through
+  the real chain (three shape pairs x AR(1) 0.97 / 0.99 / random walk x 2 seeds x
+  SNR 10 and 40) agrees: `start` beat `onset` and `extremum` in every cell (onset at
+  its best length 7-12/18, extremum 6-11/18).
+* Length. In the same sweep, start + 600 s kept both shapes in distinct unmarked
+  families with their medians within 10 % in 18/18 cases at SNR 10 and 18/18 at SNR
+  40 (mean ARI 0.87 and 1.00); 300 s 18/18 and 16/18; 1200 s 8/18 and 16/18; the auto
+  length (`length_s = 0`, twice Event shape's median duration) only 5/18 and 4/18 —
+  the duration is fragile (unmeasured on clean drops -> the 7200 s ceiling, three
+  events a window; 11 s at SNR 10 -> the 60 s floor). A caller who asks for the auto
+  length gets W2-A's coverage warnings in `meta.warnings` and the summary: clamped to
+  the floor or ceiling, more than a quarter of windows overlapping the next, more than
+  a quarter ending before their recovery.
+
+**k-Shape is not offered here.** Its families become Intervals keys, and its null (W2-B's
+plain phase-randomised one) left unflagged families in pure random-walk events (132 +
+108 members at n = 1,000, the W2-E critic): `SF.EVENT_FAMILIES_EXCLUDED`. The follow-up
+is a trend-kept k-Shape null in the Library methods; `catalogue.shape_families` keeps
+k-Shape but calls none of its families confident.
 """
 
 import time
@@ -69,7 +87,8 @@ def _rules(write_group, has_group):
                                       "medoid) and family_noise_like; bookkeeping columns, never features"}]
     if write_group:
         out.append({"name": "group", "rule": ("written = the family (-1 for none; '<n>~noise_like' for a family "
-                                              "flagged no better than noise)"
+                                              "flagged no better than noise; '<n>~untested' for a family no null "
+                                              "was drawn for, e.g. Ward's: an unmarked key was tested and passed)"
                                               + (" prefixed by the upstream group ('<group>/<family>'; the original "
                                                  "is kept in group_upstream)" if has_group else "")
                                               + ", so Intervals downstream measures each family's own rhythm; the "
@@ -77,7 +96,7 @@ def _rules(write_group, has_group):
     return out
 
 
-def _run(x, t, fs, anchor=DEFAULT_ANCHOR, length_s=0.0, pre_frac=EW.DEFAULT_PRE_FRAC,
+def _run(x, t, fs, anchor=DEFAULT_ANCHOR, length_s=SF.DEFAULT_EVENT_LENGTH_S, pre_frac=EW.DEFAULT_PRE_FRAC,
          max_nan_frac=EW.DEFAULT_MAX_NAN_FRAC, write_group=True, method=SF.DEFAULT_METHOD, seed=0, value=None,
          **flat):
     t0 = time.time()
@@ -91,7 +110,8 @@ def _run(x, t, fs, anchor=DEFAULT_ANCHOR, length_s=0.0, pre_frac=EW.DEFAULT_PRE_
             "family_distance": ev.distance, "family_noise_like": ev.noise_like}
     has_group = up is not None and "group" in up.columns
     if write_group:
-        cols.update(write_group_columns(up, [SF.group_key(f, nl) for f, nl in zip(ev.family, ev.noise_like)]))
+        cols.update(write_group_columns(up, [SF.group_key(f, nl, tt)
+                                                for f, nl, tt in zip(ev.family, ev.noise_like, ev.tested)]))
     added = pd.DataFrame(cols)
     feats = added if up is None else pd.concat(
         [up.reset_index(drop=True).drop(columns=[c for c in added.columns if c in up.columns]), added], axis=1)
@@ -113,15 +133,21 @@ def _run(x, t, fs, anchor=DEFAULT_ANCHOR, length_s=0.0, pre_frac=EW.DEFAULT_PRE_
                       "anchor_fallback": int(ew.n_fallback), "pre_frac": float(pre_frac),
                       "length_basis": ew.length_basis, "omitted": dict(ew.omitted)}
     meta["notes"] = list(ew.notes) + meta["notes"]
+    auto_warn, auto_short = SF.auto_length_warnings(spans, ew, length_s)
+    meta["warnings"] = auto_warn + meta["warnings"]
     meta["rules"] = _rules(write_group, has_group) + meta["rules"] + EW.rules(
         anchor=anchor, pre_frac=pre_frac, max_nan_frac=max_nan_frac, length_s=length_s, length_basis=ew.length_basis)
     meta["seconds"] = round(time.time() - t0, 3)
     if n_ev == 0:
         meta["summary"] = "no events to sort into families: the step before found none — see its meta for why"
     else:
-        cut = int(ev.omitted.get(SF.OMIT_NO_WINDOW, 0))
-        meta["summary"] = SF.summary_line(fam, unit_word="event window") + (
-            f"; {cut} of {n_ev} event(s) without a window (no_window)" if cut else "")
+        no_win = {r.split(":", 1)[1]: c for r, c in ev.omitted.items() if r.startswith(SF.OMIT_NO_WINDOW + ":")}
+        cut = sum(no_win.values())
+        meta["summary"] = "; ".join(
+            [SF.summary_line(fam, unit_word="event window")]
+            + ([f"{cut} of {n_ev} event(s) without a window (" + ", ".join(f"{r} {c}" for r, c in no_win.items())
+                + ")"] if cut else [])
+            + auto_short)
     return AdapterResult(
         output_kind="spanset",
         value=SpanSet(starts=tuple(spans.starts), ends=tuple(spans.ends), labels=spans.labels, scores=spans.scores,
@@ -148,17 +174,18 @@ SPEC = register(AdapterSpec(
                   "What each event's window is lined up on: its span start (default: where the detector's cut "
                   "crossed, the same point for every event of one shape), Event shape's onset, or its extremum",
                   choices=list(EW.ANCHORS)),
-        ParamSpec("length_s", float, 0.0,
-                  "Window length in seconds. 0 = auto, as Event windows: twice the median event duration, rounded "
-                  "up to 10 s, clamped to 60-7200 s (it holds the onset and about half the recovery)",
-                  min=0.0, max=86400.0),
+        ParamSpec("length_s", float, SF.DEFAULT_EVENT_LENGTH_S,
+                  "Window length in seconds. 600 (a placeholder, measured on synthetic shapes: the length that kept "
+                  "two shapes apart in every case of a 432-run sweep). 0 = auto, as Event windows (twice the median "
+                  "event duration, clamped to 60-7200 s) - fragile, warned when it clamps, overlaps or cuts the "
+                  "recovery", min=0.0, max=86400.0),
         ParamSpec("pre_frac", float, EW.DEFAULT_PRE_FRAC, "Share of the window before the anchor", min=0.0, max=0.95),
         ParamSpec("max_nan_frac", float, EW.DEFAULT_MAX_NAN_FRAC,
                   "Leave out a window with more than this fraction of missing samples (fewer are interpolated)",
                   min=0.0, max=1.0),
         ParamSpec("write_group", bool, True,
                   "Write group = family, so Intervals after this block times each family on its own"),
-        *common_params(),
+        *common_params(exclude=tuple(SF.EVENT_FAMILIES_EXCLUDED)),
     ],
     run=_run,
     estimate=_estimate,
@@ -170,7 +197,8 @@ SPEC = register(AdapterSpec(
         "and, by default, as its group, so Intervals after this block gives each family its own rhythm. Each "
         "family carries the method's noise flag (better than phase-randomised noise of the same colour?) and its "
         "SVD entropy beside what noise scores; events in no family are -1 with their reason. Read a family's "
-        "noise flag before its rhythm. Tune the method's minimum family size first (hdbscan_min_cluster_size). "
-        "Put Event shape before it."
+        "noise flag before its rhythm: an Intervals key marked ~noise_like or ~untested is not a family rhythm. "
+        "Tune the method's minimum family size first (hdbscan_min_cluster_size). k-Shape is not offered here: its "
+        "noise test missed crowds of pure random-walk events. Put Event shape before it."
     ),
 ))

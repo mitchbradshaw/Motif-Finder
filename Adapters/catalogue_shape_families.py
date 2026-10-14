@@ -45,8 +45,8 @@ ASSUMED_MIN_ITEMS = 50
 
 _TYPES = {"int": int, "float": float, "str": str, "bool": bool}
 #: tighter bounds than the generic ones, where a method's param sits on the 0-1 distance scale
-_BOUNDS = {"epsilon": (0.0, 1.0), "omit_d": (0.0, 1.0), "cut": (0.0, 1000.0), "resample_length": (16, 4096),
-           "min_group": (1, 100000), "null_draws": (0, 50)}
+_BOUNDS = {"epsilon": (0.0, 1.0), "omit_d": (0.0, 1.0), "cut": (0.0, 2.0), "resample_length": (16, 4096),
+           "min_group": (1, 100000), "null_draws": (0, 50), "min_cluster_size": (2, 100000), "n_init": (1, 1000)}
 
 
 def _choices(method, param):
@@ -56,10 +56,12 @@ def _choices(method, param):
     return None
 
 
-def method_param_specs():
-    """The flattened method params as `ParamSpec`s (read from the registry)."""
+def method_param_specs(exclude=()):
+    """The flattened method params as `ParamSpec`s (read from the registry), minus those of `exclude`d methods."""
     out = []
     for f in SF.flat_param_specs():
+        if f["method"] in exclude:
+            continue
         spec = f["spec"]
         typ = _TYPES.get(str(spec.get("type")), str)
         who = "every method" if f["method"] is None else f["method"]
@@ -75,17 +77,19 @@ def method_param_specs():
     return out
 
 
-def common_params():
-    """`method`, the coherence seed and the method params — shared by both family blocks."""
+def common_params(exclude=()):
+    """`method`, the coherence seed and the method params — shared by both family blocks; `exclude` drops methods
+    (and their params) a block does not offer."""
     return [
         ParamSpec("method", str, SF.DEFAULT_METHOD,
                   "How families are made — the Library's methods for shape: hdbscan (crowds of similar shapes; "
                   "stragglers left out; no number of families to choose), kshape (k families compared after sliding "
-                  "one shape along the other), ward (a tree cut at a distance; every event placed, no noise test)",
-                  choices=list(SF.shape_methods())),
+                  "one shape along the other; its noise null is not trusted, so no family is called confident), "
+                  "ward (a tree cut at a distance; every event placed, no noise test: untested)",
+                  choices=[m for m in SF.shape_methods() if m not in exclude]),
         ParamSpec("seed", int, 0, "Seed of each family's SVD-entropy noise draws (the method's own seed is its "
                   "<method>_seed)", min=0, max=2**31 - 1),
-        *method_param_specs(),
+        *method_param_specs(exclude),
     ]
 
 

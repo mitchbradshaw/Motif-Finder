@@ -80,7 +80,9 @@ from typing import Optional
 import numpy as np
 
 from Working.Catalogue import event_windows as EW
+from Working.library.coherence import ALIGNED as COHERENCE_ALIGNED
 from Working.library.coherence import NULL_DRAWS as COHERENCE_NULL_DRAWS
+from Working.library.coherence import RULE as COHERENCE_RULE
 from Working.library.coherence import svd_entropy
 from Working.library.grouping import engine
 from Working.library.grouping import methods as registry
@@ -98,6 +100,29 @@ OMIT_NO_WINDOW = "no_window"          # the cutter left the event out (too near 
 OMIT_OUTSIDE_SPAN = "outside_span"    # a window that does not lie inside the chain's span
 #: the suffix a noise-like family's group key carries, so Intervals' table says it on its face
 NOISE_LIKE_SUFFIX = "~noise_like"
+#: ... and an untested one (a method that draws no null, Ward) — never an unmarked key for a family nobody tested
+UNTESTED_SUFFIX = "~untested"
+
+#: methods whose noise null is not trusted as a confidence, with the measurement (W2-E critic, fix round 1):
+#: their families are never called confident (`confident` None, `fraction_confident` None, the reason in notes)
+UNTRUSTED_NULLS = {
+    "kshape": ("k-Shape's null is W2-B's plain phase-randomised one (no trend kept): on cut events of pure "
+               "random-walk noise it left families unflagged (132 + 108 members at n = 1,000; 30 + 29 at n = 200; "
+               "the W2-E critic's no-structure runs), so a k-Shape family that is not flagged noise-like is not "
+               "thereby confident. Follow-up: a trend-kept k-Shape null in the Library methods (W2-B)"),
+}
+#: methods `event_families` does not offer, and why: its families become Intervals keys, where an unflagged
+#: noise crowd reads as a real rhythm
+EVENT_FAMILIES_EXCLUDED = {"kshape": UNTRUSTED_NULLS["kshape"]}
+
+#: the window length `event_families` defaults to — a PLACEHOLDER, measured (W2-E critic's 432-run sweep through
+#: the real chain: two shapes x three backgrounds x two seeds x SNR 10 and 40): anchored on the span start, 600 s
+#: kept both shapes in distinct unmarked families with their medians within 10 % in 18/18 cases at both SNRs
+#: (300 s: 18/18 and 16/18; 1200 s: 8/18 and 16/18; the auto length: 5/18 and 4/18; onset or extremum anchors at
+#: their best length 7-12/18). Check on real recordings.
+DEFAULT_EVENT_LENGTH_S = 600.0
+#: an auto-length coverage share past which a warning is raised (as `catalogue.event_windows`)
+AUTO_WARN_FRAC = 0.25
 
 #: coherence cost, measured 2026-10-14 on this machine: svd_entropy with 5 null draws ~ 1.5 ms per member
 #: (aligned SBD to the medoid + six SVDs of P x 256), so a whole set costs ~ n x this
@@ -120,6 +145,19 @@ class FamilyInfo:
     medoid_distance: float
     flags: dict
     coherence: dict
+    #: False for a method in `UNTRUSTED_NULLS`: its "not noise-like" is not a confidence
+    null_trusted: bool = True
+    null_caveat: Optional[str] = None
+
+    @property
+    def confident(self):
+        """True: tested against a trusted null and passed; False: flagged noise-like;
+        None: not tested, or tested against a null that is not trusted."""
+        if self.flags.get("noise_like"):
+            return False
+        if not self.flags.get("tested") or not self.null_trusted:
+            return None
+        return True
 
 
 @dataclass
@@ -168,6 +206,8 @@ class EventFamilies:
     n_events: int
     fraction_placed: Optional[float]
     fraction_confident: Optional[float]
+    #: per event: its family was tested against a trusted null (False for Ward's, and off a family)
+    tested: np.ndarray = None
 
 
 # ── the method choice and its params, read from the registry ───────────────
@@ -212,14 +252,20 @@ def prepared_vectors(waveforms, resample_length=RESAMPLE_LENGTH):
     return shape_vectors(list(waveforms), int(resample_length))
 
 
-def group_key(family, noise_like=False):
+def group_key(family, noise_like=False, tested=True):
     """The `group` an event of `family` is written under: the number, `-1` for none,
-    and the number + `~noise_like` for a family the method flagged no better than noise
-    — so Intervals' per-group table says so on its face."""
+    the number + `~noise_like` for a family the method flagged no better than noise,
+    and the number + `~untested` for a family no null was drawn for (Ward) — so
+    Intervals' per-group table says so on its face. An unmarked key is a family that
+    was tested and passed."""
     family = int(family)
     if family < 0:
         return "-1"
-    return f"{family}{NOISE_LIKE_SUFFIX}" if noise_like else str(family)
+    if noise_like:
+        return f"{family}{NOISE_LIKE_SUFFIX}"
+    if not tested:
+        return f"{family}{UNTESTED_SUFFIX}"
+    return str(family)
 
 
 # ── the core ────────────────────────────────────────────────────────────────
@@ -319,15 +365,19 @@ def shape_families(waveforms, *, method=DEFAULT_METHOD, params=None, max_nan_fra
                            null_draws=coherence_null_draws)
         families.append(FamilyInfo(family=rank, library_label=f.label, size=int(f.size), rows=rows,
                                    medoid_row=int(f.medoid), medoid_distance=float(f.medoid_distance),
-                                   flags=dict(f.flags), coherence=coh))
+                                   flags=dict(f.flags), coherence=coh, null_trusted=method not in UNTRUSTED_NULLS,
+                                   null_caveat=UNTRUSTED_NULLS.get(method)))
 
     n_placed = int((labels > 0).sum())
     tested = [f for f in families if f.flags.get("tested")]
     untested = len(families) > 0 and not tested
-    n_conf = None if untested else int(sum(f.size for f in tested if not f.flags.get("noise_like")))
+    untrusted = method in UNTRUSTED_NULLS
+    n_conf = None if (untested or untrusted) else int(sum(f.size for f in families if f.confident))
     if untested:
         notes.append(f"{method} draws no noise null: its families are not tested against noise of the same colour "
                      f"(fraction_confident is None); read their SVD entropy against its null instead")
+    if untrusted:
+        notes.append(f"{UNTRUSTED_NULLS[method]}. Its families are not called confident (fraction_confident is None).")
     return ShapeFamilies(
         labels=labels, omit_reason=omit, distance=distance, families=families, omitted=_counts(omit), n=n,
         n_placed=n_placed, n_confident=n_conf, fraction_placed=n_placed / n,
@@ -335,12 +385,17 @@ def shape_families(waveforms, *, method=DEFAULT_METHOD, params=None, max_nan_fra
         fit_summary=dict(res.fit_summary), recipe_hash=res.recipe_hash, notes=notes, n_gap_filled=filled)
 
 
-def event_families(x, fs, spans, *, anchor="start", length_s=0.0, pre_frac=EW.DEFAULT_PRE_FRAC,
+def event_families(x, fs, spans, *, anchor="start", length_s=DEFAULT_EVENT_LENGTH_S, pre_frac=EW.DEFAULT_PRE_FRAC,
                    max_nan_frac=EW.DEFAULT_MAX_NAN_FRAC, method=DEFAULT_METHOD, params=None, seed=0,
                    coherence_null_draws=COHERENCE_NULL_DRAWS, should_cancel=None):
     """Cut a window around each event of `spans` with W2-A's cutter (`event_windows`,
     `cut`; its anchor / length / pre_frac / max_nan_frac rules), group the windows with
-    `shape_families`, and map the families back onto the events."""
+    `shape_families`, and map the families back onto the events. An event the cutter
+    left out is `no_window:<its reason>` (past_start, past_end, too_much_nan). Methods in
+    `EVENT_FAMILIES_EXCLUDED` are refused with the reason."""
+    if method in EVENT_FAMILIES_EXCLUDED:
+        raise ValueError(f"method={method!r} is not offered for event families: {EVENT_FAMILIES_EXCLUDED[method]}. "
+                         f"Use hdbscan (or ward, whose families are marked untested).")
     ew = EW.event_windows(x, fs, spans, anchor=anchor, length_s=length_s, pre_frac=pre_frac,
                           max_nan_frac=max_nan_frac)
     W = EW.cut(x, ew.starts, ew.length)
@@ -349,19 +404,25 @@ def event_families(x, fs, spans, *, anchor="start", length_s=0.0, pre_frac=EW.DE
     n_ev = len(spans.starts)
     family = np.full(n_ev, -1, dtype=np.int64)
     reason = [OMIT_NO_WINDOW] * n_ev
+    for why, rows in ew.omitted_rows.items():
+        for r in rows:
+            reason[int(r)] = f"{OMIT_NO_WINDOW}:{why}"
     dist = np.full(n_ev, np.nan)
     noise_like = np.zeros(n_ev, dtype=bool)
+    tested = np.zeros(n_ev, dtype=bool)
     kept = np.asarray(ew.kept, dtype=np.int64)
     family[kept] = fam.labels
     dist[kept] = fam.distance
     flagged = {f.family for f in fam.families if f.flags.get("noise_like")}
+    was_tested = {f.family for f in fam.families if f.flags.get("tested") and f.null_trusted}
     for w, ev in enumerate(kept):
         reason[ev] = fam.omit_reason[w]
         noise_like[ev] = int(fam.labels[w]) in flagged
+        tested[ev] = int(fam.labels[w]) in was_tested
     n_conf = fam.n_confident
     return EventFamilies(
         windows=ew, families=fam, family=family, omit_reason=reason, distance=dist, noise_like=noise_like,
-        omitted=_counts(reason), n_events=n_ev,
+        omitted=_counts(reason), n_events=n_ev, tested=tested,
         fraction_placed=(fam.n_placed / n_ev) if n_ev else None,
         fraction_confident=None if (n_conf is None or not n_ev) else n_conf / n_ev)
 
@@ -370,7 +431,11 @@ def event_families(x, fs, spans, *, anchor="start", length_s=0.0, pre_frac=EW.DE
 
 def estimate_seconds(n, method, params):
     """Seconds to group `n` waveforms: the method's own measured estimate (W2-B's
-    coefficients, through the engine) plus the coherence (`COHERENCE_SECONDS_PER_ITEM`)."""
+    coefficients, through the engine) plus the coherence (`COHERENCE_SECONDS_PER_ITEM`).
+    Ward past `WARD_MAX_ITEMS` raises, as its run does."""
+    if method == "ward" and int(n) > WARD_MAX_ITEMS:
+        raise ValueError(f"ward builds a square distance matrix over every event; about {int(n)} expected here is "
+                         f"past its {WARD_MAX_ITEMS} cap. Use hdbscan, which fits a seeded sample and assigns the rest.")
     full = {**registry.defaults_for(method), **dict(params or {})}
     return float(engine.estimate_seconds(int(n), BASIS, method, full) + int(n) * COHERENCE_SECONDS_PER_ITEM)
 
@@ -390,7 +455,12 @@ def family_summary(fam: FamilyInfo):
         "svd_entropy_squared_norm": c.get("svd_entropy_squared_norm"),
         "svd_entropy_squared_null_median": c.get("null_squared_median"),
         "top_share": c.get("top_share"), "coherence_reason": c.get("reason"),
-        "coherent_beyond_noise": None if norm is None or p05 is None else bool(norm < p05),
+        # svd_entropy's own verdict (its margin x null_p05) and rule, read off, never re-derived (fix round 1, F3)
+        "svd_entropy_beyond_noise": c.get("beyond_noise"), "svd_entropy_null_margin": c.get("null_margin"),
+        "svd_entropy_rule": c.get("rule"),
+        # True = tested against a trusted null and passed; False = noise-like; None = untested / null not trusted
+        "confident": fam.confident,
+        "null_caveat": fam.null_caveat,
     }
 
 
@@ -406,7 +476,8 @@ def rules(method, params):
         {"name": "omitted", "rule": "an event in no family is -1 with its reason: the method's own (not_in_a_dense_"
                                     "family, past_cut, group_too_small), missing_values / infinite_values (no shape: "
                                     "more NaN than max_nan_frac, or an inf; a few NaN are interpolated and counted), "
-                                    "no_window (the cutter left it out) or outside_span"},
+                                    "no_window:<the cutter's reason> (past_start, past_end, too_much_nan) or "
+                                    "outside_span"},
         {"name": "family_distance", "rule": "the engine's distance from the member to its family's medoid on the "
                                             "method's 0-1 scale: normalised SBD (shape-based distance / 2) for kshape "
                                             "and hdbscan, Ward's normalised scale-invariant distance for ward"},
@@ -416,12 +487,14 @@ def rules(method, params):
                                        "so a smooth window-filling hump or ramp can read noise-like) and flag a family "
                                        "no better than them - the exact rule is fit_summary.null.rule; ward draws no "
                                        "null and reports its families untested"},
-        {"name": "svd_entropy", "rule": "per family, Colominas & Wu 2023 eq. 17 (W2-B's svd_entropy): the members' "
-                                        "normalised singular-value entropy after aligning each to the medoid, 0 = "
-                                        "copies of one shape; beside it the same score on 5 phase-randomised "
-                                        "surrogates of the members (null_median, null_p05) and the sigma^2 variant. "
-                                        "coherent_beyond_noise = below the null's 5th percentile. Amplitude-blind: "
-                                        "it cannot tell a quiet family from an active one"},
+        {"name": "svd_entropy", "rule": "per family, W2-B's svd_entropy, its verdict (svd_entropy_beyond_noise) read "
+                                        "off, not re-derived: "
+                                        + COHERENCE_RULE.format(L=int(dict(params or {}).get("resample_length",
+                                                                                              RESAMPLE_LENGTH)),
+                                                                aligned=COHERENCE_ALIGNED)},
+        {"name": "confident", "rule": "a family is confident only when its method tested it against noise and it "
+                                      "passed: Ward draws no null (untested, key '<n>~untested'); "
+                                      + "; ".join(f"{m}: {r}" for m, r in UNTRUSTED_NULLS.items())},
         {"name": "exemplar", "rule": EXEMPLAR_RULE},
     ]
 
@@ -445,7 +518,9 @@ def summary_line(fam: ShapeFamilies, unit_word="event"):
         parts.append(f"{len(noisy)} noise-like (no better than noise of the same colour: family "
                      + ", ".join(str(f) for f in noisy) + ")")
     elif fam.families and not any(f.flags.get("tested") for f in fam.families):
-        parts.append("not tested against noise")
+        parts.append("not tested against noise (untested)")
+    if fam.method in UNTRUSTED_NULLS and fam.families:
+        parts.append(f"{fam.method}'s noise null is not trusted: no family is called confident")
     ents = []
     for f in fam.families:
         c = f.coherence or {}
@@ -465,7 +540,40 @@ def warnings_for(fam: ShapeFamilies):
             why = str(f.flags.get("why") or "").replace("no better than noise of the same colour: ", "")
             out.append(f"family {f.family} ({f.size} members) is no better than noise of the same colour: {why}")
         s = family_summary(f)
-        if s["coherent_beyond_noise"] is False:
-            out.append(f"family {f.family}: its SVD entropy {s['svd_entropy_norm']:.2f} is not below what noise like "
-                       f"its members scores ({s['svd_entropy_null_p05']:.2f}): no more coherent than noise")
+        if s["svd_entropy_beyond_noise"] is False:
+            out.append(f"family {f.family}: its SVD entropy {s['svd_entropy_norm']:.2f} is not below "
+                       f"{s['svd_entropy_null_margin']} x what noise like its members scores "
+                       f"({s['svd_entropy_null_p05']:.2f}): no more coherent than noise (a smooth shape that fills "
+                       f"the window can read so without being noise)")
     return out
+
+
+def auto_length_warnings(spans, ew, length_s):
+    """W2-A's coverage checks, for a caller that asked for the auto length (`length_s`
+    0): the length clamped to the floor or the ceiling, more than `AUTO_WARN_FRAC` of the
+    windows overlapping the next, more than `AUTO_WARN_FRAC` ending before their event
+    recovered. `(warnings, short phrases for the summary)`; empty for a set length."""
+    if float(length_s) != 0.0 or not len(ew.starts):
+        return [], []
+    warn, short = [], []
+    n = len(ew.starts)
+    if ew.length_s <= EW.AUTO_MIN_S:
+        warn.append(f"the auto window length is at its {EW.AUTO_MIN_S:g} s floor (twice the median event duration "
+                    f"was shorter): a window may hold only the onset. Set length_s (600 s is this block's default).")
+        short.append(f"auto window at the {EW.AUTO_MIN_S:g} s floor")
+    elif ew.length_s >= EW.AUTO_MAX_S:
+        warn.append(f"the auto window length is at its {EW.AUTO_MAX_S:g} s ceiling (most event durations are "
+                    f"unmeasured or very long): a window may hold several events. Set length_s (600 s is this "
+                    f"block's default).")
+        short.append(f"auto window at the {EW.AUTO_MAX_S:g} s ceiling")
+    n_ov = int(EW.overlaps_next(ew.starts, ew.length).sum())
+    if n_ov > AUTO_WARN_FRAC * n:
+        warn.append(f"{n_ov} of {n} windows overlap the next ({ew.length_s:g} s windows): neighbouring events share "
+                    f"samples and can make one shape of two. Set length_s shorter.")
+        short.append(f"{n_ov} of {n} windows overlap the next")
+    n_rec = EW.recovery_outside(spans, ew)
+    if n_rec is not None and n_rec > AUTO_WARN_FRAC * n:
+        warn.append(f"{n_rec} of {n} windows end before their event has recovered (its recovery point lies outside "
+                    f"the {ew.length_s:g} s window). Raise length_s if the recovery belongs to the shape.")
+        short.append(f"{n_rec} of {n} windows end before the recovery")
+    return warn, short
