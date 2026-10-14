@@ -10,6 +10,8 @@ import { Header } from '../shell/Header'
 import { useToast } from '../shell/Toast'
 import { fmtDuration, fmtHours, navigate, useApp } from '../state'
 import { ParamsPanel, fmtParam } from './ParamsPanel'
+import { ReadoutCard } from './Readout'
+import { useReadout } from './useReadout'
 import { renderByType } from './Renderer'
 import { deriveRows, fmtTiming, isErrorPayload, jobForSource } from './rowState'
 import { attachRun, cancelCurrent, cancelPending, markStale, startRun, stepElapsed, syncToSource, useAnalyseStore } from './store'
@@ -36,6 +38,11 @@ export function BlockPage({ index }: { index: number }) {
   const [busy, setBusy] = useState(false)
   const [refused, setRefused] = useState<string | null>(null)
   const ad = step ? adapters.byName.get(stepName(step)) : undefined
+  // the block's derive readout, on what a run hands it; asked again after a run lands (the step cache then holds
+  // the stages before it). It waits for the chain's first validation, which calibrates the matrix-profile cost
+  // model on a fresh bridge — asked meanwhile, a readout would say that stage's time is unknown
+  const readout = useReadout(steps, index, source, !!ad?.has_derive && (val.v !== null || val.error !== null),
+    job?.status === 'completed' ? String(job.job_id) : '')
   const title = ad?.page_name ?? step?.algorithm ?? '?'
   const t0 = source ? t0Of(source) : 0
   const t1 = source ? t1Of(source) : 1
@@ -197,6 +204,9 @@ export function BlockPage({ index }: { index: number }) {
           </div>
 
           <div className="stack">
+            {/* above the parameters, not below: drop detection declares 16, and a readout under them sits off-screen
+                while the ones that move it (slope_sigma, noise_estimator, segment_seconds) are edited at the top */}
+            {ad?.has_derive && <ReadoutCard state={readout} source={source} pageName={n => adapters.byName.get(n)?.page_name ?? n} />}
             <div className="card card-pad pp" data-testid="params-panel">
               <div className="pp-head"><h3>Parameters</h3><span className="muted mono small">{ad ? `${ad.params.length} declared` : ''}</span>
                 {ad?.has_recommend && <span className="muted small" title="this adapter declares a recommend hook · the values it would recommend are not computed in this slice">recommend hook declared · not computed in this slice</span>}</div>
