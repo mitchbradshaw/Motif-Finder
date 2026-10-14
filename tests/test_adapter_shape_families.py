@@ -121,7 +121,7 @@ def test_meta_carries_flags_coherence_with_its_null_and_member_exemplars(spec):
     assert m["method"] == "hdbscan" and m["k"] == 2
     assert m["method_params"]["min_cluster_size"] == 10
     assert sorted(m["family_sizes"].values(), reverse=True) == [30, 30]
-    assert set(m["omitted"]) >= {"not_in_a_dense_family"}
+    assert m["omitted"] == {}, "all 60 windows are in a family: nothing to count"
     for fam in m["families"]:
         for key in ("family", "size", "noise_like", "unstable", "tested", "why", "svd_entropy",
                     "svd_entropy_norm", "svd_entropy_null_median", "svd_entropy_null_p05",

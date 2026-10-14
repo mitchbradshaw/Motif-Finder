@@ -38,6 +38,7 @@ from Adapters.interrogation_intervals import measure as interval_measure
 from Adapters.registry import register
 from Working.block_cost import estimate_seconds, register_cost_model
 from Working.interrogation import trains as TR
+from Working.interrogation.intervals import write_group_columns
 from Working.types import SpanSet
 
 NAME = "interrogation.trains"
@@ -121,9 +122,7 @@ def _run(x, t, fs, rule="logisi", min_events=3, max_core_gap_s=0.0, theta_mult=1
     if word_id is not None:
         cols["word_id"] = word_id
     if write_group:
-        cols["group"] = [str(tid) if not has_group else f"{g}/{tid}" for g, tid in zip(keys, train_id)]
-        if has_group:
-            cols["group_upstream"] = up["group"].to_numpy()
+        cols.update(write_group_columns(up, train_id))
     added = pd.DataFrame(cols)
     if up is None:
         feats = added
