@@ -268,6 +268,13 @@ def _run(x, t, fs, n_estimators=300, class_weight="balanced", holdout_frac=0.25,
         classes = np.unique(y_holdout)
         per_class_accuracy = {int(c): float(hit[y_holdout == c].mean()) for c in classes}
         holdout_class_counts = {int(c): int((y_holdout == c).sum()) for c in classes}
+    # w2-c: plain accuracy on imbalanced labels can look like learning when it
+    # is the majority class (0.66 against 0.67): the mean per-class accuracy
+    # and the majority share sit beside it. None without a holdout, never 0.
+    balanced_accuracy = majority_baseline = None
+    if per_class_accuracy:
+        balanced_accuracy = float(np.mean(list(per_class_accuracy.values())))
+        majority_baseline = max(holdout_class_counts.values()) / sum(holdout_class_counts.values())
 
     return AdapterResult(
         output_kind="model",
@@ -297,16 +304,26 @@ def _run(x, t, fs, n_estimators=300, class_weight="balanced", holdout_frac=0.25,
             "n_train": int(len(y_train)),
             "n_holdout": int(len(y_holdout)) if y_holdout is not None else 0,
             "holdout_accuracy": holdout_accuracy,
+            "balanced_accuracy": balanced_accuracy,
+            "majority_baseline": majority_baseline,
             "per_class_accuracy": per_class_accuracy,
             "holdout_class_counts": holdout_class_counts,
             # why there is no number, when there is none (fixup-a item 10)
             "holdout_reason": holdout_reason,
+            # w2-c: whether the feature clean-up's correlation filter ran (it is
+            # skipped on tables wider than 2,000 columns, e.g. MiniRocket's)
+            "correlation_filter": _correlation_filter_note(preprocessed),
             # NESTED, not spread: `serialize.py`'s `keep` tuple whitelists
             # `"params"`, so the flat spread dropped every one of these from
             # the model card
             "params": params,
         },
     )
+
+
+def _correlation_filter_note(preprocessed):
+    from Working.Catalogue.dendrogram.dendrogram_cluster import correlation_filter_note
+    return correlation_filter_note(preprocessed)
 
 
 def _derive(x, t, fs, params, value=None, windows=None):

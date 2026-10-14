@@ -97,6 +97,23 @@ log = logging.getLogger("dendrogram")
 # Known metadata / label columns that should never be treated as features.
 # Extend this list if you add more label or prediction columns to the matrix.
 # ---------------------------------------------------------------------------
+# Above this many feature columns the correlation filter is skipped (w2-c):
+# `_remove_correlated_columns` is quadratic in columns — measured 5 s at 924,
+# 24 s at 1,932, 13 min at 9,996 on 60 windows — and dropped none of
+# MiniRocket's. Every Window matrix family together is far below it, so no
+# chain that existed before is changed.
+CORRELATION_FILTER_MAX_COLUMNS = 2_000
+
+
+def correlation_filter_note(result: "PreprocessResult") -> str:
+    """One line for a block's meta: `applied`, or why it was skipped."""
+    n = getattr(result, "correlation_filter_skipped", None)
+    if n is None:
+        return "applied"
+    return (f"skipped: {n:,} columns (over {CORRELATION_FILTER_MAX_COLUMNS:,}; "
+            "the filter is quadratic in columns)")
+
+
 _DEFAULT_METADATA_COLS: list[str] = [
     "category",          # string label ("interesting", "notinteresting", …)
     "fusion_pred_v1",    # discrete class index 0–13 (prediction, not a feature)
@@ -138,6 +155,9 @@ class PreprocessResult:
     feature_names: list[str]
     removed_summary: dict[str, list[str]] = field(default_factory=dict)
     n_samples_dropped: int = 0
+    #: the column count when the correlation filter was skipped for width
+    #: (over `CORRELATION_FILTER_MAX_COLUMNS`); None when it ran or was off
+    correlation_filter_skipped: int | None = None
 
 
 # ===========================================================================
@@ -333,7 +353,15 @@ def preprocess_window_matrix(
     #     hypothetical — cnn_p_X_interesting and cnn_p_X_notinteresting are
     #     1 - p of each other and sit at r = -1.0 in every existing matrix.
     # ------------------------------------------------------------------
-    if correlation_threshold is not None:
+    #     Skipped above CORRELATION_FILTER_MAX_COLUMNS (w2-c): the filter is
+    #     quadratic in columns (13 min at 9,996 MiniRocket features on 60
+    #     windows) and dropped none of them; no Window matrix comes near it.
+    correlation_filter_skipped = None
+    if correlation_threshold is not None and df_features.shape[1] > CORRELATION_FILTER_MAX_COLUMNS:
+        correlation_filter_skipped = int(df_features.shape[1])
+        log.info("Correlation filter skipped: %d columns (over %d)", df_features.shape[1],
+                 CORRELATION_FILTER_MAX_COLUMNS)
+    elif correlation_threshold is not None:
         df_features, dropped_correlated = _remove_correlated_columns(
             df_features, correlation_threshold
         )
@@ -406,6 +434,7 @@ def preprocess_window_matrix(
         feature_names=list(df_features.columns),
         removed_summary=removed_summary,
         n_samples_dropped=n_samples_dropped,
+        correlation_filter_skipped=correlation_filter_skipped,
     )
 
 

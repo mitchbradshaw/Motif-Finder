@@ -39,12 +39,20 @@ CALIBRATION_N = 20_000
 # The callables are resolved lazily so importing this module stays cheap.
 MODELS = {}
 
+# block name -> callable() run once, untimed, before `run_once` is timed: a
+# block whose first call in a process pays a one-off cost (numba loading its
+# compiled kernels) would otherwise calibrate several times too slow.
+WARM_UPS = {}
 
-def register_cost_model(name, exponent, run_once):
+
+def register_cost_model(name, exponent, run_once, warm_up=None):
     """Declare how `name` scales (`seconds = k * n ** exponent`) and how to
     time it. `run_once(x, fs)` must execute the block's algorithm on the
-    synthetic signal `x` at sample rate `fs` with default-ish parameters."""
+    synthetic signal `x` at sample rate `fs` with default-ish parameters;
+    `warm_up()`, if given, runs first and is not timed."""
     MODELS[name] = (float(exponent), run_once)
+    if warm_up is not None:
+        WARM_UPS[name] = warm_up
 
 
 def _key(name):
@@ -89,6 +97,8 @@ def calibrate(names=None, force=False, n=CALIBRATION_N, fs=1.0):
             out[name] = data[key]["k"]
             continue
         x = np.cumsum(np.random.default_rng(0).standard_normal(int(n))) * 1e-3
+        if name in WARM_UPS:
+            WARM_UPS[name]()
         t0 = time.perf_counter()
         run_once(x, fs)
         elapsed = time.perf_counter() - t0

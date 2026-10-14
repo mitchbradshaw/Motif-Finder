@@ -392,7 +392,8 @@ def test_every_shipped_adapter_registers_without_modification():
     # + w1-f's detection.fluss (2026-10-13: the FLUSS regime-change score)
     # + detection.cwt_ridges (W1-C: CWT ridge-line peaks and troughs, Du, Kibbe & Lin 2006)
     # + w2-a's catalogue.event_windows (SpanSet -> WindowSet: a window around every detected event)
-    assert len(specs) == 50, f"expected the fifty shipped adapters, got {sorted(specs)}"
+    # + w2-c's catalogue.minirocket (a MiniRocket shape fingerprint per window, Dempster, Schmidt & Webb 2021)
+    assert len(specs) == 51, f"expected the fifty-one shipped adapters, got {sorted(specs)}"
     # Ticket 08 remaps detection_matrix_profile (encoding -> scores) and
     # preprocessing_window_matrix (encoding -> windowset) to their correct
     # types, and adds detection_threshold, a typed (input_kind='scores')

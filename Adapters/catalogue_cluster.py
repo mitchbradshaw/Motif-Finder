@@ -84,6 +84,7 @@ def _opt_float(v):
 
 
 def _run(x, t, fs, linkage="ward", k=3, value=None):
+    from Working.Catalogue.dendrogram.dendrogram_cluster import correlation_filter_note
     cluster, preprocessed = _cluster_window_set(value, linkage, k)
     return AdapterResult(
         output_kind="grouping",
@@ -99,6 +100,9 @@ def _run(x, t, fs, linkage="ward", k=3, value=None):
             "silhouette": _opt_float(cluster.silhouette),
             "cophenetic_r": _opt_float(cluster.cophenetic_r),
             "feature_names": [str(c) for c in preprocessed.feature_names],
+            # w2-c: whether the feature clean-up's correlation filter ran (skipped above
+            # 2,000 columns); read off the preprocessing result W2-A's tuple carries
+            "correlation_filter": correlation_filter_note(preprocessed),
         },
     )
 
