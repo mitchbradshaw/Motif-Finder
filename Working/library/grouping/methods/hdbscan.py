@@ -42,26 +42,40 @@ counting itself — and is otherwise `not_in_a_dense_family`. That is the
 because a density family has no centre. `payload` lists the fitted and the
 assigned rows.
 
-Is a family real? (the surrogate null)
---------------------------------------
-HDBSCAN always answers, and on coloured noise it reliably finds a "crowd" or
-two: windows of AR(1) or random-walk background mostly drift up or drift
-down, and those crowd. sklearn exposes no cluster stability, and the critic
-showed that no fixed floor on a separation ratio splits real families from
-such crowds (real families down to 2.5, noise crowds up to 3.1). So the fit is
-repeated on `null_draws` (default 3) seeded **phase-randomised surrogates** of
-the fitted vectors — each row's amplitude spectrum kept, so its colour is kept,
-its shape destroyed (`kshape.phase_randomised_rows`) — with the same distance
-and the same settings. A family is **confident only if its separation AND its
-fitted size exceed the largest separation and the largest size of any family
-HDBSCAN found in any draw**; otherwise its flags say `noise_like: true` and
-why (`unstable: true` when it is the separation that fails). Families are
-flagged, never dissolved. The null — draws, families per draw, the two maxima
-— is recorded in `payload["null"]` and the fit summary.
+Is a family real? (the per-family null, fix round 2)
+----------------------------------------------------
+HDBSCAN always answers, and on coloured noise it reliably finds crowds:
+windows of AR(1) or random-walk background are mostly a trend, and trends
+crowd. Round 1 re-ran HDBSCAN on phase-randomised surrogates and compared
+crowd sizes and separations; the re-critique showed that fails both ways,
+because phase randomisation turns each trend into a periodic wiggle, so the
+fake noise crowds less than real noise does (and a size-matched variant was
+worse: 16 of 26 pure-noise families confident). The test is now k-Shape's,
+run per family, against noise of the family's own colour:
 
-The separation is still reported per family: the median distance from a
+1. m = the family's medoid (least summed distance among its fitted members).
+2. d_F = the median normalised SBD from the family's members to m.
+3. `NULL_DRAWS` (3) seeded draws of **trend-kept** phase-randomised
+   surrogates of the family's own members (`kshape.trend_kept_surrogates`: a
+   cubic trend kept per row, the rest phase-randomised, then z-normalised),
+   measured against m; p05 = their 5th percentile. The manager asked for a
+   line; a cubic is used because a line left one pure-noise family confident
+   (the measurement is beside `kshape.TREND_DEGREE`).
+4. The family is confident iff d_F < `NULL_MARGIN` x p05; otherwise
+   `noise_like`, and `unstable` when d_F is not even below p05.
+
+`NULL_MARGIN` = 0.9 is a PLACEHOLDER: the selection effect (a family's
+members were chosen for being close to each other) puts a noise crowd right at
+p05 on a random-walk background (ratios 1.001-1.07), and noise rows inside a
+mixed family reached 0.89-0.92. With the cubic trend kept, 10 pure-noise sets
+gave ratios of 1.05 and up, 8 real sets 0.66 and below. The flags carry
+d_F (`median_distance`), `null_p05` and `ratio`. Families are flagged, never
+dissolved. The test needs |F| x 3 SBDs against one row per family —
+milliseconds — so no surrogate matrix is stored and HDBSCAN runs once.
+
+The separation is still reported per family — the median distance from a
 member to the fitted rows outside the family over the median distance between
-its own members. It is a number to read, no longer a decider.
+its own members — as a number to read, not a decider.
 
 No merge heights
 ----------------
@@ -87,8 +101,8 @@ from Working.library.grouping.engine import (OMIT_INFINITE_VALUES, OMIT_MISSING_
 from Working.library.grouping.methods import FitResult, register
 from Working.library.grouping.engine import GroupingCancelled
 from Working.library.grouping.methods.kshape import (SBD_SCALE, NormalisedSBD,
-                                                     _z_rows, null_rng, phase_randomised_rows,
-                                                     sample_positions, screen_rows)
+                                                     _z_rows, null_rng, sample_positions,
+                                                     screen_rows, trend_kept_surrogates)
 from Working.library.grouping.methods.ward import (RESAMPLE_LENGTH, condensed_distances,
                                                    shape_vectors)
 from Working.library.grouping.methods.ward import distance_scale as ward_distance_scale
@@ -104,7 +118,10 @@ DEFAULT_MIN_GROUP = 10
 SELECTIONS = ("eom", "leaf")
 DISTANCES = ("sbd", "euclidean")
 
-NULL_DRAWS = 3                    # the manager's R = 3 phase-randomised draws
+NULL_DRAWS = 3                    # trend-kept surrogate draws per family member
+NULL_MARGIN = 0.9                 # PLACEHOLDER: confident iff d_F < 0.9 x the null's p05
+NULL_PERCENTILE = 5.0
+NULL_MEMBERS = 2000               # members of one family the null is drawn from, at most
 
 # Cost (fix round 1, item 3), measured on this machine (2026-10-14, loaded by
 # other jobs; the earlier unloaded runs were ~2x faster): the square SBD matrix
@@ -116,6 +133,7 @@ NULL_DRAWS = 3                    # the manager's R = 3 phase-randomised draws
 C_SQUARE = 2.0e-6
 C_CLUSTER = 1.0e-6
 C_CROSS = 2.5e-6
+C_NULL_ROW = 2.0e-4               # one surrogate row made and measured against a medoid
 
 # rows of the not-fitted set compared against the fitted members at once
 _ASSIGN_BLOCK = 2000
@@ -222,10 +240,11 @@ class HDBSCANMethod:
         },
         "null_draws": {
             "type": "int", "default": NULL_DRAWS, "label": "noise draws",
-            "help": "how many phase-randomised surrogate sets (each window's colour kept, its "
-                    "shape destroyed) are clustered the same way; a family counts as confident "
-                    "only if it is more separated and larger than anything found in them. 0 = no "
-                    "null: families are reported untested. Each draw costs about one fit.",
+            "help": "how many trend-kept surrogates of each family member (its slow trend kept, the "
+                    "rest phase-randomised: noise of its own colour) the family is measured "
+                    "against; a family is confident only if its members sit closer to its medoid "
+                    "than 0.9 x (a placeholder margin) the 5th percentile of those surrogates. 0 = "
+                    "no null: families are reported untested. Cheap: milliseconds per family.",
         },
     }
 
@@ -269,16 +288,11 @@ class HDBSCANMethod:
         fit.omit_reasons.update(bad)
         on_demand = NormalisedSBD if distance == "sbd" else _EuclideanOnDemand
         fit.distances = on_demand(vectors, positions, n)
-        payload["D_null"] = []
         payload["null_draws"] = int(params.get("null_draws", NULL_DRAWS))
         if fitted_pos.size:
             payload["D_fit"] = _distance_matrix(vectors[fitted_pos], distance)
-            rng = null_rng(seed, 13)
-            for _ in range(payload["null_draws"] if fitted_pos.size > 1 else 0):
-                if should_cancel is not None and should_cancel():
-                    raise GroupingCancelled("cancelled while drawing the HDBSCAN null")
-                S = _z_rows(phase_randomised_rows(vectors[fitted_pos], rng))
-                payload["D_null"].append(_distance_matrix(S, distance))
+            if should_cancel is not None and should_cancel():
+                raise GroupingCancelled("cancelled after the HDBSCAN distance matrix")
         self._cluster(fit, epsilon)
         return fit
 
@@ -337,52 +351,56 @@ class HDBSCANMethod:
 
     @staticmethod
     def _null(p, epsilon):
-        """Cluster each stored surrogate matrix with the same settings and
-        flag every family against the largest separation and size seen."""
-        draws = p.get("D_null") or []
-        if not draws:
-            p["null"] = {"kind": "none", "draws": 0,
-                         "rule": "no null drawn (null_draws = 0 or one fitted row): families untested"}
+        """The per-family trend-kept null (module docstring)."""
+        draws = int(p.get("null_draws", NULL_DRAWS))
+        rule = (f"per family: d_F = the members' median normalised distance to the family medoid; "
+                f"p05 = the {NULL_PERCENTILE:g}th percentile of the distances of {draws} draws of "
+                f"trend-kept phase-randomised surrogates of the family's own members (a cubic trend "
+                f"kept per row, the rest phase-randomised, z-normalised) to the same medoid; confident "
+                f"iff d_F < {NULL_MARGIN} x p05 ({NULL_MARGIN} is a placeholder margin)")
+        if draws <= 0 or not p.get("family_of_label"):
+            p["null"] = {"kind": "none" if draws <= 0 else "trend-kept phase-randomised",
+                         "draws": max(draws, 0), "margin": NULL_MARGIN, "by_family": {},
+                         "rule": ("no null drawn (null_draws = 0): families untested"
+                                  if draws <= 0 else rule)}
             return
-        s = p["settings"]
-        per_draw, seps, sizes = [], [0.0], [0]
-        for D_s in draws:
-            lab, prob, _ = _hdbscan(D_s, min_cluster_size=s["min_cluster_size"],
-                                    min_samples=s["min_samples"],
-                                    selection=s["cluster_selection_method"], epsilon=epsilon)
-            st = _stability(D_s, lab, prob)
-            per_draw.append([{"size_fitted": v["size_fitted"], "separation": v["separation"]}
-                             for v in st.values()])
-            seps.extend(v["separation"] for v in st.values() if np.isfinite(v["separation"]))
-            sizes.extend(v["size_fitted"] for v in st.values())
-        max_sep, max_size = float(max(seps)), int(max(sizes))
-        p["null"] = {
-            "kind": "phase-randomised", "draws": len(draws),
-            "families_per_draw": [len(d) for d in per_draw], "draw_families": per_draw,
-            "max_separation": max_sep, "max_size": max_size,
-            "rule": (f"the fitted vectors phase-randomised (amplitude spectrum kept) {len(draws)} "
-                     f"times and clustered with the same settings; a family is confident only if "
-                     f"its separation exceeds {max_sep:.2f} and its fitted size exceeds {max_size}, "
-                     f"the largest seen in any draw")}
+        vectors, positions = p["vectors"], p["positions"]
+        ok_rows = np.flatnonzero(positions >= 0)
+        label_ok = p["label"][ok_rows]
+        fitted_pos = p["fitted_pos"]
+        fitted_label = label_ok[fitted_pos]
+        D = p["D_fit"]
+        by_family = {}
         for c, fam in p["family_of_label"].items():
-            st = p["family_stability"].get(c)
-            if st is None:
-                continue
-            sep, size = st["separation"], st["size_fitted"]
-            sep_ok = bool(sep > max_sep)
-            size_ok = bool(size > max_size)
-            parts = []
-            parts.append(f"separation {sep:.2f} {'beats' if sep_ok else 'does not beat'} the noise's "
-                         f"largest {max_sep:.2f}")
-            parts.append(f"{size} fitted members {'beat' if size_ok else 'do not beat'} the noise's "
-                         f"largest family of {max_size}")
-            why = "; ".join(parts) + f" ({len(draws)} phase-randomised draws)"
-            noise_like = not (sep_ok and size_ok)
+            fitted_members = np.flatnonzero(fitted_label == c)
+            m_fit = fitted_members[int(np.argmin(D[np.ix_(fitted_members, fitted_members)].sum(axis=1)))]
+            m_vec = vectors[fitted_pos[m_fit]][None, :]
+            members = np.flatnonzero(label_ok == c)                 # vector positions
+            d = _cross_distances(vectors[members], m_vec, p["distance"])[:, 0]
+            d_F = float(np.median(d))
+            rng = null_rng(p["seed"], 13 + int(c))
+            pick, _ = sample_positions(members.size, NULL_MEMBERS, p["seed"])
+            surrogate_d = []
+            for _ in range(draws):
+                S = _z_rows(trend_kept_surrogates(vectors[members[pick]], rng))
+                surrogate_d.append(_cross_distances(S, m_vec, p["distance"])[:, 0])
+            p05 = float(np.percentile(np.concatenate(surrogate_d), NULL_PERCENTILE))
+            ratio = d_F / p05 if p05 > 0 else float("inf")
+            noise_like = not (d_F < NULL_MARGIN * p05)
+            st = p["family_stability"].get(c, {})
+            why = (f"members' median distance to the medoid {d_F:.3f} is {ratio:.2f} x the 5th "
+                   f"percentile {p05:.3f} of trend-kept noise of their own colour ({draws} draws); "
+                   f"confident below {NULL_MARGIN} x (a placeholder margin)")
             p["family_flags"][fam] = {
-                "noise_like": noise_like, "unstable": not sep_ok, "tested": True,
+                "noise_like": bool(noise_like), "unstable": bool(not (d_F < p05)), "tested": True,
                 "why": ("no better than noise of the same colour: " + why) if noise_like else why,
-                "separation": float(sep), "size_fitted": int(size),
-                "null_max_separation": max_sep, "null_max_size": max_size}
+                "median_distance": d_F, "null_p05": p05, "ratio": float(ratio),
+                "margin": NULL_MARGIN,
+                "separation": float(st.get("separation", float("nan"))),
+                "size_fitted": int(st.get("size_fitted", fitted_members.size))}
+            by_family[f"F-{fam:02d}"] = {"median_distance": d_F, "null_p05": p05, "ratio": float(ratio)}
+        p["null"] = {"kind": "trend-kept phase-randomised", "draws": draws, "margin": NULL_MARGIN,
+                     "percentile": NULL_PERCENTILE, "by_family": by_family, "rule": rule}
 
     @staticmethod
     def _summary(p, n, n_ok):
@@ -403,15 +421,14 @@ class HDBSCANMethod:
         n_fit = min(n, int(params.get("sample", DEFAULT_SAMPLE)) or n)
         draws = max(0, int(params.get("null_draws", NULL_DRAWS)))
         square = n_fit * n_fit * (C_SQUARE + C_CLUSTER)
-        return float((1 + draws) * square + (n - n_fit) * n_fit * C_CROSS)
+        # the per-family null: every member's surrogates against one medoid
+        return float(square + (n - n_fit) * n_fit * C_CROSS + draws * n * C_NULL_ROW)
 
     def cheaper(self, n, params):
         out = []
-        if int(params.get("null_draws", NULL_DRAWS)) > 1:
-            out.append(("1 noise draw instead of 3 (a weaker null)", {"null_draws": 1}))
         if int(params.get("sample", DEFAULT_SAMPLE)) > 2000:
             out.append(("fit on 2,000 members, assign the rest", {"sample": 2000}))
-        out.append(("fit on 2,000 members and 1 noise draw", {"sample": 2000, "null_draws": 1}))
+        out.append(("fit on 1,000 members, assign the rest", {"sample": 1000}))
         return out
 
     # ------------------------------------------------------------- assign

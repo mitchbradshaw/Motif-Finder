@@ -10,12 +10,19 @@ with a rolling-mean detrend runs through it. No recording in the database held
 a NaN on 2026-10-14, so no shipped result was wrong; a recording with gaps, or
 a NaN from an upstream step, would have been.
 
-Pinned here: each value is the mean of the finite samples in its window, NaN
-only where the window holds none; a missing sample stays missing in the
+`rolling_mean_nearest` is the drop detector's own filter
+(`Working.Detection.drop_motifs.detect.detrend`: scipy's uniform_filter1d,
+mode "nearest"), and its running sum did the same: one NaN blanked the span
+from half a window before it to the end.
+
+Pinned here, for both filters: each value is the mean of the finite samples in
+its window, NaN only where the window holds none (a missing edge sample's
+"nearest" copies are missing too); a missing sample stays missing in the
 detrended output and no other sample is lost, so a gap keeps its own length;
-finite input gives the numbers it gave before, to 1e-12; and
-`rolling_mean_nearest` is still exactly the drop detector's own filter
-(drop_detection_v1 must reproduce its seed events).
+finite input gives the numbers it gave before (to 1e-12 for the rolling modes,
+bit for bit for the drop detector's filter, through which drop_detection_v1
+reproduces its seed events); and `rolling_mean_nearest` is still exactly the
+drop detector's filter.
 
 Runnable standalone:  python tests/test_detrend_nan.py
 """
@@ -26,6 +33,7 @@ import warnings
 
 import numpy as np
 import pytest
+from scipy.ndimage import uniform_filter1d
 
 PROJECT_ROOT = os.path.dirname(os.path.abspath(__file__))
 while not os.path.isdir(os.path.join(PROJECT_ROOT, "Working")) \
@@ -171,11 +179,88 @@ def test_an_all_nan_span_is_all_nan_and_warns_nothing():
     with warnings.catch_warnings():
         warnings.simplefilter("error")
         assert np.isnan(_rolling_mean(w, 11)).all()
-        for mode in ROLLING_MODES:
+        for mode in [*ROLLING_MODES, "rolling_mean_nearest"]:
             assert np.isnan(make_detrend_filter(1.0, mode=mode, window_s=11.0)(w)).all(), mode
+        assert np.isnan(drop_detrend(w, 500)).all()     # a window longer than the span: the whole-span mean
 
 
-# ── rolling_mean_nearest is the drop detector's filter, untouched ────────────
+# ── rolling_mean_nearest: the drop detector's filter, NaN-aware too ──────────
+
+def _todays_drop_detrend(x, window_samples):
+    """The drop detector's filter as it stood before it was NaN-aware (2026-10-14), verbatim: finite input must
+    not move from it by a single bit (drop_detection_v1 reproduces its seed events through it)."""
+    x = np.asarray(x, dtype=float).ravel()
+    window = max(3, int(round(window_samples)))
+    if window >= len(x):
+        return x - float(x.mean())
+    return x - uniform_filter1d(x, size=window, mode="nearest")
+
+
+def _nearest_by_definition(x, window_samples):
+    """One window at a time: the `window` samples from i - window // 2 (scipy's alignment), the span's edge
+    samples repeated beyond its ends (mode "nearest"), the mean of the finite ones subtracted; a window at or
+    beyond the span's length subtracts the mean of every finite sample. NaN where no sample is finite."""
+    x = np.asarray(x, dtype=float)
+    n = len(x)
+    window = max(3, int(round(window_samples)))
+    if window >= n:
+        fin = x[np.isfinite(x)]
+        return x - (fin.mean() if len(fin) else np.nan)
+    trend = np.full(n, np.nan)
+    for i in range(n):
+        seg = x[np.clip(np.arange(i - window // 2, i - window // 2 + window), 0, n - 1)]
+        seg = seg[np.isfinite(seg)]
+        if len(seg):
+            trend[i] = seg.mean()
+    return x - trend
+
+
+#: the filter's two entry points, both at 1 Hz so `k` is the window in samples
+NEAREST = pytest.mark.parametrize("entry", [
+    lambda x, k: drop_detrend(x, k),
+    lambda x, k: make_detrend_filter(1.0, mode="rolling_mean_nearest", window_s=float(k))(x),
+], ids=["detect.detrend", "rolling_mean_nearest"])
+
+
+@pytest.mark.parametrize("window", [1, 3, 4, 60, 60.4, 61, 1999, 2000, 20000])
+def test_finite_input_gives_the_drop_detectors_filter_it_gave_before_bit_for_bit(window):
+    x = _random_walk(2000)
+    got = drop_detrend(x, window)
+    assert np.array_equal(got, _todays_drop_detrend(x, window))
+    np.testing.assert_allclose(got, _nearest_by_definition(x, window), rtol=0, atol=1e-9)  # the definition below
+
+
+@MISSING
+@NEAREST
+def test_one_missing_sample_is_missing_in_the_drop_detectors_filter_and_nowhere_else(entry, bad):
+    x = _series(1000)
+    x[100] = bad
+    out = entry(x, 60)
+    assert np.flatnonzero(~np.isfinite(out)).tolist() == [100], f"{int((~np.isfinite(out)).sum())} not finite"
+    assert np.array_equal(out[100], x[100], equal_nan=True)
+    np.testing.assert_allclose(out, _nearest_by_definition(x, 60), rtol=0, atol=1e-9)
+
+
+@NEAREST
+@pytest.mark.parametrize("window", [60, 61])
+def test_a_gap_keeps_its_own_length_through_the_drop_detectors_filter(window, entry):
+    x = _series(3000)
+    x[:3] = np.nan                               # a missing first sample: its "nearest" copies are missing too
+    x[1000:1500] = np.nan
+    x[2990:] = np.nan
+    out = entry(x, window)
+    assert np.array_equal(np.isnan(out), np.isnan(x))
+    np.testing.assert_allclose(out, _nearest_by_definition(x, window), rtol=0, atol=1e-9)
+
+
+@pytest.mark.parametrize("window", [50, 500])
+def test_a_window_as_long_as_the_span_subtracts_the_mean_of_the_finite_samples(window):
+    x = _series(50)
+    x[10] = np.nan
+    out = drop_detrend(x, window)
+    assert np.flatnonzero(np.isnan(out)).tolist() == [10]
+    np.testing.assert_allclose(out, x - np.nanmean(x), rtol=0, atol=1e-12)
+
 
 @pytest.mark.parametrize("with_nan", [False, True], ids=["finite", "one-nan"])
 def test_rolling_mean_nearest_is_still_exactly_the_drop_detectors_filter(with_nan):

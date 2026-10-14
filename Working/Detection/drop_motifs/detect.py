@@ -78,6 +78,7 @@ import numpy as np
 from scipy.ndimage import uniform_filter1d
 
 from Working.Detection.sax.dsax_python.dsax import dsax, dsax_letters
+from Working.Preprocessing.detrend import _finite_window_mean
 
 # dSAX's 3-symbol alphabet is DOWN / SAME / UP; `dsax_letters` renders it
 # as D / S / U, which is what makes a rise a regex rather than a loop.
@@ -353,15 +354,30 @@ def detrend(x, window_samples):
     half-window are detrended against the data that is there rather than
     against an implied zero, which would otherwise manufacture an edge
     step big enough to register as a drop.
+
+    Missing samples (NaN, inf) stay missing, and each window averages the
+    finite samples it holds - a missing edge sample's "nearest" copies are
+    missing too - so a gap keeps its own length. uniform_filter1d's running
+    sum carried one NaN to the end of the span (2026-10-14). Finite input
+    still takes uniform_filter1d, bit for bit, so the seed events reproduce.
     """
     x = np.asarray(x, dtype=float).ravel()
     window = max(3, int(round(window_samples)))
+    finite = np.isfinite(x)
+    if finite.all():
+        if window >= len(x):
+            # A window at or beyond the span's length is a mean subtraction;
+            # doing it explicitly avoids uniform_filter1d's edge behaviour
+            # dominating the whole result.
+            return x - float(x.mean())
+        return x - uniform_filter1d(x, size=window, mode="nearest")
     if window >= len(x):
-        # A window at or beyond the span's length is a mean subtraction;
-        # doing it explicitly avoids uniform_filter1d's edge behaviour
-        # dominating the whole result.
-        return x - float(x.mean())
-    return x - uniform_filter1d(x, size=window, mode="nearest")
+        return x - (float(x[finite].mean()) if finite.any() else np.nan)
+    # uniform_filter1d's window and padding, over the finite samples only.
+    before = window // 2
+    padded = np.concatenate([np.repeat(x[:1], before), x, np.repeat(x[-1:], window - before - 1)])
+    starts = np.arange(len(x))
+    return x - _finite_window_mean(padded, starts, starts + window)
 
 
 def dim_ratio_for_segments(n_samples, segment_samples):

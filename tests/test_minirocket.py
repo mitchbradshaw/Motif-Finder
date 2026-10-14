@@ -507,3 +507,18 @@ def test_persistent_labels_with_no_shape_difference_score_at_chance_on_the_block
     sd = np.sqrt(0.25 / int(te.sum()))
     print(f"\npersistent labels, blocked split: balanced accuracy {np.round(accs, 3).tolist()} (sd {sd:.3f})")
     assert np.mean(accs) < 0.5 + 3 * sd
+
+
+def test_runs_when_numba_is_capped_at_one_thread():
+    """A machine (or a cluster node) that caps numba at one thread (NUMBA_NUM_THREADS=1) must still fingerprint:
+    aeon's n_jobs=-1 asks numba for every CPU and failed "The number of threads must be between 1 and 1" (found by
+    the detrend-NaN session's gate, 2026-10-14). Run in a fresh process, since the cap is read at numba import."""
+    import subprocess
+    root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    code = ("import numpy as np; from Working.Catalogue import minirocket as MR; "
+            "M = np.random.default_rng(0).standard_normal((20, 64)); "
+            "F = MR.fingerprint_matrix(M, n_features=84); print('shape', F.shape)")
+    env = dict(os.environ, NUMBA_NUM_THREADS="1", PYTHONIOENCODING="utf-8")
+    p = subprocess.run([sys.executable, "-c", code], cwd=root, env=env, capture_output=True, text=True, timeout=900)
+    assert p.returncode == 0, p.stderr[-2000:]
+    assert "shape (20, 84)" in p.stdout
