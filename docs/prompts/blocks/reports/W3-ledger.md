@@ -16,7 +16,7 @@ fixers in `isolation: worktree`; critics read the implementer's worktree and nev
 |---|---|---|---|---|---|---|---|
 | 1 | implementer | W3-A `catalogue.multiscale_entropy` | `a67442d9e04015d6a` | `.claude/worktrees/agent-a67442d9e04015d6a` | `worktree-agent-a67442d9e04015d6a` | `01cb8c3` | launched 21:26; reported 22:00 (`99b043f`, 33 min) → `W3-A-multiscale-entropy.md` |
 | 5 | critic | W3-A | `a03f242747d328696` | (reads row 1's worktree) | — | `01cb8c3` | launched 22:01; reported 22:59: **merge after fixes** (1 template blocker, 4 should-fix, 4 nits; the declared statistic's null flawed) → `W3-A-multiscale-entropy.critic.md` |
-| 1a | fixer (row 1 resumed) | W3-A fix round 1 | `a67442d9e04015d6a` | row 1's | row 1's | `01cb8c3` | sent 23:04 (decisions 6–9) |
+| 1a | fixer (row 1 resumed) | W3-A fix round 1 | `a67442d9e04015d6a` | row 1's | row 1's | `01cb8c3` | sent 23:04; reported 23:37 (`ffe51b2`) → `W3-A-multiscale-entropy.fix1.md`; **merged as `5d6bb01`** |
 | 2 | implementer | W3-B `interrogation.cycle_shapes` + `Working/background_null.py` | `a7834e530174e1643` | `.claude/worktrees/agent-a7834e530174e1643` | `worktree-agent-a7834e530174e1643` | `01cb8c3` | launched 21:26; reported 22:49 (`b94881b`, 83 min) → `W3-B-cycle-shapes.md` |
 | 7 | critic | W3-B | `a5f632b4352ec10f8` | (reads row 2's worktree) | — | `01cb8c3` | launched 22:52; reported 23:15: **merge after fixes** (3 blockers, 6 should-fix, 3 nits) → `W3-B-cycle-shapes.critic.md` |
 | 2a | fixer (row 2 resumed) | W3-B fix round 1 | `a7834e530174e1643` | row 2's | row 2's | `01cb8c3` | sent 23:17 (decision 13); re-critique to follow (behavioural blockers) |
@@ -24,7 +24,8 @@ fixers in `isolation: worktree`; critics read the implementer's worktree and nev
 | 8 | critic | W3-C | `ad8d8aad71e6d533b` | (reads row 3's worktree) | — | `01cb8c3` | launched 23:06, seven manager questions |
 | 4 | implementer | W3-D `mpdist` (fourth Library distance) | `a5a78efe8b36c0a92` | `.claude/worktrees/agent-a5a78efe8b36c0a92` | `worktree-agent-a5a78efe8b36c0a92` | `64db0da` | launched 21:30, early (decision 4; cut at `3cc2f62`, at `64db0da` by 21:31); reported 22:39 (`c88a236`, 68 min) → `W3-D-mpdist.md` |
 | 6 | critic | W3-D | `a380d497100469282` | (reads row 4's worktree) | — | `64db0da` | launched 22:42; reported 23:02: **merge after fixes** (4 should-fix, 4 nits; arithmetic exact) → `W3-D-mpdist.critic.md` |
-| 4a | fixer (row 4 resumed) | W3-D fix round 1 | `a5a78efe8b36c0a92` | row 4's | row 4's | `64db0da` | sent 23:06 (decisions 10–12) |
+| 4a | fixer (row 4 resumed) | W3-D fix round 1 | `a5a78efe8b36c0a92` | row 4's | row 4's | `64db0da` | sent 23:06; reported 23:29 (`48710ae`) → `W3-D-mpdist.fix1.md`; **merged as `fe8e495`** |
+| 9 | implementer | W3-G the quiet-stretch null for families; a trend-kept k-Shape null | `a17192b65fcf2dd72` | `.claude/worktrees/agent-a17192b65fcf2dd72` | `worktree-agent-a17192b65fcf2dd72` | `6bd3e40` (`wave3-round2-base`) | launched 23:33 (decision 14) |
 
 ## Preflight (2026-10-14 21:2x)
 
@@ -250,6 +251,36 @@ instead of it.
 - 23:2x — the readout session: all its smoke checks done, bridges 8797/8798 stopped; re-run alone, Interrogation,
   Explore, Library and Models pass; Settings, Review and Seed sources fail identically on the pre-change code
   (`64db0da`) — load or walk-order artifacts. My agents stay at ≤ 4 workers each (four agents share 16 cores).
+- 23:29 — **W3-D fix round 1 reported** (red `e4ff42f` → green `48710ae`; 321 conda + 14 venv tests) →
+  `W3-D-mpdist.fix1.md`: off-footing distances (MPdist **and symbolic** — SAX MINDIST without the √(n/w) factor was
+  never on the cut's footing) show no cut and no "within"; `edgesRefused` + `refusalSummary` in the response (an
+  exemplar under 16 samples said once); `mpdist_null` is context only with its bias stated; `percentage` 0.25
+  (pool share 0.45–0.50, about the median closest-piece distance); `missing` split into `refused` / `not_computed`;
+  the importer refuses MPdist in words. Reviewed by the manager (`git diff c88a236..48710ae` of `library.py`,
+  `matching.py`, the importer): matches the instructions; no formal blocker was raised, so no re-critique.
+  23:31 — dry run clean; **merged W3-D as `fe8e495`**; its tests + the standard five + end_to_end (conda) and the
+  Library webui tests (venv) running.
+- 23:33 — **W3-G launched early** (row 9, decision 14) from `wave3-round2-base` = `6bd3e40` (main `fe8e495` + W3-B at
+  `b94881b`, built with `git merge-tree` + `commit-tree`; nothing changed on main). Launch notes: the sampler's
+  contract and the fragmented-free-stretch case (W3-B critic B3), W3-B's compatible extension in progress, decision
+  4's σ²-first (decision 3), the re-test that was run, g-05's fragility, W3-D merged in its base. W3-G's worktree
+  was at `6bd3e40`, clean, by 23:33.
+- 23:37 — W3-D's post-merge tests on main: **323 passed** (conda: its tests, distances, seed edges, library edges, the
+  importer, the standard four, end_to_end); the venv Library tests (`test_webui_mpdist_edges`,
+  `test_webui_library_edges`, `test_webui_library`): **69 passed, 3 xpassed** (23:45).
+- 23:37 — **W3-A fix round 1 reported** (red `2eb9be9`: 40 failed → green `ffe51b2`; 559 conda tests) →
+  `W3-A-multiscale-entropy.fix1.md`: the inflation guard (√t cases flag every scale on 3 seeds; detrended random walk
+  0.96–1.10, AR(1) 1.00–1.02, raw pink none), `mse_r` / `mse_drift_share` / `mse_inflation` bookkeeping, cluster and
+  classifier leave out all-NaN rows (label −1, counted; kept rows cluster exactly as alone), the costliest-tiling
+  estimate (721 h: 72 h windows 0.31 of it, 6 h 0.92), > 5 % filled windows left out, AAFT as
+  `preprocessing.surrogate` method `aaft` (nulls1 bit-identical; Settings › Nulls offers it via `seeded_search`).
+  Deliberate test changes stated: the `BOOK` set, `SURROGATE_METHODS`, the offered-methods pin. Reviewed by the
+  manager (the cluster / classifier / seeded-search / windowset diffs: behaviour identical when no row is all-NaN).
+  No re-critique: the critic's only blocker (F1, the 72 h template on 24 h spans) was settled by decision 6 and the
+  22:01 span rule, not by code. Its one venv failure, `test_webui_discovery::test_the_scoreboard_cells_are_the_tables_own_numbers`,
+  **fails on main (`fe8e495`) too** — pre-existing, not wave 3's (a task chip was filed for it).
+- 23:41 — dry run clean; **merged W3-A as `5d6bb01`**. `tests/test_end_to_end.py`'s module count 54 → 55 (W3-A
+  bumped `test_adapter_spec` but not end_to_end) — an integration edit on main; post-merge tests running.
 
 ## Decisions taken on the researcher's behalf
 
@@ -303,6 +334,10 @@ instead of it.
     plus the mode test; SigClust is kept as a reported number without its floor, not as a gate. Reason: the critic's
     known-answer checks (B1, B2) — no gate against a Gaussian or a uniform can tell z-normalised noise's ±PC1 split
     from two shapes; its prototype passed 0/18 noise stacks and every two-shape case to 30 % noise.
+14. **W3-G starts from a round-2 base branch** (`wave3-round2-base`: main + W3-B at `b94881b`) instead of waiting
+    for W3-B's fix round and re-critique (~2 h). Reason: W3-G needs only the sampler, whose contract the critic did
+    not fault (its fix adds one report key, compatibly); the brief allows this when a round-1 block's API is settled
+    (wave 2's decision 16). main takes W3-B only after its re-critique; W3-G merges after W3-B's final branch.
 3. **The Library side of decision 4 is folded into round 2**: W3-G puts σ² first in `shape_families`' summary lines and
    the coherence payload it returns, and measures both variants' verdicts against the quiet-stretch null (the verdict
    stays on eq. 17 unless the researcher moves it); W3-F puts σ² first on the Family page and the families table.

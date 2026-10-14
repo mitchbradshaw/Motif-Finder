@@ -79,8 +79,9 @@ def test_discover_adapters_registers_the_expected_count():
     # + w2-c's catalogue_minirocket
     # + wave 2: catalogue_snippets (w2-d)
     # + w2-e's catalogue_shape_families and interrogation_event_families
-    assert len(module_names) == 54, (
-        f"expected 54 shipped adapter modules, got {len(module_names)}"
+    # + w3-a's catalogue_multiscale_entropy
+    assert len(module_names) == 55, (
+        f"expected 55 shipped adapter modules, got {len(module_names)}"
     )
 
     discover_adapters()
