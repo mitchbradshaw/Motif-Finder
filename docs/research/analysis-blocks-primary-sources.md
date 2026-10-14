@@ -453,6 +453,15 @@ T_subseq_isconstant_func=None)` (`USP/stumpy/stimp.py:414/508`). Normalisation `
 `pan(threshold=0.2, normalize=True, contrast=True, binary=True, clip=True)` (:277); **`PAN_` returns those defaults, so
 it is binarised** (:355). `percentage=0.01` → approximate scrump rows.
 
+*Wave 3 (2026-10-15, W3-C critic F5 and the manager's evaluation):* scrump's approximate rows draw their diagonal
+order from **numpy's global RNG** (`np.random.permutation`, `scrump.py:119, :1000, :1010` in the installed 1.14.1), so
+an approximate profile is not reproducible beside any other thread that uses `np.random`, and a save/restore lock
+around it is not process-wide (20/20 runs differed beside a second `np.random` user). `detection.pan_matrix_profile`
+therefore computes exact profiles only (`stumpy.stump` per length; scrump saved only ~20 % there). And a *reading* the
+paper does not make but a pan block invites: the length whose row stands out most is **not** an event's own length —
+on real chains and the spiking recording every judged length repeated beyond amplitude-adjusted noise, and the
+strongest fell on the longest or the shortest judged rung (`docs/prompts/blocks/reports/W3-evaluation.md`).
+
 ### 13c. Snippets
 
 **Citation.** Imani S, Madrid F, Ding W, Crouter S, Keogh E (2018) Matrix Profile XIII: time series snippets. ICBK 2018
