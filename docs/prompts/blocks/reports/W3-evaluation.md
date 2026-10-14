@@ -22,7 +22,7 @@ least two of three searches.
 |---|---|---|
 | **Multiscale entropy** (`catalogue.multiscale_entropy`) | How surprising a recording is at each level of blur, from 1 s to minutes — a "complexity curve" per recording | `complexity_fingerprint` **ships**: all three recordings differ from noise that keeps their values and their frequency content |
 | **Cycle shapes** (`interrogation.cycle_shapes`) | Every drop-to-drop cycle of a chain stretched to one length, stacked, lined up and sorted into shapes | `chain_cycles` **ships**: on all three long chains the cycles are far more alike than pseudo-cycles cut from the recording's own quiet stretches |
-| **Pan matrix profile** (`detection.pan_matrix_profile`) | At which window lengths anything repeats, as a picture with lengths up the side | `motif_lengths`: *(pending — see its section)* |
+| **Pan matrix profile** (`detection.pan_matrix_profile`) | At which window lengths anything repeats, as a picture with lengths up the side | `motif_lengths` **ships**: on two of three chains the windows repeat far more than noise with the same values and spectrum — but on every recording every length "repeats", so the answer does not pick a window; the picture does |
 | **MPdist** (a fourth Library distance) | Do two members share their short sub-shapes, each at its own speed? | no template; on five real families it singles out one held together only by stretching |
 | **A fairer noise test for families** | Fake families cut from the recording's own quiet stretches, beside the old scrambled ones; a family passes on either | no template; two smooth HDBSCAN families are no longer called noise; Analyse offers k-Shape again |
 | **The UI** | *(pending)* | — |
@@ -68,7 +68,7 @@ copies, 20 draws (p's floor 1/21), plain phase beside.
 |---|---|
 | Real fingerprints | **0.428** |
 | 20 AAFT draws | 0.22–0.37 (mean 0.29) → real beats every draw, **p = 0.048** |
-| Plain phase draws | 0.35–0.36 (5 draws) |
+| Plain phase draws | 0.350–0.363 (5 draws, p's floor 1/6), all below the real 0.428 |
 
 Median curves (entropy at 1 s … 174 s): *S. commune* 0.93 → 1.38 → 0.79; *C. militaris* 1.20 → 1.78 → 0.68;
 *F. velutipes* 1.23 → 1.68 → 0.55; *O. nidiformis* 1.06 → 1.36 → **0.07** (the steepest fall); M2_aug **0.03 → 0.73,
@@ -144,7 +144,40 @@ same spans gave the further floor: 0 events on 19 of 20 draws (one draw found 1)
 
 ## `motif_lengths` — 2 h detrend → pan matrix profile (30 s – 1 h, 12 lengths)
 
-*(pending: W3-C's fix round; the declared statistic and the AAFT correction are in the ledger.)*
+**Statistic (declared; its null corrected to AAFT before any data):** at the real run's strongest-gap length
+(`suggested_window_s`), the span's median normalised nearest-neighbour distance (1 − the median of that image row)
+against 20 AAFT draws, seeds 0–19 (plain phase beside, 5 draws). Beats when below every draw. A span where no length
+stands out does not beat. The draws were scored on the same image row with the block's own three null copies off
+(`null_draws` 0, "picture only"): the row is the span's own profile whatever that setting is, and the script checked
+on every real run that the picture-only rows equal the full run's (they did, all four) before relying on it.
+
+| Span | Lengths that clear (all judged ones?) | Strongest gap at | Real median distance | AAFT draws | p | Plain phase draws | Beats? |
+|---|---|---|---|---|---|---|---|
+| rec 2 · M2_aug CH1 · 296–304 h (sharkfins) | 30–1508 s (10 of 10) | 30 s (gap 40.9) | 0.265 | 0.142–0.151 | 1.0 | 0.081–0.082 | **no** |
+| rec 6 · M2_aug CH5 · 400–408 h (chain) | 30–1508 s (10 of 10) | 976 s (gap 25.7) | **0.018** | 0.204–0.264 | 0.048 | 0.200–0.220 | **yes** |
+| rec 3 · M2_aug CH2 · 512–520 h (chain) | 30–1508 s (10 of 10) | 976 s (gap 35.4) | **0.110** | 0.280–0.319 | 0.048 | 0.252–0.280 | **yes** |
+| rec 385 · Mushroom_260720 CH14 · 4 h (the supervisor's check) | 30–976 s (9 of 9) | 30 s (gap 15.8) | **0.143** | 0.209–0.216 | 0.048 | 0.156–0.158 | yes |
+
+**Verdict: ships** (2 of 3 chains). Moved into `CANONICAL` (`64b2995`), its description now saying what the band
+did on these recordings. No stalls (`n_stalled` 0) and no long gaps on any span; the real run took 82 s (4 h) and
+~180 s (8 h) at 3 threads on a loaded machine.
+
+**Findings (beside the verdict):**
+- **The band picks no window on real recordings.** Every judged length cleared on all four spans. What the template
+  can say here is that the span repeats beyond noise with its own values and colour; *which* length is the event's is
+  in the picture, as the W3-C critic found on planted data (the band covered every judged rung in 8 of 10 runs).
+- **The strongest gap is not an event length, again.** It fell at 976 s on both chains (the longest rung judged at the
+  full cut — leaning long, as measured) and at 30 s, the shortest rung, on rec 2 and rec 385.
+- **The supervisor's check (rec 385):** does it point at ≈ 1 min? **No** — the strongest gap is at 30 s, with 46 s
+  and 72 s close behind (gaps 14.8 and 13.5 against 15.8). At 30 s the recording beats all 20 AAFT draws. So short
+  windows repeat beyond noise there, as the 1-minute spikes would, but the block cannot name 1 min over 30 s.
+- **Why rec 2 fails, though its gap is the largest anywhere.** The two statistics ask different things. The block's
+  gap compares the span's *closest few* matches with the copies' closest few: rec 2's drops match each other very
+  closely at 30 s. The declared statistic reads the *typical* window: most 30 s windows of that span are the quiet
+  stretches between 13 drops, whose fine jitter rarely repeats, while an AAFT copy spreads the drops' slow swing
+  evenly over the whole span, so every 30 s piece of a copy is a smooth curve that finds a twin easily (0.265 against
+  ~0.145). On a span whose power sits in a few events, the typical window is the quiet one; the declared statistic was
+  fixed before the data and stands.
 
 ## MPdist (W3-D) on real Library members
 
@@ -204,4 +237,56 @@ null does **not** rescue rec 542's large family: its smoothness was not the tren
 
 ## What the researcher should decide
 
-*(pending — drafted after the last evaluations.)*
+Each question opens with what is at stake in plain words, then the options, then a recommendation. Nothing here
+blocks what has shipped; each was settled provisionally in `W3-ledger.md` ("Decisions taken on the researcher's
+behalf") so the wave could finish.
+
+1. **Which "how alike" score judges a group: σ² or eq. 17?** *Plainly:* both scores ask how much of a group's
+   variation is one shared shape. Think of two bathroom scales: eq. 17 (the paper's SVD entropy) never reads below a
+   certain weight even when the group is tidy, because noise props it up; σ² (the share of variation in the first
+   shape) reads lower and moves more, but on its own lets an occasional pile of noise through. On W3-B's synthetic
+   chains σ² caught three structured cases eq. 17 missed and never passed one eq. 17 failed; on the Library side, σ²
+   against the quiet stretches let 1 pure-noise family in 52 through at the 0.9 margin. *Options:* (a) eq. 17 decides,
+   σ² shown first (the Library now); (b) both must pass (cycle groups now — decision 18); (c) σ² decides, with its own
+   margin measured on noise families first. *Recommendation:* keep (b) for cycle groups and (a) for families; measure a
+   σ² margin before ever choosing (c).
+2. **What is a sharkfin's "floor"?** *Plainly:* on rec 2 your labelled sharkfins drop 50–78 mV, recover half of that
+   within ~40 s, and then sit a little below where they started (2–15 % of the drop's depth), drifting slowly lower
+   until the next drop. Cycle shapes measures "floor" as time spent in the bottom quarter of each cycle's range, which
+   is the bottom of the drop itself — so it reports rec 2's sharkfins as recovering almost at once (floor fraction
+   0.02–0.03) and cannot see the plateau you describe. *Options:* (a) a plateau measure: the share of the cycle spent
+   between, say, 2 % and 20 % of the depth below the pre-drop level, with its drift slope; (b) time until the trace is
+   back within a few per cent of its starting level; (c) leave it to Deconvolution's residual. *Recommendation:* (a)
+   with (b) beside it, as a small follow-up to cycle shapes — once you confirm the description above is what you mean.
+3. **One shape per chain, or two?** *Plainly:* stacking whole cycles found one kind of cycle on each of the three long
+   chains; wave 2's families, which looked at 10-minute windows, found a large and a small family on rec 6 (53, 13)
+   and rec 542 (131, 11). The cycle view averages a whole cycle, and its split test gives up power when a minority is
+   ≤ 20 % at 30 % noise, so a rare second kind is not ruled out. *Options:* (a) accept one shape per chain; (b) look at
+   the cycle-stack picture on rec 6 and rec 542 first; (c) make the split test less strict (more false splits).
+   *Recommendation:* (b) — it costs a look, and the picture is built for it.
+4. **A family passes on either noise test.** *Plainly:* a family is called real if it is tighter than fake families
+   made from either (i) the recording's own quiet stretches or (ii) scrambled copies that keep the slow trend. Each
+   fake has a blind spot, on opposite sides (ii misses smooth shapes; i misses sharp families on recordings whose
+   "quiet" stretches still hold uncatalogued events), so requiring both would fail real families for the tests' own
+   faults. *Options:* (a) either (now); (b) both; (c) quiet stretches only. *Recommendation:* (a). Note what (b) would
+   change: rec 542's 131-member family passes on the trend-kept test only.
+5. **MPdist's share, 0.25 instead of the paper's 0.05.** *Plainly:* MPdist compares two shapes piece by piece and
+   then reads one of the better piece-matches as the distance; the paper reads one near the very best 5 %, which is
+   forgiving — two shapes sharing a single small piece look alike. 0.25 reads further down the list. *Options:*
+   0.05 (the paper), 0.25 (now), a setting. *Recommendation:* keep 0.25 (it cut drop/square confusion from 20–63 % to
+   3–33 % without hurting the shifted-start case).
+6. **Multiscale entropy: 72 h windows and the AAFT null.** *Plainly:* the complexity curve needs long windows to
+   reach long blur levels — 72 h reaches about 4 minutes, 24 h about 50 s; a recording shorter than the window is
+   refused in words. And when you run the paired null for it, choose **AAFT** in Settings › Nulls: plain scrambling
+   makes any lopsided signal look complex. *Options:* keep 72 h; default 24 h. *Recommendation:* keep 72 h (four times
+   the power on weak structure), set `window_s` down for short recordings as the description says.
+7. **Comparing organisms.** *Plainly:* the four Adamatzky species separate on their complexity curves, but most of
+   that separation is in their noise colour already, and M2_aug was recorded on another setup (another logger, stored
+   in V), so "M2_aug against the species" mixes the organism with the instrument. *Options:* compare within one setup
+   only; record a known species on the M2 setup to anchor it. *Recommendation:* within one setup, and treat the M2-vs-
+   species difference as uninterpretable until anchored.
+8. **Cycle shapes' own gates.** *Plainly:* W3-B added two rules beyond the paper — a group split must show two humps
+   along its own direction (the paper's test alone split pure noise every time), and a verdict must be beyond every
+   draw *and* 3 spreads below the draws' typical value (the Library's 0.9 margin failed clean chains). *Options:*
+   accept or veto each. *Recommendation:* accept both; they are what stopped the block inventing shapes in noise.
+9. **The pan picture's band.** *(pending its evaluation.)*

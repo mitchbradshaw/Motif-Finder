@@ -571,6 +571,18 @@ instead of it.
   strongest at C s — not an event length" and takes its caveat from the block's own rule text. The doubled
   "Cancelled: Cycle shapes cancelled." is left (no one-line fix keeps History's check). Decision 28: merges without a
   third critique.
+- 07:27 — **`motif_lengths` evaluated → ships (2 of 3 chains).** At the real run's strongest-gap length, median
+  normalised nearest-neighbour distance against 20 AAFT draws (picture-only rows identical to the full run's on all
+  four spans): rec 6 400–408 h **0.018** vs 0.204–0.264 at 976 s (beats); rec 3 512–520 h **0.110** vs 0.280–0.319 at
+  976 s (beats); rec 2 296–304 h 0.265 vs 0.142–0.151 at 30 s (**does not beat**, p 1.0, though its gap, 40.9, is the
+  largest anywhere: its drops match closely, its typical window — quiet jitter between 13 drops — does not, while the
+  AAFT copies spread the drops' slow swing evenly). The plain phase draws agree on every span. Supervisor's check, rec
+  385: strongest gap at **30 s**, not ≈ 1 min (46 s and 72 s close behind), and 0.143 vs 0.209–0.216 beats. Every
+  judged length cleared on all four spans (30–1508 s at 8 h, 30–976 s at 4 h), so the band picks no window; no stalls.
+  07:30 — test-first into `CANONICAL`: red `c43e43c` (KeyError) → green `64b2995` (11 + 8 passed); the description
+  gains one sentence on what the band did here. Found on the way: chain_cycles' shipped-template test failed when run
+  alone (`server` not importable; 6f07cff passed only beside `test_templates`) — fixed by putting webui on its path
+  (`eef63e7`).
 - 03:5x — **W3-C critic: merge after fixes, three blockers.** F1: plain phase surrogates are biased here too
   (exp(AR) noise got a suggestion 10/10; AAFT 1/10 → 0/10 at 20 draws, keeping planted-motif power) → the 03:55
   correction; F2: one null draw gives 1.2–5.8 % false suggestions at 1 Hz, three gave 0 in 544 spans, the false
