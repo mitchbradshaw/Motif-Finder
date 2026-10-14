@@ -107,6 +107,19 @@ export const validateChain = (steps: Step[], recording_id?: number, span?: [numb
   post<Validation>('/api/chain/validate', { steps, recording_id, span })
 export const compatibleAt = (steps: Step[], position: number) => post<Compatible>('/api/chain/compatible', { steps, position })
 export const validateParams = (step: Step) => post<{ params: Record<string, unknown> }>('/api/chain/params', step)
+
+/* a block's `derive` readout (2026-10-14): computed on what a run hands the block — server/readout.py */
+export interface AdapterCard { /** the block declares a `derive` readout (chain.py `adapter_card`) */ has_derive: boolean }
+export interface ReadoutRow { label: string; value: string; severity: '' | 'warn' | 'error' }
+export interface Readout {
+  block: string; index: number; has_derive: boolean; rows: ReadoutRow[]
+  /** the stages before the block, each read from the step cache or re-run in memory */
+  input: { index: number; name: string; from: 'cache' | 'run' }[]
+  /** why nothing was computed (a stage before the block is slow and not in the step cache yet); rows are then empty */
+  skipped: string | null; elapsed_s: number
+}
+export const getReadout = (steps: Step[], index: number, recording_id: number, span: [number, number] | null) =>
+  post<Readout>('/api/blocks/derive', { steps, index, recording_id, span })
 export const getTemplates = () => req<Template[]>('/api/templates')
 export const saveTemplate = (name: string, steps: Step[]) => post<{ id: number; name: string; note: string }>('/api/templates', { name, steps })
 

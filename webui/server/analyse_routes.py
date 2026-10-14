@@ -47,7 +47,9 @@ class ApplyBody(BaseModel):
 
 
 class DeriveBody(BaseModel):
-    step: Step
+    """Stage `index` of the chain `steps` — the whole chain, so the stages before it can be replayed."""
+    steps: list[Step]
+    index: int
     recording_id: int
     span: list[int] | None = None
 
@@ -153,35 +155,31 @@ def apply_template_route(request: Request, template_id: int, body: ApplyBody):
 # --------------------------------------------------------------- derive --
 @router.post("/api/blocks/derive")
 def derive_rows(request: Request, body: DeriveBody):
-    """The block's `derive` readout for these params on this span — recomputed without a run.
-    A block whose readout needs an upstream typed value says so in its own rows."""
-    import numpy as np
+    """Stage `index`'s `derive` readout for these params on this span, computed on what a run hands it:
+    the stages before it read from the step cache or replayed in memory (`readout.block_readout`), on the
+    stored samples, never the display ones (a block converts units in its own rows). Recomputed without a
+    run; writes nothing. 422 for what a run would refuse, naming the stage."""
     from Adapters.registry import get_adapter
-    name = f"{body.step.stage}.{body.step.algorithm}"
+    from . import readout
+    if not 0 <= body.index < len(body.steps):
+        raise HTTPException(422, f"there is no stage {body.index + 1:02d} in this {len(body.steps)}-stage chain")
     try:
-        spec = get_adapter(name)
+        for s in body.steps[:body.index + 1]:
+            get_adapter(f"{s.stage}.{s.algorithm}")
     except KeyError as e:
         raise HTTPException(404, str(e))
-    if spec.derive is None:
-        return {"block": name, "rows": [], "has_derive": False}
-    try:
-        params = spec.validate_params(body.step.params or {})
-    except ValueError as e:
-        raise HTTPException(422, str(e))
     c = _conn(request)
     try:
         rec = corpus.recording_row(c, body.recording_id)
+        if rec is None or rec["held_out"]:
+            raise HTTPException(404 if rec is None else 423, f"recording {body.recording_id} is not available")
+        span = (int(body.span[0]), int(body.span[1])) if body.span else None
+        try:
+            return readout.block_readout(c, rec, span, _steps(body.steps), body.index)
+        except readout.ReadoutRefused as e:
+            raise HTTPException(422, str(e))
     finally:
         c.close()
-    if rec is None or rec["held_out"]:
-        raise HTTPException(404 if rec is None else 423, f"recording {body.recording_id} is not available")
-    s0, s1 = (int(body.span[0]), int(body.span[1])) if body.span else (0, int(rec["n_samples"]))
-    # the block's own derive rows (e.g. drop_detection's "mV/s" threshold) convert from volts
-    # themselves: they are handed the stored samples, never the display ones
-    x = np.asarray(corpus.load_native(rec["npy_path"])[s0:s1], dtype=float)
-    t = np.arange(s0, s1) / float(rec["fs"])
-    rows = spec.derive(x, t, float(rec["fs"]), params)
-    return {"block": name, "has_derive": True, "rows": [{"label": r[0], "value": str(r[1]), "severity": r[2] if len(r) > 2 else ""} for r in rows]}
 
 
 # ----------------------------------------------------------------- jobs --

@@ -55,6 +55,8 @@ COSTED = (
     # wave 2
     "catalogue.snippets", "catalogue.minirocket", "catalogue.shape_families", "interrogation.event_families",
     # wave 3
+    "catalogue.multiscale_entropy",
+    "interrogation.cycle_shapes",
     "detection.pan_matrix_profile",
 )
 

@@ -34,9 +34,17 @@ from Working.types import Grouping
 RESULTS_DIR = os.path.join("DATA", "derived", "groupings")
 
 
+#: the label a window gets when it is not clustered: the "excluded" value `catalogue.manual_labels`
+#: already gives and `catalogue.classifier` already skips (cluster labels themselves start at 1)
+NO_LABEL = -1
+
+
 def _cluster_window_set(window_set, linkage, k):
-    """Run the two dendrogram stages and return `(ClusterResult, PreprocessResult)` —
-    the second so the meta can name the columns actually clustered on."""
+    """Run the two dendrogram stages and return `(ClusterResult, PreprocessResult, keep)` —
+    the second so the meta can name the columns actually clustered on; `keep` marks the windows
+    clustered. A window whose features are ALL NaN once the bookkeeping columns are dropped (a
+    feature block left it out: a gap, a flat window) is never imputed and clustered as if it were
+    an average window (w3-a fix round 1): it is left out, labelled `NO_LABEL`, and counted."""
     if window_set is None:
         raise ValueError(
             "catalogue.cluster requires a WindowSet input from a prior step "
@@ -64,10 +72,17 @@ def _cluster_window_set(window_set, linkage, k):
             "matrix, one row per window; the bookkeeping columns "
             f"({', '.join(BOOKKEEPING_COLUMNS)}) are not features."
         )
+    keep = ~features.isna().all(axis=1).to_numpy()
+    if not keep.any():
+        raise ValueError(
+            f"catalogue.cluster: every one of the {len(features):,} windows has no features (all blank): the "
+            "step before left them all out — see its meta for why.")
+    features = features.loc[keep].reset_index(drop=True)
     if k > len(features):
         raise ValueError(
-            f"k={k} exceeds the number of windows ({len(features)}) — cannot "
-            "cut more clusters than there are leaves."
+            f"k={k} exceeds the number of windows ({len(features)}"
+            + (f", after {int((~keep).sum()):,} windows with no features were left out" if not keep.all() else "")
+            + ") — cannot cut more clusters than there are leaves."
         )
 
     from Working.Catalogue.dendrogram.dendrogram_cluster import (
@@ -76,7 +91,15 @@ def _cluster_window_set(window_set, linkage, k):
     )
 
     preprocessed = preprocess_window_matrix(features)
-    return cluster_window_matrix(preprocessed, method=linkage, n_clusters=k), preprocessed
+    return cluster_window_matrix(preprocessed, method=linkage, n_clusters=k), preprocessed, keep
+
+
+def _full_labels(cluster, keep):
+    """One label per window of the set: the cluster's for the clustered ones, `NO_LABEL` for the rest."""
+    import numpy as np
+    labels = np.full(len(keep), NO_LABEL, dtype=np.int64)
+    labels[keep] = np.asarray(cluster.labels, dtype=np.int64)
+    return labels
 
 
 def _opt_float(v):
@@ -85,15 +108,26 @@ def _opt_float(v):
 
 def _run(x, t, fs, linkage="ward", k=3, value=None):
     from Working.Catalogue.dendrogram.dendrogram_cluster import correlation_filter_note
-    cluster, preprocessed = _cluster_window_set(value, linkage, k)
+    cluster, preprocessed, keep = _cluster_window_set(value, linkage, k)
+    n_total = int(len(keep))
+    n_left = int((~keep).sum())
+    reason = (f"{n_left:,} of {n_total:,} windows have no features (every feature blank: the step before left "
+              f"them out) and were not clustered: label {NO_LABEL}") if n_left else None
+    summary = f"{int(keep.sum()):,} of {n_total:,} windows clustered into {k}"
+    if n_left:
+        summary += f" · {n_left:,} of {n_total:,} with no features left out (label {NO_LABEL})"
     return AdapterResult(
         output_kind="grouping",
-        value=Grouping(labels=cluster.labels),
+        value=Grouping(labels=_full_labels(cluster, keep)),
         meta={
             "linkage": linkage,
             "k": k,
             "cluster_counts": cluster.cluster_counts,
-            "n_windows": cluster.n_windows,
+            "n_windows": n_total,
+            "n_clustered": int(keep.sum()),
+            "n_left_out": n_left,
+            "left_out_reason": reason,
+            "summary": summary,
             "n_features": cluster.n_features,
             # w2-a fix round 1: k clusters are always cut, so noise and structure read alike
             # without a quality figure. Outputs, not params: no recipe hash moves.
@@ -120,16 +154,19 @@ def _derive(x, t, fs, params, value=None):
     if value is None:
         return [("Cluster sizes", "run the window-matrix step first", "warn")]
 
-    cluster, _ = _cluster_window_set(value, params["linkage"], params["k"])
+    cluster, _, keep = _cluster_window_set(value, params["linkage"], params["k"])
     sizes = ", ".join(
         str(cluster.cluster_counts[label])
         for label in sorted(cluster.cluster_counts)
     )
-    return [
+    rows = [
         ("Clusters requested", str(params["k"]), ""),
         ("Windows clustered", str(cluster.n_windows), ""),
         ("Cluster sizes", sizes, ""),
     ]
+    if not keep.all():
+        rows.append(("Left out", f"{int((~keep).sum()):,} windows with no features", "warn"))
+    return rows
 
 
 def _estimate(x, t, fs, **params):

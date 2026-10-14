@@ -12,6 +12,14 @@ spectrum by construction: each positive-frequency bin is multiplied by a
 unit-magnitude complex exponential, so magnitudes are unchanged and the
 inverse FFT is a real signal with the same spectrum. Block shuffling
 destroys temporal structure while keeping local amplitude statistics.
+
+AAFT (w3-a fix round 1): Theiler et al. 1992's amplitude-adjusted Fourier
+transform keeps the input's exact values (the output is a permutation of
+them) and approximately its spectrum. It is the null for a measure that reads
+the value distribution — multiscale entropy with a MAD-based r: against plain
+phase randomisation (which makes the surrogate Gaussian) a non-Gaussian linear
+process "beat" its surrogates 20 / 20 on its distribution alone. Moved here
+from `Pipelines/drop_motifs/nulls1.py`, which imports it back unchanged.
 """
 
 import numpy as np
@@ -37,6 +45,38 @@ def _phase_randomise(x, rng):
         angles[-1] = 0.0       # Nyquist must remain real
     X_rand = X * np.exp(1j * angles)
     return np.fft.irfft(X_rand, n=n)
+
+
+def aaft_surrogate(x, rng):
+    """Amplitude-adjusted Fourier transform surrogate (Theiler 1992).
+
+    Three steps, and the middle one is this module's:
+
+      1. rank-map `x` onto Gaussian deviates, so the phase step operates
+         on something whose spectrum is meaningful under a Gaussian
+         assumption rather than on a heavily skewed marginal;
+      2. `_phase_randomise` that Gaussian version;
+      3. rank-map the result back onto `x`'s own sorted values.
+
+    Step 3 is what makes this AAFT rather than plain phase randomisation:
+    these channels are strongly non-Gaussian (long one-sided excursions), and
+    a surrogate that Gaussianised them would be nulling the marginal
+    distribution instead of the phase structure. The output is a permutation
+    of the input's exact sample values.
+
+    The cost, stated because it is real: step 3 distorts the spectrum
+    slightly, so AAFT preserves the periodogram approximately rather than
+    exactly (IAAFT iterates to fix that; not offered).
+
+    `rng` is a `numpy.random.Generator` or a `RandomState` (both have
+    `standard_normal` and `uniform`). Moved verbatim from
+    `Pipelines/drop_motifs/nulls1.py` (w3-a fix round 1): bit-identical there.
+    """
+    x = np.asarray(x, dtype=float).ravel()
+    ranks = np.argsort(np.argsort(x))
+    gaussian = np.sort(rng.standard_normal(len(x)))[ranks]
+    randomised = _phase_randomise(gaussian, rng)
+    return np.sort(x)[np.argsort(np.argsort(randomised))]
 
 
 def _block_shuffle(x, rng, block_s, fs):
@@ -81,10 +121,12 @@ def _run(x, t, fs, method="phase_randomize", seed=0, block_s=0.0):
         x_surrogate = _phase_randomise(x, rng)
     elif method == "block_shuffle":
         x_surrogate = _block_shuffle(x, rng, block_s, fs)
+    elif method == "aaft":
+        x_surrogate = aaft_surrogate(x, rng)
     else:
         raise ValueError(
             f"Unknown surrogate method {method!r}; expected one of "
-            f"('phase_randomize', 'block_shuffle')"
+            f"('phase_randomize', 'block_shuffle', 'aaft')"
         )
     return AdapterResult(
         output_kind="signal",
@@ -104,8 +146,11 @@ SPEC = register(AdapterSpec(
             "Surrogate method: phase randomisation preserves the power "
             "spectrum and scrambles every local shape (the null for a "
             "detection chain); block shuffling keeps any motif shorter than a "
-            "block intact, so it tests timing and order, not shape",
-            choices=["phase_randomize", "block_shuffle"],
+            "block intact, so it tests timing and order, not shape; aaft "
+            "(amplitude-adjusted) keeps the signal's exact values and about "
+            "its spectrum — the null for a measure that reads the value "
+            "distribution, such as multiscale entropy",
+            choices=["phase_randomize", "block_shuffle", "aaft"],
         ),
         ParamSpec(
             "seed", int, 0,
@@ -126,7 +171,7 @@ SPEC = register(AdapterSpec(
         "Produces a surrogate (null) version of the signal for surrogate "
         "testing. Phase randomisation keeps the power spectrum but destroys "
         "temporal phase structure; block shuffling reorders contiguous "
-        "blocks. An explicit seed makes the surrogate reproducible from the "
+        "blocks; AAFT keeps the exact values and about the spectrum. An explicit seed makes the surrogate reproducible from the "
         "recipe hash."
     ),
 ))

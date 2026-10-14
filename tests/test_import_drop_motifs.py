@@ -442,3 +442,22 @@ def _run_all():
 
 if __name__ == "__main__":
     _run_all()
+
+
+# ── w3-d fix round 1: the importer takes only the three T35 distances ───────
+
+def test_the_importer_refuses_mpdist_in_words():
+    """MPdist (w3-d) refuses short or flat members pair by pair, which the
+    importer's family loop is not built to report, so the importer does not
+    offer it: it refuses up front, naming the distances it takes."""
+    import pytest
+
+    conn = init_db(":memory:")
+    try:
+        with pytest.raises(ValueError) as err:
+            import_drop_motifs(conn, BUNDLE_DIR, distance_function="mpdist")
+        msg = str(err.value)
+        assert "mpdist" in msg and "scale_invariant" in msg
+        assert not conn.execute("SELECT 1 FROM motif_entry").fetchall(), "nothing written"
+    finally:
+        conn.close()

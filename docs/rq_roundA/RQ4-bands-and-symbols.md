@@ -93,6 +93,12 @@ that find things the plain, un-split signal hides? You check the extra finds by 
   `symbol_search` and the UI spell `-`, never a letter; no drop is drawn across a gap. Gap-free spans give the same
   results bit for bit (the seed events reproduce). No recording held a NaN on 2026-10-14, so no number above moves;
   it matters once a recording keeps its gaps instead of filling them.
+- **Every arm's pre-run numbers are on its block page** (2026-10-14, readout, `tests/test_webui_block_readout.py`).
+  Beside Parameters, recomputed as a parameter changes: the five-stage encoding's slope-noise σ and fast cut, the
+  drop detector's onset threshold and letters, the SAX blocks' samples per symbol, and the *Missing samples* warning
+  (amber) before a run. They are computed on what the block is handed in a run — the stages before it re-run in
+  memory or read from the step cache, nothing written. (On the raw span instead, the noise-threshold block after
+  baseline removal would have shown a σ_n 8–20× too large.) Nothing measured moves.
 
 ## Decisions already made
 
@@ -148,3 +154,4 @@ None.
 - 2026-10-04 · fixup-AC · `preprocessing.wavelet_bands` (stationary wavelet transform, every layer drawn and aligned); a wavelet level is a band in the band scope; sandbox: 2 levels + 1 band = 3 runs, union 123 vs raw only-A 3, null out-finds every layer
 - 2026-10-13 · signal-threshold · `detection.signal_threshold` (Signal → SpanSet at a level in the signal's units) and the `signal_threshold` template: a plain amplitude-threshold raw-signal arm for step 1
 - 2026-10-14 · drop-nan · the drop detector, dSAX and symbol search skip a gap (letter `-`, statistics over the recorded part) instead of returning nothing; gap-free input unchanged bit for bit
+- 2026-10-14 · readout · each block's derive readout shown on its block page, computed on the block's real input (stages before it re-run in memory or read from the step cache); the drop detector's σ, cut, letters and the Missing samples warning visible before a run; nothing measured moves

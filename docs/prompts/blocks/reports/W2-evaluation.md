@@ -415,8 +415,11 @@ wave 3 merges.
 
 ### Deferred until wave 3 has merged (wave 3 is running; these touch its files)
 
-- **Decision 4 (σ² leads coherence)** touches the Family page, the families table and the blocks' summary lines, which
-  W3-F and W3-G also edit. Wave 3's own blocks already report σ² and eq. 17 side by side (`docs/prompts/blocks/README.md`).
+- ~~**Decision 4 (σ² leads coherence)**~~ **is now wave 3's** (the wave-3 manager's decision 3, `W3-ledger.md`):
+  - W3-G puts σ² first in `shape_families`' summary lines and in the coherence payload;
+  - W3-F puts it first on the Family page and in the families table;
+  - W3-B already does.
+  The verdict stays on eq. 17, and W3-G measures both against its quiet-stretch null.
 - **Decision 6 (MiniRocket in Models › Launch)** is a small ticket for after wave 3: a feature choice in the paired
   job, with Catch22 the default.
 - **Decision 2 (b) (snippets' chooser)** waits for a later wave (see decision 2 above).

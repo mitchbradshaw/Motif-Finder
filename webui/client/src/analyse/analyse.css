@@ -177,6 +177,19 @@
 .bp-tile .v { font-size: 16px; font-weight: 600; margin-top: 2px; }
 .bp-tile .v.red { color: #b3262b; }
 .bp-info { background: var(--blue-100); color: var(--blue-600); border-radius: 8px; padding: 7px 10px; font-family: var(--font-mono); font-size: 11px; margin-top: 10px; }
+/* the block's readout (Readout.tsx): its derive rows, warn amber and error red, and what they were computed on */
+.bp-readout-on { font-family: var(--font-mono); font-size: 10.5px; color: var(--muted); margin-top: 4px; line-height: 1.5; }
+.bp-readout-on .stage { color: var(--text-2); }
+.bp-readout-rows { display: flex; flex-direction: column; gap: 4px; margin-top: 8px; }
+.bp-readout-rows.stale { opacity: 0.55; }
+.bp-readout-row { display: flex; gap: 10px; align-items: baseline; padding: 5px 8px; border-radius: 6px; background: var(--bg); border-left: 3px solid transparent; font-family: var(--font-mono); font-size: 11px; }
+.bp-readout-row .k { flex: 0 0 42%; color: var(--muted); }
+.bp-readout-row .v { color: var(--text); font-weight: 600; overflow-wrap: anywhere; }
+.bp-readout-row.warn { background: var(--amber-100); border-left-color: var(--amber); }
+.bp-readout-row.warn .k, .bp-readout-row.warn .v { color: #a05e00; }
+.bp-readout-row.error { background: var(--red-100); border-left-color: var(--red); }
+.bp-readout-row.error .k, .bp-readout-row.error .v { color: #b3262b; }
+.bp-readout-note { font-family: var(--font-mono); font-size: 11px; color: var(--muted); padding: 10px 12px; border: 1px dashed var(--border-strong); border-radius: 8px; margin-top: 8px; }
 .bp-null { padding: 12px 14px; }
 .bp-null .e { font-family: var(--font-mono); font-size: 11.5px; color: var(--muted); padding: 18px; text-align: center; border: 1px dashed var(--border-strong); border-radius: 8px; margin-top: 8px; }
 .bp-foot { display: flex; align-items: center; gap: 10px; padding: 10px 14px; }

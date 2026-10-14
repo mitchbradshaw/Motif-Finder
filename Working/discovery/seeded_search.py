@@ -33,7 +33,7 @@ Settings › Nulls holds the per-kind defaults).
 
 **A null the block cannot compute is refused, not substituted.** Settings ›
 Nulls used to name *circular shift of the channel* for seed search;
-`preprocessing.surrogate` implements `phase_randomize` and `block_shuffle`
+`preprocessing.surrogate` implements `phase_randomize`, `block_shuffle` and (w3-a) `aaft`
 only. Falling back silently would put "circular shift 200×" on the page over a
 different computation, and a × null whose null is unstated cannot be falsified.
 `resolve_null` says so in words the page can print. (A circular shift would in
@@ -82,7 +82,7 @@ WHY_NO_PROFILE = (
 )
 
 #: The methods `preprocessing.surrogate` actually implements.
-BLOCK_METHODS = ("phase_randomize", "block_shuffle")
+BLOCK_METHODS = ("phase_randomize", "block_shuffle", "aaft")
 DEFAULT_NULL_METHOD = "phase_randomize"
 DEFAULT_DRAWS = 200
 NULL_PAGE = "nulls"
@@ -101,6 +101,9 @@ BLOCK_S_KEY = "null.block_s"
 #: The sentence that goes beside block shuffle wherever it is offered (Q36).
 BLOCK_SHUFFLE_NOTE = ("block shuffle keeps any motif shorter than a block intact, so it tests timing and "
                       "order (trains, intervals), not shape")
+AAFT_NOTE = ("amplitude-adjusted phase randomisation keeps the signal's exact values and about its frequency "
+             "content: the null for a measure that reads the value distribution (multiscale entropy), which "
+             "plain phase randomisation would change")
 PHASE_RANDOMIZE_NOTE = ("phase randomisation keeps the signal's frequency content and scrambles every local "
                         "shape: would this fire as often on a signal with the same spectrum and no real events")
 
@@ -132,8 +135,9 @@ def scale_bank_label(scales):
     return f"{len(bank)} length{'s' if len(bank) != 1 else ''} · " + " ".join(f"{v:g}×" for v in bank)
 
 
-_LABELS = {"phase_randomize": "phase randomisation", "block_shuffle": "block shuffle"}
-_NOTES = {"phase_randomize": PHASE_RANDOMIZE_NOTE, "block_shuffle": BLOCK_SHUFFLE_NOTE}
+_LABELS = {"phase_randomize": "phase randomisation", "block_shuffle": "block shuffle",
+           "aaft": "amplitude-adjusted phase randomisation"}
+_NOTES = {"phase_randomize": PHASE_RANDOMIZE_NOTE, "block_shuffle": BLOCK_SHUFFLE_NOTE, "aaft": AAFT_NOTE}
 
 _ALIASES = {
     "phase_randomize": "phase_randomize",
@@ -144,6 +148,10 @@ _ALIASES = {
     "block_shuffle": "block_shuffle",
     "block shuffle": "block_shuffle",
     "block shuffling": "block_shuffle",
+    "aaft": "aaft",
+    "amplitude-adjusted phase randomisation": "aaft",
+    "amplitude-adjusted phase randomization": "aaft",
+    "amplitude-adjusted fourier transform": "aaft",
 }
 
 
@@ -186,7 +194,7 @@ def resolve_null(method=None, draws=None, seed=0):
             "method": None, "requested": requested, "supported": False, "draws": draws,
             "seed": int(seed),
             "reason": (f"Settings › Nulls asks for {requested!r}, which preprocessing.surrogate does not "
-                       f"implement — it offers {BLOCK_METHODS[0]} and {BLOCK_METHODS[1]}. No null is drawn, "
+                       f"implement — it offers {', '.join(BLOCK_METHODS[:-1])} and {BLOCK_METHODS[-1]}. No null is drawn, "
                        f"rather than a different one drawn under that name."),
         }
     return {"method": resolved, "requested": requested, "supported": True, "reason": None,

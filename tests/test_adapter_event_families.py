@@ -197,7 +197,7 @@ def _methods(spec):
 
 
 # F5: no structure, at the block's defaults, for every method it offers: no Intervals key without a mark
-@pytest.mark.parametrize("method", ["hdbscan", "ward"])
+@pytest.mark.parametrize("method", ["hdbscan", "ward", "kshape"])
 @pytest.mark.parametrize("kind", ["ar1_095", "ar1", "ar1_099", "random_walk"])
 def test_noise_events_at_defaults_n200_leave_no_unmarked_intervals_key(spec, method, kind):
     assert method in _methods(spec)
@@ -206,21 +206,22 @@ def test_noise_events_at_defaults_n200_leave_no_unmarked_intervals_key(spec, met
     assert keys == [], (method, kind, keys, res.meta["summary"])
 
 
-@pytest.mark.parametrize("method", ["hdbscan", "ward"])
+@pytest.mark.parametrize("method", ["hdbscan", "ward", "kshape"])
 def test_noise_events_at_defaults_n1000_random_walk_leave_no_unmarked_intervals_key(spec, method):
     x, spans = noise_events("random_walk", n_events=1000, seed=3)
     keys, res = _unmarked_keys(spec, x, spans, method)
     assert keys == [], (method, keys, res.meta["summary"])
 
 
-# F2: k-Shape is left out of this block's methods (its plain-phase null missed random-walk crowds), Ward is marked
-def test_kshape_is_not_offered_here_and_the_core_refuses_it_with_the_reason(spec):
-    assert _methods(spec) == [m for m in SF.shape_methods() if m != "kshape"]
-    assert "kshape" in SF.EVENT_FAMILIES_EXCLUDED
+# F2 had left k-Shape out (its plain-phase null missed random-walk crowds). w3-g (deliberate): with its trend-kept
+# and quiet-stretch nulls it flags every no-structure family at the defaults (the n = 200 / 1,000 runs below and
+# tests/test_library_background_null.py), so it is offered again
+def test_kshape_is_offered_here_again(spec):
+    assert _methods(spec) == list(SF.shape_methods())
+    assert "kshape" not in SF.EVENT_FAMILIES_EXCLUDED
     x, spans, truth = _recording()
-    with pytest.raises(ValueError, match="k-Shape|kshape"):
-        SF.event_families(x, 1.0, spans, anchor="start", length_s=float(L), method="kshape")
-    assert "k-Shape" in spec.description
+    ev = SF.event_families(x, 1.0, spans, anchor="start", length_s=float(L), method="kshape", params={"k": 2})
+    assert ev.families.k == 2
 
 
 def test_ward_families_are_keyed_untested_and_the_rule_says_so(spec):

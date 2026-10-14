@@ -1082,7 +1082,11 @@ def test_family_coherence_carries_its_caveat_and_misaligned_fraction(bridge):
     lib._COHERENCE_CACHE.clear()
     client, _ = bridge
     coh = _ok(client.get("/api/library/family/F-01"))["detail"]["coherence"]
-    assert coh["smooth_caveat"] == coherence.SMOOTH_CAVEAT
+    # w3-g fix round 1 (F7, deliberate): the caveat travels only when the trend-kept null judged alone
+    if coh.get("null_kind") == coherence.EITHER_KIND:
+        assert "smooth_caveat" not in coh
+    else:
+        assert coh["smooth_caveat"] == coherence.SMOOTH_CAVEAT
     assert coh["misaligned_fraction"] == coherence.MISALIGNED_FRACTION
     assert "beyond_noise" in coh and coh["null_margin"] == coherence.NULL_MARGIN
 
@@ -1244,3 +1248,108 @@ def test_a_one_member_family_says_why_in_words_and_carries_the_null(tmp_path):
     many = lib._family_coherence(index, _rows([(1, 100), (1, 290), (1, 480), (1, 670)], medoid=0))
     assert many["null_median"] is not None and many["svd_entropy_squared_norm"] is not None
     lib._COHERENCE_CACHE.clear()
+
+
+# ── w3-g: the quiet-stretch null on the Family page and in a regroup ─────────
+
+def test_family_coherence_judges_against_the_recordings_quiet_stretches(tmp_path):
+    """`_family_coherence` hands `svd_entropy` the bridge's loader (`_library_background`):
+    windows of the members' own lengths cut from their own recording where no member
+    lies, selected as a family of its size among `n_set`. Its verdict names the null
+    and the background seconds; the trend-kept null travels beside it."""
+    import server.library as lib
+    lib._COHERENCE_CACHE.clear()
+    rng = np.random.default_rng(0)
+    path = tmp_path / "quiet.npy"
+    x = np.cumsum(rng.normal(size=40000)).astype(np.float32)
+    t = np.arange(90) / 90.0
+    starts = list(range(1000, 31000, 1500))
+    for s in starts:
+        x[s:s + 90] += 40.0 * np.sin(np.pi * t)            # a broad hump filling each member's window
+    np.save(path, x)
+    index = {"by_id": {1: {"npy_path": str(path), "held_out": False, "fs": 2.0}}}
+    rows = _rows([(1, s) for s in starts], medoid=0)
+    out = lib._family_coherence(index, rows, n_set=200)
+    # fix round 1 (decision 15): both nulls judge, either passes; here the quiet one does (a smooth hump)
+    assert out["null_kind"] == "quiet-stretch or trend-kept phase-randomised", out.get("why")
+    assert "quiet-stretch" in out["passed_by"]
+    assert out["background"]["usable"] and out["background"]["background_s"] > 0
+    assert "quiet-stretch null" in out["why"] and "s of event-free background" in out["why"]
+    assert out["nulls"]["trend_kept"] is not None, "the trend-kept null travels beside it"
+    assert [v["name"] for v in out["variants"]] == ["squared", "eq17"], "sigma^2 leads"
+    # fix round 1, F7: the smooth-shape caveat belongs to the trend-kept null alone
+    assert "smooth_caveat" not in out
+    lib._COHERENCE_CACHE.clear()
+
+
+def test_free_stretches_and_library_spans_are_cached_across_requests(tmp_path, monkeypatch):
+    """F6: a recording's free stretches are computed once across Family-page GETs (keyed on
+    path, mtime and the Library-member fingerprint), not once per request."""
+    import server.library as lib
+    from Working import background_null as bn
+    lib._COHERENCE_CACHE.clear()
+    lib._FREE_STRETCH_CACHE.clear()
+    built = []
+    real = bn._Recording
+
+    def counting(*a, **k):
+        built.append(1)
+        return real(*a, **k)
+    monkeypatch.setattr(bn, "_Recording", counting)
+    path = tmp_path / "quiet.npy"
+    np.save(path, np.cumsum(np.random.default_rng(0).normal(size=40000)).astype(np.float32))
+    index = {"by_id": {1: {"npy_path": str(path), "held_out": False, "fs": 1.0}}}
+    starts = list(range(1000, 31000, 1500))
+    # the avoidance comes from the database (every Library member on the recording), so it is one per recording
+    import sqlite3
+    conn = sqlite3.connect(":memory:")
+    conn.executescript("CREATE TABLE motif_member (id INTEGER PRIMARY KEY, recording_id INT, start_idx INT, end_idx INT);"
+                       "CREATE TABLE sequences (id INTEGER PRIMARY KEY, recording_id INT, start_idx INT, end_idx INT);"
+                       "CREATE TABLE runs (id INTEGER PRIMARY KEY, recording_id INT, span_start INT);"
+                       "CREATE TABLE detections (id INTEGER PRIMARY KEY, run_id INT, start_idx INT, end_idx INT);"
+                       "INSERT INTO runs VALUES (1, 1, 0); INSERT INTO detections VALUES (1, 1, 33000, 34000);")
+    conn.executemany("INSERT INTO motif_member (recording_id, start_idx, end_idx) VALUES (1, ?, ?)",
+                     [(s, s + 90) for s in starts])
+    a = lib._family_coherence(index, _rows([(1, s) for s in starts[:10]], medoid=0), conn=conn, n_set=100)
+    lib._family_coherence(index, _rows([(1, s) for s in starts[10:]], medoid=0), conn=conn, n_set=100)
+    assert len(built) == 1, "the second family reused the recording's free stretches"
+    assert a["background"]["detection_overlap_share"] is not None, "detections are counted against quiet windows"
+    conn.close()
+    lib._COHERENCE_CACHE.clear()
+    lib._FREE_STRETCH_CACHE.clear()
+
+
+def test_the_family_pages_n_set_is_the_groupings_item_count_not_the_view(bridge, monkeypatch):
+    """F2: the coherence's selection is a family found among every item that took part in
+    the grouping — never the view-filtered shown rows, so a view filter cannot move the verdict."""
+    import sqlite3
+    import server.library as lib
+    client, ctx = bridge
+    seen = []
+    real = lib._family_coherence
+
+    def spy(index, rows, conn=None, n_set=None):
+        seen.append(n_set)
+        return real(index, rows, conn=conn, n_set=n_set)
+    monkeypatch.setattr(lib, "_family_coherence", spy)
+    lib._COHERENCE_CACHE.clear()
+    _ok(client.get("/api/library/family/F-01"))
+    _ok(client.get("/api/library/family/F-01?pure=1&floor=1"))
+    con = sqlite3.connect(ctx["rt"].db_path)
+    try:
+        took_part = con.execute(
+            "SELECT COUNT(*) FROM grouping_assignments WHERE grouping_id = ? AND (omit_reason IS NULL OR "
+            "omit_reason NOT IN ('missing_values', 'infinite_values', 'not_in_a_sequence'))",
+            (ctx["gid"],)).fetchone()[0]
+    finally:
+        con.close()
+    assert seen and all(n == took_part for n in seen), (seen, took_part)
+    lib._COHERENCE_CACHE.clear()
+
+
+def test_grouping_items_carry_each_members_span_for_the_quiet_null():
+    import inspect
+    import server.library as lib
+    src = inspect.getsource(lib._grouping_items)
+    assert '"start_idx"' in src and '"end_idx"' in src
+    assert "background=" in inspect.getsource(lib.run_grouping_job), "the regroup job hands the engine its loader"

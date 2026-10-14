@@ -92,6 +92,11 @@ class SideInputSpec:
     name: str
     type_kind: str
     sources: list
+    # False: the step may leave it unbound and `run` then receives no value
+    # under this name (w3-b: `interrogation.cycle_shapes` cuts from the chain's
+    # own signal when no `waveform` is bound). True (the default) keeps the
+    # executor's loud "declares this side input but the step has no binding".
+    required: bool = True
 
     def __post_init__(self):
         if self.type_kind not in TYPE_KINDS:

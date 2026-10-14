@@ -64,6 +64,19 @@ run per family, against noise of the family's own colour:
 4. The family is confident iff d_F < `NULL_MARGIN` x p05; otherwise
    `noise_like`, and `unstable` when d_F is not even below p05.
 
+**The quiet-stretch null (w3-g) leads where it can.** When the engine hands
+`fit` a `background` (the caller's loader of each member's own recording), each
+family's members also get windows of their own length cut from their own
+recordings where no event lies (`kshape.quiet_distances`); the family passes it
+iff d_F < `kshape.QUIET_MARGIN` (0.6) x the min(5 %, m / 2n)-quantile of those
+windows' distances to the medoid — the selection a family of m found among n
+went through (the measurement is beside `kshape.QUIET_KIND`). Wherever at least
+half the family's members got a window from their own recording, a family is
+confident when it passes EITHER this null or the trend-kept test above
+(`kshape.either_verdict`, decision 15: the two nulls have opposite blind spots);
+otherwise the trend-kept test alone judges. `null_kind`, `passed_by`, `why`,
+`background` and `nulls` (both results) say which.
+
 `NULL_MARGIN` = 0.9 is a PLACEHOLDER: the selection effect (a family's
 members were chosen for being close to each other) puts a noise crowd right at
 p05 on a random-walk background (ratios 1.001-1.07), and noise rows inside a
@@ -100,8 +113,11 @@ from Working.library.grouping.engine import (OMIT_INFINITE_VALUES, OMIT_MISSING_
                                              OMIT_NOT_IN_A_DENSE_FAMILY)
 from Working.library.grouping.methods import FitResult, register
 from Working.library.grouping.engine import GroupingCancelled
-from Working.library.grouping.methods.kshape import (SBD_SCALE, NormalisedSBD,
-                                                     _z_rows, null_rng, sample_positions,
+from Working.library.grouping.methods.kshape import (C_QUIET_WINDOW, EITHER_KIND, QUIET_KIND, QUIET_MARGIN,
+                                                     SBD_SCALE, either_verdict,
+                                                     TREND_KIND, quiet_windows_estimate,
+                                                     NormalisedSBD, _z_rows, background_words, null_rng,
+                                                     quiet_distances, quiet_verdict, sample_positions,
                                                      screen_rows, trend_kept_surrogates)
 from Working.library.grouping.methods.ward import (RESAMPLE_LENGTH, condensed_distances,
                                                    shape_vectors)
@@ -249,14 +265,20 @@ class HDBSCANMethod:
             "help": "how many trend-kept surrogates of each family member (its slow trend kept, the "
                     "rest phase-randomised: noise of its own colour) the family is measured "
                     "against; a family is confident only if its members sit closer to its medoid "
-                    "than 0.9 x (a placeholder margin) the 5th percentile of those surrogates. 0 = "
-                    "no null: families are reported untested. Cheap: milliseconds per family.",
+                    "than 0.9 x (a placeholder margin) the 5th percentile of those surrogates. "
+                    "Wherever the members' recordings leave enough quiet stretches, windows cut from "
+                    "them judge too (0.6 x their selection-matched quantile) and a family passes on "
+                    "either. 0 = no null: "
+                    "families are reported untested.",
         },
     }
 
     # ---------------------------------------------------------------- fit
 
-    def fit(self, waveforms, *, params=None, should_cancel=None):
+    def fit(self, waveforms, *, params=None, should_cancel=None, background=None):
+        """`background`, optional: a `Working.background_null.MemberBackground`
+        over the same rows as `waveforms` (the engine passes it), for the
+        quiet-stretch null; without it the trend-kept null is the verdict."""
         params = params or {}
         L = int(params.get("resample_length", RESAMPLE_LENGTH))
         distance = str(params.get("distance", DEFAULT_DISTANCE))
@@ -295,6 +317,8 @@ class HDBSCANMethod:
         on_demand = NormalisedSBD if distance == "sbd" else _EuclideanOnDemand
         fit.distances = on_demand(vectors, positions, n)
         payload["null_draws"] = int(params.get("null_draws", NULL_DRAWS))
+        payload["_background"] = background          # never in fit_summary: it is not data
+        payload["ok_rows"] = np.asarray(ok, dtype=np.int64)
         if fitted_pos.size:
             payload["D_fit"] = _distance_matrix(vectors[fitted_pos], distance)
             if should_cancel is not None and should_cancel():
@@ -357,15 +381,30 @@ class HDBSCANMethod:
 
     @staticmethod
     def _null(p, epsilon):
-        """The per-family trend-kept null (module docstring)."""
+        """The per-family nulls (module docstring): the quiet-stretch one when a
+        background was given and at least half the family's members got a
+        window from their own recording, else the trend-kept one; the
+        trend-kept result always travels beside it."""
         draws = int(p.get("null_draws", NULL_DRAWS))
-        rule = (f"per family: d_F = the members' median normalised distance to the family medoid; "
-                f"p05 = the {NULL_PERCENTILE:g}th percentile of the distances of {draws} draws of "
-                f"trend-kept phase-randomised surrogates of the family's own members (a cubic trend "
-                f"kept per row, the rest phase-randomised, z-normalised) to the same medoid; confident "
-                f"iff d_F < {NULL_MARGIN} x p05 ({NULL_MARGIN} is a placeholder margin). Caveat: {SMOOTH_CAVEAT}")
+        background = p.get("_background")
+        trend_rule = (f"trend-kept null: p05 = the {NULL_PERCENTILE:g}th percentile of the distances of {draws} "
+                      f"draws of trend-kept phase-randomised surrogates of the family's own members (a cubic trend "
+                      f"kept per row, the rest phase-randomised, z-normalised) to the same medoid; confident iff "
+                      f"d_F < {NULL_MARGIN} x p05 ({NULL_MARGIN} is a placeholder margin). Caveat: {SMOOTH_CAVEAT}")
+        quiet_rule = (f"a family passes on EITHER null. The quiet-stretch null (used wherever at least half the "
+                      f"family's members got a window from their own recording; machine detections are not avoided, "
+                      f"so a quiet window can hold an uncatalogued event — loosening the null for other shapes, "
+                      f"tightening it for its own): windows cut where no event lies on the members' own recordings, "
+                      f"at the members' own lengths, prepared as the members were; confident iff d_F < "
+                      f"{QUIET_MARGIN} x their q-quantile distance to the medoid, q = min(5 %, m / 2n) for a family "
+                      f"of m found among n (the selection a family went through; {QUIET_MARGIN} is a placeholder "
+                      f"margin)")
+        rule = (f"per family: d_F = the members' median normalised distance to the family medoid. "
+                + (quiet_rule + ". Beside it and otherwise, the " if background is not None else "The ")
+                + trend_rule)
         if draws <= 0 or not p.get("family_of_label"):
-            p["null"] = {"kind": "none" if draws <= 0 else "trend-kept phase-randomised",
+            p["null"] = {"kind": "none" if draws <= 0 else (EITHER_KIND
+                                                            if background is not None else TREND_KIND),
                          "draws": max(draws, 0), "margin": NULL_MARGIN, "by_family": {},
                          "rule": ("no null drawn (null_draws = 0): families untested"
                                   if draws <= 0 else rule)}
@@ -376,7 +415,8 @@ class HDBSCANMethod:
         fitted_pos = p["fitted_pos"]
         fitted_label = label_ok[fitted_pos]
         D = p["D_fit"]
-        by_family = {}
+        L = int(p["resample_length"])
+        by_family, kinds = {}, set()
         for c, fam in p["family_of_label"].items():
             fitted_members = np.flatnonzero(fitted_label == c)
             m_fit = fitted_members[int(np.argmin(D[np.ix_(fitted_members, fitted_members)].sum(axis=1)))]
@@ -391,21 +431,58 @@ class HDBSCANMethod:
                 S = _z_rows(trend_kept_surrogates(vectors[members[pick]], rng))
                 surrogate_d.append(_cross_distances(S, m_vec, p["distance"])[:, 0])
             p05 = float(np.percentile(np.concatenate(surrogate_d), NULL_PERCENTILE))
-            ratio = d_F / p05 if p05 > 0 else float("inf")
-            noise_like = not (d_F < NULL_MARGIN * p05)
+            t_ratio = d_F / p05 if p05 > 0 else float("inf")
+            t_noise = not (d_F < NULL_MARGIN * p05)
+            trend = {"kind": TREND_KIND, "null_p05": p05, "ratio": float(t_ratio), "noise_like": bool(t_noise),
+                     "unstable": bool(not (d_F < p05)), "margin": NULL_MARGIN, "caveat": SMOOTH_CAVEAT}
+            trend_why = (f"members' median distance to the medoid {d_F:.3f} is {t_ratio:.2f} x the 5th "
+                         f"percentile {p05:.3f} of trend-kept noise of their own colour ({draws} draws); "
+                         f"confident below {NULL_MARGIN} x (a placeholder margin); {SMOOTH_CAVEAT}")
+            quiet, report = None, None
+            if background is not None:
+                d_bg, q, report = quiet_distances(
+                    background, ok_rows[members[pick]].tolist(), m_vec[0], L,
+                    lambda A, B: _cross_distances(A, B, p["distance"]),
+                    n_set=int(ok_rows.size), salt=13 + int(c))
+                if d_bg is not None:
+                    thr, ratio, q_noise, q_unstable = quiet_verdict(d_F, d_bg, q, QUIET_MARGIN)
+                    quiet = {"kind": QUIET_KIND, "threshold": thr, "quantile": q, "ratio": ratio,
+                             "noise_like": q_noise, "unstable": q_unstable, "margin": QUIET_MARGIN,
+                             "null_median": float(np.median(d_bg))}
+            noise_like, unstable, passed_by, kind = either_verdict(quiet, trend)
+            if quiet is not None:
+                # the numbers on top: the null that passed (quiet first), else the quiet one
+                if QUIET_KIND in passed_by or TREND_KIND not in passed_by:
+                    thr_used, ratio, margin = quiet["threshold"], quiet["ratio"], QUIET_MARGIN
+                else:
+                    thr_used, ratio, margin = p05, float(t_ratio), NULL_MARGIN
+                why = (f"passed by {' and '.join(passed_by) if passed_by else 'neither null'} (a family passes on "
+                       f"either); the quiet-stretch null ({background_words(report)}): members' median distance to the "
+                       f"medoid {d_F:.3f} is {quiet['ratio']:.2f} x the {quiet['quantile']:.2%} quantile "
+                       f"{quiet['threshold']:.3f} of {report['n_windows']} windows cut where no event lies on the "
+                       f"members' own recordings; passes below {QUIET_MARGIN} x (a placeholder margin). Trend-kept "
+                       f"null: {t_ratio:.2f} x; " + trend_why)
+            else:
+                thr_used, ratio, margin = p05, float(t_ratio), NULL_MARGIN
+                fallback = (("quiet-stretch null not used: " + str(report.get("reason")) + "; ")
+                            if report is not None else "quiet-stretch null not available (no recording was given); ")
+                why = "against the trend-kept null: " + fallback + trend_why
+            kinds.add(kind)
             st = p["family_stability"].get(c, {})
-            why = (f"members' median distance to the medoid {d_F:.3f} is {ratio:.2f} x the 5th "
-                   f"percentile {p05:.3f} of trend-kept noise of their own colour ({draws} draws); "
-                   f"confident below {NULL_MARGIN} x (a placeholder margin); {SMOOTH_CAVEAT}")
             p["family_flags"][fam] = {
-                "noise_like": bool(noise_like), "unstable": bool(not (d_F < p05)), "tested": True,
+                "noise_like": bool(noise_like), "unstable": bool(unstable), "tested": True,
                 "why": ("no better than noise of the same colour: " + why) if noise_like else why,
-                "median_distance": d_F, "null_p05": p05, "ratio": float(ratio),
-                "margin": NULL_MARGIN,
+                "median_distance": d_F, "null_p05": thr_used, "ratio": float(ratio),
+                "margin": margin, "null_kind": kind, "passed_by": passed_by, "background": report,
+                "background_s": (report or {}).get("background_s"),
+                "nulls": {"quiet_stretch": quiet, "trend_kept": trend},
                 "separation": float(st.get("separation", float("nan"))),
                 "size_fitted": int(st.get("size_fitted", fitted_members.size))}
-            by_family[f"F-{fam:02d}"] = {"median_distance": d_F, "null_p05": p05, "ratio": float(ratio)}
-        p["null"] = {"kind": "trend-kept phase-randomised", "draws": draws, "margin": NULL_MARGIN,
+            by_family[f"F-{fam:02d}"] = {"median_distance": d_F, "null_p05": thr_used, "ratio": float(ratio),
+                                         "null_kind": kind}
+        p["null"] = {"kind": (EITHER_KIND if kinds == {EITHER_KIND} else
+                              f"{EITHER_KIND}, {TREND_KIND} fallback" if EITHER_KIND in kinds else TREND_KIND),
+                     "draws": draws, "margin": NULL_MARGIN, "quiet_margin": QUIET_MARGIN,
                      "percentile": NULL_PERCENTILE, "by_family": by_family, "rule": rule}
 
     @staticmethod
@@ -427,8 +504,10 @@ class HDBSCANMethod:
         n_fit = min(n, int(params.get("sample", DEFAULT_SAMPLE)) or n)
         draws = max(0, int(params.get("null_draws", NULL_DRAWS)))
         square = n_fit * n_fit * (C_SQUARE + C_CLUSTER)
-        # the per-family null: every member's surrogates against one medoid
-        return float(square + (n - n_fit) * n_fit * C_CROSS + draws * n * C_NULL_ROW)
+        # the per-family null: every member's surrogates against one medoid; and (w3-g) the quiet-stretch windows,
+        # priced whenever a null is drawn (the estimate cannot know whether a background will be handed in)
+        quiet = quiet_windows_estimate(n) * C_QUIET_WINDOW if draws else 0.0
+        return float(square + (n - n_fit) * n_fit * C_CROSS + draws * n * C_NULL_ROW + quiet)
 
     def cheaper(self, n, params):
         out = []

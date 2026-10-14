@@ -41,11 +41,50 @@ _FEATURES_FILENAME = "features.parquet"
 #:                      second clustering or a classifier that saw one would learn the first's answer
 #:   group_upstream   - the group a feature block replaced (`interrogation.trains`,
 #:                      `interrogation.event_families`): a label
-#: Measurements (intervals, Event-shape measures) are NOT here: they stay features, and
+#:   cycle_index      - the cycle's position in its sequence (`interrogation.cycle_shapes`): a time order
+#:   cycle_group      - the cycle-shape group that block decided: its answer, not the shape
+#:   cycle_change, cycle_omit_reason, cycle_corr, cycle_shift_s
+#:                    - the same block's decisions about the cycle: whether its group changed, why it
+#:                      was left out, its correlation with its group's medoid (as family_distance), and
+#:                      how far it was shifted to line up (geometry, as anchor_offset)
+#: Measurements (intervals, Event-shape measures, cycle_length_s / cycle_amplitude /
+#: cycle_floor_frac / cycle_half_recovery_frac) are NOT here: they stay features, and
 #: `catalogue.cluster`'s meta names the columns it actually used (`feature_names`).
+#:   mse_n_scales, mse_n_collapsed
+#:                    - how many scales a multiscale-entropy curve has defined, and how many its
+#:                      collapse guard flagged (`catalogue.multiscale_entropy`): the estimate's
+#:                      quality, not the signal's shape
+#:   mse_r            - the tolerance in the signal's STORED units: a clustering that saw it separated
+#:                      a V-stored from an mV-stored copy of one process (w3-a critic, silhouette
+#:                      0.177 against 0.079 without it), and loud from quiet, which MSE ignores
+#:   mse_drift_share, mse_inflation
+#:                    - how much of the window is a ramp, and how much slow content inflated r
+#:                      (the collapse guard's measure): drift, not complexity
 BOOKKEEPING_COLUMNS = ("split", "event_index", "anchor_offset", "overlaps_next", "train_id", "word_id",
                        "span_score", "family", "family_omit_reason", "family_distance", "family_noise_like",
-                       "group_upstream")
+                       "group_upstream", "mse_n_scales", "mse_n_collapsed", "mse_r", "mse_drift_share",
+                       "mse_inflation", "cycle_index", "cycle_group", "cycle_change", "cycle_omit_reason",
+                       "cycle_corr", "cycle_shift_s")
+
+
+def span_relative_starts(ws, n_samples, t, fs, block="this block"):
+    """Each window's start as an index into the span's `x` (`WindowSet.starts` are channel-absolute;
+    the span's offset is `round(t[0] * fs)`), refusing in words any window that runs outside the span.
+
+    Promoted from `Working/Catalogue/minirocket.py::_slice_x` (w3-a) so the window slicers share one
+    bounds rule; `block` names the caller in the refusal."""
+    L = int(ws.length)
+    span_start = int(round(float(t[0]) * float(fs))) if t is not None and len(t) else 0
+    rel = np.asarray(ws.starts, dtype=np.int64) - span_start
+    bad = np.flatnonzero((rel < 0) | (rel + L > int(n_samples)))
+    if len(bad):
+        i = int(bad[0])
+        raise ValueError(
+            f"{len(bad):,} of {len(rel):,} windows lie outside this span (window {i} covers channel samples "
+            f"{int(ws.starts[i]):,}-{int(ws.starts[i]) + L:,}; the span is {span_start:,}-"
+            f"{span_start + int(n_samples):,}, so it runs past the span): run {block} on the span its windows "
+            f"were made on")
+    return rel
 
 
 @dataclass(frozen=True, eq=False)

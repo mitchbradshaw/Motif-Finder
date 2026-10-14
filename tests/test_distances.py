@@ -1,8 +1,9 @@
 """
 test_distances.py
 ===================
-Contract tests for `Working.distances` (T35) — the three named,
-recordable-on-an-edge distance functions between two spans' shapes:
+Contract tests for `Working.distances` (T35) — the named,
+recordable-on-an-edge distance functions between two spans' shapes (three
+from T35, a fourth, MPdist, from w3-d — pinned in `test_mpdist_distance.py`):
 
   DISTANCE_SCALE_INVARIANT  resample both spans to a common length,
                             z-normalise, Euclidean. The primary distance.
@@ -35,10 +36,12 @@ if PROJECT_ROOT not in sys.path:
 import numpy as np
 
 from Working.distances import (
+    DISTANCE_MPDIST,
     DISTANCE_NATIVE_LENGTH,
     DISTANCE_REGISTRY,
     DISTANCE_SCALE_INVARIANT,
     DISTANCE_SYMBOLIC,
+    mpdist_distance,
     native_length_distance,
     scale_invariant_distance,
     symbolic_distance,
@@ -69,12 +72,15 @@ def test_named_constants_are_recorded_in_a_registry():
     assert isinstance(DISTANCE_SCALE_INVARIANT, str)
     assert isinstance(DISTANCE_SYMBOLIC, str)
     assert isinstance(DISTANCE_NATIVE_LENGTH, str)
-    names = {DISTANCE_SCALE_INVARIANT, DISTANCE_SYMBOLIC, DISTANCE_NATIVE_LENGTH}
-    assert len(names) == 3, "the three names must be distinct"
+    assert isinstance(DISTANCE_MPDIST, str)
+    # w3-d made the registry four names on purpose: MPdist is the fourth edge distance.
+    names = {DISTANCE_SCALE_INVARIANT, DISTANCE_SYMBOLIC, DISTANCE_NATIVE_LENGTH, DISTANCE_MPDIST}
+    assert len(names) == 4, "the four names must be distinct"
     assert set(DISTANCE_REGISTRY) == names
     assert DISTANCE_REGISTRY[DISTANCE_SCALE_INVARIANT] is scale_invariant_distance
     assert DISTANCE_REGISTRY[DISTANCE_SYMBOLIC] is symbolic_distance
     assert DISTANCE_REGISTRY[DISTANCE_NATIVE_LENGTH] is native_length_distance
+    assert DISTANCE_REGISTRY[DISTANCE_MPDIST] is mpdist_distance
 
 
 # -- hand-computed cases ------------------------------------------------------
