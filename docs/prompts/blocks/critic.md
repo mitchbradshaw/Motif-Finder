@@ -25,7 +25,14 @@ You are told the worktree path, the branch and the prompt file. Start with
    walk and an AR(1) with φ ≈ 0.95–0.99 — because wave 1's blockers were almost all yardsticks that assume white noise
    (`00-common.md`, "Lessons from wave 1"). For a clustering or categorising block, also run it on inputs with **no
    structure** (windows of phase-randomised noise, shuffled labels) and say what it reports there: a block that finds
-   confident families, or a high accuracy, in pure noise is a blocker. Check index conventions (SpanSet starts/ends and `*_idx`
+   confident families, or a high accuracy, in pure noise is a blocker. **Sweep every selection rule** (a knee, a number
+   of groups, a floor, a "suggested" value) **across span lengths, 12 h to 120 h,** as well as across colours — wave 2's
+   snippets knee held at 24 h and failed at 12 h and 120 h. Hundreds of null runs are cheap on a decimated proxy (0.1 Hz
+   with the real durations, which proved conservative against 1 Hz in wave 2); confirm a few at 1 Hz. Check that every
+   warning or flag reaches `meta` and the summary line, not only an internal payload (wave 2's "unstable family" flag
+   never reached the page). Time the block's `estimate` against the actual run on a realistic span, in a fresh process
+   and a warm one: an import or a JIT compile timed as work makes the bridge refuse an 8-second run. The bridge runs
+   jobs on threads: flag process-wide state (numpy's global RNG, numba's thread count) changed without a lock. Check index conventions (SpanSet starts/ends and `*_idx`
    columns span-relative; Scores one value per sample), unit handling (unit-free or stored units, as the prompt
    says; ×1000 scaling), and the drawing conventions of `BLOCK_INTEGRATION.md` §2 (a float param named `threshold`
    only where a draggable absolute cut is meant; `meta["events"]` with `onset_idx`/`trough_idx`; `meta["rules"]`).

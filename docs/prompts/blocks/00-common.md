@@ -8,6 +8,10 @@ while you work**: when the prompt leaves a choice open, make the defensible one 
 
 - You run in an **isolated git worktree** on your own branch, created from `main`. Your current directory is that
   worktree's root. Commit there. Do not push, do not merge, do not switch branches, never run `git worktree remove`.
+- **Check your base before anything else.** The worktree tool may cut your worktree from `origin/main`, which can lag
+  the local `main` by dozens of commits (wave 2's worktrees started 52 commits behind, without wave 1's blocks or the
+  prompts). Your launch message names the base commit: run `git log -1 --oneline`; if it is not that commit, run
+  `git merge --ff-only <base>` and check again before reading or writing anything.
 - Windows, Git Bash. Python is the conda base: `"/c/ProgramData/anaconda3/python.exe"`; always set
   `PYTHONIOENCODING=utf-8`. Run tests with
   `PYTHONIOENCODING=utf-8 "/c/ProgramData/anaconda3/python.exe" -m pytest <files> -q -p no:cacheprovider`.
@@ -21,7 +25,9 @@ while you work**: when the prompt leaves a choice open, make the defensible one 
   download and run other people's code. Reading papers and documentation on the web is fine.
 - Do not run the whole suite (environmental failures without `DATA/` are expected and the manager runs the full gate
   in the main checkout). Run your own tests plus `tests/test_block_standard.py tests/test_adapter_spec.py
-  tests/test_import_boundaries.py tests/test_templates.py`.
+  tests/test_import_boundaries.py tests/test_templates.py`. Tests that import FastAPI (`tests/test_webui_*`) **skip**
+  under the conda python — FastAPI lives only in the main checkout's `webui/.venv`. If your change is tested by one, say
+  so in your report so the manager runs it with that interpreter; a skipped test is not a passed one.
 
 ## Read first
 
@@ -91,6 +97,53 @@ stretches — so the sample-to-sample (first-difference) noise is 3–46× small
   data.
 - **The manager can run things on real recordings; you cannot.** Say in your report exactly what you would want
   checked on real data and why — the manager runs it.
+
+## Lessons from wave 2 (read before you design your tests)
+
+Every wave-2 block needed a fix round too. The wave-1 lesson came back in new places, and a few new ones appeared.
+The critic reports in `docs/prompts/blocks/reports/W2-*.critic.md` hold the measurements.
+
+- **No fixed yardstick, anywhere.** Every wave-2 blocker was a constant that was right at one noise colour or span
+  length and wrong at another. HDBSCAN's separation floor of 3.0: noise crowds reached 3.09 and a real noisy family
+  scored 2.47. k-Shape's `omit_d` 0.5: it never fires on the SBD scale, and coloured noise sits *closer* to a centroid
+  than noisy real members do. Snippets' knee floor of 0.25: two kinds of behaviour "found" in 12 h of pure noise, an
+  8 h regime missed in 120 h. What worked: a **colour-preserving null computed in the run** — phase-randomised copies of
+  the block's own input (each window's or the span's spectrum kept), a few seeded draws — or a cut **relative to the
+  run's own curve** (snippets now asks whether change_k stands out from the median of the changes after it, by a margin
+  that grows like √(number of pieces)). Test every selection rule (a knee, a k, a floor) **across span lengths, 12 h to
+  120 h**, as well as across colours.
+- **A warning nobody sees does not exist.** HDBSCAN's "unstable family" flag stayed in an internal payload and never
+  reached the editor, the job result or a saved grouping. Every flag goes into `meta` and the summary line, and your
+  report says where a page should show it.
+- **A count is not a result without its quality, and the quality needs its null.** `catalogue.cluster` reported
+  "3 clusters, sizes …" identically on noise and on real classes (silhouette 0.19–0.30 against 0.62). A block that
+  groups, picks a number, or scores coherence reports its quality figure *and* what noise of the same colour scores.
+- **Bookkeeping is not shape.** Identifiers, positions and the detector's own score (`train_id`, `word_id`,
+  `span_score`) rode into clustering as features. `Working/types/windowset.py::BOOKKEEPING_COLUMNS` lists the columns
+  every consumer drops; a block that adds an identifier, an index or a label column adds it there.
+- **Say exactly what an automatic value covers.** Event windows' automatic length was described as holding "the whole
+  event" but covered onset to half recovery, and the events too slow to measure (NaN durations — the longest ones)
+  silently left the median. A NaN measurement means "longer than measurable": count it; never drop it from a statistic
+  unannounced.
+- **Cost models time the work, not the import.** MiniRocket's first calibration timed aeon's import (14–45 s) and
+  estimated 6,370 s for an 8 s run — which the bridge's routing (a run over the Analyse limit is refused and written as
+  a SLURM job) would have sent to the cluster. Use `register_cost_model(name, exponent, run_once, warm_up=…)` (the
+  warm-up is not timed: imports, numba compiles), time enough work that the per-unit cost dominates, and report
+  estimate against actual on a realistic span, in a fresh process and a warm one. `estimate` sees the span and your
+  parameters, not the upstream windows: state what you assume about them.
+- **A test that cannot fail asserts nothing.** "The exemplar is one of its label's windows" was true by construction
+  (the window had been relabelled), and "merged ≤ base" passed for an implementation that ignored its parameter.
+  Assert what could go wrong, and check the test fails on a broken implementation.
+- **Read the paper's own rule even where the research file is silent.** The snippets paper does give a knee rule (k at
+  the peak of change_k); the primary-sources file had missed it. The block's different rule was better on our data,
+  but unnamed. Name every departure with the measurement that justifies it.
+- **Amplitude-blind methods cannot see quiet against active.** z-normalised comparisons (MPdist, SBD, SVD entropy) give
+  pure noise no shape of its own; say so on the face wherever a user would expect a separation.
+- **Plain accuracy misleads on imbalanced labels** (0.66 with a majority class of 0.67): report balanced accuracy
+  beside the majority baseline.
+- **The bridge runs jobs on threads.** Never change process-wide state (numpy's global RNG, numba's thread count)
+  without a lock. A first call's cost (aeon's import, a numba compile) lands on the first run in each bridge process:
+  measure it and say how long.
 
 ## Your report — your final message (do NOT write a report file)
 

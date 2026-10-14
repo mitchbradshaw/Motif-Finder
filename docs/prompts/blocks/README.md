@@ -42,3 +42,51 @@ be shown to find nothing in pure noise).
 Templates proposed: `event_clusters` (W2-A), `minirocket_manual_labels` (W2-C), `recording_snippets` (W2-D),
 `event_families` (W2-E). Each ships only if it beats its own null on real recordings; the nulls per template are in
 `W2-manager.md`.
+
+## Wave 3 — exploratory (prompts written 2026-10-14 while wave 2 was still running; not yet run)
+
+Run by a managing session from [`W3-manager.md`](W3-manager.md), the same way as waves 1 and 2. `00-common.md` and
+`critic.md` now carry wave 2's lessons as well as wave 1's.
+
+| Round | Prompt | Block(s) | Types | Paper |
+|---|---|---|---|---|
+| 1 | `W3-A-multiscale-entropy.md` | `catalogue.multiscale_entropy` | WindowSet → WindowSet | Costa, Goldberger & Peng 2005; Wu et al. 2014 |
+| 1 | `W3-B-cycle-shapes.md` | `interrogation.cycle_shapes` | SpanSet → SpanSet | Colominas & Wu 2023 (the back half) |
+| 1 | `W3-C-pan-matrix-profile.md` | `detection.pan_matrix_profile` | Signal → Encoding | Madrid et al. 2019 |
+| 2, optional | `W3-D-mpdist.md` | `mpdist`, a fourth Library distance | (Library) | Gharghabi et al. 2018 |
+| 2, optional | `W3-E-wavelet-features.md` | `catalogue.wavelet_features` | WindowSet → WindowSet | Quian Quiroga et al. 2004 (the sorter's features) |
+| 2 | `W3-F-ui.md` | cancel and progress inside a step; every costed block calibrated before routing; MSE curves, the cycle stack, pan-MP row labels, an optional scalogram with ridges; glyphs; smoke states | (UI) | — |
+
+Templates proposed: `complexity_fingerprint` (W3-A), `chain_cycles` (W3-B), `motif_lengths` (W3-C),
+`wavelet_sorted_events` (W3-E). The nulls per template are in `W3-manager.md`.
+
+**What the results so far changed in these prompts** (against plan §7.1):
+
+- **Cycle shapes takes its chains from MaxInterval at chain scale, with `noise_threshold` events, not from logISI.** The
+  2026-10-14 re-test of the researcher's known chains: logISI saw one hump and called no train on every chain;
+  MaxInterval with 1.5 h / 3 h gaps found each as one or a few trains; `noise_threshold` placed about one event per
+  drop where the drop detector under-detected and deconvolution fragmented. The numbers are in `W3-B`.
+- **Cycle shapes cuts its cycles from a side-input trace** — the detector's 600 s detrend flattens a 30–45 min climb —
+  and measures the sharkfin plateau per cycle (round B), which nothing measured.
+- **Every block that picks a number or groups things carries a colour-preserving null in the run** (wave 2: every fixed
+  floor failed at some colour or span length); SVD entropy is reported squared and unsquared, each beside its null (W2-B's
+  critic: the paper's version cannot tell one shape from a mixture at ≥ 5 % noise).
+- **The pan matrix profile's suggested window must beat its null**, never default to the shortest length, and the
+  manager re-runs FLUSS with it (FLUSS's changes sat 3–10 h from the known boundaries at 300 s).
+- **W3-F fixes two frictions found on the way:** a long step cannot be cancelled (the bridge passes no in-step cancel to
+  blocks), and only the matrix-profile cost model is calibrated before routing.
+- **Process:** worktrees are cut from `origin/main` and must be fast-forwarded to the named base (wave 2's first launch);
+  FastAPI tests skip under conda and must be run with `webui/.venv`.
+
+**Before launch — to check and adjust once both rounds of wave 2 have finished:**
+
+1. W2-B's final `svd_entropy` signature (null, squared variant, alignment rule) and whether it exported a
+   phase-randomised member helper — W3-B imports both.
+2. W2-E's category and shared clustering entry point — W3-B matches the category; W3-E's template may prefer
+   `shape_families` to `catalogue.cluster`.
+3. Which wave-2 templates shipped, and with which detector — W3-B's and W3-E's templates start from `noise_threshold`.
+4. Whether W2-D exported gap handling or a pairwise MPdist kernel — W3-C and W3-D reuse them.
+5. Whether `route_local` and `runs.py` were changed by anyone (W3-F items 1–2), and whether the detrend NaN fix merged
+   (W3-A's gap handling).
+6. Wave 2's gate: the pytest and smoke failure sets that become wave 3's baseline; any new lessons from round 2's
+   critics, for `00-common.md`.
