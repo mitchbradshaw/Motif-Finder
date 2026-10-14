@@ -160,16 +160,20 @@ def test_an_exemplar_naming_no_event_is_refused_loudly():
 
 def _pan_meta():
     lengths = [900.0, 300.0, 100.0]
-    per = [{"row": 0, "length_s": 900.0, "judged": False, "clears": False, "gap": None,
-            "reason": "too long to judge on this span: it holds 8.0 windows of this length, fewer than 14"},
-           {"row": 1, "length_s": 300.0, "judged": True, "clears": True, "gap": 9.1,
-            "reason": "gap 9.1 >= 6 and better than every draw"},
-           {"row": 2, "length_s": 100.0, "judged": True, "clears": False, "gap": 2.0, "reason": "gap 2.0 < 6"}]
+    # W3-C's final form (fix round 1, 617edc2): per-length `cut` and `reason_code`, the cleared band `cleared_s`,
+    # `suggestion_rule`, `reasons`; no `percentage` / `approximate` / `approximate_note` (scrump is gone)
+    per = [{"row": 0, "length_s": 900.0, "judged": False, "clears": False, "gap": None, "cut": None,
+            "reason_code": "too_long", "reason": "too long to judge on this span: it holds 8.0 windows of this length, fewer than 14"},
+           {"row": 1, "length_s": 300.0, "judged": True, "clears": True, "gap": 9.1, "cut": 6.4,
+            "reason_code": "clears", "reason": "gap 9.1 >= cut 6.4 and better than every draw"},
+           {"row": 2, "length_s": 100.0, "judged": True, "clears": True, "gap": 7.0, "cut": 6.2,
+            "reason_code": "clears", "reason": "gap 7.0 >= cut 6.2 and better than every draw"}]
     return {"lengths_s": lengths, "per_length": per, "suggested_window_s": 300.0, "suggested_row": 1,
-            "verdict": "300 s repeats most clearly beyond noise of the same colour (gap 9.1; 1 of 3 lengths clear the null)",
-            "rows": "long first", "alignment": "start", "approximate": True,
-            "approximate_note": "scrump with 0.25 of the distance-matrix diagonals: …",
-            "summary": "3 lengths 100–900 s · suggested 300 s", "rules": [{"name": "gap", "rule": "…"}]}
+            "cleared_s": [100.0, 300.0], "suggestion_rule": "strongest", "reasons": {"too_long": 1, "clears": 2},
+            "verdict": "clears from 100 to 300 s, strongest at 300 s (gap 9.1); suggested 300 s — 2 of 3 lengths repeat",
+            "rows": "long first", "alignment": "start", "null": "aaft", "null_draws": 3,
+            "summary": "3 lengths 100–900 s · clears from 100 to 300 s, strongest at 300 s · suggested 300 s",
+            "rules": [{"name": "gap", "rule": "…"}]}
 
 
 def test_the_pan_rows_carry_their_lengths_and_the_verdict_as_given():
@@ -179,20 +183,26 @@ def test_the_pan_rows_carry_their_lengths_and_the_verdict_as_given():
                              "source": "lengths_s"}
     rv = p["row_verdict"]
     assert rv["suggested_window_s"] == 300.0 and rv["suggested_row"] == 1
-    assert [r["clears"] for r in rv["rows"]] == [False, True, False]
+    assert [r["clears"] for r in rv["rows"]] == [False, True, True]
     assert rv["rows"][0]["judged"] is False and "too long to judge" in rv["rows"][0]["reason"]
-    assert rv["verdict"].startswith("300 s repeats") and rv["approximate_note"].startswith("scrump")
+    assert rv["rows"][1]["cut"] == 6.4 and rv["rows"][0]["reason_code"] == "too_long"
+    assert rv["cleared_s"] == [100.0, 300.0], "the band of lengths that clear, not just the one suggested"
+    assert rv["suggestion_rule"] == "strongest" and rv["reasons"] == {"too_long": 1, "clears": 2}
+    assert rv["verdict"].startswith("clears from 100 to 300 s")
+    assert "approximate_note" not in rv, "scrump is gone from W3-C: nothing approximate to say"
+    assert "not the event" in rv["caveat"], "the suggested length is never presented as the event's length"
     assert p["summary"].startswith("3 lengths"), "the block's summary reaches the face"
 
 
 def test_no_length_stands_out_ships_as_none():
     meta = _pan_meta()
-    meta.update(suggested_window_s=None, suggested_row=None, verdict="no length stands out: none of the 2 judged …")
+    meta.update(suggested_window_s=None, suggested_row=None, cleared_s=[], verdict="no length stands out: none of the 2 judged …")
     for r in meta["per_length"]:
         r["clears"] = False
     img = np.zeros((3, 500), dtype=np.float32)
     p = to_payload("encoding", Encoding(values=img, kind="image"), meta, {"fs": 1.0, "n_samples": 500})
     assert p["row_verdict"]["suggested_window_s"] is None and p["row_verdict"]["verdict"].startswith("no length")
+    assert p["row_verdict"]["cleared_s"] == []
 
 
 def test_the_wavelet_transform_rows_use_the_same_convention():

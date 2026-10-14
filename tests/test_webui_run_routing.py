@@ -361,3 +361,79 @@ def test_validate_reports_the_route_before_run(bridge):
     assert v["route"]["route"] == "cluster" and v["route"]["slowest"]["name"] == "detection.fluss"
     short = client.post("/api/chain/validate", json={"recording_id": rid, "span": [0, 20_000], "steps": FLUSS_STEPS}).json()
     assert short["route"]["route"] == "local"
+
+
+# ── W3-F fix round 1 ────────────────────────────────────────────────────────────
+
+def test_a_run_whose_cost_model_is_still_calibrating_is_refused_with_409(bridge, fake_block_cost, monkeypatch):
+    """Critic finding 5: the block page's Run was not held, and POST /api/runs then started blind after 10 s.
+    Every entry point is covered server-side: a calibrating step answers 409 in words, and no job starts."""
+    from server import chain
+    client, rt, rid, n = bridge
+    monkeypatch.setattr(chain, "CALIBRATION_WAIT_S", 0.05)
+    fake_block_cost["delay"] = 1.5
+    r = client.post("/api/runs", json={"recording_id": rid, "span": [0, 20_000], "steps": DECONV})
+    assert r.status_code == 409, r.text
+    assert "calibrating" in str(r.json()["detail"])
+    jobs = client.get("/api/runs").json()["jobs"]
+    assert not [j for j in jobs if j["status"] in ("running", "queued")]
+    assert _wait_for(lambda: chain.block_calibration_state("detection.deconvolve")["state"] == "calibrated")
+    ok = client.post("/api/runs", json={"recording_id": rid, "span": [0, 20_000], "steps": DECONV})
+    assert ok.status_code == 200, ok.text
+
+
+def test_one_slow_calibration_does_not_hold_another_model(fake_block_cost, monkeypatch):
+    """Critic finding 4: one lock for every model meant rupture's 447 s calibration held MSE and snippets."""
+    import time as _t
+    from server import chain
+    from Working import block_cost
+    monkeypatch.setitem(block_cost.MODELS, "w3f.slow_model", (1.0, lambda x, fs: None))
+    real_fake = block_cost.calibrate
+
+    def calibrate(names=None, force=False, **kw):
+        if "w3f.slow_model" in (names or []):
+            _t.sleep(3.0)
+        return real_fake(names, force, **kw)
+    monkeypatch.setattr(block_cost, "calibrate", calibrate)
+    slow = chain._ensure_block_calibration("w3f.slow_model")
+    assert slow is not None
+    _t.sleep(0.1)
+    monkeypatch.setattr(chain, "CALIBRATION_WAIT_S", 1.0)
+    out = chain.route_local(_recipe(20_000, DECONV), 20_000, 1.0, ceiling_s=900)
+    assert out["calibrating"] == [] and out["route"] == "local", \
+        "the fast model waited behind the slow one's calibration"
+    slow.join(5)
+
+
+def test_a_step_cancelled_from_inside_reads_cancelled_in_history(bridge, monkeypatch):
+    """Critic finding 3: History flags a run cancelled only when its error text starts with "Cancelled"; a block's
+    own words ("… cancelled after 3 of 55 windows") read as failed."""
+    import time as _t
+    from Adapters import registry
+    from Adapters.base import AdapterResult, AdapterSpec
+    from Working.execution import RecipeCancelled
+    from Working.types import Scores
+    client, rt, rid, n = bridge
+    ticks = []
+
+    def run(x, t, fs, should_cancel=None):
+        for i in range(400):
+            if should_cancel is not None and should_cancel():
+                raise RecipeCancelled(f"fake block stopped after {i} of 400 iterations")
+            ticks.append(i)
+            _t.sleep(0.02)
+        return AdapterResult(output_kind="scores", value=Scores(values=np.zeros(len(x)), fs=fs), meta={})
+    monkeypatch.setitem(registry._REGISTRY, "detection.w3f_history_fake", AdapterSpec(
+        name="detection.w3f_history_fake", display_name="fake", stage="detection", params=[], run=run,
+        output_kind="scores", input_kind="signal", category="detect", description="fake"))
+    steps = [{"stage": "detection", "algorithm": "w3f_history_fake", "params": {}}]
+    job = client.post("/api/runs", json={"recording_id": rid, "span": [0, 2000], "steps": steps})
+    assert job.status_code == 200, job.text
+    jid = job.json()["job_id"]
+    assert _wait_for(lambda: len(ticks) >= 3)
+    client.post(f"/api/runs/{jid}/cancel")
+    assert _wait_for(lambda: client.get(f"/api/runs/{jid}").json()["status"] != "running")
+    assert client.get(f"/api/runs/{jid}").json()["status"] == "cancelled"
+    rows = client.get("/api/runs").json()["db_runs"]
+    mine = [r for r in rows if r["steps"] == ["detection.w3f_history_fake"]]
+    assert mine and mine[0]["cancelled"] is True, mine[:1]

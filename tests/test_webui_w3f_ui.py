@@ -145,3 +145,32 @@ def test_the_smoke_manifest_has_a_state_per_wave3_drawing_and_a_cancel_state():
             assert "template-motif_lengths" not in json.dumps(s) and "template-complexity_fingerprint" not in json.dumps(s) \
                 and "template-chain_cycles" not in json.dumps(s), \
                 f"{k} clicks a wave-3 template, which is clickable only once seeded"
+
+
+# ── W3-F fix round 1 ────────────────────────────────────────────────────────────
+
+def test_the_cancel_state_runs_a_long_finely_grained_step():
+    """Critic finding 2: 2 windows of 6 h made the step 1.35 s long and the cancel a race. Hour windows over a span
+    zoomed out far enough to hold well over a hundred of them keep `step-fraction-*` alive for many seconds."""
+    st = _states()
+    cancel = next(s for k, s in st.items() if "w3-cancel" in k)
+    flat = json.dumps(cancel)
+    assert '"21600"' not in flat and '"3600"' in flat
+    zooms = sum(1 for a in cancel["actions"] if a.get("click") == "[data-testid=\"zoom-out\"]")
+    assert zooms >= 10, f"only {zooms} zoom-outs: 2 h x 1.5^{zooms} is too short a span"
+
+
+def test_the_pan_rows_show_the_cleared_band_and_never_call_the_suggestion_the_events_length():
+    enc = _src("analyse", "views", "EncodingView.tsx")
+    assert "cleared_s" in enc and 'data-testid="row-verdict-band"' in enc
+    assert "approximate_note" not in enc, "W3-C removed scrump: nothing approximate to show"
+    assert "caveat" in enc
+
+
+def test_the_runtime_checks_the_block_cost_calibration_path_at_start():
+    """Critic finding 7: redirected, but not in `_core_paths`, so the refuse-if-outside check missed it."""
+    with open(os.path.join(PROJECT_ROOT, "webui", "server", "runtime.py"), encoding="utf-8") as f:
+        src = f.read()
+    core = src[src.index("def _core_paths"):]
+    core = core[:core.index("\n    def ", 10)]
+    assert "block_cost.CALIBRATION_PATH" in core

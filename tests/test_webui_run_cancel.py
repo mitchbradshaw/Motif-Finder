@@ -224,3 +224,118 @@ def test_emit_after_the_event_loop_closed_does_not_raise(bridge_db):
     job = Job({"steps": [], "recording_id": rec["id"]}, rec, 1200)
     mgr._emit(job, {"event": "step_done", "step": 0})       # used to raise RuntimeError: Event loop is closed
     assert job.events and job.events[-1]["event"] == "step_done"
+
+
+# ── W3-F fix round 1 ────────────────────────────────────────────────────────────
+# Critic finding 1 (blocker): a null draw cancelled mid-step kept its runs row with surrogate_of_run_id NULL, so
+# `not_surrogate()` read it as a real run and the spans its detector step had already written as real detections.
+# Critic finding 3: a step cancelled from inside stored its block's own words ("… cancelled after 3 of 55 windows"),
+# which History (`error_text.startswith("Cancelled")`) read as a failure.
+
+SPANS = "detection.w3f_fake_spans"
+SLOW_SS = "interrogation.w3f_fake_slow_spans"
+N_SPANS = 3
+
+
+def _fake_spans(x, t, fs):
+    from Working.types import SpanSet
+    return AdapterResult(output_kind="spanset", value=SpanSet(starts=(10, 400, 900), ends=(40, 450, 960)), meta={})
+
+
+def _fake_slow_spans(x, t, fs, n_iter=N_ITER, value=None, should_cancel=None, on_progress=None):
+    call = PROBE.begin()
+    for i in range(int(n_iter)):
+        if should_cancel is not None and should_cancel():
+            raise RecipeCancelled(f"{SLOW_SS}: stopped at iteration {i}")   # a block's own words, not "Cancelled…"
+        PROBE.tick(call, i)
+        time.sleep(TICK_S)
+    return AdapterResult(output_kind="spanset", value=value, meta={})
+
+
+@pytest.fixture
+def fake_detector_chain(monkeypatch):
+    a = AdapterSpec(name=SPANS, display_name="Fake spans", stage="detection", params=[], run=_fake_spans,
+                    output_kind="spanset", input_kind="signal", category="detect", description="three spans")
+    b = AdapterSpec(name=SLOW_SS, display_name="Fake slow spans", stage="interrogation",
+                    params=[ParamSpec("n_iter", int, N_ITER, "iterations", min=1, max=10_000)], run=_fake_slow_spans,
+                    output_kind="spanset", input_kind="spanset", category="detect", description="slow, cancellable")
+    monkeypatch.setitem(registry._REGISTRY, SPANS, a)
+    monkeypatch.setitem(registry._REGISTRY, SLOW_SS, b)
+    PROBE.calls.clear()
+
+
+def _detector_recipe(rid, n_iter=N_ITER):
+    from server import chain as chain_mod
+    return chain_mod.build_recipe(rid, (0, 2000), [
+        {"stage": "detection", "algorithm": "w3f_fake_spans", "params": {}},
+        {"stage": "interrogation", "algorithm": "w3f_fake_slow_spans", "params": {"n_iter": n_iter}}])
+
+
+def _real_detections(db):
+    from Working.database.queries import not_surrogate
+    from Working.database.schema import init_db
+    conn = init_db(db)
+    try:
+        return conn.execute("SELECT COUNT(*) FROM detections d JOIN runs r ON r.id = d.run_id WHERE "
+                            + not_surrogate("r")).fetchone()[0]
+    finally:
+        conn.close()
+
+
+def test_a_draw_cancelled_mid_step_is_linked_to_its_run_and_leaks_no_detection(fake_detector_chain, bridge_db):
+    """The core, directly: draw_paired_null with should_cancel firing inside the draw's slow step."""
+    from Working import run_groups
+    from Working.database.schema import init_db
+    from Working.execution import execute_recipe
+    db, rec = bridge_db
+    recipe = _detector_recipe(rec["id"], n_iter=3)
+    real = execute_recipe(recipe, db_path=db, force=True)
+    assert _real_detections(db) == N_SPANS
+    PROBE.calls.clear()
+    flag = {"stop": False}
+
+    def stop():
+        if PROBE.calls and len(PROBE.calls[0]) >= 2:
+            flag["stop"] = True
+        return flag["stop"]
+    out = run_groups.draw_paired_null(recipe, real["run_id"], db_path=db, draws=2, should_cancel=stop,
+                                      should_cancel_draws=stop, run_kwargs={"should_cancel": stop})
+    assert out["draws"] == 0
+    assert _real_detections(db) == N_SPANS, "the cancelled draw's spans were counted as real detections"
+    conn = init_db(db)
+    try:
+        rows = conn.execute("SELECT id, surrogate_of_run_id FROM runs WHERE id != ?", (real["run_id"],)).fetchall()
+    finally:
+        conn.close()
+    assert rows and all(r["surrogate_of_run_id"] == real["run_id"] for r in rows), \
+        "the partial draw's run row is not linked to the run it is the null of"
+
+
+def test_recipe_cancelled_carries_the_run_id_and_the_row_reads_cancelled(fake_block, bridge_db):
+    from Working.database.schema import init_db
+    from Working.execution import execute_recipe
+    db, rec = bridge_db
+    with pytest.raises(RecipeCancelled) as err:
+        execute_recipe(_recipe(rec["id"]), db_path=db, force=True,
+                       run_kwargs={"should_cancel": lambda: bool(PROBE.calls and len(PROBE.calls[0]) >= 2)})
+    run_id = getattr(err.value, "run_id", None)
+    assert run_id is not None, "RecipeCancelled does not say which run row it stopped"
+    conn = init_db(db)
+    try:
+        text = conn.execute("SELECT error_text FROM runs WHERE id = ?", (run_id,)).fetchone()[0]
+    finally:
+        conn.close()
+    assert text.startswith("Cancelled"), f"History reads this as a failure: {text!r}"
+    assert "w3f_fake_slow" in text, "the block's own words are kept after the prefix"
+
+
+def test_the_run_manager_cancelling_a_draw_leaks_no_detection(fake_detector_chain, bridge_db):
+    db, rec = bridge_db
+    recipe = _detector_recipe(rec["id"], n_iter=40)
+    mgr = _manager(db)
+    job = mgr.start(recipe, rec, null={"params": {"method": "phase_randomize", "seed": 0}, "draws": 3})
+    assert _wait(lambda: len(PROBE.calls) >= 2 and len(PROBE.calls[1]) >= 3, timeout=40), "the first draw never ran"
+    assert mgr.cancel(job)
+    assert _wait(lambda: job.status != "running", timeout=40)
+    assert job.status == "completed"
+    assert _real_detections(db) == N_SPANS
