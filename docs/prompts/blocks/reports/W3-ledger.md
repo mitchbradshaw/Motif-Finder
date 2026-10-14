@@ -21,7 +21,7 @@ fixers in `isolation: worktree`; critics read the implementer's worktree and nev
 | 7 | critic | W3-B | `a5f632b4352ec10f8` | (reads row 2's worktree) | — | `01cb8c3` | launched 22:52; reported 23:15: **merge after fixes** (3 blockers, 6 should-fix, 3 nits) → `W3-B-cycle-shapes.critic.md` |
 | 2a | fixer (row 2 resumed) | W3-B fix round 1 | `a7834e530174e1643` | row 2's | row 2's | `01cb8c3` | sent 23:17 (decision 13); stopped ~00:3x (API limit), resumed 02:01; reported 02:3x (`af4a8cf`) → `W3-B-cycle-shapes.fix1.md` |
 | 7a | re-critic (row 7 resumed) | W3-B fix round 1, changed parts only (`b94881b..af4a8cf`) | `a5f632b4352ec10f8` | row 2's | — | — | launched 02:37; reported 02:48: **merge after fixes** (B1–B3 hold; S-A, S-B should-fix) → `W3-B-cycle-shapes.critic2.md` |
-| 2b | fixer (row 2 resumed) | W3-B fix round 2 (the last) | `a7834e530174e1643` | row 2's | row 2's | `01cb8c3` | sent 02:48 (decisions 17–18) |
+| 2b | fixer (row 2 resumed) | W3-B fix round 2 (the last) | `a7834e530174e1643` | row 2's | row 2's | `01cb8c3` | sent 02:48; reported 03:28 (`bc2c0b1`) → `W3-B-cycle-shapes.fix2.md`; **merged as `4ab274d`** |
 | 3 | implementer | W3-C `detection.pan_matrix_profile` | `aeeb2080e0967a2d2` | `.claude/worktrees/agent-aeeb2080e0967a2d2` | `worktree-agent-aeeb2080e0967a2d2` | `01cb8c3` | launched 21:26; reported 23:04 (`925056a`, 99 min) → `W3-C-pan-matrix-profile.md` |
 | 8 | critic | W3-C | `ad8d8aad71e6d533b` | (reads row 3's worktree) | — | `01cb8c3` | launched 23:06, seven manager questions |
 | 4 | implementer | W3-D `mpdist` (fourth Library distance) | `a5a78efe8b36c0a92` | `.claude/worktrees/agent-a5a78efe8b36c0a92` | `worktree-agent-a5a78efe8b36c0a92` | `64db0da` | launched 21:30, early (decision 4; cut at `3cc2f62`, at `64db0da` by 21:31); reported 22:39 (`c88a236`, 68 min) → `W3-D-mpdist.md` |
@@ -252,6 +252,9 @@ instead of it.
   (3, 23:2x) When a span holds several sequences (trains), **its verdict is its largest sequence's** (most cycles
   used); the others are reported. The app's phase-randomised null is run through the template on 5 draws as the
   further floor (events and cycles found).
+  (4, 03:3x, before any data) A span whose block reports `tested: False` for the whole stack — a background that fell
+  back, or **`background_colour_mismatch`** (W3-B fix round 2: the margins differ in colour from the noise under the
+  chain) — is **"untested"**, no verdict; the reason is reported.
 - 23:2x — the readout session: all its smoke checks done, bridges 8797/8798 stopped; re-run alone, Interrogation,
   Explore, Library and Models pass; Settings, Review and Seed sources fail identically on the pre-change code
   (`64db0da`) — load or walk-order artifacts. My agents stay at ≤ 4 workers each (four agents share 16 cores).
@@ -356,6 +359,17 @@ instead of it.
   detection-overlap share. A 2,000-member Family page: 23–40 s cold (32 s without the background: the members' own
   coherence dominates), ~0.95 s cached. Reviewed by the manager; no blocker was raised, so no re-critique. Merges after
   W3-B's final branch (its base holds W3-B at `b94881b`).
+- 03:28 — **W3-B fix round 2 reported** (red `f39ff2d`: 5 failed → green `bc2c0b1`; 365 passed, 7 skipped; the
+  block's 4 files 216 s) → `W3-B-cycle-shapes.fix2.md`: the colour check (σ² against 20 per-cycle phase copies;
+  mixed-colour noise flagged 10/10 and K = 1 10/10; real two-shape chains K = 2 in 24/24, not flagged on mixed colour,
+  σ² beats the copies at z 17–51), **K gated on both nulls**; an unmarked key needs eq. 17 and σ² both; the rules
+  text corrected; the power given up named; the 1,000-cycle test dropped (size pinned by the multi-seed test). One new
+  conservative false alarm: a real two-shape chain on a slow-drift background at 30 % noise keyed `~untested` (2 of
+  2) — never a false pass. This was the last fix round the brief allows; S-A and S-B were the re-critique's only
+  should-fixes, and both are done, so it merges (decision 19).
+- 03:29 — **merged W3-B as `4ab274d`**: conflicts in `BOOKKEEPING_COLUMNS`, the `BOOK` pin and the adapter count,
+  each resolved by keeping both sides (count 56). Integration: `COSTED` gains `interrogation.cycle_shapes`;
+  `test_end_to_end`'s module count 56. Post-merge tests running.
 
 ## Decisions taken on the researcher's behalf
 
@@ -429,6 +443,11 @@ instead of it.
 18. **A cycle group's key is unmarked only when eq. 17 AND σ² both beat the background null** (refines decision 2:
     eq. 17 stays in the verdict and σ² is added, so it is never looser). Reason: the one stationary false pass in 76
     passed eq. 17 but not σ²; it is also the evaluation's own rule.
+19. **W3-B merges after its second (last) fix round without a third critique.** Reason: the re-critique's verdict
+    was "merge after fixes" with two should-fixes and no blocker; both are done test-first with before → after
+    measurements; the one new behaviour (a conservative `~untested` on a slow-drift background at 30 % noise) can
+    only withhold a verdict, never give a false one. The real-recording evaluation reads the block's own `tested`,
+    `fallback_share` and `background_colour_mismatch` before any number.
 3. **The Library side of decision 4 is folded into round 2**: W3-G puts σ² first in `shape_families`' summary lines and
    the coherence payload it returns, and measures both variants' verdicts against the quiet-stretch null (the verdict
    stays on eq. 17 unless the researcher moves it); W3-F puts σ² first on the Family page and the families table.
