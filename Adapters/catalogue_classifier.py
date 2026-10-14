@@ -121,7 +121,17 @@ def _feature_matrix(window_set, grouping):
     import numpy as np
     keep = np.asarray(labels) >= 0
     n_excluded = int((~keep).sum())
-    if n_excluded:
+    # w3-a fix round 1: a window whose features are ALL blank once the bookkeeping columns are
+    # dropped (a feature block left it out: a gap, a flat window) is never imputed, fitted or
+    # scored. Counted apart from the Grouping's own exclusions.
+    empty = features.isna().all(axis=1).to_numpy()
+    n_no_features = int((empty & keep).sum())
+    if empty.all():
+        raise ValueError(
+            f"catalogue.classifier: every one of the {len(empty):,} windows has no features (all blank): the "
+            "step before left them all out — see its meta for why.")
+    keep = keep & ~empty
+    if n_excluded or n_no_features:
         features = features.loc[keep].reset_index(drop=True)
         labels = np.asarray(labels)[keep]
 
@@ -142,7 +152,7 @@ def _feature_matrix(window_set, grouping):
             f"{preprocessed.n_samples_dropped} window(s), so the remaining rows no "
             "longer line up with the Grouping's labels."
         )
-    return preprocessed, labels, n_classes, n_excluded
+    return preprocessed, labels, n_classes, n_excluded, n_no_features
 
 
 def _split(X, labels, holdout_frac, random_state):
@@ -224,7 +234,7 @@ def _run(x, t, fs, n_estimators=300, class_weight="balanced", holdout_frac=0.25,
     from sklearn.feature_selection import VarianceThreshold
     from sklearn.pipeline import make_pipeline
 
-    preprocessed, labels, n_classes, n_excluded = _feature_matrix(windows, value)
+    preprocessed, labels, n_classes, n_excluded, n_no_features = _feature_matrix(windows, value)
     params = {
         "n_estimators": n_estimators,
         "class_weight": class_weight,
@@ -287,6 +297,16 @@ def _run(x, t, fs, n_estimators=300, class_weight="balanced", holdout_frac=0.25,
                 f"{n_excluded:,} of {int(windows.n_windows):,} windows were excluded by the Grouping "
                 "(label -1: unlabelled, conflicting, artifact or dropped for overlap) and not trained on"
                 if n_excluded else None),
+            # windows with no features at all (all blank: left out upstream), never fitted or scored
+            "n_no_features": n_no_features,
+            "no_features_reason": (
+                f"{n_no_features:,} of {int(windows.n_windows):,} windows have no features (every feature blank: "
+                "the step before left them out) and were neither trained on nor scored"
+                if n_no_features else None),
+            "summary": (f"trained on {int(len(labels)):,} of {int(windows.n_windows):,} windows"
+                        + (f" · {n_excluded:,} excluded by the Grouping" if n_excluded else "")
+                        + (f" · {n_no_features:,} of {int(windows.n_windows):,} with no features left out"
+                           if n_no_features else "")),
             "n_classes": int(n_classes),
             "class_counts": {
                 int(label): int(count)

@@ -153,7 +153,8 @@ def test_the_plan_counts_the_null_draws_and_routes_on_the_total(db):
 
 def test_every_method_on_offer_is_one_the_block_runs():
     offered = ss.offered_methods()
-    assert [m["id"] for m in offered] == ["phase_randomize", "block_shuffle"]
+    # w3-a fix round 1 added "aaft" to the block deliberately (manager decision 8): Settings offers it
+    assert [m["id"] for m in offered] == ["phase_randomize", "block_shuffle", "aaft"]
     choices = next(p for p in get_adapter("preprocessing.surrogate").params if p.name == "method").choices
     assert [m["id"] for m in offered] == list(choices)
     for m in offered:
