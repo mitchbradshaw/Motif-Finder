@@ -74,8 +74,53 @@ def test_alignment_lowers_it_for_shifted_copies():
     aligned = svd_entropy(shifted)
     assert aligned["aligned"] and not raw["aligned"]
     assert aligned["svd_entropy_norm"] < raw["svd_entropy_norm"] - 0.2, (raw, aligned)
-    assert 0.5 <= aligned["overlap"] < 1.0, "aligned rows are cut to the span they all cover"
-    assert "cut to" in aligned["rule"]
+    # fix round 1: each shifted row is padded with its own edge value, never cut
+    assert aligned["padding"] == "edge" and "edge value" in aligned["rule"]
+    assert aligned["n_misaligned"] == 0, "no shift here exceeds a quarter of the length"
+
+
+def test_a_few_stragglers_do_not_decide_the_alignment_for_the_family():
+    """Critic finding 4: under the old cut-to-common-span rule, 3 noise members
+    in 63 dropped the kept span under half and the score jumped 0.39 -> 0.55.
+    With edge padding a straggler costs about its own share."""
+    from _shape_families import drop, member
+    rng = np.random.default_rng(9)
+    family = [member(drop, rng, noise=0.02, kind="ar1_095", max_shift=0.2) for _ in range(60)]
+    base = svd_entropy(family)["svd_entropy_norm"]
+    strays = [background(150, "ar1_095", rng) for _ in range(3)]
+    with_strays = svd_entropy(family + strays)["svd_entropy_norm"]
+    assert with_strays - base < 0.08, (base, with_strays)
+
+
+def test_a_member_shifted_more_than_a_quarter_of_the_length_is_counted_misaligned():
+    rng = np.random.default_rng(10)
+    rows = _members(_bump, 20, rng, noise=0.01)
+    rows.append(_bump(0.12) + 0.01 * rng.normal(size=T.size))      # 0.38 of the length off
+    out = svd_entropy(rows, medoid=0)
+    assert out["n_misaligned"] == 1
+
+
+def test_the_score_comes_with_its_own_noise_null_and_the_squared_variant():
+    """Critic finding 5: beside eq. 17, the same score on 5 phase-randomised
+    surrogates of the members ("noise like these members' scores X"), the
+    sigma^2-weighted variant, and the sigma^2 share of the main component."""
+    rng = np.random.default_rng(11)
+    copies = _members(_bump, 40, rng, noise=0.01, kind="ar1_095")
+    c = svd_entropy(copies)
+    assert c["null_draws"] == 5
+    assert c["svd_entropy_norm"] < c["null_p05"] <= c["null_median"], c
+    noise = [background(150, "ar1_095", rng) for _ in range(40)]
+    n = svd_entropy(noise)
+    assert n["svd_entropy_norm"] > n["null_p05"] - 0.05, "noise scores like its own surrogates"
+    for out in (c, n):
+        assert 0.0 <= out["svd_entropy_squared_norm"] <= 1.0
+        assert out["null_squared_median"] is not None
+    noisy_copies = _members(_bump, 40, rng, noise=0.05, kind="ar1_095")
+    noisy_mix = noisy_copies[:20] + _members(_wavelet, 20, rng, noise=0.05, kind="ar1_095")
+    assert (svd_entropy(noisy_mix)["svd_entropy_squared_norm"]
+            > svd_entropy(noisy_copies)["svd_entropy_squared_norm"] + 0.03)
+    again = svd_entropy(copies)
+    assert again["null_median"] == c["null_median"], "the null is seeded"
 
 
 def test_amplitude_does_not_enter():
@@ -96,10 +141,14 @@ def test_it_is_eq_17_unsquared_with_the_stated_normalisation():
     H = -(p * np.log(p)).sum()
     assert out["svd_entropy"] == pytest.approx(H, rel=1e-9)
     assert out["svd_entropy_norm"] == pytest.approx(H / np.log(min(20, 256)), rel=1e-9)
-    assert out["top_share"] == pytest.approx(p[0])
     assert "not squared" in out["rule"] and out["squared"] is False
-    sq = svd_entropy(rows, align=False, squared=True)
     q = sigma ** 2 / (sigma ** 2).sum()
+    # fix round 1: top_share is the sigma^2 share of the main component, and says so
+    assert out["top_share"] == pytest.approx(q[0])
+    assert "sigma^2" in out["top_share_is"]
+    assert out["svd_entropy_squared_norm"] == pytest.approx(
+        -(q * np.log(q)).sum() / np.log(min(20, 256)), rel=1e-9)
+    sq = svd_entropy(rows, align=False, squared=True)
     assert sq["svd_entropy"] == pytest.approx(-(q * np.log(q)).sum(), rel=1e-9)
     assert "SQUARED" in sq["rule"]
 
