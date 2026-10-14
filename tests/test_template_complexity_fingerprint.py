@@ -17,7 +17,7 @@ curve by under 0.03 nats at every defined scale; under a drift 40x the signal's 
 collapses towards 0 and is flagged. 6 h behaved the same on the stationary signal (< 0.02) but left
 0.7-1.1 nats of that drift in; 1 h was within 0.015 of both. Of the three, 2 h is the one that keeps
 the most room above the defined scales while still removing the drift. A random-walk-like channel
-keeps wandering under any detrend: the guard then flags its 1-2 s scales (see the core's tests).
+keeps wandering under any detrend: the guard then flags its 1 s scale (see the core's tests).
 
 Why 72 h windows: a scale of s seconds needs 1,000 averaged points, so a 72 h window at 1 Hz reaches
 ~4 min; it also gives exactly one curve for each 73 h S. commune recording. A recording shorter than

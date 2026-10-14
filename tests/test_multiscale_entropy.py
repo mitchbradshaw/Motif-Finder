@@ -212,7 +212,7 @@ def test_collapse_guard_fires_with_sd_on_a_drifting_window_not_with_mad_detrende
 
 def test_a_detrended_random_walk_collapses_only_at_the_smallest_scales():
     """Named departure from the acceptance list: a random walk detrended over 2 h still wanders by
-    many times its step, so r (from its spread) is several steps wide and the 1-2 s scales collapse.
+    many times its step, so r (from its spread) is about 4 steps wide and the 1 s scale collapses.
     The guard says so; from 13 s up it is quiet."""
     n = DAY
     d = DETREND(np.cumsum(np.random.default_rng(5).standard_normal(n)))

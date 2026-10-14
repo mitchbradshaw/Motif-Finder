@@ -38,7 +38,8 @@ What this block adds around it, and why
   windows sit on many channels of many recordings and can never be sliced from
   one `x`. Otherwise the window is `x[start - round(t[0] * fs) : ... + length]`
   (`WindowSet.starts` are channel-absolute; `catalogue.window_images` does the
-  same subtraction inline, so there is no slicing helper to import). A pool
+  same subtraction inline; since w3-a the bounds rule is the shared
+  `Working.types.windowset.span_relative_starts`). A pool
   without a `shape_file` is refused, naming Trace shape as the fix.
 * **Fit on the training windows only** (the leakage rule `catalogue.classifier`
   and the Trace-shape/pool split already follow): the rows whose `split` is
@@ -206,17 +207,10 @@ def _read_shape_file(ws):
 def _slice_x(ws, x, t, fs):
     if x is None:
         raise ValueError("MiniRocket slices its windows from the signal, and no signal was given")
+    from Working.types.windowset import span_relative_starts   # the bounds rule, shared since w3-a
     x = np.asarray(x, dtype=float)
     L = int(ws.length)
-    span_start = int(round(float(t[0]) * float(fs))) if t is not None and len(t) else 0
-    rel = np.asarray(ws.starts, dtype=np.int64) - span_start
-    bad = np.flatnonzero((rel < 0) | (rel + L > len(x)))
-    if len(bad):
-        i = int(bad[0])
-        raise ValueError(
-            f"{len(bad):,} of {len(rel):,} windows lie outside this span (window {i} covers channel samples "
-            f"{int(ws.starts[i]):,}-{int(ws.starts[i]) + L:,}; the span is {span_start:,}-{span_start + len(x):,}, "
-            f"so it runs past the span): run MiniRocket on the span its windows were made on")
+    rel = span_relative_starts(ws, len(x), t, fs, block="MiniRocket")
     idx = rel[:, None] + np.arange(L)[None, :]
     return x[idx]
 

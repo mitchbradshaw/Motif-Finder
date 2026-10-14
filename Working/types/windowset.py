@@ -43,9 +43,33 @@ _FEATURES_FILENAME = "features.parquet"
 #:                      `interrogation.event_families`): a label
 #: Measurements (intervals, Event-shape measures) are NOT here: they stay features, and
 #: `catalogue.cluster`'s meta names the columns it actually used (`feature_names`).
+#:   mse_n_scales, mse_n_collapsed
+#:                    - how many scales a multiscale-entropy curve has defined, and how many its
+#:                      collapse guard flagged (`catalogue.multiscale_entropy`): the estimate's
+#:                      quality, not the signal's shape
 BOOKKEEPING_COLUMNS = ("split", "event_index", "anchor_offset", "overlaps_next", "train_id", "word_id",
                        "span_score", "family", "family_omit_reason", "family_distance", "family_noise_like",
-                       "group_upstream")
+                       "group_upstream", "mse_n_scales", "mse_n_collapsed")
+
+
+def span_relative_starts(ws, n_samples, t, fs, block="this block"):
+    """Each window's start as an index into the span's `x` (`WindowSet.starts` are channel-absolute;
+    the span's offset is `round(t[0] * fs)`), refusing in words any window that runs outside the span.
+
+    Promoted from `Working/Catalogue/minirocket.py::_slice_x` (w3-a) so the window slicers share one
+    bounds rule; `block` names the caller in the refusal."""
+    L = int(ws.length)
+    span_start = int(round(float(t[0]) * float(fs))) if t is not None and len(t) else 0
+    rel = np.asarray(ws.starts, dtype=np.int64) - span_start
+    bad = np.flatnonzero((rel < 0) | (rel + L > int(n_samples)))
+    if len(bad):
+        i = int(bad[0])
+        raise ValueError(
+            f"{len(bad):,} of {len(rel):,} windows lie outside this span (window {i} covers channel samples "
+            f"{int(ws.starts[i]):,}-{int(ws.starts[i]) + L:,}; the span is {span_start:,}-"
+            f"{span_start + int(n_samples):,}, so it runs past the span): run {block} on the span its windows "
+            f"were made on")
+    return rel
 
 
 @dataclass(frozen=True, eq=False)
