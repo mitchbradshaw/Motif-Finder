@@ -1028,3 +1028,182 @@ def test_a_named_dataset_is_called_by_its_name_and_keyed_as_before(bridge):
     member = _ok(client.get("/api/library/family/F-01"))["detail"]["members"][0]
     assert member["recording"] == "M2 August"
     assert member["recordingKey"] == "M2_aug_fs1" and member["recordingFile"] == "M2_aug_concat_fs1.mat"
+
+
+# ── w2-b: the family's SVD-entropy coherence ───────────────────────────────
+
+def test_family_detail_carries_its_svd_entropy_coherence(bridge):
+    """`_family_detail` gains `coherence` from `Working.library.coherence.svd_entropy`,
+    computed over the family's members read off their own spans."""
+    import server.library as lib
+    lib._COHERENCE_CACHE.clear()
+    client, _ = bridge
+    detail = _ok(client.get("/api/library/family/F-01"))["detail"]
+    coh = detail["coherence"]
+    assert "error" not in coh, coh
+    assert coh["n_members"] == len(detail["members"]) == 2
+    assert coh["n_used"] == 2 and coh["aligned"] is True
+    assert coh["svd_entropy"] is not None and 0.0 <= coh["svd_entropy_norm"] <= 1.0
+    assert coh["rule"] and "SVD entropy" in coh["rule"]
+    assert coh["notOnDisk"] == 0
+    # cached: a second read is the same dict without recomputing
+    assert _ok(client.get("/api/library/family/F-01"))["detail"]["coherence"] == coh
+
+
+def test_a_coherence_failure_is_an_error_card_not_a_blank(bridge, monkeypatch):
+    import server.library as lib
+    from Working.library import coherence
+    lib._COHERENCE_CACHE.clear()
+
+    def boom(*a, **k):
+        raise RuntimeError("synthetic failure")
+    monkeypatch.setattr(coherence, "svd_entropy", boom)
+    client, _ = bridge
+    detail = _ok(client.get("/api/library/family/F-01"))["detail"]
+    assert detail["coherence"]["error"] == "RuntimeError: synthetic failure"
+    assert detail["coherence"]["rule"]
+    assert detail["members"], "the rest of the family still renders"
+    lib._COHERENCE_CACHE.clear()
+
+
+# ── w2-b fix round 1: the null's verdict reaches the editor and is saved ────
+
+def _run_job(client, body):
+    job_id = _ok(client.post("/api/library/groupings/run", json=body))["job_id"]
+    for _ in range(1200):
+        snap = _ok(client.get(f"/api/jobs/{job_id}"))
+        if snap["status"] in ("completed", "failed", "cancelled"):
+            break
+        time.sleep(0.05)
+    assert snap["status"] == "completed", snap.get("error") or snap
+    return snap["result"]
+
+
+def test_a_regroup_result_carries_the_fit_summary_and_each_familys_flags(bridge):
+    client, _ = bridge
+    result = _run_job(client, {"unit": "motifs", "basis": "shape-distance", "method": "ward",
+                               "params": {"cut": 0.6, "min_group": 2}})
+    assert isinstance(result["fitSummary"], dict)
+    assert result["families"], "the job lists its families"
+    for fam in result["families"]:
+        assert {"label", "size", "flags"} <= set(fam)
+        assert {"noise_like", "unstable", "why", "tested"} <= set(fam["flags"])
+
+
+def test_a_saved_grouping_round_trips_its_fit_summary(bridge):
+    client, ctx = bridge
+    summary = {"null": {"kind": "phase-randomised", "draws": 3}, "family_flags": {
+        "F-01": {"noise_like": True, "unstable": True, "why": "no better than noise", "tested": True}}}
+    saved = _ok(client.post("/api/library/groupings", json={
+        "unit": "motifs", "basis": "shape-distance", "method": "hdbscan", "params": {},
+        "name": "with a null", "fit_summary": summary,
+        "assignments": [{"ref": ctx["members"][0], "contentHash": "hash0", "familyId": 1,
+                         "familyLabel": "F-01", "distance": 0.1, "isMedoid": True}]}))
+    assert saved["fitSummary"] == summary
+    again = next(g for g in _ok(client.get("/api/library/groupings")) if g["id"] == saved["id"])
+    assert again["fitSummary"] == summary
+    plain = _ok(client.post("/api/library/groupings", json={
+        "unit": "motifs", "basis": "amplitude", "method": "feature_bins", "params": {},
+        "assignments": []}))
+    assert plain["fitSummary"] is None, "a grouping saved without one says so, not {}"
+
+
+def test_a_grouping_too_costly_to_run_here_is_refused_before_it_starts(bridge):
+    """The estimate comes BEFORE the job (critic finding 3): over the local
+    limit the route answers 422 with the estimate and cheaper settings, and
+    no job is started. There is no cluster script for groupings."""
+    client, _ = bridge
+    before = _ok(client.get("/api/jobs"))
+    r = client.post("/api/library/groupings/run", json={
+        "unit": "motifs", "basis": "shape-distance", "method": "kshape",
+        "params": {"k": 0, "n_init": 10_000_000}})
+    assert r.status_code == 422, r.text[:300]
+    detail = r.json()["detail"]
+    assert detail["estimateSeconds"] > detail["localLimitSeconds"]
+    assert "no cluster script" in detail["message"]
+    assert detail["cheaper"], "the refusal names settings that would fit"
+    after = _ok(client.get("/api/jobs"))
+    assert len(after) == len(before), "no job was started"
+
+
+# ── w2-b fix round 1, item 7: `_family_coherence` ─────────────────────────
+
+def _coherence_index(tmp_path, held=False):
+    t = np.arange(2000.0)
+    path = tmp_path / "coh.npy"
+    np.save(path, (np.sin(t / 30.0) + 0.01 * np.cos(t / 3.0)).astype(np.float32))
+    index = {"by_id": {1: {"npy_path": str(path), "held_out": False},
+                       2: {"npy_path": str(path), "held_out": True}}}
+    return index, path
+
+
+def _rows(spans, medoid=None, exemplar=None):
+    return [{"recording_id": rid, "start_idx": a, "end_idx": a + 90, "member_id": i + 1,
+             "is_medoid": i == medoid, "is_exemplar": i == exemplar, "distance": 0.1 * (i + 1)}
+            for i, (rid, a) in enumerate(spans)]
+
+
+def _counting(monkeypatch):
+    from Working.library import coherence
+    calls = []
+    real = coherence.svd_entropy
+
+    def spy(*a, **k):
+        calls.append(k)
+        return real(*a, **k)
+    monkeypatch.setattr(coherence, "svd_entropy", spy)
+    return calls
+
+
+def test_the_coherence_cache_is_real_and_keyed_on_the_files_mtime(tmp_path, monkeypatch):
+    import server.library as lib
+    lib._COHERENCE_CACHE.clear()
+    calls = _counting(monkeypatch)
+    index, path = _coherence_index(tmp_path)
+    rows = _rows([(1, 100), (1, 290), (1, 480)], medoid=0)
+    first = lib._family_coherence(index, rows)
+    second = lib._family_coherence(index, rows)
+    assert len(calls) == 1 and second is first, "the second read is the cache"
+    # the channel is re-derived (a new mtime; on Windows the memmapped file cannot be
+    # rewritten under the open map, so the test moves only the mtime) -> recomputed
+    os.utime(path, ns=(time.time_ns(), time.time_ns() + 10 ** 9))
+    third = lib._family_coherence(index, rows)
+    assert len(calls) == 2 and third is not first
+    lib._COHERENCE_CACHE.clear()
+
+
+def test_held_out_members_are_counted_not_dropped_in_silence(tmp_path, monkeypatch):
+    import server.library as lib
+    lib._COHERENCE_CACHE.clear()
+    index, _ = _coherence_index(tmp_path)
+    out = lib._family_coherence(index, _rows([(1, 100), (1, 290), (2, 480)], medoid=0))
+    assert out["heldOut"] == 1 and out["n_members"] == 2 and out["notOnDisk"] == 0
+    lib._COHERENCE_CACHE.clear()
+
+
+def test_no_medoid_search_runs_inside_the_request(tmp_path, monkeypatch):
+    """A P^2 medoid search was 10 s at 2,000 members inside a GET: with no
+    medoid among the shown rows the exemplar anchors, else the row of least
+    stored distance."""
+    import server.library as lib
+    lib._COHERENCE_CACHE.clear()
+    calls = _counting(monkeypatch)
+    index, _ = _coherence_index(tmp_path)
+    lib._family_coherence(index, _rows([(1, 100), (1, 290), (1, 480)], exemplar=2))
+    assert calls[-1]["medoid"] == 2
+    lib._COHERENCE_CACHE.clear()
+    lib._family_coherence(index, _rows([(1, 100), (1, 290), (1, 480)]))
+    assert calls[-1]["medoid"] == 0, "least stored distance"
+    lib._COHERENCE_CACHE.clear()
+
+
+def test_a_one_member_family_says_why_in_words_and_carries_the_null(tmp_path):
+    import server.library as lib
+    lib._COHERENCE_CACHE.clear()
+    index, _ = _coherence_index(tmp_path)
+    one = lib._family_coherence(index, _rows([(1, 100)], medoid=0))
+    assert one["svd_entropy"] is None and isinstance(one["reason"], str) and one["reason"]
+    lib._COHERENCE_CACHE.clear()
+    many = lib._family_coherence(index, _rows([(1, 100), (1, 290), (1, 480), (1, 670)], medoid=0))
+    assert many["null_median"] is not None and many["svd_entropy_squared_norm"] is not None
+    lib._COHERENCE_CACHE.clear()

@@ -492,14 +492,49 @@ does exactly this). An item carries `member_ref`, `content_hash`, and whatever t
 for a distance basis, `gap_profile` for sequence similarity, `tags` or `recording_id` for a label basis.
 
 `GroupingResult` carries one `Assignment` per input item **in input order, including the omitted ones** —
-spec §8.2's rule that what does not fit is flagged and never dropped. Omission reasons are `past_cut`,
-`outside_bins`, `group_too_small`, `no_label` and `not_in_a_sequence`.
+spec §8.2's rule that what does not fit is flagged and never dropped. There are eight omission reasons
+(`engine.py` lists each with its meaning): spec §8.2's `past_cut`, `outside_bins`, `group_too_small`,
+`no_label` and `not_in_a_sequence`, and w2-b's `not_in_a_dense_family` (HDBSCAN's noise),
+`infinite_values` and `missing_values` (a waveform with an inf, or a NaN or no samples, has no shape).
 
-### 6.1 The three basis kinds, and the three methods
+`GroupingResult` also carries **`fit_summary`** — the method's own account of the fit: which rows were
+fitted and which assigned, the k rule and every k's score, and the surrogate null — and each `Family`
+carries **`flags`** `{noise_like, unstable, tested, why}` (plus the method's numbers). A method with no null
+reports `tested: false`, so no page reads an absent test as a pass. Both are JSON-safe; the regroup job
+returns them (`fitSummary`, `families[].flags`) and a saved grouping keeps the summary in
+`groupings.fit_summary_json`.
+
+**The surrogate null** (`kshape`, `hdbscan`, and the coherence score). Coloured noise crowds: a window of
+AR(1) or random-walk background is mostly a slow curve, so a clustering method finds "families" in pure
+noise, and no fixed threshold separates them from real ones. Each family is therefore measured against
+seeded surrogates of its own members — noise of the same colour with the shape destroyed:
+
+- **HDBSCAN** (fix round 2): per family, d_F = the members' median normalised SBD to the family's medoid;
+  p05 = the 5th percentile of the same distance for 3 draws of **trend-kept** surrogates of the family's own
+  members (`kshape.trend_kept_surrogates`: a cubic trend kept per row, the residual phase-randomised); the
+  family is confident iff d_F < 0.9 × p05 (`NULL_MARGIN`, a placeholder). The flags report
+  `median_distance`, `null_p05`, `ratio`, `margin`; separation and fitted size are reported, not deciders.
+  Round 1's rule (re-cluster the surrogates, beat their largest separation and size) failed both ways,
+  because plain phase randomisation turns a trend into a wiggle and the fake noise crowds less than real
+  noise.
+- **k-Shape**: the automatic `omit_d` (the default, 0) is per family the 5th percentile of plain
+  phase-randomised surrogates' distance to its centroid; members beyond it are `past_cut`, and a family
+  whose members' median distance is not below it is `noise_like`. It keeps plain phase surrogates — it
+  passed every critic case, and switching would move every omission threshold.
+- **Coherence** (`Working/library/coherence.py`): `null_median` / `null_p05` are the score on trend-kept
+  surrogates of the members.
+
+The trend is a cubic rather than a line because a line, measured, left one pure-noise HDBSCAN family
+confident (ratio 0.85) and pure AR(1) noise "more coherent than noise" (0.801 against a null p05 of
+0.817); the measurement is in the code beside `TREND_DEGREE`. Families are flagged, never dissolved.
+
+### 6.1 The three basis kinds, and the methods
 
 | basis kind | bases | method | where groups come from |
 |---|---|---|---|
 | distance | `shape-distance`, `sequence-similarity` | `ward` | a cut on a linkage tree |
+| distance | `shape-distance` | `kshape` | k centroids under the shape-based distance (shift-invariant); k chosen by silhouette when 0 |
+| distance | `shape-distance` | `hdbscan` | dense crowds under the shape-based distance; stragglers `not_in_a_dense_family` |
 | feature bins, no distance | `amplitude`, `timescale`, `frequency-content`, `polarity` | `feature_bins` | bins on one feature — quantiles, log-spaced or fixed edges |
 | labels | `tag`, `provenance` | `labels` | one group per label |
 
@@ -533,6 +568,17 @@ hidden.
    caller loads, not to the method.
 8. **Check the recipe hash changes** when your parameters change — it is what tells two saved groupings
    apart, and spec §8.2's whole point is that two threshold choices that look alike must not be confused.
+9. **Estimate your cost**: `estimate(n, params, basis=None) -> seconds`, from coefficients you measured and
+   state in the module. The engine's `_recompute_cost(n, basis, method, params)` uses it, and the bridge
+   asks *before* starting a regroup job: over `LOCAL_LIMIT_SECONDS` (15 min) it refuses with 422, the
+   estimate and `cheaper(n, params)`'s settings that would fit. There is no cluster script for groupings.
+   If a fit has expensive steps (starts, draws), accept `should_cancel` in `fit` and raise
+   `engine.GroupingCancelled` between them.
+10. **Say whether a family is real.** If the method can be fooled by noise, put `payload["family_flags"]`
+    (by family id) and `payload["fit_summary"]` on the fit; the engine carries them to the result. If it
+    cannot test, say nothing and the engine marks its families `tested: false`.
+11. **Do not borrow the tree cut.** The engine passes the editor's `cut` to every `assign`; a method with
+    no tree ignores it and names its own threshold differently (`omit_d`, HDBSCAN's `epsilon`).
 
 ### 6.3 Choosing a cut is a measurement, not a constant
 

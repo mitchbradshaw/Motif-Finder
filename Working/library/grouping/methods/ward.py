@@ -211,6 +211,14 @@ class WardMethod:
         fit.family_labels = {f: f"F-{k + 1:02d}" for k, f in enumerate(families)}
         return out
 
+    # ----------------------------------------------------------- estimate
+
+    def estimate(self, n, params, basis=None):
+        """The engine's original formula, unchanged: n^2/2 pairs at
+        `SECONDS_PER_PAIR` (the sequence basis's own rate) plus a per-item cost."""
+        from Working.library.grouping.engine import _formula_seconds
+        return _formula_seconds(n, basis or "shape-distance")
+
     # ------------------------------------------------------------- medoid
 
     def medoid(self, fit, indices):

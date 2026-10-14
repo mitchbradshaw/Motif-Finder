@@ -26,16 +26,25 @@ chosen basis needs:
 
 What does not fit (spec 8.2)
 ----------------------------
-Five reasons, and **every one of them flags, never deletes** — an omitted
+Eight reasons, and **every one of them flags, never deletes** — an omitted
 item comes back in `assignments` with `family_id = None` and its reason, and
 again in `omitted`, because the Library lists them in a strip under the atlas
 with *Show omitted* and *Send omitted to Review as a queue*.
 
-    outside_bins        outside every bin of a feature-bin basis
-    past_cut            nearest family further than `omit_d` (spec 9.10: 0.50)
-    group_too_small     in a group under `min_group` (spec 9.10: 10)
-    not_in_a_sequence   a single motif, when the unit is `sequences`
-    no_label            no label, on a label basis
+    outside_bins           outside every bin of a feature-bin basis
+    past_cut               nearest family further than `omit_d` (spec 9.10: 0.50)
+    group_too_small        in a group under `min_group` (spec 9.10: 10)
+    not_in_a_sequence      a single motif, when the unit is `sequences`
+    no_label               no label, on a label basis
+    not_in_a_dense_family  HDBSCAN found no crowd of shapes this one belongs to
+                           (its noise label, -1): a straggler, not a family member
+    infinite_values        the waveform holds a +-inf, so it has no shape to compare
+                           (HDBSCAN's -2; k-Shape screens it out the same way)
+    missing_values         the waveform holds a NaN or no samples at all
+                           (HDBSCAN's -3; k-Shape screens it out the same way)
+
+The first five are spec 8.2's; the last three came with the density and
+shape-based methods (w2-b).
 
 `min_group` is applied here rather than inside each method, so the rule is
 stated once and every method obeys the same one. `omit_d` belongs to the
@@ -53,13 +62,17 @@ from Working.recipes import recipe_hash
 DEFAULT_MIN_GROUP = 10
 DEFAULT_OMIT_D = 0.50
 
-# The five omission reasons of spec 8.2, as `grouping_assignments.omit_reason`
-# spells them (LIBRARY_STORAGE.md 3.3).
+# The omission reasons, as `grouping_assignments.omit_reason` spells them
+# (LIBRARY_STORAGE.md 3.3): spec 8.2's five, then w2-b's three.
 OMIT_OUTSIDE_BINS = "outside_bins"
 OMIT_PAST_CUT = "past_cut"
 OMIT_GROUP_TOO_SMALL = "group_too_small"
 OMIT_NOT_IN_A_SEQUENCE = "not_in_a_sequence"
 OMIT_NO_LABEL = "no_label"
+# w2-b: the density method's noise, and the two rows no shape method can read.
+OMIT_NOT_IN_A_DENSE_FAMILY = "not_in_a_dense_family"
+OMIT_INFINITE_VALUES = "infinite_values"
+OMIT_MISSING_VALUES = "missing_values"
 
 # Recompute-cost constants. The spec gives no formula and the prototype's
 # minute counts are fixtures, so these are measured-order-of-magnitude
@@ -81,6 +94,10 @@ class Family:
     members: list
     medoid: object = None
     medoid_distance: float = 0.0
+    # w2-b fix round 1: did this family beat the method's surrogate null?
+    # `{"noise_like", "unstable", "why", "tested"}` (+ the method's numbers);
+    # a method with no null says so (`tested: False`) rather than staying silent.
+    flags: dict = field(default_factory=dict)
 
     @property
     def size(self):
@@ -113,6 +130,11 @@ class GroupingResult:
     assignments: list = field(default_factory=list)
     merge_heights: list = field(default_factory=list)
     recipe_hash: str = ""
+    # w2-b fix round 1: the method's own account of the fit — which rows were
+    # fitted and which assigned, the k rule and scores, the surrogate null —
+    # plus `family_flags` by label. JSON-safe: it is saved as
+    # `groupings.fit_summary_json`.
+    fit_summary: dict = field(default_factory=dict)
 
     @property
     def omitted(self):
@@ -231,8 +253,25 @@ def _validate(unit, basis, method_name):
     return method
 
 
-def run_grouping(items, *, unit, basis, method, params=None):
+class GroupingCancelled(Exception):
+    """Raised by a method between its starts or null draws when the caller's
+    `should_cancel()` returns true; the regroup job turns it into a cancel."""
+
+
+def _accepts_cancel(method):
+    import inspect
+    try:
+        return "should_cancel" in inspect.signature(method.fit).parameters
+    except (TypeError, ValueError):
+        return False
+
+
+def run_grouping(items, *, unit, basis, method, params=None, should_cancel=None):
     """Group `items` and return a `GroupingResult`.
+
+    `should_cancel`, a no-argument callable, is handed to a method whose `fit`
+    accepts it (k-Shape checks it between starts and candidate k, HDBSCAN
+    between null draws); it raises `GroupingCancelled`.
 
     `items` are plain dicts (see the module docstring for the keys). The
     result carries one `Assignment` per input item in input order — including
@@ -265,11 +304,16 @@ def run_grouping(items, *, unit, basis, method, params=None):
         assignments[index].omit_reason = reason
 
     if taking_part:
-        fit = method.fit(_extract([items[i] for i in taking_part], basis, params),
-                         params=params)
+        fit_kwargs = {"params": params}
+        if should_cancel is not None and _accepts_cancel(method):
+            fit_kwargs["should_cancel"] = should_cancel
+        fit = method.fit(_extract([items[i] for i in taking_part], basis, params), **fit_kwargs)
         assign_kwargs = {"cut": params.get("cut")}
         if "omit_d" in method.params:
-            assign_kwargs["omit_d"] = params.get("omit_d", DEFAULT_OMIT_D)
+            # the method's own default: Ward's is spec 9.10's 0.50, k-Shape's is
+            # 0 = automatic (its surrogate null), which a 0.50 here would overrule
+            assign_kwargs["omit_d"] = params.get(
+                "omit_d", method.params["omit_d"].get("default", DEFAULT_OMIT_D))
         families = method.assign(fit, **assign_kwargs)
 
         for row, index in enumerate(taking_part):
@@ -284,6 +328,7 @@ def run_grouping(items, *, unit, basis, method, params=None):
 
         result.merge_heights = list(method.merge_heights(fit))
         _build_families(result, assignments, taking_part, fit, method, params)
+        _attach_flags(result, fit, method_name)
 
     result.assignments = assignments
     return result
@@ -331,6 +376,45 @@ def _build_families(result, assignments, taking_part, fit, method, params):
         result.families.append(family)
 
 
+def untested_flags(method_name):
+    """The flags of a family whose method draws no null: not noise-like, but
+    explicitly not tested, so no page reads the absence as a pass."""
+    return {"noise_like": False, "unstable": False, "tested": False,
+            "why": f"not tested: the {method_name} method has no null to compare a family with"}
+
+
+def json_safe(value):
+    """numpy scalars and arrays -> plain Python, recursively; dict keys -> str;
+    a NaN or an infinity -> None (JSON has neither)."""
+    import numpy as np
+    if isinstance(value, dict):
+        return {str(k): json_safe(v) for k, v in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [json_safe(v) for v in value]
+    if isinstance(value, np.ndarray):
+        return json_safe(value.tolist())
+    if isinstance(value, np.bool_):
+        return bool(value)
+    if isinstance(value, np.integer):
+        return int(value)
+    if isinstance(value, (float, np.floating)):
+        v = float(value)
+        return v if np.isfinite(v) else None
+    return value
+
+
+def _attach_flags(result, fit, method_name):
+    """Each family's flags from the method's `payload["family_flags"]` (keyed
+    by family id), and the method's `payload["fit_summary"]` on the result,
+    with the surviving families' flags by label beside it."""
+    by_id = fit.payload.get("family_flags") or {}
+    for family in result.families:
+        family.flags = json_safe(by_id.get(family.id) or untested_flags(method_name))
+    summary = json_safe(fit.payload.get("fit_summary") or {})
+    summary["family_flags"] = {f.label: f.flags for f in result.families}
+    result.fit_summary = summary
+
+
 def _sort_key(family_id):
     """Family ids are integers for every registered method, but a future
     method could name its families; sort numerically when we can and by text
@@ -343,23 +427,63 @@ def _sort_key(family_id):
 # preview
 # --------------------------------------------------------------------------
 
-def _recompute_cost(n, basis):
-    """An estimate of what applying this grouping costs, for the preview's
-    `recompute` line and for the editor's decision to offer a cluster script
-    instead of running it locally. Deliberately crude and deliberately
-    visible: the spec gives no cost model, so this one is stated here rather
-    than hidden behind a fixture."""
-    kind = bases.BASES[basis][0]
+def _formula_seconds(n, basis):
+    """The original, method-blind formula: a distance basis is quadratic in
+    the member count, a bin or a label linear. Ward's `estimate` is this, and
+    it is the fallback for a method that carries no `estimate`."""
+    kind = bases.BASES[basis][0] if basis in bases.BASES else "distance"
     if kind == "distance":
         per_pair = (SECONDS_PER_PAIR_SEQUENCE if basis == "sequence-similarity"
                     else SECONDS_PER_PAIR)
-        seconds = n * (n - 1) / 2.0 * per_pair + n * SECONDS_PER_ITEM
-    else:
-        seconds = n * SECONDS_PER_ITEM
-    seconds = max(seconds, 1.0e-3)
+        return n * (n - 1) / 2.0 * per_pair + n * SECONDS_PER_ITEM
+    return n * SECONDS_PER_ITEM
+
+
+def estimate_seconds(n, basis, method=None, params=None):
+    """Seconds this grouping would take on this machine, from the method's own
+    `estimate(n, params, basis=...)` when it has one (fix round 1: k-Shape and
+    HDBSCAN cost nothing like n^2 x 2 us), else from the formula."""
+    params = dict(params or {})
+    if method is not None:
+        m = method_registry.get(method) if isinstance(method, str) else method
+        if hasattr(m, "estimate"):
+            full = {**{k: spec["default"] for k, spec in m.params.items()}, **params}
+            return float(m.estimate(int(n), full, basis=basis))
+    return float(_formula_seconds(int(n), basis))
+
+
+def _recompute_cost(n, basis, method=None, params=None):
+    """An estimate of what applying this grouping costs, for the preview's
+    `recompute` line and for the bridge's decision to run it here at all.
+    `method` and `params` make it the method's own estimate; without them it
+    is the original formula. Deliberately visible: the coefficients are stated
+    in each method module, measured on this machine."""
+    seconds = max(estimate_seconds(n, basis, method, params), 1.0e-3)
     return {"seconds": float(seconds),
             "minutes": float(seconds / 60.0),
             "where": "local" if seconds <= LOCAL_LIMIT_SECONDS else "cluster"}
+
+
+def cheaper_settings(n, basis, method, params=None):
+    """Settings for the same method that the estimate says would run within
+    `LOCAL_LIMIT_SECONDS` — what a refusal offers instead. Each is
+    `{"change": words, "params": the full params, "seconds": estimate}`,
+    slowest first — the offer that gives up the least of what was asked for
+    comes first. A method lists its candidates in `cheaper(n, params)`; one
+    that lists none gets only a smaller-`sample` offer when it takes a
+    sample."""
+    params = dict(params or {})
+    m = method_registry.get(method) if isinstance(method, str) else method
+    candidates = list(m.cheaper(n, params)) if hasattr(m, "cheaper") else []
+    if not candidates and "sample" in m.params:
+        candidates = [("fit on 2,000 members, assign the rest", {"sample": 2000})]
+    out = []
+    for change, update in candidates:
+        trial = {**params, **update}
+        seconds = estimate_seconds(n, basis, m, trial)
+        if seconds <= LOCAL_LIMIT_SECONDS:
+            out.append({"change": change, "params": trial, "seconds": float(seconds)})
+    return sorted(out, key=lambda o: -o["seconds"])
 
 
 def _hand_edit_outcome(hand_edits, result):
@@ -384,19 +508,19 @@ def _hand_edit_outcome(hand_edits, result):
     }
 
 
-def preview(items, *, unit, basis, method, params=None, hand_edits=None):
+def preview(items, *, unit, basis, method, params=None, hand_edits=None, should_cancel=None):
     """Run the grouping without writing anything, and report what spec 8.2's
     preview panel shows: groups, members, omitted, recompute cost, and what
     happens to hand edits. The `GroupingResult` travels on the preview so the
     caller that decides to apply does not have to recompute it."""
     result = run_grouping(items, unit=unit, basis=basis, method=method,
-                          params=params)
+                          params=params, should_cancel=should_cancel)
     return GroupingPreview(
         n_groups=result.n_families,
         n_members=result.n_assigned,
         n_omitted=result.n_omitted,
         omitted_by_reason=result.omitted_by_reason,
-        recompute=_recompute_cost(len(result.assignments), basis),
+        recompute=_recompute_cost(len(result.assignments), basis, method, params),
         hand_edits=_hand_edit_outcome(hand_edits, result),
         recipe_hash=result.recipe_hash,
         result=result,
