@@ -16,7 +16,8 @@ fixers in `isolation: worktree`; critics read the implementer's worktree and nev
 |---|---|---|---|---|---|---|---|
 | 1 | implementer | W3-A `catalogue.multiscale_entropy` | `a67442d9e04015d6a` | `.claude/worktrees/agent-a67442d9e04015d6a` | `worktree-agent-a67442d9e04015d6a` | `01cb8c3` | launched 21:26; reported 22:00 (`99b043f`, 33 min) → `W3-A-multiscale-entropy.md` |
 | 5 | critic | W3-A | `a03f242747d328696` | (reads row 1's worktree) | — | `01cb8c3` | launched 22:01, seven manager questions |
-| 2 | implementer | W3-B `interrogation.cycle_shapes` + `Working/background_null.py` | `a7834e530174e1643` | `.claude/worktrees/agent-a7834e530174e1643` | `worktree-agent-a7834e530174e1643` | `01cb8c3` | launched 21:26 (worktree at `01cb8c3`, clean, 21:26) |
+| 2 | implementer | W3-B `interrogation.cycle_shapes` + `Working/background_null.py` | `a7834e530174e1643` | `.claude/worktrees/agent-a7834e530174e1643` | `worktree-agent-a7834e530174e1643` | `01cb8c3` | launched 21:26; reported 22:49 (`b94881b`, 83 min) → `W3-B-cycle-shapes.md` |
+| 7 | critic | W3-B | `a5f632b4352ec10f8` | (reads row 2's worktree) | — | `01cb8c3` | launched 22:52, eight manager questions |
 | 3 | implementer | W3-C `detection.pan_matrix_profile` | `aeeb2080e0967a2d2` | `.claude/worktrees/agent-aeeb2080e0967a2d2` | `worktree-agent-aeeb2080e0967a2d2` | `01cb8c3` | launched 21:26 (worktree at `01cb8c3`, clean, 21:26) |
 | 4 | implementer | W3-D `mpdist` (fourth Library distance) | `a5a78efe8b36c0a92` | `.claude/worktrees/agent-a5a78efe8b36c0a92` | `worktree-agent-a5a78efe8b36c0a92` | `64db0da` | launched 21:30, early (decision 4; cut at `3cc2f62`, at `64db0da` by 21:31); reported 22:39 (`c88a236`, 68 min) → `W3-D-mpdist.md` |
 | 6 | critic | W3-D | `a380d497100469282` | (reads row 4's worktree) | — | `64db0da` | launched 22:42, seven manager questions |
@@ -164,6 +165,20 @@ instead of it.
   families' members against their medoids (the brief's fallback). 22:42 — critic launched (row 6): fidelity, the
   per-pair null, `within` on the face, latency of the stumpy compile in the bridge, refusals at real proportions,
   the 5 % percentage, scope.
+- 22:49 — **W3-B reported** (2 commits on `01cb8c3`; 387 tests green; 83 min) → `W3-B-cycle-shapes.md`. Points to judge:
+  **SigClust rejected "one Gaussian" on every synthetic set, pure noise included**, so the implementer added a second
+  gate (the split must also beat uniform samples along its own direction) and chose K by bisection (Kimes et al. 2017)
+  rather than Calinski–Harabasz; the verdict became "eq. 17 below every background draw AND > 3 robust SDs below
+  their median" (the Library's 0.9 × p05 failed a clean chain at z = 19: cycle eq. 17 sits at 0.86–0.96); where the
+  two variants disagree, **eq. 17 fails two-shape chains at 50 % noise that σ² passes** (z 0.9 / 1.4 vs 4.6 / 7.2;
+  never the reverse) — the re-measure decision 4 waits for; the background null avoids only the detector's event
+  spans, so on a dense chain cycle-length windows rarely fit and fall back to random cuts ("phase-locked vs random
+  phase"); out of scope: `SideInputSpec.required` in `Adapters/base.py` and unbound optional side inputs skipped in
+  `Working/side_inputs.py` (needed for "unbound → cut from x"); six `BOOKKEEPING_COLUMNS` names, not two; the test file
+  takes ~6 min under load. 22:52 — critic launched (row 7), eight questions: the mode gate's size/power and direction
+  selection, SigClust on noise, the verdict rule and the per-draw values the evaluation needs, the background null on
+  dense chains, the side-input contract, the gap/split rule under real jitter, the template at realistic size, scope
+  and test cost.
 
 ## Decisions taken on the researcher's behalf
 
