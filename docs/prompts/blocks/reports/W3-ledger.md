@@ -583,6 +583,13 @@ instead of it.
   gains one sentence on what the band did here. Found on the way: chain_cycles' shipped-template test failed when run
   alone (`server` not importable; 6f07cff passed only beside `test_templates`) — fixed by putting webui on its path
   (`eef63e7`).
+- 07:34 — W3-C's post-merge set on `e068669`: **304 passed** (25 min at `-n 3` beside the evaluation). W3-F dry run
+  clean (35 files) → **W3-F merged as `8186e97`**. 07:35 — the FLUSS piece started on the merged main (decision 26,
+  8 numba threads, its own sandbox). No bridge listens on 87xx (the researcher's 8765 is down), but the gate's client
+  build goes to a private directory all the same (`vite build --outDir <scratch>/dist_w3gate`), served to my sandbox
+  bridge with `--dist`: `npx tsc -b` exit 0, the build exit 0. The UI tests with the venv python started beside the
+  FLUSS run; the conda `pytest -n 4` waits for FLUSS to finish (the timing tests fail under load), the smoke for
+  pytest.
 - 03:5x — **W3-C critic: merge after fixes, three blockers.** F1: plain phase surrogates are biased here too
   (exp(AR) noise got a suggestion 10/10; AAFT 1/10 → 0/10 at 20 draws, keeping planted-motif power) → the 03:55
   correction; F2: one null draw gives 1.2–5.8 % false suggestions at 1 Hz, three gave 0 in 544 spans, the false
