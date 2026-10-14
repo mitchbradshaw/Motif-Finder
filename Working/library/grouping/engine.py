@@ -258,15 +258,15 @@ class GroupingCancelled(Exception):
     `should_cancel()` returns true; the regroup job turns it into a cancel."""
 
 
-def _accepts_cancel(method):
+def _accepts_cancel(method, name="should_cancel"):
     import inspect
     try:
-        return "should_cancel" in inspect.signature(method.fit).parameters
+        return name in inspect.signature(method.fit).parameters
     except (TypeError, ValueError):
         return False
 
 
-def run_grouping(items, *, unit, basis, method, params=None, should_cancel=None):
+def run_grouping(items, *, unit, basis, method, params=None, should_cancel=None, background=None):
     """Group `items` and return a `GroupingResult`.
 
     `should_cancel`, a no-argument callable, is handed to a method whose `fit`
@@ -277,6 +277,12 @@ def run_grouping(items, *, unit, basis, method, params=None, should_cancel=None)
     result carries one `Assignment` per input item in input order — including
     the omitted ones, which is spec 8.2's rule that what does not fit is
     flagged rather than dropped.
+
+    `background` (w3-g), optional: a `Working.background_null.MemberBackground`
+    over `items` (same order) — the caller's loader of each member's own
+    recording, so the engine stays free of file paths. A method whose `fit`
+    accepts it draws its quiet-stretch null from it; it is not part of the
+    recipe hash (it is where the data lives, not a setting).
     """
     params = dict(params or {})
     method_name = method
@@ -307,6 +313,8 @@ def run_grouping(items, *, unit, basis, method, params=None, should_cancel=None)
         fit_kwargs = {"params": params}
         if should_cancel is not None and _accepts_cancel(method):
             fit_kwargs["should_cancel"] = should_cancel
+        if background is not None and _accepts_cancel(method, "background"):
+            fit_kwargs["background"] = background.subset(taking_part)
         fit = method.fit(_extract([items[i] for i in taking_part], basis, params), **fit_kwargs)
         assign_kwargs = {"cut": params.get("cut")}
         if "omit_d" in method.params:
@@ -508,13 +516,13 @@ def _hand_edit_outcome(hand_edits, result):
     }
 
 
-def preview(items, *, unit, basis, method, params=None, hand_edits=None, should_cancel=None):
+def preview(items, *, unit, basis, method, params=None, hand_edits=None, should_cancel=None, background=None):
     """Run the grouping without writing anything, and report what spec 8.2's
     preview panel shows: groups, members, omitted, recompute cost, and what
     happens to hand edits. The `GroupingResult` travels on the preview so the
     caller that decides to apply does not have to recompute it."""
     result = run_grouping(items, unit=unit, basis=basis, method=method,
-                          params=params, should_cancel=should_cancel)
+                          params=params, should_cancel=should_cancel, background=background)
     return GroupingPreview(
         n_groups=result.n_families,
         n_members=result.n_assigned,

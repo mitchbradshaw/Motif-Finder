@@ -84,7 +84,7 @@ def common_params(exclude=()):
         ParamSpec("method", str, SF.DEFAULT_METHOD,
                   "How families are made — the Library's methods for shape: hdbscan (crowds of similar shapes; "
                   "stragglers left out; no number of families to choose), kshape (k families compared after sliding "
-                  "one shape along the other; its noise null is not trusted, so no family is called confident), "
+                  "one shape along the other), "
                   "ward (a tree cut at a distance; every event placed, no noise test: untested)",
                   choices=[m for m in SF.shape_methods() if m not in exclude]),
         ParamSpec("seed", int, 0, "Seed of each family's SVD-entropy noise draws (the method's own seed is its "
@@ -149,15 +149,25 @@ def _run(x, t, fs, method=SF.DEFAULT_METHOD, seed=0, value=None, **flat):
     span_start = int(round(float(t[0]) * fs)) if t is not None and len(t) else 0
     has_shape = ws.features is not None and "shape_file" in ws.features.columns and n > 0
     inside = np.ones(n, dtype=bool)
+    background, background_note = None, None
     if has_shape:
         waves = _vectors_from_shape_file(ws)
         vectors_from = "shape_file"
+        # w3-g: a quiet window cut from x would not go through Trace shape's preparation (its alignment, noise floor
+        # and detrend), so it would not be noise *like these vectors*: the trend-kept null judges, and says so
+        background_note = ("the windows' vectors came from Trace shape, whose preparation (alignment, noise floor, "
+                           "detrend) a quiet window cut from the trace would not go through")
     else:
         rel = np.asarray(ws.starts, dtype=np.int64) - span_start
         inside = (rel >= 0) & (rel + int(ws.length) <= len(x))
         waves = list(EW.cut(x, rel[inside], ws.length))
         vectors_from = "x"
-    fam = SF.shape_families(waves, method=method, params=SF.method_params(method, flat), seed=seed)
+        # w3-g: the quiet-stretch null from the chain's own trace, outside every window of the set
+        avoid = [(int(s), int(s) + int(ws.length)) for s in rel]
+        background = SF.span_background(x, fs, rel[inside], ws.length, avoid, seed=seed,
+                                        avoid_words="every window of the set")
+    fam = SF.shape_families(waves, method=method, params=SF.method_params(method, flat), seed=seed,
+                            background=background, background_note=background_note)
     labels = np.full(n, -1, dtype=np.int64)
     labels[inside] = fam.labels
     win_of = np.flatnonzero(inside)
@@ -198,9 +208,11 @@ SPEC = register(AdapterSpec(
     description=(
         "Sorts windows into families of similar shape with the Library's own methods — the same code the Library's "
         "grouping editor runs, so a family here means what a family there means. Amplitude does not enter: every "
-        "window is resampled and z-normalised. Each family carries the method's noise flag (is it better than "
-        "phase-randomised noise of the same colour?) and its SVD entropy (how far its members are copies of one "
-        "shape) beside what noise scores; windows in no family are -1 with their reason. Choose the method first; "
+        "window is resampled and z-normalised. Each family carries the method's noise flag (is it better than the "
+        "recording's own quiet stretches — windows cut where no window of the set lies — or, where too little quiet "
+        "signal is left, trend-kept noise of the same colour?) and its SVD entropy (how far its members are copies "
+        "of one shape) beside what that noise scores; windows in no family are -1 with their reason. Choose the "
+        "method first; "
         "for hdbscan tune hdbscan_min_cluster_size, for kshape set kshape_k. Put Event windows before it."
     ),
 ))

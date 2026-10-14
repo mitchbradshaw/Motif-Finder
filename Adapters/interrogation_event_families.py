@@ -47,11 +47,14 @@ auto length), both placeholders until checked on real recordings, both measured.
   the floor or ceiling, more than a quarter of windows overlapping the next, more than
   a quarter ending before their recovery.
 
-**k-Shape is not offered here.** Its families become Intervals keys, and its null (W2-B's
-plain phase-randomised one) left unflagged families in pure random-walk events (132 +
-108 members at n = 1,000, the W2-E critic): `SF.EVENT_FAMILIES_EXCLUDED`. The follow-up
-is a trend-kept k-Shape null in the Library methods; `catalogue.shape_families` keeps
-k-Shape but calls none of its families confident.
+**The noise test (w3-g).** Each family is judged against the span's own quiet stretches:
+windows of the event-window length cut where no event span and no cut window lies
+(`SF.span_background`), wherever at least half the members got one — a smooth hump or
+ramp no longer reads noise-like just because it is smooth. Where the chain fills the span
+(fewer than 20 window-lengths of quiet signal) the trend-kept null judges, and the family's
+`null_kind`, `why` and a warning say so. k-Shape is offered again: with its trend-kept and
+quiet-stretch nulls it flagged every family on cut events of pure coloured noise at the
+defaults (`SF.UNTRUSTED_NULLS`'s note).
 """
 
 import time
@@ -201,10 +204,11 @@ SPEC = register(AdapterSpec(
         "Sorts the events into families of similar shape with the Library's own methods (a window around each "
         "event, resampled and z-normalised, so amplitude does not enter) and writes each event's family onto it — "
         "and, by default, as its group, so Intervals after this block gives each family its own rhythm. Each "
-        "family carries the method's noise flag (better than phase-randomised noise of the same colour?) and its "
+        "family carries the method's noise flag (better than the recording's own quiet stretches?) and its "
         "SVD entropy beside what noise scores; events in no family are -1 with their reason. Read a family's "
         "noise flag before its rhythm: an Intervals key marked ~noise_like or ~untested is not a family rhythm. "
-        "Tune the method's minimum family size first (hdbscan_min_cluster_size). k-Shape is not offered here: its "
-        "noise test missed crowds of pure random-walk events. Put Event shape before it."
+        "The noise is the span's own quiet stretches (where no event lies) whenever the chain leaves enough of "
+        "them; otherwise trend-kept copies of the members, and the family says so. "
+        "Tune the method's minimum family size first (hdbscan_min_cluster_size). Put Event shape before it."
     ),
 ))
