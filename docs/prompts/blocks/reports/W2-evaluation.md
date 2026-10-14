@@ -352,3 +352,26 @@ the copies are grouped by the same code. 20 draws, seeds 0–19.
 **Ship rule.** The template ships only if it beats on **both**. With two fresh spans, the brief's 2 of 3 cannot be
 met, so 2 of 2 is the strict reading. The earlier spans are reported under the new statistic for information only:
 they were seen before it was chosen.
+
+### `event_families` re-test — the result (run after the declaration, `8324d3d`)
+
+Run on main (`8324d3d`) in a sandbox copy, with the shipped template from `webui/server/templates.py`. Script:
+`eval_families_retest.py` (session scratchpad).
+
+| Span (events) | Families | In passing families, real (null max) | Median SVD entropy of passing families, real (null min) | Beats? |
+|---|---|---|---|---|
+| **rec 543** · L_LM_Jul_26_J · 370–490 h at 10 Hz (176) — fresh | none | 0 (0.11; 5 of 20 draws had a passing family) | — (0.71) | **no** |
+| **rec 2** · M2_aug · 294–304 h (13) — fresh | none | 0 (0) | — | **no** |
+| rec 6 · 370–470 h (115) — earlier, information only | 2 (53, 13) | 0.57 (0.12) | 0.33 (0.74) | yes |
+| rec 542 · 370–490 h (163) — earlier, information only | 2 (131, 11) | 0.87 (0) | 0.79 (no passing null family) | yes |
+| rec 3 · 490–540 h (116) — earlier, information only | none | 0 (0.11) | — (0.85) | no |
+
+**Verdict: `event_families` stays EXPERIMENTAL.** It beats on 0 of the 2 fresh spans:
+- **rec 543** is the sister channel of rec 542, the one span where the template did well. HDBSCAN places none of its
+  176 events, while scrambled copies of the same events formed small families that passed their noise test in 5 of
+  20 draws.
+- **rec 2** has too few events (13) to make a family.
+
+The new statistic does what it was chosen to do on the earlier spans, where the noise crowds stop counting. But on
+fresh chains the template mostly finds nothing to count. What it finds is specific to a recording, not a property
+of drop chains in general. The block's description stands.
