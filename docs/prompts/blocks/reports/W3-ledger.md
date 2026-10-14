@@ -25,7 +25,8 @@ fixers in `isolation: worktree`; critics read the implementer's worktree and nev
 | 4 | implementer | W3-D `mpdist` (fourth Library distance) | `a5a78efe8b36c0a92` | `.claude/worktrees/agent-a5a78efe8b36c0a92` | `worktree-agent-a5a78efe8b36c0a92` | `64db0da` | launched 21:30, early (decision 4; cut at `3cc2f62`, at `64db0da` by 21:31); reported 22:39 (`c88a236`, 68 min) → `W3-D-mpdist.md` |
 | 6 | critic | W3-D | `a380d497100469282` | (reads row 4's worktree) | — | `64db0da` | launched 22:42; reported 23:02: **merge after fixes** (4 should-fix, 4 nits; arithmetic exact) → `W3-D-mpdist.critic.md` |
 | 4a | fixer (row 4 resumed) | W3-D fix round 1 | `a5a78efe8b36c0a92` | row 4's | row 4's | `64db0da` | sent 23:06; reported 23:29 (`48710ae`) → `W3-D-mpdist.fix1.md`; **merged as `fe8e495`** |
-| 9 | implementer | W3-G the quiet-stretch null for families; a trend-kept k-Shape null | `a17192b65fcf2dd72` | `.claude/worktrees/agent-a17192b65fcf2dd72` | `worktree-agent-a17192b65fcf2dd72` | `6bd3e40` (`wave3-round2-base`) | launched 23:33 (decision 14) |
+| 9 | implementer | W3-G the quiet-stretch null for families; a trend-kept k-Shape null | `a17192b65fcf2dd72` | `.claude/worktrees/agent-a17192b65fcf2dd72` | `worktree-agent-a17192b65fcf2dd72` | `6bd3e40` (`wave3-round2-base`) | launched 23:33 (decision 14); stopped ~00:3x (API limit), resumed 02:01; reported 02:03 (`2a4ca0e`) → `W3-G-quiet-stretch-null.md` |
+| 10 | critic | W3-G | `a8f15e6dcd6951107` | (reads row 9's worktree) | — | `6bd3e40` | launched 02:04, seven manager questions |
 
 ## Preflight (2026-10-14 21:2x)
 
@@ -301,6 +302,22 @@ instead of it.
   inflates the SD before **and** after the 2 h detrend, so the inflation ratio stays near 1 — outlier-driven r
   inflation is a second route to collapse the inflation rule cannot see. Only `r_scale="sd"` is exposed (the
   template's MAD r is immune); a follow-up: flag SD ÷ (1.4826 × MAD) when `r_scale="sd"`.
+- ~00:3x — **three agents stopped on an API session limit** (HTTP 429, "resets 2am"): the W3-B fixer (red `544ba34`
+  committed, its fix uncommitted in 4 files), the W3-C critic (mid-sweep), W3-G (red `f36ef75` → green `2a4ca0e`
+  committed; waiting on its cost measurement). The species evaluation (a local process) ran on. 02:01 — the limit had
+  reset: all three resumed by `SendMessage` to their ids, each told where it stopped.
+- 02:03 — **W3-G reported** (red `f36ef75` → green `2a4ca0e`; 556 conda + 85/12 venv tests) →
+  `W3-G-quiet-stretch-null.md`. Its key finding: quiet windows cannot simply replace the trend-kept fakes, because a
+  family was **selected** for being tight — so the test is selection-matched (a family of m among n must sit closer
+  to its centre than the q = min(5 %, m/2n) quantile of quiet windows), with a **0.7 margin** (pure-noise families on
+  AR(1) φ 0.98–0.99 reached 0.80×; 14 of 124 were below 0.9); humps and ramps now pass (0.01–0.54×; the trend-kept
+  null called them noise at 1.15–3.0×); k-Shape gets a trend-kept null and is **offered in Event families again**
+  (every no-structure family flagged at the defaults); σ² first in `variants` and summaries, eq. 17 keeps the verdict
+  (σ² at 0.9 let 1 of 52 pure-noise families through); detections are not avoided (only Library members and
+  sequences); a room guard (≥ 20 disjoint member-length windows) and borrowing, with a per-family fallback to the
+  trend-kept null. Out of its list: `engine.py`'s `background=` pass-through, one line each in `_family_detail` and
+  `run_grouping_job`. Costs: HDBSCAN regroup 41 → 57 s at 3,616, a 2,000-member Family page 7.2 s cold. 02:04 — critic
+  launched (row 10), seven questions.
 
 ## Decisions taken on the researcher's behalf
 
