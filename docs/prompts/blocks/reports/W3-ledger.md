@@ -26,7 +26,7 @@ fixers in `isolation: worktree`; critics read the implementer's worktree and nev
 | 8 | critic | W3-C | `ad8d8aad71e6d533b` | (reads row 3's worktree) | — | `01cb8c3` | launched 23:06; stopped ~00:3x (API limit), resumed 02:01; reported 03:5x: **merge after fixes** (3 blockers, 3 should-fix, 2 nits) → `W3-C-pan-matrix-profile.critic.md` |
 | 3a | fixer (row 3 resumed) | W3-C fix round 1 (merge main first) | `aeeb2080e0967a2d2` | row 3's | row 3's | `01cb8c3` → main | sent 03:53; reported 04:40 (`617edc2`; merged main as `56a23f4`) → `W3-C-pan-matrix-profile.fix1.md` |
 | 8a | re-critic (row 8 resumed) | W3-C fix round 1, changed parts only | `ad8d8aad71e6d533b` | row 3's | — | — | launched 04:41 (the blockers were behavioural; asked to keep it to ~30–40 min); reported 05:1x: **merge after fixes** (3 should-fix, no blocker) → `W3-C-pan-matrix-profile.critic2.md` |
-| 3b | fixer (row 3 resumed) | W3-C fix round 2 (the last) | `aeeb2080e0967a2d2` | row 3's | row 3's | main | sent 05:1x: stalls detected on what the template hands the block, `stall_s` (60 s) apart from `max_fill_s`, no "suggested" on the summary line |
+| 3b | fixer (row 3 resumed) | W3-C fix round 2 (the last) | `aeeb2080e0967a2d2` | row 3's | row 3's | main | sent 05:1x: stalls detected on what the template hands the block, `stall_s` (60 s) apart from `max_fill_s`, no "suggested" on the summary line; stopped ~05:4x (API limit), resumed 07:02; reported 07:06 (red `87f4ffc` → green `cd177d6`, `5a77f67`) → `W3-C-pan-matrix-profile.fix2.md`; **merged as `e068669`** |
 | 4 | implementer | W3-D `mpdist` (fourth Library distance) | `a5a78efe8b36c0a92` | `.claude/worktrees/agent-a5a78efe8b36c0a92` | `worktree-agent-a5a78efe8b36c0a92` | `64db0da` | launched 21:30, early (decision 4; cut at `3cc2f62`, at `64db0da` by 21:31); reported 22:39 (`c88a236`, 68 min) → `W3-D-mpdist.md` |
 | 6 | critic | W3-D | `a380d497100469282` | (reads row 4's worktree) | — | `64db0da` | launched 22:42; reported 23:02: **merge after fixes** (4 should-fix, 4 nits; arithmetic exact) → `W3-D-mpdist.critic.md` |
 | 4a | fixer (row 4 resumed) | W3-D fix round 1 | `a5a78efe8b36c0a92` | row 4's | row 4's | `64db0da` | sent 23:06; reported 23:29 (`48710ae`) → `W3-D-mpdist.fix1.md`; **merged as `fe8e495`** |
@@ -547,6 +547,22 @@ instead of it.
   mid-chain (a `RecipeExecutionError`) still leaves its row unlinked, its detections counted as real — older than
   W3-F, the blocker's twin; (3) the pan view still says "suggested" in its headline and table. Nit: the caveat is a
   copy of W3-C's. 07:05 — fix round 2 (the last) sent (row 11b), decision 27.
+- 07:06 — **W3-C fix round 2 reported** (red `87f4ffc`: 7 failed, 1 passed → green `cd177d6` + `5a77f67`; 304 passed)
+  → `W3-C-pan-matrix-profile.fix2.md`. Stalls are now found after the detrend by their second differences (a run of
+  at least `stall_s`, default 60 s, a placeholder, where every one stays under 1 % of the span's 75th percentile —
+  inside a detrended hold 3.7–5.1e-4, the flattest real 60 s never below 1.14); a raw 20 min hold gives `n_stalled`
+  ≈ 1200. The failure left at the API stop was the background's: the same span with the hold blanked cleared 976 s
+  too (gap 10.5 vs 11.1; seeds 12–15 cleared nothing either way), so the test now pins "a stall behaves like a gap",
+  and a length is judged on its usable samples only. A quantised 1 Hz logger now loses 0–0.13 % (was 1.3–71 %). The
+  summary and verdict say "strongest gap at C s (not an event length)"; `suggested_window_s` keeps its name. Its own
+  risk: a genuinely smooth 60 s stretch would be counted stalled — read `n_stalled` on real recordings.
+- 07:08 — dry run clean (9 files; adapter count 57 and end-to-end 57 carried by the branch); **W3-C merged as
+  `e068669`**. 07:10 — the post-merge test set started (conda, `-n 3`), and the `motif_lengths` evaluation on the four
+  declared spans, one sandbox per recording (`eval_pan.py --only <rid> --tag pan<rid>`). The real run is the template
+  exactly; each draw is scored on the **image row** at the real run's strongest-gap length, which does not depend on
+  the block's own null draws, so the draws run with `null_draws` 0 (picture only) — the script checks on every real run
+  that the picture-only rows equal the full run's before it relies on that, else it runs the full template. No merge
+  into main until the evaluation and the FLUSS piece finish.
 - 03:5x — **W3-C critic: merge after fixes, three blockers.** F1: plain phase surrogates are biased here too
   (exp(AR) noise got a suggestion 10/10; AAFT 1/10 → 0/10 at 20 draws, keeping planted-motif power) → the 03:55
   correction; F2: one null draw gives 1.2–5.8 % false suggestions at 1 Hz, three gave 0 in 544 spans, the false
