@@ -64,6 +64,17 @@ def client(tmp_path):
         npy = tmp_path / f"CH{ch}.npy"; np.save(npy, x)
         conn.execute("INSERT INTO recordings (source_file, channel, fs, n_samples, global_offset, npy_path, units) "
                      "VALUES ('syn.mat', ?, 1.0, ?, 0, ?, 'V')", (ch, N, str(npy)))
+    # fix round: a second recording (ids 3-5) — an exponential recovery over the window on the reference and its
+    # mirror on channel 1 (a curved drift a line cannot take out), and an exact straight ramp on channel 2
+    # (rounding dust once detrended)
+    u = np.clip((np.arange(N) - W0) / (W1 - W0), 0.0, 1.0)
+    curve = 0.02 * (1.0 - np.exp(-u / 0.2))
+    t = np.arange(N, dtype=float)
+    chans2 = {0: -1.2 + curve + _ar1(5, scale=0.00005), 1: -0.6 - curve + _ar1(6, scale=0.00005), 2: -0.9 + 1e-4 * t}
+    for ch, x in chans2.items():
+        npy = tmp_path / f"S2CH{ch}.npy"; np.save(npy, x)
+        conn.execute("INSERT INTO recordings (source_file, channel, fs, n_samples, global_offset, npy_path, units) "
+                     "VALUES ('syn2.mat', ?, 1.0, ?, 0, ?, 'V')", (ch, N, str(npy)))
     conn.commit(); conn.close()
     dist = tmp_path / "dist"; (dist / "assets").mkdir(parents=True)
     (dist / "index.html").write_text("<!doctype html><title>spa</title>", encoding="utf-8")
@@ -115,3 +126,33 @@ def test_the_rule_printed_is_the_rule_the_window_was_binned_by(client):
 def test_an_unknown_detrend_is_refused_in_words(client):
     r = client.get("/api/cross/1", params={"t0": W0, "t1": W1, "detrend": "cubic"})
     assert r.status_code == 422 and "detrend" in r.text
+
+
+# ── fix round (the critic, 2026-10-16) ────────────────────────────────────────────────────────────────────
+
+def _row(body, rid):
+    return next(c for c in body["channels"] if c["id"] == rid)
+
+
+def test_a_curved_drift_that_survives_the_line_is_flagged_on_the_row(client):
+    body = client.get("/api/cross/3", params={"t0": W0, "t1": W1, "detrend": "linear"}).json()
+    row = _row(body, 4)
+    assert abs(row["r"]) >= 0.9 and abs(row["lag_s"]) <= 1.0, "the line leaves the curve: this is the bug"
+    assert row["drift_suspect"] is True
+    # a real lagged event on the first recording is not flagged
+    first = client.get("/api/cross/1", params={"t0": W0, "t1": W1, "detrend": "linear"}).json()
+    assert _row(first, 2)["drift_suspect"] is False
+
+
+def test_a_cubic_detrend_is_offered_and_takes_the_curve_out(client):
+    body = client.get("/api/cross/3", params={"t0": W0, "t1": W1, "detrend": "cubic"}).json()
+    assert body["detrend"] == "cubic" and "cubic" in body["rules"][ARTIFACT]
+    row = _row(body, 4)
+    assert abs(row["r"]) < 0.9 and row["drift_suspect"] is False
+
+
+def test_an_exact_ramp_detrends_to_nothing_and_reads_undefined(client):
+    body = client.get("/api/cross/3", params={"t0": W0, "t1": W1, "detrend": "linear"}).json()
+    row = _row(body, 5)
+    assert row["classification"] == "undefined" and row["lag_s"] is None and row["r"] is None
+    assert "flat" in row["undefined_reason"]

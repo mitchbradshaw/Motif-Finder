@@ -208,3 +208,39 @@ def test_the_smoke_walk_carries_a_state_per_symptom():
         assert need in names, f"smoke state {need} missing"
     for s in states:
         assert s["page"] == "explore.cross-channel" and s["expect"]
+
+
+# ── fix round (the critic, 2026-10-16) ────────────────────────────────────────────────────────────────────
+
+def test_a_window_is_an_edges_and_as_recorded_only_with_an_edge_context():
+    """A picked window reopened as ?t0=&t1= used to come back unpadded, as recorded, called an 'edge window' — and
+    with a different lag, r and bin. Only an edge link (family= / grouping=) keeps the edge's as-recorded reading."""
+    assert _node("M.crossDetrendFor(true, true)") == "none"
+    assert _node("M.crossDetrendFor(true, false)") == "linear"
+    assert _node("M.crossDetrendFor(false, false)") == "linear"
+    assert _node("M.crossDetrendFor(false, true)") == "linear"
+    plain = _node("M.resolveCrossWindow({spans: [], durationS: 20000, sel: '', padS: 20, explicit: {t0: 2788, t1: 3428}, edge: false})")
+    assert "edge" not in plain["label"] and "unpadded" in plain["phrase"]
+    edge = _node("M.resolveCrossWindow({spans: [], durationS: 20000, sel: '', padS: 20, explicit: {t0: 2788, t1: 3428}, edge: true})")
+    assert "edge window" in edge["label"]
+    api = _read("api", "explore.ts")
+    assert "crossDetrendFor(" in api and "explicit ? 'none' : 'linear'" not in api
+    page = _read("explore", "CrossChannelPage.tsx")
+    head = page[page.index("export function CrossChannelPage"):page.index("function CrossBody")]
+    assert "familyQ" in head or "family" in head.split("getCrossChannel(")[1][:200], "the fetch is told whether an edge opened it"
+
+
+def test_a_row_flagged_as_possible_curved_drift_says_so_beside_its_bin():
+    page = _read("explore", "CrossChannelPage.tsx")
+    assert "driftSuspect" in page and "may be curved drift" in page
+    assert "drift-suspect-" in page
+
+
+def test_the_picker_tip_says_it_renumbers_and_lists_forty():
+    page = _read("explore", "CrossChannelPage.tsx")
+    assert "renumber" in page and "first 40" in page
+
+
+def test_the_old_cross_read_without_a_detrend_is_gone():
+    api = _read("api.ts")
+    assert "export const getCross =" not in api
