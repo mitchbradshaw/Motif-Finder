@@ -109,7 +109,7 @@ def test_small_multiples_can_give_every_panel_its_own_domain_and_a_scale_bar():
 
 # ---------------------------------------------------------------- the model's card --
 
-def test_the_classifier_reports_its_accuracy_per_class():
+def test_the_classifier_reports_its_accuracy_per_class(tmp_path):
     """`Renderer.tsx` said "a model has no natural plot". That is only true of the joblib: the holdout the block
     already takes has an accuracy per class, and the card did not carry it."""
     pytest.importorskip("sklearn")
@@ -126,6 +126,8 @@ def test_the_classifier_reports_its_accuracy_per_class():
     params = spec.validate_params({"n_estimators": 20})
     x = rng.normal(size=n * 60)
     r = spec.run(x, np.arange(len(x), dtype=float), 1.0, **params, value=Grouping(labels=labels), windows=ws)
+    # the block dumps its model under `MODEL_ROOT`: this test's, never the checkout's DATA/derived/models
+    assert os.path.commonpath([os.path.abspath(r.value.path), str(tmp_path)]) == str(tmp_path), r.value.path
     per = r.meta["per_class_accuracy"]
     assert set(per) == {1, 2, 3} and all(0.0 <= v <= 1.0 for v in per.values())
     counts = r.meta["holdout_class_counts"]
