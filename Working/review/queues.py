@@ -318,8 +318,11 @@ def extend_queue(conn, queue_id, detection_ids):
         want.append(int(x))
     known = set()
     for chunk in _chunks(sorted(set(want))):
+        # a paired surrogate's spans are `detections` rows too (queries.not_surrogate): they are never
+        # a pick, so an id of theirs reads as "no detection" here, exactly as an unknown id does
         known.update(int(r[0]) for r in conn.execute(
-            "SELECT id FROM detections WHERE id IN ({})".format(",".join("?" * len(chunk))), chunk))
+            "SELECT d.id FROM detections d JOIN runs r ON r.id = d.run_id WHERE d.id IN ({}) AND {}".format(
+                ",".join("?" * len(chunk)), _queries.not_surrogate("r")), chunk))
     unknown = [i for i in want if i not in known]
     if unknown:
         raise ValueError("no detection {} in the database; nothing was added".format(
