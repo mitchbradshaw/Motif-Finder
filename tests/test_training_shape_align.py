@@ -398,3 +398,21 @@ def test_the_block_offers_the_anchor_and_ships_it_and_the_rule_to_the_page(poole
     s = to_payload("windowset", ws, {**out.meta, "shape_file": "x.npz", "shape_key": out.key}, {})["shape"]
     assert s["align"] == "peak" and s["anchor_frac"] == pytest.approx(0.25)
     assert "maximum" in s["align_rule"] and "25%" in s["align_rule"] and "recut" in s
+
+
+def test_a_model_recipe_carries_the_anchor_so_its_tree_is_rebuilt_on_the_same_windows():
+    import json
+    from Working.training import shape_forest as sf
+    mapping = {"k": 2, "clusters": {"1": {"name": "a", "class": "interesting"},
+                                    "2": {"name": "b", "class": "not_interesting"}}}
+
+    def recipe(shape_params):
+        steps = [{"stage": "preprocessing", "algorithm": "window_pool", "params": {"pool": "1"}},
+                 {"stage": "preprocessing", "algorithm": "trace_shape", "params": shape_params},
+                 {"stage": "catalogue", "algorithm": "shape_cluster",
+                  "params": {"sample": 200, "seed": 0, "k": 2, "mapping": json.dumps(mapping)}}]
+        return sf.make_recipe({"id": 1, "name": "p", "version": 1, "key": "x"}, {"id": 7, "name": "t", "steps": steps})
+
+    assert "anchor_frac" not in recipe({})["shape"]                        # AG's recipes are unchanged
+    r = recipe({"align": "trough", "anchor_frac": 1 / 3})["shape"]
+    assert r["align"] == "trough" and r["anchor_frac"] == pytest.approx(1 / 3)

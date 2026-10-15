@@ -165,11 +165,12 @@ export function ShapeView({ p }: { p: PoolPayload }) {
         <div className="bp-tile"><div className="k">unmeasured · kept</div><div className="v">{s.unmeasured.n.toLocaleString()}</div></div>
         <div className="bp-tile"><div className="k">kept · shapes of {s.resample_length} points</div><div className="v">{s.n_kept.toLocaleString()}</div></div>
       </div>
-      <div className="callout small" data-testid="shape-options">
+      <div className="callout small" data-testid="shape-options" data-align={s.align ?? 'grid'} data-anchor={s.anchor_frac == null ? '' : s.anchor_frac.toFixed(2)}>
         <b>align · {s.align ?? 'grid'}</b> — {s.align_rule ?? 'the window as the pool cut it'} · <b>detrend · {s.detrend ?? 'off'}</b> — {s.detrend_rule ?? 'the trace as it is'}
-        {s.align === 'centre' && s.swing_rule ? <div className="muted" style={{ marginTop: 3 }}>{s.swing_rule}</div> : null}
+        {s.align && s.align !== 'grid' && s.swing_rule ? <div className="muted" style={{ marginTop: 3 }}>{s.swing_rule}</div> : null}
+        {s.align && s.align !== 'grid' && s.anchor_frac != null ? <div className="muted" style={{ marginTop: 3 }} data-testid="shape-anchor"><b>anchor · {s.anchor_frac.toFixed(2)}</b>{s.anchor_frac === 0.5 ? ' (the middle)' : ''} — {s.anchor_rule ?? 'where in the re-cut window the aligned sample lands'}</div> : null}
       </div>
-      {s.align === 'centre' && s.recut && (
+      {s.align && s.align !== 'grid' && s.recut && (
         <div className="bp-tiles" style={{ marginTop: 0, gridTemplateColumns: 'repeat(4, minmax(0, 1fr))' }} data-testid="shape-recut">
           <div className="bp-tile"><div className="k">re-cut onto the swing</div><div className="v">{s.recut.n_moved.toLocaleString()}</div></div>
           <div className="bp-tile"><div className="k">clamped · fence reached</div><div className="v" data-testid="shape-clamped">{s.recut.n_clamped.toLocaleString()}</div></div>
@@ -196,7 +197,7 @@ export function ShapeView({ p }: { p: PoolPayload }) {
           )}
         </div>
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div className="bp-card-title"><h3 style={{ fontSize: 13 }}>Where the largest swing sits in its window</h3><span className="sg">0 = the start, 1 = the end · per scale</span></div>
+          <div className="bp-card-title"><h3 style={{ fontSize: 13 }}>Where the {s.align === 'peak' ? 'highest point' : s.align === 'trough' ? 'lowest point' : 'largest swing'} sits in its window</h3><span className="sg">0 = the start, 1 = the end · per scale</span></div>
           {Object.entries(s.peak_frac_by_scale ?? {}).map(([sc, h]) => <div key={sc}><div className="muted small mono">{sc} min</div><LogHist h={h} testid={`shape-peak-hist-${sc}`} height={70} /></div>)}
         </div>
       </div>

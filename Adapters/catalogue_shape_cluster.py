@@ -149,7 +149,7 @@ def _run(x, t, fs, sample=20000, seed=0, k=0, tree_path="", mapping="", value=No
             "key": os.path.basename(d.rstrip("/\\")), "dir": os.path.abspath(d), "reused": bool(reused),
             "loaded_from": loaded_from, "shape_file": shape_file, "shape_key": shapes.key,
             "propose_cached": bool(prop_cached), "pool_key": pool_key, "frozen": frozen, "align": shapes.meta.get("align", "grid"),
-            "detrend": shapes.meta.get("detrend", "off"),
+            "detrend": shapes.meta.get("detrend", "off"), "anchor_frac": shapes.meta.get("anchor_frac"),
             "k": int(lab.k), "k_param": int(k), "suggested_k": prop["suggested_k"], "cut_height": tshape.cut_height(tree, lab.k),
             "n_train": int(len(tree.train_rows)), "n_clustered": int(lab.n_clustered), "n_assigned": int(lab.n_assigned),
             "not_clustered": not_clustered, "sample": tree.meta.get("sample"), "seed": tree.meta.get("seed"),

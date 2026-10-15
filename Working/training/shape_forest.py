@@ -108,6 +108,17 @@ def mapping_problem(k, mapping):
     return None
 
 
+def _recipe_shape(shp):
+    """The Trace shape settings a recipe rebuilds its windows from. fixup-am: the anchor rides along only off its
+    default (AG's recipes are unchanged), so a tree built on windows a third in is not rebuilt on centred ones."""
+    from Working.training import shape as sh
+    out = {k2: shp[k2] for k2 in ("align", "detrend", "resample_length", "noise_floor")}
+    a = shp.get("anchor_frac")
+    if out["align"] != "grid" and a is not None and float(a) != sh.DEFAULT_ANCHOR_FRAC:
+        out["anchor_frac"] = float(a)
+    return out
+
+
 def make_recipe(pool_ref, template, *, stages=DEFAULT_STAGES, n_estimators=300, class_weight="balanced",
                 random_state=42, holdback_frac=HOLDBACK_FRAC):
     """The B.2 recipe: the pool, the template (its steps carry the cut and the mapping), the forest."""
@@ -120,7 +131,7 @@ def make_recipe(pool_ref, template, *, stages=DEFAULT_STAGES, n_estimators=300, 
         "kind": RECIPE_KIND,
         "pool": {k2: pool_ref.get(k2) for k2 in ("id", "name", "version", "key")},
         "template": {"id": template.get("id"), "name": template.get("name"), "steps": template["steps"]},
-        "shape": {k2: shp[k2] for k2 in ("align", "detrend", "resample_length", "noise_floor")},
+        "shape": _recipe_shape(shp),
         "cluster": {"sample": int(clu["sample"]), "seed": int(clu["seed"]), "tree_path": clu.get("tree_path") or ""},
         "arm": {"name": "B.2", "label": ARM_LABEL, "k": k, "mapping": mapping, "linkage": "ward"},
         "inputs": {"features": "raw samples at the re-cut bounds", "stages": list(stages), "rule": INPUTS_RULE},
@@ -165,7 +176,7 @@ def _load(conn, recipe, tree_root, progress=None):
     s = recipe["shape"]
     shapes = sh.trace_shapes(conn, sh.pool_frame(sh.pool_windowset(pool)), resample_length=int(s["resample_length"]),
                              noise_floor=bool(s["noise_floor"]), align=s["align"], detrend=s["detrend"],
-                             progress=progress)
+                             anchor_frac=float(s.get("anchor_frac", sh.DEFAULT_ANCHOR_FRAC)), progress=progress)
     c = recipe["cluster"]
     if c.get("tree_path"):
         tree, tree_dir = sh.load_tree_for(c["tree_path"], shapes), c["tree_path"]

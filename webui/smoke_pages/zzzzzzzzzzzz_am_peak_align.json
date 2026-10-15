@@ -1,0 +1,106 @@
+[
+ {
+  "page": "analyse.block",
+  "state": "fixup-am-trace-shape-shows-the-alignment-and-its-anchor-at-the-defaults",
+  "hash": "analyse/block/1",
+  "settle_ms": 3000,
+  "_why": "fixup-am: after AG's states ran the pool chain at the defaults, the Trace shape page names the alignment (centre) and the anchor (0.50, the middle) in words; the align control offers grid / centre / peak / trough and the anchor_frac control is there",
+  "actions": [
+   {
+    "wait_for": [
+     "[data-testid=\"shape-view\"]",
+     60000
+    ]
+   }
+  ],
+  "expect": [
+   "[data-testid=\"shape-options\"][data-align=\"centre\"][data-anchor=\"0.50\"]",
+   "[data-testid=\"shape-anchor\"]",
+   "[data-testid=\"shape-recut\"]",
+   "[data-testid=\"param-align\"] button:has-text(\"peak\")",
+   "[data-testid=\"param-align\"] button:has-text(\"trough\")",
+   "[data-testid=\"param-anchor_frac\"]"
+  ]
+ },
+ {
+  "page": "analyse.block",
+  "state": "fixup-am-the-tree-card-names-the-anchor",
+  "hash": "analyse/block/2",
+  "settle_ms": 3000,
+  "_why": "fixup-am: the Shape clustering page's rule line names the shapes' alignment and anchor (align centre · anchor 0.50)",
+  "actions": [
+   {
+    "wait_for": [
+     "[data-testid=\"tree-page\"]",
+     120000
+    ]
+   }
+  ],
+  "expect": [
+   "[data-testid=\"tree-rule\"]:has-text(\"align centre · anchor 0.50\")"
+  ]
+ },
+ {
+  "page": "analyse.block",
+  "state": "fixup-am-trough-a-third-in-reruns-the-chain-and-names-it",
+  "hash": "analyse/block/1",
+  "settle_ms": 3000,
+  "_why": "fixup-am: set align = trough and anchor = 0.33 on Trace shape, run: the shapes are re-cut with each window's lowest point a third in, the page says so in words, and the tree is a NEW one (its key changes with the alignment and the anchor) whose rule line names trough and 0.33. Last of all states: it changes the chain's parameters and costs one Ward build",
+  "actions": [
+   {
+    "wait_for": [
+     "[data-testid=\"param-align\"]",
+     60000
+    ]
+   },
+   {
+    "click": "[data-testid=\"param-align\"] button:has-text(\"trough\")"
+   },
+   {
+    "fill": [
+     "[data-testid=\"param-anchor_frac\"]",
+     "0.33"
+    ]
+   },
+   {
+    "wait": 600
+   },
+   {
+    "hash": "#/analyse/block/2"
+   },
+   {
+    "wait_for": [
+     "[data-testid=\"run-button\"]:not([disabled])",
+     30000
+    ]
+   },
+   {
+    "click": "[data-testid=\"run-button\"]"
+   },
+   {
+    "wait_for": [
+     "[data-testid=\"tree-rule\"]:has-text(\"anchor 0.33\")",
+     900000
+    ]
+   },
+   {
+    "hash": "#/analyse/block/1"
+   },
+   {
+    "wait_for": [
+     "[data-testid=\"shape-view\"]",
+     60000
+    ]
+   }
+  ],
+  "expect": [
+   "[data-testid=\"shape-options\"][data-align=\"trough\"][data-anchor=\"0.33\"]",
+   "[data-testid=\"shape-options\"]:has-text(\"lowest point\")",
+   "[data-testid=\"shape-options\"]:has-text(\"33% of the way into the window\")",
+   "[data-testid=\"shape-recut\"]"
+  ],
+  "expect_absent": [
+   "[data-testid=\"tree-cards-error\"]"
+  ]
+ }
+]

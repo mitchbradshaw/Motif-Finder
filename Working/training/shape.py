@@ -89,20 +89,31 @@ SHAPE_META = {"raw_range_mv": "shape_raw_range_mv", "peak_frac": "shape_peak_fra
 SHAPE_EXTRA = ("orig_start", "noise_mv", "clamped")
 
 # ── alignment (fixup-ag continuation, the researcher 2026-10-05) ────────────
-ALIGNS = ("grid", "centre")
+#: fixup-am (2026-10-15): `peak` and `trough` are the SIGNED versions of `centre`'s largest swing, and `anchor_frac`
+#: says where in the window the chosen sample lands (0.5 = the middle, AG's centring). Defaults unchanged.
+ALIGNS = ("grid", "centre", "peak", "trough")
 DETRENDS = ("off", "linear")
 DEFAULT_ALIGN = "centre"     # the researcher chose centring (2026-10-05); measured: every pile an event shape (report part 2)
+DEFAULT_ANCHOR_FRAC = 0.5    # the middle: AG's centring, bit for bit (and the shape key does not change at it)
 DEFAULT_DETREND = "linear"  # with the straight line removed, the drift is no longer the shape
 SWING_RULE = ("the largest swing: the window's straight-line (least-squares) trend is removed, a running median of k "
               "samples is taken (k odd, at least 5, about a sixtieth of the window: 5 at 1 min, 11 at 10 min, 31 at "
               "30 min, so a glitch of a sample or two cannot be it), and the swing is the sample where that departs "
               "furthest from its own median")
+_FENCE = ("kept wholly inside its own role's stretch on its own channel, inside the recording and clear of artifact "
+          "spans; where that place cannot be reached it is shifted as far as allowed (clamped, counted); a window whose "
+          "re-cut overlaps an already-kept window of the same scale on the same channel by more than half is a "
+          "near-duplicate (one event twice) and is dropped, counted")
+_GUARD = ("after the straight-line trend is removed and a running median of k samples taken (the swing rule's guard, "
+          "so a glitch of a sample or two cannot be it)")
 ALIGN_RULE = {"grid": "the window as the pool cut it, on the grid",
-              "centre": ("re-cut, the same length, centred on its largest swing — kept wholly inside its own role's "
-                         "stretch on its own channel, inside the recording and clear of artifact spans; where the "
-                         "centre cannot be reached it is shifted as far as allowed (clamped, counted); a window whose "
-                         "re-cut overlaps an already-kept window of the same scale on the same channel by more than "
-                         "half is a near-duplicate (one event twice) and is dropped, counted")}
+              "centre": ("re-cut, the same length, centred on its largest swing — " + _FENCE),
+              "peak": ("re-cut, the same length, centred on its highest point — the signed maximum, the top of a "
+                       "spike, " + _GUARD + "; a small spike before a big drop is centred on the spike — " + _FENCE),
+              "trough": ("re-cut, the same length, centred on its lowest point — the signed minimum, the bottom of a "
+                         "drop, " + _GUARD + "; a big spike before a small drop is centred on the drop — " + _FENCE)}
+ANCHOR_RULE = ("anchor: where in the re-cut window the aligned sample lands, as a fraction of its length (0.5 = the "
+               "middle; 0.33 = a third in, so the recovery after a drop fits inside the window); ignored on the grid")
 DETREND_RULE = {"off": "no detrend: the shape is the trace as it is, drift included",
                 "linear": "the window's least-squares straight line is removed before the resample and normalise"}
 ROLES = ("train", "validation", "test", "exam")
@@ -222,8 +233,12 @@ class ShapeSet:
     @property
     def key(self):
         f = self.frame
-        return _key({"kind": "trace_shapes", "how": {k: self.meta.get(k) for k in
-                                                     ("resample_length", "noise_floor", "floors_mv", "align", "detrend")}},
+        how = {k: self.meta.get(k) for k in ("resample_length", "noise_floor", "floors_mv", "align", "detrend")}
+        # fixup-am: the anchor enters the key only off its default, so every set AG keyed (and its trees) still answers
+        anchor = self.meta.get("anchor_frac")
+        if self.meta.get("align", "grid") != "grid" and anchor is not None and float(anchor) != DEFAULT_ANCHOR_FRAC:
+            how["anchor_frac"] = float(anchor)
+        return _key({"kind": "trace_shapes", "how": how},
                     [f[c].to_numpy() for c in ("source_file", "channel", "start", "length", "role")])
 
     def save(self, d):
@@ -284,17 +299,52 @@ def swing_width(length):
     return k if k % 2 else k + 1
 
 
-def swing_index(seg):
-    """The sample of a window's LARGEST SWING (`SWING_RULE`)."""
+def _swing_departure(seg):
+    """The guarded departure the swing rule reads (`SWING_RULE`): straight line removed, running median of
+    `swing_width` samples, less that median's own median. `None` for a window under three samples."""
     from scipy.ndimage import median_filter
     from scipy.signal import detrend as _detrend
     seg = np.asarray(seg, dtype=float)
     if len(seg) < 3:
-        return 0
+        return None
     r = _detrend(seg, type="linear")
     k = min(swing_width(len(seg)), len(seg) if len(seg) % 2 else len(seg) - 1)
     f = median_filter(r, size=max(1, k), mode="nearest")
-    return int(np.argmax(np.abs(f - np.median(f))))
+    return f - np.median(f)
+
+
+def swing_index(seg):
+    """The sample of a window's LARGEST SWING (`SWING_RULE`)."""
+    d = _swing_departure(seg)
+    return 0 if d is None else int(np.argmax(np.abs(d)))
+
+
+def anchor_index(seg, align):
+    """The sample a window is aligned on (fixup-am): `centre` (and `grid`, for where its event sits) the largest
+    swing either way; `peak` the signed maximum; `trough` the signed minimum — all on the swing rule's guarded
+    departure, so a glitch cannot be it."""
+    if align not in ALIGNS:
+        raise ValueError(f"align must be one of {', '.join(ALIGNS)}; got {align!r}")
+    if align in ("grid", "centre"):
+        return swing_index(seg)
+    d = _swing_departure(seg)
+    if d is None:
+        return 0
+    return int(np.argmax(d)) if align == "peak" else int(np.argmin(d))
+
+
+def check_anchor_frac(anchor_frac):
+    a = float(anchor_frac)
+    if not np.isfinite(a) or a < 0.0 or a > 1.0:
+        raise ValueError(f"anchor_frac must be a fraction of the window between 0 and 1; got {anchor_frac!r}")
+    return a
+
+
+def anchor_offset(length, anchor_frac=DEFAULT_ANCHOR_FRAC):
+    """Where in a window of `length` samples the aligned sample lands: `floor(anchor_frac * length)`, at most the last
+    sample. At 0.5 that is `length // 2` exactly (AG's centring); the 1e-9 keeps 1/3 × 600 at 200, not 199."""
+    a = check_anchor_frac(anchor_frac)
+    return int(min(int(np.floor(a * int(length) + 1e-9)), max(0, int(length) - 1)))
 
 
 def _detrended(seg):
@@ -334,9 +384,11 @@ def allowed_interval(a, length, *, stretch, n_samples, spans):
     return lo, hi
 
 
-def recut_start(a, length, swing, lo, hi):
-    """`(start, clamped)`: the window re-cut centred on sample `swing` of it, shifted as far as `[lo, hi)` allows."""
-    want = int(a) + int(swing) - int(length) // 2
+def recut_start(a, length, swing, lo, hi, anchor_frac=DEFAULT_ANCHOR_FRAC):
+    """`(start, clamped)`: the window re-cut so sample `swing` of it lands at `anchor_offset(length, anchor_frac)`
+    (the middle by default), shifted as far as `[lo, hi)` allows. The fence (`allowed_interval`) does not depend on
+    the anchor: a different anchor only asks for a different start, and the clamp is the same."""
+    want = int(a) + int(swing) - anchor_offset(length, anchor_frac)
     start = int(min(max(want, int(lo)), int(hi) - int(length)))
     return start, start != want
 
@@ -386,12 +438,25 @@ def check_recut(conn, frame):
     return {"outside own stretch": 0, "outside the recording": 0, "touching an artifact span": 0}
 
 
+def align_rule(align, anchor_frac=DEFAULT_ANCHOR_FRAC):
+    """`ALIGN_RULE[align]` in words, with where the aligned sample lands when that is not the middle."""
+    rule = ALIGN_RULE[align]
+    if align == "grid" or float(anchor_frac) == DEFAULT_ANCHOR_FRAC:
+        return rule
+    pct = f"{100.0 * float(anchor_frac):.0f}%"
+    return (rule.replace("centred on", "aligned on", 1) +
+            f"; the aligned sample is placed {pct} of the way into the window, not at its middle (anchor {pct})")
+
+
 def trace_shapes(conn, frame, *, resample_length=RESAMPLE_LENGTH, noise_floor=True, align=DEFAULT_ALIGN,
-                 detrend=DEFAULT_DETREND, progress=None):
+                 detrend=DEFAULT_DETREND, anchor_frac=DEFAULT_ANCHOR_FRAC, progress=None):
     """Resample and z-normalise every window of a pool table (the Library's
     helpers, at the Library's length) after the alignment and detrend options,
-    keep its raw range, its sample-to-sample noise and where its largest swing
-    sits, and leave out the windows under their dataset's noise floor."""
+    keep its raw range, its sample-to-sample noise and where its aligned sample
+    (`anchor_index`: the largest swing for grid / centre, the signed maximum for
+    peak, the signed minimum for trough) sits, and leave out the windows under
+    their dataset's noise floor. `anchor_frac` (fixup-am) is where the aligned
+    sample lands in a re-cut window; ignored (and recorded as None) on the grid."""
     from Working.library.view_filter import dataset_floors
     from Working.training import pool as tpool
     from Working.units import to_mv_factor
@@ -400,16 +465,18 @@ def trace_shapes(conn, frame, *, resample_length=RESAMPLE_LENGTH, noise_floor=Tr
         raise ValueError(f"align must be one of {', '.join(ALIGNS)}; got {align!r}")
     if detrend not in DETRENDS:
         raise ValueError(f"detrend must be one of {', '.join(DETRENDS)}; got {detrend!r}")
+    anchor = None if align == "grid" else check_anchor_frac(anchor_frac)
+    rule = align_rule(align, anchor if anchor is not None else DEFAULT_ANCHOR_FRAC)
     t0 = time.time()
     n_samples = int(resample_length)
     frame = frame.reset_index(drop=True).copy()
-    if align == "centre" and not {"stretch_a", "stretch_b"} <= set(frame.columns):
-        raise ValueError("centring needs each window's role stretch: re-run the Window pool block (it now carries them)")
+    if align != "grid" and not {"stretch_a", "stretch_b"} <= set(frame.columns):
+        raise ValueError(f"aligning ({align}) needs each window's role stretch: re-run the Window pool block (it now carries them)")
     recs = {int(r["id"]): dict(r) for r in conn.execute("SELECT * FROM recordings")}
     floors_all = dataset_floors(conn)
     files = sorted(frame["source_file"].unique().tolist())
     floors = {sf: floors_all.get(sf, {"floor_mv": 0.1, "set": False, "from": "default"}) for sf in files}
-    ex = tpool._Exclusions(conn) if align == "centre" else None
+    ex = tpool._Exclusions(conn) if align != "grid" else None
 
     ranges = np.full(len(frame), np.nan)
     noise = np.full(len(frame), np.nan)
@@ -439,13 +506,13 @@ def trace_shapes(conn, frame, *, resample_length=RESAMPLE_LENGTH, noise_floor=Tr
                 lo, hi = allowed_interval(a, n, stretch=(sa_col[i], sb_col[i]), n_samples=len(x), spans=spans)
                 if (lo, hi) == (a, a + n):
                     pinned += 1
-                new, cl = recut_start(a, n, swing_index(seg), lo, hi)
+                new, cl = recut_start(a, n, anchor_index(seg, align), lo, hi, anchor_frac=anchor)
                 if new != a:
                     a = new
                     seg = np.asarray(x[a:a + n], dtype=float)
                 starts[i] = a
                 clamped[i] = int(cl)
-            peaks[i] = float(swing_index(seg)) / max(1, len(seg) - 1)
+            peaks[i] = float(anchor_index(seg, align)) / max(1, len(seg) - 1)
             if factor is not None:
                 ranges[i] = float(np.ptp(seg)) * float(factor)
                 noise[i] = float(1.4826 * np.median(np.abs(np.diff(seg))) / np.sqrt(2.0)) * float(factor)
@@ -465,8 +532,8 @@ def trace_shapes(conn, frame, *, resample_length=RESAMPLE_LENGTH, noise_floor=Tr
     drop = under if noise_floor else np.zeros(len(frame), dtype=bool)
     dup = np.zeros(len(frame), dtype=bool)
     recut = {"n_moved": 0, "n_clamped": 0, "n_pinned_by_artifact": 0, "n_near_duplicate": 0,
-             "n_overlap_within_scale": 0, "by_scale": {}, "rule": ALIGN_RULE[align]}
-    if align == "centre":
+             "n_overlap_within_scale": 0, "by_scale": {}, "rule": rule}
+    if align != "grid":
         live = np.flatnonzero(~drop)
         keep, n_dup, n_ov = near_duplicates(frame.iloc[live])
         dup[live[~keep]] = True
@@ -481,10 +548,10 @@ def trace_shapes(conn, frame, *, resample_length=RESAMPLE_LENGTH, noise_floor=Tr
                                                       "clamped": int((cl & ok & (sc_col == sc)).sum()),
                                                       "near_duplicate": int((dup & (sc_col == sc)).sum())}
                               for sc in sorted(np.unique(sc_col))},
-                 "rule": ALIGN_RULE["centre"]}
+                 "rule": rule}
     meta = {
         "resample_length": n_samples, "noise_floor": bool(noise_floor), "align": align, "detrend": detrend,
-        "align_rule": ALIGN_RULE[align], "detrend_rule": DETREND_RULE[detrend], "swing_rule": SWING_RULE,
+        "align_rule": rule, "anchor_frac": anchor, "anchor_rule": ANCHOR_RULE, "detrend_rule": DETREND_RULE[detrend], "swing_rule": SWING_RULE,
         "recut": recut,
         "floors": {sf: {"floor_mv": float(floors[sf]["floor_mv"]), "from": floors[sf].get("from")} for sf in files},
         "floors_mv": {sf: float(floors[sf]["floor_mv"]) for sf in files},
@@ -502,7 +569,7 @@ def trace_shapes(conn, frame, *, resample_length=RESAMPLE_LENGTH, noise_floor=Tr
     kept = frame.loc[~drop].reset_index(drop=True)
     vecs = vectors[~drop]
     kept["shape_row"] = np.arange(len(kept), dtype=np.int64)
-    if align == "centre" and len(kept):
+    if align != "grid" and len(kept):
         check_recut(conn, kept)
     meta["n_kept"] = int(len(kept))
     meta["seconds"] = round(time.time() - t0, 2)
