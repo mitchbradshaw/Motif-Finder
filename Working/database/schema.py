@@ -1453,6 +1453,11 @@ LEGACY_DETECTIONS_RULE = ("start_idx < span_start on a run with span_start > 0 "
                           "→ start_idx + span_start, end_idx + span_start")
 
 
+#: run ids whose legacy-detections refusal this process has already warned about (see
+#: `migrate_legacy_detections`); a test clears it.
+_LEGACY_REFUSALS_REPORTED: set = set()
+
+
 def plan_legacy_detections(conn):
     """What `migrate_legacy_detections` would rewrite, without writing.
 
@@ -1507,11 +1512,22 @@ def migrate_legacy_detections(conn):
     rows actually changed (asserted equal to the plan, run by run).
     """
     plan = plan_legacy_detections(conn)
+    log = logging.getLogger(__name__)
+    seen_again = 0
     for refused in plan["refused"]:
-        logging.getLogger(__name__).warning(
+        # `init_db` runs this on every database open and the bridge opens one per request, so a run
+        # refused for good was warned about hundreds of times an hour (the researcher, 2026-10-13).
+        # Warn once per process per run; after that one DEBUG line counts the repeats.
+        if refused["run_id"] in _LEGACY_REFUSALS_REPORTED:
+            seen_again += 1
+            continue
+        _LEGACY_REFUSALS_REPORTED.add(refused["run_id"])
+        log.warning(
             "legacy detections: refusing run %d (%s): span [%d, %d) n=%d n_legacy=%d",
             refused["run_id"], refused["reason"], refused["span_start"], refused["span_end"],
             refused["n"], refused["n_legacy"])
+    if seen_again:
+        log.debug("legacy detections: %d refused run(s) already reported this process", seen_again)
     if plan["n_rows"] == 0:
         return dict(plan, rewritten=0)
     from Working.registration.settings import append_audit
