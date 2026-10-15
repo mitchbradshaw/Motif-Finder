@@ -1,7 +1,7 @@
 /* Settings › About (frame settings-14 · spec §9.14) — LIVE (Prompt 02): GET /api/about.
  * What this installation is running (code version and whether the tree is clean, schema, blocks, python and
  * packages, the mode and the database it is open on), and the future-scope list kept so it is not designed out. */
-import { Badge, Button, Chip, CodeBlock, Modal, SectionCard, copyToClipboard, useQueryState } from '../kit'
+import { Badge, Button, Chip, CodeBlock, InfoTip, Modal, SectionCard, copyToClipboard, useQueryState } from '../kit'
 import { useToast } from '../shell/Toast'
 import { useSourced } from '../api/seam'
 import { navigate } from '../state'
@@ -52,7 +52,7 @@ function Body({ data }: { data: Data }) {
         <Row label="project" testid="project-row" wide><span className="mono">{a.project}</span></Row>
         <Row label="mode" testid="mode-row" wide>
           <Badge tone={a.mode === 'project' ? 'green' : 'amber'} testid="mode-badge">{a.mode}</Badge>
-          <span className="small muted">{a.mode === 'project' ? `the real database, backed up first to ${a.db_backup ?? '?'}` : 'a throwaway copy of the database; nothing here reaches the project'}</span>
+          <InfoTip title={`${a.mode} mode`}>{a.mode === 'project' ? `The real database, backed up first to ${a.db_backup ?? '?'}.` : 'A throwaway copy of the database; nothing here reaches the project.'}</InfoTip>
         </Row>
         <Row label="database" testid="db-row" wide><span className="mono small">{a.db_path}</span></Row>
         <Row label="settings" testid="settings-file-row" wide caption="project settings travel with the database backup">

@@ -4,7 +4,7 @@
  * warning. A root's "scan" opens the registry for that kind (GET /api/registry/<kind>) in a modal. */
 import { useState } from 'react'
 import {
-  Badge, Button, Callout, Checklist, Chip, Modal, NumberField, Popover, ProgressBar, SectionCard, SelectField, Table, TextField, Toggle, useQueryState,
+  Badge, Button, Callout, Checklist, Chip, InfoTip, Modal, NumberField, Popover, ProgressBar, SectionCard, SelectField, Table, TextField, Toggle, useQueryState,
 } from '../kit'
 import { useSourced } from '../api/seam'
 import { navigate } from '../state'
@@ -216,7 +216,7 @@ function ScanModal({ rootId, roots, onClose, onChanged }: { rootId: string; root
           {registersHere && <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 8 }}>
             <span className="mono small">overrides (JSON)</span>
             <TextField value={overridesText} onChange={setOverridesText} size="sm" width={360} placeholder={kind === 'hpc_result' ? '{"recording_id": 33}' : '{}'} invalid={overridesBad} testid="scan-overrides" />
-            <span className="muted small">{overridesBad ? 'not valid JSON' : 'what the check cannot read from the file · sent with check and register'}</span>
+            {overridesBad ? <span className="small" style={{ color: 'var(--red)' }}>not valid JSON</span> : <InfoTip title="Overrides">What the check cannot read from the file; sent with check and register.</InfoTip>}
           </div>}
           {cands.length > 0 && <Table rows={cands} rowKey={(c: Candidate) => c.path} dense testid="scan-candidates" highlighted={checked}
             columns={[
