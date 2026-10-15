@@ -212,6 +212,11 @@ which one does better on the exam.
   - **The noise verdict.** HDBSCAN tests each family against trend-kept surrogates of its own members.
     - On synthetic coloured noise every noise crowd was flagged.
     - Smooth window-filling shapes (broad humps, ramps) can read noise-like; the block says so on its face.
+    - *Since wave 3 (2026-10-15, `W3-G-quiet-stretch-null*.md`, `W3-evaluation.md` "The fairer noise test"):* a
+      family passes on **either** null — those trend-kept surrogates, or look-alikes cut from the recording's own
+      quiet stretches (selection-matched, margin 0.6) — so a smooth shape is no longer called noise for the
+      surrogate's blind spot. On the Library: HDBSCAN's noise-like families 3 → 1 (leaf 2 → 0); k-Shape is judged
+      the same way (11 of its 20 noise-like) and offered again in Analyse; the coherence verdict moved for no family.
   - **It is not arm B.2's clusterer.** `catalogue.shape_cluster` stays the split-aware, tree-keeping, freezable one
     that *Train model* reads; HDBSCAN has no tree to cut.
   - Running it after Window pool → Trace shape on the 60,000-window pool is untested.
@@ -556,3 +561,4 @@ Q-W1, Q-W2 and Q-W4 were answered 2026-10-03.
 - 2026-10-07 · researcher · the forest is trained on the real database and blind labelling has begun; asked for the blind labels to become a saved labelled window set afterwards (row added to *What is still needed*). The labels themselves already persist as `annotations` rows (`source = blind_test_review`).
 - 2026-10-09 · fixup-jobs · Jobs is one real board, its fixture half retired: *In progress here* (the job table, finished and failed behind a filter), *Waiting on the cluster* (every script the site wrote — the CNN and Ward job folders, Discovery's seed searches, the paired-training and Discovery-chain scripts — in one list with its state and how its results come back; `GET /api/hpc/cluster`) and *Waiting in review* (the open queues, what is left to judge, the pace). The CNN round trip is unchanged: the script's row › *Import results*, or the Manifest inbox.
 - 2026-10-14 · blocks-w2 · template `minirocket_manual_labels` ships (beats its label-permutation null on 3 of 3 M2_aug channels, random and blocked holdouts; balanced accuracy ≥ the Catch22 arm everywhere); the classifier reports `balanced_accuracy` / `majority_baseline`; the Library's k-Shape and HDBSCAN, and `catalogue.shape_families` with a noise verdict per family, are available for the unlabelled pool but not wired into arm B.2.
+- 2026-10-15 · blocks-w3 · families judged by either null (the recording's quiet stretches or trend-kept surrogates): HDBSCAN's noise-like families on the Library 3 → 1, leaf 2 → 0; k-Shape offered again in Analyse; σ² leads coherence on the Family page (W3-G, W3-F; `docs/prompts/blocks/reports/W3-evaluation.md`).

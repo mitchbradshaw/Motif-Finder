@@ -23,7 +23,8 @@ import re
 
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 CLIENT_SRC = os.path.join(PROJECT_ROOT, "webui", "client", "src")
-SMOKE = os.path.join(PROJECT_ROOT, "webui", "smoke_pages", "zz_analyse_run.json")
+SMOKE_DIR = os.path.join(PROJECT_ROOT, "webui", "smoke_pages")
+SMOKE = os.path.join(SMOKE_DIR, "zz_analyse_run.json")
 
 
 def _src(*parts):
@@ -127,9 +128,31 @@ def test_the_add_matches_result_shows_the_refusals_as_a_neutral_line():
     assert "refusalSummary" in api and "edgesRefused" in api
 
 
+def _manifests():
+    """Every smoke page file, in the order the walk runs them (`webui/smoke.py`: sorted file names)."""
+    files = sorted(fn for fn in os.listdir(SMOKE_DIR) if fn.endswith(".json"))
+    out = []
+    for fn in files:
+        with open(os.path.join(SMOKE_DIR, fn), encoding="utf-8") as f:
+            out.append((fn, json.load(f)))
+    return out
+
+
 def _states():
-    with open(SMOKE, encoding="utf-8") as f:
-        return {s["state"]: s for s in json.load(f)}
+    """The wave-3 states, wherever their file is."""
+    return {s["state"]: s for _, states in _manifests() for s in states if s["state"].startswith("w3-")}
+
+
+def test_the_cancel_state_is_the_last_the_walk_runs():
+    """The gate's smoke walk (2026-10-15): the cancel state zooms the Explore view out 13 times and sends that span
+    (the whole recording) to Analyse, and both persist — every Analyse state after it ran on 721 h: a 12 s wait met a
+    24 s step (fixup-aa), a null run met its 240 s limit (fixup-t), the layer check read another span (fixup-ac). Its
+    own file sorts last, so nothing in the walk runs after it."""
+    manifests = _manifests()
+    last_file, last_states = manifests[-1]
+    assert last_states[-1]["state"] == "w3-cancel-inside-a-step", last_file
+    for fn, states in manifests[:-1]:
+        assert all(s["state"] != "w3-cancel-inside-a-step" for s in states), fn
 
 
 def test_the_smoke_manifest_has_a_state_per_wave3_drawing_and_a_cancel_state():

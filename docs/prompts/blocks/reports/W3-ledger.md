@@ -611,6 +611,41 @@ instead of it.
   branch `claude/awesome-cori-5e53bd`) asked to run its gate; told to wait for mine (pytest, then the smoke walk,
   ~09:30) and to merge main first — its files overlap W3-F's (`execution.py`, `chain.py`, `runs.py`,
   `serialize.py`). 08:07 — **the gate's `pytest -n 4` started on `caa2ad0`** (conda).
+- 11:11 — **the gate's pytest on `caa2ad0`: 3877 passed, 42 skipped, 1 failed** — in **3 h 03 min** (the machine
+  loaded: ~0.7 GB RAM free, the researcher's controller software, Word). The failure,
+  `test_side_inputs::test_execute_recipe_raises_naming_the_binding_when_unresolved`, is real and W3-F's: its
+  assertions pass, but cleanup hits WinError 32 (its `.npy` still open), reproducibly alone. W3-F fix round 2 built
+  the `RecipeExecutionError` in a local, which with the traceback forms a reference cycle keeping the failing frame
+  and its memory-mapped recording alive until the next garbage collection. Fixed by passing `run_id` to the
+  constructor (`96c9e8f`; the five execution / null-draw files 62 passed, 1 skipped, conda; 16 passed, venv). Every
+  other test passed: against wave 2's gate (3353 / 0 failed) the failure set is otherwise empty. The peer that was
+  waiting had left by then (`ListAgents` empty; its inbox stale), so the smoke walk runs alone. 11:15 — my sandbox
+  bridge up on **8794** (database copy `webui/runtime/20261015-111453/`, the private client build), the full smoke
+  walk started.
+- 11:58 — **the full smoke walk: 674 screenshots, 0 browser console / page errors, 25 failures; all nine wave-3
+  states pass** (MSE ×2, cycle shapes ×2, wavelet rows ×2, pan ×2, the cancel inside a step). 18 of the 25 are
+  wave 2's known ones (or fewer of them): Discovery ×8 (runs ×2, seed save-template, compare ×3, the divergence
+  compare state, send-to-Review offered 0 — wave 2 had 12), Review inspector ×3, Settings click timeouts ×4 (wave 2:
+  5), explore corpus and max-lag-10, and the "database is locked" traceback in the sandbox copy (`jobs.py::_persist`, not a wave-3 file; the other error lines are the walk's
+  own deliberate failures). New against wave 2: `settings.datasets--identity-fields` (Mushroom_260720 CH14 is no
+  longer unnamed in the copied database — data, not code), `explore.corpus--fixup-x-disagree…` (the corpus heatmap
+  again), and **five Analyse states that W3-F's own cancel state broke**: `fixup-aa` ×3 (a 12 s wait met a 24 s
+  catch22 step over 12,976 windows), `fixup-ac-every-layer-stacked-and-aligned` (the layer check read a 721 h span)
+  and `fixup-t-run-with-null…` (a null run met its 240 s limit). The cancel state zooms the Explore view out 13 times
+  from the 15 h span w2-snippets left and sends the whole recording to Analyse; the view and the span persist, so
+  every later Analyse state ran on 721 h. Decision 30: the state moves, unchanged, to a page file the walk runs last
+  (red `f7971cf` — the W3-F UI test pins it last — → green `70dc445`). 12:0x — the affected page files re-walked on
+  the same bridge (`--pages-only --only` zz_analyse_run, zzz_surrogates, zzz_x_divergence, the moved cancel state).
+- 13:4x — **re-walk results.** `zz_analyse_run*` (the 44 states, `_aa`, `_ac`): **53 ok, 0 failures**; the moved
+  cancel state: 1 ok, 0 console errors; `zzz_x_divergence`: only wave 2's known divergence-compare state (the corpus
+  "disagree" state passed — a load flake). `zzz_surrogates` first failed with a render-error card: 14
+  `ERR_NETWORK_IO_SUSPENDED` / `ERR_NETWORK_CHANGED` console errors as the machine began to suspend — the keep-awake
+  hold had expired at 13:24 (held again for an hour at 13:39); re-run held awake: **5 of 5**, the run with a null
+  reading "null expects" after 4.4 s. Settings' identity state is data: the copied database names Mushroom_260720
+  CH14 "L_LM_Jul_SUBSET" (2026-10-13), the state expects it unnamed. **The gate passes for wave 3**: every wave-3
+  state and every state wave 3 broke now pass; what still fails is wave 2's known set, or data. Cleanup: tracked
+  screenshots restored, the walks' 60 untracked screenshots (all newer than the walk's start) deleted, the bridge
+  stopped, 8794 free.
 - 03:5x — **W3-C critic: merge after fixes, three blockers.** F1: plain phase surrogates are biased here too
   (exp(AR) noise got a suggestion 10/10; AAFT 1/10 → 0/10 at 20 draws, keeping planted-motif power) → the 03:55
   correction; F2: one null draw gives 1.2–5.8 % false suggestions at 1 Hz, three gave 0 in 544 spans, the false
@@ -753,6 +788,11 @@ instead of it.
     minutes" instead of "a few seconds" (`caa2ad0`), and the route tests seed rupture's entry in their own sandbox's
     calibration file (`637b3d5`), as a machine calibrated once has it. The root fix is the rupture-calibration task
     chip (time it in seconds, not minutes). Neither smoke walk nor any smoke state runs rupture.
+30. **W3-F's cancel smoke state runs last, in a page file of its own** (`zzzzzzzzzzz_w3_cancel.json`), unchanged.
+    Reason: it zooms the shared Explore view out 13 times and sends the whole recording to Analyse, and both persist
+    through the walk; five later Analyse states then ran on 721 h and timed out or read the wrong span. Restoring the
+    view inside the walk cannot return it exactly (the zoom-out clamps at the recording's ends and moves the centre),
+    so nothing runs after it instead; the W3-F UI test pins the order.
 3. **The Library side of decision 4 is folded into round 2**: W3-G puts σ² first in `shape_families`' summary lines and
    the coherence payload it returns, and measures both variants' verdicts against the quiet-stretch null (the verdict
    stays on eq. 17 unless the researcher moves it); W3-F puts σ² first on the Family page and the families table.

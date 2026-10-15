@@ -62,6 +62,13 @@ class RecipeExecutionError(RuntimeError):
     row (None when the failure came before a row existed)."""
     run_id = None
 
+    def __init__(self, *args, run_id=None):
+        # given at construction, so the raise site keeps no local name for the exception: a local would tie the
+        # failing frame (and every array it holds, a memory-mapped recording included) into a reference cycle
+        # through the traceback, keeping the file open on Windows until the next garbage collection
+        super().__init__(*args)
+        self.run_id = run_id
+
 
 class RecipeCancelled(RuntimeError):
     """Cancelled via `should_cancel` — between steps, or inside a step whose
@@ -578,6 +585,5 @@ def _execute_recipe_with_conn(conn, recipe, force, on_progress, should_cancel, r
     except Exception as e:
         tb = traceback.format_exc()
         update_run(conn, run_id, status="failed", finished_at=_now(), error_text=tb)
-        err = RecipeExecutionError(f"Recipe execution failed (run_id={run_id}): {e}")
-        err.run_id = run_id     # W3-F fix round 2: as on RecipeCancelled, so a null draw that fails is still linked
-        raise err from e
+        # W3-F fix round 2: the run id, as on RecipeCancelled, so a null draw that fails is still linked
+        raise RecipeExecutionError(f"Recipe execution failed (run_id={run_id}): {e}", run_id=run_id) from e
