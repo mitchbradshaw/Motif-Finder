@@ -2696,9 +2696,10 @@ import threading  # noqa: E402
 from collections import OrderedDict  # noqa: E402
 
 _TREE_KEY = re.compile(r"^[0-9a-f]{32}$")
-#: The trees most recently previewed, with their rebuilt fits (the distances cost a pdist each), by key.
+#: The tree most recently previewed, with its rebuilt fit, by path. ONE: the fit holds the square distance matrix
+#: (n x n float64 -- about 100 MB at the 3,600-member catalogue), and the editor previews one grouping at a time.
 _TREES: "OrderedDict[str, tuple]" = OrderedDict()
-_TREES_HELD = 3
+_TREES_HELD = 1
 _TREES_LOCK = threading.Lock()
 
 
@@ -2755,7 +2756,7 @@ def _checked_tree(rt, key, body) -> tuple:
 
 
 def _load_tree(path) -> tuple:
-    """`(GroupingTree, fit, lock)` for a kept tree, the three most recent held in memory. A file that fails its own
+    """`(GroupingTree, fit, lock)` for a kept tree, the most recent one held in memory (`_TREES_HELD`). A file that fails its own
     key check raises ValueError (the caller words it)."""
     from Working.library.grouping import methods as method_registry
     full = os.path.abspath(path)
