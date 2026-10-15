@@ -45,6 +45,10 @@ import { UNIT_LABEL, getGroupingEditor, type BasisKind, type BasisOption, type F
 /* The grouping job and the grouping write have no fixture-shaped wrapper in `api/library.ts` (that module is
  * the READ seam), so they are taken from the typed bridge client directly. */
 import { ApiError, cancelJob, getJob, runLibraryGrouping, saveLibraryGrouping, subscribeJob, type LibFamilyFlags, type LibFitSummary, type LibGrouping, type LibGroupingAssignment, type LibGroupingMethod, type LibGroupingRefusal } from '../api'
+/* fixup-an: the grouping's kept Ward tree — drawn with Analyse's dendrogram (one component, not a second) and cut
+ * from the bridge without a job */
+import { getLibraryGroupingCut, getLibraryGroupingTree, type LibCutPreview, type LibGroupingTree } from '../api'
+import { Dendrogram, Spark, heightFor, kAt } from '../analyse/views/TreePage'
 /* the five omission reasons live in `chrome` so the drawer and this panel cannot word them differently */
 import { NoiseBadge, OMIT_REASON_LABEL, useExternalNavKey, useAllGroupings, useMotifGroupingId, useSavedGroupings, useSelection, useSequenceGroupingId } from './chrome'
 import { AtlasPage } from './AtlasPage'
@@ -219,6 +223,9 @@ interface RunResult {
   /** w2-b: the method's account of the fit (its null, the k rule), sent back unchanged on save */
   fitSummary?: LibFitSummary | null
   families?: { id: number; label: string; size: number; medoid: unknown; flags: LibFamilyFlags }[]
+  /** fixup-an: the kept tree (Ward), and the job's words for whether it was built or reused */
+  tree?: { key: string; path: string | null; reused: boolean; replaced?: string | null } | null
+  treeNote?: string | null
 }
 type Phase = 'idle' | 'running' | 'done' | 'failed' | 'cancelled'
 interface JobView {
@@ -347,9 +354,16 @@ function GroupingEditor({ from }: { from: string }) {
   const [unitQ, setUnitQ] = useQueryState<string>('unit', 'motifs')
   const [basisQ, setBasisQ] = useQueryState<string>('basis', '')
   const [stateQ, setStateQ] = useQueryState('state', '')
+  /* fixup-an: the Ward cut is in the address, so the tree's cut line, the cut field and the URL are one value */
+  const [cutQ, setCutQ] = useQueryState<string>('cut', '')
+  const urlCut = useRef<number | null>(Number(cutQ) > 0 ? Number(cutQ) : null)
   const startUnit: Unit = unitQ === 'sequences' || unitQ === 'spike-trains' ? unitQ : 'motifs'
   const initialBasis: BasisKind = (basisQ as BasisKind) || (startUnit === 'sequences' ? 'sequence-similarity' : startUnit === 'spike-trains' ? 'amplitude' : 'shape-distance')
-  const [d, setD] = useState<Draft>(() => ({ ...BASE, unit: startUnit, basis: initialBasis, cut: initialBasis === 'sequence-similarity' ? 0.5 : 0.42 }))
+  const [d, setD] = useState<Draft>(() => ({ ...BASE, unit: startUnit, basis: initialBasis, cut: urlCut.current ?? (initialBasis === 'sequence-similarity' ? 0.5 : 0.42) }))
+  /* fix round: the slider keeps a cut-sized range (0.1-1), growing only to reach a cut set above it (a dragged line,
+   * a typed URL) — the tree's full height belongs to the dendrogram, where 0.1-1 was 5 % of the slider */
+  const [cutMax, setCutMax] = useState(1)
+  useEffect(() => { if (d.cut > cutMax) setCutMax(Math.ceil(d.cut * 10) / 10) }, [d.cut, cutMax])
 
   // the bases a unit admits depend on the unit, so the editor is re-read when it changes: that is what makes
   // "disabled WITH its reason" (§8.2) the core's answer rather than the page's guess
@@ -391,7 +405,9 @@ function GroupingEditor({ from }: { from: string }) {
   // the core's own identity for "this is the grouping you already have" — the recipe hash, not a comparison
   // against the literal settings of `g-07`
   const currentHash = (current as (Grouping & { recipeHash?: string | null }) | undefined)?.recipeHash ?? null
-  const unchanged = !!pv && !!currentHash && currentHash === job.view.result?.recipeHash
+  // fixup-an: …unless this run kept a tree the current grouping lacks — "Build the tree" is exactly that re-run
+  const currentTreeKey = (current as (Grouping & { treeKey?: string | null }) | undefined)?.treeKey ?? null
+  const unchanged = !!pv && !!currentHash && currentHash === job.view.result?.recipeHash && !(job.view.result?.tree && !currentTreeKey)
 
   /* "from g-02" has to mean g-02's parameters. The draft starts on `BASE` because the groupings read has not
      landed when the modal mounts; the moment the current grouping resolves, the draft is seeded FROM IT —
@@ -404,8 +420,21 @@ function GroupingEditor({ from }: { from: string }) {
     if (touched.current && seededFrom !== null) return
     setSeededFrom(current.id)
     const seed = seedFromGrouping(current, editor.data.methods)
-    setD(x => ({ ...x, ...seed, basis: basisQ ? x.basis : (seed.basis ?? x.basis), range: null }))
+    // a cut named in the address (a shared link, a reload) wins over the grouping's own, once
+    const fromUrl = urlCut.current; urlCut.current = null
+    setD(x => ({ ...x, ...seed, ...(fromUrl ? { cut: fromUrl } : {}), basis: basisQ ? x.basis : (seed.basis ?? x.basis), range: null }))
   }, [current, d.unit, basisQ, seededFrom, editor.data])
+  // fixup-an: the draft's Ward cut follows into the address — once the draft has been seeded, so the BASE default
+  // never lands there and then overrules the grouping's own cut
+  const wardDraft = DISTANCE_BASES.includes(d.basis) && method === 'ward'
+  useEffect(() => {
+    if (!wardDraft || (current && seededFrom === null && !touched.current)) return
+    const s = String(d.cut)
+    if (s !== cutQ) setCutQ(s)
+  }, [d.cut, wardDraft, seededFrom]) // eslint-disable-line react-hooks/exhaustive-deps
+  /* the tree panel draws the CURRENT grouping's kept tree, when it is a Ward grouping of this unit and the draft is Ward */
+  const currentMethod = (current as (Grouping & { method?: string | null }) | undefined)?.method ?? 'ward'
+  const treeGid = current && current.unit === d.unit && wardDraft && currentMethod === 'ward' && DISTANCE_BASES.includes(current.basis) ? current.id : null
   // fix 1 (critic 12): a refusal describes the settings it refused; once they change it is stale, so it goes
   useEffect(() => { if (job.view.refusal && job.view.refusalSig !== sig) job.clearRefusal() }, [sig, job.view.refusal, job.view.refusalSig]) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -463,6 +492,8 @@ function GroupingEditor({ from }: { from: string }) {
         assignments: r.assignments,
         // w2-b: the job's fit summary, unchanged — the saved grouping keeps its null's verdict on every family
         fit_summary: r.fitSummary ?? null,
+        // fixup-an: the tree the job kept, by key — the saved grouping references it, so its tree can be drawn
+        tree_key: r.tree?.key ?? null,
       })
       setSaved(s => [...s.filter(x => x.id !== saved.id), saved as unknown as Grouping])
       setSavedId(saved.id)
@@ -530,6 +561,10 @@ function GroupingEditor({ from }: { from: string }) {
       {editor.error && <Callout tone="red" title="Could not read the grouping options">{editor.error.message}</Callout>}
       {editor.loading && <div className="skeleton" style={{ height: 420 }} />}
       {editor.data && basis && <>
+        {treeGid && (
+          <TreePanel gid={treeGid} cut={d.cut} minGroup={d.minMembers} omitSmall={d.omitSmall} nearest={d.nearest}
+            onCut={c => set({ cut: c })} busy={busy} onBuild={() => runPreview()} />
+        )}
         <section className="lib-ge-sec" data-testid="ge-unit">
           <h4>1&nbsp; What to group</h4>
           <div className="lib-units" role="radiogroup" aria-label="what to group">
@@ -565,7 +600,8 @@ function GroupingEditor({ from }: { from: string }) {
 
         <section className="lib-ge-sec" data-testid="ge-params">
           <h4>3&nbsp; {basis.title[0].toUpperCase() + basis.title.slice(1)}</h4>
-          <Params d={d} set={set} basis={d.basis} dist={dist} extent={extent} clusterings={editor.data.clusterings} invalid={invalid} methods={methods} />
+          <Params d={d} set={set} basis={d.basis} dist={dist} extent={extent} clusterings={editor.data.clusterings} invalid={invalid} methods={methods}
+            cutMax={cutMax} />
         </section>
 
         <section className="lib-ge-sec" data-testid="ge-misfits">
@@ -629,6 +665,7 @@ function GroupingEditor({ from }: { from: string }) {
 
           <span className="mono small muted"><Icon name="info" size={11} style={{ verticalAlign: -1 }} /> applying regroups the whole catalogue and clears the current scope{current ? `; ${current.id} stays saved` : ''}</span>
           {overLimit && <span className="mono small" style={{ color: '#c27400' }}><Icon name="hourglass" size={11} style={{ verticalAlign: -1 }} /> over the core's local limit — the regroup is exported as a cluster job</span>}
+          {pv && job.view.result?.treeNote && <span className="mono small muted" data-testid="preview-tree-note"><Icon name="info" size={11} style={{ verticalAlign: -1 }} /> the tree: {job.view.result.treeNote}</span>}
           {savedId && <span className="mono small" style={{ color: 'var(--green)' }} data-testid="grouping-saved"><Icon name="check" size={11} style={{ verticalAlign: -1 }} /> saved as {savedId}</span>}
           {job.view.phase === 'cancelled' && <span className="mono small muted" data-testid="regroup-cancelled">cancelled · nothing was written</span>}
         </div>
@@ -650,6 +687,103 @@ function GroupingEditor({ from }: { from: string }) {
   )
 }
 
+/* ================================================================ the tree (fixup-an) ================================================================
+ * The current grouping's kept Ward tree, drawn with Analyse's dendrogram. The amber line IS the draft's cut: dragging it
+ * writes the cut field (and the address), typing the field moves the line. Every move asks the bridge for the families
+ * at that cut from the kept tree (`GET /groupings/{id}/cut`) — no job, nothing refitted, nothing written — and draws a
+ * card per family (its medoid and a few members). *Compute and apply* is the regroup at that cut, which reuses the tree
+ * when the catalogue and the fit settings have not changed. */
+const MAX_TREE_CARDS = 40
+
+function TreePanel({ gid, cut, minGroup, omitSmall, nearest, onCut, onBuild, busy }: {
+  gid: string; cut: number; minGroup: number; omitSmall: boolean; nearest: number
+  onCut: (c: number) => void; onBuild: () => void; busy: boolean
+}) {
+  const [tree, setTree] = useState<LibGroupingTree | null>(null)
+  const [treeErr, setTreeErr] = useState<string | null>(null)
+  useEffect(() => {
+    let alive = true
+    setTree(null); setTreeErr(null)
+    getLibraryGroupingTree(gid).then(t => { if (alive) setTree(t) })
+      .catch(e => { if (alive) { console.error('the grouping tree did not load', e); setTreeErr(errText(e)) } })
+    return () => { alive = false }
+  }, [gid])
+  const has = !!tree?.tree
+  const [pv, setPv] = useState<LibCutPreview | null>(null)
+  const [pvErr, setPvErr] = useState<string | null>(null)
+  /* fix round: at most one cut request in flight. A move while one is out waits as `pending` (a newer move replaces
+   * it), and is sent when the one in flight lands — so a drag costs the server two or three cuts, not one per pixel */
+  const mounted = useRef(true)
+  useEffect(() => () => { mounted.current = false }, [])
+  const inFlight = useRef(false)
+  const pending = useRef<(() => void) | null>(null)
+  useEffect(() => {
+    if (!has || !(cut > 0)) return
+    const go = () => {
+      inFlight.current = true
+      getLibraryGroupingCut(gid, cut, { min_group: omitSmall ? minGroup : 1, omit_d: nearest, samples: 5 })
+        .then(p => { if (mounted.current) { setPv(p); setPvErr(null) } })
+        .catch(e => { console.error('the cut preview failed', e); if (mounted.current) setPvErr(errText(e)) })
+        .finally(() => { inFlight.current = false; const next = pending.current; pending.current = null; if (next) next() })
+    }
+    const h = window.setTimeout(() => { if (inFlight.current) pending.current = go; else go() }, 180)
+    return () => window.clearTimeout(h)
+  }, [gid, has, cut, minGroup, omitSmall, nearest])
+
+  const head = (
+    <h4 className="row" style={{ gap: 6 }}>0&nbsp; The tree behind {gid}
+      <InfoTip title="what the tree is">The two most alike shapes join first, then the next pair, until everything is one trunk; the height of a join is how different the two sides were. Cutting the tree at a height gives the families: a lower cut gives more, smaller families, a higher cut fewer, bigger ones. The tree was kept when {gid} was computed; dragging the line reads it again and re-runs nothing. Compute and apply then groups the catalogue at this cut (reusing the kept tree when the catalogue and settings have not changed) and saves it as a new grouping — {gid} stays saved, and hand edits are re-applied as on every regroup.</InfoTip>
+    </h4>
+  )
+  if (treeErr) return <section className="lib-ge-sec" data-testid="ge-tree">{head}<Callout tone="red" title="The tree did not load" testid="tree-load-failed">{treeErr}</Callout></section>
+  if (!tree) return <section className="lib-ge-sec" data-testid="ge-tree">{head}<span className="mono small muted" data-testid="tree-loading">reading the tree…</span></section>
+  if (!tree.tree) {
+    return (
+      <section className="lib-ge-sec" data-testid="ge-tree">{head}
+        <Callout tone="amber" title="No tree to draw" testid="tree-missing" action={tree.canBuild
+          ? <Button size="sm" icon="play" testid="tree-build" disabled={busy} disabledReason="a regroup is running" onClick={onBuild}>Build the tree</Button> : undefined}>
+          {tree.reason}{tree.canBuild ? ' — it computes the grouping again at the settings below and keeps its tree; Apply saves it as a new grouping.' : ''}
+        </Callout>
+      </section>
+    )
+  }
+  const d = tree.tree.dendrogram
+  const k = kAt(d.heights, cut)
+  return (
+    <section className="lib-ge-sec" data-testid="ge-tree" data-key={tree.tree.key}>
+      {head}
+      <span className="lib-cap">Drag the amber line to cut the tree somewhere else; the families below follow at once, read from the kept tree.</span>
+      <Dendrogram t={{ dendrogram: d }} k={k} cutHeight={cut} leafWord="members" heightScale="sqrt"
+        cutLabel={`cut ${fmtCut(cut)} · ${k} branch${k === 1 ? '' : 'es'} before the size and distance rules · drag`}
+        onK={kk => onCut(+heightFor(d.heights, d.max_height, kk).toFixed(4))} />
+      {pvErr && <Callout tone="red" title={`The families at cut ${cut} did not load`} testid="tree-cut-failed">{pvErr}</Callout>}
+      {pv && (
+        <div className="stack" style={{ gap: 6, opacity: pv.cut === cut ? 1 : 0.6 }} data-testid="tree-cut-preview" data-families={pv.nFamilies} data-cut={pv.cut}>
+          <span className="mono small">
+            cut {fmtCut(pv.cut)} · <b data-testid="tree-cut-families">{fmtInt(pv.nFamilies)}</b> famil{pv.nFamilies === 1 ? 'y' : 'ies'} · {fmtInt(pv.nAssigned)} members · <span style={{ color: '#c27400' }}>{fmtInt(pv.nOmitted)} omitted</span>
+            {pv.smallFamilies.count > 0 && <> · {fmtInt(pv.smallFamilies.count)} group{pv.smallFamilies.count === 1 ? '' : 's'} under {pv.smallFamilies.minGroup} dissolved ({fmtInt(pv.smallFamilies.members)} members)</>}
+            {' · '}<span data-testid="tree-cut-moved">{pv.change.sameFamilies ? `the same families as ${gid}` : `${fmtInt(pv.change.moved)} move family against ${gid} (${pv.change.currentFamilies} families) · ${fmtInt(pv.change.newlyOmitted)} newly omitted · ${fmtInt(pv.change.newlyAssigned)} newly in a family`}</span>
+            <InfoTip title="how moves are counted">{pv.change.rule}</InfoTip>
+          </span>
+          {Object.keys(pv.omittedByReason).length > 0 && <span className="mono small" style={{ color: '#c27400' }}>{Object.entries(pv.omittedByReason).map(([r, n]) => `${fmtInt(n)} ${OMIT_REASON_LABEL[r] ?? r}`).join(' · ')}</span>}
+          <span className="lib-cap">a card per family: its medoid (brown, the most typical member) and a few more <InfoTip title="which members">{pv.sampleRule}</InfoTip>{pv.families.length > MAX_TREE_CARDS ? ` · the ${MAX_TREE_CARDS} largest of ${pv.families.length} shown` : ''}</span>
+          <div className="sh-cards" data-testid="tree-cut-cards" data-n={Math.min(pv.families.length, MAX_TREE_CARDS)}>
+            {[...pv.families].sort((a, b) => b.size - a.size).slice(0, MAX_TREE_CARDS).map(f => (
+              <div key={f.label} className="sh-card-one" style={{ cursor: 'default' }} data-testid={`tree-cut-card-${f.label}`}>
+                <div className="cap"><b>{f.label}</b> · {fmtInt(f.size)} members</div>
+                {f.samples[0]?.trace.length ? <Spark v={f.samples[0].trace} w={150} h={46} colour="#b35900" /> : <div className="lib-cap">medoid: {f.samples[0]?.missing ?? 'no trace (its recording declares no unit, or its channel is not on disk)'}</div>}
+                <div className="mini-row">{f.samples.slice(1).map(s => s.trace.length ? <Spark key={s.ref} v={s.trace} w={34} h={22} colour="var(--text)" /> : <span key={s.ref} className="lib-cap" title={s.missing ?? 'no trace'}>·</span>)}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+      {!pv && !pvErr && <span className="mono small muted" data-testid="tree-cut-loading">reading the families at cut {fmtCut(cut)}…</span>}
+    </section>
+  )
+}
+const fmtCut = (c: number) => (Math.abs(c) >= 10 ? c.toFixed(1) : c.toFixed(3).replace(/0+$/, '').replace(/\.$/, ''))
+
 const fmtSeconds = (s: number): string => (s < 90 ? `${Math.max(1, Math.round(s))} s` : s < 5400 ? `${Math.round(s / 60)} min` : `${(s / 3600).toFixed(1)} h`)
 
 /** The core's own recompute estimate (`engine._recompute_cost`), rendered. Nothing is recomputed here. */
@@ -659,10 +793,12 @@ function recomputeLabel(r: RunRecompute): string {
 }
 
 /* ================================================================ parameters ================================================================ */
-function Params({ d, set, basis, dist, extent, clusterings, invalid, methods }: {
+function Params({ d, set, basis, dist, extent, clusterings, invalid, methods, cutMax = 1 }: {
   d: Draft; set: (p: Partial<Draft>) => void; basis: BasisKind; dist?: FeatureBin[]; extent: [number, number] | null
   clusterings: { value: string; label: string; scope: string }[]; invalid: { field: string; message: string } | null
   methods: LibGroupingMethod[]
+  /** fixup-an: the slider's top — the kept tree's highest merge when there is one (Ward heights can pass 1) */
+  cutMax?: number
 }) {
   const axis = FEATURE_AXIS[basis]
   const err = (field: string) => invalid?.field === field ? <span className="k-field-error" role="alert" data-testid="param-error"><Icon name="alert-circle" size={11} />{invalid.message}</span> : null
@@ -725,7 +861,7 @@ function Params({ d, set, basis, dist, extent, clusterings, invalid, methods }: 
       <div className="lib-params">
         <div className="stack" style={{ gap: 6 }}>
           {methodRow}
-          <div className="lib-param-row"><span>cut</span><Slider value={d.cut} min={0.1} max={1} step={0.01} onChange={v => set({ cut: +v.toFixed(2) })} format={v => v.toFixed(2)} width={190} testid="param-cut" ariaLabel="cut" /></div>
+          <div className="lib-param-row"><span>cut</span><Slider value={Math.min(d.cut, cutMax)} min={0.1} max={cutMax} step={0.01} onChange={v => set({ cut: +v.toFixed(2) })} format={v => v.toFixed(2)} width={190} testid="param-cut" ariaLabel="cut" /></div>
           <div className="lib-param-row"><span>nearest family past</span><NumberField size="sm" width={64} value={d.nearest} min={0.1} max={1} step={0.01} testid="param-nearest" ariaLabel="nearest family distance" onValid={n => set({ nearest: n })} /></div>
           {err('cut')}
           <span className="lib-cap">how many families the cut gives is measured by the preview, not guessed here</span>

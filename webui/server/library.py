@@ -61,6 +61,7 @@ from Working.library import verdicts as verdicts_mod
 from Working.library import view_filter as vf_mod
 from Working.library.grouping import bases as bases_mod
 from Working.library.grouping import engine as engine_mod
+from Working.library.grouping import tree as tree_mod
 from Working.library.importers import annotations as ann_importer
 from Working.library.importers import catalogue as cat_importer
 from Working.library.importers import event_store as store_importer
@@ -559,6 +560,8 @@ def _grouping_payload(conn, row) -> dict:
         # grouping was saved without one — the page says "not tested", never a blank verdict
         "fitSummary": (json.loads(row["fit_summary_json"])
                        if "fit_summary_json" in row.keys() and row["fit_summary_json"] else None),
+        # fixup-an: the kept Ward tree's key (None for a grouping made before trees were kept, or one with no tree)
+        "treeKey": row["tree_key"] if "tree_key" in row.keys() else None,
     }
 
 
@@ -2475,6 +2478,9 @@ class GroupingSaveBody(BaseModel):
     # w2-b fix round 1: the regroup job's `fitSummary`, sent back unchanged;
     # stored as `groupings.fit_summary_json` (NULL when absent)
     fit_summary: dict | None = None
+    # fixup-an: the regroup job's `tree.key`. Only the KEY travels: the server finds the file under its own
+    # tree root and records its path, so no path from the browser is ever written onto a row.
+    tree_key: str | None = None
 
 
 def _grouping_item_count(conn, unit_db, limit=None) -> int:
@@ -2584,11 +2590,13 @@ def run_grouping_job(request: Request, body: GroupingRunBody):
                     conn, index, [(it["recording_id"], it["start_idx"], it["end_idx"]) for it in items])
                 preview = engine_mod.preview(items, unit=unit_db, basis=body.basis,
                                              method=body.method, params=body.params, hand_edits=edits,
-                                             should_cancel=job.cancel_event.is_set, background=background)
+                                             should_cancel=job.cancel_event.is_set, background=background,
+                                             tree_root=tree_root)
             except engine_mod.GroupingCancelled:
                 return None
-            job.progress(3, 4, "measuring")
             result = preview.result
+            tree_note = _tree_note(result.tree)
+            job.progress(3, 4, f"measuring · {tree_note}" if tree_note else "measuring")
             assignments = [
                 {"ref": a.ref, "contentHash": a.content_hash, "familyId": a.family_id,
                  "familyLabel": a.family_label, "distance": a.distance,
@@ -2614,10 +2622,16 @@ def run_grouping_job(request: Request, body: GroupingRunBody):
                 "families": [{"id": fam.id, "label": fam.label, "size": fam.size,
                               "medoid": fam.medoid, "flags": fam.flags}
                              for fam in result.families],
+                # fixup-an: the kept tree (`{key, path, reused}`), None for a method that builds none
+                "tree": ({"key": result.tree["key"], "path": _stored_tree_path(result.tree["path"]),
+                          "reused": bool(result.tree["reused"]), "replaced": result.tree.get("replaced")}
+                         if result.tree else None),
+                "treeNote": tree_note,
             }
         finally:
             conn.close()
 
+    tree_root = _tree_root(rt)
     job = manager.start_job("regroup", _work, meta={"what": "grouping", "unit": body.unit, "basis": body.basis})
     return {"job_id": job.id, "kind": "regroup", "status": job.status}
 
@@ -2630,6 +2644,8 @@ def save_grouping(request: Request, body: GroupingSaveBody):
     grouping is a person's decision about how to carve the library up, not a
     detector's output — so both go through `write_human`.
     """
+    tree_path, tree_key = (_checked_tree(_rt(request), body.tree_key, body)
+                           if body.tree_key is not None else (None, None))
     conn = _conn(request)
     try:
         unit_db = UNIT_TO_DB.get(body.unit, body.unit)
@@ -2648,6 +2664,7 @@ def save_grouping(request: Request, body: GroupingSaveBody):
             "created_at": now, "actor": body.actor,
             "fit_summary_json": (json.dumps(engine_mod.json_safe(body.fit_summary), sort_keys=True)
                                  if body.fit_summary is not None else None),
+            "tree_path": tree_path, "tree_key": tree_key,
         })
         for a in body.assignments:
             writes.write_human(conn, "grouping_assignments", {
@@ -2665,6 +2682,263 @@ def save_grouping(request: Request, body: GroupingSaveBody):
         return _grouping_payload(conn, row)
     finally:
         conn.close()
+
+
+# ── fixup-an: the grouping's kept tree, drawn and cut ───────────────────────
+#
+# A Ward regroup keeps its tree on disk (`Working/library/grouping/tree.py`); the
+# `groupings` row holds its path and key, never the arrays (rule 4). The page draws
+# the tree and previews a cut from it — `fcluster` over the kept linkage and the
+# engine's own assign path, milliseconds — and only *Compute and apply* runs a job,
+# which reuses the tree when the members and fit settings are unchanged.
+
+import threading  # noqa: E402
+from collections import OrderedDict  # noqa: E402
+
+_TREE_KEY = re.compile(r"^[0-9a-f]{32}$")
+#: The tree most recently previewed, with its rebuilt fit, by path. ONE: the fit holds the square distance matrix
+#: (n x n float64 -- about 100 MB at the 3,600-member catalogue), and the editor previews one grouping at a time.
+_TREES: "OrderedDict[str, tuple]" = OrderedDict()
+_TREES_HELD = 1
+_TREES_LOCK = threading.Lock()
+
+
+def _tree_root(rt) -> str:
+    """Where this bridge keeps grouping trees: inside the runtime for a sandbox (the real DATA/ is never
+    written from one), the library's derived store (`tree.TREE_ROOT`) for the project."""
+    if getattr(rt, "mode", "sandbox") == "sandbox":
+        return os.path.join(rt.dir, "results", "grouping_trees")
+    return os.path.join(REPO_ROOT, tree_mod.TREE_ROOT)
+
+
+def _stored_tree_path(path) -> str | None:
+    """The path as a row records it: repo-relative (forward slashes) when it is inside the checkout, else as is."""
+    if not path:
+        return None
+    full = os.path.abspath(path)
+    try:
+        rel = os.path.relpath(full, REPO_ROOT)
+    except ValueError:            # another drive
+        return full
+    return full if rel.startswith("..") else rel.replace(os.sep, "/")
+
+
+def _resolved_tree_path(stored) -> str:
+    return stored if os.path.isabs(stored) else os.path.join(REPO_ROOT, stored)
+
+
+def _tree_note(tree) -> str | None:
+    """What the regroup job says about its tree, in words."""
+    if not tree:
+        return None
+    if tree.get("reused"):
+        return f"reused the tree {tree['key'][:8]} (same members and fit settings: only the cut was applied)"
+    note = f"built the tree {tree['key'][:8]} and kept it for previews and the next apply"
+    return note + (" (a file under this key failed its own check and was rebuilt)" if tree.get("replaced") else "")
+
+
+def _checked_tree(rt, key, body) -> tuple:
+    """`(stored path, key)` for a tree key a save sends — only a key this server wrote and still holds, and only
+    for the grouping it was fitted for. Anything else is a 422 that says which."""
+    if not isinstance(key, str) or not _TREE_KEY.match(key):
+        raise HTTPException(status_code=422, detail=f"{key!r} is not a grouping tree key (32 hex characters)")
+    path = tree_mod.path_for(_tree_root(rt), key)
+    if not os.path.isfile(path):
+        raise HTTPException(status_code=422, detail=(f"no grouping tree {key} under this bridge's tree store: "
+                                                     f"run the grouping again to build it"))
+    # fix round: only the tree itself — not its fit (0.7 s and ~100 MB at the real catalogue), and not through the
+    # preview cache, which a save would otherwise evict
+    try:
+        t = _tree_only(path)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc))
+    unit_db = UNIT_TO_DB.get(body.unit, body.unit)
+    if t.key != key:
+        raise HTTPException(status_code=422, detail=f"the file under key {key} holds the tree of key {t.key}")
+    if (t.unit, t.basis, t.method) != (unit_db, body.basis, body.method):
+        raise HTTPException(status_code=422, detail=(
+            f"the tree {key} was fitted for {t.unit} · {t.basis} · {t.method}, not for "
+            f"{unit_db} · {body.basis} · {body.method}"))
+    # ... and over exactly the members being saved, or the page would cut a tree of other members
+    tree_refs = sorted(str(r) for r in t.refs.tolist())
+    saved_refs = sorted(str(a.get("ref")) for a in body.assignments)
+    if tree_refs != saved_refs:
+        raise HTTPException(status_code=422, detail=(
+            f"the tree {key} is over {len(tree_refs)} members and these assignments name {len(saved_refs)} "
+            f"({len(set(tree_refs) ^ set(saved_refs))} member refs differ): it is not this grouping's tree"))
+    return _stored_tree_path(path), key
+
+
+def _tree_only(path):
+    """A kept tree without its fit: from the preview cache when it is there, else read (and checked) from disk."""
+    full = os.path.abspath(path)
+    with _TREES_LOCK:
+        hit = _TREES.get(full)
+        if hit is not None and hit[0] == os.path.getmtime(full):
+            return hit[1]
+    return tree_mod.GroupingTree.load(full)
+
+
+def _load_tree(path) -> tuple:
+    """`(GroupingTree, fit, lock)` for a kept tree, the most recent one held in memory (`_TREES_HELD`). A file that fails its own
+    key check raises ValueError (the caller words it)."""
+    from Working.library.grouping import methods as method_registry
+    full = os.path.abspath(path)
+    stamp = os.path.getmtime(full)
+    with _TREES_LOCK:
+        hit = _TREES.get(full)
+        if hit is not None and hit[0] == stamp:
+            _TREES.move_to_end(full)
+            return hit[1], hit[2], hit[3]
+    t = tree_mod.GroupingTree.load(full)
+    fit = method_registry.get(t.method).fit_from_tree(t)
+    lock = threading.Lock()          # `assign` writes onto the fit; one cut at a time per tree
+    with _TREES_LOCK:
+        _TREES[full] = (stamp, t, fit, lock)
+        while len(_TREES) > _TREES_HELD:
+            _TREES.popitem(last=False)
+    return t, fit, lock
+
+
+def _tree_state(row) -> tuple:
+    """`(tree or None, path or None, reason or None, can_build)` for a grouping row."""
+    from Working.library.grouping import methods as method_registry
+    method = row["method"]
+    try:
+        builds = bool(getattr(method_registry.get(method), "builds_tree", False))
+    except KeyError:
+        builds = False
+    if not builds:
+        return None, None, (f"a {method} grouping has no tree: its families are not cut from a tree of merges, "
+                            f"so there is nothing to draw or cut here"), False
+    stored = row["tree_path"] if "tree_path" in row.keys() else None
+    if not stored:
+        return None, None, ("this grouping was made before trees were kept (fixup-an, 2026-10-15), so there is no "
+                            "tree to draw. Build the tree regroups at this grouping's own settings and keeps it"), True
+    path = _resolved_tree_path(stored)
+    if not os.path.isfile(path):
+        return None, path, (f"the tree file {stored} is not on disk any more; build it again (a regroup at this "
+                            f"grouping's own settings)"), True
+    try:
+        t = _tree_only(path)
+    except ValueError as exc:
+        return None, path, f"the tree file {stored} cannot be used: {exc}", True
+    want = row["tree_key"] if "tree_key" in row.keys() else None
+    if want and t.key != want:
+        # fix round: a valid file is not enough — it must be the tree this row was saved with
+        return None, path, (f"the tree file {stored} holds the tree of key {t.key}, not this grouping's key "
+                            f"{want}; build it again (a regroup at this grouping's own settings)"), True
+    return t, path, None, True
+
+
+def _grouping_or_404(conn, grouping_id):
+    row = _grouping_row(conn, grouping_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail=f"no grouping {grouping_id!r}")
+    return row
+
+
+@router.get("/groupings/{grouping_id}/tree")
+def get_grouping_tree(request: Request, grouping_id: str, leaves: int = Query(default=tree_mod.DEFAULT_DENDROGRAM_LEAVES)):
+    """`{groupingId, method, cut, tree: {key, path, nLeaves, dendrogram} | null, reason, canBuild}` — the kept
+    tree drawn as the dendrogram (`TreePage.tsx`'s payload: icoord / dcoord, the last `leaves` merges, every
+    merge height high to low). A grouping with no tree says why in `reason`, and `canBuild` says whether a
+    regroup at its own settings would keep one."""
+    conn = _conn(request)
+    try:
+        row = _grouping_or_404(conn, grouping_id)
+    finally:
+        conn.close()
+    t, path, reason, can_build = _tree_state(row)
+    tree = None
+    if t is not None:
+        d = tree_mod.dendrogram(t, leaves=max(2, min(200, int(leaves))))
+        tree = {"key": t.key, "path": _stored_tree_path(path), "nLeaves": d["n_leaves"], "dendrogram": d,
+                "fitParams": t.fit_params}
+    params = json.loads(row["params_json"] or "{}")
+    return {"groupingId": gid_str(row["id"]), "method": row["method"], "basis": row["basis"],
+            "unit": UNIT_TO_CLIENT.get(row["unit"], "motifs"),
+            "cut": row["cut"] if row["cut"] is not None else params.get("cut"),
+            "params": params, "tree": tree, "reason": reason, "canBuild": bool(can_build and t is None)}
+
+
+def _sample_cards(conn, index, unit_db, refs) -> dict:
+    """`{ref: {ref, trace, recording, startIdx, endIdx}}` for the preview's sample members — real decimated mV,
+    `[]` where the recording's unit is undeclared or its channel is not on disk (the trace rule, `_trace`)."""
+    refs = [int(r) for r in refs if r is not None and str(r).lstrip("-").isdigit()]
+    if not refs:
+        return {}
+    table = "sequences" if unit_db == "sequences" else "motif_member"
+    out = {}
+    marks = ",".join("?" * len(refs))
+    for r in conn.execute(f"SELECT id, recording_id, start_idx, end_idx FROM {table} WHERE id IN ({marks})", refs):
+        meta = index["by_id"].get(int(r["recording_id"] or 0)) or {}
+        out[int(r["id"])] = {
+            "ref": int(r["id"]),
+            "trace": _trace(index, r["recording_id"], r["start_idx"], r["end_idx"]),
+            "recording": rec_label(conn, meta["source_file"]) if meta.get("source_file") else None,
+            "channel": meta.get("name"), "startIdx": r["start_idx"], "endIdx": r["end_idx"],
+        }
+    return out
+
+
+@router.get("/groupings/{grouping_id}/cut")
+def get_grouping_cut(request: Request, grouping_id: str, cut: float = Query(...),
+                     min_group: int | None = Query(default=None), omit_d: float | None = Query(default=None),
+                     samples: int = Query(default=engine_mod.DEFAULT_SAMPLES)):
+    """The families at `cut`, read from this grouping's kept tree — no job, nothing refitted, nothing written
+    (`engine.cut_preview`). `min_group` and `omit_d` default to the grouping's own. Against this grouping's own
+    assignments it counts the members that move (`change.rule`); each family carries a few sample members with
+    their traces (`sampleRule`), so the page can draw a card per family."""
+    if not math.isfinite(cut) or cut <= 0:
+        raise HTTPException(status_code=422, detail=f"the cut must be a height above 0; got {cut!r}")
+    t0 = time.perf_counter()
+    conn = _conn(request)
+    try:
+        row = _grouping_or_404(conn, grouping_id)
+        t, path, reason, _ = _tree_state(row)
+        if t is None:
+            raise HTTPException(status_code=404, detail=f"{gid_str(row['id'])} has no tree to cut: {reason}")
+        params = {k: v for k, v in json.loads(row["params_json"] or "{}").items()
+                  if k in tree_mod.ASSIGN_ONLY_PARAMS}
+        if min_group is not None:
+            if min_group < 1:
+                raise HTTPException(status_code=422, detail="min_group is a whole number from 1")
+            params["min_group"] = int(min_group)
+        if omit_d is not None:
+            params["omit_d"] = float(omit_d)
+        current = {int(a["member_ref"]): (a["family_label"] if a["family_id"] is not None else None)
+                   for a in conn.execute("SELECT member_ref, family_id, family_label FROM grouping_assignments "
+                                         "WHERE grouping_id = ? AND unit = ?", (int(row["id"]), row["unit"]))}
+        t, fit, lock = _load_tree(path)      # the cached tree and its fit, one pair
+        with lock:
+            out = engine_mod.cut_preview(t, cut, params, current=current,
+                                         samples=max(1, min(12, int(samples))), fit=fit)
+        index = _recordings_index(conn)
+        cards = _sample_cards(conn, index, row["unit"], [r for f in out["families"] for r in f["samples"]])
+    finally:
+        conn.close()
+    ch = out["change"]
+    small = out["small_families"]
+    return {
+        "groupingId": gid_str(row["id"]), "key": t.key, "cut": out["cut"], "method": out["method"],
+        "nItems": out["n_items"], "nFamilies": out["n_families"], "nAssigned": out["n_assigned"],
+        "nOmitted": out["n_omitted"], "omittedByReason": out["omitted_by_reason"],
+        "smallFamilies": {"count": small["count"], "members": small["members"], "sizes": small["sizes"],
+                          "minGroup": small["min_group"], "omitSmall": small["omit_small"]},
+        "families": [{"id": f["id"], "label": f["label"], "size": f["size"], "medoid": f["medoid"],
+                      "medoidDistance": f["medoid_distance"], "flags": f["flags"],
+                      "samples": [cards.get(int(r), {"ref": r, "trace": [], "recording": None,
+                                                     "missing": "this member's row is not in the library"})
+                                  for r in f["samples"]]}
+                     for f in out["families"]],
+        "sampleRule": out["sample_rule"],
+        "change": {"moved": ch["moved"], "newlyOmitted": ch["newly_omitted"], "newlyAssigned": ch["newly_assigned"],
+                   "currentFamilies": ch["current_families"], "sameFamilies": ch["same_families"],
+                   "rule": ch["rule"]},
+        "params": params,
+        "elapsedMs": round((time.perf_counter() - t0) * 1000, 1),
+    }
 
 
 # ── import ──────────────────────────────────────────────────────────────────

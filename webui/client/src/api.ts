@@ -1485,3 +1485,35 @@ export interface CrossWindowRead {
 }
 export const getCrossWindow = (id: number, t0: number, t1: number, px: number, detrend: CrossDetrend) =>
   req<CrossWindowRead>(`/api/cross/${id}?t0=${t0}&t1=${t1}&px=${Math.round(px)}&detrend=${detrend}`)
+
+/* ---------------- fixup-an: a Library grouping's kept Ward tree, drawn and cut ---------------- */
+export interface LibGrouping {
+  /** fixup-an: the kept tree's key; null for a grouping made before trees were kept, or one with no tree */
+  treeKey?: string | null
+}
+export interface LibGroupingSaveBody {
+  /** fixup-an: the regroup job's `tree.key` — only the key travels; the server records the path it wrote */
+  tree_key?: string | null
+}
+export interface LibTreeDendrogram { icoord: number[][]; dcoord: number[][]; leaves: string[]; counts: number[]; heights: number[]; max_height: number; n_leaves: number }
+export interface LibGroupingTree {
+  groupingId: string; method: string; basis: string; unit: string; cut: number | null; params: Record<string, unknown>
+  tree: { key: string; path: string | null; nLeaves: number; dendrogram: LibTreeDendrogram; fitParams: Record<string, unknown> } | null
+  /** why there is no tree, in words; null when there is one */
+  reason: string | null
+  /** a regroup at this grouping's own settings would keep a tree */
+  canBuild: boolean
+}
+export const getLibraryGroupingTree = (id: string) => req<LibGroupingTree>(`/api/library/groupings/${encodeURIComponent(id)}/tree`)
+export interface LibCutSample { ref: number; trace: number[]; recording: string | null; channel?: string | null; startIdx?: number; endIdx?: number; missing?: string }
+export interface LibCutFamily { id: number; label: string; size: number; medoid: number; medoidDistance: number; flags: LibFamilyFlags; samples: LibCutSample[] }
+export interface LibCutPreview {
+  groupingId: string; key: string; cut: number; method: string
+  nItems: number; nFamilies: number; nAssigned: number; nOmitted: number; omittedByReason: Record<string, number>
+  smallFamilies: { count: number; members: number; sizes: number[]; minGroup: number; omitSmall: boolean }
+  families: LibCutFamily[]; sampleRule: string
+  change: { moved: number; newlyOmitted: number; newlyAssigned: number; currentFamilies: number; sameFamilies: boolean; rule: string }
+  params: Record<string, unknown>; elapsedMs: number
+}
+export const getLibraryGroupingCut = (id: string, cut: number, opts: { min_group?: number; omit_d?: number; samples?: number } = {}) =>
+  req<LibCutPreview>(`/api/library/groupings/${encodeURIComponent(id)}/cut${dq({ cut, ...opts })}`)
