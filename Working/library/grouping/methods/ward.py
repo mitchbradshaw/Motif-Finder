@@ -89,6 +89,9 @@ class WardMethod:
     description = ("Ward linkage on resampled, z-normalised vectors under the "
                    "scale-invariant distance, cut at a distance.")
     applies_to = ("shape-distance", "sequence-similarity")
+    # fixup-an: the fit is a tree the engine can keep on disk (`grouping/tree.py`)
+    # and rebuild from it with `fit_from_tree`, so a cut is previewed without refitting
+    builds_tree = True
 
     params = {
         "cut": {
@@ -148,6 +151,23 @@ class WardMethod:
             heights=sorted(float(h) for h in tree[:, 2]),
             payload=payload,
         )
+
+    def fit_from_tree(self, tree):
+        """The `FitResult` `fit` would have returned, rebuilt from a kept tree
+        (`Working/library/grouping/tree.py`) without building a linkage: the
+        stored linkage is the tree, and the distances are recomputed from the
+        stored vectors exactly as `fit` computes them — so medoids and the
+        `omit_d` rule read the same numbers."""
+        vectors = np.asarray(tree.vectors, dtype=float)
+        Z = np.asarray(tree.linkage, dtype=float)
+        n = int(vectors.shape[0])
+        n_samples = int(vectors.shape[1]) if vectors.ndim == 2 else RESAMPLE_LENGTH
+        payload = {"resample_length": n_samples, "distance_scale": float(distance_scale(n_samples)),
+                   "vectors": vectors, "linkage": Z}
+        if Z.shape[0] != n - 1:
+            raise ValueError(f"a kept tree of {n} vectors needs {n - 1} merges; it has {Z.shape[0]}")
+        return FitResult(method=self.name, n=n, distances=squareform(condensed_distances(vectors)),
+                         heights=sorted(float(h) for h in Z[:, 2]), payload=payload)
 
     # ------------------------------------------------------------- assign
 

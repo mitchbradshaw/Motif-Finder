@@ -201,11 +201,11 @@ def test_cut_preview_counts_moves_small_groups_and_carries_sample_refs(tmp_path)
         and same["change"]["newly_assigned"] == 0
     assert same["change"]["same_families"] is True
 
-    low = engine.cut_preview(t, 0.2, {**base, "min_group": 4}, current=current, samples=5)
+    low = engine.cut_preview(t, 100.0, {**base, "min_group": 4}, current=current, samples=5)
     assert low["n_families"] != made.n_families or low["change"]["moved"] > 0 \
         or low["n_omitted"] != made.n_omitted
     # brute-force the move count with the stated rule
-    new = {a.ref: a.family_label for a in engine.assign_from_tree(t, 0.2, {**base, "min_group": 4}).assignments}
+    new = {a.ref: a.family_label for a in engine.assign_from_tree(t, 100.0, {**base, "min_group": 4}).assignments}
     fams = {}
     for ref, lab in new.items():
         if lab is not None:

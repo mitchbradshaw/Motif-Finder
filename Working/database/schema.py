@@ -1099,7 +1099,9 @@ CREATE INDEX IF NOT EXISTS idx_motif_member_content_hash ON motif_member(content
 # its per-family verdicts, the k rule, which rows were fitted and which
 # assigned), saved beside the params as JSON. Nullable: groupings saved before
 # it, or by a method that reports none, keep NULL.
-_GROUPINGS_NEW_COLUMNS = [("fit_summary_json", "TEXT")]
+_GROUPINGS_NEW_COLUMNS = [("fit_summary_json", "TEXT"),
+                          # fixup-an: the kept Ward tree -- a path to its .npz and its key, never the arrays (rule 4)
+                          ("tree_path", "TEXT"), ("tree_key", "TEXT")]
 
 
 def _migrate_library_tables(conn):

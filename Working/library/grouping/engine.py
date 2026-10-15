@@ -51,9 +51,11 @@ stated once and every method obeys the same one. `omit_d` belongs to the
 method that has the distances, and the engine only passes it on.
 """
 
+import os
 from dataclasses import dataclass, field
 
 from Working.library.grouping import bases
+from Working.library.grouping import tree as tree_mod
 from Working.library.grouping import methods as method_registry
 from Working.recipes import recipe_hash
 
@@ -135,6 +137,12 @@ class GroupingResult:
     # plus `family_flags` by label. JSON-safe: it is saved as
     # `groupings.fit_summary_json`.
     fit_summary: dict = field(default_factory=dict)
+    # fixup-an: the kept tree, `{"key", "path", "reused"}` (+ `"replaced"` when a
+    # file under the key failed its own check and was rebuilt), or None when no
+    # tree root was given or the method builds no tree
+    tree: object = None
+    # fixup-an: the sizes of the families `min_group` dissolved, largest first
+    dissolved: list = field(default_factory=list)
 
     @property
     def omitted(self):
@@ -266,7 +274,8 @@ def _accepts_cancel(method, name="should_cancel"):
         return False
 
 
-def run_grouping(items, *, unit, basis, method, params=None, should_cancel=None, background=None):
+def run_grouping(items, *, unit, basis, method, params=None, should_cancel=None, background=None,
+                 tree_root=None):
     """Group `items` and return a `GroupingResult`.
 
     `should_cancel`, a no-argument callable, is handed to a method whose `fit`
@@ -283,6 +292,13 @@ def run_grouping(items, *, unit, basis, method, params=None, should_cancel=None,
     recording, so the engine stays free of file paths. A method whose `fit`
     accepts it draws its quiet-stretch null from it; it is not part of the
     recipe hash (it is where the data lives, not a setting).
+
+    `tree_root` (fixup-an), optional: a directory. For a method that builds a
+    tree (`builds_tree`, Ward), the fit is kept there as one `.npz` under its
+    key (`tree.tree_key`), and a later call whose members and fit settings
+    hash to the same key loads it instead of fitting again — only the cut and
+    the other assign-only settings are applied afresh. `result.tree` says
+    which happened. Without it nothing is written, as before.
     """
     params = dict(params or {})
     method_name = method
@@ -310,36 +326,71 @@ def run_grouping(items, *, unit, basis, method, params=None, should_cancel=None,
         assignments[index].omit_reason = reason
 
     if taking_part:
-        fit_kwargs = {"params": params}
-        if should_cancel is not None and _accepts_cancel(method):
-            fit_kwargs["should_cancel"] = should_cancel
-        if background is not None and _accepts_cancel(method, "background"):
-            fit_kwargs["background"] = background.subset(taking_part)
-        fit = method.fit(_extract([items[i] for i in taking_part], basis, params), **fit_kwargs)
-        assign_kwargs = {"cut": params.get("cut")}
-        if "omit_d" in method.params:
-            # the method's own default: Ward's is spec 9.10's 0.50, k-Shape's is
-            # 0 = automatic (its surrogate null), which a 0.50 here would overrule
-            assign_kwargs["omit_d"] = params.get(
-                "omit_d", method.params["omit_d"].get("default", DEFAULT_OMIT_D))
-        families = method.assign(fit, **assign_kwargs)
-
-        for row, index in enumerate(taking_part):
-            family_id = families[row]
-            assignment = assignments[index]
-            if family_id is None:
-                assignment.omit_reason = fit.omit_reasons.get(row, OMIT_PAST_CUT)
-            else:
-                assignment.family_id = family_id
-                assignment.family_label = fit.family_labels.get(
-                    family_id, f"F-{family_id:02d}")
-
-        result.merge_heights = list(method.merge_heights(fit))
-        _build_families(result, assignments, taking_part, fit, method, params)
-        _attach_flags(result, fit, method_name)
+        fit = None
+        keeps_tree = (tree_root is not None and bool(getattr(method, "builds_tree", False))
+                      and len(taking_part) >= 2)
+        replaced = None
+        if keeps_tree:
+            key = tree_mod.tree_key(items, unit=unit, basis=basis, method=method_name, params=params)
+            path = tree_mod.path_for(tree_root, key)
+            if os.path.isfile(path):
+                try:
+                    kept = tree_mod.GroupingTree.load(path)
+                except ValueError as exc:
+                    # a file under this key that fails its own check is rebuilt, and the result says so
+                    replaced = str(exc)
+                else:
+                    fit = method.fit_from_tree(kept)
+                    result.tree = {"key": key, "path": path, "reused": True}
+        if fit is None:
+            fit_kwargs = {"params": params}
+            if should_cancel is not None and _accepts_cancel(method):
+                fit_kwargs["should_cancel"] = should_cancel
+            if background is not None and _accepts_cancel(method, "background"):
+                fit_kwargs["background"] = background.subset(taking_part)
+            fit = method.fit(_extract([items[i] for i in taking_part], basis, params), **fit_kwargs)
+            if keeps_tree and "linkage" in fit.payload:
+                kept = tree_mod.from_fit(fit, items, unit=unit, basis=basis, method=method_name,
+                                         params=params, taking_part=taking_part, pre_omitted=pre_omitted)
+                if kept.key != key:
+                    raise RuntimeError(f"the tree's key from its contents ({kept.key}) is not the key its "
+                                       f"items hash to ({key}); tree.tree_key and tree.from_fit disagree")
+                kept.save(path)
+                result.tree = {"key": key, "path": path, "reused": False}
+                if replaced:
+                    result.tree["replaced"] = replaced
+        _assign_and_build(result, assignments, taking_part, fit, method, method_name, params)
 
     result.assignments = assignments
     return result
+
+
+def _assign_and_build(result, assignments, taking_part, fit, method, method_name, params):
+    """Cut the fit, name each row's family or why it has none, apply
+    `min_group`, measure the medoids and attach the flags — the one path both a
+    fresh fit and a kept tree (`assign_from_tree`) go through, which is what
+    makes a preview at a grouping's own cut reproduce it exactly."""
+    assign_kwargs = {"cut": params.get("cut")}
+    if "omit_d" in method.params:
+        # the method's own default: Ward's is spec 9.10's 0.50, k-Shape's is
+        # 0 = automatic (its surrogate null), which a 0.50 here would overrule
+        assign_kwargs["omit_d"] = params.get(
+            "omit_d", method.params["omit_d"].get("default", DEFAULT_OMIT_D))
+    families = method.assign(fit, **assign_kwargs)
+
+    for row, index in enumerate(taking_part):
+        family_id = families[row]
+        assignment = assignments[index]
+        if family_id is None:
+            assignment.omit_reason = fit.omit_reasons.get(row, OMIT_PAST_CUT)
+        else:
+            assignment.family_id = family_id
+            assignment.family_label = fit.family_labels.get(
+                family_id, f"F-{family_id:02d}")
+
+    result.merge_heights = list(method.merge_heights(fit))
+    _build_families(result, assignments, taking_part, fit, method, params)
+    _attach_flags(result, fit, method_name)
 
 
 def _build_families(result, assignments, taking_part, fit, method, params):
@@ -361,6 +412,7 @@ def _build_families(result, assignments, taking_part, fit, method, params):
     for family_id in sorted(rows_by_family, key=_sort_key):
         rows = rows_by_family[family_id]
         if omit_small and len(rows) < min_group:
+            result.dissolved.append(len(rows))
             for _, index in rows:
                 assignments[index].family_id = None
                 assignments[index].family_label = None
@@ -382,6 +434,7 @@ def _build_families(result, assignments, taking_part, fit, method, params):
         else:
             family.medoid = family.members[0]
         result.families.append(family)
+    result.dissolved.sort(reverse=True)
 
 
 def untested_flags(method_name):
@@ -516,13 +569,15 @@ def _hand_edit_outcome(hand_edits, result):
     }
 
 
-def preview(items, *, unit, basis, method, params=None, hand_edits=None, should_cancel=None, background=None):
+def preview(items, *, unit, basis, method, params=None, hand_edits=None, should_cancel=None, background=None,
+            tree_root=None):
     """Run the grouping without writing anything, and report what spec 8.2's
     preview panel shows: groups, members, omitted, recompute cost, and what
     happens to hand edits. The `GroupingResult` travels on the preview so the
     caller that decides to apply does not have to recompute it."""
     result = run_grouping(items, unit=unit, basis=basis, method=method,
-                          params=params, should_cancel=should_cancel, background=background)
+                          params=params, should_cancel=should_cancel, background=background,
+                          tree_root=tree_root)
     return GroupingPreview(
         n_groups=result.n_families,
         n_members=result.n_assigned,
@@ -533,3 +588,103 @@ def preview(items, *, unit, basis, method, params=None, hand_edits=None, should_
         recipe_hash=result.recipe_hash,
         result=result,
     )
+
+
+# --------------------------------------------------------------------------
+# fixup-an: a cut previewed from a kept tree
+# --------------------------------------------------------------------------
+
+#: How a family's sample members are chosen for its card (the researcher, 2026-10-13: "sample families at each cut").
+SAMPLE_RULE = ("the medoid first, then members spread evenly along the family's distances from its medoid — "
+               "nearest to farthest — so a card shows the family's range, not only its most typical members")
+
+#: How "moved" is counted against the current grouping.
+CHANGE_RULE = ("each family at this cut is matched to the current family holding most of its members; a member "
+               "whose current family is another one has moved. A family that splits in two moves nobody "
+               "(both halves match the old family), so the family count beside it says what split or merged.")
+
+DEFAULT_SAMPLES = 6
+
+
+def assign_from_tree(tree, cut, params=None, fit=None):
+    """The grouping a kept tree gives at `cut`, through the same assign and
+    family-building path as `run_grouping` — so at the grouping's own cut and
+    settings it reproduces that grouping row for row. Nothing is refitted:
+    `fit` is the method's `fit_from_tree(tree)`, rebuilt here when not given
+    (the bridge holds it between calls). `params` are the assign-only settings
+    (min_group, omit_d, omit_small); `cut` wins over a `cut` in them."""
+    params = {**dict(params or {}), "cut": float(cut)}
+    method = _validate(tree.unit, tree.basis, tree.method)
+    if fit is None:
+        fit = method.fit_from_tree(tree)
+    full = {**tree.fit_params, **params}
+    result = GroupingResult(unit=tree.unit, basis=tree.basis, method=tree.method, params=full,
+                            recipe_hash=recipe_hash({"unit": tree.unit, "basis": tree.basis,
+                                                     "method": tree.method, "params": full}))
+    assignments = [Assignment(ref=r, content_hash=h)
+                   for r, h in zip(tree.refs.tolist(), tree.content_hashes.tolist())]
+    for index, reason in enumerate(tree.pre_omit.tolist()):
+        if reason:
+            assignments[index].omit_reason = reason
+    _assign_and_build(result, assignments, [int(i) for i in tree.fit_rows], fit, method, tree.method, full)
+    result.assignments = assignments
+    result.tree = {"key": tree.key, "path": None, "reused": True}
+    return result
+
+
+def _samples(family, by_ref, n):
+    members = [m for m in family.members if m != family.medoid]
+    members.sort(key=lambda r: (by_ref[r].distance if by_ref[r].distance is not None else float("inf"), str(r)))
+    ordered = [family.medoid] + members
+    if len(ordered) <= n:
+        return ordered
+    import numpy as np
+    idx = sorted(set(int(round(v)) for v in np.linspace(0, len(ordered) - 1, n)))
+    return [ordered[i] for i in idx]
+
+
+def _change(result, current):
+    """Members that moved against `current` (`{ref: family label or None}`), by `CHANGE_RULE`."""
+    now = {a.ref: a.family_label for a in result.assignments}
+    moved = 0
+    for family in result.families:
+        was = [current.get(r) for r in family.members if current.get(r) is not None]
+        if was:
+            best = max(sorted(set(was)), key=was.count)
+            moved += sum(1 for w in was if w != best)
+    newly_omitted = sum(1 for r, lab in now.items() if lab is None and current.get(r) is not None)
+    newly_assigned = sum(1 for r, lab in now.items() if lab is not None and current.get(r) is None)
+    current_families = len({lab for lab in current.values() if lab is not None})
+    return {"moved": int(moved), "newly_omitted": int(newly_omitted), "newly_assigned": int(newly_assigned),
+            "current_families": int(current_families),
+            "same_families": bool(moved == 0 and newly_omitted == 0 and newly_assigned == 0
+                                  and current_families == len(result.families)),
+            "rule": CHANGE_RULE}
+
+
+def cut_preview(tree, cut, params=None, current=None, samples=DEFAULT_SAMPLES, fit=None):
+    """What the families would be at `cut`, read from a kept tree in
+    milliseconds: each family's size, medoid and a few sample members (by
+    `SAMPLE_RULE`), what `min_group` dissolves, the omissions by reason, and —
+    when `current` (`{ref: family label or None}`) is given — how many members
+    move against it. JSON-safe."""
+    params = dict(params or {})
+    result = assign_from_tree(tree, cut, params, fit=fit)
+    by_ref = {a.ref: a for a in result.assignments}
+    n = max(1, int(samples))
+    min_group = int(result.params.get("min_group", DEFAULT_MIN_GROUP))
+    omit_small = bool(result.params.get("omit_small", True))
+    return json_safe({
+        "cut": float(cut),
+        "method": tree.method, "basis": tree.basis, "unit": tree.unit, "key": tree.key,
+        "n_items": len(result.assignments),
+        "n_families": result.n_families, "n_assigned": result.n_assigned, "n_omitted": result.n_omitted,
+        "omitted_by_reason": result.omitted_by_reason,
+        "small_families": {"count": len(result.dissolved), "members": int(sum(result.dissolved)),
+                           "sizes": list(result.dissolved), "min_group": min_group, "omit_small": omit_small},
+        "families": [{"id": f.id, "label": f.label, "size": f.size, "medoid": f.medoid,
+                      "medoid_distance": f.medoid_distance, "samples": _samples(f, by_ref, n),
+                      "flags": f.flags} for f in result.families],
+        "sample_rule": SAMPLE_RULE,
+        "change": _change(result, dict(current)) if current is not None else None,
+    })

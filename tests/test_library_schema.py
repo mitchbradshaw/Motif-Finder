@@ -110,7 +110,7 @@ def test_init_db_creates_every_new_library_table(tmp_path):
             "groupings",
             {"id", "name", "unit", "basis", "method", "params_json", "cut",
              "filters_json", "n_families", "n_assigned", "n_omitted", "recipe_hash",
-             "created_at", "actor", "fit_summary_json"},
+             "created_at", "actor", "fit_summary_json", "tree_path", "tree_key"},
         ),
         (
             "grouping_assignments",
