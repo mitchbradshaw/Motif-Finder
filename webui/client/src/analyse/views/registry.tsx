@@ -179,13 +179,25 @@ function SpanSetProcess({ q, lead, featuresFirst }: { q: ProcessProps; lead?: Re
     value: thr * f, label: `cut ${fmtN(thr * f)} ${axisUnit(q.ctx.ghostUnit)} · ${String(q.step.params.direction ?? 'above')}`,
     onChange: v => q.setParam('threshold', +(v / f).toPrecision(4)),
   }
+  // fixup-ak: a detector that explains itself (`meta["explain"]`): one sentence on the face, what to tune behind the
+  // InfoTip, its rules folded beneath — payload-driven, so any detector that writes `explain` gets it
+  const explain = p.explain ? (
+    <div className="stack" style={{ gap: 4, marginBottom: 8 }} data-testid="block-explain">
+      <div className="small" style={{ display: 'flex', gap: 6, alignItems: 'flex-start' }}>
+        <span data-testid="block-explain-face">{p.explain.face}</span>
+        <InfoTip title="What it does and what to tune" testid="block-explain-info">{p.explain.detail}</InfoTip>
+      </div>
+      {!featuresFirst && p.rules && p.rules.length > 0 && <RulesList rules={p.rules} testid="block-explain-rules" />}
+    </div>
+  ) : null
   const spans = (
     <>
+      {explain}
       <Full q={q} height={featuresFirst ? 110 : 190}>{ctx => <SpanSetView p={p} ctx={ctx} selected={selected} onSelect={setSelected} cut={cut} />}</Full>
       <div className="bp-legend" style={{ paddingLeft: 0 }}>
         <span><i style={{ background: 'var(--band-detected)', border: '1px solid var(--blue)' }} />span</span>
         {cut && <span><i style={{ background: 'var(--amber-100)', border: '1px solid var(--amber)' }} />the cut · drag the line{f !== 1 ? ` · drawn in ${axisUnit(q.ctx.ghostUnit)}; the parameter holds it in ${q.ctx.ghostStoredUnit ?? 'the stored unit'} (÷${fmtN(f)})` : ''}</span>}
-        {p.marks && <span><i style={{ background: 'var(--blue)', opacity: 0.45 }} />the fall inside its window (onset → extremum)</span>}
+        {p.marks && <span><i style={{ background: 'var(--blue)', opacity: 0.45 }} />{p.explain?.mark ?? 'the fall inside its window (onset → extremum)'}</span>}
         {impure > 0 && <span><i style={{ background: 'var(--band-artifact)', border: '1px solid var(--red)' }} />window holding more than one {p.window_count_of === 'falls' ? 'fall' : 'span'}</span>}
         <span><i style={{ background: 'var(--amber)' }} />selected · click a span or a card</span>
         {p.marks && <span>overlapping windows are shared context, not double-counting</span>}

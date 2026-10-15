@@ -221,6 +221,9 @@ def _spanset(value, meta, ctx):
     for key in _SPANSET_META_VIEWS:
         if key in (meta or {}):
             out[key] = _clean(meta[key])
+    # fixup-ak: a detector's plain-words explanation (`{face, detail, mark}`), drawn on its block page
+    if isinstance((meta or {}).get("explain"), dict):
+        out["explain"] = {k: str(v) for k, v in meta["explain"].items() if k in ("face", "detail", "mark")}
     if "funnel" in (meta or {}):
         out["funnel"] = _funnel(meta["funnel"], fs, ss)
     if isinstance((meta or {}).get("families"), list):
