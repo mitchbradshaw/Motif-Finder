@@ -689,12 +689,80 @@ def test_a_picked_detection_is_marked_in_the_browser(client):
     browser remembering a click: a reload still shows it."""
     out = _apply(client)
     d1, _ = _two_browsed(client, out)
-    before = {d["detectionId"]: d for d in _browsed(client, out["run_key"], CH[0]) + _browsed(client, out["run_key"], CH[1])}
-    assert before[d1]["picked"] is False
+    before = _by_id(client, out)
+    assert before[d1]["picked"] is None
     client.post(f"/api/discovery/runs/{out['run_key']}/review", json={"detection_ids": [d1]})
-    after = {d["detectionId"]: d for d in _browsed(client, out["run_key"], CH[0]) + _browsed(client, out["run_key"], CH[1])}
-    assert after[d1]["picked"] is True
+    after = _by_id(client, out)
+    assert after[d1]["picked"] == "waiting"
     assert sum(1 for d in after.values() if d["picked"]) == 1
+
+
+def _by_id(client, out):
+    return {d["detectionId"]: d for d in _browsed(client, out["run_key"], CH[0]) + _browsed(client, out["run_key"], CH[1])}
+
+
+def test_a_pick_judged_in_review_reads_judged_with_its_verdict(client):
+    """fix round: the mark is a STATE. A pick given a verdict in Review reads
+    `judged` with that verdict, not a green 'in Review' still waiting."""
+    out = _apply(client)
+    d1, _ = _two_browsed(client, out)
+    picked = client.post(f"/api/discovery/runs/{out['run_key']}/review", json={"detection_ids": [d1]}).json()
+    client.post(f"/api/review/queues/{picked['queue_id']}/verdict",
+                json={"target_id": str(d1), "verdict": "interesting"})
+    row = _by_id(client, out)[d1]
+    assert row["picked"] == "judged"
+    assert row["pickedVerdict"] == "interesting"
+
+
+def test_an_already_adjudicated_detection_is_reported_as_already_judged(client):
+    """fix round: a detection judged in the run-wide queue, then picked, was
+    toasted '1 added' with a green tick though Review has nothing to ask."""
+    out = _apply(client)
+    d1, _ = _two_browsed(client, out)
+    url = f"/api/discovery/runs/{out['run_key']}/review"
+    whole = client.post(url, json={}).json()
+    v = client.post(f"/api/review/queues/{whole['queue_id']}/verdict",
+                    json={"target_id": str(d1), "verdict": "not_interesting"})
+    assert v.status_code == 200, v.text
+    body = client.post(url, json={"detection_ids": [d1]}).json()
+    assert body["already_judged"] == [{"id": d1, "verdict": "not_interesting"}]
+    assert "already judged" in body["message"]
+    assert body["served"] == 1 and body["unjudged"] == 0
+    assert _by_id(client, out)[d1]["picked"] == "judged"
+
+
+def test_a_pick_a_human_verdict_covers_reads_not_asked(client):
+    """fix round: a detection a human span already judged is never served by
+    Review; its mark says so instead of a green tick."""
+    out = _apply(client)
+    d1, _ = _two_browsed(client, out)
+    # a human span over exactly this detection: the researcher judged the same event by hand
+    conn = sqlite3.connect(client.app.state.rt.db_path)
+    try:
+        rec, a, b = conn.execute("SELECT r.recording_id, d.start_idx, d.end_idx FROM detections d "
+                                 "JOIN runs r ON r.id = d.run_id WHERE d.id = ?", (d1,)).fetchone()
+        conn.execute("INSERT INTO annotations (recording_id, start_idx, end_idx, verdict, source, created_at) "
+                     "VALUES (?, ?, ?, 'interesting', 'test', ?)", (rec, a, b, OLD))
+        conn.commit()
+    finally:
+        conn.close()
+    body = client.post(f"/api/discovery/runs/{out['run_key']}/review",
+                       json={"detection_ids": [d1]}).json()
+    assert body["not_asked"] == [d1]
+    assert _by_id(client, out)[d1]["picked"] == "not-asked"
+
+
+def test_a_discarded_run_refuses_a_pick_before_writing(client):
+    """fix round: the browser disabled the button on a discarded run but the
+    bridge still wrote the pick. It refuses now, in the page's own words."""
+    out = _apply(client)
+    d1, _ = _two_browsed(client, out)
+    client.post(f"/api/discovery/runs/{out['run_key']}/discard")
+    before = _counts(client, "review_queues")
+    r = client.post(f"/api/discovery/runs/{out['run_key']}/review", json={"detection_ids": [d1]})
+    assert r.status_code == 422, r.text
+    assert "discarded" in r.json()["detail"]["message"]
+    assert _counts(client, "review_queues") == before
 
 
 def test_a_detection_outside_the_run_is_refused_and_no_queue_is_made(client):

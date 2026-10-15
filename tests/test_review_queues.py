@@ -878,6 +878,56 @@ def test_extend_queue_refuses_a_queue_that_is_not_an_exact_detection_set():
         qs.extend_queue(conn, 9999, [d])
 
 
+def test_extend_queue_names_the_right_reason_for_each_refusal():
+    """fix round: a queue with a source ref was refused as 'filters on
+    detection_ids', and a queue with no filter as 'filters on its source ref'
+    although it had none. Each refusal says what is actually wrong."""
+    conn = _fresh_conn()
+    rid = _insert_recording(conn)
+    d = _insert_detection(conn, rid, 0, 100)
+    with_ref = qs.create_queue(conn, name="g", source_kind="discovery-run", source_ref=1,
+                               filters={"detection_ids": []})
+    with pytest.raises(ValueError, match="source ref") as e:
+        qs.extend_queue(conn, with_ref, [d])
+    assert "filters on detection_ids" not in str(e.value)
+    no_filter = qs.create_queue(conn, name="n", source_kind="discovery-run")
+    with pytest.raises(ValueError, match="no filter") as e:
+        qs.extend_queue(conn, no_filter, [d])
+    assert "source ref" not in str(e.value)
+
+
+def test_extend_queue_refuses_unknown_ids_and_non_integers_and_writes_nothing():
+    """fix round: 99999 was written into the filter and 3.7 was truncated to 3."""
+    conn = _fresh_conn()
+    rid = _insert_recording(conn)
+    d = _insert_detection(conn, rid, 0, 100)
+    qid = qs.create_queue(conn, name="p", source_kind="discovery-run",
+                          filters={"detection_ids": []})
+    with pytest.raises(ValueError, match="99999"):
+        qs.extend_queue(conn, qid, [d, 99999])
+    with pytest.raises(ValueError, match="integer"):
+        qs.extend_queue(conn, qid, [3.7])
+    with pytest.raises(ValueError, match="integer"):
+        qs.extend_queue(conn, qid, [True])
+    assert qs.get_queue(conn, qid)["filters"] == {"detection_ids": []}
+
+
+def test_find_open_queue_can_skip_queues_by_note_prefix():
+    """Compare's send finds its queue by its detection set; a picked queue that
+    happens to hold the same set must not be reused for it."""
+    conn = _fresh_conn()
+    picked = qs.create_queue(conn, name="p", source_kind="discovery-run",
+                             filters={"detection_ids": [1, 2]}, note="picked · session 1")
+    assert qs.find_open_queue(conn, source_kind="discovery-run",
+                              filters={"detection_ids": [2, 1]}) == picked
+    assert qs.find_open_queue(conn, source_kind="discovery-run", filters={"detection_ids": [2, 1]},
+                              skip_note_prefix="picked") is None
+    other = qs.create_queue(conn, name="c", source_kind="discovery-run",
+                            filters={"detection_ids": [1, 2]}, note="Compare")
+    assert qs.find_open_queue(conn, source_kind="discovery-run", filters={"detection_ids": [1, 2]},
+                              skip_note_prefix="picked") == other
+
+
 def test_find_open_queue_by_note_finds_the_one_open_queue_with_that_note():
     conn = _fresh_conn()
     note = "picked from Discovery · session 1"
