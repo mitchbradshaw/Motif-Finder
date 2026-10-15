@@ -634,8 +634,18 @@ instead of it.
   and `fixup-t-run-with-null…` (a null run met its 240 s limit). The cancel state zooms the Explore view out 13 times
   from the 15 h span w2-snippets left and sends the whole recording to Analyse; the view and the span persist, so
   every later Analyse state ran on 721 h. Decision 30: the state moves, unchanged, to a page file the walk runs last
-  (red `f7971cf` — the W3-F UI test pins it last — → green `70dc445`). 12:2x — the affected page files re-walked on
+  (red `f7971cf` — the W3-F UI test pins it last — → green `70dc445`). 12:0x — the affected page files re-walked on
   the same bridge (`--pages-only --only` zz_analyse_run, zzz_surrogates, zzz_x_divergence, the moved cancel state).
+- 13:4x — **re-walk results.** `zz_analyse_run*` (the 44 states, `_aa`, `_ac`): **53 ok, 0 failures**; the moved
+  cancel state: 1 ok, 0 console errors; `zzz_x_divergence`: only wave 2's known divergence-compare state (the corpus
+  "disagree" state passed — a load flake). `zzz_surrogates` first failed with a render-error card: 14
+  `ERR_NETWORK_IO_SUSPENDED` / `ERR_NETWORK_CHANGED` console errors as the machine began to suspend — the keep-awake
+  hold had expired at 13:24 (held again for an hour at 13:39); re-run held awake: **5 of 5**, the run with a null
+  reading "null expects" after 4.4 s. Settings' identity state is data: the copied database names Mushroom_260720
+  CH14 "L_LM_Jul_SUBSET" (2026-10-13), the state expects it unnamed. **The gate passes for wave 3**: every wave-3
+  state and every state wave 3 broke now pass; what still fails is wave 2's known set, or data. Cleanup: tracked
+  screenshots restored, the walks' 60 untracked screenshots (all newer than the walk's start) deleted, the bridge
+  stopped, 8794 free.
 - 03:5x — **W3-C critic: merge after fixes, three blockers.** F1: plain phase surrogates are biased here too
   (exp(AR) noise got a suggestion 10/10; AAFT 1/10 → 0/10 at 20 draws, keeping planted-motif power) → the 03:55
   correction; F2: one null draw gives 1.2–5.8 % false suggestions at 1 Hz, three gave 0 in 544 spans, the false

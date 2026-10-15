@@ -279,7 +279,35 @@ No template, so no ship-or-not verdict; two critiques and two fix rounds (`W3-F-
 
 ## The gate
 
-*(pending)*
+On main after every wave-3 merge (`caa2ad0`, then the one fix below):
+- **`pytest -n 4` (conda): 3877 passed, 42 skipped, 1 failed**, in 3 h 03 min on a loaded machine. The failure was
+  wave 3's: W3-F's last round raised `RecipeExecutionError` from a local, which kept a failed run's memory-mapped
+  recording open on Windows (`test_side_inputs` could not delete its file). Fixed in `96c9e8f` (the exception takes
+  `run_id` when it is built); the affected files re-run: 62 passed, 1 skipped (conda), 16 passed (venv). The full
+  suite was not re-run after that one-line fix. Against wave 2's gate (3353 passed, 0 failed) nothing else fails.
+- **The web-UI tests (venv): 617 passed, 3 xpassed, 3 failed** — the Discovery scoreboard string that fails on main
+  before wave 3 (a separate task chip), and two route tests that a rupture run's 409 broke (its cost model takes
+  ~7½ minutes to time in a fresh sandbox): their fixture now starts from a calibrated rupture, both pass, and the 409
+  says how long (decision 29).
+- **`npx tsc -b` and the production build: clean** (built to a private directory; the shared `client/dist` and the
+  researcher's 8765 untouched).
+- **The smoke walk** on my sandbox bridge (8794, a copy of the database, the private build): **674 screenshots,
+  0 browser console or page errors, 25 failures — and all nine wave-3 states pass** (complexity curves ×2, the
+  cycle stack ×2, the wavelet rows in Hz ×2, the pan rows ×2, stopping a run inside a step).
+  - 18 are wave 2's known ones, or fewer of them: Discovery ×8 (wave 2: 12), Review inspector ×3, Settings click
+    timeouts ×4 (wave 2: 5), the explore corpus load flake, the cross-channel max-lag-10 data drift, and the
+    "database is locked" traceback in the sandbox copy (`jobs.py`, not a wave-3 file).
+  - 5 were wave 3's, and fixed: W3-F's new cancel state zoomed the shared Explore view out to the whole recording
+    and sent that span on, so the next Analyse states (manual labels ×3, the wavelet layers, a run with a null) ran
+    on 721 h and timed out or read the wrong span. The state now runs last, in a page file of its own (decision 30,
+    pinned by a test); re-walked on the same bridge: those Analyse files **53 ok, 0 failures**, the surrogate file
+    **5 of 5** (the run with a null reads "null expects" after 4.4 s), the cancel state in its new place 1 of 1.
+  - 2 were not code: the corpus "disagree" state passed when re-walked (the load flake), and Settings' identity
+    state expects Mushroom_260720 CH14 unnamed, while the copied database names it "L_LM_Jul_SUBSET" (named
+    2026-10-13).
+  - One re-walk of the surrogate file failed while the machine was briefly suspending its network
+    (`ERR_NETWORK_IO_SUSPENDED`, its keep-awake hold having just expired); re-run held awake, it passed in full.
+- Afterwards: the tracked `webui/screenshots/` restored, the walks' 60 new screenshots deleted, the bridge stopped.
 
 ## What the researcher should decide
 
