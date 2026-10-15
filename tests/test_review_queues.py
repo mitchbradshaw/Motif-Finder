@@ -940,3 +940,27 @@ def test_find_open_queue_by_note_finds_the_one_open_queue_with_that_note():
     assert qs.find_open_queue_by_note(conn, source_kind="seed-search", note=note) is None
     qs.close_queue(conn, qid)
     assert qs.find_open_queue_by_note(conn, source_kind="discovery-run", note=note) is None
+
+
+def test_extend_queue_refuses_a_paired_surrogates_detection_as_unknown():
+    """The full suite's guard caught `extend_queue` reading `detections` bare (2026-10-16):
+    a paired surrogate's span is a `detections` row too, and a pick of its id would have put
+    phase-randomised noise in front of the researcher. The id check now reads under
+    `queries.not_surrogate`, so a surrogate's id is "no detection", exactly as an unknown id is,
+    and nothing is written. Pins the fix made on main (c0a8fcf); it passed on arrival."""
+    conn = _fresh_conn()
+    rid = _insert_recording(conn)
+    gid = _insert_run_group(conn)
+    real_det = _insert_detection(conn, rid, 0, 100, score=0.9, run_group_id=gid)
+    real_run = conn.execute("SELECT run_id FROM detections WHERE id = ?", (real_det,)).fetchone()["run_id"]
+    _sur_run, sur_dets = _insert_surrogate_run(conn, rid, real_run, gid, n_detections=2)
+    qid = qs.create_queue(conn, name="picked", source_kind="discovery-run",
+                          filters={"detection_ids": [real_det]}, note="picked · session test")
+    before = json.loads(conn.execute("SELECT filters_json FROM review_queues WHERE id = ?", (qid,)).fetchone()[0])
+    for ids in ([sur_dets[0]], [real_det, sur_dets[1]]):
+        with pytest.raises(ValueError) as e:
+            qs.extend_queue(conn, qid, ids)
+        assert "no detection" in str(e.value) and str(sur_dets[0] if ids == [sur_dets[0]] else sur_dets[1]) in str(e.value)
+    after = json.loads(conn.execute("SELECT filters_json FROM review_queues WHERE id = ?", (qid,)).fetchone()[0])
+    assert after == before, "a refused extension must write nothing"
+    assert [it["target_id"] for it in qs.queue_items(conn, qid)] == [real_det]
