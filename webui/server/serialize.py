@@ -130,6 +130,8 @@ def _signal(value, meta, ctx):
     }
     if meta and "wavelet" in meta and "levels" in meta:
         out.update(_signal_layers(meta, fs, ss, factor))
+    if meta and isinstance(meta.get("split"), dict) and meta.get("layer_param"):
+        out.update(_split_layers(meta, fs, ss, factor))
     return out
 
 
@@ -162,6 +164,21 @@ def _signal_layers(meta, fs, ss, factor):
     if not layers:
         out["layers_note"] = ("the layers are not in this step's record (a cached result whose sidecar predates "
                               "them) — re-run with this step changed to draw every layer")
+    return out
+
+
+def _split_layers(meta, fs, ss, factor):
+    """fixup-ao: `preprocessing.decompose` (baseline / noise / signal) ships its
+    layers in the same shape as the wavelet block's, plus the parameter a click
+    on a layer row sets (``layer_param``, each layer's ``param_value``) and its
+    own description (``split``) in place of the wavelet ``decomposition``."""
+    out = _signal_layers(meta, fs, ss, factor)
+    out.pop("decomposition", None)
+    by_name = {L.get("name"): L for L in meta.get("layers") or []}
+    for L in out["layers"]:
+        L["param_value"] = _clean(by_name.get(L["name"], {}).get("param_value"))
+    out["layer_param"] = meta.get("layer_param")
+    out["split"] = _clean(meta.get("split"))
     return out
 
 
