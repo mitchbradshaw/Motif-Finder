@@ -611,6 +611,17 @@ instead of it.
   branch `claude/awesome-cori-5e53bd`) asked to run its gate; told to wait for mine (pytest, then the smoke walk,
   ~09:30) and to merge main first — its files overlap W3-F's (`execution.py`, `chain.py`, `runs.py`,
   `serialize.py`). 08:07 — **the gate's `pytest -n 4` started on `caa2ad0`** (conda).
+- 11:11 — **the gate's pytest on `caa2ad0`: 3877 passed, 42 skipped, 1 failed** — in **3 h 03 min** (the machine
+  loaded: ~0.7 GB RAM free, the researcher's controller software, Word). The failure,
+  `test_side_inputs::test_execute_recipe_raises_naming_the_binding_when_unresolved`, is real and W3-F's: its
+  assertions pass, but cleanup hits WinError 32 (its `.npy` still open), reproducibly alone. W3-F fix round 2 built
+  the `RecipeExecutionError` in a local, which with the traceback forms a reference cycle keeping the failing frame
+  and its memory-mapped recording alive until the next garbage collection. Fixed by passing `run_id` to the
+  constructor (`96c9e8f`; the five execution / null-draw files 62 passed, 1 skipped, conda; 16 passed, venv). Every
+  other test passed: against wave 2's gate (3353 / 0 failed) the failure set is otherwise empty. The peer that was
+  waiting had left by then (`ListAgents` empty; its inbox stale), so the smoke walk runs alone. 11:15 — my sandbox
+  bridge up on **8794** (database copy `webui/runtime/20261015-111453/`, the private client build), the full smoke
+  walk started.
 - 03:5x — **W3-C critic: merge after fixes, three blockers.** F1: plain phase surrogates are biased here too
   (exp(AR) noise got a suggestion 10/10; AAFT 1/10 → 0/10 at 20 draws, keeping planted-motif power) → the 03:55
   correction; F2: one null draw gives 1.2–5.8 % false suggestions at 1 Hz, three gave 0 in 544 spans, the false
