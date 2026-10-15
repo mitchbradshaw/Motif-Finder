@@ -12,7 +12,7 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { ApiError } from '../../api'
 import { getWindowSetLibrary, type CountRow, type HistData, type LibrarySet, type PoolPayload, type TreePayload, type WindowSetLibrary } from '../../api/shape'
-import { Histogram } from '../../kit'
+import { Histogram, InfoTip } from '../../kit'
 import { ErrorBoundary } from '../../shell/ErrorBoundary'
 import { fmtN, type ProcessProps, type ViewCtx } from './common'
 import '../shape.css'
@@ -127,14 +127,14 @@ export function PoolView({ p }: { p: PoolPayload }) {
               {Object.entries(DROP_WORDS).map(([k, w]) => <tr key={k}><td>{w}</td><td className="r">{(pool.dropped[k] ?? 0).toLocaleString()}</td></tr>)}
               <tr><td>left out when the sets were built (artifact, Settings, non-finite)</td><td className="r">{Object.entries(pool.at_build).filter(([k]) => k !== 'sampled_out').reduce((a, [, v]) => a + v, 0).toLocaleString()}</td></tr>
             </tbody></table>
-            <div className="muted small" style={{ marginTop: 4 }}>rule <b>{pool.rule}</b> · {pool.rule_text}</div>
+            <div className="row small" style={{ marginTop: 4, gap: 6 }}>rule <b>{pool.rule}</b><InfoTip title={`Rule ${pool.rule}`}>{pool.rule_text}</InfoTip></div>
           </div>
           <div style={{ flex: 1, minWidth: 0 }}>
             <div className="bp-card-title"><h3 style={{ fontSize: 13 }}>Members, in order</h3><span className="sg">key {pool.key}</span></div>
             <table className="sh-table" data-testid="pool-members"><thead><tr><th>set</th><th className="r">offered</th><th className="r">kept</th></tr></thead><tbody>
               {pool.members.map(m => <tr key={m.id}><td className="mono">{m.name} v{m.version}</td><td className="r">{m.n_offered.toLocaleString()}</td><td className="r">{m.n_kept.toLocaleString()}</td></tr>)}
             </tbody></table>
-            <div className="muted small" style={{ marginTop: 4 }}>plan: {pool.plan.n_blocks} time blocks · test {pool.plan.test_frac} · validation {pool.plan.validation_frac} · gap {Math.round(pool.plan.gap_s / 60)} min · {pool.plan.hold_out_pack ? `pack ${pool.plan.hold_out_pack} held out as the exam` : 'no pack held out'}{pool.sample ? ` · drawn per scale (seed ${pool.seed}): ${Object.entries(pool.sample).map(([k, v]) => `${k} min ${v.toLocaleString()}`).join(', ')}` : ' · every window kept'}</div>
+            <div className="row small" style={{ marginTop: 4, gap: 6 }}>plan · {pool.plan.n_blocks} time blocks<InfoTip title="The split plan">{pool.plan.n_blocks} time blocks · test {pool.plan.test_frac} · validation {pool.plan.validation_frac} · gap {Math.round(pool.plan.gap_s / 60)} min · {pool.plan.hold_out_pack ? `pack ${pool.plan.hold_out_pack} held out as the exam` : 'no pack held out'}{pool.sample ? ` · drawn per scale (seed ${pool.seed}): ${Object.entries(pool.sample).map(([k, v]) => `${k} min ${v.toLocaleString()}`).join(', ')}` : ' · every window kept'}</InfoTip></div>
             {pool.checks && <div className="muted small mono" data-testid="pool-checks">checks: {Object.entries(pool.checks).map(([k, v]) => `${k} ${v.toLocaleString()}`).join(' · ')}</div>}
           </div>
         </div>
@@ -167,8 +167,8 @@ export function ShapeView({ p }: { p: PoolPayload }) {
       </div>
       <div className="callout small" data-testid="shape-options" data-align={s.align ?? 'grid'} data-anchor={s.anchor_frac == null ? '' : s.anchor_frac.toFixed(2)}>
         <b>align · {s.align ?? 'grid'}</b> — {s.align_rule ?? 'the window as the pool cut it'} · <b>detrend · {s.detrend ?? 'off'}</b> — {s.detrend_rule ?? 'the trace as it is'}
-        {s.align && s.align !== 'grid' && s.swing_rule ? <div className="muted" style={{ marginTop: 3 }}>{s.swing_rule}</div> : null}
-        {s.align && s.align !== 'grid' && s.anchor_frac != null ? <div className="muted" style={{ marginTop: 3 }} data-testid="shape-anchor"><b>anchor · {s.anchor_frac.toFixed(2)}</b>{s.anchor_frac === 0.5 ? ' (the middle)' : ''} — {s.anchor_rule ?? 'where in the re-cut window the aligned sample lands'}</div> : null}
+        {s.align && s.align !== 'grid' && s.swing_rule ? <InfoTip title="The swing">{s.swing_rule}</InfoTip> : null}
+        {s.align && s.align !== 'grid' && s.anchor_frac != null ? <div className="row" style={{ marginTop: 3, gap: 6 }} data-testid="shape-anchor"><b>anchor · {s.anchor_frac.toFixed(2)}</b>{s.anchor_frac === 0.5 ? ' (the middle)' : ''}<InfoTip title="The anchor">{s.anchor_rule ?? 'Where in the re-cut window the aligned sample lands.'}</InfoTip></div> : null}
       </div>
       {s.align && s.align !== 'grid' && s.recut && (
         <div className="bp-tiles" style={{ marginTop: 0, gridTemplateColumns: 'repeat(4, minmax(0, 1fr))' }} data-testid="shape-recut">
@@ -178,7 +178,7 @@ export function ShapeView({ p }: { p: PoolPayload }) {
           <div className="bp-tile"><div className="k">overlap ≤ half · kept</div><div className="v">{s.recut.n_overlap_within_scale.toLocaleString()}</div></div>
         </div>
       )}
-      <div className="muted small">{under.rule} · floors: {floors.map(([sf, f]) => `${sf.replace(/\.mat$/, '')} ${fmtN(f.floor_mv)} mV (${f.from})`).join(' · ')} · {s.method}</div>
+      <div className="row small" style={{ gap: 6 }}>floors · {floors.map(([sf, f]) => `${sf.replace(/\.mat$/, '')} ${fmtN(f.floor_mv)} mV (${f.from})`).join(' · ')}<InfoTip title="The noise floor">{under.rule} · {s.method}</InfoTip></div>
       {s.noise_floor && under.n > 0 && <div><div className="bp-card-title"><h3 style={{ fontSize: 13 }}>Left out under the floor, per recording × scale × role</h3></div><CountTable rows={under.by} testid="shape-under-floor-table" /></div>}
       {s.unmeasured.n > 0 && <div className="callout small" data-testid="shape-unmeasured">{s.unmeasured.n.toLocaleString()} windows come from a recording with no declared unit: {s.unmeasured.rule}</div>}
       <div className="row" style={{ gap: 14, alignItems: 'flex-start' }}>
@@ -217,7 +217,7 @@ export function TreeSummary({ p }: { p: TreePayload }) {
         <div className="bp-tile"><div className="k">not clustered · val / test / exam</div><div className="v">{Object.values(t.not_clustered).reduce((a, b) => a + b, 0).toLocaleString()}</div></div>
         <div className="bp-tile"><div className="k">clusters at the cut</div><div className="v">{t.k}{t.k_param === 0 ? ' (proposed)' : ''}</div></div>
       </div>
-      <div className="muted small">{t.rule} · {t.method_text} · tree {t.reused ? 're-used' : 'built'}{t.ward_seconds !== null ? ` · Ward ${t.ward_seconds} s` : ''}{t.peak_rss_mb ? ` · peak memory ${Math.round(t.peak_rss_mb).toLocaleString()} MB` : ''}{t.loaded_from ? ` · loaded from ${t.loaded_from}` : ''}</div>
+      <div className="row small" style={{ gap: 6 }}>tree {t.reused ? 're-used' : 'built'}{t.ward_seconds !== null ? ` · Ward ${t.ward_seconds} s` : ''}{t.peak_rss_mb ? ` · peak memory ${Math.round(t.peak_rss_mb).toLocaleString()} MB` : ''}<InfoTip title="The tree">{t.rule} · {t.method_text}{t.loaded_from ? ` · loaded from ${t.loaded_from}` : ''}</InfoTip></div>
     </div>
   )
 }

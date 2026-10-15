@@ -53,7 +53,7 @@ export function ThresholdBlock({ fx, draft, setDraft, bundle, running, st, actio
               }}
             </PlotBox>
           </BlockCard>
-          <BlockCard title="Spans vs cut" sub={<span className="mono muted" style={{ fontSize: 10.5 }}>each point is a full run of this stage</span>} testid="threshold-curve">
+          <BlockCard title="Spans vs cut" info="Each point is a full run of this stage." testid="threshold-curve">
             <PlotBox height={140}>
               {(w, h) => {
                 const x = scaleLinear().domain([1, 4]).range([10, w - 10]); const y = scaleLinear().domain([0, 40]).range([h - 26, 6])

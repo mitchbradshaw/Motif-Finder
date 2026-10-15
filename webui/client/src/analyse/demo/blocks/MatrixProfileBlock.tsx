@@ -49,7 +49,7 @@ export function MatrixProfileBlock({ fx, draft, setDraft, bundle, running, index
             }}
           </PlotBox>
         </BlockCard>
-        <BlockCard title="2 · Distance profile of the query" info="z-normalised Euclidean distance from the query to every other subsequence. Its minimum outside the trivial-match zone becomes the profile value at the query." sub={<span className="mono muted" style={{ fontSize: 10.5 }}>z-normalised Euclidean distance to every other subsequence</span>} testid="mp-distance">
+        <BlockCard title="2 · Distance profile of the query" info="z-normalised Euclidean distance from the query to every other subsequence. Its minimum outside the trivial-match zone becomes the profile value at the query." testid="mp-distance">
           <PlotBox height={100}>
             {(w, h) => {
               const x = makeX(t0, t1, w, 40, 10); const y = makeY(0, 16, h - 8, 6, 4)
@@ -103,7 +103,7 @@ export function MatrixProfileBlock({ fx, draft, setDraft, bundle, running, index
             </PlotBox>
             <Legend items={[{ label: 'real', colour: '#60a5fa' }, { label: 'surrogate', colour: 'var(--text)', shape: 'line' }, { label: 'below p5', colour: 'var(--green)' }]} />
           </BlockCard>
-          <BlockCard title="Subsequence length vs null" info="Motif pairs below the surrogate p1 at six lengths, each with its own null. Click a length to set m (a draft until Apply)." sub={<span className="mono muted" style={{ fontSize: 10.5 }}>motif pairs below surrogate p1</span>} testid="mp-m-sweep">
+          <BlockCard title="Subsequence length vs null" info="Motif pairs below the surrogate p1 at six lengths, each with its own null. Click a length to set m (a draft until Apply)." testid="mp-m-sweep">
             <PlotBox height={150}>
               {(w, h) => {
                 const cw = (w - 40) / mp.mSweep.length; const y = scaleLinear().domain([0, 4]).range([h - 20, 8])
@@ -125,7 +125,7 @@ export function MatrixProfileBlock({ fx, draft, setDraft, bundle, running, index
           <ParamSelect label="surrogate" info="The null the profile is judged against." value={str(draft.surrogate, 'IAAFT · 200×')} options={['IAAFT · 200×', 'phase-rand · 200×', 'circular shift · 200×']} onChange={v => setDraft('surrogate', v)} testid="param-surrogate" disabled={running} />
           <ParamSelect label="null reference" info="Which surrogate percentiles are drawn." value={str(draft.nullref, 'p5 / p95')} options={['p5 / p95', 'p1 / p99']} onChange={v => setDraft('nullref', v)} testid="param-nullref" disabled={running} />
         </ParamsCard>
-        <BlockCard title="Top locations" actions={<span className="mono muted" style={{ fontSize: 10.5 }}>click to centre panels 1–3</span>} testid="mp-top">
+        <BlockCard title="Top locations" info="Click a location to centre panels 1–3 on it." testid="mp-top">
           <div className="bx-table">
             <div className="bx-tr four head"><span /><span>at</span><span>distance</span><span>vs null</span></div>
             {mp.top.map(t => (

@@ -161,8 +161,8 @@ function EncodingToScores(q: ProcessProps) {
   const band: [number, number] | null = Number.isFinite(a) && Number.isFinite(b) && b > a ? [a, b] : null
   const above = !up || up.kind !== 'image' ? <div className="muted mono small" style={{ marginBottom: 6 }}>the upstream Encoding is not loaded · run the chain to see the image these scores were computed from</div>
     : up.frames?.axis === 'time'
-      ? <><Full q={q} height={150} testid="scores-upstream-image" axis={false}>{ctx => <AlignedImage p={up} ctx={ctx} band={band} />}</Full><div className="muted mono small" style={{ margin: '2px 0 6px' }}>the image these scores were computed from, on the same x{band ? ' · the amber box is the band of rows the block summed' : ''}</div></>
-      : <><Full q={q} height={130} testid="scores-upstream-image" axis={false}>{ctx => <ImageView p={up} ctx={{ ...ctx, interactive: false }} />}</Full><div className="muted mono small" style={{ margin: '2px 0 6px' }}>the images these scores were computed from · each is marked on the bar where it sits in time</div></>
+      ? <><Full q={q} height={150} testid="scores-upstream-image" axis={false}>{ctx => <AlignedImage p={up} ctx={ctx} band={band} />}</Full><div className="row" style={{ margin: '2px 0 6px', gap: 6 }}><InfoTip title="The upstream image">The image these scores were computed from, on the same x.{band ? ' The amber box is the band of rows the block summed.' : ''}</InfoTip></div></>
+      : <><Full q={q} height={130} testid="scores-upstream-image" axis={false}>{ctx => <ImageView p={up} ctx={{ ...ctx, interactive: false }} />}</Full><div className="row" style={{ margin: '2px 0 6px', gap: 6 }}><InfoTip title="The upstream images">The images these scores were computed from. Each is marked on the bar where it sits in time.</InfoTip></div></>
   return <ScoresProcess q={q} above={above} />
 }
 
@@ -296,7 +296,7 @@ function SpansVsCut({ scores, threshold, onThreshold }: { scores: ScoresPayload;
         })()}
         {size.width > 0 && !curve && <div className="an-plot-empty">the scores have no range to cut</div>}
       </div>
-      <div className="muted mono small">≈ {nowN} span{nowN === 1 ? '' : 's'} at this cut, counted on the drawn envelope (the core cuts every sample)</div>
+      <div className="row mono small" style={{ gap: 6 }}>≈ {nowN} span{nowN === 1 ? '' : 's'} at this cut<InfoTip title="Spans at this cut">Counted on the drawn envelope; the core cuts every sample, so the run's count can differ.</InfoTip></div>
     </div>
   )
 }
@@ -325,7 +325,7 @@ function ScoresToSpans(q: ProcessProps) {
             )
           }}
         </Strip>
-        {thr === null && <div className="muted mono small" style={{ paddingLeft: 76, marginBottom: 6 }} data-testid="no-draggable-cut">this block's cut is not one absolute level in the scores' units (it has no <code>threshold</code> parameter), so there is no line to drag · its decisions are the spans below{funnelOf(result) ? ' and the stages of its funnel' : ''}</div>}
+        {thr === null && <div className="row mono small" style={{ paddingLeft: 76, marginBottom: 6, gap: 6 }} data-testid="no-draggable-cut">no line to drag<InfoTip title="No line to drag">This block's cut is not one absolute level in the scores' units (it has no <code>threshold</code> parameter), so there is no line to drag. Its decisions are the spans below{funnelOf(result) ? ' and the stages of its funnel' : ''}.</InfoTip></div>}
         {thr !== null && (
           <div className="row" style={{ alignItems: 'flex-start', gap: 12, marginBottom: 8 }}>
             <div style={{ flex: 1, minWidth: 0 }}>
@@ -475,7 +475,7 @@ function EncodingProcess(q: ProcessProps) {
         <ImageEvidence p={img} jobId={q.jobId} index={q.index} onFrame={setExtra} />
         {/* W3-F: rows that are not pixels (`row_axis`, a payload convention): labelled on the image, and the block's
             own verdict per row when it judged them (`row_verdict`) */}
-        {img.row_axis && <div className="muted mono small" style={{ marginTop: 4 }} data-testid="row-axis-caption">rows are {img.row_axis.label}s: {fmtRow(img.row_axis.values[0], img.row_axis.unit)} at the top … {fmtRow(img.row_axis.values[img.row_axis.values.length - 1], img.row_axis.unit)} at the bottom · labelled on the left of the image</div>}
+        {img.row_axis && <div className="row" style={{ marginTop: 4, gap: 6 }} data-testid="row-axis-caption"><InfoTip title="Rows">Rows are {img.row_axis.label}s: {fmtRow(img.row_axis.values[0], img.row_axis.unit)} at the top … {fmtRow(img.row_axis.values[img.row_axis.values.length - 1], img.row_axis.unit)} at the bottom, labelled on the left of the image.</InfoTip></div>}
         {img.row_axis && img.row_verdict && <RowVerdictTable axis={img.row_axis} verdict={img.row_verdict} />}
         {img.rules && img.rules.length > 0 && <RulesList rules={img.rules} testid="encoding-rules" />}
       </>
@@ -595,7 +595,7 @@ function GroupingProcess(q: ProcessProps) {
   return (
     <>
       <Full q={q} height={Math.min(300, 70 + 30 * Math.max(1, p.clusters.length))}>{ctx => <GroupingView p={p} ctx={ctx} />}</Full>
-      <div className="muted mono small" style={{ marginTop: 2 }}>{p.class_names ? 'top: the label of every window, in time (grey = excluded) · below: where each label falls' : 'top: the cluster of every window, in time · below: when each cluster is active'}</div>
+      <div className="row" style={{ marginTop: 2, gap: 6 }}><InfoTip title="Reading the grouping">{p.class_names ? 'Top: the label of every window, in time (grey = excluded). Below: where each label falls.' : 'Top: the cluster of every window, in time. Below: when each cluster is active.'}</InfoTip></div>
       {p.coverage && <LabelCoverageLine c={p.coverage} />}
       {p.families && <FamilyTable families={p.families} summary={p.family_summary} unit="windows" />}
       {p.rules && <RulesList rules={p.rules} testid="label-rules" />}
