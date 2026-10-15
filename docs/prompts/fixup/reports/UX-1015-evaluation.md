@@ -108,16 +108,44 @@ is marked "may be curved drift" (a straight line cannot remove a curved one; a c
 640 s window because the lag search covers the whole window — an Explore propagation badge is a lead, not
 evidence, and RQ6 now says so.
 
-## AN — the Library dendrogram (pending: fix round)
+## AN — the Library dendrogram (merged 5078370)
 
-*(critic: merge after fixes — results exact at every cut on 300 and 3,000 members, rule 4 holds, schema
-additive, reuse calls linkage once; the preview took 3–6 s at low cuts, the linear tree axis squeezed the useful
-range, the file self-check skipped the arrays)*
+**Asked:** a dendrogram in the Library, preview other cuts, run a grouping at a chosen cut, reuse cached cuts;
+and, from your second list, sample families at each cut. **Shipped, both halves:** the Ward tree is kept per fit
+as one file under the library's derived store (never in the database; the groupings row holds only a path and a
+key), keyed over the members' refs, content hashes and waveform digests plus basis, method and the fit settings,
+with a digest over its own arrays so an edited file, or one belonging to other members, is refused rather than
+reused. Library › Grouping draws the tree above the editor; the cut line, the cut field and `?cut=` in the address
+are one value; sliding the line shows the family count, how many members change family, and a sample card per
+family (its medoid first), with no job. Compute and apply saves a new grouping at that cut and reuses the kept
+tree when the catalogue has not changed, and says so.
 
-## AL — send one detection to Review (pending: fix round)
+**The critic's measurements, now fixed:** the preview took 3–6 s at low cuts on 3,000 members because the
+omit-by-distance rule was a Python loop; it is vectorised and pinned identical to the old loop, and a warm cut now
+takes 0.06–0.26 s. The tree's linear axis put the usual cuts (0.3–1.0) in a few pixels at its foot on a big
+tree; the Library now draws it on a square-root axis with the last 100 merges, and the slider stays 0.1–1.
 
-*(critic: merge after fixes — one picked queue per session, the no-op repeat, rule 5 and the run-wide send all
-held; the "in Review" tick could show for a pick Review will never serve)*
+**Checked on your catalogue at the gate:** a real regroup that builds the tree, the tree drawn, the cut previewed
+at the grouping's own cut and at 0.25 from the address, a second compute reusing the tree — all six states passed.
+A grouping made before trees were kept says so and offers to build one. Tree files are never pruned (6–7 MB each);
+noted in `LIBRARY_STORAGE.md` §6.4.
+
+## AL — send one detection to Review (merged bf40695)
+
+**Asked:** send an individual detection from Discovery to Review, beside "send all". **Shipped:** each detection in
+Browse detections has *Send this one to Review*. It goes into one picked queue per session, extended in the core,
+never a new queue per click; a repeat send adds nothing and says so; only the run's own detections are accepted
+(a surrogate's, an unknown id, or a discarded run is refused before anything is written). A verdict given in that
+queue is a machine-detection judgement (an adjudication), never a human annotation — rule 5, tested. The run-wide
+send is untouched and still green as the page's typical next step.
+
+**The critic's finding, fixed:** the green "in Review" mark used to appear even when Review would never ask —
+a detection already judged elsewhere, or one a human verdict already covers. The mark is now Review's own
+state: green "in Review", grey "judged in Review · <verdict>", amber "picked · not asked — a human verdict already
+covers it". The toast says how many are in the picked list and how many Review is actually waiting on.
+
+**Checked on your data at the gate, with the flows run first:** the three states passed on the walk's own run;
+Review listed the picked queue; the mark came back from the bridge after a reload.
 
 ## AP — the grey-text sweep (pending: runs last)
 
