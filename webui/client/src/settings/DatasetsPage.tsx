@@ -5,7 +5,7 @@
  * raw .mat/.csv files that still need deriving (docs/DATA_REGISTRATION.md). */
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import {
-  Badge, Button, Callout, Checklist, Chip, DisabledReason, IconButton, Modal, ProgressBar, SectionCard, SelectField,
+  Badge, Button, Callout, Checklist, Chip, DisabledReason, EmptyState, IconButton, Modal, ProgressBar, SectionCard, SelectField,
   Table, TextField, Toggle, useQueryState,
 } from '../kit'
 import { useSourced } from '../api/seam'
@@ -331,9 +331,8 @@ function HeldOut({ store: s, rows }: { store: ReturnType<typeof useSettingsPage>
       actions={<Chip tone={on ? 'blue' : 'grey'} testid="held-out-chip-state">{on ? `on · ${name} held out` : 'off · no recording held out'}</Chip>}>
       <Row id="f-hold-out-a-recording" testid="hold-out-row"
         label="hold out a recording" sub="kept from every workspace"
-        info="A held-out recording is kept from every workspace so evaluation on it stays honest (D6). The bridge refuses M4_aug_concat_fs1.mat on every route whatever this says."
-        dot={s.differs('heldout.on')} unsaved={s.dirty('heldout.on')}
-        caption="when on, every workspace refuses it · turning off needs the name typed · logged">
+        info="A held-out recording is kept from every workspace so evaluation on it stays honest (D6). When on, every workspace refuses it; turning it off needs the name typed, and is logged. The bridge refuses M4_aug_concat_fs1.mat on every route whatever this says."
+        dot={s.differs('heldout.on')} unsaved={s.dirty('heldout.on')}>
         <Toggle checked={on} testid="held-out-toggle" ariaLabel="hold out a recording"
           onChange={next => { if (!next) setModal('unlock'); else s.applyNow('heldout.on', true).then(() => push({ text: `Held-out lock on · ${name} held out · logged` })).catch(e => push({ text: String(e instanceof Error ? e.message : e), kind: 'error' })) }} />
         <DisabledReason reason="turn the lock off to choose another recording" disabled={on}>
@@ -447,7 +446,7 @@ function ImportModal({ open, onClose, candidates, rawCandidates, mode, onRegiste
       footerNote={cand ? `will register ${cand.kind === 'raw' ? 'the derived channels of' : ''} ${cand.name} as one recordings row per channel${mode === 'sandbox' ? ' · sandbox: into the database copy' : ' · project: into the real database'} · a sidecar manifest is written · no runs affected` : `${all.length} unregistered on disk · pick one`}
       footer={<>
         <Button onClick={onClose}>Cancel</Button>
-        <Button testid="run-check" disabled={!cand || phase === 'checking' || phase === 'registering'} loading={phase === 'checking'} onClick={runCheck}>Check</Button>
+        <Button testid="run-check" disabled={!cand || phase === 'checking' || phase === 'registering'} disabledReason={!cand ? 'pick a candidate first' : phase === 'checking' ? 'checking…' : 'registering…'} loading={phase === 'checking'} onClick={runCheck}>Check</Button>
         <Button variant="primary" testid="do-import" disabled={!report?.ok || phase !== 'checked'} loading={phase === 'registering'}
           disabledReason={!report ? 'run the checks first' : fails ? `${fails} check${fails === 1 ? '' : 's'} fail` : undefined} onClick={doRegister}>Register</Button>
       </>}>
@@ -492,7 +491,7 @@ function ImportModal({ open, onClose, candidates, rawCandidates, mode, onRegiste
           {phase === 'checking' && <ProgressBar indeterminate label={`checking ${cand?.name}… ${elapsed.toFixed(0)} s (the excerpt search cross-correlates against every comparable registered channel)`} testid="check-progress" />}
           {phase === 'registering' && <ProgressBar indeterminate label={`registering ${cand?.name}… ${elapsed.toFixed(0)} s${cand?.kind === 'raw' ? ' (deriving channels to disk first)' : ''}`} testid="import-progress" />}
           {report && phase !== 'checking' && <Checklist items={[...items, ...warnItems]} testid="import-checks" />}
-          {!report && phase === 'pick' && <span className="muted small">pick a candidate and press Check</span>}
+          {!report && phase === 'pick' && <EmptyState size="sm" icon="check" title="no checks run yet" caption="pick a candidate, then Check" />}
           {report?.excerpt_of && <Callout tone="amber" icon="link" testid="excerpt-of-note">
             {cand?.name} is a {report.excerpt_of.decimation}:1 excerpt of <b title={report.excerpt_of.channel_note}>{report.excerpt_of.display_name ?? report.excerpt_of.name} {report.excerpt_of.channel_name}</b> at sample {report.excerpt_of.offset.toLocaleString('en-US')} (r = {report.excerpt_of.r}).
             A subset of a registered recording is an excerpt, not a new recording — tick “register even if it is an excerpt” to register it linked to its parent.
