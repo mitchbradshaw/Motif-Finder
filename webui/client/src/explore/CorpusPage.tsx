@@ -245,7 +245,7 @@ export function CorpusPage() {
                 )}
               </div>
               {zeroMatch && <div className="ex-zero" data-testid="zero-match">no span matches these filters · <button type="button" className="ex-link" onClick={clearFilters}>clear filters</button></div>}
-              {show.reviewed && <div className="muted small mono" style={{ marginTop: 6 }} data-testid="reviewed-caption">hatched bins have not been reviewed <DemoTag /></div>}
+              {show.reviewed && <div style={{ marginTop: 6 }} data-testid="reviewed-caption"><DemoTag title="the hatched-bin overlay (bins not yet reviewed) is fixture data from the spec §0 placeholder canon — see Reading the coverage map ⓘ" /></div>}
             </div>
             <RightRail cov={cov && cov.source_file === fileName ? cov : null} demo={demo} show={show} setShow={setShow} verdicts={verdicts} setVerdicts={setVerdicts}
               filters={filters} setFilters={setFilters} matching={matching} />
@@ -263,7 +263,7 @@ export function CorpusPage() {
                     <span data-testid="divergence-yes-no" title="machine yes · human no: a detection a human rejected in Review, or one inside reviewed windows that say no">{fmtInt(dv.machine_yes_human_no)} machine yes · human no</span>{' · '}
                     <span data-testid="divergence-no-yes" title="machine no · human yes: a label a human said yes to, where a run covered the place and found nothing">{fmtInt(dv.machine_no_human_yes)} machine no · human yes</span>{' · '}
                     <span className="muted" data-testid="divergence-nc" title={`not comparable — not a cell: ${Object.entries(dv.not_comparable_why).map(([k, n]) => `${n} ${k}`).join(' · ') || 'nothing'}`}>{fmtInt(dv.not_comparable)} not comparable</span>
-                  </> : <span className="muted">— disagree</span>}
+                  </> : <span data-testid="divergence-none">— disagree</span>}
                   {` · ${c.reviewed_pct == null ? '—' : Math.round(c.reviewed_pct) + ' %'} reviewed`}</>
                 : 'select a channel'}
             </span>
@@ -278,6 +278,7 @@ export function CorpusPage() {
       <Popover open={popover === 'legend' && !heldOut} onClose={() => setPopover(null)} anchorRef={legendRef} placement="bottom-end" width={340} title="Reading the coverage map" testid="map-legend">
         <div className="ex-legend-pop">
           <LegendRow swatch={<span className="ramp">{RAMP.slice(1).map(col => <i key={col} style={{ background: col }} />)}</span>}>Cell darkness is spans per bin, counted under ‘colour by’. Grey cells hold none. Shades are quantile ranks among the non-zero cells.</LegendRow>
+          <LegendRow swatch={<span className="outline" style={{ background: 'repeating-linear-gradient(45deg, var(--grey-300, #cbd5e1) 0 1px, transparent 1px 4px)' }} />}>Hatched bins have not been reviewed (shown when ‘reviewed’ is ticked; demo overlay).</LegendRow>
           <LegendRow swatch={<span className="outline" />}>Outlined row is the selected channel. Click to select, double-click to open.</LegendRow>
           <LegendRow swatch={<span className="solid" style={{ background: 'var(--amber)' }} />}>Disagree mode: amber where the machine said yes and a human no, or a human yes where a run covered the place and found nothing. Places no run covered, or no human reviewed, are not comparable and stay grey — they are counted in the bottom bar, never in the map. With no run picked under Detections from, every run on the recording is pooled.</LegendRow>
           <div className="foot">A tag that clusters on two channels is a lead; one spread evenly is probably not.</div>

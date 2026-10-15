@@ -56,7 +56,7 @@ export function RecordingMenu({ files, current, open, setOpen, onPick }: {
           </div>
           <div className="ft">
             <button type="button" className="ex-link" onClick={() => { setOpen(false); navigate('settings/datasets?modal=import') }} data-testid="import-recording"><Icon name="plus" size={13} /> Import a recording in Settings › Datasets</button>
-            <span className="hint">‹ › page through recordings</span>
+            <Tooltip content="‹ › beside the recording name page through recordings" placement="top"><span className="k-info" aria-label="about paging through recordings" tabIndex={0}><Icon name="info" size={13} /></span></Tooltip>
           </div>
         </div>
       </Popover>
