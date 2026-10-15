@@ -627,6 +627,189 @@ def test_a_discarded_runs_queue_serves_nothing(client):
     assert _counts(client, "adjudications") == adj_before
 
 
+def _browsed(client, run_key, channel=CH[0]):
+    """The browser's own list of a run's detections on one channel."""
+    r = client.get("/api/discovery/detections",
+                   params={"run": run_key, "channel": channel, "t0": 0.0, "t1": N / FS / 3600.0})
+    assert r.status_code == 200, r.text
+    return r.json()
+
+
+def _picked_rows(client, qid):
+    """Every row the queue's filter names, judged or rediscovered included."""
+    got = client.get(f"/api/review/queues/{qid}",
+                     params={"include_judged": 1, "include_prior_judged": 1})
+    assert got.status_code == 200, got.text
+    return got.json()
+
+
+def _two_browsed(client, out):
+    dets = _browsed(client, out["run_key"], CH[0]) + _browsed(client, out["run_key"], CH[1])
+    assert len(dets) >= 2, "the fixture's chain fires at least twice across two channels"
+    # a rediscovery of a judged human span is outside Review's counts; lead with the ones that are not
+    dets.sort(key=lambda d: d["priorVerdict"] is not None)
+    assert dets[0]["priorVerdict"] is None, "the fixture leaves at least one detection no human span matches"
+    return dets[0]["detectionId"], dets[1]["detectionId"]
+
+
+def test_sending_one_detection_makes_one_picked_queue_and_a_second_extends_it(client):
+    """fixup-AL. *Send this one to Review* from the browser: the first send
+    makes the session's picked queue with exactly that detection; the second
+    appends to the SAME queue; sending the first again adds nothing and says so.
+    Ten clicks must not make ten queues in Review's list."""
+    out = _apply(client)
+    d1, d2 = _two_browsed(client, out)
+    url = f"/api/discovery/runs/{out['run_key']}/review"
+
+    a = client.post(url, json={"detection_ids": [d1]})
+    assert a.status_code == 200, a.text
+    a = a.json()
+    assert a["added"] == [d1] and a["already"] == [] and a["total"] == 1
+    assert a["queue"].endswith("picked from Discovery")
+    assert a["writes"] == "adjudications"
+    got = _picked_rows(client, a["queue_id"])
+    assert [int(r["id"]) for r in got["rows"]] == [d1]
+    assert got["queue"]["source_kind"] == "discovery-run"
+
+    b = client.post(url, json={"detection_ids": [d2]}).json()
+    assert b["queue_id"] == a["queue_id"]
+    assert b["added"] == [d2] and b["total"] == 2
+    assert sorted(int(r["id"]) for r in _picked_rows(client, a["queue_id"])["rows"]) == sorted([d1, d2])
+
+    c = client.post(url, json={"detection_ids": [d1]}).json()
+    assert c["queue_id"] == a["queue_id"]
+    assert c["added"] == [] and c["already"] == [d1] and c["total"] == 2
+    assert "already in the queue" in c["message"]
+
+    listing = client.get("/api/review/queues").json()
+    assert sum(1 for x in listing if x["name"] == a["queue"]) == 1
+
+
+def test_a_picked_detection_is_marked_in_the_browser(client):
+    """The mark comes from the bridge (the queue's own filter), not from the
+    browser remembering a click: a reload still shows it."""
+    out = _apply(client)
+    d1, _ = _two_browsed(client, out)
+    before = _by_id(client, out)
+    assert before[d1]["picked"] is None
+    client.post(f"/api/discovery/runs/{out['run_key']}/review", json={"detection_ids": [d1]})
+    after = _by_id(client, out)
+    assert after[d1]["picked"] == "waiting"
+    assert sum(1 for d in after.values() if d["picked"]) == 1
+
+
+def _by_id(client, out):
+    return {d["detectionId"]: d for d in _browsed(client, out["run_key"], CH[0]) + _browsed(client, out["run_key"], CH[1])}
+
+
+def test_a_pick_judged_in_review_reads_judged_with_its_verdict(client):
+    """fix round: the mark is a STATE. A pick given a verdict in Review reads
+    `judged` with that verdict, not a green 'in Review' still waiting."""
+    out = _apply(client)
+    d1, _ = _two_browsed(client, out)
+    picked = client.post(f"/api/discovery/runs/{out['run_key']}/review", json={"detection_ids": [d1]}).json()
+    client.post(f"/api/review/queues/{picked['queue_id']}/verdict",
+                json={"target_id": str(d1), "verdict": "interesting"})
+    row = _by_id(client, out)[d1]
+    assert row["picked"] == "judged"
+    assert row["pickedVerdict"] == "interesting"
+
+
+def test_an_already_adjudicated_detection_is_reported_as_already_judged(client):
+    """fix round: a detection judged in the run-wide queue, then picked, was
+    toasted '1 added' with a green tick though Review has nothing to ask."""
+    out = _apply(client)
+    d1, _ = _two_browsed(client, out)
+    url = f"/api/discovery/runs/{out['run_key']}/review"
+    whole = client.post(url, json={}).json()
+    v = client.post(f"/api/review/queues/{whole['queue_id']}/verdict",
+                    json={"target_id": str(d1), "verdict": "not_interesting"})
+    assert v.status_code == 200, v.text
+    body = client.post(url, json={"detection_ids": [d1]}).json()
+    assert body["already_judged"] == [{"id": d1, "verdict": "not_interesting"}]
+    assert "already judged" in body["message"]
+    assert body["served"] == 1 and body["unjudged"] == 0
+    assert _by_id(client, out)[d1]["picked"] == "judged"
+
+
+def test_a_pick_a_human_verdict_covers_reads_not_asked(client):
+    """fix round: a detection a human span already judged is never served by
+    Review; its mark says so instead of a green tick."""
+    out = _apply(client)
+    d1, _ = _two_browsed(client, out)
+    # a human span over exactly this detection: the researcher judged the same event by hand
+    conn = sqlite3.connect(client.app.state.rt.db_path)
+    try:
+        rec, a, b = conn.execute("SELECT r.recording_id, d.start_idx, d.end_idx FROM detections d "
+                                 "JOIN runs r ON r.id = d.run_id WHERE d.id = ?", (d1,)).fetchone()
+        conn.execute("INSERT INTO annotations (recording_id, start_idx, end_idx, verdict, source, created_at) "
+                     "VALUES (?, ?, ?, 'interesting', 'test', ?)", (rec, a, b, OLD))
+        conn.commit()
+    finally:
+        conn.close()
+    body = client.post(f"/api/discovery/runs/{out['run_key']}/review",
+                       json={"detection_ids": [d1]}).json()
+    assert body["not_asked"] == [d1]
+    assert _by_id(client, out)[d1]["picked"] == "not-asked"
+
+
+def test_a_discarded_run_refuses_a_pick_before_writing(client):
+    """fix round: the browser disabled the button on a discarded run but the
+    bridge still wrote the pick. It refuses now, in the page's own words."""
+    out = _apply(client)
+    d1, _ = _two_browsed(client, out)
+    client.post(f"/api/discovery/runs/{out['run_key']}/discard")
+    before = _counts(client, "review_queues")
+    r = client.post(f"/api/discovery/runs/{out['run_key']}/review", json={"detection_ids": [d1]})
+    assert r.status_code == 422, r.text
+    assert "discarded" in r.json()["detail"]["message"]
+    assert _counts(client, "review_queues") == before
+
+
+def test_a_detection_outside_the_run_is_refused_and_no_queue_is_made(client):
+    """The route sends a detection OF THIS RUN. A paired surrogate's detection
+    (phase-randomised noise) or an id that does not exist is refused by name,
+    before any queue row is written."""
+    out = _apply(client)
+    conn = sqlite3.connect(client.app.state.rt.db_path)
+    try:
+        sur = conn.execute("SELECT d.id FROM detections d JOIN runs r ON r.id = d.run_id "
+                           "WHERE r.surrogate_of_run_id IS NOT NULL LIMIT 1").fetchone()
+    finally:
+        conn.close()
+    assert sur is not None, "the fixture's surrogates found something"
+    before = _counts(client, "review_queues")
+    url = f"/api/discovery/runs/{out['run_key']}/review"
+    for bad in (int(sur[0]), 10 ** 9):
+        r = client.post(url, json={"detection_ids": [bad]})
+        assert r.status_code == 422, r.text
+        assert str(bad) in r.json()["detail"]["message"]
+    r = client.post(url, json={"detection_ids": []})
+    assert r.status_code == 422, r.text
+    assert _counts(client, "review_queues") == before
+
+
+def test_a_verdict_in_the_picked_queue_is_an_adjudication_and_the_run_wide_send_is_unchanged(client):
+    """A verdict given in the picked queue is an `adjudications` row like any
+    other (rule 5) and moves the picked queue's progress; the run-wide send
+    still makes its own run-id queue, separate from the picks."""
+    out = _apply(client)
+    d1, _ = _two_browsed(client, out)
+    url = f"/api/discovery/runs/{out['run_key']}/review"
+    picked = client.post(url, json={"detection_ids": [d1]}).json()
+    adj, ann = _counts(client, "adjudications"), _counts(client, "annotations")
+    v = client.post(f"/api/review/queues/{picked['queue_id']}/verdict",
+                    json={"target_id": str(d1), "verdict": "interesting"})
+    assert v.status_code == 200, v.text
+    assert _counts(client, "adjudications") == adj + 1
+    assert _counts(client, "annotations") == ann
+    assert _picked_rows(client, picked["queue_id"])["queue"]["judged"] == 1
+
+    whole = client.post(url, json={}).json()
+    assert whole["queue_id"] != picked["queue_id"]
+    assert "run_ids" in whole and whole["total"] >= 2
+
+
 def test_an_unknown_run_key_is_a_404_naming_it(client):
     r = client.post("/api/discovery/runs/not_a_run/discard")
     assert r.status_code == 404

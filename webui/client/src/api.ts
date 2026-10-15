@@ -571,6 +571,8 @@ export interface DiscDetection {
   id: string; detectionId: number; index: number; of: number; run: string; channel: string
   atH: number; durationS: number; depthMv: number | null; score: number | null
   priorVerdict: string | null; alsoFoundBy: string[]
+  /** fixup-AL: this detection's state in the session's picked Review queue, as Review's resolver reads it (null: not picked) */
+  picked?: 'waiting' | 'judged' | 'not-asked' | null; pickedVerdict?: string | null
 }
 export const getDiscoveryDetections = (run: string, channel: string, t0: number, t1: number) =>
   req<DiscDetection[]>(`/api/discovery/detections${dq({ run, channel, t0, t1 })}`)
@@ -1517,3 +1519,14 @@ export interface LibCutPreview {
 }
 export const getLibraryGroupingCut = (id: string, cut: number, opts: { min_group?: number; omit_d?: number; samples?: number } = {}) =>
   req<LibCutPreview>(`/api/library/groupings/${encodeURIComponent(id)}/cut${dq({ cut, ...opts })}`)
+
+/** fixup-AL: *Send this one to Review* from Discovery's browser. The detections go to the session's ONE picked
+ *  queue (`<session> · picked from Discovery`), made on the first send and appended to after; a detection
+ *  already in it comes back in `already` and is not added twice. `message` is the bridge's own sentence. */
+export const sendDetectionsToReview = (runKey: string, detectionIds: number[]) =>
+  post<{
+    run_key: string; queue_id: number; queue: string; reused: boolean; picked: true
+    added: number[]; already: number[]; total: number; served: number; not_asked: number[]
+    already_judged: { id: number; verdict: string | null }[]
+    unjudged: number; judged: number; source_kind: 'discovery-run'; writes: string; message: string; note: string
+  }>(`/api/discovery/runs/${encodeURIComponent(runKey)}/review`, { detection_ids: detectionIds })

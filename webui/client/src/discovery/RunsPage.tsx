@@ -2,12 +2,12 @@
  * Toolbar · Scope · Runs list | where each run fires · scoreboard · browse detections · run acts (spec §7.1–7.5, P17). */
 import { Fragment, useEffect, useMemo, useState } from 'react'
 import {
-  Button, Callout, DisabledReason, Dropdown, EmptyState, Icon, InfoTip, Modal, Pager, Seg, Trace, cx, recordDemoWrite, useDemoState, useNotWired, useQueryState, useSim, startSim, ProgressBar } from '../kit'
+  Badge, Button, Callout, DisabledReason, Dropdown, EmptyState, Icon, InfoTip, Modal, Pager, Seg, Trace, cx, recordDemoWrite, useDemoState, useNotWired, useQueryState, useSim, startSim, ProgressBar } from '../kit'
 import { Header } from '../shell/Header'
 import { useToast } from '../shell/Toast'
 import { navigate } from '../state'
 import { useSourced } from '../api/seam'
-import { applyDiscoveryTemplates, discardDiscoveryRun, sendDiscoveryRunToReview } from '../api'
+import { applyDiscoveryTemplates, discardDiscoveryRun, sendDetectionsToReview, sendDiscoveryRunToReview } from '../api'
 import {
   getDetectionWindow, getDetections, getFires, fmtMin, type Detection, type DiscoveryRun, type FiresData, type Recall, type ScoreRow, type ScoreRun,
 } from '../api/discovery'
@@ -318,6 +318,29 @@ function Browser({ dx, run }: { dx: Discovery; run: DiscoveryRun | null }) {
     setIQ(String(idx >= 0 ? idx + 1 : dets.data.length)); setAtQ(null)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [atQ, dets.data])
+  /* fixup-AL: *Send this one to Review* — the detection goes to the session's ONE picked queue (made on the first
+   * send, appended to after), never the run-wide queue. The mark is the bridge's `picked` STATE — what Review will
+   * actually do with it (waiting / judged / not asked) — and the list is re-read after a send, so nothing is
+   * remembered here that could claim more than Review does. The id is the bridge's `detectionId`, never parsed. */
+  const toast = useToast()
+  const [sending, setSending] = useState(false)
+  const detId = det?.detectionId ?? null
+  const sendOne = () => {
+    if (!run || detId == null) return
+    setSending(true)
+    sendDetectionsToReview(run.key, [detId])
+      .then(r => {
+        dets.reload()
+        toast.push({
+          text: `${r.message} · ${r.total} in the picked list, ${r.unjudged} waiting in Review · verdicts write ${r.writes}`,
+          action: { label: 'Open Review', onClick: () => navigate(`review/queue/${r.queue_id}`) },
+        })
+      })
+      .catch(e => toast.push({ text: `could not send ${det?.id ?? 'this detection'} to Review: ${e.message}` }))
+      .finally(() => setSending(false))
+  }
+  const sendReason = run?.status === 'superseded' ? 'discarded — its detections are not put to Review'
+    : det && detId == null ? 'the bridge sent no detection id for this row' : null
   const runOptions = dx.runs.filter(r => r.kind !== 'reference' && r.status !== 'draft').map(r => ({ value: r.key, label: r.label, disabled: !hasResults(r), reason: hasResults(r) ? undefined : 'no detections yet' }))
   const channelOptions = s.channels.map(c => ({ value: c, label: c, hint: dx.scores?.find(x => x.run === run?.key)?.channels.find(x => x.channel === c)?.found?.toString() }))
   return (
@@ -343,7 +366,12 @@ function Browser({ dx, run }: { dx: Discovery; run: DiscoveryRun | null }) {
             <div className="row" style={{ gap: 8, marginBottom: 6 }} data-testid="browser-loading"><ProgressBar indeterminate size="sm" width={120} labelPosition="none" /><span className="muted small">loading this run's detections…</span></div>
           )}
           <div className="dsc-det-info" data-testid="browser-detection" style={dets.loading ? { opacity: 0.6 } : undefined}>
-              <b className="mono">{det.id}</b>
+              <span className="row" style={{ gap: 6 }}>
+                <b className="mono">{det.id}</b>
+                {det.picked === 'waiting' && <Badge tone="green" icon="check" testid="browser-in-review" title="in this session's picked Review queue, waiting for a verdict">in Review</Badge>}
+                {det.picked === 'judged' && <Badge tone="grey" testid="browser-judged-in-review" title="picked, and Review holds a verdict on it">judged in Review · {det.pickedVerdict ?? 'verdict'}</Badge>}
+                {det.picked === 'not-asked' && <Badge tone="amber" testid="browser-picked-not-asked" title="in the picked list, but Review never asks about it: a human verdict already covers it, or its run was later discarded">picked · not asked — a human verdict already covers it</Badge>}
+              </span>
               <span>{det.atH.toFixed(2)} h · {det.channel}</span>
               {/* a block that emits no score, or a window of NaNs, gives no number here — say which field is absent */}
               <span>{det.depthMv != null ? `depth ${det.depthMv.toFixed(2)} mV` : 'no depth recorded'} · {det.score != null ? `score ${det.score.toFixed(2)}` : 'no score from this chain'}</span>
@@ -352,6 +380,11 @@ function Browser({ dx, run }: { dx: Discovery; run: DiscoveryRun | null }) {
                 <button key={k} type="button" className="dsc-inline-link" onClick={() => { setRunQ(k); setIQ(null) }} data-testid={`also-found-${k}`}><span className="dot" style={{ background: dx.runs.find(r => r.key === k)?.colour }} />{k}</button>
               )) : '—'}</span>
               {det.nearMiss && <span className="muted small">{det.nearMiss.run} came within d {det.nearMiss.d.toFixed(1)} (near miss)</span>}
+              <span className="row" style={{ gap: 6, marginTop: 4 }}>
+                <Button variant="primary" size="sm" icon="arrow-right" onClick={sendOne} loading={sending} disabled={!!sendReason || sending}
+                  disabledReason={sendReason ?? (sending ? 'sending…' : undefined)} testid="browser-send-one">Send this one to Review</Button>
+                <InfoTip title="Send this one to Review">Puts just this detection in this session's one picked queue, named "… · picked from Discovery". Each send adds to that same queue; sending one that is already there adds nothing. Sending every unjudged detection of the run is the green button below.</InfoTip>
+              </span>
             </div>
             <div className="dsc-det-plot">
               {win.data ? <Trace values={win.data.values} fs={1} t0={win.data.t0H * 3600} height={150} testid="browser-trace"

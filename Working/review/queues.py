@@ -53,6 +53,7 @@ other way round.
 
 import json
 import math
+import numbers
 from bisect import bisect_left, bisect_right
 from datetime import datetime, timezone
 
@@ -220,27 +221,124 @@ def _normalised_filters(filters):
     return out
 
 
-def find_open_queue(conn, *, source_kind, filters=None, source_ref=None):
+def find_open_queue(conn, *, source_kind, filters=None, source_ref=None,
+                    skip_note_prefix=None):
     """The id of an open queue that IS this queue already — same source kind,
     same source ref, same filters — or None.
 
     *Send N unjudged to Review* pressed twice must return the same queue
     rather than a second one over the same rows (fixup-L): two open queues
     over one run would show two progress counts for one set of verdicts.
+
+    `skip_note_prefix` passes over a queue whose note starts with it: a
+    Discovery picked queue (fixup-AL) is extended by every send, so its set can
+    come to equal a Compare remainder's, and Compare must not adopt it.
     """
     want = _normalised_filters(filters)
     want_ref = None if source_ref is None else str(source_ref)
     for row in conn.execute(
-            "SELECT id, source_ref, filters_json FROM review_queues "
+            "SELECT id, source_ref, filters_json, note FROM review_queues "
             "WHERE closed_at IS NULL AND source_kind = ? ORDER BY id",
             (source_kind,)).fetchall():
         if row["source_ref"] != want_ref:
+            continue
+        if skip_note_prefix and (row["note"] or "").startswith(skip_note_prefix):
             continue
         have = _normalised_filters(
             json.loads(row["filters_json"]) if row["filters_json"] else {})
         if have == want:
             return int(row["id"])
     return None
+
+
+def find_open_queue_by_note(conn, *, source_kind, note):
+    """The id of the open queue of this kind whose note is exactly `note`, or
+    None (the newest when several match).
+
+    For a queue whose identity is not its filters: Discovery's per-session
+    *picked* queue (fixup-AL) changes its `detection_ids` with every send, so
+    `find_open_queue`, which matches on the filters, could never find it again.
+    The caller writes a stable note at creation and finds the queue by it.
+    """
+    row = conn.execute(
+        "SELECT id FROM review_queues WHERE closed_at IS NULL AND source_kind = ? "
+        "AND note = ? ORDER BY id DESC LIMIT 1", (source_kind, note)).fetchone()
+    return None if row is None else int(row["id"])
+
+
+def extend_queue(conn, queue_id, detection_ids):
+    """Append detections to an open detection queue whose filter is an exact
+    detection set (`{"detection_ids": [...]}`), and return
+    `{"added": [...], "already": [...], "total": n}`.
+
+    The queue still holds no items: this rewrites its `filters_json`, the same
+    filter `create_queue` stored, so the resolver reads the new set on its next
+    call. Ids already in the filter come back in `already` and are not written
+    twice; order is kept (old ids first, new ones in the order given).
+
+    Refused (ValueError), writing nothing: a queue that does not exist or is
+    closed, a queue whose kind is not a detection kind, a queue with a source
+    ref or whose filter is anything but a detection set (a run-id queue
+    extended by one detection would silently change what the run-wide send
+    made), an id that is not an integer, and an id with no `detections` row.
+
+    `total` is the number of ids in the filter, NOT what Review will serve: a
+    pick a human verdict already covers, or one from a discarded run, is in the
+    filter but never asked about. `queue_counts` is the served number.
+    """
+    q = get_queue(conn, queue_id)
+    if q is None:
+        raise ValueError("no such queue: {!r}".format(queue_id))
+    if q["closed_at"] is not None:
+        raise ValueError("queue {} is closed; a closed queue is not extended".format(queue_id))
+    if q["source_kind"] not in _DETECTION_KINDS:
+        raise ValueError(
+            "queue {} is a {!r} queue; only a detection queue ({}) takes detection ids".format(
+                queue_id, q["source_kind"], ", ".join(_DETECTION_KINDS)))
+    filters = q["filters"] or {}
+    if q["source_ref"] is not None:
+        raise ValueError(
+            "queue {} has a source ref ({}), which the resolver reads as its run group; it is "
+            "not an exact detection set and cannot be extended one detection at a time".format(
+                queue_id, q["source_ref"]))
+    if not filters:
+        raise ValueError(
+            "queue {} has no filter; it is not an exact detection set and cannot be "
+            "extended one detection at a time".format(queue_id))
+    if set(filters) != {"detection_ids"}:
+        raise ValueError(
+            "queue {} filters on {}, not on detection_ids alone; it cannot be "
+            "extended one detection at a time".format(queue_id, ", ".join(sorted(filters))))
+    want = []
+    for x in detection_ids:
+        # bool is an int to Python, and int(3.7) is 3: both would write a
+        # detection nobody named
+        if isinstance(x, bool) or not isinstance(x, numbers.Integral):
+            raise ValueError("detection ids must be integers, got {!r}".format(x))
+        want.append(int(x))
+    known = set()
+    for chunk in _chunks(sorted(set(want))):
+        known.update(int(r[0]) for r in conn.execute(
+            "SELECT id FROM detections WHERE id IN ({})".format(",".join("?" * len(chunk))), chunk))
+    unknown = [i for i in want if i not in known]
+    if unknown:
+        raise ValueError("no detection {} in the database; nothing was added".format(
+            ", ".join(str(i) for i in dict.fromkeys(unknown))))
+    have = [int(i) for i in filters["detection_ids"]]
+    seen = set(have)
+    added, already = [], []
+    for i in want:
+        if i in seen:
+            if i not in already:
+                already.append(i)
+            continue
+        seen.add(i)
+        added.append(i)
+    if added:
+        conn.execute("UPDATE review_queues SET filters_json = ? WHERE id = ?",
+                     (json.dumps({"detection_ids": have + added}), int(queue_id)))
+        conn.commit()
+    return {"added": added, "already": already, "total": len(have) + len(added)}
 
 
 # ── the resolver ────────────────────────────────────────────────────────────

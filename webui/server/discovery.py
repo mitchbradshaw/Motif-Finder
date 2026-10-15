@@ -1016,6 +1016,7 @@ def get_detections(request: Request, run: str, channel: str, t0: float = 0.0, t1
                 also[p["candidate"]].append(key)
         verdicts = match_span_sets(mine, [(h["start"], h["end"]) for h in humans], rule=rule)
         verdict_of = {p["candidate"]: humans[p["reference"]]["verdict"] for p in verdicts["pairs"]}
+        picked = _picked_states(c, s["id"])     # fixup-AL: the browser's mark, as Review's own state
         out = []
         for i, sp in enumerate(spans):
             out.append({
@@ -1027,6 +1028,8 @@ def get_detections(request: Request, run: str, channel: str, t0: float = 0.0, t1
                 "score": (round(sp["score"], 4) if sp["score"] is not None else None),
                 "priorVerdict": verdict_of.get(i),
                 "alsoFoundBy": also[i],
+                "picked": picked.get(int(sp["id"]), (None, None))[0],
+                "pickedVerdict": picked.get(int(sp["id"]), (None, None))[1],
             })
         return out
     finally:
@@ -3220,6 +3223,117 @@ def restore_run(request: Request, run_key: str):
 
 class ReviewBody(BaseModel):
     name: str | None = None
+    #: fixup-AL: *Send this one to Review* from the browser. With it, the
+    #: detections go to the session's one picked queue instead of the run-wide
+    #: queue; without it, the run-wide send is unchanged.
+    detection_ids: list[int] | None = None
+
+
+#: The start of every picked queue's note. Compare's send skips a queue whose
+#: note starts with it, so a picked set that comes to equal a Compare
+#: remainder is never adopted as that remainder's queue.
+PICKED_NOTE_PREFIX = "detections picked one at a time from Discovery's browser"
+
+#: The page's own words for a discarded run (RunsPage's Browser card).
+DISCARDED_REASON = "discarded — its detections are not put to Review"
+
+
+def _picked_note(session_id):
+    """The stable note that identifies a session's picked queue. Its filter
+    changes with every send, so `find_open_queue` (which matches filters)
+    cannot find it; `find_open_queue_by_note` finds it by this."""
+    return f"{PICKED_NOTE_PREFIX} · session {int(session_id)}"
+
+
+def _picked_states(conn, session_id):
+    """{detection id: (state, verdict)} for every pick in the session's open
+    picked queue — what Review will actually do with it:
+
+    * ``judged``    — it carries an adjudication (from this queue or any other);
+    * ``not-asked`` — Review never serves it: a human verdict already covers it
+      (a rediscovery), or its run was discarded;
+    * ``waiting``   — Review will ask about it.
+
+    Read from `queue_items(include_judged=True, include_prior_judged=True)`, the
+    resolver Review itself uses, so the mark cannot claim more than Review does.
+    """
+    qid = queues_mod.find_open_queue_by_note(conn, source_kind="discovery-run",
+                                             note=_picked_note(session_id))
+    if qid is None:
+        return {}
+    ids = [int(i) for i in queues_mod.get_queue(conn, qid)["filters"].get("detection_ids", [])]
+    items = {int(it["target_id"]): it for it in queues_mod.queue_items(
+        conn, qid, include_judged=True, include_prior_judged=True)}
+    out = {}
+    for i in ids:
+        it = items.get(i)
+        if it is not None and it["judged"]:
+            out[i] = ("judged", it.get("verdict"))
+        elif it is None or it.get("prior_verdict") is not None:
+            out[i] = ("not-asked", None)
+        else:
+            out[i] = ("waiting", None)
+    return out
+
+
+def _send_picked(c, s, row, run_key, detection_ids):
+    """Create-or-extend the session's picked queue with these detections of
+    this run. Validates first, writes second: nothing is written for a refused
+    id. A paired surrogate's detection is not "of this run" — `_run_ids`
+    excludes the surrogates — so phase-randomised noise cannot be picked."""
+    if not detection_ids:
+        raise HTTPException(422, {"message": "no detection named: detection_ids is empty"})
+    want = list(dict.fromkeys(int(i) for i in detection_ids))
+    ids = set(_run_ids(c, row))
+    marks = ",".join("?" * len(want))
+    found = {int(r["id"]): int(r["run_id"]) for r in c.execute(
+        f"SELECT id, run_id FROM detections WHERE id IN ({marks})", want).fetchall()}
+    missing = [i for i in want if i not in found]
+    if missing:
+        raise HTTPException(422, {"message": f"no detection {', '.join(map(str, missing))} in the database"})
+    foreign = [i for i in want if found[i] not in ids]
+    if foreign:
+        raise HTTPException(422, {"message": f"detection {', '.join(map(str, foreign))} is not one of "
+                                             f"{run_key}'s detections (a paired surrogate's, or another run's); "
+                                             "only this run's own detections are sent"})
+    note = _picked_note(s["id"])
+    qid = queues_mod.find_open_queue_by_note(c, source_kind="discovery-run", note=note)
+    if qid is None:
+        qid = queues_mod.create_queue(c, name=f"{s['name']} · picked from Discovery",
+                                      source_kind="discovery-run", filters={"detection_ids": want},
+                                      note=note)
+        res, reused = {"added": want, "already": [], "total": len(want)}, False
+    else:
+        res, reused = queues_mod.extend_queue(c, qid, want), True
+    queue = queues_mod.get_queue(c, qid)
+    counts = queues_mod.queue_counts(c, qid)
+    states = _picked_states(c, s["id"])
+    # what Review will NOT put to the researcher: already judged (it has
+    # nothing to ask), or never served (a human verdict covers it)
+    already_judged = [{"id": i, "verdict": states[i][1]} for i in want if states.get(i, ("",))[0] == "judged"]
+    judged_ids = {d["id"] for d in already_judged}
+    not_asked = [i for i in res["added"] if states.get(i, ("not-asked",))[0] == "not-asked"]
+    fresh = [i for i in res["added"] if i not in judged_ids and i not in not_asked]
+    parts = []
+    if fresh:
+        parts.append(f"{len(fresh)} added to '{queue['name']}'")
+    if res["already"]:
+        parts.append(f"{len(res['already'])} already in the queue")
+    if already_judged:
+        parts.append(f"{len(already_judged)} already judged in Review ("
+                     + ", ".join(str(d["verdict"]) for d in already_judged) + ")")
+    if not_asked:
+        parts.append(f"{len(not_asked)} not asked: a human verdict already covers it")
+    return {"run_key": run_key, "queue_id": int(qid), "queue": queue["name"], "reused": reused,
+            "picked": True, "added": res["added"], "already": res["already"],
+            # `total` is the picked LIST (ids in the filter); `served` is what Review counts
+            "total": res["total"], "served": int(counts["total"]),
+            "already_judged": already_judged, "not_asked": not_asked,
+            "unjudged": int(counts["remaining"]), "judged": int(counts["judged"]),
+            "source_kind": "discovery-run", "writes": queue["writes_to"],
+            "message": " · ".join(parts),
+            "note": ("one queue per session for the detections sent one at a time; it is a filter over those "
+                     "detections, and a verdict in Review moves this page's scoreboard like any other")}
 
 
 @router.post("/api/discovery/runs/{run_key}/review")
@@ -3242,11 +3356,15 @@ def send_to_review(request: Request, run_key: str, body: ReviewBody):
     try:
         s = _session(c)
         row = _dr_by_key(c, s["id"], run_key)
+        if body.detection_ids is not None and row["superseded_at"]:
+            raise HTTPException(422, {"message": f"{run_key} is {DISCARDED_REASON}"})
         if not row["run_group_id"]:
             raise HTTPException(422, {"message": f"{run_key} has not run yet, so it has nothing to send"})
         ids = _run_ids(c, row)
         if not ids:
             raise HTTPException(422, {"message": f"{run_key} has no runs recorded, so it has nothing to send"})
+        if body.detection_ids is not None:
+            return _send_picked(c, s, row, run_key, body.detection_ids)
         kind = "seed-search" if row["kind"] == "seed" else "discovery-run"
         filters = {"run_ids": [int(i) for i in ids]}
         existing = queues_mod.find_open_queue(c, source_kind=kind, filters=filters)
@@ -3664,7 +3782,9 @@ def send_remainder_to_review(request: Request, body: CompareReviewBody):
         judged = {int(r["detection_id"]) for r in c.execute("SELECT detection_id FROM adjudications").fetchall()}
         ids = sorted({next((i for i in r["ids"] if i in judged), r["ids"][0]) for r in regions})
         filters = {"detection_ids": ids}
-        existing = queues_mod.find_open_queue(c, source_kind="discovery-run", filters=filters)
+        # never adopt a Discovery picked queue whose set happens to equal this remainder (fixup-AL)
+        existing = queues_mod.find_open_queue(c, source_kind="discovery-run", filters=filters,
+                                              skip_note_prefix=PICKED_NOTE_PREFIX)
         label_a, label_b = (_side(c, s["id"], k, chans, span, "")[0]["label"] for k in (body.a, body.b))
         if existing is not None:
             qid, reused = existing, True
