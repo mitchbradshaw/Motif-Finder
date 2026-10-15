@@ -19,6 +19,7 @@ directory. No FastAPI import — this is the runtime object alone.
 import os
 import sqlite3
 import sys
+import types
 
 import pytest
 
@@ -148,6 +149,64 @@ def test_sandbox_mode_still_copies_and_redirects_everything(tmp_path):
     finally:
         rt.restore()
     assert _core_paths() == before, "restore() puts the core paths back"
+
+
+def test_sandbox_mode_keeps_the_window_matrix_calibration_inside_the_runtime(tmp_path, monkeypatch):
+    """`window_matrix.cost.CALIBRATION_PATH` is relative (DATA/db/wm_calibration.json) and setup() chdirs to the
+    repo root: unredirected, a calibration run from a sandbox bridge lands in the real DATA/db. The sandbox carries
+    this machine's timing over, read-only, as it does for the matrix-profile and block-cost files, and calibrates
+    into its own copy."""
+    from Working.Preprocessing.window_matrix import cost as wm_cost
+    db = _fresh_db(tmp_path)
+    real = tmp_path / "real_db" / "wm_calibration.json"      # stands in for DATA/db/wm_calibration.json
+    real.parent.mkdir()
+    real.write_text('{"another machine": {"rf": {"k": 1e-09}}}', encoding="utf-8")
+    before = real.read_bytes()
+    monkeypatch.setattr(wm_cost, "CALIBRATION_PATH", str(real))
+
+    rt = Runtime(mode="sandbox", stamp="20261016-000001",
+                 db_source=str(db), runtime_root=str(tmp_path / "runtime"))
+    try:
+        rt.setup()
+        copy = wm_cost.CALIBRATION_PATH
+        assert os.path.abspath(copy).startswith(os.path.abspath(rt.dir) + os.sep), copy
+        with open(copy, "rb") as f:
+            assert f.read() == before, "this machine's existing calibration is carried into the sandbox"
+        wm_cost.calibrate(stages=("rf",), force=True, m_values=(8, 16))
+        assert wm_cost.calibration_status(("rf",)) == {"rf": "ok"}, "the sandbox reads what it calibrated"
+    finally:
+        rt.restore()
+    assert real.read_bytes() == before, "a sandbox calibration never writes the real file"
+    assert wm_cost.CALIBRATION_PATH == str(real), "restore() puts the path back"
+
+
+def _pin_wm_calibration(monkeypatch, path):
+    """Make `window_matrix.cost.CALIBRATION_PATH` read `path` whatever is assigned to it: a sandbox whose redirect
+    of that file did not take. (Attribute writes to a module are intercepted only through its class.)"""
+    from Working.Preprocessing.window_matrix import cost as wm_cost
+
+    class _Pinned(types.ModuleType):
+        CALIBRATION_PATH = property(lambda self: path, lambda self, value: None)
+
+    monkeypatch.setattr(wm_cost, "__class__", _Pinned)
+
+
+def test_the_sandbox_refuses_to_start_if_the_window_matrix_calibration_is_not_redirected(tmp_path, monkeypatch):
+    """The start-up escape check covers the window-matrix calibration, as it covers the other two cost files: a
+    path left outside the runtime refuses the start rather than run a sandbox that can write the real DATA/db."""
+    db = _fresh_db(tmp_path)
+    outside = str(tmp_path / "elsewhere" / "wm_calibration.json")
+    _pin_wm_calibration(monkeypatch, outside)
+
+    rt = Runtime(mode="sandbox", stamp="20261016-000002",
+                 db_source=str(db), runtime_root=str(tmp_path / "runtime"))
+    try:
+        with pytest.raises(SystemExit) as refused:
+            rt.setup()
+        assert outside in str(refused.value), refused.value
+    finally:
+        rt.restore()
+    assert not os.path.exists(outside), "refused before anything was written there"
 
 
 def test_the_default_mode_is_sandbox():
