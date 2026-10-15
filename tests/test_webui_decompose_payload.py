@@ -68,4 +68,14 @@ def test_a_click_on_a_layer_row_sets_the_blocks_parameter():
     with open(os.path.join(CLIENT, "analyse", "views", "registry.tsx"), encoding="utf-8") as f:
         reg = f.read()
     assert "onPick" in sv and 'data-pickable' in sv
-    assert "layer_param" in reg and "q.setParam(" in reg.split("function DecompositionLayers", 1)[1].split("/* ----", 1)[0]
+    body = reg.split("function DecompositionLayers", 1)[1].split("/* ----", 1)[0]
+    assert "layer_param" in body and "q.setParam(" in body
+
+
+def test_only_a_payload_that_names_its_layer_parameter_gets_clickable_rows():
+    """Critic, fix round: the wavelet block's rows are not clickable (clicking the
+    residual wrote level = 0, and with auto levels the re-run sent a different
+    residual). Only a payload that ships `layer_param` gets a click."""
+    with open(os.path.join(CLIENT, "analyse", "views", "registry.tsx"), encoding="utf-8") as f:
+        body = f.read().split("function DecompositionLayers", 1)[1].split("/* ----", 1)[0]
+    assert "'level'" not in body and "L.level" not in body

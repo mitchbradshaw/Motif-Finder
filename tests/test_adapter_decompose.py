@@ -238,8 +238,82 @@ def test_a_short_span_ships_every_sample_of_every_layer():
 def test_a_gap_is_refused_with_its_count():
     x = _white(3000)
     x[[10, 20]] = np.nan
-    with pytest.raises(ValueError, match="2 NaN"):
+    with pytest.raises(ValueError, match="2 NaN") as e:
         _run(x)
+    assert "without gaps" in str(e.value) and "upstream" not in str(e.value), "no block fills gaps"
+
+
+def test_a_span_too_short_for_the_filter_is_refused_in_plain_words():
+    """filtfilt needs more than 3 x (order + 1) samples; scipy's own message
+    ('padlen') must not reach the page."""
+    with pytest.raises(ValueError) as e:
+        _run(_white(15), order=4)
+    msg = str(e.value)
+    assert "padlen" not in msg and "15 samples" in msg and "preprocessing.decompose:" in msg
+    _run(_white(16), order=4)                    # one more sample is enough
+
+
+# -- the critic's fix round: what the running median takes, and its edges ---------
+
+def _drop(n, at, onset_s, recovery_s, depth=1.0):
+    """A drop of `depth`: a linear fall over `onset_s`, then a linear recovery over `recovery_s`."""
+    d = np.zeros(n)
+    d[at:at + onset_s] = -depth * np.arange(1, onset_s + 1) / onset_s
+    d[at + onset_s:at + onset_s + recovery_s] = -depth * (1 - np.arange(1, recovery_s + 1) / recovery_s)
+    return d
+
+
+def _share_in_signal(window_s, onset_s, recovery_s):
+    from Working.Preprocessing.decompose import decompose
+    n = 12 * 3600
+    bg = 0.02 * _ar1(n, phi=0.98, seed=5) / np.std(_ar1(n, phi=0.98, seed=5))
+    at = n // 2
+    d = _drop(n, at, onset_s, recovery_s)
+    p = decompose(bg + d, 1.0, baseline_window_s=window_s)
+    q = decompose(bg, 1.0, baseline_window_s=window_s)            # the same background without the drop
+    trough = at + onset_s - 1
+    return float((p["signal"][trough] - q["signal"][trough]) / d[trough])
+
+
+def test_an_event_longer_than_about_half_the_window_goes_to_the_baseline():
+    """The help's half-window rule, pinned: a drop with a 60 s fall and a 600 s
+    recovery is mostly baseline at the 600 s default and mostly signal at 3600 s;
+    a short 10 s / 60 s drop stays in the signal at the default."""
+    assert _share_in_signal(600.0, 60, 600) < 0.5          # measured 0.41 at the trough
+    assert _share_in_signal(3600.0, 60, 600) > 0.7
+    assert _share_in_signal(600.0, 10, 60) > 0.9
+
+
+def test_the_help_and_the_description_state_the_half_window_rule():
+    spec = _spec()
+    win = next(ps for ps in spec.params if ps.name == "baseline_window_s").description
+    assert "half" in win and "1800" in win and "3600" in win
+    assert "half" in spec.description and "baseline_window_s" in spec.description
+    res = _run(_white(3000))
+    assert "half" in res.meta["split"]["nonlinear_note"]
+
+
+def test_a_drop_cut_off_by_the_span_end_stays_in_the_signal():
+    """The running median is padded by reflection, not with copies of the end
+    sample: a 1-unit, 1-minute drop that the span end cuts off keeps its depth in
+    the signal layer (with end-sample padding it kept 0.056 of it)."""
+    from Working.Preprocessing.decompose import decompose
+    n = 3600
+    x = 0.01 * _white(n, seed=7)
+    x[-60:] -= 1.0
+    p = decompose(x, 1.0)
+    assert np.min(p["signal"][-60:]) < -0.8
+    assert np.median(p["signal"][-60:]) < -0.8, "the whole cut-off drop is in the signal, not only its first samples"
+    assert np.max(np.abs(p["baseline"][-60:])) < 0.2, "the baseline is not pulled down to the end sample"
+    s = _run(x).meta["split"]
+    assert "reflect" in s["edge_note"]
+
+
+def test_a_span_shorter_than_half_the_window_still_decomposes():
+    from Working.Preprocessing.decompose import decompose
+    x = _random_walk(200)                         # 200 samples < the 300-sample half-window
+    p = decompose(x, 1.0)
+    assert np.max(np.abs(p["baseline"] + p["noise"] + p["signal"] - x)) < 1e-9
 
 
 def test_a_noise_cut_at_or_above_nyquist_is_refused():
