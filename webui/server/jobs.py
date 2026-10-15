@@ -74,6 +74,7 @@ class GenericJob:
         self.events: list[dict] = []
         self.subscribers: list = []
         self.cancel_event = threading.Event()
+        self.thread: threading.Thread | None = None   # the worker, for `RunManager.stop_all`
         self.log_lines: list[str] = []
         self.db_run_id = None
         self._manager = manager
@@ -183,7 +184,8 @@ class JobManager(RunManager):
             self._emit(job, {"event": "job_end", "status": job.status, "error": job.error, "result": _clean(job.result),
                              "elapsed_s": job.finished_at - job.started_at})
 
-        threading.Thread(target=_run, name=f"job-{job.id}-{kind}", daemon=True).start()
+        job.thread = threading.Thread(target=_run, name=f"job-{job.id}-{kind}", daemon=True)
+        job.thread.start()
         return job
 
     def cancel(self, job) -> bool:

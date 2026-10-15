@@ -109,14 +109,16 @@ def test_small_multiples_can_give_every_panel_its_own_domain_and_a_scale_bar():
 
 # ---------------------------------------------------------------- the model's card --
 
-def test_the_classifier_reports_its_accuracy_per_class(tmp_path):
+def test_the_classifier_reports_its_accuracy_per_class(tmp_path, monkeypatch):
     """`Renderer.tsx` said "a model has no natural plot". That is only true of the joblib: the holdout the block
     already takes has an accuracy per class, and the card did not carry it."""
     pytest.importorskip("sklearn")
     import pandas as pd
+    import Adapters.catalogue_classifier as _cc
     from Adapters.registry import discover_adapters, get_adapter
     from Working.types import Grouping, WindowSet
     discover_adapters()
+    monkeypatch.setattr(_cc, "MODEL_ROOT", str(tmp_path / "models"))
     rng = np.random.default_rng(0)
     n = 60
     labels = np.repeat([1, 2, 3], n // 3)

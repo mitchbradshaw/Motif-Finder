@@ -19,7 +19,7 @@ one second apart by a Discovery sweep (`mp_threshold` on CH1) that
 `test_a_plan_over_a_held_out_channel_refuses_before_any_run_row_is_written`
 starts and never waits for.
 
-Neither test here can write into the real tree, even while red: before the
+No test here can write into the real tree, even while red: before the
 runtime is set up, every core path a sandbox redirects is pointed at a
 stand-in checkout under `tmp_path`, so `restore()` puts the paths back THERE,
 and whatever escaped the sandbox lands where the test can count it.
@@ -157,6 +157,36 @@ def test_a_job_left_running_is_stopped_before_restore_puts_the_paths_back(tmp_pa
 
     assert _escaped(checkout) == [], f"a job outlived restore() and wrote into the checkout: {wrote}"
     assert wrote and _inside(wrote[0], rt.dir), f"the job's write stayed inside its sandbox {rt.dir}: {wrote}"
+
+
+def test_a_job_that_will_not_stop_keeps_every_path_inside_the_sandbox_and_restore_says_so(
+        tmp_path, checkout, monkeypatch):
+    """The other way out of `restore()`: a job that never reads its cancel.
+    Putting the paths back under it would hand it the checkout, so `restore()`
+    refuses, loudly, and leaves every path where `setup()` put it; once the
+    job has ended, `restore()` goes through."""
+    import Working.config as cfg
+    from server import runtime as runtime_mod
+
+    monkeypatch.setattr(runtime_mod, "JOBS_STOP_S", 0.2)
+    rt = _runtime(tmp_path, "20261016-teardown-stubborn")
+    rt.setup()
+    release = threading.Event()
+
+    def stubborn(job):
+        release.wait(30)
+
+    try:
+        with TestClient(create_app(rt)) as c:
+            c.app.state.manager.start_job("sweep", stubborn, meta={"what": "a job that never reads its cancel"})
+        with pytest.raises(RuntimeError, match="still running"):
+            rt.restore()
+        assert _inside(cfg.STEP_CACHE_ROOT, rt.dir), "the paths stay inside the runtime while the job runs"
+    finally:
+        release.set()
+        monkeypatch.setattr(runtime_mod, "JOBS_STOP_S", 30.0)
+        rt.restore()
+    assert not _inside(cfg.STEP_CACHE_ROOT, rt.dir), "and go back once it has ended"
 
 
 def test_a_discovery_sweep_nobody_waited_for_writes_nothing_into_the_checkout(tmp_path, checkout):
