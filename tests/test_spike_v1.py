@@ -236,7 +236,14 @@ def test_the_spec_names_the_knob_to_tune_first_in_millivolts():
     assert pol.default == "both" and set(pol.choices) == {"both", "up", "down"}
     d = SPEC.description.lower()
     assert "delta_mv" in d and "first" in d and "mv" in d
-    assert "between" not in d or "gaps" not in d    # it no longer describes the spans as the gaps
+    assert "each span is one spike" in d                 # the spans are the spikes, said in so many words
+    assert "inter-spike" not in d
+    # the knob is named on the face, not only behind the InfoTip
+    r = _run(_dip_trace(-2.0), delta_mv=2.0)
+    face = r.meta["explain"]["face"].lower()
+    assert "tune delta_mv first" in face
+    delta = next(p for p in SPEC.params if p.name == "delta_mv")
+    assert "noisier" in delta.description.lower() and "placeholder" in delta.description.lower()
 
 
 def test_the_explanation_and_rules_ride_in_meta_and_reach_the_payload():
@@ -261,6 +268,69 @@ def test_the_readout_states_delta_in_the_stored_unit():
     assert "0.005" in labels["δ as stored"][1]
     rows_none = SPEC.derive(x, np.arange(len(x)), 1.0, SPEC.validate_params({}), units=None)
     assert {r[0]: r for r in rows_none}["Unit"][2] == "warn"
+
+
+# ------------------------------------------------- fix round: the halo of a wide event
+
+def _event(baseline, n=3000, at=1000, depth_mv=-10.0, width_s=10, seed=1):
+    rng = np.random.default_rng(seed)
+    x = baseline + rng.normal(0.0, 0.025e-3, n)
+    x[at:at + width_s] += depth_mv * 1e-3
+    return x
+
+
+@pytest.mark.parametrize("baseline", [-0.43, 2.0, -2.0])
+@pytest.mark.parametrize("depth_mv,width_s", [(-10.0, 10), (-3.0, 30), (-30.0, 3), (-60.0, 5)])
+def test_a_wide_or_deep_dip_is_one_spike_marked_as_a_dip_inside_it(baseline, depth_mv, width_s):
+    x = _event(baseline, depth_mv=depth_mv, width_s=width_s)
+    r = _run(x)                        # every default
+    assert r.meta["n_spikes"] == 1, r.meta["spike_indices"]
+    assert r.meta["n_down"] == 1 and r.meta["n_up"] == 0
+    (i,) = r.meta["spike_indices"]
+    assert 1000 <= i < 1000 + width_s
+    assert _run(x, polarity="up").meta["n_spikes"] == 0
+    assert _run(x, polarity="down").meta["spike_indices"] == [i]
+
+
+def test_a_sixty_second_spike_is_one_spike_at_its_peak():
+    rng = np.random.default_rng(4)
+    n = 6000
+    x = -0.43 + rng.normal(0.0, 0.025e-3, n)
+    peaks = np.arange(500, 5600, 500)[:10]
+    k = np.arange(-30, 31)
+    bump = 4e-3 * (1 - np.abs(k) / 31.0)          # a 61-sample triangle, peak at its centre
+    for c in peaks:
+        x[c - 30:c + 31] += bump
+    r = _run(x)
+    idx = np.asarray(r.meta["spike_indices"])
+    assert len(idx) == 10, idx.tolist()
+    assert np.all(np.abs(idx - peaks) <= 1), idx.tolist()
+    assert r.meta["n_up"] == 10
+
+
+def test_the_readout_states_delta_against_this_spans_own_deviation():
+    rng = np.random.default_rng(9)
+    x = -0.4 + rng.normal(0.0, 0.1e-3, 5000)
+    rows = {r[0]: r for r in SPEC.derive(x, np.arange(5000), 1.0, SPEC.validate_params({}), units="V")}
+    row = rows["δ vs this span's deviation"]
+    med = np.nanmedian(np.abs(sa.spike_deviation(x, 20)))
+    assert f"{1e-3 / med:.1f}" in row[1]
+    noisy = -0.4 + rng.normal(0.0, 1.0e-3, 5000)
+    rows = {r[0]: r for r in SPEC.derive(noisy, np.arange(5000), 1.0, SPEC.validate_params({}), units="V")}
+    assert rows["δ vs this span's deviation"][2] == "warn"
+
+
+def test_units_note_and_the_up_down_counts_reach_the_payload_and_its_summary():
+    from server.serialize import to_payload
+    x = _event(-0.43, depth_mv=-10.0, width_s=10)
+    x[2000] += 5e-3
+    r = _run(x, units=None)
+    p = to_payload("spanset", r.value, r.meta, {"fs": 1.0, "span_start": 0})
+    assert p["n_up"] == 1 and p["n_down"] == 1
+    assert p["units_note"] == r.meta["units_note"] and "volts" in p["units_note"]
+    assert "1 up" in p["summary"] and "1 down" in p["summary"] and "read as volts" in p["summary"]
+    q = to_payload("spanset", _run(x, units="V").value, _run(x, units="V").meta, {"fs": 1.0})
+    assert q["units_note"] is None and "volts" not in q["summary"]
 
 
 if __name__ == "__main__":
