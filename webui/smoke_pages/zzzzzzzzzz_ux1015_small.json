@@ -1,0 +1,16 @@
+[
+  {"page": "analyse.chain", "state": "ux1015-opens-empty-without-a-default-chain", "hash": "analyse/chain", "empty_chain": true, "settle_ms": 800,
+   "expect": ["[data-testid=\"chain-page\"]", "[data-testid=\"chain-empty\"]", "[data-testid=\"chain-empty-import\"]", "[data-testid=\"chain-empty-add\"]", "[data-testid=\"chain-empty-example\"]"],
+   "expect_absent": ["[data-testid=\"chain-row-1\"]"]},
+  {"page": "analyse.chain", "state": "ux1015-the-empty-canvas-import-opens-the-templates", "hash": "analyse/chain", "empty_chain": true, "settle_ms": 800,
+   "actions": [{"click": "[data-testid=\"chain-empty-import\"]"}, {"wait": 600}],
+   "expect": ["[data-testid=\"templates-popover\"]", "[data-testid=\"template-mp_threshold\"]"]},
+  {"page": "analyse.chain", "state": "ux1015-the-example-start-builds-the-old-default-chain", "hash": "analyse/chain", "empty_chain": true, "settle_ms": 800,
+   "actions": [{"click": "[data-testid=\"chain-empty-example\"]"}, {"wait": 700}],
+   "expect": ["[data-testid=\"chain-row-1\"]", "[data-testid=\"chain-row-3\"]"],
+   "expect_absent": ["[data-testid=\"chain-empty\"]"]},
+  {"page": "analyse.block", "state": "ux1015-delete-a-block-from-its-own-page", "hash": "analyse/block/1", "settle_ms": 900,
+   "actions": [{"click": "[data-testid=\"delete-block\"]"}, {"wait": 700}],
+   "expect": ["[data-testid=\"chain-page\"]", "[data-testid=\"chain-row-2\"]"],
+   "expect_absent": ["[data-testid=\"chain-row-3\"]"]}
+]
