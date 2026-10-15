@@ -281,3 +281,31 @@ def test_round_trip_through_the_scoreboard_reader():
     assert {d["id"]: (d["start"], d["end"]) for d in after_reader} == by_id
     assert absolute_bounds(after_raw[0], after_raw[1], 1_209_600) == after_raw   # rule is a no-op
     conn.close()
+
+
+# ------------------------------------------------- the refusal is logged once --
+
+def test_a_refusal_is_warned_once_per_process_not_on_every_database_open(caplog):
+    """`init_db` runs the migration on every database open, and the bridge opens
+    one per request, so an ambiguous run was warned about hundreds of times an
+    hour in the terminal (the researcher, 2026-10-13: "no need to log so much").
+    The first open warns, with the run and the reason; later opens say nothing
+    above DEBUG about a run already reported."""
+    import logging
+    from Working.database import schema as S
+    S._LEGACY_REFUSALS_REPORTED.clear()
+    path = _scratch_db()
+    conn = init_db(path)
+    rec = _recording(conn)
+    run = _run(conn, rec, 5_000, 100_000)
+    _detection(conn, run, 100, 200)
+    with caplog.at_level(logging.DEBUG, logger="Working.database.schema"):
+        migrate_legacy_detections(conn)
+        migrate_legacy_detections(conn)
+        migrate_legacy_detections(conn)
+    warned = [r for r in caplog.records if r.levelno >= logging.WARNING and "refusing run" in r.getMessage()]
+    assert len(warned) == 1, [r.getMessage() for r in warned]
+    assert f"run {run}" in warned[0].getMessage() and "ambiguous" in warned[0].getMessage()
+    quiet = [r for r in caplog.records if r.levelno < logging.WARNING and "already reported" in r.getMessage()]
+    assert len(quiet) == 2
+    conn.close()
