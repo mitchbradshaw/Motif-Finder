@@ -26,7 +26,7 @@ import pytest
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 CLIENT_SRC = os.path.join(PROJECT_ROOT, "webui", "client", "src")
 MODEL_TS = os.path.join(CLIENT_SRC, "explore", "crossModel.ts")
-SMOKE = os.path.join(PROJECT_ROOT, "webui", "smoke_pages", "zzzzzzzzzzzz_aq_cross_channel.json")
+SMOKE = os.path.join(PROJECT_ROOT, "webui", "smoke_pages", "zzzzzzzzzzz_aq_cross_channel.json")
 
 
 def _read(*parts):
