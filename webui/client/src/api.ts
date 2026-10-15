@@ -1451,3 +1451,17 @@ export interface LibFamilyCoherence {
   null_squared_p05?: number | null
 }
 export interface LibFamilyFlags { passed_by?: string[]; null_kind?: string; background_s?: number | null; background?: QuietBackground | null }
+
+/* ---------------- fixup-aq: Explore › Cross-channel's window, detrended or as recorded (appended) ----------------
+ * `detrend=linear` hands the core's classifier each channel's window with its straight-line trend out (one call per
+ * pair); `as_recorded` is the same pair as recorded, a diagnostic that never bins the row. `rules` are the window's
+ * words (Working.cross_channel.CrossChannelRule.describe_window), which do not claim the chance test or the floor. */
+export type CrossDetrend = 'none' | 'linear'
+export interface CrossAsRecorded { lag_s: number; r: number; classification: string }
+export interface CrossWindowRow extends CrossRow { as_recorded?: CrossAsRecorded }
+export interface CrossWindowRead {
+  reference_id: number; source_file: string; t0_s: number; t1_s: number; fs: number; stride: number
+  channels: CrossWindowRow[]; unit?: DisplayUnit; rules?: Record<string, string>; detrend: CrossDetrend
+}
+export const getCrossWindow = (id: number, t0: number, t1: number, px: number, detrend: CrossDetrend) =>
+  req<CrossWindowRead>(`/api/cross/${id}?t0=${t0}&t1=${t1}&px=${Math.round(px)}&detrend=${detrend}`)

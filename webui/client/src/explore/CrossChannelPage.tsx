@@ -11,6 +11,17 @@
    sign, propagation ≤ 50 s, independent otherwise — three Settings keys), and each bin's tip prints the rule the bridge
    says produced it, never a copy written here.
 
+   fixup-AQ (the researcher's screenshot of 2026-10-13: six flat rows, a picker that picked nothing, lag 0.0 s and
+   r −0.97 on every pair). X1: the 'centred' gain is the widest drawn row's own range and the note prints it
+   (crossModel.ts::centredStack — it was up to twice that, plus the plot pad). X2: ?window=motif-<n>, ?pad= and
+   ?t0=&t1= are one state, resolved by crossModel.ts::resolveCrossWindow for the fetch and the picker alike; the
+   picker lists spans, the pad is its own control, and the header says what the window IS (span + pad = total).
+   X3: the page's own windows are classified LINEARLY DETRENDED by the core in one call per pair (a shared drift
+   was what read r ≈ ±1 at lag 0); an edge's window stays as recorded, as the edge stores it; each row's r tip
+   carries the as-recorded reading and each bin's tip the window rule the bridge applied. X4: lag-aligned slides a
+   row by its lag (crossModel.ts::lagShift). X5: a disabled hand-off prints its reason under it. X6: the lock says
+   how to change the reference.
+
    The y scale lives in ./crossScale — read its header before changing how a row is drawn. One absolute
    domain across the stack is ~3.9 V of inter-channel DC offset on M2_aug while a channel's own window spans
    1–30 mV, so an absolute domain draws every trace as a flat line; 'centred' is the default for that reason.
@@ -25,7 +36,8 @@ import { useCrossChannelJob } from '../library/CrossChannel'
 import { EnvelopePath } from '../charts/primitives'
 import { makeX } from '../charts/scale'
 import { unitWords } from '../charts/units'
-import { Y_MODES, Y_MODE_LABEL, Y_MODE_NOTE, fmtMvAt, isYMode, scaleNote, stackGeom, type YMode } from './crossScale'
+import { Y_MODES, Y_MODE_LABEL, Y_MODE_NOTE, fmtMvAt, fmtMvSpan, isYMode, scaleNote, stackGeom, type YMode } from './crossScale'
+import { lagShift, windowParam } from './crossModel'
 import { Badge, Button, Checkbox, Chip, DisabledReason, Dropdown, EmptyState, Icon, InfoTip, Popover, ProgressBar, Seg, Tooltip, cx, fmtInt, recordDemoWrite, useDemoState, useQueryState, useSim, type IconName } from '../kit'
 import { Header } from '../shell/Header'
 import { useToast } from '../shell/Toast'
@@ -56,8 +68,10 @@ export function CrossChannelPage({ channelId }: { channelId: number }) {
   const [pad] = useQueryState<string>('pad', '20')
   const [t0Q] = useQueryState<string>('t0', '')
   const [t1Q] = useQueryState<string>('t1', '')
+  const [windowQ] = useQueryState<string>('window', '')
   const explicit = t0Q !== '' && t1Q !== '' && Number(t1Q) > Number(t0Q) ? { t0: Number(t0Q), t1: Number(t1Q) } : null
-  const read = useSourced(() => getCrossChannel(channelId, pad === '60' ? 60 : 20, explicit), [channelId, pad, t0Q, t1Q])
+  // fixup-AQ (X2): ?window= is a dependency — the picker writes it, and this refetch is what makes it pick
+  const read = useSourced(() => getCrossChannel(channelId, pad === '60' ? 60 : 20, explicit, windowQ), [channelId, pad, t0Q, t1Q, windowQ])
   const header = (subtitle: string, demo = true) => <Header workspace="Explore" page="Cross-channel" subtitle={subtitle} search="Search spans, runs, families" demo={demo} />
   if (look.error || read.error) return <>{header(`channel ${channelId} · error`)}<div className="page"><div className="page-inner"><ErrorCard error={asApiError(look.error ?? read.error)} title="demo read for Cross-channel failed" /></div></div></>
   if (look.loading || read.loading || !look.data) return <>{header(`channel ${channelId} · loading…`)}<div className="page"><div className="page-inner" data-testid="cross-loading"><div className="skeleton" style={{ height: 30, width: 480 }} /><div className="skeleton" style={{ height: 50 }} /><div className="skeleton" style={{ height: 440 }} /></div></div></>
@@ -88,7 +102,7 @@ function CrossBody({ data }: { data: CrossRead }) {
   const toast = useToast()
   const ref = data.referenceId
   const [align, setAlign] = useQueryState<string>('align', 'recorded')
-  const [windowQ] = useQueryState<string>('window', '')
+  const [windowQ, setWindowQ] = useQueryState<string>('window', '')
   const [pad, setPad] = useQueryState<string>('pad', '20')
   const [lagMode, setLagMode] = useQueryState<string>('lag', 'window')
   const [maxLagQ, setMaxLag] = useQueryState<string>('maxlag', '30')
@@ -119,17 +133,16 @@ function CrossBody({ data }: { data: CrossRead }) {
   const CORE_BIN: Record<string, XBin> = { reference: 'reference', artifact: 'artifact', propagation: 'propagation', independent_recurrence: 'independent', undefined: 'no match' }
   const binOf = (r: XRow): XBin => {
     if (r.channelId === ref) return 'reference'
-    if (r.classification && CORE_BIN[r.classification]) return CORE_BIN[r.classification]     // the core's verdict (Working.cross_channel.classify_waveforms), never re-binned here
-    if (r.lagS === null || r.r === null || Math.abs(r.lagS) > maxLag) return 'no match'
-    if (r.r >= 0.95 && Math.abs(r.lagS) < 0.5) return 'artifact'
-    return r.r >= 0.6 ? 'propagation' : 'independent'
+    // the core's verdict (Working.cross_channel.classify_waveforms), never re-binned here — fixup-AQ removed the
+    // fallback that binned a row with no verdict by a second, older rule of its own written in this file
+    return (r.classification && CORE_BIN[r.classification]) || 'no match'
   }
   // the rows are what the bridge measured on this window; no value is rescaled, only the y origin moves
   const rows = selected.map(id => byId.get(id)!).filter(Boolean)
   const counts = { artifact: 0, propagation: 0, independent: 0, 'no match': 0 } as Record<Exclude<XBin, 'reference'>, number>
   for (const r of rows) { const b = binOf(r); if (b !== 'reference') counts[b]++ }
   const sharedPair = rows.find(r => r.sharedGroundWith)
-  const windowLabel = data.explicitWindow ? `${data.window.label} · unpadded` : `${data.window.label} ± ${pad === '60' ? 60 : 20} s`
+  const windowLabel = data.resolved.phrase   // what the window IS — span + pad each side = total; the axis counts from the span's onset
   const tooFew = rows.length < 2
   const subtitle = align === 'lag' ? `${refName} reference · lag-aligned` : `${refName} reference · ${rows.length} channel${rows.length === 1 ? '' : 's'}`
 
@@ -171,9 +184,12 @@ function CrossBody({ data }: { data: CrossRead }) {
   const rowsKey = rows.map(r => r.channelId).join(',')
   const geom = useMemo(() => stackGeom(rows, yMode, ROWH, data.yDomain), [rowsKey, yMode, data])  // eslint-disable-line react-hooks/exhaustive-deps
   const ticks = useMemo(() => relativeTicks(t0, t1, data.window.motifStartS, pad === '60' ? 9 : 7), [t0, t1, data.window.motifStartS, pad])
+  const setByName = geom.setBy >= 0 ? rows[geom.setBy]?.name : undefined
   // lag-aligned slides a row's own time base by the lag the core measured, which is what brings the two
-  // waveforms on top of each other; the reference never moves
-  const shiftFor = (r: XRow) => (align === 'lag' && r.channelId !== ref && r.lagS !== null && Math.abs(r.lagS) <= maxLag ? r.lagS : 0)
+  // waveforms on top of each other; the reference never moves (crossModel.ts::lagShift)
+  const shiftFor = (r: XRow) => lagShift(r.lagS, r.channelId === ref, align, maxLag)
+  const pickWindow = (v: string) => { setT0Q(null); setT1Q(null); setWindowQ(v) }
+  const at = data.resolved.index
   const reviewAll = () => {
     recordDemoWrite('explore', 'stage-window-for-review', { queue: 'Explore spans', window: windowLabel, channels: rows.map(r => r.name) })
     toast.push({ text: `${rows.length} spans staged for Review`, action: { label: 'Open Review →', onClick: () => navigate('review') } })
@@ -206,8 +222,21 @@ function CrossBody({ data }: { data: CrossRead }) {
           </button>
           {data.explicitWindow
             ? <Button size="sm" iconRight="x" testid="edge-window" onClick={() => { setT0Q(null); setT1Q(null) }} title="the window a Library edge was measured on, unpadded — click to return to the channel's own window">{windowLabel}</Button>
-            : <Dropdown prefix="window" variant="outline" value={pad === '60' ? '60' : '20'} onChange={v => { setPad(v === '20' ? null : v); recompute() }} testid="window-select" menuWidth={260}
-              options={[{ value: '20', label: windowLabel.replace(/± \d+ s/, '± 20 s') }, { value: '60', label: windowLabel.replace(/± \d+ s/, '± 60 s') }, { value: 'span', label: 'selected span 276.4 – 278.4 h', disabled: true, reason: 'longer than 10 min — cross-channel compares short windows' }]} />}
+            : data.options.length
+              ? <>
+                <Button size="sm" variant="ghost" icon="chevron-left" testid="window-prev" disabled={at <= 0} disabledReason="this is the channel's first span"
+                  onClick={() => pickWindow(windowParam(at - 1))} title="the span before this one" aria-label="previous span" />
+                <Dropdown prefix="window" variant="outline" value={data.resolved.param} onChange={pickWindow} testid="window-select" menuWidth={380}
+                  options={data.options.map(o => ({ value: o.value, label: o.label }))} />
+                <Button size="sm" variant="ghost" icon="chevron-right" testid="window-next" disabled={at < 0 || at >= data.resolved.total - 1} disabledReason="this is the channel's last span"
+                  onClick={() => pickWindow(windowParam(at + 1))} title="the span after this one" aria-label="next span" />
+                <span className="muted mono small" data-testid="window-position">span {at + 1} of {fmtInt(data.resolved.total)}</span>
+              </>
+              : <span className="muted mono small" data-testid="window-select">window · {windowLabel}</span>}
+          {!data.explicitWindow && (
+            <Dropdown prefix="pad" variant="outline" value={pad === '60' ? '60' : '20'} onChange={v => setPad(v === '20' ? null : v)} testid="pad-select"
+              options={[{ value: '20', label: '20 s each side' }, { value: '60', label: '60 s each side' }]} />
+          )}
           <span className="lbl">align</span>
           <Seg value={align === 'lag' ? 'lag' : 'recorded'} onChange={v => setAlign(v === 'recorded' ? null : v)} options={[{ value: 'recorded', label: 'as recorded' }, { value: 'lag', label: 'lag-aligned' }]} ariaLabel="align" testid="align-seg" />
           <Dropdown prefix="lag" variant="outline" value={lagMode} onChange={v => { setLagMode(v === 'window' ? null : v); recompute() }} testid="lag-select" menuWidth={220}
@@ -218,7 +247,10 @@ function CrossBody({ data }: { data: CrossRead }) {
             options={Y_MODES.map(m => ({ value: m, label: Y_MODE_LABEL[m], description: Y_MODE_NOTE[m] }))} />
           <span className="grow" />
           <InfoTip title="Lag, r and the y scale" placement="bottom-end">
-            Every selected channel over the reference's window. Lag is where the cross-correlation peaks within max lag; r is its height.
+            Every selected channel over the reference's window. Lag is where the cross-correlation peaks; r is its height. Both are
+            measured on the window with each channel&rsquo;s straight-line trend taken out (two channels drifting over ten minutes
+            otherwise read r near &plusmn;1 at lag 0 on every pair); the traces are drawn as recorded. Max lag says how far
+            lag-aligned may slide a row.
             The channels of this recording sit up to volts apart in DC offset while each one&rsquo;s signal inside a window spans
             a few mV, so one <b>absolute mV</b> domain across the stack flattens every trace. <b>Shared gain, centred</b>
             keeps one mV-per-pixel for the whole stack and moves only each row&rsquo;s origin — no value and no span changes, so depth
@@ -231,16 +263,20 @@ function CrossBody({ data }: { data: CrossRead }) {
         <div className="card ex-stack" data-testid="channel-stack">
           <div className="ex-stack-head">
             <span className="card-title">Same window, every selected channel</span>
-            <span className="range mono">{data.window.startH.toFixed(3)} – {data.window.endH.toFixed(3)} h · {+data.window.durS.toFixed(1)} s</span>
-            <span className="muted mono small" data-testid="scale-note">{scaleNote(geom)}</span>
+            <span className="range mono" data-testid="window-phrase" data-t0={data.window.t0S} data-t1={data.window.t0S + data.window.durS}>{windowLabel} · {data.window.startH.toFixed(3)} – {data.window.endH.toFixed(3)} h</span>
+            <span className="muted mono small" data-testid="scale-note" data-gain={geom.fullScaleMv !== null ? fmtMvSpan(geom.fullScaleMv) : undefined}>{scaleNote(geom, setByName)}</span>
+            <span className="muted mono small" data-testid="detrend-note" data-detrend={data.detrend}
+              title={data.detrend === 'linear' ? 'each channel’s straight-line trend over the window is taken out before lag and r are measured; the traces are drawn as recorded' : 'an edge’s window is measured as recorded, as the edge stores it'}>
+              lag · r {data.detrend === 'linear' ? 'on the detrended window' : 'as recorded'}</span>
             {yMode === 'per-channel' && <Badge tone="amber" testid="normalised-badge">normalised</Badge>}
             {/* every lag on this corpus is either 0 or past the max-lag cut, so lag-aligned routinely moves
                 nothing — leaving it looking applied would be a claim the drawing does not support */}
-            {align === 'lag' && !rows.some(r => shiftFor(r)) && <span className="muted mono small" data-testid="nothing-to-align">no row is within ±{maxLag} s — nothing to align</span>}
+            {align === 'lag' && !rows.some(r => shiftFor(r)) && <span className="muted mono small" data-testid="nothing-to-align">no row has a non-zero lag within ±{maxLag} s — nothing to move</span>}
             {computing && <ProgressBar indeterminate width={220} size="sm" label={`computing lag · ${rows.length} channels`} testid="computing" />}
             <span className="grow" />
             <span className="cols mono"><span>lag</span><span>r</span><span>bin</span></span>
           </div>
+          {data.resolved.selError && <div className="ex-warn" data-testid="window-sel-error"><Icon name="alert-triangle" size={13} /><span>{data.resolved.selError}</span></div>}
           <div className="ex-stack-rows" ref={listRef}>
             {rows.map((r, i) => {
               const bin = binOf(r)
@@ -250,9 +286,10 @@ function CrossBody({ data }: { data: CrossRead }) {
               const tShifted = shift ? r.t.map(t => t - shift) : r.t
               return (
                 <div key={r.channelId} className={cx('ex-xrow', dim && 'dim', dragOver === i && dragFrom !== null && dragFrom !== i && 'over')} data-testid={`xrow-${r.name}`} data-bin={bin}
+                  data-shift={shift || undefined} data-sets-gain={yMode === 'centred' && geom.setBy === i ? 'yes' : undefined}
                   onPointerEnter={() => { if (dragFrom !== null) setDragOver(i) }}>
                   <button type="button" className="nm ex-link-plain" onClick={() => navigate(`explore/signal/${r.channelId}`)} title={`open ${r.name} in Signal`}>{r.name}</button>
-                  {i === 0 ? <span className="grip locked" title="the reference is pinned first"><Icon name="lock" size={11} /></span> : (
+                  {i === 0 ? <span className="grip locked" data-testid="reference-lock" title="the reference is pinned first: every other row's lag and r is measured against it, so it cannot be dragged. To compare against another channel, change the reference dropdown above the stack."><Icon name="lock" size={11} /></span> : (
                     <button type="button" className={cx('grip', dragFrom === i && 'dragging')} aria-label={`reorder ${r.name} (Alt + ↑ / ↓)`} title="drag to reorder · Alt + ↑ / ↓"
                       onPointerDown={e => { e.preventDefault(); setDragFrom(i); setDragOver(i); const up = () => { window.removeEventListener('pointerup', up); setDragFrom(f => { setDragOver(o => { if (f !== null && o !== null) move(f, o); return null }); return null }) }; window.addEventListener('pointerup', up) }}
                       onKeyDown={e => { if (e.altKey && (e.key === 'ArrowUp' || e.key === 'ArrowDown')) { e.preventDefault(); move(i, Math.max(1, Math.min(rows.length - 1, i + (e.key === 'ArrowUp' ? -1 : 1)))) } }}
@@ -261,17 +298,19 @@ function CrossBody({ data }: { data: CrossRead }) {
                   <div className="panel" ref={i === 0 ? plotRef : undefined}
                     onPointerMove={e => { if (!W) return; const rect = e.currentTarget.getBoundingClientRect(); setHoverT(t0 + ((e.clientX - rect.left) / rect.width) * (t1 - t0)) }} onPointerLeave={() => setHoverT(null)}>
                     {W > 0 && (
-                      <svg width={W} height={ROWH} data-testid={i === 0 ? 'reference-trace' : undefined}>
+                      <svg width={W} height={ROWH} data-testid={i === 0 ? 'reference-trace' : undefined} data-plot-box="">
                         <defs><clipPath id={`xclip-${r.channelId}`}><rect x={0} y={0} width={W} height={ROWH} /></clipPath></defs>
                         {/* the window's own span, on the reference only (pages/inventory/explore.md: "the orange motif region on the reference only") */}
                         {i === 0 && <rect x={px(data.window.motifStartS)} y={0} width={Math.max(0, px(data.window.motifEndS) - px(data.window.motifStartS))} height={ROWH} fill="var(--band-selected)" data-testid="cross-motif-region" />}
                         {ticks.map(k => <line key={k.t} x1={px(k.t)} x2={px(k.t)} y1={0} y2={ROWH} stroke="var(--border)" strokeOpacity={0.7} />)}
                         {i === 0 && refDetections.map(d => <rect key={d.id} x={px(d.t0)} y={0} width={Math.max(2, px(d.t1) - px(d.t0))} height={4} rx={1} fill={d.colour} data-testid="cross-detection"><title>{`detection ${d.id}`}</title></rect>)}
-                        <g clipPath={`url(#xclip-${r.channelId})`}>
-                          {/* the baseline 'centred' subtracted, carrying its value: a dashed line with no number
-                              attached is the line a reader mistakes for zero. Never drawn in 'per-channel',
-                              where the origin is an autoscaled midpoint and means nothing. */}
-                          {g?.centreIsBaseline && <line x1={0} x2={W} y1={g.y(g.centre)} y2={g.y(g.centre)} stroke="var(--border-strong)" strokeOpacity={0.5} strokeDasharray="2 4" data-testid={`baseline-${r.name}`}><title>{`baseline ${fmtMvAt(g.centre, g.places)} ${unitWords(data.unit)} — subtracted for drawing only`}</title></line>}
+                        {/* data-trace / data-plot-box (fixup-AQ): smoke's traces_in_box measures each row's path against
+                            its box — the no-clip property crossScale's header promises */}
+                        <g clipPath={`url(#xclip-${r.channelId})`} data-trace="">
+                          {/* the row's baseline (its median), carrying its value: a dashed line with no number
+                              attached is the line a reader mistakes for zero. 'centred' only — in 'per-channel'
+                              and 'absolute' the origin is a midpoint and means nothing. */}
+                          {g && g.baseline !== null && <line x1={0} x2={W} y1={g.y(g.baseline)} y2={g.y(g.baseline)} stroke="var(--border-strong)" strokeOpacity={0.5} strokeDasharray="2 4" data-testid={`baseline-${r.name}`}><title>{`baseline (median) ${fmtMvAt(g.baseline, g.places)} ${unitWords(data.unit)} — the row is drawn about the middle of its own range; nothing is subtracted from a value`}</title></line>}
                           {g && <EnvelopePath t={tShifted} v={r.v} x={x} y={g.y} stroke={i === 0 ? 'var(--blue)' : 'var(--trace)'} width={1.2} testid={`xtrace-${r.name}`} />}
                         </g>
                         {/* short in the panel, whole on hover: the panel clips, and a loud failure trimmed
@@ -282,6 +321,7 @@ function CrossBody({ data }: { data: CrossRead }) {
                             honest, since the raw record is still stated when the drawing origin has moved */}
                         {g?.extent && <text x={W - 4} y={ROWH - 4} textAnchor="end" className="mono ex-xrow-mv" data-testid={`mv-${r.name}`}>
                           {yMode === 'per-channel' ? 'own scale · ' : ''}{fmtMvAt(g.extent[0], g.places)} … {fmtMvAt(g.extent[1], g.places)} {unitWords(data.unit)}
+                          {yMode === 'centred' && geom.setBy === i ? ` · range ${fmtMvSpan(g.extent[1] - g.extent[0])} sets the gain` : ''}
                         </text>}
                         {hoverT !== null && <line x1={px(hoverT)} x2={px(hoverT)} y1={0} y2={ROWH} stroke="var(--blue)" strokeOpacity={0.55} strokeDasharray="3 3" data-testid="crosshair" />}
                         {hoverT !== null && i === 0 && <text x={Math.min(px(hoverT) + 5, W - 60)} y={12} className="mono ex-xrow-mv">t = {hoverT - data.window.motifStartS >= 0 ? '+' : '−'}{Math.abs(hoverT - data.window.motifStartS).toFixed(1)} s</text>}
@@ -294,8 +334,14 @@ function CrossBody({ data }: { data: CrossRead }) {
                   <span className="lag mono">{computing ? '…' : align === 'lag' && i > 0 && r.lagS !== null && Math.abs(r.lagS) > maxLag
                     ? <Tooltip content={`|lag| ${Math.abs(r.lagS).toFixed(1)} s is past max lag ±${maxLag} s — this row is still as recorded`}><span className="ex-unaligned" data-testid={`lag-unaligned-${r.name}`}>{fmtLag(r.lagS)} ·&nbsp;not aligned</span></Tooltip>
                     : fmtLag(r.lagS)}</span>
-                  <span className="r mono">{computing ? '…' : r.channelId === ref ? '' : r.r === null ? '—' : r.r.toFixed(2)}</span>
-                  <span className="bin"><Tooltip content={binTip(bin, data.rules)}><span><Badge tone={BIN_TONE[bin]} testid={`bin-${r.name}`}>{bin}</Badge></span></Tooltip></span>
+                  <span className="r mono">{computing ? '…' : r.channelId === ref ? '' : r.r === null ? '—' : (() => {
+                    const raw = data.asRecorded[r.channelId]
+                    return raw
+                      ? <Tooltip content={`r ${r.r.toFixed(2)} at ${fmtLag(r.lagS)} on the detrended window; as recorded (trend left in) r ${raw.r.toFixed(2)} at ${fmtLag(raw.lag_s)} — a strong r at lag 0 only as recorded is the shared drift`}>
+                        <span data-testid={`r-raw-${r.name}`} data-raw-r={raw.r.toFixed(2)} data-raw-lag={raw.lag_s}>{r.r.toFixed(2)}</span></Tooltip>
+                      : r.r.toFixed(2)
+                  })()}</span>
+                  <span className="bin"><Tooltip content={binTip(bin, data.rules)}><span data-testid={`bin-rule-${r.name}`} data-rule={binTip(bin, data.rules)}><Badge tone={BIN_TONE[bin]} testid={`bin-${r.name}`}>{bin}</Badge></span></Tooltip></span>
                 </div>
               )
             })}
@@ -315,7 +361,7 @@ function CrossBody({ data }: { data: CrossRead }) {
 
         <div className="ex-cross-bottom">
           <div className="card card-pad" data-testid="classification">
-            <div className="ex-card-head"><b>Classification for this window</b><InfoTip title="Classification">Each channel is paired with the reference over the same absolute window and binned by lag (in seconds) and |r|, the sign of r kept: {data.rules ? <>artifact — {data.rules.artifact}; propagation — {data.rules.propagation}; independent — {data.rules.independent_recurrence}.</> : 'the read carries no rule.'} The three numbers are Settings › Analysis defaults. Shared-ground pairs come from Settings › Channels &amp; events.</InfoTip><span className="grow" /><span className="muted mono small">pairs against {refName} reference</span></div>
+            <div className="ex-card-head"><b>Classification for this window</b><InfoTip title="Classification">Each channel is paired with the reference over the same absolute window{data.detrend === 'linear' ? ', each channel’s straight-line trend taken out first,' : ', as recorded,'} and binned by lag (in seconds) and |r|, the sign of r kept: {data.rules ? <>artifact — {data.rules.artifact}; propagation — {data.rules.propagation}; independent — {data.rules.independent_recurrence}.</> : 'the read carries no rule.'} The numbers are Settings › Analysis defaults. A window gets no chance test and no noise-floor test — Library › Family&rsquo;s <i>Classify across channels</i> runs both on its members. Shared-ground pairs come from Settings › Channels &amp; events.</InfoTip><span className="grow" /><span className="muted mono small">pairs against {refName} reference</span></div>
             <div className={cx('ex-tiles', computing && 'dim')}>
               {(['artifact', 'propagation', 'independent', 'no match'] as const).map(b => (
                 <button key={b} type="button" className={cx('ex-tile', `t-${BIN_TONE[b]}`, focusBin === b && 'on')} onClick={() => setFocusBin(focusBin === b ? null : b)} aria-pressed={focusBin === b} data-testid={`tile-${b.replace(' ', '-')}`}
@@ -380,6 +426,10 @@ function ActionRow({ icon, title, caption, onClick, testid, disabled, reason }: 
       <Icon name={icon} size={15} className="ic" /><span className="body"><span className="t">{title}</span><span className="c">{caption}</span></span><Icon name="arrow-right" size={14} />
     </button>
   )
-  return disabled && reason ? <DisabledReason reason={reason} block>{btn}</DisabledReason> : btn
+  // fixup-AQ (X5): a disabled card says why ON the page, under the card, as Jobs' import button does
+  // (import-why-*) — a hover-only reason left the first card greyed with nothing said
+  return disabled && reason
+    ? <><DisabledReason reason={reason} block>{btn}</DisabledReason><div className="muted mono small" style={{ margin: '-2px 10px 8px' }} data-testid={`${testid}-why`}>{reason}</div></>
+    : btn
 }
 

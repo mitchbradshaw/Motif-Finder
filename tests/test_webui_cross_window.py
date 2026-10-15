@@ -95,7 +95,7 @@ def test_detrended_the_route_finds_the_event_at_its_lag(client):
     body = r.json()
     assert body["detrend"] == "linear"
     row = _other(body)
-    assert row["lag_s"] == pytest.approx(12.0) and row["r"] > 0.5
+    assert row["lag_s"] == pytest.approx(12.0, abs=1.0) and row["r"] > 0.5      # coloured noise moves the peak a sample
     assert row["classification"] == PROPAGATION
     # the as-recorded reading travels beside it, so the page can say what the drift alone read
     assert row["as_recorded"]["lag_s"] == 0.0 and row["as_recorded"]["r"] < -0.9

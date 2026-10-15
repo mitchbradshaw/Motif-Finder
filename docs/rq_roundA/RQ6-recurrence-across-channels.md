@@ -25,7 +25,14 @@ The question is: after you remove the first two, is there still recurrence left?
 
 - **Recurrence is shown but unclassified.** Library › Recurrence shows 149 families: 99 occur in 2 recordings, 22 in 3,
   28 in 1. Every one has `artifactChannels` / `propChannels` / `indChannels` = 0.
-- **Explore classifies one window live and stores nothing.**
+- **Explore classifies one window live and stores nothing.** Since 2026-10-15 (fixup `AQ`) its own windows (a span of
+  the reference ± a pad, picked with `?window=motif-<n>` or the window picker) are classified with each channel's
+  straight-line trend taken out first: on the researcher's 640 s window every pair had read lag 0.0 s and r ≈ −0.97,
+  which is what two channels drifting in opposite directions produce whatever their events do. Each row's r now carries
+  the as-recorded reading beside the detrended one, and each bin prints the window rule the bridge applied (no chance
+  test, no noise floor — Library's *Classify across channels* runs both). An edge's window stays as recorded, so it still
+  matches the edge. **Not yet measured on real channels** (no database in that worktree): whether the detrended lags
+  move off zero is the first thing to look at before reading any Explore bin as evidence for RQ6.
 - **Measured 2026-10-03** (fixup `W` Parts 1–2; numbers in `QUESTIONS.md` "Q40, measured"):
   - **The Library's classifier compares cut-out snippets, not simultaneous windows.** It returns lag 0 for events an
     hour apart, so it can't measure lag.
@@ -187,4 +194,5 @@ defect, not as a result.
 - 2026-10-13 · data · four Adamatzky species recordings derived into `DATA/derived/channels/*_fs1` (1 Hz, mV, gaps filled and listed in each manifest); registration and noise floors still to do.
 - 2026-10-13 · data · four mfs2 logger CSVs (the researcher's own device, four single-ended ADC channels) derived as `DATA/derived/channels/Dwij_A..D_fs0p8` by `scripts/derive_dwij_mfs2.py`: timestamps resampled onto a uniform 1.25 s grid (0.8 Hz), mV as written by the device; 16 min / 17.4 h / 8.3 h / 29.3 h; registration still to do.
 - 2026-10-14 · drop-nan · the drop detector and dSAX run on a span with gaps (a segment a gap touches is `-`, no event across one), so a recording could keep its gaps instead of filling them; nothing measured moves
+- 2026-10-15 · fixup-aq · Explore › Cross-channel finished: rows fill their height (the gain is the widest drawn row's range), the window picker picks spans (`?window=motif-<n>`, `?pad=`), the page's windows are classified linearly detrended (the six zero lags were a shared drift), lag-aligned moves rows, disabled hand-offs say why. RQ6's counts are unchanged — they come from Library, which this did not touch.
 - 2026-10-15 · units · a run's drop depths and event-shape amplitudes are millivolts by the recording's declared unit (they were 1000× too large on Schizophyllum, the Dwij loggers and L_LM); the Library floor and the cross-channel test already converted and are unchanged; volts recordings unchanged

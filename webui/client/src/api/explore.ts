@@ -10,8 +10,10 @@
  *   - lookupChannel: GET /api/channels/{id} (423 = held out).
  * Only the two things nothing computes yet stay demo and say so: the Span-edit page and the keyboard map. */
 import {
-  getChannel, getCross, getRecordings, getRunsForFile, getSpans, getTags, type Annotation, type Detection, type FileRun, type Spans,
+  getChannel, getCrossWindow, getRecordings, getRunsForFile, getSpans, getTags, type Annotation, type CrossAsRecorded, type CrossDetrend,
+  type Detection, type FileRun, type Spans,
 } from '../api'
+import { ANCHOR_RANK, CROSS_MAX_SPAN_S, anchorIndex, orderSpans, resolveCrossWindow, spanLabel, windowParam, type CrossWindow } from '../explore/crossModel'
 import { demo, live, type Sourced } from './seam'
 import {
   SHORTCUTS, spanEditDemo, type AnnotationRow, type CanonChannelRef, type CorpusDemo, type CrossDemo, type DemoRun, type DetectionRow,
@@ -121,80 +123,86 @@ export async function lookupChannel(id: number): Promise<Sourced<ChannelLookup>>
 }
 
 /* ------------------------------------------------------------- cross-channel ---- */
-/** Verdicts worth opening a cross-channel comparison on, best first. Taking `annotations[0]` instead
- *  landed the page on whichever span started earliest, which on every M2_aug channel is a bulk
- *  `imported_10min` block with verdict `not_interesting` — a deliberately boring window.
- *  This is a *preference* order for anchoring, not the shared verdict vocabulary (`VERDICTS`, which runs
- *  seed · interesting · not_interesting · artifact · unsure) — `not_interesting` is deliberately absent so
- *  a machine detection beats a bulk import block. */
-const ANCHOR_RANK = ['seed', 'interesting', 'artifact', 'unsure']
-const anchorSpan = (s: Spans): Annotation | Detection | null => {
-  const ranked = s.annotations
-    .filter(a => ANCHOR_RANK.includes(a.verdict))
-    .sort((p, q) => ANCHOR_RANK.indexOf(p.verdict) - ANCHOR_RANK.indexOf(q.verdict) || p.start_s - q.start_s)
-  return ranked[0] ?? s.detections[0] ?? s.annotations[0] ?? null
-}
+/* fixup-AQ: the window is resolved by explore/crossModel.ts::resolveCrossWindow — one resolver for the picker, the
+   ?window= / ?pad= / ?t0=&t1= deep links and this fetch, so the three cannot disagree (the picker "did nothing" on
+   2026-10-13: it offered only the pad, under labels that differed by one digit). The anchoring preference
+   (ANCHOR_RANK) and the ten-minute cap moved there with it. */
 
-/** Cross-channel compares short windows — the window dropdown says so in as many words. An anchor span
- *  longer than this is opened on its first ten minutes instead: `M2_concat_fs1` CH4 carries a 20-hour
- *  `interesting` annotation, and honouring it asks the route to cross-correlate 72,000 samples against
- *  fifteen siblings, which does not return. */
-const CROSS_MAX_SPAN_S = 600
-const windowLabel = (first: Annotation | Detection | null, startS: number, clamped: boolean): string =>
-  !first ? 'first ten minutes'
-    : `${clamped ? 'first 10 min of the ' : ''}${'verdict' in first ? first.verdict : `detection ${first.id}`} span at ${(startS / 3600).toFixed(2)} h`
+/** One entry of the window picker: the ?window= value and what it is called. */
+export interface CrossWindowOption { value: string; label: string; anchor: boolean }
 
 /** fixup-W: what the bridge adds to a cross-channel read — the rule in force, in words per bin, and whether the
- *  window was named by the caller (an edge's window, from Library › Family) rather than chosen here. */
-export type CrossRead = CrossDemo & { rules?: Record<string, string>; explicitWindow?: boolean }
+ *  window was named by the caller (an edge's window, from Library › Family) rather than chosen here.
+ *  fixup-AQ: the window as resolved (what it IS in one phrase, the picker's options, a bad ?window= in words), the
+ *  trend treatment the classifier was handed, and each row's as-recorded reading. */
+export type CrossRead = CrossDemo & {
+  rules?: Record<string, string>; explicitWindow?: boolean
+  resolved: CrossWindow; options: CrossWindowOption[]; detrend: CrossDetrend
+  asRecorded: Record<number, CrossAsRecorded>
+}
+
+/** The picker lists the default window, every human span worth anchoring on (capped), and the window in view. */
+const OPTION_CAP = 40
 
 /** The same window on every channel of the reference's recording, with lag and r — live.
- *  The window is the channel's most notable human span (± `padS`), or its first ten minutes when it has none —
- *  or, when `explicit` is given (fixup-W: an edge's own window, opened from Library › Family), exactly that window,
- *  unpadded, so the lag, r and bin recomputed here are the ones the edge stores. */
-export async function getCrossChannel(referenceId: number, padS = 20, explicit?: { t0: number; t1: number } | null): Promise<Sourced<CrossRead | null>> {
+ *  The window is `?window=motif-<n>` (the n-th span of the channel in time order), else the channel's most notable
+ *  human span, else its first ten minutes — each ± `padS` — or, when `explicit` is given (fixup-W: an edge's own
+ *  window, opened from Library › Family), exactly that window, unpadded and as recorded, so the lag, r and bin
+ *  recomputed here are the ones the edge stores. Every other window is classified detrended (fixup-AQ, X3). */
+export async function getCrossChannel(referenceId: number, padS = 20, explicit?: { t0: number; t1: number } | null, windowSel = ''): Promise<Sourced<CrossRead | null>> {
   if ((await locate(referenceId)).state !== 'ok') return { data: null, source: 'live' }
   const ch = await getChannel(referenceId)
-  const spans = await getSpans(referenceId, 0, ch.duration_s)
-  const first = explicit ? null : anchorSpan(spans)
-  const clamped = !!first && first.end_s - first.start_s > CROSS_MAX_SPAN_S
-  const motif = explicit
-    ? { s: Math.max(0, explicit.t0), e: Math.min(ch.duration_s, explicit.t1) }
-    : first
-      ? { s: first.start_s, e: clamped ? first.start_s + CROSS_MAX_SPAN_S : first.end_s }
-      : { s: 0, e: Math.min(CROSS_MAX_SPAN_S, ch.duration_s) }
-  const pad = explicit ? 0 : padS
-  const t0 = Math.max(0, motif.s - pad), t1 = Math.min(ch.duration_s, motif.e + pad)
-  const x = await getCross(referenceId, t0, t1, 600) as Awaited<ReturnType<typeof getCross>> & { rules?: Record<string, string> }
+  const raw = await getSpans(referenceId, 0, ch.duration_s)
+  const spans = orderSpans(raw.annotations, raw.detections)
+  const w = resolveCrossWindow({ spans, durationS: ch.duration_s, sel: windowSel, padS, explicit: explicit ?? null })
+  const detrend: CrossDetrend = explicit ? 'none' : 'linear'
+  const x = await getCrossWindow(referenceId, w.t0, w.t1, 600, detrend)
   // the envelope verbatim: t stays absolute (and non-uniform once decimated), a null stays a null so the
   // line breaks at a gap instead of writing NaN into the path and truncating the rest of the trace
   const rows: XRow[] = x.channels.map(row => ({
     channelId: row.id, name: row.name, lagS: row.lag_s, r: row.r, classification: row.classification,
     t: row.envelope?.t ?? [], v: row.envelope?.v ?? [], error: row.error,
   }))
+  const asRecorded: Record<number, CrossAsRecorded> = {}
+  for (const row of x.channels) if (row.as_recorded) asRecorded[row.id] = row.as_recorded
   // a loop, not Math.min(...all): a decimated 16-channel window is ~19k samples and spreading that into
   // an argument list is how you get a RangeError on a big recording
   let lo = Infinity, hi = -Infinity
   for (const r of rows) for (const v of r.v) { if (v === null || Number.isNaN(v)) continue; if (v < lo) lo = v; if (v > hi) hi = v }
   if (!(lo < hi)) { lo = -1; hi = 1 }
+  const anchor = anchorIndex(spans)
+  const picks = new Set<number>()
+  if (anchor >= 0) picks.add(anchor)
+  spans.forEach((s, i) => { if (picks.size < OPTION_CAP && s.kind === 'annotated' && ANCHOR_RANK.includes(s.verdict ?? '')) picks.add(i) })
+  if (w.index >= 0) picks.add(w.index)
+  const options: CrossWindowOption[] = [...picks].sort((p, q) => p - q).map(i => ({
+    value: windowParam(i), anchor: i === anchor,
+    label: `#${i + 1} · ${spanLabel(spans[i], spans[i].end_s - spans[i].start_s > CROSS_MAX_SPAN_S)} · ${+(Math.min(spans[i].end_s - spans[i].start_s, CROSS_MAX_SPAN_S)).toFixed(1)} s${i === anchor ? ' · default' : ''}`,
+  }))
   return {
     data: {
       recording: ch.source_file.replace(/\.mat$/, ''), file: ch.source_file, referenceId, referenceName: ch.name,
-      window: { label: explicit ? `edge window at ${(motif.s / 3600).toFixed(2)} h` : windowLabel(first, motif.s, clamped), startH: t0 / 3600, endH: t1 / 3600, durS: t1 - t0, t0S: t0, fs: x.fs, motifStartS: motif.s, motifEndS: motif.e },
+      window: { label: w.label, startH: w.t0 / 3600, endH: w.t1 / 3600, durS: w.t1 - w.t0, t0S: w.t0, fs: x.fs, motifStartS: w.spanS, motifEndS: w.spanE },
       channels: x.channels.map(c => ({ id: c.id, name: c.name })), rows,
       // |r|, not r: the core classifies r = −0.86 as propagation, so selecting on the signed value hid
       // exactly the channels it thought were most related. Ranked before the cap too — slicing in channel
-      // order dropped the strongest correlate whenever more than five siblings passed the cut.
+      // order dropped the strongest correlate whenever more than five siblings passed the cut. fixup-AQ: no
+      // |r| floor any more — the 0.5 cut was met by the shared drift alone; detrended, a quiet window can have
+      // no pair above it, and a page that opens on one row has nothing to compare
       defaultSelected: [
         referenceId,
-        ...rows.filter(r => r.channelId !== referenceId && Math.abs(r.r ?? 0) > 0.5)
+        ...rows.filter(r => r.channelId !== referenceId && r.r !== null)
           .sort((a, b) => Math.abs(b.r ?? 0) - Math.abs(a.r ?? 0))
           .map(r => r.channelId),
       ].slice(0, 6),
-      sharedGround: [], openQuestions: ['lag is the peak of the z-normalised cross-correlation over this window (Working.cross_channel); a shared-ground flag needs the montage, which is not registered yet'],
+      sharedGround: [], openQuestions: [
+        'lag is the peak of the z-normalised cross-correlation over this window (Working.cross_channel); a shared-ground flag needs the montage, which is not registered yet',
+        'the window is detrended by a straight line before it is correlated; a curved drift survives a line, so a strong r at lag 0 on every pair can still be drift — compare the as-recorded r in each row’s r tip',
+      ],
       rules: x.rules, explicitWindow: !!explicit,
       yDomain: [lo, hi],
       unit: x.unit,
+      resolved: w, options, detrend: x.detrend ?? detrend, asRecorded,
     },
     source: 'live',
   }
