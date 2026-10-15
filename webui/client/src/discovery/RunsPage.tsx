@@ -319,28 +319,28 @@ function Browser({ dx, run }: { dx: Discovery; run: DiscoveryRun | null }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [atQ, dets.data])
   /* fixup-AL: *Send this one to Review* — the detection goes to the session's ONE picked queue (made on the first
-   * send, appended to after), never the run-wide queue. The "in Review" mark is the bridge's `picked` (read off that
-   * queue's filter); `sentHere` only carries it until the list is next read, so a send shows at once. */
+   * send, appended to after), never the run-wide queue. The mark is the bridge's `picked` STATE — what Review will
+   * actually do with it (waiting / judged / not asked) — and the list is re-read after a send, so nothing is
+   * remembered here that could claim more than Review does. The id is the bridge's `detectionId`, never parsed. */
   const toast = useToast()
-  const [sentHere, setSentHere] = useState<Set<number>>(() => new Set())
   const [sending, setSending] = useState(false)
-  const detId = det ? (det.detectionId ?? Number(det.id.replace(/^d-/, ''))) : null
-  const inReview = !!det && (det.picked === true || (detId != null && sentHere.has(detId)))
+  const detId = det?.detectionId ?? null
   const sendOne = () => {
     if (!run || detId == null) return
     setSending(true)
     sendDetectionsToReview(run.key, [detId])
       .then(r => {
-        setSentHere(prev => new Set(prev).add(detId))
+        dets.reload()
         toast.push({
-          text: `${r.message} · ${r.total} in the picked queue · verdicts write ${r.writes}`,
+          text: `${r.message} · ${r.total} in the picked list, ${r.unjudged} waiting in Review · verdicts write ${r.writes}`,
           action: { label: 'Open Review', onClick: () => navigate(`review/queue/${r.queue_id}`) },
         })
       })
       .catch(e => toast.push({ text: `could not send ${det?.id ?? 'this detection'} to Review: ${e.message}` }))
       .finally(() => setSending(false))
   }
-  const sendReason = run?.status === 'superseded' ? 'discarded — marked superseded, its detections are not put to Review' : null
+  const sendReason = run?.status === 'superseded' ? 'discarded — its detections are not put to Review'
+    : det && detId == null ? 'the bridge sent no detection id for this row' : null
   const runOptions = dx.runs.filter(r => r.kind !== 'reference' && r.status !== 'draft').map(r => ({ value: r.key, label: r.label, disabled: !hasResults(r), reason: hasResults(r) ? undefined : 'no detections yet' }))
   const channelOptions = s.channels.map(c => ({ value: c, label: c, hint: dx.scores?.find(x => x.run === run?.key)?.channels.find(x => x.channel === c)?.found?.toString() }))
   return (
@@ -368,7 +368,9 @@ function Browser({ dx, run }: { dx: Discovery; run: DiscoveryRun | null }) {
           <div className="dsc-det-info" data-testid="browser-detection" style={dets.loading ? { opacity: 0.6 } : undefined}>
               <span className="row" style={{ gap: 6 }}>
                 <b className="mono">{det.id}</b>
-                {inReview && <Badge tone="green" icon="check" testid="browser-in-review" title="sent to this session's picked Review queue">in Review</Badge>}
+                {det.picked === 'waiting' && <Badge tone="green" icon="check" testid="browser-in-review" title="in this session's picked Review queue, waiting for a verdict">in Review</Badge>}
+                {det.picked === 'judged' && <Badge tone="grey" testid="browser-judged-in-review" title="picked, and Review holds a verdict on it">judged in Review · {det.pickedVerdict ?? 'verdict'}</Badge>}
+                {det.picked === 'not-asked' && <Badge tone="amber" testid="browser-picked-not-asked" title="in the picked list, but Review never asks about it: a human verdict already covers it, or its run was later discarded">picked · not asked — a human verdict already covers it</Badge>}
               </span>
               <span>{det.atH.toFixed(2)} h · {det.channel}</span>
               {/* a block that emits no score, or a window of NaNs, gives no number here — say which field is absent */}

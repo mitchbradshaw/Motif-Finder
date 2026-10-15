@@ -220,8 +220,8 @@ export function getScoreboard(runKeys: string[], channels: string[], section: [n
 export interface Detection {
   id: string; detectionId?: number; index: number; of: number; run: string; channel: string; atH: number; durationS: number
   depthMv: number | null; score: number | null; priorVerdict: string | null; alsoFoundBy: string[]; nearMiss?: { run: string; d: number }
-  /** fixup-AL: in the session's picked Review queue (sent one at a time); from the bridge, not remembered here */
-  picked?: boolean
+  /** fixup-AL: this detection's state in the session's picked Review queue; from the bridge, not remembered here */
+  picked?: 'waiting' | 'judged' | 'not-asked' | null; pickedVerdict?: string | null
 }
 export function getDetections(run: string, channel: string, section: [number, number]): Promise<Sourced<Detection[]>> {
   return live(getDiscoveryDetections(run, channel, section[0], section[1]))
