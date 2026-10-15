@@ -13,8 +13,12 @@ back to the input -- nothing is lost and nothing is invented.
 
 * **baseline** -- a centred running median over `baseline_window_s`
   (`Working.Detection.analysis.data_analysis.make_smooth`, the core's own
-  rolling median, edges by `mode="nearest"`). A median, not a mean, so a drop or
-  a spike does not pull the baseline towards itself. On request
+  rolling median), with the span reflect-padded by half a window first so an
+  event the span end cuts off is not taken for the level there. A median, not a
+  mean, so a SHORT drop or spike does not pull the baseline towards itself; an
+  event lasting longer than about half the window does start to go to the
+  baseline (a 60 s fall with a 600 s recovery is mostly baseline at 600 s and
+  mostly signal at 3600 s -- tests/test_adapter_decompose.py). On request
   (`baseline_method="rolling_mean"`) it is the detrend block's centred rolling
   mean instead (`Working.Preprocessing.detrend.make_detrend_filter`, read back
   as input minus the detrended trace), so a chain that used the Detrend block
@@ -70,7 +74,12 @@ def decompose(x, fs, baseline_window_s=600.0, noise_cut_hz=0.0, baseline_method=
     if bad:
         raise ValueError(
             f"decompose: the span holds {bad} NaN or infinite sample(s); a running median and a filter spread one "
-            "missing sample into its neighbours. Choose a span without gaps, or fill them upstream.")
+            "missing sample into its neighbours. Choose a span without gaps.")
+    shortest = 3 * (int(order) + 1)
+    if len(x) <= shortest:
+        raise ValueError(
+            f"decompose: the span is {len(x)} samples; the noise filter (order {int(order)}, run forwards and "
+            f"backwards) needs more than {shortest} samples. Choose a longer span or a lower order.")
     if baseline_method not in BASELINE_METHODS:
         raise ValueError(f"decompose: baseline_method {baseline_method!r} is not one of {list(BASELINE_METHODS)}")
     nyquist = fs / 2.0
@@ -83,7 +92,14 @@ def decompose(x, fs, baseline_window_s=600.0, noise_cut_hz=0.0, baseline_method=
             "or 0 for a quarter of Nyquist.")
     j = baseline_half_width(fs, baseline_window_s)
     if baseline_method == "rolling_median":
-        baseline = make_smooth(j)(x)
+        # Reflect-pad the span by half a window before the shared median, then trim: `make_smooth` alone pads with
+        # copies of the end sample (mode="nearest"), so at the last sample 301 of 601 values were x[-1] and an event
+        # the span end cut off went to the baseline (fixup-ao fix round). A span no longer than the half-window
+        # cannot be reflected that far; it keeps the end-sample padding.
+        if len(x) > j:
+            baseline = make_smooth(j)(np.pad(x, j, mode="reflect"))[j:-j]
+        else:
+            baseline = make_smooth(j)(x)
         window_samples = 2 * j + 1
     else:
         baseline = x - make_detrend_filter(fs, mode="rolling_mean", window_s=float(baseline_window_s))(x)

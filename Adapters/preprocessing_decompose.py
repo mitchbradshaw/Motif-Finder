@@ -69,13 +69,19 @@ def _run(x, t, fs, pass_on="signal", baseline_window_s=600.0, noise_cut_hz=0.0,
         "method": "baseline_noise_signal", "pass_on": pass_on, "baseline_method": baseline_method,
         "baseline_window_s": float(baseline_window_s), "baseline_window_samples": parts["baseline_window_samples"],
         "noise_cut_hz": parts["noise_cut_hz"], "noise_cut_auto": parts["noise_cut_auto"], "order": int(order),
-        "edge_note": ("the running window shrinks to what fits at the span's ends (edges held at the nearest "
-                      "sample), and the zero-phase filter carries a short transient there: read the first and "
-                      "last half-window with care"),
-        "nonlinear_note": ("the baseline is a running median, not a filter: it has no exact frequency edge, and a "
-                           "step in the level goes to the baseline once it lasts longer than half the window"
+        "edge_note": (("at the span's ends the running median reads the span mirrored (reflect padding), so an "
+                       "event the span end cuts off stays in the signal, but a steady trend running into an end "
+                       "is followed less closely there; the zero-phase filter carries a short transient too: read "
+                       "the first and last half-window with care")
+                      if baseline_method == "rolling_median" else
+                      ("at the span's ends the rolling mean's window shrinks to what fits, and the zero-phase "
+                       "filter carries a short transient there: read the first and last half-window with care")),
+        "nonlinear_note": ("the baseline is a running median, not a filter: it has no exact frequency edge. An event "
+                           "longer than about half the window starts going to the baseline (a slow recovery makes "
+                           "it worse): for drops that recover over 5-10 min use a window of 1800-3600 s"
                            if baseline_method == "rolling_median" else
-                           "the baseline is the Detrend block's centred rolling mean"),
+                           "the baseline is the Detrend block's centred rolling mean: an event longer than about "
+                           "half the window starts going to the baseline"),
     }
     labels = _labels(split, fs)
     layers = []
@@ -125,9 +131,10 @@ SPEC = register(AdapterSpec(
         ParamSpec("pass_on", str, "signal", "Which layer goes on down the chain: signal (the events, with the slow "
                   "wander and the fast fuzz taken off), baseline (the slow wander) or noise (the fast fuzz). "
                   "Click a layer on the block page to choose it.", choices=list(PASS_ON)),
-        ParamSpec("baseline_window_s", float, 600.0, "The baseline's running window in seconds: anything slower "
-                  "than about this goes to the baseline. Tune this first. 600 s is the Detrend block's default "
-                  "(no Settings default exists for it).", min=1.0),
+        ParamSpec("baseline_window_s", float, 600.0, "The baseline's running window in seconds. An event longer "
+                  "than about half this window starts going to the baseline; for drops that recover over 5-10 min "
+                  "use 1800-3600 s. Tune this first. 600 s is the Detrend block's default (no Settings default "
+                  "exists for it).", min=1.0),
         ParamSpec("noise_cut_hz", float, 0.0, "Above this frequency (Hz) is noise. 0 = a quarter of the Nyquist "
                   "frequency (fs / 8: 0.125 Hz at 1 Hz sampling). Must be below fs / 2.", min=0.0),
         ParamSpec("baseline_method", str, "rolling_median", "How the baseline is estimated: rolling_median "
@@ -144,6 +151,7 @@ SPEC = register(AdapterSpec(
         "Splits the trace into three layers that add up to it: the slow wander (baseline, a running median), "
         "the fast fuzz (noise, a highpass above the cut) and what is left (signal, where the events are). The "
         "block page draws all three; `pass_on` -- or a click on a layer -- chooses the one that goes on down the "
-        "chain. Tune baseline_window_s first. For frequency layers (octaves) use Wavelet bands instead."
+        "chain. Tune baseline_window_s first: an event longer than about half of it starts going to the baseline, "
+        "so for drops that recover over 5-10 min use 1800-3600 s. For frequency layers (octaves) use Wavelet bands instead."
     ),
 ))

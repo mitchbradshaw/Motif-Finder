@@ -148,7 +148,10 @@ def test_the_baseline_is_the_cores_running_median():
     x = _drift_with_drops(20000)
     from Working.Preprocessing.decompose import decompose
     parts = decompose(x, 1.0, baseline_window_s=600.0)
-    np.testing.assert_allclose(parts["baseline"], make_smooth(300)(x), atol=0, rtol=0)
+    # the shared helper on the reflect-padded span, trimmed back (fix round: not end-sample padding) ...
+    np.testing.assert_allclose(parts["baseline"], make_smooth(300)(np.pad(x, 300, mode="reflect"))[300:-300], atol=0, rtol=0)
+    # ... which is the helper itself wherever the window does not reach an end
+    np.testing.assert_allclose(parts["baseline"][300:-300], make_smooth(300)(x)[300:-300], atol=0, rtol=0)
 
 
 def test_the_rolling_mean_baseline_is_the_detrend_blocks_own():

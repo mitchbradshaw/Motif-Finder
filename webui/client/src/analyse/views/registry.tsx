@@ -108,11 +108,12 @@ function DecompositionLayers({ q, p }: { q: ProcessProps; p: SignalPayload }) {
   const s = p.split
   const n = p.layers?.length ?? 0
   /* fixup-ao: a click on a layer row sets the parameter that chooses the layer — the payload names it (`layer_param`,
-   * each row's `param_value`); a wavelet decomposition's is `level`. The click goes through the same setParam as the
+   * each row's `param_value`); a payload that names none (the wavelet block: its auto depth can change on a re-run, so a
+   * clicked residual is not the one sent on) has no clickable rows. The click goes through the same setParam as the
    * Parameters panel, so the step goes stale and re-runs like any edit. */
-  const param = p.layer_param ?? (d ? 'level' : null)
+  const param = p.layer_param ?? null
   const pick: LayerPick | undefined = param ? {
-    valueOf: L => L.param_value ?? L.level,
+    valueOf: L => L.param_value,
     current: q.step.params[param] ?? q.card?.params.find(ps => ps.name === param)?.default,
     onPick: v => q.setParam(param, v),
   } : undefined
