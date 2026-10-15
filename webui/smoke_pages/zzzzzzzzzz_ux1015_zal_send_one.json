@@ -1,0 +1,18 @@
+[
+  {"page": "discovery.runs", "state": "al-needs-a-run-with-detections-browser-offers-send-this-one", "hash": "discovery/runs", "settle_ms": 900,
+   "_why": "fixup-AL: the Browse detections card offers *Send this one to Review* beside the detection, as well as the run-wide green send. Needs a Discovery run with detections in the session (the walk seeds one through the flows first)",
+   "actions": [{"wait_for": ["[data-testid=\"browser-send-one\"]", 30000]}],
+   "expect": ["[data-testid=\"browser-detection\"]", "[data-testid=\"browser-send-one\"]", "[data-testid=\"send-to-review\"]"]},
+  {"page": "discovery.runs", "state": "al-needs-a-run-with-detections-send-one-marks-it-and-toasts", "hash": "discovery/runs", "settle_ms": 900,
+   "_why": "fixup-AL: a WRITE (creates or extends the session's picked queue), so this file sorts last. The detection gains the 'in Review' mark and a toast carries *Open Review*",
+   "actions": [{"wait_for": ["[data-testid=\"browser-send-one\"]", 30000]}, {"click": "[data-testid=\"browser-send-one\"]"},
+               {"wait_for": ["[data-testid=\"browser-in-review\"]", 15000]}],
+   "expect": ["[data-testid=\"browser-in-review\"]", "[data-testid=\"toasts\"] .toast", "[data-testid=\"toasts\"] .toast button:has-text(\"Open Review\")"]},
+  {"page": "discovery.runs", "state": "al-needs-a-run-with-detections-send-one-again-says-already-then-opens-review", "hash": "discovery/runs", "settle_ms": 900,
+   "_why": "fixup-AL: the same detection sent again adds nothing and says so; the toast's Open Review lands on the picked queue in Review",
+   "actions": [{"wait_for": ["[data-testid=\"browser-in-review\"]", 30000]}, {"click": "[data-testid=\"browser-send-one\"]"},
+               {"wait_for": ["[data-testid=\"toasts\"] .toast:has-text(\"already in the queue\")", 15000]},
+               {"click": "[data-testid=\"toasts\"] .toast:has-text(\"already in the queue\") button:has-text(\"Open Review\")"}, {"wait": 1500}],
+   "expect": ["[data-testid=\"header\"]"],
+   "expect_hash": ["review/queue/"]}
+]

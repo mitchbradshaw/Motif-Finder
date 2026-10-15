@@ -572,6 +572,8 @@ export interface DiscDetection {
   id: string; detectionId: number; index: number; of: number; run: string; channel: string
   atH: number; durationS: number; depthMv: number | null; score: number | null
   priorVerdict: string | null; alsoFoundBy: string[]
+  /** fixup-AL: in the session's picked Review queue (sent one at a time), read off that queue's filter */
+  picked?: boolean
 }
 export const getDiscoveryDetections = (run: string, channel: string, t0: number, t1: number) =>
   req<DiscDetection[]>(`/api/discovery/detections${dq({ run, channel, t0, t1 })}`)
@@ -1451,3 +1453,13 @@ export interface LibFamilyCoherence {
   null_squared_p05?: number | null
 }
 export interface LibFamilyFlags { passed_by?: string[]; null_kind?: string; background_s?: number | null; background?: QuietBackground | null }
+
+/** fixup-AL: *Send this one to Review* from Discovery's browser. The detections go to the session's ONE picked
+ *  queue (`<session> · picked from Discovery`), made on the first send and appended to after; a detection
+ *  already in it comes back in `already` and is not added twice. `message` is the bridge's own sentence. */
+export const sendDetectionsToReview = (runKey: string, detectionIds: number[]) =>
+  post<{
+    run_key: string; queue_id: number; queue: string; reused: boolean; picked: true
+    added: number[]; already: number[]; total: number; not_asked: number[]
+    unjudged: number; judged: number; source_kind: 'discovery-run'; writes: string; message: string; note: string
+  }>(`/api/discovery/runs/${encodeURIComponent(runKey)}/review`, { detection_ids: detectionIds })
