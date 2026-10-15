@@ -1451,3 +1451,12 @@ export interface LibFamilyCoherence {
   null_squared_p05?: number | null
 }
 export interface LibFamilyFlags { passed_by?: string[]; null_kind?: string; background_s?: number | null; background?: QuietBackground | null }
+
+/* fixup-ak: a detector's plain-words explanation (`meta["explain"]`), drawn on its block page — one sentence on the
+ * face, the rest (what to tune first) behind an InfoTip; `mark` names what the mark inside each span is. A payload
+ * convention, never a block's name. */
+export interface SpansetPayload {
+  explain?: { face: string; detail: string; mark?: string } | null
+  /** fix round: spikes counted by direction, and the unit note (read as volts) — both also on the summary line */
+  n_up?: number; n_down?: number; units_note?: string | null
+}
