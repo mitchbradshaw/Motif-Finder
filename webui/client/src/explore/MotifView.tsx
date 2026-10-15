@@ -86,14 +86,14 @@ export function MotifView({ ch, motif, label, onSend, onReview, medoid, compact 
         <span className="card-title" title={motif ? `${motif.kind === 'annotated' ? 'annotation' : 'detection'} id ${motif.id}` : undefined} data-testid="motif-title">{title}</span>
         {motif ? (
           <span className="range" data-testid="motif-range">{(motif.start_s / 3600).toFixed(3)} – {(motif.end_s / 3600).toFixed(3)} h · {fmtSecs(motif.end_s - motif.start_s)} · {origin}</span>
-        ) : <span className="range muted" data-testid="no-motif">no motif selected · click a band in the span, or use ‹ ›</span>}
+        ) : <span className="range muted" data-testid="no-motif">no motif selected</span>}
         <span className="grow" />
         <Dropdown size="sm" variant="outline" prefix="context" value={String(ctx)} onChange={v => setCtx(Number(v))} options={CONTEXTS.map(c => ({ value: String(c), label: `±${c} s` }))} testid="motif-context" />
         <span data-testid="medoid-overlay" style={{ display: 'inline-flex' }}>
           <Checkbox checked={overlay && medoidOk} onChange={setOverlay} disabled={!medoidOk} label={<span style={{ color: medoidOk ? 'var(--text-2)' : undefined }}>overlay {fam ? `${fam.id} medoid` : 'family medoid'}</span>}
             disabledReason={!motif ? 'select a motif first' : !fam ? (motif.demo ? 'no family near this motif' : 'no families in this database') : 'no medoid trace for this family in the demo data'} testid="medoid-checkbox" />
         </span>
-        <InfoTip title="Motif" placement="bottom-end">The opened motif with context. Onset and end are the stored span edges. The medoid is the family's most central member, drawn in mV and aligned at the onset.</InfoTip>
+        <InfoTip title="Motif" placement="bottom-end">The opened motif with ±{ctx} s of context. To open one, click a band in the span, or use ‹ ›. Onset and end are the stored span edges. The medoid is the family's most central member, drawn in mV and aligned at the onset.</InfoTip>
       </div>
       {err && <ErrorCard error={err} title="motif window failed" />}
       <div className="ex-plot" ref={ref} style={{ height: H + AXIS_H }}>
@@ -115,7 +115,6 @@ export function MotifView({ ch, motif, label, onSend, onReview, medoid, compact 
             </g>
           </svg>
         )}
-        {W > 0 && !motif && <div className="muted small mono" style={{ padding: 12 }}>select a motif to see it here with ±{ctx} s of context</div>}
       </div>
       <div className="ex-motif-foot">
         <span className="fam" data-testid="motif-footer">

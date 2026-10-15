@@ -1,10 +1,10 @@
 /* Span-action row (frame explore-2): the selected span with tags + note, Save span (in-memory write of
    range, tags and note only), Send span to Analyse (live), Take span for Review (live since fixup-y: an
    `annotations` row with verdict `seed`, in Review's Explore spans queue and offered as a seed in Discovery ›
-   Seed search › Explore selection). Verdicts are never given here — the caption says so. Tags are removable chips; a
+   Seed search › Explore selection). Verdicts are never given here — the ⓘ beside the buttons says so (fixup-ap: the caption moved behind it). Tags are removable chips; a
    click toggles a chip selected; `+ tag` opens an inline input with suggestions and validation. */
 import { useEffect, useId, useState } from 'react'
-import { Button, Chip, recordDemoWrite, useDemoState } from '../kit'
+import { Button, Chip, InfoTip, recordDemoWrite, useDemoState } from '../kit'
 import { takeSpanForReviewInQueue } from '../api'
 import { useToast } from '../shell/Toast'
 import { fmtDuration, navigate } from '../state'
@@ -85,8 +85,8 @@ export function SpanActions({ channelKey, channelName, recordingId, fs, initial,
           <Button onClick={save} testid="save-span">Save span</Button>
           <Button variant="next" iconRight="arrow-right" onClick={onSend} testid="send-span">Send span to Analyse</Button>
           <Button variant="primary" iconRight="arrow-right" onClick={take} disabled={taking} disabledReason="writing the span…" testid="take-span">Take span for Review</Button>
+          <InfoTip title="Span actions" placement="bottom-end">Saving stores tags and note only. Taking writes the span for Review. Verdicts are given in Review.</InfoTip>
         </div>
-        <div className="caption" style={{ textAlign: 'right' }}>saving stores tags and note only · taking writes the span for Review · verdicts are given in Review</div>
       </div>
     </div>
   )

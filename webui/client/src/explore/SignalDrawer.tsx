@@ -7,7 +7,7 @@ import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import type { Spans } from '../api'
 import { useSourced } from '../api/seam'
 import { FILTER_VOCAB, getShortcuts, type AnnotationRow, type DetectionRow, type SignalDemo } from '../api/explore'
-import { Badge, Button, Dropdown, Icon, IconButton, InfoTip, Kbd, Pager, Popover, Table, Tabs, TextField, fmtInt, recordDemoWrite, useDemoState, useNotWired, useQueryState, type Column, type MenuItem, type SortState } from '../kit'
+import { Badge, Button, Dropdown, EmptyState, Icon, IconButton, InfoTip, Kbd, Pager, Popover, Table, Tabs, TextField, fmtInt, recordDemoWrite, useDemoState, useNotWired, useQueryState, type Column, type MenuItem, type SortState } from '../kit'
 import { useToast } from '../shell/Toast'
 import { navigate } from '../state'
 import { DemoTag } from './bits'
@@ -242,10 +242,10 @@ export function SignalDrawer({ channelKey, channelName, fs, demo, live, tab, set
         {tab === 'annotations'
           ? <Table<ARow> columns={aCols} rows={pageRows as ARow[]} rowKey={r => String(r.id)} selection="multi" selected={selA} onSelectionChange={k => setSelA(mergePage(selA, pageRows.map(r => String(r.id)), k))} dense
             sort={sortA} onSortChange={setSortA} onRowClick={r => onOpenRow({ id: r.id, start_s: r.start / fs, end_s: r.end / fs, kind: 'annotated', row: r })} testid="drawer-table"
-            empty={<span className="muted mono small">no annotation matches these filters · <button type="button" className="ex-link" onClick={clear}>clear</button></span>} />
+            empty={<EmptyState size="sm" icon="search" title="no annotation matches these filters" action={<Button size="sm" onClick={clear}>Clear filters</Button>} />} />
           : <Table<DRow> columns={dCols} rows={pageRows as DRow[]} rowKey={r => String(r.id)} selection="multi" selected={selD} onSelectionChange={k => setSelD(mergePage(selD, pageRows.map(r => String(r.id)), k))} dense
             sort={sortD} onSortChange={setSortD} onRowClick={r => onOpenRow({ id: r.id, start_s: r.start / fs, end_s: r.end / fs, kind: 'detected', row: r })} testid="drawer-table"
-            empty={<span className="muted mono small">no detection matches these filters · <button type="button" className="ex-link" onClick={clear}>clear</button></span>} />}
+            empty={<EmptyState size="sm" icon="search" title="no detection matches these filters" action={<Button size="sm" onClick={clear}>Clear filters</Button>} />} />}
       </div>
       <div className="ex-drawer-foot">
         <span className="mono small" data-testid="selected-count">{nSel} selected</span>
@@ -255,7 +255,7 @@ export function SignalDrawer({ channelKey, channelName, fs, demo, live, tab, set
             onClick={() => { recordDemoWrite('explore', 'stage-for-analyse', { ids: selA.map(Number), channel: channelName }); toast.push({ text: `${nSel} annotation${nSel === 1 ? '' : 's'} staged for Analyse` }) }}>Stage for Analyse</Button>
         </> : <>
           <Button size="sm" iconRight="arrow-right" disabled={!nSel} disabledReason={noSel} onClick={() => notWired(`send ${nSel} detections to Analyse as a SpanSet source (POST /api/chain/source)`)} testid="analyse-events">Analyse events</Button>
-          <span className="muted mono small"><Icon name="info" size={11} /> machine detections · indices are samples into the whole recording</span>
+          <InfoTip title="Detections">Machine detections. Indices are samples into the whole recording.</InfoTip>
         </>}
         <span className="grow" />
         <Pager format="range" page={p} pageCount={pageCount} total={cur.length} pageSize={PAGE} onPage={setPage} label="page" testid="drawer-pager" />
@@ -284,7 +284,7 @@ function Shortcuts({ header }: { header: ReactNode }) {
     <div className="card ex-drawer" data-testid="signal-drawer" data-tab="shortcuts">
       {header}
       <div className="ex-short-top">
-        <span className="muted mono small"><Icon name="info" size={11} /> verdict keys live in Settings › Vocabulary and apply in Review</span>
+        <InfoTip title="Shortcuts">Verdict keys live in Settings › Vocabulary and apply in Review.</InfoTip>
         <button type="button" className="ex-link" onClick={() => navigate('settings/keyboard')} data-testid="edit-shortcuts">Edit shortcuts in Settings › Keyboard &amp; behaviour →</button>
       </div>
       {read.error && <div className="error-card" role="alert">shortcut list failed: {read.error.message}</div>}
