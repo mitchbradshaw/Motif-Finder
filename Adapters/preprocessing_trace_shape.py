@@ -17,7 +17,12 @@ The vectors are a bulk array: written to disk under `RESULTS_DIR` (rule 4),
 content-keyed, and named on every window of the output (`shape_file`), so the
 clustering step reads them by path. The output WindowSet is the kept windows,
 with their pool metadata plus `shape_raw_range_mv`, `shape_peak_frac` (where in
-the window the largest excursion sits, 0–1) and `shape_row`.
+the window the aligned sample sits, 0–1: the largest excursion for grid / centre,
+the highest point for peak, the lowest for trough) and `shape_row`.
+
+fixup-am: `align` also offers `peak` / `trough` (signed maximum / minimum of the
+swing rule's guarded departure) and `anchor_frac` places the aligned sample at a
+fraction of the window (0.5, the middle, by default — AG's centring unchanged).
 """
 
 import os
@@ -39,8 +44,8 @@ def _resample_default():
     return RESAMPLE_LENGTH
 
 
-def _run(x, t, fs, resample_length=None, noise_floor=True, align=None, detrend=None, value=None, conn=None,
-         recording=None):
+def _run(x, t, fs, resample_length=None, noise_floor=True, align=None, detrend=None, anchor_frac=None, value=None,
+         conn=None, recording=None):
     from Working.training import shape as tshape
     if conn is None:
         raise ValueError("the Trace shape block reads each window's trace and its dataset's noise floor from the "
@@ -50,14 +55,15 @@ def _run(x, t, fs, resample_length=None, noise_floor=True, align=None, detrend=N
     frame = tshape.pool_frame(value)
     n = int(resample_length or _resample_default())
     shapes = tshape.trace_shapes(conn, frame, resample_length=n, noise_floor=bool(noise_floor),
-                                 align=align or tshape.DEFAULT_ALIGN, detrend=detrend or tshape.DEFAULT_DETREND)
+                                 align=align or tshape.DEFAULT_ALIGN, detrend=detrend or tshape.DEFAULT_DETREND,
+                                 anchor_frac=tshape.DEFAULT_ANCHOR_FRAC if anchor_frac is None else float(anchor_frac))
     d = os.path.join(RESULTS_DIR, shapes.key)
     path = os.path.join(d, "shapes.npz")
     if not os.path.isfile(path):
         path = shapes.save(d)
     meta = {k: shapes.meta[k] for k in ("resample_length", "noise_floor", "floors", "n_in", "n_kept", "under_floor",
                                         "unmeasured", "method", "seconds", "align", "detrend", "align_rule",
-                                        "detrend_rule", "swing_rule", "recut")}
+                                        "detrend_rule", "swing_rule", "recut", "anchor_frac", "anchor_rule")}
     meta.update({"shape_file": os.path.abspath(path), "shape_key": shapes.key})
     return AdapterResult(output_kind="windowset", value=tshape.frame_windowset(shapes.frame, os.path.abspath(path)),
                          meta=meta)
@@ -80,9 +86,15 @@ SPEC = register(AdapterSpec(
                   "distance here means what it means in the Library.", min=8),
         ParamSpec("align", str, _default("DEFAULT_ALIGN"),
                   "grid: the window as the pool cut it. centre: re-cut, the same length, centred on its largest swing "
-                  "(trend removed, a running median so a glitch cannot be it), kept inside its own role's stretch and "
-                  "clear of artifact spans; a window that cannot be centred is shifted as far as allowed (counted); "
-                  "two windows that centre onto one event keep one (counted).", choices=["grid", "centre"]),
+                  "either way (trend removed, a running median so a glitch cannot be it). peak: centred on its highest "
+                  "point (the top of a spike). trough: centred on its lowest point (the bottom of a drop). Every "
+                  "re-cut stays inside its own role's stretch and clear of artifact spans; a window that cannot be "
+                  "placed is shifted as far as allowed (counted); two windows that land on one event keep one "
+                  "(counted).", choices=list(_default("ALIGNS"))),
+        ParamSpec("anchor_frac", float, _default("DEFAULT_ANCHOR_FRAC"),
+                  "Where in the re-cut window the aligned sample lands, as a fraction of its length: 0.5 = the middle "
+                  "(the default); 0.33 = a third in, so the recovery after a drop fits inside the window. Ignored on "
+                  "grid.", min=0.0, max=1.0),
         ParamSpec("detrend", str, _default("DEFAULT_DETREND"),
                   "off: the trace as it is. linear: the window's straight line removed before the resample and "
                   "normalise, so a slow drift is not the shape.", choices=["off", "linear"]),
