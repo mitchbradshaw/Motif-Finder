@@ -39,9 +39,9 @@ export function PrecisionFigureLine({ f, testid }: { f: PrecisionFigure | null |
       {f.value != null && <span className="muted small"> {f.yes}/{f.judged}</span>}
       <InfoTip title={f.label} testid={`${testid}-rule`}>
         <p>{f.rule}.</p>
-        {f.value == null && f.note && <p className="muted small" data-testid={`${testid}-note`}>Nothing to score: {f.note}.</p>}
-        <p className="muted small">{f.yes} yes of {f.judged} judged{f.byAdjudication ? ` · ${f.byAdjudication} by a verdict given in Review` : ''}.</p>
-        {widths && <p className="muted small" data-testid={`${testid}-widths`}>The denominator’s event rows: {widths}. A precision over rows this varied is dominated by whichever few are event-sized (Q-D2’s caveat).</p>}
+        {f.value == null && f.note && <p className="small" data-testid={`${testid}-note`}>Nothing to score: {f.note}.</p>}
+        <p className="small">{f.yes} yes of {f.judged} judged{f.byAdjudication ? ` · ${f.byAdjudication} by a verdict given in Review` : ''}.</p>
+        {widths && <p className="small" data-testid={`${testid}-widths`}>The denominator’s event rows: {widths}. A precision over rows this varied is dominated by whichever few are event-sized (Q-D2’s caveat).</p>}
       </InfoTip>
     </span>
   )

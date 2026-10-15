@@ -464,8 +464,8 @@ function RunActs({ dx, run }: { dx: Discovery; run: DiscoveryRun | null }) {
       {run.kind === 'seed' && results && <AddMatchesButton run={run} />}
       <Modal open={confirm === 'discard' && !reason} onClose={() => setConfirm(null)} title={`Discard ${run.label}?`} size="sm" testid="discard-modal"
         footer={<><Button onClick={() => setConfirm(null)}>Cancel</Button><Button variant="danger-solid" icon="trash" onClick={discard} testid="discard-confirm">Discard run</Button></>}>
-        <p>Marks the run superseded. Writes <b>no adjudications</b> — its {total?.found ?? 0} detections are not marked not_interesting.</p>
-        <p className="muted small">Bulk not_interesting verdicts would poison the RQ5 divergence measurement, invisibly.</p>
+        <p>Marks the run superseded. Writes <b>no adjudications</b> — its {total?.found ?? 0} detections are not marked not_interesting.
+          <InfoTip title="Why no verdicts">Bulk not_interesting verdicts would poison the RQ5 divergence measurement, invisibly.</InfoTip></p>
       </Modal>
     </section>
   )
