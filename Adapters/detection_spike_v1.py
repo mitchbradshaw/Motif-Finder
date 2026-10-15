@@ -18,6 +18,10 @@ pull spikes out, what do I tune":
 * **Either direction.** The core's test is signed with a ``polarity``
   (`spike_analysis` docstring: the paper's ``|x| - |a|`` saw dips or rises by
   the sign of the DC baseline).
+* **One spike per event, at the event** (fix round). Candidates closer than d
+  are one cluster, placed at its most extreme sample, its sign from that
+  sample; polarity keeps clusters. Keep-first kept a wide event's halo (the
+  `spike_analysis` docstring, departure 4).
 * **delta in millivolts.** ``delta_mv`` is converted to the samples' stored
   unit by the recording's declared unit (`Working.units.read_as_mv`, the way
   `detection.drop_detection` reads its millivolts). An undeclared unit is read
@@ -31,45 +35,54 @@ Default delta_mv = 1.0 mV is a PLACEHOLDER, not the paper's value: the paper's
 delta = 0.01 is in its logger's millivolts (S. commune, spikes ~0.4 mV); on M2
 (per-sample noise ~0.025 mV MAD, drops 1.2-98 mV, median 9 mV) 0.01 mV fires on
 noise. 1 mV sits under the smallest catalogued M2 drop and ~8x the local
-wander of an AR(1)/random-walk background at M2's noise level.
+wander of an AR(1)/random-walk background at M2's noise level (the critic
+measured 0 false spikes per hour there, 61-64/h at 0.1 mV) - but it is a fixed
+yardstick: AR(1) innovations of 0.15 and 0.25 mV gave 106 and 713 spikes in
+12 h. So the readout states delta as a multiple of this span's own median
+|x - a|, amber below 4x, and the help text says to raise it on noisier channels.
 """
 
 from Adapters.base import AdapterSpec, AdapterResult, ParamSpec
 from Adapters.registry import register
 from Adapters.detection_stage_encoding import units_row
-from Working.Detection.analysis.spike_analysis import (
-    POLARITIES, refractory_filter, spike_candidates, spike_deviation,
-)
+from Working.Detection.analysis.spike_analysis import POLARITIES, detect_spikes, spike_deviation
 from Working.types import SpanSet
 from Working.units import VOLTS, read_as_mv
 
 import numpy as np
 
 FACE = ("Compares every sample with the average of its neighbours and calls it a spike when it stands out "
-        "from that local average by more than delta_mv (in mV); spikes closer than d samples are thinned to one.")
+        "from that local average by more than delta_mv (in mV) - tune delta_mv first; samples closer than d "
+        "are one spike.")
 
 DETAIL = (
     "Adamatzky's 2023 spike rule. What to tune: delta_mv first - how far (in millivolts) a sample must stand from "
     "its local average; raise it if it fires on noise, lower it if it misses spikes you can see. Then width (w): "
     "the local average spans 4w+1 samples, so it sees changes faster than that and is blind to slower ones - a drop "
-    "that takes minutes is mostly invisible to it (use Drop detection for those). Then d: how close two spikes may "
-    "sit before the later one is dropped. polarity picks rises (up), dips (down) or both. Each span drawn is one "
-    "spike, span_s wide (0 = d samples), the spike marked inside it."
+    "that takes minutes is mostly invisible to it (use Drop detection for those). Then d: candidates closer than d "
+    "samples are one spike, placed at its most extreme sample - so a wide or deep event is one spike at the event, "
+    "not several at the edges where the local average bends round it. polarity picks rises (up), dips (down) or "
+    "both, by that sample's side of the surrounding baseline. The readout says how delta_mv compares with this "
+    "span's own wander: below about 4x it will fire on noise, so raise it on noisier channels. Each span drawn is "
+    "one spike, span_s wide (0 = d samples), the spike marked inside it."
 )
 
 MARK = "the spike's sample inside its span"
 
 
 def _rules(width, delta_mv, d, polarity, span_len, fs):
-    test = {"both": "|x - a| > delta", "up": "x - a > delta", "down": "x - a < -delta"}[polarity]
+    keep = {"both": "every spike", "up": "the spikes above it", "down": "the spikes below it"}[polarity]
     return [
         {"name": "local_mean", "rule": f"a = the mean of the {4 * width + 1} samples around each sample "
                                        f"(w = {width}: {(4 * width + 1) / fs:g} s), over the finite ones; the "
                                        "paper's 1/(4w) is replaced by the true mean so a baseline away from zero "
                                        "adds no bias"},
-        {"name": "spike", "rule": f"{test}, delta = {delta_mv:g} mV converted to the stored unit; the sign of the "
-                                  "baseline no longer decides which direction is seen"},
-        {"name": "refractory_gap", "rule": f"of spikes closer than d = {d} samples ({d / fs:g} s), the first is kept"},
+        {"name": "spike", "rule": f"a candidate is a sample with |x - a| > delta, delta = {delta_mv:g} mV converted "
+                                  "to the stored unit; the sign of the baseline no longer decides which direction "
+                                  "is seen"},
+        {"name": "refractory_gap", "rule": f"candidates closer than d = {d} samples ({d / fs:g} s) are one spike, at "
+                                           "the sample furthest from the mean of the samples within 2w outside them "
+                                           f"(not the paper's first candidate); polarity '{polarity}' keeps {keep}"},
         {"name": "span", "rule": f"each spike is one span of {span_len} samples ({span_len / fs:g} s) centred on it, "
                                  "clipped to the span in hand"},
     ]
@@ -84,13 +97,11 @@ def _run(x, t, fs, delta_mv=1.0, width=20, d=30, polarity="both", span_s=0.0, un
     delta = float(delta_mv) / to_mv
     x = np.asarray(x, dtype=float)
     n = len(x)
-    dev = spike_deviation(x, width)
-    spikes = refractory_filter(spike_candidates(dev, delta, polarity), d)
+    spikes, sign, _ = detect_spikes(x, width, delta, d, polarity)
     L = _span_len(span_s, d, fs)
     half = L // 2
     starts = np.maximum(0, spikes - half)
     ends = np.minimum(n, spikes - half + L)
-    sign = np.sign(dev[spikes]) if spikes.size else np.array([])
     idx = [int(i) for i in spikes]
     return AdapterResult(
         output_kind="spanset",
@@ -109,15 +120,28 @@ def _run(x, t, fs, delta_mv=1.0, width=20, d=30, polarity="both", span_s=0.0, un
 
 
 def _derive(x, t, fs, params, value=None, units=VOLTS):
-    """The readout beside the parameters: the unit, delta as the block will cut in the stored unit, and the
-    local window and span in seconds. O(1) - no detection runs here."""
+    """The readout beside the parameters: the unit, delta as the block will cut in the stored unit, delta against
+    this span's own median |x - a| (O(n): one cumulative sum, no detection), and the local window and span in
+    seconds. Amber when delta is under 4x that median - on white noise that is about 6 sigma, so below it the
+    block fires on the span's own wander."""
     to_mv, note = read_as_mv(units)
     stored = units if note is None else "V (read as volts)"
     w, d = int(params["width"]), int(params["d"])
     L = _span_len(params["span_s"], d, fs)
+    delta = params["delta_mv"] / to_mv
+    dev = np.abs(spike_deviation(np.asarray(x, dtype=float), w))
+    med = float(np.nanmedian(dev)) if np.isfinite(dev).any() else float("nan")
+    if np.isfinite(med) and med > 0:
+        ratio = delta / med
+        wander = (f"{ratio:.1f} × this span's median |x − a| ({med * to_mv:.3g} mV)"
+                  + (" · under 4×: expect noise to fire; raise delta_mv" if ratio < 4 else ""),
+                  "warn" if ratio < 4 else "")
+    else:
+        wander = ("no wander measurable on this span", "warn")
     return [
         units_row(units),
-        ("δ as stored", f"{params['delta_mv']:g} mV = {params['delta_mv'] / to_mv:.6g} {stored}", ""),
+        ("δ as stored", f"{params['delta_mv']:g} mV = {delta:.6g} {stored}", ""),
+        ("δ vs this span's deviation", *wander),
         ("Local average", f"{4 * w + 1} samples = {(4 * w + 1) / fs:g} s", ""),
         ("Refractory gap", f"{d} samples = {d / fs:g} s", ""),
         ("Span per spike", f"{L} samples = {L / fs:g} s", ""),
@@ -133,12 +157,13 @@ SPEC = register(AdapterSpec(
     params=[
         ParamSpec("delta_mv", float, 1.0,
                   "Tune this first. How far (mV) a sample must stand from its local average to be a spike; "
-                  "converted by the recording's declared unit. 1 mV is a placeholder (the paper's 0.01 is in its "
-                  "logger's mV and fires on M2's noise)", min=0.0),
+                  "converted by the recording's declared unit. 1 mV is a placeholder that holds at M2's noise (the "
+                  "paper's 0.01 is in its logger's mV and fires on M2's noise); raise it on noisier channels - the "
+                  "readout gives it as a multiple of this span's own wander", min=0.0),
         ParamSpec("width", int, 20, "Neighbourhood half-width w (samples): the local average spans 4w+1 samples; "
                                     "changes slower than that are invisible to this test (paper: 20)", min=1),
-        ParamSpec("d", int, 30, "Refractory gap (samples): of spikes closer than this, the first is kept "
-                                "(paper: 30)", min=1),
+        ParamSpec("d", int, 30, "Refractory gap (samples): candidates closer than this are one spike, at its "
+                                "most extreme sample (paper: 30)", min=1),
         ParamSpec("polarity", str, "both", "Which direction counts: both, up (rises) or down (dips)",
                   choices=list(POLARITIES)),
         ParamSpec("span_s", float, 0.0, "Width of the span drawn round each spike, seconds; 0 = the refractory "
@@ -150,8 +175,8 @@ SPEC = register(AdapterSpec(
     output_kind="spanset",
     plot=None,
     description=(
-        FACE + " Tune delta_mv first (raise it if it fires on noise, lower it if it misses spikes you can see), "
-        "then width (how local the average is; it is blind to changes slower than 4w+1 samples, so use Drop "
-        "detection for slow drops), then d. Each span is one spike, marked inside it."
+        FACE + " Raise delta_mv if it fires on noise, lower it if it misses spikes you can see; then width (how "
+        "local the average is; it is blind to changes slower than 4w+1 samples, so use Drop detection for slow "
+        "drops), then d. Each span is one spike, marked inside it."
     ),
 ))

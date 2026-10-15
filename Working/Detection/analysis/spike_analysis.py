@@ -7,8 +7,8 @@ as `detection.spike_v1` runs it.
 
 The rule, in plain words: compare each sample with the average of the samples
 around it; a sample that stands out from that local average by more than a
-threshold is a spike; of spikes closer together than a refractory gap, keep
-the first.
+threshold is a candidate; candidates closer together than a refractory gap are
+one spike, placed at its most extreme sample.
 
 Departures from the paper's printed rule (fixup-ak, 2026-10-15), each forced by
 our data:
@@ -30,9 +30,23 @@ our data:
    window actually holds.
 3. **Gaps are skipped.** A NaN sample is never a spike and never enters a
    neighbour's mean (the project's NaN policy: skip the gaps).
-4. **Vectorised.** The mean is a cumulative sum (O(n), a 2.6 M-sample channel in
-   well under a second) and the refractory filter jumps by ``searchsorted`` from
-   each kept spike, so its cost is the number of spikes kept, not of candidates.
+4. **One spike per cluster, at the event, not keep-first** (fix round, the
+   critic's measurement). An event lowers (or raises) the local mean of every
+   sample within 2w of it, so its neighbours stand out the OTHER way: a halo of
+   false candidates up to 2w either side. The paper's refractory filter keeps
+   the FIRST candidate - the halo's leading edge - so a 10 mV x 10 s dip came out
+   as three "rises" at [967, 997, 1027], a 30 mV x 3 s dip was never kept, and a
+   60 s-wide spike was counted three times, 11 s before its peak. Here the
+   candidates (``|x - a| > delta``) are chained into clusters wherever
+   consecutive ones are closer than d samples; each cluster is ONE spike, at the
+   sample that stands furthest from the baseline around the cluster (the mean
+   of the finite x within 2w outside it on either side - outside the cluster x
+   is baseline even where the halo's mean is not), and its sign is that
+   sample's side of the baseline. ``polarity`` then keeps clusters, never
+   candidates, so a dip's halo can no longer be reported as a rise. Two real
+   spikes closer than d are one spike (as the refractory gap always made them).
+5. **Vectorised.** The mean and the cluster baselines are cumulative sums and the
+   per-cluster extreme a ``reduceat``: a 2.6 M-sample channel in ~0.2 s.
 
 ``delta`` here is in the samples' own unit; the adapter converts the
 researcher's millivolts by the recording's declared unit.
@@ -73,58 +87,86 @@ def spike_deviation(x, width):
     return x - neighbourhood_mean(x, width)
 
 
-def refractory_filter(candidates, d):
-    """Keep the first candidate, then the first at least ``d`` samples after the
-    last kept one, and so on (the paper's refractory-period filter)."""
+def _range_sums(x, lo, hi):
+    """Sum and count of the finite x over each half-open [lo, hi) (cumulative sums, centred for precision)."""
+    ok = np.isfinite(x)
+    centre = float(np.mean(x[ok])) if ok.any() else 0.0
+    c = np.concatenate(([0.0], np.cumsum(np.where(ok, x - centre, 0.0))))
+    k = np.concatenate(([0], np.cumsum(ok)))
+    cnt = k[hi] - k[lo]
+    return c[hi] - c[lo] + centre * cnt, cnt
+
+
+def cluster_spikes(x, candidates, d, width):
+    """Chain candidates closer than ``d`` samples into clusters; each cluster is one spike at the sample furthest
+    from the baseline around it (module docstring, departure 4).
+
+    Returns ``(indices, signs, excess)``: the spike's sample, +1 / -1 for its side of the baseline, and
+    ``x[index] - baseline`` in the samples' unit."""
+    x = np.asarray(x, dtype=float)
     c = np.asarray(candidates, dtype=np.int64)
     if c.size == 0:
-        return np.array([], dtype=int)
-    kept = [int(c[0])]
-    j = 0
-    while True:
-        j = int(np.searchsorted(c, kept[-1] + int(d), side="left"))
-        if j >= c.size:
-            break
-        kept.append(int(c[j]))
-    return np.array(kept, dtype=int)
+        return np.array([], dtype=int), np.array([], dtype=int), np.array([])
+    n = len(x)
+    h = 2 * int(width)
+    brk = np.flatnonzero(np.diff(c) >= int(d))
+    cs = c[np.concatenate(([0], brk + 1))]
+    ce = c[np.concatenate((brk, [c.size - 1]))]
+    sl, nl = _range_sums(x, np.maximum(0, cs - h), cs)
+    sr, nr = _range_sums(x, np.minimum(n, ce + 1), np.minimum(n, ce + 1 + h))
+    tot = nl + nr
+    with np.errstate(invalid="ignore", divide="ignore"):
+        base = (sl + sr) / tot
+    lengths = ce - cs + 1
+    offsets = np.concatenate(([0], np.cumsum(lengths)[:-1]))
+    rep = np.repeat(np.arange(cs.size), lengths)
+    pos = cs[rep] + (np.arange(int(lengths.sum())) - offsets[rep])
+    xv = x[pos]
+    none = tot == 0          # a cluster with no finite sample around it: its own median is the baseline
+    if none.any():
+        for k in np.flatnonzero(none):
+            seg = xv[offsets[k]:offsets[k] + lengths[k]]
+            base[k] = np.nanmedian(seg) if np.isfinite(seg).any() else 0.0
+    dev = np.abs(xv - base[rep])
+    dev[~np.isfinite(dev)] = -1.0
+    best = np.maximum.reduceat(dev, offsets)
+    hit = dev == best[rep]
+    _, first = np.unique(rep[hit], return_index=True)
+    idx = pos[np.flatnonzero(hit)[first]]
+    excess = x[idx] - base
+    return idx.astype(int), np.where(excess < 0, -1, 1).astype(int), excess
+
+
+def spike_candidates(dev, delta):
+    """The indices whose deviation stands more than ``delta`` from the local mean, either way (NaN never does)."""
+    dev = np.asarray(dev, dtype=float)
+    with np.errstate(invalid="ignore"):
+        return np.flatnonzero(np.abs(dev) > delta)
+
+
+def detect_spikes(x, width=20, delta=0.01, d=30, polarity="both"):
+    """The whole rule: ``(indices, signs, excess)`` of the kept spikes (module docstring)."""
+    if polarity not in POLARITIES:
+        raise ValueError(f"polarity must be one of {POLARITIES}, got {polarity!r}")
+    x = np.asarray(x, dtype=float)
+    idx, sign, excess = cluster_spikes(x, spike_candidates(spike_deviation(x, width), delta), d, width)
+    keep = np.ones(idx.size, dtype=bool) if polarity == "both" else sign > 0 if polarity == "up" else sign < 0
+    return idx[keep], sign[keep], excess[keep]
 
 
 def spike_detection_v1(x, width=20, delta=0.01, d=30, polarity="both"):
     """
-    Spike detection (Adamatzky 2023), signed - see the module docstring.
+    Spike detection (Adamatzky 2023), signed and clustered - see the module docstring.
 
-    a_i  = mean of the finite x_j with i-2w <= j <= i+2w
-    dev_i = x_i - a_i
-    candidate if  |dev_i| > delta  (both) · dev_i > delta  (up) · dev_i < -delta  (down)
-    then any candidate within d samples of the last kept spike is dropped.
+    a_i   = mean of the finite x_j with i-2w <= j <= i+2w
+    candidate if |x_i - a_i| > delta
+    candidates closer than d samples are one spike, at the sample furthest from the baseline around them;
+    polarity ('both' | 'up' | 'down') keeps spikes by that sample's side of the baseline.
 
     Paper defaults for S. commune fast spikes: w = 20, delta = 0.01 (mV), d = 30.
-
-    Parameters
-    ----------
-    x        : array-like  the signal, in its stored unit
-    width    : int         neighbourhood half-width w (the window is 4w+1 samples)
-    delta    : float       threshold, in the SAME unit as x
-    d        : int         minimum distance between kept spikes, samples
-    polarity : str         'both' | 'up' | 'down'
-
-    Returns
-    -------
-    spike_indices : np.ndarray  sorted sample indices of the kept spikes
+    ``delta`` is in the SAME unit as x. Returns the sorted sample indices of the kept spikes.
     """
-    if polarity not in POLARITIES:
-        raise ValueError(f"polarity must be one of {POLARITIES}, got {polarity!r}")
-    return refractory_filter(spike_candidates(spike_deviation(x, width), delta, polarity), d)
-
-
-def spike_candidates(dev, delta, polarity="both"):
-    """The indices whose deviation passes the threshold in the chosen direction (NaN never passes)."""
-    if polarity not in POLARITIES:
-        raise ValueError(f"polarity must be one of {POLARITIES}, got {polarity!r}")
-    dev = np.asarray(dev, dtype=float)
-    with np.errstate(invalid="ignore"):
-        hit = np.abs(dev) > delta if polarity == "both" else dev > delta if polarity == "up" else dev < -delta
-    return np.flatnonzero(hit)
+    return detect_spikes(x, width, delta, d, polarity)[0]
 
 
 def compute_spike_statistics(x, spikelocs):

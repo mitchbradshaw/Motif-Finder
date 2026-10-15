@@ -224,6 +224,15 @@ def _spanset(value, meta, ctx):
     # fixup-ak: a detector's plain-words explanation (`{face, detail, mark}`), drawn on its block page
     if isinstance((meta or {}).get("explain"), dict):
         out["explain"] = {k: str(v) for k, v in meta["explain"].items() if k in ("face", "detail", "mark")}
+    # fixup-ak fix round: a detector that counts its spikes by direction and reads its threshold by the recording's
+    # unit says both on the chain row's summary line, not only on its block page's readout
+    if "n_up" in (meta or {}) and "n_down" in (meta or {}):
+        out["n_up"], out["n_down"] = int(meta["n_up"]), int(meta["n_down"])
+        out["summary"] += f" · {out['n_up']} up, {out['n_down']} down"
+    if "units_note" in (meta or {}):
+        out["units_note"] = None if meta["units_note"] is None else str(meta["units_note"])
+        if out["units_note"]:
+            out["summary"] += f" · {out['units_note']}"
     if "funnel" in (meta or {}):
         out["funnel"] = _funnel(meta["funnel"], fs, ss)
     if isinstance((meta or {}).get("families"), list):

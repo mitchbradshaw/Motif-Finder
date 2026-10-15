@@ -1457,4 +1457,6 @@ export interface LibFamilyFlags { passed_by?: string[]; null_kind?: string; back
  * convention, never a block's name. */
 export interface SpansetPayload {
   explain?: { face: string; detail: string; mark?: string } | null
+  /** fix round: spikes counted by direction, and the unit note (read as volts) — both also on the summary line */
+  n_up?: number; n_down?: number; units_note?: string | null
 }
