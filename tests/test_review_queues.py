@@ -828,3 +828,65 @@ def test_find_open_queue_matches_on_source_kind_and_the_same_run_set():
     qs.close_queue(conn, qid)
     assert qs.find_open_queue(conn, source_kind="discovery-run",
                               filters={"run_ids": [1, 2]}) is None
+
+
+# ── fixup-AL: one per-session picked queue, extended one detection at a time ─
+
+def test_extend_queue_appends_new_detections_and_names_the_ones_already_in():
+    """Discovery's *Send this one to Review* keeps ONE picked queue per session
+    and appends to it. Extending rewrites the queue's `detection_ids` filter —
+    the queue still holds no items of its own — and a detection already in the
+    filter is reported back as `already`, not added twice."""
+    conn = _fresh_conn()
+    rid = _insert_recording(conn)
+    d1 = _insert_detection(conn, rid, 0, 100, score=0.1)
+    d2 = _insert_detection(conn, rid, 200, 300, score=0.2)
+    d3 = _insert_detection(conn, rid, 400, 500, score=0.3)
+    qid = qs.create_queue(conn, name="picked", source_kind="discovery-run",
+                          filters={"detection_ids": [d1]})
+    out = qs.extend_queue(conn, qid, [d2, d1])
+    assert out == {"added": [d2], "already": [d1], "total": 2}
+    assert qs.get_queue(conn, qid)["filters"] == {"detection_ids": [d1, d2]}
+    assert sorted(it["target_id"] for it in qs.queue_items(conn, qid)) == [d1, d2]
+    again = qs.extend_queue(conn, qid, [d1])
+    assert again == {"added": [], "already": [d1], "total": 2}
+    qs.extend_queue(conn, qid, [d3, d3])
+    assert qs.get_queue(conn, qid)["filters"]["detection_ids"] == [d1, d2, d3]
+
+
+def test_extend_queue_refuses_a_queue_that_is_not_an_exact_detection_set():
+    """A queue over a run's run ids, a closed queue, or a non-detection queue is
+    not a list of picks: adding a detection to it would silently change what
+    another send made. Each is refused in words."""
+    conn = _fresh_conn()
+    rid = _insert_recording(conn)
+    d = _insert_detection(conn, rid, 0, 100)
+    over_runs = qs.create_queue(conn, name="run", source_kind="discovery-run",
+                                filters={"run_ids": [1]})
+    with pytest.raises(ValueError, match="detection_ids"):
+        qs.extend_queue(conn, over_runs, [d])
+    spans = qs.create_queue(conn, name="spans", source_kind="explore-spans",
+                            filters={"detection_ids": []})
+    with pytest.raises(ValueError, match="detection"):
+        qs.extend_queue(conn, spans, [d])
+    closed = qs.create_queue(conn, name="c", source_kind="discovery-run",
+                             filters={"detection_ids": []})
+    qs.close_queue(conn, closed)
+    with pytest.raises(ValueError, match="closed"):
+        qs.extend_queue(conn, closed, [d])
+    with pytest.raises(ValueError, match="no such queue"):
+        qs.extend_queue(conn, 9999, [d])
+
+
+def test_find_open_queue_by_note_finds_the_one_open_queue_with_that_note():
+    conn = _fresh_conn()
+    note = "picked from Discovery · session 1"
+    assert qs.find_open_queue_by_note(conn, source_kind="discovery-run", note=note) is None
+    qid = qs.create_queue(conn, name="p", source_kind="discovery-run",
+                          filters={"detection_ids": []}, note=note)
+    qs.create_queue(conn, name="other", source_kind="discovery-run",
+                    filters={"detection_ids": []}, note=note + "0")
+    assert qs.find_open_queue_by_note(conn, source_kind="discovery-run", note=note) == qid
+    assert qs.find_open_queue_by_note(conn, source_kind="seed-search", note=note) is None
+    qs.close_queue(conn, qid)
+    assert qs.find_open_queue_by_note(conn, source_kind="discovery-run", note=note) is None
