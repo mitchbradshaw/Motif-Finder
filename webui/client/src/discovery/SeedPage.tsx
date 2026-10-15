@@ -1,6 +1,9 @@
 /* discovery.seed — frame discovery-2. A seed search set up in place as a draft run (§7.6, P17): seed source and
  * provenance, carry / rebind, parameters with the where-to-cut histogram (null behind, draggable threshold), the distance
- * profile on one channel, match cards sorted by distance, and the apply bar (Save as template · Run seed search). */
+ * profile on one channel, match cards sorted by distance, and the apply bar (Save as template · Run seed search).
+ * fixup-ap (grey-text sweep) moved off the page, kept here: the apply bar said "preview counts update live" after
+ * the draft state -- the counts visibly do. The match header's "200 in the run" and "to review them, run it" are in
+ * its InfoTip; the cost chip's "a run · N ch × h × draws" is its hover title. */
 import { axisUnit } from '../charts/units'
 import { DatasetName } from '../naming'
 import { useEffect, useMemo, useRef, useState } from 'react'
@@ -193,7 +196,7 @@ export function SeedPage() {
           {dx.scope && draft && (
             <>
               <DiscoveryToolbar dx={dx} right={<><NullChip dx={dx} /><CostChip dx={dx} label={estimate.data
-                ? <><b>≈ {fmtSeconds(estimate.data.run.seconds)}</b> <span className="muted">a run · {channels.length} ch × {(dx.scope.section[1] - dx.scope.section[0]).toFixed(1)} h × {estimate.data.run.draws} draws{estimate.data.run.measured ? '' : ' · assumed rate'}</span></>
+                ? <span title={`a run · ${channels.length} ch × ${(dx.scope.section[1] - dx.scope.section[0]).toFixed(1)} h × ${estimate.data.run.draws} draws${estimate.data.run.measured ? '' : ' · assumed rate'}`}><b>≈ {fmtSeconds(estimate.data.run.seconds)}</b> a run</span>
                 : <><b>≈ ?</b> <span className="muted">estimating</span></>} /><HistoryButton dx={dx} /></>} />
               <ScopeCard dx={dx} />
               {!dx.recording?.heldOut && (
@@ -637,7 +640,6 @@ function DistanceProfile({ dx, seed, candidates, threshold }: { dx: Discovery; s
       <div className="dsc-card-head">
         <h3>Distance profile</h3>
         <InfoTip title="Distance profile">One channel and one zoomed view at a time: the clean signal, MASS's distance at every position with the threshold, and a matches track beneath. Nothing is drawn on the signal itself.</InfoTip>
-        <span className="muted small">one channel at a time</span>
         <span className="k-spacer" />
         <span className="dsc-legend-row small mono"><span><i className="sw" style={{ background: SEED_COLOUR }} />new match</span><span><i className="sw" style={{ background: 'var(--green)' }} />already judged</span></span>
         <Dropdown prefix="channel" value={ch} onChange={v => setChQ(v)} options={s.channels.map(c => ({ value: c, label: c }))} size="sm" testid="profile-channel" />
@@ -776,7 +778,7 @@ function MatchesCard({ seed, matches, channels, note = null, nullDraws = null, h
             which left "12 closest" over a search that returned 132 */}
         {note && <span className="muted small" data-testid="matches-note">{note}</span>}
         <InfoTip title="Matches">These are the full search's matches — every position in every channel of the scope was scored against the seed, and these are the ones under the cut (or, with no cut, the closest). Not a sample. The preview's null is capped at a few draws per channel over a long scope; the run draws the full 200. To put matches to Review, run the search: the run row on Discovery › Runs has *Send N unjudged to Review*. Each card overlays the match (black) on the seed (purple), centred on its own mean, in mV on one shared scale; a green dot marks a match that already has a verdict.</InfoTip>
-        <span className="muted small" data-testid="matches-scope">the full search · {channels} channel{channels === 1 ? '' : 's'}{hours != null ? ` × ${hours.toFixed(1)} h` : ''}{nullDraws != null ? ` · null ${nullDraws} draw${nullDraws === 1 ? '' : 's'} per channel here, 200 in the run` : ''} · sorted by distance · to review them, run it</span>
+        <span className="small" data-testid="matches-scope">{channels} channel{channels === 1 ? '' : 's'}{hours != null ? ` × ${hours.toFixed(1)} h` : ''}{nullDraws != null ? ` · null ${nullDraws} draw${nullDraws === 1 ? '' : 's'} per channel` : ''} · by distance</span>
         <span className="k-spacer" />
         <Pager page={page} pageCount={pages} onPage={p => setPageQ(String(p))} format="range" total={matches.length} pageSize={per} label="page of matches" testid="matches-pager" />
         <span className="dsc-legend-row small mono"><span><i className="sw" style={{ background: SEED_COLOUR }} />seed</span><span><i className="sw line" style={{ background: 'var(--trace)' }} />match</span></span>
@@ -943,7 +945,7 @@ function ApplyBar({ dx, draft, kept, cut, finished, seed, sim, onStarted, onSave
             : sim.status === 'done'
               ? <><b data-testid="seed-done">{draft.label} · {kept == null ? 'no cut chosen — nothing kept yet' : `${kept} found`}</b>
                 <Button variant="link" size="sm" icon="external" onClick={() => navigate('discovery/runs')} testid="seed-open-runs">Open in Runs</Button></>
-              : <><b data-testid="apply-state">draft · {!applied ? 'not run with this cut yet' : changes.length === 0 ? 'no unapplied changes' : `${changes.length} unapplied change${changes.length === 1 ? '' : 's'}`}</b><span className="muted small mono">{diff ? `${diff} · ` : ''}preview counts update live</span></>}
+              : <><b data-testid="apply-state">draft · {!applied ? 'not run with this cut yet' : changes.length === 0 ? 'no unapplied changes' : `${changes.length} unapplied change${changes.length === 1 ? '' : 's'}`}</b>{diff && <span className="small mono">{diff}</span>}</>}
           {sim.status === 'cancelled' && <span className="muted small">last search cancelled · nothing written</span>}
           {nullSeg}
           <span className="k-spacer" />
