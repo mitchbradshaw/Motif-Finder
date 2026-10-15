@@ -608,6 +608,27 @@ The family count is flat from 0.42 to 0.60 while the omitted fraction falls by t
 omission at 0.42 buys no structure, it is the same families with a quarter of the catalogue shaken out
 below the ten-member floor. Re-measure when the catalogue changes; the sweep is four lines of script.
 
+### 6.4 The kept tree (fixup-an, 2026-10-15)
+
+A Ward grouping's tree is no longer thrown away. `engine.run_grouping(..., tree_root=...)` keeps the fit as one
+`.npz` (`Working/library/grouping/tree.py::GroupingTree`): the linkage, the resampled vectors it was built on
+(the distances are recomputed from them, deterministically — an n² matrix is not stored), the member refs,
+content hashes and pre-fit omissions, the fitted rows and the leaf order. The `groupings` row holds
+**`tree_path` and `tree_key` only** (rule 4).
+
+| where | path |
+|---|---|
+| project bridge | `DATA/derived/library/grouping_trees/<key>.npz` (`tree.TREE_ROOT`) |
+| sandbox bridge | `webui/runtime/<stamp>/results/grouping_trees/<key>.npz` — never the real `DATA/` |
+
+The key is a hash of unit, basis, method, the params **minus the assign-only ones** (`cut`, `omit_d`,
+`min_group`, `omit_small` — they change no merge) and, per item, its ref, content hash and a digest of the
+waveform the fit was handed. A regroup whose key matches loads the tree and only re-cuts it (the job says
+*reused the tree*); a file whose contents do not hash to its key is refused on load. A cut is previewed from
+the tree by `engine.cut_preview` through the same assign path as a regroup, so at a grouping's own cut it
+reproduces that grouping row for row. Groupings made before 2026-10-15 have no tree; a regroup at their own
+settings builds one.
+
 ---
 
 ## 7. What the UI reads

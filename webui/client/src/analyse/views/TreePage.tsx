@@ -118,7 +118,10 @@ function WardSlurmCard({ tkey, nTrain, sampled }: { tkey: string; nTrain: number
 }
 
 /* ---------------- the dendrogram, with a cut line to drag ---------------- */
-function Dendrogram({ t, k, onK }: { t: TreeInfo; k: number; onK: (k: number) => void }) {
+/* fixup-an: exported for Library › Grouping, which draws a grouping's kept Ward tree with the same component. It
+ * needs only `t.dendrogram`; `cutHeight` draws the line at an exact height (the grouping's cut) rather than in the
+ * middle of k's gap, and `leafWord` names what a leaf is ("windows" here, "members" there). */
+export function Dendrogram({ t, k, onK, cutHeight, leafWord = 'windows' }: { t: Pick<TreeInfo, 'dendrogram'>; k: number; onK: (k: number) => void; cutHeight?: number; leafWord?: string }) {
   const [ref, size] = useSize<HTMLDivElement>()
   const d = t.dendrogram
   const W = Math.max(200, size.width), H = 260, padL = 44, padR = 10, padT = 10, padB = 34
@@ -127,7 +130,7 @@ function Dendrogram({ t, k, onK }: { t: TreeInfo; k: number; onK: (k: number) =>
   const X = (v: number) => padL + (v - xmin) / Math.max(1e-9, xmax - xmin) * (W - padL - padR)
   const Y = (h: number) => padT + (1 - h / maxH) * (H - padT - padB)
   const hInv = (py: number) => Math.max(0, (1 - (py - padT) / (H - padT - padB)) * maxH)
-  const cutH = heightFor(d.heights, d.max_height, k)
+  const cutH = cutHeight ?? heightFor(d.heights, d.max_height, k)
   const drag = useRef(false)
   const onMove = (e: React.PointerEvent<SVGRectElement>) => {
     if (!drag.current) return
@@ -148,7 +151,7 @@ function Dendrogram({ t, k, onK }: { t: TreeInfo; k: number; onK: (k: number) =>
             return <polyline key={i} points={xx.map((x, j) => `${X(x)},${Y(yy[j])}`).join(' ')} fill="none" stroke={above ? 'var(--grey-400, #9aa1ab)' : 'var(--blue, #0a84ff)'} strokeWidth={1.2} />
           })}
           {d.leaves.map((lab, i) => <text key={i} x={X(5 + 10 * i)} y={H - padB + 12} textAnchor="middle" style={{ fontSize: 8 }} fill="var(--muted)">{lab.startsWith('(') ? lab.slice(1, -1) : '1'}</text>)}
-          <text x={W - padR} y={H - 6} textAnchor="end" style={{ fontSize: 9 }} fill="var(--muted)">the last {d.leaves.length} merges of {d.n_leaves.toLocaleString()} leaves · numbers = windows under each branch</text>
+          <text x={W - padR} y={H - 6} textAnchor="end" style={{ fontSize: 9 }} fill="var(--muted)">the last {d.leaves.length} merges of {d.n_leaves.toLocaleString()} leaves · numbers = {leafWord} under each branch</text>
           <g data-testid="dendrogram-cut">
             <line x1={padL} x2={W - padR} y1={Y(cutH)} y2={Y(cutH)} stroke="var(--amber, #e8900c)" strokeWidth={1.6} strokeDasharray="5 3" />
             <text x={W - padR - 4} y={Y(cutH) - 4} textAnchor="end" style={{ fontSize: 11, fontWeight: 600, paintOrder: 'stroke', stroke: '#fff', strokeWidth: 3 }} fill="var(--amber, #e8900c)">cut · k = {k} · drag</text>
@@ -238,7 +241,7 @@ function Card({ c, on, onSel }: { c: ClusterCard; on: boolean; onSel: (c: number
 }
 
 /* ---------------- one cluster ---------------- */
-function Spark({ v, w = 140, h = 44, band, colour = 'var(--text)', testid }: { v: number[]; w?: number; h?: number; band?: { lo: number[]; hi: number[] }; colour?: string; testid?: string }) {
+export function Spark({ v, w = 140, h = 44, band, colour = 'var(--text)', testid }: { v: number[]; w?: number; h?: number; band?: { lo: number[]; hi: number[] }; colour?: string; testid?: string }) {
   const all = band ? [...band.lo, ...band.hi, ...v] : v
   const lo = Math.min(...all), hi = Math.max(...all)
   const sy = (y: number) => h - 2 - (y - lo) / ((hi - lo) || 1) * (h - 4)
