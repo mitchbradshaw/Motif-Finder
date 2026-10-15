@@ -340,7 +340,7 @@ export function DemoChainPage({ template }: { template: string }) {
         {clusterRow && sc.hpc ? (
           <div className="card an-bottom" data-testid="generated-job">
             <div style={{ minWidth: 0 }}>
-              <div className="row" style={{ gap: 10, alignItems: 'baseline' }}><b style={{ fontSize: 14 }}>Generated job</b><span className="mono muted" style={{ fontSize: 11 }}>stage {pad2(clusterRow.index + 1)} only · 01 resolved from cache by recipe-prefix hash</span>
+              <div className="row" style={{ gap: 10, alignItems: 'baseline' }}><b style={{ fontSize: 14 }}>Generated job</b><InfoTip title="Generated job">Stage {pad2(clusterRow.index + 1)} only. 01 is resolved from cache by recipe-prefix hash.</InfoTip>
                 <span style={{ marginLeft: 'auto' }}><Dropdown prefix="template" value="guided" onChange={val => toast.push({ text: `script template · ${val}` })} options={[{ value: 'guided', label: 'guided · uob-bc4' }, { value: 'plain', label: 'plain sbatch' }]} /></span></div>
               <CodeBlock code={sc.hpc.script} filename="ub_mp_CH4_a7f3.sh" save={false} style={{ marginTop: 8 }} testid="slurm-script" />
             </div>
@@ -358,7 +358,7 @@ export function DemoChainPage({ template }: { template: string }) {
         ) : pausedRow && sc.paused ? (
           <div className="card an-bottom" data-testid="paused-run">
             <div style={{ minWidth: 0 }}>
-              <div className="row" style={{ gap: 10, alignItems: 'baseline' }}><b style={{ fontSize: 14 }}>Paused run {sc.paused.runId}</b><span className="mono muted" style={{ fontSize: 11 }}>stage {pad2(pausedRow.index + 1)} went to the cluster · 01 stays cached</span></div>
+              <div className="row" style={{ gap: 10, alignItems: 'baseline' }}><b style={{ fontSize: 14 }}>Paused run {sc.paused.runId}</b><InfoTip title="Paused run">Stage {pad2(pausedRow.index + 1)} went to the cluster. 01 stays cached.</InfoTip></div>
               <div className="an-log" data-testid="paused-log">{sc.paused.log.map(([at, what], k) => <div key={k}><span>{at}</span> {what}</div>)}</div>
             </div>
             <div className="an-after">

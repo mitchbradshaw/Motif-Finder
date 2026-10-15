@@ -5,7 +5,7 @@
    and the toast says it — an absence (unlabelled, dropped) is the result, so it is on the face. */
 import { useState } from 'react'
 import { ApiError, saveWindowSetAs, type SavedWindowSet } from '../api'
-import { Button, Checkbox, Modal, TextField } from '../kit'
+import { Button, Checkbox, InfoTip, Modal, TextField } from '../kit'
 import { useToast } from '../shell/Toast'
 import { navigate } from '../state'
 
@@ -51,14 +51,16 @@ export function SaveWindowSetButton({ jobId, step, defaultName, disabledReason, 
           <Button variant="primary" disabled={!valid || busy} disabledReason={!valid ? 'letters, digits, _ . - (no spaces), up to 64' : 'saving…'} onClick={save} testid="save-window-set-confirm">{busy ? 'Saving…' : 'Save'}</Button></>}>
         <div className="stack" style={{ gap: 10 }}>
           <TextField value={name} onChange={setName} placeholder="ws_name" invalid={!valid} block testid="save-window-set-name" autoFocus onEnter={save} />
-          <Checkbox checked={nonOverlap} onChange={setNonOverlap} testid="save-window-set-non-overlap"
-            label={<span>Training set — keep no two overlapping windows</span>} />
-          <span className="muted small">
-            {nonOverlap
-              ? 'Labelled windows are kept first — each unless it overlaps one already kept — then unlabelled windows fill the gaps; the rest are counted as dropped. Overlapping training windows share samples, so a model would be tested on what it trained on.'
-              : 'Every window is kept, overlapping neighbours included. The set will fail its spacing check and be badged not train-safe.'}
-          </span>
-          <span className="muted small">Coverage is counted at save by the manual-label rule: a window is labelled only if it wholly contains a human-labelled span and every span it contains agrees. Library › Window sets shows it now and at save.</span>
+          <div className="row" style={{ gap: 6 }}>
+            <Checkbox checked={nonOverlap} onChange={setNonOverlap} testid="save-window-set-non-overlap"
+              label={<span>Training set — keep no two overlapping windows</span>} />
+            <InfoTip title="Training set">
+              Ticked: labelled windows are kept first — each unless it overlaps one already kept — then unlabelled windows fill the gaps; the rest are counted as dropped. Overlapping training windows share samples, so a model would be tested on what it trained on.
+              {' '}Unticked: every window is kept, overlapping neighbours included.
+              {' '}Coverage is counted at save by the manual-label rule: a window is labelled only if it wholly contains a human-labelled span and every span it contains agrees. Library › Window sets shows it now and at save.
+            </InfoTip>
+          </div>
+          {!nonOverlap && <span className="muted small">The set will fail its spacing check and be badged not train-safe.</span>}
           {error && <div className="error-card" style={{ padding: '6px 10px' }} data-testid="save-window-set-error"><div className="mono small">{error}</div></div>}
         </div>
       </Modal>
