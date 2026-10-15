@@ -321,7 +321,7 @@ header's path strip) were done directly the same day (commits prefixed `ux-1013:
 
 | Prompt | What | Size |
 |---|---|---|
-| `AJ-cross-channel-finish.md` | Explore › Cross-channel: rows plot at a true gain, the window picker picks, lags explained | M |
+| `AQ-cross-channel-finish.md` (was AJ; the letter was taken) | Explore › Cross-channel: rows plot at a true gain, the window picker picks, lags explained | M |
 | `AK-spike-detection-block.md` | Spike detection emits spikes not gaps, sees both polarities, δ in mV, vectorised; page explains | M |
 | `AL-send-one-detection-to-review.md` | one detection from Discovery's browser into a per-session picked queue | S |
 | `AM-peak-aligned-windows.md` | `peak` / `trough` alignment and an anchor fraction — opens with a question for the researcher | S–M |

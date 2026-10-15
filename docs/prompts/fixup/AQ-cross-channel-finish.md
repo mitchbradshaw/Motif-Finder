@@ -1,4 +1,4 @@
-# Fixup AJ — finish Explore › Cross-channel: the rows must plot, the window picker must pick
+# Fixup AQ — finish Explore › Cross-channel: the rows must plot, the window picker must pick
 
 **Written 2026-10-13 from the researcher's screenshot and list ("implement channel compare in explore page":
 by that they mean *finishing this page* — "the channels don't appear to be plotting, the span selector doesn't
@@ -9,7 +9,7 @@ Read `CLAUDE.md`, `webui/client/src/explore/CrossChannelPage.tsx` (its header, e
 (read its header before changing how a row is drawn — it says why `centred` is the default), `webui/server/explore_routes.py`
 (`GET /api/cross/{id}`), `Working/cross_channel.py` (`classify_waveforms`) and `docs/rq_roundA/RQ6-recurrence-across-channels.md`.
 
-Commit prefix `fixup-aj:`. Test-first; the first commit touches only `tests/` and must fail. **Smoke against your own
+Commit prefix `fixup-aq:`. Test-first; the first commit touches only `tests/` and must fail. **Smoke against your own
 sandbox bridge on your own port and a private dist** (`webui/run_server.py --port 87NN --sandbox --dist …`); never
 against the researcher's `--project` bridge on 8765.
 
@@ -49,6 +49,6 @@ The job is to make the page tell the truth and respond to its controls, not to a
 
 ## Report
 
-`docs/prompts/fixup/reports/AJ-cross-channel-finish.md`: the screenshot pair, where 20.74 came from, what X3 turned out
+`docs/prompts/fixup/reports/AQ-cross-channel-finish.md`: the screenshot pair, where 20.74 came from, what X3 turned out
 to be, and anything you had to leave (say so, do not narrow silently). Update `docs/rq_roundA/RQ6-…md` if what the page
 can now show changes what RQ6 can answer.
