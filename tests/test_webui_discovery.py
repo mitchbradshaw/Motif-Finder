@@ -57,6 +57,7 @@ from fastapi.testclient import TestClient  # noqa: E402
 from Working.database.schema import init_db  # noqa: E402
 from server.app import create_app  # noqa: E402
 from server.runtime import HELD_OUT_FILE, Runtime  # noqa: E402
+from server import discovery as _disc  # noqa: E402
 
 FS = 1.0
 N = 6000
@@ -358,7 +359,7 @@ def test_the_scoreboard_cells_are_the_tables_own_numbers(client):
     row = sb[0]
     assert row["run"] == out["run_key"]
     assert row["rule"]["criterion"] == "reciprocal_iou_onset"
-    assert row["reviewedCriterion"] == "onset inside reviewed coverage"
+    assert row["reviewedCriterion"] == _disc.REVIEWED_CRITERION  # the rule text is the server's (Q-D2 (a), Q41), not a copy here
     total, channels = row["total"], row["channels"]
     assert {c["channel"] for c in channels} == {CH[0], CH[1]}
     assert total["found"] == sum(c["found"] for c in channels)
