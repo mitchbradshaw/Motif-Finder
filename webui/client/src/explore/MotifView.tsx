@@ -9,7 +9,7 @@ import { getWindow, type ApiError, type Channel, type WindowData } from '../api'
 import { EnvelopePath } from '../charts/primitives'
 import { makeX, makeY } from '../charts/scale'
 import { useElementSize } from './useElementSize'
-import { Button, Checkbox, Dropdown, InfoTip } from '../kit'
+import { Button, Checkbox, Dropdown, EmptyState, InfoTip } from '../kit'
 import { navigate } from '../state'
 import { DemoTag } from './bits'
 import { ErrorCard } from './ErrorCard'
@@ -93,7 +93,7 @@ export function MotifView({ ch, motif, label, onSend, onReview, medoid, compact 
           <Checkbox checked={overlay && medoidOk} onChange={setOverlay} disabled={!medoidOk} label={<span style={{ color: medoidOk ? 'var(--text-2)' : undefined }}>overlay {fam ? `${fam.id} medoid` : 'family medoid'}</span>}
             disabledReason={!motif ? 'select a motif first' : !fam ? (motif.demo ? 'no family near this motif' : 'no families in this database') : 'no medoid trace for this family in the demo data'} testid="medoid-checkbox" />
         </span>
-        <InfoTip title="Motif" placement="bottom-end">The opened motif with ±{ctx} s of context. To open one, click a band in the span, or use ‹ ›. Onset and end are the stored span edges. The medoid is the family's most central member, drawn in mV and aligned at the onset.</InfoTip>
+        <InfoTip title="Motif" placement="bottom-end">The opened motif with ±{ctx} s of context. Onset and end are the stored span edges. The medoid is the family's most central member, drawn in mV and aligned at the onset.</InfoTip>
       </div>
       {err && <ErrorCard error={err} title="motif window failed" />}
       <div className="ex-plot" ref={ref} style={{ height: H + AXIS_H }}>
@@ -115,6 +115,7 @@ export function MotifView({ ch, motif, label, onSend, onReview, medoid, compact 
             </g>
           </svg>
         )}
+        {!motif && <EmptyState size="sm" title="no motif selected" caption={`click a band in the span, or use ‹ › — it shows here with ±${ctx} s of context`} />}
       </div>
       <div className="ex-motif-foot">
         <span className="fam" data-testid="motif-footer">

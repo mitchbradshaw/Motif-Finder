@@ -190,7 +190,7 @@ function BlindCard({ queueId, showing, n, own, busy, onAnswer, onUndo, onPrev, o
         <Button size="sm" onClick={onNext} disabled={!onNext} disabledReason="the last showing" testid="blind-next">next →</Button>
       </div>
       <div className="mono small muted" style={{ marginTop: 6 }} data-testid="blind-own">
-        {own ? `your answer to this showing: ${SAY[own]} (press another key to change it)` : 'no answer yet'}
+        {own ? `your answer to this showing: ${SAY[own]} (press another key to change it)` : 'no answer yet'} · space: next unlabelled
       </div>
     </section>
   )

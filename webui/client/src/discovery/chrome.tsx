@@ -111,7 +111,7 @@ export function NullChip({ dx }: { dx: Discovery }) {
   )
 }
 
-export function CostChip({ dx, label }: { dx: Discovery; label?: ReactNode }) {
+export function CostChip({ dx, label, detail }: { dx: Discovery; label?: ReactNode; detail?: ReactNode }) {
   const ref = useRef<HTMLButtonElement>(null)
   const [open, setOpen] = useState(false)
   if (!dx.scope) return null
@@ -124,6 +124,7 @@ export function CostChip({ dx, label }: { dx: Discovery; label?: ReactNode }) {
       </button>
       <Popover open={open} onClose={() => setOpen(false)} anchorRef={ref} title="Cost of pending runs" subtitle={`local limit ${DISCOVERY_LIMIT_MIN} min`} width={320} testid="cost-popover">
         <div className="dsc-pop-list">
+          {detail && <div className="mono small" data-testid="cost-detail">{detail}</div>}
           {dx.pending.length === 0 && <span className="muted">No run is waiting to start: every run has results or is queued.</span>}
           {dx.pending.map(r => <div key={r.key} className="row between"><span><span className="dot" style={{ background: r.colour }} /> {r.label}</span><b className="mono">{fmtMin((r.perChannelMin ?? 0) * dx.scope!.channels.length * dx.sectionH / 174)}</b></div>)}
           <div className="row between dsc-pop-total"><span>{dx.scope.channels.length} ch × {dx.sectionH} h</span><b className={cx('mono', dx.overLimit && 'amber')}>{fmtMin(dx.estimateMin)} · {dx.overLimit ? 'cluster' : 'local'}</b></div>

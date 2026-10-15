@@ -1,6 +1,8 @@
 /* Insert a stage in a demo chain (frame chain-2, spec §6.4): the type contract as three pills, every demo block as a
  * card — incompatible ones visible and disabled with their reason — and a detail panel with defaults, cost, null and
- * what goes stale. The live chain keeps its own modal (InsertStageModal.tsx) against the bridge's registry. */
+ * what goes stale. The live chain keeps its own modal (InsertStageModal.tsx) against the bridge's registry.
+ * fixup-ap: the detail panel's closing "inserting at the end changes the terminal type" left — the header note says it
+ * when the stage goes at the end, and the fit count's InfoTip says it too. */
 import { useMemo, useState } from 'react'
 import { blockByName, DEMO_KIND_LABEL, demoCompatibleAt, type DemoBlock, type DemoStep } from '../../api/analyse'
 import { Button, Dropdown, EmptyState, Icon, InfoTip, Modal, Seg, TextField, Toggle } from '../../kit'
@@ -116,9 +118,8 @@ export function DemoInsertModal({ steps, position, onClose, onInsert }: { steps:
                   <div className="tile"><div className="k">side-inputs</div><div className="v">{sel.side ?? 'none'}</div></div>
                 </div>
                 {!atEnd && <div className="amber" data-testid="modal-stale-note"><Icon name="clock" size={11} /> {pad2(position + 1)} goes stale · 00–{pad2(position)} stay cached</div>}
-                <div className="row" style={{ gap: 6 }}><InfoTip title="Inserting">Inserting at the end changes the terminal type.</InfoTip></div>
               </>
-            ) : <EmptyState size="sm" icon="layers" title="no block selected" caption="pick a block that fits" />}
+            ) : <EmptyState size="sm" icon="layers" title="no block selected" caption="pick a block that fits to see its defaults and cost" />}
           </div>
         </div>
       </div>

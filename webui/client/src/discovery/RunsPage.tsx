@@ -117,8 +117,8 @@ function WhereFires({ dx }: { dx: Discovery }) {
     <section className="k-card dsc-fires" data-testid="where-fires" aria-label="Where each run fires">
       <div className="dsc-card-head">
         <h3>Where each run fires</h3>
-        <InfoTip title="Where each run fires">Small multiples by channel, one row per run, on one time axis. At section scale a span is thinner than a pixel, so rows show detections per 3 h bin — colour by run, opacity by count. The human row shows reviewed hours as a grey underlay: recall exists only there.</InfoTip>
-        <span className="muted small">{paged ? `channels ${(dx.chPage - 1) * 3 + 1}–${Math.min(s.channels.length, dx.chPage * 3)} of ${s.channels.length} · follows the scope pager` : (mode === 'spans' ? 'every span in view · grouped by channel' : 'detections per 3 h · grouped by channel')}</span>
+        <InfoTip title="Where each run fires">Small multiples by channel, one row per run, on one time axis. At section scale a span is thinner than a pixel, so rows show detections per 3 h bin — colour by run, opacity by count. The human row shows reviewed hours as a grey underlay: recall exists only there. With more than three channels the rows page with the scope pager.</InfoTip>
+        <span className="muted small">{paged ? `channels ${(dx.chPage - 1) * 3 + 1}–${Math.min(s.channels.length, dx.chPage * 3)} of ${s.channels.length}` : (mode === 'spans' ? 'every span in view · grouped by channel' : 'detections per 3 h · grouped by channel')}</span>
         <span className="k-spacer" />
         <Seg size="sm" value={mode} onChange={v => setMode(v)} options={[{ value: 'density', label: 'density' }, { value: 'spans', label: 'spans' }]} testid="fires-mode" />
         {/* the detection map (2026-10-12): the same rows as columns of channels and datasets, every session — where overall, not when */}
@@ -251,7 +251,7 @@ function Scoreboard({ dx }: { dx: Discovery }) {
       <div className="dsc-card-head">
         <h3>Scoreboard</h3>
         <InfoTip title="Scoreboard">Precision is labelled precision: alone it rewards timidity. Recall is per channel, over that channel's reviewed overlap; the run row states the hours it pooled. Already judged counts detections that had a verdict before the run started. Null expects is what the paired surrogate run finds on the same scope — the method is the one Settings › Nulls names and `preprocessing.surrogate` implements, shown on the toolbar's null chip — and × null is the ratio. A null that finds nothing leaves × null empty: there is no ratio to take, which is the best result there is.</InfoTip>
-        <span className="muted small">per run · expand a run for its channels</span>
+        <span className="muted small">per run</span>
         <span className="k-spacer" />
         <Button variant="link" icon="refresh" loading={refresh.busy} onClick={() => refresh.start({ stepMs: 600, queuedMs: 100 })} testid="refresh-scores">Refresh after reviewing</Button>
       </div>
@@ -264,7 +264,7 @@ function Scoreboard({ dx }: { dx: Discovery }) {
               return (
                 <Fragment key={s.run}>
                   <tr className={cx('parent', open && 'open')} data-testid={`score-row-${s.run}`}>
-                    <td><button type="button" className="dsc-expand" onClick={() => toggle(s.run)} aria-expanded={open} data-testid={`score-expand-${s.run}`}><Icon name={open ? 'chevron-down' : 'chevron-right'} size={12} /><span className="dot" style={{ background: colourOf(s.run) }} /><b>{s.run}</b>{dx.stale && <span className="k-badge t-amber">stale</span>}</button></td>
+                    <td><button type="button" className="dsc-expand" onClick={() => toggle(s.run)} aria-expanded={open} title={open ? 'hide this run’s channels' : 'show this run’s channels'} data-testid={`score-expand-${s.run}`}><Icon name={open ? 'chevron-down' : 'chevron-right'} size={12} /><span className="dot" style={{ background: colourOf(s.run) }} /><b>{s.run}</b>{dx.stale && <span className="k-badge t-amber">stale</span>}</button></td>
                     {cells(s.total)}
                   </tr>
                   {open && s.channels.map(c => <tr key={c.channel} className="child" data-testid={`score-child-${s.run}-${c.channel}`}><td className="indent">{c.channel}</td>{cells(c)}</tr>)}

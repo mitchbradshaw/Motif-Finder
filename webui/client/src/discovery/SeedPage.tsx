@@ -3,7 +3,7 @@
  * profile on one channel, match cards sorted by distance, and the apply bar (Save as template · Run seed search).
  * fixup-ap (grey-text sweep) moved off the page, kept here: the apply bar said "preview counts update live" after
  * the draft state -- the counts visibly do. The match header's "200 in the run" and "to review them, run it" are in
- * its InfoTip; the cost chip's "a run · N ch × h × draws" is its hover title. */
+ * its InfoTip; the cost chip's "a run · N ch × h × draws" is the first line of its popover (CostChip detail). */
 import { axisUnit } from '../charts/units'
 import { DatasetName } from '../naming'
 import { useEffect, useMemo, useRef, useState } from 'react'
@@ -196,8 +196,9 @@ export function SeedPage() {
           {dx.scope && draft && (
             <>
               <DiscoveryToolbar dx={dx} right={<><NullChip dx={dx} /><CostChip dx={dx} label={estimate.data
-                ? <span title={`a run · ${channels.length} ch × ${(dx.scope.section[1] - dx.scope.section[0]).toFixed(1)} h × ${estimate.data.run.draws} draws${estimate.data.run.measured ? '' : ' · assumed rate'}`}><b>≈ {fmtSeconds(estimate.data.run.seconds)}</b> a run</span>
-                : <><b>≈ ?</b> <span className="muted">estimating</span></>} /><HistoryButton dx={dx} /></>} />
+                ? <><b>≈ {fmtSeconds(estimate.data.run.seconds)}</b> a run{estimate.data.run.measured ? '' : ' · assumed'}</>
+                : <><b>≈ ?</b> <span className="muted">estimating</span></>}
+                detail={estimate.data ? `a run · ${channels.length} ch × ${(dx.scope.section[1] - dx.scope.section[0]).toFixed(1)} h × ${estimate.data.run.draws} draws${estimate.data.run.measured ? ' · measured rate' : ' · assumed rate (not measured yet)'}` : undefined} /><HistoryButton dx={dx} /></>} />
               <ScopeCard dx={dx} />
               {!dx.recording?.heldOut && (
                 <div className="dsc-cols">

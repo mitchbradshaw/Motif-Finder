@@ -1,6 +1,8 @@
 /* Insert a stage (frame chain-2, spec §6.4): leads with the type contract as three pills,
    then a grid of every registered block — incompatible ones stay visible and disabled with
-   their reason — and a detail panel for the selected block. */
+   their reason — and a detail panel for the selected block.
+   fixup-ap: the detail panel used to end with "ⓘ inserting at the end changes the terminal type" on every block;
+   the header note says exactly that when the stage goes at the end, so the line (and the bare icon it became) left. */
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { ApiError, compatibleAt, validateChain, validateParams, TYPE_LABEL, type AdapterCard, type Compatible, type Step } from '../api'
 import { useDismiss } from '../shell/useDismiss'
@@ -9,7 +11,7 @@ import { Glyph } from './glyphs'
 import { fmtParam } from './ParamsPanel'
 import { pad2, type AdapterIndex } from './useAdapters'
 import { spanOf } from './useValidation'
-import { EmptyState, Icon, Tooltip } from '../kit'
+import { EmptyState } from '../kit'
 
 interface Props {
   steps: Step[]; position: number; adapters: AdapterIndex; source: SourceSpan | null
@@ -159,9 +161,8 @@ export function InsertStageModal({ steps, position, adapters, source, onClose, o
                 </div>
                 {!atEnd && <div className="amber">⏱ {pad2(position + 1)} goes stale · 00–{pad2(position)} stay cached</div>}
                 {sel.max_span_samples !== null && source && (source.end_idx - source.start_idx) > sel.max_span_samples && <div className="amber">⚠ this span ({source.end_idx - source.start_idx} samples) exceeds the block's local ceiling ({sel.max_span_samples}) → HPC</div>}
-                <div className="row" style={{ gap: 6 }}><Tooltip content="inserting at the end changes the terminal type"><span className="k-info" tabIndex={0} aria-label="about inserting at the end"><Icon name="info" size={13} /></span></Tooltip></div>
               </>
-            ) : <EmptyState size="sm" icon="layers" title="no block selected" caption="pick a block that fits" />}
+            ) : <EmptyState size="sm" icon="layers" title="no block selected" caption="pick a block that fits to see its defaults and cost" />}
           </div>
         </div>
         <div className="ins-foot">

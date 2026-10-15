@@ -20,8 +20,8 @@ import { EnvelopePath, SpanBands } from '../../charts/primitives'
 import { clamp, makeX, makeY, polylinePath, type XScale } from '../../charts/scale'
 import { useSize } from '../../charts/useSize'
 import { axisUnit } from '../../charts/units'
-import { Button, Histogram, InfoTip, Rose } from '../../kit'
-import { fmtHours } from '../../state'
+import { Button, EmptyState, Histogram, InfoTip, Rose } from '../../kit'
+import { fmtHours, navigate } from '../../state'
 import { DetectorFunnel, funnelOf } from '../DetectorFunnel'
 import { MseCurves, curvesOf } from '../MseCurves'
 import { CycleStack, cycleStackOf } from '../CycleStack'
@@ -64,7 +64,12 @@ export function TypeView({ payload, ctx }: { payload: Payload; ctx: ViewCtx }): 
 export const hasView = (type: string): boolean => type in VIEWS
 
 /* ============================== settings-tier pieces ============================== */
-const NoResult = ({ what = 'this stage' }: { what?: string }) => <div className="muted mono small" data-testid="no-result" style={{ padding: '18px 0' }}>no result for {what} yet · run the chain and its work is drawn here</div>
+/* fixup-ap: "run the chain" is a next step, so it is the button (rule 2); the run itself starts on the chain page */
+const OpenChain = () => <Button size="sm" iconRight="arrow-right" onClick={() => navigate('analyse/chain')}>Open the chain to run it</Button>
+const NoResult = ({ what = 'this stage' }: { what?: string }) =>
+  <EmptyState size="sm" icon="layers" title={`no result for ${what} yet`} caption="run the chain and its work is drawn here" action={<OpenChain />} testid="no-result" />
+const NotLoaded = ({ what, shows }: { what: string; shows: string }) =>
+  <EmptyState size="sm" icon="layers" title={`the upstream ${what} is not loaded`} caption={shows} action={<OpenChain />} style={{ marginBottom: 8 }} />
 
 const as = <T extends Payload>(p: Payload | null, type: string): T | null => (p && p.type === type && !('error' in p && (p as { error?: unknown }).error) ? p as T : null)
 
@@ -159,10 +164,10 @@ function EncodingToScores(q: ProcessProps) {
   const param = (name: string) => Number(q.step.params[name] ?? q.card?.params.find(p => p.name === name)?.default)
   const a = param('row_from'), b = param('row_to')
   const band: [number, number] | null = Number.isFinite(a) && Number.isFinite(b) && b > a ? [a, b] : null
-  const above = !up || up.kind !== 'image' ? <div className="muted mono small" style={{ marginBottom: 6 }}>the upstream Encoding is not loaded · run the chain to see the image these scores were computed from</div>
+  const above = !up || up.kind !== 'image' ? <NotLoaded what="Encoding" shows="run the chain to see the image these scores were computed from" />
     : up.frames?.axis === 'time'
-      ? <><Full q={q} height={150} testid="scores-upstream-image" axis={false}>{ctx => <AlignedImage p={up} ctx={ctx} band={band} />}</Full><div className="row" style={{ margin: '2px 0 6px', gap: 6 }}><InfoTip title="The upstream image">The image these scores were computed from, on the same x.{band ? ' The amber box is the band of rows the block summed.' : ''}</InfoTip></div></>
-      : <><Full q={q} height={130} testid="scores-upstream-image" axis={false}>{ctx => <ImageView p={up} ctx={{ ...ctx, interactive: false }} />}</Full><div className="row" style={{ margin: '2px 0 6px', gap: 6 }}><InfoTip title="The upstream images">The images these scores were computed from. Each is marked on the bar where it sits in time.</InfoTip></div></>
+      ? <><Full q={q} height={150} testid="scores-upstream-image" axis={false}>{ctx => <AlignedImage p={up} ctx={ctx} band={band} />}</Full><div className="row mono small" style={{ margin: '2px 0 6px', gap: 6 }}>upstream image<InfoTip title="The upstream image">The image these scores were computed from, on the same x.{band ? ' The amber box is the band of rows the block summed.' : ''}</InfoTip></div></>
+      : <><Full q={q} height={130} testid="scores-upstream-image" axis={false}>{ctx => <ImageView p={up} ctx={{ ...ctx, interactive: false }} />}</Full><div className="row mono small" style={{ margin: '2px 0 6px', gap: 6 }}>upstream images<InfoTip title="The upstream images">The images these scores were computed from. Each is marked on the bar where it sits in time.</InfoTip></div></>
   return <ScoresProcess q={q} above={above} />
 }
 
@@ -307,7 +312,7 @@ function ScoresToSpans(q: ProcessProps) {
   const result = as<SpansetPayload>(q.payload, 'spanset')
   const thr = thresholdOf(q.step, q.card)
   const lead = !scores
-    ? <div className="muted mono small" style={{ marginBottom: 8 }}>the upstream Scores are not loaded — run the chain so the stage before this one has a result, and its curve is drawn here with this block's cut on it</div>
+    ? <NotLoaded what="Scores" shows="run the chain so the stage before this one has a result; its curve is drawn here with this block's cut on it" />
     : (
       <>
         <Strip label="scores + cut" sub={thr !== null ? 'drag the line' : 'upstream'} height={160} t0={q.ctx.t0} t1={q.ctx.t1} testid="threshold-strip">
@@ -351,7 +356,7 @@ function EncodingToSpans(q: ProcessProps) {
     <rect key={i} x={x(s)} y={1} width={Math.max(2, x(result.end_s[i]) - x(s))} height={h - 2} fill="none" stroke="var(--text)" strokeWidth={1.5} rx={2} data-testid="fired-outline"><title>{`span #${i + 1}`}</title></rect>
   ))
   const lead = !up
-    ? <div className="muted mono small" style={{ marginBottom: 8 }}>the upstream Encoding is not loaded — run the chain and the symbols this block read are drawn here with the ones that fired outlined</div>
+    ? <NotLoaded what="Encoding" shows="run the chain and the symbols this block read are drawn here, the ones that fired outlined" />
     : up.kind === 'symbolic'
       ? (
         <Strip label="what fired" sub="spans outlined" height={56} t0={q.ctx.t0} t1={q.ctx.t1} testid="fired-on-encoding">
@@ -475,7 +480,7 @@ function EncodingProcess(q: ProcessProps) {
         <ImageEvidence p={img} jobId={q.jobId} index={q.index} onFrame={setExtra} />
         {/* W3-F: rows that are not pixels (`row_axis`, a payload convention): labelled on the image, and the block's
             own verdict per row when it judged them (`row_verdict`) */}
-        {img.row_axis && <div className="row" style={{ marginTop: 4, gap: 6 }} data-testid="row-axis-caption"><InfoTip title="Rows">Rows are {img.row_axis.label}s: {fmtRow(img.row_axis.values[0], img.row_axis.unit)} at the top … {fmtRow(img.row_axis.values[img.row_axis.values.length - 1], img.row_axis.unit)} at the bottom, labelled on the left of the image.</InfoTip></div>}
+        {img.row_axis && <div className="row" style={{ marginTop: 4, gap: 6 }} data-testid="row-axis-caption"><span className="mono small">rows: {img.row_axis.label}s{img.row_axis.unit ? ` (${img.row_axis.unit})` : ''}</span><InfoTip title="Rows">Rows are {img.row_axis.label}s: {fmtRow(img.row_axis.values[0], img.row_axis.unit)} at the top … {fmtRow(img.row_axis.values[img.row_axis.values.length - 1], img.row_axis.unit)} at the bottom, labelled on the left of the image.</InfoTip></div>}
         {img.row_axis && img.row_verdict && <RowVerdictTable axis={img.row_axis} verdict={img.row_verdict} />}
         {img.rules && img.rules.length > 0 && <RulesList rules={img.rules} testid="encoding-rules" />}
       </>
@@ -595,7 +600,7 @@ function GroupingProcess(q: ProcessProps) {
   return (
     <>
       <Full q={q} height={Math.min(300, 70 + 30 * Math.max(1, p.clusters.length))}>{ctx => <GroupingView p={p} ctx={ctx} />}</Full>
-      <div className="row" style={{ marginTop: 2, gap: 6 }}><InfoTip title="Reading the grouping">{p.class_names ? 'Top: the label of every window, in time (grey = excluded). Below: where each label falls.' : 'Top: the cluster of every window, in time. Below: when each cluster is active.'}</InfoTip></div>
+      <div className="row mono small" style={{ marginTop: 2, gap: 6 }}>how to read<InfoTip title="Reading the grouping">{p.class_names ? 'Top: the label of every window, in time (grey = excluded). Below: where each label falls.' : 'Top: the cluster of every window, in time. Below: when each cluster is active.'}</InfoTip></div>
       {p.coverage && <LabelCoverageLine c={p.coverage} />}
       {p.families && <FamilyTable families={p.families} summary={p.family_summary} unit="windows" />}
       {p.rules && <RulesList rules={p.rules} testid="label-rules" />}

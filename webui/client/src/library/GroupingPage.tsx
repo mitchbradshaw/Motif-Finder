@@ -663,7 +663,7 @@ function GroupingEditor({ from }: { from: string }) {
             </span>
           )}
 
-          <InfoTip title="Applying">Applying regroups the whole catalogue and clears the current scope{current ? `; ${current.id} stays saved` : ''}.</InfoTip>
+          <span className="mono small" style={{ color: '#c27400' }} data-testid="apply-clears-scope"><Icon name="alert-triangle" size={11} style={{ verticalAlign: -1 }} /> applying regroups the whole catalogue and clears the current scope{current ? `; ${current.id} stays saved` : ''}</span>
           {overLimit && <span className="mono small" style={{ color: '#c27400' }}><Icon name="hourglass" size={11} style={{ verticalAlign: -1 }} /> over the core's local limit — the regroup is exported as a cluster job</span>}
           {pv && job.view.result?.treeNote && <span className="mono small muted" data-testid="preview-tree-note"><Icon name="info" size={11} style={{ verticalAlign: -1 }} /> the tree: {job.view.result.treeNote}</span>}
           {savedId && <span className="mono small" style={{ color: 'var(--green)' }} data-testid="grouping-saved"><Icon name="check" size={11} style={{ verticalAlign: -1 }} /> saved as {savedId}</span>}
@@ -849,7 +849,7 @@ function Params({ d, set, basis, dist, extent, clusterings, invalid, methods, cu
             {spec?.description && <span className="lib-cap" data-testid="method-description">{spec.description}</span>}
             {spec ? <MethodParams spec={spec} values={d.mparams[method] ?? {}} onChange={(k, v) => set({ mparams: { ...d.mparams, [method]: { ...(d.mparams[method] ?? {}), [k]: v } } })} />
               : <span className="lib-cap">the editor read carries no parameters for {method}</span>}
-            <span><InfoTip title="How many families">How many families this gives, and whether each beats noise of the same colour, is measured by the preview.</InfoTip></span>
+            <span className="row small" style={{ gap: 6 }}>how many families<InfoTip title="How many families">How many families this gives, and whether each beats noise of the same colour, is measured by the preview.</InfoTip></span>
           </div>
           <div className="k-card grey" style={{ padding: 10 }} data-testid="no-tree-line" data-method={method}>
             <span className="lib-cap">{spec?.tree ? 'this method builds a tree, but its merge heights are not sampled for the editor yet' : (NO_TREE_WHY[method] ?? `${spec?.label ?? method} builds no tree, so there is no merge-height histogram to cut`)}</span>
@@ -861,10 +861,9 @@ function Params({ d, set, basis, dist, extent, clusterings, invalid, methods, cu
       <div className="lib-params">
         <div className="stack" style={{ gap: 6 }}>
           {methodRow}
-          <div className="lib-param-row"><span>cut</span><Slider value={Math.min(d.cut, cutMax)} min={0.1} max={cutMax} step={0.01} onChange={v => set({ cut: +v.toFixed(2) })} format={v => v.toFixed(2)} width={190} testid="param-cut" ariaLabel="cut" /></div>
+          <div className="lib-param-row"><span>cut <InfoTip title="How many families">How many families the cut gives is measured by the preview, not guessed here.</InfoTip></span><Slider value={Math.min(d.cut, cutMax)} min={0.1} max={cutMax} step={0.01} onChange={v => set({ cut: +v.toFixed(2) })} format={v => v.toFixed(2)} width={190} testid="param-cut" ariaLabel="cut" /></div>
           <div className="lib-param-row"><span>nearest family past</span><NumberField size="sm" width={64} value={d.nearest} min={0.1} max={1} step={0.01} testid="param-nearest" ariaLabel="nearest family distance" onValid={n => set({ nearest: n })} /></div>
           {err('cut')}
-          <span><InfoTip title="How many families">How many families the cut gives is measured by the preview, not guessed here.</InfoTip></span>
         </div>
         {dist && dist.length
           ? <FeatureHistogram bins={dist} edges={[]} scale="linear" unit="" lo={0} hi={1} cut={d.cut}
@@ -878,8 +877,7 @@ function Params({ d, set, basis, dist, extent, clusterings, invalid, methods, cu
     <div className="lib-params">
       <div className="stack" style={{ gap: 6 }}>
         {basis === 'tag' && <>
-          <div className="lib-param-row"><span>several tags</span><Seg size="sm" value={d.tagMode} onChange={v => set({ tagMode: v })} testid="param-tag-mode" options={[{ value: 'first', label: 'first tag' }, { value: 'each', label: 'one group per tag' }]} /></div>
-          <span><InfoTip title="Untagged members">A member with no tag is omitted and flagged; how many that is, is what the preview measures.</InfoTip></span>
+          <div className="lib-param-row"><span>several tags <InfoTip title="Untagged members">A member with no tag is omitted and flagged; how many that is, is what the preview measures.</InfoTip></span><Seg size="sm" value={d.tagMode} onChange={v => set({ tagMode: v })} testid="param-tag-mode" options={[{ value: 'first', label: 'first tag' }, { value: 'each', label: 'one group per tag' }]} /></div>
         </>}
         {basis === 'provenance' && <div className="lib-param-row"><span>by</span><Seg size="sm" value={d.provBy} onChange={v => set({ provBy: v })} testid="param-prov" options={[{ value: 'recording', label: 'recording' }, { value: 'run', label: 'run' }, { value: 'spike_train', label: 'spike train' }]} /></div>}
         {basis === 'custom' && (clusterings.length

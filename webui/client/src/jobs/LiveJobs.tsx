@@ -394,7 +394,7 @@ function ClusterRow({ r, open, onToggle, importing, seedOutcome, onImport }: {
               </tbody>
             </table>
           </>}
-          {r.source === 'job_dir' && <div className="jb-small"><InfoTip title="Never copied"><code>cache/</code> (built on the cluster) and <code>out/</code> (what comes back) are never copied.</InfoTip></div>}
+          {r.source === 'job_dir' && <div className="jb-small jb-row">never copied<InfoTip title="Never copied"><code>cache/</code> (built on the cluster) and <code>out/</code> (what comes back) are never copied.</InfoTip></div>}
           {r.source === 'seed' && r.result_path && <div className="jb-small jb-mono" data-testid={`exported-result-${r.name}`}>the result comes back to <b>{r.result_path}</b>{r.state === 'written' ? ' — nothing there yet' : ''}; the script checkpoints into it after every channel and resubmits itself while it reads incomplete</div>}
           {r.returned && <div className="jb-small jb-mono">{r.source === 'seed' ? 'result file' : 'out/done.json'}: {r.returned.status} · {r.source === 'seed' ? 'spec' : 'recipe'} {r.returned.recipe_hash ?? '?'}{r.returned.finished_at ? ` · finished ${isoWhen(r.returned.finished_at)}` : ''}</div>}
           {r.import_note && <div className="jb-small jb-muted" data-testid={`exported-no-import-${r.name}`}>{r.import_note}</div>}
@@ -504,7 +504,7 @@ export function InboxLive({ imp, cluster, attempts }: { imp: ReturnType<typeof u
       )}
       {!!seedsBack.length && (
         <div className="jb-small jb-muted" data-testid="inbox-seeds-back">
-          {seedsBack.length} seed-search result{seedsBack.length === 1 ? '' : 's'} back · import from its row under <i>Waiting on the cluster</i>{' '}
+          {seedsBack.length} seed-search result{seedsBack.length === 1 ? '' : 's'} back · import {seedsBack.length === 1 ? 'it from its' : 'each from its own'} row under <i>Waiting on the cluster</i>{' '}
           <InfoTip title="Seed-search results">A seed-search result is a result file, not a folder, so it is imported from its own row, not here.</InfoTip>
         </div>
       )}

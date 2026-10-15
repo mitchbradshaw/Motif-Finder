@@ -3,7 +3,7 @@
 import { useState, type RefObject } from 'react'
 import { useSourced } from '../../api/seam'
 import { getRunHistory, type DemoHistoryRun, type DemoRowStatus } from '../../api/analyse'
-import { Button, Checkbox, Dropdown, EmptyState, Icon, InfoTip, Pager, Popover, TextField, recordDemoWrite, usePagedList } from '../../kit'
+import { Button, Checkbox, Dropdown, EmptyState, Icon, Pager, Popover, TextField, recordDemoWrite, usePagedList } from '../../kit'
 import { DEMO_SCENARIOS } from '../../fixtures/analyse'
 import { navigate } from '../../state'
 import { fromScenario, type DemoChainState } from './chainState'
@@ -76,7 +76,7 @@ export function DemoHistoryPopover({ anchorRef, st, template, onClose, onApply, 
           ))}
         </div>
         <div className="hist2-foot">
-          <InfoTip title="Applying a run">Applying replaces the unsaved chain on the canvas — save the current chain first to keep it.</InfoTip>
+          <span className="mono" style={{ color: '#c27400' }}><Icon name="alert-triangle" size={12} /> applying replaces the unsaved chain on the canvas</span>
           <Button icon="save" onClick={onSave} style={{ marginLeft: 'auto' }} testid="history-save-first">Save current chain first</Button>
           <Pager page={pg.page} pageCount={pg.pageCount} onPage={pg.setPage} format="range" total={pg.total} pageSize={6} testid="history-pager" />
         </div>
