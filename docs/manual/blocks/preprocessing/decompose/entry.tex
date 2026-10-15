@@ -1,0 +1,150 @@
+% !TEX root = ../../../main.tex
+% Appendix entry: preprocessing.decompose -- "Decompose" (Appendix A).
+\entryfield{Algorithm}
+\code{_run} in \code{Adapters/preprocessing_decompose.py} calls \code{decompose} in
+\code{Working/Preprocessing/decompose.py} and passes one of its three arrays on. The core adds
+no new filter: it reuses the core's running median (\code{make_smooth} in
+\code{Working/Detection/analysis/data_analysis.py}), the Detrend block's rolling mean
+(\code{make_detrend_filter} in \code{Working/Preprocessing/detrend.py}) and the Highpass
+block's Butterworth (\code{make_highpass_filter} in
+\code{Working/Detection/analysis/freq_analysis.py}). For a span $x$ of $n$ samples at $f_s$\,Hz,
+window $W$ = \emph{baseline\_window\_s} and order $p$ = \emph{order}:
+\begin{enumerate}
+\item \emph{Refusals.} Any NaN or infinite sample: refused, with the count. $n \le 3(p+1)$:
+  refused (the forward-backward filter's padding needs more). A cut $c \ge f_s/2$: refused.
+\item \emph{Cut.} $c$ = \emph{noise\_cut\_hz}, or $c = f_s/8$ (a quarter of Nyquist,
+  \code{auto_noise_cut_hz}) when it is 0.
+\item \emph{Baseline} $b$. With \texttt{rolling\_median} (default): half-width
+  $j = \max(1, \operatorname{round}(W f_s/2))$ (\code{baseline_half_width}), window $2j+1$
+  samples. If $n > j$, the span is reflect-padded by $j$ samples each side
+  (\code{np.pad(..., mode="reflect")}), passed through \code{make_smooth(j)}
+  (\code{scipy.ndimage.median_filter}, size $2j+1$, \texttt{mode="nearest"}) and trimmed back to
+  $n$:
+  \[ b_i = \operatorname{median}\{\tilde x_{i-j},\ldots,\tilde x_{i+j}\} \]
+  with $\tilde x$ the reflected span. If $n \le j$, \code{make_smooth(j)} runs on the span
+  itself, which pads with copies of the end samples. With \texttt{rolling\_mean}:
+  $b = x - \text{detrend}(x)$, the Detrend block's centred rolling mean (\code{_rolling_mean}:
+  half-width $\lfloor \operatorname{round}(W f_s)/2\rfloor$, the window shrinking to what fits
+  at the ends).
+\item \emph{Noise} $\nu = \operatorname{filtfilt}(B, A, x - b)$, with $(B, A)$ a Butterworth
+  highpass of order $p$ at $c/(f_s/2)$ (\code{scipy.signal.butter}, \code{filtfilt}: zero
+  phase, the effective order doubled by the two passes).
+\item \emph{Signal} $s = x - b - \nu$.
+\item \emph{Pass on}: the block returns $b$, $\nu$ or $s$ as chosen by \emph{pass\_on}, at
+  the same $f_s$.
+\end{enumerate}
+By construction $b + \nu + s = x$ up to rounding; the block measures
+$\max_i |b_i + \nu_i + s_i - x_i|$ and reports it as the reconstruction error.
+
+\paragraph{The half-window rule.} A running median of $2j+1$ samples ignores a departure that
+occupies fewer than about half its samples, so an event shorter than about $W/2$ stays in the
+signal; one that lasts longer pulls the median towards itself and goes partly to the baseline.
+A long, slow recovery counts as part of the event's length. The test
+\code{test_an_event_longer_than_about_half_the_window_goes_to_the_baseline} pins this on a
+drop of depth 1 on an AR(1) background: with a 60\,s fall and a 600\,s recovery, the signal
+layer keeps less than half the depth at its trough at $W = 600$\,s (0.41 measured, per the
+test's comment) and more than 0.7 at $W = 3600$\,s; a 10\,s / 60\,s drop keeps more than 0.9
+at 600\,s. The help text therefore advises 1800--3600\,s for drops that recover over 5--10
+minutes. The median is not a linear filter, so the baseline has no exact frequency edge.
+
+\paragraph{What the block page does with it.} The bridge (\code{_split_layers} in
+\code{webui/server/serialize.py}, through the wavelet block's \code{_signal_layers}) ships each
+layer as a min/max envelope on the channel's absolute seconds, scaled to the display unit,
+with \code{layer_param} (\texttt{pass\_on}) and each row's \code{param_value} (its name). On the
+block page, \code{DecompositionLayers} in \code{webui/client/src/analyse/views/registry.tsx}
+draws the input and the three layers under \ui{Every layer}, fastest first (noise, signal,
+baseline), each on its own $y$ with a scale bar, the chosen one highlighted, with a ``How the
+layers were made'' info tip and a note line (\code{SignalSplitNote} in
+\code{webui/client/src/analyse/views/SignalView.tsx}: the layer that goes on, the window in
+seconds and samples, the cut and whether it was automatic, and the reconstruction error). A
+click on a row calls the same \code{setParam} as the Parameters panel with that row's
+\code{param_value}: \emph{pass\_on} changes, the row shows a pending outline, and the step is
+marked stale (\code{markStale}); it is the next run (\ui{Re-run from}) that sends the new layer
+on. Only a payload that names \code{layer_param} gets clickable rows; the wavelet block's do
+not.
+
+\entryfield{Assumptions}
+\begin{itemize}
+\item \emph{Units.} The block is not unit-aware: \code{_run} takes no \code{units} argument and
+  every layer is in the recording's stored unit. No setting is an amplitude (the window is in
+  seconds, the cut in hertz), so the split does not depend on the unit. The reconstruction
+  error in the note is in the stored unit; the drawn layers are in the display unit.
+\item \emph{Sampling rate.} The window becomes samples through $f_s$ and the cut is a fraction
+  of Nyquist, so both mean the same in seconds and hertz at any rate. The automatic cut moves
+  with the rate: 0.125\,Hz at 1\,Hz, 1.25\,Hz at 10\,Hz.
+\item \emph{Missing values.} None allowed: a span holding a NaN or inf is refused with the
+  count (``Choose a span without gaps''), since one missing sample would spread through the
+  median's neighbours and the whole filter output. Nothing is filled.
+\item \emph{Span length.} More than $3(p+1)$ samples (16 at the default order 4). A span no
+  longer than the half-window still decomposes, with end-sample padding instead of reflection
+  (\code{test_a_span_shorter_than_half_the_window_still_decomposes}); its baseline is then
+  close to the span's own median.
+\item \emph{Signal shape.} Events shorter than about $W/2$, sitting on a wander slower than
+  $W$, with fuzz faster than $c$. Where these scales overlap, the layers share the event.
+\end{itemize}
+
+\entryfield{Outputs}
+A \texttt{Signal} of length $n$ at $f_s$: the chosen layer. \code{meta} holds \code{layers}
+(three rows in drawing order noise, signal, baseline, each with \code{name}, \code{kind},
+\code{label}, \code{low_hz}/\code{high_hz} where defined, \code{chosen}, \code{rms},
+\code{param_value} and an \code{envelope} of at most $2\times1200$ points,
+\code{ENVELOPE_BUCKETS}, every sample when it fits), \code{layer} and \code{layer_label} (the
+chosen one), \code{layer_param} (\texttt{"pass\_on"}), \code{reconstruction_error}, and
+\code{split}: the method, \emph{pass\_on}, the estimator, the window in seconds and in samples,
+the cut and \code{noise_cut_auto}, the order, an \code{edge_note} and a \code{nonlinear_note}
+(the half-window rule in words). Nothing is written to the database or to disk by the block;
+the step cache keeps the output like any other step's.
+
+\entryfield{Cost}
+One running median over the span (window $2j+1$, 601 samples at the defaults on 1\,Hz data) and
+one forward-backward IIR filter, which is linear in $n$; the median's cost also grows with the
+window. Memory is a few arrays of $n$ floats plus the padded copy. The block declares no cost
+estimate and no maximum span, and no measurement of its run time is recorded in the
+repository.
+
+\entryfield{Failure modes}
+\begin{itemize}
+\item \emph{A slow event goes to the baseline.} With the window too short for the event (the
+  half-window rule), the signal layer keeps only part of it. Check the baseline row.
+\item \emph{A sharp edge goes partly to the noise.} The noise layer is a linear highpass of
+  $x - b$; a step or a fast fall has content above any cut, so part of the edge appears in the
+  noise and the signal's edge is softened. The synthetic test checks only that 5-minute
+  Hanning-shaped drops do not leak (correlation of noise with the drops below 0.1).
+\item \emph{Edges.} With the median, the span's ends are read reflected: an event the end cuts
+  off stays in the signal (\code{test_a_drop_cut_off_by_the_span_end_stays_in_the_signal}), but a
+  steady trend running into an end is followed less closely there; the commit records a 1-per-hour
+  ramp's baseline lagging by 0.042 at the end. With the rolling mean, the window shrinks at the
+  ends. \texttt{filtfilt} adds a short transient at both ends. The \code{edge_note} says to read
+  the first and last half-window with care.
+\item \emph{Rolling mean baseline.} \texttt{rolling\_mean} is pulled by any event, short or long,
+  in proportion to its area; it is offered so a chain that used the Detrend block can see what
+  that block removed, not as the better estimator.
+\item \emph{Refusals}: a gap, a span of $3(p+1)$ samples or fewer, a cut at or above Nyquist.
+\end{itemize}
+
+\entryfield{Validation}
+The tests use synthetic signals only. They check that the three layers add up to the input to
+$10^{-9}$ on white noise, a random walk, AR(1) with $\phi = 0.98$, a slow drift with drops and a
+volts-sized offset, at 1 and 10\,Hz, with both estimators; that each layer is the existing
+filter it claims to be; and that on a slow sine plus white fuzz plus 5-minute drops the
+baseline follows the sine (RMS error below 0.2), the drops stay in the signal (correlation
+above 0.9) and the fuzz goes to the noise (correlation above 0.6). The half-window rule and the
+edge handling are pinned as above. No test or evidence script in the repository checks the
+split on a real recording.
+
+\entryfield{References}
+The method is the project's own arrangement of existing filters (module docstring of
+\code{Working/Preprocessing/decompose.py}): a running median for the baseline, and the
+Butterworth highpass \citep{butterworth1930theory} as implemented in SciPy
+\citep{virtanen2020scipy} for the noise. For a split by octave rather than by role, see
+\blockref{preprocessing.wavelet_bands}.
+
+\entryfield{Tests}
+\code{tests/test_adapter_decompose.py} (registration and defaults, the sum to the input, each
+layer's filter, the automatic cut, the synthetic layer contents, \emph{pass\_on} through a real
+chain into Detrend and Invert, the \code{meta} shape, refusals, the half-window rule, the
+reflected end and the short span); \code{tests/test_webui_decompose_payload.py} (the layers ship
+on absolute seconds in millivolts with the click parameter, survive a step-cache hit, a click
+sets the block's parameter, only a payload naming \code{layer_param} gets clickable rows);
+\code{tests/test_adapter_spec.py} and \code{tests/test_end_to_end.py} list the block among the
+registered adapters.

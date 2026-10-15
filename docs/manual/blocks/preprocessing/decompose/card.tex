@@ -1,0 +1,48 @@
+% !TEX root = ../../../main.tex
+% Block card: preprocessing.decompose -- "Decompose" (Part I, the blocks chapter).
+\cardfield{What it does}
+Splits the trace into three layers that add back up to it exactly: the slow wander
+(\emph{baseline}), the fast fuzz (\emph{noise}) and what is left between them (\emph{signal},
+where the events are), shows all three, and passes the one you choose on down the chain.
+
+\cardfield{When to use it}
+When you want to see what a drift removal and a noise filter would take away before you
+commit to them, or when the slow wander or the fuzz is itself what you want to study. It is
+the usual first step in front of a detector: pass \emph{signal} on and the detector reads the
+events without the drift under them or the fuzz on top. For layers cut by frequency, octave by
+octave, use \blockref{preprocessing.wavelet_bands} instead.
+
+\begin{plainterms}[Three layers that add up]
+Think of a boat on a tide. The tide raises and lowers everything slowly (the baseline); the
+ripples jiggle it many times a second (the noise); the waves you care about sit in between
+(the signal). The block measures the tide with a \emph{running median}: at each moment it
+takes the middle value of the trace over a long stretch around it, so a short wave does not
+move it. It then takes the ripples off what remains with a filter that keeps only fast
+changes. Whatever is still left is the signal. Because the signal is defined as ``everything
+the other two did not take'', the three always add back up to the recording.
+\end{plainterms}
+
+\cardfield{What goes in, what comes out}
+In goes a span of one channel with no missing samples. Out comes one layer, as an ordinary
+signal of the same length and rate. The block page draws the input and all three layers
+stacked on one time axis, under the heading \ui{Every layer}, the one that goes on highlighted.
+Click another layer to choose it instead: the click sets \emph{pass\_on}, the same setting the
+Parameters panel shows. The row is outlined and the step is marked stale, as after any change
+of setting; press \ui{Re-run from} and, once the step has run again, the new layer is
+highlighted and the next block reads it.
+
+\cardfield{Settings that matter}
+\emph{baseline\_window\_s} is the one to tune first. The running median ignores an event
+shorter than about half this window; an event longer than that starts to go into the
+baseline instead of the signal. The default 600\,s (ten minutes) suits short events; for drops
+that take 5 to 10 minutes to recover, use 1800 to 3600\,s. \emph{noise\_cut\_hz} sets where
+fuzz begins: 0, the default, means an eighth of the sampling rate (0.125\,Hz at 1\,Hz, that
+is, anything that repeats faster than every 8 seconds). \emph{pass\_on} picks the layer:
+\texttt{signal} (the default), \texttt{baseline} or \texttt{noise}.
+
+\cardfield{Watch out for}
+A slow event can vanish into the baseline when the window is too short: check the baseline
+row before trusting the signal. A sharp edge, such as the start of a sudden drop, also has
+fast content, so part of it lands in the noise layer. The first and last half-window of the
+span are less reliable. A span with any missing sample is refused, and so is a noise cut at or
+above half the sampling rate.

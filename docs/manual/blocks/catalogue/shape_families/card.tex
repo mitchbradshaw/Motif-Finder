@@ -1,0 +1,37 @@
+% !TEX root = ../../../main.tex
+% Block card: catalogue.shape_families -- "Shape families" (Part I, the blocks chapter).
+\cardfield{What it does}
+Sorts windows into families of similar shape with the Library's own methods, leaves out the
+windows that fit no family, and says for each family whether it stands out from noise.
+
+\cardfield{When to use it}
+After \blockref{catalogue.event_windows} (or \blockref{preprocessing.trace_shape}), when you want
+to know which event shapes recur, by the same computation the Library's grouping editor runs, so
+a family here is a family there.
+
+\begin{plainterms}[Families, and what is ``omitted'']
+Sorting shapes is like sorting a box of buttons by look. Most methods would force every button
+into some pile, even the odd ones out. Here a window that fits no family is \emph{omitted}: set
+aside with a reason, rather than forced in. Reasons include ``not in a dense family'' (a
+straggler), ``past cut'' (too far from every family's typical member) and ``group too small''
+(its pile had fewer members than the minimum, ten by default). Noise also forms piles, so each
+family is compared with noise of the recording's own kind, and flagged when it is no better.
+\end{plainterms}
+
+\cardfield{What goes in, what comes out}
+In go windows. Out comes a family number for each window (1 is the largest family), or $-1$ with
+the reason it was left out. The block's page shows each family's typical member, its noise flag
+and how alike its members are.
+
+\cardfield{Settings that matter}
+\emph{method}: \texttt{hdbscan} (the default) finds crowds of similar shapes and chooses the
+number of families itself; tune \emph{hdbscan\_min\_cluster\_size}. \texttt{kshape} makes
+\emph{kshape\_k} families, comparing shapes after sliding one along the other; 0 lets it choose.
+\texttt{ward} cuts a tree at \emph{ward\_cut}, places every window and tests nothing against
+noise. \emph{min\_group} is the smallest family kept, for every method.
+
+\cardfield{Watch out for}
+Size does not enter: every window is resampled and z-normalised, so a small wiggle and a large
+drop of the same profile land together. This block ignores the train/test roles: every window is
+grouped, test windows included. For a training-only clustering of a pool use
+\blockref{catalogue.shape_cluster}.

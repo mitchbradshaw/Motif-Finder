@@ -1,0 +1,27 @@
+% !TEX root = ../../../main.tex
+% Block card: preprocessing.highpass -- "Highpass filter" (Part I, the blocks chapter).
+\cardfield{What it does}
+Removes the slow drift from a signal and keeps the faster movements riding on it.
+
+\cardfield{When to use it}
+Electrodes in a fungal culture drift: the level wanders over hours while the activity you care
+about comes and goes over seconds to minutes. Picture a boat's deck rising and falling on a
+long swell while someone jumps on it: a high-pass filter takes away the swell and leaves the
+jumps. Use it before a detector whose threshold assumes the signal sits near zero. If big drops
+or spikes dominate the recording, \blockref{preprocessing.beads} removes drift with less damage
+to them.
+
+\cardfield{What goes in, what comes out}
+In goes a span of one channel. Out comes a signal of the same length and sampling rate, centred
+on zero, with everything slower than the cut-off taken away.
+
+\cardfield{Settings that matter}
+\emph{cutoff\_hz} is the dividing speed, in hertz. The default, 0.01\,Hz, removes changes
+that take longer than about 100 seconds; lower it to keep slower events. \emph{order} sets
+how sharply the cut is made.
+
+\cardfield{Watch out for}
+An event slower than the cut-off is removed along with the drift: a drop that recovers over
+ten minutes is mostly flattened by the default. A sharp drop gains a small rise before it and
+an overshoot after it. One missing sample turns the whole output into missing values, and the
+cut-off must be below half the sampling rate.

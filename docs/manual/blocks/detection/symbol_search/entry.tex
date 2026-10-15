@@ -1,0 +1,82 @@
+% !TEX root = ../../../main.tex
+% Appendix entry: detection.symbol_search -- "Symbol search" (Appendix A).
+\entryfield{Algorithm}
+\code{_run} in \code{Adapters/detection_symbol_search.py}, given the previous step's
+\code{Encoding} as \code{value} and the span's signal $x$ of $n$ samples:
+\begin{enumerate}
+\item Refuse a missing input or an encoding whose kind is not \code{symbolic}. An empty
+  encoding gives an empty span set.
+\item Spell the $m$ symbols as a string with \code{letter}: symbol $-1$ (a gap) is
+  \texttt{-}; otherwise, with \emph{alphabet} given, symbol $i$ is its $i$-th character
+  (an error if $i$ is out of range); with \emph{alphabet} empty, $0\mapsto$ \texttt{a},
+  \ldots, $25\mapsto$ \texttt{z}, and $i\geq 26$ is two letters, the same rule the bridge
+  uses to display the string. Symbols of 702 or more are refused without an alphabet.
+\item Compile \emph{pattern} with Python's \code{re}; an invalid one is a
+  \code{ValueError}.
+\item Take the segment length $s = \max(1, \lfloor n/m\rfloor)$. For the SAX blocks this is
+  exactly their achieved segment length, since they drop fewer than $m$ samples.
+\item From position $p = 0$, repeatedly run \code{re.search} from $p$. Stop at no match or
+  at an empty match. Each match covering characters $[a, b)$ becomes the span
+  $[as, \min(n, bs))$ in samples from the start of the span, with label the matched text
+  and score $b-a$ (its length in symbols). Continue from $p = b$, or from $p = a+1$ when
+  \emph{overlapping} is on.
+\end{enumerate}
+Matching is Python's leftmost, greedy-by-default search: \texttt{c+} takes the longest run
+of \emph{c}s it can, so without \emph{overlapping} two shapes that share letters yield one
+span.
+
+\emph{Read-out (derive).} \code{_derive} returns one row, \emph{Pattern}, red when the
+pattern does not compile, and a \emph{Matches: run the encoding first} warning when no
+encoding reached it. It never counts matches.
+
+\entryfield{Assumptions}
+\begin{itemize}
+\item \emph{Equal segments starting at sample 0.} The mapping back to time assumes symbol
+  $i$ covers samples $[is, (i+1)s)$; true of every SAX block here.
+\item \emph{One character per symbol.} Match positions count characters. With more than 26
+  symbols and no \emph{alphabet}, two-character symbols shift every later position.
+\item \emph{Missing values.} Gap segments are \texttt{-}, so a pattern written in letters
+  never matches across a gap; a pattern that names \texttt{-} or uses \texttt{.} can.
+\item \emph{Units and sampling rate} play no part; times come from sample positions.
+\end{itemize}
+
+\entryfield{Outputs}
+A \code{SpanSet} of matches with \code{labels} (matched text) and \code{scores} (length in
+symbols). \code{meta} holds the string (first 20{,}000 characters), \code{n_symbols},
+\code{samples_per_symbol}, \code{n_matches} and the \code{pattern}. As a span-set output it
+is written as the run's detections.
+
+\entryfield{Cost}
+Linear in the string for ordinary patterns; Python's backtracking engine can be much slower
+on nested repetitions such as \texttt{(c+)+a}. Spelling the string is a Python loop over the
+$m$ symbols.
+
+\entryfield{Failure modes}
+\begin{itemize}
+\item \emph{Empty matches stop the search.} If the first match found is empty (a pattern
+  such as \texttt{c*} or \texttt{a?b*}), the loop ends with no spans, even when later
+  non-empty matches exist.
+\item \emph{Two-letter symbols} (above) misplace every span after the first symbol of 26 or
+  more; pSAX allows up to 64 letters.
+\item \emph{Different meanings per encoder.} The default \texttt{c+a+} is ``rise then
+  fall'' only after dSAX with three letters. After dSAX with five letters, \emph{c} is the
+  middle (``same'') letter.
+\item \emph{Greedy merging.} Neighbouring shapes merge into one long span unless the
+  pattern bounds them.
+\end{itemize}
+
+\entryfield{Validation}
+The tests check the mapping from matches to samples, the custom alphabet, an end-to-end
+dSAX run that finds the ``sharkfin'' shapes of a synthetic train, loud refusal of a bad
+pattern or a non-symbolic input, and that a gap is never read as a letter. On real data,
+\code{docs/rq_roundA/RQ4-bands-and-symbols.md} records the dSAX $\to$ symbol search chain
+finding fewer spans than its surrogate nulls on every band tried, so nothing found yet
+beats chance.
+
+\entryfield{References}
+The route is the project's own (RQ4); the encodings it reads are referenced in their
+entries.
+
+\entryfield{Tests}
+\code{tests/test_adapter_symbol_search.py}; \code{tests/test_drop_detection_nan.py}
+(\code{test_symbol_search_never_reads_a_missing_segment_as_a_letter}).

@@ -1,0 +1,47 @@
+% !TEX root = ../../../main.tex
+% Appendix entry: catalogue.gramian_gadf -- "Gramian GADF" (Appendix A).
+\entryfield{Algorithm}
+The block wraps \code{compute_GADF} in \code{Working/Catalogue/gramian/gramian_calc.py}, the
+Gramian angular difference field of \citet{wang2015imaging}. The first two steps are those
+of \blockref{catalogue.gramian_gasf} (\code{_polar_encode}): rescale the span to
+$\tilde x_i \in [-1,1]$ by its own minimum and maximum, then take $\phi_i = \arccos\tilde x_i$.
+The field is
+\[ G_{ij} = \sin(\phi_i - \phi_j) = \sqrt{1-\tilde x_i^2}\,\tilde x_j - \tilde x_i\,\sqrt{1-\tilde x_j^2}, \]
+computed as \code{np.sin(np.subtract.outer(phi, phi))}. As for the summation field, there is
+no piecewise aggregate approximation: the image has one row and column per sample
+(\blockentry{catalogue.gramian_gasf}).
+
+\entryfield{Assumptions}
+As \blockentry{catalogue.gramian_gasf}: not unit-aware but unit-free (the rescaling removes
+level and scale); one pixel per sample whatever the rate; any NaN makes every pixel NaN;
+span at most 5{,}000 samples.
+
+\entryfield{Outputs}
+An \code{Encoding} with \code{kind="image"}: an $n \times n$ float64 array in $[-1,1]$,
+antisymmetric ($G_{ji} = -G_{ij}$) with a zero diagonal. Nothing is added to \code{meta}.
+The plot hook draws all four encodings of the span.
+
+\entryfield{Cost}
+$O(n^2)$ time and memory, capped by \code{max_span_samples=5000} (200\,MB of float64),
+enforced by \code{execute_recipe} before the block runs. See
+\blockentry{catalogue.gramian_gasf}.
+
+\entryfield{Failure modes}
+\begin{itemize}
+\item \emph{A flat span} or \emph{any NaN}: every pixel NaN.
+\item \emph{One outlier sets the scale}, as for the summation field.
+\item \emph{Half the image is redundant}: because the field is antisymmetric, the lower
+  triangle carries no information the upper does not.
+\end{itemize}
+
+\entryfield{Validation}
+The formula is the published one \citep{wang2015imaging}. No test in the repository checks
+the values of the image; the tests check only the declared types and the span limit.
+
+\entryfield{References}
+\citet{wang2015imaging}.
+
+\entryfield{Tests}
+\code{tests/test_t07_adapter_remap.py} checks the declared types and that a span one sample
+over the limit is refused. \code{tests/test_block_standard.py} checks that the block declares
+a cost limit.

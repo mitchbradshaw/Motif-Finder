@@ -1,0 +1,36 @@
+% !TEX root = ../../../main.tex
+% Block card: catalogue.multiscale_entropy -- "Multiscale entropy" (Part I, the blocks chapter).
+\cardfield{What it does}
+Draws a ``complexity curve'' for each long window: how unpredictable the signal is when you
+look at it in finer or coarser detail.
+
+\begin{plainterms}[Multiscale entropy]
+Read a signal one value at a time and ask how surprised you are by the next one: that is its
+entropy. Now blur the signal by averaging every 2 values, then every 10, then every few
+hundred, and ask again each time. Pure hiss stops surprising you once blurred, because the
+averages all look alike. A signal with structure at many time-scales keeps surprising you
+however much you blur it. The curve of surprise against blur is the fingerprint
+\citep{costa2005multiscale}.
+\end{plainterms}
+
+\cardfield{When to use it}
+To compare recordings, species or conditions by their complexity, not to find events: a
+curve needs hours of signal. The \emph{complexity\_fingerprint} template is the usual chain:
+a 2-hour detrend, 72-hour windows, then this block.
+
+\cardfield{What goes in, what comes out}
+In goes a window set on one channel, windows hours long. Out comes the same window set with
+each window's curve (one number per scale) and a few summaries of it added to its measures.
+
+\cardfield{Settings that matter}
+\emph{scale\_max\_s} is the coarsest blur. A window only reaches about its length divided by
+1{,}000, so a 24-hour window reaches about 86\,s; scales beyond that are left blank.
+\emph{r\_frac} sets how close two stretches must be to count as alike. \emph{r\_scale} chooses
+how the window's spread is measured; the default, \emph{mad}, is less thrown by outliers.
+
+\cardfield{Watch out for}
+Remove slow drift first (\blockref{preprocessing.detrend}): drift makes every scale look
+regular, and the block flags windows where that happened. Coloured noise has a curve of its
+own, so judge a curve against amplitude-adjusted surrogate copies of the same recording
+(\blockref{preprocessing.surrogate}, method \emph{aaft}); the block does not do that
+comparison for you.

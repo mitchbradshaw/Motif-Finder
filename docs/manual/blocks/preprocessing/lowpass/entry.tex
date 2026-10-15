@@ -1,0 +1,55 @@
+% !TEX root = ../../../main.tex
+% Appendix entry: preprocessing.lowpass -- "Lowpass filter" (Appendix A).
+\entryfield{Algorithm}
+\code{_run} in \code{Adapters/preprocessing_lowpass.py} calls the factory
+\code{make_lowpass_filter} in \code{Working/Detection/analysis/freq_analysis.py} and applies
+the function it returns to the span. With sampling rate $f_s$, order $N$ and cut-off $f_c$:
+\begin{enumerate}
+\item $W = 2f_c/f_s$.
+\item $(b, a) =$ \code{scipy.signal.butter(N, W, btype="low")}, a digital Butterworth
+  low-pass \citep{butterworth1930theory,virtanen2020scipy}.
+\item $y =$ \code{scipy.signal.filtfilt(b, a, x)}: forwards then backwards.
+\end{enumerate}
+Zero phase, magnitude response $|H_\mathrm{B}(f)|^2$ (half amplitude at $f_c$, effective order
+$2N$), unit gain at zero frequency, so the signal's level is kept. Padding and initial
+conditions are SciPy's defaults: odd reflection over $3(N+1)$ samples at each end, steady-state
+start, trimmed afterwards (see \blockentry{preprocessing.bandpass}).
+
+\entryfield{Assumptions}
+\begin{itemize}
+\item \emph{Sampling rate.} $f_c$ in hertz, strictly between 0 and $f_s/2$; \code{butter}
+  rejects $W \geq 1$ with a \code{ValueError}, and the registry sets only a minimum.
+\item \emph{Units.} Linear and not unit-aware; output in the stored unit.
+\item \emph{Missing values.} Not handled: one NaN makes the whole output NaN (it enters the
+  recursive filter's state in both passes). \unverified{No test checks this.}
+\item \emph{Span length.} More than $3(N+1)$ samples, or \code{filtfilt} raises.
+\end{itemize}
+
+\entryfield{Outputs}
+A \texttt{Signal} with the filtered samples and the input's $f_s$; nothing in \code{meta}.
+
+\entryfield{Cost}
+$O(nN)$ time and $O(n)$ memory, vectorised; no estimate is registered.
+
+\entryfield{Failure modes}
+\begin{itemize}
+\item \emph{Sharp events are blunted.} A drop or spike shorter than about $1/f_c$ seconds loses
+  depth and gains width, with small ripples of the opposite sign on both sides (the filter runs
+  both ways). Onset times stay put (zero phase), but onset \emph{sharpness} does not.
+\item \emph{Edge effects} at each end over a length set by $1/f_c$, mitigated but not removed by
+  the short odd-reflection padding. \unverified{Not measured.}
+\item \emph{An edge at or above Nyquist} stops the step with SciPy's error.
+\end{itemize}
+
+\entryfield{Validation}
+No test in the repository checks the frequency response or the output values.
+
+\entryfield{References}
+\citet{butterworth1930theory}; \citet{virtanen2020scipy}.
+
+\entryfield{Tests}
+\code{tests/test_t06_adapter_remap.py} checks the declared types and the output's length and
+rate. \code{tests/test_recipes.py}, \code{tests/test_chain_validation.py},
+\code{tests/test_discovery_window_chain.py}, \code{tests/test_discovery_compare.py} and
+\code{tests/test_artifacts.py} use it as a convenient first step for recipe, chain and file-name
+plumbing. None checks the filtering itself.

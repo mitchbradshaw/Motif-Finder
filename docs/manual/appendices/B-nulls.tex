@@ -1,0 +1,265 @@
+% !TEX root = ../main.tex
+\chapter{Nulls and statistics}\label{app:nulls}
+This appendix says how the app tells a pattern from chance: what each null is, which code
+draws it, how its randomness is fixed, where its result is shown, and how to read the numbers.
+\Cref{sec:core-ideas-nulls} gives the short version; the surrogate block's own entry is
+\blockentry{preprocessing.surrogate}.
+
+\section{What a null is for}\label{sec:nulls-what}
+\begin{plainterms}[Would a random deck do as well?]
+Any long, noisy recording contains look-alikes by accident, the way a long enough run of coin
+tosses contains ten heads in a row. So ``the detector found 40 events'' says little by itself.
+The useful question is: how many would it have found in a recording that has the same general
+character but no real events? A \term{null}{null} is the app's answer to that question, made
+by running the very same analysis on fake copies of the data, the
+\term{surrogate}{surrogates}, which keep what is boring about the signal and destroy what might
+be interesting. A result is evidence of something only if it beats its null.
+\end{plainterms}
+
+What a null keeps and what it destroys decides what it tests. A surrogate that keeps the
+signal's frequency content but scrambles every local shape asks ``would this fire as often on
+noise of the same colour?''. One that keeps short pieces intact and shuffles their order asks
+about timing, not shape. One that keeps the exact values asks about everything except the
+value distribution. Choosing the null is therefore part of the question, and the app prints
+which null judged every number it shows.
+
+Three rules hold everywhere in the app:
+\begin{itemize}
+\item \emph{The null named is the null drawn.} Every surface prints the number of draws
+  actually made and the method, not a setting it might have used.
+\item \emph{A surrogate detection is never a detection.} Runs made on surrogates are stored
+  (linked to the real run by \code{runs.surrogate_of_run_id}) but every reader goes through
+  one predicate, \code{not_surrogate} in \code{Working/database/queries.py}: they are never
+  counted in Explore, sent to Review, promoted to the Library or classified across channels.
+\item \emph{No null is not a pass.} Where a page draws no null, it says so in words, and a
+  number there is a description, not evidence.
+\end{itemize}
+
+\section{The surrogates the app can make}\label{sec:nulls-surrogates}
+\subsection{Surrogates of a whole span}
+\blockref{preprocessing.surrogate} (\code{Adapters/preprocessing_surrogate.py}) turns a span
+$x_0,\dots,x_{n-1}$ into a surrogate of the same length. It offers three methods; Settings ›
+Nulls reads the list off the block (\code{offered_methods} in
+\code{Working/discovery/seeded_search.py}), so it cannot offer one the block does not
+implement.
+
+\begin{description}
+\item[Phase randomisation] (\code{_phase_randomise}; the default). Take the real Fourier
+  transform $X_k$ of the span, multiply each bin by $e^{i\phi_k}$ with $\phi_k$ uniform on
+  $[0, 2\pi)$, and invert. The DC bin, and the Nyquist bin for an even $n$, keep phase~0 so the
+  result is real. The magnitudes $|X_k|$, and so the power spectrum, are kept exactly; every
+  local shape is scrambled. The result is close to Gaussian whatever the original
+  distribution. This is the null for a detection chain: \emph{would this chain fire as often
+  on a signal with the same spectrum and no real events?}
+\item[AAFT] (\code{aaft_surrogate}, the amplitude-adjusted Fourier transform of
+  \citet{theiler1992testing}). Rank-map $x$ onto sorted Gaussian deviates, phase-randomise
+  that, and rank-map the result back onto $x$'s own sorted values. The output is a
+  permutation of the input's exact values, with approximately (not exactly) its spectrum;
+  the iterative refinement, IAAFT, is not offered. Use it for a measure that reads the value
+  distribution: \blockref{catalogue.multiscale_entropy} says on its face to judge a curve
+  against AAFT copies, because plain phase randomisation makes the surrogate Gaussian and a
+  skewed but structureless signal then ``beats'' it on its distribution alone (the module's
+  docstring records 20 in 20). \blockref{detection.pan_matrix_profile} draws AAFT copies
+  internally by default (3 draws), for the same reason.
+\item[Block shuffle] (\code{_block_shuffle}). Cut the span into whole blocks of
+  \emph{block\_s} seconds and permute them; a trailing part-block stays in place. Any motif
+  shorter than a block survives intact, so this null tests timing and order (trains,
+  intervals), not shape. A block shorter than two samples is refused (it would be a sample
+  shuffle, which is neither null), and so is an unset block length. When the app pairs a block
+  shuffle with a detection run, the block is twice the longest span the real run found
+  (\code{surrogate_draw_params} in \code{Working/run_groups.py}); if the run found nothing,
+  no null is drawn and the reason is printed. For a seed search it is twice the seed. Settings
+  › Nulls can fix one length for all.
+\end{description}
+
+\begin{watchout}[What each surrogate still keeps]
+Phase randomisation keeps the spectrum, so a strong rhythm in the recording is partly in the
+null too: a periodic signal's period survives. The block's view of
+\blockref{detection.pan_matrix_profile} says this in its rules. Block shuffle keeps every
+shape shorter than a block, so it can never show that a shape is unusual.
+\end{watchout}
+
+\subsection{Nulls made from windows rather than whole spans}
+Some questions are about a set of short windows (a Library family, a stack of cycles) rather
+than a span. Two further nulls serve them.
+\begin{description}
+\item[Trend-kept surrogates] (\code{trend_kept_surrogates} in
+  \code{Working/library/grouping/methods/kshape.py}). Per window, fit a cubic, phase-randomise
+  what is left and add the cubic back. A window of strongly coloured noise is mostly a slow
+  curve, and plain phase randomisation turns that curve into a wiggle, so groups of noise
+  crowd less than real noise does and a test against them flatters noise. Keeping the cubic
+  fixes that; the degree was chosen by measurement on synthetic noise (the comment above
+  \code{TREND_DEGREE} records it). Used by the Library's HDBSCAN and k-Shape noise tests and by
+  the coherence score (\code{Working/library/coherence.py}), 5 draws.
+\item[Quiet-stretch windows] (\code{Working/background_null.py}). Windows cut at random from
+  the recording's own stretches where no event lies and no sample is missing, at the lengths
+  of the real windows. They carry the recording's colour, drift and artefacts and none of its
+  shapes, so a smooth shape that fills its window, which reads ``noise-like'' against
+  trend-kept surrogates, can beat them. For a Library family each member gets a window from
+  its own recording; the quiet-stretch null judges only when at least half the members got
+  one, otherwise the trend-kept null judges and the page says so. Since 15~October 2026 a
+  family passes if it beats \emph{either} null. \blockref{interrogation.cycle_shapes} uses the
+  same sampler for its pseudo-cycles, and \blockref{interrogation.event_families} for its
+  families.
+\end{description}
+
+\subsection{Nulls that are not surrogates of the signal}
+\begin{description}
+\item[Random times, across channels] (\code{chance_null} in \code{Working/cross_channel.py}).
+  A member and a sibling channel count as a pair only if their correlation beats the same
+  sibling at 100 random other times (windows of the member's length, at least 60\,s away,
+  never over a human-marked artifact), above the 95th percentile. The draw is seeded from the
+  member id. Both numbers are settings (Analysis defaults).
+\item[Label shuffle, for models] (\code{Working/training/paired.py}). The training labels are
+  permuted and the forest refitted, 200 times per arm by default. The one-sided p-value is
+  $(1 + \#\{\text{shuffles} \geq \text{observed}\})/(1 + n)$ (\code{null_p} in
+  \code{Working/training/metrics.py}), so with 200 shuffles the smallest possible p is
+  $1/201 \approx 0.005$. That is why the baseline run reports $p = 0.005$ for both arms: it is
+  the floor, not a measurement of how far above chance they are.
+\end{description}
+
+\subsection{How the randomness is fixed}
+Every surrogate is drawn from a seeded generator, never from numpy's shared global state.
+\blockref{preprocessing.surrogate} takes its \emph{seed} as a parameter, so the seed is part
+of the step's recipe and the recipe's hash reproduces the surrogate exactly. A paired null of
+$N$ draws runs draw $i$ at seed $s+i$ (\code{run_paired_recipe} and \code{draw_paired_null}
+in \code{Working/run_groups.py}); the bridge passes base seed $s = 0$ for both Analyse and
+Discovery runs. Each draw is its own recipe, so a draw already made is reused by hash:
+raising the count from 20 to 50 adds 30 draws and re-runs none. The draws a run made are
+linked to it in the database, and the run reports how many it made, fewer than asked if it was
+cancelled. The seed search's own null (\code{null_distances}) follows the same rule, seed
+$s+i$ for draw $i$. The window nulls above take a \emph{seed} parameter on their blocks.
+
+\begin{watchout}[A fixed seed is one answer, not the right one]
+Because the base seed is always 0, every run sees the same surrogates. That makes results
+reproducible, but a count that depends on the particular draws will not show it. Where a
+number matters, re-run with a different seed from a script and see whether it moves; the
+symbolic encoders' fixed seeds were checked this way (\code{docs/rq_roundA/RQ4-bands-and-symbols.md}).
+\end{watchout}
+
+\section{Null sweeps}\label{sec:nulls-sweeps}
+\begin{plainterms}[Testing every setting against chance]
+A null sweep asks the null question at several values of one setting at once: at each value,
+how many does the real signal give, and how many does the null give? The setting where the
+real count pulls clear of the null is a principled choice, rather than a guess.
+\end{plainterms}
+
+The Block page (\apppage{analyse.block}) was designed with a null-sweep panel. On the live
+page that panel is a card, \emph{This parameter against the null}, which says that a null is
+drawn per chain run, not per block, and points to the toolbar. The sweep charts with values to
+click exist only in the demonstration chains, which run on example data (the components under
+\code{webui/client/src/analyse/demo/}); no live block page sweeps a parameter against its null.
+
+What the live app does instead:
+\begin{itemize}
+\item \textbf{A null per run, in Analyse.} Turn on the toolbar's \ui{surrogate null}. After the
+  real run, the whole chain runs again on surrogates of the span, with the method and draw
+  count of Settings › Nulls for detection chains (20 phase-randomised draws by default). The
+  footer reads, for example, ``detected 120 · null expects 31 over 20 phase randomize draws ·
+  3.9× null''. To compare settings, change one, run again, and compare the footers.
+\item \textbf{A null per channel, in Discovery.} Every template run in
+  \apppage{discovery.runs} carries its paired null. The scoreboard's \emph{null expects} is
+  the mean count over the draws on that channel, and \emph{× null} is the real count divided
+  by it (\code{channel_score} in \code{Working/discovery/scoreboard.py}). A run total sums the
+  channels that carry a null and says how many do.
+\item \textbf{The seed search's histogram.} \apppage{discovery.seed} draws the distance of each
+  real match with the null's matches behind it, and the cut can be dragged: at any cut the page
+  reads how many matches it keeps and how many the null gives per draw. This is a sweep over
+  the cut, read live from draws already made (\code{cut_counts}). With a scale bank, each
+  length has its own null.
+\item \textbf{Nulls inside a block.} Some blocks judge their own output and print the verdict:
+  \blockref{detection.pan_matrix_profile} (which window lengths repeat beyond AAFT noise),
+  \blockref{interrogation.cycle_shapes}, \blockref{interrogation.event_families} and
+  \blockref{catalogue.shape_families} (each group against quiet stretches or trend-kept
+  surrogates). The noise floor of the symbolic encoder \blockref{detection.sax_dsax} is set
+  from surrogates of the span, and the count it draws grows as the span shrinks.
+\end{itemize}
+
+\screenshot{pages/zzz_surrogates/analyse.chain--fixup-t-run-with-null-reads-detected-versus-surrogate}{An
+Analyse run with the surrogate null on: the footer reads what was detected against what the
+null expects, and how many draws it made.}
+
+\subsection{The Nulls settings page}
+\apppage{settings.nulls} is where the null is chosen for the project. What the core reads from
+it, traced through \code{null_from_settings} and \code{cut_rule_from_settings} in
+\code{Working/discovery/seeded_search.py}:
+\begin{itemize}
+\item the method and draw count for \emph{Detection chains} (\code{null.detection.*}, default
+  phase randomisation, 20 draws) and for \emph{Seed search} (\code{null.seed-search.*}, 200
+  draws). A detection draw is the whole chain again, hence the smaller default;
+\item \emph{significance level α} (default 0.01) and \emph{multiple channels}, the correction
+  (none, Holm or Benjamini--Hochberg; default none). These reach the seed search's recommended
+  cut only;
+\item \emph{block shuffle · block length} (0 means twice the longest motif under test).
+\end{itemize}
+The page also lists rows for interrogation distributions and intervals, training baselines,
+full-model shuffles and Library groupings, a \emph{seed} column, \emph{show × null beside
+counts} and \emph{reuse null draws while the recipe is unchanged}. Those values are saved, but
+no code in \code{Working/} or \code{webui/server/} reads them: the training job, for example,
+takes its 200 shuffles from its own recipe, and draws are reused by recipe hash whatever the
+toggle says. The page warns when α is smaller than $1/N$ for the smallest draw count among the
+kinds that report a p-value, since no smaller p can be reported.
+
+\section{Reading the numbers}\label{sec:nulls-reading}
+\begin{plainterms}[What ``beats chance'' does and does not mean]
+Beating a null says only that the result is unlikely to be produced by the kind of noise that
+null makes. It does not say the result is biologically meaningful, that the detector found the
+right events, or that a different null would agree. A result that beats a weak null (one that
+destroys too much) proves little; a result that fails a strong one may still be real but
+unresolvable with this data.
+\end{plainterms}
+
+\subsection{× null and ``null expects''}
+For detection runs the app reports a count and a ratio, never a p-value. With $N$ draws
+finding $c_1,\dots,c_N$ events, \emph{null expects} is $\bar c = \frac1N\sum c_i$ and
+\emph{× null} is the real count divided by $\bar c$. A ratio of 3 means three times as many
+events as the noise gave on average. It says nothing about how variable the null counts were:
+with 20 draws, a ratio of 1.3 can be well within the spread. When the null found nothing the
+ratio is undefined, and the page says ``the null found nothing'' rather than printing
+infinity.
+
+\subsection{The seed search's p and cut}
+For each channel the seed search takes its closest real match and counts how many null matches
+per draw lie at or below that distance; that rate, capped at 1, is the channel's $p$
+(\code{recommended_cut_corrected}). Strictly it is an expected count per draw, not a
+probability, and the two agree only when it is small. The recommended cut is the largest real
+distance at which the null still gives at most α matches per draw: with 200 draws and
+α~=~0.01, the null may contribute at most two matches below the cut over all 200 draws
+(\code{recommended_cut}). When even the closest match is no better than chance, there is no
+recommended cut, and the page says so.
+
+\subsection{Model p-values}
+A label-shuffle p-value (above) asks whether a model learned anything at all from its labels.
+It does not compare two models; the paired difference, its bootstrap interval and McNemar's
+test do that (\apppage{models.compare}). The interval of the difference is the number to read:
+a difference counts when its 95\% interval excludes zero.
+
+\subsection{z-scores and ratios to noise}
+Several blocks report how far a result sits from its null in units of the null's spread, or as
+a ratio to a noise score: the pan matrix profile's gap to the null, a family's coherence
+against its trend-kept or quiet null, the cross-channel percentile test. Each block prints the
+rule beside its number, and that rule, not the general idea of a z-score, is what the number
+means. A distance or an entropy cannot go below zero and is not normally distributed, so read
+these as the block defines them, not as a standard normal deviate.
+
+\subsection{Many comparisons at once}
+Testing many channels, bands or lengths at once multiplies the chances of a lucky result:
+at α~=~0.01, one test in a hundred passes by chance, so across sixteen channels and three bands
+about one false pass in two runs is unsurprising. The app offers two corrections for the seed
+search's per-channel cut. \emph{Holm} \citep{holm1979simple} controls the chance of
+\emph{any} false pass: it holds the smallest $p$ to $\alpha/m$, the next to $\alpha/(m-1)$, and
+stops at the first failure. \emph{Benjamini--Hochberg} \citep{benjamini1995controlling}
+controls the expected \emph{share} of false passes among those passed: with $k$ the largest
+rank whose $p_{(k)} \leq \alpha k/m$, the $k$ smallest pass. Both are applied across the
+channels in scope (\code{corrected_levels}), and the sentence beside the cut names the one
+used. Nothing else in the app corrects for multiple comparisons: a Discovery run over sixteen
+channels, a band application over several bands, or a scale bank over three lengths reports
+each × null on its own. Correct for them yourself when you report, and say which correction
+you used.
+
+\begin{watchout}[A null does not travel]
+A null is drawn for one scope: one span, one channel, one band, one length. Do not carry a
+null count from one scope to another, from a short preview to a long run, or from one block's
+settings to another's. The app keeps a separate null per channel, band and scale length for
+this reason.
+\end{watchout}

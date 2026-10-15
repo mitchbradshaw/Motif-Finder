@@ -1,0 +1,187 @@
+% !TEX root = ../../../main.tex
+% Appendix entry: interrogation.trains -- "Trains" (Appendix A).
+\entryfield{Algorithm}
+The adapter (\code{_run} in \code{Adapters/interrogation_trains.py}) maps the chain onto
+\code{find_trains} in \code{Working/interrogation/trains.py}. It never reads the signal: it
+works on event times only.
+
+\emph{Event times.} With \emph{anchor} = \texttt{onset} and an upstream \code{onset_idx}
+column (written by \blockref{interrogation.event_shape}), an event's time is its onset;
+otherwise it is its span start. Either is divided by $f_s$ to give seconds. An event whose
+onset is NaN gets no time, is in no train, and is counted in \code{n_unanchored}.
+
+\emph{Groups.} If the input has a \code{group} column, events are split by it and trains are
+found separately in each group (\code{Working/interrogation/intervals.py}: an interval is only
+meaningful inside one group). Train ids are renumbered so they are unique across groups. With
+no \code{group} column the whole span is one group.
+
+\emph{Per group}, \code{find_trains} sorts the times $t_1 \le \dots \le t_n$ and forms the
+gaps $g_i = t_{i+1} - t_i$. A train is always a run of consecutive events in time order; the
+three rules differ only in which gaps join a run.
+
+\begin{description}
+\item[\texttt{logisi}] (\code{logisi_trains}, \code{logisi_cut}; after
+  \citet{pasquale2010selfadapting} as restated by \citet{cotterill2016comparison}, since the
+  2010 full text was not reachable).
+  \begin{enumerate}
+  \item Fewer than 10 gaps: refuse, label every event $-1$ and say so in \code{refused}.
+  \item Take $\ell_i = \log_{10} g_i$ over the positive gaps only (zero gaps, from
+    coincident events, have no logarithm; they are left out of the density but still count
+    as below any cut). Fit a Gaussian kernel density with Silverman's robust bandwidth
+    \[ h = 0.9\,\min\!\bigl(s, \mathrm{IQR}/1.349\bigr)\, m^{-1/5}, \]
+    $s$ the sample SD (ddof 1) of the $m$ log-gaps, using $s$ alone when the IQR is 0.
+    Evaluate it on 512 points from $\min\ell - 3h$ to $\max\ell + 3h$. If all gaps are
+    equal there is no density and no trains.
+  \item Keep only peaks whose prominence is at least 5\,\% of the density's maximum
+    (\code{PEAK_PROMINENCE_FRAC}).
+  \item Candidate intra-train peaks: with \emph{max\_core\_gap\_s} = 0 (auto), every
+    prominent peak, left to right; with a ceiling $c > 0$, only the largest peak at or
+    below $\log_{10} c$ (none: no trains).
+  \item For each candidate $p_1$ and each prominent peak $p_2 > p_1$, take the minimum $m$ of
+    the density between them and the void
+    \[ v = 1 - \frac{g(m)}{\sqrt{g(p_1)\,g(p_2)}} . \]
+    The first pair with $v > 0.7$ (\code{VOID_THRESHOLD}, fixed, not a setting) sets the
+    cut $\tau = 10^{\text{grid}[m]}$ seconds. No such pair: no trains, with the deepest void
+    and the reason in words.
+  \item Auto mode, or a cut not above the ceiling: a train is a run of at least
+    \emph{min\_events} events joined by gaps $g_i < \tau$ (strictly).
+  \item A ceiling $c$ with $\tau > c$: \code{core_and_extend}. Cores are runs of at least
+    \emph{min\_events} events with gaps $< c$; a core grows over any neighbour whose gap to
+    it is $< \tau$, repeated until nothing changes; members joined by gaps $< \tau$ form one
+    train.
+  \end{enumerate}
+\item[\texttt{maxinterval}] (\code{maxinterval_trains}; the benchmark's first choice in
+  \citet{cotterill2016comparison}). Walking the sorted events: a train begins at the first
+  gap $\le$ \emph{mi\_begin\_gap\_s} and continues while gaps are $\le$
+  \emph{mi\_end\_gap\_s}. Consecutive trains whose inter-train interval (first event of the
+  next minus last event of this one) is $<$ \emph{mi\_min\_ibi\_s} are merged, taking the
+  events between them. Then a train lasting less than \emph{mi\_min\_duration\_s} (last minus
+  first event) or holding fewer than \emph{min\_events} events is removed. The defaults
+  (60, 120, 180, 0\,s) are placeholders for 1\,Hz fungal data; the neuronal values were
+  0.17, 0.3, 0.2 and 0.01\,s.
+\item[\texttt{adamatzky}] (\code{adamatzky_words}; \citet{adamatzky2022language}). With
+  $\bar g$ the mean gap of the group and $\theta = \text{\emph{theta\_mult}}\cdot\bar g$,
+  consecutive events share a word while $g_i \le \theta$ (not strict). Every event is in a
+  word, words of one event included; a word of at least \emph{min\_events} events is a
+  train. The paper's $a$ is a species' mean interspike interval; here it is the mean gap of
+  one group in one span.
+\end{description}
+
+\emph{Summaries} (all rules). Trains are numbered $0,1,\dots$ in time order;
+\code{train_size} and \code{position_in_train} (0-based) follow. \code{lz_complexity} is the
+Kaspar--Schuster LZ76 phrase count of the sequence of train sizes (one symbol per train; for
+\texttt{adamatzky}, of every word's length), normalised by $n/\log_2 n$ with the routine
+\code{_lz76_complexity} from \code{Working/Detection/analysis/dehshibi_detection_analysis.py};
+\code{None} below two trains. With more than two symbols it is not bounded by 1.
+\code{artefact_warning} warns when the median within-train gap lies within 25\,\% of 200\,s,
+the $\sim$0.005\,Hz cycle seen on no-fungus control channels \citep{buffi2025electrical}.
+
+\code{gap_before_s} is not computed here: it is \code{measure} from
+\code{Adapters/interrogation_intervals.py}, imported, so it equals the
+\code{interval_before_s} that \blockref{interrogation.intervals} would report for the same
+anchor and groups.
+
+With \emph{write\_group} on, \code{write_group_columns}
+(\code{Working/interrogation/intervals.py}) sets \code{group} to the train id (or
+\code{<upstream>/<train id>}, keeping the upstream key in \code{group_upstream}). Every event
+in no train shares the key \texttt{-1}.
+
+\entryfield{Assumptions}
+\begin{itemize}
+\item \emph{Units.} Only times: samples divided by $f_s$, so seconds. The signal's unit
+  never enters. The gap settings are in seconds and so mean the same at any sampling rate.
+\item \emph{Missing values.} The block does not see the trace, so a NaN stretch in the
+  recording is invisible to it: no events are found there, and the gap across it is just a
+  long gap. That gap ends a train under every rule, and under \texttt{adamatzky} it also
+  raises the mean gap and so $\theta$. Events with a NaN onset are left out (above).
+\item \emph{Edges of the span.} No edge handling: the first event has no gap before it
+  (\code{gap_before_s} NaN) and the last none after. A train cut by the span's end is
+  reported with the events the span holds; nothing marks it as truncated.
+\item \emph{Event count.} \texttt{logisi} needs at least 11 events in a group. The others run
+  on any number: one event gives one word of one and no train; zero events give an empty
+  result with ``no events''.
+\item \emph{Signal shape.} \texttt{logisi} assumes the log-gap distribution is a mixture of
+  two humps. The module docstring records the resolution limit, measured on synthetic data:
+  with exponential (irregular) gaps inside trains, the between-train gaps must be about 30
+  to 100 times the within-train ones before a void above 0.7 can exist.
+\end{itemize}
+
+\entryfield{Outputs}
+A \texttt{SpanSet} with the input's spans, labels, scores and feature columns unchanged, plus
+\code{train_id} ($-1$ = none), \code{train_size} (0 when none), \code{position_in_train}
+($-1$ when none) and \code{gap_before_s}; \code{word_id} under \texttt{adamatzky}; \code{group}
+(and \code{group_upstream}) when \emph{write\_group} is on. A column of the same name already
+upstream is replaced.
+
+\code{meta} holds: \code{rule}, \code{n_events}, \code{n_gaps}, \code{n_groups},
+\code{n_unanchored}, \code{anchor_used}, \code{n_trains}, \code{n_in_trains},
+\code{fraction_in_trains}, \code{train_size_distribution}, \code{refused},
+\code{no_trains_reason} (only when no train was found), \code{warnings}, \code{rules} (the
+printed rule behind every number, \code{rules} in \code{trains.py}) and \code{groups} (each
+group's own summary). When there is one group, its \code{cut_s}, \code{void},
+\code{intra_peak_s}, \code{density} (the log-gap density, for drawing), \code{lz_complexity},
+\code{median_within_gap_s}, and the rule's own fields (\code{theta_s}, \code{mean_gap_s},
+\code{word_length_distribution}, \code{n_words}; \code{thresholds_s}) are copied to the top
+level; with several, those are \code{None} at the top and a note points to \code{groups}.
+
+\entryfield{Cost}
+$O(n \log n)$ in the number of events (a sort per group) plus a 512-point density, and the
+iterative \code{core_and_extend} loop when a ceiling is set. The span length enters only
+through the number of events. \code{tests/test_trains.py} checks that 20{,}000 events take
+well under a second. The estimate (\code{_estimate}) scales with span length as a stand-in.
+Not meant for the cluster.
+
+\entryfield{Failure modes}
+\begin{itemize}
+\item \emph{``No trains'' that means ``not resolvable''} (above). The reason string says
+  which: refused, one hump, a second hump below the prominence floor, or valleys too shallow.
+\item \emph{A cut at the wrong valley.} In auto mode the leftmost prominent hump is taken as
+  the within-train one. A ripple of short gaps (split detections, duplicate onsets) can form
+  that hump; the registry advises setting \emph{max\_core\_gap\_s} when the valley lands in
+  the wrong place.
+\item \emph{Placeholder thresholds.} \texttt{maxinterval}'s four second-valued defaults are
+  not fitted to any fungal recording; at 60\,s and 120\,s they will call trains on any
+  recording whose events are that dense.
+\item \emph{\texttt{adamatzky} always joins something.} With $\theta$ equal to the mean gap,
+  about half of all gaps or more are at or below it on most distributions, so this rule
+  finds words in Poisson (structureless) timing too. No null is applied.
+\item \emph{Unanchored events vanish from the timing.} If Event shape found no fall in some
+  events, their onsets are NaN; they are left out, and the gap around them joins their
+  neighbours.
+\item \emph{Gaps in the recording} split trains silently (above).
+\item \emph{A 200\,s rhythm} may be the control-channel artefact; the block warns.
+\end{itemize}
+
+\entryfield{Validation}
+\code{tests/test_trains.py} checks answers, not only shapes, on synthetic event times:
+\texttt{logisi} finds no trains in 25 Poisson series; recovers 20 clear trains (gaps
+20--40\,s inside, 2000--4000\,s between) with exactly the right members in 10 seeds, and
+again when fewer than half the gaps are within trains; recalls at least 93\,\% (300 events)
+and 75\,\% (60 events) of train events when the timing inside is exponential at a
+between-to-within ratio of 100; and calls trains in at most 5\,\% of trainless series
+(Poisson and 100-fold rate ramps, 30 and 60 events, 100 seeds each). \texttt{maxinterval}
+and \texttt{adamatzky} are checked against hand-worked examples, including a gap equal to
+$\theta$ joining a word.
+
+On real recordings the evidence is negative: in
+\code{docs/prompts/blocks/reports/W1-evaluation.md} the trains template found 0 events in
+trains on three recordings at 4--6\,h and three at 24\,h, and 0 to 0.15 on average on their
+phase-randomised surrogates, so it was not shipped as a template and the block is marked
+experimental. No test compares its trains with hand-marked trains on a fungal recording.
+
+\entryfield{References}
+\citet{pasquale2010selfadapting}, as restated by \citet{cotterill2016comparison};
+\citet{cotterill2016comparison} for MaxInterval; \citet{adamatzky2022language} for words;
+\citet{buffi2025electrical} for the 200\,s control-channel cycle. The adaptations (a kernel
+density instead of a binned histogram, the optional ceiling, no fallback threshold, the
+prominence floor, the 10-gap minimum) are each argued with measurements in the docstring of
+\code{Working/interrogation/trains.py}; the sources are summarised in
+\code{docs/research/analysis-blocks-primary-sources.md}, section 8.
+
+\entryfield{Tests}
+\code{tests/test_trains.py} (the core, with the answer checks above);
+\code{tests/test_adapter_trains.py} (the four columns, upstream onset as anchor, trains never
+crossing a group, \emph{write\_group} with and without an upstream group, the refusal below
+ten gaps, an empty span set, Poisson spans giving no trains, JSON-safe meta, linear time over
+many groups); \code{tests/test_template_event_trains.py} (the template chain finds four
+planted trains end to end).

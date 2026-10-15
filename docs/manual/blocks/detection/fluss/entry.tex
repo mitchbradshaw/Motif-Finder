@@ -1,0 +1,108 @@
+% !TEX root = ../../../main.tex
+% Appendix entry: detection.fluss -- "FLUSS regime change" (Appendix A).
+\entryfield{Algorithm}
+FLUSS is the segmentation method of \citet{gharghabi2017matrix} (matrix profile VIII). \code{_run}
+in \code{Adapters/detection_fluss.py} sets $L = m = \mathrm{round}(\textit{window\_s}\times f_s)$,
+refuses $m < 4$ and spans of at most $2\,\textit{excl\_factor}\,m + m - 1$ samples, and computes
+the matrix profile with the same call as \blockref{detection.matrix_profile}
+(\code{matrix_profile} in \code{Pipelines/matrix_profile/run_matrix_profile.py}, backend
+\texttt{auto}). Only the nearest-neighbour \emph{index} $I_i$ is used; the distances are not. Then
+\code{regime_change_score} in \code{Working/Detection/matrix_profiling/fluss.py}, with
+$k = n - m + 1$ windows and $f$ = \emph{excl\_factor}:
+\begin{enumerate}
+\item \emph{Compress.} Windows touching a NaN have no neighbour ($I_i = -1$). Keep only the $k_v$
+  valid windows and renumber them $0,\dots,k_v - 1$, mapping each $I_i$ to its valid neighbour's
+  new number (this project's adaptation: without it, the strings missing beside a long gap read as
+  the end of a regime).
+\item \emph{Arc curve.} Each window $i$ draws an arc to $I_i$; $\mathrm{AC}(j)$ is the number of
+  arcs passing over position $j$ (computed by \code{stumpy.fluss}, called, not copied).
+\item \emph{Idealised arc curve.} What AC would be if neighbours were random: with \emph{iac} =
+  \texttt{parabola}, the paper's $\mathrm{IAC}(j) = 2j(k_v - j)/k_v$; with \texttt{beta}, stumpy's
+  beta curve fitted to random indices (nearly the same).
+\item \emph{Corrected arc curve.} $\mathrm{CAC}(j) = \min\bigl(\mathrm{AC}(j)/\mathrm{IAC}(j),\,1\bigr)$.
+  stumpy sets it to 1 over the first and last $f m$ windows.
+\item \emph{Score.} $1 - \mathrm{CAC}$, mapped back to the original window starts, over the valid
+  windows from the $(fm)$-th to the $(k_v - fm)$-th; NaN everywhere else: the blanked ends, windows
+  with no neighbour, and the last $m-1$ samples where no window starts.
+\item \emph{Readout} (does not touch the score). stumpy's regime extraction: the
+  \emph{n\_regimes\_readout}$\,-\,1$ lowest CAC minima, each blanking $f m$ windows either side.
+  Locations at CAC 1.0 (stumpy's padding once the blanks cover the span) are dropped.
+\end{enumerate}
+Two departures from the paper, both kept on purpose and named in the core's docstring: the ends
+are blanked over $f m$ windows ($5L$ at the default, stumpy's convention) where the paper blanks
+$L$; and the blanked stretches are NaN (not scored) rather than a score of 0.
+
+\entryfield{Assumptions}
+\begin{itemize}
+\item \emph{Units.} The matrix profile is z-normalised, so units do not matter.
+\item \emph{Sampling rate.} \emph{window\_s} is converted at the span's $f_s$. The paper sets $L$ to
+  about one period of the behaviour and reports results robust over a fourfold range of $L$
+  (\code{docs/research/analysis-blocks-primary-sources.md}, 13a).
+\item \emph{Missing values.} A window touching NaN is not scored and draws no arc, and the arcs are
+  compared with the curve expected for the valid windows only, so a gap is not itself read as a
+  change. Across a gap the two sides are treated as adjacent.
+\item \emph{Span length.} The span must hold more than $2fm + m - 1$ samples: at the defaults
+  (60\,s, $f = 5$, 1\,Hz) more than 659\,s; with the \texttt{fluss\_regimes} template's 300\,s
+  window, nearly 55 minutes, of which 25 minutes at each end are never scored.
+\item \emph{Signal shape.} The regimes must differ in the \emph{shapes} they contain, and each must
+  last several windows: the paper notes FLUSS cannot segment a single gesture.
+\end{itemize}
+
+\entryfield{Outputs}
+A \texttt{Scores} of length $n$, in $[0, 1]$ where defined, NaN elsewhere. Value $i$ belongs to the
+window starting at sample $i$. \code{meta}: \code{m}, \code{window_s}, \code{iac},
+\code{excl_factor}; \code{cac_min} and \code{cac_min_idx} (the deepest dip inside the scored region
+and where), \code{score_max} $= 1 - $\code{cac_min}; the readout \code{regime_locs},
+\code{regime_cac}, \code{n_regimes_found}; \code{n_blanked_each_end}, \code{n_scored},
+\code{n_no_neighbour}; the matrix profile's \code{backend} and \code{elapsed_s}; and \code{rules},
+the plain-language rules the page prints. Nothing is persisted: the matrix profile is computed again
+on every run (the step cache aside).
+
+\entryfield{Cost}
+A full matrix profile, $O(n^2)$ time and $O(n)$ memory (\blockentry{detection.matrix_profile});
+the arc counting is $O(n)$. The estimate is the matrix-profile cost model for the span; the
+\texttt{beta} curve's fitting is not in it (about 1.4\,s at 4\,h and 4.9\,s at 24\,h at 1\,Hz,
+the parameter's own description). \code{max_span_samples} is the matrix profile's, derived from
+this machine's calibration. Over the Analyse ceiling a chain is sent to the cluster as for
+\blockref{detection.matrix_profile}.
+
+\entryfield{Failure modes}
+\begin{itemize}
+\item \emph{Nothing found on real data.} The registry description records that on real recordings
+  the score found nothing beyond its surrogate null
+  (\code{docs/prompts/blocks/reports/W1-evaluation.md}). Treat a peak as a candidate to check,
+  not a finding.
+\item \emph{Drift flattens the score.} After z-normalisation a ramp looks the same everywhere, its
+  arcs cross everywhere, CAC stays near 1 and the score near 0. FLUSS fails safe here (no change
+  found) rather than inventing one; detrend first.
+\item \emph{Blind ends.} A change within $fm$ windows of either end of the span is never scored.
+\item \emph{Cut tied to window.} A longer window gives higher peaks for changes and for
+  no-change alike (on the synthetic set, changes peaked at 0.35--0.40 at 60\,s and 0.65--0.82 at
+  300\,s; null recordings at up to 0.23 and 0.44: adapter docstring). A threshold must be
+  recalibrated whenever \emph{window\_s} changes.
+\item \emph{Where the dip sits.} The score is indexed by window start. \unverified{By the arc
+  argument, the low-crossing stretch is the run of window starts whose windows straddle the change,
+  roughly the window before it; a span cut from the score therefore tends to end near the change
+  rather than start there.} The tests accept a peak within two windows of a planted boundary.
+\item \emph{A high minimum is not a change.} A listed regime location with CAC near 1 is only the
+  least-crossed place, not evidence of a change (the paper's own caution).
+\end{itemize}
+
+\entryfield{Validation}
+\code{tests/test_fluss.py} and \code{tests/test_adapter_fluss.py} check that the score peaks within
+two windows of a planted boundary between two synthetic regimes, above 0.8 on a clean index; that
+random neighbours, a drift ramp and a long NaN gap inside one regime give low scores; that a gap does
+not hide a real change; and that the ends and the tail are NaN. \code{tests/test_template_fluss_regimes.py}
+checks that the \texttt{fluss\_regimes} template (detrend, FLUSS at 300\,s, threshold 0.46) gives
+exactly one span at the boundary on synthetic two-regime recordings, including jittered ones, and
+none on single-regime, drift and null recordings. All of this is synthetic; the only real-data
+evaluation (above) found nothing beyond the null.
+
+\entryfield{References}
+\citet{gharghabi2017matrix}. The departures from the paper and from stumpy's docstring (whose
+examples pass the distances instead of the index) are in
+\code{docs/research/analysis-blocks-primary-sources.md}, section 13a.
+
+\entryfield{Tests}
+\code{tests/test_fluss.py}, \code{tests/test_adapter_fluss.py},
+\code{tests/test_template_fluss_regimes.py}.

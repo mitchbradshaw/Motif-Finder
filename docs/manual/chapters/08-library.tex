@@ -1,0 +1,468 @@
+% !TEX root = ../main.tex
+\chapter{Library: saved shapes and window sets}\label{ch:library}
+The Library is the project's catalogue of what it has found and kept. It has three sections,
+chosen with the tabs at the top of every Library page:
+\begin{description}
+  \item[Motifs] every shape the project has catalogued, every place each one occurs, and the
+    families those shapes fall into. Five pages: \apppage{library.recurrence},
+    \apppage{library.atlas}, \apppage{library.family}, \apppage{library.grouping} and
+    \apppage{library.import}.
+  \item[Window sets] saved, reusable sets of fixed-length windows cut from the recordings, the
+    raw material for training a model (\apppage{library.window-sets}).
+  \item[Templates] every saved chain (\apppage{library.templates}).
+\end{description}
+The Library feeds the rest of the app. A family's exemplar is the seed Discovery searches
+for; a family is the source Analyse interrogates; a window set is the source of a training
+chain; a template is a chain you can run again.
+
+\begin{plainterms}[Motifs, members and families]
+A \term{motif}{motif} is a shape, such as a sharp drop followed by a slow recovery. Each place
+that shape occurs, on some channel at some time, is a \emph{member}. A \term{family}{family}
+is a group of motifs that look alike, the way a field guide groups birds by silhouette. The
+families are not fixed: they are the answer to a question you ask of the catalogue, such as
+``group the single motifs by shape distance, cut at 0.6''. That question, with its answer, is
+a \term{grouping}{grouping}. Ask it differently and you get different families; both answers
+are kept, and the grouping bar always says which one you are looking at.
+\end{plainterms}
+
+\begin{plainterms}[Exemplar and medoid]
+Each family has two representatives. The \term{medoid}{medoid} is computed: it is the member
+that is, on average, closest in shape to all the others, the most typical one. The
+\term{exemplar}{exemplar} is the family's chosen example. If a person has picked one with
+\ui{Make exemplar}, that member is the exemplar; otherwise it is the member nearest the
+medoid, which is usually the medoid itself. The exemplar is what Discovery searches for, so it
+is worth choosing a clean one by hand.
+\end{plainterms}
+
+Every Motifs page carries the same two bars. The \emph{grouping bar} says which grouping is on
+screen: what is grouped (\ui{single motifs}, \ui{sequences} or \ui{spike trains}), the basis
+and cut (click it to switch to another saved grouping), how many motifs it left out
+(\ui{omitted · flagged}, which opens a drawer listing them and why), and \ui{Edit grouping}.
+The \emph{view bar} under it hides members you probably do not want to look at, without
+deleting anything: \ui{noise floor on} (the default) hides members shallower than their
+dataset's noise floor (Settings › Datasets; 0.1\,mV where none is set); \ui{fall} keeps
+only members whose fall lasts between two durations in seconds; \ui{pure only} keeps only
+windows that hold a single fall. The bar always says how many members it is hiding, and
+\ui{show sub-floor} brings them back.
+
+\begin{watchout}[Controls on the grouping bar that do nothing yet]
+\ui{adjudicated only}, the \ui{$\ge$ N members} popover's \ui{Apply} and \ui{+ filter} show
+``not wired yet''. (The minimum-members number does hide small families on the Atlas, but no
+regrouping happens.) \ui{Find by shape} and \ui{Export} on the section bar, and
+\ui{Export entry} on the Atlas and Family pages, are not wired either.
+\end{watchout}
+
+\pagesection{library.recurrence}{Recurrence}{Where each family occurs, hour by hour}{live}
+Recurrence is a table with one row per family and one column per channel, grouped by
+recording. Each cell says how often that family occurs on that channel. You use it to see
+whether a shape is everywhere, or belongs to one channel or one recording.
+
+\pagefield{When you'd come here}
+It is the first page of the Motifs section. Come here to choose which channels to look at, or
+to ask whether a family recurs across channels and recordings.
+
+\screenshot{pages/library/library.recurrence--default}{Families down the side, channels across
+the top, three recordings to a page. A ``?'' cell is on a channel nobody has reviewed; the
+rail on the right describes the grouping on screen.}
+
+\pagefield{Doing things here}
+\begin{enumerate}
+  \item \textbf{Read a cell.} \ui{per hour} (the default) shows members per hour of
+    recording, on a colour scale that spans several decades; \ui{count} shows the raw
+    number. A ``?'' means nobody has reviewed that channel, so ``absent'' and ``never looked''
+    are told apart. A blank cell was reviewed and the family was not found. A number in an
+    amber dashed cell means members are recorded on a channel nobody has reviewed. A red
+    cell holds suspected cross-channel artifacts, kept visible.
+  \item \textbf{Count with or without artifacts.} \ui{every member} counts everything.
+    \ui{excluding artifacts} drops the members a person marked as artifacts in Review; a
+    machine flag alone drops nothing. \ui{propagation counted once} also counts a travelling
+    event once, on the channel where it starts. Both need the family to have been classified
+    across channels on \apppage{library.family}; the page says how many have been.
+  \item \textbf{Open a cell.} Click it to see that cell's members in a slideshow, in place,
+    each drawn from the recording with context either side.
+  \item \textbf{Build a selection.} Tick channels or recordings. The rail totals the
+    channels, channel-hours, members and the share reviewed, and warns when two selected
+    channels share ground (browsing both would double-count). \ui{Browse} \emph{N}
+    \ui{channels} opens \apppage{library.atlas}.
+  \item Page through recordings with the arrows beside \ui{recordings 1--3 of} \emph{N}.
+\end{enumerate}
+
+\pagefield{Where it leads}
+\apppage{library.atlas}; \apppage{library.family} from a family's name.
+
+\begin{underthehood}[Recurrence]
+Client: \code{webui/client/src/library/RecurrencePage.tsx}, \code{chrome.tsx} (section bar,
+grouping bar, view bar, omitted drawer), \code{CrossChannel.tsx} (the counting modes),
+\code{MemberSlideshow.tsx}. Read: \code{getRecurrence} in
+\code{webui/client/src/api/library.ts} calls \code{GET /api/library/recurrence}
+(\code{webui/server/library.py}). The three counting modes are the core's, from
+\code{family_recurrence} in \code{Working/library/matching.py}, and the rule in force is
+printed behind the info icon beside them.
+\end{underthehood}
+
+\pagesection{library.atlas}{Atlas}{Families grouped by shape}{live}
+The Atlas shows every family of the grouping as a card: its exemplar and medoid drawn in real
+millivolts, its member count and how much of it has been judged. It is the page for seeing
+which kinds of shape the project has, side by side.
+
+\pagefield{When you'd come here}
+From Recurrence with a selection, or directly to browse families. Come here to compare
+shapes, to find a family worth a closer look, or to send one to Discovery or Analyse.
+
+\screenshot{pages/library/library.atlas--family-selected}{One family selected: its members open
+in a slideshow above the grid, and the rail on the right gives its exemplar and medoid, its
+amplitude spread and its numbers.}
+
+\pagefield{Doing things here}
+\begin{enumerate}
+  \item \textbf{Read a card.} Each card draws the exemplar (dark) and the medoid (family
+    colour), with only their own baseline removed: no card is normalised, because the size
+    of an event is part of the evidence. Each card has its own y axis so every shape is
+    legible; the bar at its right marks the family's peak on one scale shared by the whole
+    page, so you can still compare sizes. Badges give the number of recordings, hand edits,
+    suspected artifacts, members the view hides, and the method's noise test.
+  \item \textbf{Choose the order.} \ui{sort:} by \ui{family id}, \ui{members},
+    \ui{judged fraction}, \ui{duration} or \ui{hand edits}. The scope chips say which
+    channels came from Recurrence; remove one to widen the scope.
+  \item \textbf{Open a family.} Click a card to select it and open its members in a
+    slideshow above the grid; double-click to go to \apppage{library.family}. The arrow keys
+    move the selection.
+  \item \textbf{Use the rail.} It shows the exemplar and medoid with the distance between
+    them, a histogram of peak-to-peak amplitude, duration, mean distance to the medoid,
+    signal-to-noise ratio, how many are judged and the cross-channel counts. Its buttons:
+    \ui{Open all} \emph{N} \ui{members}, \ui{Seed search in Discovery} (with the exemplar as
+    the seed), and \ui{Interrogate in Analyse}.
+  \item Switch to \ui{sequences} in the grouping bar to see families of sequences (runs of
+    events in order) instead of single motifs.
+\end{enumerate}
+
+\pagefield{Where it leads}
+\apppage{library.family}; \apppage{discovery.seed}; \apppage{analyse.interrogation}.
+
+\begin{watchout}[Use the Family page to send members to Review]
+The rail's \ui{Send} \emph{N} \ui{unjudged to Review} only shows a message saying it is not
+wired; nothing is queued. The same button on \apppage{library.family} does create a queue.
+The legend calls the exemplar ``human seed'', but unless someone has used \ui{Make exemplar}
+it is chosen by the computer (the member nearest the medoid).
+\end{watchout}
+
+\begin{underthehood}[Atlas]
+Client: \code{webui/client/src/library/AtlasPage.tsx}. Reads: \code{getMotifFamilies} and
+\code{getSequenceFamilies} in \code{webui/client/src/api/library.ts}, calling
+\code{GET /api/library/families} and \code{/sequence-families}. The exemplar and medoid traces
+are decimated millivolts read from the channel files by \code{webui/server/library.py}; the
+exemplar is a hand-made one if there is one, else the member with the smallest stored
+distance to the medoid.
+\end{underthehood}
+
+\pagesection{library.family}{Family}{Exemplar and medoid, every member, hand edits}{live}
+The Family page shows one family in full: a summary of its exemplar and medoid, every member
+drawn from its own recording, and a rail with the selected member's details. It is where you
+correct the computer's grouping by hand.
+
+\pagefield{When you'd come here}
+From a card on the Atlas, a family name on Recurrence, or a link from Review. Come here to
+check that a family's members really are the same shape, to remove the ones that are not, to
+choose a better exemplar, or to send the unjudged members to Review.
+
+\screenshot{pages/library/library.family--member-selected}{A family with its medoid selected.
+The summary at the top overlays ten members on the medoid; each member card below is drawn
+from its own recording, sorted by distance to the medoid.}
+
+\pagefield{Doing things here}
+\subsection{Look at the members}\label{sec:library-members}
+\begin{enumerate}
+  \item The summary gives the counts: members, recordings and channels, how many are
+    judged, hand edits, duration, depth and whether the family has been classified across
+    channels. ``Judged'' means a member has a Review verdict, or matches a judged event, or
+    falls inside reviewed windows; the info icon gives the rule.
+  \item \ui{sort} orders the member cards by \ui{distance to medoid}, \ui{time},
+    \ui{amplitude} or \ui{unjudged first}. \ui{hand edits only} shows only members someone
+    edited by hand.
+  \item Click a card to show the member in the rail: its recording, channel, onset and
+    duration, how it was found, its revisions, its edges, its verdict and its tags. Verdicts
+    are read-only here; \ui{Open in Review} goes to give one.
+\end{enumerate}
+
+\subsection{Correct the family by hand}\label{sec:library-hand-edits}
+Hand edits are written to the database and survive a reload and a regrouping, because they
+are tied to the shape (its content hash), not to the grouping.
+\begin{enumerate}
+  \item Tick members (or \ui{select page}), then \ui{Remove from family}, \ui{Add tag}. A
+    removed member moves to a strip of removed members, where \ui{Restore} undoes it.
+  \item With one member in the rail: \ui{Make exemplar}, \ui{Remove from family}, or
+    \ui{+ tag}.
+  \item \ui{Assign class} is disabled: the classes are not settled yet, so nothing is
+    written.
+\end{enumerate}
+
+\subsection{Send the family on}\label{sec:library-family-send}
+\begin{itemize}
+  \item \ui{Send} \emph{N} \ui{to Review as a queue} makes a Review queue of the members not
+    yet judged; afterwards the button opens it. A family of unjudged members is a proposal,
+    not a finding.
+  \item \ui{Seed search in Discovery} searches the recordings for more of the exemplar.
+  \item \ui{Classify across channels} starts a job that asks, for every member, whether the
+    same event appears on other channels at the same moment (a suspected artifact), a little
+    later (propagation), or not at all. Unlike the quick view on
+    \apppage{explore.cross-channel}, this tests each pair against chance. Its result feeds
+    the counting modes on \apppage{library.recurrence}, and \ui{Send} \emph{N}
+    \ui{suspected artifacts to Review} queues the flagged members for a person to decide.
+\end{itemize}
+
+\screenshot{pages/zzz_w_cross_channel/library.family--fixup-w-classify-across-channels}{The
+family after classification across channels: members paired by bin, with the rule that
+produced each count.}
+
+\pagefield{Where it leads}
+\apppage{review.inspector} for the family's queue; \apppage{discovery.seed};
+\apppage{explore.cross-channel} from an edge's \ui{Explore} link, on exactly the window the
+edge was measured on.
+
+\begin{watchout}[Edits change distances]
+Making a new exemplar, or redrawing a member's span, makes the stored distances to it out of
+date. The page says ``edges partially stale until recomputed''; nothing recomputes them
+automatically. \ui{Redraw in Explore} opens a page that still runs on example data
+(\apppage{explore.span-edit}).
+\end{watchout}
+
+\begin{underthehood}[Family]
+Client: \code{webui/client/src/library/FamilyPage.tsx}, \code{Edges.tsx},
+\code{CrossChannel.tsx}. Read: \code{GET /api/library/family/{id}}. Hand edits:
+\code{POST} and \code{DELETE /api/library/hand-edits}, re-applied on every read by
+\code{apply_to_assignment} in \code{Working/library/hand_edits.py}; an edit names its family by
+the family's medoid content hash, so it survives a regrouping that renames the family
+(\code{docs/LIBRARY_STORAGE.md}, §8.1). Queues: \code{POST
+/api/library/family/{id}/unjudged-queue} and \code{/suspected-artifacts}. Classification:
+\code{POST /api/library/family/{id}/classify-cross-channel}, a \code{cross_channel} job.
+\end{underthehood}
+
+\pagesection{library.grouping}{Edit grouping}{Unit, basis, what does not fit, hand edits}{live}
+Edit grouping is where you ask the catalogue a new question: group these motifs by this
+measure, with these settings. It opens as a window over the page you came from. You compute
+a preview first, and only then save the new grouping or apply it.
+
+\pagefield{When you'd come here}
+From \ui{Edit grouping} on any Motifs page, when the families on screen are too coarse or too
+fine, or when you want to group by something other than shape: amplitude, duration,
+frequency, a tag, or where the motifs came from.
+
+\screenshot{pages/library/library.grouping--shape-distance-default}{The Edit grouping window for
+a shape-distance grouping: the four numbered steps, then the measured preview, then Save and
+Apply.}
+
+\pagefield{Doing things here}
+\begin{enumerate}
+  \item \textbf{1 What to group:} single motifs, sequences or spike trains.
+  \item \textbf{2 Group by:} nine bases in three kinds. \emph{Distance} bases (shape
+    distance, sequence similarity) cluster by how alike two shapes are; the default method
+    is Ward linkage with a \emph{cut}, and other registered methods (k-Shape, HDBSCAN) may be
+    offered. \emph{Feature bins} sort each motif into a bin of one measured number (dominant
+    frequency, peak-to-peak amplitude, duration, polarity), with quantile, log-spaced or fixed
+    bin edges. \emph{Labels} group by tag or by provenance (recording, run or spike train). A
+    basis that does not apply to the chosen unit is disabled, with the reason.
+  \item \textbf{3 Parameters:} the settings of the basis, drawn over the real distribution of
+    the measure where there is one. For Ward, the \emph{cut} is the most important: a lower
+    cut makes more, tighter families; a higher cut makes fewer, looser ones.
+  \item \textbf{4 What does not fit:} motifs that fit no family are always flagged and listed,
+    never deleted. You can also omit and flag groups smaller than a minimum size (10 by
+    default).
+  \item \ui{Compute preview} runs the grouping as a job without writing anything. The preview
+    gives the number of groups, members, omitted motifs (by reason), the cost of recomputing,
+    and what will happen to every hand edit.
+  \item \ui{Save as a grouping} writes it as a new saved grouping; \ui{Apply grouping} saves
+    it and opens it in the Atlas. The grouping you were looking at stays saved either way.
+\end{enumerate}
+
+\begin{plainterms}[Why save groupings rather than overwrite them]
+Two cuts can give families that look alike and are not. Keeping every grouping, each with its
+own id, means a figure or a result can always say exactly which families it used, and you
+can switch back. Hand edits are not part of any grouping: they are re-applied on top of
+whichever grouping you open.
+\end{plainterms}
+
+\pagefield{Where it leads}
+\apppage{library.atlas} with the new grouping.
+
+\begin{watchout}[Large regroupings]
+When the recompute would be too heavy to run here, \ui{Apply grouping} becomes \ui{Create
+SLURM script}, which says it is not wired yet. Spike-train groupings can be saved but not
+applied, because no Atlas draws them yet.
+\end{watchout}
+
+\begin{underthehood}[Edit grouping]
+Client: \code{webui/client/src/library/GroupingPage.tsx}. Reads: \code{GET
+/api/library/grouping-editor} (the bases, the distribution of each measure, and the reasons a
+basis does not apply). Preview: \code{POST /api/library/groupings/run}, a \code{regroup} job
+that writes nothing. Save: \code{POST /api/library/groupings}. The engine is
+\code{run_grouping} in \code{Working/library/grouping/engine.py}; the omission reasons and the
+surrogate null that flags noise-like families are described in
+\code{docs/LIBRARY_STORAGE.md}, §6.
+\end{underthehood}
+
+\pagesection{library.import}{Import}{An empty library, and the motif import}{live}
+Import brings motifs that were extracted outside the app into the Library. It always starts
+with a dry run: the importer reads the bundle and reports what it would do, without writing
+anything. The same page is what a new installation sees, because an empty library opens here.
+
+\pagefield{When you'd come here}
+When the Library is empty, or when a new bundle of extracted motifs is ready. The empty
+library offers two ways in: judge candidates in Review (pressing \ui{S} creates an
+exemplar), or import motifs you have already extracted.
+
+\screenshot{pages/library/library.import--dry-run-populated}{A dry run of a registered bundle:
+counts, the importer's checks, what the import would create, and a sample.}
+
+\pagefield{Doing things here}
+\begin{enumerate}
+  \item Choose a \ui{bundle}. The list comes from the registry of datasets, not from a scan
+    of the disk: register a bundle in Settings › Datasets and it appears here. A held-out
+    bundle is listed but cannot be chosen.
+  \item Read the dry run: the counts of motifs, spike trains, recordings and channels; the
+    \emph{Checks}, each passed, warned or failed (click one for details); \emph{What the
+    import creates}; and a \emph{Sample}.
+  \item \ui{Import} \emph{N} \ui{motifs} starts the import as a job. Its progress shows in the
+    footer and \ui{Cancel import} stops it. The import writes everything at the end, so a
+    job that did not finish wrote nothing.
+  \item When it is done, \ui{Open the library}.
+\end{enumerate}
+Importing is safe to run twice: members are keyed on their recording and span, so a second
+run adds no duplicates. Imported entries arrive unjudged, and no grouping is computed by the
+import.
+
+\pagefield{Where it leads}
+\apppage{library.grouping} to group the new motifs, then \apppage{library.recurrence}.
+
+\begin{watchout}[Two parts of this page are not what they seem]
+The sample thumbnails are not signal: they are drawings of a generic drop at each sample's
+amplitude, and the caption says so. The tick box \ui{then send} \emph{N} \ui{to Review as a
+queue} creates no queue (it shows a ``not wired yet'' message), yet the finished card says
+``queue created for Review''.
+\end{watchout}
+
+\begin{underthehood}[Import]
+Client: \code{webui/client/src/library/ImportPage.tsx}, \code{EmptyLibrary.tsx}. Reads:
+\code{GET /api/library/import/bundles}; \code{POST /api/library/import/dry-run}, which runs the
+real importer with \code{dry_run=True}. The import is \code{POST /api/library/import}, a job
+followed through \code{GET /api/jobs/{id}}. Importers live in
+\code{Working/library/importers/}; identity and duplicates are \code{docs/LIBRARY_STORAGE.md},
+§2.
+\end{underthehood}
+
+\pagesection{library.window-sets}{Window sets}{Saved and reusable, with their split and train-safety}{live}
+A \term{window-set}{window set} is a saved list of fixed-length \term{window}{windows} cut from
+the recordings, for example every one-minute window of eight channels. Models are trained and
+tested on window sets. This page lists every saved set, says how it was made and whether it is
+safe to train on, and hands a set to Analyse.
+
+\begin{plainterms}[The split, and why ``train-safe'' matters]
+A model learns from some windows (the \emph{train} part) and is marked on others (the
+\emph{test} part). If a test window sits right next to a training window, the two overlap in
+time and share most of their signal, and the model is in effect marked on something it has
+already seen: like setting an exam with questions copied from the homework. The app therefore
+splits by time, in blocks (a \term{blocked-split}{blocked split}), and leaves a gap of at least
+one window length between a training block and a test block. A set is \emph{train-safe} when it
+has such a split with such gaps on every boundary, checked when the set was saved.
+\end{plainterms}
+
+\pagefield{When you'd come here}
+Before training a model, to choose or build its windows; or to check how an existing set was
+made and whether it is safe.
+
+\screenshot{pages/zzzzz_af_window_pools/library.window-sets--fixup-af-the-new-sets-are-listed-with-scale-and-counts}{The
+list of window sets with their scale, counts and check, and the selected set's details on the
+right.}
+
+\pagefield{Doing things here}
+\subsection{Read a set}\label{sec:library-read-set}
+\begin{enumerate}
+  \item The table gives each set's name, source, \ui{window · stride · gap}, number of
+    windows, split, share labelled, and its \ui{check}. Filter by check (\ui{train-safe},
+    \ui{not train-safe}), recording or labelled share.
+  \item Select a set. The rail shows who made it and its recipe hash, its check with the
+    reason when it is not train-safe, a strip per channel showing which hours are train, test
+    and gap, the spacing checks, and how many windows carry each label. \ui{coverage}
+    switches between the labels \ui{now} and the labels \ui{at save}.
+  \item A check other than train-safe says why: the gap is shorter than a window, there is no
+    split, the set is a test sample (never trained on), the sampling rate was inferred and
+    needs confirming in Settings › Datasets, or the roles are laid later, over a pool.
+\end{enumerate}
+
+\subsection{Build a set}\label{sec:library-new-set}
+\ui{New window set} cuts unlabelled windows from one recording: choose the channels, one or
+more scales (1, 10 and 30 minutes are ticked by default; each scale becomes its own set), and
+whether to leave out spans marked as artifacts (they are counted). The windows do not overlap.
+Building runs as a background job and the new sets appear in the list when it ends. These sets
+carry no train and test roles of their own: the split is laid when sets are combined in the
+\emph{Window pool} block in Analyse. \ui{New from Analyse} opens that chain instead.
+
+\subsection{Use a set}\label{sec:library-use-set}
+\ui{Use as source in Analyse} opens \apppage{analyse.chain} with the Window pool block as its
+source and this set ticked. \ui{Re-split in Analyse} does the same for a set that is not
+train-safe. \ui{Rename} renames the set in the database.
+
+\pagefield{Where it leads}
+\apppage{analyse.chain}; \apppage{models.launch} trains on labelled sets.
+
+\begin{watchout}[What is not recorded]
+\ui{used by} is empty for every set: nothing records which run or model used a window set, so
+deleting cannot check that a set is unused. Deleting a set only hides it in this browser
+session. \ui{Import} and \ui{Export} are not wired; the import window checks only the path
+you type and says it has no dry run.
+\end{watchout}
+
+\begin{underthehood}[Window sets]
+Client: \code{webui/client/src/library/WindowSetsPage.tsx}, \code{NewWindowSet.tsx}. Read:
+\code{GET /api/library/windowsets} over the \code{window_sets} table
+(\code{webui/server/library.py}). Rename: \code{PATCH /api/windowsets/{id}/name}
+(\code{webui/server/shape_routes.py}). Building unlabelled sets: \code{POST
+/api/windowsets/unlabelled} (\code{webui/server/training_routes.py}). Pools and the train/test
+fence: \code{Working/training/pool.py}.
+\end{underthehood}
+
+\pagesection{library.templates}{Templates}{Every saved chain, its versions and scores}{live}
+A \term{template}{template} is a saved \term{chain}{chain}: its blocks in order, with their
+settings locked, so the same analysis can be run again on other data. This page lists every
+template in the database and sends one where it can run.
+
+\pagefield{When you'd come here}
+To find a chain someone saved, see its stages and settings, and apply it to new recordings
+in Discovery, open it in Analyse, or launch a training template in Models.
+
+\screenshot{pages/library/library.templates--template-selected}{The template list with each
+chain's stages as small glyphs; the rail shows the selected template's stages with their
+locked settings.}
+
+\pagefield{Doing things here}
+\begin{enumerate}
+  \item Filter by kind (\ui{all}, \ui{detection}, \ui{seed search}, \ui{training},
+    \ui{interrogation}) or with \ui{contains a Model stage}; \ui{sort} by runs, name or
+    version.
+  \item Select a template. The rail lists its stages with their settings, its version, and its
+    scores.
+  \item \ui{Apply in Discovery} runs a detection or seed-search template across recordings
+    (\apppage{discovery.runs}); \ui{Open in Analyse} opens it as a chain; a training template
+    has \ui{Launch in Models} instead.
+\end{enumerate}
+
+\pagefield{Where it leads}
+\apppage{discovery.runs}; \apppage{analyse.chain}; \apppage{analyse.interrogation};
+\apppage{models.launch}.
+
+\begin{watchout}[Versions and scores are not recorded]
+Each template carries a version number, but nothing stores what changed between versions, so
+the rail says ``Version history is not recorded'' and there is no diff. No run stores a
+precision, recall or comparison with a null, so every template reads ``No scores are
+recorded'', even one that has been run. The run count is found by searching saved run
+configurations for the template's name, not by a direct link. \ui{Duplicate}, \ui{Import JSON}
+and \ui{Archive} change this browser session only; \ui{Export JSON} shows the template's stages
+and settings as JSON in a window; it is a description, not a recipe you can run.
+\end{watchout}
+
+\begin{underthehood}[Templates]
+Client: \code{webui/client/src/library/TemplatesPage.tsx}. Read: \code{GET
+/api/library/templates} (\code{get_templates} in \code{webui/server/library.py}), which maps
+the one \code{templates} table; the run count is a \code{LIKE} match of the name inside
+\code{configs.config_json}. Template writes for Analyse go through \code{/api/templates}
+(\code{webui/server/analyse_routes.py}).
+\end{underthehood}

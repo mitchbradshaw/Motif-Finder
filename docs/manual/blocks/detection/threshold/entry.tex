@@ -1,0 +1,81 @@
+% !TEX root = ../../../main.tex
+% Appendix entry: detection.threshold -- "Threshold to spans" (Appendix A).
+\entryfield{Algorithm}
+\code{_run} in \code{Adapters/detection_threshold.py}, for scores $s_0,\dots,s_{n-1}$, threshold
+$\theta$, merge gap $g$ seconds and floor $d$ seconds:
+\begin{enumerate}
+\item The mask $b_i = (s_i > \theta)$: strictly greater. A NaN compares false, so NaN is never
+  above the cut; $+\infty$ compares true.
+\item \code{spans_from_mask}: pad the mask with false at both ends and take the maximal runs of
+  true as half-open intervals $[a_j, e_j)$. Each span's score is $\max_{a_j \le i < e_j} s_i$.
+\item \code{tidy_spans} (shared with \blockref{detection.signal_threshold}): convert the two
+  settings to samples at the \texttt{Scores}' own rate, $G = \mathrm{round}(g f_s)$ and
+  $D = \mathrm{round}(d f_s)$. Walking the spans in order, a span whose start lies fewer than $G$
+  samples after the end of the previous (merged) span is joined to it: the merged span runs from
+  the first start to the last end and scores the maximum of its parts. Then every span with
+  $e - a < D$ is dropped. Merging comes first, so a fragmented event can be long enough to keep.
+\end{enumerate}
+At 0 both settings change nothing: no gap is less than 0 samples, and no span is shorter than 0.
+
+\entryfield{Assumptions}
+\begin{itemize}
+\item \emph{Direction.} Only values above the threshold are kept; there is no ``below'' setting.
+  To keep the low values of a score, the score itself must be turned over upstream.
+\item \emph{Units.} The threshold is in the units of the incoming score, whatever they are; the
+  block knows nothing about them. For \blockref{detection.matrix_profile} the scores are
+  z-normalised distances, which run from 0 to $2\sqrt{m}$ and sit near $\sqrt{2m}$ for unrelated
+  windows, so one cut means different things at different window lengths. For
+  \blockref{detection.fluss} the score runs from 0 to 1, but its peaks rise with the window
+  (that block's description).
+\item \emph{Alignment.} The spans index the scores. Where a score belongs to the window
+  \emph{starting} at a sample (matrix profile, FLUSS), a span $[a, e)$ is a run of window starts,
+  and the signal those windows cover is $[a, e + m - 1)$. The block does not know $m$ and does not
+  widen the span.
+\item \emph{Missing values.} NaN is below every cut, so the NaN tail of a start-aligned profile and
+  FLUSS's blanked ends never become spans, and a NaN inside a run splits it in two (merging can
+  join it again).
+\end{itemize}
+
+\entryfield{Outputs}
+A \texttt{SpanSet} of half-open sample intervals, counted from the start of the span, with one
+score each (the maximum inside) and no labels. The executor writes each span to the
+\code{detections} table. The block puts nothing in \code{meta}.
+
+\entryfield{Cost}
+One pass over the scores and one over the spans: $O(n)$ time and memory.
+
+\entryfield{Failure modes}
+\begin{itemize}
+\item \emph{Gaps read as oddities.} \blockref{detection.matrix_profile} gives windows touching a
+  NaN an infinite distance, not NaN, and an infinite score is above any cut: every NaN gap in the
+  recording becomes a span of ``unusual'' windows, $m$ samples wider than the gap.
+\item \emph{Discords, not motifs.} On a matrix profile the block marks the windows with no close
+  look-alike. That is what the \texttt{mp\_threshold} template does (cut 8.0 at a 1-minute window);
+  for repeated shapes use \blockref{detection.mp_motifs}.
+\item \emph{Window offset.} Spans on start-aligned scores stop up to $m-1$ samples before the end
+  of the signal that produced them, and start where the first high-scoring window starts, which
+  may be before the event (above). This is the window-versus-event offset found with the older
+  report tool (\code{Pipelines/motif_report/}); this block shares it.
+\item \emph{A cut carried across settings.} A threshold tuned at one window length, one recording
+  or one upstream block does not transfer; the \texttt{fluss\_regimes} template's 0.46 is for a
+  300\,s window only.
+\item \emph{Grazing.} With both tidying settings at 0, a score that crosses the cut for one sample
+  is a one-sample span, and a noisy score near the cut becomes many short spans.
+\end{itemize}
+
+\entryfield{Validation}
+\code{tests/test_adapter_threshold.py} checks the rule exactly on small hand-made score arrays:
+every run past the cut is kept at the defaults, the floor drops short spans, seconds round to
+samples at $f_s$, merging joins close spans and scores their maximum, and merging comes before the
+floor. That is the whole of what the block does, so these tests check the answer, not only the
+shape. Whether a given cut is a good one depends on the upstream block and is not tested here.
+
+\entryfield{References}
+No published method: a plain level crossing.
+
+\entryfield{Tests}
+\code{tests/test_adapter_threshold.py}; in chains, \code{tests/test_execution.py}
+(\code{test_matrix_profile_to_threshold_chain_writes_detections}, which also shows the
+start-aligned end: all windows of a 200-sample span with $m = 6$ give one span ending at 195),
+\code{tests/test_manifest.py}, \code{tests/test_template_fluss_regimes.py} and
+\code{tests/test_adapter_fluss.py}.

@@ -1,0 +1,30 @@
+% !TEX root = ../../../main.tex
+% Block card: interrogation.intervals -- "Intervals" (Part I, the blocks chapter).
+\cardfield{What it does}
+Measures the time from each event to the one before it and to the one after it, and sums up
+how regular those gaps are.
+
+\cardfield{When to use it}
+Whenever the question is about rhythm: how often events come, and whether they come like
+clockwork or at random. It is the end of most event chains. Put
+\blockref{interrogation.event_shape} before it so each event is timed from its true start;
+put \blockref{interrogation.trains} or \blockref{interrogation.event_families} before it to
+time each train or each family on its own.
+
+\cardfield{What goes in, what comes out}
+In go the events from earlier in the chain. The same events come out, each with two new
+numbers in seconds: the gap before it and the gap after it. Beside them comes a small table,
+one row per group of events: the number of gaps, the typical gap, and four measures of
+regularity.
+
+\cardfield{Settings that matter}
+There is one. \emph{anchor} = \texttt{onset} times events from the start of each event as
+Event shape measured it, which is more exact; \texttt{start} uses where the detector's span
+begins. If Event shape has not run, the block falls back to the span start and says so.
+
+\cardfield{Watch out for}
+Gaps are never mixed across groups: each group (a channel, a train, a family) gets its own
+table. The regularity numbers are noisy on short runs; with fewer than about ten gaps read
+them as a hint. CV (spread over mean) calls a steady speed-up ``irregular''; LV and CV2
+compare each gap only with the next, so they do not. Two events at the same moment give a
+gap of zero and can make a regular series look random.

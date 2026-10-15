@@ -1,0 +1,156 @@
+% !TEX root = ../main.tex
+\chapter{Why this exists, and what it has found}\label{ch:why}
+\section{The question}\label{sec:why-question}
+Fungi grow as a network of fine threads, the mycelium, through soil and wood. Electrodes
+pushed into that network pick up a small, slowly changing voltage. The project behind this
+app records that voltage on many electrodes at once, for days at a time, and asks whether
+the activity contains \emph{recurring patterns}: shapes that come back again and again, on
+one electrode or across several.
+
+\begin{plainterms}[What a recording looks like]
+Picture a heart monitor that runs for a month instead of a minute, with sixteen leads
+instead of one, and a trace that moves so slowly that a single ``beat'' can last minutes.
+Somewhere in that month of wiggles there may be shapes that repeat. Finding them is the
+job.
+\end{plainterms}
+
+Three things make the job hard.
+\begin{itemize}
+  \item \textbf{Scale.} One recording in the project's library, \code{M2_aug_concat_fs1.mat},
+    holds 16 channels of about 721 hours each, one sample a second. Nobody can look at all
+    of that by eye, let alone compare it with the next recording.
+  \item \textbf{Judgement.} Whether a wiggle is ``interesting'' is, in the end, a person's
+    call. The only labels the project had to start with were made by one person, by hand
+    (\code{docs/PIPELINE_PRD.md}, ``Problem Statement'').
+  \item \textbf{Chance.} A long, noisy trace will contain look-alike shapes by accident. A
+    claim that a pattern recurs means something only if it recurs \emph{more often than it
+    would by chance}.
+\end{itemize}
+
+Before the app, each analysis technique lived in its own script. The product
+specification describes the cost plainly: a promising result was found and then lost,
+because the settings and the order of steps that produced it were never saved in a form
+that could be run again (\code{docs/PIPELINE_PRD.md}, ``Problem Statement'').
+\unverified{The researcher built the app so that the thesis claim, that recurring patterns
+in fungal electrical recordings can be detected and characterised automatically, rests on
+evidence that can be regenerated rather than on scattered plots.}
+
+\section{What the app does about it}\label{sec:why-does}
+The app gives that work one shape, which it draws across the top of every page:
+\begin{center}\sffamily
+\textbf{Explore}: find a span \enskip\ensuremath{\to}\enskip
+\textbf{Analyse}: run a chain over it \enskip\ensuremath{\to}\enskip
+\textbf{Review}: judge what it found
+\end{center}
+
+\begin{itemize}
+  \item In \textbf{Explore} you look at a recording: every channel at once, then one channel
+    at any zoom, then one candidate shape. You pick a stretch of time, a \term{span}{span}.
+  \item In \textbf{Analyse} you build a \term{chain}{chain} of \term{block}{blocks}: small,
+    named analysis steps, each doing one thing (remove the slow drift, find the spikes, group
+    similar shapes). You run the chain over your span and see every step's result on the
+    same time axis.
+  \item In \textbf{Review} you judge, one at a time, what the machine proposed, with one of
+    five fixed \term{verdict}{verdicts}.
+\end{itemize}
+Around that path, \textbf{Discovery} runs a saved chain across many channels and checks it
+against chance, \textbf{Library} keeps the shapes that survived your judgement as
+\term{family}{families} you can search for again, and \textbf{Models} trains classifiers on
+what Analyse produced. \Cref{ch:core-ideas} explains each of these words.
+
+\begin{plainterms}[A recipe book, not a pile of notes]
+A chain is like a written recipe. Anyone can follow it again, on the same ingredients or on
+new ones, and get the same dish. The old scripts were like a cook's memory: the meal was
+good, but nobody could say exactly how it was made.
+\end{plainterms}
+
+\section{What it has found so far}\label{sec:why-found}
+Short answer: the instrument is built, and the research questions are only now being
+answered with it. The project's specification names six research questions
+(\code{docs/PIPELINE_PRD.md}, ``How the research questions map onto the build''); each has
+its own living file in \code{docs/rq_roundA/} saying how answerable it is. As those files
+stand:
+\begin{itemize}
+  \item \textbf{Question 1}, whether labels made by clustering train a better classifier than
+    labels made by hand: answerable for its first two tests; a first paired run exists, and
+    the main result has been re-scoped (\code{docs/rq_roundA/RQ1-cluster-vs-manual-labels.md}).
+  \item \textbf{Question 2}, whether a shape you have checked, used as a search seed, finds
+    more shapes you also accept: answerable in the app, not yet answered
+    (\code{RQ2-exemplar-seeded-search.md}).
+  \item \textbf{Question 3}, whether a motif stays ``the same'' when stretched or squashed in
+    time: answerable in the app, not yet answered; the first read-outs used placeholder
+    verdicts, so they show the instrument works, not what the answer is
+    (\code{RQ3-identity-under-scale.md}).
+  \item \textbf{Question 4}, whether splitting the signal into frequency bands and turning it
+    into letters finds regions the plain signal misses: answerable in the app
+    (\code{RQ4-bands-and-symbols.md}).
+  \item \textbf{Question 5}, where human and machine judgement disagree: the instrument is
+    built, but the human verdicts it needs have not yet been given in Review
+    (\code{RQ5-human-vs-machine-divergence.md}).
+  \item \textbf{Question 6}, whether a pattern recurs across channels once crossed wires and
+    travelling signals are taken out: answerable on families whose members are long enough,
+    not yet answered (\code{RQ6-recurrence-across-channels.md}).
+\end{itemize}
+
+One finding recurs across these files and is worth knowing before you start:
+\emph{at the default settings, the runs measured so far did not beat chance}. The readiness
+report of 2 October 2026 states that nothing it ran came out ahead of its surrogate, and the
+band runs of Question~4 found fewer regions on the real signal than their chance version
+predicted (\code{docs/RESEARCH_READINESS.md}, ``Three things that bear on more than one
+question''; \code{docs/rq_roundA/RQ4-bands-and-symbols.md}). That is a statement about
+untuned defaults, not about fungi. It is the reason every result in the app is shown next to
+its \term{null}{null}.
+
+\section{Why it is built the way it is}\label{sec:why-built}
+Four choices shape everything else in the app. Each answers one of the three difficulties
+above.
+
+\subsection*{Every run can be repeated exactly}
+A chain is saved as a recipe: the blocks, their order and every setting. The recipe is
+turned into a short fingerprint (a hash), and every result, cached step, saved plot and
+Library link carries the fingerprint of the recipe that made it
+(\code{docs/PIPELINE_PRD.md}, ``Solution''). If two results carry the same fingerprint, the
+same recipe made them.
+
+\begin{plainterms}[Fingerprints]
+A recipe's fingerprint works like a barcode on a jar of jam. Two jars with the same barcode
+came from the same recipe; change one ingredient and the barcode changes too.
+\end{plainterms}
+
+\subsection*{The machine proposes; a person decides}
+What a block finds is a \term{detection}{detection}: a machine's proposal. What a person
+marks is an \term{annotation}{annotation}. The two are kept in separate tables in the
+database, so that no machine output can ever be mistaken for a human judgement, or the
+reverse. A person's verdict on a detection goes into a third table of its own, and nothing
+enters the Library without a person's say-so. This is the project's rule 5
+(\code{CLAUDE.md}); \cref{sec:core-ideas-detections} explains why it matters.
+
+\begin{plainterms}[Why keep them apart]
+Think of an exam marked by a teacher. If the pupils' answers and the teacher's marks were
+written in the same column, nobody could later ask ``how often was the pupil right?''
+Keeping the machine's answers and the person's marks in separate columns keeps that question
+open.
+\end{plainterms}
+
+\subsection*{Every result is checked against chance}
+The app can build a fake version of the recording that keeps its general character but
+scrambles any real pattern (a \term{surrogate}{surrogate}), run the same chain on it, and
+show how much the chain finds there. A result counts only if the real recording beats its
+fake copies. \Cref{sec:core-ideas-nulls} explains how, and \cref{app:nulls} gives the detail.
+
+\subsection*{The same code runs on a laptop and on a cluster}
+The analysis code underneath the app (\code{Working/} and \code{Adapters/}) knows nothing
+about the browser: it imports no web or drawing library, and a test enforces this
+(\code{tests/test_import_boundaries.py}). So the same recipe that runs behind the Analyse
+page can run unattended, many copies at once, on a university computing cluster, and its
+results can be brought back into the app. Long searches are meant to go there; the
+\term{job}{Jobs} page tracks them.
+
+\begin{underthehood}[Where to read more]
+Purpose and design: \code{docs/PIPELINE_PRD.md} Part~1 (``Problem Statement'',
+``Solution'', ``Implementation Decisions''); the dates in it are a record of the original
+plan, not a live schedule. The six questions: \code{docs/rq_roundA/README.md} and one file
+per question. The measured state of each question on 2 October 2026:
+\code{docs/RESEARCH_READINESS.md}. How the web UI was wired to the core:
+\code{docs/WIRING_PLAN.md}. \Cref{ch:architecture} describes the build.
+\end{underthehood}

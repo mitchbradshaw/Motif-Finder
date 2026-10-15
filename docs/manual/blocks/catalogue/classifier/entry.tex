@@ -1,0 +1,107 @@
+% !TEX root = ../../../main.tex
+% Appendix entry: catalogue.classifier -- "Classifier (model)" (Appendix A).
+\entryfield{Algorithm}
+\code{_run} in \code{Adapters/catalogue_classifier.py}; the primary input is a
+\code{Grouping} (labels $y_1,\dots,y_N$) and the \code{windows} side input the
+\code{WindowSet} the labels were assigned over.
+\begin{enumerate}
+\item \emph{Features} (\code{_feature_matrix}): the window set's feature table, less the
+  bookkeeping columns listed in \code{BOOKKEEPING_COLUMNS}
+  (\code{Working/types/windowset.py}; among them \code{split}). Refused if there is no
+  table, or if the label count differs from the window count.
+\item \emph{Exclusions}: windows with a negative label (\code{-1}: unlabelled, conflicting,
+  artifact or overlap-dropped, from \blockref{catalogue.manual_labels}) and windows whose
+  every feature is blank are dropped and counted. Refused if fewer than two classes remain.
+\item \emph{Clean-up}: \code{preprocess_window_matrix} from
+  \code{Working/Catalogue/dendrogram/dendrogram_cluster.py}, the same as
+  \blockref{catalogue.cluster} uses: non-numeric, all-NaN, more-than-50\,\%-NaN and constant
+  columns dropped, one of any pair with $|r| > 0.99$ dropped (skipped on tables wider than its
+  column ceiling, such as MiniRocket's), remaining NaNs imputed with the column median. If
+  this would drop a row, the block refuses.
+\item \emph{Split} (\code{_split}): a stratified random split with
+  \code{sklearn.model_selection.train_test_split(test_size = holdout_frac, stratify = y,
+  random_state)}. No holdout when \code{holdout_frac} is 0, when the smallest class has fewer
+  than 2 members, or when the holdout would hold fewer windows than there are classes; the
+  reason is recorded.
+\item \emph{Fit}: a scikit-learn pipeline, \code{VarianceThreshold(1e-6)} then
+  \code{RandomForestClassifier(n_estimators, class_weight, random_state, n_jobs=-1)}
+  \citep{breiman2001random}, fitted on the training part of the cleaned, unscaled features.
+\item \emph{Score} on the holdout: accuracy, per-class accuracy, their mean (balanced
+  accuracy) and the majority-class share.
+\item \emph{Save} the pipeline with \code{joblib} to
+  \code{DATA/derived/models/catalogue_classifier_<hash>.joblib}, where the hash covers the
+  labels, the feature names, a SHA-256 of the feature values and the parameters.
+\end{enumerate}
+
+\entryfield{Assumptions}
+\begin{itemize}
+\item \emph{Units.} Not unit-aware. A forest is invariant to monotone rescaling of each
+  feature, so the stored unit does not change the fit, but a unit-bearing feature (a level,
+  an amplitude) lets the forest separate recordings stored in different units.
+\item \emph{Independence of windows.} The random holdout treats windows as independent.
+  Overlapping or neighbouring windows are not, so training and holdout windows can share
+  samples.
+\item \emph{Missing values.} Median-imputed per column, after NaN-heavy columns are dropped.
+\item \emph{The split column is ignored.} It is dropped as bookkeeping; the holdout is the
+  block's own random one, not the blocked split a windows block may have made.
+\end{itemize}
+
+\entryfield{Outputs}
+A \code{Model}: the path of the joblib file. The executor's \code{persist} hook registers it
+as an \code{artifacts} row of kind \code{model}. \code{meta} holds \code{n_windows},
+\code{n_excluded} and \code{n_no_features} with their reasons, a \code{summary},
+\code{n_classes}, \code{class_counts}, \code{feature_names} (the columns, in order, the saved
+pipeline expects: a raw window-matrix row must be reindexed to these before
+\code{predict}), \code{n_features_in}, \code{n_features_kept}, \code{n_train},
+\code{n_holdout}, \code{holdout_accuracy}, \code{balanced_accuracy},
+\code{majority_baseline}, \code{per_class_accuracy}, \code{holdout_class_counts},
+\code{holdout_reason}, \code{correlation_filter} and \code{params}.
+
+\entryfield{Cost}
+A forest fit grows roughly as $T \cdot N \log N \cdot \sqrt{F}$ for $T$ trees, $N$ windows and
+$F$ features, on every core. \code{estimate} always returns \code{None}: the cost depends on
+the window set, which the estimator cannot see, so the job router reports it as unknown
+rather than guessing.
+
+\entryfield{Failure modes}
+\begin{itemize}
+\item \emph{An optimistic holdout.} With overlapping windows (the labels' 600/200 grid
+  overlaps each window with four neighbours) a random holdout places near-copies on both
+  sides. The parameter help says it plainly: this is a check on the fit, not the thesis's
+  generalisation measure.
+\item \emph{Upstream fits on test windows.} If \blockref{catalogue.minirocket} or a clustering
+  fitted on training windows only, the classifier's random holdout still mixes their test
+  windows into its training set.
+\item \emph{Numeric bookkeeping read as features.} Only the names in
+  \code{BOOKKEEPING_COLUMNS} are removed. The pool and Trace-shape columns
+  (\code{pool_start}, \code{pool_channel}, \code{shape_row}, \code{shape_orig_start}, and
+  similar) are not in that list, so if such a window set reaches this block they are
+  \unverified{used as features}, and \code{pool_start} would let the forest learn position in
+  time.
+\item \emph{Refusals in words}: no labels, no window set, no features, a label count that
+  does not match, every window blank, a single class, rows dropped by the clean-up.
+\item \emph{A single tiny class} silently drops the holdout (with a reason in
+  \code{holdout_reason}).
+\end{itemize}
+
+\entryfield{Validation}
+\code{tests/test_model_adapter.py} checks that a forest trained on two blobs six standard
+deviations apart predicts its own training labels exactly, which shows it was fitted but not
+that it generalises. No test checks that this block's holdout score means what it claims.
+The paired job behind the Models page, not this block, carries the blocked split, the nulls
+and the exams (\cref{ch:models}). \code{docs/rq_roundA/RQ1-cluster-vs-manual-labels.md}
+records that a chain ending in this block reported a holdout accuracy of 0.80 on ``a random
+25\,\% of the same two hours'', which ``says nothing about generalisation''.
+
+\entryfield{References}
+\citet{breiman2001random}.
+
+\entryfield{Tests}
+\code{tests/test_model_adapter.py} (declared types and side input; the same block trains from
+cluster and manual labels; content-addressed model files; recovery of training labels; the
+estimate routes as unknown; the chain end to end; refusals; parameters and the holdout reason
+on the card). \code{tests/test_classifier_baseline_meta.py} (balanced accuracy and majority
+share; no holdout gives \code{None}, never 0). \code{tests/test_all_nan_feature_rows.py}
+(blank rows never fitted or scored, counted apart). \code{tests/test_catalogue_manual_labels.py}
+(trains on labelled windows only). \code{tests/test_template_minirocket_manual_labels.py}
+(the MiniRocket template). \code{tests/test_block_standard.py} (declares an estimate).

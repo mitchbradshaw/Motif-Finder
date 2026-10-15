@@ -1,0 +1,26 @@
+% !TEX root = ../../../main.tex
+% Block card: detection.impulse_events -- "Impulse events" (Part I, the blocks chapter).
+\cardfield{What it does}
+Turns a score that is mostly zero with occasional sharp spikes into events: one event per
+spike, running from just before it to the next one.
+
+\cardfield{When to use it}
+Straight after \blockref{detection.deconvolve}, whose jump scores are exactly this kind of
+score. It keeps a second drop that begins before the first has recovered as its own event,
+which a plain cut on the signal would merge.
+
+\cardfield{What goes in, what comes out}
+In go the scores from the block before and the signal itself. Out comes one stretch of time
+per event. Each event keeps where it starts (the last moment before the jump), where it goes
+furthest from that level, and the total size of its jump.
+
+\cardfield{Settings that matter}
+\emph{threshold} first: a score above it is a jump. With Deconvolve before it, the score is in
+noise widths, so 4 means ``a jump four times the noise''. You can drag it on the score curve.
+\emph{merge\_within\_s} joins jumps closer than this, so a fall spread over a few samples is one
+event. \emph{max\_extent\_s} caps how long an event may run when no next event ends it first.
+
+\cardfield{Watch out for}
+Neighbouring events overlap: each event starts \emph{pre\_s} seconds before its jump, so it
+begins inside the previous one. An event's length is set by the next event, not by when the
+trough recovers, so a lone event runs to the cap.

@@ -1,0 +1,87 @@
+% !TEX root = ../../../main.tex
+% Appendix entry: detection.wavelet_scattering -- "Wavelet scattering" (Appendix A).
+\entryfield{Algorithm}
+\code{_run} in \code{Adapters/detection_wavelet_scattering.py} calls
+\code{compute_wavelet_scattering} in \code{Working/Detection/wavelet/scattering_transform.py},
+which wraps kymatio's \code{Scattering1D}, numpy backend \citep{andreux2020kymatio}; the method
+is the scattering transform of \citet{anden2014deep}. For a span $x$ of $n$ samples:
+\begin{enumerate}
+\item Infer $f_s = 1/\mathrm{median}(\Delta t)$ from the timestamps. Refuse a span shorter than
+  $2^J$ samples, below which kymatio would return no output frames.
+\item Build \code{Scattering1D(J, shape=n, Q, T=None, max_order)}; $T = \texttt{None}$ means an
+  averaging scale of $2^J$ samples. $T$ is not exposed.
+\item Compute the coefficients:
+  order~0, $x \star \phi$ (the low-pass average of the raw signal, which keeps its sign);
+  order~1, $|x \star \psi_{\lambda_1}| \star \phi$ for each first-order wavelet;
+  order~2 (if \emph{max\_order} = 2), $\bigl||x \star \psi_{\lambda_1}| \star \psi_{\lambda_2}\bigr| \star \phi$.
+  Each row is subsampled to one value per $2^J$ samples.
+\item Record whether kymatio warned of border effects (a span not comfortably longer than
+  $2^J$; the code suggests $8\times2^J$), and re-issue that warning with the numbers.
+\item Read from kymatio's \code{meta()} each row's order, normalised centre frequency
+  $\xi$ (of its first wavelet) and octave $j$; $\xi f_s$ gives \code{freq_hz}.
+\end{enumerate}
+How \emph{Q} is split between the first and second order is kymatio's:
+\unverified{in kymatio~0.3 an integer $Q$ sets the first-order wavelets per octave and the
+second order uses one}.
+
+\emph{Is it broken on this machine?} The adapter declares no \code{known_broken}, so it is offered
+as runnable. kymatio~0.3.0 is installed in the user's Python~3.13 site-packages and scipy is
+1.17.1. The package import \code{kymatio.numpy} fails there, because it pulls in kymatio's 3-D
+frontend, which imports \code{scipy.special.sph_harm}, removed in scipy~1.17. The module therefore
+imports the 1-D frontend by its own path
+(\code{kymatio.scattering1d.frontend.numpy_frontend.ScatteringNumPy1D}), which does not touch the
+3-D code, falling back to \code{kymatio.numpy} only for older layouts. The import is done inside
+\code{_run}, so a failure would surface when the block runs, not at registration.
+\code{tests/test_block_standard.py} runs the block on 4096 samples and fails if it raises without
+a \code{known_broken} reason, or runs while marked broken. I did not run it.
+
+\entryfield{Assumptions}
+\begin{itemize}
+\item \emph{Units.} Not unit-aware. Every coefficient scales linearly with the signal, so it is
+  in the recording's stored unit; order~0 also carries the signal's offset.
+\item \emph{Sampling rate.} \emph{J} and the output step are in samples: $2^8 = 256$ samples is
+  256\,s at 1\,Hz but 25.6\,s at 10\,Hz. Timestamps are assumed evenly spaced.
+\item \emph{Missing values.} Nothing handles NaN; the computation is FFT-based, so
+  \unverified{a single NaN makes every coefficient NaN}.
+\item \emph{Span length.} At least $2^J$ samples (65{,}536 at $J = 16$); better at least
+  $8\times2^J$.
+\end{itemize}
+
+\entryfield{Outputs}
+An \texttt{Encoding} of kind \texttt{image}: \code{Sx}, shape (coefficients, frames), frames
+$2^J/f_s$ seconds apart. It is \emph{not} time-aligned (one column per frame, not per sample),
+so it cannot feed \blockref{detection.wavelet_summation}. \code{meta} holds the whole
+\code{ScatteringResult} (\code{Sx}, \code{t_scattering}, \code{order}, \code{xi},
+\code{freq_hz}, \code{j}, \code{J}, \code{Q}, \code{max_order}, \code{T}, \code{fs},
+\code{n_input}, \code{duration_s}, \code{border_effects_flagged}) under
+\code{scattering_result}, and \code{border_effects_flagged}. A \code{_plot} hook draws the
+scalogram with \code{plot_scattering_scalogram}.
+
+\entryfield{Cost}
+FFT-bound, about $n\log n$ (cost model exponent 1.1; estimate empty until calibrated); kymatio
+pads to a power of two. No span cap is declared. Memory for long spans was not measured.
+
+\entryfield{Failure modes}
+\begin{itemize}
+\item \emph{Border effects} on spans not much longer than $2^J$: edge frames and the
+  large-scale coefficients reflect the padding, flagged but still returned.
+\item \emph{Too short}: refused with a ValueError naming the minimum.
+\item \emph{Incomparable lengths}: the number of frames depends on the span, so encodings of
+  spans of different lengths do not line up without further care (module docstring).
+\item \emph{Dependency drift}: it relies on kymatio's internal module path; a kymatio upgrade
+  that moves it would fall back to \code{kymatio.numpy}, which fails under scipy~1.17.
+\end{itemize}
+
+\entryfield{Validation}
+No test in the repository checks the coefficients' values. \code{tests/test_block_standard.py}
+checks only that the block runs or is marked broken; \code{tests/test_t07_adapter_remap.py}
+checks that it declares an \texttt{Encoding} output and an explicit input (registering it under
+a stub that raises if kymatio does not import); \code{tests/test_end_to_end.py} counts it among
+the registered blocks.
+
+\entryfield{References}
+\citet{anden2014deep}; \citet{andreux2020kymatio}.
+
+\entryfield{Tests}
+\code{tests/test_block_standard.py}, \code{tests/test_t07_adapter_remap.py},
+\code{tests/test_adapter_spec.py}, \code{tests/test_end_to_end.py}.

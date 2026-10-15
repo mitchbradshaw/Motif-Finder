@@ -1,0 +1,51 @@
+% !TEX program = pdflatex
+% Underground Brains: the manual. Build with latexmk from this folder (README.md).
+% Part I is for anyone using the site; Part II and the appendices are for
+% researchers and agents who need to know exactly what the code does.
+\documentclass[11pt,a4paper,oneside]{report}
+\usepackage{ubmanual}
+\InputIfFileExists{generated/version}{}{}
+
+\begin{document}
+\input{generated/blocks}% every block's registry metadata; prints nothing
+
+\ubtitlepage
+\pagenumbering{roman}
+\input{chapters/00-how-to-read}
+\tableofcontents
+\clearpage
+\pagenumbering{arabic}
+
+\part{Using the site}\label{part:using}
+\input{chapters/01-why}
+\input{chapters/02-first-session}
+\input{chapters/03-core-ideas}
+\input{chapters/04-explore}
+\input{chapters/05-analyse}
+\input{chapters/06-blocks}
+\input{chapters/07-review}
+\input{chapters/08-library}
+\input{chapters/09-discovery}
+\input{chapters/10-models}
+\input{chapters/11-jobs}
+\input{chapters/12-settings}
+\input{chapters/13-workflows}
+\input{chapters/14-faq}
+\input{chapters/15-glossary}
+
+\part{How it works}\label{part:how}
+\input{chapters/16-architecture}
+\input{chapters/17-extending}
+
+\appendix
+% cleveref misses \appendix under titlesec; name appendix levels explicitly.
+\crefalias{chapter}{appendix}
+\crefalias{section}{subappendix}
+\crefalias{subsection}{subsubappendix}
+\input{appendices/A-blocks}
+\input{appendices/B-nulls}
+\input{appendices/C-data}
+
+\bibliographystyle{plainnat}
+\bibliography{bib/references}
+\end{document}

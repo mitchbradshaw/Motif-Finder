@@ -1,0 +1,48 @@
+% !TEX root = ../../../main.tex
+% Block card: detection.sax_csax -- "Symbolic encoding (cSAX)" (Part I, the blocks chapter).
+% This card carries the plain explanation of the whole SAX family; the pSAX and dSAX cards
+% point back to it.
+\begin{plainterms}[Turning a signal into letters (SAX)]
+Imagine summarising a long walk by writing one letter per minute: \emph{a} for low ground,
+\emph{b} for middling, \emph{c} for high. That is what the SAX family does to a recording.
+First it cuts the span into equal pieces and replaces each piece by its average (a
+\emph{piecewise average}). Then it draws a few horizontal lines, the \emph{breakpoints}, and
+gives each average the letter of the band it falls in. In classic SAX
+\citep{lin2003symbolic} the breakpoints are placed so that, if the signal were bell-shaped
+(normally distributed), every letter would turn up equally often. Once a recording is a
+string, you can search it like text. The three blocks here differ in how they draw the
+lines: \textbf{cSAX} finds the levels the averages cluster around, \textbf{pSAX} fits a
+fixed number of levels to the averages' spread, and \textbf{dSAX} codes each piece's
+\emph{rise} instead of its average.
+\end{plainterms}
+
+\cardfield{What it does}
+Turns a span into a string of letters, one per piece of time, with the letters set by the
+levels the signal's piece-averages naturally cluster around.
+
+\cardfield{When to use it}
+When the signal sits at a few distinct levels (two resting potentials, say) and you want the
+string to name which level each stretch was at, without choosing how many letters
+beforehand. For shapes (rises and falls) use \blockref{detection.sax_dsax}; for a fixed
+number of letters use \blockref{detection.sax_psax}.
+
+\cardfield{What goes in, what comes out}
+In goes a span of one channel. Out comes a string: one letter per piece, \emph{a} for the
+lowest level and onwards. \blockref{detection.symbol_search} can then search it.
+
+\cardfield{Settings that matter}
+\emph{segment\_mode} picks which one control sets the piece length; the default is
+\emph{seconds\_per\_symbol}, 20\,s per letter. Beside the settings, the block page shows
+live read-outs before anything runs: the span length, the samples and seconds per letter,
+how many letters you will get (amber under 10 or over 2000, red under 2) and how many samples
+at the end are dropped because they do not fill a whole piece. The block also carries a rule
+for span-aware defaults (about one letter per 20 samples, 16 to 256 letters), but the app
+does not apply it yet: the page says the hook is declared and not computed.
+
+\cardfield{Watch out for}
+The number of letters is not yours to choose, and it is fragile: if the clustering finds
+fewer than two levels, the block quietly falls back to classic SAX with ten letters, and the
+app does not say so beyond the alphabet size of 10 in the result's summary. The clustering
+starts from random guesses; the app always uses the same fixed seed, so a run repeats, but
+on one test channel other seeds gave anywhere from 3 to 6 letters. A single
+missing sample (NaN) in the span spoils the whole encoding.

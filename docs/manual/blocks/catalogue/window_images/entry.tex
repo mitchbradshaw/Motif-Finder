@@ -1,0 +1,84 @@
+% !TEX root = ../../../main.tex
+% Appendix entry: catalogue.window_images -- "Encode windows" (Appendix A).
+\entryfield{Algorithm}
+\code{_run} in \code{Adapters/catalogue_window_images.py}, for a window set with starts
+$s_1,\dots,s_N$ (channel-absolute samples) and length $L$:
+\begin{enumerate}
+\item Refuse an empty set, and refuse $N > $ \code{max_windows} before allocating, naming the
+  size in MB.
+\item Subtract the span's offset, $\mathrm{round}(t_0 \cdot f_s)$, from every start; refuse a
+  window that begins before the span or runs past its end.
+\item For each window $w = x[s_i : s_i + L]$, build an image with
+  \code{_window_to_pil(w, image_type)} from \code{Working/Catalogue/cnn/apply_cnn.py}:
+  \begin{itemize}
+  \item \code{fusion}: \code{compute_fusion(w)} with $m=3$, $\tau=4$
+    (\blockentry{catalogue.gramian_fusion}), scaled by 255, clipped and cast to 8 bits, as RGB;
+  \item \code{GASF}, \code{GADF}, \code{recurrence}: the single field
+    (\code{compute_recurrence} with $m=3$, $\tau=4$), min--max scaled to 8 bits by
+    \code{to_uint8}, as a grey image, then converted to RGB (the grey value in all three
+    channels).
+  \end{itemize}
+\item Resize the $L \times L$ image to \code{img_size} $\times$ \code{img_size} with PIL's
+  bilinear filter and store it.
+\end{enumerate}
+The 8-bit conversions are the ones \code{save_gramian_windows} in
+\code{Working/Catalogue/gramian/gramian_calc.py} uses to write the training PNGs, and the
+grey-to-RGB step matches torchvision's \code{ImageFolder}, which opens every training image
+as RGB. Training then resized with torchvision's \code{Resize} rather than PIL's bilinear
+\code{resize}; whether the two give identical pixels is \unverified{close but not identical}.
+
+\entryfield{Assumptions}
+\begin{itemize}
+\item \emph{Units.} Unit-free: every image type is min--max normalised per window.
+\item \emph{Window length.} Nothing is resampled: an $L$-sample window gives an
+  $L \times L$ image, shrunk afterwards. The image networks under
+  \blockref{catalogue.cnn_score} were built for 10-minute windows at 1\,Hz ($L = 600$,
+  \code{CFG} in \code{Working/Catalogue/cnn/cnn_rangapur.py}).
+\item \emph{Starts are channel-absolute} and $t_0$ is the span's first time stamp in
+  seconds from the channel's start.
+\item \emph{Missing values.} A NaN in a window makes the fusion image all zeros (black;
+  see \blockentry{catalogue.gramian_fusion}); for the single images \code{to_uint8} also
+  falls back to zeros when the extremes are NaN.
+\end{itemize}
+
+\entryfield{Outputs}
+An \code{Encoding} with \code{kind="image"} whose values are an
+$N \times \mathit{img\_size} \times \mathit{img\_size} \times 3$ \code{uint8} array. \code{meta}
+holds \code{image_type}, \code{img_size}, \code{n_windows}, \code{window_length}, \code{fs}
+and the first 4{,}096 \code{starts}. The Encoding carries no time, which is why
+\blockref{catalogue.cnn_score} takes the window set again as a side input.
+
+\entryfield{Cost}
+Per window, the fusion image needs three $L \times L$ float64 matrices and their stack:
+$O(N L^2)$ time and $O(L^2)$ working memory, plus the stack,
+$N \cdot \mathit{img\_size}^2 \cdot 3$ bytes (150\,KB a window at 224). \code{max_windows}
+(default 2{,}000, about 300\,MB at 224) guards the stack; the readout warns above 500\,MB.
+\emph{Nothing guards $L$}: unlike the four span blocks, this one declares no
+\code{max_span_samples}, and the window length is not checked against the 5{,}000-sample
+Gramian limit. \code{estimate} reads the calibration file (one 600-sample window per 600
+samples of the span) and returns \code{None} until calibrated.
+
+\entryfield{Failure modes}
+\begin{itemize}
+\item \emph{Long windows exhaust memory.} A 1-hour window at 10\,Hz is $36{,}000^2 \times 8$
+  bytes $\approx 10$\,GB per matrix before it is shrunk.
+\item \emph{A set over} \code{max_windows} is refused with its size in MB.
+\item \emph{A window outside the span} is refused, naming the window.
+\item \emph{A gap} gives a black image, silently; a downstream network will still score it.
+\item \emph{Wrong image type for the network.} Nothing checks that \code{image_type} matches
+  the checkpoint chosen in \blockref{catalogue.cnn_score}.
+\end{itemize}
+
+\entryfield{Validation}
+The tests check the shape, the type and that the stack is not blank, the refusal over
+\code{max_windows}, and that channel-absolute starts give the same images as span-relative
+ones. No test compares the images with the PNGs of the training set.
+
+\entryfield{References}
+\citet{wang2015imaging}, \citet{eckmann1987recurrence}.
+
+\entryfield{Tests}
+\code{tests/test_adapter_window_images.py} (registration and stack shape, the
+\code{max_windows} refusal, the span offset). \code{tests/test_adapter_cnn_score.py} builds a
+stack with it before scoring. \code{tests/test_block_standard.py} checks that it declares a
+cost estimate.

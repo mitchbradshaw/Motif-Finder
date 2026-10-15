@@ -1,0 +1,28 @@
+% !TEX root = ../../../main.tex
+% Block card: catalogue.window_images -- "Encode windows" (Part I, the blocks chapter).
+\cardfield{What it does}
+Makes one picture per window of a window set, the way the pictures for training the image
+networks were made, and stacks them ready to be scored.
+
+\cardfield{When to use it}
+Between a windows block (such as \blockref{preprocessing.sliding_windows}) and
+\blockref{catalogue.cnn_score}, when you want a trained network to say which windows look
+interesting. The page shows the pictures exactly as the network will see them.
+
+\cardfield{What goes in, what comes out}
+In goes a set of windows on one channel. Out comes a stack of square colour pictures, one per
+window, all the same size (224 pixels a side by default).
+
+\cardfield{Settings that matter}
+\emph{image\_type} picks the picture: the colour fusion (\blockref{catalogue.gramian_fusion})
+or one of the three single images, shown in grey. Pick the one the network you will use was
+trained on; the fusion networks need \emph{fusion}. \emph{img\_size} should match the
+network's input, 224. \emph{max\_windows} refuses a set so large the stack would not fit in
+memory.
+
+\cardfield{Watch out for}
+Each window is first drawn at one pixel per sample and only then shrunk, so a long window is
+slow and memory-hungry even though the final picture is small: an hour at 10\,Hz is a
+picture of 36{,}000 by 36{,}000 before shrinking, and the block does not stop you. The
+networks were built for 10-minute windows at 1\,Hz; other lengths are outside what they
+saw. A window with a missing sample comes out black.

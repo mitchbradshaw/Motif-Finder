@@ -1,0 +1,34 @@
+% !TEX root = ../../../main.tex
+% Block card: catalogue.gramian_gasf -- "Gramian GASF" (Part I, the blocks chapter).
+\cardfield{What it does}
+Turns a short stretch of one channel into a square picture in which every pixel compares
+two moments of the stretch with each other.
+
+\begin{plainterms}[Gramian images and recurrence plots]
+Picture the signal's lowest value as ``pointing right'' and its highest as ``pointing
+left'', with every value in between a direction part of the way round a half circle. Each
+moment of the stretch becomes such a direction. Now make a table with one row and one
+column per moment, and in each cell write how two moments' directions combine. That table,
+drawn in colour, is the image. The summation field (this block) adds the two directions; the
+difference field (\blockref{catalogue.gramian_gadf}) subtracts them. The recurrence plot
+(\blockref{catalogue.gramian_recurrence}) fills the same kind of table with how far apart two
+short snatches of the signal are. The pictures let an image-recognition network look at a
+signal \citep{wang2015imaging}.
+\end{plainterms}
+
+\cardfield{When to use it}
+To look at the texture of one short stretch, or to feed an image-based model. For images of
+many windows at once, as the trained networks expect, use \blockref{catalogue.window_images}.
+
+\cardfield{What goes in, what comes out}
+In goes a span of one channel, at most 5{,}000 samples long. Out comes a square image with
+one row and one column per sample: a 600-sample span gives a $600 \times 600$ image.
+
+\cardfield{Settings that matter}
+None: the block has no settings. The span you choose is everything.
+
+\cardfield{Watch out for}
+The picture is stretched between the span's own lowest and highest values, so one big spike
+sets the scale for everything else. A span that is perfectly flat, or that has a single
+missing sample, gives an image with no values at all. A span longer than 5{,}000 samples is
+refused.

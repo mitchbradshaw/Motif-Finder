@@ -1,0 +1,226 @@
+% !TEX root = ../main.tex
+\chapter{Review: judge what it found}\label{ch:review}
+Review is where a person gives a \term{verdict}{verdict} on what the machine proposed. A
+detection run, a seed search, a window set or a Library family each produce
+\term{candidate}{candidates}; Review shows them to you one at a time, you press one key per
+candidate, and your answer goes straight into the database.
+
+Everything in Review is organised by \term{review-queue}{queue}. A queue is a standing
+question about one source, such as ``every detection of run 32'' or ``every span taken for
+Review in Explore''. It holds no list of its own: each time you open it, it asks the source
+again, so a verdict given anywhere else in the app shows up here at once.
+
+There are two pages. \apppage{review.inspector} judges one candidate at a time and is where
+almost all reviewing happens. \apppage{review.cluster} judges a group of similar candidates
+in one stroke. A third view, the blind test, appears in place of the inspector for one kind
+of queue (\cref{sec:review-blind-test}).
+
+\section{The five verdicts}\label{sec:review-verdicts}
+The verdict vocabulary is fixed at five words. The app, the database and every count in
+the manual use exactly these, and no page adds a sixth.
+
+\begin{description}
+  \item[seed (key S)] ``This is a clear, typical example of something I want to find more
+    of.'' Use it sparingly, for the best example of a kind of event. A seed does more than
+    record an opinion: it \emph{promotes} the candidate into the Library as a new
+    \term{motif}{motif} entry, which Discovery can then search the recordings for.
+  \item[interesting (I)] ``This is a real event worth keeping.'' The everyday yes.
+  \item[not interesting (N)] ``There is nothing here worth keeping.'' The everyday no.
+  \item[artifact (A)] ``This is not the fungus: it is the equipment.'' A loose electrode, a
+    step in the baseline, a wire picking up its neighbour. Artifacts are kept out of
+    training data.
+  \item[unsure (U)] ``I cannot tell.'' Use it honestly rather than guessing; an unsure
+    verdict still counts as judged, so the item will not come back.
+\end{description}
+
+\ui{Space} skips a candidate and writes nothing. It is not a verdict.
+
+\begin{plainterms}[Why your verdict never edits a detection]
+The app keeps two kinds of record in separate tables: \term{detection}{detections}, which only
+the machine writes, and \term{annotation}{annotations}, which only people write. Think of a
+lab notebook in which the instrument's printout is pasted in and never written on; your
+comments go on the facing page. When you judge a detection, your verdict is stored as a
+separate row (an \emph{adjudication}) that points at the detection. The detection itself
+is untouched, so the run that produced it can always be re-run and checked, and a later
+reader can always tell what the machine said from what a person said. Each queue states,
+in its \ui{writes} chip, which table its verdicts go to.
+\end{plainterms}
+
+\pagesection{review.inspector}{Queue}{One candidate at a time}{live}
+The inspector shows one candidate with everything you need to judge it: the signal around
+it, its shape, how the machine scored it, and the five verdict buttons. You judge, the page
+moves on to the next unjudged candidate, and you judge again.
+
+\pagefield{When you'd come here}
+Whenever a queue has candidates waiting: after a Discovery run sends its detections, after
+you take a span for Review in Explore, after a training run sends windows, or when a Library
+family sends its unjudged members. \unverified{The \ui{need you} count in the header shows how many are
+waiting across all queues.} Opening Review on its own lands on the last queue you used, or
+the first queue there is.
+
+\screenshot{pages/review/review.inspector--1-candidate (deep link, live detection)}{A
+detection from a live queue. The toolbar names the queue and its write target; the
+context card shows the candidate shaded in its surroundings; the verdict row sits below the
+shape.}
+
+\pagefield{Doing things here}
+\subsection{Judge a queue}\label{sec:review-judge}
+\begin{enumerate}
+  \item Choose a queue with the \ui{queue} chip at the top left. Each queue shows how many
+    candidates are left.
+  \item Read the candidate. The meta line under its id gives the recording, channel, hours
+    and length. \emph{Candidate in context} shows it shaded with $\pm$30, 120 or 300\,s
+    around it (\ui{padding}). \emph{Shape} draws it alone in millivolts, at its real
+    resolution: a short event at 1\,Hz looks like a staircase because it is one. When the
+    recording was made by down-sampling a faster one, \ui{source resolution} draws the same
+    stretch from the faster original.
+  \item Check the neighbours if you suspect an artifact: \ui{Other channels} shows the same
+    stretch on every other channel of the recording.
+  \item Give a verdict with a key (\ui{S}, \ui{I}, \ui{N}, \ui{A}, \ui{U}) or a button. The
+    verdict is written to the database first; only then does the page mark it and, with
+    \ui{auto-advance} on, move to the next unjudged candidate.
+  \item Made a mistake? \ui{Ctrl Z} undoes the last write in this queue, on the server: the
+    database restores whatever was there before, including an earlier verdict if you had
+    changed your mind. \ui{Ctrl Shift Z} redoes it.
+\end{enumerate}
+
+\subsection{Classes, tags and notes}\label{sec:review-annotate}
+The \emph{Annotate} card is optional. The number keys pick a class: \ui{1} spike-train,
+\ui{2} burst, \ui{3} slow-drift, \ui{4} plateau, \ui{9} electrode artifact. A class also gives
+a verdict: an informative class means \emph{interesting}, and electrode artifact means
+\emph{artifact}; that verdict is what is written. Tags must come from the project's tag
+vocabulary (Settings › Vocabulary); a term outside it is refused, together with the verdict.
+Tags and the note travel with the next verdict you give.
+
+\subsection{Promote a seed}\label{sec:review-promote}
+Pressing \ui{S} writes the seed verdict and, in the same step, creates a Library entry for
+the candidate's shape, or joins an existing entry if the same shape is already held.
+Auto-advance pauses and the \emph{Promoted to Library} panel appears. It names the entry,
+offers \ui{Open in Library} and \ui{Seed search in Discovery}, and asks which family the new
+exemplar belongs to. \ui{Confirm and next} (Enter) moves on; \ui{Undo promotion}
+(\ui{Ctrl Z}) removes both the verdict and the Library rows it created.
+
+\subsection{Read the evidence}\label{sec:review-evidence}
+The right-hand rail (open it with its icon, or \ui{\textbackslash} for both rails) lists where the
+candidate came from: the run and its recipe, the detection's score, other runs that found
+the same place, the nearest family, artifact likelihood and the candidate's history. Where
+nothing has computed a value the rail says ``not computed'' rather than showing a number.
+The left-hand rail lists the queues and the candidates up next, with filters for channel,
+score and status.
+
+\screenshot{pages/review/review.inspector--4-evidence-rail (deep link)}{The evidence rail
+open beside a candidate. Sections with no computed value say so in words.}
+
+\subsection{Blind verification}\label{sec:review-blind}
+In a blind queue the machine's opinion is hidden until you have given your verdict: the
+score, family affinity and nearest families, the model's prediction, and the machine
+sections of the evidence rail. The signal, the other channels and artifact likelihood are
+never hidden. The reason is the same as for marking an exam without seeing the first
+examiner's mark: if you can see what the machine said, your verdict stops being an
+independent check of it. Window queues from training and from model verification are blind
+by default, and take only \emph{interesting} and \emph{not interesting} plus a class. After
+each verdict the \emph{Previous window, revealed} card shows your call beside the model's;
+running agreement is shown only on \apppage{models.registry}, so it cannot steer the next
+answer. In a queue the server marks blind, the score is not even sent to the browser.
+
+\towrite{Screenshot of a blind window queue: the smoke walk's blind-verification states
+(review.inspector--5-...) still point at fixture queue ids and show ``no review queue''.}
+
+\subsection{The blind test queue}\label{sec:review-blind-test}
+A queue built for a blind test of a trained model opens on its own page. It shows only the
+window's raw trace in millivolts, shaded, with one window-length of context each side and its
+length in words. There is no prediction, score, recording, channel, place in the recording
+or queue rail, and a window shown twice (to measure how consistent you are) does not show
+your first answer. The keys are \ui{I} interesting, \ui{N} not interesting, \ui{U}
+\emph{can't tell} (stored as \emph{unsure}), \ui{A} artifact and \ui{Z} undo. Each answer is
+written at once, and the queue resumes at the first unlabelled window next time.
+
+\screenshot{pages/zzzzzzz_ah_blind_test/review.blind--fixup-ah-label-close-reopen-it-resumes-and-finishes}{The
+blind test page: a window and nothing that could tip the answer.}
+
+\subsection{Suspected artifacts}\label{sec:review-suspected}
+A queue of suspected artifacts, sent from a Library family, adds a card that draws every
+channel of the recording over the member's span on one shared millivolt axis. The channels
+that flagged it carry their $r$, lag, amplitude ratio and chance test. The machine only
+flags; you decide. This queue takes artifact, interesting, not interesting or unsure, but
+not seed.
+
+\pagefield{Where it leads}
+\apppage{library.family} from a promotion or a nearest family; \apppage{discovery.seed} to
+search for more of a new seed; \apppage{discovery.runs} from a run in the evidence rail;
+\apppage{explore.cross-channel} from \ui{Open all channels in Explore}.
+
+\begin{watchout}[Things the page does not keep]
+The family you choose in the promotion panel is not written to the database: the entry joins
+a family at the next regrouping in Library. A class is written only as the verdict it
+implies; the class name itself is a label in this browser tab. Turning \ui{blind for this
+queue} off or on is remembered in this browser only and is not stored with your verdicts,
+although its popover says it is. \ui{Edit span in Explore} opens a page that still runs on
+example data (\apppage{explore.span-edit}). Artifact likelihood reads ``not computed'' on every
+queue except suspected artifacts.
+\end{watchout}
+
+\begin{underthehood}[Inspector]
+Client: \code{webui/client/src/review/index.tsx} (routing), \code{Inspector.tsx},
+\code{Shell.tsx} (toolbar and rails), \code{parts.tsx} (cards), \code{keys.ts} (keymap),
+\code{store.ts} (the session undo stack, updated only after the server accepts a write),
+\code{BlindTest.tsx}, \code{SuspectedArtifact.tsx}. Reads and writes go through
+\code{webui/client/src/api/review.ts} to \code{/api/review/...} in
+\code{webui/server/review.py}, which calls \code{Working.review}. The queue kinds, and the
+unit and table each one writes, are fixed in \code{Working/review/queues.py}
+(\code{_DEFAULTS}): detection queues write \code{adjudications}, span, sequence and member
+queues write \code{annotations}, window queues write \code{window_verdicts}.
+\code{Working/review/verdicts.py} (\code{write_verdict}, \code{write_batch},
+\code{undo_last}) refuses any verdict that would cross that line with a
+\code{PermissionError}, shown as a red ``Not written'' card. Promotion is
+\code{Working/review/promotion.py} (\code{promote}, \code{unpromote}). The five words are
+\code{VERDICTS} in \code{Working/database/schema.py}.
+\end{underthehood}
+
+\pagesection{review.cluster}{Cluster}{Seed-search matches with their member strip}{unchecked}
+The cluster page judges a group of candidates that are thought to be the same kind of event
+in one gesture. It shows one member in context, a strip of every member drawn on one shared
+millivolt scale and sorted by distance to the group's most typical member, and a tick box
+beside each.
+
+\pagefield{When you'd come here}
+When a queue groups its candidates, for example matches of one seed, and you want to accept
+or reject many similar shapes at once rather than one by one.
+
+\towrite{Screenshot: every cluster screenshot under webui/screenshots/pages/review/ predates the
+live wiring and shows a skeleton or an error; none shows a working cluster.}
+
+\pagefield{Doing things here}
+\begin{enumerate}
+  \item Look along the member strip. Members farther from the typical member than the
+    cohesion limit are drawn in amber and left out of the batch by default. \ui{Include all}
+    puts them back; \ui{Exclude flagged} takes them out again.
+  \item Untick any member you do not want the verdict to cover. Click a member to show it in
+    the context card.
+  \item Give a verdict. With \ui{Verdict for the} \emph{N} \ui{included members} ticked, it
+    covers every ticked member, up to 50; untick it to judge only the member shown.
+  \item A seed here promotes one member, the one nearest the typical shape, and marks the
+    rest interesting.
+  \item \ui{Ctrl Z} undoes the whole batch in one step, because the server stores the batch
+    as one act.
+\end{enumerate}
+
+\pagefield{Where it leads}
+Back to the next unit of the queue in \apppage{review.inspector}.
+
+\begin{watchout}[No live queue makes clusters yet]
+The page reads its clusters from the bridge, but the bridge builds a cluster only from items
+that carry a cluster number, and no queue source in \code{Working/review/} sets one. A real
+queue therefore has no clusters, and asking for one gives a message saying so. The cluster
+the bridge would describe also lacks the cohesion limit and family the page draws. Treat this
+page as not yet usable.
+\end{watchout}
+
+\begin{underthehood}[Cluster]
+Client: \code{webui/client/src/review/ClusterView.tsx}. Read: \code{GET
+/api/review/queues/{q}/cluster/{n}}; writes: \code{/batch} for a chosen set of members,
+or \code{/cluster/{n}/accept} and \code{/reject} for a whole untagged cluster (accept
+writes \emph{interesting}, reject \emph{not interesting}). Clusters come from
+\code{_clusters} in \code{webui/server/review.py}. The short link \code{#/review/cluster/<n>}
+still resolves against fixture clusters (\code{clusterQueue} in \code{api/review.ts}).
+\end{underthehood}

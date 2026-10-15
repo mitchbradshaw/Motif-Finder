@@ -1,0 +1,36 @@
+% !TEX root = ../../../main.tex
+% Block card: preprocessing.window_matrix -- "Sliding windows + features" (Part I, the blocks chapter).
+\cardfield{What it does}
+Cuts the span into windows of one length and measures each window with a few dozen
+single-number summaries, giving a table with one row per window.
+
+\cardfield{When to use it}
+Before \blockref{catalogue.cluster} or a classifier, when you want windows compared by what
+they are like (how regular, how spiky, how complex) rather than by their exact trace. It is
+also how the timescale ladder (1, 10, 60 and 600 minutes) is built for whole recordings,
+often on the cluster.
+
+\begin{plainterms}[A window as a row of numbers]
+A ten-minute window holds hundreds of samples. Comparing windows sample by sample is fragile.
+Instead each window is described by a list of summaries, like describing a person by height,
+age and shoe size rather than by a photograph. Two windows with similar summaries are
+counted as similar, even if their traces do not line up.
+\end{plainterms}
+
+\cardfield{What goes in, what comes out}
+In goes a span of one channel. Out comes a set of windows, each with its row of measures:
+22 Catch22 statistics, four fast entropies, two slow entropies and, if you ask, scores from
+trained models.
+
+\cardfield{Settings that matter}
+\emph{window\_min} is the window length in minutes; keep to the ladder (1, 10, 60, 600) so the
+matrix can be browsed by timescale. \emph{step\_frac} is the step between windows as a share
+of the window; 1.0 means windows touch end to end. \emph{slow\_entropy} is the expensive
+stage: it is skipped automatically for windows longer than 4096 samples.
+
+\cardfield{Watch out for}
+This block makes no train/test split: if you train on its windows, use
+\blockref{preprocessing.sliding_windows} or a pool for the split. Leave \emph{cnn} and
+\emph{rf} off for research question 1: those scores come from models trained on the human
+labels, so they carry the answer into the features. A window with a missing sample can get a
+silently wrong value for some measures (see the appendix entry).

@@ -1,0 +1,208 @@
+% !TEX root = ../../../main.tex
+% Appendix entry: detection.drop_detection -- "Drop detection" (Appendix A).
+% This entry explains the five-stage alphabet once, fully; detection.stage_encoding points here.
+\entryfield{Algorithm}
+The block is the third of the three blocks of the canonical template \texttt{drop\_detection\_v1}
+(\code{webui/server/templates.py}, \code{CANONICAL}):
+\blockref{preprocessing.detrend} (\texttt{rolling\_mean\_nearest}) $\to$
+\blockref{detection.stage_encoding} $\to$ this block. Together they are the one-call detector
+\code{detect_drops5} in \code{Working/Detection/drop_motifs/detect5.py}, cut into blocks:
+\code{_run} in \code{Adapters/detection_drop_detection.py} re-implements nothing and calls
+\code{morphology_from_letters} and \code{detect_from_letters} from that module, with the
+helpers \code{slope_noise_sigma}, \code{find_trough}, \code{nan_for_missing} and
+\code{clip_to_recorded} from \code{Working/Detection/drop_motifs/detect.py}.
+
+\paragraph{The five stages.} The encoding cuts the detrended span into segments of $L$
+samples and gives each one of five letters, steepest fall to steepest rise:
+\begin{center}
+\begin{tabular}{lll}
+\texttt{d} & fast down & a falling segment whose slope is at or below $-\kappa\sigma$\\
+\texttt{D} & down & a falling segment, slower than that\\
+\texttt{S} & same & no meaningful change\\
+\texttt{U} & up & a rising segment, slower than $+\kappa\sigma$\\
+\texttt{u} & fast up & a rising segment whose slope is at or above $+\kappa\sigma$\\
+\texttt{-} & missing & a segment that touches a missing sample (symbol $-1$)
+\end{tabular}
+\end{center}
+It is built in two steps (\code{stage_letters}). First, three-letter dSAX
+(\code{Working/Detection/sax/dsax_python/dsax.py}, \code{dsax} with
+\texttt{alphabet\_size=3}): the span is z-normalised, each segment is reduced to its rise
+across the segment (by default the ordinary-least-squares slope), and the rises are cut into
+\texttt{D}/\texttt{S}/\texttt{U} at the $(1\mp f)/2$ quantiles of their distribution, $f$ =
+\emph{same\_fraction}, then folded symmetric about zero. Second, the \texttt{D} and
+\texttt{U} bands are split at $\pm\kappa\sigma$, where $\kappa$ = \emph{slope\_sigma} and
+$\sigma$ is the slope-noise floor below, and the segment's slope is compared in the stored
+unit per second. Folding the case away (\code{fold_to_three}) recovers the three-letter
+string exactly, so the five letters refine the three-stage encoding of \code{detect.py}
+rather than replace it.
+
+\paragraph{The slope-noise floor $\sigma$} (\code{slope_noise_sigma}). With
+\texttt{noise\_estimator = second\_difference} (the default),
+\[
+\sigma = \frac{1.4826\,\operatorname{MAD}(x_{i+1}-2x_i+x_{i-1})}{\sqrt6}\cdot\frac{f_s}{\sqrt2},
+\]
+the robust standard deviation of the per-sample slope that \code{np.gradient} would show on
+noise alone (the $\sqrt6$ undoes the second difference, the $\sqrt2$ is a central
+difference's noise). It is floored at 1\% of the \texttt{gradient} estimate
+($1.4826\,\operatorname{MAD}$ of \code{np.gradient(x)} times $f_s$), and never returned as 0
+on a signal that varies. The \texttt{gradient} estimator uses that second number directly; its
+docstring records it failing on dense spike trains, where most samples sit on an event slope.
+
+\paragraph{The detector} (\code{detect_from_letters}), on the detrended span $x$ with
+derivative $g = f_s\,\nabla x$ and onset threshold $\theta = -\kappa\sigma$:
+\begin{enumerate}
+\item \emph{Runs.} Up runs are maximal runs of \texttt{U}/\texttt{u}; fall runs are maximal
+  runs of \texttt{D}/\texttt{d} that contain at least one \texttt{d}.
+\item \emph{Morphology}, once per span (\code{morphology_from_letters}, unless
+  \emph{morphology} forces it). For each fall run, ask whether an up run ending at most one
+  segment before it climbs at least \emph{min\_rise\_frac} times the fall's depth. If at least
+  half of the measurable falls are preceded so, the span is \texttt{sharkfin}, otherwise
+  \texttt{trough}. A span with no fall run is \texttt{sharkfin}.
+\item \emph{Candidates.} Rise trigger: from the end of each up run, the first sample within
+  $\max(L,\ \text{\emph{lookahead\_mult}}\times\text{run length})$ with $g \le \theta$. Fall
+  trigger: the first sample with $g \le \theta$ scanning across each fall run. A sharkfin span
+  keeps only the rise candidates (a fall with no rise in front of it is counted in
+  \code{rejected_no_rise}); a trough span keeps only the fall candidates.
+\item \emph{Trough} (\code{find_trough}): search from the onset to the next up run or next
+  fall run (\code{_fall_limit}), find the steepest sample, and walk forward until the slope
+  has recovered to \emph{trough\_knee\_frac} of it for 3 samples in a row.
+\item \emph{Onset refinement.} \code{refine_onset} moves the onset forward onto the
+  shoulder of the steepest part of the fall (the same knee rule read backwards); then, if
+  \emph{walk\_onset\_back}, \code{walk_back_to_shoulder} walks it back while the signal keeps
+  rising towards the past, no further than the previous trough.
+\item \emph{Gate A} (rise trigger only): the rise from the start of its up run to the onset
+  must be at least \emph{min\_rise\_frac} times the depth $x_\text{onset}-x_\text{trough}$.
+\item \emph{Shallow filter}: drop candidates whose depth is below \emph{min\_depth\_frac}
+  times the deepest in the span. \emph{Dedupe} (when \emph{min\_separation\_s} $>0$): of two
+  onsets closer than that, keep the deeper.
+\item \emph{Window} (\code{window_bounds}). Bracket the event on the neighbouring significant
+  up runs (those climbing at least \emph{min\_rise\_frac} times the depth): for a sharkfin,
+  from the start of its own rise (padded) to the start of the next rise (hard); for a trough,
+  from the end of the previous recovery (hard) to the end of its own recovery (padded). Pad is
+  \emph{window\_pad\_frac} fall durations. With no bounding run, cap each side at
+  \emph{window\_cap\_mult} fall durations. Neighbouring fall runs clamp hard on both sides when
+  \emph{bracket\_on\_fall\_runs}. If \emph{tighten\_windows}, \code{tighten_window} retries with
+  \emph{min\_rise\_frac} scaled by $1, 0.5, 0.25, 0.1, 0.04$ until the window holds one fall.
+\item \emph{Gate B}: the depth divided by the window's peak-to-peak must be at least
+  \emph{min\_fall\_dominance}.
+\end{enumerate}
+
+\paragraph{The block form.} The block recovers what the one-call detector had in hand: the
+segment length $L = \lfloor n / \text{number of letters}\rfloor$ (dSAX trims the span to whole
+segments, so this is exact), and $\sigma$ recomputed from the chain's $x$ with
+\emph{noise\_estimator}. The detrend is the upstream block's job; the block passes
+\texttt{detrend\_window\_s = 0}.
+
+\entryfield{Assumptions}
+\begin{itemize}
+\item \emph{Input.} A symbolic Encoding with symbols $0\ldots4$ or $-1$; anything else (a plain
+  SAX encoding) is refused with a pointer to \blockref{detection.stage_encoding}. The chain's
+  $x$ must be the signal the encoding was made from, already detrended.
+\item \emph{Units.} The block is unit-aware: a run hands it the recording's declared unit and
+  it converts by \code{read_as_mv} (\code{Working/units.py}): volts $\times 1000$, millivolts
+  $\times 1$, an undeclared unit read as volts with a note in \code{meta["units_note"]}. The
+  conversion touches only the reported millivolts (depths, rise heights, peak-to-peaks, the
+  readout's slope threshold); every gate is relative ($\kappa\sigma$, fractions of the depth,
+  fractions of the deepest), so \emph{which} events are found does not depend on the unit.
+  Before 2026-10-15 every millivolt recording's depths read 1000 times too large.
+\item \emph{Sampling rate.} All times are in seconds and converted with $f_s$; $\sigma$ is per
+  second. The gates themselves count samples ($L$, the 3-sample knee hysteresis).
+\item \emph{Missing values} (``skip the gaps'', the researcher's choice of 2026-10-14). A
+  segment that touches a NaN or inf sample is the letter \texttt{-} (symbol $-1$) and is part of
+  no run. $\sigma$ and the dSAX cutlines are measured on the recorded part. No onset scan runs
+  past a gap; a fall that runs into a gap before its knee, or whose shoulder walk stops at a
+  gap, is left out and counted in \code{counts["rejected_at_gap"]}; a window that would reach
+  a gap ends at it. \code{counts["missing_segments"]} counts the \texttt{-} segments, and the
+  readout prints a ``Missing samples'' row. Finite input takes none of these branches.
+\item \emph{Shape.} Events are steep falls. A fall is seen only if some sample of it is
+  steeper than $\kappa\sigma$; a gentle ``ridge'' is not, whatever the detrend.
+\end{itemize}
+
+\begin{watchout}[Under-detection is the slope gate]
+Two gates decide whether a fall can be seen at all, and both are $\kappa\sigma$: a fall
+candidate needs a \texttt{d} segment (the encoder's $\kappa$), and every candidate needs one
+sample with $g \le -\kappa\sigma$ (this block's $\kappa$). The detrend window enters no gate;
+it only shapes the signal the gates read. The measurements in
+\code{Pipelines/drop_motifs/passes6.py} (the comment above \code{SENSITIVE_SIGMAS}) agree: on
+catalogue span ID~28 a stronger detrend went 19, then 11, then 2 events, while relaxing
+$\kappa$ to 6 gave 22 at 95\% window purity; on ID~26, $\kappa = 8$ found 2 events and
+$\kappa = 2$ found 9, all windows clean. Lower \emph{slope\_sigma} in both blocks first.
+\end{watchout}
+
+\entryfield{Outputs}
+A \texttt{SpanSet}, one span per confirmed drop: \code{starts}/\code{ends} are the window
+$[\text{start}, \text{end})$, span-relative; the label is
+\texttt{onset=<i>;trough=<j>;<morphology>} with $i$, $j$ channel-absolute (shifted by
+$t_0 f_s$); the score is the depth in millivolts. The executor writes the spans to
+\code{detections}. \code{meta} holds \code{events} (every \code{Drop5Event} as a row:
+onset, trough, window, up-region and slope fields, \code{drop_depth_mv},
+\code{rise_height_mv}, \code{fall_duration_s}, \code{peak_to_peak_mv},
+\code{fall_dominance}, \code{rise_frac_used}, trigger, morphology; indices span-relative),
+\code{counts} (segments, runs, candidates and each rejection reason), \code{diagnostics}
+(including \code{sigma_slope_mv_per_s} and \code{slope_threshold_mv_per_s}),
+\code{morphology}, \code{samples_per_symbol}, \code{sigma_slope} and
+\code{slope_threshold} (stored unit per second), \code{n_events}, \code{units},
+\code{to_mv} and \code{units_note}. The readout (\code{_derive}) prints the unit, the onset
+slope threshold in mV/s, the number of segments and fast falls, and any missing samples.
+
+\entryfield{Cost}
+Linear in the span for the noise floor and the derivative, plus per candidate a trough search
+bounded by the next run and up to five window trials, each scanning the window: roughly
+$O(n + E\,(R + W))$ for $E$ candidates, $R$ runs and window length $W$. The block declares no
+cost estimate and no maximum span. It is meant to run on the laptop; the detector's own runs
+in \code{Pipelines/drop_motifs/} were made the same way.
+
+\entryfield{Failure modes}
+\begin{itemize}
+\item \emph{Gentle falls missed} (above): the slope gate, not the detrend.
+\item \emph{Mismatched \emph{slope\_sigma}.} The encoder's and the detector's copies are not
+  compared. If the detector's is lower, fall candidates are still limited to the encoder's
+  \texttt{d} runs; if higher, a \texttt{d} run can yield no onset.
+\item \emph{Mismatched \emph{noise\_estimator}} between the two blocks: the same, through
+  $\sigma$.
+\item \emph{One deep drop hides the rest.} \emph{min\_depth\_frac} is relative to the deepest
+  candidate, so an artefact far deeper than the events removes them as shallow.
+\item \emph{Wrong morphology.} \texttt{auto} decides once per span by a majority vote. A span
+  that mixes sharkfins and troughs gets one geometry: under \texttt{sharkfin} every fall with
+  no substantial rise before it is rejected (\code{rejected_no_rise}). Force
+  \emph{morphology} when you know it.
+\item \emph{Too few segments.} dSAX needs at least two segments of two samples; the encoding
+  block's readout warns below 8 segments.
+\item \emph{A noiseless or piecewise-linear signal}: the noise floor is a guard
+  (1\% of the gradient estimate, or $10^{-3}$ of the range per sample), not an estimate, and
+  the threshold then means little.
+\item \emph{A narrow spike whose fall flattens for one segment} encodes an up run inside its
+  own fall, which can cut the trough search short and fail Gate B;
+  \emph{bracket\_rise\_on\_separation} (off by default) is the documented remedy
+  (\code{_fall_limit}).
+\end{itemize}
+
+\entryfield{Validation}
+\code{tests/test_template_drop_detection.py} checks that the three-block template reproduces
+\code{detect_drops5} window for window on a synthetic sharkfin train and, when M2\_aug CH0 and
+the seed store are on the machine, reproduces the 17 seed onsets and troughs of reference span
+id001 under the flags that store was made with. That is a regression check against an earlier
+run of the same detector, not an independent count. The only external check recorded in the
+repository is in the docstrings of \code{slope_noise_sigma} and
+\code{Working/Detection/drop_motifs/autoparams.py}: on the span annotated ``16 cycles''
+(annotation 11266) the detector finds 16; no test in the repository asserts that number.
+\code{tests/test_drop_motifs_detect5.py} and \code{tests/test_drop_motifs_defects10.py} check
+the window, gate and onset rules on synthetic signals and on cases measured on Fig2A and
+Mushroom\_260720.
+
+\entryfield{References}
+The method is the project's own (\code{detect5.py} module docstring). Its trend alphabet is
+dSAX, whose header in \code{Working/Detection/sax/dsax_python/dsax.py} names its antecedents,
+closest among them the slope channel of 1d-SAX \citep{malinowski2013onedsax}. The design
+decisions behind each gate are measured and recorded in the docstrings cited above and in
+\code{Pipelines/drop_motifs/DETECTION_AND_FIGURES.md}.
+
+\entryfield{Tests}
+\code{tests/test_adapter_drop_detection.py} (registration, event-for-event equality with
+\code{detect_drops5}, labels, refusals); \code{tests/test_template_drop_detection.py} (above);
+\code{tests/test_drop_detection_nan.py} (gaps: finite input bit for bit against frozen copies,
+no event across a gap, \code{rejected_at_gap}, the \texttt{-} letter, the readout row);
+\code{tests/test_units_reach_the_blocks.py} (the same channel in V and mV gives the same
+millivolts; an undeclared unit reads as volts and says so);
+\code{tests/test_drop_motifs_detect5.py}, \code{tests/test_drop_motifs_defects10.py} (the
+detector's rules); \code{tests/test_webui_block_readout.py} (the readout).

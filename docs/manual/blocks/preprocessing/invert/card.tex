@@ -1,0 +1,21 @@
+% !TEX root = ../../../main.tex
+% Block card: preprocessing.invert -- "Invert" (Part I, the blocks chapter).
+\cardfield{What it does}
+Turns the signal upside down: every value is multiplied by $-1$.
+
+\cardfield{When to use it}
+To reuse a detector built for one direction on events that point the other way. Put it before
+the drop detector and every spike becomes a drop, so the drop detector finds spikes, much as
+you might turn a photo upside down to check the shape of a valley as if it were a hill. Then
+tell \blockref{interrogation.event_shape} that its input was inverted (its
+\emph{upstream\_inverted} setting), so it reports the events as the spikes they really are.
+
+\cardfield{What goes in, what comes out}
+In goes a span of one channel; out comes the same span flipped, same length and rate.
+
+\cardfield{Settings that matter}
+None.
+
+\cardfield{Watch out for}
+Anything measured downstream is in the flipped frame: a depth is a height, a fall is a rise.
+Only \blockref{interrogation.event_shape} knows how to flip back, and only when you tell it.

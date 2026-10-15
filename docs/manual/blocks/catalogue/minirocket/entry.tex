@@ -1,0 +1,113 @@
+% !TEX root = ../../../main.tex
+% Appendix entry: catalogue.minirocket -- "MiniRocket" (Appendix A).
+\entryfield{Algorithm}
+The block calls \code{fingerprint} in \code{Working/Catalogue/minirocket.py}, which wraps the
+\code{MiniRocket} transform of the \code{aeon} library (1.4,
+\code{aeon.transformations.collection.convolution_based}), itself adapted from the authors'
+code \citep{dempster2021minirocket}. Steps:
+\begin{enumerate}
+\item \emph{Read the windows} (\code{window_vectors}). If the window set has a
+  \code{shape_file} column (a \emph{Trace shape} step ran), each window's vector is read from
+  that file by \code{shape_row}. Otherwise the window is sliced from the span at its
+  channel-absolute start minus $\mathrm{round}(t_0 f_s)$
+  (\code{span_relative_starts} in \code{Working/types/windowset.py}). A window pool without a
+  shape file is refused, naming \emph{Trace shape} as the fix.
+\item \emph{Gaps} (\code{repair_gaps}): a window with at most 5\,\% non-finite samples is
+  filled by linear interpolation (an end gap holds the nearest value); a window with more is
+  left out and counted as \code{gaps_over_5pct}.
+\item \emph{Fit set} (\code{train_mask}): the rows whose \code{split} is 0 or
+  \code{"train"}, else whose \code{pool_role} is \code{"train"}. With neither column, every
+  window, and a warning. A split with no training window is refused.
+\item \emph{Normalise} (\code{znormalise}, when \code{normalise} is on): each window minus
+  its mean, over its standard deviation; a flat window becomes zeros and is counted
+  (\code{n_flat}).
+\item \emph{Fit and transform} (\code{fingerprint_matrix}). \code{MiniRocket(n_kernels =
+  n_features, max_dilations_per_kernel, random_state = seed)} is fitted on the fit set and
+  applied to every kept window, in chunks of 4{,}096. As read from aeon's source
+  (\code{docs/research/analysis-blocks-primary-sources.md}, section 12): 84 kernels of
+  length 9, one for each choice of 3 of the 9 positions, with weight $-1$ everywhere and
+  $+2$ at the three chosen positions; up to \code{max_dilations} exponentially spaced
+  dilations per kernel; for each feature a bias, a golden-ratio quantile of the convolution
+  output of one random training window; and the feature value is the proportion of positive
+  values (PPV), the fraction of the convolution output above that bias. The fit learns only
+  the biases and never sees a label.
+\item \emph{Assemble}: the features become columns \code{mr_0000}, \code{mr_0001},
+  \dots{} (float32) beside the window set's existing columns, or beside only its bookkeeping
+  columns when \code{keep_upstream_features} is off. Earlier \code{mr_*} columns are
+  replaced, with a warning.
+\end{enumerate}
+aeon rounds \code{n_features} down to a multiple of 84 (84 at least):
+\code{real_feature_count}; the default 10{,}000 gives 9{,}996. aeon reseeds numpy's global
+random generator inside \code{fit}; the module saves and restores it under a lock, so two
+runs never interleave.
+
+\entryfield{Assumptions}
+\begin{itemize}
+\item \emph{Units.} Not unit-aware. With \code{normalise} on (the default) the fingerprint
+  does not depend on the unit or level; with it off it does.
+\item \emph{Sampling rate.} The detectors work in samples. A 9-tap kernel at dilation $d$
+  spans $8d+1$ samples, so the same shape at two sampling rates gives different
+  fingerprints.
+\item \emph{Window length.} At least 9 samples (aeon's floor), and one length for the whole
+  set.
+\item \emph{Missing values.} As in step 2: at most 5\,\% filled, otherwise left out.
+\end{itemize}
+
+\entryfield{Outputs}
+A \code{WindowSet}: the kept windows (starts, length, rate unchanged) with the feature table
+described above. \code{meta} holds \code{n_features} (the real count),
+\code{n_features_asked}, \code{n_windows_in}, \code{n_kept}, \code{n_fit_windows},
+\code{fit_on} (\code{train} or \code{all}), \code{split_column}, \code{n_left_out},
+\code{n_interpolated}, \code{n_flat}, \code{seed}, \code{source} (\code{x} or
+\code{shape_file}), \code{table_mb}, \code{upstream_dropped}, timings, \code{warnings},
+\code{rules} and a one-line \code{summary}.
+
+\entryfield{Cost}
+$O(N \cdot L \cdot F)$ for $N$ windows of $L$ samples and $F$ features; the table is
+$N \times F \times 4$ bytes. \code{max_cells} (50 million cells, 200\,MB) refuses a larger
+table before any work, suggesting an \code{n_features} that fits. In a fresh process the
+aeon import takes 14--45\,s and numba loads its kernels; the calibration pays these untimed.
+\code{estimate} sees only the span, so it assumes the densest grid the shipped templates
+make (three windows over every sample, the labels' 600/200 grid) and scales by the feature
+count; a set that tiles the span costs about a third of the estimate. The transform runs on
+numba's own thread count, so it also runs on a node capped at one thread.
+
+\entryfield{Failure modes}
+\begin{itemize}
+\item \emph{Refusals in words}: an empty set; every window left out for gaps; windows
+  shorter than 9 samples; a table over \code{max_cells}; a pool without a shape file; a
+  missing or inconsistent shape file; a split with no training window.
+\item \emph{No split: an optimistic downstream score.} Fitting on every window lets the
+  test windows shape the biases. The block warns; the effect is bounded because no label is
+  used, but it is a leak.
+\item \emph{The split only governs the fit here.} \blockref{catalogue.classifier} drops the
+  \code{split} column and draws its own random holdout (\blockentry{catalogue.classifier}),
+  so a blocked split made upstream is not the classifier's test set.
+\item \emph{Fewer features, weaker answer.} The \code{n_features} help says so: a ``no'' at
+  1{,}000 features is not a ``no''.
+\item \emph{Level ignored.} With \code{normalise} on, two windows differing only in level or
+  size get the same fingerprint, by design.
+\end{itemize}
+
+\entryfield{Validation}
+\code{tests/test_minirocket.py} checks the answer as well as the plumbing, on synthetic
+windows from \code{tests/_minirocket_synthetic.py} (three shape classes that differ only in
+shape, on three coloured-noise backgrounds): a random forest on the default fingerprint
+scores at least 0.8 on a blocked holdout for every background; shuffled labels stay within
+three binomial standard deviations of chance; labels that persist in two-hour runs with no
+shape difference score at chance on the blocked split (the fingerprint does not learn time);
+features of training windows are unchanged when only test windows change, and the converse.
+Catch22 is measured beside it on the same split and, per the test's own note, does not lose.
+\code{tests/test_template_minirocket_manual_labels.py} runs the shipped template end to end;
+the template note says it beat its label-permutation null on three M2\_aug recordings
+(\code{docs/prompts/blocks/reports/W2-evaluation.md}).
+
+\entryfield{References}
+\citet{dempster2021minirocket}. The algorithm was checked against the installed aeon source
+in \code{docs/research/analysis-blocks-primary-sources.md}.
+
+\entryfield{Tests}
+\code{tests/test_minirocket.py} (above, plus determinism per seed, the global random state,
+gap handling, the refusals, the lock, a one-thread numba run).
+\code{tests/test_adapter_minirocket.py} (registration, defaults, readout, cost model and
+calibration). \code{tests/test_template_minirocket_manual_labels.py} (the template).

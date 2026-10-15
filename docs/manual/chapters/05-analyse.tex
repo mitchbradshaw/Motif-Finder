@@ -1,0 +1,660 @@
+% !TEX root = ../main.tex
+\chapter{Analyse: run a chain over it}\label{ch:analyse}
+Analyse is where you do the analysis itself. You take a \term{span}{span} of one
+\term{channel}{channel}, pass it through a \term{chain}{chain} of \term{block}{blocks}, and look
+at what every block did to it. This is the central skill of the app: every other workspace either
+feeds Analyse (Explore, Library, Discovery) or reads what it produced (Review, Models).
+
+\begin{plainterms}[A chain is a recipe]
+Think of a kitchen recipe. The span is the raw ingredient. Each block is one step of the recipe:
+wash, chop, simmer. Each step takes what the step before it handed over and hands something new to
+the next. A step can only take an ingredient it knows how to handle: you cannot simmer a whole
+uncut pumpkin in a teacup. In the app that rule is checked by the \emph{type} each block accepts
+and emits (a signal, a set of spans, an encoding, and so on), and a chain that breaks it is marked
+in red before you can run it.
+\end{plainterms}
+
+The workspace has three groups of pages.
+\begin{itemize}
+  \item \apppage{analyse.chain} and \apppage{analyse.block} are the working pair. The chain page
+        shows every block as one row, each row drawing its result on one shared time axis; the
+        block page opens one block, with its settings beside its output. These two pages are
+        \pagestatus{live}: they run the real blocks on your recordings through the bridge.
+  \item \apppage{analyse.glyphs} is a reference page listing the small picture each block carries.
+  \item The Interrogation pages (\apppage{analyse.interrogation} and its two block pages) and the
+        Training pages (\apppage{analyse.training} and its five block pages) are design previews of
+        two special kinds of chain. Interrogation reads real families from the seed store but
+        simulates its run; Training is example data throughout. Each section below says which
+        parts are real.
+\end{itemize}
+
+The individual blocks are not explained here: each has a card in \cref{ch:blocks}, linked from
+the text wherever a block is named.
+
+% ---------------------------------------------------------------------------------------------
+\pagesection{analyse.chain}{Chain}{Build a chain, or import a template}{live}
+The chain page is where you assemble a chain, run it over a span and read every intermediate
+result. The source (your span) is the top row; each block below it is one row, numbered
+\texttt{01}, \texttt{02}, and so on; data flows from the top row down. Every row draws its own
+result on the same time axis, labelled at the foot of the page (``all rows share this time
+axis''), so a spike in row 01 sits directly above whatever row 03 made of it.
+
+\pagefield{When you'd come here}
+\begin{itemize}
+  \item You sent a span from Explore (its \ui{Send span to Analyse} action) and want to analyse it.
+  \item You want to try a saved \term{template}{template} on a new span, or tune one.
+  \item You want to run one block on its own: that is a chain with one row.
+  \item You want to start from saved \term{window-set}{window sets} rather than a span, to build
+        the clustering chain that Models trains on.
+\end{itemize}
+
+\screenshot{pages/analyse/analyse.chain--live}{The page with the three-block example chain and no
+source yet. Each row has a \ui{+ insert} pill above it; the footer chip names the chain's terminal
+type and what it saves as.}
+
+\pagefield{Doing things here}
+
+\subsection*{Start a chain}
+A fresh page opens on an empty canvas with a \ui{Start a chain} card. It offers:
+\begin{enumerate}
+  \item \ui{Import a template}: opens the templates list (see ``Import a template'' below).
+  \item \ui{Add the first block}: opens the \ui{Insert a stage} window at position 01.
+  \item \ui{Restore \ldots}: the last chain this browser had, if there was one. It is offered,
+        never loaded unasked.
+  \item \ui{Example \ldots}: a three-block example (baseline removal, then a matrix profile,
+        then a threshold), useful for a first try.
+\end{enumerate}
+
+\subsection*{Choose the source}
+The source chip in the toolbar names the span the chain runs over. Click it for the
+\ui{Source} menu:
+\begin{enumerate}
+  \item \ui{Use the example span}: a two-hour reference span of \texttt{CH1\_A1} in
+        \texttt{M2\_aug\_concat\_fs1.mat} (336--338\,h).
+  \item \ui{Pick in Explore}: go to \apppage{explore.corpus} and send a span back.
+  \item \ui{Start from a Window pool}: replace the span with saved window sets. The page swaps the
+        chain for \emph{Window pool} \textrightarrow{} \emph{Trace shape} \textrightarrow{}
+        \emph{Shape clustering} (\blockref{preprocessing.window_pool},
+        \blockref{preprocessing.trace_shape}, \blockref{catalogue.shape_cluster}); your old chain
+        is kept in the undo list. You tick the window sets on the pool block's own page.
+\end{enumerate}
+With no source, the source row says so and offers \ui{Go to Explore}, the example span and the
+window pool. The held-out recording (\texttt{M4\_aug\_concat\_fs1.mat}) is never loaded: its
+source row shows a lock card and \ui{Run chain} stays disabled.
+
+\subsection*{Insert a stage}
+\begin{enumerate}
+  \item Click a \ui{+ insert} pill: the one above a row inserts there; \ui{+ insert · end of
+        chain} appends.
+  \item The \ui{Insert a stage} window opens. Its top line shows the chain as a ribbon with the
+        new stage in place, and three pills spell out the type contract: what the stage above
+        outputs, what the new stage must accept and emit, and what the stage below requires (or,
+        at the end, that the chain's terminal type will change).
+  \item Narrow the list with the search box or one of the category tabs: \ui{all} and the six
+        categories \ui{preprocess}, \ui{encode}, \ui{detect}, \ui{cluster}, \ui{model} and
+        \ui{control}. Each block card carries its glyph, name, type signature and a cost chip.
+  \item Blocks that fit are listed first under \ui{Fits here}. Blocks that do not fit stay
+        visible under \ui{Doesn't fit at this point}, disabled, each with the reason (for example
+        ``needs Signal · here: Encoding''). \ui{show incompatible} hides them.
+  \item Click a fitting card. The right-hand panel shows its description, its defaults, an
+        estimated cost on this span, its side inputs, and warnings: which row will go stale,
+        and whether the span is over the block's local ceiling.
+  \item Press \ui{+ Insert}, or \ui{\textrightarrow{} Insert and open settings} to go straight
+        to the new block's page.
+\end{enumerate}
+Below the last row a suggestion card names what fits at the end of the chain, with
+\ui{Browse compatible} and a one-click \ui{+ Insert \ldots} for the first block that fits.
+
+\screenshot{pages/analyse/analyse.chain--fixup-d-feature-blocks-in-insert-modal}{The
+\ui{Insert a stage} window at the end of a SpanSet chain: the three type pills at the top, ``2 of
+41 blocks fit'', and every other block greyed with its reason.}
+
+\subsection*{Valid and invalid junctions}
+Every edit is checked by the bridge (about 150\,ms after you stop changing things). Where a block
+cannot take what the row above hands it, the \ui{+ insert} pill above it is replaced by a red
+pill, for example ``03 Threshold to spans needs Scores · 02 Baseline removal emits Signal''. The
+pill offers \ui{+ Insert \ldots{} here} (the first block that would repair the junction) and
+\ui{Show blocks that fit}. While any junction is red the estimate chip reads ``1 invalid
+junction'', the footer reads \ui{Chain is invalid}, and \ui{Run chain} is disabled.
+
+\screenshot{pages/analyse/analyse.chain--1e-invalid-junction}{A red junction, here on the
+built-in demonstration chain, with the two repairs it offers.}
+
+\begin{plainterms}[What the types are]
+A block's type signature reads like ``Signal \textrightarrow{} Scores'': it takes a signal and
+emits a score for every moment. There are seven types: Signal, Scores, SpanSet (a list of
+intervals), Encoding (letters or images), WindowSet (fixed windows), Grouping (clusters) and
+Model. The type of the last block decides what the chain \emph{is}: a chain ending in a SpanSet
+is a detection chain; one ending in a Model is a training chain. \Cref{ch:core-ideas} explains
+each type.
+\end{plainterms}
+
+\subsection*{Run the chain}
+\begin{enumerate}
+  \item Check the estimate chip. It shows the cost from the first row that needs computing, for
+        example ``\(\le\) 40\,s core est.\ · 01 \textrightarrow{} 03'', or ``all in the step cache''
+        when nothing needs computing.
+  \item Press \ui{Run chain}. Rows land as they finish. A running row shows the time spent and,
+        when the block reports it, its own fraction done; a block that reports no fraction shows
+        a moving bar and says so. Rows waiting their turn read ``waits for \ldots''.
+  \item \ui{Cancel} stops the run. A block that checks for a cancel stops inside its stage; any
+        other stops when its stage ends. The stages already finished are kept.
+  \item When the run ends, the footer gives the result (for a SpanSet chain, how many spans), the
+        job and database run numbers, how many rows were written to detections, and the time.
+\end{enumerate}
+Each row's badge says where its result came from: \texttt{cached · 0 s} (restored from the step
+cache), \texttt{computed · now cached}, \texttt{stale}, \texttt{waiting}, \texttt{failed},
+\texttt{blocked} (an earlier row failed) or \texttt{new} (never run).
+
+\screenshot{pages/zzz_surrogates/analyse.chain--fixup-t-run-with-null-reads-detected-versus-surrogate}{A
+four-block run with the surrogate null switched on: every row computed and now cached, each drawn
+on the shared axis.}
+
+\begin{watchout}[Long runs go to the cluster, not the laptop]
+Before a run starts, the bridge estimates how long it will take. If the estimate is over the
+Analyse local limit (Settings \textrightarrow{} Compute \& HPC; 15 minutes by default), the run
+is \emph{refused} and a SLURM job script is written instead. A red card says how long the chain
+would take, which stage is the slow one, the longest span that would run locally, and where the
+script is; \ui{Copy script} copies it. If the cluster's own wall-time cap would still kill the
+job, the card says that too. Separately, a block with a hard sample ceiling turns its row into an
+amber card (``this run would fail locally''); there the \ui{Create SLURM script} and
+\ui{Upload computed artifact} buttons are present but not yet wired. While a block's cost model is
+still being timed on a new machine (``calibrating''), \ui{Run chain} waits.
+\end{watchout}
+
+\subsection*{A failed block}
+When a block raises an error, its row is replaced by a red card: ``04 Drop detection failed after
+\ldots'', the error message, the adapter and the recipe. The card has \ui{View log} (the full
+traceback), \ui{Open settings} and \ui{Retry 04}. Rows below it read \texttt{blocked}. The footer
+says ``No result'' and that nothing was written to detections. The rows above the failure stay
+cached, so the toolbar button reads \ui{Retry from 04} and recomputes only from there.
+
+\screenshot{pages/analyse/analyse.chain--1f-failed-block}{A failed block on the demonstration
+chain: the error card with \ui{View log}, \ui{Open settings} and the retry button.}
+
+\subsection*{Change something and re-run from a step}
+Editing a block (on its own page), inserting or deleting one marks that row and every row below
+it stale: the old result stays drawn under a ``last run shown · stale'' pill so you can compare.
+The run button becomes \ui{Re-run from 0\(n\)}, and only the stale suffix is recomputed: the rows
+above are read from the step cache.
+
+\begin{plainterms}[The step cache]
+Every row's result is stored under a fingerprint of everything that produced it: the span and
+every setting of that block and of every block above it. Change row 03 and rows 01 and 02 still
+have the same fingerprint, so they come back from the cache in no time. This is why tuning the
+last block of a long chain is fast.
+\end{plainterms}
+
+To delete a block, use the bin icon on its row. A toast offers \ui{Undo}, and
+\ui{Ctrl Z} restores the last deleted block. The grip, bypass and duplicate
+icons on each row are present but not active on this page.
+
+\subsection*{Run history}
+\ui{History} lists the runs in the database for the current recording, plus the jobs live in this
+bridge: name or number, the blocks, the span, the duration and how many detections each wrote.
+\ui{Apply to source} loads a run's recipe into the chain (it replaces the unsaved chain); it is
+disabled, with the reason, for a run on a different recording or with no stored recipe.
+Discovery fan-outs and seed searches are counted at the foot rather than listed; open them in Jobs.
+
+\subsection*{Import and save a template}
+\ui{Import} opens the templates list, grouped by kind (Detection, Encoding, Training,
+Interrogation) with a search box. Each row is marked \texttt{builtin} or \texttt{saved} and lists
+its blocks. Picking one replaces the chain and forgets the last run's rows. Under it, a second list
+of \emph{concept-frame chains} (marked \texttt{demo}) opens built-in demonstration chains with
+simulated runs and example results; they are for learning the page, not for analysis.
+
+\ui{Save template} asks for a name and saves the chain's blocks and settings as a template, which
+is offered by \ui{Import} from then on; a detection template is also offered by Discovery's
+\ui{Apply template}. The footer chip says what it
+will be saved as (for example ``terminal SpanSet \textrightarrow{} detection template'').
+
+\subsection*{The surrogate null}
+The \ui{surrogate null} switch is off by default. Switched on, the next run is followed by its
+paired \term{null}{null}: the whole chain is run again on several \term{surrogate}{surrogates} of
+the span (the method and number of draws set in Settings \textrightarrow{} Nulls), and the footer
+reads ``detected \(n\) · null expects \(m\) over \(k\) draws · \(x\times\) null''. The draws are a
+count, never detections.
+
+\pagefield{Where it leads}
+\begin{itemize}
+  \item A row's settings icon opens \apppage{analyse.block}.
+  \item \ui{Pass \(n\) to Review} (footer, for a completed SpanSet chain) makes a Review queue over
+        the detections the run wrote and opens it in \apppage{review.inspector}.
+  \item \ui{Save window set} on a WindowSet row saves its windows for Library and Models.
+  \item On a window-pool chain ending in Shape clustering, \ui{Train model} saves the template and
+        opens \apppage{models.launch} with the pool filled in.
+  \item \ui{Export run} writes a JSON report of the run. \ui{Analyse events} is not wired yet.
+  \item A saved template is applied across many channels in \apppage{discovery.runs}.
+\end{itemize}
+
+\begin{underthehood}
+Client: \code{webui/client/src/analyse/ChainPage.tsx} (\code{ChainPage}), with
+\code{InsertStageModal.tsx}, \code{ChainRow.tsx}, \code{rowState.ts} (\code{deriveRows}: the row
+badges), \code{useValidation.ts}, \code{HistoryPopover.tsx}, \code{TemplatesPopover.tsx},
+\code{store.ts} (the run, streamed over server-sent events). Bridge: \code{webui/server/app.py}
+routes \code{POST /api/chain/validate} (junctions, estimate, cache prediction, route),
+\code{POST /api/chain/compatible} (what fits at a position, used by the insert window and the
+junction repairs), \code{POST /api/runs} (refuses an invalid chain, an over-ceiling stage, or a
+chain over the local limit, writing its SLURM job with \code{Working/hpc/job_export.py}
+\code{export_job}), \code{GET /api/runs/{id}/log}; templates in
+\code{webui/server/analyse_routes.py}. Routing: \code{webui/server/chain.py}
+\code{route_local} and \code{analyse_ceiling_s}, falling back to
+\code{Working.config.CLUSTER_ROUTING_CEILING_S} (900\,s).
+\end{underthehood}
+
+% ---------------------------------------------------------------------------------------------
+\pagesection{analyse.block}{Block}{Settings and output together}{live}
+The block page opens one block of the chain. The chain row shows only a block's result; this page
+shows its process: what the block looked at, what it computed, and what it emitted, beside its
+settings. You reach it from the settings icon on a row, or by clicking a block in the ribbon at the
+top of the page.
+
+\pagefield{When you'd come here}
+\begin{itemize}
+  \item To tune a block's settings and see the effect.
+  \item To read a block's \emph{readout}: what it works out before a run (a noise level, a cut,
+        a count of segments) and what it warns about.
+  \item To look closely at a result: the detected spans one by one, a cluster tree, a model's
+        accuracy per class.
+\end{itemize}
+
+\screenshot{pages/zz_analyse_run/analyse.block--fixup-h-spanset-cut-and-slideshow}{A threshold
+block's page after a run: its cut drawn on the scores above, the spans it produced, and a
+slideshow of them.}
+
+\pagefield{Doing things here}
+\begin{enumerate}
+  \item The ribbon across the top shows the whole chain as chips, each with its status badge.
+        Click a chip to move to that block; \ui{+ stage} goes back to the chain page to insert at
+        the end; \ui{full chain} returns to the chain page.
+  \item The large card on the left is the block's output. What it draws depends on the block's
+        output type and input type, not on the block's name: a filter draws the signal before
+        (grey) and after (blue); a threshold draws its cut on the scores and the spans it made;
+        an encoding draws its letters or images; a clustering draws its tree.
+  \item The \ui{Parameters} card on the right holds one control per setting: a segmented choice
+        for up to four options, a menu for more, a slider and number box for a bounded number, a
+        tick box for on/off. Under each control, ``= default'' or ``default \ldots'' says whether
+        you have moved it; the \ui{i} beside a name shows its description. Some blocks (the
+        bandpass filter) add preset buttons from the named bands in Settings.
+  \item Change a setting. The block and every block after it go stale, and the footer reads
+        \ui{Unapplied changes} with the cost of re-running. Press \ui{Re-run from 0\(n\)} (in the
+        toolbar or the footer) to recompute from the first stale block; the page stays put and
+        refreshes when the run ends.
+  \item A block that declares a readout shows a \ui{Readout} card above its parameters. It is
+        recomputed a quarter-second after each edit, on what a run would hand this block: the
+        blocks before it are read from the step cache or re-run in memory, and nothing is written.
+        Warnings are amber, errors red.
+  \item \ui{Revert to defaults} puts every setting back to the block's default.
+  \item \ui{Delete block} removes this block and returns to the chain page, where
+        \ui{Ctrl Z} undoes it.
+\end{enumerate}
+
+\screenshot{pages/analyse/analyse.block--live}{The block page's layout: the ribbon, the output card,
+the \ui{Parameters} card and the null card. With no source, the output card says it needs a span.}
+
+\begin{watchout}[There is no per-parameter null sweep yet]
+The concept design put a ``this parameter against the null'' sweep beside the settings. On the live
+page that card only says that a null is drawn per chain run, not per block: switch on the
+surrogate toggle and read the footer. Only the demonstration chains (opened from \ui{Import}
+\textrightarrow{} concept-frame chains) draw a sweep, and theirs is example data.
+\end{watchout}
+
+\pagefield{Where it leads}
+Back to \apppage{analyse.chain} to run the whole chain. A SpanSet block's slideshow can send its
+spans to Review (the same queue as the chain page's \ui{Pass \(n\) to Review}); a WindowSet block
+offers \ui{Save window set} (Library \textrightarrow{} Window sets). Each block's card in
+\cref{ch:blocks} explains its settings.
+
+\begin{underthehood}
+Client: \code{webui/client/src/analyse/BlockPage.tsx} (\code{BlockPage}), \code{ParamsPanel.tsx}
+(controls generated from the adapter's declared parameters), \code{Readout.tsx} and
+\code{useReadout.ts}, and \code{views/registry.tsx}, which picks the drawing by output type and
+conversion (\code{VIEWS}, \code{MODIFIERS}), mirrored on the server by
+\code{webui/server/views.py}. Readout: \code{POST /api/blocks/derive}
+(\code{webui/server/readout.py}). Parameter validation: \code{POST /api/chain/params}.
+\end{underthehood}
+
+% ---------------------------------------------------------------------------------------------
+\pagesection{analyse.glyphs}{Algorithm glyphs}{The glyph registry}{preview}
+Every block carries a small fixed picture, its \emph{glyph}, drawn once for the algorithm and
+never from data. The same glyph appears at thumbnail size on the cards of the \ui{Insert a stage}
+window and larger in its detail panel. This page lays all the glyphs out on one sheet with their
+colour key: grey for the input or context, blue for what the block emits, green for what it found
+or kept, amber for a cut or threshold, red for what it excluded, purple for an exemplar or second
+input.
+
+The page is a preview. It lists the blocks of the built-in demonstration chains (from
+\code{webui/client/src/fixtures/analyse.ts}), not the live registry, and its header carries the
+demo marker. The glyphs on the live \ui{Insert a stage} cards come from the same drawing code
+(\code{webui/client/src/analyse/glyphs.tsx}), where a block with no glyph of its own falls back to
+one drawn from its type signature.
+
+\pagefield{When you'd come here}
+Rarely: to see what a glyph means, or, when adding a block, to see which blocks still lack a glyph
+of their own.
+
+\screenshot{pages/analyse/analyse.glyphs--default}{The glyph sheet, grouped by kind of block, with
+the colour key above it.}
+
+\pagefield{Doing things here}
+\begin{enumerate}
+  \item Type in \ui{filter glyphs} to narrow the sheet by name or signature.
+  \item Click a glyph to open its drawer: the glyph at three sizes, the block's description,
+        registry name, category, whether it has a surrogate null, and which demonstration
+        templates use it. \ui{Copy registry name} copies the name; \ui{Find it in Insert a stage}
+        opens the insert window on a demonstration chain.
+\end{enumerate}
+
+\pagefield{Where it leads}
+Back to \apppage{analyse.chain}. To add a glyph for a new block, see \cref{ch:extending}.
+
+% ---------------------------------------------------------------------------------------------
+\pagesection{analyse.interrogation}{Interrogation}{Source block: the family being analysed}{preview}
+An interrogation chain starts not from a span of signal but from a \term{family}{family}: a group
+of events the Library holds as similar shapes. Its source block decides which members of the
+family the chain runs over; the blocks after it measure every member (01) and then plot the
+measures against each other (02). This page is that source block.
+
+\textbf{What is real here.} The families and their members are live: the bridge reads them from
+the seed store of drop motifs (\code{DATA/library_seed/}), 16 spans holding 410 events, with the
+detrended millivolt samples of every member. The \ui{prior run} tab of the source picker lists
+real runs from the database. Everything that would \emph{run} or \emph{write} is simulated:
+\ui{Run chain} plays a timed animation, \ui{Save template} keeps the template in browser memory
+only (the toast says ``in memory (demo)''), and the clustering menu, the Review and Explore tabs of
+the source picker and its \ui{prior run} rows are not wired.
+
+\pagefield{When you'd come here}
+To look at every member of one family at once, choose which of them belong in an analysis, and go
+on to their slope or shape measures. It is the way into \apppage{analyse.interrogation.slope} and
+\apppage{analyse.interrogation.aggregate}.
+
+\screenshot{pages/interrogation/analyse.interrogation--default}{A family as the source block: one
+slideshow card per member drawn from its stored samples, the scope matrix by recording and
+channel, and the source settings.}
+
+\pagefield{Doing things here}
+\begin{enumerate}
+  \item Open the source chip in the toolbar to pick a family (the \ui{family} tab). The header
+        names the family and how many of its members are in scope.
+  \item Narrow the members with the filters: \ui{adjudicated only}, \ui{exclude artifacts},
+        \ui{distance \(\le\)}, \ui{recording} and \ui{channel}. The held-out recording is offered
+        but disabled.
+  \item Tick or untick a member on its card to put it in or out of scope; \ui{select all},
+        \ui{none} and \ui{invert} act on all visible members. Excluding a member scopes this run
+        only: the Library entry is not changed. The scope matrix on the right counts the members
+        in scope per recording and channel.
+  \item \ui{Members overlaid} draws a sample of ten members in scope, on a y axis measured from
+        the traces drawn (never normalised). \ui{resample} draws another ten; \ui{align} lines
+        them up on the onset or the trough; \ui{frame} switches between one context window for
+        all and a \emph{sequence frame} that reaches back to the previous event's trough.
+  \item \ui{Source settings} \textrightarrow{} \ui{context padding} sets the window drawn around
+        every event on all three Interrogation pages; the default is the whole stored window.
+  \item \ui{+ stage} on the chain card chooses what block 01 is: \ui{01 Resolve spans} (the
+        store's slope analysis) or \ui{01 Event shape} (\blockref{interrogation.event_shape}).
+  \item Click a member's card to open it in block 01.
+\end{enumerate}
+
+\pagefield{Where it leads}
+\apppage{analyse.interrogation.slope} (block 01), \apppage{analyse.interrogation.aggregate}
+(block 02), \ui{Open in Library} for the family's own page, and \ui{Sequences · slope rose} for the
+steepest-slope rose across the events of one stored sequence.
+
+\begin{underthehood}
+Client: \code{webui/client/src/interrogation/SourcePage.tsx}, \code{SourcePicker.tsx},
+\code{chrome.tsx}; reads in \code{webui/client/src/api/interrogation.ts} (\code{getSourceBlock},
+\code{getSourceChoices}) mix live calls with constants from
+\code{webui/client/src/fixtures/interrogation.ts} (the clustering label, source-setting options,
+estimate and chain card). Bridge: \code{GET /api/interrogation/families} and
+\code{GET /api/interrogation/families/{key}/members} in
+\code{webui/server/interrogation_routes.py}. The run is \code{useSim}, a client-side timer.
+\end{underthehood}
+
+% ---------------------------------------------------------------------------------------------
+\pagesection{analyse.interrogation.slope}{Interrogation: slope}{Slope analysis}{preview}
+Block 01 of an interrogation chain: every member of the family turned into numbers. With
+\ui{01 Resolve spans} the numbers are the seed store's slope measures; with \ui{01 Event shape}
+they are the measures of \blockref{interrogation.event_shape} (amplitude, width, duration, full
+width at half maximum, recovery time, rise time, steepest, onset and chord slope, peakedness).
+
+\textbf{What is real here.} The events, their measures, the marks drawn on each event and the
+rose of steepest slopes all come from the bridge, measured by the core; the browser computes none
+of them. The rule selectors are disabled, because nothing on this page re-runs the measurement
+yet; \ui{Run chain} and \ui{Apply} are simulated; \ui{CSV} is not wired.
+
+\pagefield{When you'd come here}
+To see how each number is defined on one event, check the measures across the family, and find
+events the measurement could not handle.
+
+\screenshot{pages/interrogation/analyse.interrogation.slope--default}{One event with the store's
+marks (onset, steepest sample, trough), the strip of neighbouring events, and the per-event
+table.}
+
+\pagefield{Doing things here}
+\begin{enumerate}
+  \item The anatomy card draws one event with its marks: the detector's onset and trough and the
+        steepest sample between them, with the tangent there. Step through events with the strip
+        beneath it, or click a row of the table.
+  \item \ui{Events overlaid} draws a seeded sample of the family with the current event in blue.
+  \item \ui{Each fall as one angle} turns every fall into one angle (the arctangent of its
+        steepest slope over a stated reference) and draws them as a rose with its circular
+        statistics.
+  \item The \ui{Rules} card lists the rules every number on the page was measured with: the onset
+        rule, the trough rule, the steepest window and the slope noise estimate.
+  \item The \ui{Per-event output} table has one row per member. A measure the core could not
+        take is shown as a dash or ``not recovered'' (for an event that never came half-way back),
+        never as zero.
+\end{enumerate}
+
+\begin{watchout}[Not measured is not zero]
+An event that did not recover within the rule's bound has no recovery time. The page says ``not
+recovered'' and leaves it out of every distribution, counting it beside the plot instead. Read a
+recovery-time histogram with that count in mind.
+\end{watchout}
+
+\pagefield{Where it leads}
+\apppage{analyse.interrogation.aggregate} for distributions and scaling; back to
+\apppage{analyse.interrogation} to change the scope.
+
+\begin{underthehood}
+\code{webui/client/src/interrogation/SlopePage.tsx}; \code{getSlopeBlock} in
+\code{webui/client/src/api/interrogation.ts}; bridge routes
+\code{GET /api/interrogation/families/{key}/slope} and \code{.../shape}, measuring with
+\code{Working/Detection/drop_motifs/gradients.py} and the \code{interrogation.event_shape} block.
+\end{underthehood}
+
+% ---------------------------------------------------------------------------------------------
+\pagesection{analyse.interrogation.aggregate}{Interrogation: aggregate}{Aggregate}{preview}
+Block 02 of an interrogation chain. It takes whatever measures block 01 emits and draws them:
+a histogram per measure, a scaling plot of one measure against another on log axes with a fitted
+exponent, and a timeline of when each event happened in each recording. The block is generic: its
+plots are wired to the upstream block's declared features, so it serves the slope analysis and the
+event-shape block alike.
+
+\textbf{What is real here.} The measures are the core's (as on block 01); the fit is computed on
+the points drawn. The page draws \emph{no null}: none has been built for these plots, and the page
+says so on its face. \ui{CSV}, \ui{Figures} and \ui{add scaling pair} are not wired; sending an
+outlier to Review is simulated.
+
+\pagefield{When you'd come here}
+To see how a family's events are distributed, and whether one measure scales with another (for
+example whether deeper drops are steeper).
+
+\screenshot{pages/interrogation/analyse.interrogation.aggregate--default}{Histograms of the
+family's measures, the scaling plot with its fitted exponent, and the parameters card.}
+
+\pagefield{Doing things here}
+\begin{enumerate}
+  \item Pick the pair of measures for the scaling plot, and switch its axes between log and
+        linear. The fitted exponent \(\beta\) is shown with a 95\,\% interval; with fewer than 12
+        points the page declines to fit.
+  \item Colour the points by recording to see whether one recording drives the fit.
+  \item \ui{Feature wiring} shows which upstream feature feeds each plot slot, and lets you
+        rewire or reset it.
+  \item The \ui{Parameters} card sets the binning rule, the interval definition, how outliers are
+        handled and the purity check. These change only the views: nothing here is stored, and
+        nothing upstream goes stale.
+  \item \ui{How each measure is defined} prints the rules the core measured with.
+\end{enumerate}
+
+\begin{watchout}[A fitted exponent is a description, not a test]
+With no null drawn, \(\beta\) describes these events; it does not show that a relationship is
+there rather than chance. Use Discovery's nulls for claims (\cref{ch:discovery}).
+\end{watchout}
+
+\pagefield{Where it leads}
+Back to \apppage{analyse.interrogation.slope} for single events.
+
+\begin{underthehood}
+\code{webui/client/src/interrogation/AggregatePage.tsx}, \code{features.ts} (\code{featureOf}),
+\code{EventTimeline.tsx} (heights from \code{POST /api/interrogation/trend});
+\code{GET /api/interrogation/families/{key}/aggregate}. The fit is \code{fitLogLog} in
+\code{webui/client/src/fixtures/interrogation.ts}: ordinary least squares on log10 of both
+measures, computed in the browser.
+\end{underthehood}
+
+% ---------------------------------------------------------------------------------------------
+\pagesection{analyse.training}{Training}{Built on one channel, applied across the corpus}{preview}
+The Training pages are a design preview of a \emph{training chain}: windows cut from one channel,
+features measured per window, windows clustered, encoded as images, and a model trained on them.
+Every number on these six pages is example data from \code{webui/client/src/fixtures/training.ts};
+nothing on them calls the bridge, and every save, queue or job they make lives only in browser
+memory (the toasts say ``in memory (demo)'').
+
+\begin{watchout}[Use the live chain instead]
+The same work is done for real on \apppage{analyse.chain}: import the \texttt{windows\_model}
+template and run it on a span, or start from a Window pool (\ui{Start from a Window pool}) to
+cluster saved window sets with \blockref{catalogue.shape_cluster}, then press \ui{Train model} to
+go to \apppage{models.launch}. The preview's cluster page itself points there.
+\end{watchout}
+
+\pagefield{When you'd come here}
+To see the intended design of a training chain: which checks guard against a model learning from
+its own test data, and how a template built on one channel is handed to Models.
+
+\screenshot{pages/training/analyse.training--default}{The preview training chain: five rows on one
+channel, ending in a Model, with the hand-off to Models in the footer.}
+
+\pagefield{Doing things here}
+\begin{enumerate}
+  \item Read the five rows: \ui{01 Sliding windows}, \ui{02 Window matrix}, \ui{03 Cluster},
+        \ui{04 Encode}, \ui{05 Model}. The chain is a training chain because its last block emits
+        a Model.
+  \item Switch the source to \emph{human-labelled windows} to see the illustrative variant, in
+        which the sliding-windows stage is absent and the stages renumber.
+  \item Open a row to see its block page (below).
+\end{enumerate}
+
+\pagefield{Where it leads}
+The five block pages below; \ui{Train in Models} opens \apppage{models.launch}.
+
+\begin{underthehood}
+\code{webui/client/src/training/} (\code{ChainPage.tsx} and one page per block); reads in
+\code{webui/client/src/api/training.ts}, every one \code{demo(...)} over a fixture.
+\end{underthehood}
+
+\pagesection{analyse.training.windows}{Training: sliding windows}{Windows, stride and the blocked split}{preview}
+Block 01 of the preview: the channel cut into fixed windows, and the windows split into training,
+validation and test blocks by time. Its point is the guard against leakage: the gap between blocks
+is a setting, checked to be at least one window long, and a random split can be chosen but is
+marked as leaking. The live block is \blockref{preprocessing.sliding_windows}; the live split is
+set on \apppage{models.launch}.
+
+\begin{plainterms}[Why the split is by time]
+Neighbouring windows overlap and share samples. Split them at random and a model is tested on
+windows it has half seen in training, like a student marked on the questions they revised. Cutting
+the recording into blocks of time, with a gap between them, keeps the test honest. This is a
+\term{blocked-split}{blocked split}.
+\end{plainterms}
+
+\screenshot{pages/training/analyse.training.windows--default}{Example windows on the channel, the
+train, validation and test blocks with their gaps, and the checks card.}
+
+\pagefield{When you'd come here}
+To see how the blocked split is meant to be set and checked.
+
+\pagefield{Doing things here}
+Change the window length, stride, gap and split ratio in \ui{Parameters}; the \ui{Checks} card says
+which conditions hold. All of it is example data.
+
+\pagefield{Where it leads}
+\apppage{analyse.training.matrix}.
+
+\pagesection{analyse.training.matrix}{Training: window matrix}{Features per window}{preview}
+Block 02 of the preview: a table of features measured for every window, in feature groups that
+can be ticked on and off. Two groups whose scores come from models trained on the manual verdicts
+are off by default, and ticking one raises a leakage warning, because the clustering is later
+compared against those same verdicts. The page also shows how a heavy matrix would go to the
+cluster (\ui{Create SLURM script}) and come back (\ui{Upload matrix}); both are simulated. The live
+block is \blockref{preprocessing.window_matrix}.
+
+\screenshot{pages/training/analyse.training.matrix--default}{The example feature matrix, one row
+per window, under the signal, with the feature groups on the right.}
+
+\pagefield{When you'd come here}
+To see which feature groups a window matrix carries and which of them would leak labels.
+
+\pagefield{Doing things here}
+Tick feature groups; open one to see its columns; read a window's values in the readout and open
+it in \ui{04 Encode}.
+
+\pagefield{Where it leads}
+\apppage{analyse.training.cluster}.
+
+\pagesection{analyse.training.cluster}{Training: cluster}{Clusters and choosing k}{preview}
+Block 03 of the preview: the windows grouped by feature similarity into a tree, cut into \(k\)
+classes. Its second view, \ui{choose k}, sets out the evidence for the number of classes and lets
+you lock the selection criterion \emph{before} looking, because a criterion chosen afterwards makes
+\(k\) the finding rather than the method. The page's own callout points to the live dendrogram:
+the Shape clustering block's page (\blockref{catalogue.shape_cluster}), reached from a Window pool
+chain on \apppage{analyse.chain}.
+
+\screenshot{pages/training/analyse.training.cluster--choose-k}{The choose-\(k\) view: the
+criterion cards, the sweep over \(k\), and the lock.}
+
+\pagefield{When you'd come here}
+To see the intended guard on choosing \(k\); for real clustering, use the live chain.
+
+\pagefield{Doing things here}
+Drag the cut on the example tree, merge classes, open \ui{choose k}, lock or unlock the criterion.
+None of it is stored.
+
+\pagefield{Where it leads}
+\apppage{analyse.training.encode}.
+
+\pagesection{analyse.training.encode}{Training: encode}{Image encodings}{preview}
+Block 04 of the preview: each window turned into the images a classifier would see (Gramian and
+recurrence encodings), one window at a time, by class. It also states the rule that an encoder set
+or image size not already registered becomes a new encoder version, so models trained earlier keep
+theirs. The live encodings are blocks such as \blockref{catalogue.gramian_gasf},
+\blockref{catalogue.gramian_gadf} and \blockref{catalogue.gramian_recurrence}.
+
+\screenshot{pages/training/analyse.training.encode--default}{One example window and its image
+encodings, with the encoder set and its cost tiles.}
+
+\pagefield{When you'd come here}
+To see what the classifier is meant to be given.
+
+\pagefield{Doing things here}
+Page through windows, browse by class, tick encodings and change the image size.
+
+\pagefield{Where it leads}
+\apppage{analyse.training.model}.
+
+\pagesection{analyse.training.model}{Training: model}{The model stage}{preview}
+Block 05 of the preview, the terminal block. It does not train: it says what a trial on this one
+channel would cost, which labels the model would learn from (cluster classes, manual verdicts or
+both, paired), what stands in the way (the held-out recording is locked), and hands the template to
+Models, where a template is applied across channels. The live classifier is
+\blockref{catalogue.classifier}.
+
+\screenshot{pages/training/analyse.training.model--default}{The model card with its label source,
+the checks before training and the hand-off to Models.}
+
+\pagefield{When you'd come here}
+To see how a training template is meant to be handed to Models.
+
+\pagefield{Doing things here}
+Choose where the labels come from; read the checks; press \ui{Train in Models}.
+
+\pagefield{Where it leads}
+\apppage{models.launch}.

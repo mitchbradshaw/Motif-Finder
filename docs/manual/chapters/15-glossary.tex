@@ -1,0 +1,213 @@
+% !TEX root = ../main.tex
+\chapter{Glossary}\label{ch:glossary}
+Each entry says what the word means in this app, in a sentence or three, and where you meet
+it. \Cref{ch:core-ideas} explains the main ones at more length.
+
+\begin{glossarylist}
+\glossitem{recording}{Recording} One experiment's data file: every electrode's voltage over
+the whole time it was measured, with its sampling rate and, where known, its unit. You pick
+one at the top left of Explore's Corpus page; Settings › Datasets imports new ones.
+
+\glossitem{channel}{Channel} One electrode's trace inside a recording. Each row of the
+coverage map in Explore is a channel; the Signal page shows one channel at a time.
+
+\glossitem{span}{Span} A stretch of time on one channel, given by a start and an end. You
+choose one in Explore and send it to Analyse, where it is the source of a chain.
+
+\glossitem{dataset}{Dataset} A recording as the app lists and names it, with its channels,
+sampling rate and unit. Settings › Datasets lists them. \unverified{In the app the two words
+are used for the same thing.}
+
+\glossitem{block}{Block} One analysis step with one job, one type in and one type out, and a
+few settings. You add blocks in Analyse through the \ui{Insert a stage} window; each has a
+card in \cref{ch:blocks}.
+
+\glossitem{chain}{Chain} Blocks in a row, each feeding the next, starting from a span. Built
+and run on Analyse's Chain page.
+
+\glossitem{step}{Step} One position in a chain, holding one block and its settings. Analyse
+numbers them \textsf{01}, \textsf{02} and so on; also called a stage.
+
+\glossitem{template}{Template} A chain saved without its recording and span, so the same
+steps can be applied elsewhere. Saved with \ui{Save template} in Analyse; listed in Library ›
+Templates; applied to many channels in Discovery.
+
+\glossitem{run}{Run} One execution of a chain over one span (or one channel). Every run is
+numbered, keeps its recipe, and writes its span-set output as detections. Analyse's
+\ui{History} lists past runs.
+
+\glossitem{job}{Job} Work the app does in the background while you carry on: a run, a
+Discovery run across channels, a model training, a cluster script. The \ui{Jobs} button at
+the foot of the rail counts the live ones and opens the Jobs page.
+
+\glossitem{signal}{Signal} The type of a trace: one value per moment plus the sampling rate.
+Every chain starts from one; cleaning blocks take a Signal and give one back.
+
+\glossitem{span-set}{Span set} The type of a list of stretches of time, each optionally
+labelled and scored. Detectors produce one; a chain that ends in one writes its spans as
+detections.
+
+\glossitem{window}{Window} A fixed-length slice of a signal, such as ten minutes. Windows
+are the unit that clustering and classifiers work on, and the unit of the project's older
+hand labels.
+
+\glossitem{window-set}{Window set} The type of a signal cut into windows, often with a table
+of measurements per window. Library › Window sets keeps saved ones for reuse.
+
+\glossitem{scores}{Scores} The type of a running value, one number per moment of the signal,
+lined up with it. A threshold turns Scores into a span set.
+
+\glossitem{encoding}{Encoding} The type of a signal redrawn in another form: a picture per
+window, or a string of letters. Symbolic and image encoders produce one.
+
+\glossitem{grouping}{Grouping} The type of a label per window, saying which group or class
+it belongs to. Made by clustering or from human labels; read by the classifier block.
+
+\glossitem{model}{Model} The type of a trained classifier, carried as a pointer to its saved
+file. Trained and compared on the Models pages.
+
+\glossitem{detection}{Detection} A span a machine proposed: one mark written by one run.
+Kept in its own table, apart from annotations, and judged in Review.
+
+\glossitem{annotation}{Annotation} A span a person marked, with that person's verdict. Explore's
+\ui{Take span for Review} writes one; the project's older hand labels are annotations too.
+
+\glossitem{verdict}{Verdict} A person's judgement of one span, one of exactly five:
+\ui{seed}, \ui{interesting}, \ui{not interesting}, \ui{artifact}, \ui{unsure}. Given in
+Review with the keys \texttt{S}, \texttt{I}, \texttt{N}, \texttt{A}, \texttt{U}.
+
+\glossitem{candidate}{Candidate} A machine proposal waiting for a person's verdict: a
+detection, or a match from a seed search. Review shows one candidate at a time.
+
+\glossitem{review-queue}{Review queue} A list of candidates to judge, with its own name and
+progress. Made where the candidates come from: Analyse's \ui{Pass N to Review}, Discovery,
+Explore's \ui{Take span for Review}. The queue chip at the top of Review switches between
+them.
+
+\glossitem{family}{Family} A group of Library members that look alike, made by grouping
+them by shape. Library › Atlas shows families as cards; Library › Family shows one.
+
+\glossitem{motif}{Motif} A shape that recurs in the recordings. The Library is the catalogue
+of motifs found so far, each with every place it occurs.
+
+\glossitem{exemplar}{Exemplar} The member chosen to stand for a shape, and the shape a seed
+search looks for. The \ui{seed} verdict in Review makes a new one in the Library.
+
+\glossitem{medoid}{Medoid} The member of a family closest, on average, to all the others:
+its most typical member, picked by the computer. Shown beside the exemplar on Library ›
+Family; usable as a seed.
+
+\glossitem{seed}{Seed} Two related uses. As a verdict, \ui{seed} marks a span worth keeping
+as an example. As a search input, a seed is the shape a seed search looks for: a Library
+exemplar, a family's medoid, or a span taken in Explore.
+
+\glossitem{seed-search}{Seed search} A search for spans that look like one seed, across the
+channels and hours you choose, with a null drawn alongside. Run from Discovery › Seed
+search; its matches go to Review.
+
+\glossitem{null}{Null} What a method finds by chance alone, measured by running it on
+surrogates. A result counts only if the real signal beats its null. \Cref{app:nulls} has the
+detail.
+
+\glossitem{surrogate}{Surrogate} A fake copy of a signal that keeps its general character
+but scrambles any real pattern, for example by randomising the phases of its frequencies.
+Made by \blockref{preprocessing.surrogate}; never stored as a recording, so nothing found on
+one can enter the Library.
+
+\glossitem{held-out}{Held out} Kept unseen for the final test. The recording
+\code{M4_aug_concat_fs1.mat} is held out: every page and the runner refuse it, and the header's
+\ui{M4 held out} chip says so. Models also hold out part of their data for testing.
+
+\glossitem{blocked-split}{Blocked split} A way of dividing windows into training and test
+sets by time, in whole blocks with a gap between them, rather than at random. Neighbouring
+windows look alike, so a random split would let the test peek at the training data. Used
+when training models (\cref{ch:models}).
+
+\glossitem{matrix-profile}{Matrix profile} A running score that says, for each moment, how
+far the shape starting there is from its nearest look-alike anywhere else in the span. Low
+values mark shapes that repeat; high values mark one-offs. Computed by
+\blockref{detection.matrix_profile}.
+
+\glossitem{symbolisation}{Symbolisation (SAX)} Turning a signal into a string of letters,
+one per short piece, by its level or its slope, so that patterns can be searched for like
+words in text. SAX (symbolic aggregate approximation) is the family of methods; the app
+has several variants, such as \blockref{detection.sax_dsax}.
+
+\glossitem{spike}{Spike} A brief rise of the signal clearly above its local surroundings.
+\blockref{detection.spike_v1} finds them by one fixed rule, and can find brief dips the same
+way.
+
+\glossitem{spike-train}{Spike train} A run of spikes close together in time, read as one
+event. Also one of Review's shape classes (key \texttt{1}). \blockref{interrogation.trains}
+groups spikes into trains.
+
+\glossitem{inter-spike-interval}{Inter-spike interval} The time from one spike to the next.
+\blockref{interrogation.intervals} measures them from the events a detector such as
+\blockref{detection.spike_v1} hands on.
+
+\glossitem{adjudication}{Adjudication} A person's verdict on a detection, stored in its own
+table, apart from both detections and annotations. Review's \ui{writes adjudications} chip
+names where your verdicts go.
+
+\glossitem{artifact}{Artifact} A mark caused by the recording set-up, not the fungus: a loose
+contact, or two channels picking up the same interference. One of the five verdicts; kept
+out of training.
+
+\glossitem{tag}{Tag} A word from the project's controlled vocabulary attached to a span,
+such as \ui{sharkfin}. Tags describe; they are never a verdict. Settings › Vocabulary holds
+the list.
+
+\glossitem{class}{Class} In Review, an optional shape category given beside a verdict, with
+the keys \texttt{1}--\texttt{4} (\ui{spike-train}, \ui{burst}, \ui{slow-drift},
+\ui{plateau}) and \texttt{9} (\ui{electrode artifact}).
+
+\glossitem{member}{Member} One occurrence of a Library shape: a span in some recording, on
+some channel. A family's members are listed on Library › Family.
+
+\glossitem{edge}{Edge} A measured link between two Library members: how far apart their
+shapes are, by which distance, and, across channels, the lag between them.
+
+\glossitem{recipe}{Recipe} The exact description of a run: the source, the blocks in order
+and every setting. Its fingerprint (the recipe hash) identifies every result the run made.
+
+\glossitem{side-input}{Side input} A second input a block needs besides the previous step's
+output, such as the exemplar a seeded search looks for. Bound when you build the chain.
+
+\glossitem{coverage-map}{Coverage map} Explore's grid of channels against time bins, shaded
+by how many annotations, detections or disagreements fall in each bin.
+
+\glossitem{sampling-rate}{Sampling rate} How many values a recording holds per second, in
+hertz (Hz): \code{M2_aug_concat_fs1.mat}, for example, holds one value a second (1~Hz).
+Explore shows each recording's rate in the recordings menu.
+
+\glossitem{cluster-hpc}{Cluster (computing)} The university's shared computers, used for runs
+too long for a desktop. The app writes a SLURM script for the cluster's queue and imports
+the results; see \cref{ch:jobs}. Not to be confused with clustering, the grouping of similar
+windows.
+
+\glossitem{demo-data}{Demo data} Example data a page shows where its live version is not yet
+wired. A dashed \ui{demo data} chip in the page header marks it.
+
+\glossitem{change-point}{Change point} A moment where a signal's behaviour changes and stays
+changed, such as a jump in its level or in how much it varies.
+\blockref{detection.rupture} finds them; \blockref{detection.fluss} finds where a recording
+moves from one regime to another.
+
+\glossitem{robust-noise}{Noise width (robust)} An estimate of how much a signal jitters from
+moment to moment that a few large events barely move. Several detectors set their thresholds
+as a multiple of it, so the same setting adapts to quiet and noisy channels; each block's
+entry in \cref{app:blocks} says which estimate it uses.
+
+\glossitem{image-encoding}{Image encoding} A way of turning a window of signal into a picture,
+by comparing every moment in it with every other, so that image methods such as a neural
+network can read it. Gramian angular fields and recurrence plots are the two kinds the app
+makes (\blockref{catalogue.gramian_gasf}, \blockref{catalogue.gramian_recurrence}).
+
+\glossitem{sample-entropy}{Sample entropy} A number for how unpredictable a stretch of signal
+is: low when its patterns repeat, high when they do not. \blockref{catalogue.multiscale_entropy}
+measures it at several time scales.
+
+\glossitem{checkpoint}{Checkpoint} A trained neural network saved to a file, which a block
+loads to score new windows. \blockref{catalogue.cnn_score} names its checkpoint in its
+settings; its entry says which ones are fit to use.
+\end{glossarylist}

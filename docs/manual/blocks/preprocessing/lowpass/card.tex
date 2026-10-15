@@ -1,0 +1,25 @@
+% !TEX root = ../../../main.tex
+% Block card: preprocessing.lowpass -- "Lowpass filter" (Part I, the blocks chapter).
+\cardfield{What it does}
+Smooths a signal: removes the fast jitter and keeps the slower shape underneath.
+
+\cardfield{When to use it}
+When fast noise hides the shape of slower events, or a detector reacts to every small wiggle.
+Like squinting at a hilly skyline so the trees blur and only the hills remain, a low-pass
+filter keeps the slow rises and falls and blurs the fast flicker. It keeps the signal's level,
+so the drift stays: pair it with \blockref{preprocessing.highpass} or
+\blockref{preprocessing.detrend} if you also want the drift gone, or use
+\blockref{preprocessing.bandpass} to do both at once.
+
+\cardfield{What goes in, what comes out}
+In goes a span of one channel. Out comes a smoother signal of the same length, sampling rate
+and level.
+
+\cardfield{Settings that matter}
+\emph{cutoff\_hz} is the dividing speed, in hertz. The default, 0.05\,Hz, smooths away
+changes faster than about 20 seconds. \emph{order} sets how sharply the cut is made.
+
+\cardfield{Watch out for}
+Smoothing rounds off sharp events: a fast drop becomes shallower and wider, with small ripples
+on both sides. One missing sample turns the whole output into missing values, and the cut-off
+must be below half the sampling rate (0.5\,Hz on a 1\,Hz recording).

@@ -1,0 +1,37 @@
+% !TEX root = ../../../main.tex
+% Block card: preprocessing.wavelet_transform -- "Wavelet transform" (Part I, the blocks chapter).
+\cardfield{What it does}
+Turns a stretch of signal into a picture of which rhythms, slow or fast, are strong at each
+moment: one row per rhythm, one column per sample. It is the first of the three steps of
+the spike detector of \citet{dehshibi2021electrical}.
+
+\cardfield{When to use it}
+As the first block of the \texttt{dehshibi\_spikes} template, followed by
+\blockref{detection.wavelet_summation} and then \blockref{detection.summation_threshold}.
+On its own it is a way to look at where in a span the slow and the fast activity sits.
+
+\cardfield{What goes in, what comes out}
+In goes a span of one channel. Out comes an image: slow rhythms at the bottom, fast ones at
+the top, brighter where that rhythm is stronger. Each row is rescaled to whole numbers from
+1 to 241, so brightness compares moments within a row, not one row with another.
+
+\cardfield{Settings that matter}
+\emph{window\_s} (3000\,s) is the real setting: the span is cut into windows of this length
+and each window is rescaled on its own, so ``strong'' always means ``strong for this
+window''. \emph{slice\_by\_state} cuts the span where the signal jumps between two levels
+instead, as the authors' own code does. Leave \emph{beta}, \emph{gamma} and \emph{eta} at
+the authors' values unless you are deliberately changing the method.
+
+\begin{plainterms}[A wavelet transform]
+Picture holding a set of combs with teeth of different spacing against the trace. A comb
+whose spacing matches a wiggle in the signal ``rings''; the others stay quiet. Sliding every
+comb along the trace and noting how loudly each rings at each moment gives the image this
+block draws.
+\end{plainterms}
+
+\cardfield{Watch out for}
+Because every window is rescaled on its own, a quiet window looks as bright as a busy one.
+If you change \emph{window\_s} here, change it to the same value in
+\blockref{detection.summation_threshold}, and set the band in
+\blockref{detection.wavelet_summation} to the fraction this block's readout prints. A span
+longer than 320{,}000 samples (about 89 hours at 1\,Hz) is refused.

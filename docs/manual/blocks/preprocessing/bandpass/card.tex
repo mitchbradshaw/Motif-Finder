@@ -1,0 +1,31 @@
+% !TEX root = ../../../main.tex
+% Block card: preprocessing.bandpass -- "Bandpass filter" (Part I, the blocks chapter).
+\cardfield{What it does}
+Keeps only the changes in the signal that happen at a middle range of speeds, removing both
+the slow drift underneath and the fast jitter on top.
+
+\cardfield{When to use it}
+A fungal recording mixes movements at very different speeds: a level that wanders over hours,
+events that rise and fall over minutes, and fast noise from second to second. Think of it as a
+song with a deep hum, a melody and hiss: a band-pass filter is a tone control that keeps the
+melody and turns down both the hum and the hiss. Use it when the events you care about live at
+one time-scale and you want a detector to see only that. When Discovery applies a template
+over a band scope, it puts this block at the head of the chain once per band, taking the edges
+from the band list on the Settings page (Analysis defaults).
+
+\cardfield{What goes in, what comes out}
+In goes a span of one channel. Out comes a signal of exactly the same length and sampling rate,
+now centred on zero, holding only the middle speeds.
+
+\cardfield{Settings that matter}
+\emph{low\_hz} and \emph{high\_hz} are the edges of the band, in cycles per second (Hz). A
+movement that takes 100 seconds to repeat is 0.01\,Hz; one that takes 10 seconds is 0.1\,Hz,
+so the defaults keep what changes over roughly 10 to 100 seconds. \emph{order} sets how sharp
+the edges are: higher cuts more steeply but rings more.
+
+\cardfield{Watch out for}
+\emph{high\_hz} must be below half the sampling rate (0.5\,Hz on a 1\,Hz recording), or the
+block stops with an error. A single missing sample anywhere in the span turns the whole output
+into missing values. A sudden drop comes out with ripples on both sides of it, including
+\emph{before} it starts, and its depth changes: the filter reshapes events, so measure their
+size on the unfiltered trace.

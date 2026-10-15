@@ -1,0 +1,35 @@
+% !TEX root = ../../../main.tex
+% Block card: catalogue.shape_cluster -- "Shape clustering" (Part I, the blocks chapter).
+\cardfield{What it does}
+Builds a family tree of the pool's training windows by shape, cuts it into a number of
+clusters, and lets you name each cluster and mark it interesting or not.
+
+\cardfield{When to use it}
+In the research question 1 chain: \blockref{preprocessing.window_pool} $\to$
+\blockref{preprocessing.trace_shape} $\to$ this block, then a model trained on its clusters.
+It is the ``let the computer group the windows first'' arm, against the human-label arm of
+\blockref{catalogue.manual_labels}.
+
+\begin{plainterms}[A tree, and where to cut it]
+Ward clustering starts with every window on its own and repeatedly joins the two groups whose
+merger adds the least spread, until one group is left. The record of those joins is a tree
+(a \emph{dendrogram}). Cutting the tree at some height gives clusters: cut low for many small
+clusters, high for a few big ones. No rule says where the true cut is; the block proposes one
+(the cut whose clusters are best separated, by a score called the silhouette, ignoring tiny
+``speck'' clusters) and you can move it.
+\end{plainterms}
+
+\cardfield{What goes in, what comes out}
+In go the shapes from Trace shape. Out comes a cluster number for every training window; every
+validation, test and exam window gets $-1$, because only a model trained on the clusters may
+assign them. The tree is kept on disk, so moving the cut later does not rebuild it.
+
+\cardfield{Settings that matter}
+\emph{k} is the number of clusters at the cut; 0 takes the proposal. \emph{sample} is how many
+training windows build the tree (20,000); the others join the nearest cluster.
+\emph{mapping}, set in the table on the block's page, names each cluster and marks it
+interesting or not.
+
+\cardfield{Watch out for}
+Once a model trained on this pool has a test score, the cut and the mapping are frozen: a
+different cut is refused. The proposal is a guide, not an answer: the choice of cut is yours.

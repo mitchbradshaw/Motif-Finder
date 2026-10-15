@@ -1,0 +1,62 @@
+% !TEX root = ../../../main.tex
+% Appendix entry: preprocessing.highpass -- "Highpass filter" (Appendix A).
+\entryfield{Algorithm}
+\code{_run} in \code{Adapters/preprocessing_highpass.py} calls the factory
+\code{make_highpass_filter} in \code{Working/Detection/analysis/freq_analysis.py} and applies
+the function it returns to the span. With sampling rate $f_s$, order $N$ and cut-off $f_c$:
+\begin{enumerate}
+\item Normalise the cut-off by the Nyquist frequency: $W = 2f_c/f_s$.
+\item Design a digital Butterworth high-pass filter \citep{butterworth1930theory} with
+  \code{scipy.signal.butter(N, W, btype="high")} \citep{virtanen2020scipy}, as
+  transfer-function coefficients $(b, a)$ of length $N+1$.
+\item Apply it forwards and backwards with \code{scipy.signal.filtfilt(b, a, x)}.
+\end{enumerate}
+The result has zero phase and magnitude response $|H_\mathrm{B}(f)|^2$: half amplitude
+($-6$\,dB) at $f_c$, and an effective order of $2N$. \code{filtfilt} runs with SciPy's
+defaults: odd reflection about each end sample over $3(N+1)$ samples (15 at $N = 4$),
+steady-state initial conditions, extension trimmed off. The same machinery as
+\blockentry{preprocessing.bandpass}, which sets it out in more detail.
+
+\entryfield{Assumptions}
+\begin{itemize}
+\item \emph{Sampling rate.} $f_c$ is in hertz. It must lie strictly between 0 and $f_s/2$;
+  the registry sets only a minimum of $10^{-6}$\,Hz, and \code{butter} rejects
+  $W \geq 1$ with a \code{ValueError}.
+\item \emph{Units.} Linear and not unit-aware: the output is in the stored unit.
+\item \emph{Missing values.} Not handled: one NaN propagates through the recursive filter in
+  both passes and makes the whole output NaN. \unverified{No test checks this.}
+\item \emph{Span length.} \code{filtfilt} refuses a span of $3(N+1)$ samples or fewer.
+\item \emph{Mean.} The zero-frequency part is removed, so the output sits near zero.
+\end{itemize}
+
+\entryfield{Outputs}
+A \texttt{Signal} with the filtered samples and the input's $f_s$; nothing in \code{meta}.
+
+\entryfield{Cost}
+$O(nN)$ time and $O(n)$ memory, vectorised; no estimate is registered.
+
+\entryfield{Failure modes}
+\begin{itemize}
+\item \emph{Slow events are removed as drift.} Anything whose energy lies mostly below $f_c$
+  is attenuated: at the 0.01\,Hz default an event with a recovery of many minutes loses most of
+  its depth. The filter cannot tell an event from drift at the same time-scale.
+\item \emph{Pre- and post-overshoot.} A step or sharp drop gives a response with lobes of the
+  opposite sign on both sides of it, because the filter runs both ways; detectors can read the
+  lobes as events.
+\item \emph{Edge transients} over roughly $1/f_c$ seconds at each end, since the padding is only
+  $3(N+1)$ samples long. \unverified{Not measured.}
+\item \emph{Transfer-function form at tiny $W$.} At a cut-off that is a very small fraction of
+  $f_s$ (0.01\,Hz on a 10\,Hz recording is $W = 0.002$) the $(b, a)$ form can lose precision;
+  \code{sosfiltfilt} would not. \unverified{Not checked at the shipped defaults.}
+\end{itemize}
+
+\entryfield{Validation}
+No test in the repository checks the frequency response or the output values.
+
+\entryfield{References}
+\citet{butterworth1930theory}; \citet{virtanen2020scipy}.
+
+\entryfield{Tests}
+\code{tests/test_t06_adapter_remap.py} checks the declared types and that the output has the
+input's length and rate. \code{tests/test_recipes.py} uses it as a step in recipe-hash tests.
+Neither checks the filtering.

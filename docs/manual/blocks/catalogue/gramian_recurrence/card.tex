@@ -1,0 +1,27 @@
+% !TEX root = ../../../main.tex
+% Block card: catalogue.gramian_recurrence -- "Recurrence plot" (Part I, the blocks chapter).
+\cardfield{What it does}
+Draws a square picture in which each pixel says how far apart two short snatches of the
+signal are: dark where the signal comes back to something it did before, bright where it
+does not. The card of \blockref{catalogue.gramian_gasf} explains the family of images.
+
+\cardfield{When to use it}
+To see repetition in a stretch: a pattern that recurs shows as lines parallel to the
+diagonal, a change of regime as a block boundary. It is also the blue layer of
+\blockref{catalogue.gramian_fusion}.
+
+\cardfield{What goes in, what comes out}
+In goes a span of one channel, at most 5{,}000 samples. Out comes a square image of
+distances, slightly smaller than the span: with the defaults, 8 samples smaller.
+
+\cardfield{Settings that matter}
+\emph{m} is how many points make up each snatch and \emph{tau} how many samples apart those
+points are; together they set how long a snatch is: $(m-1) \times \mathit{tau}$ samples, 8 at
+the defaults. Both count samples, so the same settings cover ten times less time on a 10\,Hz
+recording than on a 1\,Hz one.
+
+\cardfield{Watch out for}
+Unlike the two Gramian fields, the picture is not rescaled: its values are distances in the
+recording's own unit, so the same span stored in volts and in millivolts gives numbers a
+thousand times apart (the picture looks the same). It is a picture of distances, not the
+black-and-white ``recurred or not'' plot some papers draw.

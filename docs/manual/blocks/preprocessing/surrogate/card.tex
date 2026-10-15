@@ -1,0 +1,29 @@
+% !TEX root = ../../../main.tex
+% Block card: preprocessing.surrogate -- "Surrogate generator" (Part I, the blocks chapter).
+\cardfield{What it does}
+Makes a scrambled copy of the signal that keeps some of its properties and destroys the rest,
+so you can check whether a later block finds as much in the copy as in the real recording.
+
+\cardfield{When to use it}
+As the first step of a null run: the same chain run on a scrambled copy. If a detector finds
+as many events in the copies as in the real signal, its events say nothing about the fungus.
+You rarely add it by hand: when Analyse draws a run's null, it prepends this block to a copy
+of your chain, once per draw. \Cref{app:nulls} explains nulls in general.
+
+\cardfield{What goes in, what comes out}
+In goes a signal; out comes a signal of the same length and sampling rate that is a
+scrambled version of it.
+
+\cardfield{Settings that matter}
+\emph{method} decides what survives the scrambling. \texttt{phase\_randomize} (the default)
+keeps the signal's mix of slow and fast wobbles (its spectrum) but scrambles every shape:
+the null for a detector. \texttt{block\_shuffle} cuts the signal into blocks and reorders
+them, keeping everything inside a block: a test of timing and order, not of shape.
+\texttt{aaft} keeps the exact set of values and roughly the spectrum: the null for a measure
+that reads the spread of values. \emph{seed} picks the scramble: the same seed always gives
+the same copy. \emph{block\_s} is the block length for block shuffling, and must be set.
+
+\cardfield{Watch out for}
+Block shuffling refuses to run with no block length, or with a block under two samples. On a
+span shorter than two blocks it returns the signal unchanged, without a warning. A single
+missing sample turns a phase-randomised copy into all missing values.

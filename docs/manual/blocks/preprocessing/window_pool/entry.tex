@@ -1,0 +1,121 @@
+% !TEX root = ../../../main.tex
+% Appendix entry: preprocessing.window_pool -- "Window pool" (Appendix A).
+\entryfield{Algorithm}
+\code{_run} in \code{Adapters/preprocessing_window_pool.py} maps the settings onto
+\code{Working/training/pool.py}, the only implementation:
+\begin{enumerate}
+\item \emph{Reopen.} If \emph{pool} names a saved pool (id or name), \code{load_pool} reads it,
+  checks its files against the key stored in the row, and the block returns it; nothing else
+  runs.
+\item \emph{The sets.} \emph{window\_sets} is a comma list of ids or names, or
+  \texttt{all unlabelled} (every row \code{list_sets} reports as kind \texttt{unlabelled}).
+  \code{set_windows} reads any kind of saved set as plain windows
+  (recording, channel, start, length, rate): an unlabelled set, an earlier pool, a paired-job
+  set or a one-channel set. A set that carries its own split loses it here.
+\item \emph{The plan.} \code{plan_for} $\to$ \code{make_plan}: per recording
+  \emph{identity} (\code{recording_identity} strips a \code{_fs<N>} suffix, so the fs1 and fs2
+  files of one recording share one plan), the duration in seconds is cut by
+  \code{blocked_split} into $B$ = n\_blocks equal blocks; the last
+  $\mathrm{round}(B\cdot\text{test\_frac})$ (at least one when test\_frac $>0$) are test, the
+  $\mathrm{round}(B\cdot\text{validation\_frac})$ before them validation, the rest train; a plan
+  leaving no training block is refused. Consecutive blocks of one role merge into a
+  \emph{stretch}, and gap\_min$\times 60$ seconds are carved off the start of every stretch
+  that follows another role. Exam channels (\emph{exam\_channels}, one-based on the page, and
+  the whole \emph{hold\_out\_pack}: A = CH1--4, B = CH5--8, C = CH9--12, D = CH13--16) are one
+  exam stretch end to end. A plan that makes every channel an exam channel is refused.
+\item \emph{Combine} (\code{combine}), in order:
+  \begin{enumerate}
+  \item refused (\code{PlanRefused}) if the longest window is longer than the gap;
+  \item each window gets the role of the stretch it lies wholly inside
+    (\code{assign_roles}); one in no stretch is dropped as \code{gap}, one across a stretch
+    edge as \code{straddle};
+  \item artifact spans are checked again (\code{_Exclusions}): any window touching a span a
+    human marked \texttt{artifact} (annotations not soft-deleted, and window verdicts) or a
+    span Settings excludes is dropped as \code{artifact};
+  \item exact duplicates (same recording row, start, length) are dropped, the first set
+    listed winning;
+  \item within one scale on one recording identity and channel, overlapping windows are
+    dropped, the first set listed winning (\code{overlap_within_scale});
+  \item if per\_scale $> 0$: a seeded uniform sample of per\_scale windows per scale
+    (\code{np.random.default_rng(seed)}), the rest \code{sampled_out};
+  \item rule \texttt{no\_overlap} only: across scales, any window overlapping a kept window of a
+    smaller scale is dropped (\code{overlap_across_scales}); under \texttt{within\_scale}
+    overlap across scales is allowed, never across roles;
+  \item \code{check_pool} recomputes every role from the plan and counts overlaps across
+    roles on one recording's time (fs1 and fs2 together); any misplaced window or
+    cross-role overlap raises \code{LeakageRefused}.
+  \end{enumerate}
+\item \emph{Save or reuse.} The pool's content key (\code{Pool.key}: a hash of the plan, rule,
+  sample, seed, members and every window's file, channel, start, length and role) is looked
+  up in \code{window_sets.recipe_hash}. A pool row with that key is reused; otherwise
+  \code{save_pool} writes \code{pool_windows.npz} and \code{manifest.json} under
+  \code{DATA/derived/window_sets/<name>_v<version>/} and a \code{window_sets} row with
+  \code{window_pool_members} and \code{window_set_channels} rows.
+\end{enumerate}
+
+\entryfield{Assumptions}
+\begin{itemize}
+\item \emph{Units.} No signal values are read here; units do not enter.
+\item \emph{Sampling rate.} Plans are in seconds and windows are compared on each recording's
+  own time ($\text{start}/f_s$), so files at different rates combine correctly. The scale of
+  a window is $\text{length}/f_s/60$ minutes, rounded to six decimals.
+\item \emph{Missing values.} Non-finite windows are left out when an unlabelled set is built
+  (\code{build_unlabelled_set}), not here. Windows from a labelled set were not screened
+  for NaN \unverified{by this route}.
+\item \emph{Packs.} hold\_out\_pack assumes the 16-channel, four-pack layout; a recording with
+  fewer channels than the pack needs is refused.
+\item \emph{The chain's span.} The block is a source (\code{source=True}): the validator
+  refuses it anywhere but step 01, and the root signal is ignored. Because it reads the store
+  (\code{conn}), it and every later step bypass the step cache.
+\end{itemize}
+
+\entryfield{Outputs}
+A \texttt{WindowSet} (\code{pool_windowset} in \code{Working/training/shape.py}) whose starts
+are the windows' own and whose feature table is metadata only: \code{pool_recording_id},
+\code{pool_source_file}, \code{pool_channel}, \code{pool_start}, \code{pool_length},
+\code{pool_fs}, \code{pool_scale_min}, \code{pool_role}, \code{pool_set_id}, the bounds of the
+role stretch each window lies in (\code{pool_stretch_a}, \code{pool_stretch_b}) and the pool's
+key (\code{pool_key}). Because a pool mixes lengths and rates, the WindowSet's own
+\code{length} is the longest window and its \code{fs} the lowest rate; the true values are per
+window. \code{meta["pool"]}: id, name, version, key, path, whether it was \code{saved},
+\code{reused} or \code{re-opened}, counts by recording, scale and role, every drop by reason
+(here and at set build), the checks, rule, sample, seed, members and the plan's stretches.
+
+\entryfield{Cost}
+The estimate is a fixed 10\,s: \code{combine} was measured at about 7\,s for six sets
+(1.09 million windows) \unverified{on the development machine}. Memory is linear in the
+number of windows offered. Not meant for the cluster.
+
+\entryfield{Failure modes}
+\begin{itemize}
+\item \emph{No set ticked}, a set on a recording the plan does not cover, a gap shorter than
+  the longest window, a pack on a recording with too few channels: refused with the reason.
+\item \emph{A pool that leaks} across roles raises \code{LeakageRefused}; this should be
+  unreachable, since roles come only from the plan.
+\item \emph{Silent shrinkage.} A long gap\_min, many blocks or long windows drop many windows
+  as \code{gap} or \code{straddle}. Nothing warns; read the drop counts.
+\item \emph{A reused pool keeps its old name.} When the key matches an existing pool, the
+  \emph{name} you typed is ignored.
+\item \emph{Downstream blocks that do not read roles.} The roles ride as \code{pool_role}.
+  \blockref{catalogue.shape_cluster} honours them; \blockref{catalogue.cluster} and
+  \blockref{catalogue.shape_families} do not (see their entries).
+\end{itemize}
+
+\entryfield{Validation}
+\code{check_pool} is a run-time guard, not a test: every saved pool has passed it. The tests
+below check the plan, the drop reasons and the leakage refusals on small synthetic stores.
+
+\entryfield{References}
+The blocked-split rationale: \citet{roberts2017cross}. The Library side of window sets and
+pools: \apppage{library.window-sets}. Research question 1:
+\code{docs/rq_roundA/RQ1-cluster-vs-manual-labels.md}.
+
+\entryfield{Tests}
+\code{tests/test_training_pool.py}: sets ignore manual labels; artifact and Settings
+exclusions; the held-out recording refused even with the unlock; hold-out pack; stretches
+with a gap the same for every scale; a recording the plan does not cover refused; duplicates
+and within-scale overlaps removed and counted; the strict rule (smaller scale wins); seeded
+sampling; an artifact labelled after a set was saved still dropped; the fs1/fs2 pair never
+on opposite sides; save and load round-trip. \code{tests/test_shape_chain.py}: the source may
+only be step 01; the chain runs from saved sets to a kept tree; a saved pool reopens; no set
+ticked is refused.

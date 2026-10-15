@@ -1,0 +1,133 @@
+% !TEX root = ../../../main.tex
+% Appendix entry: detection.deconvolve -- "Deconvolve (OASIS)" (Appendix A).
+\entryfield{Algorithm}
+\code{_run} in \code{Adapters/detection_deconvolve.py} calls \code{deconvolve} in
+\code{Working/Detection/deconvolution/oasis.py}, a re-implementation of OASIS
+\citep{friedrich2017fast} written from the paper's text (the authors' GPL code was not read).
+
+\paragraph{The model.} With $y = \pm x$ (\emph{polarity}: \texttt{drop} negates the signal, so
+a drop is a positive jump; \texttt{spike} reads it as stored),
+\[
+y_t = b + c_t + \varepsilon_t,\qquad
+c_t = \gamma_1 c_{t-1} + \gamma_2 c_{t-2} + s_t,\qquad s_t \ge 0 .
+\]
+The ``jumps'' $s_t$ are almost all zero; each one starts the same fade. The kernel is
+parametrised by two roots: the recovery $d = 2^{-1/(h f_s)}$ for half-time $h$ =
+\emph{recovery\_half\_s}, and the rise $r = e^{-1/(\tau f_s)}$ for $\tau$ = \emph{rise\_s}
+($r = 0$ when $\tau = 0$, an instant jump: AR(1)). Then $\gamma_1 = d + r$, $\gamma_2 = -dr$, and
+the response to a unit jump is $h_k = (d^{k+1} - r^{k+1})/(d - r)$. The block requires $r < d$.
+
+\paragraph{The fit.} $c$ minimises $\lVert c - (y - b)\rVert^2$ subject to every non-zero jump
+being at least $s_{\min} = \text{\emph{min\_jump\_sigma}} \times \text{scale}$ (the paper's
+thresholded form; the first sample is exempt). The solver is the paper's active-set
+generalisation of pool-adjacent-violators (\code{oasis}, \code{_oasis_kernel}, compiled with
+numba where available): samples enter left to right as one-sample pools; while the newest
+pool's jump is below $s_{\min}$ it is merged into the pool before it, whose value is refitted
+in closed form. Only the plain AR(1) problem ($s \ge 0$) is solved exactly; the thresholded form
+is non-convex and this merge rule is greedy, as in the paper (the module docstring records it
+suboptimal on 55\% of tiny brute-forced problems, median RSS gap 5\%; AR(2) up to 16.5\%).
+
+\paragraph{Around the fit} (each an adaptation the module docstring names):
+\begin{enumerate}
+\item \emph{Noise scale.} \texttt{level} (default): $\sigma_\text{level}$ from \code{level_sigma}:
+  subtract a running floor (the running baseline below, or a running 15th percentile over
+  15 recovery half-times), then median and $1.4826\,\operatorname{MAD}$, recomputed on the
+  samples within 3 SDs until it changes by less than $10^{-4}$ (at most 30 passes).
+  \texttt{diff}: $\sigma = 1.4826\,\operatorname{MAD}(\Delta y)/\sqrt2$ (\code{noise_sigma}), the
+  paper's white-noise reading.
+\item \emph{Recovery} when \emph{recovery\_half\_s} $= 0$: a first guess from the
+  autocovariance (\code{estimate_decay}: $\log C(k)$ fitted over lags $1\ldots 2k_{1/2}$, lag 0
+  excluded), refined (\code{refine_decay}) to the half-time minimising
+  $\mathrm{RSS}/\text{scale}^2 + 2\ln T \cdot n_\text{jumps}$ on a 15-point log grid from a
+  third to three times the guess, recentred up to 3 times, then a bounded scalar search; at
+  most 400\,000 samples. If no guess can be made and a fit at 120\,s finds no jump, the
+  channel is quiet (all-zero scores); if that fit finds jumps, the block raises.
+\item \emph{Baseline.} \emph{baseline\_window\_s} $= 0$: one constant $b$, started at the 15th
+  percentile and refined as $\operatorname{mean}(y - c)$ until it moves less than $0.001$ scale
+  (at most 10 fits). $> 0$: a running 15th-percentile floor (two passes, which cancel a
+  slope's bias), refined as the rolling mean of $y - c$ until its mean per-sample step is below
+  $0.05$ scale.
+\item \emph{Score} $= s_t/\text{scale}$, set to 0 at the first sample of each finite run (that
+  value is the level carried in from before, reported in \code{initial_levels_sigma}).
+\end{enumerate}
+
+\entryfield{Assumptions}
+\begin{itemize}
+\item \emph{Units.} Not unit-aware and does not need to be: the score and $s_{\min}$ are in
+  noise SDs, so scaling the recording by 1000 changes nothing
+  (\code{test_scaling_the_input_leaves_the_scores_unchanged}). \code{sigma},
+  \code{sigma_level}, \code{scale} and \code{baseline} in meta are in the stored unit.
+\item \emph{Sampling rate.} The half-time and rise are in seconds, converted with $f_s$.
+\item \emph{Shape.} Every event is an instant (or \emph{rise\_s}-fast) jump followed by
+  \emph{the same} exponential fade, on Gaussian noise. Events of another shape are explained
+  as several jumps.
+\item \emph{Baseline.} Drift is not handled by the constant baseline (the paper says so); put
+  a long detrend first or set \emph{baseline\_window\_s}.
+\item \emph{Quiet background.} \texttt{level} needs stretches of background between events.
+\item \emph{Missing values.} NaN or inf samples split the trace into finite runs, each fitted on
+  its own with shared $b$, scale and recovery; the scores are NaN there. A drop at the first
+  sample after a gap is absorbed into that run's initial level, scored 0, and counted
+  (\code{n_runs_starting_above_min_jump}). A span with no finite sample is refused.
+\end{itemize}
+
+\entryfield{Outputs}
+\texttt{Scores}, one per sample, at the recording's $f_s$. \code{meta}: \code{summary} (jumps,
+noise unit, $\sigma_\text{level}/\sigma$, half-time used and whether given or estimated,
+residual SD, warnings), \code{model} (AR(1) or AR(2)), \code{sigma}, \code{sigma_level},
+\code{noise_scale}, \code{scale}, \code{s_min}, \code{gamma}, \code{ar_coefficients},
+\code{recovery_half_s_used}, \code{recovery_estimated}, \code{recovery_estimate_note},
+\code{recovery_estimate_on_edge}, \code{recovery_half_s_autocov}, \code{baseline},
+\code{baseline_mode}, \code{baseline_range}, \code{baseline_converged}, \code{n_jumps},
+\code{n_nan}, \code{n_segments}, \code{initial_levels_sigma}, \code{follow_on_share},
+\code{level_spread}, \code{residual_sd_sigma}, \code{warnings} and the printed \code{rules}.
+Nothing is written to \code{detections}: that is \blockref{detection.impulse_events}' job.
+
+\entryfield{Cost}
+The solver is $O(n)$ amortised and \code{tests/test_oasis.py} checks linear time on a long
+channel. A given half-time costs up to 10 fits (the baseline loop). An estimated one adds
+roughly 15--60 grid points plus a scalar search, each up to 4 fits, on at most 400\,000
+samples. The running floor evaluates a percentile every quarter-window. A cost model is
+registered (\code{register_cost_model}), so the app shows an estimate before a run.
+
+\entryfield{Failure modes}
+\begin{itemize}
+\item \emph{A wrong recovery half-time.} Too short splits each trough into a jump and
+  follow-ons: flagged when more than 30 jumps an hour, jumps $\times$ half-time over half the
+  span, or more than 35\% of at least 10 jumps smaller than the fade they land on.
+\item \emph{Shape misfit} (a sharkfin's slow climb and plateau): many small events; flagged
+  when the residual SD exceeds 1.5.
+\item \emph{Events with no quiet stretch between them}: $\sigma_\text{level}$ measures the events
+  and the threshold rises toward them (flagged when the level spread is below 0.75; try
+  \texttt{diff}).
+\item \emph{\texttt{diff} on coloured noise}: reads the noise 4--46 times too small on real 1\,Hz
+  recordings, so wander becomes jumps (W1 evaluation: 1\,716 jumps in 4\,h on rec 385).
+\item \emph{An estimate on the edge} of its search is flagged as untrustworthy; drift can make
+  the estimate impossible, and the block then raises unless the channel is quiet.
+\item \emph{rise\_s not shorter than the recovery} is refused. A flat span is refused.
+\item \emph{Greedy fit}: the jump count is a property of the greedy solution, not of the optimum.
+\end{itemize}
+
+\entryfield{Validation}
+\code{tests/test_oasis.py} checks the plain AR(1) solver equals a generic NNLS solution (and
+the $\ell_1$ form a generic QP), that noise-free jumps are recovered exactly for AR(1) and AR(2),
+and that the thresholded form never emits a jump below $s_{\min}$. Synthetic acceptance
+(\code{tests/test_adapter_impulse_events.py}, \code{tests/test_deconvolve_noise_scale.py}):
+on a 12\,h, 1\,Hz train of 30 troughs including 8 overlapping pairs, Deconvolve then Impulse
+events finds every onset within 2 samples and each pair as two events; on AR(1) and $1/f$
+backgrounds with 30 troughs it gives about 30 events, and at most one an hour with none. On
+real recordings, \code{docs/prompts/blocks/reports/W1-evaluation.md} records the template
+\texttt{deconvolved\_troughs} v2 beating a phase-randomised null on three 24\,h spans
+(155, 551, 117 events against about 3), with the caveat that 36\% and 88\% of the jumps on two
+of them were follow-ons, so those counts are inflated until the half-time is set per recording.
+No test compares its events with hand-marked troughs.
+
+\entryfield{References}
+\citet{friedrich2017fast}. What the paper specifies and what was adapted is listed in the
+module docstring of \code{oasis.py} and in \code{docs/research/analysis-blocks-primary-sources.md}
+(section 5).
+
+\entryfield{Tests}
+\code{tests/test_oasis.py}, \code{tests/test_adapter_deconvolve.py} (spec, unit-free scores,
+meta, estimate, AR(2), running baseline, sharkfin misfit flagged, quiet channels, NaN runs,
+cost model), \code{tests/test_deconvolve_noise_scale.py}, \code{tests/test_adapter_impulse_events.py},
+\code{tests/test_template_deconvolved_troughs.py}.

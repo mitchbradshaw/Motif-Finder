@@ -1,0 +1,125 @@
+% !TEX root = ../../../main.tex
+% Appendix entry: catalogue.snippets -- "Snippets" (Appendix A).
+\entryfield{Algorithm}
+Time-series snippets are matrix profile XIII \citep{imani2018matrix}. \code{_run} in
+\code{Adapters/catalogue_snippets.py} subtracts the span's offset from the \texttt{WindowSet}'s
+channel-absolute starts and calls \code{find_snippets} in
+\code{Working/Detection/matrix_profiling/snippets.py}. With $m$ the window length:
+\begin{enumerate}
+\item \emph{Pieces.} If the windows are contiguous (each starts where the last ended), the analysed
+  stretch runs from the first window's start to the last window's end; otherwise it is the whole
+  span. The pieces are the non-overlapping stretches $S_i$ of length $m$ cut from its start
+  ($W = \lfloor n/m \rfloor$ of them), so with contiguous windows the pieces \emph{are} the windows.
+  $m$ must be at most half the stretch.
+\item \emph{Missing values} (adaptation). NaN is filled by straight-line interpolation (ends held
+  flat). A piece more than half NaN (\code{MAX_NAN_FRACTION}) is never a snippet, and positions
+  centred in it are left out of every area and fraction. At least $2\,k_{\max}$ usable pieces are
+  required.
+\item \emph{MPdist profiles.} The distance is MPdist \citep{gharghabi2018matrix}, not the
+  whole-piece Euclidean distance. With sub-length $s = \min(\lceil \textit{subseq\_frac}\cdot
+  m\rceil, m)$ and $j = m - s + 1$ sub-pieces per piece: for a piece $S_i$ and a position $p$, take
+  the z-normalised Euclidean distance between every sub-piece of $S_i$ and every sub-piece of
+  $x_{p..p+m-1}$; collect each row's minimum and each column's minimum ($2j$ values); MPdist is
+  the value at place $\kappa = \min(\lceil \textit{mpdist\_percentage}\cdot 2m\rceil, 2j - 1)$ in
+  that list sorted from 0. Two pieces are close when enough of their sub-pieces have close matches
+  somewhere in the other, wherever they sit. At \emph{subseq\_frac} = 1, $s = m$ and MPdist is
+  the plain z-normalised distance, which is stumpy's default and what the paper's method is not.
+  Doing this for every piece and every position gives the profiles $D_i(p)$. The rules are
+  stumpy's; the kernel is this project's rewrite (\code{mpdist_profiles}), which streams the
+  distances instead of holding them, and is checked equal to stumpy's profiles.
+\item \emph{Greedy choice} (paper, Table I; \code{greedy_snippets}). $Q \gets \infty$; for
+  $k = 1, 2, \dots, k_{\max}+1$ pick the usable piece minimising $\sum_p \min(D_i(p), Q(p))$, record
+  that sum as $\mathrm{Area}_k$, and set $Q \gets \min(Q, D_i)$.
+\item \emph{How many} (\code{knee_detail}; two adaptations). With
+  $\mathrm{change}_k = \mathrm{Area}_{k-1}/\mathrm{Area}_k - 1$, the candidate is the $k$ in
+  $2..k_{\max}$ with the largest drop $\mathrm{change}_k - \mathrm{change}_{k+1}$ (the paper takes
+  the peak of $\mathrm{change}_k$). It is accepted only if $\mathrm{change}_k$ is at least
+  $c = \max(3,\ 0.65\sqrt{W})$ times the median of the later changes; otherwise $k = 1$, which the
+  paper has no way to say. Both constants are placeholders measured on synthetic noise. A \emph{k}
+  above 0 overrides the knee.
+\item \emph{Regimes and labels.} Each position $p$ belongs to the chosen snippet with the lowest
+  $D_i(p)$ (ties to the earlier); a snippet's fraction is its share of the scored positions.
+  Position $p$ stands for the stretch starting at $p$, so it votes for the window containing its
+  \emph{centre} $p + \lfloor m/2\rfloor$; each window takes the label with most votes (ties to the
+  lower label). A snippet's own window is always given its own label, and how many windows that
+  overrode is counted. A window more than half NaN is $-1$.
+\item \emph{Run lengths.} Runs of one label over consecutive windows ($-1$ ends a run); the mean
+  run is compared with the mean expected if the same labels were shuffled,
+  $n / \bigl(1 + (n-1)(1 - \sum_c p_c^2)\bigr)$; a ratio of 1 means no more persistent than chance.
+\end{enumerate}
+
+\entryfield{Assumptions}
+\begin{itemize}
+\item \emph{Units.} Every distance is z-normalised per sub-piece, so units do not matter. The span
+  is also standardised once by its own mean and spread before computing, which changes no distance
+  and only protects precision on recordings stored in volts with a large offset.
+\item \emph{Sampling rate.} The piece length is the windows' length in samples; \code{meta} gives it
+  in seconds too.
+\item \emph{Detrending.} MPdist tolerates a trend within a sub-piece, not a wandering level that
+  changes what the sub-pieces look like; remove the baseline first.
+\item \emph{Missing values.} Filled by a line for the arithmetic, then excluded as above; the
+  counts are in \code{meta}.
+\item \emph{Pieces and boundaries.} Pieces are cut at fixed multiples of $m$, so a regime change
+  inside a piece splits that piece's vote; behaviour changing faster than one piece is averaged into
+  whichever snippet it half-resembles.
+\end{itemize}
+
+\entryfield{Outputs}
+A \texttt{Grouping}: one integer label per input window, 1 to $k$ or $-1$. \code{meta} holds
+\code{k}, \code{k_chosen_by} (\texttt{knee} or \texttt{parameter}), \code{k_reason} in words, the knee
+figures, \code{areas} and \code{change_k}, \code{snippet_starts} (span-relative samples) and
+\code{snippet_starts_s}, \code{fractions}, \code{exemplar_windows} (each label's own window),
+\code{n_exemplar_relabelled}, \code{contiguous}, \code{m}, \code{s}, \code{kth}, piece, window, NaN
+and position counts, \code{runs} and \code{runs_by_k} (run lengths at every fixed $k$, computed
+without the exemplar override), \code{run_length_mean}, \code{run_length_median},
+\code{run_length_vs_shuffled}, \code{elapsed_s}, \code{exemplar_rule}, \code{rules} and
+\code{summary}.
+
+\entryfield{Cost}
+$O(n^2)$ work, nearly independent of $m$ ($n/m$ pieces against $n$ positions, $2j$ values each),
+and $O(n^2/m)$ memory for the profiles. Measured here: 24\,h at 1\,Hz with hour-long pieces in about
+24\,s, 72\,h in 228\,s. The estimate comes from a per-machine cost model
+(\code{register_cost_model} with exponent 2, \code{Working/block_cost.py}) and is empty until
+calibrated. Two limits: \code{max_span_samples} $= 604\,800$ samples, a week at 1\,Hz; and
+\code{find_snippets} refuses any run whose memory peak (\code{memory_peak}) would exceed 4\,GB,
+about 3\,GB at 7 days with hour-long pieces.
+
+\entryfield{Failure modes}
+\begin{itemize}
+\item \emph{Regimes no better than chance on real data.} On two 24\,h M2\_aug spans and one drop
+  chain, the regimes were no more persistent than on phase-randomised surrogates; on a second chain
+  (72\,h) $k = 3$ regimes beat every surrogate, but the knee chose $k = 1$
+  (\code{docs/prompts/blocks/reports/W2-evaluation.md}, as the registry description reports). Set
+  \emph{k} by hand and read the run lengths and their ratio to shuffled.
+\item \emph{Noise has no shape.} After z-normalisation a quiet stretch of noise matches nothing in
+  particular and joins whichever snippet it happens to resemble; a regime differing only in
+  amplitude is not separated (a test records this as an expected limitation).
+\item \emph{Too few pieces for the knee.} On noise the knee-to-tail ratio grows about as
+  $\sqrt{W}$; the cut follows it, but the margin is thin at 120 pieces (an 8\,h regime measured 8.1
+  against a cut of 7.1). Below 24 pieces the automatic \emph{k} is not to be trusted.
+\item \emph{subseq\_frac = 1.} Turns MPdist into whole-piece distance; on drifting synthetic
+  recordings this lost the regimes.
+\item \emph{The week limit is in samples.} 604\,800 samples is a week only at 1\,Hz: at 10\,Hz the
+  cap is under 17 hours, though the description says ``refused above 7 days''.
+\end{itemize}
+Neither artefact of the older report tool applies: pieces never overlap, and each position votes
+for the window holding its centre rather than the one where its stretch starts, which corrects for
+the start alignment of the profile.
+
+\entryfield{Validation}
+\code{tests/test_snippets.py} checks that the rewritten profiles equal stumpy's own and that the
+greedy choice equals \code{stumpy.snippets}; that three planted regimes under drift are found and
+that whole-piece distance does measurably worse; that synthetic noise gives $k = 1$ and short runs;
+that a rare regime is still named; the knee rule against its tail; and the NaN, constant-signal and
+refusal paths. \code{tests/test_template_recording_snippets.py} runs the template chain end to end on
+three regimes and on noise. All are synthetic; the real-data evaluation is the report cited above.
+
+\entryfield{References}
+\citet{imani2018matrix} for snippets; \citet{gharghabi2018matrix} for MPdist. Where stumpy's
+defaults depart from the paper (its \code{percentage} of 1.0 silently using whole-piece distance) is
+recorded in \code{docs/research/analysis-blocks-primary-sources.md}, 13c.
+
+\entryfield{Tests}
+\code{tests/test_snippets.py}, \code{tests/test_adapter_snippets.py},
+\code{tests/test_template_recording_snippets.py}; synthetic generators in
+\code{tests/_snippets_synthetic.py}.

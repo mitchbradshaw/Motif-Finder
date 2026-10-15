@@ -1,0 +1,30 @@
+% !TEX root = ../../../main.tex
+% Block card: preprocessing.beads -- "BEADS baseline" (Part I, the blocks chapter).
+\cardfield{What it does}
+Removes slow drift from a signal by splitting it into three layers at once (a smooth baseline,
+a layer of rare events, and noise) and subtracting only the baseline.
+
+\cardfield{When to use it}
+When the recording has big drops or spikes that a moving average would be dragged towards.
+Imagine tracing the horizon in a photo with a few tall buildings: a ruler that averages
+everything in view bends up at each building, while someone told ``buildings are rare and
+the horizon is smooth'' draws the horizon straight underneath them. BEADS is that second
+person. It comes from chromatography \citep{ning2014chromatogram}; here it is adapted for long,
+slow fungal recordings.
+
+\cardfield{What goes in, what comes out}
+In goes a span of one channel. Out comes the same span, same length and rate, with the baseline
+subtracted. The block page also reports how well the fit went and any warnings.
+
+\cardfield{Settings that matter}
+\emph{baseline\_period\_s} (two hours by default) is the most important: anything slower than
+this is treated as drift and removed, anything faster is kept. Set it above the slowest event
+you care about. \emph{polarity} tells it which way your events point: \emph{drop} (the default)
+for troughs, \emph{spike} for peaks, \emph{both} for no preference. \emph{sparsity} says how
+rare events must be: raise it if too much of the trace is treated as events.
+
+\cardfield{Watch out for}
+An event as slow as the baseline period is removed with the drift: no method can tell them
+apart. On a span made mostly of events, the baseline settles partway into them, so event shapes
+and depths stay trustworthy but absolute levels do not. An event close to either end of the
+span can bend the baseline there; the block warns when it sees one. Read the warnings it prints.

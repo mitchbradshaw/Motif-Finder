@@ -1,0 +1,205 @@
+% !TEX root = ../main.tex
+\chapter{Questions and answers}\label{ch:faq}
+Short answers to questions people ask while using the app, each pointing to where the full
+answer lives. The last section is for when something goes wrong.
+
+\section{How do I\ldots?}\label{sec:faq-how}
+
+\faq{How do I look at one channel of a recording?}
+Open \apppage{explore.corpus}, pick the recording, and open a channel from the map; or go
+straight to \apppage{explore.signal}. The trace is drawn at its real scale, with any
+detections and annotations over it.
+
+\faq{How do I run an analysis on part of a recording?}
+In \apppage{explore.signal}, drag across the trace to mark a \term{span}{span}, then press
+\ui{Send span to Analyse}. In \apppage{analyse.chain}, add blocks with \ui{Insert a stage} or
+start from a saved \term{template}{template} with \ui{Import}, then press \ui{Run chain}.
+\Cref{ch:first-session} walks through this once from start to finish.
+
+\faq{How do I find spikes and measure the gaps between them?}
+Detect them with \blockref{detection.spike_v1} or the \code{dehshibi_spikes} template, then
+add \blockref{interrogation.intervals} (and, optionally, \blockref{interrogation.trains}).
+\Cref{sec:workflows-spikes} gives the steps and the pitfalls.
+
+\faq{How do I run the same chain on every channel?}
+Save it with \ui{Save template}, then in \apppage{discovery.runs} choose the scope (recording,
+channels, section) and \ui{Apply template}. Each channel gets its own run and its own
+null. Discovery offers detection templates only: a chain that ends in an interrogation block
+such as Intervals is not listed.
+
+\faq{How do I check whether a result is more than chance?}
+In Analyse, turn on the toolbar's \ui{surrogate null} and run again; the footer then reads
+what was detected against what the null expects. Discovery runs always carry a null. See
+\cref{app:nulls}.
+
+\faq{How do I search for more examples of a shape I have found?}
+Promote it in Review with \ui{S}, then press \ui{Seed search in Discovery}. The search, its
+null and how to judge the matches are in \cref{sec:workflows-rq2}.
+
+\faq{How do I judge what a chain found?}
+Send its detections to a \term{review-queue}{Review queue} (\ui{Send \(n\) unjudged to Review}
+in Discovery, or \ui{Pass \(n\) to Review} on an Analyse block), open \apppage{review.inspector},
+and press \ui{I} (interesting), \ui{N} (not interesting), \ui{A} (artifact) or \ui{U}
+(unsure). \ui{Ctrl Z} undoes the last verdict.
+
+\faq{How do I tell the app what unit a recording is stored in?}
+In \apppage{settings.datasets}, set the recording's unit. Blocks that print millivolts read
+it; see ``Why does the same setting find nothing on one recording?'' below.
+
+\faq{How do I send heavy work to the cluster?}
+When a run's estimate is over the local limit, it does not start on this machine; it becomes
+a cluster job instead. In Analyse, pressing \ui{Run} on such a chain writes the SLURM job for
+you; a seed search in Discovery offers \ui{Create SLURM script}. The job's script and inputs
+are written to a folder; you copy them to the cluster, submit them, and copy the results back
+yourself. \apppage{jobs.all} lists every such job and imports a returned result. The limits
+are set in \apppage{settings.compute-hpc}; with nothing saved they are 15 minutes in Analyse,
+20 for a Discovery template run and 10 for a seed search. \Cref{sec:jobs-sending} has the
+details.
+
+\faq{How do I save a chain to use again?}
+Press \ui{Save template} on the Analyse toolbar and name it. Library › Templates lists every
+saved template, its versions and its runs. A saved template's recipe records every block and
+setting, so a later run of it is the same experiment.
+
+\section{Why does\ldots?}\label{sec:faq-why}
+
+\faq{Why does a verdict never change a detection?}
+On purpose. A \term{detection}{detection} is what a machine found; an
+\term{annotation}{annotation} or an \term{adjudication}{adjudication} is what a person said.
+They live in separate tables, and no code may write a human verdict into a machine row or the
+reverse (\code{CLAUDE.md}, rule~5). That way you can always ask ``what did the detector find?''
+and ``what did people think of it?'' separately, and compare them. Your verdict is stored
+beside the detection, never over it.
+
+\faq{Why does the same setting find nothing on one recording and too much on another?}
+Some recordings are stored in volts and some in millivolts. A block that is told the
+recording's unit (its block entry says ``Unit-aware'') converts for you. Every other block
+works in the stored unit, so a threshold of 0.01 means 0.01\,mV on one recording and 10\,mV on
+another. \blockref{detection.spike_v1}, whose threshold is in millivolts, is a unit-aware
+one; its default still suits only one recording's noise level, so on a noisier recording it
+finds too much. An undeclared unit is read as volts, and blocks that print millivolts say so
+in amber.
+
+\faq{Why does the same setting mean a different time on another recording?}
+Many settings count samples, not seconds. A window of 60 samples is a minute at 1\,Hz and six
+seconds at 10\,Hz. Each setting's unit is in its block's settings table in \cref{app:blocks}.
+
+\faq{Why does Analyse not draw a null every time?}
+Tuning a chain is meant to take seconds, and a null runs the whole chain again 20 times. So
+in Analyse the \ui{surrogate null} toggle is off until you turn it on. Discovery, where claims
+are made, always draws one.
+
+\faq{Why can I not open one of the recordings?}
+One recording, \code{M4_aug_concat_fs1.mat}, is \term{held-out}{held out}: kept unseen so that
+a model can be tested once, at the end, on data nobody tuned anything on. Every page refuses it
+until it is unlocked in \apppage{settings.datasets}, which is meant to happen once, after the
+project's freeze. A tool that peeked at it would make that final test worthless.
+
+\faq{Why does the null sometimes find more than the real signal?}
+Because the method, at those settings, fires on noise of the recording's own character at
+least as often as on the recording. That is a finding, not a fault: the result cannot be told
+from chance. Change the settings, or the method, and run the null again. The band runs in
+\cref{sec:workflows-rq4} are an example.
+
+\faq{Why does a seed search use 200 draws when a template run uses 20?}
+A seed search's draw is one fast search over a surrogate; a template run's draw is the whole
+chain run again. Both counts are set in \apppage{settings.nulls}, and every page prints the
+number actually drawn.
+
+\faq{Why does a run I already made come back instantly?}
+Every run is keyed by its \term{recipe}{recipe}: the recording, the span, and every block with
+every setting. Run the same recipe again and the app reuses the stored result instead of
+recomputing. Change any setting and it is a new run.
+
+\faq{Why does the Library hide some members?}
+By default it shows only members larger than the dataset's noise floor (set per dataset in
+Settings › Datasets), so that families and their recurrence are counted over real events.
+\emph{show sub-floor} brings the others back; nothing is deleted.
+
+\section{What does\ldots{} mean?}\label{sec:faq-what}
+
+\faq{What does ``× null'' mean?}
+The real count divided by the average count over the null's draws. ``3.9× null'' means the
+real signal gave almost four times what noise of the same kind gave on average. It is a ratio,
+not a p-value. \Cref{sec:nulls-reading} explains how to read it.
+
+\faq{What does ``null expects'' mean?}
+The average number of detections the same chain made on the surrogate copies of that channel.
+Beside it the page prints how many draws that average is over.
+
+\faq{What does ``not comparable'' mean on a comparison?}
+A stretch that no run covered, or that no person reviewed. It is never counted as a
+disagreement between people and the machine: silence is not a verdict
+(\cref{sec:workflows-rq5}).
+
+\faq{What do the five verdict words mean?}
+\emph{interesting}, \emph{not\_interesting}, \emph{artifact} (a fault of the recording, not
+the organism), \emph{unsure}, and \emph{seed} (an example worth searching for). The list is
+fixed. A verdict that fits none of them is recorded as the nearest one with a note.
+
+\faq{What does ``precision'' mean on the scoreboard, and why are there two?}
+The share of a run's detections that people accepted. Human labels come in two shapes,
+fixed-length review windows and spans drawn around events, and a detection is matched to each
+by a different rule. So the scoreboard prints two figures, each with its rule beside it.
+
+\faq{What does ``too short to tell'' mean?}
+In the cross-channel test, a member under 30 samples is too short for its correlation with
+another channel to mean anything, so it is neither counted as an artifact nor as a recurrence.
+
+\faq{What does ``experimental'' mean on a block?}
+That the block was tried on real recordings and did not beat its null there. It is kept so it
+can be applied and tested again, and it says so at the start of its description.
+
+\faq{What does a ``demo'' or ``preview'' label mean?}
+That the page or panel is showing example data rather than your recordings. The page section
+for each part of the app in this manual says which parts are live.
+
+\section{Something went wrong}\label{sec:faq-wrong}
+
+\faq{A red error card appeared. What does it mean?}
+The app is built to fail loudly. When part of a page cannot be drawn, it shows a red card with
+the error, rather than an empty panel that looks like ``nothing found''. Read the message: it
+usually names the block, the setting or the missing data. If you report it, include the
+card's text and what you clicked.
+
+\faq{The page says the server returned an error (500). What now?}
+A 500 means the Python side raised an error, and the app passes it to the page with its
+traceback on purpose. It is a bug or a bad input, never a quiet empty result. Note what you
+did, copy the message, and report it. A refusal with a reason (for example the held-out
+recording, which is refused with status 423) is not a bug: the message says why.
+
+\faq{A block says my span is too long.}
+Some blocks have a ceiling on the span they will take, because their memory grows faster than
+the span (the image encodings and the matrix-profile blocks, for example). The Block page
+names the stage and its ceiling in samples. Shorten the span, or send the chain to the
+cluster (\ui{Create SLURM script}). The ceiling for each block is in its entry in
+\cref{app:blocks}.
+
+\faq{A run is very slow.}
+Look at the estimate before you press run: pages that can estimate a run show one, including
+the cost of its null draws. A seed search over a whole recording, a matrix profile over days,
+or a null with many draws can take hours. Shorten the section, lower the draw count in
+\apppage{settings.nulls} while exploring, or send the run to the cluster. A Discovery run whose job dies
+with the server is marked \emph{failed} with its reason and can be run again.
+
+\faq{A run says ``failed''. Did anything get saved?}
+The run's row is kept with the stage it failed at and the error; \ui{View log} shows the
+whole log. \unverified{Stages that finished before the failure are cached, so a re-run after a
+fix starts from the failed stage.}
+
+\faq{The count changed when I ran the same chain again.}
+A run of an unchanged recipe is reused, so a change means something in the recipe changed: a
+setting, the span, or the recording's declared unit. Some older stored results were made
+before a block was given a fixed random seed; the research file names those and says to re-run
+them once with \emph{force}.
+
+\faq{A recording shows gaps, or a block warns about missing samples.}
+Missing samples (NaN) are kept as gaps, not filled. Blocks differ in how they treat them: the
+drop detector and the symbolic encoders skip a gap and mark it, while others leave every
+window that touches a gap unscored. A block that can see the gap before it runs shows a
+\emph{Missing samples} warning in amber; its entry in \cref{app:blocks} says what it does.
+
+\faq{The numbers on a page differ from a number in this manual.}
+Trust the page. The manual describes the code at one commit (its title page names it), and
+the measurements quoted here come from the research files on a given date. If the page and
+its own printed rule disagree, that is worth reporting.

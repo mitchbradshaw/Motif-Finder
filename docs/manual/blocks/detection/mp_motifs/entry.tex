@@ -1,0 +1,108 @@
+% !TEX root = ../../../main.tex
+% Appendix entry: detection.mp_motifs -- "Motif groups" (Appendix A).
+\entryfield{Algorithm}
+\code{_run} in \code{Adapters/detection_mp_motifs.py} first recovers the window length $m$. If
+\emph{window\_min} is above 0 it is $\mathrm{round}(\textit{window\_min}\times 60\times f_s)$;
+otherwise it is read off the profile's padding (\code{window_from_profile}): the number of NaN
+values at the end of the \texttt{Scores}, plus one, which is right for the output of
+\blockref{detection.matrix_profile} (it pads $n-m+1$ values with $m-1$ NaN). It refuses $m < 3$ or
+$m \geq n$. With $P$ the first $n-m+1$ values, it calls \code{build_motif_groups} in
+\code{Working/Detection/matrix_profiling/motif_groups.py}, the seed-and-exclude walk the motif
+browser used:
+
+\begin{algorithm}[H]
+\caption{Motif groups (build\_motif\_groups)}
+\begin{algorithmic}[1]
+\Require span $x$; profile $P_0,\dots,P_{n-m}$; window $m$; $G$ = \emph{max\_motifs};
+  $K$ = \emph{n\_neighbors}; cutoff $D$ (\emph{max\_distance}, $\infty$ when 0)
+\State excluded $\gets$ all false; groups $\gets [\,]$
+\For{$p$ in the positions sorted by increasing $P_p$}
+  \If{excluded$[p]$ \textbf{or} $P_p$ is not finite} \textbf{continue} \EndIf
+  \State $N \gets$ \code{stumpy.match}$(x_{p..p+m-1},\ x,\ \text{max\_matches}=K,\ \text{max\_distance}=D,\ \text{query\_idx}=p)$
+  \Comment{if it raises, skip $p$}
+  \State append $(p,\ P_p,\ N)$ to groups
+  \For{$q \in \{p\} \cup N$} \State excluded$[q - \lfloor m/2\rfloor \,..\, q + \lfloor m/2\rfloor] \gets$ true \EndFor
+  \If{$|$groups$| = G$} \textbf{break} \EndIf
+\EndFor
+\end{algorithmic}
+\end{algorithm}
+
+\code{stumpy.match} computes the z-normalised Euclidean distance (the same distance as the matrix
+profile; \blockentry{detection.matrix_profile}) from the seed window to every window of $x$, then
+takes matches greedily, closest first: after each, it blanks the window starts within
+$\lceil m/4\rceil$ of it (stumpy's default exclusion zone) and stops at $K$ matches, at the cutoff,
+or when nothing finite is left. With \code{query_idx} set, the seed itself comes back first at
+distance 0, so it takes one of the $K$ places.
+
+The adapter turns each group $g$ (rank $k$, best first) into spans of length $m$: the seed
+$[p, p+m)$ labelled \texttt{G$k$:seed} and scored by its profile value $P_p$, and each neighbour at
+$i \neq p$ labelled \texttt{G$k$:nn$j$} (with $j$ its place in the match list, so the first
+look-alike is \texttt{nn1}) and scored by its distance to the seed. The seed's own match is
+dropped so that it is not a span twice.
+
+\entryfield{Assumptions}
+\begin{itemize}
+\item \emph{Input.} The \texttt{Scores} must be a NaN-padded matrix profile of the same signal the
+  chain carries at this step, and the same length as the span (checked). Nothing checks that it is a
+  matrix profile: any other \texttt{Scores} is walked as if it were one, and the recovered $m$ is
+  then whatever its NaN tail implies. The signal $x$ is the chain's current signal, which is the one
+  \blockref{detection.matrix_profile} saw when the two are adjacent.
+\item \emph{Units and sampling rate.} Distances are z-normalised, so units do not matter.
+  \emph{window\_min} is converted at the span's $f_s$.
+\item \emph{Missing values.} Windows touching NaN have an infinite profile value and are never
+  seeds; \code{stumpy.match} gives them an infinite distance, so they are never neighbours.
+\end{itemize}
+
+\entryfield{Outputs}
+A \texttt{SpanSet} of window-long spans, labelled and scored as above, in group order. The executor
+writes every span to the \code{detections} table. \code{meta} holds \code{m}, \code{n_groups} and
+\code{groups}: per group its \code{rank}, \code{seed_idx}, \code{mp_distance} and the full
+\code{neighbours} list as \code{[index, distance]} pairs, \emph{including} the seed's own entry at
+distance 0. Indices count from the start of the span.
+
+\entryfield{Cost}
+One sort of the profile, $O(n \log n)$, and one \code{stumpy.match} per group, each an FFT
+distance profile over the span, about $O(n \log n)$; with the default five groups this is seconds
+where the matrix profile before it is minutes or hours. The block declares no estimate and no span
+limit.
+
+\entryfield{Failure modes}
+\begin{itemize}
+\item \emph{Overlapping members.} Within a group, neighbours are kept apart only by stumpy's
+  $\lceil m/4\rceil$ zone, so two members can share up to three quarters of their samples: one
+  event counted twice, slightly shifted. This is the first of the two silent artefacts found with
+  the older report tool (\code{Pipelines/motif_report/}), which enforced a separation of $m$ to
+  avoid it; this block has it.
+\item \emph{Shared members across groups.} The exclusion only stops a window from becoming a later
+  \emph{seed}; a later group's neighbours may be windows already listed in an earlier group, and the
+  executor then writes the same stretch twice under two labels.
+\item \emph{Window, not event.} A seed is the window whose profile value is lowest, which often
+  starts part-way into an event (the test fixture notes the seed lands ``a few samples into a
+  burst''). The spans are the windows, not the events. This is the second artefact of the older
+  tool, which drew padded context around each window; this block does not.
+\item \emph{Drift.} Without detrending, the best-matched windows are smooth ramps, which match
+  everywhere and give impressive, meaningless groups.
+\item \emph{Silent skips.} A seed whose \code{stumpy.match} call raises is skipped without notice,
+  so fewer groups than \emph{max\_motifs} may come back.
+\item \emph{A wrong window.} Fed a \texttt{Scores} that is not a matrix profile (say
+  \blockref{detection.fluss}, whose NaN tail is longer), the recovered $m$ is wrong and the groups
+  are meaningless; set \emph{window\_min} if the profile did not come straight from
+  \blockref{detection.matrix_profile}.
+\end{itemize}
+
+\entryfield{Validation}
+\code{tests/test_motif_groups.py} plants repeated patterns in noise and checks that each is found
+as a group, in increasing distance order, and that a neighbour does not come back as a later seed.
+\code{tests/test_adapter_mp_motifs.py} checks that the block reproduces \code{build_motif_groups}
+and that its spans fall within half a window of at least two of three planted bursts. No test uses
+a real recording, and none checks for the overlap described above.
+
+\entryfield{References}
+The matrix profile: \citet{yeh2016matrix}; \code{stumpy.match}: \citet{law2019stumpy}. The walk
+itself is this project's, carried over from the motif browser; it differs from
+\code{stumpy.motifs} in its cutoff and exclusion accounting (module docstring of
+\code{motif_groups.py}).
+
+\entryfield{Tests}
+\code{tests/test_adapter_mp_motifs.py}, \code{tests/test_motif_groups.py} (which also covers the
+browser's persistence of group sets, not used by this block).

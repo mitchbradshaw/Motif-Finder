@@ -1,0 +1,16 @@
+# latexmk / LaTeX Workshop output, and the per-writer check builds under it
+build/
+# A build run without latexmkrc's out_dir (e.g. LaTeX Workshop opened at the repo root)
+# writes beside main.tex instead; never commit those either.
+/main.pdf
+/*.aux
+/*.toc
+/*.lof
+/*.loa
+/*.out
+/*.log
+/*.fls
+/*.fdb_latexmk
+/*.synctex.gz
+/*.bbl
+/*.blg

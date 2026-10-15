@@ -1,0 +1,34 @@
+% !TEX root = ../../../main.tex
+% Block card: detection.stage_encoding -- "Symbolic encoding (five-stage)" (Part I, the blocks chapter).
+\cardfield{What it does}
+Cuts the trace into equal pieces and gives each piece one of five letters for how it is
+moving: falling fast, falling, flat, rising, or rising fast.
+
+\cardfield{When to use it}
+In front of \blockref{detection.drop_detection}, which reads these letters and nothing
+else; the ready-made drop detector puts it there for you. On its own, the letter strip shows
+at a glance where a long recording climbs, falls and rests.
+
+\cardfield{What goes in, what comes out}
+In goes a stretch of one channel, with its slow drift already removed. Out comes a row of
+letters, one per piece: \texttt{d} fast down, \texttt{D} down, \texttt{S} same, \texttt{U} up,
+\texttt{u} fast up, and \texttt{-} for a piece that touches a gap in the recording.
+
+\begin{plainterms}[``Fast'' is measured against the noise]
+Think of describing a hike as ``downhill, flat, uphill''. Which stretches count as flat is
+decided by a share: you say what fraction of the hike was flat. Which downhill stretches
+count as \emph{steep} is decided differently: against how bumpy the path is underfoot. A
+stretch is steep only if it falls many times faster than the bumps alone would.
+\end{plainterms}
+
+\cardfield{Settings that matter}
+\emph{segment\_seconds} is the length of each piece: short enough that a fall lands in a piece
+of its own. \emph{same\_fraction} is roughly the share of pieces called flat (\texttt{S}).
+\emph{slope\_sigma} is how many times faster than the background jitter a piece must move to
+be fast (\texttt{d} or \texttt{u}); keep it equal to the drop detection block's.
+
+\cardfield{Watch out for}
+The letters only describe; the detection is done by the next block. Changing
+\emph{slope\_sigma} here without changing it there leaves the two disagreeing, and nothing
+warns. The full story of the five letters and the detector is in the drop detection entry,
+\blockentry{detection.drop_detection}.

@@ -1,0 +1,32 @@
+% !TEX root = ../../../main.tex
+% Block card: catalogue.manual_labels -- "Manual labels" (Part I, the blocks chapter).
+\cardfield{What it does}
+Gives each window the label a person gave that stretch of signal (interesting or not
+interesting), so a classifier can learn from human judgement.
+
+\cardfield{When to use it}
+In the human-label arm of research question 1, in place of \blockref{catalogue.cluster}: the
+classifier after it trains on these labels exactly as it would on clusters. It reads the labels
+you made in Review and Explore and the labels imported from the catalogue.
+
+\begin{plainterms}[When does a window take a label?]
+A label covers a stretch of time. A window takes it only if the window holds the whole labelled
+stretch, like a box that only counts as holding a parcel when the parcel is entirely inside it.
+If a window holds two labelled stretches that disagree, it is set aside as conflicting. A window
+lying inside a long ``not interesting'' stretch is not interesting, since nothing is anywhere in
+it; inside a long ``interesting'' stretch it stays unlabelled, since the event could be anywhere.
+Time nobody labelled is unlabelled, never ``not interesting''.
+\end{plainterms}
+
+\cardfield{What goes in, what comes out}
+In go windows. Out comes, per window, 1 (interesting), 0 (not interesting) or $-1$ (left out:
+unlabelled, conflicting, artifact, or dropped to avoid overlap), with counts of each.
+
+\cardfield{Settings that matter}
+\emph{non\_overlapping} (on by default) keeps no two overlapping windows, as a training set
+needs: labelled windows are kept first, then unlabelled ones fill the gaps.
+
+\cardfield{Watch out for}
+Only windows on the labels' own grid can take labels from the 10-minute set: a window off the
+grid only ever partly covers a label, and the block says so. The block only reads: human labels
+and machine detections live in separate tables, and nothing here writes either.

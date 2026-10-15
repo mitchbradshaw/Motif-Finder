@@ -1,0 +1,25 @@
+% !TEX root = ../../../main.tex
+% Block card: detection.wavelet_scattering -- "Wavelet scattering" (Part I, the blocks chapter).
+\cardfield{What it does}
+Summarises, stretch by stretch, how the signal's energy is spread over slow and fast rhythms,
+in a form that changes little if an event shifts slightly in time.
+
+\cardfield{When to use it}
+When you want to compare or group stretches of noisy recordings by their texture rather than
+look for individual events: a set of features, not a detector.
+
+\cardfield{What goes in, what comes out}
+In goes a span of one channel. Out comes an image: one row per feature (each a band of rhythm,
+or how that band's strength itself rises and falls), one column per block of $2^J$ samples
+(256\,s at 1\,Hz with the default \emph{J}).
+
+\cardfield{Settings that matter}
+\emph{J} sets the longest timescale and also the length of each output step, $2^J$ samples;
+the span must hold at least that many. \emph{Q} is how finely each doubling of timescale is
+divided. \emph{max\_order} 2 adds the ``how the strength varies'' features; 1 leaves only the
+bands.
+
+\cardfield{Watch out for}
+Its columns are blocks of samples, not samples, so it cannot feed
+\blockref{detection.wavelet_summation}. On a span not much longer than $2^J$ samples the ends
+are distorted by padding; the block notes this as \code{border_effects_flagged}.

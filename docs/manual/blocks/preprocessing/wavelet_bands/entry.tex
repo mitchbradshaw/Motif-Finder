@@ -1,0 +1,101 @@
+% !TEX root = ../../../main.tex
+% Appendix entry: preprocessing.wavelet_bands -- "Wavelet bands" (Appendix A).
+\entryfield{Algorithm}
+Everything is in \code{Adapters/preprocessing_wavelet_bands.py}, on PyWavelets
+\citep{lee2019pywavelets}. The transform is the stationary (undecimated) wavelet transform
+\citep{nason1995stationary}: unlike the ordinary discrete transform it downsamples nothing, so
+every layer has one value per input sample. For a span $x$ of $n$ samples at $f_s$, wavelet
+$\psi$ (default db4, \citealp{daubechies1992ten}), depth $J$ (\emph{levels}) and chosen layer
+$\ell$ (\emph{level}), \code{_run}:
+\begin{enumerate}
+\item Refuses the span if any sample is NaN or infinite.
+\item Finds the deepest depth the span allows, $J_{\max} =$ \code{pywt.dwt_max_level(n,
+  dec_len)} $= \lfloor\log_2(n/(\mathrm{dec\_len}-1))\rfloor$ (\code{max_levels}; dec\_len is
+  8 for db4).
+\item If \emph{levels} is 0, chooses $J$ automatically (\code{auto_levels}):
+  \[ J = \max\Bigl(1,\ \min\bigl(\max(\lceil\log_2(f_s/0.001)\rceil - 1,\ \ell),\ J_{\max}\bigr)\Bigr), \]
+  the first depth whose slowest detail reaches 0.001\,Hz (\code{FLOOR_HZ}, the lower edge of the
+  slowest default band), never shallower than $\ell$, never deeper than the span allows. At
+  1\,Hz this is 9; at 10\,Hz, 13.
+\item Refuses $\ell > J_{\max}$, $\ell > J$, or $J > J_{\max}$, each with a message naming the
+  limit.
+\item Pads the span by mirror reflection (\code{np.pad(mode="symmetric")}), split as evenly as
+  possible between the two ends, to the next multiple of $2^J$, which \code{pywt.swt} requires
+  (\code{_padding}).
+\item Computes \code{pywt.swt(x_pad, wavelet, level=J, norm=True, trim_approx=True)}, giving
+  $[c_{A_J}, c_{D_J}, \dots, c_{D_1}]$ (\code{swt_coeffs}).
+\item Builds each layer as the projection onto one coefficient set: the inverse transform
+  \code{pywt.iswt} of that set with every other set zeroed, trimmed back to the span
+  (\code{decompose}). The layers $D_1,\dots,D_J$ and the residual $A_J$ therefore add up to
+  $x$ exactly (up to rounding).
+\item Passes on $D_\ell$ if $\ell \geq 1$, or $A_J$ if $\ell = 0$.
+\end{enumerate}
+Each layer's nominal range (\code{layer_range_hz}) is one octave:
+\[ D_j:\ \bigl[f_s/2^{j+1},\ f_s/2^{j}\bigr], \qquad A_J:\ \bigl[0,\ f_s/2^{J+1}\bigr]. \]
+So at 1\,Hz, $D_1$ is 0.25--0.5\,Hz and $D_4$ is 0.031--0.062\,Hz; at 10\,Hz every edge is ten
+times higher. These are nominal edges: a real wavelet filter's response overlaps its
+neighbours. Because a detail layer's content does not depend on how much deeper the
+decomposition goes, a hand-built chain and a band run that both leave \emph{levels} at 0 read
+the same layer.
+
+\entryfield{Assumptions}
+\begin{itemize}
+\item \emph{Missing values.} Refused: a NaN would spread across every layer.
+\item \emph{Sampling rate.} The Hz ranges come from $f_s$; the layers themselves are defined
+  in samples, so the same \emph{level} is a different physical band at a different rate.
+\item \emph{Units.} Linear and not unit-aware: every layer is in the stored unit.
+\item \emph{Span length.} The span must be long enough for the filter at the chosen level:
+  $\ell \leq \lfloor\log_2(n/7)\rfloor$ with db4 (for example $n \geq 112$ for level 4).
+\item \emph{Boundaries.} \code{pywt.swt} treats the padded span as periodic, so each end of the
+  deepest layers sees the other end of the span.
+\end{itemize}
+
+\entryfield{Outputs}
+A \texttt{Signal}: the chosen layer, same length and $f_s$ as the span. \code{meta} holds
+\code{wavelet}, \code{levels} (the depth used), \code{levels_auto}, \code{level},
+\code{layer} (e.g.\ \texttt{D4}) and \code{layer_label}; \code{layers}, one entry per layer with
+its \code{name}, \code{level}, \code{kind}, \code{low_hz}, \code{high_hz}, \code{label},
+\code{chosen}, \code{rms} and an \code{envelope} (a min/max envelope over span-relative sample
+indices, at most 2400 points, every sample when the span is that short: \code{envelope}); the
+\code{padding} and a \code{padding_note}; a \code{boundary_note}; an \code{edges_note}; and
+\code{reconstruction_error}, the largest absolute difference between the sum of the layers and
+the input. The block page draws every layer from these envelopes.
+
+\entryfield{Cost}
+The transform is $O(nJ)$; \code{decompose} then runs one inverse transform per layer, so the
+whole is $O(nJ^2)$ time. Memory holds $J+1$ coefficient arrays and $J+1$ layers of the padded
+length, $O(nJ)$ floats: at $J = 13$ about 28 arrays of the span's length. No estimate is
+registered. \unverified{Not timed on a whole channel.}
+
+\entryfield{Failure modes}
+\begin{itemize}
+\item \emph{A gap anywhere} stops the step.
+\item \emph{End effects in the deep layers.} The periodic treatment and the reflection padding
+  distort the first and last few filter lengths of each layer; at level $j$ the effective
+  filter is roughly $2^j\cdot(\mathrm{dec\_len}-1)$ samples long, so at 1\,Hz, level 9 with db4
+  is affected over the order of an hour at each end. \unverified{The extent has not been
+  measured.}
+\item \emph{Leakage between layers.} The octave edges are nominal; an event whose time-scale
+  sits near an edge is split between two layers.
+\item \emph{A level deeper than the span allows}, or deeper than an explicit \emph{levels}, is
+  refused by name.
+\end{itemize}
+
+\entryfield{Validation}
+\code{tests/test_adapter_wavelet_bands.py} checks the octave ranges at 1 and 10\,Hz, the
+automatic depth, that the inverse transform of the full set reconstructs the input and that the
+layers add up to it (to $10^{-8}$), the padding and trimming, that the chosen layer (and level
+0, the residual) goes on, the meta and its envelopes, and, the reason for the stationary
+transform, that a narrow dip on the raw trace sits within its own half-width on every layer
+that carries it. No test checks how much energy leaks between neighbouring layers.
+
+\entryfield{References}
+\citet{nason1995stationary} for the stationary transform; \citet{daubechies1992ten} for the
+Daubechies wavelets; \citet{lee2019pywavelets} for the implementation.
+
+\entryfield{Tests}
+\code{tests/test_adapter_wavelet_bands.py} (the block, as above);
+\code{tests/test_wavelet_band_scope.py} (a wavelet band in a fan-out scope inserts exactly this
+block, hashes like the hand-built chain, resolves to its Hz range, and refuses a level too deep
+for the span); \code{tests/test_adapter_spec.py}, \code{tests/test_end_to_end.py} and
+\code{tests/test_webui_serialize.py} (plumbing).

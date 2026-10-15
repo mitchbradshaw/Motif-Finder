@@ -1,0 +1,104 @@
+% !TEX root = ../../../main.tex
+% Appendix entry: detection.stage_encoding -- "Symbolic encoding (five-stage)" (Appendix A).
+\entryfield{Algorithm}
+The block is stage 2 of the drop detector and is \code{stage_letters} in
+\code{Working/Detection/drop_motifs/detect5.py}, run on the chain's current signal with
+\texttt{detrend\_window\_s = 0} (the upstream \blockref{preprocessing.detrend} has already
+removed the drift; 0 means ``leave the signal alone''). \code{_run} in
+\code{Adapters/detection_stage_encoding.py} builds the parameters (\code{params_for}) and
+maps the letters to integers. The five stages, dSAX at $k=3$, the split at the slope-noise
+floor $\sigma$ and the formula for $\sigma$ are set out once, in
+\blockentry{detection.drop_detection}. In brief, for segment length
+$L = \operatorname{round}(\text{\emph{segment\_seconds}}\cdot f_s)$:
+\begin{enumerate}
+\item Missing samples (NaN, inf) are made NaN (\code{nan_for_missing}).
+\item dSAX (\code{dsax}, \texttt{alphabet\_size=3}) over about $\operatorname{round}(n/L)$
+  segments: z-normalise, take each segment's rise by \emph{trend\_estimator}
+  (\texttt{ols\_slope} or \texttt{endpoint}), cut into \texttt{D}/\texttt{S}/\texttt{U} by
+  \emph{threshold\_mode}: \texttt{quantile} puts the cutlines at the $(1\mp f)/2$ quantiles of
+  the rises ($f$ = \emph{same\_fraction}) and folds them symmetric about zero;
+  \texttt{learned} fits them by Lloyd--Max on a kernel density estimate and ignores $f$.
+\item \code{merge_up_runs}: a run of up to \emph{merge\_gap\_segments} \texttt{S} between two
+  \texttt{U} becomes \texttt{U} (0, the default, does nothing).
+\item A \texttt{D} segment whose slope (stored unit per second) is at or below
+  $-\kappa\sigma$ becomes \texttt{d}; a \texttt{U} at or above $+\kappa\sigma$ becomes
+  \texttt{u}; $\kappa$ = \emph{slope\_sigma}, $\sigma$ = \code{slope_noise_sigma} of the
+  signal with \emph{noise\_estimator}.
+\end{enumerate}
+Note what is compared: a segment's fitted slope, averaged over $L$ samples, against the noise
+of a \emph{single-sample} slope. A segment's average is far less noisy than one sample, so
+\texttt{d} is a stringent label: it says the segment as a whole falls $\kappa$ single-sample
+noise widths per second.
+
+\entryfield{Assumptions}
+\begin{itemize}
+\item \emph{Units.} The letters are unit-free: dSAX normalises the span and the fast cut is a
+  multiple of the span's own $\sigma$. \code{_run} takes no unit. The readout
+  (\code{_derive}) does: it prints $\sigma$ and the fast cut in mV/s by the recording's
+  declared unit (\code{read_as_mv}; an undeclared unit is read as volts and flagged). Before
+  2026-10-15 it multiplied by 1000 whatever the file held (L\_LM's $\sigma$ printed 605.6
+  ``mV/s'' for 0.6056). The meta's \code{sigma_slope}, \code{fast_cut_raw} and
+  \code{segment_slopes} stay in the stored unit per second.
+\item \emph{Detrended input.} The quantile cutlines assume the rises are centred near zero; a
+  span with strong drift shifts every segment's rise and the \texttt{S} band no longer means
+  ``flat''.
+\item \emph{Missing values.} A segment that touches a missing sample gets symbol $-1$
+  (letter \texttt{-}); the normalisation, the cutlines and $\sigma$ are computed on the
+  recorded part. \code{meta["missing_segments"]} counts them and the readout prints a
+  ``Missing samples'' row. Before 2026-10-14 one NaN made every segment \texttt{U} and the floor
+  NaN.
+\item \emph{Span length.} dSAX needs at least two segments of at least two samples, and the span
+  is trimmed to a whole number of segments; the last $n \bmod L'$ samples get no letter. The
+  readout warns below 8 segments.
+\end{itemize}
+
+\entryfield{Outputs}
+An \texttt{Encoding} of kind \texttt{symbolic}, one integer per segment: 0~\texttt{d},
+1~\texttt{D}, 2~\texttt{S}, 3~\texttt{U}, 4~\texttt{u}, $-1$~\texttt{-}. The segment length is
+recoverable from the shapes alone ($\lfloor n/\text{symbols}\rfloor$), which is how the next block
+finds it. \code{meta}: \code{letters}, \code{alphabet}, \code{details} (samples per symbol,
+alphabet size 5, \code{cutlines} $= [-\kappa\sigma, +\kappa\sigma]$ in the slope domain, raw
+units per second), \code{segment_slopes}, \code{sigma_slope}, \code{fast_cut_raw},
+\code{same_fraction_observed} (the share of recorded segments that came out \texttt{S}),
+\code{stage_histogram}, \code{n_segments}, \code{missing_segments}. Nothing is written to the
+database by this block.
+
+\entryfield{Cost}
+Linear in the span in \texttt{quantile} mode: one pass for the second difference and its
+median, one trend fit per segment, one quantile. \texttt{learned} mode adds a kernel density
+estimate capped at 1000 points. No cost estimate or maximum span is declared.
+
+\entryfield{Failure modes}
+\begin{itemize}
+\item \emph{same\_fraction is approximate.} The cutlines are folded symmetric about zero after
+  the quantiles are taken, so on a skewed distribution of rises (slow climbs, fast falls) the
+  observed \texttt{S} share differs from $f$; \code{same_fraction_observed} reports it.
+\item \emph{A segment too long} puts a fall and its neighbours in one segment, whose average
+  slope then misses the fast cut: the fall gets \texttt{D}, not \texttt{d}, and the drop
+  detector's fall trigger cannot see it.
+\item \emph{A different \emph{slope\_sigma} or \emph{noise\_estimator}} from the drop
+  detection block's: nothing compares them.
+\item \emph{threshold\_mode = learned} silently makes \emph{same\_fraction} irrelevant.
+\end{itemize}
+
+\entryfield{Validation}
+The letters are a description, not a detection, so the evidence is that they are what the
+one-call detector computes: \code{tests/test_adapter_stage_encoding.py} checks the block's
+symbols equal \code{stage_letters} on the same signal, and \code{tests/test_drop_motifs_detect5.py}
+that the fast band follows the noise floor rather than the occupancy quantile. Whether the
+drops then found are right is the drop detector's question (its entry).
+
+\entryfield{References}
+dSAX is the project's own trend encoding; its header in
+\code{Working/Detection/sax/dsax_python/dsax.py} names its antecedents, the closest being the
+slope channel of 1d-SAX \citep{malinowski2013onedsax}. The five-stage split is the drop
+detector's (\code{detect5.py} module docstring, ``THE ALPHABET'').
+
+\entryfield{Tests}
+\code{tests/test_adapter_stage_encoding.py} (registration, symbols equal to
+\code{stage_letters}, segment length recoverable, \texttt{detrend\_window\_s = 0}, the
+readout); \code{tests/test_drop_detection_nan.py} (finite input bit for bit against frozen
+copies, the \texttt{-} letter, the noise floor over recorded samples, the readout's
+missing-samples row); \code{tests/test_units_reach_the_blocks.py} (the readout in true mV);
+\code{tests/test_drop_motifs_detect5.py} (the alphabet's rules);
+\code{tests/test_template_drop_detection.py} (the block inside the template).

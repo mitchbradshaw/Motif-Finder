@@ -1,0 +1,350 @@
+% !TEX root = ../main.tex
+\chapter{Architecture}\label{ch:architecture}
+This chapter is for a researcher who wants to check what the app does, or an agent who wants to
+build on it. It names the code for every claim. Paths are relative to the repository root.
+
+\section{Two halves: the core and the web UI}\label{sec:architecture-halves}
+The repository holds two programs that meet at one seam.
+
+\begin{description}
+\item[The core] \code{Working/} and \code{Adapters/}, plus the batch scripts in \code{Pipelines/}.
+  Plain Python with numpy, scipy and friends. \code{Working/} holds configuration
+  (\code{Working/config.py}), recipe building and hashing (\code{Working/recipes.py}), execution
+  (\code{Working/execution.py}), the database layer (\code{Working/database/}), units
+  (\code{Working/units.py}), registration, the Library, Discovery and training code, and the cluster
+  job writers (\code{Working/hpc/job_export.py}, \code{Working/discovery/seed_job.py},
+  \code{Working/training/}). \code{Adapters/} holds the block registry: one file per
+  \term{block}{block}, each registering an \code{AdapterSpec} (\code{Adapters/base.py}).
+\item[The web UI] \code{webui/}. A React and TypeScript client in \code{webui/client/} (built with
+  Vite), and a FastAPI \emph{bridge} in \code{webui/server/}, started by \code{webui/run_server.py}.
+  The client never touches the database or a file: every read and write is an HTTP call through
+  \code{webui/client/src/api.ts} and the per-workspace modules in \code{webui/client/src/api/}. The
+  bridge answers those calls by calling the core.
+\end{description}
+
+The dependency runs one way. The bridge imports the core; the core imports nothing from the bridge
+and no UI library at all. This is rule~1 of \code{CLAUDE.md}: \code{Working/}, \code{Adapters/} and
+\code{Pipelines/} import neither a browser library, nor FastAPI or uvicorn, nor the retired Panel
+family (Panel, HoloViews, Bokeh). The one drawing library the core keeps is matplotlib, for figure
+export.
+
+\begin{plainterms}[Why the engine has no dashboard bolted to it]
+Think of a car engine on a test bench. If the engine only runs when it is bolted into one particular
+car, with that car's dashboard wired in, you cannot test it on the bench or put it in a different car.
+The core is the engine. Because it never assumes a screen exists, the same code runs on the laptop
+behind the web pages, on a computing cluster with no screen at all, and inside automated tests.
+\end{plainterms}
+
+Three things depend on that separation.
+\begin{itemize}
+\item \textbf{Cluster execution.} A long \term{chain}{chain} is written as a SLURM job that runs
+  the same core on the university cluster (\cref{sec:architecture-long-work}). The cluster
+  environment has no web server and no browser.
+\item \textbf{Headless tests.} The \code{pytest} suite in \code{tests/} runs the core without
+  starting the bridge or a browser.
+\item \textbf{Reproducibility.} A result is a function of a recipe and the stored samples, not of
+  what a page happened to show (\cref{sec:architecture-reproducibility}).
+\end{itemize}
+
+\begin{underthehood}[How the rule is enforced]
+\code{tests/test_import_boundaries.py} parses every Python file in the repository with \code{ast}
+and lists every module it imports, at module scope or inside a function. It fails if any file
+imports \code{panel}, \code{holoviews}, \code{bokeh} or the retired \code{UI} package
+(\code{test_nothing_in_the_repository_imports_the_panel_family},
+\code{test_nothing_in_the_repository_imports_the_retired_ui_package}), and if any file under
+\code{Working/}, \code{Adapters/} or \code{Pipelines/} imports \code{fastapi}, \code{uvicorn} or
+\code{starlette} (\code{test_the_core_does_not_import_fastapi_or_uvicorn}). A fourth test checks
+that the walk actually reached those folders, so the check cannot pass by walking nothing. The test
+reads Python only; the TypeScript client is not walked.
+\end{underthehood}
+
+\section{What happens when you press Run}\label{sec:architecture-run}
+This section follows one chain run in Analyse, from the button to the stored result.
+
+\begin{enumerate}
+\item \textbf{The client posts the chain.} \code{startRun} in \code{webui/client/src/api.ts} sends
+  \code{POST /api/runs} with the recording id, the \term{span}{span} (or none, for the whole
+  channel), the ordered steps (stage, algorithm, settings, \term{side inputs}{side-input}), the
+  plot width in pixels, and whether to carry a \term{null}{null}.
+\item \textbf{The bridge checks it.} \code{post_run} in \code{webui/server/app.py}:
+  \begin{itemize}
+  \item refuses an unknown recording (404) and the \term{held-out}{held-out} recording (423);
+  \item checks every junction between steps with \code{chain.validate}
+    (\code{webui/server/chain.py}): each block's input type must match what the step before
+    produces (422 otherwise);
+  \item builds the recipe with \code{chain.build_recipe}, which passes each step's settings through
+    that block's own \code{validate_params} first (defaults filled in, types coerced, ranges checked),
+    then calls \code{Working.recipes.make_recipe};
+  \item refuses a span longer than any step's \code{max_span_samples} (422);
+  \item estimates the run's time from each block's \code{estimate} and routes it
+    (\code{chain.route_local}). A run over the Analyse local limit is not started: the bridge writes
+    a SLURM job for it instead and answers 422 with the \code{sbatch} command
+    (\code{_slurm_refusal}; \cref{sec:architecture-long-work}). A run whose cost model is still
+    being calibrated on this machine is held with 409.
+  \end{itemize}
+\item \textbf{A job starts.} \code{JobManager.start} (\code{webui/server/jobs.py}, built on
+  \code{RunManager} in \code{webui/server/runs.py}) starts one worker thread per run and writes a
+  row to the \code{jobs} table. The thread calls \code{execute_recipe} unchanged, passing callbacks
+  for progress, per-step results and cancellation. It always passes \code{force=True}, so the step
+  loop runs and the step cache, not a reused run, supplies any unchanged prefix.
+\item \textbf{The core runs the recipe.} \code{execute_recipe} in \code{Working/execution.py}
+  opens the database through \code{init_db}, then, in \code{_execute_recipe_with_conn}:
+  \begin{itemize}
+  \item refuses the held-out recording unless \code{HELD_OUT_UNLOCK} is set in
+    \code{Working/config.py};
+  \item validates the steps again (\code{validate_recipe_steps}), because a recipe written by
+    hand or on the cluster may not have come through \code{make_recipe};
+  \item stores the recipe as a \code{configs} row (\code{get_or_create_config}) and inserts a
+    \code{runs} row with status \code{running} before any step runs;
+  \item memory-maps the channel's \code{.npy} file and slices out the span
+    (\code{_load_signal}), so only the span is read from disk;
+  \item for each step: checks for cancellation, records the current step on the run row, validates
+    the settings, checks the span ceiling, then looks the step up in the step cache
+    (\cref{sec:architecture-reproducibility}). On a hit it restores the typed output from disk; on a
+    miss it calls the block's \code{run} with the signal, the time axis, the
+    \term{sampling rate}{sampling-rate}, the settings, and whatever extra arguments the block's
+    \code{run} declares (\code{value}, its side inputs, \code{conn} and \code{recording}, or
+    \code{units}). A step slower than \code{STEP_CACHE_WRITE_THRESHOLD_S} (1\,s) is written to the
+    cache;
+  \item writes a \term{span set}{span-set} to the \code{detections} table, shifted from
+    span-relative to channel-absolute sample indices. A block that takes a span set in and gives one
+    out (a feature block) does not write it again;
+  \item calls the block's \code{persist} hook, if it has one, which writes a file and returns its
+    path; the path is recorded as an \code{artifacts} row;
+  \item marks the run \code{completed} with its duration and per-step timings. Any exception marks
+    it \code{failed} with the full traceback in \code{error_text}; a cancel marks it \code{failed}
+    with text starting ``Cancelled''.
+  \end{itemize}
+\item \textbf{Results stream back.} Progress and each step's result go to the page as Server-Sent
+  Events on \code{GET /api/runs/{job}/events}. Every event is also kept on the job, so a page
+  reloaded mid-run replays it. Closing the page does not cancel the run. The client draws each
+  step's output from \code{GET /api/runs/{job}/steps/{index}}, which serialises the typed value
+  through one function, \code{to_payload} in \code{webui/server/serialize.py}.
+\end{enumerate}
+
+\begin{watchout}[Cancel is checked between steps]
+\code{execute_recipe} checks for cancellation before each step. A block that declares
+\code{should_cancel} on its \code{run} also checks inside its own loop; any other block runs its
+step to the end before the cancel takes effect. This is why the bridge refuses, before it starts, a
+run it estimates is over the local limit.
+\end{watchout}
+
+\section{Where things are kept}\label{sec:architecture-storage}
+\subsection{The database}
+The project's database is one SQLite file, \code{DATA/db/annotations.sqlite}
+(\code{Working/database/schema.py}, \code{DB_PATH}). It is plain SQL through Python's
+\code{sqlite3}; there is no ORM (rule~3 of \code{CLAUDE.md}).
+
+The whole schema is in \code{Working/database/schema.py}. \code{init_db()} creates every table with
+\code{CREATE TABLE IF NOT EXISTS} and adds new columns to existing tables with
+\code{_migrate_columns}, which reads \code{PRAGMA table_info} and adds only what is missing. So
+\code{init_db()} can run on every start, and a change to the schema is an addition. Two migrations
+cannot be additive, because SQLite cannot alter a \code{CHECK} constraint in place:
+\code{_migrate_annotations_verdict} and \code{_migrate_review_queues_kinds} rebuild their table. The
+schema's docstring says the first backs up the file, runs in one transaction and checks row counts
+before committing. One further migration rewrites rows: \code{_migrate_legacy_detections} shifts
+detections written span-relative before 2026-09-21 to channel-absolute indices, and records each
+rewrite in \code{audit_log}. \Cref{app:data} lists the tables a researcher meets.
+
+\subsection{Bulk arrays live on disk}
+Rule~4 of \code{CLAUDE.md}: a large array never enters the database. A recording's samples are a
+\code{.npy} file per channel under \code{DATA/derived/channels/}; a matrix profile, a window
+matrix, a cached step output, a model file are files too. The database row holds the path. For
+example \code{recordings.npy_path} names the channel file, \code{artifacts.path} a run's output
+file, and \code{step_artifacts.path} a cached step's directory.
+
+\subsection{Machine rows and human rows}
+Rule~5 of \code{CLAUDE.md}: \term{detections}{detection} are written only by the machine and
+\term{annotations}{annotation} only by people, in separate tables, and no code path writes one into
+the other. A person's judgement of a machine detection is an
+\term{adjudication}{adjudication}, in its own table that points at the detection; the detection row
+itself is never edited. \Cref{sec:core-ideas-detections} explains the idea in plain words.
+
+\begin{underthehood}[The two doors]
+\code{webui/server/writes.py} holds \code{write_human(conn, table, row)} and
+\code{write_machine(conn, table, row)}. Each accepts only its own list of tables
+(\code{HUMAN_TABLES}: annotations, adjudications, tags, templates, groupings, hand edits and the
+\code{motif_*} Library tables; \code{MACHINE_TABLES}: runs, configs, detections, artifacts,
+encodings, the step cache, recordings, registered artifacts, window sets, Discovery's sessions and
+runs) and refuses any other with a \code{PermissionError} naming the rule. \code{settings} and
+\code{audit_log} are on neither list. The executor itself writes \code{detections} through
+\code{Working.database.runs.insert_detection}, not through these doors.
+\end{underthehood}
+
+\section{Reproducibility: the same inputs give the same run}\label{sec:architecture-reproducibility}
+\subsection{The recipe and its hash}
+Every run is described by a \term{recipe}{recipe} (\code{Working/recipes.py}): the recording id,
+the span (or none for the whole channel), and the ordered steps, each with its stage, block name,
+settings and side-input bindings, plus an optional fan-out over channels or bands.
+\code{canonical_json} writes it with sorted keys, no whitespace variation, and numpy numbers
+turned into plain Python numbers; \code{recipe_hash} is the SHA-256 of that text, and
+\code{short_hash} its first eight hexadecimal characters. Two recipes that mean the same thing get
+the same hash whatever order their keys were written in.
+
+Because the bridge fills each block's defaults (\code{validate_params}) before hashing, a chain
+whose settings were left at their defaults and the same chain with the defaults typed in get one
+hash. A side input bound to a Library exemplar is hashed by what it is (source file, channel, sample
+range), not by its row id in this database (\code{_normalize}).
+
+\begin{watchout}[The recording is named by its row id]
+The recipe names its recording by \code{recording_id}, the row id in this database's
+\code{recordings} table. The same recipe sent to another copy of the database, where the same
+channel has a different id, hashes the same but means a different channel. The cluster job
+writers carry the database file or the channel paths with the job for this reason
+(\cref{sec:architecture-long-work}).
+\end{watchout}
+
+\subsection{Run reuse and the step cache}
+The short hash is the key of the \code{configs} row (\code{get_or_create_config}). A run row links
+a config to a recording and a span, so the provenance of any result is the run row, its config (the
+full recipe as JSON), its timings and error text, its detections and its artifacts.
+
+\code{execute_recipe} uses the hash twice.
+\begin{description}
+\item[Run reuse] Called without \code{force}, it returns an existing completed run of the same
+  config over the same recording and span instead of recomputing (\code{find_completed_run}). The
+  bridge always passes \code{force=True}, so this applies to scripts, not to the pages.
+\item[The step cache] Each step is keyed by the hash of the recipe cut off after that step
+  (\code{_recipe_prefix_hash}). Changing step $N$ changes the key of step $N$ and every later step,
+  but no earlier one (\code{invalidated_step_indices}), so re-running a chain after editing a late
+  step restores the early steps from disk. Entries are rows of \code{step_artifacts} pointing to a
+  directory under \code{STEP_CACHE_ROOT} (\code{DATA/derived/step_cache} in
+  \code{Working/config.py}); the typed output is written and read by its own type's
+  \code{to_path}/\code{from_path}. Nothing is evicted.
+\end{description}
+
+Two exceptions keep the cache honest. A block whose \code{run} declares \code{conn} reads the live
+database (for example, human verdicts); its output depends on more than the recipe, so that step
+and every later one skip the cache, and run reuse is off for the whole recipe
+(\code{_first_store_reading_step}). And where a step that is told the recording's unit sits in the
+prefix, a unit other than volts enters the key, so a result computed under one unit is never served
+for another (\code{_recipe_prefix_hash}).
+
+\section{Units and missing values}\label{sec:architecture-units}
+\subsection{Units}
+The recordings are not all stored in one unit: some are volts, some millivolts. The unit is a
+property of the data, in \code{recordings.units} (\code{V}, \code{mV} or \code{uV}; empty means
+undeclared) with \code{recordings.units_note} saying where it came from. \code{Working/units.py} is
+the vocabulary: \code{parse_units} reads a manifest's text, \code{to_mv_factor} gives the factor to
+millivolts (\code{None} when undeclared, never a guessed 1), and \code{read_as_mv} tells a block how
+to read its samples as millivolts.
+
+\begin{plainterms}[Why the unit matters]
+A ruler marked only with numbers is useless if you do not know whether they are centimetres or
+inches. A threshold of 0.005 means five millivolts on a recording stored in volts and five
+thousandths of a millivolt on one stored in millivolts: a factor of a thousand.
+\end{plainterms}
+
+The core does not convert samples. Every block receives them as stored. Two places use the unit:
+\begin{itemize}
+\item the bridge, when it draws a trace (\code{display_channel} in \code{webui/server/corpus.py});
+\item a block that prints millivolts. Its \code{run} declares a \code{units} argument, and
+  \code{execute_recipe}, the block page's read-out and the window chain pass it
+  \code{recordings.units}. The block converts with \code{read_as_mv}, which reads an undeclared unit
+  as volts and returns a note saying so, for the page to print beside the number. At the time of
+  writing these are the drop detector's two blocks and \code{interrogation.event_shape}.
+\end{itemize}
+Any other block works in the stored unit, and any threshold in its settings means different things
+on a volts recording and a millivolts one. Each block's entry in \cref{app:blocks} says which kind it
+is. \code{init_db()} fills in the unit measured for each known file on 2026-09-23
+(\code{RECORDING_UNITS_EVIDENCE}) on rows that carry no unit and no note, so a unit a person
+declares later is never overwritten. A unit is declared in Settings \textrightarrow{} Datasets
+(\apppage{settings.datasets}); \cref{app:data} has the details.
+
+\subsection{Missing values}
+A gap in a recording is stored as NaN (not a number). The executor does nothing special with NaN:
+\code{_load_signal} slices the samples as they are and hands them on. What happens to a NaN is
+therefore each block's decision, and each block's entry in \cref{app:blocks} traces it. Some parts
+of the system refuse NaN outright: the Library's content hash raises an error on a NaN sample
+(\code{Working.library.identity.content_hash}), and registering a matrix profile fails its
+\code{finite} check (\code{docs/DATA_REGISTRATION.md}). For the drop detector the researcher chose to
+skip gaps rather than refuse a recording that has them (2026-10-14);
+\unverified{the same skip-the-gaps choice has not been made for every block}.
+
+\section{The bridge's sandbox}\label{sec:architecture-sandbox}
+The bridge runs in one of two modes, chosen when it starts and printed in its log
+(\code{webui/server/runtime.py}, \code{Runtime}).
+
+\begin{description}
+\item[\code{--sandbox} (the default)] The database is copied into
+  \code{webui/runtime/<stamp>/}. Before any run, every path the core could write is redirected
+  under that folder by rebinding module attributes: \code{Working.config.STEP_CACHE_ROOT}, the
+  results folders of the matrix-profile, window-matrix, clustering, trace-shape and shape-cluster
+  blocks, the window-pool root, the classifier's model root, and the two cost-calibration files.
+  The step-cache write threshold is lowered to zero so every step is cached. The bridge refuses to
+  start if any redirected path lies outside the runtime folder. Nothing you do in a sandbox reaches
+  the real database. The smoke walk (\code{webui/smoke.py}) runs against a sandbox.
+\item[\code{--project}] The real \code{DATA/db/annotations.sqlite} is opened in place, in WAL
+  journal mode, after a timestamped backup is written to \code{DATA/db/backups/} (the last ten are
+  kept). The caches and results folders stay where the core has them. This is the mode in which
+  the researcher's annotations and runs accumulate.
+\end{description}
+
+In both modes recordings are only read, memory-mapped, and the held-out recording is refused on
+every route. \code{webui/start.ps1} starts a sandbox unless given \code{-Project};
+\code{webui/start.sh} takes \code{--project} as its first argument.
+
+\begin{watchout}[Never point the app at a link to the real data]
+\code{CLAUDE.md} records that removing a git worktree that held a directory junction into the
+real \code{DATA/} folder deleted the real database and derived channels (2026-09-21). Remove such a
+junction (\code{cmd /c rmdir}) before removing the worktree, and never run the bridge, the tests or a
+block through one.
+\end{watchout}
+
+\section{Long work: jobs and the cluster}\label{sec:architecture-long-work}
+\subsection{Jobs on this machine}
+Any piece of work longer than a page should wait for is a \term{job}{job}
+(\code{webui/server/jobs.py}). A chain run is a job of kind \code{chain_run}; other work starts
+through \code{JobManager.start_job(kind, fn, meta)}, with kinds \code{sweep}, \code{import},
+\code{regroup}, \code{training} and \code{cross_channel} (\code{KINDS}). Each job:
+\begin{itemize}
+\item runs in its own thread and is one row of the \code{jobs} table, updated as it progresses
+  and when it ends;
+\item streams progress as Server-Sent Events on \code{GET /api/jobs/{id}/events}, replayed in full
+  to a late subscriber;
+\item can be cancelled with \code{POST /api/jobs/{id}/cancel}, which sets a flag the job checks
+  when it chooses (a chain run checks it between steps);
+\item survives a restart of the bridge as a snapshot: a job no longer in memory is rebuilt from its
+  row and, for a chain run, from the \code{runs} row the core wrote.
+\end{itemize}
+
+\subsection{Work sent to the cluster}
+The site never logs in to the cluster or submits anything. It writes a job (a recipe or spec, an
+\code{sbatch} script, and a list of what to copy), you copy the files and run \code{sbatch}, and you
+bring the results back. \Cref{ch:jobs} describes this from the user's side; the code is:
+
+\begin{description}
+\item[Routing] \code{route_recipe} in \code{Working/hpc/job_export.py} sums each step's
+  \code{estimate} over the span (times the fan-out width) and answers \code{local},
+  \code{cluster} or \code{unknown} (a step's estimator is present but not calibrated on this
+  machine). The default ceiling is \code{CLUSTER_ROUTING_CEILING_S}, 900\,s
+  (\code{Working/config.py}). The Analyse limit can be set in Settings \textrightarrow{} Compute \&
+  HPC (\code{limit.Analyse}, in minutes; \code{analyse_ceiling_s} in \code{webui/server/chain.py});
+  Discovery reads its own \code{limit.Discovery} (\code{Working/discovery/fanout.py}).
+\item[Writing the job] \code{export_job} writes the recipe as JSON and an \code{sbatch} script that
+  runs it through \code{Pipelines/run_recipe/run_recipe.py}, which calls \code{execute_recipe}. The
+  script's comments list the code modules, input files and outputs the job needs
+  (\code{recipe_dependencies}). The wall time is the estimate times a safety factor, rounded up, and
+  clamped to \code{HPC_MAX_WALLTIME_MINUTES} (20 minutes, this account's limit;
+  \code{_slurm_time_from_estimate}). A job that needs longer than that is still written, and the
+  bridge's message says it will most likely be killed. The script changes directory to
+  \code{HPC_REMOTE_REPO_ROOT}; \code{Working/hpc/job_export.py}'s docstring warns this value should be
+  confirmed for the account before submitting.
+\item[Other writers] Models \textrightarrow{} Launch writes a CNN training job directory
+  (\code{Working/training/shape_cnn.py}, \code{export_cnn_job}); the Shape clustering page writes a
+  Ward clustering over every training window (\code{Working/training/full_ward.py}); Discovery's Seed
+  page writes a seed search (\code{Working/discovery/seed_job.py}), which checkpoints its result file
+  after every channel and resubmits itself while the file reads incomplete.
+\item[Bringing results back] A returned job directory is imported by
+  \code{Working.training.hpc_import.import_results}, the same function the command
+  \code{python -m Working.training import-results} calls. It checks that the recipe hash in
+  \code{recipe.json}, \code{job.json} and \code{out/done.json} agree, that the windows and pool match
+  this database, and that every prediction is for a window of the job; a mismatch raises
+  \code{ImportRefused} and nothing is stored. A seed search's result file is imported by Discovery's
+  own import function. A matrix-profile job that runs through \code{run_recipe.py} registers its own
+  rows through the block's \code{persist} hook. Recipe-and-script jobs written by Discovery's chain
+  export and Models' paired training have no return path through the site.
+\end{description}
+
+\code{GET /api/hpc/cluster} (\code{webui/server/jobs_routes.py}) lists every job the site wrote,
+whatever wrote it, with a state read from its folder, its result file and the database.

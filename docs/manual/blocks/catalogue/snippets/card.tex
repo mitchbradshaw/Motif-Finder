@@ -1,0 +1,38 @@
+% !TEX root = ../../../main.tex
+% Block card: catalogue.snippets -- "Snippets" (Part I, the blocks chapter).
+\cardfield{What it does}
+Picks the few most typical pieces of a recording, its snippets, and labels every window by the
+snippet it most resembles.
+
+\begin{plainterms}[Snippets]
+Think of the handful of thumbnail frames that best sum up a film, with a coloured bar under the
+timeline showing which thumbnail each scene is closest to. Snippets does that for a recording: cut
+it into pieces of one length (an hour, say), find the piece that looks like most of the recording,
+then the piece that best covers what the first one does not, and so on. Each window is then
+coloured by its nearest snippet. Long runs of one colour suggest a regime of behaviour; a colour
+that flickers from window to window suggests none.
+\end{plainterms}
+
+\cardfield{When to use it}
+When you want a first map of what kinds of behaviour a long recording holds and where each one
+dominates, without describing them in advance. Put \blockref{preprocessing.sliding_windows} with no
+gap before it (the windows are the pieces), and remove the baseline before that. It is marked
+experimental: on the real recordings tried so far, its regimes were mostly no more persistent than
+on shuffled copies.
+
+\cardfield{What goes in, what comes out}
+In go the windows of a span. Out comes a label per window, 1 to $k$, naming the snippet it most
+resembles; $-1$ for a window more than half missing. Each snippet is a real window of the recording,
+never an average.
+
+\cardfield{Settings that matter}
+\emph{subseq\_frac}, first: how short the sub-pieces are that two pieces are compared by. Smaller
+tolerates more shifting and drift inside a piece. \emph{k} is how many snippets; 0 lets the block
+choose, and an answer of 1 means it saw no evidence of more than one kind of behaviour. Set \emph{k}
+by hand to compare recordings at the same number.
+
+\cardfield{Watch out for}
+Only shape counts, so a quiet stretch of plain noise has no shape of its own and is absorbed by
+whichever snippet it happens to resemble. Do not trust the automatic \emph{k} on fewer than about 24
+pieces (24 hours of hour-long windows). Read the run lengths before calling a label a regime. The
+cost grows with the square of the span; spans over a week of 1\,Hz data are refused.

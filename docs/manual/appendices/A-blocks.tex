@@ -1,0 +1,38 @@
+% !TEX root = ../main.tex
+\chapter{Block reference}\label{app:blocks}
+
+This appendix gives every block's full entry, in the same order and groups as its card in
+\cref{ch:blocks}. It is written for anyone who needs to know exactly what a block computes:
+to check a result, to choose between two blocks, or to build on one.
+
+\section*{How to read an entry}
+The first part of every entry is generated from the code by
+\code{scripts/manual_tables.py}, so it always matches the version this manual documents
+(commit \texttt{\ubversion}):
+\begin{itemize}
+\item \emph{Registry name}: the block's identity in the code and in saved chains and
+  templates. \emph{Display name}: its longer name in the code, often naming its source.
+\item \emph{Category}: the Insert-a-stage tab it sits under. \emph{Takes, gives}: its input
+  and output types (\cref{ch:core-ideas}). \emph{Code}: the adapter file.
+\item \emph{Side inputs}: anything it takes besides its main input, such as a library
+  exemplar, and what each may be bound to.
+\item \emph{Behaviour}: properties the code declares: whether the block is told the
+  recording's unit, whether it refuses spans over a size, whether it suggests settings fitted
+  to the span, whether it saves its output to disk as it runs.
+\item \emph{In the app's own words}: the description the code carries, which the app shows
+  beside the block.
+\item \emph{Settings}: every setting, with its default, the values it accepts, and the help
+  text the app shows next to it.
+\end{itemize}
+The rest is written by hand: the algorithm, its assumptions (units, sampling rate, missing
+values), its outputs, its cost, how it fails, the evidence that it works, references, and
+the tests that exercise it.
+
+\begin{watchout}[Settings in samples, thresholds in stored units]
+Many settings count samples rather than seconds, so the same number means a different
+duration on a recording sampled at another rate; and a block that is not unit-aware reads
+thresholds in whatever unit the recording is stored in, volts or millivolts. Each entry's
+\emph{Assumptions} says which applies.
+\end{watchout}
+
+\ubcatalogue{entry}

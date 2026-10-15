@@ -1,0 +1,48 @@
+% !TEX root = ../../../main.tex
+% Block card: preprocessing.trace_shape -- "Trace shape" (Part I, the blocks chapter).
+\cardfield{What it does}
+Turns every window of a pool into its \emph{shape}: the trace stretched or squeezed to the
+same number of points, with its size and level taken out.
+
+\cardfield{When to use it}
+Between \blockref{preprocessing.window_pool} and \blockref{catalogue.shape_cluster} (or
+\blockref{catalogue.shape_families}), when you want a one-minute and a thirty-minute window
+compared by the form of their trace alone. It is the same preparation the Library uses for
+its families, so a distance here means what it means there.
+
+\begin{plainterms}[What ``shape'' means once size is taken out]
+Imagine tracing the outline of a hill on paper, then photocopying it to fit one page,
+whatever its real width, and adjusting the copier so its height always fills the page. Two
+hills of different size but the same profile now look the same. That is what this block does
+to a window: it resamples it to 256 points (the width), subtracts its average and divides by
+its spread (the height). What is left is only the shape. The cost: a tiny wiggle and a huge
+drop with the same profile become identical, so windows too small to be more than noise are
+left out first.
+\end{plainterms}
+
+\cardfield{What goes in, what comes out}
+In go the windows of a pool. Out come the same windows, minus the ones under the noise floor,
+each with its raw size (peak to peak, in millivolts) kept beside it. The shapes themselves are
+written to a file on disk, which the next block reads.
+
+\cardfield{Settings that matter}
+\emph{align} says what each window is lined up on. \texttt{centre} (the default) moves each
+window so its largest swing, up or down, sits in the middle; \texttt{peak} lines it up on its
+highest point (the top of a spike); \texttt{trough} on its lowest point (the bottom of a drop);
+\texttt{grid} keeps the windows where the pool cut them. Every re-cut stays inside its own
+train or test stretch. Pick \texttt{peak} for spikes and \texttt{trough} for drops when a
+window can hold both: \texttt{centre} follows whichever is larger, so a big spike in front of a
+small drop puts the spike in the middle of one window and the drop in the middle of the next.
+\emph{anchor\_frac} says where in the window the chosen point lands: 0.5, the middle, by
+default; 0.33 puts it a third of the way in, which leaves room for a slow recovery after a
+drop. It does nothing on \texttt{grid}. Change either and the shapes change, so the clusters
+and families built on them do too. \emph{detrend}: \texttt{linear} removes a straight-line drift first, so a
+slow slope is not mistaken for the shape. \emph{noise\_floor} leaves out windows smaller than
+the dataset's noise floor (Settings, Datasets; 0.1\,mV when none is set).
+
+\cardfield{Watch out for}
+A recording with no declared unit has no size in millivolts: its windows are kept, never
+tested against the floor, and counted as ``unmeasured''. Any re-cut (\texttt{centre}, \texttt{peak} or \texttt{trough}) can
+make two windows land on the same event; one of them is dropped and counted. \texttt{peak} and
+\texttt{trough} take the highest or lowest point whatever its size: a small spike before a big
+drop is still what \texttt{peak} lines up on.

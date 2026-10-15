@@ -1,0 +1,25 @@
+% !TEX root = ../../../main.tex
+% Block card: detection.wavelet_summation -- "Wavelet summation" (Part I, the blocks chapter).
+\cardfield{What it does}
+Adds up a chosen band of rows of a picture like the one \blockref{preprocessing.wavelet_transform}
+draws, giving one number per moment: how much activity there is in that band right then.
+
+\cardfield{When to use it}
+As the middle block of the \texttt{dehshibi\_spikes} template, between
+\blockref{preprocessing.wavelet_transform} and \blockref{detection.summation_threshold}. The
+template already sets the band the authors used.
+
+\cardfield{What goes in, what comes out}
+In goes the image from the transform. Out comes a single curve, one value per sample, that
+rises where the chosen rhythms are strong. The authors call it $\Omega$ (omega).
+
+\cardfield{Settings that matter}
+\emph{row\_from} and \emph{row\_to} pick the band, as fractions of the image's height counted
+from the slowest row: 0 to 1 is everything. On its own the block sums the whole image; the
+template sets \emph{row\_to} to 0.7586, the slow three-quarters of the rows that the authors
+summed for a 3000-second window.
+
+\cardfield{Watch out for}
+The right \emph{row\_to} depends on how many rows the transform made, which depends on the
+window length and the sampling rate. If you change either, copy the fraction the transform
+prints under \emph{Authors' low band} into \emph{row\_to}.

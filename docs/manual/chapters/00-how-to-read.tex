@@ -1,0 +1,65 @@
+% !TEX root = ../main.tex
+\chapter*{How to read this manual}
+\addcontentsline{toc}{chapter}{How to read this manual}
+\markboth{How to read this manual}{}
+
+This manual describes \emph{Underground Brains}, a web application for looking at and
+analysing long electrical recordings from fungi. It is written for two kinds of reader,
+and laid out so that each can skip what the other needs.
+
+\begin{plainterms}[Two readers, one book]
+Think of a museum. Every exhibit has a placard for visitors and a catalogue entry for
+specialists, and each points to the other. Part~I is the placards: how to use the site, and
+why, in everyday words. Part~II and the appendices are the catalogue: what the code does,
+exactly enough to check it or to build on it.
+\end{plainterms}
+
+\section*{If you want to use the site}
+Read \cref{part:using}. Start with \cref{ch:why}, then \cref{ch:first-session}, which takes
+one recording from start to finish in about fifteen minutes, then \cref{ch:core-ideas},
+which explains the handful of words the rest of the manual leans on.
+
+The chapters after that follow the path the app draws across the top of every page:
+\begin{center}\sffamily
+\textbf{Explore}: find a span \enskip\ensuremath{\to}\enskip
+\textbf{Analyse}: run a chain over it \enskip\ensuremath{\to}\enskip
+\textbf{Review}: judge what it found
+\end{center}
+with \textbf{Library} and \textbf{Discovery} feeding Analyse, and \textbf{Models} reading
+what it produced. \Cref{ch:workflows} shows complete pieces of research done with the app,
+\cref{ch:faq} answers common questions, and \cref{ch:glossary} defines every term.
+
+\section*{If you want to know exactly what it does}
+Every analysis step in the app is a \emph{block}. \Cref{ch:blocks} gives each of the
+\ubnumblocks{} blocks a short card, and every card links to the block's full entry in
+\cref{app:blocks}: the algorithm, its assumptions, every setting, how it fails, how it was
+checked, and where its code and tests live. \Cref{part:how} explains how the app is built
+and how to extend it; \cref{app:nulls,app:data} cover the statistics the app uses to tell a
+pattern from chance, and how recordings are stored.
+
+\section*{Signs used in this manual}
+\begin{plainterms}
+A blue box explains a technical idea in everyday words.
+\end{plainterms}
+\begin{watchout}
+An amber box warns about something that costs time or gives a wrong answer.
+\end{watchout}
+\begin{underthehood}
+A grey box points into the code. Readers who only use the site can skip these.
+\end{underthehood}
+
+Each page of the app is described in its own section, marked \pagestatus{live} when it works
+on your own recordings, \pagestatus{preview} when it still shows example data, or
+\pagestatus{unchecked} until someone has checked. Each block card carries the coloured tag of
+the tab it sits under in the app's Insert-a-stage window, such as \catbadge{detect} or
+\catbadge{cluster}.
+
+\section*{Where this manual comes from}
+The manual lives in the code repository, in \code{docs/manual/}, next to the code it
+describes. The list of blocks and the settings table in every block entry are generated from
+the code by \code{scripts/manual_tables.py}, so they cannot drift from it; everything else is
+written by hand. This copy documents the code at commit \texttt{\ubversion}.
+
+While the manual is a draft, an unfinished passage is marked
+\towritesample{like this}, and a claim nobody has yet checked against the code or a source
+is marked \unverifiedsample{like this}. The title page counts both: \ubwritingstatus.

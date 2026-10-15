@@ -1,0 +1,98 @@
+% !TEX root = ../../../main.tex
+% Appendix entry: detection.rupture -- "Change-point segments" (Appendix A).
+% Library behaviour was read from ruptures 1.1.10, the copy installed beside the conda
+% Python (user site-packages, Python 3.13).
+\entryfield{Algorithm}
+\code{_run} in \code{Adapters/detection_rupture.py} calls \code{detect_change_points} in
+\code{Working/Detection/rupture/rupture_detect.py} with \code{algo="pelt"} fixed, which fits
+\code{ruptures.Pelt} \citep{truong2020selective} to the span as a one-column signal and
+calls \code{predict(pen=penalty)}. Pelt \citep{killick2012optimal} finds the segmentation
+$0 = \tau_0 < \tau_1 < \dots < \tau_K < \tau_{K+1} = n$ that minimises
+\[ \sum_{j=0}^{K} \bigl[\, C(x_{\tau_j:\tau_{j+1}}) + \beta \,\bigr], \]
+with $\beta$ the penalty, by dynamic programming over candidate change points, pruning
+candidates that can no longer be optimal. In the installed ruptures 1.1.10:
+\begin{itemize}
+\item candidates are the multiples of \emph{jump} that are at least the minimum size, so
+  every change point is a multiple of \emph{jump};
+\item the minimum segment length is $\max(\text{min\_size}, \text{the cost's own minimum})$:
+  1 for \emph{l2} and \emph{rbf}, 2 for \emph{l1} and \emph{normal};
+\item the segment costs $C$ on $x_a,\dots,x_{b-1}$ ($\ell = b-a$) are
+  \begin{itemize}
+  \item \emph{l2}: $\ell\cdot\mathrm{Var}(x_{a:b})$, the squared deviation from the mean;
+  \item \emph{l1}: $\sum |x_i - \mathrm{median}(x_{a:b})|$;
+  \item \emph{normal}: $\ell\cdot\log(\mathrm{Var}(x_{a:b}) + 10^{-6})$, a change of mean or
+    variance;
+  \item \emph{rbf}: $\sum_i K_{ii} - \frac{1}{\ell}\sum_{i,j} K_{ij}$ with
+    $K_{ij} = \exp(-\gamma (x_i-x_j)^2)$, $\gamma$ the inverse median squared distance over
+    the whole span and the exponent clipped to $[10^{-2}, 10^2]$.
+  \end{itemize}
+\end{itemize}
+ruptures returns the change points with $n$ appended; \code{detect_change_points} strips
+it. The adapter then turns change points $\tau_1<\dots<\tau_K$ into the spans
+$[0,\tau_1), [\tau_1,\tau_2), \dots, [\tau_K, n)$, dropping any of zero length.
+
+\entryfield{Assumptions}
+\begin{itemize}
+\item \emph{Units.} Not unit-aware. The \emph{l2} cost is in the stored unit squared and
+  \emph{l1} in the stored unit, while $\beta$ is a fixed number, so the same penalty is a
+  $10^6$ times harsher threshold for \emph{l2} on a recording stored in volts than on one
+  in millivolts. \emph{normal} and \emph{rbf} are less sensitive to the unit (a logarithm,
+  a data-scaled kernel), but the $10^{-6}$ added to the variance in \emph{normal} is in the
+  stored unit squared.
+\item \emph{Penalty scale.} For \emph{l2} a change is worth keeping roughly when it reduces
+  the squared error by more than $\beta$, so $\beta$ scales with the noise variance times
+  the segment length; there is no span-independent default. The module docstring advises a
+  sweep (for example $\beta/10$ to $10\beta$) and trusting only change points that persist.
+\item \emph{Independence.} The costs treat samples as independent within a segment; slow
+  correlated noise (drift) is cut into many segments at low penalties.
+\item \emph{Missing values.} No guard. A NaN makes every cost of a segment containing it
+  NaN; Pelt's comparisons with NaN are false, so its choices are
+  \unverified{undefined from there on}.
+\end{itemize}
+
+\entryfield{Outputs}
+A \code{SpanSet} that partitions the span; positions count from the span's start. No labels
+or scores. \code{meta} holds \code{n_bkps} (the number of change points), \code{elapsed_s}
+and \code{raw_result} (the full \code{ChangePointResult}, with change-point times in
+\code{bkps_t}). As a span-set output it is written as the run's detections: every sample of
+the span lies in one of them. The \code{plot} hook draws the signal with the segments shaded.
+
+\entryfield{Cost}
+The block declares an \code{estimate}: seconds $= k\, n^{1.5}$ from a per-machine calibration
+(\code{Working/block_cost.py}), unknown until calibrated. ruptures' Pelt is pure Python and
+recomputes each segment's cost from its samples, so it is slow: the module records 20--35\,s
+for Pelt/\emph{l2} on a 10{,}800-sample slice, and \code{tests/test_webui_routes.py}
+about 7 minutes for the 20{,}000-sample calibration walk. The worst case is quadratic in
+$n/\text{jump}$. \emph{rbf} builds the full $n\times n$ kernel matrix at fit time: 8 bytes
+per entry, about 0.9\,GB at 10{,}800 samples and 7\,GB at 30{,}000, so it fails for lack of
+memory well before a day of 1\,Hz data.
+
+\entryfield{Failure modes}
+\begin{itemize}
+\item \emph{Penalty in the wrong scale}: nothing found (one span covering everything) or
+  a span every \emph{jump} samples.
+\item \emph{rbf on a long span}: out of memory.
+\item \emph{A span too short} for \emph{min\_size}: ruptures raises
+  \code{BadSegmentationParameters}.
+\item \emph{Boundary precision}: change points sit on multiples of \emph{jump}, so each is
+  up to $\text{jump}-1$ samples from the best position.
+\item \emph{normal} prints a ruptures warning about the added $10^{-6}$ on every run;
+  \code{detect_change_points} prints a summary line to the console.
+\end{itemize}
+
+\entryfield{Validation}
+No test checks that the change points are right. \code{tests/test_webui_routes.py} runs the
+block through the bridge on a synthetic span and skips when it finds none;
+\code{tests/test_t06_adapter_remap.py} checks the output is a well-formed span set;
+\code{tests/test_block_standard.py} that it declares a cost; \code{tests/test_recipes.py}
+uses it as an example step.
+
+\entryfield{References}
+\citet{killick2012optimal} for Pelt; \citet{truong2020selective} for the ruptures library
+and its cost functions.
+
+\entryfield{Tests}
+\code{tests/test_t06_adapter_remap.py}, \code{tests/test_block_standard.py},
+\code{tests/test_webui_routes.py}, \code{tests/test_recipes.py},
+\code{tests/test_artifacts.py} and \code{tests/test_discovery_compare.py} use only its name
+(a file name, a glyph).

@@ -1,0 +1,139 @@
+% !TEX root = ../../../main.tex
+% Appendix entry: detection.summation_threshold -- "Summation threshold" (Appendix A).
+\entryfield{Algorithm}
+Stage~3 of the \texttt{dehshibi\_spikes} template, after \blockref{preprocessing.wavelet_transform}
+and \blockref{detection.wavelet_summation}. \code{_run} in
+\code{Adapters/detection_summation_threshold.py} calls \code{detect_from_omega} in
+\code{Working/Detection/analysis/dehshibi_authors.py}, which ports the authors' MATLAB
+(\code{iApplyWavelet.m} after $\Omega$, \code{iClusterWaveletROI.m}, \code{iApplyEnvelope.m},
+\code{iLocateSpike.m}) rather than the printed Algorithms~1--4. Let $p =
+\mathrm{round}(\texttt{min\_separation\_s}\cdot f_s)$ (or \emph{n\_p} if non-zero) and
+$\varepsilon = \texttt{epsilon\_factor}$. The score is cut into the same chunks as stage~1
+(\code{chunks_for}: fixed windows of \emph{window\_s}, or \code{split_signal} with
+\emph{slice\_by\_state}). A chunk shorter than 4 samples, or whose score is not finite
+throughout, is skipped and counted. In each remaining chunk, with score $\Omega$ and signal $x$:
+\begin{enumerate}
+\item[B] \emph{Candidate regions} (\code{wavelet_regions}). Peaks of $\Omega$ and peaks of
+  $\max\Omega - \Omega$ (valleys) by a port of MATLAB's \code{findpeaks}: prominence at least
+  $\varepsilon(\max\Omega - \min\Omega)$, half-prominence width at least $p/2$, then, tallest
+  first, no two within $p$ samples. Peaks and valleys are sorted together and paired
+  consecutively, (1st, 2nd), (3rd, 4th), \dots; an odd count gets the chunk's last sample as
+  its final mark, and that last pair is shortened to at most the mean length of the others.
+  Every region's start is then moved earlier by $\lfloor s/2\rfloor$, where $s$ is the
+  floored standard deviation of the region lengths, or by $\lfloor p/2\rfloor$ if $s > p$.
+\item[C/D] \emph{Spike or pseudo-spike} (\code{cluster_regions}). A region shorter than $p$
+  samples is dropped. In the rest, take the interior local minima and maxima of $x$ (scipy
+  \code{find_peaks}); the region is a spike candidate (C) if the lowest minimum lies below
+  both end values or the highest maximum above both; otherwise it is a pseudo-spike (D).
+  D is reported and never used again, as in the authors' code.
+\item[R] \emph{Envelope regions} (\code{envelope_regions}), from the signal alone. $L =
+  \mathtt{del2}(x)$, a quarter of the second difference with the ends extrapolated; upper and
+  lower envelopes are not-a-knot splines through the local maxima and minima of $L$ at least
+  $p$ apart (MATLAB's \code{envelope(L, p, 'peak')}); $m$ is their mean. The minima of $m$ and
+  its maxima less the first are sorted together and paired consecutively; each pair's strength
+  is $\delta = |m(\mathrm{end}) - m(\mathrm{start})|$.
+\item[S] \emph{Locate} (\code{locate_spikes}). Keep the envelope regions with $\delta \ge
+  \bar\delta - \sigma_\delta$ if $\sigma_\delta < \bar\delta$, else $\delta \ge \bar\delta$
+  (R\_kept). Widen each C region to the hull of the kept envelope regions it overlaps (searched
+  between the envelope starts nearest its two ends), then merge consecutive results that
+  overlap. If no C region overlaps any envelope region, the C regions are returned unchanged.
+\end{enumerate}
+Region indices are inclusive in the core and converted to half-open spans at the adapter.
+
+\emph{Where the port follows the code and not the paper} (from the clause table in
+\code{docs/prompts/fixup/reports/J-dehshibi-vs-the-paper.md}, \S4): extrema need minimum
+distance and width as well as prominence; region starts are moved back; regions need at least
+$p$ samples (the paper says more than 30); extrema are local, not spline-interpolated; the
+envelope is a peak spline of $L$ itself, with no analytic signal; Algorithm~3's pairing is
+consecutive, so no region can end before it starts; Algorithm~4 uses C only, merges instead
+of emitting nested spans, and has no length filter.
+
+\emph{How it connects.} The block needs a per-sample \texttt{Scores} and the signal $x$, which
+every block receives; the envelope branch never looks at the score. So any per-sample score
+can stand in for $\Omega$ (\code{test_any_per_sample_score_can_stand_in_for_omega}).
+
+\entryfield{Assumptions}
+\begin{itemize}
+\item \emph{Units.} Not unit-aware, and the spans do not depend on the unit: $\varepsilon$ is
+  relative to the score's range, the C/D test compares the signal with itself, and the
+  envelope cut is relative to the envelope regions' own strengths. Only the span scores (the
+  signal's range) are in the recording's stored unit.
+\item \emph{Sampling rate.} Lengths are in seconds and converted with $f_s$. The authors ran at
+  1\,Hz. At 10\,Hz the envelope stage, which works on sample-to-sample curvature, sees a
+  different signal, so spans differ though the same events are found
+  (\code{test_lengths_are_seconds_not_samples}).
+\item \emph{Windows.} \emph{window\_s} and \emph{slice\_by\_state} must equal those given to the
+  transform; nothing checks it.
+\item \emph{Missing values.} A window whose score holds a NaN is skipped (counted in
+  \code{n_chunks_skipped}). The block does not check $x$ itself: a NaN in $x$ under a finite
+  score from some other block would pass into \code{find_peaks} and the splines with
+  \unverified{unpredictable results}. Behind the transform this cannot happen, since a NaN in
+  $x$ makes that window's score NaN.
+\end{itemize}
+
+\entryfield{Outputs}
+A \texttt{SpanSet}, one half-open span per spike, label \texttt{spike}, score the range
+($\max - \min$) of the signal inside it. \code{meta} holds \code{pseudo_spikes} (D, half-open),
+the counts \code{n_spikes}, \code{n_pseudo_spikes}, \code{n_chunks}, \code{n_chunks_skipped},
+\code{n_candidates_B}, \code{n_wavelet_C}, \code{n_envelope_R}, and \code{funnel}: for each
+stage B, C, D, R, R\_kept, S its label, count and regions, plus the chunks and the indices of
+the peaks and valleys of $\Omega$. The Analyse page draws the funnel
+(\code{webui/client/src/analyse/DetectorFunnel.tsx}).
+
+\entryfield{Cost}
+Per window: the peak search, prominence and width are about linear in the window; the
+distance filter is quadratic in the number of peaks; the splines are linear. Overall roughly
+linear in the span for a fixed window. No estimate or span cap is declared; the transform
+upstream caps the template at 320{,}000 samples.
+
+\entryfield{Failure modes}
+\begin{itemize}
+\item \emph{Unselective on real traces.} The prominence is relative to each window's own
+  range, so every window produces extrema; and the C test passes whenever the signal inside a
+  region dips below or rises above both its ends, which a noisy trace nearly always does. On
+  M2\_aug CH0 all 38 candidate regions in four windows passed it (fixup-J report, \S6).
+\item \emph{A candidate can vanish in step S.} When at least one C region meets an envelope
+  region, any C region that meets none is dropped. Only when none meets any are they all kept.
+\item \emph{Merging.} Step S's merge sets the earlier region's end to the later one's without
+  taking the larger; were a later region ever to end inside an earlier one, the merged span
+  would be cut short. \unverified{Whether this occurs in practice} was not checked.
+\item \emph{Window mismatch} with the transform (above).
+\item \emph{The tail.} The last window can be up to 1.5 windows long, so its relative thresholds
+  cover more signal.
+\end{itemize}
+
+\entryfield{Validation}
+Against the authors' own code: \code{tests/test_dehshibi_authors.py} and
+\code{tests/test_adapter_summation_threshold.py} give the port the $\Omega$ MATLAB computed on
+three synthetic recordings (\code{tests/fixtures/dehshibi/reference.json}) and require every
+region set (B, C, D, R) and the final spikes to match MATLAB exactly. So the port is faithful.
+
+Against known events (\code{scripts/fixup_j_figure.py}, results in
+\code{webui/screenshots/fixup/J/known-events.json}; an event is found when one span covers at
+least half of it and is no more than three times as long):
+\begin{itemize}
+\item a 12{,}000\,s synthetic recording with 20 injected events of 0.5--6\,mV
+  (\code{scripts/fixup_j_synthetic.py}): 17 found, 19 spans, none on no event. The three missed
+  had amplitudes 2.7, 2.8 and 4.5\,mV, so the misses are not the small events;
+\item the three MATLAB reference recordings: 5 of 6, 3 of 4 and 8 of 8 by that criterion
+  (the tests, counting any overlap, require at least 5, 4 and 8);
+\item M2\_aug CH0, 683 ten-minute windows a researcher labelled, each run in the 3000\,s window
+  it falls in: a span in 130 of 143 \emph{interesting} windows (91\,\%) and in 466 of 540
+  \emph{not interesting} ones (86\,\%); 2{,}846 spans covering 53\,\% of the time. Before the
+  port the figures were 13\,\% and 12\,\%, with 15\,\% of the time covered.
+\end{itemize}
+The synthetic says the port detects the paper's kind of event on a quiet baseline. The labels
+say that on this recording it cannot tell an interesting window from an uninteresting one. The
+paper reports 76\,\% true positives and 16\,\% false positives on one 36{,}000\,s piece of its
+own data \citep{dehshibi2021electrical}.
+
+\entryfield{References}
+\citet{dehshibi2021electrical}; the authors' code, Zenodo doi:10.5281/zenodo.3997031; the
+decisions behind the port are \code{docs/prompts/fixup/QUESTIONS.md}, Q28--Q33.
+
+\entryfield{Tests}
+\code{tests/test_adapter_summation_threshold.py} (types, seconds, old parameter names, spikes
+and pseudo-spikes against MATLAB, labels and scores, no nested spans, the funnel, a stand-in
+score, the sampling rate, refusals, all-NaN scores give no spans);
+\code{tests/test_dehshibi_authors.py} (each stage of the core, two windows, state slicing);
+\code{tests/test_template_dehshibi.py} (the template end to end, written to the database).

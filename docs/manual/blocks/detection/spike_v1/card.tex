@@ -1,0 +1,36 @@
+% !TEX root = ../../../main.tex
+% Block card: detection.spike_v1 -- "Spike detection (v1)" (Part I, the blocks chapter).
+% This card and its entry are the worked example AUTHORING.md points to.
+\cardfield{What it does}
+Marks each moment where the signal stands clearly out from its own local average, up or
+down, and counts a tight cluster of such moments as one spike, placed at its most extreme
+point. Each spike it keeps is one detection.
+
+\cardfield{When to use it}
+When you want a quick, explainable list of fast spikes on one channel, found by the rule
+\citet{adamatzky2023multiscalar} used on \emph{Schizophyllum commune}, with a few changes
+that make it work on recordings whose baseline sits far from zero. It is a good first pass
+before measuring the trains and gaps between spikes with \blockref{interrogation.trains} or
+\blockref{interrogation.intervals}.
+
+\cardfield{What goes in, what comes out}
+In goes a span of one channel. Out comes one short stretch per spike, centred on it, with
+the spike's own moment marked inside. The chain row counts them and says how many went up
+and how many went down.
+
+\cardfield{Settings that matter}
+Tune \emph{delta\_mv} first: how far, in millivolts, a sample must stand from its local
+average to count. Raise it if the block fires on noise, lower it if it misses spikes you can
+see. The block's page tells you how \emph{delta\_mv} compares with this span's own
+wobble, and turns amber when it is under four times that. Then \emph{width}: how wide the
+local average is. Changes slower than that window are invisible to the block, so use
+\blockref{detection.drop_detection} for slow drops. Then \emph{d}: candidates closer
+together than \emph{d} samples are one spike. \emph{polarity} keeps rises, dips or both.
+
+\cardfield{Watch out for}
+The default \emph{delta\_mv} of 1\,mV is a placeholder, chosen for one recording's noise
+level; on a noisier channel it fires on noise. The block converts millivolts by the
+recording's declared unit; if no unit is declared it assumes volts and says so on the chain
+row, and on a recording that is really in millivolts that makes the threshold a thousand
+times too small. \emph{width} and \emph{d} count samples, not seconds. Several spikes closer
+together than \emph{d} come out as one.

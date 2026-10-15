@@ -1,0 +1,96 @@
+% !TEX root = ../../../main.tex
+% Appendix entry: catalogue.shape_cluster -- "Shape clustering" (Appendix A).
+\entryfield{Algorithm}
+\code{_run} in \code{Adapters/catalogue_shape_cluster.py}, over \code{Working/training/shape.py}:
+\begin{enumerate}
+\item \emph{Shapes.} \code{_load_shapes} reads the Trace shape file named by the windows'
+  \code{shape_file} (\code{ShapeSet.load}, key checked) and refuses a mismatch in window count.
+\item \emph{Tree} (\code{tree_for}). With \emph{tree\_path}, a tree made elsewhere (for example an
+  HPC Ward over every training window) is loaded by \code{load_tree_for}, refused if its
+  \code{shape_key} is not these windows', and copied under its own key. Otherwise the tree's key
+  (\code{tree_key}: shape key, sample, seed) is looked up under
+  \code{DATA/derived/shape_trees/<key>/} and reused if present; else \code{cluster_shapes}:
+  \begin{itemize}
+  \item only rows with role \texttt{train} are used (at least two required);
+  \item \code{stratified_sample}: sample rows drawn per recording $\times$ scale stratum in
+    proportion to its size (largest remainder), seeded; sample $= 0$ takes every training row;
+  \item distances: Euclidean between shape vectors divided by $2\sqrt N$ (\code{condensed_distances};
+    on $[0,1]$ for z-normalised vectors of length $N$), then \code{scipy} Ward linkage on that
+    condensed matrix \citep{ward1963hierarchical}.
+  \end{itemize}
+\item \emph{Proposal} (\code{propose}, cached beside the tree as \code{propose.json}): for
+  $k = 2..20$, the labels at $k$, cluster sizes over every training window, \emph{specks} (clusters
+  under $\max(10, \lceil 0.005\,n_\text{train}\rceil)$ windows), the silhouette
+  \citep{rousseeuw1987silhouettes} on the clustered sample (\code{paired._silhouette}: exact up to
+  8000 rows, else a per-cluster sample of about 8000 drawn \emph{with} replacement). The suggested
+  $k$ maximises the silhouette (rounded to three decimals, ties to more effective clusters) among
+  cuts with at least two non-speck clusters.
+\item \emph{Cut} (\code{labels_at}): $k$ = the setting, or the suggestion (2 if there is none);
+  \code{fcluster(..., criterion="maxclust")} labels the sample; centres are the mean vectors of
+  each cluster's sampled members; every other training row goes to the nearest centre (squared
+  Euclidean). Validation, test and exam rows stay $-1$.
+\item \emph{Freeze.} If the windows carry a \code{pool_key} and a connection is given,
+  \code{shape_forest.check_frozen} refuses a cut (or complete mapping) that differs from the one
+  frozen when a run on this pool got a test score.
+\item \emph{Mapping} (\code{parse_mapping}): JSON naming each cluster and its class
+  (\texttt{interesting} / \texttt{not\_interesting}); \code{mapping_state} says whether it is
+  \texttt{complete} at this $k$, \texttt{partial}, \texttt{stale} (made at another $k$) or
+  \texttt{none}.
+\end{enumerate}
+
+\entryfield{Assumptions}
+\begin{itemize}
+\item \emph{Units, rate, NaN} are settled upstream by \blockref{preprocessing.trace_shape}: shapes
+  are unitless vectors of one length. A NaN vector would make the distances NaN
+  \unverified{(not guarded here)}.
+\item \emph{Roles.} The \code{role} column of the shape file decides what is clustered; it comes
+  from the pool's plan.
+\item \emph{The sample represents the rest.} Assigning to the nearest mean is a centroid rule laid
+  on a Ward tree; windows outside the sample are not placed by the tree itself.
+\end{itemize}
+
+\entryfield{Outputs}
+A \texttt{Grouping}: 1..$k$ per training window, $-1$ elsewhere. \code{meta["tree"]}: key,
+directory, whether reused or loaded, the shape and pool keys, frozen state, align and detrend,
+\code{k}, \code{k_param}, \code{suggested_k}, \code{cut_height}, \code{n_train},
+\code{n_clustered}, \code{n_assigned}, \code{not_clustered} by role, sample, seed, stratification,
+Ward time and peak memory, the truncated dendrogram (30 leaves), the whole proposal, per-cluster
+summaries, the speck threshold, the mapping and its state, and the rule in words. The block
+persists: the kept \code{tree.npz} is registered as an \code{artifacts(kind='other')} row.
+
+\entryfield{Cost}
+Ward needs every pairwise distance of the sample: $s(s-1)/2$ doubles, about 1.6\,GB at
+$s = 20{,}000$, and time quadratic in $s$. The estimate is $30 + 90\,(s/20000)^2$ seconds
+(measured \unverified{about 90\,s at 20,000 on the development machine}). sample $= 0$ on a large
+pool is meant for the cluster; load the result with tree\_path. A reused tree costs seconds; the
+proposal is cached.
+
+\entryfield{Failure modes}
+\begin{itemize}
+\item \emph{Silhouette sampled with replacement.} Above 8000 rows duplicates enter the sample and
+  sit at distance zero from themselves, which nudges the silhouette upwards; the bias is small but
+  the suggestion rounds to three decimals.
+\item \emph{fcluster may return fewer than $k$ clusters} when merge heights tie; \code{meta}
+  reports the $k$ actually found.
+\item \emph{A mapping made at another cut} is \texttt{stale}; check its state before training.
+\item \emph{Specks} are counted against a cut's effective $k$ but still get labels; a classifier
+  trained on them learns from a handful of windows.
+\end{itemize}
+
+\entryfield{Validation}
+\code{tests/test_training_shape.py} shows that synthetic shapes of one kind at different scales
+share a cluster, and that no test window touches the tree. No test compares the clusters with
+human judgement on real windows; that comparison is research question 1 itself.
+
+\entryfield{References}
+\citet{ward1963hierarchical}; \citet{rousseeuw1987silhouettes}. Research question 1:
+\code{docs/rq_roundA/RQ1-cluster-vs-manual-labels.md}.
+
+\entryfield{Tests}
+\code{tests/test_training_shape.py}: only training windows clustered, from a seeded stratified
+sample; the tree is the Library's Ward on the Library's vectors; the rest go to the nearest
+centre; a kept tree saves and a foreign one loads; the proposal's sizes, specks, silhouette and
+rule; the truncated dendrogram. \code{tests/test_training_shape_align.py}: the proposal is cached.
+\code{tests/test_shape_chain.py}: the chain to a kept tree; a tree made elsewhere loads through the
+same reader. \code{tests/test_webui_shape_tree.py}: moving the cut reads the kept tree; the
+mapping's state; a mapping naming another class is refused.

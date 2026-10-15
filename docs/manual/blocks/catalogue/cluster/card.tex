@@ -1,0 +1,34 @@
+% !TEX root = ../../../main.tex
+% Block card: catalogue.cluster -- "Hierarchical cluster" (Part I, the blocks chapter).
+\cardfield{What it does}
+Groups windows whose measures are alike into a fixed number of clusters, by building a tree of
+merges and cutting it.
+
+\cardfield{When to use it}
+After a block that gives each window a row of measures:
+\blockref{preprocessing.window_matrix}, \blockref{catalogue.event_windows} after Event shape, or
+MiniRocket. It is the clustering arm of the first, one-span version of research question 1;
+for clustering a pool by shape, use \blockref{catalogue.shape_cluster}.
+
+\begin{plainterms}[Choosing how many clusters]
+The tree joins the two most alike groups again and again until one is left; cutting it gives the
+clusters. This block always cuts it into exactly \emph{k} clusters, whether or not the windows
+really fall into \emph{k} groups: ask for three and you get three, even from pure noise. Two
+numbers on the block's page help you judge: the \emph{silhouette} (near 1, clusters well apart;
+near 0, they blur into each other) and the \emph{cophenetic correlation} (how faithfully the tree
+keeps the real distances).
+\end{plainterms}
+
+\cardfield{What goes in, what comes out}
+In go windows with their measures. Out comes a cluster number (1 to \emph{k}) for each window,
+or $-1$ for a window that had no measures at all.
+
+\cardfield{Settings that matter}
+\emph{k}, the number of clusters. \emph{linkage}, how the distance between two groups is
+measured: \texttt{ward} (the default) keeps clusters compact; \texttt{average},
+\texttt{complete} and \texttt{single} are there because the choice is still open.
+
+\cardfield{Watch out for}
+Every window is clustered, test windows included: the train/test roles are ignored, and the
+measures are rescaled using all windows. Do not feed it a Window pool directly: the pool's
+bookkeeping numbers (channel, start, length) would be clustered as if they were measures.

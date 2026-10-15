@@ -1,0 +1,29 @@
+% !TEX root = ../../../main.tex
+% Block card: detection.mp_motifs -- "Motif groups" (Part I, the blocks chapter).
+\cardfield{What it does}
+Reads a matrix profile and lists the shapes that repeat best: for each, the window where it
+occurs most cleanly and that window's few closest look-alikes. Each such set is a group, a
+candidate \term{motif}{motif}.
+
+\cardfield{When to use it}
+Straight after \blockref{detection.matrix_profile}, when you want the repeated shapes themselves
+rather than a curve of distances. It is the matrix-profile route to motifs; if you already have an
+example of the shape you want, \blockref{detection.seed_matches} searches for it directly.
+
+\cardfield{What goes in, what comes out}
+In goes the matrix profile. Out come stretches of the recording, each one window long, labelled
+by group: \texttt{G0:seed} is the best-matched window of the most repeated shape, \texttt{G0:nn1}
+and \texttt{G0:nn2} its closest look-alikes, then \texttt{G1:\dots} for the next shape, and so on.
+Each stretch carries its distance from the group's first window. They are saved as detections.
+
+\cardfield{Settings that matter}
+\emph{max\_motifs} is how many groups to list, best first. \emph{n\_neighbors} is how many matches
+to fetch per group, \emph{counting the starting window itself}: the default 3 gives the start and
+at most two look-alikes. \emph{max\_distance} drops look-alikes that are too far to count (0 keeps
+them all).
+
+\cardfield{Watch out for}
+Two look-alikes in one group can overlap by up to three quarters of a window: often the same event,
+shifted a little, rather than two events. Different groups can also share windows, so one event
+can appear in two groups. A window marks where the match is best, which may start part-way into
+the event. And if the recording was not detrended first, the best ``shapes'' are usually drift.

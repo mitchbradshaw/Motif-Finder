@@ -1,0 +1,82 @@
+% !TEX root = ../../../main.tex
+% Appendix entry: detection.sax_psax -- "Symbolic encoding (pSAX)" (Appendix A).
+\entryfield{Algorithm}
+\code{_run} in \code{Adapters/detection_sax_psax.py} resolves the segment length exactly as
+cSAX does (\code{segment_plan}; see \blockentry{detection.sax_csax}), then calls \code{psax}
+in \code{Working/Detection/sax/psax_python/psax.py} with the whole span as training set, a
+port of the authors' code \citep{bountrogiannis2021datadriven,bountrogiannis2022distribution}.
+With $m$ segments and alphabet size $k$:
+\begin{enumerate}
+\item Trim and normalise as cSAX does (z-normalise unless the standard deviation is below
+  $0.001$ in the stored unit), then take the PAA, the $m$ segment means $p_1,\dots,p_m$.
+\item Estimate their density with an Epanechnikov kernel (\code{epanechnikov_kde} in
+  \code{kde.py}): bandwidth $h = 2.3449\cdot\min(\mathrm{sd}, \mathrm{IQR}/1.34)\cdot m^{-1/5}$
+  (Silverman's rule as MATLAB's \code{ksdensity} applies it), evaluated on
+  $\min(n', 1000)$ points from $\min p - \sqrt5 h$ to $\max p + \sqrt5 h$.
+\item Initialise $k$ codewords with k-means++ on the PAA values (\code{kmeanspp}, one pass,
+  local generator with the fixed seed \code{KMEANSPP_SEED} $=0$).
+\item Run Lloyd--Max on the density (\code{lloydmax} in \code{lloydmax.py}): set the
+  boundaries to the midpoints between neighbouring codewords, move each codeword to the
+  density-weighted mean of its cell (trapezoid integrals on the grid), and repeat, for at
+  most 100 iterations. The stopping test requires the relative change to be below both
+  $10^{-7}$ and machine epsilon times the grid width, so in practice the loop
+  \unverified{nearly always runs all 100 iterations}.
+\item Quantise the PAA against the $k-1$ boundaries with \code{timeseries2symbol}, as in
+  cSAX: each symbol is the number of boundaries at or below the segment's mean.
+\end{enumerate}
+The read-out and the span-aware defaults are the shared ones described under
+\blockentry{detection.sax_csax}: \code{derive_sax_rows} is served on the block page;
+\code{recommend_sax_params} is declared but not called by the web UI.
+
+\entryfield{Assumptions}
+\begin{itemize}
+\item \emph{Units.} Not unit-aware; as for cSAX, only the fixed $0.001$ normalisation
+  threshold depends on the stored unit. With \emph{normalize} off the boundaries are
+  learned in the stored unit and still fit the data, unlike cSAX's fallback.
+\item \emph{Missing values.} No guard. One NaN makes every normalised value NaN; the
+  k-means++ step then finds no index to draw and, read from the code, the block
+  \unverified{stops with an \code{IndexError}} rather than returning.
+\item \emph{Span length.} $k$ is capped at $m$ inside k-means++; with fewer segments than
+  letters the codebook is padded with repeated values and some letters cannot occur.
+\end{itemize}
+
+\entryfield{Outputs}
+As for cSAX: an \code{Encoding} of kind \code{symbolic} with $m$ symbols in $0,\dots,k-1$,
+\code{meta["details"]} with the same keys (the Lloyd--Max codewords as
+\code{representatives}; no \code{fallback_used}), and \code{meta["encoded_x"]},
+\code{meta["encoded_t"]}. The realised \code{alphabet_size} is always $k$.
+
+\entryfield{Cost}
+The kernel density step builds a matrix of $\min(n',1000)\times m$ values several times
+over (distances, mask, kernel): about $8\cdot 1000\cdot m$ bytes each. At 20 samples per
+symbol on a 2-million-sample span ($m = 10^5$) that is about 0.8\,GB per array. Lloyd--Max
+is at most 100 iterations of $O(k\cdot 1000)$. There is no \code{estimate} hook and no
+measurement in the repository.
+
+\entryfield{Failure modes}
+\begin{itemize}
+\item \emph{More than 26 letters.} Symbols 26 and up are spelt with two letters by the
+  bridge and by \blockref{detection.symbol_search}, whose match positions then count
+  characters, not symbols, and land at the wrong times.
+\item \emph{Noise looks structured.} Lloyd--Max minimises squared quantisation error; it
+  always produces $k$ well-used letters, even on pure noise.
+\item \emph{Empty letters.} When the density has fewer modes than $k$, neighbouring
+  codewords can crowd together and some letters are rarely or never used.
+\item \emph{Seed.} The k-means++ start is fixed, so a run repeats; another seed can move
+  the boundaries. RQ4's notes record that pSAX shared dSAX's unseeded start until
+  fixup-dsax-seed (2026-10-03).
+\end{itemize}
+
+\entryfield{Validation}
+No test compares the strings with the authors' MATLAB implementation. The tests check that
+re-quantising \code{details["paa"]} against the boundaries reproduces the string, that the
+raw-unit conversions round-trip, that the codebook has $k$ entries, that the read-out matches
+a run, and that one input gives one string whatever the global random state.
+
+\entryfield{References}
+\citet{bountrogiannis2021datadriven}; \citet{bountrogiannis2022distribution};
+\citet{lin2003symbolic} for SAX and PAA.
+
+\entryfield{Tests}
+\code{tests/test_sax_details.py}, \code{tests/test_sax_adapters.py},
+\code{tests/test_sax_determinism.py}, \code{tests/test_t07_adapter_remap.py}.

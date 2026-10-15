@@ -1,0 +1,77 @@
+% !TEX root = ../../../main.tex
+% Appendix entry: detection.freq_stft -- "STFT spectrum" (Appendix A).
+\entryfield{Algorithm}
+\code{_run} in \code{Adapters/detection_freq_stft.py} calls \code{stft_log_spectrum} in
+\code{Working/Detection/analysis/freq_analysis.py} with \code{return_2d=False}. With window
+length $w$, hop $h$ and $B$ log bins:
+\begin{enumerate}
+\item Refuse a span shorter than $w$ (\code{ValueError}).
+\item Short-time Fourier transform with \code{scipy.signal.stft}
+  \citep{virtanen2020scipy}: Hann window of $w$ samples, overlap $w-h$, no boundary
+  padding, no padding of the last frame, no detrending, SciPy's default scaling and
+  one-sided spectrum. The FFT frequencies are $f_k = k f_s/w$, $k = 0,\dots,\lfloor w/2\rfloor$.
+\item Power $P_{k,t} = |Z_{k,t}|^2$ for each frequency $k$ and frame $t$.
+\item Bin edges $e_0,\dots,e_B$ spaced logarithmically from the lowest non-zero frequency
+  $f_1 = f_s/w$ to the highest, $f_{\lfloor w/2\rfloor}$ (Nyquist for even $w$). The
+  0\,Hz bin is excluded. Bin centres are geometric: $\sqrt{e_b e_{b+1}}$.
+\item For each log bin $b$, average $P_{k,t}$ over the FFT frequencies with
+  $e_b \leq f_k < e_{b+1}$; a bin that holds none is left at 0.
+\item Average over frames: the output is $\bar P_b = \frac{1}{T}\sum_t P_{b,t}$.
+\end{enumerate}
+
+\entryfield{Assumptions}
+\begin{itemize}
+\item \emph{Units.} Not unit-aware: power is in the stored unit squared (scaled by SciPy's
+  window normalisation), so spectra of a volts recording and a millivolts one differ by
+  $10^6$.
+\item \emph{Sampling rate.} \emph{window\_size} and \emph{hop\_size} are in samples. The
+  lowest frequency resolved is $f_s/w$: at the defaults, 1/300\,Hz (a 5-minute period) at
+  1\,Hz sampling and 1/30\,Hz at 10\,Hz.
+\item \emph{Baseline.} No detrending: a large standing potential leaks through the Hann
+  window's main lobe into the lowest bins. Remove the baseline first when the slow end
+  matters.
+\item \emph{Missing values.} No guard. A NaN makes its frames' power NaN at every frequency,
+  and the plain mean over frames then makes every non-empty bin NaN.
+\end{itemize}
+
+\entryfield{Outputs}
+An \code{Encoding} of kind \code{image} holding a one-dimensional array of $B$ mean powers
+(not a spectrogram: the time axis is averaged away), with the bin centres in
+\code{meta["bin_freqs"]} in hertz. The bridge sends it as a series with its frequencies,
+summarised as ``$B$ log-frequency bins''. The full frame-by-bin matrix
+(\code{return_2d=True}) is not reachable from the block.
+
+\entryfield{Cost}
+$\lceil (n-w)/h\rceil$ FFTs of length $w$: $O\big((n/h)\, w\log w\big)$ time. The whole
+complex STFT matrix and its power are held at once: about $(n/h)(w/2+1)\cdot 24$ bytes,
+some 60\,MB for a 2.6-million-sample span at the defaults. No \code{estimate} hook.
+
+\entryfield{Failure modes}
+\begin{itemize}
+\item \emph{Empty low bins read as zero.} The log bins are narrower than the FFT spacing
+  $f_s/w$ at the slow end. At the defaults ($w = 300$, $B = 64$) the FFT frequencies $k=1$
+  to 17 fall in only 17 of the lowest 37 bins, so \unverified{about 20 of the 64 bins} are
+  exactly 0, independently of the data and of $f_s$. Plot it on a log axis and they vanish;
+  read it as a vector (by a later block) and they are false zeros.
+\item \emph{The top FFT frequency may be dropped.} The last edge equals the highest FFT
+  frequency up to rounding, and the upper test is strict, so that frequency is
+  \unverified{usually left out of the last bin}.
+\item \emph{A short span.} Fewer than $w$ samples raise an error; just over $w$ gives one
+  frame and a noisy spectrum.
+\item \emph{hop\_size larger than window\_size} skips samples between windows;
+  \unverified{SciPy accepts the resulting negative overlap}.
+\end{itemize}
+
+\entryfield{Validation}
+\code{tests/test_analysis_modules.py} checks shapes (64 bins, other bin counts), that the
+1-D output is the mean of the 2-D frames, that bin centres are positive, increasing and below
+Nyquist, that power is non-negative and that a short signal is refused. It runs a 5\,Hz
+sine but does not check that the power peaks in the bin containing 5\,Hz. No test checks
+the empty bins.
+
+\entryfield{References}
+\citet{virtanen2020scipy} for \code{scipy.signal.stft}.
+
+\entryfield{Tests}
+\code{tests/test_analysis_modules.py} (the function); \code{tests/test_t07_adapter_remap.py}
+(the block's output kind).

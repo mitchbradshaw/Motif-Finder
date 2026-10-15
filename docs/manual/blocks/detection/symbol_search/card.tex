@@ -1,0 +1,38 @@
+% !TEX root = ../../../main.tex
+% Block card: detection.symbol_search -- "Symbol search" (Part I, the blocks chapter).
+\cardfield{What it does}
+Searches the letter string made by a symbolic encoding for a pattern you write, and marks
+the stretch of time behind each match.
+
+\cardfield{When to use it}
+After \blockref{detection.sax_dsax} (or another block that turns a span into letters), when
+you can describe the shape you want in letters: ``one or more rises then one or more falls''
+is \texttt{c+a+} at dSAX's default three letters (\emph{a} down, \emph{b} same, \emph{c}
+up), and that is the default pattern.
+
+\begin{plainterms}[Patterns (regular expressions)]
+A pattern is a small recipe for matching text, like a search box that understands
+``one or more'' and ``any of''. \texttt{c} matches the letter \emph{c};
+\texttt{c+} matches one or more \emph{c}s in a row; \texttt{a\{3,\}} matches three or more
+\emph{a}s; \texttt{[ab]} matches either letter; \texttt{b*} matches any number of \emph{b}s,
+none included. So \texttt{c+b*a\{3,\}} reads ``a rise, perhaps a pause, then a fall lasting
+at least three pieces''.
+\end{plainterms}
+
+\cardfield{What goes in, what comes out}
+In goes the encoding from the step before. Out come spans: one per match, starting where
+the first matched letter's piece of time starts and ending where the last one's ends. Each
+span is labelled with the letters it matched.
+
+\cardfield{Settings that matter}
+\emph{pattern} is the search. \emph{alphabet} changes the letters used to spell the
+symbols, for encodings with their own (\texttt{dDSUu} for the five-stage encoding); leave it
+empty for the SAX blocks. \emph{overlapping} lets a match start inside the previous one.
+The block page tells you before a run whether the pattern is valid; it does not count
+matches until you run.
+
+\cardfield{Watch out for}
+A letter means different things after different encoders: \emph{c} is ``rising'' after dSAX
+but ``the third level'' after cSAX or pSAX. A pattern that can match nothing at all, such
+as \texttt{c*}, can stop the search early and return no spans. Encodings with more than 26
+letters spell some symbols with two characters, and the spans then land in the wrong place.

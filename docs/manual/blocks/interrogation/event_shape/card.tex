@@ -1,0 +1,30 @@
+% !TEX root = ../../../main.tex
+% Block card: interrogation.event_shape -- "Event shape" (Part I, the blocks chapter).
+\cardfield{What it does}
+Measures the shape of every event a detector found: how deep or tall it is, how fast it
+falls or rises, how wide it is, and how long it takes to come back.
+
+\cardfield{When to use it}
+Straight after a detector, whenever you want numbers about the events rather than just their
+positions. Most later blocks read its columns: \blockref{interrogation.intervals} and
+\blockref{interrogation.trains} time events from the onset it finds.
+
+\cardfield{What goes in, what comes out}
+In go the events (stretches of signal marked by a detector). The same events come out, each
+carrying a row of measurements in millivolts and seconds: its start (onset), its lowest or
+highest point, its size, its widths, its slopes, and its recovery. A rose diagram of the
+steepest slopes comes with them.
+
+\cardfield{Settings that matter}
+\emph{polarity}: \texttt{drop} (the default; every detector in the app finds drops) or
+\texttt{spike}. \texttt{auto} lets the block guess from the fastest edge, and guesses wrong
+when a window holds a rise and a fall of similar size. \emph{recovery\_frac} sets what
+``recovered'' means: 0.5 (the default) is half way back from the lowest point.
+\emph{upstream\_inverted} must be on when the chain flipped the signal upside down before
+detecting (the spike template), so the numbers come out the right way up.
+
+\cardfield{Watch out for}
+The block reads the recording's declared unit (Settings \guilsinglright{} Datasets). An
+undeclared recording is read as volts, and the block says so beside the numbers. An event
+with any missing sample in its window gets no measures at all. A drop has no rise time: the
+column is empty, not zero.

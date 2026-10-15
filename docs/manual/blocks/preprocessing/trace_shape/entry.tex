@@ -1,0 +1,137 @@
+% !TEX root = ../../../main.tex
+% Appendix entry: preprocessing.trace_shape -- "Trace shape" (Appendix A).
+\entryfield{Algorithm}
+\code{_run} in \code{Adapters/preprocessing_trace_shape.py} reads the pool table off the
+incoming WindowSet (\code{pool_frame}, which refuses a WindowSet that is not a pool) and calls
+\code{trace_shapes} in \code{Working/training/shape.py}. Per recording row, the channel's
+\code{.npy} is memory-mapped, and for each window $w = x[a, a+L)$:
+\begin{enumerate}
+\item \emph{Re-cut} (align = \texttt{centre}, \texttt{peak} or \texttt{trough}; skipped on
+  \texttt{grid}). All three read the same guarded departure (\code{_swing_departure}): remove
+  the window's least-squares line, take a running median of width $k$ (odd, at least 5, about
+  $L/60$: \code{swing_width}), and subtract that median's own median, giving $d$. The aligned
+  sample $s$ (\code{anchor_index}) is $\arg\max|d|$ for \texttt{centre} (the \emph{largest
+  swing}, \code{swing_index}, unchanged from before fixup-am), $\arg\max d$ for \texttt{peak}
+  and $\arg\min d$ for \texttt{trough}. The anchor offset is
+  $o = \min(\lfloor \alpha L\rfloor, L-1)$ with $\alpha$ = anchor\_frac (\code{anchor_offset};
+  $\alpha = 0.5$ gives $\lfloor L/2\rfloor$, the old centring exactly). The re-cut start is
+  $a' = a + s - o$ (\code{recut_start}), clamped into the allowed interval
+  (\code{allowed_interval}): inside the window's own role stretch (the pool's
+  \code{pool_stretch_a}, \code{pool_stretch_b}), inside the recording, and between the nearest
+  human-artifact or Settings-excluded spans either side. The interval does not depend on
+  $\alpha$. A span touching the window pins it where it is. A clamped re-cut is counted.
+\item \emph{Measure} on the (re-cut) raw window: the position of its aligned sample, recomputed
+  on the re-cut window by the same rule, as a fraction of the window (\code{peak_frac}; on
+  \texttt{grid}, the largest swing); if the recording declares a unit, the raw range
+  $\mathrm{ptp}(w)\cdot c$ and the noise $1.4826\,\mathrm{median}|\Delta w|/\sqrt2\cdot c$,
+  with $c$ the factor to millivolts (\code{to_mv_factor}).
+\item \emph{Detrend} (\texttt{linear}): subtract the least-squares line (\code{_detrended});
+  a remainder below $10^{-9}$ of the window's range is set to zero, so an exact ramp does not
+  become a full-size shape of rounding noise.
+\item \emph{Shape} (\code{ward.shape_vectors} in
+  \code{Working/library/grouping/methods/ward.py}): linear interpolation to $N$ points
+  (\code{resample_to_length}, $N$ = resample\_length, default 256), then
+  $z = (v - \bar v)/\sigma_v$ (\code{z_normalize}; a flat window becomes all zeros).
+\item \emph{Floor.} With noise\_floor on, a window whose range is below its file's floor
+  (\code{dataset_floors}: Settings, Datasets, 0.1\,mV where unset) is dropped. A window with
+  no range (no declared unit) is kept and counted as unmeasured.
+\item \emph{Near-duplicates} (every re-cut rule, not \texttt{grid}; \code{near_duplicates}): within one recording row
+  and scale, in start order, a window starting less than $L/2$ after the last kept one is
+  dropped; a smaller overlap is counted and kept.
+\item \code{check_recut} confirms every kept window lies in its own stretch, inside its
+  recording and clear of artifact spans, or raises \code{LeakageRefused}.
+\end{enumerate}
+The vectors are written once per content key (\code{ShapeSet.key}: the settings, floors and
+every window's file, channel, start, length and role; anchor\_frac enters the key only when
+align is not \texttt{grid} and $\alpha \ne 0.5$, so sets and trees keyed before fixup-am keep
+their keys) to
+\code{DATA/derived/trace_shapes/<key>/shapes.npz} with a \code{manifest.json}.
+
+\entryfield{Assumptions}
+\begin{itemize}
+\item \emph{Units.} The shape is unitless. The floor test is in millivolts, using the
+  recording's declared unit from the store (\code{recordings.units}); with no declared unit
+  there is no test. \code{_run} itself takes no \code{units} argument.
+\item \emph{Sampling rate.} Every window becomes $N$ points whatever its length or rate. Linear
+  interpolation has no anti-alias filter: a 30-minute window at 1\,Hz (1800 samples) is read at
+  256 points, so a spike of a few samples can fall between them.
+\item \emph{Missing values.} No NaN check is made here. The unlabelled sets drop non-finite
+  windows when they are built, but a centred re-cut can move a window onto samples that were
+  not checked, and windows from labelled sets were not screened. A NaN makes the whole shape
+  vector NaN \unverified{(\code{np.interp} and the mean propagate it; not tested)}.
+\item \emph{A pool.} The block needs the pool's columns (\code{pool_*}); every re-cut rule also
+  needs the stretch bounds, which pools built before they were added lack (refused with the
+  reason).
+\item \emph{Signal shape.} \texttt{peak} and \texttt{trough} assume the event of interest is the
+  window's signed extreme after the line is removed; they ignore size in the other direction, so
+  a small spike in front of a large drop is what \texttt{peak} aligns on.
+  \texttt{centre} assumes the event is the larger departure either way.
+\end{itemize}
+
+\entryfield{Outputs}
+A \texttt{WindowSet} of the kept windows (starts are the re-cut ones), with the pool's columns
+plus \code{shape_raw_range_mv}, \code{shape_peak_frac}, \code{shape_row} (the row in the
+vectors file), \code{shape_file} (its absolute path), \code{shape_orig_start},
+\code{shape_noise_mv} and \code{shape_clamped}. \code{meta}: resample\_length, noise\_floor,
+the floors per file, \code{n_in}, \code{n_kept}, \code{under_floor} and \code{unmeasured} (with
+counts by recording, scale and role), align and detrend with their rules in words (the align
+rule names the anchor when it is not the middle, \code{align_rule}), \code{anchor_frac}
+(\code{None} on \texttt{grid}) and \code{anchor_rule}, the swing rule, the re-cut counts
+(\code{recut}: moved, clamped, pinned by an artifact, near-duplicates), \code{shape_file},
+\code{shape_key}, seconds.
+
+\paragraph{Downstream.} The shapes are cut from the re-cut windows, so align and anchor\_frac
+change the vectors every later block reads. \blockref{catalogue.shape_cluster} builds its tree
+on them, records \code{align}, \code{detrend} and \code{anchor_frac} in its \code{meta}, and a
+different anchor gives a different tree key. \blockref{catalogue.shape_families} clusters the
+same vectors (\code{shape_file}, \code{shape_row}). The B.2 model recipe
+(\code{_recipe_shape} in \code{Working/training/shape_forest.py}) carries the anchor when it is
+off its default, so a model run rebuilds its tree on the same windows.
+
+\entryfield{Cost}
+One read of every window, a running median per window for centring, and a resample: linear in
+the total number of samples in the pool's windows. The estimate is a fixed 20\,s, measured
+\unverified{as about 20\,s for 60,000 windows of 1, 10 and 30 minutes}. Memory: $N$ floats per
+window.
+
+\entryfield{Failure modes}
+\begin{itemize}
+\item \emph{Wiggle equals drop.} With noise\_floor off, or on a recording with no declared unit,
+  a window of noise is normalised to the same height as a large event.
+\item \emph{A wrong floor.} A floor set too high drops real small events; the page shows a
+  raw-range histogram per recording and scale with the floor drawn on it.
+\item \emph{The swing picks the wrong feature} when a window holds two events; \texttt{centre}
+  takes the larger departure from the median, after the straight line is removed, and so can
+  put a spike in one window's middle and the drop beside it in the next. \texttt{peak} or
+  \texttt{trough} fixes the sign, at the cost of ignoring size.
+\item \emph{An anchor near 0 or 1} puts the event at the window's edge; with $\alpha = 1$ the
+  aligned sample is the last one, and a clamp against the stretch moves it inwards.
+\item \emph{Undersampling of long windows}, above.
+\end{itemize}
+
+\entryfield{Validation}
+The tests check that the shapes are the Library's helpers at the Library's length, that the
+floor and the re-cut bounds behave as stated, and that windows of one synthetic shape at
+different scales share a cluster. Whether centring helps on real recordings rests on the
+researcher's measurement noted in \code{DEFAULT_ALIGN} (\unverified{``every pile an event
+shape'', report part 2}).
+
+\entryfield{References}
+The resample-and-z-normalise distance is the Library's (\code{Working/distances.py});
+research question 3 asks whether shape survives this rescaling:
+\code{docs/rq_roundA/RQ3-identity-under-scale.md}.
+
+\entryfield{Tests}
+\code{tests/test_training_shape.py}: a pool travels as a WindowSet; a non-pool is refused; the
+shapes are the Library's; the floor drops and counts, is read from Settings and can be turned
+off; no declared unit is unmeasured and kept; vectors are on disk by path.
+\code{tests/test_training_shape_align.py}: the swing is not a one-sample glitch nor the drift;
+re-cuts are clamped and counted; centring stays inside stretch, channel and artifact bounds;
+\code{check_recut} refuses a window outside its stretch; near-duplicates are dropped; linear
+detrend precedes the resample; and, since fixup-am, that \texttt{peak} centres a spike and
+\texttt{trough} a drop on a synthetic spike-then-drop window, that anchor\_frac places the
+extremum at its fraction and clamps as centring does (0.5 is the old centring for odd and even
+lengths), that \texttt{trough} at a third puts pooled drops a third into 30-minute windows,
+that \texttt{grid} ignores the anchor, that near-duplicates are dropped under every rule, that
+the tree key changes with align and anchor but not at the defaults, and that the model recipe
+carries the anchor. \code{tests/test_shape_chain.py} runs it in the chain.

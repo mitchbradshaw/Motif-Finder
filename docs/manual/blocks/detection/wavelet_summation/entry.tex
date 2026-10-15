@@ -1,0 +1,70 @@
+% !TEX root = ../../../main.tex
+% Appendix entry: detection.wavelet_summation -- "Wavelet summation" (Appendix A).
+\entryfield{Algorithm}
+Stage~2 of the \texttt{dehshibi\_spikes} template (stage~1 is
+\blockref{preprocessing.wavelet_transform}, stage~3 \blockref{detection.summation_threshold}).
+\code{_run} in \code{Adapters/detection_wavelet_summation.py}, for an image $G$ with $R$ rows
+(row~0 the lowest frequency) and fractions $f_0 = \texttt{row\_from}$, $f_1 = \texttt{row\_to}$:
+\begin{enumerate}
+\item $r_0 = \mathrm{round}(f_0 R)$, $r_1 = \mathrm{round}(f_1 R)$ (\code{band_rows});
+  refuse if $r_1 \le r_0$.
+\item $\Omega(\tau) = \sum_{r = r_0}^{r_1 - 1} G(r, \tau)$, summed in float64.
+\end{enumerate}
+In the authors' code (\code{iApplyWavelet.m}, method~2) $\Omega$ is the sum over the rows whose
+frequency is at most a quarter of the frequency range, not over every scale as the printed paper
+reads \citep{dehshibi2021electrical}. For a 3000-sample window that is the lowest 66 of 87 rows,
+which is why the template passes $\texttt{row\_to} = 0.7586$. The band is a fraction because an
+\texttt{Encoding} carries no frequency axis and a block cannot read the previous block's
+\code{meta}; the transform prints the fraction for any other window.
+
+\emph{The contract.} Any block that emits an \texttt{Encoding} of kind \texttt{image} with one
+column per sample can feed this one; any block that emits a per-sample \texttt{Scores} can
+replace it in front of \blockref{detection.summation_threshold}
+(\code{docs/BLOCK_INTEGRATION.md}, \S6).
+
+\entryfield{Assumptions}
+\begin{itemize}
+\item \emph{Units.} None: the values are the transform's dimensionless counts (1--241 per row).
+\item \emph{Shape.} The image must have exactly one column per sample of the span; anything
+  else is refused. \blockref{detection.wavelet_scattering} and \code{detection.freq_stft} emit
+  one column per frame, not per sample, and cannot feed it.
+\item \emph{Missing values.} A NaN anywhere in a column makes that column's $\Omega$ NaN; the
+  count is in \code{meta["n_nan"]}. The next block skips any window whose score is not finite
+  throughout.
+\end{itemize}
+
+\entryfield{Outputs}
+A \texttt{Scores} with one float per sample and the span's $f_s$. \code{meta} holds
+\code{n_rows}, \code{rows_used} ($[r_0, r_1)$) and \code{n_nan}.
+
+\entryfield{Cost}
+A column sum: $O(Rn)$ time and $O(n)$ extra memory beyond the input image. It declares no
+estimate and no span cap; the cap on the image upstream bounds it.
+
+\entryfield{Failure modes}
+\begin{itemize}
+\item \emph{The wrong band, silently.} The template's 0.7586 is the authors' band only when
+  the transform made 87 rows (a 3000-sample window). At 10\,Hz, or with another
+  \emph{window\_s}, the image has a different number of rows and the fixed fraction sums a
+  different band from the authors'. Nothing warns: read the transform's readout and copy its
+  fraction.
+\item \emph{Alone, it sums everything.} Its own defaults (0 to 1) reproduce the printed paper's
+  reading, not the authors' code.
+\item \emph{Rounding.} The band edges are rounded to whole rows, so two fractions closer than
+  $1/R$ can give the same band.
+\end{itemize}
+
+\entryfield{Validation}
+\code{tests/test_adapter_wavelet_summation.py} checks the sum, the band, NaN propagation and
+the refusals, and that the template's band applied to the transform's image gives the
+$\Omega$ the authors' MATLAB computed on the fixture recording, to within one count
+(\code{test_the_templates_band_gives_the_authors_omega}). That check is at 1\,Hz on a
+3000-sample recording only.
+
+\entryfield{References}
+\citet{dehshibi2021electrical}; the authors' code, Zenodo doi:10.5281/zenodo.3997031;
+\code{docs/prompts/fixup/reports/J-dehshibi-vs-the-paper.md}, \S4 (row ``$\Omega$'').
+
+\entryfield{Tests}
+\code{tests/test_adapter_wavelet_summation.py}; \code{tests/test_template_dehshibi.py} runs it
+inside the template.

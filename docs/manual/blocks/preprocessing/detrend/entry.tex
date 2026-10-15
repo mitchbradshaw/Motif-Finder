@@ -1,0 +1,97 @@
+% !TEX root = ../../../main.tex
+% Appendix entry: preprocessing.detrend -- "Baseline removal" (Appendix A).
+\entryfield{Algorithm}
+\code{_run} in \code{Adapters/preprocessing_detrend.py} calls the factory
+\code{make_detrend_filter} in \code{Working/Preprocessing/detrend.py} with the span's $f_s$, the
+\emph{mode} and \emph{window\_s}, and applies the function it returns. The input is cast to
+float64. Let $W = \max(1, \mathrm{round}(\mathit{window\_s}\cdot f_s))$ samples. By mode:
+\begin{description}
+\item[\texttt{rolling\_mean}] With $h = \max(1, \lfloor W/2 \rfloor)$, the trend at sample $i$
+  is the mean of the finite samples in $[\max(0, i-h),\ \min(n-1, i+h)]$ (function
+  \code{_rolling_mean}, via \code{_finite_window_mean}, from cumulative sums of the finite
+  values and of their count). The window holds $2h+1$ samples (601 at the defaults on a 1\,Hz
+  recording) and shrinks to what fits near the ends, becoming one-sided there. The output is
+  $y_i = x_i - m_i$.
+\item[\texttt{rolling\_mean\_nearest}] The drop detector's filter, imported rather than
+  re-implemented: \code{detrend} in \code{Working/Detection/drop_motifs/detect.py}. The window
+  is $\max(3, W)$ samples. On finite input it is $x -$
+  \code{scipy.ndimage.uniform_filter1d(x, size, mode="nearest")}: the ends are padded by
+  repeating the end sample, so every window has full width; for an even size SciPy's window
+  covers $i - \lfloor\mathrm{size}/2\rfloor$ to $i + \lfloor\mathrm{size}/2\rfloor - 1$. When
+  the window is at least the span's length, the span's mean is subtracted instead. With NaNs, the
+  same padding and alignment are used but each window averages only its finite samples.
+\item[\texttt{rolling\_z}] First $r_i = x_i - m_i$ as in \texttt{rolling\_mean}; then
+  $s_i = \sqrt{\overline{r^2}_i}$, the same rolling mean applied to $r^2$; the output is
+  $r_i / s_i$ where $s_i > 10^{-12}$ and 0 elsewhere (a NaN residual stays NaN). Note that
+  $s_i$ is the root mean square of residuals measured about \emph{each sample's own} trend,
+  which approximates, but is not exactly, the rolling standard deviation.
+\item[\texttt{linear}] One least-squares line over the whole span,
+  \code{np.polyfit(idx, x, 1)}, subtracted; \emph{window\_s} is ignored.
+\end{description}
+Any other mode raises a \code{ValueError} when the filter is built.
+
+\entryfield{Assumptions}
+\begin{itemize}
+\item \emph{Sampling rate.} \emph{window\_s} is in seconds and converted with the span's
+  $f_s$. The registry's minimum is 1\,s.
+\item \emph{Units.} Not unit-aware. The rolling-mean and linear modes return the stored
+  unit; \texttt{rolling\_z} returns a unit-free z-score, so a threshold downstream means
+  standard deviations, not volts.
+\item \emph{Missing values.} In the three rolling modes a NaN (or infinite) sample stays NaN,
+  the samples beside it are detrended against the finite samples in their window, and the
+  output is NaN only where a window holds no finite sample, so a gap keeps its own length
+  (the 2026-10-14 fix; before it, one NaN blanked every later window). In \texttt{linear} mode
+  NaNs reach \code{np.polyfit}, which the docstring says raises.
+  \unverified{The exact error has not been checked.}
+\item \emph{Span length.} A window longer than the span is allowed: \texttt{rolling\_mean}
+  then subtracts the span's mean everywhere (every window covers the whole span), as does
+  \texttt{rolling\_mean\_nearest} explicitly.
+\end{itemize}
+
+\entryfield{Outputs}
+A \texttt{Signal} of the input's length and $f_s$; nothing in \code{meta}.
+
+\entryfield{Cost}
+$O(n)$ time and memory in every mode: the rolling modes use cumulative sums (or SciPy's running
+filter), independent of the window length. No estimate is registered.
+
+\entryfield{Failure modes}
+\begin{itemize}
+\item \emph{Overshoot beside large events.} The moving average includes the events themselves:
+  a deep drop pulls the local mean down, so after subtraction the trace on either side of the
+  drop is lifted and the drop looks shallower. \code{tests/test_beads.py} measures this on its
+  synthetic acceptance trace (drops of depth 1 recovering with $\tau = 200$\,s, a 600\,s
+  window): an excursion of about 0.34 of the drop depth at every drop, against about 0.06 for
+  \blockref{preprocessing.beads}.
+\item \emph{Events longer than the window are cut down.} A slow recovery longer than about
+  half the window is treated as trend. The literature notes record this as a repeated finding
+  on two event families (\code{docs/research/analysis-blocks-from-literature.md}).
+\item \emph{Ends (\texttt{rolling\_mean}).} The shrinking, one-sided window near each end
+  follows the data more closely there, so the first and last half-window are flattened more
+  than the interior. \texttt{rolling\_mean\_nearest} instead repeats the end sample, which
+  avoids an artificial step at the edges (the reason the drop detector uses it).
+\item \emph{\texttt{rolling\_z} amplifies quiet stretches.} Where the signal is nearly flat the
+  local spread is tiny and the z-score inflates the noise to unit size; a perfectly flat window
+  gives 0.
+\item \emph{\texttt{linear} on curved drift} leaves the curvature in place.
+\end{itemize}
+
+\entryfield{Validation}
+\code{tests/test_detrend_nan.py} checks that finite input gives exactly the numbers of the
+earlier, non-NaN-aware implementation (kept verbatim in the test), that each rolling mode's
+output equals a one-window-at-a-time reference, and the NaN behaviour above; it also checks
+that \texttt{rolling\_mean\_nearest} is exactly the drop detector's filter.
+\code{tests/test_template_drop_detection.py} checks that the drop-detection template, which
+starts with this block in \texttt{rolling\_mean\_nearest} mode, reproduces the seed events. The
+adapter's docstring cites a Stage 3 benchmark (SAX recall 0.22 raw against 0.85 detrended);
+the evidence behind that number was not traced here.
+
+\entryfield{References}
+None: moving-average and least-squares detrending are standard. Why the project prefers BEADS
+for event-dominated channels is set out under \blockentry{preprocessing.beads}.
+
+\entryfield{Tests}
+\code{tests/test_detrend_nan.py} (the filter itself), \code{tests/test_t06_adapter_remap.py}
+(types, length, rate), \code{tests/test_drop_detection_nan.py} and the
+\code{tests/test_template_*.py} files that start their chains with this block,
+\code{tests/test_beads.py} (the comparison above) and \code{tests/test_webui_block_readout.py}.

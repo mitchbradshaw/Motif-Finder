@@ -1,0 +1,32 @@
+% !TEX root = ../../../main.tex
+% Block card: interrogation.event_families -- "Event families" (Part I, the blocks chapter).
+\cardfield{What it does}
+Cuts the same-length stretch of signal around every event and sorts the events into families
+of similar shape, using the same sorting methods as the Library.
+
+\cardfield{When to use it}
+When you suspect a recording holds more than one kind of event and want to know whether each
+kind keeps its own rhythm. Put \blockref{interrogation.event_shape} before it and
+\blockref{interrogation.intervals} after it: with \emph{write\_group} on (the default),
+Intervals then times each family separately. The block is marked experimental: on real
+recordings its families beat scrambled copies on only one of five spans tried.
+
+\cardfield{What goes in, what comes out}
+In go the events. The same events come out, each labelled with its family number (1 is the
+largest family), or $-1$ with a reason when it fits none. Each family carries a verdict:
+whether its members are more alike than stretches of plain background noise from the same
+recording would be.
+
+\cardfield{Settings that matter}
+\emph{method} picks how families are made: \texttt{hdbscan} (the default) finds tight
+crowds and leaves stragglers out; \texttt{kshape} makes a set number of families;
+\texttt{ward} puts every event somewhere but runs no noise test.
+\emph{hdbscan\_min\_cluster\_size} is the smallest crowd that counts as a family (10); tune
+it first. \emph{length\_s} is the stretch cut around each event (600\,s, a placeholder
+measured only on synthetic shapes).
+
+\cardfield{Watch out for}
+Read each family's noise verdict before its rhythm. In the Intervals table a family marked
+\texttt{\textasciitilde noise\_like} or \texttt{\textasciitilde untested} is not a real
+family rhythm. Each stretch is rescaled before comparing, so size does not count, only
+shape. Events too close to either end of the span for a full stretch are left out.
