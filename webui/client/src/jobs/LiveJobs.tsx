@@ -394,7 +394,7 @@ function ClusterRow({ r, open, onToggle, importing, seedOutcome, onImport }: {
               </tbody>
             </table>
           </>}
-          {r.source === 'job_dir' && <div className="jb-small jb-muted">never copied: <code>cache/</code> (built on the cluster) and <code>out/</code> (what comes back)</div>}
+          {r.source === 'job_dir' && <div className="jb-small"><InfoTip title="Never copied"><code>cache/</code> (built on the cluster) and <code>out/</code> (what comes back) are never copied.</InfoTip></div>}
           {r.source === 'seed' && r.result_path && <div className="jb-small jb-mono" data-testid={`exported-result-${r.name}`}>the result comes back to <b>{r.result_path}</b>{r.state === 'written' ? ' — nothing there yet' : ''}; the script checkpoints into it after every channel and resubmits itself while it reads incomplete</div>}
           {r.returned && <div className="jb-small jb-mono">{r.source === 'seed' ? 'result file' : 'out/done.json'}: {r.returned.status} · {r.source === 'seed' ? 'spec' : 'recipe'} {r.returned.recipe_hash ?? '?'}{r.returned.finished_at ? ` · finished ${isoWhen(r.returned.finished_at)}` : ''}</div>}
           {r.import_note && <div className="jb-small jb-muted" data-testid={`exported-no-import-${r.name}`}>{r.import_note}</div>}
@@ -479,12 +479,12 @@ export function InboxLive({ imp, cluster, attempts }: { imp: ReturnType<typeof u
     : null
   return (
     <div className="jb-col" data-testid="inbox-live">
-      <div className="jb-row"><Chip tone="green" size="sm">live</Chip><span className="jb-small jb-muted">import a job directory the cluster's results were copied back into</span></div>
-      <div className="jb-small jb-muted">
-        Checked before anything is stored, by the same function as <code>python -m Working.training import-results</code>:
-        the recipe hash (recipe.json = job.json = out/done.json), the windows, the pool in this database, one prediction
-        per predicted window, and a cut not changed on a scored pool. A mismatch is refused with the reason.
-      </div>
+      <div className="jb-row"><Chip tone="green" size="sm">live</Chip><span className="jb-small jb-muted">import a job directory the cluster's results were copied back into</span>
+        <InfoTip title="What is checked">
+          Checked before anything is stored, by the same function as <code>python -m Working.training import-results</code>:
+          the recipe hash (recipe.json = job.json = out/done.json), the windows, the pool in this database, one prediction
+          per predicted window, and a cut not changed on a scored pool. A mismatch is refused with the reason.
+        </InfoTip></div>
       <div className="jb-row">
         <TextField value={path} onChange={setPath} placeholder="the returned job folder, e.g. HPC/Training/generated/b2cnn_fusion_…" block
           testid="inbox-path" ariaLabel="returned job directory" onEnter={() => { if (path.trim() && !busy) imp.start(path.trim()) }} />
@@ -504,7 +504,8 @@ export function InboxLive({ imp, cluster, attempts }: { imp: ReturnType<typeof u
       )}
       {!!seedsBack.length && (
         <div className="jb-small jb-muted" data-testid="inbox-seeds-back">
-          {seedsBack.length} seed-search result{seedsBack.length === 1 ? ' is' : 's are'} back as well — a result file, not a folder: import {seedsBack.length === 1 ? 'it' : 'each'} from its row under <i>Waiting on the cluster</i>.
+          {seedsBack.length} seed-search result{seedsBack.length === 1 ? '' : 's'} back · import from its row under <i>Waiting on the cluster</i>{' '}
+          <InfoTip title="Seed-search results">A seed-search result is a result file, not a folder, so it is imported from its own row, not here.</InfoTip>
         </div>
       )}
       {cur && (
