@@ -2746,13 +2746,37 @@ def _checked_tree(rt, key, body) -> tuple:
     if not os.path.isfile(path):
         raise HTTPException(status_code=422, detail=(f"no grouping tree {key} under this bridge's tree store: "
                                                      f"run the grouping again to build it"))
-    t = _load_tree(path)[0]
+    # fix round: only the tree itself — not its fit (0.7 s and ~100 MB at the real catalogue), and not through the
+    # preview cache, which a save would otherwise evict
+    try:
+        t = _tree_only(path)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc))
     unit_db = UNIT_TO_DB.get(body.unit, body.unit)
+    if t.key != key:
+        raise HTTPException(status_code=422, detail=f"the file under key {key} holds the tree of key {t.key}")
     if (t.unit, t.basis, t.method) != (unit_db, body.basis, body.method):
         raise HTTPException(status_code=422, detail=(
             f"the tree {key} was fitted for {t.unit} · {t.basis} · {t.method}, not for "
             f"{unit_db} · {body.basis} · {body.method}"))
+    # ... and over exactly the members being saved, or the page would cut a tree of other members
+    tree_refs = sorted(str(r) for r in t.refs.tolist())
+    saved_refs = sorted(str(a.get("ref")) for a in body.assignments)
+    if tree_refs != saved_refs:
+        raise HTTPException(status_code=422, detail=(
+            f"the tree {key} is over {len(tree_refs)} members and these assignments name {len(saved_refs)} "
+            f"({len(set(tree_refs) ^ set(saved_refs))} member refs differ): it is not this grouping's tree"))
     return _stored_tree_path(path), key
+
+
+def _tree_only(path):
+    """A kept tree without its fit: from the preview cache when it is there, else read (and checked) from disk."""
+    full = os.path.abspath(path)
+    with _TREES_LOCK:
+        hit = _TREES.get(full)
+        if hit is not None and hit[0] == os.path.getmtime(full):
+            return hit[1]
+    return tree_mod.GroupingTree.load(full)
 
 
 def _load_tree(path) -> tuple:
@@ -2796,9 +2820,14 @@ def _tree_state(row) -> tuple:
         return None, path, (f"the tree file {stored} is not on disk any more; build it again (a regroup at this "
                             f"grouping's own settings)"), True
     try:
-        t = _load_tree(path)[0]
+        t = _tree_only(path)
     except ValueError as exc:
         return None, path, f"the tree file {stored} cannot be used: {exc}", True
+    want = row["tree_key"] if "tree_key" in row.keys() else None
+    if want and t.key != want:
+        # fix round: a valid file is not enough — it must be the tree this row was saved with
+        return None, path, (f"the tree file {stored} holds the tree of key {t.key}, not this grouping's key "
+                            f"{want}; build it again (a regroup at this grouping's own settings)"), True
     return t, path, None, True
 
 
@@ -2881,7 +2910,7 @@ def get_grouping_cut(request: Request, grouping_id: str, cut: float = Query(...)
         current = {int(a["member_ref"]): (a["family_label"] if a["family_id"] is not None else None)
                    for a in conn.execute("SELECT member_ref, family_id, family_label FROM grouping_assignments "
                                          "WHERE grouping_id = ? AND unit = ?", (int(row["id"]), row["unit"]))}
-        _, fit, lock = _load_tree(path)
+        t, fit, lock = _load_tree(path)      # the cached tree and its fit, one pair
         with lock:
             out = engine_mod.cut_preview(t, cut, params, current=current,
                                          samples=max(1, min(12, int(samples))), fit=fit)

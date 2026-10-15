@@ -121,15 +121,24 @@ function WardSlurmCard({ tkey, nTrain, sampled }: { tkey: string; nTrain: number
 /* fixup-an: exported for Library › Grouping, which draws a grouping's kept Ward tree with the same component. It
  * needs only `t.dendrogram`; `cutHeight` draws the line at an exact height (the grouping's cut) rather than in the
  * middle of k's gap, and `leafWord` names what a leaf is ("windows" here, "members" there). */
-export function Dendrogram({ t, k, onK, cutHeight, leafWord = 'windows' }: { t: Pick<TreeInfo, 'dendrogram'>; k: number; onK: (k: number) => void; cutHeight?: number; leafWord?: string }) {
+export function Dendrogram({ t, k, onK, cutHeight, leafWord = 'windows', heightScale = 'linear', cutLabel }: {
+  t: Pick<TreeInfo, 'dendrogram'>; k: number; onK: (k: number) => void; cutHeight?: number; leafWord?: string
+  /** fixup-an fix round: 'sqrt' spreads the low heights where a Library cut lives (0.1-1 under a top merge near 16);
+   *  'linear' (the default) is the Analyse page's axis, unchanged */
+  heightScale?: 'linear' | 'sqrt'
+  /** the words on the cut line; the default is the Analyse page's `cut · k = N · drag` */
+  cutLabel?: string
+}) {
   const [ref, size] = useSize<HTMLDivElement>()
   const d = t.dendrogram
   const W = Math.max(200, size.width), H = 260, padL = 44, padR = 10, padT = 10, padB = 34
   const xs = d.icoord.flat(), xmin = Math.min(...xs, 5), xmax = Math.max(...xs, 15)
   const maxH = (d.max_height || 1) * 1.04
   const X = (v: number) => padL + (v - xmin) / Math.max(1e-9, xmax - xmin) * (W - padL - padR)
-  const Y = (h: number) => padT + (1 - h / maxH) * (H - padT - padB)
-  const hInv = (py: number) => Math.max(0, (1 - (py - padT) / (H - padT - padB)) * maxH)
+  const fwd = heightScale === 'sqrt' ? (h: number) => Math.sqrt(Math.max(0, h)) : (h: number) => h
+  const back = heightScale === 'sqrt' ? (v: number) => v * v : (v: number) => v
+  const Y = (h: number) => padT + (1 - fwd(h) / fwd(maxH)) * (H - padT - padB)
+  const hInv = (py: number) => Math.max(0, back((1 - (py - padT) / (H - padT - padB)) * fwd(maxH)))
   const cutH = cutHeight ?? heightFor(d.heights, d.max_height, k)
   const drag = useRef(false)
   const onMove = (e: React.PointerEvent<SVGRectElement>) => {
@@ -138,13 +147,13 @@ export function Dendrogram({ t, k, onK, cutHeight, leafWord = 'windows' }: { t: 
     const kk = Math.max(2, Math.min(d.heights.length, kAt(d.heights, hInv(e.clientY - svg.getBoundingClientRect().top))))
     if (kk !== k) onK(kk)
   }
-  const ticks = [0, 0.25, 0.5, 0.75, 1].map(f => f * d.max_height)
+  const ticks = [0, 0.25, 0.5, 0.75, 1].map(f => back(f * fwd(d.max_height)))
   return (
     <div className="sh-dendro" ref={ref} data-testid="dendrogram">
       {size.width > 0 && (
         <svg width={W} height={H}>
           {ticks.map((v, i) => <g key={i}><line x1={padL - 4} x2={padL} y1={Y(v)} y2={Y(v)} stroke="var(--muted)" /><text x={padL - 6} y={Y(v) + 3} textAnchor="end" style={{ fontSize: 9 }} fill="var(--muted)">{fmtN(v)}</text></g>)}
-          <text x={4} y={(H - padB + padT) / 2} transform={`rotate(-90 8 ${(H - padB + padT) / 2})`} textAnchor="middle" style={{ fontSize: 9 }} fill="var(--muted)">Ward height</text>
+          <text x={4} y={(H - padB + padT) / 2} transform={`rotate(-90 8 ${(H - padB + padT) / 2})`} textAnchor="middle" style={{ fontSize: 9 }} fill="var(--muted)">Ward height{heightScale === 'sqrt' ? ' (√ axis)' : ''}</text>
           {d.icoord.map((xx, i) => {
             const yy = d.dcoord[i]
             const above = Math.max(...yy) > cutH
@@ -154,7 +163,7 @@ export function Dendrogram({ t, k, onK, cutHeight, leafWord = 'windows' }: { t: 
           <text x={W - padR} y={H - 6} textAnchor="end" style={{ fontSize: 9 }} fill="var(--muted)">the last {d.leaves.length} merges of {d.n_leaves.toLocaleString()} leaves · numbers = {leafWord} under each branch</text>
           <g data-testid="dendrogram-cut">
             <line x1={padL} x2={W - padR} y1={Y(cutH)} y2={Y(cutH)} stroke="var(--amber, #e8900c)" strokeWidth={1.6} strokeDasharray="5 3" />
-            <text x={W - padR - 4} y={Y(cutH) - 4} textAnchor="end" style={{ fontSize: 11, fontWeight: 600, paintOrder: 'stroke', stroke: '#fff', strokeWidth: 3 }} fill="var(--amber, #e8900c)">cut · k = {k} · drag</text>
+            <text x={W - padR - 4} y={Y(cutH) - 4} textAnchor="end" style={{ fontSize: 11, fontWeight: 600, paintOrder: 'stroke', stroke: '#fff', strokeWidth: 3 }} fill="var(--amber, #e8900c)">{cutLabel ?? `cut · k = ${k} · drag`}</text>
             <rect x={padL} y={Y(cutH) - 7} width={W - padL - padR} height={14} fill="transparent" style={{ cursor: 'ns-resize' }} data-testid="dendrogram-cut-handle"
               onPointerDown={e => { drag.current = true; e.currentTarget.setPointerCapture(e.pointerId) }} onPointerMove={onMove}
               onPointerUp={e => { drag.current = false; e.currentTarget.releasePointerCapture(e.pointerId) }} />

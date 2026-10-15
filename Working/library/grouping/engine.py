@@ -340,8 +340,13 @@ def run_grouping(items, *, unit, basis, method, params=None, should_cancel=None,
                     # a file under this key that fails its own check is rebuilt, and the result says so
                     replaced = str(exc)
                 else:
-                    fit = method.fit_from_tree(kept)
-                    result.tree = {"key": key, "path": path, "reused": True}
+                    # fix round: a valid tree is not enough — it must be THIS key's tree, over these items
+                    if kept.key != key or len(kept.refs) != len(items) or len(kept.fit_rows) != len(taking_part):
+                        replaced = (f"the file under key {key} holds the tree of key {kept.key} over "
+                                    f"{len(kept.refs)} items, not these {len(items)}")
+                    else:
+                        fit = method.fit_from_tree(kept)
+                        result.tree = {"key": key, "path": path, "reused": True}
         if fit is None:
             fit_kwargs = {"params": params}
             if should_cancel is not None and _accepts_cancel(method):

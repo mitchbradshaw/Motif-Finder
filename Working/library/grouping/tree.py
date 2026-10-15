@@ -71,12 +71,31 @@ ASSIGN_ONLY_PARAMS = ("cut", "omit_d", "min_group", "omit_small")
 # Bumped if the file layout or the key's recipe changes.
 TREE_VERSION = 1
 
-DEFAULT_DENDROGRAM_LEAVES = 40
+# fix round: 100, so on a large tree the drawn merges reach further down towards the cuts the researcher uses
+DEFAULT_DENDROGRAM_LEAVES = 100
 
 
-def fit_params(params):
-    """The params minus the assign-only ones, as a plain sorted dict."""
-    return {k: params[k] for k in sorted(params or {}) if k not in ASSIGN_ONLY_PARAMS}
+def fit_params(params, method=None):
+    """The params minus the assign-only ones, as a plain sorted dict — with the
+    method's own defaults filled in first (fix round), so `resample_length: 256`
+    given explicitly and left out are the same fit and the same key."""
+    full = dict(params or {})
+    if method is not None:
+        from Working.library.grouping import methods as method_registry
+        full = {**method_registry.defaults_for(method), **full}
+    return {k: full[k] for k in sorted(full) if k not in ASSIGN_ONLY_PARAMS}
+
+
+def arrays_digest(linkage, vectors, fit_rows, leaf_order):
+    """A digest of the tree's own arrays (fix round): the key covers who the
+    members are and how they were fitted; this covers what the file says the
+    fit WAS, so a linkage or vectors changed after writing are refused on load."""
+    h = hashlib.blake2b(digest_size=16)
+    for a, dt in ((linkage, "<f8"), (vectors, "<f8"), (fit_rows, "<i8"), (leaf_order, "<i8")):
+        x = np.ascontiguousarray(np.asarray(a, dtype=dt))
+        h.update(str(x.shape).encode("ascii"))
+        h.update(x.tobytes())
+    return h.hexdigest()
 
 
 def _digest(values):
@@ -113,7 +132,7 @@ def tree_key(items, *, unit, basis, method, params=None):
     members = member_signature(items, basis)
     for row, item in zip(members, items):
         row.append(engine.OMIT_NOT_IN_A_SEQUENCE if unit == "sequences" and item.get("sequence_id") is None else "")
-    return _key_of(unit, basis, method, fit_params(dict(params or {})), members)
+    return _key_of(unit, basis, method, fit_params(dict(params or {}), method), members)
 
 
 def path_for(root, key):
@@ -156,6 +175,7 @@ class GroupingTree:
         os.makedirs(d, exist_ok=True)
         meta = {"kind": "grouping_tree", "version": TREE_VERSION, "method": self.method, "unit": self.unit,
                 "basis": self.basis, "fit_params": self.fit_params, "key": self.key,
+                "arrays_digest": arrays_digest(self.linkage, self.vectors, self.fit_rows, self.leaf_order),
                 "ref_type": "int" if all(isinstance(r, (int, np.integer)) for r in self.refs.tolist()) else "str"}
         tmp = path + ".part.npz"
         np.savez_compressed(
@@ -173,8 +193,12 @@ class GroupingTree:
 
     @classmethod
     def load(cls, path):
-        """Read a kept tree and check it against its own key: a file whose
-        contents do not hash to the key it carries is refused, loudly."""
+        """Read a kept tree and check it twice: its members and fit settings
+        must hash to the key it carries, and its arrays (linkage, vectors, fitted
+        rows, leaf order) to the digest it carries. Either failing is refused,
+        loudly. Neither check says the file is the one a CALLER looked up: the
+        caller compares `key` with the key it asked for (`engine.run_grouping`,
+        the bridge's `_tree_state`)."""
         with np.load(path, allow_pickle=False) as z:
             meta = json.loads(str(z["meta_json"]))
             refs = [str(r) for r in z["refs"].tolist()]
@@ -192,6 +216,12 @@ class GroupingTree:
                       leaf_order=np.asarray(z["leaf_order"], dtype=np.int64),
                       member_digests=[g if g != "" else None for g in z["digests"].tolist()],
                       key=str(meta.get("key") or ""))
+        stated = meta.get("arrays_digest")
+        actual = arrays_digest(out.linkage, out.vectors, out.fit_rows, out.leaf_order)
+        if stated != actual:
+            raise ValueError(f"the grouping tree at {path} was changed after it was written: its arrays do not "
+                             f"match the digest it carries ({stated} on disk, {actual} from its arrays). "
+                             f"Regroup to build it again.")
         if out.computed_key() != out.key:
             raise ValueError(f"the grouping tree at {path} does not match its own key ({out.key} on disk, "
                              f"{out.computed_key()} from its contents): it was changed after it was written. "
@@ -205,7 +235,7 @@ def from_fit(fit, items, *, unit, basis, method, params, taking_part, pre_omitte
     members = member_signature(items, basis)
     Z = np.asarray(fit.payload["linkage"], dtype=np.float64)
     t = GroupingTree(
-        method=method, unit=unit, basis=basis, fit_params=fit_params(params),
+        method=method, unit=unit, basis=basis, fit_params=fit_params(params, method),
         linkage=Z, vectors=np.asarray(fit.payload["vectors"], dtype=np.float64),
         refs=np.asarray([_plain_ref(it) for it in items], dtype=object),
         content_hashes=np.asarray([m[1] for m in members], dtype=object),

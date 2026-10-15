@@ -623,8 +623,19 @@ content hashes and pre-fit omissions, the fitted rows and the leaf order. The `g
 
 The key is a hash of unit, basis, method, the params **minus the assign-only ones** (`cut`, `omit_d`,
 `min_group`, `omit_small` — they change no merge) and, per item, its ref, content hash and a digest of the
-waveform the fit was handed. A regroup whose key matches loads the tree and only re-cuts it (the job says
-*reused the tree*); a file whose contents do not hash to its key is refused on load. A cut is previewed from
+waveform the fit was handed; the method's defaults are filled in first, so a default given explicitly and one
+left out are the same key. A regroup whose key matches loads the tree and only re-cuts it (the job says
+*reused the tree*).
+
+What is checked, exactly: on load, the members and fit settings recorded in the file must hash to the key it
+carries, and its arrays (linkage, vectors, fitted rows, leaf order) to a blake2b digest it carries — so a file
+edited after writing is refused. Neither check says the file is the one the caller wanted: `run_grouping`
+reuses it only when its key is the key it was looked up by and it covers the same number of items (otherwise it
+refits and says *replaced*), and the bridge draws a grouping's tree only when the file's key is the row's
+`tree_key`. A save is refused unless the tree's member refs are exactly the assignments being saved.
+
+Tree files are **never pruned**: each regroup with a new key writes one (6–7 MB at 3,600 members). Delete
+`grouping_trees/` by hand to reclaim the space; groupings whose file is gone say so and offer to rebuild it. A cut is previewed from
 the tree by `engine.cut_preview` through the same assign path as a regroup, so at a grouping's own cut it
 reproduces that grouping row for row. Groupings made before 2026-10-15 have no tree; a regroup at their own
 settings builds one.

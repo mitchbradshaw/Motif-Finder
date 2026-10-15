@@ -360,7 +360,10 @@ function GroupingEditor({ from }: { from: string }) {
   const startUnit: Unit = unitQ === 'sequences' || unitQ === 'spike-trains' ? unitQ : 'motifs'
   const initialBasis: BasisKind = (basisQ as BasisKind) || (startUnit === 'sequences' ? 'sequence-similarity' : startUnit === 'spike-trains' ? 'amplitude' : 'shape-distance')
   const [d, setD] = useState<Draft>(() => ({ ...BASE, unit: startUnit, basis: initialBasis, cut: urlCut.current ?? (initialBasis === 'sequence-similarity' ? 0.5 : 0.42) }))
-  const [treeMax, setTreeMax] = useState<number | null>(null)
+  /* fix round: the slider keeps a cut-sized range (0.1-1), growing only to reach a cut set above it (a dragged line,
+   * a typed URL) — the tree's full height belongs to the dendrogram, where 0.1-1 was 5 % of the slider */
+  const [cutMax, setCutMax] = useState(1)
+  useEffect(() => { if (d.cut > cutMax) setCutMax(Math.ceil(d.cut * 10) / 10) }, [d.cut, cutMax])
 
   // the bases a unit admits depend on the unit, so the editor is re-read when it changes: that is what makes
   // "disabled WITH its reason" (§8.2) the core's answer rather than the page's guess
@@ -560,7 +563,7 @@ function GroupingEditor({ from }: { from: string }) {
       {editor.data && basis && <>
         {treeGid && (
           <TreePanel gid={treeGid} cut={d.cut} minGroup={d.minMembers} omitSmall={d.omitSmall} nearest={d.nearest}
-            onCut={c => set({ cut: c })} onMax={setTreeMax} busy={busy} onBuild={() => runPreview()} />
+            onCut={c => set({ cut: c })} busy={busy} onBuild={() => runPreview()} />
         )}
         <section className="lib-ge-sec" data-testid="ge-unit">
           <h4>1&nbsp; What to group</h4>
@@ -598,7 +601,7 @@ function GroupingEditor({ from }: { from: string }) {
         <section className="lib-ge-sec" data-testid="ge-params">
           <h4>3&nbsp; {basis.title[0].toUpperCase() + basis.title.slice(1)}</h4>
           <Params d={d} set={set} basis={d.basis} dist={dist} extent={extent} clusterings={editor.data.clusterings} invalid={invalid} methods={methods}
-            cutMax={treeGid && treeMax ? Math.max(1, Math.ceil(treeMax * 1.05 * 100) / 100) : 1} />
+            cutMax={cutMax} />
         </section>
 
         <section className="lib-ge-sec" data-testid="ge-misfits">
@@ -692,31 +695,39 @@ function GroupingEditor({ from }: { from: string }) {
  * when the catalogue and the fit settings have not changed. */
 const MAX_TREE_CARDS = 40
 
-function TreePanel({ gid, cut, minGroup, omitSmall, nearest, onCut, onMax, onBuild, busy }: {
+function TreePanel({ gid, cut, minGroup, omitSmall, nearest, onCut, onBuild, busy }: {
   gid: string; cut: number; minGroup: number; omitSmall: boolean; nearest: number
-  onCut: (c: number) => void; onMax: (h: number | null) => void; onBuild: () => void; busy: boolean
+  onCut: (c: number) => void; onBuild: () => void; busy: boolean
 }) {
   const [tree, setTree] = useState<LibGroupingTree | null>(null)
   const [treeErr, setTreeErr] = useState<string | null>(null)
   useEffect(() => {
     let alive = true
-    setTree(null); setTreeErr(null); onMax(null)
-    getLibraryGroupingTree(gid).then(t => { if (!alive) return; setTree(t); onMax(t.tree ? t.tree.dendrogram.max_height : null) })
+    setTree(null); setTreeErr(null)
+    getLibraryGroupingTree(gid).then(t => { if (alive) setTree(t) })
       .catch(e => { if (alive) { console.error('the grouping tree did not load', e); setTreeErr(errText(e)) } })
     return () => { alive = false }
-  }, [gid]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [gid])
   const has = !!tree?.tree
   const [pv, setPv] = useState<LibCutPreview | null>(null)
   const [pvErr, setPvErr] = useState<string | null>(null)
+  /* fix round: at most one cut request in flight. A move while one is out waits as `pending` (a newer move replaces
+   * it), and is sent when the one in flight lands — so a drag costs the server two or three cuts, not one per pixel */
+  const mounted = useRef(true)
+  useEffect(() => () => { mounted.current = false }, [])
+  const inFlight = useRef(false)
+  const pending = useRef<(() => void) | null>(null)
   useEffect(() => {
     if (!has || !(cut > 0)) return
-    let alive = true
-    const h = window.setTimeout(() => {
+    const go = () => {
+      inFlight.current = true
       getLibraryGroupingCut(gid, cut, { min_group: omitSmall ? minGroup : 1, omit_d: nearest, samples: 5 })
-        .then(p => { if (alive) { setPv(p); setPvErr(null) } })
-        .catch(e => { if (alive) { console.error('the cut preview failed', e); setPvErr(errText(e)) } })
-    }, 180)
-    return () => { alive = false; window.clearTimeout(h) }
+        .then(p => { if (mounted.current) { setPv(p); setPvErr(null) } })
+        .catch(e => { console.error('the cut preview failed', e); if (mounted.current) setPvErr(errText(e)) })
+        .finally(() => { inFlight.current = false; const next = pending.current; pending.current = null; if (next) next() })
+    }
+    const h = window.setTimeout(() => { if (inFlight.current) pending.current = go; else go() }, 180)
+    return () => window.clearTimeout(h)
   }, [gid, has, cut, minGroup, omitSmall, nearest])
 
   const head = (
@@ -742,7 +753,8 @@ function TreePanel({ gid, cut, minGroup, omitSmall, nearest, onCut, onMax, onBui
     <section className="lib-ge-sec" data-testid="ge-tree" data-key={tree.tree.key}>
       {head}
       <span className="lib-cap">Drag the amber line to cut the tree somewhere else; the families below follow at once, read from the kept tree.</span>
-      <Dendrogram t={{ dendrogram: d }} k={k} cutHeight={cut} leafWord="members"
+      <Dendrogram t={{ dendrogram: d }} k={k} cutHeight={cut} leafWord="members" heightScale="sqrt"
+        cutLabel={`cut ${fmtCut(cut)} · ${k} branch${k === 1 ? '' : 'es'} before the size and distance rules · drag`}
         onK={kk => onCut(+heightFor(d.heights, d.max_height, kk).toFixed(4))} />
       {pvErr && <Callout tone="red" title={`The families at cut ${cut} did not load`} testid="tree-cut-failed">{pvErr}</Callout>}
       {pv && (

@@ -308,6 +308,17 @@ def _reference_assign(method, fit, cut, omit_d):
     """main's `WardMethod.assign` before the fix round, verbatim in substance —
     the yardstick the vectorised omit rule must reproduce exactly."""
     from scipy.cluster.hierarchy import fcluster
+
+    class _Old:      # main's `WardMethod.medoid`, verbatim, so the yardstick does not lean on the code under test
+        @staticmethod
+        def medoid(fit, indices):
+            indices = list(indices)
+            if len(indices) == 1:
+                return indices[0], 0.0
+            sums = {i: float(fit.distances[i, indices].sum()) for i in indices}
+            best = min(indices, key=lambda i: sums[i])
+            return best, sums[best] / (len(indices) - 1)
+    method = _Old()
     labels = [int(f) for f in fcluster(fit.payload["linkage"], t=cut, criterion="distance")]
     families = sorted(set(labels))
     members = {f: [i for i, lab in enumerate(labels) if lab == f] for f in families}
@@ -413,3 +424,14 @@ def test_an_explicit_default_fit_setting_shares_the_key(tmp_path):
     first = engine.run_grouping(its, **WARD, params={"cut": 0.6}, tree_root=str(tmp_path))
     again = engine.run_grouping(its, **WARD, params={"cut": 0.6, "resample_length": 256}, tree_root=str(tmp_path))
     assert again.tree["reused"] is True and again.tree["key"] == first.tree["key"]
+
+
+@pytest.mark.parametrize("cut", [0.3, 2.0, 100.0])
+def test_the_large_family_medoid_path_matches_the_loop_too(cut):
+    """Families over 64 members take the sub-matrix path; it must name the same medoids as the loop."""
+    its = _noise_items(400, seed=8)
+    method = ward_mod.WardMethod()
+    fit = method.fit([i["values"] for i in its], params={})
+    want, reasons, _ = _reference_assign(method, fit, cut, 0.5)
+    assert method.assign(fit, cut=cut, omit_d=0.5) == want
+    assert dict(fit.omit_reasons) == reasons

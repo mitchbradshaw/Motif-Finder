@@ -201,35 +201,49 @@ class WardMethod:
             fit.family_labels = {1: "F-01"}
             return [1]
 
-        labels = [int(f) for f in fcluster(fit.payload["linkage"], t=cut,
-                                           criterion="distance")]
+        # fixup-an fix round: vectorised. The cut is now previewed interactively from a kept tree, and the
+        # per-row x per-family Python loop this replaces took 3-6 s at low cuts on 3,000 members. The rule
+        # and its output are unchanged (tests/test_library_grouping_tree.py pins it against that loop).
+        lab = np.asarray(fcluster(fit.payload["linkage"], t=cut, criterion="distance"), dtype=np.int64)
+        labels = [int(f) for f in lab]
         families = sorted(set(labels))
-        members = {f: [i for i, lab in enumerate(labels) if lab == f]
-                   for f in families}
-        medoids = {f: self.medoid(fit, members[f])[0] for f in families}
-        # the medoid of each family's other members, for the row that is the
-        # family's own medoid; None where the family is that row alone.
-        runners_up = {
-            f: (self.medoid(fit, [i for i in members[f] if i != medoids[f]])[0]
-                if len(members[f]) > 1 else None)
-            for f in families}
+        order = np.argsort(lab, kind="stable")              # rows grouped by family, input order kept
+        bounds = np.searchsorted(lab[order], families + [families[-1] + 1])
+        members = {f: order[bounds[k]:bounds[k + 1]] for k, f in enumerate(families)}
+        D = fit.distances
+        medoids, runners_up = {}, {}
+        for f in families:
+            idx = members[f]
+            medoids[f] = self._medoid_row(D, idx)
+            rest = idx[idx != medoids[f]]
+            # the medoid of each family's other members, for the row that is the family's own medoid;
+            # None where the family is that row alone
+            runners_up[f] = self._medoid_row(D, rest) if rest.size else None
 
-        out = []
-        for i, family in enumerate(labels):
-            if omit_d is not None:
-                anchors = [runners_up[f] if medoids[f] == i else medoids[f]
-                           for f in families]
-                distances = [float(fit.distances[i, a])
-                             for a in anchors if a is not None]
-                nearest = min(distances) if distances else float("inf")
-                if nearest > float(omit_d):
-                    fit.omit_reasons[i] = "past_cut"
-                    out.append(None)
-                    continue
-            out.append(family)
+        out = list(labels)
+        if omit_d is not None:
+            anchor = np.asarray([medoids[f] for f in families], dtype=np.int64)
+            dist = np.array(D[:, anchor], dtype=float)                 # (n, families)
+            for col, f in enumerate(families):
+                own = medoids[f]                                       # the medoid row is measured from the runner-up
+                dist[own, col] = D[own, runners_up[f]] if runners_up[f] is not None else np.inf
+            nearest = dist.min(axis=1) if dist.shape[1] else np.full(fit.n, np.inf)
+            for i in np.flatnonzero(nearest > float(omit_d)):
+                fit.omit_reasons[int(i)] = "past_cut"
+                out[int(i)] = None
 
         fit.family_labels = {f: f"F-{k + 1:02d}" for k, f in enumerate(families)}
         return out
+
+    @staticmethod
+    def _medoid_row(D, idx):
+        """`medoid`'s choice, vectorised: the row of `idx` with the smallest summed distance to the others
+        (ties to the first, as `min` does)."""
+        idx = np.asarray(idx, dtype=np.int64)
+        if idx.size == 1:
+            return int(idx[0])
+        sums = np.array([D[i, idx].sum() for i in idx]) if idx.size <= 64 else D[np.ix_(idx, idx)].sum(axis=1)
+        return int(idx[int(np.argmin(sums))])
 
     # ----------------------------------------------------------- estimate
 
@@ -251,9 +265,9 @@ class WardMethod:
             raise ValueError("A family with no members has no medoid.")
         if len(indices) == 1:
             return indices[0], 0.0
-        sums = {i: float(fit.distances[i, indices].sum()) for i in indices}
-        best = min(indices, key=lambda i: sums[i])
-        return best, sums[best] / (len(indices) - 1)
+        # fix round: the same choice as `_medoid_row` (and so as `assign`), one sub-matrix for a big family
+        best = self._medoid_row(fit.distances, indices)
+        return best, float(fit.distances[best, indices].sum()) / (len(indices) - 1)
 
     # ------------------------------------------------------ merge_heights
 
