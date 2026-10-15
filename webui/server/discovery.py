@@ -1016,6 +1016,7 @@ def get_detections(request: Request, run: str, channel: str, t0: float = 0.0, t1
                 also[p["candidate"]].append(key)
         verdicts = match_span_sets(mine, [(h["start"], h["end"]) for h in humans], rule=rule)
         verdict_of = {p["candidate"]: humans[p["reference"]]["verdict"] for p in verdicts["pairs"]}
+        picked = _picked_ids(c, s["id"])        # fixup-AL: the browser's "in Review" mark
         out = []
         for i, sp in enumerate(spans):
             out.append({
@@ -1027,6 +1028,7 @@ def get_detections(request: Request, run: str, channel: str, t0: float = 0.0, t1
                 "score": (round(sp["score"], 4) if sp["score"] is not None else None),
                 "priorVerdict": verdict_of.get(i),
                 "alsoFoundBy": also[i],
+                "picked": int(sp["id"]) in picked,
             })
         return out
     finally:
@@ -3220,6 +3222,77 @@ def restore_run(request: Request, run_key: str):
 
 class ReviewBody(BaseModel):
     name: str | None = None
+    #: fixup-AL: *Send this one to Review* from the browser. With it, the
+    #: detections go to the session's one picked queue instead of the run-wide
+    #: queue; without it, the run-wide send is unchanged.
+    detection_ids: list[int] | None = None
+
+
+def _picked_note(session_id):
+    """The stable note that identifies a session's picked queue. Its filter
+    changes with every send, so `find_open_queue` (which matches filters)
+    cannot find it; `find_open_queue_by_note` finds it by this."""
+    return f"detections picked one at a time from Discovery's browser · session {int(session_id)}"
+
+
+def _picked_ids(conn, session_id):
+    """The detection ids in the session's open picked queue (empty if none)."""
+    qid = queues_mod.find_open_queue_by_note(conn, source_kind="discovery-run",
+                                             note=_picked_note(session_id))
+    if qid is None:
+        return set()
+    return {int(i) for i in queues_mod.get_queue(conn, qid)["filters"].get("detection_ids", [])}
+
+
+def _send_picked(c, s, row, run_key, detection_ids):
+    """Create-or-extend the session's picked queue with these detections of
+    this run. Validates first, writes second: nothing is written for a refused
+    id. A paired surrogate's detection is not "of this run" — `_run_ids`
+    excludes the surrogates — so phase-randomised noise cannot be picked."""
+    if not detection_ids:
+        raise HTTPException(422, {"message": "no detection named: detection_ids is empty"})
+    want = list(dict.fromkeys(int(i) for i in detection_ids))
+    ids = set(_run_ids(c, row))
+    marks = ",".join("?" * len(want))
+    found = {int(r["id"]): int(r["run_id"]) for r in c.execute(
+        f"SELECT id, run_id FROM detections WHERE id IN ({marks})", want).fetchall()}
+    missing = [i for i in want if i not in found]
+    if missing:
+        raise HTTPException(422, {"message": f"no detection {', '.join(map(str, missing))} in the database"})
+    foreign = [i for i in want if found[i] not in ids]
+    if foreign:
+        raise HTTPException(422, {"message": f"detection {', '.join(map(str, foreign))} is not one of "
+                                             f"{run_key}'s detections (a paired surrogate's, or another run's); "
+                                             "only this run's own detections are sent"})
+    note = _picked_note(s["id"])
+    qid = queues_mod.find_open_queue_by_note(c, source_kind="discovery-run", note=note)
+    if qid is None:
+        qid = queues_mod.create_queue(c, name=f"{s['name']} · picked from Discovery",
+                                      source_kind="discovery-run", filters={"detection_ids": want},
+                                      note=note)
+        res, reused = {"added": want, "already": [], "total": len(want)}, False
+    else:
+        res, reused = queues_mod.extend_queue(c, qid, want), True
+    queue = queues_mod.get_queue(c, qid)
+    counts = queues_mod.queue_counts(c, qid)
+    # what Review will NOT put to the researcher, and why: a rediscovery of a
+    # human span already judged, or a discarded run (the resolver drops both)
+    served = {int(it["target_id"]) for it in queues_mod.queue_items(c, qid, include_judged=True)}
+    not_asked = [i for i in res["added"] if i not in served]
+    parts = []
+    if res["added"]:
+        parts.append(f"{len(res['added'])} added to '{queue['name']}'")
+    if res["already"]:
+        parts.append(f"{len(res['already'])} already in the queue")
+    if not_asked:
+        parts.append(f"{len(not_asked)} not asked: a human verdict already covers it, or its run was discarded")
+    return {"run_key": run_key, "queue_id": int(qid), "queue": queue["name"], "reused": reused,
+            "picked": True, "added": res["added"], "already": res["already"], "total": res["total"],
+            "not_asked": not_asked, "unjudged": int(counts["remaining"]), "judged": int(counts["judged"]),
+            "source_kind": "discovery-run", "writes": queue["writes_to"],
+            "message": " · ".join(parts),
+            "note": ("one queue per session for the detections sent one at a time; it is a filter over those "
+                     "detections, and a verdict in Review moves this page's scoreboard like any other")}
 
 
 @router.post("/api/discovery/runs/{run_key}/review")
@@ -3247,6 +3320,8 @@ def send_to_review(request: Request, run_key: str, body: ReviewBody):
         ids = _run_ids(c, row)
         if not ids:
             raise HTTPException(422, {"message": f"{run_key} has no runs recorded, so it has nothing to send"})
+        if body.detection_ids is not None:
+            return _send_picked(c, s, row, run_key, body.detection_ids)
         kind = "seed-search" if row["kind"] == "seed" else "discovery-run"
         filters = {"run_ids": [int(i) for i in ids]}
         existing = queues_mod.find_open_queue(c, source_kind=kind, filters=filters)

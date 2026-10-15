@@ -243,6 +243,68 @@ def find_open_queue(conn, *, source_kind, filters=None, source_ref=None):
     return None
 
 
+def find_open_queue_by_note(conn, *, source_kind, note):
+    """The id of the open queue of this kind whose note is exactly `note`, or
+    None (the newest when several match).
+
+    For a queue whose identity is not its filters: Discovery's per-session
+    *picked* queue (fixup-AL) changes its `detection_ids` with every send, so
+    `find_open_queue`, which matches on the filters, could never find it again.
+    The caller writes a stable note at creation and finds the queue by it.
+    """
+    row = conn.execute(
+        "SELECT id FROM review_queues WHERE closed_at IS NULL AND source_kind = ? "
+        "AND note = ? ORDER BY id DESC LIMIT 1", (source_kind, note)).fetchone()
+    return None if row is None else int(row["id"])
+
+
+def extend_queue(conn, queue_id, detection_ids):
+    """Append detections to an open detection queue whose filter is an exact
+    detection set (`{"detection_ids": [...]}`), and return
+    `{"added": [...], "already": [...], "total": n}`.
+
+    The queue still holds no items: this rewrites its `filters_json`, the same
+    filter `create_queue` stored, so the resolver reads the new set on its next
+    call. Ids already in the filter come back in `already` and are not written
+    twice; order is kept (old ids first, new ones in the order given).
+
+    Refused (ValueError): a queue that does not exist or is closed, a queue
+    whose kind is not a detection kind, and a queue whose filter is anything
+    but a detection set — a run-id queue extended by one detection would
+    silently change what the run-wide send made.
+    """
+    q = get_queue(conn, queue_id)
+    if q is None:
+        raise ValueError("no such queue: {!r}".format(queue_id))
+    if q["closed_at"] is not None:
+        raise ValueError("queue {} is closed; a closed queue is not extended".format(queue_id))
+    if q["source_kind"] not in _DETECTION_KINDS:
+        raise ValueError(
+            "queue {} is a {!r} queue; only a detection queue ({}) takes detection ids".format(
+                queue_id, q["source_kind"], ", ".join(_DETECTION_KINDS)))
+    filters = q["filters"] or {}
+    if set(filters) != {"detection_ids"} or q["source_ref"] is not None:
+        raise ValueError(
+            "queue {} filters on {}, not on an exact detection_ids set; it cannot be "
+            "extended one detection at a time".format(
+                queue_id, ", ".join(sorted(filters)) or "its source ref"))
+    have = [int(i) for i in filters["detection_ids"]]
+    seen = set(have)
+    added, already = [], []
+    for i in (int(x) for x in detection_ids):
+        if i in seen:
+            if i not in already:
+                already.append(i)
+            continue
+        seen.add(i)
+        added.append(i)
+    if added:
+        conn.execute("UPDATE review_queues SET filters_json = ? WHERE id = ?",
+                     (json.dumps({"detection_ids": have + added}), int(queue_id)))
+        conn.commit()
+    return {"added": added, "already": already, "total": len(have) + len(added)}
+
+
 # ── the resolver ────────────────────────────────────────────────────────────
 
 def queue_items(conn, queue_id, *, limit=-1, offset=0, include_judged=False,
