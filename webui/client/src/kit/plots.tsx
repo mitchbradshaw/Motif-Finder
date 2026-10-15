@@ -2,7 +2,7 @@
  * Trace, MiniTrace, LineChart, Histogram, Bars, Scatter, Heatmap, BandStrip, NullBand, SmallMultiples.
  * Every plot sizes to its container width unless `width` is given. */
 import { scaleLinear } from 'd3'
-import { useEffect, useMemo, useState, type CSSProperties, type ReactNode } from 'react'
+import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import { EnvelopePath, SpanBands, TimeAxis, type BandKind } from '../charts/primitives'
 import { makeX } from '../charts/scale'
 import { measuredDomain } from '../charts/domain'
@@ -569,9 +569,15 @@ export function SmallMultiples<T>({ items, render, getValues, yDomain, domain = 
   // selection drives the page (the pattern of review/ClusterView): a selection made elsewhere — a band clicked
   // on the plot above — brings its cell into view rather than leaving the grid on a page that does not hold it
   const shown = selectedIndex != null && idx.includes(selectedIndex)
+  // ... but only when the SELECTION changes. It used to fire whenever the selected cell was off the page, so once a
+  // card was picked the pager could never leave its page (2026-10-13, the SpanSet slideshow). The ref holds the
+  // selection the grid last jumped to; a page the user turned to stays until they pick something else.
+  const jumpedTo = useRef<number | null>(null)
   useEffect(() => {
-    if (selectedIndex == null || selectedIndex < 0 || selectedIndex >= items.length || shown) return
-    setSeed(null); setPage(Math.floor(selectedIndex / cap) + 1)
+    if (selectedIndex == null || selectedIndex < 0 || selectedIndex >= items.length) { jumpedTo.current = null; return }
+    if (jumpedTo.current === selectedIndex) return
+    jumpedTo.current = selectedIndex
+    if (!shown) { setSeed(null); setPage(Math.floor(selectedIndex / cap) + 1) }
   }, [selectedIndex, shown, items.length, cap])
   const domOf = (item: T): [number, number] => domain === 'per-panel' && getValues && !yDomain ? measuredDomain(getValues(item)) ?? [-1, 1] : dom
   const move = (d: 1 | -1) => {

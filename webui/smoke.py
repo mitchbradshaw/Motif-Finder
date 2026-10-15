@@ -32,6 +32,15 @@ SHOTS = os.environ.get("SMOKE_SHOTS") or os.path.join(HERE, "screenshots")   # t
 #: coverage, which is what gives the scoreboard a denominator.
 SMOKE_SECTION_H = (80.0, 84.0)
 SMOKE_TEMPLATE = "mp_threshold"
+#: 2026-10-15: Analyse opens on NO chain. The flows and the page states that assume the old default chain
+#: (mp_threshold: detrend -> matrix_profile -> threshold) get it seeded into sessionStorage, as a user who imported
+#: it would have it; a state with "empty_chain": true runs on the empty canvas instead, and the chain is seeded
+#: again for the next state that does not ask for the empty canvas.
+SMOKE_CHAIN = {"name": "mp_threshold", "saved": False, "lastRunJobId": None, "steps": [
+    {"stage": "preprocessing", "algorithm": "detrend", "params": {"mode": "rolling_mean", "window_s": 600}},
+    {"stage": "detection", "algorithm": "matrix_profile", "params": {"window_min": 1.0, "backend": "stump", "scrump_percentage": 1.0}},
+    {"stage": "detection", "algorithm": "threshold", "params": {"threshold": 8.0}}]}
+SEED_CHAIN_JS = "c => sessionStorage.setItem('ub-proto-a:chain', JSON.stringify(c))"
 #: fixup-L: the `detection.threshold` value at which the default chain finds spans on the smoke span
 #: (recording 4, samples 1002725–1003475): 6.0 → 2 spans, 5.0 → 5, 4.0 → 6 (measured 2026-10-03). The
 #: chain's default 8.0 finds none, and *Pass 0 to Review* is rightly grey.
@@ -529,6 +538,10 @@ class Smoke:
         self.goto(page, "analyse/chain", 1500)
         page.wait_for_selector('[data-testid="chain-page"]', timeout=20000)
         page.wait_for_timeout(800)
+        if page.locator('[data-testid="chain-empty-example"]').count():
+            # a fresh session opens on no chain (2026-10-15): take the example the empty canvas offers
+            self.check(page.locator('[data-testid="chain-empty"]').count() == 1, "a fresh Analyse opens on the empty canvas, not a default chain")
+            page.locator('[data-testid="chain-empty-example"]').first.click(); page.wait_for_timeout(900)
         rows = page.locator('[data-testid^="chain-row-"]').count()
         self.check(rows >= 4, f"{rows} chain rows (source + 3 steps)")
         # the axis primitive is shared with Explore, so both workspaces check it
@@ -1334,6 +1347,8 @@ class Smoke:
         # the app keeps the source span and the chain in sessionStorage across a reload (state.tsx), so a
         # reload alone is not a fresh tab: clear both storages first, as a new tab would have them
         page.evaluate("() => { try { sessionStorage.clear(); localStorage.clear() } catch (e) {} }")
+        page.evaluate(SEED_CHAIN_JS, SMOKE_CHAIN)
+        self._chain_cleared = False
         page.reload(wait_until="networkidle")
         page.wait_for_timeout(300)
         mdir = os.path.join(HERE, "smoke_pages")
@@ -1378,6 +1393,13 @@ class Smoke:
                 # does: in a document that has just loaded, with an empty in-memory store. A hash `goto` in the
                 # walk's shared tab is a same-document navigation, so every grouping an earlier state picked is
                 # still in the store, and a state about what the URL ALONE decides would pass on that leftover.
+                if e.get("empty_chain"):
+                    # the state is about the empty canvas (2026-10-15): drop the seeded chain and mount afresh
+                    page.evaluate("() => sessionStorage.removeItem('ub-proto-a:chain')"); page.reload(wait_until="networkidle"); page.wait_for_timeout(300)
+                    self._chain_cleared = True
+                elif getattr(self, "_chain_cleared", False):
+                    page.evaluate(SEED_CHAIN_JS, SMOKE_CHAIN); page.reload(wait_until="networkidle"); page.wait_for_timeout(300)
+                    self._chain_cleared = False
                 if e.get("cold"):
                     page.reload(wait_until="networkidle")
                 page.wait_for_timeout(e.get("settle_ms", 500))

@@ -24,6 +24,8 @@ import { RunLogModal } from './RunLogModal'
 import { useSendRunToReview } from './sendToReview'
 import { attachRun, cancelCurrent, cancelPending, clearStale, dropUndo, markStale, popUndo, pushUndo, resetRun, startRun, stepElapsed, syncToSource, useAnalyseStore, type UndoEntry } from './store'
 import { shortName, TemplatesPopover } from './TemplatesPopover'
+import { deleteStepAt } from './deleteStep'
+import { EXAMPLE_CHAIN, loadLastChain } from '../state'
 import { EstimateChip, EXAMPLE_SOURCE, isHeldOut, isPoolSource, NameChip, POOL_SOURCE, Popwrap, RunErrorCard, SourceChip, SurrogateToggle, nullText, t0Of, t1Of, useSourceEnvelope } from './toolbar'
 import { pad2, stepName, useAdapters } from './useAdapters'
 import { spanOf, useValidation } from './useValidation'
@@ -118,14 +120,10 @@ export function ChainPage() {
   }
   const cancel = async () => { try { const note = await cancelCurrent(); toast.push({ text: `cancel requested · ${note ?? 'no run'}` }) } catch (e) { toast.push({ kind: 'error', text: errText(e) }) } }
   const restore = (u: UndoEntry) => { dropUndo(u); setChain(c => ({ ...c, saved: false, steps: u.steps })); markStale(u.staleIndex) }
-  const deleteStep = (i: number) => {
-    const name = adapters.byName.get(stepName(steps[i]))?.page_name ?? steps[i].algorithm
-    const entry: UndoEntry = { steps, staleIndex: i, label: `${pad2(i + 1)} ${name}` }
-    pushUndo(entry)
-    setChain(c => ({ ...c, saved: false, steps: c.steps.filter((_, k) => k !== i) }))
-    markStale(i)
-    toast.push({ text: `${pad2(i + 1)} ${name} deleted`, action: { label: 'Undo', hint: 'Ctrl Z', onClick: () => restore(entry) } })
-  }
+  const deleteStep = (i: number) =>
+    deleteStepAt({ steps, index: i, name: adapters.byName.get(stepName(steps[i]))?.page_name ?? steps[i].algorithm, setChain, toast })
+  // the empty canvas (2026-10-15): the last chain with a block, offered back rather than loaded unasked
+  const lastChain = steps.length === 0 ? loadLastChain() : null
   /* Ctrl/Cmd+Z restores the last deleted stage (frame chain-1e); ignored while typing in a field or during a run */
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -472,6 +470,20 @@ export function ChainPage() {
     <>
       <Header workspace="Analyse" page="Chain" subtitle="build here · open a block to tune it" />
       <div className="page"><div className="page-inner" data-testid="chain-page">
+        {steps.length === 0 && !running && (
+          <div className="card card-pad" data-testid="chain-empty" style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+            <div style={{ minWidth: 0, flex: '1 1 320px' }}>
+              <div className="b">Start a chain</div>
+              <p className="muted" style={{ margin: '4px 0 0' }}>A chain is the blocks a span of recording goes through, left to right. Pick a saved template, or add the first block yourself.</p>
+            </div>
+            <button className="btn next" onClick={() => setPop('import')} data-testid="chain-empty-import">Import a template</button>
+            <button className="btn" onClick={() => setModalPos(0)} data-testid="chain-empty-add">Add the first block</button>
+            {lastChain && <button className="btn" onClick={() => { setChain({ ...lastChain, saved: false, lastRunJobId: null }); resetRun(); clearStale() }} data-testid="chain-empty-restore"
+              title="the last chain this browser had, kept across sessions">Restore {lastChain.name} · {lastChain.steps.length} block{lastChain.steps.length === 1 ? '' : 's'}</button>}
+            <button className="btn" onClick={() => { setChain({ ...EXAMPLE_CHAIN }); resetRun(); clearStale() }} data-testid="chain-empty-example"
+              title="detrend, then a matrix profile, then a threshold: the chain the page used to open on">Example · {EXAMPLE_CHAIN.name}</button>
+          </div>
+        )}
         {adapters.error && <div className="error-card"><h3>adapter registry failed to load</h3><pre>{adapters.error}</pre></div>}
         {val.error && <div className="error-card"><h3>validation failed</h3><pre>{val.error}</pre></div>}
         {st.run.error && <RunErrorCard error={st.run.error} kind={st.run.errorKind} />}

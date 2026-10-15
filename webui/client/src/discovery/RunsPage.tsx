@@ -2,8 +2,7 @@
  * Toolbar · Scope · Runs list | where each run fires · scoreboard · browse detections · run acts (spec §7.1–7.5, P17). */
 import { Fragment, useEffect, useMemo, useState } from 'react'
 import {
-  Button, Callout, DisabledReason, Dropdown, EmptyState, Icon, InfoTip, Modal, Pager, Seg, Trace, cx, recordDemoWrite, useDemoState, useNotWired, useQueryState, useSim, startSim,
-} from '../kit'
+  Button, Callout, DisabledReason, Dropdown, EmptyState, Icon, InfoTip, Modal, Pager, Seg, Trace, cx, recordDemoWrite, useDemoState, useNotWired, useQueryState, useSim, startSim, ProgressBar } from '../kit'
 import { Header } from '../shell/Header'
 import { useToast } from '../shell/Toast'
 import { navigate } from '../state'
@@ -339,7 +338,11 @@ function Browser({ dx, run }: { dx: Discovery; run: DiscoveryRun | null }) {
       ) : dets.error ? <LoadFailed what="detections" error={dets.error} onRetry={dets.reload} />
         : !det ? (n === 0 && dets.data ? <EmptyState size="sm" title={`no detections on ${ch}`} testid="browser-none" /> : <Loading height={150} />) : (
           <div className="dsc-browser-body">
-            <div className="dsc-det-info" data-testid="browser-detection">
+            {dets.loading && (
+            /* the list is being re-read for another run or channel; the old detection stays visible until the new one lands (2026-10-13) */
+            <div className="row" style={{ gap: 8, marginBottom: 6 }} data-testid="browser-loading"><ProgressBar indeterminate size="sm" width={120} labelPosition="none" /><span className="muted small">loading this run's detections…</span></div>
+          )}
+          <div className="dsc-det-info" data-testid="browser-detection" style={dets.loading ? { opacity: 0.6 } : undefined}>
               <b className="mono">{det.id}</b>
               <span>{det.atH.toFixed(2)} h · {det.channel}</span>
               {/* a block that emits no score, or a window of NaNs, gives no number here — say which field is absent */}

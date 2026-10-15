@@ -10,6 +10,7 @@ import { Header } from '../shell/Header'
 import { useToast } from '../shell/Toast'
 import { fmtDuration, fmtHours, navigate, useApp } from '../state'
 import { ParamsPanel, fmtParam } from './ParamsPanel'
+import { deleteStepAt } from './deleteStep'
 import { ReadoutCard } from './Readout'
 import { useReadout } from './useReadout'
 import { renderByType } from './Renderer'
@@ -150,6 +151,8 @@ export function BlockPage({ index }: { index: number }) {
           <EstimateChip text={running ? `${pad2(curStep + 1)} running · ${stepElapsed(curStep).toFixed(1)} s` : `≈ ${costText} · ${pad2(rerunFrom + 1)} → ${pad2(steps.length)}${stale ? ' recompute' : ''}${over.length ? ` · ${over.length} over the local ceiling` : ''}`} kind={running ? 'blue' : over.length ? 'red' : 'amber'} />
           <span className="spacer" />
           <button className="btn" onClick={saveAsTemplate} data-testid="save-template">▢ Save template</button>
+          <button className="btn" onClick={() => { if (!step) return; deleteStepAt({ steps, index, name: ad?.page_name ?? step.algorithm, setChain, toast }); navigate('analyse/chain') }}
+            disabled={running || !step} data-testid="delete-block" title={running ? 'wait for the run' : 'delete this block from the chain (Ctrl Z on the chain page undoes it)'}>✕ Delete block</button>
           {running ? <button className="btn danger" onClick={cancel} data-testid="cancel-button" disabled={cancelling}
               title={cancelling ? 'cancel accepted · the run stops when the current stage ends, because cancel is checked between steps and never mid-step' : 'stop the run after the current stage'}>{cancelling ? '■ Cancelling…' : '■ Cancel'}</button>
             : <button className="btn primary" onClick={rerun} disabled={!canRun} data-testid="run-button" title={runTitle}>{job ? `↻ Re-run from ${pad2(rerunFrom + 1)}` : '▶ Run chain'}</button>}

@@ -77,13 +77,31 @@ function load<T>(key: string, fallback: T): T {
 }
 function save(key: string, v: unknown) { try { sessionStorage.setItem(`${SS_KEY}:${key}`, JSON.stringify(v)) } catch { /* ignore */ } }
 
-export const DEFAULT_CHAIN: ChainDraft = {
+/** 2026-10-15: a fresh session opens on NO chain. It used to open on this mp_threshold chain, which the researcher
+ *  read as "still has a default template on opening". The old chain lives on as `EXAMPLE_CHAIN`: the empty canvas
+ *  offers it as one of its starts, and the smoke walk seeds it for the states that assume a chain. */
+export const EXAMPLE_CHAIN: ChainDraft = {
   name: 'mp_threshold', saved: false, lastRunJobId: null,
   steps: [
     { stage: 'preprocessing', algorithm: 'detrend', params: { mode: 'rolling_mean', window_s: 600 } },
     { stage: 'detection', algorithm: 'matrix_profile', params: { window_min: 1.0, backend: 'stump', scrump_percentage: 1.0 } },
     { stage: 'detection', algorithm: 'threshold', params: { threshold: 8.0 } },
   ],
+}
+export const DEFAULT_CHAIN: ChainDraft = { name: 'untitled', saved: false, lastRunJobId: null, steps: [] }
+const LAST_CHAIN_KEY = `${SS_KEY}:last-chain`
+/** The last chain that had at least one block, kept in localStorage across browser sessions; the empty canvas
+ *  offers it back rather than loading it unasked. */
+export function loadLastChain(): ChainDraft | null {
+  try {
+    const raw = localStorage.getItem(LAST_CHAIN_KEY)
+    const c = raw ? (JSON.parse(raw) as ChainDraft) : null
+    return c && Array.isArray(c.steps) && c.steps.length ? c : null
+  } catch { return null }
+}
+function rememberLastChain(c: ChainDraft) {
+  if (!c.steps.length) return
+  try { localStorage.setItem(LAST_CHAIN_KEY, JSON.stringify({ ...c, lastRunJobId: null })) } catch { /* ignore */ }
 }
 
 export function AppProvider({ children }: { children: ReactNode }) {
@@ -115,7 +133,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     save('source', s)
   }, [])
   const setChain = useCallback((c: ChainDraft | ((prev: ChainDraft) => ChainDraft)) => {
-    setChainState(prev => { const next = typeof c === 'function' ? c(prev) : c; save('chain', next); return next })
+    setChainState(prev => { const next = typeof c === 'function' ? c(prev) : c; save('chain', next); rememberLastChain(next); return next })
   }, [])
   const setExplore = useCallback((patch: Partial<AppState['explore']>) => {
     setExploreState(prev => { const next = { ...prev, ...patch }; save('explore', next); return next })
