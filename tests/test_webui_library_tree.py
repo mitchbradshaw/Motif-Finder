@@ -175,3 +175,41 @@ def test_the_cut_preview_reads_the_kept_tree_and_carries_sample_cards(lib):
 def test_an_unknown_grouping_tree_is_a_404(lib):
     client, _ = lib
     assert client.get("/api/library/groupings/g-999/tree").status_code == 404
+
+
+# ── fix round (critic) ──────────────────────────────────────────────────────
+
+def test_a_row_whose_tree_file_holds_another_key_says_so(lib):
+    client, ctx = lib
+    saved = _ok(_save(client, _run(client, WARD_BODY)))
+    conn = sqlite3.connect(ctx["rt"].db_path)
+    try:
+        conn.execute("UPDATE groupings SET tree_key = ? WHERE id = ?", ("0" * 32, int(saved["id"].split("-")[1])))
+        conn.commit()
+    finally:
+        conn.close()
+    body = _ok(client.get(f"/api/library/groupings/{saved['id']}/tree"))
+    assert body["tree"] is None and "key" in body["reason"] and body["canBuild"] is True
+    r = client.get(f"/api/library/groupings/{saved['id']}/cut", params={"cut": 0.6})
+    assert r.status_code == 404
+
+
+def test_saving_a_tree_whose_members_are_not_the_assignments_is_refused(lib):
+    client, _ = lib
+    result = _run(client, WARD_BODY)
+    r = _save(client, {**result, "assignments": result["assignments"][:-1]})
+    assert r.status_code == 422 and "member" in r.text
+
+
+def test_the_library_dendrogram_reads_heights_on_a_square_root_axis():
+    """Fix round: on a 3,000-member tree the cuts the researcher uses (0.1-1) sat in the bottom few pixels of a
+    linear axis reaching 16. The Library passes a square-root height axis and an exact cut height; the Analyse page
+    keeps the linear default; the slider stays a cut-sized range rather than the tree's full height."""
+    src = os.path.join(PROJECT_ROOT, "webui", "client", "src")
+    with open(os.path.join(src, "analyse", "views", "TreePage.tsx"), encoding="utf-8") as f:
+        tree = f.read()
+    with open(os.path.join(src, "library", "GroupingPage.tsx"), encoding="utf-8") as f:
+        page = f.read()
+    assert "heightScale = 'linear'" in tree
+    assert 'heightScale="sqrt"' in page
+    assert "treeMax * 1.05" not in page

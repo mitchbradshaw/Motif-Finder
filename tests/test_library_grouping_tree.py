@@ -297,3 +297,119 @@ def test_a_changed_member_or_fit_setting_is_a_new_tree(tmp_path):
 def test_preview_carries_the_tree_through(tmp_path):
     p = engine.preview(items(), **WARD, params={"cut": 0.6}, tree_root=str(tmp_path))
     assert p.result.tree and os.path.isfile(p.result.tree["path"])
+
+
+# --------------------------------------------------------------------------
+# fix round (critic): the omit rule vectorised, the file's arrays checked, a
+# file under the wrong key rebuilt, explicit defaults share a key
+# --------------------------------------------------------------------------
+
+def _reference_assign(method, fit, cut, omit_d):
+    """main's `WardMethod.assign` before the fix round, verbatim in substance —
+    the yardstick the vectorised omit rule must reproduce exactly."""
+    from scipy.cluster.hierarchy import fcluster
+    labels = [int(f) for f in fcluster(fit.payload["linkage"], t=cut, criterion="distance")]
+    families = sorted(set(labels))
+    members = {f: [i for i, lab in enumerate(labels) if lab == f] for f in families}
+    medoids = {f: method.medoid(fit, members[f])[0] for f in families}
+    runners_up = {f: (method.medoid(fit, [i for i in members[f] if i != medoids[f]])[0]
+                      if len(members[f]) > 1 else None) for f in families}
+    out, reasons = [], {}
+    for i, family in enumerate(labels):
+        if omit_d is not None:
+            anchors = [runners_up[f] if medoids[f] == i else medoids[f] for f in families]
+            distances = [float(fit.distances[i, a]) for a in anchors if a is not None]
+            nearest = min(distances) if distances else float("inf")
+            if nearest > float(omit_d):
+                reasons[i] = "past_cut"
+                out.append(None)
+                continue
+        out.append(family)
+    return out, reasons, {f: f"F-{k + 1:02d}" for k, f in enumerate(families)}
+
+
+@pytest.mark.parametrize("cut", [0.05, 0.2, 0.42, 0.8, 1.5, 100.0])
+@pytest.mark.parametrize("omit_d", [None, 0.3, 0.5])
+def test_the_vectorised_omit_rule_matches_the_loop_it_replaced(cut, omit_d):
+    its = items()
+    method = ward_mod.WardMethod()
+    fit = method.fit([i["values"] for i in its], params={})
+    want, reasons, labels = _reference_assign(method, fit, cut, omit_d)
+    got = method.assign(fit, cut=cut, omit_d=omit_d)
+    assert got == want
+    assert dict(fit.omit_reasons) == reasons
+    assert fit.family_labels == labels
+
+
+def _noise_items(n, seed=3):
+    rng = np.random.default_rng(seed)
+    out = []
+    for k in range(n):
+        x = np.cumsum(rng.normal(size=64)) if k % 2 else _ar1(64, rng)
+        out.append({"member_ref": k, "content_hash": f"n{k}", "values": x})
+    return out
+
+
+def test_a_cut_on_3000_members_is_fast_once_the_tree_is_warm():
+    """The critic measured 6.0 s for a warm cut at 0.2 on 3,000 members with the
+    pure-Python omit loop; the preview is interactive, so it must be well under
+    a second. Budget: 0.5 s per cut."""
+    import time
+    its = _noise_items(3000)
+    method = ward_mod.WardMethod()
+    fit = method.fit([i["values"] for i in its], params={})
+    method.assign(fit, cut=0.8, omit_d=0.5)            # warm
+    for cut in (0.2, 0.05):
+        t0 = time.perf_counter()
+        method.assign(fit, cut=cut, omit_d=0.5)
+        took = time.perf_counter() - t0
+        assert took < 0.5, f"a cut at {cut} took {took:.2f} s on 3,000 members"
+
+
+def _rewrite(path, **changes):
+    """Rewrite a tree file's arrays, keeping its meta_json (and so its stated key) as written."""
+    with np.load(path, allow_pickle=False) as z:
+        data = {k: z[k] for k in z.files}
+    data.update(changes)
+    np.savez_compressed(path, **data)
+
+
+def test_a_tree_whose_arrays_were_changed_is_refused(tmp_path):
+    made = engine.run_grouping(items(), **WARD, params={"cut": 0.6}, tree_root=str(tmp_path))
+    path = made.tree["path"]
+    with np.load(path, allow_pickle=False) as z:
+        Z = z["linkage"].copy()
+        V = z["vectors"].copy()
+    Z[:, 2] *= 0.1
+    _rewrite(path, linkage=Z)
+    with pytest.raises(ValueError, match="changed"):
+        tree_mod.GroupingTree.load(path)
+    made2 = engine.run_grouping(items(), **WARD, params={"cut": 0.6}, tree_root=str(tmp_path / "b"))
+    _rewrite(made2.tree["path"], vectors=V[::-1].copy())
+    with pytest.raises(ValueError, match="changed"):
+        tree_mod.GroupingTree.load(made2.tree["path"])
+
+
+@pytest.mark.parametrize("n_other", [None, 40])
+def test_a_valid_tree_of_other_members_under_this_key_is_rebuilt_not_reused(tmp_path, n_other):
+    """A self-consistent tree for OTHER members copied over set A's key file was
+    reused for A (and a different member count raised a bare IndexError). The
+    reuse branch now requires the file's key to be the key it was looked up by."""
+    import shutil
+    a = items()
+    other = items(seed=99) if n_other is None else items(per_family=10, n_noise=n_other - 30, seed=5)
+    built = engine.run_grouping(other, **WARD, params={"cut": 0.6}, tree_root=str(tmp_path / "other"))
+    key_a = tree_mod.tree_key(a, **WARD, params={"cut": 0.6})
+    os.makedirs(str(tmp_path / "a"), exist_ok=True)
+    shutil.copyfile(built.tree["path"], tree_mod.path_for(str(tmp_path / "a"), key_a))
+    got = engine.run_grouping(a, **WARD, params={"cut": 0.6}, tree_root=str(tmp_path / "a"))
+    assert got.tree["reused"] is False and got.tree.get("replaced")
+    assert _rows(got) == _rows(engine.run_grouping(a, **WARD, params={"cut": 0.6}))
+    assert tree_mod.GroupingTree.load(got.tree["path"]).key == key_a
+
+
+def test_an_explicit_default_fit_setting_shares_the_key(tmp_path):
+    its = items()
+    first = engine.run_grouping(its, **WARD, params={"cut": 0.6}, tree_root=str(tmp_path))
+    again = engine.run_grouping(its, **WARD, params={"cut": 0.6, "resample_length": 256}, tree_root=str(tmp_path))
+    assert again.tree["reused"] is True and again.tree["key"] == first.tree["key"]
