@@ -7,7 +7,7 @@ import { useEffect, useRef, useState } from 'react'
 import { ApiError, getJob, type JobRow } from '../api'
 import { getB2Setup, trainB2, type B2Run, type B2Setup } from '../api/shape'
 import { createCnnSlurm, fmtBytes, fmtSecs, runCnnSmoke, type CnnSetup, type CnnSlurm, type CnnSmoke, type Encoding } from '../api/cnn'
-import { Button, Callout, NumberField, ProgressBar, SectionCard, useQueryState } from '../kit'
+import { Button, Callout, InfoTip, NumberField, ProgressBar, SectionCard, useQueryState } from '../kit'
 import { CopyList, ScriptBlock, Steps } from './HpcScript'
 import { ErrorBoundary } from '../shell/ErrorBoundary'
 import { useToast } from '../shell/Toast'
@@ -115,8 +115,7 @@ export function B2Launch({ template, pool }: { template: number; pool: number })
           <button className={`btn sm ${model === 'cnn' ? 'primary' : ''}`} onClick={() => setModel('cnn')} disabled={!cnn} title={cnn ? undefined : 'the bridge offered no CNN arm'} data-testid="b2-model-cnn" aria-pressed={model === 'cnn'}>CNN (fusion / GASF / GADF / recurrence)</button>
         </div>
         {model === 'forest' ? <>
-          <div className="small"><b>Random forest</b> on the cluster categories of every training window · inputs: <b>{setup.inputs.features}</b> ({setup.inputs.stages.join(' + ')})</div>
-          <div className="muted small" data-testid="b2-inputs-rule">{setup.inputs.rule}</div>
+          <div className="small"><b>Random forest</b> on the cluster categories of every training window · inputs: <b>{setup.inputs.features}</b> ({setup.inputs.stages.join(' + ')}) <InfoTip title="Inputs" testid="b2-inputs-rule">{setup.inputs.rule}</InfoTip></div>
           <div className="row" style={{ gap: 8, alignItems: 'center', marginTop: 6 }}>
             <span className="small">trees</span><NumberField value={nTrees} integer min={10} onValid={v => setNTrees(Math.max(10, Math.round(Number(v) || 300)))} testid="b2-trees" />
             <span className="muted small">class weight {setup.defaults.class_weight} · seed {setup.defaults.random_state}</span>
@@ -160,7 +159,7 @@ function B2Runs({ runs }: { runs: B2Run[] }) {
             <td className="small">{r.scored ? 'labelling / scored' : 'not yet labelled'}{r.status === 'completed' && <> · <Button variant="link" size="sm" testid={`b2-blind-link-${r.run_id}`} onClick={() => navigate(`models/results/b2/${r.run_id}`)}>against a blind human</Button></>}</td>
           </tr>))}</tbody>
       </table>
-      <div className="muted small">the diagnostic is how well the model (forest or CNN) imitates its own answer key on training windows it did not fit — not evidence; the result is the blind human check (Models › Results › against a blind human)</div>
+      <div className="row small" style={{ gap: 6 }}>diagnostic, not evidence<InfoTip title="The diagnostic">The diagnostic is how well the model (forest or CNN) imitates its own answer key on training windows it did not fit — not evidence; the result is the blind human check (Models › Results › against a blind human).</InfoTip></div>
     </SectionCard>
   )
 }
@@ -183,9 +182,10 @@ function CnnSettings({ cnn, enc, setEnc, epochs, setEpochs, withNull, setWithNul
         <span className="small">epochs</span><NumberField value={epochs ?? d.epochs} integer min={1} onValid={v => setEpochs(Math.max(1, Math.round(Number(v) || d.epochs)))} testid="b2-cnn-epochs" />
         <span className="muted small">batch {d.batch_size} · Adam lr {d.lr} · cosine · class weight {d.class_weight} · seed {d.random_state} · {d.img_size} px · refit on every training window</span>
       </div>
-      <div className="muted small" data-testid="b2-cnn-images-rule">{cnn.images_rule}</div>
-      <div className="muted small">{cnn.augmentation}</div>
-      <div className="muted small" data-testid="b2-cnn-fusion-note">{cnn.fusion_note}</div>
+      <div className="row small" style={{ gap: 6 }}>how the images are made
+        <InfoTip title="The images" testid="b2-cnn-images-rule">
+          <p>{cnn.images_rule}</p><p>{cnn.augmentation}</p><p data-testid="b2-cnn-fusion-note">{cnn.fusion_note}</p>
+        </InfoTip></div>
       <label className="small row" style={{ gap: 6, alignItems: 'center' }}>
         <input type="checkbox" checked={withNull} onChange={e => setWithNull(e.target.checked)} data-testid="b2-cnn-null" />
         also write the label-shuffle null's script — {cnn.null.note}
@@ -201,7 +201,7 @@ function CnnSlurmPanel({ s }: { s: CnnSlurm }) {
     <SectionCard title="SLURM script · B.2 CNN on the cluster" testid="b2-slurm-out">
       <div className="small"><b>{s.model}</b> · recipe <span className="mono" data-testid="b2-slurm-hash">{s.recipe_hash}</span> · {s.n_windows.toLocaleString()} windows ({s.n_train.toLocaleString()} train · {s.n_predict.toLocaleString()} predicted) · {Object.entries(s.by_scale).map(([k, v]) => `${k} min ${v.toLocaleString()}`).join(' · ')}</div>
       <div className="small" style={{ marginTop: 6 }} data-testid="b2-slurm-estimate"><b>{e.label}:</b> {e.seconds == null ? 'not measured yet (run the local smoke first)' : `about ${fmtSecs(e.seconds)} of work`} — encode {fmtSecs(e.parts.encode_s)}{e.parts.encode_cpu_s != null ? ` (${fmtSecs(e.parts.encode_cpu_s)} of CPU)` : ''}, train {fmtSecs(e.parts.train_s)} ({e.images.fit.toLocaleString()} images over {e.images.epochs} epochs, twice: the diagnostic and the refit), predict {fmtSecs(e.parts.predict_s)} · image cache {fmtBytes(e.cache_bytes)} on the cluster{e.this_cpu_train_s ? ` · on this CPU the training alone would take ${fmtSecs(e.this_cpu_train_s)}` : ''} · --time {s.slurm_time} per job, {s.jobs_needed ?? '?'} job(s) expected, the chain capped at {s.chain_jobs}</div>
-      <ul className="muted small" style={{ margin: '2px 0 0 18px' }}>{e.assumptions.map((a, i) => <li key={i}>{a}</li>)}</ul>
+      {e.assumptions.length > 0 && <div className="row small" style={{ gap: 6 }}>{e.assumptions.length} assumption{e.assumptions.length === 1 ? '' : 's'}<InfoTip title="What the estimate assumes"><ul style={{ margin: '2px 0 0 18px' }}>{e.assumptions.map((a, i) => <li key={i}>{a}</li>)}</ul></InfoTip></div>}
       {s.warnings.map((w, i) => <div key={i} className="small" style={{ color: 'var(--red)' }}>{w}</div>)}
       <h4 style={{ margin: '10px 0 2px' }}>On the cluster, step by step</h4>
       <Steps steps={s.steps} testid="b2-slurm-steps" />

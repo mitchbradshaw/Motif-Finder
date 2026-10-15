@@ -106,7 +106,7 @@ function RegistryBody({ models: fixture, selectedId }: { models: RegistryModel[]
                 <Button size="sm" variant="link" icon="external" onClick={() => navigate('analyse/chain')} testid={`open-${u.template}`}>Open</Button>
               </div>
             ))}
-            <div className="m-mono m-small m-muted" style={{ marginTop: 8 }}>{REGISTRY_NOTE}</div>
+            <div style={{ marginTop: 8 }}><InfoTip title="The registry">{REGISTRY_NOTE}</InfoTip></div>
           </SectionCard>
         </div>
 
