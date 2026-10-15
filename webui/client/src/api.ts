@@ -1460,3 +1460,15 @@ export interface SpansetPayload {
   /** fix round: spikes counted by direction, and the unit note (read as volts) — both also on the summary line */
   n_up?: number; n_down?: number; units_note?: string | null
 }
+
+/* fixup-ao: a layered Signal block whose layer rows set a parameter (appended, declaration merging). The Decompose block
+ * (`preprocessing.decompose`: baseline / noise / signal) ships its layers in the wavelet block's shape plus the parameter
+ * a click on a row writes (`layer_param`) and each row's value for it (`param_value`); its own description rides in
+ * `split` in place of the wavelet `decomposition`. Its layers' `kind` is the layer's name and their `level` is null. */
+export interface SignalLayer { param_value?: string | number | null }
+export interface SignalSplit {
+  method: string; pass_on: string; baseline_method: string; baseline_window_s: number; baseline_window_samples: number
+  noise_cut_hz: number; noise_cut_auto: boolean; order: number; edge_note: string; nonlinear_note: string
+  reconstruction_error: number | null
+}
+export interface SignalPayload { layer_param?: string; split?: SignalSplit }

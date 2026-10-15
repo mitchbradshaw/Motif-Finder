@@ -11,7 +11,7 @@
  *
  * Nothing is resampled: the points are the server's min/max envelope (every sample when they fit), the note
  * says which, and samples 3 px or more apart are dotted so drawn resolution cannot pass for real resolution. */
-import type { SignalPayload } from '../../api'
+import type { SignalLayer, SignalPayload } from '../../api'
 import { EnvelopePath } from '../../charts/primitives'
 import { makeY } from '../../charts/scale'
 import { axisUnit } from '../../charts/units'
@@ -106,9 +106,13 @@ export function SignalNote({ p, ctx }: { p: SignalPayload; ctx: ViewCtx }) {
  * y it was drawn on (`data-y-domain`, `data-y-range`) so the smoke gate can read values back off the DOM. */
 const LAYER_ROW_H = 46
 
-function LayerRow({ name, level, label, t, v, x, width, chosen, input, unit, hover, handlers }: {
-  name: string; level?: number; label: string; t: number[]; v: (number | null)[]; x: ViewCtx['x']; width: number; chosen: boolean; input?: boolean
+function LayerRow({ name, level, label, t, v, x, width, chosen, input, unit, hover, handlers, onPick, pending }: {
+  name: string; level?: number | null; label: string; t: number[]; v: (number | null)[]; x: ViewCtx['x']; width: number; chosen: boolean; input?: boolean
   unit: string; hover: number | null; handlers: ReturnType<typeof useHoverT>[1]
+  /** fixup-ao: a click on the row sends this layer on (sets the block's parameter); absent = the row is not clickable */
+  onPick?: () => void
+  /** fixup-ao: this layer is the parameter's value now but the drawn run sent another one on */
+  pending?: boolean
 }) {
   const r = finiteRange(v)
   const flat = !r || !(r[1] > r[0])
@@ -119,13 +123,18 @@ function LayerRow({ name, level, label, t, v, x, width, chosen, input, unit, hov
   const stroke = input ? 'var(--trace-ghost)' : chosen ? 'var(--trace-blue)' : 'var(--trace)'
   return (
     <svg width={width} height={LAYER_ROW_H} data-render="signal-layer" data-layer={name} data-level={level ?? ''} data-chosen={chosen ? '1' : '0'} data-input={input ? '1' : '0'}
-      data-rule9="layer" data-flat={flat ? '1' : '0'} data-y-domain={`${d0},${d1}`} data-y-range={`${p0},${p1}`} style={{ display: 'block' }} {...handlers}>
+      data-rule9="layer" data-flat={flat ? '1' : '0'} data-y-domain={`${d0},${d1}`} data-y-range={`${p0},${p1}`}
+      data-pickable={onPick ? '1' : '0'} data-pending={pending ? '1' : '0'}
+      style={{ display: 'block', cursor: onPick && !chosen ? 'pointer' : undefined }} {...handlers}
+      {...(onPick ? { onClick: onPick, role: 'button', 'aria-label': `send ${name} on down the chain` } : {})}>
+      {onPick && <title>{chosen ? `${name} goes on down the chain` : `click to send ${name} on down the chain instead`}</title>}
       {chosen && <rect x={0} y={0} width={width} height={LAYER_ROW_H} fill="var(--band-selected)" data-testid="layer-chosen" />}
+      {pending && <rect x={1} y={1} width={width - 2} height={LAYER_ROW_H - 2} fill="none" stroke="var(--blue)" strokeDasharray="4 3" data-testid="layer-pending" />}
       <line x1={0} x2={width} y1={LAYER_ROW_H - 0.5} y2={LAYER_ROW_H - 0.5} stroke="var(--border, #e5e7eb)" />
       <g data-trace><EnvelopePath t={t} v={v} x={x} y={y} stroke={stroke} width={chosen ? 1.4 : 1} /></g>
       {hover !== null && <line x1={x(hover)} x2={x(hover)} y1={0} y2={LAYER_ROW_H} stroke="var(--blue)" strokeOpacity={0.5} strokeDasharray="3 3" pointerEvents="none" />}
       <text x={6} y={13} style={{ fill: chosen ? 'var(--blue-600)' : 'var(--text-2)', fontWeight: chosen ? 600 : 400, paintOrder: 'stroke', stroke: '#fff', strokeWidth: 3 }} pointerEvents="none">
-        {label}{chosen ? ' · goes on down the chain' : ''}
+        {label}{chosen ? ' · goes on down the chain' : pending ? ' · goes on after the next run' : ''}
       </text>
       {barPx > 0 && (
         <g pointerEvents="none" data-testid="layer-scale-bar">
@@ -146,7 +155,16 @@ function niceBarSize(span: number): number {
   return (m >= 5 ? 5 : m >= 2 ? 2 : 1) * k
 }
 
-export function SignalLayers({ p, ctx }: { p: SignalPayload; ctx: ViewCtx }) {
+/** fixup-ao: when `onPick` is given each layer row is clickable and hands `valueOf(layer)` back (the block page writes
+ *  it into the block's parameter); `current` is that parameter's value now, so a choice made since the drawn run is
+ *  outlined as pending until the re-run draws it as chosen. */
+export interface LayerPick {
+  valueOf: (L: SignalLayer) => string | number | null | undefined
+  current: unknown
+  onPick: (value: string | number) => void
+}
+
+export function SignalLayers({ p, ctx, pick }: { p: SignalPayload; ctx: ViewCtx; pick?: LayerPick }) {
   const layers = p.layers ?? []
   const unit = axisUnit(p.unit) || ''
   const [hover, handlers] = useHoverT(ctx.x)
@@ -156,10 +174,15 @@ export function SignalLayers({ p, ctx }: { p: SignalPayload; ctx: ViewCtx }) {
     <div data-testid="wavelet-layers" data-n-layers={layers.length} data-fs={p.fs} data-x-domain={ctx.x.domain().join(',')} data-x-range={ctx.x.range().join(',')}>
       {ghost && <LayerRow name="input" label="input · what this block was given" t={ghost.t} v={ghost.v} x={ctx.x} width={width} chosen={false} input
         unit={axisUnit(ctx.ghostUnit ?? p.unit) || ''} hover={hover} handlers={handlers} />}
-      {layers.map(L => (
-        <LayerRow key={L.name} name={L.name} level={L.level} label={L.label} t={L.envelope.t} v={L.envelope.v} x={ctx.x} width={width} chosen={L.chosen}
-          unit={unit} hover={hover} handlers={handlers} />
-      ))}
+      {layers.map(L => {
+        const value = pick ? pick.valueOf(L) : undefined
+        const can = pick && value !== undefined && value !== null
+        const pending = !!can && !L.chosen && String(value) === String(pick!.current)
+        return (
+          <LayerRow key={L.name} name={L.name} level={L.level} label={L.label} t={L.envelope.t} v={L.envelope.v} x={ctx.x} width={width} chosen={L.chosen}
+            unit={unit} hover={hover} handlers={handlers} pending={pending} onPick={can ? () => pick!.onPick(value as string | number) : undefined} />
+        )
+      })}
     </div>
   )
 }
@@ -175,6 +198,22 @@ export function SignalLayersNote({ p }: { p: SignalPayload }) {
       <b data-testid="wavelet-layer-chosen">{chosen ? chosen.label : d.layer_label}</b> goes on ·{' '}
       {d.padding.padded_to !== d.padding.n ? `padded ${d.padding.n.toLocaleString()} → ${d.padding.padded_to.toLocaleString()} samples and trimmed back` : 'no padding needed'}
       {d.reconstruction_error != null && <> · the layers add up to the input (largest difference {fmtN(d.reconstruction_error)}, in the recording's stored unit)</>}
+      {p.layers && p.layers[0] && <> · {resolutionWords(p.layers[0].envelope, p.fs)}</>}
+    </div>
+  )
+}
+
+/** fixup-ao: the Decompose block's line on the face — which layer went on, the baseline window and the noise cut, and
+ *  that the three layers add up to the input — the rest behind the info icon on the section title. */
+export function SignalSplitNote({ p }: { p: SignalPayload }) {
+  const s = p.split
+  if (!s) return null
+  const chosen = (p.layers ?? []).find(L => L.chosen)
+  return (
+    <div className="muted mono small" style={{ marginTop: 4 }} data-testid="split-layers-note">
+      <b data-testid="split-layer-chosen">{chosen ? chosen.name : s.pass_on}</b> goes on · baseline: a {s.baseline_method === 'rolling_median' ? 'running median' : 'rolling mean'} over{' '}
+      {fmtN(s.baseline_window_s)} s ({s.baseline_window_samples.toLocaleString()} samples) · noise: above {fmtN(s.noise_cut_hz)} Hz{s.noise_cut_auto ? ' (auto: a quarter of Nyquist)' : ''}
+      {s.reconstruction_error != null && <> · the three add up to the input (largest difference {fmtN(s.reconstruction_error)}, in the recording's stored unit)</>}
       {p.layers && p.layers[0] && <> · {resolutionWords(p.layers[0].envelope, p.fs)}</>}
     </div>
   )

@@ -398,7 +398,8 @@ def test_every_shipped_adapter_registers_without_modification():
     # + w3-a's catalogue.multiscale_entropy (a multiscale-entropy curve per window, Costa et al. 2005)
     # + w3-b's interrogation.cycle_shapes (the cycles of a chain, Colominas & Wu 2023's back half)
     # + w3-c's detection.pan_matrix_profile (matrix profile XX: at which window lengths does anything repeat?)
-    assert len(specs) == 57, f"expected the fifty-seven shipped adapters, got {sorted(specs)}"
+    # + fixup-ao's preprocessing.decompose (baseline, noise and signal as layers, one passed on)
+    assert len(specs) == 58, f"expected the fifty-eight shipped adapters, got {sorted(specs)}"
     # Ticket 08 remaps detection_matrix_profile (encoding -> scores) and
     # preprocessing_window_matrix (encoding -> windowset) to their correct
     # types, and adds detection_threshold, a typed (input_kind='scores')

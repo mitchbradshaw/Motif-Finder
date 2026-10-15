@@ -82,6 +82,8 @@ export function ParamsPanel({ adapter, params, onChange, disabled, recommended }
       })}
       {!adapter.params.length && <div className="muted mono small">this block has no parameters</div>}
       {adapter.name === 'preprocessing.bandpass' && <BandPresets params={params} onChange={onChange} disabled={disabled} />}
+      {/* fixup-ao: a block that passes one of its layers on (`pass_on`) also takes the choice as a click on the layer */}
+      {adapter.params.some(s => s.name === 'pass_on') && <div className="pp-row wide" data-testid="pass-on-hint"><div className="pp-rec">or click a layer under "Every layer" to send it on · the step re-runs like any edit</div></div>}
     </div>
   )
 }

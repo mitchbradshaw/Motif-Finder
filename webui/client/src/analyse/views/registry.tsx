@@ -31,7 +31,7 @@ import { AlignedImage, ImageEvidence, ImageView, MISSING_GREY, PaaSteps, RowVerd
 import { ClusterExemplars, ClusterSizes, FamilyTable, GroupingView } from './GroupingView'
 import { ModelView } from './ModelView'
 import { ScoreHistogram, ScoresView, scoreWords, scoreY, type ScoreCut } from './ScoresView'
-import { SignalLayers, SignalLayersNote, SignalNote, SignalView } from './SignalView'
+import { SignalLayers, SignalLayersNote, SignalNote, SignalSplitNote, SignalView, type LayerPick } from './SignalView'
 import { DurationHistogram, EventFamiliesKey, EventFamiliesView, SpanSetView, SpanSlideshow } from './SpanSetView'
 import { EventWindowsKey, EventWindowsView, WindowSetKey, WindowSetView } from './WindowSetView'
 import { isPoolPayload, isTreePayload } from '../../api/shape'
@@ -105,19 +105,32 @@ function SignalProcess(q: ProcessProps) {
  *  convention): they are drawn stacked under the before/after plot, on the same time axis, the chosen one highlighted. */
 function DecompositionLayers({ q, p }: { q: ProcessProps; p: SignalPayload }) {
   const d = p.decomposition
+  const s = p.split
   const n = p.layers?.length ?? 0
+  /* fixup-ao: a click on a layer row sets the parameter that chooses the layer — the payload names it (`layer_param`,
+   * each row's `param_value`); a payload that names none (the wavelet block: its auto depth can change on a re-run, so a
+   * clicked residual is not the one sent on) has no clickable rows. The click goes through the same setParam as the
+   * Parameters panel, so the step goes stale and re-runs like any edit. */
+  const param = p.layer_param ?? null
+  const pick: LayerPick | undefined = param ? {
+    valueOf: L => L.param_value,
+    current: q.step.params[param] ?? q.card?.params.find(ps => ps.name === param)?.default,
+    onPick: v => q.setParam(param, v),
+  } : undefined
   return (
     <div style={{ marginTop: 14 }}>
       <div className="bp-card-title"><h3 style={{ fontSize: 13 }}>Every layer</h3>
-        <span className="sg">{n ? `the input, then ${n} layers fastest first · each on its own y with a scale bar · the highlighted one goes on` : ''}</span>
+        <span className="sg">{n ? `the input, then ${n} layers fastest first · each on its own y with a scale bar · the highlighted one goes on${pick ? ' · click a layer to send it on instead' : ''}` : ''}</span>
+        {s && <InfoTip title="How the layers were made">{`The input is split into three layers that add up to it exactly. Baseline: the slow wander, a ${s.baseline_method === 'rolling_median' ? 'running median' : 'rolling mean'} over ${s.baseline_window_s} s — anything slower than about that goes here. Noise: the fast fuzz, the Highpass block's zero-phase Butterworth (order ${s.order}) above ${s.noise_cut_hz} Hz, applied to the input with its baseline taken off. Signal: what is left — the events. ${s.nonlinear_note}. ${s.edge_note}. Click a layer (or set "pass_on") to send a different one on; for frequency layers (octaves) use the Wavelet bands block.`}</InfoTip>}
         {d && <InfoTip title="How the layers were made">{`A stationary (undecimated) wavelet transform with ${d.wavelet}: nothing is downsampled, so every layer has one value per sample of the span and sits at the same time as the recording. D1 is the fastest octave (a quarter to a half of the sample rate); each next level is half as fast; the last row is the residual, everything slower than the deepest level. The layers add up to the input. ${d.padding_note}. ${d.boundary_note}. The Hz ranges are ${d.edges_note}. Change "level" to send a different layer on.`}</InfoTip>}
       </div>
       {p.layers_note
         ? <div className="muted mono small" data-testid="wavelet-layers-missing">{p.layers_note}</div>
         : <Surface height={(n + (q.ctx.ghost ? 1 : 0)) * 46} t0={q.ctx.t0} t1={q.ctx.t1} testid="wavelet-layers-surface">
-          {(x, w) => <><SignalLayers p={p} ctx={{ ...q.ctx, x, width: w, height: 46, interactive: true }} /><StaleVeil on={q.stale} /></>}
+          {(x, w) => <><SignalLayers p={p} ctx={{ ...q.ctx, x, width: w, height: 46, interactive: true }} pick={pick} /><StaleVeil on={q.stale} /></>}
         </Surface>}
       <SignalLayersNote p={p} />
+      <SignalSplitNote p={p} />
     </div>
   )
 }
