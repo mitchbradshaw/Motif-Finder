@@ -352,7 +352,7 @@ function ClusterInner({ data, no }: { data: QueueData; no: number }) {
               <div className="rv-batch" data-testid="batch-writing">
                 <span className="mono">writing {VERDICT_LABEL[writing.verdict]} · {writing.done} / {writing.total}</span>
                 <ProgressBar value={writing.done / writing.total} size="sm" labelPosition="none" width={200} ariaLabel="batch write" />
-                <span className="grow" /><span className="mono muted sm">auto-advance waits for the whole batch</span>
+                <span className="grow" /><InfoTip title="Batch verdicts" placement="top-end">Auto-advance waits for the whole batch.</InfoTip>
               </div>
             ) : (
               <div className="rv-batch" data-testid="batch-line">
@@ -360,7 +360,7 @@ function ClusterInner({ data, no }: { data: QueueData; no: number }) {
                   ? <DisabledReason reason={`batches are capped at ${BATCH_CAP} members — split the cluster or judge members singly`}><Checkbox checked={false} disabled onChange={() => {}} label={`Verdict for the ${included.length} included members`} /></DisabledReason>
                   : <Checkbox checked={batchOn} onChange={setBatchOn} label={batchOn ? `Verdict for the ${included.length} included members${pageCount > 1 ? ` (${pageCount} pages)` : ''}` : `Verdict for ${shownId} only · batch off`} testid="batch-checkbox" />}
                 {batchOn && excluded.length > 0 && <span className="mono sm rv-amber" data-testid="excluded-note">{excluded.length} excluded · {excluded.map(r => `${r.id} d ${(r.d ?? 0).toFixed(2)}`).join(', ')}{excluded.every(r => (r.d ?? 0) > cl.cohesionLimit) ? `, above the ${cl.cohesionLimit.toFixed(2)} limit` : ''}</span>}
-                <span className="grow" /><span className="mono muted sm">auto-advance waits for the whole batch</span>
+                <span className="grow" /><InfoTip title="Batch verdicts" placement="top-end">Auto-advance waits for the whole batch.</InfoTip>
               </div>
             )}
           </VerdictCard>

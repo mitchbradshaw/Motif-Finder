@@ -123,9 +123,9 @@ function Toolbar({ data, judged, blind, setBlind, paused }: { data: QueueData; j
         <div className="rv-pop-text">
           <p><b>Hidden until the verdict:</b> score and × null, family affinity and nearest families, prior machine calls, the model's prediction, the evidence rail's machine sections.</p>
           <p><b>Never hidden:</b> the signal, other channels, artifact likelihood.</p>
+          <p>The blind state is stored with every verdict from now on; earlier verdicts keep the state they were given under.</p>
         </div>
         <div className="rv-pop-row"><Toggle checked={blind} onChange={onBlindToggle} label="blind for this queue" tone="blue" testid="blind-toggle" /></div>
-        <div className="muted mono sm">stored with every verdict from now on; earlier verdicts keep the state they were given under</div>
       </Popover>
       <Modal open={modal === 'unblind'} onClose={() => setModal(null)} size="sm" title={`See machine opinion in ${queue.title}?`} testid="unblind-modal"
         footer={<><Button onClick={() => { setBlind(false); setModal(null) }} testid="unblind-confirm">Show machine opinion</Button><Button variant="primary" onClick={() => setModal(null)} testid="unblind-keep">Keep blind</Button></>}>
