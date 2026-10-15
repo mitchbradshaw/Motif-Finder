@@ -13,7 +13,7 @@ import numpy as np
 from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel
 
-from Working.cross_channel import DETRENDS, classify_waveforms, rule_from_settings
+from Working.cross_channel import DETRENDS, FlatWindow, classify_waveforms, drift_suspect, rule_from_settings
 from Working.database import queries as q
 from Working.database.runs import list_runs, load_recipe
 from Working.review import queues as queues_mod
@@ -138,7 +138,12 @@ def get_cross_channel(request: Request, recording_id: int, t0: float = 0.0, t1: 
     Library › Family must recompute exactly what the edge stores, and the
     Library classifies members as recorded. `rules` are the window's words
     (`CrossChannelRule.describe_window`), which do not claim the chance test or
-    the noise floor — this route runs neither."""
+    the noise floor — this route runs neither.
+
+    Fix round (2026-10-16): `detrend=cubic` is offered too; a detrended pair
+    still reading |r| ≥ 0.9 near lag 0, as it did as recorded, carries
+    `drift_suspect` (a curve the line left); a channel that is its trend and
+    nothing else reads "undefined" with `undefined_reason`."""
     if detrend not in DETRENDS:
         raise HTTPException(422, f"detrend must be one of {', '.join(DETRENDS)}, got {detrend!r}")
     rec = _rec(request, recording_id)
@@ -180,13 +185,24 @@ def get_cross_channel(request: Request, recording_id: int, t0: float = 0.0, t1: 
                 y = np.asarray(corpus.load_native(row["npy_path"])[s0:s1], dtype=float)[::stride]
                 n = min(len(y), len(ref_d))
                 if n >= 4 and np.isfinite(ref_d[:n]).all() and np.isfinite(y[:n]).all() and ref_d[:n].std() > 0 and y[:n].std() > 0:
-                    lag, corr, cls = classify_waveforms(ref_d[:n], y[:n], fs=fs / stride, rule=rule, detrend=detrend)
-                    item.update({"lag_s": float(lag * stride / fs), "r": float(corr), "classification": cls})
                     if detrend != "none":
                         lag0, corr0, cls0 = classify_waveforms(ref_d[:n], y[:n], fs=fs / stride, rule=rule)
                         item["as_recorded"] = {"lag_s": float(lag0 * stride / fs), "r": float(corr0), "classification": cls0}
+                    try:
+                        lag, corr, cls = classify_waveforms(ref_d[:n], y[:n], fs=fs / stride, rule=rule, detrend=detrend)
+                    except FlatWindow as e:
+                        # fix round: a window that is its trend and nothing else has no lag or r — said, not dusted
+                        item.update({"lag_s": None, "r": None, "classification": "undefined", "drift_suspect": False,
+                                     "undefined_reason": f"one channel is {e}"})
+                    else:
+                        lag_s = float(lag * stride / fs)
+                        item.update({"lag_s": lag_s, "r": float(corr), "classification": cls,
+                                     # fix round: a curve the trend treatment left reads like a shared drift — a
+                                     # mark beside the bin (Working.cross_channel.drift_suspect), never a bin
+                                     "drift_suspect": bool(drift_suspect(lag_s, corr, item.get("as_recorded", {}).get("r"), rule))})
                 else:
-                    item.update({"lag_s": None, "r": None, "classification": "undefined"})
+                    item.update({"lag_s": None, "r": None, "classification": "undefined", "drift_suspect": False,
+                                 "undefined_reason": "a flat or non-finite trace in this window"})
             out.append(item)
     finally:
         c.close()

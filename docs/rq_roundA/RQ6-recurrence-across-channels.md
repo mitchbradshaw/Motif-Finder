@@ -33,6 +33,16 @@ The question is: after you remove the first two, is there still recurrence left?
   test, no noise floor — Library's *Classify across channels* runs both). An edge's window stays as recorded, so it still
   matches the edge. **Not yet measured on real channels** (no database in that worktree): whether the detrended lags
   move off zero is the first thing to look at before reading any Explore bin as evidence for RQ6.
+  - **A straight line does not remove a curved drift** (the AQ critic, 2026-10-16, 640 s at 1 Hz, AR(1) φ 0.97,
+    opposite-sign drifts, 100 seeds each): an exponential recovery still reads r −0.996 after the line and bins
+    *suspected artifact* 100/100, a quadratic 95/100, a half-sine 100/100; a 12 s offset event under a curved drift
+    reads at lag 0. Such rows are now marked *may be curved drift* (|r| ≥ 0.9 near lag 0 both detrended and as
+    recorded); a cubic detrend (`detrend=cubic` on the bridge, not yet on the page) takes the exponential case to
+    99/100 independent.
+  - **An Explore "propagation" badge is not evidence.** The lag is searched over the whole window: on 300 pairs of
+    independent random walks over 640 s, 49 bin as propagation detrended (47 as recorded; 14 of 300 on AR(1)), and the
+    median detrended |lag| between unrelated opposite-drift AR(1) channels was 114 s. RQ6 is answered from Library's
+    classification, which has the chance test; Explore's window is a place to look, not a count.
 - **Measured 2026-10-03** (fixup `W` Parts 1–2; numbers in `QUESTIONS.md` "Q40, measured"):
   - **The Library's classifier compares cut-out snippets, not simultaneous windows.** It returns lag 0 for events an
     hour apart, so it can't measure lag.
@@ -194,5 +204,6 @@ defect, not as a result.
 - 2026-10-13 · data · four Adamatzky species recordings derived into `DATA/derived/channels/*_fs1` (1 Hz, mV, gaps filled and listed in each manifest); registration and noise floors still to do.
 - 2026-10-13 · data · four mfs2 logger CSVs (the researcher's own device, four single-ended ADC channels) derived as `DATA/derived/channels/Dwij_A..D_fs0p8` by `scripts/derive_dwij_mfs2.py`: timestamps resampled onto a uniform 1.25 s grid (0.8 Hz), mV as written by the device; 16 min / 17.4 h / 8.3 h / 29.3 h; registration still to do.
 - 2026-10-14 · drop-nan · the drop detector and dSAX run on a span with gaps (a segment a gap touches is `-`, no event across one), so a recording could keep its gaps instead of filling them; nothing measured moves
-- 2026-10-15 · fixup-aq · Explore › Cross-channel finished: rows fill their height (the gain is the widest drawn row's range), the window picker picks spans (`?window=motif-<n>`, `?pad=`), the page's windows are classified linearly detrended (the six zero lags were a shared drift), lag-aligned moves rows, disabled hand-offs say why. RQ6's counts are unchanged — they come from Library, which this did not touch.
+- 2026-10-15 · fixup-aq · Explore › Cross-channel finished: rows fill their height (the gain is the widest drawn row's range), the window picker picks spans (`?window=motif-<n>`, `?pad=`), the page's windows are classified linearly detrended (the six zero lags are attributed to a shared drift, possibly curved — to be confirmed on real channels), lag-aligned moves rows, disabled hand-offs say why. RQ6's counts are unchanged — they come from Library, which this did not touch.
+- 2026-10-16 · fixup-aq fix round · a curved drift survives the line (marked *may be curved drift*; a cubic detrend offered on the bridge); a ?t0=&t1= window is read as recorded only when an edge link opened it; the chance-level propagation rate of an Explore window recorded above.
 - 2026-10-15 · units · a run's drop depths and event-shape amplitudes are millivolts by the recording's declared unit (they were 1000× too large on Schizophyllum, the Dwij loggers and L_LM); the Library floor and the cross-channel test already converted and are unchanged; volts recordings unchanged

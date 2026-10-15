@@ -71,7 +71,11 @@ export function CrossChannelPage({ channelId }: { channelId: number }) {
   const [windowQ] = useQueryState<string>('window', '')
   const explicit = t0Q !== '' && t1Q !== '' && Number(t1Q) > Number(t0Q) ? { t0: Number(t0Q), t1: Number(t1Q) } : null
   // fixup-AQ (X2): ?window= is a dependency — the picker writes it, and this refetch is what makes it pick
-  const read = useSourced(() => getCrossChannel(channelId, pad === '60' ? 60 : 20, explicit, windowQ), [channelId, pad, t0Q, t1Q, windowQ])
+  // fix round: an explicit window is an edge's (read as recorded) only when the edge link's context came with it
+  const [familyQ] = useQueryState<string>('family', '')
+  const [groupingQ] = useQueryState<string>('grouping', '')
+  const edge = !!(familyQ || groupingQ)
+  const read = useSourced(() => getCrossChannel(channelId, pad === '60' ? 60 : 20, explicit, windowQ, edge), [channelId, pad, t0Q, t1Q, windowQ, edge])
   const header = (subtitle: string, demo = true) => <Header workspace="Explore" page="Cross-channel" subtitle={subtitle} search="Search spans, runs, families" demo={demo} />
   if (look.error || read.error) return <>{header(`channel ${channelId} · error`)}<div className="page"><div className="page-inner"><ErrorCard error={asApiError(look.error ?? read.error)} title="demo read for Cross-channel failed" /></div></div></>
   if (look.loading || read.loading || !look.data) return <>{header(`channel ${channelId} · loading…`)}<div className="page"><div className="page-inner" data-testid="cross-loading"><div className="skeleton" style={{ height: 30, width: 480 }} /><div className="skeleton" style={{ height: 50 }} /><div className="skeleton" style={{ height: 440 }} /></div></div></>
@@ -221,7 +225,7 @@ function CrossBody({ data }: { data: CrossRead }) {
             <span className="pre">channels</span><span className="val">{rows.length} of {data.channels.length}</span><Icon name="chevron-down" size={12} className="chev" />
           </button>
           {data.explicitWindow
-            ? <Button size="sm" iconRight="x" testid="edge-window" onClick={() => { setT0Q(null); setT1Q(null) }} title="the window a Library edge was measured on, unpadded — click to return to the channel's own window">{windowLabel}</Button>
+            ? <Button size="sm" iconRight="x" testid="edge-window" onClick={() => { setT0Q(null); setT1Q(null) }} title={data.edge ? 'the window a Library edge was measured on, unpadded and as recorded — click to return to the channel’s own window' : 'this exact window, unpadded (?t0=&t1=) and detrended — click to return to the channel’s own window'}>{windowLabel}</Button>
             : data.options.length
               ? <>
                 <Button size="sm" variant="ghost" icon="chevron-left" testid="window-prev" disabled={at <= 0} disabledReason="this is the channel's first span"
@@ -231,6 +235,7 @@ function CrossBody({ data }: { data: CrossRead }) {
                 <Button size="sm" variant="ghost" icon="chevron-right" testid="window-next" disabled={at < 0 || at >= data.resolved.total - 1} disabledReason="this is the channel's last span"
                   onClick={() => pickWindow(windowParam(at + 1))} title="the span after this one" aria-label="next span" />
                 <span className="muted mono small" data-testid="window-position">span {at + 1} of {fmtInt(data.resolved.total)}</span>
+                <InfoTip title="The window picker">The picker lists the default span, the first 40 annotated spans worth anchoring on and the one in view; the ‹ › arrows walk every span. Spans are numbered in time order over this channel&rsquo;s annotations and detections together, so <code>?window=motif-n</code> renumbers when a run&rsquo;s detections are added.</InfoTip>
               </>
               : <span className="muted mono small" data-testid="window-select">window · {windowLabel}</span>}
           {!data.explicitWindow && (
@@ -341,7 +346,10 @@ function CrossBody({ data }: { data: CrossRead }) {
                         <span data-testid={`r-raw-${r.name}`} data-raw-r={raw.r.toFixed(2)} data-raw-lag={raw.lag_s}>{r.r.toFixed(2)}</span></Tooltip>
                       : r.r.toFixed(2)
                   })()}</span>
-                  <span className="bin"><Tooltip content={binTip(bin, data.rules)}><span data-testid={`bin-rule-${r.name}`} data-rule={binTip(bin, data.rules)}><Badge tone={BIN_TONE[bin]} testid={`bin-${r.name}`}>{bin}</Badge></span></Tooltip></span>
+                  <span className="bin"><Tooltip content={(bin === 'no match' && data.undefinedReason[r.channelId] ? `lag and r undefined: ${data.undefinedReason[r.channelId]}` : binTip(bin, data.rules))}><span data-testid={`bin-rule-${r.name}`} data-rule={(bin === 'no match' && data.undefinedReason[r.channelId] ? `lag and r undefined: ${data.undefinedReason[r.channelId]}` : binTip(bin, data.rules))}><Badge tone={BIN_TONE[bin]} testid={`bin-${r.name}`}>{bin}</Badge></span></Tooltip>
+                    {/* fix round: the bridge's mark (Working.cross_channel.drift_suspect) — a curve the line left reads like one signal */}
+                    {data.driftSuspect[r.channelId] && <Tooltip content="|r| ≥ 0.9 near lag 0 both detrended and as recorded: a curved drift a straight line cannot take out reads like this — or the pickup really is simultaneous. Read the trace before the bin.">
+                      <span className="ex-unaligned" data-testid={`drift-suspect-${r.name}`}> may be curved drift</span></Tooltip>}</span>
                 </div>
               )
             })}

@@ -185,9 +185,17 @@ class CrossChannelRule:
         `detrend` is the treatment the window was given (`DETRENDS`)."""
         a, r, p = _fmt(self.artifact_max_lag_s), _fmt(self.min_abs_r), _fmt(self.propagation_max_lag_s)
         ar = _fmt(self.artifact_min_abs_r)
-        on = ("on the linearly detrended window (each channel's straight-line trend over the window taken out "
-              "first, so a shared slow drift cannot read as one signal)" if _detrend_mode(detrend) == "linear"
-              else "on the window as recorded (no trend taken out: a shared slow drift reads as a strong r at lag 0)")
+        mode = _detrend_mode(detrend)
+        on = {
+            "linear": ("on the linearly detrended window (each channel's straight-line trend over the window taken "
+                       "out first, so a straight-line drift cannot read as one signal; a curved drift still can — a "
+                       "row reading |r| ≥ 0.9 near lag 0 both detrended and as recorded is marked as possible "
+                       "curved drift)"),
+            "cubic": ("on the cubic-detrended window (each channel's best-fitting cubic over the window taken out "
+                      "first, so a drift that bends once or twice cannot read as one signal; an event as long as "
+                      "the window is taken out with it)"),
+            "none": "on the window as recorded (no trend taken out: a shared slow drift reads as a strong r at lag 0)",
+        }[mode]
         unrun = ("the chance test and the noise-floor test are not run on a window (Library › Family's "
                  "Classify across channels runs both)")
         return {
@@ -383,7 +391,47 @@ def cross_correlation_peak(x, y):
 
 #: The trend treatments `classify_waveforms` accepts (fixup-AQ). None and
 #: "none" are the call as it always was.
-DETRENDS = ("none", "linear")
+DETRENDS = ("none", "linear", "cubic")
+
+#: fix round (2026-10-16): a residual whose peak-to-peak is under this
+#: fraction of the original's is rounding dust from the fit, not a signal —
+#: two exact straight ramps detrend to ~1e-16 V that z-normalises into a full
+#: unit-variance waveform and a fake r (−0.80 on the critic's pair).
+FLAT_RESIDUAL_FRACTION = 1e-12
+
+#: A pair whose |r| is at least this both detrended and as recorded, at a lag
+#: within the artifact line, is marked `drift_suspect`: the trend treatment
+#: left a shared curve, or the pickup really is simultaneous (critic, fix
+#: round: an exponential recovery reads r −0.996 after a line, 100/100
+#: artifact). A mark, never a bin.
+DRIFT_SUSPECT_ABS_R = 0.9
+
+
+class FlatWindow(ValueError):
+    """A channel's window is constant once its trend is out: lag and r are
+    undefined for the pair, never computed from rounding dust."""
+
+
+def _remove_trend(x, mode):
+    x = np.asarray(x, dtype=float).ravel()
+    if mode == "linear":
+        out = _signal.detrend(x, type="linear")
+    else:                                     # "cubic": least squares on a 0..1 time base (well conditioned)
+        t = np.linspace(0.0, 1.0, x.size)
+        out = x - np.polyval(np.polyfit(t, x, 3), t)
+    if np.ptp(out) <= FLAT_RESIDUAL_FRACTION * np.ptp(x):
+        raise FlatWindow(f"flat once its {mode} trend is out: the window is that trend and nothing else")
+    return out
+
+
+def drift_suspect(lag_s, r, r_as_recorded, rule=DEFAULT_RULE):
+    """Whether a detrended pair still reads like a shared drift: |r| ≥
+    `DRIFT_SUSPECT_ABS_R` detrended AND as recorded, at |lag| within the
+    artifact line. False when there is no as-recorded reading."""
+    if r_as_recorded is None or r is None or lag_s is None:
+        return False
+    return (abs(float(lag_s)) <= rule.artifact_max_lag_s and abs(float(r)) >= DRIFT_SUSPECT_ABS_R
+            and abs(float(r_as_recorded)) >= DRIFT_SUSPECT_ABS_R)
 
 
 def _detrend_mode(detrend):
@@ -411,7 +459,11 @@ def classify_waveforms(x, y, fs=1.0, rule=DEFAULT_RULE, detrend=None):
     lag); Explore › Cross-channel showed exactly that on every pair. A line is
     the least that removes it without touching an event's shape, and it is
     additive, so no amplitude is rescaled. A curved drift survives a line:
-    what is left of it still correlates, which the page's rule text says.
+    what is left of it still correlates, which the page's rule text says and
+    `drift_suspect` marks. "cubic" takes the best-fitting cubic out instead —
+    a curve that bends once or twice goes with it (the critic's exponential
+    recovery: 99/100 independent), and so does an event as long as the
+    window. A window that is nothing but its trend raises `FlatWindow`.
     None / "none" is the call as before — Library's classification of short
     member windows (which runs the chance test, the drift guard fixup-AD
     chose) is unchanged.
@@ -422,9 +474,9 @@ def classify_waveforms(x, y, fs=1.0, rule=DEFAULT_RULE, detrend=None):
         `lag` in samples of the arrays passed, `y` relative to `x`;
         `classification` is one of `BINS`.
     """
-    if _detrend_mode(detrend) == "linear":
-        x = _signal.detrend(np.asarray(x, dtype=float).ravel(), type="linear")
-        y = _signal.detrend(np.asarray(y, dtype=float).ravel(), type="linear")
+    mode = _detrend_mode(detrend)
+    if mode != "none":
+        x, y = _remove_trend(x, mode), _remove_trend(y, mode)
     lag, waveform_correlation = cross_correlation_peak(x, y)
     return lag, waveform_correlation, bin_for(lag / float(fs), waveform_correlation, rule)
 

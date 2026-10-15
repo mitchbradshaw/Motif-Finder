@@ -166,7 +166,7 @@ def test_the_page_never_rebins_a_row_and_asks_for_the_detrended_window():
     bin_of = bin_of[:bin_of.index("\n  }\n")]
     assert "0.95" not in bin_of and "0.6" not in bin_of, "no client-side rule beside the core's"
     api = _read("api", "explore.ts")
-    assert "'linear'" in api and "'none'" in api, "the page's windows are detrended; an edge's window is as the edge stored it"
+    assert "crossDetrendFor(" in api, "the page's windows are detrended; an edge's window is as the edge stored it (fix round: decided by crossModel.crossDetrendFor, pinned above)"
     assert 'testid={`bin-rule-${r.name}`}' in page or "bin-rule-" in page, "the bin tip is addressable for smoke"
 
 

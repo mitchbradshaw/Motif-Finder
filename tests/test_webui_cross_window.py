@@ -124,7 +124,7 @@ def test_the_rule_printed_is_the_rule_the_window_was_binned_by(client):
 
 
 def test_an_unknown_detrend_is_refused_in_words(client):
-    r = client.get("/api/cross/1", params={"t0": W0, "t1": W1, "detrend": "cubic"})
+    r = client.get("/api/cross/1", params={"t0": W0, "t1": W1, "detrend": "quartic"})
     assert r.status_code == 422 and "detrend" in r.text
 
 

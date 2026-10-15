@@ -124,11 +124,19 @@ export interface CrossWindow {
   selError: string | null
 }
 
-export function resolveCrossWindow(a: { spans: CrossSpan[]; durationS: number; sel: string; padS: number; explicit: { t0: number; t1: number } | null }): CrossWindow {
+/** Fix round (2026-10-16): the trend treatment a window is classified with. Only a window opened from a Library
+ *  edge (an explicit ?t0=&t1= WITH an edge context, ?family= / ?grouping=) is read as recorded, so it recomputes
+ *  what the edge stores; any other window — a picked one reopened as ?t0=&t1= included — is detrended, so the same
+ *  window never gives two answers depending on the link that opened it. */
+export function crossDetrendFor(explicit: boolean, edge: boolean): 'none' | 'linear' {
+  return explicit && edge ? 'none' : 'linear'
+}
+
+export function resolveCrossWindow(a: { spans: CrossSpan[]; durationS: number; sel: string; padS: number; explicit: { t0: number; t1: number } | null; edge?: boolean }): CrossWindow {
   const { spans, durationS } = a
   if (a.explicit) {
     const t0 = Math.max(0, a.explicit.t0), t1 = Math.min(durationS, a.explicit.t1)
-    const label = `edge window at ${fmtH(t0)}`
+    const label = `${a.edge ? 'edge window' : 'window'} at ${fmtH(t0)}`
     return { t0, t1, spanS: t0, spanE: t1, index: -1, total: spans.length, param: '', clamped: false, padBefore: 0, padAfter: 0,
       label, phrase: `${label} · ${fmtS(t1 - t0)}, unpadded`, selError: null }
   }

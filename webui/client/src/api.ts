@@ -396,7 +396,6 @@ export interface Tags {
 export const getTags = (id: number, t0?: number, t1?: number) => req<Tags>(`/api/channels/${id}/tags?t0=${t0 ?? 0}${t1 != null ? `&t1=${t1}` : ''}`)
 export const getSiblings = (id: number) => req<{ recording_id: number; source_file: string; channels: { id: number; channel: number; name: string; npy_exists: boolean }[] }>(`/api/channels/${id}/siblings`)
 export interface CrossRow { id: number; channel: number; name: string; is_reference: boolean; lag_s: number | null; r: number | null; classification: string; envelope?: EnvelopeSeries; y_range?: [number, number]; error?: string; unit?: DisplayUnit }
-export const getCross = (id: number, t0: number, t1: number, px = 900) => req<{ reference_id: number; source_file: string; t0_s: number; t1_s: number; fs: number; stride: number; channels: CrossRow[]; unit?: DisplayUnit }>(`/api/cross/${id}?t0=${t0}&t1=${t1}&px=${Math.round(px)}`)
 export const takeSpanForReview = (recording_id: number, start_idx: number, end_idx: number, note?: string, scale_viewed?: string) =>
   post<{ id: number; recording_id: number; start_s: number; end_s: number; verdict: 'seed'; source: string; note: string | null; banner: string }>('/api/annotations/seed', { recording_id, start_idx, end_idx, note, scale_viewed })
 
@@ -1456,9 +1455,9 @@ export interface LibFamilyFlags { passed_by?: string[]; null_kind?: string; back
  * `detrend=linear` hands the core's classifier each channel's window with its straight-line trend out (one call per
  * pair); `as_recorded` is the same pair as recorded, a diagnostic that never bins the row. `rules` are the window's
  * words (Working.cross_channel.CrossChannelRule.describe_window), which do not claim the chance test or the floor. */
-export type CrossDetrend = 'none' | 'linear'
+export type CrossDetrend = 'none' | 'linear' | 'cubic'
 export interface CrossAsRecorded { lag_s: number; r: number; classification: string }
-export interface CrossWindowRow extends CrossRow { as_recorded?: CrossAsRecorded }
+export interface CrossWindowRow extends CrossRow { as_recorded?: CrossAsRecorded; drift_suspect?: boolean; undefined_reason?: string }
 export interface CrossWindowRead {
   reference_id: number; source_file: string; t0_s: number; t1_s: number; fs: number; stride: number
   channels: CrossWindowRow[]; unit?: DisplayUnit; rules?: Record<string, string>; detrend: CrossDetrend
