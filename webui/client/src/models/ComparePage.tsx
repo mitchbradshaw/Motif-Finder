@@ -4,7 +4,7 @@
  * with the translation and purity, and a step through the windows only A, only B or neither got right. Read from
  * `/api/models/runs/{id}/compare` and `/disagreements`; nothing here is a fixture. */
 import { useEffect, useState } from 'react'
-import { Button, Callout, Dropdown, EmptyState, Heatmap, Histogram, Icon, Page, SectionCard, Seg, StatRow, StatTile, Trace, fmtInt, useQueryState } from '../kit'
+import { Button, Callout, Dropdown, EmptyState, Heatmap, Histogram, Icon, InfoTip, Page, SectionCard, Seg, StatRow, StatTile, Trace, fmtInt, useQueryState } from '../kit'
 import { Header } from '../shell/Header'
 import { navigate, useApp } from '../state'
 import { useSourced } from '../api/seam'
@@ -152,7 +152,7 @@ function StepThrough({ runId, exam, filter, counts, setFilter }: { runId: number
             <Button size="sm" iconRight="chevron-right" disabled={i >= n} disabledReason="the last window" onClick={() => setI(String(i + 1))}>Next</Button>
             <span className="k-spacer" />
             <Button size="sm" variant="link" icon="external" onClick={() => navigate(`explore/signal/${w.window.recording_id}`)} testid="open-in-explore">Open the channel in Explore</Button>
-            <span className="m-muted m-small"><Icon name="info" size={11} /> re-checking a verdict goes through Review</span>
+            <InfoTip title="Re-checking">Re-checking a verdict goes through Review.</InfoTip>
           </div>
         </>
       )}

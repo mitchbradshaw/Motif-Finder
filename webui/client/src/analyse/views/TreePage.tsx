@@ -15,6 +15,7 @@
  * Every piece that fails to draw is a red card (ErrorBoundary) and a console error — never a blank. */
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { ApiError } from '../../api'
+import { InfoTip } from '../../kit'
 import { getClusterCards, getClusterDetail, getFrozen, getTreeCut, type Cards, type ClusterCard, type ClusterDetail, type CutAt, type DetailWindow, type Frozen, type MappingEntry, type TreeInfo, type TreePayload } from '../../api/shape'
 import { useSize } from '../../charts/useSize'
 import { navigate } from '../../state'
@@ -65,7 +66,8 @@ export function TreePage({ q, p }: { q: ProcessProps; p: TreePayload }) {
         <div className="bp-tile"><div className="k">not clustered · val / test / exam</div><div className="v">{Object.values(t.not_clustered).reduce((a, b) => a + b, 0).toLocaleString()}</div></div>
         <div className="bp-tile"><div className="k">cut applied to the block</div><div className="v" data-testid="tree-applied-k">k = {applied}{t.k_param === 0 ? ' (proposed)' : ''}</div></div>
       </div>
-      <div className="muted small" data-testid="tree-rule">{t.rule} · shapes: align {t.align ?? 'grid'}{t.align && t.align !== 'grid' ? ` · anchor ${(t.anchor_frac ?? 0.5).toFixed(2)}` : ''} · detrend {t.detrend ?? 'off'}{t.propose_cached ? ' · proposal read from beside the tree' : ''} · {t.method_text} · {t.stratified_by} · seed {t.seed} · tree {t.reused ? 're-used' : 'built'}{t.ward_seconds !== null ? ` · Ward ${t.ward_seconds} s` : ''}{t.peak_rss_mb ? ` · peak memory ${Math.round(t.peak_rss_mb).toLocaleString()} MB` : ''}{t.loaded_from ? ` · loaded from ${t.loaded_from}` : ''}</div>
+      <div className="row small" style={{ gap: 6 }} data-testid="tree-rule">shapes: align {t.align ?? 'grid'}{t.align && t.align !== 'grid' ? ` · anchor ${(t.anchor_frac ?? 0.5).toFixed(2)}` : ''} · detrend {t.detrend ?? 'off'} · tree {t.reused ? 're-used' : 'built'}
+        <InfoTip title="How the tree was made">{t.rule}{t.propose_cached ? ' · proposal read from beside the tree' : ''} · {t.method_text} · {t.stratified_by} · seed {t.seed}{t.ward_seconds !== null ? ` · Ward ${t.ward_seconds} s` : ''}{t.peak_rss_mb ? ` · peak memory ${Math.round(t.peak_rss_mb).toLocaleString()} MB` : ''}{t.loaded_from ? ` · loaded from ${t.loaded_from}` : ''}</InfoTip></div>
       {frozen && <div className="error-card" data-testid="tree-frozen" style={{ padding: '6px 10px' }}><h3>The cut and the mapping are frozen</h3><div className="small">run {frozen.run_id} ({frozen.name}) has a test score on this pool at k = {frozen.k}: a different cut or interesting / not mapping is refused here and on Models › Launch. Browsing other cuts is fine.</div></div>}
       <Guard label="the dendrogram">
         <Dendrogram t={t} k={k} onK={kk => { setK(kk); setSel(null) }} />
@@ -102,12 +104,11 @@ function WardSlurmCard({ tkey, nTrain, sampled }: { tkey: string; nTrain: number
     <div className="stack" style={{ gap: 6 }} data-testid="ward-slurm">
       <div className="row" style={{ gap: 8, alignItems: 'center' }}>
         <button className="btn sm" onClick={make} disabled={busy} data-testid="ward-slurm-create">{busy ? 'writing…' : 'Create SLURM script · Ward over every training window'}</button>
-        <span className="muted small">{sampled ? `this tree is Ward on a sample; the cluster can build it on all ${nTrain.toLocaleString()} training windows (a CPU job with the memory for it)` : 'this tree already covers every training window'}</span>
+        <InfoTip title="Ward on the cluster">{sampled ? `This tree is Ward on a sample; the cluster can build it on all ${nTrain.toLocaleString()} training windows (a CPU job with the memory for it).` : 'This tree already covers every training window.'}</InfoTip>
       </div>
       {err && <div className="error-card" data-testid="ward-slurm-error"><h3>the Ward script was not written</h3><div className="mono small">{err}</div></div>}
       {out && <div data-testid="ward-slurm-out">
-        <div className="small"><b>{out.n.toLocaleString()} training windows</b> · memory asked: <b data-testid="ward-slurm-mem">{out.memory.request_gb} GB</b> on <span className="mono">{out.partition}</span> · --time {out.slurm_time} (Ward ≈ {Math.round(out.seconds_estimate)} s, an estimate) · recipe <span className="mono">{out.recipe_hash}</span></div>
-        <div className="muted small">how the memory was sized: {out.memory.rule}</div>
+        <div className="small"><b>{out.n.toLocaleString()} training windows</b> · memory asked: <b data-testid="ward-slurm-mem">{out.memory.request_gb} GB</b> on <span className="mono">{out.partition}</span> · --time {out.slurm_time} (Ward ≈ {Math.round(out.seconds_estimate)} s, an estimate) · recipe <span className="mono">{out.recipe_hash}</span> <InfoTip title="How the memory was sized">{out.memory.rule}</InfoTip></div>
         {out.frozen_note && <div className="small" style={{ color: 'var(--red)' }} data-testid="ward-slurm-frozen">{out.frozen_note}</div>}
         <Steps steps={out.steps} testid="ward-slurm-steps" />
         <CopyList rows={out.copy} total={out.total_bytes} testid="ward-slurm-copy" />
@@ -196,7 +197,7 @@ function ProposeTable({ t, k, onK }: { t: TreeInfo; k: number; onK: (k: number) 
 function ClusterTable({ cut, sel, onSel }: { cut: CutAt; sel: number | null; onSel: (c: number) => void }) {
   return (
     <div>
-      <div className="bp-card-title"><h3 style={{ fontSize: 13 }}>The clusters at k = {cut.k}</h3><span className="sg">click one · every training window, sampled and assigned ({cut.n_clustered.toLocaleString()} + {cut.n_assigned.toLocaleString()})</span></div>
+      <div className="bp-card-title"><h3 style={{ fontSize: 13 }}>The clusters at k = {cut.k}</h3><InfoTip title="Reading the table">Event at = where the window's largest excursion sits, 0 the start, 1 the end. A speck is under {cut.small_below.toLocaleString()} windows (the baseline's rule).</InfoTip><span className="sg">click one · every training window, sampled and assigned ({cut.n_clustered.toLocaleString()} + {cut.n_assigned.toLocaleString()})</span></div>
       <table className="sh-table" data-testid="tree-clusters">
         <thead><tr><th>cluster</th><th className="r">windows</th><th className="r">1 min</th><th className="r">10 min</th><th className="r">30 min</th><th>recordings</th><th className="r">median range (mV)</th><th className="r">event at (median)</th></tr></thead>
         <tbody>{cut.clusters.map(c => (
@@ -209,7 +210,6 @@ function ClusterTable({ cut, sel, onSel }: { cut: CutAt; sel: number | null; onS
             <td className="r">{c.peak_frac_median === null ? '—' : c.peak_frac_median.toFixed(2)}</td>
           </tr>))}</tbody>
       </table>
-      <div className="muted small">event at = where the window's largest excursion sits, 0 the start, 1 the end · a speck is under {cut.small_below.toLocaleString()} windows (the baseline's rule)</div>
     </div>
   )
 }
@@ -292,7 +292,7 @@ function ClusterPanel({ tkey, k, c }: { tkey: string; k: number; c: number }) {
   const peakMax = Math.max(1, ...d.peak_position_hist)
   return (
     <div className="card card-pad" data-testid="cluster-panel" style={{ background: 'var(--bg)' }}>
-      <div className="bp-card-title"><h3 style={{ fontSize: 13 }}>Cluster {d.cluster} at k = {d.k}</h3>
+      <div className="bp-card-title"><h3 style={{ fontSize: 13 }}>Cluster {d.cluster} at k = {d.k}</h3><InfoTip title="The medoid">{d.medoid.rule}</InfoTip>
         <span className="sg">{d.n.toLocaleString()} windows · {d.n_in_sample.toLocaleString()} in the tree · {d.n_assigned.toLocaleString()} assigned</span></div>
       <div className="row" style={{ gap: 16, alignItems: 'flex-start', flexWrap: 'wrap' }}>
         <WindowCard w={d.medoid} medoid />
@@ -307,7 +307,6 @@ function ClusterPanel({ tkey, k, c }: { tkey: string; k: number; c: number }) {
           <div className="mono small">channels · {d.channels.length} ({d.channels.slice(0, 6).map(x => `CH${x.channel + 1}`).join(', ')}{d.channels.length > 6 ? ', …' : ''})</div>
           <div className="muted small">where the event sits (0 start → 1 end)</div>
           <svg width={200} height={30} data-testid="cluster-peak-hist">{d.peak_position_hist.map((n, i) => <rect key={i} x={i * 20} y={30 - n / peakMax * 28} width={18} height={n / peakMax * 28} fill="#9aa1ab" />)}</svg>
-          <div className="muted small">{d.medoid.rule}</div>
         </div>
       </div>
       <div className="bp-card-title" style={{ marginTop: 10 }}><h3 style={{ fontSize: 12 }}>{d.members.length} random members</h3><span className="sg">seed {d.members_seed} · raw traces in mV, each on its own y</span></div>
@@ -338,6 +337,7 @@ function MappingTable({ q, t, cut, frozen }: { q: ProcessProps; t: TreeInfo; cut
   return (
     <div className="sh-mapping" data-testid="mapping-table" data-k={k}>
       <div className="bp-card-title"><h3 style={{ fontSize: 13 }}>Mapping · each cluster at k = {k} → interesting / not</h3>
+        <InfoTip title="The mapping">The mapping is this block's <code>mapping</code> parameter — saved with the template, read by Models › Launch, frozen once a run on this pool has a test score. No human label takes part in forming the clusters.</InfoTip>
         <span className="sg" data-testid="mapping-state">{done} of {rows.length} mapped at this cut · the last run: {stateWords[t.mapping_state] ?? t.mapping_state}{k !== t.k ? ` · editing writes k = ${k} into the block (re-run to record it)` : ''}</span></div>
       {locked && <div className="muted small" data-testid="mapping-frozen">frozen by run {frozen!.run_id}: names can change, classes and the cut cannot</div>}
       <table className="sh-table">
@@ -357,7 +357,6 @@ function MappingTable({ q, t, cut, frozen }: { q: ProcessProps; t: TreeInfo; cut
           )
         })}</tbody>
       </table>
-      <div className="muted small">the mapping is this block's <code>mapping</code> parameter — saved with the template, read by Models › Launch, frozen once a run on this pool has a test score · no human label takes part in forming the clusters</div>
     </div>
   )
 }

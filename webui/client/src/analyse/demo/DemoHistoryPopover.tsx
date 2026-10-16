@@ -76,7 +76,7 @@ export function DemoHistoryPopover({ anchorRef, st, template, onClose, onApply, 
           ))}
         </div>
         <div className="hist2-foot">
-          <span className="mono muted"><Icon name="alert-triangle" size={12} /> applying replaces the unsaved chain on the canvas</span>
+          <span className="mono" style={{ color: '#c27400' }}><Icon name="alert-triangle" size={12} /> applying replaces the unsaved chain on the canvas</span>
           <Button icon="save" onClick={onSave} style={{ marginLeft: 'auto' }} testid="history-save-first">Save current chain first</Button>
           <Pager page={pg.page} pageCount={pg.pageCount} onPage={pg.setPage} format="range" total={pg.total} pageSize={6} testid="history-pager" />
         </div>

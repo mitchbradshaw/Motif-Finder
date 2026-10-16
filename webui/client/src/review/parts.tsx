@@ -158,7 +158,7 @@ function OtherChannelsPopover({ d, pad, open, onClose, anchorRef }: { d: ItemDet
             )
           })}
           <div className="row between" style={{ marginTop: 4 }}>
-            <span className="mono muted sm" title={referenceWords(chanScale)}>each channel on its own scale · bar: its peak across channels · r = coherence in the span</span>
+            <InfoTip title="Reading the channels">Each channel is on its own scale. The bar is its peak across channels; r is coherence in the span. {referenceWords(chanScale)}</InfoTip>
             <Pager page={page} pageCount={Math.ceil(all.length / OC_PAGE)} onPage={setPage} format="range" total={all.length} pageSize={OC_PAGE} testid="other-channels-pager" />
           </div>
         </div>
@@ -168,8 +168,8 @@ function OtherChannelsPopover({ d, pad, open, onClose, anchorRef }: { d: ItemDet
           {a.level != null && a.p != null
             ? <Chip size="sm" tone={a.level === 'low' ? 'green' : a.level === 'medium' ? 'amber' : 'red'}>{a.level} · {a.p.toFixed(2)}</Chip>
             : <span className="muted" data-testid="artifact-not-computed">not computed</span>}
-          <InfoTip title="Artifact likelihood">Combines cross-channel coherence, clipping, step changes and electrode flags. Artifacts are noted and kept out of training data. Never blinded.</InfoTip>
-          <span className="grow" /><span className="mono muted sm">not blinded in any queue</span></div>
+          <InfoTip title="Artifact likelihood">Combines cross-channel coherence, clipping, step changes and electrode flags. Artifacts are noted and kept out of training data. Never blinded in any queue.</InfoTip>
+          <span className="grow" /></div>
         <div className="mono sm rv-factors"><span className="muted">coherence in span</span> <b>{a.coherence != null ? a.coherence.toFixed(2) : '—'}</b> (flag ≥ 0.5) <span className="muted">clipping</span> <b>{a.clipping}</b> <span className="muted">step change</span> <b>{a.stepChange}</b> <span className="muted">electrode flag</span> <b>{a.electrodeFlag}</b></div>
         <Button variant="link" iconRight="arrow-right" onClick={() => navigate(`explore/cross-channel/4?h=${(ctx.t0 / 3600).toFixed(3)}-${(ctx.t1 / 3600).toFixed(3)}`)} testid="open-all-channels">Open all channels in Explore</Button>
       </div>
@@ -247,7 +247,8 @@ export function ShapeCard({ d, family, blind, rows }: { d: ItemDetail; family: N
             <div className="rv-shape-row" style={{ marginTop: 6, alignItems: 'center' }} data-testid="shape-medoid">
               <MiniTrace values={medoid} yDomain={dom} width="100%" height={56} stroke={family.colour} strokeWidth={2} ground="white" zeroLine={false} style={{ flex: 1, minWidth: 0 }} title={`${family.id} medoid`} />
               <ScaleBar domain={dom} height={56} unit="mV" testid="shape-medoid-scale" />
-              <span className="mono muted sm" style={{ maxWidth: 190 }}>{family.id} medoid · {medoid.length} samples on its own y · no time axis is served for it, so it is not stretched onto the candidate</span>
+              <span className="mono sm" style={{ maxWidth: 190 }}>{family.id} medoid · own y</span>
+              <InfoTip title={`${family.id} medoid`}>{medoid.length} samples on its own y. No time axis is served for it, so it is not stretched onto the candidate.</InfoTip>
             </div>
           )
         })()}
@@ -348,7 +349,7 @@ export function VerdictCard({ selected, flash, binary, onVerdict, onSkip, previo
           )
         })}
       </div>
-      {binary && <div className="mono muted sm" style={{ marginTop: 8 }}>this queue takes binary verdicts and classes (Settings › Review queues)</div>}
+      {binary && <div className="row" style={{ marginTop: 8, gap: 6 }}><Chip size="sm">binary queue</Chip><InfoTip title="Binary queue">This queue takes binary verdicts and classes (Settings › Review queues).</InfoTip></div>}
       {children}
     </section>
   )
@@ -383,7 +384,6 @@ export function AnnotateCard({ draft, setDraft, className, onClass }: { draft: D
       <div className="rv-card-head">
         <h3>Annotate</h3><span className="mono muted sm">optional</span><span className="grow" />
         <InfoTip title="Classes">A class implies interesting, unless the class is non-informative (electrode artifact implies artifact). Classes are bound to number keys in Settings › Vocabulary.</InfoTip>
-        <span className="mono muted sm">a class implies interesting, unless the class is non-informative</span>
       </div>
       <div className="rv-ann-row"><span className="mono muted lbl">class</span>
         {VOCABULARY.classes.map(c => (
@@ -430,7 +430,7 @@ export function PromotionPanel({ d, rec, onUndo, onConfirm, confirmRef }: { d: I
   return (
     <section className="rv-card rv-promo" data-testid="promotion-panel">
       <div className="rv-card-head">
-        <Icon name="library" size={15} /><h3>Promoted to Library</h3><Chip size="sm" tone="green" testid="promo-entry">{rec.exemplarId ?? 'no Library entry named'}</Chip>
+        <Icon name="library" size={15} /><h3>Promoted to Library</h3><InfoTip title="Promoted to Library">The Library entry keeps the span, recording, channel, content hash and the run's recipe hash.</InfoTip><Chip size="sm" tone="green" testid="promo-entry">{rec.exemplarId ?? 'no Library entry named'}</Chip>
         <span className="grow" /><span className="mono muted sm">seed verdict · {relTimeShort(rec.at)}</span>
       </div>
       <div className="rv-promo-body">
@@ -440,7 +440,7 @@ export function PromotionPanel({ d, rec, onUndo, onConfirm, confirmRef }: { d: I
           {opt('none', 'no family yet', 'promo-family-none')}
         </div>
         {choice === 'new' && <div className="row"><TextField value={name} onChange={setName} placeholder="F-12 · name" width={220} size="sm" invalid={!!nameErr} testid="promo-family-name" ariaLabel="family name" autoFocus />{nameErr && <span className="mono sm rv-red">{nameErr}</span>}</div>}
-        <div className="mono sm muted row"><Icon name="link" size={13} /> keeps span, recording, channel, content hash and the run's recipe hash{rec.entryCreated === false ? ' · this shape was already in the Library, so it joined that entry' : ''}</div>
+        {rec.entryCreated === false && <div className="mono sm row"><Icon name="link" size={13} /> this shape was already in the Library, so it joined that entry</div>}
         <Callout tone="amber" icon="pause">auto-advance paused until you confirm · Enter confirms and moves on</Callout>
         <div className="row wrap" style={{ gap: 12 }}><PromotedEntryLinks rec={rec} /></div>
         <div className="row">

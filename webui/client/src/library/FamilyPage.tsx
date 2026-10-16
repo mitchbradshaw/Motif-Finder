@@ -520,10 +520,10 @@ function MotifFamilyView({ detail, grouping, onReload, flags, noiseMethod }: { d
                 alone because the read carried no member waveform. It carries them now (fixup-c), so the members
                 on this page are overlaid for real — each centred on its own baseline and stretched to one width,
                 on one domain measured from all of them, the medoid on top in the family colour. */}
-            <div className="row lib-cap" style={{ fontSize: 10.5 }}><span>medoid {f.medoid} · the {overlayWaves.length} members on this page</span></div>
+            <div className="row lib-cap" style={{ fontSize: 10.5, gap: 4 }}><span>medoid {f.medoid} · the {overlayWaves.length} members on this page</span>
+              <InfoTip title="The overlay">Members read off the recording, each centred on its own baseline, on one measured scale.</InfoTip></div>
             <MiniTrace values={realTraces.me} overlays={overlayWaves.map(v => ({ values: v, stroke: 'rgba(107,114,128,0.45)', width: 1 }))} width="100%" height={104} strokeWidth={1.8} stroke={f.colour} testid="summary-overlay"
               title={`the medoid of ${f.id} over the ${overlayWaves.length} members on this page, each read off the recording and centred on its own baseline, stretched to one width, on one measured mV scale — not normalised`} />
-            <div className="lib-cap" style={{ fontSize: 10 }}>members read off the recording · each centred on its own baseline · one measured scale</div>
           </div>
         </div>
 
@@ -561,11 +561,11 @@ function MotifFamilyView({ detail, grouping, onReload, flags, noiseMethod }: { d
           })}
         </div>
         {!pageItems.length && <EmptyState title={handOnly ? 'No hand-edited members' : 'No members'} caption={handOnly ? 'nobody has added a member to this family by hand' : (detail as LiveDetail).view?.hiddenByView ? 'every member is hidden by the view — under the noise floor or outside the filters; show sub-floor above to see them' : 'every member was removed'} bordered testid="members-empty" />}
-        <span className="lib-cap" style={{ marginTop: -4 }} data-testid="member-scale-note">{refScale ? `each member's own waveform, read off the recording, on its own mV scale · the bar at its right: its peak on ${referenceWords(refScale)}` : 'no member of this family is drawn in mV on this page'}</span>
+        <span className="lib-cap" style={{ marginTop: -4 }} data-testid="member-scale-note">{refScale ? <>each member on its own mV scale <InfoTip title="Member scales">Each member's own waveform, read off the recording, on its own mV scale. The bar at its right: its peak on {referenceWords(refScale)}.</InfoTip></> : 'no member of this family is drawn in mV on this page'}</span>
 
         {removedList.length > 0 && (
           <div className="k-card" style={{ padding: '10px 14px', display: 'grid', gridTemplateColumns: '240px 1fr', gap: 12, alignItems: 'center' }} data-testid="removed-strip">
-            <div><div className="row"><Icon name="user" size={14} /><b style={{ fontSize: 13 }}>Removed by hand · {removedList.length}</b></div><div className="lib-cap" style={{ marginLeft: 22 }}>written to hand_edits · kept out when {f.id} is regrouped</div></div>
+            <div><div className="row"><Icon name="user" size={14} /><b style={{ fontSize: 13 }}>Removed by hand · {removedList.length}</b><InfoTip title="Removed by hand">Written to hand_edits; kept out when {f.id} is regrouped.</InfoTip></div></div>
             <div className="stack" style={{ gap: 4 }}>
               {removedList.slice(0, 3).map(r => (
                 <div key={r.id} className="row" style={{ gap: 12 }}>
@@ -782,7 +782,7 @@ function MemberRail({ m, f, detail, refScale, edits, setEdits, busy, onUndoAdd, 
           <thead><tr><th>rev</th><th>span</th><th>origin</th><th>run</th><th>role</th></tr></thead>
           <tbody>{revisions.map(r => <tr key={r.rev}><td>{r.rev}</td><td>{r.spanId}</td><td style={{ color: r.origin === 'machine' ? 'var(--blue-600)' : 'var(--green)' }}>{r.origin}</td><td>{r.run}</td><td>{r.role}</td></tr>)}</tbody>
         </table>
-        <div className="lib-cap" style={{ marginTop: 6 }}>a human edit writes a new annotation; the detection stays on its run (§4.2)</div>
+        <div className="small" style={{ marginTop: 6 }}>A human edit writes a new annotation; the detection stays on its run (§4.2).</div>
       </Popover>
       <Popover open={popover === 'rail-tag'} onClose={() => setPopover(null)} anchorRef={tagRef} title={`Tag ${m.id}`} width={280} placement="left-start" testid="rail-tag-popover">
         <TagInput onApply={t => { setPopover(null); if (tags.includes(t)) { push({ text: `${m.id} already carries “${t}”` }); return } onTag(t) }} onCancel={() => setPopover(null)} />

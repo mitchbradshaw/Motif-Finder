@@ -170,7 +170,7 @@ function BlindCard({ queueId, showing, n, own, busy, onAnswer, onUndo, onPrev, o
         <h3 className="mono">showing {showing + 1} of {n.toLocaleString()}</h3>
         {w && <span className="mono" style={{ fontSize: 15, fontWeight: 700 }} data-testid="blind-duration">{w.scale_text}</span>}
         <span className="grow" style={{ flex: 1 }} />
-        <span className="mono small muted">the window is shaded · {w ? `${w.pad_windows === 1 ? 'one window-length' : `${w.pad_windows} window-lengths`} of context either side` : ''} · time from the window's start</span>
+        <InfoTip title="Reading the showing" placement="bottom-end">The window is shaded{w ? `, with ${w.pad_windows === 1 ? 'one window-length' : `${w.pad_windows} window-lengths`} of context either side` : ''}. Time is from the window's start. Keys: I interesting · N not interesting · U can't tell · A artifact · Z undo · ← → move · space the next unlabelled.</InfoTip>
       </div>
       <div ref={ref} style={{ width: '100%' }}>
         {err && <div className="error-card" data-testid="blind-card-error"><h3>Showing {showing + 1} failed to load</h3><p className="mono">{err}</p></div>}
@@ -190,8 +190,7 @@ function BlindCard({ queueId, showing, n, own, busy, onAnswer, onUndo, onPrev, o
         <Button size="sm" onClick={onNext} disabled={!onNext} disabledReason="the last showing" testid="blind-next">next →</Button>
       </div>
       <div className="mono small muted" style={{ marginTop: 6 }} data-testid="blind-own">
-        {own ? `your answer to this showing: ${SAY[own]} (press another key to change it)` : 'no answer yet'}
-        {' · '}I interesting · N not interesting · U can't tell · A artifact · Z undo · ← → move · space the next unlabelled
+        {own ? `your answer to this showing: ${SAY[own]} (press another key to change it)` : 'no answer yet'} · space: next unlabelled
       </div>
     </section>
   )

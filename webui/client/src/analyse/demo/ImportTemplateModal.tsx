@@ -55,12 +55,11 @@ export function ImportTemplateModal({ source, onClose, onApply }: { source: Demo
                 {sel.steps.map((s, i) => { const b = blockByName(s.block); return <div key={i} className="imp-step"><span className="muted mono">{pad2(i + 1)}</span><b>{b?.page_name ?? s.block}</b><span className="mono muted" style={{ fontSize: 10.5 }}>{b?.signature}</span><span className="mono" style={{ marginLeft: 'auto', fontSize: 11 }}>{s.summary}</span></div> })}
               </div>
               <div className="imp-apply">
-                <div className="row" style={{ gap: 6, marginBottom: 6 }}><b>On apply</b><InfoTip title="On apply">The template's blocks replace the chain on the canvas and bind to this source. The last run's rows are forgotten.</InfoTip></div>
+                <div className="row" style={{ gap: 6, marginBottom: 6 }}><b>On apply</b><InfoTip title="On apply">The template's blocks replace the chain on the canvas and bind to this source. The last run's rows are forgotten. Templates store no recording or span — scores stay with runs.</InfoTip></div>
                 <KeyValue dense items={[{ k: 'recording + span', v: `this source · ${spanLabel}` }, { k: 'side-inputs', v: sel.sideInputs }, { k: 'surrogate', v: 'phase-rand · 200× · seed from template' }]} labelWidth={130} />
               </div>
               {!sel.fits && <div className="k-callout red" style={{ marginTop: 8 }}><Icon name="x-circle" size={13} /> {sel.reason}</div>}
               {sel.wholeChannel && <div className="k-callout amber" style={{ marginTop: 8 }}><Icon name="alert-triangle" size={13} /> expects a whole channel · this span is 50 s — applying works, the training stages will say the windows are too few</div>}
-              <div className="mono muted" style={{ fontSize: 10.5, marginTop: 8 }}><Icon name="info" size={11} /> templates store no recording or span — scores stay with runs</div>
             </>
           ) : <EmptyState size="sm" title="Select a template" caption="its blocks and what applying does appear here" />}
         </div>

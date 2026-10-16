@@ -52,9 +52,8 @@ export function TemplatesPopover({ onPick, onClose }: { onPick: (t: Template) =>
               <span className={`chip ${t.builtin ? 'grey' : 'green'}`} style={{ height: 20, fontSize: 10 }}>{t.builtin ? 'builtin' : 'saved'}</span>
               <div className="grow" style={{ minWidth: 0 }}>
                 <div className="b" style={{ fontFamily: 'var(--font-ui)', fontSize: 12.5 }}>{shortName(t)}</div>
-                <div className="muted" style={{ fontSize: 10.5 }}>{t.steps.map(s => s.algorithm).join(' › ')}</div>
+                <div className="muted" style={{ fontSize: 10.5 }}>{t.steps.length} stage{t.steps.length === 1 ? '' : 's'} · {t.steps.map(s => s.algorithm).join(' › ')}</div>
               </div>
-              <span className="muted">{t.steps.length} stage{t.steps.length === 1 ? '' : 's'}</span>
             </div>
           ))}
         </div>

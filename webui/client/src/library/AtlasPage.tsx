@@ -249,9 +249,10 @@ function MotifRail({ f, inScope, scoped, refScale, grouping, traces }: { f: Moti
         <span><i style={{ display: 'inline-block', width: 12, height: 2, background: f.colour, verticalAlign: 'middle', marginRight: 4 }} />medoid {f.medoid}</span>
         <span className="k-chip green sm" style={{ marginLeft: 'auto' }} title="distance between exemplar and medoid">d {f.exemplarMedoidD.toFixed(2)}</span>
       </div>
-      <div className="lib-cap" style={{ fontSize: 10.5 }} data-testid="rail-members-not-drawn">
-        the other {Math.max(0, pool - 2)} member{pool - 2 === 1 ? '' : 's'} of this family {pool - 2 === 1 ? 'is' : 'are'} not drawn on the card: the atlas carries the exemplar and the medoid
-        as real mV, and every member's own waveform is in the slideshow under the grid (click the card), or <Button variant="link" size="sm" style={{ padding: 0 }} testid="rail-open-members" onClick={() => navigate(`library/family/${f.id}`)}>open the family</Button>.
+      <div className="row lib-cap" style={{ fontSize: 10.5, gap: 4 }} data-testid="rail-members-not-drawn">
+        {Math.max(0, pool - 2)} other member{pool - 2 === 1 ? '' : 's'} not drawn
+        <InfoTip title="Members not drawn">The atlas carries the exemplar and the medoid as real mV. Every member's own waveform is in the slideshow under the grid (click the card), or open the family.</InfoTip>
+        ·<Button variant="link" size="sm" style={{ padding: 0 }} testid="rail-open-members" onClick={() => navigate(`library/family/${f.id}`)}>open the family</Button>
       </div>
       <div className="row lib-cap" style={{ fontSize: 10.5 }}><span>peak-to-peak amplitude · mV</span><span style={{ marginLeft: 'auto' }}>n per bin</span></div>
       <Histogram bins={bins} height={66} showCounts={false} colour="#dcc6f1" highlightBin={(_, i) => i === modal} highlightColour={f.colour}
@@ -352,7 +353,7 @@ function SequenceAtlas({ families, motifFamilies, grouping }: { families: Sequen
               <div className="stack" style={{ gap: 8 }}>
                 <span className="lib-cap" style={{ color: 'var(--text-2)' }} data-testid="omitted-singles-label">{singles} single motifs omitted by the current motif grouping</span>
                 <button type="button" className="lib-thumbrow lib-plain" onClick={() => setDrawer('omitted')} title={`show omitted single motifs · ${OMITTED_SKETCH_NOTE}`}>{omitted.data.singles.slice(0, 7).map(e => <OmittedThumb key={e.id} e={e} />)}</button>
-                <span className="lib-cap">switch the unit to <Button variant="link" size="sm" testid="switch-to-singles" onClick={() => setUnit(null)}>single motifs</Button> to group these</span>
+                <span><Button variant="link" size="sm" testid="switch-to-singles" onClick={() => setUnit(null)}>Switch the unit to single motifs to group these</Button></span>
               </div>
               <div className="stack" style={{ gap: 8 }}>
                 <span className="lib-cap" style={{ color: 'var(--text-2)' }}>{omittedSeqs} sequences omitted by {grouping.id}</span>
@@ -409,9 +410,9 @@ function SequenceRail({ f, refScale, grouping, motifFamilies, traces }: { f: Seq
         { k: 'mean member d', v: f.meanMemberD.toFixed(2) },
         { k: 'judged', v: `${f.judgedMotifs} of ${judgedOf} motifs`, tone: 'amber' },
       ]} testid="rail-stats" />
-      <div className="lib-cap" style={{ fontSize: 10.5 }} data-testid="rail-members-not-drawn">
-        the other {Math.max(0, f.sequences - 2)} member{f.sequences - 2 === 1 ? '' : 's'} are not drawn: this read carries the exemplar and the medoid as real mV,
-        and no waveform for the rest.
+      <div className="row lib-cap" style={{ fontSize: 10.5, gap: 4 }} data-testid="rail-members-not-drawn">
+        {Math.max(0, f.sequences - 2)} other member{f.sequences - 2 === 1 ? '' : 's'} not drawn
+        <InfoTip title="Members not drawn">This read carries the exemplar and the medoid as real mV, and no waveform for the rest.</InfoTip>
       </div>
       <div className="lib-rail-actions">
         <Button variant="next" iconRight="arrow-right" testid="open-family" onClick={() => navigate(`library/family/${f.id}?unit=sequences`)}>Open all {f.sequences} sequences</Button>

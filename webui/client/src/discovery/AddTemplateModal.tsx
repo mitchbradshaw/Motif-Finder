@@ -241,7 +241,7 @@ export function AddTemplateModal({ open, onClose, dx, onSlurm }: { open: boolean
                 <div className="dsc-locked-note small"><Icon name="lock" size={11} /> parameters come from the template <InfoTip title="Locked parameters">A template's parameters come from the template. Open in Analyse to change them and save a new version.</InfoTip></div>
                 {focus.bind === 'rebind' && (
                   <div className="dsc-rebind" data-testid="rebind-exemplar">
-                    <span className="small"><b>exemplar</b> <span className="muted">required · rebind asks for one when applied</span></span>
+                    <span className="small row" style={{ gap: 6 }}><b>exemplar</b> required<InfoTip title="Exemplar">A rebind template asks for an exemplar when it is applied.</InfoTip></span>
                     <Dropdown value={exemplar[focus.name] ?? ''} placeholder="choose an exemplar" onChange={v => setExemplar({ ...exemplar, [focus.name]: v })} options={exemplarsRead.data ?? []} testid="rebind-select" block
                       disabled={!exemplarsRead.data} disabledReason={exemplarsRead.error ? 'the seed list did not load' : 'loading the seed list…'} />
                     {sel.includes(focus.name) && !exemplar[focus.name] && <span className="dsc-err">{focus.name} needs an exemplar</span>}
@@ -299,9 +299,9 @@ export function AddTemplateModal({ open, onClose, dx, onSlurm }: { open: boolean
                               </div>
                             ))}
                     </div>
-                    <div className="muted small" data-testid="band-scope-note">
-                      {nBands ? `${nBands} run${nBands === 1 ? '' : 's'} per template, each across ${nCh} channel${nCh === 1 ? '' : 's'} · cost is ${nBands} × the sweep` : 'no band chosen'}
-                      {bandsRead.data && ` · ${bandsRead.data.source === 'settings' ? 'your list' : 'the seeded list'} from Settings › Analysis defaults`}
+                    <div className="small row" style={{ gap: 6 }} data-testid="band-scope-note">
+                      {nBands ? `${nBands} run${nBands === 1 ? '' : 's'} per template × ${nCh} channel${nCh === 1 ? '' : 's'}` : 'no band chosen'}
+                      <InfoTip title="Bands">{nBands ? `Each band is its own run across every channel in scope, so the cost is ${nBands} × the sweep.` : 'Pick a band to run the template on it.'}{bandsRead.data && ` The bands are ${bandsRead.data.source === 'settings' ? 'your list' : 'the seeded list'} from Settings › Analysis defaults.`}</InfoTip>
                       <Button variant="link" size="sm" icon="external" onClick={() => { onClose(); navigate('settings/analysis-defaults') }} testid="edit-bands">edit</Button>
                     </div>
                   </div>

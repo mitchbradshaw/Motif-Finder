@@ -77,7 +77,7 @@ export function RightRail({ cov, demo, show, setShow, verdicts, setVerdicts, fil
           <SectionHead title={<span className="k">matching</span>} info="Spans that pass every filter, and how many channels they fall on." />
           <b data-testid="matching-spans">{fmtInt(matching.spans)} spans</b>
         </div>
-        <div className="muted small mono">across {matching.channels} of {matching.total} channels</div>
+        <div className="small mono" data-testid="matching-channels">across {matching.channels} of {matching.total} channels</div>
         {matching.note && <div className="ex-note-amber" data-testid="matching-note">{matching.note}</div>}
       </div>
     </aside>

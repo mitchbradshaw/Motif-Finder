@@ -1,6 +1,8 @@
 /* Analyse › block page (frames chain-3, chain-7, chain-7b): the PROCESS for one block —
    what it looked at, what it computed, the output — beside a generated parameters panel.
-   Editing a parameter marks this block and everything downstream stale (P5, §6.8). */
+   Editing a parameter marks this block and everything downstream stale (P5, §6.8).
+   fixup-ap (grey-text sweep) moved off the page, kept here: under a stage with no result yet the page said
+   "the process strips fill in after a run" -- the Run button and the footer already say what a run does. */
 import { useEffect, useMemo, useState } from 'react'
 import { ApiError, saveTemplate, type EncodingSymbolicPayload, type EnvelopeSeries, type Payload, type ScoresPayload, type SignalPayload, type SpansetPayload, type WindowsetPayload, type GroupingPayload, type ModelPayload } from '../api'
 import { makeX } from '../charts/scale'
@@ -9,6 +11,7 @@ import { ErrorBoundary } from '../shell/ErrorBoundary'
 import { Header } from '../shell/Header'
 import { useToast } from '../shell/Toast'
 import { fmtDuration, fmtHours, navigate, useApp } from '../state'
+import { Button, EmptyState, InfoTip } from '../kit'
 import { ParamsPanel, fmtParam } from './ParamsPanel'
 import { deleteStepAt } from './deleteStep'
 import { ReadoutCard } from './Readout'
@@ -99,7 +102,7 @@ export function BlockPage({ index }: { index: number }) {
       <>
         <Header workspace="Analyse" page={`${pad2(index + 1)} —`} subtitle="process detail · the chain row shows only the result" />
         <div className="page"><div className="page-inner" data-testid="block-page">
-          <div className="card card-pad"><div className="b">There is no stage {pad2(index + 1)} in this chain</div><p className="muted">The chain has {steps.length} stage{steps.length === 1 ? '' : 's'}.</p><button className="btn" onClick={() => navigate('analyse/chain')}>‹ full chain</button></div>
+          <div className="card card-pad"><EmptyState size="sm" title={`There is no stage ${pad2(index + 1)} in this chain`} caption={`The chain has ${steps.length} stage${steps.length === 1 ? '' : 's'}.`} action={<Button onClick={() => navigate('analyse/chain')}>‹ full chain</Button>} /></div>
         </div></div>
       </>
     )
@@ -189,7 +192,7 @@ export function BlockPage({ index }: { index: number }) {
             )}
             <div className="bp-card-title"><span className="mono muted">{pad2(index + 1)}</span><h3>{title}</h3><span className="sg">{ad?.signature ?? name}</span>
               <span className="sg" style={{ marginLeft: 'auto' }}>{source?.kind === 'pool' ? 'a Window pool · saved window sets' : source ? `${fmtHours(t0)}–${fmtHours(t1)} of ${source.channel_name}` : 'no source'}{row.status === 'cached' && row.timing !== null ? ` · ${fmtTiming(row.timing)} core` : ''}</span></div>
-            {!source && <div className="muted mono small">no source — the process view needs a span. Use the example span from the chain page.</div>}
+            {!source && <EmptyState size="sm" icon="layers" title="no source" caption="the process view needs a span" action={<Button onClick={() => navigate('analyse/chain')}>Pick the example span on the chain page</Button>} />}
             {source && (
               <ErrorBoundary label={`block ${pad2(index + 1)} process`}>
                 {/* the drawing standard (fixup-h): the view is the block's output type, the modifier its conversion —
@@ -203,7 +206,7 @@ export function BlockPage({ index }: { index: number }) {
               </ErrorBoundary>
             )}
             {row.status === 'failed' && job?.error && <div className="error-card" style={{ marginTop: 10 }}><h3>{pad2(index + 1)} {title} failed</h3><div className="mono small">{job.error.message}</div></div>}
-            {row.status === 'new' && !row.payload && <div className="muted mono small" style={{ marginTop: 8 }}>no result for this stage yet · the process strips fill in after a run</div>}
+            {row.status === 'new' && !row.payload && <div className="muted mono small" style={{ marginTop: 8 }}>no result for this stage yet</div>}
           </div>
 
           <div className="stack">
@@ -212,14 +215,14 @@ export function BlockPage({ index }: { index: number }) {
             {ad?.has_derive && <ReadoutCard state={readout} source={source} pageName={n => adapters.byName.get(n)?.page_name ?? n} />}
             <div className="card card-pad pp" data-testid="params-panel">
               <div className="pp-head"><h3>Parameters</h3><span className="muted mono small">{ad ? `${ad.params.length} declared` : ''}</span>
-                {ad?.has_recommend && <span className="muted small" title="this adapter declares a recommend hook · the values it would recommend are not computed in this slice">recommend hook declared · not computed in this slice</span>}</div>
+                {ad?.has_recommend && <InfoTip title="Recommended values">This adapter declares a recommend hook. The values it would recommend are not computed in this slice.</InfoTip>}</div>
               {ad ? <ParamsPanel adapter={ad} params={step.params} onChange={setParam} disabled={running} /> : <div className="muted mono small">adapter {name} is not in the registry</div>}
               {stat.length > 0 && <div className="bp-tiles" data-testid="stat-tiles">{stat.map(t => <div className="bp-tile" key={t.k}><div className="k" title={t.k}>{t.k}</div><div className={`v${t.red ? ' red' : ''}`}>{t.v}</div></div>)}</div>}
               {row.payload && <div className="bp-info">{row.payload.summary}{stale ? ' · from the last run · stale' : ''}</div>}
             </div>
             <div className="card bp-null" data-testid="null-card">
-              <div className="row"><span className="b">This parameter against the null</span><span className="muted mono small" style={{ marginLeft: 'auto' }}>ⓘ</span></div>
-              <div className="e">a null is drawn per chain run, not per block — turn the toolbar's surrogate toggle on and the run's footer reads detected versus surrogate{ad?.input_kind === 'signal' ? '' : ' · this block declares no signal null'}</div>
+              <div className="row"><span className="b">This parameter against the null</span><InfoTip title="The null" placement="bottom-end">A null is drawn per chain run, not per block. Turn the toolbar's surrogate toggle on and the run's footer reads detected versus surrogate.</InfoTip></div>
+              <div className="e">{ad?.input_kind === 'signal' ? 'drawn per chain run — use the toolbar\'s surrogate toggle' : 'this block declares no signal null'}</div>
             </div>
           </div>
         </div>

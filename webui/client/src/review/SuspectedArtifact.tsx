@@ -58,7 +58,7 @@ export function SuspectedArtifactCard({ p }: { p: SuspectedArtifactPanel }) {
           own median, the member bold, its span shaded, one span of padding each side. {p.verdictNote}
         </InfoTip>
         <span className="grow" />
-        <span className="mono muted sm" data-testid="suspected-artifact-axis">one shared axis · {p.unit ?? 'unit undeclared'} · each trace minus its own median</span>
+        <span className="mono sm" data-testid="suspected-artifact-axis">one shared axis · {p.unit ?? 'unit undeclared'}</span>
       </div>
       <div ref={ref} className="rv-plot">
         <svg width={width} height={H} role="img" aria-label="every channel of the recording over the member's span, one shared millivolt axis" data-testid="suspected-artifact-plot">

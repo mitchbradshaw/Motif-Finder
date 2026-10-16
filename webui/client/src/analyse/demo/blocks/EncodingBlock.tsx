@@ -89,9 +89,9 @@ export function EncodingBlock({ fx, draft, setDraft, bundle, running }: BlockPro
         </div>
       </ParamsCard>
 
-      <BlockCard className="span2" title="This parameter against the null" info="The same parameter at eight values, each with its own surrogate runs: a setting is chosen against chance rather than by counting detections."
+      <BlockCard className="span2" title="This parameter against the null" info="The same parameter at eight values, each with its own surrogate runs: a setting is chosen against chance rather than by counting detections. Click a value to set it."
         sub={<span className="row" style={{ gap: 8 }}><Dropdown prefix="sweep" value={sweep} onChange={setSweep} options={[{ value: 'noise floor', label: 'noise floor' }, { value: 'segment length', label: 'segment length' }, { value: 'same_fraction', label: 'same_fraction' }]} active testid="sweep-param" /><Dropdown prefix="surrogates" value={surr} onChange={setSurr} options={[{ value: '50', label: '50 per value' }, { value: '200', label: '200 per value' }]} /></span>}
-        actions={<span className="mono muted" style={{ fontSize: 10.5 }}>click a value to set it</span>} testid="null-sweep">
+        testid="null-sweep">
         {sweep === 'noise floor' || sweepSim.status === 'done' ? (
           <>
             <PlotBox height={150} testid="sweep-bars">

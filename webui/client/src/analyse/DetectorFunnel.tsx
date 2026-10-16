@@ -6,6 +6,7 @@
    prompt H's; this only refuses to hide the stages behind a single row of spans. Draws only what the
    payload carries. */
 import type { SpansetPayload } from '../api'
+import { InfoTip } from '../kit'
 
 export interface FunnelStage { key: string; label: string; n: number; capped: boolean; start_s: number[]; end_s: number[] }
 export interface FunnelPayload { stages: FunnelStage[]; chunks_s: [number, number][]; peaks_s: number[]; valleys_s: number[] }
@@ -36,6 +37,7 @@ export function DetectorFunnel({ funnel }: { funnel: FunnelPayload }) {
   return (
     <div data-testid="detector-funnel" style={{ marginTop: 12 }}>
       <div className="bp-card-title"><h3 style={{ fontSize: 13 }}>What the detector decided, stage by stage</h3>
+        <InfoTip title="Reading the funnel">Dashed lines are window boundaries: each window is normalised and cut on its own. A spike is a confirmed candidate widened to the envelope regions it meets; overlapping results are merged.</InfoTip>
         <span className="sg" style={{ marginLeft: 'auto' }}>{funnel.chunks_s.length} window{funnel.chunks_s.length === 1 ? '' : 's'} · {fmtSpan(span)}</span></div>
       <div className="mono small" data-testid="funnel-summary" style={{ margin: '4px 0 8px' }}>
         {n('B')} candidate regions → {n('C')} confirmed by the signal, {n('D')} set aside · {n('R')} envelope regions, {n('R_kept')} kept → <b>{n('S')} spikes</b>, covering {(100 * covered).toFixed(0)}% of the span
@@ -56,9 +58,6 @@ export function DetectorFunnel({ funnel }: { funnel: FunnelPayload }) {
           </svg>
         </div>
       ))}
-      <div className="muted small" style={{ marginTop: 4 }}>
-        Dashed lines are window boundaries: each window is normalised and cut on its own. A spike is a confirmed candidate widened to the envelope regions it meets; overlapping results are merged.
-      </div>
     </div>
   )
 }

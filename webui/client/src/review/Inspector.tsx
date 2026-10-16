@@ -3,7 +3,7 @@
  * · ?state=promoted · ?pad=30|120|300. Blind queues (q-18, q-19) are a state of this page (P20). */
 import { useEffect, useRef, useState } from 'react'
 import { navigate, setQuery } from '../state'
-import { Chip, Icon, InfoTip, MiniTrace, cx, fmtInt, recordDemoWrite, useQueryState } from '../kit'
+import { Button, Chip, Icon, InfoTip, MiniTrace, cx, fmtInt, recordDemoWrite, useQueryState } from '../kit'
 import { useSourced } from '../api/seam'
 import { useSize } from '../charts/useSize'
 import { useToast } from '../shell/Toast'
@@ -318,8 +318,8 @@ function metaLine(d: ItemDetail, narrow: boolean) {
 function MaskedFamilies() {
   return (
     <section className="rv-card" data-testid="nearest-families-masked">
-      <div className="rv-card-head"><Icon name="eye-off" size={15} className="rv-purple" /><h3>Nearest families</h3><span className="grow" /><span className="mono sm rv-purple">hidden until verdict</span></div>
-      <div className="rv-masked mono muted">Family affinity is machine opinion: it is hidden in a blind queue until you give a verdict. Artifact likelihood stays visible.</div>
+      <div className="rv-card-head"><Icon name="eye-off" size={15} className="rv-purple" /><h3>Nearest families</h3><span className="grow" /><span className="mono sm rv-purple">hidden until verdict</span>
+        <InfoTip title="Hidden until verdict" placement="bottom-end">Family affinity is machine opinion: it is hidden in a blind queue until you give a verdict. Artifact likelihood stays visible.</InfoTip></div>
     </section>
   )
 }
@@ -338,7 +338,7 @@ function RevealCard({ data, current, now }: { data: QueueData; current: QueueRow
   return (
     <section className="rv-card" data-testid="reveal-card">
       <div className="rv-card-head"><Icon name="eye" size={15} className="rv-purple" /><h3>Previous window, revealed</h3><span className="grow" />
-        <InfoTip title="Blind verification">After each verdict the previous window is revealed: your call beside the model's. Running agreement is shown only in Models › Registry, so it cannot steer the next verdict.</InfoTip></div>
+        <InfoTip title="Blind verification">After each verdict the previous window is revealed: your call beside the model's. Running agreement is shown only in Models › Registry, so it cannot steer the next verdict. Artifact likelihood is not blinded.</InfoTip></div>
       {lastRow && rec ? (
         <div className="rv-reveal">
           <div className="rv-reveal-box">
@@ -354,10 +354,9 @@ function RevealCard({ data, current, now }: { data: QueueData; current: QueueRow
             {agree === null && call && <Chip size="sm" tone="grey" title="no class was given, so the calls cannot be compared">no class given</Chip>}
           </div>
           <div className="mono sm">The model's call on this window stays hidden until you press a key.</div>
-          <div className="mono sm muted">Running agreement is shown in <button type="button" className="rv-inline-link" onClick={() => navigate('models/registry')}>Models › Registry</button>, not here.</div>
-          <div className="mono sm muted" style={{ marginTop: 'auto' }}>artifact likelihood is not blinded</div>
+          <div style={{ marginTop: 'auto' }}><Button variant="link" size="sm" iconRight="arrow-right" onClick={() => navigate('models/registry')} testid="reveal-agreement-link">Running agreement in Models › Registry</Button></div>
         </div>
-      ) : <div className="rv-masked mono muted">No window judged yet in this queue. After your first verdict the window is revealed here.</div>}
+      ) : <div className="rv-masked mono muted">No window judged yet in this queue.</div>}
     </section>
   )
 }

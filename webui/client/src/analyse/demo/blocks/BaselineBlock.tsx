@@ -74,7 +74,7 @@ export function BaselineBlock({ fx, draft, setDraft, step, bundle, running }: Bl
       </ParamsCard>
 
       <div className="bx-row2 span2">
-      <BlockCard title="Try other windows" info="The same stretch with other windows. Click one to set it (a draft until Apply)." actions={<span className="mono muted" style={{ fontSize: 10.5 }}>same stretch · click to set</span>} testid="try-windows">
+      <BlockCard title="Try other windows" info="The same stretch with other windows. Click one to set it (a draft until Apply)." testid="try-windows">
         <div className="bx-try">
           {fx.tryWindows.map(tw => {
             const b = rolling(input, Math.round(tw.window * PTS_PER_S / 2))
@@ -97,7 +97,6 @@ export function BaselineBlock({ fx, draft, setDraft, step, bundle, running }: Bl
             <div key={i} className="bx-tr"><span className="mono muted">{r.stage}</span><span>{r.metric}</span><span className="mono muted">{window_s === was ? r.after.split(' ')[0] : r.before}</span><span className="mono">→</span><b className={`mono${r.better ? ' t-green' : ''}`}>{r.after}</b></div>
           ))}
         </div>
-        <div className="mono muted" style={{ fontSize: 10.5, marginTop: 8 }}>previews run on the cached span only · nothing is written until Apply</div>
       </BlockCard>
       </div>
     </div>

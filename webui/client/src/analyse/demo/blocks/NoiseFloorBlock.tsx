@@ -77,7 +77,7 @@ export function NoiseFloorBlock({ fx, draft, setDraft, st, actions, bundle, runn
         </div>
       </ParamsCard>
 
-      <BlockCard title="Does one σ hold across the span?" info="A 10 s rolling σ against the global σ. Above 25 % drift the floor should be rolling, not global." actions={<Chip tone={fx.noise.drift_pct > 25 ? 'amber' : 'green'} size="sm">drift {fx.noise.drift_pct} % · within tolerance</Chip>} testid="noise-stability">
+      <BlockCard title="Does one σ hold across the span?" info="A 10 s rolling σ against the global σ. Above 25 % drift the floor should be rolling, not global — Rolling scope switches it." actions={<Chip tone={fx.noise.drift_pct > 25 ? 'amber' : 'green'} size="sm">drift {fx.noise.drift_pct} % · within tolerance</Chip>} testid="noise-stability">
         <PlotBox height={130}>
           {(w, h) => {
             const x = makeX(t0, t1, w, 40, 8)
@@ -95,7 +95,6 @@ export function NoiseFloorBlock({ fx, draft, setDraft, st, actions, bundle, runn
             )
           }}
         </PlotBox>
-        <div className="mono muted" style={{ fontSize: 10.5 }}>above 25 % drift the floor should be rolling, not global — Rolling scope switches it</div>
       </BlockCard>
 
       <BlockCard title="Against the recording floor" info="This span's σ beside the per-channel recording floor and the σ of 200 surrogate spans." testid="recording-floor">

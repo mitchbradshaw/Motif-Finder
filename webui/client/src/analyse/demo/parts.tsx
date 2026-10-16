@@ -98,7 +98,7 @@ export function SaveTemplateModal({ open, onClose, st, onSave, kind }: { open: b
     <Modal open={open} onClose={onClose} title="Save as template" subtitle={`${st.steps.length} blocks · ${kind}`} size="sm" testid="save-template-modal"
       footer={<><Button onClick={onClose}>Cancel</Button><Button variant="primary" icon="save" disabled={!!problem || !st.steps.length} disabledReason={!st.steps.length ? 'an empty chain cannot be saved' : problem ?? undefined} onClick={() => { onSave(name.trim(), version); onClose() }} testid="save-template-confirm">Save {version}</Button></>}>
       <Field label="name" error={name ? problem ?? undefined : undefined} hint={!name ? 'required' : undefined}><TextField value={name} onChange={setName} invalid={!!name && !!problem} autoFocus block testid="save-template-name" onEnter={() => { if (!problem) { onSave(name.trim(), version); onClose() } }} /></Field>
-      <div className="mono muted" style={{ fontSize: 11, marginTop: 10 }}>version {version}{version === 'v4' ? ' (was v3)' : ''} · kind {kind} · templates store no recording or span — scores stay with runs</div>
+      <div className="row mono" style={{ fontSize: 11, marginTop: 10, gap: 6 }}>version {version}{version === 'v4' ? ' (was v3)' : ''} · kind {kind}<InfoTip title="Templates">Templates store no recording or span — scores stay with runs.</InfoTip></div>
     </Modal>
   )
 }
