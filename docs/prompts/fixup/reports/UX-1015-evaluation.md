@@ -1,6 +1,6 @@
 # UX-1015 — the manager's evaluation (the researcher's 2026-10-13 list, run 2026-10-15 → 16)
 
-**Status: in progress.** Sections are written as each prompt merges; AN, AL and AP are pending. The ledger
+**Status: complete (2026-10-16).** All seven prompts and the small list are merged and pushed. The ledger
 (`UX-1015-ledger.md`) holds the timeline, the decisions and every gate's numbers.
 
 ## In plain words
@@ -147,10 +147,50 @@ covers it". The toast says how many are in the picked list and how many Review i
 **Checked on your data at the gate, with the flows run first:** the three states passed on the walk's own run;
 Review listed the picked queue; the mark came back from the bridge after a reload.
 
-## AP — the grey-text sweep (pending: runs last)
+## AP — the grey-text sweep (merged aa7c97b)
+
+**Asked:** your non-technical user's point — too much small grey instructional text everywhere; show the minimum,
+put the rest behind information icons. **Shipped:** fourteen pages swept in the order of your own path (Explore ›
+Signal first, Models last), one commit each, under one rule: one caption per card; "why" and "how it is computed"
+behind a labelled ⓘ; "what to do next" as a button label, a disabled button's printed reason or an empty state's
+action; numbers keep their unit and nothing else; nothing deleted (text that fits nowhere went into the file's
+header comment). Grey-text occurrences fell from 578 to 466 across the fourteen pages and information icons rose
+from 132 to 197; no page lost an icon.
+
+**What the critic found and the fix round put right:** two "what to do next" sentences had gone behind an icon on
+your first page (the motif pane was a blank box with no motif selected; it now shows an empty state that says to
+click a band or use the arrows); the warning that *Apply* regroups the whole catalogue and clears the scope had
+gone behind an icon (visible again, in amber, beside the button); the Seed page's cost breakdown had become
+hover-only (now the first line of the cost popover, with "assumed" kept on the chip's face); about ten bare icons
+had no word beside them (each now labelled, or removed where it duplicated a visible note); "not loaded · run the
+chain to see it" lines are now empty states with an *Open the chain to run it* button; the Blind test's space key
+is back on the face. Every selector and text the browser walk asserts on was traced and kept.
+
+**Decide:** the acceptance target of "at most half the grey count per page" was met only on Explore › Signal and
+Explore › Corpus. What remains on the other twelve pages is, by the critic's sample, almost all data rather than
+instruction: the absences the loud-failure rule requires ("no result for this stage yet", "not computed"), loading
+and progress lines, null-comparison numbers, table cells, axis ticks and field labels, which share the same grey
+class. Halving the count there would mean recolouring data. Either accept that, or ask for the measure to count
+instructional text only; the pages are quieter either way.
 
 ## The gates
 
 Per prompt: its tests under conda and `webui/.venv`, `tsc -b`, `vite build`, a sandbox bridge restarted on the
-merged tree, its own smoke states walked. Numbers in the ledger. The full `pytest -n 4` and the full smoke walk
-run once after the last merge; their results close this file.
+merged tree, its own smoke states walked. Numbers in the ledger.
+
+**After the last code merge before AP (AL), the full suite:** `pytest -n 4`, 21 minutes: 4107 passed, 44 skipped,
+1 failed. The failure was the repo-wide guard that every reader of detections goes through the surrogate
+predicate: AL's `extend_queue` checked picked ids with a bare read. Fixed on main (c0a8fcf, pinned by 11d3f29: a
+paired surrogate's detection id is refused as unknown and nothing is written); the guard and AL's tests pass.
+
+**The full browser walk, twice.** First on main before AP as the baseline: 704 screenshots, 42 failures — the same
+pre-existing families the 2026-10-13 baseline carries (Discovery compare and runs states that need a second run,
+the corpus heatmap, cross-channel max-lag-10 data drift, the interrogation unit's fixture, two review inspector
+states, two expected server errors), none from this wave. Then on the merged AP tree: 708 screenshots, 18 failures (40 min); no state failed that the baseline passed — the 18 are a subset of its 42 (the pre-existing families), the other 24 passed, every state of this wave among them; a second walk on the sandbox the discarded walk had used showed 6 extra failures that were all that sandbox's leftovers (a family already classified, artifacts already sent, settings already saved), so the gate walk ran on a fresh copy.
+A first AP walk (685 screenshots, 55 failures) was discarded, not counted: the machine suspended its network
+mid-walk and the Analyse flow's run never completed, so every later state that needs it failed. Two of the
+wave's own states also failed in sequence while passing alone because the preceding file leaves the source on
+the window pool; they now take the example span first. The gate for a walk is the failure *set* against the
+baseline, not the count.
+
+**What was not run:** the full suite was not re-run after AP (it changes no Python); AP's own gate is the walk.
